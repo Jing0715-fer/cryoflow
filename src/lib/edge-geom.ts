@@ -16,7 +16,11 @@ import type { EdgeDTO, JobDTO } from "./types";
 
 /** vertical fan separation between wires sharing a port (px) */
 export const FAN_SPREAD = 26;
-/** minimum horizontal reach of the direct bezier control points (px) */
+/** preferred horizontal reach of the direct bezier control points (px) —
+ * a FLOOR for long spans only; close pairs scale it down (see directBez:
+ * the t423 fix — a floor applied to short spans forces crossed control
+ * points, and the router used to answer that with a full wrap-around
+ * detour over both cards for any gap < this) */
 export const MIN_CTRL = 56;
 /** stub length leaving/entering ports (px) */
 export const STUB = 14;
@@ -102,11 +106,14 @@ export function pendingWirePath(
   dir: "out" | "in"
 ): string {
   // "out": anchor is an output port (right edge) — forward means the
-  // cursor is to the right. "in": anchor is an input port (left edge) —
-  // forward means the cursor is to the LEFT (over some output port).
-  const forward = dir === "out" ? cx - sx >= MIN_CTRL : sx - cx >= MIN_CTRL;
+  // cursor is anywhere right of the port (t423: was >= MIN_CTRL, which
+  // made the live preview arc over the cards while aiming at a close
+  // neighbor — the rubber band must preview the tight S it will commit).
+  // "in": anchor is an input port (left edge) — forward means the cursor
+  // is to the LEFT (over some output port).
+  const forward = dir === "out" ? cx - sx > 0 : sx - cx > 0;
   if (forward) {
-    const reach = Math.max(MIN_CTRL, Math.abs(cx - sx) * 0.42);
+    const reach = Math.max(4, Math.abs(cx - sx) * 0.42);
     const c1 = dir === "out" ? sx + reach : sx - reach;
     const c2 = dir === "out" ? cx - reach : cx + reach;
     return `M ${r2(sx)} ${r2(sy)} C ${r2(c1)} ${r2(sy)}, ${r2(c2)} ${r2(cy)}, ${r2(cx)} ${r2(cy)}`;
@@ -148,9 +155,15 @@ function segHitsRects(a: Pt, b: Pt, rects: Rect[]): boolean {
   return false;
 }
 
-/** direct cubic bezier geometry (port-to-port S-curve with fan offsets) */
+/** direct cubic bezier geometry (port-to-port S-curve with fan offsets).
+ * The reach is 42% of the span with a 4px floor — a PROPORTIONAL S at any
+ * distance (t423: the old 56px floor crossed the control points of any
+ * span < 112px, and the router answered close pairs with a wrap-around
+ * arc 56px ABOVE both cards; with the floor at 4px the control points
+ * stay ordered — c1x ≤ c2x — for every forward span, so the curve keeps
+ * x monotone inside [sx, ex] and can never clip either endpoint card). */
 function directBez(sx: number, sy: number, ex: number, ey: number, srcOff: number, tgtOff: number) {
-  const reach = Math.max(MIN_CTRL, Math.abs(ex - sx) * 0.42);
+  const reach = Math.max(4, Math.abs(ex - sx) * 0.42);
   const c1x = sx + reach;
   const c1y = sy + srcOff;
   const c2x = ex - reach;
@@ -284,9 +297,12 @@ function routeWire(
   srcOff: number,
   tgtOff: number
 ): { d: string; mid: Pt } {
-  // backward target (left of the source port): wrap-around arc — a
-  // direct bezier here would fold back on itself (x non-monotonic)
-  if (ex - sx < MIN_CTRL) {
+  // backward target (STRICTLY left of the source port — the hairpin that
+  // a direct bezier cannot draw): wrap-around arc. t423: this used to fire
+  // for any span < MIN_CTRL, including FORWARD close pairs — two cards a
+  // few dozen pixels apart got their wire swept 56px over both cards
+  // instead of the minimal tight S through the gap.
+  if (ex - sx < 0) {
     return backwardRoute(sx, sy, ex, ey, others, selfRaw);
   }
   const bez = directBez(sx, sy, ex, ey, srcOff, tgtOff);
@@ -307,8 +323,11 @@ function routeWire(
   if (!hit) return { d: bez.d, mid: bez.mid };
 
   // --- detour: corridor route through the gaps between columns ---
-  const xs0 = sx + STUB; // vertical hop inside the source gap
-  const xe0 = ex - STUB; // vertical hop inside the target gap
+  // the vertical hops shrink with the span so a close pair keeps a usable
+  // corridor (a fixed 14px stub on both ends crosses when the gap < 28)
+  const hop = Math.min(STUB, (ex - sx) * 0.35);
+  const xs0 = sx + hop; // vertical hop inside the source gap
+  const xe0 = ex - hop; // vertical hop inside the target gap
   const lo = Math.min(xs0, xe0);
   const hi = Math.max(xs0, xe0);
   const midY = (sy + ey) / 2;

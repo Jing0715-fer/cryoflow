@@ -36,12 +36,29 @@
  * 失败 — when a session carries enough tool cards to be worth filtering), a
  * jump-to-bottom affordance when the user scrolled up mid-stream, and
  * timestamps on the user bubbles.
+ *
+ * t423 — the consistency round (rebased atop t424; the two rounds are
+ * complementary — t424 deepens the session surface, t423 polishes the
+ * turn surface):
+ *  - Notices stop masquerading as markdown bubbles with emoji: stops and
+ *    errors render as compact status-line banners (the app's warning idiom).
+ *  - Tool cards grow a locate (Locate icon) button when the result carries a
+ *    job — revealJob centers + selects it on the canvas while the panel stays
+ *    open; the transcript becomes a navigation surface, not just a log.
+ *  - Contextual follow-up chips above the composer, computed from the live
+ *    store (running → wait, completed class2d → judge, empty canvas →
+ *    scaffold) — the same NEXT_STEPS canon the canvas context menu speaks.
+ *  - The composer guards IME composition (Enter confirms a Chinese input
+ *    instead of sending) and respects the iOS safe-area inset.
+ *  - Assistant markdown gets table/heading/blockquote styling (GFM content
+ *    used to render as unstyled soup).
  */
 
 import * as React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
+  AlertTriangle,
   ArrowDown,
   Bot,
   CheckCircle2,
@@ -56,7 +73,7 @@ import {
   LayoutDashboard,
   Link2,
   ListTree,
-  Loader2,
+  Locate,
   PenLine,
   Play,
   PlusCircle,
@@ -85,6 +102,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
+import type { JobDTO } from "@/lib/types";
 import type {
   AiChatResponse,
   AiEvent,
@@ -100,7 +118,8 @@ import type {
 type UiItem =
   | { kind: "user"; text: string; key: string; at?: number }
   | { kind: "assistant"; text: string; key: string }
-  | { kind: "tool"; key: string; id: string; name: string; args: unknown; ok: boolean; summary: string; detail?: unknown; at?: number };
+  | { kind: "notice"; variant: "stop" | "error"; text: string; key: string }
+  | { kind: "tool"; key: string; id: string; name: string; args: unknown; ok: boolean; summary: string; detail?: unknown; at?: number; jobId?: string | null };
 
 function fmtTime(at?: number): string {
   if (!at || !Number.isFinite(at)) return "";
@@ -128,6 +147,39 @@ function argsOneLine(args: unknown): string {
   } catch {
     return String(args);
   }
+}
+
+/** Pull a navigable job id out of a tool result — the locate button's
+ * datasource. create/build/select carry it in their detail payloads; the
+ * per-job tools carry it in their args (locating a FAILED target is just as
+ * useful — the error report should be findable on the canvas). */
+function extractJobId(name: string, args: unknown, detail: unknown): string | null {
+  const a = (args ?? {}) as Record<string, unknown>;
+  if (name === "create_job") {
+    const j = (detail as { job?: { id?: string } } | null)?.job;
+    return typeof j?.id === "string" ? j.id : null;
+  }
+  if (name === "build_pipeline") {
+    const d = detail as { tail?: string; jobs?: { id?: string }[] } | null;
+    if (typeof d?.tail === "string" && d.tail) return d.tail;
+    const last = d?.jobs?.filter((j) => typeof j?.id === "string" && j.id).pop();
+    return last?.id ?? null;
+  }
+  if (name === "select_classes") {
+    const d = detail as { jobId?: string } | null;
+    return typeof d?.jobId === "string" ? d.jobId : null;
+  }
+  if (
+    name === "run_job" ||
+    name === "stop_job" ||
+    name === "inspect_job" ||
+    name === "update_job" ||
+    name === "judge_2d_classes"
+  ) {
+    const id = a.job_id;
+    return typeof id === "string" && id ? id : null;
+  }
+  return null;
 }
 
 function messagesToItems(messages: AiMessage[]): UiItem[] {
@@ -162,6 +214,7 @@ function messagesToItems(messages: AiMessage[]): UiItem[] {
             summary: r?.summary ?? String(detail).slice(0, 200),
             detail: r?.detail,
             at: result.at,
+            jobId: extractJobId(call.name, call.args, r?.detail),
           });
         }
       }
@@ -190,12 +243,13 @@ function eventsToItems(events: AiEvent[], seq: number): UiItem[] {
           ok: result.ok,
           summary: result.summary,
           detail: result.detail,
+          jobId: extractJobId(e.name, e.args, result.detail),
         });
       }
     }
-    // errors render as their own banner item
+    // errors render as notice banners (the app's warning idiom)
     else if (e.type === "error") {
-      items.push({ kind: "assistant", text: `⚠️ ${e.message}`, key: `e${seq}-${i}` });
+      items.push({ kind: "notice", variant: "error", text: e.message, key: `e${seq}-${i}` });
     }
   }
   return items;
@@ -226,6 +280,14 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
 function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
   const [open, setOpen] = React.useState(false);
   const Icon = TOOL_ICONS[item.name] ?? Wrench;
+  const canLocate = typeof item.jobId === "string" && item.jobId.length > 0;
+  const reveal = React.useCallback(() => {
+    // revealJob = view + selection + centered viewport (the inspector's
+    // Focus semantics). The sheet stays open — panel and canvas are
+    // side-by-side on desktop, and on mobile the user closes the sheet to
+    // see the arrival flash.
+    if (item.jobId) useWorkflowStore.getState().revealJob(item.jobId);
+  }, [item.jobId]);
   return (
     <div
       className={cn(
@@ -233,47 +295,61 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
         item.ok ? "hover:border-emerald-600/30" : "border-rose-600/30 hover:border-rose-600/50"
       )}
     >
-      <button
-        type="button"
-        className="flex w-full items-start gap-2 px-2.5 py-2 text-left hover:bg-muted/40"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-      >
-        <span className="mt-1 shrink-0 text-muted-foreground/70">
-          {open ? (
-            <ChevronDown className="size-3.5" aria-hidden="true" />
-          ) : (
-            <ChevronRight className="size-3.5" aria-hidden="true" />
-          )}
-        </span>
-        <span
-          className={cn(
-            "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md",
-            item.ok
-              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-              : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-          )}
+      <div className="flex items-stretch">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-start gap-2 px-2.5 py-2 text-left hover:bg-muted/40"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
         >
-          <Icon className="size-3.5" aria-hidden="true" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5">
-            <code className="font-mono text-[11px] font-medium text-foreground">{item.name}</code>
-            {item.ok ? (
-              <CheckCircle2
-                className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
-                aria-label="succeeded"
-              />
+          <span className="mt-1 shrink-0 text-muted-foreground/70">
+            {open ? (
+              <ChevronDown className="size-3.5" aria-hidden="true" />
             ) : (
-              <XCircle
-                className="size-3.5 shrink-0 text-rose-600 dark:text-rose-400"
-                aria-label="failed"
-              />
+              <ChevronRight className="size-3.5" aria-hidden="true" />
             )}
           </span>
-          <span className="mt-0.5 block break-words text-muted-foreground">{item.summary}</span>
-        </span>
-      </button>
+          <span
+            className={cn(
+              "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md",
+              item.ok
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            )}
+          >
+            <Icon className="size-3.5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5">
+              <code className="font-mono text-[11px] font-medium text-foreground">{item.name}</code>
+              {item.ok ? (
+                <CheckCircle2
+                  className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                  aria-label="succeeded"
+                />
+              ) : (
+                <XCircle
+                  className="size-3.5 shrink-0 text-rose-600 dark:text-rose-400"
+                  aria-label="failed"
+                />
+              )}
+            </span>
+            <span className="mt-0.5 block break-words text-muted-foreground">{item.summary}</span>
+          </span>
+        </button>
+        {canLocate && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mr-1 size-7 shrink-0 self-center rounded-md text-muted-foreground/70 hover:text-foreground"
+            onClick={reveal}
+            aria-label="在画布中定位"
+            title="在画布中定位"
+          >
+            <Locate className="size-3.5" aria-hidden="true" />
+          </Button>
+        )}
+      </div>
       {open && (
         <div className="border-t px-2.5 py-2">
           <p className="mb-1 font-mono text-[10px] text-muted-foreground">
@@ -292,6 +368,32 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Notice banner (stop / error) — the app's status-line idiom           */
+/* ------------------------------------------------------------------ */
+
+function Notice({ item }: { item: Extract<UiItem, { kind: "notice" }> }) {
+  const stop = item.variant === "stop";
+  const Icon = stop ? Square : AlertTriangle;
+  return (
+    <div
+      role="status"
+      className={cn(
+        "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs leading-relaxed",
+        stop
+          ? "border-border bg-muted/40 text-muted-foreground"
+          : "border-rose-600/30 bg-rose-500/[0.06] text-rose-700 dark:text-rose-300"
+      )}
+    >
+      <Icon
+        className={cn("mt-0.5 size-3 shrink-0", stop && "fill-current")}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 break-words">{item.text}</span>
     </div>
   );
 }
@@ -337,6 +439,43 @@ const SUGGESTIONS: { icon: LucideIcon; text: string }[] = [
   { icon: LayoutDashboard, text: "画布上现在有哪些任务？下一步该跑什么？" },
 ];
 
+/** State-driven follow-ups for a NON-empty transcript — the same
+ * NEXT_STEPS canon the canvas context menu speaks, phrased as prompts.
+ * First match wins (zero-noise law: at most ONE chip, never a wall). */
+function buildFollowUp(jobs: JobDTO[]): { icon: LucideIcon; text: string } | null {
+  if (jobs.length === 0) return SUGGESTIONS[0];
+  const live = jobs.filter((j) => j.status === "running" || j.status === "pending");
+  if (live.length > 0) {
+    return { icon: Hourglass, text: `等「${live[0].name}」跑完，然后告诉我结果` };
+  }
+  // a built-but-not-started flow — the head is the next action (downstream
+  // auto-starts; an unrunnable head fails honestly through the agent's own
+  // report, the same education the canvas Run button gives)
+  // (status vocabulary: fresh jobs are IDLE — pending waits on an upstream,
+  // running executes; "live" above covers both unsettled kinds)
+  const hasIdle = jobs.some((j) => j.status === "idle");
+  if (hasIdle) {
+    return { icon: Play, text: "把刚建好的流程跑起来，跑完告诉我结果" };
+  }
+  const class2d = [...jobs].reverse().find((j) => j.type === "class2d" && j.status === "completed");
+  if (class2d) {
+    return {
+      icon: ScanEye,
+      text: `分析「${class2d.name}」的分类结果，结合占比和分辨率推荐保留哪些 class`,
+    };
+  }
+  const hasClass2d = jobs.some((j) => j.type === "class2d");
+  const upstreamDone = jobs.some(
+    (j) =>
+      (j.type === "ctffind" || j.type === "motioncorr" || j.type === "import") &&
+      j.status === "completed"
+  );
+  if (!hasClass2d && upstreamDone) {
+    return { icon: Workflow, text: "接着搭下一步：建一个 2D 分类并跑起来" };
+  }
+  return null;
+}
+
 export function AssistantPanel() {
   const open = useWorkflowStore((s) => s.aiAssistantOpen);
   const setOpen = useWorkflowStore((s) => s.setAiAssistantOpen);
@@ -357,6 +496,9 @@ export function AssistantPanel() {
   const [armedDelete, setArmedDelete] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<"all" | "tools" | "fails">("all");
   const [showJump, setShowJump] = React.useState(false);
+  // the live canvas census — the follow-up chip's datasource (jobs refresh
+  // with every poll tick, so the chip tracks reality, not a snapshot)
+  const jobs = useWorkflowStore((s) => s.jobs);
   const seq = React.useRef(0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
@@ -463,7 +605,7 @@ export function AssistantPanel() {
     setShowJump(false);
   }
 
-  // ---- t423: the history drawer ----------------------------------------
+  // ---- t424: the history drawer ----------------------------------------
   async function loadSessions() {
     try {
       const res = await fetch("/api/ai/sessions");
@@ -553,7 +695,7 @@ export function AssistantPanel() {
         if (abortRef.current) {
           setItems((prev) => [
             ...prev,
-            { kind: "assistant", text: "⏹ 已停止 — 画布上已完成的操作保留，可以继续提问。", key: `stop${Date.now()}` },
+            { kind: "notice", variant: "stop", text: "已停止 — 画布上已完成的操作保留，可以继续提问。", key: `stop${Date.now()}` },
           ]);
           break;
         }
@@ -592,11 +734,14 @@ export function AssistantPanel() {
       if (err instanceof DOMException && err.name === "AbortError") {
         setItems((prev) => [
           ...prev,
-          { kind: "assistant", text: "⏹ 已停止 — 画布上已完成的操作保留，可以继续提问。", key: `stop${Date.now()}` },
+          { kind: "notice", variant: "stop", text: "已停止 — 画布上已完成的操作保留，可以继续提问。", key: `stop${Date.now()}` },
         ]);
       } else {
         const message2 = err instanceof Error ? err.message : String(err);
-        setItems((prev) => [...prev, { kind: "assistant", text: `⚠️ ${message2}`, key: `err${Date.now()}` }]);
+        setItems((prev) => [
+          ...prev,
+          { kind: "notice", variant: "error", text: message2, key: `err${Date.now()}` },
+        ]);
       }
     } finally {
       abortControllerRef.current = null;
@@ -623,10 +768,14 @@ export function AssistantPanel() {
     setItems([]);
     setFilter("all");
     if (historyOpen) void loadSessions();
+    toast.success("已开始新对话", { description: "画布上的任务不受影响" });
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // IME guard: while a Chinese input method is composing, Enter CONFIRMS
+    // the composition — sending here would fire a half-typed prompt (the
+    // primary audience of this panel types Chinese).
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       void send(input);
     }
@@ -712,7 +861,7 @@ export function AssistantPanel() {
           </Button>
         </div>
 
-        {/* ---- t423: the history drawer -------------------------------- */}
+        {/* ---- t424: the history drawer -------------------------------- */}
         {historyOpen && (
           <div className="border-b bg-muted/30 px-3 py-2">
             <div className="mb-1.5 flex items-center justify-between px-1">
@@ -791,7 +940,7 @@ export function AssistantPanel() {
           </div>
         )}
 
-        {/* ---- t423: transcript view filter (only when it has something to say) */}
+        {/* ---- t424: transcript view filter (only when it has something to say) */}
         {toolCount >= 3 && (
           <div className="flex items-center gap-1.5 border-b px-4 py-1.5" role="group" aria-label="Transcript filter">
             <span className="mr-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">视图</span>
@@ -862,6 +1011,8 @@ export function AssistantPanel() {
                   <span className="mr-1 mt-0.5 text-[10px] text-muted-foreground/60">{fmtTime(item.at)}</span>
                 ) : null}
               </div>
+            ) : item.kind === "notice" ? (
+              <Notice key={item.key} item={item} />
             ) : item.kind === "assistant" ? (
               <div key={item.key} className="flex items-start gap-2.5">
                 <span
@@ -871,7 +1022,7 @@ export function AssistantPanel() {
                   <Sparkles className="size-3" />
                 </span>
                 <div className="min-w-0 max-w-[92%] rounded-2xl rounded-tl-sm bg-muted/50 px-3 py-2">
-                  <div className="text-sm leading-relaxed [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_li]:ml-4 [&_li]:list-disc [&_ol_li]:list-decimal [&_p]:my-1 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-xs [&_strong]:font-semibold">
+                  <div className="text-sm leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_h1]:mb-1.5 [&_h1]:mt-2 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-1 [&_h2]:mt-2 [&_h2]:text-xs [&_h2]:font-semibold [&_h3]:mt-1.5 [&_h3]:text-xs [&_h3]:font-semibold [&_hr]:my-2 [&_hr]:border-border [&_li]:ml-4 [&_li]:list-disc [&_ol_li]:list-decimal [&_p]:my-1 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-xs [&_strong]:font-semibold [&_table]:my-2 [&_table]:w-full [&_table]:text-left [&_table]:text-xs [&_td]:border-t [&_td]:px-1.5 [&_td]:py-1 [&_td]:align-top [&_th]:border-b [&_th]:px-1.5 [&_th]:py-1 [&_th]:font-semibold">
                     <Markdown remarkPlugins={[remarkGfm]}>{item.text}</Markdown>
                   </div>
                 </div>
@@ -926,7 +1077,7 @@ export function AssistantPanel() {
           )}
           </div>
 
-          {/* ---- t423: jump back to the live edge after scrolling up ---- */}
+          {/* ---- t424: jump back to the live edge after scrolling up ---- */}
           {showJump && (
             <Button
               size="icon"
@@ -941,7 +1092,31 @@ export function AssistantPanel() {
         </div>
 
         {/* ---- composer ---- */}
-        <div className={cn("border-t p-3", busy && "opacity-80")}>
+        {/* safe-area: on notched phones the composer rides the home
+            indicator — the footer's pb-[max(...)] law (iOS inset) */}
+        <div
+          className={cn(
+            "border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3",
+            busy && "opacity-80"
+          )}
+        >
+          {/* the contextual follow-up — ONE state-driven chip, never a
+              wall (zero-noise law); only for a non-empty, idle transcript */}
+          {(() => {
+            const follow = items.length > 0 ? buildFollowUp(jobs) : null;
+            if (!follow || busy) return null;
+            const FIcon = follow.icon;
+            return (
+              <button
+                type="button"
+                onClick={() => void send(follow.text)}
+                className="mb-2 flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[11px] leading-relaxed text-muted-foreground transition-colors hover:border-amber-600/40 hover:bg-amber-500/[0.04] hover:text-foreground"
+              >
+                <FIcon className="size-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                <span className="truncate">{follow.text}</span>
+              </button>
+            );
+          })()}
           <div className="relative rounded-xl border bg-muted/20 shadow-sm transition-colors focus-within:border-amber-500/40 focus-within:ring-2 focus-within:ring-amber-500/10">
             <Textarea
               ref={inputRef}
