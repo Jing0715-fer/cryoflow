@@ -328,7 +328,7 @@ export default function StorageDialog({
                             }`}
                             title={
                               orphan
-                                ? "No job record points at this directory — it was left behind by a deleted job or an older server"
+                                ? "No job record points at this directory — a deleted job's leftover, an older server's run, or a shared asset directory (like the project's micrograph store)"
                                 : `Open ${job.name}'s inspector (its Clean intermediates button lives there)`
                             }
                           >
