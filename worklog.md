@@ -5048,3 +5048,27 @@ Stage Summary:
 - **「孪生继承的是配方，不是血统」**：params 连线随行、座位自成一支、状态归零等待——继承只向上游（兄弟们读的还是原件的输出），向下的是新故事；一条「今天画不出的线」拒绝被复印，stranded 进回执
 - **「回执归一个 toast」**：N 条线一次手势，quiet connect 让复制收据自己说话——聚合律从 toast 延伸到批量动作；每线一报是把台账当新闻
 - 产出：孪生克隆全链（duplicate-run 纯脑库 + store 升级 + inspector 门）+ t442 bench 29/0 + 十三套回归 483 断言全绿 + **全 A/B 循环活体闭环**（复制→跑→门亮→判决→清场）+ 假阴性取证教训 + 三方一致真对齐
+
+---
+Task ID: 443 (cron agent loop 202609290536)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 442 完整收官（HEAD = e610bf7 = origin/main，树净；stamp = f0c17d9，docs 时差）。世界健康：app 200、15/15 全 completed、14 边、mock 集群 :3022 在听。第三十四份过时 Task 13 指引照例不认。自号 443。
+- [QA — 全绿基线] landing hydration 满血（t438 铃铛门在场）、console 0 错、标题 pristine。首查 API 时自家脚本形状错（顶层 {jobs:[...]} 包裹解错报 jobs:2）——修正后 15/15 复核，形状错误是脚本的不是世界的。十四套回归 483 断言全绿。世界稳定 → 转新需求。
+- [选题侦察] t442 遗留候选核账：时间线视图已存在（t123 session timeline 在 pipeline-analytics，Gantt 行 + wall-clock 轴）；存储板四窗饱和让位；exclude 清单门仍无下游消费者；Class2D 占据率类序不配对。真空白定位：**A/B 故事弧缺最后一个动词**——t439 判决、t440 第二域、t442 孪生克隆建成了「比较 → 知道谁赢」，但「让赢者接管正路」仍是手工逐线重画。定谳：**Branch Adoption（下游改嫁）**。
+- [交付 — the verdict gets a verb] ①lib/adopt-branch.ts（纯脑）：planAdoption 只搬 **离开 A 的线（直接子女律）**——孙辈的自有人 feed，重跑时传递性重建；**环守卫保守律**：child⇒B 在全图上可达（或 child 即 B）即拒——被拒的线在现实里留在图上，路径穿过它们必须仍能拒；新边全部起于 B，永远帮不了「到达 B」的路径；**端口守卫**：线保端口名，B 必须声明该输出口（portless 旧线放行）；**已在位不算 move**：child 已以同端口对消费 B → 报告不复制（DB unique pair 也会拒）；**回执点名**（describeAdoption）：moves/alreadyWired/refusals 全带 child 名，roster cap 4 + 尾数，持久化失败具名降级（t441 walk 律）。②store.adoptDownstream：单次乐观 set（输家的线走与赢家的线来同帧——半改嫁的图是画布会画出的谎言）+ POST-new-then-DELETE-old 持久化顺序（POST 先行：服务器拒时旧线仍真，回滚诚实；DELETE 败时旧线回 store，UI 真相=服务器真相）+ 一份回执 toast（t146 聚合律）+ invalidateRedo。③run-compare-dialog 页脚动词按钮（页左，与右页 Open A/B 门分组）：诚实 disabled 四态（sameRun/noDownstream/已在位/全拒）title 全说透 + 「(N)」计数 chip + 一行合同（「Adoption re-wires A's N downstream jobs to consume B — their current results stay until re-run」）+ 点击后收窗（动词完成，画布展示新接线）。
+- [自捕自修 — 环守卫欠精确] bench 前自审发现 G_minus 预移除全部 outgoing 的初版会**漏判**：被拒的边留在现实图上，路径穿过它们时新边会闭合成环。修正为全图保守律（多拒永安全，DAG 兄弟世界零误伤），bench A2d 钉死该律。
+- [验证 — 十四套全绿] t443 bench 28/0 首轮（A1 move 集 6、A2 环守卫 4、A3 已在位 4、A4 端口守卫 2、A5 回执 8、A6 诚实空形 4）；十四套回归 511 断言（t419 111 + t420 52 + t427 12 + t431 20 + t432 39 + t433 47 + t436 45 + t437 20 + t438 40 + t439 28 + t440 17 + t441 23 + t442 29 + t443 28）。tsc 0 + eslint 0（三触碰文件）。
+- [研磨] 杀 QA chrome（3172MB 贴线）→ 杀服务器 → FRESH attempt 1 GREEN（ANTI-TEAR in-place 重启自动履职）→ provenance 先落 e610bf7（feature 未提交）→ 提交 feature afd373e + push → 补一轮 FRESH attempt 1 GREEN → **provenance = afd373e = HEAD 三方逐字节一致**。十步体检 WORLD ALIVE + hydration probe（webpack-f6ca156 → 200）+ demo chain 复活。
+- [活体 QA — 改嫁全循环] ①孪生手术：原件 inspector → Duplicate → 孪生落位（Idle）→ Run on cluster（Mock Cluster）→ 27s completed → A/B 门亮（1 sibling）②**诚实 disabled 活体**：从孪生开 A/B（A=孪生无下游）→ 动词按钮 disabled + title「Motion Correction 1 (copy) has no downstream jobs to re-wire」全说透③从原件开 A/B → 按钮 enabled「Continue downstream from Motion Correction 1 (copy) — re-wires 1 of Motion Correction 1's downstream jobs」+ 合同行在 DOM 满血④**点火改嫁**：边表验证 copy→CTF Estimation 1 新线在位（micrographs→micrographs 端口保真）、原件→CTF 旧线消失、总边 15 = 14−1+1+孪生配方线⑤A/B 对话框点击后自动收窗（设计如此）⑥**反向改嫁**：从孪生开 A/B → 按钮如实反映新现实（re-wires 1 of copy's downstream）→ 点火 → Motion Correction 1→CTF 复原、总边 15⑦清场：DELETE 孪生（15/15 复原、14 边级联清净）+ **盘上残渣照 t440 律清净**（data/relion/{project}/motioncorr_0dkk8rea 在 DB 级联删后仍在盘——rm 后 17→16 目录 = 原世界）⑧console 全程 0 错、标题 pristine。定妆 .qa-logs/t443-{ab-before-adopt,after-adopt,final}.png。
+- [QA 工艺注记] ①aria snapshot 略过纯 div 文本（合同行）——先 eval innerText 再判缺席，快照不是 DOM②agent-browser screenshot 的路径参数落 tmp 目录——拷贝归位③「Run on cluster」对话框在 run 完成后不自动关（先前轮已存在的小 UX 尾巴，非本轮 bug，记入候选）④回执 toast 两次点火都被 >5s 往返错过窗口——graph 突变是硬证据，toast 机器与 t438/t441/t442 活体同源。
+- [诚实边界] ①cycle/port 拒绝路径未活体点火（demo 世界是服务器执法的 DAG，造环需破坏性手术）——bench A2 4 断言钉死守卫律②保守过拒（路径穿过另一候选线）在健全 DAG+兄弟世界不触发，A2d 钉死合同③回执 toast 文本未活体捕获（自动消隐时序）——law 由代码与同源机器活体背书④改嫁后 child 的结果按设计保持 completed（不改状态——回执携带重跑义务）；「过期」状态概念全 app 不存在，若做需服务器法改面，另案。
+- [最终态] HEAD = origin/main = afd373e（本窗 feature commit，已推；docs commit 待推）；stamp = afd373e 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、QA 浏览器净场、盘上 16 目录 = 原世界。下一窗从 Task 444 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第三十二次提醒——本窗 push 正常）②EMPIAR 真数据回归（常驻在位）③「Run on cluster」对话框 run 完成后自动收窗（本轮 QA 顺手记下的小 UX）④duplicate 再进：智能后缀（(copy) 2）、⌘D 多选批量⑤A/B 判决行的「把输家微图喂给 exclude」仍待消费者面。
+
+Stage Summary:
+- **「判决说完，动词接着说」**：A/B 的三层（判决/第二域/孪生）都建好了「知道谁赢」，adoptDownstream 把「知道」接上「执行」——一帧之内输家的线走、赢家的线来；图突变同帧完成，半改嫁的画布是谎言
+- **「多拒永远比漏拒安全」**：环守卫的保守律来自一次自审——被拒的线留在现实图上，预移除它们的检查会漏掉穿过它们的环；守卫的职责是问「最坏情形是否闭环」，不是猜「乐观情形是否无事」
+- **「POST 先于 DELETE」**：改嫁的持久化顺序是一份诚实合同——新线被服务器拒时旧线仍真（回滚诚实），旧线删失败时它回 UI（真相=服务器真相）；顺序反了就是两头落空
+- 产出：Branch Adoption 全链（adopt-branch 纯脑 + store 动作 + 对话框动词按钮）+ t443 bench 28/0 + 十四套回归 511 断言全绿 + 改嫁双向全循环活体（含诚实 disabled 态与盘上残渣清净）+ 三方一致真对齐
