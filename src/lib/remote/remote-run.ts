@@ -3197,13 +3197,68 @@ const BOOT_ID = randomUUID();
 const STAGING_FIRST_BEAT_GRACE_MS = Math.max(60_000, 6 * STAGING_BEAT_MS);
 
 /**
+ * t420 — the dispatch stand-down registry. The t341 fence reads the RUN
+ * RECORD ("this dispatch is still wanted"), and the project-delete route
+ * clears records LAST — long after its mirror rm. A dispatch in the
+ * STAGING phase therefore kept uploading until its next per-file gate
+ * noticed the cleared record: one file (plus mkdir -p dirs) landed in a
+ * mirror the same request had just rm -rf'd — t418's known edge, seconds
+ * wide. The registry is the INSTANT, record-independent signal:
+ * cancelDispatch(jobId) pins the CURRENT record's startedAt (so a later
+ * re-dispatch — different startedAt — is never collateral), the dispatch's
+ * own stop() unpins it on exit (the settle signal), and the t341 predicate
+ * reads it. Keyed by startedAt, a stale entry is inert by construction.
+ */
+const cancelledDispatches = new Map<string, string>(); // jobId -> cancelled dispatch's startedAt
+
+/** t420 — stand this job's in-flight dispatch down NOW (staging included). */
+export function cancelDispatch(jobId: string): void {
+  const rec = getRun(jobId);
+  if (rec?.startedAt) cancelledDispatches.set(jobId, rec.startedAt);
+}
+
+/** t420 — true once the cancelled dispatch's task has actually exited. */
+export function dispatchSettled(jobId: string): boolean {
+  return !cancelledDispatches.has(jobId);
+}
+
+/**
+ * t420 — is a staging task LIVE for this job? Record in the staging phase,
+ * not done, beat fresh (or still inside the first-beat grace). The delete
+ * route's settle loop pairs this with dispatchSettled: a task that is not
+ * alive can never write again, so waiting for it would only burn the cap.
+ */
+export function stagingTaskAlive(jobId: string): boolean {
+  const rec = getRun(jobId);
+  if (!rec?.remote || rec.done || rec.remote.phase !== "staging") return false;
+  // the t404 sweep's own two-window staleness math, mirrored exactly: a
+  // beating task is alive while its beat is fresh; a not-yet-beating task
+  // is alive while the RECORD is young (the first beat lands within
+  // STAGING_BEAT_MS of spawn — six intervals of silence is a corpse).
+  // The first draft here computed `Date.now() - (stagingBeat ?? 0)` —
+  // epoch minus zero is never under the grace, so a young staging run
+  // (delete landing inside the first 10s beat interval — the COMMON case
+  // for a mid-staging project delete) read as dead and the settle skipped
+  // its wait: the suite caught the mirror recreating itself.
+  const ageMs = Date.now() - new Date(rec.startedAt).getTime();
+  const beatAge =
+    rec.remote.stagingBeat != null ? Date.now() - rec.remote.stagingBeat : null;
+  const noBeatStale =
+    rec.remote.bootId != null
+      ? ageMs > STAGING_FIRST_BEAT_GRACE_MS
+      : ageMs > 30 * 60_000;
+  const stale = beatAge != null ? beatAge > STAGING_BEAT_STALE_MS : noBeatStale;
+  return !stale;
+}
+
+/**
  * Staging heartbeat — the background staging task has no supervisor (it is
  * void-spawned), so it touches the ledger every STAGING_BEAT_MS while alive.
  * The poll sweep reads the beat to distinguish "still uploading" from "the
  * task vanished without a trace" (a hung SSH exec used to strand the row in
  * pending until the 30min fallback). Returns a stop() that is idempotent.
  */
-function startStagingBeat(jobId: string): () => void {
+function startStagingBeat(jobId: string, startedAt: string): () => void {
   const beat = setInterval(() => {
     updateRun(jobId, (rec) =>
       rec.remote && rec.remote.phase === "staging" && !rec.done
@@ -3217,6 +3272,10 @@ function startStagingBeat(jobId: string): () => void {
     if (stopped) return;
     stopped = true;
     clearInterval(beat);
+    // t420 — the task's exit IS the settle signal: a project delete that
+    // cancelled this dispatch waits for exactly this unpin before it rm's
+    // the mirror, so nothing the task writes can land after the reclaim.
+    if (cancelledDispatches.get(jobId) === startedAt) cancelledDispatches.delete(jobId);
   };
 }
 
@@ -4701,7 +4760,7 @@ export async function startRemoteJob(args: {
   // ---- the actual work (staging + spawn) --------------------------------
   // the heartbeat runs for the WHOLE task (staging phase only — the updateRun
   // guard no-ops once the phase flips) and is stopped on both exits.
-  const stopBeat = startStagingBeat(job.id);
+  const stopBeat = startStagingBeat(job.id, record.startedAt);
   // t341 — the ghost-sbatch fence (review C1, TEST 4's live proof): the
   // spawn is a void background task, and a reset/delete that lands while
   // it uploads used to be IGNORED — the task submitted its sbatch anyway
@@ -4715,7 +4774,15 @@ export async function startRemoteJob(args: {
   // submitted before standing down.
   const dispatchCancelled = (): boolean => {
     const rec = getRun(job.id);
-    return !rec || rec.startedAt !== record.startedAt || rec.done;
+    return (
+      !rec ||
+      rec.startedAt !== record.startedAt ||
+      rec.done ||
+      // t420 — the project-delete stand-down: an EXPLICIT cancel pinned by
+      // cancelDispatch, independent of the record (which the delete route
+      // only clears long after its mirror rm)
+      cancelledDispatches.get(job.id) === record.startedAt
+    );
   };
   const spawn = async (): Promise<void> => {
     try {

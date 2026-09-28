@@ -14,7 +14,12 @@ import {
   stopRun,
 } from "@/lib/relion/engine";
 import { getConnection, loadConnections } from "@/lib/remote/connections";
-import { remoteStopRun } from "@/lib/remote/remote-run";
+import {
+  cancelDispatch,
+  dispatchSettled,
+  remoteStopRun,
+  stagingTaskAlive,
+} from "@/lib/remote/remote-run";
 import { exec, shSingleQuote } from "@/lib/remote/ssh";
 import {
   collectMirrorTargets,
@@ -207,6 +212,31 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       // (the mirror entry's "connection not found" line), not a claim of
       // success here
       if (verdict.stopped) stopped += 1;
+    }
+
+    // 0.45 t420 — the staging stand-down. A record in the STAGING phase has
+    // no slurmId for the scancel branch to deliver (t418's known edge) and
+    // no pid for the kill lane: the staging task is a void background task
+    // whose per-file cancel gate (t341) only reads the CLEARED record — and
+    // this route clears records LAST, long after the mirror rm below. So
+    // the task used to keep uploading straight through the reclaim: one
+    // more file (plus mkdir -p dirs) landed in a mirror that was already
+    // rm -rf'd, recreating the exact husk t417 was built to prevent.
+    // Signal it NOW (cancelDispatch is instant and record-independent) and
+    // wait for the task's own exit — the same teardown-settle symmetry the
+    // scancel branch carries — before the rm races its writes. A task that
+    // is not alive (stale beat, dead server incarnation) is never waited
+    // on: it can write nothing.
+    const stagingJobIds = projectJobs
+      .map(({ id: jobId }) => jobId)
+      .filter((jobId) => stagingTaskAlive(jobId));
+    for (const jobId of stagingJobIds) cancelDispatch(jobId);
+    const settleT0 = Date.now();
+    while (
+      Date.now() - settleT0 < 15_000 &&
+      stagingJobIds.some((jobId) => !dispatchSettled(jobId) && stagingTaskAlive(jobId))
+    ) {
+      await new Promise((r) => setTimeout(r, 150));
     }
 
     // 0.55 t417 — collect the mirror targets BEFORE 0.5 erases the records:

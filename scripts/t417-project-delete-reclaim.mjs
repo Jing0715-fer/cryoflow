@@ -36,6 +36,12 @@
  *      settle before the rm, the mirror + local root reclaimed, the response
  *      counts the stop. The RECORD lane rides for real here too: a live
  *      dispatched run's rec.remote is the primary mirror witness.
+ *   F  t420 — the STAGING lane: a remote dispatch caught MID-STAGING (bytes
+ *      moving, no slurmId yet) dies with its project — the dispatch must
+ *      STAND DOWN before the rm (t341's per-file gate only read the cleared
+ *      record, which the route cleared long after the reclaim), nothing is
+ *      ever submitted (the scheduler's journal stays unchanged), and the
+ *      mirror is GONE with nothing recreated after it.
  *   D  the world survives — the demo project's jobs and its cluster tree
  *      (marked by this suite before any delete: a fresh world has no healed
  *      chain, so the suite guarantees its own precondition) are untouched.
@@ -340,6 +346,132 @@ console.log("\n== Phase E — t418: a LIVE remote run dies with its project ==\n
     "the cancel marker file exists (scancel's own receipt)"
   );
   execSync(`rm -rf ${FIXDIR}`, { stdio: "pipe" });
+}
+
+console.log("\n== Phase F — t420: a delete that lands MID-STAGING stands the dispatch down before the rm ==\n");
+
+{
+  // F0 — the mock cluster must be listening (same as E0)
+  const net = await import("node:net");
+  const listening = await new Promise((resolve) => {
+    const sock = new net.Socket();
+    const done = (v) => { sock.destroy(); resolve(v); };
+    sock.setTimeout(1200);
+    sock.once("connect", () => done(true));
+    sock.once("timeout", () => done(false));
+    sock.once("error", () => done(false));
+    sock.connect(3022, "127.0.0.1");
+  });
+  if (!listening) {
+    execSync("bash services/mock-cluster/launch.sh", { cwd: ROOT, stdio: "pipe" });
+    await sleep(2500);
+  }
+  must(true, "the mock cluster is listening on :3022");
+
+  // F1 — fixture: 160 mics. Phase E's 25 were sized for the RUNNING window
+  // (the mock's motioncorr pacing); the STAGING window needs WIDE UPLOAD
+  // TIME — 160 per-file SFTP round-trips give the delete a deterministic
+  // mid-upload landing zone (stagedBytes moving, slurmId not yet born).
+  const projF = await mkProject("t420 Staging Stop Fixture");
+  must(!!projF, "the staging-stop fixture project exists");
+  const FIXDIRF = `${ROOT}/data/t420-staging-mics`;
+  mkdirSync(FIXDIRF, { recursive: true });
+  for (let k = 1; k <= 160; k++) writeFileSync(`${FIXDIRF}/mic_${String(k).padStart(3, "0")}.mrc`, mrcBuffer());
+  const mkJobF = async (body) => {
+    const r = await api("POST", "/api/jobs", body);
+    return r.body?.job;
+  };
+  const impF = await mkJobF({ type: "import", name: "t420 F Import", params: { micrographsPath: FIXDIRF, pixelSize: 1.77 } });
+  must(!!impF?.id, "the import job exists");
+  const mcrF = await mkJobF({ type: "motioncorr", name: "t420 F Motioncorr", params: {} });
+  must(!!mcrF?.id, "the motioncorr job exists");
+  const edgeF = await api("POST", "/api/edges", { fromJobId: impF.id, toJobId: mcrF.id, fromPort: "micrographs", toPort: "movies" });
+  must(edgeF.status === 201 || edgeF.status === 200, `import → motioncorr wired (${edgeF.status})`);
+  const runImpF = await api("POST", `/api/jobs/${impF.id}/run`, {});
+  must(runImpF.status === 200 || runImpF.status === 201, `the import runs locally (${runImpF.status})`);
+  const impFDone = await pollUntil(async () => {
+    const j = await api("GET", "/api/jobs");
+    const row = (j.body?.jobs ?? []).find((x) => x.id === impF.id);
+    return row?.status === "completed" ? row : null;
+  }, 120_000, 1000);
+  must(!!impFDone, "the local import completes (160 real mics)");
+
+  // F2 — connection + the remote dispatch, and the accounting snapshot the
+  // no-submit assertion reads against
+  const connF = `qa-t420f-${Date.now().toString(36)}`;
+  createdConnections.push(connF);
+  const mkcF = await api("POST", "/api/remote/connections", {
+    id: connF,
+    name: "t420 staging conn",
+    host: "127.0.0.1",
+    port: 3022,
+    username: "cryo",
+    password: "demo",
+    authMethod: "password",
+    remoteRoot: "/projects/cryoflow",
+  });
+  must(mkcF.status === 201 || mkcF.status === 200, `the staging conn is created (${mkcF.status})`);
+  const accountingBeforeF = existsSync(`${MOCK_SLURM}/accounting`)
+    ? readFileSync(`${MOCK_SLURM}/accounting`, "utf8")
+    : "";
+  const dispF = await api("POST", `/api/jobs/${mcrF.id}/run`, {
+    remote: { connectionId: connF, module: "relion/5.0.1", mode: "slurm" },
+  });
+  must(dispF.status === 200 || dispF.status === 201, `the motioncorr dispatches to the cluster (${dispF.status})`);
+
+  // F3 — catch the dispatch MID-STAGING: bytes moving, no slurmId yet
+  const mid = await pollUntil(async () => {
+    const rec = stateRuns()[mcrF.id];
+    return rec?.remote?.phase === "staging" && (rec?.remote?.stagedBytes ?? 0) > 0 && !rec?.remote?.slurmId
+      ? rec
+      : null;
+  }, 60_000, 60);
+  must(!!mid, "the dispatch is caught MID-STAGING (phase staging, bytes moving, no slurmId yet)");
+  // the record the delete will meet — it may have flipped to RUNNING in the
+  // gap between the poll and the request (160 files can finish fast); the
+  // assertion below branches on which lane the delete actually met
+  const recAtDelete = stateRuns()[mcrF.id];
+  const slurmIdAtDelete = recAtDelete?.remote?.slurmId ? String(Number(recAtDelete.remote.slurmId)) : "";
+
+  // F4 — DELETE while staging. THE REGRESSION (t418's known edge): the
+  // staging task's per-file gate (t341) reads the CLEARED record, and the
+  // record was cleared LONG after the mirror rm — the task kept uploading
+  // straight through the reclaim (one file + mkdir -p dirs recreated the
+  // husk) and could even reach the submit. The fix stands the dispatch
+  // down BEFORE the rm and waits for its exit (the teardown-settle
+  // symmetry the scancel branch already carries).
+  const delF = await api("DELETE", `/api/projects/${projF}`);
+  must(delF.status === 200, `the mid-staging delete answers 200 (got ${delF.status})`);
+  const bodyF = delF.body ?? {};
+  const mirrorF = bodyF?.reclaimed?.cluster?.find((c) => c.path === `/projects/cryoflow/${projF}`);
+  must(!!mirrorF, "the RECORD witness named the mirror (a staging run's rec.remote is the primary witness)");
+  must(mirrorF?.ok === true, `the mirror rm verdict ok (${mirrorF?.error ?? "ok"})`);
+  must(!existsSync(`${RELION_DIR}/${projF}`), "local root GONE on disk");
+  must(!existsSync(`${ROOT}/${CLUSTER_TREE}/${projF}`), "cluster mirror GONE — NOTHING recreated after the reclaim");
+
+  // F5 — the submit fence, honest about which lane the delete met: a pure
+  // staging-phase kill must leave the scheduler's journal UNCHANGED (there
+  // was no slurmId to scancel — the only acceptable outcome is that no
+  // sbatch was ever born); a record that flipped to RUNNING in the gap is
+  // fenced by Phase E's contract instead (CANCELLED row for the slurmId).
+  const accountingAfterF = existsSync(`${MOCK_SLURM}/accounting`)
+    ? readFileSync(`${MOCK_SLURM}/accounting`, "utf8")
+    : "";
+  if ((bodyF.stoppedLiveRuns ?? 0) >= 1 && slurmIdAtDelete) {
+    must(
+      accountingAfterF.split("\n").some((l) => l.startsWith(`${slurmIdAtDelete}|CANCELLED|`)),
+      `the record flipped to RUNNING before the delete — Phase E's fence holds (CANCELLED row for ${slurmIdAtDelete})`
+    );
+  } else {
+    const newRows = accountingAfterF
+      .split("\n")
+      .filter((l) => l && !accountingBeforeF.includes(l));
+    must(
+      newRows.length === 0,
+      `the scheduler's journal is UNCHANGED — nothing was submitted, the staging dispatch stood down before the rm (${newRows.length} unexpected row(s))`
+    );
+  }
+  execSync(`rm -rf ${FIXDIRF}`, { stdio: "pipe" });
 }
 
 console.log("\n== Phase D — the world survives ==\n");

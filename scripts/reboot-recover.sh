@@ -117,6 +117,25 @@ else
   say "4. build green — standalone startable"
 fi
 
+# ------------------------------------------------- 4.5 data-plane pin (t183)
+# THE T420 LESSON, second verse of t417's env pin: the standalone server.js
+# process.chdir(__dirname)s at boot, so WITHOUT the CRYOFLOW_DATA_DIR absolute
+# override (Task 183) every file the engine touches resolves through
+# .next/standalone/data — a SHADOW world. API-surface QA cannot see it (the
+# DB rides the absolute DATABASE_URL), but every fs-level suite assertion
+# can: the t417 suite's reclaimed.local named .next/standalone/data/relion
+# and the suite's stateRuns() read a real file the server never wrote. And
+# every `next build` DELETES .next/standalone — killing both the shadow and
+# any symlink repair that predates it. So: pin the env (the server reads the
+# REAL data/) AND repair the symlink (defense for any cwd-reading tool).
+export CRYOFLOW_DATA_DIR="$ROOT/data"
+if [ -d .next/standalone/data ] && [ ! -L .next/standalone/data ]; then
+  rm -rf .next/standalone/data
+  say "4.5 shadow data plane removed (a non-symlink .next/standalone/data is build debris)"
+fi
+ln -sfn "$ROOT/data" .next/standalone/data
+say "4.5 data plane pinned: CRYOFLOW_DATA_DIR=$ROOT/data + symlink repaired"
+
 # ------------------------------------------------------------- 5. prod lane
 if pgrep -f dev-server-watchdog.sh >/dev/null 2>&1; then
   pkill -f dev-server-watchdog.sh 2>/dev/null || true
@@ -145,7 +164,7 @@ else
     fi
   fi
   say "5. starting prod standalone (orphaned child — re-parents to init)"
-  ( DATABASE_URL="$DB_URL" NODE_ENV=production nohup bun .next/standalone/server.js >> server.log 2>&1 & )
+  ( DATABASE_URL="$DB_URL" CRYOFLOW_DATA_DIR="$ROOT/data" NODE_ENV=production nohup bun .next/standalone/server.js >> server.log 2>&1 & )
   code="000"
   for _ in $(seq 1 20); do
     sleep 3

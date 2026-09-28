@@ -4410,3 +4410,26 @@ Work Log:
 Stage Summary:
 - 产出：t419（commit 待推）— AI 助手全套：13 供应商注册表+自动模型列表 / 自然语言建链·连线·设参·跑任务（12 工具全走产品门）/ VLM 判 class（类平均图+占比+每类分辨率 → keep/maybe/reject → select_classes 接线）/ 会话持久+重水化 / 98 断言 bench + mock LLM 活体全链
 - 用户使用路径：header ✨ → 设置选供应商填 key（模型列表自动拉）→「帮我搭一个 SPA 流程」看画布长出任务链 → 2D 分类跑完 → class gallery「AI 分析」→ VLM 看图判类 → 确认后 select_classes 接住好 class 进下游
+
+---
+
+Task ID: Task 421（原号 420 已被并行车道 d9a2069 的 AI 助手窗在 origin 抢先占用——rebase 对齐时顺延；本窗交付与演习不变）
+Agent: Super Z (cron agent loop 202609281421)
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] worklog 实尾 = Task 419 + 收官段，HEAD 64d4243 净树，app 200。agent-browser QA 绿世界（console 0 错、demo 表面正常）。选题 = 并行车道 a25cf09 的诚实边界：STAGING 窗删除竞态——删除落在 sbatch 提交前时无法 scancel 未提交之物，staging 上传会在刚 rm 的镜像里重建胡壳（秒级窗口）。
+- [实现 — staging stand-down] remote-run.ts：cancelledDispatches 登记（startedAt 键控——旧 dispatch 的 cancel 对未来 re-dispatch 天然失活）+ cancelDispatch（瞬间、record 无关的信号）/ dispatchSettled（任务真死 = 结算信号）/ stagingTaskAlive 三导出 + t341 谓词吸收旗标（六个 dispatchCancelled 门全部受益）。staging beat 的 stop() 兼任结算信号（「两个出口都走 stopBeat」的既有律 = 旗标清理的免费挂点）。项目删除路由新 0.45 步：stop 循环之后、见证收集与 rm 之前——先 cancel 再等死（15s 有界，scancel settleMs 的对称），死了才 rm。
+- [套件 Phase F] t417 套件新阶段：160 mic fixture（Phase E 的 25 只为 RUNNING 窗调宽；STAGING 窗要的是上传时长——160 次每文件 SFTP 往返给删除一个确定性中途着陆区）→ poll phase==="staging" && stagedBytes>0 && !slurmId → DELETE → 断言镜像 GONE 且无重建 + scheduler journal 零新行（纯 staging 击杀的正确终局是「从未提交」）；记录在 delete 前翻成 RUNNING 的 gap 情形诚实分叉到 Phase E 的 CANCELLED 围栏。
+- [大偏航 — 套件炸出 shadow world] 首跑 10 FAIL：reclaimed.local 指向 .next/standalone/data/relion、stateRuns() 读到服务器从未写过的文件。根因链：standalone server.js process.chdir(__dirname)（paths.ts 头注释明说）→ 无 CRYOFLOW_DATA_DIR 覆盖时 DATA_DIR 落在 standalone 里 = 影子世界 → 我 t419 窗写的 reboot-recover.sh 只知道 t417 的 DATABASE_URL 钉死、不知道 Task 183 的 CRYOFLOW_DATA_DIR 教义（start-prod.sh 在 04:14 灾变中随 tar 消失）→ 且 06:39 的 FRESH build 删掉整个 .next/standalone（连带旧 symlink 修复）→ 06:39 起服务器读写影子世界。API 面 QA 全盲（DB 走绝对 DATABASE_URL），fs 级套件断言是唯一诚实的证人。
+- [修复] reboot-recover.sh 新 4.5 步：export CRYOFLOW_DATA_DIR="$ROOT/data" + 非 symlink 的 .next/standalone/data 视为 build 残渣移除 + ln -sfn 修复（双保险——env 给服务器、symlink 给一切读 cwd 的工具）。
+- [第二只自抓虫] stagingTaskAlive 首版 `Date.now() - (stagingBeat ?? 0)`：epoch 减零永远不小于 60s 宽限 → 首拍未落（删除落在前 10s 拍间隔内——mid-staging 删除的最常见情形！）的活任务被判死 → settle 跳过等待 → 镜像自我重建。Phase F 围栏当场抓获。修法 = 镜像 t404 扫掠自己的双窗公式（无拍看 record 年龄 ageMs > STAGING_FIRST_BEAT_GRACE_MS，有拍看 beatAge > STALE）。
+- [验证] tsc 0；t417 全套件 ALL PASS 61 ok（B 双平面 + C 无镜像诚实 + E 活跑 scancel + F 新 staging 车道 + D 世界无伤）；回归台 t384-source-xray 11 pass、t384-cache-witness 19 pass、t417-unit ALL PASS；FRESH build 103 秒绿（先杀服务器再磨——本窗 rc=137 在 page-data 阶段的浮动线教义又一次活体：差的就是服务器那几百 MB）；最终画布 15/15、console 0 错、build 64d4243 基座 + t420 修复在编。
+- [诚实边界] ①settle 上限 15s 与 scancel settleMs 同界——单个超大文件的 SFTP 写超过 15s 时 rm 仍可能撞上一笔在途写（t418 边界的残余，秒级窗口，由 ghost-finalize 扫掠与 record 证人车道兜底）②单 job 的 reset/delete 路由仍走纯 t341（其 workdir 是墓碑语义——保留不 rm，无 rm 竞态可言）③F5 的 running-flip 分支未被本次活体走过（160 文件的 staging 窗足够宽）④EMPIAR 真数据回归第卅四窗继续让位 ⑤GitHub PAT 撤销确认第十四次提醒。
+
+Stage Summary:
+- **「ops 剧本的盲区 = 它不知道的教义」**：reboot-recover.sh 完美执行了 t417 的 env 钉死，却因不知道 Task 183 的 CRYOFLOW_DATA_DIR 而把世界钉进了影子——灾变重建剧本需要对 pre-tar 历史做一次教义审计（tar 回滚到 t272 时代，t272 之后沉淀的每一条 ops 教义都可能是剧本的盲区）
+- **「API 面 QA 的盲区恰好是文件面的大小」**：影子世界里每根 API 线都绿（DB 绝对路径、HTTP 200、canvas 15/15），fs 级断言（reclaimed.local 指哪、stateRuns 读哪）一击即中——路径解析类回归只有 assert 文件状态的套件能作证
+- **「围栏会抓写围栏的人」**：Phase F 一个阶段抓了两只虫——影子世界（基础设施层）和我自己写反的首拍宽限（产品代码层）；这正是「需要失败世界的套件自己造一个」的续篇：需要竞态的套件就造一个 160 文件宽的竞态窗
+- **「取消要键控在身份上」**：cancelDispatch 按 startedAt 键控让旧 dispatch 的死刑对未来 re-dispatch 天然失活——用记录自己的身份做键，不引入新的生命周期
+- 遗留（下窗候选）：①reboot-recover.sh 的教义审计（对 pre-tar 历史逐条 ops 教义核对：t183 数据面 ✓ 本窗已补，还有什么？）②EMPIAR 真数据回归第卅四窗 ③Family --summary「灾后重建」标记 ④下次自然灾变实战检验 reboot-recover（build 42 路径取证）⑤GitHub PAT 撤销确认
