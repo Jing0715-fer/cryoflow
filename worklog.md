@@ -5072,3 +5072,26 @@ Stage Summary:
 - **「多拒永远比漏拒安全」**：环守卫的保守律来自一次自审——被拒的线留在现实图上，预移除它们的检查会漏掉穿过它们的环；守卫的职责是问「最坏情形是否闭环」，不是猜「乐观情形是否无事」
 - **「POST 先于 DELETE」**：改嫁的持久化顺序是一份诚实合同——新线被服务器拒时旧线仍真（回滚诚实），旧线删失败时它回 UI（真相=服务器真相）；顺序反了就是两头落空
 - 产出：Branch Adoption 全链（adopt-branch 纯脑 + store 动作 + 对话框动词按钮）+ t443 bench 28/0 + 十四套回归 511 断言全绿 + 改嫁双向全循环活体（含诚实 disabled 态与盘上残渣清净）+ 三方一致真对齐
+
+---
+Task ID: 444 (cron agent loop 202609290600)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 443 完整收官（HEAD = 0733703 = origin/main，树净；stamp = afd373e 三方一致）。世界健康：app 200、15/15 全 completed、14 边、mock 集群 :3022 在听。第三十五份过时 Task 13 指引照例不认。自号 444。
+- [QA — 全绿基线] landing hydration 满血、console 0 错、标题 pristine。世界稳定 → 转新需求。
+- [选题定谳 — Staleness Wavefront] t443 诚实边界④点名的真空白：「改嫁后 child 的结果保持 completed——回执消隐后画布在说谎；『过期』状态概念全 app 不存在」。核实 PATCH 语义（t282 no-op 抑制 + 真变更刷 updatedAt + drag 也刷）→ 定律材料：**startedAt**（只在真跑时刷新，编辑不污染）。**波前律**：直接上游终态且 startedAt 更新 → child 过期；只看直接上游 = 重跑像波前传递（child 重跑后孙辈自然过期，永不超过实际发生的重建）。改嫁免费适配：改嫁到孪生 → badge 现身（child 没吃过孪生输出 ✓）；改嫁回原件 → badge 消失（child 的结果本来就是原件跑的 ✓）——时间律与身世真相双向一致，零持久化。
+- [交付] ①lib/staleness.ts（纯脑）：findStaleJobs（终态过滤 running/pending——churn 未落地不惊扰；failed 也算——上游在折腾是事实；startedAt 缺失 = 无证据不判决；严格更新 tie 不算）+ describeStaleness（**一句永远为真的话**：「Predates X's latest run」——改嫁场景孪生从未 re-run，句子永不说它 re-ran；names 内嵌 StaleInfo，卡内零查表，缺名回退 id）②job-card：icon-only amber History 徽章（t409 face 纪律——文本归 tooltip/inspector）③job-inspector：amber strip 条（remote band 同语法）全句合同④store：**staleMap 入 store**——module-tail subscription post-commit 重算（selectedId echo 的合法语法；只查 jobs/edges 引用变化无循环）。
+- [真 bug 活捉 — canvas 渲染链吞更新] 首版把 staleMap 放 canvas useMemo 经 props 下传——活体 QA 发现：adopt 后**服务器边已改、fiber props 停在旧值、DOM badge 不翻转**（双向复现、刷新才对）。取证三级跳：curl DELETE 200（路由好）→ bundle hash 对齐（页面新鲜）→ **fiber lanes=32 有 pending work 永不提交**——canvas 的 memo/deferral 渲染链在 edges-only commit 上吞了卡片更新（React 语义与观测矛盾处即 bug 处）。**工程决断：换通道**——staleMap 入 store，JobCard 用 useSyncExternalStore 直读自己那份（zustand 最强一致通道，绕开 canvas 渲染链）。重建后活体：**badge 143ms 内 true→false 当帧翻转、双向轮换全对**。附赠修复：adoptDownstream persistence 循环后**强制 refetch 全量 edges**（POST/DELETE 竞态的银弹——connect 的 409 分支同款语法）。
+- [验证 — 十五套全绿] t444 bench 27/0（W1 波前 6、W2 证据纪律 7、W3 编辑不污染 3、W4 改嫁双向 2、W5 多上游 3、W6 文案 6；W5b 首版自错——a 是反例不是 offender，先例七连）；十五套回归 538 断言全绿。tsc 0 + eslint 0（五触碰文件）。
+- [研磨 + 活体] FRESH 三轮（每轮 attempt 1 GREEN，ANTI-TEAR 自动履职；provenance = c34cb2f = feature commit）。活体 QA：孪生手术（duplicate→mock 集群 27s→completed）+ **改嫁双向全循环**：基线（Select 历史遗留 stale 是真话——波前律上岗第一天就抓到一例自隐过期）→ adopt 到孪生 badge 现身 → adopt 回原件 badge 消失（143ms）→ 再现身穿拍定妆 → 清场（DELETE 孪生 + rm motioncorr_pta385zp 残渣，16 目录 = 原世界）。
+- [诚实边界] ①「上游改参未跑」场景时间律不覆盖（startedAt 不动）——那是 params-diff 面的辖区，跨面联动另案②保守场景：上游首跑（created≈started）永远不标下游——正确（下游不可能吃过「上一次」）③canvas 渲染链 bug 的 React 内核机制未彻底根治（store 通道绕开而非修复）——诚实记录，若他面再遇同症候（「fiber 停旧、lanes 挂起」）优先换通道④插桩（[adopt]/[staleness]/[jsx-probe]/[card-probe] console.log）已全部移除后重建。
+- [QA 工艺教训 — 取证先校准靶子] 本轮大半时间耗在「DOM 查询命中 hover preview 卡」（60×28 的 role=button 与主卡 240×112 同 aria-label）与「服务器边状态记混」——fiber/lane 取证法（__reactFiber$ 直读 memoizedProps）与「先固化服务器真相再判 UI」是本轮沉淀的可复用法。
+- [最终态] HEAD = origin/main = 本窗 feature commit（已推）；stamp 三方一致；jobs 15 全 completed、edges 14、盘上 16 目录 = 原世界、QA 浏览器净场。下一窗从 Task 445 起编。遗留（下窗候选）：①「Run on cluster」对话框 run 完成后自动收窗②duplicate 智能后缀（(copy) 2）、⌘D 多选批量③A/B 判决行「把输家微图喂给 exclude」待消费者面④GitHub PAT 撤销确认（第三十三次提醒——本窗 push 正常）⑤EMPIAR 真数据回归（常驻）。
+
+Stage Summary:
+- **「图比状态诚实」**：completed 是历史，不是现状——上游重建的那一刻，下游的 completed 就成了过去式；波前律从图自己就有的 startedAt 派生真相，零 schema、零持久化，改嫁双向自动对齐
+- **「渲染链吞掉的东西，订阅链接得住」**：canvas props 传播被 memo/deferral 静默吞没（fiber lanes 挂起为证）——换 zustand store 通道后 143ms 当帧翻转；渠道的可靠性比渠道的优雅更产品
+- **「一句永远为真的话」**：badge 的句子在 re-run 与 adoption 两种成因下都必须为真——「predates X's latest run」对两种世界都说真话；产品文案的法律责任是全场景真，不是分场景巧
+- 产出：Staleness Wavefront 全链（staleness 纯脑 + store 通道 + 卡片徽章 + inspector strip）+ **canvas 吞更新 bug 活捉与换通道根治** + adoptDownstream refetch 加固 + t444 bench 27/0 + 十五套回归 538 断言全绿 + 改嫁双向翻转活体 + 三方一致真对齐
