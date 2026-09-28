@@ -109,7 +109,11 @@ while [ "$attempt" -lt "$MAX_ATTEMPTS" ]; do
       cp -r public .next/standalone/ >> "$LOG" 2>&1
     fi
     echo "$(stamp) GREEN on attempt $attempt (trio complete: BUILD_ID + standalone + static)" >> "$LOG"
-    echo "$(stamp) GREEN on attempt $attempt — standalone startable"
+    # build provenance (t422): stamp the commit this build came from, so the
+    # reboot-recover gate can tell a fresh trio from a shadow app built off
+    # an older tree (the t421 shadow-world lesson, build axis).
+    ( git rev-parse HEAD 2>/dev/null || echo unknown ) > .next/.built-at-commit
+    echo "$(stamp) GREEN on attempt $attempt — standalone startable (provenance: $(cat .next/.built-at-commit))"
     exit 0
   fi
 
