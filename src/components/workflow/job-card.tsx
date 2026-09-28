@@ -874,15 +874,11 @@ interface JobCardProps {
   isReady: boolean;
   /** True while this job is open in the large inspector modal. */
   inspected: boolean;
-  /** t444 — staleness wavefront: non-null when a finished direct upstream
-   *  re-ran after this result was produced (or adoption re-parented the
-   *  card to a younger run). Derived ONCE in the canvas (memo on
-   *  jobs+edges) and passed down — the card's React.memo isolation stays
-   *  intact: only the cards whose staleness actually changed re-render. */
-  staleInfo?: StaleInfo | null;
-  /** names resolved by the canvas (aligned with staleInfo.upstreamIds) —
-   *  the card has no job list of its own and the receipt names names. */
-  staleNames?: string[];
+  /* t444 — staleness arrives through the STORE subscription (see
+   * staleMap in WorkflowState), not through props: the canvas render
+   * path's memo/deferral chain could swallow an edges-only commit, so
+   * the card reads its own slice via useSyncExternalStore — the
+   * strongest consistency channel zustand offers. */
   onSelect: (id: string) => void;
   /** Shift-click toggle for the multi-selection. */
   onToggleSelect: (id: string) => void;
@@ -1434,8 +1430,6 @@ export const JobCard = React.memo(function JobCard({
   pendingFromType,
   isReady,
   inspected,
-  staleInfo,
-  staleNames,
   onSelect,
   onToggleSelect,
   onInspect,
@@ -1445,6 +1439,12 @@ export const JobCard = React.memo(function JobCard({
   onCancelConnect,
   onConnect,
 }: JobCardProps) {
+  // t444 — this card's staleness slice: a stable object ref while the
+  // world is quiet (memo cards skip), a fresh ref only when THIS card's
+  // staleness actually changed. null = current.
+  const staleInfo: StaleInfo | null = useWorkflowStore((s) =>
+    s.staleMap.get(job.id) ?? null,
+  );
   const spec = jobType(job.type);
   const inputs = spec?.inputs ?? [];
   // t315 — Node type picks the import job's output port: the card renders
@@ -2189,7 +2189,7 @@ export const JobCard = React.memo(function JobCard({
                   the quietest honest mark that catches the eye without
                   rearranging the row. aria + title speak the full sentence. */}
               {staleInfo ? (() => {
-                const d = describeStaleness(staleInfo, staleNames ?? []);
+                const d = describeStaleness(staleInfo);
                 return (
                   <span
                     role="img"

@@ -217,8 +217,8 @@ console.log("W5 — multiple offenders aggregate; the newest instant wins");
 /* ================= W6 — the spoken form ================= */
 console.log("W6 — one sentence true in every scenario; names over ids");
 {
-  const info1 = { upstreamIds: ["motion"], since: MOTION_RERUN };
-  const d1 = describeStaleness(info1, ["Motion Correction 1"]);
+  const info1 = { upstreamIds: ["motion"], upstreamNames: ["Motion Correction 1"], since: MOTION_RERUN };
+  const d1 = describeStaleness(info1);
   must(
     d1.short === "Predates Motion Correction 1's latest run",
     "W6a the short form names the upstream and never says 're-ran' (the twin never did)",
@@ -230,22 +230,20 @@ console.log("W6 — one sentence true in every scenario; names over ids");
   );
   must(d1.since === MOTION_RERUN, "W6c the raw instant passes through for locale rendering");
 
-  const d2 = describeStaleness({ upstreamIds: ["a", "b"], since: MOTION }, ["Motion A", "Motion B"]);
+  const d2 = describeStaleness({ upstreamIds: ["a", "b"], upstreamNames: ["Motion A", "Motion B"], since: MOTION });
   must(
     d2.short === "Predates Motion A and Motion B's latest run",
     "W6d the two-name join reads naturally",
   );
 
-  const d3 = describeStaleness(
-    { upstreamIds: ["a", "b", "c"], since: MOTION },
-    ["Motion A", "Motion B", "Motion C"],
-  );
+  const d3 = describeStaleness({ upstreamIds: ["a", "b", "c"], upstreamNames: ["Motion A", "Motion B", "Motion C"], since: MOTION });
   must(
     d3.short === "Predates Motion A, Motion B and Motion C's latest run",
     "W6e the three-name join uses the serial comma",
   );
 
-  const d4 = describeStaleness({ upstreamIds: ["ghost"], since: MOTION }, []);
+  // names missing at build time fall back to the raw id (never a blank)
+  const d4 = describeStaleness({ upstreamIds: ["ghost"], upstreamNames: ["ghost"], since: MOTION });
   must(
     d4.short.includes("ghost"),
     "W6f a name the caller couldn't resolve falls back to the raw id, never a blank",

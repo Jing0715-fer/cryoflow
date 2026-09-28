@@ -2345,17 +2345,10 @@ function InspectorHeader({
   const edges = useWorkflowStore((s) => s.edges);
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const switchWorkspace = useWorkflowStore((s) => s.switchWorkspace);
-  // t444 — the staleness wavefront for THIS job: derived from the live
-  // graph (a finished direct upstream re-ran after this result). The
-  // inspector is where the full sentence belongs; the card carries only
-  // the amber glyph.
-  const staleInfo = React.useMemo(
-    () => findStaleJobs(jobs, edges).get(job.id) ?? null,
-    [jobs, edges, job.id],
-  );
-  const staleNames = staleInfo
-    ? staleInfo.upstreamIds.map((id) => jobs.find((j) => j.id === id)?.name ?? id)
-    : [];
+  // t444 — the staleness wavefront for THIS job, read from the store's
+  // derived map (same channel the cards use — one derivation, one truth).
+  // The inspector is where the full sentence lives.
+  const staleInfo = useWorkflowStore((s) => s.staleMap.get(job.id) ?? null);
   const [confirmRerun, setConfirmRerun] = React.useState(false);
   /** t397 — the explicit continue target ("Continue from here:" → fn_cont):
    * the Re-run button + its confirm speak the MODE — Continue when set
@@ -2724,7 +2717,7 @@ function InspectorHeader({
           nothing while the result is current: silence is the default,
           the alarm is the exception. */}
       {staleInfo ? (() => {
-        const d = describeStaleness(staleInfo, staleNames);
+        const d = describeStaleness(staleInfo);
         return (
           <div
             role="note"

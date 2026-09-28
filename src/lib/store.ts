@@ -17,6 +17,7 @@ import {
   twinSpot,
 } from "./duplicate-run";
 import { describeAdoption, planAdoption } from "./adopt-branch";
+import { findStaleJobs, type StaleReport } from "./staleness";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -627,6 +628,13 @@ interface WorkflowState {
    *  reclaimed. Never enters undo; the find lens stays ephemeral — its
    *  contract is to close clean, the fold's contract is to stay put. */
   kpiCollapsed: boolean;
+  /** t444 — the staleness wavefront, derived in the STORE (not the
+   *  canvas render): one findStaleJobs per jobs/edges commit, via the
+   *  post-commit subscription at the module tail. Cards subscribe to
+   *  their own slice (stable object refs between commits) — the update
+   *  reaches each card through zustand's useSyncExternalStore channel,
+   *  immune to the canvas render path's memo/deferral bailouts. */
+  staleMap: StaleReport;
   /** Parsed workflow files awaiting confirmation in the import dialog —
    *  the dialog shows a QUEUE (one summary row per file, plus per-file
    *  parse failures) + one shared target-workspace picker before any
@@ -1394,6 +1402,7 @@ const kickoffUpstream = (
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   jobs: [],
   edges: [],
+  staleMap: new Map(),
   project: null,
   projects: [],
   workspaces: [],
@@ -2967,6 +2976,22 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
     }
 
+    // t444 — THE REFETCH CLOSES THE RACE: the optimistic set + per-move
+    // POST/DELETE round trips leave a window where a concurrent poll or a
+    // failed DELETE's restore can leave the store disagreeing with the
+    // server (the live QA caught exactly that: edges moved server-side,
+    // the canvas kept the old wiring until reload). One GET afterwards
+    // re-pins UI truth to server truth — the same move connect()'s 409
+    // branch makes. Failure stays silent: the optimistic state is already
+    // near-correct, and the next poll converges anyway.
+    try {
+      const fresh = await api<{ edges: EdgeDTO[] }>("/api/edges");
+      console.log("[adopt] refetch edges:", fresh.edges.length, "moves:", plan.moves.length, "failures:", failures.length);
+      set({ edges: fresh.edges });
+    } catch {
+      /* the optimistic state stands; the next poll converges */
+    }
+
     const { title, detail } = describeAdoption(plan, nameA, nameB, failures);
     toast({
       title,
@@ -4294,4 +4319,28 @@ if (typeof window !== "undefined") {
       persistSelectedJob(s.selectedId);
     }
   });
+}
+
+/* t444 — the staleness echo, same grammar as the selectedId echo above:
+ * jobs/edges commits re-derive the wavefront ONCE, post-commit, between
+ * renders; cards then read their slice through the store subscription.
+ * The write only fires on a real jobs/edges change (staleMap changes
+ * never re-enter this branch), so there is no loop. */
+if (typeof window !== "undefined") {
+  let prevJobs = useWorkflowStore.getState().jobs;
+  let prevEdges = useWorkflowStore.getState().edges;
+  useWorkflowStore.subscribe((s) => {
+    if (s.jobs !== prevJobs || s.edges !== prevEdges) {
+      prevJobs = s.jobs;
+      prevEdges = s.edges;
+      useWorkflowStore.setState({ staleMap: findStaleJobs(s.jobs, s.edges) });
+    }
+  });
+  // boot derivation: the initial load's commits pass through the same
+  // subscription, but a hydrated store arriving pre-populated still
+  // gets its wavefront here
+  const boot = useWorkflowStore.getState();
+  if (boot.jobs.length > 0) {
+    useWorkflowStore.setState({ staleMap: findStaleJobs(boot.jobs, boot.edges) });
+  }
 }

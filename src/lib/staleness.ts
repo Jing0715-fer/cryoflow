@@ -59,6 +59,10 @@ export interface StaleEdgeLike {
 export interface StaleInfo {
   /** finished direct upstreams that re-ran after this result */
   upstreamIds: string[];
+  /** names resolved at build time (the store owns the job list) — the
+   *  badge speaks names without a second lookup; a gap falls back to
+   *  the raw id in describeStaleness */
+  upstreamNames: string[];
   /** the newest upstream start among them — the badge's "since" */
   since: string;
 }
@@ -111,7 +115,11 @@ export function findStaleJobs(jobs: StaleJobLike[], edges: StaleEdgeLike[]): Sta
     }
 
     if (upstreamIds.length > 0 && newest != null) {
-      report.set(job.id, { upstreamIds, since: newest });
+      report.set(job.id, {
+        upstreamIds,
+        upstreamNames: upstreamIds.map((id) => byId.get(id)?.name ?? id),
+        since: newest,
+      });
     }
   }
 
@@ -132,9 +140,10 @@ export function findStaleJobs(jobs: StaleJobLike[], edges: StaleEdgeLike[]): Sta
  */
 export function describeStaleness(
   info: StaleInfo,
-  names: string[],
 ): { short: string; long: string; since: string } {
-  const resolved = info.upstreamIds.map((id, i) => names[i] ?? id);
+  const resolved = info.upstreamNames.length === info.upstreamIds.length
+    ? info.upstreamNames
+    : info.upstreamIds;
   const who =
     resolved.length === 1
       ? resolved[0]
