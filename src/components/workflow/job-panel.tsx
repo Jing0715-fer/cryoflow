@@ -45,6 +45,7 @@ import { registerParamFlusher, useWorkflowStore } from "@/lib/store";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
 import { ClassGallery } from "./class-gallery";
 import { CopyButton } from "./copy-button";
+import { RemoteStayNote } from "./remote-stay-note";
 import type {
   EdgeDTO,
   JobDTO,
@@ -2177,12 +2178,9 @@ function PanelBody({ job }: { job: JobDTO }) {
           </div>
         ) : null}
         {job.runRemote?.note ? (
-          <p
-            role="note"
-            className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
-          >
-            {job.runRemote.note}
-          </p>
+          // t429 — bring-home awareness: the panel has no listing of its
+          // own, so the note self-probes the remote-remaining endpoint
+          <RemoteStayNote note={job.runRemote.note} jobId={job.id} />
         ) : null}
 
         {relionBlocked && (

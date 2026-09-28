@@ -99,9 +99,90 @@ export function sessionToMarkdown(
   return lines.join("\n");
 }
 
-/** ASCII-safe download filename (Content-Disposition must stay byte-clean). */
-export function sessionFileName(session: Pick<AiSessionDto, "createdAt" | "id">): string {
+/** ASCII-safe download filename (Content-Disposition must stay byte-clean).
+ *  ext: "md" (default) or "json" — the t429 machine-readable export. */
+export function sessionFileName(
+  session: Pick<AiSessionDto, "createdAt" | "id">,
+  ext: "md" | "json" = "md"
+): string {
   const d = new Date(session.createdAt);
   const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-  return `ai-session-${stamp}-${session.id.slice(-6)}.md`;
+  return `ai-session-${stamp}-${session.id.slice(-6)}.${ext}`;
+}
+
+/**
+ * t429 — the machine-readable twin of sessionToMarkdown. Where the
+ * Markdown export renders FOR HUMANS (escaped structure, prose dialect),
+ * this renders FOR PROGRAMS: the tool result's {ok,summary,detail} JSON
+ * is parsed into real fields instead of quoted prose, timestamps are ISO
+ * strings, and no escaping games exist because user content sits in JSON
+ * string values — it cannot forge structure there (the mirror of the
+ * escapeMd law: injection is impossible by construction, not by scrubbing).
+ *
+ * Envelope: format+version so a future shape change is detectable; the
+ * session payload keeps the DTO's message order verbatim.
+ */
+export function sessionToExportJson(
+  session: AiSessionDto,
+  projectName: string,
+  toolCount: number
+): string {
+  const messages = session.messages.map((m) => {
+    if (m.role === "user") {
+      return { role: "user", at: new Date(m.at).toISOString(), content: m.content };
+    }
+    if (m.role === "assistant") {
+      return {
+        role: "assistant",
+        at: new Date(m.at).toISOString(),
+        content: m.content,
+        ...(m.toolCalls && m.toolCalls.length > 0
+          ? {
+              toolCalls: m.toolCalls.map((c) => ({
+                name: c.name,
+                args: c.args ?? {},
+              })),
+            }
+          : {}),
+      };
+    }
+    // tool — parse the {ok,summary,detail} envelope into real fields;
+    // unparseable content degrades to raw (honest, labeled)
+    let ok: boolean | null = m.isError ? false : null;
+    let summary = "";
+    let raw: string | undefined;
+    try {
+      const parsed = JSON.parse(m.content) as { ok?: unknown; summary?: unknown; detail?: unknown };
+      if (typeof parsed.ok === "boolean") ok = parsed.ok;
+      if (typeof parsed.summary === "string") summary = parsed.summary;
+      if (typeof parsed.detail === "string" && parsed.detail.length > 0) raw = parsed.detail;
+    } catch {
+      raw = m.content;
+    }
+    return {
+      role: "tool",
+      at: new Date(m.at).toISOString(),
+      name: m.name,
+      ok,
+      summary: summary.length > 0 ? summary : null,
+      ...(raw !== undefined ? { raw } : {}),
+    };
+  });
+
+  const envelope = {
+    format: "cryoflow-ai-session",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    session: {
+      id: session.id,
+      title: session.title && session.title.trim().length > 0 ? session.title.trim() : null,
+      project: projectName,
+      createdAt: new Date(session.createdAt).toISOString(),
+      updatedAt: new Date(session.updatedAt).toISOString(),
+      messageCount: session.messages.length,
+      toolCallCount: toolCount,
+      messages,
+    },
+  };
+  return JSON.stringify(envelope, null, 2);
 }

@@ -88,6 +88,7 @@ import { jobType, tabsFor } from "@/lib/workflow";
 import { RELION_OPTIONS } from "@/lib/relion/option-tables";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
 import { CopyButton } from "./copy-button";
+import { RemoteStayNote } from "./remote-stay-note";
 import { RemoteRunButton } from "./remote-run-button";
 import { CleanupDialog } from "./cleanup-dialog";
 import { useWorkflowStore } from "@/lib/store";
@@ -159,6 +160,10 @@ interface OutputFile {
   slices?: number;
   label?: string;
   rows?: number;
+  /** t289 — manifest entries still on the cluster join the listing with
+   *  remote: true (the local walk doesn't contain them); t429 reads this
+   *  flag for the stay-receipt's bring-home awareness. */
+  remote?: boolean;
 }
 
 interface OutputsResponse {
@@ -2289,6 +2294,7 @@ function InspectorHeader({
   job,
   summary,
   onCleaned,
+  remoteRemaining,
 }: {
   job: JobDTO;
   /** t347 — the outputs summary (live-counted key numbers): the header's
@@ -2296,6 +2302,10 @@ function InspectorHeader({
    *  counted numbers when the summary couldn't be counted. */
   summary?: OutputSummary | null;
   onCleaned?: () => void;
+  /** t429 — the bring-home truth for the stay-receipt: null while the
+   *  listing hasn't landed (receipt stays amber, no flash), a number once
+   *  it has. Undefined lets the note self-probe its own endpoint. */
+  remoteRemaining?: number | null;
 }) {
   const spec = jobType(job.type);
   const running = job.status === "running";
@@ -2747,12 +2757,10 @@ function InspectorHeader({
         </div>
       ) : null}
       {job.runRemote?.note ? (
-        <p
-          role="note"
-          className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
-        >
-          {job.runRemote.note}
-        </p>
+        // t429 — bring-home awareness: the receipt re-judged against live
+        // disk truth (the listing this inspector already polls counts the
+        // manifest entries still remote — no extra fetch)
+        <RemoteStayNote note={job.runRemote.note} remoteRemaining={remoteRemaining} />
       ) : null}
 
       {/* live progress */}
@@ -3070,7 +3078,12 @@ export function JobInspector() {
               <DialogTitle asChild>
                 <div>
                   <span className="sr-only">{job.name} — job inspector</span>
-                  <InspectorHeader job={job} summary={data?.summary ?? null} onCleaned={() => void loadOutputs()} />
+                  <InspectorHeader
+                    job={job}
+                    summary={data?.summary ?? null}
+                    onCleaned={() => void loadOutputs()}
+                    remoteRemaining={data ? data.files.filter((f) => f.remote).length : null}
+                  />
                 </div>
               </DialogTitle>
               <DialogDescription className="sr-only">

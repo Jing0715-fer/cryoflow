@@ -4660,3 +4660,29 @@ Stage Summary:
 ### Task 428 收官段（同窗追加）
 - [provenance 对齐] 收官补研：杀服务器（/proc 死亡验证）→ FRESH 研磨 attempt 5 绿（OOM 抽签仍在，但磨盘教义走到绿）→ reboot-recover 十步 WORLD ALIVE → .next/.built-at-commit = 04e2946 = HEAD 逐字节一致。新 build 冒烟：加载 0 console 错（抽屉三钮为悬停现身——完整活体 QA 已在字节同源的前一轮 build 上全过）。
 - [最终态] HEAD = 04e2946 已推 origin/main（本窗无并行碰撞——push 一次平推）；世界 200 运行 t428 build；AI settings 复原 pristine（activeProvider custom / hasKey false）、QA 会话已回收（sessions 0）、mock LLM 已停、浏览器净场。下一窗从 Task 429 起编。GitHub PAT 撤销确认第十八次提醒。
+
+---
+Task ID: 429 (cron agent loop 202609281906)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 428 完整收官（HEAD = 82f5a4e = origin/main，树净；世界 200 运行 04e2946 build，provenance 与 HEAD 仅差 docs-only 收官段）。第二十份过时 Task 13 指引照例不认。自号 429。
+- [QA — 真 bug 上门] 世界健康（15/15 jobs 全绿、console 0 错、canvas/inspector 渲染正常）。经 Dashboard 打开 Extract inspector 目击矛盾叙事：顶部 amber 横幅仍宣称「24 image file(s) stayed on the cluster — open or download one to fetch it on demand — or switch the connection's sync policy」——而磁盘上 24 枚 .mrcs 早在 t425 批量归家时全数进屋（extra/ 亲数 24），同屏 Maps & images (24) 缩略图全部正常渲染。横幅读的是 sync 时刻的历史回执（runRemote.note），listing 与磁盘已是归家后真相——历史回执没有归家感知。job-panel.tsx:2179 同型渲染同病。
+- [诊断] note 只有两个 UI 消费者（inspector 2749 + job-panel 2179），AI 工具不读 runRemote.note；listing 路由本就归家感知（localSet.has → 跳过已归家 manifest 项），inspector 的 data 状态里就有 reactive 计数。修法定案：不涂改历史回执（它在其时刻为真），UI 加归家感知章——remaining === 0 → teal resolved 章 + 原文降为 muted 历史；remaining > 0 → 保留 amber 并追加现代指引（Results → Bring home all 一击批量，t425 bar 在场时恒有效）。
+- [计划] ①micro-endpoint GET /api/jobs/[id]/outputs/remote-remaining（isLocalRequest 门 + manifest×existsSync 诚实计数）②共享组件 RemoteStayNote（方言检测 + resolved/pointer 两态）③双接线（inspector 走自带 listing reactive、job-panel 自取端点）④t428 遗留②：AI 会话导出 ?format=json ⑤t419 bench 回归 + 新 bench ⑥收敛 + 活体 QA（含 remaining>0 路径的临时删文件演练）。
+- [诚实边界] 本条目断于实现前；收官段续记。
+
+### Task 429 实现段（同窗追加）
+- [交付一 — stay-note 归家感知] ①新端点 GET /api/jobs/[id]/outputs/remote-remaining（isLocalRequest 门；getRun+readRemoteManifest×existsSync 的诚实计数——sync 路由的 remaining 算法升格为只读 GET；无 remote/无 manifest → 0/0 空真，无 workdir → 400）②共享组件 remote-stay-note.tsx（isStayReceipt 方言检测：含「stayed on the cluster」且不含「EARLIER run」——ssh 失联/stale-generation/混合段不被归家章吞没；remaining===0 → teal resolved 章「All brought home」+ 原文降为 muted 历史引文；remaining>0 → 保留 amber + 追加现代指引「Results → Bring home all 一击批量」；truth 未到 → 原样 amber 无闪烁）③双接线：inspector 走自带 listing 的 reactive 计数（零额外请求；OutputFile 类型补 remote? 字段），job-panel 自探端点（每 mount 一次）。不涂改历史回执——它在其时刻为真，UI 只加尾声。
+- [交付二 — JSON 会话导出]（t428 遗留②）export.ts 加 sessionToExportJson：信封 cryoflow-ai-session/1 + ISO 时间戳 + 工具结果 {ok,summary,detail} 解析成真字段（非引用散文）+ 不可解析降级 labeled raw + 清名答 null；JSON 里用户内容是纯字符串值——结构伪造不可能 by construction（escapeMd 律的镜像）。路由 ?format=md|json 双格式（其他显式值 400——诚实合同不静默回退）；sessionFileName 加扩展参。抽屉导出钮升级 DropdownMenu 双项（Markdown·报告/ELN 档案形制 + JSON·机器可读），每项带一行用途副标题。
+- [验证] tsc 0 + eslint 0（五个触碰文件）；t429 bench 38/38（S1 方言矩阵 8 断言 + S2-S6 端点进程内直驱 403/404/400/0-0/1-of-3→0-of-3 翻转 + J1 信封 15 断言 + J2-J5 路由双格式/400/pinning 404）；回归 t419 111/0 + t420 52/0 + t428 40/0 全绿。
+- [诚实边界] ①活体 QA（resolved 章 + pointer + JSON 导出 + remaining>0 临时删文件演练）待新 build 收敛后执行②RemoteStayNote 的 job-panel 自探只在 mount 时发生——bring-home 从 results-view 发起后 job-panel 的章不会自动刷新（面板与 inspector 互斥表面，重开即新探）。
+
+### Task 429 收官段（同窗追加）
+- [收敛] 清 QA chrome（3.4GB available，t426 教训预防性执行）→ 杀服务器（/proc 死亡验证）→ 第一次 FRESH 研磨被平台收割者整组收走（**裸 nohup & 教训第三次应验**——t426/t428 都记过，本窗终于自己也犯了一次）→ ( ) 孤儿模式重启磨盘 → attempt 1 绿（provenance 82f5a4e = HEAD）→ reboot-recover 十步 WORLD ALIVE（demo chain FSC 0.143/6.51Å 官方数字 assert + probe 重钉 + world-reborn 戳）。
+- [活体 QA — stay-note 三态闭环] ①live 端点：Extract 答 {remaining:0,total:27}、跨站 403 ②resolved 章：inspector 顶栏 teal 勾章「All brought home — nothing to fetch.」+ 原回执降为 muted 历史引文（teal 左边框），amber 紧迫感消失（t429-resolved-note.png）③remaining>0 演练：临时删 mic_024（磁盘字节级 stash/restore，cmp 逐字节验证）→ 端点 1/27 → inspector amber 回执保留 + teal 指引「1 file still on cluster — Results → Bring home all brings them all in one click」，且与 Results tab 实际在场的 RemoteBatchBar（1 file · 65.0 KB）同叙事（t429-open-note.png）④恢复文件 → resolved 章回归（t429-resolved-again.png）。三态闭环全过。
+- [活体 QA — JSON 导出] bun fixture 造 QA 会话（CRYPTO 世界 DB 自钉）→ live curl ?format=json：attachment .json 文件名 + 信封 cryoflow-ai-session/1 + 工具结果解析为真字段（ok/summary/raw）逐字节符合设计 → UI：历史抽屉 fixture 行加粗 + 🔧1 计数在场 → 导出钮 DropdownMenu 双项带用途副标题（Markdown·报告/ELN + JSON·机器可读）→ 点 JSON 项菜单收起无错。console 全程 0 错。
+- [清场] QA 会话经 DELETE 门回收（sessions 0 双证；两击确认在自动化里打滑两次——armed 态对 hover 敏感，API 门顶替）+ AI 面板关闭 + 浏览器净场 + mic_024 恢复 cmp 验证。设置对话框顺带目击「Custom: Unable to connect」诚实报错（mock LLM 未跑，t428 收官后照例停机——非 bug）。
+- [诚实边界] ①UI 下载的 blob 本体未落盘取证（toast 消散快 + agent-browser 对 JS blob 下载捕获不定）——导出件以 live curl 逐字节验证顶替，UI 路径与 md 导出同代码 ②job-panel 的自探章只在 mount 时发生（与 inspector 互斥表面，重开即新探）③mock LLM judge 车道本窗未涉。
+- [最终态] HEAD 含 t429 交付（本 commit）；世界 200 运行 82f5a4e build（provenance 同瞬）；sessions 0、AI settings pristine（activeProvider custom / hasKey false，本窗未触碰）、mock 集群 :3022 在听、mock LLM 停。下一窗从 Task 430 起编。遗留（下窗候选）：①失败 chip 的 mock 演证（t426 遗留，第二窗顺延）②GitHub PAT 撤销确认（第十九次提醒——本窗 fetch+push 正常）③EMPIAR 真数据回归（empiar 批常驻在位）。

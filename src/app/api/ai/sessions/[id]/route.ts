@@ -5,7 +5,7 @@ import {
   renameSessionForActiveProject,
   sessionForActiveProject,
 } from "@/lib/ai/agent";
-import { sessionFileName, sessionToMarkdown } from "@/lib/ai/export";
+import { sessionFileName, sessionToExportJson, sessionToMarkdown } from "@/lib/ai/export";
 import { toolCallsUsed } from "@/lib/ai/sessions";
 import { getActiveProject } from "@/lib/projects";
 
@@ -23,6 +23,11 @@ type RouteContext = { params: Promise<{ id: string }> };
  * archival shape a report or ELN can absorb: display-name heading, meta
  * line, one section per message, tool calls/results as quotes. Served as
  * an attachment so a browser save never navigates the SPA away.
+ *
+ * t429 — `?format=json` is the machine-readable twin (envelope
+ * cryoflow-ai-session/1, tool results as parsed fields, ISO timestamps).
+ * Any OTHER explicit format answers 400 — an honest contract beats a
+ * silent fallback to the inline session body.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -36,21 +41,35 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const url = new URL(request.url);
-    if (url.searchParams.get("format") !== "md") {
+    const format = url.searchParams.get("format");
+    if (format !== null && format !== "md" && format !== "json") {
+      return NextResponse.json(
+        { error: "Unsupported format — use md, json, or omit for the inline session" },
+        { status: 400 }
+      );
+    }
+    if (format === null) {
       return NextResponse.json({ session: result.session });
     }
 
     const active = await getActiveProject();
-    const md = sessionToMarkdown(
-      result.session,
-      active?.project.name ?? "(unknown project)",
-      toolCallsUsed(result.session)
-    );
-    return new NextResponse(md, {
+    const projectName = active?.project.name ?? "(unknown project)";
+    const toolCount = toolCallsUsed(result.session);
+    if (format === "md") {
+      return new NextResponse(sessionToMarkdown(result.session, projectName, toolCount), {
+        status: 200,
+        headers: {
+          "content-type": "text/markdown; charset=utf-8",
+          "content-disposition": `attachment; filename="${sessionFileName(result.session)}"`,
+          "cache-control": "no-store",
+        },
+      });
+    }
+    return new NextResponse(sessionToExportJson(result.session, projectName, toolCount), {
       status: 200,
       headers: {
-        "content-type": "text/markdown; charset=utf-8",
-        "content-disposition": `attachment; filename="${sessionFileName(result.session)}"`,
+        "content-type": "application/json; charset=utf-8",
+        "content-disposition": `attachment; filename="${sessionFileName(result.session, "json")}"`,
         "cache-control": "no-store",
       },
     });

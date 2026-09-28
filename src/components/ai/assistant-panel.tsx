@@ -101,6 +101,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
@@ -719,9 +725,9 @@ export function AssistantPanel() {
     }
   }
 
-  async function exportSession(id: string) {
+  async function exportSession(id: string, format: "md" | "json") {
     try {
-      const res = await fetch(`/api/ai/sessions/${id}?format=md`);
+      const res = await fetch(`/api/ai/sessions/${id}?format=${format}`);
       if (!res.ok) {
         toast.error("导出失败 — 会话可能已被删除");
         return;
@@ -731,7 +737,7 @@ export function AssistantPanel() {
       // anything else (proxy stripping) falls back to a dated name.
       const cd = res.headers.get("content-disposition") ?? "";
       const match = /filename="([^"]+)"/.exec(cd);
-      const filename = match?.[1] ?? `ai-session-${new Date().toISOString().slice(0, 10)}.md`;
+      const filename = match?.[1] ?? `ai-session-${new Date().toISOString().slice(0, 10)}.${format}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -740,7 +746,7 @@ export function AssistantPanel() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success("已导出 Markdown 会话记录");
+      toast.success(format === "md" ? "已导出 Markdown 会话记录" : "已导出 JSON 会话记录");
     } catch {
       toast.error("导出失败 — 网络不可达");
     }
@@ -1061,16 +1067,33 @@ export function AssistantPanel() {
                         >
                           <PenLine className="size-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-                          onClick={() => void exportSession(s.id)}
-                          aria-label={`导出会话 Markdown：${(s.title ?? s.preview).slice(0, 20)}`}
-                          title="导出 Markdown"
-                        >
-                          <Download className="size-3.5" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                              aria-label={`导出会话：${(s.title ?? s.preview).slice(0, 20)}`}
+                              title="导出（Markdown / JSON）"
+                            >
+                              <Download className="size-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="min-w-44">
+                            <DropdownMenuItem onClick={() => void exportSession(s.id, "md")}>
+                              <span className="flex flex-col">
+                                <span className="text-xs font-medium">Markdown</span>
+                                <span className="text-[10px] text-muted-foreground">报告 / ELN 可吸收的档案形制</span>
+                              </span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => void exportSession(s.id, "json")}>
+                              <span className="flex flex-col">
+                                <span className="text-xs font-medium">JSON</span>
+                                <span className="text-[10px] text-muted-foreground">机器可读 — 工具结果为结构化字段</span>
+                              </span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </>
                     )}
                   </div>
