@@ -4870,3 +4870,22 @@ Stage Summary:
 - [意外捕获第三缺口 — provenance green-wash] 收官 commit（fc2932a）后照家族先例补研，却目击 18:00 修复跑的「provenance stale — re-grinding」根本没真研：build-until-green 的 trio 幂等门在 trio 完整时 exit 0 **不 build 不盖戳**，.built-at-commit 永远停在 17b4c86——reboot-recover 的 stale 路径自 t422 引入以来，在「trio 完整 + 戳旧」的组合下是一次嘴上说说（本窗 18:00/18:03 两跑皆如此，世界一直运行 17:46 的 build B——内容恰好无害（此后只有 docs/scripts 差），但「已对齐」是假绿）。修法 = stale 路径强制 FRESH=1（研磨器自己的提示语「source changed since? FRESH=1」就是这个场景）；3f47c2e 入库。
 - [FRESH 研磨马拉松] FRESH 真研首两跑 rc=137 连击（webpack MainThread ~3.1GB anon 贴 4GB 收割线；杀服务器腾 180MB 仍不够）→ 目标清单揪出漏网大户 **QA chrome**（t431/t433 教义第三度应验：研磨前必杀浏览器）→ 净场后 available 3156→3429MB → 研磨器直调 cap=3，attempt 1 绿（provenance 3f47c2e）→ reboot-recover 十步：step 5 启新 standalone → **hydration probe：webpack-5077a…js → 200** → WORLD ALIVE。
 - [最终态] .next/.built-at-commit = 3f47c2e = HEAD = origin/main **三方逐字节一致（真对齐）**；世界 200 运行同戳 build；新 build 冒烟 landing 满血、console 0 错、dashboard 15 COMPLETED；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、mock LLM 停、QA 浏览器净场。下一窗从 Task 435 起编。GitHub PAT 撤销确认第二十四次提醒（本窗两次 push 均正常：fc2932a + 3f47c2e）。
+
+---
+Task ID: 435 (cron agent loop 202609290213)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 434 完整收官 + 补研段（HEAD = 7c3deb5 = origin/main，树净；代码戳 3f47c2e，docs 差=惯例时差）。世界真健康：app 200（5.5ms）、服务器 pid 18175 出生 18:11:52Z 晚于 build（无撕裂——t434 新律首验即过）、15/15 全 completed、mock 集群 :3022 在听。第二十六份过时 Task 13 指引照例不认（六项已于 t434 全退役，清单清零后此为常态确认）。自号 435。
+- [QA — 全绿] landing hydration 满血、画布 Catalog/节点在位、console 0 错；CTF Estimation inspector Overview tab：CtfQualityChart + t432 QC 板满铺（头部「24 micrographs · N offenders」、三透镜 chips Worst fit/Astigmatism/FOM、Worst first 排序、瓦片第二行 def 对）——快照文本节点拆分（「· 」「 micrographs」分段发射）一度骗过 rg 检索，实际在场；**FOM 透镜 legend 修复句活体在场**（「offenders ≤ 0.070 (p10) · watch ≤ 0.073 (p25) — lines are this run's own distribution」——t433 交付复验）。ctf API 200/24 微图。世界稳定 → 转 t434 遗留③源头端封杀。
+- [交付 — grinder 源头端防撕裂锁] t434 封了检测端（reboot-recover step 5 + hydration probe），本轮封源头：**build-until-green 的 GREEN 分支新律**——真 build 落盘后，任何出生早于新 BUILD_ID 的 :3000 standalone = 本 build 刚制造出的陈旧广播者 → 研磨器自己退休它（SIGTERM → /proc 轮询 5s → SIGKILL 的 bun 律；孤儿重启 **env pins 显式重申**（DATABASE_URL + CRYOFLOW_DATA_DIR——裸调用脱离 reboot-recover 也落在真 DB 真 data plane，t419/t420 教义在源头重述）；200 等待；双语判 LOUD 输出）。no-op 三件套路径保持 hands-off 但不再沉默：见 stale standalone 即 NOTE 指路 reboot-recover（沉默正是 t434 撕裂活过幂等体检的原因）。
+- [自捕自修] 首版 NOTE 段 `&&` 续行链缺 `\`——bash -n 当场拦下（t434 教义「bash -n 查不出语义」的上半句：语法它还是查得出的），改 if 块。
+- [验证 — 活体演习真火] 补研段 FRESH 研磨（服务器故意存活做靶）：attempt 1 rc=137（✓ Compiled successfully 84s 后 page-data 段被收割——cache 续命教义）→ attempt 2 GREEN → **ANTI-TEAR 现场真火**：「standalone (pid 18175) predates the build it would now serve — restarting in place」→ 杀旧 + 孤儿启新（env pins 在场）→ 4 秒后「fresh standalone answers 200 — memory and disk speak the same build」。t434 事故的精确重演，但这次世界由研磨器亲手闭合——无需 reboot-recover 跟进。随后十步体检全 skip + hydration probe green（新 chunk webpack-dff310e → 200）+ 三方一致（.built-at-commit = f5d18e1 = HEAD = origin/main，本轮无 green-wash——t434 的 FRESH 律在位）。
+- [最终态] HEAD = origin/main = f5d18e1；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、mock LLM 停、QA 浏览器净场。下一窗从 Task 436 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十五次提醒——本窗 push 正常）②EMPIAR 真数据回归（常驻在位）③撕裂类已三层闭合（grinder 源头律 / reboot-recover step 5 / hydration probe）——下窗可转向产品面新需求。
+
+Stage Summary:
+- **「绿的法律由产物说话」**：研磨器的契约过去是「我产出一个 startable trio」，t435 起是「我产出一个 coherent world」——build 落盘那一刻，它自己就是撕裂的制造者，也只有它知道这一刻该退休谁；检测端（下一窗的 reboot）永远慢一拍，源头端即时闭合
+- **「孤儿重启要自带出生证明」**：研磨器被谁调用不可知（reboot-recover 内 / cron 窗裸调），env pins 必须在 nohup 行上显式重申——继承来的环境是运气，写死的 pin 是契约
+- **「hands-off 不等于沉默」**：no-op 路径发现世界已撕裂时说一声，比修一声更符合它的身份——不越权动手，但也不再当共犯
+- 产出：build-until-green.sh 防撕裂律（GREEN 分支 + no-op NOTE）+ 活体演习真火（重启 4 秒回 200）+ 三方一致真对齐；撕裂类三层防御闭合，下窗转产品面
