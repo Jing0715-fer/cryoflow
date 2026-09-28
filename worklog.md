@@ -4788,3 +4788,25 @@ Stage Summary:
 ### Task 431 补研段（同窗追加）
 - [provenance 对齐] 收官提交（5c25a56）后照家族先例补研：FRESH 研磨 attempt 9 绿（rc=137 五连击——平台收割线 ~2.9GB anon 本窗格外拥挤；webpack 增量暖 cache 教义走到绿）→ reboot-recover 十步 WORLD ALIVE → .next/.built-at-commit = 5c25a56 = HEAD = origin/main 三方逐字节一致。新 build 冒烟：landing 0 console 错（chip 三态与 compact 表面已在字节同源的前轮 build 上活体全验）。
 - [最终态] HEAD = origin/main = 5c25a56；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、AI settings pristine、mock 集群 :3022 在听、mock LLM 停、浏览器净场。下一窗从 Task 432 起编。GitHub PAT 撤销确认第二十一次提醒（本窗 push 正常）。
+
+---
+Task ID: 432 (cron agent loop 202609282221)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 431 完整收官 + 补研段（HEAD = a076fda = origin/main，树净；含 5c25a56 t431 + aa0538a t427 两笔代码——注意 t427 的引擎改动落树在 t431 补研 build 之后，生产 build 戳 5c25a56 尚未吃进不朽 WSL 桥/暖启动/log 缓存/AI 面板重涂，家族惯例式时差）。世界健康：app 200（bun 1914）、15/15 全 completed、remoteRemaining 注解在流（10 remote 全归家）、mock 集群进程在、console 0 错。第二十三份过时 Task 13 指引照例不认。自号 432。
+- [选题侦察] 三个旧候选逐一核账退役：①「3D viewer 体积截面工具」——t278/t281/t283/t284 已建成三平面正交切片 + 密度探针 + 密度直方图 + 双向联动（map-ortho-panel 1174 行），退役；②Topaz wrapper——workflow.ts 已有 Topaz 参数 tab 全套（threshold/diameter/downscale/workers/args）+ topaz-training.ts 三形态日志解析器 + inspector TopazTrainingChart，退役；③「Session timeline」甘特——PipelineAnalytics 第三视图已在场（Task 124）。遗留清单整体清空后转向：t431 遗留③（runRemote 不在 jobEquals 清单）核账 + 微图 QC 总览板（真空白）新功能。
+- [真 bug — jobEquals 漏 runRemote（t431 遗留③坐实）] A/B 活体证明 A 半（修复前 build 5c25a56）：审计三处 ledger-only 写路径（stagedBytes 逐文件心跳 4837 行、slurmState persistSacctTestimony 6412 行、sync 完成写 note/synced* 7881 行——全部 DB 零写）→ 打开 Extract inspector（RemoteStayNote 在场）→ 文件手术改写 ledger note 为 QA-t432 探针串 → 14s 多轮 poll 后 UI 仍显旧 note（rg 0 匹配）而 API 已供新串——客户端引用稳定性合并吞掉 runRemote 变化，铁证闭环 → ledger 逐字节复原。
+- [修复] store.ts jobEquals 显式 JSON.stringify 比对 runRemote（注释载明三窗口：staging 表冻结/slurm 排队横幅滞留/bring-home 回执陈旧；投影集无逐 poll 心跳戳——outputProbeAt 不上车——整体比较零渲染税）；顺带纠正 3013 行陈旧注释（「runRemote ledger timestamp correctly ignored」语义已反，改为 outputProbeAt 例）。jobEquals 加 export（谓词即契约，bench 钉真函数不钉拷贝）。
+- [新功能 — 微图 QC 总览板] 查空确认：逐微图图表（ctf scatter/drift bars）答「分布长什么样」，无人答「哪些微图先看/剔除」。①lib/qc-board.ts 纯函数：p75 watch/p90 offender 分位律（numpy linear 插值；高者更糟归一——FOM 取负上车、value 回用户视角）+ flat-pack 守卫（全员同值 = 无突出者 = 全健康，防分位塌缩涂红整包）+ fmtQcValue 三精度（Å 1 位/µm 2 位/FOM 3 位）+ qcLegendText 烙本包真数字 ②micrograph-qc-board.tsx：kind 双形态（ctf 三透镜 metric 切换 / motion 累计漂移）+ 瓦片网格（左轨色 healthy 祖绿/watch amber/offender rose + 相对标尺 mini bar + 第二行恒显（CTF defocus 对/motion early·late 分裂——无 hover 独占信息，可及性+打印律）+ 短名（剥目录剥扩展名）+ title 全名）+ Worst first/By name 排序 chip + 头部计数「N micrographs · K worst 10% · M watch」+ 自隐（<3 微图诚实空答）③接线：results-lazy barrel 加 dynamic 出口（t391 lazy 律），job-inspector 在 CtfQualityChart/MotionDriftChart 旁双挂载。
+- [验证] tsc 0 + eslint 0（六触碰文件）；t432 bench 36/36（E1 等式矩阵 8：stagedBytes/slurmState/note 三窗口翻转 + 出现消失 + 键序固定发射器契约 + E1b 既有字段回归钉 + Q 段 20：分位插值精确 21/FOM 尺度反转/flat-pack 守卫/最恶十分位恰 1 枚/格式三精度/空包 NaN）；首轮 2 败系 bench 自身（makeJob 自增 id 撞 E1.1、E1.8 键序期望写反——改为钉真实契约）；中途 Q2.4/Q3 断言互斥暴露真设计缺陷（flat pack 涂红整包）→ 库内实现 flat-pack 守卫后自洽；回归 t419 111/0 + t420 52/0 + t428 40/0 + t429 38/0 + t430 19/0 + t431 20/0 全绿。
+- [诚实边界] ①B 半活体证明（修复后 build 上重演 ledger 改写 → UI 轮询跟上）与 QC 板活体（CTF 24 微图满铺 + motion 0 微图自隐）待收敛后执行②jobEquals 键序敏感与 params 同契约（remoteInfoFor 单一固定字面量发射器，构造上安全）③motion 板在 demo 世界无数据（motioncorr 路由 0 微图），活体只能验其自隐路径④bench 从 store.ts 直接导入——"use client" 模块在 bun 下可执行（未渲染组件）。
+- [诚实边界] 本条目断于收敛前；收官段续记。
+
+### Task 432 收官段（同窗追加）
+- [收敛一刷 — jobEquals 修复入 build] 清 QA chrome → 杀服务器（/proc 死亡验证）→ FRESH 研磨 attempt 1 绿（provenance a076fda = 当时 HEAD）→ reboot-recover 十步 WORLD ALIVE。
+- [活体 QA — B 半闭环（修复后 build）] 重演 A 半剧本：Extract inspector 在场 → 文件手术改写 ledger note 为 QA-t432 B-half 探针串 → 15s 轮询内 UI 跟上（RemoteStayNote muted 回执渲染 QA 串，快照 2 处匹配）→ 复原 → UI 双向跟回（QA 串归零、「At sync time」原句回归）。修复活体铁证成立：runRemote 变化现在骑引用稳定性合并直达 UI。
+- [活体 QA — QC 板三态 + 诚实标签] CTF Estimation 1 Overview tab：板满铺 24 瓦片，头部「24 micrographs · 8 offenders」——**live 真瑕疵当场捕获**：demo CTF 数据高度量化（4.3/4.4 Å 并列簇），p90 线落在并列值上使 8/24 越线，「worst 10%」措辞对数据撒谎；修法 = 改标签不改算术（并列值全体同色本身 tie-fair 且确定）：头部改「N offenders」中性计数、legend 改线源命名「offenders ≥ 4.4 Å (p90) · watch ≥ 4.4 Å (p75) — lines are this run's own distribution」（许诺分布线、不许诺数量）。FOM 透镜活体：最低 FOM 0.070 排顶（尺度反转在场）；By name 排序：mic_001→004 目录序；legend/计数新措辞重研 build 后活体复验通过。Motion Correction 1：motion 路由 0 微图 → 板与 drift 图双双自隐（诚实空答路径活体验证）。console 全程 0 错。定妆 .qa-logs/t432-{qc-board-fom,qc-board-byname,motion-selfhide}.png。
+- [清场] ledger 与备份 JSON 全等（15 runs、note 原句在位）；浏览器净场；世界 200 运行收敛 build。
+- [最终态] HEAD 含 t432 交付（本 commit 784268a）；世界 200 运行同代码 build（provenance 戳 a076fda，先于本 commit——docs 差一提交，照家族惯例补研段对齐）；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、浏览器净场。下一窗从 Task 433 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十二次提醒——本窗 push 待验）②motion 板在真数据上的满铺活体（demo 世界 motioncorr 无 corrected_micrographs.star 解析件）③EMPIAR 真数据回归（常驻在位）。
