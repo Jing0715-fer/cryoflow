@@ -4438,7 +4438,8 @@ Stage Summary:
 - [第二次并行碰撞] 推送被拒：AI 助手车道（d9a2069）在 origin 抢先占了 Task 420（其条目自注「parallel cron lane claimed the 419 number」并自觉改号 420）——本窗条目顺延为 Task 421，commit 同步改号。三窗三碰撞，push-rebase-renumber 已是这个 cron 家族的日常外交。
 - [世界收敛] AI 车道的 src 新功能比运行中的 build 新 → 杀服务器（浮动线教义）→ FRESH 研磨 108 秒绿 → reboot-recover 重启：4.5 步如设计开火（build 删 standalone 连带 symlink → 每次构建后都需修复——教义自证）→ WORLD ALIVE。活体确认：header「AI assistant」按钮上屏、console 0 错——两车道的工作在世界共存。
 - [最终态] HEAD = b384e2e 已推 origin/main；下一窗从 Task 422 起编。
-## Task 416 (2026-09-28, 用户工单窗口 —— 全面代码审查 + E2E + 修复 + push)
+
+## Task 416 (2026-09-28, 用户工单窗口 —— 全面代码审查 + E2E + 修复 + push)【并行车道自号——上下文过时所致的第二个 t416 头部，真实序位在 421 与 422 之间】
 Task ID: t416 | Agent: main (Z.ai Code)
 
 Work Log:
@@ -4468,3 +4469,27 @@ Stage Summary:
 - **「裸 next build 是 Turbopack 陷阱」**：Next 16.1.3 构建默认 Turbopack，房里真配方（--webpack + 磨盘）在 build-until-green.sh；环境底座会浮动（root 服务 + slab），同一配方昨窗绿今窗死 — 甜点堆与暖度矩阵是方法，单点配方是运气
 - **「内核杀不写 pack」**：磨盘教义只对 timeout 杀有效 — SIGKILL 的 webpack 什么都不留；「每杀一次缓存长一点」需要进程活到 idle 回调
 - 用户复机路径：git pull → 下一个环境余量正常的窗口跑 build-until-green.sh 恢复 standalone；本窗 3000 由 dev 车道 + watchdog（1792 修正版）值守，页面若停在加载骨架，刷新或稍后再试（chunk 编译骑在内存线上）
+
+---
+
+Task ID: 422
+Agent: Super Z (cron agent loop 202609281506)
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] worklog 实尾 = Task 421 收官段（第二次并行碰撞 + 世界收敛），HEAD 1d574de 净树，app 200，prod standalone（pid 21811）+ mock :3022 双活。第十七份过时 Task 13 指引照例不认。
+- [选题] Task 421 遗留清单第一名：reboot-recover.sh 教义审计——「ops 剧本的盲区 = 它不知道的教义」，对 pre-tar 历史逐条 ops 教义核对。
+- [审计判决] 剧本缺了**每次历史恢复的第一步**：git fetch + reset --hard origin/main。五次前例（t417 04:14 tar 回滚、12:25 重启、八日影子树、t274 落后 66 提交的 clone、t285 README 判例）全部以这一步开局，而剧本只会重建陈旧世界、不会复活已推送的真值。另判四处精化：脏树 stash→reset→pop（t29x 合流判例）、untracked src 残骸清理（t273 的 24 文件胡壳）、树跳变后 deps 失配（t274 的 reset 后 install）、陈旧 build 甄别（t421 影子世界在 build 轴的表亲）。TRUST_GATEWAY 判非盲区（运行中服务器 env 无此变量，本地门覆盖 localhost）；.env/db//data/ 已核实 git 免疫（t285 的承诺）。
+- [交付一 — step 0 GIT RESURRECT] fetch（失败=警告+继续，离线世界仍值得本地体检）→ 分类：对齐→skip（WIP 绝对安全，脏净不论）；本地领先（未推提交）→ 四行响亮警告 + best-effort 继续（剧本拒绝当它看不见的工作的刽子手）；behind/diverged（tar 签名——boot commit 既非祖先也非后裔）→ stash -u 脏 WIP（可恢复， unlike rm）→ checkout -B main origin/main 硬着陆 → git clean -fd src/ → NEEDS_DEPS=1 → 自身 hash 前后对比，树复活换上新版剧本时 **re-exec**（env 透传旗标，无循环——第二遍看到对齐即停）。四处精化随行：step 2 强制 install、step 4 build provenance（研磨器绿后落 .next/.built-at-commit，戳与 HEAD 不一致=影子 app=强制重磨；无戳 legacy 接受如前）、step 8 connections 从文件枚举（GET 路由带 DB résumé 查询、恰在恢复时刻说谎——t419 活体事故）、step 10 重复连接检测（账本前后计数，增长=t419 的 conn-mukueu6l 事故重演，响亮点名）。
+- [演习矩阵 — 四轮全绿，两只自抓虫] ①绿世界空转：step 0 对齐 skip + 全门 skip + WORLD ALIVE——**抓虫 #1**：connections 文件是 pretty-printed（`"id": "conn-"` 带空格），紧凑 JSON grep 模式对着活 registry 说「no connections」——修 `*` 容空格。②behind+脏树：stash 收走 WIP（活体验证 `git stash show --include-untracked` 两文件俱在）+ 硬着陆——**抓虫 #2**：step 0 设 `NEEDS_DEPS=1` 而 step 2 读 `REBOOT_NEEDS_DEPS`——变量名错位，in-process 强制安装从未开火（只有 re-exec 的 env 路径正确）——统一命名 + export。复跑：install 路径开火。③unpushed 守卫：本地领先→四行警告、拒绝抹杀、继续。④diverged tar 签名 + 旧版剧本：分歧检测 → 硬着陆 → 「replaced this script with a newer self — re-executing」→ 第二遍对齐 skip → env 旗标跨 exec 生效（强制安装开火）→ WORLD ALIVE，无循环。假提交只留 reflog 取证，演习残留全清。
+- [交付二 — ⟳ reborn-world 标记（三窗遗留③清偿）] reboot-recover.sh 只在**真正复活了什么**时写 data/.world-reborn 戳（tree-resurrected/prod-started 起因追踪 + re-exec env 透传；no-op 空转绝不碰戳——md5 前后一致活体证明）；family-run.mjs --summary 读戳，给晚于重生时刻的批次打 ⟳ reborn-world 标记 + 头行声明 + TOTAL 汇总行（FAMILY_REPORT 隔离律下假批复跑验证三分逻辑）。当前世界诚实回溯戳：07:01 出生（t421 收敛窗口，FRESH 研磨 + reboot-recover 重燃），by 字段自注 recorded retroactively。
+- [战场 — t27 批 3 real-fail 分诊修复] 家族 t27 批灾后首跑：4 pass / 3 real-fail。取证分诊全部为**套件漂移**非产品 bug：①t272 的 X 射线断言要求单行 `import { clearRunRecord, isRunAlive, stopRun }`——t418/t421 给路由 import 块加了腿（getRun/readRuns/normalizeClusterHost），字面失效、语义真相（路由导入 clearRunRecord）依然成立——修：断言 whitespace-tolerant（语义而非某世界的拼法）。②t278/t279 按名字找 "QA Refine3D"——**t407 自己的律**（fossil 名字是 15 节点愈合名册装不下的画廊家具；type 才是承诺，名字只是某世界的拼法）seeder 已修而调用它的套件没跟上——修：套件镜像 seeder 的 by-name-then-type 解析 + host 未解析时以判决收尾（must() 只计数不抛错，stack trace 不是证词）。三套件复跑 ALL PASS（t272 58 ok、t278/t279 ALL PASS）→ t27 批重跑 **pass 7 real-fail 0**——⟳ 标记第一位真实客户（t27 @ 07:48 > 重生 @ 07:01，标记说的是事实）。
+- [验证] bash -n ×2 + node --check ×4 全过；eslint 触碰文件 0；t27 批 pass 7 real-fail 0；四轮演习 RC=0；agent-browser：落地页 console 0 消息 0 页面错误、画布 15/15 · 96 particles · demo 全链、AI 面板开合正常、浏览器已净场；app 200。tsc 未跑（零 src 变更——scripts/ 纯增量）。
+- [诚实边界] ①step 0 的 fetch 依赖网络/凭据——离线世界跳过对齐（警告+继续），真灾变 + 网络双杀的世界剧本只能本地体检（t417 的 fetch 也没有就做不了）②build provenance 的戳在下次 FRESH 研磨后才存在——当前运行 build 是 legacy 无戳（接受如前），戳与 HEAD 的一致性保证从下轮研磨开始生效③git clean -fd src/ 的实弹开火未在演习中发生（untracked 残骸全被 stash -u 先收走）——它是 stash 之后的保险带，非主防线④⟳ 标记只对它见证过的重生说话——04:14 灾后 05:34 跑的 t41 批无戳可读、保持未标记（诚实缺省）⑤EMPIAR 真数据回归第卅四窗继续让位⑥GitHub PAT 撤销确认第十五次提醒（本窗 fetch+push 正常）。
+
+Stage Summary:
+- **「剧本的第一步是承认树会撒谎」**：五次历史重启的第一动作都是 git fetch + reset --hard origin/main，而剧本独缺此步——它会耐心重建一个陈旧世界，却不会抬头看一眼已推送的真值；ops 剧本审计的正确姿势是逐条核对 pre-tar 教义，不是跑一遍空转（空转只会证明它没崩，不证明它对）
+- **「分类先于行动」**：对齐/领先/落后/分歧四分类让同一脚本同时是体检器、续传器、和重建器——领先世界的 WIP 绝不动（剧本不当刽子手），tar 签名的分歧世界才动 rm 级手段（stash 先行，可恢复性先于清洁度）
+- **「脚本要能替换自己」**：树复活会连带换掉剧本自身——hash 前后对比 + re-exec 让「旧我启动、新我接管」成为单命令内的自动握手；跨 exec 的状态走 env（旗标、起因），进程内变量死了要有人接棒
+- **「套件的断言要么跟世界走，要么明确说跟哪段历史走」**：t272 的单行 import、t278/t279 的 fossil 名字——都是把「某个世界的拼法」焊死成了断言；t407 的律（type 是承诺、名字是拼法）和 whitespace-tolerant 断言是同一教义两面：断言语义，容忍拼写
+- 遗留（下窗候选）：①EMPIAR 真数据回归第卅四窗（再次让位，六窗未偿）②reboot-recover 的 build 42 路径在下一个自然灾变窗口顺带取证 ③下次自然灾变实战检验 step 0（tar 世界 + fetch 可用 = 完整复活路径首演）④样式/功能面：AI 助手面板的深化（会话历史管理、工具卡筛选）⑤GitHub PAT 撤销确认

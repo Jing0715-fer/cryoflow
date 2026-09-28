@@ -142,8 +142,20 @@ try {
   must(false, `the volume world failed to seed: ${String(e).slice(0, 90)}`);
 }
 const jobsNow = await (await fetch(`${BASE}/api/jobs`)).json();
-const host = (jobsNow.jobs ?? []).find((j) => j.name === "QA Refine3D");
-must(!!host, "QA Refine3D in roster (the seeder's host)");
+// t422: the seeder's host resolves BY NAME first, then BY TYPE (t407's own
+// law — "QA Refine3D" is a gallery-furniture fossil the 15-node healed
+// roster cannot hold; the type is the promise, the name was one world's
+// spelling of it). The suite now mirrors the seeder it calls. And when NO
+// host resolves, end with a VERDICT — a stack trace on host.id is not
+// testimony (must() counts, it does not throw).
+const t422all = jobsNow.jobs ?? [];
+const host = t422all.find((j) => j.name === "QA Refine3D")
+  ?? t422all.find((j) => j.type === "refine3d" && j.status === "completed");
+must(!!host, `refine3d host resolves (name first, then type: ${host ? host.name : "none"})`);
+if (!host) {
+  console.log("t278: host unresolved — ending with the verdict above, not a crash");
+  process.exit(fail > 0 ? 1 : 0);
+}
 
 const browser = await chromium.launch();
 const page = await browser.newPage();

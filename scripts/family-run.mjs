@@ -201,6 +201,24 @@ const readReport = () => {
 };
 const writeReport = (report) => writeFileSync(REPORT_FILE, `${JSON.stringify(report, null, 2)}\n`);
 
+// The reborn-world provenance (t422): a batch whose evidence was gathered in
+// a world the recovery script REBUILT says so — the same doctrine as the
+// build provenance stamp, applied to test evidence. reboot-recover.sh writes
+// data/.world-reborn only when it had to actually resurrect something (tree
+// jump, prod start) — a green-world no-op pass never touches it. Batches
+// whose lastRun postdates the rebirth are marked ⟳ in --summary: their
+// fixtures, DB and cluster state were assembled by the recovery, not born
+// continuously, and a reader comparing numbers across eras deserves to know.
+const REBORN_FILE = path.join(ROOT, "data", ".world-reborn");
+const readReborn = () => {
+  try {
+    const parsed = JSON.parse(readFileSync(REBORN_FILE, "utf8"));
+    return parsed && typeof parsed === "object" && parsed.at ? parsed : null;
+  } catch {
+    return null; // no rebirth on record — the continuous-world default
+  }
+};
+
 // ---- paint (defined BEFORE the CLI reads it — the --batches/--summary
 // branches above the old location would have hit the temporal dead zone)
 const C = {
@@ -266,14 +284,24 @@ if (args.includes("--summary")) {
   const line = paint.dim("─".repeat(72));
   console.log(`FAMILY REPORT — ${keys.length} batch${keys.length === 1 ? "" : "es"} on file (${REPORT_FILE.replace(ROOT + "/", "")}):`);
   console.log(line);
-  let totPass = 0, totSolo = 0, totFail = 0, totWall = 0;
+  const reborn = readReborn();
+  if (reborn) {
+    console.log(
+      paint.bold(`  ⟳ world reborn ${reborn.at}`) +
+        paint.dim(` (${reborn.causes ?? "rebuilt"}${reborn.by ? ` · ${reborn.by}` : ""}) — batches run after this speak from a resurrected world`),
+    );
+  }
+  let totPass = 0, totSolo = 0, totFail = 0, totWall = 0, totReborn = 0;
   for (const k of keys) {
     const b = report.batches[k];
     totPass += b.pass; totSolo += b.soloRecovery; totFail += b.realFail; totWall += b.wallMs;
+    const inRebornWorld = reborn?.at && b.lastRun && new Date(b.lastRun) >= new Date(reborn.at);
+    if (inRebornWorld) totReborn += 1;
     const flag = b.interrupted ? paint.bold("⚡") : b.realFail > 0 ? paint.red("✗") : b.soloRecovery > 0 ? paint.yellow("↻") : paint.green("✓");
     console.log(
       `  ${flag} ${k.padEnd(12)} pass ${String(b.pass).padStart(2)}  solo ${b.soloRecovery}  real-fail ${b.realFail}` +
         paint.dim(`  wall ${(b.wallMs / 1000).toFixed(1)}s  ${b.lastRun}`) +
+        (inRebornWorld ? paint.bold("  ⟳ reborn-world") : "") +
         (b.interrupted
           ? paint.bold(
               `  ⚡ INTERRUPTED by ${b.interruptedBy ?? "a signal"} at ${b.interruptedAt ?? "the first breath"}` +
@@ -287,6 +315,9 @@ if (args.includes("--summary")) {
     `  ${paint.bold("TOTAL")}          pass ${String(totPass).padStart(2)}  solo ${totSolo}  real-fail ${totFail}` +
       paint.dim(`  wall ${(totWall / 1000).toFixed(1)}s`),
   );
+  if (reborn && totReborn > 0) {
+    console.log(paint.dim(`  ⟳ ${totReborn} batch${totReborn === 1 ? "" : "es"} gathered their evidence in the world reborn at ${reborn.at}`));
+  }
   process.exit(totFail > 0 ? 1 : 0);
 }
 

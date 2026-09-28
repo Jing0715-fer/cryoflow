@@ -174,10 +174,16 @@ try {
   console.log("== PHASE B: the ledger ==");
   const src = (p) => readFileSync(`/home/z/my-project/${p}`, "utf8");
   const projRoute = src("src/app/api/projects/[id]/route.ts");
+  // t422: the import block grew legs (t418's remote-stop branch, t421's
+  // staging stand-down added getRun/readRuns/normalizeClusterHost) — the
+  // single-line literal no longer matches a MULTI-LINE import. Assert the
+  // SEMANTICS (this route imports clearRunRecord from the engine module)
+  // whitespace-tolerantly, not one world's spelling of the line.
+  const flatRoute = projRoute.replace(/\s+/g, " ");
 
   must(
-    projRoute.includes('import { clearRunRecord, isRunAlive, stopRun } from "@/lib/relion/engine";'),
-    "the project DELETE route imports clearRunRecord"
+    flatRoute.includes("import { clearRunRecord") && projRoute.includes('from "@/lib/relion/engine";'),
+    "the project DELETE route imports clearRunRecord (whitespace-tolerant)"
   );
   must(
     projRoute.includes("for (const { id: jobId } of projectJobs) clearRunRecord(jobId);"),
