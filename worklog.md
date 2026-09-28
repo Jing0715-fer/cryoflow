@@ -5002,3 +5002,26 @@ Stage Summary:
 - **「拼写错位是最安静的死」**：解析器找 AccumulatedMotion、文件写 AccumMotion——无报错无日志，只是 0 行；自隐面板把死相藏了整个上线期。列名解析要打双拼写，正如列号解析要钉捕获组（t433 的姊妹篇）
 - **「假绿也会遗传」**：上窗的「0 残留」检查模式写错，本窗差点照单全收——交接文档的每个断言都是下一个窗的事实来源，验证路径本身要被验证
 - 产出：Motion A/B 第二域全链（通用核心 + 域瘦身 + 一张脸两域）+ **运动死面板复活**（双拼写修复，0→24 行）+ t440 bench 17/0 + 十一套回归 431 断言全绿 + 双域活体验证 + 双枚残留清净 + 三方一致真对齐
+
+---
+Task ID: 441 (cron agent loop 202609290451)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 440 完整收官（HEAD = 06ccd83 = origin/main，树净；stamp = e626cb9，docs 时差）。世界健康：app 200、15/15 全 completed、mock 集群 :3022 在听。第三十二份过时 Task 13 指引照例不认。自号 441（cron 链 04:16 已被 t440 消化，本窗 04:51 第五发——03:51/04:21 两发已在 t439/t440 窗消化）。
+- [QA — 全绿基线] landing hydration 满血（banner/tabs/选择器/头部按钮全体在场）、console 0 错、标题 pristine。十一套回归全跑：t419 111/0 + t420 52/0 + t427 12/0 + t431 20/0 + t432 39/0 + t433 47/0 + t436 45/0 + t437 20/0 + t438 40/0 + t439 28/0 + t440 17/0（431 断言）。世界稳定 → 转新需求。
+- [选题侦察] t440 遗留候选核账：①pipeline template/workflow-import 已在位（pipeline-template 路由 + template-suggest + workflow-import 路由——新模板面非空白）②Class2D 占据率第三域——类序跨 run 不配对（K-means 编号任意），配对律科学上站不住，叠架式另属 fsc-compare 谱系，让位 ③exclude 清单门——下游无消费者（无 exclude 输入的 job 面），造无门之 producer 是产品谎言，让位 ④存储板第三窗（Clean 快捷入口/按 run 聚合）——自 t436 排队四窗，最长队列。定谳：**铲子来拜访**。
+- [交付 — the shovel comes to visit（存储板第三窗）] ①lib/storage-clean.ts（纯脑 client-safe）：isCleanableStatus（**门镜像服务器自身律**——只挡 running/pending，与 cleanup 路由 156 行逐字同律；未来新状态归 planner 说话，门不发明更严规则）+ walkDelta（**减重叙事归 walk**——前次 walk → 新 walk 的正差才可认领；before 未知/盘反而长大都不认领）+ formatCleanReceipt（回执点名所比 walk 的 fetch 时间——陈旧快照不能悄悄吹大战绩；零差诚实说 unchanged）+ runsForCategory（喂食视图——类目字节 heaviest-first、dirName tiebreak 沿 API 方言、零持有者滤除、孤儿随行）②storage-dialog.tsx 三刀：runs 表行变 li>button+CleanDoor 双子结构（eraser 门就地开**同一个** CleanupDialog——一个应用一把铲子，不开第二把；hover rose——板上唯一破坏性 affordance 该有破坏相；running/pending 门 disabled + title 诚实）+ 清扫回执（teal 行 data-storage-receipt，onCleaned → load() 返回新 totalBytes → walkDelta 出句——load 升级返回 number|null，fetch 失败回执说 "the fresh walk failed; Refresh re-counts" 不吹数字）+ 透镜双视图（lens 头部 Whale files | Feeding runs 分段切换，runs 视图 = 谁养这个类目：per-run 类目字节条 + "% of the lens" + 孤儿 amber 行；关窗即忘随 lens 同律）③CleanDoor 也进 lens runs 视图（run 是 planner 的单位——files 视图行不设门，file 不是铲子的挖掘单位）。
+- [自捕自修 — bench 浮点断言] t441 bench S2d 首版 walkDelta(500, 435.7)===64.3 精确相等——浮点 500−435.7=64.29999…≠64.3，首跑 FAIL（t437/t439/t440 先例四连：核心对、断言错，纯函数先于测试知道答案）。改 epsilon 后 23/0。
+- [验证 — 十二套全绿] t441 bench 23/0（S1 门律 5、S2 walkDelta 6、S3 回执措辞 5、S4 喂食视图 7）；十二套回归 454 断言全绿（十一套旧 + t441）。tsc 0 + 触碰文件 eslint 0（scripts/diag-archive 旧案 error 系先前窗遗留，非本窗触碰面）。
+- [研磨] 杀 QA chrome（3049MB 仍贴线）→ 杀服务器（t436/t438 先例；ANTI-TEAR 律在位无惧）→ available 3418MB → FRESH attempt 1 GREEN（provenance 0f9f7e1 = feature commit）→ 十步体检 WORLD ALIVE + hydration probe（webpack-f39732 → 200）+ demo chain 复活。
+- [活体 QA — 真火清扫全链] ①runs 表 15 扇 eraser 门齐备（16 行减孤儿）②门点 Motion Correction 1 → CleanupDialog **就地弹出**（9 files stay 行在场）——该 run 无中间件，诚实 "Clean 0 files" disabled③换 2D Classification 门：plan 14,889 files/~979MB（safe 层标签即 "Iteration & scratch files"——终代与链式输出永留的合同在案）→ 确认框点 Delete them → **回执活体现身**：「Cleaned 2D Classification (tutorial) — 258.7 MB lighter than the 9:08:29 PM walk」④walk 真降：Maps 721.5→519.9 MB、2D Classification 262.3→3.6 MB（4,001→58 files——链式输出健在）⑤透镜：Maps chip → Whale files 默认视图不变（heaviest 8 of 899）→ **Feeding runs 切换**：「7 runs feed this category — heaviest first」+ Initial Model 78%/3D Class 11%/Refine 6% 行 + 孤儿 micrographs amber 行（"5% of the lens"）+ 视图内 6 扇门（7 减孤儿）→ All runs 复位⑥console 全程 0 错、标题 pristine。定妆 .qa-logs/t441-{landing,receipt,lens-runs,final}.png。
+- [清扫后体检] 再跑十步：WORLD ALIVE + hydration probe green + demo chain 复活——safe 层清扫零伤（FSC/Guinier/official number 断言全过）。净场：QA 浏览器杀讫、15/15 全 completed、mock 集群在听。
+- [最终态] HEAD = 0f9f7e1（本窗 feature commit，待 docs commit 推上）；stamp = 0f9f7e1 = HEAD 三方逐字节一致；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、QA 浏览器净场。下一窗从 Task 442 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第三十次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻在位）③exclude 清单门（需先有下游消费者面）④Class2D 占据率对比需叠架式谱系（非配对律）⑤存储板已四窗饱和——下窗转其他面（canvas/results/新空白）。
+
+Stage Summary:
+- **「地图不再旁观」**：t436 的地图把每次清扫都送出去（row click → inspector），四窗之后铲子终于上门——但上门的是**同一把**铲子（同一个 CleanupDialog，同一个 planner），地图只是让出了往返的路；一个应用一把铲子，多的是路，不是铲子
+- **「减重叙事归 walk，不归 planner」**：删除方报的 freedBytes 是它的口头账，地图上真正能指的是两次 walk 的差——正差才认领、点名所比 walk 的时间戳、零差就说 unchanged；「我的数字从哪来」写在句子里的产品才配谈诚实
+- **「门是 courtesy，planner 是 authority」**：door 只预滤服务器自己会拒的两种状态，未来任何新状态都交给对话框里的 planner 说话——预滤层与执法层各守其份，门永远不比服务器更严
+- 产出：存储板第三窗全链（storage-clean 纯脑库 + CleanDoor 双视图布线 + walk 回执 + 透镜喂食视图）+ t441 bench 23/0 + 十二套回归 454 断言全绿 + 真火清扫全链活体（258.7 MB 真降 + demo 链零伤）+ 三方一致真对齐
