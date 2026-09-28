@@ -89,7 +89,12 @@ api_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 6 -H "Origin: $OR
 
 # ------------------------------------------------------------ 0. git resurrect
 SELF="scripts/reboot-recover.sh"
-NEEDS_DEPS=0
+# world-rebirth tracking (t422): the family report marks batches whose
+# evidence came from a rebuilt world — this script is the witness that knows
+# when a rebuild actually happened. Only REAL work stamps it; a green-world
+# no-op pass never writes data/.world-reborn.
+REBORN="${REBOOT_REBORN:-}"
+mark_reborn() { case " $REBORN " in *" $1 "*) ;; *) REBORN="$REBORN $1" ;; esac; }
 if git rev-parse --git-dir >/dev/null 2>&1; then
   say "0. git resurrect — fetching origin/main (the last truth, per five reboots)"
   if git fetch origin main >> "$LOG" 2>&1; then
@@ -115,11 +120,12 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
         # drill-2 self-catch: this MUST be the same name step 2 reads — the
         # in-process path dies with the run, the re-exec path passes it via env.
         export REBOOT_NEEDS_DEPS=1
+        mark_reborn tree-resurrected
         say "0. tree resurrected: main hard-landed on origin/main ($origin_head), src debris cleaned"
         self_after="$(git hash-object "$SELF" 2>/dev/null || echo unknown)"
         if [ "$self_before" != "$self_after" ]; then
           say "0. the resurrection replaced this script with a newer self — re-executing"
-          exec env REBOOT_NEEDS_DEPS=1 bash "$SELF"
+          exec env REBOOT_NEEDS_DEPS=1 REBOOT_REBORN="$REBORN" bash "$SELF"
         fi
       else
         say "0. WARNING — checkout onto origin/main FAILED (read $LOG); continuing on the local tree"
@@ -256,6 +262,7 @@ else
   done
   [ "$code" = "200" ] || { say "5. FAILED — prod never answered (last $code), read server.log"; exit 1; }
   say "5. prod standalone answers 200"
+  mark_reborn prod-started
 fi
 
 # ------------------------------------------------------------------ 6. seed
@@ -324,5 +331,15 @@ if [ "$conns_after" -gt "$conns_before" ]; then
 fi
 code="$(api_code "$ORIGIN/api/project")"
 say "WORLD ALIVE — app $code · build trio present · mock cluster up · demo chain verified (FSC/Guinier/official number assert in the chain's own step 6)"
+
+# world-rebirth stamp (t422): written ONLY when this run actually resurrected
+# something — the family report's ⟳ reborn-world marker reads it.
+if [ -n "$(echo "$REBORN" | tr -d ' ')" ]; then
+  causes="$(echo "$REBORN" | tr -s ' ' '+' | sed 's/^+//')"
+  printf '{\n  "at": "%s",\n  "by": "reboot-recover.sh",\n  "causes": "%s",\n  "head": "%s"\n}\n' \
+    "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$causes" \
+    "$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" > "$ROOT/data/.world-reborn"
+  say "   world rebirth recorded → data/.world-reborn (causes: $causes) — batches run after this instant are marked ⟳ reborn-world by family --summary"
+fi
 
 exit 0
