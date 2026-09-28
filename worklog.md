@@ -4953,3 +4953,27 @@ Stage Summary:
 - **「可见页有自己的广播员」**：可见/隐藏分裂律是本次最重要的架构决定——toast 律统治看得见的世界，knock 律统治看不见的，边界两侧永不齐鸣；一份事件、一个出口，聚合律从 toast 延伸到 OS
 - **「client-only 值的 canonical 药方第三次应验」**：useSyncExternalStore + server snapshot（use-now 教义）让按钮零 effect——读写同店、hydration 起于匹配；setState-in-effect 是旧时代的正确，新时代有更瘦的形状
 - 产出：Finish Knock 全链（纯脑 finish-knock.ts + presence hook + census 单写者升级 + 头部铃铛门）+ t438 bench 40/0 + 九套回归 386 断言全绿 + 活体三态状态机全走通 + 三方一致真对齐；下一窗候选：存储第三窗 / per-job knock / canvas 面新空白
+
+---
+Task ID: 439 (cron agent loop 202609290351)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 438 完整收官（HEAD = 6f6414e = origin/main，树净；stamp = be3cdcd，docs 时差）。世界健康：app 200、无撕裂（proc 19:43:21Z 晚于 build 19:42:41Z）、15/15 全 completed、mock 集群 :3022 在听。第三十份过时 Task 13 指引照例不认（全部条目已于 t434/t438 双双清零）。自号 439。
+- [QA — 全绿基线] landing hydration 满血、console 0 错、t438 铃铛门在场、标题 = pristine 基线。世界稳定 → 转新需求。
+- [选题侦察] 候选核账：per-job knock（小，让位）；canvas 侧（minimap/find/多选批量/tidy/edge label 全在，书签只是 viewport 快照）；存储板第三窗继续排队。真空白定位：**CTF 跨 run 对比**——FSC 面有 fsc-compare（t62 叠加曲线），参数面有 params-diff（t88「改了什么」），但预处理面（迭代最频繁处）无人回答「改了参数之后，拟合到底变好了吗」。CTF 质量是微图上的分布不是单个数字：B 赢 20 张微图、悄悄输掉关键的 4 张——需要配对逐微图判决。数据源现成（/api/jobs/[id]/ctf 逐微图 fom/maxres/astig，join 键 = 微图名），零新路由。
+- [交付 — CTF A/B（跨 run 配对判决）] ①lib/ctf-compare.ts（纯脑）：joinCtfRuns（名字相遇即配对，序随 A；**配对或沉默律**——unpaired 微图具名上报 onlyA/onlyB，永不折进判决）+ CTF_LENSES 三透镜（**方向是透镜自己的**：FOM 越高越好、fit limit Å 越低越好、astigmatism 越低越好；判决永不说「越大越好」）+ pairedDeltas/verdict（improved/regressed/tied 计数 + numpy 中位 Δ，偶数取中对均值——medianPickFom 同律异矿）+ topMovers（幅度优先、cap 5、两性不混）+ defocusAgreement（**散焦不是判决**——它是微图的物理不是拟合的质量，只做配对健康检查线）+ fmtDelta（正负号即新闻）+ scatterDomain（对称 pad 保 45° 身份线；全 tie 也画得出）。②results/ctf-compare-dialog.tsx（脸）：两次并行 fetch 无新路由；A/B 双 Select（host 领衔，皆可换）；三透镜 chips 带方向 hint；身份散点（三 series 按 kind 预分色——teal 改善/rose 退步/muted 未变，眼睛先读判决后读 tooltip）；判决 chips 行（计数 + 中位 Δ + unpaired amber 具名 chip）；movers 双列（「none — the whole pack moved the other way」诚实空态）；信任线；Open run A/B 门。**零持久化**（fsc-compare 记住上次配对，A/B 是对当前配对的提问——重开即复位，header 律注明）。③CtfCompareEntry 门（inspector 头部 SiblingComparePicker 旁，size-6 icon 门形态：params 门答「改了什么」、scatter 门答「做了什么」；**无 completed sibling 即不渲染**——镜像 params 门守卫）+ results-lazy barrel 分包（recharts scatter 不进 eager 图）。
+- [自捕自修一 — MultiEdit 半应用] 首个 MultiEdit 报「No replacement was performed」但实际半应用了第一个编辑——第二个 MultiEdit 再应用即双插（活体 QA 前 grep 现场当场抓获）。教训：工具报失败也要读现场，报文与磁盘可以不一致（本次是 family 首见）。
+- [自捕自修二 — setState-in-effect 三连] 首版对话三处 effect 内 setState（开窗重置/自动选 B/同步 setBusy）——eslint 新规拦下。家族药方逐一兑现：开窗重置改 render-time adjust（params-diff seenPair 律）；run B 派生化（runBId ?? candidates[0]，零 effect）；loading 派生化（loadedKey 与所选 pair 的键不匹配即 loading，setState 全在 async 续体）。「canonical 药方第四次应验」。
+- [验证 — 十套全绿] t439 bench 28/0（J1 join 5、J2 方向律 6、J3 verdict/中位 5、J4 movers 3、J5 格式/域 9）；**bench 首版两断言自错被首跑纠正**（浮点 0.45−0.40≠0.05 精确比较、improvers 数错 3 记 2——t437 先例重演，纯函数先于测试知道答案）。回归 t419 111/0 + t420 52/0 + t427 12/0 + t431 20/0 + t432 39/0 + t433 47/0 + t436 45/0 + t437 20/0 + t438 40/0。tsc 0 + eslint 0（四触碰文件）。
+- [研磨] FRESH 首轮 137×2（收割线拥挤）→ attempt 3 GREEN（provenance 3c62d2f）→ **ANTI-TEAR 律活体真火**：「standalone (pid 28015) predates the build it would now serve — restarting in place」→ 4 秒回 200——t435 源头律无人提示自动履职第三次。十步体检 WORLD ALIVE + hydration probe（webpack-4033bf → 200）+ demo chain 复活。.built-at-commit = 3c62d2f = HEAD = origin/main 三方逐字节一致。
+- [活体 QA — 孪生手术全链] demo 世界 ctffind:1 无 sibling——**API 直造孪生**：POST /api/jobs（同 type/params，位移坐标）→ POST /api/edges（motioncorr→twin，micrographs 端口对）→ 裸 POST run 学到一课（REMOTE 项目裸 POST 落 local 车道 →「RELION not detected」诚实失败——t317 律的面孔）→ 带 {remote:{connectionId:conn-mukrkgil}} 重跑 → mock 集群 35 秒完成。CTF A/B 活体满铺：门在场（「1 sibling runs available」）→ 对话开（A=「this run」、B=孪生自动首选）→ **判决 0 improved · 0 regressed · 24 unchanged · median Δ 0.000 · of 24 paired**——同输入同参数的孪生讲出「no change」，tie 律活体应验；三透镜切换无扰（Fit limit Δ 0.00 延续）；movers 双列诚实空态；信任线 0.000 µm；散点 SVG 真渲染；Open run B 真跳孪生 inspector；console 全程 0 错。清场手术：DELETE 孪生 → 15/15 复原、级联清理零残留（edges 0、workdir 0、画布 0 twin 引用）→ **重开原 inspector：A/B 门诚实消失**（守卫活体验证）。定妆 .qa-logs/t439-ctf-ab-fom.png。
+- [诚实边界] ①improved/regressed 双色散点与方向翻转的活体验证仅覆盖 tie 世界（demo 只有恒等孪生）——非平凡判决由 bench J2 方向律 6 断言钉死；真世界的验收路径：复制一炉改个参数跑完开门②A==B 自比（用户把 A 换成 B 的原选）会得到全 tie——诚实但无意义，未拦（对话框是提问者不是警察）③「模拟集群生成确定性输出」是 tie 的因——真 RELION 重跑同输入未必逐字节同（浮点非确定性），判决会如实呈现差异④项目级 CTF index 路由（fsc-index 的镜像）未做——sibling 从 store jobs 客户端筛即可，候选多时再上索引。
+- [最终态] HEAD = origin/main = 3c62d2f（本窗 feature commit，已推）；stamp = 3c62d2f 三方一致；世界 200 运行同戳 build（ANTI-TEAR 重启产物无撕裂）；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、QA 浏览器净场、孪生手术零残留。下一窗从 Task 440 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十八次提醒——本窗 push 正常）②EMPIAR 真数据回归（常驻在位）③存储板第三窗（Clean 快捷入口/按 run 聚合）持续排队④CTF A/B 可再进：跨 MotionCorr 的运动指标 A/B（同构第二域）、判决行的「把输家微图喂给 exclude 清单」门。
+
+Stage Summary:
+- **「配对或沉默」**：A/B 判决的合法性来自选民资格——只在两次 run 里都被测过的微图才能投票，缺席者具名旁观；折进一个 imputed 数字的对比是伪科学，产品把它挡在 join 层
+- **「方向是透镜自己的」**：同一个 b−a，FOM 透镜下是改善、Å 透镜下是退步——判决层不携带方向常识，透镜带着；「越大越好」是只有 FOM 才配说的话
+- **「裸 POST 也会被项目身份审判」**：REMOTE 项目的孪生 job 裸跑落进 local 车道得到诚实的「RELION not detected」——t317 的车道分离律连手术都照章办事；mock 集群 id 必须显式点名
+- 产出：CTF A/B 全链（纯脑 ctf-compare.ts + 身份散点对话 + inspector scatter 门 + lazy 分包）+ t439 bench 28/0 + 十套回归全绿 + 孪生手术全链活体验证（含级联清场与门守卫消失）+ 三方一致真对齐；下窗候选：运动指标 A/B 第二域 / exclude 清单门 / 存储板第三窗
