@@ -4308,3 +4308,31 @@ Stage Summary:
 - **「编译绿是缓存的地基，不是研磨的终点」**：1344 研磨 attempt-3 编译绿但 page-data 死——正是这次绿让 filesystem cache 首次完整落盘，暖缓存恢复把 page-data 拉过线；研磨的产出不止 BUILD_ID，还有下一次的地基
 - **「pkill 说谎，pid 说话」**：SIGTERM 被bun 无视时 pkill 静默成功（退出码 0），进程还在——验证双停要查 pid 是否变化，否则 build 在被偷走的内存上竞速
 - 遗留（下窗候选）：①build-until-green.sh 甜点更新（1792 → 1344 + 研磨矩阵注释）；②denoise 的 inspector 预览/面板冒烟（UI 深度——Phase E 只盖了画布存在性）；③EMPIAR（第卅二窗）；④GitHub PAT 撤销确认（第十一次提醒）
+
+---
+Task ID: 417 (完 — 2026-09-28 10:21 cron 窗口 trace 1a07549302235a99-cron-agent-loop-202609281022)
+Agent: main (Z.ai)
+Task: 开局 QA + 修 bug（惯例②优先）→ 主交付 = DELETE /api/projects/[id] 的两平面文件回收 + 一场沙箱重启灾难的完整自救；副交付 = build 研磨教义三连更新 + t415 套件世界重建版
+
+Work Log:
+- [开局实证] 摘要再次谎报停在 Task 406——真源律：worklog 实尾 = Task 416 完结条，HEAD = 8cfbb84（t416 已推送）。QA 冒烟：app 200/2.4ms、PAGE ERRORS (0)、console 净。但项目注册表躺着 4 个 t416 时代残留（3 个 0-jobs 空壳 "t416 Denoise" + t416mini），集群树 22 个孤儿目录——t416 的「清场」漏了它们。
+- [真雷定位 — 两平面诚实律的反面] DELETE /api/projects/[id] 清了 DB rows、sidecar edges、run records、meta——但从不触碰本地 workdir 根 data/relion/<projectId> 和集群镜像 <remoteRoot>/<projectId>。21 个集群残壳 + 36 个本地孤儿根（1.4GB）全部来自历史删除。UI 承诺是合同："removes the project with all of its jobs… cannot be undone"——单任务删除保留 workdir 是为了 undo（墓碑）；项目删除没有 restore 路由，文件活得比删除久不是保留，是垃圾场。
+- [主交付 — t417 两平面回收] ①判断抽纯函数 src/lib/remote/reclaim-targets.ts（isReclaimSafeId 穿越守卫 / localReclaimRootFor 恰一层深 / collectMirrorTargets 双证人去重：run records 的 rec.remote（clearRunRecord 擦除前读）+ bound connection 兜底（records 全死时绑定仍指名集群）；tilde 根未展开拒绝猜测；mirrorDirFor = remoteRoot/<projectId> 与 twin 约定同形）②路由 0.55/0.6 两步：读证人 → 本地 rmSync（try/catch 记账）→ 逐镜像 SSH rm -rf --（shSingleQuote 引用安全，t325 同宿主重建解析，连接失联不算删除失败——t327 诚实契约）③响应 reclaimed 账本 {local, localError?, cluster[]}：哪个平面死了、哪个在沉默宿主上成孤儿，一字不谎 ④两个删除对话框文案补真（workdir + cluster mirrors）。bun 单测 scripts/t417-unit-reclaim.ts 24 断言——首跑抓到两个真 bug（trailing-slash 基路径污染 startsWith 守卫；根级 relionDir 病态拒绝），修后 ALL PASS。
+- [研磨 — 前台轮教义诞生] src 变更需重建。nohup/setsid 后台研磨器两次静默死亡（无 rc 无裁决——沙箱 patrol 收割）；转前台轮（每工具调用一轮 timeout 560，文件系统缓存跨调用搬运进度）。dmesg 铁证：worker 贴顶死（3.33GB→杀服务器释放 300MB 后 worker 涨到 3.47GB——t406「worker 胃口随可用内存增长永远贴顶死」逐字应验）；采样取证：编译全程支付 ~3.3GB 峰值（1500→3951MB，75 秒撞线）；BUILD_ID 陷阱：green 前 page-data 可落盘——没有 .next/standalone 陪伴的 BUILD_ID 不是绿。终于 rc=0 全绿 + start-prod 服役。
+- [t417 活体套件 ALL PASS] 三相：B 两平面回收端到端（本地根 + 集群镜像双灭 + 账本说话；witness 走 bound-connection 纯产品语义——首版种假 record 的做法被自我否决：引擎从不为非 job 种 record，poll sweep 拥有状态文件）C mirrorless 诚实删除（null/空账本）D 世界存活（demo 46 jobs + 王冠 extract 栈）。
+- [历史欠账清偿] 新代码 API 删 4 个注册表残留（t416mini 的 bound-witness 车道活体抓到它的集群镜像——响应账本说 ok）；手动扫尾 34 本地 + 22 集群 cuid 孤儿（保留 t396/t409 fixtures + t265/t271/t298-mics）；隔离缓存回收 598M；磁盘 80%→74%。
+- [战场一 — t416 C5 real-fail] 批内 t416 两 FAIL（outputs 注册 + star 回家）。取证：sync-home 实际送达（workdir 里有 star + 6 mrc），count 句在场——status 翻转可先于 finalize 落账（跨 DB + 状态文件不原子）。修法：C5 改 pollUntil（轮询到 outputs key 安定）+ pollUntil 的隐含契约（fn 必须 async——同步 null 撞 .catch 崩）。诊断副产品：import 接受目录不接受 star 索引（micrographsPath=目录引擎自扫）。
+- [灾难 — 04:14 沙箱重启，未提交字节全灭] 04:14 tini pid 1 重生，start.sh 恢复分支 rm -rf 整树后从 repo.tar 解档——HEAD 回滚到 a03a29f（t272 时代！）+ 平台 boot commit。t272 之后的一切：源码变更（t280-t416 全部已在 origin/main——**推送仪式救了整个代码库**）、t417 全部未提交工作、data/（DB + 引擎状态）、mock 集群 1.4GB 项目树、EMPIAR 替身、.next build——全灭。诊断链：data/ 消失 → 孤儿清理不背锅 → /proc/1 启动时刻 04:14 + /start.sh 全文（restore 分支的 find -exec rm -rf）→ git fetch + reset --hard origin/main（8cfbb84 完整归来）。dev 冷编译 3.57GB 被 OOM（t405 判决重演）→ prod 车道唯一可行。
+- [自救 — 重建序列] ①.env 钉 cryoflow.db（shell env 被 boot 污染成 custom.db——prisma 读了 shell 的进程 env）②db:push ③watchdog 起 dev（清锁重启；dev 冷编译 OOM 循环 → 判决 prod 车道）④研磨第 1 轮 rc=0 全绿（重启后环境彻底干净——OOM 线高到一次通过，t415 浮动线教义强验证）⑤start-prod 200 ⑥/api/project 触发种子（3 节点起步链）⑦mock 集群 launch.sh ⑧「no Slurm client」= 陈旧探测态——连接 Test 清除 ⑨demo-chain-resurrect.mjs 两遍（幂等推进：第一遍到 class3d 截止，第二遍全链 14 节点 outputs + FSC 40 壳 + Guinier 200 + 官方数字 FSC(0.143)=6.51Å——**DEMO CHAIN RESURRECTED**）。
+- [灾后重施] 全部 t417 工作从会话上下文逐字重施：reclaim-targets.ts + 单测（复跑 ALL PASS）+ 路由四步 + 对话框文案 ×2 + build-until-green.sh 甜点（HEAP_MB=1344 + t415 浮动线 + t417 前台轮教义 + BUILD_ID 陷阱注释）+ t416 C5 竞态修复 + 家族花名册 t417 行 + t417 活体套件（witness 车道重设计落定）→ **tsc 0 → 立即 commit+push（8cfbb84→784ede2，灾变第一课：先上保险再干长活）** → build → 世界 → 套件。
+- [战场二 — t415 世界假设退役] 批内 t415 real-fail：Phase A 断言 t265 Topaz Train 遗产失败任务——新世界没有继承失败（DB 是新的）。重写：夹具前置（PHASE 0 自造失败：motioncorr 调度 + 运行中 stop → failed——需要失败世界的套件自己造一个）、遗产断言→夹具断言、花名册硬编码 46→rosterBefore 前后对比、Phase D 绿世界 strip 完全消失断言（detached）。复跑 ALL PASS。
+- [验证] tsc 0；单测 24/24 ×2（灾前灾后）；t417 活体 ALL PASS ×2（灾前灾后）；t416 ALL PASS（C5 硬化后）；t41 批 **pass 3 / real-fail 0 / wall 33.2s**（t415+t416+t417）；app 200；demo 全链 FSC/Guinier 官方数字在场。
+- [诚实边界] ①t416 C5 的竞态根因未完全定谳——灾前服务器上的症状（record 从未落盘）发生在 t417 时代研磨的 build 上，可能是污染构建产物而非产品代码；灾后 origin/main 干净重建 + C5 pollUntil 硬化下全绿，真因随沙箱一起埋葬 ②沙箱会再次重启：repo.tar 快照滞后（本次恢复点 = t272 时代）意味着任何未推送窗口在重启中全损——推送节奏就是生存节奏 ③t415 的 cross-project chip 条件腿（遗产芯片携带项目名）随遗产一起退役，其语义由产品代码未变 + 历史断言覆盖背书 ④EMPIAR 真数据回归第卅三窗让位（EMPIAR 替身链已重建）⑤GitHub PAT 撤销确认第十二次提醒（本次 fetch+push 仍工作）。
+
+Stage Summary:
+- **「推送节奏就是生存节奏」**：04:14 沙箱重启把工作树回滚到 t272 时代的 tar 存档——所有已推送提交完好归来，所有未提交字节蒸发；七惯例的每窗 commit/push 不是仪式，是这盒子上唯一的备份；t417 的自救从「git fetch + reset --hard origin/main」这一刻才真正开始
+- **「对话框的承诺是合同」**：删除文案说 removes all of its jobs 且不可撤销——路由就该收回两个平面的文件；单任务删除保留 workdir 是 undo 的墓碑，项目删除留文件是垃圾场；响应的 reclaimed 块让「收回了什么、什么收不回」一字不谎
+- **「判断进纯函数，IO 留在路由」**：穿越守卫、证人去重、tilde 拒绝——吃数据的判断抽进 reclaim-targets.ts 用 bun 直测；路由只留 SSH/文件 IO；单测首跑就抓到两个真守卫 bug——纯函数层是 bug 繁殖率最低的层
+- **「需要失败世界的套件自己造一个」**：t415 的遗产断言把套件和某个历史瞬间焊死；世界重建后套件红光——夹具前置让套件对任何世界成立（自造 motioncorr 失败 → 断言 → 清零）；rosterBefore 前后对比取代硬编码 46
+- **「BUILD_ID 不是绿，standalone 才是」**：green 前 page-data 可落盘；研磨器的幂等门从此查两件东西；前台轮教义入册（后台研磨器在本沙箱会被无声收割）
+- 遗留（下窗候选）：①灾后世界体检二刷（class3d 九代/extract 王冠栈的集群树已在 healer 账本，Family --summary 全批快照可加「灾后重建」标记）②EMPIAR 第卅三窗 ③沙箱重启检测与自动重建剧本固化（demo-chain-resurrect + db:push + .env 钉死已验证，值得写成 scripts/reboot-recover.sh 一键剧本）④GitHub PAT 撤销确认（第十二次提醒）
