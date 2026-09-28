@@ -14,6 +14,9 @@
  *      param update → VLM judge (vision detected on the wire) → class
  *      selection → guards (cycle refusal, delete gates, run guards) →
  *      session persistence + reset.
+ *   G. session history (t423): summaries (preview/counts/newest-first,
+ *      empty sessions excluded), the active-project pinning law on fetch
+ *      and delete, and the delete contract.
  *
  * Run: bun scripts/t419-ai-assistant.ts
  */
@@ -62,8 +65,9 @@ const { AI_PROVIDERS, parseOpenAiModels, parseAnthropicModels, parseGeminiModels
 const { loadAiSettings, applySettingsUpdate, aiSettingsDto, resolveAssistant } = await import("../src/lib/ai/settings");
 const { buildOpenAiBody, buildAnthropicBody, buildGeminiBody, parseOpenAiResponse, parseAnthropicResponse, parseGeminiResponse, chatOnce } =
   await import("../src/lib/ai/wire");
-const { loadSessions, createSession, latestSessionForProject } = await import("../src/lib/ai/sessions");
-const { runAiIteration } = await import("../src/lib/ai/agent");
+const { loadSessions, createSession, latestSessionForProject, listSessionSummaries, saveSession, deleteSession, getSession } =
+  await import("../src/lib/ai/sessions");
+const { runAiIteration, sessionForActiveProject, deleteSessionForActiveProject } = await import("../src/lib/ai/agent");
 const {
   filterParamsForSpec,
   nextPositionFor,
@@ -629,6 +633,46 @@ let sessionId = "";
   // t419 shipped 12; t420 grew the catalog to 14 (build_pipeline + wait_for_jobs)
   must(AI_TOOLS.length === 14 && new Set(AI_TOOLS.map((t) => t.name)).size === 14, `F8: 14 unique tools (got ${AI_TOOLS.length})`);
   must(AI_TOOLS.every((t) => t.parameters && typeof t.description === "string"), "F8: every tool wears a schema + description");
+}
+
+// G: session history (t423) — summaries, pinning law, delete contract
+{
+  const pid = active!.project.id;
+  const summaries = listSessionSummaries(pid);
+  must(summaries.length >= 1, `G1: the F session earns a summary row (${summaries.length} rows)`);
+  must(summaries.every((s) => loadSessions().find((x) => x.id === s.id)!.messages.length > 0), "G1: empty sessions never earn a row");
+  const fRow = summaries.find((s) => s.id === sessionId);
+  must(fRow != null, "G1: the F session is listed");
+  must(
+    fRow!.preview.length > 0 && fRow!.preview.length <= 96 && !fRow!.preview.startsWith("("),
+    `G1: the preview speaks the first user message (${fRow!.preview.slice(0, 40)}…)`
+  );
+  must(fRow!.toolCount > 0 && fRow!.messageCount === loadSessions().find((x) => x.id === sessionId)!.messages.length, `G1: counts match the transcript (messages ${fRow!.messageCount}, tools ${fRow!.toolCount})`);
+  must(summaries.every((s, i) => i === 0 || summaries[i - 1].updatedAt >= s.updatedAt), "G1: newest conversation first");
+
+  // the pinning law: a session from another project does not exist here
+  const foreign = createSession("ghost-project");
+  saveSession({ ...foreign, messages: [{ role: "user", content: "别项目的悄悄话", at: Date.now() }] });
+  const foreignFetch = await sessionForActiveProject(foreign.id);
+  must(foreignFetch.session == null && /not found/i.test(foreignFetch.error ?? ""), "G2: a foreign project's session answers not found, never its transcript");
+  const ghostFetch = await sessionForActiveProject("ai-no-such-session");
+  must(ghostFetch.session == null, "G2: a ghost id answers not found");
+  const own = await sessionForActiveProject(sessionId);
+  must(own.session?.id === sessionId && own.session.messages.length > 10, "G2: the own session fetches in full (transcript intact)");
+
+  // the delete contract: the pinning law covers deletion too — a foreign
+  // session cannot even be deleted through this door (switch projects
+  // first); own sessions delete cleanly; ghosts answer not found
+  const delForeign = await deleteSessionForActiveProject(foreign.id);
+  must(delForeign.ok === false && /not found/i.test(delForeign.error ?? ""), "G3: deleting a foreign session is refused by the pinning law");
+  deleteSession(foreign.id); // store-level cleanup of the foreign fixture
+  const throwaway = createSession(pid);
+  saveSession({ ...throwaway, messages: [{ role: "user", content: "用完即弃的一句", at: Date.now() }] });
+  const delOwn = await deleteSessionForActiveProject(throwaway.id);
+  must(delOwn.ok === true && getSession(throwaway.id) == null, "G3: an own session deletes through the door");
+  const delGhost = await deleteSessionForActiveProject("ai-no-such-session");
+  must(delGhost.ok === false && /not found/i.test(delGhost.error ?? ""), "G3: deleting a ghost answers not found");
+  must(latestSessionForProject(pid)?.id != null && listSessionSummaries(pid).some((s) => s.id === sessionId), "G3: the F session survives the foreign cleanup");
 }
 
 globalThis.fetch = originalFetch;

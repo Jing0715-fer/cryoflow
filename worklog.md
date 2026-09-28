@@ -4501,6 +4501,7 @@ Stage Summary:
 - [终态 QA] 画布 15/15 · 96 particles（收敛 build 上复验）、AI assistant 按钮在场、console 0 消息 0 页面错误、浏览器净场、app 200、家族 summary 在合并树上完好（t41 + t27 双批 pass 10 real-fail 0）。
 - [最终态] HEAD = 6305f56 已推 origin/main；下一窗从 Task 423 起编。
 
+
 Task ID: 423 (原号 421 并入顺延 — rebase 时发现并行 cron 车道已注册 Task 421/422（其 addendum 指明 next=423），本窗顺延为 423；文件前缀保持 t420-*，AI 助手打磨线延续)
 Agent: main (Z.ai Code)
 Task: 用户工单 — 继续打磨 agent 能力 + agent 界面美化 + 修复右上角关闭键与功能键重叠
@@ -4525,3 +4526,19 @@ Stage Summary:
 - 产出：t420-*（待推）— 面板全面重涂（头像/徽章/图标/动画/停止键）+ build_pipeline + wait_for_jobs + 52 断言新 bench；t419 回归 98/98
 - 用户使用路径：header ✨ → 面板已焕新（右上角三键各安其位 + 模型徽章点名当前供应商）→「帮我搭一个完整的 SPA 流程」→ 一个 build_pipeline 工具卡长出整条链 → run → wait_for_jobs 同轮汇报 → 生成中可随时 ⏹ 停止
 - 遗留（下窗候选）：①真实供应商 key 活体验证仍未做（沙箱无外网凭据，三方言 wire 纯函数已覆盖）②judge_2d_classes 的远端集群腿未活体跑（t419 起记录在案）③VLM 视觉审查因配额限流未完成（几何+功能+可访问树三证已立）④stop 键的 busy 态未被 QA 捕获（mock 轮近乎瞬时，代码路径经审查）⑤EMPIAR 真数据回归继续让位
+
+---
+
+Task ID: 424 (原号 423——eea2cb3 的 AI 打磨车道已在 origin 抢先注册 423，本窗断窗后由并行车道代为收官顺延为 424；cron agent loop 202609281551)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点 → 七惯例收尾
+
+Work Log (进行时，断窗保护):
+- [开局] 实尾 = Task 422（教义审计 + ⟳ reborn-world 标记）；目击 t422 车道在本窗开局 3 分钟内完成 rebase 收官（bff5c2d 上重放 7a2e95c + 6305f56，push 15:54）。bff5c2d = 并行车道「t416 综合审查窗」：EMPIAR 32 窗遗欠退役（t380 89/0 + fixture 自愈 + empiar 批常驻）+ lint 6 错清零（map-ortho-panel 条件 useEffect = 真 React hooks 崩溃门）+ t197 世界合同双修 + watchdog 1792。
+- [QA] 白屏一瞬：我的浏览器 QA 恰落在 t422 车道「研磨完成 → reboot-recover 重启」的换景瞬间（磁盘 build 07:56 vs 旧进程 07:01）——新服务器 pid 31431 (07:57:39) 就位后同 URL 200；旧会话残影致 agent-browser 空页，重开即愈。世界已在 6305f56 新 build 上：15/15 · 96 particles · console 0。「RELION not found」chip 判诚实非 bug（读本地 s.system.found，沙箱无本地 RELION；mock 集群的模块在连接探针里）。
+- [选题] Task 422 遗留④：AI 助手面板深化——会话历史管理 + 工具卡筛选 + 样式细节。
+- [已交付] 服务端：AiSessionSummaryDto + listSessionSummaries（空会话不入册、preview=首条 user 消息≤96 字、工具计数、newest-first）+ listSessionsForActiveProject / sessionForActiveProject / deleteSessionForActiveProject（pinning 法全覆盖——外项目会话 fetch 与 DELETE 都答 not found）+ 路由 GET /api/ai/sessions、GET+DELETE /api/ai/sessions/[id]（isLocalRequest 门全在）。前端：历史抽屉（当前会话高亮 + 相对时间 + 消息/工具计数 + 两击确认删除 + 删除当前会话走 reset 门拿新空会话——绝不静默收养另一段旧对话）、视图筛选 chips（全部/工具/失败，工具卡 ≥3 才现身，失败 chip 仅在有失败时）、用户气泡时间戳（跨日带日期）、上滑后回到底部悬浮按钮。tsc 0 + eslint 0。
+- [bench] t419-ai-assistant.ts 新 Phase G：111 pass / 0 fail（G1 摘要契约 / G2 pinning 法 / G3 删除合同——首版 G3 预期错了：外来会话连删除门都进不去，修测试为双向断言）。回归：t384-xray 11/0、t384-witness 19/0、t417-unit ALL PASS。
+- [下一步] 世界收敛（FRESH 研磨一次带上 bff5c2d 六处 src 修复 + 本窗 t423 功能）→ reboot-recover 重启 → 新 build 活体 QA（历史抽屉/筛选 chips/mock LLM 全链 + map-ortho 首位客户）→ commit/push。
+- [断窗] 本窗在收敛研磨中死亡（~08:26 UTC 开磨，trace 最后一口气 08:36，无生还进程；疑似 t416 内核线判决的又一次活体）——代码与 bench 均已成型且自验全绿，worklog 条目在位，唯欠研磨/重启/QA/push。
+- [代收官 by Task 425] 并行车窗目击断窗（:3000 熄火 + .next 磨盘残骸 + 无进程），监视 4 分钟无复活迹象后接管：代码验证（tsc 0 + eslint 0 + t419 bench 111/0 亲手复跑）→ 本条改号 423→424 → 提交入库 → 世界收敛由 425 车道完成（FRESH 研磨 + reboot-recover + 两车道功能活体 QA）。历史里又一对「同一时刻互相看不见的车道」——eea2cb3 占 423、本窗占 423，rebase 时顺延为 424，本窗的下一窗（我）自号 425。

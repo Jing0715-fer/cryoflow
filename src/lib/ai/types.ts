@@ -111,6 +111,22 @@ export interface AiSessionDto {
   messages: AiMessage[];
 }
 
+/**
+ * One past session as the HISTORY DRAWER reads it (t423) — a summary, not
+ * the transcript: the list must load O(1) per session even when a session
+ * carries a full tool spiral. `preview` is the session's first user
+ * message (what the conversation was ABOUT), never tool chatter.
+ */
+export interface AiSessionSummaryDto {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
+  /** Tool calls across the session — the "this chat did real work" signal. */
+  toolCount: number;
+  preview: string;
+}
+
 /* ------------------------------------------------------------------ */
 /* Agent iteration events (what one POST /api/ai/chat returns)         */
 /* ------------------------------------------------------------------ */

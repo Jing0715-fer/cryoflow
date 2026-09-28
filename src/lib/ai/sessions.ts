@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
 import path from "path";
 import { DATA_DIR } from "@/lib/paths";
-import type { AiMessage, AiSessionDto } from "./types";
+import type { AiMessage, AiSessionDto, AiSessionSummaryDto } from "./types";
 
 const SESSIONS_FILE = path.join(DATA_DIR, "ai-assistant.json");
 
@@ -107,6 +107,32 @@ export function getSession(id: string): AiSession | null {
 export function latestSessionForProject(projectId: string): AiSession | null {
   const sessions = loadSessions().filter((s) => s.projectId === projectId);
   return sessions.length > 0 ? sessions[sessions.length - 1] : null;
+}
+
+/**
+ * t423 — the history drawer's food: summaries of a project's non-empty
+ * sessions, newest conversation first. Empty sessions (a reset the user
+ * never spoke into) are furniture, not history — they don't earn a row.
+ * The preview is the first USER message: "what this conversation was
+ * about" is the only indexing key a human needs.
+ */
+export function listSessionSummaries(projectId: string): AiSessionSummaryDto[] {
+  const out: AiSessionSummaryDto[] = [];
+  for (const s of loadSessions()) {
+    if (s.projectId !== projectId || s.messages.length === 0) continue;
+    const firstUser = s.messages.find((m) => m.role === "user");
+    let toolCount = 0;
+    for (const m of s.messages) if (m.role === "assistant") toolCount += m.toolCalls?.length ?? 0;
+    out.push({
+      id: s.id,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
+      messageCount: s.messages.length,
+      toolCount,
+      preview: firstUser ? firstUser.content.slice(0, 96) : "(no user message)",
+    });
+  }
+  return out.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 export function createSession(projectId: string): AiSession {

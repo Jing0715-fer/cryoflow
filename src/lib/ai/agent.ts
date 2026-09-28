@@ -20,8 +20,10 @@ import {
   MAX_CONTINUATION_TURNS,
   TOOL_CALL_BUDGET,
   createSession,
+  deleteSession,
   getSession,
   latestSessionForProject,
+  listSessionSummaries,
   saveSession,
   toolCallsUsed,
   turnsSinceLastUser,
@@ -237,4 +239,50 @@ export async function latestSessionForActiveProject(): Promise<{
   const active = await getActiveProject();
   if (!active) return { session: null };
   return { session: latestSessionForProject(active.project.id) };
+}
+
+/**
+ * t423 — the history drawer's list: this project's past conversations,
+ * newest first. An active project is still required — sessions are pinned
+ * to the project they were born in, so a projectless world has no history.
+ */
+export async function listSessionsForActiveProject(): Promise<{
+  sessions: Awaited<ReturnType<typeof listSessionSummaries>>;
+}> {
+  const active = await getActiveProject();
+  if (!active) return { sessions: [] };
+  return { sessions: listSessionSummaries(active.project.id) };
+}
+
+/**
+ * t423 — fetch ONE session for the panel's history switch, with the same
+ * pinning law the iteration path enforces: a session from another project
+ * simply does not exist here (the switch answers "not found", never the
+ * other project's transcript).
+ */
+export async function sessionForActiveProject(id: string): Promise<{
+  session: AiSession | null;
+  error?: string;
+}> {
+  const active = await getActiveProject();
+  if (!active) return { session: null, error: "No active project." };
+  const session = getSession(id);
+  if (!session || session.projectId !== active.project.id) {
+    return { session: null, error: "Session not found." };
+  }
+  return { session };
+}
+
+/** t423 — delete one session under the same pinning law as the fetch. */
+export async function deleteSessionForActiveProject(id: string): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  const active = await getActiveProject();
+  if (!active) return { ok: false, error: "No active project." };
+  const session = getSession(id);
+  if (!session || session.projectId !== active.project.id) {
+    return { ok: false, error: "Session not found." };
+  }
+  return { ok: deleteSession(id) };
 }

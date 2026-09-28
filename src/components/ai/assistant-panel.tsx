@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CryoFlow — the AI assistant panel (t419 → t420 polish round).
+ * CryoFlow — the AI assistant panel (t419 → t420 polish; t424 deepens it).
  *
  * A right Sheet — the natural-language copilot for the canvas. The loop is
  * CLIENT-driven: every POST /api/ai/chat runs ONE model turn + its tool
@@ -28,12 +28,21 @@
  * project's latest session); the class gallery's「AI 分析」button opens the
  * panel with a pending prompt (openAiAssistant(question)) that is sent on
  * arrival — the same one-shot contract as pendingClassFocus.
+ *
+ * t424 deepening (the dead 202609281551 lane's session-history work, grafted
+ * onto the t420 panel by the carrying window): a HISTORY DRAWER (past
+ * conversations of this project — switch, delete with a two-click confirm;
+ * summaries load from GET /api/ai/sessions), a TRANSCRIPT FILTER (全部 / 工具 /
+ * 失败 — when a session carries enough tool cards to be worth filtering), a
+ * jump-to-bottom affordance when the user scrolled up mid-stream, and
+ * timestamps on the user bubbles.
  */
 
 import * as React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
+  ArrowDown,
   Bot,
   CheckCircle2,
   ChevronDown,
@@ -42,6 +51,7 @@ import {
   Cpu,
   FileSearch,
   Filter,
+  History,
   Hourglass,
   LayoutDashboard,
   Link2,
@@ -80,6 +90,7 @@ import type {
   AiEvent,
   AiMessage,
   AiSettingsResponse,
+  AiSessionSummaryDto,
 } from "@/lib/ai/types";
 
 /* ------------------------------------------------------------------ */
@@ -87,9 +98,28 @@ import type {
 /* ------------------------------------------------------------------ */
 
 type UiItem =
-  | { kind: "user"; text: string; key: string }
+  | { kind: "user"; text: string; key: string; at?: number }
   | { kind: "assistant"; text: string; key: string }
-  | { kind: "tool"; key: string; id: string; name: string; args: unknown; ok: boolean; summary: string; detail?: unknown };
+  | { kind: "tool"; key: string; id: string; name: string; args: unknown; ok: boolean; summary: string; detail?: unknown; at?: number };
+
+function fmtTime(at?: number): string {
+  if (!at || !Number.isFinite(at)) return "";
+  const d = new Date(at);
+  const now = new Date();
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  const hm = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return sameDay ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+}
+
+/** "刚刚 / N 分钟前 / N 小时前 / 昨日 / M-D" — the history row's clock. */
+function fmtRel(at: number): string {
+  const diff = Date.now() - at;
+  if (diff < 60_000) return "刚刚";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  const d = new Date(at);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
 
 function argsOneLine(args: unknown): string {
   try {
@@ -105,7 +135,7 @@ function messagesToItems(messages: AiMessage[]): UiItem[] {
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i];
     if (m.role === "user") {
-      items.push({ kind: "user", text: m.content, key: `m${i}` });
+      items.push({ kind: "user", text: m.content, key: `m${i}`, at: m.at });
     } else if (m.role === "assistant") {
       if (m.content) items.push({ kind: "assistant", text: m.content, key: `m${i}` });
       for (let c = 0; c < (m.toolCalls?.length ?? 0); c++) {
@@ -131,6 +161,7 @@ function messagesToItems(messages: AiMessage[]): UiItem[] {
             ok: r?.ok === true,
             summary: r?.summary ?? String(detail).slice(0, 200),
             detail: r?.detail,
+            at: result.at,
           });
         }
       }
@@ -269,6 +300,37 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
 /* The panel                                                            */
 /* ------------------------------------------------------------------ */
 
+/** t424 — the transcript filter's chip (全部 / 工具 / 失败). */
+function FilterChip({
+  active,
+  tone = "default",
+  onClick,
+  children,
+}: {
+  active: boolean;
+  tone?: "default" | "rose";
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors",
+        active
+          ? tone === "rose"
+            ? "border-rose-600/40 bg-rose-500/10 text-rose-700 dark:text-rose-400"
+            : "border-amber-600/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+          : "border-transparent bg-secondary/60 text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 const SUGGESTIONS: { icon: LucideIcon; text: string }[] = [
   { icon: Workflow, text: "帮我搭一个完整的 SPA 流程：导入 → 运动 → CTF → 挑选 → 2D 分类" },
   { icon: ScanEye, text: "分析 2D 分类结果，结合分辨率推荐保留哪些 class" },
@@ -289,6 +351,12 @@ export function AssistantPanel() {
   const [busyLabel, setBusyLabel] = React.useState("思考中…");
   const [needsSetup, setNeedsSetup] = React.useState(false);
   const [modelLabel, setModelLabel] = React.useState<string | null>(null);
+  // ---- t424 deepening state (the dead lane's session-history work) -----
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [sessions, setSessions] = React.useState<AiSessionSummaryDto[]>([]);
+  const [armedDelete, setArmedDelete] = React.useState<string | null>(null);
+  const [filter, setFilter] = React.useState<"all" | "tools" | "fails">("all");
+  const [showJump, setShowJump] = React.useState(false);
   const seq = React.useRef(0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
@@ -297,6 +365,14 @@ export function AssistantPanel() {
   /** The stop switch — checked between rounds; the in-flight fetch aborts. */
   const abortRef = React.useRef(false);
   const abortControllerRef = React.useRef<AbortController | null>(null);
+  const armTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---- t424: the transcript filter's math (chips render only when the
+  // session carries enough tool cards to be worth filtering)
+  const toolCount = items.reduce((n, i) => (i.kind === "tool" ? n + 1 : n), 0);
+  const failCount = items.reduce((n, i) => (i.kind === "tool" && !i.ok ? n + 1 : n), 0);
+  const visibleItems =
+    filter === "all" ? items : items.filter((i) => i.kind === "tool" && (filter === "tools" || !i.ok));
 
   // ---- rehydrate on open (once per open; the latest session of this project)
   React.useEffect(() => {
@@ -374,7 +450,85 @@ export function AssistantPanel() {
   function handleScroll() {
     const el = scrollRef.current;
     if (!el) return;
-    autoScroll.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    autoScroll.current = near;
+    setShowJump(!near && items.length > 0);
+  }
+
+  function jumpToBottom() {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    autoScroll.current = true;
+    setShowJump(false);
+  }
+
+  // ---- t423: the history drawer ----------------------------------------
+  async function loadSessions() {
+    try {
+      const res = await fetch("/api/ai/sessions");
+      if (!res.ok) return;
+      const data = (await res.json()) as { sessions?: AiSessionSummaryDto[] };
+      setSessions(Array.isArray(data.sessions) ? data.sessions : []);
+    } catch {
+      /* the drawer keeps its previous list — best-effort refresh */
+    }
+  }
+
+  function toggleHistory() {
+    const next = !historyOpen;
+    setHistoryOpen(next);
+    setArmedDelete(null);
+    if (next) void loadSessions();
+  }
+
+  async function switchSession(id: string) {
+    if (busy || id === sessionId) {
+      setHistoryOpen(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/ai/sessions/${id}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { session?: { id: string; messages: AiMessage[] } | null };
+      if (!data.session) return;
+      setSessionId(data.session.id);
+      setItems(messagesToItems(data.session.messages));
+      setFilter("all");
+      autoScroll.current = true;
+      setShowJump(false);
+      setHistoryOpen(false);
+    } catch {
+      /* switching is best-effort — the current transcript stays */
+    }
+  }
+
+  function armDelete(id: string) {
+    setArmedDelete(id);
+    if (armTimer.current) clearTimeout(armTimer.current);
+    armTimer.current = setTimeout(() => setArmedDelete(null), 2600);
+  }
+
+  async function removeSession(id: string) {
+    if (armedDelete !== id) {
+      armDelete(id);
+      return;
+    }
+    if (armTimer.current) clearTimeout(armTimer.current);
+    setArmedDelete(null);
+    try {
+      const res = await fetch(`/api/ai/sessions/${id}`, { method: "DELETE" });
+      if (!res.ok) return;
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      if (id === sessionId) {
+        // the open transcript just lost its storage — hand out a fresh
+        // empty session (the reset door), never silently adopt another
+        // past conversation on the next send
+        await resetChat();
+      }
+    } catch {
+      /* best-effort */
+    }
   }
 
   function stopGenerating() {
@@ -447,6 +601,7 @@ export function AssistantPanel() {
     } finally {
       abortControllerRef.current = null;
       setBusy(false);
+      if (historyOpen) void loadSessions(); // the drawer hears about the new turns
     }
   }
 
@@ -466,6 +621,8 @@ export function AssistantPanel() {
       /* reset is best-effort — an empty local transcript is the fallback */
     }
     setItems([]);
+    setFilter("all");
+    if (historyOpen) void loadSessions();
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -521,6 +678,20 @@ export function AssistantPanel() {
           <Button
             variant="ghost"
             size="icon"
+            className={cn(
+              "size-8 shrink-0 text-muted-foreground hover:text-foreground",
+              historyOpen && "bg-accent text-foreground"
+            )}
+            onClick={toggleHistory}
+            aria-label="Session history"
+            aria-expanded={historyOpen}
+            title="历史会话"
+          >
+            <History className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => setAiSettingsOpen(true)}
             aria-label="AI provider settings"
@@ -541,15 +712,115 @@ export function AssistantPanel() {
           </Button>
         </div>
 
+        {/* ---- t423: the history drawer -------------------------------- */}
+        {historyOpen && (
+          <div className="border-b bg-muted/30 px-3 py-2">
+            <div className="mb-1.5 flex items-center justify-between px-1">
+              <p className="text-[11px] font-medium text-muted-foreground">历史会话</p>
+              <span className="text-[10px] text-muted-foreground/70">
+                {sessions.length > 0 ? `${sessions.length} 个对话` : ""}
+              </span>
+            </div>
+            <div className="max-h-52 space-y-1 overflow-y-auto" role="list" aria-label="Session history">
+              {sessions.length === 0 ? (
+                <p className="px-1 py-2 text-xs text-muted-foreground/70">这个画布还没有更早的对话</p>
+              ) : (
+                sessions.map((s) => (
+                  <div
+                    key={s.id}
+                    role="listitem"
+                    className={cn(
+                      "group flex items-center gap-1 rounded-md border bg-card py-1 pl-2 pr-1 transition-colors",
+                      s.id === sessionId ? "border-amber-600/40" : "hover:border-amber-600/30"
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left disabled:opacity-50"
+                      onClick={() => void switchSession(s.id)}
+                      disabled={busy}
+                      title={s.preview}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {s.id === sessionId && (
+                          <Badge
+                            variant="outline"
+                            className="h-4 shrink-0 rounded border-amber-600/40 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400"
+                          >
+                            当前
+                          </Badge>
+                        )}
+                        <span className="truncate text-xs text-foreground">{s.preview}</span>
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <span>{fmtRel(s.updatedAt)}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{s.messageCount} 条消息</span>
+                        {s.toolCount > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-amber-700/80 dark:text-amber-400/80">
+                            <Wrench className="size-2.5" aria-hidden="true" />
+                            {s.toolCount}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                    {armedDelete === s.id ? (
+                      <button
+                        type="button"
+                        className="h-6 shrink-0 rounded-md border border-rose-600/40 px-1.5 text-[10px] font-medium text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
+                        onClick={() => void removeSession(s.id)}
+                      >
+                        确认
+                      </button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-rose-600 focus-visible:opacity-100 group-hover:opacity-100"
+                        onClick={() => armDelete(s.id)}
+                        aria-label={`删除会话：${s.preview.slice(0, 20)}`}
+                        disabled={busy}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ---- t423: transcript view filter (only when it has something to say) */}
+        {toolCount >= 3 && (
+          <div className="flex items-center gap-1.5 border-b px-4 py-1.5" role="group" aria-label="Transcript filter">
+            <span className="mr-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">视图</span>
+            <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
+              全部 · {items.length}
+            </FilterChip>
+            <FilterChip active={filter === "tools"} onClick={() => setFilter("tools")}>
+              <Wrench className="size-2.5" aria-hidden="true" />
+              工具 · {toolCount}
+            </FilterChip>
+            {failCount > 0 && (
+              <FilterChip active={filter === "fails"} tone="rose" onClick={() => setFilter("fails")}>
+                <XCircle className="size-2.5" aria-hidden="true" />
+                失败 · {failCount}
+              </FilterChip>
+            )}
+          </div>
+        )}
+
         {/* ---- transcript ---- */}
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
-          role="log"
-          aria-live="polite"
-          aria-label="AI assistant transcript"
-        >
+        <div className="relative min-h-0 flex-1">
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="h-full space-y-3 overflow-y-auto px-4 py-4"
+            role="log"
+            aria-live="polite"
+            aria-label="AI assistant transcript"
+          >
           {items.length === 0 && !busy && (
             <div className="flex flex-col items-center gap-4 pt-8 text-center">
               <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/15 to-orange-500/10 ring-1 ring-amber-500/20">
@@ -581,12 +852,15 @@ export function AssistantPanel() {
             </div>
           )}
 
-          {items.map((item) =>
+          {visibleItems.map((item) =>
             item.kind === "user" ? (
-              <div key={item.key} className="flex justify-end">
+              <div key={item.key} className="flex flex-col items-end">
                 <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm leading-relaxed text-primary-foreground shadow-sm">
                   {item.text}
                 </div>
+                {item.at ? (
+                  <span className="mr-1 mt-0.5 text-[10px] text-muted-foreground/60">{fmtTime(item.at)}</span>
+                ) : null}
               </div>
             ) : item.kind === "assistant" ? (
               <div key={item.key} className="flex items-start gap-2.5">
@@ -649,6 +923,20 @@ export function AssistantPanel() {
                 打开设置
               </Button>
             </div>
+          )}
+          </div>
+
+          {/* ---- t423: jump back to the live edge after scrolling up ---- */}
+          {showJump && (
+            <Button
+              size="icon"
+              className="absolute bottom-3 right-4 size-7 rounded-full shadow-md"
+              onClick={jumpToBottom}
+              aria-label="回到底部"
+              title="回到底部"
+            >
+              <ArrowDown className="size-3.5" aria-hidden="true" />
+            </Button>
           )}
         </div>
 
