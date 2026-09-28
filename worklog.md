@@ -4542,3 +4542,17 @@ Work Log (进行时，断窗保护):
 - [下一步] 世界收敛（FRESH 研磨一次带上 bff5c2d 六处 src 修复 + 本窗 t423 功能）→ reboot-recover 重启 → 新 build 活体 QA（历史抽屉/筛选 chips/mock LLM 全链 + map-ortho 首位客户）→ commit/push。
 - [断窗] 本窗在收敛研磨中死亡（~08:26 UTC 开磨，trace 最后一口气 08:36，无生还进程；疑似 t416 内核线判决的又一次活体）——代码与 bench 均已成型且自验全绿，worklog 条目在位，唯欠研磨/重启/QA/push。
 - [代收官 by Task 425] 并行车窗目击断窗（:3000 熄火 + .next 磨盘残骸 + 无进程），监视 4 分钟无复活迹象后接管：代码验证（tsc 0 + eslint 0 + t419 bench 111/0 亲手复跑）→ 本条改号 423→424 → 提交入库 → 世界收敛由 425 车道完成（FRESH 研磨 + reboot-recover + 两车道功能活体 QA）。历史里又一对「同一时刻互相看不见的车道」——eea2cb3 占 423、本窗占 423，rebase 时顺延为 424，本窗的下一窗（我）自号 425。
+
+---
+
+Task ID: 425 (cron agent loop 202609281606)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 422 收官段 + 一个自称 423 的 IN PROGRESS 条目（202609281551 车道）。HEAD = fb0345c（并行车道未推的 baseline 截图提交，与 origin 分叉）；origin/main = eea2cb3（AI 打磨车道，Task 423 已注册 + 已推）。第五次并行碰撞在开局即定局：我自号 425，死车道改号 424。第十八份过时 Task 13 指引照例不认，且顺手销案：#5 fs/browse 鉴权已在（rounds 1+2）、#7 三 chart 路由全在 statcache、#8 particles BFS 已批量化（路由内注释自证）、#13 useMemo 内无 localStorage 写、3D 截面工具已在（ortho panel + clip planes + slice events）、Topaz wrapper 已在（training/denoise/图表）——18 窗前清单全数退役。
+- [QA] 世界 200 + console 0 错时画布/目录/inspector 全面体检（15/15 jobs、39 job types、Extract 结果 24 stacks on-cluster 逐个可 fetch）——无新 bug。QA 中途世界熄火：:3000 拒连、.next 变磨盘残骸（BUILD_ID/standalone/stamp 全失）、无生还进程——423 车道死在自己的收敛研磨里（trace 最后一口气 08:36）。监视 4 分钟无复活 → 接管。
+- [接管] 死车道代码亲手验证（tsc 0 + eslint 0 + bench 111/0）→ worklog 改号 + 断窗取证 → 其工作成 commit（见 t424 条）→ 然后才是自己的路：rebase → 研磨 → 重启 → 双车道功能活体 QA。
+- [选题与交付 — 批量 bring-home] QA 里亲身体验的痛：Extract 的 24 个 on-cluster stacks 只有逐个「Fetch & preview」，真实会话是数百个——逐点击是酷刑。t289 的 lazy leg 一_CLICK_一文件；本窗补 batch leg：①服务端 POST /api/jobs/[id]/outputs/sync（isLocalRequest 门 + manifest 精确名册制——只 fetch cluster finalize 台账点过名的文件 + 相对路径卫生检查 + 每呼 ≤8 路径去重 + fetchRemoteFileIntoWorkdir 复用（in-flight 去重/ghost 重拉/t367 freshness 全继承）+ honest remaining 计数）②前端 RemoteBatchBar（结果页顶栏：N files still on cluster + 总字节 + Bring home all → 3 路径/chunk 客户端驱动循环（应用的轮询教义，无 SSE）+ 进度条（h-1 teal，role=progressbar）+ Stop（chunk 间生效，网络死=停不是谎报）+ 失败明细 details 列表 + Retry failed（成功的已在本地会被 freshness 门跳过）+ onSettled 后由父 listing 重新点名——bar 的故事永远来自台账）。
+- [诚实边界] ①本窗研磨/重启/QA 尚未执行（条目断于提交时刻，收官段续记）②chunk 间 Stop 是协作式——chunk 内 3 个文件照常完成③RemoteBatchBar 只说 listing 里的 remote 文件——remoteTruncated（>300 manifest 项）的极端世界 bar 只见前 300（与 tile 同盲，路由的 remaining 才是全量真相）。
+- 遗留（下窗候选）：①EMPIAR 真数据回归（已由 empiar 批常驻覆盖，见 t416）②GitHub PAT 撤销确认（第十六次提醒）③AI 面板死车道 t424 条目里未完成的「新 build 活体 QA（历史抽屉/筛选 chips/mock LLM 全链）」——本窗收官段若有余力先做。

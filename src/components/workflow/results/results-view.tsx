@@ -33,6 +33,7 @@ import {
   Loader2,
   RefreshCw,
   ScrollText,
+  Square,
   Table2,
   ZoomIn,
 } from "lucide-react";
@@ -352,6 +353,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
     () => data?.files.filter((f) => f.kind === "text" || f.kind === "image") ?? [],
     [data]
   );
+  // t424 — the batch bring-home ledger: every listing entry the cluster
+  // still holds (key-files policy). One bar above the sections answers
+  // them all; the per-tile "Fetch & preview" doors stay as they are.
+  const remoteFiles = useMemo(() => data?.files.filter((f) => f.remote) ?? [], [data]);
 
   const copyWorkdir = useCallback(async () => {
     if (!data?.workdir) return;
@@ -1038,6 +1043,13 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           </Button>
         </div>
       </div>
+      )}
+
+      {/* t424 — the batch bring-home bar leads the remote story: one glance
+          says how much the cluster still holds and one click walks it all
+          home, chunk by chunk, with honest per-file verdicts. */}
+      {remoteFiles.length > 0 && (
+        <RemoteBatchBar jobId={job.id} files={remoteFiles} onSettled={() => void load()} />
       )}
 
       {/* t330 — the key numbers lead the Results view: particles above all
@@ -2166,5 +2178,204 @@ function TextPreview({ jobId, path }: { jobId: string; path: string }) {
     >
       {text}
     </pre>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+interface SyncResult {
+  path: string;
+  ok: boolean;
+  bytes?: number;
+  error?: string;
+}
+
+/**
+ * t424 — the batch bring-home bar. The key-files sync policy leaves the
+ * bulky outputs on the cluster; the per-tile doors fetch one file per
+ * click, which is torture at real-session scale (hundreds of stacks).
+ * This bar walks ALL of them home in small client-driven chunks — the
+ * app's polling doctrine, no SSE — with honest per-file verdicts:
+ * progress is the files that actually landed, errors stay named, and
+ * Stop halts after the in-flight chunk without pretending otherwise.
+ */
+function RemoteBatchBar({
+  jobId,
+  files,
+  onSettled,
+}: {
+  jobId: string;
+  files: OutputFile[];
+  onSettled: () => void;
+}) {
+  const CHUNK = 3;
+  const [running, setRunning] = useState(false);
+  const [doneCount, setDoneCount] = useState(0);
+  const [failCount, setFailCount] = useState(0);
+  const [failures, setFailures] = useState<SyncResult[]>([]);
+  const stopRef = useRef(false);
+
+  const total = files.length;
+  const totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
+  const settled = doneCount + failCount;
+  const pct = total > 0 ? Math.round((settled / total) * 100) : 0;
+
+  const bringHome = async () => {
+    setRunning(true);
+    setDoneCount(0);
+    setFailCount(0);
+    setFailures([]);
+    stopRef.current = false;
+    let done = 0;
+    let failed = 0;
+    const failedRows: SyncResult[] = [];
+    try {
+      for (let i = 0; i < files.length; i += CHUNK) {
+        if (stopRef.current) break;
+        const chunk = files.slice(i, i + CHUNK).map((f) => f.path);
+        let rows: SyncResult[] | null = null;
+        try {
+          const res = await fetch(`/api/jobs/${jobId}/outputs/sync`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paths: chunk }),
+          });
+          if (res.ok) {
+            const body = await res.json();
+            rows = Array.isArray(body?.results) ? body.results : null;
+          }
+        } catch {
+          /* network death — fall through with rows null */
+        }
+        if (rows === null) {
+          // the chunk itself died — count its files as failed and halt:
+          // an unreachable wire is not a per-file verdict, stop walking
+          failed += chunk.length;
+          failedRows.push({ path: chunk[0], ok: false, error: "Sync request failed — connection or server error" });
+          setFailCount(failed);
+          setFailures([...failedRows]);
+          break;
+        }
+        for (const row of rows) {
+          if (row.ok) done += 1;
+          else {
+            failed += 1;
+            failedRows.push(row);
+          }
+        }
+        setDoneCount(done);
+        setFailCount(failed);
+        setFailures([...failedRows]);
+      }
+    } finally {
+      setRunning(false);
+      // the listing is the truth — refresh even after a stop so fetched
+      // tiles graduate to their local selves and the bar re-derives
+      onSettled();
+    }
+  };
+
+  // everything the parent's refreshed listing still calls remote has
+  // genuinely not landed — the bar's story always comes from the ledger
+  if (total === 0) return null;
+
+  return (
+    <div
+      className="rounded-lg border border-teal-600/30 bg-teal-600/[0.04] px-3 py-2.5"
+      data-canvas-ui="remote-batch-bar"
+      role="status"
+      aria-busy={running}
+      aria-label={`Batch bring home: ${total} files on cluster`}
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300">
+          <Cloud className="size-3.5" aria-hidden="true" />
+          {total} file{total === 1 ? "" : "s"} still on cluster
+        </span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {formatBytes(totalBytes)} total — fetched files stay on this machine
+        </span>
+        <span className="ml-auto flex items-center gap-1.5">
+          {running ? (
+            <>
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
+                <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                {doneCount}/{total} home
+                {failCount > 0 ? ` · ${failCount} failed` : ""}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2 text-[11px] text-destructive hover:text-destructive"
+                onClick={() => {
+                  stopRef.current = true;
+                }}
+                aria-label="Stop fetching the remaining files"
+                data-canvas-ui="remote-batch-stop"
+              >
+                <Square className="size-3" aria-hidden="true" />
+                Stop
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 border-teal-600/40 px-2.5 text-[11px] text-teal-700 hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+                onClick={() => void bringHome()}
+                aria-label={`Fetch all ${total} cluster files to this machine`}
+                title="Bring them all home — small chunks over SSH, per-file verdicts, stoppable at any moment"
+                data-canvas-ui="remote-batch-start"
+              >
+                <CloudDownload className="size-3.5" aria-hidden="true" />
+                {settled > 0 ? "Resume" : "Bring home all"}
+              </Button>
+              {failCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-[11px] text-destructive"
+                  onClick={() => void bringHome()}
+                  title="Retry the failed files (successful ones are already local and will be skipped)"
+                >
+                  <RefreshCw className="size-3" aria-hidden="true" />
+                  Retry {failCount} failed
+                </Button>
+              )}
+            </>
+          )}
+        </span>
+      </div>
+      {(running || settled > 0) && (
+        <div
+          className="mt-2 h-1 overflow-hidden rounded-full bg-teal-600/15"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-valuenow={settled}
+        >
+          <div
+            className="h-full rounded-full bg-teal-600 transition-[width] duration-300 motion-reduce:transition-none"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+      {failures.length > 0 && !running && (
+        <details className="mt-1.5">
+          <summary className="cursor-pointer text-[10px] font-medium text-destructive/90">
+            {failures.length} file{failures.length === 1 ? "" : "s"} failed — show why
+          </summary>
+          <ul className="mt-1 space-y-0.5">
+            {failures.map((f) => (
+              <li key={f.path} className="flex items-baseline gap-1.5 text-[10px]">
+                <code className="truncate font-mono text-foreground/70">{f.path}</code>
+                <span className="shrink-0 text-destructive/80">{f.error}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
   );
 }
