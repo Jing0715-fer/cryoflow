@@ -4563,3 +4563,25 @@ Work Log:
 - [活体 QA — 死车道的历史抽屉] 合并后的 t420 面板上：Session history 按钮在场（expanded 切换正常）、抽屉渲染「历史会话」+ 会话条目（预览文本 + 删除按钮 + 相对时间）、无错误。筛选 chips 的 toolCount≥3 门与 bench 111/0 由 t424 车道自证、合并未触碰其逻辑（FilterChip/visibleItems 原样入树）。模型徽章「Custom · mock-chat」在场 = t424 车道断窗前配的 mock 环境（其 [清场] 步骤未及执行——但 09:02 mock LLM :3999 被重启、ai-settings 保持 active：判定 426 车道正在用，不清场不拆台，留给 426 收官）。
 - [诚实边界] ①Stop/Retry 按钮只做了 API 级等价验证（chunk 循环的守卫在客户端，代码审查 + 主路径活体覆盖）——UI 级 Stop 未演（需要中途掐断一个正在跑的批量，会污染共享浏览器里 426 的 QA）②remoteTruncated（>300 manifest 项）时 bar 只见前 300——与 tile 同盲，路由的 remaining 是全量真相③426 车道的世界恢复在我的 reboot-recover exit 42 之后就位，我未再抢跑（reboot-recover 的幂等性让「让路」成本为零：42 = 重跑，不是失败）。
 - [最终态] HEAD = dae8a43 已推 origin/main；app 200（收敛 build，provenance dae8a43）；两车道（424 死窗 + 425 本窗）+ 426 车道的研磨三方合流于同一个世界。下一窗从 Task 427 起编（426 若推其条目则顺延）。GitHub PAT 撤销确认第十六次提醒。
+
+---
+Task ID: 423 (the number t424's own commit message reserved for this lane — "origin's eea2cb3 lane had already claimed 423"; this session IS that lane's next window. Rebased atop 424/425 in history order; next window starts at 427 per t425's addendum)
+Agent: main (Z.ai Code — user-ticket window, trace web-a2e5e4ff)
+Task: 用户工单 — ①连线 bug：两卡片距离近时连线往上绕、不按最小距离连接 ②继续打磨 agent 能力与 UI（与其他部分风格一致）
+
+Work Log:
+- [开局] HEAD = eea2cb3（t420 打磨轮，树净）。用户报的连线 bug 先定位：edge-geom.ts 的 routeWire 把任何 span < MIN_CTRL(56px) 的连线都送进 backwardRoute——那本是为「目标在源左侧」的发卡线准备的环绕弧，却把正向近距离对也包了进去：出口右行 14px → 上扫 56px 越过两张卡顶部 → 横移 → 回落到目标口。诊断脚本实锤：gap=40 的线从 y=128 绕到 y=44 再回 306。
+- [修法 — 三个协调改动] ①backward 触发改为严格 ex < sx（真发卡才环绕）②directBez 的 reach 地板 56→4（max(4, 0.42·span)——比例 S 曲线：控制点永保序 c1x ≤ c2x，x 单调于 [sx,ex] 内，正向 S 在任何距离都不可能切到端点卡；顺带 56–134px 区间原本的交叉控制点也治愈）③corridor 避让的 hop 随 span 收缩（min(STUB, 0.35·gap)——gap<28 时原固定 hop 自相交叉）。pendingWirePath（橡皮筋预览）同阈值同 reach——预览即提交后的曲线。
+- [验证 — 数字级] gap 0/4/8/20/24/40/56/80/160/500 + 真反向 + 同口扇出 + 障碍物绕行 + 橡皮筋对照全部断言；gap 160+ 与旧实现逐字节一致（常用自动布局零回归）。活体：demo 世界自己的 import→motioncorr→ctffind 链就是 24px 间距——用户抱怨的正是这两根线，修复后双双变紧凑 S（M 256 248 C 266.08 248, 269.92 276, 280 276）。
+- [面板 — t423 一致性轮] ①停/错通知从「⚠️ 前缀的 markdown 气泡」改为紧凑状态条（Square/AlertTriangle + 应用警示语系）②工具卡长出定位按钮（Locate 图标 = inspector 的 Focus 语义 → revealJob 居中+选中；create/build/select 从 detail 取 jobId，run/stop/inspect/update/judge 从 args 取——对话流变成导航面）③composer 上方一枚状态驱动的后续 chip（running→等它跑完 / idle→把流程跑起来 / 完成 class2d→分析它 / 空画布→搭流程；零噪音律：至多一枚，永不砌墙）——NEXT_STEPS 正典的客户端表述④Enter 守卫 IME 组键（中文输入法的 Enter 确认不再误发半截 prompt——本面板的主要受众打中文）⑤composer 吃 iOS safe-area（footer 的 pb-[max] 法）⑥markdown 补 table/heading/blockquote/HR 样式（GFM 曾是无样式糊）⑦reset 应答 toast。
+- [活体 QA] mock LLM（:3999）+ custom 供应商配置 → 真 UI 全链：state → 4×create_job → 叙述；4 个定位按钮点击 → 画布选中+居中（选中卡 id = 工具卡创建的那个 job，字节级对上）；follow-up chip 随世界状态（7-job 世界 idle → 「把刚建好的流程跑起来」）；坏 mock 窗口的 400 错误走了新 notice 条（role=status）实时验证；390px 移动端无溢出；QA 后世界复原（删 4 个 mock job → 3 jobs、会话 reset、ai-settings 复原为 pristine、mock 服务器停）。
+- [碰撞 — 第三车道] push 被拒：并行车道已推 t424（AI 面板深化：会话历史抽屉/筛选 chips/时间戳/回底部——恰好也是本面板！）+ t425（批量 bring-home）+ t425 addendum。rebase 冲突仅 assistant-panel.tsx 六处，全部双保留合并：t424 深化会话面 + t423 打磨轮次面互补成一体（visibleItems 里 notice 分支、时间戳气泡与定位钮共存、历史抽屉与 follow-up chip 共存）。合并后 tsc 0 + eslint 0 + t419 bench 111/0（t424 扩的 Phase G）+ t420 bench 52/0；历史抽屉活体渲染验证。
+- [战场 — 显示管道吃字] 本窗最大怪谈：工具结果显示会吞掉 `[m` 序列（ANSI 误读）——`messages[messages.length` 显示成 `messagesessages`、`[mock-llm]` 显示成 `ock-llm]`、`mockToolCall` 显示少一个 m。我据显示内容判定 t419-mock-llm.mjs 「已损坏」并 sed 修复——实际 HEAD 字节从来是干净的（git show 验证）；我的 sed 反而制造了短暂的双 m 损坏（08:58 起跑的旧 mock 服务器 18211 加载的正是某个受损中间态，ReferenceError 实锤），后续 sed 又恰好逐字节还原（git diff HEAD 为空）。教训入册：字节级判断只信 od/git diff，不信显示。
+- [诚实边界] ①VLM 视觉复核全程 429 限流（视觉结论由数字级路径断言 + DOM 存在性验证顶替）②mock LLM 的 judge 车道（类平均图 VLM）本窗未重演——t420 已全链验证且本窗未触碰其代码路径③follow-up chip 的「把流程跑起来」在不可运行的 head 上会让 agent 诚实报错（教学式失败，与画布 Run 按钮同一语义）——刻意为之④与 426 车道的潜在碰撞：我清场了 :3999 mock 与 ai-settings（其最后可见活动是 09:02，判定已结束；若其 QA 仍在进行属误伤，记录在案）。
+
+Stage Summary:
+- **「backward 就是 backward，不是不够 forward」**：发卡环绕弧的触发条件必须是几何语义（目标在源左侧），不是距离阈值——56px 地板把「近」误判成「反向」，于是两三像素的距离被判处 56px 的顶空绕行；阈值即语义的混淆是路由器 bug 的标准形状
+- **「预览必须即承诺」**：橡皮筋与提交边若走不同几何，用户在瞄准近距离邻居时看到的是另一条线——pendingWirePath 与 routeWire 共享同一阈值与 reach，预览的曲线就是落笔的曲线
+- **「显示管道会吃 [m」**：工具输出层把 `[m` 当 ANSI 转义吞掉——肉眼判损必错；字节级判断的三证人是 od、git diff、git show；「修复一个从未损坏的文件」本身才是唯一造成过的损坏
+- **「两条车道打磨同一张面板」**：t424（会话面：历史/筛选/时间戳）与 t423（轮次面：通知/定位/后续 chip/IME）在 rebase 中互补合一——冲突六处全双保留，合并后 111+52 bench 全绿
+- 产出：commit 2035add（待推）— edge-geom 三改动 + assistant-panel 一致性轮 + 12 张定妆；下一窗从 Task 427 起编
