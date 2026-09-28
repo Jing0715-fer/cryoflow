@@ -25,6 +25,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Bot,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -682,6 +683,25 @@ export function ClassGallery({
           </span>
         )}
         <div className="ml-auto flex items-center gap-1">
+          {/* t419 — the AI judge door: opens the assistant with the question
+            * pre-armed (one-shot pending prompt). The VLM looks at the class
+            * sheet + occupancy + resolution and recommends what to keep. */}
+          <button
+            type="button"
+            onClick={() =>
+              useWorkflowStore
+                .getState()
+                .openAiAssistant(
+                  `请分析 2D 分类任务「${upstream.name}」(id: ${upstream.id}) 的结果：用视觉模型看 class 平均图，结合每类占比和分辨率，推荐应该保留哪些 class，并说明理由。`
+                )
+            }
+            title="AI 分析 — 视觉模型判 class，结合占比与分辨率推荐"
+            data-canvas-ui="class-gallery-ai"
+            className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700 transition-colors hover:bg-amber-500/25 dark:text-amber-300"
+          >
+            <Bot className="mr-1 inline size-2.5" aria-hidden="true" />
+            AI 分析
+          </button>
           <button
             type="button"
             onClick={() => onChange("auto")}

@@ -540,6 +540,27 @@ interface WorkflowState {
    *  command palette) — single source of truth so all three entries stay
    *  in sync. */
   shortcutsOpen: boolean;
+  /** t419 — the AI assistant panel (right Sheet): open state + the
+   *  one-shot pending prompt (the class gallery's "AI 分析" button opens
+   *  the panel WITH a question — consumed once by the panel, never
+   *  observed twice; same contract as pendingClassFocus). In-memory by
+   *  design: a chat panel is a session surface, not a document property. */
+  aiAssistantOpen: boolean;
+  setAiAssistantOpen: (open: boolean) => void;
+  aiPendingPrompt: string | null;
+  /** Open the assistant, optionally carrying a question to send immediately. */
+  openAiAssistant: (prompt?: string) => void;
+  /** One-shot: returns the pending prompt and clears it. */
+  consumeAiPendingPrompt: () => string | null;
+  /** t419 — pull the server's edge truth into the store. The assistant
+   *  creates wires SERVER-SIDE (its tools run in the API route), and the
+   *  poll only refreshes jobs — without this the canvas would not show
+   *  AI-drawn wires until a reload. */
+  refreshEdges: () => Promise<void>;
+  /** t419 — the AI provider settings dialog (gear inside the assistant,
+   *  or the panel's needs-setup banner). */
+  aiSettingsOpen: boolean;
+  setAiSettingsOpen: (open: boolean) => void;
   /** Task 105 — world-overview minimap visibility (bottom-right corner).
    *  Session-local by design: a collapsed tool is a UI mood, not a user
    *  asset — default open on every fresh session keeps the map discover-
@@ -1344,6 +1365,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   templateSuggestions: null,
   customTemplates: [],
   shortcutsOpen: false,
+  aiAssistantOpen: false,
+  aiPendingPrompt: null,
+  aiSettingsOpen: false,
   minimapOpen: true,
   noteSpotlight: false,
   findOpen: false,
@@ -3907,6 +3931,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
+  setAiAssistantOpen: (open) => set({ aiAssistantOpen: open }),
+  openAiAssistant: (prompt) =>
+    set({ aiAssistantOpen: true, ...(prompt ? { aiPendingPrompt: prompt } : {}) }),
+  consumeAiPendingPrompt: () => {
+    const p = get().aiPendingPrompt;
+    if (p) set({ aiPendingPrompt: null });
+    return p;
+  },
+  refreshEdges: async () => {
+    try {
+      const fresh = await api<{ edges: EdgeDTO[] }>("/api/edges");
+      set({ edges: fresh.edges });
+    } catch {
+      /* the next poll round retries the canvas truth */
+    }
+  },
+  setAiSettingsOpen: (open) => set({ aiSettingsOpen: open }),
   setMinimapOpen: (open) => set({ minimapOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
   openFind: () => set((s) => (s.findOpen ? s : { findOpen: true })),

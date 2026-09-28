@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Server,
   Snowflake,
+  Sparkles,
   StickyNote,
   Workflow,
   X,
@@ -706,6 +707,19 @@ export function Header() {
             out of the lowest-value chrome on the strip: the GitHub link
             button, which is decoration next to a command surface. The
             280 fold still fits — measured, not guessed. */}
+        {/* t419 — the AI assistant door: always visible (icon-only under sm,
+          * the same mobile law the palette trigger follows — a headline
+          * feature hides from nobody). */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="max-sm:px-2 text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+          onClick={() => useWorkflowStore.getState().openAiAssistant()}
+          aria-label="AI assistant"
+          title="AI 助手 — 自然语言建流程 / 判 class"
+        >
+          <Sparkles className="size-4.5" aria-hidden="true" />
+        </Button>
         <CommandPaletteTrigger />
         <Button
           variant="ghost"
