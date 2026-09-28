@@ -6,6 +6,7 @@ import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
 import { autoStartPendingDownstream } from "@/lib/relion/dispatch";
 import { reconcileRemoteJobs, remoteInfoFor } from "@/lib/remote/remote-run";
+import { remainingForRun } from "@/lib/remote/remote-remaining";
 import type { JobDTO, EdgeDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,7 @@ function projectLinks(jobs: JobDTO[], workspaces: Map<string, string>): void {
       job.engine = root.engine;
       job.hasLog = root.hasLog;
       job.runRemote = root.runRemote;
+      job.remoteRemaining = root.remoteRemaining;
       job.linkedName = root.name;
       job.linkedWorkspaceName =
         (root.workspaceId ? workspaces.get(root.workspaceId) : undefined) ?? "Main";
@@ -194,6 +196,10 @@ export async function GET(request: NextRequest) {
       // remote runs stream their logs over SSH — the log tab is always live
       dto.hasLog = state ? state.remote != null || existsSync(state.logFile) : false;
       dto.runRemote = remoteInfoFor(j.id);
+      // t431 — homecoming truth rides the list once per poll: the canvas
+      // card / minimap / dashboard re-judge their stay receipts with zero
+      // extra requests (the same arithmetic the t429 probe GET uses).
+      dto.remoteRemaining = remainingForRun(state);
       return dto;
     });
     projectLinks(jobsOut, workspaceNames);

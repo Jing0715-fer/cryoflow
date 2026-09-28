@@ -56,6 +56,7 @@ import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges } fro
 import { CARD_W, CARD_H } from "@/lib/workflow";
 import { capturePointer } from "@/lib/pointer";
 import { cn } from "@/lib/utils";
+import { compactStayReceipt } from "@/lib/remote/stay-receipt";
 import { jobMatchesFind } from "./canvas-find-bar";
 
 const MM_W = 192;
@@ -472,7 +473,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 strokeOpacity={inMulti ? 0.45 : 1}
                 strokeWidth={s}
               >
-                <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
+                <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${compactStayReceipt(j.result, j.remoteRemaining?.remaining)}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
                 {j.status === "running" && !dimmed && !findDim && (
                   <animate
                     attributeName="opacity"

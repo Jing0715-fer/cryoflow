@@ -3,7 +3,7 @@ import { existsSync } from "fs";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
-import { readRemoteManifest } from "@/lib/remote/remote-files";
+import { remainingFromWorkdir } from "@/lib/remote/remote-remaining";
 
 export const dynamic = "force-dynamic";
 
@@ -56,21 +56,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ ok: true, jobId: id, remaining: 0, total: 0 });
     }
 
-    const manifest = readRemoteManifest(run.workdir);
-    if (!manifest || manifest.files.length === 0) {
-      return NextResponse.json({ ok: true, jobId: id, remaining: 0, total: 0 });
-    }
-
-    let remaining = 0;
-    for (const entry of manifest.files) {
-      if (!existsSync(`${run.workdir}/${entry.path}`)) remaining += 1;
-    }
+    // t431 — the count loop lives in lib/remote/remote-remaining.ts, shared
+    // with the jobs-list annotation (one arithmetic, two consumers).
+    const { remaining, total } = remainingFromWorkdir(run.workdir);
 
     return NextResponse.json({
       ok: true,
       jobId: id,
       remaining,
-      total: manifest.files.length,
+      total,
     });
   } catch (error) {
     console.error("GET /api/jobs/[id]/outputs/remote-remaining failed:", error);

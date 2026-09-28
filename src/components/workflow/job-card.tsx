@@ -18,6 +18,7 @@ import {
   SquarePen,
   StickyNote,
   Trash2,
+  Home,
 } from "lucide-react";
 import {
   CARD_H,
@@ -36,6 +37,7 @@ import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { parseClassNotes } from "@/lib/class-notes";
+import { isStayReceipt, stayReceiptHead } from "@/lib/remote/stay-receipt";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 import { TypeIcon } from "./icons";
@@ -136,6 +138,60 @@ export function displayResult(result: string | null | undefined): string | null 
   if (!result) return null;
   const stripped = result.replace(REMOTE_ENVELOPE, "");
   return stripped.trim() || result;
+}
+
+/**
+ * t431 — the card box speaks the payload sentence ("96 particles
+ * extracted"), not the receipt's stale urgency. When the server's
+ * homecoming annotation has judged the stay receipt, the leftover tail
+ * ("24 image file(s) stayed on the cluster — …") leaves the box: the
+ * state it describes lives on the host line as a homecoming chip
+ * (HomecomingChip below). Truth not loaded / not a receipt → the text
+ * passes through exactly as before (the no-flicker law).
+ */
+function cardResultText(job: JobDTO): string | null {
+  const text = displayResult(job.result);
+  if (!text) return null;
+  const rem = job.remoteRemaining;
+  if (rem == null || !isStayReceipt(text)) return text;
+  return stayReceiptHead(text) ?? text;
+}
+
+/**
+ * t431 — the homecoming chip on the card's host line. Teal "home" when
+ * every synced file is back; amber "<N> on cluster" while some are still
+ * out (tooltip points at the batch bring-home). Renders nothing until
+ * the annotation arrives — a card never flashes a state it hasn't seen.
+ */
+function HomecomingChip({ job }: { job: JobDTO }) {
+  const rem = job.remoteRemaining;
+  const receipt = job.result ?? job.runRemote?.note ?? "";
+  if (rem == null || !isStayReceipt(receipt)) return null;
+  const resolved = rem.remaining === 0;
+  return (
+    <span
+      className={cn(
+        "ml-auto flex shrink-0 items-center gap-0.5 rounded-full border px-1.5 py-px text-[9px] font-medium leading-none",
+        resolved
+          ? "border-teal-600/30 bg-teal-600/10 text-teal-700 dark:text-teal-300"
+          : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+      )}
+      title={
+        resolved
+          ? `All ${rem.total} synced file(s) are home`
+          : `${rem.remaining} of ${rem.total} synced file(s) still on the cluster — Results → Bring home all`
+      }
+      aria-label={
+        resolved
+          ? "All synced remote files brought home"
+          : `${rem.remaining} of ${rem.total} synced remote files still on the cluster`
+      }
+      data-homecoming={resolved ? "resolved" : "pending"}
+    >
+      <Home className={cn("size-2.5 shrink-0", resolved ? "" : "opacity-70")} aria-hidden="true" />
+      {resolved ? "home" : `${rem.remaining} on cluster`}
+    </span>
+  );
 }
 
 export function StatusBadge({ status, queued }: { status: string; queued?: boolean }) {
@@ -1195,6 +1251,9 @@ function JobCardPreview({
               {job.runRemote.user}@{remoteHostLabel(job.runRemote.host)}
               {job.runRemote.module ? ` · ${job.runRemote.module}` : ""}
             </span>
+            {/* t431 — the homecoming chip: teal "home" / amber "<N> on
+                cluster", judged from the list annotation (no extra fetch) */}
+            <HomecomingChip job={job} />
           </p>
         ) : null}
         {(job.status === "completed" || job.status === "failed") && job.result ? (
@@ -1208,8 +1267,10 @@ function JobCardPreview({
             title={job.result}
           >
             {/* t350 — the envelope moves to the tooltip; the peek speaks
-                the same payload sentence the card face does */}
-            {displayResult(job.result) ?? job.result}
+                the same payload sentence the card face does. t431 — once
+                the homecoming truth is in, the stale receipt tail leaves
+                the box (the chip on the host line carries the state). */}
+            {cardResultText(job) ?? job.result}
           </p>
         ) : null}
         {/* Annotations (Task 83) — the preview is the "inspect without
@@ -2277,7 +2338,9 @@ export const JobCard = React.memo(function JobCard({
                     className="truncate text-[11px] leading-[15px] text-foreground/80"
                     title={job.result}
                   >
-                    <ResultPayload text={displayResult(job.result) ?? job.result} />
+                    {/* t431 — the compact row obeys the same law as the
+                        box: payload sentence, receipt tail → the chip */}
+                    <ResultPayload text={cardResultText(job) ?? job.result} />
                   </p>
                 ) : null
               ) : job.status === "failed" ? (

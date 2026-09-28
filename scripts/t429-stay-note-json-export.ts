@@ -68,7 +68,7 @@ const must = (cond: boolean, name: string) => {
 const { db } = await import("../src/lib/db");
 const { upsertRun } = await import("../src/lib/relion/engine");
 const { writeRemoteManifest } = await import("../src/lib/remote/remote-files");
-const { isStayReceipt } = await import("../src/components/workflow/remote-stay-note");
+const { isStayReceipt } = await import("../src/lib/remote/stay-receipt");
 const { sessionToExportJson, sessionFileName, sessionToMarkdown } = await import("../src/lib/ai/export");
 const { createSession, saveSession, getSession, toolCallsUsed } = await import("../src/lib/ai/sessions");
 const { ensureActiveProject } = await import("../src/lib/seed");

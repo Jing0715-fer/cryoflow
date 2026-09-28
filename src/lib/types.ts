@@ -31,6 +31,12 @@ export interface JobDTO {
   /** Present while the job's latest run executes on a REMOTE SSH cluster
    *  (connection, module, cluster workdir, phase …) — see lib/remote/types. */
   runRemote?: import("./remote/types").RemoteRunInfo | null;
+  /** Homecoming truth for the run's sync receipt (t431, computed per
+   *  response — never stored): how many manifest entries are still
+   *  absent from the local workdir. Only remote runs with a local
+   *  workdir carry it; absent = "truth not loaded" and every receipt
+   *  surface renders the historical text untouched (no-flicker law). */
+  remoteRemaining?: import("./remote/remote-remaining").RemoteRemaining | null;
   /** Owning workspace id (server always assigns one; null = pre-migration). */
   workspaceId?: string | null;
   /** Soft link: non-null when this job MIRRORS another job's outputs.

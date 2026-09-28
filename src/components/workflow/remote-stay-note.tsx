@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { CheckCircle2 } from "lucide-react";
+import { isStayReceipt } from "@/lib/remote/stay-receipt";
 
 /**
  * t429 — the stay-receipt's bring-home awareness.
@@ -30,14 +31,6 @@ import { CheckCircle2 } from "lucide-react";
  * `remoteRemaining` and no fetch happens; otherwise pass `jobId` and the
  * component self-probes once per mount.
  */
-
-/** The sync receipt dialects that literally claim files "stayed on the
- * cluster" (sync-policy.ts + remote-run.ts wordings). The stale-generation
- * verdict mixes in via " — " segments; a note that ALSO warns about an
- * EARLIER run is not fully resolved by bring-home, so it stays amber. */
-export function isStayReceipt(note: string): boolean {
-  return note.includes("stayed on the cluster") && !note.includes("EARLIER run");
-}
 
 type ProbeState = { remaining: number; total: number } | null;
 

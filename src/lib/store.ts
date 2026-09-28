@@ -1007,7 +1007,14 @@ function jobEquals(a: JobDTO, b: JobDTO): boolean {
     (a.linkedJobId ?? null) === (b.linkedJobId ?? null) &&
     (a.linkedName ?? null) === (b.linkedName ?? null) &&
     (a.linkCount ?? 0) === (b.linkCount ?? 0) &&
-    JSON.stringify(a.params) === JSON.stringify(b.params)
+    JSON.stringify(a.params) === JSON.stringify(b.params) &&
+    // t431 — the homecoming annotation is COMPUTED per response, not
+    // stored: a bring-home flips it WITHOUT touching the row (updatedAt
+    // never moves), so the equality predicate must compare it explicitly
+    // or the reference-stability merge swallows the flip and the canvas
+    // keeps the stale "home" chip forever.
+    JSON.stringify(a.remoteRemaining ?? null) ===
+      JSON.stringify(b.remoteRemaining ?? null)
   );
 }
 

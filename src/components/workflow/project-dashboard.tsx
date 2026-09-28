@@ -48,6 +48,7 @@ import { useWorkflowStore } from "@/lib/store";
 import { parseClassNotes, hasJudgment } from "@/lib/class-notes";
 import { withLiveStats } from "@/lib/live-stats";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
+import { compactStayReceipt } from "@/lib/remote/stay-receipt";
 import { KpiSparkline } from "./kpi-sparkline";
 import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
@@ -908,7 +909,7 @@ function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      title={`${job.name} — ${job.status}${job.result ? ` · ${job.result}` : ""}`}
+      title={`${job.name} — ${job.status}${job.result ? ` · ${compactStayReceipt(job.result, job.remoteRemaining?.remaining)}` : ""}`}
       className={cn(
         "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm",
         job.status === "running"
@@ -937,7 +938,7 @@ function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
           {job.status === "running"
             ? `${Math.round(job.progress)}%${eta != null ? ` · ${formatEta(eta)}` : ""}`
             : job.status === "completed"
-              ? job.result?.slice(0, 26) ?? "done"
+              ? compactStayReceipt(job.result ?? "", job.remoteRemaining?.remaining).slice(0, 26) || "done"
               : job.status}
         </span>
       </span>
@@ -1130,7 +1131,11 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
             </span>
           ) : (
             <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-              {job.result ?? (job.status === "idle" ? "not started" : "—")}
+              {job.result
+                ? compactStayReceipt(job.result, job.remoteRemaining?.remaining)
+                : job.status === "idle"
+                  ? "not started"
+                  : "—"}
             </span>
           )}
         </span>

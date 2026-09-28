@@ -4721,3 +4721,24 @@ Work Log:
 - [活体复验 — 分层闭环] 重研（attempt 2 绿）+ reboot-recover 后真键盘驱动：有词 Esc → 查询清空 + 抽屉/面板留场（顺带验证同桶世界零噪音平铺——三行全今天无标签）→ 空 Esc → 面板关闭回画布。console 全程 0 错。
 - [清场] 3 个 Esc 验证 fixture 会话 DELETE 门回收（sessions 0）+ 浏览器净场。定妆 .qa-logs/t430-{esc-v2,esc2}.png。
 - [最终态] HEAD = origin/main = fd4c48d + 本补研 commit；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、mock LLM 停、mock 集群 :3022 在听、浏览器净场。下一窗从 Task 431 起编。GitHub PAT 撤销确认第二十次提醒（本窗 push 全部正常）。
+
+---
+Task ID: 431 (cron agent loop 202609282106)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 430 完整收官（含 Radix Esc 补研，HEAD = 80c6b0f = origin/main，树净）。世界健康：app 200（bun 27423，运行 fd4c48d build = t430 代码，Esc 修复在 stamp 后落树——家族惯例式时差）、15/15 全绿、console 0 错、mock 集群 :3022 在听。第二十二份过时 Task 13 指引照例不认。自号 431。
+- [QA — 真矛盾第三次上门] 画布目击 Extract 节点副标题仍宣称「24 image file(s) stayed on the cluster」——而磁盘 27 枚早已归家（t425 批量 + t429 复验）。取证：陈旧回执不止活在 runRemote.note（t429 已修 inspector/job-panel），还**烘焙在 job.result 里**（remote-run.ts t367 把 sync.note 以「 — <receipt>」后缀拼进成功 result）——画布卡片两处、minimap title（可及性树 graphics-symbol）、dashboard 三处全在渲染它。t429 教义（「不涂改历史回执，UI 加归家感知章」）漏掉了 result 层的全部紧凑表面。
+- [选题] result 层的归家感知推广：①共享方言库（isStayReceipt 从组件迁至 lib/remote/stay-receipt.ts，纯字符串、client-safe）+ stayReceiptHead（裁出载荷句）/compactStayReceipt（未知→原样、resolved→「· all brought home」、pending→「· N still on cluster」——no-flicker 律）②服务端真值注解：lib/remote/remote-remaining.ts（remainingFromWorkdir = t429 端点的 manifest×existsSync 算术升格共享；remainingForRun 只对 remote+有 workdir 的 run 作答）→ jobs 列表路由每 poll 给每个 DTO 附 remoteRemaining（projectLinks 链接镜像同步照抄）——画布/minimap/dashboard 零额外请求重判回执 ③卡片 HomecomingChip：teal「home」/amber「N on cluster」小章挂 host 行尾，result 盒与紧凑行改说载荷句（chip 带状态+tooltip 指路 Bring home all）。
+- [验证] tsc 0 + eslint 0（十文件）；t431 bench 20/20（H1 方言矩阵 11 断言：meta/bulky/caps 三措辞 × resolved/pending/未知 × REMOTE/REAL 双信封 + EARLIER-run 混合段永不宣判 resolved；R1 算术 7 断言：1/3→0/3 翻转、无 manifest 0/0、local run 无注解；W1 真世界 extract_36vow0pn 0/27 只读复数）；回归 t419 111/0 + t420 52/0 + t428 40/0 + t429 38/0（isStayReceipt 迁移后导入同步改 lib）+ t430 19/0 全绿。
+- [诚实边界] ①活体 QA（chip 两态 + 裁剪后卡片 + minimap title + dashboard）待新 build 收敛后执行②EARLIER-run-only 回执无独立消费面（isStayReceipt 门恒拒）——正则第二分支按死代码删除，注释同步校正③列表注解为每 remote job 每 poll 一次 manifest 读 + 每 entry 一次 existsSync（demo 24 枚微秒级；万级 manifest 仅 stat 调用，statcache 备而不发）④AI 工具读 result 的路径未动（工具读的是 result 原文——历史为真）。
+- [诚实边界] 本条目断于收敛前；收官段续记。
+
+### Task 431 收官段（同窗追加）
+- [收敛二刷 — store 修复入 build] 第一次 FRESH 研磨 attempt 4 绿（rc=137 三连击；**浮动线头号变量=QA 自己第四次应验**——QA chrome 复活压线，击杀后走到绿）+ reboot-recover 十步 WORLD ALIVE。随后活体 QA 目击 **live 真 bug：bring-home 后 chip 不翻转**（reload 才翻）——取证 jobEquals 的字段清单不含 remoteRemaining：归家只改磁盘与注解、不碰 DB 行（updatedAt 永不动），引用稳定性合并把新注解当无变化吞掉。修复 = jobEquals 显式 JSON.stringify 比对 remoteRemaining（store.ts，注释载明根因）。第二次 FRESH 研磨 attempt 8 绿 + reboot-recover WORLD ALIVE。
+- [活体三态闭环 — 全程轮询通道] ①State A：hover 预览 chip「resolved | home」tooltip「All 27 synced file(s) are home」②State B：临时删 mic_001（stash）→ **不 reload** → 12s 内 chip 翻「pending | 1 on cluster」+ tooltip「1 of 27 still on the cluster — Results → Bring home all」（修复前此步必 reload——jobEquals 修复的活体铁证）③State C：恢复 → chip 回「resolved | home」。卡片面紧凑行与 hover 盒均只说载荷句「96 particles extracted」（陈旧回执尾离开卡片）；minimap dot title「…96 particles extracted · all brought home」；dashboard 阶段 title 同 compact；无回执的 remote 任务（motioncorr/ctffind/autopick）结果原样穿过（方言门不误伤）。
+- [t429 回归 — 新 build 上] inspector RemoteStayNote resolved 章「All brought home — nothing from this run is left on the cluster. Nothing to fetch.」+ 「At sync time: 24 image file(s) stayed…」muted 历史引文（teal 左边框）原样在场。假象排除：dashboard 巡检一度目击「stayed on the cluster」原文——实为未关的 inspector 对话框里 stay-note 自己的 muted 历史，非 bug（取证 dialog role + 类名链）。console 全程 0 错。
+- [清场] QA 浏览器净场（chrome 击杀两次——第一次为研磨让路、第二次为收官）；mic_001 stash/restore cmp 逐字节验证；world 200 运行 80c6b0f build（provenance 同瞬）；定妆 .qa-logs/t431-{chip-resolved,chip-loop,inspector-resolved,dashboard-compact,dashboard,landing}.png。
+- [诚实边界] ①chip 只挂 hover 预览的 host 行（卡片面按 t356 用户裁定保持极简——「内容过满」律优先于状态可见性；minimap title 与 dashboard 提供非悬停信号）②EARLIER-run-only 回执无独立消费面（isStayReceipt 门恒拒；正则第二分支按死代码删除）③列表注解每 remote job 每 poll 一次 manifest 读 + existsSync（demo 24 枚微秒级；statcache 备而不发）④AI 工具读 result 原文（历史为真）未动⑤pending 态的 RemoteBatchBar 联动未重演（t425/t429 已验，本窗 chip tooltip 已指路）。
+- [最终态] HEAD 含 t431 交付（本 commit）；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、AI settings pristine、mock 集群 :3022 在听、mock LLM 停、浏览器净场。下一窗从 Task 432 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十一次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻在位）③runRemote 亦不在 jobEquals 清单（前存缺口，疑似靠 updatedAt 间接覆盖——值得下窗核账）。
