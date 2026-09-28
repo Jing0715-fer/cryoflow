@@ -182,7 +182,11 @@ if trio_complete && build_stale; then
   say "4. build provenance STALE (built at ${built_at:0:9}, tree at $(git rev-parse HEAD 2>/dev/null | cut -c1-9)) — re-grinding"
 fi
 if trio_complete && ! build_stale; then
-  say "4. build trio complete (BUILD_ID + standalone + static) and provenance fresh"
+  if [ -f .next/.built-at-commit ]; then
+    say "4. build trio complete (BUILD_ID + standalone + static) and provenance fresh ($(cat .next/.built-at-commit | cut -c1-9))"
+  else
+    say "4. build trio complete (BUILD_ID + standalone + static) — provenance unstamped (legacy build, accepted)"
+  fi
 else
   say "4. build incomplete — ONE grinder round (cache grows across invocations)"
   bash scripts/build-until-green.sh "${REBOOT_BUILD_ATTEMPTS:-1}"
@@ -275,7 +279,10 @@ fi
 # empties when the DB is dead, which is exactly when a recovery runs: the
 # FILE is the storage truth, so enumerate ids from it, not from the API.
 CONN_FILE="$ROOT/data/remote-connections.json"
-conn_ids() { grep -o '"id":"conn-[^"]*"' "$CONN_FILE" 2>/dev/null | cut -d'"' -f4 | sort -u; }
+# the FILE is pretty-printed ("id": "conn-…") — the drill-1 run caught the
+# compact-JSON pattern lying "no connections" against a living registry;
+# tolerate the space the storage truth actually writes.
+conn_ids() { grep -o '"id": *"conn-[^"]*"' "$CONN_FILE" 2>/dev/null | cut -d'"' -f4 | sort -u; }
 conn_count() { conn_ids | wc -l; }
 test_all_connections() {
   ids="$(conn_ids)"
