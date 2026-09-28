@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  CopyPlus,
   Cpu,
   History,
   Bug,
@@ -2333,6 +2334,7 @@ function InspectorHeader({
   const running = job.status === "running";
   const isLink = job.linkedJobId != null;
   const focusJob = useWorkflowStore((s) => s.focusJob);
+  const duplicateJob = useWorkflowStore((s) => s.duplicateJob);
   const runJob = useWorkflowStore((s) => s.runJob);
   const stopJob = useWorkflowStore((s) => s.stopJob);
   const resetJob = useWorkflowStore((s) => s.resetJob);
@@ -2510,6 +2512,26 @@ function InspectorHeader({
              * the alignments?" Same guard family: completed host +
              * completed sibling or no door. */}
             <MotionCompareEntry job={job} />
+            {/* t442 — the duplicate door: clone this run as an unstarted
+             * twin with its params AND upstream wiring — the A/B loop's
+             * front door (copy → tweak one knob → run → compare). */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void duplicateJob(job.id, { openInspector: true })}
+                  className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <CopyPlus className="size-3.5" aria-hidden="true" />
+                  <span>Duplicate</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Clone this run — params and upstream wiring come along; the twin
+                starts unstarted, ready for your edits, then Re-run and compare
+              </TooltipContent>
+            </Tooltip>
             {job.status !== "running" ? (
               <>
                 {/* t333 — the tooltip answers the file question in place:

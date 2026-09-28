@@ -9,6 +9,13 @@ import { create } from "zustand";
 import { toast, type ToastActionElement } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible, nextStepsFor } from "./workflow";
+import {
+  upstreamEdgesOf,
+  faithfulWires,
+  withoutAutoEdge,
+  extractClassSelection,
+  twinSpot,
+} from "./duplicate-run";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -786,9 +793,23 @@ interface WorkflowState {
   stopJob: (id: string) => Promise<void>;
   resetJob: (id: string) => Promise<void>;
   deleteJob: (id: string) => Promise<void>;
-  /** Clone a job (params + position offset) as a fresh idle draft. */
-  duplicateJob: (id: string) => Promise<void>;
-  connect: (from: string, to: string, fromPort?: string, toPort?: string) => Promise<void>;
+  /** Clone a run as a fresh idle draft — t442: the twin inherits the
+   *  params AND the upstream wiring (a parallel branch, not a bare
+   *  template), sits in the free slot of the column to the right, and
+   *  waits unstarted for the user's edits (the POST never dispatches).
+   *  opts.openInspector lands the user in the twin's own editor — the
+   *  A/B loop's first stop. */
+  duplicateJob: (id: string, opts?: { openInspector?: boolean }) => Promise<void>;
+  connect: (
+    from: string,
+    to: string,
+    fromPort?: string,
+    toPort?: string,
+    /** t442 — quiet mode: duplication wires N edges in one gesture and
+     *  the receipt belongs to the DUPLICATION toast (t146's aggregate
+     *  law), not to N per-wire announcements. Errors still speak. */
+    opts?: { quiet?: boolean }
+  ) => Promise<void>;
   removeEdge: (id: string) => Promise<void>;
   pollTick: () => Promise<void>;
 
@@ -2790,40 +2811,77 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
   },
 
-  duplicateJob: async (id) => {
+  duplicateJob: async (id, opts) => {
     const src = get().jobs.find((j) => j.id === id);
     if (!src) return;
-    const x = clamp(src.x + 48, WORLD_MIN, WORLD_MAX - CARD_W);
-    const y = clamp(src.y + 40, WORLD_MIN, WORLD_MAX - CARD_H);
+    // t442 — the twin's seat: the free slot of the column to the RIGHT
+    // (a parallel branch at the original's height, not a card stacked on it)
+    const spot = twinSpot(
+      get().jobs.map((j) => ({ x: j.x, y: j.y })),
+      { x: src.x, y: src.y },
+      { w: CARD_W, h: CARD_H, strideX: CARD_W + 100, strideY: CARD_H + 48 },
+      { min: WORLD_MIN, max: WORLD_MAX }
+    );
+    // t442 — the recipe comes with its feeding wires. Only the pairs the
+    // canvas could draw TODAY; a source whose params moved on strands its
+    // old wires and the receipt says so.
+    const jobsById = new Map(get().jobs.map((j) => [j.id, j] as const));
+    const { wires, stranded } = faithfulWires(upstreamEdgesOf(get().edges, id), (e) => {
+      if (!e.fromPort || !e.toPort) return true; // portless legacy wires — the tool draws them
+      const fromType = jobsById.get(e.fromJobId)?.type;
+      return fromType ? portsCompatible(fromType, e.fromPort, src.type, e.toPort) : false;
+    });
+    // the gallery selection rides INSIDE params (an object the server's
+    // scalar filter would drop) — lifted top-level, the server re-validates it
+    const classSelection = extractClassSelection(src.params);
     try {
-      const { job } = await api<{ job: JobDTO }>("/api/jobs", {
+      const { job, edge: autoEdge } = await api<{
+        job: JobDTO;
+        edge?: EdgeDTO;
+      }>("/api/jobs", {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({
           type: src.type,
-          x,
-          y,
+          x: spot.x,
+          y: spot.y,
           name: `${src.name} (copy)`,
           params: src.params,
+          ...(classSelection ? { classStarSelection: classSelection } : {}),
         }),
       });
       set({
         jobs: [...get().jobs, job],
         selectedId: job.id,
         selectedIds: [job.id],
+        // the old default stands: without openInspector the inspector steps
+        // aside (canvas view); the twin's door lands the user in its editor
         inspectId: null,
       });
+      if (opts?.openInspector) get().inspect(job.id);
       get().invalidateRedo(); // duplicate mints a new id — no faithful redo
+      // the manual wiring list drops the gallery wire the server already drew
+      const manual = withoutAutoEdge(wires, autoEdge);
+      for (const w of manual) {
+        await get().connect(w.fromJobId, job.id, w.fromPort ?? undefined, w.toPort ?? undefined, {
+          quiet: true,
+        });
+      }
+      const wired = manual.length + (autoEdge ? 1 : 0);
       toast({
-        title: "Job duplicated",
-        description: `${job.name} placed beside the original — edit & connect it, then run`,
+        title: "Run duplicated",
+        description:
+          `${job.name} — params copied, ${wired} upstream wire${wired === 1 ? "" : "s"} drawn, twin waiting unstarted` +
+          (stranded > 0
+            ? ` — ${stranded} stranded wire${stranded === 1 ? "" : "s"} skipped (its ports no longer match)`
+            : ""),
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to duplicate job");
     }
   },
 
-  connect: async (from, to, fromPort, toPort) => {
+  connect: async (from, to, fromPort, toPort, opts) => {
     const { edges, jobs } = get();
     if (from === to) return;
     const fromJob = jobs.find((j) => j.id === from);
@@ -2877,7 +2935,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // wire edits have no id-stable inverse (re-creating mints a new edge
     // row) — they live outside the history stack and kill the redo branch
     get().invalidateRedo();
-    toast({ title: "Connected", description: `${fromName} → ${toName}` });
+    // t442 — quiet mode: the duplication receipt speaks for the batch;
+    // per-wire announcements would bury it under N toasts
+    if (!opts?.quiet) {
+      toast({ title: "Connected", description: `${fromName} → ${toName}` });
+    }
     try {
       const { edge } = await api<{ edge: EdgeDTO }>("/api/edges", {
         method: "POST",
