@@ -62,8 +62,20 @@ mkdir -p .qa-logs
 
 stamp() { date -u '+[%H:%M:%SZ]'; }
 
-if [ -f "$BUILD_ID" ] && [ "${FRESH:-0}" != "1" ]; then
-  echo "$(stamp) BUILD_ID present — build already green, nothing to grind."
+# t418 — the gate grew teeth, per this file's own t417 doctrine: a BUILD_ID
+# can be stamped BEFORE page-data finishes, and a stamp without
+# .next/standalone beside it is a server that cannot start. The grinder's
+# product is the startable TRIO: BUILD_ID + standalone/server.js +
+# standalone/.next/static (the static dir is what package.json's build
+# script copies AFTER next build — the grinder now finishes that itself).
+standalone_complete() {
+  [ -f "$BUILD_ID" ] \
+    && [ -f ".next/standalone/server.js" ] \
+    && [ -d ".next/standalone/.next/static" ]
+}
+
+if standalone_complete && [ "${FRESH:-0}" != "1" ]; then
+  echo "$(stamp) build trio complete (BUILD_ID + standalone + static) — nothing to grind."
   echo "        (source changed since? FRESH=1 forces a rebuild — the grinder"
   echo "         cannot cheaply diff the whole src tree, so it trusts the stamp)"
   exit 0
@@ -83,8 +95,21 @@ while [ "$attempt" -lt "$MAX_ATTEMPTS" ]; do
   rc=$?
 
   if [ $rc -eq 0 ] && [ -f "$BUILD_ID" ]; then
-    echo "$(stamp) GREEN on attempt $attempt (BUILD_ID present)" >> "$LOG"
-    echo "$(stamp) GREEN on attempt $attempt"
+    if [ ! -f ".next/standalone/server.js" ]; then
+      # the t417 trap, live: stamp written, page-data/standalone export not
+      echo "$(stamp) attempt $attempt: rc=0 + BUILD_ID but NO standalone — the stamp-before-page-data trap; the cache carries progress" >> "$LOG"
+      echo "$(stamp) attempt $attempt: BUILD_ID stamped but standalone missing — one more warm pass"
+      sleep 3
+      continue
+    fi
+    if [ ! -d ".next/standalone/.next/static" ]; then
+      cp -r .next/static .next/standalone/.next/ >> "$LOG" 2>&1
+    fi
+    if [ ! -d ".next/standalone/public" ]; then
+      cp -r public .next/standalone/ >> "$LOG" 2>&1
+    fi
+    echo "$(stamp) GREEN on attempt $attempt (trio complete: BUILD_ID + standalone + static)" >> "$LOG"
+    echo "$(stamp) GREEN on attempt $attempt — standalone startable"
     exit 0
   fi
 

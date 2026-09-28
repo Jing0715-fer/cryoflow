@@ -4336,6 +4336,7 @@ Stage Summary:
 - **「需要失败世界的套件自己造一个」**：t415 的遗产断言把套件和某个历史瞬间焊死；世界重建后套件红光——夹具前置让套件对任何世界成立（自造 motioncorr 失败 → 断言 → 清零）；rosterBefore 前后对比取代硬编码 46
 - **「BUILD_ID 不是绿，standalone 才是」**：green 前 page-data 可落盘；研磨器的幂等门从此查两件东西；前台轮教义入册（后台研磨器在本沙箱会被无声收割）
 - 遗留（下窗候选）：①灾后世界体检二刷（class3d 九代/extract 王冠栈的集群树已在 healer 账本，Family --summary 全批快照可加「灾后重建」标记）②EMPIAR 第卅三窗 ③沙箱重启检测与自动重建剧本固化（demo-chain-resurrect + db:push + .env 钉死已验证，值得写成 scripts/reboot-recover.sh 一键剧本）④GitHub PAT 撤销确认（第十二次提醒）
+---
 Task ID: 418 (完 — 2026-09-28 代码审查窗 trace web-a2e5e4ff)
 Agent: main (Z.ai Code)
 Task: 会话续接：恢复被收割的树 → 推送对齐 → t416/t417 关键文件代码审查与修复
@@ -4360,3 +4361,26 @@ Stage Summary:
 - **「套件保证自己的前置条件」**：ROOT 从套件自身文件解析 + demo 见证标记先种后删——fresh clone 与 cron 车道同跑一份套件，Phase D 的保护断言永不空转
 - 产出：commit 7b9c576（本地，待推送）— 4 文件 +288/-12；扩展 t417 套件四阶段 ALL PASS
 - 用户复机路径：git pull（待推送落地后）→ 删除带活跑（远程 refine 正在跑）的项目 → 集群侧立即 scancel、镜像干净回收、响应里的 stoppedLiveRuns 说真话
+
+---
+
+Task ID: Task 419（原号 418 已被并行车道 trace web-a2e5e4ff 的代码审查窗在 origin 抢先占用——rebase 对齐时顺延；本窗交付与演习不变）
+Agent: Super Z (cron agent loop 202609281351)
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] worklog 实际尾部 = Task 417 完结条（04:14 灾难重建 saga），下一条编号 = Task 418。git 干净、prod 车道（standalone pid 3467）+ mock 集群存活、app 200。agent-browser QA：绿世界（画布 15/15 · 96 particles · demo 全链在场、Dashboard KPI/动态正常、无 Needs-attention strip——绿世界法则正确、console 零消息、footer build 784ede2）。主面部无活体 bug。
+- [工作重点 = Task 417 遗留③] scripts/reboot-recover.sh 一键重建剧本——把 04:14 灾变的手工自救序列（.env 钉死 → db:push → 研磨 → prod 车道 → 种子 → mock 集群 → 探测清理 → demo-chain-resurrect → 验证）固化成 10 个幂等门控步骤。设计原则：每步有门（绿世界空转 ~60s 即全 skip）、退出码协议（0 alive / 42 build 未绿重跑 / 43 chain 预算中断重跑 / 1 硬败）、孤儿子进程模式（launch.sh 教义：父退子托 init）、t416 教义内建（bun 无视 SIGTERM → 验证 /proc 死亡 → 升级 SIGKILL）、Origin header（t259 本地门教义）。
+- [真 bug #1 — build-until-green.sh 幂等门违背自身教义] 门只查 BUILD_ID，而 t417 教义明说「BUILD_ID 落盘可先于 page-data——没有 standalone 陪伴就别信戳」；且研磨绿后不做 package.json build 的 static/public → standalone 拷贝（研磨产物不可启动）。修复：standalone_complete() 三件套门（BUILD_ID + standalone/server.js + standalone/.next/static）+ rc=0 后无 standalone 视为 trap 继续研磨 + 绿后自补两份拷贝。
+- [真 bug #2/#3 — 我自己的 PIN-as-value 同型双杀] reboot-recover.sh 首版把 `PIN="DATABASE_URL=file:..."`（含键名的整行）直接当值 export 和传给服务器启动行 → prisma 报「URL must start with file:」/ 全 DB 路由 500。活体演习 #2 抓到：分离 DB_URL（值）与 PIN（行）后修复；启动行第二处同型 bug 在同一演习暴露、一并修复。教训：接管路径（杀真服务器 → 脚本拉起）必须真演——空转门控全 skip 的绿世界演习永远踩不到启动行的坑。
+- [活体演习矩阵] ①绿世界空转：全门 skip + chain 幂等秒过（15 job skip + FSC 40 壳 + Guinier 200 + 官方数字 6.51Å）→ WORLD ALIVE exit 0 ②死服务器接管：kill prod → 脚本 3s 拉起 → 全链绿（此演习抓到 #2/#3）③假 bun listener 高保真接管：bun -e 假进程占 3000 → 接管分支开火 → 假进程被收割 → prod 复活 → WORLD ALIVE（SIGKILL 升级行未打印——bun -e 吃 SIGTERM 就死；升级分支由下述僵尸事故背书）。另外：DB 死窗口内 healer 经 API 复用失败造了一条重复连接（connections 存 data/remote-connections.json 文件而非 DB——GET 路由带 DB résumé 查询所以 500/空手）→ 走产品 DELETE 门清理，registry 复归单条 conn-mukrkgil。
+- [活体事故 — bun 僵尸] kill 3467 后进程仍存活（SIGTERM 被无视，t416 教义第二次活体复现）——无监听但吃内存的僵尸在 4GB 盒上是真实风险。SIGKILL 收割 + 接管逻辑硬化（kill 后轮询 /proc/$lpid 验证死亡，5s 未死升级 kill -9）。
+- [验证] bash -n 语法过；tsc 未跑（本轮零 src 变更——scripts/ 纯增量）；五轮演习全绿；最终 agent-browser 直查 console 0 错误、画布 15/15 完好。
+- [诚实边界] ①build 42 路径（.next 全灭 → 研磨轮）未活体演练——需要抹 .next 太贵且冒险，三件套门与 build-until-green.sh 的久战核心共享逻辑 ②SIGKILL 升级分支在演习中未开火（bun -e 短命进程吃 SIGTERM 即死），分支正确性由 3467 僵尸事故 + 代码简度背书 ③Task 417 遗留①（灾后世界体检二刷）部分覆盖（chain step-6 表面 + 演习即体检），Family --summary「灾后重建」标记未做 ④EMPIAR 真数据回归第卅四窗让位 ⑤GitHub PAT 撤销确认第十三次提醒（本窗 fetch+push 正常）。
+
+Stage Summary:
+- **「灾变剧本的第一读者是未来的自己」**：04:14 手工自救花了一整窗的取证；reboot-recover.sh 把它压成一条命令 + 退出码协议——沙箱再次重启时，下窗的自己跑一次脚本、看到 42/43 就重跑，不用再从 /proc/1 和 /start.sh 开始考古
+- **「幂等门是剧本的灵魂」**：每步有门让一个脚本同时是重建器、体检器、和 no-op——绿世界跑它是体检，死世界跑它是重建，中断重跑是续传；退出码 42/43 把「重跑我」变成机器可读的握手
+- **「接管路径必须真演」**：绿世界演习所有门都 skip，永远踩不到启动行的坑——PIN-as-value 双杀是死服务器演习抓的、bun 僵尸是 kill 活体抓的；不杀死自己守护的东西，剧本只是没读过的文档
+- **「bun 无视 SIGTERM 是法律不是流言」**：t416 见证、t418 复现——任何 kill bun 的代码必须验证 /proc 死亡并升级 SIGKILL，否则 4GB 盒上积累的是吃内存的幽灵
+- 遗留（下窗候选）：①Family --summary 加「灾后重建」标记 + 灾后世界体检二刷收尾 ②reboot-recover 的 build 42 路径在下一个自然灾变窗口顺带取证（不主动抹 .next）③EMPIAR 真数据回归第卅四窗 ④沙箱重启时实际使用 reboot-recover.sh 并把偏差写回剧本 ⑤GitHub PAT 撤销确认
