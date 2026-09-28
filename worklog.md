@@ -4814,3 +4814,28 @@ Work Log:
 ### Task 432 补研段（同窗追加）
 - [provenance 对齐] 收官两提交（784268a + 3df3dfb）后照家族先例补研：杀服务器（/proc 死亡验证）→ FRESH 研磨 attempt 5 绿（rc=137 两记——平台收割线依旧拥挤）→ reboot-recover 十步 WORLD ALIVE → .next/.built-at-commit = 3df3dfb = HEAD = origin/main 三方逐字节一致。新 build 冒烟：landing 0 console 错（B 半闭环与 QC 板三态已在字节同源的前轮 build 上活体全验）。
 - [最终态] HEAD = origin/main = 3df3dfb；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、mock LLM 停、浏览器净场。下一窗从 Task 433 起编。GitHub PAT 撤销确认第二十二次提醒（本窗 push 正常）。
+
+---
+Task ID: 433 (cron agent loop 202609282321)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 432 完整收官 + 补研段（HEAD = 226dfe6 = origin/main，树净；代码戳 3df3dfb）。世界健康：app 200（bun 7367）、15/15 全 completed、mock 集群 :3022 在听、mock LLM 停。第二十四份过时 Task 13 指引照例不认。自号 433。
+- [QA] landing/画布 0 console 错 0 页错；dashboard 渲染正常；CTF inspector Overview 板 legend 新措辞（「offenders ≥ 4.4 Å (p90)…lines are this run's own distribution」）在场——t432 交付活体复验通过。世界稳定 → 转新需求。
+- [选题侦察] 旧候选核账退役：粒子漏斗已在 pipeline-analytics（「where did my particles go」三视图）；参数对比已泛化（sibling-compare-picker 四入口 + params-diff-dialog）；模板/脚本导出/undo/校验全在。真空白定位：**picking 域的 QC 板**——picks-map（t427）答「picks 长什么样」，无人答「哪些微图先看」（空捡/过捡/低置信）；t432 板架构（p75/p90 分位律 + flat-pack 守卫）现成，第三域顺理成章。
+- [真 bug — 负向化度量的 legend 双重错读] 取证：qcLegendText 直接 fmt thresholds（negated 空间值）——CTF FOM 透镜的 legend 会说「offenders ≥ -0.310 (p90)」（数值负 + 方向 ≥ 双错）。t432 bench 只钉了 resolution 透镜，FOM 漏钉。修法 = 方向感知：lower-is-worse 度量（fom/pickFom）说用户侧数字（p90 of -X ≡ -p10 of X，线性插值对称律）+ ≤ 方向 + p10/p25 出处。本窗与新板同包交付。
+- [交付 — Picking QC 板（t432 板第三域）] 设计：①lib/qc-board.ts 增 PickMetric（count/pickFom）+ pickingBoard——空捡律（count=0 绝对 offender，两透镜通用，域诚实例外：flat pack 无过捡离群者但空图自身即可疑）+ count 透镜分位只算非空包 + pickFom 透镜逐微图中位 FOM 负向上车 + 不可排名（null FOM）行诚实垫底（worse=-Inf、value=NaN、桶 healthy、瓦片「—」）②picks 路由目录补全：coord 文件只有「有 pick」的微图（picks.length===0 continue 丢弃空图）——BFS 上游时顺取上游 outputs.micrographs_ctf_star/micrographs_star 的 _rlnMicrographName 全目录，缺席者补 count=0 空入口（owner 解析同步覆盖 → 空图缩略图也活）+ PicksResponse 增 catalogued 字段③板 kind "picking"：fetch picks 路由，metric chips（Picks / FOM——全空 FOM 时 FOM chip 自隐）、空图瓦片「no picks」标记、第二行恒显「N picks · FOM x.xxx」（无 hover 独占律）④inspector 在 PicksMap 下挂载。
+- [诚实边界] 本条目断于实现前；收官段续记。
+- [实现落树] lib/qc-board.ts（PickMetric/PickQcEntry/pickingBoard 三律 + medianPickFom + fmtQcValue NaN 安全 + QC_METRIC_LABEL 扩展 + qcLegendText 方向感知）；picks 路由（readInputCatalogue 上游目录考古 + 空图 count=0 再准入门 + catalogued 字段 + bareMicName 同一律）；micrograph-qc-board.tsx kind=picking（FOM chip 可用性门 + 空图瓦片「no picks — empty?」+ 第二行恒显 count/FOM 对 + 相对标尺有限域修——空图 worse=Infinity 不再压塌他人 bar）；job-inspector 双挂载（PicksMap 旁）。
+- [验证] tsc 0 + eslint 0（四触碰文件）；t433 bench 47/47 首轮全绿（P1 空律/分位包/P1b FOM 负向+不可排名/P1c scoped flat-pack/P1d 全空包 NaN 阈值、P2 中位六断言、P3 格式+NaN 律、P4 legend 方向修含 Q(−X,p)=−Q(X,1−p) 对称律算术级钉死 + t432 合同回归）；回归 t432 39/0 + t431 20/0 + t427 12/0（picks 路由合同——本窗触碰过）+ t419 111/0 + t420 52/0 + t428 40/0 + t429 38/0 + t430 19/0 全绿。
+- [诚实边界] ①目录补全与空图律的活体验证待收敛后执行（demo 世界无空捡微图，需文件手术 stash 一枚 coord star 造空图）②CTF FOM 透镜 legend 修复的活体复验待新 build ③readInputCatalogue 走 db.edge + getRun outputs——上游链断裂时诚实退回 coord-dir-only（pre-t433 世界）。
+- [诚实边界] 本条目断于收敛前；收官段续记。
+
+### Task 433 收官段（同窗追加）
+- [真 bug 二连 — regex 捕获组 NaN 静默吞噬] 空图手术目击板显 23 而非 24：取证 bun 脚本逐步复演（BFS 链健康、star 文件在、label 表 7 键注册）→ stat 计数器（rows 25 / pushes 0）暴露 `labels.set(m[1], Number(m[2]))` 的 m[2] 是 undefined——本窗把列号正则写成 `#\d+`（无捕获组），原路由是 `#(\d+)`。Number(undefined)=NaN → 列索引 NaN → 每行 cell undefined → **全表静默丢弃**（无报错无日志，catalogued 诚实退回 coord-dir-only）。修于活体 QA 中途 + 重研。教训：列号正则的捕获组是 star 解析律的命门；stat 计数器是这类静默吞噬的唯一证人。
+- [研磨器 OOM 马拉松] 本窗平台收割线异常拥挤（dmesg：anon-rss 3.08GB 收割 webpack MainThread，t431/t432 同款教义）+ 背景链路活不过工具调用间隔（nohup 后台研磨器三连静默死亡）+ 本窗一度自毁 webpack cache（rm cache 两次 = 自找冷启动重 OOM）。最终按剧本设计用法走前台：**one timeout-560 attempt per call, the filesystem cache carries progress**（build-until-green.sh 文档原话）——前台一次调用 attempt 1 绿（2 分钟，暖 cache 论功）。教义固化：研磨器永远前台调用，cache 永不手删。
+- [活体 QA — Picking 板三态] ①count 透镜满铺：24 瓦片、头部「24 micrographs · 8 offenders」、legend「offenders ≥ 20 (p90) · watch ≥ 20 (p75)」、最恶十分位列顶（20 picks）、第二行恒显「FOM 0.420」对②FOM 透镜：demo 中位 FOM 全 0.420（flat-pack）→ 头部「none」全体健康（tie-fair 律）、瓦片大值 0.420 + 第二行「17 picks」③**空图手术闭环**：stash mic_003 coord star（备份 cmp 逐字节）→ reload → API catalogued 24 / mic_003 count 0 / UI 头部「24 micrographs · **1 empty** · **9 offenders**」+ 首瓦片「mic_003 · 0 · no picks — empty?」（rose offender 排顶，worse=Infinity 律）+ FOM 透镜空图大值「—」（NaN 律，不冒充 0.000）+ flat-pack 透镜下「1 offender」仅空图自身④复原 → 逐字节 cmp → 板回「8 offenders · 0 empty」⑤CTF FOM 透镜 legend 修复活体：「offenders ≤ 0.070 (p10) · watch ≤ 0.073 (p25)」（修复前必是「≥ -0.070 (p90)」）+ resolution 透镜 t432 原句在场（「≥ 4.4 Å (p90)」）⑥picks-map 与板共存无扰、console 全程 0 错。定妆 .qa-logs/t433-{picking-count-empty,picking-fom-empty,ctf-fom-legend-fixed}.png（双透镜 md5 互异）。
+- [清场] mic_003 手术复原（cmp 验证）；t427 picks bench 对修复后现役世界复跑 12/0；QA 浏览器净场；jobs 15 全 completed、sessions 0。
+- [诚实边界] ①板第二行对非空 FOM-less 微图显「FOM —」（不可排名律）——demo 世界无此形态，bench P1b 钉之②空图 owner 解析依赖上游 MRC 在盘（demo 满足；真世界 MRC 被清的空图瓦片无缩略图——picks-map 的 404 诚实路径）③readInputCatalogue 只认 micrographs_star/micrographs_ctf_star 两键（engine INPUTS 对 autopick 的 accepts 同款）④legend p10/p25 的措辞许诺分布线不承诺数量（t432 措辞律延续）。
+- [最终态] HEAD 含 t433 交付（本 commit）；世界 200 运行收敛 build（provenance 226dfe6=收官前基线，先于本 commit——照家族惯例补研段对齐）；jobs 15 全 completed、sessions 0、AI settings pristine、mock 集群 :3022 在听、mock LLM 停、浏览器净场、mic_003 逐字节复原。下一窗从 Task 434 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十三次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻在位）③manualpick 世界的空律缺口（manualpick.star 无上游目录考古——空律仅 autopick 域，域诚实选择）。

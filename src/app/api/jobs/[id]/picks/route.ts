@@ -38,6 +38,12 @@ export interface PicksResponse {
   imageWidth: number;
   imageHeight: number;
   micrographs: PickEntry[];
+  /** t433 — the input catalogue's size when it could be resolved (the
+   *  upstream micrographs star's row count): the QC board's empty law
+   *  needs to know about micrographs the picker SAW but picked NOTHING
+   *  in. Absent catalogue → equals micrographs.length (only picked mics
+   *  are then known). */
+  catalogued: number;
 }
 
 /**
@@ -84,6 +90,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       imageWidth: 0,
       imageHeight: 0,
       micrographs: [],
+      catalogued: 0,
     };
     if (!run?.workdir || !existsSync(run.workdir)) {
       return NextResponse.json(empty);
@@ -110,9 +117,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
         if (parsed.micrographs.length === 0) {
           return NextResponse.json(empty);
         }
+        // t433 — THE EMPTY CATALOGUE. The coord dir only names mics the
+        // picker WROTE a file for; a micrograph with zero picks has no
+        // coord star and used to be invisible — the QC board's empty law
+        // would be dead code. Resolve the INPUT catalogue (the upstream
+        // micrographs star the autopick consumed — the same accepted-key
+        // walk the engine's resolveInputs does) and re-admit the missing
+        // mics as count-0 entries; the owner BFS below then covers them
+        // too, so their thumbnails render like everyone else's.
+        const catalogue = await readInputCatalogue(job.id);
+        const allNames = [...new Set([...parsed.micNames, ...(catalogue ?? [])])];
         // image owner: BFS upstream (same batched shape as the particles
         // route) for the ancestor whose workdir holds `<mic>.mrc`
-        const owners = await findUpstreamMicOwners(run.workdir, job.id, parsed.micNames);
+        const owners = await findUpstreamMicOwners(run.workdir, job.id, allNames);
         let imageWidth = 0;
         let imageHeight = 0;
         for (const m of parsed.micrographs) {
@@ -126,18 +143,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
             break;
           }
         }
-        const micrographs: PickEntry[] = parsed.micrographs
-          .map((m) => {
-            const owner = owners.get(m.micName);
+        const byName = new Map(parsed.micrographs.map((m) => [m.micName, m]));
+        const micrographs: PickEntry[] = allNames
+          .map((micName) => {
+            const m = byName.get(micName);
+            const owner = owners.get(micName);
             return {
               // micPath is relative to the OWNER workdir when the image
               // lives upstream — the client renders through the owner's
               // file route; absent owner → this job's own (404s honestly)
-              micPath: owner?.rel ?? `micrographs/${m.micName}`,
-              name: m.micName,
-              count: m.picks.length,
-              picks: m.picks,
-              foms: m.foms,
+              micPath: owner?.rel ?? `micrographs/${micName}`,
+              name: micName,
+              count: m ? m.picks.length : 0,
+              picks: m ? m.picks : [],
+              foms: m ? m.foms : [],
               ...(owner ? { ownerJobId: owner.jobId } : {}),
             };
           })
@@ -150,6 +169,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           imageWidth,
           imageHeight,
           micrographs,
+          catalogued: catalogue?.length ?? micrographs.length,
         } satisfies PicksResponse);
       }
       return NextResponse.json(empty);
@@ -209,6 +229,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       imageWidth,
       imageHeight,
       micrographs,
+      // manualpick has no upstream catalogue archaeology: its own star
+      // names every mic that carries picks, and that is the truth the
+      // response speaks (the empty law is an autopick concern)
+      catalogued: micrographs.length,
     } satisfies PicksResponse);
   } catch (error) {
     console.error("GET /api/jobs/[id]/picks failed:", error);
@@ -293,6 +317,110 @@ interface MicOwner {
   /** image path relative to that job's workdir */
   rel: string;
   workdir: string;
+}
+
+/**
+ * t433 — resolve the autopick INPUT catalogue: the micrographs star the
+ * picker consumed. One bounded upstream walk (same doctrine as
+ * findUpstreamMicOwners below — one edge query per depth, soft links
+ * collapsed) looking for the first ancestor that carries one of the
+ * accepted micrographs-star outputs (the same keys the engine's
+ * resolveInputs accepts for autopick: micrographs_star and
+ * micrographs_ctf_star). The star's `_rlnMicrographName` (or the
+ * NoDW twin) column is read BY LABEL — the parsing doctrine every star
+ * reader in this route already follows — and the names are reduced to
+ * bare mic identities (`micrographs/mic_001.mrc` → `mic_001`) so they
+ * match the coord-star filename identities exactly. Answers null when
+ * no ancestor carries a readable catalogue: the board then works from
+ * the coord dir alone (the pre-t433 world, honestly scoped).
+ */
+async function readInputCatalogue(jobId: string): Promise<string[] | null> {
+  const acceptedKeys = ["micrographs_star", "micrographs_ctf_star"];
+  const seen = new Set<string>([jobId]);
+  let frontier = [jobId];
+  while (frontier.length > 0) {
+    const edges = await db.edge.findMany({
+      where: { toJobId: { in: frontier } },
+      select: { fromJobId: true },
+    });
+    const next: string[] = [];
+    for (const e of edges) {
+      if (!seen.has(e.fromJobId)) {
+        seen.add(e.fromJobId);
+        next.push(e.fromJobId);
+      }
+    }
+    if (next.length === 0) break;
+    const jobs = await db.job.findMany({
+      where: { id: { in: next } },
+      select: { id: true, linkedJobId: true },
+    });
+    const byId = new Map(jobs.map((j) => [j.id, j]));
+    for (const uid of next) {
+      let cur = byId.get(uid);
+      for (let hops = 0; cur?.linkedJobId && hops < 16; hops++) {
+        cur = byId.get(cur.linkedJobId);
+      }
+      const rid = cur?.id ?? uid;
+      const r = getRun(rid);
+      if (!r) continue;
+      for (const key of acceptedKeys) {
+        const starFile = r.outputs?.[key];
+        if (!starFile || !existsSync(starFile)) continue;
+        try {
+          const names: string[] = [];
+          const labels = new Map<string, number>();
+          let inLoop = false;
+          for (const raw of readFileSync(starFile, "utf8").split(/\r?\n/)) {
+            const t = raw.trim();
+            if (!t) continue;
+            if (t.startsWith("data_")) {
+              // the micrographs block follows its optics sibling — reset
+              // the label map so optics columns cannot shadow mic names
+              inLoop = t.startsWith("data_micrographs");
+              if (inLoop) labels.clear();
+              continue;
+            }
+            if (t === "loop_") continue;
+            if (t.startsWith("_")) {
+              if (inLoop) {
+                // the column number MUST be captured (group 2) — a bare
+                // #\d+ yields Number(undefined) = NaN and every row is
+                // silently dropped (the t433 live-QA lesson, caught by
+                // the empty-law surgery probe)
+                const m = t.match(/^(\S+)\s+#(\d+)$/);
+                if (m) labels.set(m[1], Number(m[2]) - 1);
+              }
+              continue;
+            }
+            if (t.startsWith("#")) continue;
+            const ix =
+              labels.get("_rlnMicrographName") ??
+              labels.get("_rlnMicrographNameNoDW");
+            if (ix == null) continue;
+            const cell = t.split(/\s+/)[ix];
+            if (cell) names.push(bareMicName(cell));
+          }
+          if (names.length > 0) {
+            return [...new Set(names)].sort((a, b) =>
+              a.localeCompare(b, undefined, { numeric: true })
+            );
+          }
+        } catch {
+          /* unreadable star — keep walking */
+        }
+      }
+    }
+    frontier = next;
+  }
+  return null;
+}
+
+/** `micrographs/mic_001.mrc` / `mic_001.mrcs` → `mic_001` — the identity
+ *  the per-micrograph coord stars speak (`mic_001_autopick.star`). */
+function bareMicName(cell: string): string {
+  const base = cell.replace(/^\.?\//, "").split("/").pop() ?? cell;
+  return base.replace(/\.(mrc|mrcs|tif|tiff)$/i, "");
 }
 
 /**

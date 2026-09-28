@@ -1800,6 +1800,13 @@ function OverviewTab({
       {/(manualpick|autopick)/i.test(job.type) && job.status !== "idle" ? (
         <PicksMap jobId={job.id} />
       ) : null}
+      {/* t433 — and the picking QC BOARD right under it: the picks-map
+          answers "what do the picks look like"; this answers "WHICH
+          micrographs do I look at first" (empty / over-picked / timid
+          FOM), the pack's own p75/p90 quantiles on the tiles. */}
+      {/(manualpick|autopick)/i.test(job.type) && job.status !== "idle" ? (
+        <MicrographQcBoard kind="picking" jobId={job.id} />
+      ) : null}
       {/* extract/select/orientation jobs show the particle stack browser. */}
       {/^(extract|select|symexpand|rebalance)/i.test(job.type) && job.status !== "idle" ? (
         <ParticleBrowser jobId={job.id} />
