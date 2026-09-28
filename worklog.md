@@ -4784,3 +4784,7 @@ Stage Summary:
 - **「首访慢是编译债，boot 是还债的时点」**：dev 模式的路由按需编译在用户首访时收账；register() 在 listener 起来前就被调，后台把热路由的编译债还清——用户看到的第一次就是热的那次
 - **「重启要走出生证明」**：沙箱 dev server 的环境变量（TRUST_GATEWAY/DB/DATA_DIR/堆帽）是启动脚本的一部分，裸重启=半残实例（403 风暴）
 - 产出：wsl-bridge 不朽包装 + engine 桥接判词/isRunAlive 守卫/哨兵清理 + log 路由懒加载 + instrumentation 暖启动 + getLogTail stat 缓存 + header AI 键换 teal + 427-a 双弹层重涂；下一窗从 Task 428 起编
+
+### Task 431 补研段（同窗追加）
+- [provenance 对齐] 收官提交（5c25a56）后照家族先例补研：FRESH 研磨 attempt 9 绿（rc=137 五连击——平台收割线 ~2.9GB anon 本窗格外拥挤；webpack 增量暖 cache 教义走到绿）→ reboot-recover 十步 WORLD ALIVE → .next/.built-at-commit = 5c25a56 = HEAD = origin/main 三方逐字节一致。新 build 冒烟：landing 0 console 错（chip 三态与 compact 表面已在字节同源的前轮 build 上活体全验）。
+- [最终态] HEAD = origin/main = 5c25a56；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、AI settings pristine、mock 集群 :3022 在听、mock LLM 停、浏览器净场。下一窗从 Task 432 起编。GitHub PAT 撤销确认第二十一次提醒（本窗 push 正常）。
