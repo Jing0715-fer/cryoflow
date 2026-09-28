@@ -30,7 +30,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { ChartScatter, GitCompareArrows, Loader2, TriangleAlert } from "lucide-react";
+import { ChartScatter, GitBranch, GitCompareArrows, Loader2, TriangleAlert } from "lucide-react";
 import {
   CartesianGrid,
   ReferenceLine,
@@ -59,6 +59,8 @@ import {
 } from "@/components/ui/select";
 import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
+import { jobType } from "@/lib/workflow";
+import { planAdoption } from "@/lib/adopt-branch";
 import {
   fmtDelta,
   joinByName,
@@ -207,6 +209,9 @@ function RunCompareDialog<R extends { name: string }>({
   const jobs = useWorkflowStore((s) => s.jobs);
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const inspect = useWorkflowStore((s) => s.inspect);
+  const edges = useWorkflowStore((s) => s.edges);
+  const adoptDownstream = useWorkflowStore((s) => s.adoptDownstream);
+  const [adopting, setAdopting] = useState(false);
 
   const [runAId, setRunAId] = useState(hostJob.id);
   const [runBId, setRunBId] = useState<string | null>(null);
@@ -297,6 +302,41 @@ function RunCompareDialog<R extends { name: string }>({
   const regressedSeries = analysis?.deltas.filter((d) => d.kind === "regressed") ?? [];
   const tiedSeries = analysis?.deltas.filter((d) => d.kind === "tied") ?? [];
   const trustText = analysis && spec.trustLine ? spec.trustLine(analysis.join.pairs) : null;
+
+  // t443 — the verdict's verb: what would adopting run B over run A's
+  // downstream actually do? Derived from the live graph on every render
+  // of the open dialog (the picker can produce A===B, A may be a leaf,
+  // cycles/port mismatches are the graph's own truth) — the button's
+  // honest disabled states are THIS plan, never a guess.
+  const adoptionPlan = useMemo(
+    () =>
+      planAdoption({
+        edges,
+        jobs: jobs.map((j) => ({ id: j.id, type: j.type, name: j.name })),
+        fromRunId: runAId,
+        toRunId: effectiveRunB ?? "",
+        outputPortsOf: (type) => (jobType(type)?.outputs ?? []).map((p) => p.name),
+      }),
+    [edges, jobs, runAId, effectiveRunB],
+  );
+  const adoptable =
+    open &&
+    !loading &&
+    analysis != null &&
+    !adoptionPlan.sameRun &&
+    !adoptionPlan.noDownstream &&
+    adoptionPlan.moves.length > 0;
+  const adoptTitle = adoptionPlan.sameRun
+    ? "Runs A and B are the same run — adoption needs two different runs"
+    : adoptionPlan.noDownstream
+      ? `${nameA} has no downstream jobs to re-wire`
+      : adoptionPlan.moves.length === 0 && adoptionPlan.alreadyWired.length > 0
+        ? `The downstream already consumes ${nameB} — nothing to adopt`
+        : adoptionPlan.moves.length === 0 && adoptionPlan.refused.length > 0
+          ? `All ${adoptionPlan.refused.length} downstream wire(s) refused — ${adoptionPlan.refused
+              .map((r) => r.reason)
+              .join(", ")}`
+          : `Re-wires ${nameA}'s ${adoptionPlan.moves.length} downstream wire${adoptionPlan.moves.length === 1 ? "" : "s"} to ${nameB} — their current results stay until re-run`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -539,31 +579,79 @@ function RunCompareDialog<R extends { name: string }>({
               <div className="text-[11px] text-muted-foreground">{trustText}</div>
             ) : null}
 
-            {/* the door — jump into either run's inspector */}
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                onClick={() => {
-                  onOpenChange(false);
-                  inspect(runAId);
-                }}
-              >
-                Open run A
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                onClick={() => {
-                  onOpenChange(false);
-                  inspect(effectiveRunB);
-                }}
-                disabled={!effectiveRunB}
-              >
-                Open run B
-              </Button>
+            {/* the verdict's verb (left) and the doors (right) — adoption
+                is a graph mutation, so it sits apart from the jumps and
+                carries its own one-line contract */}
+            <div className="space-y-1.5">
+              {adoptable && (
+                <div className="text-[11px] text-muted-foreground">
+                  Adoption re-wires {nameA}&apos;s {adoptionPlan.moves.length} downstream{" "}
+                  {adoptionPlan.moves.length === 1 ? "job" : "jobs"} to consume {nameB} — their
+                  current results stay until re-run.
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2 text-[11px]"
+                  data-testid="adopt-downstream"
+                  aria-label={
+                    adoptable
+                      ? `Continue downstream from ${nameB} — re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs`
+                      : `Continue downstream from run B — unavailable: ${adoptTitle}`
+                  }
+                  title={adoptTitle}
+                  disabled={!adoptable || adopting}
+                  onClick={() => {
+                    if (!effectiveRunB) return;
+                    setAdopting(true);
+                    void adoptDownstream(runAId, effectiveRunB)
+                      .catch(() => {
+                        /* the store's own receipt spoke */
+                      })
+                      .finally(() => {
+                        setAdopting(false);
+                        onOpenChange(false); // the verb is done — the canvas shows the new wiring
+                      });
+                  }}
+                >
+                  {adopting ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <GitBranch className="size-3.5 text-primary" aria-hidden="true" />
+                  )}
+                  Continue downstream from run B
+                  {adoptionPlan.moves.length > 0 && (
+                    <span className="font-semibold text-primary">({adoptionPlan.moves.length})</span>
+                  )}
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={() => {
+                      onOpenChange(false);
+                      inspect(runAId);
+                    }}
+                  >
+                    Open run A
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={() => {
+                      onOpenChange(false);
+                      inspect(effectiveRunB);
+                    }}
+                    disabled={!effectiveRunB}
+                  >
+                    Open run B
+                  </Button>
+                </div>
+              </div>
             </div>
           </>
         )}

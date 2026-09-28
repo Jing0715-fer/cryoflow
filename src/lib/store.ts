@@ -16,6 +16,7 @@ import {
   extractClassSelection,
   twinSpot,
 } from "./duplicate-run";
+import { describeAdoption, planAdoption } from "./adopt-branch";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -800,6 +801,14 @@ interface WorkflowState {
    *  opts.openInspector lands the user in the twin's own editor — the
    *  A/B loop's first stop. */
   duplicateJob: (id: string, opts?: { openInspector?: boolean }) => Promise<void>;
+  /** t443 — branch adoption: the A/B verdict's verb. Re-wires every
+   *  downstream wire of `fromRunId` to start at `toRunId` instead — the
+   *  children stop consuming the loser and start consuming the winner
+   *  in ONE gesture (one optimistic set, one receipt toast; statuses
+   *  stay — the receipt carries the re-run duty). Refusals (cycles,
+   *  port mismatches) and already-wired children are reported, never
+   *  silently folded. */
+  adoptDownstream: (fromRunId: string, toRunId: string) => Promise<void>;
   connect: (
     from: string,
     to: string,
@@ -2879,6 +2888,91 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to duplicate job");
     }
+  },
+
+  adoptDownstream: async (fromRunId, toRunId) => {
+    const { edges, jobs } = get();
+    // the brain plans from the live world; the store only applies
+    const plan = planAdoption({
+      edges,
+      jobs: jobs.map((j) => ({ id: j.id, type: j.type, name: j.name })),
+      fromRunId,
+      toRunId,
+      outputPortsOf: (type) => (jobType(type)?.outputs ?? []).map((p) => p.name),
+    });
+    if (plan.moves.length === 0) {
+      // nothing to apply — still speak (the dialog guards, but the
+      // action is callable from anywhere and silence would lie)
+      const { title, detail } = describeAdoption(plan, "run A", "run B");
+      toast({ title, description: detail });
+      return;
+    }
+    const nameA = jobs.find((j) => j.id === fromRunId)?.name ?? "run A";
+    const nameB = jobs.find((j) => j.id === toRunId)?.name ?? "run B";
+
+    // ONE optimistic set: the loser's wires leave and the winner's
+    // arrive in the same frame — a half-adopted graph is a lie the
+    // canvas would draw (t359's wire-draws-now law, batch shape)
+    const moveIds = new Set(plan.moves.map((m) => m.edge.id));
+    const newEdges: EdgeDTO[] = plan.moves.map((m) => ({
+      id: crypto.randomUUID(),
+      fromJobId: toRunId,
+      toJobId: m.edge.toJobId,
+      fromPort: m.edge.fromPort ?? undefined,
+      toPort: m.edge.toPort ?? undefined,
+    }));
+    set({
+      edges: [...edges.filter((e) => !moveIds.has(e.id)), ...newEdges],
+    });
+    get().invalidateRedo(); // wire edits have no id-stable inverse
+
+    // persistence: each move is POST-new-then-DELETE-old. POST first:
+    // if the server refuses (cycle/port drift since planning), the old
+    // wire is still real — rollback is honest. DELETE after: a failure
+    // leaves BOTH wires live server-side, so the old edge is restored
+    // to the store (UI truth = server truth) and the receipt names it.
+    const failures: string[] = [];
+    for (const [i, m] of plan.moves.entries()) {
+      const ne = newEdges[i];
+      try {
+        const { edge } = await api<{ edge: EdgeDTO }>("/api/edges", {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            id: ne.id,
+            fromJobId: ne.fromJobId,
+            toJobId: ne.toJobId,
+            fromPort: ne.fromPort,
+            toPort: ne.toPort,
+          }),
+        });
+        // the server stays the truth for ports/id (same swap rule as connect)
+        if (
+          edge.id !== ne.id ||
+          edge.fromPort !== ne.fromPort ||
+          edge.toPort !== ne.toPort
+        ) {
+          set({ edges: get().edges.map((e) => (e.id === ne.id ? edge : e)) });
+        }
+        try {
+          await api(`/api/edges/${m.edge.id}`, { method: "DELETE" });
+        } catch {
+          // the old wire refuses to die — show it again, name the residue
+          set({ edges: [...get().edges, m.edge as EdgeDTO] });
+          failures.push(m.child.name);
+        }
+      } catch {
+        set({ edges: get().edges.filter((e) => e.id !== ne.id) });
+        failures.push(m.child.name);
+      }
+    }
+
+    const { title, detail } = describeAdoption(plan, nameA, nameB, failures);
+    toast({
+      title,
+      description: detail,
+      variant: failures.length > 0 ? "destructive" : undefined,
+    });
   },
 
   connect: async (from, to, fromPort, toPort, opts) => {
