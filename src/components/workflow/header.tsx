@@ -12,6 +12,7 @@ import {
   Github,
   Layers,
   LayoutDashboard,
+  HardDrive,
   Loader2,
   Printer,
   RefreshCw,
@@ -33,6 +34,7 @@ import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-gu
 // ride their own chunk) — the app shell never pays for the document
 // renderer until the report is opened for the first time.
 const SessionReportDialog = nextDynamic(() => import("./session-report-dialog"), { ssr: false });
+const StorageDialog = nextDynamic(() => import("./storage-dialog"), { ssr: false });
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -612,6 +614,10 @@ export function Header() {
   // both are document-level actions on the session, so both live in the
   // document-level corner of the chrome.
   const [reportOpen, setReportOpen] = React.useState(false);
+  // t436 — the storage overview rides the same document-level corner: a
+  // per-project fact ("how much disk am I using") that belongs next to
+  // the session report, not inside any one job's inspector.
+  const [storageOpen, setStorageOpen] = React.useState(false);
   // t221: the palette's report door — the palette dispatches, the owner
   // listens (the OPEN_EVENT handshake, the reverse hop). The header owns
   // the dialog; the palette only names the door, it never mounts a
@@ -727,6 +733,16 @@ export function Header() {
           variant="ghost"
           size="icon"
           className="text-muted-foreground hover:text-foreground"
+          onClick={() => setStorageOpen(true)}
+          aria-label="Project storage overview"
+          title="Project storage — what this project keeps on disk, the heaviest runs first"
+        >
+          <HardDrive className="size-4" aria-hidden="true" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
           onClick={() => setReportOpen(true)}
           aria-label="Session QC report"
           title="Session QC report — pipeline glance, map QC and the sweep verdict bound into one printable document"
@@ -765,6 +781,7 @@ export function Header() {
         </Button>
       </div>
       <SessionReportDialog open={reportOpen} onOpenChange={setReportOpen} />
+      <StorageDialog open={storageOpen} onOpenChange={setStorageOpen} />
     </header>
   );
 }
