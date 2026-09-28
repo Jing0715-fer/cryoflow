@@ -55,6 +55,7 @@ import {
   SearchX,
   Server,
   Skull,
+  SlidersHorizontal,
   Square,
   Stethoscope,
   Table2,
@@ -117,6 +118,7 @@ export function formatLedgerMs(ms?: number): string {
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { describeStaleness, findStaleJobs } from "@/lib/staleness";
+import { describeDrift } from "@/lib/params-drift";
 import { TypeIcon } from "./icons";
 import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
 import { formatElapsed } from "@/lib/elapsed";
@@ -2349,6 +2351,9 @@ function InspectorHeader({
   // derived map (same channel the cards use — one derivation, one truth).
   // The inspector is where the full sentence lives.
   const staleInfo = useWorkflowStore((s) => s.staleMap.get(job.id) ?? null);
+  // t445 — the drift verdict for THIS job, same derived-map channel. The
+  // strip speaks the always-true sentence + names the changed settings.
+  const driftInfo = useWorkflowStore((s) => s.driftMap.get(job.id) ?? null);
   const [confirmRerun, setConfirmRerun] = React.useState(false);
   /** t397 — the explicit continue target ("Continue from here:" → fn_cont):
    * the Re-run button + its confirm speak the MODE — Continue when set
@@ -2728,6 +2733,30 @@ function InspectorHeader({
             <History className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
             <span className="font-medium text-foreground/90">{d.short}</span>
             <span className="min-w-0">{d.long}</span>
+          </div>
+        );
+      })() : null}
+
+      {/* t445 — the drift strip: the wavefront's twin face in the same
+          strip grammar. Renders nothing while the recipe matches the
+          snapshot — silence is the default, the alarm is the exception. */}
+      {driftInfo ? (() => {
+        const d = describeDrift(driftInfo);
+        return (
+          <div
+            role="note"
+            data-testid="drift-strip"
+            title={`${d.long}${d.keys ? `\nChanged: ${d.keys}` : ""}`}
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-amber-500/30 bg-amber-500/[0.07] px-2 py-1.5 text-[11px] text-muted-foreground"
+          >
+            <SlidersHorizontal className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <span className="font-medium text-foreground/90">{d.short}</span>
+            <span className="min-w-0">{d.long}</span>
+            {d.keys ? (
+              <span className="rounded border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground/80">
+                {d.keys}
+              </span>
+            ) : null}
           </div>
         );
       })() : null}

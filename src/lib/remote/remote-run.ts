@@ -4737,7 +4737,13 @@ export async function startRemoteJob(args: {
     : { status: "running" as const, progress: 0, result: null };
   const jobRow = await db.job.update({
     where: { id: job.id },
-    data: { ...pendingPatch, startedAt: new Date(startedAtMs), duration: 60_000 },
+    // t445 — the recipe snapshot rides the SAME instant startedAt is
+    // written (both the staging and the direct-running face of a remote
+    // dispatch commit here). A staging dispatch that is later cancelled
+    // leaves the snapshot in place — correct: the params HAVE changed
+    // relative to the previous run only if an edit follows, and a re-run
+    // re-snapshots anyway.
+    data: { ...pendingPatch, startedAt: new Date(startedAtMs), ranParams: job.params, duration: 60_000 },
   });
 
   const record: RunRecord = {

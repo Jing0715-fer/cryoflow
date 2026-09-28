@@ -16,6 +16,7 @@ import {
   Plus,
   RotateCcw,
   Server,
+  SlidersHorizontal,
   SquarePen,
   StickyNote,
   Trash2,
@@ -70,6 +71,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { describeStaleness, type StaleInfo } from "@/lib/staleness";
+import { describeDrift, type DriftInfo } from "@/lib/params-drift";
 import { capturePointer } from "@/lib/pointer";
 import { toast } from "@/hooks/use-toast";
 
@@ -1445,6 +1447,12 @@ export const JobCard = React.memo(function JobCard({
   const staleInfo: StaleInfo | null = useWorkflowStore((s) =>
     s.staleMap.get(job.id) ?? null,
   );
+  // t445 — this card's drift slice, the same subscription channel: a
+  // completed result whose recipe moved on (self-edited, never re-run)
+  // carries the amber sliders glyph beside the wavefront's history one.
+  const driftInfo: DriftInfo | null = useWorkflowStore((s) =>
+    s.driftMap.get(job.id) ?? null,
+  );
   const spec = jobType(job.type);
   const inputs = spec?.inputs ?? [];
   // t315 — Node type picks the import job's output port: the card renders
@@ -2199,6 +2207,26 @@ export const JobCard = React.memo(function JobCard({
                     className="no-print flex size-3.5 shrink-0 items-center justify-center text-amber-600 dark:text-amber-400"
                   >
                     <History className="size-3" aria-hidden="true" />
+                  </span>
+                );
+              })() : null}
+              {/* t445 — the recipe drift badge, the wavefront's twin face:
+                  icon-only (t409 face discipline), amber (the "result not
+                  current" family color — the GLYPH disambiguates: history =
+                  upstream moved, sliders = the recipe itself moved). The
+                  tooltip names the changed settings; the inspector strip
+                  carries the full sentence. */}
+              {driftInfo ? (() => {
+                const d = describeDrift(driftInfo);
+                return (
+                  <span
+                    role="img"
+                    data-testid="drift-badge"
+                    aria-label={d.long}
+                    title={`${d.long}${d.keys ? `\nChanged: ${d.keys}` : ""}`}
+                    className="no-print flex size-3.5 shrink-0 items-center justify-center text-amber-600 dark:text-amber-400"
+                  >
+                    <SlidersHorizontal className="size-3" aria-hidden="true" />
                   </span>
                 );
               })() : null}

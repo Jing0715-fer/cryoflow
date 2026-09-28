@@ -37,6 +37,7 @@ export function toJobDTO(job: Job): JobDTO {
     status: job.status,
     progress: job.progress,
     params: parseParams(job.params),
+    ranParams: job.ranParams != null ? parseParams(job.ranParams) : null,
     result: job.result,
     note: job.note,
     duration: job.duration,

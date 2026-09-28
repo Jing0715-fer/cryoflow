@@ -15,6 +15,13 @@ export interface JobDTO {
   progress: number;
   /** Parsed from the JSON string stored in the DB ({} fallback). */
   params: Record<string, ParamValue>;
+  /** t445 — the recipe THIS result was cooked with: the params snapshot
+   *  taken at dispatch time (parsed from the DB's ranParams JSON string).
+   *  null = no evidence (never ran since the snapshot law landed — a null
+   *  verdict is an honest verdict; lib/params-drift.ts reads it against
+   *  the CURRENT params to answer the self-edit half of "is this result
+   *  current?"). */
+  ranParams?: Record<string, ParamValue> | null;
   result: string | null;
   /** User annotation (free text, ≤500 chars) — the scientist's margin note.
    *  null = no note (renders no badge anywhere); empty string never occurs

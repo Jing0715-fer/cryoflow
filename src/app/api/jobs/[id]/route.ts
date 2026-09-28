@@ -133,6 +133,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       data.progress = 0;
       data.result = null;
       data.startedAt = null;
+      // t445 — evidence hygiene: the reset erases the run the snapshot
+      // describes. An idle job has no result for a recipe to answer for;
+      // carrying the stale snapshot would let the NEXT completion's
+      // drift verdict silently compare against a run that no longer
+      // exists in the row's own history.
+      data.ranParams = null;
       // If a live process is still attached to this job (running refine,
       // restart orphan…), kill its tree FIRST — previously the record was
       // simply cleared, leaving an untracked mpirun writing to the workdir

@@ -18,6 +18,7 @@ import {
 } from "./duplicate-run";
 import { describeAdoption, planAdoption } from "./adopt-branch";
 import { findStaleJobs, type StaleReport } from "./staleness";
+import { findDriftedJobs, type DriftReport } from "./params-drift";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -635,6 +636,11 @@ interface WorkflowState {
    *  reaches each card through zustand's useSyncExternalStore channel,
    *  immune to the canvas render path's memo/deferral bailouts. */
   staleMap: StaleReport;
+  /** t445 — the recipe drift verdict, same channel as the wavefront:
+   *  one findDriftedJobs per jobs commit, post-commit at the module
+   *  tail; cards read their own slice through the subscription (the
+   *  canvas render path's memo/deferral bailouts never see it). */
+  driftMap: DriftReport;
   /** Parsed workflow files awaiting confirmation in the import dialog —
    *  the dialog shows a QUEUE (one summary row per file, plus per-file
    *  parse failures) + one shared target-workspace picker before any
@@ -1403,6 +1409,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   jobs: [],
   edges: [],
   staleMap: new Map(),
+  driftMap: new Map(),
   project: null,
   projects: [],
   workspaces: [],
@@ -2712,7 +2719,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             " It starts automatically once inputs are staged.",
         });
         set({ inspectId: id, selectedId: null, selectedIds: [] });
-        return false;
+        // t445 — the return value's contract is "the dispatch was
+        // ACCEPTED", not "the process is running". Staging IS acceptance:
+        // the cluster has the job and the pipeliner owns it now. The
+        // dialog closes on acceptance — its contract is a SEND door
+        // (t289), not a start watcher; live QA (t445) caught a completed
+        // cluster run shining THROUGH an open dialog, because the staging
+        // beat's honest `waiting` verdict read as a refusal here.
+        return true;
       }
       if (data.error) {
         // honest remote-engine refusal — surfaced via the job result too
@@ -4325,7 +4339,10 @@ if (typeof window !== "undefined") {
  * jobs/edges commits re-derive the wavefront ONCE, post-commit, between
  * renders; cards then read their slice through the store subscription.
  * The write only fires on a real jobs/edges change (staleMap changes
- * never re-enter this branch), so there is no loop. */
+ * never re-enter this branch), so there is no loop. t445 — the same
+ * commit also re-derives the drift verdict (one more pure pass over the
+ * jobs it already holds); the two laws share the channel, not the
+ * verdict. */
 if (typeof window !== "undefined") {
   let prevJobs = useWorkflowStore.getState().jobs;
   let prevEdges = useWorkflowStore.getState().edges;
@@ -4333,7 +4350,10 @@ if (typeof window !== "undefined") {
     if (s.jobs !== prevJobs || s.edges !== prevEdges) {
       prevJobs = s.jobs;
       prevEdges = s.edges;
-      useWorkflowStore.setState({ staleMap: findStaleJobs(s.jobs, s.edges) });
+      useWorkflowStore.setState({
+        staleMap: findStaleJobs(s.jobs, s.edges),
+        driftMap: findDriftedJobs(s.jobs),
+      });
     }
   });
   // boot derivation: the initial load's commits pass through the same
@@ -4341,6 +4361,9 @@ if (typeof window !== "undefined") {
   // gets its wavefront here
   const boot = useWorkflowStore.getState();
   if (boot.jobs.length > 0) {
-    useWorkflowStore.setState({ staleMap: findStaleJobs(boot.jobs, boot.edges) });
+    useWorkflowStore.setState({
+      staleMap: findStaleJobs(boot.jobs, boot.edges),
+      driftMap: findDriftedJobs(boot.jobs),
+    });
   }
 }

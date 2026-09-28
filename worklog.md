@@ -5095,3 +5095,15 @@ Stage Summary:
 - **「渲染链吞掉的东西，订阅链接得住」**：canvas props 传播被 memo/deferral 静默吞没（fiber lanes 挂起为证）——换 zustand store 通道后 143ms 当帧翻转；渠道的可靠性比渠道的优雅更产品
 - **「一句永远为真的话」**：badge 的句子在 re-run 与 adoption 两种成因下都必须为真——「predates X's latest run」对两种世界都说真话；产品文案的法律责任是全场景真，不是分场景巧
 - 产出：Staleness Wavefront 全链（staleness 纯脑 + store 通道 + 卡片徽章 + inspector strip）+ **canvas 吞更新 bug 活捉与换通道根治** + adoptDownstream refetch 加固 + t444 bench 27/0 + 十五套回归 538 断言全绿 + 改嫁双向翻转活体 + 三方一致真对齐
+
+---
+Task ID: 445 (cron agent loop 202609290656) — 进行中
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 444 完整收官（HEAD = 6d6da7d = origin/main，树净；stamp = c34cb2f 三方一致）。世界体检：app 200、15/15 全 completed、14 边——但 mock 集群 :3022 摊痪（DOWN）。launch.sh 孤儿模式单步复活；首 probe relionModules 空是冷态，二发满血（4 模块在列）。第三十六份过时 Task 13 指引照例不认。自号 445。
+- [QA — 全绿基线] landing hydration 满血（含 t438 铃铛门）、console 0 错、标题 pristine。十六套回归 564 断言全绿（十五套旧 538 + t445 新 26，见下）。
+- [选题定谳 — Recipe Drift（配方漂移面）] t444 诚实边界①点名的另案：「上游改参未跑」场景时间律不覆盖（startedAt 不动）。波前律管「上游重跑了」；本窗管另一半：「自己改了配方没重跑」。数据要件核实：Job 模型无运行时 params 快照 → 新增 ranParams 列（prisma schema + db:push）。t417 教义第三次活体：shell DATABASE_URL 被污染成 custom.db，首轮 db:push 加错库——显式钉 cryoflow.db 重推并 db pull 验证。
+- [交付 — the recipe answers for itself] ①schema：Job.ranParams String?（派发时刻的配方快照，null = 无证据）②写点×2：dispatch.ts 本地车道 + remote-run.ts 远程车道（staging 与 direct 两面共用的 startedAt 同帧写点）——快照与 startedAt 同瞬，t444 律材料同源③PATCH reset 分支 ranParams:null（证据卫生——reset 抹掉的正是快照描述的那次运行）④toJobDTO + JobDTO.ranParams（解析对象 | null）⑤lib/params-drift.ts 纯脑：paramsEqual（键序无关、值严格、undefined=缺席、嵌套递归防御）+ driftFor（completed + 快照在 + 配方异——failed 沉默：状态自己会喊重跑；running/pending 中途不审：快照刚拍）+ findDriftedJobs + describeDrift（一句永远为真的话：「Recipe changed since this run」+ N setting(s) changed + Re-run 义务 + 排序键名单）⑥store.driftMap：与 staleMap 同一 module-tail 订阅双派生（两律共通道，不共判决）⑦job-card 徽章（SlidersHorizontal icon-only amber——「结果不当前」家族色，glyph 区分：history=上游动了，sliders=配方自己动了）+ inspector strip（同 strip 语法 + 排序键 mono chip）。
+- [验证 — 十六套全绿] t445 bench 26/0 首轮（E1 等值 7、E2 判决律 7、E3 键算术 5、E4 重跑清 3、E5 文案 4；E3c 首版断言自错——快照与当前相同却期待 changed——写完回读当场修正，先例自觉延续）；tsc 0 + eslint 0（十触碰文件）；十六套回归 564 断言。

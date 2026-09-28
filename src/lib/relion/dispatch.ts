@@ -205,6 +205,11 @@ export async function startJob(
       data: {
         status: "running",
         startedAt: new Date(startedAtMs),
+        // t445 — the recipe snapshot rides the SAME instant startedAt is
+        // written (only a real run refreshes the evidence). The drift face
+        // reads it against the CURRENT params: a later edit that was never
+        // re-run shows as "recipe changed since this run".
+        ranParams: job.params,
         progress: 0,
         result: null,
         duration: REAL_DURATION_HINT,

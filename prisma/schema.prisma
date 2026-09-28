@@ -79,6 +79,18 @@ model Job {
   status     String    @default("idle") // idle | pending | running | completed | failed
   progress   Float     @default(0)
   params     String    @default("{}") // JSON-encoded parameter map
+  /**
+   * The recipe THIS result was cooked with: the params JSON snapshot taken
+   * at dispatch time (the same instant startedAt is written — t445's law
+   * material is the same as t444's: only a real run refreshes the
+   * evidence). null = no evidence (the job never ran since the snapshot
+   * law landed — a null verdict is an honest verdict). Reset clears it
+   * alongside the result: an idle job has no result for a recipe to
+   * answer for. Read together with the CURRENT params by
+   * lib/params-drift.ts — a difference is the self-edit half of "is this
+   * result current?" (the wavefront covers the upstream half).
+   */
+  ranParams  String?
   result     String? // JSON-encoded result summary
   /**
    * Free-text user annotation (the scientist's margin note: "this is the
