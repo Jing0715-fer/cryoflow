@@ -4607,3 +4607,18 @@ Stage Summary:
 - **「浮动线的头号变量是 QA 自己」**：chrome 全家桶 450MB 决定了研磨是 1 次绿还是 10 次绿；「环境性不可达」的判决书要先抄一份内存清单再签字
 - **「吃自己的狗粮是最好的验收」**：清场用新 DELETE 门、会话回收走 pinning 法、确认钮的两击落在自己写的代码上——QA 不只是看，是用
 - 遗留（下窗候选）：①t427 车道的 autopick FOM 图在飞（树上 WIP 在场）——让路 ②AI 助手下一程：会话重命名/导出、失败 chip 的 mock 演证 ③GitHub PAT 撤销确认
+
+---
+
+Task ID: 427 (cron agent loop 202609281709)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 425 收官段 + t426 幸存者条目正在树上成形（其 worklog 提交 018bc8d 与我的开局同分钟落树；origin 仍在 04bb5db）。第十九份过时 Task 13 指引照例不认。世界健康：app 200（收敛 build dae8a43 + t426 复验）、console 0 错、mock 集群/LLM 双活。QA 发现：Extract 批量归家后 demo 世界已无 remote 文件（t425 bar 的全量战果），无新 bug。
+- [选题 — Auto-pick QA 地图] picks 路由只认 manualpick.star——RELION 5 的 autopick 输出（每微图一枚坐标 star：X/Y/_rlnAutopickFigureOfMerit/class）完全没有 QA 界面，demo 的 Auto-pick 任务 408 颗 pick 只有一行数字。挑颗粒后的第一问「我的 pick 好不好」在 autopick 世界无处可问。
+- [交付一 — picks 路由双格式] manualpick.star 照旧；新 autopick 分支：micrographs/*.star 逐文件按 label 解析（无 FOM 列的文件诚实答 null），mic 身份来自文件名（mic_001_autopick.star → mic_001）；**图像归属走 edge BFS**（particles 路由的批量化教义：每深度一条 edge 查询 + 一批 job 查询 + 链接内存内折叠）——autopick 工作目录只有坐标 star，微图图像在上游（import 的 micrographs/mic_NNN.mrc），每枚 mic 解析到持有者 job，条目带 ownerJobId，PNG 经持有者的 file 路由渲染。首响应 source 字段区分两种世界。
+- [交付二 — FOM QA 界面] picks-map 新 FOM 模式：标记颜色 = FOM（amber 低 → teal 高，zinc = 无 FOM），Radix slider 阈值滑杆（步长 = 全距/200，aria-label 全）实时隐藏低于阈值的 pick，头部计数「N / 408 picks ≥ threshold」+ 渐变图例 + 数值读出；缩略图 hover 计数与 lightbox 副标题同语言。手动世界（manualpick）的 teal 十字标记零改动。job-inspector 门 /manualpick/ → /(manualpick|autopick)/。
+- [验证 — 活体 bench 12/12] scripts/t427-autopick-picks-bench.ts 进程内直驱真路由（只读：真 demo DB + 真文件系统，零世界变异）：autopick 分支 24 mic / 408 picks / 全 FOM / dims 512×512（上游 header 读出）/ owner 全部解析到 import / owner 图像 24/24 在盘 / 诚实空响应 / 跨站 403。tsc 0；触碰文件 eslint 0。
+- [诚实边界] ①FOM 界面的浏览器级验证待世界收敛（运行 build 尚无本窗代码；研磨排队在本条目之后）②mic 图像候选拼写只认 micrographs/<mic>.mrc 与 <mic>.mrc 两种布局（本 pipeline 的实际写法；其他 RELION 布局答 no owner——图块仍在，照片门诚实关闭）③manualpick 路径的回归仅 bench-C 级（demo 无 manualpick 任务可活体回归）。
+- 遗留（下窗候选）：①FOM 地图收敛后浏览器活体 QA（本窗收官段若有余力先做）②GitHub PAT 撤销确认（第十七次提醒）。

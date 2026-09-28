@@ -1789,8 +1789,9 @@ function OverviewTab({
       String(job.params?.nodeType ?? "micrographs") !== "particles" ? (
         <ImportGallery jobId={job.id} />
       ) : null}
-      {/* manualpick jobs show the picked-particle overlay map. */}
-      {/manualpick/i.test(job.type) && job.status !== "idle" ? (
+      {/* manualpick + autopick jobs show the picked-particle overlay map
+          (t427: autopick renders the FOM-colored QA variant). */}
+      {/(manualpick|autopick)/i.test(job.type) && job.status !== "idle" ? (
         <PicksMap jobId={job.id} />
       ) : null}
       {/* extract/select/orientation jobs show the particle stack browser. */}
