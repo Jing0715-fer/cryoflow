@@ -5025,3 +5025,26 @@ Stage Summary:
 - **「减重叙事归 walk，不归 planner」**：删除方报的 freedBytes 是它的口头账，地图上真正能指的是两次 walk 的差——正差才认领、点名所比 walk 的时间戳、零差就说 unchanged；「我的数字从哪来」写在句子里的产品才配谈诚实
 - **「门是 courtesy，planner 是 authority」**：door 只预滤服务器自己会拒的两种状态，未来任何新状态都交给对话框里的 planner 说话——预滤层与执法层各守其份，门永远不比服务器更严
 - 产出：存储板第三窗全链（storage-clean 纯脑库 + CleanDoor 双视图布线 + walk 回执 + 透镜喂食视图）+ t441 bench 23/0 + 十二套回归 454 断言全绿 + 真火清扫全链活体（258.7 MB 真降 + demo 链零伤）+ 三方一致真对齐
+
+---
+Task ID: 442 (cron agent loop 202609290512)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 441 完整收官（HEAD = be67ab8 = origin/main，树净；stamp = 0f9f7e1，docs 时差）。世界健康：app 200、15/15 全 completed、mock 集群 :3022 在听。第三十三份过时 Task 13 指引照例不认。自号 442。
+- [QA — 全绿基线] landing hydration 满血、console 0 错、标题 pristine。十二套回归 454 断言全绿（t419 111 + t420 52 + t427 12 + t431 20 + t432 39 + t433 47 + t436 45 + t437 20 + t438 40 + t439 28 + t440 17 + t441 23）。世界稳定 → 转新需求。
+- [选题定谳 — duplicate-run 升级] 侦察证据链：t439/t440 两轮 QA 手术都被迫**裸调 API 造孪生**（POST /api/jobs + /api/edges）——产品缺口的活体实证。store 已有 duplicateJob（⌘D + 卡片菜单）但只是模板复印机（params + 位置偏移，"edit & connect it, then run"——连线全手工）；A/B 面（t439/t440）就位后，自然循环是**复制 → 改一个旋钮 → 跑 → 对比**——孪生必须自带配方与上游连线。POST 路由的 params 形参注释早已写着 "(duplication)"——服务器预留、UI 未交付。定谳：**孪生克隆升级**。
+- [交付 — the twin inherits the recipe] ①lib/duplicate-run.ts（纯脑）：upstreamEdgesOf（**继承只向上游**——孪生是新分支，兄弟们读的还是原件的输出）+ faithfulWires（**今天画得出的线才拷**——源参数变了的旧线（Import 从 movies 切走） stranded 计数进回执，不铸 canvas 画不出的线；portless 旧线放行）+ withoutAutoEdge（t350 画廊自动线归服务器——POST 带 classStarSelection 时源→孪生边随响应回来，手工名单剔除该对，一线不画两次）+ extractClassSelection（画廊选区住在 params 里（对象会被标量过滤器静默丢弃）——上提顶层让服务器重验；垃圾形状整件不提，绝不提半件）+ twinSpot（**孪生座位 = 右列空位**——RELION 左→右语法里的平行分支，同高起步、向下寻位、world 钳位；原 +48 偏移实为卡片重叠）②store.duplicateJob 升级：params + 连线（connect quiet 模式——**回执归复制的 toast**，N 线不刷 N toast，t146 聚合律）+ 座位 + 收据三段式（"params copied, N upstream wires drawn, twin waiting unstarted" + stranded 补注）+ opts.openInspector（孪生的编辑器是 A/B 循环第一站；⌘D 画布流保持旧默认关 inspector）③inspector Duplicate 门（CopyPlus，A/B 门旁——Focus/Compare/Duplicate/Reset/Re-run 动作行）。
+- [自捕自修 ×2] ①classStarSelection 简写变量名错（`{ classStarSelection }` 引用不存在的名——写完回读当场改 `classStarSelection: classSelection`）②bench D5f 断言臆造钳位语义（y 钳到 world.min=0，断言写成 `-50+h`）——t437/t439/t440/t441 先例**五连**，纯函数先于测试知道答案。
+- [验证 — 十三套全绿] t442 bench 29/0（D1 继承集 5、D2 忠实线 5、D3 自动线去重 4、D4 画廊选区 9、D5 孪生座位 6）；十三套回归 483 断言全绿。tsc 0 + 触碰文件 eslint 0。
+- [研磨] 杀 QA chrome + 杀服务器 → available 3415MB → FRESH attempt 1 GREEN（provenance f0c17d9 = feature commit）→ 十步体检 WORLD ALIVE + hydration probe（webpack-308567 → 200）+ demo chain 复活。
+- [活体 QA — 全 A/B 循环闭环] ①inspector Motion Correction 1：Duplicate 门在场 → 点击 → 回执「Run duplicated — Motion Correction 1 (copy) — params copied, 1 upstream wire drawn, twin waiting unstarted」→ inspector 落在孪生上（Idle）②孪生体检：params 与原件逐字节一致（475B）、座位 (280,220)→(620,380)（右列首空位被占，向下寻位 D5c 活体）、DB 边「Import Movies 1 → copy, micrographs > movies」③Re-run（本地车道）诚实失败（RELION not detected——t439 之课的面孔）→ 带 connectionId 走 mock 集群 → 26.7s completed④**A/B 门亮起**：「Motion A/B — compare with another completed run (1 sibling runs available)」→ 开门判决「0 improved · 0 regressed · 24 unchanged · of 24 paired」（同参孪生如实说没变——tie 律）⑤清场：DELETE 孪生（15/15 复原、14 边复原）+ rm motioncorr_bhnsztzx 残渣（t440 教训照办，16 目录 = 原世界）⑥console 全程 0 错。定妆 .qa-logs/t442-{receipt,twin-inspector,ab-verdict}.png。
+- [QA 工艺教训 — 假阴性比假绿更毒] 首发孪生后我的核账一行脚本报「wires into twin: []」——`process.env.TWIN` 从未赋值，undefined 比对恒空，**假阴性**。追了三轮取证（服务器日志/边数算术/加载时序）后全枚举打脸：14 原边 + 1 孪生线 = 15 全对账，第一发就成功了。验证路径本身要被验证（t440 Stage Summary 的直接应验）：假绿让你以为有病，假阴性让你去修不存在的病——都源于「脚本自己的状态没进它的断言」。
+- [最终态] HEAD = f0c17d9（本窗 feature commit，待 docs commit 推上）；stamp = f0c17d9 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、QA 浏览器净场、手术残渣清净。下一窗从 Task 443 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第三十一次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻在位）③duplicate 可再进：复制时改名的智能后缀（(copy) 2）、⌘D 多选批量复制④exclude 清单门（需先有下游消费者面）⑤Class2D 占据率叠架谱系。
+
+Stage Summary:
+- **「QA 手术是产品缺口的活体证据」**：两轮手术都被迫裸调 API 造孪生——当测试绕过产品才能完成产品自己的故事（复制→改参→跑→对比），缺口就是产品级的；服务器路由的 "(duplication)" 注释等了很多轮才等到它的脸
+- **「孪生继承的是配方，不是血统」**：params 连线随行、座位自成一支、状态归零等待——继承只向上游（兄弟们读的还是原件的输出），向下的是新故事；一条「今天画不出的线」拒绝被复印，stranded 进回执
+- **「回执归一个 toast」**：N 条线一次手势，quiet connect 让复制收据自己说话——聚合律从 toast 延伸到批量动作；每线一报是把台账当新闻
+- 产出：孪生克隆全链（duplicate-run 纯脑库 + store 升级 + inspector 门）+ t442 bench 29/0 + 十三套回归 483 断言全绿 + **全 A/B 循环活体闭环**（复制→跑→门亮→判决→清场）+ 假阴性取证教训 + 三方一致真对齐
