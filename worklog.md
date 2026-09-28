@@ -4656,3 +4656,7 @@ Stage Summary:
 - **「继承的 env 是最安静的劫持」**：start.sh 的文档化覆写留在 shell 里，进程 env 先于 .env——bench 读空库全程「诚实地」报 404。世界工具（bench/脚本）必须自钉世界，把「读哪个 DB」写成自己的合同而不是 shell 的遗产
 - **「导出的文档不许用户内容越权当结构」**：Markdown export 的 escapeMd 不是洁癖——transcript 会被 skim、被粘贴、被信任；消息里的 ## 与 [x](y) 一旦渲染成结构，读者就再也分不清哪些话是 AI 说的哪些是文档说的
 - 产出：t428 bench 40 断言 + PATCH/?format=md 双门 + 抽屉行内重命名与一键导出 + t427 bench 环境自钉修复；下一窗从 Task 429 起编。
+
+### Task 428 收官段（同窗追加）
+- [provenance 对齐] 收官补研：杀服务器（/proc 死亡验证）→ FRESH 研磨 attempt 5 绿（OOM 抽签仍在，但磨盘教义走到绿）→ reboot-recover 十步 WORLD ALIVE → .next/.built-at-commit = 04e2946 = HEAD 逐字节一致。新 build 冒烟：加载 0 console 错（抽屉三钮为悬停现身——完整活体 QA 已在字节同源的前一轮 build 上全过）。
+- [最终态] HEAD = 04e2946 已推 origin/main（本窗无并行碰撞——push 一次平推）；世界 200 运行 t428 build；AI settings 复原 pristine（activeProvider custom / hasKey false）、QA 会话已回收（sessions 0）、mock LLM 已停、浏览器净场。下一窗从 Task 429 起编。GitHub PAT 撤销确认第十八次提醒。
