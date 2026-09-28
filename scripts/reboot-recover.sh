@@ -112,7 +112,9 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
       fi
       if git checkout -B main origin/main >> "$LOG" 2>&1; then
         git clean -fd src/ >> "$LOG" 2>&1 || true   # t273: untracked src husks break the resurrected build
-        NEEDS_DEPS=1
+        # drill-2 self-catch: this MUST be the same name step 2 reads — the
+        # in-process path dies with the run, the re-exec path passes it via env.
+        export REBOOT_NEEDS_DEPS=1
         say "0. tree resurrected: main hard-landed on origin/main ($origin_head), src debris cleaned"
         self_after="$(git hash-object "$SELF" 2>/dev/null || echo unknown)"
         if [ "$self_before" != "$self_after" ]; then
