@@ -4865,3 +4865,8 @@ Stage Summary:
 - **「进程有出生，build 有出生，比它们的大小」**：cmdline 只能回答「你是谁」，回答不了「你多老」；/proc mtime vs BUILD_ID mtime 是服务器-磁盘时差的第一证人——研磨器活得比 boot 长，是本世界的常态而非事故
 - **「recovery 脚本自身也会引入 bug」**：kill 块缩进错了分支，撕裂修复变成撕裂保留——bash -n 查不出语义，收读 + 真跑才查得出；自捕自修发生在同一个窗内
 - 产出：reboot-recover.sh 双升级（step 5 stale-standalone 接管 + step 10.5 hydration probe）+ 撕裂世界现场修复 + 三跑一演习全绿；下一窗候选：grinder 防撕裂锁（源头端封杀）
+
+### Task 434 补研段（同窗追加）
+- [意外捕获第三缺口 — provenance green-wash] 收官 commit（fc2932a）后照家族先例补研，却目击 18:00 修复跑的「provenance stale — re-grinding」根本没真研：build-until-green 的 trio 幂等门在 trio 完整时 exit 0 **不 build 不盖戳**，.built-at-commit 永远停在 17b4c86——reboot-recover 的 stale 路径自 t422 引入以来，在「trio 完整 + 戳旧」的组合下是一次嘴上说说（本窗 18:00/18:03 两跑皆如此，世界一直运行 17:46 的 build B——内容恰好无害（此后只有 docs/scripts 差），但「已对齐」是假绿）。修法 = stale 路径强制 FRESH=1（研磨器自己的提示语「source changed since? FRESH=1」就是这个场景）；3f47c2e 入库。
+- [FRESH 研磨马拉松] FRESH 真研首两跑 rc=137 连击（webpack MainThread ~3.1GB anon 贴 4GB 收割线；杀服务器腾 180MB 仍不够）→ 目标清单揪出漏网大户 **QA chrome**（t431/t433 教义第三度应验：研磨前必杀浏览器）→ 净场后 available 3156→3429MB → 研磨器直调 cap=3，attempt 1 绿（provenance 3f47c2e）→ reboot-recover 十步：step 5 启新 standalone → **hydration probe：webpack-5077a…js → 200** → WORLD ALIVE。
+- [最终态] .next/.built-at-commit = 3f47c2e = HEAD = origin/main **三方逐字节一致（真对齐）**；世界 200 运行同戳 build；新 build 冒烟 landing 满血、console 0 错、dashboard 15 COMPLETED；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、mock LLM 停、QA 浏览器净场。下一窗从 Task 435 起编。GitHub PAT 撤销确认第二十四次提醒（本窗两次 push 均正常：fc2932a + 3f47c2e）。
