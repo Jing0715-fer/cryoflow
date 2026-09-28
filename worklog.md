@@ -4889,3 +4889,24 @@ Stage Summary:
 - **「孤儿重启要自带出生证明」**：研磨器被谁调用不可知（reboot-recover 内 / cron 窗裸调），env pins 必须在 nohup 行上显式重申——继承来的环境是运气，写死的 pin 是契约
 - **「hands-off 不等于沉默」**：no-op 路径发现世界已撕裂时说一声，比修一声更符合它的身份——不越权动手，但也不再当共犯
 - 产出：build-until-green.sh 防撕裂律（GREEN 分支 + no-op NOTE）+ 活体演习真火（重启 4 秒回 200）+ 三方一致真对齐；撕裂类三层防御闭合，下窗转产品面
+
+---
+Task ID: 436 (cron agent loop 202609290224)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 435 完整收官（HEAD = 267fe6d = origin/main，树净；服务器 pid 19585 出生晚于 build——anti-tear 律的重启产物，无撕裂）。app 200、15/15 全 completed、mock 集群 :3022 在听。第二十七份过时 Task 13 指引照例不认。按 t435 指引转产品面新需求。自号 436。
+- [选题侦察] 三个候选核账：分辨率阶梯/进度图（fsc-compare 与 session-report 已覆盖大部，且 pipeline-analytics 三视图在场）；集群活动面板（slurmState + inspector 横幅已散布呈现）；**真空白 = 项目级存储总览**——per-job cleanup（t331）说字节但藏在一个个 inspector 里，「这项目吃了多少盘、最重的 run 是谁」要逐个开 inspector 才能答。cryo-EM 磁盘静默膨胀（stacks/maps 是鲸），用户从 OS 而非产品得知——真需求。
+- [交付 — Project Storage Overview] ①`GET /api/projects/[id]/storage`：**物理真相优先**——逐 jobDir 递归走树 data/relion/<projectId>/（t331 走树方言：符号链接计 0 字节永不跟随、中途消失跳过、入口封顶），DB join 只是元数据——孤儿目录（无 job 行指向）照显 type=orphan；镜像链接永不重复计数（其 workdir 在别的项目目录下，join 条件 dirname 精确匹配 projectDir）②lib/relion/disk-usage.ts：扩展名诚实透镜（maps/stacks/tables/logs/plots/other；.mrc.gz 双扩展先行——尾段读取会把 .gz 丢 other；dotfile 落 other 诚实）+ fmtBytes 逐字沿用 cleanup 对话框方言（一个应用一个字节格式）③storage-dialog.tsx：header HardDrive 门（session report 旁，nextDynamic 分包）——总量 + fetched 时间戳 + Refresh、分类堆叠条（确定性色板 + title 提示）、runs 表 heaviest-first（相对条 + mostly <category> 第二行）、行点击跳 inspector（本板是地图，inspector 的 Clean 是铲子）、孤儿行 amber 且 disabled（无 inspector 可去）、truncated 旗显「numbers are floors」。
+- [真 bug 自捕一 — client chunk 吞 fs] 收敛跑逮住类型检查看不见的 build error：disk-usage.ts 把客户端要的分类器/fmtBytes 与 fs 走树混装一库——storage-dialog 的导入把 fs 拖进浏览器 chunk（「Module not found: Can't resolve 'fs'」）。修 = 拆库：disk-usage.ts（client-safe 纯串）+ disk-walk.ts（server-only 走树，诚实律注释随行）。tsc 查不出这个（浏览器字段 fs 在类型层合法）——**研磨器是最严的类型检查器**，家族先例再+1。
+- [验证] tsc 0 + eslint 0（五触碰文件）；t436 bench 45/45（C1 透镜矩阵 21 断言含双扩展/case-blind/dotfile、C2 字节方言 6、C3 真树走 16：嵌套聚合/symlink 永不跟随/空目与未跑/封顶地板（**ext4 readdir 哈希序非字母序——地板性质而非特定子集，bench 过度钉死被首跑纠正**）/深度封顶）；回归 t419 111/0 + t420 52/0 + t427 12/0 + t431 20/0 + t432 39/0 + t433 47/0 全绿。
+- [活体 QA — 满铺] 对话框：总量 795.4 MB（=834,005,205 B，1024 基换算逐位核对）、5,680 files/16 rows、分类 chips（Maps 721.5 MB 91% / Stacks 64.4 MB 8% / Tables 8.9 MB 1%）与 API 逐字节一致；行点击 Initial Model → inspector 开（Clean 按钮在场）+ 对话框自关；孤儿行 micrographs（24×.mrc=24MB→mostly maps，amber no job record，disabled）——**live 孤儿正好是共享资产目录**（demo 微图库，无 job workdir 指向），孤儿提示语据此补第三义（deleted leftover / older server / shared asset store）。手术双向：mkdir zombie_t436+4KB→Refresh→amber 行现身；rm→Refresh→消失。console 全程 0 错。
+- [收敛] 首轮 FRESH 研磨三连 rc=137（收割线 ~3.25GB anon——新路由/对话框加大 build 峰值）+ 混装 fs 修复提交后 FRESH attempt 1 绿（ANTI-TEAR 律又一次真火：退休 predates 的 pid 19585→4s 回 200）→ 提示语修正后最终 FRESH 三连 137（杀服务器腾 145MB 后 attempt 1 绿，t433 教义）→ 十步体检 WORLD ALIVE + hydration probe green → .built-at-commit = 958e127 = HEAD = origin/main 三方逐字节一致。
+- [最终态] HEAD = origin/main = 958e127；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、mock LLM 停、QA 浏览器净场、zombie 手术复原。下一窗从 Task 437 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十六次提醒——本窗 push 正常×3）②EMPIAR 真数据回归（常驻在位）③存储板可再进：按 job 的「Clean」快捷入口（现跳 inspector）与 category 透镜下钻（点 Maps 只看 map 文件行）。
+
+Stage Summary:
+- **「物理真相是走出来的，不是查出来的」**：DB 只知道 job 该在哪儿，磁盘只知道字节真的在哪儿——存储板让磁盘先说话、DB 只做注解；孤儿行是「磁盘比 DB 记性好」的活体证词（demo 的共享微图库当场被抓）
+- **「client 库里的一行 fs 是一枚延时 build 炸弹」**：类型检查器看不见它（浏览器层 fs 在类型上合法），浏览器 console 也看不见（build 都过不去）——只有研磨器的 webpack 眼里容不下它；混装即拆，lens 归 lens、walk 归 walk
+- **「分类透镜的诚实是承认自己瞎」**：.mrc 在微图库里语义上是 movie，透镜只能叫它 map——面板用 dirName/类型/orphan 标签补足人话，但从不假装扩展名知道更多
+- 产出：项目存储总览全链（物理走树 API + client-safe 透镜库 + server-only 走树库 + header 门对话框）+ bench 45/45 + 回归全绿 + 三方一致真对齐；撕裂律本窗两度真火（两次 FRESH 均自动重启旧服务器）
