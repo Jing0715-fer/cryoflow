@@ -986,8 +986,11 @@ function wouldCreateCycle(edges: EdgeDTO[], from: string, to: string): boolean {
 
 /** Reference-stable job comparison for pollTick: when nothing changed we
  *  keep the OLD object references so every React.memo'd card (and the
- *  memo'd edge layer) skips re-rendering — polls become zero-cost. */
-function jobEquals(a: JobDTO, b: JobDTO): boolean {
+ *  memo'd edge layer) skips re-rendering — polls become zero-cost.
+ *  Exported for the t432 bench — the predicate IS the contract (a field
+ *  missing here is a stale-UI bug, so the bench pins the real function,
+ *  never a copy). */
+export function jobEquals(a: JobDTO, b: JobDTO): boolean {
   return (
     a.id === b.id &&
     a.type === b.type &&
@@ -1014,7 +1017,22 @@ function jobEquals(a: JobDTO, b: JobDTO): boolean {
     // or the reference-stability merge swallows the flip and the canvas
     // keeps the stale "home" chip forever.
     JSON.stringify(a.remoteRemaining ?? null) ===
-      JSON.stringify(b.remoteRemaining ?? null)
+      JSON.stringify(b.remoteRemaining ?? null) &&
+    // t432 — runRemote rides the same contract class: it is projected from
+    // the runs LEDGER per response (remoteInfoFor), not from the DB row,
+    // and three of its mutations land with NO compared-field movement:
+    // ① staging grows stagedBytes per file while the row sits at running/0
+    //   (the panel host line would freeze its "Staging inputs… X MB" meter),
+    // ② slurmState flips PENDING→RUNNING before the first RELION log write
+    //   PATCHes progress (the inspector's "Queued on the cluster" banner
+    //   would stay long after sbatch actually started),
+    // ③ a bring-home rewrites ledger note/syncedFiles/syncMs without
+    //   touching the row at all (t429 proved updatedAt never moves) — the
+    //   panel's stay note would keep the stale receipt forever.
+    // Every projected field is UI-consumed (host line, slurm strip, stay
+    // note) and none is a per-poll heartbeat (outputProbeAt never rides the
+    // DTO), so a whole-object compare costs nothing in render churn.
+    JSON.stringify(a.runRemote ?? null) === JSON.stringify(b.runRemote ?? null)
   );
 }
 
@@ -3009,8 +3027,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       if (!changed) {
         // the body DID move (the token flipped) but nothing the UI renders
         // did — adopt the fresh token so the next no-op heartbeat is a
-        // 40-byte round trip instead of another full pull (e.g. a
-        // runRemote ledger timestamp changed; jobEquals correctly ignored it)
+        // 40-byte round trip instead of another full pull (e.g. an internal
+        // ledger field that never rides the DTO, like outputProbeAt,
+        // changed; jobEquals correctly ignored it)
         if (version !== get().jobsVersion) set({ jobsVersion: version });
         return; // identical tick — zero re-renders
       }

@@ -45,6 +45,10 @@ export const MotionDriftChart = dynamic(
   () => import("./motion-drift-chart").then((m) => m.MotionDriftChart),
   { ssr: false, loading: chartLoading }
 );
+export const MicrographQcBoard = dynamic(
+  () => import("./micrograph-qc-board").then((m) => m.MicrographQcBoard),
+  { ssr: false, loading: chartLoading }
+);
 export const ClassDistributionChart = dynamic(
   () => import("./class-distribution-chart").then((m) => m.ClassDistributionChart),
   { ssr: false, loading: chartLoading }

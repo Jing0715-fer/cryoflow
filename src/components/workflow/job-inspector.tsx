@@ -135,6 +135,7 @@ import {
   FscChart,
   CtfQualityChart,
   MotionDriftChart,
+  MicrographQcBoard,
   ClassDistributionChart,
   AngularDistributionChart,
   CryoSparcAnglePanel,
@@ -1839,11 +1840,23 @@ function OverviewTab({
       {isCtfType && job.status !== "idle" ? (
         <CtfQualityChart jobId={job.id} />
       ) : null}
+      {/* t432 — and the QC BOARD right under it: one tile per micrograph,
+          colored by the pack's own p75/p90 quantiles, metric-switchable
+          (worst fit / astigmatism / FOM). "Which micrographs do I exclude"
+          wants a shortlist, not a scatter. */}
+      {isCtfType && job.status !== "idle" ? (
+        <MicrographQcBoard kind="ctf" jobId={job.id} />
+      ) : null}
       {/* MotionCorr gets the per-micrograph accumulated-motion panel
           (stacked early/late bars, worst-first; self-hides until the job
           carries a corrected_micrographs.star catalogue). */}
       {isMotionType && job.status !== "idle" ? (
         <MotionDriftChart jobId={job.id} />
+      ) : null}
+      {/* t432 — motion board: the same tiles over accumulated drift, the
+          early/late split always visible on each tile. */}
+      {isMotionType && job.status !== "idle" ? (
+        <MicrographQcBoard kind="motion" jobId={job.id} />
       ) : null}
       {/* Topaz training gets its per-epoch loss curve (self-hides until the
           run log carries recognizable topaz progress). */}
