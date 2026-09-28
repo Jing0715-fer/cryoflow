@@ -4630,3 +4630,29 @@ Work Log:
 - [调试教训] agent-browser 双页伪影第二次咬人（eval 打到 about:blank 页、snapshot 打到真页——426 车道的记录在案，结论一律以截图为证）；「地图不渲染」的第一现场在 Overview tab 而非 Results tab（PicksMap 挂在 job-inspector 的 OverviewTab——读代码先看挂点属主再看条件）。
 - [诚实边界] ①FomOverlay 的键盘 scrub 用 ArrowRight 步进验证（鼠标拖拽未演——Radix slider 同一值通道）②「失败 chip/Stop 键」等他人车道遗留未动③bench 的 D 组跨站用例在进程内直驱（真 HTTP 层 403 已由 curl 验证）④FOM 图无单测——12 断言 bench 走真世界，比 fixture 更诚实，但缺了「无 FOM 列的 autopick star」分支（代码路径审查覆盖，label 缺列答 null 的逻辑与 t380 解析器同构）。
 - [最终态] HEAD = e7e7329+收官段 已推 origin/main；世界 200 运行 t427 build（provenance 同瞬）；下一窗从 Task 428 起编。GitHub PAT 撤销确认第十七次提醒。
+
+---
+
+Task ID: 428 (cron agent loop 202609281756)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 427 收官段（FOM 地图交付 + 旧形状世界修复）。世界健康：app 200（bun 9144）、mock 集群 :3022 在听、connections 单条 Mock Cluster、RELION not found chip 照例诚实。QA 巡检：canvas 15/15 任务 14 边渲染正常（eval 0 节点又是双页伪影——截图为证，t427 教训第二次应验）；AI 面板新态正常。顺手核账：Task 13 老清单全部退役（#5 fs/browse 已有 isLocalRequest + Host pin 双门硬化、#7 chart 路由已走 statcache、#8 particles 已是批量化 BFS、Topaz 全套已包、3D/Molstar + ortho 切片已在场）——第十九份过时指引照例不认。
+- [选题] t426 遗留②：AI 助手会话重命名/导出。历史抽屉的行名永远是首条 user 消息的 96 字截断——多轮会话一多，「那是哪次对话」无处可问；对话成果（搭了什么流程、判了哪些 class）也只活在面板里，出不了应用。
+- [交付一 — 重命名] DTO 加 title: string | null（AiSessionDto + AiSessionSummaryDto）；store 层 renameSession（trim + 80 字帽 + 空白清名回预览）；agent 层 renameSessionForActiveProject（pinning 法与 fetch/delete 同律）；PATCH /api/ai/sessions/[id]。关键裁定：**重命名不 bump updatedAt**——newest-first 抽屉的时序信号不能被改名漂移。抽屉行内编辑器：PenLine 悬停现身 → input（Enter 提交带 isComposing 守卫——IME 组键 Enter 不误发，t423 面板同款律）→ Esc 取消 / blur 提交；已命名行 font-medium 加粗 + tooltip 带「原文：」。
+- [交付二 — 导出] GET /api/ai/sessions/[id]?format=md → Markdown 附件（content-disposition ASCII 文件名 ai-session-<stamp>-<id尾>.md）。lib/ai/export.ts：标题（改名优先）+ 项目 meta + 逐消息分节（用户/助手 + 工具调用粗体行 + 工具结果引用行说 {ok,summary} 方言，失败标「失败」）；escapeMd 拦截用户内容里的结构伪造（标题/链接/引用/HR 全转义——导出的 transcript 会被 skim，不能让消息内容冒充文档结构）。
+- [验证 — t428 bench 40/40] H1-H5 store/agent 层（改名持久/不 bump 时序/清名/80 帽/pinning 法拒外项目）+ H6-H8 导出库（分节形状/结构伪造全被转义/失败方言/文件名 ASCII）+ H9 真路由进程内直驱（跨站 403 双门/bad JSON 400/非字符串 title 400/附件头/无 format 仍 JSON/外项目 404）。tsc 0 + eslint 0；t419 111/0 + t420 52/0 回归全绿。
+- [真 bug — bench 抓的] renameSession 返回 string | null 把「会话不存在」和「清名成 null」压成同一个 null——清名经 agent 门会答 ok:false "Session not found"（store 层其实已清成功，summary 检查过、响应检查挂）。修：判别返回 { ok, title }，ok:false 只剩「不存在」。**两个 null 语义重叠是 API 设计的经典暗坑——判别联合是唯一的出路。**
+- [环境真 bug — 老车道的雷] t427 picks bench 突然全挂 404 而活体 app 200。取证：shell 会话里 export 着 DATABASE_URL=file:.../db/custom.db（start.sh 每次开机的文档化覆写），进程 env 先于 .env——t419 PIN 教义反过来咬了 bench：继承的 env 把只读 bench 悄悄指向空库。修：bench 自钉 repo DB（CRYOFLOW_DB 可覆写），与 reboot-recover 步 1 同律——**「bench 声明读哪个世界」不能靠 shell 的心情**。修后 12/12。
+- [收敛 — OOM 泥潭二刷] 杀服务器（/proc 死亡验证）→ FRESH 研磨第一轮 0/10 全 rc=137（第一只研磨器被平台收割者杀掉时留下的残兵抬高了浮动线——裸 nohup & 不套 ( ) 的 t426 教训本窗第三次应验）；净场复跑 attempt 1 绿（106s）。reboot-recover 十步全过：demo chain 复活（FSC 0.143/6.51Å 官方数字 assert）+ probe 重钉 + world-reborn 戳。
+- [活体 QA — 新 build 上全交互] 抽屉三钮在场（删除/重命名/导出）→ 改名「QA 演练 · 状态普查」Enter 提交 → 行名即时变粗体；导出点击 → API 侧验证导出件：标题/项目 meta/分节/工具方言逐字节符合设计；390px 移动端行无溢出（scrollWidth 断言 + 截图）；console 全程 0 错。清场吃自己的狗粮：两击确认删除 QA 会话（服务端 1→0 双证）+ apiKey 清空复原 pristine + mock LLM 击杀 + 浏览器净场。定妆 .qa-logs/t428-{drawer-renamed,drawer-mobile}.png。
+- [诚实边界] ①导出的 toast（已导出提示）在截图取证前已消散——下载本体以 API 导出件逐字节验证顶替②鼠标拖拽滑杆/键盘 scrub 类交互本窗未涉及③IME 组键 Enter 守卫是代码审查级（与 t423 composer 同一守卫模式），未用真输入法活体演④导出大 transcript（千条消息）未压测——toolSummaryLine 单条 600 字帽 + 消息层 24k 帽在，风险封顶⑤研磨 provenance 戳 = d9f5e79（研磨时 HEAD），t428 提交在其后落树——字节同源但戳先于提交，收官段补研一轮对齐（见下）。
+- 遗留（下窗候选）：①GitHub PAT 撤销确认（第十八次提醒）②AI 会话导出的 JSON 格式选项（有 Markdown 后便宜）③失败 chip 的 mock 演证（t426 遗留，仍未动）。
+
+Stage Summary:
+- **「重命名不是活动」**：updatedAt 是抽屉的时序骨架，改名是书签——书签动了骨架就塌。写侧操作的元数据边界（谁有权 bump 哪个字段）是每个 PATCH 门的第一问
+- **「两个 null 压成一个返回值就是两个 bug」**：renameSession 的 string | null 让「查无此会话」与「清名成功」共用一个值，调用方只能猜——判别联合（{ ok, title }）让类型系统替你说真话
+- **「继承的 env 是最安静的劫持」**：start.sh 的文档化覆写留在 shell 里，进程 env 先于 .env——bench 读空库全程「诚实地」报 404。世界工具（bench/脚本）必须自钉世界，把「读哪个 DB」写成自己的合同而不是 shell 的遗产
+- **「导出的文档不许用户内容越权当结构」**：Markdown export 的 escapeMd 不是洁癖——transcript 会被 skim、被粘贴、被信任；消息里的 ## 与 [x](y) 一旦渲染成结构，读者就再也分不清哪些话是 AI 说的哪些是文档说的
+- 产出：t428 bench 40 断言 + PATCH/?format=md 双门 + 抽屉行内重命名与一键导出 + t427 bench 环境自钉修复；下一窗从 Task 429 起编。
