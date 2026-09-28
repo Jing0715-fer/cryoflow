@@ -4384,3 +4384,8 @@ Stage Summary:
 - **「接管路径必须真演」**：绿世界演习所有门都 skip，永远踩不到启动行的坑——PIN-as-value 双杀是死服务器演习抓的、bun 僵尸是 kill 活体抓的；不杀死自己守护的东西，剧本只是没读过的文档
 - **「bun 无视 SIGTERM 是法律不是流言」**：t416 见证、t418 复现——任何 kill bun 的代码必须验证 /proc 死亡并升级 SIGKILL，否则 4GB 盒上积累的是吃内存的幽灵
 - 遗留（下窗候选）：①Family --summary 加「灾后重建」标记 + 灾后世界体检二刷收尾 ②reboot-recover 的 build 42 路径在下一个自然灾变窗口顺带取证（不主动抹 .next）③EMPIAR 真数据回归第卅四窗 ④沙箱重启时实际使用 reboot-recover.sh 并把偏差写回剧本 ⑤GitHub PAT 撤销确认
+
+### Task 419 收官段（同窗追加）
+- [并行车道碰撞] 推送被拒：并行车道（trace web-a2e5e4ff，/home/z/cryoflow clone）已抢先在 origin 推了它自己的 t418（a25cf09，项目删除路由的远程停止分支修复）。rebase 对齐：本窗条目顺延为 Task 419，commit 信息同步改号（t418→t419），两窗交付都保住（他们修 src API，我交付 ops 剧本 + 研磨器门）。
+- [世界收敛] a25cf09 的 src 修复比运行中的 build 新 → FRESH=1 强制研磨一轮：106 秒一次过绿（新门自证 standalone startable + static/public 拷贝自补）→ 收割旧服务器（13285 这次吃 SIGTERM 就死——t416 的「bun 无视 SIGTERM」不是绝对律，**死亡验证循环才是律**：两头都兜住）→ dogfood reboot-recover.sh 拉起新 build：3 秒 200，WORLD ALIVE exit 0，demo chain 表面全过。
+- [最终态] HEAD = ec0b197 已推 origin/main；世界运行收敛后的 build；agent-browser 已净场；下一窗从 Task 420 起编。
