@@ -83,19 +83,31 @@ async function expectedWalk() {
 section("S: the world");
 execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
 const jobsS = (await (await fetch(BASE + "/api/jobs", { headers: H })).json()).jobs ?? [];
-const host = jobsS.find((j) => j.name === "QA Refine3D");
-must(!!host, "S1 QA Refine3D in roster (seeder idempotent)");
+// the seeder's own contract (t407): resolve BY NAME first, then BY TYPE —
+// "the name was only ever one world's spelling of it". A world without the
+// legacy "QA Refine3D" furniture (e.g. one whose newest completed refine3d
+// is the healed chain's own) made the suite die on host.id undefined while
+// the seeder had honestly seeded into that very job. The suite now speaks
+// the seeder's resolution, not one frozen world's roster.
+const host = jobsS.find((j) => j.name === "QA Refine3D")
+  ?? jobsS.find((j) => j.type === "refine3d" && j.status === "completed");
+must(!!host, "S1 a refine3d volume host in roster (seeder's name→type contract, idempotent)");
 const outsS = JSON.stringify(await (await fetch(`${BASE}/api/jobs/${host.id}/outputs`, { headers: H })).json());
 must(outsS.includes("orthovol.mrc"), "S2 orthovol.mrc (main) in outputs");
 must(outsS.includes("run_it020_half1.mrc") && outsS.includes("run_it020_half2.mrc"), "S3 BOTH half-maps in outputs (the gold-standard pair)");
-// the deterministic walk winner: a semantically idempotent note round-trip
-// bumps updatedAt (Prisma @updatedAt on update) — Refine3D becomes the
-// newest completed job, so the dialog's walk lands on the seeded pair.
+// the deterministic walk winner: a GUARANTEED-unique note makes the PATCH a
+// real change — t282's updatedAt honesty means a same-value round-trip no
+// longer bumps (the old "idempotent note round-trip" trick silently died in
+// worlds whose host note was already empty, handing the walk to whatever
+// completed last — first live witness: the t380 EMPIAR chain's PostProcess).
+// The timestamped note is always a change, so the host is always the
+// newest completed job and the dialog's walk lands on the seeded pair.
+const walkBumpNote = `t197 walk bump — ${new Date().toISOString()}`;
 const patchRes = await fetch(`${BASE}/api/jobs/${host.id}`, {
   method: "PATCH", headers: { "Content-Type": "application/json", ...H },
-  body: JSON.stringify({ note: host.note ?? "" }),
+  body: JSON.stringify({ note: walkBumpNote }),
 });
-must(patchRes.ok, "S4 note round-trip bumps updatedAt (the walk's tiebreaker)");
+must(patchRes.ok, "S4 a real note change bumps updatedAt (the walk's tiebreaker)");
 
 /* ============ W: the wire feeds the oracles ============ */
 section("W: the walk, spoken independently");

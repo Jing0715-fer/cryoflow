@@ -335,11 +335,14 @@ export function HpcProfilesEditor({
                 <span className="text-[10px] text-muted-foreground/70">{profiles.length}</span>
               </div>
               <div className="max-h-[56vh] space-y-1 overflow-y-auto pr-0.5" role="list" aria-label="Profile list">
+                {/* a11y: the LIST ITEM is the wrapper (role=listitem), the
+                    BUTTON keeps its native role — aria-pressed is a button
+                    attribute, and a role=listitem button both loses its own
+                    semantics and carries an attribute its role forbids */}
                 {profiles.map((p) => (
+                  <div key={p.id} role="listitem">
                   <button
-                    key={p.id}
                     type="button"
-                    role="listitem"
                     onClick={() => {
                       setSelectedId(p.id);
                       setConfirmDelete(false);
@@ -368,6 +371,7 @@ export function HpcProfilesEditor({
                       </span>
                     </span>
                   </button>
+                  </div>
                 ))}
               </div>
               <div className="flex gap-1.5">

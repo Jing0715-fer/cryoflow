@@ -1034,7 +1034,11 @@ export default function SessionReportDialog({
           </ComparisonTableContext.Provider>
         </InventoryTableContext.Provider>
       ),
-      tr: ({ node, children, ...rest }: TrProps) => {
+      // a NAMED function expression (uppercase) — react-markdown mounts
+      // this as a real component (useContext is legal here); the bare
+      // arrow form was byte-identical at runtime but read as "some
+      // function" by the hooks linter
+      tr: function ReportTr({ node, children, ...rest }: TrProps) {
         const inInventory = React.useContext(InventoryTableContext);
         const inComparison = React.useContext(ComparisonTableContext);
         const inLocal = React.useContext(LocalTableContext);

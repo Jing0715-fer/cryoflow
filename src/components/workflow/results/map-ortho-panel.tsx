@@ -763,6 +763,17 @@ export function MapOrthoPanel({
     return () => window.removeEventListener(ORTHO_FOCUS_RESTORE_EVENT, onFocusRestore);
   }, []);
 
+  // t279 — the flash-back timer: ok/err states return to idle on their own.
+  // (lives ABOVE the isStack early return: hooks must run in the same order
+  // every render — an early return that skips a hook crashes React the
+  // moment isStack flips on a still-mounted panel; in stack mode this
+  // effect is a no-op, exportState never leaves "idle" there)
+  useEffect(() => {
+    if (exportState !== "ok" && exportState !== "err") return;
+    const t = setTimeout(() => setExportState("idle"), 1600);
+    return () => clearTimeout(t);
+  }, [exportState]);
+
   if (isStack) return null;
 
   const dimFor = (axis: "x" | "y" | "z") =>
@@ -783,13 +794,6 @@ export function MapOrthoPanel({
       [vAxis]: { pos: vFrac, nonce: followNonce.current },
     }));
   };
-
-  // t279 — the flash-back timer: ok/err states return to idle on their own
-  useEffect(() => {
-    if (exportState !== "ok" && exportState !== "err") return;
-    const t = setTimeout(() => setExportState("idle"), 1600);
-    return () => clearTimeout(t);
-  }, [exportState]);
 
   /** t291 — the footer's distribution: the same `format=histogram` payload
    *  the live strip consumes (server-cached per map, so a panel that had

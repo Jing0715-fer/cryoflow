@@ -261,7 +261,35 @@ try {
   must((await api("/api/jobs", { headers: SH })).status === 200, "the app answers /api/jobs 200");
   const probe = client("echo ok && ls /data2/empiar-10017/micrographs | wc -l && ls /data2/empiar-10017/coords | wc -l");
   must(probe.out.includes("ok"), "the mock cluster answers over SSH");
-  must(/8/.test(probe.out), `8 EMPIAR-10017 micrographs on the cluster (${probe.out.replace(/\n/g, " | ")})`);
+  // family-citizen self-heal: the fixture stage is half a gig of gitignored
+  // runtime data — a harvested world loses it, and the suite regenerates it
+  // (deterministic generator, same bytes every time, ~15s observed) instead
+  // of failing a stage it can fix itself. Rare by design: the mock fs
+  // persists across windows; only a harvest (or a first clone) pays it.
+  // (naming: fixtureStage — the suite's own stage() helper owns that word)
+  const stageCounts = (out) => {
+    const nums = out
+      .replace(/^ok\n?/, "")
+      .trim()
+      .split("\n")
+      .map((l) => Number(l.trim()))
+      .filter((n) => Number.isFinite(n));
+    return { mics: nums[0] ?? 0, coords: nums[1] ?? 0 };
+  };
+  let fixtureStage = stageCounts(probe.out);
+  if (fixtureStage.mics !== 8 || fixtureStage.coords !== 8) {
+    console.log(`    fixture stage incomplete (mics=${fixtureStage.mics} coords=${fixtureStage.coords}) — regenerating the EMPIAR-10017 bundle…`);
+    const tGen = Date.now();
+    const gen = spawnSync("python3", [path.join(ROOT, "scripts/make-empiar10017-fixtures.py")], {
+      cwd: ROOT,
+      encoding: "utf8",
+      timeout: 420_000,
+    });
+    must(gen.status === 0, `the fixture generator exits 0 (${(gen.stderr ?? gen.stdout ?? "").slice(-160)})`);
+    console.log(`    fixture regen done in ${((Date.now() - tGen) / 1000).toFixed(1)}s`);
+    fixtureStage = stageCounts(client("ls /data2/empiar-10017/micrographs | wc -l && ls /data2/empiar-10017/coords | wc -l").out);
+  }
+  must(fixtureStage.mics === 8 && fixtureStage.coords === 8, `8 EMPIAR-10017 micrographs + 8 coord files on the cluster (mics=${fixtureStage.mics} coords=${fixtureStage.coords})`);
   const sz = client("stat -c%s /data2/empiar-10017/micrographs/Falcon_2012_06_12-14_33_35_0.mrc").out;
   must(Number(sz) === 67109888, `micrograph byte size 67,109,888 (4096² float32) — got ${sz}`);
   const hdr = client("head -c 16 /data2/empiar-10017/micrographs/Falcon_2012_06_12-14_33_35_0.mrc | od -An -td4 | tr -s ' '").out;

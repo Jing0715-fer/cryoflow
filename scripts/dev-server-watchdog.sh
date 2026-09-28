@@ -103,7 +103,16 @@ prewarm() {
 
 boot() {
   echo "[$(date -u +%H:%M:%SZ)] server down, no next dev process — booting with hardened env" >> "$LOG"
-  DEV_HEAP_MB=1280 DEV_NEXT_ARGS="--webpack" bash scripts/dev-server.sh >> "$LOG" 2>&1
+  # t416 — 1792, not 1280: t402's own testimony says the WEBPACK dev lane
+  # needs ~1792MB of V8 heap to compile the home graph ("896 dies with
+  # Ineffective mark-compacts"); the 1280 here was a Turbopack-era leftover
+  # and every watchdog resurrect at 1280 entered the pathological
+  # compile-thrash loop the same window watched live (three witnesses).
+  # The standalone lane remains the doctrine's home (t405/t406) — this dev
+  # lane is the degraded fallback for windows where the build is
+  # environmentally unreachable (t416: kernel line ~3.55GB vs cold-compile
+  # appetite ~4.5GB — the ladder testimony).
+  DEV_HEAP_MB=1792 DEV_NEXT_ARGS="--webpack" bash scripts/dev-server.sh >> "$LOG" 2>&1
   if prewarm; then
     boot_fail_streak=0
     return 0
