@@ -30,6 +30,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
@@ -651,8 +652,27 @@ try {
   } catch { /* best effort */ }
   // remote leftovers: the project mirror on the mock cluster
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate the
+
+    // demo chain's ancestral workdirs (t313's guard caught it live). Protect
+
+    // every workdir the world still speaks, then glob.
+
+    let worldProtect = [];
+
+    try {
+
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+
+    console.log(worldGuardLine(worldProtect.length));
+
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/ctffind_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs'`,
+
+      `node services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/ctffind_*","/projects/cryoflow/*/import_*","/projects/cryoflow/*/micrographs"], worldProtect)}'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }

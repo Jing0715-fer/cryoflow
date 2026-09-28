@@ -326,7 +326,19 @@ const fromIdx = (() => {
   const idx = ORDER.findIndex(([ty]) => ty === t);
   return idx === -1 ? 0 : idx;
 })();
-for (const [type, id] of ORDER.slice(fromIdx)) {
+// t414 — `--to <type>` bounds the chunk from ABOVE (the mirror of --from):
+// the glob-wipe wound left only the chain's HEAD dead (import..class2d —
+// the six families the cleanup globs match), while select onward keeps its
+// cluster workdirs. A bounded chunk re-runs exactly the wounded range
+// without re-paying class3d's nine generations.
+const toIdx = (() => {
+  const i = process.argv.indexOf("--to");
+  if (i === -1) return ORDER.length;
+  const t = process.argv[i + 1];
+  const idx = ORDER.findIndex(([ty]) => ty === t);
+  return idx === -1 ? ORDER.length : idx + 1;
+})();
+for (const [type, id] of ORDER.slice(fromIdx, toIdx)) {
   const before = await jobState(id);
   // filled = the record speaks AND the files are still on disk (the qa53
   // cleaner removes the healed FSC artifacts for qa55's gap world — a

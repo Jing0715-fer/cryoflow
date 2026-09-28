@@ -42,6 +42,7 @@
 import { execSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import net from "node:net";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 import { chromium } from "playwright";
 
 const ROOT = "/home/z/my-project";
@@ -513,6 +514,18 @@ try {
     await fetch(`${BASE}/api/remote/connections/${CONN}`, { method: "DELETE", headers: SH });
   } catch { /* best effort */ }
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate
+    // the demo chain's ancestral workdirs (extract_ptt0ybmw with its stack
+    // — the select star's refs point INTO it). Protect every workdir the
+    // world still speaks (createdJobs excluded — theirs SHOULD die), then
+    // glob; staging dirs (plain names) never match a job-shaped basename
+    // and die as before.
+    let worldProtect = [];
+    try {
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+    console.log(worldGuardLine(worldProtect.length));
     const parts = [
       // THREE kinds of cluster-side tree (the t309 lesson, upgraded after the
       // batch's own residue proved it: every dispatch stages its INPUT CHAIN
@@ -520,10 +533,10 @@ try {
       // star — and NO suite burned those until now):
       //   1. the staged input mirror (data/relion/t304-dep)
       //   2. this suite's OWN dispatched workdirs (exact paths)
-      //   3. the staged provider copies — by GLOB, so any project id matches
+      //   3. the staged provider copies — by GLOB, world-safe (t414)
       "rm -rf /projects/cryoflow/t304-dep",
       ...remoteWorkdirs.map((wd) => `rm -rf ${wd}`),
-      "rm -rf /projects/cryoflow/*/ctffind_* /projects/cryoflow/*/import_*",
+      worldSafeRmScript(["/projects/cryoflow/*/ctffind_*", "/projects/cryoflow/*/import_*"], worldProtect),
     ];
     for (const id of sbatchIds) {
       parts.push(`rm -f "$HOME/.slurm/job-${id}."* "$HOME/.slurm/.launch-${id}.sh"`);

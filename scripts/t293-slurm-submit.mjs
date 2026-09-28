@@ -34,6 +34,7 @@
 import { execSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = process.env.CF_BASE ?? "http://localhost:3000";
 const ORIGIN = { Origin: BASE, "Content-Type": "application/json" };
@@ -336,8 +337,18 @@ for (const id of createdJobs) {
 }
 await fetch(`${BASE}/api/remote/connections/${connId}`, { method: "DELETE", headers: ORIGIN }).catch(() => {});
 try {
+  // t414 — the world-safe cleanup law: the bare glob's blast radius ate the
+  // demo chain's ancestral workdirs (t313's guard caught it live). Protect
+  // every workdir the world still speaks, then glob. ~/.slurm-mock stays
+  // literal — it is not a world path.
+  let worldProtect = [];
+  try {
+    const wj = await fetch(`${BASE}/api/jobs`, { headers: ORIGIN }).then((r) => r.json());
+    worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+  } catch { /* the API is gone — the glob degrades to plain rm */ }
+  console.log(worldGuardLine(worldProtect.length));
   execSync(
-    `node ${ROOT}/services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/motioncorr_* /projects/cryoflow/*/ctffind_* /projects/cryoflow/*/import_* ~/.slurm-mock'`,
+    `node ${ROOT}/services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/motioncorr_*", "/projects/cryoflow/*/ctffind_*", "/projects/cryoflow/*/import_*"], worldProtect)} ~/.slurm-mock'`,
     { encoding: "utf8", timeout: 30_000 }
   );
 } catch { /* best effort */ }

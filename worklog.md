@@ -4258,3 +4258,18 @@ Stage Summary:
 - **「王冠是族不是全局」**：t397 教义「每个 family 的最终迭代留下」在双命名方言（run_it/_it）世界里是 per-family max——全局 max 会误杀小方言的最终轮
 - **「窄盒 build 的活路是暖度矩阵」**：堆上限管 V8 abort、可用内存管内核杀、缓存暖度管活集大小——三者交叉才有一格绿的；冷缓存一次全绿是运气，暖缓存矩阵是方法
 - 遗留（下窗候选）：①t27 批成员拆分（家族剩余 2 real-fail，t412 遗留①顺延）；②样式/功能增量窗（画廊/仪表盘细节、Topaz wrapper 方向——t412 遗留②顺延，本窗的功能增量是卫生层）；③EMPIAR（第卅一窗）；④GitHub PAT 撤销确认（第九次提醒）
+
+## Task 414 (2026-09-28, cron 07:36 窗 —— 进行中: 共享世界清场律)
+Task ID: 414 | Agent: main | trace: cron-agent-loop-202609280737
+
+Work Log:
+- [开局] 摘要谎报停在 Task 406;真源律: worklog 实尾 = Task 413 完结条, HEAD = 5cc6a91(并行窗截图 commit, 07:37:57), app :3000 200/3.3ms, mock :3022 活。QA 冒烟: PAGE ERRORS (0) + console 净 + 画布 46 jobs 全渲染。
+- [家族 real-fail 复核] adhoc:t310(08:15 陈旧记录) solo 复跑 PASS att=1 11.6s —— 已刷新。t273 在 t27 批再败 att=2, 5 FAIL 取证: 全部连坐于其内测 --batch t31 的 t313 真败。
+- [t313 真败根因 —— 烟枪] select star 引用的 extract 栈在两平面全部消失; 全网勘察: 27 项目 extract 目录/ mrcs 全灭。exec-audit.log 判决: t413 窗自己的 t30 批于 23:34:00(t307) 与 23:34:45(t308) 执行 `rm -rf /projects/cryoflow/*/extract_*` 等跨项目 glob 清场 —— 15 个套件带同款 glob(t262-t272/t293/t304/t306/t307/t308), 吃掉 demo 链祖传 workdir(extract_ptt0ybmw/import_dlv9sxf8/autopick/class2d/motioncorr)。t313 于 22:35 全绿(栈活), 23:34 被杀, t413 窗收尾未重跑 t31 故未察觉。
+- [修法定稿] 教义: 套件只清自己创造的, 世界祖传的按运行时解析保护(t313 de-fossilization 在清场层落地)。三层: ①scripts/lib/world-safe-cleanup.mjs helper(glob 前按 API 现存 job 推导保护集 type_id尾8, 匹配者中受保护一律不动); ②15 套件机械替换; ③healer 分块复活 demo 链 → t31 批验证 → 受影响批复跑证「世界在批后活着」。
+
+(进行中 — 完结条后续写)
+- [修复落地 — world-safe-cleanup 律] 新 helper scripts/lib/world-safe-cleanup.mjs: worldProtectBasenames(按 API 现存 job 推导保护集 type_id尾8, 排除自建 createdJobs) + worldSafeRmScript(glob 改写为逐 pattern for 循环 + case 保护名单跳过 + rm; 保护集为空时优雅退化为裸 rm —— helper 只会收窄删除, 从不放宽) + worldGuardLine(盾牌上线的大声一行)。活体测试: 造双项目 extract_ptt0ybmw/extra/mic.mrcs + extract_aaa + import_dlv9sxf8 + micrographs —— 受保护者连同内容幸存, 无保护者与 staging 全灭。
+- [15 套件机械迁移] t304/t306/t307/t308 手修(parts 数组形态), t262-t269/t272 codemod 批量(test-client 单串形态), t270/t293 手修(注释行/${ROOT}+ORIGIN 变体); codemod 脚本留存 scripts/codemod-t414-world-safe.mjs。全部 node --check 通过; 每文件 SH/createdJobs/BASE 在场验证(防御静默降级); `rm -rf /projects/cryoflow/*` 裸 glob 全库清零。
+- [治愈世界] healer 加 --to <type> 上界(--from 的镜像; glob 伤只及链头六族 import..class2d, select 以远的集群 workdir 无恙 —— 有界块免重付 class3d 九代)。chunk A import..ctffind(73s) + chunk B autopick..class2d(231s, 巨鲸 class2d 238.8s) → 13 workdir 全复活, 王冠 extract_ptt0ybmw/extra 24 mrcs 归位, select star refs 重新解析。
+- [批级验证 — 五批连跑] t26 6/6(312s) → t26b 4/4(202s) → t29 7/7(266s) → **t27 7/7(227s, 原 real-fail t273 att=1 过)** → **t30 5/5(240s, 肇事批变身守规批)**; 每批后 extract 栈 24 文件存活抽查全过; t31 2/2(23s)。家族 --summary: **12 批在档, TOTAL pass 60 / real-fail 0 / wall 2114s** —— 家族自 t413 时代 2 real-fail 以来首次全绿。
