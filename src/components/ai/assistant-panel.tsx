@@ -80,6 +80,7 @@ import {
   PlusCircle,
   RotateCcw,
   ScanEye,
+  Search,
   Settings2,
   SlidersHorizontal,
   Sparkles,
@@ -87,6 +88,7 @@ import {
   Trash2,
   Workflow,
   Wrench,
+  X,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -108,6 +110,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { filterSessions, groupSessionsByDay, matchIndex } from "@/lib/ai/session-groups";
 import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import type {
@@ -507,6 +510,8 @@ export function AssistantPanel() {
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameDraft, setRenameDraft] = React.useState("");
   const renameInputRef = React.useRef<HTMLInputElement>(null);
+  // ---- t430: the drawer's search + day grouping --------------------------
+  const [sessionQuery, setSessionQuery] = React.useState("");
   // the live canvas census — the follow-up chip's datasource (jobs refresh
   // with every poll tick, so the chip tracks reality, not a snapshot)
   const jobs = useWorkflowStore((s) => s.jobs);
@@ -526,6 +531,14 @@ export function AssistantPanel() {
   const failCount = items.reduce((n, i) => (i.kind === "tool" && !i.ok ? n + 1 : n), 0);
   const visibleItems =
     filter === "all" ? items : items.filter((i) => i.kind === "tool" && (filter === "tools" || !i.ok));
+
+  // ---- t430: the drawer's search + day groups (pure helpers, benched) --
+  const searching = sessionQuery.trim().length > 0;
+  const visibleSessions = React.useMemo(() => filterSessions(sessions, sessionQuery), [sessions, sessionQuery]);
+  const sessionGroups = React.useMemo(() => groupSessionsByDay(visibleSessions), [visibleSessions]);
+  /** Single group + no query = the flat list the drawer has always been
+   *  (a label over every row is noise when every row is 今天). */
+  const flatSessions = !searching && sessionGroups.length <= 1;
 
   // ---- rehydrate on open (once per open; the latest session of this project)
   React.useEffect(() => {
@@ -860,6 +873,172 @@ export function AssistantPanel() {
     }
   }
 
+  /** t430 — one drawer row, shared by the flat and the day-grouped list
+   *  (the extraction the search/group work forced: two renderings of the
+   *  same row would drift). While a search is live, the matched stretch of
+   *  the display line gets the amber highlight — only the match the reader
+   *  can SEE in the rendered line (matchIndex's law), never a hidden one. */
+  const renderSessionRow = (s: AiSessionSummaryDto) => {
+    const display = s.title ?? s.preview;
+    const hit = searching ? matchIndex(display, sessionQuery) : -1;
+    const qLen = sessionQuery.trim().length;
+    return (
+      <div
+        key={s.id}
+        role="listitem"
+        className={cn(
+          "group flex items-center gap-1 rounded-md border bg-card py-1 pl-2 pr-1 transition-colors",
+          s.id === sessionId ? "border-amber-600/40" : "hover:border-amber-600/30"
+        )}
+      >
+        {renamingId === s.id ? (
+          // t428: the inline rename editor — Enter commits
+          // (IME-composition Enter never fires mid-word), Esc
+          // cancels, blur commits; one row edits at a time.
+          <input
+            ref={renameInputRef}
+            value={renameDraft}
+            onChange={(e) => setRenameDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (e.nativeEvent.isComposing) return;
+                e.preventDefault();
+                void commitRename(s.id);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancelRename();
+              }
+            }}
+            onBlur={() => void commitRename(s.id)}
+            maxLength={80}
+            placeholder="命名这个对话（留空恢复原名）"
+            aria-label="会话名称"
+            className="my-0.5 min-w-0 flex-1 rounded border border-amber-600/40 bg-background px-1.5 py-1 text-xs text-foreground outline-none focus-visible:border-amber-600/70"
+          />
+        ) : (
+          <button
+            type="button"
+            className="min-w-0 flex-1 text-left disabled:opacity-50"
+            onClick={() => void switchSession(s.id)}
+            disabled={busy}
+            title={s.title ? `${s.title}（原文：${s.preview}）` : s.preview}
+          >
+            <span className="flex items-center gap-1.5">
+              {s.id === sessionId && (
+                <Badge
+                  variant="outline"
+                  className="h-4 shrink-0 rounded border-amber-600/40 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400"
+                >
+                  当前
+                </Badge>
+              )}
+              <span
+                className={cn(
+                  "truncate text-xs",
+                  s.title ? "font-medium text-foreground" : "text-foreground"
+                )}
+              >
+                {hit >= 0 ? (
+                  <>
+                    {display.slice(0, hit)}
+                    <span className="rounded-sm bg-amber-500/20 px-0.5 font-semibold text-foreground">
+                      {display.slice(hit, hit + qLen)}
+                    </span>
+                    {display.slice(hit + qLen)}
+                  </>
+                ) : (
+                  display
+                )}
+              </span>
+            </span>
+            <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <span>{fmtRel(s.updatedAt)}</span>
+              <span aria-hidden="true">·</span>
+              <span>{s.messageCount} 条消息</span>
+              {s.toolCount > 0 && (
+                <span className="inline-flex items-center gap-0.5 text-amber-700/80 dark:text-amber-400/80">
+                  <Wrench className="size-2.5" aria-hidden="true" />
+                  {s.toolCount}
+                </span>
+              )}
+            </span>
+          </button>
+        )}
+        {renamingId === s.id ? (
+          <button
+            type="button"
+            className="h-6 shrink-0 rounded-md border border-amber-600/40 px-1.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => void commitRename(s.id)}
+          >
+            保存
+          </button>
+        ) : (
+          <>
+            {armedDelete === s.id ? (
+              <button
+                type="button"
+                className="h-6 shrink-0 rounded-md border border-rose-600/40 px-1.5 text-[10px] font-medium text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
+                onClick={() => void removeSession(s.id)}
+              >
+                确认
+              </button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-rose-600 focus-visible:opacity-100 group-hover:opacity-100"
+                onClick={() => armDelete(s.id)}
+                aria-label={`删除会话：${(s.title ?? s.preview).slice(0, 20)}`}
+                disabled={busy}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+              onClick={() => beginRename(s)}
+              aria-label={`重命名会话：${(s.title ?? s.preview).slice(0, 20)}`}
+              disabled={busy}
+              title="重命名"
+            >
+              <PenLine className="size-3.5" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                  aria-label={`导出会话：${(s.title ?? s.preview).slice(0, 20)}`}
+                  title="导出（Markdown / JSON）"
+                >
+                  <Download className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-44">
+                <DropdownMenuItem onClick={() => void exportSession(s.id, "md")}>
+                  <span className="flex flex-col">
+                    <span className="text-xs font-medium">Markdown</span>
+                    <span className="text-[10px] text-muted-foreground">报告 / ELN 可吸收的档案形制</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void exportSession(s.id, "json")}>
+                  <span className="flex flex-col">
+                    <span className="text-xs font-medium">JSON</span>
+                    <span className="text-[10px] text-muted-foreground">机器可读 — 工具结果为结构化字段</span>
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent
@@ -946,156 +1125,73 @@ export function AssistantPanel() {
             <div className="mb-1.5 flex items-center justify-between px-1">
               <p className="text-[11px] font-medium text-muted-foreground">历史会话</p>
               <span className="text-[10px] text-muted-foreground/70">
-                {sessions.length > 0 ? `${sessions.length} 个对话` : ""}
+                {searching
+                  ? `${visibleSessions.length} / ${sessions.length} 个对话`
+                  : sessions.length > 0
+                    ? `${sessions.length} 个对话`
+                    : ""}
               </span>
             </div>
-            <div className="max-h-52 space-y-1 overflow-y-auto" role="list" aria-label="Session history">
+            {/* t430 — search: one word narrows the history (title + preview,
+                case-insensitive; a rename must not hide the opening words,
+                an unnamed session must be findable by its first question).
+                Esc clears; the row only exists when there is something to
+                search — zero noise on an empty drawer. */}
+            {sessions.length > 0 && (
+              <div className="relative mb-1.5">
+                <Search
+                  className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground/60"
+                  aria-hidden="true"
+                />
+                <input
+                  value={sessionQuery}
+                  onChange={(e) => setSessionQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      // layered dismiss: a live query clears FIRST (and the
+                      // Sheet must not see this Esc — stopPropagation keeps
+                      // the panel open); an empty input lets Esc fall
+                      // through so the panel itself closes
+                      e.preventDefault();
+                      if (sessionQuery.trim().length > 0) e.stopPropagation();
+                      setSessionQuery("");
+                    }
+                  }}
+                  placeholder="搜索对话…"
+                  aria-label="搜索历史会话"
+                  className="h-6 w-full rounded-md border bg-background pl-7 pr-6 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:border-amber-600/50"
+                />
+                {searching && (
+                  <button
+                    type="button"
+                    onClick={() => setSessionQuery("")}
+                    aria-label="清除搜索"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded text-muted-foreground/60 transition-colors hover:text-foreground"
+                  >
+                    <X className="size-3" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="max-h-56 space-y-1 overflow-y-auto" role="list" aria-label="Session history">
               {sessions.length === 0 ? (
                 <p className="px-1 py-2 text-xs text-muted-foreground/70">这个画布还没有更早的对话</p>
+              ) : visibleSessions.length === 0 ? (
+                <p className="px-1 py-2 text-xs text-muted-foreground/70">
+                  没有匹配「{sessionQuery.trim()}」的对话
+                </p>
+              ) : flatSessions ? (
+                visibleSessions.map(renderSessionRow)
               ) : (
-                sessions.map((s) => (
-                  <div
-                    key={s.id}
-                    role="listitem"
-                    className={cn(
-                      "group flex items-center gap-1 rounded-md border bg-card py-1 pl-2 pr-1 transition-colors",
-                      s.id === sessionId ? "border-amber-600/40" : "hover:border-amber-600/30"
-                    )}
-                  >
-                    {renamingId === s.id ? (
-                      // t428: the inline rename editor — Enter commits
-                      // (IME-composition Enter never fires mid-word), Esc
-                      // cancels, blur commits; one row edits at a time.
-                      <input
-                        ref={renameInputRef}
-                        value={renameDraft}
-                        onChange={(e) => setRenameDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            if (e.nativeEvent.isComposing) return;
-                            e.preventDefault();
-                            void commitRename(s.id);
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            cancelRename();
-                          }
-                        }}
-                        onBlur={() => void commitRename(s.id)}
-                        maxLength={80}
-                        placeholder="命名这个对话（留空恢复原名）"
-                        aria-label="会话名称"
-                        className="my-0.5 min-w-0 flex-1 rounded border border-amber-600/40 bg-background px-1.5 py-1 text-xs text-foreground outline-none focus-visible:border-amber-600/70"
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 text-left disabled:opacity-50"
-                        onClick={() => void switchSession(s.id)}
-                        disabled={busy}
-                        title={s.title ? `${s.title}（原文：${s.preview}）` : s.preview}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          {s.id === sessionId && (
-                            <Badge
-                              variant="outline"
-                              className="h-4 shrink-0 rounded border-amber-600/40 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400"
-                            >
-                              当前
-                            </Badge>
-                          )}
-                          <span
-                            className={cn(
-                              "truncate text-xs",
-                              s.title ? "font-medium text-foreground" : "text-foreground"
-                            )}
-                          >
-                            {s.title ?? s.preview}
-                          </span>
-                        </span>
-                        <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                          <span>{fmtRel(s.updatedAt)}</span>
-                          <span aria-hidden="true">·</span>
-                          <span>{s.messageCount} 条消息</span>
-                          {s.toolCount > 0 && (
-                            <span className="inline-flex items-center gap-0.5 text-amber-700/80 dark:text-amber-400/80">
-                              <Wrench className="size-2.5" aria-hidden="true" />
-                              {s.toolCount}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    )}
-                    {renamingId === s.id ? (
-                      <button
-                        type="button"
-                        className="h-6 shrink-0 rounded-md border border-amber-600/40 px-1.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => void commitRename(s.id)}
-                      >
-                        保存
-                      </button>
-                    ) : (
-                      <>
-                        {armedDelete === s.id ? (
-                          <button
-                            type="button"
-                            className="h-6 shrink-0 rounded-md border border-rose-600/40 px-1.5 text-[10px] font-medium text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
-                            onClick={() => void removeSession(s.id)}
-                          >
-                            确认
-                          </button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-rose-600 focus-visible:opacity-100 group-hover:opacity-100"
-                            onClick={() => armDelete(s.id)}
-                            aria-label={`删除会话：${(s.title ?? s.preview).slice(0, 20)}`}
-                            disabled={busy}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-                          onClick={() => beginRename(s)}
-                          aria-label={`重命名会话：${(s.title ?? s.preview).slice(0, 20)}`}
-                          disabled={busy}
-                          title="重命名"
-                        >
-                          <PenLine className="size-3.5" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-                              aria-label={`导出会话：${(s.title ?? s.preview).slice(0, 20)}`}
-                              title="导出（Markdown / JSON）"
-                            >
-                              <Download className="size-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="min-w-44">
-                            <DropdownMenuItem onClick={() => void exportSession(s.id, "md")}>
-                              <span className="flex flex-col">
-                                <span className="text-xs font-medium">Markdown</span>
-                                <span className="text-[10px] text-muted-foreground">报告 / ELN 可吸收的档案形制</span>
-                              </span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => void exportSession(s.id, "json")}>
-                              <span className="flex flex-col">
-                                <span className="text-xs font-medium">JSON</span>
-                                <span className="text-[10px] text-muted-foreground">机器可读 — 工具结果为结构化字段</span>
-                              </span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </>
-                    )}
+                // t430 — day buckets (今天/昨天/7 天内/更早): the wall-clock
+                // words a scientist scans by; empty buckets vanish, the
+                // newest-first order inside each bucket is untouched
+                sessionGroups.map((g) => (
+                  <div key={g.label}>
+                    <p className="px-1 pb-0.5 pt-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground/50">
+                      {g.label}
+                    </p>
+                    {g.items.map(renderSessionRow)}
                   </div>
                 ))
               )}

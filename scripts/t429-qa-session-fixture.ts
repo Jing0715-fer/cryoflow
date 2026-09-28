@@ -4,6 +4,8 @@
  * (via the drawer's own DELETE door) right after.
  * Run: bun scripts/t429-qa-session-fixture.ts
  */
+export {};
+
 process.env.DATABASE_URL = `file:${process.env.HOME}/my-project/db/cryoflow.db`;
 process.env.CRYOFLOW_DATA_DIR = `${process.env.HOME}/my-project/data`;
 

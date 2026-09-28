@@ -4690,3 +4690,27 @@ Work Log:
 ### Task 429 补研段（同窗追加）
 - [provenance 对齐] 收官提交（7cc42b6）后照 t428 先例补研：杀服务器（/proc 死亡验证）→ FRESH 研磨 4 attempts 绿（rc=137 OOM 两连击，QA 浏览器净场后 attempt 4 走到绿）→ reboot-recover 十步 WORLD ALIVE → .next/.built-at-commit = 7cc42b6 = HEAD = origin/main 三方逐字节一致。新 build 冒烟：landing 0 console 错（stay-note 属 inspector 内元素，三态活体 QA 已在字节同源的前轮 build 上全过——代码树零增量，仅 docs 时间差）。
 - [最终态] HEAD = origin/main = 7cc42b6c；世界 200 运行同戳 build；sessions 0、AI settings pristine、mock 集群 :3022 在听、mock LLM 停、浏览器净场。下一窗从 Task 430 起编。GitHub PAT 撤销确认第十九次提醒（本窗两次 push 均正常）。
+
+---
+Task ID: 430 (cron agent loop 202609282006)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 429 完整收官（含补研段，HEAD = origin/main = 91eb9a4）。世界健康：app 200（bun 22536，运行 7cc42b6 build = t429 代码，HEAD 仅差 docs-only 补研段）、15/15 全绿、console 0 错、mock 集群 :3022 在听。第二十一份过时 Task 13 指引照例不认。自号 430。
+- [选题侦察] 三个候选核账：workflow 导出/导入已存在（cryoflow-workflow/1 全套 + 版本别名表 + 服务端权威校验——候选退役）；CTF/motion QC 已全套（ctf-quality-chart + motion-drift-chart + 逐微图路由）；AI 抽屉的检索空白坐实——「那是哪次对话」在多会话世界里只能滚动找。选题：**AI 抽屉三件套 = 会话搜索 + 日期分组 + 失败 chip mock 演证（t426 遗留，两窗顺延后退役）**。
+- [显示层吃字怪谈第二次目击] 读 t419-mock-llm.mjs 时终端输出再现 `messagesessages` / `ockToolCall` / `]` 误读——t423 战场教义当场应验：node --check 双验（worktree + git show HEAD 提取件）全过 = 文件字节从来干净，吃字的是显示管道（`[m` 序列被当 ANSI reset 吞掉）。不动文件——t423 的 sed 反噬（修复从未损坏的文件本身才是唯一造成过的损坏）在册。
+- [交付一 — 会话搜索] src/lib/ai/session-groups.ts 纯函数三件：filterSessions（title AND preview 双域、大小写不敏感——改名不藏开场白、未命名会话可按首问检索；空查询 = 恒等）+ matchIndex（高亮律：只高亮显示行里读者看得见的匹配）+ groupSessionsByDay（见交付二）。抽屉头部下加搜索行（Search 图标 + Esc 清除 + × 清除钮 + 搜索时计数「N / M 个对话」）——sessions 为空时整行不存在（零噪音律）。
+- [交付二 — 日期分组] groupSessionsByDay：今天/昨天/7 天内/更早 四桶，界 = 本地零点（与应用内全部时间戳同一时区），空桶蒸发，桶内 newest-first 原序不动。渲染律：无查询且 ≤1 组 = 恒等平铺（人人都是今天时挂标签是噪音）；多组或搜索中 = 桶标签 + 行。行渲染提取为 renderSessionRow（平铺/分组共享——两份渲染必漂移），搜索命中段 amber 高亮（bg-amber-500/20 + font-semibold）。
+- [验证] tsc 0 + eslint 0；t430 bench 19/19（桶边界毫秒级：零点 -1ms = 昨天、零点整 = 今天、桶序非插入序、桶内原序、空桶蒸发；搜索：双域/大小写/空查询恒等/空白查询/未命中空答；matchIndex 四断言）——首轮 2 败系测试自身索引写反（组序=桶序），seam 逻辑本对；回归 t419 111/0 + t428 40/0 + t429 38/0 全绿。
+- [诚实边界] ①活体 QA（搜索/分组/高亮/失败 chip 演证）待新 build 收敛后执行②搜索域 = title + preview 摘要层——会话全文检索需要 transcript 层（切换后才拉全量），刻意不做假全文③交付三演证计划：mock LLM :3999 起火 → 搭流程 4 工具卡 + 幽灵 id 更新 1 败 → 失败 chip（toolCount≥3 门 + failCount>0）→ 点击过滤 → 截图。
+- [诚实边界] 本条目断于收敛前；收官段续记。
+
+### Task 430 收官段（同窗追加）
+- [收敛] 清 QA chrome → 杀服务器（/proc 死亡验证）→ FRESH 研磨 attempt 1 绿（provenance 91eb9a4 = 收敛时 HEAD）→ reboot-recover 十步 WORLD ALIVE。
+- [活体 QA — 抽屉搜索+分组] 跨日 fixture 三会话（今天 3h / 昨天 1.5d / 更早 10d，经文件手术回填时间戳——**store 的 saveSession 落盘必盖 updatedAt=now，app 律「save 即活动」正确，backdate 必须走文件层**）：①分组渲染「今天/昨天/更早」三桶 + 桶标签（今天 3 小时前 · 昨天 9/27 · 更早 9/18 当前高亮 amber 边）②搜索「class」→「1 / 3 个对话」计数 + 唯一命中行 amber 高亮 class 段 + × 清除钮③未命中「0 / 3 个对话」+「没有匹配「不存在的词」的对话」诚实空答④平铺恒等：同桶世界无标签（首轮目击——fixture 未回填时三行全「4 分钟前」= 全今天桶 = 平铺，零噪音律按设计工作）。
+- [活体 UX 瑕疵当场修] 搜索框内按 Esc 直关整个面板（Sheet 的 document 级 Esc 监听未被打断）——改分层关闭：有词先清词 + stopPropagation（面板留场），空词放行 Esc 落面板（标准层叠 dismiss）。修于收官研磨前进 build。
+- [活体 QA — 失败 chip 演证]（t426 遗留③，两窗顺延后退役）mock LLM :3999 起火（settings 已 pristine 指向 mock）→「帮我搭一个流程」→ 1 state + 4 create 链（画布 15→19：Motion Correction 2 / CTF Estimation 2 / Manual Picking 1 / 2D Classification 2）→ 视图 chips「全部 · 9 | 工具 · 5」现身 →「更新 id: ghost-job-42」→ update_job 败卡 →「失败 · 1」chip 现身（rose）→ 点击过滤 → 唯一败卡「update_job ⊗ Job not found: ghost-job-42」（应用工具层的诚实错误原文）。console 全程 0 错。
+- [清场] 4 只 mock job 全数 DELETE（世界复原 15 全 completed）+ 3 个 QA 会话经 DELETE 门回收（sessions 0）+ mock LLM 击杀（:3999 熄火）+ QA 浏览器净场。fixture 事故双录：①首轮 id:"" 三连覆写互撞（last-write-wins 残留 id="" 记录，REST 空段 308 不可寻址）→ 文件手术清除 ②createSession 空壳零消息记录 → 文件手术同清。定妆 .qa-logs/t430-{drawer-groups,search,search-miss,fail-filter,pipeline,failed-card}.png。
+- [诚实边界] ①Esc 分层修复的活体验证在下轮研磨 build 上冒烟（本 build 已含代码但 QA 时序在后——搜索/分组/chip 三主态已在场验证）②搜索域 = title+preview 摘要层（全文检索刻意不做）③分组时钟 = 客户端本地时区（服务器同一时区）。
+- [最终态] HEAD 含 t430 交付（本 commit）；世界 200 运行收敛 build；jobs 15 全 completed、sessions 0、mock LLM 停、mock 集群 :3022 在听、QA 浏览器净场。下一窗从 Task 431 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十次提醒——本窗 push 正常）②Esc 分层冒烟③EMPIAR 真数据回归（常驻在位）。
