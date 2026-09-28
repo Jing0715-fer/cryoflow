@@ -28,6 +28,7 @@ import { hasJudgment } from "@/lib/class-notes";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
 import { RemoteClusterButton } from "./remote-cluster-dialog";
+import { KnockSettingsButton } from "./finish-knock-button";
 import { CommandPaletteTrigger, SESSION_REPORT_EVENT } from "./command-palette";
 import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 // t197: the session QC report is code-split (react-markdown + remark-gfm
@@ -749,6 +750,10 @@ export function Header() {
         >
           <FileText className="size-4" aria-hidden="true" />
         </Button>
+        {/* t438 — the finish knock: the out-of-page channels (chime +
+            OS notification) ride an explicit opt-in behind this bell;
+            the title flicker needs no door, it is chrome. */}
+        <KnockSettingsButton />
         <Button
           variant="ghost"
           size="icon"

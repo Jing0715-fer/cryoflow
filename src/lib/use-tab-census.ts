@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
+import { getKnockCount, knockTitlePrefix, subscribeKnock } from "@/lib/finish-knock";
 
 /**
  * Task 143 — the browser tab joins the census.
@@ -36,6 +37,15 @@ import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
  * enter first-paint. The pristine title is captured on the first
  * effect run (client-only) BEFORE any write, even when the world boots
  * with runners already alive.
+ *
+ * t438 — the finish knock rides this hook as the title's frame
+ * language: while unacknowledged finishes exist AND the tab is hidden,
+ * the census title alternates (1.2s frames) with "(N) " prefixed
+ * frames — the unread dialect. Single-writer law now covers three
+ * inputs (census counts, knock count, flicker phase): every change
+ * re-runs the ONE title effect and the written value is re-derived
+ * from full truth, so no frame can go stale and no restore can clobber
+ * a fresh census write.
  *
  * The favicon link is OWNED by this hook (marked data-cf-tab): CryoFlow
  * ships no static icon file, so the hook creates the link once and
@@ -90,6 +100,33 @@ export function useTabCensus(): void {
   const jobs = useActiveWorkspaceJobs();
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
+  // t438 — the knock count rides the census as its third segment. A
+  // module-observable (not zustand): the finish-knock presence hook
+  // publishes, this hook subscribes. getServerSnapshot keeps the server
+  // render at 0 — the count only ever feeds EFFECTS, so no clock value
+  // can enter first paint (the t141 hydration doctrine, unchanged).
+  const knocks = React.useSyncExternalStore(subscribeKnock, getKnockCount, () => 0);
+  // the flicker only exists while the tab is hidden — track visibility
+  // locally (AppShell's pageVisible drives POLL cadence, not chrome)
+  const [hidden, setHidden] = React.useState(false);
+  React.useEffect(() => {
+    const onVis = () => setHidden(document.visibilityState !== "visible");
+    onVis();
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+  // the alternation clock: 1.2s frames, ONLY while knocks are
+  // unacknowledged AND the tab is hidden — an idle world pays zero
+  // timers (the doctrine this hook has kept since Task 143)
+  const [phase, setPhase] = React.useState(false);
+  React.useEffect(() => {
+    if (knocks <= 0 || !hidden) {
+      setPhase(false);
+      return;
+    }
+    const timer = setInterval(() => setPhase((p) => !p), 1200);
+    return () => clearInterval(timer);
+  }, [knocks, hidden]);
 
   // primitive derivations only — the effect re-runs when a COUNT
   // changes, not on every poll tick's object churn
@@ -108,24 +145,34 @@ export function useTabCensus(): void {
 
   React.useEffect(() => {
     if (baseTitle === null) baseTitle = document.title;
+    let censusTitle: string;
+    let faviconState: FaviconState;
     if (running <= 0 && failed <= 0) {
       // quiet world: both surfaces restore the state they found
-      document.title = baseTitle;
-      setFavicon("quiet");
-      return;
+      censusTitle = baseTitle;
+      faviconState = "quiet";
+    } else {
+      // census order mirrors the footer's FIND_STATUSES reading order
+      // (running first, failed after); the workspace name leads because
+      // tab strips truncate the TAIL and the live info must survive
+      const parts = [
+        ...(wsName ? [wsName] : []),
+        ...(running > 0 ? [`${running} running`] : []),
+        ...(failed > 0 ? [`${failed} failed`] : []),
+        BRAND,
+      ];
+      censusTitle = parts.join(" · ");
+      // alarm precedence: the rose dot outranks the teal one — a batch
+      // that is both running and failing advertises the failing half
+      faviconState = failed > 0 ? "failed" : "running";
     }
-    // census order mirrors the footer's FIND_STATUSES reading order
-    // (running first, failed after); the workspace name leads because
-    // tab strips truncate the TAIL and the live info must survive
-    const parts = [
-      ...(wsName ? [wsName] : []),
-      ...(running > 0 ? [`${running} running`] : []),
-      ...(failed > 0 ? [`${failed} failed`] : []),
-      BRAND,
-    ];
-    document.title = parts.join(" · ");
-    // alarm precedence: the rose dot outranks the teal one — a batch
-    // that is both running and failing advertises the failing half
-    setFavicon(failed > 0 ? "failed" : "running");
-  }, [running, failed, wsName]);
+    // t438 — the knock's frame A. ONE writer to document.title, always:
+    // every input (census counts, knock count, flicker phase) re-runs
+    // THIS effect and the title is re-derived from full truth — no
+    // secondary writer can clobber a frame, no stale restore can win.
+    document.title = phase && knocks > 0
+      ? `${knockTitlePrefix(knocks)}${censusTitle}`
+      : censusTitle;
+    setFavicon(faviconState);
+  }, [running, failed, wsName, knocks, phase, hidden]);
 }

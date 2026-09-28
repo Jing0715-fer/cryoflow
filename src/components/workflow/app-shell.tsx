@@ -21,6 +21,7 @@ import dynamic from "next/dynamic";
 import { AlertTriangle, Boxes, Layers, Plus, RefreshCw, X } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { useTabCensus } from "@/lib/use-tab-census";
+import { useFinishKnock } from "@/lib/use-finish-knock";
 import { Header } from "@/components/workflow/header";
 import { CARD_H, CARD_W } from "@/lib/workflow";
 import { useDropNavigationGuard } from "@/components/workflow/drop-import";
@@ -158,6 +159,11 @@ export function AppShell() {
   // the active workspace's running/failed counts (glance granularity,
   // zero render output — pure effect chrome, hydration-inert).
   useTabCensus();
+  // t438 — the finish knock's presence: subscribes to the store's job
+  // list, plans the out-of-page channels (title knock / chime / OS
+  // notification) for finishes observed while the tab is hidden, and
+  // acknowledges them on return. Zero render output.
+  useFinishKnock();
   // ⚠ selectors must return STABLE references (a fresh .filter() array per
   // call trips zustand's getServerSnapshot cache check — infinite loop)
   const allJobs = useWorkflowStore((s) => s.jobs);
