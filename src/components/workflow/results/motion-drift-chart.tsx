@@ -7,7 +7,10 @@
  * the pack's mean as the reference line and a per-micrograph detail table.
  *
  * Data: /api/jobs/[id]/motion parses corrected_micrographs.star
- * (_rlnAccumulatedMotionTotal / Early / Late, Å).
+ * (_rlnAccumMotion* — RELION's real columns; the documented
+ * _rlnAccumulatedMotion* variant is accepted as fallback, t440 — the
+ * parser had picked the variant RELION never writes and read zero rows
+ * from every real file). Values are px.
  *
  * Why stacked early/late and not just the total: the two halves have
  * different remedies. A big EARLY component means the stage settled late

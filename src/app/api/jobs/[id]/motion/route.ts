@@ -139,14 +139,25 @@ function parseMotionStar(text: string): MotionMicrograph[] {
       }
       return -1;
     };
+    // t440 — the spelling had TWO variants and the parser picked the one
+    // RELION does not write: corrected_micrographs.star carries
+    // _rlnAccumMotion* (RELION 3/4/5 real columns), while some converted
+    // / documented stars say _rlnAccumulatedMotion*. A parser locked to
+    // one spelling read ZERO rows from every real file — the whole
+    // motion face silently dead. Liberal match: real name first,
+    // documented variant as fallback.
+    const idx2 = (primary: string, fallback: string) => {
+      const hit = idx(primary);
+      return hit >= 0 ? hit : idx(fallback);
+    };
     const name = idx("_rlnMicrographName");
-    const total = idx("_rlnAccumulatedMotionTotal");
+    const total = idx2("_rlnAccumMotionTotal", "_rlnAccumulatedMotionTotal");
     if (name < 0 || total < 0) return null;
     return {
       name,
       total,
-      early: idx("_rlnAccumulatedMotionEarly"),
-      late: idx("_rlnAccumulatedMotionLate"),
+      early: idx2("_rlnAccumMotionEarly", "_rlnAccumulatedMotionEarly"),
+      late: idx2("_rlnAccumMotionLate", "_rlnAccumulatedMotionLate"),
     };
   };
 
