@@ -4714,3 +4714,10 @@ Work Log:
 - [清场] 4 只 mock job 全数 DELETE（世界复原 15 全 completed）+ 3 个 QA 会话经 DELETE 门回收（sessions 0）+ mock LLM 击杀（:3999 熄火）+ QA 浏览器净场。fixture 事故双录：①首轮 id:"" 三连覆写互撞（last-write-wins 残留 id="" 记录，REST 空段 308 不可寻址）→ 文件手术清除 ②createSession 空壳零消息记录 → 文件手术同清。定妆 .qa-logs/t430-{drawer-groups,search,search-miss,fail-filter,pipeline,failed-card}.png。
 - [诚实边界] ①Esc 分层修复的活体验证在下轮研磨 build 上冒烟（本 build 已含代码但 QA 时序在后——搜索/分组/chip 三主态已在场验证）②搜索域 = title+preview 摘要层（全文检索刻意不做）③分组时钟 = 客户端本地时区（服务器同一时区）。
 - [最终态] HEAD 含 t430 交付（本 commit）；世界 200 运行收敛 build；jobs 15 全 completed、sessions 0、mock LLM 停、mock 集群 :3022 在听、QA 浏览器净场。下一窗从 Task 431 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十次提醒——本窗 push 正常）②Esc 分层冒烟③EMPIAR 真数据回归（常驻在位）。
+
+### Task 430 补研段（同窗追加）
+- [provenance 对齐] 收官提交（fd4c48d）后照家族先例补研：FRESH 研磨 attempt 2 绿（rc=137 一记）→ reboot-recover WORLD ALIVE → .built-at-commit = fd4c48d = HEAD = origin/main 三方一致。
+- [真 bug — Radix 捕获级 Esc] 补研冒烟目击分层 Esc 失效：搜索框有词按 Esc 仍直关面板——stopPropagation 修法被证伪。取证 node_modules：Radix DismissableLayer 的 useEscapeKeydown 挂 **document + capture: true**——捕获阶段先于一切 bubble 拦截，React 合成 stopPropagation 永远够不着。正解 = Radix 御用门 SheetContent **onEscapeKeyDown**（dismiss 前询问，preventDefault 否决）：搜索框持有焦点且有活查询 → 第一层 Esc 清词留面板；空查询放行 dismiss（第二层关面板，标准层叠）。input 自身 onKeyDown 保留清词职责（bubble 恒跑）。
+- [活体复验 — 分层闭环] 重研（attempt 2 绿）+ reboot-recover 后真键盘驱动：有词 Esc → 查询清空 + 抽屉/面板留场（顺带验证同桶世界零噪音平铺——三行全今天无标签）→ 空 Esc → 面板关闭回画布。console 全程 0 错。
+- [清场] 3 个 Esc 验证 fixture 会话 DELETE 门回收（sessions 0）+ 浏览器净场。定妆 .qa-logs/t430-{esc-v2,esc2}.png。
+- [最终态] HEAD = origin/main = fd4c48d + 本补研 commit；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、mock LLM 停、mock 集群 :3022 在听、浏览器净场。下一窗从 Task 431 起编。GitHub PAT 撤销确认第二十次提醒（本窗 push 全部正常）。

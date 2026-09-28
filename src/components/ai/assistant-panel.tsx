@@ -1043,6 +1043,20 @@ export function AssistantPanel() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent
         side="right"
+        onEscapeKeyDown={(e) => {
+          // t430 — layered Esc, Radix's own door: DismissableLayer listens
+          // on document CAPTURE phase (before any bubble-phase handler can
+          // stop it), so the only sanctioned interception is THIS hook —
+          // Radix asks before dismissing, and preventDefault vetoes. When
+          // the search box owns the focus AND holds a live query, the first
+          // Esc clears the query and keeps the panel; an empty query lets
+          // the dismiss proceed (second Esc closes, the standard layering).
+          const t = e.target as HTMLElement | null;
+          if (t && t.closest("[data-session-search]") && sessionQuery.trim().length > 0) {
+            e.preventDefault();
+            setSessionQuery("");
+          }
+        }}
         className="flex w-full flex-col gap-0 p-0 sm:max-w-[540px]"
       >
         <SheetHeader className="sr-only">
@@ -1144,16 +1158,16 @@ export function AssistantPanel() {
                   aria-hidden="true"
                 />
                 <input
+                  data-session-search=""
                   value={sessionQuery}
                   onChange={(e) => setSessionQuery(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
-                      // layered dismiss: a live query clears FIRST (and the
-                      // Sheet must not see this Esc — stopPropagation keeps
-                      // the panel open); an empty input lets Esc fall
-                      // through so the panel itself closes
+                      // the value-clear lives here (bubble phase, always
+                      // runs); the DISMISS veto lives in SheetContent's
+                      // onEscapeKeyDown — Radix's document-capture listener
+                      // fires before anything bubble-side can stop it
                       e.preventDefault();
-                      if (sessionQuery.trim().length > 0) e.stopPropagation();
                       setSessionQuery("");
                     }
                   }}
