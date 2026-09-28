@@ -4910,3 +4910,23 @@ Stage Summary:
 - **「client 库里的一行 fs 是一枚延时 build 炸弹」**：类型检查器看不见它（浏览器层 fs 在类型上合法），浏览器 console 也看不见（build 都过不去）——只有研磨器的 webpack 眼里容不下它；混装即拆，lens 归 lens、walk 归 walk
 - **「分类透镜的诚实是承认自己瞎」**：.mrc 在微图库里语义上是 movie，透镜只能叫它 map——面板用 dirName/类型/orphan 标签补足人话，但从不假装扩展名知道更多
 - 产出：项目存储总览全链（物理走树 API + client-safe 透镜库 + server-only 走树库 + header 门对话框）+ bench 45/45 + 回归全绿 + 三方一致真对齐；撕裂律本窗两度真火（两次 FRESH 均自动重启旧服务器）
+
+---
+Task ID: 437 (cron agent loop 202609290257)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 436 完整收官（HEAD = 34891df = origin/main 已推，树净；服务器 pid 23127 出生 18:55:55Z 晚于 build 18:55:17Z——t435 律产物无撕裂；app 200、15/15 全 completed、mock 集群 :3022 在听）。第二十八份过时 Task 13 指引照例不认。按 t436 遗留③转产品面：存储板透镜下钻。自号 437。
+- [QA — 全绿基线] agent-browser 活体：landing hydration 满血（banner/tabs/项目选择器/头部按钮全体在场，含 t436 storage 门）、console 0 错、存储对话框满铺（总量 795.4 MB / 5,680 files / 16 runs / 分类 chips / heaviest-first 表）。世界稳定 → 直接进新需求。
+- [交付 — the lens gets teeth（t436 遗留③兑现）] 分类 chip 从图例变成门：点击 Maps = 从 run 级下钻到文件级，回答「鲸鱼 run 里的鲸鱼 FILE 是谁——Clean 真能省回多少字节」。①disk-usage.ts：TopFilesCollector（每类最重 K=8，周期性修剪 bucket>3K 时 sort+slice——摊还 O(1)/add 且永远真 top-K：修剪保住当时 floor，后来大鱼仍能Beat它；0 字节条目永不入榜——被计数的 link 不是鲸）；client-safe 纯逻辑与 t436 分库律一致 ②disk-walk.ts：onFile 监听器——只旁观不参与（有无监听 totals 逐位一致；link 永不上报——它没有字节）③storage 路由：一次请求一个 collector，走树流式喂入，路径 = dirName/relPath 投影到项目级；metaByDir 快照在 byDirName 被 loop 消费前留存（文件行 join jobId/jobName，孤儿行 null 两连）④storage-dialog：lens 状态 Refresh 存活（视图不是数据）、关窗即忘；chip 变 button（aria-pressed + active ring/muted 底 + 非 lens chips 降透明）；堆叠条按 lens 调光（opacity-25/100 transition——「透镜没在看的那段暗下去」）；文件面板沿用 runs 表行语法：类色相对条 + mono 路径 + 属主第二行 + 行点击跳 inspector（有记录）/amber disabled（无记录）+ 计数注脚「the heaviest N of M files — the whales' whales」。
+- [验证 — 8 套全绿] t437 新 bench 20/0：修剪律（k=3 12 条升序喂入周期修剪后真 top3 幸存）、later-whale 律（修剪后 99000 入场仍登顶——顺便纠正了 bench 自己的首版断言：K=3 下鲸鱼挤掉 1000 而非并列，收集器对、断言错）、零字节律、桶分离、snapshot 两次调用稳定、监听器无参与、截断交互（监听器只听到真走过的 3 条且字节和=walk 总量）。回归 t436 45/0 + t419 111/0 + t420 52/0 + t427 12/0 + t431 20/0 + t432 39/0 + t433 47/0。tsc 0 + eslint 0（五触碰文件）。
+- [研磨] FRESH 首轮 137×3（收割线拥挤）→ 杀 QA chrome 后仍 137×3 → 杀服务器（t436 先例）→ attempt 2 GREEN（provenance b35bed1）→ reboot-recover 十步：hydration probe（webpack-4b5517 → 200）+ WORLD ALIVE + demo chain 复活。.built-at-commit = b35bed1 = HEAD 三方一致。
+- [活体 QA — 透镜真火] 新 build 上：chip 点击开 lens（「Files · Maps」+「721.5 MB · 91%」+ 类目诚实 hint +「the heaviest 8 of 4,623 files」注脚）→ 8 行文件 mono 路径 + 属主 join（2D Classification (tutorial)）→ **行点击真跳 inspector**（对话框自关、Clean intermediates 按钮在场）→ All runs 返回按钮复位 → 关窗重开 lens 正确遗忘（回 runs 表）。**孤儿手术双向**：micrographs/ 植入 4MB zombie_t437.mrc → Refresh（721.5→725.5 MB，4,623→4,624 files）→ Maps lens 顶行 amber「no job record · micrographs」disabled——共享资产库的文件第一次有了自己的脸 → rm + Refresh 复原 721.5 MB。console 全程 0 错。定妆 t437-lens-maps / t437-lens-orphan / t437-final.png。
+- [最终态] HEAD = b35bed1（本窗 feature commit）；stamp = b35bed1 = HEAD 三方一致；世界 200 运行同戳 build（服务器 25159 出生晚于 build——ANTI-TEAR 孤儿重启产物）；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、QA 浏览器净场、zombie 手术复原。下一窗从 Task 438 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十七次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻在位）③存储板还可进：lens 文件行→「按 run 聚合」切换视图、runs 表加 Clean 快捷入口（现跳 inspector）④撕裂缝已三层闭合，产品面连续两窗（存储总览→文件透镜）——下一窗可考虑 canvas 侧新功能。
+
+Stage Summary:
+- **「chip 是门，不是图例」**：t436 的分类 chips 只命名字节，t437 让它们开门——run 级回答「哪个 run 最重」，文件级回答「Clean 按下去到底省回哪几个文件」；地图与铲子之间多了一层放大镜
+- **「旁观者不改变被观察的世界」**：onFile 监听器有无两态 totals 逐位一致——walk 的计数/截断/link 诚实律不被任何人分走一字节；透镜是 walk 的影子，不是 walk 的合伙人
+- **「周期性修剪的正确性是后来的鲸鱼给的」**：bucket>3K 才 sort+slice，当时 floor 之后来的大鱼仍能Beat floor——摊还 O(1) 且真 top-K；bench 首版断言自己错了（鲸鱼挤位而非并列），收集器先于测试知道答案
+- 产出：存储透镜全链（TopFilesCollector + onFile 监听器 + 路由 topFiles join + 对话框 lens UI）+ t437 bench 20/0 + 八套回归全绿 + 活体双向手术 + 三方一致真对齐
