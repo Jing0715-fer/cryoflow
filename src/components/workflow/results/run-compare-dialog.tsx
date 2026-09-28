@@ -1,32 +1,32 @@
 "use client";
 
 /**
- * CryoFlow — the CTF A/B dialog (t439): the preprocessing face's answer
- * to "which run actually fits better?"
+ * CryoFlow — the run A/B dialog (t439, generalized t440).
  *
- * The FSC face has had its overlay since Task 62 (fsc-compare); the
- * params face has had its diff since Task 88. What sat between them —
- * "I changed a preprocessing parameter; did the FITS move?" — needed a
- * paired, per-micrograph verdict, because CTF quality is a DISTRIBUTION
- * over micrographs, not one number: run B can win on twenty micrographs
- * and quietly lose the four that matter.
+ * One question, two domains, ONE face: "I changed a preprocessing
+ * parameter — did the output actually get better?" The FSC face has
+ * had its overlay since Task 62; the params face its diff since Task
+ * 88. This dialog is the per-micrograph verdict between two runs of
+ * the SAME stage — CTF estimation (t439) and Motion Correction (t440)
+ * — built on the shared verdict brain (lib/paired-compare.ts).
  *
- * The brain is lib/ctf-compare.ts (pure, benched); this dialog is the
- * face. Its laws:
- *   - TWO FETCHES, NO NEW ROUTE: the per-job ctf route already speaks
- *     the per-micrograph truth; A and B are fetched in parallel and
- *     joined client-side on the micrograph name.
- *   - PAIRED OR SILENT: unpaired micrographs show as honest chips
- *     ("only in A — N"), never as votes.
- *   - THE IDENTITY LINE IS THE JUDGE: B above the 45° line beat A (for
- *     FOM); the two scatter series split improved/regressed so the eye
- *     reads the verdict before the tooltip.
- *   - THE HOST LEADS: the dialog opens with the inspecting job as run A
- *     — "compare THIS against something" — and both runs stay
- *     switchable (the host is a suggestion, not a cage).
- *   - NO PERSISTENCE: unlike the FSC overlay (which remembers last
- *     session's pair), a params A/B is a question about the CURRENT
- *     pair — reopening starts from the host again.
+ * The face's laws:
+ *   - THE DOMAIN IS A SPEC, NOT A COPY: ctf/motion differ only in the
+ *     row fetch, the lenses and the trust line — one dialog, one set
+ *     of interaction bugs, one set of styles.
+ *   - PAIRED OR SILENT (the core's law, surfaced here): unpaired
+ *     micrographs show as honest amber chips ("unpaired: N in A · M in
+ *     B"), never as votes.
+ *   - THE IDENTITY LINE IS THE JUDGE: B above the 45° line beat A (or
+ *     lost, when the lens says lower is better) — the three scatter
+ *     series are pre-split by kind so the palette never lies.
+ *   - THE HOST LEADS: opens with the inspecting job as run A; both runs
+ *     stay switchable. NO PERSISTENCE — an A/B is a question about the
+ *     CURRENT pair; reopening starts from the host again (fsc-compare's
+ *     remembered pair is a curves question, not a verdict question).
+ *   - THE DOOR GUARDS ITSELF: entries render nothing unless the host is
+ *     a completed run of the domain's type AND a completed sibling
+ *     exists (the SiblingComparePicker guard, mirrored per domain).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -60,61 +60,96 @@ import {
 import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import {
-  CTF_LENSES,
-  defocusAgreement,
   fmtDelta,
-  joinCtfRuns,
+  joinByName,
   pairedDeltas,
   scatterDomain,
   topMovers,
   verdict,
-  type CtfLens,
-  type CtfRunRow,
-} from "@/lib/ctf-compare";
+  type LensSpec,
+  type Pair,
+} from "@/lib/paired-compare";
+import { CTF_LENSES, defocusAgreement, type CtfRunRow } from "@/lib/ctf-compare";
+import { MOTION_LENSES, type MotionRunRow } from "@/lib/motion-compare";
 
-interface CtfDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  /** The inspecting job — run A's starting suggestion. */
-  hostJob: JobDTO;
+/* ------------------------------------------------------------------ */
+/* The domain specs — everything that differs between the two faces.   */
+/* ------------------------------------------------------------------ */
+
+interface CompareDomainSpec<R> {
+  /** Spoken in the heading ("CTF A/B — FOM", "Motion A/B — Total drift"). */
+  label: string;
+  /** Which job types carry this domain's data (the inspector's own gate). */
+  typeGate: RegExp;
+  fetchRows(jobId: string): Promise<R[]>;
+  lenses: Record<string, LensSpec<R>>;
+  defaultLens: string;
+  /** The pairing's own health check — pre-formatted, null hides it. */
+  trustLine?(pairs: Pair<R, R>[]): string | null;
 }
 
-interface RunData {
-  rows: CtfRunRow[];
-}
-
-async function fetchCtfRun(jobId: string): Promise<RunData> {
-  const res = await fetch(`/api/jobs/${jobId}/ctf`, {
+async function fetchJson(url: string): Promise<unknown> {
+  const res = await fetch(url, {
     headers: { Origin: window.location.origin },
   });
-  if (!res.ok) throw new Error(`ctf route said ${res.status}`);
-  const data = (await res.json()) as { micrographs?: CtfRunRow[] };
-  return { rows: data.micrographs ?? [] };
+  if (!res.ok) throw new Error(`route said ${res.status}`);
+  return res.json();
 }
 
-/** run options: every COMPLETED CTF-bearing job in the project — the
- *  same type gate the inspector's CTF face uses (isCtfType). */
-function ctfCandidates(jobs: JobDTO[], hostId: string): JobDTO[] {
-  return jobs.filter(
-    (j) => j.id !== hostId && j.status === "completed" && /ctffind|ctf/i.test(j.type),
-  );
-}
+const CTF_SPEC: CompareDomainSpec<CtfRunRow> = {
+  label: "CTF",
+  typeGate: /ctffind|ctf/i,
+  fetchRows: async (id) => {
+    const data = (await fetchJson(`/api/jobs/${id}/ctf`)) as {
+      micrographs?: CtfRunRow[];
+    };
+    return data.micrographs ?? [];
+  },
+  lenses: CTF_LENSES,
+  defaultLens: "fom",
+  trustLine: (pairs) => {
+    const v = defocusAgreement(pairs);
+    return `Defocus agreement: median |Δ| = ${
+      Number.isFinite(v) ? `${v.toFixed(3)} µm` : "—"
+    } across ${pairs.length} paired micrographs — the pairing's own health check.`;
+  },
+};
 
-/** The inspector's door: an icon button beside the params-compare one,
- *  rendered ONLY when the host is a completed CTF run AND a sibling
- *  exists (the guard mirrors SiblingComparePicker's "renders nothing
- *  when this run has no twin"). The scatter icon vs the params door's
- *  GitCompareArrows: params door answers "what did I change", this door
- *  answers "what did it do". */
-export function CtfCompareEntry({ job }: { job: JobDTO }) {
+const MOTION_SPEC: CompareDomainSpec<MotionRunRow> = {
+  label: "Motion",
+  typeGate: /motioncorr|motion/i,
+  fetchRows: async (id) => {
+    const data = (await fetchJson(`/api/jobs/${id}/motion`)) as {
+      micrographs?: MotionRunRow[];
+    };
+    return data.micrographs ?? [];
+  },
+  lenses: MOTION_LENSES,
+  defaultLens: "total",
+  // no trust line: motion rows are computed by the same per-micrograph
+  // pipeline pass — count agreement (the unpaired chips) is the pairing
+  // health this domain needs
+};
+
+/* ------------------------------------------------------------------ */
+/* The door — an icon button beside the params-compare one.            */
+/* ------------------------------------------------------------------ */
+
+export function RunCompareEntry<R extends { name: string }>({
+  job,
+  spec,
+}: {
+  job: JobDTO;
+  spec: CompareDomainSpec<R>;
+}) {
   const jobs = useWorkflowStore((s) => s.jobs);
   const [open, setOpen] = useState(false);
   const siblingCount = useMemo(
-    () => ctfCandidates(jobs, job.id).length,
-    [jobs, job.id],
+    () => siblingsOf(job, jobs, spec).length,
+    [job, jobs, spec],
   );
   const eligible =
-    siblingCount > 0 && job.status === "completed" && /ctffind|ctf/i.test(job.type);
+    siblingCount > 0 && job.status === "completed" && spec.typeGate.test(job.type);
   if (!eligible) return null;
   return (
     <>
@@ -122,43 +157,78 @@ export function CtfCompareEntry({ job }: { job: JobDTO }) {
         variant="ghost"
         size="icon"
         className="size-6 rounded-md text-muted-foreground/70 hover:bg-muted hover:text-foreground"
-        aria-label={`Compare CTF fit quality with another completed run (${siblingCount} sibling runs available)`}
-        title="CTF A/B — paired per-micrograph verdict between two CTF runs: did the fits actually move?"
+        aria-label={`${spec.label} A/B — compare with another completed run (${siblingCount} sibling runs available)`}
+        title={`${spec.label} A/B — paired per-micrograph verdict between two completed runs: did the output actually move?`}
         onClick={() => setOpen(true)}
       >
         <ChartScatter className="size-3.5" aria-hidden="true" />
       </Button>
-      <CtfCompareDialog open={open} onOpenChange={setOpen} hostJob={job} />
+      <RunCompareDialog open={open} onOpenChange={setOpen} hostJob={job} spec={spec} />
     </>
   );
 }
 
-export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps) {
+function siblingsOf<R extends { name: string }>(
+  job: JobDTO,
+  jobs: JobDTO[],
+  spec: CompareDomainSpec<R>,
+): JobDTO[] {
+  return jobs.filter(
+    (j) => j.id !== job.id && j.status === "completed" && spec.typeGate.test(j.type),
+  );
+}
+
+/** Back-compat doors (the inspector's imports stay stable across the
+ *  t439→t440 generalization): same names, one face underneath. */
+export function CtfCompareEntry({ job }: { job: JobDTO }) {
+  return <RunCompareEntry job={job} spec={CTF_SPEC} />;
+}
+export function MotionCompareEntry({ job }: { job: JobDTO }) {
+  return <RunCompareEntry job={job} spec={MOTION_SPEC} />;
+}
+
+/* ------------------------------------------------------------------ */
+/* The face.                                                           */
+/* ------------------------------------------------------------------ */
+
+interface RunDialogProps<R> {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  hostJob: JobDTO;
+  spec: CompareDomainSpec<R>;
+}
+
+function RunCompareDialog<R extends { name: string }>({
+  open,
+  onOpenChange,
+  hostJob,
+  spec,
+}: RunDialogProps<R>) {
   const jobs = useWorkflowStore((s) => s.jobs);
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const inspect = useWorkflowStore((s) => s.inspect);
 
   const [runAId, setRunAId] = useState(hostJob.id);
   const [runBId, setRunBId] = useState<string | null>(null);
-  const [lens, setLens] = useState<CtfLens>("fom");
-  const [a, setA] = useState<CtfRunRow[] | null>(null);
-  const [b, setB] = useState<CtfRunRow[] | null>(null);
+  const [lensKey, setLensKey] = useState(spec.defaultLens);
+  const [a, setA] = useState<R[] | null>(null);
+  const [b, setB] = useState<R[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** the pair key the CURRENT a/b rows were fetched for — a mismatch
    *  with the selected pair IS the loading state (derived, no sync
    *  setState in the fetch effect). */
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   /** render-time adjust (params-diff's seenPair law): the dialog
-   *  re-derives its whole pair state on each open→closed→open — the
-   *  host leads, nothing persists (see header: an A/B is a question
-   *  about the CURRENT pair). */
+   *  re-derives its whole pair state on each open — the host leads,
+   *  nothing persists (see header: an A/B is a question about the
+   *  CURRENT pair). */
   const [seenOpen, setSeenOpen] = useState(false);
   if (open !== seenOpen) {
     setSeenOpen(open);
     if (open) {
       setRunAId(hostJob.id);
       setRunBId(null);
-      setLens("fom");
+      setLensKey(spec.defaultLens);
       setA(null);
       setB(null);
       setError(null);
@@ -170,8 +240,8 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
     workspaces.find((w) => w.id === id)?.name ?? "";
 
   const candidates = useMemo(
-    () => ctfCandidates(jobs, hostJob.id),
-    [jobs, hostJob.id],
+    () => siblingsOf(hostJob, jobs, spec),
+    [hostJob, jobs, spec],
   );
   const jobById = useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
 
@@ -185,11 +255,11 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
     if (!open || !runAId || !effectiveRunB) return;
     let alive = true;
     const key = `${runAId}|${effectiveRunB}`;
-    Promise.all([fetchCtfRun(runAId), fetchCtfRun(effectiveRunB)])
+    Promise.all([spec.fetchRows(runAId), spec.fetchRows(effectiveRunB)])
       .then(([ra, rb]) => {
         if (!alive) return;
-        setA(ra.rows);
-        setB(rb.rows);
+        setA(ra);
+        setB(rb);
         setError(null);
         setLoadedKey(key);
       })
@@ -201,25 +271,24 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
     return () => {
       alive = false;
     };
-  }, [open, runAId, effectiveRunB]);
+  }, [open, runAId, effectiveRunB, spec]);
 
   const pairKey = `${runAId}|${effectiveRunB}`;
   const loading = Boolean(open && runAId && effectiveRunB && loadedKey !== pairKey);
 
-  const lensSpec = CTF_LENSES[lens];
+  const lensSpec = spec.lenses[lensKey] ?? Object.values(spec.lenses)[0];
   const nameA = jobById.get(runAId)?.name ?? "Run A";
   const nameB = jobById.get(effectiveRunB ?? "")?.name ?? "Run B";
 
   const analysis = useMemo(() => {
     if (!a || !b) return null;
-    const join = joinCtfRuns(a, b);
+    const join = joinByName(a, b);
     const deltas = pairedDeltas(join.pairs, lensSpec);
     return {
       join,
       deltas,
       v: verdict(deltas),
       movers: topMovers(deltas),
-      agreement: defocusAgreement(join.pairs),
       domain: scatterDomain(deltas),
     };
   }, [a, b, lensSpec]);
@@ -227,14 +296,7 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
   const improvedSeries = analysis?.deltas.filter((d) => d.kind === "improved") ?? [];
   const regressedSeries = analysis?.deltas.filter((d) => d.kind === "regressed") ?? [];
   const tiedSeries = analysis?.deltas.filter((d) => d.kind === "tied") ?? [];
-
-  const deltaColor =
-    lensSpec.higherIsBetter
-      ? { improved: "#0d9488", regressed: "#e11d48" }
-      : { improved: "#0d9488", regressed: "#e11d48" };
-  // ↑ both directions share the palette — "improved" is always teal here
-  //   because the LENS already knows which direction that is; the split
-  //   is by kind, not by sign.
+  const trustText = analysis && spec.trustLine ? spec.trustLine(analysis.join.pairs) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -242,11 +304,11 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <GitCompareArrows className="size-4 text-primary" aria-hidden="true" />
-            CTF A/B — {lensSpec.label}
+            {spec.label} A/B — {lensSpec.label}
           </DialogTitle>
           <DialogDescription>
-            Paired per-micrograph verdict between two CTF estimation runs — did
-            the fits actually move, and which micrographs moved them?
+            Paired per-micrograph verdict between two completed runs — did the
+            output actually move, and which micrographs moved it?
           </DialogDescription>
         </DialogHeader>
 
@@ -296,8 +358,8 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
         {candidates.length === 0 ? (
           <div className="flex items-center gap-2 rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
             <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-            No other completed CTF run in this project yet — run the same
-            estimator again (with changed parameters or new inputs) and this
+            No other completed {spec.label} run in this project yet — run the
+            same stage again (with changed parameters or new inputs) and this
             dialog becomes the verdict.
           </div>
         ) : loading || !analysis ? (
@@ -307,22 +369,21 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
         ) : error ? (
           <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
             <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-            The CTF route refused: {error}
+            The {spec.label.toLowerCase()} route refused: {error}
           </div>
         ) : (
           <>
             {/* lens chips */}
             <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Comparison metric">
-              {(Object.keys(CTF_LENSES) as CtfLens[]).map((k) => {
-                const spec = CTF_LENSES[k];
-                const active = k === lens;
+              {Object.values(spec.lenses).map((l) => {
+                const active = l.key === lensSpec.key;
                 return (
                   <button
-                    key={k}
+                    key={l.key}
                     type="button"
                     role="tab"
                     aria-selected={active}
-                    onClick={() => setLens(k)}
+                    onClick={() => setLensKey(l.key)}
                     className={
                       "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors " +
                       (active
@@ -330,14 +391,14 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
                         : "text-muted-foreground hover:text-foreground")
                     }
                     title={
-                      spec.higherIsBetter
-                        ? `${spec.label} — higher is better`
-                        : `${spec.label} — lower is better`
+                      l.higherIsBetter
+                        ? `${l.label} — higher is better`
+                        : `${l.label} — lower is better`
                     }
                   >
-                    {spec.label}
+                    {l.label}
                     <span className="ml-1 font-normal opacity-70">
-                      {spec.higherIsBetter ? "↑ better" : "↓ better"}
+                      {l.higherIsBetter ? "↑ better" : "↓ better"}
                     </span>
                   </button>
                 );
@@ -422,14 +483,14 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
                     name={`improved (${improvedSeries.length})`}
                     data={improvedSeries}
                     dataKey="b"
-                    fill={deltaColor.improved}
+                    fill="#0d9488"
                     fillOpacity={0.75}
                   />
                   <Scatter
                     name={`regressed (${regressedSeries.length})`}
                     data={regressedSeries}
                     dataKey="b"
-                    fill={deltaColor.regressed}
+                    fill="#e11d48"
                     fillOpacity={0.75}
                   />
                   <Scatter
@@ -473,15 +534,10 @@ export function CtfCompareDialog({ open, onOpenChange, hostJob }: CtfDialogProps
               />
             </div>
 
-            {/* the trust line — defocus is physics, not verdict */}
-            <div className="text-[11px] text-muted-foreground">
-              Defocus agreement: median |Δ| ={" "}
-              {Number.isFinite(analysis.agreement)
-                ? `${analysis.agreement.toFixed(3)} µm`
-                : "—"}{" "}
-              across {analysis.join.pairs.length} paired micrographs — the
-              pairing's own health check.
-            </div>
+            {/* the trust line — the pairing's own health check */}
+            {trustText ? (
+              <div className="text-[11px] text-muted-foreground">{trustText}</div>
+            ) : null}
 
             {/* the door — jump into either run's inspector */}
             <div className="flex justify-end gap-2">

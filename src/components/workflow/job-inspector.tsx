@@ -146,6 +146,7 @@ import {
   GuinierChart,
   TopazTrainingChart,
   CtfCompareEntry,
+  MotionCompareEntry,
 } from "./results/results-lazy";
 
 /* ------------------------------------------------------------------ */
@@ -2504,6 +2505,11 @@ function InspectorHeader({
              * did I change", this one answers "what did it do"). Renders
              * nothing without a completed sibling or off the CTF face. */}
             <CtfCompareEntry job={job} />
+            {/* t440 — the Motion A/B door: same verdict face, second
+             * domain — "did my MotionCorr parameters actually steady
+             * the alignments?" Same guard family: completed host +
+             * completed sibling or no door. */}
+            <MotionCompareEntry job={job} />
             {job.status !== "running" ? (
               <>
                 {/* t333 — the tooltip answers the file question in place:

@@ -17,17 +17,15 @@
  * World contract: pure functions only — no store, no fetch, no fs.
  */
 
+import { CTF_LENSES, defocusAgreement, type CtfRunRow } from "../src/lib/ctf-compare";
 import {
-  CTF_LENSES,
-  defocusAgreement,
   fmtDelta,
-  joinCtfRuns,
+  joinByName,
   pairedDeltas,
   scatterDomain,
   topMovers,
   verdict,
-  type CtfRunRow,
-} from "../src/lib/ctf-compare";
+} from "../src/lib/paired-compare";
 
 let pass = 0;
 let fail = 0;
@@ -59,13 +57,13 @@ console.log("J1 — joinCtfRuns: the paired electorate");
 {
   const A = [row("mic_001"), row("mic_002"), row("mic_003")];
   const B = [row("mic_002"), row("mic_003"), row("mic_004")];
-  const join = joinCtfRuns(A, B);
+  const join = joinByName(A, B);
   must(join.pairs.length === 2, "J1a shared names pair");
   must(join.pairs[0].name === "mic_002" && join.pairs[1].name === "mic_003", "J1b order follows run A");
   must(join.onlyA.length === 1 && join.onlyA[0] === "mic_001", "J1c only-in-A named");
   must(join.onlyB.length === 1 && join.onlyB[0] === "mic_004", "J1d only-in-B named");
   // disjoint runs: nobody votes
-  const empty = joinCtfRuns([row("x")], [row("y")]);
+  const empty = joinByName([row("x")], [row("y")]);
   must(empty.pairs.length === 0 && empty.onlyA.length === 1 && empty.onlyB.length === 1, "J1e disjoint → zero electorate");
 }
 
