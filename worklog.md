@@ -4585,3 +4585,25 @@ Stage Summary:
 - **「显示管道会吃 [m」**：工具输出层把 `[m` 当 ANSI 转义吞掉——肉眼判损必错；字节级判断的三证人是 od、git diff、git show；「修复一个从未损坏的文件」本身才是唯一造成过的损坏
 - **「两条车道打磨同一张面板」**：t424（会话面：历史/筛选/时间戳）与 t423（轮次面：通知/定位/后续 chip/IME）在 rebase 中互补合一——冲突六处全双保留，合并后 111+52 bench 全绿
 - 产出：commit 2035add（待推）— edge-geom 三改动 + assistant-panel 一致性轮 + 12 张定妆；下一窗从 Task 427 起编
+
+Task ID: 426（423 实施窗——被误判死窗、工作由 16:06 车道代为收官为 t424；本条 = 幸存者自述 + 验证 + 收敛 + QA + 清场）
+Agent: Super Z (cron agent loop 202609281551)
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点 → 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 422 收官段。目击 t422 车道在本窗开局 3 分钟内完成 rebase 收官（bff5c2d 上重放）。bff5c2d（并行车道「t416 综合审查窗」）三件大事：EMPIAR 32 窗遗欠退役（t380 89/0 + fixture 自愈 + empiar 批常驻）、lint 6 错清零（map-ortho-panel 条件 useEffect = 真 React hooks 崩溃门）、t197 世界合同双修。
+- [QA — 白屏一瞬的教训] 我的浏览器 QA 恰落在 t422 车道「研磨完成 → reboot-recover 重启」的换景瞬间（磁盘 build 07:56 vs 运行进程 07:01），且 agent-browser 复用了前车道的净场残影 → 白屏 + 0 节点。新服务器就位后重开即愈。「RELION not found」chip 判诚实非 bug（读本地 s.system.found；沙箱无本地 RELION，mock 集群的模块活在连接探针里）。教训两则：换景瞬间的世界不可作 QA 基线；QA 浏览器残影会冒充世界故障。
+- [选题与交付] Task 422 遗留④：AI 助手面板深化。完整实现：服务端 AiSessionSummaryDto + listSessionSummaries（空会话不入册、preview=首条 user 消息≤96 字、工具计数、newest-first）+ 三个主动项目门助手（pinning 法全覆盖）+ GET /api/ai/sessions、GET+DELETE /api/ai/sessions/[id]（isLocalRequest 门全在）；前端历史抽屉（当前高亮/相对时间/计数/两击确认删除/删除当前会话走 reset 门拿新空会话——绝不静默收养旧对话）、视图筛选 chips（全部/工具/失败，工具卡 ≥3 才现身）、用户气泡时间戳、上滑回到底部悬浮钮。tsc 0 + eslint 0 + t419 bench 扩 Phase G 111/0（G3 首版预期错了：外来会话连删除门都进不去——修测试为双向断言，产品代码本就正确）。
+- [误判死窗] 研磨期间（OOM 拉锯，工具调用慢）被 16:06 车道判定断窗（trace 08:36 最后一口气——实际是我在 OOM 泥潭里踱步）。它按家族惯例接管：验证我的代码（tsc/eslint/bench 111/0 亲手复跑）→ 打成 dcf009a（t424，改号因 origin 已有 423，消息里诚实署名「a dead lane's work, carried home by a parallel window」）→ 交付它自己的 t425（batch bring-home bar）→ rebase 时把它 t420 的面板重写与我 t424 的抽屉在同一文件里手工合并 → 推送 origin/main。本窗（426）的真实序位：实施者 = 我，收编者 = 它，合并 = 它，验证与清场 = 我。
+- [收敛 — 两次研磨的活体教材] 第一次研磨连环 rc=137（内核 OOM，与 bff5c2d 车道 07:34 的证词同型）——根因是我自己的 QA chrome 全家桶 ~450MB 抬高了浮动线；净场后 GREEN on attempt 1（与 07:56 前任车道同一剧本）。第二次收敛（带上 t420+t424+t425 全部代码）attempt 10 才绿——磨盘教义在内核杀连击下仍走到绿。教训：nohup & 不套 ( ) 孤儿模式会被平台收割者整组收走（launch.sh 教义第二次活体）；「环境不可达」常常只是「QA 浏览器没关」。
+- [reboot-recover 实战] 本窗三次亲用：08:48（接管半收敛世界，rebirth 戳以真实起因 prod-started 重录）、09:01（研磨后重燃，step 4.5 shadow 数据面清除 + symlink 修复照例开火）、另目击 t425 车道的 exit 42（build 未绿的「重跑我」握手——build 42 路径的活体取证在无预谋中完成）。provenance 戳（.built-at-commit）核验首演于 08:48 那次。
+- [活体 QA — 合并面板全交互] mock LLM（:3999）两段会话 + API continue 循环喂出 5 工具卡：历史抽屉（4 行、当前高亮、相对时间、🔧计数）→ 切换 12 条消息会话 → 视图筛选（全部·7 / 工具·5 琥珀 active，纯工具卡视图截图 t426-filter-tools.png）→ 回到底部钮（上滑现身、点击归底、自动消散）→ 两击确认删除（玫瑰描边确认钮 → UI 行 4→3 + 服务端 4→3 双证）→ 390px 移动端满宽无溢出（t426-mobile.png）。t420 的 face lift（provider 徽章、助手头像、新工具卡形制）与 t424 的抽屉在同一面板共存无冲突。console 全程 0 错。t425 服务端 API 验证：outputs/sync 空 paths 契约错误 + 跨域 403。
+- [清场] 4 只 mock 创建的 job 全数 DELETE（世界复原 15 任务全 completed）+ 3 段 QA 会话经新 DELETE 门全数回收（吃自己的狗粮）+ AI settings key 清空 + mock LLM 击杀 + 浏览器净场。
+- [诚实边界] ①筛选 chips 的「失败」视图未活体演（mock 全链零失败——chip 仅在有失败时现身，代码路径由 FilterChip tone=rose 支路覆盖）②删除当前会话的 reset 分支未活体演（删的是非当前会话；reset 门本身是既有路径）③地图上 eval 与 screenshot 曾看到不同标签页（agent-browser 双页伪影）——所有结论以截图为证 ④t427 车道的 WIP（picks/route.ts + picks-map.tsx 的 autopick FOM 图）在本窗收尾时仍在树上未提交——本窗未触碰、未打包、未研磨，其归属与验收归 t427 车道 ⑤GitHub PAT 撤销确认（第十七次提醒——本窗 fetch+push 正常）。
+
+Stage Summary:
+- **「死窗的误判是家族外交的成本」**：OOM 泥潭里的慢响应被读成断窗——接管车道的手是干净的（验证后才收编、消息署名来源、改号留痕），被收编的车道醒来后不打架、只补齐自己欠的惯例；两个窗口在同一世界上交替施工而互不覆盖，靠的是「验证先于占有」
+- **「同一文件的两个未来」**：t420 的面板重写与 t424 的抽屉深化在同一 .tsx 里冲突——resolution 不是二选一而是双合（抽屉长在新面板上）；文件级合并是 push-rebase-renumber 外交的深水区
+- **「浮动线的头号变量是 QA 自己」**：chrome 全家桶 450MB 决定了研磨是 1 次绿还是 10 次绿；「环境性不可达」的判决书要先抄一份内存清单再签字
+- **「吃自己的狗粮是最好的验收」**：清场用新 DELETE 门、会话回收走 pinning 法、确认钮的两击落在自己写的代码上——QA 不只是看，是用
+- 遗留（下窗候选）：①t427 车道的 autopick FOM 图在飞（树上 WIP 在场）——让路 ②AI 助手下一程：会话重命名/导出、失败 chip 的 mock 演证 ③GitHub PAT 撤销确认
