@@ -142,6 +142,7 @@ const FAMILY = [
   "t308-array-downstream.mjs", // the array pipeline's DOWNSTREAM: class2d eats the merged particle star on the cluster — twin pass-through by cluster path (zero re-upload), the refine fake turns star-aware (reads --i, audits merge integrity, echoes ImageName provenance), the extract fake's stacks become RENDERABLE MRCs (Task 308)
   "t310-verify-module-by-value.mjs", // the verify door speaks BY VALUE: the CREATE form proves a hidden beta module name before anything is saved (transient connection, dropped SSH pool slot, byte-identical registry), execError speaks FIRST (a dead host is a different answer than a missing module), one mergeVerifiedModule serves both doors, and the SAVED door gets its first family coverage (t297's debt) (Task 310)
   "t313-demo-chain-resurrect.mjs", // the demo tutorial chain STAYS resurrected: 13 links healed through the product's own run door via the mock (EMPIAR stand-in bundle, the missing InitialModel/MaskCreate links, the FSC route speaking 40 shells), the relocation disease fixed at every star writer (natives re-base refs project-relative; the fake's echo re-bases; the audit reads star-dir + cwd + project root; whitespace-tolerant rows), honest remote twins (stat-verified — locally synthesized half-maps never claim cluster seats), and two new fakes (mask_create reading real headers, postprocess speaking the RELION 5 dialect) (Task 313)
+  "t415-dashboard-needs-attention.mjs", // the dashboard's failed jobs become a click: the status lens (?status=failed, bogus ignored — the DB's own vocabulary), the strip rendering ONLY when the world speaks a failure, the Task-126 deep-link landing from a chip, the honest fail fixture (a motioncorr stopped mid-run speaks failed), and zero-noise cleanup (the strip mirrors the world's failed set, nothing lingers) (Task 415)
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------
@@ -167,6 +168,7 @@ const BATCHES = [
   { name: "t29", match: /^t29/ },
   { name: "t30", match: /^t30/ }, // t302 — the t30 decade registers itself on arrival
   { name: "t31", match: /^t31/ }, // t310 — the t31 decade registers itself on arrival
+  { name: "t41", match: /^t41/ }, // t415 — the t41 decade registers itself on arrival
 ];
 const batchOf = (file) => BATCHES.find((b) => b.match.test(file))?.name ?? null;
 

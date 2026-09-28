@@ -1502,6 +1502,104 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
   );
 }
 
+/** Needs-attention strip (t415) — failed jobs across ALL projects, one
+ *  glance, zero noise. The footer bar has counted failures for a long time
+ *  ("1 failed") but the count is a dead end: the KPI grid drill-down works
+ *  in PRESENCE (projects), so the actual failed job in a non-active
+ *  project was invisible — this world's t265 Topaz Train heritage sat red
+ *  in the footer while the dashboard showed nothing clickable. The strip
+ *  renders ONLY when the world speaks a failure (green world = nothing —
+ *  the same honesty as the activity feed's empty state), names each job on
+ *  a chip with its home project and recency, and jumps straight to the
+ *  job's canvas + inspector through the store's shared deep-link action
+ *  (the gallery/activity landing law: cross-project rows carry the
+ *  projectId hint; the switch happens inside openJob). */
+function FailedJobsStrip() {
+  const openJob = useWorkflowStore((s) => s.openJob);
+  const jobCount = useWorkflowStore((s) => s.jobs.length);
+  const activeProjectId = useWorkflowStore((s) => s.project?.id ?? null);
+  const [failed, setFailed] = React.useState<RecentJob[] | null>(null);
+  const [showAll, setShowAll] = React.useState(false);
+  // 4 chips keep the strip a band, not a wall; the overflow button expands
+  // in place and says honestly how many more (the SavedViewsGallery law)
+  const CAP = 4;
+
+  // same freshness trigger as the KPI band / activity feed: refetch when
+  // the active project's job list moves (a run finishing flips statuses)
+  React.useEffect(() => {
+    let alive = true;
+    fetch("/api/activity/recent?limit=20&status=failed")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d: { jobs?: RecentJob[] }) => {
+        if (alive) setFailed(Array.isArray(d.jobs) ? d.jobs : []);
+      })
+      .catch(() => {
+        /* the strip is a convenience, not a dependency — silence on failure */
+        if (alive) setFailed(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [jobCount]);
+
+  if (failed == null || failed.length === 0) return null;
+  const shown = showAll ? failed : failed.slice(0, CAP);
+  const hidden = failed.length - shown.length;
+
+  return (
+    <section
+      aria-label="Needs attention — failed jobs across all projects"
+      data-testid="needs-attention"
+      className="card-lift rounded-xl border border-red-500/25 bg-red-500/[0.04] px-4 py-3.5 sm:px-5"
+    >
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <TriangleAlert className="size-4 shrink-0 text-red-500" aria-hidden="true" />
+        <h2 className="text-sm font-semibold tracking-tight">Needs attention</h2>
+        <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-red-600 dark:text-red-400">
+          {failed.length} failed
+        </span>
+        <span className="text-xs text-muted-foreground">
+          failed jobs across all projects — click one to jump to its canvas
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {shown.map((j) => (
+          <button
+            key={j.id}
+            data-testid="needs-attention-chip"
+            onClick={() => void openJob(j.id, { projectId: j.projectId })}
+            title={`Open “${j.name}” — failed ${fmtAgo(j.updatedAt)}${
+              j.projectName && j.projectId !== activeProjectId ? ` in ${j.projectName}` : ""
+            } · jumps to its canvas and opens the inspector`}
+            className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-red-500/30 bg-card px-2.5 py-1 text-xs transition-colors hover:bg-red-500/10"
+          >
+            <span className="size-1.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
+            <span className="max-w-52 truncate font-medium">{j.name}</span>
+            {j.projectName && j.projectId !== activeProjectId ? (
+              <span className="max-w-36 truncate text-muted-foreground">{j.projectName}</span>
+            ) : null}
+            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
+              {fmtAgo(j.updatedAt)}
+            </span>
+            <ChevronRight
+              className="size-3 shrink-0 text-red-500/60 transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          </button>
+        ))}
+        {hidden > 0 ? (
+          <button
+            onClick={() => setShowAll(true)}
+            className="rounded-full border border-dashed border-red-500/40 px-2.5 py-1 text-xs text-red-600 transition-colors hover:bg-red-500/10 dark:text-red-400"
+          >
+            +{hidden} more failed
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 /** status filter chip for the spotlight Jobs list — single-select, the
  *  count rides along so the chips double as a mini status bar; active chip
  *  fills with the status tone, inactive stays a ghost outline */
@@ -2402,6 +2500,12 @@ export function ProjectDashboard() {
               tone="bg-primary/10 text-primary ring-primary/25"
             />
           )}
+        </div>
+
+        {/* needs attention — failed jobs across all projects (t415); renders
+            nothing on a green world, so the rhythm below is untouched */}
+        <div className="mt-6">
+          <FailedJobsStrip />
         </div>
 
         {/* cross-project recent activity — the "where did I leave off" strip */}

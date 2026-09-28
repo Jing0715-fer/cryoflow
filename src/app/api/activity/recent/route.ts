@@ -29,8 +29,18 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const limit = Math.max(1, Math.min(20, Number.parseInt(url.searchParams.get("limit") ?? "8", 10) || 8));
+    // t415 — the status lens: the dashboard's "Needs attention" strip reads
+    // the SAME feed with ?status=failed (failed jobs across all projects,
+    // recency-ordered). The DB status column's own vocabulary is the only
+    // accepted lens — anything else is ignored, never guessed.
+    const statusParam = url.searchParams.get("status");
+    const STATUSES = ["idle", "pending", "running", "completed", "failed"] as const;
+    const statusFilter = (STATUSES as readonly string[]).includes(statusParam ?? "")
+      ? (statusParam as (typeof STATUSES)[number])
+      : null;
 
     const jobs = await db.job.findMany({
+      where: statusFilter ? { status: statusFilter } : undefined,
       orderBy: { updatedAt: "desc" },
       take: limit,
       select: {
