@@ -47,6 +47,10 @@
 #   - Hard cap on attempts (default 10) to avoid grinding on a true failure.
 #   - Environment per t402's autopsies: node runtime (bun OOMs differently),
 #     --webpack (Turbopack kernel-OOMs), heap cap 1792MB (896 mark-compacts).
+#   - t435, the anti-tear law: on a REAL green (fresh BUILD_ID on disk), any
+#     :3000 standalone born before this build is restarted in place — with
+#     the env pins restated, so even a bare invocation leaves a coherent
+#     world. A green can never leave memory and disk disagreeing (t434).
 #
 # Usage: bash scripts/build-until-green.sh [max_attempts]
 # Exit codes: 0 = BUILD_ID present (green); 1 = attempts exhausted without one.
@@ -78,6 +82,19 @@ if standalone_complete && [ "${FRESH:-0}" != "1" ]; then
   echo "$(stamp) build trio complete (BUILD_ID + standalone + static) — nothing to grind."
   echo "        (source changed since? FRESH=1 forces a rebuild — the grinder"
   echo "         cannot cheaply diff the whole src tree, so it trusts the stamp)"
+  # t435 — hands-off path stays hands-off, but silence is how the t434 tear
+  # survived a full idempotent pass: say it if the world is ALREADY torn.
+  stale_pid="$(ss -tlnp 2>/dev/null | grep ':3000 ' | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -1)"
+  if [ -n "$stale_pid" ] \
+     && tr '\0' ' ' < "/proc/$stale_pid/cmdline" 2>/dev/null | grep -q 'standalone/server.js'; then
+    bt="$(stat -c %Y "$BUILD_ID" 2>/dev/null || echo 0)"
+    pt="$(stat -c %Y "/proc/$stale_pid" 2>/dev/null || echo 0)"
+    if [ "$pt" -lt "$bt" ]; then
+      echo "$(stamp) NOTE: the running standalone (pid $stale_pid) predates the on-disk build —"
+      echo "        that world is torn (t434). scripts/reboot-recover.sh repairs it; this"
+      echo "        no-op pass will not touch it."
+    fi
+  fi
   exit 0
 fi
 
@@ -113,6 +130,51 @@ while [ "$attempt" -lt "$MAX_ATTEMPTS" ]; do
     # reboot-recover gate can tell a fresh trio from a shadow app built off
     # an older tree (the t421 shadow-world lesson, build axis).
     ( git rev-parse HEAD 2>/dev/null || echo unknown ) > .next/.built-at-commit
+    # -------------------------------------------------- t435: the anti-tear law
+    # A fresh build on disk makes every running standalone born before it a
+    # stale broadcaster: memory speaks the OLD build, disk holds the NEW one,
+    # SSR stays 200, and every chunk the HTML names 500s — the client never
+    # hydrates (t434's live tear: a grinder outlived its boot and left a
+    # client-dead world behind a healthy-looking 200). Detection lives in
+    # reboot-recover (step 5 + the hydration probe); THIS is the source-side
+    # closure: the grinder itself retires any standalone its own build just
+    # outdated, so a GREEN can never leave a torn world behind — no matter
+    # who invoked it, and whether or not a reboot-recover follows.
+    tear_pid="$(ss -tlnp 2>/dev/null | grep ':3000 ' | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -1)"
+    if [ -n "$tear_pid" ] \
+       && tr '\0' ' ' < "/proc/$tear_pid/cmdline" 2>/dev/null | grep -q 'standalone/server.js'; then
+      bt="$(stat -c %Y "$BUILD_ID" 2>/dev/null || echo 0)"
+      pt="$(stat -c %Y "/proc/$tear_pid" 2>/dev/null || echo 0)"
+      if [ "$pt" -lt "$bt" ]; then
+        echo "$(stamp) ANTI-TEAR: standalone (pid $tear_pid) predates the build it would now serve — restarting in place"
+        echo "$(stamp)   (t434's tear, closed at the source: memory speaks the old build, disk holds this one)"
+        kill "$tear_pid" 2>/dev/null || true
+        for _ in $(seq 1 5); do [ -d "/proc/$tear_pid" ] || break; sleep 1; done
+        if [ -d "/proc/$tear_pid" ]; then
+          echo "$(stamp)   pid $tear_pid ignored SIGTERM (bun's own law) — escalating to SIGKILL"
+          kill -9 "$tear_pid" 2>/dev/null || true
+          sleep 1
+        fi
+        # the pins are explicit so a BARE grinder invocation (outside
+        # reboot-recover, whose env this call would normally inherit) still
+        # starts a server on the real DB and the real data plane —
+        # t419's env pin + t420's data-plane pin, restated at the source.
+        ( DATABASE_URL="file:$(pwd)/db/cryoflow.db" CRYOFLOW_DATA_DIR="$(pwd)/data" NODE_ENV=production \
+            nohup bun .next/standalone/server.js >> server.log 2>&1 & )
+        up="000"
+        for _ in $(seq 1 20); do
+          sleep 3
+          up="$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 http://localhost:3000/ || true)"
+          [ "$up" = "200" ] && break
+        done
+        if [ "$up" = "200" ]; then
+          echo "$(stamp) ANTI-TEAR: fresh standalone answers 200 — memory and disk speak the same build"
+        else
+          echo "$(stamp) ANTI-TEAR WARNING: the restarted server never answered 200 (last $up)."
+          echo "$(stamp)   the BUILD is green; the WORLD needs scripts/reboot-recover.sh — run it."
+        fi
+      fi
+    fi
     echo "$(stamp) GREEN on attempt $attempt — standalone startable (provenance: $(cat .next/.built-at-commit))"
     exit 0
   fi
