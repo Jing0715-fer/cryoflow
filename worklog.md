@@ -4742,3 +4742,45 @@ Work Log:
 - [清场] QA 浏览器净场（chrome 击杀两次——第一次为研磨让路、第二次为收官）；mic_001 stash/restore cmp 逐字节验证；world 200 运行 80c6b0f build（provenance 同瞬）；定妆 .qa-logs/t431-{chip-resolved,chip-loop,inspector-resolved,dashboard-compact,dashboard,landing}.png。
 - [诚实边界] ①chip 只挂 hover 预览的 host 行（卡片面按 t356 用户裁定保持极简——「内容过满」律优先于状态可见性；minimap title 与 dashboard 提供非悬停信号）②EARLIER-run-only 回执无独立消费面（isStayReceipt 门恒拒；正则第二分支按死代码删除）③列表注解每 remote job 每 poll 一次 manifest 读 + existsSync（demo 24 枚微秒级；statcache 备而不发）④AI 工具读 result 原文（历史为真）未动⑤pending 态的 RemoteBatchBar 联动未重演（t425/t429 已验，本窗 chip tooltip 已指路）。
 - [最终态] HEAD 含 t431 交付（本 commit）；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、AI settings pristine、mock 集群 :3022 在听、mock LLM 停、浏览器净场。下一窗从 Task 432 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十一次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻在位）③runRemote 亦不在 jobEquals 清单（前存缺口，疑似靠 updatedAt 间接覆盖——值得下窗核账）。
+
+---
+Task ID: 427-a
+Agent: frontend-styling-expert
+Task: AI assistant panel + LLM settings dialog visual redesign to match the app's design language
+
+Work Log:
+- [开局] 读 worklog 实尾（Task 423 收官段——连线修复 + 面板打磨轮），吸收设计语言五件套：globals.css 的 cryo-ice token（--primary 即 teal，明暗自适应）与自定义工具类（card-lift/nice-scroll/animate-soft-pulse）、header.tsx 的 h-8 芯片与 `border-teal-500/40 bg-teal-500/10 text-[10px]` 微徽章习语、hpc-profiles-editor 的 SectionTitle（`text-[11px] font-semibold uppercase tracking-wider` + `Separator flex-1`）与左轨列表习语（`border-primary/50 bg-primary/[0.06]` 选中 / `border-transparent hover:border-border` 未选中 + role=listitem 包裹 + aria-pressed）。
+- [面板重涂 — assistant-panel.tsx，纯样式] ①头部：amber 渐变底换 `from-primary/[0.07]`，Sparkles 头像 tile 换 `from-teal-500 to-cyan-600`，ACTIVE MODEL 徽章换 teal outline 徽章习语（pr-14 关闭键领地律原样保留）；②助手/忙碌头像（2 处）与空态 Bot tile（teal ring/tint）；③忙碌三点 `bg-primary/70` + AI 徽章 teal；④工具卡：默认 `border-border` + `hover:border-primary/30 hover:bg-muted/30`（状态只由 emerald/rose 图标 tile + 状态图标说话，不再用重边框——rose/emerald 边框退役）；⑤筛选 chips 全部/工具 teal 激活（失败 chip 保持 rose）；⑥历史抽屉：当前行 `border-primary/50`、「当前」徽章 teal、工具计数 teal，「历史会话」标签升为 uppercase micro-label 习语；⑦空态建议卡 `hover:border-primary/40 hover:bg-primary/[0.04]` + teal 图标 tile；⑧composer 聚焦环 `focus-within:border-primary/50 ring-primary/10`；⑨后续 chip + 图标 teal。needsSetup 横幅刻意保留 amber——它就是警告。用户气泡 bg-primary、助手气泡 muted、GFM markdown 大类名逐字未动，中文文案零改动。
+- [设置对话框重构 — ai-settings-dialog.tsx，JSX 重排零逻辑改动] 一列堆叠表单 → hpc-profiles 式双栏编辑器：DialogContent 换 `flex flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl`（twMerge 实测 overflow-hidden 吃掉默认 overflow-y-auto）+ max-h-[90vh] 内滚；左栏 = 供应商目录轨（sm:w-56=224px，hpc 列表习语：首字母 tile + 标签 + emerald key 圆点 + teal Check 当前项，`nice-scroll` 内滚）；右栏 = 分节配置表单（「供应商」身份行 + ExternalLink 文档链接 / Base URL（custom）/ API Key（眼切换 + keyHint）/ 对话模型（刷新 + 提示 + 错误）/ 视觉模型），每节 SectionTitle 习语，Label 直接充当节标题保住 htmlFor 关联；「当前使用」横幅折叠为头部 teal 状态胶囊（Check 图标 + provider · model，同表达式）；手机 <sm 双栏纵排：目录变横向滚动条带（390px 实测 0 溢出）。Select 全套退役，换 role=list + aria-pressed 按钮列表（同一 setProviderId 状态门）；datalist id / 700ms 防抖自动拉取 / fetchSeq 守卫 / save() 请求体 / toast 文案逐字节未动。
+- [踩坑 — 纵向 Separator 塌缩] 双栏之间的 `<Separator orientation="vertical">` 实测高度 0px：组件自带的 `data-[orientation=vertical]:h-full`（特异度 0,2,0）压过任何 `h-auto`（0,1,0），而本对话框高度是内容驱动的不定值 → 百分比解析塌缩。修法：`sm:h-auto!`（height:auto !important，Tailwind 4 后缀叹号语法，sidebar.tsx 有先例）让 align-self:stretch 真正生效——修后实测 645×1px。教训：跟带 data-variant 工具类打架时，!important 是唯一赢面。
+- [验证] tsc --noEmit 0 错；两文件 eslint 0 错 0 警告；t419 AI bench 111/0 + t420 agent bench 52/0（样式改动零逻辑接触的回归证明）；agent-browser 活体：面板/对话框渲染零 console/page 错误，几何取证（桌面：对话框 672px、轨 224px、分隔线 645×1、模型输入在列表右侧；手机 390px：docScrollW==clientWidth==390、条带 1914px 内滚、分隔线 display:none），供应商切换 aria-pressed=true + Base URL 条件段随 Custom 出现，明暗双模式 + 6 张定妆 shots-t427/。
+- [诚实边界] VLM 视觉复核 429 限流（t423 同款边界，几何/DOM/类名三证顶替）；本轮纯客户端样式，未动任何服务端；截图 6 张存 shots-t427/（仓库既有未跟踪证据目录文化）。
+
+Stage Summary:
+- 「AI 的颜色不是品牌，是应用的颜色」：amber/orange 的「AI 强调色」与 cryo teal 主色相撞是难看的根因——全套换 --primary token + teal-500 徽章习语后，面板与设置对话框第一次说应用的母语；amber 只留给警告（needsSetup）
+- 「一列表单不是编辑器」：供应商 Select + 字段堆叠 → 目录轨 + 分节表单（hpc-profiles 的布局方言），13 个供应商从下拉里的一行文字变成可扫读的目录（key 圆点 + 当前 Check）
+- 「data-variant 工具类不吃 h-auto」：Separator 的 vertical:h-full 靠特异度赢过一切普通高度类，不定高度父级下塌成 0px——`sm:h-auto!` 是唯一解；DOM 探针（offsetHeight）是这类静默塌缩的唯一证人
+- 产出：两文件纯样式重构（git diff 仅 classNames/JSX 结构/doc 注释），tsc 0 + eslint 0 + bench 111/0 + 52/0 + 活体几何六证；下一窗候选不变（真实供应商 key 活体验证等 t423 遗留清单）
+
+---
+Task ID: 427 (the user-ticket window; 427-a was the parallel styling lane this window spawned)
+Agent: main (Z.ai Code — user-ticket window, trace web-a2e5e4ff)
+Task: 用户工单 — ①WSL 桥接的本地 RELION 任务在服务重启/死亡时一起死掉——改成不死 ②每次重启后首次 log 加载很久（即使本地项目）③AI 面板与 LLM 设置界面打磨到与其他页面同等美观（427-a 车道完成，本窗验收）
+
+Work Log:
+- [死因解剖 — wsl-bridge 的会话枷锁] spawnTrackedRun 对桥接运行故意不 detached（win32 下 DETACHED_PROCESS 会让 wsl.exe 弹窗，nodejs/node#21825），而 wrapWslCommand 把 RELION 命令直接作为 `wsl.exe -e bash -c` 的脚本本体——命令与 wsl.exe 的会话绑死：服务重启/Ctrl-C/崩溃 → wsl.exe 亡 → WSL 拆会话 → 发行版侧整棵 mpirun/refine 树陪葬。POSIX 原生运行早已 detached+fd 直写而不死（worklog 有 9.44 Å 存活证词），死的只有 Windows 桥接这条道。
+- [修法 — THE IMMORTAL WRAPPER（relay 与 run 分家）] wrapWslCommand 的 logFiles 分支重铸为双层：outer bash（会话绑定，只是轮询哨兵的中继——活着时把真退出码原样中继给 host exit handler）+ inner bash（`setsid` 进自己的会话，发行版侧不朽；出生写 run.pid，EXIT trap 兜底写 run.exit——自然结束/cd 失败 111/任何显式 exit 全留哨兵，只有 SIGKILL 跳过，由 outer 的 kill -0 死亡监守兜成 137）。setsid 缺席时降级为旧会话绑定行为（退出码中继不损，只失不死性）。哨兵写 `.tmp`+mv 原子化；waits≥15 无 pid 无哨兵 → exit 125 有界失败（破工作目录不悬垂）。spawnTrackedRun 在 spawn 前同步 rmSync 陈旧哨兵（上一轮的 run.exit 不得给新一轮定谳）。
+- [重启后的真相 — reconcile 的桥接分支] reconcileRealJobs 在 recordIsCurrent 之后、!state.done 之前插入：①run.exit 已落 → exit handler 已死（服务死在 run 结束与中继之间）→ 代写记录（0 → collectOutputs / 非 0 → failureResult）+ auto-start downstream，落入既有 done 判词（completed/failed）；②哨兵未落 → wslTreeVerdict 缓存判定（run.pid 的 kill -0 发行版内探针，缺 pid 时 pgrep -f workdir 兜底）：活 → 与活 detached 子同契约（日志尾推进度），未知 → 本 tick 乐观 running + 后台暖探针（t346 法则：GET 绝不等 wsl.exe 往返），死 → 落回既有 interrupted/orphan 逻辑。isRunAlive 同判：暖判据为真时拒绝重跑（服务重启后重开门的双树之门关上；冷缓存本 tick 宽纵一次=旧行为无回归，下问起守）。
+- [bash 契约六证 — 沙箱活体] /home/z/tool-results/t427-wsl-wrapper-test.ts 以纯 bash 复刻 wsl.exe -e bash -c：①成功链 0 中继+哨兵+pid+日志 ②exit 7 中继+stderr 归位 ③不死性实锤——outer 被 SIGKILL 后树活、跑完全程、哨兵事后落 0、探针由活转死 ④破目录 15s 有界 125 ⑤inner 被 SIGKILL → 死亡监守 137 ⑥陈旧哨兵被新一轮清换。6/6 PASS。
+- [首 log 慢的三层修] ①log 路由的 remote-run 改为 remote 分支内 await import（本地日志不再为 7k 行 SSH 图付首访编译）②src/instrumentation.ts 注册 register()：boot 后台顺序暖 /api/jobs → 真实 job 的 /log → /api/projects → / → /api/ai/settings（Origin 头过 http-guard 同源门；4 次重试等 listener；180s 超时让首编译走完）——实测 `[warmup] boot routes precompiled: /api/jobs 200 · /log 404 · /api/projects 200 · / 200 · /api/ai/settings 200`，页面 10.6s 的编译在 boot 后台付清而非用户首访 ③getLogTail 增 stat 键控缓存（size+mtime 双文件，readRuns 同款契约）：完成态日志的 1.5s 轮询从 8MB 读+切分+hash 变两次 statSync；运行态日志每 tick size 增长天然 miss（version 短路语义不变——实测 `?since=` 答 {unchanged:true}，三次轮询 7-60ms）。
+- [踩坑 — 重启丢 TRUST_GATEWAY] 验收重启时先裸 nohup node next dev——浏览器经网关的轮询全线 403（host pin 拒绝网关名）。判因：旧实例由 scripts/dev-server.sh 启动，带 CRYOFLOW_TRUST_GATEWAY=1/DATABASE_URL/CRYOFLOW_DATA_DIR/NODE_OPTIONS 堆帽。按脚本重启后 /api/remote/connections、/api/projects、/api/system 全 200。教训：沙箱的 dev server 有自己的出生证明，重启必须走 scripts/dev-server.sh，不能裸启。
+- [验收 — 全链] tsc 0 错 + eslint（五个改动文件）0 错；t419 bench 111/0 + t420 bench 52/0（本窗 engine 改动后复跑）；agent-browser 活体：页面 0 console 错、AI 面板 teal 头像/双栏设置对话框几何取证（轨 204px + 分隔线 374px + 表单右侧并排 + 供应商切换 sk-ant-… 占位与文档链接随动）、Log tab 引擎日志渲染、390px 双弹层零溢出、footer 底贴 900/900；定妆 shots-t427/qa-01..08。
+- [诚实边界] ①桥接不死性在 Windows+WSL 真机上未活体验证（沙箱无 wsl.exe）——bash 契约六证 + reconcile 分支为纯文件读取/探针代码，风险集中在 shq 双层嵌套引号经 wsl.exe argv 解析（与旧结构同一条通道，旧结构已验证过一层嵌套）②pgrep -f 兜底可能被用户在发行版内的 tail -f 误中（哨兵路径终将纠偏）③暖启动对 next dev 生效（用户 README 的运行方式）；production 预编译只付四次自请求 ④VLM 视觉复核 429 限流（与 423/427-a 同款边界）。
+- [427-a 验收] 子车道两文件纯样式重构：fetchSeq/datalistId/防抖/save 体逐字节核对在场，bench 复跑双绿，并入本窗。
+
+Stage Summary:
+- **「中继不是运行」**：退出码中继（wsl.exe 活着时转发真码）与运行本体（setsid 的树）分家后，「服务死=任务死」的枷锁才断——中继死了哨兵还在说真话，重启的服务从 run.exit/run.pid 读回真相，而不是凭 host pid 的死亡宣布 interrupted
+- **「哨兵必须兜住每一种死法」**：EXIT trap 让自然退出/cd 失败/显式 exit 全部落码，SIGKILL 是唯一漏网——由中继的死亡监守（137）与 reconcile 的 interrupted 路径双保险；破到连哨兵都写不下的目录也要 15s 有界失败，不悬垂
+- **「首访慢是编译债，boot 是还债的时点」**：dev 模式的路由按需编译在用户首访时收账；register() 在 listener 起来前就被调，后台把热路由的编译债还清——用户看到的第一次就是热的那次
+- **「重启要走出生证明」**：沙箱 dev server 的环境变量（TRUST_GATEWAY/DB/DATA_DIR/堆帽）是启动脚本的一部分，裸重启=半残实例（403 风暴）
+- 产出：wsl-bridge 不朽包装 + engine 桥接判词/isRunAlive 守卫/哨兵清理 + log 路由懒加载 + instrumentation 暖启动 + getLogTail stat 缓存 + header AI 键换 teal + 427-a 双弹层重涂；下一窗从 Task 428 起编

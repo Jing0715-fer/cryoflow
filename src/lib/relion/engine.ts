@@ -371,6 +371,21 @@ export function isRunAlive(jobId: string): string | null {
   if (state && state.done === false && state.pid != null && pidAlive(state.pid)) {
     return `job is already running (pid ${state.pid})`;
   }
+  // t427 — WSL-bridged records: the host-side wsl.exe relay may be dead
+  // (service restart) while the setsid'd distro-side tree keeps running.
+  // The cached probe verdict closes the duplicate-spawn door that used to
+  // swing open exactly when the user restarted the service mid-run. A cold
+  // cache schedules a probe and stays permissive THIS once (the old
+  // behavior, no regression) — the verdict guards from the next ask on.
+  if (state && state.done === false) {
+    const verdict = wslTreeVerdict(state);
+    if (verdict === true) {
+      return "job is still running inside the WSL distro (its host relay died with the service restart) — Stop it first or wait for it to finish";
+    }
+    if (verdict == null) {
+      void probeWslTree(state); // warm the verdict for the next ask
+    }
+  }
   return null;
 }
 
@@ -429,6 +444,126 @@ function pidAlive(pid: number): boolean {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* t427: WSL-bridged run immortality — the distro-side truth          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A bridged run's record pid is the HOST-side wsl.exe relay. When the
+ * service restarts, that relay dies — but the distro-side tree (spawned
+ * under setsid by wrapWslCommand's immortal wrapper) keeps running, and
+ * its wrapper maintains the run.pid / run.exit pair inside the workdir.
+ * These helpers read that truth:
+ *
+ *   bridgedRunExit() — the run.exit sentinel: present once the wrapper
+ *                      exited (its EXIT trap writes every ending except
+ *                      SIGKILL). A restarted server finalizes from it.
+ *   wslTreeVerdict() — the CACHED verdict of a distro-side probe
+ *                      (kill -0 on run.pid, pgrep -f fallback when the
+ *                      pid file is absent). The probe itself is one
+ *                      wsl.exe round trip and NEVER blocks the request
+ *                      path: the sweep schedules it and reads the answer
+ *                      on the NEXT tick — the same law the remote SSH
+ *                      sweep follows (t346).
+ */
+const BRIDGED_CMD_RE = /^wsl(?: -d (\S+))? -- bash -c /;
+const wslProbeCache = new Map<string, { at: number; alive: boolean }>();
+const wslProbing = new Set<string>();
+const WSL_PROBE_TTL_MS = 10_000;
+
+/** Distro name of a bridged record (null = default distro; false = not a
+ * bridged record at all — stopRun uses the same shape). */
+function bridgedDistroOf(cmd: string | null | undefined): string | null | false {
+  if (!cmd) return false;
+  const m = cmd.match(BRIDGED_CMD_RE);
+  return m ? (m[1] ?? null) : false;
+}
+
+/** The run.exit sentinel's code, or null when absent/not a number. */
+function bridgedRunExit(workdir: string): number | null {
+  try {
+    const raw = readFileSync(path.join(workdir, "run.exit"), "utf8").trim();
+    if (!/^-?\d+$/.test(raw)) return null;
+    return parseInt(raw, 10);
+  } catch {
+    return null;
+  }
+}
+
+/** run.pid → the distro-side wrapper's pid (null when absent). */
+function readWslPid(workdir: string): number | null {
+  try {
+    const raw = readFileSync(path.join(workdir, "run.pid"), "utf8").trim();
+    if (!/^\d+$/.test(raw)) return null;
+    const pid = parseInt(raw, 10);
+    return pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Cached liveness verdict for the distro-side tree; null = unknown (no
+ * fresh probe — the caller should stay optimistic this tick and warm one). */
+function wslTreeVerdict(state: RunRecord): boolean | null {
+  const distro = bridgedDistroOf(state.cmd);
+  if (distro === false) return false;
+  const hit = wslProbeCache.get(`${distro ?? ""}|${state.workdir}`);
+  return hit && Date.now() - hit.at < WSL_PROBE_TTL_MS ? hit.alive : null;
+}
+
+/**
+ * Fire a distro-side probe in the background (never awaited on the request
+ * path). kill -0 on run.pid when present; pgrep -f on the translated workdir
+ * otherwise (old-scheme records / the spawn race window — the tree, if any,
+ * carries the workdir in its argv). The verdict lands in the cache for the
+ * NEXT sweep tick.
+ */
+function probeWslTree(state: RunRecord): void {
+  if (process.platform !== "win32") return;
+  const distro = bridgedDistroOf(state.cmd);
+  if (distro === false) return;
+  const key = `${distro ?? ""}|${state.workdir}`;
+  if (wslProbing.has(key)) return;
+  wslProbing.add(key);
+  void (async () => {
+    try {
+      const pid = readWslPid(state.workdir);
+      const base: string[] = [];
+      if (distro) base.push("-d", distro);
+      let alive = false;
+      if (pid != null) {
+        alive = await new Promise<boolean>((resolve) => {
+          execFile(
+            "wsl.exe",
+            [...base, "-e", "sh", "-c", `kill -0 ${pid} 2>/dev/null && echo alive`],
+            { timeout: 8000, windowsHide: true },
+            (err, stdout) => resolve(!err && String(stdout).trim() === "alive")
+          );
+        });
+      } else {
+        // no pid file: pgrep the workdir (matches the wrapper and every
+        // RELION rank — --o always embeds it). False positives are
+        // possible (a user's tail -f on run.out matches too); the
+        // sentinel path corrects the record at completion either way.
+        const pattern = hostToWsl(state.workdir);
+        alive = await new Promise<boolean>((resolve) => {
+          execFile(
+            "wsl.exe",
+            [...base, "-e", "pgrep", "-f", "--", pattern],
+            { timeout: 8000, windowsHide: true },
+            (err) => resolve(!err)
+          );
+        });
+      }
+      wslProbeCache.set(key, { at: Date.now(), alive });
+    } catch {
+      /* probe failures leave the cache cold — the next tick retries */
+    } finally {
+      wslProbing.delete(key);
+    }
+  })();
+}
+
 /**
  * Stop a job's live process tree (SIGTERM → grace → SIGKILL).
  *  - kills mpirun AND its ranks (a bare mpirun kill orphans the ranks)
@@ -454,7 +589,7 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
   // relying on detectRelion() here made stopping impossible exactly when
   // detection was stale/failed while the job kept running.
   const bridged =
-    state?.cmd?.match(/^wsl(?: -d (\S+))? -- bash -c /) ?? null;
+    state?.cmd?.match(BRIDGED_CMD_RE) ?? null;
   if (pid != null && state?.workdir && pidAlive(pid) && bridged) {
     const distro = bridged[1] ?? null;
     try {
@@ -8225,11 +8360,34 @@ function logVersionLocal(text: string, totalLines: number, truncated: boolean): 
  * page-cached, so the 1.5s live poll stays cheap).
  *
  * Tail mode (default): last 600 lines — cheap for live polling.
- * Full mode: the entire log. */
+ * Full mode: the entire log.
+ *
+ * t427 — stat-keyed compute cache: a COMPLETED job's log never moves, but
+ * the poll used to re-read + re-split + re-hash the whole ≤8MB window on
+ * every tick just to answer {unchanged:true}. Two statSync calls now serve
+ * the identical payload back (the mtime+size pair is the same contract
+ * readRuns and statcache speak). A RUNNING log grows every poll — its size
+ * changes, the key misses, the full compute runs exactly as before. */
+const logTailCache = new Map<string, { key: string; payload: LogPayload }>();
+const LOG_TAIL_CACHE_MAX = 32;
+
 export function getLogTail(jobId: string, opts?: { full?: boolean }): LogPayload | null {
   const state = readRuns()[jobId];
   if (!state) return null;
   const full = opts?.full === true;
+
+  // ---- cache probe: two stats instead of a full read -------------------
+  let cacheKey = "";
+  try {
+    const so = existsSync(state.logFile) ? statSync(state.logFile) : null;
+    const se = existsSync(state.errFile) ? statSync(state.errFile) : null;
+    cacheKey = `${so ? `${so.size}:${so.mtimeMs}` : "-"}|${se ? `${se.size}:${se.mtimeMs}` : "-"}|${full ? 1 : 0}`;
+    const hit = logTailCache.get(jobId);
+    if (hit && hit.key === cacheKey) return hit.payload;
+  } catch {
+    /* cache cold — compute below */
+  }
+
   const parts: string[] = [];
   let overCap = false;
   try {
@@ -8259,24 +8417,36 @@ export function getLogTail(jobId: string, opts?: { full?: boolean }): LogPayload
       });
   const allLines = collapse(text);
   const totalLines = allLines.length;
+  let payload: LogPayload;
   if (full) {
     const fullText = allLines.join("\n").slice(-8 * 1024 * 1024);
-    return {
+    payload = {
       text: fullText,
       totalLines,
       truncated: overCap,
       version: logVersionLocal(fullText, totalLines, overCap),
     };
+  } else {
+    const tailLines = allLines.slice(-600);
+    const tailText = tailLines.join("\n");
+    const truncated = totalLines > tailLines.length;
+    payload = {
+      text: tailText,
+      totalLines,
+      truncated,
+      version: logVersionLocal(tailText, totalLines, truncated),
+    };
   }
-  const tailLines = allLines.slice(-600);
-  const tailText = tailLines.join("\n");
-  const truncated = totalLines > tailLines.length;
-  return {
-    text: tailText,
-    totalLines,
-    truncated,
-    version: logVersionLocal(tailText, totalLines, truncated),
-  };
+  // ---- cache store (LRU by re-insertion) -------------------------------
+  if (cacheKey) {
+    if (logTailCache.size >= LOG_TAIL_CACHE_MAX && !logTailCache.has(jobId)) {
+      const oldest = logTailCache.keys().next().value;
+      if (oldest !== undefined) logTailCache.delete(oldest);
+    }
+    logTailCache.delete(jobId);
+    logTailCache.set(jobId, { key: cacheKey, payload });
+  }
+  return payload;
 }
 
 /* ------------------------------------------------------------------ */
@@ -8427,7 +8597,27 @@ function spawnTrackedRun(
     // through drvfs lands on the same Windows files the host reads) —
     // the spawn's own stdio is bypassed entirely because wsl.exe's
     // handle relay is unreliable in detached mode (Windows log fix).
-    const wrapped = wrapWslCommand(argv, projectDir, bridge, { out: logFile, err: errFile });
+    //
+    // t427 — plus the IMMORTALITY pair: run.pid (the distro-side
+    // wrapper's pid) and run.exit (its exit-code sentinel). Stale copies
+    // from an EARLIER run of this workdir are removed BEFORE the spawn —
+    // otherwise the new run could be finalized by the previous run's
+    // verdict the moment the relay dies.
+    const exitFile = path.join(workdir, "run.exit");
+    const pidFile = path.join(workdir, "run.pid");
+    for (const stale of [exitFile, `${exitFile}.tmp`, pidFile]) {
+      try {
+        rmSync(stale, { force: true });
+      } catch {
+        /* best effort */
+      }
+    }
+    const wrapped = wrapWslCommand(argv, projectDir, bridge, {
+      out: logFile,
+      err: errFile,
+      exit: exitFile,
+      pid: pidFile,
+    });
     file = wrapped.file;
     args = wrapped.args;
     env = { ...process.env };
@@ -9674,7 +9864,9 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
       out.push(job);
       continue;
     }
-    const state = runs[job.id];
+    // t427 — let: the bridged-sentinel path below swaps in the finalized
+    // record so the done-verdicts read the updated state
+    let state = runs[job.id];
     if (!state) {
       // No engine record: either the spawn race window (startJob flips the
       // DB to running seconds before the record lands) or a stale legacy
@@ -9755,6 +9947,73 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
       // written; keep reporting "running" until it lands
       out.push(job);
       continue;
+    }
+
+    // ---- t427: WSL-bridged records whose HOST relay died -----------------
+    // The recorded pid is the wsl.exe relay — dead after every service
+    // restart, even though the setsid'd distro-side tree kept running.
+    // The truth lives in the workdir: run.exit (the wrapper's final code)
+    // and the distro probe (wslTreeVerdict, warmed by probeWslTree).
+    if (!state.done) {
+      const distro = bridgedDistroOf(state.cmd);
+      if (distro !== false) {
+        const sentinel = bridgedRunExit(state.workdir);
+        if (sentinel != null) {
+          // The wrapper exited while no host exit handler lived (the
+          // service died between the run's end and its relay). Write the
+          // record the handler would have written, then fall through to
+          // the done-verdicts below (completed / failed + auto-start).
+          if (sentinel === 0) {
+            const collected = collectOutputs(job.type, state.workdir);
+            const result = collected.result;
+            updateRun(job.id, (rec) =>
+              rec.startedAt === state.startedAt
+                ? { ...rec, done: true, exitCode: 0, outputs: collected.outputs, result }
+                : null
+            );
+            state = { ...state, done: true, exitCode: 0, outputs: collected.outputs, result };
+          } else {
+            const result = failureResult(state, sentinel);
+            updateRun(job.id, (rec) =>
+              rec.startedAt === state.startedAt ? { ...rec, done: true, exitCode: sentinel, result } : null
+            );
+            state = { ...state, done: true, exitCode: sentinel, result };
+          }
+          void import("./dispatch")
+            .then((m) => m.autoStartPendingDownstream(job.id))
+            .catch((e) => console.error("engine: bridged-sentinel downstream auto-start failed:", e));
+        } else {
+          const verdict = wslTreeVerdict(state);
+          if (verdict === true) {
+            // the immortal tree still runs in the distro — same contract
+            // as a live detached child: progress from the log tail
+            const parsed = parseProgress(job.type, state.logFile, parseJobParams(job.params));
+            if (parsed != null) {
+              const next = Math.max(job.progress, parsed);
+              if (next !== job.progress) {
+                await db.job
+                  .updateMany({ where: { id: job.id, status: "running" }, data: { progress: next } })
+                  .catch(() => null);
+                out.push({ ...job, progress: next });
+                continue;
+              }
+            }
+            out.push(job);
+            continue;
+          }
+          if (verdict == null) {
+            // unknown yet — stay optimistic for THIS tick (the detached
+            // POSIX contract: a running row keeps running until evidence
+            // says otherwise) and warm the probe for the next sweep
+            void probeWslTree(state);
+            out.push(job);
+            continue;
+          }
+          // verdict === false → the tree is gone with no sentinel
+          // (SIGKILL / distro shutdown) → fall through to the
+          // interrupted / orphan logic below, as before
+        }
+      }
     }
 
     if (!state.done) {

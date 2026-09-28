@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findEffectiveJob } from "@/lib/link";
 import { getLogTail, getRun } from "@/lib/relion/engine";
-import { remoteLogTail } from "@/lib/remote/remote-run";
 import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +15,13 @@ type RouteContext = { params: Promise<{ id: string }> };
  *
  * REMOTE runs (record.remote): the log lives on the CLUSTER — the tail is
  * fetched over SSH on demand (same shape, always live).
+ *
+ * t427 — remote-run is imported LAZILY, inside the remote branch only:
+ * that module drags the whole SSH/HPC/sbatch graph (7k+ lines) into the
+ * route's compile, and in dev mode that compile is paid on the FIRST hit
+ * after every restart — the exact 「首次log加载需要很久」the user filed.
+ * Local logs (the common case) now compile a much smaller graph; the
+ * remote lane pays its import the first time it is actually used.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -45,6 +51,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // ---- remote branch: stream the tail from the cluster ---------------
     const rec = getRun(logId);
     if (rec?.remote) {
+      const { remoteLogTail } = await import("@/lib/remote/remote-run");
       const remote = await remoteLogTail(logId, { full });
       if (remote == null) {
         return NextResponse.json({ error: "No log (job has not run)" }, { status: 404 });

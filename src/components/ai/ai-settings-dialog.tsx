@@ -16,6 +16,13 @@
  *
  * The API key never echoes back (hasKey + ••••abcd hint only) — the same
  * secret contract the SSH connections registry has always spoken.
+ *
+ * t427 — the editor-grade restyle: the one-column form becomes the app's
+ * two-pane editor idiom (provider catalog rail on the left, config form on
+ * the right — the hpc-profiles dialog's layout), sections speak the
+ * micro-label + Separator header idiom, and the amber "AI accent" retires
+ * for the app's cryo teal. Same contract underneath: same fetches, same
+ * debounce auto-fetch, same save body.
  */
 
 import * as React from "react";
@@ -29,16 +36,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
 import type { AiProviderSummary, AiSettingsResponse, AiSettingsDto } from "@/lib/ai/types";
 
@@ -196,177 +198,282 @@ export function AiSettingsDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="no-print max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="no-print flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        {/* ---- header: title + the honest "current provider" status row ---- */}
+        <DialogHeader className="shrink-0 gap-2 border-b px-5 pt-5 pb-4 text-left sm:px-6">
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="size-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <Sparkles className="size-4 text-primary" aria-hidden="true" />
             AI 助手设置
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs leading-relaxed">
             选择供应商并填写 API key — 模型列表会自动获取。密钥只保存在本机 (data/ai-settings.json)。
           </DialogDescription>
+          {settings?.activeProvider && (
+            <div className="inline-flex max-w-full items-center gap-1.5 self-start rounded-full border border-primary/25 bg-primary/[0.06] px-2.5 py-1 text-[11px] text-muted-foreground">
+              <Check className="size-3 shrink-0 text-primary" aria-hidden="true" />
+              <span className="min-w-0 truncate">
+                当前使用：
+                <span className="font-medium text-foreground">
+                  {providers.find((p) => p.id === settings.activeProvider)?.label ??
+                    settings.activeProvider}
+                </span>
+                <span> · {settings.providers?.[settings.activeProvider]?.model}</span>
+              </span>
+            </div>
+          )}
         </DialogHeader>
 
-        {settings?.activeProvider && (
-          <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            当前使用：
-            <span className="ml-1 font-medium text-foreground">
-              {providers.find((p) => p.id === settings.activeProvider)?.label ??
-                settings.activeProvider}
-            </span>
-            <span className="ml-1">
-              · {settings.providers?.[settings.activeProvider]?.model}
-            </span>
-          </div>
-        )}
-
-        <div className="grid gap-4 py-1">
-          <div className="grid gap-1.5">
-            <Label htmlFor="ai-provider">供应商</Label>
-            <Select value={providerId} onValueChange={setProviderId}>
-              <SelectTrigger id="ai-provider" aria-label="AI provider">
-                <SelectValue placeholder="选择供应商" />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                {providers.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.label}
-                    {settings?.providers?.[p.id]?.hasKey ? " ·" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {provider && (
-              <p className="text-xs text-muted-foreground">
-                <a
-                  href={provider.docsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 underline-offset-2 hover:underline"
-                >
-                  获取 API key <ExternalLink className="size-3" aria-hidden="true" />
-                </a>
-              </p>
-            )}
-          </div>
-
-          {provider?.custom && (
-            <div className="grid gap-1.5">
-              <Label htmlFor="ai-baseurl">Base URL (OpenAI 兼容)</Label>
-              <Input
-                id="ai-baseurl"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="http://127.0.0.1:8000/v1"
-                autoComplete="off"
-                spellCheck={false}
-              />
+        {/* ---- the two-pane editor: catalog rail left, config right
+                (stacks on phones — the strip scrolls horizontally) ---- */}
+        <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+          {/* provider catalog — the hpc-profiles rail idiom on desktop,
+              a horizontal tile strip on phones */}
+          <div className="flex shrink-0 flex-col border-b sm:w-56 sm:border-b-0">
+            <div className="flex items-center justify-between px-4 pt-3.5 pb-2 sm:px-3">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                供应商
+              </h4>
+              <span className="text-[10px] text-muted-foreground/70">{providers.length}</span>
             </div>
-          )}
+            <div
+              className="nice-scroll flex gap-1.5 overflow-x-auto px-3 pb-3 sm:min-h-0 sm:flex-1 sm:flex-col sm:gap-1 sm:overflow-x-hidden sm:overflow-y-auto sm:px-2.5"
+              role="list"
+              aria-label="AI provider"
+            >
+              {providers.map((p) => (
+                <div key={p.id} role="listitem" className="shrink-0 sm:w-full">
+                  <button
+                    type="button"
+                    onClick={() => setProviderId(p.id)}
+                    aria-pressed={providerId === p.id}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors",
+                      providerId === p.id
+                        ? "border-primary/40 bg-primary/[0.06]"
+                        : "border-transparent hover:border-border hover:bg-muted/50"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold",
+                        providerId === p.id
+                          ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                      aria-hidden="true"
+                    >
+                      {p.label.charAt(0)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">{p.label}</span>
+                    {settings?.providers?.[p.id]?.hasKey ? (
+                      <span
+                        className="size-1.5 shrink-0 rounded-full bg-emerald-500"
+                        title="已保存 API key"
+                        aria-label="已保存 API key"
+                      />
+                    ) : null}
+                    {settings?.activeProvider === p.id ? (
+                      <Check className="size-3.5 shrink-0 text-primary" aria-label="当前使用" />
+                    ) : null}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
 
-          {provider && provider.needsKey && (
-            <div className="grid gap-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="ai-key">API Key</Label>
-                <span className="text-xs text-muted-foreground">{keyHint}</span>
+          {/* the pane divider — h-auto! (height:auto !important) is what
+              lets align-self:stretch actually fire: the Separator's own
+              data-[orientation=vertical]:h-full would otherwise resolve
+              against this dialog's content-driven height and collapse to 0 */}
+          <Separator orientation="vertical" className="hidden self-stretch sm:h-auto! sm:block" />
+
+          {/* the selected provider's config form */}
+          <div className="nice-scroll min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
+            {/* 供应商 — identity + the docs link */}
+            {provider && (
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    供应商
+                  </h4>
+                  <Separator className="flex-1" />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span
+                      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-semibold text-primary"
+                      aria-hidden="true"
+                    >
+                      {provider.label.charAt(0)}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium leading-tight">{provider.label}</p>
+                      <p className="truncate font-mono text-[10px] text-muted-foreground/80">
+                        {provider.id}
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={provider.docsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-primary/30 bg-primary/[0.06] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10"
+                  >
+                    获取 API key <ExternalLink className="size-3" aria-hidden="true" />
+                  </a>
+                </div>
               </div>
-              <div className="relative">
+            )}
+
+            {provider?.custom && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor="ai-baseurl"
+                    className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Base URL (OpenAI 兼容)
+                  </Label>
+                  <Separator className="flex-1" />
+                </div>
                 <Input
-                  id="ai-key"
-                  type={showKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={provider.keyHint}
+                  id="ai-baseurl"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="http://127.0.0.1:8000/v1"
                   autoComplete="off"
                   spellCheck={false}
-                  className="pr-9"
+                  className="h-8 text-xs"
                 />
-                <button
-                  type="button"
-                  aria-label={showKey ? "Hide the API key" : "Show the API key"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowKey((v) => !v)}
-                >
-                  {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                留空 = 保留已保存的密钥；填写后自动获取模型列表。
-              </p>
-            </div>
-          )}
-
-          <div className="grid gap-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="ai-model">对话模型</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-6 gap-1 px-2 text-xs"
-                onClick={() => void fetchModels()}
-                disabled={fetching || !providerId}
-                aria-label="Refresh the model list"
-              >
-                {fetching ? (
-                  <Loader2 className="size-3 animate-spin" aria-hidden="true" />
-                ) : (
-                  <RefreshCw className="size-3" aria-hidden="true" />
-                )}
-                刷新
-              </Button>
-            </div>
-            <Input
-              id="ai-model"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              list={datalistId}
-              placeholder={listModels[0] ?? "模型名"}
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <datalist id={datalistId}>
-              {listModels.slice(0, 200).map((m) => (
-                <option key={m} value={m} />
-              ))}
-            </datalist>
-            <p className="text-xs text-muted-foreground">
-              {fetching
-                ? "正在获取模型列表…"
-                : models.length > 0
-                  ? `已获取 ${models.length} 个模型${modelSource === "builtin" ? "（内置清单）" : ""}`
-                  : provider && !provider.needsKey
-                    ? "该供应商无需 API key"
-                    : "填写 API key 后自动获取，或手动输入模型名"}
-            </p>
-            {fetchError && (
-              <p className="text-xs text-rose-600 dark:text-rose-400" role="alert">
-                {fetchError}
-              </p>
             )}
-          </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="ai-vlm">视觉模型 (可选)</Label>
-            <Input
-              id="ai-vlm"
-              value={vlmModel}
-              onChange={(e) => setVlmModel(e.target.value)}
-              list={datalistId}
-              placeholder={
-                provider?.visionDefault ?? "默认使用对话模型（需支持图片输入）"
-              }
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <p className="text-xs text-muted-foreground">
-              用于 AI 分析 2D class 平均图 — 建议选支持视觉的模型
-              {provider?.visionDefault ? `（推荐 ${provider.visionDefault}）` : ""}。
-            </p>
+            {provider && provider.needsKey && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor="ai-key"
+                    className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    API Key
+                  </Label>
+                  <Separator className="flex-1" />
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{keyHint}</span>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="ai-key"
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={provider.keyHint}
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="h-8 pr-9 text-xs"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showKey ? "Hide the API key" : "Show the API key"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowKey((v) => !v)}
+                  >
+                    {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] leading-snug text-muted-foreground/80">
+                  留空 = 保留已保存的密钥；填写后自动获取模型列表。
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label
+                  htmlFor="ai-model"
+                  className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                  对话模型
+                </Label>
+                <Separator className="flex-1" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                  onClick={() => void fetchModels()}
+                  disabled={fetching || !providerId}
+                  aria-label="Refresh the model list"
+                >
+                  {fetching ? (
+                    <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <RefreshCw className="size-3" aria-hidden="true" />
+                  )}
+                  刷新
+                </Button>
+              </div>
+              <Input
+                id="ai-model"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                list={datalistId}
+                placeholder={listModels[0] ?? "模型名"}
+                autoComplete="off"
+                spellCheck={false}
+                className="h-8 text-xs"
+              />
+              <datalist id={datalistId}>
+                {listModels.slice(0, 200).map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+              <p className="text-[10px] leading-snug text-muted-foreground/80">
+                {fetching
+                  ? "正在获取模型列表…"
+                  : models.length > 0
+                    ? `已获取 ${models.length} 个模型${modelSource === "builtin" ? "（内置清单）" : ""}`
+                    : provider && !provider.needsKey
+                      ? "该供应商无需 API key"
+                      : "填写 API key 后自动获取，或手动输入模型名"}
+              </p>
+              {fetchError && (
+                <p className="text-xs text-rose-600 dark:text-rose-400" role="alert">
+                  {fetchError}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label
+                  htmlFor="ai-vlm"
+                  className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                  视觉模型 (可选)
+                </Label>
+                <Separator className="flex-1" />
+              </div>
+              <Input
+                id="ai-vlm"
+                value={vlmModel}
+                onChange={(e) => setVlmModel(e.target.value)}
+                list={datalistId}
+                placeholder={
+                  provider?.visionDefault ?? "默认使用对话模型（需支持图片输入）"
+                }
+                autoComplete="off"
+                spellCheck={false}
+                className="h-8 text-xs"
+              />
+              <p className="text-[10px] leading-snug text-muted-foreground/80">
+                用于 AI 分析 2D class 平均图 — 建议选支持视觉的模型
+                {provider?.visionDefault ? `（推荐 ${provider.visionDefault}）` : ""}。
+              </p>
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t px-5 py-3 sm:px-6">
           <Button variant="outline" onClick={() => setOpen(false)}>
             取消
           </Button>

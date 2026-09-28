@@ -52,6 +52,11 @@
  *    instead of sending) and respects the iOS safe-area inset.
  *  - Assistant markdown gets table/heading/blockquote styling (GFM content
  *    used to render as unstyled soup).
+ *
+ * t427 — the identity round: the amber "AI accent" is retired — the panel
+ * now wears the app's cryo teal (header tile, avatars, badges, chips, focus
+ * rings, busy dots). Only the needsSetup banner keeps amber: it IS a warning,
+ * and warnings are amber in this app.
  */
 
 import * as React from "react";
@@ -299,16 +304,11 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
     if (item.jobId) useWorkflowStore.getState().revealJob(item.jobId);
   }, [item.jobId]);
   return (
-    <div
-      className={cn(
-        "group overflow-hidden rounded-lg border bg-card text-xs shadow-sm transition-colors",
-        item.ok ? "hover:border-emerald-600/30" : "border-rose-600/30 hover:border-rose-600/50"
-      )}
-    >
+    <div className="group overflow-hidden rounded-lg border border-border bg-card text-xs shadow-sm transition-colors hover:border-primary/30 hover:bg-muted/30">
       <div className="flex items-stretch">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-start gap-2 px-2.5 py-2 text-left hover:bg-muted/40"
+          className="flex min-w-0 flex-1 items-start gap-2 px-2.5 py-2 text-left"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
         >
@@ -434,7 +434,7 @@ function FilterChip({
         active
           ? tone === "rose"
             ? "border-rose-600/40 bg-rose-500/10 text-rose-700 dark:text-rose-400"
-            : "border-amber-600/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+            : "border-teal-500/50 bg-teal-500/10 text-teal-600 dark:text-teal-400"
           : "border-transparent bg-secondary/60 text-muted-foreground hover:text-foreground"
       )}
     >
@@ -888,7 +888,7 @@ export function AssistantPanel() {
         role="listitem"
         className={cn(
           "group flex items-center gap-1 rounded-md border bg-card py-1 pl-2 pr-1 transition-colors",
-          s.id === sessionId ? "border-amber-600/40" : "hover:border-amber-600/30"
+          s.id === sessionId ? "border-primary/50" : "border-transparent hover:border-border"
         )}
       >
         {renamingId === s.id ? (
@@ -913,7 +913,7 @@ export function AssistantPanel() {
             maxLength={80}
             placeholder="命名这个对话（留空恢复原名）"
             aria-label="会话名称"
-            className="my-0.5 min-w-0 flex-1 rounded border border-amber-600/40 bg-background px-1.5 py-1 text-xs text-foreground outline-none focus-visible:border-amber-600/70"
+            className="my-0.5 min-w-0 flex-1 rounded border border-primary/40 bg-background px-1.5 py-1 text-xs text-foreground outline-none focus-visible:border-primary/70"
           />
         ) : (
           <button
@@ -927,7 +927,7 @@ export function AssistantPanel() {
               {s.id === sessionId && (
                 <Badge
                   variant="outline"
-                  className="h-4 shrink-0 rounded border-amber-600/40 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400"
+                  className="h-4 shrink-0 rounded border-teal-500/40 bg-teal-500/10 px-1 text-[9px] font-medium text-teal-700 dark:text-teal-400"
                 >
                   当前
                 </Badge>
@@ -941,7 +941,7 @@ export function AssistantPanel() {
                 {hit >= 0 ? (
                   <>
                     {display.slice(0, hit)}
-                    <span className="rounded-sm bg-amber-500/20 px-0.5 font-semibold text-foreground">
+                    <span className="rounded-sm bg-teal-500/20 px-0.5 font-semibold text-foreground">
                       {display.slice(hit, hit + qLen)}
                     </span>
                     {display.slice(hit + qLen)}
@@ -956,7 +956,7 @@ export function AssistantPanel() {
               <span aria-hidden="true">·</span>
               <span>{s.messageCount} 条消息</span>
               {s.toolCount > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-amber-700/80 dark:text-amber-400/80">
+                <span className="inline-flex items-center gap-0.5 text-teal-700/80 dark:text-teal-400/80">
                   <Wrench className="size-2.5" aria-hidden="true" />
                   {s.toolCount}
                 </span>
@@ -967,7 +967,7 @@ export function AssistantPanel() {
         {renamingId === s.id ? (
           <button
             type="button"
-            className="h-6 shrink-0 rounded-md border border-amber-600/40 px-1.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
+            className="h-6 shrink-0 rounded-md border border-rose-600/40 px-1.5 text-[10px] font-medium text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => void commitRename(s.id)}
           >
@@ -1071,9 +1071,9 @@ export function AssistantPanel() {
             top-4 right-4 with a 14px hit-slop (46px total reach). This
             panel's own buttons must live left of that zone or the close
             eats their clicks — the overlap this rework was born to fix. */}
-        <div className="flex items-center gap-2.5 border-b bg-gradient-to-r from-amber-500/[0.08] via-amber-500/[0.02] to-transparent px-4 py-3 pr-14">
+        <div className="flex items-center gap-2.5 border-b bg-gradient-to-r from-primary/[0.07] via-primary/[0.02] to-transparent px-4 py-3 pr-14">
           <div
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm"
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-sm"
             aria-hidden="true"
           >
             <Sparkles className="size-4.5" />
@@ -1084,7 +1084,7 @@ export function AssistantPanel() {
               {modelLabel && (
                 <Badge
                   variant="outline"
-                  className="hidden max-w-[170px] gap-1 truncate border-amber-600/30 bg-amber-500/[0.06] px-1.5 font-mono text-[10px] font-normal text-amber-700 sm:inline-flex dark:text-amber-400"
+                  className="hidden max-w-[170px] gap-1 truncate border-teal-500/40 bg-teal-500/10 px-1.5 font-mono text-[10px] font-normal text-teal-600 sm:inline-flex dark:text-teal-400"
                   title={modelLabel}
                 >
                   <Cpu className="size-2.5 shrink-0" aria-hidden="true" />
@@ -1137,7 +1137,7 @@ export function AssistantPanel() {
         {historyOpen && (
           <div className="border-b bg-muted/30 px-3 py-2">
             <div className="mb-1.5 flex items-center justify-between px-1">
-              <p className="text-[11px] font-medium text-muted-foreground">历史会话</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">历史会话</p>
               <span className="text-[10px] text-muted-foreground/70">
                 {searching
                   ? `${visibleSessions.length} / ${sessions.length} 个对话`
@@ -1173,7 +1173,7 @@ export function AssistantPanel() {
                   }}
                   placeholder="搜索对话…"
                   aria-label="搜索历史会话"
-                  className="h-6 w-full rounded-md border bg-background pl-7 pr-6 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:border-amber-600/50"
+                  className="h-6 w-full rounded-md border bg-background pl-7 pr-6 text-xs text-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:border-primary/50"
                 />
                 {searching && (
                   <button
@@ -1245,8 +1245,8 @@ export function AssistantPanel() {
           >
           {items.length === 0 && !busy && (
             <div className="flex flex-col items-center gap-4 pt-8 text-center">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/15 to-orange-500/10 ring-1 ring-amber-500/20">
-                <Bot className="size-7 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500/15 to-cyan-500/10 ring-1 ring-teal-500/25">
+                <Bot className="size-7 text-teal-600 dark:text-teal-400" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-sm font-medium">用一句话指挥整条流程</p>
@@ -1260,9 +1260,9 @@ export function AssistantPanel() {
                     key={s.text}
                     type="button"
                     onClick={() => void send(s.text)}
-                    className="group flex w-full items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left transition-all hover:border-amber-600/40 hover:bg-amber-500/[0.04] hover:shadow-sm"
+                    className="group flex w-full items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left transition-all hover:border-primary/40 hover:bg-primary/[0.04] hover:shadow-sm"
                   >
-                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <s.icon className="size-3.5" aria-hidden="true" />
                     </span>
                     <span className="text-xs leading-relaxed text-muted-foreground transition-colors group-hover:text-foreground">
@@ -1289,7 +1289,7 @@ export function AssistantPanel() {
             ) : item.kind === "assistant" ? (
               <div key={item.key} className="flex items-start gap-2.5">
                 <span
-                  className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm"
+                  className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-sm"
                   aria-hidden="true"
                 >
                   <Sparkles className="size-3" />
@@ -1308,21 +1308,21 @@ export function AssistantPanel() {
           {busy && (
             <div className="flex items-start gap-2.5" aria-live="polite">
               <span
-                className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm"
+                className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-sm"
                 aria-hidden="true"
               >
                 <Sparkles className="size-3" />
               </span>
               <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm bg-muted/50 px-3 py-2.5">
                 <span className="flex items-center gap-1" aria-hidden="true">
-                  <span className="size-1.5 animate-bounce rounded-full bg-amber-500/80 [animation-delay:-0.3s]" />
-                  <span className="size-1.5 animate-bounce rounded-full bg-amber-500/80 [animation-delay:-0.15s]" />
-                  <span className="size-1.5 animate-bounce rounded-full bg-amber-500/80" />
+                  <span className="size-1.5 animate-bounce rounded-full bg-primary/70 [animation-delay:-0.3s]" />
+                  <span className="size-1.5 animate-bounce rounded-full bg-primary/70 [animation-delay:-0.15s]" />
+                  <span className="size-1.5 animate-bounce rounded-full bg-primary/70" />
                 </span>
                 <span className="text-xs text-muted-foreground">{busyLabel}</span>
                 <Badge
                   variant="outline"
-                  className="gap-1 border-amber-600/30 px-1 text-[10px] font-normal text-amber-700 dark:text-amber-400"
+                  className="gap-1 border-teal-500/40 bg-teal-500/10 px-1 text-[10px] font-normal text-teal-600 dark:text-teal-400"
                 >
                   <Sparkles className="size-2.5" aria-hidden="true" />
                   AI
@@ -1383,14 +1383,14 @@ export function AssistantPanel() {
               <button
                 type="button"
                 onClick={() => void send(follow.text)}
-                className="mb-2 flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[11px] leading-relaxed text-muted-foreground transition-colors hover:border-amber-600/40 hover:bg-amber-500/[0.04] hover:text-foreground"
+                className="mb-2 flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[11px] leading-relaxed text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.04] hover:text-foreground"
               >
-                <FIcon className="size-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                <FIcon className="size-3 shrink-0 text-primary" aria-hidden="true" />
                 <span className="truncate">{follow.text}</span>
               </button>
             );
           })()}
-          <div className="relative rounded-xl border bg-muted/20 shadow-sm transition-colors focus-within:border-amber-500/40 focus-within:ring-2 focus-within:ring-amber-500/10">
+          <div className="relative rounded-xl border bg-muted/20 shadow-sm transition-colors focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10">
             <Textarea
               ref={inputRef}
               value={input}

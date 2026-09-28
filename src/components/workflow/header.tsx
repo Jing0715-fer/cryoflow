@@ -709,11 +709,13 @@ export function Header() {
             280 fold still fits — measured, not guessed. */}
         {/* t419 — the AI assistant door: always visible (icon-only under sm,
           * the same mobile law the palette trigger follows — a headline
-          * feature hides from nobody). */}
+          * feature hides from nobody). t427 — teal: the assistant's brand
+          * follows the app's cryo-teal identity (the panel was reworked
+          * to match in the same round). */}
         <Button
           variant="ghost"
           size="icon"
-          className="max-sm:px-2 text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+          className="max-sm:px-2 text-primary hover:text-primary/80"
           onClick={() => useWorkflowStore.getState().openAiAssistant()}
           aria-label="AI assistant"
           title="AI 助手 — 自然语言建流程 / 判 class"
