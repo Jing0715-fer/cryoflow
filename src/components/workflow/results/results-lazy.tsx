@@ -85,3 +85,9 @@ export const TopazTrainingChart = dynamic(
   () => import("./topaz-training-chart").then((m) => m.TopazTrainingChart),
   { ssr: false, loading: chartLoading }
 );
+// t439 — the CTF A/B dialog rides its own chunk (recharts scatter +
+// the compare brain stay out of the eager graph until the door opens)
+export const CtfCompareEntry = dynamic(
+  () => import("./ctf-compare-dialog").then((m) => m.CtfCompareEntry),
+  { ssr: false, loading: panelLoading }
+);

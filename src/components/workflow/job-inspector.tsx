@@ -145,6 +145,7 @@ import {
   ParticleBrowser,
   GuinierChart,
   TopazTrainingChart,
+  CtfCompareEntry,
 } from "./results/results-lazy";
 
 /* ------------------------------------------------------------------ */
@@ -2498,6 +2499,11 @@ function InspectorHeader({
             {/* third diff entry (Task 88): same-type sibling list — renders
              nothing when this run has no twin (guard mirrors the canvas) */}
             <SiblingComparePicker job={job} />
+            {/* t439 — the CTF A/B door: paired per-micrograph VERDICT
+             * between two completed runs (the params door answers "what
+             * did I change", this one answers "what did it do"). Renders
+             * nothing without a completed sibling or off the CTF face. */}
+            <CtfCompareEntry job={job} />
             {job.status !== "running" ? (
               <>
                 {/* t333 — the tooltip answers the file question in place:
