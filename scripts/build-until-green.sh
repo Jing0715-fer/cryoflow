@@ -12,6 +12,29 @@
 #         reaper to hunt.
 #   t404: grinders that outlive their process (heal-until-green.sh) beat
 #         one-shot attempts — a hard cap prevents true-failure infinite loops.
+#   t415: the kernel OOM line FLOATS with ambient load (killed at 3.48GB anon
+#         in one window, 2.9GB in another — chrome's QA session alone presses
+#         it ~340MB lower). Close agent-browser and stop dev servers BEFORE
+#         grinding; the same heap can live or die on the room it is given.
+#   t416: the heap sweet spot is a MEASURED band, not a constant —
+#         1280 = V8 abort (external memory ignores the heap cap; the compile
+#                live-set peaks ~1274MB and GC declares itself ineffective);
+#         1408/1536/1792 = kernel kill (total anon 3.25GB+ on a loaded box);
+#         1344 = the current dessert (abort line below, kernel line above,
+#                with GC-completion slack between).
+#         AND: warmth is the lever that gets page-data through — attempt-3's
+#         "✓ Compiled successfully" is the filesystem cache's first complete
+#         serialization; the NEXT warm attempt rides it past page-data. A
+#         grinder's product is not just the BUILD_ID but the foundation of
+#         the next run. Do not re-derive the band from scratch: trust 1344,
+#         and re-ladder only when the verdict changes (new pages, new deps).
+#   t417: on THIS sandbox even setsid/nohup background grinders die silently
+#         mid-attempt (the patrol reaps them; no rc, no verdict) — so the
+#         reliable lane is FOREGROUND rounds inside tool calls (each call
+#         ≤ 600s, one timeout-560 attempt per call, the filesystem cache
+#         carries progress between calls). And a BUILD_ID can be written
+#         BEFORE page-data completes: never treat its presence as green
+#         without .next/standalone existing beside it.
 #
 # Contract:
 #   - Idempotent across tool-call invocations: if .next/BUILD_ID exists the
@@ -32,6 +55,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 MAX_ATTEMPTS="${1:-10}"
+HEAP_MB="${HEAP_MB:-1344}"   # t416 dessert; 1280 aborts (V8), 1408+ risks the kernel line
 BUILD_ID=".next/BUILD_ID"
 LOG=".qa-logs/build-t406.log"
 mkdir -p .qa-logs
@@ -53,7 +77,7 @@ while [ "$attempt" -lt "$MAX_ATTEMPTS" ]; do
   echo "$(stamp) attempt $attempt/$MAX_ATTEMPTS" >> "$LOG"
   echo "$(stamp) attempt $attempt/$MAX_ATTEMPTS"
 
-  NODE_OPTIONS="--max-old-space-size=1280" \
+  NODE_OPTIONS="--max-old-space-size=${HEAP_MB}" \
   timeout 560 node node_modules/next/dist/bin/next build --webpack \
     >> "$LOG" 2>&1
   rc=$?

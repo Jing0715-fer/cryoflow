@@ -314,8 +314,17 @@ try {
     `the result sentence speaks the count ("${(doneD?.result ?? "").slice(0, 60)}")`
   );
 
-  // C5 — the record's outputs register the index; the star synced home
-  const recD = stateRuns()[jobD.id];
+  // C5 — the record's outputs register the index; the star synced home.
+  // POLL, don't assume: the status flip and the finalize legs (key-files
+  // sync home, outputs registration) are the same sweep's work but land
+  // across DB + state file — the completed sighting can beat the ledger
+  // (witnessed 2026-09-28: a rebuild shifted the timing and the bare read
+  // raced). Poll until the outputs key settles; fn must be async (the
+  // helper does fn().catch — a sync null crashes on .catch).
+  const recD = await pollUntil(async () => {
+    const r = stateRuns()[jobD.id];
+    return r?.outputs?.micrographs_star ? r : null;
+  }, 20_000, 500) ?? stateRuns()[jobD.id];
   const outStar = recD?.outputs?.micrographs_star ?? "";
   must(
     !!outStar && /denoised_micrographs\.star$/.test(outStar),

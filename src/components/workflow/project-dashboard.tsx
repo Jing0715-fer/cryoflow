@@ -2651,8 +2651,10 @@ export function ProjectDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete “{deleteTarget?.name ?? ""}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the project with all of its jobs, connections and saved
-              parameters. This action cannot be undone.
+              This removes the project with all of its jobs, connections and
+              saved parameters — including every job workdir on this machine
+              and its mirrors on any cluster the project ran against. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
