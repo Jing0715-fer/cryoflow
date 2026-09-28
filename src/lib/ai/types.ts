@@ -108,6 +108,9 @@ export interface AiSessionDto {
   projectId: string;
   createdAt: number;
   updatedAt: number;
+  /** t428 — the user's name for this conversation (null = unnamed; the
+   * drawer falls back to the first-user-message preview). */
+  title: string | null;
   messages: AiMessage[];
 }
 
@@ -125,6 +128,8 @@ export interface AiSessionSummaryDto {
   /** Tool calls across the session — the "this chat did real work" signal. */
   toolCount: number;
   preview: string;
+  /** t428 — the user's rename (null = the preview is the display name). */
+  title: string | null;
 }
 
 /* ------------------------------------------------------------------ */

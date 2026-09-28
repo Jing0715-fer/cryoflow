@@ -32,6 +32,8 @@ const MAX_SESSIONS = 20;
 /** A single user message can never drive an unbounded tool spiral. */
 const MAX_TOOL_CALLS_PER_SESSION = 80;
 const MAX_MESSAGE_CHARS = 24_000;
+/** t428 — the user's rename is a bookmark, not a novel. */
+export const MAX_SESSION_TITLE_CHARS = 80;
 
 function sanitizeMessage(m: AiMessage): AiMessage | null {
   if (m.role === "user" || m.role === "assistant") {
@@ -80,6 +82,10 @@ export function loadSessions(): AiSession[] {
             projectId: typeof s.projectId === "string" ? s.projectId : "",
             createdAt: Number.isFinite(s.createdAt) ? s.createdAt : Date.now(),
             updatedAt: Number.isFinite(s.updatedAt) ? s.updatedAt : Date.now(),
+            title:
+              typeof s.title === "string" && s.title.trim()
+                ? s.title.trim().slice(0, MAX_SESSION_TITLE_CHARS)
+                : null,
             messages,
           });
         }
@@ -130,6 +136,7 @@ export function listSessionSummaries(projectId: string): AiSessionSummaryDto[] {
       messageCount: s.messages.length,
       toolCount,
       preview: firstUser ? firstUser.content.slice(0, 96) : "(no user message)",
+      title: s.title,
     });
   }
   return out.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -141,6 +148,7 @@ export function createSession(projectId: string): AiSession {
     projectId,
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    title: null,
     messages: [],
   };
   const sessions = loadSessions();
@@ -164,6 +172,25 @@ export function deleteSession(id: string): boolean {
   if (next.length === sessions.length) return false;
   writeSessions(next);
   return true;
+}
+
+/**
+ * t428 — the drawer's rename door. Deliberately NOT saveSession: a rename
+ * must not bump updatedAt, or every rename floats the conversation to the
+ * top of the newest-first drawer and destroys the chronological signal.
+ * Empty/whitespace title clears the rename (back to the preview name).
+ * The result is discriminated — ok:false is ONLY "unknown session",
+ * ok:true with title:null is a cleared rename (the two nulls must never
+ * blur, or clearing a title reads as a 404).
+ */
+export function renameSession(id: string, rawTitle: string): { ok: boolean; title: string | null } {
+  const sessions = loadSessions();
+  const session = sessions.find((s) => s.id === id);
+  if (!session) return { ok: false, title: null };
+  const title = rawTitle.trim().slice(0, MAX_SESSION_TITLE_CHARS);
+  session.title = title.length > 0 ? title : null;
+  writeSessions(sessions);
+  return { ok: true, title: session.title };
 }
 
 /* ------------------------------------------------------------------ */

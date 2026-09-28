@@ -13,14 +13,24 @@
  *      answers the honest empty
  *   D. the local gate: a cross-site request is refused
  *
- * Run: DATABASE_URL=file:$ROOT/db/cryoflow.db CRYOFLOW_DATA_DIR=$ROOT/data \
- *      bun scripts/t427-autopick-picks-bench.ts
+ * Run: bun scripts/t427-autopick-picks-bench.ts   (self-pins the repo DB;
+ *      CRYOFLOW_DB / CRYOFLOW_DATA_DIR still override)
  */
 
-import { NextRequest } from "next/server";
 import { existsSync } from "fs";
 import path from "path";
-import { GET } from "../src/app/api/jobs/[id]/picks/route";
+
+// Self-pin the world BEFORE any src import (prisma snapshots DATABASE_URL
+// at client construction). t428 lesson: an inherited shell env — start.sh's
+// documented boot write of db/custom.db — silently retargeted this bench
+// to an empty DB and every lookup answered "not found" while the live app
+// stayed healthy. The bench owns its world now, like reboot-recover step 1.
+const ROOT = process.cwd();
+process.env.DATABASE_URL = process.env.CRYOFLOW_DB ?? `file:${path.join(ROOT, "db", "cryoflow.db")}`;
+process.env.CRYOFLOW_DATA_DIR = process.env.CRYOFLOW_DATA_DIR ?? path.join(ROOT, "data");
+
+const { NextRequest } = await import("next/server");
+const { GET } = await import("../src/app/api/jobs/[id]/picks/route");
 
 let pass = 0;
 let fail = 0;
@@ -34,12 +44,11 @@ function ok(cond: boolean, label: string) {
   }
 }
 
-const ROOT = process.cwd();
 const AUTO_ID = process.env.T427_AUTO_JOB ?? "cmukrkgjn000crjobud2kzmms";
 const IMPORT_ID = process.env.T427_IMPORT_JOB ?? "cmukrk2z00002rjob254ps15r";
 const POST_ID = process.env.T427_POST_JOB ?? "cmukrkglx000yrjobf05kmjc8";
 
-function reqFor(jobId: string, crossSite = false): NextRequest {
+function reqFor(jobId: string, crossSite = false): InstanceType<typeof NextRequest> {
   const url = `http://localhost:3000/api/jobs/${jobId}/picks`;
   const headers: Record<string, string> = crossSite
     ? { origin: "https://evil.example", host: "evil.example" }

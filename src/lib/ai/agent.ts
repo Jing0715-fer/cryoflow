@@ -24,6 +24,7 @@ import {
   getSession,
   latestSessionForProject,
   listSessionSummaries,
+  renameSession,
   saveSession,
   toolCallsUsed,
   turnsSinceLastUser,
@@ -285,4 +286,25 @@ export async function deleteSessionForActiveProject(id: string): Promise<{
     return { ok: false, error: "Session not found." };
   }
   return { ok: deleteSession(id) };
+}
+
+/**
+ * t428 — rename one session under the same pinning law as fetch/delete.
+ * Returns the normalized title (null = unnamed) so the route echoes what
+ * actually landed; the caller distinguishes "unknown session" from
+ * "cleared title" via ok.
+ */
+export async function renameSessionForActiveProject(
+  id: string,
+  rawTitle: string
+): Promise<{ ok: boolean; title: string | null; error?: string }> {
+  const active = await getActiveProject();
+  if (!active) return { ok: false, title: null, error: "No active project." };
+  const session = getSession(id);
+  if (!session || session.projectId !== active.project.id) {
+    return { ok: false, title: null, error: "Session not found." };
+  }
+  const renamed = renameSession(id, rawTitle);
+  if (!renamed.ok) return { ok: false, title: null, error: "Session not found." };
+  return { ok: true, title: renamed.title };
 }

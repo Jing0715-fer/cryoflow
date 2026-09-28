@@ -70,6 +70,7 @@ import {
   Filter,
   History,
   Hourglass,
+  Download,
   LayoutDashboard,
   Link2,
   ListTree,
@@ -496,6 +497,10 @@ export function AssistantPanel() {
   const [armedDelete, setArmedDelete] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<"all" | "tools" | "fails">("all");
   const [showJump, setShowJump] = React.useState(false);
+  // ---- t428: the drawer's rename door (one row edits at a time) --------
+  const [renamingId, setRenamingId] = React.useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = React.useState("");
+  const renameInputRef = React.useRef<HTMLInputElement>(null);
   // the live canvas census — the follow-up chip's datasource (jobs refresh
   // with every poll tick, so the chip tracks reality, not a snapshot)
   const jobs = useWorkflowStore((s) => s.jobs);
@@ -621,6 +626,7 @@ export function AssistantPanel() {
     const next = !historyOpen;
     setHistoryOpen(next);
     setArmedDelete(null);
+    setRenamingId(null);
     if (next) void loadSessions();
   }
 
@@ -670,6 +676,73 @@ export function AssistantPanel() {
       }
     } catch {
       /* best-effort */
+    }
+  }
+
+  // ---- t428: the drawer's rename + export doors -------------------------
+  function beginRename(s: AiSessionSummaryDto) {
+    setArmedDelete(null);
+    setRenamingId(s.id);
+    setRenameDraft(s.title ?? "");
+    // the input mounts on the next render — focus it there
+    requestAnimationFrame(() => renameInputRef.current?.select());
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameDraft("");
+  }
+
+  async function commitRename(id: string) {
+    const draft = renameDraft;
+    setRenamingId(null);
+    setRenameDraft("");
+    // unchanged draft → no round-trip (the drawer row never flickers)
+    const current = sessions.find((s) => s.id === id);
+    if (current && (current.title ?? "") === draft.trim()) return;
+    try {
+      const res = await fetch(`/api/ai/sessions/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: draft }),
+      });
+      if (!res.ok) {
+        toast.error("重命名失败 — 会话可能已被删除");
+        return;
+      }
+      const data = (await res.json()) as { ok: boolean; title: string | null };
+      setSessions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, title: data.title } : s))
+      );
+    } catch {
+      toast.error("重命名失败 — 网络不可达");
+    }
+  }
+
+  async function exportSession(id: string) {
+    try {
+      const res = await fetch(`/api/ai/sessions/${id}?format=md`);
+      if (!res.ok) {
+        toast.error("导出失败 — 会话可能已被删除");
+        return;
+      }
+      const blob = await res.blob();
+      // Content-Disposition carries the server's canonical ASCII name;
+      // anything else (proxy stripping) falls back to a dated name.
+      const cd = res.headers.get("content-disposition") ?? "";
+      const match = /filename="([^"]+)"/.exec(cd);
+      const filename = match?.[1] ?? `ai-session-${new Date().toISOString().slice(0, 10)}.md`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("已导出 Markdown 会话记录");
+    } catch {
+      toast.error("导出失败 — 网络不可达");
     }
   }
 
@@ -883,55 +956,122 @@ export function AssistantPanel() {
                       s.id === sessionId ? "border-amber-600/40" : "hover:border-amber-600/30"
                     )}
                   >
-                    <button
-                      type="button"
-                      className="min-w-0 flex-1 text-left disabled:opacity-50"
-                      onClick={() => void switchSession(s.id)}
-                      disabled={busy}
-                      title={s.preview}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        {s.id === sessionId && (
-                          <Badge
-                            variant="outline"
-                            className="h-4 shrink-0 rounded border-amber-600/40 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400"
-                          >
-                            当前
-                          </Badge>
-                        )}
-                        <span className="truncate text-xs text-foreground">{s.preview}</span>
-                      </span>
-                      <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                        <span>{fmtRel(s.updatedAt)}</span>
-                        <span aria-hidden="true">·</span>
-                        <span>{s.messageCount} 条消息</span>
-                        {s.toolCount > 0 && (
-                          <span className="inline-flex items-center gap-0.5 text-amber-700/80 dark:text-amber-400/80">
-                            <Wrench className="size-2.5" aria-hidden="true" />
-                            {s.toolCount}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                    {armedDelete === s.id ? (
+                    {renamingId === s.id ? (
+                      // t428: the inline rename editor — Enter commits
+                      // (IME-composition Enter never fires mid-word), Esc
+                      // cancels, blur commits; one row edits at a time.
+                      <input
+                        ref={renameInputRef}
+                        value={renameDraft}
+                        onChange={(e) => setRenameDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            if (e.nativeEvent.isComposing) return;
+                            e.preventDefault();
+                            void commitRename(s.id);
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelRename();
+                          }
+                        }}
+                        onBlur={() => void commitRename(s.id)}
+                        maxLength={80}
+                        placeholder="命名这个对话（留空恢复原名）"
+                        aria-label="会话名称"
+                        className="my-0.5 min-w-0 flex-1 rounded border border-amber-600/40 bg-background px-1.5 py-1 text-xs text-foreground outline-none focus-visible:border-amber-600/70"
+                      />
+                    ) : (
                       <button
                         type="button"
-                        className="h-6 shrink-0 rounded-md border border-rose-600/40 px-1.5 text-[10px] font-medium text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
-                        onClick={() => void removeSession(s.id)}
+                        className="min-w-0 flex-1 text-left disabled:opacity-50"
+                        onClick={() => void switchSession(s.id)}
+                        disabled={busy}
+                        title={s.title ? `${s.title}（原文：${s.preview}）` : s.preview}
                       >
-                        确认
+                        <span className="flex items-center gap-1.5">
+                          {s.id === sessionId && (
+                            <Badge
+                              variant="outline"
+                              className="h-4 shrink-0 rounded border-amber-600/40 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400"
+                            >
+                              当前
+                            </Badge>
+                          )}
+                          <span
+                            className={cn(
+                              "truncate text-xs",
+                              s.title ? "font-medium text-foreground" : "text-foreground"
+                            )}
+                          >
+                            {s.title ?? s.preview}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <span>{fmtRel(s.updatedAt)}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{s.messageCount} 条消息</span>
+                          {s.toolCount > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-amber-700/80 dark:text-amber-400/80">
+                              <Wrench className="size-2.5" aria-hidden="true" />
+                              {s.toolCount}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    )}
+                    {renamingId === s.id ? (
+                      <button
+                        type="button"
+                        className="h-6 shrink-0 rounded-md border border-amber-600/40 px-1.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => void commitRename(s.id)}
+                      >
+                        保存
                       </button>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-rose-600 focus-visible:opacity-100 group-hover:opacity-100"
-                        onClick={() => armDelete(s.id)}
-                        aria-label={`删除会话：${s.preview.slice(0, 20)}`}
-                        disabled={busy}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
+                      <>
+                        {armedDelete === s.id ? (
+                          <button
+                            type="button"
+                            className="h-6 shrink-0 rounded-md border border-rose-600/40 px-1.5 text-[10px] font-medium text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
+                            onClick={() => void removeSession(s.id)}
+                          >
+                            确认
+                          </button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-rose-600 focus-visible:opacity-100 group-hover:opacity-100"
+                            onClick={() => armDelete(s.id)}
+                            aria-label={`删除会话：${(s.title ?? s.preview).slice(0, 20)}`}
+                            disabled={busy}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                          onClick={() => beginRename(s)}
+                          aria-label={`重命名会话：${(s.title ?? s.preview).slice(0, 20)}`}
+                          disabled={busy}
+                          title="重命名"
+                        >
+                          <PenLine className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                          onClick={() => void exportSession(s.id)}
+                          aria-label={`导出会话 Markdown：${(s.title ?? s.preview).slice(0, 20)}`}
+                          title="导出 Markdown"
+                        >
+                          <Download className="size-3.5" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 ))
