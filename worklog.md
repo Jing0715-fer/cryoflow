@@ -4843,3 +4843,25 @@ Work Log:
 ### Task 433 补研段（同窗追加）
 - [provenance 对齐] 收官提交（17b4c86）后照家族先例补研：FRESH 研磨 attempt 6 绿（attempt 1-5 rc=137 连击——收割线仍拥挤，暖 cache 教义走到绿）→ reboot-recover 十步 WORLD ALIVE → .next/.built-at-commit = 17b4c86 = HEAD = origin/main 三方逐字节一致。
 - [最终态] HEAD = origin/main = 17b4c86；世界 200 运行同戳 build；jobs 15 全 completed、sessions 0、AI settings pristine、mock 集群 :3022 在听、mock LLM 停、浏览器净场、mic_003 复原在盘。下一窗从 Task 434 起编。GitHub PAT 撤销确认第二十三次提醒（本窗 push 正常）。
+
+---
+Task ID: 434 (cron agent loop 202609290151)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 433 完整收官 + 补研段（HEAD = 57cc46f = origin/main，树净；代码戳 17b4c86）。表面健康：app 200（bun 12842）、15/15 全 completed、mock 集群 :3022 在听、build 戳 17b4c86。第二十五份过时 Task 13 指引照例核账——本轮全部六项正式退役：#5 fs/browse 鉴权（isLocalRequest 在位，t251 姊妹封闭）、#7 chart 热路径（cachedFileCompute stat 键缓存在位）、#8 particles BFS（批量分层 BFS 在位）——旧遗留清单自此清零。自号 434。
+- [QA — 世界表面活、客户体已死] landing 卡死「Loading CryoFlow…」永不 hydrate。取证：GET /_next/static/chunks/webpack-e0c48c9d094ec959.js → **500**——而磁盘上只有 webpack-1e0c2d90812f793b.js，e0c48c 全盘不存在。时间线定谳（UTC）：17:30:43 reboot-recover 启动服务器（build A 进内存）→ 17:46:38 某物原地重研 build B（同源同戳 17b4c86——t433 收官段「三连静默死亡」的研磨器没死透，晚到 16 分钟完工）→ 服务器内存 manifest 仍指 build A → 磁盘已无其 chunk → 500 → 客户端死。**SSR 200 ≠ hydrated**：t433 补研段的「WORLD ALIVE」与冒烟恰在 17:30-17:46 窗口内通过，被随后的僵尸研磨器拆台。
+- [系统缺口一 — step 5 的 cmdline 盲区] reboot-recover 的「already speaks the prod standalone」分支只认 cmdline——撕裂世界跑原剧本会原样穿透：step 4 重研换磁盘、step 5 跳过重启、撕裂永续。修法 = standalone_current()：/proc/<pid> mtime（=进程出生，秒级）对比 .next/BUILD_ID mtime（=build 出生）；服务器先于 build → 走接管路径杀旧启新。
+- [系统缺口二 — verify 的 200 盲区] step 10 只 curl / 200（SSR 判决）。修法 = 10.5 hydration probe：从服务 HTML 提取 /_next/static/*.js 引用 → curl 必须 200——「HTML 点名的 build，磁盘必须应答」。撕裂态 exit 1 且指路 RE-RUN（step 5 新律自动修复）。
+- [自捕自修] 首版编辑把 kill 块留在 elif 分支内——「predates build」分支只喊 restarting 不真杀 → 新进程 EADDRINUSE → 撕裂永续。收读回读当场捕获，kill+start 提为三场景共用路径。
+- [验证 — 三跑一演习] ①修复跑：provenance stale（17b4c86 vs 57cc46f docs 差）→ 重研绿 → **step 5 演习真火**（「standalone (pid 12842) predates the on-disk build — the grinder outlived the boot — restarting」）→ **step 10 hydration probe：webpack-1e0c2d…js → 200**（刚才 500 的同一 chunk）→ WORLD ALIVE + hydration probe green ②撕裂演习双向：搬走 HTML 引用的 chunk → 探针 500（exit 1 路径）→ 复原 → 200 ③幂等体检两跑：全 skip + probe green（「born after the on-disk build」skip 分支在场）——剧本灵魂无损。
+- [活体复验] agent-browser：landing 满血（banner/tabs/项目选择器全体在场）、dashboard 15 COMPLETED 满铺、console 全程 0 错。定妆 .qa-logs/t434-{landing,canvas-hydrated,dashboard}.png。
+- [诚实边界] ①僵尸研磨器本体未活捉（完工即退场，无进程可杀）——根因叙事系时间戳 forensic 推断，17:46 完工的完整 build（含 .built-at-commit 戳）为铁证 ②t433 补研段的操作顺序（reboot 后再磨）无法回溯重演，教训已固化进脚本而非流程倡议：现在无论谁在 reboot 后补磨，下次 reboot-recover 必被 hydration probe 拦住 ③静止 chunk 的 500 而非 404 是 Next standalone 行为，非本项目代码 ④重研跑期间旧服务器带撕裂服务 ~2 分钟（修复窗口可接受）。
+- [最终态] HEAD 含 t434 交付（本 commit）；世界 200 运行收敛 build（build C，provenance 57cc46f = HEAD）；jobs 15 全 completed、sessions 0、mock 集群 :3022 在听、浏览器净场。下一窗从 Task 435 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第二十四次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻在位）③「grinder 防撕裂锁」（研磨器启动时检测 :3000 standalone 并在其后拒绝完工写入——本窗只封了检测端，源头端可再进一步）。
+
+Stage Summary:
+- **「SSR 200 是服务器的心跳，不是应用的生命」**：standalone 从内存里说一个 build，磁盘上躺另一个 build，/ 照样 200——HTML 点名的每个 chunk 才是客户端的命门；hydration probe 把「HTML 引用 → 磁盘应答 200」钉进 WORLD ALIVE 的定义
+- **「进程有出生，build 有出生，比它们的大小」**：cmdline 只能回答「你是谁」，回答不了「你多老」；/proc mtime vs BUILD_ID mtime 是服务器-磁盘时差的第一证人——研磨器活得比 boot 长，是本世界的常态而非事故
+- **「recovery 脚本自身也会引入 bug」**：kill 块缩进错了分支，撕裂修复变成撕裂保留——bash -n 查不出语义，收读 + 真跑才查得出；自捕自修发生在同一个窗内
+- 产出：reboot-recover.sh 双升级（step 5 stale-standalone 接管 + step 10.5 hydration probe）+ 撕裂世界现场修复 + 三跑一演习全绿；下一窗候选：grinder 防撕裂锁（源头端封杀）

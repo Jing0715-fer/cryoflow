@@ -45,10 +45,15 @@
 #                     (via .zscripts/dev.sh) is doomed weight on this box.
 #                     Takeover: stop any dev watchdog first (it would
 #                     resurrect the doomed lane), kill any :3000 listener
-#                     that is NOT our standalone server, start the
-#                     standalone as an orphaned child (the launch.sh trick:
-#                     the parent exits, the server re-parents to init, the
-#                     reaper leaves it alone).
+#                     that is NOT our standalone server — or a standalone
+#                     born BEFORE the on-disk build (t434: a grinder that
+#                     outlives the boot rewrites .next in place while the
+#                     running server still serves its ORIGINAL build from
+#                     memory; SSR stays 200, every referenced chunk 500s,
+#                     the client never hydrates) — start the standalone as
+#                     an orphaned child (the launch.sh trick: the parent
+#                     exits, the server re-parents to init, the reaper
+#                     leaves it alone).
 #   6. SEED           GET /api/project seeds the 3-node starter when the DB
 #                     is empty (the product's own door, zero guessing).
 #   7. MOCK CLUSTER   the engine's CLI lane needs the listener on 3022.
@@ -60,7 +65,11 @@
 #                     ADVANCES — t417 needed two passes). Budget-capped;
 #                     exit 43 = the budget hit mid-chain, re-run.
 #  10. VERIFY         probe every connection once more (covers the one the
-#                     healer just created), then speak the world's state.
+#                     healer just created), then the HYDRATION PROBE
+#                     (t434): "200 on /" is an SSR verdict only — extract a
+#                     static chunk URL from the served HTML and demand a
+#                     200 for it, closing the memory-vs-disk tear class.
+#                     Then speak the world's state.
 #
 # EVERY STEP IS GATED: on a living world this script is a ~1-minute no-op
 # health pass (db push compare, gates skip, the chain re-verifies its
@@ -233,12 +242,30 @@ if pgrep -f dev-server-watchdog.sh >/dev/null 2>&1; then
 fi
 code="$(api_code "$ORIGIN/" || true)"
 lpid="$(ss -tlnp 2>/dev/null | grep ':3000 ' | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -1)"
-if [ "$code" != "000" ] && [ -n "$lpid" ] \
-   && tr '\0' ' ' < "/proc/$lpid/cmdline" 2>/dev/null | grep -q 'standalone/server.js'; then
-  say "5. :3000 already speaks the prod standalone (pid $lpid)"
+# t434's live tear law: cmdline alone cannot see a stale standalone — a
+# server can speak the prod lane AND still be born before the on-disk build.
+# /proc/<pid> mtime IS the process's birth (seconds resolution); .next/BUILD_ID's
+# mtime is the build's. Older server than build = the grinder outlived the boot.
+standalone_current() {
+  [ "$code" != "000" ] && [ -n "$lpid" ] \
+    && tr '\0' ' ' < "/proc/$lpid/cmdline" 2>/dev/null | grep -q 'standalone/server.js' || return 1
+  bt="$(stat -c %Y .next/BUILD_ID 2>/dev/null || echo 0)"
+  pt="$(stat -c %Y "/proc/$lpid" 2>/dev/null || echo 0)"
+  [ "$pt" -ge "$bt" ]
+}
+if standalone_current; then
+  say "5. :3000 already speaks the prod standalone (pid $lpid), born after the on-disk build"
 else
-  if [ "$code" != "000" ] || [ -n "$(ss -ltn 2>/dev/null | grep ':3000 ')" ]; then
+  # WHY we are here: a stale standalone, a foreign lane, or a free port —
+  # classify loudly, then the kill+start below is COMMON to all three.
+  if [ "$code" != "000" ] && [ -n "$lpid" ] \
+     && tr '\0' ' ' < "/proc/$lpid/cmdline" 2>/dev/null | grep -q 'standalone/server.js'; then
+    say "5. standalone (pid $lpid) predates the on-disk build — the grinder outlived the boot"
+    say "   (t434's live tear: memory speaks the OLD build, disk holds a NEW one) — restarting"
+  elif [ "$code" != "000" ] || [ -n "$(ss -ltn 2>/dev/null | grep ':3000 ')" ]; then
     say "5. :3000 held by a non-standalone lane (pid ${lpid:-?}) — takeover (t417: dev lane OOM-loops here)"
+  fi
+  if [ "$code" != "000" ] || [ -n "$(ss -ltn 2>/dev/null | grep ':3000 ')" ]; then
     if [ -n "$lpid" ]; then
       kill "$lpid" 2>/dev/null || true
       for _ in $(seq 1 5); do
@@ -329,8 +356,28 @@ if [ "$conns_after" -gt "$conns_before" ]; then
   say "   !! created). DELETE the extra via DELETE /api/remote/connections/<id> — the world"
   say "   !! is otherwise alive, but one target now has two doors."
 fi
+# ------------------------------------------------- 10.5 hydration probe (t434)
+# "200 on /" is an SSR verdict only — the t434 tear served a perfectly healthy
+# HTML while every chunk it referenced was gone from disk: the client never
+# hydrated and the app was a dead painting. The served HTML names the build
+# it believes in; the disk must answer for at least one of those names.
+hy_url="$(curl -s --max-time 8 -H "Origin: $ORIGIN" "$ORIGIN/" | grep -o '/_next/static/[^"]\+\.js' | head -1)"
+if [ -z "$hy_url" ]; then
+  say "10. HYDRATION PROBE BLIND — the served HTML names no static chunk (SSR body unexpected) — read server.log"
+  exit 1
+fi
+hy_code="$(api_code "$ORIGIN$hy_url")"
+if [ "$hy_code" != "200" ]; then
+  say "10. HYDRATION TEAR — the served HTML references $hy_url which answers $hy_code"
+  say "    the server's memory and the disk disagree on the build (a grinder outlived"
+  say "    the boot — t434's live incident). RE-RUN THIS SCRIPT: step 5 now restarts"
+  say "    standalones born before the on-disk build."
+  exit 1
+fi
+say "10. hydration probe: $hy_url → 200 (memory and disk speak the same build)"
+
 code="$(api_code "$ORIGIN/api/project")"
-say "WORLD ALIVE — app $code · build trio present · mock cluster up · demo chain verified (FSC/Guinier/official number assert in the chain's own step 6)"
+say "WORLD ALIVE — app $code · build trio present · mock cluster up · demo chain verified (FSC/Guinier/official number assert in the chain's own step 6) · hydration probe green"
 
 # world-rebirth stamp (t422): written ONLY when this run actually resurrected
 # something — the family report's ⟳ reborn-world marker reads it.
