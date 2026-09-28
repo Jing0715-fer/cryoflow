@@ -205,8 +205,19 @@ if trio_complete && ! build_stale; then
     say "4. build trio complete (BUILD_ID + standalone + static) — provenance unstamped (legacy build, accepted)"
   fi
 else
-  say "4. build incomplete — ONE grinder round (cache grows across invocations)"
-  bash scripts/build-until-green.sh "${REBOOT_BUILD_ATTEMPTS:-1}"
+  if trio_complete && build_stale; then
+    # t434's green-wash lesson: the grinder's trio gate exits 0 WITHOUT
+    # building when the trio is complete — and the stamp is only written by
+    # a real build. An incremental call on a stale-stamped trio is therefore
+    # a no-op that leaves the stale stamp in place forever. FRESH=1 is the
+    # stamp's only mover (build-until-green.sh's own hint: "source changed
+    # since? FRESH=1 forces a rebuild").
+    say "4. provenance stale — FRESH grinder round (an incremental call would no-op the complete trio and never re-stamp)"
+    FRESH=1 bash scripts/build-until-green.sh "${REBOOT_BUILD_ATTEMPTS:-1}"
+  else
+    say "4. build incomplete — ONE grinder round (cache grows across invocations)"
+    bash scripts/build-until-green.sh "${REBOOT_BUILD_ATTEMPTS:-1}"
+  fi
   rc=$?
   if [ "$rc" -ne 0 ]; then
     say "4. build not green yet (rc=$rc) — exit 42: RE-RUN THIS SCRIPT"
