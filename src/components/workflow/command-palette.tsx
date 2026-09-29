@@ -92,7 +92,11 @@ import {
 import { TypeIcon } from "./icons";
 import { PipelineScriptDialog } from "./pipeline-script-dialog";
 
-const OPEN_EVENT = "cryoflow:open-palette";
+/** t483: exported — the help guide's finding chapter names the palette,
+ *  and a named door must open: the guide dispatches this, the palette's
+ *  own listener answers (the same owner-listens law, one more reverse
+ *  hop). */
+export const OPEN_EVENT = "cryoflow:open-palette";
 
 /** t221: the palette's report door — the palette dispatches, the header
  *  (which owns the SessionReportDialog and its reportOpen state) listens.

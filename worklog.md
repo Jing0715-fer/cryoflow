@@ -5894,3 +5894,25 @@ Stage Summary:
 - **「每行点名真实的门」**：storage 章说三态与上膛两步、clusters 章说三点律与简历、assistant 章说 reads 永不改画布——手册的每句话都能在产品里按图索骥，demo 时代的「simulated」陈词被 bench 钉死出局
 - **「两门一册，无含糊的键」**：popover CTA 与 ⌘K palette 是仅有的两扇门（t245 律：一切门皆入册）；? 键不共享——t247 的诚实缺席律在 help 门自己身上生效
 - 产出：HELP_CHAPTERS 单一真相源（五章 22 行）+ HelpGuideDialog（过滤/空态/footer 跨链）+ store flag 三触点 + popover 双 CTA + palette 条目 + t482 bench 17/0 首跑即绿 + 48 套回归全绿 + 活体三门链路逐字 + 截图 ×2
+
+## Task 483 (2026-09-30, cron 04:07 窗 —— The Manual's Doors Open)
+
+- [开局] 实尾 = Task 482 完整收官（HEAD = 0f5e955 三方对齐；t477→t482 六连章已在树上）。世界体检：landing 200、标题 pristine、console 0 错、API 全 200（唯一 404 = favicon）。**QA 教训**：开局用摘要记忆里的 react-flow 选择器查画布得 0 节点，险些误报世界崩溃——应用是自绘 canvas（`data-canvas` / `data-edge-id`），**选择器对代码验证，不对记忆验证**。第七十四份过时 Task 13 指引照例不认（以 t482 遗留清单为准）。自号 483。
+- [QA — 全绿基线 + 一个真瑕疵] 回归全家 49 套 exit 0。真瑕疵 = **favicon.ico 404**（每次拜访都被 404 羞辱的门面）→ 本轮顺手修（交付④）。
+- [插曲 — 磁盘 ENOSPC 十八连败] 回归中段 18 套齐挂，panic 检查后全是 `ENOSPC: /tmp mkdtemp`——**环境问题非代码问题**。清场：/tmp/my-project 模板副本 3.4G（删前三方对账：live db = file:/home/z/my-project/db/cryoflow.db、CRYOFLOW_DATA_DIR = $REPO_ROOT/data、mock-cluster HOME = fs/home/cryo，live 侧 rg 零引用 /tmp/my-project）+ bunx prisma 缓存 1.2G + webpack 隔离缓存 542M + 孤儿 puppeteer 缓存 653M（项目零引用，agent-browser 走 Rust+playwright）+ .next/cache 136M。df 0 avail → 618M+，48 套复绿。**课**：清 .next/cache 须先停 dev server（本轮 server 被我清挂一次，dev-server.sh 点火复 200）。
+- [选题定谳 — The Manual's Doors Open（t482 遗留⑭全项）] 排除法：③④⑦⑧ 待回执/待问句；② 第十二次挂起（517s 完整预算）；⑤⑥ 门控。t482 手册 22 行句句点名真实的门——但点名只是指路，行本身推不开门。定谳：**手册的门能推开**——reach-a-surface 的行变成真的门钮，外加「新 wing 必须有册」从纸面律变成 bench 可执行律。
+- [交付①— GUIDE_DOORS 注册表（help-guide-dialog.tsx）] 六门：assistant（store flag）/ storage（新事件）/ clusters（REMOTE_CLUSTERS_OPEN_EVENT）/ palette（OPEN_EVENT 出口化）/ shortcuts（store flag）/ report（SESSION_REPORT_EVENT）。每门三件套：id + label（aria 名「… — opens <label>」）+ names（手册必须点到的词）+ open()。两种接线皆循 owner-listens 律：store flag 归全局、CustomEvent 归挂载方——guide 永不挂第二份对话框。
+- [交付②— STORAGE_OPEN_EVENT（header.tsx）] storage 门此前**没有任何跨开路由**（storageOpen 是 header 本地 state）——说「open me」却接线为空就是谎门。出口 + useEffect 监听六行，t221 SESSION_REPORT_EVENT 判例同款：手册 dispatch，owner 听。palette 的 OPEN_EVENT 加 `export`（guide 的反向一跳）。
+- [交付③— 行门钮 + rowDoors 映射] HelpChapter 增 `rowDoors?: Record<number,string>`（rows 仍 string[]，t482 bench 零 bump——扩展不是诞生）；四章映射：assistant{0} / storage{0} / clusters{0} / finding{0,1,2}。**门行三律**（bench 全持）：键必为有效行下标、值必为注册门 id、行文必须仍用 words 点名此门——落在不点名的行上是谎行。渲染：门行按钮化（hover 下划线 + ArrowUpRight 角标 + group/row 换色 + focus ring），点击行 **palette 教的 yield-focus 舞步**——先 setOpen(false) 再 door.open()；16 条非门行保持纯 span（省略律）。
+- [交付④— favicon] src/app/icon.svg（Next.js app-router 约定自动服役）：teal #00998e 底 + 两节点一线工作流徽记——自绘，不用 Z 字 logo（那是别人的身份）。
+- [t483 bench — 39/0 首跑即绿] T1 门形状 5（六门/id 唯一/三件套齐）+ T2 治理 13（每门 ≥1 行携带 + 行文覆盖 names + 恰 6 行带门）+ T3 无谎行 16+2（下标/id 合法性逐条 + **自动扫场**：rg 全 src 的 `cryoflow:open-*` 事件，每个事件的声明常量必须被 help-guide-dialog.tsx 引用——新 wing 无册行 bench 即红）+ T4 接线 6（header 出口+监听 / OPEN_EVENT 出口 / 四事件引用 / 两 store flag / yield-focus 舞步 / favicon 在座）。**负例实证**：临时植 FAKE_WING_OPEN_EVENT → bench FAIL 并指名（"manual owes rows to: cryoflow:open-fake-wing"）→ 删 → 39/0 复绿——治理门真咬人。
+- [活体 — 六门逐一实推 + 舞步 6/6] popover CTA → guide → 清点 `[data-testid=guide-row-door]` 六钮 → storage 行 → guide 关「Project storage」开 → clusters 行 →「Remote clusters (SSH) 1 saved」→ shortcuts 行 →「Keyboard shortcuts」→ report 行 →「Session QC report · Pipeline at a glance」→ palette 行 → cmdk 102 items → assistant 行 →「AI 助手」——**六门全推开，每次 guide 先让位**；22 行 = 6 门钮 + 16 inert；重载后 /icon.svg 200、console 0 错。截图 ×3（.qa-logs/t483-door-storage.png / t483-door-shortcuts.png / t483-door-report.png / t483-guide-doors.png 四张）。
+- [验证-终] t483 bench 39/0 + t482 bench 17/0 兼容；tsc 0 + eslint 0（四触碰文件）；回归全家 **49 套**（glob 自动纳新）exit 0；世界 23 workspace children / 15 edges / 22 jobCards（1 running fixture）原样、零数据手术。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 484 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②continue_run 的 mock 集群真火活体（517s 完整预算，十二次挂起）③continue 芯片与世界事件的对齐（t473③ 原样）④inspector Continue 字段互指（t473④ 原样）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（t474⑦ 原样，待回执）⑧records 全景深浅（t476⑧ 原样）⑮手册门的增量：guide 行门钮的 palette 深链（palette 行开出后直接落到某 entry 的定位）与 popover 快速上手的同款门钮化（6 条 tip 里 reach-a-surface 的几条）待真实使用后定深浅。
+
+Stage Summary:
+- **「点名只是指路，推开才算门」**：手册 22 行里 reach-a-surface 的 6 行从文本变成门钮——storage/clusters/palette/shortcuts/report/assistant 六门逐一活体实推，guide 每次先行让位（palette 教的舞步第六次复制）
+- **「owner-listens 律的第三次自我辩护」**：storage 门此前无跨开路由——header 出口 + 六行监听，手册只按铃不挂第二份对话框；palette 的 OPEN_EVENT 出口化，guide 的反向一跳与 t221 同款
+- **「新 wing 必须有册」成为可执行律**：bench 自动扫场全部 cryoflow:open-* 事件，未入册的门被点名 FAIL——负例实证真咬人，手册与产品从此同进同退
+- **「磁盘是看不见的地基」**：ENOSPC 十八连败全是环境非代码——模板副本 3.4G + 孤儿缓存 2.6G 清场，删前三方对账 live 数据零引用；清 .next/cache 先停 server 是新的点火律注脚
+- 产出：GUIDE_DOORS 六门注册表 + STORAGE_OPEN_EVENT（header 出口+监听）+ OPEN_EVENT 出口化 + rowDoors 四章映射 + 门行钮（yield-focus 六连推）+ src/app/icon.svg + t483 bench 39/0（含负例实证）+ 49 套回归全绿 + 活体六门逐字 + 截图 ×4

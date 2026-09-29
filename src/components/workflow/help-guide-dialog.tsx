@@ -12,10 +12,24 @@
  * and the command palette. No keyboard hook of its own: "?" already owns
  * the shortcuts dialog, and an ambiguous key is a lying door (t247's
  * law) — the honest-absent beats the vague-present.
+ *
+ * t483 — the manual's rows open the doors they name. A row whose first
+ * move is to reach a surface ("Open the assistant…", "⌘K opens the
+ * palette…") now carries that door: GUIDE_DOORS is the registry (id,
+ * label, the words the manual must name it by, and the open action),
+ * chapters map row indices to door ids, and a named row renders as a
+ * button that yields focus (the palette-taught dance) before the door
+ * swings open. The storage map needed a new cross-open route —
+ * STORAGE_OPEN_EVENT, the header owns it, the manual only rings the
+ * bell. And the bench now holds the law both ways: every registered
+ * door is named by a row, and every cryoflow:open-* event in the
+ * codebase must be referenced by this manual — a new wing without a
+ * manual row fails the build.
  */
 
 import * as React from "react";
 import {
+  ArrowUpRight,
   BookOpen,
   Compass,
   HardDrive,
@@ -34,13 +48,77 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useWorkflowStore } from "@/lib/store";
+import { OPEN_EVENT, SESSION_REPORT_EVENT } from "./command-palette";
+import { REMOTE_CLUSTERS_OPEN_EVENT } from "./remote-cluster-dialog";
+import { STORAGE_OPEN_EVENT } from "./header";
 
 export interface HelpChapter {
   id: string;
   icon: React.ReactNode;
   title: string;
   rows: string[];
+  /** t483 — row index → door id: a row whose first move is to reach a
+   *  surface carries the door it names. Every key must be a valid row
+   *  index, every value a valid GUIDE_DOORS id, and the row must still
+   *  name its door in words (the bench holds all three) — a door on a
+   *  row that doesn't name it is a lying row. */
+  rowDoors?: Record<number, string>;
 }
+
+export interface GuideDoor {
+  id: string;
+  /** shown in the row's accessible name: “… — opens <label>” */
+  label: string;
+  /** the words the manual must name this door by — the governance
+   *  bench reads them (a wing without a manual row fails the bench) */
+  names: string[];
+  open: () => void;
+}
+
+/** The manual's door registry — one entry per surface the guide can
+ *  walk you to. Two wire kinds, both by owner-listens law: store flags
+ *  for globally-owned dialogs (assistant, shortcuts), CustomEvents for
+ *  owner-mounted dialogs (storage, clusters, palette, report). The
+ *  guide never mounts a second copy of anything. */
+export const GUIDE_DOORS: GuideDoor[] = [
+  {
+    id: "assistant",
+    label: "the AI assistant",
+    names: ["assistant"],
+    open: () => useWorkflowStore.getState().setAiAssistantOpen(true),
+  },
+  {
+    id: "storage",
+    label: "the storage map",
+    names: ["storage overview"],
+    open: () => window.dispatchEvent(new CustomEvent(STORAGE_OPEN_EVENT)),
+  },
+  {
+    id: "clusters",
+    label: "the remote clusters roster",
+    names: ["Remote clusters"],
+    open: () =>
+      window.dispatchEvent(new CustomEvent(REMOTE_CLUSTERS_OPEN_EVENT)),
+  },
+  {
+    id: "palette",
+    label: "the command palette",
+    names: ["command palette"],
+    open: () => window.dispatchEvent(new CustomEvent(OPEN_EVENT)),
+  },
+  {
+    id: "shortcuts",
+    label: "the keyboard shortcuts",
+    names: ["keyboard shortcut"],
+    open: () => useWorkflowStore.getState().setShortcutsOpen(true),
+  },
+  {
+    id: "report",
+    label: "the session QC report",
+    names: ["Session QC report"],
+    open: () => window.dispatchEvent(new CustomEvent(SESSION_REPORT_EVENT)),
+  },
+];
 
 /** The manual's single source of truth — every row names a real door. */
 export const HELP_CHAPTERS: HelpChapter[] = [
@@ -66,6 +144,7 @@ export const HELP_CHAPTERS: HelpChapter[] = [
       "Every cluster dispatch is recorded — ask what a cluster has been running and the answer comes from the records dialog's own ledger.",
       "Ask about disk: “what's eating space?” walks the same storage map the dialog draws.",
     ],
+    rowDoors: { 0: "assistant" },
   },
   {
     id: "storage",
@@ -78,6 +157,7 @@ export const HELP_CHAPTERS: HelpChapter[] = [
       "Clear is an armed two-step: the first click arms, the second buries — spent graves go first, restorable ones are spared by name.",
       "Sort the graveyard by weight to see which graves still hold the most disk.",
     ],
+    rowDoors: { 0: "storage" },
   },
   {
     id: "clusters",
@@ -89,6 +169,7 @@ export const HELP_CHAPTERS: HelpChapter[] = [
       "Bind a project to a connection so cluster runs land in it; the binding shows on every card that runs remote.",
       "Each cluster wears its dispatch résumé — total, completed and failed runs, plus the three newest.",
     ],
+    rowDoors: { 0: "clusters" },
   },
   {
     id: "finding",
@@ -100,6 +181,7 @@ export const HELP_CHAPTERS: HelpChapter[] = [
       "The Session QC report turns the session into a document — charts and verdicts, exportable as HTML or Markdown.",
       "Everything prints: the print stylesheet hides the chrome and lays the canvas out on paper.",
     ],
+    rowDoors: { 0: "palette", 1: "shortcuts", 2: "report" },
   },
 ];
 
@@ -137,7 +219,8 @@ export function HelpGuideDialog() {
             How to use CryoFlow
           </DialogTitle>
           <DialogDescription className="sr-only">
-            All {total} guide rows across {HELP_CHAPTERS.length} chapters. Press Escape to close.
+            All {total} guide rows across {HELP_CHAPTERS.length} chapters.
+            Rows with an arrow open the door they name. Press Escape to close.
           </DialogDescription>
           <div className="relative mt-3">
             <Search
@@ -170,18 +253,48 @@ export function HelpGuideDialog() {
                     {c.title}
                   </h3>
                   <ul className="mt-2 space-y-1.5">
-                    {c.rows.map((row, i) => (
-                      <li
-                        key={i}
-                        className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"
-                      >
-                        <span
-                          className="mt-[7px] size-1 shrink-0 rounded-full bg-muted-foreground/50"
-                          aria-hidden="true"
-                        />
-                        <span>{row}</span>
-                      </li>
-                    ))}
+                    {c.rows.map((row, i) => {
+                      const doorId = c.rowDoors?.[i];
+                      const door = doorId
+                        ? GUIDE_DOORS.find((d) => d.id === doorId)
+                        : undefined;
+                      return (
+                        <li
+                          key={i}
+                          className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"
+                        >
+                          <span
+                            className="mt-[7px] size-1 shrink-0 rounded-full bg-muted-foreground/50"
+                            aria-hidden="true"
+                          />
+                          {door ? (
+                            <button
+                              type="button"
+                              data-testid="guide-row-door"
+                              data-door={door.id}
+                              aria-label={`${row} — opens ${door.label}`}
+                              className="group/row flex-1 rounded-sm text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                              onClick={() => {
+                                // the palette-taught dance: the guide yields
+                                // focus before the named door swings open
+                                setOpen(false);
+                                door.open();
+                              }}
+                            >
+                              <span className="transition-colors group-hover/row:text-foreground">
+                                {row}
+                              </span>
+                              <ArrowUpRight
+                                className="ml-1 inline size-3 align-[-1px] text-primary/70"
+                                aria-hidden="true"
+                              />
+                            </button>
+                          ) : (
+                            <span>{row}</span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </section>
               ))}

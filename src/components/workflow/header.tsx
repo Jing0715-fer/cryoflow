@@ -52,6 +52,15 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+/** t483: the guide's storage door — the manual dispatches, the header
+ *  (which owns the StorageDialog and its storageOpen state) listens.
+ *  Same handshake as SESSION_REPORT_EVENT and REMOTE_CLUSTERS_OPEN_EVENT:
+ *  the surface that names the door never mounts a second dialog, it only
+ *  rings the owner's bell. The storage map had no cross-open route before
+ *  — a manual row that says "open me" while wired to nothing is a lying
+ *  door, so the route now exists. */
+export const STORAGE_OPEN_EVENT = "cryoflow:open-storage";
+
 function StatChip({
   icon,
   label,
@@ -627,6 +636,12 @@ export function Header() {
     const open = () => setReportOpen(true);
     window.addEventListener(SESSION_REPORT_EVENT, open);
     return () => window.removeEventListener(SESSION_REPORT_EVENT, open);
+  }, []);
+  // t483: the storage door's ear — same handshake, same owner-listens law.
+  React.useEffect(() => {
+    const open = () => setStorageOpen(true);
+    window.addEventListener(STORAGE_OPEN_EVENT, open);
+    return () => window.removeEventListener(STORAGE_OPEN_EVENT, open);
   }, []);
 
   const total = jobs.length;
