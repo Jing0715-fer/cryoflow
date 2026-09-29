@@ -2327,6 +2327,10 @@ function InspectorHeader({
   summary,
   onCleaned,
   remoteRemaining,
+  /** t447 — the rename edit state, owned by the modal (JobInspector) so its
+   *  Escape guards can see whether an edit is active. */
+  renameEdit,
+  onEditChange,
 }: {
   job: JobDTO;
   /** t347 — the outputs summary (live-counted key numbers): the header's
@@ -2338,6 +2342,8 @@ function InspectorHeader({
    *  listing hasn't landed (receipt stays amber, no flash), a number once
    *  it has. Undefined lets the note self-probe its own endpoint. */
   remoteRemaining?: number | null;
+  renameEdit: { id: string; draft: string } | null;
+  onEditChange: (edit: { id: string; draft: string } | null) => void;
 }) {
   const spec = jobType(job.type);
   const running = job.status === "running";
@@ -2368,11 +2374,13 @@ function InspectorHeader({
   const [diffOpen, setDiffOpen] = React.useState(false);
   const diffTableId = React.useId();
   const [confirmRerun, setConfirmRerun] = React.useState(false);
-  // t447 — the rename door. The draft carries the job's id with it: when
-  // the inspector switches jobs mid-edit, the stale edit simply stops
-  // matching (edit.id !== job.id reads as display mode) — no effect, no
-  // echo, the same no-setState-in-effect channel as the knock counters.
-  const [edit, setEdit] = React.useState<{ id: string; draft: string } | null>(null);
+  // t447 — the rename door. The edit state LIVES HERE but is OWNED by the
+  // modal (JobInspector): the modal's Escape guards must know whether an
+  // edit is active, and state shared across that boundary is passed down,
+  // not mirrored. The draft carries the job's id with it: when the
+  // inspector switches jobs mid-edit, the stale edit simply stops matching
+  // (edit.id !== job.id reads as display mode) — no effect, no echo.
+  const edit = renameEdit;
   const renameJob = useWorkflowStore((s) => s.renameJob);
   // Enter and blur can both fire for one edit (Enter, then a click away
   // before the PATCH lands) — the ref makes the second call a no-op, so
@@ -2381,7 +2389,7 @@ function InspectorHeader({
   const commitRename = () => {
     if (!edit || edit.id !== job.id || renameCommitting.current) return;
     if (edit.draft.trim() === job.name) {
-      setEdit(null); // nothing changed — closing IS the whole action
+      onEditChange(null); // nothing changed — closing IS the whole action
       return;
     }
     renameCommitting.current = true;
@@ -2389,7 +2397,7 @@ function InspectorHeader({
       renameCommitting.current = false;
       // a refused rename keeps the door open (the toast explains) — the
       // draft survives for fixing; Escape still walks away from it
-      if (ok) setEdit(null);
+      if (ok) onEditChange(null);
     });
   };
   /** t397 — the explicit continue target ("Continue from here:" → fn_cont):
@@ -2539,21 +2547,22 @@ function InspectorHeader({
                 maxLength={60}
                 aria-label="Job name"
                 className="h-8 max-w-[22rem] flex-1 text-base font-semibold"
-                onChange={(e) => setEdit({ id: job.id, draft: e.target.value })}
+                onChange={(e) => onEditChange({ id: job.id, draft: e.target.value })}
                 onBlur={commitRename}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     commitRename();
                   } else if (e.key === "Escape") {
-                    // stopPropagation keeps the walk-away LOCAL — without it
-                    // the modal's own escape contract (Radix dismiss) closes
-                    // the whole inspector when the user only meant to cancel
-                    // the edit (the panel face's Escape branch learned this
-                    // same lesson earlier — its stopPropagation predates us)
+                    // walk away from the EDIT, not the modal. The modal's
+                    // Radix capture listener is handled by the DialogContent
+                    // onEscapeKeyDown guard; stopping React propagation here
+                    // keeps the bubble-phase closer out of the way too (the
+                    // panel face's Escape branch learned this same lesson
+                    // earlier — its stopPropagation predates us).
                     e.preventDefault();
                     e.stopPropagation();
-                    setEdit(null);
+                    onEditChange(null);
                   }
                 }}
               />
@@ -2566,7 +2575,7 @@ function InspectorHeader({
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      onClick={() => setEdit({ id: job.id, draft: job.name })}
+                      onClick={() => onEditChange({ id: job.id, draft: job.name })}
                       aria-label={`Rename ${job.name}`}
                       className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
                     >
@@ -3309,6 +3318,12 @@ export function JobInspector() {
     setTab("log");
   }, [inspectId]);
 
+  // t447 — the rename edit state lives HERE (the modal owner): the Escape
+  // guards below must know whether an edit is active, and state shared
+  // across that boundary is lifted, not mirrored. InspectorHeader reads it
+  // through props.
+  const [renameEdit, setRenameEdit] = React.useState<{ id: string; draft: string } | null>(null);
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && inspect(null)}>
       <DialogContent
@@ -3326,7 +3341,34 @@ export function JobInspector() {
            auto-focus: the dialog is a VIEWING surface (nothing to type),
            Escape still closes, and the first Tab lands inside normally. */
         onOpenAutoFocus={(e) => e.preventDefault()}
-        onKeyDown={onEscapeClose(() => inspect(null))}
+        /* t447 — the rename edit's Escape must walk away from the EDIT, not
+           close the modal. Radix hears Escape on document CAPTURE (before
+           any bubble-phase handler can react), and dismisses unless the
+           event is already default-prevented — onEscapeKeyDown is Radix's
+           own hook for exactly that: it runs inside the capture handler
+           BEFORE the defaultPrevented check, so preventing here keeps the
+           modal up while the edit consumes the keypress. */
+        onEscapeKeyDown={(e) => {
+          if (renameEdit != null) e.preventDefault();
+        }}
+        onKeyDown={(e) => {
+          // the bubble-phase closer (was onEscapeClose(() => inspect(null))).
+          // While an edit is active this keypress belongs to the edit: the
+          // input's own handler cancels it and stops React propagation, and
+          // this guard is the second net (focus may sit elsewhere while the
+          // edit is open) — Escape then closes the EDIT, not the modal.
+          if (e.key === "Escape") {
+            if (renameEdit != null) {
+              e.preventDefault();
+              e.stopPropagation();
+              setRenameEdit(null);
+              return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            inspect(null);
+          }
+        }}
       >
         {job ? (
           <>
@@ -3352,6 +3394,8 @@ export function JobInspector() {
                     summary={data?.summary ?? null}
                     onCleaned={() => void loadOutputs()}
                     remoteRemaining={data ? data.files.filter((f) => f.remote).length : null}
+                    renameEdit={renameEdit}
+                    onEditChange={setRenameEdit}
                   />
                 </div>
               </DialogTitle>
