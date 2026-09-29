@@ -54,6 +54,9 @@ export interface SubtreeJobLike {
   id: string;
   name: string;
   status: string;
+  /** t451 — when the current run started (ISO string). The scan reads
+   *  it to tell a walk's own landing from a pre-walk result. */
+  startedAt?: string | null;
 }
 
 /** BFS downstream order from `rootId` following only out-edges. Ties
@@ -164,6 +167,10 @@ export interface SubtreeOrchState {
   /** t450 — this walk was resurrected from the session record after a
    *  reload: the strip wears the resumed honesty line and the chip. */
   resumed?: boolean;
+  /** t451 — the resurrection crossed a tab's death: a SIBLING tab
+   *  claimed the walk after the original owner went silent. The strip
+   *  wears the inherited chip; the honest line names the hand-off. */
+  inherited?: boolean;
 }
 
 /** Per-node tick states for the strip's progress dots. */
@@ -219,23 +226,43 @@ export function orchGuardSentence(activeRootName: string): string {
   return `A subtree re-run from ${activeRootName} is already in flight — stop it or let it land before starting another.`;
 }
 
-/** The strip's honesty line: the orchestration loop lives in this tab's
- *  memory. Reload or close and the dispatched job still finishes on the
- *  cluster — but the remaining nodes are never dispatched. The face
- *  says so before the user learns it the hard way.
+/** The strip's honesty line: where the walk lives and what kills it.
  *
- *  t450 — the reload half of that sentence grew a second breath: the
- *  walk's plan, progress and target now survive a reload in this tab
- *  (sessionStorage, the viewport-memory dialect) and the boot resumes
- *  the walk from the world's own truth. The line says so. Closing the
- *  tab still ends everything — the session dies with the tab. */
+ *  t450 — the walk's plan, progress and target survived a reload in
+ *  this tab (the session record) and the boot resumed the walk from
+ *  the world's own truth.
+ *
+ *  t451 — the record moved house: sessionStorage (one tab's private
+ *  memory) → localStorage (the workspace's shared memory). The walk
+ *  now follows the WORKSPACE: close this tab and a sibling tab adopts
+ *  it (the claim law — heartbeat stale means the owner is gone), or
+ *  the next tab to open does. The last boundary is "every tab closed
+ *  AND none opens" — the record waits in the workspace's memory until
+ *  a heir shows up. The face says so before the user learns it the
+ *  hard way. */
 export const ORCH_TAB_LAW =
-  "Survives a reload — closing this tab still leaves the job in flight to finish on the cluster while the rest are never dispatched.";
+  "Survives a reload and a closed tab — another tab of this workspace picks the walk up.";
 
-/** The honesty line after a resurrection — the face wears the resumed
- *  state: the walk came back, the boundary is still the tab's death. */
+/** The honesty line after a same-tab resurrection — the face wears
+ *  the resumed state: the walk came back from this tab's own reload. */
 export const ORCH_TAB_LAW_RESUMED =
-  "Resumed after a reload — closing this tab still leaves the rest undispatched.";
+  "Resumed after a reload — the walk now follows the workspace across tabs.";
+
+/** The honesty line after an inheritance — the original owner went
+ *  silent; this tab claimed the walk and the world-truth scan brought
+ *  it back here. */
+export const ORCH_TAB_LAW_INHERITED =
+  "Inherited from another tab — the walk continues here and follows the workspace.";
+
+/** The receipt for a walker that woke up dispossessed: a sibling tab
+ *  claimed the walk while this one slept (background-throttled heart
+ *  beat, closed drawer, whatever made it silent). The walker stands
+ *  down BETWEEN nodes — the node it was waiting for landed and counts
+ *  here — and the dispatching continues on the heir's face. Intent,
+ *  not failure: the neutral dialect, never the destructive one. */
+export function handoffReceiptSentence(): string {
+  return "Another tab of this workspace took over the walk — the dispatching continues there; this tab stands down.";
+}
 
 /* ------------------------------------------------------------------ */
 /* t450 — the walk's second breath. The loop died with the reload; the  */
@@ -247,15 +274,27 @@ export const ORCH_TAB_LAW_RESUMED =
 /** The boot-time scan: persisted order vs live jobs. Laws:
  *  - completed nodes at the head count as done — the walk's own
  *    dispatches landed while the tab was dead;
+ *  - t451 — a completion counts ONLY if it postdates the walk's own
+ *    first breath (walkStart, stamped when the record was first saved):
+ *    a node that was ALREADY completed before the walk began (a previous
+ *    run's result) is not this walk's landing — the walk must re-run it
+ *    so it eats its upstream's fresh output. Caught live: a re-run over
+ *    an already-completed subtree read the old results as fresh landings
+ *    and short-circuited to allLanded without re-running anything;
  *  - a node the world no longer has is missing, not failed — it is
  *    filtered out of the walk and named in the receipt;
- *  - the first LIVE non-completed node is the resume point: running or
- *    pending = the in-flight node, await it; idle = never dispatched,
- *    dispatch it; failed = the frontier found the walk dead — stop;
- *  - every node completed = the walk finished on its own while away;
+ *  - the first LIVE non-counted node is the resume point: running or
+ *    pending = the in-flight node, await it; idle or completed-before-
+ *    the-walk = dispatch it; failed = the frontier found the walk dead
+ *    — stop;
+ *  - every node landed this walk = the walk finished on its own while
+ *    away;
  *  - a persisted stop request is honored without dispatching anything.
  *  Missing nodes never break the leading count — completed and deleted
- *  interleave freely at the head (a deleted node is not unfinished). */
+ *  interleave freely at the head (a deleted node is not unfinished).
+ *  walkStart omitted (legacy records) → every completed node counts
+ *  (the t450 semantics, kept for records that cannot answer the
+ *  question). */
 export interface ResumeScan {
   /** Nodes landed completed at the head of the persisted order. */
   done: number;
@@ -277,7 +316,8 @@ export interface ResumeScan {
 
 export function resumeScan(
   order: readonly SubtreeNode[],
-  jobs: readonly SubtreeJobLike[]
+  jobs: readonly SubtreeJobLike[],
+  opts?: { walkStart?: number }
 ): ResumeScan {
   const byId = new Map(jobs.map((j) => [j.id, j] as const));
   const missing: SubtreeNode[] = [];
@@ -290,9 +330,24 @@ export function resumeScan(
     }
     live.push({ node, status: j.status });
   }
+  // t451 — the grace absorbs the dispatch gap: the walk's first breath
+  // (the record save) lands a beat BEFORE the first server-side
+  // startedAt stamp; five seconds of slack keeps same-host clock jitter
+  // from un-counting the walk's own first landing.
+  const WALK_START_GRACE_MS = 5_000;
+  const landedThisWalk = (job: SubtreeJobLike): boolean => {
+    if (opts?.walkStart == null) return true; // legacy record — cannot ask
+    if (!job.startedAt) return false; // no witness → not this walk's
+    const started = new Date(job.startedAt).getTime();
+    return Number.isFinite(started) && started >= opts.walkStart - WALK_START_GRACE_MS;
+  };
   let done = 0;
   let cursor = 0;
-  while (cursor < live.length && live[cursor].status === "completed") {
+  while (cursor < live.length) {
+    const entry = live[cursor];
+    if (entry.status !== "completed") break;
+    const j = byId.get(entry.node.id)!;
+    if (!landedThisWalk(j)) break; // a pre-walk result — the walk must re-run it
     done += 1;
     cursor += 1;
   }
@@ -341,3 +396,8 @@ export function resumeToastDescription(
 export function resumeFrontierReason(node: SubtreeNode): string {
   return `${node.name} failed while the tab was away — the run died with the reload window; its downstream did not re-run.`;
 }
+
+/** The inherited welcome's description prefix — the receipt names the
+ *  hand-off before it names the plan, so the user knows WHY a walk
+ *  they did not start here just arrived on their face. */
+export const INHERITED_PREFIX = "Inherited from another tab — ";

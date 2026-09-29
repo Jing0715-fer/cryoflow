@@ -21,7 +21,9 @@ import { findStaleJobs, type StaleReport } from "./staleness";
 import { findDriftedJobs, type DriftReport } from "./params-drift";
 import { twinName, twinNamesFor } from "./twin-name";
 import {
+  INHERITED_PREFIX,
   describeSubtreeRun,
+  handoffReceiptSentence,
   orchGuardSentence,
   planSubtreeRun,
   resumeFrontierReason,
@@ -32,7 +34,17 @@ import {
   type SubtreeNode,
   type SubtreeOrchState,
 } from "./subtree-run";
-import { clearSubtreeOrch, readSubtreeOrch, saveSubtreeOrch } from "./subtree-orch-session";
+import {
+  ORCH_HB_MS,
+  claimSubtreeOrch,
+  clearSubtreeOrch,
+  heartbeatSubtreeOrch,
+  importLegacySubtreeOrch,
+  readSubtreeOrch,
+  saveSubtreeOrch,
+  saveSubtreeOrchIfOwner,
+} from "./subtree-orch-session";
+import { getTabId } from "./tab-identity";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -833,11 +845,16 @@ interface WorkflowState {
    *  counts what re-ran. A request on an idle world is a no-op. */
   stopSubtreeRun: () => void;
   /** t450 — the walk's second breath: re-enter a walk whose record
-   *  survived the reload (sessionStorage). Consumes the record once,
-   *  scans the live world against the persisted order (completed nodes
-   *  count, missing nodes are named and skipped, a failed node is the
-   *  frontier, an armed stop dispatches nothing) and continues the walk
-   *  with the SAME cluster target. Silent when no record exists. */
+   *  survived the reload. Consumes the record once, scans the live world
+   *  against the persisted order (completed nodes count, missing nodes
+   *  are named and skipped, a failed node is the frontier, an armed stop
+   *  dispatches nothing) and continues the walk with the SAME cluster
+   *  target. Silent when no record exists.
+   *  t451 — the record lives in the workspace's shared memory now: the
+   *  claim law (one walk, one heir) arbitrates — this tab's own record
+   *  resumes instantly; a dead owner's walk is ADOPTED (claimed, then
+   *  resurrected by the same world-truth scan); a LIVE owner's walk is
+   *  left alone (silent — the walk is on another tab's face). */
   resumeSubtreeOrch: () => Promise<void>;
   /** POST /stop — SIGTERM→SIGKILL the job's process tree; re-run resumes
    *  refine-family jobs from their checkpoint via RELION --continue. */
@@ -1263,6 +1280,19 @@ async function awaitSubtreeTerminal(id: string): Promise<{ status: string; timed
  * nodes, every index bump mirrors into the state AND the session record
  * (the record is what a reload resurrects), and the try/finally retires
  * the face and the record on every exit — whatever the ending.
+ *
+ * t451 — the walk's inheritance. While this tab walks, it owns the
+ * shared record and pings it every ORCH_HB_MS (the heartbeat is what
+ * tells a sibling tab this owner is alive). Three inheritance laws
+ * join the loop:
+ *   - the abdication checkpoint: BETWEEN nodes, before any dispatch —
+ *     if the record's owner moved (a sibling claimed while this tab
+ *     slept), the walker stands down with a hand-off receipt; the walk
+ *     itself continues on the heir's face;
+ *   - the mirror save is owner-conditional — a dispossessed walker's
+ *     older progress must never overwrite the heir's record;
+ *   - the exit's clear is owner-conditional (inside clearSubtreeOrch)
+ *     — a dead walk retires its own record, never the heir's claim.
  */
 async function walkSubtreeNodes(
   order: readonly SubtreeNode[],
@@ -1274,12 +1304,20 @@ async function walkSubtreeNodes(
   done: number;
   total: number;
   userStopped: boolean;
+  handedOff: boolean;
   frontier: { name: string; reason: string } | null;
 }> {
   const total = order.length;
   let done = initialDone;
   let userStopped = false;
+  let handedOff = false;
   let frontier: { name: string; reason: string } | null = null;
+  // the owner's pulse: while this tab walks it pings the shared record
+  // every ORCH_HB_MS — silence past ORCH_STALE_MS is exactly what lets
+  // a sibling tab know the owner died
+  const hb = setInterval(() => {
+    heartbeatSubtreeOrch();
+  }, ORCH_HB_MS);
   try {
     for (let i = startIndex; i < order.length; i++) {
       const node = order[i];
@@ -1289,6 +1327,18 @@ async function walkSubtreeNodes(
       // the frontier receipt speaks for the failure instead.
       if (useWorkflowStore.getState().subtreeOrch?.stopRequested) {
         userStopped = true;
+        break;
+      }
+      // t451 — the abdication checkpoint: the record's owner moved
+      // while this tab waited (a sibling claimed after the heartbeat
+      // went stale — background throttling, a dead closure the tab
+      // never noticed). Standing down IS the graceful branch: the
+      // heir's walk continues; this tab's receipt says so. Without it
+      // two walkers would race the next dispatch and the loser would
+      // die on the per-job 409 door with a lying frontier line.
+      const rec = readSubtreeOrch();
+      if (rec && rec.owner !== getTabId()) {
+        handedOff = true;
         break;
       }
       // t450 — a resumed walk whose resume node is mid-flight (the
@@ -1341,21 +1391,28 @@ async function walkSubtreeNodes(
       // the face renders from state, not closure memory — mirror the
       // counter into the store AND the session record (the record is
       // what a reload resurrects; a stale index would re-dispatch landed
-      // nodes — harmless under the scan, but the face would lie)
+      // nodes — harmless under the scan, but the face would lie).
+      // t451 — the mirror save is owner-conditional: if a sibling tab
+      // claimed the walk while this tab awaited the landing, this
+      // walker's older progress must never overwrite the heir's record;
+      // the abdication checkpoint above retires the walker next loop.
       const orch = useWorkflowStore.getState().subtreeOrch;
       if (orch) {
         const next = { ...orch, index: done };
         useWorkflowStore.setState({ subtreeOrch: next });
-        saveSubtreeOrch(next, target);
+        saveSubtreeOrchIfOwner(next, target);
       }
     }
   } finally {
+    clearInterval(hb);
     // every exit retires the face AND the record — the walk is over,
-    // whatever its ending; a dead walk must never resurrect
+    // whatever its ending; a dead walk must never resurrect.
+    // clearSubtreeOrch is owner-conditional (t451): a dispossessed
+    // walker's exit must never erase the heir's fresh claim.
     useWorkflowStore.setState({ subtreeOrch: null });
     clearSubtreeOrch();
   }
-  return { done, total, userStopped, frontier };
+  return { done, total, userStopped, handedOff, frontier };
 }
 
 async function flushJobParams(jobId: string): Promise<void> {
@@ -2994,6 +3051,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       return false;
     }
+    if (res.handedOff) {
+      // t451 — a sibling tab claimed the walk while this one waited.
+      // The walker stands down; the walk itself continues on the heir's
+      // face. Intent, not failure — the neutral hand-off dialect.
+      toast({
+        title: `Subtree re-run handed off — ${res.done} of ${total} re-ran here`,
+        description: handoffReceiptSentence(),
+        duration: 20_000,
+      });
+      return false;
+    }
     if (res.frontier) {
       toast({
         title: `Subtree stopped at ${res.frontier.name} — ${res.done} of ${total} re-ran`,
@@ -3023,31 +3091,63 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const next = { ...orch, stopRequested: true };
     set({ subtreeOrch: next });
     // t450 — the armed stop rides the record too: a reload before the
-    // checkpoint must still honor the user's intent (dispatch nothing)
+    // checkpoint must still honor the user's intent (dispatch nothing).
+    // t451 — the mirror is owner-conditional: a dispossessed tab's stop
+    // request must never steal the heir's record back.
     const saved = readSubtreeOrch();
-    if (saved) saveSubtreeOrch(next, saved.target);
+    if (saved && saved.owner === getTabId()) saveSubtreeOrch(next, saved.target);
   },
 
   resumeSubtreeOrch: async () => {
-    // consume-once: the record is read and cleared BEFORE any decision —
-    // a refused or silent resume must never retry-loop on the next
-    // load/project switch
-    const saved = readSubtreeOrch();
-    clearSubtreeOrch();
-    if (!saved) return;
-    if (get().subtreeOrch) return; // a live walk owns the face — belt and braces at boot
+    // a live walk owns the face — belt and braces at boot AND at live
+    // adoption (the heir's pulse fires this on a tab that is already
+    // walking its own lane)
+    if (get().subtreeOrch) return;
+    // t451 one-shot legacy upgrade: a v1 session record (the
+    // pre-inheritance build) imports as this tab's own walk before the
+    // claim reads — the reload it was saved for lands as a plain own-resume
+    importLegacySubtreeOrch();
+    // t451 — the claim law (one walk, one heir) replaces the t450
+    // consume-once read: the record lives in the workspace's shared
+    // memory now, so "read" became "arbitrate". Own → resume instantly
+    // (a reload reclaims itself); stale owner → ADOPT (claim, then the
+    // same world-truth scan resurrects); live owner → silent (the walk
+    // is on another tab's face — two walkers would fight the landing
+    // law); no record → nothing to inherit.
+    const claim = claimSubtreeOrch();
+    if (claim.mode === "none" || claim.mode === "elsewhere" || !claim.saved) return;
+    const saved = claim.saved;
     const { orch: rec, target } = saved;
     const jobs = get().jobs;
     const root = jobs.find((j) => j.id === rec.rootId);
-    if (!root) return; // the walk's root is gone from this world — its owner deleted it; no noise
-    const scan = resumeScan(rec.order, jobs);
+    if (!root) {
+      // the walk's root is gone from this world — its owner deleted it;
+      // no noise. The record is ours (claimed or owned) and terminal:
+      // retire it — a dead plan must never retry-loop on every load.
+      clearSubtreeOrch();
+      return;
+    }
+    const scan = resumeScan(rec.order, jobs, {
+      // t451 — a completion counts as this walk's landing only when it
+      // postdates the walk's own first breath: a result that predates
+      // the walk (a previous run's output) must be re-run, not counted.
+      // Caught live — a re-run over an already-completed subtree read
+      // the old completions as fresh landings and short-circuited.
+      walkStart: saved.walkStart,
+    });
     // the face's order is the persisted plan minus nodes the world lost —
     // the count the receipts speak is THIS filtered total
     const order = rec.order.filter((n) => !scan.missing.some((m) => m.id === n.id));
     const total = order.length;
-    if (total === 0) return; // degenerate record — everything gone, nothing to speak about
+    if (total === 0) {
+      // degenerate record — everything gone, nothing to speak about;
+      // terminal, retire it (we own it)
+      clearSubtreeOrch();
+      return;
+    }
     // an armed stop is honored without dispatching anything
     if (rec.stopRequested) {
+      clearSubtreeOrch(); // terminal — the walk ends here, own or adopted
       toast({
         title: `Subtree re-run stopped — ${scan.done} of ${total} re-ran`,
         description: stopReceiptSentence(scan.done, total),
@@ -3058,6 +3158,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // the whole walk landed while the tab was away — the success receipt
     // arrives late, but it arrives
     if (scan.allLanded) {
+      clearSubtreeOrch(); // terminal — the walk finished on its own
       toast({
         title: `Subtree re-ran — ${total} job${total === 1 ? "" : "s"} refreshed`,
         description: resumeToastDescription(null, scan.missing),
@@ -3067,6 +3168,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
     // the frontier found the walk dead: the resume node failed while away
     if (scan.failedFrontier) {
+      clearSubtreeOrch(); // terminal — the frontier speaks, the plan retires
       toast({
         title: `Subtree stopped at ${scan.failedFrontier.name} — ${scan.done} of ${total} re-ran`,
         description: resumeFrontierReason(scan.failedFrontier),
@@ -3075,9 +3177,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       return;
     }
-    if (!scan.resumeNode) return;
-    // re-enter the walk: the face wears the resumed flag, the loop
-    // continues with the SAME cluster target the original gesture chose
+    if (!scan.resumeNode) {
+      clearSubtreeOrch(); // nothing left to dispatch — retire the plan
+      return;
+    }
+    // re-enter the walk: the face wears the resumed flag (and the
+    // inherited one when the resurrection crossed a tab's death); the
+    // loop continues with the SAME cluster target the original gesture
+    // chose
+    const inherited = claim.mode === "adopted";
     set({
       subtreeOrch: {
         rootId: rec.rootId,
@@ -3086,25 +3194,40 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         index: scan.done,
         stopRequested: false,
         resumed: true,
+        inherited,
       },
     });
     toast({
       title: resumeToastTitle(scan.done, total),
-      description: resumeToastDescription(scan.resumeNode.name, scan.missing),
+      description: `${inherited ? INHERITED_PREFIX : ""}${resumeToastDescription(
+        scan.resumeNode.name,
+        scan.missing
+      )}`,
       duration: 20_000,
     });
     const res = await walkSubtreeNodes(order, scan.done, scan.done, target, {
-      // the resume node mid-flight (it survived the reload on the cluster
-      // side) is awaited, never re-dispatched — the 409 door would refuse
-      // it and kill the resumed walk at its first breath
+      // the resume node mid-flight (it survived the reload — or the
+      // previous owner's death — on the cluster side) is awaited, never
+      // re-dispatched: the 409 door would refuse it and kill the
+      // resumed walk at its first breath
       firstNodeAwaitOnly: scan.resumeInflight,
     });
     // post-walk receipts speak the same dialect as a fresh walk — the
-    // resume point onward is THIS session's doing
+    // resume point onward is THIS tab's doing
     if (res.userStopped) {
       toast({
         title: `Subtree re-run stopped — ${res.done} of ${total} re-ran`,
         description: stopReceiptSentence(res.done, total),
+        duration: 20_000,
+      });
+      return;
+    }
+    if (res.handedOff) {
+      // t451 — a sibling tab claimed the walk while this resumed walker
+      // waited. Stand down gracefully; the walk continues on the heir.
+      toast({
+        title: `Subtree re-run handed off — ${res.done} of ${total} re-ran here`,
+        description: handoffReceiptSentence(),
         duration: 20_000,
       });
       return;

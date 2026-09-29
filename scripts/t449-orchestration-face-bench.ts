@@ -156,8 +156,18 @@ must(
 /* O5 — the honesty line ---------------------------------------------- */
 
 must(ORCH_TAB_LAW.includes("tab"), "O5a the law says where the walk lives");
-must(ORCH_TAB_LAW.includes("cluster"), "O5b the law says what survives (the in-flight run)");
-must(ORCH_TAB_LAW.includes("never dispatched"), "O5c the law says what dies (the remaining nodes)");
+// t451 — the record moved house (sessionStorage → localStorage): the
+// walk now survives a closed tab via another tab of the workspace, so
+// the "cluster finishes / rest never dispatched" clauses retired with
+// the session dialect. The law's new truth: another tab picks it up.
+must(
+  ORCH_TAB_LAW.includes("another tab"),
+  "O5b the law says what survives (the walk itself — across tabs, t451)"
+);
+must(
+  ORCH_TAB_LAW.includes("picks the walk up"),
+  "O5c the law says who continues (the sibling heir, t451)"
+);
 
 /* O6 — the strip's composition contract ------------------------------ */
 

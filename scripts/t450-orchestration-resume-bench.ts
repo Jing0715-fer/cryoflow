@@ -188,11 +188,20 @@ must(
   "R7f the frontier reason states the consequence"
 );
 must(ORCH_TAB_LAW.startsWith("Survives a reload"), "R7g the fresh law promises the new survival");
-must(ORCH_TAB_LAW.includes("closing this tab"), "R7h the fresh law keeps the closing-tab boundary");
+// t451 — the record moved house (sessionStorage → localStorage): the
+// closing-tab boundary is superseded by the workspace's reach. The
+// fresh law now promises reload AND closed-tab survival via another
+// tab; the resumed law names the reload and the cross-tab follow.
+// These two assertions were re-pinned to the new truths by t451 —
+// the old boundary sentence retired with the session dialect.
+must(
+  ORCH_TAB_LAW.includes("closed tab") && ORCH_TAB_LAW.includes("another tab"),
+  "R7h the fresh law keeps the survival promise (now across tabs — t451)"
+);
 must(
   ORCH_TAB_LAW_RESUMED.startsWith("Resumed after a reload") &&
-    ORCH_TAB_LAW_RESUMED.includes("closing this tab"),
-  "R7i the resumed law states what happened and what still ends"
+    ORCH_TAB_LAW_RESUMED.includes("across tabs"),
+  "R7i the resumed law states what happened and what the walk follows now (t451)"
 );
 
 console.log(`t450 orchestration-resume bench: ${pass} pass, ${fail} fail`);

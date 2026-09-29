@@ -22,6 +22,7 @@ import { AlertTriangle, Boxes, Layers, Plus, RefreshCw, X } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
 import { useTabCensus } from "@/lib/use-tab-census";
 import { useFinishKnock } from "@/lib/use-finish-knock";
+import { useOrchAdoption } from "@/lib/use-orch-adoption";
 import { Header } from "@/components/workflow/header";
 import { CARD_H, CARD_W } from "@/lib/workflow";
 import { useDropNavigationGuard } from "@/components/workflow/drop-import";
@@ -165,6 +166,12 @@ export function AppShell() {
   // notification) for finishes observed while the tab is hidden, and
   // acknowledges them on return. Zero render output.
   useFinishKnock();
+  // t451 — the heir's pulse: a visible idle tab checks the shared walk
+  // record on a slow interval, on focus/visibility and on cross-tab
+  // storage events; when the owner's heartbeat went stale it calls the
+  // store's claim law to adopt the walk. Zero render output (the claim
+  // lives in the store; the strip renders it).
+  useOrchAdoption();
   // t449 — the verb's face renders from the store's live walk (null when
   // idle — zero output on an idle world). Mounted at the shell root so
   // the strip follows the user across canvas and dashboard.

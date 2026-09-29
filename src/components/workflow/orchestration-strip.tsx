@@ -18,10 +18,11 @@
  *   - the stop verb's contract is stated where it is clicked: stops
  *     dispatching BEFORE the next node; the one in flight finishes on
  *     its own (the loop's checkpoint, not a kill);
- *   - honesty line (ORCH_TAB_LAW): the walk lives in this tab — reload
- *     or close and the in-flight job still finishes on the cluster while
- *     the rest are never dispatched. The face says so before the user
- *     learns it the hard way.
+ *   - honesty line (ORCH_TAB_LAW): the walk lives in the workspace's
+ *     shared record now (t451) — it survives a reload AND a closed
+ *     tab: another tab of this workspace (or the next one opened)
+ *     picks the walk up. The face says so before the user learns it
+ *     the hard way.
  *
  * The ticker runs only while a walk exists (useNow(active) — an idle
  * world costs zero timers); initial 0 never enters the first frame
@@ -35,6 +36,7 @@ import { formatElapsed } from "@/lib/elapsed";
 import { useWorkflowStore } from "@/lib/store";
 import {
   ORCH_TAB_LAW,
+  ORCH_TAB_LAW_INHERITED,
   ORCH_TAB_LAW_RESUMED,
   orchestrationHeadline,
   orchestrationTicks,
@@ -65,7 +67,13 @@ export function OrchestrationStrip() {
   });
   const sentence = `Re-running subtree from ${orch.rootName} — ${headline}${
     orch.stopRequested ? " — stopping after this job" : ""
-  }${orch.resumed ? " — resumed after a reload" : ""}`;
+  }${
+    orch.inherited
+      ? " — inherited from another tab"
+      : orch.resumed
+        ? " — resumed after a reload"
+        : ""
+  }`;
 
   return (
     <div
@@ -86,10 +94,17 @@ export function OrchestrationStrip() {
             <span className="truncate">
               Re-running subtree from <span className="font-semibold">{orch.rootName}</span>
             </span>
-            {orch.resumed ? (
+            {orch.inherited ? (
               <span
                 className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
-                title="This walk survived a reload — the boot picked it up from the session record."
+                title="This walk was adopted from another tab whose walker went silent — the claim law handed it here."
+              >
+                inherited
+              </span>
+            ) : orch.resumed ? (
+              <span
+                className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                title="This walk survived a reload — the boot picked it up from the workspace record."
               >
                 resumed
               </span>
@@ -114,7 +129,11 @@ export function OrchestrationStrip() {
             </span>
           </div>
           <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
-            {orch.resumed ? ORCH_TAB_LAW_RESUMED : ORCH_TAB_LAW}
+            {orch.inherited
+              ? ORCH_TAB_LAW_INHERITED
+              : orch.resumed
+                ? ORCH_TAB_LAW_RESUMED
+                : ORCH_TAB_LAW}
           </p>
         </div>
 
