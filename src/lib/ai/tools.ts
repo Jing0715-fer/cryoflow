@@ -121,6 +121,7 @@ import {
   loadTopazTraining,
   ChartJobNotFound,
 } from "@/lib/chart-data";
+import { fmtAngstrom, fmtMicron } from "@/lib/chart-rows";
 
 export interface AiToolResult {
   ok: boolean;
@@ -2541,12 +2542,12 @@ export function sampleSeries<T>(rows: T[], max = 12): T[] {
   return out;
 }
 
-const fmtAng = (v: number | null | undefined): string =>
-  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 10) / 10} Å`;
-
-/** defocus/astigmatism live in µm in the star grammar (compare-rows). */
-const fmtUm = (v: number | null | undefined): string =>
-  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 1000) / 1000} µm`;
+/* t490 — the rounding rules moved to the shared surface (chart-rows'
+ * fmtAngstrom / fmtMicron) so the report's curve family and the tool
+ * quote the same digits by construction; these aliases keep the tool
+ * face's call sites byte-identical. */
+const fmtAng = fmtAngstrom;
+const fmtUm = fmtMicron;
 
 async function getJobCurves(
   ctx: AgentCtx,

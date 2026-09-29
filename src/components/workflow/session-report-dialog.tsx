@@ -54,6 +54,7 @@ import {
   buildProfileReport,
   buildSessionReport,
   buildSweepReport,
+  curveVerdictOf,
   deltaVsWinner,
   inventoryCsv,
   inventoryCsvFilename,
@@ -68,9 +69,19 @@ import {
   sparklinePath,
   weakestBand,
   weakestCellOf,
+  type CurveKind,
+  type CurveVerdictRow,
   type LocalBand,
   type ReportOverlay,
 } from "@/lib/qc-report";
+import type {
+  AngDistResponse,
+  CtfResponse,
+  FscResponse,
+  GuinierResponse,
+  MotionResponse,
+  TopazTrainingResponse,
+} from "@/lib/chart-rows";
 import { useWorkflowStore } from "@/lib/store";
 
 /** one candidate's 3D-map set (paths relative to the job's workdir) */
@@ -100,6 +111,34 @@ interface ProfileResponse {
 
 /** Full-map variants lead the report; halves and masked maps compare. */
 const MAIN_MAP_RE = /half0|postprocess\.mrc$/i;
+
+/** t490 — which curve kinds can a job type plausibly carry? The probe
+ *  budget's own map: a PostProcess writes the FSC + Guinier pair, a 3D
+ *  run (refine/class3d/class2d/initialmodel) may carry an FSC (model
+ *  star — t486 proved a 2D class can) and the angular distribution of
+ *  its data star, CtfFind speaks CTF fits, MotionCorr speaks drift,
+ *  a picker-training job speaks topaz epochs. The route is the honest
+ *  second gate: a probe whose workdir holds no such curve answers an
+ *  empty body and is skipped — the map only decides where to ASK,
+ *  never what to SAY. Types outside the map never spend a probe. */
+const CURVE_PROBES_BY_TYPE: [RegExp, CurveKind[]][] = [
+  [/postprocess/, ["fsc", "guinier"]],
+  [/refine3d|class3d|class2d|initialmodel|multibody/, ["fsc", "angdist"]],
+  [/ctffind/, ["ctf"]],
+  [/motioncorr/, ["motion"]],
+  [/topaz/, ["topaz"]],
+];
+
+/** The kind's name on the wire — the tool's "topaz" rides the
+ *  topaz-training route (the one kind whose route segment differs). */
+const CURVE_ROUTE_SEGMENT: Record<CurveKind, string> = {
+  fsc: "fsc",
+  guinier: "guinier",
+  angdist: "angdist",
+  ctf: "ctf",
+  motion: "motion",
+  topaz: "topaz-training",
+};
 
 /** Types that can ever own a true 3D volume (t211). The walk probes these
  *  FIRST — an import/motioncorr/ctffind/extract candidate has never held a
@@ -639,6 +678,43 @@ async function measureOwnerPeaks(
   return heard;
 }
 
+/** t490 — measure the session's curve verdicts: walk the completed
+ *  roster (newest first, the same cap the map walk obeys), probe the
+ *  chart routes the probe map predicts, and word each answer through
+ *  curveVerdictOf BEFORE it travels to the father. A probe whose body
+ *  carries no curve (empty shells/points/micrographs…) is an honest
+ *  skip — the walk records only what spoke; a probe whose ROUTE failed
+ *  (non-ok response or a refused fetch) marks the walk wounded — the
+ *  caller renders the error line only when NOTHING was heard (partial
+ *  truth over silence, the t211 doctrine). Sequential: each answer is
+ *  statcache-backed, and the row order stays the walk's order. */
+async function measureCurveVerdicts(
+  candidates: { id: string; name: string; type: string }[],
+  signal: AbortSignal,
+): Promise<{ rows: CurveVerdictRow[]; wounded: boolean }> {
+  const rows: CurveVerdictRow[] = [];
+  let wounded = false;
+  for (const job of candidates.slice(0, MAP_BRIEF_CAP)) {
+    const kinds = CURVE_PROBES_BY_TYPE.find(([re]) => re.test(job.type))?.[1] ?? [];
+    for (const kind of kinds) {
+      if (signal.aborted) return { rows, wounded };
+      try {
+        const res = await fetch(`/api/jobs/${job.id}/${CURVE_ROUTE_SEGMENT[kind]}`, { signal });
+        if (!res.ok) throw new Error(`chart route answered ${res.status}`);
+        const d = await res.json();
+        const verdict = curveVerdictOf(kind, d);
+        if (verdict) rows.push({ jobId: job.id, jobName: job.name, kind, verdict });
+      } catch (err) {
+        if (signal.aborted) return { rows, wounded };
+        // this probe's route refused — the walk goes on, wounded
+        console.error(`[curve-verdicts] ${job.name} ${kind} probe failed:`, err);
+        wounded = true;
+      }
+    }
+  }
+  return { rows, wounded };
+}
+
 export default function SessionReportDialog({
   open,
   onOpenChange,
@@ -675,6 +751,14 @@ export default function SessionReportDialog({
   >(null);
   const [note, setNote] = React.useState<string | null>(null);
   const noteTimer = React.useRef<number | null>(null);
+
+  /** t490 — the curve-verdict family's measurement state. Rows null
+   *  while the walk runs (the section says "still reading"), a list
+   *  (possibly empty) once it settles; curvesError only when the walk
+   *  ended wounded AND nothing was heard. */
+  const [curves, setCurves] = React.useState<CurveVerdictRow[] | null>(null);
+  const [curvesPending, setCurvesPending] = React.useState(false);
+  const [curvesError, setCurvesError] = React.useState(false);
 
   const flashNote = (text: string) => {
     setNote(text);
@@ -779,6 +863,32 @@ export default function SessionReportDialog({
     return () => ctrl.abort();
   }, [open]);
 
+  // t490 — the curve verdicts are measured ONCE per open, in their own
+  // walk (the map walk's budget is volume business; this one probes the
+  // chart routes for every completed job the probe map predicts). The
+  // same pending doctrine: the section says "still reading" until the
+  // walk settles, then rows — or the honest empty/error line.
+  React.useEffect(() => {
+    if (!open) return;
+    const ctrl = new AbortController();
+    setCurves(null);
+    setCurvesError(false);
+    setCurvesPending(true);
+    (async () => {
+      const done = useWorkflowStore
+        .getState()
+        .jobs.filter((j) => j.status === "completed")
+        .sort(byRecency)
+        .map((j) => ({ id: j.id, name: j.name, type: j.type }));
+      const { rows, wounded } = await measureCurveVerdicts(done, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      setCurves(rows);
+      setCurvesError(wounded && rows.length === 0);
+      setCurvesPending(false);
+    })();
+    return () => ctrl.abort();
+  }, [open]);
+
   const pipeline = React.useMemo(() => {
     const succeeded = jobs.filter((j) => j.status === "completed").length;
     const running = jobs.filter((j) => j.status === "running").length;
@@ -796,8 +906,11 @@ export default function SessionReportDialog({
         mapError,
         mapInventory,
         sweep: lastSweep ? buildSweepReport(lastSweep.rows, lastSweep.bestId) : null,
+        curves,
+        curvesPending,
+        curvesError,
       }),
-    [project?.name, pipeline, mapQc, mapPending, mapError, mapInventory, lastSweep],
+    [project?.name, pipeline, mapQc, mapPending, mapError, mapInventory, lastSweep, curves, curvesPending, curvesError],
   );
 
   // t234: the compass and its needle. `toc` is the md's second surface

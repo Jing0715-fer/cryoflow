@@ -19,6 +19,24 @@
 
 import type { CsvRow } from "@/lib/chart-export";
 
+/* ---------------- shared formatters (t490) ---------------- */
+
+/**
+ * The Å / µm ROUNDING RULE, born in the shared surface so every reader
+ * speaks the same digits: the agent's get_job_curves (tools.ts's fmtAng
+ * / fmtUm now alias these), the Session QC report's curve-verdict
+ * family (qc-report's curveVerdictOf) and any future reader quote the
+ * same 1-decimal Å and 3-decimal µm by construction — a number that
+ * appears on two faces must be ROUNDED in one place, or the faces will
+ * drift apart one decimal at a time.
+ */
+export const fmtAngstrom = (v: number | null | undefined): string =>
+  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 10) / 10} Å`;
+
+/** defocus/astigmatism live in µm in the star grammar (compare-rows). */
+export const fmtMicron = (v: number | null | undefined): string =>
+  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 1000) / 1000} µm`;
+
 /* ---------------- FSC curve ---------------- */
 
 export interface FscShell {

@@ -20,6 +20,16 @@
  */
 
 import { mdCell } from "@/lib/md";
+import {
+  fmtAngstrom,
+  fmtMicron,
+  type AngDistResponse,
+  type CtfResponse,
+  type FscResponse,
+  type GuinierResponse,
+  type MotionResponse,
+  type TopazTrainingResponse,
+} from "@/lib/chart-rows";
 
 /* ------------------------------------------------------------------ */
 /* Sweep family — moved verbatim from hpc-queue-sim.tsx (t194).        */
@@ -668,6 +678,124 @@ export const profileReportFilename = (axis: string): string =>
   `map-qc-report-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`;
 
 /* ------------------------------------------------------------------ */
+/* Curve-verdict family (t490) — the session report quotes the well.   */
+/* ------------------------------------------------------------------ */
+
+/** The six curve kinds — the SAME vocabulary get_job_curves' schema
+ *  speaks (tools.ts's CURVE_KINDS), so a kind named on the paper is a
+ *  kind the agent could have been asked about. "topaz" here (the tool's
+ *  kind name) maps to the topaz-training route on the wire. */
+export type CurveKind = "fsc" | "guinier" | "angdist" | "ctf" | "motion" | "topaz";
+
+/** The paper's human word for each kind — a table column that says
+ *  "fsc" makes the reader do the decoding; the report does it once. */
+export const CURVE_KIND_LABELS: Record<CurveKind, string> = {
+  fsc: "FSC",
+  guinier: "Guinier",
+  angdist: "Angular distribution",
+  ctf: "CTF fit",
+  motion: "Motion drift",
+  topaz: "Picker training",
+};
+
+/** One verdict row the dialog measured — the father renders the table,
+ *  the dialog does the walking, and the VERDICT STRING is built here
+ *  (curveVerdictOf) so the paper's curve voice has one birthplace. */
+export interface CurveVerdictRow {
+  jobId: string;
+  jobName: string;
+  kind: CurveKind;
+  verdict: string;
+}
+
+/**
+ * The curve family's voice: each kind's verdict line quotes the SAME
+ * well the panels' interpretation strips render and the agent tool
+ * quotes — the numbers come from the chart routes' response (loader +
+ * interpretation fields), and this builder only words them. Judgments
+ * are NEVER recomputed here (no 0.143 math, no >6 threshold, no early/
+ * late re-derivation — the well owns them; the paper quotes): the
+ * interpretation fields ride in and their words go out. Null when the
+ * response has nothing to say (the honest skip — the route returned an
+ * empty body for a job whose workdir holds no such curve).
+ */
+export const curveVerdictOf = (
+  kind: CurveKind,
+  data: FscResponse | GuinierResponse | AngDistResponse | CtfResponse | MotionResponse | TopazTrainingResponse | null | undefined,
+): string | null => {
+  if (!data) return null;
+  switch (kind) {
+    case "fsc": {
+      const d = data as FscResponse;
+      if (!d.shells || d.shells.length === 0) return null;
+      let v = `FSC 0.143 at ${d.resolutionAt143 != null ? fmtAngstrom(d.resolutionAt143) : "?"}`;
+      if (d.resolutionAt05 != null) v += ` (0.5 at ${fmtAngstrom(d.resolutionAt05)})`;
+      if (d.reportedResolution != null) v += ` · reported ${fmtAngstrom(d.reportedResolution)}`;
+      const interp = d.interpretation;
+      if (interp?.atNyquist) v += " — at the Nyquist cap, the curve cannot cross";
+      if (interp?.reportedDiffers) v += " — the reported estimate differs from the crossing";
+      return v;
+    }
+    case "guinier": {
+      const d = data as GuinierResponse;
+      if (!d.points || d.points.length === 0) return null;
+      let v = `Guinier ${d.points.length} pts`;
+      if (d.bfactor != null) v += ` · B-factor ${d.bfactor.toFixed(1)} Å²`;
+      const interp = d.interpretation;
+      if (interp?.rangeAngstrom) v += ` · covers ${interp.rangeAngstrom.from.toFixed(1)}–${interp.rangeAngstrom.to.toFixed(1)} Å`;
+      if (interp?.hasSharpened) v += " · sharpened curve in plot";
+      return v;
+    }
+    case "angdist": {
+      const d = data as AngDistResponse;
+      if (!d.total) return null;
+      const interp = d.interpretation;
+      const verdict = interp?.verdict ?? "fairly even";
+      const concentration = interp?.concentration ?? (Number.isFinite(d.anisotropy) ? Math.round(d.anisotropy * 10) / 10 : null);
+      let v = `${d.total} particles · ${d.occupied}/${d.rotBins * d.tiltBins} bins`;
+      if (concentration != null) v += ` · ×${concentration} — ${verdict}`;
+      else v += ` — ${verdict}`;
+      const hot = interp?.hottestBins?.[0];
+      if (hot) v += ` · hottest r${hot.rotBin}/t${hot.tiltBin}`;
+      return v;
+    }
+    case "ctf": {
+      const d = data as CtfResponse;
+      if (!d.micrographs || d.micrographs.length === 0) return null;
+      let v = `${d.micrographs.length} micrographs`;
+      const s = d.summary;
+      if (s) v += ` · mean defocus ${fmtMicron(s.meanDefocus)} · worst fit ${fmtAngstrom(s.worstResolution)}`;
+      const worst = d.interpretation?.worstMicrographs?.[0];
+      if (worst) v += ` (${worst.name})`;
+      return v;
+    }
+    case "motion": {
+      const d = data as MotionResponse;
+      if (!d.micrographs || d.micrographs.length === 0) return null;
+      const s = d.summary;
+      const interp = d.interpretation;
+      let v = `${d.micrographs.length} micrographs`;
+      if (s) v += ` · mean drift ${fmtAngstrom(s.meanTotal)} · worst ${fmtAngstrom(s.maxTotal)}${s.worstName ? ` (${s.worstName})` : ""}`;
+      if (interp?.driftTriage) v += ` — ${interp.driftTriage}`;
+      return v;
+    }
+    case "topaz": {
+      const d = data as TopazTrainingResponse;
+      if (!d.epochs || d.epochs.length === 0) return null;
+      const interp = d.interpretation;
+      if (!interp) return null;
+      const first = interp.firstEpoch;
+      const last = interp.lastEpoch;
+      let v = `loss ${first?.trainLoss?.toFixed(4) ?? "?"}→${last?.trainLoss?.toFixed(4) ?? "?"}`;
+      if (interp.lossDirection) v += ` (${interp.lossDirection})`;
+      if (last?.precision != null || last?.recall != null)
+        v += ` · epoch ${last.it}: P ${last.precision != null ? `${Math.round(last.precision * 100)}%` : "?"} · R ${last.recall != null ? `${Math.round(last.recall * 100)}%` : "?"}`;
+      return v;
+    }
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /* The session binding (t197) — the families meet in one document.     */
 /* ------------------------------------------------------------------ */
 
@@ -715,8 +843,19 @@ export const buildSessionReport = (opts: {
    *  the dialog computes it where the bins live; the paper cell says —). */
   mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null; shapeR?: number | null; weakest?: { label: string; r: number; from: number } | null }[] | null;
   sweep: string | null;
+  /** t490 — the curve-verdict family: one row per (job, kind) whose
+   *  chart route answered with a curve. The dialog walks the completed
+   *  roster and fetches the SAME chart routes the panels drink from;
+   *  the verdict strings were built by curveVerdictOf (the paper's own
+   *  voice over the well's fields) before they arrived. Null while the
+   *  walk is still measuring; the section honest-absents to a pending
+   *  line until the walk settles, and to an honest empty state when
+   *  no completed job carries any curve. */
+  curves: CurveVerdictRow[] | null;
+  curvesPending: boolean;
+  curvesError: boolean;
 }): string => {
-  const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep } = opts;
+  const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep, curves, curvesPending, curvesError } = opts;
   const lines: string[] = [];
   lines.push("# CryoFlow session QC report");
   lines.push("");
@@ -818,6 +957,30 @@ export const buildSessionReport = (opts: {
       lines.push("");
     }
   }
+  lines.push("## Curve verdicts");
+  lines.push("");
+  // t490 — the fourth family: the session's curves speak on the paper.
+  // The rows were measured by the dialog through the SAME chart routes
+  // the inspector panels and the agent tool drink from, and each
+  // verdict string was worded by curveVerdictOf over the well's own
+  // interpretation fields — the report re-judges nothing. A — in the
+  // prologue's spirit: a family with nothing to say says so honestly.
+  if (curvesPending) {
+    lines.push("_Still reading this session's curves — the verdicts arrive with the measurement, never before it._");
+  } else if (curvesError) {
+    lines.push("_The curve routes refused (a chart API call failed) — this summary does not guess the verdicts._");
+  } else if (curves && curves.length > 0) {
+    lines.push("Every completed job whose workdir carries a curve the charts can draw, newest first. The verdict column is worded over the same interpretation the inspector panels render and the agent's curve tool quotes — one well, three readers; the paper never re-judges what the panels already said.");
+    lines.push("");
+    lines.push("| Job | Curve | Verdict |");
+    lines.push("|-----|-------|---------|");
+    for (const row of curves) {
+      lines.push(`| ${mdCell(row.jobName)} | ${CURVE_KIND_LABELS[row.kind]} | ${mdCell(row.verdict)} |`);
+    }
+  } else {
+    lines.push("None of this session's completed jobs carries curve data yet — run Post-process (FSC, Guinier), a 3D classification (angular distribution), CTF Estimation or Motion Correction and their verdicts will be quoted here.");
+  }
+  lines.push("");
   lines.push("## Scheduling sweep");
   lines.push("");
   if (sweep) {
