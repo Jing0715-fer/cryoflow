@@ -172,8 +172,14 @@ if isinstance(_cont, str) and _cont.strip():
         if l.strip() and not l.startswith(("_", "#", "data_", "loop_"))
     ]
     _npart = len(_rows)
-    # --iter on a continue is RELION's "how much more to run"
-    _n_more = int(opts.get("iter", "12")) if isinstance(opts.get("iter"), str) else 12
+    # --iter on a continue is RELION's TOTAL (the option table's help
+    # verbatim: "if 10 iterations have been performed previously and one
+    # restarts to perform an additional 5 … the number given here should
+    # be 10+5=15") — the t455 verb writes current + more, so the target
+    # is the NUMBER ITSELF, not an increment. Absent --iter keeps the
+    # old "12 more" default shape.
+    _target = int(opts.get("iter", str(_start_it + 12))) if isinstance(opts.get("iter"), str) else _start_it + 12
+    _n_more = max(1, _target - _start_it)
     print(
         f"cryoflow-mock refine: CONTINUE from {os.path.basename(_cont)} "
         f"(it {_start_it:03d}, K={_ncls}) +{_n_more} more, particles={_npart}"
