@@ -10,7 +10,7 @@
  * topaz version whose output shape the parser cannot read).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   GraduationCap,
   MoveHorizontal,
@@ -29,7 +29,8 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { ChartInterpretation } from "./interpretation-strip";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartErrorStrip } from "./chart-error-strip";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   topazRenderable,
   topazRows,
@@ -53,36 +54,16 @@ export function TopazTrainingChart({
   running?: boolean;
   className?: string;
 }) {
-  const [data, setData] = useState<TopazTrainingResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // t491 — shared fetch state machine; live jobs poll every 20 s (a training
+  // run grows epochs), and a poll blip keeps the last good epochs on screen
+  const { status, data, error, retry } = useChartResource<TopazTrainingResponse>(
+    `/api/jobs/${jobId}/topaz-training`,
+    { pollMs: running ? 20_000 : null }
+  );
   // two chart views: loss curves (default) and precision/recall on a 0–1
   // axis. The P/R switch only appears when the log actually carries
   // picking metrics — older topaz versions log loss only.
   const [mode, setMode] = useState<"loss" | "pr">("loss");
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<TopazTrainingResponse>(
-          `/api/jobs/${jobId}/topaz-training`
-        );
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
-      }
-    };
-    void load();
-    if (!running) return () => { cancelled = true; };
-    const t = setInterval(() => void load(), 20_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
 
   // chart rows carry both curve families; recharts skips nulls with
   // connectNulls, so each view just reads its own keys
@@ -121,7 +102,16 @@ export function TopazTrainingChart({
     return best;
   }, [data]);
 
-  if (error && !data) return null; // silent — the chart is an enhancement
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Picker training"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   // gate single-sourced in lib/chart-rows (a single epoch is not a curve)
   if (!topazRenderable(rows)) return null;
 

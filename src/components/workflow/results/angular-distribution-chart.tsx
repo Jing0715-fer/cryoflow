@@ -12,12 +12,13 @@
  * Data: /api/jobs/[id]/angdist (latest run_itXXX_data.star, live while running).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CheckCircle2, Compass, Flame, RadioTower, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { useChartResource } from "@/lib/use-chart-resource";
 import { angDistRenderable, angDistRows, type AngDistResponse } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartErrorStrip } from "./chart-error-strip";
 import { ChartInterpretation } from "./interpretation-strip";
 
 const SIZE = 236;
@@ -61,31 +62,14 @@ export function AngularDistributionChart({
   running?: boolean;
   className?: string;
 }) {
-  const [data, setData] = useState<AngDistResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // t491 — shared fetch state machine; the error state used to be captured
+  // and then thrown away visually ("error && !data → null") — a wound read
+  // exactly like honest absence
+  const { status, data, error, retry } = useChartResource<AngDistResponse>(
+    `/api/jobs/${jobId}/angdist`,
+    { pollMs: running ? 30_000 : null }
+  );
   const [hovered, setHovered] = useState<Hovered | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<AngDistResponse>(`/api/jobs/${jobId}/angdist`);
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
-      }
-    };
-    void load();
-    if (!running) return () => { cancelled = true; };
-    const t = setInterval(() => void load(), 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
 
   const rings = useMemo(() => {
     // dashed rings at tilt 30/60/90/120/150 + labels along the +x axis
@@ -96,7 +80,16 @@ export function AngularDistributionChart({
     return out;
   }, []);
 
-  if (error && !data) return null; // enhancement — stays silent on failure
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Angular distribution"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   // gate single-sourced in lib/chart-rows (t110: the palette exports the
   // same grid through the same predicate); !data first so TS narrows below
   if (!data || !angDistRenderable(data)) return null;

@@ -8,7 +8,7 @@
  * Data: /api/jobs/[id]/ctf parses micrographs_ctf.star.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, Focus, Grid3x3, Radar, ScanSearch } from "lucide-react";
 import {
   CartesianGrid,
@@ -25,7 +25,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, on
 import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
 import { ChartInterpretation } from "./interpretation-strip";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartErrorStrip } from "./chart-error-strip";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   ctfRenderable,
   ctfRows,
@@ -45,31 +46,16 @@ function fomTone(fom: number): string {
 }
 
 export function CtfQualityChart({ jobId, className }: { jobId: string; className?: string }) {
-  const [data, setData] = useState<CtfResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // t491 — shared fetch state machine (no poll: a completed job's CTF table
+  // doesn't change); the captured-then-discarded error face is now visible
+  const { status, data, error, retry } = useChartResource<CtfResponse>(
+    `/api/jobs/${jobId}/ctf`
+  );
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [selected, setSelected] = useState<CtfMicrograph | null>(null);
 
   const fileUrl = (relPath: string, extra = "") =>
     `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(relPath)}&format=png${extra}`;
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const body = await fetchJsonRetry<CtfResponse>(`/api/jobs/${jobId}/ctf`);
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId]);
 
   const { micrographs, summary, domain } = useMemo(() => {
     const m = data?.micrographs ?? [];
@@ -86,7 +72,16 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
   // micrographs, fit resolution largest first
   const worstFits = data?.interpretation?.worstMicrographs ?? [];
 
-  if (error && !data) return null; // enhancement, stay silent
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="CTF fit quality"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   // gate single-sourced in lib/chart-rows (t110: the palette exports the
   // same micrographs through the same predicate)
   if (!ctfRenderable(micrographs.length)) return null;

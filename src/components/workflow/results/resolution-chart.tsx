@@ -9,7 +9,7 @@
  * the curve climbing = refinement improving — the intuitive direction.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Crosshair, TrendingUp } from "lucide-react";
 import {
   Area,
@@ -22,13 +22,14 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   resolutionRenderable,
   resolutionRows,
   type ResolutionResponse,
 } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartErrorStrip } from "./chart-error-strip";
 
 const TEAL = "#14b8a6";
 
@@ -42,30 +43,12 @@ export function ResolutionChart({
   running?: boolean;
   className?: string;
 }) {
-  const [data, setData] = useState<ResolutionResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<ResolutionResponse>(`/api/jobs/${jobId}/resolution`);
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
-      }
-    };
-    void load();
-    if (!running) return () => { cancelled = true; };
-    const t = setInterval(() => void load(), 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
+  // t491 — shared fetch state machine; live jobs poll every 30 s so the
+  // curve extends itself, and a poll blip keeps the last good points
+  const { status, data, error, retry } = useChartResource<ResolutionResponse>(
+    `/api/jobs/${jobId}/resolution`,
+    { pollMs: running ? 30_000 : null }
+  );
 
   const { points, yDomain } = useMemo(() => {
     const pts = data?.points ?? [];
@@ -84,7 +67,16 @@ export function ResolutionChart({
     return { points: pts, yDomain: [max, min] as [number, number] }; // reversed axis
   }, [data]);
 
-  if (error && !data) return null; // silent — the chart is an enhancement
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Resolution evolution"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   // gate single-sourced in lib/chart-rows (t110: the palette exports the
   // same points through the same predicate)
   if (!resolutionRenderable(points)) return null;

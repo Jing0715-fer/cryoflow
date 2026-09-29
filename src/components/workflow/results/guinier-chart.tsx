@@ -13,7 +13,7 @@
  * pipeline reaches its final step).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Ruler, TrendingDown } from "lucide-react";
 import {
   CartesianGrid,
@@ -25,7 +25,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   guinierPoints,
   guinierRenderable,
@@ -33,6 +33,7 @@ import {
   type GuinierResponse,
 } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartErrorStrip } from "./chart-error-strip";
 import { ChartInterpretation } from "./interpretation-strip";
 
 const TEAL = "#14b8a6";
@@ -47,33 +48,27 @@ export function GuinierChart({
   running?: boolean;
   className?: string;
 }) {
-  const [data, setData] = useState<GuinierResponse | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<GuinierResponse>(`/api/jobs/${jobId}/guinier`);
-        if (!cancelled) setData(body);
-      } catch {
-        /* silent — enhancement only */
-      }
-    };
-    void load();
-    if (!running) return () => {
-      cancelled = true;
-    };
-    const t = setInterval(() => void load(), 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
+  // t491 — shared fetch state machine; the silent catch used to leave this
+  // panel permanently invisible after one transient blip
+  const { status, data, error, retry } = useChartResource<GuinierResponse>(
+    `/api/jobs/${jobId}/guinier`,
+    { pollMs: running ? 30_000 : null }
+  );
 
   // derivation single-sourced in lib/chart-rows (t110: palette + chart +
   // export buttons all read the same points)
   const points = useMemo(() => guinierPoints(data), [data]);
 
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Guinier plot"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   if (!data || !guinierRenderable(points)) return null; // silent until postprocess runs
 
   // t489 — hasSharpened is the WELL's judgment (interpretGuinier), and the

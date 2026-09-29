@@ -1,7 +1,10 @@
 #!/bin/bash
-# recent-family.sh — the t4xx bench family (47 suites as of Task 481), serial, exit 0 iff all green.
+# recent-family.sh — the t4xx bench family (55 suites as of Task 491), serial, exit 0 iff all green.
+# t491 lesson: the old glob t4[2-8][0-9] topped out at t489 and silently dropped t490+ from the family
+# run — "glob 自动纳新" was only true while the decade digit stayed inside the class. Keep [2-9] so
+# every future t49x/t50x-adjacent sibling is picked up; bump the top digit when t500 arrives.
 cd "$(dirname "$0")/.."
-SUITES=$(ls scripts/t4[2-8][0-9]-*bench.ts | sort)
+SUITES=$(ls scripts/t4[2-9][0-9]-*bench.ts | sort)
 FAIL=0
 N=0
 for s in $SUITES; do

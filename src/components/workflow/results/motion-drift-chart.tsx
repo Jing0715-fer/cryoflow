@@ -20,7 +20,7 @@
  * before the user opens any table.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Activity, ChevronDown, Scale, TriangleAlert } from "lucide-react";
 import {
   Bar,
@@ -37,7 +37,8 @@ import {
   cn,
 } from "@/lib/utils";
 import { ChartInterpretation } from "./interpretation-strip";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartErrorStrip } from "./chart-error-strip";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   motionRenderable,
   motionRows,
@@ -57,24 +58,13 @@ function driftTone(total: number, mean: number, sd: number): string {
 }
 
 export function MotionDriftChart({ jobId, className }: { jobId: string; className?: string }) {
-  const [data, setData] = useState<MotionResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // t491 — shared fetch state machine (no poll: drift history doesn't
+  // change); the old `error` state was never even SET (the catch was
+  // silent) yet guarded the render — the wound never had a face
+  const { status, data, error, retry } = useChartResource<MotionResponse>(
+    `/api/jobs/${jobId}/motion`
+  );
   const [tableOpen, setTableOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const body = await fetchJsonRetry<MotionResponse>(`/api/jobs/${jobId}/motion`);
-        if (!cancelled && motionRenderable(body.micrographs?.length ?? 0)) setData(body);
-      } catch {
-        /* silent — self-hiding panel */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId]);
 
   const stats = useMemo(() => {
     const ms = data?.micrographs ?? [];
@@ -102,8 +92,17 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
 
   const rows = useMemo(() => motionRows(data), [data]);
 
-  if (error) return null;
-  if (!data) return null;
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Motion drift"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
+  if (!data || !motionRenderable(data.micrographs?.length ?? 0)) return null;
 
   const summary = data.summary;
   // t488 — the drift triage + worst three, built in the well

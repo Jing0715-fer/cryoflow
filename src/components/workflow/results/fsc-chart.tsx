@@ -15,7 +15,7 @@
  * "further along" — the conventional cryo-EM orientation.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Award, Crosshair, GitCompareArrows, Layers, Waves } from "lucide-react";
 import {
   CartesianGrid,
@@ -29,9 +29,10 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { useChartResource } from "@/lib/use-chart-resource";
 import { fscShells, fscRenderable, fscRows, type FscResponse } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartErrorStrip } from "./chart-error-strip";
 import { FscCompareDialog } from "./fsc-compare-dialog";
 
 const TEAL = "#14b8a6";
@@ -54,31 +55,18 @@ export function FscChart({
    *  wide FSC overlay (other jobs' curves plotted on the same axis) */
   projectId?: string;
 }) {
-  const [data, setData] = useState<FscResponse | null>(null);
+  // t491 — the fetch state machine is shared (use-chart-resource): the
+  // hand-rolled effect + silent catch used to render this panel invisible
+  // forever after one transient blip, indistinguishable from "no data".
+  const { status, data, error, retry } = useChartResource<FscResponse>(
+    `/api/jobs/${jobId}/fsc`,
+    { pollMs: running ? 30_000 : null }
+  );
   const [compareOpen, setCompareOpen] = useState(false);
   // the raw masked-maps FSC (pre-correction) is an expert diagnostic — the
   // gap between it and the corrected curve IS the mask-induced correlation
   // boost. Hidden by default so the headline chart stays readable.
   const [showMasked, setShowMasked] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<FscResponse>(`/api/jobs/${jobId}/fsc`);
-        if (!cancelled) setData(body);
-      } catch {
-        /* silent — enhancement only */
-      }
-    };
-    void load();
-    if (!running) return () => { cancelled = true; };
-    const t = setInterval(() => void load(), 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
 
   // clip 999-sentinel / non-finite rows, keep resolution ascending;
   // jobs whose FSC column is all zeros (e.g. VDAM initialmodel) stay hidden
@@ -86,6 +74,16 @@ export function FscChart({
   // the same shells through the same function)
   const shells = useMemo(() => fscShells(data), [data]);
 
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="FSC curve"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   if (!data || !fscRenderable(shells)) return null;
 
   const isPost = data.source === "postprocess";
