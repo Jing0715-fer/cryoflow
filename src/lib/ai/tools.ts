@@ -34,6 +34,11 @@ import { allAdjacency, portsValid } from "@/lib/edge-ports";
 import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
+import {
+  listJobTombstones,
+  readJobTombstone,
+} from "@/lib/job-tombstone";
+import { restoreJobRows, type RestoreJobInput } from "@/lib/job-restore";
 import { getConnection, loadConnections } from "@/lib/remote/connections";
 import { startJob } from "@/lib/relion/dispatch";
 import { getRun, latestIterationDataStar, stopRun } from "@/lib/relion/engine";
@@ -151,6 +156,28 @@ export const AI_TOOLS: ToolSchema[] = [
     description:
       "Read the SSH cluster registry — the Remote clusters dialog's own roll call: each saved connection's name, host, auth shape (booleans only, never secrets), remote root, Slurm flag, default RELION module, its LAST probe's truth (reachable / probe-failed with the error line / never-tested — each probe block carries checkedAt; quote the timestamp when health matters, clusters are probed when tested or dispatched, never by this read), whether the ACTIVE project is bound to it, and its dispatch résumé (total/completed/failed runs the ledger remembers, with the 3 newest — what has this cluster done for me). Also answers 'which cluster would run_job mode:'cluster' dispatch to?' via the project binding.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "list_deleted",
+    description:
+      "Read the graveyard — every deleted job's tombstone, newest first: its id, type and name (when the grave remembers them), when it was deleted, what its run record says (done/exit code/result line) and whether it can be restored from here (a grave with a row snapshot restores under its ORIGINAL id — workdir, run record and wires re-attach; a grave without one restores only from the canvas's undo). The mirror read for delete_job.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "restore_deleted",
+    description:
+      "Bring a deleted job back to the canvas from its graveyard tombstone, under its ORIGINAL id — its workdir, run record and wires re-attach as if the delete never happened (a re-run would have wiped them). Pass the job_id of a grave from list_deleted. Only graves WITH a row snapshot can be restored from here; a restored 'running' job comes back idle (its process was stopped at delete time).",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: {
+          type: "string",
+          description: "The deleted job's id — a grave named by list_deleted.",
+        },
+      },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
   },
   {
     name: "get_funnel_chain",
@@ -665,6 +692,10 @@ export async function executeAiTool(
         return await getWorkflowState(ctx);
       case "list_clusters":
         return await listClustersTool(ctx);
+      case "list_deleted":
+        return await listDeletedTool(ctx);
+      case "restore_deleted":
+        return await restoreDeletedTool(ctx, (args as { job_id?: string }).job_id);
       case "get_funnel_chain":
         return await getFunnelChain(ctx, typeof args.job_id === "string" ? args.job_id : "");
       case "compare_jobs":
@@ -903,6 +934,151 @@ async function listClustersTool(ctx: AgentCtx): Promise<AiToolResult> {
       roster,
       note: "probe facts are the LAST probe's truth — quote checkedAt when health matters; a fresh probe is the dialog's Test button or the dispatch's own gate, not this read. Dispatch records are the LEDGER's truth, not the canvas's — a record outlives its job: exists:false means the job is gone from every canvas while the ledger still remembers the run; the full history (and the bulk forget) lives in the records dialog",
     },
+  };
+}
+
+/* ---- list_deleted / restore_deleted --------------------------------- */
+
+/**
+ * t477 — the graveyard's roll call. delete_job has spoken since t341; its
+ * mirror read was mute: "我之前删掉的任务还能找回吗" had no door. This read
+ * names every grave from the SAME tombstones the restore path consumes
+ * (listJobTombstones — zero private snapshots), and each row answers the
+ * only question that matters: can this grave come back from here?
+ *   - a grave WITH a row snapshot (t477 deletes) → restorable, self-sufficient
+ *   - a grave whose id is taken (already restored / re-created) → says so
+ *   - a row-less grave (t341-era: the row lived in the client's undo stack
+ *     and died with the page) → honest about needing the canvas's undo
+ */
+async function listDeletedTool(ctx: AgentCtx): Promise<AiToolResult> {
+  const graves = listJobTombstones();
+  if (graves.length === 0) {
+    return {
+      ok: true,
+      summary: "The graveyard is empty — nothing has been deleted, nothing to restore",
+      detail: { graves: [] },
+    };
+  }
+
+  const rows = await Promise.all(
+    graves.map(async (g) => {
+      const rec = g.record;
+      // restoreJobRows refuses an occupied id — the roll call pre-computes
+      // the same truth so the spoken line never promises a blocked restore
+      const occupied = !!(await db.job.findUnique({ where: { id: g.id }, select: { id: true } }));
+      const name = g.row?.name ?? null;
+      const type = g.row?.type ?? rec?.type ?? "unknown";
+      return {
+        id: g.id,
+        type,
+        ...(name ? { name } : {}),
+        deletedAt: g.deletedAt,
+        rowSnapshot: g.row ? true : false,
+        run: rec
+          ? {
+              done: rec.done,
+              exitCode: rec.exitCode,
+              ...(rec.result ? { result: truncate(rec.result, 120) } : {}),
+            }
+          : null,
+        edges: g.fileEdges.length + g.dbEdges.length,
+        restorable: g.row ? !occupied : false,
+        ...(g.row && occupied ? { why: "a job with this id already exists — already restored or re-created" } : {}),
+        ...(!g.row ? { why: "no row snapshot in this old grave — restore it from the canvas's undo while the session remembers, or recreate it" } : {}),
+      };
+    }),
+  );
+
+  const named = rows.filter((r) => r.restorable).length;
+  return {
+    ok: true,
+    summary:
+      `${rows.length} deleted job${rows.length === 1 ? "" : "s"} in the graveyard, ${named} restorable from here ` +
+      `(restore_deleted with its id; the rest need the canvas's undo or a re-create)`,
+    detail: {
+      graves: rows,
+      note: "a restore puts the job back under its ORIGINAL id — its workdir, run record and wires re-attach; a restored 'running' grave comes back idle (the process was stopped at delete time)",
+    },
+  };
+}
+
+/**
+ * t477 — the restore verb. The grave's own row snapshot feeds the SAME
+ * restoreJobRows the canvas's undo button runs (lib/job-restore.ts) —
+ * same workspace guard, same scalar param filter, same running→idle
+ * coercion, same tombstone re-apply. No private mutation path: the agent
+ * restores exactly what the product's restore restores.
+ */
+async function restoreDeletedTool(ctx: AgentCtx, jobId: unknown): Promise<AiToolResult> {
+  const id = typeof jobId === "string" ? jobId.trim() : "";
+  if (!id) {
+    return {
+      ok: false,
+      summary: 'restore_deleted needs job_id — call list_deleted to see the graves and pass one of their ids.',
+    };
+  }
+  const tomb = readJobTombstone(id);
+  if (!tomb) {
+    return {
+      ok: false,
+      summary: `No tombstone for id "${truncate(id, 48)}" — call list_deleted to see the graveyard's actual residents.`,
+    };
+  }
+  if (!tomb.row) {
+    return {
+      ok: false,
+      summary:
+        "This grave holds only the run record and wires — its name and params were snapshotted client-side at delete time and are gone. Restore it from the canvas's delete-toast Undo while the session remembers it, or recreate it with create_job.",
+    };
+  }
+
+  const active = await getActiveProject();
+  if (!active) {
+    return { ok: false, summary: "No active project — a restore has no canvas to come back to." };
+  }
+  // the row snapshot IS the restore body (restoreJobRows re-validates every
+  // field — the same sanitizer, never a verbatim trust)
+  const body: RestoreJobInput = {
+    id: tomb.id,
+    type: tomb.row.type,
+    name: tomb.row.name,
+    x: tomb.row.x,
+    y: tomb.row.y,
+    params: tomb.row.params,
+    workspaceId: tomb.row.workspaceId ?? undefined,
+    note: tomb.row.note ?? undefined,
+    status: tomb.row.status,
+    progress: tomb.row.progress,
+    result: tomb.row.result ?? undefined,
+    startedAt: tomb.row.startedAt ?? undefined,
+    duration: tomb.row.duration,
+    linkedJobId: tomb.row.linkedJobId ?? undefined,
+  };
+  const outcome = await restoreJobRows([body], active.project.id);
+
+  if (outcome.restored.length === 0) {
+    const why = outcome.failed[0]?.error ?? "the restore failed without a reason line";
+    return {
+      ok: false,
+      summary: `The grave did not come back: ${why}`,
+      detail: outcome,
+    };
+  }
+  const r = outcome.restored[0];
+  const coercedLine = r.coerced
+    ? " It was running when deleted, so it came back idle — the process was stopped at delete time; run_job when you want it to go again."
+    : "";
+  const recordLine = outcome.recordRestored.includes(r.id)
+    ? " Its run record (outputs, results) re-attached, so downstream jobs can consume it again."
+    : "";
+  const edgeLine =
+    outcome.edges.length > 0
+      ? ` ${outcome.edges.length} wire${outcome.edges.length === 1 ? "" : "s"} re-attached.`
+      : "";
+  return {
+    ok: true,
+    summary: `"${tomb.row.name}" is back on the canvas under its original id ${r.id} — its workdir re-attached as if the delete never happened.${coercedLine}${recordLine}${edgeLine}`,
+    detail: outcome,
   };
 }
 

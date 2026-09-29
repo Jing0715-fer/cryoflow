@@ -12,7 +12,7 @@
  * gate's job, never the agent's).
  *
  * This bench pins:
- *  T1  the catalog wears the cluster read (19 unique tools, schema takes
+ *  T1  the catalog wears the cluster read (21 unique tools, schema takes
  *      nothing, the description names the roll call + the birthday law)
  *  T2  an empty registry answers honestly (ok:true, an empty roster is a
  *      true answer, the local lane stays open)
@@ -170,8 +170,8 @@ console.log("T1. the catalog wears the cluster read");
   const tool = AI_TOOLS.find((t) => t.name === "list_clusters");
   must(tool != null, "T1a: list_clusters is in the catalog");
   must(
-    AI_TOOLS.length === 19 && new Set(AI_TOOLS.map((t) => t.name)).size === 19,
-    `T1b: 19 unique tools (got ${AI_TOOLS.length})`,
+    AI_TOOLS.length === 21 && new Set(AI_TOOLS.map((t) => t.name)).size === 21,
+    `T1b: 21 unique tools (got ${AI_TOOLS.length})`,
   );
   const params = (tool?.parameters ?? {}) as {
     properties?: Record<string, unknown>;

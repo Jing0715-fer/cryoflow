@@ -19,7 +19,7 @@
  * restore finds both endpoints alive and the sidecar upsert no-ops.
  */
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
+import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
 import { DATA_DIR } from "@/lib/paths";
@@ -51,6 +51,32 @@ export interface JobTombstone {
    *  the legacy-edge path). Only pairs WITHOUT a file-edge twin matter —
    *  persistPortEdge re-mirrors the file twins into the DB itself. */
   dbEdges: TombstoneDbEdge[];
+  /** t477 — the DB row's scalar snapshot at delete time. Older graves
+   *  (t341-era) carry only the record + edges: their name/params lived in
+   *  the client's undo stack and died with the page. A grave WITH a row is
+   *  self-sufficient — the agent's restore_deleted can bring it back with
+   *  no canvas memory at all; a row-less grave stays honest about what it
+   *  cannot do. Optional so old JSON keeps parsing. */
+  row?: TombstoneRow | null;
+}
+
+/** The DB row's scalars — exactly what restoreJobRows needs to rebuild a
+ *  job under its original id (params stays the serialized JSON string; the
+ *  restore core re-filters it against the type schema anyway). */
+export interface TombstoneRow {
+  type: string;
+  name: string;
+  x: number;
+  y: number;
+  params: string;
+  workspaceId: string | null;
+  linkedJobId: string | null;
+  status: string;
+  progress: number;
+  result: string | null;
+  note: string | null;
+  startedAt: string | null;
+  duration: number;
 }
 
 export interface RestoredTombstoneEdge {
@@ -95,6 +121,28 @@ export async function writeJobTombstone(id: string): Promise<void> {
     where: { OR: [{ fromJobId: id }, { toJobId: id }] },
     select: { projectId: true, fromJobId: true, toJobId: true },
   });
+  // t477 — snapshot the row itself: a grave that remembers its name, its
+  // params and its home is one the agent can restore without the canvas's
+  // undo stack. Scalar pick by hand (no spread of the Prisma row — the
+  // tombstone's contract stays explicit and forward-safe).
+  const dbRow = await db.job.findUnique({ where: { id } });
+  const row: TombstoneRow | null = dbRow
+    ? {
+        type: dbRow.type,
+        name: dbRow.name,
+        x: dbRow.x,
+        y: dbRow.y,
+        params: dbRow.params,
+        workspaceId: dbRow.workspaceId,
+        linkedJobId: dbRow.linkedJobId,
+        status: dbRow.status,
+        progress: dbRow.progress,
+        result: dbRow.result,
+        note: dbRow.note,
+        startedAt: dbRow.startedAt ? dbRow.startedAt.toISOString() : null,
+        duration: dbRow.duration,
+      }
+    : null;
   const tomb: JobTombstone = {
     id,
     deletedAt: new Date().toISOString(),
@@ -105,6 +153,7 @@ export async function writeJobTombstone(id: string): Promise<void> {
       fromJobId: e.fromJobId,
       toJobId: e.toJobId,
     })),
+    row,
   };
   mkdirSync(TOMBSTONE_DIR, { recursive: true });
   const file = tombstonePath(id);
@@ -132,6 +181,36 @@ export function readJobTombstone(id: string): JobTombstone | null {
     // corrupt — both mean "no tombstone", never a blocked restore
     return null;
   }
+}
+
+/**
+ * t477 — the graveyard's roll call: every tombstone on disk, newest first.
+ * A corrupt file is skipped, never invented into a row (the roster only
+ * points at graves that are actually there). The list is unbounded by
+ * design — deletions are rare and the graves are small.
+ */
+export function listJobTombstones(): JobTombstone[] {
+  let names: string[] = [];
+  try {
+    names = readdirSync(TOMBSTONE_DIR).filter((n) => n.endsWith(".json"));
+  } catch {
+    return []; // no graveyard yet — a true answer, not an error
+  }
+  const graves: JobTombstone[] = [];
+  for (const name of names) {
+    try {
+      const parsed = JSON.parse(readFileSync(path.join(TOMBSTONE_DIR, name), "utf8")) as JobTombstone;
+      if (parsed && typeof parsed === "object" && typeof parsed.id === "string") {
+        if (!Array.isArray(parsed.fileEdges)) parsed.fileEdges = [];
+        if (!Array.isArray(parsed.dbEdges)) parsed.dbEdges = [];
+        graves.push(parsed);
+      }
+    } catch {
+      /* one corrupt grave never blocks the roll call */
+    }
+  }
+  graves.sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : a.deletedAt > b.deletedAt ? -1 : 0));
+  return graves;
 }
 
 /**
