@@ -11,7 +11,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 // agent's compare_jobs); t487 moved the loading half — the sort and the
 // summary math — to lib/chart-data.ts (loadCtf), so this route and the
 // agent's get_job_curves drink from the same well. Types re-exported
-// for compat.
+// for compat. t488: the response carries the interpretation (the worst
+// three fits) built by interpretCtf in that well — this shell passes it
+// through untouched; the panel's strip renders it.
 export type { CtfMicrograph } from "@/lib/compare-rows";
 export type { CtfSummary, CtfResponse } from "@/lib/chart-rows";
 

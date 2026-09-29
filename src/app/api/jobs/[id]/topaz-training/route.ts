@@ -10,7 +10,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 // run.out-first source hunt, the 4 MB dump ceiling, the statcache key and
 // the run.out-wins merge now live in ONE loader shared by this route and
 // the agent's get_job_curves tool, so the answer the model quotes IS the
-// data this route serves.
+// data this route serves. t488: the response also carries the
+// interpretation (first/last epoch + loss direction) built by
+// interpretTopaz — passed through untouched; the panel's strip renders it.
 
 /**
  * GET /api/jobs/[id]/topaz-training — per-epoch Topaz training progress.

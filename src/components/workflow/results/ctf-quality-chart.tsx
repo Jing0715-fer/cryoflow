@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Focus, Grid3x3, Radar } from "lucide-react";
+import { ChevronDown, Focus, Grid3x3, Radar, ScanSearch } from "lucide-react";
 import {
   CartesianGrid,
   ReferenceLine,
@@ -24,6 +24,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, onEscapeClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
+import { ChartInterpretation } from "./interpretation-strip";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import {
   ctfRenderable,
@@ -80,6 +81,11 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
     return { micrographs: m, summary: data?.summary ?? null, domain: [min - pad, max + pad] as [number, number] };
   }, [data]);
 
+  // t488 — the judgment strip drinks the same well the agent's
+  // get_job_curves quotes (interpretCtf): the three worst-fitting
+  // micrographs, fit resolution largest first
+  const worstFits = data?.interpretation?.worstMicrographs ?? [];
+
   if (error && !data) return null; // enhancement, stay silent
   // gate single-sourced in lib/chart-rows (t110: the palette exports the
   // same micrographs through the same predicate)
@@ -123,6 +129,21 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
           className="ml-auto"
         />
       </div>
+
+      {/* t488 — the interpretation strip: the three worst fits named, the
+          same rows get_job_curves speaks when asked "CTF 拟合怎么样". */}
+      {worstFits.length > 0 && (
+        <ChartInterpretation icon={ScanSearch} tone="amber" label="Worst fits">
+          {worstFits.map((w, i) => (
+            <span key={w.name}>
+              {i > 0 && " · "}
+              <span className="font-mono text-[10px]">{w.name.split("/").pop()}</span>{" "}
+              {w.maxResolutionA != null ? `${w.maxResolutionA.toFixed(1)} Å` : "fit —"}
+              <span className="opacity-70"> (astig {w.astigmatismUm.toFixed(2)} µm)</span>
+            </span>
+          ))}
+        </ChartInterpretation>
+      )}
 
       {/* Defocus U vs V scatter — on-diagonal = no astigmatism. */}
       <div className="h-40">

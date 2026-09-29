@@ -20,6 +20,14 @@
  * construction. Parse logic is moved verbatim (cachedFileCompute keys
  * unchanged — the statcache hit rate survives the refactor untouched).
  *
+ * t488 adds the JUDGMENT layer: interpretCtf / interpretMotion /
+ * interpretTopaz build the tool's exact grammar (worst-fitting
+ * micrographs, drift triage, loss direction) once, here in the well —
+ * the loaders attach it to their responses, the thin routes pass it
+ * through untouched, and the panels' interpretation strips render it.
+ * Panel and model quote the same numbers because there is ONE place
+ * where those numbers are built.
+ *
  * Not-found is a thrown ChartJobNotFound (the routes translate it to 404,
  * the tool to an honest ok:false) — "no data in the workdir" is NOT an
  * error and stays an empty response, exactly as the routes behaved.
@@ -41,11 +49,15 @@ import type {
   FscResponse,
   GuinierPoint,
   GuinierResponse,
+  CtfMicrograph,
   CtfSummary,
+  CtfInterpretation,
   CtfResponse,
   MotionMicrograph,
   MotionSummary,
+  MotionInterpretation,
   MotionResponse,
+  TopazInterpretation,
 } from "@/lib/chart-rows";
 import type { TopazEpoch } from "@/lib/relion/topaz-training";
 
@@ -781,14 +793,14 @@ export async function loadCtf(jobId: string): Promise<CtfData> {
   if (!job) throw new ChartJobNotFound(jobId);
   const run = getRun(job.id);
   if (!run?.workdir || !existsSync(run.workdir)) {
-    return { jobId, micrographs: [], summary: null };
+    return { jobId, micrographs: [], summary: null, interpretation: null };
   }
 
   // t469 — the file hunt + cached parse live in lib/compare-rows.ts (ONE
   // grammar under the route, the dialog and the agent's compare_jobs tool)
   const parsed = ctfMicrographRows(run.workdir);
   if (parsed.length === 0) {
-    return { jobId, micrographs: [], summary: null };
+    return { jobId, micrographs: [], summary: null, interpretation: null };
   }
   // the sort must NOT mutate the lib's cached array
   const micrographs = [...parsed].sort((a, b) => b.defocusU - a.defocusU);
@@ -812,7 +824,7 @@ export async function loadCtf(jobId: string): Promise<CtfData> {
     };
   }
 
-  return { jobId, micrographs, summary };
+  return { jobId, micrographs, summary, interpretation: interpretCtf(micrographs, summary) };
 }
 
 /* ================================================================== */
@@ -841,7 +853,7 @@ export async function loadMotion(jobId: string): Promise<MotionData> {
   const run = getRun(job.id);
   const { sourceFile, micrographs } = motionCatalogueRows(run?.workdir ?? "");
   if (!sourceFile || micrographs.length === 0) {
-    return { jobId, sourceFile: null, micrographs: [], summary: null };
+    return { jobId, sourceFile: null, micrographs: [], summary: null, interpretation: null };
   }
 
   const n = micrographs.length;
@@ -862,6 +874,7 @@ export async function loadMotion(jobId: string): Promise<MotionData> {
     sourceFile: "corrected_micrographs.star",
     micrographs,
     summary,
+    interpretation: interpretMotion(micrographs, summary),
   };
 }
 
@@ -870,11 +883,13 @@ export async function loadMotion(jobId: string): Promise<MotionData> {
 /* ================================================================== */
 
 /** The topaz-training route's response face: the merged per-epoch series
- *  (run.out is authoritative) plus the label of the file it came from. */
+ *  (run.out is authoritative) plus the label of the file it came from,
+ *  and — t488 — the judgment layer (first/last epoch + loss direction). */
 export interface TopazData {
   jobId: string;
   epochs: TopazEpoch[];
   source: string | null;
+  interpretation: TopazInterpretation | null;
 }
 
 /**
@@ -894,7 +909,7 @@ export async function loadTopazTraining(jobId: string): Promise<TopazData> {
   if (!job) throw new ChartJobNotFound(jobId);
   const run = getRun(job.id);
   if (!run?.workdir || !existsSync(run.workdir)) {
-    return { jobId, epochs: [], source: null };
+    return { jobId, epochs: [], source: null, interpretation: null };
   }
 
   // candidate logs: the tracked run.out first, then training-named files
@@ -946,5 +961,108 @@ export async function loadTopazTraining(jobId: string): Promise<TopazData> {
     }
   }
 
-  return { jobId, epochs, source };
+  return { jobId, epochs, source, interpretation: interpretTopaz(epochs, source) };
+}
+
+/* ================================================================== */
+/* Interpretation — the tool's grammar, computed ONCE (t488)           */
+/* ================================================================== */
+
+/** The judgment layer of the ctf/motion/topaz wells. t487 moved the
+ *  LOADING here; t488 moves the interpretation here too: these builders
+ *  produce the exact shapes the agent's get_job_curves quotes (worst
+ *  fits, drift triage, first/last epoch) and the panels' interpretation
+ *  strips render. Byte-identical to the math that lived inline in
+ *  tools.ts — the t486/t487 benches hold the tool faces fixed while the
+ *  well absorbs the computation. Every verdict is a fact from pure
+ *  comparison of the loaded rows — no threshold is invented.
+ *
+ *  Pure functions on the loaded data: no IO, no cache, no state. */
+
+/** The worst-fitting micrographs, fit resolution largest first — the
+ *  three rows the panel strips name and the tool's worstMicrographs
+ *  carries. Defocus lands in µm (3 dp), FoM at 2 dp, matching the tool's
+ *  spoken face. */
+export function interpretCtf(
+  micrographs: CtfMicrograph[],
+  summary: CtfSummary | null
+): CtfInterpretation | null {
+  if (!summary || micrographs.length === 0) return null;
+  const worstMicrographs = [...micrographs]
+    .sort((a, b) => b.maxResolution - a.maxResolution)
+    .slice(0, 3)
+    .map((m) => ({
+      name: m.name,
+      defocusUm: Math.round(((m.defocusU + m.defocusV) / 2) * 1000) / 1000,
+      astigmatismUm: Math.round(m.astigmatism * 1000) / 1000,
+      fom: Math.round(m.fom * 100) / 100,
+      maxResolutionA: m.maxResolution > 0 ? m.maxResolution : null,
+    }));
+  return { worstMicrographs };
+}
+
+/** The drift triage (which half of the movie the drift accumulates in)
+ *  and the worst-drifting micrographs, total largest first — the tool's
+ *  exact wording survives: "early-frames dominate (the stage settles
+ *  late)" / "late-frames dominate (kept drifting to the end)" / "even
+ *  split". Drift values land at 1 dp in Å. */
+export function interpretMotion(
+  micrographs: MotionMicrograph[],
+  summary: MotionSummary | null
+): MotionInterpretation | null {
+  if (!summary || micrographs.length === 0) return null;
+  const driftTriage =
+    summary.meanEarly > summary.meanLate
+      ? "early-frames dominate (the stage settles late)"
+      : summary.meanLate > summary.meanEarly
+        ? "late-frames dominate (kept drifting to the end)"
+        : "even split";
+  const worstMicrographs = [...micrographs]
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3)
+    .map((m) => ({
+      name: m.name,
+      totalA: Math.round(m.total * 10) / 10,
+      earlyA: Math.round(m.early * 10) / 10,
+      lateA: Math.round(m.late * 10) / 10,
+    }));
+  return { driftTriage, worstMicrographs };
+}
+
+/** The first/last epoch in the tool's exact shape (it/trainLoss/testLoss/
+ *  precision/recall — the held-out P/R fields stay out, as the tool
+ *  carries them) plus the train-loss direction: falling/rising/flat,
+ *  present only when BOTH ends carry a finite train loss. */
+export function interpretTopaz(
+  epochs: TopazEpoch[],
+  _source: string | null
+): TopazInterpretation | null {
+  if (epochs.length === 0) return null;
+  const pick = (e: TopazEpoch) => ({
+    it: e.it,
+    trainLoss: e.trainLoss,
+    testLoss: e.testLoss,
+    precision: e.precision,
+    recall: e.recall,
+  });
+  const first = epochs[0];
+  const last = epochs[epochs.length - 1];
+  const interp: TopazInterpretation = {
+    firstEpoch: pick(first),
+    lastEpoch: pick(last),
+  };
+  if (
+    first.trainLoss != null &&
+    Number.isFinite(first.trainLoss) &&
+    last.trainLoss != null &&
+    Number.isFinite(last.trainLoss)
+  ) {
+    interp.lossDirection =
+      last.trainLoss < first.trainLoss
+        ? "falling"
+        : last.trainLoss > first.trainLoss
+          ? "rising"
+          : "flat";
+  }
+  return interp;
 }

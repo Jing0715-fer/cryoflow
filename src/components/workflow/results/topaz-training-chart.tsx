@@ -11,7 +11,12 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { GraduationCap, TrendingDown } from "lucide-react";
+import {
+  GraduationCap,
+  MoveHorizontal,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -23,6 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { ChartInterpretation } from "./interpretation-strip";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import {
   topazRenderable,
@@ -127,6 +133,24 @@ export function TopazTrainingChart({
   const finalPR: [number | null, number | null] =
     mode === "pr" ? [last.precision ?? last.testPrecision, last.recall ?? last.testRecall] : [null, null];
 
+  // t488 — the judgment strip drinks the same well the agent's
+  // get_job_curves quotes (interpretTopaz): the first→last train-loss
+  // pair, its direction (a fact from pure comparison, never a
+  // threshold), and the last epoch's picking metrics. Direction sets the
+  // strip's icon AND its tone: falling reads healthy (emerald), rising
+  // is the alarm (rose), flat/unknown is neutral (amber).
+  const interp = data?.interpretation ?? null;
+  const dir = interp?.lossDirection ?? null;
+  const DirIcon = dir === "falling" ? TrendingDown : dir === "rising" ? TrendingUp : MoveHorizontal;
+  const dirTone = dir === "falling" ? "emerald" : dir === "rising" ? "rose" : "amber";
+  const fmtLoss = (v: number | null): string =>
+    v == null || !Number.isFinite(v) ? "?" : v.toFixed(4);
+  const lastPR = interp?.lastEpoch ?? null;
+  const stripLoss: [number | null, number | null] = [
+    interp?.firstEpoch.trainLoss ?? firstLoss,
+    interp?.lastEpoch.trainLoss ?? finalLoss,
+  ];
+
   return (
     <section
       aria-label="Topaz training progress"
@@ -191,6 +215,25 @@ export function TopazTrainingChart({
           className="ml-auto"
         />
       </div>
+
+      {/* t488 — the interpretation strip: the tool's exact pair (first →
+          last train loss) with its direction named, plus the last epoch's
+          picking metrics when the log carries them. */}
+      {interp && stripLoss[0] != null && stripLoss[1] != null && (
+        <ChartInterpretation icon={DirIcon} tone={dirTone} label="Train loss">
+          {fmtLoss(stripLoss[0])} → {fmtLoss(stripLoss[1])}
+          {dir ? ` ${dir}` : ""}
+          {lastPR?.precision != null || lastPR?.recall != null ? (
+            <span className="opacity-70">
+              {" "}· last epoch{" "}
+              {lastPR.precision != null ? `P ${(lastPR.precision * 100).toFixed(0)}%` : ""}
+              {lastPR.precision != null && lastPR.recall != null ? " / " : ""}
+              {lastPR.recall != null ? `R ${(lastPR.recall * 100).toFixed(0)}%` : ""}
+            </span>
+          ) : null}
+        </ChartInterpretation>
+      )}
+
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 6, right: 12, bottom: 2, left: -14 }}>

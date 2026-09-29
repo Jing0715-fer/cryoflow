@@ -168,9 +168,26 @@ export interface CtfSummary {
   worstResolution: number;
 }
 
+/** t488 — the judgment layer, computed once in the well (chart-data's
+ *  interpretCtf) and quoted verbatim by BOTH the agent's get_job_curves
+ *  ("worst fit resolution 4.4 Å") and the panel's interpretation strip:
+ *  the worst-fitting micrographs, fit resolution largest first. */
+export interface CtfWorstFit {
+  name: string;
+  defocusUm: number;
+  astigmatismUm: number;
+  fom: number;
+  maxResolutionA: number | null;
+}
+
+export interface CtfInterpretation {
+  worstMicrographs: CtfWorstFit[];
+}
+
 export interface CtfResponse {
   micrographs: CtfMicrograph[];
   summary: CtfSummary | null;
+  interpretation?: CtfInterpretation | null;
 }
 
 export function ctfRenderable(micrographCount: number): boolean {
@@ -213,11 +230,29 @@ export interface MotionSummary {
   meanLate: number;
 }
 
+export interface MotionWorstDrift {
+  name: string;
+  totalA: number;
+  earlyA: number;
+  lateA: number;
+}
+
+/** t488 — the drift triage (which half of the movie the drift
+ *  accumulates in — facts from pure comparison, no invented threshold)
+ *  plus the worst-drifting micrographs: the tool's exact grammar, built
+ *  once in the well (chart-data's interpretMotion) and rendered by the
+ *  panel's interpretation strip. */
+export interface MotionInterpretation {
+  driftTriage: string;
+  worstMicrographs: MotionWorstDrift[];
+}
+
 export interface MotionResponse {
   jobId?: string;
   sourceFile: string | null;
   micrographs: MotionMicrograph[];
   summary: MotionSummary | null;
+  interpretation?: MotionInterpretation | null;
 }
 
 export function motionRenderable(micrographCount: number): boolean {
@@ -247,9 +282,31 @@ export interface TopazEpochDTO {
   testRecall: number | null;
 }
 
+/** t488 — the tool's first/last-epoch grammar (exact same shape
+ *  get_job_curves carries) plus the train-loss direction — a fact from
+ *  pure comparison, present only when both ends carry a train loss. */
+export interface TopazInterpretation {
+  firstEpoch: {
+    it: number;
+    trainLoss: number | null;
+    testLoss: number | null;
+    precision: number | null;
+    recall: number | null;
+  };
+  lastEpoch: {
+    it: number;
+    trainLoss: number | null;
+    testLoss: number | null;
+    precision: number | null;
+    recall: number | null;
+  };
+  lossDirection?: "falling" | "rising" | "flat";
+}
+
 export interface TopazTrainingResponse {
   epochs: TopazEpochDTO[];
   source: string | null;
+  interpretation?: TopazInterpretation | null;
 }
 
 /** The per-epoch series the chart draws — one row per epoch with every

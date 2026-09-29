@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ChevronDown, TriangleAlert } from "lucide-react";
+import { Activity, ChevronDown, Scale, TriangleAlert } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -36,6 +36,7 @@ import {
 import {
   cn,
 } from "@/lib/utils";
+import { ChartInterpretation } from "./interpretation-strip";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import {
   motionRenderable,
@@ -105,6 +106,12 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
   if (!data) return null;
 
   const summary = data.summary;
+  // t488 — the drift triage + worst three, built in the well
+  // (interpretMotion): the same grammar get_job_curves speaks when asked
+  // "漂移大吗" — even split reads healthy, a dominated half is the
+  // panel's caution tone
+  const interp = data.interpretation ?? null;
+  const evenSplit = interp?.driftTriage === "even split";
 
   return (
     <div
@@ -142,6 +149,29 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
           </button>
         </div>
       </div>
+
+      {/* t488 — the interpretation strip: which half of the movie the drift
+          accumulates in (the tool's exact triage wording) + the worst
+          offender by name — the judgment before the evidence. */}
+      {interp && interp.worstMicrographs.length > 0 && (
+        <div className="px-4">
+          <ChartInterpretation
+            icon={Scale}
+            tone={evenSplit ? "emerald" : "amber"}
+            label="Drift triage"
+          >
+            {interp.driftTriage}
+            <span className="opacity-70">
+              {" "}· worst {" "}
+              <span className="font-mono text-[10px]">
+                {interp.worstMicrographs[0].name.split("/").pop()}
+              </span>{" "}
+              at {interp.worstMicrographs[0].totalA.toFixed(1)} Å
+              {summary ? ` (pack mean ${summary.meanTotal.toFixed(1)} Å)` : ""}
+            </span>
+          </ChartInterpretation>
+        </div>
+      )}
 
       <div className="px-2 pb-2 pt-3" data-motion-chart="">
         <ResponsiveContainer width="100%" height={Math.max(180, chartData.length * 22 + 40)}>

@@ -11,7 +11,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 // agent's compare_jobs); t487 moved the loading half — the summary math
 // and the early/late split — to lib/chart-data.ts (loadMotion), so this
 // route and the agent's get_job_curves drink from the same well. Types
-// re-exported for compat.
+// re-exported for compat. t488: the response carries the interpretation
+// (driftTriage + worst three) built by interpretMotion in that well —
+// this shell passes it through untouched; the panel's strip renders it.
 export type { MotionMicrograph } from "@/lib/compare-rows";
 export type { MotionSummary, MotionResponse } from "@/lib/chart-rows";
 

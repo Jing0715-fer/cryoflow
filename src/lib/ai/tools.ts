@@ -2738,17 +2738,10 @@ async function getJobCurves(
           maxAstigmatismUm: Math.round(s.maxAstigmatism * 1000) / 1000,
           meanFom: Math.round(s.meanFom * 100) / 100,
           worstFitResolutionA: s.worstResolution > 0 ? s.worstResolution : null,
-          // the worst-fitting micrographs first (fit resolution, largest first)
-          worstMicrographs: [...d.micrographs]
-            .sort((a, b) => b.maxResolution - a.maxResolution)
-            .slice(0, 3)
-            .map((m) => ({
-              name: m.name,
-              defocusUm: Math.round(((m.defocusU + m.defocusV) / 2) * 1000) / 1000,
-              astigmatismUm: Math.round(m.astigmatism * 1000) / 1000,
-              fom: Math.round(m.fom * 100) / 100,
-              maxResolutionA: m.maxResolution > 0 ? m.maxResolution : null,
-            })),
+          // the worst-fitting micrographs first (fit resolution, largest
+          // first) — built in the well (interpretCtf, t488): the panel's
+          // strip renders the very same three rows
+          worstMicrographs: d.interpretation?.worstMicrographs ?? [],
         });
       } else {
         spoken.push("CTF fit: none in the workdir");
@@ -2777,13 +2770,11 @@ async function getJobCurves(
       const s = d.summary;
       if (s) {
         // the route's own triage split, read as facts: which half of the
-        // movie the drift accumulates in — no threshold is invented
-        const triage =
-          s.meanEarly > s.meanLate
-            ? "early-frames dominate (the stage settles late)"
-            : s.meanLate > s.meanEarly
-              ? "late-frames dominate (kept drifting to the end)"
-              : "even split";
+        // movie the drift accumulates in — no threshold is invented.
+        // t488: the triage and the worst three are BUILT in the well
+        // (interpretMotion) — the tool quotes them, the panel renders them
+        const interp = d.interpretation;
+        const triage = interp?.driftTriage ?? "even split";
         spoken.push(
           `motion: ${s.count} micrographs, mean total drift ${fmtAng(s.meanTotal)}, worst ${fmtAng(s.maxTotal)} (${s.worstName ?? "?"}) — ${triage}`
         );
@@ -2798,16 +2789,7 @@ async function getJobCurves(
           meanEarlyA: Math.round(s.meanEarly * 10) / 10,
           meanLateA: Math.round(s.meanLate * 10) / 10,
           driftTriage: triage,
-          // the worst-drifting micrographs first (total, largest first)
-          worstMicrographs: [...d.micrographs]
-            .sort((a, b) => b.total - a.total)
-            .slice(0, 3)
-            .map((m) => ({
-              name: m.name,
-              totalA: Math.round(m.total * 10) / 10,
-              earlyA: Math.round(m.early * 10) / 10,
-              lateA: Math.round(m.late * 10) / 10,
-            })),
+          worstMicrographs: interp?.worstMicrographs ?? [],
         });
       } else {
         spoken.push("motion: none in the workdir");
@@ -2844,19 +2826,21 @@ async function getJobCurves(
               ? `, last epoch precision ${fmtNum(last.precision)} / recall ${fmtNum(last.recall)}`
               : "")
         );
+        // t488 — first/last epochs come from the well (interpretTopaz) so
+        // the panel's strip quotes the same pair the tool carries
         curves.push({
           kind: "topaz",
           renderable: true,
           source: d.source,
           epochCount: d.epochs.length,
-          firstEpoch: {
+          firstEpoch: d.interpretation?.firstEpoch ?? {
             it: first.it,
             trainLoss: first.trainLoss,
             testLoss: first.testLoss,
             precision: first.precision,
             recall: first.recall,
           },
-          lastEpoch: {
+          lastEpoch: d.interpretation?.lastEpoch ?? {
             it: last.it,
             trainLoss: last.trainLoss,
             testLoss: last.testLoss,
