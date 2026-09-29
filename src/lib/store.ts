@@ -24,9 +24,15 @@ import {
   describeSubtreeRun,
   orchGuardSentence,
   planSubtreeRun,
+  resumeFrontierReason,
+  resumeScan,
+  resumeToastDescription,
+  resumeToastTitle,
   stopReceiptSentence,
+  type SubtreeNode,
   type SubtreeOrchState,
 } from "./subtree-run";
+import { clearSubtreeOrch, readSubtreeOrch, saveSubtreeOrch } from "./subtree-orch-session";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -826,6 +832,13 @@ interface WorkflowState {
    *  dispatch. The job now running finishes on its own; the receipt
    *  counts what re-ran. A request on an idle world is a no-op. */
   stopSubtreeRun: () => void;
+  /** t450 — the walk's second breath: re-enter a walk whose record
+   *  survived the reload (sessionStorage). Consumes the record once,
+   *  scans the live world against the persisted order (completed nodes
+   *  count, missing nodes are named and skipped, a failed node is the
+   *  frontier, an armed stop dispatches nothing) and continues the walk
+   *  with the SAME cluster target. Silent when no record exists. */
+  resumeSubtreeOrch: () => Promise<void>;
   /** POST /stop — SIGTERM→SIGKILL the job's process tree; re-run resumes
    *  refine-family jobs from their checkpoint via RELION --continue. */
   stopJob: (id: string) => Promise<void>;
@@ -1241,6 +1254,110 @@ async function awaitSubtreeTerminal(id: string): Promise<{ status: string; timed
   return { status: "running", timedOut: true };
 }
 
+/**
+ * t450 — the walk executor, shared by both entrances. runSubtree enters
+ * it with a fresh plan (startIndex 0); resumeSubtreeOrch enters it with
+ * the persisted plan from the world's own scan (startIndex = the first
+ * live non-completed node). The loop itself is entrance-agnostic:
+ * dispatch → wait terminal → next, the stop checkpoint lands BETWEEN
+ * nodes, every index bump mirrors into the state AND the session record
+ * (the record is what a reload resurrects), and the try/finally retires
+ * the face and the record on every exit — whatever the ending.
+ */
+async function walkSubtreeNodes(
+  order: readonly SubtreeNode[],
+  startIndex: number,
+  initialDone: number,
+  target: RemoteRunTarget | null,
+  opts?: { firstNodeAwaitOnly?: boolean }
+): Promise<{
+  done: number;
+  total: number;
+  userStopped: boolean;
+  frontier: { name: string; reason: string } | null;
+}> {
+  const total = order.length;
+  let done = initialDone;
+  let userStopped = false;
+  let frontier: { name: string; reason: string } | null = null;
+  try {
+    for (let i = startIndex; i < order.length; i++) {
+      const node = order[i];
+      // the stop verb's checkpoint: the request lands BETWEEN nodes —
+      // the job now running finishes on its own; the next never fires.
+      // A stop asked during a run that then FAILS never reaches here —
+      // the frontier receipt speaks for the failure instead.
+      if (useWorkflowStore.getState().subtreeOrch?.stopRequested) {
+        userStopped = true;
+        break;
+      }
+      // t450 — a resumed walk whose resume node is mid-flight (the
+      // in-flight dispatch SURVIVED the reload on the cluster side)
+      // must AWAIT it, never re-dispatch it: a second dispatch under a
+      // live run is refused by the 409 already-live door — caught live
+      // in the first resurrection fire. Await-only goes straight to the
+      // landing wait; the stop checkpoint above still applies first.
+      const firstNodeAwaitOnly = i === startIndex && opts?.firstNodeAwaitOnly === true;
+      let accepted = firstNodeAwaitOnly;
+      if (!firstNodeAwaitOnly) {
+        // quiet lanes: the per-node send doors stay silent (no toast, no
+        // camera steering) — the orchestration's ONE receipt speaks for the
+        // whole gesture (t146 aggregation law)
+        try {
+          accepted = target
+            ? await useWorkflowStore.getState().runJobRemote(node.id, target, { quiet: true })
+            : await useWorkflowStore.getState().runJob(node.id, { local: true, quiet: true });
+        } catch (err) {
+          frontier = {
+            name: node.name,
+            reason: err instanceof Error ? err.message : "its lane refused the dispatch",
+          };
+          break;
+        }
+        if (!accepted) {
+          const j = useWorkflowStore.getState().jobs.find((x) => x.id === node.id);
+          frontier = {
+            name: node.name,
+            reason: j?.result?.slice(0, 140) || "its lane refused the dispatch",
+          };
+          break;
+        }
+      }
+      // the landing law: a child never starts inside its parent's churn —
+      // wait for THIS node's terminal state before the next dispatch
+      const landed = await awaitSubtreeTerminal(node.id);
+      if (landed.status !== "completed") {
+        frontier = {
+          name: node.name,
+          reason: landed.timedOut
+            ? "still running after 20 min — the subtree stopped waiting; its downstream did not re-run"
+            : landed.status === "failed"
+              ? "the run failed"
+              : `stopped while ${landed.status}`,
+        };
+        break;
+      }
+      done += 1;
+      // the face renders from state, not closure memory — mirror the
+      // counter into the store AND the session record (the record is
+      // what a reload resurrects; a stale index would re-dispatch landed
+      // nodes — harmless under the scan, but the face would lie)
+      const orch = useWorkflowStore.getState().subtreeOrch;
+      if (orch) {
+        const next = { ...orch, index: done };
+        useWorkflowStore.setState({ subtreeOrch: next });
+        saveSubtreeOrch(next, target);
+      }
+    }
+  } finally {
+    // every exit retires the face AND the record — the walk is over,
+    // whatever its ending; a dead walk must never resurrect
+    useWorkflowStore.setState({ subtreeOrch: null });
+    clearSubtreeOrch();
+  }
+  return { done, total, userStopped, frontier };
+}
+
 async function flushJobParams(jobId: string): Promise<void> {
   const flush = paramFlushers.get(jobId);
   if (flush) await flush();
@@ -1602,6 +1719,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // re-verifying in the background; poll until the fresh probe lands so
       // the chip upgrades automatically (no re-detect click needed).
       if (sys?.fromCache) void pollSystemUntilFresh();
+      // t450 — the walk's second breath: the world's truth is in the store,
+      // the session record (if any) may now resurrect its walk. Fire and
+      // forget — the walk manages its own receipts from here.
+      void get().resumeSubtreeOrch();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load project";
       set({ loading: false, error: msg });
@@ -2851,89 +2972,32 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return false;
     }
     const total = plan.order.length;
-    set({
-      subtreeOrch: {
-        rootId,
-        rootName: plan.order[0].name,
-        order: plan.order,
-        index: 0,
-        stopRequested: false,
-      },
-    });
-    let done = 0;
-    let userStopped = false;
-    let frontier: { name: string; reason: string } | null = null;
-    try {
-      for (const node of plan.order) {
-        // the stop verb's checkpoint: the request lands BETWEEN nodes —
-        // the job now running finishes on its own; the next never fires.
-        // A stop asked during a run that then FAILS never reaches here —
-        // the frontier receipt speaks for the failure instead.
-        if (get().subtreeOrch?.stopRequested) {
-          userStopped = true;
-          break;
-        }
-        // quiet lanes: the per-node send doors stay silent (no toast, no
-        // camera steering) — the orchestration's ONE receipt speaks for the
-        // whole gesture (t146 aggregation law)
-        let accepted = false;
-        try {
-          accepted = target
-            ? await get().runJobRemote(node.id, target, { quiet: true })
-            : await get().runJob(node.id, { local: true, quiet: true });
-        } catch (err) {
-          frontier = {
-            name: node.name,
-            reason: err instanceof Error ? err.message : "its lane refused the dispatch",
-          };
-          break;
-        }
-        if (!accepted) {
-          const j = get().jobs.find((x) => x.id === node.id);
-          frontier = {
-            name: node.name,
-            reason: j?.result?.slice(0, 140) || "its lane refused the dispatch",
-          };
-          break;
-        }
-        // the landing law: a child never starts inside its parent's churn —
-        // wait for THIS node's terminal state before the next dispatch
-        const landed = await awaitSubtreeTerminal(node.id);
-        if (landed.status !== "completed") {
-          frontier = {
-            name: node.name,
-            reason: landed.timedOut
-              ? "still running after 20 min — the subtree stopped waiting; its downstream did not re-run"
-              : landed.status === "failed"
-                ? "the run failed"
-                : `stopped while ${landed.status}`,
-          };
-          break;
-        }
-        done += 1;
-        // the face renders from state, not closure memory — mirror the
-        // counter so the strip's dots move the moment a node lands
-        const orch = get().subtreeOrch;
-        if (orch) set({ subtreeOrch: { ...orch, index: done } });
-      }
-    } finally {
-      // every exit retires the face — the walk is over, whatever its ending
-      set({ subtreeOrch: null });
-    }
-    if (userStopped) {
+    const orchState: SubtreeOrchState = {
+      rootId,
+      rootName: plan.order[0].name,
+      order: plan.order,
+      index: 0,
+      stopRequested: false,
+    };
+    set({ subtreeOrch: orchState });
+    // t450 — the record rides from the first breath: plan + target survive
+    // the reload; the executor mirrors every index bump into it
+    saveSubtreeOrch(orchState, target);
+    const res = await walkSubtreeNodes(plan.order, 0, 0, target);
+    if (res.userStopped) {
       // the user's stop is intent, not failure — a neutral receipt, never
       // the destructive frontier dialect
       toast({
-        title: `Subtree re-run stopped — ${done} of ${total} re-ran`,
-        description: stopReceiptSentence(done, total),
+        title: `Subtree re-run stopped — ${res.done} of ${total} re-ran`,
+        description: stopReceiptSentence(res.done, total),
         duration: 20_000,
       });
       return false;
     }
-    if (frontier) {
+    if (res.frontier) {
       toast({
-        title: `Subtree stopped at ${frontier.name} — ${done} of ${total} re-ran`,
-        description: frontier.reason,
+        title: `Subtree stopped at ${res.frontier.name} — ${res.done} of ${total} re-ran`,
+        description: res.frontier.reason,
         variant: "destructive",
         duration: 20_000,
       });
@@ -2956,7 +3020,115 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   stopSubtreeRun: () => {
     const orch = get().subtreeOrch;
     if (!orch || orch.stopRequested) return;
-    set({ subtreeOrch: { ...orch, stopRequested: true } });
+    const next = { ...orch, stopRequested: true };
+    set({ subtreeOrch: next });
+    // t450 — the armed stop rides the record too: a reload before the
+    // checkpoint must still honor the user's intent (dispatch nothing)
+    const saved = readSubtreeOrch();
+    if (saved) saveSubtreeOrch(next, saved.target);
+  },
+
+  resumeSubtreeOrch: async () => {
+    // consume-once: the record is read and cleared BEFORE any decision —
+    // a refused or silent resume must never retry-loop on the next
+    // load/project switch
+    const saved = readSubtreeOrch();
+    clearSubtreeOrch();
+    if (!saved) return;
+    if (get().subtreeOrch) return; // a live walk owns the face — belt and braces at boot
+    const { orch: rec, target } = saved;
+    const jobs = get().jobs;
+    const root = jobs.find((j) => j.id === rec.rootId);
+    if (!root) return; // the walk's root is gone from this world — its owner deleted it; no noise
+    const scan = resumeScan(rec.order, jobs);
+    // the face's order is the persisted plan minus nodes the world lost —
+    // the count the receipts speak is THIS filtered total
+    const order = rec.order.filter((n) => !scan.missing.some((m) => m.id === n.id));
+    const total = order.length;
+    if (total === 0) return; // degenerate record — everything gone, nothing to speak about
+    // an armed stop is honored without dispatching anything
+    if (rec.stopRequested) {
+      toast({
+        title: `Subtree re-run stopped — ${scan.done} of ${total} re-ran`,
+        description: stopReceiptSentence(scan.done, total),
+        duration: 20_000,
+      });
+      return;
+    }
+    // the whole walk landed while the tab was away — the success receipt
+    // arrives late, but it arrives
+    if (scan.allLanded) {
+      toast({
+        title: `Subtree re-ran — ${total} job${total === 1 ? "" : "s"} refreshed`,
+        description: resumeToastDescription(null, scan.missing),
+        duration: 20_000,
+      });
+      return;
+    }
+    // the frontier found the walk dead: the resume node failed while away
+    if (scan.failedFrontier) {
+      toast({
+        title: `Subtree stopped at ${scan.failedFrontier.name} — ${scan.done} of ${total} re-ran`,
+        description: resumeFrontierReason(scan.failedFrontier),
+        variant: "destructive",
+        duration: 20_000,
+      });
+      return;
+    }
+    if (!scan.resumeNode) return;
+    // re-enter the walk: the face wears the resumed flag, the loop
+    // continues with the SAME cluster target the original gesture chose
+    set({
+      subtreeOrch: {
+        rootId: rec.rootId,
+        rootName: root.name,
+        order,
+        index: scan.done,
+        stopRequested: false,
+        resumed: true,
+      },
+    });
+    toast({
+      title: resumeToastTitle(scan.done, total),
+      description: resumeToastDescription(scan.resumeNode.name, scan.missing),
+      duration: 20_000,
+    });
+    const res = await walkSubtreeNodes(order, scan.done, scan.done, target, {
+      // the resume node mid-flight (it survived the reload on the cluster
+      // side) is awaited, never re-dispatched — the 409 door would refuse
+      // it and kill the resumed walk at its first breath
+      firstNodeAwaitOnly: scan.resumeInflight,
+    });
+    // post-walk receipts speak the same dialect as a fresh walk — the
+    // resume point onward is THIS session's doing
+    if (res.userStopped) {
+      toast({
+        title: `Subtree re-run stopped — ${res.done} of ${total} re-ran`,
+        description: stopReceiptSentence(res.done, total),
+        duration: 20_000,
+      });
+      return;
+    }
+    if (res.frontier) {
+      toast({
+        title: `Subtree stopped at ${res.frontier.name} — ${res.done} of ${total} re-ran`,
+        description: res.frontier.reason,
+        variant: "destructive",
+        duration: 20_000,
+      });
+      return;
+    }
+    toast({
+      title: `Subtree re-ran — ${total} job${total === 1 ? "" : "s"} refreshed`,
+      description:
+        total === 1
+          ? `${order[0]?.name ?? "The job"} is up to date again`
+          : `Run order: ${order
+              .slice(0, 4)
+              .map((n) => n.name)
+              .join(" → ")}${total > 4 ? ` … and ${total - 4} more` : ""}`,
+      duration: 20_000,
+    });
   },
 
   stopJob: async (id) => {

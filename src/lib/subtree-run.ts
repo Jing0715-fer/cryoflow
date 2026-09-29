@@ -161,6 +161,9 @@ export interface SubtreeOrchState {
   /** The stop verb's request — the loop checks it BEFORE each next
    *  dispatch; the job now running finishes on its own. */
   stopRequested: boolean;
+  /** t450 — this walk was resurrected from the session record after a
+   *  reload: the strip wears the resumed honesty line and the chip. */
+  resumed?: boolean;
 }
 
 /** Per-node tick states for the strip's progress dots. */
@@ -219,6 +222,122 @@ export function orchGuardSentence(activeRootName: string): string {
 /** The strip's honesty line: the orchestration loop lives in this tab's
  *  memory. Reload or close and the dispatched job still finishes on the
  *  cluster — but the remaining nodes are never dispatched. The face
- *  says so before the user learns it the hard way. */
+ *  says so before the user learns it the hard way.
+ *
+ *  t450 — the reload half of that sentence grew a second breath: the
+ *  walk's plan, progress and target now survive a reload in this tab
+ *  (sessionStorage, the viewport-memory dialect) and the boot resumes
+ *  the walk from the world's own truth. The line says so. Closing the
+ *  tab still ends everything — the session dies with the tab. */
 export const ORCH_TAB_LAW =
-  "Lives in this tab — reload or close it and the job in flight finishes on the cluster while the rest are never dispatched.";
+  "Survives a reload — closing this tab still leaves the job in flight to finish on the cluster while the rest are never dispatched.";
+
+/** The honesty line after a resurrection — the face wears the resumed
+ *  state: the walk came back, the boundary is still the tab's death. */
+export const ORCH_TAB_LAW_RESUMED =
+  "Resumed after a reload — closing this tab still leaves the rest undispatched.";
+
+/* ------------------------------------------------------------------ */
+/* t450 — the walk's second breath. The loop died with the reload; the  */
+/* plan, the progress and the target did not (sessionStorage). The boot */
+/* re-enters the walk by scanning the LIVE world against the persisted  */
+/* order — the world is the truth, the record is just the plan.         */
+/* ------------------------------------------------------------------ */
+
+/** The boot-time scan: persisted order vs live jobs. Laws:
+ *  - completed nodes at the head count as done — the walk's own
+ *    dispatches landed while the tab was dead;
+ *  - a node the world no longer has is missing, not failed — it is
+ *    filtered out of the walk and named in the receipt;
+ *  - the first LIVE non-completed node is the resume point: running or
+ *    pending = the in-flight node, await it; idle = never dispatched,
+ *    dispatch it; failed = the frontier found the walk dead — stop;
+ *  - every node completed = the walk finished on its own while away;
+ *  - a persisted stop request is honored without dispatching anything.
+ *  Missing nodes never break the leading count — completed and deleted
+ *  interleave freely at the head (a deleted node is not unfinished). */
+export interface ResumeScan {
+  /** Nodes landed completed at the head of the persisted order. */
+  done: number;
+  /** The live resume point (undefined when nothing remains). */
+  resumeNode?: SubtreeNode;
+  /** The resume node is mid-flight (running/pending) — the walk must
+   *  AWAIT it, never re-dispatch it (the live 409 door caught this
+   *  exact double-dispatch in t450's first live fire). */
+  resumeInflight: boolean;
+  /** Everything still to dispatch, missing nodes filtered out. */
+  remaining: SubtreeNode[];
+  /** Persisted nodes the world no longer holds. */
+  missing: SubtreeNode[];
+  /** The whole walk landed while the tab was away. */
+  allLanded: boolean;
+  /** A node at the resume point failed — the walk stops here. */
+  failedFrontier?: SubtreeNode;
+}
+
+export function resumeScan(
+  order: readonly SubtreeNode[],
+  jobs: readonly SubtreeJobLike[]
+): ResumeScan {
+  const byId = new Map(jobs.map((j) => [j.id, j] as const));
+  const missing: SubtreeNode[] = [];
+  const live: Array<{ node: SubtreeNode; status: string | null }> = [];
+  for (const node of order) {
+    const j = byId.get(node.id);
+    if (!j) {
+      missing.push(node);
+      continue;
+    }
+    live.push({ node, status: j.status });
+  }
+  let done = 0;
+  let cursor = 0;
+  while (cursor < live.length && live[cursor].status === "completed") {
+    done += 1;
+    cursor += 1;
+  }
+  const remaining = live.slice(cursor).map((x) => x.node);
+  const resumeNode = remaining[0];
+  const resumeStatus = resumeNode ? live[cursor].status : null;
+  const failedFrontier =
+    resumeNode && resumeStatus === "failed" ? resumeNode : undefined;
+  return {
+    done,
+    resumeNode,
+    resumeInflight: resumeStatus === "running" || resumeStatus === "pending",
+    remaining,
+    missing,
+    allLanded: live.length > 0 && cursor === live.length,
+    failedFrontier,
+  };
+}
+
+/** The resume welcome's title — the walk's second receipt. */
+export function resumeToastTitle(done: number, total: number): string {
+  return `Subtree re-run resumed — ${done} of ${total} already landed`;
+}
+
+/** The resume welcome's description: what happens next, and (when the
+ *  world lost nodes while the tab was away) what will be skipped. */
+export function resumeToastDescription(
+  nextName: string | null,
+  missing: readonly SubtreeNode[]
+): string {
+  const next = nextName
+    ? `Continuing from ${nextName}.`
+    : "Nothing left to dispatch.";
+  if (missing.length === 0) return next;
+  const names = missing
+    .slice(0, SUBTREE_ROSTER_CAP)
+    .map((n) => n.name)
+    .join(", ");
+  const tail = missing.length - SUBTREE_ROSTER_CAP;
+  return `${next} Skipped — gone from the canvas while the tab was away: ${names}${tail > 0 ? ` and ${tail} more` : ""}.`;
+}
+
+/** The frontier receipt for a walk that found its node FAILED after the
+ *  reload — the death happened while the tab was away; the sentence
+ *  carries that witness. */
+export function resumeFrontierReason(node: SubtreeNode): string {
+  return `${node.name} failed while the tab was away — the run died with the reload window; its downstream did not re-run.`;
+}

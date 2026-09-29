@@ -35,6 +35,7 @@ import { formatElapsed } from "@/lib/elapsed";
 import { useWorkflowStore } from "@/lib/store";
 import {
   ORCH_TAB_LAW,
+  ORCH_TAB_LAW_RESUMED,
   orchestrationHeadline,
   orchestrationTicks,
   ticksVisible,
@@ -64,7 +65,7 @@ export function OrchestrationStrip() {
   });
   const sentence = `Re-running subtree from ${orch.rootName} — ${headline}${
     orch.stopRequested ? " — stopping after this job" : ""
-  }`;
+  }${orch.resumed ? " — resumed after a reload" : ""}`;
 
   return (
     <div
@@ -85,6 +86,14 @@ export function OrchestrationStrip() {
             <span className="truncate">
               Re-running subtree from <span className="font-semibold">{orch.rootName}</span>
             </span>
+            {orch.resumed ? (
+              <span
+                className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                title="This walk survived a reload — the boot picked it up from the session record."
+              >
+                resumed
+              </span>
+            ) : null}
             <span className="text-muted-foreground" aria-hidden="true">
               ·
             </span>
@@ -104,7 +113,9 @@ export function OrchestrationStrip() {
               ) : null}
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{ORCH_TAB_LAW}</p>
+          <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
+            {orch.resumed ? ORCH_TAB_LAW_RESUMED : ORCH_TAB_LAW}
+          </p>
         </div>
 
         {/* the dot row retires past TICKS_CAP — counts alone then carry it */}
