@@ -5118,3 +5118,26 @@ Stage Summary:
 - **「发送门收窗，观察器归 inspector」**：对话框的合同是「派发被接受」就放手，不是盯着进程跑完——staging 的诚实 waiting 被误读成拒绝，让一扇已经完成使命的门挡在完成的世界前面；返回值的语义是合同的根，改语义先改名字所许诺的故事
 - **「孤儿教义要读到第三次才长进肌肉」**：nohup & 不套 ( ) 被收割、第二发漏带 FRESH=1 空转——worklog 里的先例明文在，手还是照旧写；交接文档的每条教训都是给自己的下一个窗写的
 - 产出：Recipe Drift 全链（ranParams 快照双写点 + params-drift 纯脑 + store 共通道双派生 + 卡片徽章 + inspector strip）+ **run 对话框收窗根因修复**（waiting=接受）+ t445 bench 26/0 + 十六套回归 564 断言全绿 + 漂移全循环与收窗活体双验证 + 三方一致真对齐
+
+---
+Task ID: 446 (cron agent loop 202609290755)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 445 完整收官（HEAD = d22247d = origin/main，树净；stamp = 2bb57bd 三方一致）。世界健康：app 200、15/15 全 completed、mock 集群 :3022 在听。第三十七份过时 Task 13 指引照例不认。自号 446。
+- [QA — 全绿基线] landing hydration 满血（t438 铃铛门在场）、console 0 错、标题 pristine。十七套回归 564 断言全绿（t419 111 + t420 52 + t427 12 + t431 20 + t432 39 + t433 47 + t436 45 + t437 20 + t438 40 + t439 28 + t440 17 + t441 23 + t442 29 + t443 28 + t444 27 + t445 26）。世界稳定 → 转新需求。
+- [选题定谳 — Recipe Diff 面孔] t445 交付了漂移的判决（徽章 + 条点名键），但收据只到键名为止——ranParams 快照就在库里，from→to 的值是现成的证词。点名键与展示证据之间差一张脸：「改了什么、旧值几何、新值几何」。定谳：**the receipt**（收据面）。
+- [交付 — the strip names the keys, the table carries the evidence] ①params-drift.ts 扩展（一法两镜）：ParamChange（kind changed/added/removed；from/to 以 undefined 为缺席——与 paramsEqual 同方言，kind 纯由哪侧持有值派生）+ paramChanges()（**从 driftFor 派生**：同键同序，表永远不可能与条矛盾——因为表就是条）+ formatParamValue（缺席渲染破折号，**值格永不渲染空串**——看不见的值读作坏表而非未设置）②inspector：drift 条加「Show what changed」toggle（aria-expanded/controls、chevron 旋转 150ms、amber hover）→ 展开三列表（SETTING | RAN WITH | NOW），mono tabular-nums、键列 +teal/−rose kind glyph、长值 truncate+title、行 border-t amber/15③收据随条生灭：diffOpen 是组件级局部态，漂移清零整条卸载 toggle 随行——开合态永远不可能与判决矛盾。
+- [自捕自修 — bench 夹具自错] F1e 首版把 `{b:5}` vs `{b:5, z:undefined}` 当「added」夹具——缺席律下这是**相等**配方，无漂移可谈，paramChanges 返 null 是正确行为。修正夹具（当前配方真长出 z:5）+ 顺势补 F1g 端到端缺席律断言（快照单侧持 undefined 键 = 无脸）。先例自觉延续：纯函数先于测试知道答案。
+- [验证 — 十八套全绿] t446 bench 24/0（F1 分类 8、F2 一法两镜 7、F3 单元格格式 7、F4 重跑清 3）；十八套回归 588 断言全绿。tsc 0 + eslint 0（三触碰文件）。
+- [研磨 — 杀错人三连 137 的根因] 首轮 FRESH 三连 rc=137 EXHAUSTED——**根因：旧服务器没死**。pkill 打的是 `next start`/`next-server`，真身是 `bun .next/standalone/server.js`（两个实例 5.8%+4.9% mem 活着吃光研磨内存）。start-prod.sh 开篇 Task 86 教义明文写着的正是这个错——worklog 先例在，手照旧写（t445 教义二连应验）。杀真身（available 666→3161MB）→ FRESH attempt 1 GREEN（provenance 先落 d22247d）→ 活体 QA 后 feature commit 8c19a57 → 补磨 FRESH attempt 1 GREEN → **provenance = 8c19a57 = HEAD 三方逐字节一致**。起服走 start-prod.sh 正门（setsid 孤儿模式）。
+- [活体 QA — 收据全循环] ①UI 孪生手术：inspector Duplicate 门 → 孪生落位（Idle）→ Run on cluster（Mock Cluster，对话框照 t445 修复收窗）→ 25s completed②PATCH bfactor 150→200（API）→ 轮询投递 → **条现身**（「1 setting changed since」+ bfactor chip）→ 点「Show what changed」→ **表当帧展开**：SETTING/RAN WITH/NOW 三列 + `bfactor 150 200` 一行 + aria-expanded=true③**F4b 活体**：Re-run（本地车道诚实失败——RELION not detected，且**本地 dispatch 也写了快照** ranParams=200：双写点活体实证；failed 状态下面孔静默 F2d 活体）→ 集群重跑 → completed + 快照=当前 → **条与表双清**④**双键活体**：PATCH dosePerFrame 1.28→1.2 + do_dose_weighting true→false → 条「2 settings changed」+ 键 chip 排序（do_dose_weighting, dosePerFrame）+ 表两行排序、布尔/小数格式各就位、diffOpen 延续直开（设计行为活体确认）⑤清场：DELETE 孪生（15/15 复原、14 边级联清净）+ rm motioncorr_izgt78zz 残渣（17→16 目录 = 原世界）⑥console 全程 0 错、标题 pristine。定妆 .qa-logs/t446-{diff-receipt,diff-two-keys,after-rerun}.png。
+- [诚实边界] ①removed 行（−rose glyph）与 added 行的活体未点火（demo 世界 PATCH 只改既有键；造「配方长出新键」需更破坏性手术）——F1c/F1d/F1e/F1f 六断言钉死分类律②对象/数组值格式（F3d/F3e）未活体（schema 今天是平标量——防御性代码路径，bench 钉死）③漂移 × 波前双徽章并排（t445 ⑤）仍待一次性可丢弃世界（重跑上游会污染全部下游的 stale 徽章）④diffOpen 延续直开在「换 job 检视」时不清零——inspector 不重挂载时新漂移条会开着出现；无害（证据即刻可读），如需逐 job 重置另案。
+- [最终态] HEAD = origin/main = 8c19a57（本窗 feature commit，docs commit 待推）；stamp = 8c19a57 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、QA 浏览器净场、盘上 16 目录 = 原世界。下一窗从 Task 447 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第三十五次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻）③duplicate 智能后缀（(copy) 2）、⌘D 多选批量④A/B 判决行「把输家微图喂给 exclude」待消费者面⑤漂移 × 波前双徽章并排需可丢弃世界。
+
+Stage Summary:
+- **「点名是指控，收据是证词」**：t445 的条说「配方变了」并列出键名——那是指控；展开的表把 ran-with 值与当前值并排——那才是证词。证据早已在库（ranParams），产品只欠一张把它摆出来的脸；一句话与一张表的距离，就是「相信我」与「看 here」的距离
+- **「表从判决派生，矛盾在结构上不存在」**：paramChanges 不是第二份比较逻辑，是 driftFor 的第二面透镜——同键同序同 null 域；两份逻辑各有真理的时刻终会各自为政，一份派生的真理永远一致
+- **「缺席要被看见」**：值格永不渲染空串——未设置的设置渲染破折号；added 的 + 与 removed 的 − 用颜色与字形同时说话；一个只显示「变了」的表格把「谁加的谁删的」藏进用户的记忆里，而收据的职责是让记忆下岗
+- 产出：Recipe Diff 收据面全链（paramChanges/formatParamValue 纯脑 + inspector 展开表）+ **杀错进程三连 137 根因到案**（standalone 进程名 pkill 不匹配——Task 86 教义第二次活体）+ t446 bench 24/0 + 十八套回归 588 断言全绿 + 收据全循环活体（单键/双键/重跑清/本地快照双写点实证）+ 三方一致真对齐
