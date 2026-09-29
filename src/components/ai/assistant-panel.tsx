@@ -122,6 +122,7 @@ import type {
   AiChatResponse,
   AiEvent,
   AiMessage,
+  AiProviderHealthDto,
   AiSettingsResponse,
   AiSessionSummaryDto,
 } from "@/lib/ai/types";
@@ -500,6 +501,8 @@ export function AssistantPanel() {
   const [busyLabel, setBusyLabel] = React.useState("思考中…");
   const [needsSetup, setNeedsSetup] = React.useState(false);
   const [modelLabel, setModelLabel] = React.useState<string | null>(null);
+  // t472 — the active provider's last probe; the badge confesses when not ok
+  const [health, setHealth] = React.useState<AiProviderHealthDto | null>(null);
   // ---- t424 deepening state (the dead lane's session-history work) -----
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const [sessions, setSessions] = React.useState<AiSessionSummaryDto[]>([]);
@@ -591,6 +594,7 @@ export function AssistantPanel() {
         const label = data.providers.find((p) => p.id === id)?.label ?? id;
         const model = data.settings.providers?.[id]?.model ?? "";
         setModelLabel(model ? `${label} · ${model}` : label);
+        setHealth(data.settings.health ?? null);
       } catch {
         /* offline → no badge; the chat error path still teaches setup */
       }
@@ -1084,10 +1088,26 @@ export function AssistantPanel() {
               {modelLabel && (
                 <Badge
                   variant="outline"
-                  className="hidden max-w-[170px] gap-1 truncate border-teal-500/40 bg-teal-500/10 px-1.5 font-mono text-[10px] font-normal text-teal-600 sm:inline-flex dark:text-teal-400"
-                  title={modelLabel}
+                  className={cn(
+                    "hidden max-w-[200px] gap-1 truncate border-teal-500/40 bg-teal-500/10 px-1.5 font-mono text-[10px] font-normal text-teal-600 sm:inline-flex dark:text-teal-400",
+                    health && health.state !== "ok" && "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                  )}
+                  title={
+                    health && health.state !== "ok"
+                      ? `${modelLabel} — ${health.detail}`
+                      : modelLabel
+                  }
                 >
                   <Cpu className="size-2.5 shrink-0" aria-hidden="true" />
+                  {health && health.state !== "ok" && (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "size-1.5 shrink-0 rounded-full",
+                        health.state === "unreachable" ? "bg-red-500" : "bg-amber-500"
+                      )}
+                    />
+                  )}
                   <span className="truncate">{modelLabel}</span>
                 </Badge>
               )}

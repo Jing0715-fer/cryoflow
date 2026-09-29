@@ -65,6 +65,27 @@ export interface AiProviderConfigDto {
   keyHint: string;
 }
 
+/**
+ * t472 — the ACTIVE provider's reachability, probed server-side with a
+ * short timeout and served with a TTL cache. The badge wears this so the
+ * user learns "the endpoint is dead" from the header instead of from a
+ * cryptic chat error (the t468 lesson: fetch failed + millisecond failure
+ * = a dead baseUrl that nobody could see).
+ */
+export type AiProviderHealthState = "ok" | "unreachable" | "rejected" | "error";
+
+export interface AiProviderHealthDto {
+  /** Which provider was probed (the active one, or the derived builtin). */
+  providerId: string;
+  state: AiProviderHealthState;
+  /** One human sentence — what was tried and what came back. */
+  detail: string;
+  /** Round-trip time of the probe (null for the in-process builtin lane). */
+  latencyMs: number | null;
+  /** ISO timestamp of the probe (the cache's age, in the open). */
+  checkedAt: string;
+}
+
 export interface AiSettingsDto {
   /** Active provider id (null = assistant not configured yet). */
   activeProvider: string | null;
@@ -72,6 +93,14 @@ export interface AiSettingsDto {
   providers: Record<string, AiProviderConfigDto>;
   /** Model used by the VLM judge (null = the active provider's main model). */
   vlmModel: string | null;
+  /**
+   * t472 — named repairs the loader made to a hand-edited settings file
+   * (dangling activeProvider, wrong-typed fields, unknown version…).
+   * Empty/absent = the file is clean. NEVER quotes an API key.
+   */
+  problems?: string[];
+  /** t472 — the active provider's last health probe (null = not probeable). */
+  health?: AiProviderHealthDto | null;
 }
 
 /** GET /api/ai/settings response. */

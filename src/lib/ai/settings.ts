@@ -20,6 +20,96 @@ import type { AiSettingsDto } from "./types";
 
 const SETTINGS_FILE = path.join(DATA_DIR, "ai-settings.json");
 
+/* ------------------------------------------------------------------ */
+/* t472 — the honest loader                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Validate a hand-edited (or tool-written) settings file, collecting NAMED
+ * problems instead of silently repairing. Every repair is spoken: the old
+ * loader fixed wrong-typed fields without a word, and the t468 lesson was
+ * exactly that silence — a mock-dialect baseUrl slept in the real file for
+ * three windows because nothing ever confesses what it ignored.
+ *
+ * The secret law: problems describe SHAPE, never CONTENT — an apiKey is
+ * named by field path, its value never enters a sentence.
+ */
+export function validateAiSettings(raw: unknown): {
+  data: AiSettingsData;
+  problems: string[];
+} {
+  const problems: string[] = [];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    problems.push("settings file is not a JSON object — starting from empty (the old file stays on disk for inspection)");
+    return { data: { ...EMPTY, providers: {} }, problems };
+  }
+  const parsed = raw as Partial<AiSettingsData> & { version?: unknown };
+
+  const providers: Record<string, AiProviderConfig> = {};
+  if (!parsed.providers || typeof parsed.providers !== "object" || Array.isArray(parsed.providers)) {
+    problems.push("providers map is missing or not an object — no saved configs were recovered");
+  } else {
+    for (const [id, rawCfg] of Object.entries(parsed.providers)) {
+      if (!rawCfg || typeof rawCfg !== "object" || Array.isArray(rawCfg)) {
+        problems.push(`providers.${id} is not an object — entry skipped`);
+        continue;
+      }
+      const cfg = rawCfg as Partial<AiProviderConfig>;
+      const apiKey = typeof cfg.apiKey === "string" ? cfg.apiKey : "";
+      if (cfg.apiKey !== undefined && typeof cfg.apiKey !== "string") {
+        problems.push(`providers.${id}.apiKey was not a string — key reset to empty`);
+      }
+      let model = typeof cfg.model === "string" ? cfg.model : "";
+      if (cfg.model !== undefined && typeof cfg.model !== "string") {
+        problems.push(`providers.${id}.model was not a string — model reset to empty`);
+      }
+      if (model.length > 200) {
+        model = model.slice(0, 200);
+        problems.push(`providers.${id}.model was longer than 200 characters — truncated`);
+      }
+      let baseUrl: string | null = null;
+      if (typeof cfg.baseUrl === "string" && cfg.baseUrl.trim()) {
+        const url = cfg.baseUrl.trim();
+        if (!/^https?:\/\/./i.test(url)) {
+          problems.push(`providers.${id}.baseUrl "${url.slice(0, 120)}" is not an http(s) URL — reset to the provider default`);
+        } else if (url.length > 400) {
+          baseUrl = url.slice(0, 400);
+          problems.push(`providers.${id}.baseUrl was longer than 400 characters — truncated`);
+        } else {
+          baseUrl = url;
+        }
+      } else if (cfg.baseUrl !== undefined && cfg.baseUrl !== null) {
+        problems.push(`providers.${id}.baseUrl was not a string — reset to the provider default`);
+      }
+      providers[id] = { apiKey, model, baseUrl };
+    }
+  }
+
+  let activeProvider: string | null = null;
+  if (typeof parsed.activeProvider === "string" && parsed.activeProvider) {
+    if (parsed.activeProvider in providers) {
+      activeProvider = parsed.activeProvider;
+    } else {
+      problems.push(`activeProvider "${parsed.activeProvider}" has no saved config — treated as not configured`);
+    }
+  } else if (parsed.activeProvider !== null && parsed.activeProvider !== undefined) {
+    problems.push("activeProvider was not a string — treated as not configured");
+  }
+
+  let vlmModel: string | null = null;
+  if (typeof parsed.vlmModel === "string" && parsed.vlmModel.trim()) {
+    vlmModel = parsed.vlmModel.trim().slice(0, 200);
+  } else if (parsed.vlmModel !== null && parsed.vlmModel !== undefined) {
+    problems.push("vlmModel was not a string — the active provider's main model will judge vision");
+  }
+
+  if (parsed.version !== undefined && parsed.version !== 1) {
+    problems.push(`unknown settings version ${JSON.stringify(parsed.version)} — loaded as best effort`);
+  }
+
+  return { data: { version: 1, activeProvider, providers, vlmModel }, problems };
+}
+
 export interface AiProviderConfig {
   apiKey: string;
   model: string;
@@ -36,35 +126,23 @@ export interface AiSettingsData {
 const EMPTY: AiSettingsData = { version: 1, activeProvider: null, providers: {}, vlmModel: null };
 
 export function loadAiSettings(): AiSettingsData {
+  return loadAiSettingsDetailed().data;
+}
+
+/** t472 — the load PLUS the named repairs (the settings route wears both). */
+export function loadAiSettingsDetailed(): { data: AiSettingsData; problems: string[] } {
   try {
     if (existsSync(SETTINGS_FILE)) {
-      const parsed = JSON.parse(readFileSync(SETTINGS_FILE, "utf8")) as Partial<AiSettingsData>;
-      if (parsed && typeof parsed === "object" && parsed.providers && typeof parsed.providers === "object") {
-        const providers: Record<string, AiProviderConfig> = {};
-        for (const [id, raw] of Object.entries(parsed.providers)) {
-          const cfg = raw as Partial<AiProviderConfig> | null;
-          if (!cfg || typeof cfg !== "object") continue;
-          providers[id] = {
-            apiKey: typeof cfg.apiKey === "string" ? cfg.apiKey : "",
-            model: typeof cfg.model === "string" ? cfg.model.slice(0, 200) : "",
-            baseUrl: typeof cfg.baseUrl === "string" && cfg.baseUrl.trim() ? cfg.baseUrl.trim().slice(0, 400) : null,
-          };
-        }
-        return {
-          version: 1,
-          activeProvider:
-            typeof parsed.activeProvider === "string" && parsed.activeProvider in providers
-              ? parsed.activeProvider
-              : null,
-          providers,
-          vlmModel: typeof parsed.vlmModel === "string" && parsed.vlmModel.trim() ? parsed.vlmModel.trim().slice(0, 200) : null,
-        };
-      }
+      return validateAiSettings(JSON.parse(readFileSync(SETTINGS_FILE, "utf8")));
     }
   } catch {
     /* corrupt file → start empty (the old file stays on disk for inspection) */
+    return {
+      data: { ...EMPTY, providers: {} },
+      problems: ["settings file is corrupt JSON — starting from empty (the old file stays on disk for inspection)"],
+    };
   }
-  return { ...EMPTY, providers: {} };
+  return { data: { ...EMPTY, providers: {} }, problems: [] };
 }
 
 export function saveAiSettings(data: AiSettingsData): void {
