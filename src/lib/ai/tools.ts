@@ -37,7 +37,20 @@ import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
 import { getConnection } from "@/lib/remote/connections";
 import { startJob } from "@/lib/relion/dispatch";
 import { getRun, latestIterationDataStar, stopRun } from "@/lib/relion/engine";
-import { remoteStopRun } from "@/lib/remote/remote-run";
+import { remoteInfoFor, remoteStopRun } from "@/lib/remote/remote-run";
+import {
+  CONTINUE_FAMILY_TYPES,
+  continueSourcesFor,
+} from "@/lib/relion/continue-sources";
+import {
+  checkpointOf,
+  continueLaneOf,
+  continuePlanOf,
+  continueParamWrites,
+  iterKnobOf,
+  moreOptionsFor,
+  selfScanErrorOf,
+} from "@/lib/convergence-continue";
 import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
 import { renderClassSheetPng } from "@/lib/mrc";
 import { parseStar } from "@/lib/starfile";
@@ -308,12 +321,33 @@ export const AI_TOOLS: ToolSchema[] = [
   {
     name: "run_job",
     description:
-      "Start a job's REAL run. mode: 'local' forces the local RELION lane; 'cluster' uses the project's bound SSH cluster; omitted picks the project's default. Re-running a completed job WIPES its previous results — only run what the user asked for. Downstream pending jobs auto-start when their upstream completes.",
+      "Start a job's REAL run. mode: 'local' forces the local RELION lane; 'cluster' uses the project's bound SSH cluster; omitted picks the project's default. Re-running a completed job WIPES its previous results — only run what the user asked for; to extend a finished refine-family run use continue_run instead (it resumes from the checkpoint instead of wiping). Downstream pending jobs auto-start when their upstream completes.",
     parameters: {
       type: "object",
       properties: {
         job_id: { type: "string" },
         mode: { type: "string", enum: ["local", "cluster"] },
+      },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "continue_run",
+    description:
+      "Continue a finished refine-family run (class2d/class3d/refine3d/initialmodel/multibody) with MORE iterations — RELION's own restart idiom: the run resumes from its NEWEST COMPLETE checkpoint (run_itNNN_optimiser.star) and the --iter total extends to current + more, clamped to the form's ceiling. This is NOT run_job: a re-run WIPES the previous results, a continue RESUMES from them — when check_convergence says 'still improving' and the user asks for more rounds ('还要继续跑', 'continue with more iterations'), this is the verb. The lane is the job's OWN lane (a cluster checkpoint continues on the cluster that wrote it). Refuses honestly when the run directory holds no complete optimiser family, the dialect has no --iter knob (RELION's auto-refine owns its own convergence), or the type is outside the refine family.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: {
+          type: "string",
+          description: "The finished run's job id (check_convergence's subject).",
+        },
+        more: {
+          type: "number",
+          description:
+            "Optional — how many MORE iterations (default: the convergence dialog's first chip — 5 EM epochs or 50 VDAM mini-batches). RELION's --iter is the TOTAL: the written value is current + more.",
+        },
       },
       required: ["job_id"],
       additionalProperties: false,
@@ -639,6 +673,8 @@ export async function executeAiTool(
         return await deleteJob(ctx, args);
       case "run_job":
         return await runJobTool(ctx, args);
+      case "continue_run":
+        return await continueRunTool(ctx, args);
       case "stop_job":
         return await stopJobTool(ctx, args);
       case "inspect_job":
@@ -1876,6 +1912,161 @@ async function runJobTool(ctx: AgentCtx, args: Record<string, unknown>): Promise
     ok: true,
     summary: `${job.name} ${lane}${remote ? " (cluster lane)" : " (local lane)"}${reRunNote}`,
     detail: { status: outcome.job.status, progress: outcome.job.progress },
+  };
+}
+
+/* ---- continue_run ----------------------------------------------------- */
+
+/**
+ * t471 — the convergence verdict's verb, read by the agent (the 18th
+ * tool). The UI's continue verb (t455, continue-verb-row.tsx) fires the
+ * same three moves: checkpointOf → continuePlanOf → continueParamWrites,
+ * then saveJob + run on the job's OWN lane. This tool is that row's
+ * server face — the same shared brains (convergence-continue.ts), the
+ * same data plane (continueSourcesFor — the picker's route), the same
+ * dispatch (startJob), zero private mutation path.
+ *
+ * Laws mirrored, never invented:
+ *  - THE LANE IS THE JOB'S OWN: continueLaneOf reads the runRemote
+ *    ledger (remoteInfoFor — the DTO's own projection) because a cluster
+ *    checkpoint is a CLUSTER path; run_job's project-binding default
+ *    would be a category error here.
+ *  - THE ARC'S HEAD IS THE CHECKPOINT: checkpointOf — the newest
+ *    COMPLETE self round, live over archived; the verdict's reading
+ *    pair is never a continue target.
+ *  - --iter IS THE TOTAL (RELION's restart law), clamped to the form's
+ *    ceiling, and the clamp is SAID.
+ *  - NO CHECKPOINT, NO VERB; NO KNOB, NO VERB — the row's honest whys,
+ *    verbatim.
+ *  - THE WRITES RIDE THE SPEC: fn_cont + the knob key are legal spec
+ *    params; the merge is update_job's own (coerceParam), then startJob
+ *    reads explicitContinueOf from the updated row — the product's own
+ *    resume path (the fresh-start wipe keeps the run_it family alive
+ *    for an explicit in-workdir target, engine t394 law).
+ */
+async function continueRunTool(ctx: AgentCtx, args: Record<string, unknown>): Promise<AiToolResult> {
+  const jobId = String(args.job_id ?? "");
+  if (!jobId) {
+    return { ok: false, summary: "continue_run needs a job id — pass the finished run's job id (get_workflow_state lists ids)" };
+  }
+  const job = await findJobInProject(jobId, ctx.projectId);
+  if (!job) {
+    return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
+  }
+  if (job.status === "running") {
+    return { ok: false, summary: `${job.name} is already running (progress ${(job.progress * 100).toFixed(0)}%) — a continue resumes a SETTLED run; let it finish or stop it first` };
+  }
+  if (job.linkedJobId) {
+    return { ok: false, summary: `${job.name} is a soft link — continue its original instead` };
+  }
+  if (!CONTINUE_FAMILY_TYPES.has(job.type)) {
+    return {
+      ok: false,
+      summary: `${job.type} jobs have no continue — only the refine family (class2d, class3d, refine3d, initialmodel, multibody) carries RELION's fn_cont restart idiom`,
+    };
+  }
+
+  const stored = JSON.parse(job.params || "{}") as Record<string, unknown>;
+  const knob = iterKnobOf(job.type, stored);
+  if (!knob) {
+    return {
+      ok: false,
+      summary:
+        job.type === "refine3d"
+          ? "RELION's auto-refine owns this run's convergence — it stops on its own criterion, and a written --iter would be dead. The continue verb speaks only the manual dialect."
+          : "This run's dialect carries no --iter knob — the continue verb has nothing to extend.",
+    };
+  }
+
+  // the picker's own data plane (the route's brain, server-side import —
+  // never a private scan)
+  const sources = await continueSourcesFor({
+    id: job.id,
+    name: job.name,
+    type: job.type,
+    projectId: job.projectId,
+  });
+  const checkpoint = checkpointOf(sources);
+  if (!checkpoint) {
+    const scanError = selfScanErrorOf(sources);
+    return {
+      ok: false,
+      summary: scanError
+        ? `The run directory could not be read (${scanError}) — the continue verb stays absent rather than guessing.`
+        : "No complete checkpoint in this run's own directory — RELION --continue needs the optimiser.star family (run_itNNN_optimiser.star with its data/model/sampling siblings). The verdict stays a reading.",
+    };
+  }
+
+  const chips = moreOptionsFor(knob.vdam);
+  let more = chips[0] ?? 5;
+  if (args.more !== undefined) {
+    const m = typeof args.more === "number" ? args.more : Number(args.more);
+    if (!Number.isFinite(m) || m <= 0) {
+      return {
+        ok: false,
+        summary: `more must be a positive number of iterations — the convergence dialog's chips are ${chips.join("/")} (${knob.vdam ? "VDAM mini-batches" : "EM epochs"})`,
+      };
+    }
+    more = Math.round(m);
+  }
+
+  const plan = continuePlanOf({ type: job.type, params: stored, checkpoint, more });
+  if (!plan) {
+    return { ok: false, summary: "the continue plan could not be assembled (no --iter knob for this dialect)" };
+  }
+  const lane = continueLaneOf({ runRemote: remoteInfoFor(job.id) });
+
+  // the writes ride the spec (update_job's own merge law): fn_cont +
+  // the knob key are legal curated params, coerced through the schema
+  const spec = jobType(job.type);
+  const merged: Record<string, unknown> = { ...stored };
+  for (const [k, v] of Object.entries(continueParamWrites(plan))) {
+    const p = spec?.params.find((sp) => sp.key === k);
+    merged[k] = p ? coerceParam(p, v) : v;
+  }
+  const updated = await db.job.update({
+    where: { id: job.id },
+    data: { params: JSON.stringify(merged) },
+  });
+
+  const archivedNote = plan.checkpoint.archived ? " (archived generation)" : "";
+  const planLine = `${roundLabel(plan.checkpoint.iteration)}${archivedNote}: ${knob.key} ${knob.current} + ${more} → ${plan.totalIter} (--iter is the TOTAL${plan.clamped ? ", reaching the form's ceiling" : ""})`;
+  const detail = {
+    jobId: job.id,
+    jobName: job.name,
+    type: job.type,
+    checkpoint: { round: plan.checkpoint.iteration, path: plan.checkpoint.path, archived: plan.checkpoint.archived },
+    paramKey: plan.paramKey,
+    currentIter: knob.current,
+    more,
+    totalIter: plan.totalIter,
+    clamped: plan.clamped,
+    lane: lane ? "cluster" : "local",
+    fnCont: plan.fnCont,
+  };
+
+  const outcome = await startJob(updated, lane ? { remote: lane } : {});
+  if (outcome.error) {
+    return {
+      ok: false,
+      summary: `Start refused: ${outcome.error} — the continue plan is written on ${job.name} (${planLine}, fn_cont=${plan.fnCont}) — fix the start problem and fire continue_run again, or clear fn_cont with update_job to abandon the continue`,
+      detail,
+    };
+  }
+  if (outcome.busy) {
+    return { ok: false, summary: `Busy (${outcome.busyKind}): ${outcome.busy}`, detail };
+  }
+  if (outcome.waiting) {
+    return {
+      ok: true,
+      summary: `${job.name} is waiting: ${outcome.waiting} — the continue plan is written (${planLine}); it fires when its upstream completes`,
+      detail,
+    };
+  }
+  return {
+    ok: true,
+    summary: `${job.name} continues from ${roundLabel(plan.checkpoint.iteration)}${archivedNote} — its newest complete checkpoint — ${plan.paramKey} ${knob.current} + ${more} → ${plan.totalIter} total (--iter is the TOTAL${plan.clamped ? ", reaching the form's ceiling" : ""}) on ${lane ? "its own cluster lane" : "the local lane"}`,
+    detail: { ...detail, status: outcome.job.status, progress: outcome.job.progress },
   };
 }
 

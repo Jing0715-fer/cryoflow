@@ -716,7 +716,7 @@ let sessionId = "";
 {
   const { AI_TOOLS } = await import("../src/lib/ai/tools");
   // t419 shipped 12; t420 grew to 14; t468 added the ledger read (15)
-  must(AI_TOOLS.length === 17 && new Set(AI_TOOLS.map((t) => t.name)).size === 17, `F8: 17 unique tools (got ${AI_TOOLS.length})`);
+  must(AI_TOOLS.length === 18 && new Set(AI_TOOLS.map((t) => t.name)).size === 18, `F8: 18 unique tools (got ${AI_TOOLS.length})`);
   must(AI_TOOLS.every((t) => t.parameters && typeof t.description === "string"), "F8: every tool wears a schema + description");
 }
 
