@@ -5456,3 +5456,22 @@ Stage Summary:
 - **「bar 是形状，数字是账本」**：24 张 micrographs 和 5,760 颗粒子在同一个世界里差两个数量级——线性条会把顶部画没；sqrt 缩放 + 2% 地板 + 面板自白的组合让形状可见而不说谎
 - **「墙不是 bug，是几何」**：21 连败的谱系（heap 1344→1900 × semi 4/8/16 × 暖/真冷 × webpack/turbopack）钉死了 4GB 盒的新边界——webpack 需求 >1700MB、kernel 墙 3.02GB anon、中间无窗；t460 同树 1344 GREEN 的昨天与今天的差是 page cache 的 2.4GB→0.8GB 坍缩；dev lane 完成了全部活体验证，prod 磨是环境级遗留而非代码债
 - 产出：The Particle Funnel 全链（particle-funnel 纯脑 + funnel 路由 + 第七门脸 sqrt 漏斗 + census/closing/subnotes）+ t461 bench 50/0 + 二十九套回归全绿 + 双入口活体逐字（refine3d/postprocess）+ 树卫生（t460 peek 遗珠出树）+ prod 磨环境墙的完整证据链
+
+## Task 462 (2026-09-29, cron 20:37 窗 —— The Funnel in Plain Sight)
+
+- [开局] 实尾 = Task 461 完整收官（HEAD = 5f8f814 = origin/main；.next 无 BUILD_ID/stamp——上窗 prod 磨 21 连败后 FRESH 清场未恢复，世界处于下线态）。第五十二份过时 Task 13 指引照例不认（以 t461 遗留清单为准）。自号 462。世界重启：dev-server.sh 一次点火 200 满血，15/15 全 completed、14 边、mock 集群 :3022 在听、EMPIAR-10017 世界。
+- [QA — 全绿基线] landing 满血（t438 铃铛门在场）、console 0 错、标题 pristine、funnel 路由双入口（refine3d/postprocess）200 满血、回归全家 29 套 exit 0 全绿。世界稳定 → 转新需求。
+- [选题定谳 — The Funnel in Plain Sight（t461 遗留③）] 漏斗的链问题（「我的粒子都去哪了？」）住在线 inspector 两扇门后（refine3d/postprocess 卡），画布上无处可唤。本窗把门搬到明处：canvas 工具条 Filter 按钮，与 minimap/find toggle 同方言。
+- [交付进行时] ①particle-funnel.ts 纯脑增段 funnelDoorCandidate：SELECTION IS THE QUESTION（单选完成态 stage 动词压过 crown）/未完成选择诚实阻断（绝不偷换别链）/多选拥挤阻断（compare 工具条的地盘）/crown = 最深完成 entry 动词（同 walk 正典序 + updatedAt 降序 + id 升序三重决定论）/无收据无门。三句阻断文案 FUNNEL_DOOR_BLOCK_LINES 钉死。②canvas-funnel-door.tsx：自包含门（store 订阅 → decision → disabled+诚实 title / click 才 fetch（工具条不为主没人问的账本买单）/失败 toast 门不半开/Loader2 busy 态）→ 复用导出的 ParticleFunnelDialog（两扇门一个房间）。③canvas.tsx 工具条挂载（find toggle 后、undo 前）。
+- [验证] t462 bench 26/0（D1 无收据 5、D2 crown 6、D3 决定论平局 3、D4 选区律 2、D5 诚实阻断+回退 6、D6 文案钉死 3、D7 失败 verb 不加冕 1）——自捕自修 1：D2e 断言曾假设未知动词可加冕，家法（FUNNEL_ENTRY_TYPES 才是门根，t461 THE DOOR GUARDS ITSELF）修正断言而非代码。tsc 0 + eslint 0（四触碰文件）。活体：crown 开门 headline 逐字全对 → 框选 Select 2D 门标题变「the verb you selected」→ 对话换链 → Escape 清选 crown 复原（门全程跟随世界）→ console 0 错 → 截图 ×2（.qa-logs/t462-funnel-door-dialog.png + t462-canvas-toolbar.png）。
+- [诚实边界-活体] 拥挤阻断/未完成阻断的 disabled 渲染为 bench 钉死（D1/D5）+ live 渲染分支与已验证 ready 路径同源（同一 useMemo 投影）；agent-browser 无 shift 保持、band 手势在当前 pan/zoom 态不稳定——live 逐字验证留作诚实边界。教训钉死：plain click 对已完成任务 = inspect 非 select（teal 环）；真单选手势 = shift-click/框选/箭头/菜单。
+- [prod 磨恢复 — 四数据点关谳（t461 遗留①）] 磨前净场（杀 QA chrome + dev server + watchdogs，available 3336MB——t415 律字面机会：t461 的 21 连败全程带着 chrome+dev 在场压低 kernel 线 ~700MB，本窗是极限房间）+ swap 杠杆探底（swapon 无权限，Operation not permitted，几何级杠杆关闭）。温暖 1344 attempt → 37s V8 abort（post-GC 99.3%，教义内重证）；**1800 → 49s V8 abort（post-GC 89.4%，历代最接近通过的一发）**；**1824 → 91s kernel kill（越过了 1800 的 abort 相位才死）**；**1824+semi4 → 104s kernel kill（晶格最后一个未试组合）**。结论终局：每加一档 heap 都买来更多进度（37→49→91→104s），但 V8 abort 线（~1810+，内因与房间无关）与 kernel kill 线（≤1824，外因）在 1800~1824 间合拢——两墙交叉，数学性无窗在极限房间下得到四点钉死的最终确认。当前树（t458~t461 四窗新增三族 + 漏斗 + run lens）的编译 live-set 已超出 4GB/无 swap 盒的几何容量。prod 磨正式从「环境级遗留」升格为「环境级判例」：未来重开只认三种前提——盒扩容 / 树减肥（大重构级）/ Next 编译几何变化。世界恢复 dev lane（dev-server.sh 一次点火 200 满血，funnel 路由复验 200）。
+- [验证-终] 回归全家 30 套（29 旧 + t462）exit 0 全绿。
+- [最终态] HEAD = <本窗 feature commit>；世界运行 dev lane（:3000 200 满血、15/15 completed、14 边、mock 集群 :3022 在听）；prod 磨环境级判例四点钉死（见上）；QA 浏览器净场、console 0 错。下一窗从 Task 463 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②sync manifest 20k 上限仍硬编码（t460 遗留⑤顺延）③crowd/unfinished 阻断态的 live 逐字复验（bench 已钉死，工具边界）④funnel 单位扩展（movies，真 RELION 接手时）⑤prod 磨判例的重开前提（见上）。
+
+Stage Summary:
+- **「门有两扇，房间一个」**：canvas 工具条的门和 inspector 卡上的门打开的是同一个 ParticleFunnelDialog——链问题的新入口不需要第二张脸，只需要把已有的脸放到明处；纯脑（funnelDoorCandidate）决定开哪条链，门脸只渲染决定（t440 共享词表律的延续）
+- **「选区即问题，crown 兜底但从不撒谎」**：单选完成态动词 → 门读它的链；未完成选择 → 门禁用并说「收据还没写」——绝不背后偷换另一条链；多选 → 拥挤阻断（compare 的地盘）；无选择 → crown（最深完成 entry 动词，正典序+updatedAt+id 三重决定论）；handle 的 title 自白选律（「the verb you selected」vs「the deepest finished verb on the canvas」）
+- **「工具条不为没人问的账本买单」**：inspector 门每 mount 一发 GET；canvas 门 click 才 fetch——明处的门不付暗处的价；读账失败 toast、门不半开
+- **「墙的判例要钉死到数据点」**：四发四死（1344 abort@37s / 1800 abort@49s@89.4% / 1824 kill@91s / 1824+semi4 kill@104s）——每加一档 heap 都买来更多进度，墙在 1800~1824 合拢；极限房间（净场+swap 探底）排除了最后变量；prod 磨从遗留升格为判例，重开只认盒扩容/树减肥/编译几何变化三种前提
+- 产出：The Funnel in Plain Sight 全链（funnelDoorCandidate 纯脑 + canvas-funnel-door 组件 + dialog 导出 + canvas 工具条挂载）+ t462 bench 26/0 + 三十套回归全绿 + crown/选区双律活体逐字 + prod 磨四点判例 + 截图 ×2
