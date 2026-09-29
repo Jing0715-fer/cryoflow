@@ -5874,3 +5874,23 @@ Stage Summary:
 - **「排序必须世界答得了」**：Heaviest 只在真有重量时提供（无 bytes 的墓不占名次，殿后按自己的 newest 序）——溢出行的名词跟着序换（older→more），排序后还说 older 的行是说谎的行
 - **「workdir 的名字是 id 不是人名」**：import_<id8> 命名律一课——按 job 名 glob 会扑空，residue 检查跟着假阴性；逐对对账是唯一可信的清场
 - 产出：graveRunLine 共享文法 + GraveRow.runLine（一脑两脸延伸）+ epitaph 展开面板（chevron/手风琴/why 可见化）+ Sort Newest/Heaviest 双 chip（省略律双门 + 溢出换词）+ list_deleted runLine 子句 + t481 bench 16/0 首跑即绿 + 47 套回归全绿 + 活体逐字（排序翻转/两代墓志铭/溢出换词）+ 截图 ×2 + live 剧本 ×1
+
+## Task 482 (2026-09-30, cron 03:52 窗 —— The Door's Manual Catches Up)
+
+- [开局] 实尾 = Task 481 完整收官（HEAD = 01baef5 三方对齐，无并行窗推进）。世界体检：landing 200、console 0 错、标题 pristine、22 jobs · 15 edges、header 全门在座。第七十三份过时 Task 13 指引照例不认（以 t481 遗留清单为准）。自号 482。
+- [QA — 全绿基线] 回归全家 47 套 exit 0（浏览器先关再跑）。世界稳定 → 转新需求。
+- [选题定谳 — The Door's Manual Catches Up（t481 遗留⑬）] 排除法：③④⑦⑧ 待回执/待问句；② 第十一次挂起（517s 完整预算）；⑤⑥ 门控。help 门（Help — how to use the workflow canvas）自 Task ~58 时代后零触及——6 条远古 canvas tips 之外，storage 地图与墓园、records 台账、集群名册与简历、21 工具助手全部无册可查。定谳：**popover 保持 canvas 快速上手 + 全册 dialog（shortcuts-dialog 模式）**——手册追上产品，不是把 22 行塞回 w-80（t71 判例）。
+- [交付①— HELP_CHAPTERS 单一真相源（help-guide-dialog.tsx 新立）] 五章 22 行：canvas 5 行（原 6 条合并刷新——「position is saved automatically」留、「the engine drives it live」替换 demo 时代的「simulated server-side」陈词）+ assistant 4 行（questions are reads / 能行不能骗 / 每次派发有台账 / 磁盘问句走同一张地图）+ storage 5 行（走查 extension-honest + 孤儿琥珀 / Recently deleted 三态 / chevron 墓志铭 / Clear 上膛两步 spare 点名 / 按重排序）+ clusters 4 行（名册三点律 / Test 先于首发 / 绑定项目 / 派发简历）+ finding 4 行（⌘K 索引一切门 / ? 快捷键 / Session QC 报告 / 打印即文档）。**每行点名真实的门**——手册不说产品做不到的话。
+- [交付②— 接线三件] store 增 helpGuideOpen + setHelpGuideOpen（三触点，shortcutsOpen 同款）；app-shell 挂载 HelpGuideDialog（一次挂载）；popover 增「Read the full guide」CTA（default 面目，primary of the two）+ shortcuts CTA 降 outline 次位——**快速上手通向手册，两 CTA 两门各成一册**；palette 增「Help — the full guide」条目（t245 律：一切 header 门皆入册，value 挂 storage/graveyard/clusters/assistant 全关键词）。
+- [交付③— 过滤与跨链] 过滤输入（title + rows 全文，shortcuts-dialog 同款 h-8 pl-8 律）；空态「No guide row matches」；footer「All keyboard shortcuts」跨链（先 setOpen(false) 再 setShortcutsOpen(true)——palette 教的 yield-focus 舞步）；**无自有键盘钩**（? 已归 shortcuts dialog——含糊的键是说谎的门，t247 律的诚实缺席）。
+- [t482 bench — 17/0 首跑即绿] T1 形状 5（5 章/ids 顺序/每章 ≥4 行/22 行总数/章内无重复行）+ T2 词句 6（各章点真门：tombstone+ESC、reads-vs-acts+graveyard、Recently deleted+epitaph+armed two-step+spared by name+weight、probe dot+Test+résumé、⌘K+?+Session QC；**「simulated server-side」陈词已死**）+ T3 接线 4（store 三触点/挂载一次/popover CTA/palette 索引）+ T4 诚实缺席 2（无键盘钩/footer 跨链）。
+- [活体 — 两脸三门的完整链路] popover 6 tips + 双 CTA 在座 → 「Read the full guide」→ **GUIDE OPEN: chapters=5 rows=22** → 过滤 graveyard → 2 章 6 行（首行 assistant 的 restore 行）→ 清过滤截图 ×1（.qa-logs/t482-guide-full.png）→ footer「All keyboard shortcuts」→ **guide 关、shortcuts 开**（跨链实演）→ Escape → ⌘K → palette 条目「Help — the full guide」在场并点击 → **guide open via palette: true**（第二门实演）→ popover 截图 ×1（.qa-logs/t482-popover-quickstart.png）。console 0 错。
+- [插曲] dev server 本窗被收割一次（回归后冷启动）→ dev-server.sh 点火复 200；Radix PopoverContent 也是 role=dialog——dialog 探测须按文本区分（首查读到 popover 的「?」kbd 险些误判 guide 未开）。
+- [验证-终] t482 bench 17/0；tsc 0 + eslint 0（六触碰文件）；回归全家 **48 套**（glob 自动纳新）exit 0 全绿；console 0 错、landing 200、世界 22 jobs（1 running fixture）原样、零数据手术。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 483 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②continue_run 的 mock 集群真火活体（517s 完整预算，十一次挂起）③continue 芯片与世界事件的对齐（t473③ 原样）④inspector Continue 字段互指（t473④ 原样）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（t474⑦ 原样，待回执）⑧records 全景深浅（t476⑧ 原样）⑭help 册的增量：章节随产品生长的守门（新章节该在 bench 里被要求——「新 wing 上线必须有册」的断言化），与 guide 内跨链（storage 行点击直达 storage dialog）待真实使用后定深浅。
+
+Stage Summary:
+- **「手册追上产品，而不是把产品塞回手册」**：popover 留给 canvas 快速上手（6 条 + 两 CTA），22 行全册住进真正的 dialog——t71 的 w-80 判例第二次自我辩护，纸永远不够大，门要分册
+- **「每行点名真实的门」**：storage 章说三态与上膛两步、clusters 章说三点律与简历、assistant 章说 reads 永不改画布——手册的每句话都能在产品里按图索骥，demo 时代的「simulated」陈词被 bench 钉死出局
+- **「两门一册，无含糊的键」**：popover CTA 与 ⌘K palette 是仅有的两扇门（t245 律：一切门皆入册）；? 键不共享——t247 的诚实缺席律在 help 门自己身上生效
+- 产出：HELP_CHAPTERS 单一真相源（五章 22 行）+ HelpGuideDialog（过滤/空态/footer 跨链）+ store flag 三触点 + popover 双 CTA + palette 条目 + t482 bench 17/0 首跑即绿 + 48 套回归全绿 + 活体三门链路逐字 + 截图 ×2
