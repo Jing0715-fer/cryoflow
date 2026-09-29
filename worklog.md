@@ -5792,3 +5792,23 @@ Stage Summary:
 - **「口说行从不许诺被阻塞的恢复」**：点名册预演 restoreJobRows 自己的拒绝理由（id 被占/row 缺），agent 转述的每个 restorable 都与动词的真实行为一致；活体里模型把 54 座墓的「无法直接恢复」说得一字不差
 - **「55 座墓是最好的活体」**：真实墓园天然带着两种文法——54 座旧墓反衬 1 座新墓的可恢复性；模型先点名后动词、动词后把 rowSnapshot 的语义复述成中文——三方对账（55/1/ID/名字）零编造
 - 产出：lib/job-restore.ts（恢复核）+ 墓碑 row 快照 + listJobTombstones + list_deleted（第 20 工具）+ restore_deleted（第 21 工具）+ #13 镜像律 + t477 bench 26/0 + 六文件计数 bump + 43 套回归全绿 + 真实墓园活体逐字（点名→动词→复述）+ 截图 ×1 + live 剧本 ×1
+
+## Task 478 (2026-09-30, cron 02:52 窗 —— The Graveyard Opens Its Drawer)
+
+- [开局] 实尾 = Task 477 完整收官（HEAD = ada2bea = origin/main 三方对齐；并行窗 t474（用户工单窗 dark-grid 修复 + live seed）已 rebase 合流，worklog 双条目共存）。世界体检：22 jobs = 19 completed + 1 running fixture + 2 idle fixture。第六十九份过时 Task 13 指引照例不认（以 t477 遗留清单为准）。自号 478。
+- [QA — 全绿基线] landing 200、console 0 错、标题 pristine、画布 22 卡在座；回归全家 44 套 exit 0（含并行窗 t474-dark-grid-bench）。世界稳定 → 转新需求。
+- [选题定谳 — The Graveyard Opens Its Drawer（t477 遗留⑨）] 排除法：③④⑦ 挂起待回执；②517s 第七次挂起；⑤⑥⑧ 门控/待问句。t477 把「找回来」从读变行（row 快照自足 + restoreJobRows 一核两门：toast undo / agent verb），但 UI 侧无墓园可视入口——toast 的 undo 栈刷新即丢，row 快照自足后「刷新后仍可恢复」只差一扇门。定谳：storage 对话框墓园抽屉——**一核三门**（undo toast / agent / drawer 同调 restoreJobRows），落点 storage-dialog（墓碑物理住 data/deleted-jobs/，t441 的 shovel 已在此，恢复是清理的镜像）。
+- [交付①— 共享脑 graveRowsOf（job-tombstone.ts）] list_deleted 工具的行组装逻辑整体提取：GraveRow（id/type/name?/deletedAt/rowSnapshot/run 摘要/edges 数/restorable + why）——**工具与抽屉同一份点名册**，restorable 律（row 在场且 id 空闲）一处裁决，faces 永不漂移；rows 只预演 restoreJobRows 自己的拒绝理由。
+- [交付②— 两路由] GET /api/jobs/deleted（isLocalRequest guard + graveRowsOf——same-origin 门，shapes only，row 快照本体留在服务端）；POST /api/jobs/deleted/restore（**body 只收 job_id**——墓从自己的服务端快照恢复，客户端无可错之处；无墓碑 404 / row 缺 409 带 why / job_id 缺 400；ensureActiveProject + restoreJobRows 同核）。
+- [交付③— store action + 抽屉脸] restoreFromGraveyard(jobId)：POST → 恢复的 id 离开客户端墓碑滤镜（**t370 律内聚**：reviveJobIds 在 action 里，抽屉永不直触）→ await load() 服务器真相重画（永不乐观）→ 用户脸一句话（original id / run record 回执 / wires 回执 / coerce 句）。storage-dialog：独立 effect fetch 点名册（失败静默——加法非闸门）；区块（data.truncated 前）：`Recently deleted (N)` + 前 8 行（name / type chip / graveAge 粗粒度年龄（时间戳在 title）/ 右侧脸：restorable=Restore 钮（Undo2，in-flight 旋转）、row 快照被占=琥珀「already restored」、旧墓=灰「canvas undo only」+ why title）+ receipt 脸（teal，restore 的原话）+ 溢出句「…and N older graves the agent can still name (list_deleted)」。
+- [t478 bench — 15/0 首跑即绿] T1 一脑两脸 4（list_deleted 的 detail.graves 与 graveRowsOf() **JSON 全等**）+ T2 GET 门 3（cross-site 403 / ok:true 双墓 / shapes only）+ T3 POST 门 5（job_id 缺 400 / 无墓碑 404 / row 缺 409 / 真墓火起 original id / 行=快照原样 status-params-home）+ T4 跨门诚实 3（恢复后 graveRowsOf 标 occupied / 工具行同 agree / 二次恢复拒 id taken）。**自捕**：①bench import 了不存在的 POST 导出（POST 在 restore 子路由）；②tsc 咬 `json.ok` 的 boolean|undefined——bun 直跑不查型，tsc 才是真判（t468 判例第 N 次）；一 edit 吃掉 T2c 开头当场复原。
+- [活体 — 抽屉三态 + 恢复真火 + 翻脸实时] 两 witness 墓（真 DELETE，row 快照完整）→ agent-browser 开 Project storage → 抽屉逐字：`Recently deleted (56)` + 前两行 `Extract (t478 witness) extract just now Restore`（第三行旧墓 `class2d 13h ago canvas undo only`——三态同框）→ 点 Restore → **receipt 逐字 `"Extract (t478 witness)" is back on the canvas under its original id`** → 画布 23 卡（witness 归来 idle）→ **抽屉行实时翻 `already restored`**（点名册的跨门诚实当场演）→ 截图 .qa-logs/t478-drawer-face.png。插曲：dev server 被 bench 内存压力收割一次 → dev-server.sh 点火复 200（t436 教义第 N 次自我辩护）；witness 双生（两次失败链各建一卡）→ 全删全清。**收尾零手术**：DELETE 归来 witness + rm 两墓碑 → 22 卡、54 座墓、restorable 0 原样。
+- [验证-终] t478 bench 15/0；tsc 0 + eslint 0（七触碰文件）；回归全家 **45 套**（44 旧 + t478）exit 0 全绿；console 0 错、landing 200、标题 pristine、世界 22 jobs 不动、墓园 54 座原样。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 479 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②continue_run 的 mock 集群真火活体（517s 完整预算，七次挂起）③continue 芯片与世界事件的对齐（t473③ 原样）④inspector Continue 字段互指（t473④ 原样）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（t474⑦ 原样，待回执）⑧records 全景深浅（t476⑧ 原样）⑩墓园抽屉的增量：行级 workdir 大小（墓碑 record 的 outputs 字节数）与「一键清墓」（records 的 bulk forget 律移植——带 row 的墓被清前要不要先问）——抽屉已开门，深浅待真实使用。
+
+Stage Summary:
+- **「一脑两脸，三扇门」**：graveRowsOf 是墓园唯一的真相文法——agent 的 list_deleted 与抽屉的区块 JSON 全等（bench 钉死）；恢复动作的三个入口（toast / agent / drawer）同调 restoreJobRows 一个核，workspace 守卫、标量过滤、coerce 律、t370 滤镜在一次恢复里全部生效
+- **「job_id 进，作业出」**：POST 恢复门只收一个 id——墓从自己的服务端快照复活，客户端没有可错的东西可提交；stale/hostile body 这一类问题整个不存在
+- **「三态同框」**：restorable 的 Restore 钮、被占的 already restored、旧墓的 canvas undo only 在同一区块各得其所——每座墓的能力边界一眼可读，why 永远在 title 里
+- **「恢复后当场翻脸」**：点完 Restore 抽屉行立刻读 already restored——点名册不是快照是活物，跨门诚实（工具/抽屉/路由对同一座墓说同一句话）在活体里实时演了一遍
+- 产出：graveRowsOf 共享脑 + GET /api/jobs/deleted + POST /api/jobs/deleted/restore（job_id-only 门）+ restoreFromGraveyard store action（t370 律内聚）+ 抽屉三态区块 + t478 bench 15/0 首跑即绿 + 45 套回归全绿 + 活体逐字（receipt 原话 + 实时翻脸）+ 截图 ×1

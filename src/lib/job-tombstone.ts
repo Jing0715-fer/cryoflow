@@ -213,6 +213,66 @@ export function listJobTombstones(): JobTombstone[] {
   return graves;
 }
 
+/** The roll call's row grammar (t478): id/type/name/deletedAt/run summary/
+ *  edges count/restorable + why. ONE brain for BOTH faces — the agent's
+ *  list_deleted tool and the storage dialog's graveyard drawer read the
+ *  same rows, so a grave announced restorable is restorable everywhere.
+ *  The rows only PRE-PLAY restoreJobRows' own refusal reasons: the spoken
+ *  line never promises a restore the core would refuse. */
+export interface GraveRow {
+  id: string;
+  type: string;
+  name?: string;
+  deletedAt: string;
+  rowSnapshot: boolean;
+  run: {
+    done: boolean;
+    exitCode: number | null;
+    result?: string;
+  } | null;
+  edges: number;
+  restorable: boolean;
+  why?: string;
+}
+
+export async function graveRowsOf(): Promise<GraveRow[]> {
+  const graves = listJobTombstones();
+  return Promise.all(
+    graves.map(async (g) => {
+      const rec = g.record;
+      // restoreJobRows refuses an occupied id — the roll call pre-computes
+      // the same truth so no face ever promises a blocked restore
+      const occupied = !!(await db.job.findUnique({ where: { id: g.id }, select: { id: true } }));
+      const name = g.row?.name ?? null;
+      const type = g.row?.type ?? rec?.type ?? "unknown";
+      return {
+        id: g.id,
+        type,
+        ...(name ? { name } : {}),
+        deletedAt: g.deletedAt,
+        rowSnapshot: g.row ? true : false,
+        run: rec
+          ? {
+              done: rec.done,
+              exitCode: rec.exitCode,
+              ...(rec.result ? { result: rec.result.slice(0, 120) } : {}),
+            }
+          : null,
+        edges: g.fileEdges.length + g.dbEdges.length,
+        restorable: g.row ? !occupied : false,
+        ...(g.row && occupied
+          ? { why: "a job with this id already exists — already restored or re-created" }
+          : {}),
+        ...(!g.row
+          ? {
+              why: "no row snapshot in this old grave — restore it from the canvas's undo while the session remembers, or recreate it",
+            }
+          : {}),
+      };
+    }),
+  );
+}
+
 /**
  * Re-apply a job's tombstone after its row came back: the run record (only
  * when the slot is free — a re-run between delete and restore owns the

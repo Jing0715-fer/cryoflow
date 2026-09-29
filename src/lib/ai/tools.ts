@@ -35,7 +35,7 @@ import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
 import {
-  listJobTombstones,
+  graveRowsOf,
   readJobTombstone,
 } from "@/lib/job-tombstone";
 import { restoreJobRows, type RestoreJobInput } from "@/lib/job-restore";
@@ -951,43 +951,16 @@ async function listClustersTool(ctx: AgentCtx): Promise<AiToolResult> {
  *     and died with the page) → honest about needing the canvas's undo
  */
 async function listDeletedTool(ctx: AgentCtx): Promise<AiToolResult> {
-  const graves = listJobTombstones();
-  if (graves.length === 0) {
+  // t478 — the rows come from graveRowsOf, the SAME brain the storage
+  // dialog's graveyard drawer reads: one roll call, two faces, zero drift
+  const rows = await graveRowsOf();
+  if (rows.length === 0) {
     return {
       ok: true,
       summary: "The graveyard is empty — nothing has been deleted, nothing to restore",
       detail: { graves: [] },
     };
   }
-
-  const rows = await Promise.all(
-    graves.map(async (g) => {
-      const rec = g.record;
-      // restoreJobRows refuses an occupied id — the roll call pre-computes
-      // the same truth so the spoken line never promises a blocked restore
-      const occupied = !!(await db.job.findUnique({ where: { id: g.id }, select: { id: true } }));
-      const name = g.row?.name ?? null;
-      const type = g.row?.type ?? rec?.type ?? "unknown";
-      return {
-        id: g.id,
-        type,
-        ...(name ? { name } : {}),
-        deletedAt: g.deletedAt,
-        rowSnapshot: g.row ? true : false,
-        run: rec
-          ? {
-              done: rec.done,
-              exitCode: rec.exitCode,
-              ...(rec.result ? { result: truncate(rec.result, 120) } : {}),
-            }
-          : null,
-        edges: g.fileEdges.length + g.dbEdges.length,
-        restorable: g.row ? !occupied : false,
-        ...(g.row && occupied ? { why: "a job with this id already exists — already restored or re-created" } : {}),
-        ...(!g.row ? { why: "no row snapshot in this old grave — restore it from the canvas's undo while the session remembers, or recreate it" } : {}),
-      };
-    }),
-  );
 
   const named = rows.filter((r) => r.restorable).length;
   return {

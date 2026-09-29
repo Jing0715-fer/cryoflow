@@ -1,5 +1,19 @@
 "use client";
 
+/** t478 — the grave's age in honest coarse units (the timestamp lives in
+ *  the title; the row wants a glanceable "how long has it been dead"). */
+function graveAge(deletedAt: string): string {
+  const ms = Date.now() - new Date(deletedAt).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "just now";
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
+}
+
 /**
  * StorageDialog — t436: the project storage overview.
  *
@@ -72,7 +86,9 @@ import {
   Loader2,
   RefreshCw,
   RotateCcw,
+  Undo2,
 } from "lucide-react";
+import type { GraveRow } from "@/lib/job-tombstone";
 import { useWorkflowStore } from "@/lib/store";
 import {
   STORAGE_CATEGORIES,
@@ -273,6 +289,13 @@ export default function StorageDialog({
   const [cleanJob, setCleanJob] = React.useState<JobDTO | null>(null);
   const preClean = React.useRef<{ total: number; walkedAt: string } | null>(null);
   const [receipt, setReceipt] = React.useState<string | null>(null);
+  // t478 — the graveyard drawer's state: the roll call (null = never
+  // fetched or the fetch failed — the section stays silent), the id whose
+  // restore is in flight, and the restore's own receipt line
+  const [graves, setGraves] = React.useState<GraveRow[] | null>(null);
+  const [restoringId, setRestoringId] = React.useState<string | null>(null);
+  const [graveReceipt, setGraveReceipt] = React.useState<string | null>(null);
+  const restoreFromGraveyard = useWorkflowStore((s) => s.restoreFromGraveyard);
 
   const projectId = project?.id ?? null;
 
@@ -316,8 +339,47 @@ export default function StorageDialog({
       setReceipt(null);
       preClean.current = null;
       setCleanJob(null);
+      // t478 — the graveyard's roll call is forgotten with the rest
+      setGraves(null);
+      setGraveReceipt(null);
+      setRestoringId(null);
     }
   }, [open, projectId, load]);
+
+  /* ---- the graveyard drawer (t478): the deleted live next door ----
+   * t477 gave the agent list_deleted and restore_deleted; this panel is
+   * the UI's door onto the SAME graveRowsOf brain. A fetch that fails
+   * stays silent (the graveyard is an addition, never a gate on the
+   * storage walk), and a restore goes through the store's
+   * restoreFromGraveyard — the grave's OWN server-side snapshot feeds the
+   * restore, the t370 filter law holds, and the drawer re-reads the roll
+   * so the row that just came back reads "already restored" like any
+   * other truth. */
+  const loadGraves = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/jobs/deleted");
+      if (!res.ok) return;
+      const json = (await res.json()) as { ok?: boolean; graves?: GraveRow[] };
+      if (json.ok && Array.isArray(json.graves)) setGraves(json.graves);
+    } catch {
+      /* silent — the drawer is an addition, never a gate */
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (open) void loadGraves();
+  }, [open, loadGraves]);
+
+  const handleGraveRestore = React.useCallback(
+    async (id: string) => {
+      setRestoringId(id);
+      const out = await restoreFromGraveyard(id);
+      setRestoringId(null);
+      setGraveReceipt(out.message);
+      void loadGraves();
+    },
+    [restoreFromGraveyard, loadGraves]
+  );
 
   /* ---- the clean bridge (t441): the shovel comes to visit the map ----
    * The door hands the run to the SAME tiered CleanupDialog the inspector
@@ -1204,6 +1266,86 @@ export default function StorageDialog({
                 <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-3 text-xs text-amber-700 dark:text-amber-300">
                   The walk hit its entry cap — the numbers above are floors, not totals.
                 </p>
+              )}
+
+              {/* ---- t478: the graveyard drawer — the deleted live next
+                   door. The roll call is graveRowsOf's own rows (the same
+                   brain the agent's list_deleted reads); restorable graves
+                   wear a Restore door that feeds the grave's OWN snapshot
+                   back through the store's restore law; row-less graves
+                   and occupied ids say what they can and cannot do. */}
+              {graves && graves.length > 0 && (
+                <div
+                  data-testid="graveyard-drawer"
+                  className="mt-4 rounded-lg border border-border/70 bg-muted/30 p-3"
+                >
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <Undo2 className="size-3.5" aria-hidden="true" />
+                    Recently deleted ({graves.length})
+                  </p>
+                  {graveReceipt && (
+                    <p
+                      data-testid="graveyard-receipt"
+                      className="mt-2 rounded-md border border-teal-500/30 bg-teal-500/[0.06] px-2.5 py-1.5 text-xs text-teal-700 dark:text-teal-300"
+                    >
+                      {graveReceipt}
+                    </p>
+                  )}
+                  <ul className="mt-2 space-y-1">
+                    {graves.slice(0, 8).map((g) => (
+                      <li
+                        key={g.id}
+                        data-testid="graveyard-row"
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <span
+                          className="min-w-0 flex-1 truncate font-medium"
+                          title={g.run?.result ? `${g.name ?? g.id} — ${g.run.result}` : g.name ?? g.id}
+                        >
+                          {g.name ?? g.id}
+                        </span>
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          {g.type}
+                        </span>
+                        <span
+                          className="shrink-0 text-[10px] tabular-nums text-muted-foreground"
+                          title={new Date(g.deletedAt).toLocaleString()}
+                        >
+                          {graveAge(g.deletedAt)}
+                        </span>
+                        {g.restorable ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 shrink-0 gap-1 px-2 text-[11px] text-primary hover:text-primary"
+                            disabled={restoringId === g.id}
+                            onClick={() => void handleGraveRestore(g.id)}
+                            aria-label={`Restore ${g.name ?? g.type} to the canvas`}
+                            title="Bring it back under its original id — its workdir, run record and wires re-attach as if the delete never happened"
+                          >
+                            <Undo2
+                              className={`size-3${restoringId === g.id ? " animate-spin" : ""}`}
+                              aria-hidden="true"
+                            />
+                            Restore
+                          </Button>
+                        ) : (
+                          <span
+                            className={`shrink-0 text-[10px] ${g.rowSnapshot ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground/70"}`}
+                            title={g.why}
+                          >
+                            {g.rowSnapshot ? "already restored" : "canvas undo only"}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {graves.length > 8 && (
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">
+                      …and {graves.length - 8} older grave{graves.length - 8 === 1 ? "" : "s"} the agent can still name (list_deleted)
+                    </p>
+                  )}
+                </div>
               )}
             </>
           )}

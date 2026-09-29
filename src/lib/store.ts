@@ -773,6 +773,12 @@ interface WorkflowState {
    *  then wires are re-POSTed one by one (the sidecar file is a
    *  read-modify-write store — parallel restores could lose edges). */
   undoDelete: (snapshot: DeleteSnapshot) => Promise<void>;
+  /** t478 — the storage drawer's restore door: the grave's OWN server-side
+   *  row snapshot feeds the restore (job_id in, no client-built body), the
+   *  restored ids leave the client tombstone filter (the t370 law), and a
+   *  full load() re-draws the canvas. Returns a user-facing line either
+   *  way — the drawer renders it, never invents one. */
+  restoreFromGraveyard: (jobId: string) => Promise<{ ok: boolean; message: string }>;
   /** Task 104 — linear history. In-memory only: a reload starts a fresh
    *  history by design (the same honesty as the per-tab viewport memory —
    *  an undo stack that survives reload would resurrect state the user
@@ -2716,6 +2722,45 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       variant: refused > 0 && restoredIds.size === 0 ? "destructive" : undefined,
     });
     void get().refreshWorkspaces();
+  },
+
+  restoreFromGraveyard: async (jobId) => {
+    // the grave's OWN snapshot restores server-side (POST takes a job_id,
+    // never a client-built job); this side only has to observe the t370
+    // law — ids coming back on PURPOSE leave the tombstone filter before
+    // the next poll — and re-draw from the server, never optimistically:
+    // the restore core's coercion and tombstone re-apply are the truth.
+    let res: {
+      restored?: { id: string; coerced: boolean }[];
+      failed?: { id: string; error: string }[];
+      recordRestored?: string[];
+      edges?: unknown[];
+    };
+    try {
+      res = await api("/api/jobs/deleted/restore", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ job_id: jobId }),
+      });
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : "The restore failed — is the server reachable?",
+      };
+    }
+    const restoredIds = (res.restored ?? []).map((r) => r.id);
+    if (restoredIds.length === 0) {
+      const why = res.failed?.[0]?.error ?? "the restore was refused";
+      return { ok: false, message: why };
+    }
+    reviveJobIds(restoredIds);
+    await get().load();
+    const name = get().jobs.find((j) => j.id === restoredIds[0])?.name ?? restoredIds[0];
+    const bits: string[] = [`"${name}" is back on the canvas under its original id`];
+    if ((res.recordRestored?.length ?? 0) > 0) bits.push("its run record re-attached");
+    if ((res.edges?.length ?? 0) > 0) bits.push(`${res.edges!.length} wire${res.edges!.length === 1 ? "" : "s"} re-attached`);
+    if (res.restored?.[0]?.coerced) bits.push("it was running when deleted, so it came back idle");
+    return { ok: true, message: bits.join(" — ") };
   },
 
   moveJobCommit: async (id, x, y) => {
