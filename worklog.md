@@ -5853,3 +5853,24 @@ Stage Summary:
 - **「spare 律葬前说破」**：常驻小字让「门动谁、留谁、各几字节」在开火前可读——省略律双保险（无 restorable 无行、葬后实时消失），title 里躺着不会 touches 的全名名单
 - **「三脸同框的葬礼」**：spare hint（葬前）→ armed 算术（确认时）→ 回执点名（葬后）——同一条 spare 律在门的三个时刻各说一次，字字对得上 bench 钉死的 buryGraves 行为
 - 产出：armed 算术文案 + spare 常驻小字（title 全名名单）+ title 定量化 + 活体三脸截图 ×3 + 46 套回归全绿 + 葬礼即清场三连冠
+
+## Task 481 (2026-09-30, cron 03:37 窗 —— The Graves Wear Epitaphs)
+
+- [开局] 实尾 = Task 480 完整收官（HEAD = 5be6684 三方对齐；t477→t478→t479→t480 墓园四连章已由并行窗合流）。世界体检：landing 200、console 0 错（仅 HMR）、标题 pristine（Main · 1 running）、22 jobs · 15 edges、header 全门在座。第七十二份过时 Task 13 指引照例不认（以 t480 遗留清单为准）。自号 481。
+- [QA — 全绿基线] 回归全家 46 套 exit 0（浏览器先关再跑）。世界稳定 → 转新需求。
+- [选题定谳 — The Graves Wear Epitaphs（t480 遗留⑫全项）] 排除法：③④⑦⑧ 待回执/待问句；② 第十次挂起（517s 完整预算）；⑤⑥ 门控。墓园五章的收官章：t477 名字、t478 抽屉、t479 重量、t480 自报家门——但墓的故事仍读不到：run 的裁决与 result 行只活在 title 属性里（触屏不可见、hover 易错过），row-less 墓的 why 更是从未可见过。定谳：**墓志铭 + 按重排序**——点开看墓的一生，重量视角让最重的墓先被看见。
+- [交付①— graveRunLine 共享文法（job-tombstone.ts）] run 的一行裁决在 roll call 脑里算一次：exit 0 →「finished clean (exit 0)」/ exit -1（t341 stop coercion 的自家哨兵）→「was stopped when it was deleted」/ 真码 →「failed (exit N)」/ null →「was still running」/ 无 record → 键整个缺席（省略律——缺席是诚实的零）。GraveRow 增 runLine?: string——**一脑两脸延伸到 epitaph**：list_deleted 的 detail 行与抽屉的面板同源，模型引用的每句裁决都是 UI 打印的原话；list_deleted description 增 runLine 子句。工具数仍 21（墓志铭是字段不是动词）。
+- [交付②— epitaph 面板（storage-dialog.tsx）] 每行行首 chevron 钮（aria-expanded/controls、-m-1 扩hit区、兄弟不嵌套律——Restore 钮安然同行为伴）→ 展开 `graveyard-epitaph`：runLine + result 原话引号（「24 micrographs imported · EMPIAR-10017…」）+ 卒日（toLocaleString，粗粒度年龄的精确版）+ original id（mono，恢复的身份）+ wires 句（0 →「no wires to neighbours」；有 →「N wires to neighbours — they re-attach when the job comes back」）+ **why 可见化**（非 restorable 时；occupied 琥珀 / row-less 素色——title 不再是唯一的门）。**手风琴单开**：八行只摊一本，开新合旧。
+- [交付③— Sort: Newest/Heaviest] 双 chip（aria-pressed、data-testid graveyard-sort-newest/weight）：weight 排序 bytes desc、无 bytes 殿后按 deletedAt（不占重量名次的诚实——它们没申报字节）；**省略律双门**：graves≤1 不给排序（一墓无需序）、无任一墓带 bytes 不给 Heaviest（世界答不了的排序是说谎的门）；溢出行随序换词——weight 说「N more graves」、newest 说「N older graves」（排序后「older」会是谎）。
+- [t481 bench — 16/0 首跑即绿] T1 文法真值表 5（0/-1/137/null/无 record 键缺席）+ T2 上行 6（clean 墓 runLine+result、stopped 墓 runLine+record terminal、旧墓 runLine 缺席、类型律）+ T3 两脸全等 2（runLine 随行 JSON 全等、agent 行引用同一裁决）+ T4 目录 3（description 命名 runLine、仍 21 工具）。
+- [活体 — 排序翻转实演 + 两代墓志铭同框] 双 witness（EMPIAR 种子 completed exit 0）+ A 的 workdir 落真 4KB（5376B > B 1280B）+ A 先删 B 后删（B 最新）→ 抽屉 `6.5 KB still on disk` + Sort 双 chip → **newest 先 B 后 A、heaviest 先 A 后 B**（最重的墓先被看见）→ A 的墓志铭逐字：`finished clean (exit 0) — "24 micrographs imported · EMPIAR-10017 (pixel 1.77 Å)"` + 卒日 + id + no wires → 老墓（row-less）墓志铭逐字：真台账原话 `REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 2D classification finished — 50 classes…`（120 字符服务端截断如律）+ `2 wires to neighbours` + **why 首次可见**（「no row snapshot in this old grave — restore it from the canvas's undo…」）→ 手风琴单开实证（1 open）→ 溢出换词双向（weight「48 more」/ newest「48 older」）。截图 ×2（.qa-logs/t481-epitaph-heaviest.png / t481-epitaph-old-grave.png）。
+- [插曲 — workdir 命名一课] 首轮 live 的 workdir glob `*t481_witness_A*` 扑空——workdir 以 `import_<id8>` 命名与 job 名无关；residue 检查的 rg 模式跟着扑空（假阴性——两对 workdir 险些漏网），逐对对账后精确 rm 清零；live 剧本改用 `import_${id: -8}` 定位 + KEEP=1 分段（浏览器环节夹在造墓与清理之间）。
+- [验证-终] t481 bench 16/0；tsc 0 + eslint 0（四触碰文件）；回归全家 **47 套**（recent-family.sh glob 扩 [2-7]→[2-8] 纳新）exit 0 全绿；console 0 错、世界 22 jobs（1 running fixture）+ 54 墓 + witness workdir 零残留（import_254ps15r 对账 = 画布真任务 Import Movies 1 的家）。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 482 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②continue_run 的 mock 集群真火活体（517s 完整预算，十次挂起）③continue 芯片与世界事件的对齐（t473③ 原样）④inspector Continue 字段互指（t473④ 原样）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（t474⑦ 原样，待回执）⑧records 全景深浅（t476⑧ 原样）⑬help 门（Help — how to use the workflow canvas）最后触及仍是远古——墓园抽屉/恢复动词/集群简历/storage 走查均未入册，一轮「门的说明书追上产品」值得排期。
+
+Stage Summary:
+- **「墓志铭是墓的最后一句话，两个读者听同一句」**：graveRunLine 在 roll call 脑里算一次——抽屉的面板打印它，list_deleted 的行携带它，agent 引用的裁决与用户看见的原话一字不差；-1 这个 stop coercion 的自家哨兵在自己的文法里成了「was stopped」，文法因此闭合
+- **「title 不是门，是窗缝」**：result 与 why 从 hover 独占里搬出来——触屏用户第一次读得到墓的一生（卒日、original id、wires、不能恢复的原因）；手风琴单开让八行只摊一本书
+- **「排序必须世界答得了」**：Heaviest 只在真有重量时提供（无 bytes 的墓不占名次，殿后按自己的 newest 序）——溢出行的名词跟着序换（older→more），排序后还说 older 的行是说谎的行
+- **「workdir 的名字是 id 不是人名」**：import_<id8> 命名律一课——按 job 名 glob 会扑空，residue 检查跟着假阴性；逐对对账是唯一可信的清场
+- 产出：graveRunLine 共享文法 + GraveRow.runLine（一脑两脸延伸）+ epitaph 展开面板（chevron/手风琴/why 可见化）+ Sort Newest/Heaviest 双 chip（省略律双门 + 溢出换词）+ list_deleted runLine 子句 + t481 bench 16/0 首跑即绿 + 47 套回归全绿 + 活体逐字（排序翻转/两代墓志铭/溢出换词）+ 截图 ×2 + live 剧本 ×1
