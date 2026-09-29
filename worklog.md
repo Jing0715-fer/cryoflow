@@ -5164,3 +5164,26 @@ Stage Summary:
 - **「Escape 走人的距离由监听相位决定」**：bubble 相的 stopPropagation 追不上 capture 相的 Radix——组件合同要跨层生效，就必须在层的裁决点（onEscapeKeyDown）说话，而不是在自己的门口喊；状态提升不是妥协，是让守卫看得见它要守的东西
 - **「判残渣先判 owner」**：确定性公式（type_id后8位）让每个目录都有名有姓——不查 owner 的 rm 把世界资产当垃圾；治愈器的价值在于它经产品自己的 run 门重建，而非手工伪造
 - 产出：命名面全链（twin-name 纯脑 + store 双接线 + renameJob + inspector 铅笔门 + Escape 捕获相守卫）+ **prisma 杂散孤儿清理与 gitignore 防复发** + t447 bench 24/0 + 十八套回归 612 断言全绿 + 误删治愈全循环（--from motioncorr）+ 批量预留命名活体 + 三方一致真对齐
+
+---
+Task ID: 448 (cron agent loop 202609290906)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 447 完整收官（HEAD = origin/main = 4e6f995，树净；stamp = 56e0116 docs 时差）。世界健康：app 200、15/15 completed、mock 集群 :3022 在听、console 0 错。第三十九份过时 Task 13 指引照例不认。自号 448。
+- [QA — 全绿基线] landing hydration 满血、标题 pristine。十八套回归 612 断言全绿。世界稳定 → 转新需求。
+- [选题定谳 — Re-run Subtree（波前的动词）] 选题链：t443 改嫁回执说「their current results stay until re-run」（重跑仍逐 job 手工）、t444 波前徽章把过期说亮（但修复无动词）、t447 治愈器在产品外证明价值（--from motioncorr 拓扑序重跑）——**把动词带进产品**。且当前世界 ctffind 正戴诚实波前徽章：特性的第一个用户已经在场。定谳：子树重跑编排。
+- [交付 — one lane, one landing, one receipt] ①lib/subtree-run.ts（纯脑）：subtreeOrder 只走 OUT-边 BFS（**上游永不被下游动词重跑**；同深度兄弟按名序稳定）+ planSubtreeRun 阻塞律（**子树内任何 running/pending 拒绝整个计划**——派发已在飞行中，再派发是排队同一份工作；阻塞名册按 run order 点名）+ describeSubtreeRun（roster cap 4 + 尾数 + 停机律一句）②store.runSubtree：**派发 → 等终态 → 下一个**——子节点永不在父节点的 churn 中起跑；前沿停机（首个拒绝处停下，receipt 点名前沿 + done/total）；每节点 20 分钟预算（真集群作业合法地跑很久；超时的状态如实说 still running）③runJob/runJobRemote 增 opts.quiet：编排的发送门静默（无逐节点 toast）且**永不转镜头**（inspectId 不跟随——用户已在看子树根）④RemoteRunButton 增 subtree rider：checkbox + run-order 句子；叶子隐藏（no-op checkbox 是噪音）、阻塞时 checkbox 站下；target builder 重构为**一法两道**（单 job 带数组分片、子树道故意省略——根做 array split 而下游整跑是语义乱炖）；门在 SEND 时收窗（t445 律放大：编排活在 store 里，活得比对话框久）⑤stale strip 增动词按钮「Re-run subtree (N)」——**动词住在句子住的地方**：strip 说结果过期，按钮提供的修复与真相匹配；strip 开门带 intent（checkbox 预勾）。
+- [自捕自修] ①bench S5c 断言自错：叶节点的单 job 子树是合法的「Re-runs 1 job」（「No downstream jobs」句只属于未知根 length 0）——先例九连：纯函数先于测试知道答案，修断言不修函数②target 构建首版两份拷贝——当场重构成 buildTarget(allowShards) 单律。
+- [验证 — 十九套全绿] t448 bench 22/0（S1 拓扑序 3、S2 上游排除 2、S3 churn 阻塞 5、S4 未知根 1、S5 文案 5、S6 防御 1）；十九套回归 634 断言全绿。tsc 0 + eslint 0（四触碰文件）。
+- [研磨] FRESH attempt 1 GREEN（provenance = 7207c88 = feature commit）→ 十步体检 WORLD ALIVE。
+- [活体 QA — 编排全循环] ①**strip 动词在场**：CTF Estimation 1（t447 治愈遗留的诚实徽章）的 stale strip 亮出「Re-run subtree (13)」→ 点击 → 集群门打开 **checkbox 预勾**、句子满血「Re-runs 13 jobs in run order: CTF Estimation 1 → Auto-pick (tutorial) → … and 9 more. Stops at the first refusal…」（不点火——13 节点 ≈ 6 分钟不是活体 QA 该花在博物馆上的钱）②**迷你链真点火**：UI 复制 MotionCorr 孪生 M（wpbb9v8m）+ CTF 孪生 C（r3q2fkqe）→ API 手术（删 C 的继承线 endppeq2→C、接 M→C 同端口 micrographs）→ Import→M→C 三节点 → 打开 M 的集群门（面板路径，无 intent——**手动勾选路径**活体）→ 勾选（句子「Also re-run 1 downstream job — Re-runs 2 jobs in run order」）→ Send → **门即时收窗** → M 01:28:52 起跑 30.2s completed → **C 01:29:23 才起跑**（M 落地后 31s，落地律活体铁证）→ 42.2s completed → 双 completed、startedAt 顺序律成立③清场：DELETE 双孪生（15/15 复原、14 边级联清净）+ **盘上残渣按 t447 新教义先验 owner**（DB 确认 id 后 8 位无在世 job）→ rm motioncorr_wpbb9v8m + ctffind_r3q2fkqe → 16 目录 = 原世界④console 全程 0 错、标题 pristine。
+- [诚实边界] ①收据 toast 未活体捕获（C 完成时刻与我的查询窗口错过 20s 消隐——图突变即硬证据，与 t442/t443 同源口径）②阻塞拒绝路径未活体点火（子树内造 churn 需破坏性手术——bench S3 五断言钉死阻塞律）③stopJob 打断编排（idle 也是落态，编排尊重用户介入）未活体④subtree target 省略 array shards 的组合律由 builder 注释钉死，无 bench。
+- [最终态] HEAD = origin/main = 7207c88（本窗 feature commit，已推）；stamp = 7207c88 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、盘上 16 目录 = 原世界、QA 浏览器净场。治愈遗留的 ctffind 波前徽章仍在（真话，未被污染）。下一窗从 Task 449 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第三十七次提醒——本窗 push 正常）②EMPIAR 真数据回归（常驻）③ctffind 波前徽章的收尾（真点火 Re-run subtree (13) 全链，或接受其真实）④A/B 判决行「把输家微图喂给 exclude」待消费者面⑤漂移 × 波前双徽章并排需可丢弃世界。
+
+Stage Summary:
+- **「子节点永不在父节点的 churn 中起跑」**：拓扑序不是礼貌而是物理——子重跑要吃父的新输出，父未落地时派发子是让它吃半个世界；派发→等终态→下一个，落地律让顺序成为结构而非希望
+- **「动词住在句子住的地方」**：波前 strip 说「结果过期于上游最新一跑」，动词就该长在那句话旁边——修复与真相同址，用户不需要记住哪个菜单藏着正确的按钮；一行 checkbox 承载一个编排，一次手势一份收据
+- **「发送门收窗，编排活在 store」**：t445 的「门是发送门」律放大到编排尺度——对话框关掉，N 份工作继续跑；对话的生死不绑编排的生死，收据在 toast 里追上用户
+- 产出：Re-run Subtree 全链（subtree-run 纯脑 + runSubtree 编排 + quiet 车道 + 集群门 rider + strip 动词）+ t448 bench 22/0 + 十九套回归 634 断言全绿 + 迷你链编排活体（落地律铁证：C 在 M 落地后 31s 才起跑）+ strip 预勾活体 + 三方一致真对齐
