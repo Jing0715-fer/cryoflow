@@ -37,6 +37,9 @@ const DB_PATH = path.join(TMP, "test.db");
 mkdirSync(DATA_DIR, { recursive: true });
 process.env.CRYOFLOW_DATA_DIR = DATA_DIR;
 process.env.DATABASE_URL = `file:${DB_PATH}`;
+// t463 — the built-in SDK lane stays OFF in the bench: the unconfigured
+// fallback would otherwise talk to a REAL model and break hermeticity.
+process.env.CRYOFLOW_DISABLE_BUILTIN_AI = "1";
 // keep the sandbox's EMPIAR bundle out of the seeded import params either way
 execSync("bunx prisma db push --skip-generate", {
   cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
@@ -86,15 +89,15 @@ const { ensureActiveProject } = await import("../src/lib/seed");
 /* ------------------------------------------------------------------ */
 
 console.log("A. provider registry");
-must(AI_PROVIDERS.length === 13, `13 providers on the market list (got ${AI_PROVIDERS.length})`);
+must(AI_PROVIDERS.length === 15, `15 providers on the market list (got ${AI_PROVIDERS.length})`);
 must(new Set(AI_PROVIDERS.map((p) => p.id)).size === AI_PROVIDERS.length, "provider ids unique");
 must(
-  AI_PROVIDERS.every((p) => ["openai", "anthropic", "gemini"].includes(p.flavor)),
+  AI_PROVIDERS.every((p) => ["openai", "anthropic", "gemini", "builtin"].includes(p.flavor)),
   "every provider speaks a known dialect"
 );
 must(
-  AI_PROVIDERS.every((p) => p.custom || p.id === "ollama" || p.baseUrl.startsWith("https://")),
-  "cloud providers ride https"
+  AI_PROVIDERS.every((p) => p.custom || p.id === "ollama" || p.id === "builtin" || p.baseUrl.startsWith("https://")),
+  "cloud providers ride https (builtin rides no URL at all, ollama is local http)"
 );
 must(
   parseOpenAiModels({ data: [{ id: "b-model" }, { id: "a-model" }, { id: "a-model" }, { id: "" }, 42] }).join() ===
@@ -123,6 +126,25 @@ const listNoBase = await listProviderModels("custom", "k", "");
 must(listNoBase.models.length === 0 && /base URL/i.test(listNoBase.error ?? ""), "custom without base URL refuses with the fix in the message");
 const ollama = aiProvider("ollama");
 must(ollama != null && ollama.needsKey === false && effectiveBaseUrl(ollama, "http://192.168.1.5:11434/v1/") === "http://192.168.1.5:11434/v1", "ollama is keyless + baseUrl override wins, trailing slash trimmed");
+{
+  // t463 — the two new registry entries
+  const builtin = aiProvider("builtin");
+  must(
+    AI_PROVIDERS[0]?.id === "builtin" && builtin != null && builtin.flavor === "builtin" &&
+      builtin.needsKey === false && builtin.curatedModels.includes("glm-4-plus") &&
+      builtin.supportsModelList === false,
+    "builtin: first on the list, keyless SDK lane, glm-4-plus curated"
+  );
+  const curated = await listProviderModels("builtin", "");
+  must(curated.models.includes("glm-4-plus") && curated.source === "builtin", "builtin answers models from the curated lane (no endpoint)");
+  const minimax = aiProvider("minimax");
+  must(
+    minimax != null && minimax.flavor === "openai" && minimax.needsKey === true &&
+      minimax.baseUrl === "https://api.minimaxi.com/v1" && minimax.supportsModelList === true &&
+      minimax.curatedModels.includes("MiniMax-M2"),
+    "minimax: OpenAI-compatible on api.minimaxi.com/v1 with a live listing lane"
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* B. Settings                                                          */
@@ -131,6 +153,26 @@ must(ollama != null && ollama.needsKey === false && effectiveBaseUrl(ollama, "ht
 console.log("B. settings");
 let settings = loadAiSettings();
 must(settings.activeProvider === null && Object.keys(settings.providers).length === 0, "fresh settings are empty");
+{
+  // t463 — the zero-config builtin fallback + the kill-switch + the DTO synthesis
+  const { resolveAssistant: resolve2, builtinLaneDisabled } = await import("../src/lib/ai/settings");
+  must(builtinLaneDisabled() === true, "kill-switch reads the env (bench runs with the lane off)");
+  must(resolve2() === null, "lane off + nothing configured → null (needsSetup, deterministic bench)");
+  delete process.env.CRYOFLOW_DISABLE_BUILTIN_AI;
+  const b = resolve2();
+  must(
+    b != null && b.providerId === "builtin" && b.flavor === "builtin" && b.model === "glm-4-plus" &&
+      b.vlmModel === "glm-4-plus" && b.apiKey === "" && b.baseUrl === "",
+    "lane on + nothing configured → the builtin identity (zero-config assistant)"
+  );
+  const dto0 = aiSettingsDto(loadAiSettings());
+  must(
+    dto0.activeProvider === "builtin" && dto0.providers.builtin?.model === "glm-4-plus" &&
+      dto0.providers.builtin?.hasKey === false,
+    "empty settings DTO names the derived builtin (badge/当前使用 say what answers)"
+  );
+  process.env.CRYOFLOW_DISABLE_BUILTIN_AI = "1";
+}
 {
   const { data, error } = applySettingsUpdate({ provider: "deepseek", apiKey: "sk-test-1234", model: "deepseek-chat", activate: true });
   must(error === undefined && data.activeProvider === "deepseek", "deepseek + key + model activates");
@@ -233,6 +275,11 @@ console.log("D. system prompt");
   must(sys.includes("get_workflow_state"), "prompt teaches the state-first doctrine");
   must(sys.includes("judge_2d_classes"), "prompt teaches the VLM judge");
   must(sys.includes("7 jobs"), "prompt carries the live census");
+  // t463 — the two field-failure laws
+  must(sys.includes("THE CHAIN LAW") && sys.includes('build_pipeline({ steps: [{ type: "import" }'), "chain law carries the worked build_pipeline example");
+  must(sys.includes("导入") && sys.includes("运动校正") && sys.includes("2D分类") && sys.includes("挑选"), "stage phrasebook is bilingual");
+  must(sys.includes("QUESTIONS ARE READS"), "advisory questions are reads, not mutations");
+  must(sys.includes("auto-inserts the missing"), "prompt tells the model about the extract bridge");
 }
 
 /* ------------------------------------------------------------------ */
@@ -261,6 +308,44 @@ must(
     pickClassStackName(["run_it005_classes.mrcs", "run_it002_unmasked_classes.mrcs"]) === "run_it002_unmasked_classes.mrcs",
   "pickClassStackName: newest iteration, unmasked outranks"
 );
+
+/* E2. t463 — the alias ladder + the chain bridge                      */
+{
+  const { resolveJobTypeKey, typeResolutionNote, normalizeTypeToken } = await import("../src/lib/ai/type-aliases");
+  const r = (s: string) => resolveJobTypeKey(s);
+  must(r("ctffind").key === "ctffind" && r("ctffind").via === "exact", "exact key passes untouched");
+  must(r("Motion_Corr").key === "motioncorr" && r("Motion_Corr").via === "normalized", "case/separator variants normalize to the key");
+  must(r("ctf").key === "ctffind" && r("ctf").via === "alias", "alias: ctf → ctffind");
+  must(r("CTF").key === "ctffind" && r("CTF").via === "alias", "alias: case-insensitive");
+  must(r("导入").key === "import", "alias: 导入 → import");
+  must(r("运动").key === "motioncorr" && r("运动校正").key === "motioncorr", "alias: 运动(校正) → motioncorr");
+  must(r("挑选").key === "manualpick" && r("自动挑选").key === "autopick", "alias: 挑选 → manualpick, 自动挑选 → autopick");
+  must(r("2d分类").key === "class2d" && r("2dclass").key === "class2d" && r("二维分类").key === "class2d", "alias: the many names of class2d");
+  must(r("2d分类job").key === "class2d", "normalization strips the job/任务 suffix");
+  must(r("motion").key === "motioncorr" && r("pick").key === "manualpick", "alias: the English shorthands models invent");
+  must(r("3d精修").key === "refine3d" && r("初始模型").key === "initialmodel" && r("后处理").key === "postprocess", "alias: the downstream SPA stages");
+  must(r("class2daverage").key === "class2d" && r("class2daverage").via === "fuzzy", "fuzzy: containment matches");
+  must(r("gibberishxyz").key === null && r("").key === null && r("na").key === null, "garbage answers null (never force-matches)");
+  must(typeResolutionNote(r("ctffind")) === "" && typeResolutionNote(r("Motion_Corr")) === "", "exact/normalized matches narrate nothing");
+  must(typeResolutionNote(r("ctf")) === ' (interpreted "ctf" as ctffind)', "alias matches narrate the interpretation");
+  must(normalizeTypeToken(" CTF 任务 ") === "ctf", "normalization: trims, lowercases, strips 任务");
+}
+{
+  const { bridgeBetween, bridgePipelineSteps } = await import("../src/lib/ai/tools");
+  must(bridgeBetween("manualpick", "class2d") === "extract", "bridge: pick → classify grows an extract (the port law)");
+  must(bridgeBetween("autopick", "class3d") === "extract", "bridge: autopick → class3d too");
+  must(bridgeBetween("ctffind", "manualpick") === null, "bridge: already-portable pairs stay untouched");
+  must(bridgeBetween("import", "class2d") === null, "bridge: unbridgeable pairs refuse (no false roads)");
+  const bridged = bridgePipelineSteps([
+    { type: "import" }, { type: "motioncorr" }, { type: "ctffind" }, { type: "manualpick" }, { type: "class2d" },
+  ]);
+  must(
+    bridged.steps.map((s) => s.type).join() === "import,motioncorr,ctffind,manualpick,extract,class2d" &&
+      bridged.inserted.length === 1 && bridged.inserted[0].after === "manualpick" && bridged.inserted[0].bridge === "extract",
+    "the user's five-stage ask becomes the six-job wired truth"
+  );
+}
+
 
 // the synthesized workdir: data star + model star + classes stack
 function makeMrcs(slices: number, nx = 32, ny = 32): Buffer {
@@ -633,6 +718,55 @@ let sessionId = "";
   // t419 shipped 12; t420 grew the catalog to 14 (build_pipeline + wait_for_jobs)
   must(AI_TOOLS.length === 14 && new Set(AI_TOOLS.map((t) => t.name)).size === 14, `F8: 14 unique tools (got ${AI_TOOLS.length})`);
   must(AI_TOOLS.every((t) => t.parameters && typeof t.description === "string"), "F8: every tool wears a schema + description");
+}
+
+// F9: t463 — the field shape, replayed verbatim. A model that answers the
+// user's「导入 → 运动 → CTF → 挑选 → 2D 分类」with invented keys ("ctf",
+// "2dclass", Chinese stage names) still builds the WHOLE chain, wired
+// head-to-tail, with the extract bridge grown where RELION's own law
+// demands it.
+{
+  const ctx = { projectId: active!.project.id };
+  const before = await db.job.count({ where: { projectId: active!.project.id } });
+  const built = await executeAiTool(
+    "build_pipeline",
+    {
+      steps: [
+        { type: "导入" },
+        { type: "运动" },
+        { type: "ctf" },
+        { type: "挑选" },
+        { type: "2dclass" },
+      ],
+    },
+    ctx
+  );
+  must(built.ok === true, `F9: the invented-key chain still builds (${built.summary.slice(0, 90)})`);
+  must(/interpreted stage names: step 1: "导入" → import/.test(built.summary), "F9: the interpretation is narrated, not silent");
+  const created = (built.detail as { jobs?: { id: string; type: string; name: string }[] }).jobs ?? [];
+  must(
+    created.map((j) => j.type).join() === "import,motioncorr,ctffind,manualpick,extract,class2d",
+    `F9: the six-job wired truth (got ${created.map((j) => j.type).join()})`
+  );
+  must(/auto-inserted extract after manualpick/.test(built.summary), "F9: the bridge is named in the summary");
+  must(/fully wired/.test(built.summary), "F9: the chain is fully wired");
+  const after = await db.job.count({ where: { projectId: active!.project.id } });
+  must(after - before === 6, `F9: exactly six jobs landed (delta ${after - before})`);
+  // the wires: consecutive pairs of the created chain
+  const edges = await db.edge.findMany({ where: { projectId: active!.project.id } });
+  for (let i = 0; i + 1 < created.length; i++) {
+    must(
+      edges.some((e) => e.fromJobId === created[i].id && e.toJobId === created[i + 1].id),
+      `F9: wire ${created[i].type} → ${created[i + 1].type} exists`
+    );
+  }
+  // the create_job path forgives the same way
+  const one = await executeAiTool("create_job", { type: "CTF" }, ctx);
+  must(one.ok === true && /interpreted "CTF" as ctffind/.test(one.summary), `F9: create_job forgives uppercase aliases (${one.summary.slice(0, 60)})`);
+  await executeAiTool("delete_job", { job_id: (one.detail as { job: { id: string } }).job.id, confirm: true }, ctx);
+  // and a truly unknown type still refuses honestly
+  const junk = await executeAiTool("create_job", { type: "flurb" }, ctx);
+  must(junk.ok === false && /unknown job type/i.test(junk.summary), "F9: garbage keys still refuse (the ladder is not a yes-machine)");
 }
 
 // G: session history (t423) — summaries, pinning law, delete contract

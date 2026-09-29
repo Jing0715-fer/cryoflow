@@ -13,14 +13,19 @@
 /* ------------------------------------------------------------------ */
 
 /**
- * The wire dialect a provider speaks. Three dialects cover the market:
+ * The wire dialect a provider speaks. Four dialects cover the market:
  *  - "openai":    OpenAI-compatible /chat/completions + /models (OpenAI,
  *                 DeepSeek, Moonshot, Qwen, OpenRouter, Groq, Mistral, xAI,
- *                 Ollama, any custom endpoint)
+ *                 MiniMax, Ollama, any custom endpoint)
  *  - "anthropic": /v1/messages + /v1/models (Claude family)
  *  - "gemini":    generateContent + :generateContent models listing
+ *  - "builtin":   t463 — the bundled SDK lane (z-ai-web-dev-sdk). No key,
+ *                 no base URL, no HTTP: the SDK client rides in-process.
+ *                 The zero-config default when the user has configured
+ *                 nothing — where the deployment carries no SDK
+ *                 credentials the chat answers an actionable error.
  */
-export type AiProviderFlavor = "openai" | "anthropic" | "gemini";
+export type AiProviderFlavor = "openai" | "anthropic" | "gemini" | "builtin";
 
 /** One provider catalog entry (GET /api/ai/settings serves these). */
 export interface AiProviderSummary {

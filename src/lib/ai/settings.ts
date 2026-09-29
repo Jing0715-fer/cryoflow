@@ -93,8 +93,15 @@ export function aiSettingsDto(data: AiSettingsData = loadAiSettings()): AiSettin
       keyHint: cfg.apiKey.length > 4 ? `••••${cfg.apiKey.slice(-4)}` : "",
     };
   }
+  // t463 — when the user has configured nothing, the DTO still names the
+  // built-in lane as the (derived) active provider and synthesizes its
+  // config row, so the panel badge and the dialog's 「当前使用」chip say
+  // what will actually answer: Built-in (GLM) · glm-4-plus.
+  if (!providers.builtin) {
+    providers.builtin = { model: "glm-4-plus", baseUrl: null, hasKey: false, keyHint: "" };
+  }
   return {
-    activeProvider: data.activeProvider,
+    activeProvider: data.activeProvider ?? "builtin",
     providers,
     vlmModel: data.vlmModel,
   };
@@ -193,7 +200,7 @@ export function applySettingsUpdate(raw: SaveSettingsInput): { data: AiSettingsD
 
 export interface ResolvedAssistant {
   providerId: string;
-  flavor: "openai" | "anthropic" | "gemini";
+  flavor: "openai" | "anthropic" | "gemini" | "builtin";
   apiKey: string;
   model: string;
   baseUrl: string;
@@ -201,13 +208,37 @@ export interface ResolvedAssistant {
   vlmModel: string;
 }
 
+/** t463 — the zero-config identity: the bundled SDK lane. */
+const BUILTIN_ASSISTANT: ResolvedAssistant = {
+  providerId: "builtin",
+  flavor: "builtin",
+  apiKey: "",
+  model: "glm-4-plus",
+  baseUrl: "",
+  vlmModel: "glm-4-plus",
+};
+
+/** The built-in lane's opt-out (env kill-switch; "1" = force explicit config). */
+export function builtinLaneDisabled(): boolean {
+  return process.env.CRYOFLOW_DISABLE_BUILTIN_AI === "1";
+}
+
 /**
- * The fully-resolved chat identity, or null when the assistant is not
- * configured (no active provider / missing key / missing model).
+ * The fully-resolved chat identity. t463: when NOTHING is configured the
+ * BUILT-IN lane serves (no key, no base URL — the SDK rides in-process).
+ * Where the deployment carries no SDK credentials, the first chat answers
+ * an actionable error (wire.ts words it) instead of a setup wall — the
+ * panel stays honest without becoming a locked door.
+ *
+ * A STORED-but-unusable provider (a hand-edited settings file) still
+ * answers null → needsSetup: the badge must never say one provider while
+ * another one answers.
  */
 export function resolveAssistant(): ResolvedAssistant | null {
   const data = loadAiSettings();
-  if (!data.activeProvider) return null;
+  if (!data.activeProvider) {
+    return builtinLaneDisabled() ? null : { ...BUILTIN_ASSISTANT };
+  }
   const cfg = data.providers[data.activeProvider];
   if (!cfg) return null;
   const provider = aiProvider(data.activeProvider);

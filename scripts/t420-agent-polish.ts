@@ -178,15 +178,28 @@ const jobsBefore = await db.job.count({ where: { projectId: project.id } });
 }
 
 // B2: fail-fast — a typo in step 3 must create NOTHING
+// t463 contract change: a NEAR-MISS typo ("motioncorrr") is now RECOVERED
+// by the alias ladder (fuzzy containment, narrated in the summary) — the
+// field failure this repo shipped to fix. Only true garbage refuses.
 {
   const r = await executeAiTool(
     "build_pipeline",
     { steps: [{ type: "motioncorr" }, { type: "ctffind" }, { type: "motioncorrr" }] },
     ctx
   );
-  must(!r.ok && /unknown job type "motioncorrr"/.test(r.summary), "B2: the typo is named in the refusal");
+  must(r.ok === true && /interpreted stage names: step 3: "motioncorrr" → motioncorr/.test(r.summary), "B2: the near-miss typo is recovered AND narrated");
   const after = await db.job.count({ where: { projectId: project.id } });
-  must(after === jobsBefore + 5, "B2a: nothing was created (the pre-flight type gate)");
+  must(after === jobsBefore + 5 + 3, `B2a: the recovered chain landed its 3 jobs (delta ${after - jobsBefore - 5})`);
+  // true garbage still fails fast, creating nothing (the pre-flight gate)
+  const before2 = await db.job.count({ where: { projectId: project.id } });
+  const junk = await executeAiTool(
+    "build_pipeline",
+    { steps: [{ type: "motioncorr" }, { type: "flurbgarbage" }] },
+    ctx
+  );
+  must(!junk.ok && /unknown job type "flurbgarbage"/.test(junk.summary), "B2b: garbage types still refuse with the name in the message");
+  const after2 = await db.job.count({ where: { projectId: project.id } });
+  must(after2 === before2, "B2c: nothing was created by the refused chain (the pre-flight type gate)");
 }
 
 // B3: unknown connect_from refused

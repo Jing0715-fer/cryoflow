@@ -295,7 +295,7 @@ export function parseGeminiResponse(json: unknown): NormalizedResponse {
 const CHAT_TIMEOUT_MS = 120_000;
 
 export interface ChatOnceOptions {
-  flavor: "openai" | "anthropic" | "gemini";
+  flavor: "openai" | "anthropic" | "gemini" | "builtin";
   apiKey: string;
   model: string;
   baseUrl: string;
@@ -321,8 +321,75 @@ function providerError(flavor: string, status: number, body: string): Error {
   return new Error(`LLM provider (${flavor}) answered ${status}: ${t || "(empty body)"}`);
 }
 
+/* ------------------------------------------------------------------ */
+/* The built-in SDK lane (t463)                                          */
+/* ------------------------------------------------------------------ */
+
+/** The slice of the SDK client the two builtin lanes speak. */
+interface ZAiClient {
+  chat: {
+    completions: {
+      create: (body: Record<string, unknown>) => Promise<unknown>;
+      createVision: (body: Record<string, unknown>) => Promise<unknown>;
+    };
+  };
+}
+
+let builtinClient: Promise<ZAiClient> | null = null;
+
+/**
+ * One lazily-created SDK client per process. Init failures reset the slot
+ * (the next call retries — a missing-credential deployment answers the
+ * SAME actionable wording each time instead of caching a rejection).
+ */
+function getBuiltinClient(): Promise<ZAiClient> {
+  if (!builtinClient) {
+    builtinClient = (async () => {
+      const mod = (await import("z-ai-web-dev-sdk")) as unknown as {
+        default: { create: () => Promise<ZAiClient> };
+      };
+      return await mod.default.create();
+    })();
+    builtinClient.catch(() => {
+      builtinClient = null;
+    });
+  }
+  return builtinClient;
+}
+
+/** The builtin lane's honest failure voice — never a raw stack trace. */
+function builtinError(err: unknown): Error {
+  const message = err instanceof Error ? err.message : String(err);
+  return new Error(
+    `The built-in model (bundled SDK) is unavailable in this deployment: ${message.slice(0, 300)} — open the AI settings and configure your own provider (OpenAI / Anthropic / DeepSeek / …)`
+  );
+}
+
 /** One assistant turn (text + tool calls) through the active dialect. */
 export async function chatOnce(opts: ChatOnceOptions): Promise<NormalizedResponse> {
+  // the bundled lane — no HTTP, no key: the SDK client speaks in-process
+  // (tool calls pass through the OpenAI-shaped body; the platform's
+  // function-calling was verified live before this lane shipped)
+  if (opts.flavor === "builtin") {
+    let client: ZAiClient;
+    try {
+      client = await getBuiltinClient();
+    } catch (err) {
+      throw builtinError(err);
+    }
+    const body = buildOpenAiBody(opts.model, opts.system, opts.messages, opts.tools);
+    let completion: unknown;
+    try {
+      completion = await client.chat.completions.create({
+        ...body,
+        thinking: { type: "disabled" },
+      });
+    } catch (err) {
+      throw builtinError(err);
+    }
+    return parseOpenAiResponse(completion);
+  }
+
   let url: string;
   let headers: Record<string, string> = {};
   let body: Record<string, unknown>;
@@ -360,7 +427,7 @@ export async function chatOnce(opts: ChatOnceOptions): Promise<NormalizedRespons
 /* ------------------------------------------------------------------ */
 
 export interface VisionOptions {
-  flavor: "openai" | "anthropic" | "gemini";
+  flavor: "openai" | "anthropic" | "gemini" | "builtin";
   apiKey: string;
   model: string;
   baseUrl: string;
@@ -371,6 +438,38 @@ export interface VisionOptions {
 
 /** One user→assistant vision round with a single PNG. Returns the text. */
 export async function visionOnce(opts: VisionOptions): Promise<string> {
+  // the bundled lane — the SDK's own multimodal door (chat.completions
+  // proper rejects image content; createVision is the verified path)
+  if (opts.flavor === "builtin") {
+    let client: ZAiClient;
+    try {
+      client = await getBuiltinClient();
+    } catch (err) {
+      throw builtinError(err);
+    }
+    let completion: unknown;
+    try {
+      completion = await client.chat.completions.createVision({
+        ...(opts.model ? { model: opts.model } : {}),
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: opts.prompt },
+              {
+                type: "image_url",
+                image_url: { url: `data:image/png;base64,${opts.imageBase64}` },
+              },
+            ],
+          },
+        ],
+      });
+    } catch (err) {
+      throw builtinError(err);
+    }
+    return parseOpenAiResponse(completion).text;
+  }
+
   let url: string;
   let headers: Record<string, string> = {};
   let body: Record<string, unknown>;

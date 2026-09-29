@@ -23,6 +23,22 @@ import type { AiProviderFlavor, AiProviderSummary } from "./types";
 const P = (s: AiProviderSummary): AiProviderSummary => s;
 
 export const AI_PROVIDERS: AiProviderSummary[] = [
+  // t463 — first on the list AND the zero-config fallback: the bundled
+  // SDK lane. No key, no base URL; where the deployment has no SDK
+  // credentials the chat answers an actionable error (see wire.ts).
+  P({
+    id: "builtin",
+    label: "Built-in (GLM)",
+    docsUrl: "https://docs.z.ai",
+    flavor: "builtin",
+    baseUrl: "",
+    needsKey: false,
+    supportsModelList: false,
+    curatedModels: ["glm-4-plus"],
+    visionDefault: "glm-4-plus",
+    custom: false,
+    keyHint: "(bundled — no key needed)",
+  }),
   P({
     id: "openai",
     label: "OpenAI",
@@ -183,6 +199,22 @@ export const AI_PROVIDERS: AiProviderSummary[] = [
     visionDefault: "grok-4",
     custom: false,
     keyHint: "xai-…",
+  }),
+  P({
+    id: "minimax",
+    label: "MiniMax",
+    docsUrl: "https://platform.minimaxi.com/docs/api-reference",
+    flavor: "openai",
+    baseUrl: "https://api.minimaxi.com/v1",
+    needsKey: true,
+    // MiniMax speaks OpenAI-compatible /chat/completions and /models on
+    // api.minimaxi.com (verified live: both answer 401 without a key —
+    // the listing lane works once the user pastes one).
+    supportsModelList: true,
+    curatedModels: ["MiniMax-M2", "MiniMax-M1", "MiniMax-Text-01", "abab6.5s-chat"],
+    visionDefault: null,
+    custom: false,
+    keyHint: "eyJ… / sk-…",
   }),
   P({
     id: "ollama",

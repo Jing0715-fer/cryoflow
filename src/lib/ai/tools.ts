@@ -45,6 +45,7 @@ import { RELION_DIR } from "@/lib/paths";
 import { resolveAssistant } from "./settings";
 import { visionOnce } from "./wire";
 import type { ToolSchema } from "./wire";
+import { resolveJobTypeKey, typeResolutionNote } from "./type-aliases";
 
 export interface AiToolResult {
   ok: boolean;
@@ -92,7 +93,7 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: {
       type: "object",
       properties: {
-        type: { type: "string", description: "Job type key (from list_job_types), e.g. motioncorr" },
+        type: { type: "string", description: "Job type key (from list_job_types; Chinese stage names like 运动/CTF/挑选 resolve to canonical keys), e.g. motioncorr" },
         name: { type: "string", description: "Optional custom name (≤120 chars)" },
         connect_from: { type: "string", description: "Upstream job id to wire from (draws the edge)" },
         params: {
@@ -149,7 +150,7 @@ export const AI_TOOLS: ToolSchema[] = [
         steps: {
           type: "array",
           maxItems: 12,
-          description: "Ordered chain steps, e.g. [motioncorr, ctffind, autopick, extract, class2d]",
+          description: "Ordered chain steps, e.g. [motioncorr, ctffind, manualpick, extract, class2d]. Chinese stage names (导入/运动/CTF/挑选/2D分类…) resolve to their canonical keys.",
           items: {
             type: "object",
             properties: {
@@ -570,8 +571,9 @@ function listJobTypes(): AiToolResult {
 /* ---- get_job_params ------------------------------------------------ */
 
 function getJobParams(type: string): AiToolResult {
-  const spec = jobType(type);
-  if (!spec) return { ok: false, summary: `Unknown job type: ${type}` };
+  const resolved = resolveJobTypeKey(type);
+  const spec = resolved.key ? jobType(resolved.key) : undefined;
+  if (!spec) return { ok: false, summary: `Unknown job type: ${type} — call list_job_types for the catalog` };
   const params = spec.params.slice(0, 120).map((p) => ({
     key: p.key,
     label: p.label,
@@ -586,8 +588,8 @@ function getJobParams(type: string): AiToolResult {
   }));
   return {
     ok: true,
-    summary: `${type}: ${params.length} params across tabs ${[...new Set(params.map((p) => p.tab))].join(", ")}`,
-    detail: { job_type: type, params },
+    summary: `${spec.key}: ${params.length} params across tabs ${[...new Set(params.map((p) => p.tab))].join(", ")}${typeResolutionNote(resolved)}`,
+    detail: { job_type: spec.key, params },
   };
 }
 
@@ -669,10 +671,16 @@ async function createOneJob(
     dropped: [],
     job: null,
   });
-  const spec = jobType(opts.type);
+  // t463 — the alias ladder: models (and users) say "ctf" / "2d分类" / "motion"
+  // for the canonical keys. Resolve here so create_job AND build_pipeline
+  // both recover instead of refusing; the resolution note rides every summary.
+  const resolved = resolveJobTypeKey(opts.type);
+  const spec = resolved.key ? jobType(resolved.key) : undefined;
   if (!spec) return fail(`Unknown job type: ${opts.type} — call list_job_types for the catalog`);
+  const typeKey = spec.key;
+  const typeNote = typeResolutionNote(resolved);
 
-  const { filtered, dropped } = filterParamsForSpec(opts.type, opts.params);
+  const { filtered, dropped } = filterParamsForSpec(typeKey, opts.params);
 
   let connectFrom: PrismaJob = null;
   if (opts.connectFromId) {
@@ -702,12 +710,12 @@ async function createOneJob(
   const x = typeof opts.x === "number" && Number.isFinite(opts.x) ? opts.x : auto.x;
   const y = typeof opts.y === "number" && Number.isFinite(opts.y) ? opts.y : auto.y;
 
-  const count = await db.job.count({ where: { projectId: ctx.projectId, type: opts.type } });
+  const count = await db.job.count({ where: { projectId: ctx.projectId, type: typeKey } });
   const customName =
     typeof opts.name === "string" && opts.name.trim() ? opts.name.trim().slice(0, 120) : null;
 
   const storedParams: Record<string, unknown> = {
-    ...defaultParams(opts.type),
+    ...defaultParams(typeKey),
     ...filtered,
   };
 
@@ -715,7 +723,7 @@ async function createOneJob(
     data: {
       projectId: ctx.projectId,
       workspaceId,
-      type: opts.type,
+      type: typeKey,
       name: customName ?? `${spec.label} ${count + 1}`,
       x,
       y,
@@ -729,8 +737,8 @@ async function createOneJob(
   let wired = false;
   let wireNote = "";
   if (connectFrom) {
-    const ports = defaultPorts(connectFrom.type, opts.type);
-    if (!portsValid(connectFrom.type, ports.fromPort, opts.type, ports.toPort)) {
+    const ports = defaultPorts(connectFrom.type, typeKey);
+    if (!portsValid(connectFrom.type, ports.fromPort, typeKey, ports.toPort)) {
       wireNote = ` — the wire ${connectFrom.name} → ${job.name} was refused (no compatible port pair; wire it manually via connect_jobs)`;
     } else {
       const duplicate = await db.edge.findUnique({
@@ -748,7 +756,7 @@ async function createOneJob(
 
   return {
     ok: true,
-    summary: `Created ${job.name} [${job.id}]${wireNote}${dropped.length > 0 ? ` (dropped unknown params: ${dropped.join(", ")})` : ""}`,
+    summary: `Created ${job.name} [${job.id}]${wireNote}${typeNote}${dropped.length > 0 ? ` (dropped unknown params: ${dropped.join(", ")})` : ""}`,
     jobId: job.id,
     jobName: job.name,
     wired,
@@ -780,6 +788,61 @@ async function createJob(ctx: AgentCtx, args: Record<string, unknown>): Promise<
 
 const PIPELINE_STEP_CAP = 12;
 
+/**
+ * t463 — the canonical bridge between chain steps that don't port-match.
+ * The field shape: users say「挑选 → 2D 分类」(pick → classify) and RELION's
+ * own law inserts Extract between them (coords must become particles
+ * before any classification). The law is deliberately NARROW — a bridge
+ * is offered only when the upstream truly produces coords AND the
+ * downstream truly consumes particles AND extract port-matches both
+ * sides; anything else keeps its honest refusal instead of a dead chain
+ * (import → class2d must NOT grow an extract with no coords to feed it).
+ */
+const BRIDGE_CANDIDATES = ["extract"];
+
+export function bridgeBetween(a: string, b: string): string | null {
+  const from = jobType(a);
+  const to = jobType(b);
+  if (!from || !to) return null;
+  const direct = defaultPorts(a, b);
+  if (portsValid(a, direct.fromPort, b, direct.toPort)) return null;
+  const aOutputsCoords = from.outputs.some((o) => o.kind === "coords");
+  const bWantsParticles = to.inputs.some((i) => (i.accepts ?? []).includes("particles"));
+  if (!aOutputsCoords || !bWantsParticles) return null;
+  for (const mid of BRIDGE_CANDIDATES) {
+    const up = defaultPorts(a, mid);
+    const down = defaultPorts(mid, b);
+    if (portsValid(a, up.fromPort, mid, up.toPort) && portsValid(mid, down.fromPort, b, down.toPort)) {
+      return mid;
+    }
+  }
+  return null;
+}
+
+export interface BridgedSteps {
+  steps: { type: string; name?: string; params?: unknown }[];
+  inserted: { after: string; bridge: string }[];
+}
+
+/** Pre-pass: insert bridges where adjacent steps don't port-match. Pure. */
+export function bridgePipelineSteps(
+  steps: { type: string; name?: string; params?: unknown }[]
+): BridgedSteps {
+  const out: { type: string; name?: string; params?: unknown }[] = [];
+  const inserted: { after: string; bridge: string }[] = [];
+  for (let i = 0; i < steps.length; i++) {
+    out.push(steps[i]);
+    if (i + 1 < steps.length) {
+      const bridge = bridgeBetween(steps[i].type, steps[i + 1].type);
+      if (bridge && steps.length + inserted.length < PIPELINE_STEP_CAP) {
+        out.push({ type: bridge });
+        inserted.push({ after: steps[i].type, bridge });
+      }
+    }
+  }
+  return { steps: out, inserted };
+}
+
 export function normalizePipelineSteps(
   raw: unknown
 ): { steps: { type: string; name?: string; params?: unknown }[]; error: string | null } {
@@ -809,14 +872,31 @@ async function buildPipeline(ctx: AgentCtx, args: Record<string, unknown>): Prom
   if (error) return { ok: false, summary: error };
 
   // validate every type BEFORE creating anything — a typo in step 5
-  // must not leave half a chain on the canvas
+  // must not leave half a chain on the canvas. t463: the alias ladder runs
+  // here too, so a model that says "ctf"/"2d分类" builds the chain instead
+  // of dying at the gate — the canonical key replaces the step in place.
+  const interpreted: string[] = [];
   for (let i = 0; i < steps.length; i++) {
-    if (!jobType(steps[i].type)) {
+    const resolved = resolveJobTypeKey(steps[i].type);
+    if (!resolved.key) {
       return {
         ok: false,
         summary: `step ${i + 1}: unknown job type "${steps[i].type}" — nothing was created (call list_job_types for the catalog)`,
       };
     }
+    if (resolved.key !== steps[i].type) {
+      interpreted.push(`step ${i + 1}: "${steps[i].type}" → ${resolved.key}`);
+      steps[i].type = resolved.key;
+    }
+  }
+
+  // t463 — the bridge pre-pass: adjacent steps that don't port-match get
+  // the canonical connector (pick → classify grows an extract). The chain
+  // the user asked for stays THEIR chain — the bridge is the road RELION
+  // itself would pave, and the summary names every stone that was added.
+  const bridged = bridgePipelineSteps(steps);
+  if (bridged.inserted.length > 0) {
+    steps.splice(0, steps.length, ...bridged.steps);
   }
 
   let prevId: string | null = typeof args.connect_from === "string" ? args.connect_from : null;
@@ -863,13 +943,15 @@ async function buildPipeline(ctx: AgentCtx, args: Record<string, unknown>): Prom
       : `${refusedWires.length} wire(s) refused (see refusedWires)`;
   return {
     ok: true,
-    summary: `Built ${created.length}-job chain: ${chain}${prevId ? "" : ""} — ${wireSummary}${dropped.length > 0 ? `; dropped unknown params: ${dropped.join(", ")}` : ""}`,
+    summary: `Built ${created.length}-job chain: ${chain} — ${wireSummary}${interpreted.length > 0 ? `; interpreted stage names: ${interpreted.join("; ")}` : ""}${bridged.inserted.length > 0 ? `; auto-inserted ${bridged.inserted.map((b) => `${b.bridge} after ${b.after}`).join(", ")} (the port law's own connector)` : ""}${dropped.length > 0 ? `; dropped unknown params: ${dropped.join(", ")}` : ""}`,
     detail: {
       jobs: created.map((c) => ({ id: c.id, name: c.name, type: c.type })),
       head: created[0]?.id ?? null,
       tail: created[created.length - 1]?.id ?? null,
       refusedWires,
       dropped,
+      interpreted,
+      inserted: bridged.inserted,
       next: `run_job on the head (${created[0]?.name ?? "?"}) — downstream pending jobs auto-start`,
     },
   };
