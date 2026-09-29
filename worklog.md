@@ -5513,3 +5513,22 @@ Stage Summary:
 - **「诚实旗要能旅行也要能幸存」**：truncated 随账本 JSON 落盘、随 Files tab note 上屏、随 finalize receipt 进 inspector（RemoteStayNote）、随剪枝重写存续——单点承认会腐烂，全链承认才是诚实
 - **「bench 的职责是把假设咬碎」**：首版双流文法在 T7 真 11.4k 镜像树上当场翻车（扁平世界、门族竞赛落后）——纯脑断言 + 真 bash 执行脚本本体的组合把「根优先就够了」的假设当场咬碎，四带文法是真树教出来的
 - 产出：四带门族优先枚举文法 + cap+1 金丝雀 + truncated 诚实旗全链（账本→Files tab→receipt→inspector）+ describeListingNote 四优先级 + t464 bench 48/0（真 bash 双活体）+ 32 套回归全绿 + 账本句真 API 逐字 + 截图 ×2
+
+## Task 465 (2026-09-29, cron 22:07 窗 —— The Running World)
+
+- [开局] 实尾 = Task 464 完整收官（HEAD = b0195df = origin/main；世界 dev lane :3000 200、15/15 completed、mock 集群 :3022 在听、available 993MB 偏紧）。第五十六份过时 Task 13 指引照例不认（以 t464 遗留清单为准）。自号 465。
+- [QA — 全绿基线] landing 200、console 0 错、标题 pristine；回归全家 32 套 exit 0 全绿（本轮教义升级：**先关 QA 浏览器再跑 bench**——t464 窗的 OOM 收割不重演，服务器全程幸存）。世界稳定 → 转新需求。
+- [选题定谳 — The Running World] 三重收账一轮结清：①t463 遗留③——selection-unfinished 阻断态 live 复验（bench D5a/b 早已钉死渲染，缺的是真 running verb 的接线活体）②t464 遗留⑤——walk cap 遮蔽账本句的分层句并陈 ③t464 四带文法的**真 SSH 首跑**——re-run 的 finalize 用新文法写真账本。一副世界搭三台戏。
+- [交付①— 分层 note（t464 遗留⑤关闭）] describeListingNote 升格：localTruncated && ledgerTruncated 时两句并陈一行——`Listing truncated at N files — and the ledger itself was capped: the cluster holds more than the manifest shows (the final star family is pinned first)`；本地事实领话不变、账本句不再被 600 walk cap 永久遮蔽；ledger 句压 display 句的优先序保持。bench T4 增至 8 断言（51/0 总）。
+- [世界手术 — running verb 搭台] class2d re-run 经 POST /api/jobs/[id]/run 裸跑。**首跑失败 = t317 的诚实降级**：项目的 remote binding 是 null（demo 项目从未绑定），裸 POST 掉进 local lane，引擎如实拒绝「RELION not detected」。修复：PATCH /api/projects/[id] {remoteConnectionId: conn-mukrkgil} 重绑 → 裸 POST → status=running progress=16% phase=running。绑定 null 非幽灵非 bug——系统按设计的诚实路径走完两跳（拒绝 → 重绑 → 成功），顺手活体验证了 t317 的降级分支。
+- [活体②— selection-unfinished 阻断态逐字（t463 遗留③关闭）] plain click = inspect 非 select（t463 家法再证）；agent-browser 无 shift 保持、合成 PointerEvent(shiftKey) 过不了 React 指针链——真钥匙仍是 Task 103 箭头漫步：ArrowRight 顺流入图（Select 2D→…→Post-process 走到头）→ ArrowLeft 逆流 8 步 → **门 disabled=true + title=「The selected verb hasn't finished — its receipt isn't written yet, so its chain can't be read.」与 FUNNEL_DOOR_BLOCK_LINES 逐字一致**；再 ArrowLeft 落 Extract（completed）→ 门复 ready（「through Extract — the verb you selected」）恢复路径同证。截图 .qa-logs/t465-running-block.png（census 条 2D Classification 99% running 芯片 + 状态栏 1 running · 7m 04s · build b0195df）。
+- [活体③— t464 四带文法真 SSH 首跑] finalize 落地（sync 517s、11,464 文件归家）：**fresh ledger 前三行 = run_data.star / run_model.star / run_optimiser.star——门族 0/1/2 位按名钉死**（pre-run 旧文法同账本前三是 run.out/run.err/run_it000_data.star 的 readdir 运气序，对比即判例）；`truncated: false` 首次真值落盘；census 11,464 与 pre-run 一致（同参 re-run 同形状）；receipt note=None（账本未截断，账本句如实缺席）。t464 的「门永不死」从 bench 真树走进真集群往返。
+- [验证-终] t464 bench 51/0（48 旧 + 3 分层新断言）；tsc 0 + eslint 0（触碰文件）；回归全家 32 套 exit 0 全绿；console 0 错、标题 pristine；世界 15/15 completed 复原（class2d 重跑后同位同形），landing 200。
+- [最终态] HEAD = f8d3b98（feature；docs 本 commit 随后，origin/main 三方对齐）；世界 dev lane（:3000 200、15/15 completed、14 边、mock 集群 :3022 在听、项目绑定 conn-mukrkgil 持久化）。下一窗从 Task 466 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②funnel 单位扩展 movies（真 RELION 接手时）③prod 磨判例重开前提（t462 判例：盒扩容/树减肥/编译几何变化）④箭头漫步的入图点无预告——从视口中心进图落在链中段，用户需自己发现方向（可考虑入图时 toast 一句「arrow walk: entered at <job>」之类的轻指引）⑤account 芯片「1 running · 7m 04s」的 elapsed 在 re-run 后从 staging 计起，含排队/staging/sync 全程——与「轮次时间」是两种口径，inspector 已分开说，状态栏可考虑分层提示。
+
+Stage Summary:
+- **「一副世界搭三台戏」**：一次 class2d re-run 同时是 selection-unfinished 的活体舞台、四带文法的真 SSH 首跑、和分层 note 的落地窗口——世界手术的收益按复利计
+- **「诚实降级也是活体素材」**：裸 POST 掉进 local lane 的 RELION 拒绝不是事故，是 t317 降级分支的第一次活体走位；重绑 PATCH 后同一扇门照常放行——失败路径与成功路径同轮验证
+- **「真跑是最厚的 bench」**：bench 的真 bash 只能证明脚本本体；真 SSH 往返证明的是整条链——门族 0/1/2 位对比 pre-run 的运气序，两行账本头就是判例书
+- **「漫步到阻断，一步即恢复」**：Task 103 箭头漫步走到 running verb 时门如实封锁、走开一步即复 ready——阻断不是墙是门，钥匙永远在下一箭头
+- 产出：分层 listing note（t464 遗留⑤关闭）+ selection-unfinished 阻断态 live 逐字（t463 遗留③关闭）+ 四带文法真 SSH 首跑判例（门族 0/1/2 + truncated:false 真值落盘）+ 项目重绑持久化 + t464 bench 51/0 + 32 套回归全绿 + 截图 ×1
