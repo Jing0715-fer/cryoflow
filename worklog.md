@@ -5494,3 +5494,22 @@ Stage Summary:
 - **「导出把两句自白也带上路」**：sqrt 坦白与 verbless footer 随数字旅行——读到纯文本的人同样不该被形状暗示误导
 - **「幽灵要打在诊断的坟里」**：编辑中段的坏快照被 Turbopark 写进 build-diagnostics.json，活过硬重载活过重启；运行时健康与诊断重放可以并存——判定真相靠运行时验证（对话照开、剪贴板照走），清坟靠 rm .next/diagnostics
 - 产出：The Ledger Travels 全链（funnelLedgerText 纯脑 + useLedgerCopy + Copy ledger 钮）+ t463 bench 25/0 + 三十一套回归全绿 + 账本全文 1571 字符活体捕获 + t462 遗留③关闭（crowd 阻断 live 逐字）+ 诊断幽灵根因与清法
+
+## Task 464 (2026-09-29, cron 21:37 窗 —— The Manifest Picks Its Survivors)
+
+- [开局] 实尾 = Task 463 完整收官（HEAD = 1ace3f7 = origin/main；世界 dev lane :3000 满血、15/15 completed、mock 集群 :3022 在听）。第五十五份过时 Task 13 指引照例不认（以 t463 遗留清单为准）。自号 464。
+- [QA — 全绿基线] landing 200、console 0 错、标题 pristine、header 全门在场（铃铛/命令面板/漏斗门）；回归全家 31 套 exit 0 全绿。世界稳定 → 转新需求。
+- [选题定谳 — The Manifest Picks Its Survivors（t460 遗留②）] t460 把 sync manifest 的 find 上限 4000→20000，但 cap 仍是 readdir 序下的裸 `head -20000`：一个 >20k 文件的世界（真集群 class2d 大跑 + per-mic 图）会**静默截断**——FINAL 家族（run_data/model/optimiser.star）可能整段被剪，本地镜像停在残缺世界，一切 workdir 衍生路由读谎，且无人承认。修法三招，一次 SSH 往返不破：①门族按名钉死（不再赌 readdir 运气）②cap+1 金丝雀（shell 剪掉的恰好是承认世界更大的那一行）③诚实旗随账本旅行。
+- [自捕自修 ×1 — 扁平树破相] 首版「根优先双流」（maxdepth 1 → mindepth 2）在 bench T7 的真树上翻车：真 class2d 镜像是**扁平树**（11,464 文件全在根层、零子目录），run_data.star 仍在 50 个 particles_class*.star 的 readdir 竞赛中落后。文法升格**四带**：(a) 门族按精确名钉死（run_data/run_model/run_optimiser.star）→(b) 根层其余 .star（数据脊柱：postprocess.star、per-class star）→(c) 根层非 star（note.txt、run.out/err、class 平均堆）→(d) 深层（mindepth 2，.cryoflow_prev 排除）。四带按构造两两不交（door ⊂ root stars；b = stars\door；c = root\stars；d = depth≥2），无去重趟。第二修：parseManifestListing 拒绝空 size 字段（`Number("")` 是 0——旧文法会把坏行默成零字节文件，谎言退役）。
+- [交付] ①remote-files.ts 新段：`REMOTE_MANIFEST_MAX`（env `CF_SYNC_MANIFEST_MAX`，默认 20000，夹 1k–500k，browse-caps 方言）+ `manifestFindScript(cap, quotedDir)` 四带文法 + `parseManifestListing(stdout, cap)` → {entries, truncated}（金丝雀：原始行数 > cap 即截断，entries 保前 cap）+ `describeListingNote` 纯脑（local walk 截断 > 账本截断 > 展示 300 上限 > undefined 四优先级）+ `RemoteManifest.truncated?` 旗 + write 透传。②remote-run.ts syncBackWorkdir：exec 换 script builder、parse 换纯脑、账本写入带旗、finalize receipt noteParts 增账本句（「the outputs ledger was capped at N files — the cluster's workdir holds more…CF_SYNC_MANIFEST_MAX raises the cap」）——record DTO → RemoteStayNote（t429）直达 inspector。③remote-cleanup.ts rewriteManifestAfterCleanup：truncated 旗在剪枝后存续（删行不能追溯补全账本；下一次 finalize 重新枚举重新裁决）。④outputs 路由：ledgerTruncated 接入 note 链（本地 walk 截断依旧领话——巨型世界下 600 walk cap 遮蔽账本句是正确优先级；真巨人世界 = key-files 小镜像 + 大集群，账本句可达且可达性已被活体验证）。
+- [t464 bench — 48/0] T1 四带文法 9（带序/门族精确名/三处 .cf 排除/压档排除/t367 行文法/cap+1）+ T2 parser 文法 5（含遗留两字段行无 mtime、坏行拒收）+ T3 金丝雀 5（<cap 完整、=cap 完整、+1 点火、保前 cap）+ T4 note 优先级 5 + T5 旗往返 4（真 fs；pre-t464 账本读作 undefined 绝不假旗）+ **T6 真 bash 合成树 9**（门族领跑/.cf 与压档永不入册/cap 之外全是深史）+ **T7 真 bash 真 class2d 镜像 8**（默认 cap 全量 11,464 与旧文法 census 逐字一致、门族领先每一个 round 文件、cap=50 时承认截断且门族三件套全在——门永不死）。bun spawnSync bash -c 直跑脚本本体——脚本即文物。
+- [活体 — 双向验证 + 世界还原] ①大世界（class2d，11.4k 镜像）：outputs API note = 「Listing truncated at 600 files」（本地 walk 优先级领话，遗留账本无假旗）✓ 检查器 Files tab 徽记逐字同句、表格/GET 门满血、console 0 错、截图 .qa-logs/t464-files-tab.png。②小世界（motioncorr，3 文件）：临时注入 truncated=true → note = **「Listing shows 3 files — the cluster holds more than the manifest's cap (the final star family is pinned first)」逐字到手** → 还原账本 → note 回到如实静默、字节复原（/tmp 备份双份）。③插曲：dev server 在 tsc+32 套 bench 内存压力下被收割一次 → dev-server.sh 一次点火复 200（t436 教义）。
+- [验证-终] t464 bench 48/0；tsc 0 + eslint 0（五触碰文件）；回归全家 32 套（31 旧 + t464）exit 0 全绿；console 0 错；注入还原字节级归零。
+- [最终态] HEAD = <feature>（docs commit 随后，origin/main 三方对齐）；世界 dev lane（:3000 200、15/15 completed、mock 集群 :3022 在听、console 0 错）。下一窗从 Task 465 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②selection-unfinished 阻断态 live 复验（需 running verb 的世界）③funnel 单位扩展 movies（真 RELION 接手时）④prod 磨判例重开前提（t462 判例：盒扩容/树减肥/编译几何变化）⑤walkWorkdir 的 600 文件本地展示上限在 >600 镜像世界遮蔽账本句——若真巨人世界落地时可考虑分层句（本地「…and N more locally」+ 账本句并陈）。
+
+Stage Summary:
+- **「门族按名钉死，不赌 readdir 运气」**：t460 的失败不是 cap 太小，是 cap 花在谁身上听天由命——门族（run_data/model/optimiser.star）以精确名领跑四带，任何 cap 的预算先付门、再付脊柱、再付前门、最后才是深史
+- **「金丝雀是免费的诚实」**：head 多放一行，parser 数行数——世界是否比账本大，一次 SSH 往返内精确裁决，不需要第二趟 find 也不需要 wc -l；「恰好装满」与「被剪短」从此是两种可区分的状态
+- **「诚实旗要能旅行也要能幸存」**：truncated 随账本 JSON 落盘、随 Files tab note 上屏、随 finalize receipt 进 inspector（RemoteStayNote）、随剪枝重写存续——单点承认会腐烂，全链承认才是诚实
+- **「bench 的职责是把假设咬碎」**：首版双流文法在 T7 真 11.4k 镜像树上当场翻车（扁平世界、门族竞赛落后）——纯脑断言 + 真 bash 执行脚本本体的组合把「根优先就够了」的假设当场咬碎，四带文法是真树教出来的
+- 产出：四带门族优先枚举文法 + cap+1 金丝雀 + truncated 诚实旗全链（账本→Files tab→receipt→inspector）+ describeListingNote 四优先级 + t464 bench 48/0（真 bash 双活体）+ 32 套回归全绿 + 账本句真 API 逐字 + 截图 ×2
