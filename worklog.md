@@ -6001,3 +6001,25 @@ Stage Summary:
 - **「cross-kind 的空态要指路」**：ctf 对 MotionCorr job 说「try kind motion」，motion 对 CtfFind 说「try kind ctf」——诚实的空不只是一句「没有」，还是下一步的正确门
 - **「活体的第二面是第一面的考场」**：FACE A 模型拿 name 当 id 摔一跤、iter 1 自纠；FACE B iter 0 直呼 id 零踩坑——律 #1 的内化在同一轮活体里完成自证
 - 产出：loadCtf/loadMotion/loadTopazTraining 三 loader（chart-data.ts +204 行）+ 三路由薄壳化（246→163 行，summary 零残留）+ kinds 3→6（schema/executor 三段/三问句例）+ 律 #15/#2 扩员 + t487 bench 37/0 首跑即绿 + t486 断言演进 + 52 套回归全绿 + 双面活体三方对账 + 活体剧本
+
+## Task 488 (2026-09-30, cron 05:37 窗 —— The Panels Speak the Tool's Grammar)
+
+- [开局] 实尾 = Task 487 完整收官（HEAD = e2fc370 三方对齐；t484 台账全书 + t485 检查点真火 + t486 曲线桥 + t487 六曲入桥均在树上——实况以树为准）。世界体检：landing 200 / API 200 / icon 200、2 canvas · 15 edges · 22 jobCards（1 running fixture）、console 0 错。第七十九份过时 Task 13 指引照例不认（以 t487 遗留清单为准）。自号 488。
+- [QA — 全绿基线] 回归全家 52 套 exit 0。世界稳定 → 转新需求。
+- [选题定谳 — The Panels Speak the Tool's Grammar（t487 遗留⑲a）] 排除法：③④⑦ 待回执/待真实并存；⑤⑥ 门控；② 集群面 t485 收官。⑲ 两半：a) 制备三面板判读行（同井文法）；b) Session QC 报告引曲线判读（重活，三族合订本加第四族）。定谳 ⑲a——结构性缺口同构：科学侧（fsc/angdist）面板早已自带判读 chip（0.143 徽章、>6 各向异性裁决），制备侧（ctf/motion/topaz）却止于数字徽章——worst 三张不点名、triage 不落字、loss 方向无箭头；而工具面 get_job_curves 的判读文法（worstMicrographs/driftTriage/first→last epoch）t486/t487 已全在，唯 inline 在 tools.ts。「面板 = 模型可引用」差的就是这最后一跳。
+- [交付①— 判读层入井（chart-data.ts +117 行）] interpretCtf / interpretMotion / interpretTopaz 三纯函数（无 IO 无缓存无状态）：ctf worst 三张（fit resolution 最大先、defocusUm 3dp / astigmatismUm 3dp / fom 2dp、0=未测不入选）、motion triage 三态字串逐字保留 + worst 三张 1dp、topaz first/last epoch 恰五字段（held-out P/R 不入）+ lossDirection falling/rising/flat（纯比较事实，任一端缺 trainLoss 则方向不明说——不造假箭头）。三 loader 空面携带 interpretation: null（ctf 两处 + motion 一处 + topaz 一处共 4）。响应面三接口扩可选字段（chart-rows.ts）。
+- [交付②— tools.ts 改喝同井（零行为变化）] ctf 段 inline sort/map → `d.interpretation?.worstMicrographs ?? []`；motion 段 triage 三元 + inline sort → `interp?.driftTriage` + `interp?.worstMicrographs`；topaz 段 inline pick → `d.interpretation?.firstEpoch/lastEpoch`（`??` 兜底同形状）。字节级等价由双证人 bench 持证：t486 51/0 + t487 37/0 重跑全绿——「well 吸收计算，工具面纹丝不动」。
+- [交付③— 共享判读条组件 + 三面板渲染] interpretation-strip.tsx（新）：ChartInterpretation 单组件（data-chart-interpretation marker + 五 tone 色 + label 大写字 + tabular-nums），一份判读一处渲染文法，bench 可一次性断言。ctf 面板 header 下插 Worst fits 条（三张 mono 名 + Å + astig）；motion 面板 header/图间插 Drift triage 条（triage 原文 + worst 点名 + pack mean 对照，even split 翠绿 / 被主导半场琥珀）；topaz 面板插 Train loss 条（first→last 四位小数 + 方向词 + last epoch P/R%，方向驱动图标与 tone：falling 翠绿 TrendingDown / rising 玫红 TrendingUp / 缺席琥珀 MoveHorizontal）。
+- [交付④— 路由注释 t488 注记] 三薄壳注释补「响应携带 interpretation，薄壳原样透传，面板判读条渲染之」——t487 的 T7 断言面（loadX/ChartJobNotFound/isLocalRequest/无 .reduce(）全程未触。
+- [t488 bench — 37/0（两处断言自捕）] T1 井 4（三 builder 导出 + loader 接线 + 空面 4 处 null + 接口在册）+ T2 判读面 16（合成行逐条：worst 序/舍入律/0 不入选/三态 triage 逐字/1dp/恰五字段/三方向/缺头 loss 方向不明说/空入 null）+ T3 工具喝井 3（工具读 interpretation + inline 孪生绝迹 + triage 字串只住井里）+ T4 面板 5（strip marker + 三面板各自接线 + 方向措辞只住井和 topaz 读者）+ T5 透传 3 + T6 活体井 6（真 fixture：worst 三张 = 真 max、worst-first 序、triage 对账、topaz 探针日志 falling + try-finally 清场）。自捕两处皆断言错非代码错：空面 null 计数 5→4（ctf 有两个早退面）；motion 面板接线是 `data.interpretation ?? null` 非链式可选——断言随实现诚实修正。
+- [活体 — 双面板实推 + 诚实缺席] API 面（浏览器同源 fetch）：ctf worst 三张 mic_015/009/024 全 4.4 Å、motion triage「early-frames dominate (the stage settles late)」+ worst mic_004 3.1 Å——与 t487 活体工具背诵同源同值三方重合。UI 面：Motion Correction 1 Overview → Drift triage 条真实渲染（截图 t488-strip-motion.png）；CTF Estimation 1 Overview → Worst fits 条真实渲染（截图 t488-strip-ctf.png）。插曲两枚：curl 打 chart 路由吃 403 Cross-site（t251 guard 正常工作——活体验证必须走浏览器同源 eval）；Radix 标签 programmatic .click() 不换页——agent-browser snapshot ref 正规点击才行。topaz 第三面诚实缺席：世界无 topaztrain 作业，topazRenderable 门自隐藏——判读井已由 bench T6 合成日志验证，不造数据摆拍。世界复原 22 jobs / 15 edges / console 0 错、零数据手术。
+- [插曲 — server 一次被收割] 中段 curl jobs 空响应（t436 教义），dev-server.sh 点火复 200；活体照常。
+- [验证-终] t488 bench 37/0 + t486 51/0 + t487 37/0（双证人字节级幸存）兼容；tsc 0 + eslint 0（十触碰文件）；回归全家 **53 套**（glob 自动纳新）exit 0；行为等价：三薄壳响应新增 interpretation 字段、工具面零变化、世界原样。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 489 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（t473③ 原样，待真实并存）④inspector Continue 字段互指（t473④ 原样，待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（t474⑦ 原样，待回执）⑲b Session QC 报告引用曲线判读摘要（工具面 + 判读井现成待 UI 接线——报告加「曲线判读」族或并进管线一瞥，三族合订本扩员的轻量版）；⑳科学侧同款判读条：fsc/guinier/angdist 面板已有 chip，但其文法与工具 spoken line 的同源化（angdist >6 已同源，fsc/guinier 的 crossing/B-factor 条可选）。
+
+Stage Summary:
+- **「判读是第四层：解析 → 派生 → 加载 → 裁决」**：t110 派生单源、t486/t487 加载入桥，t488 把裁决数学也收进井里——interpretCtf/Motion/Topaz 三纯函数让「worst 三张」「triage」「loss 方向」从此只有一个出生地，工具引用它、面板渲染它、bench 断言它
+- **「面板 = 模型可引用」的最后一跳**：科学侧 chip 早已在册，制备侧三面板补齐同源判读条后，用户看见的每一句裁决与模型说出的每一句裁决来自同一口井——UI 与 agent 的双语同文
+- **「well 吸收计算，证人纹丝不动」**：t486 51/0 + t487 37/0 重跑全绿证明重构零行为变化——判据是 bench 持证的字节级等价，不是「看起来一样」
+- **「诚实缺席也是判读」**：世界无 topaz 作业，第三面板自隐藏即正确行为；bench T6 用合成日志验井、活体不摆拍——面板的门与井的真各司其职
+- 产出：interpretCtf/interpretMotion/interpretTopaz（chart-data.ts +117 行）+ chart-rows 三接口扩员 + tools.ts 三段改喝同井（零行为变化）+ interpretation-strip 共享组件 + 三面板判读条 + 三路由注释注记 + t488 bench 37/0 + 53 套回归全绿 + 双面板活体实推 + 截图 ×2
