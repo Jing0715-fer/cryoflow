@@ -5189,7 +5189,7 @@ Stage Summary:
 - 产出：Re-run Subtree 全链（subtree-run 纯脑 + runSubtree 编排 + quiet 车道 + 集群门 rider + strip 动词）+ t448 bench 22/0 + 十九套回归 634 断言全绿 + 迷你链编排活体（落地律铁证：C 在 M 落地后 31s 才起跑）+ strip 预勾活体 + 三方一致真对齐
 
 ---
-Task ID: 449 (cron agent loop 202609290936) — 进行中
+Task ID: 449 (cron agent loop 202609290936) — 完整收官
 Agent: Super Z
 Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
 
@@ -5197,3 +5197,17 @@ Work Log:
 - [开局] 实尾 = Task 448 完整收官（HEAD = 1078a4f = origin/main，stamp = 7207c88 docs 时差一拍——惯例时差无害）。世界健康：app 200、15/15 全 completed、mock 集群 :3022 在听、内存 available 2803MB。第四十份过时 Task 13 指引照例不认。自号 449。
 - [QA — 全绿基线] landing hydration 满血（t438 铃铛门在场）、console 0 错 0 警、标题 pristine。二十套回归 665 断言全绿（十九套旧 634 + t449 新 31）。世界稳定 → 转新需求。
 - [选题定谳 — The Verb's Face（编排活面 + 停止动词）] t448 交付了动词，动词还没有脸：runSubtree 是 store 里的隐形 async 循环——13 节点 ≈ 6 分钟期间零可见性（无进度、无当前节点、无 elapsed），且无法主动停止（stopJob 的落态被读成 frontier 拒绝的破坏性文案，用户意图被误述为失败），刷新即无声死亡。定谳：编排活面。
+- [交付 — the walk gets a readout and a stop] ①subtree-run.ts 纯脑扩展：SubtreeOrchState（rootId/rootName/order/index/stopRequested）+ orchestrationTicks（done/active/todo 三态点行，计数 clamp——「读倒退的脸是谎言」）+ TICKS_CAP=24 退休律 + orchestrationHeadline（每瞬间为真的一句话：计数 + 在飞者名 + refreshed 收尾）+ stopReceiptSentence（done 含停时在飞节点——它自己落地；remaining 单数 keeps/复数 keep 动词一致）+ orchGuardSentence（点名胜者）+ ORCH_TAB_LAW（诚实行：走道活在本 tab——刷新/关页在飞作业照常落地、余者永不派发）②store 三处接线：interface（subtreeOrch + stopSubtreeRun）+ 初始态 null + runSubtree 改造——**单走道守卫**（active 在飞时第二走道被拒、点名两个 root）、**进度镜像**（index 随每个节点落地 bump——脸渲染自状态非闭包记忆）、**停止检查点**（在节点之间：在飞者自然落地、下一个永不派发）、try/finally 全出口退场、userStopped 收据走中性语态（intent ≠ failure）；stopSubtreeRun 对 idle 世界 no-op③orchestration-strip.tsx：role=status aria-live=polite（aria 句 = 纯脑 headline 组合——口说与目视同源）、呼吸点（animate-ping）、双行布局（root + N/M · 当前节点 + formatElapsed 计时 / tab 律 11px 淡行）、点行 md 起显示 + 悬停 title=节点名、Stop 按钮（Square icon + 词；stopRequested 后 Stopping… + disabled）、animate-in fade-in slide-in-from-bottom-2 200ms、fixed bottom-5 居中 z-40（避开 sonner 右下与移动 FAB）、no-print④app-shell 挂载（shell 根——strip 随用户跨 canvas/dashboard）。
+- [自捕自修] ①bench O1b 夹具自错：done=0 时在飞的是**第 0 节点**，active 应在队首——先例十连（纯函数先于测试知道答案），修断言不修函数②tsc 抓 startedAt 是字符串 DTO——照 store.ts:1343 canonical 方言 new Date(...).getTime() 修正③docstring ORCH_TAB_LAY 笔误当场修正。
+- [验证 — 二十套全绿] t449 bench 31/0（O1 点行律 12、O2 headline 6、O3 停止收据 5、O4 守卫 2、O5 tab 律 3、O6 组合合同 3）；tsc 0 + eslint 0（五触碰文件）；二十套回归 665 断言全绿。
+- [研磨 ×2] 首磨 FRESH attempt 1 GREEN（世界体检时 available 3368MB）→ 起服走 start-prod.sh 正门（setsid 孤儿模式）→ 活体 QA 后 feature commit 72878e6 → 复磨 FRESH attempt 1 GREEN → **provenance = 72878e6 = HEAD = origin/main 三方逐字节一致**。
+- [活体 QA — 编排全循环六景] 孪生手术（裸 API 复制 M+C + micrographs 线）后：①**strip 满血现身**：Send 后门收窗（t445 律）、aria 句逐字「Re-running subtree from Motion Correction 1 (copy) — 0 of 2 re-ran — Motion Correction 1 (copy) is running now」、elapsed 秒级跳动（0/2 · M 3s→25s）②**落地翻转**：0/2 → 1/2 · C 7s 当帧翻转，C 的 startedAt 在 M 落地后 28s（落地律铁证）→ 走完 strip 退场③**停止三连**：Stop 点击 → 琥珀「· stopping…」+ 按钮 Stopping… + disabled=true + 二次点击被 store 守卫吸收④**停止收据逐字**：M 落地后 toast「Subtree re-run stopped — 1 of 2 re-ran / You stopped the dispatching — 1 of 2 re-ran; the remaining 1 keeps their current results.」（stopReceiptSentence 逐字、单数动词一致）、C 的 startedAt 保持原值（停止律生效——C 未被派发）⑤**单走道守卫逐字**：走道在飞时从另一根（原版 M，13 节点计划）发起第二走道 → errToast「A subtree re-run from Motion Correction 1 (copy) is already in flight — stop it or let it land before starting another.」（守卫在任何派发之前；第一走道不受扰照常收官）⑥**per-job 409 门**：同根第二派发被 already-live 门先拒（「remote run still active」——更早的层先说话，分层正确）。
+- [手术缺线非 bug] 裸 API 造的 M-twin 漏了 Import→M 上游线（store duplicateJob 才有 faithfulWires 接线）→ input-gate 正确拒绝并武装 auto-start（「connect one…starts automatically」）→ 补线后 auto-start 按直传律走本地（Import 记录无 remote passthrough，t315/t328 教义）→ 诚实失败「RELION not detected」——全程产品按设计说话，零产品 bug。
+- [清场] DELETE 双孪生（15/15 复原、14 边级联清净）+ 盘上残渣按 t447 新教义先验 owner（motioncorr_q1rtnt06 + ctffind_apdmhp54 双无在世 owner）→ rm 后 16 目录 = 原世界。console 0 错、标题 pristine、QA 浏览器杀讫、闲世界 strip 正确缺席（[role=status] null）。
+- [最终态] HEAD = origin/main = 72878e6（本窗 feature commit，docs commit 待推）；stamp = 72878e6 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、盘上 16 目录 = 原世界。下一窗从 Task 450 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第三十八次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻）③编排跨刷新续走（subtreeOrch 持久化 + boot 复活循环——tab 律诚实行的下一步）④A/B 判决行「把输家微图喂给 exclude」待消费者面⑤漂移 × 波前双徽章并排需可丢弃世界。
+
+Stage Summary:
+- **「动词的脸不是装饰，是走道的另一半」**：派发→等终态→下一个的循环 invisible by construction——没有脸的编排让用户在「它在跑吗」与「我停得了吗」之间裸奔；strip 把走道的状态镜像成状态本身，脸从 state 渲染而非闭包记忆，节点落地当帧翻页
+- **「用户停下的是派发，不是世界」**：停止动词的检查点在节点之间——在飞者自然落地（它已被派发，杀死它不是本动词的合同），下一个永不起跑；收据说「You stopped the dispatching」而非 destructive 拒绝语——intent 与 failure 的语态分离是收据的法律责任
+- **「分层守卫各在其位」**：同根二派发被 per-job 409 门先拒，异根第二走道被编排守卫拒——每一层的拒绝语都说自己层的话；守卫在计划通过 churn 检查之后、任何派发之前，拒绝成本为零
+- 产出：The Verb's Face 全链（subtree-run 纯脑六件套 + store 守卫/镜像/检查点/退场 + OrchestrationStrip 活面）+ t449 bench 31/0 + 二十套回归 665 断言全绿 + 编排六景活体（落地翻转/停止收据/守卫逐字/409 分层）+ 三方一致真对齐
