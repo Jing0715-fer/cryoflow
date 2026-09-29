@@ -49,6 +49,7 @@ import {
   Lock,
   Loader2,
   Pause,
+  Pencil,
   Play,
   RotateCcw,
   ScrollText,
@@ -2367,6 +2368,30 @@ function InspectorHeader({
   const [diffOpen, setDiffOpen] = React.useState(false);
   const diffTableId = React.useId();
   const [confirmRerun, setConfirmRerun] = React.useState(false);
+  // t447 — the rename door. The draft carries the job's id with it: when
+  // the inspector switches jobs mid-edit, the stale edit simply stops
+  // matching (edit.id !== job.id reads as display mode) — no effect, no
+  // echo, the same no-setState-in-effect channel as the knock counters.
+  const [edit, setEdit] = React.useState<{ id: string; draft: string } | null>(null);
+  const renameJob = useWorkflowStore((s) => s.renameJob);
+  // Enter and blur can both fire for one edit (Enter, then a click away
+  // before the PATCH lands) — the ref makes the second call a no-op, so
+  // the server never sees the same rename twice.
+  const renameCommitting = React.useRef(false);
+  const commitRename = () => {
+    if (!edit || edit.id !== job.id || renameCommitting.current) return;
+    if (edit.draft.trim() === job.name) {
+      setEdit(null); // nothing changed — closing IS the whole action
+      return;
+    }
+    renameCommitting.current = true;
+    void renameJob(job.id, edit.draft).then((ok) => {
+      renameCommitting.current = false;
+      // a refused rename keeps the door open (the toast explains) — the
+      // draft survives for fixing; Escape still walks away from it
+      if (ok) setEdit(null);
+    });
+  };
   /** t397 — the explicit continue target ("Continue from here:" → fn_cont):
    * the Re-run button + its confirm speak the MODE — Continue when set
    * (the engine resumes and keeps the run_it* family), the wipe-teaching
@@ -2499,9 +2524,53 @@ function InspectorHeader({
               short names still share the row exactly as before; ≥sm is
               untouched. title attr gives the hover reveal back. */}
           <div className="flex max-sm:flex-wrap items-center gap-2">
-            <h2 className="truncate text-lg font-semibold leading-tight tracking-tight text-foreground" title={job.name}>
-              {job.name}
-            </h2>
+            {edit?.id === job.id ? (
+              /* t447 — the rename door's edit face: the field sits where
+                  the title was (same row, same badge beside it), Enter
+                  commits, Escape walks away, clicking elsewhere commits.
+                  maxLength mirrors the server's 60 so honest typing never
+                  meets the 400. */
+              <Input
+                ref={(el) => {
+                  el?.focus();
+                  el?.select();
+                }}
+                value={edit.draft}
+                maxLength={60}
+                aria-label="Job name"
+                className="h-8 max-w-[22rem] flex-1 text-base font-semibold"
+                onChange={(e) => setEdit({ id: job.id, draft: e.target.value })}
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitRename();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setEdit(null);
+                  }
+                }}
+              />
+            ) : (
+              <>
+                <h2 className="truncate text-lg font-semibold leading-tight tracking-tight text-foreground" title={job.name}>
+                  {job.name}
+                </h2>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setEdit({ id: job.id, draft: job.name })}
+                      aria-label={`Rename ${job.name}`}
+                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <Pencil className="size-3" aria-hidden="true" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Rename this job</TooltipContent>
+                </Tooltip>
+              </>
+            )}
             <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
           </div>
         </div>

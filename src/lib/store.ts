@@ -19,6 +19,7 @@ import {
 import { describeAdoption, planAdoption } from "./adopt-branch";
 import { findStaleJobs, type StaleReport } from "./staleness";
 import { findDriftedJobs, type DriftReport } from "./params-drift";
+import { twinName, twinNamesFor } from "./twin-name";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -807,6 +808,10 @@ interface WorkflowState {
    *  refine-family jobs from their checkpoint via RELION --continue. */
   stopJob: (id: string) => Promise<void>;
   resetJob: (id: string) => Promise<void>;
+  /** t447 — rename a job (PATCH name); cosmetic, history-free, optimistic
+   *  with a surgical rollback (only this job's name reverts — a poll that
+   *  landed mid-flight keeps its updates). Returns false when refused. */
+  renameJob: (id: string, name: string) => Promise<boolean>;
   deleteJob: (id: string) => Promise<void>;
   /** Clone a run as a fresh idle draft — t442: the twin inherits the
    *  params AND the upstream wiring (a parallel branch, not a bare
@@ -2786,6 +2791,36 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
+  renameJob: async (id, name) => {
+    // the server's own law (1–60 after trim) mirrored client-side so honest
+    // typing never sees the 400 — same contract as the note textarea
+    const trimmed = name.trim();
+    if (trimmed.length < 1 || trimmed.length > 60) {
+      errToast("Job name must be 1–60 characters");
+      return false;
+    }
+    const prev = get().jobs.find((j) => j.id === id);
+    if (!prev) return false;
+    if (prev.name === trimmed) return true; // a no-op rename is not an error
+    // optimistic — the canvas says the new name the moment Enter lands;
+    // a refusal rolls back surgically (only THIS job's name — a poll that
+    // landed mid-flight keeps every update it delivered)
+    set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, name: trimmed } : j)) });
+    try {
+      const { job } = await api<{ job: JobDTO }>(`/api/jobs/${id}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ name: trimmed }),
+      });
+      set({ jobs: get().jobs.map((j) => (j.id === id ? job : j)) });
+      return true;
+    } catch (err) {
+      set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, name: prev.name } : j)) });
+      errToast(err instanceof Error ? err.message : "Failed to rename job");
+      return false;
+    }
+  },
+
   deleteJob: async (id) => {
     // snapshot BEFORE the delete — the undo stack entry carries the full
     // pre-delete world (job DTO + attached wires) for /api/jobs/restore
@@ -2877,7 +2912,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           type: src.type,
           x: spot.x,
           y: spot.y,
-          name: `${src.name} (copy)`,
+          // t447 — the twin's name is the family's lowest free slot, not a
+          // fresh "(copy)" stamp: duplicating a copy yields a SIBLING
+          // ("X (copy) 2"), and a name the world already holds is skipped
+          name: twinName(src.name, get().jobs.map((j) => j.name)),
           params: src.params,
           ...(classSelection ? { classStarSelection: classSelection } : {}),
         }),
@@ -3486,10 +3524,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const skippedLinks = get().selectedIds.length - sel.length;
     const idSet = new Set(sel.map((j) => j.id));
     try {
+      // t447 — batch names are reserved up front: every twin's claim blocks
+      // the next one, so two same-type sources become (copy) and (copy) 2
+      // instead of two identical (copy)s
+      const twinNames = twinNamesFor(sel, get().jobs.map((j) => j.name));
       // phase 1 — copy the jobs in parallel (each POST scalar-filters its
       // params against the type schema server-side, same as single add)
       const copies = await Promise.all(
-        sel.map((src) =>
+        sel.map((src, i) =>
           api<{ job: JobDTO }>("/api/jobs", {
             method: "POST",
             headers: JSON_HEADERS,
@@ -3497,7 +3539,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
               type: src.type,
               x: clamp(src.x + 48, WORLD_MIN, WORLD_MAX - CARD_W),
               y: clamp(src.y + 40, WORLD_MIN, WORLD_MAX - CARD_H),
-              name: `${src.name} (copy)`,
+              name: twinNames[i],
               params: src.params,
               // copies live where their source lives — the API defaults to
               // the project's first workspace otherwise, which could teleport
