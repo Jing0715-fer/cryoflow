@@ -5213,7 +5213,7 @@ Stage Summary:
 - 产出：The Verb's Face 全链（subtree-run 纯脑六件套 + store 守卫/镜像/检查点/退场 + OrchestrationStrip 活面）+ t449 bench 31/0 + 二十套回归 665 断言全绿 + 编排六景活体（落地翻转/停止收据/守卫逐字/409 分层）+ 三方一致真对齐
 
 ---
-Task ID: 450 (cron agent loop 202609291022) — 进行中
+Task ID: 450 (cron agent loop 202609291022) — 完整收官
 Agent: Super Z
 Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
 
@@ -5221,3 +5221,16 @@ Work Log:
 - [开局] 实尾 = Task 449 完整收官（HEAD = 035b5bb = origin/main 已推；stamp = 72878e6 docs 时差一拍——惯例时差无害）。世界健康：app 200、15/15 全 completed、mock 集群 :3022 在听。第四十一份过时 Task 13 指引照例不认。自号 450。
 - [QA — 全绿基线] landing hydration 满血、标题 pristine、console 0 错、page errors 0。二十套回归 665 断言全绿。世界稳定 → 转新需求。
 - [选题定谳 — The Walk's Second Breath（编排续走）] t449 的 tab 诚实行承认了「reload 杀死走道」——这半句边界本窗移除：走道的计划+进度+target 持久化进 sessionStorage（viewport-memory 同 tab 方言先例 Task 99），boot 后 load() 落地即复活——复活扫描读活体真相（在飞节点已落地→计入 done；failed→frontier 收据点名；armed stop→不派发直接收据；全落地→成功收据；节点被删→滤除并告知）。收据对话不因 reload 断气。
+- [交付 — the re-run survives a reload] ①subtree-run.ts 纯脑：resumeScan（**头部 completed 计 done**——走道自己的派发在暗窗里落了地；**missing 不是 unfinished**——被删节点点名+滤除，永不打断头部计数（completed 与 deleted 在头部自由交错）；resumeNode 三态分类：running/pending=在飞者 await 之、idle=从未派发 派发之、failed=frontier 带「while the tab was away」目击证词；allLanded=成功收据迟到但必到；resumeInflight 旗=在飞复活的节点**只 await 永不重派**）+ resumeToastTitle/Description（点名下一节点 + missing roster census 方言 cap4+尾数）+ resumeFrontierReason + **tab 律双面**（fresh 版改说「Survives a reload——closing this tab 仍是边界」；resumed 版「Resumed after a reload——closing this tab 仍余者不派发」——两句话在各自世界都永远为真）②subtree-orch-session.ts：cryoflow.subtreeOrch.v1（**consume-once**：boot 首读先清记录——拒绝/静默复活绝不在下次 load 重试成环；shape 守卫——手编/半写记录读作无记录；typeof window + try/catch 双卫——SSR 与私密模式永不拖垮走道）③store：**walkSubtreeNodes 执行器双入口共享**（runSubtree 首息入 + resume 扫描入；循环本体入口无关：派发→等终态→下一个、停止检查点在节点之间、每次 index bump 同镜进 state与会话记录——记录就是 reload 要复活的真相；try/finally 全出口退场清记录——死走道永不诈尸）；runSubtree 首息 saveSubtreeOrch(orch, target)；stopSubtreeRun 把 armed stop 镜进记录（reload 前的意图 reload 后仍被尊重）；resumeSubtreeOrch 消费记录→扫描→四分支收据→resumed:true 入脸→原 target 续走④orchestration-strip：RESUMED 琥珀章（title 说明复活来源）+ resumed 诚实行 + aria 句尾「— resumed after a reload」⑤load() 尾部 fire-and-forget 挂 resumeSubtreeOrch。
+- [活体自捕自修 — 409 门抓到我的重复派发] 首发复活活体：收据与扫描全对，但走道死在首节点——**执行器对在飞复活的节点执行了重派发**，被 409 already-live 门拒绝（「its lane refused the dispatch」frontier）。修 = resumeScan 加 resumeInflight 分类 + 执行器 firstNodeAwaitOnly（i===startIndex && awaitOnly 时跳过派发直落 landing wait；停止检查点仍在其前）。**409 门与编排守卫的分层在自家 bug 上再次各司其职**——修复后重磨重演，复活满血。
+- [验证 — 二十一套全绿] t450 bench 35/0（R1 头部计数 4、R2 missing 律 5、R3 all-landed 5、R4 armed stop 2、R5 failed frontier 3、R6 resume 三态+inflight 7、R7 句子律 9）；tsc 0 + eslint 0（五触碰文件）；二十一套回归 700 断言全绿（t450 新 35）。
+- [研磨 ×3 + 杀进程教义第四幕] 首磨（02:33）attempt 1 GREEN → 活体 QA 修 bug 后复磨 **3 连 rc=137 EXHAUSTED**——根因：01:52 的旧 standalone server（PID 16900，508MB）**改写了进程 title**（ps 只显 "bun"），pkill -f 按路径匹配彻底失效（Task 86 教义第四幕：题名会被改，端口与 PID 不会）+ QA chrome 四进程添堵。kill <PID> + fuser -k 3000/tcp（端口不撒谎）双杀 → available 2900MB → attempt 1 GREEN → **provenance = 9987ce4 = HEAD 三方一致**。
+- [活体 QA — 复活三景] 孪生手术（M+C 全接线）后：①**中跑 reload 复活**：M running 4s 时 reload → boot 后收据逐字「Subtree re-run resumed — 0 of 2 already landed / Continuing from Motion Correction 1 (copy).」+ strip 复活戴 RESUMED 章 + resumed 诚实行 + **elapsed 无缝延续**（14s——同一跑的 startedAt）+ await-only 生效（零重复派发）→ 复活走道等 M 落地（02:40:43）→ C 在 +30s 起跑（**落地律跨越死亡生效**）→ 成功收据「Subtree re-ran — 2 jobs refreshed」+ **记录清场**（sessionStorage 空）②**armed stop 持久化**：Stop 点击后 stopRequested=true 入记录 → reload → boot 直接收据「Subtree re-run stopped — 0 of 2 re-ran / You stopped the dispatching — 0 of 2 re-ran; the remaining 2 keep their current results.」（**零派发**——strip 不现身、C 的 startedAt 未动）③首次失败火（重复派发 bug 的活体）由 409 门诚实拒绝并给 frontier 收据——修复的同窗证据。
+- [清场] DELETE 双孪生（15/15 复原、14 边级联清净）+ 盘上残渣先验 owner（ctffind_9at0jjti + motioncorr_0avjou41 双无在世 owner）→ rm 后 16 目录 = 原世界。console 0 错、标题 pristine。
+- [最终态] HEAD = origin/main = 9987ce4（本窗 feature commit，docs commit 待推）；stamp = 9987ce4 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、盘上 16 目录 = 原世界。下一窗从 Task 451 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第三十九次提醒——本窗 push 待验）②EMPIAR 真数据回归（常驻）③A/B 判决行「把输家微图喂给 exclude」待消费者面④漂移 × 波前双徽章并排需可丢弃世界⑤编排跨标签页（localStorage + 多 tab 仲裁——现 sessionStorage 同 tab 方言的下一步，需防双 tab 双复活）。
+
+Stage Summary:
+- **「世界是真相，记录只是计划」**：复活不靠回放记忆——boot 扫描拿持久化的 order 对照活体状态逐节点重判：落了地的计入、被删的点名滤除、在飞的 await、failed 的成 frontier；记录是遗言，世界是遗嘱执行人
+- **「在飞者只等不派」**：reload 杀得死闭包，杀不死集群侧的进程——复活走道的第一课是认出哪些工作已经不需要它（resumeInflight→await-only）；409 门抓到的自家 bug 证明分层守卫从不豁免作者本人
+- **「两句话各自永远为真」**：fresh 的诚实行承诺 reload 存活（真），resumed 的诚实行保留关页边界（真）——tab 律从一句试探升级为两句并立的合同；消费一次的记录让复活永不成环
+- 产出：The Walk's Second Breath 全链（resumeScan 纯脑 + session 模块 + walkSubtreeNodes 双入口执行器 + resumeSubtreeOrch + strip resumed 面）+ t450 bench 35/0 + 二十一套回归 700 断言全绿 + 复活三景活体（中跑 reload/armed stop/409 自捕）+ 杀进程教义第四幕（title 改写、端口与 PID 不撒谎）+ 三方一致真对齐
