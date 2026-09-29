@@ -404,15 +404,36 @@ export default function StorageDialog({
   const spentGraves = graves?.filter((g) => !g.restorable) ?? [];
   const restorableGraves = graves?.filter((g) => g.restorable) ?? [];
   const graveBytesTotal = graves?.reduce((sum, g) => sum + (g.bytes ?? 0), 0) ?? 0;
+  // t480 — the burial announces itself: the door's arithmetic BEFORE it
+  // fires, read straight off the roll call the drawer already holds (zero
+  // new queries — the preview and the route's own arithmetic share one
+  // brain, graveRowsOf, so a previewed byte is a reclaimed byte)
+  const spentBytes = spentGraves.reduce((sum, g) => sum + (g.bytes ?? 0), 0);
+  const restorableBytes = restorableGraves.reduce((sum, g) => sum + (g.bytes ?? 0), 0);
 
   const clearLabel =
     spentGraves.length > 0
       ? `Clear ${spentGraves.length} spent grave${spentGraves.length === 1 ? "" : "s"}`
       : `Bury ${restorableGraves.length} restorable grave${restorableGraves.length === 1 ? "" : "s"}`;
+  // the armed step carries the arithmetic — the user confirms a NUMBER,
+  // never a vague threat
   const armedLabel =
     spentGraves.length > 0
-      ? "Sure? Gone for good"
-      : "Sure? They can never come back";
+      ? `Sure? Bury ${spentGraves.length}${spentBytes > 0 ? `, reclaim ${fmtBytes(spentBytes)}` : ""}`
+      : `Sure? ${restorableGraves.length}, ${restorableBytes > 0 ? `${fmtBytes(restorableBytes)}, ` : ""}never coming back`;
+  // the spare law, spoken BEFORE the burial — the user should not have to
+  // fire the door to learn what it will and will not touch. Silent when
+  // there is nothing to spare (the omission law: no restorable graves,
+  // no helper line).
+  const spareHint =
+    spentGraves.length > 0 && restorableGraves.length > 0
+      ? `${spentGraves.length} spent grave${spentGraves.length === 1 ? "" : "s"} (${spentBytes > 0 ? `${fmtBytes(spentBytes)}` : "no workdirs"}) will be buried; ${restorableGraves.length} restorable${restorableBytes > 0 ? ` (${fmtBytes(restorableBytes)})` : ""} stay${restorableGraves.length === 1 ? "s" : ""} until you clear again`
+      : null;
+
+  const clearTitle =
+    spentGraves.length > 0
+      ? `Buries ${spentGraves.length} spent grave${spentGraves.length === 1 ? "" : "s"}${spentBytes > 0 ? ` — reclaims ${fmtBytes(spentBytes)}` : " (no surviving workdirs)"}. Restorable graves are spared.`
+      : `Buries ${restorableGraves.length} restorable grave${restorableGraves.length === 1 ? "" : "s"} and their workdirs${restorableBytes > 0 ? ` (${fmtBytes(restorableBytes)})` : ""} — they can never come back.`;
 
   const handleGraveClear = React.useCallback(async () => {
     if (!graves || graves.length === 0) return;
@@ -1410,11 +1431,7 @@ export default function StorageDialog({
                             ? `Clear ${spentGraves.length} spent graves — graves that can no longer be restored`
                             : `Bury ${restorableGraves.length} restorable graves permanently`
                       }
-                      title={
-                        spentGraves.length > 0
-                          ? "Buries the graves that can no longer come back (no row snapshot, or the id is already taken). Restorable graves are spared."
-                          : "Every remaining grave is restorable — this buries them and their workdirs for good."
-                      }
+                      title={clearTitle}
                     >
                       <Trash2
                         className={`size-3${burying ? " animate-spin" : ""}`}
@@ -1423,6 +1440,15 @@ export default function StorageDialog({
                       {burialArmed ? armedLabel : clearLabel}
                     </Button>
                   </p>
+                  {spareHint && (
+                    <p
+                      data-testid="graveyard-spare-hint"
+                      className="mt-1.5 text-[10px] leading-snug text-muted-foreground/80"
+                      title={`${restorableGraves.length} restorable grave${restorableGraves.length === 1 ? "" : "s"} the Clear door will NOT touch: ${restorableGraves.map((g) => g.name ?? g.id).join(", ")}`}
+                    >
+                      {spareHint}
+                    </p>
+                  )}
                   <ul className="mt-2 space-y-1">
                     {graves.slice(0, 8).map((g) => (
                       <li
