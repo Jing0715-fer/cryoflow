@@ -8037,7 +8037,16 @@ async function syncBackWorkdir(
     // that had moved leftovers aside reported them back as "stale"
     // workdir files (and the Files tab offered the archive as outputs).
     // Excluded wholesale — its bytes die in the background reaper.
-    `cd ${W} 2>/dev/null && find . -type f -not -name '.cf-*' -not -path './.cryoflow_prev/*' -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | head -4000`,
+    // t460 — head -20000 (was 4000): the class2d VDAM world (iter=200, the
+    // t386 default) writes ~11.5k files per workdir (201 rounds × per-round
+    // family + per-class volumes) and the old cap truncated the manifest
+    // mid-rounds — the run's FINAL family (run_data/model/optimiser.star,
+    // readdir order behind round files) never made the manifest, the local
+    // mirror stopped at it070 of 201, and every workdir-derived route
+    // (arc/fsc reported) read a silently incomplete world. A 20k-line
+    // manifest is ~1.5MB over the same SSH round — still one round trip,
+    // still inside the 15s window.
+    `cd ${W} 2>/dev/null && find . -type f -not -name '.cf-*' -not -path './.cryoflow_prev/*' -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | head -20000`,
     { timeoutMs: 15_000 }
   );
   if (manifest.error || manifest.code !== 0) {
