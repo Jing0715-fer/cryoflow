@@ -5834,3 +5834,22 @@ Stage Summary:
 - **「葬礼即清场」**：buried 墓的 tombstone 与 workdir 同死，bytesReclaimed 只数真死的字节，keptWorkdirs 数诚实的留房——活体的收尾零手工（两 witness 葬完即零残留），54 真墓 mv 归还分毫不差
 - **「回执不能随葬」**：全葬成功恰是区块卸载之时——receipt 提到门外独立站立；地图 re-walk 让 reclaimed 的字节在同一呼吸里离开 totalBytes——回执的每个数都配得上一次新走查
 - 产出：GraveRow.bytes（walkDirUsage 同方言 + RELION_DIR 守卫 + 省略律）+ buryGraves 恢复核 + DELETE /api/jobs/deleted（零 body 零墓单 + spare 律 + ?all=1 force 门）+ 抽屉 Clear 上膛两步 + 头部总重 + 行重格 + 回执/错误门外置 + 葬后 re-walk + list_deleted 重量面 + #2 增问句 + t479 bench 36/0 + 46 套回归全绿 + 活体逐字（真字节/spare 点名/force 门/葬礼即清场）+ 截图 ×3 + live 剧本 ×1
+
+## Task 480 (2026-09-30, cron 03:22 窗 —— The Burial Announces Itself)
+
+- [开局] 实尾 = Task 479 完整收官（HEAD = ff1f561 三方对齐，无并行窗推进）。世界体检：22 jobs · 15 edges、54 墓（全无重量——真墓的 workdir 已被往昔清扫）、console 0 错。第七十一份过时 Task 13 指引照例不认（以 t479 遗留清单为准）。自号 480。
+- [QA — 全绿基线] landing 200、状态栏 22 jobs · 15 edges 在座、console 0 错。世界稳定 → 转新需求。
+- [选题定谳 — The Burial Announces Itself（t479 遗留⑪全项）] 排除法：③④⑦⑧ 待回执/待问句；② 第九次挂起；⑤⑥ 门控。t479 开了葬门但门是哑的——上膛文案「Sure? Gone for good」是含糊威胁，spare 律只有葬后才被回执说破。定谳：葬门自报家门——**预演算术 + spare 常驻小字**，全部从抽屉已有的 roll call 直算（零新查询，预演的字节与路由的 reclaim 同一个 graveRowsOf 脑）。
+- [交付①— armed 算术] 上膛文案从威胁变数字：「Sure? Bury 1, reclaim 1.3 KB」（spent 态）/「Sure? 1, 1.3 KB, never coming back」（restorable 态）——用户确认的是一个数字，不是一句含糊话；aria-label 同步。无字节时子句缺席（省略律）。
+- [交付②— spare 常驻小字] spent+restorable 并存时 header 下一行 10px：「1 spent grave (1.3 KB) will be buried; 1 restorable (1.3 KB) stays until you clear again」——spare 律葬前说破，用户不必开火才知道门动谁不动谁；title 带全名名单（「the Clear door will NOT touch: Import (t480 witness A)」）。**省略律双保险**：restorable=0 → 整行缺席；葬后只剩 restorable → 行实时消失（活体验证 hintStill:false）。
+- [交付③— title 算术] 按钮 title 从定性变定量：「Buries 1 spent grave — reclaims 1.3 KB. Restorable graves are spared.」/「Buries 1 restorable grave and their workdirs (1.3 KB) — they can never come back.」
+- [活体 — 三脸同框 + 闭环] 双 witness（import EMPIAR 种子真字节各 1280B，B 剥 row）+ 暂移 54 → 抽屉 `RECENTLY DELETED (2) · 2.5 KB still on disk` + spare hint + 「Clear 1 spent grave」→ 上膛「Sure? Bury 1, reclaim 1.3 KB」→ 开火回执点名 spare（「1 restorable grave spared (Import (t480 witness A))」）→ 按钮翻「Bury 1 restorable grave」+ hint 消失 → force 上膛「Sure? 1, 1.3 KB, never coming back」→ 开火「Buried 1 grave — 1.3 KB reclaimed」+ 抽屉卸载回执独立。归还 54、22 jobs、workdir 零残留（葬礼即清场三连冠）。截图 ×3（.qa-logs/t480-spare-hint.png / t480-armed-arithmetic.png / t480-armed-force.png）。
+- [插曲] dev server 本窗第三度被收割（编辑重编译时点）→ dev-server.sh 点火复 200（t436 教义三连自我辩护）；witness 创建首次因 server 猝死链条断裂（54 墓被 mv 循环全收进备份——幂等复原，第二轮 witness 重建后世界分毫不差）。
+- [验证-终] tsc 0 + eslint 0（单触碰文件）；回归全家 **46 套** exit 0（lib 零改动 → bench 零新增，t479 的 36 断言继续钉住葬门核心；UI 断言由活体三脸承担）；console 0 错、landing 200、世界 22 jobs + 54 墓原样。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 481 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②continue_run 的 mock 集群真火活体（517s 完整预算，九次挂起）③continue 芯片与世界事件的对齐（t473③ 原样）④inspector Continue 字段互指（t473④ 原样）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（t474⑦ 原样，待回执）⑧records 全景深浅（t476⑧ 原样）⑫墓园抽屉的下一层：行级详情展开（墓碑的 run 摘要/删除时的 result 行在抽屉行里只有 title 有——点开看墓志铭）与「按重量排序」（重量视角下最重的墓该先看见）；葬门三脸已齐，深浅待真实使用。
+
+Stage Summary:
+- **「用户确认的是数字，不是威胁」**：上膛文案从「Sure? Gone for good」变「Sure? Bury 1, reclaim 1.3 KB」——葬门的确认步骤带着它自己的算术，预演与路由的 reclaim 共享 graveRowsOf 一个脑，预演的字节就是收回的字节
+- **「spare 律葬前说破」**：常驻小字让「门动谁、留谁、各几字节」在开火前可读——省略律双保险（无 restorable 无行、葬后实时消失），title 里躺着不会 touches 的全名名单
+- **「三脸同框的葬礼」**：spare hint（葬前）→ armed 算术（确认时）→ 回执点名（葬后）——同一条 spare 律在门的三个时刻各说一次，字字对得上 bench 钉死的 buryGraves 行为
+- 产出：armed 算术文案 + spare 常驻小字（title 全名名单）+ title 定量化 + 活体三脸截图 ×3 + 46 套回归全绿 + 葬礼即清场三连冠
