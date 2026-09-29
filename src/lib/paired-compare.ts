@@ -177,6 +177,64 @@ export function fmtDelta(value: number, digits: number): string {
   return `${sign}${Math.abs(value).toFixed(digits)}`;
 }
 
+/* ------------------------------------------------------------------ */
+/* The verdict's text face (t469).                                     */
+/* ------------------------------------------------------------------ */
+
+/** The verdict counts the dialog's chips speak, rendered as ONE
+ *  agent-readable block — compare_jobs narrates from this, so the
+ *  agent's words are the same counts the face draws (t468's "the agent
+ *  reads the user's face" law, verdict edition). The vocabulary is the
+ *  caller's (gained/lost for occupancy, improved/regressed default);
+ *  the sign is fmtDelta's; unpaired rows speak as non-voters, never as
+ *  votes (PAIRED OR SILENT, surfaced). */
+export function pairVerdictText(args: {
+  domainLabel: string;
+  nameA: string;
+  nameB: string;
+  lensLabel: string;
+  unit: string;
+  digits: number;
+  higherIsBetter: boolean;
+  words: VerdictWords;
+  verdict: Verdict;
+  movers: Movers;
+  onlyA: string[];
+  onlyB: string[];
+  /** How many named movers to speak per side (default 3). */
+  moverCap?: number;
+}): string {
+  const cap = args.moverCap ?? 3;
+  const v = args.verdict;
+  const paired = v.improved + v.regressed + v.tied;
+  const direction = args.higherIsBetter ? "higher is better" : "lower is better";
+  const lines: string[] = [];
+  lines.push(
+    `${args.domainLabel} A/B — "${args.nameA}" vs "${args.nameB}", lens ${args.lensLabel} (${direction}).`,
+  );
+  lines.push(
+    `${paired} paired row${paired === 1 ? "" : "s"}: ${v.improved} ${args.words.better}, ${v.regressed} ${args.words.worse}, ${v.tied} ${args.words.same}. Median delta ${fmtDelta(v.medianDelta, args.digits)}${args.unit}.`,
+  );
+  const named = (deltas: Delta[]): string => {
+    if (deltas.length === 0) return "none.";
+    const spoken = deltas
+      .slice(0, cap)
+      .map((d) => `${d.name} (${fmtDelta(d.delta, args.digits)}${args.unit})`)
+      .join(", ");
+    return deltas.length > cap
+      ? `${spoken} — and ${deltas.length - cap} more.`
+      : `${spoken}.`;
+  };
+  lines.push(`Biggest ${args.words.betterNoun}: ${named(args.movers.improvers)}`);
+  lines.push(`Biggest ${args.words.worseNoun}: ${named(args.movers.regressors)}`);
+  if (args.onlyA.length > 0 || args.onlyB.length > 0) {
+    lines.push(
+      `Unpaired (cannot vote): ${args.onlyA.length} only in A · ${args.onlyB.length} only in B.`,
+    );
+  }
+  return lines.join("\n");
+}
+
 /** Scatter domains: both axes share one symmetric range so the identity
  *  line is a true 45° visual — an off-domain stretch would tilt the
  *  eye's reference. A perfect tie pads so the cloud still draws. */

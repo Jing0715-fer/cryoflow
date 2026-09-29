@@ -1,27 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync } from "fs";
-import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
-import { cachedFileCompute } from "@/lib/relion/statcache";
+import { motionCatalogueRows, type MotionMicrograph } from "@/lib/compare-rows";
 import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export interface MotionMicrograph {
-  /** basename of _rlnMicrographName (display) */
-  name: string;
-  /** _rlnMicrographName as stored — relative to the job workdir (file API) */
-  relPath: string;
-  /** total accumulated drift over the whole movie, Å */
-  total: number;
-  /** drift accumulated over the early frames (before the stage settles), Å */
-  early: number;
-  /** drift accumulated over the late frames, Å */
-  late: number;
-}
+// t469 — the row shape and its block-aware parse moved to
+// lib/compare-rows.ts (ONE grammar under the route, the dialog and the
+// agent's compare_jobs); the route re-exports the shape for its readers.
+export type { MotionMicrograph };
 
 export interface MotionSummary {
   count: number;
@@ -81,18 +71,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       micrographs: [],
       summary: null,
     };
-    if (!run?.workdir || !existsSync(run.workdir)) {
-      return NextResponse.json(empty);
-    }
-    const starPath = path.join(run.workdir, "corrected_micrographs.star");
-    if (!existsSync(starPath)) {
-      return NextResponse.json(empty);
-    }
-
-    const micrographs =
-      cachedFileCompute(starPath, "motion:catalogue", parseMotionStar) ?? [];
-
-    if (micrographs.length === 0) {
+    // t469 — the catalogue read lives in lib/compare-rows.ts (ONE grammar
+    // under the route, the dialog and the agent's compare_jobs tool)
+    const { sourceFile, micrographs } = motionCatalogueRows(run?.workdir ?? "");
+    if (!sourceFile || micrographs.length === 0) {
       return NextResponse.json(empty);
     }
 
@@ -119,92 +101,4 @@ export async function GET(request: NextRequest, context: RouteContext) {
     console.error("GET /api/jobs/[id]/motion failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
-
-/** Block-aware parse of corrected_micrographs.star's data loop. Columns
- *  freeze on the FIRST data row of the loop that owns the micrograph
- *  label — the optics block's rows can never leak in. */
-function parseMotionStar(text: string): MotionMicrograph[] {
-  const lines = text.split("\n");
-  const rows: MotionMicrograph[] = [];
-
-  let inLoop = false;
-  let labels = new Map<string, number>();
-  let cols: { name: number; total: number; early: number; late: number } | null = null;
-
-  const freeze = (): { name: number; total: number; early: number; late: number } | null => {
-    const idx = (needle: string) => {
-      for (const [label, i] of labels) {
-        if (label === needle) return i;
-      }
-      return -1;
-    };
-    // t440 — the spelling had TWO variants and the parser picked the one
-    // RELION does not write: corrected_micrographs.star carries
-    // _rlnAccumMotion* (RELION 3/4/5 real columns), while some converted
-    // / documented stars say _rlnAccumulatedMotion*. A parser locked to
-    // one spelling read ZERO rows from every real file — the whole
-    // motion face silently dead. Liberal match: real name first,
-    // documented variant as fallback.
-    const idx2 = (primary: string, fallback: string) => {
-      const hit = idx(primary);
-      return hit >= 0 ? hit : idx(fallback);
-    };
-    const name = idx("_rlnMicrographName");
-    const total = idx2("_rlnAccumMotionTotal", "_rlnAccumulatedMotionTotal");
-    if (name < 0 || total < 0) return null;
-    return {
-      name,
-      total,
-      early: idx2("_rlnAccumMotionEarly", "_rlnAccumulatedMotionEarly"),
-      late: idx2("_rlnAccumMotionLate", "_rlnAccumulatedMotionLate"),
-    };
-  };
-
-  for (const raw of lines) {
-    const t = raw.trim();
-    if (!t) continue;
-    if (t === "loop_") {
-      inLoop = true;
-      labels = new Map();
-      cols = null;
-      continue;
-    }
-    if (t.startsWith("data_")) {
-      inLoop = false;
-      cols = null;
-      continue;
-    }
-    if (t.startsWith("#") || t.startsWith(";")) continue;
-    if (t.startsWith("_")) {
-      if (inLoop) {
-        const m = /^(\S+)/.exec(t);
-        if (m) labels.set(m[1], labels.size);
-      }
-      continue;
-    }
-    if (!inLoop) continue;
-    if (!cols) {
-      cols = freeze();
-      if (!cols) {
-        // a loop without the micrograph/motion columns — skip its rows
-        cols = { name: -1, total: -1, early: -1, late: -1 };
-      }
-    }
-    if (cols.name < 0) continue;
-    const cells = t.split(/\s+/);
-    const nameCell = cells[cols.name] ?? "";
-    const total = parseFloat(cells[cols.total] ?? "");
-    if (!nameCell || !Number.isFinite(total)) continue;
-    const early = cols.early >= 0 ? parseFloat(cells[cols.early] ?? "") : NaN;
-    const late = cols.late >= 0 ? parseFloat(cells[cols.late] ?? "") : NaN;
-    rows.push({
-      name: nameCell.split("/").pop() ?? nameCell,
-      relPath: nameCell,
-      total,
-      early: Number.isFinite(early) ? early : Math.max(0, total / 2),
-      late: Number.isFinite(late) ? late : Math.max(0, total / 2),
-    });
-  }
-  return rows;
 }

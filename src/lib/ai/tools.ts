@@ -51,6 +51,27 @@ import {
   funnelLedgerOf,
   funnelLedgerText,
 } from "@/lib/particle-funnel";
+import {
+  joinByName,
+  pairedDeltas,
+  verdict as pairedVerdict,
+  topMovers,
+  fmtDelta,
+  pairVerdictText,
+  DEFAULT_WORDS,
+  type LensSpec,
+  type VerdictWords,
+} from "@/lib/paired-compare";
+import { CTF_LENSES, defocusAgreement } from "@/lib/ctf-compare";
+import { MOTION_LENSES } from "@/lib/motion-compare";
+import {
+  CLASS_LENSES,
+  CLASS_DEFAULT_LENS,
+  CLASS_WORDS,
+  classRunRow,
+  concentrationCensus,
+} from "@/lib/class-compare";
+import { ctfMicrographRows, motionCatalogueRows } from "@/lib/compare-rows";
 
 export interface AiToolResult {
   ok: boolean;
@@ -103,6 +124,30 @@ export const AI_TOOLS: ToolSchema[] = [
           description: "Optional — a verb on the chain to read (any status). Omit for the crown chain.",
         },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "compare_jobs",
+    description:
+      "Paired A/B verdict between two completed runs of the SAME stage — the compare dialog's own brain, read by the agent: CTF fit quality (ctffind), Motion drift (motioncorr) or 2D/3D class occupancy (class2d/class3d). The domain is detected from the two jobs' type; the lens defaults per domain (fom / total drift / occupancy share) or pass lens explicitly. Returns the verdict counts in the domain's OWN words (improved/regressed/unchanged for quality; gained/lost/held for occupancy — a class that gained particles did not 'improve', the population moved), the median delta, the named top movers, the unpaired non-voters and the pairing's health line. THE tool for '哪次跑更好 / did my new params help / 比较 / which run is better' — a compare question is a READ, never arithmetic from two receipts.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_a: {
+          type: "string",
+          description: "The A run's job id (get_workflow_state lists ids).",
+        },
+        job_b: {
+          type: "string",
+          description: "The B run's job id — the SAME stage as A.",
+        },
+        lens: {
+          type: "string",
+          description: "Optional lens key: ctf fom|maxres|astig · motion total|early|late · class share. Defaults per domain (fom / total / share).",
+        },
+      },
+      required: ["job_a", "job_b"],
       additionalProperties: false,
     },
   },
@@ -535,6 +580,8 @@ export async function executeAiTool(
         return await getWorkflowState(ctx);
       case "get_funnel_chain":
         return await getFunnelChain(ctx, typeof args.job_id === "string" ? args.job_id : "");
+      case "compare_jobs":
+        return await compareJobs(ctx, args);
       case "create_job":
         return await createJob(ctx, args);
       case "build_pipeline":
@@ -757,6 +804,213 @@ async function getFunnelChain(ctx: AgentCtx, jobId: string): Promise<AiToolResul
       offMainline: ledger.offMainline,
       closing: ledger.closing,
       ...(unfinished.length ? { unfinished } : {}),
+    },
+  };
+}
+
+/* ---- compare_jobs ----------------------------------------------------- */
+
+/** The compare family's domains, spoken by type. The dialog's own
+ *  typeGates (run-compare-dialog): /ctffind|ctf/, /motioncorr|motion/,
+ *  /class2d|class3d/ — the agent detects the SAME domain from the SAME
+ *  type, never from the user's phrasing. */
+function compareDomainOf(type: string): "ctf" | "motion" | "class" | null {
+  if (/ctffind|ctf/i.test(type)) return "ctf";
+  if (/motioncorr|motion/i.test(type)) return "motion";
+  if (/class2d|class3d/i.test(type)) return "class";
+  return null;
+}
+
+interface CompareDomainShape<R> {
+  label: string;
+  lenses: Record<string, LensSpec<R>>;
+  defaultLens: string;
+  words: VerdictWords;
+  rowsOf(workdir: string): R[];
+  /** The pairing's own health check, pre-formatted (null hides — the
+   *  motion domain's count chips are its health, it has no line). */
+  trustLine?(pairs: { a: R; b: R }[]): string | null;
+}
+
+/** One shape per domain — each field is the DIALOG's own spec value,
+ *  imported from the domain modules, never re-typed here. */
+const COMPARE_DOMAINS: Record<string, CompareDomainShape<never>> = {
+  ctf: {
+    label: "CTF",
+    lenses: CTF_LENSES,
+    defaultLens: "fom",
+    words: DEFAULT_WORDS,
+    // CtfMicrograph is a superset of CtfRunRow — the dialog feeds route
+    // rows straight in, the tool feeds lib rows the same way
+    rowsOf: (wd) => ctfMicrographRows(wd) as never[],
+    trustLine: (pairs) => {
+      const v = defocusAgreement(pairs as never[]);
+      return `Defocus agreement: median |Δ| = ${
+        Number.isFinite(v) ? `${v.toFixed(3)} µm` : "—"
+      } across ${pairs.length} paired micrographs — the pairing's own health check.`;
+    },
+  },
+  motion: {
+    label: "Motion",
+    lenses: MOTION_LENSES,
+    defaultLens: "total",
+    words: DEFAULT_WORDS,
+    rowsOf: (wd) => motionCatalogueRows(wd).micrographs as never[],
+  },
+  class: {
+    label: "Class",
+    lenses: CLASS_LENSES,
+    defaultLens: CLASS_DEFAULT_LENS,
+    words: CLASS_WORDS,
+    rowsOf: (wd) =>
+      classStatsFromWorkdir(wd).classes.map((c) =>
+        classRunRow({ cls: c.cls, count: c.count, fraction: c.fraction }),
+      ) as never[],
+    trustLine: (pairs) => concentrationCensus(pairs as never[]),
+  },
+};
+
+/**
+ * t469 — the agent reads the PAIR VERDICT. The compare dialog (t439/t440/
+ * t453) is the UI's own door onto "did my new params help"; this tool runs
+ * the SAME brain on the SAME rows: the shared join/deltas/verdict/movers
+ * (lib/paired-compare.ts), the domains' own lenses and word laws
+ * (ctf/motion/class-compare.ts), the rows from the ONE shared grammar
+ * (lib/compare-rows.ts — the same functions the ctf/motion routes call).
+ * No private brain, no private read path (t419 law, third read tool).
+ *
+ * Door semantics mirror the dialog's guard: both runs completed, same
+ * type, a compare domain exists — every refusal says WHY and names the
+ * fix, never a fabricated verdict.
+ */
+async function compareJobs(
+  ctx: AgentCtx,
+  args: { job_a?: unknown; job_b?: unknown; lens?: unknown },
+): Promise<AiToolResult> {
+  const aId = typeof args.job_a === "string" ? args.job_a.trim() : "";
+  const bId = typeof args.job_b === "string" ? args.job_b.trim() : "";
+  if (!aId || !bId) {
+    return {
+      ok: false,
+      summary:
+        "compare_jobs needs BOTH job ids — call get_workflow_state first and pass two real job ids.",
+    };
+  }
+
+  const jobs = await db.job.findMany({
+    where: { projectId: ctx.projectId },
+    select: { id: true, type: true, name: true, status: true, projectId: true },
+  });
+  const a = jobs.find((j) => j.id === aId);
+  const b = jobs.find((j) => j.id === bId);
+  if (!a || !b) {
+    const missing = !a ? aId : bId;
+    return {
+      ok: false,
+      summary: `No job with id "${truncate(missing, 48)}" on this canvas — call get_workflow_state first and pass real job ids.`,
+    };
+  }
+  if (aId === bId) {
+    return {
+      ok: false,
+      summary: `"${a.name}" cannot pair with itself — one run against itself is the convergence question (inspect_job reads its iterations), while compare_jobs speaks pairs of runs.`,
+    };
+  }
+
+  const domA = compareDomainOf(a.type);
+  const domB = compareDomainOf(b.type);
+  if (!domA || !domB || domA !== domB) {
+    return {
+      ok: false,
+      summary: `These two jobs do not share a compare domain — "${a.name}" is ${a.type}, "${b.name}" is ${b.type}. The compare family speaks CTF (ctffind), Motion (motioncorr) and class occupancy (class2d/class3d); pair two completed runs of the SAME stage.`,
+    };
+  }
+  const domain = COMPARE_DOMAINS[domA] as unknown as CompareDomainShape<Record<string, unknown> & { name: string }>;
+
+  // the dialog's door guard: entries render nothing unless the host is a
+  // completed run of the domain's type AND a completed sibling exists
+  for (const j of [a, b]) {
+    if (j.status !== "completed") {
+      return {
+        ok: false,
+        summary: `"${j.name}" is ${j.status} — the pair verdict speaks only between two COMPLETED runs (a running run has no receipts to pair). Check again with inspect_job or wait_for_jobs.`,
+      };
+    }
+  }
+
+  // the same workdir resolution inspect_job speaks: engine record first,
+  // then the computed RELION_DIR layout (dispatched-but-persisted jobs)
+  const workdirOf = (j: { id: string; type: string; projectId: string }) => {
+    const run = getRun(j.id);
+    return (
+      run?.workdir ?? path.join(RELION_DIR, j.projectId, `${j.type}_${j.id.slice(-8)}`)
+    );
+  };
+
+  const rowsA = domain.rowsOf(workdirOf(a));
+  const rowsB = domain.rowsOf(workdirOf(b));
+  if (rowsA.length === 0 || rowsB.length === 0) {
+    const cold = rowsA.length === 0 ? a : b;
+    return {
+      ok: false,
+      summary: `"${cold.name}" has no ${domain.label} rows in its workdir (status completed, but the ${domain.label} outputs are missing${getRun(cold.id)?.remote ? " — this run lived on a cluster and its mirror is cold" : ""}). The verdict needs two finished runs' outputs.`,
+    };
+  }
+
+  const lensKey = typeof args.lens === "string" && args.lens.trim() ? args.lens.trim() : domain.defaultLens;
+  const lens = domain.lenses[lensKey] as LensSpec<{ name: string }> | undefined;
+  if (!lens) {
+    const keys = Object.keys(domain.lenses).join("|");
+    return {
+      ok: false,
+      summary: `Lens "${truncate(args.lens as string, 32)}" is not one of the ${domain.label} domain's lenses (${keys}) — retry with one of those, or omit lens for the default (${domain.defaultLens}).`,
+    };
+  }
+
+  const join = joinByName(rowsA, rowsB);
+  if (join.pairs.length === 0) {
+    return {
+      ok: false,
+      summary: `No shared names between the two runs — ${rowsA.length} rows in "${a.name}", ${rowsB.length} in "${b.name}", none paired. A pair verdict joins on the row name; these runs saw different inputs, so there is nothing to compare.`,
+    };
+  }
+
+  const deltas = pairedDeltas(join.pairs as never, lens as never);
+  const v = pairedVerdict(deltas);
+  const movers = topMovers(deltas);
+  const verdictText = pairVerdictText({
+    domainLabel: domain.label,
+    nameA: a.name,
+    nameB: b.name,
+    lensLabel: lens.label,
+    unit: lens.unit,
+    digits: lens.digits,
+    higherIsBetter: lens.higherIsBetter,
+    words: domain.words,
+    verdict: v,
+    movers,
+    onlyA: join.onlyA,
+    onlyB: join.onlyB,
+  });
+  const trustLine = domain.trustLine?.(join.pairs as never) ?? null;
+
+  const summary = `"${a.name}" vs "${b.name}" — ${join.pairs.length} paired · ${v.improved} ${domain.words.better} / ${v.regressed} ${domain.words.worse} / ${v.tied} ${domain.words.same} · median Δ ${fmtDelta(v.medianDelta, lens.digits)}${lens.unit} (${lens.label})`;
+
+  return {
+    ok: true,
+    summary,
+    detail: {
+      domain: domA,
+      lens: lens.key,
+      runs: [a, b].map((j) => ({ id: j.id, name: j.name, type: j.type, status: j.status })),
+      verdict: v,
+      movers: {
+        improvers: movers.improvers.map((d) => ({ name: d.name, a: d.a, b: d.b, delta: d.delta })),
+        regressors: movers.regressors.map((d) => ({ name: d.name, a: d.a, b: d.b, delta: d.delta })),
+      },
+      unpaired: { onlyA: join.onlyA.length, onlyB: join.onlyB.length },
+      trustLine,
+      verdictText,
     },
   };
 }

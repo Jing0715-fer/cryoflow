@@ -7,7 +7,9 @@
  *      while quietly losing the LATE half — the two lenses must be free
  *      to disagree, because the late half is what the picker inherits.
  *   M3 (the core serves both domains): joinByName + verdict + movers
- *      over motion rows — same laws, different ore (px units, ↓ better).
+ *      over motion rows — same laws, different ore (Å units — the lens
+ *      used to say " px" while the route's rows carried Å; t469 fixed
+ *      the dialect), ↓ better.
  *   M4 (CTF spec untouched): the slimmed ctf-compare still answers with
  *      its own directions — the generalization moved nothing.
  *
@@ -52,7 +54,7 @@ console.log("M1 — MOTION_LENSES: one direction, three questions");
       !MOTION_LENSES.late.higherIsBetter,
     "M1d all three: less is better",
   );
-  must(MOTION_LENSES.total.unit === " px" && MOTION_LENSES.total.digits === 2, "M1e px dialect");
+  must(MOTION_LENSES.total.unit === " Å" && MOTION_LENSES.total.digits === 2, "M1e Å dialect (t469 — the rows were always Å)");
 }
 
 /* ================= M2 — the signature divergence ================= */

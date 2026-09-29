@@ -1,33 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readdirSync } from "fs";
-import path from "path";
+import { existsSync } from "fs";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
-import { cachedFileCompute } from "@/lib/relion/statcache";
+import { ctfMicrographRows } from "@/lib/compare-rows";
 import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export interface CtfMicrograph {
-  /** basename of _rlnMicrographName (display) */
-  name: string;
-  /** _rlnMicrographName as stored — relative to the job workdir (file API) */
-  relPath: string;
-  /** µm */
-  defocusU: number;
-  /** µm */
-  defocusV: number;
-  /** µm (|U − V|) */
-  astigmatism: number;
-  /** degrees */
-  defocusAngle: number;
-  /** ctffind figure of merit (0–1) */
-  fom: number;
-  /** Å, ctffind fit limit */
-  maxResolution: number;
-}
+// t469 — the row shape and its block-aware parse moved to
+// lib/compare-rows.ts (ONE grammar under the route, the dialog and the
+// agent's compare_jobs); the route re-exports the shape for its readers.
+export type { CtfMicrograph } from "@/lib/compare-rows";
 
 export interface CtfSummary {
   count: number;
@@ -37,115 +22,6 @@ export interface CtfSummary {
   maxAstigmatism: number;
   meanFom: number;
   worstResolution: number;
-}
-
-/** Column index of `label` inside the first data loop of a STAR text. */
-function labelColumn(lines: string[], label: string): number {
-  let inLoop = false;
-  let pos = 0; // 1-based running position in the current loop
-  for (const raw of lines) {
-    const t = raw.trim();
-    if (t === "loop_") {
-      inLoop = true;
-      pos = 0;
-      continue;
-    }
-    if (t.startsWith("data_")) {
-      inLoop = false;
-      continue;
-    }
-    if (!inLoop || !t.startsWith("_")) continue;
-    pos++;
-    if (t.startsWith(label)) {
-      // "_rlnFoo #12" (RELION 5) or "_rlnFoo 12" (plain)
-      const m = /#\s*(\d+)\s*$/.exec(t) ?? /^\S+\s+(\d+)\s*$/.exec(t);
-      return m ? parseInt(m[1], 10) - 1 : pos - 1;
-    }
-  }
-  return -1;
-}
-
-function parseCtfStar(text: string): CtfMicrograph[] {
-  // Block-aware parse: only data rows of the loop block that OWNS the
-  // micrograph/defocus columns count — the optics block shares the file
-  // and its rows (1 optGroup1 1.77 300 …) would otherwise leak in.
-  // Columns are frozen when the FIRST data row of a loop arrives, so every
-  // label of that loop is already known.
-  const lines = text.split("\n");
-  const rows: CtfMicrograph[] = [];
-
-  let inLoop = false;
-  let labels = new Map<string, number>();
-  let cols: { name: number; u: number; v: number; astig: number; angle: number; fom: number; maxres: number } | null = null;
-
-  const freeze = (): { name: number; u: number; v: number; astig: number; angle: number; fom: number; maxres: number } | null => {
-    if (
-      labels.has("_rlnMicrographName") &&
-      labels.has("_rlnDefocusU") &&
-      labels.has("_rlnDefocusV")
-    ) {
-      return {
-        name: labels.get("_rlnMicrographName")!,
-        u: labels.get("_rlnDefocusU")!,
-        v: labels.get("_rlnDefocusV")!,
-        astig: labels.get("_rlnCtfAstigmatism") ?? -1,
-        angle: labels.get("_rlnDefocusAngle") ?? -1,
-        fom: labels.get("_rlnCtfFigureOfMerit") ?? -1,
-        maxres: labels.get("_rlnCtfMaxResolution") ?? -1,
-      };
-    }
-    return null;
-  };
-
-  for (const raw of lines) {
-    const t = raw.trim();
-    if (t === "loop_") {
-      inLoop = true;
-      labels = new Map();
-      cols = null; // each loop is a fresh table
-      continue;
-    }
-    if (t.startsWith("data_")) {
-      inLoop = false;
-      labels = new Map();
-      cols = null;
-      continue;
-    }
-    if (inLoop && t.startsWith("_")) {
-      const m = /^(\S+)(?:\s+#?(\d+))?\s*$/.exec(t);
-      if (m) labels.set(m[1], m[2] ? parseInt(m[2], 10) - 1 : labels.size);
-      continue;
-    }
-    if (!t || t.startsWith("#")) continue;
-    // first data row of this loop → try to freeze the column map
-    if (inLoop && !cols) {
-      cols = freeze();
-      if (!cols) continue;
-    }
-    if (!cols) continue;
-    const cells = t.split(/\s+/);
-    if (cells.length <= Math.max(cols.name, cols.u, cols.v)) continue;
-    const u = Number(cells[cols.u]);
-    const v = Number(cells[cols.v]);
-    if (!Number.isFinite(u) || !Number.isFinite(v)) continue;
-    const name = cells[cols.name] ?? "";
-    // RELION writes ctffind defocus (and astigmatism) in Ångström — a
-    // single magnitude check keeps µm-native files untouched too.
-    const inAngstrom = Math.abs(u) > 1000 || Math.abs(v) > 1000;
-    const scale = inAngstrom ? 1 / 10_000 : 1;
-    const astigRaw = cols.astig >= 0 ? Number(cells[cols.astig]) || Math.abs(u - v) : Math.abs(u - v);
-    rows.push({
-      name: name.split("/").pop() ?? name,
-      relPath: name,
-      defocusU: u * scale,
-      defocusV: v * scale,
-      astigmatism: astigRaw * scale,
-      defocusAngle: cols.angle >= 0 ? Number(cells[cols.angle]) || 0 : 0,
-      fom: cols.fom >= 0 ? Number(cells[cols.fom]) || 0 : 0,
-      maxResolution: cols.maxres >= 0 ? Number(cells[cols.maxres]) || 0 : 0,
-    });
-  }
-  return rows;
 }
 
 /**
@@ -176,24 +52,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ micrographs: [], summary: null });
     }
 
-    // CtfFind writes micrographs_ctf.star at the workdir root; fall back to
-    // any nested *ctf*.star (ctf_refine / external layouts).
-    const candidates: string[] = [];
-    const root = path.join(run.workdir, "micrographs_ctf.star");
-    if (existsSync(root)) candidates.push(root);
-    if (candidates.length === 0) {
-      for (const name of readdirSync(run.workdir)) {
-        if (/ctf.*\.star$/i.test(name) && !/optimiser|data\.star/i.test(name)) {
-          candidates.push(path.join(run.workdir, name));
-        }
-      }
-    }
-    if (candidates.length === 0) {
+    // t469 — the file hunt + cached parse live in lib/compare-rows.ts
+    // (ONE grammar under the route, the dialog and the agent's tool)
+    const parsed = ctfMicrographRows(run.workdir);
+    if (parsed.length === 0) {
       return NextResponse.json({ micrographs: [], summary: null });
     }
-
-    // mtime-cached parse — the sort below must NOT mutate the cached array
-    const parsed = cachedFileCompute(candidates[0], "ctf:micrographs-star", (text) => parseCtfStar(text)) ?? [];
+    // the sort must NOT mutate the lib's cached array
     const micrographs = [...parsed].sort((a, b) => b.defocusU - a.defocusU);
 
     let summary: CtfSummary | null = null;

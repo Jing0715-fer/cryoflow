@@ -4,7 +4,9 @@
  * The A/B question's second domain: "I changed a MotionCorr parameter
  * (b-factor, dose grouping, stagger) — did the ALIGNMENTS actually get
  * steadier?" The motion route speaks one row per micrograph: total
- * accumulated motion with its early/late split, in pixels. All three
+ * accumulated motion with its early/late split, in ÅNGSTRÖM (RELION
+ * 3.1+ writes _rlnAccumMotionTotal in Å — t469 fixed the lenses that
+ * used to say " px" while the rows carried Å). All three
  * speak one direction — LESS motion is better — but each answers a
  * different question:
  *
@@ -24,11 +26,11 @@ import type { LensSpec } from "./paired-compare";
  *  reads — structurally compatible with MotionMicrograph. */
 export interface MotionRunRow {
   name: string;
-  /** total accumulated motion, px */
+  /** total accumulated motion, Å */
   total: number;
-  /** early-frames motion, px */
+  /** early-frames motion, Å */
   early: number;
-  /** late-frames motion, px */
+  /** late-frames motion, Å */
   late: number;
 }
 
@@ -38,7 +40,7 @@ export const MOTION_LENSES: Record<MotionLens, LensSpec<MotionRunRow>> = {
   total: {
     key: "total",
     label: "Total drift",
-    unit: " px",
+    unit: " Å",
     higherIsBetter: false,
     digits: 2,
     value: (r) => r.total,
@@ -46,7 +48,7 @@ export const MOTION_LENSES: Record<MotionLens, LensSpec<MotionRunRow>> = {
   early: {
     key: "early",
     label: "Early drift",
-    unit: " px",
+    unit: " Å",
     higherIsBetter: false,
     digits: 2,
     value: (r) => r.early,
@@ -54,7 +56,7 @@ export const MOTION_LENSES: Record<MotionLens, LensSpec<MotionRunRow>> = {
   late: {
     key: "late",
     label: "Late drift",
-    unit: " px",
+    unit: " Å",
     higherIsBetter: false,
     digits: 2,
     value: (r) => r.late,
