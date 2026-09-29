@@ -188,3 +188,80 @@ export function describeDrift(info: DriftInfo): {
     keys,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* t446 — the diff face: the strip names the keys, the TABLE carries   */
+/* the evidence. The snapshot is already in the DB; showing WHAT the   */
+/* values were vs what they are now is the difference between an       */
+/* accusation and a receipt.                                           */
+/* ------------------------------------------------------------------ */
+
+/** One setting's evidence: what the run ate vs what the recipe says now.
+ *  `from`/`to` use undefined as ABSENCE (the same law paramsEqual speaks
+ *  — an undefined-valued key is a missing key), so kind derives purely
+ *  from which side holds a value. */
+export interface ParamChange {
+  key: string;
+  kind: "changed" | "added" | "removed";
+  /** the value AT DISPATCH (undefined for an added setting) */
+  from: unknown;
+  /** the CURRENT value (undefined for a removed setting) */
+  to: unknown;
+}
+
+/**
+ * The evidence rows for one drifted job, in the SAME order as
+ * driftFor's changedKeys (sorted — a stable table). null whenever the
+ * drift law is silent: the diff face never speaks where the verdict
+ * doesn't (one law, two lenses — the table cannot contradict the strip
+ * because it is DERIVED from it, keys and order both).
+ */
+export function paramChanges(job: DriftJobLike): ParamChange[] | null {
+  const info = driftFor(job);
+  if (!info) return null;
+  const snapshot = job.ranParams as Record<string, unknown>;
+  const out: ParamChange[] = [];
+  for (const key of info.changedKeys) {
+    const had =
+      Object.prototype.hasOwnProperty.call(snapshot, key) &&
+      snapshot[key] !== undefined;
+    const has =
+      Object.prototype.hasOwnProperty.call(job.params, key) &&
+      job.params[key] !== undefined;
+    if (had && has) {
+      out.push({
+        key,
+        kind: "changed",
+        from: snapshot[key],
+        to: job.params[key],
+      });
+    } else if (has) {
+      // the recipe gained a setting after the run (or the snapshot held
+      // the key as undefined — the same absence under the equal law)
+      out.push({ key, kind: "added", from: undefined, to: job.params[key] });
+    } else {
+      // the recipe dropped a setting the run actually ate
+      out.push({ key, kind: "removed", from: snapshot[key], to: undefined });
+    }
+  }
+  return out;
+}
+
+/**
+ * The mono-cell form of one param value: strings render raw (they are
+ * paths and names, not prose), numbers/booleans via String, the
+ * defensively-possible nested shapes via JSON, absence as an em dash —
+ * the cell must never render the empty string (an invisible value
+ * reads as a broken table, not as an unset setting).
+ */
+export function formatParamValue(v: unknown): string {
+  if (v === undefined) return "—";
+  if (v === null) return "null";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  try {
+    return JSON.stringify(v) ?? String(v);
+  } catch {
+    return String(v);
+  }
+}

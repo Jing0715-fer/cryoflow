@@ -25,6 +25,7 @@ import {
   ArrowRight,
   BarChart3,
   Check,
+  ChevronDown,
   ChevronRight,
   Clock,
   Copy,
@@ -118,7 +119,11 @@ export function formatLedgerMs(ms?: number): string {
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { describeStaleness, findStaleJobs } from "@/lib/staleness";
-import { describeDrift } from "@/lib/params-drift";
+import {
+  describeDrift,
+  formatParamValue,
+  paramChanges,
+} from "@/lib/params-drift";
 import { TypeIcon } from "./icons";
 import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
 import { formatElapsed } from "@/lib/elapsed";
@@ -2354,6 +2359,13 @@ function InspectorHeader({
   // t445 — the drift verdict for THIS job, same derived-map channel. The
   // strip speaks the always-true sentence + names the changed settings.
   const driftInfo = useWorkflowStore((s) => s.driftMap.get(job.id) ?? null);
+  // t446 — the diff face's toggle: the strip names keys, the table shows
+  // the receipt (ran-with → now). Local reveal state — the evidence is
+  // derived from the same driftInfo, so open/closed can never contradict
+  // the verdict; when the drift clears the whole strip unmounts and the
+  // toggle goes with it.
+  const [diffOpen, setDiffOpen] = React.useState(false);
+  const diffTableId = React.useId();
   const [confirmRerun, setConfirmRerun] = React.useState(false);
   /** t397 — the explicit continue target ("Continue from here:" → fn_cont):
    * the Re-run button + its confirm speak the MODE — Continue when set
@@ -2737,11 +2749,18 @@ function InspectorHeader({
         );
       })() : null}
 
-      {/* t445 — the drift strip: the wavefront's twin face in the same
-          strip grammar. Renders nothing while the recipe matches the
-          snapshot — silence is the default, the alarm is the exception. */}
+      {/* t445/t446 — the drift strip + its diff face: the strip speaks the
+          always-true sentence and names the keys; "Show what changed"
+          expands the receipt — one row per setting, ran-with → now, from
+          the SAME verdict (paramChanges derives from driftFor, so the
+          table cannot contradict the strip: same keys, same order). The
+          snapshot is already in the DB — showing WHAT the values were is
+          the difference between an accusation and a receipt. Renders
+          nothing while the recipe matches the snapshot — silence is the
+          default, the alarm is the exception. */}
       {driftInfo ? (() => {
         const d = describeDrift(driftInfo);
+        const changes = paramChanges(job);
         return (
           <div
             role="note"
@@ -2756,6 +2775,71 @@ function InspectorHeader({
               <span className="rounded border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground/80">
                 {d.keys}
               </span>
+            ) : null}
+            {changes && changes.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setDiffOpen((v) => !v)}
+                  aria-expanded={diffOpen}
+                  aria-controls={diffTableId}
+                  data-testid="drift-diff-toggle"
+                  title={diffOpen ? "Collapse the per-setting receipt" : "Every changed setting, ran-with value → current value"}
+                  className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-amber-500/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-400"
+                >
+                  <ChevronDown
+                    className={cn(
+                      "size-3 shrink-0 transition-transform duration-150",
+                      diffOpen ? "" : "-rotate-90"
+                    )}
+                    aria-hidden="true"
+                  />
+                  {diffOpen ? "Hide the receipt" : "Show what changed"}
+                </button>
+                {diffOpen ? (
+                  <div
+                    id={diffTableId}
+                    data-testid="drift-diff-table"
+                    className="w-full pt-1"
+                  >
+                    <table className="w-full border-collapse text-left text-[10px]">
+                      <thead>
+                        <tr className="text-muted-foreground/70">
+                          <th scope="col" className="py-1 pr-2 font-medium uppercase tracking-wide">Setting</th>
+                          <th scope="col" className="w-[38%] py-1 pr-2 font-medium uppercase tracking-wide">Ran with</th>
+                          <th scope="col" className="w-[38%] py-1 font-medium uppercase tracking-wide">Now</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {changes.map((c) => (
+                          <tr key={c.key} className="border-t border-amber-500/15">
+                            <td className="py-1 pr-2 font-mono text-[10px] text-foreground/85">
+                              {c.kind === "added" ? (
+                                <span className="mr-1 font-bold text-teal-600 dark:text-teal-400" aria-hidden="true">+</span>
+                              ) : c.kind === "removed" ? (
+                                <span className="mr-1 font-bold text-rose-600 dark:text-rose-400" aria-hidden="true">−</span>
+                              ) : null}
+                              {c.key}
+                            </td>
+                            <td
+                              className="max-w-0 truncate py-1 pr-2 font-mono tabular-nums text-muted-foreground/80"
+                              title={`ran with ${formatParamValue(c.from)}`}
+                            >
+                              {formatParamValue(c.from)}
+                            </td>
+                            <td
+                              className="max-w-0 truncate py-1 font-mono tabular-nums font-medium text-foreground/90"
+                              title={`now ${formatParamValue(c.to)}`}
+                            >
+                              {formatParamValue(c.to)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </>
             ) : null}
           </div>
         );
