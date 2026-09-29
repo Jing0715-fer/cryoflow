@@ -5609,3 +5609,23 @@ Stage Summary:
 - **「单位即判决的一半」**：px vs Å 差一个字母，差的是「颗粒抖了 3 像素还是 3 埃」——预存谎言被新工具的继承链逼出水面，t440 的 bench 钉着它睡了 29 窗
 - **「浮点尘不是平局」**：0.65−0.60 ≠ 0.85−0.80 在第 15 位小数上——幅度优先排序的 tie 断言要用集合不用序，否则 bench 在替浮点说谎
 - 产出：compare_jobs（第 16 工具，三域判决读）+ compare-rows.ts（一解析两调用）+ pairVerdictText（判决文本脸）+ THE COMPARE LAW 入 prompt + motion 单位谎言修复 + t469 bench 35/0 + 35 套回归全绿 + 真 GLM 活体逐字（诚实拒绝→fixture 补 witness→判决全数）+ recent-family.sh 固化 + 截图 ×2
+
+## Task 470 (2026-09-30, cron 00:07 窗 —— The Settled Question)
+
+- [开局] 实尾 = Task 469 完整收官（origin/main 三方对齐；本窗先推平遗留的 worklog commit 326c5a5）。世界体检：22 jobs = 20 completed + 1 running fixture（QA Refine Live）+ 1 idle fixture（QA Class Select）——t469 知情遗留原样。第六十一份过时 Task 13 指引照例不认（以 t469 遗留清单为准）。自号 470。
+- [QA — 全绿基线] landing 200、console 0 错（HMR 唯二日志）、标题 pristine、header 全门在场（AI/funnel/项目芯片/footer）；回归全家 35 套 exit 0（浏览器先关再跑）。世界稳定 → 转新需求。
+- [选题定谳 — The Settled Question（t469 遗留②）] compare_jobs 的自配拒绝句早已把话头放下：「one run against itself is the convergence question」。UI 侧收敛家族家具全在（t454 class 收敛普查 / t456–t459 分辨率弧 + plateau 律），唯独 agent 摸不到——用户问「收敛了吗/还在洗牌吗/还要继续跑吗」，模型只能拿单任务收据拼凑。定谳：check_convergence（第 17 工具）——一次跑与它自己的两轮对话，同一批判决脑零私脑。
+- [交付①— lib/convergence-rows.ts] 行文法出路由（t469「一解析多张脸」第三域）：workdirRounds（iterations 路由 DATA_STAR_RE 逐字镜像，升序去重）、roundOccupancy（classes 路由 ?iter= 通道同名方言 + parseStar 环文法数 _rlnClassNumber，光具组行永不膨胀类）、resolutionArcFromWorkdir（resolution-arc 路由的扫描原文搬出，half1 金族逐轮压过 plain）——**路由瘦身成 guard+shape**，route 与工具从此不能漂移。
+- [交付②— 工具 + 法条] check_convergence schema（job_id 必填、round_a/round_b 可选、additionalProperties:false）：serial（class2d/class3d）= 普查必须 + 弧随行（joinByName + pairedDeltas share 透镜 + verdict/topMovers + movingCensus——class-convergence 对话框同链）；gold（refine3d）= 弧必须 + 普查永不开启（对话框律：refine3d 单类 data star 无人群可动）。**门族按对话框镜像**：serial 门 = 梯 ≥2（收敛对话框）、gold 门 = 弧 ≥2（弧对话框，model star 就是金梯）；gold 收到 round 参数 → 诚实拒绝「弧读的是整段旅程，轮对是普查的问题」。判决文本 = pairVerdictText（Round 标签即名字）+ censusLine 并陈——与 compare_jobs 的 A/B 文脸同一文法。prompt 第 8 法条 THE CONVERGENCE LAW（收敛类问题=check_convergence 读，绝不 diff 轮文件，绝不与 compare_jobs 混淆）+ QUESTIONS ARE READS 与 end-to-end recipe 接线；工具法条编号重排 1–12。
+- [t470 bench — 42 断言] T1 目录 4 + T2 诚实拒绝 11（无 id/伪 id/非弧型/running/冷镜/单轮/梯外轮/自配/死轮/无 model star/gold+轮对）+ T3 普查 7（整弧默认对、gained/lost/held 1/2/2、censusLine 逐字、text 脸 pairVerdictText、mover +4.0pp、summary 组曲）+ T4 轮覆盖 3（沉淀尾对=has settled、反序归一、单端覆盖）+ T5 金弧 6（plateaued/仍是 improving/弧摘要/biggestJump 18.0 Å/方言语榨 FSC vs model's own）+ T6 无私脑 4（verdict JSON 全等、censusLine/censusText 字节级、弧=路由同扫）+ T7 法条 4 + T0 梯文法 3。
+- [自捕自修 ×3 — 全是 bench 咬 bench] ①fixture model star 把 pair 写成两行（真 STAR 的 `_rlnKey value` 是同行的）→ 弧 0 点连败 → 修 fixture 文法；②T6 重算用了未排序未封顶的原始 deltas（topMovers 才是排序+cap 的法）→ 字节不等 → 换 topMovers；③gain fixture 的 11.85−11.5=0.35 踩 toFixed 浮点尘 → 改 11.45（0.4 Å 无歧义）。**工具本体零改动全绿**——门族/文法/判决首跑即对。
+- [活体 — 真 GLM 收敛问句] 「2D Classification (tutorial) 这个 2D 分类跑收敛了吗？…请用数字回答」→ **iter1 一次回答**（check_convergence 无参=整弧默认对 Round 000 vs Round 200）→ 中文全数复述：74%（37/50 类）移动 >1.0 pp → still re-shuffling；48 gained / 2 lost / 0 held（中位 +1.2%）；最大失地 Class 002 −8.5 pp；**弧：28.0 Å → 3.2 Å、最佳 3.2 Å 在 Round 056、plateaued（+24.8 Å 总进步）**。数字三方对账全对：grep 真盘（201 轮、it056=3.20、it200=3.20）+ lib 重算（verdict/censusLine 字节级）+ 模型复述——零编造零 mutation（22 jobs 不动）。插曲：live 脚本无 sessionId → 设计如此地附着到项目最新会话（ai-mumtaacm-g41ir9 内 26 msgs，非新会话非丢失——drawer 预览=首条用户消息的 t423 律差点被误读成 lost-update）。scripts/t470-live-convergence-question.sh 为活体剧本。截图 .qa-logs/t470-convergence-face.png（AI 助手对话脸：工具行 + census/arc 全数）。
+- [验证-终] t470 bench 42/0；tsc 0 + eslint 0（8 触碰文件）；t419 156/0 + t420 54/0 + t440 17/0；回归全家 **36 套**（35 旧 + t470；recent-family.sh 花名册 glob 已拓宽 t4[2-7]）exit 0 全绿；console 0 错、标题 pristine、世界 22 jobs 不动。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 471 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②ai-settings.json 卫生缺口：无 schema 校验/死亡 baseUrl 健康探针（t468⑤→t469③ 原样，两窗无人认领）③continue 动词的工具化：check_convergence 判决之后「还要继续跑吗」的 run/continue 语义（t455 的 continue-sources 已有 API，agent 尚无 verb——判决与动词在对话里接上了，工具面还差一步）④funnel 单位扩展 movies（真 RELION 接手时）⑤prod 磨判例重开前提（t462 判例）⑥QA 车道 fixture witness 巡检（t469⑥ 原样）。
+
+Stage Summary:
+- **「一次跑与自己对话，同一批判决脑」**：普查链（join→deltas→census）与弧链（scan→plateau）三张脸——对话框、路由、agent——bottom out 在同一文法；bench 钉死 verdict JSON 全等 + censusLine/censusText 字节级相等
+- **「每个方言有自己的门」**：serial 的门是数据梯（收敛对话框）、gold 的门是模型星（弧对话框）——门不是发明的是镜像的；gold 收轮对拒绝说「整段旅程」而不是硬算一个错问题
+- **「数字三方对账」**：模型说的 37/50、48/2/0、−8.5 pp、3.2 Å@Round 056 每一个都能在真盘 grep 和 lib 重算里指出原乡——agent 的判决不是修辞是账本
+- **「bench 咬 bench」**：三连自捕全是 fixture 的错（pair 文法、movers 排序、浮点尘）——工具本体首跑即对；good tools make honest benches，honest benches make good tools
+- 产出：check_convergence（第 17 工具）+ convergence-rows.ts（一解析三调用，路由瘦身）+ THE CONVERGENCE LAW 入 prompt + t470 bench 42/0 + 36 套回归全绿 + 真 GLM 收敛读活体逐字（三方对账）+ 截图 ×1 + live 剧本 ×1
