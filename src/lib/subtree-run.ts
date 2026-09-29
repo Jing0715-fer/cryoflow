@@ -138,3 +138,87 @@ export function describeSubtreeRun(plan: SubtreePlan): string {
   }
   return `Re-runs ${plan.order.length} job${plan.order.length === 1 ? "" : "s"} in run order: ${roster}. Stops at the first refusal — everything re-ran before it keeps its fresh result.`;
 }
+
+/* ------------------------------------------------------------------ */
+/* t449 — the verb's face. The orchestration loop lives in the store,  */
+/* invisible by construction: a 13-node subtree re-run walks for       */
+/* minutes with no readout, no current-node name, no way to say stop.  */
+/* This brain is the face's smallest truths — ticks, headline, stop    */
+/* receipt, guard — all pure, all benchable. The strip component and   */
+/* the store loop are the lenses; the laws live here.                  */
+/* ------------------------------------------------------------------ */
+
+/** The orchestration's live state — the store holds exactly one. */
+export interface SubtreeOrchState {
+  rootId: string;
+  rootName: string;
+  /** The authoritative run order (planned from the live world at the
+   *  moment of dispatch — the plan the loop is actually walking). */
+  order: SubtreeNode[];
+  /** Nodes landed completed so far (the loop's `done` counter, mirrored
+   *  so the face renders from state, not from closure memory). */
+  index: number;
+  /** The stop verb's request — the loop checks it BEFORE each next
+   *  dispatch; the job now running finishes on its own. */
+  stopRequested: boolean;
+}
+
+/** Per-node tick states for the strip's progress dots. */
+export type OrchTick = "done" | "active" | "todo";
+
+/** Above this many nodes the dots retire — the headline carries the
+ *  count alone (30 dots is a texture, not a readout). */
+export const TICKS_CAP = 24;
+
+export function ticksVisible(total: number): boolean {
+  return total > 0 && total <= TICKS_CAP;
+}
+
+/** The dot row: `done` nodes filled, the node in flight pulsing (only
+ *  while one exists), the rest waiting. `done` clamps — a face that
+ *  reads backwards is a lie, never a glitch. */
+export function orchestrationTicks(total: number, done: number): OrchTick[] {
+  if (total <= 0) return [];
+  const d = Math.max(0, Math.min(done, total));
+  return Array.from({ length: total }, (_, i) =>
+    i < d ? "done" : i === d && d < total ? "active" : "todo"
+  );
+}
+
+/** The strip's headline — one sentence that is true at every instant:
+ *  count so far, then who is running now (or the refreshed close). */
+export function orchestrationHeadline(o: {
+  total: number;
+  done: number;
+  currentName?: string | null;
+}): string {
+  const { total, done, currentName } = o;
+  if (total <= 0) return "Nothing to re-run";
+  const d = Math.max(0, Math.min(done, total));
+  if (d >= total) return `${total} of ${total} re-ran — subtree refreshed`;
+  const running = currentName ? ` — ${currentName} is running now` : "";
+  return `${d} of ${total} re-ran${running}`;
+}
+
+/** The user-stop receipt's sentence. done includes the node that was in
+ *  flight when stop was asked (it lands on its own before the loop
+ *  breaks). Verb agreement follows the remaining count. */
+export function stopReceiptSentence(done: number, total: number): string {
+  const remaining = Math.max(0, total - done);
+  return `You stopped the dispatching — ${done} of ${total} re-ran; the remaining ${remaining} ${
+    remaining === 1 ? "keeps" : "keep"
+  } their current results.`;
+}
+
+/** The one-orchestration-at-a-time guard. Two subtree walks would fight
+ *  over the same lanes — the second is refused by naming both roots. */
+export function orchGuardSentence(activeRootName: string): string {
+  return `A subtree re-run from ${activeRootName} is already in flight — stop it or let it land before starting another.`;
+}
+
+/** The strip's honesty line: the orchestration loop lives in this tab's
+ *  memory. Reload or close and the dispatched job still finishes on the
+ *  cluster — but the remaining nodes are never dispatched. The face
+ *  says so before the user learns it the hard way. */
+export const ORCH_TAB_LAW =
+  "Lives in this tab — reload or close it and the job in flight finishes on the cluster while the rest are never dispatched.";

@@ -48,6 +48,7 @@ const ProjectDashboard = dynamic(
   }
 );
 import { WorkflowCanvas } from "@/components/workflow/canvas";
+import { OrchestrationStrip } from "@/components/workflow/orchestration-strip";
 import { JobPanel } from "@/components/workflow/job-panel";
 import { JobInspector } from "@/components/workflow/job-inspector";
 import { CommandPalette } from "@/components/workflow/command-palette";
@@ -164,6 +165,10 @@ export function AppShell() {
   // notification) for finishes observed while the tab is hidden, and
   // acknowledges them on return. Zero render output.
   useFinishKnock();
+  // t449 — the verb's face renders from the store's live walk (null when
+  // idle — zero output on an idle world). Mounted at the shell root so
+  // the strip follows the user across canvas and dashboard.
+
   // ⚠ selectors must return STABLE references (a fresh .filter() array per
   // call trips zustand's getServerSnapshot cache check — infinite loop)
   const allJobs = useWorkflowStore((s) => s.jobs);
@@ -675,6 +680,10 @@ export function AppShell() {
 
       {/* Paper footer: screen-hidden, print-only, repeats on every sheet */}
       <PrintDocFooter />
+
+      {/* t449 — the orchestration's live face: the walk's root, progress,
+          current node, dot row and the stop verb. Null when idle. */}
+      <OrchestrationStrip />
 
       {/* Mobile: floating palette trigger (canvas view only) */}
       {!isDashboard && (

@@ -20,7 +20,13 @@ import { describeAdoption, planAdoption } from "./adopt-branch";
 import { findStaleJobs, type StaleReport } from "./staleness";
 import { findDriftedJobs, type DriftReport } from "./params-drift";
 import { twinName, twinNamesFor } from "./twin-name";
-import { describeSubtreeRun, planSubtreeRun } from "./subtree-run";
+import {
+  describeSubtreeRun,
+  orchGuardSentence,
+  planSubtreeRun,
+  stopReceiptSentence,
+  type SubtreeOrchState,
+} from "./subtree-run";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -811,6 +817,15 @@ interface WorkflowState {
    *  inside its parent's churn. `target` null = local lane. Stops at the
    *  first refusal; the receipt names the frontier. */
   runSubtree: (rootId: string, target: RemoteRunTarget | null) => Promise<boolean>;
+  /** t449 — the verb's face: the live walk the strip renders (run order,
+   *  progress counter, stop request). Exactly one at a time; null when
+   *  idle. The loop mirrors its progress into this state so the face
+   *  renders from truth, not from closure memory. */
+  subtreeOrch: SubtreeOrchState | null;
+  /** t449 — the stop verb: request the walk to halt BEFORE the next
+   *  dispatch. The job now running finishes on its own; the receipt
+   *  counts what re-ran. A request on an idle world is a no-op. */
+  stopSubtreeRun: () => void;
   /** POST /stop — SIGTERM→SIGKILL the job's process tree; re-run resumes
    *  refine-family jobs from their checkpoint via RELION --continue. */
   stopJob: (id: string) => Promise<void>;
@@ -1455,6 +1470,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   view: "canvas",
   system: null,
   systemRefreshing: false,
+  subtreeOrch: null,
   selectedId: null,
   selectedIds: [],
   inspectId: null,
@@ -2827,48 +2843,92 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       errToast(describeSubtreeRun(plan));
       return false;
     }
+    // t449 — one walk at a time: two orchestrations would fight over the
+    // same landing law; the second is refused by naming both roots
+    const active = get().subtreeOrch;
+    if (active) {
+      errToast(orchGuardSentence(active.rootName));
+      return false;
+    }
     const total = plan.order.length;
+    set({
+      subtreeOrch: {
+        rootId,
+        rootName: plan.order[0].name,
+        order: plan.order,
+        index: 0,
+        stopRequested: false,
+      },
+    });
     let done = 0;
+    let userStopped = false;
     let frontier: { name: string; reason: string } | null = null;
-    for (const node of plan.order) {
-      // quiet lanes: the per-node send doors stay silent (no toast, no
-      // camera steering) — the orchestration's ONE receipt speaks for the
-      // whole gesture (t146 aggregation law)
-      let accepted = false;
-      try {
-        accepted = target
-          ? await get().runJobRemote(node.id, target, { quiet: true })
-          : await get().runJob(node.id, { local: true, quiet: true });
-      } catch (err) {
-        frontier = {
-          name: node.name,
-          reason: err instanceof Error ? err.message : "its lane refused the dispatch",
-        };
-        break;
+    try {
+      for (const node of plan.order) {
+        // the stop verb's checkpoint: the request lands BETWEEN nodes —
+        // the job now running finishes on its own; the next never fires.
+        // A stop asked during a run that then FAILS never reaches here —
+        // the frontier receipt speaks for the failure instead.
+        if (get().subtreeOrch?.stopRequested) {
+          userStopped = true;
+          break;
+        }
+        // quiet lanes: the per-node send doors stay silent (no toast, no
+        // camera steering) — the orchestration's ONE receipt speaks for the
+        // whole gesture (t146 aggregation law)
+        let accepted = false;
+        try {
+          accepted = target
+            ? await get().runJobRemote(node.id, target, { quiet: true })
+            : await get().runJob(node.id, { local: true, quiet: true });
+        } catch (err) {
+          frontier = {
+            name: node.name,
+            reason: err instanceof Error ? err.message : "its lane refused the dispatch",
+          };
+          break;
+        }
+        if (!accepted) {
+          const j = get().jobs.find((x) => x.id === node.id);
+          frontier = {
+            name: node.name,
+            reason: j?.result?.slice(0, 140) || "its lane refused the dispatch",
+          };
+          break;
+        }
+        // the landing law: a child never starts inside its parent's churn —
+        // wait for THIS node's terminal state before the next dispatch
+        const landed = await awaitSubtreeTerminal(node.id);
+        if (landed.status !== "completed") {
+          frontier = {
+            name: node.name,
+            reason: landed.timedOut
+              ? "still running after 20 min — the subtree stopped waiting; its downstream did not re-run"
+              : landed.status === "failed"
+                ? "the run failed"
+                : `stopped while ${landed.status}`,
+          };
+          break;
+        }
+        done += 1;
+        // the face renders from state, not closure memory — mirror the
+        // counter so the strip's dots move the moment a node lands
+        const orch = get().subtreeOrch;
+        if (orch) set({ subtreeOrch: { ...orch, index: done } });
       }
-      if (!accepted) {
-        const j = get().jobs.find((x) => x.id === node.id);
-        frontier = {
-          name: node.name,
-          reason: j?.result?.slice(0, 140) || "its lane refused the dispatch",
-        };
-        break;
-      }
-      // the landing law: a child never starts inside its parent's churn —
-      // wait for THIS node's terminal state before the next dispatch
-      const landed = await awaitSubtreeTerminal(node.id);
-      if (landed.status !== "completed") {
-        frontier = {
-          name: node.name,
-          reason: landed.timedOut
-            ? "still running after 20 min — the subtree stopped waiting; its downstream did not re-run"
-            : landed.status === "failed"
-              ? "the run failed"
-              : `stopped while ${landed.status}`,
-        };
-        break;
-      }
-      done += 1;
+    } finally {
+      // every exit retires the face — the walk is over, whatever its ending
+      set({ subtreeOrch: null });
+    }
+    if (userStopped) {
+      // the user's stop is intent, not failure — a neutral receipt, never
+      // the destructive frontier dialect
+      toast({
+        title: `Subtree re-run stopped — ${done} of ${total} re-ran`,
+        description: stopReceiptSentence(done, total),
+        duration: 20_000,
+      });
+      return false;
     }
     if (frontier) {
       toast({
@@ -2891,6 +2951,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       duration: 20_000,
     });
     return true;
+  },
+
+  stopSubtreeRun: () => {
+    const orch = get().subtreeOrch;
+    if (!orch || orch.stopRequested) return;
+    set({ subtreeOrch: { ...orch, stopRequested: true } });
   },
 
   stopJob: async (id) => {
