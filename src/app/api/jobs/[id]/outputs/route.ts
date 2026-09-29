@@ -6,7 +6,7 @@ import { getRun } from "@/lib/relion/engine";
 import { readMrcHeader } from "@/lib/mrc";
 import { biggestLoop, parseStar } from "@/lib/starfile";
 import { isLocalRequest } from "@/lib/http-guard";
-import { readRemoteManifest } from "@/lib/remote/remote-files";
+import { readRemoteManifest, describeListingNote } from "@/lib/remote/remote-files";
 import { parseRunWarnings, summarizeOutputs, type OutputSummary } from "@/lib/relion/output-summary";
 
 export const dynamic = "force-dynamic";
@@ -322,9 +322,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // listing stays instant). Header facts (dims/slices) are unknown until
     // the file is fetched; the card speaks size + label + kind, honestly.
     let remoteTruncated = false;
+    let ledgerTruncated = false;
     if (run.remote) {
       const manifest = readRemoteManifest(workdir);
       if (manifest) {
+        // t464 — the ledger's own honesty flag: the enumeration that built
+        // it hit the cap, so the cluster holds files this listing has never
+        // heard of (not even as "on cluster" cards). The note names it.
+        ledgerTruncated = manifest.truncated === true;
         const localSet = new Set(files.map((f) => f.path));
         let remoteAdded = 0;
         for (const entry of manifest.files) {
@@ -374,11 +379,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       cmd: run.cmd,
       summary,
       warnings,
-      note: truncated
-        ? `Listing truncated at ${files.length} files`
-        : remoteTruncated
-          ? `Listing truncated at ${files.length} files (remote manifest capped)`
-          : undefined,
+      note: describeListingNote({
+        localTruncated: truncated,
+        ledgerTruncated,
+        displayTruncated: remoteTruncated,
+        count: files.length,
+      }),
     });
   } catch (error) {
     console.error("GET /api/jobs/[id]/outputs failed:", error);

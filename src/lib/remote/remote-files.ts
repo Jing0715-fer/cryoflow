@@ -75,6 +75,13 @@ export interface RemoteManifest {
   remoteWorkdir: string;
   writtenAt: string;
   files: RemoteManifestEntry[];
+  /** t464 — honest incompleteness: the enumeration that built this ledger
+   * hit the cap (REMOTE_MANIFEST_MAX) and the cluster holds MORE files than
+   * the ledger lists. Absent/undefined = the ledger saw the whole workdir
+   * (the overwhelmingly common world; also every pre-t464 ledger, which
+   * readers treat as complete — the old ledgers were complete unless the
+   * silent t460-era cap bit, and nothing can retroactively know that). */
+  truncated?: boolean;
 }
 
 export function remoteManifestPath(workdir: string): string {
@@ -108,6 +115,7 @@ export function writeRemoteManifest(
       connectionId: manifest.connectionId,
       remoteWorkdir: manifest.remoteWorkdir,
       files: manifest.files,
+      ...(manifest.truncated != null ? { truncated: manifest.truncated } : {}),
     };
     writeFileSync(remoteManifestPath(workdir), JSON.stringify(full, null, 2));
   } catch {
@@ -119,6 +127,162 @@ export function writeRemoteManifest(
  * the fetch itself stat-verifies over SSH before pulling). */
 export function manifestHas(manifest: RemoteManifest | null, rel: string): boolean {
   return manifest?.files.some((f) => f.path === rel) ?? false;
+}
+
+/* ------------------------------------------------------------------ */
+/* t464 — the enumeration grammar: who gets listed, and who admits     */
+/* the listing is short                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t460 closed a truncation bug by raising the sync-back find's cap from
+ * 4,000 to 20,000 — but the cap stayed a bare `head -20000` in readdir
+ * order, which means a BIGGER world (a real-cluster class2d run with
+ * per-micrograph graphs, iter counts in the hundreds) hits the same wall
+ * the same way: the FINAL family (run_data / run_model / run_optimiser
+ * .star at the workdir root, readdir-order behind hundreds of round
+ * files) gets cut again, the ledger again reads a silently incomplete
+ * world, and nothing says so.
+ *
+ * t464 closes it with three moves that keep the one-SSH-round doctrine:
+ *
+ *   1. THE DOOR LEADS BY NAME, NOT BY LUCK. The enumeration is four
+ *      mutually-disjoint find bands — (a) the FINAL family at the workdir
+ *      root, pinned by exact name (run_data / run_model / run_optimiser
+ *      .star — the files every workdir-derived route reads first);
+ *      (b) the root's remaining .star files (the rest of the data spine);
+ *      (c) the root's non-star files (note.txt, run.out/err, the class
+ *      averages); (d) everything deeper. The t464 field survey found the
+ *      real class2d mirror is a FLAT tree — 11.4k files all at depth 1 —
+ *      so a bare root-first split would still leave the door racing
+ *      thousands of particles_class*.star in readdir order. Any cap now
+ *      spends its budget door-first, then spine, then front door, then
+ *      deep history — never on readdir luck again.
+ *   2. THE CANARY. `head` takes cap+1 lines; the parser counts them. One
+ *      line past the cap is the exact, free admission that the world is
+ *      bigger than the ledger — no second traversal, no wc -l round.
+ *   3. THE FLAG TRAVELS. truncated rides the ledger JSON itself, so the
+ *      Files tab (which already reads the manifest) can speak the one
+ *      honest sentence the t460 field report lacked.
+ *
+ * The cap stays a cap (the SSH payload must stay bounded), but it is now
+ * tunable for worlds that need more: CF_SYNC_MANIFEST_MAX, same dialect
+ * as CF_BROWSER_MAX in browse-caps.ts.
+ */
+
+/** Hard ceiling for the sync-back manifest enumeration — files listed in
+ * `.cf-remote-manifest.json` (the ledger), not files pulled home (the
+ * sync policy's own caps govern that). Default 20,000 ≈ the t460 class2d
+ * VDAM world (iter=200 → ~11.5k files) with headroom; CF_SYNC_MANIFEST_MAX
+ * re-tunes it for bigger clusters. */
+export const REMOTE_MANIFEST_MAX = Math.min(
+  500_000,
+  Math.max(1_000, Number(process.env.CF_SYNC_MANIFEST_MAX) || 20_000)
+);
+
+/**
+ * The one-round, door-first enumeration script for a job workdir over SSH.
+ * `quotedDir` is the caller's shQuote'd workdir path (the caller owns the
+ * quoting; the script only cds into it). Four bands, mutually disjoint by
+ * construction (door ⊂ root stars; band b = root stars \ door; band c =
+ * root \ stars; band d = depth ≥ 2 — no dedup pass needed): the FINAL
+ * family (run_data / run_model / run_optimiser.star, exact names — the
+ * t460 field report's door), then the root's remaining stars, then the
+ * root's other files, then everything deeper. All bands exclude the
+ * ledger itself (.cf-*); the deep band additionally excludes the t385
+ * wipe archive (.cryoflow_prev — the WIPE'S OWN PRODUCT, not the job's
+ * workdir; it is a root DIRECTORY, so the depth-1 bands cannot reach
+ * into it by construction). Emits the t367 line grammar the parser
+ * consumes: `rel\tsize\tmtimeEpochFraction`. The caller's head takes
+ * cap+1 — the canary line, cut by the shell so no parsing has to guess.
+ */
+export function manifestFindScript(cap: number, quotedDir: string): string {
+  const take = Math.max(1, Math.floor(cap)) + 1;
+  return [
+    `cd ${quotedDir} 2>/dev/null && {`,
+    // band a — the door, pinned by exact name: the FINAL family's three
+    // stars lead no matter what readdir says (the t460 field report's
+    // failure was exactly these three losing a readdir race)
+    "  find . -maxdepth 1 -type f \\\( -name 'run_data.star' -o -name 'run_model.star' -o -name 'run_optimiser.star' \\\) -printf '%P\\t%s\\t%T@\\n' 2>/dev/null;",
+    // band b — the root's remaining .star files: the rest of the data
+    // spine (postprocess.star, micrographs*.star, per-class particle
+    // stars) — the cap spends itself on stars before anything else
+    "  find . -maxdepth 1 -type f -name '*.star' -not -name 'run_data.star' -not -name 'run_model.star' -not -name 'run_optimiser.star' -not -name '.cf-*' -printf '%P\\t%s\\t%T@\\n' 2>/dev/null;",
+    // band c — the root's non-star files: note.txt, run.out/err (the log
+    // trail), the class-average stacks, the front door's binaries
+    "  find . -maxdepth 1 -type f -not -name '*.star' -not -name '.cf-*' -printf '%P\\t%s\\t%T@\\n' 2>/dev/null;",
+    // band d — everything deeper, find order (nested rounds, per-mic
+    // graphs); the wipe archive excluded
+    "  find . -mindepth 2 -type f -not -name '.cf-*' -not -path './.cryoflow_prev/*' -printf '%P\\t%s\\t%T@\\n' 2>/dev/null;",
+    // cap+1 — the canary: one line MORE than the cap, so the parser can
+    // tell “exactly full” from “cut short” without a second round.
+    "} | head -" + take,
+  ].join("\n");
+}
+
+export interface ManifestListing {
+  entries: { rel: string; size: number; mtimeSec?: number }[];
+  /** true ⇔ the workdir holds MORE files than the cap admitted — the
+   * ledger is honest about being short, and the flag rides it home. */
+  truncated: boolean;
+}
+
+/**
+ * Parse the enumeration's stdout into ledger entries, with the canary
+ * verdict. Grammar (t367): `rel\tsize\tmtimeSec` — the FIRST tab ends the
+ * path (a %P path never contains a tab), the LAST begins the mtime
+ * (middle = size). The canary: the caller's head admitted cap+1 raw
+ * lines, so MORE raw lines than the cap ⇒ the world is bigger than the
+ * ledger; keep the first cap entries and say so.
+ */
+export function parseManifestListing(stdout: string, cap: number): ManifestListing {
+  const lines = stdout.split("\n").filter((l) => l.trim());
+  const entries: ManifestListing["entries"] = [];
+  for (const line of lines) {
+    const t1 = line.indexOf("\t");
+    const t2 = line.lastIndexOf("\t");
+    if (t1 < 0) continue;
+    const rel = line.slice(0, t1).trim();
+    // t464 — an EMPTY size field is a corrupted line, not a zero-byte
+    // file: Number("") is 0, and adopting it would invent a number the
+    // cluster never said (the pre-t464 grammar's silent lie, retired).
+    const sizeRaw = (t2 > t1 ? line.slice(t1 + 1, t2) : line.slice(t1 + 1)).trim();
+    const size = Number(sizeRaw);
+    const mtimeSec = t2 > t1 ? Number(line.slice(t2 + 1).trim().split(/\s+/)[0]) : NaN;
+    if (!rel || sizeRaw === "" || !Number.isFinite(size)) continue;
+    entries.push({
+      rel,
+      size,
+      ...(Number.isFinite(mtimeSec) && mtimeSec > 0 ? { mtimeSec } : {}),
+    });
+  }
+  const truncated = lines.length > cap;
+  return {
+    entries: truncated ? entries.slice(0, cap) : entries,
+    truncated,
+  };
+}
+
+/**
+ * The outputs route's honest one-liner for a file listing that is short
+ * somewhere. Three independent facts, one sentence — priority is the
+ * depth of the incompleteness: the LOCAL walk missing files on THIS
+ * machine outranks the LEDGER being short on the cluster, which outranks
+ * the display cap that only limits how many remote cards are drawn.
+ * Undefined = nothing is short; no note is honest noise.
+ */
+export function describeListingNote(facts: {
+  localTruncated: boolean;
+  ledgerTruncated: boolean;
+  displayTruncated: boolean;
+  count: number;
+}): string | undefined {
+  const { localTruncated, ledgerTruncated, displayTruncated, count } = facts;
+  if (localTruncated) return `Listing truncated at ${count} files`;
+  if (ledgerTruncated)
+    return `Listing shows ${count} files — the cluster holds more than the manifest's cap (the final star family is pinned first)`;
+  if (displayTruncated) return `Listing truncated at ${count} files (remote manifest capped)`;
+  return undefined;
 }
 
 /* ------------------------------------------------------------------ */

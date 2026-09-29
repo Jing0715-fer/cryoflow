@@ -98,7 +98,7 @@ import {
   type ParticleRefRow,
 } from "@/lib/relion/particle-ref-gate";
 import { getConnection, loadConnections, patchConnection } from "./connections";
-import { writeRemoteManifest, readRemoteManifest } from "./remote-files";
+import { writeRemoteManifest, readRemoteManifest, manifestFindScript, parseManifestListing, REMOTE_MANIFEST_MAX } from "./remote-files";
 // t367 — the ghost verdicts read MRC headers where the ghosts live: the
 // sync-back's "fresh copy" check and the finalize legs parse what they
 // are about to trust instead of counting its bytes.
@@ -8037,16 +8037,21 @@ async function syncBackWorkdir(
     // that had moved leftovers aside reported them back as "stale"
     // workdir files (and the Files tab offered the archive as outputs).
     // Excluded wholesale — its bytes die in the background reaper.
-    // t460 — head -20000 (was 4000): the class2d VDAM world (iter=200, the
-    // t386 default) writes ~11.5k files per workdir (201 rounds × per-round
-    // family + per-class volumes) and the old cap truncated the manifest
-    // mid-rounds — the run's FINAL family (run_data/model/optimiser.star,
-    // readdir order behind round files) never made the manifest, the local
-    // mirror stopped at it070 of 201, and every workdir-derived route
-    // (arc/fsc reported) read a silently incomplete world. A 20k-line
-    // manifest is ~1.5MB over the same SSH round — still one round trip,
-    // still inside the 15s window.
-    `cd ${W} 2>/dev/null && find . -type f -not -name '.cf-*' -not -path './.cryoflow_prev/*' -printf '%P\\t%s\\t%T@\\n' 2>/dev/null | head -20000`,
+    // t460 — head 4000→20000: the class2d VDAM world (iter=200, the t386
+    // default) writes ~11.5k files per workdir and the old cap truncated
+    // the manifest mid-rounds — the run's FINAL family never made the
+    // manifest, the local mirror stopped at it070 of 201, and every
+    // workdir-derived route read a silently incomplete world.
+    // t464 — the cap stops being silent AND stops spending itself on
+    // readdir luck: the enumeration is now root-first (the FINAL star
+    // family + note.txt + run.out/err ride ahead of the hundreds of round
+    // files — any cap spends its budget on the files the arc/fsc/run-lens
+    // routes read first), and head takes cap+1 so the parser can SEE the
+    // cut — a bigger world still gets a capped ledger, but the ledger now
+    // says "the cluster holds more" instead of lying by completeness. The
+    // cap is CF_SYNC_MANIFEST_MAX-tunable; still one SSH round, still
+    // inside the 15s window at the default.
+    manifestFindScript(REMOTE_MANIFEST_MAX, W),
     { timeoutMs: 15_000 }
   );
   if (manifest.error || manifest.code !== 0) {
@@ -8068,22 +8073,14 @@ async function syncBackWorkdir(
   // t367 — lines are "rel\tsize\tmtimeSec" (%P\t%s\t%T@); a %P path never
   // contains a tab, so the FIRST tab ends the path and the LAST begins the
   // mtime (middle = size).
-  const entries: { rel: string; size: number; mtimeSec?: number }[] = [];
-  for (const line of manifest.stdout.trim().split("\n")) {
-    if (!line.trim()) continue;
-    const t1 = line.indexOf("\t");
-    const t2 = line.lastIndexOf("\t");
-    if (t1 < 0) continue;
-    const rel = line.slice(0, t1).trim();
-    const size = Number(t2 > t1 ? line.slice(t1 + 1, t2).trim() : line.slice(t1 + 1).trim());
-    const mtimeSec = t2 > t1 ? Number(line.slice(t2 + 1).trim().split(/\s+/)[0]) : NaN;
-    if (!rel || !Number.isFinite(size)) continue;
-    entries.push({
-      rel,
-      size,
-      ...(Number.isFinite(mtimeSec) && mtimeSec > 0 ? { mtimeSec } : {}),
-    });
-  }
+  // t367 grammar — "rel\tsize\tmtimeSec" — parsed by the pure parser since
+  // t464, which also returns the canary verdict: the shell admitted cap+1
+  // lines, so MORE raw lines than the cap is the exact admission that the
+  // workdir holds more than the ledger will.
+  const { entries, truncated: ledgerTruncated } = parseManifestListing(
+    manifest.stdout,
+    REMOTE_MANIFEST_MAX
+  );
   // t367 — THE GENERATION GATE, before the planner ever sees caps: a file
   // that predates the dispatch is the previous run's, whatever its size or
   // policy class. 90s of grace absorbs app↔cluster clock skew; stale
@@ -8113,6 +8110,10 @@ async function syncBackWorkdir(
     connectionId: r.connectionId,
     remoteWorkdir: r.remoteWorkdir,
     files: entries.map((e) => ({ path: e.rel, size: e.size })),
+    // t464 — the honesty rides the ledger itself: the Files tab reads the
+    // manifest and can speak the truncation the old cap committed in
+    // silence.
+    truncated: ledgerTruncated,
   });
   // t339 — the plan (WHAT comes home) comes from the pure planner; the
   // loop below only executes it. The planner's skip list is the pre-download
@@ -8275,6 +8276,16 @@ async function syncBackWorkdir(
       (res.cacheStillZero.length > 3 ? ` +${res.cacheStillZero.length - 3} more` : "");
     noteParts.push(
       `${res.cacheStillZero.length} file(s) read as zero-header EVEN after the cache drop (${shown}) — these are storage-side corruption, not cache illusions (t388)`
+    );
+  }
+  if (ledgerTruncated) {
+    // t464 — the finalize receipt speaks the truncation too: the user reads
+    // the run's own record without ever opening the Files tab, and "synced
+    // N files" alone would quietly imply "and that is everything". The
+    // sentence names the cure as well as the wound — the final star family
+    // is pinned first, and the cap is re-tunable.
+    noteParts.push(
+      `the outputs ledger was capped at ${entries.length} files — the cluster's workdir holds more, so some round history may not be mirrored (the final run_data/model/optimiser star family is always enumerated first; CF_SYNC_MANIFEST_MAX raises the cap)`
     );
   }
   if (noteParts.length > 0) res.note = noteParts.join(" — ");

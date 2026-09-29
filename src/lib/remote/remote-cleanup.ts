@@ -842,6 +842,11 @@ export function rewriteManifestAfterCleanup(
     remoteWorkdir: manifest.remoteWorkdir,
     writtenAt: new Date().toISOString(),
     files: kept,
+    // t464 — an incompleteness verdict survives a pruning: the ledger that
+    // never saw the whole workdir still has not, and deleting rows cannot
+    // retroactively complete it. (The NEXT finalize re-enumerates and
+    // re-decides; until then the flag stays the ledger's own truth.)
+    truncated: manifest.truncated,
   });
   return true;
 }
