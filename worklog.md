@@ -5400,3 +5400,21 @@ Stage Summary:
 - **「盒边是墙不是建议」**：postprocess 估计越过 2×angpix 不是乐观是物理错误——mock 的钳制反向让世界说了七年（六窗）谎话，scout 验算当场抓获；修好的 stub 用 refine 自己的估计做家、盒地板做天花板，世界第一次物理自洽
 - **「一族一个声部」**：postprocess 的 FSC 方言改用 refine stub 的 ^6 律——浅 cosine 形状让 raw masked 在表内永远压不过 0.143（claw 无从说起），方言统一后三交叉全部在表内说话，claw 的 0.4 Å 是相位随机化校正第一次在 mock 世界里做成了它的工作
 - 产出：The Final Verdict 全链（postprocess-verdict 纯脑 + 第六门/第六脸/分辨率阶梯 + fsc 路由 general 三元组 + mock 物理修复 ×3）+ t457 bench 54/0 + 二十六套回归全绿 + 判决脸活体（重跑 postprocess → 门 → 对话逐字）+ 三方一致真对齐
+
+## Task 458 (2026-09-29, cron 16:21 窗 —— The Run Lens)
+
+- [开局] 实尾 = Task 457 完整收官（HEAD = 457171c = origin/main；stamp = 612a6c0 docs 时差一拍）。世界体检：app 200、15/15 全 completed、mock 集群 :3022 在听、内存 available 3204MB。第四十九份过时 Task 13 指引照例不认。自号 458。
+- [QA — 全绿基线] landing 满血（t438 铃铛门在场）、console 0 错、page errors 0、标题 pristine。**Q&A 工具律第三课**：agent-browser 默认视口过小 + 世界画布缩放极小（SVG 小地图 rect 仅 7×3px），点不到节点——`agent-browser set viewport 1680 950` 放视口、Dashboard 的 StageChip 行（普通 HTML button）代替画布 SVG 点击、Esc 先关覆盖对话框。第六门（t457 Final Verdict）活体验证满血：门 aria 在 DOM、判决对话 headline「7.8 Å final」/ 阶梯 / modest gift / B-factor 天气逐字在场（截图 .qa-logs/t458-qa-verdict-gate.png）。回归 26 套 exit 0 全绿。
+- [选题定谳 — The Run Lens（存储板第三窗）] t457 遗留②：compare 家族六问已齐（配对/t453 类/t454 收敛/t456 弧/t457 判决），本窗换轴——存储板（t436 地图 → t437 类别透镜 → t441 铲子上门）的第三视图，类别透镜的镜像：**按 run 先问**（「Extract 到底在盘上留了什么？」），两个维度、同一文件级终点。
+- [交付 — either dimension first, the same terminus] ①lib/storage-run-lens.ts 纯脑（client-safe，同 storage-clean 律）：runCensus（全板普查——heaviest first + dirName tiebreak、零字节 run 保留尊严、孤儿同席、share 对全 walk、topCategory 调色板序首大者胜）+ whaleLine（一句话鲸鱼行，零 walk 沉默，fmtBytes 唯一方言）+ categoriesOfRun（run 自身类别分解，>0 且调色板序——行间可比不抖动）+ runStackSegments（行条段 = 对全板最宽 run 的 pct）+ filesForRun（dirName 过滤 + 可选类别 + 重述排序 + 泛型 T 随行）+ runLedgerState/runLedgerLine（三诚实态：ledger/unlisted/empty + 部分性诚实行——静默的部分清单会被读成整个目录）②对话框接线：**逐 run 堆叠条**（单色 primary 条退役——每个 run 的条现在说出 bytes 住在哪）+ **秤门**（每 run 行 + 透镜 feeding-runs 行——矩阵互通，蓝 hover=观看非破坏）+ **鲸鱼行**（摘要块紫色行，行自身是门）+ **run lens 主体**（标题行 Inspector/铲门/All runs 后门 + 大号堆叠条 + All+类别 chips 过滤 + 文件账本三态；chip 激活时堆叠条压暗非所视、ledgerDiskFiles 作用域化——run 的 maps 在账本里对它的 logs 一字不谈）③互斥律：类别透镜与 run lens 是同一钻取槽的兄弟——开一扇关另一扇（双向），视图非数据：Refresh 存活、关门即忘、chip 过滤随透镜忘。
+- [自捕自修 — bench 先例五连] R4b/R4c 断言把调色板序写成字节序（期望 stacks 先——调色板说的是 maps 先）：核心对、断言错，首跑 FAIL 当场修正（t437/t439/t440/t441 先例五连）；另 whaleLine 首版手写字节方言违反「一个 formatter」律——改 import fmtBytes。
+- [活体 QA — run lens 满血] FRESH 研磨 attempt 1 rc=137（OOM 页数据段）→ attempt 2 温暖 GREEN（provenance 457171c）+ ANTI-TEAR 自动重启 standalone（t434 撕裂律在源头闭合：内存与磁盘说同一 build）→ 板上：鲸鱼行「The heaviest run — Initial Model (tutorial) — holds 413.4 MB, 41% of the project. Weigh it →」+ 16 堆叠条 + 16 秤门；Initial Model 秤门 → run lens（header/Inspector/铲门/后门 + 堆叠条 + All+maps chips + 「603 files on disk made the ledger」作用域诚实行 + 3 文件行）；maps chip 过滤 aria-pressed 生效、账本切换到类别作用域；All runs 后门关透镜回板（截图 .qa-logs/t458-storage-board.png + t458-run-lens.png）；console 0 错、标题 pristine。
+- [验证 — 二十七套全绿] t458 bench 38/0（R1 普查 8、R2 鲸鱼行 6、R3 分解 6、R4 堆叠 6、R5 账本 5、R6 诚实 7）；tsc 0 + eslint 0（三触碰文件）；回归全家 27 套（26 旧 + t458）exit 0 全绿。
+- [诚实边界] ①账本是鲸鱼账本（TOP_FILES_PER_CATEGORY=8/类别）——小 run 的文件可能整支缺席，「unlisted」琥珀态把这一点说成账本的事实而非目录的空（「The run is NOT empty」逐字在面板上）②whaleLine 的「41%」是四舍五入的视觉数，档案数（share）保留全精度在 census 里③run lens 的文件行点击跳 inspector 沿用 t437 语法——文件级的铲子仍住 inspector，板只做地图④孤儿 run 的透镜满血（物理真话）但 Inspector/铲门缺席——无 job record 即无 inspector，琥珀 chip 说出为什么⑤堆叠条的 2% 地板是视觉下限不是数据主张——段的 title 带真字节。
+- [最终态] HEAD = 本窗 feature commit；re-grind 后 stamp 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、QA 浏览器净场、console 0 错、标题 pristine。下一窗从 Task 459 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②2D 分辨率弧的语义（class2d 的 plain model star 已带 FSC 表——若科学语义成立）③漂移 × 波前双徽章并排需可丢弃世界④duplicate-tab tabId 撞号的 localStorage 心跳注册表（需真实场景驱动）⑤run lens 的类别 chip 深钻到「run+类别」文件账本已随本窗交付——下一层（文件级 Clean 快捷动词）仍属 inspector 的铲子管辖，板不夺权。
+
+Stage Summary:
+- **「两个维度，同一个终点」**：类别透镜问「这类 bytes 谁在养」，run 透镜问「这个 run 在盘上留了什么」——矩阵的两条轴现在都能走到文件级，鲸鱼行让最重的 run 一句话自首且行自身就是门
+- **「条不再只说多少，还说住哪」**：单色 primary 条退役——每个 run 的堆叠条用板自己的调色板、按调色板自己的序说话，行间可比不抖动；一眼读出 Extract 是 stacks 的鲸、Post-process 是 maps 的鲸
+- **「缺席是账本的事实，不是目录的谎言」**：账本按类别只留最重的几条——小 run 整支缺席时，unlisted 态说出「run is NOT empty」，把 walk 的容量上限从实现细节升格为面板上的诚实
+- 产出：The Run Lens 全链（storage-run-lens 纯脑 + 堆叠条 + 秤门 ×2 + 鲸鱼行 + run lens 主体三态账本）+ t458 bench 38/0 + 二十七套回归全绿 + run lens 满血活体（鲸鱼行 → 透镜 → chip 过滤 → 后门）+ 三方一致
