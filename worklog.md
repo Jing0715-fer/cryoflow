@@ -5570,3 +5570,22 @@ Stage Summary:
 - **「节流是尊重」**：连按到边缘的一串死键只值一句话——1.2s 窗、组件 ref 记座，导向与噪音的分界线画在毫秒上
 - **「口径不说是谎言的一半」**：7m 04s 不说从 dispatch 计起，读的人拿它对 inspector 的分账就会得出「数字打架」——数字诚实不够，口径也要诚实
 - 产出：arrow-walk.ts 纯脑（方向名/入图/死端三方言）+ app-shell 接线（入图报锚 + 死端节流报向）+ footer 口径句（t465 遗留④⑤关闭）+ t467 bench 26/0 + 33 套回归全绿 + 双 toast 活体逐字 + 截图 ×1
+
+## Task 468 (2026-09-29, cron 22:37 窗 —— The Agent Reads the Ledger)
+
+- [开局] 实尾 = Task 467 完整收官（HEAD = 7170f15 = origin/main——上条待发 commit 是 t467 改号的删除半（旧名 t466-walk-hints-bench.ts），t467-walk-hints-bench.ts 本体已在库，开局推平三方对齐）。第五十八份过时 Task 13 指引照例不认（以 t467 遗留清单为准）。自号 468。
+- [QA — 全绿基线] landing 200、console 0 错、标题 pristine、header 全门在场（含 canvas 漏斗门「Particle funnel — … through Post-process (tutorial)」）；回归全家 33 套 exit 0（浏览器先关再跑）。插曲：工具层显示 rg/sed 曾「展示」出 particle-funnel.ts:391 疑似坏码（mainlineIdsainlineIds）——od -c 字节级裁决为显示层吞字，文件无损——「看起来不可能时先查字节再动手」入册。世界稳定 → 转新需求。
+- [选题定谳 — The Agent Reads the Ledger] t466 给了 agent 结构读（get_workflow_state）与单任务读（inspect_job），但**链读缺席**：漏斗账本（t460–463 的皇冠叙事「我的粒子都去哪了？」）对 agent 不可见——用户问「为什么粒子变少了」，模型只能拿单任务收据拼凑或凭空算术。本窗把账本放行给 agent：第 15 个工具 get_funnel_chain。
+- [交付] ①tools.ts：schema（可选 job_id、additionalProperties:false）+ handler——**同一件家具三件套全复用**：无参 → funnelDoorCandidate(jobs, []) 皇冠律（深完成的 funnel verb，决定论三重平局）；带参 → 任意 verb 的链（未完成站如实报状态，绝不发明收据）；取数形状 = 漏斗路由同款（jobs id/type/name/status/result + edges），funnelLedgerOf + funnelLedgerText 产出 detail.ledgerText——**agent 读的就是 Copy ledger 按钮导出的同一串文本**（t440 共享词表律第五域）。Prisma Date ↔ 纯脑 ISO 串的翻译在边界一次完成。summary = 门名 + headline + counted-station 清点（未完成站逐个点名 status）。②prompt.ts：THE COUNT LAW（跨链计数问题先读账本、绝不拿单任务收据拼凑、绝不重复账本已说出的算术）+ QUESTIONS ARE READS 与 end-to-end recipe 接入 get_funnel_chain。③t419 F8 计数 14→15。
+- [t468 bench — 29/0 首跑即绿] T1 目录形状 4 + T2 诚实拒绝 3（空画布 no-receipts 逐字、bogus id 指路 get_workflow_state）+ T3 无参皇冠读 8（picked:crown、headline 三数、13→6 counted stations、账本文法、边动词 transform/shed 逐字、无尾换行）+ T4 复制钮等价律 3（ledgerText 与 funnelLedgerText 同库重算**字节级相等**）+ T5 running 站 5（summary 点名、detail.unfinished、amber 行无计数、status: running 入文）+ T6 孤 verb 链一 3 + T7 prompt 法条 3。隔离 DB（t419 脚手架）+ 活体世界真实收据行（REMOTE 前缀解析顺带入证）。
+- [自捕自修 — 真 bug：mock 车道泄漏] 活体首跑 `fetch failed` 且 9–15ms 即败、SDK bun 直跑却健康——根因：真实世界 data/ai-settings.json 残留 `activeProvider:"custom" → baseUrl:http://127.0.0.1:3999/v1`（t420 时代 mock 车道方言），agent fetch 打向死端口瞬间拒连。PUT /api/ai/settings {provider:"builtin"} 修复。教训：设置是全局持久态，bench 隔离 DATA_DIR 不代表历史窗不曾污染真实文件；「fetch failed + 毫秒级失败」= 先查 baseUrl 指向。
+- [活体 — 真 GLM 链读逐字] reset 会话 → 「这条链上我的粒子都去哪了？请用数字回答。」→ **iter1 真模型空参调 get_funnel_chain（crown=Post-process tutorial）**，tool ok:true summary 全数（24 in · 5,672 refined · 7.79 Å · 13 counted stations）→ iter2 中文叙事逐字复述账本：24 图 → 408 picks（17/图）→ 96 提取（「76%的候选颗粒未能成为有效颗粒」= shed 行）→ 50 类 → 全 carry → ×60 对称扩展 → 5,760 → −88（1.5%）→ 5,672 精修——零编造、零 mutation（15/15 completed 不动）。插曲：dev server 长跑进程内 SDK 偶发 fetch failed（重启复现于 mock 泄漏根因，修复后消失）；漏斗对话脸截图 .qa-logs/t468-funnel-face.png（门名/headline/边动词与 agent 读的同源同数——一张账本两张脸）。scripts/t468-live-count-question.sh 为活体剧本。
+- [验证-终] t468 bench 29/0；tsc 0 + eslint 0（四触碰文件）；t419 156/0 + t420 54/0；回归全家 34 套（33 旧 + t468）exit 0 全绿；console 0 错、landing 200、世界 15/15 completed、mock 集群 :3022 在听。dev server 中途收割一次（tsc+全家 bench 内存压力）→ dev-server.sh 一次点火复 200。
+- [最终态] HEAD = 本窗 feature commit（docs 随后，origin/main 三方对齐）；世界 dev lane（:3000 200、15/15 completed、14 边、mock 集群 :3022 在听）；AI 设置 = builtin（GLM）激活（mock 泄漏已清）。下一窗从 Task 469 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②funnel 单位扩展 movies（真 RELION 接手时）③prod 磨判例重开前提（t462 判例）④agent 结果读的第二层：compare 域判决（ctf/motion/class/convergence arc）尚无工具——get_funnel_chain 之后「哪两类比较」是下一个自然问句 ⑤ai-settings.json 的 custom 残留暴露一个卫生缺口：设置文件无 schema 校验/无死亡 baseUrl 的健康探针——启动时若 activeProvider 指向不可达端点，徽章/面板可如实说「当前供应商不可达」。
+
+Stage Summary:
+- **「agent 读的是用户读到的那张脸」**：get_funnel_chain 不是给模型私设的摘要器——funnelDoorCandidate 的门律、funnelLedgerOf 的收据文法、funnelLedgerText 的剪贴板文法三件套原样上岗，bench 钉死 ledgerText 与 Copy 钮**字节级相等**——AI 的回答和用户复制的账本永远是同一份真相
+- **「无参是皇冠，有参是点名，未完成是 amber」**：画布门的三条律原样约束 agent 的读——空手读最深完成链、点名读任意链、running 站报状态不报数——模型可以读一个进行中的世界而绝不发明一张收据
+- **「COUNT LAW：数的问题是读，不是算」**：跨链计数问题先读账本——「76% 未能成为颗粒」是账本说过的句子，模型复述即可，任何拿单任务收据重算的努力都是新的撒谎机会
+- **「fetch failed 先查 baseUrl」**：毫秒级失败不是网络抖动是打向死端口——t420 时代的 mock 方言在真实设置文件里睡了三窗；全局持久态是历史窗的共同遗产，诊断从配置指向开始
+- 产出：get_funnel_chain（第 15 工具，账本三件套复用）+ THE COUNT LAW 入 prompt + t468 bench 29/0（复制钮等价律字节级）+ 34 套回归全绿 + 真 GLM 空参链读活体逐字（iter1 工具调用 + iter2 账本复述零编造）+ mock 设置泄漏根因修复 + 截图 ×1
