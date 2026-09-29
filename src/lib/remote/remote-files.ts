@@ -265,11 +265,14 @@ export function parseManifestListing(stdout: string, cap: number): ManifestListi
 
 /**
  * The outputs route's honest one-liner for a file listing that is short
- * somewhere. Three independent facts, one sentence — priority is the
- * depth of the incompleteness: the LOCAL walk missing files on THIS
- * machine outranks the LEDGER being short on the cluster, which outranks
- * the display cap that only limits how many remote cards are drawn.
- * Undefined = nothing is short; no note is honest noise.
+ * somewhere. Independent facts, one sentence — priority is the depth of
+ * the incompleteness: the LOCAL walk missing files on THIS machine
+ * outranks the LEDGER being short on the cluster, which outranks the
+ * display cap that only limits how many remote cards are drawn. When the
+ * two deepest facts coexist (a big local mirror AND a capped ledger —
+ * t464's 遗留⑤: the local sentence alone would MASK the cluster's
+ * incompleteness forever), both travel in one breath — two facts, never
+ * two truths. Undefined = nothing is short; no note is honest noise.
  */
 export function describeListingNote(facts: {
   localTruncated: boolean;
@@ -278,6 +281,8 @@ export function describeListingNote(facts: {
   count: number;
 }): string | undefined {
   const { localTruncated, ledgerTruncated, displayTruncated, count } = facts;
+  if (localTruncated && ledgerTruncated)
+    return `Listing truncated at ${count} files — and the ledger itself was capped: the cluster holds more than the manifest shows (the final star family is pinned first)`;
   if (localTruncated) return `Listing truncated at ${count} files`;
   if (ledgerTruncated)
     return `Listing shows ${count} files — the cluster holds more than the manifest's cap (the final star family is pinned first)`;

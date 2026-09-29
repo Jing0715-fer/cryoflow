@@ -139,11 +139,18 @@ function shQuote(p: string): string {
 {
   console.log("T4 — describeListingNote priority");
   must(describeListingNote({ localTruncated: false, ledgerTruncated: false, displayTruncated: false, count: 42 }) === undefined, "T4 nothing short → no note");
-  const local = describeListingNote({ localTruncated: true, ledgerTruncated: true, displayTruncated: true, count: 42 });
-  must(local === "Listing truncated at 42 files", "T4 the local walk's cut outranks everything");
+  const both = describeListingNote({ localTruncated: true, ledgerTruncated: true, displayTruncated: true, count: 42 });
+  must(
+    both === "Listing truncated at 42 files — and the ledger itself was capped: the cluster holds more than the manifest shows (the final star family is pinned first)",
+    "T4 local + ledger travel in ONE breath — the local cut never masks the cluster's (t464 遗留⑤)"
+  );
+  must(both !== undefined && both.includes("Listing truncated at 42 files"), "T4 the layered sentence still leads with the local fact");
+  const local = describeListingNote({ localTruncated: true, ledgerTruncated: false, displayTruncated: true, count: 42 });
+  must(local === "Listing truncated at 42 files", "T4 local-only keeps its short dialect");
   const ledger = describeListingNote({ localTruncated: false, ledgerTruncated: true, displayTruncated: true, count: 42 });
   must(ledger !== undefined && ledger.includes("the cluster holds more than the manifest's cap"), "T4 the ledger's cut speaks the honest sentence");
   must(ledger !== undefined && ledger.includes("the final star family is pinned first"), "T4 the ledger's cut names the cure");
+  must(ledger !== undefined && !ledger.startsWith("Listing truncated"), "T4 a complete local walk says so — the ledger sentence leads with what IS shown");
   const display = describeListingNote({ localTruncated: false, ledgerTruncated: false, displayTruncated: true, count: 42 });
   must(display === "Listing truncated at 42 files (remote manifest capped)", "T4 the display cap keeps its t289 dialect");
 }
