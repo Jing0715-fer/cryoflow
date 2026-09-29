@@ -116,3 +116,10 @@ export const PostprocessVerdictEntry = dynamic(
     import("./postprocess-verdict-dialog").then((m) => m.PostprocessVerdictEntry),
   { ssr: false, loading: panelLoading }
 );
+// t461 — the chain's own face: the particle funnel ("where did my
+// particles go?") — not a pair, the whole line, receipts as a ledger
+export const ParticleFunnelEntry = dynamic(
+  () =>
+    import("./particle-funnel-dialog").then((m) => m.ParticleFunnelEntry),
+  { ssr: false, loading: panelLoading }
+);

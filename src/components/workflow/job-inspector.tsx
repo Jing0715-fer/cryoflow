@@ -162,6 +162,7 @@ import {
   ClassConvergenceEntry,
   ResolutionArcEntry,
   PostprocessVerdictEntry,
+  ParticleFunnelEntry,
 } from "./results/results-lazy";
 
 /* ------------------------------------------------------------------ */
@@ -2661,6 +2662,13 @@ function InspectorHeader({
              * door hides off the postprocess faces and when the star
              * carries no corrected curve. */}
             <PostprocessVerdictEntry job={job} />
+            {/* t461 — the particle funnel: the CHAIN question — "where did
+             * my particles go?" Not a pair, the whole line: the door
+             * walks the chain from this verb and reads every stage's
+             * receipt as a ledger, with the attrition between neighbors
+             * spoken. Hides off the funnel stages and when the route
+             * returns no chain. */}
+            <ParticleFunnelEntry job={job} />
             {/* t442 — the duplicate door: clone this run as an unstarted
              * twin with its params AND upstream wiring — the A/B loop's
              * front door (copy → tweak one knob → run → compare). */}
