@@ -70,6 +70,10 @@ server.log
 # runtime data
 /db/*.db
 /db/*.db-journal
+# t447 — stray empty prisma/dev.db got auto-committed once (platform cron);
+# the real database lives in db/cryoflow.db — prisma/*.db is always an orphan
+/prisma/*.db
+/prisma/*.db-journal
 /agent-ctx
 # RELION engine outputs + runtime state (large real data files)
 /data/
