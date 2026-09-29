@@ -555,3 +555,84 @@ export function funnelDoorCandidate(
   }
   return { kind: "ready", job: crown, picked: "crown" };
 }
+
+/* ------------------------------------------------------------------ */
+/* The ledger travels (t463) — the funnel as plain text                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The exported ledger. The dialog face is a stack of scaled bars; the
+ * clipboard is a stack of words — and the family's own law already
+ * decided which of the two is the truth ("the numbers are the ledger;
+ * the bars are only the shape"). So the text export is the ledger
+ * whole: the headline arc, every stage row with its receipt, the line
+ * BETWEEN every pair, the census, the closing verdict, and both
+ * confessions (sqrt scale + verbless).
+ *
+ * Grammar over columns: the text will be pasted into notebooks, issue
+ * bodies, and chat windows — proportional-font worlds where column
+ * alignment dissolves. One stable line grammar instead:
+ *   ok row      `Name [type]: 5,672 particles · 50 classes`
+ *   amber row   `Name [type]: a volume verb — no particles on its receipt`
+ *   edge line   `  −312 · 76% of the picks never became particles`
+ * The edge line is indented and SPEAKS FIRST for the row it feeds (the
+ * same order the face renders); a row's per-mic chip stays out — the
+ * edge above it already said it, and a ledger never says one thing
+ * twice in one breath. No trailing newline (clipboard text is not a
+ * file); an empty ledger exports as an empty string (no door opens on
+ * an empty ledger, so no caller should ever hold one).
+ */
+export function funnelLedgerText(
+  ledger: Pick<FunnelLedger, "rows" | "offMainline" | "closing" | "headline" | "note">,
+  hostName?: string,
+): string {
+  if (ledger.rows.length === 0) return "";
+
+  const lines: string[] = [];
+  lines.push(hostName ? `Particle funnel — ${hostName}` : "Particle funnel");
+  lines.push(ledger.headline);
+  lines.push("");
+
+  for (const row of ledger.rows) {
+    if (row.delta) {
+      // the edge speaks first, indented — it feeds the row below it
+      lines.push(`  ${row.delta.line}`);
+    }
+    if (row.kind === "ok" && row.count != null) {
+      let line = `${row.name} [${row.type}]: ${row.count.toLocaleString("en-US")} ${row.unit}`;
+      if (row.classes != null) line += ` · ${row.classes.toLocaleString("en-US")} classes`;
+      lines.push(line);
+    } else {
+      lines.push(
+        `${row.name} [${row.type}]: ${row.subnote ?? "a volume verb — no particles on its receipt"}`,
+      );
+    }
+  }
+
+  // the closing verdict — inside the funnel, before the census (face order)
+  lines.push("");
+  lines.push(
+    ledger.closing
+      ? `closes at ${ledger.closing.resolution} — FSC(0.143), the postprocess receipt's own verdict on where the funnel lands.`
+      : "No postprocess ends this chain yet — the funnel's last number is where the ledger currently stops.",
+  );
+
+  // the census — the verbs the mainline left beside it
+  if (ledger.offMainline.length > 0) {
+    lines.push("");
+    lines.push(
+      `Off this mainline, the same chain also fed: ${ledger.offMainline
+        .map((j) => `${j.name} [${j.type}]`)
+        .join(" · ")}. The walk follows one line at each branch — these ran beside it.`,
+    );
+  }
+
+  // both confessions travel with the numbers
+  lines.push("");
+  lines.push(ledger.note);
+  lines.push(
+    "The funnel reads the receipts; it does not mutate — a different chain comes from re-running a verb.",
+  );
+
+  return lines.join("\n");
+}

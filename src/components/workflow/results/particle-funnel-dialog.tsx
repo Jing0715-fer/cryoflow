@@ -33,7 +33,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Filter } from "lucide-react";
+import { Check, Copy, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,7 +43,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { JobDTO } from "@/lib/types";
-import { FUNNEL_ENTRY_TYPES, type FunnelLedger, type FunnelRow } from "@/lib/particle-funnel";
+import {
+  FUNNEL_ENTRY_TYPES,
+  funnelLedgerText,
+  type FunnelLedger,
+  type FunnelRow,
+} from "@/lib/particle-funnel";
 
 interface FunnelPayload extends FunnelLedger {
   jobId: string;
@@ -130,6 +135,24 @@ const DELTA_TONE: Record<string, string> = {
   transform: "text-sky-700 dark:text-sky-400",
 };
 
+/* t463 — the ledger travels: one button, the whole chain as text. The
+ * copy dialect is the pipeline script's (Check/Copy swap, 1600ms reset)
+ * with one honest extension: a clipboard denial says "Copy failed" for
+ * the same beat instead of leaving the user guessing. */
+function useLedgerCopy(payload: FunnelPayload, jobName: string) {
+  const [copied, setCopied] = useState<"idle" | "ok" | "failed">("idle");
+  const copyLedger = async () => {
+    try {
+      await navigator.clipboard.writeText(funnelLedgerText(payload, jobName));
+      setCopied("ok");
+    } catch {
+      setCopied("failed");
+    }
+    setTimeout(() => setCopied("idle"), 1600);
+  };
+  return { copied, copyLedger };
+}
+
 /* t462 — exported for the canvas door: the plain-sight funnel opens the
  * SAME face the inspector door opens (one chain question, one dialect). */
 export function ParticleFunnelDialog({
@@ -143,6 +166,7 @@ export function ParticleFunnelDialog({
   job: JobDTO;
   payload: FunnelPayload;
 }) {
+  const { copied, copyLedger } = useLedgerCopy(payload, job.name);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-4 overflow-y-auto sm:max-w-3xl">
@@ -207,6 +231,26 @@ export function ParticleFunnelDialog({
           The funnel reads the receipts; it does not mutate. A different
           chain comes from re-running a verb — each stage&apos;s own numbers
           live on its card and in the results below.
+        </div>
+
+        {/* t463 — the ledger travels: the whole chain as clipboard text */}
+        <div className="flex justify-end border-t pt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1.5 rounded-md text-xs"
+            onClick={() => void copyLedger()}
+            aria-label="Copy the funnel ledger as plain text — every stage, every edge, the closing verdict"
+            title="Copy the ledger as plain text — the numbers are the ledger; the bars above are only the shape."
+            data-testid="funnel-copy-ledger"
+          >
+            {copied === "ok" ? (
+              <Check className="size-3.5" aria-hidden="true" />
+            ) : (
+              <Copy className="size-3.5" aria-hidden="true" />
+            )}
+            {copied === "ok" ? "Copied" : copied === "failed" ? "Copy failed" : "Copy ledger"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
