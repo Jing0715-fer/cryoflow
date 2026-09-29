@@ -5692,3 +5692,23 @@ Stage Summary:
 - **「修补的招供上脸」**：t472 的 problems 在 wire 上睡了一窗，现在对话框 header 一行琥珀盒点名每笔修复——手改文件的修复从 curl 可见升级为打开设置就能看见
 - **「触发器是名字，不是卡片」**：radix HoverCard 的触发器是 p.job-card-title——活体探测学又一次证明 DOM 结构要读源码不猜坐标
 - 产出：continue-intent.ts（纯脑词表）+ 卡片三脸（Row 2 emerald 芯片 / 菜单 Continue run / 预览 emerald 行）+ 设置对话框 problems 琥珀盒 + t473 bench 24/0 + 39 套回归全绿 + 三脸活体逐字 + problems 盒活体逐字 + 截图 ×3
+
+## Task 474 (2026-09-30, cron 01:52 窗 —— The Dialog Takes the Roll)
+
+- [开局] 实尾 = Task 473 完整收官（HEAD = 2f0dc51 = origin/main 三方对齐）。世界体检：22 jobs = 19 completed + 1 running fixture（QA Refine Live）+ 2 idle fixture。第六十五份过时 Task 13 指引照例不认（以 t473 遗留清单为准）。自号 474。
+- [QA — 全绿基线] landing 200、console 0 错（HMR 唯二日志）、标题 pristine、header 15 门在场、AI 徽章干净脸（Built-in (GLM) · glm-4-plus）；回归全家 39 套 exit 0（浏览器先关再跑）。世界稳定 → 转新需求。
+- [选题定谳 — The Dialog Takes the Roll] t472 让**激活中**的供应商在 header 徽章招供，但设置对话框里**其余保存供应商**仍是哑的——rail 13 个 catalog 行只有「已存 key」翠绿点，用户看不到候选名单里谁活着：挑中一个死端点、保存、激活、提问、fetch failed——t468 的课要再上一遍。定谳：点名册——每个**已保存**供应商的可达性一次并行清点，rail 戴病点、pane 说全句、手动重测随时点名。t468 尸体（custom → 3999）仍在真实设置文件里睡觉——活体验证零手术，点名册天然自带一个死人一个活人。
+- [交付①— providerRosterHealth（health.ts）] 每个保存供应商一次探针（providerHealthFor TTL 面）并行清点；**未保存的 catalog 行不入册**（noise law：没配置过的供应商唯一能招供的是「还没 key」，说十遍是噪音——rail 的 hasKey 点已管这事）；dangling activeProvider 不发明行（徽章已在说 needsSetup，第二句是噪音）；零配置身份 → 合成 builtin 行应答（镜像 activeProviderHealth，点名册永远至少有一个真话）。**refresh 写缓存律**：手动重测（?refresh=1）绕过缓存重探并**把新答案写回缓存**——手动重测的真相被下一个缓存 GET 反驳，就是用户只要一个真相时给了两个。重构 probeAndCache 共享写路径。
+- [交付②— 路由 + 类型] GET /api/ai/providers/health（GET 无 guard：detail 句至多引 baseUrl——对话框脸上本来就有，秘钥永不入句，与 settings GET 同法理）；?refresh=1 走 probeAndCache。types.ts：AiProviderRosterResponse { providers: Record<id, AiProviderHealthDto> }。
+- [交付③— 对话框三脸（ai-settings-dialog.tsx）] ①**rail 病点**：state ≠ ok 才出场（零噪音律：健康的供应商在 rail 什么都不说）——unreachable=红点、rejected/error=琥珀点 + title 忏悔句 + aria 短脸（端点不可达/端点拒绝密钥/端点应答异常）；②**pane 连通性行**：选中供应商已保存时出「连通性：正常/不可达/被拒绝/应答异常 · Nms」+ detail mono 全句 + 四态各自 dot/文字色；未保存草稿不出行（没探过就没有真话）；③**重新测活钮**：行内 ghost 钮 + RefreshCw 旋转 → ?refresh=1 全员重探，探完 dots 和行同步换新真相。对话框打开时 fetch 点名册（独立 effect，失败静默——health 是加法不是闸门，配置永不被它挡住）。
+- [t474 bench — 19/0 首跑即绿] T1 点名册形状 6（保存的全答、dangling 不发明、零配置合成 builtin、已存 builtin 不重复）+ T2 四态过册 6（真 Bun.serve：200 ok 带 latency + 探过什么说什么 / 死端口拒连快返 <2s 且说 could not be reached 不说超时 / 401+key 说 key 被拒 / 500 报状态码）+ T3 TTL 过册 3（hits 计数为铁证——第二次清点零新探针；refresh 重探 hits+1；**refresh 写回缓存**——后续缓存调用的 checkedAt 与 refresh 的相等且 hits 不动）+ T4 秘钥律过册 2（MARKER key 撞 401——句子说 key 被拒、key 本体零泄漏）+ T5 混册 2（builtin in-process ok latency=null 与真探 custom 同册）。
+- [活体 — 零手术点名] curl 真实路由：builtin ok（in-process SDK lane）+ custom unreachable（`http://127.0.0.1:3999/v1 could not be reached (connect ECONNREFUSED 127.0.0.1:3999)` 4ms）——t468 尸体逐字招供。agent-browser 三脸逐字：①rail 红点 `bg-red-500` + title 忏悔句逐字 + aria 端点不可达；②builtin 连通性行 `连通性：正常 · in-process SDK lane — no endpoint to miss` emerald；③切 custom → 行翻 `连通性：不可达 · 4ms` + ECONNREFUSED 逐字 + 红点；④重新测活钮点击 → 4ms→11ms（真新鲜探针——缓存被绕过重写）、句不变、状态不变。截图 .qa-logs/t474-roster-face.png。插曲：dev server 被 bench 内存压力收割一次 → dev-server.sh 点火复 200（t436 教义第 N 次自我辩护）；世界零手术——无 PUT 舞步，尸体是常驻在册者，点名册只读它。
+- [验证-终] t474 bench 19/0；tsc 0 + eslint 0（五触碰文件）；回归全家 **40 套**（39 旧 + t474）exit 0 全绿；console 0 错、landing 200、标题 pristine、世界 22 jobs 不动、设置文件未动（builtin 激活原样）。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 475 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②continue_run 的 mock 集群真火活体（t471③→t472②→t473② 原样——517s 同步一轮需完整预算）③continue 芯片与世界事件的对齐（t473③ 原样：staleness 琥珀与 continue emerald 同框的合并话术，留给真实并存）④inspector Continue 字段与画布芯片互指（t473④ 原样，观察回执）⑤funnel 单位扩展 movies（真 RELION 接手时）⑥prod 磨判例重开前提（t462 判例）⑦徽章也可以微弱地说「名册上有病号」：header 徽章只说激活者，若非激活的保存供应商病着，徽章是否值得一个次级信号——待用户回执再定。
+
+Stage Summary:
+- **「点名册只点在场的人」**：保存的供应商人人应答，没配置的 catalog 行零噪音（没 key 的唯一招供是「还没 key」，说十遍是噪音）；dangling active 不发明行；零配置身份合成 builtin——册上永远至少一个真话
+- **「一个真相」**：refresh 重探后把新答案写回缓存——手动重测的真相若被下一个缓存 GET 反驳，就是用户只要一个真相时给了两个；bench 用 hits 计数 + checkedAt 全等钉死写回
+- **「健康的沉默，病点的坦白」**：rail 病点只在 state ≠ ok 时出场（t472 徽章零噪音律的 rail 版）；pane 连通性行则对已保存者句句都说——dot 是巡逻，行是问询，各司其职
+- **「尸体是最好的 fixture」**：t468 的 mock 方言尸体在册睡了六窗，t472 让徽章拿它证了忏悔脸，t474 让点名册零手术再证一回——坏配置不必清除，先让它把课讲完
+- 产出：providerRosterHealth（点名册 + refresh 写缓存律）+ GET /api/ai/providers/health（?refresh=1）+ AiProviderRosterResponse + 对话框三脸（rail 病点 / pane 连通性行 / 重新测活钮）+ t474 bench 19/0 首跑即绿 + 40 套回归全绿 + 零手术活体逐字（红点/两行/重测 4ms→11ms）+ 截图 ×1

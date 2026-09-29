@@ -109,6 +109,15 @@ export interface AiSettingsResponse {
   settings: AiSettingsDto;
 }
 
+/**
+ * t474 — GET /api/ai/providers/health response: the roll call. Every SAVED
+ * provider's latest probe in one map (the settings dialog's roster face);
+ * the header badge keeps its active-only truth from /api/ai/settings.
+ */
+export interface AiProviderRosterResponse {
+  providers: Record<string, AiProviderHealthDto>;
+}
+
 /* ------------------------------------------------------------------ */
 /* Conversation transcript (normalized — provider-neutral)             */
 /* ------------------------------------------------------------------ */

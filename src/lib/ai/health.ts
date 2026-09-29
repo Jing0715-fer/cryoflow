@@ -160,6 +160,16 @@ export async function probeProviderHealth(
   };
 }
 
+/** Probe now and make the fresh answer the truth for the next TTL window. */
+async function probeAndCache(
+  providerId: string,
+  cfg: AiProviderConfig,
+): Promise<AiProviderHealthDto> {
+  const health = await probeProviderHealth(providerId, cfg);
+  cache.set(cacheKey(providerId, cfg), { health, expiresAt: Date.now() + CACHE_TTL_MS });
+  return health;
+}
+
 /**
  * The cached face the settings route serves: one probe per provider per
  * TTL window, keyed by id + baseUrl + model so an edit re-tests naturally.
@@ -171,9 +181,39 @@ export async function providerHealthFor(
   const key = cacheKey(providerId, cfg);
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.health;
-  const health = await probeProviderHealth(providerId, cfg);
-  cache.set(key, { health, expiresAt: Date.now() + CACHE_TTL_MS });
-  return health;
+  return probeAndCache(providerId, cfg);
+}
+
+/**
+ * t474 — the roll call: EVERY saved provider's reachability, probed in
+ * parallel (the settings dialog's roster face). Only providers with a
+ * saved config answer — a catalog entry the user never touched has no
+ * endpoint worth probing (the noise law: the rail already marks saved
+ * keys, and an unconfigured provider's only confession would be "no key
+ * yet", ten times over). The zero-config identity gets the synthetic
+ * builtin row, mirroring activeProviderHealth, so the roster always has
+ * at least one truth on the board.
+ *
+ * `refresh` (the dialog's re-probe button) re-tests now and WRITES the
+ * fresh answers back — a manual re-probe that the next cached GET then
+ * disagrees with would be two truths where one was asked for.
+ */
+export async function providerRosterHealth(
+  data: { activeProvider: string | null; providers: Record<string, AiProviderConfig> },
+  opts?: { refresh?: boolean },
+): Promise<Record<string, AiProviderHealthDto>> {
+  const probe = (id: string, cfg: AiProviderConfig) =>
+    opts?.refresh ? probeAndCache(id, cfg) : providerHealthFor(id, cfg);
+  const roster: Record<string, AiProviderHealthDto> = {};
+  await Promise.all(
+    Object.entries(data.providers).map(async ([id, cfg]) => {
+      roster[id] = await probe(id, cfg);
+    }),
+  );
+  if (!data.activeProvider && !roster.builtin) {
+    roster.builtin = await probe("builtin", { apiKey: "", model: "glm-4-plus", baseUrl: null });
+  }
+  return roster;
 }
 
 /**

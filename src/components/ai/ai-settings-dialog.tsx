@@ -42,7 +42,13 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
-import type { AiProviderSummary, AiSettingsResponse, AiSettingsDto } from "@/lib/ai/types";
+import type {
+  AiProviderSummary,
+  AiSettingsResponse,
+  AiSettingsDto,
+  AiProviderHealthDto,
+  AiProviderRosterResponse,
+} from "@/lib/ai/types";
 
 export function AiSettingsDialog() {
   const open = useWorkflowStore((s) => s.aiSettingsOpen);
@@ -61,6 +67,8 @@ export function AiSettingsDialog() {
   const [fetching, setFetching] = React.useState(false);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [health, setHealth] = React.useState<Record<string, AiProviderHealthDto> | null>(null);
+  const [probing, setProbing] = React.useState(false);
   const fetchSeq = React.useRef(0);
 
   const provider = providers.find((p) => p.id === providerId) ?? null;
@@ -89,6 +97,43 @@ export function AiSettingsDialog() {
       cancelled = true;
     };
   }, [open]);
+
+  // ---- t474 the roll call: every saved provider's reachability ----------
+  // Fetched when the dialog opens; `?refresh=1` on the manual re-probe.
+  // A failed roster fetch keeps the dots silent — health is additive,
+  // never a blocker for configuring.
+  React.useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/ai/providers/health");
+        if (!res.ok) return;
+        const data = (await res.json()) as AiProviderRosterResponse;
+        if (!cancelled) setHealth(data.providers ?? {});
+      } catch {
+        /* silent — the dots just don't appear */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  async function reprobe() {
+    setProbing(true);
+    try {
+      const res = await fetch("/api/ai/providers/health?refresh=1");
+      if (res.ok) {
+        const data = (await res.json()) as AiProviderRosterResponse;
+        setHealth(data.providers ?? {});
+      }
+    } catch {
+      /* keep the previous dots */
+    } finally {
+      setProbing(false);
+    }
+  }
 
   // ---- provider switch: load stored config + kick the auto-fetch ---------
   React.useEffect(() => {
@@ -291,6 +336,31 @@ export function AiSettingsDialog() {
                       {p.label.charAt(0)}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-xs font-medium">{p.label}</span>
+                    {(() => {
+                      // t474 — the rail's confession dot: a SAVED provider
+                      // whose endpoint is dead speaks here, before the
+                      // user wastes a save on it. Healthy = silent (the
+                      // zero-noise law the badge set in t472).
+                      const h = health?.[p.id];
+                      if (!h || h.state === "ok") return null;
+                      return (
+                        <span
+                          data-testid={`ai-health-dot-${p.id}`}
+                          className={cn(
+                            "size-1.5 shrink-0 rounded-full",
+                            h.state === "unreachable" ? "bg-red-500" : "bg-amber-500"
+                          )}
+                          title={h.detail}
+                          aria-label={
+                            h.state === "unreachable"
+                              ? "端点不可达"
+                              : h.state === "rejected"
+                                ? "端点拒绝密钥"
+                                : "端点应答异常"
+                          }
+                        />
+                      );
+                    })()}
                     {settings?.providers?.[p.id]?.hasKey ? (
                       <span
                         className="size-1.5 shrink-0 rounded-full bg-emerald-500"
@@ -350,6 +420,53 @@ export function AiSettingsDialog() {
                 </div>
               </div>
             )}
+
+            {/* t474 — the selected provider's roll-call line: the prose face
+                of the roster. Saved configs only (an unsaved draft has
+                nothing probed); the refresh button re-tests EVERY saved
+                provider and the fresh answers become the cache. */}
+            {(() => {
+              const h = providerId ? health?.[providerId] : undefined;
+              const saved = settings?.providers?.[providerId] ?? null;
+              if (!h || !saved) return null;
+              const tone =
+                h.state === "ok"
+                  ? { label: "正常", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" }
+                  : h.state === "unreachable"
+                    ? { label: "不可达", dot: "bg-red-500", text: "text-red-600 dark:text-red-400" }
+                    : h.state === "rejected"
+                      ? { label: "被拒绝", dot: "bg-amber-500", text: "text-amber-700 dark:text-amber-400" }
+                      : { label: "应答异常", dot: "bg-amber-500", text: "text-amber-700 dark:text-amber-400" };
+              return (
+                <div
+                  data-testid="ai-health-line"
+                  className="flex items-start gap-2.5 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2"
+                >
+                  <span className={cn("mt-[5px] size-2 shrink-0 rounded-full", tone.dot)} aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-medium leading-tight">
+                      连通性：<span className={tone.text}>{tone.label}</span>
+                      {h.latencyMs != null && (
+                        <span className="ml-1 font-normal text-muted-foreground">· {h.latencyMs}ms</span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[10px] leading-relaxed break-all text-muted-foreground/80">
+                      {h.detail}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void reprobe()}
+                    disabled={probing}
+                    aria-label="重新测活"
+                    title="重新探测所有已保存供应商的连通性"
+                    className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  >
+                    <RefreshCw className={cn("size-3", probing && "animate-spin")} aria-hidden="true" />
+                  </button>
+                </div>
+              );
+            })()}
 
             {provider?.custom && (
               <div className="space-y-2">
