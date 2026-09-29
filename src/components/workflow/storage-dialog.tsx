@@ -38,6 +38,21 @@
  *     quietly inflate the claim;
  *   - the lens grows a second view: feeding RUNS (who holds this
  *     category's bytes, heaviest first) beside the whale FILES.
+ *
+ * t458 — the run lens, the third view: the category lens (t437) read
+ * the disk by CATEGORY first; this is its mirror image, reading by RUN
+ * first — either dimension, the same file-level terminus.
+ *   - every run row's bar becomes the category STACK (the board's own
+ *     palette, the palette's own order) — where a run's bytes live is
+ *     now legible without opening anything;
+ *   - a weigh door on every run row (and on the lens's feeding-runs)
+ *     opens the run lens in place: the run's stack, its category chips,
+ *     and its file ledger (the walk's whale rows that live in this run);
+ *   - the summary block gains the whale line — the heaviest run, its
+ *     bytes, its share — and the line itself is the door;
+ *   - the ledger's absence is honest: a run whose files never made the
+ *     walk's per-category whale ledger reads "unlisted", amber — a fact
+ *     about the ledger, never a claim that the directory is empty.
  */
 
 import * as React from "react";
@@ -51,6 +66,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
+  BarChart3,
   Eraser,
   HardDrive,
   Loader2,
@@ -69,6 +85,15 @@ import {
   runsForCategory,
   walkDelta,
 } from "@/lib/storage-clean";
+import {
+  categoriesOfRun,
+  filesForRun,
+  runCensus,
+  runLedgerLine,
+  runLedgerState,
+  runStackSegments,
+  whaleLine,
+} from "@/lib/storage-run-lens";
 import type { JobDTO } from "@/lib/types";
 import { CleanupDialog } from "./cleanup-dialog";
 
@@ -175,6 +200,29 @@ function CleanDoor({
   );
 }
 
+/**
+ * t458 — the weigh door on a run row: opens the run lens in place —
+ * the run's category stack, chips and file ledger, without leaving the
+ * board. The mirror of the category chips' drill (t437): either
+ * dimension first, the same terminus. Blue on hover — the lens is a
+ * looking affordance, not a destructive one.
+ */
+function WeighDoor({ name, onOpen }: { name: string; onOpen: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={onOpen}
+      className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400"
+      aria-label={`Weigh ${name} by category`}
+      title={`Weigh ${name} by category — the run lens opens right here: stack, chips, file ledger`}
+    >
+      <BarChart3 className="size-3.5" aria-hidden="true" />
+    </Button>
+  );
+}
+
 function sortJobs(
   jobs: StorageResponse["jobs"],
   key: JobSort
@@ -211,6 +259,13 @@ export default function StorageDialog({
    *  files) or feeding RUNS (who holds this category's bytes). A view,
    *  not data: survives a Refresh, forgotten on close with the lens. */
   const [lensView, setLensView] = React.useState<"files" | "runs">("files");
+  /** t458: the run lens — a run dirName clicked through to the run's
+   *  own view (stack, chips, file ledger). The category lens's mirror:
+   *  the two are siblings at the same drill level, so opening one
+   *  closes the other; both are views (survive Refresh, forgotten on
+   *  close), and the chip filter inside is forgotten with the lens. */
+  const [runLensDir, setRunLensDir] = React.useState<string | null>(null);
+  const [runCatFilter, setRunCatFilter] = React.useState<StorageCategoryId | null>(null);
   /** t441: the clean bridge — the run whose tiered cleanup is open, the
    *  pre-clean walk (total + fetch time) the receipt compares against,
    *  and the receipt line itself. All forgotten when the dialog closes. */
@@ -256,6 +311,8 @@ export default function StorageDialog({
       setError(null);
       setLens(null);
       setLensView("files");
+      setRunLensDir(null);
+      setRunCatFilter(null);
       setReceipt(null);
       preClean.current = null;
       setCleanJob(null);
@@ -330,6 +387,53 @@ export default function StorageDialog({
     lensFiles.length > 0 ? Math.max(...lensFiles.map((f) => f.bytes), 1) : 1;
   const lensTotalFiles = lens && data ? (data.byCategory[lens]?.files ?? 0) : 0;
 
+  /* ---- the run lens (t458): one run's stack, chips and file ledger ----
+   * The census weighs every run once per walk; the whale line reads it.
+   * Opening the run lens closes the category lens (siblings at the same
+   * drill level — one looking at a time), and the lens's chip filter is
+   * forgotten whenever the lens itself moves on. */
+  const census = React.useMemo(
+    () => (data ? runCensus(data.jobs, data.totalBytes) : []),
+    [data]
+  );
+  const whale = whaleLine(census, data?.totalBytes ?? 0);
+  const whaleDir = whale && census[0] ? census[0].row.dirName : null;
+  const openRunLens = React.useCallback((dirName: string) => {
+    setLens(null);
+    setLensView("files");
+    setRunLensDir(dirName);
+    setRunCatFilter(null);
+  }, []);
+  const closeRunLens = React.useCallback(() => {
+    setRunLensDir(null);
+    setRunCatFilter(null);
+  }, []);
+
+  const runLensRow =
+    data && runLensDir
+      ? (data.jobs.find((j) => j.dirName === runLensDir) ?? null)
+      : null;
+  const runSlices = runLensRow ? categoriesOfRun(runLensRow) : [];
+  const runFiles = runLensRow
+    ? filesForRun(data?.topFiles ?? [], runLensRow.dirName, runCatFilter ?? undefined)
+    : [];
+  const runFileMax =
+    runFiles.length > 0 ? Math.max(...runFiles.map((f) => f.bytes), 1) : 1;
+  /* the ledger's honesty is SCOPED: with a category chip active, "files
+   * on disk" means that category's own count (a run whose maps made the
+   * ledger says nothing about its logs), so the same three-state law
+   * (runLedgerState) answers per scope. */
+  const ledgerDiskFiles = runLensRow
+    ? runCatFilter
+      ? (runLensRow.categories[runCatFilter]?.files ?? 0)
+      : runLensRow.files
+    : 0;
+  const ledgerState = runLensRow
+    ? runLedgerState({ files: ledgerDiskFiles }, runFiles.length)
+    : "empty";
+  const ledgerLine =
+    ledgerState === "ledger" ? runLedgerLine(runFiles.length, ledgerDiskFiles) : null;
+
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -342,7 +446,8 @@ export default function StorageDialog({
           <DialogDescription>
             What {project?.name ?? "this project"} keeps on disk — the whales first.
             Categories are read from file extensions; the walk is the physical truth.
-            Eraser doors clean a run in place; the numbers re-walk after.
+            Eraser doors clean a run in place; the weigh door (t458) breaks one down
+            by category without leaving the board; the numbers re-walk after a clean.
           </DialogDescription>
         </DialogHeader>
 
@@ -395,6 +500,27 @@ export default function StorageDialog({
                 </div>
               </div>
 
+              {/* ---- t458: the whale line — the heaviest run, named by
+                   the walk, and the line itself is the door into that
+                   run's lens. Silent when there is nothing to name. */}
+              {whale && whaleDir && (
+                <button
+                  type="button"
+                  onClick={() => openRunLens(whaleDir)}
+                  className="mt-3 flex w-full items-start gap-2 rounded-lg border border-violet-500/30 bg-violet-500/[0.06] px-3 py-2 text-left text-xs text-violet-700 transition-colors hover:bg-violet-500/[0.12] dark:text-violet-300"
+                  title="The heaviest run — click to weigh it by category right here"
+                  aria-label="The heaviest run — open its run lens"
+                >
+                  <HardDrive className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                  <span>
+                    {whale}{" "}
+                    <span className="font-medium underline decoration-dotted underline-offset-2">
+                      Weigh it →
+                    </span>
+                  </span>
+                </button>
+              )}
+
               {/* ---- t441: the clean receipt — the walk's own account of
                    the last clean. Printed only from the fresh reload, so
                    the line is always about the numbers now on screen. */}
@@ -441,7 +567,13 @@ export default function StorageDialog({
                             key={c.id}
                             type="button"
                             aria-pressed={lens === c.id}
-                            onClick={() => setLens(lens === c.id ? null : c.id)}
+                            onClick={() => {
+                              // t458: siblings at one drill level — opening
+                              // the category lens closes the run lens
+                              setRunLensDir(null);
+                              setRunCatFilter(null);
+                              setLens(lens === c.id ? null : c.id);
+                            }}
                             className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
                               CATEGORY_TEXT[c.id]
                             } ${
@@ -474,8 +606,12 @@ export default function StorageDialog({
                 </p>
               )}
 
-              {/* ---- the per-run table (the lens's home view) ---- */}
-              {!lens && jobs.length > 0 && (
+              {/* ---- the per-run table (the lens's home view) ----
+                   t458: hidden while the run lens is open (the two are
+                   the same drill slot); the row bar is now the run's
+                   category STACK — the board's palette, the palette's
+                   own order — and each row grows a weigh door. */}
+              {!lens && !runLensDir && jobs.length > 0 && (
                 <div className="mt-5">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -549,11 +685,23 @@ export default function StorageDialog({
                               </p>
                             </div>
                             <div className="w-28 shrink-0 sm:w-36">
-                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                                <div
-                                  className="h-full rounded-full bg-primary/70"
-                                  style={{ width: `${Math.max((job.bytes / maxBytes) * 100, job.bytes > 0 ? 2 : 0)}%` }}
-                                />
+                              {/* t458: the stack — one segment per
+                                  above-zero category, in the palette's
+                                  own order; a run's bar now says WHERE
+                                  its bytes live, not just how many. */}
+                              <div
+                                className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                                role="img"
+                                aria-label={`${job.name} disk usage by category`}
+                              >
+                                {runStackSegments(job.categories, maxBytes).map((seg) => (
+                                  <div
+                                    key={seg.id}
+                                    className={`${CATEGORY_COLORS[seg.id]} transition-opacity duration-300`}
+                                    style={{ width: `${Math.max(seg.pct, job.bytes > 0 ? 2 : 0)}%` }}
+                                    title={`${seg.id} — ${fmtBytes(job.categories[seg.id]?.bytes ?? 0)}`}
+                                  />
+                                ))}
                               </div>
                               <p className="mt-1 text-right text-[11px] tabular-nums text-muted-foreground">
                                 {top ? (
@@ -574,6 +722,9 @@ export default function StorageDialog({
                               </p>
                             </div>
                           </button>
+                          {/* t458: the weigh door — the run lens opens
+                              in place, no inspector trip needed. */}
+                          <WeighDoor name={job.name} onOpen={() => openRunLens(job.dirName)} />
                           {cleanRowJob && (
                             <CleanDoor
                               name={job.name}
@@ -588,6 +739,220 @@ export default function StorageDialog({
                       );
                     })}
                   </ul>
+                </div>
+              )}
+
+              {/* ---- the run lens (t458): one run, weighed in place —
+                   its category stack, its chips, its file ledger. The
+                   mirror of the category lens: either dimension first,
+                   the same file-level terminus. Orphans keep the amber
+                   honesty (physical truth, no inspector to jump to). */}
+              {runLensRow && (
+                <div className="mt-5" aria-label={`${runLensRow.name} run lens`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Run · {runLensRow.name}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {runLensRow.jobId && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 border border-transparent px-2 text-[11px] text-muted-foreground"
+                          onClick={() => {
+                            inspect(runLensRow.jobId as string);
+                            onOpenChange(false);
+                          }}
+                          title="Open this run's inspector — the planner's tiers and the shovel live there"
+                        >
+                          Inspector
+                        </Button>
+                      )}
+                      {(() => {
+                        const cleanRowJob = runLensRow.jobId
+                          ? storeJobs.find((j) => j.id === runLensRow.jobId)
+                          : undefined;
+                        return cleanRowJob ? (
+                          <CleanDoor
+                            name={runLensRow.name}
+                            status={cleanRowJob.status}
+                            onOpen={() => {
+                              if (!runLensRow.jobId) return;
+                              openClean(runLensRow.jobId as string);
+                            }}
+                          />
+                        ) : null;
+                      })()}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 border border-transparent px-2 text-[11px] text-muted-foreground"
+                        onClick={closeRunLens}
+                      >
+                        <ArrowLeft className="size-3" aria-hidden="true" />
+                        All runs
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <p className="text-sm font-semibold">{runLensRow.name}</p>
+                      {runLensRow.jobId === null && (
+                        <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                          no job record
+                        </span>
+                      )}
+                      <p className="text-sm tabular-nums text-muted-foreground">
+                        {fmtBytes(runLensRow.bytes)} · {runLensRow.files.toLocaleString()} file
+                        {runLensRow.files === 1 ? "" : "s"}
+                        {data && data.totalBytes > 0 && runLensRow.bytes > 0
+                          ? ` · ${(runLensRow.bytes / data.totalBytes).toFixed(0)}% of the project`
+                          : ""}
+                      </p>
+                    </div>
+                    <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                      {runLensRow.dirName} · {runLensRow.type} · {runLensRow.status}
+                    </p>
+
+                    {/* the run's own stack — the same palette and order
+                        the board's rows speak, one size up */}
+                    <div
+                      className="mt-2.5 flex h-2.5 w-full overflow-hidden rounded-full bg-muted"
+                      role="img"
+                      aria-label={`${runLensRow.name} disk usage by category`}
+                    >
+                      {runStackSegments(runLensRow.categories, maxBytes).map((seg) => (
+                        <div
+                          key={seg.id}
+                          className={`${CATEGORY_COLORS[seg.id]} transition-opacity duration-300 ${
+                            runCatFilter && runCatFilter !== seg.id ? "opacity-25" : "opacity-100"
+                          }`}
+                          style={{ width: `${Math.max(seg.pct, runLensRow.bytes > 0 ? 2 : 0)}%` }}
+                          title={`${seg.id} — ${fmtBytes(runLensRow.categories[seg.id]?.bytes ?? 0)}`}
+                        />
+                      ))}
+                    </div>
+
+                    {/* the category chips — the filter, in the palette's
+                        own order; the run's stack dims everything the
+                        chip is not looking at */}
+                    <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1">
+                      <button
+                        type="button"
+                        aria-pressed={runCatFilter === null}
+                        onClick={() => setRunCatFilter(null)}
+                        className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-foreground transition-colors ${
+                          runCatFilter === null
+                            ? "bg-muted font-semibold ring-1 ring-inset ring-border"
+                            : "opacity-60 hover:opacity-100 hover:bg-muted/40"
+                        }`}
+                        title="All of this run's categories"
+                      >
+                        All {fmtBytes(runLensRow.bytes)}
+                      </button>
+                      {runSlices.map((slice) => (
+                        <button
+                          key={slice.id}
+                          type="button"
+                          aria-pressed={runCatFilter === slice.id}
+                          onClick={() => setRunCatFilter(runCatFilter === slice.id ? null : slice.id)}
+                          className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
+                            CATEGORY_TEXT[slice.id]
+                          } ${
+                            runCatFilter === slice.id
+                              ? "bg-muted font-semibold ring-1 ring-inset ring-border"
+                              : runCatFilter
+                                ? "opacity-60 hover:opacity-100 hover:bg-muted/40"
+                                : "hover:bg-muted/40"
+                          }`}
+                          title={`${slice.share.toFixed(0)}% of this run's bytes`}
+                        >
+                          <span
+                            className={`inline-block size-2 rounded-full ${CATEGORY_COLORS[slice.id]}`}
+                            aria-hidden="true"
+                          />
+                          {slice.id} {fmtBytes(slice.bytes)}
+                          <span className="text-muted-foreground">
+                            ({slice.share.toFixed(0)}%)
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* the file ledger — the walk's whale rows that live
+                        in this run, scoped to the chip when one is lit.
+                        Three honest states (t458's law): rows, unlisted
+                        (amber — a fact about the ledger), or empty. */}
+                    {ledgerState === "ledger" ? (
+                      <>
+                        <p className="mt-2 text-[11px] text-muted-foreground">{ledgerLine}</p>
+                        <ul className="mt-1 divide-y divide-border/60">
+                          {runFiles.map((f) => {
+                            const orphan = runLensRow.jobId === null;
+                            return (
+                              <li key={f.path ?? `${f.dirName}:${f.bytes}:${f.category}`}>
+                                <button
+                                  type="button"
+                                  disabled={orphan}
+                                  onClick={() => {
+                                    if (!runLensRow.jobId) return;
+                                    inspect(runLensRow.jobId as string);
+                                    onOpenChange(false);
+                                  }}
+                                  className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
+                                    orphan
+                                      ? "cursor-default bg-amber-500/[0.05]"
+                                      : "hover:bg-muted/40"
+                                  }`}
+                                  title={
+                                    orphan
+                                      ? "No job record points at this run — nothing to inspect"
+                                      : `Open ${runLensRow.name}'s inspector (its Clean intermediates button lives there)`
+                                  }
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate font-mono text-xs" title={f.path}>
+                                      {f.path}
+                                    </p>
+                                  </div>
+                                  <div className="w-24 shrink-0 sm:w-32">
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                      <div
+                                        className={`h-full rounded-full ${CATEGORY_COLORS[f.category]}`}
+                                        style={{
+                                          width: `${Math.max((f.bytes / runFileMax) * 100, 2)}%`,
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="w-20 shrink-0 text-right sm:w-24">
+                                    <p className="text-sm font-medium tabular-nums">
+                                      {fmtBytes(f.bytes)}
+                                    </p>
+                                  </div>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </>
+                    ) : ledgerState === "unlisted" ? (
+                      <p className="mt-2 rounded-md border border-dashed border-amber-500/40 bg-amber-500/[0.05] p-3 text-xs text-amber-700 dark:text-amber-300">
+                        {ledgerDiskFiles.toLocaleString()} file
+                        {ledgerDiskFiles === 1 ? "" : "s"} on disk
+                        {runCatFilter ? " in this category" : ""} — but none made the walk's
+                        whale ledger (it keeps the heaviest few per category). The run is NOT
+                        empty; the full listing lives in its inspector.
+                      </p>
+                    ) : (
+                      <p className="mt-2 rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                        The walk counted no files here
+                        {runCatFilter ? " in this category" : ""} — the directory is empty of
+                        {runCatFilter ? " that category" : " files"}; Refresh re-walks it.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -807,6 +1172,10 @@ export default function StorageDialog({
                                   </p>
                                 </div>
                               </button>
+                              {/* t458: the weigh door crosses the matrix —
+                                  a feeding run of one category opens its
+                                  full run lens (all categories) in place. */}
+                              <WeighDoor name={r.name} onOpen={() => openRunLens(r.dirName)} />
                               {cleanRowJob && (
                                 <CleanDoor
                                   name={r.name}
