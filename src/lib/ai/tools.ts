@@ -161,7 +161,7 @@ export const AI_TOOLS: ToolSchema[] = [
   {
     name: "list_deleted",
     description:
-      "Read the graveyard — every deleted job's tombstone, newest first: its id, type and name (when the grave remembers them), when it was deleted, what its run record says (done/exit code/result line), what its surviving workdir still weighs on disk (bytes — a deleted job keeps its run directory until the grave is cleared, so the deleted still occupy space), and whether it can be restored from here (a grave with a row snapshot restores under its ORIGINAL id — workdir, run record and wires re-attach; a grave without one restores only from the canvas's undo). The mirror read for delete_job.",
+      "Read the graveyard — every deleted job's tombstone, newest first: its id, type and name (when the grave remembers them), when it was deleted, what its run record says (done/exit code/result line — each row also carries runLine, the run's own one-line verdict: finished clean / failed / was stopped), what its surviving workdir still weighs on disk (bytes — a deleted job keeps its run directory until the grave is cleared, so the deleted still occupy space), and whether it can be restored from here (a grave with a row snapshot restores under its ORIGINAL id — workdir, run record and wires re-attach; a grave without one restores only from the canvas's undo). The mirror read for delete_job.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {

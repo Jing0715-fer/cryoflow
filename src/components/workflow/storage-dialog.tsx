@@ -81,6 +81,7 @@ import {
 import {
   ArrowLeft,
   BarChart3,
+  ChevronRight,
   Eraser,
   HardDrive,
   Loader2,
@@ -434,6 +435,35 @@ export default function StorageDialog({
     spentGraves.length > 0
       ? `Buries ${spentGraves.length} spent grave${spentGraves.length === 1 ? "" : "s"}${spentBytes > 0 ? ` — reclaims ${fmtBytes(spentBytes)}` : " (no surviving workdirs)"}. Restorable graves are spared.`
       : `Buries ${restorableGraves.length} restorable grave${restorableGraves.length === 1 ? "" : "s"} and their workdirs${restorableBytes > 0 ? ` (${fmtBytes(restorableBytes)})` : ""} — they can never come back.`;
+
+  /* ---- t481 — the graves wear epitaphs ----
+   * Two reading layers the one-line row could not carry:
+   *  - the EPITAPH (a row's chevron): the run's own words (graveRunLine —
+   *    the same sentence list_deleted quotes), the result line, the grave's
+   *    date of death, the original id a restore brings it back under, the
+   *    wires that re-attach, and — for a grave that cannot come back from
+   *    here — the why, visible at last instead of living only in a title.
+   *    One grave open at a time; the accordion keeps the eight visible
+   *    rows tidy.
+   *  - the ORDER (Sort: Newest / Heaviest): the weight view puts the
+   *    heaviest graves first — bytes desc, weightless graves trailing in
+   *    their own newest-first order. Offered only when the roll holds
+   *    more than one grave AND at least one carries bytes (a sort the
+   *    world cannot answer is a lying door); the overflow line's noun
+   *    follows the order (older graves vs more graves). */
+  const [openGrave, setOpenGrave] = React.useState<string | null>(null);
+  const [graveSort, setGraveSort] = React.useState<"newest" | "weight">("newest");
+  const anyGraveBytes = graves?.some((g) => g.bytes !== undefined) ?? false;
+  const sortedGraves = React.useMemo(() => {
+    if (!graves || graveSort === "newest") return graves ?? [];
+    return [...graves].sort(
+      (a, b) =>
+        // weightless graves (bytes undefined) rank AFTER every weighed one —
+        // they claim no bytes, so they claim no weight rank
+        (b.bytes ?? -1) - (a.bytes ?? -1) ||
+        (a.deletedAt < b.deletedAt ? 1 : a.deletedAt > b.deletedAt ? -1 : 0)
+    );
+  }, [graves, graveSort]);
 
   const handleGraveClear = React.useCallback(async () => {
     if (!graves || graves.length === 0) return;
@@ -1449,66 +1479,160 @@ export default function StorageDialog({
                       {spareHint}
                     </p>
                   )}
-                  <ul className="mt-2 space-y-1">
-                    {graves.slice(0, 8).map((g) => (
-                      <li
-                        key={g.id}
-                        data-testid="graveyard-row"
-                        className="flex items-center gap-2 text-xs"
+                  {sortedGraves.length > 1 && anyGraveBytes && (
+                    <div
+                      className="mt-1.5 flex items-center justify-end gap-1"
+                      role="group"
+                      aria-label="Graveyard order"
+                    >
+                      <span className="text-[10px] text-muted-foreground/70">Sort</span>
+                      <button
+                        type="button"
+                        data-testid="graveyard-sort-newest"
+                        aria-pressed={graveSort === "newest"}
+                        onClick={() => setGraveSort("newest")}
+                        className={`h-5 rounded px-1.5 text-[10px] ${
+                          graveSort === "newest"
+                            ? "bg-muted font-medium text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
                       >
-                        <span
-                          className="min-w-0 flex-1 truncate font-medium"
-                          title={g.run?.result ? `${g.name ?? g.id} — ${g.run.result}` : g.name ?? g.id}
-                        >
-                          {g.name ?? g.id}
-                        </span>
-                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                          {g.type}
-                        </span>
-                        <span
-                          className="shrink-0 text-[10px] tabular-nums text-muted-foreground"
-                          title={new Date(g.deletedAt).toLocaleString()}
-                        >
-                          {graveAge(g.deletedAt)}
-                        </span>
-                        {g.bytes !== undefined && (
-                          <span
-                            className="shrink-0 text-[10px] tabular-nums text-muted-foreground/80"
-                            title={`${fmtBytes(g.bytes)} of run output still in the grave's workdir — reclaim it with Clear`}
-                          >
-                            {fmtBytes(g.bytes)}
-                          </span>
-                        )}
-                        {g.restorable ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 shrink-0 gap-1 px-2 text-[11px] text-primary hover:text-primary"
-                            disabled={restoringId === g.id}
-                            onClick={() => void handleGraveRestore(g.id)}
-                            aria-label={`Restore ${g.name ?? g.type} to the canvas`}
-                            title="Bring it back under its original id — its workdir, run record and wires re-attach as if the delete never happened"
-                          >
-                            <Undo2
-                              className={`size-3${restoringId === g.id ? " animate-spin" : ""}`}
-                              aria-hidden="true"
-                            />
-                            Restore
-                          </Button>
-                        ) : (
-                          <span
-                            className={`shrink-0 text-[10px] ${g.rowSnapshot ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground/70"}`}
-                            title={g.why}
-                          >
-                            {g.rowSnapshot ? "already restored" : "canvas undo only"}
-                          </span>
-                        )}
-                      </li>
-                    ))}
+                        Newest first
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="graveyard-sort-weight"
+                        aria-pressed={graveSort === "weight"}
+                        onClick={() => setGraveSort("weight")}
+                        className={`h-5 rounded px-1.5 text-[10px] ${
+                          graveSort === "weight"
+                            ? "bg-muted font-medium text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                        title="Heaviest first — the graves still holding workdirs lead, the weightless trail in their own newest-first order"
+                      >
+                        Heaviest first
+                      </button>
+                    </div>
+                  )}
+                  <ul className="mt-2 space-y-1">
+                    {sortedGraves.slice(0, 8).map((g) => {
+                      const open = openGrave === g.id;
+                      return (
+                        <li key={g.id} data-testid="graveyard-row" className="block">
+                          <div className="flex items-center gap-2 text-xs">
+                            <button
+                              type="button"
+                              data-testid="graveyard-row-toggle"
+                              className="-m-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                              aria-expanded={open}
+                              aria-controls={`graveyard-epitaph-${g.id}`}
+                              aria-label={`${open ? "Hide" : "Read"} the epitaph of ${g.name ?? g.id}`}
+                              title="The grave's epitaph — what its run was, the id it comes back under, its wires"
+                              onClick={() => setOpenGrave(open ? null : g.id)}
+                            >
+                              <ChevronRight
+                                className={`size-3 transition-transform${open ? " rotate-90" : ""}`}
+                                aria-hidden="true"
+                              />
+                            </button>
+                            <span
+                              className="min-w-0 flex-1 truncate font-medium"
+                              title={g.run?.result ? `${g.name ?? g.id} — ${g.run.result}` : g.name ?? g.id}
+                            >
+                              {g.name ?? g.id}
+                            </span>
+                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                              {g.type}
+                            </span>
+                            <span
+                              className="shrink-0 text-[10px] tabular-nums text-muted-foreground"
+                              title={new Date(g.deletedAt).toLocaleString()}
+                            >
+                              {graveAge(g.deletedAt)}
+                            </span>
+                            {g.bytes !== undefined && (
+                              <span
+                                className="shrink-0 text-[10px] tabular-nums text-muted-foreground/80"
+                                title={`${fmtBytes(g.bytes)} of run output still in the grave's workdir — reclaim it with Clear`}
+                              >
+                                {fmtBytes(g.bytes)}
+                              </span>
+                            )}
+                            {g.restorable ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 shrink-0 gap-1 px-2 text-[11px] text-primary hover:text-primary"
+                                disabled={restoringId === g.id}
+                                onClick={() => void handleGraveRestore(g.id)}
+                                aria-label={`Restore ${g.name ?? g.type} to the canvas`}
+                                title="Bring it back under its original id — its workdir, run record and wires re-attach as if the delete never happened"
+                              >
+                                <Undo2
+                                  className={`size-3${restoringId === g.id ? " animate-spin" : ""}`}
+                                  aria-hidden="true"
+                                />
+                                Restore
+                              </Button>
+                            ) : (
+                              <span
+                                className={`shrink-0 text-[10px] ${g.rowSnapshot ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground/70"}`}
+                                title={g.why}
+                              >
+                                {g.rowSnapshot ? "already restored" : "canvas undo only"}
+                              </span>
+                            )}
+                          </div>
+                          {open && (
+                            <div
+                              id={`graveyard-epitaph-${g.id}`}
+                              data-testid="graveyard-epitaph"
+                              className="ml-4 mt-1 space-y-0.5 rounded-r border-l-2 border-border/70 bg-background/60 px-2.5 py-1.5 text-[10px] leading-snug text-muted-foreground"
+                            >
+                              {g.runLine && (
+                                <p className="tabular-nums">
+                                  {g.runLine}
+                                  {g.run?.result ? (
+                                    <span className="text-foreground/70"> — “{g.run.result}”</span>
+                                  ) : null}
+                                </p>
+                              )}
+                              <p>
+                                deleted{" "}
+                                <span className="tabular-nums" title="The grave's date of death">
+                                  {new Date(g.deletedAt).toLocaleString()}
+                                </span>
+                              </p>
+                              <p>
+                                id{" "}
+                                <span
+                                  className="font-mono text-[9px]"
+                                  title="The original id a restore brings it back under"
+                                >
+                                  {g.id}
+                                </span>
+                              </p>
+                              <p>
+                                {g.edges === 0
+                                  ? "no wires to neighbours"
+                                  : `${g.edges} wire${g.edges === 1 ? "" : "s"} to neighbours — they re-attach when the job comes back`}
+                              </p>
+                              {!g.restorable && g.why && (
+                                <p className={g.rowSnapshot ? "text-amber-600 dark:text-amber-400" : ""}>
+                                  {g.why}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                   {graves.length > 8 && (
                     <p className="mt-1.5 text-[10px] text-muted-foreground">
-                      …and {graves.length - 8} older grave{graves.length - 8 === 1 ? "" : "s"} the agent can still name (list_deleted)
+                      …and {graves.length - 8} {graveSort === "weight" ? "more" : "older"} grave
+                      {graves.length - 8 === 1 ? "" : "s"} the agent can still name (list_deleted)
                     </p>
                   )}
                 </div>

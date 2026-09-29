@@ -231,6 +231,11 @@ export interface GraveRow {
     exitCode: number | null;
     result?: string;
   } | null;
+  /** t481 — the run's own words (graveRunLine), computed once here so the
+   *  agent's list_deleted quotes the SAME sentence the drawer's epitaph
+   *  prints — one grammar, both faces, zero drift. Omitted when the grave
+   *  holds no run record at all (an old grave that never ran). */
+  runLine?: string;
   edges: number;
   restorable: boolean;
   why?: string;
@@ -268,6 +273,25 @@ export function graveWorkdirBytes(workdir: string | null | undefined): number | 
   return usage.bytes;
 }
 
+/**
+ * t481 — the run's own words. The tombstone's record is coerced TERMINAL
+ * at delete time (writeJobTombstone), so the grammar is closed:
+ *   - exit 0        → finished clean
+ *   - exit -1       → the stop coercion's own sentinel — was stopped
+ *   - any other     → failed (a real exit code; -1 is never one)
+ *   - exit null     → the pre-coercion shape (an old grave caught live)
+ *   - no record     → undefined, the key stays absent (the omission law)
+ * One sentence shared by the drawer's epitaph and the agent's rows — the
+ * model quotes the words the UI prints, never its own paraphrase.
+ */
+export function graveRunLine(run: GraveRow["run"]): string | undefined {
+  if (!run) return undefined;
+  if (run.exitCode === null) return "was still running when it was deleted";
+  if (run.exitCode === 0) return "finished clean (exit 0)";
+  if (run.exitCode === -1) return "was stopped when it was deleted";
+  return `failed (exit ${run.exitCode})`;
+}
+
 export async function graveRowsOf(): Promise<GraveRow[]> {
   const graves = listJobTombstones();
   return Promise.all(
@@ -279,19 +303,22 @@ export async function graveRowsOf(): Promise<GraveRow[]> {
       const occupied = !!(await db.job.findUnique({ where: { id: g.id }, select: { id: true } }));
       const name = g.row?.name ?? null;
       const type = g.row?.type ?? rec?.type ?? "unknown";
+      const run = rec
+        ? {
+            done: rec.done,
+            exitCode: rec.exitCode,
+            ...(rec.result ? { result: rec.result.slice(0, 120) } : {}),
+          }
+        : null;
+      const runLine = graveRunLine(run);
       return {
         id: g.id,
         type,
         ...(name ? { name } : {}),
         deletedAt: g.deletedAt,
         rowSnapshot: g.row ? true : false,
-        run: rec
-          ? {
-              done: rec.done,
-              exitCode: rec.exitCode,
-              ...(rec.result ? { result: rec.result.slice(0, 120) } : {}),
-            }
-          : null,
+        run,
+        ...(runLine ? { runLine } : {}),
         edges: g.fileEdges.length + g.dbEdges.length,
         ...(bytes !== undefined ? { bytes } : {}),
         restorable: g.row ? !occupied : false,
