@@ -46,6 +46,11 @@ import { resolveAssistant } from "./settings";
 import { visionOnce } from "./wire";
 import type { ToolSchema } from "./wire";
 import { resolveJobTypeKey, typeResolutionNote } from "./type-aliases";
+import {
+  funnelDoorCandidate,
+  funnelLedgerOf,
+  funnelLedgerText,
+} from "@/lib/particle-funnel";
 
 export interface AiToolResult {
   ok: boolean;
@@ -85,6 +90,21 @@ export const AI_TOOLS: ToolSchema[] = [
     description:
       "The active project's canvas: project info (name, mode, cluster binding), workspaces, every job (id, type, name, status, progress, position, result line) and every wire (from → to with ports). ALWAYS call this first when the user refers to existing jobs.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "get_funnel_chain",
+    description:
+      "Read the particle funnel LEDGER of a chain — the same cross-job story the UI's funnel dialog and its Copy-ledger button export: per-station counts (micrographs/picks/particles, class counts), the edge verbs BETWEEN stations (carry / shed with percentages / gain with factors / transform), the off-mainline census, and the closing postprocess resolution when one ends the chain. THE tool for '我的粒子都去哪了 / why did my particle count drop / summarize what this chain produced' — read the ledger before answering any count question, never arithmetic from per-job receipts. Omit job_id to read the crown chain (the deepest finished funnel verb on the canvas); pass job_id to read the chain around a specific verb (unfinished stations honestly report their status instead of counts).",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: {
+          type: "string",
+          description: "Optional — a verb on the chain to read (any status). Omit for the crown chain.",
+        },
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: "create_job",
@@ -513,6 +533,8 @@ export async function executeAiTool(
         return getJobParams(String(args.job_type ?? ""));
       case "get_workflow_state":
         return await getWorkflowState(ctx);
+      case "get_funnel_chain":
+        return await getFunnelChain(ctx, typeof args.job_id === "string" ? args.job_id : "");
       case "create_job":
         return await createJob(ctx, args);
       case "build_pipeline":
@@ -632,6 +654,109 @@ async function getWorkflowState(ctx: AgentCtx): Promise<AiToolResult> {
         y: j.y,
       })),
       wires: edges.map((e) => ({ from: e.fromJobId, to: e.toJobId })),
+    },
+  };
+}
+
+/* ---- get_funnel_chain ------------------------------------------------- */
+
+/**
+ * t468 — the agent reads the LEDGER. The funnel dialog and its Copy-ledger
+ * button are the UI's own doors onto the cross-job story (t460–t463); this
+ * tool runs the SAME pure brains on the SAME DB shape the funnel route
+ * fetches — the assistant never gets a private read path the product
+ * doesn't already trust (t419 design law).
+ *
+ * Door semantics mirror the canvas door (funnelDoorCandidate): no job_id →
+ * the crown chain (deepest finished funnel verb, deterministic); a named
+ * job_id → the chain around that verb, ANY status — unfinished stations
+ * speak as honest status rows (the pure brain's own contract), so the
+ * agent can read a chain while it runs and never invents a receipt.
+ */
+async function getFunnelChain(ctx: AgentCtx, jobId: string): Promise<AiToolResult> {
+  const [jobs, edges] = await Promise.all([
+    db.job.findMany({
+      where: { projectId: ctx.projectId },
+      select: { id: true, type: true, name: true, status: true, result: true, updatedAt: true },
+    }),
+    db.edge.findMany({ where: { projectId: ctx.projectId }, select: { fromJobId: true, toJobId: true } }),
+  ]);
+
+  const named = jobId.trim();
+  let enteredId: string;
+  let picked: "crown" | "named";
+  // the pure brains speak ISO strings (the store's dialect) — Prisma rows
+  // carry Date, so the translation happens once, here at the boundary
+  const funnelJobs = jobs.map((j) => ({
+    id: j.id,
+    type: j.type,
+    name: j.name,
+    status: j.status,
+    result: j.result,
+    updatedAt: j.updatedAt ? j.updatedAt.toISOString() : null,
+  }));
+  if (named) {
+    if (!jobs.some((j) => j.id === named)) {
+      return {
+        ok: false,
+        summary: `No job with id "${truncate(named, 48)}" on this canvas — call get_workflow_state first and pass a real job id.`,
+      };
+    }
+    enteredId = named;
+    picked = "named";
+  } else {
+    const door = funnelDoorCandidate(funnelJobs, []);
+    if (door.kind === "blocked") {
+      return { ok: false, summary: door.line };
+    }
+    enteredId = door.job.id;
+    picked = "crown";
+  }
+
+  const ledger = funnelLedgerOf({ jobs, edges, enteredId });
+  if (!ledger || ledger.rows.length === 0) {
+    return {
+      ok: false,
+      summary: "No funnel reads from that verb — it sits outside every wire's lineage on this canvas.",
+    };
+  }
+
+  const entered = jobs.find((j) => j.id === enteredId)!;
+  const ledgerText = funnelLedgerText(ledger, entered.name);
+  const statusById = new Map(jobs.map((j) => [j.id, j.status]));
+  const unfinished = ledger.rows
+    .filter((r) => statusById.get(r.jobId) !== "completed")
+    .map((r) => ({ id: r.jobId, name: r.name, type: r.type, status: statusById.get(r.jobId) ?? "unknown" }));
+
+  const countRows = ledger.rows.filter((r) => r.kind === "ok" && r.count != null);
+  const head = `Funnel of "${entered.name}" [${entered.type}] — ${ledger.headline} (${countRows.length} counted station${countRows.length === 1 ? "" : "s"} on the mainline${ledger.offMainline.length ? `, ${ledger.offMainline.length} off-mainline` : ""})`;
+  const summary = unfinished.length
+    ? `${head} — ${unfinished.length} station${unfinished.length === 1 ? " has" : "s have"} no receipt yet: ${unfinished.map((u) => `${u.name} (${u.status})`).join(", ")}. The numbers below cover finished stations only.`
+    : head;
+
+  return {
+    ok: true,
+    summary,
+    detail: {
+      picked,
+      entered: { id: entered.id, type: entered.type, name: entered.name, status: entered.status },
+      ledgerText,
+      headline: ledger.headline,
+      note: ledger.note,
+      stations: ledger.rows.map((r) => ({
+        id: r.jobId,
+        type: r.type,
+        name: r.name,
+        kind: r.kind,
+        count: r.count,
+        unit: r.unit,
+        classes: r.classes,
+        perMic: r.perMic,
+        edge: r.delta?.line ?? null,
+      })),
+      offMainline: ledger.offMainline,
+      closing: ledger.closing,
+      ...(unfinished.length ? { unfinished } : {}),
     },
   };
 }

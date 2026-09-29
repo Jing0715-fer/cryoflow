@@ -715,8 +715,8 @@ let sessionId = "";
 // F8: the tool catalog shape the agent gets
 {
   const { AI_TOOLS } = await import("../src/lib/ai/tools");
-  // t419 shipped 12; t420 grew the catalog to 14 (build_pipeline + wait_for_jobs)
-  must(AI_TOOLS.length === 14 && new Set(AI_TOOLS.map((t) => t.name)).size === 14, `F8: 14 unique tools (got ${AI_TOOLS.length})`);
+  // t419 shipped 12; t420 grew to 14; t468 added the ledger read (15)
+  must(AI_TOOLS.length === 15 && new Set(AI_TOOLS.map((t) => t.name)).size === 15, `F8: 15 unique tools (got ${AI_TOOLS.length})`);
   must(AI_TOOLS.every((t) => t.parameters && typeof t.description === "string"), "F8: every tool wears a schema + description");
 }
 
