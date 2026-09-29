@@ -5475,3 +5475,22 @@ Stage Summary:
 - **「工具条不为没人问的账本买单」**：inspector 门每 mount 一发 GET；canvas 门 click 才 fetch——明处的门不付暗处的价；读账失败 toast、门不半开
 - **「墙的判例要钉死到数据点」**：四发四死（1344 abort@37s / 1800 abort@49s@89.4% / 1824 kill@91s / 1824+semi4 kill@104s）——每加一档 heap 都买来更多进度，墙在 1800~1824 合拢；极限房间（净场+swap 探底）排除了最后变量；prod 磨从遗留升格为判例，重开只认盒扩容/树减肥/编译几何变化三种前提
 - 产出：The Funnel in Plain Sight 全链（funnelDoorCandidate 纯脑 + canvas-funnel-door 组件 + dialog 导出 + canvas 工具条挂载）+ t462 bench 26/0 + 三十套回归全绿 + crown/选区双律活体逐字 + prod 磨四点判例 + 截图 ×2
+
+## Task 463 (2026-09-29, cron 21:07 窗 —— The Ledger Travels)
+
+- [开局] 实尾 = Task 462 完整收官（HEAD = e8ac172 = origin/main；世界 dev lane :3000 满血、15/15 completed、mock 集群 :3022 在听、available 1203MB）。第五十四份过时 Task 13 指引照例不认（以 t462 遗留清单为准）。自号 463。
+- [QA — 全绿基线] landing 满血（铃铛门 + 漏斗门在场）、console 0 错、标题 pristine、回归全家 30 套 exit 0 全绿。世界稳定 → 转新需求。
+- [选题定谳 — The Ledger Travels] 漏斗脸是 sqrt 缩放的条形堆，剪贴板是文字堆——家法早就裁决过谁是真相（「the numbers are the ledger; the bars are only the shape」）。本窗把账本整条放行：一键把链全文（headline 弧 + 每站收据 + 每条边的话 + census + closing 判决 + 两句自白）导成纯文本进实验记录/issue/聊天窗。
+- [交付] ①particle-funnel.ts 纯脑增段 funnelLedgerText：**文法优先于列对齐**（账本会活在比例字体的世界里，列对齐会溶解）——ok 行 `Name [type]: 5,672 particles · 50 classes`、amber 行 `Name [type]: a volume verb — no particles on its receipt`、边行两格缩进先行于它喂养的行（与脸同序）、per-mic 不上行（边已说过，账本不重复同一口气）、无尾换行（剪贴板文本不是文件）、空账本导出空串（无门开向空账本）。②对话 footer 分隔线下 Copy ledger 钮（pipeline 脚本的 Check/Copy 1600ms 方言 + 一处诚实扩展：剪贴板拒绝时说 "Copy failed" 一拍，不让用户干等）。
+- [自捕自修 ×2 — 拦截在闸与幽灵] ①**export 被吞**：MultiEdit 往对话文件插 useLedgerCopy 时把 `export function ParticleFunnelDialog` 的 export 暂时吃掉（dangling 在注释前）——tsc 闸抓住、立刻修复 + 清掉重复注释②**Turbopack 诊断幽灵**：修复后 console 仍三连 "Export ParticleFunnelDialog doesn't exist in target module"，且活过整页硬重载、甚至活过 dev server 整重启——运行时全好（对话照开、copy 照走 1571 字符）、源文件 export 唯一在位；根因是 .next/diagnostics/build-diagnostics.json 把编辑中段的坏快照当持久诊断逐次重放；**rm -rf .next/diagnostics .next/dev 后 console 0 错**。教训入册：编辑瞬时破坏过 export 的模块，重启不清幽灵，要清 diagnostics。
+- [活体 — 账本逐字出板] monkey-patch clipboard.writeText 捕获：1571 字符 34 行——头两行（门名 + headline）逐字全对、15 站按链序、carry×6/transform「408 picks across 24 micrographs — 17.0 per micrograph」/shed「−312 · 76%…」/gain「+5,664 · ×60 at symexpand」全数在场、maskcreate 诚实默认行、class2d 的 50 classes 芯片、closing 判决 + 两句自白收尾（打印时 [m 被终端吃成 ANSI 重置码属显示假象，捕获串无损）。Copied 态翻转 + 1600ms 复位确认、截图 .qa-logs/t463-copy-ledger.png。
+- [t462 遗留③关闭 — 阻断态 live 逐字到手] agent-browser 无 shift 保持、band 在 pan/zoom 态不稳（canvas.tsx:1540 契约：**Shift+背景拖拽才是框选**，plain drag 是 pan——t462 的「框选成功」实为其他路径）。真钥匙是 Task 103 箭头导航：ArrowRight 单选（门变 SELECTION）→ **Shift+ArrowRight 增选 → 门 disabled=true + 「The chain question reads one line — select a single verb on the canvas.」逐字活体到手**；Escape 清选 crown 复原。selection-unfinished 态需世界里有 running verb（当前 15/15 全 completed）——bench D5a/b 钉死、live 留作诚实边界。
+- [验证-终] t463 bench 25/0（T1 结构 5、T2 ok 行文法 3、T3 边行 2、T4 amber 2、T5 不重复 1、T6 closing 2、T7 census 2、T8 自白 3、T9 空账本 1、T10 端到端世界逐字 4）；tsc 0 + eslint 0（两触碰文件）；回归全家 31 套（30 旧 + t463）exit 0 全绿；console 0 错。
+- [最终态] HEAD = 862e09b（feature；docs commit 随后，origin/main 三方对齐）（feature + docs，origin/main 三方对齐）；世界 dev lane（:3000 200、15/15 completed、14 边、mock 集群 :3022 在听、诊断缓存已清、console 0 错）。下一窗从 Task 464 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②sync manifest 20k 上限硬编码（t460 遗留⑤顺延）③selection-unfinished 阻断态 live 复验（需 running verb 的世界）④funnel 单位扩展 movies（真 RELION 接手时）⑤prod 磨判例重开前提（t462 判例）。
+
+Stage Summary:
+- **「账本不迁就字体」**：文本导出选择文法而不是列对齐——`Name [type]: 数 单位` 的稳定文法在等宽终端和比例字体的聊天窗里都成立；对齐是装饰，文法是结构
+- **「账本不说同一口气两次」**：autopick 行不带 per-mic 芯片——它上方的边行已经说了「17.0 per micrograph」；边与行各司其职，重复是撒谎的另一种形式
+- **「导出把两句自白也带上路」**：sqrt 坦白与 verbless footer 随数字旅行——读到纯文本的人同样不该被形状暗示误导
+- **「幽灵要打在诊断的坟里」**：编辑中段的坏快照被 Turbopark 写进 build-diagnostics.json，活过硬重载活过重启；运行时健康与诊断重放可以并存——判定真相靠运行时验证（对话照开、剪贴板照走），清坟靠 rm .next/diagnostics
+- 产出：The Ledger Travels 全链（funnelLedgerText 纯脑 + useLedgerCopy + Copy ledger 钮）+ t463 bench 25/0 + 三十一套回归全绿 + 账本全文 1571 字符活体捕获 + t462 遗留③关闭（crowd 阻断 live 逐字）+ 诊断幽灵根因与清法
