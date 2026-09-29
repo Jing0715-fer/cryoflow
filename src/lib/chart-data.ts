@@ -44,11 +44,16 @@ import { summarizeOrientation } from "@/lib/relion/rebalance-core";
 import { ctfMicrographRows } from "@/lib/compare-rows";
 import { motionCatalogueRows } from "@/lib/compare-rows";
 import { parseTopazTraining } from "@/lib/relion/topaz-training";
+import { fscShells, guinierPoints } from "@/lib/chart-rows";
 import type {
   FscShell,
   FscResponse,
+  FscInterpretation,
   GuinierPoint,
   GuinierResponse,
+  GuinierInterpretation,
+  AngDistResponse,
+  AngDistInterpretation,
   CtfMicrograph,
   CtfSummary,
   CtfInterpretation,
@@ -241,15 +246,21 @@ function finalizeFsc(
         .filter((s) => s.correctedFsc != null)
         .map((s) => ({ freq: s.freq, fsc: s.correctedFsc as number }))
     : clean.map((s) => ({ freq: s.freq, fsc: s.fsc }));
+  const resolutionAt143 = crossing(criterion, 0.143);
+  const resolutionAt05 = crossing(criterion, 0.5);
+  const reportedResolution = reported?.reportedResolution ?? null;
   return {
     jobId,
     source,
     sourceFile,
     shells: clean,
-    resolutionAt143: crossing(criterion, 0.143),
-    resolutionAt05: crossing(criterion, 0.5),
-    reportedResolution: reported?.reportedResolution ?? null,
+    resolutionAt143,
+    resolutionAt05,
+    reportedResolution,
     reportedLabel: reported?.reportedLabel ?? null,
+    // t489 — the panel-side judgment (Nyquist cap, reported-vs-crossing
+    // disagreement) is built here, once, beside the crossings it reads
+    interpretation: interpretFsc(clean, resolutionAt143, reportedResolution),
     ...(reported?.postprocessGeneral
       ? { postprocessGeneral: reported.postprocessGeneral }
       : {}),
@@ -283,6 +294,7 @@ export async function loadFsc(jobId: string): Promise<FscData> {
     resolutionAt05: null,
     reportedResolution: null,
     reportedLabel: null,
+    interpretation: null,
   };
   if (!run?.workdir || !existsSync(run.workdir)) {
     return empty;
@@ -454,7 +466,13 @@ export async function loadGuinier(jobId: string): Promise<GuinierResponse> {
   const job = await findEffectiveJob(jobId);
   if (!job) throw new ChartJobNotFound(jobId);
   const run = getRun(job.id);
-  const empty: GuinierResponse = { jobId, sourceFile: null, points: [], bfactor: null };
+  const empty: GuinierResponse = {
+    jobId,
+    sourceFile: null,
+    points: [],
+    bfactor: null,
+    interpretation: null,
+  };
   if (!run?.workdir || !existsSync(run.workdir)) {
     return empty;
   }
@@ -556,7 +574,13 @@ export async function loadGuinier(jobId: string): Promise<GuinierResponse> {
     }
   }
 
-  return { jobId, sourceFile, points, bfactor };
+  return {
+    jobId,
+    sourceFile,
+    points,
+    bfactor,
+    interpretation: interpretGuinier(points),
+  };
 }
 
 /* ================================================================== */
@@ -566,27 +590,10 @@ export async function loadGuinier(jobId: string): Promise<GuinierResponse> {
 const ROT_BINS = 24;
 const TILT_BINS = 12;
 
-export interface AngDistData {
+/** The angdist route's response face — the loader adds jobId (tool face)
+ *  and the fib view (Mollweide panel) on top of the shared shape. */
+export interface AngDistData extends AngDistResponse {
   jobId: string;
-  /** iteration of the data star used (null for the final run_data.star) */
-  iteration: number | null;
-  /** total particles whose angles were binned */
-  total: number;
-  /** number of azimuth (rot) bins — 24 → 15° each */
-  rotBins: number;
-  /** number of polar (tilt) bins — 12 → 15° each */
-  tiltBins: number;
-  /** row-major counts: cells[rotIdx * tiltBins + tiltIdx] */
-  cells: number[];
-  /** hottest cell count */
-  max: number;
-  /** cells with at least one particle */
-  occupied: number;
-  /** concentration factor = max / mean over occupied cells (>6 ⇒ anisotropic) */
-  anisotropy: number;
-  /** point-group symmetry of the job, e.g. "D2" */
-  symmetry: string | null;
-  starFile: string | null;
   /** cryoSPARC-style view: Fibonacci-sphere bins (equal-area) + marginals */
   fib?: {
     bins: Array<{ x: number; y: number; z: number; count: number }>;
@@ -645,6 +652,7 @@ export async function loadAngDist(jobId: string): Promise<AngDistData> {
     anisotropy: 0,
     symmetry: null,
     starFile: null,
+    interpretation: null,
     fib: {
       bins: [],
       maxBin: 0,
@@ -756,6 +764,10 @@ export async function loadAngDist(jobId: string): Promise<AngDistData> {
     anisotropy,
     symmetry,
     starFile: best.file,
+    // t489 — the coverage verdict, the rounded concentration and the
+    // three hottest bins: built ONCE here, quoted by the tool and
+    // rendered by the panel's strip
+    interpretation: interpretAngDist(anisotropy, cells, TILT_BINS),
     ...(fib
       ? {
           fib: {
@@ -965,17 +977,19 @@ export async function loadTopazTraining(jobId: string): Promise<TopazData> {
 }
 
 /* ================================================================== */
-/* Interpretation — the tool's grammar, computed ONCE (t488)           */
+/* Interpretation — the tool's grammar, computed ONCE (t488/t489)      */
 /* ================================================================== */
 
-/** The judgment layer of the ctf/motion/topaz wells. t487 moved the
- *  LOADING here; t488 moves the interpretation here too: these builders
- *  produce the exact shapes the agent's get_job_curves quotes (worst
- *  fits, drift triage, first/last epoch) and the panels' interpretation
- *  strips render. Byte-identical to the math that lived inline in
- *  tools.ts — the t486/t487 benches hold the tool faces fixed while the
- *  well absorbs the computation. Every verdict is a fact from pure
- *  comparison of the loaded rows — no threshold is invented.
+/** The judgment layer of the six curve wells. t487 moved the LOADING
+ *  here; t488 moved the prep trio's interpretation here (worst fits,
+ *  drift triage, first/last epoch); t489 completes the set with the
+ *  science trio: interpretFsc / interpretGuinier / interpretAngDist
+ *  build the judgment the panels' badges/strips render and the tool's
+ *  grammar speaks — one birthplace, no face re-judges. Byte-identical
+ *  to the math that lived inline in tools.ts / the panels — the
+ *  witness benches hold the tool faces fixed while the well absorbs
+ *  the computation. Every verdict is a fact from pure comparison of
+ *  the loaded rows — no threshold is invented.
  *
  *  Pure functions on the loaded data: no IO, no cache, no state. */
 
@@ -1065,4 +1079,88 @@ export function interpretTopaz(
           : "flat";
   }
   return interp;
+}
+
+/** The FSC's panel-side judgment, byte-identical to the math that lived
+ *  inline in fsc-chart.tsx: the reported resolution sits at the box
+ *  Nyquist limit when it lands within 2% of the highest-frequency shell
+ *  (the curve never crosses 0.143 because the box caps it), and it
+ *  "differs" when the raw 0.143 crossing is missing or disagrees by
+ *  more than half an ångström (smoothed estimate vs curve). The rows
+ *  pass through the SAME derivation the panel draws (fscShells) so the
+ *  well's verdict is the badge's verdict by construction. */
+export function interpretFsc(
+  shells: FscShell[],
+  resolutionAt143: number | null,
+  reportedResolution: number | null
+): FscInterpretation | null {
+  if (shells.length === 0) return null;
+  const rows = fscShells({ shells } as FscResponse); // the panel's exact rows
+  const atNyquist =
+    reportedResolution != null &&
+    rows.length > 0 &&
+    Math.abs(rows[0].res - reportedResolution) / reportedResolution < 0.02;
+  const reportedDiffers =
+    reportedResolution != null &&
+    (resolutionAt143 == null ||
+      Math.abs(reportedResolution - resolutionAt143) > 0.5);
+  return { atNyquist, reportedDiffers };
+}
+
+/** The Guinier's judgment, byte-identical to guinier-chart.tsx's inline
+ *  hasSharpened (same guinierPoints derivation, so nulls and dropped
+ *  rows agree) plus the resolution range the table covers — x = 1/d²
+ *  converted to ångström at 1 dp, the panel tooltip's own conversion.
+ *  from = the high-resolution end, to = the low-resolution end. */
+export function interpretGuinier(
+  points: GuinierPoint[]
+): GuinierInterpretation | null {
+  if (points.length === 0) return null;
+  const rows = guinierPoints({ points } as GuinierResponse); // the panel's exact points
+  if (rows.length === 0) return null;
+  const xs = rows.map((p) => p.x);
+  const xMin = Math.min(...xs);
+  const xMax = Math.max(...xs);
+  const rangeAngstrom =
+    xMax > 0
+      ? {
+          from: Math.round(Math.sqrt(1 / xMax) * 10) / 10,
+          to: Math.round(Math.sqrt(1 / xMin) * 10) / 10,
+        }
+      : null;
+  return {
+    hasSharpened: rows.some((p) => p.lnAmpSharpened != null),
+    rangeAngstrom,
+  };
+}
+
+/** The orientation coverage's judgment, byte-identical to the math that
+ *  lived inline in tools.ts's angdist segment: the >6 concentration
+ *  threshold (the ONE verdict — the chart chip, the tool's spoken line
+ *  and the panel strip all read it from here), the 1-dp concentration
+ *  the spoken line quotes, and the three hottest direction bins
+ *  (count descending, empty bins excluded, ties in index order —
+ *  stable sort, so the tool's exact three arrive). */
+export function interpretAngDist(
+  anisotropy: number,
+  cells: number[],
+  tiltBins: number
+): AngDistInterpretation | null {
+  if (cells.length === 0) return null;
+  const verdict = anisotropy > 6 ? "anisotropic" : "fairly even";
+  const hottestBins = cells
+    .map((count, idx) => ({ idx, count }))
+    .filter((c) => c.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3)
+    .map((c) => ({
+      rotBin: Math.floor(c.idx / tiltBins),
+      tiltBin: c.idx % tiltBins,
+      count: c.count,
+    }));
+  return {
+    verdict,
+    concentration: Math.round(anisotropy * 10) / 10,
+    hottestBins,
+  };
 }

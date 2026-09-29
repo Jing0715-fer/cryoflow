@@ -2664,21 +2664,14 @@ async function getJobCurves(
     try {
       const d = await loadAngDist(job.id);
       if (d.total > 0) {
-        // route's own science: concentration = hottest / mean over occupied
-        // cells; >6 ⇒ anisotropic (the same threshold the chart chip uses)
-        const verdict = d.anisotropy > 6 ? "anisotropic" : "fairly even";
-        const top = d.cells
-          .map((count, idx) => ({ idx, count }))
-          .filter((c) => c.count > 0)
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 3)
-          .map((c) => ({
-            rotBin: Math.floor(c.idx / d.tiltBins),
-            tiltBin: c.idx % d.tiltBins,
-            count: c.count,
-          }));
+        // t489 — the verdict, the rounded concentration and the hottest
+        // three are BUILT in the well (interpretAngDist): the panel's
+        // strip renders the very same judgment this face quotes
+        const interp = d.interpretation;
+        const verdict = interp?.verdict ?? "fairly even";
+        const concentration = interp?.concentration ?? Math.round(d.anisotropy * 10) / 10;
         spoken.push(
-          `angles: ${d.total} particles over ${d.occupied}/${d.rotBins * d.tiltBins} direction bins, concentration ${Math.round(d.anisotropy * 10) / 10} (${verdict})`
+          `angles: ${d.total} particles over ${d.occupied}/${d.rotBins * d.tiltBins} direction bins, concentration ${concentration} (${verdict})`
         );
         curves.push({
           kind: "angdist",
@@ -2693,7 +2686,7 @@ async function getJobCurves(
           anisotropy: d.anisotropy,
           anisotropyVerdict: verdict,
           symmetry: d.symmetry,
-          hottestBins: top,
+          hottestBins: interp?.hottestBins ?? [],
         });
       } else {
         spoken.push("angles: none in the workdir");

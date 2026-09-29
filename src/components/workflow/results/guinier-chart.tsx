@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { TrendingDown } from "lucide-react";
+import { Ruler, TrendingDown } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -33,6 +33,7 @@ import {
   type GuinierResponse,
 } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartInterpretation } from "./interpretation-strip";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
@@ -75,7 +76,11 @@ export function GuinierChart({
 
   if (!data || !guinierRenderable(points)) return null; // silent until postprocess runs
 
-  const hasSharpened = points.some((p) => p.lnAmpSharpened != null);
+  // t489 — hasSharpened is the WELL's judgment (interpretGuinier), and the
+  // fit-range strip speaks the resolution range the table covers — the
+  // same x → Å conversion the tooltip speaks, built once in the well
+  const interp = data.interpretation ?? null;
+  const hasSharpened = interp?.hasSharpened ?? points.some((p) => p.lnAmpSharpened != null);
   const bf = data.bfactor;
 
   return (
@@ -115,6 +120,17 @@ export function GuinierChart({
           className="ml-auto"
         />
       </div>
+      {interp?.rangeAngstrom && (
+        <ChartInterpretation
+          icon={Ruler}
+          tone="amber"
+          label="Fit range"
+          className="mb-1.5"
+        >
+          {interp.rangeAngstrom.from.toFixed(1)} – {interp.rangeAngstrom.to.toFixed(1)} Å
+          <span className="opacity-70"> · {points.length} pts</span>
+        </ChartInterpretation>
+      )}
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points} margin={{ top: 6, right: 14, bottom: 2, left: -14 }}>

@@ -97,10 +97,10 @@ ok(
 );
 ok(
   chartDataSrc.includes("interpretation: null") &&
-    chartDataSrc.match(/interpretation: null/g)?.length === 4,
+    chartDataSrc.match(/interpretation: null/g)?.length === 7,
   `the honest empty faces carry interpretation null too (got ${
     chartDataSrc.match(/interpretation: null/g)?.length ?? 0
-  }/4 — ctf has two)`
+  }/7 — ctf has two; t489's science trio adds fsc/guinier/angdist)`
 );
 ok(
   chartRowsSrc.includes("interface CtfInterpretation") &&
@@ -320,7 +320,7 @@ if (ctfJob && mcJob) {
     .map((w) => w.maxResolutionA?.toFixed(1))
     .join(" / ");
   ok(
-    d.interpretation.worstMicrographs.every(
+    d.interpretation!.worstMicrographs.every(
       (w, i, arr) => i === 0 || (arr[i - 1].maxResolutionA ?? 0) >= (w.maxResolutionA ?? 0)
     ),
     `ctf: worst-first order holds across the strip (${toolSpoken})`

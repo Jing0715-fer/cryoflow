@@ -13,11 +13,12 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Compass, RadioTower, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Compass, Flame, RadioTower, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { angDistRenderable, angDistRows, type AngDistResponse } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartInterpretation } from "./interpretation-strip";
 
 const SIZE = 236;
 const CX = SIZE / 2;
@@ -101,7 +102,10 @@ export function AngularDistributionChart({
   if (!data || !angDistRenderable(data)) return null;
 
   const { cells, max, rotBins, tiltBins, total } = data;
-  const anisotropic = data.anisotropy > 6;
+  // t489 — the verdict is the WELL's judgment (interpretAngDist): the >6
+  // concentration threshold lives there, not re-computed per face
+  const interp = data.interpretation ?? null;
+  const anisotropic = interp?.verdict === "anisotropic";
   const iterLabel = data.iteration != null ? `it ${data.iteration}` : "final";
 
   const rotDeg = (hovered?.rotIdx ?? 0) * (360 / rotBins);
@@ -274,33 +278,43 @@ export function AngularDistributionChart({
             </p>
           </div>
 
-          <div
-            className={cn(
-              "flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-[10.5px] leading-tight",
-              anisotropic
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"
-                : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
-            )}
-          >
-            {anisotropic ? (
-              <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            ) : (
-              <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            )}
-            <span>
-              {anisotropic ? (
-                <>
-                  anisotropic views — concentration ×{data.anisotropy.toFixed(1)}. Preferred
-                  orientation can bias the map along missing directions.
-                </>
-              ) : (
-                <>
-                  isotropic coverage — concentration ×{data.anisotropy.toFixed(1)},{" "}
-                  {data.occupied}/{rotBins * tiltBins} bins populated
-                </>
-              )}
-            </span>
-          </div>
+          {/* t489 — the coverage strip speaks the tool's exact grammar
+              (interpretAngDist): the verdict word, the rounded
+              concentration, the bins populated — the same judgment the
+              agent quotes when asked whether orientations are even. The
+              loader attaches the interpretation whenever the panel
+              renders (total > 0), so no fallback re-judges here. */}
+          {interp && (
+            <ChartInterpretation
+              icon={anisotropic ? TriangleAlert : CheckCircle2}
+              tone={anisotropic ? "amber" : "emerald"}
+              label="Coverage"
+            >
+              {interp.verdict} — concentration ×{interp.concentration},{" "}
+              {data.occupied}/{rotBins * tiltBins} bins populated
+            </ChartInterpretation>
+          )}
+
+          {/* t489 — the three hottest direction bins: the heatmap shows
+              them, the tool names them, and now the strip names them too
+              — one grammar, the panel = model can quote. */}
+          {interp && interp.hottestBins.length > 0 && (
+            <ChartInterpretation icon={Flame} tone="fuchsia" label="Hottest bins">
+              {interp.hottestBins.map((b, i) => (
+                <span key={`${b.rotBin}-${b.tiltBin}`}>
+                  {i > 0 && <span className="opacity-50"> · </span>}
+                  rot {b.rotBin} · tilt {b.tiltBin}
+                  <span className="opacity-70"> ×{b.count.toLocaleString()}</span>
+                </span>
+              ))}
+            </ChartInterpretation>
+          )}
+
+          {interp && anisotropic ? (
+            <p className="text-[9.5px] leading-tight text-muted-foreground/80">
+              Preferred orientation can bias the map along the missing directions.
+            </p>
+          ) : null}
 
           {data.symmetry ? (
             <p className="text-[10px] text-muted-foreground">

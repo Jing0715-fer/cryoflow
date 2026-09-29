@@ -93,19 +93,11 @@ export function FscChart({
   const res143 = data.resolutionAt143;
   const res05 = data.resolutionAt05;
   const reported = data.reportedResolution;
-  // the reported value can land exactly on the last sampled shell when the
-  // box Nyquist limit (2 × pixel size) caps the reconstruction — detect so
-  // the badge explains WHY the corrected curve never crosses 0.143.
-  // shells are sorted ascending by Å, so the HIGH-frequency end — where a
-  // Nyquist cap would bite — is shells[0] (smallest Å), not the low-res tail.
-  const atNyquist =
-    reported != null &&
-    shells.length > 0 &&
-    Math.abs(shells[0].res - reported) / reported < 0.02;
-  // show both numbers when they materially disagree (raw crossing vs the
-  // smoothed estimate RELION prints in its log / star metadata)
-  const reportedDiffers =
-    reported != null && (res143 == null || Math.abs(reported - res143) > 0.5);
+  // t489 — the Nyquist-cap detection and the reported-vs-crossing
+  // disagreement are the WELL's judgment (interpretFsc, built beside the
+  // crossings it reads): the badges below read it instead of re-judging.
+  const atNyquist = data.interpretation?.atNyquist ?? false;
+  const reportedDiffers = data.interpretation?.reportedDiffers ?? false;
 
   return (
     <section
