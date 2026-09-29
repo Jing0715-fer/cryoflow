@@ -5936,3 +5936,23 @@ Stage Summary:
 - **「新参数的律必须教两面」**：活体首查即中——模型把 fullHistory 用到「最近」问句上；律修为「默认面即最近问句的正确读法 + ONLY 触发词表 + 洪泛负例句」后双面对照全绿——「何时不用」和「何时用」一样是教学
 - **「三方对账是活体的秤」**：tool result × agent 背诵 × 台账真相逐条对齐（10/10 type、时间全对、统计零编造）——模型引用的每个数字都有原乡
 - 产出：list_clusters fullHistory 参数桥（schema/description/executor/roster/cap+summary/note 六处）+ THE CLUSTER LAW 双面教学 + t484 bench 23/0（含 55 条洪泛溢出律）+ t475/t476 断言诚实演进 + 双面活体三方对账 + 50 套回归全绿 + 活体剧本 t484-live-ledger-book.sh
+
+## Task 485 (2026-09-30, cron 04:52 窗 —— The Checkpoint Continues on Its Cluster)
+
+- [开局] 实尾 = Task 484 完整收官（HEAD = 325f66e 三方对齐）。世界体检：landing 200、22 jobs、台账 10 条。第七十六份过时 Task 13 指引照例不认（以 t484 遗留清单为准）。自号 485。
+- [QA — 全绿基线] 回归全家 50 套 exit 0。世界稳定 → 转新需求。
+- [选题定谳 — The Checkpoint Continues on Its Cluster（t471 遗留②，十三轮挂起收官）] 预算测算定乾坤：台账 slurmElapsedMs 显示 QA 级 refine3d 单轮 ≈ 14s（EMPIAR 级 class2d 才是 517s/11,464 文件那头怪兽）——② 的「完整预算」门槛其实是假的，真火两轮（首火 + continue）合计 <60s。定谳：**集群检查点在自己家继续**——本地 lane 活体 t471 已过（诚实 waiting 面），集群 lane 真火是最后一块。
+- [Phase 1 — 集群首火（scripts/t485-live-phase1-dispatch.sh）] QA Refine Cluster Continue（refine3d，**autoRefine:false + iterations:5**——continue 的 auto-refine 门会拒 auto，定参即绕开教科书式 5+3→8）→ 连线 Rebalance→QA job → 裸 POST 派发（t317 绑定回退律：项目绑定 conn-mukrkgil 自动选集群 lane）→ **15s 完成**：exit 0、REMOTE 脸「refine3d exited 0 · 5,672 particles」、slurm mode、71 文件回传、台账 11。
+- [Phase 2 — 真 GLM 的集群 continue（scripts/t485-live-phase2-continue.sh）] 问句「帮它在原有基础上再多跑 3 个 iteration——注意千万别毁掉它已有的结果」→ 真 GLM 链：get_workflow_state（找 id）→ inspect_job（读 completed 5 it）→ **continue_run{more:3} 逐字命中** → checkpoint 轮 5 集群路径 live（/projects/cryoflow/.../run_it005_optimiser.star）→ total 8 → wait_for_jobs 60s 诚实「still running」→ inspect 读回 fn_cont 落盘 + iterations:8 → 模型叙述「Slurm ID 64、从第 5 个 iteration 的检查点继续、不会毁掉已有的结果」。
+- [插曲①— 真火烧出 fixture bug ×2（活体的意义所在）] continue 轮 running→failed：mock 集群自家脚本 `fs/opt/bin/relion_refine` continue 分支 257 行引用主流程 314 行才定义的 `_split_halves` → NameError（it006 都算完 R1/R2 才崩——产品链路无辜，轮子自己摔了）。修①：分支头补定义。重火又败一轮后扫描说 newest complete=5：**continue 分支漏写 per-class mrc**（主流程 590 行有，完备律按名点收）→ it006-008 全被「missing class001.mrc」判不完整，checkpoint 闸诚实地把弧头按在 it005。修②：镜像主流程补 3 类 per-class 写出。两修皆 fixture 侧，产品零改动。
+- [活体终章 — 幂等重火 + 三方对账零编造] 同一 continue 计划第三次派发（fn_cont/it005→8 幂等——重火即证）→ **10s 完成** → 台账铁证：exit 0、Slurm 66、「CONTINUE from run_it005_optimiser.star (it 005, K=3) +3 more」+ it006/007/008 每轮 R1/R2/FSC；磁盘铁证：it005 首火全家无损（无抹除）+ it006-008 全家 91 文件 + run_it008_optimiser.star「_rlnCurrentIteration 8」逐字；checkpoint 扫描翻开新页：**newest complete = 8**。三方对账：台账 × 磁盘 × 模型叙述（「5+3→8」「不毁已有结果」）全吻合（模型口述的 Slurm 64 是首火失败轮——叙述当下为真，终轮 66 如实入册）。
+- [清场 — 记录比作业活得长的实测课] delete QA job（confirm）→ 画布回 22。**台账记录随 delete 清空（clearRunRecord 有意为之——防残留 checkpoint 复活，t341-era 设计）**：Mock Cluster 回 10 条——「记录比作业活得长」的 exists:false 孤行来自旧时代遗留记录，非 delete 路径；continue 的裁决活在天墓墓志铭里（row snapshot iterations:8 + REMOTE exit 0 + it008 全家 outputs 映射 + restorable）。graveyard 54→55 墓。
+- [验证-终] 回归全家 **50 套** exit 0（改动仅 fixture 脚本，tsc/eslint 面零触碰）；世界 22 jobs（1 running fixture）+ 55 墓 + 台账 10 条原样；mock 集群 workdir 91 文件（it008 全家在册）。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 486 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（t473③ 原样，待真实并存）④inspector Continue 字段互指（t473④ 原样，待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（t474⑦ 原样，待回执）⑰集群 continue 的增量：continue-sources HTTP 扫描的 local-archive 面（continue 轮回传的 per-class 文件已能让扫描认 it008——但 61 files left behind 的边界在真实大轮上会否再撕缺口，待真集群）；② 的 local-lane「真跑完成」活体（本轮集群面收官，本地 face 至今只证到 waiting 拒绝面——若引擎本地 RELION 在座可补一轮）。
+
+Stage Summary:
+- **「十三轮挂起，一朝真火」**：517s 的心理门槛是 EMPIAR 级怪兽吓的——slurmElapsedMs 的台账数据把预算测算从猜变算，QA 级 refine 单轮 14s，continue 轮 10s；悬了十三窗的活体在一个窗内两轮真火收官
+- **「活体的意义就是烧出 bench 看不见的裂缝」**：t471 bench 38/0 全绿的 continue_run，第一发真火就摔在 mock 脚本自己的 NameError 上；第二发摔在完备律的按名点收上——产品的门族/文法/计划/派发全对，轮子外的世界各坏各的，逐个修好
+- **「幂等重火是最便宜的回归测试」**：同一 continue 计划三次派发（失败/失败/成功），fn_cont 与 it005 检查点每次都诚实归位——重火即证计划持久、checkpoint 闸不吞旧轮
+- **「记录比作业活得长」的边界一课**：delete 路径有意 clearRunRecord（防 checkpoint 复活），孤行 exists:false 来自旧时代——continue 的裁决不住台账，住墓志铭（row snapshot + REMOTE 脸 + it008 全家映射，restorable）
+- 产出：集群 continue 真火全链（Phase1 派发剧本 + Phase2 GLM 问句剧本）+ mock 脚本双修（_split_halves 定义 + per-class 家族）+ 幂等重火三方对账 + 墓志铭裁决入库 + 50 套回归全绿 + 世界复原
