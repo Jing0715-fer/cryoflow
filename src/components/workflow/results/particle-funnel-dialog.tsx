@@ -130,7 +130,9 @@ const DELTA_TONE: Record<string, string> = {
   transform: "text-sky-700 dark:text-sky-400",
 };
 
-function ParticleFunnelDialog({
+/* t462 — exported for the canvas door: the plain-sight funnel opens the
+ * SAME face the inspector door opens (one chain question, one dialect). */
+export function ParticleFunnelDialog({
   open,
   onOpenChange,
   job,

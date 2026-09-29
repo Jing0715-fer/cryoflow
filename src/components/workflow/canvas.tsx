@@ -52,6 +52,7 @@ import {
 import { hasJudgment } from "@/lib/class-notes";
 import { pendingWirePath } from "@/lib/edge-geom";
 import { CanvasFindBar, jobMatchesFind } from "./canvas-find-bar";
+import { CanvasFunnelDoor } from "./canvas-funnel-door";
 import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
@@ -2223,6 +2224,13 @@ export function WorkflowCanvas() {
         >
           <Search className="size-4" />
         </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* Task 462 — the funnel's plain-sight door: the chain question
+            ("where did my particles go?") leaves the inspector-only
+            world — one Filter button beside the map and find toggles,
+            its decision (selection-first, crown fallback, honest
+            blocks) owned by the pure brain in particle-funnel.ts. */}
+        <CanvasFunnelDoor />
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         {/* Task 104 — undo/redo live next to the tools they reverse: the
             buttons read the SAME stacks the keyboard walks, so a toast

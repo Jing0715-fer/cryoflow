@@ -452,3 +452,106 @@ export function funnelLedgerOf(input: {
 
   return { rows, offMainline, closing, headline, note: FUNNEL_NOTE };
 }
+
+/* ------------------------------------------------------------------ */
+/* The canvas door (t462) — which chain does the plain-sight funnel    */
+/* open?                                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The door's decision. The canvas toolbar door (t462) faces a world the
+ * inspector never sees: NO host job — the button floats beside the
+ * minimap and find toggles, so something must decide which chain the
+ * funnel opens, and the honest answer is a law, not a guess.
+ *
+ * The laws, in the order they are consulted:
+ *   - SELECTION IS THE QUESTION: one selected verb on a funnel stage is
+ *     what the user is looking at — its chain wins over any global pick.
+ *   - AN UNFINISHED SELECTION BLOCKS HONESTLY: a running verb has no
+ *     receipt, so its chain cannot be read. The door disables and says
+ *     so — it never silently swaps in another run's funnel.
+ *   - A CROWDED SELECTION BLOCKS HONESTLY: the chain question reads one
+ *     line; two fingers on the canvas means a compare gesture, not a
+ *     funnel gesture. The compare toolbar owns that world.
+ *   - OTHERWISE THE CROWN SPEAKS: the deepest finished verb by the same
+ *     canonical order the walk uses (postprocess before refine3d before
+ *     … before import), ties broken by most-recently-touched then id —
+ *     deterministic, so the same world always opens the same chain.
+ *   - NO RECEIPTS, NO DOOR: with no finished funnel-stage verb on the
+ *     canvas the button is disabled with an honest line — the funnel
+ *     reads receipts, and there are none.
+ */
+
+export type FunnelDoorJob = {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  updatedAt?: string | null;
+};
+
+export type FunnelDoorReason =
+  | "no-receipts"
+  | "selection-unfinished"
+  | "selection-crowded";
+
+export type FunnelDoorDecision =
+  | { kind: "ready"; job: FunnelDoorJob; picked: "selection" | "crown" }
+  | { kind: "blocked"; reason: FunnelDoorReason; line: string };
+
+export const FUNNEL_DOOR_BLOCK_LINES: Record<FunnelDoorReason, string> = {
+  "no-receipts":
+    "The funnel reads receipts — no finished verbs yet. Complete a verb and the chain question opens here.",
+  "selection-unfinished":
+    "The selected verb hasn't finished — its receipt isn't written yet, so its chain can't be read.",
+  "selection-crowded":
+    "The chain question reads one line — select a single verb on the canvas.",
+};
+
+export function funnelDoorCandidate(
+  jobs: readonly FunnelDoorJob[],
+  selectedIds: readonly string[],
+): FunnelDoorDecision {
+  // the crown — deepest finished entry verb, deterministic tie-breaks
+  const crown = jobs
+    .filter((j) => j.status === "completed" && FUNNEL_ENTRY_TYPES.has(j.type))
+    .sort(
+      (a, b) =>
+        (FUNNEL_STAGE_RANK[b.type] ?? 75) - (FUNNEL_STAGE_RANK[a.type] ?? 75) ||
+        (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "") ||
+        a.id.localeCompare(b.id),
+    )[0];
+
+  // SELECTION IS THE QUESTION — one finger beats the crown
+  if (selectedIds.length === 1) {
+    const picked = jobs.find((j) => j.id === selectedIds[0]);
+    if (picked && FUNNEL_ENTRY_TYPES.has(picked.type)) {
+      if (picked.status === "completed") {
+        return { kind: "ready", job: picked, picked: "selection" };
+      }
+      // never swap in another run's funnel behind the user's back
+      return {
+        kind: "blocked",
+        reason: "selection-unfinished",
+        line: FUNNEL_DOOR_BLOCK_LINES["selection-unfinished"],
+      };
+    }
+    // selection on a non-stage verb (or a dangling id): the selection
+    // says nothing about chains — the crown keeps the door useful
+  } else if (selectedIds.length >= 2) {
+    return {
+      kind: "blocked",
+      reason: "selection-crowded",
+      line: FUNNEL_DOOR_BLOCK_LINES["selection-crowded"],
+    };
+  }
+
+  if (!crown) {
+    return {
+      kind: "blocked",
+      reason: "no-receipts",
+      line: FUNNEL_DOOR_BLOCK_LINES["no-receipts"],
+    };
+  }
+  return { kind: "ready", job: crown, picked: "crown" };
+}
