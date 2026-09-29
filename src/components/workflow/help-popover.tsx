@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { HelpCircle, MousePointer2, Link2, Play, ZoomIn, Trash2, Keyboard } from "lucide-react";
+import { BookOpen, HelpCircle, MousePointer2, Link2, Play, ZoomIn, Trash2, Keyboard } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { useWorkflowStore } from "@/lib/store";
@@ -21,7 +21,7 @@ const TIPS: { icon: React.ReactNode; text: string }[] = [
   },
   {
     icon: <Play className="size-3.5 text-primary" />,
-    text: "Run a job from the details panel — progress is simulated server-side.",
+    text: "Run a job from the details panel — the engine drives it live and progress updates in place.",
   },
   {
     icon: <ZoomIn className="size-3.5 text-primary" />,
@@ -36,6 +36,10 @@ const TIPS: { icon: React.ReactNode; text: string }[] = [
 export function HelpPopover() {
   const [open, setOpen] = React.useState(false);
   const setShortcutsOpen = useWorkflowStore((s) => s.setShortcutsOpen);
+  // t482 — the popover stays the canvas quick start; the manual's full
+  // weight (storage & the graveyard, the assistant, clusters, finding
+  // your way) lives one CTA away in the guide dialog
+  const setHelpGuideOpen = useWorkflowStore((s) => s.setHelpGuideOpen);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -63,13 +67,28 @@ export function HelpPopover() {
             </li>
           ))}
         </ul>
+        {/* the manual: the popover teaches the canvas, the guide dialog
+            carries the whole product (t482) — two CTAs, two doors, one
+            manual each */}
+        <Button
+          variant="default"
+          size="sm"
+          className="mt-4 w-full gap-2"
+          onClick={() => {
+            setOpen(false);
+            setHelpGuideOpen(true);
+          }}
+        >
+          <BookOpen className="size-3.5" aria-hidden="true" />
+          Read the full guide
+        </Button>
         {/* the full shortcut inventory lives in the shortcuts dialog (one
             data source, three doors: "?" key, this CTA, command palette) —
             a popover copy drifted and cramped 15 rows into w-80 */}
         <Button
           variant="outline"
           size="sm"
-          className="mt-4 w-full gap-2"
+          className="mt-2 w-full gap-2"
           onClick={() => {
             setOpen(false);
             setShortcutsOpen(true);

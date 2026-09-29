@@ -600,6 +600,10 @@ interface WorkflowState {
    *  command palette) — single source of truth so all three entries stay
    *  in sync. */
   shortcutsOpen: boolean;
+  /** t482 — the full help guide dialog: the popover stays the canvas
+   *  quick start, the guide carries the whole manual (one source, two
+   *  doors: the popover CTA and the command palette). */
+  helpGuideOpen: boolean;
   /** t419 — the AI assistant panel (right Sheet): open state + the
    *  one-shot pending prompt (the class gallery's "AI 分析" button opens
    *  the panel WITH a question — consumed once by the panel, never
@@ -810,6 +814,7 @@ interface WorkflowState {
   ) => Promise<{ deleted: string[]; error: string | null }>;
   setTemplatePresetsOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
+  setHelpGuideOpen: (open: boolean) => void;
   toggleNoteSpotlight: () => void;
   /** Task 134 — open the find bar (Ctrl/⌘+F, command palette, or the
    *  toolbar button). Opening focuses the input (the bar owns that
@@ -1710,6 +1715,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   templateSuggestions: null,
   customTemplates: [],
   shortcutsOpen: false,
+  helpGuideOpen: false,
   aiAssistantOpen: false,
   aiPendingPrompt: null,
   aiSettingsOpen: false,
@@ -4908,6 +4914,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
+  setHelpGuideOpen: (open) => set({ helpGuideOpen: open }),
   setAiAssistantOpen: (open) => set({ aiAssistantOpen: open }),
   openAiAssistant: (prompt) =>
     set({ aiAssistantOpen: true, ...(prompt ? { aiPendingPrompt: prompt } : {}) }),

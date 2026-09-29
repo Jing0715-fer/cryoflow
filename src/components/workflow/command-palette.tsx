@@ -38,6 +38,7 @@ import {
   FileUp,
   GraduationCap,
   Keyboard,
+  BookOpen,
   Layers,
   LayoutDashboard,
   Maximize2,
@@ -305,6 +306,13 @@ export function CommandPalette() {
     // same dance: the palette must yield focus before the dialog opens
     close();
     useWorkflowStore.getState().setShortcutsOpen(true);
+  };
+
+  // t482 — the full help guide joins the palette (t245's law: every
+  // header door is indexed; the guide is the "?" door's manual)
+  const openHelpGuide = () => {
+    close();
+    useWorkflowStore.getState().setHelpGuideOpen(true);
   };
 
   // ---- Export chart data (Task 110) + Copy chart data (Task 113) --------
@@ -914,6 +922,15 @@ export function CommandPalette() {
               </span>
             </span>
             <CommandShortcut>N</CommandShortcut>
+          </CommandItem>
+          <CommandItem
+            value="help guide manual how to use cryoflow guide storage graveyard clusters assistant"
+            onSelect={openHelpGuide}
+            className="gap-2.5"
+          >
+            <BookOpen className="size-4 shrink-0" />
+            <span className="flex-1 text-sm">Help — the full guide</span>
+            <span className="text-[10px] text-muted-foreground">manual</span>
           </CommandItem>
           <CommandItem
             value="keyboard shortcuts keys help bindings discover"

@@ -60,6 +60,7 @@ import { CommandPalette } from "@/components/workflow/command-palette";
 import { TemplatePresetsDialog } from "@/components/workflow/template-presets-dialog";
 import { ImportWorkflowDialog } from "@/components/workflow/import-workflow-dialog";
 import { ShortcutsDialog } from "@/components/workflow/shortcuts-dialog";
+import { HelpGuideDialog } from "@/components/workflow/help-guide-dialog";
 // t419 — the AI assistant: panel + provider settings, both store-flagged
 // mounts exactly like the shortcuts/presets dialogs (mounted once).
 import { AssistantPanel } from "@/components/ai/assistant-panel";
@@ -709,6 +710,7 @@ export function AppShell() {
       <TemplatePresetsDialog />
       <ImportWorkflowDialog />
       <ShortcutsDialog />
+      <HelpGuideDialog />
       <AssistantPanel />
       <AiSettingsDialog />
 
