@@ -5316,3 +5316,26 @@ Stage Summary:
 - **「预点击合同要按真正的目标算」**：select rider 收养的是铸造的 selection，不是 run B——按 B 算的 plan 承诺了 selection 喂不饱的线；t452 埋下的潜在谎言被类图的双口结构当场揭发，跨维配对（class3d 4 类 vs class2d 50 类）则证明 unpaired 点名与口形 plan 是同一枚诚实硬币的两面
 - **「名字就是 id，判决就是参数」**：「Class 007」同时是 join 的钥匙和选单的 payload——一个方言、一条律；对话说出的 gained 清单逐字进 selectedClasses，引擎按它选出 8 of 96 particles——判决到接线的最后一米没有翻译损耗
 - 产出：The Third Domain 全链（class-compare 纯脑 + DEFAULT_WORDS/词汇律 + 对话框三域化 + selectWired 门 + adoptWithSelect 双嘴扫描 + selection 口形 plan）+ t453 bench 57/0 + 二十三套回归全绿 + 全链活体（stub 相位差混合判决/收养 moves:1/烘焙逐字/选择真跑 8 of 96）+ 活体自捕预点击合同 bug + QA 工具律第二课（无 GET 的路由轮询法）+ 三方一致真对齐
+
+---
+Task ID: 454 (cron agent loop 202609291321) — 完整收官
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 453 完整收官（HEAD = 7c14d6c = origin/main 已推；stamp = 5a4583a docs 时差一拍——惯例时差无害）。世界健康：app 200、15/15 全 completed、14 边、mock 集群 :3022 在听、内存 available 3164MB。第四十五份过时 Task 13 指引照例不认。自号 454。
+- [QA — 全绿基线] landing hydration 满血（t438 铃铛门在场）、标题 pristine、console 0 错、page errors 0、闲世界编排水印正确缺席。回归全家 22 套 exit 0 全绿。世界稳定 → 转新需求。
+- [选题定谳 — The Convergence Verdict（同 run 跨轮收敛判决）] t453 遗留② = t440 遗留④余脉：compare 家族的第四个问题——前三个域配对的是两个 runs，本域配对的是一个 run 和它自己的两轮迭代：「分类收敛了吗，还是类别仍在重新洗牌粒子？」勘察确认原料全在位：classes 路由 ?iter=N 自 gallery 时代就答逐轮占据率（it0/5/12/25 全验证），iterations 路由列全轮次阶梯（class3d 26 轮），class2d（remote 道）mirror 仅 it101 无 witness → 路由按 t355 律走 remote fill 答 200——按设计工作非 bug。
+- [交付 — one run reads its own arc] ①lib/convergence.ts 纯脑：roundLabel（「Round 025」——RELION 补零方言，id 不是散文，与「Class 007」同族）+ defaultRoundPair（默认对 = run 的整条弧：最早 vs 最新，排序去重，<2 轮 null——门隐藏，脸不空谈）+ movingCensus（**收敛清点只数运动不数质量**——|Δ| 是真相，方向与收敛无关：丢掉一半粒子的类和涨满的类一样未定；三结尾按 settled share：0 movers「has settled」/≥90%「mostly settled」/否则「still re-shuffling」；biggest mover 带符号点名）②results/compare-face.tsx **共享脸套件**：LensChips + VerdictChips + IdentityScatter + MoverList 从 sibling 脸逐字提取——两个对话一张脸，零复制 JSX（t440 拒绝的架构谎言在第四域继续拒绝）③class-convergence-dialog：收敛门（History 图标；阶梯 <2 轮即藏——单轮 run 无弧可读）+ 判决脸（整弧默认对 + 轮次选择器 + 共享判决套件 + census 信任行）+ **verbless footer 说出口**：「convergence is a reading, not a mutation」——选「settled 类」会把 settled 与 good 混为一谈，「多跑几轮迭代」还不是本 app 的动词；缺失的 rider 大声说为什么缺，而不是静默④run-compare-dialog 三处：重构上共享套件（本文件瘦身 ~130 行）+ doorTitle 进 spec（门的 title 不再对 class 域硬编码 per-micrograph——t454 顺手修掉的诚实 bug）+ **exclude rider 的 plan 换 filter 口形**（adoptTargetType: excludemg——t453 select rider 的律带回家；今天两形状恰好重合，bench 钉死等价，未来端口漂移时契约保持诚实）。
+- [验证 — 二十三套全绿] t454 bench 40/0 一次通过（CV1 轮次方言 5、CV2 整弧默认 6、CV3 census 阈值 10——含 strict-> 边界与自定义阈值、CV4 配对+漂移 8、CV5 词汇律 5、CV6 filter plan 等价 6）；tsc 0 + eslint 0（六触碰文件）；回归全家 23 套（22 旧 + t454）exit 0 全绿。
+- [研磨 ×2] 首磨 FRESH attempt 1 GREEN（provenance = 7c14d6c——feature commit 前的惯例时差）→ feature commit 472a0a2 后复磨 FRESH attempt 1 GREEN → **provenance = 472a0a2 = HEAD 三方逐字节一致**；内存全程充裕，无 OOM 无杀进程。
+- [活体 QA — 收敛三景] ①**门满血现身**：class3d（26 轮阶梯）inspector 内收敛门 aria 逐字「Class convergence — read this run's occupancy across its own 26 iterations」；class2d（remote，阶梯仅 1 轮）正确无门——<2 轮律②**均匀世界的诚实 settled**：整弧默认对（Round 000 vs Round 025）逐字渲染，判决「0 gained · 0 lost · 4 held」+ census「0 of 4 classes moved more than 1.0 pp … the assignment has settled.」——mock 逐轮同分布，「settled」是这份数据的真话③**手术世界的 re-shuffling**：it025 手术（12 个 class-3 粒子改判 class-1 → 36/24/24/12）后判决当帧翻转「1 gained · 1 lost · 2 held」+ movers 逐字「Class 001 25.0% → 37.5% (+12.5%) / Class 003 25.0% → 12.5% (−12.5%)」+ census 逐字「2 of 4 classes moved more than 1.0 pp between Round 000 and Round 025 (biggest: Class 001, +12.5 pp) — the assignment is still re-shuffling.」④**换轮交互**：Round B 切 Round 012（手术前均匀世界）→ 重取数据当帧再翻转回 settled——用户驱动的任意两轮对实时再判决；截图 .qa-logs/t454-convergence-settled.png。
+- [清场] it025 备份还原（iter=25 复原 0.25×4 均匀）、QA 浏览器杀讫、console 0 错、标题 pristine、jobs 15/15 全 completed、14 边、16 目录 = 原世界。
+- [诚实边界] ①手术只动了 it025——「still re-shuffling」的 census 活体基于手术世界，未手术世界的 mock 永远 settled（stub 每轮写同一分布）；若未来 stub 逐轮漂移，活体数字会变，bench 固定夹具不受影响②收敛门的 /iterations 预取在 inspector 挂载时发一发热 GET（class 面专用）——数据取取不是状态同步，effect 取数是正典模式，但严格说门的存在比 sibling 门（从 store 免费数）多一次网络往返③class3d 无 references2d 口——若未来给收敛判决接动词（如「多跑迭代」continue 动词），需先有引擎动词在位；verbless footer 就是那个缺口的诚实占位④CV6 等价证明依赖今天 ctffind/excludemg 输出口同名——bench 钉死的是「今天重合」+「漂移即拒」两件事，不是永恒重合。
+- [最终态] HEAD = 472a0a2（feature commit）；stamp = 472a0a2 三方一致（复磨 provenance）；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、盘上 16 目录 = 原世界、QA 浏览器净场。下一窗从 Task 455 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②收敛判决的「continue with more iterations」动词（引擎侧 continue 动词在位后，verbless footer 退休）③存储板第三窗（Clean 快捷入口/按 run 聚合，t440 遗留③延续）④漂移 × 波前双徽章并排需可丢弃世界⑤duplicate-tab tabId 撞号的 localStorage 心跳注册表（t451 遗留⑤，需真实场景驱动）。
+
+Stage Summary:
+- **「收敛只数运动，不数质量」**：一个类丢掉一半粒子与涨满一倍同样未定——|Δ| 是运动，方向是另一次判决的事；census 的三结尾（settled / mostly settled / still re-shuffling）让「分类好了吗」有一个可以说出口的量化答案，biggest mover 带符号点名让答案可以行动
+- **「两个问题一张脸」**：sibling A/B 问「哪个 run 更好」，收敛问「这个 run 自己稳定了吗」——scatter 的对角线在两个问题里都是「没变」；共享脸套件把判决芯片/散点/ movers 提取成词表，第四域加入时零复制 JSX，t440 的架构誓言延续
+- **「缺失的动词要说出口」**：收敛判决没有 consumer verb——「选 settled 类」混淆 settled 与 good；footer 一句话宣告这是 reading 不是 mutation，比静默缺一个按钮诚实
+- 产出：The Convergence Verdict 全链（convergence 纯脑 + compare-face 共享套件 + 收敛门/对话 + exclude rider filter 口形 plan + doorTitle 诚实化）+ t454 bench 40/0 + 二十三套回归全绿 + 收敛三景活体（均匀 settled/手术 re-shuffling/换轮当帧再判决）+ 世界零污染清场 + 三方一致真对齐
