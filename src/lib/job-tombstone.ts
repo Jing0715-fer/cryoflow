@@ -19,11 +19,12 @@
  * restore finds both endpoints alive and the sidecar upsert no-ops.
  */
 
-import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "fs";
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
-import { DATA_DIR } from "@/lib/paths";
+import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import { getRun, upsertRun, type RunRecord } from "@/lib/relion/engine";
+import { walkDirUsage } from "@/lib/relion/disk-walk";
 import {
   readFileEdges,
   persistPortEdge,
@@ -233,6 +234,38 @@ export interface GraveRow {
   edges: number;
   restorable: boolean;
   why?: string;
+  /** t479 — what the grave's surviving workdir still weighs on disk.
+   *  DELETE keeps the workdir so an undo can re-attach it; until the
+   *  grave is cleared that is REAL bytes the storage map counts but
+   *  cannot name. Omitted when the workdir is gone (an old grave the
+   *  sweeps took, or a shoveled one) or weighs nothing — absence is the
+   *  honest zero, the same omission law the roster's dispatches block
+   *  obeys. */
+  bytes?: number;
+}
+
+/**
+ * t479 — a grave's weight: the surviving workdir's on-disk bytes, walked
+ * with the storage walk's OWN dialect (symlink-honest, entry-capped —
+ * one walk in this app, never a second one). The path comes from the
+ * server-written tombstone, but the belt has braces: only directories
+ * under RELION_DIR are walked or ever buried — a stale or hostile path
+ * weighs nothing and burns nothing. Gone-or-empty reads as undefined
+ * (the row omits the key instead of lying with a zero).
+ */
+export function workdirUnderRelion(workdir: string | null | undefined): string | null {
+  if (!workdir) return null;
+  const rel = path.relative(RELION_DIR, workdir);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return workdir;
+}
+
+export function graveWorkdirBytes(workdir: string | null | undefined): number | undefined {
+  const safe = workdirUnderRelion(workdir);
+  if (!safe) return undefined;
+  const usage = walkDirUsage(safe);
+  if (!usage.exists || usage.bytes <= 0) return undefined;
+  return usage.bytes;
 }
 
 export async function graveRowsOf(): Promise<GraveRow[]> {
@@ -240,6 +273,7 @@ export async function graveRowsOf(): Promise<GraveRow[]> {
   return Promise.all(
     graves.map(async (g) => {
       const rec = g.record;
+      const bytes = graveWorkdirBytes(rec?.workdir);
       // restoreJobRows refuses an occupied id — the roll call pre-computes
       // the same truth so no face ever promises a blocked restore
       const occupied = !!(await db.job.findUnique({ where: { id: g.id }, select: { id: true } }));
@@ -259,6 +293,7 @@ export async function graveRowsOf(): Promise<GraveRow[]> {
             }
           : null,
         edges: g.fileEdges.length + g.dbEdges.length,
+        ...(bytes !== undefined ? { bytes } : {}),
         restorable: g.row ? !occupied : false,
         ...(g.row && occupied
           ? { why: "a job with this id already exists — already restored or re-created" }
@@ -351,5 +386,68 @@ export async function applyJobTombstone(id: string): Promise<{
     }
   }
 
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* t479 — the bulk burial (the storage drawer's Clear door)             */
+/* ------------------------------------------------------------------ */
+
+export interface BuryResult {
+  /** graves whose tombstone died */
+  buried: number;
+  /** restorable graves the door left alive (the default door's spare law) */
+  spared: { id: string; name?: string }[];
+  /** bytes actually reclaimed — only workdirs that really died count */
+  bytesReclaimed: number;
+  /** graves whose workdir was KEPT because a live job owns the id now */
+  keptWorkdirs: number;
+}
+
+/**
+ * The grave dies as a NAME (tombstone gone); its workdir dies ONLY when
+ * the id is free — a restored or re-created job LIVES in that very
+ * directory, and the burial must never burn a living home. Restorable
+ * graves are spared unless the door says otherwise (includeRestorable —
+ * the armed UI's explicit second step, `?all=1` on the route): the same
+ * "can it come back?" truth graveRowsOf speaks decides what the bulk
+ * door may touch, so the drawer's button and the route's law are one
+ * grammar. Best-effort like every deletion in this app: a workdir the
+ * disk refuses to give is reported in keptWorkdirs's honest arithmetic,
+ * never a thrown funeral.
+ */
+export async function buryGraves(
+  opts: { includeRestorable?: boolean } = {}
+): Promise<BuryResult> {
+  const out: BuryResult = { buried: 0, spared: [], bytesReclaimed: 0, keptWorkdirs: 0 };
+  for (const g of listJobTombstones()) {
+    const occupied = !!(await db.job.findUnique({ where: { id: g.id }, select: { id: true } }));
+    const restorable = g.row ? !occupied : false;
+    if (restorable && !opts.includeRestorable) {
+      out.spared.push({ id: g.id, ...(g.row?.name ? { name: g.row.name } : {}) });
+      continue;
+    }
+    const workdir = workdirUnderRelion(g.record?.workdir);
+    if (workdir) {
+      if (occupied) {
+        // the live job's home — the tombstone dies, the directory stays
+        out.keptWorkdirs += 1;
+      } else {
+        try {
+          const bytes = graveWorkdirBytes(workdir) ?? 0;
+          rmSync(workdir, { recursive: true, force: true });
+          out.bytesReclaimed += bytes;
+        } catch {
+          out.keptWorkdirs += 1; // the disk kept it — the count stays honest
+        }
+      }
+    }
+    try {
+      rmSync(tombstonePath(g.id), { force: true });
+    } catch {
+      /* a tombstone the fs won't drop never aborts the batch */
+    }
+    out.buried += 1;
+  }
   return out;
 }

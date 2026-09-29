@@ -86,6 +86,7 @@ import {
   Loader2,
   RefreshCw,
   RotateCcw,
+  Trash2,
   Undo2,
 } from "lucide-react";
 import type { GraveRow } from "@/lib/job-tombstone";
@@ -295,6 +296,12 @@ export default function StorageDialog({
   const [graves, setGraves] = React.useState<GraveRow[] | null>(null);
   const [restoringId, setRestoringId] = React.useState<string | null>(null);
   const [graveReceipt, setGraveReceipt] = React.useState<string | null>(null);
+  // t479 — the bulk burial: the armed two-step (the records dialog's
+  // t294 law), the in-flight lock, and its own error line (the receipt
+  // stays teal for what the burial actually did)
+  const [burialArmed, setBurialArmed] = React.useState(false);
+  const [burying, setBurying] = React.useState(false);
+  const [graveError, setGraveError] = React.useState<string | null>(null);
   const restoreFromGraveyard = useWorkflowStore((s) => s.restoreFromGraveyard);
 
   const projectId = project?.id ?? null;
@@ -343,6 +350,10 @@ export default function StorageDialog({
       setGraves(null);
       setGraveReceipt(null);
       setRestoringId(null);
+      // t479 — the burial's armed step and its error die with the dialog
+      setBurialArmed(false);
+      setBurying(false);
+      setGraveError(null);
     }
   }, [open, projectId, load]);
 
@@ -380,6 +391,97 @@ export default function StorageDialog({
     },
     [restoreFromGraveyard, loadGraves]
   );
+
+  /* ---- t479 — the bulk burial: the drawer's Clear door ----
+   * The armed two-step the records dialog's bulk forget taught (t294):
+   * the first click arms, the second fires. The scope is always the
+   * roll call's OWN arithmetic — spent graves first (the default door
+   * spares restorable ones and the receipt names them); only when the
+   * roll holds nothing else does the button offer the restorable graves
+   * themselves, under a label that says what it means. The route is
+   * law regardless of what the client sends: without ?all=1 no
+   * restorable grave is ever buried. */
+  const spentGraves = graves?.filter((g) => !g.restorable) ?? [];
+  const restorableGraves = graves?.filter((g) => g.restorable) ?? [];
+  const graveBytesTotal = graves?.reduce((sum, g) => sum + (g.bytes ?? 0), 0) ?? 0;
+
+  const clearLabel =
+    spentGraves.length > 0
+      ? `Clear ${spentGraves.length} spent grave${spentGraves.length === 1 ? "" : "s"}`
+      : `Bury ${restorableGraves.length} restorable grave${restorableGraves.length === 1 ? "" : "s"}`;
+  const armedLabel =
+    spentGraves.length > 0
+      ? "Sure? Gone for good"
+      : "Sure? They can never come back";
+
+  const handleGraveClear = React.useCallback(async () => {
+    if (!graves || graves.length === 0) return;
+    if (!burialArmed) {
+      setBurialArmed(true);
+      return;
+    }
+    setBurying(true);
+    setGraveError(null);
+    setGraveReceipt(null);
+    try {
+      // ?all=1 only ever rides the second step — when the spent are
+      // already gone and what remains is restorable by name
+      const includeRestorable = spentGraves.length === 0;
+      const res = await fetch(
+        `/api/jobs/deleted${includeRestorable ? "?all=1" : ""}`,
+        { method: "DELETE" }
+      );
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        buried?: number;
+        spared?: { id: string; name?: string }[];
+        bytesReclaimed?: number;
+        keptWorkdirs?: number;
+      };
+      if (!res.ok || !json.ok) {
+        setGraveError(json.error ?? `HTTP ${res.status}`);
+      } else {
+        const lines: string[] = [];
+        if ((json.buried ?? 0) > 0) {
+          lines.push(
+            `Buried ${json.buried} grave${json.buried === 1 ? "" : "s"}` +
+              ((json.bytesReclaimed ?? 0) > 0
+                ? ` — ${fmtBytes(json.bytesReclaimed ?? 0)} reclaimed`
+                : "")
+          );
+        } else {
+          lines.push("Nothing to bury — the graveyard moved on since the roll");
+        }
+        if ((json.keptWorkdirs ?? 0) > 0) {
+          lines.push(
+            `${json.keptWorkdirs} workdir${json.keptWorkdirs === 1 ? "" : "s"} kept — a live job owns ${json.keptWorkdirs === 1 ? "it" : "them"} now`
+          );
+        }
+        const spared = json.spared ?? [];
+        if (spared.length > 0) {
+          const named = spared
+            .slice(0, 3)
+            .map((s) => s.name ?? s.id)
+            .join(", ");
+          lines.push(
+            `${spared.length} restorable grave${spared.length === 1 ? "" : "s"} spared (${named}${spared.length > 3 ? ", …" : ""}) — restore ${spared.length === 1 ? "it" : "them"} or clear again to bury ${spared.length === 1 ? "it" : "them"} too`
+          );
+        }
+        setGraveReceipt(lines.join(" · "));
+      }
+    } catch {
+      setGraveError("The burial failed — is the server reachable?");
+    } finally {
+      setBurying(false);
+      setBurialArmed(false);
+      void loadGraves();
+      // the burial IS a clean — the map re-walks so the reclaimed bytes
+      // leave the totals in the same breath the receipt claims them (the
+      // handleCleaned law: a receipt's arithmetic must match a fresh walk)
+      void load();
+    }
+  }, [graves, burialArmed, spentGraves.length, loadGraves, load]);
 
   /* ---- the clean bridge (t441): the shovel comes to visit the map ----
    * The door hands the run to the SAME tiered CleanupDialog the inspector
@@ -1282,15 +1384,45 @@ export default function StorageDialog({
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     <Undo2 className="size-3.5" aria-hidden="true" />
                     Recently deleted ({graves.length})
-                  </p>
-                  {graveReceipt && (
-                    <p
-                      data-testid="graveyard-receipt"
-                      className="mt-2 rounded-md border border-teal-500/30 bg-teal-500/[0.06] px-2.5 py-1.5 text-xs text-teal-700 dark:text-teal-300"
+                    {graveBytesTotal > 0 && (
+                      <span
+                        className="normal-case tracking-normal tabular-nums text-muted-foreground/80"
+                        title="What the deleted jobs' surviving workdirs still weigh on disk — the storage map counts these bytes, the graves name them. Clear the graves to reclaim them."
+                      >
+                        · {fmtBytes(graveBytesTotal)} still on disk
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      data-testid="graveyard-clear"
+                      className={`ml-auto h-6 shrink-0 gap-1 px-2 text-[11px] ${
+                        burialArmed
+                          ? "bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive"
+                          : "text-muted-foreground hover:text-destructive"
+                      }`}
+                      disabled={burying || restoringId !== null}
+                      onClick={() => void handleGraveClear()}
+                      aria-label={
+                        burialArmed
+                          ? armedLabel
+                          : spentGraves.length > 0
+                            ? `Clear ${spentGraves.length} spent graves — graves that can no longer be restored`
+                            : `Bury ${restorableGraves.length} restorable graves permanently`
+                      }
+                      title={
+                        spentGraves.length > 0
+                          ? "Buries the graves that can no longer come back (no row snapshot, or the id is already taken). Restorable graves are spared."
+                          : "Every remaining grave is restorable — this buries them and their workdirs for good."
+                      }
                     >
-                      {graveReceipt}
-                    </p>
-                  )}
+                      <Trash2
+                        className={`size-3${burying ? " animate-spin" : ""}`}
+                        aria-hidden="true"
+                      />
+                      {burialArmed ? armedLabel : clearLabel}
+                    </Button>
+                  </p>
                   <ul className="mt-2 space-y-1">
                     {graves.slice(0, 8).map((g) => (
                       <li
@@ -1313,6 +1445,14 @@ export default function StorageDialog({
                         >
                           {graveAge(g.deletedAt)}
                         </span>
+                        {g.bytes !== undefined && (
+                          <span
+                            className="shrink-0 text-[10px] tabular-nums text-muted-foreground/80"
+                            title={`${fmtBytes(g.bytes)} of run output still in the grave's workdir — reclaim it with Clear`}
+                          >
+                            {fmtBytes(g.bytes)}
+                          </span>
+                        )}
                         {g.restorable ? (
                           <Button
                             variant="ghost"
@@ -1346,6 +1486,29 @@ export default function StorageDialog({
                     </p>
                   )}
                 </div>
+              )}
+              {/* t479 — the burial's receipt and its error live OUTSIDE the
+                  section gate: a FULL burial unmounts the drawer (zero
+                  graves), and the one line the user needs — what died, how
+                  many bytes came back, who was spared — dies with it if it
+                  renders inside. After a full burial the receipt stands
+                  alone where the drawer was; after a spare the receipt
+                  reads under the surviving rows. */}
+              {graveError && (
+                <p
+                  data-testid="graveyard-error"
+                  className="mt-2 rounded-md border border-destructive/30 bg-destructive/[0.06] px-2.5 py-1.5 text-xs text-destructive"
+                >
+                  {graveError}
+                </p>
+              )}
+              {graveReceipt && (
+                <p
+                  data-testid="graveyard-receipt"
+                  className="mt-2 rounded-md border border-teal-500/30 bg-teal-500/[0.06] px-2.5 py-1.5 text-xs text-teal-700 dark:text-teal-300"
+                >
+                  {graveReceipt}
+                </p>
               )}
             </>
           )}

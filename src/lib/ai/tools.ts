@@ -33,6 +33,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { allAdjacency, portsValid } from "@/lib/edge-ports";
 import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
+import { fmtBytes } from "@/lib/relion/disk-usage";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
 import {
   graveRowsOf,
@@ -160,7 +161,7 @@ export const AI_TOOLS: ToolSchema[] = [
   {
     name: "list_deleted",
     description:
-      "Read the graveyard — every deleted job's tombstone, newest first: its id, type and name (when the grave remembers them), when it was deleted, what its run record says (done/exit code/result line) and whether it can be restored from here (a grave with a row snapshot restores under its ORIGINAL id — workdir, run record and wires re-attach; a grave without one restores only from the canvas's undo). The mirror read for delete_job.",
+      "Read the graveyard — every deleted job's tombstone, newest first: its id, type and name (when the grave remembers them), when it was deleted, what its run record says (done/exit code/result line), what its surviving workdir still weighs on disk (bytes — a deleted job keeps its run directory until the grave is cleared, so the deleted still occupy space), and whether it can be restored from here (a grave with a row snapshot restores under its ORIGINAL id — workdir, run record and wires re-attach; a grave without one restores only from the canvas's undo). The mirror read for delete_job.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -963,14 +964,22 @@ async function listDeletedTool(ctx: AgentCtx): Promise<AiToolResult> {
   }
 
   const named = rows.filter((r) => r.restorable).length;
+  // t479 — the graveyard's weight: what the deleted still occupy on disk.
+  // The clause only speaks when there IS weight — an emptied graveyard
+  // (the sweeps took the workdirs) stays silent about bytes.
+  const totalBytes = rows.reduce((sum, r) => sum + (r.bytes ?? 0), 0);
+  const weight =
+    totalBytes > 0
+      ? ` (${rows.filter((r) => r.bytes !== undefined).length} workdir${rows.filter((r) => r.bytes !== undefined).length === 1 ? "" : "s"} still on disk, ${fmtBytes(totalBytes)})`
+      : "";
   return {
     ok: true,
     summary:
-      `${rows.length} deleted job${rows.length === 1 ? "" : "s"} in the graveyard, ${named} restorable from here ` +
+      `${rows.length} deleted job${rows.length === 1 ? "" : "s"} in the graveyard${weight}, ${named} restorable from here ` +
       `(restore_deleted with its id; the rest need the canvas's undo or a re-create)`,
     detail: {
       graves: rows,
-      note: "a restore puts the job back under its ORIGINAL id — its workdir, run record and wires re-attach; a restored 'running' grave comes back idle (the process was stopped at delete time)",
+      note: "a restore puts the job back under its ORIGINAL id — its workdir, run record and wires re-attach; a restored 'running' grave comes back idle (the process was stopped at delete time). A grave's bytes are its surviving workdir — the bulk clear (and the reclaimed bytes) lives in the Project storage dialog's Recently-deleted section",
     },
   };
 }
