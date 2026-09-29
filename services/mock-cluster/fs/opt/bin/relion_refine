@@ -446,6 +446,20 @@ else:
 with open(os.path.join(outdir, "run_it000_optimiser.star"), "w") as fh:
     fh.write(f"\ndata_optimiser\n\n_rlnCurrentIteration 0\n_rlnNumberOfClasses {ncls}\n")
 
+# t455 — the seed round's model+sampling family: the completeness law
+# (continueCompanions) judges it000 like any other round, and a real
+# relion_refine writes the checkpoint set from the random start up.
+if mode in ("classify2d",):
+    with open(os.path.join(outdir, "run_it000_model.star"), "w") as fh:
+        fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+else:
+    with open(os.path.join(outdir, "run_it000_half1_model.star"), "w") as fh:
+        fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+    with open(os.path.join(outdir, "run_it000_half2_model.star"), "w") as fh:
+        fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+with open(os.path.join(outdir, "run_it000_sampling.star"), "w") as fh:
+    fh.write("\ndata_sampling_general\n\n_rlnSamplingHealpixOrder 2\n")
+
 
 for it in range(1, iters + 1):
     time.sleep(0.9)
@@ -530,6 +544,24 @@ for it in range(1, iters + 1):
         write_mrc(os.path.join(outdir, f"run_it{its}_half2_class001.mrc"), 64, 64, 64, 202 + it)
     with open(os.path.join(outdir, f"run_it{its}_optimiser.star"), "w") as fh:
         fh.write(f"\ndata_optimiser\n\n_rlnCurrentIteration {it}\n_rlnNumberOfClasses {ncls}\n")
+    # t455 — the model+sampling family the completeness law reads: a real
+    # relion_refine writes run_itNNN_{model,sampling}.star every iteration
+    # (MlOptimiser::write — the checkpoint set --continue reloads). 3D gold
+    # halves speak half1/half2 model (the continue branch's own dialect);
+    # 2D speaks the plain model star. Without them every fresh-written
+    # round died the completeness law (missing model.star + sampling.star)
+    # and the picker's rounds were ALL disabled — the field report the
+    # t394 law answered, reproduced by the mock's own laziness.
+    if is2d:
+        with open(os.path.join(outdir, f"run_it{its}_model.star"), "w") as fh:
+            fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+    else:
+        with open(os.path.join(outdir, f"run_it{its}_half1_model.star"), "w") as fh:
+            fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+        with open(os.path.join(outdir, f"run_it{its}_half2_model.star"), "w") as fh:
+            fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+    with open(os.path.join(outdir, f"run_it{its}_sampling.star"), "w") as fh:
+        fh.write("\ndata_sampling_general\n\n_rlnSamplingHealpixOrder 2\n")
 
 # final artifacts collectOutputs looks for
 # t354 — COPY, not rename: real relion_refine leaves EVERY per-iteration

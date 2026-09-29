@@ -23,11 +23,12 @@
  *     direction is irrelevant to convergence (a class that LOST half its
  *     particles is exactly as un-settled as one that gained). The census
  *     names the biggest mover so the reading is actionable.
- *   - THE VERDICT READS, IT NEVER WIRES: convergence has no consumer
- *     verb — "select the settled classes" would conflate settled with
- *     good, and "continue with more iterations" is not this app's verb
- *     yet. The face says so, in its own footer, instead of staying
- *     silent about the missing rider.
+ *   - THE VERDICT READS; THE VERB CONTINUES (t455): "select the settled
+ *     classes" stays refused (settled ≠ good), but the continue verb is
+ *     now real — convergence-continue.ts mirrors the engine's restart
+ *     law (fn_cont → --continue, --iter as the TOTAL) and the face fires
+ *     RELION's own restart from the arc's newest complete checkpoint.
+ *     The reading informs the decision; the verb acts on it.
  */
 
 import type { Delta } from "@/lib/paired-compare";
