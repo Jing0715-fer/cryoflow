@@ -5751,3 +5751,23 @@ Stage Summary:
 - **「扩展不是诞生」**：第 19 工具原位加域——目录数不变、schema 仍无参、t475 断言零 bump；轻量读（N×≤3 findUnique）不配一个新工具
 - **「查库必带显式 env」**：裸 bun -e 的 Prisma 落到 sandbox TEMPLATE 库——假「全 gone」差点冤枉模型诚实的「✅ 可以打开」；预检自己错了的时候，先怀疑自己的镜子再怀疑被测者
 - 产出：list_clusters dispatches 块（简历聚合复用 + 省略律 + summary 增量）+ THE CLUSTER LAW 简历律入册 + t476 bench 22/0（工具本体零改动）+ 42 套回归全绿 + 真 GLM 集群史活体逐字（三方对账）+ 截图 ×1 + live 剧本 ×1
+
+## Task 474 (2026-09-30, 用户工单窗口 —— The Dark Grid Confesses, and Heals)
+
+- [开局] 沙箱重置后世界失而复得：/home/z/cryoflow 连同 data/（gitignored）被清——git clone 复库（HEAD = 748f7b8 = t476），.env 复制、DATABASE_URL 显式 db:push（sandbox 的 TEMPLATE 库盖过了 .env——dev-server.sh 早已钉死此坑）、mock 集群 launch、3000 让位（my-project 暂停，惯例）。工单原文：「Class gallery / 2D Classification 1 · iter 200 / AI 分析 / … / Kept only · 9 —— 选 cluster 运行的 2d 分类时图片加载不出来，每个框都显示 no image，并且每个框大小不是完全一致」。
+- [复现世界] scripts/qa-t474ui-seed.mjs：mock 集群真跑 200 迭代 × 12 类 class2d（「2D Classification 1」，slurm 车道）+ select2d 双边接入 + 删 mirror 全部 202 个栈 + 删预览缓存 = 用户现场。首个活体证据：inspector 首开时 /iterations 的 remote merge 一次失败 → 12 卡全「no image」且无 banner 无重试——恰是工单形状（自身即被 OOM 压力触发，但产品弱点是真的）。
+- [根因判读（三处结构性弱点）] ①**填充层的静默死亡**：命名类平均栈的那一轮 SSH（remoteLiveIterations）失败时 classesFile:null 无任何表面——占位卡裸「no image」，t358 的诚实法则止步于 PULL 层，FILL 层从未招供；②**目标绑死 run record**：填充/拉取/切片/表格四条道全要活记录——Reset-to-idle（标准「失败再配置」流）清记录后整廊熄灯，而栈分明还在 mirror 与集群两处（t396「workdir 是 JOB 的事实」判决未覆盖画廊）；③**检查台尺寸不齐**：lightbox 用 w-auto 按 PNG 自然宽定盒（64px mock 渲染得小、360px 真图大、被 max-h 截的竖长）——「每个框大小不是完全一致」的所在。
+- [修复①— 填充招供] /classes 与 /iterations 的 remote fill 失败句子现在进 renderError（线路自己的原话逐字）；新琥珀 [data-no-stack-banner]（classesFile==null 且占位在场）：点名世界 + Retry 重问两路；卡片占位 title 也带原因。
+- [修复②— 派生目标] 新 src/lib/remote/derived-target.ts：localMirrorWorkdirForJob（RELION_DIR/<proj>/<type>_<id8>，与 /classes 回退公式逐字节同源）+ derivedRemoteTargetForJob（项目绑定 connection + expandRemotePath + remoteWorkdirForJob 的 t396 公式）；iteration-live 增 remoteLiveIterationsFor（同一 SSH 轮，调用方派生目标；缓存键 jobId，记录路/派生路按构造不相交）；ensureIterationAssets 增 runDoneHint（无记录拉取按 job 行状态措辞闸门）；/classes、/iterations、/iterations/image、/iterations/sheet 四路全部落派生 workdir + 派生拉取目标。
+- [修复③— 等方检查台] lightbox 图框改 mx-auto aspect-square w-full max-w-[26rem]（每类同一方台，object-contain 信箱式）；失败占位改定方 h-64；网格卡活体测量两个状态（12/12 加载 104×101 / 全灭 104×89）皆逐格相等，页脚 nowrap 律在网格注释里成文。
+- [t474 bench 18/0] A 派生公式（与 dispatcher join 逐字节 + 类型异动异目录）/ B 派生目标（remote 绑定→目标、local→null、连接蒸发→null）/ C remoteLiveIterationsFor 诚实拒绝（未知连接→「was deleted」句、死线→「SSH to host failed」句，均不 throw 且 classesFile 留 null 由路由说话）/ D 填充法则（拒句领唱 + 双家园点名 + run_itNNN_classes.mrcs 方言可行动）。插曲：首推带一个 bench 残留 import（remoteWorkdirForJob 从 iteration-live 解构——tsc 咬出，amend + force-with-lease 修正）。
+- [活体五幕（真 mock 集群，零 mock 服务器代码）] ①基线：/classes 答 run_it200_classes.mrcs + 12 类 + iter 200，slice0 200/4112B；②**工单现场**：杀集群 + 冷缓存 + TTL 过期 → /iterations/image 404 逐字（"could not stat … connect ECONNREFUSED … re-dialed and still refused"）→ /classes renderError 同句 → 浏览器：12 卡全灭 + [data-render-error] banner 原话点名 + 卡片仍等高；③**自愈**：集群复活 + banner 的 Retry → 12/12 加载 + banner 消失；④**Reset 形状**：PATCH idle（记录经引擎真清）+ 删预览缓存 → /classes 仍答 classesFile（派生 SSH）、/iterations/image 与 /iterations/sheet 皆 200（派生拉取）——旧码此处 400「No workdir」；⑤**等方台**：三类连测 416×416 全等（64×64 自然图也上大方台）；VLM 双截图核验（网格 12 均等一方台页脚、lightbox 大方台居中）。世界手术：engine-state 快照恢复 + DB status completed/progress 100 复原。
+- [验证-终] t474 bench 18/0；tsc 0 + eslint 0（八触碰文件）；t384-cache-witness 19/0 + t384-source-xray 11/0 + t397-perf-units 77/0 + t396 26/0 + t394 62/0 + test-resume-checkpoint 17/0；40 套回归家族 3 失败（t427/t457/t464——旧世界 fixture 随沙箱重置蒸发，stash 后 pristine HEAD 同败，与本改无关，记录在案）；dev server 两次被 OOM 收割（浏览器 inspector 轮询 + 3600 文件 mirror 的内存压力）——dev-server.sh 点火复原，验毕浏览器先关的教训重申。
+- [最终态] HEAD = 329f69b（t474 + 种子提交，origin/main 三方对齐）。世界：QA t474 项目三任务（import completed / class2d completed / select2d idle）+ mock 集群 :3022 在听 + my-project 3000 服务器验毕恢复。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②t427/t457/t464 三个 bench 的世界依赖重建（沙箱重置蒸发——t464 的 T7 钉死 11,464 文件的旧 fixture 路径，可改成自建 fixture）③/iterations 的 renderError 只在 merge 失败或 lastStackFailure 命名时在场——「集群上根本没有栈」的主动探测（非 pull 后知）仍是被动式 ④continue_run 的 mock 集群真火活体（t471③→t476 原样）⑤funnel 单位扩展 movies（真 RELION 接手时）。
+
+Stage Summary:
+- **「暗格要招供，招供要有路」**：FILL 层的失败从来不是「没有图」——是那一句被吞掉的 SSH 拒词；banner 现在逐字转述它，Retry 是回头路。静默是最深的谎言，t358 的法则补完了最后一层
+- **「workdir 是 JOB 的事实」×4**：/classes、/iterations、image、sheet 四条道全落 t396 的派生公式——Reset 清掉的是记录，不是栈；画廊的每条数据面都学会了不向记录要事实
+- **「同一方台看每一类」**：检查视图的盒子不再随 PNG 的自然宽度伸缩——64px 的 mock 与 360px 的真图同台；网格两状态逐格测量相等，页脚 nowrap 律成文
+- **「自己的镜子先受审」**：三个 bench 失败差点算到本改头上——stash 后 pristine 同败才定案「环境蒸发」；预检怀疑自己的工具，t476 的教训当天就用上了
+- 产出：t474（commit 329f69b 已推）— 填充招供 + 派生目标四路落位 + 等方检查台 + t474 bench 18/0 + 活体五幕（工单现场/自愈/Reset 形状/等方台/VLM 核验）+ 种子脚本
