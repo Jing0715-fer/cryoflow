@@ -5277,3 +5277,18 @@ Work Log:
 - [诚实边界] ①组合动词的收据 toast（describeAdoption 逐字）未活体捕获——20s 窗口与我的查询错过，但 console refetch 日志 + 图拓扑（twin→exclude→CTF1）+ 0 failures 三方互证，收据机制本身是 t443 已验代码原样复用②判决的 tied 占多数（20/24）因手术只动了四行——真实世界的分布由数据决定，门只认 regressors 名单③excludemg 的 inspector 参数面板（Exclusions 页签）渲染走了通用 param-form 通道未单独活体截图——param 律由 bench E1/E4 + 引擎运行双重钉死④mock 确定性让 twin 同参跑全 tied——「同参 A/B 无 regressed 时门隐藏」由 bench 侧 truth + 隐藏分支代码保证，未活体点火（需要另一个手术世界）。
 - [最终态] HEAD = origin/main 待推（feature commit 2e558c6 本窗，docs commit 随后）；stamp = 2e558c6 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、盘上 16 目录 = 原世界、QA 浏览器净场。CTF1 的琥珀徽章继承自 t447 治愈（真话，非本窗污染）。下一窗从 Task 453 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②Class2D 占据率对比（A/B 第三域候选，t440 遗留④）③存储板第三窗（Clean 快捷入口/按 run 聚合，t440 遗留③）④漂移 × 波前双徽章并排需可丢弃世界⑤exclude filter 的面板编排水印（若真实用户场景出现再议）。
 
+
+---
+Task ID: 453 (cron agent loop 202609291236) — 进行中（中程落账）
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点 → 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 452 完整收官（HEAD = 9f67631 = origin/main；stamp = 2e558c6 docs 时差一拍）。世界健康：app 200、15/15 全 completed、14 边、mock 集群 :3022 在听、内存 available 3234MB。第四十四份过时 Task 13 指引照例不认。自号 453。
+- [QA — 全绿基线] landing hydration 满血、标题 pristine、console 0 错、page errors 0、闲世界编排水印正确缺席、无 stale 编排记录。回归全家 21 套 exit 0 全绿。
+- [选题定谳 — The Third Domain（占据率的判决 + 类选择动词）] t452 遗留② = t440 遗留④：A/B 第三域。/api/jobs/[id]/classes 路由已返回逐类占据率（{cls,count,fraction}），原料在位；select2d 的 selectedClasses 参数原生接受显式逗号清单——判决的消费者动词有现成的嘴。
+- [交付 — 进行中，代码已全部落盘] ①lib/class-compare.ts 纯脑：classRowName（Class 007 三位补零方言——名字就是 id）+ classRunRow + CLASS_LENSES.share（fraction×100、higherIsBetter=true）+ VerdictWords 词汇律（CLASS_WORDS = gained/lost/held/gains/losses——占据率不 improve，它 gains particles）+ concentrationCensus 集中度普查（各侧自己的 top-5 share + ≥1% 可用类数，箭头 = A→B，只陈述不判决）+ gainedClassNumbers（名字解析回类号，排序去重——选单是集合不是日志）②paired-compare.ts 增 DEFAULT_WORDS（微图域词汇 = 改良默认）③run-compare-dialog 三域化：spec 增 intro/verb/words/selectList 四字段 + CLASS_SPEC（fetchRows 走 classes 路由 + typeGate class2d|class3d）+ 判决 chips/图例/散点系列/MoverList 标题全部走 words 律 + exclude rider 戴 verb 门（类判决无微图可排）+ 新 select rider「Continue downstream, selecting these (n)」（Grid2x2Check 图标、teal 色系、data-testid=adopt-with-select、selectWired 门——host 输出口必须喂饱 select2d 全部嘴，class3d 无 references2d 则隐藏）④store.adoptWithSelect：端口按 kind 扫描双嘴（classAverages→classes + particles→particles）、缺嘴先拒后铸、铸造 select2d 烘焙 selectedClasses=类号逗号清单、双线 quiet connect、adoptDownstream 收养 A 的下游⑤results-lazy + job-inspector 挂 ClassCompareEntry 门。
+- [验证 — 二十三套全绿] t453 bench 52/0 一次通过（C1 命名 8、C2 透镜 7、C3 核心连接 11、C4 普查 12、C5 词汇 10、C6 选单 4）；tsc 0（自捕：DEFAULT_WORDS 误从 motion-compare 导入——它住在 paired-compare，当场修正）+ eslint 0（六触碰文件）；回归全家 22 套（21 旧 + t453）exit 0 全绿。
+
+Stage Summary:
+- 代码交付完成（六文件），FRESH 研磨与活体 QA 待做：孪生 class2d → 手术 run_it101_data.star 造 gained/lost → Class A/B 判决 → 选动词全链 → 清场复原原边。

@@ -911,6 +911,15 @@ interface WorkflowState {
    * intermediate stop). One gesture, one receipt — the graph shows the
    * verdict as wiring, not as a memory. */
   adoptWithExclude: (fromRunId: string, toRunId: string, names: string[]) => Promise<void>;
+  /** t453 — the class verdict's consumer verb: mints a 2D Class
+   *  Selection consuming `toRunId` with the gained class numbers baked
+   *  into `selectedClasses` (the list the dialog spoke IS the selection
+   *  the engine makes), wires BOTH of the selection's mouths (class
+   *  averages + classified particles) from `toRunId`'s outputs, then
+   *  re-wires `fromRunId`'s downstream onto the SELECTION. Port pairs
+   *  are found by kind, never assumed: a host missing a mouth refuses
+   *  honestly before anything is minted. */
+  adoptWithSelect: (fromRunId: string, toRunId: string, classNumbers: number[]) => Promise<void>;
   connect: (
     from: string,
     to: string,
@@ -3639,6 +3648,76 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       await get().adoptDownstream(fromRunId, excludeJob.id);
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to mint the exclude job");
+    }
+  },
+
+  adoptWithSelect: async (fromRunId, toRunId, classNumbers) => {
+    const { jobs } = get();
+    const runB = jobs.find((j) => j.id === toRunId);
+    if (!runB || !jobs.some((j) => j.id === fromRunId)) {
+      errToast("That run is gone — refresh and try again");
+      return;
+    }
+    if (classNumbers.length === 0) {
+      errToast("No classes to select — the verdict's gains list is empty");
+      return;
+    }
+    // the wires: EVERY select2d mouth must find a source among run B's
+    // outputs — the scan is by kind, never assumed (class2d answers
+    // both mouths: classAverages → classes, particles → particles). A
+    // host missing a mouth refuses honestly BEFORE anything is minted:
+    // a half-wired selection on the canvas is a lie the graph would
+    // keep telling.
+    const selSpec = jobType("select2d");
+    const runBOuts = jobType(runB.type)?.outputs ?? [];
+    const wirePairs: { fromPort: string; toPort: string }[] = [];
+    for (const input of selSpec?.inputs ?? []) {
+      const accepts = input.accepts ?? [];
+      const out = runBOuts.find((o) => o.kind && accepts.includes(o.kind));
+      if (!out) {
+        errToast(
+          `${runB.name} has no output feeding the selection's ${input.name} input`,
+        );
+        return;
+      }
+      wirePairs.push({ fromPort: out.name, toPort: input.name });
+    }
+    try {
+      // mint the selection: the gained classes are baked at birth — the
+      // list the dialog spoke IS the list the engine selects by (one
+      // law), and the param stays editable for hand tuning
+      const place = placeRightOf(runB, jobs);
+      const { job: selectJob } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "select2d",
+          x: place.x,
+          y: place.y,
+          workspaceId: runB.workspaceId ?? undefined,
+          params: { selectedClasses: classNumbers.join(", ") },
+        }),
+      });
+      set({
+        jobs: [...get().jobs, selectJob],
+        selectedId: selectJob.id,
+        selectedIds: [selectJob.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(selectJob.id);
+      // the wires run B → selection (both mouths; quiet — the adoption's
+      // receipt is the gesture's voice, per-wire toasts would be noise)
+      for (const pair of wirePairs) {
+        await get().connect(runB.id, selectJob.id, pair.fromPort, pair.toPort, {
+          quiet: true,
+        });
+      }
+      // the adoption: run A's downstream re-parents onto the SELECTION —
+      // its own receipt names the selection as the new provider (the
+      // graph shows the verdict as wiring, not as a memory)
+      await get().adoptDownstream(fromRunId, selectJob.id);
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the class selection");
     }
   },
 

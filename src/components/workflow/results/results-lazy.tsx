@@ -85,14 +85,18 @@ export const TopazTrainingChart = dynamic(
   () => import("./topaz-training-chart").then((m) => m.TopazTrainingChart),
   { ssr: false, loading: chartLoading }
 );
-// t439+t440 — the run A/B doors ride their own chunk (recharts scatter +
+// t439+t440+t453 — the run A/B doors ride their own chunk (recharts scatter +
 // the compare brain stay out of the eager graph until a door opens);
-// one face, two domains (CTF / Motion), both exported under stable names
+// one face, three domains (CTF / Motion / Class), all exported under stable names
 export const CtfCompareEntry = dynamic(
   () => import("./run-compare-dialog").then((m) => m.CtfCompareEntry),
   { ssr: false, loading: panelLoading }
 );
 export const MotionCompareEntry = dynamic(
   () => import("./run-compare-dialog").then((m) => m.MotionCompareEntry),
+  { ssr: false, loading: panelLoading }
+);
+export const ClassCompareEntry = dynamic(
+  () => import("./run-compare-dialog").then((m) => m.ClassCompareEntry),
   { ssr: false, loading: panelLoading }
 );

@@ -150,6 +150,26 @@ export function topMovers(deltas: Delta[]): Movers {
   return { improvers, regressors };
 }
 
+/** The verdict's vocabulary (t453): the micrograph domains' words are
+ *  the DEFAULT — occupancy (class-compare.ts) overrides them, because a
+ *  class that gained particles did not "improve"; the population moved.
+ *  Five fields: chip/series verbs + mover-list nouns. */
+export interface VerdictWords {
+  better: string;
+  worse: string;
+  same: string;
+  betterNoun: string;
+  worseNoun: string;
+}
+
+export const DEFAULT_WORDS: VerdictWords = {
+  better: "improved",
+  worse: "regressed",
+  same: "unchanged",
+  betterNoun: "improvements",
+  worseNoun: "regressions",
+};
+
 /** "+0.031" / "−1.24" — the sign IS the news. */
 export function fmtDelta(value: number, digits: number): string {
   if (!Number.isFinite(value)) return "—";

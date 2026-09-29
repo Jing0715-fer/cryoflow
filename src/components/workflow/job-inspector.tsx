@@ -158,6 +158,7 @@ import {
   TopazTrainingChart,
   CtfCompareEntry,
   MotionCompareEntry,
+  ClassCompareEntry,
 } from "./results/results-lazy";
 
 /* ------------------------------------------------------------------ */
@@ -2632,6 +2633,13 @@ function InspectorHeader({
              * the alignments?" Same guard family: completed host +
              * completed sibling or no door. */}
             <MotionCompareEntry job={job} />
+            {/* t453 — the Class A/B door: the third domain — occupancy.
+             * Same verdict face, its own words (gained/lost/held — a
+             * class that gained particles did not "improve") and its
+             * own consumer verb (select the gains). Renders nothing
+             * without a completed sibling or off the classification
+             * faces. */}
+            <ClassCompareEntry job={job} />
             {/* t442 — the duplicate door: clone this run as an unstarted
              * twin with its params AND upstream wiring — the A/B loop's
              * front door (copy → tweak one knob → run → compare). */}
