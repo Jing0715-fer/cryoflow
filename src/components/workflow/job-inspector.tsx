@@ -2648,10 +2648,12 @@ function InspectorHeader({
              * Same family face, no sibling needed; the door hides unless
              * the run's round ladder holds at least two rounds. */}
             <ClassConvergenceEntry job={job} />
-            {/* t456 — the resolution arc: the FIFTH question — one
-             * refinement vs its OWN FSC estimates ("still sharpening?").
-             * The door hides off the refine3d faces and when the run
-             * wrote no per-round estimates. */}
+            {/* t456 — the resolution arc: the FIFTH question — one ML run
+             * vs its OWN resolution estimates ("still sharpening?").
+             * t459 — the door reads the classifications too: a model star
+             * family is a model star family. It hides off the refinement
+             * and classification faces and when the run wrote no
+             * per-round estimates. */}
             <ResolutionArcEntry job={job} />
             {/* t457 — the final verdict: the SIXTH question — one
              * postprocess's honesty read ("is the number true — what did

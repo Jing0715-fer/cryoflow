@@ -24,8 +24,17 @@
  *     improving manual refinement — and for an auto-refine row it says
  *     why it stays absent (RELION owns that convergence).
  *   - THE DOOR GUARDS ITSELF: nothing renders unless the host is a
- *     completed 3D refinement AND its arc holds at least two rounds
- *     with estimates (a run that wrote no model stars has no arc).
+ *     completed ML run the dialect table knows (refine3d since t456;
+ *     class2d/class3d since t459 — a model star family is a model star
+ *     family, MlModel::write writes _rlnCurrentResolution for every ML
+ *     model) AND its arc holds at least two rounds with estimates (a
+ *     run that wrote no model stars has no arc).
+ *   - THE DIALECT SPEAKS ITS OWN NAME (t459): the gold refinement's
+ *     axis says "FSC 0.143 estimate" — the crossing between random
+ *     halves; the serial classification's axis says "the model's own
+ *     estimate" — no random halves ride a 2D/3D classification, and
+ *     borrowing the gold-standard's name would be a lie about the
+ *     evidence.
  *   - NO PERSISTENCE: like every sibling, the reading restarts from the
  *     whole arc on reopen.
  */
@@ -51,10 +60,12 @@ import {
 } from "recharts";
 import type { JobDTO } from "@/lib/types";
 import {
+  arcPresentationOf,
   arcSummary,
   arcVerdict,
   biggestJump,
   PLATEAU_ANGSTROM,
+  type ArcPresentation,
   type ResolutionPoint,
 } from "@/lib/resolution-arc";
 import { roundLabel } from "@/lib/convergence";
@@ -77,12 +88,15 @@ async function fetchArc(jobId: string): Promise<ResolutionPoint[]> {
 export function ResolutionArcEntry({ job }: { job: JobDTO }) {
   const [rounds, setRounds] = useState<ResolutionPoint[] | null>(null);
   const [open, setOpen] = useState(false);
+  // t459 — the dialect table gates the door: refine3d (gold) and the
+  // classifications (serial) fetch; every other type never asks.
+  const presentation = arcPresentationOf(job.type);
 
-  // One cheap cached GET per inspector mount of a refinement face — the
-  // door cannot know whether an arc exists without asking (data fetching,
-  // not state syncing).
+  // One cheap cached GET per inspector mount of an ML face — the
+  // door cannot know whether an arc exists without asking (data
+  // fetching, not state syncing).
   useEffect(() => {
-    if (job.status !== "completed" || job.type !== "refine3d") {
+    if (job.status !== "completed" || !presentation) {
       return;
     }
     let alive = true;
@@ -96,17 +110,17 @@ export function ResolutionArcEntry({ job }: { job: JobDTO }) {
     return () => {
       alive = false;
     };
-  }, [job.id, job.status, job.type]);
+  }, [job.id, job.status, presentation]);
 
-  if (!rounds || rounds.length < 2) return null; // no arc — no door, no noise
+  if (!presentation || !rounds || rounds.length < 2) return null; // no arc — no door, no noise
   return (
     <>
       <Button
         variant="ghost"
         size="icon"
         className="size-6 rounded-md text-muted-foreground/70 hover:bg-muted hover:text-foreground"
-        aria-label={`Resolution arc — read this refinement's own FSC estimate across its ${rounds.length} iterations`}
-        title="Resolution arc — one refinement, its own iterations: is the map still sharpening, or has the estimate plateaued?"
+        aria-label={`Resolution arc — read this ${presentation.noun}'s own resolution estimate across its ${rounds.length} iterations`}
+        title={`Resolution arc — one ${presentation.noun}, its own iterations: is the estimate still sharpening, or has it plateaued?`}
         onClick={() => setOpen(true)}
       >
         <Ruler className="size-3.5" aria-hidden="true" />
@@ -116,6 +130,7 @@ export function ResolutionArcEntry({ job }: { job: JobDTO }) {
         onOpenChange={setOpen}
         job={job}
         rounds={rounds}
+        presentation={presentation}
       />
     </>
   );
@@ -130,11 +145,13 @@ function ResolutionArcDialog({
   onOpenChange,
   job,
   rounds,
+  presentation,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   job: JobDTO;
   rounds: ResolutionPoint[];
+  presentation: ArcPresentation;
 }) {
   const data = rounds.map((p) => ({
     round: p.iteration,
@@ -144,6 +161,7 @@ function ResolutionArcDialog({
   const verdict = arcVerdict(rounds);
   const jump = biggestJump(rounds);
   const summary = arcSummary(rounds);
+  const isGold = presentation.dialect === "gold";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -154,9 +172,10 @@ function ResolutionArcDialog({
             Resolution arc — {job.name}
           </DialogTitle>
           <DialogDescription>
-            One refinement&apos;s own arc — the FSC 0.143 estimate each iteration
-            wrote into its model star. The descending curve is the map
-            sharpening; a flat tail is a refinement that has stopped improving.
+            One {presentation.noun}&apos;s own arc — the resolution estimate each
+            iteration wrote into its model star. The descending curve is the
+            {isGold ? " map" : " classes"} sharpening; a flat tail is a{" "}
+            {presentation.noun} that has stopped improving.
           </DialogDescription>
         </DialogHeader>
 
@@ -175,7 +194,7 @@ function ResolutionArcDialog({
                 tick={{ fontSize: 10 }}
                 tickFormatter={(v: number) => `${v.toFixed(0)} Å`}
                 width={52}
-                name="FSC 0.143 estimate"
+                name={presentation.estimateLabel}
                 domain={["auto", "auto"]}
               />
               <Tooltip
@@ -198,7 +217,7 @@ function ResolutionArcDialog({
           </ResponsiveContainer>
         </div>
         <div className="-mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-          <span>· x = the run&apos;s own iterations, y = the FSC 0.143 estimate (Å)</span>
+          <span>· x = the run&apos;s own iterations, y = {presentation.estimateLabel} (Å)</span>
           <span>· lower is better</span>
         </div>
 
@@ -239,7 +258,9 @@ function ResolutionArcDialog({
         <div className="text-[11px] text-muted-foreground">
           The plateau law: moves under {PLATEAU_ANGSTROM} Å count as noise —
           RELION&apos;s manual dialect has no convergence criterion of its own, so
-          this reading supplies one.
+          this reading supplies one{isGold
+            ? "."
+            : " — a classification stops on its written iteration count, not on its estimate."}
         </div>
 
         {/* the verb — one row, two verdicts (t455's, now the arc's too) */}

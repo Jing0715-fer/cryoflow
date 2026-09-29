@@ -47,6 +47,56 @@ export interface ResolutionPoint {
   source: "half1" | "model";
 }
 
+/* ------------------------------------------------------------------ */
+/* The dialect table — whose estimate a type's arc reads (t459)         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The arc door's per-type presentation. t456 opened the door on
+ * refine3d only; t459 lets the classifications read their own arcs —
+ * a class2d/class3d model star carries the SAME
+ * data_model_general._rlnCurrentResolution (MlModel::write writes it
+ * for every ML model, 2D and 3D alike), and "are the classes still
+ * sharpening" is the same honest reading the refinement got.
+ *
+ * The dialects differ in ONE honest detail:
+ *   - gold (refine3d): the estimate IS the round's FSC 0.143 crossing
+ *     between the random halves — say so on the axis;
+ *   - serial (class2d/class3d): no random halves ride the run — the
+ *     estimate is the model's own FSC-derived number, and the axis
+ *     says "the model's own estimate" instead of borrowing the
+ *     gold-standard's name.
+ *
+ * Null for every other type — no model-star family, no arc, no door
+ * (the door hides rather than guessing).
+ */
+export interface ArcPresentation {
+  /** the door's noun — "refinement" vs "classification" */
+  noun: string;
+  /** the y-axis / tooltip label for the estimate */
+  estimateLabel: string;
+  /** which star family spoke: gold half1 models or plain models */
+  dialect: "gold" | "serial";
+}
+
+export function arcPresentationOf(jobType: string): ArcPresentation | null {
+  if (jobType === "refine3d") {
+    return {
+      noun: "refinement",
+      estimateLabel: "FSC 0.143 estimate",
+      dialect: "gold",
+    };
+  }
+  if (jobType === "class2d" || jobType === "class3d") {
+    return {
+      noun: "classification",
+      estimateLabel: "the model's own estimate",
+      dialect: "serial",
+    };
+  }
+  return null;
+}
+
 /** The arc: sorted by round, deduped by round (the last speaker wins —
  *  a continued run rewrites nothing, but a defensive merge stays honest). */
 export function resolutionArcOf(

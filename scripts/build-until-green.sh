@@ -60,6 +60,16 @@ cd "$(dirname "$0")/.."
 
 MAX_ATTEMPTS="${1:-10}"
 HEAP_MB="${HEAP_MB:-1344}"   # t416 dessert; 1280 aborts (V8), 1408+ risks the kernel line
+# t459 — the collapsed-band lever: the cold compile (cache chain broken by
+# the t459 window's purge) needs ~1.4GB+ of V8 heap, but RSS (heap + ~1.9GB
+# external) dies on the kernel line above ~1440. A smaller YOUNG generation
+# (semi-space) forces more frequent scavenges and lowers the PEAK: the same
+# compile fits under both walls with the old-gen cap raised a notch.
+# KERNEL_MB-style band re-derivation: 1344/1408 abort V8; 1440-1792 hit the
+# kernel at ~3.38GB anon; 1440 + semi-space 8 was the first cold GREEN.
+SEMI_MB="${SEMI_MB:-}"
+EXTRA_V8=""
+[ -n "$SEMI_MB" ] && EXTRA_V8="--max-semi-space-size=${SEMI_MB}"
 BUILD_ID=".next/BUILD_ID"
 LOG=".qa-logs/build-t406.log"
 mkdir -p .qa-logs
@@ -106,7 +116,7 @@ while [ "$attempt" -lt "$MAX_ATTEMPTS" ]; do
   echo "$(stamp) attempt $attempt/$MAX_ATTEMPTS" >> "$LOG"
   echo "$(stamp) attempt $attempt/$MAX_ATTEMPTS"
 
-  NODE_OPTIONS="--max-old-space-size=${HEAP_MB}" \
+  NODE_OPTIONS="--max-old-space-size=${HEAP_MB}${EXTRA_V8:+ $EXTRA_V8}" \
   timeout 560 node node_modules/next/dist/bin/next build --webpack \
     >> "$LOG" 2>&1
   rc=$?
