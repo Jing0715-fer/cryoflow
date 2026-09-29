@@ -5476,26 +5476,63 @@ Stage Summary:
 - **「墙的判例要钉死到数据点」**：四发四死（1344 abort@37s / 1800 abort@49s@89.4% / 1824 kill@91s / 1824+semi4 kill@104s）——每加一档 heap 都买来更多进度，墙在 1800~1824 合拢；极限房间（净场+swap 探底）排除了最后变量；prod 磨从遗留升格为判例，重开只认盒扩容/树减肥/编译几何变化三种前提
 - 产出：The Funnel in Plain Sight 全链（funnelDoorCandidate 纯脑 + canvas-funnel-door 组件 + dialog 导出 + canvas 工具条挂载）+ t462 bench 26/0 + 三十套回归全绿 + crown/选区双律活体逐字 + prod 磨四点判例 + 截图 ×2
 
-## Task 463 (2026-09-30, 用户工单窗 —— the chain the agent could not build)
+## Task 463 (2026-09-29, cron 21:07 窗 —— The Ledger Travels)
 
-- [开局] 用户复现（连续两轮）：「帮我搭一个完整的 SPA 流程：导入 → 运动 → CTF → 挑选 → 2D 分类」→ agent 只 create_job 了一个无连线的「QA CTF」任务 → run_job 被拒 → 汇报失败。「还是不行，帮我修复并真实测试 agent 能力」。实尾 = t462（HEAD = e8ac172 = origin/main）。
-- [根因三连 — 每一条都被实测钉死] ①模型会说错 type key：真 GLM-4-plus 无目录时答 `"type":"CTF"`、`ctf`、`pick`、`2dclass`（工具面直接 Unknown type 拒绝）②弱模型对多阶段请求只建一个 job：prompt 教了 build_pipeline 但无CHAIN LAW 硬法条 ③「挑选 → 2D分类」本身不 port-match（manualpick 出 coords、class2d 只吃 particles）——没有 extract 桥，链条永远差一环。
-- [修复 A — 别名梯子 src/lib/ai/type-aliases.ts] resolveJobTypeKey 四级梯：exact → normalized（大小写/分隔符/「任务/job」后缀归一）→ 双语别名表（导入/运动/CTF/挑选/2d分类/3d精修/蒙版/后处理…→ 精确 key；挑选→manualpick、自动挑选→autopick）→ fuzzy containment（长度地板防误伤）。接线：createOneJob / buildPipeline 预检 / getJobParams 全走梯子；非 exact 解析必须在 summary 里自首（`interpreted "ctf" as ctffind`）——画布永远不与日志悄悄不一致。
-- [修复 B — the chain bridge] bridgeBetween/bridgePipelineSteps 纯函数：相邻 step 不 port-match 时，仅当「上游真出 coords 且下游真吃 particles 且 extract 两侧 port-合法」才自动插入 extract（RELION 自己的法：coords 必须先成 particles）；其余保持诚实拒绝——import→class2d 不长出无 coords 可吃的死 extract。summary 自首 `auto-inserted extract after manualpick`。
-- [修复 C — prompt 双法条] THE CHAIN LAW（多阶段请求必须 build_pipeline 全量步，永不单建；带逐字 worked example）+ STAGE PHRASEBOOK（每个阶段的用户说法 → 精确 key，双语）+ QUESTIONS ARE READS（咨询是读不是写——上一轮「画布上有哪些任务」被误执行的教训成文法）。
-- [修复 D — Built-in (GLM) 供应商] z-ai-web-dev-sdk（仓库里早已在 dependencies、从未被用）成第四种方言 flavor:"builtin"：chatOnce 走 `chat.completions.create`（OpenAI 形状 body + thinking disabled——平台 function-calling 先行实测验证）、visionOnce 走 `createVision`（chat.completions 正道拒图，实测 400 后找到的门）；单例懒加载 + 失败重置 + 诚实可行动错误文案（「open the AI settings and configure your own provider」）。零配置回退：resolveAssistant 无任何配置时答 builtin 身份（glm-4-plus）；DTO 合成派生 active + builtin 行——面板徽章与「当前使用」chip 说真话；env kill-switch CRYOFLOW_DISABLE_BUILTIN_AI=1（bench 气密性 + 部署可关）。存储态但不可用（手改文件）仍答 null → needsSetup：徽章永不说一家、另一家答话。
-- [修复 E — MiniMax 供应商] api.minimaxi.com/v1（OpenAI 兼容 /chat/completions + /models，两个端点无 key 401 实测在场）——curated MiniMax-M2/M1/Text-01/abab6.5s，models listing 走真端点。注册表 15 家、builtin 居首。
-- [验证 — bench]（t466）t419 扩四相 156/0：A 相 15 家 + builtin/minimax 形状；B 相 kill-switch/零配置身份/DTO 合成；D 相 chain law/phrasebook/QUESTIONS ARE READS 逐字；E2 别名梯 20 断言 + 桥 5 断言（含 import→class2d 不建死桥的反例）；F9 现场重演——用户原话五阶段 + 全错 key（导入/运动/ctf/挑选/2dclass）→ 6 任务全落地 5 线全在 + interpreted 自首 + 垃圾 key 仍诚实拒绝。t420 更新 B2 契约（near-miss typo 现在恢复且自首，垃圾仍快失败）54/0；t428 40/0 + t430-session-drawer 19/0；tsc 0 + 触碰文件 eslint 0。
-- [活体验证 — 真 GLM 双律通过，零 mock] FRESH 世界（新项目 Agent Real Test，绑定 mock 集群 :3022，零 AI 配置——徽章直出 Built-in (GLM) · glm-4-plus，无 setup 墙）：①「帮我搭一个完整的 SPA 流程：导入 → 运动 → CTF → 挑选 → 2D 分类」→ 真 GLM-4-plus：list_job_types（法条：先查目录）→ build_pipeline → **6 任务全链**（Import→MotionCorr→CtfFind→ManualPick→**Extract**→Class2D，5 线 port 全对，extract 桥自动长出）→ 中文全量叙述（每任务 ID + 用途 + 「系统自动在手动挑选后插入了颗粒提取步骤，这是RELION的标准流程要求」）→ **主动询问后才运行**（「当你准备好运行时，请告诉我」）②「画布上现在有哪些任务？下一步该跑什么？」→ 仅 get_workflow_state → 6 任务清单（状态/进度/位置）+ 连线关系 + 下一步建议（从 Import 起跑）——**一个任务都没建**（count 恒 6）。设置对话框活体：builtin 居首带「当前使用」、15 家目录、MiniMax 在列。
-- [诚实边界 — 平台限流] 运行链活体（「设路径 /data2/micrographs 并跑起来」）被平台 SDK 429 限流拦在半途（两次重试 + 20 分钟窗口仍未放行）——错误文案按设计诚实自首并指向设置门。运行链的证据链：引擎 mock 车道是 30+ 个 QA 窗的久经战阵代码（本窗未触碰引擎一行）；agent 侧 run_job/wait_for_jobs 行为由 bench F6（run 守卫）+ t420 E 相（wait 判词）覆盖。限流放行后用户可自行续测该问句。
-- [最终态] 世界运行 dev lane（:3000 200 满血）；jobs 6 全 idle + 5 边 + mock 集群 :3022 在听 + /data2/micrographs 6 张实测 micrograph 在盘；QA 浏览器净场后重开待续测；console 0 错。
+- [开局] 实尾 = Task 462 完整收官（HEAD = e8ac172 = origin/main；世界 dev lane :3000 满血、15/15 completed、mock 集群 :3022 在听、available 1203MB）。第五十四份过时 Task 13 指引照例不认（以 t462 遗留清单为准）。自号 463。
+- [QA — 全绿基线] landing 满血（铃铛门 + 漏斗门在场）、console 0 错、标题 pristine、回归全家 30 套 exit 0 全绿。世界稳定 → 转新需求。
+- [选题定谳 — The Ledger Travels] 漏斗脸是 sqrt 缩放的条形堆，剪贴板是文字堆——家法早就裁决过谁是真相（「the numbers are the ledger; the bars are only the shape」）。本窗把账本整条放行：一键把链全文（headline 弧 + 每站收据 + 每条边的话 + census + closing 判决 + 两句自白）导成纯文本进实验记录/issue/聊天窗。
+- [交付] ①particle-funnel.ts 纯脑增段 funnelLedgerText：**文法优先于列对齐**（账本会活在比例字体的世界里，列对齐会溶解）——ok 行 `Name [type]: 5,672 particles · 50 classes`、amber 行 `Name [type]: a volume verb — no particles on its receipt`、边行两格缩进先行于它喂养的行（与脸同序）、per-mic 不上行（边已说过，账本不重复同一口气）、无尾换行（剪贴板文本不是文件）、空账本导出空串（无门开向空账本）。②对话 footer 分隔线下 Copy ledger 钮（pipeline 脚本的 Check/Copy 1600ms 方言 + 一处诚实扩展：剪贴板拒绝时说 "Copy failed" 一拍，不让用户干等）。
+- [自捕自修 ×2 — 拦截在闸与幽灵] ①**export 被吞**：MultiEdit 往对话文件插 useLedgerCopy 时把 `export function ParticleFunnelDialog` 的 export 暂时吃掉（dangling 在注释前）——tsc 闸抓住、立刻修复 + 清掉重复注释②**Turbopack 诊断幽灵**：修复后 console 仍三连 "Export ParticleFunnelDialog doesn't exist in target module"，且活过整页硬重载、甚至活过 dev server 整重启——运行时全好（对话照开、copy 照走 1571 字符）、源文件 export 唯一在位；根因是 .next/diagnostics/build-diagnostics.json 把编辑中段的坏快照当持久诊断逐次重放；**rm -rf .next/diagnostics .next/dev 后 console 0 错**。教训入册：编辑瞬时破坏过 export 的模块，重启不清幽灵，要清 diagnostics。
+- [活体 — 账本逐字出板] monkey-patch clipboard.writeText 捕获：1571 字符 34 行——头两行（门名 + headline）逐字全对、15 站按链序、carry×6/transform「408 picks across 24 micrographs — 17.0 per micrograph」/shed「−312 · 76%…」/gain「+5,664 · ×60 at symexpand」全数在场、maskcreate 诚实默认行、class2d 的 50 classes 芯片、closing 判决 + 两句自白收尾（打印时 [m 被终端吃成 ANSI 重置码属显示假象，捕获串无损）。Copied 态翻转 + 1600ms 复位确认、截图 .qa-logs/t463-copy-ledger.png。
+- [t462 遗留③关闭 — 阻断态 live 逐字到手] agent-browser 无 shift 保持、band 在 pan/zoom 态不稳（canvas.tsx:1540 契约：**Shift+背景拖拽才是框选**，plain drag 是 pan——t462 的「框选成功」实为其他路径）。真钥匙是 Task 103 箭头导航：ArrowRight 单选（门变 SELECTION）→ **Shift+ArrowRight 增选 → 门 disabled=true + 「The chain question reads one line — select a single verb on the canvas.」逐字活体到手**；Escape 清选 crown 复原。selection-unfinished 态需世界里有 running verb（当前 15/15 全 completed）——bench D5a/b 钉死、live 留作诚实边界。
+- [验证-终] t463 bench 25/0（T1 结构 5、T2 ok 行文法 3、T3 边行 2、T4 amber 2、T5 不重复 1、T6 closing 2、T7 census 2、T8 自白 3、T9 空账本 1、T10 端到端世界逐字 4）；tsc 0 + eslint 0（两触碰文件）；回归全家 31 套（30 旧 + t463）exit 0 全绿；console 0 错。
+- [最终态] HEAD = 862e09b（feature；docs commit 随后，origin/main 三方对齐）（feature + docs，origin/main 三方对齐）；世界 dev lane（:3000 200、15/15 completed、14 边、mock 集群 :3022 在听、诊断缓存已清、console 0 错）。下一窗从 Task 464 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②sync manifest 20k 上限硬编码（t460 遗留⑤顺延）③selection-unfinished 阻断态 live 复验（需 running verb 的世界）④funnel 单位扩展 movies（真 RELION 接手时）⑤prod 磨判例重开前提（t462 判例）。
 
 Stage Summary:
-- **「提示词教，梯子接」**：法条（CHAIN LAW + PHRASEBOOK）教好模型，别名梯在工具面接住仍说错的——`"ctf"`/`"2d分类"`/`"motioncorrr"` 都能落在正确 key 上且自首；垃圾 key 仍诚实拒绝——梯子不是有求必应机
-- **「链条差的那一环，由端口法自己长」**：用户说「挑选 → 2D 分类」，RELION 的法在中间放一个 Extract——桥只在「coords 上游 + particles 下游 + extract 两侧合法」三证齐时生长，其余保持诚实拒绝
-- **「零配置就有真脑子」**：仓库里躺了 30+ 窗的 z-ai-web-dev-sdk 第一次上岗——Built-in (GLM) 居供应商之首，徽章说真话，无 key 无墙；没有凭据的部署得到的是一句可行动的指路而非沉默
-- **「咨询是读，不是写」**：上一轮「画布有哪些任务」被误执行的教训成文法 + 实测通过——真模型只调 get_workflow_state，一个任务都没建
-- 产出：t466（type-aliases + chain bridge + prompt 双法条 + builtin 方言 + MiniMax + F9 现场重演）— t419 156/0 + t420 54/0 + 活体双律（全链建成 / 咨询零执行）
+- **「账本不迁就字体」**：文本导出选择文法而不是列对齐——`Name [type]: 数 单位` 的稳定文法在等宽终端和比例字体的聊天窗里都成立；对齐是装饰，文法是结构
+- **「账本不说同一口气两次」**：autopick 行不带 per-mic 芯片——它上方的边行已经说了「17.0 per micrograph」；边与行各司其职，重复是撒谎的另一种形式
+- **「导出把两句自白也带上路」**：sqrt 坦白与 verbless footer 随数字旅行——读到纯文本的人同样不该被形状暗示误导
+- **「幽灵要打在诊断的坟里」**：编辑中段的坏快照被 Turbopark 写进 build-diagnostics.json，活过硬重载活过重启；运行时健康与诊断重放可以并存——判定真相靠运行时验证（对话照开、剪贴板照走），清坟靠 rm .next/diagnostics
+- 产出：The Ledger Travels 全链（funnelLedgerText 纯脑 + useLedgerCopy + Copy ledger 钮）+ t463 bench 25/0 + 三十一套回归全绿 + 账本全文 1571 字符活体捕获 + t462 遗留③关闭（crowd 阻断 live 逐字）+ 诊断幽灵根因与清法
+
+## Task 464 (2026-09-29, cron 21:37 窗 —— The Manifest Picks Its Survivors)
+
+- [开局] 实尾 = Task 463 完整收官（HEAD = 1ace3f7 = origin/main；世界 dev lane :3000 满血、15/15 completed、mock 集群 :3022 在听）。第五十五份过时 Task 13 指引照例不认（以 t463 遗留清单为准）。自号 464。
+- [QA — 全绿基线] landing 200、console 0 错、标题 pristine、header 全门在场（铃铛/命令面板/漏斗门）；回归全家 31 套 exit 0 全绿。世界稳定 → 转新需求。
+- [选题定谳 — The Manifest Picks Its Survivors（t460 遗留②）] t460 把 sync manifest 的 find 上限 4000→20000，但 cap 仍是 readdir 序下的裸 `head -20000`：一个 >20k 文件的世界（真集群 class2d 大跑 + per-mic 图）会**静默截断**——FINAL 家族（run_data/model/optimiser.star）可能整段被剪，本地镜像停在残缺世界，一切 workdir 衍生路由读谎，且无人承认。修法三招，一次 SSH 往返不破：①门族按名钉死（不再赌 readdir 运气）②cap+1 金丝雀（shell 剪掉的恰好是承认世界更大的那一行）③诚实旗随账本旅行。
+- [自捕自修 ×1 — 扁平树破相] 首版「根优先双流」（maxdepth 1 → mindepth 2）在 bench T7 的真树上翻车：真 class2d 镜像是**扁平树**（11,464 文件全在根层、零子目录），run_data.star 仍在 50 个 particles_class*.star 的 readdir 竞赛中落后。文法升格**四带**：(a) 门族按精确名钉死（run_data/run_model/run_optimiser.star）→(b) 根层其余 .star（数据脊柱：postprocess.star、per-class star）→(c) 根层非 star（note.txt、run.out/err、class 平均堆）→(d) 深层（mindepth 2，.cryoflow_prev 排除）。四带按构造两两不交（door ⊂ root stars；b = stars\door；c = root\stars；d = depth≥2），无去重趟。第二修：parseManifestListing 拒绝空 size 字段（`Number("")` 是 0——旧文法会把坏行默成零字节文件，谎言退役）。
+- [交付] ①remote-files.ts 新段：`REMOTE_MANIFEST_MAX`（env `CF_SYNC_MANIFEST_MAX`，默认 20000，夹 1k–500k，browse-caps 方言）+ `manifestFindScript(cap, quotedDir)` 四带文法 + `parseManifestListing(stdout, cap)` → {entries, truncated}（金丝雀：原始行数 > cap 即截断，entries 保前 cap）+ `describeListingNote` 纯脑（local walk 截断 > 账本截断 > 展示 300 上限 > undefined 四优先级）+ `RemoteManifest.truncated?` 旗 + write 透传。②remote-run.ts syncBackWorkdir：exec 换 script builder、parse 换纯脑、账本写入带旗、finalize receipt noteParts 增账本句（「the outputs ledger was capped at N files — the cluster's workdir holds more…CF_SYNC_MANIFEST_MAX raises the cap」）——record DTO → RemoteStayNote（t429）直达 inspector。③remote-cleanup.ts rewriteManifestAfterCleanup：truncated 旗在剪枝后存续（删行不能追溯补全账本；下一次 finalize 重新枚举重新裁决）。④outputs 路由：ledgerTruncated 接入 note 链（本地 walk 截断依旧领话——巨型世界下 600 walk cap 遮蔽账本句是正确优先级；真巨人世界 = key-files 小镜像 + 大集群，账本句可达且可达性已被活体验证）。
+- [t464 bench — 48/0] T1 四带文法 9（带序/门族精确名/三处 .cf 排除/压档排除/t367 行文法/cap+1）+ T2 parser 文法 5（含遗留两字段行无 mtime、坏行拒收）+ T3 金丝雀 5（<cap 完整、=cap 完整、+1 点火、保前 cap）+ T4 note 优先级 5 + T5 旗往返 4（真 fs；pre-t464 账本读作 undefined 绝不假旗）+ **T6 真 bash 合成树 9**（门族领跑/.cf 与压档永不入册/cap 之外全是深史）+ **T7 真 bash 真 class2d 镜像 8**（默认 cap 全量 11,464 与旧文法 census 逐字一致、门族领先每一个 round 文件、cap=50 时承认截断且门族三件套全在——门永不死）。bun spawnSync bash -c 直跑脚本本体——脚本即文物。
+- [活体 — 双向验证 + 世界还原] ①大世界（class2d，11.4k 镜像）：outputs API note = 「Listing truncated at 600 files」（本地 walk 优先级领话，遗留账本无假旗）✓ 检查器 Files tab 徽记逐字同句、表格/GET 门满血、console 0 错、截图 .qa-logs/t464-files-tab.png。②小世界（motioncorr，3 文件）：临时注入 truncated=true → note = **「Listing shows 3 files — the cluster holds more than the manifest's cap (the final star family is pinned first)」逐字到手** → 还原账本 → note 回到如实静默、字节复原（/tmp 备份双份）。③插曲：dev server 在 tsc+32 套 bench 内存压力下被收割一次 → dev-server.sh 一次点火复 200（t436 教义）。
+- [验证-终] t464 bench 48/0；tsc 0 + eslint 0（五触碰文件）；回归全家 32 套（31 旧 + t464）exit 0 全绿；console 0 错；注入还原字节级归零。
+- [最终态] HEAD = ce670c1（feature；docs 本 commit 为其盖章修正，origin/main 三方对齐）；世界 dev lane（:3000 200、15/15 completed、mock 集群 :3022 在听、console 0 错）。下一窗从 Task 465 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②selection-unfinished 阻断态 live 复验（需 running verb 的世界）③funnel 单位扩展 movies（真 RELION 接手时）④prod 磨判例重开前提（t462 判例：盒扩容/树减肥/编译几何变化）⑤walkWorkdir 的 600 文件本地展示上限在 >600 镜像世界遮蔽账本句——若真巨人世界落地时可考虑分层句（本地「…and N more locally」+ 账本句并陈）。
+
+Stage Summary:
+- **「门族按名钉死，不赌 readdir 运气」**：t460 的失败不是 cap 太小，是 cap 花在谁身上听天由命——门族（run_data/model/optimiser.star）以精确名领跑四带，任何 cap 的预算先付门、再付脊柱、再付前门、最后才是深史
+- **「金丝雀是免费的诚实」**：head 多放一行，parser 数行数——世界是否比账本大，一次 SSH 往返内精确裁决，不需要第二趟 find 也不需要 wc -l；「恰好装满」与「被剪短」从此是两种可区分的状态
+- **「诚实旗要能旅行也要能幸存」**：truncated 随账本 JSON 落盘、随 Files tab note 上屏、随 finalize receipt 进 inspector（RemoteStayNote）、随剪枝重写存续——单点承认会腐烂，全链承认才是诚实
+- **「bench 的职责是把假设咬碎」**：首版双流文法在 T7 真 11.4k 镜像树上当场翻车（扁平世界、门族竞赛落后）——纯脑断言 + 真 bash 执行脚本本体的组合把「根优先就够了」的假设当场咬碎，四带文法是真树教出来的
+- 产出：四带门族优先枚举文法 + cap+1 金丝雀 + truncated 诚实旗全链（账本→Files tab→receipt→inspector）+ describeListingNote 四优先级 + t464 bench 48/0（真 bash 双活体）+ 32 套回归全绿 + 账本句真 API 逐字 + 截图 ×2
+
+## Task 465 (2026-09-29, cron 22:07 窗 —— The Running World)
+
+- [开局] 实尾 = Task 464 完整收官（HEAD = b0195df = origin/main；世界 dev lane :3000 200、15/15 completed、mock 集群 :3022 在听、available 993MB 偏紧）。第五十六份过时 Task 13 指引照例不认（以 t464 遗留清单为准）。自号 465。
+- [QA — 全绿基线] landing 200、console 0 错、标题 pristine；回归全家 32 套 exit 0 全绿（本轮教义升级：**先关 QA 浏览器再跑 bench**——t464 窗的 OOM 收割不重演，服务器全程幸存）。世界稳定 → 转新需求。
+- [选题定谳 — The Running World] 三重收账一轮结清：①t463 遗留③——selection-unfinished 阻断态 live 复验（bench D5a/b 早已钉死渲染，缺的是真 running verb 的接线活体）②t464 遗留⑤——walk cap 遮蔽账本句的分层句并陈 ③t464 四带文法的**真 SSH 首跑**——re-run 的 finalize 用新文法写真账本。一副世界搭三台戏。
+- [交付①— 分层 note（t464 遗留⑤关闭）] describeListingNote 升格：localTruncated && ledgerTruncated 时两句并陈一行——`Listing truncated at N files — and the ledger itself was capped: the cluster holds more than the manifest shows (the final star family is pinned first)`；本地事实领话不变、账本句不再被 600 walk cap 永久遮蔽；ledger 句压 display 句的优先序保持。bench T4 增至 8 断言（51/0 总）。
+- [世界手术 — running verb 搭台] class2d re-run 经 POST /api/jobs/[id]/run 裸跑。**首跑失败 = t317 的诚实降级**：项目的 remote binding 是 null（demo 项目从未绑定），裸 POST 掉进 local lane，引擎如实拒绝「RELION not detected」。修复：PATCH /api/projects/[id] {remoteConnectionId: conn-mukrkgil} 重绑 → 裸 POST → status=running progress=16% phase=running。绑定 null 非幽灵非 bug——系统按设计的诚实路径走完两跳（拒绝 → 重绑 → 成功），顺手活体验证了 t317 的降级分支。
+- [活体②— selection-unfinished 阻断态逐字（t463 遗留③关闭）] plain click = inspect 非 select（t463 家法再证）；agent-browser 无 shift 保持、合成 PointerEvent(shiftKey) 过不了 React 指针链——真钥匙仍是 Task 103 箭头漫步：ArrowRight 顺流入图（Select 2D→…→Post-process 走到头）→ ArrowLeft 逆流 8 步 → **门 disabled=true + title=「The selected verb hasn't finished — its receipt isn't written yet, so its chain can't be read.」与 FUNNEL_DOOR_BLOCK_LINES 逐字一致**；再 ArrowLeft 落 Extract（completed）→ 门复 ready（「through Extract — the verb you selected」）恢复路径同证。截图 .qa-logs/t465-running-block.png（census 条 2D Classification 99% running 芯片 + 状态栏 1 running · 7m 04s · build b0195df）。
+- [活体③— t464 四带文法真 SSH 首跑] finalize 落地（sync 517s、11,464 文件归家）：**fresh ledger 前三行 = run_data.star / run_model.star / run_optimiser.star——门族 0/1/2 位按名钉死**（pre-run 旧文法同账本前三是 run.out/run.err/run_it000_data.star 的 readdir 运气序，对比即判例）；`truncated: false` 首次真值落盘；census 11,464 与 pre-run 一致（同参 re-run 同形状）；receipt note=None（账本未截断，账本句如实缺席）。t464 的「门永不死」从 bench 真树走进真集群往返。
+- [验证-终] t464 bench 51/0（48 旧 + 3 分层新断言）；tsc 0 + eslint 0（触碰文件）；回归全家 32 套 exit 0 全绿；console 0 错、标题 pristine；世界 15/15 completed 复原（class2d 重跑后同位同形），landing 200。
+- [最终态] HEAD = f8d3b98（feature；docs 本 commit 随后，origin/main 三方对齐）；世界 dev lane（:3000 200、15/15 completed、14 边、mock 集群 :3022 在听、项目绑定 conn-mukrkgil 持久化）。下一窗从 Task 466 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②funnel 单位扩展 movies（真 RELION 接手时）③prod 磨判例重开前提（t462 判例：盒扩容/树减肥/编译几何变化）④箭头漫步的入图点无预告——从视口中心进图落在链中段，用户需自己发现方向（可考虑入图时 toast 一句「arrow walk: entered at <job>」之类的轻指引）⑤account 芯片「1 running · 7m 04s」的 elapsed 在 re-run 后从 staging 计起，含排队/staging/sync 全程——与「轮次时间」是两种口径，inspector 已分开说，状态栏可考虑分层提示。
+
+Stage Summary:
+- **「一副世界搭三台戏」**：一次 class2d re-run 同时是 selection-unfinished 的活体舞台、四带文法的真 SSH 首跑、和分层 note 的落地窗口——世界手术的收益按复利计
+- **「诚实降级也是活体素材」**：裸 POST 掉进 local lane 的 RELION 拒绝不是事故，是 t317 降级分支的第一次活体走位；重绑 PATCH 后同一扇门照常放行——失败路径与成功路径同轮验证
+- **「真跑是最厚的 bench」**：bench 的真 bash 只能证明脚本本体；真 SSH 往返证明的是整条链——门族 0/1/2 位对比 pre-run 的运气序，两行账本头就是判例书
+- **「漫步到阻断，一步即恢复」**：Task 103 箭头漫步走到 running verb 时门如实封锁、走开一步即复 ready——阻断不是墙是门，钥匙永远在下一箭头
+- 产出：分层 listing note（t464 遗留⑤关闭）+ selection-unfinished 阻断态 live 逐字（t463 遗留③关闭）+ 四带文法真 SSH 首跑判例（门族 0/1/2 + truncated:false 真值落盘）+ 项目重绑持久化 + t464 bench 51/0 + 32 套回归全绿 + 截图 ×1
+
 ## Task 466 (2026-09-30, 用户工单窗 —— the chain the agent could not build；原号 463 — 并行 cron 车道在 origin 抢先注册了 463/464/465（funnel clipboard/manifest survivors/running world），本窗顺延)
 
 - [开局] 用户复现（连续两轮）：「帮我搭一个完整的 SPA 流程：导入 → 运动 → CTF → 挑选 → 2D 分类」→ agent 只 create_job 了一个无连线的「QA CTF」任务 → run_job 被拒 → 汇报失败。「还是不行，帮我修复并真实测试 agent 能力」。实尾 = t462（HEAD = e8ac172 = origin/main）。
@@ -5516,3 +5553,20 @@ Stage Summary:
 - **「零配置就有真脑子」**：仓库里躺了 30+ 窗的 z-ai-web-dev-sdk 第一次上岗——Built-in (GLM) 居供应商之首，徽章说真话，无 key 无墙；没有凭据的部署得到的是一句可行动的指路而非沉默
 - **「咨询是读，不是写」**：上一轮「画布有哪些任务」被误执行的教训成文法 + 实测通过——真模型只调 get_workflow_state，一个任务都没建
 - 产出：t466（type-aliases + chain bridge + prompt 双法条 + builtin 方言 + MiniMax + F9 现场重演）— t419 156/0 + t420 54/0 + 活体双律（全链建成 / 咨询零执行）
+## Task 467 (2026-09-29, cron 22:22 窗 —— The Walk Speaks；原号 466 — 并行用户工单车道抢先在 origin 注册了它的 466（其 463 顺延重号而来），且其 worklog lost-update 覆盖了本账本的 cron 463/464/465 条目（本 commit 原样恢复），本窗顺延)
+
+- [开局] 实尾 = Task 465 完整收官（HEAD = 8979c89 = origin/main；世界 dev lane :3000 200、15/15 completed、mock 集群 :3022 在听、available 956MB）。第五十七份过时 Task 13 指引照例不认（以 t465 遗留清单为准）。自号 466。
+- [QA — 全绿基线] landing 200、console 0 错、标题 pristine；回归全家 32 套 exit 0（浏览器先关再跑，服务器幸存）。世界稳定 → 转新需求。
+- [选题定谳 — The Walk Speaks（t465 遗留④⑤）] Task 103 的箭头漫步是哑巴——三个用户无法看见真相的时刻：①入图（无锚时从视口中心进图，卡片被选中在**某处**，无人指名——t465 现场报告花了十次探针才找到落点）②步进（ring 可见移动，理应静默）③死端（±45° 锥无候选，按键无声无效——与坏掉的快捷键不可区分，footer 自家律：「读数不动的读不出来与挂死有啥区别」）。本窗让漫步开口：入图报锚、死端报方向、⑤顺路——状态栏 running 芯片的 elapsed 口径句。
+- [交付] ①**src/lib/arrow-walk.ts**（纯脑无 React）：`walkDirectionName(key)`（四键映射，非漫步键 null）+ `arrowWalkEntryHint(jobName)`（title=「Arrow walk — <名字>」逐字点名；description 一口气教三个手势：hop / Shift+Arrow 增选 / Escape 清选）+ `arrowWalkDeadEndHint(direction)`（title=「Arrow walk — nothing to the <方向>」；description 说事实（No card lies in that direction）、说选择存续（stays as it was）、说两条恢复路（再按别箭 / Shift+click 锚定））。②**app-shell.tsx** 接线：`entering = !anchor` 只在入图时 toast（步进不说话——ring 自明）；死端 toast 以组件 ref 节流 1200ms（连按到边缘不刷屏——一词是导向、五词是噪音；ref 而非模块钟——节流随 app shell 走，不跨 tab）。③**footer.tsx**：running 芯片 tooltip 增口径句——「longest running for X (counted from dispatch — staging, rounds and sync-back all sit inside; the inspector's time ledger splits them)」——没有这句，7m 04s 被读成算力时间，inspector 的分账 ledger 看起来像自相矛盾；一次 hover、零视觉噪音。
+- [t467 bench — 26/0] T1 方向名 7（四键映射 + 三个非键 null）+ T2 入图 7（title 逐字点名、三手势逐一在句、entering 时刻被命名）+ T3 死端 8（四方向各自入题、事实领先、选择存续被说出、两条恢复路点名）+ T4 不撞车 4（entry 永不读作 dead end 反之亦然）。
+- [活体] ①Esc 清选 → ArrowRight → **toast 「Arrow walk — Select 2D (tutorial) / The walk entered the graph here. Arrows hop to the nearest card…」逐字上板**（eval DOM 捕获），门 ready（SELECTION）✓。②连按 8 步到图右缘 → 单发重试 → **toast 「Arrow walk — nothing to the right / No card lies in that direct…」逐字到手**；节流窗（1.2s）实测放行间隔外的重按。③footer completed 芯片 title = 「Highlight 15 completed jobs on the canvas」——共享模板完好；running 口径句为静态后缀（tsc 钉死），running 世界 hover 留作诚实边界。截图 .qa-logs/t466-walk-toast.png（Post-process 选中、15/15、footer 完好）。
+- [验证-终] t467 bench 26/0；tsc 0 + eslint 0（四触碰文件）；回归全家 33 套（32 旧 + t467）exit 0 全绿；console 0 错；世界 15/15 completed、landing 200。
+- [最终态] HEAD = b87ec8c（feature；docs 本 commit 随后，origin/main 三方对齐）（docs commit 随后，origin/main 三方对齐）；世界 dev lane（:3000 200、15/15 completed、mock 集群 :3022 在听）。下一窗从 Task 468 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②funnel 单位扩展 movies（真 RELION 接手时）③prod 磨判例重开前提（t462 判例）④入图 toast 与落点 pan 的时序——toast 先说、pan 后到，极远落点时 toast 说完卡片才进屏（可考虑 pan 后再 toast，或让 toast 常驻到下一次按键）⑤死端 toast 的节流窗对「慢速探索」用户过宽——1.2s 内的第二声被吞，若需严格逐键反馈可降窗或改 dedupe。
+
+Stage Summary:
+- **「沉默的三种葬法」**：入图说「你在哪」、死端说「没了」、步进说「 ring 自己会动」——同一 walk 的三个时刻各得其所的话，不是一律出声也不是一律闭嘴
+- **「无效按键与坏快捷键不可区分就等于坏快捷键」**：死端 toast 不是友好彩蛋，是把 footer 自家律（读数不动≠挂死）推广到键盘——每个按键都该有回声
+- **「节流是尊重」**：连按到边缘的一串死键只值一句话——1.2s 窗、组件 ref 记座，导向与噪音的分界线画在毫秒上
+- **「口径不说是谎言的一半」**：7m 04s 不说从 dispatch 计起，读的人拿它对 inspector 的分账就会得出「数字打架」——数字诚实不够，口径也要诚实
+- 产出：arrow-walk.ts 纯脑（方向名/入图/死端三方言）+ app-shell 接线（入图报锚 + 死端节流报向）+ footer 口径句（t465 遗留④⑤关闭）+ t467 bench 26/0 + 33 套回归全绿 + 双 toast 活体逐字 + 截图 ×1
