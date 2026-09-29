@@ -155,8 +155,18 @@ export const AI_TOOLS: ToolSchema[] = [
   {
     name: "list_clusters",
     description:
-      "Read the SSH cluster registry — the Remote clusters dialog's own roll call: each saved connection's name, host, auth shape (booleans only, never secrets), remote root, Slurm flag, default RELION module, its LAST probe's truth (reachable / probe-failed with the error line / never-tested — each probe block carries checkedAt; quote the timestamp when health matters, clusters are probed when tested or dispatched, never by this read), whether the ACTIVE project is bound to it, and its dispatch résumé (total/completed/failed runs the ledger remembers, with the 3 newest — what has this cluster done for me). Also answers 'which cluster would run_job mode:'cluster' dispatch to?' via the project binding.",
-    parameters: { type: "object", properties: {}, additionalProperties: false },
+      "Read the SSH cluster registry — the Remote clusters dialog's own roll call: each saved connection's name, host, auth shape (booleans only, never secrets), remote root, Slurm flag, default RELION module, its LAST probe's truth (reachable / probe-failed with the error line / never-tested — each probe block carries checkedAt; quote the timestamp when health matters, clusters are probed when tested or dispatched, never by this read), whether the ACTIVE project is bound to it, and its dispatch résumé (total/completed/failed runs the ledger remembers, with the 3 newest — what has this cluster done for me). Pass fullHistory:true to open the WHOLE ledger instead of the 3-newest reading line (up to 50 entries, newest first) — the tool for 'show me everything this cluster has run / 这台集群的完整历史'. Also answers 'which cluster would run_job mode:'cluster' dispatch to?' via the project binding.",
+    parameters: {
+      type: "object",
+      properties: {
+        fullHistory: {
+          type: "boolean",
+          description:
+            "Open the complete dispatch ledger instead of the 3-newest reading line — up to 50 entries, newest first. Omit for the default résumé.",
+        },
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: "list_deleted",
@@ -692,7 +702,7 @@ export async function executeAiTool(
       case "get_workflow_state":
         return await getWorkflowState(ctx);
       case "list_clusters":
-        return await listClustersTool(ctx);
+        return await listClustersTool(ctx, (args as { fullHistory?: boolean }).fullHistory === true);
       case "list_deleted":
         return await listDeletedTool(ctx);
       case "restore_deleted":
@@ -830,7 +840,7 @@ async function getWorkflowState(ctx: AgentCtx): Promise<AiToolResult> {
 
 /* ---- list_clusters ------------------------------------------------- */
 
-async function listClustersTool(ctx: AgentCtx): Promise<AiToolResult> {
+async function listClustersTool(ctx: AgentCtx, fullHistory = false): Promise<AiToolResult> {
   const conns = loadConnections();
   const active = await getActiveProject();
   const boundId = active?.meta.remote?.connectionId ?? null;
@@ -856,10 +866,19 @@ async function listClustersTool(ctx: AgentCtx): Promise<AiToolResult> {
   // records dialog's wide aperture, not this read). A connection with zero
   // dispatches wears NO block — "no résumé" stays honest the same way the
   // list route omits the field (t270's omission law).
+  // t484 — the whole book: fullHistory:true reopens the same aggregate
+  // under opts.all (the records route's own aperture since t272) — the
+  // agent can finally answer "show me everything this cluster has run"
+  // without leaving the tool lane. The cap keeps a huge ledger from
+  // flooding the context, and says so when it bites (cappedAt), so a
+  // truncated read never pretends to be the whole book.
+  const LEDGER_CAP = 50;
+  const resumeOpts = fullHistory ? { all: true } : undefined;
   const roster = (await Promise.all(
     conns.map(async (c) => {
       const p = c.lastProbe;
-      const resume = await connectionRunResume(c.id);
+      const resume = await connectionRunResume(c.id, resumeOpts);
+      const shown = resume.recent.slice(0, LEDGER_CAP);
       return {
         id: c.id,
         name: c.name || `${c.username}@${c.host}`,
@@ -891,7 +910,10 @@ async function listClustersTool(ctx: AgentCtx): Promise<AiToolResult> {
                 completed: resume.completed,
                 failed: resume.failed,
                 lastRunAt: resume.lastRunAt,
-                recent: resume.recent.map((e) => ({
+                ...(fullHistory && resume.recent.length > LEDGER_CAP
+                  ? { cappedAt: LEDGER_CAP }
+                  : {}),
+                recent: shown.map((e) => ({
                   jobId: e.jobId,
                   jobType: e.jobType,
                   done: e.done,
@@ -912,7 +934,7 @@ async function listClustersTool(ctx: AgentCtx): Promise<AiToolResult> {
 
   const reachable = roster.filter((r) => r.probe?.state === "reachable").length;
   const boundName = boundConn ? boundConn.name || `${boundConn.username}@${boundConn.host}` : null;
-  const boundResume = boundConn ? await connectionRunResume(boundConn.id) : null;
+  const boundResume = boundConn ? await connectionRunResume(boundConn.id, resumeOpts) : null;
   const summary =
     `${roster.length} cluster${roster.length === 1 ? "" : "s"} in the registry, ${reachable} reachable by last probe; ` +
     (boundName
@@ -924,7 +946,11 @@ async function listClustersTool(ctx: AgentCtx): Promise<AiToolResult> {
     // unbound clusters' histories stay in their detail rows (zero-noise for
     // the clusters nobody asked about)
     (boundResume && boundResume.total > 0 && boundName
-      ? `; "${boundName}" carries ${boundResume.total} recorded dispatch${boundResume.total === 1 ? "" : "es"} (${boundResume.recent.length} newest in detail)`
+      ? `; "${boundName}" carries ${boundResume.total} recorded dispatch${boundResume.total === 1 ? "" : "es"} (${
+          // t484 — the spoken line follows the aperture: the résumé says
+          // "3 newest in detail", the full ledger says "all N in detail"
+          fullHistory ? `all ${boundResume.recent.length} in detail` : `${boundResume.recent.length} newest in detail`
+        })`
       : "");
 
   return {
@@ -933,7 +959,12 @@ async function listClustersTool(ctx: AgentCtx): Promise<AiToolResult> {
     detail: {
       projectBinding: boundId ? { connectionId: boundId, name: boundName, missing: !boundConn } : null,
       roster,
-      note: "probe facts are the LAST probe's truth — quote checkedAt when health matters; a fresh probe is the dialog's Test button or the dispatch's own gate, not this read. Dispatch records are the LEDGER's truth, not the canvas's — a record outlives its job: exists:false means the job is gone from every canvas while the ledger still remembers the run; the full history (and the bulk forget) lives in the records dialog",
+      note: `probe facts are the LAST probe's truth — quote checkedAt when health matters; a fresh probe is the dialog's Test button or the dispatch's own gate, not this read. Dispatch records are the LEDGER's truth, not the canvas's — a record outlives its job: exists:false means the job is gone from every canvas while the ledger still remembers the run; ${
+        // t484 — the panorama's address follows the aperture
+        fullHistory
+          ? "this read opened the WHOLE ledger (capped at 50, newest first) — older entries beyond the cap still live in the records dialog"
+          : "the full history (and the bulk forget) lives in the records dialog — or re-read with fullHistory:true"
+      }`,
     },
   };
 }

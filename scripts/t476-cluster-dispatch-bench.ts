@@ -173,7 +173,7 @@ type RosterRow = {
 /* T1 — the catalog keeps its shape (an extension, not a new tool)      */
 /* ------------------------------------------------------------------ */
 
-console.log("T1. still 19 tools; the description now names the résumé");
+console.log("T1. still 21 tools; the description now names the résumé");
 
 {
   const tool = AI_TOOLS.find((t) => t.name === "list_clusters");
@@ -186,9 +186,15 @@ console.log("T1. still 19 tools; the description now names the résumé");
     properties?: Record<string, unknown>;
     additionalProperties?: unknown;
   };
+  // t484 — the schema grew ONE optional param (fullHistory): the résumé
+  // itself still needs nothing, but the whole-book read is now a bridge
+  // away. Exactly one property, nothing required, no extra keys.
   must(
-    params.properties != null && Object.keys(params.properties).length === 0 && params.additionalProperties === false,
-    "T1c: the schema still takes nothing at all",
+    params.properties != null &&
+      Object.keys(params.properties).join(",") === "fullHistory" &&
+      params.additionalProperties === false &&
+      !(tool?.parameters as { required?: string[] }).required,
+    "T1c: the schema takes exactly one OPTIONAL param (fullHistory) — the résumé face still needs nothing",
   );
   const d = tool?.description ?? "";
   must(

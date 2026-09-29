@@ -177,9 +177,13 @@ console.log("T1. the catalog wears the cluster read");
     properties?: Record<string, unknown>;
     additionalProperties?: unknown;
   };
+  // t484 — the roll call grew one OPTIONAL param (fullHistory): the roll
+  // itself still needs nothing, the whole-book read is a bridge away.
   must(
-    params.properties != null && Object.keys(params.properties).length === 0 && params.additionalProperties === false,
-    "T1c: the schema takes nothing at all",
+    params.properties != null &&
+      Object.keys(params.properties).join(",") === "fullHistory" &&
+      params.additionalProperties === false,
+    "T1c: the schema takes exactly one OPTIONAL param (fullHistory)",
   );
   const d = tool?.description ?? "";
   must(

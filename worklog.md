@@ -5916,3 +5916,23 @@ Stage Summary:
 - **「新 wing 必须有册」成为可执行律**：bench 自动扫场全部 cryoflow:open-* 事件，未入册的门被点名 FAIL——负例实证真咬人，手册与产品从此同进同退
 - **「磁盘是看不见的地基」**：ENOSPC 十八连败全是环境非代码——模板副本 3.4G + 孤儿缓存 2.6G 清场，删前三方对账 live 数据零引用；清 .next/cache 先停 server 是新的点火律注脚
 - 产出：GUIDE_DOORS 六门注册表 + STORAGE_OPEN_EVENT（header 出口+监听）+ OPEN_EVENT 出口化 + rowDoors 四章映射 + 门行钮（yield-focus 六连推）+ src/app/icon.svg + t483 bench 39/0（含负例实证）+ 49 套回归全绿 + 活体六门逐字 + 截图 ×4
+
+## Task 484 (2026-09-30, cron 04:29 窗 —— The Ledger Opens Its Whole Book)
+
+- [开局] 实尾 = Task 483 完整收官（HEAD = a410217 三方对齐）。世界体检：landing 200、23 workspace children / 15 edges、console 0 错、标题 pristine。第七十五份过时 Task 13 指引照例不认（以 t483 遗留清单为准）。自号 484。
+- [QA — 全绿基线] 回归全家 49 套 exit 0。世界稳定 → 转新需求。
+- [选题定谳 — The Ledger Opens Its Whole Book（t476 遗留⑧，非门控项）] 排除法：③④⑦ 待回执/待真实并存（t473 原文核实：③=staleness 琥珀与 continue emerald 同框合并话术、④=inspector Continue 字段互指——皆观察门控，继续尊重）；② 第十三次挂起（517s 完整预算）；⑮ popover 门钮化排查后证伪（6 条 tip 皆 canvas 域内交互，零 reach-a-surface 行）。⑧ 是 t476 活体就撞到的结构性缺口：21 工具里 list_clusters 是 agent 读派发史的**唯一**通路，而简历块止于 ≤3 阅读线——「这台集群的完整历史」无路可走；库层 `connectionRunResume(id,{all:true})` 全景口径 t272 已在（records 路由用它），**工具层只差一座桥**。
+- [交付①— fullHistory 参数桥（tools.ts 五处）] schema 增恰一可选参 `fullHistory`（boolean、无 required、additionalProperties:false——简历面仍是零参读法）；description 增全书子句（「Pass fullHistory:true to open the WHOLE ledger…up to 50 entries」+ 完整历史问句点名）；executor 分派透传；roster 行 `connectionRunResume(c.id, {all:true})` + `shown = recent.slice(0,50)` + 溢出时 `cappedAt:50`（截断的书必须承认自己被截断）；boundResume 同口径 + summary 行双口径（默认「3 newest in detail」/ 全书「all N in detail」）+ note 双口径（默认面指路「re-read with fullHistory:true」/ 全书面自报「WHOLE ledger (capped at 50)」）。工具数仍 21——扩展不是诞生。
+- [交付②— THE CLUSTER LAW 教学（prompt.ts）] 律 #11 增双面教学：默认读法即「最近跑过什么」的正确读法；**ONLY** 当用户要 COMPLETE ledger（「完整历史」「一共跑过哪些」「全部」every run）才 fullHistory:true——「a recent-history question with fullHistory:true floods the answer with what the user did not ask for」。编号 1–14 零重排。
+- [t484 bench — 23/0（一处自捕）] 隔离 TMP + 显式 env 先于 src import + 真 prisma db push + 真 project 行（自捕：合成 projectId 撞 FK——t476 同款 db.project.create 教训二次入册）。T1 目录与律 5（description 三词/可选参形状/律教何时开书/**律含负例句**/1–14 连续）+ T2 默认面不动 4（3 newest/序/no cappedAt/summary 原话）+ T3 全书 6（7 页全开/newest first/未溢出无 cappedAt/summary 翻转/note 自报/exists 真值骑页）+ T4 溢出律 4（56 total→50 页+cappedAt:50/顶页 newest first/最老页在册但声明/默认面洪泛中仍 3 页无 cap）+ T5 算术一致 4（桶数两口径同数/lastRunAt 含 running/exit 137=failed 页）。一处自捕：T5a 我把 5 条 exit 0 算成 4——断言错非代码错。
+- [插曲 — 活体首查即中真问题] Face A 控制组问「最近跑过什么」，真 GLM 却开 `fullHistory:true`（新玩具被滥用到最近问句）——律的隐喻措辞（reading line, not the whole book）误导模型。修律：默认面正名 + ONLY 触发词表 + 洪泛负例句；bench T1d 同步新措辞；重跑 **Face A 空参通过**。活的 prompt 工程课：新参数的律必须同时教「何时用」和「何时不该用」。
+- [活体 — 双面对照 + 三方对账零编造] live 台账核对：conn-mukrkgil 10 条派发、10 种 job type 全不同、全 exit 0——完美背诵面。**Face A**（最近问句）→ `args={}`、recent=3、summary「3 newest in detail」、模型背 3 newest + total=10 + projectName ✓；**Face B**（完整历史问句）→ `args={"fullHistory":true}`、recent=10、summary「all 10 in detail」、模型逐条背诵 **10/10 job type + 时间全对 + 统计 10/10/0 零编造** + 引用 probe 生日与项目名。三方对账（tool result × agent 背诵 × 台账真相）全吻合。插曲：server 被回归内存压力收割一次（t436 教义第 N 次）→ dev-server.sh 点火复 200；`/api/jobs` 返回对象非裸列表，len() 数顶层键险些误报世界崩塌。
+- [验证-终] t484 bench 23/0 + t476 22/0 + t475 26/0（T1c 同款演进：无参断言→恰一可选参断言）兼容；tsc 0 + eslint 0（四触碰文件）；回归全家 **50 套**（glob 自动纳新）exit 0；世界 22 jobs（1 running）+ 台账 10 条原样、零数据手术。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 485 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②continue_run 的 mock 集群真火活体（517s 完整预算，十三次挂起）③continue 芯片与世界事件的对齐（t473③ 原样，待真实并存）④inspector Continue 字段互指（t473④ 原样，待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（t474⑦ 原样，待回执）⑯台账全书的增量：cappedAt 溢出时的翻页读法（offset/cursor 参数 vs records 对话框指路已够——待真实 50+ 条集群出现再定）；records 对话框 UI 是否给「派发史 CSV 导出」钮（用户侧同一缺口的补法，与工具侧桥互补）。
+
+Stage Summary:
+- **「简历是阅读线，全书是一座桥」**：全景口径在库层睡了十个窗（t272 的 all:true），工具层一个可选参就把「这台集群的完整历史」从无路变成一句话——扩展不是诞生，桥不是新门
+- **「截断的书必须承认自己被截断」**：cappedAt 只在真溢出时出场（省略律），total 永远是真总数，note 自报口径——一本说谎的地图册比没有地图更坏
+- **「新参数的律必须教两面」**：活体首查即中——模型把 fullHistory 用到「最近」问句上；律修为「默认面即最近问句的正确读法 + ONLY 触发词表 + 洪泛负例句」后双面对照全绿——「何时不用」和「何时用」一样是教学
+- **「三方对账是活体的秤」**：tool result × agent 背诵 × 台账真相逐条对齐（10/10 type、时间全对、统计零编造）——模型引用的每个数字都有原乡
+- 产出：list_clusters fullHistory 参数桥（schema/description/executor/roster/cap+summary/note 六处）+ THE CLUSTER LAW 双面教学 + t484 bench 23/0（含 55 条洪泛溢出律）+ t475/t476 断言诚实演进 + 双面活体三方对账 + 50 套回归全绿 + 活体剧本 t484-live-ledger-book.sh
