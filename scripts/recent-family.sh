@@ -1,7 +1,7 @@
 #!/bin/bash
 # recent-family.sh — the t4xx bench family (34 suites as of Task 469), serial, exit 0 iff all green.
 cd /home/z/my-project
-SUITES=$(ls scripts/t4[2-6][0-9]-*bench.ts | sort)
+SUITES=$(ls scripts/t4[2-7][0-9]-*bench.ts | sort)
 FAIL=0
 N=0
 for s in $SUITES; do

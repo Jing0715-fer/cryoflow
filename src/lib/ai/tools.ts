@@ -72,6 +72,23 @@ import {
   concentrationCensus,
 } from "@/lib/class-compare";
 import { ctfMicrographRows, motionCatalogueRows } from "@/lib/compare-rows";
+import {
+  arcPresentationOf,
+  arcSummary as arcSummaryOf,
+  arcVerdict as arcVerdictOf,
+  biggestJump,
+  resolutionArcOf,
+} from "@/lib/resolution-arc";
+import {
+  defaultRoundPair,
+  movingCensus,
+  roundLabel,
+} from "@/lib/convergence";
+import {
+  resolutionArcFromWorkdir,
+  roundOccupancy,
+  workdirRounds,
+} from "@/lib/convergence-rows";
 
 export interface AiToolResult {
   ok: boolean;
@@ -148,6 +165,30 @@ export const AI_TOOLS: ToolSchema[] = [
         },
       },
       required: ["job_a", "job_b"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "check_convergence",
+    description:
+      "One run compared with ITSELF across its own iterations — the convergence family's reading, read by the agent (the class-convergence dialog's census + the resolution-arc dialog's plateau verdict, t454/t456/t459): did the classification settle (which classes still move particles between two rounds), and is the estimate still sharpening (per-round resolution arc — gold FSC for refine3d, the model's own estimate for class2d/class3d). The default pair is the run's WHOLE arc (earliest vs latest round); pass round_a/round_b to ask any two. Returns the census in the domain's own words (gained/lost/held + 'settled / mostly settled / still re-shuffling') and the arc's verdict ('plateaued / still improving / still moving'). THE tool for '收敛了吗 / did it converge / has it settled / is it still improving / plateau' — a convergence question is a READ of the run's own rounds, never arithmetic from two receipts. For comparing two DIFFERENT runs use compare_jobs instead.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: {
+          type: "string",
+          description: "The run's job id (get_workflow_state lists ids).",
+        },
+        round_a: {
+          type: "number",
+          description: "Optional earlier round (iteration number). Default: the run's first round.",
+        },
+        round_b: {
+          type: "number",
+          description: "Optional later round (iteration number). Default: the run's last round.",
+        },
+      },
+      required: ["job_id"],
       additionalProperties: false,
     },
   },
@@ -582,6 +623,8 @@ export async function executeAiTool(
         return await getFunnelChain(ctx, typeof args.job_id === "string" ? args.job_id : "");
       case "compare_jobs":
         return await compareJobs(ctx, args);
+      case "check_convergence":
+        return await checkConvergence(ctx, args);
       case "create_job":
         return await createJob(ctx, args);
       case "build_pipeline":
@@ -1011,6 +1054,252 @@ async function compareJobs(
       unpaired: { onlyA: join.onlyA.length, onlyB: join.onlyB.length },
       trustLine,
       verdictText,
+    },
+  };
+}
+
+/* ---- check_convergence ----------------------------------------------- */
+
+/**
+ * t470 — the agent reads the SETTLED QUESTION. The convergence family's
+ * two faces (t454's class census, t456/t459's resolution arc) compare ONE
+ * run with ITSELF at two of its own rounds. This tool runs the SAME brains
+ * on the SAME rows: the class-convergence dialog's chain (joinByName +
+ * pairedDeltas on the share lens + verdict/topMovers + movingCensus) and
+ * the resolution-arc route's own scan (convergence-rows.ts) + the plateau
+ * law. No private brain, no private read path (t419 law, fourth read tool).
+ *
+ * Door semantics mirror the dialogs' guards: a COMPLETED run of a type the
+ * arc family speaks (refine3d gold; class2d/class3d serial), at least two
+ * settled rounds on the ladder, two DISTINCT real rounds. The census is
+ * the classification domain's question only (the dialog never opened for
+ * refine3d — a refinement's single-class data star has no population to
+ * move); the arc answers the refinement. Every refusal says WHY and names
+ * the fix.
+ */
+async function checkConvergence(
+  ctx: AgentCtx,
+  args: { job_id?: unknown; round_a?: unknown; round_b?: unknown },
+): Promise<AiToolResult> {
+  const jobId = typeof args.job_id === "string" ? args.job_id.trim() : "";
+  if (!jobId) {
+    return {
+      ok: false,
+      summary:
+        "check_convergence needs a job id — call get_workflow_state first and pass a real job id.",
+    };
+  }
+  const jobs = await db.job.findMany({
+    where: { projectId: ctx.projectId },
+    select: { id: true, type: true, name: true, status: true, projectId: true },
+  });
+  const job = jobs.find((j) => j.id === jobId);
+  if (!job) {
+    return {
+      ok: false,
+      summary: `No job with id "${truncate(jobId, 48)}" on this canvas — call get_workflow_state first and pass a real job id.`,
+    };
+  }
+
+  const presentation = arcPresentationOf(job.type);
+  if (!presentation) {
+    return {
+      ok: false,
+      summary: `"${job.name}" is ${job.type} — the convergence family speaks refinement (refine3d, the gold-standard FSC arc) and classification (class2d/class3d, the occupancy census plus the model's own estimate). A run cannot converge where there is no per-round arc.`,
+    };
+  }
+  if (job.status !== "completed") {
+    return {
+      ok: false,
+      summary: `"${job.name}" is ${job.status} — the convergence reading speaks a run's SETTLED rounds (a running run's rounds are still being written). Check again with inspect_job or wait_for_jobs, then ask.`,
+    };
+  }
+
+  // the same workdir resolution inspect_job and compare_jobs speak
+  const run = getRun(job.id);
+  const workdir =
+    run?.workdir ?? path.join(RELION_DIR, job.projectId, `${job.type}_${job.id.slice(-8)}`);
+
+  // each dialect's door is its OWN dialog's door: the census gate reads
+  // the data-star ladder (the convergence dialog's rounds), the arc gate
+  // reads the model stars (the resolution-arc dialog's points)
+  const rounds = workdirRounds(workdir);
+  const arc = resolutionArcOf(resolutionArcFromWorkdir(workdir));
+  const arcVerdict = arcVerdictOf(arc);
+
+  if (presentation.dialect === "gold") {
+    if (arc.length < 2) {
+      return {
+        ok: false,
+        summary:
+          rounds.length > 0
+            ? `"${job.name}" wrote ${rounds.length} data-star rounds but no model stars with _rlnCurrentResolution — the refinement's arc has no estimates to read. The run's outputs are missing their model family.`
+            : `"${job.name}" has no iteration rounds and no model stars with _rlnCurrentResolution in its workdir (status completed${run?.remote ? " — this run lived on a cluster and its mirror is cold" : ""}). The refinement's arc has no estimates to read.`,
+      };
+    }
+    if (
+      (typeof args.round_a === "number" && Number.isFinite(args.round_a)) ||
+      (typeof args.round_b === "number" && Number.isFinite(args.round_b))
+    ) {
+      return {
+        ok: false,
+        summary: `"${job.name}" is a refinement — its arc reads the run's WHOLE journey (the plateau law watches the last moves); round pairs are the classification census's question. Call again without round_a/round_b.`,
+      };
+    }
+  } else {
+    if (rounds.length === 0) {
+      return {
+        ok: false,
+        summary: `"${job.name}" has no iteration rounds in its workdir (status completed, but no run_itNNN_data.star landed${run?.remote ? " — this run lived on a cluster and its mirror is cold" : ""}). The convergence reading reads the run's own rounds; there are none to read.`,
+      };
+    }
+    if (rounds.length < 2) {
+      return {
+        ok: false,
+        summary: `"${job.name}" has only one settled round (${roundLabel(rounds[0])}) — a convergence reading needs at least two iterations to compare.`,
+      };
+    }
+  }
+
+  // the census — the classification domain's own question. The default
+  // pair is the run's WHOLE arc (the dialog's own law); explicit rounds
+  // override that end. Gold speaks the arc alone — no pair, no census.
+  let census: {
+    verdict: { improved: number; regressed: number; tied: number; medianDelta: number };
+    movers: { improvers: { name: string; delta: number }[]; regressors: { name: string; delta: number }[] };
+    unpaired: { onlyA: number; onlyB: number };
+    censusLine: string | null;
+    censusText: string;
+  } | null = null;
+  let roundA = 0;
+  let roundB = 0;
+
+  if (presentation.dialect === "serial") {
+    const def = defaultRoundPair(rounds)!;
+    const wantA = typeof args.round_a === "number" && Number.isFinite(args.round_a) ? args.round_a : def.a;
+    const wantB = typeof args.round_b === "number" && Number.isFinite(args.round_b) ? args.round_b : def.b;
+    for (const want of [wantA, wantB]) {
+      if (!rounds.includes(want)) {
+        const ladder = rounds.map((r) => roundLabel(r)).join(", ");
+        return {
+          ok: false,
+          summary: `${roundLabel(want)} is not one of this run's rounds — the ladder holds ${rounds.length} rounds: ${ladder}. Pick two of those as round_a/round_b, or omit both for the whole arc (${roundLabel(def.a)} vs ${roundLabel(def.b)}).`,
+        };
+      }
+    }
+    if (wantA === wantB) {
+      return {
+        ok: false,
+        summary: `${roundLabel(wantA)} paired with itself has no arc — a convergence reading needs two DISTINCT rounds of one run. The run's ladder spans ${roundLabel(rounds[0])} to ${roundLabel(rounds[rounds.length - 1])}.`,
+      };
+    }
+    [roundA, roundB] = wantA < wantB ? [wantA, wantB] : [wantB, wantA];
+
+    const occA = roundOccupancy(workdir, roundA);
+    const occB = roundOccupancy(workdir, roundB);
+    const dead = !occA || !occB || occA.classes.length === 0 || occB.classes.length === 0;
+    if (dead) {
+      const which = !occA || occA.classes.length === 0 ? roundLabel(roundA) : roundLabel(roundB);
+      return {
+        ok: false,
+        summary: `${which}'s data star holds no class rows (the round may have died mid-write) — the census refuses rather than guess. Try a different pair of the run's ${rounds.length} rounds.`,
+      };
+    }
+    const join = joinByName(occA.classes, occB.classes);
+    if (join.pairs.length === 0) {
+      return {
+        ok: false,
+        summary: `No shared class numbers between ${roundLabel(roundA)} and ${roundLabel(roundB)} — a convergence reading joins the same classes across two rounds of ONE run; these rounds hold different class inventories (${occA.classes.length} vs ${occB.classes.length}), so there is nothing to pair.`,
+      };
+    }
+    const lens = CLASS_LENSES.share as LensSpec<{ name: string }>;
+    const deltas = pairedDeltas(join.pairs as never, lens as never);
+    const v = pairedVerdict(deltas);
+    const movers = topMovers(deltas);
+    const censusLine = movingCensus(deltas as never, { aRound: roundA, bRound: roundB });
+    const censusText =
+      pairVerdictText({
+        domainLabel: "Class occupancy",
+        nameA: roundLabel(roundA),
+        nameB: roundLabel(roundB),
+        lensLabel: lens.label,
+        unit: lens.unit,
+        digits: lens.digits,
+        higherIsBetter: lens.higherIsBetter,
+        words: CLASS_WORDS,
+        verdict: v,
+        movers,
+        onlyA: join.onlyA,
+        onlyB: join.onlyB,
+      }) + (censusLine ? `\n${censusLine}` : "");
+    census = {
+      verdict: v,
+      movers: {
+        improvers: movers.improvers.map((d) => ({ name: d.name, delta: d.delta })),
+        regressors: movers.regressors.map((d) => ({ name: d.name, delta: d.delta })),
+      },
+      unpaired: { onlyA: join.onlyA.length, onlyB: join.onlyB.length },
+      censusLine,
+      censusText,
+    };
+  }
+
+  // the arc — the estimate per round, gold or serial by the type's dialect
+  const arcReading =
+    arc.length >= 2
+      ? {
+          points: arc.length,
+          from: { iteration: arc[0].iteration, resolution: arc[0].resolution },
+          to: {
+            iteration: arc[arc.length - 1].iteration,
+            resolution: arc[arc.length - 1].resolution,
+          },
+          best: arc.reduce((b, p) => (p.resolution < b.resolution ? p : b), arc[0]),
+          verdictWord: arcVerdict?.word ?? null,
+          verdictDetail: arcVerdict?.detail ?? null,
+          summary: arcSummaryOf(arc),
+          biggestJump: (() => {
+            const j = biggestJump(arc);
+            return j
+              ? {
+                  from: j.from.iteration,
+                  to: j.to.iteration,
+                  delta: Number(j.delta.toFixed(2)),
+                }
+              : null;
+          })(),
+          estimateLabel: presentation.estimateLabel,
+        }
+      : null;
+
+  if (presentation.dialect === "serial" && !arcReading) {
+    // the census alone is a complete reading (t454's face had no arc);
+    // the honest note says why the second half stays silent
+    if (census) census.censusText += "\nNo model stars with _rlnCurrentResolution — this run wrote no per-round estimates, so there is no arc to read alongside the census.";
+  }
+
+  // the summary — one line, the domain's own words
+  const arcNote = arcReading
+    ? `${arcReading.summary}${arcReading.verdictWord ? ` (${arcReading.verdictWord})` : ""}`
+    : null;
+  const censusEnding = census?.censusLine
+    ? census.censusLine.replace(/^.* — /, "").replace(/\.$/, "")
+    : "";
+  const summary = census
+    ? `"${job.name}" ${presentation.noun} — ${census.verdict.improved} ${CLASS_WORDS.better} / ${census.verdict.regressed} ${CLASS_WORDS.worse} / ${census.verdict.tied} ${CLASS_WORDS.same} between ${roundLabel(roundA)} and ${roundLabel(roundB)} (${censusEnding})${arcNote ? ` · arc ${arcNote}` : ""}`
+    : `"${job.name}" ${presentation.noun} — ${arcNote ?? "no arc"}`;
+
+  return {
+    ok: true,
+    summary,
+    detail: {
+      job: { id: job.id, name: job.name, type: job.type, status: job.status },
+      dialect: presentation.dialect,
+      noun: presentation.noun,
+      rounds,
+      pair: presentation.dialect === "serial" ? { a: roundA, b: roundB } : null,
+      census,
+      arc: arcReading,
     },
   };
 }

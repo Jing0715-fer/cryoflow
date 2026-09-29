@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { isLocalRequest } from "@/lib/http-guard";
 import { findEffectiveJob } from "@/lib/link";
@@ -9,6 +9,7 @@ import {
   resolutionArcOf,
   type ResolutionPoint,
 } from "@/lib/resolution-arc";
+import { resolutionArcFromWorkdir } from "@/lib/convergence-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -58,22 +59,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     const workdir = run.workdir;
 
-    const points: ResolutionPoint[] = [];
-    for (const name of readdirSync(workdir)) {
-      const m = name.match(/^run_it(\d+)_(half1_)?model\.star$/i);
-      if (!m) continue;
-      try {
-        const res = parseCurrentResolution(readFileSync(path.join(workdir, name), "utf8"));
-        if (res == null) continue;
-        points.push({
-          iteration: Number(m[1]),
-          resolution: res,
-          source: m[2] ? "half1" : "model",
-        });
-      } catch {
-        /* an unreadable round is not an arc point */
-      }
-    }
+    // t470 — the scan itself moved to lib/convergence-rows.ts so the agent's
+    // check_convergence reads the SAME points through the SAME grammar
+    // (t469's one-parse-many-faces law); this route keeps guard + shape.
+    const points: ResolutionPoint[] = resolutionArcFromWorkdir(workdir);
 
     let reported: number | null = null;
     const finalModel = path.join(workdir, "run_model.star");
