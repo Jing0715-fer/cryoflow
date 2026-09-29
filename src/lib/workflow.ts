@@ -807,6 +807,32 @@ export const JOB_TYPES: JobTypeSpec[] = [
       outputs: [outp("output", "Joined STAR file", "star")],
     }
   ),
+  // t452 — the verdict's consumer face: the A/B compare dialog bakes the
+  // regressed micrographs' names into this filter (「把输家微图喂给
+  // exclude 清单」, the t439 leftover that waited four windows). Engine-
+  // native like select: a name-law filter, not an estimate.
+  spec(
+    "excludemg",
+    "Exclude Micrographs",
+    "ListX",
+    "orange",
+    "Drop named micrographs from a micrographs STAR (the A/B verdict's exclude list baked in — a filter, not a re-estimate).",
+    600,
+    [
+      txt("excludeNames", "Excluded micrographs", "", {
+        tab: "Exclusions",
+        hint: "one name per line or comma-separated — rows whose _rlnMicrographName matches are dropped (bare filenames match too); the A/B compare dialog bakes this list from the verdict's biggest regressions",
+      }),
+    ],
+    "{n} micrographs kept",
+    "core",
+    {
+      category: "select",
+      tabs: ["Exclusions"],
+      inputs: [inp("micrographs", "Input micrographs STAR", ["micrographs", "star"])],
+      outputs: [outp("micrographs", "Filtered micrographs STAR", "micrographs")],
+    }
+  ),
 
   /* ---------------- 2D classification ------------------------------- */
   // t386 — the whole spec's initial defaults are RELION's own (RELION 5
@@ -2024,8 +2050,8 @@ const NEXT_STEPS: Record<string, string[]> = {
   import: [],
   mapimport: ["class3d", "refine3d", "maskcreate"],
   cs2star: ["class2d", "select", "initialmodel", "class3d", "refine3d"],
-  motioncorr: ["ctffind", "topazdenoise", "manualpick", "autopick"],
-  ctffind: ["topazdenoise", "manualpick", "autopick"],
+  motioncorr: ["ctffind", "excludemg", "topazdenoise", "manualpick", "autopick"],
+  ctffind: ["excludemg", "topazdenoise", "manualpick", "autopick"],
   manualpick: ["extract"],
   autopick: ["extract"],
   topaztrain: ["autopick"],
@@ -2036,6 +2062,9 @@ const NEXT_STEPS: Record<string, string[]> = {
   subtract: ["class2d", "select", "class3d", "refine3d"],
   select: ["class2d", "initialmodel", "class3d", "refine3d"],
   joinstar: [],
+  // t452 — the filtered star keeps the micrograph schema, so the same
+  // consumers as motioncorr pair on the other side of the filter
+  excludemg: ["topazdenoise", "manualpick", "autopick"],
   class2d: ["select2d", "initialmodel", "class3d", "refine3d"],
   select2d: ["initialmodel", "class3d", "refine3d"],
   initialmodel: ["class3d", "refine3d"],

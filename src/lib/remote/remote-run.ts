@@ -165,7 +165,7 @@ import type {
 
 /** Engine-native types never run remotely (they are local fs bookkeeping). */
 const NATIVE_TYPES = new Set([
-  "import", "mapimport", "manualpick", "select", "select2d", "symexpand", "rebalance",
+  "import", "mapimport", "manualpick", "select", "excludemg", "select2d", "symexpand", "rebalance",
   "cs2star", // t336 — CryoSPARC conversion runs in-process (SSH for the cluster lane)
 ]);
 

@@ -31,6 +31,7 @@ import {
   LayoutGrid,
   Layers,
   ListFilter,
+  ListX,
   Merge,
   Move3d,
   Network,
@@ -69,6 +70,8 @@ export function TypeIcon({
       return <Crop className={className} aria-hidden="true" />;
     case "ListFilter":
       return <ListFilter className={className} aria-hidden="true" />;
+    case "ListX":
+      return <ListX className={className} aria-hidden="true" />;
     case "LayoutGrid":
       return <LayoutGrid className={className} aria-hidden="true" />;
     case "Layers":

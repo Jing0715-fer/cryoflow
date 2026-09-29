@@ -30,7 +30,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { ChartScatter, GitBranch, GitCompareArrows, Loader2, TriangleAlert } from "lucide-react";
+import { ChartScatter, GitBranch, GitCompareArrows, ListX, Loader2, TriangleAlert } from "lucide-react";
 import {
   CartesianGrid,
   ReferenceLine,
@@ -211,7 +211,11 @@ function RunCompareDialog<R extends { name: string }>({
   const inspect = useWorkflowStore((s) => s.inspect);
   const edges = useWorkflowStore((s) => s.edges);
   const adoptDownstream = useWorkflowStore((s) => s.adoptDownstream);
+  const adoptWithExclude = useWorkflowStore((s) => s.adoptWithExclude);
   const [adopting, setAdopting] = useState(false);
+  /** t452 — the exclude combo's own flight flag: mint + wire + adopt is
+   *  three round trips, and the door must not look dead while they run. */
+  const [excluding, setExcluding] = useState(false);
 
   const [runAId, setRunAId] = useState(hostJob.id);
   const [runBId, setRunBId] = useState<string | null>(null);
@@ -591,41 +595,94 @@ function RunCompareDialog<R extends { name: string }>({
                 </div>
               )}
               <div className="flex items-center justify-between gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2 text-[11px]"
-                  data-testid="adopt-downstream"
-                  aria-label={
-                    adoptable
-                      ? `Continue downstream from ${nameB} — re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs`
-                      : `Continue downstream from run B — unavailable: ${adoptTitle}`
-                  }
-                  title={adoptTitle}
-                  disabled={!adoptable || adopting}
-                  onClick={() => {
-                    if (!effectiveRunB) return;
-                    setAdopting(true);
-                    void adoptDownstream(runAId, effectiveRunB)
-                      .catch(() => {
-                        /* the store's own receipt spoke */
-                      })
-                      .finally(() => {
-                        setAdopting(false);
-                        onOpenChange(false); // the verb is done — the canvas shows the new wiring
-                      });
-                  }}
-                >
-                  {adopting ? (
-                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <GitBranch className="size-3.5 text-primary" aria-hidden="true" />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2 text-[11px]"
+                    data-testid="adopt-downstream"
+                    aria-label={
+                      adoptable
+                        ? `Continue downstream from ${nameB} — re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs`
+                        : `Continue downstream from run B — unavailable: ${adoptTitle}`
+                    }
+                    title={adoptTitle}
+                    disabled={!adoptable || adopting}
+                    onClick={() => {
+                      if (!effectiveRunB) return;
+                      setAdopting(true);
+                      void adoptDownstream(runAId, effectiveRunB)
+                        .catch(() => {
+                          /* the store's own receipt spoke */
+                        })
+                        .finally(() => {
+                          setAdopting(false);
+                          onOpenChange(false); // the verb is done — the canvas shows the new wiring
+                        });
+                    }}
+                  >
+                    {adopting ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <GitBranch className="size-3.5 text-primary" aria-hidden="true" />
+                    )}
+                    Continue downstream from run B
+                    {adoptionPlan.moves.length > 0 && (
+                      <span className="font-semibold text-primary">({adoptionPlan.moves.length})</span>
+                    )}
+                  </Button>
+                  {/* t452 — the verdict's consumer face: the regressed names
+                      become an Exclude Micrographs filter consuming run B, and
+                      run A's downstream re-parents onto the FILTER. Hidden
+                      when nothing regressed (a no-op button is noise, the
+                      t448 leaf-checkbox law); disabled with the adoption
+                      plan's own reason when the graph can't adopt. */}
+                  {regressedSeries.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1.5 border-rose-300 px-2 text-[11px] hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-950"
+                      data-testid="adopt-with-exclude"
+                      aria-label={
+                        adoptable
+                          ? `Continue downstream from ${nameB} with ${regressedSeries.length} regressed micrographs excluded — mints an Exclude Micrographs filter and re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs onto it`
+                          : `Continue downstream with these micrographs excluded — unavailable: ${adoptTitle}`
+                      }
+                      title={
+                        adoptable
+                          ? `Bakes the ${regressedSeries.length} regressed micrographs into an Exclude Micrographs filter consuming ${nameB} (editable in the filter's Exclusions tab), then re-wires ${nameA}'s ${adoptionPlan.moves.length} downstream wire${adoptionPlan.moves.length === 1 ? "" : "s"} onto the filter — results stay until re-run`
+                          : adoptTitle
+                      }
+                      disabled={!adoptable || excluding}
+                      onClick={() => {
+                        if (!effectiveRunB) return;
+                        setExcluding(true);
+                        void adoptWithExclude(
+                          runAId,
+                          effectiveRunB,
+                          regressedSeries.map((d) => d.name),
+                        )
+                          .catch(() => {
+                            /* the store's own receipt spoke */
+                          })
+                          .finally(() => {
+                            setExcluding(false);
+                            onOpenChange(false); // the canvas shows the minted filter and the new wiring
+                          });
+                      }}
+                    >
+                      {excluding ? (
+                        <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <ListX className="size-3.5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+                      )}
+                      Continue downstream, excluding these
+                      <span className="font-semibold text-rose-600 dark:text-rose-400">
+                        ({regressedSeries.length})
+                      </span>
+                    </Button>
                   )}
-                  Continue downstream from run B
-                  {adoptionPlan.moves.length > 0 && (
-                    <span className="font-semibold text-primary">({adoptionPlan.moves.length})</span>
-                  )}
-                </Button>
+                </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"

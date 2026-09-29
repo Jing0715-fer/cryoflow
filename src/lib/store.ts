@@ -312,6 +312,30 @@ function lowestFreeSlot(named: Record<string, ViewportBookmark>): number | null 
   return null;
 }
 
+/**
+ * t452 — the free-slot walk to the RIGHT of a source card (the
+ * addLinkedStep pitch, extracted so the compare dialog's exclude verb can
+ * mint its filter in the same visual grammar): first column to the right,
+ * walk down, then the next column over; a dense neighborhood falls back
+ * below-right and lets the user drag. World-bounded on every axis.
+ */
+function placeRightOf(src: { x: number; y: number }, jobs: { x: number; y: number }[]): { x: number; y: number } {
+  const occupied = (px: number, py: number) =>
+    jobs.some((j) => px < j.x + CARD_W && px + CARD_W > j.x && py < j.y + CARD_H && py + CARD_H > j.y);
+  const strideX = CARD_W + 100; // layout.ts pitch (GAP_X)
+  const strideY = CARD_H + 48; // layout.ts pitch (GAP_Y)
+  const clampW = (v: number) => Math.min(Math.max(v, WORLD_MIN), WORLD_MAX - CARD_W);
+  const clampH = (v: number) => Math.min(Math.max(v, WORLD_MIN), WORLD_MAX - CARD_H);
+  for (let col = 0; col < 3; col++) {
+    for (let row = 0; row < 8; row++) {
+      const px = clampW(src.x + (col + 1) * strideX);
+      const py = clampH(src.y + row * strideY);
+      if (!occupied(px, py)) return { x: px, y: py };
+    }
+  }
+  return { x: clampW(src.x + strideX), y: clampH(src.y + 8 * strideY) };
+}
+
 /** Validate one stored bookmark (v2 shape). Every viewport must be
  *  all-finite and the slot an integer in 1..9 or null — anything else
  *  drops the whole entry (corrupt data is never trusted). */
@@ -880,6 +904,13 @@ interface WorkflowState {
    *  port mismatches) and already-wired children are reported, never
    *  silently folded. */
   adoptDownstream: (fromRunId: string, toRunId: string) => Promise<void>;
+  /** t452 — the verdict's consumer face (「把输家微图喂给 exclude 清单」,
+   *  the t439 leftover): mints an Exclude Micrographs job consuming
+   * `toRunId` with `names` baked into its param, then re-wires
+   * `fromRunId`'s downstream onto the FILTER (adoption with an
+   * intermediate stop). One gesture, one receipt — the graph shows the
+   * verdict as wiring, not as a memory. */
+  adoptWithExclude: (fromRunId: string, toRunId: string, names: string[]) => Promise<void>;
   connect: (
     from: string,
     to: string,
@@ -3543,6 +3574,72 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       description: detail,
       variant: failures.length > 0 ? "destructive" : undefined,
     });
+  },
+
+  adoptWithExclude: async (fromRunId, toRunId, names) => {
+    const { jobs } = get();
+    const runB = jobs.find((j) => j.id === toRunId);
+    if (!runB || !jobs.some((j) => j.id === fromRunId)) {
+      errToast("That run is gone — refresh and try again");
+      return;
+    }
+    if (names.length === 0) {
+      errToast("No micrographs to exclude — the verdict's regression list is empty");
+      return;
+    }
+    // the wire: the first port pair where run B's output kind fits the
+    // filter's micrographs mouth (the compare domains only ever offer
+    // completed motioncorr/ctffind runs, but the law is ports, not trust)
+    const exSpec = jobType("excludemg");
+    let fromPort: string | undefined;
+    let toPort: string | undefined;
+    for (const o of jobType(runB.type)?.outputs ?? []) {
+      for (const i of exSpec?.inputs ?? []) {
+        if (o.kind && i.accepts?.includes(o.kind)) {
+          fromPort = o.name;
+          toPort = i.name;
+          break;
+        }
+      }
+      if (fromPort) break;
+    }
+    if (!fromPort || !toPort) {
+      errToast(`${runB.name} has no micrographs output for an exclude filter`);
+      return;
+    }
+    try {
+      // mint the filter: the names are baked at birth — the list the
+      // dialog spoke IS the list the engine will filter by (one law,
+      // exclude-list.ts), and the param stays editable for hand tuning
+      const place = placeRightOf(runB, jobs);
+      const { job: excludeJob } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "excludemg",
+          x: place.x,
+          y: place.y,
+          workspaceId: runB.workspaceId ?? undefined,
+          params: { excludeNames: names.join(", ") },
+        }),
+      });
+      set({
+        jobs: [...get().jobs, excludeJob],
+        selectedId: excludeJob.id,
+        selectedIds: [excludeJob.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(excludeJob.id);
+      // the wire run B → filter (connect validates, draws optimistically,
+      // persists — the t359 law the duplication already rides)
+      await get().connect(runB.id, excludeJob.id, fromPort, toPort);
+      // the adoption: run A's downstream re-parents onto the FILTER —
+      // its own receipt names the filter as the new provider (the graph
+      // shows the verdict as wiring, not as a memory)
+      await get().adoptDownstream(fromRunId, excludeJob.id);
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the exclude job");
+    }
   },
 
   connect: async (from, to, fromPort, toPort, opts) => {

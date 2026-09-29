@@ -51,6 +51,7 @@ import { parseMrcHeaderBytes, readMrcHeader, type MrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
 import { RELION_ALIASES, RELION_OPTIONS } from "./option-tables";
 import { extractInputGate, micrographRowsFromContent, parseStarBlocks, type StarBlock } from "./extract-gate";
+import { filterMicrographStar, parseExcludeNames } from "@/lib/exclude-list";
 import {
   PARTICLES_CONSUMER_TYPES,
   particleRefsFromContent,
@@ -1467,6 +1468,12 @@ const INPUTS: Record<string, InputReq[]> = {
   ],
   select: [
     { key: "particles_star", accepts: ["particles_star"], from: ["import", "extract", "cs2star", "class2d", "select", "select2d", "joinstar", "symexpand", "rebalance"], label: "particles.star (run Extract first)" },
+  ],
+  excludemg: [
+    // t452 — the filter's mouth: any micrographs-schema star the compare
+    // verdict would exclude from. Chained exclusions (exclude of exclude)
+    // stay legal — two lists are one intersection.
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise", "excludemg"], label: "micrographs.star (run Motion Correction or CTF Estimation first)" },
   ],
   select2d: [
     // t402b — the class-selection mouth now accepts BOTH classification
@@ -5675,6 +5682,62 @@ async function runSelectNative(job: EngineJobRef, upstream: UpstreamRef[]): Prom
 }
 
 /**
+ * t452 — the loser's list, executed: the engine-native micrograph
+ * exclusion. The compare dialog bakes the verdict's regressed names into
+ * the job's excludeNames param; this runner filters the upstream
+ * micrographs STAR by that list (the SAME name law the bench asserts —
+ * lib/exclude-list's exact-then-basename match) and registers the
+ * filtered star under the micrographs_star key, so every micrographs
+ * consumer (autopick / extract / topazdenoise / another exclude) pairs
+ * with the output exactly as it pairs with motioncorr's.
+ *
+ * The empty-list case refuses honestly: a filter with no names would
+ * emit a byte-identical copy while claiming to have excluded something
+ * — a receipt that lies by doing nothing.
+ */
+async function runExcludeMgNative(job: EngineJobRef, upstream: UpstreamRef[]): Promise<NativeResult> {
+  const names = parseExcludeNames(str(job, "excludeNames", ""));
+  if (names.length === 0) {
+    return { ok: false, error: "no exclusion names are set — bake the list from the A/B compare dialog (or type names into the Exclusions tab), then run again" };
+  }
+  const resolved = resolveInputs("excludemg", upstream);
+  if (resolved.missing) return { ok: false, error: resolved.missing, wait: resolved.wait };
+  const inStar = resolved.inputs.micrographs_star;
+
+  const workdir = workdirFor(job);
+  mkdirSync(workdir, { recursive: true });
+  const outStar = path.join(workdir, "micrographs_filtered.star");
+
+  const report = filterMicrographStar(readFileSync(inStar, "utf8"), names);
+  writeFileSync(
+    outStar,
+    // the rows keep pointing at stacks that resolve from THEIR new home
+    // (the t311 law — select's copy already learned it the hard way)
+    rebaseParticleRefs(report.text + "\n", inStar, projectDirFor(job))
+  );
+
+  const missingNote =
+    report.missing.length > 0
+      ? ` · ${report.missing.length} list name${report.missing.length === 1 ? "" : "s"} matched nothing: ${report.missing.slice(0, 4).join(", ")}${report.missing.length > 4 ? " …" : ""}`
+      : "";
+  const result = `${report.kept} of ${report.total} micrographs kept · ${report.dropped} excluded (list of ${names.length})${missingNote}`;
+  const logText = [
+    `CryoFlow engine-native exclude micrographs ${new Date().toISOString()}`,
+    `input:  ${inStar} (${report.total} micrographs)`,
+    `list:   ${names.length} name${names.length === 1 ? "" : "s"}`,
+    ...names.map((n) => `  − ${n}`),
+    ...(report.missing.length > 0
+      ? [`matched nothing:`, ...report.missing.map((n) => `  ? ${n}`)]
+      : []),
+    `output: ${outStar} (${report.kept} micrographs)`,
+    result,
+    "",
+  ].join("\n");
+  recordNativeRun(job, workdir, "engine-native: micrograph exclusion (named list)", { micrographs_star: outStar }, result, logText);
+  return { ok: true, result };
+}
+
+/**
  * t402b — the intermediate-selection source: the newest SETTLED round of
  * a class2d/class3d upstream that hasn't finished (or finished without a
  * usable registered output). The user's ask: 「不一定非得是完全跑完」—
@@ -9092,6 +9155,12 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   }
   if (job.type === "select") {
     const r = await runSelectNative(job, upstream);
+    return r.ok
+      ? { ok: true, native: true, result: r.result }
+      : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
+  }
+  if (job.type === "excludemg") {
+    const r = await runExcludeMgNative(job, upstream);
     return r.ok
       ? { ok: true, native: true, result: r.result }
       : { ok: false, error: r.error, ...(r.wait ? { waiting: r.wait } : {}) };
