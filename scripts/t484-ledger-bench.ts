@@ -246,8 +246,8 @@ console.log("T1. the catalog and the law name the whole-book verb");
   );
   const nums = Array.from(prompt.matchAll(/^(\d+)\. /gm)).map((m) => Number(m[1]));
   must(
-    nums.join(",") === Array.from({ length: 14 }, (_, i) => i + 1).join(","),
-    "T1e: the laws stay contiguous 1–14 (no renumbering, no growth)",
+    nums.join(",") === Array.from({ length: 15 }, (_, i) => i + 1).join(","),
+    "T1e: the laws stay contiguous 1–15 (the curve law grew the book, t486 — still no renumbering)",
   );
 }
 

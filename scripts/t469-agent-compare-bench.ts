@@ -94,8 +94,8 @@ console.log("T1. the catalog wears the pair read");
 const compareTool = AI_TOOLS.find((t) => t.name === "compare_jobs");
 must(compareTool != null, "T1a: compare_jobs is in the catalog (the 16th tool)");
 must(
-  AI_TOOLS.length === 21 && new Set(AI_TOOLS.map((t) => t.name)).size === 21,
-  `T1b: 21 unique tools (got ${AI_TOOLS.length})`,
+  AI_TOOLS.length === 22 && new Set(AI_TOOLS.map((t) => t.name)).size === 22,
+  `T1b: 22 unique tools (got ${AI_TOOLS.length})`,
 );
 const compareParams = (compareTool?.parameters ?? {}) as {
   properties?: Record<string, unknown>;

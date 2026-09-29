@@ -80,12 +80,12 @@ const GRAVE_DIR = path.join(DATA_DIR, "deleted-jobs");
 /* T1 — the catalog                                                     */
 /* ------------------------------------------------------------------ */
 
-console.log("T1. 21 tools; the graveyard read and the restore verb");
+console.log("T1. 22 tools; the graveyard read and the restore verb");
 
 {
   must(
-    AI_TOOLS.length === 21 && new Set(AI_TOOLS.map((t) => t.name)).size === 21,
-    `T1a: 21 unique tools (got ${AI_TOOLS.length})`,
+    AI_TOOLS.length === 22 && new Set(AI_TOOLS.map((t) => t.name)).size === 22,
+    `T1a: 22 unique tools (got ${AI_TOOLS.length})`,
   );
   const list = AI_TOOLS.find((t) => t.name === "list_deleted");
   const restore = AI_TOOLS.find((t) => t.name === "restore_deleted");
@@ -340,8 +340,8 @@ console.log("T7. #13 speaks the mirror verbs");
     "T7b: the reads list answers the graveyard question",
   );
   must(
-    prompt.includes("14. After tool calls") && !/15\. /.test(prompt),
-    "T7c: the numbering stays contiguous 1–14 (no doctrine growth beyond the pair)",
+    prompt.includes("14. After tool calls") && prompt.includes("15. THE CURVE LAW"),
+    "T7c: the numbering stays contiguous 1–15 (t486's curve law joined the book)",
   );
 }
 

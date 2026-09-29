@@ -112,6 +112,7 @@ import {
   roundOccupancy,
   workdirRounds,
 } from "@/lib/convergence-rows";
+import { loadFsc, loadGuinier, loadAngDist, ChartJobNotFound } from "@/lib/chart-data";
 
 export interface AiToolResult {
   ok: boolean;
@@ -455,6 +456,25 @@ export const AI_TOOLS: ToolSchema[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "get_job_curves",
+    description:
+      "Read a job's RESULT CURVES — the science behind the results charts. kinds picks which: fsc (gold-standard resolution: FSC 0.143/0.5 crossings, RELION's reported final resolution, B-factor/pixel size when postprocessed), guinier (the amplitude falloff that validates the applied B-factor), angdist (orientation coverage: direction bins, concentration factor, symmetry). Returns compact summaries with sampled points, not raw tables. Use when the ask is how GOOD or how RESOLVED a map or 3D run is, or whether orientations are even ('到多少埃', 'how resolved is it', 'is the map trustworthy', '取向均匀吗') — inspect_job reads status, params and logs but never the curves; check_convergence reads iteration-to-iteration stability, this reads the curve itself.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: { type: "string" },
+        kinds: {
+          type: "array",
+          items: { type: "string", enum: ["fsc", "guinier", "angdist"] },
+          maxItems: 3,
+          description: "Which curves to read (default: all three)",
+        },
+      },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -735,6 +755,8 @@ export async function executeAiTool(
         return await inspectJob(ctx, String(args.job_id ?? ""));
       case "judge_2d_classes":
         return await judge2dClasses(ctx, String(args.job_id ?? ""), typeof args.question === "string" ? args.question : undefined);
+      case "get_job_curves":
+        return await getJobCurves(ctx, String(args.job_id ?? ""), Array.isArray(args.kinds) ? args.kinds.map(String) : undefined);
       case "select_classes":
         return await selectClasses(ctx, args);
       default:
@@ -2482,6 +2504,200 @@ async function inspectJob(ctx: AgentCtx, jobId: string): Promise<AiToolResult> {
     ok: true,
     summary: `${job.name} — ${job.type} (${job.status}${job.status === "completed" && job.result ? `: ${truncate(job.result, 120)}` : ""})`,
     detail,
+  };
+}
+
+/* ---- get_job_curves (the science read, t486) -------------------------- */
+
+const CURVE_KINDS = ["fsc", "guinier", "angdist"] as const;
+type CurveKind = (typeof CURVE_KINDS)[number];
+
+/** ≤12 uniform samples, first and last always kept — the low-res head and
+ *  the high-res tail carry the verdict, the middle only carries shape. */
+export function sampleSeries<T>(rows: T[], max = 12): T[] {
+  if (rows.length <= max) return rows.slice();
+  const out: T[] = [];
+  for (let i = 0; i < max; i++) {
+    out.push(rows[Math.round((i * (rows.length - 1)) / (max - 1))]);
+  }
+  return out;
+}
+
+const fmtAng = (v: number | null | undefined): string =>
+  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 10) / 10} Å`;
+
+async function getJobCurves(
+  ctx: AgentCtx,
+  jobId: string,
+  kinds?: string[]
+): Promise<AiToolResult> {
+  const job = await findJobInProject(jobId, ctx.projectId);
+  if (!job) return { ok: false, summary: `Job not found: ${jobId}` };
+  const want = kinds && kinds.length > 0 ? kinds : [...CURVE_KINDS];
+  const unknown = want.filter(
+    (k) => !(CURVE_KINDS as readonly string[]).includes(k)
+  );
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      summary: `Unknown curve kind: ${unknown.join(", ")} — kinds are ${CURVE_KINDS.join(", ")}`,
+    };
+  }
+
+  const curves: Record<string, unknown>[] = [];
+  const spoken: string[] = [];
+
+  if (want.includes("fsc")) {
+    try {
+      const d = await loadFsc(job.id);
+      if (d.shells.length > 0) {
+        spoken.push(
+          `FSC 0.143 at ${fmtAng(d.resolutionAt143)}` +
+            (d.resolutionAt05 != null ? ` (0.5 at ${fmtAng(d.resolutionAt05)})` : "") +
+            (d.reportedResolution != null
+              ? `, RELION reports ${fmtAng(d.reportedResolution)}`
+              : "")
+        );
+        curves.push({
+          kind: "fsc",
+          renderable: true,
+          source: d.source,
+          sourceFile: d.sourceFile,
+          shellCount: d.shells.length,
+          resolutionAt143: d.resolutionAt143,
+          resolutionAt05: d.resolutionAt05,
+          reportedResolution: d.reportedResolution,
+          reportedLabel: d.reportedLabel,
+          ...(d.postprocessGeneral
+            ? { postprocessGeneral: d.postprocessGeneral }
+            : {}),
+          sampledShells: sampleSeries(d.shells).map((s) => ({
+            res: Math.round(s.res * 10) / 10,
+            fsc: s.fsc,
+            ...(s.correctedFsc != null ? { correctedFsc: s.correctedFsc } : {}),
+          })),
+        });
+      } else {
+        spoken.push("FSC: none in the workdir");
+        curves.push({
+          kind: "fsc",
+          renderable: false,
+          reason:
+            "no FSC source in this job's workdir (a 3D reconstruction or a postprocess writes one; 2D classifications have none)",
+        });
+      }
+    } catch (err) {
+      if (err instanceof ChartJobNotFound)
+        return { ok: false, summary: `Job not found: ${jobId}` };
+      curves.push({
+        kind: "fsc",
+        renderable: false,
+        reason: `failed to read: ${truncate(err instanceof Error ? err.message : String(err), 120)}`,
+      });
+      spoken.push("FSC: unreadable");
+    }
+  }
+
+  if (want.includes("guinier")) {
+    try {
+      const d = await loadGuinier(job.id);
+      if (d.points.length > 0) {
+        spoken.push(
+          `Guinier ${d.points.length} pts` +
+            (d.bfactor != null ? `, B-factor ${d.bfactor.toFixed(1)} Å²` : "")
+        );
+        curves.push({
+          kind: "guinier",
+          renderable: true,
+          sourceFile: d.sourceFile,
+          pointCount: d.points.length,
+          bfactor: d.bfactor,
+          sampledPoints: sampleSeries(d.points, 8).map((p) => ({
+            x: p.x,
+            lnAmp: p.lnAmp,
+          })),
+        });
+      } else {
+        spoken.push("Guinier: none in the workdir");
+        curves.push({
+          kind: "guinier",
+          renderable: false,
+          reason:
+            "no Guinier table in this job's workdir (a PostProcess job writes one)",
+        });
+      }
+    } catch (err) {
+      if (err instanceof ChartJobNotFound)
+        return { ok: false, summary: `Job not found: ${jobId}` };
+      curves.push({
+        kind: "guinier",
+        renderable: false,
+        reason: `failed to read: ${truncate(err instanceof Error ? err.message : String(err), 120)}`,
+      });
+      spoken.push("Guinier: unreadable");
+    }
+  }
+
+  if (want.includes("angdist")) {
+    try {
+      const d = await loadAngDist(job.id);
+      if (d.total > 0) {
+        // route's own science: concentration = hottest / mean over occupied
+        // cells; >6 ⇒ anisotropic (the same threshold the chart chip uses)
+        const verdict = d.anisotropy > 6 ? "anisotropic" : "fairly even";
+        const top = d.cells
+          .map((count, idx) => ({ idx, count }))
+          .filter((c) => c.count > 0)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 3)
+          .map((c) => ({
+            rotBin: Math.floor(c.idx / d.tiltBins),
+            tiltBin: c.idx % d.tiltBins,
+            count: c.count,
+          }));
+        spoken.push(
+          `angles: ${d.total} particles over ${d.occupied}/${d.rotBins * d.tiltBins} direction bins, concentration ${Math.round(d.anisotropy * 10) / 10} (${verdict})`
+        );
+        curves.push({
+          kind: "angdist",
+          renderable: true,
+          starFile: d.starFile,
+          iteration: d.iteration,
+          total: d.total,
+          rotBins: d.rotBins,
+          tiltBins: d.tiltBins,
+          occupied: d.occupied,
+          hottest: d.max,
+          anisotropy: d.anisotropy,
+          anisotropyVerdict: verdict,
+          symmetry: d.symmetry,
+          hottestBins: top,
+        });
+      } else {
+        spoken.push("angles: none in the workdir");
+        curves.push({
+          kind: "angdist",
+          renderable: false,
+          reason:
+            "no particle-angle star in this job's workdir yet (a 3D classify/refine writes run_data.star or run_itXXX_data.star)",
+        });
+      }
+    } catch (err) {
+      if (err instanceof ChartJobNotFound)
+        return { ok: false, summary: `Job not found: ${jobId}` };
+      curves.push({
+        kind: "angdist",
+        renderable: false,
+        reason: `failed to read: ${truncate(err instanceof Error ? err.message : String(err), 120)}`,
+      });
+      spoken.push("angles: unreadable");
+    }
+  }
+
+  return {
+    ok: true,
+    summary: `Curves of "${job.name}" (${job.type}): ${spoken.join("; ")}`,
+    detail: { jobId: job.id, curves },
   };
 }
 

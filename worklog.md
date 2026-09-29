@@ -5956,3 +5956,26 @@ Stage Summary:
 - **「幂等重火是最便宜的回归测试」**：同一 continue 计划三次派发（失败/失败/成功），fn_cont 与 it005 检查点每次都诚实归位——重火即证计划持久、checkpoint 闸不吞旧轮
 - **「记录比作业活得长」的边界一课**：delete 路径有意 clearRunRecord（防 checkpoint 复活），孤行 exists:false 来自旧时代——continue 的裁决不住台账，住墓志铭（row snapshot + REMOTE 脸 + it008 全家映射，restorable）
 - 产出：集群 continue 真火全链（Phase1 派发剧本 + Phase2 GLM 问句剧本）+ mock 脚本双修（_split_halves 定义 + per-class 家族）+ 幂等重火三方对账 + 墓志铭裁决入库 + 50 套回归全绿 + 世界复原
+
+## Task 486 (2026-09-30, cron 04:57 窗 —— The Agent Reads the Curves)
+
+- [开局] 实尾 = Task 485 完整收官（HEAD = 0d14b16 三方对齐；t484 台账全书 + t485 检查点真火均已在树上——上窗推进比交接摘要更远，实况以树为准）。世界体检：landing 200、22 jobs / 15 edges、标题 pristine。第七十七份过时 Task 13 指引照例不认（以 t485 遗留清单为准）。自号 486。
+- [QA — 全绿基线] 回归全家 50 套 exit 0。世界稳定 → 转新需求。
+- [选题定谳 — The Agent Reads the Curves] 排除法：③④⑦ 待回执/待真实并存；⑤⑥ 门控；② 十四轮挂起后 t485 已收官其集群面、local-lane 需本地 RELION 在座（缺席）。自主命题：**结果图表的数据层 UI 侧俱全（chart-rows.ts 派生 + 三路由取数），agent 侧无门可走**——问「到多少埃/地图可信吗/取向均匀吗」，模型只能背 result line，永远够不到 FSC 曲线本身。与 t484 前 list_clusters 的「库有桥无」完全同构。定谳：一座三曲线的桥。
+- [交付①— chart-data.ts 取数真相源（新 lib，~740 行）] loadFsc / loadGuinier / loadAngDist 三 loader：文件定位 + 解析 + Response 构造，**从三路由逐字搬运**（11 个 statcache key 原样保留——命中率在搬运中幸存，bench 持证）；404 语义升级为 ChartJobNotFound 异常（路由翻译 404、工具翻译 ok:false）；「workdir 无数据」保持诚实空响应非错误。**搬运课**：labelColumn 我凭印象写错（丢 `#N` 列号解析与 `data_` 重置）——对照原路由逐字核出后重写；「原样搬运」的纪律就是不许凭印象。
+- [交付②— 三路由薄壳化] fsc(427→48 行)/guinier(179→46)/angdist(239→45)：guard + loader + 404/500 翻译，解析逻辑零残留（bench 断言薄壳无 parseLoop/cachedFileCompute/readdirSync）。**行为等价 live 实证**：fsc 五源第一优先命中 postprocess.star、guinier 表、angdist 空态与 96 粒子面、404 面、guard 403 面——五面全对。
+- [交付③— 第 22 工具 get_job_curves] schema：job_id 必填 + kinds 可选数组（enum fsc/guinier/angdist、maxItems 3）；description 点名三曲线的科学语义（0.143/0.5 crossing、reported resolution、B-factor、concentration）与分工（inspect_job 读状态参数日志永不见曲线；check_convergence 读迭代间稳定；本工具读曲线本身）。executor：每曲线判读摘要——fsc: crossings + reported + t457 trio + sampledShells（sampleSeries ≤12 保首尾，低频头高频尾）；guinier: pointCount + B-factor + ≤8 采样；angdist: total/occupied/concentration + 二值裁决（>6 anisotropic，route 自家科学）+ hottestBins top3；**空态诚实**：renderable:false + 事实 reason（不造科学解释不造假零）。
+- [交付④— 律面] #15 THE CURVE LAW 入册（分辨率/地图质量/取向问句 → get_job_curves FIRST；「你引用的数字就是图表画的数字」；与 inspect/check 的两分句）；#2 读法清单 + 示例问句「这张图到多少埃？」扩员。编号 1–15 零重排。
+- [t486 bench — 51/0（一处自捕）] 真 fixture 三方对账（tutorial postprocess/class2d/motioncorr）：T1 工具形状 22 工具 + kinds enum + 分工描述；T2 sampleSeries 律（≤12 严格递增保首尾）；T3 postprocess 面（reportedResolution/B-factor **直读 star 文件对账** 7.788/-62.4 逐字吻合 + crossing 在 shells 域内 + 诚实空态）；T4 class2d 面（96 粒子/89 bins/verdict 二值；**fixture 的 class2d 竟真有 gold-standard FSC（run_it200_model.star）——loader 诚实读出 source model，我的「2D 无 FSC」断言是对世界的错误假设**，空态测试改用 motioncorr 真无数据 job）；T5 kinds 过滤/未知 kind/missing job；T6 律在册 + 1–15 连续；T7 桥同源（三薄壳 import loader + 无解析残留 + 404 翻译 + guard 在座 + 11 statcache key 幸存）。
+- [断言诚实演进 — 9 套 11 条] t486 诞生第 22 工具 + 律长到 #15，旧 bench 硬编码碎：t468/469/470/471/475（21→22）、t476（「extension not birth」→「the curve read was the birth, extensions only since」）、t477（计数 + 编号 1–14→1–15）、t481、t479（t295 律保留 bury|clear|forget 正则）、t484（1–14→1–15）。t484 判例同款：**断言随生长诚实演进，意图不变**。
+- [插曲 — server 被收割两次] 均回归内存压力（t436 教义），dev-server.sh 两次点火复 200。
+- [活体 — 双面三方对账 + 一条真律改] **FACE B（取向问句）首发命中**：get_job_curves{kinds:[angdist]} → 96 粒子/89 bins/concentration 1.9 → 模型中文背诵「取向分布比较均匀，各向异性系数 1.85」——三方吻合。**FACE A（分辨率问句）活体捞到真问题**：工具链 5 查全真（QA Post 300/320/385、QA Refine 410 的 FSC 逐一与 reported 对齐），但模型在 detail.jobs 有 name→id 映射的情况下**幻觉绑定**（把 QA Refine 410 的 id 说成 tutorial postprocess 的）——6 轮翻找。修律 #1：「pick the job by EXACT NAME from detail.jobs and quote THAT row's id; if no row carries that name, say so — do NOT silently substitute a similar-looking job (its curves and verdicts belong to someone else)」。**律修后重跑：两轮精确命中**——get_job_curves 直达 tutorial postprocess → 0.143@7.785/reported 7.788/B=-62.4/24pts → 模型背诵 7.8 Å + 负 B 因子锐化判读 + 「没有角度分布数据（后处理任务）」诚实空态复述。三方对账（tool × 模型 × star 文件）全吻合。活体的意义再证：**bench 测产品，活体测模型，两把尺缺一不可**。
+- [验证-终] t486 bench 51/0 + 回归全家 **51 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（六触碰文件）；世界 22 jobs（1 running）/15 edges 原样、三路由五面行为等价、零数据手术。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 487 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（t473③ 原样，待真实并存）④inspector Continue 字段互指（t473④ 原样，待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（t474⑦ 原样，待回执）⑱曲线读法的增量：ctf/motion/topaz 三类图表的数据路由（ctf-quality/motion-drift/topaz-training 的 workdir 解析仍散在各自路由）同法入桥——get_job_curves 的 kinds 扩到六类；Session QC 报告若能引用 FSC/取向判读摘要（工具面现成），报告的科学密度再上一档。
+
+Stage Summary:
+- **「UI 有册，agent 无门」的第四次补桥**：结果图表的数据层睡了十个窗（t110 chart-rows 派生 + 三路由取数），一个 get_job_curves + 一座 chart-data.ts 桥把「到多少埃」从背 result line 变成引用 FSC 本身——t484 的「桥不是新门」判例的工具版
+- **「你引用的数字就是图表画的数字」**：三薄壳与工具喝同一口井（同 loader、同 statcache key、同解析），model 引用的每个分辨率都有原乡——bench 直读 star 文件对账 7.788/-62.4，活体模型背诵 7.8，三方一秤
+- **「原样搬运不许凭印象」**：labelColumn 凭印象写错被逐字核对抓出——搬运的纪律是字节级对照，不是语义级重写
+- **「活体测模型，bench 测产品」**：get_job_curves 的工具面 bench 51/0 全绿，第一发活体就撞出模型幻觉 name↔id 绑定——律 #1 补「EXACT NAME 或承认没有，不许静默替换相近 job」，律修后两轮精确命中；「它的曲线和裁决属于别人」是幻觉 id 的代价
+- 产出：src/lib/chart-data.ts（三 loader + ChartJobNotFound）+ 三路由薄壳化（427→48 等，五面行为等价）+ 第 22 工具 get_job_curves（schema/executor/摘要律/空态诚实）+ prompt #15 CURVE LAW + #1 精确名律 + t486 bench 51/0 + 9 套 11 条断言诚实演进 + 51 套回归全绿 + 活体双面三方对账 + 剧本 t486-live-curves.sh
