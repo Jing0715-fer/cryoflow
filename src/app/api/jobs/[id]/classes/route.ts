@@ -7,7 +7,8 @@ import { cachedFileCompute } from "@/lib/relion/statcache";
 import { readMrcHeader } from "@/lib/mrc";
 import { RELION_DIR } from "@/lib/paths";
 import { isLocalRequest } from "@/lib/http-guard";
-import { remoteLiveIterations, cachedStackState, lastStackFailure } from "@/lib/remote/iteration-live";
+import { remoteLiveIterations, remoteLiveIterationsFor, cachedStackState, lastStackFailure } from "@/lib/remote/iteration-live";
+import { derivedRemoteTargetForJob } from "@/lib/remote/derived-target";
 import { readRemoteManifest } from "@/lib/remote/remote-files";
 
 export const dynamic = "force-dynamic";
@@ -294,9 +295,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // through /outputs/file exactly as they always did. When the wire is
     // down (connection deleted), the finalize manifest still names the
     // stacks with zero SSH.
-    if (run?.remote && (classesFile == null || classes.length === 0)) {
-      const remote = await remoteLiveIterations(job.id, {});
-      if (!remote.error) {
+    //
+    // t474 — THE FILL NO LONGER DIES WITH THE RUN RECORD: a record-bearing
+    // run aims at its own target; a record-less job (Reset-to-idle — the
+    // standard "failed, now re-configure" flow) aims at the DERIVED one
+    // (the project binding + the dispatcher's deterministic workdir), so
+    // the stacks are just as reachable after a reset as before. And a
+    // fill that was NEEDED but refused now leaves its sentence in
+    // renderError — the dark grid explains itself (the t358 doctrine,
+    // extended from the pull layer to the fill layer) instead of bare
+    // "no image" cards with no banner and no retry.
+    let fillRefusalNote: string | undefined;
+    if (classesFile == null || classes.length === 0) {
+      let remote: Awaited<ReturnType<typeof remoteLiveIterations>> | null = null;
+      if (run?.remote) {
+        remote = await remoteLiveIterations(job.id, {});
+      } else {
+        const derived = await derivedRemoteTargetForJob(job);
+        if (derived) {
+          remote = await remoteLiveIterationsFor(job.id, derived, {});
+        }
+      }
+      if (remote && !remote.error) {
         if (classesFile == null) {
           classesFile = remote.classesFile;
           if (classesSlices == null) classesSlices = remote.classesSlices;
@@ -316,12 +336,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
           if (fromManifest) classesFile = fromManifest;
         }
       }
+      // t474 — the honest dark-grid note: the fill was needed, and either
+      // the wire refused (its own sentence, verbatim) or it answered and
+      // the cluster workdir genuinely holds no class-average stack. Both
+      // worlds previously rendered as a silent dead grid — the banner now
+      // names the world and the gallery's Retry re-asks.
+      if (classesFile == null && classes.length > 0) {
+        fillRefusalNote = remote?.error
+          ? `${remote.error} — the class-average stack could not be named from the cluster either`
+          : "no class-average stack (run_itNNN_classes.mrcs) was found — neither in the local mirror nor in the cluster workdir this run dispatches into";
+      }
     }
 
     // t358 — the honest refusal note: when the named stack was last
     // REFUSED by the wire (and the mirror does not hold it), the selection
     // gallery reads this to explain a dark grid (which link of the pull
-    // broke) instead of showing bare “no image” cards.
+    // broke) instead of showing bare “no image” cards. t474 — the fill
+    // layer's own refusal note (a stack that could not even be NAMED)
+    // speaks first; the pull layer's note only when a stack was named.
     let renderError: string | undefined;
     if (
       run?.remote &&
@@ -331,6 +363,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       const refusal = lastStackFailure(job.id, classesFile);
       if (refusal) renderError = refusal.message;
     }
+    if (renderError == null && fillRefusalNote != null) renderError = fillRefusalNote;
 
     return NextResponse.json({
       jobId: id,

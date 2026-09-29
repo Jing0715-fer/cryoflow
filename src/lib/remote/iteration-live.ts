@@ -476,6 +476,36 @@ export function prewarmLiveIterations(jobId: string, payload: IterationsPayload)
 }
 
 /**
+ * t474 — the explicit-target variant: the SAME SSH round, aimed at a
+ * target the CALLER derived (the project binding's connection +
+ * remoteWorkdirForJob — the t396 formula) instead of a run record. A
+ * completed-and-reset job (Reset-to-idle clears the record) still has
+ * its class-average stacks sitting in the cluster workdir, and the
+ * gallery's remote fill no longer goes dark just because the record
+ * was wiped. The cache key stays the jobId: the record-bearing and the
+ * derived callers are disjoint by construction (the record path only
+ * runs when the record exists, the derived only when it does not), so
+ * they can never poison each other's entry.
+ */
+export async function remoteLiveIterationsFor(
+  jobId: string,
+  target: { connectionId: string; remoteWorkdir: string },
+  opts: { force?: boolean } = {}
+): Promise<IterationsPayload> {
+  const cached = liveCache.get(jobId);
+  if (!opts.force && cached && Date.now() - cached.at < LIVE_TTL_MS) {
+    liveCache.delete(jobId);
+    liveCache.set(jobId, cached);
+    return cached.payload;
+  }
+  const conn: RemoteConnection | null = getConnection(target.connectionId);
+  if (!conn) {
+    return { remote: true, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null, stacks: [], error: `the cluster connection for this run was deleted — reconnect it to see live results` };
+  }
+  return runLiveRound(jobId, conn, target.remoteWorkdir);
+}
+
+/**
  * Live snapshot of a RUNNING remote job. One SSH exec: iteration file
  * lists + the newest data star's class occupancy (awk, zero bytes over
  * the wire). Cached in-process for LIVE_TTL_MS.
@@ -507,7 +537,18 @@ export async function remoteLiveIterations(
   if (!conn) {
     return { remote: true, iterations: [], latest: null, classes: [], total: 0, classesFile: null, classesSlices: null, stacks: [], error: "the cluster connection for this run was deleted — reconnect it to see live results" };
   }
-  const W = shSingleQuote(r.remoteWorkdir);
+  return runLiveRound(jobId, conn, r.remoteWorkdir);
+}
+
+/** the SSH round both live-leg callers share — record-bearing (the run's
+ * own remoteWorkdir) and derived (t474's project-binding target) run the
+ * byte-identical script and land the same LRU cache. */
+async function runLiveRound(
+  jobId: string,
+  conn: RemoteConnection,
+  remoteWorkdir: string
+): Promise<IterationsPayload> {
+  const W = shSingleQuote(remoteWorkdir);
   const script = [
     "set -u",
     `ls ${W} 2>/dev/null | grep -E '^(run_it|_it)[0-9]+_data\\.star$' || true`,
@@ -1008,7 +1049,7 @@ export async function ensureIterationAssets(
    * and the sheet (the import job's negative-stain checkbox). The PNG
    * cache keys on it ("auto" default keeps the legacy paths).
    */
-  opts?: { healMirrorPath?: string; polarity?: MrcPolarity }
+  opts?: { healMirrorPath?: string; polarity?: MrcPolarity; runDoneHint?: boolean }
 ): Promise<IterationAssets> {
   const polarity = opts?.polarity;
   const key = `${connectionId}:${remoteWorkdir}/${stackName}:${polarity ?? "auto"}`;
@@ -1044,12 +1085,15 @@ export async function ensureIterationAssets(
       }
       // t387 — the run's doneness rides the pull (the gate words its
       // verdict for the world that is true: "still writing" while the run
-      // lives, "never finished" once it has ended)
+      // lives, "never finished" once it has ended). t474 — a record-less
+      // pull (the derived target of a reset job) takes the caller's hint:
+      // the job row's own status, so a completed-then-reset job's settled
+      // stacks still word any refusal for the world that is true.
       const hdr = await verifiedStackPull(
         conn,
         clusterPath,
         transient,
-        getRun(jobId)?.done ?? false
+        getRun(jobId)?.done ?? opts?.runDoneHint ?? false
       );
       if (!hdr.ok) {
         recordStackFailure(jobId, stackName, hdr.failure);

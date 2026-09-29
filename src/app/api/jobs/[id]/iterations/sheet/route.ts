@@ -9,6 +9,7 @@ import {
   localStackExists,
   STACK_NAME_RE,
 } from "@/lib/remote/iteration-live";
+import { derivedRemoteTargetForJob, localMirrorWorkdirForJob } from "@/lib/remote/derived-target";
 import { renderClassSheetPng } from "@/lib/mrc";
 import { displayPolarityFor } from "@/lib/render-polarity";
 import path from "path";
@@ -51,9 +52,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       return NextResponse.json({ error: "invalid stack name" }, { status: 400 });
     }
     const run = getRun(job.id);
-    if (!run?.workdir) {
-      return NextResponse.json({ error: "No workdir for this job" }, { status: 400 });
-    }
+    // t474 — the workdir is a fact about the JOB, not the run (the t396
+    // verdict, applied to the sheet lane): a record-less (reset) job keeps
+    // its mirror-rendered sheets instead of the old "No workdir" 400.
+    const workdir = run?.workdir ?? localMirrorWorkdirForJob(job);
     // t367 — set by the local leg below when it fell through on a corrupt
     // mirror copy (the remote pull then heals it in place)
     let mirrorHealPath: string | null = null;
@@ -76,8 +78,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // remote leg when the run still has a cluster behind it: the fresh
     // pull answers the sheet AND heals the mirror copy in place. A
     // local-only run keeps the honest 400.
-    if (localStackExists(run.workdir, file)) {
-      const localPath = path.join(run.workdir, file);
+    if (localStackExists(workdir, file)) {
+      const localPath = path.join(workdir, file);
       const rendered = await renderClassSheetPng(localPath, undefined, polarity);
       if (rendered) {
         cacheSheetPng(job.id, file, rendered.png, polarity);
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
           headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
         });
       }
-      if (!run.remote) {
+      if (!run?.remote) {
         return NextResponse.json({ error: "could not render this iteration's sheet" }, { status: 400 });
       }
       // fall through: the cluster is the honest source left (t367)
@@ -98,13 +100,24 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // over-cap with the actual size / unreadable / stat-failed): the old
     // one-size "may not exist on the cluster" 404 made every wire failure
     // look like a missing file — the field report's invisible root cause.
-    const r = run.remote;
-    if (!r) {
+    // t474 — the pull target no longer dies with the run record: a record-
+    // less (reset) job pulls through the DERIVED target (the project
+    // binding + the dispatcher's formula).
+    let pullTarget: { connectionId: string; remoteWorkdir: string } | null = null;
+    if (run?.remote) {
+      pullTarget = { connectionId: run.remote.connectionId, remoteWorkdir: run.remote.remoteWorkdir };
+    } else {
+      pullTarget = await derivedRemoteTargetForJob(job);
+    }
+    if (!pullTarget) {
       return NextResponse.json({ error: "iteration sheet not available locally" }, { status: 404 });
     }
-    const assets = await ensureIterationAssets(r.connectionId, r.remoteWorkdir, job.id, file, {
+    const assets = await ensureIterationAssets(pullTarget.connectionId, pullTarget.remoteWorkdir, job.id, file, {
       polarity,
       ...(mirrorHealPath ? { healMirrorPath: mirrorHealPath } : {}),
+      // t474 — a record-less pull words the gate's refusals for the job
+      // row's own world (a completed-then-reset job's stacks are settled)
+      ...(run == null ? { runDoneHint: job.status === "completed" } : {}),
     });
     if (assets.failure) {
       return NextResponse.json(

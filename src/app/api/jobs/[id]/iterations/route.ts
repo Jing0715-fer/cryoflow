@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { existsSync } from "fs";
 import { isLocalRequest } from "@/lib/http-guard";
 import { findEffectiveJob } from "@/lib/link";
-import { getRun, type RunRecord } from "@/lib/relion/engine";
+import { getRun } from "@/lib/relion/engine";
 import {
   remoteLiveIterations,
+  remoteLiveIterationsFor,
   localIterations,
   LIVE_ITERATION_TYPES,
   iterationsVersion,
@@ -15,6 +17,7 @@ import {
   type IterationsPayload,
   type StackEntry,
 } from "@/lib/remote/iteration-live";
+import { derivedRemoteTargetForJob, localMirrorWorkdirForJob } from "@/lib/remote/derived-target";
 import { readRemoteManifest } from "@/lib/remote/remote-files";
 import { markLogWatch } from "@/lib/remote/remote-run";
 
@@ -32,7 +35,7 @@ export const dynamic = "force-dynamic";
  * newest round blind (bounded). */
 function triggerViewRender(
   jobId: string,
-  run: RunRecord,
+  target: { connectionId: string; remoteWorkdir: string; workdir: string },
   stacks: StackEntry[],
   classesFile?: string | null
 ): void {
@@ -42,7 +45,7 @@ function triggerViewRender(
   const names = stacks.map((s) => s.file);
   if (classesFile && !names.includes(classesFile)) names.push(classesFile);
   if (names.length === 0) return;
-  const manifest = readRemoteManifest(run.workdir);
+  const manifest = readRemoteManifest(target.workdir);
   const sizeOf = new Map((manifest?.files ?? []).map((f) => [f.path, f.size]));
   const pending = names
     .filter((f) => STACK_NAME_RE.test(f) && !stackRendered(jobId, f))
@@ -51,8 +54,8 @@ function triggerViewRender(
   const list = manifest ? pending : pending.slice(-1); // blind pulls stay bounded to the newest round
   scheduleRemoteStackRenders({
     jobId,
-    connectionId: run.remote!.connectionId,
-    remoteWorkdir: run.remote!.remoteWorkdir,
+    connectionId: target.connectionId,
+    remoteWorkdir: target.remoteWorkdir,
     files: list,
     reason: "view",
   });
@@ -113,7 +116,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       // t356 — the live view trigger: the newest round renders in the
       // background while the user watches, no chip click needed
       if (!payload.error && run.remote) {
-        triggerViewRender(job.id, run, payload.stacks, payload.classesFile);
+        triggerViewRender(job.id, {
+          connectionId: run.remote.connectionId,
+          remoteWorkdir: run.remote.remoteWorkdir,
+          workdir: run.workdir,
+        }, payload.stacks, payload.classesFile);
       }
       // t397 — the version short-circuit AFTER the view trigger (the
       // renders it schedules are exactly what a later payload will badge)
@@ -127,9 +134,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     }
     // local leg: the mirror (finished job, or a local run) — jobId joins so
     // the chips bar also lists rounds whose sheets the live leg rendered
-    // into the preview cache (the sync-back never lands per-iteration stacks)
-    const workdir = run?.workdir;
-    if (!workdir) {
+    // into the preview cache (the sync-back never lands per-iteration
+    // stacks). t474 — the workdir is a fact about the JOB (the dispatcher's
+    // formula), not the record: a Reset-to-idle job keeps its mirror and
+    // its rounds here instead of answering an empty payload.
+    const workdir = run?.workdir ?? localMirrorWorkdirForJob(job);
+    if (!existsSync(workdir)) {
       return NextResponse.json({
         iterations: [],
         latest: null,
@@ -153,12 +163,18 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // iteration list — while locally-answered fields stay local (they are
     // mtime-cached and free). Only a remote run pays the round, and only
     // when its mirror actually lacks something.
-    const r = run.remote;
+    const r = run?.remote ?? null;
+    // t474 — the derived target: a record-less (reset) job on a
+    // remote-bound project still gets its merge — the cluster workdir did
+    // not vanish with the record.
+    const derived = r ? null : await derivedRemoteTargetForJob(job);
     if (
-      r &&
+      (r || derived) &&
       (payload.classesFile == null || payload.iterations.length === 0 || payload.classes.length === 0)
     ) {
-      const remote = await remoteLiveIterations(job.id, {});
+      const remote = r
+        ? await remoteLiveIterations(job.id, {})
+        : await remoteLiveIterationsFor(job.id, derived!, {});
       if (!remote.error) {
         if (payload.classesFile == null) {
           payload.classesFile = remote.classesFile;
@@ -181,6 +197,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         }
         // the payload now carries cluster-answered fields — say so
         payload.remote = true;
+      } else if (payload.classesFile == null && payload.classes.length > 0) {
+        // t474 — the honest dark-grid note (the /classes route's fill
+        // dialect): the merge was needed and the wire refused — the
+        // gallery's per-class cards and dark chips explain themselves
+        // instead of a silent dead grid.
+        payload.renderError = `${remote.error} — the class-average stack could not be named from the cluster either`;
       }
     }
     // t354 — a finished REMOTE run whose cache is cold (fresh restart): the
@@ -189,8 +211,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // never trigger the on-demand pull. RELION's naming law says every
     // run_itNNN_data.star has a run_itNNN_classes.mrcs sibling — synthesize
     // those chips; the sheet route re-pulls each round from the cluster
-    // (run.remote survives completion) or answers an honest 404.
-    if (run.remote && payload.iterations.length > 0) {
+    // (run.remote survives completion, and t474's derived target covers the
+    // record-less world) or answers an honest 404.
+    if ((r || derived) && payload.iterations.length > 0) {
       const have = new Set(payload.stacks.map((s) => s.iter));
       const synth = payload.iterations
         .filter((it) => !have.has(it))
@@ -202,9 +225,16 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // t356 — the view trigger for finished/legacy runs: rounds the local
     // cache has not rendered yet are scheduled for download+convert; the
     // finalize pipeline usually already covered this (the trigger turns
-    // into a free no-op after its first pass)
-    if (run.remote) {
-      triggerViewRender(job.id, run, payload.stacks, payload.classesFile);
+    // into a free no-op after its first pass). t474 — the derived target
+    // fires it for record-less jobs too.
+    const viewTarget =
+      r
+        ? { connectionId: r.connectionId, remoteWorkdir: r.remoteWorkdir, workdir }
+        : derived
+          ? { ...derived, workdir }
+          : null;
+    if (viewTarget) {
+      triggerViewRender(job.id, viewTarget, payload.stacks, payload.classesFile);
     }
     // t358 — the honest refusal note: when a stack this payload NAMES was
     // last REFUSED by the wire (and the mirror does not hold it), say so —
@@ -212,10 +242,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // instead of showing bare "no image" tiles. Two candidates, in order:
     // the payload's classesFile (the grid's source) and the NEWEST chip
     // (the round the sheet follows — the field report's exact surface).
-    if (run.remote && run.workdir) {
+    if ((r || derived) && workdir) {
       const candidates = [payload.classesFile, payload.stacks[payload.stacks.length - 1]?.file];
       for (const name of candidates) {
-        if (!name || localStackExists(run.workdir, name)) continue;
+        if (!name || localStackExists(workdir, name)) continue;
         const refusal = lastStackFailure(job.id, name);
         if (refusal) {
           payload.renderError = refusal.message;

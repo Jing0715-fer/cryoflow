@@ -865,6 +865,39 @@ export function ClassGallery({
         </div>
       )}
 
+      {/* t474 — THE NO-STACK BANNER: occupancy answered but NO renderable
+          source could be named (classesFile null, no per-class volumes) —
+          the old world rendered every card as a bare "no image"
+          placeholder with no explanation and no way forward. The route now
+          sends renderError for exactly this shape (a refused wire, or a
+          cluster workdir that holds no stack); the banner names the world
+          and Retry re-asks both. */}
+      {classesFile == null && volumeFiles == null && classes.length > 0 && (
+        <div
+          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2"
+          data-no-stack-banner=""
+        >
+          <AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+          <span className="min-w-0 flex-1 text-[10px] leading-relaxed text-amber-700 dark:text-amber-300">
+            class images unavailable —{" "}
+            {data?.renderError ??
+              "no class-average stack was found for this run (neither in the local mirror nor reachable on the cluster)"}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFailedImgs(new Set());
+              setFallbackImgs(new Set());
+              setDataNonce((n) => n + 1);
+            }}
+            className="flex shrink-0 items-center gap-1 rounded-md border border-amber-500/40 px-2 py-1 text-[10px] font-medium text-amber-800 transition-colors hover:bg-amber-500/10 dark:text-amber-300"
+          >
+            <RefreshCw className="size-3" aria-hidden="true" />
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* the grid
           t355 — the column count is sized for the CONTAINER this gallery
           actually lives in (the job panel aside, 380px, or the mobile sheet
@@ -874,7 +907,10 @@ export function ClassGallery({
           only, so cards in ONE grid came out different heights (the user's
           「分类的框大小不一」). Two-to-three columns keeps every card wide
           enough for a one-line footer; the footer itself is nowrap-hardened
-          so any future squeeze truncates instead of wrapping. */}
+          so any future squeeze truncates instead of wrapping. t474 — every
+          cell is geometrically identical BY CONSTRUCTION: a square
+          aspect-square image stage + the one-line footer (loaded, failed
+          or placeholder — same box, same row height). */}
       <div
         data-canvas-ui="class-grid"
         role="listbox"
@@ -931,7 +967,9 @@ export function ClassGallery({
                   t355: a FAILED load swaps to the honest placeholder (the
                   old visibility:hidden left a silent white square); a
                   loading one pulses dark (a remote stack lazy-fetches on
-                  its first thumbnail — the wire takes a beat). */}
+                  its first thumbnail — the wire takes a beat).
+                  t474: the placeholder carries the WHY as its tooltip —
+                  a dark grid explains itself even card-by-card. */}
               {(classesFile != null || volumeOf(c.cls) != null) && !failedImgs.has(c.cls) ? (
                 <img
                   key={fallbackImgs.has(c.cls) ? `legacy-${c.cls}` : `iter-${c.cls}`}
@@ -946,7 +984,10 @@ export function ClassGallery({
                   )}
                 />
               ) : (
-                <div className="flex aspect-square w-full items-center justify-center bg-zinc-950 text-[10px] text-zinc-500">
+                <div
+                  title={data?.renderError ?? "no class-average stack available for this run"}
+                  className="flex aspect-square w-full items-center justify-center bg-zinc-950 text-[10px] text-zinc-500"
+                >
                   no image
                 </div>
               )}
@@ -1134,7 +1175,15 @@ export function ClassGallery({
               {/* the average — same URL as the grid thumbnail, just given
                   room to breathe (render is ≤384 px wide server-side).
                   t355: a failed load says so instead of a broken glyph.
-                  t402b: the volume lane serves a class3d source here too. */}
+                  t402b: the volume lane serves a class3d source here too.
+                  t474 — THE STAGE IS ALWAYS THE SAME SQUARE: the old
+                  `w-auto` sized the box by the PNG's own natural width
+                  (a 64px mock rendered tiny, a 360px real class rendered
+                  big, a capped one letterboxed tall) — every class now
+                  gets the same square stage, the average letterboxed
+                  inside it (the 「框大小不是完全一致」 half of the field
+                  report — the inspection view is where sizes were seen
+                  to differ). */}
               <div className="bg-zinc-950 p-4">
                 {(classesFile != null || volumeOf(zoomClass.cls) != null) && !failedImgs.has(zoomClass.cls) ? (
                   <img
@@ -1147,14 +1196,17 @@ export function ClassGallery({
                     alt={`Class ${zoomClass.cls} average, full size`}
                     onLoad={() => onImgLoad(zoomClass.cls)}
                     onError={() => handleImgError(zoomClass.cls)}
-                    className="mx-auto aspect-square max-h-[26rem] w-auto max-w-full rounded-md object-contain"
+                    className="mx-auto aspect-square w-full max-w-[26rem] rounded-md object-contain"
                   />
                 ) : (
-                  <div className="mx-auto grid aspect-square max-h-64 w-auto place-items-center rounded-md bg-zinc-900/60 px-8 text-center text-xs text-zinc-500">
+                  <div
+                    title={data?.renderError ?? undefined}
+                    className="mx-auto grid aspect-square h-64 max-w-full place-items-center rounded-md bg-zinc-900/60 px-8 text-center text-xs text-zinc-500"
+                  >
                     no image available
                     {classesFile != null || volumeOf(zoomClass.cls) != null
                       ? " — the image could not be fetched"
-                      : ""}
+                      : " — no class-average stack was found for this run"}
                   </div>
                 )}
               </div>
