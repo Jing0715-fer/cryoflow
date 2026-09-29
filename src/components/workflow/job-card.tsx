@@ -72,6 +72,7 @@ import {
 import { cn } from "@/lib/utils";
 import { describeStaleness, type StaleInfo } from "@/lib/staleness";
 import { describeDrift, type DriftInfo } from "@/lib/params-drift";
+import { continueIntentSentence, continueIntentShort, continueRoundOf } from "@/lib/continue-intent";
 import { capturePointer } from "@/lib/pointer";
 import { toast } from "@/hooks/use-toast";
 
@@ -413,6 +414,11 @@ function JobCardMenu({
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState(false);
+  // t473 — the card's continue intent (the panel's "Continue from here"
+  // value): the menu's Run face reads it so a loaded target never shows
+  // the wipe-shaped "Re-run" label.
+  const continueFrom =
+    typeof job.params?.fn_cont === "string" ? (job.params.fn_cont as string).trim() : "";
 
   // t356 — the note editor the user asked for on the card itself (「可以
   // 增加评论」): right-click → Add/Edit note → small dialog → PATCH
@@ -634,21 +640,28 @@ function JobCardMenu({
           title={
             isLink
               ? "Linked copies mirror their original — run the original job instead"
-              : undefined
+              : continueFrom
+                ? continueIntentSentence(continueFrom)
+                : undefined
           }
           onClick={() => {
             setBusy(true);
             void runJob(job.id).finally(() => setBusy(false));
           }}
         >
-          {busy ? <Loader2 className="animate-spin" /> : <Play />}
-          {idle
-            ? "Run job"
-            : running
-              ? "Running…"
-              : job.status === "pending"
-                ? "Run (re-check inputs)"
-                : "Re-run"}
+          {busy ? <Loader2 className="animate-spin" /> : continueFrom ? <History /> : <Play />}
+          {running
+            ? "Running…"
+            : continueFrom
+              ? // t473 — the menu speaks the intent: a loaded continue target
+                // must never read as "Re-run" (the wipe-shaped word) — the
+                // label and the panel button (t397) now share one grammar.
+                `Continue run — ${continueIntentShort(continueFrom)}`
+              : idle
+                ? "Run job"
+                : job.status === "pending"
+                  ? "Run (re-check inputs)"
+                  : "Re-run"}
         </ContextMenuItem>
         {!idle && !running && !isLink ? (
           <ContextMenuItem
@@ -1235,6 +1248,16 @@ function JobCardPreview({
         {job.status === "running" && !isSlurmQueued(job) ? (
           <MiniProgress value={job.progress} running label={`${job.name} progress`} />
         ) : null}
+        {/* t473 — the preview speaks the intent too: the peek is where the
+            face carries prose (t356's provenance line lives here), so a
+            loaded "Continue from here" gets its one emerald line — the
+            same short face the context menu shows. */}
+        {typeof job.params?.fn_cont === "string" && (job.params.fn_cont as string).trim() ? (
+          <p className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+            <History className="size-2.5 shrink-0" aria-hidden="true" />
+            Next Run: {continueIntentShort((job.params.fn_cont as string).trim())}
+          </p>
+        ) : null}
         {/* t356 — the host line: the card face dropped its remote chips
             (「ip可以隐藏」), so the preview is where the IP lives now —
             user@host · module, the same facts the old chip's tooltip
@@ -1453,6 +1476,14 @@ export const JobCard = React.memo(function JobCard({
   const driftInfo: DriftInfo | null = useWorkflowStore((s) =>
     s.driftMap.get(job.id) ?? null,
   );
+  // t473 — the card's continue intent: a loaded "Continue from here" is a
+  // load-bearing fact about the NEXT run (the wipe-vs-continue line), so
+  // the card face speaks it wherever the panel is unreachable. Linked
+  // copies stay quiet — the original owns the choice.
+  const continueTarget =
+    !job.linkedJobId && typeof job.params?.fn_cont === "string"
+      ? (job.params.fn_cont as string).trim()
+      : "";
   const spec = jobType(job.type);
   const inputs = spec?.inputs ?? [];
   // t315 — Node type picks the import job's output port: the card renders
@@ -2247,6 +2278,22 @@ export const JobCard = React.memo(function JobCard({
                   className="no-print flex size-3.5 shrink-0 items-center justify-center text-teal-600 dark:text-teal-400"
                 >
                   <Server className="size-3" aria-hidden="true" />
+                </span>
+              ) : null}
+              {/* t473 — the continue-intent chip, the icon-only family's
+                  emerald member (the color disambiguates it from the amber
+                  staleness/drift pair; the History glyph is the panel
+                  button's own continue face since t397). aria + title speak
+                  the panel button's sentence — one grammar, every face. */}
+              {continueTarget ? (
+                <span
+                  role="img"
+                  data-testid="continue-badge"
+                  aria-label={`Next Run ${continueIntentShort(continueTarget)}`}
+                  title={continueIntentSentence(continueTarget)}
+                  className="no-print flex size-3.5 shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400"
+                >
+                  <History className="size-3" aria-hidden="true" />
                 </span>
               ) : null}
               {/* t350 — the type speaks its HUMAN label ("2D Classification"),

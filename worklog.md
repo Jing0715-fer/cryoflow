@@ -5671,3 +5671,24 @@ Stage Summary:
 - **「徽章在提问前招供」**：健康探针把「fetch failed」从 chat 报错提前到 header——红点 + 忏悔句在用户问出第一个问题前就说明端点已死；ok 时零额外视觉，徽章不说每天都好的事
 - **「UI 刷新律：对话框关一次，徽章重测一次」**：PUT 后缓存失效 + 对话框关闭触发 effect 重跑——用户修完设置的下一个瞬间徽章就说新真话；活体证毕（忏悔脸 → Close → 干净脸）
 - 产出：validateAiSettings（点名式修补文法）+ loadAiSettingsDetailed + health.ts（四态探针 + TTL + invalidate）+ GET/PUT 接线 + 徽章忏悔脸（红点/amber/逐字 title）+ t472 bench 45/0 + 38 套回归全绿 + PUT 舞步活体逐字 + 刷新律活体 + 截图 ×1
+
+## Task 473 (2026-09-30, cron 01:37 窗 —— The Run Button Speaks Its Intent)
+
+- [开局] 实尾 = Task 472 完整收官（HEAD = dc26afa = origin/main 三方对齐）。世界体检：22 jobs = 19 completed + 1 running fixture（QA Refine Live）+ 2 idle fixture。第六十四份过时 Task 13 指引照例不认（以 t472 遗留清单为准）。自号 473。
+- [QA — 全绿基线] landing 200、console 0 错（HMR 唯二日志）、标题 pristine；回归全家 38 套 exit 0（浏览器先关再跑）。世界稳定 → 转新需求。
+- [选题定谳 — The Run Button Speaks Its Intent（t472 遗留④ = t471④）] t471 写下 continue plan 后自己的遗留说出了哑的部分：plan 落盘时**画布卡片与右键菜单什么都没说**——面板 Run 按钮自 t397 就会说话（emerald 脸 + History glyph + title 律），但 job 可以在画布上停几小时（pending / 被拒 / 等输入），身上带着加载完毕的 continue 目标而无人可见。wipe vs continue 是本项目最硬的安全线；只会在打开的面板里说话的脸，是大多数用户永远不读的脸。伴生 ③：t472 的 problems 已上 wire 但对话框不渲染。定谳：continue 意图得一套共享词表 + 三张画布脸；problems 得一张对话框脸。
+- [交付①— 纯脑 src/lib/continue-intent.ts] continueRoundOf（run_itNNN → Round N，RELION 自己的钟；无 run_it 目录名 → null——绝不发明的轮次；大写变体解析、裸文件名 `relion_it012_model.star` 不算）、continueIntentShort（`Continue from Round 12` / 诚实泛称 `Continue from checkpoint`）、continueIntentSentence（下一 Run 将做什么、什么被保留、选择住在哪、如何反悔——面板按钮 t397 的同串事实，卡片复述产品自己的话，绝无私方言）。pathTail = 末两段（认得出、短得起）。
+- [交付②— 卡片三脸（job-card.tsx）] ①**Row 2 芯片**：icon-only 家族的 emerald 新成员（色与琥珀 staleness/drift History 对分家；History glyph 是面板按钮 t397 的 continue 脸本尊）——data-testid=continue-badge + aria 短脸 + title 全句；linked 副本静默（选择权在原件）。②**右键菜单**：continueFrom 非空时 Run 项改名 `Continue run — Continue from Round 12` + History 图标 + title 全句——**wipe 形的「Re-run」一词永不与已装填的 continue 目标同框**（「continue 误操作成 re-run 导致文件被清」的 t397 用户回执推广到菜单）。③**hover 预览**：一行 emerald `Next Run: Continue from Round 12`（预览是脸带散文的地方——t356 的 provenance 行律）。
+- [交付③— 对话框 problems 脸（ai-settings-dialog.tsx）] settings.problems 非空时 header 出琥珀盒：`设置文件已自动修复 N 处` + 每句点名（t472 的 wire 数据第一次上脸；句子天生秘钥安全）。无问题 → 零额外视觉（零噪音律）。
+- [t473 bench — 24/0 首跑即绿] T1 轮次提取 8（run_it012→12 / run_it000→0 不被 falsy 吞 / 裸相对路径 / 大写 RUN_IT / 文件名内裸 it012 拒认 / 空串 / 无数字 run_it / 深嵌套大轮次）+ T2 短脸 4 + T3 全句 8（动宾 + 末两段尾随 + 保留事实为主干 + 面板字段逐字 + 反悔路 + 无轮次变体 + 同轮同词跨根）+ T4 文法纪律 4（Round 标签恒首字母大写、句长 <220、退化根路径安全、`Round NaN` 绝不出场）。
+- [活体 — 三脸逐字 + 两处世界手术] PATCH fn_cont=`/data2/qa/QA-Class2D-Source/run_it012` 入 QA Class2D Source（idle fixture，t471 的 continue 世界原样上岗）→ agent-browser：①芯片 title 逐字 `Next Run will CONTINUE from Round 12 (QA-Class2D-Source/run_it012) — the run_it* iteration family is preserved, not wiped. Set in the panel's "Continue from here"; clear it to start fresh.` + emerald 在座；②contextmenu 派发 → 菜单项逐字 `Continue run — Continue from Round 12`；③真 mouse move 到 `p.job-card-title`（radix HoverCard 触发器=任务名，卡片中心不行）→ 预览行逐字 `Next Run: Continue from Round 12` emerald。截图 .qa-logs/t473-continue-faces.png + t473-continue-menu.png。伴生③：ai-settings.json 注入 `brokenrow:42` → wire `providers.brokenrow is not an object — entry skipped` → 对话框琥珀盒逐字 `设置文件已自动修复 1 处` + 点名句；截图 .qa-logs/t473-problems-face.png。双手术复原（fn_cont=""/ai-settings 备份还原：problems None、active builtin、health ok）。
+- [插曲] dev server 被 bench/eslint 内存压力收割一次 → dev-server.sh 点火复 200（t436 教义第 N 次自我辩护）；t473 bench 无静态 import → tsc TS1375（top-level await 需模块）→ `export {}` 模块标记；radix HoverCard 合成 pointerenter 不生效、卡片中心 hover 不行——触发器是任务名段元（p.job-card-title），真 mouse move 到名字才开。
+- [验证-终] t473 bench 24/0；tsc 0 + eslint 0（四触碰文件）；回归全家 **39 套**（38 旧 + t473）exit 0 全绿；console 0 错、landing 200、世界 22 jobs（19 completed + 2 idle + 1 running fixture）不动、AI 设置复原 builtin、fixture fn_cont 复原空。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 474 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）②continue_run 的 mock 集群真火活体（t471③→t472② 原样——517s 同步一轮需完整预算）③continue 芯片与世界事件的对齐：上游 re-run 后 staleness 琥珀与 continue emerald 同框的语义（两者都真——「上游动了」且「下一 Run 继续」——但同框是否需要一句合并话术，留给见到真实并存的窗再判）④inspector 的 Continue 字段与画布芯片互指（inspector 有值可见但无「卡片上有标记」的互文——可加 title 互指或不动，观察用户回执）⑤funnel 单位扩展 movies（真 RELION 接手时）⑥prod 磨判例重开前提（t462 判例）。
+
+Stage Summary:
+- **「意图要说在脸上，不是面板里」**：wipe vs continue 是最硬的安全线，而加载完毕的 continue 目标可以只在打开面板后才被看见——卡片芯片、右键菜单、hover 预览三张脸现在都说「下一 Run 会 continue」，wipe 形的「Re-run」一词永不与已装填目标同框
+- **「一套词表，三张脸，零私方言」**：continue-intent.ts 是唯一的文法源——短脸给菜单与预览、全句给 title 与 aria，卡片复述面板按钮 t397 的同串事实；「Continue from Round 12」在哪个脸上出现都是同一句话
+- **「修补的招供上脸」**：t472 的 problems 在 wire 上睡了一窗，现在对话框 header 一行琥珀盒点名每笔修复——手改文件的修复从 curl 可见升级为打开设置就能看见
+- **「触发器是名字，不是卡片」**：radix HoverCard 的触发器是 p.job-card-title——活体探测学又一次证明 DOM 结构要读源码不猜坐标
+- 产出：continue-intent.ts（纯脑词表）+ 卡片三脸（Row 2 emerald 芯片 / 菜单 Continue run / 预览 emerald 行）+ 设置对话框 problems 琥珀盒 + t473 bench 24/0 + 39 套回归全绿 + 三脸活体逐字 + problems 盒活体逐字 + 截图 ×3

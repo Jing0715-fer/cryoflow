@@ -26,7 +26,7 @@
  */
 
 import * as React from "react";
-import { Check, Eye, EyeOff, Loader2, RefreshCw, Sparkles, ExternalLink } from "lucide-react";
+import { Check, Eye, EyeOff, Loader2, RefreshCw, Sparkles, ExternalLink, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -221,6 +221,32 @@ export function AiSettingsDialog() {
               </span>
             </div>
           )}
+          {(() => {
+            // t473 — the loader's named repairs, read aloud: a hand-edited
+            // settings file gets its fixes SPOKEN (t472's problems, on the
+            // wire since t472, now on a face). Each sentence is already
+            // secret-safe (shape is named, key content never enters one).
+            const problems = settings?.problems ?? [];
+            if (problems.length === 0) return null;
+            return (
+              <div
+                data-testid="ai-settings-problems"
+                className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-left"
+              >
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                  <TriangleAlert className="size-3 shrink-0" aria-hidden="true" />
+                  设置文件已自动修复 {problems.length} 处
+                </p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[10.5px] leading-relaxed text-amber-700/90 dark:text-amber-400/90">
+                  {problems.map((p, i) => (
+                    <li key={i} className="font-mono break-all">
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
         </DialogHeader>
 
         {/* ---- the two-pane editor: catalog rail left, config right
