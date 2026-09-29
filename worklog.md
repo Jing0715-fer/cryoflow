@@ -5141,3 +5141,26 @@ Stage Summary:
 - **「表从判决派生，矛盾在结构上不存在」**：paramChanges 不是第二份比较逻辑，是 driftFor 的第二面透镜——同键同序同 null 域；两份逻辑各有真理的时刻终会各自为政，一份派生的真理永远一致
 - **「缺席要被看见」**：值格永不渲染空串——未设置的设置渲染破折号；added 的 + 与 removed 的 − 用颜色与字形同时说话；一个只显示「变了」的表格把「谁加的谁删的」藏进用户的记忆里，而收据的职责是让记忆下岗
 - 产出：Recipe Diff 收据面全链（paramChanges/formatParamValue 纯脑 + inspector 展开表）+ **杀错进程三连 137 根因到案**（standalone 进程名 pkill 不匹配——Task 86 教义第二次活体）+ t446 bench 24/0 + 十八套回归 588 断言全绿 + 收据全循环活体（单键/双键/重跑清/本地快照双写点实证）+ 三方一致真对齐
+
+---
+Task ID: 447 (cron agent loop 202609290823)
+Agent: Super Z
+Task: 判断项目状态 → agent-browser QA → 自主选工作重点（修 bug / 新需求）→ 七惯例收尾
+
+Work Log:
+- [开局] 实尾 = Task 446 完整收官（HEAD 附近有一个陌生 commit 07dd8aa：平台自动提交的 0 字节 prisma/dev.db 杂散孤儿——未推送、代码零引用）。清理：reset 回 origin/main（ed721cb）+ rm 文件 + .gitignore 加 /prisma/*.db 防复发（765f3d4，push 待验即正常）。世界体检：app 200、15/15 completed、mock 集群 :3022 在听。第三十八份过时 Task 13 指引照例不认。自号 447。
+- [QA — 全绿基线] landing hydration 满血（t438 铃铛门在场）、console 0 错、标题 pristine。十七套回归 588 断言全绿。世界稳定 → 转新需求。
+- [选题定谳 — 命名面（Twin Names + Job Rename）] t446 遗留③核账时的侦察反转：**⌘D 多选批量复制早已存在**（store.duplicateSelected phase1 并行 POST + phase2 内部边重接线 + ⌘D 分发齐全）——真正缺的是**智能后缀**：两条复制路径都硬拼 `(copy)`，复制孪生会得到 `(copy) (copy)` 血统链，同名孪生会静默撞名。另侦察发现服务器 PATCH name 面早已在位（1–60 字符），inspector 却无改名门。定谳：孪生智能命名 + inspector 改名门。
+- [交付 — the twin is a sibling, not a descendant] ①lib/twin-name.ts（纯脑）：baseNameOf 剥一个族后缀（" (copy)" / " (copy) N" 锚定串尾——串中/异族括号不动）+ twinName 族内最低空位律（**源自己的名字也占命名空间**——复制 "X (copy)" 得 "X (copy) 2" 兄弟而非撞源；**墓碑不占座**——删掉的 "(copy) 2" 会被补回）+ twinNamesFor 批量预留（每个孪生的认领封锁下一个——同型双源得 (copy) 与 (copy) 2，永不撞名）②store 双接线：duplicateJob 单发 + duplicateSelected 批量（预留先行）③store.renameJob：乐观 set + **外科回滚**（只回滚该 job 的名——中途落地的轮询保住它的更新）+ 1–60 客户端镜像 + no-op 改名不算错误④inspector 铅笔门：标题旁 ghost Pencil（icon-only，t409 face 纪律）→ inline Input（Enter 提交 / Escape 走人 / blur 提交；maxLength=60 镜像服务器法——诚实输入永不见 400；draft 自带 job.id——换 job 检视时陈旧 edit 自然失配为显示态，零 effect 零 echo）。
+- [自捕自修 ×2] ①**正则锚点自错**：COPY_FAMILY 首版把 `\)` 丢在 "copy" 后、`$` 挂在 `)` 尾——只能匹配以括号结尾的 " (copy)"，" (copy) 2" 永远不匹配（T1c/T1d/T1h 六断言当场抓出）②bench T3e 断言臆造：预期 [(copy) 3, (copy) 4]，真实律是**最低空位全局补位**——源1 "X" 先占 gap 座 "(copy) 2"、源2 "(copy) 2" 的孪生随后取 "(copy) 3"（先例八连：纯函数先于测试知道答案）。
+- [真相侦察 — 两个改名面] 活体 QA 一度「闹鬼」：刷新后 aria-label "Job name" 输入框凭空在场。根因：**job-panel.tsx 早有常驻改名输入框**（saveJob 通道，always-input 面孔）而侦察只搜了 job-inspector——Task 157 选择种子让面板首帧就挂载。两面板分工：JobPanel（桌面侧栏，selectedId 驱动，idle 草稿的面）有旧版常驻输入；JobInspector（大模态，inspectId 驱动）本轮补上铅笔门。卡片点击合同真相：idle→select（面板）、非 idle→inspect（模态）——我的门覆盖的正是 completed/running 面的缺口。
+- [真 bug 活捉 — Escape 走人却带走了整扇门] 模态内改名按 Escape：编辑取消正确，但 **Radix 在 document CAPTURE 相位监听 Escape**（先于一切 bubble 相 handler），defaultPrevented 未置即 dismiss——整个 inspector 模态被带走。第一轮修（stopPropagation）失败（相位追不上，57e0116 前身）；第二轮对证 Radix 源码（react-use-escape-keydown capture:true + dismissable-layer 的 onEscapeKeyDown 在 defaultPrevented 检查**之前**运行）→ 正确拦截点 = DialogContent 的 **onEscapeKeyDown 守卫**（edit 活跃时 preventDefault）+ **edit 状态提升到 modal 拥有者**（Radix 守卫必须看得见它）+ bubble 相 closer 换成带 edit 守卫的定制版（第二重网）。活体四连：edit 中 Escape → 模态留存 + 编辑态关闭 + 名字未动 ✓；Enter 提交 → 标题与服务器双面更新 ✓；无 edit 态 Escape → 模态照常关（旧合同无损）✓；Re-run AlertDialog 嵌套不受扰（Radix layer stack 只让最高层裁决）✓。
+- [事故与治愈 — 误删合法工作目录] 清场时按「残渣」rm 了 motioncorr_endppeq2——**那是原件 Motion Correction 1 的确定性工作目录**（t396 公式 `<type>_<id后8位>`，原世界 16 目录 = 15 job 目录 + micrographs 数据目录）。未先解析 owner 就动手，违 t440/t442 教义。治愈：scripts/demo-chain-resurrect.mjs --from motioncorr（产品自己的 run 门重跑，30.4s completed，确定性公式重建同名目录）→ 16 目录归位、FSC/Guinier/官方数字 6.51Å 全部在场。**新教义：判残渣前先用确定性公式解析 owner——owner 是在世 job 的目录是世界资产，不是残渣**。
+- [批量预留命名活体] shift-click 双选孪生 + Ctrl+D → 19 jobs：源1「Motion Correction 1 (copy)」→「Motion Correction 1 (copy) 2」（族内下一空座）、源2「Motion QC twin」→「Motion QC twin (copy)」（自族平起）——零撞名，twinNamesFor 活体实证。清场 DELETE 四孪生（15/15 复原、14 边级联清净）。
+- [最终态] HEAD = origin/main = 56e0116（本窗最后 feature commit，已推）；stamp = 56e0116 三方一致；世界 200 运行同戳 build；jobs 15 全 completed、edges 14、mock 集群 :3022 在听、盘上 16 目录 = 原世界、QA 浏览器净场、console 0 错、标题 pristine。治愈后世界注记：ctffind 现身 amber 波前徽章（motioncorr 治愈重跑在先、下游未重跑在后——波前律说的是真话，t444 律上岗实证）。下一窗从 Task 448 起编。遗留（下窗候选）：①GitHub PAT 撤销确认（第三十六次提醒——本窗 push 正常）②EMPIAR 真数据回归（常驻）③波前徽章的治愈收尾（--rerun 全链重跑可清 ctffind 徽章，或接受其真实）④A/B 判决行「把输家微图喂给 exclude」待消费者面⑤漂移 × 波前双徽章并排需可丢弃世界。
+
+Stage Summary:
+- **「孪生的名字是兄弟，不是子孙」**：复制一个 copy 得到的是族的下一席（(copy) 2），不是括号链的下一环——名字的形状就是分支的形状；批量预留让一次手势里的 N 个孪生互相看见，永不撞名
+- **「Escape 走人的距离由监听相位决定」**：bubble 相的 stopPropagation 追不上 capture 相的 Radix——组件合同要跨层生效，就必须在层的裁决点（onEscapeKeyDown）说话，而不是在自己的门口喊；状态提升不是妥协，是让守卫看得见它要守的东西
+- **「判残渣先判 owner」**：确定性公式（type_id后8位）让每个目录都有名有姓——不查 owner 的 rm 把世界资产当垃圾；治愈器的价值在于它经产品自己的 run 门重建，而非手工伪造
+- 产出：命名面全链（twin-name 纯脑 + store 双接线 + renameJob + inspector 铅笔门 + Escape 捕获相守卫）+ **prisma 杂散孤儿清理与 gitignore 防复发** + t447 bench 24/0 + 十八套回归 612 断言全绿 + 误删治愈全循环（--from motioncorr）+ 批量预留命名活体 + 三方一致真对齐
