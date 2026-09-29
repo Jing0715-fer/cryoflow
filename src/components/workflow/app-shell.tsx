@@ -23,6 +23,10 @@ import { useWorkflowStore } from "@/lib/store";
 import { useTabCensus } from "@/lib/use-tab-census";
 import { useFinishKnock } from "@/lib/use-finish-knock";
 import { useOrchAdoption } from "@/lib/use-orch-adoption";
+// t466 — the walk speaks: entry names the landed card, dead ends name the
+// direction (the words live in the pure brain so the bench pins them).
+import { arrowWalkDeadEndHint, arrowWalkEntryHint, walkDirectionName } from "@/lib/arrow-walk";
+import { toast } from "@/hooks/use-toast";
 import { Header } from "@/components/workflow/header";
 import { CARD_H, CARD_W } from "@/lib/workflow";
 import { useDropNavigationGuard } from "@/components/workflow/drop-import";
@@ -152,6 +156,10 @@ function useMediaQuery(query: string) {
 export function AppShell() {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const selectedId = useWorkflowStore((s) => s.selectedId);
+  // t466 — the dead-end toast's throttle seat: a module-level clock would
+  // throttle across tabs; a component ref throttles per app shell, which is
+  // the thing the user is actually mashing arrows into.
+  const deadEndToastAt = React.useRef(0);
   // Task 92 — app-wide drop guard: an accidental file drop on ANY view
   // (dashboard included, where no import handler exists) must navigate the
   // tab nowhere. Canvas drop-import claims its own drops deeper in the
@@ -505,8 +513,27 @@ export function AppShell() {
             best = j;
           }
         }
-        if (!best) return; // dead end in that direction — no wrap, honest no-op
+        if (!best) {
+          // t466 — the dead end speaks: a keypress that does nothing is
+          // indistinguishable from a broken shortcut (the footer's law —
+          // a readout that never moves cannot be told apart from a hung
+          // run). Throttled: mashing arrows at the edge must not stack
+          // toasts; one word per burst is orientation, five is noise.
+          const nowMs = Date.now();
+          if (nowMs - deadEndToastAt.current > 1200) {
+            deadEndToastAt.current = nowMs;
+            const dname = walkDirectionName(k);
+            if (dname) toast(arrowWalkDeadEndHint(dname));
+          }
+          return; // dead end in that direction — no wrap, honest no-op
+        }
+        // t466 — the entry speaks: with no anchor the walk lands wherever
+        // the viewport center faces, and the t465 field report spent ten
+        // probe presses just learning where. One toast per entry names the
+        // landed card (steps stay silent — the ring visibly moves).
+        const entering = !anchor;
         s.stepArrowFocus(best.id, e.shiftKey);
+        if (entering) toast(arrowWalkEntryHint(best.name));
         // pan just enough that the new anchor is comfortably on screen —
         // never re-centering (F centers explicitly), never touching zoom
         if (rect) {

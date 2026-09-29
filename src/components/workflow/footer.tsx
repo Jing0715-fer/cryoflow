@@ -117,7 +117,18 @@ export function Footer() {
                     title={
                       armed
                         ? `Clear the ${label.toLowerCase()} filter`
-                        : `Highlight ${count} ${label.toLowerCase()} job${count === 1 ? "" : "s"} on the canvas${value === "running" && runningAge ? ` — longest running for ${runningAge}` : ""}`
+                        : `Highlight ${count} ${label.toLowerCase()} job${count === 1 ? "" : "s"} on the canvas${
+                            // t465 遗留⑤ — the age speaks its口径: the readout
+                            // counts from DISPATCH (staging, rounds and
+                            // sync-back all sit inside), not from round one —
+                            // without the sentence "7m 04s" reads as compute
+                            // time and the inspector's split ledger looks
+                            // like it contradicts the footer. One hover away,
+                            // zero visual noise.
+                            value === "running" && runningAge
+                              ? ` — longest running for ${runningAge} (counted from dispatch — staging, rounds and sync-back all sit inside; the inspector's time ledger splits them)`
+                              : ""
+                          }`
                     }
                     onClick={() => onCensusClick(value)}
                     className={cn(
