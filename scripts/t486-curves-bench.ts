@@ -95,23 +95,27 @@ const kindsProp = schema?.properties?.kinds as {
 ok(
   kindsProp?.type === "array" &&
     Array.isArray(kindsProp.items?.enum) &&
-    kindsProp.items.enum.join(",") === "fsc,guinier,angdist" &&
-    kindsProp.maxItems === 3,
-  "kinds: array of the three curve kinds, maxItems 3"
+    kindsProp.items.enum.join(",") ===
+      "fsc,guinier,angdist,ctf,motion,topaz" &&
+    kindsProp.maxItems === 6,
+  "kinds: array of the six curve kinds, maxItems 6 (t487: the bridge carries six)"
 );
 const desc = tool?.description ?? "";
 ok(
   desc.includes("fsc") &&
     desc.includes("guinier") &&
     desc.includes("angdist") &&
+    desc.includes("ctf") &&
+    desc.includes("motion") &&
+    desc.includes("topaz") &&
     desc.includes("inspect_job") &&
     desc.includes("check_convergence") &&
     desc.includes("RESULT CURVES"),
-  "description names the three kinds AND the honest split from inspect_job/check_convergence"
+  "description names the six kinds AND the honest split from inspect_job/check_convergence"
 );
 ok(
-  desc.includes("到多少埃") && desc.includes("取向均匀吗"),
-  "description speaks the user's question words"
+  desc.includes("到多少埃") && desc.includes("取向均匀吗") && desc.includes("CTF 拟合怎么样") && desc.includes("漂移大吗"),
+  "description speaks the user's question words (science trio + prep trio)"
 );
 
 /* ---------------- T2 sampler law ---------------- */

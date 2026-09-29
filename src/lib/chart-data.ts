@@ -2,17 +2,19 @@
  * CryoFlow — the server-side LOADERS for the job curves (t486).
  *
  * chart-rows.ts owns the RENDER derivations (response → chart rows → CSV,
- * t110). The bytes themselves were loaded by three private GET bodies —
- * /api/jobs/[id]/fsc, …/guinier, …/angdist — and that was fine while the
- * only consumer was the browser. Then the agent grew a science side
- * (judge_2d_classes, check_convergence) and the curves stayed out of its
- * reach: asked "how resolved is this map?" the model could quote a result
- * line but never the FSC the badge came from. This module lifts the
- * loading half next to the derivation half:
+ * t110). The bytes themselves were loaded by private GET bodies — first
+ * /api/jobs/[id]/fsc, …/guinier, …/angdist (t486), then …/ctf,
+ * …/motion, …/topaz-training joined them (t487, the bridge carries six) —
+ * and that was fine while the only consumer was the browser. Then the
+ * agent grew a science side (judge_2d_classes, check_convergence) and
+ * the curves stayed out of its reach: asked "how resolved is this map?"
+ * the model could quote a result line but never the FSC the badge came
+ * from. This module lifts the loading half next to the derivation half:
  *
- *   loadFsc / loadGuinier / loadAngDist  — file location + parse + response
- *   the three routes                      — thin guard+json shells over them
- *   the agent's get_job_curves tool       — the very same functions
+ *   loadFsc / loadGuinier / loadAngDist            — t486, the science trio
+ *   loadCtf / loadMotion / loadTopazTraining      — t487, the prep trio
+ *   the six routes                                 — thin guard+json shells
+ *   the agent's get_job_curves tool                — the very same functions
  *
  * so the answer the model quotes IS the data the chart draws, by
  * construction. Parse logic is moved verbatim (cachedFileCompute keys
@@ -23,7 +25,7 @@
  * error and stays an empty response, exactly as the routes behaved.
  */
 
-import { existsSync, readdirSync } from "fs";
+import { existsSync, readdirSync, statSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
@@ -31,12 +33,21 @@ import { cachedFileCompute } from "@/lib/relion/statcache";
 import { parseStar, findPair } from "@/lib/starfile";
 import { parseGuinierEps } from "@/lib/relion/guinier-eps";
 import { summarizeOrientation } from "@/lib/relion/rebalance-core";
+import { ctfMicrographRows } from "@/lib/compare-rows";
+import { motionCatalogueRows } from "@/lib/compare-rows";
+import { parseTopazTraining } from "@/lib/relion/topaz-training";
 import type {
   FscShell,
   FscResponse,
   GuinierPoint,
   GuinierResponse,
+  CtfSummary,
+  CtfResponse,
+  MotionMicrograph,
+  MotionSummary,
+  MotionResponse,
 } from "@/lib/chart-rows";
+import type { TopazEpoch } from "@/lib/relion/topaz-training";
 
 /** The job (after soft-link resolution) does not exist — routes map this
  *  to 404, the agent tool to ok:false. Distinct from "job exists but the
@@ -745,4 +756,195 @@ export async function loadAngDist(jobId: string): Promise<AngDistData> {
         }
       : {}),
   };
+}
+
+/* ================================================================== */
+/* CTF — per-micrograph fit quality (CtfFind), t469's one grammar      */
+/* ================================================================== */
+
+/** The ctf route's response face (micrographs + summary), with the sort
+ *  and summary math the route used to own now living here verbatim. */
+export interface CtfData extends CtfResponse {
+  jobId: string;
+}
+
+/**
+ * CTF fit rows of a CtfFind job, straight from micrographs_ctf.star
+ * (moved verbatim from the route body, t487). The defocusU-descending
+ * sort copies first — it must NOT mutate the lib's cached array — and
+ * the summary aggregates (mean/min/max defocus, worst astigmatism, mean
+ * FoM, worst fit resolution) keep the route's exact shape. Empty or
+ * absent workdir → an honest empty response, never an error.
+ */
+export async function loadCtf(jobId: string): Promise<CtfData> {
+  const job = await findEffectiveJob(jobId); // resolves soft links to the original
+  if (!job) throw new ChartJobNotFound(jobId);
+  const run = getRun(job.id);
+  if (!run?.workdir || !existsSync(run.workdir)) {
+    return { jobId, micrographs: [], summary: null };
+  }
+
+  // t469 — the file hunt + cached parse live in lib/compare-rows.ts (ONE
+  // grammar under the route, the dialog and the agent's compare_jobs tool)
+  const parsed = ctfMicrographRows(run.workdir);
+  if (parsed.length === 0) {
+    return { jobId, micrographs: [], summary: null };
+  }
+  // the sort must NOT mutate the lib's cached array
+  const micrographs = [...parsed].sort((a, b) => b.defocusU - a.defocusU);
+
+  let summary: CtfSummary | null = null;
+  if (micrographs.length > 0) {
+    const defoci = micrographs.map((m) => (m.defocusU + m.defocusV) / 2);
+    const foms = micrographs.filter((m) => m.fom > 0).map((m) => m.fom);
+    const maxRes = micrographs
+      .filter((m) => m.maxResolution > 0)
+      .map((m) => m.maxResolution);
+    summary = {
+      count: micrographs.length,
+      meanDefocus: defoci.reduce((s, d) => s + d, 0) / defoci.length,
+      minDefocus: Math.min(...defoci),
+      maxDefocus: Math.max(...defoci),
+      maxAstigmatism: Math.max(...micrographs.map((m) => m.astigmatism)),
+      meanFom:
+        foms.length > 0 ? foms.reduce((s, f) => s + f, 0) / foms.length : 0,
+      worstResolution: maxRes.length > 0 ? Math.max(...maxRes) : 0,
+    };
+  }
+
+  return { jobId, micrographs, summary };
+}
+
+/* ================================================================== */
+/* Motion — per-micrograph accumulated drift (MotionCorr)              */
+/* ================================================================== */
+
+/** The motion route's response face, with the summary math living here
+ *  verbatim (mean/max total drift, the first offender's name, and the
+ *  early/late split a user actually triages). */
+export interface MotionData extends MotionResponse {
+  jobId: string;
+}
+
+/**
+ * Per-micrograph accumulated motion of a MotionCorr job, from
+ * corrected_micrographs.star (moved verbatim from the route body, t487).
+ * Early drift (before the stage settles) vs late drift (dose-weighting
+ * window) split the total into the two halves a user triages on; both
+ * are reasons to drop the movie. Block-aware parsing stays in
+ * motionCatalogueRows (t469's ONE grammar). Empty or absent workdir →
+ * an honest empty response, never an error.
+ */
+export async function loadMotion(jobId: string): Promise<MotionData> {
+  const job = await findEffectiveJob(jobId); // resolves soft links to the original
+  if (!job) throw new ChartJobNotFound(jobId);
+  const run = getRun(job.id);
+  const { sourceFile, micrographs } = motionCatalogueRows(run?.workdir ?? "");
+  if (!sourceFile || micrographs.length === 0) {
+    return { jobId, sourceFile: null, micrographs: [], summary: null };
+  }
+
+  const n = micrographs.length;
+  const sum = (sel: (m: MotionMicrograph) => number) =>
+    micrographs.reduce((acc, m) => acc + sel(m), 0);
+  const worst = micrographs.reduce((a, b) => (b.total > a.total ? b : a));
+  const summary: MotionSummary = {
+    count: n,
+    meanTotal: sum((m) => m.total) / n,
+    maxTotal: worst.total,
+    worstName: worst.name,
+    meanEarly: sum((m) => m.early) / n,
+    meanLate: sum((m) => m.late) / n,
+  };
+
+  return {
+    jobId,
+    sourceFile: "corrected_micrographs.star",
+    micrographs,
+    summary,
+  };
+}
+
+/* ================================================================== */
+/* Topaz — per-epoch picker training progress                          */
+/* ================================================================== */
+
+/** The topaz-training route's response face: the merged per-epoch series
+ *  (run.out is authoritative) plus the label of the file it came from. */
+export interface TopazData {
+  jobId: string;
+  epochs: TopazEpoch[];
+  source: string | null;
+}
+
+/**
+ * Per-epoch Topaz training progress (moved verbatim from the route body,
+ * t487). Sources, merged in order (later files only fill epochs the
+ * earlier ones left blank — run.out is authoritative because RELION
+ * pipes topaz's own stdout there):
+ *   1. the run's logFile (run.out) — RELION captures topaz's per-epoch
+ *      console output (loss / precision / recall) verbatim;
+ *   2. any *training*.txt / *loss*.txt / topaz*.log in the workdir.
+ * Tolerant parser (topaz-training.ts) — a log with no recognizable
+ * progress returns [] and the chart self-hides; the 4 MB ceiling skips
+ * dumps while the statcache key "topaz-training" survives untouched.
+ */
+export async function loadTopazTraining(jobId: string): Promise<TopazData> {
+  const job = await findEffectiveJob(jobId); // resolves soft links to the original
+  if (!job) throw new ChartJobNotFound(jobId);
+  const run = getRun(job.id);
+  if (!run?.workdir || !existsSync(run.workdir)) {
+    return { jobId, epochs: [], source: null };
+  }
+
+  // candidate logs: the tracked run.out first, then training-named files
+  const sources: { file: string; label: string }[] = [];
+  if (run.logFile && existsSync(run.logFile)) {
+    sources.push({ file: run.logFile, label: path.basename(run.logFile) });
+  }
+  try {
+    for (const name of readdirSync(run.workdir)) {
+      if (!/training|loss|topaz.*\.log$/i.test(name)) continue;
+      if (!/\.(txt|log|csv)$/i.test(name)) continue;
+      const abs = path.join(run.workdir, name);
+      if (sources.some((s) => s.file === abs)) continue;
+      sources.push({ file: abs, label: name });
+    }
+  } catch {
+    /* workdir listing failed — proceed with what we have */
+  }
+
+  let epochs: TopazEpoch[] = [];
+  let source: string | null = null;
+  for (const src of sources) {
+    try {
+      const st = statSync(src.file);
+      if (st.size > 4_000_000) continue; // a log, not a dump — skip giants
+      const parsed = cachedFileCompute(src.file, "topaz-training", (text) => {
+        const pts = parseTopazTraining(text);
+        return pts.length > 0 ? JSON.stringify(pts) : "";
+      });
+      if (parsed) {
+        const pts = JSON.parse(parsed) as TopazEpoch[];
+        // merge: fill only epochs this source didn't cover (run.out wins)
+        if (epochs.length === 0) {
+          epochs = pts;
+          source = src.label;
+        } else {
+          const have = new Set(epochs.map((e) => e.it));
+          let merged = false;
+          for (const p of pts) {
+            if (have.has(p.it)) continue;
+            epochs.push(p);
+            merged = true;
+          }
+          if (merged) epochs.sort((a, b) => a.it - b.it);
+        }
+      }
+    } catch {
+      /* unreadable source — skip */
+    }
+  }
+
+  return { jobId, epochs, source };
 }

@@ -1,34 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readdirSync, readFileSync, statSync } from "fs";
-import path from "path";
-import { findEffectiveJob } from "@/lib/link";
-import { getRun } from "@/lib/relion/engine";
-import { cachedFileCompute } from "@/lib/relion/statcache";
-import { parseTopazTraining, type TopazEpoch } from "@/lib/relion/topaz-training";
+import { loadTopazTraining, ChartJobNotFound } from "@/lib/chart-data";
 import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+// t487 — the loading half moved to chart-data.ts (loadTopazTraining): the
+// run.out-first source hunt, the 4 MB dump ceiling, the statcache key and
+// the run.out-wins merge now live in ONE loader shared by this route and
+// the agent's get_job_curves tool, so the answer the model quotes IS the
+// data this route serves.
+
 /**
  * GET /api/jobs/[id]/topaz-training — per-epoch Topaz training progress.
  *
  * Sources, merged in order (later files only fill epochs the earlier ones
  * left blank — run.out is authoritative because RELION pipes topaz's own
- * stdout there):
- *   1. the run's logFile (run.out) — RELION captures topaz's per-epoch
- *      console output (loss / precision / recall) verbatim;
- *   2. any *training*.txt / *loss*.txt / topaz*.log in the workdir (some
- *      topaz versions also tee a standalone log).
+ * stdout there): the run's logFile first, then any *training*.txt /
+ * *loss*.txt / topaz*.log in the workdir. Tolerant parser
+ * (topaz-training.ts) — a log with no recognizable progress returns []
+ * and the chart self-hides.
  *
- * Tolerant parser (see topaz-training.ts) — a log with no recognizable
- * progress returns [] and the chart self-hides.
- *
- * Hardening (t266, the t251-class sibling sweep): workdir-derived data —
- * the same drive-by door + Host pin pair the log/fsc routes carry (see
- * http-guard for the threat model). The parsed epochs LEAK the training
- * log's contents cross-site; the door rides along.
+ * This shell keeps only the door laws: the same-origin guard (t266, the
+ * t251-class sibling sweep — the parsed epochs LEAK the training log's
+ * contents cross-site) and the 404/500 translations.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   if (!isLocalRequest(request)) {
@@ -37,68 +33,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       { status: 403 }
     );
   }
+  const { id } = await context.params;
   try {
-    const { id } = await context.params;
-    const job = await findEffectiveJob(id); // resolves soft links to the original
-    if (!job) {
+    return NextResponse.json(await loadTopazTraining(id));
+  } catch (error) {
+    if (error instanceof ChartJobNotFound) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
-    const run = getRun(job.id);
-    if (!run?.workdir || !existsSync(run.workdir)) {
-      return NextResponse.json({ epochs: [], source: null });
-    }
-
-    // candidate logs: the tracked run.out first, then training-named files
-    const sources: { file: string; label: string }[] = [];
-    if (run.logFile && existsSync(run.logFile)) {
-      sources.push({ file: run.logFile, label: path.basename(run.logFile) });
-    }
-    try {
-      for (const name of readdirSync(run.workdir)) {
-        if (!/training|loss|topaz.*\.log$/i.test(name)) continue;
-        if (!/\.(txt|log|csv)$/i.test(name)) continue;
-        const abs = path.join(run.workdir, name);
-        if (sources.some((s) => s.file === abs)) continue;
-        sources.push({ file: abs, label: name });
-      }
-    } catch {
-      /* workdir listing failed — proceed with what we have */
-    }
-
-    let epochs: TopazEpoch[] = [];
-    let source: string | null = null;
-    for (const src of sources) {
-      try {
-        const st = statSync(src.file);
-        if (st.size > 4_000_000) continue; // a log, not a dump — skip giants
-        const parsed = cachedFileCompute(src.file, "topaz-training", (text) => {
-          const pts = parseTopazTraining(text);
-          return pts.length > 0 ? JSON.stringify(pts) : "";
-        });
-        if (parsed) {
-          const pts = JSON.parse(parsed) as TopazEpoch[];
-          // merge: fill only epochs this source didn't cover (run.out wins)
-          if (epochs.length === 0) {
-            epochs = pts;
-            source = src.label;
-          } else {
-            const have = new Set(epochs.map((e) => e.it));
-            let merged = false;
-            for (const p of pts) {
-              if (have.has(p.it)) continue;
-              epochs.push(p);
-              merged = true;
-            }
-            if (merged) epochs.sort((a, b) => a.it - b.it);
-          }
-        }
-      } catch {
-        /* unreadable source — skip */
-      }
-    }
-
-    return NextResponse.json({ epochs, source });
-  } catch (error) {
     console.error("GET /api/jobs/[id]/topaz-training failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

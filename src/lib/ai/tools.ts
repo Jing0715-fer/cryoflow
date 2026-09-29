@@ -112,7 +112,15 @@ import {
   roundOccupancy,
   workdirRounds,
 } from "@/lib/convergence-rows";
-import { loadFsc, loadGuinier, loadAngDist, ChartJobNotFound } from "@/lib/chart-data";
+import {
+  loadFsc,
+  loadGuinier,
+  loadAngDist,
+  loadCtf,
+  loadMotion,
+  loadTopazTraining,
+  ChartJobNotFound,
+} from "@/lib/chart-data";
 
 export interface AiToolResult {
   ok: boolean;
@@ -459,16 +467,19 @@ export const AI_TOOLS: ToolSchema[] = [
   {
     name: "get_job_curves",
     description:
-      "Read a job's RESULT CURVES — the science behind the results charts. kinds picks which: fsc (gold-standard resolution: FSC 0.143/0.5 crossings, RELION's reported final resolution, B-factor/pixel size when postprocessed), guinier (the amplitude falloff that validates the applied B-factor), angdist (orientation coverage: direction bins, concentration factor, symmetry). Returns compact summaries with sampled points, not raw tables. Use when the ask is how GOOD or how RESOLVED a map or 3D run is, or whether orientations are even ('到多少埃', 'how resolved is it', 'is the map trustworthy', '取向均匀吗') — inspect_job reads status, params and logs but never the curves; check_convergence reads iteration-to-iteration stability, this reads the curve itself.",
+      "Read a job's RESULT CURVES — the science behind the results charts. kinds picks which: fsc (gold-standard resolution: FSC 0.143/0.5 crossings, RELION's reported final resolution, B-factor/pixel size when postprocessed), guinier (the amplitude falloff that validates the applied B-factor), angdist (orientation coverage: direction bins, concentration factor, symmetry), ctf (per-micrograph CTF fit quality of a CtfFind job: mean defocus, worst astigmatism, mean figure-of-merit, worst fit resolution), motion (per-micrograph accumulated drift of a MotionCorr job: mean/worst total drift, the early/late split that tells settling-late from drifting-to-the-end), topaz (per-epoch picker training curve: train/test loss, precision/recall — is the picker good enough to pick). Returns compact summaries with sampled points, not raw tables. Use when the ask is how GOOD or how RESOLVED a map or 3D run is, whether orientations are even, whether the CTF fits are clean, whether movies drift too much, or whether a trained picker is ready ('到多少埃', 'how resolved is it', 'is the map trustworthy', '取向均匀吗', 'CTF 拟合怎么样', '漂移大吗', 'motion big?', 'topaz 训练好了吗') — inspect_job reads status, params and logs but never the curves; check_convergence reads iteration-to-iteration stability, this reads the curve itself.",
     parameters: {
       type: "object",
       properties: {
         job_id: { type: "string" },
         kinds: {
           type: "array",
-          items: { type: "string", enum: ["fsc", "guinier", "angdist"] },
-          maxItems: 3,
-          description: "Which curves to read (default: all three)",
+          items: {
+            type: "string",
+            enum: ["fsc", "guinier", "angdist", "ctf", "motion", "topaz"],
+          },
+          maxItems: 6,
+          description: "Which curves to read (default: all six)",
         },
       },
       required: ["job_id"],
@@ -2509,7 +2520,14 @@ async function inspectJob(ctx: AgentCtx, jobId: string): Promise<AiToolResult> {
 
 /* ---- get_job_curves (the science read, t486) -------------------------- */
 
-const CURVE_KINDS = ["fsc", "guinier", "angdist"] as const;
+const CURVE_KINDS = [
+  "fsc",
+  "guinier",
+  "angdist",
+  "ctf",
+  "motion",
+  "topaz",
+] as const;
 type CurveKind = (typeof CURVE_KINDS)[number];
 
 /** ≤12 uniform samples, first and last always kept — the low-res head and
@@ -2525,6 +2543,10 @@ export function sampleSeries<T>(rows: T[], max = 12): T[] {
 
 const fmtAng = (v: number | null | undefined): string =>
   v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 10) / 10} Å`;
+
+/** defocus/astigmatism live in µm in the star grammar (compare-rows). */
+const fmtUm = (v: number | null | undefined): string =>
+  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 1000) / 1000} µm`;
 
 async function getJobCurves(
   ctx: AgentCtx,
@@ -2691,6 +2713,182 @@ async function getJobCurves(
         reason: `failed to read: ${truncate(err instanceof Error ? err.message : String(err), 120)}`,
       });
       spoken.push("angles: unreadable");
+    }
+  }
+
+  if (want.includes("ctf")) {
+    try {
+      const d = await loadCtf(job.id);
+      const s = d.summary;
+      if (s) {
+        spoken.push(
+          `CTF fit: ${s.count} micrographs, mean defocus ${fmtUm(s.meanDefocus)}` +
+            ` (range ${fmtUm(s.minDefocus)} to ${fmtUm(s.maxDefocus)})` +
+            `, worst astigmatism ${fmtUm(s.maxAstigmatism)}` +
+            `, mean FoM ${Math.round(s.meanFom * 100) / 100}` +
+            `, worst fit resolution ${fmtAng(s.worstResolution)}`
+        );
+        curves.push({
+          kind: "ctf",
+          renderable: true,
+          micrographCount: s.count,
+          meanDefocusUm: Math.round(s.meanDefocus * 1000) / 1000,
+          minDefocusUm: Math.round(s.minDefocus * 1000) / 1000,
+          maxDefocusUm: Math.round(s.maxDefocus * 1000) / 1000,
+          maxAstigmatismUm: Math.round(s.maxAstigmatism * 1000) / 1000,
+          meanFom: Math.round(s.meanFom * 100) / 100,
+          worstFitResolutionA: s.worstResolution > 0 ? s.worstResolution : null,
+          // the worst-fitting micrographs first (fit resolution, largest first)
+          worstMicrographs: [...d.micrographs]
+            .sort((a, b) => b.maxResolution - a.maxResolution)
+            .slice(0, 3)
+            .map((m) => ({
+              name: m.name,
+              defocusUm: Math.round(((m.defocusU + m.defocusV) / 2) * 1000) / 1000,
+              astigmatismUm: Math.round(m.astigmatism * 1000) / 1000,
+              fom: Math.round(m.fom * 100) / 100,
+              maxResolutionA: m.maxResolution > 0 ? m.maxResolution : null,
+            })),
+        });
+      } else {
+        spoken.push("CTF fit: none in the workdir");
+        curves.push({
+          kind: "ctf",
+          renderable: false,
+          reason:
+            "no micrographs_ctf.star in this job's workdir (a CtfFind job writes one; a MotionCorr job estimates drift instead — try kind motion)",
+        });
+      }
+    } catch (err) {
+      if (err instanceof ChartJobNotFound)
+        return { ok: false, summary: `Job not found: ${jobId}` };
+      curves.push({
+        kind: "ctf",
+        renderable: false,
+        reason: `failed to read: ${truncate(err instanceof Error ? err.message : String(err), 120)}`,
+      });
+      spoken.push("CTF fit: unreadable");
+    }
+  }
+
+  if (want.includes("motion")) {
+    try {
+      const d = await loadMotion(job.id);
+      const s = d.summary;
+      if (s) {
+        // the route's own triage split, read as facts: which half of the
+        // movie the drift accumulates in — no threshold is invented
+        const triage =
+          s.meanEarly > s.meanLate
+            ? "early-frames dominate (the stage settles late)"
+            : s.meanLate > s.meanEarly
+              ? "late-frames dominate (kept drifting to the end)"
+              : "even split";
+        spoken.push(
+          `motion: ${s.count} micrographs, mean total drift ${fmtAng(s.meanTotal)}, worst ${fmtAng(s.maxTotal)} (${s.worstName ?? "?"}) — ${triage}`
+        );
+        curves.push({
+          kind: "motion",
+          renderable: true,
+          sourceFile: d.sourceFile,
+          micrographCount: s.count,
+          meanTotalA: Math.round(s.meanTotal * 10) / 10,
+          maxTotalA: Math.round(s.maxTotal * 10) / 10,
+          worstName: s.worstName,
+          meanEarlyA: Math.round(s.meanEarly * 10) / 10,
+          meanLateA: Math.round(s.meanLate * 10) / 10,
+          driftTriage: triage,
+          // the worst-drifting micrographs first (total, largest first)
+          worstMicrographs: [...d.micrographs]
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 3)
+            .map((m) => ({
+              name: m.name,
+              totalA: Math.round(m.total * 10) / 10,
+              earlyA: Math.round(m.early * 10) / 10,
+              lateA: Math.round(m.late * 10) / 10,
+            })),
+        });
+      } else {
+        spoken.push("motion: none in the workdir");
+        curves.push({
+          kind: "motion",
+          renderable: false,
+          reason:
+            "no corrected_micrographs.star in this job's workdir (a MotionCorr job writes one; a CtfFind job measures fit quality instead — try kind ctf)",
+        });
+      }
+    } catch (err) {
+      if (err instanceof ChartJobNotFound)
+        return { ok: false, summary: `Job not found: ${jobId}` };
+      curves.push({
+        kind: "motion",
+        renderable: false,
+        reason: `failed to read: ${truncate(err instanceof Error ? err.message : String(err), 120)}`,
+      });
+      spoken.push("motion: unreadable");
+    }
+  }
+
+  if (want.includes("topaz")) {
+    try {
+      const d = await loadTopazTraining(job.id);
+      if (d.epochs.length > 0) {
+        const first = d.epochs[0];
+        const last = d.epochs[d.epochs.length - 1];
+        const fmtNum = (v: number | null): string =>
+          v == null || !Number.isFinite(v) ? "?" : String(Math.round(v * 1e4) / 1e4);
+        spoken.push(
+          `topaz training: ${d.epochs.length} epochs (from ${d.source ?? "?"}), train loss ${fmtNum(first.trainLoss)} → ${fmtNum(last.trainLoss)}` +
+            (last.precision != null || last.recall != null
+              ? `, last epoch precision ${fmtNum(last.precision)} / recall ${fmtNum(last.recall)}`
+              : "")
+        );
+        curves.push({
+          kind: "topaz",
+          renderable: true,
+          source: d.source,
+          epochCount: d.epochs.length,
+          firstEpoch: {
+            it: first.it,
+            trainLoss: first.trainLoss,
+            testLoss: first.testLoss,
+            precision: first.precision,
+            recall: first.recall,
+          },
+          lastEpoch: {
+            it: last.it,
+            trainLoss: last.trainLoss,
+            testLoss: last.testLoss,
+            precision: last.precision,
+            recall: last.recall,
+          },
+          sampledEpochs: sampleSeries(d.epochs, 8).map((e) => ({
+            it: e.it,
+            trainLoss: e.trainLoss,
+            testLoss: e.testLoss,
+            precision: e.precision,
+            recall: e.recall,
+          })),
+        });
+      } else {
+        spoken.push("topaz training: none in the workdir");
+        curves.push({
+          kind: "topaz",
+          renderable: false,
+          reason:
+            "no topaz training log in this job's workdir (a Topaz train job leaves one in run.out or a training-named file; other jobs have none)",
+        });
+      }
+    } catch (err) {
+      if (err instanceof ChartJobNotFound)
+        return { ok: false, summary: `Job not found: ${jobId}` };
+      curves.push({
+        kind: "topaz",
+        renderable: false,
+        reason: `failed to read: ${truncate(err instanceof Error ? err.message : String(err), 120)}`,
+      });
+      spoken.push("topaz training: unreadable");
     }
   }
 
