@@ -2546,7 +2546,13 @@ function InspectorHeader({
                     e.preventDefault();
                     commitRename();
                   } else if (e.key === "Escape") {
+                    // stopPropagation keeps the walk-away LOCAL — without it
+                    // the modal's own escape contract (Radix dismiss) closes
+                    // the whole inspector when the user only meant to cancel
+                    // the edit (the panel face's Escape branch learned this
+                    // same lesson earlier — its stopPropagation predates us)
                     e.preventDefault();
+                    e.stopPropagation();
                     setEdit(null);
                   }
                 }}
