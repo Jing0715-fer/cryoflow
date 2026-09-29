@@ -46,6 +46,17 @@ export interface FscResponse {
   reportedResolution: number | null;
   /** human label for reportedResolution ("final resolution (masked)" …) */
   reportedLabel: string | null;
+  /**
+   * t457 — the postprocess star's data_general trio (official resolution,
+   * the sharpening B-factor, the pixel size that owns the box edge).
+   * Present only when source === "postprocess"; the verdict face reads
+   * it straight off the same parse (zero extra IO).
+   */
+  postprocessGeneral?: {
+    finalResolution: number | null;
+    bfactor: number | null;
+    angpix: number | null;
+  } | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -125,6 +136,11 @@ function crossing(
 function shellsFromPostprocessStar(text: string): {
   shells: FscShell[];
   reported: number | null;
+  general: {
+    finalResolution: number | null;
+    bfactor: number | null;
+    angpix: number | null;
+  };
 } | null {
   const rows = parseLoop(text, [
     "_rlnResolution",
@@ -158,10 +174,22 @@ function shellsFromPostprocessStar(text: string): {
     });
   }
   if (shells.length === 0) return null;
-  // official number straight from RELION's data_general block
+  // official number straight from RELION's data_general block — and the
+  // t457 trio (B-factor + pixel size) rides the SAME parse (zero extra IO;
+  // the verdict face eats it whole)
   const star = parseStar(text);
   const rep = parseFloat(findPair(star, "_rlnFinalResolution") ?? "");
-  return { shells, reported: Number.isFinite(rep) ? rep : null };
+  const bfac = parseFloat(findPair(star, "_rlnBfactorUsedForSharpening") ?? "");
+  const pix = parseFloat(findPair(star, "_rlnPixelSize") ?? "");
+  return {
+    shells,
+    reported: Number.isFinite(rep) ? rep : null,
+    general: {
+      finalResolution: Number.isFinite(rep) ? rep : null,
+      bfactor: Number.isFinite(bfac) ? bfac : null,
+      angpix: Number.isFinite(pix) ? pix : null,
+    },
+  };
 }
 
 /**
@@ -223,6 +251,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             parsed.reported != null
               ? "RELION final resolution (masked, sharpened)"
               : null,
+          postprocessGeneral: parsed.general,
         });
         return NextResponse.json(res);
       }
@@ -366,7 +395,11 @@ function finalize(
   source: "postprocess" | "model",
   sourceFile: string,
   shells: FscShell[],
-  reported?: { reportedResolution: number | null; reportedLabel: string | null }
+  reported?: {
+    reportedResolution: number | null;
+    reportedLabel: string | null;
+    postprocessGeneral?: FscResponse["postprocessGeneral"];
+  }
 ): FscResponse {
   const clean = shells.filter((s) => Number.isFinite(s.fsc));
   // RELION's official 0.143 criterion uses the MASKED+CORRECTED curve when
@@ -387,5 +420,8 @@ function finalize(
     resolutionAt05: crossing(criterion, 0.5),
     reportedResolution: reported?.reportedResolution ?? null,
     reportedLabel: reported?.reportedLabel ?? null,
+    ...(reported?.postprocessGeneral
+      ? { postprocessGeneral: reported.postprocessGeneral }
+      : {}),
   };
 }

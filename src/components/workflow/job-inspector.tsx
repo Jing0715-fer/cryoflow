@@ -161,6 +161,7 @@ import {
   ClassCompareEntry,
   ClassConvergenceEntry,
   ResolutionArcEntry,
+  PostprocessVerdictEntry,
 } from "./results/results-lazy";
 
 /* ------------------------------------------------------------------ */
@@ -2652,6 +2653,12 @@ function InspectorHeader({
              * The door hides off the refine3d faces and when the run
              * wrote no per-round estimates. */}
             <ResolutionArcEntry job={job} />
+            {/* t457 — the final verdict: the SIXTH question — one
+             * postprocess's honesty read ("is the number true — what did
+             * the mask buy, what did the correction claw back?"). The
+             * door hides off the postprocess faces and when the star
+             * carries no corrected curve. */}
+            <PostprocessVerdictEntry job={job} />
             {/* t442 — the duplicate door: clone this run as an unstarted
              * twin with its params AND upstream wiring — the A/B loop's
              * front door (copy → tweak one knob → run → compare). */}

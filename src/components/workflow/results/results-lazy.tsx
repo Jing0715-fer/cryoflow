@@ -110,3 +110,9 @@ export const ResolutionArcEntry = dynamic(
   () => import("./resolution-arc-dialog").then((m) => m.ResolutionArcEntry),
   { ssr: false, loading: panelLoading }
 );
+// t457 — the sixth question, its own face: one postprocess's honesty read
+export const PostprocessVerdictEntry = dynamic(
+  () =>
+    import("./postprocess-verdict-dialog").then((m) => m.PostprocessVerdictEntry),
+  { ssr: false, loading: panelLoading }
+);

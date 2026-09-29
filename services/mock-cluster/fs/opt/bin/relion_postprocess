@@ -16,12 +16,16 @@ writes the full RELION 5 postprocess dialect:
              half-map's geometry, deterministic interior blob + LCG texture).
   <o>_mask.mrc  an echo of the solvent mask (the identity card's partner).
 
-The FSC curve is a deterministic gold-standard-shaped decay: FSC ~1.0 at low
-frequency, linear-in-sqrt fall-off crossing 0.143 exactly at the "final
-resolution" (a function of the box: Nyquist-limited honesty — the fake never
-claims a resolution the box cannot carry), phase-randomized noise below the
-randomize_at point. The run.out line says "Final resolution" so the engine's
-own parseFinalResolution speaks the record's result.
+The FSC curve speaks the refine stub's own crossing law (one voice for the
+whole mock world): cosine decay from ~0.95 crossing 0.143 exactly at the
+estimate. t457 fixed the physics in three places — the estimate is clamped
+to never beat 2x angpix (the old clamp was inverted: min(..., 0.92xNyquist)
+FORCED the claim past the box edge and left the corrected curve uncrossed
+inside the table), the refinement's own run_model.star estimate leads when
+present (the mask buys it <=4%), and the curve order is real (raw masked >
+corrected > unmasked — masking flatters, the correction claws back, solvent
+noise drags the unmasked halves). The run.out line says "Final resolution"
+so the engine's own parseFinalResolution speaks the record's result.
 """
 import math
 import os
@@ -71,30 +75,50 @@ if out_base.endswith("/"):
     out_base += "postprocess"
 os.makedirs(os.path.dirname(os.path.abspath(out_base)), exist_ok=True)
 
-# ---- the frequency ladder -------------------------------------------------
+# ---- the estimate: the refinement's own word first, the box's law second ---
+# t457 — the old clamp was INVERTED: min(..., 0.92 x Nyquist) forced the
+# claim FINER than the box edge (6.514 A against a 7.08 A Nyquist), and the
+# corrected curve never crossed 0.143 inside the table (the crossing lived
+# past the last shell), so the app's official criterion came back empty.
+# The physics: a postprocess estimate can never beat 2x angpix. When the
+# half-maps' own refinement wrote run_model.star (the run these halves come
+# from), its estimate leads — the mask buys it a few percent, the box owns
+# the ceiling; without it the box law speaks alone.
 nyq = 1.0 / (2.0 * angpix)          # 1/A at the box edge
-shell_a = max(angpix * 2.0, 8.0)    # the first shell's resolution in A
-# the final resolution scales with the box: bigger boxes resolve finer —
-# clamped to [6 A, 2.2x angpix x 2] so the claim never beats Nyquist
-final_res = min(max(6.0, angpix * 3.2), (1.0 / nyq) * 0.92)
+box_floor = 2.2 * angpix            # headroom for the masked curve's own crossing
+
+
+def read_refine_estimate(half_map):
+    """_rlnCurrentResolution from the refinement's own run_model.star."""
+    import re
+    star = os.path.join(os.path.dirname(os.path.abspath(half_map)), "run_model.star")
+    try:
+        with open(star) as fh:
+            m = re.search(r"_rlnCurrentResolution\s+([0-9.]+)", fh.read())
+        v = float(m.group(1)) if m else 0.0
+        return v if v > 0 else None
+    except Exception:
+        return None
+
+
+refine_est = read_refine_estimate(src)
+if refine_est:
+    final_res = max(refine_est * 0.96, box_floor)  # the mask buys <=4%; the box owns the ceiling
+else:
+    final_res = max(6.0, angpix * 3.2, box_floor)
 final_freq = 1.0 / final_res
 n_shells = 40
 freqs = [nyq * (idx + 1) / n_shells for idx in range(n_shells)]
 rand_at = float(opts.get("randomize_at", "0") or 0)  # A; phase-randomize beyond
 
 
-def fsc_at(f):
-    """Deterministic masked-map FSC: ~0.95 low-freq, tangent decay to 0.143
-    at final_freq, then noise decay below zero past it."""
-    if f <= 0.02:
-        return 0.95
-    x = f / final_freq
-    if x <= 1.0:
-        # smooth decay: cos-shaped from 0.95 to 0.143
-        t = (x - 0.02) / 0.98
-        return 0.143 + (0.95 - 0.143) * (0.5 * (1.0 + math.cos(math.pi * t)))
-    # past the crossing: decays to ~0 with wiggles
-    return max(0.0, 0.143 * math.exp(-2.2 * (x - 1.0)) * (1.0 + 0.08 * math.sin(37.0 * f)))
+def corrected_at(f):
+    """The corrected curve: the refine stub's own crossing dialect —
+    1/(1+(1.3478*R*f)^6) crosses 0.143 exactly at f = 1/R. One voice for
+    the whole mock world's FSC, and steep enough that all THREE curves
+    cross inside the table (the shallow cosine shape kept the raw masked
+    curve above 0.143 past the last shell — its crossing never spoke)."""
+    return 1.0 / (1.0 + (1.3478 * final_res * f) ** 6)
 
 
 star_path = out_base + ".star"
@@ -112,9 +136,16 @@ with open(star_path, "w") as fh:
     fh.write("_rlnFourierShellCorrelationMaskedMaps #5\n")
     fh.write("_rlnCorrectedFourierShellCorrelationPhaseRandomizedMaskedMaps #6\n")
     for f in freqs:
-        corrected = fsc_at(f)
-        unmasked = min(1.0, corrected + 0.05 * (1.0 - f / nyq))
-        masked = max(0.0, corrected - 0.03)
+        corrected = corrected_at(f)
+        # t457 — the curve order FIXED: masking BOOSTS the correlation (the
+        # raw masked curve rides above the corrected one — the flattery the
+        # phase-randomization correction exists to claw back), and the
+        # unmasked halves sit BELOW (solvent noise drags them down). The
+        # gaps grow with frequency and are proportional to the curve
+        # itself, so every curve crosses inside the table.
+        rise = min(1.0, f / final_freq)
+        masked = min(1.0, corrected * (1.0 + 0.28 * rise))
+        unmasked = max(0.0, corrected * (1.0 - 0.22 * rise))
         # phase-randomized: noise floor past the randomization point
         pr = max(0.0, 0.15 * math.exp(-3.0 * f / final_freq)) if (rand_at <= 0 or (1.0 / f) < rand_at) else 0.0
         fh.write(
