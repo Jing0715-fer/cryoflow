@@ -100,3 +100,8 @@ export const ClassCompareEntry = dynamic(
   () => import("./run-compare-dialog").then((m) => m.ClassCompareEntry),
   { ssr: false, loading: panelLoading }
 );
+// t454 — the fourth question, its own face: one run vs its OWN rounds
+export const ClassConvergenceEntry = dynamic(
+  () => import("./class-convergence-dialog").then((m) => m.ClassConvergenceEntry),
+  { ssr: false, loading: panelLoading }
+);

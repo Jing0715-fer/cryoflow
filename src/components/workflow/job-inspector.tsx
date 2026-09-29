@@ -159,6 +159,7 @@ import {
   CtfCompareEntry,
   MotionCompareEntry,
   ClassCompareEntry,
+  ClassConvergenceEntry,
 } from "./results/results-lazy";
 
 /* ------------------------------------------------------------------ */
@@ -2640,6 +2641,11 @@ function InspectorHeader({
              * without a completed sibling or off the classification
              * faces. */}
             <ClassCompareEntry job={job} />
+            {/* t454 — the convergence door: the FOURTH question — one run
+             * vs its OWN iterations ("did the classification settle?").
+             * Same family face, no sibling needed; the door hides unless
+             * the run's round ladder holds at least two rounds. */}
+            <ClassConvergenceEntry job={job} />
             {/* t442 — the duplicate door: clone this run as an unstarted
              * twin with its params AND upstream wiring — the A/B loop's
              * front door (copy → tweak one knob → run → compare). */}

@@ -34,17 +34,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChartScatter, GitBranch, GitCompareArrows, Grid2x2Check, ListX, Loader2, TriangleAlert } from "lucide-react";
-import {
-  CartesianGrid,
-  ReferenceLine,
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-  ZAxis,
-} from "recharts";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -65,7 +54,6 @@ import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { planAdoption } from "@/lib/adopt-branch";
 import {
-  fmtDelta,
   joinByName,
   pairedDeltas,
   scatterDomain,
@@ -76,6 +64,12 @@ import {
   type Pair,
   type VerdictWords,
 } from "@/lib/paired-compare";
+import {
+  IdentityScatter,
+  LensChips,
+  MoverList,
+  VerdictChips,
+} from "./compare-face";
 import { CTF_LENSES, defocusAgreement, type CtfRunRow } from "@/lib/ctf-compare";
 import { CLASS_LENSES, CLASS_WORDS, CLASS_DEFAULT_LENS, classRunRow, concentrationCensus, gainedClassNumbers, type ClassRunRow } from "@/lib/class-compare";
 import { MOTION_LENSES, type MotionRunRow } from "@/lib/motion-compare";
@@ -108,11 +102,16 @@ interface CompareDomainSpec<R> {
   /** The select verb's payload (t453): the gained rows → the baked
    *  param's numbers. Only select domains carry it. */
   selectList?(gained: { name: string }[]): number[];
-  /** The type the select verb MINTS (t453): the rider's pre-click
-   *  contract must be computed against the SELECTION's output ports
-   *  (what downstream will actually consume), not run B's — a plan
-   *  computed against B promises wires the selection cannot feed. */
+  /** The type the select/exclude verb MINTS (t453/t454): the rider's
+   *  pre-click contract must be computed against the MINTED target's
+   *  output ports (what downstream will actually consume), not run B's
+   *  — a plan computed against B promises wires the minted target
+   *  cannot feed. */
   adoptTargetType?: string;
+  /** The door's own dialect (t454): the entry button's title used to
+   *  hardcode "paired per-micrograph verdict" — a lie for the class
+   *  domain's per-class rows. Each spec speaks its own units. */
+  doorTitle: string;
 }
 
 async function fetchJson(url: string): Promise<unknown> {
@@ -126,9 +125,16 @@ async function fetchJson(url: string): Promise<unknown> {
 const CTF_SPEC: CompareDomainSpec<CtfRunRow> = {
   label: "CTF",
   typeGate: /ctffind|ctf/i,
+  doorTitle: "paired per-micrograph verdict between two completed runs: did the output actually move?",
   intro:
     "Paired per-micrograph verdict between two completed runs — did the output actually move, and which micrographs moved it?",
   verb: "exclude",
+  // t454 — the exclude rider's plan is computed against the MINTED
+  // FILTER's ports (excludemg declares one output: micrographs), not
+  // run B's. Today the names coincide for every micrograph domain, so
+  // the plan is unchanged — the bench pins the equivalence; if an
+  // output port ever drifts, the rider's contract stays honest.
+  adoptTargetType: "excludemg",
   fetchRows: async (id) => {
     const data = (await fetchJson(`/api/jobs/${id}/ctf`)) as {
       micrographs?: CtfRunRow[];
@@ -148,9 +154,11 @@ const CTF_SPEC: CompareDomainSpec<CtfRunRow> = {
 const MOTION_SPEC: CompareDomainSpec<MotionRunRow> = {
   label: "Motion",
   typeGate: /motioncorr|motion/i,
+  doorTitle: "paired per-micrograph verdict between two completed runs: did the output actually move?",
   intro:
     "Paired per-micrograph verdict between two completed runs — did the output actually move, and which micrographs moved it?",
   verb: "exclude",
+  adoptTargetType: "excludemg",
   fetchRows: async (id) => {
     const data = (await fetchJson(`/api/jobs/${id}/motion`)) as {
       micrographs?: MotionRunRow[];
@@ -175,6 +183,7 @@ const MOTION_SPEC: CompareDomainSpec<MotionRunRow> = {
 const CLASS_SPEC: CompareDomainSpec<ClassRunRow> = {
   label: "Class",
   typeGate: /class2d|class3d/i,
+  doorTitle: "paired per-class verdict between two completed runs: where did the particles go?",
   intro:
     "Paired per-class verdict between two completed classification runs — where did the particles go, and which classes did run B concentrate?",
   verb: "select",
@@ -219,7 +228,7 @@ export function RunCompareEntry<R extends { name: string }>({
         size="icon"
         className="size-6 rounded-md text-muted-foreground/70 hover:bg-muted hover:text-foreground"
         aria-label={`${spec.label} A/B — compare with another completed run (${siblingCount} sibling runs available)`}
-        title={`${spec.label} A/B — paired per-micrograph verdict between two completed runs: did the output actually move?`}
+        title={`${spec.label} A/B — ${spec.doorTitle}`}
         onClick={() => setOpen(true)}
       >
         <ChartScatter className="size-3.5" aria-hidden="true" />
@@ -463,6 +472,31 @@ function RunCompareDialog<R extends { name: string }>({
     !selectPlan.sameRun &&
     !selectPlan.noDownstream &&
     selectPlan.moves.length > 0;
+  /** t454 — the EXCLUDE rider's own plan, the select rider's law carried
+   *  home to the micrograph domains: the verb adopts the MINTED FILTER
+   *  (excludemg declares one output — micrographs), so the plan's ports
+   *  are the filter's, not run B's. Today every micrograph domain's own
+   *  output port has the same name and the two plans coincide (the bench
+   *  pins the equivalence); if a port ever drifts, the rider's contract
+   *  stays honest instead of over-promising. */
+  const excludePlan = useMemo(() => {
+    if (spec.verb !== "exclude" || !spec.adoptTargetType || !effectiveRunB) return null;
+    return planAdoption({
+      edges,
+      jobs: jobs.map((j) => ({ id: j.id, type: j.type, name: j.name })),
+      fromRunId: runAId,
+      toRunId: effectiveRunB,
+      outputPortsOf: (type) =>
+        type === jobById.get(effectiveRunB)?.type
+          ? (jobType(spec.adoptTargetType as string)?.outputs ?? []).map((p) => p.name)
+          : (jobType(type)?.outputs ?? []).map((p) => p.name),
+    });
+  }, [spec, edges, jobs, runAId, effectiveRunB, jobById]);
+  const adoptableExclude =
+    excludePlan != null &&
+    !excludePlan.sameRun &&
+    !excludePlan.noDownstream &&
+    excludePlan.moves.length > 0;
   const adoptable =
     open &&
     !loading &&
@@ -473,6 +507,8 @@ function RunCompareDialog<R extends { name: string }>({
   const adoptTitle = adoptionPlanTitle(adoptionPlan, nameA, nameB);
   const selectTitle =
     selectPlan != null ? adoptionPlanTitle(selectPlan, nameA, nameB) : "";
+  const excludeTitle =
+    excludePlan != null ? adoptionPlanTitle(excludePlan, nameA, nameB) : "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -548,148 +584,38 @@ function RunCompareDialog<R extends { name: string }>({
           </div>
         ) : (
           <>
-            {/* lens chips */}
-            <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Comparison metric">
-              {Object.values(spec.lenses).map((l) => {
-                const active = l.key === lensSpec.key;
-                return (
-                  <button
-                    key={l.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => setLensKey(l.key)}
-                    className={
-                      "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors " +
-                      (active
-                        ? "border-primary/50 bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:text-foreground")
-                    }
-                    title={
-                      l.higherIsBetter
-                        ? `${l.label} — higher is better`
-                        : `${l.label} — lower is better`
-                    }
-                  >
-                    {l.label}
-                    <span className="ml-1 font-normal opacity-70">
-                      {l.higherIsBetter ? "↑ better" : "↓ better"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* lens chips (the shared kit — one-lens domains hide them) */}
+            <LensChips
+              lenses={Object.values(spec.lenses)}
+              activeKey={lensSpec.key}
+              onPick={setLensKey}
+            />
 
             {/* the verdict chips — counts first, then the median */}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded-full bg-teal-600/10 px-2 py-0.5 font-medium text-teal-700 dark:text-teal-400">
-                {analysis.v.improved} {words.better}
-              </span>
-              <span className="rounded-full bg-rose-600/10 px-2 py-0.5 font-medium text-rose-700 dark:text-rose-400">
-                {analysis.v.regressed} {words.worse}
-              </span>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-                {analysis.v.tied} {words.same}
-              </span>
-              <span className="font-medium text-foreground">
-                median Δ {fmtDelta(analysis.v.medianDelta, lensSpec.digits)}
-                {lensSpec.unit}
-              </span>
-              <span className="text-muted-foreground">
-                of {analysis.join.pairs.length} paired
-              </span>
-              {(analysis.join.onlyA.length > 0 || analysis.join.onlyB.length > 0) && (
-                <span
-                  className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-400"
-                  title={
-                    `Only in A: ${analysis.join.onlyA.slice(0, 6).join(", ")}` +
-                    (analysis.join.onlyA.length > 6 ? "…" : "") +
-                    "\n" +
-                    `Only in B: ${analysis.join.onlyB.slice(0, 6).join(", ")}` +
-                    (analysis.join.onlyB.length > 6 ? "…" : "")
-                  }
-                >
-                  unpaired: {analysis.join.onlyA.length} in A · {analysis.join.onlyB.length} in B
-                </span>
-              )}
-            </div>
+            <VerdictChips
+              v={analysis.v}
+              words={words}
+              digits={lensSpec.digits}
+              unit={lensSpec.unit}
+              pairsCount={analysis.join.pairs.length}
+              onlyA={analysis.join.onlyA}
+              onlyB={analysis.join.onlyB}
+            />
 
             {/* the identity scatter — above the 45° line, B beats A (or
                 loses, when the lens says lower is better; the SERIES are
-                pre-split by kind so the palette never lies) */}
-            <div className="h-64 w-full rounded-lg border bg-card p-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
-                  <XAxis
-                    type="number"
-                    dataKey="a"
-                    domain={analysis.domain}
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(v: number) => v.toFixed(lensSpec.digits)}
-                    name={`A · ${nameA}`}
-                  />
-                  <YAxis
-                    type="number"
-                    dataKey="b"
-                    domain={analysis.domain}
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(v: number) => v.toFixed(lensSpec.digits)}
-                    width={52}
-                    name={`B · ${nameB}`}
-                  />
-                  <ZAxis range={[36, 36]} />
-                  <ReferenceLine
-                    segment={[
-                      { x: analysis.domain[0], y: analysis.domain[0] },
-                      { x: analysis.domain[1], y: analysis.domain[1] },
-                    ]}
-                    stroke="currentColor"
-                    strokeDasharray="4 4"
-                    className="text-muted-foreground/60"
-                  />
-                  <Tooltip
-                    cursor={{ strokeDasharray: "3 3" }}
-                    contentStyle={{ fontSize: 11 }}
-                    formatter={(value, name) => [value, name]}
-                    labelFormatter={() => ""}
-                  />
-                  <Scatter
-                    name={`${words.better} (${improvedSeries.length})`}
-                    data={improvedSeries}
-                    dataKey="b"
-                    fill="#0d9488"
-                    fillOpacity={0.75}
-                  />
-                  <Scatter
-                    name={`${words.worse} (${regressedSeries.length})`}
-                    data={regressedSeries}
-                    dataKey="b"
-                    fill="#e11d48"
-                    fillOpacity={0.75}
-                  />
-                  <Scatter
-                    name={`${words.same} (${tiedSeries.length})`}
-                    data={tiedSeries}
-                    dataKey="b"
-                    fill="#94a3b8"
-                    fillOpacity={0.6}
-                  />
-                </ScatterChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="-mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <span className="size-2 rounded-full bg-teal-600" aria-hidden="true" /> {words.better}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="size-2 rounded-full bg-rose-600" aria-hidden="true" /> {words.worse}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="size-2 rounded-full bg-slate-400" aria-hidden="true" /> {words.same}
-              </span>
-              <span>· dashed line = no change (B equals A)</span>
-            </div>
+                pre-split by kind so the palette never lies) — the shared
+                kit's face, identical under both questions */}
+            <IdentityScatter
+              domain={analysis.domain}
+              improved={improvedSeries}
+              regressed={regressedSeries}
+              tied={tiedSeries}
+              words={words}
+              nameA={nameA}
+              nameB={nameB}
+              digits={lensSpec.digits}
+            />
 
             {/* the named witnesses — a verdict you can act on is names */}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -777,16 +703,16 @@ function RunCompareDialog<R extends { name: string }>({
                       className="h-7 gap-1.5 border-rose-300 px-2 text-[11px] hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-950"
                       data-testid="adopt-with-exclude"
                       aria-label={
-                        adoptable
-                          ? `Continue downstream from ${nameB} with ${regressedSeries.length} regressed micrographs excluded — mints an Exclude Micrographs filter and re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs onto it`
-                          : `Continue downstream with these micrographs excluded — unavailable: ${adoptTitle}`
+                        adoptableExclude
+                          ? `Continue downstream from ${nameB} with ${regressedSeries.length} regressed micrographs excluded — mints an Exclude Micrographs filter and re-wires ${excludePlan?.moves.length} of ${nameA}'s downstream jobs onto it`
+                          : `Continue downstream with these micrographs excluded — unavailable: ${excludeTitle}`
                       }
                       title={
-                        adoptable
-                          ? `Bakes the ${regressedSeries.length} regressed micrographs into an Exclude Micrographs filter consuming ${nameB} (editable in the filter's Exclusions tab), then re-wires ${nameA}'s ${adoptionPlan.moves.length} downstream wire${adoptionPlan.moves.length === 1 ? "" : "s"} onto the filter — results stay until re-run`
-                          : adoptTitle
+                        adoptableExclude
+                          ? `Bakes the ${regressedSeries.length} regressed micrographs into an Exclude Micrographs filter consuming ${nameB} (editable in the filter's Exclusions tab), then re-wires ${nameA}'s ${excludePlan?.moves.length} downstream wire${excludePlan?.moves.length === 1 ? "" : "s"} onto the filter — results stay until re-run`
+                          : excludeTitle
                       }
-                      disabled={!adoptable || excluding}
+                      disabled={!adoptableExclude || excluding}
                       onClick={() => {
                         if (!effectiveRunB) return;
                         setExcluding(true);
@@ -898,60 +824,5 @@ function RunCompareDialog<R extends { name: string }>({
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function MoverList({
-  title,
-  deltas,
-  digits,
-  unit,
-  tone,
-}: {
-  title: string;
-  deltas: { name: string; a: number; b: number; delta: number }[];
-  digits: number;
-  unit: string;
-  tone: "teal" | "rose";
-}) {
-  return (
-    <div className="rounded-lg border p-2.5">
-      <div
-        className={
-          "mb-1.5 text-[11px] font-medium " +
-          (tone === "teal" ? "text-teal-700 dark:text-teal-400" : "text-rose-700 dark:text-rose-400")
-        }
-      >
-        {title}
-      </div>
-      {deltas.length === 0 ? (
-        <div className="text-[11px] text-muted-foreground">none — the whole pack moved the other way</div>
-      ) : (
-        <ul className="space-y-1">
-          {deltas.map((d) => (
-            <li key={d.name} className="flex items-baseline justify-between gap-2 text-[11px]">
-              <span className="min-w-0 truncate text-foreground" title={d.name}>
-                {d.name}
-              </span>
-              <span className="shrink-0 font-mono text-muted-foreground">
-                {d.a.toFixed(digits)}
-                {unit} → {d.b.toFixed(digits)}
-                {unit}{" "}
-                <span
-                  className={
-                    tone === "teal"
-                      ? "font-medium text-teal-700 dark:text-teal-400"
-                      : "font-medium text-rose-700 dark:text-rose-400"
-                  }
-                >
-                  ({fmtDelta(d.delta, digits)}
-                  {unit})
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
