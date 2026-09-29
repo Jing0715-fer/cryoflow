@@ -71,6 +71,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { describeSubtreeRun, planSubtreeRun } from "@/lib/subtree-run";
 import { slurmWidthFor } from "@/lib/hpc/gpu-width";
 import type { SlurmNodeUsage } from "@/lib/hpc/slurm-usage";
 import {
@@ -154,6 +156,7 @@ export function RemoteRunButton({
   dialogOnly = false,
   open: openProp,
   onOpenChange,
+  defaultSubtree = false,
 }: {
   job: JobDTO;
   /** render just the dialog (no trigger) — for controlled callers. */
@@ -161,6 +164,9 @@ export function RemoteRunButton({
   /** controlled open state (requires dialogOnly). */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** t448 — when the door opens WITH subtree intent (the stale strip's
+   *  verb), the checkbox starts checked; every other door starts off. */
+  defaultSubtree?: boolean;
 }) {
   const [openState, setOpenState] = React.useState(false);
   const open = dialogOnly ? (openProp ?? false) : openState;
@@ -200,6 +206,23 @@ export function RemoteRunButton({
   const [shards, setShards] = React.useState(1);
   const [customModule, setCustomModule] = React.useState("");
   const [pending, setPending] = React.useState(false);
+  // t448 — the subtree rider: when checked, the submit dispatches this job
+  // AND every downstream node (topo order, one landing at a time). The
+  // intent arrives as a prop (the stale strip's verb opens WITH it);
+  // re-arming on every open follows the file's own door-idiom (connId and
+  // module re-default the same way).
+  const [subtree, setSubtree] = React.useState(false);
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const edges = useWorkflowStore((s) => s.edges);
+  const runSubtree = useWorkflowStore((s) => s.runSubtree);
+  const subtreePlan = React.useMemo(
+    () => planSubtreeRun(jobs, edges, job.id),
+    [jobs, edges, job.id]
+  );
+  React.useEffect(() => {
+    if (!open) return;
+    setSubtree(defaultSubtree && subtreePlan.blocked.length === 0 && subtreePlan.order.length > 1);
+  }, [open, defaultSubtree, subtreePlan]);
   // the nested cluster manager (empty state → add a connection right here)
   const [clusterOpen, setClusterOpen] = React.useState(false);
 
@@ -622,33 +645,56 @@ export function RemoteRunButton({
 
   const submit = async () => {
     if (!conn || pending) return;
+    // one builder, two lanes — the single-job target carries the array
+    // shards; the subtree target deliberately omits them (an array split
+    // on the ROOT while downstream re-runs whole is a semantics soup; the
+    // stepper row hides with the checkbox anyway). Everything else —
+    // module, mode, GPU width law, partition pin law — is ONE truth.
+    const buildTarget = (allowShards: boolean): RemoteRunTarget => ({
+      connectionId: conn.id,
+      module: effectiveModule || null,
+      mode,
+      ...(mode === "slurm"
+        ? {
+            // t320 — a LoG autopick requests no GPUs; omit the width so
+            // the dispatch (and its gpusRequested ledger) hear nothing
+            // but the CPU contract. t326 — the width rides only when it
+            // is REAL (MPI types with an mpirun-capable module); a
+            // 1-GPU truth sends its honest 1, everything else omits
+            // (the dispatch sizes those by its own strategy).
+            ...(logPick || !widthIsReal ? (widthTruth.gpus === 1 ? { gpus: 1 } : {}) : { gpus }),
+            // t340 — while a usage-list pin speaks, the partition
+            // field stays ABSENT — the server resolves the node's OWN
+            // home fresh from scontrol (the freshest word beats any
+            // dialog state, and a stale partition state here could only
+            // compose the contradiction the engine now refuses).
+            ...(nodePin ? {} : partition !== PARTITION_AUTO ? { partition } : {}),
+            // t332 — the explicit node pick from the live usage list
+            ...(nodePin ? { nodelist: nodePin } : {}),
+            ...(allowShards && arrayEligible && shards >= 2
+              ? { shards: Math.min(ARRAY_MAX_SHARDS, shards) }
+              : {}),
+          }
+        : {}),
+    });
+    // t448 — the subtree rider: one target for the whole branch, one
+    // receipt for the whole gesture. The send door closes on SEND (t445's
+    // law, scaled up): the orchestration lives in the store — it survives
+    // this dialog unmounting — and its single receipt speaks the outcome
+    // while the canvas shows the wavefront moving.
+    if (subtree && subtreePlan.blocked.length === 0 && subtreePlan.order.length > 1) {
+      setPending(true);
+      try {
+        void runSubtree(job.id, buildTarget(false));
+        setOpen(false);
+      } finally {
+        setPending(false);
+      }
+      return;
+    }
     setPending(true);
     try {
-      const target: RemoteRunTarget = {
-        connectionId: conn.id,
-        module: effectiveModule || null,
-        mode,
-        ...(mode === "slurm"
-          ? {
-              // t320 — a LoG autopick requests no GPUs; omit the width so
-              // the dispatch (and its gpusRequested ledger) hear nothing
-              // but the CPU contract. t326 — the width rides only when it
-              // is REAL (MPI types with an mpirun-capable module); a
-              // 1-GPU truth sends its honest 1, everything else omits
-              // (the dispatch sizes those by its own strategy).
-              ...(logPick || !widthIsReal ? (widthTruth.gpus === 1 ? { gpus: 1 } : {}) : { gpus }),
-              // t340 — while a usage-list pin speaks, the partition
-              // field stays ABSENT — the server resolves the node's OWN
-              // home fresh from scontrol (the freshest word beats any
-              // dialog state, and a stale partition state here could only
-              // compose the contradiction the engine now refuses).
-              ...(nodePin ? {} : partition !== PARTITION_AUTO ? { partition } : {}),
-              // t332 — the explicit node pick from the live usage list
-              ...(nodePin ? { nodelist: nodePin } : {}),
-              ...(arrayEligible && shards >= 2 ? { shards: Math.min(ARRAY_MAX_SHARDS, shards) } : {}),
-            }
-          : {}),
-      };
+      const target = buildTarget(true);
       const ok = await runJobRemote(job.id, target);
       if (ok) setOpen(false);
     } finally {
@@ -1055,6 +1101,39 @@ export function RemoteRunButton({
                   ) : (
                     gpuWidthRow
                   )}
+                </section>
+              ) : null}
+
+              {/* t448 — the subtree rider: the wavefront's verb rides the
+                  cluster door. Renders only when the job FEEDS someone (a
+                  leaf hides the section — a no-op checkbox is noise); the
+                  blocked sentence names the churning node and the checkbox
+                  stands down. One target for the branch, one receipt for
+                  the gesture — the per-node send doors go quiet. */}
+              {subtreePlan.order.length > 1 ? (
+                <section
+                  className="space-y-1.5 rounded-lg border bg-muted/30 p-3"
+                  data-subtree-row=""
+                >
+                  <label className="flex items-start gap-2.5">
+                    <Checkbox
+                      checked={subtree}
+                      disabled={subtreePlan.blocked.length > 0}
+                      onCheckedChange={(v) => setSubtree(v === true)}
+                      className="mt-0.5"
+                      aria-label="Also re-run the downstream subtree"
+                      data-testid="subtree-toggle"
+                    />
+                    <span className="min-w-0 space-y-0.5">
+                      <span className="block text-xs font-medium text-foreground/90">
+                        Also re-run {subtreePlan.order.length - 1} downstream{" "}
+                        {subtreePlan.order.length - 1 === 1 ? "job" : "jobs"} in run order
+                      </span>
+                      <span className="block text-[10.5px] leading-snug text-muted-foreground/85" data-testid="subtree-sentence">
+                        {describeSubtreeRun(subtreePlan)}
+                      </span>
+                    </span>
+                  </label>
                 </section>
               ) : null}
 

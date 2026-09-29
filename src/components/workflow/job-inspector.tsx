@@ -88,6 +88,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
+import { planSubtreeRun } from "@/lib/subtree-run";
 import { jobType, tabsFor } from "@/lib/workflow";
 import { RELION_OPTIONS } from "@/lib/relion/option-tables";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
@@ -2410,6 +2411,18 @@ function InspectorHeader({
    *  two doors: the toolbar's server icon and the Re-run context both open
    *  it; the old ▾ mode menu is retired). */
   const [clusterRunOpen, setClusterRunOpen] = React.useState(false);
+  // t448 — the strip's verb opens the cluster door WITH subtree intent:
+  // the checkbox starts checked when the door comes from the wavefront
+  // (the strip says the results predates an upstream — the natural fix is
+  // this-and-everything-downstream); the plain server icon opens WITHOUT
+  // it. One dialog, two intents.
+  const [subtreeIntent, setSubtreeIntent] = React.useState(false);
+  // the subtree plan for THIS job — the strip's verb shows the real size
+  // ("Re-run subtree (N)"), the same brain the dialog's checkbox speaks
+  const subtreePlan = React.useMemo(
+    () => planSubtreeRun(jobs, edges, job.id),
+    [jobs, edges, job.id]
+  );
   /** t331 — the intermediates-cleanup door (preview + execute, local +
    *  cluster): opens from the toolbar's eraser icon. */
   const [cleanupOpen, setCleanupOpen] = React.useState(false);
@@ -2717,13 +2730,22 @@ function InspectorHeader({
               variant="ghost"
               size="icon"
               className="relative size-7 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
-              onClick={() => setClusterRunOpen(true)}
+              onClick={() => {
+                setSubtreeIntent(false);
+                setClusterRunOpen(true);
+              }}
               aria-label="Run on cluster (SSH)"
               title="Run on cluster (SSH)"
             >
               <Server className="size-3.5" aria-hidden="true" />
             </Button>
-            <RemoteRunButton job={job} dialogOnly open={clusterRunOpen} onOpenChange={setClusterRunOpen} />
+            <RemoteRunButton
+              job={job}
+              dialogOnly
+              open={clusterRunOpen}
+              onOpenChange={setClusterRunOpen}
+              defaultSubtree={subtreeIntent}
+            />
             {/* t331 — intermediates cleanup (local + cluster): the eraser
                 door. Informational like the occupancy panel, destructive
                 only through its own two-step confirm. */}
@@ -2819,6 +2841,7 @@ function InspectorHeader({
           the alarm is the exception. */}
       {staleInfo ? (() => {
         const d = describeStaleness(staleInfo);
+        const feeds = subtreePlan.order.length > 1;
         return (
           <div
             role="note"
@@ -2829,6 +2852,25 @@ function InspectorHeader({
             <History className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
             <span className="font-medium text-foreground/90">{d.short}</span>
             <span className="min-w-0">{d.long}</span>
+            {feeds ? (
+              /* t448 — the wavefront's verb lives where the sentence lives:
+                  the strip says the results predates an upstream's latest
+                  run; the button offers the fix that matches the truth —
+                  this job AND everything it feeds, one lane, one receipt. */
+              <button
+                type="button"
+                data-testid="stale-subtree-verb"
+                onClick={() => {
+                  setSubtreeIntent(true);
+                  setClusterRunOpen(true);
+                }}
+                title="Re-run this job and every downstream job on the cluster — the door opens with the subtree rider checked"
+                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-amber-500/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-400"
+              >
+                <Play className="size-3 shrink-0" aria-hidden="true" />
+                Re-run subtree ({subtreePlan.order.length})
+              </button>
+            ) : null}
           </div>
         );
       })() : null}

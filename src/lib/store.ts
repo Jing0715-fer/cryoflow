@@ -20,6 +20,7 @@ import { describeAdoption, planAdoption } from "./adopt-branch";
 import { findStaleJobs, type StaleReport } from "./staleness";
 import { findDriftedJobs, type DriftReport } from "./params-drift";
 import { twinName, twinNamesFor } from "./twin-name";
+import { describeSubtreeRun, planSubtreeRun } from "./subtree-run";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -798,12 +799,18 @@ interface WorkflowState {
    * ▾ "Run on this machine") — it meets the engine's honest cluster-resident
    * refusal instead of spawning through the WSL bridge.
    */
-  runJob: (id: string, opts?: { local?: boolean }) => Promise<boolean>;
+  runJob: (id: string, opts?: { local?: boolean; quiet?: boolean }) => Promise<boolean>;
   /** POST /run with { remote } — dispatch the job to an SSH cluster
    *  connection (module load relion/x, direct nohup run). Same response
    *  dialect as runJob (409 busy kinds, waiting/staging, honest engine
    *  errors) with cluster-flavored toasts. */
-  runJobRemote: (id: string, target: RemoteRunTarget) => Promise<boolean>;
+  runJobRemote: (id: string, target: RemoteRunTarget, opts?: { quiet?: boolean }) => Promise<boolean>;
+  /** t448 — the wavefront's verb: re-run this job and every DOWNSTREAM
+   *  node in topological order, one node at a time — each dispatch lands
+   *  (terminal status) before the next fires, so a child never starts
+   *  inside its parent's churn. `target` null = local lane. Stops at the
+   *  first refusal; the receipt names the frontier. */
+  runSubtree: (rootId: string, target: RemoteRunTarget | null) => Promise<boolean>;
   /** POST /stop — SIGTERM→SIGKILL the job's process tree; re-run resumes
    *  refine-family jobs from their checkpoint via RELION --continue. */
   stopJob: (id: string) => Promise<void>;
@@ -1191,6 +1198,32 @@ export function registerParamFlusher(
     // mount for the same job may have replaced it)
     if (paramFlushers.get(jobId) === flush) paramFlushers.delete(jobId);
   };
+}
+
+/**
+ * t448 — the subtree orchestration's landing wait. The world's own 1.2s
+ * pollTick keeps the store's jobs fresh; this helper rides that channel
+ * (zero extra fetches) and resolves the moment the node reaches ANY
+ * non-churn status — completed, failed, idle (a stop is a landing too:
+ * the user intervened, the orchestration must not fight them). The
+ * per-node budget is generous (real cluster jobs legitimately run long);
+ * the timeout's status reads as still-churning so the frontier receipt
+ * says the truth: the node never landed, the rest did not re-run.
+ */
+const SUBTREE_POLL_MS = 1200;
+const SUBTREE_NODE_BUDGET_MS = 20 * 60 * 1000;
+
+async function awaitSubtreeTerminal(id: string): Promise<{ status: string; timedOut: boolean }> {
+  const deadline = Date.now() + SUBTREE_NODE_BUDGET_MS;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, SUBTREE_POLL_MS));
+    const j = useWorkflowStore.getState().jobs.find((x) => x.id === id);
+    const status = j?.status ?? "unknown";
+    if (status !== "pending" && status !== "running") {
+      return { status, timedOut: false };
+    }
+  }
+  return { status: "running", timedOut: true };
 }
 
 async function flushJobParams(jobId: string): Promise<void> {
@@ -2614,12 +2647,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         if (res.status === 409 && data.busyKind === "live") {
           // a live process is a HEALTHY state — inform, don't alarm. (The
           // old destructive face punished the user for a job that was
-          // running perfectly well.)
-          toast({
-            title: "Already running",
-            description:
-              data.error ?? "A process for this job is alive — nothing was started again.",
-          });
+          // running perfectly well.) Quiet lanes (the subtree orchestration)
+          // stay silent — the frontier receipt speaks once for the gesture.
+          if (!opts?.quiet)
+            toast({
+              title: "Already running",
+              description:
+                data.error ?? "A process for this job is alive — nothing was started again.",
+            });
           return false;
         }
         // every other refusal (400 linked copy, 404, 500) is a REAL one —
@@ -2631,35 +2666,41 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         // job went PENDING — an upstream job failed or is still running;
         // not an error, the result line explains what to fix/re-run. It
         // auto-starts the moment the upstream inputs land — no re-click.
-        toast({
-          title: "Job waiting as pending",
-          description:
-            (started?.result ?? "Waiting for its upstream job to produce outputs.") +
-            " It starts automatically once ready.",
-        });
-        // show the waiting reason where the user is looking
-        set({ inspectId: id, selectedId: null, selectedIds: [] });
+        if (!opts?.quiet)
+          toast({
+            title: "Job waiting as pending",
+            description:
+              (started?.result ?? "Waiting for its upstream job to produce outputs.") +
+              " It starts automatically once ready.",
+          });
+        // show the waiting reason where the user is looking (the quiet
+        // orchestration never steers the camera — its receipt speaks)
+        if (!opts?.quiet) set({ inspectId: id, selectedId: null, selectedIds: [] });
         return false;
       }
       if (data.error) {
         // honest real-engine failure — surfaced via the job result too
-        toast({
-          title: "Real engine refused to start",
-          description: data.error,
-          variant: "destructive",
-        });
+        if (!opts?.quiet)
+          toast({
+            title: "Real engine refused to start",
+            description: data.error,
+            variant: "destructive",
+          });
         return false;
       }
-      toast(
-        started?.runRemote
-          ? {
-              title: "Job sent to cluster",
-              description: `${started?.name ?? "Job"} → ${started.runRemote.user}@${started.runRemote.host}`,
-            }
-          : { title: "Job started", description: `${started?.name ?? "Job"} is now running` }
-      );
-      // CryoSPARC-style: submitting a job opens its inspector page
-      set({ inspectId: id, selectedId: null, selectedIds: [] });
+      if (!opts?.quiet)
+        toast(
+          started?.runRemote
+            ? {
+                title: "Job sent to cluster",
+                description: `${started?.name ?? "Job"} → ${started.runRemote.user}@${started.runRemote.host}`,
+              }
+            : { title: "Job started", description: `${started?.name ?? "Job"} is now running` }
+        );
+      // CryoSPARC-style: submitting a job opens its inspector page (the
+      // quiet orchestration does NOT steer — the user is already looking
+      // at the subtree's root)
+      if (!opts?.quiet) set({ inspectId: id, selectedId: null, selectedIds: [] });
       return true;
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to run job");
@@ -2667,7 +2708,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  runJobRemote: async (id, target) => {
+  runJobRemote: async (id, target, opts) => {
     // flush any pending (debounced) parameter edits FIRST — identical
     // rationale to runJob: the cluster run must start with exactly what
     // the user sees in the form
@@ -2701,12 +2742,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           return false;
         }
         if (res.status === 409 && data.busyKind === "live") {
-          // a live process is a HEALTHY state — inform, don't alarm
-          toast({
-            title: "Already running",
-            description:
-              data.error ?? "A process for this job is alive — nothing was started again.",
-          });
+          // a live process is a HEALTHY state — inform, don't alarm. Quiet
+          // lanes (the subtree orchestration) stay silent — the frontier
+          // receipt speaks once for the gesture.
+          if (!opts?.quiet)
+            toast({
+              title: "Already running",
+              description:
+                data.error ?? "A process for this job is alive — nothing was started again.",
+            });
           return false;
         }
         throw new Error(data?.error ?? `Request failed (${res.status})`);
@@ -2717,13 +2761,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         // job went PENDING on the cluster path — upstream inputs are being
         // staged / an upstream job has not landed yet; it auto-starts the
         // moment the inputs are in place, no re-click
-        toast({
-          title: "Sent to cluster",
-          description:
-            (started?.result ?? "Waiting for its upstream job to produce outputs.") +
-            " It starts automatically once inputs are staged.",
-        });
-        set({ inspectId: id, selectedId: null, selectedIds: [] });
+        if (!opts?.quiet)
+          toast({
+            title: "Sent to cluster",
+            description:
+              (started?.result ?? "Waiting for its upstream job to produce outputs.") +
+              " It starts automatically once inputs are staged.",
+          });
+        if (!opts?.quiet) set({ inspectId: id, selectedId: null, selectedIds: [] });
         // t445 — the return value's contract is "the dispatch was
         // ACCEPTED", not "the process is running". Staging IS acceptance:
         // the cluster has the job and the pipeliner owns it now. The
@@ -2735,30 +2780,117 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
       if (data.error) {
         // honest remote-engine refusal — surfaced via the job result too
-        toast({
-          title: "Cluster refused to start the job",
-          description: data.error,
-          variant: "destructive",
-        });
+        if (!opts?.quiet)
+          toast({
+            title: "Cluster refused to start the job",
+            description: data.error,
+            variant: "destructive",
+          });
         return false;
       }
-      toast({
-        title: "Job sent to cluster",
-        description: info
-          ? `${started?.name ?? "Job"} → ${info.user}@${info.host}`
-          : `${started?.name ?? "Job"} sent to the cluster`,
-      });
-      // same landing as runJob: the inspector follows the job
-      set({ inspectId: id, selectedId: null, selectedIds: [] });
+      if (!opts?.quiet)
+        toast({
+          title: "Job sent to cluster",
+          description: info
+            ? `${started?.name ?? "Job"} → ${info.user}@${info.host}`
+            : `${started?.name ?? "Job"} sent to the cluster`,
+        });
+      // same landing as runJob: the inspector follows the job (the quiet
+      // orchestration does NOT steer — its receipt speaks once)
+      if (!opts?.quiet) set({ inspectId: id, selectedId: null, selectedIds: [] });
       return true;
     } catch (err) {
+      // the quiet lane's refusals surface through the frontier receipt —
+      // the loop reads the job's own result line, which carries the same
+      // honest message the server set here
+      if (!opts?.quiet)
+        toast({
+          title: "Cluster refused to start the job",
+          description: err instanceof Error ? err.message : "Failed to run job on cluster",
+          variant: "destructive",
+        });
+      return false;
+    }
+  },
+
+  runSubtree: async (rootId, target) => {
+    // the brain plans from the live world — the dialog's checkbox showed a
+    // plan, but the world may have drifted (a node started churning) since
+    // it rendered; THIS plan is the authoritative one
+    const plan = planSubtreeRun(get().jobs, get().edges, rootId);
+    if (plan.order.length === 0) {
+      errToast("Nothing to re-run — this job is not on the canvas");
+      return false;
+    }
+    if (plan.blocked.length > 0) {
+      // the refusal sentence names the churning node(s) — t441 walk law
+      errToast(describeSubtreeRun(plan));
+      return false;
+    }
+    const total = plan.order.length;
+    let done = 0;
+    let frontier: { name: string; reason: string } | null = null;
+    for (const node of plan.order) {
+      // quiet lanes: the per-node send doors stay silent (no toast, no
+      // camera steering) — the orchestration's ONE receipt speaks for the
+      // whole gesture (t146 aggregation law)
+      let accepted = false;
+      try {
+        accepted = target
+          ? await get().runJobRemote(node.id, target, { quiet: true })
+          : await get().runJob(node.id, { local: true, quiet: true });
+      } catch (err) {
+        frontier = {
+          name: node.name,
+          reason: err instanceof Error ? err.message : "its lane refused the dispatch",
+        };
+        break;
+      }
+      if (!accepted) {
+        const j = get().jobs.find((x) => x.id === node.id);
+        frontier = {
+          name: node.name,
+          reason: j?.result?.slice(0, 140) || "its lane refused the dispatch",
+        };
+        break;
+      }
+      // the landing law: a child never starts inside its parent's churn —
+      // wait for THIS node's terminal state before the next dispatch
+      const landed = await awaitSubtreeTerminal(node.id);
+      if (landed.status !== "completed") {
+        frontier = {
+          name: node.name,
+          reason: landed.timedOut
+            ? "still running after 20 min — the subtree stopped waiting; its downstream did not re-run"
+            : landed.status === "failed"
+              ? "the run failed"
+              : `stopped while ${landed.status}`,
+        };
+        break;
+      }
+      done += 1;
+    }
+    if (frontier) {
       toast({
-        title: "Cluster refused to start the job",
-        description: err instanceof Error ? err.message : "Failed to run job on cluster",
+        title: `Subtree stopped at ${frontier.name} — ${done} of ${total} re-ran`,
+        description: frontier.reason,
         variant: "destructive",
+        duration: 20_000,
       });
       return false;
     }
+    toast({
+      title: `Subtree re-ran — ${total} job${total === 1 ? "" : "s"} refreshed`,
+      description:
+        plan.order.length === 1
+          ? `${plan.order[0].name} is up to date again`
+          : `Run order: ${plan.order
+              .slice(0, 4)
+              .map((n) => n.name)
+              .join(" → ")}${total > 4 ? ` … and ${total - 4} more` : ""}`,
+      duration: 20_000,
+    });
+    return true;
   },
 
   stopJob: async (id) => {
