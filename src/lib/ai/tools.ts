@@ -34,7 +34,7 @@ import { allAdjacency, portsValid } from "@/lib/edge-ports";
 import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
-import { getConnection } from "@/lib/remote/connections";
+import { getConnection, loadConnections } from "@/lib/remote/connections";
 import { startJob } from "@/lib/relion/dispatch";
 import { getRun, latestIterationDataStar, stopRun } from "@/lib/relion/engine";
 import { remoteInfoFor, remoteStopRun } from "@/lib/remote/remote-run";
@@ -140,6 +140,12 @@ export const AI_TOOLS: ToolSchema[] = [
     name: "get_workflow_state",
     description:
       "The active project's canvas: project info (name, mode, cluster binding), workspaces, every job (id, type, name, status, progress, position, result line) and every wire (from → to with ports). ALWAYS call this first when the user refers to existing jobs.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "list_clusters",
+    description:
+      "Read the SSH cluster registry — the Remote clusters dialog's own roll call: each saved connection's name, host, auth shape (booleans only, never secrets), remote root, Slurm flag, default RELION module, its LAST probe's truth (reachable / probe-failed with the error line / never-tested — each probe block carries checkedAt; quote the timestamp when health matters, clusters are probed when tested or dispatched, never by this read) and whether the ACTIVE project is bound to it. Also answers 'which cluster would run_job mode:'cluster' dispatch to?' via the project binding.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -653,6 +659,8 @@ export async function executeAiTool(
         return getJobParams(String(args.job_type ?? ""));
       case "get_workflow_state":
         return await getWorkflowState(ctx);
+      case "list_clusters":
+        return await listClustersTool(ctx);
       case "get_funnel_chain":
         return await getFunnelChain(ctx, typeof args.job_id === "string" ? args.job_id : "");
       case "compare_jobs":
@@ -780,6 +788,78 @@ async function getWorkflowState(ctx: AgentCtx): Promise<AiToolResult> {
         y: j.y,
       })),
       wires: edges.map((e) => ({ from: e.fromJobId, to: e.toJobId })),
+    },
+  };
+}
+
+/* ---- list_clusters ------------------------------------------------- */
+
+async function listClustersTool(ctx: AgentCtx): Promise<AiToolResult> {
+  const conns = loadConnections();
+  const active = await getActiveProject();
+  const boundId = active?.meta.remote?.connectionId ?? null;
+  const boundConn = boundId ? conns.find((c) => c.id === boundId) ?? null : null;
+
+  if (conns.length === 0) {
+    return {
+      ok: true,
+      summary: boundId
+        ? `No clusters in the registry — the project still points at connection ${boundId}, which no longer exists`
+        : "No clusters in the registry — save one in the Remote clusters dialog first",
+      detail: {
+        projectBinding: boundId ? { connectionId: boundId, missing: true } : null,
+        roster: [],
+        note: "runs can still go mode:'local' — the cluster roster is empty",
+      },
+    };
+  }
+
+  const roster = conns.map((c) => {
+    const p = c.lastProbe;
+    return {
+      id: c.id,
+      name: c.name || `${c.username}@${c.host}`,
+      host: `${c.username}@${c.host}:${c.port}`,
+      // the dialog DTO's secret shape: booleans only, never the secrets
+      auth: { method: c.authMethod, hasPassword: !!c.password, hasPassphrase: !!c.passphrase },
+      remoteRoot: c.remoteRoot,
+      useSlurm: c.useSlurm,
+      defaultModule: c.defaultModule,
+      projectBound: c.id === boundId,
+      probe: p
+        ? {
+            // the dialog rail's three-word law (t268's probeDot): reachable /
+            // probe-failed / never-tested — a probe's truth has a birthday
+            state: p.ok ? "reachable" : "probe-failed",
+            checkedAt: p.checkedAt,
+            durationMs: p.durationMs ?? null,
+            error: p.ok ? null : (p.error ?? "the probe failed without a reason line"),
+            moduleSystem: p.moduleSystem,
+            relionModules: p.relionModules,
+            slurm: p.slurm === true,
+            gpus: p.gpus?.length ?? 0,
+          }
+        : null,
+    };
+  });
+
+  const reachable = roster.filter((r) => r.probe?.state === "reachable").length;
+  const boundName = boundConn ? boundConn.name || `${boundConn.username}@${boundConn.host}` : null;
+  const summary =
+    `${roster.length} cluster${roster.length === 1 ? "" : "s"} in the registry, ${reachable} reachable by last probe; ` +
+    (boundName
+      ? `the active project dispatches to "${boundName}" (run_job mode:'cluster')`
+      : boundId
+        ? `the project still points at connection ${boundId}, which no longer exists — rebind in the project panel before dispatching`
+        : "the active project has no cluster bound (mode:'cluster' would refuse)");
+
+  return {
+    ok: true,
+    summary,
+    detail: {
+      projectBinding: boundId ? { connectionId: boundId, name: boundName, missing: !boundConn } : null,
+      roster,
+      note: "probe facts are the LAST probe's truth — quote checkedAt when health matters; a fresh probe is the dialog's Test button or the dispatch's own gate, not this read",
     },
   };
 }

@@ -91,8 +91,8 @@ console.log("T1. the catalog wears the verb");
 const cont = AI_TOOLS.find((t) => t.name === "continue_run");
 must(cont != null, "T1a: continue_run is in the catalog (the 18th tool)");
 must(
-  AI_TOOLS.length === 18 && new Set(AI_TOOLS.map((t) => t.name)).size === 18,
-  `T1b: 18 unique tools (got ${AI_TOOLS.length})`,
+  AI_TOOLS.length === 19 && new Set(AI_TOOLS.map((t) => t.name)).size === 19,
+  `T1b: 19 unique tools (got ${AI_TOOLS.length})`,
 );
 const contParams = (cont?.parameters ?? {}) as {
   properties?: Record<string, unknown>;
@@ -528,8 +528,8 @@ console.log("T7. the prompt wears the CONTINUE LAW");
     "T7c: the verdict → verb chain is stated as one chain",
   );
   must(
-    p.includes("11. After run_job or continue_run") && p.includes("12. delete_job refuses") && p.includes("13. After tool calls"),
-    "T7d: the doctrine renumbered cleanly (11/12/13 intact)",
+    p.includes("12. After run_job or continue_run") && p.includes("13. delete_job refuses") && p.includes("14. After tool calls"),
+    "T7d: the doctrine renumbered cleanly (t475's cluster law sits at 11, wait/delete/narrate moved to 12/13/14)",
   );
 }
 
