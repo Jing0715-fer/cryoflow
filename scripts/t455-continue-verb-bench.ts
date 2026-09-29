@@ -133,7 +133,8 @@ eq(totalIterationsOf(0, 10), 10, "CQ4b from zero");
 eq(ceilingFor("class2d", false), 50, "CQ4c class2d EM ceiling 50");
 eq(ceilingFor("class2d", true), 500, "CQ4d class2d VDAM ceiling 500");
 eq(ceilingFor("class3d", false), 100, "CQ4e class3d ceiling 100");
-ok(!Number.isFinite(ceilingFor("refine3d", false)), "CQ4f unknown shapes clamp nowhere");
+eq(ceilingFor("refine3d", false), 50, "CQ4f refine3d's ceiling landed in t456 (the verb's reach grew)");
+ok(!Number.isFinite(ceilingFor("polish", false)), "CQ4g truly unknown shapes clamp nowhere");
 
 /* ---------------------------------------------------------------- */
 /* CQ5 — the stepper: two domains, two scales.                       */

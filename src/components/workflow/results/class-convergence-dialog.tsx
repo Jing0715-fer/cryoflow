@@ -38,7 +38,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { History, Loader2, Play, TriangleAlert } from "lucide-react";
+import { History, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -55,23 +55,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { JobDTO } from "@/lib/types";
-import { useWorkflowStore } from "@/lib/store";
 import {
   CLASS_LENSES,
   CLASS_WORDS,
   classRunRow,
   type ClassRunRow,
 } from "@/lib/class-compare";
-import {
-  checkpointOf,
-  continueLaneOf,
-  continuePlanOf,
-  continueParamWrites,
-  iterKnobOf,
-  moreOptionsFor,
-  selfScanErrorOf,
-  type ContinueSourceLite,
-} from "@/lib/convergence-continue";
+import { ContinueVerbRow } from "./continue-verb-row";
 import {
   joinByName,
   pairedDeltas,
@@ -105,16 +95,6 @@ async function fetchRounds(jobId: string): Promise<number[]> {
     iterations?: number[];
   };
   return data.iterations ?? [];
-}
-
-/** The verb's data plane — the panel picker's own route (t394). The
- *  shapes are structural mirrors (convergence-continue.ts); the route
- *  itself never throws, sources carry their own errors. */
-async function fetchContinueSources(jobId: string): Promise<ContinueSourceLite[]> {
-  const data = (await fetchJson(
-    `/api/jobs/${jobId}/continue-sources`,
-  )) as { sources?: ContinueSourceLite[] };
-  return data.sources ?? [];
 }
 
 /** One round's occupancy — the classes route with an explicit ?iter=. */
@@ -183,180 +163,6 @@ export function ClassConvergenceEntry({ job }: { job: JobDTO }) {
         initialPair={pair}
       />
     </>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* The continue verb — the verdict's one RELION-native mutation.       */
-/* ------------------------------------------------------------------ */
-
-/**
- * t455 — the verb row. Reads the run's own checkpoints (the panel
- * picker's t394 route), assembles the continue plan (RELION's total
- * arithmetic clamped to the form's ceilings), and fires: a silent
- * params write (fn_cont + the --iter knob) followed by the same runJob
- * the panel's Run button speaks. No complete checkpoint (or a failed
- * scan) → the verb stays absent with its honest why — the t454 law.
- */
-function ContinueVerbRow({
-  job,
-  onDone,
-}: {
-  job: JobDTO;
-  onDone: () => void;
-}) {
-  const saveJob = useWorkflowStore((s) => s.saveJob);
-  const runJob = useWorkflowStore((s) => s.runJob);
-  const runJobRemote = useWorkflowStore((s) => s.runJobRemote);
-  // the verb speaks the job's own lane — a cluster checkpoint continues
-  // on the cluster (the fn_cont path IS a cluster path; a local dispatch
-  // could never read it), a local one stays local
-  const lane = useMemo(() => continueLaneOf(job), [job]);
-  const [sources, setSources] = useState<ContinueSourceLite[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [more, setMore] = useState<number | null>(null);
-  const [firing, setFiring] = useState(false);
-  const [fireError, setFireError] = useState<string | null>(null);
-
-  // mounted only while the dialog's loaded face shows — one cheap GET
-  // per open, the same economy the door's ladder fetch rides
-  useEffect(() => {
-    let alive = true;
-    fetchContinueSources(job.id)
-      .then((s) => {
-        if (alive) setSources(s);
-      })
-      .catch((err: unknown) => {
-        if (alive) setLoadError(err instanceof Error ? err.message : String(err));
-      });
-    return () => {
-      alive = false;
-    };
-  }, [job.id]);
-
-  const scanError = useMemo(() => selfScanErrorOf(sources ?? undefined), [sources]);
-  const checkpoint = useMemo(() => checkpointOf(sources ?? undefined), [sources]);
-  const knob = useMemo(() => iterKnobOf(job.type, job.params), [job.type, job.params]);
-  const options = useMemo(() => moreOptionsFor(knob?.vdam ?? false), [knob]);
-  const chosen = more ?? options[0] ?? 0;
-  const plan = useMemo(
-    () =>
-      checkpoint
-        ? continuePlanOf({ type: job.type, params: job.params, checkpoint, more: chosen })
-        : null,
-    [checkpoint, job.type, job.params, chosen],
-  );
-
-  const fire = async () => {
-    if (!plan || firing) return;
-    setFiring(true);
-    setFireError(null);
-    try {
-      const saved = await saveJob(job.id, { params: continueParamWrites(plan) }, { silent: true });
-      if (!saved.ok) {
-        setFireError(saved.error ?? "the parameter write refused");
-        return;
-      }
-      if (lane) {
-        await runJobRemote(job.id, lane);
-      } else {
-        await runJob(job.id);
-      }
-      onDone(); // the canvas follows the run — the dialog steps aside
-    } catch {
-      setFireError("the run refused to start");
-    } finally {
-      setFiring(false);
-    }
-  };
-
-  if (loadError) {
-    return (
-      <div className="flex items-start gap-2 rounded-lg border border-dashed p-3 text-[11px] text-muted-foreground">
-        <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-        The checkpoints could not be read ({loadError}) — the continue verb stays
-        absent rather than guessing.
-      </div>
-    );
-  }
-  if (!sources) {
-    return (
-      <div className="flex h-10 items-center justify-center text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-      </div>
-    );
-  }
-  if (!checkpoint || !plan || !knob) {
-    return (
-      <div className="flex items-start gap-2 rounded-lg border border-dashed p-3 text-[11px] text-muted-foreground">
-        <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-        {scanError
-          ? `The run directory could not be read (${scanError}) — the continue verb stays absent rather than guessing.`
-          : "No complete checkpoint in this run's own directory — RELION --continue needs the optimiser.star family. The verdict stays a reading."}
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-lg border bg-muted/30 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Play className="size-3.5 text-primary" aria-hidden="true" />
-        <span className="text-xs font-medium text-foreground">Continue with more iterations</span>
-        <div className="flex items-center gap-1" role="group" aria-label="More iterations">
-          {options.map((n) => {
-            const active = n === chosen;
-            return (
-              <button
-                key={n}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setMore(n)}
-                className={
-                  "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors " +
-                  (active
-                    ? "border-primary/50 bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground")
-                }
-              >
-                +{n}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <div className="mt-1.5 text-[11px] text-muted-foreground">
-        Resumes from {roundLabel(plan.checkpoint.iteration)} — the run&apos;s newest
-        complete checkpoint{plan.checkpoint.archived ? " (archived generation)" : ""}.
-      </div>
-      <div className="mt-0.5 text-[11px] text-muted-foreground">
-        <span className="font-mono">
-          {knob.current} + {chosen} → {plan.totalIter}
-        </span>{" "}
-        {plan.checkpoint.iteration === knob.current ? "iterations" : "rounds → iterations"} total
-        (RELION&apos;s --iter is the TOTAL)
-        {plan.clamped ? " — reaching the form's ceiling" : ""}.
-      </div>
-      {fireError ? (
-        <div className="mt-2 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-[11px] text-destructive">
-          <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-          {fireError}
-        </div>
-      ) : null}
-      <div className="mt-2 flex items-center gap-3">
-        <Button size="sm" className="h-7" onClick={fire} disabled={firing}>
-          {firing ? (
-            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-          ) : (
-            <Play className="size-3.5" aria-hidden="true" />
-          )}
-          Continue the run
-        </Button>
-        <p className="text-[11px] text-muted-foreground">
-          Fires RELION <span className="font-mono">--continue</span> from the checkpoint —
-          the verdict stays a reading until you fire it.
-        </p>
-      </div>
-    </div>
   );
 }
 

@@ -12,6 +12,7 @@ run_data.star with a class column appended (provenance: the classes
 describe exactly the particles the merged star listed, in the same
 order). A missing --i refuses to invent particles.
 """
+import math
 import os
 import struct
 import sys
@@ -50,6 +51,53 @@ outdir = outdir.rstrip("/").rstrip("/")
 if outdir.endswith("/run"):
     outdir = outdir[: -len("/run")]
 os.makedirs(outdir, exist_ok=True)
+
+# t456 — the resolution arc's own law: a deterministic, monotonically
+# improving FSC estimate per iteration. A real relion_refine writes
+# _rlnCurrentResolution into every run_itNNN_model.star's
+# data_model_general block (MlModel::write), and the gold-standard half1
+# star carries the round's FSC table whose 0.143 crossing IS that
+# estimate. The mock never wrote either — the fsc chart starved and no
+# per-round resolution arc could exist.
+def arc_resolution(it):
+    # 28.0 Å at it000 → 4.2 Å at it015 → 3.4 Å at it025 — auto-refine's
+    # own diminishing-returns shape, deterministic across reruns.
+    return 3.2 + 24.8 * math.exp(-it / 6.5)
+
+def fsc_table_rows(res_ang):
+    # fsc(f) = 1/(1 + (1.3478·res·f)^6): the 0.143 crossing lands exactly
+    # at f = 1/res (1.3478^6 = 5.993 = 1/0.143 − 1) — the table and the
+    # estimate never contradict each other.
+    rows = []
+    f = 0.006
+    while f < 1.0 / 2.6:
+        fscv = 1.0 / (1.0 + (1.3478 * res_ang * f) ** 6)
+        rows.append((f, 1.0 / f, fscv))
+        f *= 1.18
+    return rows
+
+def fsc_loop_text(res_ang):
+    rows = fsc_table_rows(res_ang)
+    # NO blank line between the column headers and the first row — a real
+    # RELION loop block is contiguous, and the app's loop parser breaks a
+    # table at the first blank line after its headers
+    out = "\n\ndata_model_half1\n\nloop_\n_rlnResolution #1\n_rlnAngstromResolution #2\n_rlnGoldStandardFsc #3\n"
+    for f, ang, fscv in rows:
+        out += f"{f:.6f} {ang:.2f} {fscv:.4f}\n"
+    return out
+
+def model_general_text(res_ang, with_fsc):
+    # the general block every reader shares; with_fsc appends the round's
+    # gold FSC loop (the fsc route's candidate ladder parses one loop
+    # table per file — half1 in the gold dialect, the plain model star
+    # in the serial dialect)
+    t = (
+        "\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n"
+        f"_rlnCurrentResolution {res_ang:.2f}\n"
+    )
+    if with_fsc:
+        t += fsc_loop_text(res_ang)
+    return t
 
 def write_mrc(path, nx, ny, nz, seed, kind="volume"):  # noqa: F811 — legacy writer (kept for byte-compat; t377-merge keeps the t373 kind= polarity hint)
     """Minimal valid MRC (mode 2, float32) — enough for header readers.
@@ -205,10 +253,15 @@ if isinstance(_cont, str) and _cont.strip():
         write_mrc(os.path.join(outdir, f"run_it{_its}_half2_class001.mrc"), 64, 64, 64, 202 + _it)
         # the gold-standard family the picker's companion law reads by NAME
         # (half{1,2}_model + sampling — a real gold round writes them all)
-        with open(os.path.join(outdir, f"run_it{_its}_half1_model.star"), "w") as _fh:
-            _fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
-        with open(os.path.join(outdir, f"run_it{_its}_half2_model.star"), "w") as _fh:
-            _fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+        _c_res = arc_resolution(_it)
+        if _split_halves:
+            with open(os.path.join(outdir, f"run_it{_its}_half1_model.star"), "w") as _fh:
+                _fh.write(model_general_text(_c_res, with_fsc=True))
+            with open(os.path.join(outdir, f"run_it{_its}_half2_model.star"), "w") as _fh:
+                _fh.write(model_general_text(_c_res, with_fsc=False))
+        else:
+            with open(os.path.join(outdir, f"run_it{_its}_model.star"), "w") as _fh:
+                _fh.write(model_general_text(_c_res, with_fsc=True))
         with open(os.path.join(outdir, f"run_it{_its}_sampling.star"), "w") as _fh:
             _fh.write("\ndata_sampling_general\n\n_rlnSamplingHealpixOrder 2\n")
         with open(os.path.join(outdir, f"run_it{_its}_optimiser.star"), "w") as _fh:
@@ -234,8 +287,16 @@ if isinstance(_cont, str) and _cont.strip():
     write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, 9901)
     write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, 9902)
     write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, 9903)
+    # t456 — the finals speak the model dialect the fsc route reads:
+    # run_half1_model.star (candidate #1: the final gold FSC table) and
+    # run_model.star's data_model_general._rlnCurrentResolution (the
+    # "RELION auto-refine estimate" reported line)
+    _f_res = arc_resolution(_start_it + _n_more)
+    if _split_halves:
+        with open(os.path.join(outdir, "run_half1_model.star"), "w") as _fh:
+            _fh.write(model_general_text(_f_res, with_fsc=True))
     with open(os.path.join(outdir, "run_model.star"), "w") as _fh:
-        _fh.write("\ndata_\n\n_rlnReferenceImage run_classes.mrcs\n_rlnEstimatedResolution 4.2\n")
+        _fh.write(model_general_text(_f_res, with_fsc=False))
     print(
         f"wrote run_classes.mrcs + run_data.star after continuing from it{_start_it:03d} (+{_n_more})"
     )
@@ -244,6 +305,13 @@ if isinstance(_cont, str) and _cont.strip():
 iters = int(opts.get("iter", opts.get("maxiter", "12"))) if isinstance(opts.get("iter"), str) or isinstance(opts.get("maxiter"), str) else 12
 ncls = int(opts.get("K", "3")) if isinstance(opts.get("K"), str) else 3
 mode = opts.get("mode", "classify2d") if isinstance(opts.get("mode"), str) else "classify2d"
+# t456 — the DIALECT from the argv's own truth, not the absent --mode:
+# --split_random_halves rides exactly the gold-standard dispatches
+# (refine3d's builder; the serial class3d/class2d lanes never split — the
+# serial binary hard-errors on it). Gold → half1/half2 model stars; the
+# serial dialect → the plain model star. Both carry the FSC loop so the
+# fsc chart lights for every refine shape.
+_split_halves = bool(opts.get("split_random_halves"))
 
 # ---- the input star is the contract (t308) ------------------------------
 star_in = opts.get("i", "")
@@ -455,14 +523,15 @@ with open(os.path.join(outdir, "run_it000_optimiser.star"), "w") as fh:
 # t455 — the seed round's model+sampling family: the completeness law
 # (continueCompanions) judges it000 like any other round, and a real
 # relion_refine writes the checkpoint set from the random start up.
-if mode in ("classify2d",):
-    with open(os.path.join(outdir, "run_it000_model.star"), "w") as fh:
-        fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
-else:
+_seed_res = arc_resolution(0)
+if _split_halves:
     with open(os.path.join(outdir, "run_it000_half1_model.star"), "w") as fh:
-        fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+        fh.write(model_general_text(_seed_res, with_fsc=True))
     with open(os.path.join(outdir, "run_it000_half2_model.star"), "w") as fh:
-        fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+        fh.write(model_general_text(_seed_res, with_fsc=False))
+else:
+    with open(os.path.join(outdir, "run_it000_model.star"), "w") as fh:
+        fh.write(model_general_text(_seed_res, with_fsc=True))
 with open(os.path.join(outdir, "run_it000_sampling.star"), "w") as fh:
     fh.write("\ndata_sampling_general\n\n_rlnSamplingHealpixOrder 2\n")
 
@@ -558,14 +627,17 @@ for it in range(1, iters + 1):
     # round died the completeness law (missing model.star + sampling.star)
     # and the picker's rounds were ALL disabled — the field report the
     # t394 law answered, reproduced by the mock's own laziness.
-    if is2d:
-        with open(os.path.join(outdir, f"run_it{its}_model.star"), "w") as fh:
-            fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
-    else:
+    # t456 — the model stars now carry the round's FSC estimate (and the
+    # gold half1 star the round's FSC table) — the resolution arc's data.
+    _res_ang = arc_resolution(it)
+    if _split_halves:
         with open(os.path.join(outdir, f"run_it{its}_half1_model.star"), "w") as fh:
-            fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+            fh.write(model_general_text(_res_ang, with_fsc=True))
         with open(os.path.join(outdir, f"run_it{its}_half2_model.star"), "w") as fh:
-            fh.write("\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n")
+            fh.write(model_general_text(_res_ang, with_fsc=False))
+    else:
+        with open(os.path.join(outdir, f"run_it{its}_model.star"), "w") as fh:
+            fh.write(model_general_text(_res_ang, with_fsc=True))
     with open(os.path.join(outdir, f"run_it{its}_sampling.star"), "w") as fh:
         fh.write("\ndata_sampling_general\n\n_rlnSamplingHealpixOrder 2\n")
 
@@ -593,8 +665,14 @@ else:
     copy_final(os.path.join(outdir, f"run_it{iters:03d}_class001.mrc"), final_classes)
 final_data = os.path.join(outdir, "run_data.star")
 copy_final(os.path.join(outdir, f"run_it{iters:03d}_data.star"), final_data)
+# t456 — the finals speak the model dialect the fsc route reads (mirror of
+# the continue branch's closing move)
+_f_res = arc_resolution(iters)
+if _split_halves:
+    with open(os.path.join(outdir, "run_half1_model.star"), "w") as fh:
+        fh.write(model_general_text(_f_res, with_fsc=True))
 with open(os.path.join(outdir, "run_model.star"), "w") as fh:
-    fh.write("\ndata_\n\n_rlnReferenceImage run_classes.mrcs\n_rlnEstimatedResolution 4.2\n")
+    fh.write(model_general_text(_f_res, with_fsc=False))
 # E2E extension (cont.): the final UNFILTERED half-maps + the final class
 # volume — real relion_refine's closing move (run_half1_class001_unfil.mrc,
 # run_half2_class001_unfil.mrc, run_class001.mrc) and the exact names

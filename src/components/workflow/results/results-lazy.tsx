@@ -105,3 +105,8 @@ export const ClassConvergenceEntry = dynamic(
   () => import("./class-convergence-dialog").then((m) => m.ClassConvergenceEntry),
   { ssr: false, loading: panelLoading }
 );
+// t456 — the fifth question, its own face: one refinement vs its OWN arc
+export const ResolutionArcEntry = dynamic(
+  () => import("./resolution-arc-dialog").then((m) => m.ResolutionArcEntry),
+  { ssr: false, loading: panelLoading }
+);

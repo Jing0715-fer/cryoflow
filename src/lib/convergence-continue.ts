@@ -159,6 +159,12 @@ export function class2dUsesVdam(params: Record<string, unknown>): boolean {
  * Which knob carries --iter for a completed classification run, and what
  * it currently says. Null on a type the verdict never reads (the door
  * already gates class2d/class3d — this is the belt to its braces).
+ *
+ * t456 — refine3d joins: RELION's auto-refine owns its own convergence
+ * (no --iter rides the argv, a written value would be dead) so an
+ * auto-refine row has NO knob — the verb stays absent for it. The manual
+ * dialect (`--iter` from the curated `iterations`, default 15) is the
+ * verb's to extend.
  */
 export function iterKnobOf(
   type: string,
@@ -176,6 +182,12 @@ export function iterKnobOf(
   if (type === "class3d") {
     // engine: num(job, "iterations", 25)
     return { key: "iterations", current: numParam(params, "iterations", 25), vdam: false };
+  }
+  if (type === "refine3d") {
+    // engine flagAutoRefine: String(params.autoRefine ?? "false") === "true"
+    if (String(params.autoRefine ?? "false") === "true") return null;
+    // engine (manual dialect): --iter from num(job, "iterations", 15)
+    return { key: "iterations", current: numParam(params, "iterations", 15), vdam: false };
   }
   return null;
 }
@@ -195,12 +207,14 @@ export function totalIterationsOf(current: number, more: number): number {
 /**
  * The curated form's own ceiling for the knob (workflow.ts spec, the
  * number the form's stepper respects): class2d EM 50, class2d VDAM 500,
- * class3d 100. Unknown shapes clamp nowhere (Infinity) — the verb would
- * rather run unclamped than invent a limit the spec does not carry.
+ * class3d 100, refine3d 50. Unknown shapes clamp nowhere (Infinity) — the
+ * verb would rather run unclamped than invent a limit the spec does not
+ * carry.
  */
 export function ceilingFor(type: string, vdam: boolean): number {
   if (type === "class2d") return vdam ? 500 : 50;
   if (type === "class3d") return 100;
+  if (type === "refine3d") return 50;
   return Number.POSITIVE_INFINITY;
 }
 

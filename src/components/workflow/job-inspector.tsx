@@ -160,6 +160,7 @@ import {
   MotionCompareEntry,
   ClassCompareEntry,
   ClassConvergenceEntry,
+  ResolutionArcEntry,
 } from "./results/results-lazy";
 
 /* ------------------------------------------------------------------ */
@@ -2646,6 +2647,11 @@ function InspectorHeader({
              * Same family face, no sibling needed; the door hides unless
              * the run's round ladder holds at least two rounds. */}
             <ClassConvergenceEntry job={job} />
+            {/* t456 — the resolution arc: the FIFTH question — one
+             * refinement vs its OWN FSC estimates ("still sharpening?").
+             * The door hides off the refine3d faces and when the run
+             * wrote no per-round estimates. */}
+            <ResolutionArcEntry job={job} />
             {/* t442 — the duplicate door: clone this run as an unstarted
              * twin with its params AND upstream wiring — the A/B loop's
              * front door (copy → tweak one knob → run → compare). */}
