@@ -6162,3 +6162,22 @@ Stage Summary:
 - **「门在屏幕上，字节在路上」**：存储的消息与 md/json 导出永远拿着素文本——聊天记录导出到实验室笔记后是一份 plain 作业清单，不是一堆指向死链的门（t483 门律的聊天尺度版）
 - 产出：linkifyJobs（新 lib）+ PROSE_COMPONENTS 散文门 + urlTransformKeepDoors 协议放行 + t495 bench 28/0 + 60 套回归全绿 + 28 门活体全链路（按下→canvas→primary selected）+ ㉚ 键盘活体补完销案 + 截图 ×2
 - [终验补记] push 完成（acd4fc8..39ba8af → origin/main 三方对齐）；push 后 server 又遭收割一次，dev-server.sh 复火：landing 200。Task 495 收官，下窗从 Task 496 起编。
+
+## Task 496 (2026-09-30, cron 09:00 窗 —— The Walk Learns to Run)
+
+- [开局] 实尾 = Task 495 完整收官（HEAD = 54f4dfb 三方对齐）。第八十七份过时 Task 13 指引照例不认（以 t495 遗留清单为准）。自号 496。QA 基线全绿：回归全家 60 套 exit 0、landing 200、2 canvas · 15 edges · 22 jobCards、新会话 console 0 错、磁盘 538M。
+- [选题定谳 — The Walk Learns to Run（新题，性能面首案）] 排除法：t495 遗留十一条里 ③④⑦㉜ 待回执、⑤⑥ 门控、① 重、㉒㉘㉙㉛ 待真实。本窗盯上了 t490 判读 walk 的一个隐形税：**measureCurveVerdicts 是顺序 await**（job 循环套 kind 循环，一发接一发），而它头顶的 landscape walk（measureOwnerPeaks）生来就是 Promise.all。基线秒表：报告打开后判读表落定 **19.5 秒**（~20 发顺序往返）——t495 活体时"walk 异步落定"的等待就是这个税的现形。定谳：fan-out 并行，最慢的一发买单，不是总和买单。
+- [交付①— walk 并行化（session-report-dialog.tsx measureCurveVerdicts 改写）] 探针从同一 walk 序扁平化（job 循环 × probe map 预测的 kinds），Promise.all 一把火——**序免费存活**（Promise.all 的契约：answers 按探针下标返回，merge 读的就是 walk 序，永不是网络完成序；零 sort、零 index 行李）；abort 契约原样（每发 fetch 骑 signal、被弃的探针返 null、caller 自查 aborted 后才 setState——两半契约都在）；wounded 合并与诚实跳过逐字节保留（refused → wounded、无 verdict → 无行、空名册先于 fan-out 返回）；措辞单父不动（curveVerdictOf 先于旅行）。
+- [交付②— rider：t495 芯片的 focus-visible 脸] teal 芯片补 `focus-visible:bg-teal-500/15 focus-visible:outline-none`——键盘到达 = hover 到达（门族一致性律：report 行有 violet focus 脸、guide 门钮有 ring，t495 芯片此前只有 hover）。
+- [t496 bench — 20/0（三处自捕）] T1 fan-out 5（扁平构造/Promise.all 文法/零顺序 await 残留/同路由同 signal）+ T2 序律 3（零 index 行李/merge 读 answers 序/docstring 成文）+ T3 契约 6（abort null/merge 跳过/wounded/诚实跳过/空名册早退/单父措辞）+ T4 rider 2（focus-visible 脸/hover 原样）+ T5 邻居 4（**landscape 先例原样**/call site 原样/caller 自查/pending 教义）。自捕：①docstring 与 bench 头都把先例误记成 "map walk"——实况 walkVolumeOwners 也是顺序的，真先例是 measureOwnerPeaks（行文对代码验证，笔误也是谎言）；②断言 slice 的 indexOf("/** t490") 撞上文件更早处的另一条 t490 注释返回负界——改为从 start 之后搜；③render 行断言随实现演进。20/0 复跑全绿。
+- [活体 — 秒表三连] 基线 19.5s（顺序）→ 并行首开 8.06s（dev 路由编译冷启动税，一次性）→ **暖路由 3.04s / 2.77s**（**6.4-7x 改善**；生产无编译税更贴近 2.8s）；行序与改前一致（首行 QA Refine 410 · FSC，walk 序存活）；15 门全铸、零错误行。截图 t496-walk-fast.png。
+- [插曲] server 本窗被收割两次（秒表复测前 + 基线测量前），dev-server.sh 两次复火；agent-browser eval 的 bash 转义陷阱一次（模板字符串 ${} 被 bash 吞——字符串拼接绕过）。
+- [验证-终] t496 bench 20/0 + 回归全家 **61 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（三触碰文件）；行为面：walk 并行、序存活、abort/wounded/skip 契约原样、芯片 focus-visible 脸；世界 22 jobs / 15 edges / 2 canvas / 新会话 console 0 错、零数据手术。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 497 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉒curve verdicts 的 CSV 面（待真实使用）㉘护照下一跳（待真实混用）㉙CSV 导出一致性；㉛工具卡 summary 行门化（待真实混用）；㉜user turns 门化（待回执）；㉝**walkVolumeOwners 的同款并行化**——本窗定谳它也是顺序 for...await（outputs 路由 ×24 上限），是 mapPending 的同款税，改法与 t496 同模（下窗可直接复制本窗功课）；㉞并行 fan-out 的并发上限（当前全发，~20-48 发量级无虞；若未来会话规模涨到百级，可加 bounded pool——待真实规模再定）。
+
+Stage Summary:
+- **「最慢的一发买单，不是总和」**：~20 发顺序往返把判读表扣了 19.5 秒；Promise.all 一把火后暖路由 2.8 秒——读者等的是最慢的那条曲线，不是所有曲线排队
+- **「序免费存活」**：Promise.all 的契约是 answers 按探针下标返回——不需要 sort、不需要 index 行李，merge 读的就是 walk 序；纸面的 newest-first 从未变成网络完成序
+- **「先例要对代码验证」**：bench 与 docstring 都把并行先例误记成 "map walk"，实况 walkVolumeOwners 也是顺序的——真先例是 measureOwnerPeaks；笔误也是谎言，断言抓出来了
+- **「键盘到达 = hover 到达」**：t495 芯片只有 hover 脸，键盘用户 tab 过去无可见焦点——门族一致性律补齐最后一面
+- 产出：measureCurveVerdicts 并行化（序保/abort 原样/wounded 原样）+ t495 芯片 focus-visible rider + t496 bench 20/0 + 61 套回归全绿 + 秒表三连（19.5s → 8.1s → 2.8s，6.4-7x）+ 截图 ×1

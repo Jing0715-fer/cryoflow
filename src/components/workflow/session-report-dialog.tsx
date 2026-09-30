@@ -696,31 +696,52 @@ async function measureOwnerPeaks(
  *  skip — the walk records only what spoke; a probe whose ROUTE failed
  *  (non-ok response or a refused fetch) marks the walk wounded — the
  *  caller renders the error line only when NOTHING was heard (partial
- *  truth over silence, the t211 doctrine). Sequential: each answer is
- *  statcache-backed, and the row order stays the walk's order. */
+ *  truth over silence, the t211 doctrine).
+ *  t496 — the walk learned to run: the probes fire in PARALLEL (the
+ *  landscape walk above — measureOwnerPeaks — has always done exactly
+ *  this; one open window's
+ *  live stopwatch caught the sequential walk holding the paper's
+ *  verdicts hostage for 19.5s over ~20 round trips; the slowest probe
+ *  now sets the bill, not the sum). Order survives the fan-out for
+ *  free: Promise.all's contract returns answers indexed by their
+ *  probes — the merge reads them in the walk's own order, never the
+ *  network's completion order. Abort keeps its contract: every fetch
+ *  rides the signal and the caller checks it before setState. */
 async function measureCurveVerdicts(
   candidates: { id: string; name: string; type: string }[],
   signal: AbortSignal,
 ): Promise<{ rows: CurveVerdictRow[]; wounded: boolean }> {
-  const rows: CurveVerdictRow[] = [];
-  let wounded = false;
+  const probes: { job: { id: string; name: string; type: string }; kind: CurveKind }[] = [];
   for (const job of candidates.slice(0, MAP_BRIEF_CAP)) {
     const kinds = CURVE_PROBES_BY_TYPE.find(([re]) => re.test(job.type))?.[1] ?? [];
-    for (const kind of kinds) {
-      if (signal.aborted) return { rows, wounded };
+    for (const kind of kinds) probes.push({ job, kind });
+  }
+  if (probes.length === 0) return { rows: [], wounded: false };
+  const answers = await Promise.all(
+    probes.map(async ({ job, kind }) => {
       try {
         const res = await fetch(`/api/jobs/${job.id}/${CURVE_ROUTE_SEGMENT[kind]}`, { signal });
         if (!res.ok) throw new Error(`chart route answered ${res.status}`);
         const d = await res.json();
         const verdict = curveVerdictOf(kind, d);
-        if (verdict) rows.push({ jobId: job.id, jobName: job.name, kind, verdict });
+        return { jobId: job.id, jobName: job.name, kind, verdict, failed: false };
       } catch (err) {
-        if (signal.aborted) return { rows, wounded };
+        if (signal.aborted) return null;
         // this probe's route refused — the walk goes on, wounded
         console.error(`[curve-verdicts] ${job.name} ${kind} probe failed:`, err);
-        wounded = true;
+        return { jobId: "", jobName: "", kind, verdict: null, failed: true };
       }
+    }),
+  );
+  const rows: CurveVerdictRow[] = [];
+  let wounded = false;
+  for (const a of answers) {
+    if (!a) continue; // aborted — the caller checks the signal and discards
+    if (a.failed) {
+      wounded = true;
+      continue;
     }
+    if (a.verdict) rows.push({ jobId: a.jobId, jobName: a.jobName, kind: a.kind, verdict: a.verdict });
   }
   return { rows, wounded };
 }

@@ -235,7 +235,7 @@ const PROSE_COMPONENTS: Components = {
           data-assistant-door={id}
           aria-label={`在画布中定位 ${label}`}
           title={`在画布中定位 ${label}`}
-          className="rounded px-0.5 font-medium text-teal-700 underline decoration-teal-500/40 underline-offset-2 transition-colors hover:bg-teal-500/10 hover:decoration-teal-500 dark:text-teal-300"
+          className="rounded px-0.5 font-medium text-teal-700 underline decoration-teal-500/40 underline-offset-2 transition-colors hover:bg-teal-500/10 focus-visible:bg-teal-500/15 focus-visible:outline-none hover:decoration-teal-500 dark:text-teal-300"
           onClick={() => useWorkflowStore.getState().revealJob(id)}
         >
           {children}
