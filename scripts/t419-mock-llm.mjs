@@ -55,10 +55,28 @@ function decideTurn(messages) {
   if (last.role === "user") {
     const text = String(last.content ?? "");
     const idMatch = text.match(/id:\s*([A-Za-z0-9_-]+)/);
+    // t500 live lane — the action-block script: a user turn that asks for
+    // class recommendations gets a reply ending in a :::actions fence (the
+    // panel's clickable-方案 contract); the CLICK arrives as another user
+    // turn matching 选择/保留 which drives the real select_classes tool
+    // through get_workflow_state (the honest two-step: names first, then
+    // the id from the state's own rows).
+    if (/t500|方案|选哪|哪些 class|推荐保留/i.test(text)) {
+      return {
+        content:
+          "分析完成：6 个 keep / 3 个 maybe。keep 类（3, 4, 11, 26, 35, 38）有清晰的二级结构与良好边界；maybe 类可辨但偏弱。\n\n:::actions\n" +
+          JSON.stringify([
+            { label: "方案 A · 只保留 6 个 keep 类", prompt: "从 2D Classification 创建 class 选择任务，只保留 class 3, 4, 11, 26, 35, 38" },
+            { label: "方案 B · keep + 灰色地带", prompt: "从 2D Classification 创建 class 选择任务，保留 class 1, 3, 4, 7, 11, 26, 35, 38" },
+          ]) +
+          "\n:::",
+      };
+    }
     if (/搭|流程|pipeline|build/i.test(text)) return { tool_calls: [mockToolCall("call_s0", "get_workflow_state", {})] };
     if (/(分析|判断|judge)/i.test(text) && idMatch) return { tool_calls: [mockToolCall("call_j", "judge_2d_classes", { job_id: idMatch[1] })] };
     if (/画布|哪些任务|state/i.test(text)) return { tool_calls: [mockToolCall("call_s", "get_workflow_state", {})] };
     if (/(更新|update)/i.test(text) && idMatch) return { tool_calls: [mockToolCall("call_u", "update_job", { job_id: idMatch[1], params: { numClasses: 25 } })] };
+    if (/(选择|保留|select)/i.test(text)) return { tool_calls: [mockToolCall("call_t500", "get_workflow_state", {})] };
     return { content: "OK（mock 回复）。要试试「帮我搭一个流程」吗？" };
   }
   if (last.role === "tool") {
@@ -92,6 +110,17 @@ function decideTurn(messages) {
       const wantsPipeline = /搭|流程|pipeline|build/i.test(lastUser);
       const imp = parsed?.detail?.jobs?.find((j) => j.type === "import");
       if (wantsPipeline && imp?.id) return { tool_calls: [mockToolCall("call_w", "create_job", { type: "motioncorr", connect_from: imp.id })] };
+      // t500 live lane — the click's second step: the state names a class2d
+      // job, the follow-up selects classes on it (a real select_classes
+      // tool call the real engine executes — the button ends in a real
+      // job on the canvas)
+      if (/选择|保留|select/i.test(lastUser)) {
+        const class2d = parsed?.detail?.jobs?.find((j) => j.type === "class2d");
+        if (class2d?.id) {
+          return { tool_calls: [mockToolCall("call_t500s", "select_classes", { job_id: class2d.id, classes: [3, 4, 11, 26, 35, 38] })] };
+        }
+        return { content: "DONE-STATE：画布上还没有 2D 分类任务，先跑一个 class2d 才能选类。" };
+      }
       return { content: "DONE-STATE：画布状态已在上面（工具卡里），需要我做什么？" };
     }
     if (toolName === "update_job") return { content: "DONE-UPDATE：参数已更新。" };

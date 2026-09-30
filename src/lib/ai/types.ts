@@ -183,7 +183,11 @@ export type AiEvent =
   | { type: "assistant_text"; text: string }
   | { type: "tool_call"; id: string; name: string; args: unknown }
   | { type: "tool_result"; id: string; name: string; ok: boolean; summary: string; detail?: unknown }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  /** t498 — a neutral, non-error status line (e.g. "switched to this
+   * project's chat after a project switch"). Renders as the muted notice
+   * banner, not the rose error one. */
+  | { type: "notice"; message: string };
 
 /** POST /api/ai/chat response. */
 export interface AiChatResponse {

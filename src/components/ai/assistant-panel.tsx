@@ -76,10 +76,12 @@ import {
   History,
   Hourglass,
   Download,
+  Info,
   LayoutDashboard,
   Link2,
   ListTree,
   Locate,
+  MousePointerClick,
   PenLine,
   Play,
   PlusCircle,
@@ -98,13 +100,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +111,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { filterSessions, groupSessionsByDay, matchIndex } from "@/lib/ai/session-groups";
+import { parseActionBlocks, type AssistantAction } from "@/lib/ai/action-blocks";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkflowStore } from "@/lib/store";
 import { JOB_LINK_PROTOCOL, linkifyJobs } from "@/lib/linkify-jobs";
 import type { JobDTO } from "@/lib/types";
@@ -135,7 +132,7 @@ import type {
 type UiItem =
   | { kind: "user"; text: string; key: string; at?: number }
   | { kind: "assistant"; text: string; key: string }
-  | { kind: "notice"; variant: "stop" | "error"; text: string; key: string }
+  | { kind: "notice"; variant: "stop" | "error" | "info"; text: string; key: string }
   | { kind: "tool"; key: string; id: string; name: string; args: unknown; ok: boolean; summary: string; detail?: unknown; at?: number; jobId?: string | null };
 
 function fmtTime(at?: number): string {
@@ -315,9 +312,13 @@ function eventsToItems(events: AiEvent[], seq: number): UiItem[] {
         });
       }
     }
-    // errors render as notice banners (the app's warning idiom)
+    // errors render as notice banners (the app's warning idiom); t500 —
+    // neutral notices (e.g. the cross-project session fallback) ride the
+    // same banner with the muted info face
     else if (e.type === "error") {
       items.push({ kind: "notice", variant: "error", text: e.message, key: `e${seq}-${i}` });
+    } else if (e.type === "notice") {
+      items.push({ kind: "notice", variant: "info", text: e.message, key: `e${seq}-${i}` });
     }
   }
   return items;
@@ -441,7 +442,8 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
 
 function Notice({ item }: { item: Extract<UiItem, { kind: "notice" }> }) {
   const stop = item.variant === "stop";
-  const Icon = stop ? Square : AlertTriangle;
+  const info = item.variant === "info";
+  const Icon = stop ? Square : info ? Info : AlertTriangle;
   return (
     <div
       role="status"
@@ -449,16 +451,123 @@ function Notice({ item }: { item: Extract<UiItem, { kind: "notice" }> }) {
         "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs leading-relaxed",
         stop
           ? "border-border bg-muted/40 text-muted-foreground"
-          : "border-rose-600/30 bg-rose-500/[0.06] text-rose-700 dark:text-rose-300"
+          : info
+            ? "border-border bg-muted/40 text-muted-foreground"
+            : "border-rose-600/30 bg-rose-500/[0.06] text-rose-700 dark:text-rose-300"
       )}
     >
       <Icon
-        className={cn("mt-0.5 size-3 shrink-0", stop && "fill-current")}
+        className={cn("mt-0.5 size-3 shrink-0", stop && "fill-current", info && "text-teal-600 dark:text-teal-400")}
         aria-hidden="true"
       />
       <span className="min-w-0 break-words">{item.text}</span>
     </div>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Action buttons (t500) — the clickable 方案 A / B / C                */
+/* ------------------------------------------------------------------ */
+
+/** The decision rendered as buttons. Each click sends `prompt` through
+ * the SAME send() engine the composer uses — a click IS a user turn,
+ * the agent loop executes it exactly as if typed. A fired option keeps
+ * a subtle "已发送" face so the reader can see which path was taken
+ * (the other options stay clickable — the user may change their mind
+ * before the world does). */
+function ActionButtons({
+  actions,
+  onPick,
+  disabled,
+}: {
+  actions: AssistantAction[];
+  onPick: (prompt: string) => void;
+  disabled: boolean;
+}) {
+  const [fired, setFired] = React.useState<Record<string, boolean>>({});
+  return (
+    <div className="mt-1 flex flex-col gap-1.5" role="group" aria-label="建议的操作">
+      {actions.map((a, i) => {
+        const isFired = fired[a.label] === true;
+        return (
+          <button
+            key={`${a.label}-${i}`}
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              setFired((prev) => ({ ...prev, [a.label]: true }));
+              onPick(a.prompt);
+            }}
+            title={a.prompt}
+            aria-label={`执行：${a.label}`}
+            className={cn(
+              "flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs leading-relaxed transition-all",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+              isFired
+                ? "border-teal-500/40 bg-teal-500/[0.08] text-teal-700 dark:text-teal-300"
+                : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/[0.05] hover:shadow-sm",
+              disabled && "cursor-not-allowed opacity-60"
+            )}
+          >
+            <span
+              className={cn(
+                "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md",
+                isFired
+                  ? "bg-teal-500/15 text-teal-600 dark:text-teal-400"
+                  : "bg-primary/10 text-primary"
+              )}
+            >
+              {isFired ? (
+                <CheckCircle2 className="size-3" aria-hidden="true" />
+              ) : (
+                <MousePointerClick className="size-3" aria-hidden="true" />
+              )}
+            </span>
+            <span className="min-w-0 flex-1 break-words font-medium">{a.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* The floating window geometry (t500)                                  */
+/* ------------------------------------------------------------------ */
+
+/** The user's ticket: the assistant used to be a fixed right Sheet — it
+ * covered the canvas and could not be summoned without hiding what the
+ * user was looking at. Now it is a FREE window: drag by its header,
+ * resize from three edges/corners, double-click the header to snap back
+ * home (top-right). Geometry persists in localStorage; mobile keeps the
+ * honest full-screen face (a 380px-wide draggable window on a phone is
+ * a joke, not a feature). */
+interface WinGeo {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const GEO_KEY = "cryoflow.assistant.geometry.v1";
+const GEO_MIN_W = 360;
+const GEO_MIN_H = 420;
+
+function clampGeo(g: WinGeo, vw: number, vh: number): WinGeo {
+  const w = Math.min(Math.max(g.w, GEO_MIN_W), Math.max(vw - 16, GEO_MIN_W));
+  const h = Math.min(Math.max(g.h, GEO_MIN_H), Math.max(vh - 16, GEO_MIN_H));
+  return {
+    w,
+    h,
+    x: Math.min(Math.max(g.x, 8), Math.max(vw - w - 8, 8)),
+    y: Math.min(Math.max(g.y, 8), Math.max(vh - h - 8, 8)),
+  };
+}
+
+function defaultGeo(vw: number, vh: number): WinGeo {
+  const w = Math.min(560, Math.max(vw - 32, GEO_MIN_W));
+  const h = Math.min(760, Math.max(vh - 96, GEO_MIN_H));
+  return clampGeo({ w, h, x: vw - w - 24, y: 64 }, vw, vh);
 }
 
 /* ------------------------------------------------------------------ */
@@ -545,6 +654,7 @@ export function AssistantPanel() {
   const aiSettingsOpen = useWorkflowStore((s) => s.aiSettingsOpen);
   const setAiSettingsOpen = useWorkflowStore((s) => s.setAiSettingsOpen);
   const consumeAiPendingPrompt = useWorkflowStore((s) => s.consumeAiPendingPrompt);
+  const isMobile = useIsMobile();
 
   const [items, setItems] = React.useState<UiItem[]>([]);
   const [sessionId, setSessionId] = React.useState<string | null>(null);
@@ -580,6 +690,166 @@ export function AssistantPanel() {
   const abortControllerRef = React.useRef<AbortController | null>(null);
   const armTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ---- t500: the floating window (desktop) — geometry, drag, resize ----
+  const [geo, setGeo] = React.useState<WinGeo | null>(null);
+  const dragRef = React.useRef<{
+    mode: "move" | "e" | "s" | "se";
+    px: number;
+    py: number;
+    start: WinGeo;
+  } | null>(null);
+
+  // restore the persisted geometry (or take the default home position).
+  // A MOBILE mount mints nothing: the full-screen face needs no geometry,
+  // and a phone-shaped default must not leak into the desktop world —
+  // the viewport listener mints the desktop shape when the world grows.
+  // (The check is RUNTIME innerWidth, not the isMobile hook: useIsMobile
+  // answers false on the first render — its matchMedia effect has not run
+  // yet — and this effect would mint the phone-shaped default before the
+  // hook catches up.)
+  React.useEffect(() => {
+    if (window.innerWidth < 768) return;
+    try {
+      const raw = localStorage.getItem(GEO_KEY);
+      if (raw) {
+        const g = JSON.parse(raw) as Partial<WinGeo>;
+        if (
+          typeof g?.x === "number" &&
+          typeof g?.y === "number" &&
+          typeof g?.w === "number" &&
+          typeof g?.h === "number"
+        ) {
+          setGeo(clampGeo(g as WinGeo, window.innerWidth, window.innerHeight));
+          return;
+        }
+      }
+    } catch {
+      /* a corrupt payload is just the default position */
+    }
+    setGeo(defaultGeo(window.innerWidth, window.innerHeight));
+  }, []);
+
+  // persist on change — NEVER while mobile: the full-screen face ignores
+  // geometry, and a 390px-viewport clamp must not shrink the desktop
+  // layout the user will come back to
+  React.useEffect(() => {
+    if (!geo || isMobile) return;
+    try {
+      localStorage.setItem(GEO_KEY, JSON.stringify(geo));
+    } catch {
+      /* private mode etc — position is a session-only luxury then */
+    }
+  }, [geo, isMobile]);
+
+  // the viewport may shrink (window resize, devtools) — the window stays
+  // inside. Mobile-width viewports are EXEMPT: they render the full-screen
+  // face and their narrow clamp would poison the persisted desktop shape
+  // (the t500 live lane caught exactly this: 390px viewport → 374px width
+  // written back → desktop reopened to a sliver).
+  React.useEffect(() => {
+    const MOBILE_BP = 768; // use-mobile's own breakpoint
+    const onResize = () => {
+      if (window.innerWidth < MOBILE_BP) return;
+      // prev ?? default: a MOBILE-first session has no geometry yet — the
+      // desktop arrival mints the home corner, not a phone-shaped sliver
+      setGeo((prev) =>
+        clampGeo(
+          prev ?? defaultGeo(window.innerWidth, window.innerHeight),
+          window.innerWidth,
+          window.innerHeight
+        )
+      );
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // one listener pair for every drag mode (move + three resize grips)
+  React.useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const dx = e.clientX - d.px;
+      const dy = e.clientY - d.py;
+      setGeo((prev) => {
+        const base = prev ?? d.start;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        if (d.mode === "move") {
+          return clampGeo({ ...base, x: d.start.x + dx, y: d.start.y + dy }, vw, vh);
+        }
+        const w = d.mode === "s" ? base.w : Math.max(GEO_MIN_W, d.start.w + dx);
+        const h = d.mode === "e" ? base.h : Math.max(GEO_MIN_H, d.start.h + dy);
+        return clampGeo({ ...base, w, h }, vw, vh);
+      });
+    };
+    const onUp = () => {
+      if (dragRef.current) {
+        dragRef.current = null;
+        document.body.style.userSelect = "";
+      }
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
+  const beginDrag = (e: React.PointerEvent, mode: "move" | "e" | "s" | "se") => {
+    if (e.button !== 0) return;
+    // the header's own controls (the X, search, rename inputs) never drag
+    if (
+      mode === "move" &&
+      (e.target as HTMLElement).closest("button, input, a, textarea, [data-nodrag]")
+    ) {
+      return;
+    }
+    const base = geo ?? defaultGeo(window.innerWidth, window.innerHeight);
+    dragRef.current = { mode, px: e.clientX, py: e.clientY, start: base };
+    document.body.style.userSelect = "none"; // no text-selection trails
+    // NOTE: no e.preventDefault() here — preventDefault on pointerdown
+    // suppresses the derived mouse events (click/dblclick), and the header's
+    // double-click-to-reset rides dblclick; touch scrolling is prevented by
+    // the touch-none class instead (the CSS way, not the event way).
+  };
+
+  const resetGeo = () => setGeo(defaultGeo(window.innerWidth, window.innerHeight));
+
+  // t500: double-click-to-reset rides a NATIVE listener on the header (a
+  // ref, not React's onDoubleClick). React 19's synthetic lane ignored
+  // programmatic dblclick dispatches in the live lane (the click/button
+  // door worked, the dblclick door did not — recorded honestly); a native
+  // listener is the door that always opens, and it lives/dies with the
+  // header node so HMR cannot leak it.
+  const headerRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    const hdr = headerRef.current;
+    if (!hdr || isMobile) return;
+    const onDbl = () => resetGeo();
+    hdr.addEventListener("dblclick", onDbl);
+    return () => hdr.removeEventListener("dblclick", onDbl);
+    // open matters: the header node only EXISTS while the window is mounted
+    // (the panel returns null when closed) — without it the listener binds
+    // once against a null ref and never re-runs on reopen.
+  }, [isMobile, open]);
+
+  const onWindowKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    // t430's layered Esc, floating edition: a live query in the session
+    // search is cleared FIRST (the search box's own handler already
+    // preventDefaults — this is the same law without Radix's capture
+    // phase); an empty query closes the window.
+    const t = e.target as HTMLElement | null;
+    if (t && t.closest("[data-session-search]") && sessionQuery.trim().length > 0) {
+      e.preventDefault();
+      setSessionQuery("");
+      return;
+    }
+    setOpen(false);
+  };
+
   // ---- t424: the transcript filter's math (chips render only when the
   // session carries enough tool cards to be worth filtering)
   const toolCount = items.reduce((n, i) => (i.kind === "tool" ? n + 1 : n), 0);
@@ -595,9 +865,20 @@ export function AssistantPanel() {
    *  (a label over every row is noise when every row is 今天). */
   const flatSessions = !searching && sessionGroups.length <= 1;
 
-  // ---- rehydrate on open (once per open; the latest session of this project)
+  // ---- rehydrate on open AND on project/workspace switch (once per
+  // change; the latest session of the active project). t500: the panel
+  // used to rehydrate only on OPEN — a panel left open across a project
+  // switch kept the OLD project's sessionId and the next send died on
+  // the server's pinning law ("Session not found"). Now the switch
+  // re-rehydrates; a live send loop belongs to the world it started in,
+  // so it is stopped first.
+  const activeWorkspaceId = useWorkflowStore((s) => s.activeWorkspaceId);
   React.useEffect(() => {
     if (!open) return;
+    if (busy) {
+      abortRef.current = true;
+      abortControllerRef.current?.abort();
+    }
     autoScroll.current = true;
     let cancelled = false;
     (async () => {
@@ -623,7 +904,7 @@ export function AssistantPanel() {
       cancelled = true;
       hydrated.current = false;
     };
-  }, [open]);
+  }, [open, activeWorkspaceId]);
 
   // ---- the active model badge (and the honest setup state) ---------------
   // Runs when the panel opens AND when the settings dialog closes — the
@@ -1095,39 +1376,47 @@ export function AssistantPanel() {
     );
   };
 
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent
-        side="right"
-        onEscapeKeyDown={(e) => {
-          // t430 — layered Esc, Radix's own door: DismissableLayer listens
-          // on document CAPTURE phase (before any bubble-phase handler can
-          // stop it), so the only sanctioned interception is THIS hook —
-          // Radix asks before dismissing, and preventDefault vetoes. When
-          // the search box owns the focus AND holds a live query, the first
-          // Esc clears the query and keeps the panel; an empty query lets
-          // the dismiss proceed (second Esc closes, the standard layering).
-          const t = e.target as HTMLElement | null;
-          if (t && t.closest("[data-session-search]") && sessionQuery.trim().length > 0) {
-            e.preventDefault();
-            setSessionQuery("");
-          }
-        }}
-        className="flex w-full flex-col gap-0 p-0 sm:max-w-[540px]"
-      >
-        <SheetHeader className="sr-only">
-          <SheetTitle>AI 助手</SheetTitle>
-          <SheetDescription>
-            用自然语言创建、连接和运行 cryo-EM 任务
-          </SheetDescription>
-        </SheetHeader>
+  if (!open) return null;
 
-        {/* ---- panel header ---- */}
-        {/* pr-14 (56px) is LAW here: SheetContent paints its own X at
-            top-4 right-4 with a 14px hit-slop (46px total reach). This
-            panel's own buttons must live left of that zone or the close
-            eats their clicks — the overlap this rework was born to fix. */}
-        <div className="flex items-center gap-2.5 border-b bg-gradient-to-r from-primary/[0.07] via-primary/[0.02] to-transparent px-4 py-3 pr-14">
+  return (
+    <div
+      role="dialog"
+      aria-modal="false"
+      aria-label="AI 助手"
+      onKeyDown={onWindowKeyDown}
+      className={cn(
+        "no-print fixed z-40 flex flex-col overflow-hidden bg-card shadow-2xl outline-none",
+        isMobile
+          ? "inset-0 z-50"
+          : "rounded-xl border animate-in fade-in-95 zoom-in-95 duration-150"
+      )}
+      style={
+        !isMobile
+          ? (() => {
+              const g = geo ?? defaultGeo(window.innerWidth, window.innerHeight);
+              return { left: g.x, top: g.y, width: g.w, height: g.h };
+            })()
+          : undefined
+      }
+    >
+      <div className="sr-only">
+        用自然语言创建、连接和运行 cryo-EM 任务。桌面端可拖动标题栏移动窗口，右下角调整大小。
+      </div>
+
+        {/* ---- panel header (the drag handle on desktop) ---- */}
+        {/* t500: the header IS the drag surface — double-click snaps the
+            window back to its home corner. The window's own controls are
+            excluded from the drag by beginDrag's control filter, so the
+            X and the tool buttons still click. */}
+        <div
+          ref={headerRef}
+          className={cn(
+            "flex shrink-0 touch-none items-center gap-2.5 border-b bg-gradient-to-r from-primary/[0.07] via-primary/[0.02] to-transparent px-4 py-3 select-none",
+            !isMobile && "cursor-grab active:cursor-grabbing"
+          )}
+          onPointerDown={isMobile ? undefined : (e) => beginDrag(e, "move")}
+          title={isMobile ? undefined : "拖动移动 · 双击复位"}
+        >
           <div
             className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-sm"
             aria-hidden="true"
@@ -1203,6 +1492,20 @@ export function AssistantPanel() {
           >
             <RotateCcw className="size-4" />
           </Button>
+          {/* the window's own X — t500's floating face replaced Radix's
+              built-in (no more pr-14 kill-zone law; the button lives here,
+              right of every control, and never eats their clicks) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            data-nodrag=""
+            className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => setOpen(false)}
+            aria-label="关闭 AI 助手"
+            title="关闭 (Esc)"
+          >
+            <X className="size-4" />
+          </Button>
         </div>
 
         {/* ---- t424: the history drawer -------------------------------- */}
@@ -1236,9 +1539,10 @@ export function AssistantPanel() {
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
                       // the value-clear lives here (bubble phase, always
-                      // runs); the DISMISS veto lives in SheetContent's
-                      // onEscapeKeyDown — Radix's document-capture listener
-                      // fires before anything bubble-side can stop it
+                      // runs); the CLOSE veto lives in the window's own
+                      // onKeyDown (t500's floating face — no Radix layer
+                      // anymore): a live query is cleared first, an empty
+                      // query lets the close proceed
                       e.preventDefault();
                       setSessionQuery("");
                     }
@@ -1367,9 +1671,28 @@ export function AssistantPanel() {
                   <Sparkles className="size-3" />
                 </span>
                 <div className="min-w-0 max-w-[92%] rounded-2xl rounded-tl-sm bg-muted/50 px-3 py-2">
-                  <div className="text-sm leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_h1]:mb-1.5 [&_h1]:mt-2 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-1 [&_h2]:mt-2 [&_h2]:text-xs [&_h2]:font-semibold [&_h3]:mt-1.5 [&_h3]:text-xs [&_h3]:font-semibold [&_hr]:my-2 [&_hr]:border-border [&_li]:ml-4 [&_li]:list-disc [&_ol_li]:list-decimal [&_p]:my-1 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-xs [&_strong]:font-semibold [&_table]:my-2 [&_table]:w-full [&_table]:text-left [&_table]:text-xs [&_td]:border-t [&_td]:px-1.5 [&_td]:py-1 [&_td]:align-top [&_th]:border-b [&_th]:px-1.5 [&_th]:py-1 [&_th]:font-semibold">
-                    <Markdown remarkPlugins={[remarkGfm]} components={PROSE_COMPONENTS} urlTransform={urlTransformKeepDoors}>{linkifyJobs(item.text, jobs)}</Markdown>
-                  </div>
+                  {/* t500 — the text is split into markdown and ACTION
+                      segments (the model's :::actions fences); each md
+                      segment keeps the full prose styling, each actions
+                      segment renders the clickable 方案 buttons */}
+                  {parseActionBlocks(item.text).map((seg, si) =>
+                    seg.kind === "md" ? (
+                      seg.text.trim() ? (
+                        <div
+                          key={si}
+                          className="text-sm leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_h1]:mb-1.5 [&_h1]:mt-2 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-1 [&_h2]:mt-2 [&_h2]:text-xs [&_h2]:font-semibold [&_h3]:mt-1.5 [&_h3]:text-xs [&_h3]:font-semibold [&_hr]:my-2 [&_hr]:border-border [&_li]:ml-4 [&_li]:list-disc [&_ol_li]:list-decimal [&_p]:my-1 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-xs [&_strong]:font-semibold [&_table]:my-2 [&_table]:w-full [&_table]:text-left [&_table]:text-xs [&_td]:border-t [&_td]:px-1.5 [&_td]:py-1 [&_td]:align-top [&_th]:border-b [&_th]:px-1.5 [&_th]:py-1 [&_th]:font-semibold">
+                          <Markdown remarkPlugins={[remarkGfm]} components={PROSE_COMPONENTS} urlTransform={urlTransformKeepDoors}>{linkifyJobs(seg.text, jobs)}</Markdown>
+                        </div>
+                      ) : null
+                    ) : (
+                      <ActionButtons
+                        key={si}
+                        actions={seg.actions}
+                        onPick={(p) => void send(p)}
+                        disabled={busy}
+                      />
+                    )
+                  )}
                 </div>
               </div>
             ) : (
@@ -1503,7 +1826,35 @@ export function AssistantPanel() {
             AI 会创建真实任务并在确认后启动运行 — 操作会显示在对话与画布上。
           </p>
         </div>
-      </SheetContent>
-    </Sheet>
+
+        {/* ---- t500: the resize grips (desktop) — east, south, and the
+            corner. Wide hit areas, invisible until hover; keyboard users
+            reach the same geometry through the header's double-click
+            reset (a resize grip is a pointer affordance). */}
+        {!isMobile && (
+          <>
+            <div
+              className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize touch-none transition-colors hover:bg-primary/20"
+              onPointerDown={(e) => beginDrag(e, "e")}
+              aria-hidden="true"
+              role="presentation"
+            />
+            <div
+              className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none transition-colors hover:bg-primary/20"
+              onPointerDown={(e) => beginDrag(e, "s")}
+              aria-hidden="true"
+              role="presentation"
+            />
+            <div
+              className="absolute bottom-0 right-0 size-4 cursor-nwse-resize touch-none transition-colors hover:bg-primary/25"
+              onPointerDown={(e) => beginDrag(e, "se")}
+              aria-hidden="true"
+              role="presentation"
+            >
+              <span className="absolute bottom-1 right-1 block size-1.5 rounded-sm border-b border-r border-muted-foreground/50" />
+            </div>
+          </>
+        )}
+    </div>
   );
 }

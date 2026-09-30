@@ -78,23 +78,31 @@ export async function runAiIteration(input: AgentRunInput): Promise<AgentRunResu
   }
 
   let session = input.sessionId ? getSession(input.sessionId) : null;
+  // t498 — a stale sessionId (the panel held another project's session
+  // across a project switch, or the stored session vanished) is NOT a dead
+  // end: fall back to this project's latest conversation (or a fresh one)
+  // and SAY so in a notice. The old behavior hard-errored "Session not
+  // found" and made the user click New chat by hand — the world moved, the
+  // conversation follows it.
+  let staleNotice: string | null = null;
   if (input.sessionId && (!session || session.projectId !== active.project.id)) {
-    return {
-      sessionId: input.sessionId,
-      events: [{ type: "error", message: "Session not found (it may belong to another project) — start a new chat." }],
-      needsContinue: false,
-    };
+    staleNotice = session
+      ? "已自动切换到当前项目的对话 — 上一个会话属于另一个项目。"
+      : "上一个会话已不存在 — 已切换到当前项目最近的对话。";
+    session = null;
   }
   if (!session) {
     session = latestSessionForProject(active.project.id) ?? createSession(active.project.id);
   }
+  const events: AiEvent[] = [];
+  if (staleNotice) events.push({ type: "notice", message: staleNotice });
 
   // ---- new user message --------------------------------------------------
   const message = typeof input.message === "string" ? input.message.trim().slice(0, 8000) : "";
   if (!message && !input.cont) {
     return {
       sessionId: session.id,
-      events: [{ type: "error", message: "Nothing to send — provide a message or continue." }],
+      events: [...events, { type: "error", message: "Nothing to send — provide a message or continue." }],
       needsContinue: false,
     };
   }
@@ -107,7 +115,7 @@ export async function runAiIteration(input: AgentRunInput): Promise<AgentRunResu
     if (!last || last.role !== "tool") {
       return {
         sessionId: session.id,
-        events: [{ type: "error", message: "Nothing to continue — the last turn is complete." }],
+        events: [...events, { type: "error", message: "Nothing to continue — the last turn is complete." }],
         needsContinue: false,
       };
     }
@@ -120,14 +128,15 @@ export async function runAiIteration(input: AgentRunInput): Promise<AgentRunResu
       saveSession(session);
       return {
         sessionId: session.id,
-        events: [{ type: "error", message: `Stopped after ${MAX_CONTINUATION_TURNS} automatic turns — send a new message to continue.` }],
+        events: [...events, { type: "error", message: `Stopped after ${MAX_CONTINUATION_TURNS} automatic turns — send a new message to continue.` }],
         needsContinue: false,
       };
     }
   }
 
   // ---- the model turn -----------------------------------------------------
-  const events: AiEvent[] = [];
+  // (events was minted at the session boundary — a stale-session notice
+  // rides every outcome below, including provider errors)
   // the census rides the prompt (cheap: one indexed count)
   let jobCount = 0;
   try {
