@@ -397,8 +397,20 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
       ? "Unassigned"
       : (workspaces.find((w) => w.id === id)?.name ?? id);
 
-  /** Full job inventory of the current scope → timestamped CSV download. */
+  /** Full job inventory of the current scope → timestamped CSV download.
+   *  t507 — the archive grid learns the honest window: started_at speaks
+   *  the engine's own stamp (the DTO field verbatim, the way created and
+   *  updated speak theirs) and duration_ms drinks the SAME walk the bars
+   *  and the timeline CSV pour from — the floor and the running-stretch
+   *  live in the well, so a spreadsheet can never catch the two grids
+   *  disagreeing about how long a step took. A job the engine never
+   *  started has no window: both cells stay blank (CSV grammar for
+   *  "never started" is blank, never a guess). */
   const exportCsv = () => {
+    // one lookup over the walk's rows — duration is a MEASUREMENT (the
+    // well's ms: floored, a live run stretched to now), never the raw
+    // j.duration (0/stale while a run is still going)
+    const windowMsByJob = new Map(runs.rows.map((r) => [r.job.id, r.ms]));
     const header = [
       "name",
       "type",
@@ -409,6 +421,10 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
       "result",
       "created_at",
       "updated_at",
+      // t507 — the window's two columns ride at the END: existing column
+      // positions stay stable for the scripts already reading this grid
+      "started_at",
+      "duration_ms",
     ];
     const rows = scoped.map((j) => [
       j.name,
@@ -420,6 +436,8 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
       j.result ?? "",
       j.createdAt,
       j.updatedAt,
+      j.startedAt ?? "", // the engine's own stamp, verbatim (null = never started)
+      windowMsByJob.get(j.id)?.toString() ?? "", // the walk's ms, blank when no window exists
     ]);
     const csv = [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
     const stamp = new Date().toISOString().slice(0, 10);
@@ -435,10 +453,12 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   };
 
   /** The windows' machine face (t506): the SAME walk the bars draw, as
-   *  a spreadsheet-ready grid — job inventory CSV speaks created/updated
-   *  (archive fields); this one speaks honest windows (startedAt → end,
-   *  measured duration, share of the span). A live run's ended_at is
-   *  the CSV builder's business (blank, never a guess). */
+   *  a spreadsheet-ready grid — the job inventory speaks archive fields
+   *  (created/updated) and, since t507, carries the window's stamp and
+   *  length from this same well (started_at/duration_ms); THIS grid
+   *  remains the whole-window face (start, end, measured duration, share
+   *  of the span). A live run's ended_at is the CSV builder's business
+   *  (blank, never a guess). */
   const exportTimelineCsv = () => {
     const rows: TimelineCsvRow[] = runs.rows.map((r) => ({
       jobId: r.job.id,

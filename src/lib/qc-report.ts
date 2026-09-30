@@ -1140,7 +1140,8 @@ export const curveVerdictsCsvFilename = (): string =>
 /** t506: the timeline windows' own CSV filename — the same timestamp
  *  grammar as its siblings, its own name: the windows' machine grid
  *  travels under the timeline's flag, never masquerading as the job
- *  inventory's (which speaks created/updated, not honest windows). */
+ *  inventory's (which speaks archive fields — created/updated; t507
+ *  lent it the window's stamp and length, the WHOLE window lives here). */
 export const timelineRunsCsvFilename = (): string =>
   `session-timeline-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
 
