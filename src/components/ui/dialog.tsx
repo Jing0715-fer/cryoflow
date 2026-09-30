@@ -6,10 +6,141 @@ import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/* ------------------------------------------------------------------ */
+/* Companion windows (t501)                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A "companion window" is a persistent floating tool the user keeps open
+ * beside their work — the AI assistant is the first citizen. Radix MODAL
+ * dialogs claim the whole document: they set body{pointer-events:none},
+ * arm a FocusScope that yanks focus back into the dialog on every focusin,
+ * lock scroll (react-remove-scroll) and aria-hide everything outside. A
+ * companion floating "above" such a dialog is therefore DEAD regardless of
+ * its z-index — the user's ticket said it plainly: the job params page's
+ * mask covered the AI assistant, and clicking the assistant dismissed the
+ * page. The only honest fix is to yield modality: while ANY companion
+ * window is registered, dialogs render NON-modal (no mask, no focus trap,
+ * no pointer-events siege), and outside interactions that START inside a
+ * companion never dismiss a dialog. Focus/typing/dragging in the companion
+ * work; the dialog stays open — both surfaces live at once.
+ *
+ * The contract is one DOM attribute: a companion window marks its root
+ * with [data-companion-window] and registers itself through
+ * useCompanionWindow() while open.
+ */
+const COMPANION_WINDOW_SELECTOR = "[data-companion-window]"
+
+/** t501 — summon doors: elements (the header's AI-assistant button) that
+ * must stay clickable while a MODAL dialog is open and whose clicks must
+ * never dismiss that dialog. The mask sits BELOW the header strip (z-[39]
+ * vs z-40), so the door is bright and alive; this selector is the other
+ * half — the dismissal guard honors it. */
+const DIALOG_LIVE_SELECTOR = "[data-dialog-live]"
+
+type CompanionWindowsContextValue = {
+  /** How many companion windows are currently open (drives the yield). */
+  count: number
+  /** Stable register() — returns the unregister for the effect cleanup. */
+  register: () => () => void
+}
+
+const CompanionWindowsContext =
+  React.createContext<CompanionWindowsContextValue | null>(null)
+
+const NOOP = () => {}
+
+function CompanionWindowsProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [count, setCount] = React.useState(0)
+  // STABLE by design: consumers memo/effect on this function's identity, so
+  // a count change must never mint a new one (it uses functional updates).
+  const register = React.useCallback(() => {
+    setCount((c) => c + 1)
+    let active = true
+    return () => {
+      if (!active) return
+      active = false
+      setCount((c) => Math.max(0, c - 1))
+    }
+  }, [])
+  const value = React.useMemo(() => ({ count, register }), [count, register])
+  return (
+    <CompanionWindowsContext.Provider value={value}>
+      {children}
+    </CompanionWindowsContext.Provider>
+  )
+}
+
+/** For companion windows: call it inside an effect that lives while the
+ * window is open. Without a provider above (tests, stories) it no-ops and
+ * dialogs keep their default modality. */
+function useCompanionWindow(): () => void {
+  const ctx = React.useContext(CompanionWindowsContext)
+  return ctx ? ctx.register : NOOP
+}
+
+/** True when the event originated inside a registered companion window
+ * (or a live summon door — same exemption, smaller surface). Radix's
+ * outside handlers receive the custom event dispatched ON the original
+ * target, so .target is the real pointerdown/focus/keydown spot. */
+function isFromLiveZone(event: Event): boolean {
+  const target = event.target
+  return (
+    target instanceof Element &&
+    target.closest(`${COMPANION_WINDOW_SELECTOR}, ${DIALOG_LIVE_SELECTOR}`) != null
+  )
+}
+
+/**
+ * The outside guards: chain after the caller's own handler, then keep the
+ * dialog OPEN when the interaction belongs to a companion window. Radix
+ * DismissableLayer dismisses on outside pointerdown/interact unless the
+ * custom event is defaultPrevented — preventing here is the whole trick.
+ * Esc gets the same treatment, one layer deeper: Radix hears Escape on
+ * document CAPTURE, so a companion's own Esc handler (bubble phase) could
+ * never stop it — but onEscapeKeyDown runs inside the capture listener
+ * BEFORE the dismissal check, and preventing it when the FOCUSED element
+ * (the keydown target) lives in a companion hands the keypress to the
+ * companion's own handler instead: Esc peels the companion, not the
+ * dialog under it.
+ */
+function companionGuard<E extends Event>(
+  handler: ((event: E) => void) | undefined
+): (event: E) => void {
+  return (event) => {
+    handler?.(event)
+    if (!event.defaultPrevented && isFromLiveZone(event)) {
+      event.preventDefault()
+    }
+  }
+}
+
 function Dialog({
+  modal,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  const companions = React.useContext(CompanionWindowsContext)
+  const companionOpen = (companions?.count ?? 0) > 0
+  return (
+    <DialogPrimitive.Root
+      data-slot="dialog"
+      /* YIELD, don't toggle: while a companion window is open, dialogs drop
+       * to non-modal — the mask, focus trap, scroll lock and pointer-events
+       * siege all vanish, and Radix itself stops rendering the overlay. An
+       * explicit `modal` from the caller always wins (AlertDialog is a
+       * separate primitive and stays deliberately, fully modal). The flip
+       * re-renders open dialogs mid-flight: Radix swaps its content
+       * implementation, which remounts the subtree — surface state lifted
+       * above DialogContent (inspector tab, gallery filters) survives, leaf
+       * effects just refetch once, the price of two windows living at once. */
+      modal={modal ?? !companionOpen}
+      {...props}
+    />
+  )
 }
 
 function DialogTrigger({
@@ -37,8 +168,15 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
+      /* t501 — z-[39], one notch BELOW the app's chrome strips (header,
+       * canvas selection toolbar, orchestration strip — all z-40): the
+       * mask dims the canvas (z-30 and under) but the TOOL STRIP stays
+       * bright and live, so the header's AI-assistant door keeps working
+       * while a modal dialog is open (the header carries pointer-events-auto
+       * against the modal body-wide siege). The dialog content itself stays
+       * z-50, above every chrome strip. */
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[39] bg-black/50",
         className
       )}
       {...props}
@@ -50,10 +188,16 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onPointerDownOutside,
+  onInteractOutside,
+  onFocusOutside,
+  onEscapeKeyDown,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const companions = React.useContext(CompanionWindowsContext)
+  const companionOpen = (companions?.count ?? 0) > 0
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -68,8 +212,23 @@ function DialogContent({
           // at the viewport and scroll inside; content that fits is
           // unaffected, and per-dialog className still overrides via twMerge.
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg grid-cols-[minmax(0,1fr)]",
+          // t501 — while a companion window is open this dialog renders
+          // NON-modal: the dimming mask is gone, and the bright background
+          // behind needs a heavier shadow for the sheet to still read as
+          // the elevated surface it is.
+          companionOpen && "shadow-2xl",
           className
         )}
+        /* t501 — the companion guards: interactions that start inside a
+         * registered floating window (the AI assistant) must never dismiss
+         * this dialog — clicking/typing/dragging over THERE is not
+         * "clicking outside" in the user's world. Composed AFTER the
+         * caller's own handlers so their judgments (and preventDefaults)
+         * always get first say. */
+        onPointerDownOutside={companionGuard(onPointerDownOutside)}
+        onInteractOutside={companionGuard(onInteractOutside)}
+        onFocusOutside={companionGuard(onFocusOutside)}
+        onEscapeKeyDown={companionGuard(onEscapeKeyDown)}
         {...props}
       >
         {children}
@@ -169,6 +328,9 @@ export function onEscapeClose(
 }
 
 export {
+  COMPANION_WINDOW_SELECTOR,
+  DIALOG_LIVE_SELECTOR,
+  CompanionWindowsProvider,
   Dialog,
   DialogClose,
   DialogContent,
@@ -179,4 +341,5 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
+  useCompanionWindow,
 }

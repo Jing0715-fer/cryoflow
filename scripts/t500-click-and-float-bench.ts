@@ -33,6 +33,12 @@
  *                      clamped; mobile full-screen; Esc layered
  *   T6 the neighbors  — linkify + prose doors ride the md segments
  *                      untouched; the composer contract unchanged
+ *   T7 t501 the mask  — the job params page's modal mask used to cover
+ *                      the assistant and clicking it dismissed the page;
+ *                      now a companion contract: dialogs yield modality
+ *                      while the assistant is open, interactions inside
+ *                      it never dismiss a dialog, the window is a body
+ *                      child tied at z-50 with click-to-front
  */
 
 import { readFileSync } from "fs";
@@ -276,12 +282,78 @@ ok(
   "layered Esc: live query clears first, empty query closes",
 );
 ok(
-  panelSrc.includes('isMobile\n          ? "inset-0 z-50"'),
+  panelSrc.includes('isMobile\n          ? "inset-0"'),
   "mobile keeps the honest full-screen face",
 );
 ok(
   panelSrc.includes("GEO_MIN_W = 360") && panelSrc.includes("GEO_MIN_H = 420"),
   "minimum geometry laws (a 100px chat is not a chat)",
+);
+
+// ------------------------------------------------------ T7 t501 coexistence
+// The user's ticket: the job params page's MASK covered the assistant, and
+// clicking the assistant dismissed the page — neither surface was usable
+// with the other. The fix is a companion contract: body-portal + z-tie with
+// dialogs + DOM-order click-to-front, while every shared Dialog yields
+// modality while a companion is registered and never dismisses on
+// interactions that start inside one.
+section("T7 t501 — companion-window coexistence with dialogs");
+
+ok(
+  panelSrc.includes('data-companion-window=""') && panelSrc.includes('data-ai-assistant=""'),
+  "the window wears the companion contract + an honest probe name",
+);
+ok(
+  panelSrc.includes("useCompanionWindow()") &&
+    panelSrc.match(/return registerCompanion\(\);/) != null,
+  "registers as a companion while open (drives the dialogs' modal yield)",
+);
+ok(
+  panelSrc.includes("createPortal(") && panelSrc.includes("document.body\n  );"),
+  "the window is a direct body child (DOM order vs dialogs, escapes shell stacking contexts)",
+);
+ok(
+  panelSrc.includes("onPointerDownCapture={raiseToFront}") && panelSrc.includes("body.lastElementChild !== el"),
+  "click-to-front: a touch re-appends to body end — the z-tiebreak among z-50 citizens",
+);
+ok(
+  panelSrc.includes("pointer-events-auto fixed z-50"),
+  "z-50 ties dialogs (DOM order decides) and pointer-events survive any body-wide siege",
+);
+const dialogSrc = readFileSync("src/components/ui/dialog.tsx", "utf8");
+ok(
+  dialogSrc.includes("COMPANION_WINDOW_SELECTOR") && dialogSrc.includes("CompanionWindowsProvider"),
+  "the shared dialog owns the companion contract (selector + provider)",
+);
+ok(
+  dialogSrc.includes("modal={modal ?? !companionOpen}"),
+  "dialogs yield modality while a companion is open (explicit modal still wins)",
+);
+ok(
+  dialogSrc.includes("companionGuard(onPointerDownOutside)") &&
+    dialogSrc.includes("companionGuard(onInteractOutside)") &&
+    dialogSrc.includes("companionGuard(onFocusOutside)") &&
+    dialogSrc.includes("companionGuard(onEscapeKeyDown)"),
+  "outside pointerdown/interact/focus/Escape from a companion never dismiss the dialog",
+);
+ok(
+  dialogSrc.includes("companionOpen && \"shadow-2xl\""),
+  "unmasked dialogs still read as elevated (heavier shadow while yielding)",
+);
+ok(
+  dialogSrc.includes("z-[39] bg-black/50") && dialogSrc.includes("DIALOG_LIVE_SELECTOR"),
+  "the mask sits below the chrome strip (z-[39] vs z-40) and honors live summon doors",
+);
+const headerSrc = readFileSync("src/components/workflow/header.tsx", "utf8");
+ok(
+  headerSrc.includes("pointer-events-auto sticky top-0 z-40") &&
+    headerSrc.includes('data-dialog-live=""'),
+  "the header survives the body-wide pointer-events siege; the AI door is a live zone",
+);
+const shellSrc = readFileSync("src/components/workflow/app-shell.tsx", "utf8");
+ok(
+  shellSrc.includes("<CompanionWindowsProvider>"),
+  "the app shell mounts the provider (the traffic light lives at the root)",
 );
 
 // ---------------------------------------------------------------- T6

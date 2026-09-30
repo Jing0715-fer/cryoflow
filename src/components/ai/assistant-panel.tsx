@@ -60,6 +60,7 @@
  */
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -109,6 +110,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useCompanionWindow } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { filterSessions, groupSessionsByDay, matchIndex } from "@/lib/ai/session-groups";
 import { parseActionBlocks, type AssistantAction } from "@/lib/ai/action-blocks";
@@ -702,6 +704,50 @@ export function AssistantPanel() {
     py: number;
     start: WinGeo;
   } | null>(null);
+
+  // ---- t501: the companion contract + click-to-front -------------------
+  // While open, the window registers as a COMPANION — every Dialog in the
+  // app then yields its modality (no mask, no focus trap, no body-wide
+  // pointer-events siege), which is what makes「参数页 + AI 助手同时操作」
+  // possible at all. The attribute half of the contract sits on the root
+  // div below ([data-companion-window]) and is what the shared
+  // DialogContent guards match interactions against.
+  const registerCompanion = useCompanionWindow();
+  React.useEffect(() => {
+    if (!open) return;
+    return registerCompanion();
+  }, [open, registerCompanion]);
+
+  // The window's root — a direct body child (createPortal). Click-to-front:
+  // every pointerdown inside re-appends the node to the END of body, the
+  // window-manager's z-tiebreaker among the body-level z-50 citizens
+  // (dialogs portal there too, so LAST-MOUNTED wins — and a touch re-orders
+  // without remounting, which would dump leaf state). Cheap no-op when
+  // already last.
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const raiseToFront = () => {
+    const el = rootRef.current;
+    if (
+      el &&
+      el.parentElement === document.body &&
+      document.body.lastElementChild !== el
+    ) {
+      document.body.appendChild(el);
+    }
+  };
+
+  // The summon race: registering as a companion can flip an open modal
+  // dialog to non-modal, and Radix's implementation swap REMOUNTS that
+  // dialog's content — the fresh portal appends to body AFTER this window,
+  // so the dialog the user just summoned OVER lands on top of it. One
+  // delayed re-raise settles the order the way the gesture meant it: the
+  // just-summoned window leads. (A later-opened dialog still wins — this
+  // only runs on open, not on every dialog mount.)
+  React.useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(raiseToFront, 60);
+    return () => clearTimeout(t);
+  }, [open]);
 
   // restore the persisted geometry (or take the default home position).
   // A MOBILE mount mints nothing: the full-screen face needs no geometry,
@@ -1390,16 +1436,32 @@ export function AssistantPanel() {
 
   if (!open) return null;
 
-  return (
+  // t501 — the window is a DIRECT BODY CHILD via portal. Dialogs (and every
+  // Radix popover that leaves a dialog) portal to body as z-50 too, so the
+  // stack order among them is DOM order: mount-order first, then whoever
+  // was touched last (raiseToFront). A body-level window also escapes any
+  // stacking context the app shell might grow (transforms, filters).
+  return createPortal(
     <div
+      ref={rootRef}
+      // t501 — the companion contract: [data-companion-window] is what the
+      // shared DialogContent guards match; data-ai-assistant is the honest
+      // name for probes/benches.
+      data-ai-assistant=""
+      data-companion-window=""
       role="dialog"
       aria-modal="false"
       aria-label="AI 助手"
       onKeyDown={onWindowKeyDown}
+      onPointerDownCapture={raiseToFront}
       className={cn(
-        "no-print fixed z-40 flex flex-col overflow-hidden bg-card shadow-2xl outline-none",
+        // pointer-events-auto: some layer COULD still flip body-wide
+        // pointer-events off (a modal Select, an AlertDialog) — the window
+        // re-asserts its own liveness instead of inheriting the siege.
+        // z-50 ties it with dialogs; DOM order decides (see createPortal).
+        "no-print pointer-events-auto fixed z-50 flex flex-col overflow-hidden bg-card shadow-2xl outline-none",
         isMobile
-          ? "inset-0 z-50"
+          ? "inset-0"
           : "rounded-xl border animate-in fade-in-95 zoom-in-95 duration-150"
       )}
       style={
@@ -1883,6 +1945,7 @@ export function AssistantPanel() {
             </div>
           </>
         )}
-    </div>
+    </div>,
+    document.body
   );
 }

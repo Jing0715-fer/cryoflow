@@ -653,7 +653,9 @@ export function Header() {
     // its controls (project picker, search, menus) are dead weight, and a
     // sticky header would repeat on every printed page of a multi-page
     // dashboard roster. PrintDocHeader is the official paper masthead.
-    <header className="no-print sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4">
+    <header
+      className="no-print pointer-events-auto sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4"
+    >
       {/* Brand */}
       <div className="flex min-w-0 items-center gap-2.5">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -733,10 +735,17 @@ export function Header() {
           * the same mobile law the palette trigger follows — a headline
           * feature hides from nobody). t427 — teal: the assistant's brand
           * follows the app's cryo-teal identity (the panel was reworked
-          * to match in the same round). */}
+          * to match in the same round).
+          * t501 — data-dialog-live + the mask's z-[39] (below this z-40
+          * strip): the door KEEPS WORKING while a modal dialog is open.
+          * That was the user's bug — clicking this button with the job
+          * params page open dismissed the page (the click landed on the
+          * mask); now the click opens the assistant, the companion
+          * registration strips the dialog's modality, and both live. */}
         <Button
           variant="ghost"
           size="icon"
+          data-dialog-live=""
           className="max-sm:px-2 text-primary hover:text-primary/80"
           onClick={() => useWorkflowStore.getState().openAiAssistant()}
           aria-label="AI assistant"

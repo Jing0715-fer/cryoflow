@@ -64,6 +64,9 @@ import { HelpGuideDialog } from "@/components/workflow/help-guide-dialog";
 // t419 — the AI assistant: panel + provider settings, both store-flagged
 // mounts exactly like the shortcuts/presets dialogs (mounted once).
 import { AssistantPanel } from "@/components/ai/assistant-panel";
+// t501 — dialogs yield modality while the AI assistant (a registered
+// companion window) is open; the provider is the traffic light.
+import { CompanionWindowsProvider } from "@/components/ui/dialog";
 import { AiSettingsDialog } from "@/components/ai/ai-settings-dialog";
 import { BULK_DELETE_EVENT } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -585,6 +588,7 @@ export function AppShell() {
   );
 
   return (
+    <CompanionWindowsProvider>
     <div
       data-view={view}
       className="flex h-dvh flex-col bg-background text-foreground"
@@ -842,5 +846,6 @@ export function AppShell() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </CompanionWindowsProvider>
   );
 }
