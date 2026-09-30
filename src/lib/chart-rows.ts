@@ -37,6 +37,22 @@ export const fmtAngstrom = (v: number | null | undefined): string =>
 export const fmtMicron = (v: number | null | undefined): string =>
   v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 1000) / 1000} µm`;
 
+/**
+ * t493 — the reported number's passport, compressed in ONE place. The
+ * loader's reportedLabel ("RELION final resolution (masked, sharpened)"
+ * / "RELION auto-refine estimate (smoothed FSC)") is written for
+ * tooltips; the paper's verdict row and the agent tool's spoken line
+ * both sit inside sentences that already say "RELION", so the passport
+ * they quote must be the label minus that prefix — and both faces must
+ * compress it the SAME way, or the two sentences drift apart one
+ * adjective at a time. Null in, null out (no label, no passport).
+ */
+export const reportedPassport = (label: string | null | undefined): string | null => {
+  if (!label) return null;
+  const stripped = label.replace(/^RELION\s*/, "").trim();
+  return stripped.length > 0 ? stripped : null;
+};
+
 /* ---------------- FSC curve ---------------- */
 
 export interface FscShell {

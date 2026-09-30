@@ -23,6 +23,7 @@ import { mdCell } from "@/lib/md";
 import {
   fmtAngstrom,
   fmtMicron,
+  reportedPassport,
   type AngDistResponse,
   type CtfResponse,
   type FscResponse,
@@ -730,7 +731,15 @@ export const curveVerdictOf = (
       if (!d.shells || d.shells.length === 0) return null;
       let v = `FSC 0.143 at ${d.resolutionAt143 != null ? fmtAngstrom(d.resolutionAt143) : "?"}`;
       if (d.resolutionAt05 != null) v += ` (0.5 at ${fmtAngstrom(d.resolutionAt05)})`;
-      if (d.reportedResolution != null) v += ` · reported ${fmtAngstrom(d.reportedResolution)}`;
+      if (d.reportedResolution != null) {
+        v += ` · reported ${fmtAngstrom(d.reportedResolution)}`;
+        // t493 — the number's passport: WHICH estimate RELION published
+        // (masked final vs auto-refine smoothed) changes how the reader
+        // may compare it; the two job families' labels come from the
+        // loader, the paper only quotes them (well-word-wins, again).
+        const passport = reportedPassport(d.reportedLabel);
+        if (passport) v += ` — ${passport}`;
+      }
       const interp = d.interpretation;
       if (interp?.atNyquist) v += " — at the Nyquist cap, the curve cannot cross";
       if (interp?.reportedDiffers) v += " — the reported estimate differs from the crossing";
@@ -740,7 +749,7 @@ export const curveVerdictOf = (
       const d = data as GuinierResponse;
       if (!d.points || d.points.length === 0) return null;
       let v = `Guinier ${d.points.length} pts`;
-      if (d.bfactor != null) v += ` · B-factor ${d.bfactor.toFixed(1)} Å²`;
+      if (d.bfactor != null) v += ` · B-factor ${d.bfactor.toFixed(1)} Å² (used for sharpening)`;
       const interp = d.interpretation;
       if (interp?.rangeAngstrom) v += ` · covers ${interp.rangeAngstrom.from.toFixed(1)}–${interp.rangeAngstrom.to.toFixed(1)} Å`;
       if (interp?.hasSharpened) v += " · sharpened curve in plot";

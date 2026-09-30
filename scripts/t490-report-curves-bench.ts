@@ -82,21 +82,21 @@ const fscData = {
   resolutionAt143: 7.785,
   resolutionAt05: 7.2,
   reportedResolution: 7.788,
-  reportedLabel: "_rlnFinalResolution",
+  reportedLabel: "RELION final resolution (masked, sharpened)", // t493: a REAL loader label (the old fixture carried the raw field name — fixtures must speak the same language the loader speaks)
   interpretation: { atNyquist: false, reportedDiffers: false },
 };
 ok(
   curveVerdictOf("fsc", fscData) ===
-    "FSC 0.143 at 7.8 Å (0.5 at 7.2 Å) · reported 7.8 Å",
-  `fsc verdict byte-exact (got "${curveVerdictOf("fsc", fscData)}")`
+    "FSC 0.143 at 7.8 Å (0.5 at 7.2 Å) · reported 7.8 Å — final resolution (masked, sharpened)",
+  `fsc verdict byte-exact, passport rides in (got "${curveVerdictOf("fsc", fscData)}")`
 );
 ok(
   curveVerdictOf("fsc", {
     ...fscData,
     interpretation: { atNyquist: true, reportedDiffers: true },
   }) ===
-    "FSC 0.143 at 7.8 Å (0.5 at 7.2 Å) · reported 7.8 Å — at the Nyquist cap, the curve cannot cross — the reported estimate differs from the crossing",
-  "fsc interpretation clauses ride in (Nyquist cap + disagreement)"
+    "FSC 0.143 at 7.8 Å (0.5 at 7.2 Å) · reported 7.8 Å — final resolution (masked, sharpened) — at the Nyquist cap, the curve cannot cross — the reported estimate differs from the crossing",
+  "fsc interpretation clauses ride in (passport + Nyquist cap + disagreement)"
 );
 ok(
   curveVerdictOf("fsc", { ...fscData, shells: [] }) === null,
@@ -116,8 +116,8 @@ const guinierData = {
 };
 ok(
   curveVerdictOf("guinier", guinierData) ===
-    "Guinier 3 pts · B-factor -62.4 Å² · covers 7.1–169.0 Å · sharpened curve in plot",
-  `guinier verdict byte-exact (got "${curveVerdictOf("guinier", guinierData)}")`
+    "Guinier 3 pts · B-factor -62.4 Å² (used for sharpening) · covers 7.1–169.0 Å · sharpened curve in plot",
+  `guinier verdict byte-exact, sharpening passport (got "${curveVerdictOf("guinier", guinierData)}")`
 );
 ok(
   curveVerdictOf("guinier", { ...guinierData, points: [] }) === null,

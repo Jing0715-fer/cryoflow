@@ -6102,3 +6102,23 @@ Stage Summary:
 - [验证-终] t492 bench 46/0 + t491 证人 109/0 + 回归全家 **57 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（四触碰文件，全仓 3 errors 与 HEAD 基线一致、全在 scripts/ 诊断归档区存量）；行为面：三 surfaces 入井、双脸契约、旧页保留、谎言绝迹；世界 22 jobs（1 running fixture）/ 15 edges / 2 canvas / 新会话 console 0 错、零数据手术。
 - [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 493 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉒curve verdicts 的 CSV 面（待真实使用）㉓class2d 的 FSC 行无来源提示（source 列或 hint 尾注，轻量）；㉖韧性 third act 候选——results-view 的 outputs loadOnce 虽有自家契约（retriedRef + record-gone 判决）但 transient 红脸无 Retry 芯，可考虑在保留判决语义的前提下给 transient 脸加同款 Retry（小而诚实）；㉗duplicate-key console 陈尸的来源未定谳（活体窗内未复现、clear 后零错，若再现优先查 overlay/svg 区的 key={i} 与上游数组拼合处）。
 - [终验补记] push 完成（56f4ca1..2a18a2a → origin/main 三方对齐）；push 后 server 再遭收割一次，dev-server.sh 复火：landing 200、22 jobs / 2 canvas / 15 edges、clear 后新会话 console 0 错。Task 492 收官，下窗从 Task 493 起编。
+
+## Task 493 (2026-09-30, cron 08:07 窗 —— The Reported Gets Its Passport)
+
+- [开局] 实尾 = Task 492 完整收官（HEAD = f822c8b 三方对齐）。第八十四份过时 Task 13 指引照例不认（以 t492 遗留清单为准）。自号 493。QA 基线全绿：回归全家 57 套 exit 0、landing 200、22 jobs / 2 canvas / 15 edges、新会话 console 0 错、磁盘 562M。
+- [排除法] ③④⑦ 待回执/待真实并存；⑤⑥ 门控；① 重且环境依赖；㉒ 待真实使用；㉗ 未复现；**㉖ 排除——现现场勘已过时**：outputs error 脸已有 Retry 按钮（results-view line 914-923，onClick load()），t492 遗留描述漏看。**㉓ 定谳并扩展**：不只 class2d 的 FSC 行——「reported」数字的户口缺口在纸面与工具两张脸同在。
+
+- [交付①— 护照出生地（chart-rows.ts reportedPassport）] loader 的 reportedLabel 本为 tooltip 而写（"RELION final resolution (masked, sharpened)" / "RELION auto-refine estimate (smoothed FSC)"）；纸面 verdict 行与工具 spoken line 都活在已含 "RELION" 的句子里——护照 = label 剥掉 RELION 前缀，且两脸**必须同法压缩**否则两句话一次漂移一个形容词。一处出生地（`\s*` + trim，"RELION" 孤词剥完为空 → null，bench 自捕一次）。
+- [交付②— 纸面护照（qc-report.ts）] fsc verdict：`· reported X Å — {passport}`（t490 引入的行从此带户口）；guinier verdict：`B-factor X Å² (used for sharpening)`（其 star 字段本身就是 _rlnBfactorUsedForSharpening——固定事实的护照）；无 label → 数字照行、无 dangling dash（诚实降级）。
+- [交付③— 工具护照（ai/tools.ts）] fsc spoken：`RELION reports X Å — {passport}` 同法同源；guinier spoken 同款 sharpening 户口；结构化载荷的完整 label 照旧（短形说话、长形旅行）。
+- [t493 bench — 21/0] T1 护照行为 6（两真实 label 压缩/null 族/异国 label 原样）+ T2 纸面 5（postprocess/model 两护照逐字节/诚实降级/sharpening）+ T3 工具 4（同源调用/同 em-dash 文法/结构化长形）+ T4 出生地 4（双 import 断言 + loader 两 label 原文完好——护照压缩它，从不重写它）+ T5 邻居 3（tooltip 与 identity card 的长形护照幸存，短形只属于已说 RELION 的句子）。t490 证人 bench 三处断言诚实演进 + **fixture 修正**（旧 fixture 的 reportedLabel 填的是裸字段名 `_rlnFinalResolution`——fixture 必须说 loader 的语言），复跑 52/0。
+- [活体 — 三护照同屏] Session QC 报告实测：postprocess 族四行全带「— final resolution (masked, sharpened)」；class2d/class3d/refine3d 四行全带「— auto-refine estimate (smoothed FSC)」——**同语法、不同仪器，同屏可辨**（t490 活体记录的「class2d 的 model-star 3.2 Å 无来源」就此定谳修复）；Guinier 行带「(used for sharpening)」；QA Refine 410 无 reported 诚实缺席、无 dangling dash。工具面由 t486/t489 证人 bench 51/39 双持证。插曲：server 本窗被收割两次（开局一次 + 报告活体前一次），dev-server.sh 两次复火；SESSION_REPORT_EVENT 实为 `cryoflow:open-session-report`（凭记忆 dispatch 落空一枚——事件名对代码验证）。
+- [验证-终] t493 bench 21/0 + 六证人（t486 51 / t487 37 / t488 37 / t489 39 / t491 109 / t492 46）全绿 + 回归全家 **58 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（三触碰文件）；世界 22 jobs / 15 edges / 2 canvas / 新会话 console 0 错、零数据手术。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 494 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉒curve verdicts 的 CSV 面（待真实使用）；㉘护照的下一跳——ctf/motion/topaz 行的 verdict 是否也该带 sourceFile 短语（三家来源单一，待真实混用 job 类型后再定）；㉙CSV 导出（inventoryCsv 判例）的 curve verdicts 面与纸面护照的一致性（跟纸走还是跟 CSV 走）。
+
+Stage Summary:
+- **「数字要有户口」**：同一个「reported X Å」在 postprocess 是 masked final、在 refine 是 auto-refine smoothed——语法相同、仪器不同、可比性不同；t493 让纸面与工具两张脸都把 loader 的 label 引进句子，读者从此一眼可辨
+- **「压缩也要一个出生地」**：t490 的共享舍入律（两脸一个数字必须一处舍入）的自然姊妹——两脸一句护照必须一处压缩；reportedPassport 与 fmtAngstrom 同住 chart-rows 共享面
+- **「fixture 必须说 loader 的语言」**：t490 证人 bench 的合成 label 填了裸字段名，护照一出它就现形——合成数据不是二等公民，它的字符串也该是真实系统能说出的字符串
+- **「短形说话、长形旅行」**：verdict 行与 spoken line 用压缩护照（句子已含 RELION），tooltip 与 identity card 保留完整 label——两种粒度两种用途，断言钉死各不越界
+- 产出：reportedPassport（chart-rows 共享面）+ qc-report fsc/guinier 两行护照 + ai/tools 两句 spoken 护照 + t493 bench 21/0 + t490 证人 fixture 修正与断言演进 52/0 + 58 套回归全绿 + Session QC 报告八行护照活体

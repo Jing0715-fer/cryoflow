@@ -121,7 +121,7 @@ import {
   loadTopazTraining,
   ChartJobNotFound,
 } from "@/lib/chart-data";
-import { fmtAngstrom, fmtMicron } from "@/lib/chart-rows";
+import { fmtAngstrom, fmtMicron, reportedPassport } from "@/lib/chart-rows";
 
 export interface AiToolResult {
   ok: boolean;
@@ -2578,7 +2578,13 @@ async function getJobCurves(
           `FSC 0.143 at ${fmtAng(d.resolutionAt143)}` +
             (d.resolutionAt05 != null ? ` (0.5 at ${fmtAng(d.resolutionAt05)})` : "") +
             (d.reportedResolution != null
-              ? `, RELION reports ${fmtAng(d.reportedResolution)}`
+              ? `, RELION reports ${fmtAng(d.reportedResolution)}` +
+                // t493 — the same passport the paper quotes (one
+                // compression birthplace: chart-rows' reportedPassport),
+                // so the spoken line and the verdict row never drift
+                (reportedPassport(d.reportedLabel)
+                  ? ` — ${reportedPassport(d.reportedLabel)}`
+                  : "")
               : "")
         );
         curves.push({
@@ -2627,7 +2633,7 @@ async function getJobCurves(
       if (d.points.length > 0) {
         spoken.push(
           `Guinier ${d.points.length} pts` +
-            (d.bfactor != null ? `, B-factor ${d.bfactor.toFixed(1)} Å²` : "")
+            (d.bfactor != null ? `, B-factor ${d.bfactor.toFixed(1)} Å² (used for sharpening)` : "")
         );
         curves.push({
           kind: "guinier",
