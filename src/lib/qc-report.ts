@@ -709,6 +709,29 @@ export interface CurveVerdictRow {
   verdict: string;
 }
 
+/** t498 — the fourth family speaks CSV: the verdict table as a machine
+ *  grid for spreadsheets and scripts. Same father as the paper: the
+ *  rows ARE the walk's own CurveVerdictRow[] (the md table drinks the
+ *  same array — one well, two faces), the curve column speaks the
+ *  paper's own word (CURVE_KIND_LABELS — never retyped, never a raw
+ *  token twin), and the verdict cell is the verdict string VERBATIM —
+ *  passport phrases included (t493's answer to "does the grid follow
+ *  the paper or the grid": the paper IS the well; a re-worded machine
+ *  copy would be a second father). The job_id column is the machine
+ *  face of the door stamp: the paper keeps its three visible columns,
+ *  the grid carries the identity a script needs to address the job.
+ *  Cells are quoted only when they must be (RFC 4180 — verdicts carry
+ *  commas and names carry quotes). An empty roster returns null: the
+ *  caller refuses honestly (a silent empty file would be a lying
+ *  door). */
+export const curveVerdictsCsv = (rows: CurveVerdictRow[] | null): string | null => {
+  if (!rows || rows.length === 0) return null;
+  const quote = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const line = (parts: string[]) => parts.map(quote).join(",");
+  const body = rows.map((r) => line([r.jobId, r.jobName, CURVE_KIND_LABELS[r.kind], r.verdict]));
+  return [line(["job_id", "job", "curve", "verdict"]), ...body].join("\n");
+};
+
 /**
  * The curve family's voice: each kind's verdict line quotes the SAME
  * well the panels' interpretation strips render and the agent tool
@@ -1010,6 +1033,13 @@ export const sessionReportFilename = (): string =>
  *  own name, not the report's). */
 export const inventoryCsvFilename = (): string =>
   `session-map-inventory-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+
+/** t498: the verdicts' own CSV filename — the same timestamp grammar as
+ *  its siblings (report md, inventory grid, portable HTML), its own
+ *  name: the fourth family's machine grid travels under its own flag,
+ *  never masquerading as the inventory's. */
+export const curveVerdictsCsvFilename = (): string =>
+  `session-curve-verdicts-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
 
 /** t237: the portable-HTML sibling of the report filename — the echo
  *  (buildSessionReportHtml) travels under the report's own name with a

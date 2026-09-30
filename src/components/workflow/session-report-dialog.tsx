@@ -54,6 +54,8 @@ import {
   buildProfileReport,
   buildSessionReport,
   buildSweepReport,
+  curveVerdictsCsv,
+  curveVerdictsCsvFilename,
   CURVE_KIND_LABELS,
   curveVerdictOf,
   deltaVsWinner,
@@ -1457,6 +1459,39 @@ export default function SessionReportDialog({
     flashNote("Downloaded session-map-inventory-….csv");
   };
 
+  /* t498: the verdicts' CSV mouth — the fourth family's machine grid
+     leaves through the same two-mouth contract the inventory taught
+     (t232): ONE builder (curveVerdictsCsv), one empty-state refusal
+     per truth (still reading vs nothing to say — a silent no-op is a
+     lying door), the same receipt grammar and the same ladder. The
+     rows are the table's OWN array — the grid can never disagree with
+     the paper it mirrors. */
+  const exportCurveCsv = async (mode: "copy" | "download") => {
+    if (curvesPending) {
+      flashNote("The curve verdicts are still reading — no CSV yet");
+      return;
+    }
+    const csv = curveVerdictsCsv(curves ?? null);
+    if (!csv) {
+      flashNote("No curve verdicts to export yet — run a curve-bearing job first");
+      return;
+    }
+    if (mode === "copy") {
+      flashNote(
+        await copyOrFallback(
+          csv,
+          curveVerdictsCsvFilename(),
+          "text/csv;charset=utf-8",
+          "Copied the curve verdicts grid to the clipboard",
+          "Downloaded session-curve-verdicts-….csv (clipboard unavailable)",
+        ),
+      );
+      return;
+    }
+    downloadText(curveVerdictsCsvFilename(), csv, "text/csv;charset=utf-8");
+    flashNote("Downloaded session-curve-verdicts-….csv");
+  };
+
   const exportMd = async (mode: "copy" | "download") => {
     if (mode === "copy") {
       // t233: the ladder's first customer — same mechanism as the CSV
@@ -1611,6 +1646,28 @@ export default function SessionReportDialog({
           >
             <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />
             Download CSV
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-emerald-600 hover:bg-emerald-600/15 hover:text-emerald-600"
+            aria-label="Copy curve verdicts CSV"
+            title="The curve verdict table as a machine grid — job id, job, curve, verdict (one row per spoken curve)"
+            onClick={() => exportCurveCsv("copy")}
+          >
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            Copy verdicts CSV
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-emerald-600 hover:bg-emerald-600/15 hover:text-emerald-600"
+            aria-label="Download curve verdicts CSV"
+            title="The curve verdicts as a machine grid — job id, job, curve, verdict; the same rows the paper's table speaks, one well, two faces"
+            onClick={() => exportCurveCsv("download")}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />
+            Download verdicts CSV
           </Button>
           <Button
             variant="ghost"
