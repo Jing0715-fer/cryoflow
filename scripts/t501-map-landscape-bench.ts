@@ -59,6 +59,10 @@ const lib = await import("../src/lib/relion/outputs-list");
 const { MAIN_MAP_RE, MAP_BRIEF_CAP } = await import("../src/lib/map-walk");
 
 const routeSrc = read("src/app/api/jobs/[id]/outputs/route.ts");
+// t515 — the outputs assembly lifted one more level: the route is now a
+// protocol shell and the walk/summary/keys live in lib/relion/job-outputs.
+// The guards follow the law (one well, no twins) to its new address.
+const jobOutputsSrc = read("src/lib/relion/job-outputs.ts");
 const toolsSrc = read("src/lib/ai/tools.ts");
 const dialogSrc = read("src/components/workflow/session-report-dialog.tsx");
 const mapProfileSrc = read("src/app/api/jobs/[id]/map-profile/route.ts");
@@ -91,8 +95,8 @@ ok(lib.classify("x.map") === "mrc" && lib.classify("x.ccp4") === "mrc", "the REL
 ok(lib.classify("x.pdf") === "image" && lib.classify("x.log") === "text", "pdf/log keep their kinds (the moved code, verbatim)");
 ok(lib.friendlyLabel("postprocess.mrc", "postprocess.mrc") === "Sharpened map", "the friendly captions moved with the walk");
 ok(!/function walkWorkdir/.test(routeSrc) && !/const KIND_ORDER/.test(routeSrc) && !/function classify\(/.test(routeSrc), "the route defines no inline twin anymore");
-ok(/from "@\/lib\/relion\/outputs-list"/.test(routeSrc), "the route drinks from the one well");
-ok(/walkWorkdir\(workdir\)/.test(routeSrc), "the route's GET still walks the same cup");
+ok(/from "@\/lib\/relion\/job-outputs"/.test(routeSrc) && /from "@\/lib\/relion\/outputs-list"/.test(jobOutputsSrc), "the route drinks the t515 well, the well drinks the walk — one line of cups, no twins");
+ok(/walkWorkdir\(workdir\)/.test(jobOutputsSrc) && /computeJobOutputs\(/.test(routeSrc), "the GET still walks the same cup — from one house over since t515");
 rmSync(walkRoot, { recursive: true, force: true });
 
 // ---------------------------------------------------------------- T2
@@ -143,7 +147,7 @@ ok(/"map-profile:v1"/.test(execBody), "the statcache key is the route's own (one
 
 // ---------------------------------------------------------------- T6
 section("T6 the neighbors — sibling routes and tools untouched");
-ok(/workdir,|engine,|files,|inputs:|summary,|warnings,|note:/.test(routeSrc), "the outputs route's response keys survive the extraction");
+ok(/workdir,|engine,|files,|inputs:|summary,|warnings,|note:/.test(jobOutputsSrc), "the outputs response keys survive the SECOND extraction — now in the t515 well");
 ok(/resolveInsideJobWorkdir\(run\.workdir, rel\)/.test(mapProfileSrc) && /cachedCompute\(abs, "map-profile:v1"/.test(mapProfileSrc), "the map-profile route keeps its own chain (the tool mirrors, never swaps it)");
 ok(/case "get_job_curves":/.test(toolsSrc), "get_job_curves keeps its case");
 ok(/case "compare_jobs":/.test(toolsSrc), "compare_jobs keeps its case");

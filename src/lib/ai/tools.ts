@@ -152,6 +152,7 @@ import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { detectRelion, type RelionStatus } from "@/lib/relion/system";
 import { cachedCompute } from "@/lib/relion/statcache";
+import { computeJobOutputs, type JobOutputsResult } from "@/lib/relion/job-outputs";
 
 export interface AiToolResult {
   ok: boolean;
@@ -545,6 +546,19 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "get_job_outputs",
+    description:
+      "One job's on-disk PRODUCTS in one read — the inspector's outputs card as data: every file the run wrote (star tables, mrc volumes and stacks, logs, plots — each with its size and kind), the files it CONSUMED (parsed from the recorded command's input flags), the per-type key numbers the card highlights (particles picked or extracted, classes found, resolution estimates — the card's own words, never re-derived), run.out warnings, and the honest notes (a listing that hit its cap says so; remote files carried in from the cluster ledger are marked). THE tool for '这个任务产出了什么 / what files did this job write / where's the postprocess star / how many particles came out / 这个任务的粒子数'. A products read, not a state read: inspect_job answers how the run is DOING (status, params, logs), this answers what the run WROTE. Read-only LOCATOR: it names the files, it never opens, moves or deletes them. One knob: the job id.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: { type: "string", description: "The job's id (get_workflow_state lists ids)." },
+      },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "get_environment_report",
     description:
       "The host's RELION ENVIRONMENT in one read — the engine popover's own probe as data: is RELION installed and where, which version, how jobs execute it (native spawn vs WSL bridge), every install the scan discovered (PATH / RELION_HOME / known paths / home scan / WSL distros), the selected install, binary and external-tool presence (which of the roster's binaries actually exist on disk), and — when the search came up empty — the probe's OWN not-found guidance, composed from the same facts the search produced (RELION_HOME set?, PATH miss, which known dirs exist), so the advice can never drift from what was probed. THE tool for '这台机器装了 RELION 吗 / can I run jobs here / which RELION version / why is RELION not found / is the environment ready / what executes my jobs'. Polite read: it drinks the same cached status the header poll serves (fresh-while-revalidate) — it never fires a forced re-probe (extra WSL/subprocess storms are the Re-detect button's job, and the answer's checkedAt / saved-snapshot flag say exactly how old it is). Physical truth, not belief: what the probe saw on disk, byte for byte — the annex is the probe's own status, the engine popover drinks the same cup. Zero knobs.",
@@ -857,6 +871,8 @@ export async function executeAiTool(
         return await getSessionTimeline(ctx);
       case "get_sweep_verdict":
         return getSweepVerdict(ctx);
+      case "get_job_outputs":
+        return await getJobOutputs(ctx, args);
       case "get_environment_report":
         return await getEnvironmentReport(ctx);
       case "get_continue_sources":
@@ -2991,6 +3007,107 @@ function getSweepVerdict(ctx: AgentCtx): AiToolResult {
     summary: `The session's last sweep: ${sweep.rows.length} profiles (${measured} measured${failed > 0 ? `, ${failed} failed` : ""})${winnerName ? `, winner: ${winnerName}` : ""} — the annex below is the session report's own words, byte for byte.`,
     detail: { sweep_report_md: buildSweepReport(sweep.rows, sweep.bestId) },
   };
+}
+
+/* ---- get_job_outputs ------------------------------------------------ */
+
+/** t515 — how many file rows the tool's annex carries. The inspector's
+ *  card can scroll; an annex is read top to bottom — the kind-ordered
+ *  first sixty name every producer a job of this app's size grows, and
+ *  the summary always speaks the FULL count, so a capped annex says so
+ *  instead of pretending it showed everything (t511's cap law). */
+const OUTPUT_TOOL_FILE_CAP = 60;
+
+/** t515 — the products face as a PURE presenter so the bench can
+ *  fixture a walk without touching a single workdir. The well is the
+ *  route's own assembly lifted whole into lib/relion/job-outputs
+ *  (computeJobOutputs) — the walk, the manifest join, the key numbers,
+ *  the warnings and the notes, in the route's own order. Four honest
+ *  answers: no-run / missing-record / missing-dir speak the route's
+ *  own notes (a negative answer is a successful read); "ok" speaks a
+ *  LOCATOR summary — kind counts are filters, the key numbers are the
+ *  card's own formatted words (value strings quoted verbatim, never
+ *  re-derived), warnings are counted — and the annex is the card's
+ *  payload with the cap pair riding beside it (t511's head law: the
+ *  summary rides first, the honest cap pair follows it). */
+export function presentJobOutputs(jobName: string, result: JobOutputsResult): AiToolResult {
+  if (result.status !== "ok") {
+    return {
+      ok: true,
+      summary: `${jobName}: ${result.note}`,
+      ...(result.status === "missing-dir" && result.inputs.length > 0
+        ? { detail: { note: result.note, inputs: result.inputs } }
+        : {}),
+    };
+  }
+  const byKind = new Map<string, number>();
+  for (const f of result.files) byKind.set(f.kind, (byKind.get(f.kind) ?? 0) + 1);
+  const kindLine = (["mrc", "star", "text", "image"] as const)
+    .filter((k) => byKind.has(k))
+    .map((k) => `${byKind.get(k)} ${k}`)
+    .join(" · ");
+  const remoteCount = result.files.filter((f) => f.remote).length;
+  const shown = result.files.slice(0, OUTPUT_TOOL_FILE_CAP);
+  const stats = result.summary?.stats ?? [];
+  const statLine = stats.map((s) => `${s.label}: ${s.value}`).join(", ");
+  const coverage = result.summary?.coverage;
+  return {
+    ok: true,
+    summary: `${jobName} wrote ${result.files.length} file${result.files.length === 1 ? "" : "s"} in ${result.workdir}${kindLine ? ` (${kindLine})` : ""}${
+      remoteCount > 0 ? `, ${remoteCount} of them on the cluster` : ""
+    }. ${
+      statLine
+        ? `Key numbers (the card's own words): ${statLine}.`
+        : "The card shows no key numbers for this run yet."
+    }${
+      coverage?.note ? ` ${coverage.note}` : ""
+    }${
+      result.warnings.length > 0
+        ? ` ${result.warnings.length} run.out warning${result.warnings.length === 1 ? "" : "s"} ${result.warnings.length === 1 ? "rides" : "ride"} the annex.`
+        : ""
+    }${result.note ? ` ${result.note}` : ""} The annex is the inspector's outputs card — the dialog drinks the same cup.`,
+    detail: {
+      summary: result.summary,
+      note: result.note,
+      filesShown: shown.length,
+      filesTotal: result.files.length,
+      files: shown,
+      inputs: result.inputs,
+      cmd: result.cmd,
+      warnings: result.warnings,
+    },
+  };
+}
+
+/** t515 — the executor: the inspector reads the EFFECTIVE job (soft
+ *  links resolve to the original before any walk), and so does this
+ *  read. Read-only by law: naming the files is the tool's job, moving
+ *  or opening them is nobody's tool. */
+async function getJobOutputs(
+  ctx: AgentCtx,
+  args: Record<string, unknown>,
+): Promise<AiToolResult> {
+  const jobId = String(args.job_id ?? "");
+  if (!jobId) {
+    return {
+      ok: false,
+      summary: "get_job_outputs needs a job id — pass the job's id (get_workflow_state lists ids)",
+    };
+  }
+  const job = await findJobInProject(jobId, ctx.projectId);
+  if (!job) {
+    return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
+  }
+  const effective = job.linkedJobId ? await findEffectiveJob(job.id) : job;
+  if (!effective) {
+    return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
+  }
+  const result = computeJobOutputs({
+    id: effective.id,
+    type: effective.type,
+    status: effective.status,
+  });
+  return presentJobOutputs(effective.name, result);
 }
 
 /* ---- get_environment_report ---------------------------------------- */

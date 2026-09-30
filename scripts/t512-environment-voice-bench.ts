@@ -172,8 +172,8 @@ section("T1  the face — roster, knobs, laws");
   const env = AI_TOOLS.find((t) => t.name === "get_environment_report");
   ok(Boolean(env), "T1a: get_environment_report is on the roster");
   ok(
-    AI_TOOLS.length === 29 && new Set(AI_TOOLS.map((t) => t.name)).size === 29,
-    `T1b: 29 unique tools — t513's continue-sources read is the newest birth (got ${AI_TOOLS.length})`
+    AI_TOOLS.length === 30 && new Set(AI_TOOLS.map((t) => t.name)).size === 30,
+    `T1b: 30 unique tools — t515's products read is the newest birth (got ${AI_TOOLS.length})`
   );
   ok(
     Object.keys(env?.parameters?.properties ?? {}).length === 0 &&

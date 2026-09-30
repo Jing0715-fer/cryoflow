@@ -83,7 +83,7 @@ const tool = AI_TOOLS.find((t) => t.name === "get_job_curves") as
 
 /* ---------------- T1 tool shape ---------------- */
 section("T1 — tool shape (the 22nd tool)");
-ok(AI_TOOLS.length === 29, `AI_TOOLS holds 29 tools — t513's continue-sources read is the newest birth (got ${AI_TOOLS.length})`);
+ok(AI_TOOLS.length === 30, `AI_TOOLS holds 30 tools — t515's products read is the newest birth (got ${AI_TOOLS.length})`);
 ok(tool != null, "get_job_curves is in the catalog");
 const schema = tool?.parameters as {
   type: string;
