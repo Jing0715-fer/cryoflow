@@ -34,6 +34,7 @@ import { allAdjacency, portsValid } from "@/lib/edge-ports";
 import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { fmtBytes } from "@/lib/relion/disk-usage";
+import { computeStorageReport, type StorageResponse } from "@/lib/relion/storage-report";
 import { fmtDuration } from "@/lib/duration";
 import { walkTimeline, timelineLedger, timelineSharePct } from "@/lib/timeline-walk";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
@@ -541,6 +542,12 @@ export const AI_TOOLS: ToolSchema[] = [
       "The session's LAST HPC scheduling sweep in one read — the same profile-comparison verdict the Session QC report binds VERBATIM: per-profile makespan / utilization / queue wait / GPU-hours, the winner with its margin over the slowest contestant, failed profiles kept visible (a report that drops a contestant lies). THE tool for '哪个 HPC 配置赢了 / which profile should I submit with / how did the race go / compare the cluster profiles'. Session memory, not a database: a race lives in the client's session and a reload starts a new one — with no race on record the tool says so and points at the HPC queue panel's Compare profiles (it never invents a winner). Zero knobs: the verdict is the report's own words, word for word.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
+  {
+    name: "get_storage_report",
+    description:
+      "The active project's DISK WEIGHT in one read — the Storage dialog's own ledger as data: every run directory physically walked under data/relion/<projectId>/ (per-dir bytes + files, the six-category split maps/stacks/tables/logs/plots/other), the heaviest jobs and heaviest files by bytes, the totals. THE tool for '这个项目占了多少磁盘 / what is eating my disk / which job is the heaviest / 磁盘还剩多少 / what can be cleaned up'. Physical truth, not DB belief: a directory whose job row is gone still counts (an orphan, said so) — the disk fills regardless of what the database thinks. Read-only LOCATOR: it names the whales and the categories, it never deletes or cleans anything — the Storage dialog's Clean doors stay the only writers. Zero knobs: the walk is the dialog's walk, not a filtered one.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -829,6 +836,8 @@ export async function executeAiTool(
         return await getSessionTimeline(ctx);
       case "get_sweep_verdict":
         return getSweepVerdict(ctx);
+      case "get_storage_report":
+        return await getStorageReport(ctx);
       case "get_curve_verdicts":
         return await getCurveVerdicts(ctx);
       case "select_classes":
@@ -2956,6 +2965,72 @@ function getSweepVerdict(ctx: AgentCtx): AiToolResult {
     ok: true,
     summary: `The session's last sweep: ${sweep.rows.length} profiles (${measured} measured${failed > 0 ? `, ${failed} failed` : ""})${winnerName ? `, winner: ${winnerName}` : ""} — the annex below is the session report's own words, byte for byte.`,
     detail: { sweep_report_md: buildSweepReport(sweep.rows, sweep.bestId) },
+  };
+}
+
+/* ---- get_storage_report -------------------------------------------- */
+
+/** t511 — how many run rows the tool's annex carries. The dialog can
+ *  scroll; an annex is read top to bottom — the heaviest twenty name
+ *  every whale a project of this app's size grows, and the summary
+ *  always speaks the FULL row count, so a capped annex says so instead
+ *  of pretending it showed everyone. */
+const STORAGE_TOOL_JOB_CAP = 20;
+
+/** t511 — the storage overview's AGENT face. The well is the paper's
+ *  own: computeStorageReport is the EXACT assembly the Storage route
+ *  serves (lifted verbatim into lib/relion/storage-report — twins fork,
+ *  imports don't), so the annex is the dialog's ledger byte for byte:
+ *  raw digits (fmtBytes is the summary's human voice, the one formatter
+ *  the app already taught), orphans visible, truncation flagged. The
+ *  summary is a LOCATOR (totals + the heaviest row looked up in the
+ *  pre-sorted rows — never a re-sorted, re-summed, re-derived twin).
+ *  Read-only by law: naming a whale is the tool's job, cleaning it is
+ *  the dialog's Clean door's. */
+async function getStorageReport(ctx: AgentCtx): Promise<AiToolResult> {
+  let report: StorageResponse | null = null;
+  try {
+    report = await computeStorageReport(ctx.projectId);
+  } catch {
+    report = null;
+  }
+  if (!report) {
+    return {
+      ok: false,
+      summary:
+        "No storage ledger could be walked for this project — the project row or its run directory is gone. Open the Project storage overview from the header to see what the dialog itself reports.",
+    };
+  }
+  if (!report.hasRuns || report.jobs.length === 0) {
+    return {
+      ok: true,
+      summary:
+        "This project has never run a job — its run directory holds no bytes yet. The storage ledger starts writing the moment the first job runs.",
+      detail: {
+        jobsShown: 0,
+        jobsTotal: report.jobs.length,
+        storage: report,
+      },
+    };
+  }
+  const heaviest = report.jobs[0]; // rows arrive pre-sorted, heaviest first
+  const orphans = report.jobs.filter((j) => j.type === "orphan").length;
+  const shown = report.jobs.slice(0, STORAGE_TOOL_JOB_CAP);
+  return {
+    ok: true,
+    summary: `${report.projectName} weighs ${fmtBytes(report.totalBytes)} across ${report.jobs.length} run ${report.jobs.length === 1 ? "directory" : "directories"} (${report.totalFiles} files)${orphans > 0 ? `, ${orphans} orphaned ${orphans === 1 ? "directory" : "directories"} included` : ""}${report.truncated ? " — the walk hit its entry cap and says so" : ""}. Heaviest: ${heaviest.name} at ${fmtBytes(heaviest.bytes)} (${heaviest.type}). The annex below is the walk's own ledger — raw digits, the Storage dialog drinks the same cup.`,
+    // the honesty fields ride FIRST: the tool card's detail window is a
+    // 4,000-character pane (t510), and a cap marker buried at the tail of
+    // a 27k-character annex is a cap nobody ever sees — the pane's first
+    // line must teach the cut before the rows begin.
+    detail: {
+      jobsShown: shown.length,
+      jobsTotal: report.jobs.length,
+      storage: {
+        ...report,
+        jobs: shown,
+      },
+    },
   };
 }
 

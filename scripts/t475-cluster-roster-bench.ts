@@ -170,8 +170,8 @@ console.log("T1. the catalog wears the cluster read");
   const tool = AI_TOOLS.find((t) => t.name === "list_clusters");
   must(tool != null, "T1a: list_clusters is in the catalog");
   must(
-    AI_TOOLS.length === 26 && new Set(AI_TOOLS.map((t) => t.name)).size === 26,
-    `T1b: 26 unique tools — t508's sweep read is the newest birth (got ${AI_TOOLS.length})`,
+    AI_TOOLS.length === 27 && new Set(AI_TOOLS.map((t) => t.name)).size === 27,
+    `T1b: 27 unique tools — t511's storage read is the newest birth (got ${AI_TOOLS.length})`,
   );
   const params = (tool?.parameters ?? {}) as {
     properties?: Record<string, unknown>;
