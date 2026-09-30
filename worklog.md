@@ -6440,3 +6440,24 @@ Stage Summary:
 - **「动词是分类，量级是算术」**：edge_verb 把 walk 的判断（carry/shed/gain/transform）装进格子，量级留给读者从 count 自己算——transform 一词警告别跨单位做除法；prose 的 −N·x% 留在剪贴板，格子不重推
 - **「空白是从没数过」**：Mask Create 的 amber 行四格全空——体积动词没有粒子收据，空白是格子的诚实文法（live fixture 亲自示范）
 - 产出：funnelLedgerCsv/funnelLedgerCsvFilename（prose 孪生隔壁）+ 对话第二枚导出门 + t509 bench 36/0 + 74 套回归全绿 + 14 站全链逐数对账 + 截图/CSV 样本归档
+
+## Task 510 (2026-09-30, cron 13:37 窗 —— The Header Learns to Yield; the Receipt Learns to Leave)
+
+- [开局] fetch 对齐 origin（0/0 无碰撞）。实尾 = Task 509 完整收官（HEAD = bfc7f1d）。第 100 份过时 Task 13 指引照例不认。自号 510。QA 基线全绿：回归家族 74 套 exit 0、tsc 0、world 2 canvas · 15 edges · 22 jobCards、console 0 错；server 收割复火 ×1；磁盘 744M（93%，水位继续观察）。
+- [QA 活捕 — 真 bug] agent-browser 目测 + getBoundingClientRect 实锤：**1280px 下 header 中层画进右簇**——RELION 徽章（x=678 w=162）与 Spotlight noted 芯片（x=783）57px 互穿，"not found" 与 "note" 叠字；行子件越过自家 650px 容器 207px。t301 判例的再演——右簇自 t301 后长胖（t419 AI 门、t436 storage、t438 knock、remote 门），中层预算爆掉。修复按四层讲完故事（见 T1-T4）。
+- [交付①— 分层律再切] 芯片升 2xl（hidden 2xl:flex——镜头是行里最不必需的控制，dashboard Noted chip 是第二入口）；counters 门槛 1700→2000（t301 的 1700 是右簇没长胖时的测量：今日四件全上自然宽 ~1311px，1700 处 project trigger 被压到 54px——只有省略号没有名字；footer 普查同数，最冗余的 chrome 等最久）；project trigger 档宽 170@xl / 220@2xl + **min-w-[130px] 名字地板**（无名的省略号什么也不教）。
+- [交付②— 收缩链接到底] flexbox 地板律：nowrap trigger 的 min-content 是全名（固定 w-[] 只是偏好）。min-w-0 骑上中排 + ProjectSwitcher wrapper + workspace trigger；**紫远程徽章进收缩链**（shrink-0 是硬 105px 地板——1280 溢出的原罪，只在 remote 绑定世界显形；现 min-w-0 随链截断，title 驮全 host）。
+- [交付③— trigger 只说名字] Radix SelectValue 渲染选中项的全部内容——item 里的 shrink-0 RELION 徽章在 trigger 里吃掉 ~60px、190px 以下吃掉整个名字。ProjectSwitcher 的 SelectValue 改为只驮 truncate 名字 span（WorkspaceSelect 同法早就在用）；RELION 徽章仍住每个下拉行，remote-ness 有外层紫徽章。
+- [验证] 六档 sweep（1280/1366/1440/1536/1700/2048）overlap 恒 **-12px**（簇间 gap-3 的呼吸位）零互穿；project trigger 130→220 按档呼吸；截图三连归档 .qa-logs/（t510-header-overlap-before / -1280-final / -1280-v4）。活捕过程四层真凶逐层剥（外层固定宽 → 收缩链断 → 徽章硬地板 → trigger 内 RELION 徽章）。
+- [t510 bench — 19/0] T1 分层 6 + T2 收缩链 6 + T3 名字 3 + T4 邻居 4。自捕×1：`2xl:flex` 含子串 `xl:flex`——断言咬自家子串（t507 j.duration 自捕三演），负断言加 `[^2]` 前瞻修正。回归家族 **75 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0。
+- 【半场小结】bug 半场收官。功能半场：遗留池 ㊲ 工具卡 detail 一键复制（"The Receipt Learns to Leave"——纸面家族门面齐全后，agent 的手也需要出门）。
+- [交付④— 收据出门（assistant-panel.tsx）] ToolCard 的 detail 区加 caption 行（"detail" + Copy detail 钮）——饮 **CopyButton 单一惯例用法**（t170/t171 的组件，零第二套剪贴板方言，与 Copy ledger/Copy report 同族文法）。收据两张脸：**pre 是窗**（前 4,000 字符，get_workflow_state 的 payload 别想占满面板），**Copy 拿全量**（useMemo 单一井：对象说自己的 JSON 文法，字符串/不可解析载荷说自己；窗永远不再静默撒谎）——截断时诚实行自述："showing the first 4,000 of 8,889 characters — Copy takes all of it"（窗口从不假装是井，井的门上写着门）。
+- [活体 — 真开火全链] 面板 New chat 真问 "画布上现在有哪些作业？"——真模型真开火 get_workflow_state（payload **8,889 字符**）→ 卡片展开：args 行 / detail caption / Copy detail 钮 / 截断诚实行全在座 → 点击复制 → **writeText 间谍捕获 8,889 字符全量**（readText 被无头权限拒，间谍法定谳），结尾完整 JSON 闭合 `]}`——窗 4,000 / 门 8,889，两张脸各说各话。证物 .qa-logs/t510-tool-card-copy.png。
+- [验证-终] t510 bench **25/0**（T1 分层 6 + T2 收缩链 6 + T3 名字 3 + T4 邻居 4 + T5 收据 5）+ 回归家族 **75 套** exit 0；tsc 0 + eslint 0（三触碰文件）；console 0 错；world 2 canvas / 15 edges / 22 jobCards；零数据手术（对话为会话侧自然产物）。
+- [最终态] HEAD = 本窗 feature commit（worklog 分车随后）。下窗从 Task 511 起编。遗留（下窗候选）：（继承 t509 全池）①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉘护照下一跳（待真实混用）㉛工具卡 summary 行门化（待真实混用）㉜user turns 门化（待回执）㉞并发上限（现无虞）㊵walk 健康读数（低）㊼QA 家族 mock 作业诚实性（数据面）㊽STALE REMINDER 真模型实效（待真实）㊾提醒粒度（待体感）㊴timeline 收窄读数（不急）㊻报告时间行的 HTML 导出面（本窗核实 HTML 导出饮同一口 md 井、t505 时间行自动随行——**销案**）㊼'报告脸的甘特回链门（待体感）㊾'timeline CSV 的 report 面（待真实需求）sweep 回家的门（待真实需求）off-mainline census 与 closing verdict 的机器出口（待真实需求）磁盘水位（744M，观察中）；**新记：**（无——两半场皆销旧账：QA 活捕的 header 互穿 + ㊲ 收据门 + ㊻ HTML 导出面核实销案）
+
+Stage Summary:
+- **「header 学会了让位」**：1280 溢出是四层故事的叠加——外层固定宽、收缩链断、徽章硬地板、trigger 内 RELION 徽章吃名字；每层一条律（芯片升 2xl / counters 升 2000 / 徽章进链 / 名字地板 130px + trigger 只说名字），六档 sweep 零互穿恒 -12px 呼吸位
+- **「measured, not guessed 是活的律」**：t301 的 1700 门槛是当年右簇的测量，今日复测即过时——门槛不是教条是快照；每次右簇长胖（t419/t436/t438）都欠一次全链重测，本次还清并写下重测的数字
+- **「窗与门各说各话」**：pre 是窗（4,000 字符）、Copy 是门（全量字节）——窗诚实自报 "4,000 of 8,889"，门上写着 "Copy takes all of it"；展示的截断从静默撒谎变成指路的招牌
+- 产出：header 四层手术（t510 注释载全故事）+ ToolCard detail caption 行 + Copy detail 门 + 截断诚实行 + t510 bench 25/0 + 75 套回归全绿 + 六档 sweep/截图/剪贴板间谍证物归档
