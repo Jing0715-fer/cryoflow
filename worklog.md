@@ -6182,3 +6182,21 @@ Stage Summary:
 - **「键盘到达 = hover 到达」**：t495 芯片只有 hover 脸，键盘用户 tab 过去无可见焦点——门族一致性律补齐最后一面
 - 产出：measureCurveVerdicts 并行化（序保/abort 原样/wounded 原样）+ t495 芯片 focus-visible rider + t496 bench 20/0 + 61 套回归全绿 + 秒表三连（19.5s → 8.1s → 2.8s，6.4-7x）+ 截图 ×1
 - [终验补记] push 完成（54f4dfb..9f9131a → origin/main 三方对齐）；landing 200 复核通过（本窗 server 收割两次均已复火，世界健康）。Task 496 收官，下窗从 Task 497 起编。
+
+## Task 497 (2026-09-30, cron 09:22 窗 —— The Landscape Learns to Run)
+
+- [开局] 实尾 = Task 496 完整收官（HEAD = 773143e 三方对齐；交接摘要曾停在 t494，实况以树为准——t495/t496 均在树上）。第八十八份过时 Task 13 指引照例不认（以 t496 遗留清单为准）。自号 497。QA 基线全绿：回归全家 61 套 exit 0、landing/jobsApi 200、2 canvas · 15 edges · 22 jobCards、新会话 console 0 错。**磁盘体检**：根分区 95%（496M 余）——npm cache 清理 +485M（→558M 余）；ms-playwright 1.3G 是 agent-browser 生命线不动，.next 1.3G 是 dev 工作集不动。
+- [选题定谳 — The Landscape Learns to Run（t496 遗留㉝，明写的自然续篇）] 排除法：③④⑦㉜ 待回执、⑤⑥ 门控、① 重、㉒㉘㉙㉛ 待真实。㉝ 是 t496 留下的同款税：walkVolumeOwners（地图景观 walk）也是顺序 for...await——逐候选探 /outputs（MAP_BRIEF_CAP=24 上限），而它是报告打开后的**第一段异步**，inventory 表的落定被它整个扣住。t496 worklog 明言「下窗可直接复制本窗功课」。定谳：同一帖药，第二张方子。
+- [交付 — walk 并行化（session-report-dialog.tsx walkVolumeOwners 改写）] 探针 = 每候选一发（jobIds.slice(0, MAP_BRIEF_CAP).map），Promise.all 一把火——**序免费存活**（answers 按探针下标返回，merge 用 filter 按下标过筛——merge 读 walk 序（newest-first，t211），永不是网络完成序；零 sort、零 index 行李）；abort 契约原样（每发 fetch 骑 signal、探针头检查 aborted、catch 返 null——caller 自查 ctrl.signal.aborted 后才 setState，两半契约都在）；无体积候选（continue 的诚实继承者 return null）与不可读候选（catch 的诚实继承者）跳过语义逐字节保留；MapOwner 构造逐字节原样（main/overlays/volumeCount/jobName fallback）；MAP_BRIEF_CAP 上限原样。docstring 记课：t497 — the walk learned to run，同 t496 功课、slowest candidate sets the bill。
+- [t497 bench — 17/0（一处自捕）] T1 fan-out 4（Promise.all 文法/零顺序 await 残留/同路由同 signal/docstring 记课）+ T2 序律 3（filter 按下标/零 index 行李/序律成文）+ T3 契约 5（abort null/无体积跳过/不可读跳过/cap 存活/MapOwner 构造原样）+ T4 caller 3（call site 原样/aborted 检查/setMapPending 律）+ T5 邻居 2（measureOwnerPeaks 先例原样/measureCurveVerdicts t496 fan-out 原样）。自捕×2 连环：①「Order survives the fan-out」跨行换行拆断断言；②空白归一化 `\s+` 也跨不过注释星号（`*` 非空白）——终改为同行短语双断言（Order survives + fan-out for free）。教训：docstring 断言别跨行找词，docstring 里 `*` 是画出来的不是排版出来的。
+- [活体 — 三证据链] ①**开火面**：受控 300ms/probe patch 下，**19 发探针在前 1.5s 全部注册**（顺序制此刻只应发出 ~5 发）——fan-out 在活体为真；②**延迟面**：同批 19 发纯客户端对照实验（不碰 app 状态）：自然顺序 **7013ms** → 自然并行 **1564ms**（4.5x；并行数含 dev 路由一次编译税 + 浏览器每主机 6 连接上限分波 + dev server 单进程对 CPU 段的串行化——这些约束生产更薄）；③**行为面**：6 owner 门四件套全齐（tabIndex/aria/cursor）、首行 = walk 头（"3D Classification (tutorial)"，序由 caller 的 doneIds 推导零触碰）、深测段照常（无卡 pending、Landscape 报告在）、下游 15 curve 门原样、console 0 错。截图 t497-parallel-landscape.png。
+- [插曲] server 本窗被收割一次（终验时 landing 000），dev-server.sh 复火后 landing/icon/jobsApi 全 200、2 canvas / 15 edges / 22 jobCards 复原；agent-browser eval 支持 await（Promise 直测）——一发 eval 全程测量的新武器入册。
+- [验证-终] t497 bench 17/0 + 回归全家 **62 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（两触碰文件）；行为面：walk 并行、序存活、abort/skip 契约原样、caller 握手原样；世界 22 jobs / 15 edges / 2 canvas / 新会话 console 0 错、零数据手术、磁盘 555M。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 498 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉒curve verdicts 的 CSV 面（待真实使用）㉘护照下一跳（待真实混用）㉙CSV 导出一致性；㉛工具卡 summary 行门化（待真实混用）；㉜user turns 门化（待回执）；㉞并行 fan-out 的并发上限（walk 也全发了——两 walk 合计 ~40 发量级无虞；若未来会话规模涨到百级，可加 bounded pool——待真实规模再定；注意浏览器 6 连接与 dev server 串行化是天然的第一道闸）；㉟**两条 walk 都跑起来之后，报告打开的第一拍还剩什么**——md 全文渲染与 remark 管线成了新的最慢一环（活体中 dialog 打开到门可见尚有秒级渲染税），若下窗继续提速，下一刀在渲染管线（memo 化 md 树/分块渲染/懒挂载表族）——待真实体感再定。
+
+Stage Summary:
+- **「第二张同款方子」**：t496 给判读探针开出的药——fan-out、序免费存活、abort 原样——这一窗原样开给了景观 walk；地图 inventory 的落定从「逐发买单」变成「最慢一发买单」，报告打开的第一拍不再被 19 发顺序往返扣住
+- **「filter 是 merge 的诚实形态」**：answers 按探针下标返回、filter 按下标过筛——不需要 sort、不需要 index 行李，walk 序（newest-first）就是数组序；改写只换步态，不换序律
+- **「对照实验要分离变量」**：受控 300ms patch 证「开火面」（19 发 1.5s 内全注册），纯客户端对照实验证「延迟面」（7.0s → 1.6s，4.5x），行为面证「序与契约」——三个证据各管一件事，合起来才是完整定谳
+- **「并行有边界，边界有名字」**：浏览器每主机 6 连接、dev server 单进程 CPU 段串行化——fan-out 的收益被它们封顶（4.5x 而非 19x）；生产里两者更薄，且它们本来就是天然的并发闸门（㉞ bounded pool 的前置答案）
+- 产出：walkVolumeOwners 并行化（序保/abort 原样/skip 原样/cap 原样）+ t497 bench 17/0 + 62 套回归全绿 + 三证据链活体（开火面/延迟面 4.5x/行为面）+ 磁盘清理 +485M + 截图 ×1

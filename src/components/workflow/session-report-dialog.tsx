@@ -587,34 +587,48 @@ const hastTag = (n: unknown): string | undefined => asHastEl(n)?.tagName;
 /** Walk the candidates and return EVERY volume owner, in walk order —
  *  owners[0] is the deep-report winner (the newest capable candidate
  *  that speaks), the rest ride the inventory. Unreadable candidates are
- *  skipped (the next one may speak); the walk returns what it heard. */
+ *  skipped (the walk returns what it heard).
+ *  t497 — the walk learned to run: the candidates' probes fire in
+ *  PARALLEL (the same homework t496 did for the verdict probes — a
+ *  sequential walk held the inventory hostage over up to MAP_BRIEF_CAP
+ *  round trips while the reader stared at "still reading"; the slowest
+ *  candidate now sets the bill, not the sum). Order survives the
+ *  fan-out for free: Promise.all's contract returns answers indexed by
+ *  their probes — the merge reads them in the walk's own order
+ *  (newest-first, t211), never the network's completion order. Abort
+ *  keeps its contract: every fetch rides the signal, an aborted probe
+ *  is no answer, and the caller checks the signal before setState. */
 async function walkVolumeOwners(jobIds: string[], signal: AbortSignal): Promise<MapOwner[]> {
-  const owners: MapOwner[] = [];
-  for (const jobId of jobIds.slice(0, MAP_BRIEF_CAP)) {
-    if (signal.aborted) return owners;
-    try {
-      const d = (await fetch(`/api/jobs/${jobId}/outputs`, { signal }).then((r) => r.json())) as OutputsResponse;
-      const volumes = (d.files ?? []).filter(
-        (f) => f.kind === "mrc" && Array.isArray(f.dims) && f.dims.length === 3,
-      );
-      if (volumes.length === 0) continue;
-      const sorted = [...volumes].sort(
-        (a, b) => Number(MAIN_MAP_RE.test(b.name)) - Number(MAIN_MAP_RE.test(a.name)),
-      );
-      const jobName = useWorkflowStore.getState().jobs.find((j) => j.id === jobId)?.name ?? jobId;
-      owners.push({
-        jobId,
-        jobName,
-        main: { path: sorted[0].path, name: sorted[0].label ?? sorted[0].name },
-        overlays: sorted.slice(1, 3).map((f) => ({ path: f.path, name: f.label ?? f.name })),
-        volumeCount: volumes.length,
-      });
-    } catch {
-      if (signal.aborted) return owners;
-      // this candidate's outputs are unreadable — the next one may speak
-    }
-  }
-  return owners;
+  const answers = await Promise.all(
+    jobIds.slice(0, MAP_BRIEF_CAP).map(async (jobId) => {
+      if (signal.aborted) return null;
+      try {
+        const d = (await fetch(`/api/jobs/${jobId}/outputs`, { signal }).then((r) => r.json())) as OutputsResponse;
+        const volumes = (d.files ?? []).filter(
+          (f) => f.kind === "mrc" && Array.isArray(f.dims) && f.dims.length === 3,
+        );
+        if (volumes.length === 0) return null; // this candidate owns no volume
+        const sorted = [...volumes].sort(
+          (a, b) => Number(MAIN_MAP_RE.test(b.name)) - Number(MAIN_MAP_RE.test(a.name)),
+        );
+        const jobName = useWorkflowStore.getState().jobs.find((j) => j.id === jobId)?.name ?? jobId;
+        const owner: MapOwner = {
+          jobId,
+          jobName,
+          main: { path: sorted[0].path, name: sorted[0].label ?? sorted[0].name },
+          overlays: sorted.slice(1, 3).map((f) => ({ path: f.path, name: f.label ?? f.name })),
+          volumeCount: volumes.length,
+        };
+        return owner;
+      } catch {
+        // this candidate's outputs are unreadable — the walk goes on
+        return null;
+      }
+    }),
+  );
+  // the merge reads the answers in Promise.all's own order — the walk's
+  // order (a fake re-sort or an index field would be baggage, not law)
+  return answers.filter((a): a is MapOwner => a !== null);
 }
 
 /** Profile the brief's maps on the shared Z axis and hand the family
