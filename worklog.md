@@ -6322,3 +6322,4 @@ Stage Summary:
 - **「一口井两步行者」**：探针图搬进 curve-walk 井，dialog 与工具同饮；搬家不断律——t490 的断言跟着地址走（旧世界断言未随演进就是 t391 的旧债重演）
 - **「服务端不欠网线的债」**：t496/t497 的 fan-out 是网线 RTT 的账；服务端 walk 直饮本地盘，顺序循环保持序律平凡——并行有边界，边界有名字（教义成文，不是省事）
 - 产出：curve-walk.ts 探针井 + get_curve_verdicts（第 24 具，零旋钮）+ dialog 孪生删除 + 11 邻家 bench 演进 23→24 + t490 断言随址演进 + t503 bench 53/0 + 68 套回归全绿 + 纸 vs 模型 15/15 逐字节活体全谱 + 截图 ×2
+- [终验补记] push 时撞**并行窗编号撞车**：用户工单窗把「params 页模态罩与 AI 助手共存」章也标成 t501（f32b45a，改 assistant-panel/dialog/app-shell/header）——与本窗零文件重叠，rebase 干净无伤（968bfa1 + b23ff72 push 完成，origin/main 三方对齐）。树上自此有两枚 t501 标签（cron 窗 map-landscape / 工单窗 mask-yields），git 以 hash 分身不混；编号簿以树上先后为准，记此存照。rebase 后复验：tsc 0 + t503 bench 53/0 + t490 52/0 + t500 62/0；push 后 landing/icon/jobsApi 全 200（本窗 server 累计收割两次，均已复火，世界 22 jobs 健康）。Task 503 收官，下窗从 Task 504 起编。
