@@ -6201,3 +6201,23 @@ Stage Summary:
 - **「并行有边界，边界有名字」**：浏览器每主机 6 连接、dev server 单进程 CPU 段串行化——fan-out 的收益被它们封顶（4.5x 而非 19x）；生产里两者更薄，且它们本来就是天然的并发闸门（㉞ bounded pool 的前置答案）
 - 产出：walkVolumeOwners 并行化（序保/abort 原样/skip 原样/cap 原样）+ t497 bench 17/0 + 62 套回归全绿 + 三证据链活体（开火面/延迟面 4.5x/行为面）+ 磁盘清理 +485M + 截图 ×1
 - [终验补记] push 完成（773143e..d149beb → origin/main 三方对齐）。记录一笔：本窗 worklog 条目被 `git add -A` 扫进了 feature commit d149beb 同车（惯例是 worklog 单独成 commit）——内容完整上树，仅排版与惯例有偏差，特此如实记课：收官时先 commit feature 再补 worklog，别让 -A 代劳。push 后 landing 200 复核通过（本窗 server 收割一次已复火，世界健康）。Task 497 收官，下窗从 Task 498 起编。
+
+## Task 498 (2026-09-30, cron 09:37 窗 —— The Verdicts Learn to Travel)
+
+- [开局] 实尾 = Task 497 完整收官（HEAD = 6fafd77 三方对齐）。第八十九份过时 Task 13 指引照例不认（以 t497 遗留清单为准）。自号 498。QA 基线全绿：回归全家 62 套 exit 0、landing 200、2 canvas · 15 edges · 22 jobCards、新会话 console 0 错。
+- [选题排除与勘察] 排除法：③④⑦㉜ 待回执、⑤⑥ 门控、① 重、㉒ 曾被「待真实使用」门控。**两则勘察定谳**：①任务书明列的「3D viewer 体积截面工具」实为已交付——molstar-embed 6040 行里 slice/clip/tri-planar（t260 clip 锚箱 + t279 三平面正交浏览器 + ORTHO_* 事件族）全是现役功能，过时指引第三次「指南针指坟」；②mini-TOC 想法也被前窗建完——report-compass（t234）已是完整 TOC+spy+jump+落地光。**㉒ 定谳并开闸**：curve verdicts 家族经 t494 门化、t496 提速后已是四族正式成员、使用已真实——导出家族（md/CSV/HTML）里唯独这一族没有机器脸。定谳：第四族学会旅行。
+- [交付①— curveVerdictsCsv（qc-report.ts，builder 住 CurveVerdictRow 隔壁）] 列头 `job_id,job,curve,verdict`；**同井双脸**：rows 就是纸面表喝的同一数组（grid 永不与它镜像的纸面分歧）；curve 列说纸面自己的话（CURVE_KIND_LABELS——从不重打、无 raw token 孪生词表）；verdict 格**逐字节原文**——护照短语随行（t493 ㉙ 的裁决：跟纸走，纸就是井；重新措辞的机器副本是第二位父亲）；**job_id 列 = 门戳的机器脸**（纸面保三列可见，格子载脚本要用的身份）；RFC 4180 最小引用（判词带逗号、名字带引号都活着出来）；空名册返 null（caller 诚实拒——静默空文件是说谎的门）。
+- [交付②— exportCurveCsv 两嘴门（session-report-dialog.tsx）] t232 契约逐条兑现：一个 builder 两张嘴（copyOrFallback 阶梯 + downloadText）；**两种诚实拒**——curvesPending → "still reading — no CSV yet"、落定空 → "No curve verdicts to export yet"（各自说自己的真相，pending 不冒充空）；回执文法同族（"Copied the curve verdicts grid…" / "Downloaded session-curve-verdicts-….csv"）；两枚 emerald 门坐 inventory CSV 对旁（aria 全名到耳、title 讲格子内容）。
+- [交付③— curveVerdictsCsvFilename] 文件名家族添丁：`session-curve-verdicts-<t218 stamp>.csv`——第四族的机器格举自己的旗，从不冒充 inventory。
+- [t498 bench — 31/0（三处自捕）] T1 格 10（行为级：header/序存活/逐格引用/空拒/文法）+ T2 一井 4 + T3 嘴 8 + T4 诚实字节 4 + T5 邻居 4。自捕×3：①模板串里塞源码插值（语法错）→ 换计数断言；②`npx tsx` 直跑撞 CJS 顶层 await——**家族 runner 用的是 bun**（recent-family.sh 里的老事实，直跑调试也该用 bun）；③「plain row 不引用」断言的测试判词自带逗号（"(masked, sharpened)"）——是断言错非代码错，换真无逗号判词 + 补「逐格引用」真断言（永真断言是家族里的谎言，当场替换）；④tsc 抓 `s` regex flag（target < es2018）——换 `[\s\S]`。
+- [活体 — 字节捕双嘴全中] 开报告（9.5s 全部落定：15 curve 门 + 两新门就位）→ patch navigator.clipboard.writeText 捕获 → 点 "Copy curve verdicts CSV" → **捕得格子字节**：header `job_id,job,curve,verdict`、**15 行体 = 纸面 15 data-curve-door 行**（一格不差）、首行 `cmumtik980007rjmz87la99kn,QA Refine 410,FSC,FSC 0.143 at 4.1 Å (0.5 at 4.9 Å)`（id+名+label+判词逐字节）、回执 note 现形 → 点 "Download verdicts CSV"（patch anchor.click + createObjectURL）→ anchorFired: true + blobCreated: 1 + 回执 "Downloaded session-curve-verdicts-….csv"。截图 ×2：t498-verdicts-csv-doors.png、t498-report-with-csv-doors.png。
+- [插曲] server 本窗被收割两次（活体后终验时 + push 前），dev-server.sh 两次复火均复原；`bun run -e` 不吃 eval 参数（`bun -e` 才是正门）。
+- [验证-终] t498 bench 31/0 + 回归全家 **63 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（三触碰文件）；行为面：一格 builder 双嘴、verdict 原文随护照、job_id 随行、pending/空两拒分脸、md/HTML/格子字节零门标记；世界 22 jobs / 15 edges / 2 canvas / 新会话 console 0 错、零数据手术、磁盘 591M。
+- [最终态] HEAD = 本窗 feature commit（worklog 分车随后——t497 的记课兑现）。下窗从 Task 499 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉘护照下一跳（待真实混用）；㉛工具卡 summary 行门化（待真实混用）；㉜user turns 门化（待回执）；㉞并发上限（现无虞，浏览器 6 连接与 dev 串行化是天然闸）；㉟报告打开的渲染税（t497 活体定谳：walk 后渲染仅 ~300ms，前提本就薄弱——除非真实体感抱怨，保持悬置）；㊱**罗盘的脉搏脸**——report-compass 芯片不带 pending/settled 面（Map QC/Curve verdicts 两节在测量中无外显，读者得滚到节里看斜体行），可在芯片上补脉搏点（pulse→settled）——小而诚实的细节，下窗顺手候选；㊲**HTML echo 的 verdicts 表**——portable HTML 已有 contents 页（t239），若 verdicts 表在 echo 里仍是惰性行（无 app 可开的纸），考虑给 echo 表行配 hash 锚或保持素纸（与 t494 导出字节零门污染律对齐后再定）。
+
+Stage Summary:
+- **「第四族学会旅行」**：md 表、CSV 格、（将来）脚本——同一段判读三种脸；四族至此纸上有门、机上有格，导出家族补齐最后一块
+- **「格子跟着纸走」**：verdict 格逐字节原文（护照在内）、curve 列用 CURVE_KIND_LABELS 原词——纸就是井，机器格不重新措辞；job_id 是门戳的机器脸，纸面三列、格子四列，各说各的方言、说的是同一件事
+- **「两种空说两种话」**：pending 的空（still reading）与落定的空（nothing to say）在门上分脸——t491 的伤/缺席二语定律在导出嘴上的回声
+- **「指南针会指坟」**：任务书里的「3D 体积截面」与脑中的「mini-TOC」都已被前窗建完——选题前先勘察现存面，过时指引第三次不认；同样的十次方圆，不如一次 rg
+- 产出：curveVerdictsCsv + curveVerdictsCsvFilename（qc-report）+ exportCurveCsv 两嘴门 + 两枚 emerald 门 + t498 bench 31/0 + 63 套回归全绿 + 活体字节捕双嘴全中 + 截图 ×2
