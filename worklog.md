@@ -6141,3 +6141,4 @@ Stage Summary:
 - **「一个引擎，四个家族」**：pressOwner（openJob + 纸面让位）自 t213 服役至今，第四族零新增引擎复用同一父亲——门钮文法的复利
 - **「导出的字节不养门」**：md/CSV/HTML echo 三出口零门标记——门活在屏幕上（t483 门律的纸面尺度版），portable HTML 没有 app 可开，门在那里会承诺文件兑现不了的事
 - 产出：CURVE_HEAD + CurveTableContext 第四族门化（session-report-dialog 五处）+ t494 bench 32/0 + 59 套回归全绿 + 两门两推活体全谱 + 截图 ×2
+- [终验补记] push 完成（7e9c4af..e1f8928 → origin/main 三方对齐）；push 后 server 又遭收割一次，dev-server.sh 复火：landing 200、icon 200。Task 494 收官，下窗从 Task 495 起编。
