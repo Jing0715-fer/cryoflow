@@ -6222,3 +6222,21 @@ Stage Summary:
 - **「指南针会指坟」**：任务书里的「3D 体积截面」与脑中的「mini-TOC」都已被前窗建完——选题前先勘察现存面，过时指引第三次不认；同样的十次方圆，不如一次 rg
 - 产出：curveVerdictsCsv + curveVerdictsCsvFilename（qc-report）+ exportCurveCsv 两嘴门 + 两枚 emerald 门 + t498 bench 31/0 + 63 套回归全绿 + 活体字节捕双嘴全中 + 截图 ×2
 - [终验补记] push 完成（6fafd77..7237755 → origin/main 三方对齐）；本窗 feature（fdb27c6）与 worklog（7237755）分车兑现。push 后 landing 200 复核通过（本窗 server 收割两次均已复火，世界健康）。Task 498 收官，下窗从 Task 499 起编。
+
+## Task 499 (2026-09-30, cron 09:52 窗 —— The Compass Shows Its Pulse)
+
+- [开局] 实尾 = Task 498 完整收官（HEAD = 77c8a9a 三方对齐）。第九十份过时 Task 13 指引照例不认。自号 499。QA 基线全绿：回归全家 63 套 exit 0、landing 200、2 canvas · 15 edges · 22 jobCards、新会话 console 0 错。
+- [选题定谳 — The Compass Shows Its Pulse（t498 遗留㊱，明写的顺手候选）] 排除法：③④⑦㉜ 待回执、⑤⑥ 门控、① 重、㉘㉛ 待真实、㉟ 前提薄弱悬置、㊲ 勘察后归 t494 门律管（echo 本就无罗盘，素纸是对的）。㊱ 的缺口：报告两节「still measuring」的实况只写在节内斜体行里——读者得滚进散文才知道谁还没量完；罗盘（t234）就在折叠上方，却不带这条新闻。定谳：芯片补脉搏脸，pending 教义上脸。
+- [交付 — 三态点 + aria（session-report-dialog.tsx 三处 + globals.css）] ①`compassPulseOf`：唯一函数答所有芯片——level 2 守卫 + **exact-words 匹配**（MAP_QC_HEAD/CURVES_HEAD 常量；深报的「Map QC summary — <map>」芯片是别的目的地，绝不借光——t228 弹幕律的芯片版）；三态一优先级：pending（walk 在外）> error（walk 聋归——curvesError=wounded&&全聋的现役语义）> settled（walk 落地——**诚实空也是 settled 真相**，不是缺席）。②芯片 JSX：`data-compass-pulse` 点 + aria-label（pending「still measuring」、error「the measurement refused」、**settled 不加 label**——静息真相由可见文本自己说，不添噪声）；点本体 aria-hidden。③CSS：紫罗兰呼吸点（自研 keyframes）/琥珀实心（t491 伤族墨）/翡翠实心 + **prefers-reduced-motion 关呼吸**（脉搏是信息不是装饰——要求静的读者拿到同样的新闻）。无 walk 的节（Pipeline/Scheduling sweep）永不带点——恒常的点等于没有点。
+- [t499 bench — 27/0（一处自捕）] T1 脸 9 + T2 exact-words 5 + T3 接线 4 + T4 耳 4 + T5 邻居 5（针/落地光/键盘导航/no-print 原样；md+echo 导出字节零 pulse 标记——t483 门律的芯片尺度版；echo 本无罗盘——t239「document alone can only congratulate」成断言）。自捕：globals.css 里更早处已有别的 reduced-motion 块，split[1] 取错段——改为 keyframes 之后找（bench 对代码验证，段位也是代码）。
+- [活体 — 三态全捕获] ①**pending**：受控 2.5s/probe 延迟 patch → 开报告 → 1.2s 时两芯片同时 `data-compass-pulse="pending"`（截图 t499-compass-pending.png）；②**settled**：等落定 → 两芯片转 settled + **「Map QC summary」芯片无点**（exact-words 律活体成立；截图 t499-compass-settled.png）；③**error**：重载净 fetch → 受控拒全部六条 chart 路由 → 重开报告 → Map QC settled（aria null，静息）+ **Curve verdicts error + aria「Curve verdicts — the measurement refused」**（伤可闻非仅琥珀可见；截图 t499-compass-error.png）。三态一屏谱系全实证。
+- [插曲] server 本窗被收割两次（终验体检时 + 收官复查时），dev-server.sh 两次复火均复原。
+- [验证-终] t499 bench 27/0 + 回归全家 **64 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（两触碰文件）；行为面：三态点、exact-words 借光禁令、aria 三分、reduced-motion、导出字节零标记；世界 22 jobs / 15 edges / 2 canvas / 新会话 console 0 错、零数据手术、磁盘 593M。
+- [最终态] HEAD = 本窗 feature commit（worklog 分车随后）。下窗从 Task 500 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉘护照下一跳（待真实混用）㉛工具卡 summary 行门化（待真实混用）㉜user turns 门化（待回执）㉞并发上限（现无虞）；㊲HTML echo 的 verdicts 表——本窗勘察归案：echo 无罗盘无门、素纸即正确（t494 门律 + t239 祝贺律双持），维持素纸，除非未来 echo 获得 hash 导航再议；㊳**recent-family glob 抬顶**——t500 到来时 `t4[2-9][0-9]` 会漏 t500（t491 记课原话「bump the top digit when t500 arrives」），下窗第一件事先把 glob 抬成 `t[45][0-9][0-9]` 或 `t4[2-9][0-9]|t500`，否则「全家」静默掉一员；㊴罗盘脉冲的姊妹——`Scheduling sweep` 芯片的「sweep 已绑定/从未赛跑」两态（现在素芯片，诚实但无声——加不加待真实体感，倾向不加：静态节不配有脸）。
+
+Stage Summary:
+- **「脉搏上脸」**：pending 教义从节内斜体行升到折叠上方的罗盘——读者开门第一眼就知道谁还在量，不用滚进散文找那行斜体
+- **「点即承诺」**：只有带着 live walk 的节才配点；恒常的点等于没有点——Pipeline 和 Scheduling sweep 永远素颜，点在三态里轮转，每一态都是当刻真相
+- **「借光禁令」**：exact-words 匹配把「Map QC summary — <map>」挡在脉冲之外——深报芯片是别的目的地；头匹配律（t223/t228/t494）第四次入册
+- **「伤可闻」**：error 点不只琥珀在色，aria 说出「the measurement refused」——t491 的伤脸家族学会了开口；settled 反而静默（静息真相不添噪声）
+- 产出：compassPulseOf/compassPulseAria + 芯片三态点 + CSS 三色（含 reduced-motion）+ t499 bench 27/0 + 64 套回归全绿 + 三态活体全捕获（pending/settled/error 截图 ×3）
