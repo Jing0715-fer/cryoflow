@@ -6555,3 +6555,18 @@ Stage Summary:
 - **「key numbers 是卡片的话」**：SummaryStat.value 是预格式串——「classes: 50」逐字进 summary，粒子数永远不重推（t508 的「定位器不是重推器」的产出物版）
 - **「帽对骑在井口」**：60/600 的 filesShown/filesTotal 让 600 文件的世界在 4,000 字符窗里诚实露脸——summary 永说全数，annex 永报窗宽；截断不是秘密是门牌
 - 产出：computeJobOutputs 井（route 壳化）+ get_job_outputs（名册第 30 器）+ presentJobOutputs 四支诚实 + 17 家 29→30 涟漪 + t501 守卫三处随址演进（SECOND extraction）+ t515 bench 41/0 + 80 套回归全绿 + 两跳开火 600 文件逐数对账 + 证物归档
+
+## Task 516 (2026-09-30, cron 16:22 窗 —— The Disk Learns to Breathe; the Suppressions Learn Honesty)
+
+- [开局] fetch 对齐 origin（0/0 无碰撞）。实尾 = Task 515 完整收官（HEAD = 9f9b0a1）。第 106 份过时 Task 13 指引照例不认。自号 516。**清理判例开闸**：开局 df 实测 **251M 自由（98%）**——低于 500M 阈值，t512 预告两窗的清理判例正式触发，本窗主轴转维护（遗留池其余全数门控，磁盘是唯一不门控的急项）。
+- [磁盘普查 — 三层剥] 项目 7.0G 全在根文件系（`stat -c %m` 实证挂载点 `/`，纠正 du -x 假象——**du 普查吞 stderr 会漏 FUSE 挂载内的真身**，upload/ossfs 让 -x 静默跳走）。分解：services/mock-cluster/fs **1.7G**（mock 集群生成物，驮 REMOTE 作业产出——留档不动）、data/relion **1.3G**（QA 世界状态，零触碰）、.next **1.5G**（可再生）、node_modules 1.4G（不动）、.git **983M**（pack 440M + **7760 松散对象 ~540M**——历代证据 PNG 的可达历史）；deleted-open 仅 6.4M 排除。
+- [清理执行 — 双刀] ①停服 `rm -rf .next` → **251M→1.7G 自由**（1.5G 全是 HMR 积年赘肉，fresh rebuild 仅 244M 起步——「降幅加速」的真相是缓存只增不减）；②`git gc --prune=now` → 松散对象 7760→0，可达对象入 pack（440→731M），净回收 ~240M——证据本就是追踪历史，判例正确预期「gc 不吞历史只收遗骸」；③mock-cluster fs 与 data/ 判定**不可清**（REMOTE 产出与世界状态在驮）——留作下波候选（1.7G 需配 seed 再生方案）。终态 1.9G 自由（81%）；fresh .next 599M 起步 + 窗末 1.4G（86%）——高于阈值，水位观察继续。
+- [窗中段 lint 卫生 — The Suppressions Learn Honesty] 基线全绿后顺手清 eslint 的 6 条「Unused eslint-disable directive」：5 处 exhaustive-deps 死抑制（reference-map-card/anchor-parent/density-histogram/map-ortho-panel/molstar-embed——deps 早已合规，抑制还骑着）+ option-tables.ts 的 `/* eslint-disable */` blanket（**生成器 gen-relion-options.mjs:421 同源两终端清**——产物单删会在再生成时复活）。**自捕×1 且深刻**：density-histogram 406 处「失效」抑制实为**暗载**——stash 对照实验铁证（stash 前 0 errors / 摘除后 2 errors）：v7 插件的 disable 语义把 313/404 两处 `set-state-in-effect` error 藏在误标 exhaustive-deps 的车牌之下。修法非回滚而是诚实化：两处挂**精确、正确、在用**的 `react-hooks/set-state-in-effect` 抑制，各带 `--` 缘由注释（fetch-on-mount 是合法外部系统同步 / winNow 镜像输入同步），误标牌摘除。净结果：**6 warnings + 1 暗载 → 0 warnings 0 errors**——每块现存抑制都实名可读， ESLint 的 unused-directive 探测只认精确 rule+line 匹配，与插件的模糊抑制语义有落差——「失效抑制」先 stash 对照再定性。
+- [验证] eslint（src + generator）**CLEAN exit 0**（显式确认）；tsc 0；回归家族 **80 套 0 failures**（bench 字节契约全数健在——内容型断言扛住了注释摘除）；活体：world **22 data-job · 15 svg g**、console 0 错（**fresh session 定谳**）；server 收割 ×1（本窗 HMR 撞死——t514 同款 Fast Refresh 不可恢复，dev-server.sh 复火复原；收割期 RSC fetch error 与 0/0 采样伪影经全新浏览器会话排除，非产品 bug）。证物 .qa-logs/t516-disk-breathes.png。
+- [最终态] HEAD = 本窗 lint commit（worklog 分车随后）。下窗从 Task 517 起编。遗留（下窗候选）：（继承 t515 全池：①EMPIAR 真数据回归常驻 ③continue 芯片对齐 ④inspector Continue 互指 ⑤funnel movies ⑥prod 磨判例 ⑦徽章病号 ㉘护照 ㉛summary 门化 ㉜user turns 门化 ㉞并发上限 ㊵walk 健康 ㊽STALE 实效 ㊾提醒粒度 ㊴timeline 收窄 ㊼'甘特回链 ㊾'CSV report 面 sweep 回家 off-mainline 出口 storage 清账动嘴 remote diagnostics 脸 found 分支活体 continue 历史读脸 outputs 下游读脸）**新记：**①**services/mock-cluster/fs/projects/cryoflow 1.7G = 下波清理首嫌**（需先配 seed 再生方案再动刀——REMOTE 产出与 remote-preview 在驮）；②磁盘读数每窗开局必查（fresh 599M 起步、降幅 ~100M+/窗，1.4G ≈ 8-10 窗缓冲——500M 阈值未迫近但 .next 若再现加速膨胀即复刀）；③du 普查不吞 stderr（FUSE 假象课）；④react-hooks v7 disable 暗载课（stash 对照是 lint 的 measured-not-guessed）。
+
+Stage Summary:
+- **「盘学会了呼吸」**：1.5G 的 .next 是 HMR 只增不减的年轮，git 的松散对象是历代证据的遗骸——前者整删可再生、后者 gc 收遗骸不吞历史；251M→1.9G 的呼吸位靠「可再生者狠清、世界状态零触碰、生成物留档待再生方案」三层刀法
+- **「抑制要实名」**：6 条死指令里藏着 1 块误标车牌——摘牌暴露的 2 个 error 不是新病是旧病现形；诚实的修法是给真病挂真名（set-state-in-effect + 缘由注释），让每块现存抑制都实名可读；unused-directive 探测与插件抑制语义的落差，唯有 stash 对照能定谳
+- **「普查不吞 stderr」**：du -x 在 FUSE 挂载前静默缩水的假象差一点把 1.7G 主嫌藏过去——测量工具的静默失败比没有测量更危险
+- 产出：.next 整清（+1.45G）+ git gc 收松散遗骸（+240M）+ 6 处死抑制摘除（含生成器同源）+ 2 处实名抑制补挂 + eslint/tsc/80 套回归全绿 + 活体 22/15/console 0 + 证物归档
