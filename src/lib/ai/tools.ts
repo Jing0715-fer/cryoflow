@@ -17,7 +17,7 @@
  *    narrates from summaries, never from imagination.
  */
 
-import { existsSync, readdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
 import {
@@ -122,6 +122,26 @@ import {
   ChartJobNotFound,
 } from "@/lib/chart-data";
 import { fmtAngstrom, fmtMicron, reportedPassport } from "@/lib/chart-rows";
+// t500 — the agent reads the landscape: the inventory's OWN arithmetic
+// (peak/agreement/weakest/delta), the walk's OWN constants, the listing's
+// OWN well — imports all, no second derivation anywhere.
+import {
+  contestedCrown,
+  deltaVsWinner,
+  localAgreement,
+  outlierRowIdx,
+  peakPctNumOf,
+  peakPctOf,
+  shapeAgreement,
+  weakestBand,
+  weakestCellOf,
+} from "@/lib/qc-report";
+import { MAP_BRIEF_CAP, MAIN_MAP_RE, VOLUME_CAPABLE_RE } from "@/lib/map-walk";
+import { walkWorkdir } from "@/lib/relion/outputs-list";
+import { isMrcPath, poolProfile, readMrcAxisProfiles, readMrcHeader } from "@/lib/mrc";
+import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
+import { readPathrefTarget } from "@/lib/relion/pathref";
+import { cachedCompute } from "@/lib/relion/statcache";
 
 export interface AiToolResult {
   ok: boolean;
@@ -487,6 +507,12 @@ export const AI_TOOLS: ToolSchema[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "get_map_landscape",
+    description:
+      "The session's MAP LANDSCAPE in one read — the Session QC report's Map QC inventory, read by the agent: every completed job whose workdir holds a true 3D volume (newest first, the same walk the paper obeys), each owner's main map, that map's density-landscape PEAK (where the mass concentrates along depth, as % of depth), the Δ against the winner (the newest owner — the row the deep report rides), the SHAPE AGREEMENT r with the winner (Pearson on the shared 0–100% fraction scale, both resampled to the finer grid; the winner's own row lands at 1.00 through the same arithmetic, no special case) and the WEAKEST quarter band (where the shape parts ways, Q1–Q4 with the band's own r). Candidates with no readable volume, no on-disk workdir or a refused profile are honestly skipped, never guessed; the roster cap is the paper's own (24). THE tool for 'which job produced the best map / 哪张 map 最好 / which classification won / is the session's map geography sane / 全景如何' — a landscape question is a WALK over the whole roster: get_job_curves reads ONE job's curves, compare_jobs reads two runs of the same stage, this reads the session's geography.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -769,6 +795,8 @@ export async function executeAiTool(
         return await judge2dClasses(ctx, String(args.job_id ?? ""), typeof args.question === "string" ? args.question : undefined);
       case "get_job_curves":
         return await getJobCurves(ctx, String(args.job_id ?? ""), Array.isArray(args.kinds) ? args.kinds.map(String) : undefined);
+      case "get_map_landscape":
+        return await getMapLandscape(ctx);
       case "select_classes":
         return await selectClasses(ctx, args);
       default:
@@ -2548,6 +2576,180 @@ export function sampleSeries<T>(rows: T[], max = 12): T[] {
  * face's call sites byte-identical. */
 const fmtAng = fmtAngstrom;
 const fmtUm = fmtMicron;
+
+/* ---- get_map_landscape --------------------------------------------- */
+
+/** t500 — the agent reads the landscape. The Session QC report's Map QC
+ *  inventory has been a paper face (t211), a door family (t213) and a CSV
+ *  grid (t232); this is its AGENT face. One walk over the completed
+ *  roster in the paper's OWN queue (volume-capable types ride the
+ *  front, each tier byRecency, the paper's cap — lib/map-walk keeps
+ *  all three honest), the listing from the outputs route's ONE well (lib/relion/outputs-list),
+ *  each owner's main map profiled through the map-profile route's own
+ *  chain (resolve → pathref-defensive → header → statcache), and every
+ *  number worded through qc-report's OWN arithmetic — peakPctOf,
+ *  deltaVsWinner, shapeAgreement, localAgreement + weakestBand +
+ *  weakestCellOf — so the spoken landscape and the paper's inventory can
+ *  never drift (one well; twins fork, imports don't). The winner is the
+ *  newest owner whose landscape spoke, and every row (the winner's own
+ *  included) reads its r through shapeAgreement against it — the
+ *  reference lands at 1.00 the honest way, no special case. Skips speak
+ *  their counts: no volume, no workdir, refused profile — silence with
+ *  a receipt, never a guess. */
+async function getMapLandscape(ctx: AgentCtx): Promise<AiToolResult> {
+  const active = await getActiveProject();
+  if (!active) return { ok: false, summary: "No active project" };
+  const jobs = await db.job.findMany({
+    where: { projectId: ctx.projectId },
+  });
+  const completed = jobs.filter((j) => j.status === "completed");
+  // The paper's OWN queue (session-report-dialog's walk law, t155/t211):
+  // volume-capable types ride the front so the cap lands on real map
+  // owners, each tier sorted byRecency — the dialog's three-way
+  // comparator (updatedAt desc; the id tiebreak keeps same-instant
+  // stamps — a gallery restore writes them all at once — deterministic).
+  // A landscape question answered from a different order is a landscape
+  // lied about: the winner (the queue's head) MUST be the row the deep
+  // report rides.
+  const byRecency = (a: (typeof completed)[number], b: (typeof completed)[number]) =>
+    a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : a.id < b.id ? -1 : 1;
+  const candidates = [
+    ...completed.filter((j) => VOLUME_CAPABLE_RE.test(j.type)).sort(byRecency),
+    ...completed.filter((j) => !VOLUME_CAPABLE_RE.test(j.type)).sort(byRecency),
+  ].slice(0, MAP_BRIEF_CAP);
+
+  const heard: { jobId: string; jobName: string; main: string; bins: number[] }[] = [];
+  let skippedNoWorkdir = 0;
+  let skippedNoVolume = 0;
+  let skippedRefused = 0;
+
+  for (const job of candidates) {
+    const run = getRun(job.id);
+    let dirOk = false;
+    if (run?.workdir) {
+      try {
+        dirOk = statSync(run.workdir).isDirectory();
+      } catch {
+        dirOk = false;
+      }
+    }
+    if (!run?.workdir || !dirOk) {
+      skippedNoWorkdir += 1;
+      continue;
+    }
+    const { files } = walkWorkdir(run.workdir);
+    const volumes = files.filter((f) => f.kind === "mrc" && Array.isArray(f.dims));
+    if (volumes.length === 0) {
+      skippedNoVolume += 1;
+      continue;
+    }
+    const sorted = [...volumes].sort(
+      (a, b) => Number(MAIN_MAP_RE.test(b.name)) - Number(MAIN_MAP_RE.test(a.name)),
+    );
+    const main = sorted[0];
+    const resolved = resolveInsideJobWorkdir(run.workdir, main.path);
+    if ("error" in resolved) {
+      skippedRefused += 1;
+      continue;
+    }
+    let abs = resolved.abs;
+    // pathref markers: engine-written only; maps live in workdirs so this
+    // is defensive — the same posture the map-profile route takes.
+    if (resolved.name.endsWith(".pathref")) {
+      const target = readPathrefTarget(abs);
+      if (!target) {
+        skippedRefused += 1;
+        continue;
+      }
+      abs = target;
+    }
+    if (!isMrcPath(path.basename(abs))) {
+      skippedRefused += 1;
+      continue;
+    }
+    const header = readMrcHeader(abs);
+    if (!header) {
+      skippedRefused += 1;
+      continue;
+    }
+    const profiles = cachedCompute(abs, "map-profile:v1", () => readMrcAxisProfiles(abs, header));
+    const bins = profiles ? poolProfile(profiles.z) : null;
+    if (!Array.isArray(bins) || bins.length === 0) {
+      skippedRefused += 1;
+      continue;
+    }
+    heard.push({ jobId: job.id, jobName: job.name, main: main.label ?? main.name, bins });
+  }
+
+  if (heard.length === 0) {
+    return {
+      ok: true,
+      summary:
+        completed.length === 0
+          ? "No completed jobs yet — the landscape is empty."
+          : `Walked ${candidates.length} completed candidates (newest first): none holds a readable 3D volume (skipped: ${skippedNoVolume} without a volume, ${skippedNoWorkdir} without an on-disk workdir, ${skippedRefused} with a refused profile).`,
+    };
+  }
+
+  const winner = heard[0];
+  const winnerPct = peakPctNumOf(winner.bins);
+  const rows = heard.map((h) => {
+    const pct = peakPctNumOf(h.bins);
+    const bands = localAgreement(winner.bins, h.bins);
+    return {
+      jobId: h.jobId,
+      job: h.jobName,
+      main: h.main,
+      peak: peakPctOf(h.bins),
+      pct,
+      delta: deltaVsWinner(pct, winnerPct),
+      r: shapeAgreement(winner.bins, h.bins),
+      weakest: weakestCellOf(weakestBand(bands)),
+    };
+  });
+  const outlier = outlierRowIdx(rows.map((r) => ({ peakPct: r.pct })));
+  const contested = contestedCrown(rows.map((r) => ({ peakPct: r.pct })));
+
+  const lines: string[] = [];
+  lines.push(
+    `${rows.length} volume owner${rows.length === 1 ? "" : "s"} (the paper's queue: capable types first, newest within each tier${completed.length > candidates.length ? `, roster capped at ${MAP_BRIEF_CAP}` : ""}). Winner (the queue's head): ${winner.jobName} — main map ${winner.main}, peak ${peakPctOf(winner.bins)} of depth, agreement r 1.00.`,
+  );
+  for (const r of rows) {
+    if (r.jobId === winner.jobId) continue;
+    lines.push(
+      `${r.job} — main map ${r.main}, peak ${r.peak} of depth (Δ ${r.delta ?? "—"}), agreement r ${r.r != null ? r.r.toFixed(2) : "—"}, weakest ${r.weakest}.`,
+    );
+  }
+  if (contested) {
+    lines.push(
+      `The crown is contested: ${contested.indices.map((i) => rows[i].job).join(" and ")} share the largest |Δ| (${contested.abs.toFixed(1)}) — no unique outlier, the paper hides its amber edge (t220).`,
+    );
+  } else if (outlier >= 0) {
+    lines.push(`The row farthest from the winner: ${rows[outlier].job} (the paper wears this one amber).`);
+  }
+  if (skippedNoVolume + skippedNoWorkdir + skippedRefused > 0) {
+    lines.push(
+      `Skipped honestly: ${skippedNoVolume} without a 3D volume, ${skippedNoWorkdir} without an on-disk workdir, ${skippedRefused} with a refused profile.`,
+    );
+  }
+
+  return {
+    ok: true,
+    summary: lines.join(" "),
+    detail: {
+      winner: { jobId: winner.jobId, job: winner.jobName, main: winner.main },
+      owners: rows.map((r) => ({
+        jobId: r.jobId,
+        job: r.job,
+        main: r.main,
+        peak: r.peak,
+        deltaVsWinner: r.delta,
+        shapeR: r.r,
+        weakestBand: r.weakest,
+      })),
+    },
+  };
+}
 
 async function getJobCurves(
   ctx: AgentCtx,

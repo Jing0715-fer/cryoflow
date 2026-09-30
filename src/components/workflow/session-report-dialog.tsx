@@ -85,6 +85,10 @@ import type {
   MotionResponse,
   TopazTrainingResponse,
 } from "@/lib/chart-rows";
+// t500 — the walk's own constants moved to ONE well: the agent's landscape
+// read (get_map_landscape) walks the same roster with the same cap and the
+// same main-map law. Twins fork, imports don't.
+import { MAP_BRIEF_CAP, MAIN_MAP_RE, VOLUME_CAPABLE_RE } from "@/lib/map-walk";
 import { useWorkflowStore } from "@/lib/store";
 
 /** one candidate's 3D-map set (paths relative to the job's workdir) */
@@ -111,9 +115,6 @@ interface ProfileResponse {
   bins?: number[];
   error?: string;
 }
-
-/** Full-map variants lead the report; halves and masked maps compare. */
-const MAIN_MAP_RE = /half0|postprocess\.mrc$/i;
 
 /** t490 — which curve kinds can a job type plausibly carry? The probe
  *  budget's own map: a PostProcess writes the FSC + Guinier pair, a 3D
@@ -151,14 +152,12 @@ const CURVE_ROUTE_SEGMENT: Record<CurveKind, string> = {
  *  four volumes — and the report declared a world WITH maps to have none.
  *  A lying instrument is the gravest sin; the walk now spends its budget
  *  on plausible owners before it touches the never-volume tail. */
-const VOLUME_CAPABLE_RE = /refine3d|class3d|postprocess|multibody/i;
-
 /** The walk's probe budget. Volume-capable candidates ride the front of
- *  the queue (see VOLUME_CAPABLE_RE), so the budget lands on real map
- *  owners; 24 covers the demo world's whole roster well past three
- *  times — the honest failure mode is "scanned them all, none speaks",
- *  never "never asked". */
-const MAP_BRIEF_CAP = 24;
+ *  the queue (see VOLUME_CAPABLE_RE, now in lib/map-walk — the agent's
+ *  landscape read obeys the same budget AND the same queue), so the
+ *  budget lands on real map owners; 24 covers the demo world's whole
+ *  roster well past three times — the honest failure mode is "scanned
+ *  them all, none speaks", never "never asked". */
 
 /** Newest first — as a real three-way comparator. The old one-liner
  *  `(a.updatedAt < b.updatedAt ? 1 : -1)` answers -1 on EQUAL stamps,

@@ -231,8 +231,8 @@ console.log("T4. the directory speaks the epitaph");
     "T4b: the description names runLine — the model knows the verdict field exists"
   );
   must(
-    AI_TOOLS.length === 22,
-    "T4c: the roster holds 22 tools — an epitaph is a field, not a new verb (t486's curve read is the one birth since)"
+    AI_TOOLS.length === 23,
+    "T4c: the roster holds 23 tools — an epitaph is a field, not a new verb (t486's curve read is the one birth since)"
   );
 }
 

@@ -115,8 +115,8 @@ console.log("T1. the catalog wears the settled read");
 const convTool = AI_TOOLS.find((t) => t.name === "check_convergence");
 must(convTool != null, "T1a: check_convergence is in the catalog (the 17th tool)");
 must(
-  AI_TOOLS.length === 22 && new Set(AI_TOOLS.map((t) => t.name)).size === 22,
-  `T1b: 22 unique tools (got ${AI_TOOLS.length})`,
+  AI_TOOLS.length === 23 && new Set(AI_TOOLS.map((t) => t.name)).size === 23,
+  `T1b: 23 unique tools (got ${AI_TOOLS.length})`,
 );
 const convParams = (convTool?.parameters ?? {}) as {
   properties?: Record<string, unknown>;
