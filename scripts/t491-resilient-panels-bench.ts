@@ -81,7 +81,7 @@ ok(hookSrc.includes("fetchJsonRetry"), "the hook fetches through retry-fetch (tr
 ok(hookSrc.includes("lastGood"), "lastGood ref: a poll blip keeps the live chart (stale but alive)");
 ok(hookSrc.includes("setNonce") || hookSrc.includes("setNonce((n)"), "retry() bumps a nonce → the effect re-fires");
 ok(/pollMs\?:\s*number\s*\|\s*null/.test(hookSrc), "pollMs option (null = one-shot fetch for completed jobs)");
-ok(/"empty",\s*data:\s*null,\s*error:\s*null/.test(hookSrc.replace(/\s+/g, " ")), "definitive → empty with null error (honest absence is not an error)");
+ok(/"empty",\s*data:\s*null,\s*error:\s*msg/.test(hookSrc.replace(/\s+/g, " ")), "definitive → empty still carries the reason (t492: an absence's reason is information; panels self-hide, user-opened views quote it)");
 ok(hookSrc.includes("ChartResource<"), "the ChartResource face is exported for the panels");
 
 // ---------------------------------------------------------------- T3

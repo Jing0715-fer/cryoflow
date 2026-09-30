@@ -17,7 +17,7 @@
  * autopick coordinate stars grouped per micrograph).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Crosshair, MousePointerClick, ScanEye } from "lucide-react";
 import {
   Dialog,
@@ -28,7 +28,9 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { useChartResource } from "@/lib/use-chart-resource";
 import { cn } from "@/lib/utils";
+import { ChartErrorStrip } from "./chart-error-strip";
 import { MrcImage } from "./mrc-image";
 
 interface PickEntry {
@@ -146,41 +148,40 @@ export function PicksMap({
   jobId: string;
   className?: string;
 }) {
-  const [data, setData] = useState<PicksResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<PickEntry | null>(null);
   /** t427 — the FOM threshold (autopick QA): picks below it hide. Starts
    *  at the dataset minimum (everything shown); the slider scrubs it. */
   const [fomMin, setFomMin] = useState<number>(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/jobs/${jobId}/picks`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as PicksResponse;
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-          // the threshold starts open: the dataset's lowest FOM keeps every
-          // pick visible until the user asks the QA question
-          let lo = Infinity;
-          for (const m of body.micrographs) {
-            for (const f of m.foms ?? []) {
-              if (f != null && f < lo) lo = f;
-            }
-          }
-          setFomMin(Number.isFinite(lo) ? lo : 0);
+  // t492 — the fetch belongs to the well: wounded gets the amber strip
+  // with a Retry chip (this map is an enhancement, but a wound is not
+  // an absence — the old code caught the error into a state it never
+  // rendered, so a dev-lane blip read as "this job picked nothing");
+  // empty (job gone, 404) stays honestly silent, as before.
+  const { status, data, error, retry } = useChartResource<PicksResponse>(
+    `/api/jobs/${jobId}/picks`
+  );
+
+  // the threshold starts open: the dataset's lowest FOM keeps every
+  // pick visible until the user asks the QA question. Re-derived when
+  // `data` itself changes, during render (React's "adjusting state
+  // when a prop changes" pattern — the effect-body setState the old
+  // code needed was a cascading render the lint rightly flagged;
+  // t492). The slider's own edits survive because `data` is stable
+  // between fetches.
+  const [seenData, setSeenData] = useState<PicksResponse | null>(null);
+  if (data !== seenData) {
+    setSeenData(data);
+    if (data) {
+      let lo = Infinity;
+      for (const m of data.micrographs) {
+        for (const f of m.foms ?? []) {
+          if (f != null && f < lo) lo = f;
         }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId]);
+      setFomMin(Number.isFinite(lo) ? lo : 0);
+    }
+  }
 
   // t427 — FOM spread for the colormap + slider bounds (nulls excluded)
   const fomRange = useMemo(() => {
@@ -196,7 +197,17 @@ export function PicksMap({
     return Number.isFinite(lo) && hi > lo ? { lo, hi } : null;
   }, [data]);
 
-  if (error && !data) return null; // enhancement — silent when unavailable
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Picked particles map"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
+  if (status === "empty") return null; // job gone — honest absence, as before
   if (!data || data.micrographs.length === 0 || data.imageWidth === 0) return null;
 
   // t427 — the mic image may live in an upstream job's workdir; the entry

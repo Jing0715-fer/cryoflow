@@ -41,7 +41,11 @@ export interface ChartResource<T> {
   status: ChartResourceStatus;
   /** the fetched body when ready; null while loading/empty/wounded */
   data: T | null;
-  /** the final failure's message — only meaningful when wounded */
+  /** the final failure's message — meaningful when wounded AND when
+   *  empty (t492: the reason for an absence is still information; the
+   *  enhancement panels hide on empty and never read it, but a view the
+   *  user explicitly opened — the STAR dialog — owes its reader the
+   *  verdict, not a blank hole) */
   error: string | null;
   /** re-fire the fetch (the strip's Retry chip); also re-runs after a
    *  url change, resetting lastGood so one job's data never bleeds into
@@ -65,10 +69,26 @@ export function useChartResource<T>(
 
   const retry = useCallback(() => setNonce((n) => n + 1), []);
 
+  // t492 — the reset to `loading` when the resource identity changes
+  // (url / poll cadence / retry nonce) lives in RENDER, not in the
+  // effect: React's official "adjusting state when a prop changes"
+  // pattern. The old effect-body setState was a cascading render (the
+  // set-state-in-effect lint was right); the reset is state
+  // derivation, and the effect below only does what effects are for —
+  // talking to the network.
+  const [prevKey, setPrevKey] = useState<string | null>(null);
+  const key = `${url}#${pollMs ?? "nopoll"}#${nonce}`;
+  if (key !== prevKey) {
+    setPrevKey(key);
+    setState({ status: "loading", data: null, error: null });
+  }
+
   useEffect(() => {
     let cancelled = false;
+    // ref writes live in the effect (render may not touch refs); the
+    // key above guarantees the effect re-runs on every identity change,
+    // so lastGood is cleared exactly when the reset above happens
     lastGood.current = null;
-    setState({ status: "loading", data: null, error: null });
     const load = async () => {
       try {
         const body = await fetchJsonRetry<T>(url);
@@ -77,19 +97,22 @@ export function useChartResource<T>(
         setState({ status: "ready", data: body, error: null });
       } catch (err) {
         if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "fetch failed";
         if (classifyFetchFailure(err) === "definitive") {
-          // honest absence — the self-hide contract stays intact
+          // honest absence — the self-hide contract stays intact. The
+          // reason still travels in `error` (t492): enhancement panels
+          // self-hide and never read it, user-initiated views quote it.
           lastGood.current = null;
-          setState({ status: "empty", data: null, error: null });
+          setState({ status: "empty", data: null, error: msg });
         } else if (lastGood.current != null) {
           // poll blip with a live chart on screen — keep it (stale but
           // alive); the next poll gets a fresh chance to heal
-          setState((s) => (s.data != null ? s : { status: "wounded", data: null, error: err instanceof Error ? err.message : "fetch failed" }));
+          setState((s) => (s.data != null ? s : { status: "wounded", data: null, error: msg }));
         } else {
           setState({
             status: "wounded",
             data: null,
-            error: err instanceof Error ? err.message : "fetch failed",
+            error: msg,
           });
         }
       }

@@ -3,13 +3,28 @@
 /**
  * CryoFlow — STAR table viewer (first/biggest loop block of a RELION
  * STAR file), fetched from /api/jobs/[id]/outputs/star.
+ *
+ * t492 — the resilience well's second act. This table lives in a dialog
+ * the user explicitly OPENED (results-view's STAR chip), so unlike the
+ * enhancement panels it may NOT self-hide on failure — a blank dialog
+ * is a lie. But its two failure kinds get two different faces, exactly
+ * as classifyFetchFailure rules:
+ *   - wounded (transient: server busy / restarting / network blip) →
+ *     the amber ChartErrorStrip with a Retry chip; the server may
+ *     simply come back, so the load is retryable;
+ *   - empty (definitive 4xx: the file is gone, the path was refused,
+ *     it was never a STAR) → the destructive verdict, kept from the
+ *     pre-well days — retrying a 404 would say the same thing twice.
+ * The verdict's evidence travels in the hook's `error` even on empty
+ * (t492: the reason for an absence is still information).
  */
 
-import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Table2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { JobDTO } from "@/lib/types";
+import { useChartResource } from "@/lib/use-chart-resource";
 import { cn } from "@/lib/utils";
+import { ChartErrorStrip } from "./chart-error-strip";
 
 interface StarResponse {
   columns: string[];
@@ -26,36 +41,23 @@ function shortColumn(col: string): string {
 }
 
 export function StarTable({ job, path }: { job: JobDTO; path: string }) {
-  const [data, setData] = useState<StarResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { status, data, error, retry } = useChartResource<StarResponse>(
+    `/api/jobs/${job.id}/outputs/star?path=${encodeURIComponent(path)}&rows=100`
+  );
 
-  const load = useCallback(async () => {
-    setError(null);
-    setData(null);
-    try {
-      const res = await fetch(
-        `/api/jobs/${job.id}/outputs/star?path=${encodeURIComponent(path)}&rows=100`,
-        { cache: "no-store" }
-      );
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? `HTTP ${res.status}`);
-      }
-      setData((await res.json()) as StarResponse);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load STAR file");
-    }
-  }, [job.id, path]);
+  // transient — retryable, the server may simply be busy
+  if (status === "wounded") {
+    return <ChartErrorStrip label="STAR table" detail={error ?? undefined} onRetry={retry} />;
+  }
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  if (error) {
+  // definitive 4xx — the user opened this dialog on purpose, so the
+  // verdict keeps a face (the old destructive grammar); a Retry chip
+  // would be a lie here.
+  if (status === "empty") {
     return (
       <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {error}
+        {error ?? "This file can't be read as a STAR table."}
       </div>
     );
   }

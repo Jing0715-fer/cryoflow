@@ -23,6 +23,8 @@ import {
   Layers,
   MousePointerClick,
   ChevronsUpDown,
+  RefreshCw,
+  TriangleAlert,
 } from "lucide-react";
 import {
   Dialog,
@@ -32,7 +34,9 @@ import {
   DialogTitle,
   onEscapeClose,
 } from "@/components/ui/dialog";
+import { useChartResource } from "@/lib/use-chart-resource";
 import { cn } from "@/lib/utils";
+import { ChartErrorStrip } from "./chart-error-strip";
 import { MrcImage } from "./mrc-image";
 
 interface ParticleGroup {
@@ -109,6 +113,14 @@ function GroupSection({
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState<ParticlePageResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  /** t492 — the page load's visible failure. Before, a non-ok response
+   *  was silently swallowed (`if (res.ok) setPage(...)`) and a network
+   *  error escaped the try/finally as an UNHANDLED REJECTION — the
+   *  reader either saw the old page pretend everything is fine or,
+   *  on first open, the "No particles returned" line LIE about a
+   *  fetch that never landed. The old page stays on screen (stale but
+   *  alive); the error says what happened and offers the retry. */
+  const [pageError, setPageError] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState<ParticleRow | null>(null);
 
   const fileUrl = (p: { stackRel: string; ownerJobId: string; slice: number }, large = false) =>
@@ -118,12 +130,22 @@ function GroupSection({
   const loadPage = useCallback(
     async (off: number) => {
       setLoading(true);
+      setPageError(null);
       try {
         const res = await fetch(
           `/api/jobs/${jobId}/particles?group=${encodeURIComponent(group.name)}&offset=${off}&limit=${PAGE_SIZE}`,
           { cache: "no-store" }
         );
-        if (res.ok) setPage((await res.json()) as ParticlePageResponse);
+        if (res.ok) {
+          setPage((await res.json()) as ParticlePageResponse);
+        } else {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          setPageError(body?.error ?? `HTTP ${res.status}`);
+        }
+      } catch (err) {
+        // was an unhandled rejection before t492 — the finally only
+        // cleaned up `loading`, the throw kept travelling
+        setPageError(err instanceof Error ? err.message : "fetch failed");
       } finally {
         setLoading(false);
       }
@@ -214,6 +236,30 @@ function GroupSection({
                   {page.offset + 1}–{Math.min(page.offset + page.particles.length, page.total)} of{" "}
                   {page.total.toLocaleString()}
                 </span>
+                {/* t492 — a mid-paging blip keeps the old page (stale but
+                    alive) and says so, instead of silently doing nothing */}
+                {pageError ? (
+                  <span
+                    data-page-error=""
+                    className="flex min-w-0 items-center gap-1 text-[10px] text-destructive"
+                  >
+                    <TriangleAlert className="size-3 shrink-0" aria-hidden="true" />
+                    <span className="truncate">
+                      page failed
+                      <span className="ml-0.5 font-mono opacity-70">({pageError})</span>
+                    </span>
+                    <button
+                      type="button"
+                      data-page-error-retry=""
+                      onClick={() => void loadPage(page.offset)}
+                      aria-label="Retry loading this page"
+                      className="inline-flex shrink-0 items-center gap-0.5 rounded border border-destructive/30 bg-destructive/10 px-1 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20"
+                    >
+                      <RefreshCw className="size-2.5" aria-hidden="true" />
+                      Retry
+                    </button>
+                  </span>
+                ) : null}
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -242,6 +288,30 @@ function GroupSection({
                 </div>
               </div>
             </>
+          ) : pageError ? (
+            // first page never landed — the old code fell through to the
+            // "No particles returned" line, which LIED about a fetch that
+            // never happened. The verdict + retry live here instead.
+            <div
+              data-page-error=""
+              className="flex items-center justify-center gap-2 px-1 py-3 text-[11px] text-destructive"
+            >
+              <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                couldn&apos;t load this page
+                <span className="ml-1 font-mono text-[10px] opacity-70">({pageError})</span>
+              </span>
+              <button
+                type="button"
+                data-page-error-retry=""
+                onClick={() => void loadPage(0)}
+                aria-label="Retry loading this page"
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-destructive/20"
+              >
+                <RefreshCw className="size-3" aria-hidden="true" />
+                Retry
+              </button>
+            </div>
           ) : (
             <p className="px-1 py-3 text-center text-[11px] text-muted-foreground">
               No particles returned for this micrograph
@@ -293,30 +363,26 @@ export function ParticleBrowser({
   jobId: string;
   className?: string;
 }) {
-  const [data, setData] = useState<ParticlesResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // t492 — the fetch belongs to the well: the old code captured `error`
+  // and then rendered `null` with it ("silent when unavailable"), so a
+  // dev-lane blip read as "this job extracted nothing". Wounded now gets
+  // the amber strip with a Retry chip; empty (400 no particle stacks for
+  // this job type, 404 job gone) stays honestly silent, as before.
+  const { status, data, error, retry } = useChartResource<ParticlesResponse>(
+    `/api/jobs/${jobId}/particles`
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/jobs/${jobId}/particles`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as ParticlesResponse;
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId]);
-
-  if (error && !data) return null; // enhancement — silent when unavailable
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Particle stacks"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
+  if (status === "empty") return null; // no particle stacks for this job — honest absence, as before
   if (!data || data.groups.length === 0) return null;
 
   const o = data.optics;
