@@ -6283,3 +6283,22 @@ Stage Summary:
 - **「模型会走捷径」**：会话历史里有答案时，模型倾向复述而不重新测量——工具是读数、不是记忆；要新数字就得新会话或明确指令
 - 产出：get_map_landscape（schema+执行器+dispatch）+ outputs-list 抽库 + map-walk 常量井 + t501 bench 50/0 + glob 抬顶（本窗 bench 纳新）+ 11 邻家 bench 计数演进 22→23 + 同井逐格活体全谱 + 截图 ×1
 - [终验补记] push 时发现**编号撞车**：并行用户工单窗（沙箱重置后复库）已把 Task 500 落上 origin（a729451 决策按钮/浮动窗/stale-session 回落 + 8ccb559）——rebase 到其上，本窗真号改判 **501**（worklog 条目、bench 文件名、源码注释、截图名随行重编；两窗改动零文件重叠，rebase 无伤）。撞车的连锁账：并行窗的 prompt law 16 / assistant 气泡段循环重构，撞了四家源码断言型 bench——t486/t487/t484 的「laws 连续」断言 1–15 演进为 1–16、t495 的 linkify 渲染断言演进为段循环形态（seg.text，渲染律不变）——演进后**全家 66 套 0 败** + tsc 0 + eslint 0。push 完成，origin/main 三方对齐。Task 501 收官，下窗从 Task 502 起编。
+
+## Task 502 (2026-09-30, cron 11:07 窗 —— The Old Answer Admits Its Age)
+
+- [开局] 实尾 = Task 501 完整收官（HEAD = d3699e2 三方对齐）。第九十二份过时 Task 13 指引照例不认。自号 502。QA 基线全绿：回归全家 66 套 exit 0、landing/jobsApi 200、2 canvas · 15 edges · 22 jobCards、console 0 错。
+- [选题定谳 — The Old Answer Admits Its Age（t501 遗留㊻ 开闸）] 排除法：③④⑦㉜ 待回执、⑤⑥ 门控、㉘㉛ 待真实、㊵ 低优先悬置、㊼ 数据面。唯 ㊻ 的门槛「待真实体感」**已被 t501 三幕剧满足**——panel 恢复旧会话后模型引用历史工具结果不复测（工具卡 count=1 而 DOM 有四问），那是真实排障成本（三层「旧」剥了一小时），不是假想。定谳：把三幕剧的教训产品化，**双脸修复**。
+- [交付①— 纯阈值井（src/lib/ai/stale-history.ts，import-free）] STALE_HISTORY_MS（10 分钟：活体工具循环以秒计、午饭休憩是真老）+ hasAgedToolHistory(messages, now)（newest tool 结果过窗即真；now 注入式、结构类型——client/server 同饮一井，同一个年龄同一个答案）。t501 map-walk 常量井判例的第二口。
+- [交付②— 模型脸（prompt.ts + agent.ts）] buildSystemPrompt ctx 加 staleHistory?: boolean——真则尾部追加 STALE HISTORY REMINDER 节（「tool 结果是已走之世界的读数；问状态/数字/曲线/判词就 RE-RUN 工具；history is conversation context, NOT a source of current truth」）。**骑点选得薄**：系统提示每轮重建、从不入库——零 wire 改动、零存储改动、provider 无关；staleHistory=false/undefined 双静默（旧调用方安全）。agent.ts 只在新 user turn 的 push **之前**布防（continue 的 mid-loop 工具絮语是新鲜的，永不布防——`let staleHistory = false` 默认关闭）；reminder 字符串一个字节都不进 agent.ts/transcript（t483 门律）。
+- [交付③— 人脸（assistant-panel.tsx）] staleBanner 一次性 ephemeral state（非事件、不持久、transcript 保持素净）：rehydrate 带史 + drawer 切换两处布防（同一个 hasAgedToolHistory）、send/new chat/空恢复三处清除；琥珀横幅坐 transcript 与 composer 之间（History 图标 + role="status" 到耳）：「这是恢复的旧对话 — 里面的测量读数可能已过期；直接提问，工具会重新测量。」
+- [t502 bench — 26/0（一处自捕）] T1 阈值 6（11min 老/1min 新/无 tool 永不老/边界严格=MS 不翻/+1ms 翻/常量=600000）+ T2 模型脸 4（true 载/false 静/undefined 静/教义双短语）+ T3 接线 5（一井/布防先于 push/ctx 载旗/reminder 不进 agent.ts/默认关闭唯一声明）+ T4 人脸 6（一井/双布防/三清除/data-stale-banner+role/文案双短语/零持久化）+ T5 邻居 5（t500 stale notice/rehydrate deps/law 16/notice 变体/reminder 单面无孪生）。自捕：尾行漏右括号——bun 语法错当场捕。
+- [活体 — 三链全通] ①**横幅现形**：最新会话（tool 结果 29min 旧）rehydrate → `[data-stale-banner]` 逐字节现形（截图 t502-stale-banner.png）；②**发送即逝**：发「现在画布上有哪些任务？」→ 横幅立即消失、busy 上脸；③**模型脸回声**：模型没有引用 29min 前的历史——**重新调用 get_workflow_state**（fresh 工具卡）并给出当前 22 任务全谱回答（截图 t502-after-send.png）。插曲：/api/ai/* 有跨站守卫（curl 须带 Origin 头——python 解析器把守卫错误吃成「no session」假象，先被误导一轮）；agent-browser eval 顶层 const 跨 eval 残留（IIFE 包裹绕过）。
+- [验证-终] t502 bench 26/0 + 回归全家 **67 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（五触碰文件）；行为面：阈值井行为级、prompt 双静默、agent 布防先于 push 且零入库、panel 双布防三清除零持久化、邻居五面原样；世界 22 jobs / 15 edges / 2 canvas / console 0 错、零数据手术（活体发送是真实引擎上的正常对话轮）。
+- [最终态] HEAD = 本窗 feature commit（worklog 分车随后）。下窗从 Task 503 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉘护照下一跳（待真实混用）㉛工具卡 summary 行门化（待真实混用）㉜user turns 门化（待回执）㉞并发上限（现无虞）；㊵walk 健康读数工具（低优先，待真实体感）；㊼QA 家族 mock 作业诚实性（数据面）；㊽**STALE HISTORY REMINDER 的真模型实效**——本窗活体验证了布防线与一次真实重测，但「弱模型是否稳定吃这套提醒」待真实混用积累；㊾**提醒的时效粒度**——10 分钟窗是全局常数，若未来 job 状态在会话中途剧变（比如用户在画布上删了 job），是否要 per-question 的状态指纹对比（canvas census hash 进 prompt），待真实体感。
+
+Stage Summary:
+- **「旧答案有生日」**：t501 三幕剧（模型引用 29 分钟前的测量不复测）从排障记录升格为产品法则——tool 结果过 10 分钟窗就是历史，不再是读数；两层消费（模型脸 + 人脸）喝同一口井
+- **「提醒骑重建，不骑存储」**：系统提示每轮重建、从不入库——stale reminder 在那里append 一节，transcript 一个字节不添；t483 门律的 prompt 尺度版（门标记不进导出，提醒不进会话）
+- **「continue 不布防」**：mid-loop 的工具絮语是新鲜的——默认关闭、只在新 user turn 布防；噪声管理是诚实的一部分（恒常的提醒等于没有提醒，t499 点律的提醒版）
+- **「双脸同阈」**：模型拿到 RE-RUN 的教义、人眼拿到琥珀横幅——同一个 hasAgedToolHistory、同一个 10 分钟；两副面孔说的是同一句真相
+- 产出：stale-history.ts（纯阈值井）+ prompt.ts reminder 节 + agent.ts 布防 + panel 横幅 + t502 bench 26/0 + 67 套回归全绿 + 活体三链（现形/即逝/重测）+ 截图 ×2
