@@ -54,6 +54,7 @@ import {
   buildProfileReport,
   buildSessionReport,
   buildSweepReport,
+  CURVE_KIND_LABELS,
   curveVerdictOf,
   deltaVsWinner,
   inventoryCsv,
@@ -188,6 +189,7 @@ const byRecency = (a: JobDTO, b: JobDTO) =>
 const InventoryTableContext = React.createContext(false);
 const ComparisonTableContext = React.createContext(false);
 const LocalTableContext = React.createContext(false);
+const CurveTableContext = React.createContext(false);
 
 /** The inventory table's exact head sextet — the only door-carrying
  *  table on the paper. Matched against the RENDERED head (hast), so
@@ -221,6 +223,14 @@ const COMPARISON_HEAD = ["Map", "Bins", "Peak at", "Agreement r", "Verdict"];
  *  once — a partial head cannot mint a Bands th. */
 const LOCAL_HEAD = ["Map", ...QUARTER_LABELS, "Weakest", "Depth (fraction)"];
 const BANDS_HEAD = "Bands";
+
+/** t494: the curve verdicts table's head — the fourth family joins the
+ *  wire. The exact-words bouncer like its three siblings: matched EVERY
+ *  cell at once (a partial head cannot mint a door). The word "Job"
+ *  also opens the inventory's septet, but the FULL-head match is the
+ *  identity — three cells vs seven, no collision (the same law that
+ *  keeps Map-admitting heads apart). */
+const CURVE_HEAD = ["Job", "Curve", "Verdict"];
 
 /** t228: the Map QC section's own head word — the hero's admission
  *  signature. EXACT match only: the deep report speaks
@@ -1131,6 +1141,18 @@ export default function SessionReportDialog({
               <table {...rest}>{children}</table>
             </LocalTableContext.Provider>
           );
+        // t494: the curve verdicts table earns the wire grammar — its
+        // head speaks CURVE_HEAD exactly, and its body rows point at
+        // the jobs whose curves they judge. The fourth family stops
+        // sitting flat: the words named a job; now they open it.
+        const isCurve =
+          headTexts.length === CURVE_HEAD.length && CURVE_HEAD.every((h, i) => headTexts[i] === h);
+        if (isCurve)
+          return (
+            <CurveTableContext.Provider value={true}>
+              <table {...rest}>{children}</table>
+            </CurveTableContext.Provider>
+          );
         if (!isInventory) return <table {...rest}>{children}</table>;
         return (
           <InventoryTableContext.Provider value={true}>
@@ -1142,7 +1164,9 @@ export default function SessionReportDialog({
         <InventoryTableContext.Provider value={false}>
           <ComparisonTableContext.Provider value={false}>
             <LocalTableContext.Provider value={false}>
-              <thead {...rest}>{children}</thead>
+              <CurveTableContext.Provider value={false}>
+                <thead {...rest}>{children}</thead>
+              </CurveTableContext.Provider>
             </LocalTableContext.Provider>
           </ComparisonTableContext.Provider>
         </InventoryTableContext.Provider>
@@ -1155,6 +1179,7 @@ export default function SessionReportDialog({
         const inInventory = React.useContext(InventoryTableContext);
         const inComparison = React.useContext(ComparisonTableContext);
         const inLocal = React.useContext(LocalTableContext);
+        const inCurve = React.useContext(CurveTableContext);
         const cells = hastKids(node)
           .filter((c) => hastTag(c) === "td" || hastTag(c) === "th")
           .map(hastText);
@@ -1257,6 +1282,44 @@ export default function SessionReportDialog({
             </tr>
           );
         }
+        // t494: the curve body row — the fourth family learns to point.
+        // The match is on ALL THREE rendered cells (job, kind label,
+        // verdict — the house grammar that refuses partial matches; the
+        // kind word is IMPORTED from the logic layer, never retyped).
+        // The door reuses pressOwner, the SAME engine t213 gave the
+        // inventory rows (openJob: landing repair, workspace hops, the
+        // inspector; the paper closes — the results live on the canvas,
+        // not under the dialog). An unmatched row stays plain: a door
+        // must promise what the paper says. The doors live ONLY on the
+        // screen — the exported bytes keep their three-column facts
+        // (t483's door law, at paper scale).
+        if (inCurve && cells.length === CURVE_HEAD.length) {
+          const curveRow = curves?.find(
+            (c) =>
+              cells[0] === c.jobName &&
+              cells[1] === CURVE_KIND_LABELS[c.kind] &&
+              cells[2] === c.verdict,
+          );
+          if (!curveRow) return <tr {...rest}>{children}</tr>;
+          return (
+            <tr
+              {...rest}
+              data-curve-door={curveRow.jobId}
+              tabIndex={0}
+              aria-label={`Open ${curveRow.jobName}'s results — the ${CURVE_KIND_LABELS[curveRow.kind].toLowerCase()} curve's verdict`}
+              className="cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none"
+              onClick={() => pressOwner(curveRow)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  pressOwner(curveRow);
+                }
+              }}
+            >
+              {children}
+            </tr>
+          );
+        }
         const owner = mapInventory?.find(
           (o) => cells[0] === o.jobName && cells[1] === o.mainName && cells[2] === String(o.volumeCount),
         );
@@ -1322,7 +1385,10 @@ export default function SessionReportDialog({
         );
       },
     };
-  }, [mapInventory, mapQc, pressOwner]);
+    // t494: curves joins the deps — the tr's curve branch reads the
+    // settled walk; a stale closure would point doors at yesterday's
+    // rows (the honest-closure law the other three deps already obey).
+  }, [mapInventory, mapQc, pressOwner, curves]);
 
   /* t232: the CSV's second mouth. The markdown speaks two doors (copy,
      download) — the machine grid spoke only one. Copy is NOT a second

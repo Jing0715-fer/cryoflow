@@ -6123,3 +6123,21 @@ Stage Summary:
 - **「短形说话、长形旅行」**：verdict 行与 spoken line 用压缩护照（句子已含 RELION），tooltip 与 identity card 保留完整 label——两种粒度两种用途，断言钉死各不越界
 - 产出：reportedPassport（chart-rows 共享面）+ qc-report fsc/guinier 两行护照 + ai/tools 两句 spoken 护照 + t493 bench 21/0 + t490 证人 fixture 修正与断言演进 52/0 + 58 套回归全绿 + Session QC 报告八行护照活体
 - [终验补记] push 完成（f822c8b..a3a2413 → origin/main 三方对齐）；landing 200 复核通过。Task 493 收官，下窗从 Task 494 起编。
+
+## Task 494 (2026-09-30, cron 08:22 窗 —— The Verdicts Learn to Point)
+
+- [开局] 实尾 = Task 493 完整收官（HEAD = 7e9c4af 三方对齐；交接摘要停在 t483，实况以树为准——t484–t493 均在树上）。第八十五份过时 Task 13 指引照例不认（以 t493 遗留清单为准）。自号 494。QA 基线全绿：回归全家 58 套 exit 0、landing/icon 200、2 canvas · 15 edges · 22 jobCards、新会话 console 0 错、磁盘 657M。
+- [选题定谳 — The Verdicts Learn to Point（新题，t490 的自然对岸）] 排除法：t493 遗留九条全数悬置——③④⑦ 待回执/待真实并存；⑤⑥ 门控；① 重且环境依赖；㉒㉘㉙ 待真实使用/混用。勘察发现 t490 的 curve verdicts 表是纸面第四族里**唯一惰性的一族**：inventory 行是门（t213 pressOwner）、comparison 行带画像（t226）、local 行带 quarter bands（t227），唯独判读行句句点名 job（"Post-process (tutorial) · FSC"）却推不开——读者得自己去画布上找。定谳：第四族加入线语法，判读行学会指认。
+- [交付 — 第四族门化（session-report-dialog.tsx 五处）] ① CURVE_HEAD = ["Job","Curve","Verdict"] 常量（与 OWNER_HEAD/COMPARISON_HEAD/LOCAL_HEAD 同居，全头精确匹配 = 身份——"Job" 一词也开 inventory 的七列，但三格 vs 七格全头匹配无撞）；② CurveTableContext 第四 context（默认 false，table override 检测 isCurve 包 provider，thead 四重 neutralize——头行是标签不是门）；③ tr 的 curve 分支：**三格全匹配**（cells[0]=jobName + cells[1]=CURVE_KIND_LABELS[kind]（import 的，永不重打）+ cells[2]=verdict——拒绝部分匹配的家法）→ 门（data-curve-door=jobId、tabIndex 0、aria-label 点名 job+kind、violet hover/focus 同族文法、Enter/Space、pressOwner(curveRow) 复用）；④ 未匹配行保持 plain（门必须承诺纸面所说的话）；⑤ **deps 诚实**：mdComponents memo 依赖 [mapInventory, mapQc, pressOwner] 增 curves——tr 现在读 settled walk，陈旧闭包会把门指向昨天的行。
+- [t494 bench — 32/0（一处自捕）] T1 头文法 4（常量在/builder 字节同源/三向无撞）+ T2 context 7（第四 provider/全头弹幕/thead 四重中和）+ T3 门 9（三格匹配/kind import/地址/键盘/pressOwner 复用/aria/violet 文法）+ T4 诚实 3（未匹配 plain/deps 含 curves/pressOwner 引擎原样）+ T5 线律 3（**门只活在屏幕上**：md builder 行格式原样、qc-report 零门标记、HTML echo 零门标记——t483 门律的纸面尺度版）+ T6 邻居 6（inventory/comparison/local 三族文法原样 + 曲线分支序位先于 inventory fallback）。自捕：bench 首跑引用了源码常量 CURVE_HEAD（ReferenceError）——bench 里只有 dialogSrc 字符串，断言改 inline 数组（bench 抓 bench，自家传统）。
+- [活体 — 两门两推全中] 开报告（cryoflow:open-session-report dispatch）→ walk 异步落定后 **15 行全带门**（data-curve-door/tabindex/aria-label/class 四件套）——首查 0 门是 walk 未落定的时序非代码病；按下 "Post-process (tutorial) · FSC" 行 → **纸面让位（reportBodyGone）+ inspector 落地**（dialog 标题 = "Post-process (tutorial)"——先前误读 dialogClosed:false 是 inspector 自己的 role=dialog，验收选择器要对代码验证）→ 再推 Guinier 行同谱落地。截图 ×2：t494-curve-doors.png（15 门同屏）、t494-door-landed.png（门后落地）。
+- [插曲] rg + sed 显示层双双吞字（`const [mapInventory,` 显示成 `const apInventory,`——疑似语法错误）——hexdump 定谳代码完好，是显示层吞字非代码损坏（t492 教训二次入册，此次连 sed 也参与骗人，od -c 才是真话）。server 本窗被收割一次（开局 CONNECTION_REFUSED），dev-server.sh 复火后 landing 200。
+- [验证-终] t494 bench 32/0 + 回归全家 **59 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（两触碰文件）；行为面：第四族门化、三格精确匹配、pressOwner 单父、导出字节零污染；世界 22 jobs / 15 edges / 2 canvas / 新会话 console 0 错、零数据手术。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 495 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉒curve verdicts 的 CSV 面（待真实使用）㉘护照的下一跳——ctf/motion/topaz 行的 sourceFile 短语（待真实混用 job 类型）㉙CSV 导出与纸面护照一致性（跟纸走还是跟 CSV 走）；㉚verdict 门 Keyboard 活体（本窗 bench 持断言、点击路径已实证，Tab+Enter 活体留给下窗顺手补）。
+
+Stage Summary:
+- **「第四族学会指认」**：报告的四族表至此全部有脸有门——inventory 指认、comparison 画像、local 分带、curve 门钮；纸上每句判读都推得开，读者不再被留在原地自己找
+- **「门必须承诺纸面所说的话」**：三格全匹配（job+kind+verdict）才铸门，未匹配行保持 plain——门不是装饰，是承诺；部分匹配铸出的门会开错房间
+- **「一个引擎，四个家族」**：pressOwner（openJob + 纸面让位）自 t213 服役至今，第四族零新增引擎复用同一父亲——门钮文法的复利
+- **「导出的字节不养门」**：md/CSV/HTML echo 三出口零门标记——门活在屏幕上（t483 门律的纸面尺度版），portable HTML 没有 app 可开，门在那里会承诺文件兑现不了的事
+- 产出：CURVE_HEAD + CurveTableContext 第四族门化（session-report-dialog 五处）+ t494 bench 32/0 + 59 套回归全绿 + 两门两推活体全谱 + 截图 ×2
