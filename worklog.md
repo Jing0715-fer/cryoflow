@@ -6240,3 +6240,4 @@ Stage Summary:
 - **「借光禁令」**：exact-words 匹配把「Map QC summary — <map>」挡在脉冲之外——深报芯片是别的目的地；头匹配律（t223/t228/t494）第四次入册
 - **「伤可闻」**：error 点不只琥珀在色，aria 说出「the measurement refused」——t491 的伤脸家族学会了开口；settled 反而静默（静息真相不添噪声）
 - 产出：compassPulseOf/compassPulseAria + 芯片三态点 + CSS 三色（含 reduced-motion）+ t499 bench 27/0 + 64 套回归全绿 + 三态活体全捕获（pending/settled/error 截图 ×3）
+- [终验补记] push 完成（77c8a9a..cc64ed1 → origin/main 三方对齐）；feature（21ece75）与 worklog（cc64ed1）分车兑现。push 后 landing 200 复核通过（本窗 server 收割两次均已复火，世界健康）。Task 499 收官，下窗从 Task 500 起编——**第一件事先抬 recent-family 的 glob**（㊳，t491 记课的原话期限到了）。
