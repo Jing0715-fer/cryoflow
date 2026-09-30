@@ -6161,3 +6161,4 @@ Stage Summary:
 - **「路标与门的距离是一次改写」**：linkifyJobs 只做一件事——把 exact 名变成协议链接；代码跨免疫、长名优先、部分名不铸门，四条律把改写关在诚实的笼子里
 - **「门在屏幕上，字节在路上」**：存储的消息与 md/json 导出永远拿着素文本——聊天记录导出到实验室笔记后是一份 plain 作业清单，不是一堆指向死链的门（t483 门律的聊天尺度版）
 - 产出：linkifyJobs（新 lib）+ PROSE_COMPONENTS 散文门 + urlTransformKeepDoors 协议放行 + t495 bench 28/0 + 60 套回归全绿 + 28 门活体全链路（按下→canvas→primary selected）+ ㉚ 键盘活体补完销案 + 截图 ×2
+- [终验补记] push 完成（acd4fc8..39ba8af → origin/main 三方对齐）；push 后 server 又遭收割一次，dev-server.sh 复火：landing 200。Task 495 收官，下窗从 Task 496 起编。
