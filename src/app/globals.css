@@ -1481,6 +1481,49 @@ li[data-swipe="end"] {
   padding: 4px 8px;
   opacity: 0.85;
 }
+/* t499: the pulse — a live face on the two chips whose sections are
+   MEASURED (Map QC, Curve verdicts). Three states: pending (violet,
+   breathing — the walk is out), error (amber, solid — the walk came
+   back deaf, the wound family's ink), settled (emerald, solid — the
+   walk landed; the honest-empty answer is settled truth too). Only
+   those chips carry a dot: the dot MEANS a live measurement, and a
+   constant dot means nothing. */
+.report-doc .report-compass-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  margin-right: 5px;
+  vertical-align: 1px;
+}
+.report-doc .report-compass-dot[data-compass-pulse="pending"] {
+  background: #7c3aed;
+  animation: compass-pulse 1.2s ease-in-out infinite;
+}
+.report-doc .report-compass-dot[data-compass-pulse="error"] {
+  background: rgb(245 158 11);
+}
+.report-doc .report-compass-dot[data-compass-pulse="settled"] {
+  background: rgb(16 185 129 / 0.75);
+}
+@keyframes compass-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+/* the pulse is information, not decoration — a reader who asked for
+   stillness gets the same news without the motion */
+@media (prefers-reduced-motion: reduce) {
+  .report-doc .report-compass-dot[data-compass-pulse="pending"] {
+    animation: none;
+  }
+}
 /* the needle: where the reader IS. The violet family is the report's
    own accent (the doors wear it), and the underline is the strip's
    only raised ink — a map marks your position, it doesn't shout. */

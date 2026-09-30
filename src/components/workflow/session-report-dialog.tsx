@@ -48,7 +48,7 @@ import { Copy, Download, FileDown, FileSpreadsheet, Globe, Printer } from "lucid
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { copyOrFallback, downloadText } from "@/lib/download";
-import { buildSessionReportHtml, reportTocOf } from "@/lib/report-html";
+import { buildSessionReportHtml, reportTocOf, type ReportTocItem } from "@/lib/report-html";
 import type { JobDTO } from "@/lib/types";
 import {
   buildProfileReport,
@@ -240,6 +240,14 @@ const CURVE_HEAD = ["Job", "Curve", "Verdict"];
  *  partial name cannot mint a figure — the t223 head-matching law at
  *  heading scale). */
 const MAP_QC_HEAD = "Map QC";
+
+/** t499 — the compass pulse's second customer: the curve section's own
+ *  head, the same exact-words law (the deep report's "Map QC summary —
+ *  <map>" neighbor proves why partial matching would lie — a pulse
+ *  must land on the ONE section whose walk is measuring, not on every
+ *  head that starts with the same words). The bench pins this byte to
+ *  the builder's own section head. */
+const CURVES_HEAD = "Curve verdicts";
 
 /** t223: the portrait column's wire grammar — the head word the wire
  *  adds (never the markdown), the box the paths draw in, and the
@@ -969,6 +977,31 @@ export default function SessionReportDialog({
   // speed, never twice per frame. The effect re-pairs whenever the
   // document opens or its bytes change — the compass follows the well.
   const toc = React.useMemo(() => reportTocOf(md), [md]);
+  // t499 — the compass shows its pulse: the two sections whose answers
+  // are MEASURED (the map walk, the curve walk) carry a live face on
+  // their chips, so the reader opening the report knows what is still
+  // cooking without scrolling into the prose to find the italic line.
+  // Three states, one priority: pending (the walk is out) > error (the
+  // walk came back deaf — the wound family's amber) > settled (the
+  // walk landed — including the honest-empty answer, which is settled
+  // truth, not absence of one). The face lands ONLY on the exact-words
+  // heads (MAP_QC_HEAD / CURVES_HEAD): the deep report's "Map QC
+  // summary — <map>" chip is a different destination and never borrows
+  // the pulse. Chips for sections with no measuring walk (Pipeline,
+  // Scheduling sweep) carry no dot at all — the dot MEANS a live
+  // measurement, and a constant dot means nothing.
+  const compassPulseOf = (t: ReportTocItem): "pending" | "error" | "settled" | null => {
+    if (t.level !== 2) return null;
+    if (t.text === MAP_QC_HEAD) return mapPending ? "pending" : mapError ? "error" : "settled";
+    if (t.text === CURVES_HEAD) return curvesPending ? "pending" : curvesError ? "error" : "settled";
+    return null;
+  };
+  const compassPulseAria = (t: ReportTocItem): string | undefined => {
+    const pulse = compassPulseOf(t);
+    if (pulse === "pending") return `${t.text} — still measuring`;
+    if (pulse === "error") return `${t.text} — the measurement refused`;
+    return undefined; // settled is the resting truth — the visible text already speaks it
+  };
   const bodyRef = React.useRef<HTMLDivElement | null>(null);
   const [activeToc, setActiveToc] = React.useState(0);
   React.useEffect(() => {
@@ -1704,21 +1737,35 @@ export default function SessionReportDialog({
               ref={navRef}
               onKeyDown={onCompassKeyDown}
             >
-              {toc.map((t, i) => (
-                <button
-                  key={`${t.level}·${t.text}`}
-                  type="button"
-                  className={
-                    "report-compass-chip" +
-                    (t.level === 3 ? " report-compass-sub" : "") +
-                    (i === activeToc ? " report-compass-here" : "")
-                  }
-                  aria-current={i === activeToc ? "true" : undefined}
-                  onClick={() => jumpToToc(i)}
-                >
-                  {t.text}
-                </button>
-              ))}
+              {toc.map((t, i) => {
+                const pulse = compassPulseOf(t);
+                return (
+                  <button
+                    key={`${t.level}·${t.text}`}
+                    type="button"
+                    className={
+                      "report-compass-chip" +
+                      (t.level === 3 ? " report-compass-sub" : "") +
+                      (i === activeToc ? " report-compass-here" : "")
+                    }
+                    aria-current={i === activeToc ? "true" : undefined}
+                    aria-label={compassPulseAria(t)}
+                    onClick={() => jumpToToc(i)}
+                  >
+                    {pulse && (
+                      // decorative to the eye (the aria-label speaks the
+                      // state); the dot MEANS "this section is measured
+                      // live" — no walk, no dot
+                      <span
+                        data-compass-pulse={pulse}
+                        className="report-compass-dot"
+                        aria-hidden="true"
+                      />
+                    )}
+                    {t.text}
+                  </button>
+                );
+              })}
             </nav>
           )}
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{md}</ReactMarkdown>
