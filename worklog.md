@@ -6608,3 +6608,39 @@ Stage Summary:
 - **「回执是铲子的良心」**：per-side 计数与字节、zero pass 自首、per-file failures verbatim、refusal 与 plan 脸同一口——11348/721.5 MB 在卡片、route 与盘面三处逐字节同数；盘上 117/239 的幸存者名单就是 keep-set 契约的验尸报告
 - **「守卫随律走」**：storage 的写者条款从「Clean doors 独占」演进为「两扇门同饮一 planner」，t517 的守卫跟着改咬新句——家族每一员诞生，邻居的界律都要重新念一遍
 - 产出：cleanup-execute 井（execute+prune+锁 verbatim）+ route POST 壳化 + cleanup_job_files（名册第 32 器）+ presentCleanupExecution 回执 + 18+1 家 31→32 涟漪 + t517 守卫随址 + 界律两处演进 + t518 bench 38/0 + 82 套回归全绿 + 活体真删 1.4GB 盘面对账 + 证物归档
+
+---
+
+Task ID: 519
+Agent: main (Z.ai Code)
+Task: 用户工单 —「继续打磨 AI 助手的 agent 能力，进行真实测试，并根据测试结果进行下一轮开发建议」
+
+Work Log:
+- 沙箱重置后复库：/home/z/cryoffow 被 git clone 重建（origin/main = 0870343 = t518）；.env 重建 + 显式 DATABASE_URL db:push（**教训：shell 全局 DATABASE_URL 指向 my-project 的 DB，一次裸 `prisma db push` 覆盖了 my-project 的 custom.db——git checkout 恢复（原是空 demo 数据无实损）；此后 cryoflow 的 prisma 命令全部显式传 env**）；mock 集群 launch + dev server 复火（服务器两次被收割，照例 dev-server.sh 复火）
+- 世界重建：t474ui seed 跑通 200 迭代 × 12 类 REMOTE class2d（seed 进程两次被 reaper 杀——setsid 孤儿模式续命；fixture mkdir 一度静默失败经 diag 脚本定位为时序后重跑成功）；手动补齐 select2d 接线 + stackless 手术（删 mirror classes.mrcs，t474 用户世界）
+- **真实测试基建（t519 双件套）**：①scripts/t519-make-judgeable-stack.mjs —— 合成 12 类 mrcs 生成器（好类/冰/碳边/边缘/噪声/团块/条带/弱信号/重复视角全谱）+ 占比重分配；**实测教训：手工合成图（高斯+噪声）被真 VLM 一眼识破（"矩形条""人工感"）——判决全 reject 但判据执行完美**；②scripts/t519-sheet-to-mrcs.mjs —— **用 image-generation 生成 cryo-EM class sheet 风格图（4×4 裁 4×3）→ sharp 切格 → 64×64 灰度 → mode-2 float32 mrcs**（真实感通过：VLM 对该图判 5-6 keep，与图设计吻合）——这是 QA 世界的可复用类图 fixture 管线
+- 真实测试矩阵（scripts/t519-real-agent-e2e.mjs + t519-tail.mjs，真模型 = builtin 车道 z-ai glm-4-plus，走产品自己的门 POST /api/ai/chat）：
+  - A1 状态感知 ✓（get_workflow_state + 真名 + 不乱动）
+  - A2 VLM 判类 ✓（judge_2d_classes + action block 产出 + 不擅自 select；对 24 粒子噪声世界诚实全 reject——评标判据对 featureless blob 不因 occupancy 豁免，t513 prompt 生效）
+  - A3 执行选择 ✓✓（点击 action → select_classes → **RAN: 16 of 24 particles kept**——t513"建了就跑"真模型端到端验证，select2d 落盘 completed）
+  - A4 产物读脸 ✓（get_job_outputs）
+  - A5 清账菜单 ✓（get_cleanup_plan + 不挥铲子 + 下游影响）
+  - A6 咨询 ✓（读工具接地回答 1034 字，零写操作；"纯咨询零工具"断言过严已改判——读脸接地是合法行为）
+  - A7 诚实拒绝 ✓✓（Ghost Job 9：get_workflow_state 查证后如实说"没有找到"，列出画布 5 任务，无幻觉 id——法则 1 教科书式执行）
+  - A8 链法则 ✓（build_pipeline 一次建全 import → class2d → initialmodel + 不乱跑）
+  - B 一致性 ✓（3 个全新 session 同题 judge：**解析 3/3 完好（无 0/0 塌掉）+ 核心 keep 4/5 三次全一致 + mean Jaccard 0.78**；边缘类 7/11 在 keep/maybe 边界摆动属合理视觉判断，非修复前的 keep/reject 质变矛盾）
+- **修复 P1 — 瞬态故障重试与诚实文案（wire.ts）**：真实测试主敌人是 429 限流（VLM 大 PNG 请求密集触发，2-5 分钟窗口恢复）；旧代码把 429 冒成"provider 未配置——去设置换供应商"（误导用户修一个没坏的配置）。新 isTransientFailure（429/5xx/network/timeout/rate-limit 分类）+ withRetry（2s/6s/14s 指数退避，3 次额外尝试）+ transientExhausted（"瞬时状况，非配置问题——稍等重发，无需换供应商"）；builtin chat/vision 两腿 + postJson HTTP 车道（429/5xx throw 进重试）三处全覆盖
+- **修复 P2 — judge 分层建议（tools.ts）**：实测真模型把 maybe 类折进单一 action 方案，用户无可点 trade-off。judge detail 新增结构化 tiers：maybe 非空 → {conservative: keep, inclusive: keep+maybe}（nextStep 明说"两档分别出方案，用户点权衡"）；maybe 空 → {single: keep}（"唯一合理选择"）；活体验证：maybe 空世界 single tier + action block 单方案逐字一致
+- 顺手修：t419 bench F8 工具计数 19→32（t513 worklog 记录的"下窗一行修"遗留）
+- 验证：t519-retry-tiers-bench 32/0（transient 分类 11 例/exhausted 文案 5/withRetry 结构 7/tiers 结构 6/tier 计算 4）；t419 156/0；t513 23/0；tsc 0；eslint 0（触碰三件）
+- 世界收拾：删除测试残渣（2 个重复 select2d + A8 的 3 节点链），保留核心三件（import + class2d + select2d 1）；dev server 复火 200
+
+Stage Summary:
+- 产出：t519（commit 随后）— 真模型 agent 能力实测矩阵（8 case + 3 session 一致性）+ AI 生成类图 fixture 管线 + 429 退避重试三车道 + judge tiers 结构化分层 + t419 F8 计数
+- 用户使用路径：真限流时助手自动退避重试（多数 429 用户无感）；重试耗尽时文案明说"稍等重发，无需换供应商"；judge 分析后 action block 出现保守/含 maybe 两档方案（有 maybe 类时）
+- 下一轮开发建议（按优先级，源自本次实测）：
+  1. **judge 边缘类稳定性**：B3 中 7/11 在 keep/maybe 摇摆——可考虑 judge 内部双 pass（同图两次取交集）或温度调低，但需权衡延迟（当前 mean Jaccard 0.78 已可用）
+  2. **0-keep 场景的 action**：全 junk 时模型只给文字建议无 action block——prompt 法则 16 可补"零选择时给重跑建议 action（减类数/换数据）"
+  3. **VLM 专用模型**：builtin 车道 vlmModel 与 chat 同为 glm-4-plus；若有更强视觉模型可分离（设置里已有 vlmModel 字段）
+  4. **测试断言库沉淀**：t519 矩阵可固化为 CI 式回归（限流窗口是执行障碍，可加 --judge-only 分层跑）
+  5. **EMPIAR 真数据回归**（继承池常驻）：真实 class 平均图源仍是最终考官

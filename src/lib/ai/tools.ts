@@ -4200,6 +4200,12 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
   }
   const keepCount = verdict ? verdict.classes.filter((c) => c.verdict === "keep").length : 0;
   const maybeCount = verdict ? verdict.classes.filter((c) => c.verdict === "maybe").length : 0;
+  // t519 — the tiered suggestion: the field test showed the model folds the
+  // maybe classes into ONE flat action, leaving the user no trade-off to
+  // click. Ship the tiers as STRUCTURED data so an action block's two
+  // options (conservative vs inclusive) have exact numbers to quote.
+  const keepCls = verdict ? verdict.classes.filter((c) => c.verdict === "keep").map((c) => c.cls).sort((a, b) => a - b) : [];
+  const maybeCls = verdict ? verdict.classes.filter((c) => c.verdict === "maybe").map((c) => c.cls).sort((a, b) => a - b) : [];
   return {
     ok: true,
     summary: `Judged ${verdict?.classes.length ?? stats.classes.length} classes of ${job.name} (iteration ${stats.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe — ${truncate(verdict?.advice ?? analysis, 300)}`,
@@ -4209,9 +4215,19 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
       advice: verdict?.advice ?? analysis,
       rawAnalysis: verdict ? analysis : undefined,
       classStats: stats.classes,
-      nextStep: verdict
-        ? `Call select_classes({job_id:"${job.id}", classes:[${verdict.classes.filter((c) => c.verdict === "keep").map((c) => c.cls).join(",")}]}) to create AND run the selection (confirm the class list with the user first; a select2d target executes immediately)`
-        : undefined,
+      ...(verdict
+        ? {
+            tiers:
+              maybeCls.length > 0
+                ? { conservative: keepCls, inclusive: [...keepCls, ...maybeCls].sort((a, b) => a - b) }
+                : { single: keepCls },
+            nextStep: `Call select_classes({job_id:"${job.id}", classes:[${keepCls.join(",")}]}) to create AND run the selection (a select2d target executes immediately; confirm the class list with the user first).${
+              maybeCls.length > 0
+                ? ` When presenting options, offer the TWO tiers as separate actions: conservative = keep only [${keepCls.join(", ")}], inclusive = keep + maybe [${[...keepCls, ...maybeCls].sort((a, b) => a - b).join(", ")}] — the user picks the trade-off.`
+                : ` The maybe set is empty — the keep list is the single sensible selection.`
+            }`,
+          }
+        : {}),
     },
   };
 }

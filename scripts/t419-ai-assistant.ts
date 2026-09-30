@@ -715,8 +715,11 @@ let sessionId = "";
 // F8: the tool catalog shape the agent gets
 {
   const { AI_TOOLS } = await import("../src/lib/ai/tools");
-  // t419 shipped 12; t420 grew to 14; t468 added the ledger read (15)
-  must(AI_TOOLS.length === 19 && new Set(AI_TOOLS.map((t) => t.name)).size === 19, `F8: 19 unique tools (got ${AI_TOOLS.length})`);
+  // t419 shipped 12; t420 grew to 14; t468 added the ledger read (15);
+  // …the roster grew a voice a window at a time — t518's cleanup verb is
+  // the newest birth (32). The count advances with the roster, not with
+  // this bench's memory of it.
+  must(AI_TOOLS.length === 32 && new Set(AI_TOOLS.map((t) => t.name)).size === 32, `F8: 32 unique tools (got ${AI_TOOLS.length})`);
   must(AI_TOOLS.every((t) => t.parameters && typeof t.description === "string"), "F8: every tool wears a schema + description");
 }
 

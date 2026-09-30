@@ -305,15 +305,25 @@ export interface ChatOnceOptions {
 }
 
 async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<{ ok: boolean; status: number; text: string }> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
-    cache: "no-store",
-  });
-  const text = await res.text();
-  return { ok: res.ok, status: res.status, text };
+  // t519 — 429/5xx from HTTP providers get the same backoff as the
+  // bundled lane: one shared retry policy for every dialect.
+  const send = async (): Promise<{ ok: boolean; status: number; text: string }> => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
+      cache: "no-store",
+    });
+    const text = await res.text();
+    if (!res.ok && (res.status === 429 || res.status >= 500)) {
+      throw new Error(`status ${res.status}: ${text.slice(0, 160)}`);
+    }
+    return { ok: res.ok, status: res.status, text };
+  };
+  // transient wording rides out on its own; non-transient errors are the
+  // provider's own answer and flow to providerError as before
+  return await withRetry(send);
 }
 
 function providerError(flavor: string, status: number, body: string): Error {
@@ -365,6 +375,53 @@ function builtinError(err: unknown): Error {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* t519 — transient failures deserve a retry, not a divorce            */
+/*                                                                     */
+/* The field test caught the product lying by omission: a 429 from the */
+/* bundled lane surfaced as "provider not configured — switch to your */
+/* own provider", sending the user to fix a configuration that was     */
+/* never broken. 429/5xx/network are TRANSIENT: back off, retry, and  */
+/* only then — with wording that names the true enemy — give up.      */
+/* ------------------------------------------------------------------ */
+
+/** Does this failure look transient (worth retrying)? Pure. */
+export function isTransientFailure(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    /status (429|5\d\d)\b/i.test(msg) ||
+    /\b(429|502|503|504)\b/.test(msg) && /too many|rate|unavailable/i.test(msg) ||
+    /too many requests/i.test(msg) ||
+    /rate ?limit/i.test(msg) ||
+    /network|fetch failed|etimedout|timeout|econnrefused|econnreset/i.test(msg)
+  );
+}
+
+/** The honest wording when throttling outlasted the retries. Pure. */
+export function transientExhausted(err: unknown): Error {
+  const message = err instanceof Error ? err.message : String(err);
+  return new Error(
+    `The model service is rate-limiting this deployment (a transient condition, NOT a configuration problem): ${message.slice(0, 200)} — already retried with backoff. Wait a moment and send again; switching providers is not required.`
+  );
+}
+
+const RETRY_DELAYS_MS = [2_000, 6_000, 14_000];
+
+/** Run op with backoff retries on transient failures. */
+async function withRetry<T>(op: () => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt - 1]));
+    try {
+      return await op();
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientFailure(err)) throw err;
+    }
+  }
+  throw transientExhausted(lastErr);
+}
+
 /** One assistant turn (text + tool calls) through the active dialect. */
 export async function chatOnce(opts: ChatOnceOptions): Promise<NormalizedResponse> {
   // the bundled lane — no HTTP, no key: the SDK client speaks in-process
@@ -380,10 +437,14 @@ export async function chatOnce(opts: ChatOnceOptions): Promise<NormalizedRespons
     const body = buildOpenAiBody(opts.model, opts.system, opts.messages, opts.tools);
     let completion: unknown;
     try {
-      completion = await client.chat.completions.create({
-        ...body,
-        thinking: { type: "disabled" },
-      });
+      // t519 — 429/5xx from the bundled lane back off and retry before
+      // any error reaches the user (a throttle is not a configuration)
+      completion = await withRetry(() =>
+        client.chat.completions.create({
+          ...body,
+          thinking: { type: "disabled" },
+        })
+      );
     } catch (err) {
       throw builtinError(err);
     }
@@ -449,21 +510,25 @@ export async function visionOnce(opts: VisionOptions): Promise<string> {
     }
     let completion: unknown;
     try {
-      completion = await client.chat.completions.createVision({
-        ...(opts.model ? { model: opts.model } : {}),
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: opts.prompt },
-              {
-                type: "image_url",
-                image_url: { url: `data:image/png;base64,${opts.imageBase64}` },
-              },
-            ],
-          },
-        ],
-      });
+      // t519 — the VLM round rides the same backoff (big PNG requests are
+      // exactly what the throttle notices first)
+      completion = await withRetry(() =>
+        client.chat.completions.createVision({
+          ...(opts.model ? { model: opts.model } : {}),
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: opts.prompt },
+                {
+                  type: "image_url",
+                  image_url: { url: `data:image/png;base64,${opts.imageBase64}` },
+                },
+              ],
+            },
+          ],
+        })
+      );
     } catch (err) {
       throw builtinError(err);
     }
