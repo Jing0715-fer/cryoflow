@@ -54,6 +54,7 @@ import {
 import {
   CONTINUE_FAMILY_TYPES,
   continueSourcesFor,
+  type ContinueSource,
 } from "@/lib/relion/continue-sources";
 import {
   checkpointOf,
@@ -550,6 +551,19 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "get_continue_sources",
+    description:
+      "A run's RESTART DOORS in one read — the inspector's 'Continue from here:' picker as data: every optimiser round the run can legally resume from, its own arc (self) and any upstream refinement's rounds. Per round: the iteration number, the optimiser.star path, whether EVERY sibling RELION reload is present (an incomplete round is shown but never a legal --continue target), and the CHECKPOINT — the newest complete self round, live tree over archived generations, the picker's own pick, never re-derived. Per source: the lane (a remote row's paths speak CLUSTER coordinates — a host shell would misread them) and the honest wounds (a source that could not be read carries its own error; a capped listing says it is a floor, not all). THE tool for '这个任务能从哪继续 / what can this run continue from / where's the newest checkpoint / which iteration would --iter resume'. Read-only LOCATOR: it names the doors — continue_run is the verb that opens one. The roster is the picker's own walk and the checkpoint is the picker's own pick: the Continue dialog drinks the same cup. One knob: the job id.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: { type: "string", description: "The run's job id (get_workflow_state lists ids)." },
+      },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "get_storage_report",
     description:
       "The active project's DISK WEIGHT in one read — the Storage dialog's own ledger as data: every run directory physically walked under data/relion/<projectId>/ (per-dir bytes + files, the six-category split maps/stacks/tables/logs/plots/other), the heaviest jobs and heaviest files by bytes, the totals. THE tool for '这个项目占了多少磁盘 / what is eating my disk / which job is the heaviest / 磁盘还剩多少 / what can be cleaned up'. Physical truth, not DB belief: a directory whose job row is gone still counts (an orphan, said so) — the disk fills regardless of what the database thinks. Read-only LOCATOR: it names the whales and the categories, it never deletes or cleans anything — the Storage dialog's Clean doors stay the only writers. Zero knobs: the walk is the dialog's walk, not a filtered one.",
@@ -845,6 +859,8 @@ export async function executeAiTool(
         return getSweepVerdict(ctx);
       case "get_environment_report":
         return await getEnvironmentReport(ctx);
+      case "get_continue_sources":
+        return await getContinueSources(ctx, args);
       case "get_storage_report":
         return await getStorageReport(ctx);
       case "get_curve_verdicts":
@@ -3054,6 +3070,124 @@ async function getEnvironmentReport(_ctx: AgentCtx): Promise<AiToolResult> {
     status = null;
   }
   return presentEnvironmentReport(status);
+}
+
+/* ---- get_continue_sources ------------------------------------------- */
+
+/** t513 — the continue picker's AGENT face, as a PURE presenter so the
+ *  bench can fixture a roster without touching a single workdir. The
+ *  well is the paper's own: continueSourcesFor is the EXACT walk the
+ *  inspector's "Continue from here:" picker serves (the route adds only
+ *  a 403 gate and ?refresh=1), and the checkpoint is checkpointOf's own
+ *  pick — never re-derived (sorting rounds by iteration is how a twin
+ *  is born). Four honest answers:
+ *   - not the refine family → the picker's own note, verbatim (the read
+ *     succeeded; "this type carries no fn_cont" IS the answer);
+ *   - roster empty → honest absence (a run with no rounds has nothing to
+ *     resume — said, never dressed up);
+ *   - only wounded rows → the scan's own error line, verbatim;
+ *   - roster present → the summary is a LOCATOR (counts are filters of
+ *     the roster; the checkpoint is checkpointOf's) and the annex is the
+ *     picker's roster by reference, checkpoint riding FIRST — the arc's
+ *     head is the first thing a reader meets (t511's head law). */
+export function presentContinueSources(
+  job: { name: string; type: string },
+  sources: ContinueSource[],
+): AiToolResult {
+  if (!CONTINUE_FAMILY_TYPES.has(job.type)) {
+    return {
+      ok: true,
+      summary: `${job.type} jobs have no "Continue from here:" — only the refine family (class2d, class3d, refine3d, initialmodel, multibody) carries fn_cont. Nothing to list for ${job.name}.`,
+    };
+  }
+  const wounded = sources.filter((s) => s.error);
+  const healthy = sources.filter((s) => !s.error);
+  if (sources.length === 0) {
+    return {
+      ok: true,
+      summary: `No continue sources for ${job.name} — the run directory holds no optimiser rounds and no upstream source offers any. A run writes its first round (run_it001_optimiser.star) once its first iteration lands; until then there is nothing to resume.`,
+    };
+  }
+  if (healthy.length === 0) {
+    const scanError = selfScanErrorOf(sources) ?? "the scan could not read the run directory";
+    return {
+      ok: false,
+      summary: `The continue roster for ${job.name} could not be read (${scanError}) — the picker stays silent rather than guessing, and so does this read.`,
+      detail: { checkpoint: null, sources },
+    };
+  }
+  const selfRows = healthy.filter((s) => s.relation === "self").length;
+  const upstreamRows = healthy.filter((s) => s.relation === "upstream").length;
+  const continuable = healthy.reduce(
+    (n, s) => n + s.entries.filter((e) => e.complete).length,
+    0,
+  );
+  const remoteRows = healthy.filter((s) => s.lane === "remote").length;
+  const truncatedRows = healthy.filter((s) => s.truncated).length;
+  const roundsOnDisk = healthy.reduce((n, s) => n + s.entries.length, 0);
+  // the picker's own pick — never a re-derived newest (the analyzer's
+  // order is trusted-but-verified inside checkpointOf itself)
+  const checkpoint = checkpointOf(sources);
+  const arcLine = checkpoint
+    ? `Checkpoint (the picker's own pick): iteration ${checkpoint.iteration}${
+        checkpoint.archived
+          ? " — from the archived generation (the live tree holds no complete round)"
+          : ""
+      }.`
+    : continuable > 0
+      ? "No self checkpoint — the legal rounds live on upstream rows only."
+      : roundsOnDisk > 0
+        ? "No legal --continue round yet — every round on disk is missing siblings."
+        : "No optimiser round exists on disk yet — nothing to resume (rounds appear as the run's iterations land).";
+  return {
+    ok: true,
+    summary: `${job.name} has ${healthy.length} continue source${healthy.length === 1 ? "" : "s"} (${selfRows} self · ${upstreamRows} upstream) with ${continuable} legal --continue round${continuable === 1 ? "" : "s"}. ${arcLine}${
+      wounded.length > 0
+        ? ` ${wounded.length} source${wounded.length === 1 ? "" : "s"} could not be read — their errors ride the annex verbatim.`
+        : ""
+    }${
+      remoteRows > 0
+        ? ` ${remoteRows} remote row${remoteRows === 1 ? "" : "s"} ${remoteRows === 1 ? "speaks" : "speak"} CLUSTER paths — a host shell would misread them.`
+        : ""
+    }${
+      truncatedRows > 0
+        ? ` ${truncatedRows} listing${truncatedRows === 1 ? "" : "s"} hit their cap — the rounds shown are a floor, not all.`
+        : ""
+    } The annex is the picker's own roster — the Continue dialog drinks the same cup.`,
+    // the arc's head rides FIRST: the reader meets the checkpoint before
+    // the roster (t511's cap-rides-window-head law, continue edition)
+    detail: { checkpoint, sources },
+  };
+}
+
+/** t513 — the executor: the picker's route pre-checks the family before
+ *  its walk (a non-family type never scans a workdir for nothing), and
+ *  so does this read. Read-only by law: naming a door is the tool's
+ *  job, opening one is continue_run's. */
+async function getContinueSources(
+  ctx: AgentCtx,
+  args: Record<string, unknown>,
+): Promise<AiToolResult> {
+  const jobId = String(args.job_id ?? "");
+  if (!jobId) {
+    return {
+      ok: false,
+      summary: "get_continue_sources needs a job id — pass the run's job id (get_workflow_state lists ids)",
+    };
+  }
+  const job = await findJobInProject(jobId, ctx.projectId);
+  if (!job) {
+    return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
+  }
+  const sources = CONTINUE_FAMILY_TYPES.has(job.type)
+    ? await continueSourcesFor({
+        id: job.id,
+        name: job.name,
+        type: job.type,
+        projectId: job.projectId,
+      })
+    : [];
+  return presentContinueSources({ name: job.name, type: job.type }, sources);
 }
 
 /* ---- get_storage_report -------------------------------------------- */

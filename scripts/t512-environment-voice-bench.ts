@@ -45,17 +45,20 @@ const header = read("src/components/workflow/header.tsx");
 
 /* The tool's own entry — schema block from its name to the next entry. */
 const toolIdx = tools.indexOf('name: "get_environment_report"');
-const schemaSlice = tools.slice(toolIdx, tools.indexOf("get_storage_report", toolIdx));
+const schemaSlice = tools.slice(toolIdx, tools.indexOf("get_continue_sources", toolIdx));
 /* The presenter body — from the export to the executor's docstring (the
  * t507 lesson: slice the BODY, keep the next marker in view). */
 const presenterBody = tools.slice(
   tools.indexOf("export function presentEnvironmentReport"),
   tools.indexOf("/** t512 — the executor")
 );
-/* The executor body — from its signature to the storage section marker. */
+/* The executor body — from its signature to the NEXT section marker
+ * (t513 planted the continue-sources section between this executor and
+ * the storage marker — a slice that spans a marker swallows the
+ * neighbor, the t507 slice lesson's fifth evolution). */
 const executorBody = tools.slice(
   tools.indexOf("async function getEnvironmentReport"),
-  tools.indexOf("/* ---- get_storage_report")
+  tools.indexOf("/* ---- get_continue_sources")
 );
 
 /* ------------------------------------------------------------------ */
@@ -169,8 +172,8 @@ section("T1  the face — roster, knobs, laws");
   const env = AI_TOOLS.find((t) => t.name === "get_environment_report");
   ok(Boolean(env), "T1a: get_environment_report is on the roster");
   ok(
-    AI_TOOLS.length === 28 && new Set(AI_TOOLS.map((t) => t.name)).size === 28,
-    `T1b: 28 unique tools — t512's environment read is the newest birth (got ${AI_TOOLS.length})`
+    AI_TOOLS.length === 29 && new Set(AI_TOOLS.map((t) => t.name)).size === 29,
+    `T1b: 29 unique tools — t513's continue-sources read is the newest birth (got ${AI_TOOLS.length})`
   );
   ok(
     Object.keys(env?.parameters?.properties ?? {}).length === 0 &&
