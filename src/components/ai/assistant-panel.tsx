@@ -60,7 +60,7 @@
  */
 
 import * as React from "react";
-import Markdown from "react-markdown";
+import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   AlertTriangle,
@@ -117,6 +117,7 @@ import {
 import { cn } from "@/lib/utils";
 import { filterSessions, groupSessionsByDay, matchIndex } from "@/lib/ai/session-groups";
 import { useWorkflowStore } from "@/lib/store";
+import { JOB_LINK_PROTOCOL, linkifyJobs } from "@/lib/linkify-jobs";
 import type { JobDTO } from "@/lib/types";
 import type {
   AiChatResponse,
@@ -197,6 +198,57 @@ function extractJobId(name: string, args: unknown, detail: unknown): string | nu
   }
   return null;
 }
+
+/** t495: the door's URL survival. react-markdown's default urlTransform
+ *  strips unknown protocols for safety — cryoflow-job:// arrived at the
+ *  override as "" (the door disarmed silently, every chip a plain
+ *  link). THIS is the transform: the house protocol passes, everything
+ *  else still faces the default sanitation (http/js: quarrels stay
+ *  quarantined — the sanitizer's job is not undone, only extended to
+ *  our own door). */
+const urlTransformKeepDoors = (url: string): string =>
+  url.startsWith(JOB_LINK_PROTOCOL) ? url : defaultUrlTransform(url);
+
+/** t495: the prose door's `a` override — a module-level constant (no
+ *  closure, no deps to keep honest): cryoflow-job:// links minted by
+ *  linkifyJobs become pressable chips riding revealJob, the SAME
+ *  deep-link engine the tool cards' locate button uses (one engine,
+ *  five surfaces). Every other href passes through untouched — the
+ *  model's ordinary links stay links. The chip wears the panel's teal
+ *  (the speaker's own family color), not the report's violet: the
+ *  door belongs to the surface it lives on. `node` is stripped from
+ *  the spread — react-markdown hands the hast node over and letting
+ *  it ride `{...rest}` paints `node="[object Object]"` onto the real
+ *  DOM (the first live render's fingerprint). */
+const PROSE_COMPONENTS: Components = {
+  a: ({ href, children, node: _node, ...rest }) => {
+    if (typeof href === "string" && href.startsWith(JOB_LINK_PROTOCOL)) {
+      const id = href.slice(JOB_LINK_PROTOCOL.length);
+      const label =
+        React.Children.toArray(children)
+          .map((c) => (typeof c === "string" ? c : ""))
+          .join("")
+          .trim() || "此作业";
+      return (
+        <button
+          type="button"
+          data-assistant-door={id}
+          aria-label={`在画布中定位 ${label}`}
+          title={`在画布中定位 ${label}`}
+          className="rounded px-0.5 font-medium text-teal-700 underline decoration-teal-500/40 underline-offset-2 transition-colors hover:bg-teal-500/10 hover:decoration-teal-500 dark:text-teal-300"
+          onClick={() => useWorkflowStore.getState().revealJob(id)}
+        >
+          {children}
+        </button>
+      );
+    }
+    return (
+      <a href={href} {...rest}>
+        {children}
+      </a>
+    );
+  },
+};
 
 function messagesToItems(messages: AiMessage[]): UiItem[] {
   const items: UiItem[] = [];
@@ -1316,7 +1368,7 @@ export function AssistantPanel() {
                 </span>
                 <div className="min-w-0 max-w-[92%] rounded-2xl rounded-tl-sm bg-muted/50 px-3 py-2">
                   <div className="text-sm leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_h1]:mb-1.5 [&_h1]:mt-2 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-1 [&_h2]:mt-2 [&_h2]:text-xs [&_h2]:font-semibold [&_h3]:mt-1.5 [&_h3]:text-xs [&_h3]:font-semibold [&_hr]:my-2 [&_hr]:border-border [&_li]:ml-4 [&_li]:list-disc [&_ol_li]:list-decimal [&_p]:my-1 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-xs [&_strong]:font-semibold [&_table]:my-2 [&_table]:w-full [&_table]:text-left [&_table]:text-xs [&_td]:border-t [&_td]:px-1.5 [&_td]:py-1 [&_td]:align-top [&_th]:border-b [&_th]:px-1.5 [&_th]:py-1 [&_th]:font-semibold">
-                    <Markdown remarkPlugins={[remarkGfm]}>{item.text}</Markdown>
+                    <Markdown remarkPlugins={[remarkGfm]} components={PROSE_COMPONENTS} urlTransform={urlTransformKeepDoors}>{linkifyJobs(item.text, jobs)}</Markdown>
                   </div>
                 </div>
               </div>

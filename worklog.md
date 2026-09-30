@@ -6142,3 +6142,22 @@ Stage Summary:
 - **「导出的字节不养门」**：md/CSV/HTML echo 三出口零门标记——门活在屏幕上（t483 门律的纸面尺度版），portable HTML 没有 app 可开，门在那里会承诺文件兑现不了的事
 - 产出：CURVE_HEAD + CurveTableContext 第四族门化（session-report-dialog 五处）+ t494 bench 32/0 + 59 套回归全绿 + 两门两推活体全谱 + 截图 ×2
 - [终验补记] push 完成（7e9c4af..e1f8928 → origin/main 三方对齐）；push 后 server 又遭收割一次，dev-server.sh 复火：landing 200、icon 200。Task 494 收官，下窗从 Task 495 起编。
+
+## Task 495 (2026-09-30, cron 08:37 窗 —— The Assistant Learns to Point)
+
+- [开局] 实尾 = Task 494 完整收官（HEAD = acd4fc8 三方对齐）。第八十六份过时 Task 13 指引照例不认（以 t494 遗留清单为准）。自号 495。QA 基线全绿：回归全家 59 套 exit 0、landing 200、2 canvas · 15 edges · 22 jobCards、新会话 console 0 错、磁盘 610M。
+- [选题定谳 — The Assistant Learns to Point（新题，「学会指认」弧线第五站）] 排除法：t494 遗留十条里 ③④⑦ 待回执、⑤⑥ 门控、① 重、㉒㉘㉙ 待真实。勘察发现「学会指认」弧线（t213 inventory 行 → t483 手册行 → t494 判读行）的下一站就藏在 AI 助手面板：工具卡生来就有 locate 门（revealJob），但模型的**散文**把 job 名说成惰性文本——"QA Refine 410 · FSC 0.143 at 4.1 Å" 是路标不是门。定谳：散文点名铸门，revealJob 复用（一引擎五面：dashboard spotlight / recent activity / gallery / palette jump / 如今散文）。
+- [交付①— linkifyJobs（新 lib，linkify-jobs.ts）] 精确名匹配改写为 `[name](cryoflow-job://<id>)` 的纯函数：**长名优先**（"Motion Correction 10" 胜过自己的前缀 "Motion Correction 1"——alternation 排序即律）；**代码跨免疫**（text 按 `...` 分段，奇数段是代码不动——markdown 代码跨字面取内容，门写进去会撕句子）；**精确匹配**（部分匹配铸错房间的门——t494 家法词级版）；重名首占（名字病非路由病）；空族/空文原样通过。
+- [交付②— 面板三处接线（assistant-panel.tsx）] ① PROSE_COMPONENTS 模块级常量（零闭包零 deps 债）：`a` override 拦截协议 → teal 芯片（data-assistant-door=jobId、aria「在画布中定位 <名>」与工具卡 locate 同动词同语言、Enter 语义自带 button、revealJob(id) 单父）；`node: _node` 剥离（hast node 骑 {...rest} 会把 node="[object Object]" 涂上真 DOM——首次活体的指纹）；普通链接原样 `<a>` 放行。② urlTransformKeepDoors：**react-markdown 的默认 urlTransform 把未知协议清洗成 ""**——cryoflow-job:// 静默缴械，门全数残废；此 transform 放行自家协议、其余照旧 defaultUrlTransform（消毒器是扩展不是拆除，js: URL 照样隔离）。③ 渲染期 linkify：`{linkifyJobs(item.text, jobs)}` 只挂 assistant 散文（user turns 不动——自己的话是自己的）；存储与 md/json 导出路径零 linkify（门只活在屏幕上，t483 门律的聊天尺度版）。
+- [活体排障 — 门铸成但全数缴械] 首活体：真模型回合（"这个 session 里有哪些作业？"）散文点名 Import Movies 1 / Motion Correction 1 / CTF Estimation 1……**0 门**。逐层定谳：重载复现 → served chunk 含新代码（performance entries + no-store fetch 双证）→ jobs 单声明无遮蔽 → 散文名与画布卡名**字节级一致**（charCode 全 ASCII）→ 最后读 DOM 指纹：`<a href="" node="[object Object]">Import Movies 1</a>` 在 `<strong>` 里——linkify 跑了、override 也跑了，**是默认 urlTransform 把协议剥成了 ""**（override 读到空 href 走了 plain 锚分支）。修 = urlTransformKeepDoors。复验：**28 门铸成**（aria 全带「在画布中定位」）；按门 → view=canvas、恰一张卡 primary selected = "Motion Correction 1 — Motion Correction, completed"（门承诺与落地一致）、面板保持开（revealJob 契约）。截图 ×2：t495-assistant-doors.png（28 芯片）、t495-door-landed-canvas.png（落地选中）。
+- [㉚ 顺手补完] t494 判读门的键盘活体：focus data-curve-door → Enter → 纸面让位 + inspector 落地 "QA Refine 410"——键盘路径实证（bench 持断言 + 活体双证，㉚ 销案）。
+- [t495 bench — 28/0（两处演进）] T1 linkify 行为 9（tsx 真 import 行为级：精确/长名胜前缀/代码跨免疫/多次出现/正则特殊字面/三空态/部分名不铸门）+ T2 门 13（override/协议拦截/地址/中文承诺/revealJob 单父/teal 文法/普通链接放行/**urlTransform 三断言**（存在+挂载+缴械事故记入断言文本）/**node 剥离**）+ T3 诚实 3（user turns 不 linkify/导出路径零 linkify/单一出生地）+ T4 井 4（revealJob 在册/jobs 订阅/第五面律成文/协议常量导出）。演进一处：render 行断言随 urlTransform 参数更新（27/1 自捕 → 28/0）；移除一条未生效的 eslint-disable。
+- [验证-终] t495 bench 28/0 + 回归全家 **60 套**（glob 自动纳新）exit 0；tsc 0 + eslint 0（三触碰文件）；行为面：散文铸门、协议放行、user words 原样、导出字节零污染、revealJob 五面单父；世界 22 jobs / 15 edges / 2 canvas / 新会话 console 0 错、零数据手术。server 本窗被收割两次（活体前 + HMR 复验前），dev-server.sh 两次复火。
+- [最终态] HEAD = 本窗 feature commit（worklog 随后，origin/main 三方对齐）。下窗从 Task 496 起编。遗留（下窗候选）：①EMPIAR 真数据回归（常驻）③continue 芯片与世界事件的对齐（待真实并存）④inspector Continue 字段互指（待回执）⑤funnel 单位扩展 movies（真 RELION 时）⑥prod 磨判例重开前提（t462 判例）⑦徽章「名册有病号」次级信号（待回执）㉒curve verdicts 的 CSV 面（待真实使用）㉘护照的下一跳（待真实混用 job 类型）㉙CSV 导出与纸面护照一致性；㉛散文门的小姐妹——工具卡 summary 行与 notice 面的 job 名是否也该同法门化（ToolCard 已有 locate 但 summary 内文名仍惰性，等真实混用再定深浅）；㉜user turns 的门化（自己的话是否也该可点——产品判断待回执）。
+
+Stage Summary:
+- **「散文是第五面」**：revealJob 一台引擎，dashboard spotlight、recent activity、gallery、palette jump 之后，助手的散文行加入——模型说到哪个 job，哪个 job 就该可到
+- **「消毒器是扩展不是拆除」**：react-markdown 的默认 urlTransform 把未知协议清洗成空串（安全默认），门在自己的应用里静默缴械；自定义 transform 只放行自家协议、其余照旧消毒——门开在自己家，不拆邻居的防盗门
+- **「路标与门的距离是一次改写」**：linkifyJobs 只做一件事——把 exact 名变成协议链接；代码跨免疫、长名优先、部分名不铸门，四条律把改写关在诚实的笼子里
+- **「门在屏幕上，字节在路上」**：存储的消息与 md/json 导出永远拿着素文本——聊天记录导出到实验室笔记后是一份 plain 作业清单，不是一堆指向死链的门（t483 门律的聊天尺度版）
+- 产出：linkifyJobs（新 lib）+ PROSE_COMPONENTS 散文门 + urlTransformKeepDoors 协议放行 + t495 bench 28/0 + 60 套回归全绿 + 28 门活体全链路（按下→canvas→primary selected）+ ㉚ 键盘活体补完销案 + 截图 ×2
