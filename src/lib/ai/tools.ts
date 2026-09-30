@@ -34,6 +34,8 @@ import { allAdjacency, portsValid } from "@/lib/edge-ports";
 import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { fmtBytes } from "@/lib/relion/disk-usage";
+import { fmtDuration } from "@/lib/duration";
+import { walkTimeline } from "@/lib/timeline-walk";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
 import {
   graveRowsOf,
@@ -522,6 +524,12 @@ export const AI_TOOLS: ToolSchema[] = [
       "The session's CURVE VERDICTS in one read — the Session QC report's Curve verdicts table, read by the agent: walk the completed roster (newest first, the paper's own order and cap) and for every completed job probe the chart kinds its type predicts (a PostProcess speaks FSC + Guinier, a 3D run speaks FSC + angular distribution, CtfFind speaks CTF fit, MotionCorr speaks drift, a picker job speaks training epochs), then word each answer through the paper's OWN verdict builder — so every row is the table's wording byte for byte, never a paraphrase. Probes whose workdir holds no such curve are honestly skipped (counted, never guessed); a probe whose data refused marks the walk wounded and the walk goes on (partial truth over silence). Zero knobs: the walk is the paper's walk, not a filtered one. THE tool for '这个会话的曲线判读如何 / what did the session's curves say / summarize the curve verdicts / 哪些曲线还没量' — a session-wide verdict question is a WALK over the whole roster: get_job_curves reads ONE job's curves with full sampled data, this reads every curve's ONE-LINE verdict at once.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
+  {
+    name: "get_session_timeline",
+    description:
+      "The session's TIME in one read — the analytics page's own Gantt as data: every run's HONEST window ([startedAt → startedAt+duration]; the engine stamps startedAt when a job flips to running and writes the measured elapsed into duration on completion — updatedAt is NOT a window, every poll touches it), a live run stretching to now, in the bars' own chronological order. Per run: id, name, type, status, workspace, started/ended ISO stamps, duration (ms + the inspector's own human words), share of the session span; plus the aggregates the bars keep: the session window (first start → last end), the LONGEST runs (top 3 — the read for '哪一步最耗时'), total busy time (windows summed — parallel runs double-count, the number says so), the still-running list and the never-started absentees (counted, never invented). Zero knobs. THE tool for '哪一步最耗时 / how long did this take / when did X run / what ran in parallel / show the timeline' — a time question is a READ over honest windows, never arithmetic from receipts.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -806,6 +814,8 @@ export async function executeAiTool(
         return await getJobCurves(ctx, String(args.job_id ?? ""), Array.isArray(args.kinds) ? args.kinds.map(String) : undefined);
       case "get_map_landscape":
         return await getMapLandscape(ctx);
+      case "get_session_timeline":
+        return await getSessionTimeline(ctx);
       case "get_curve_verdicts":
         return await getCurveVerdicts(ctx);
       case "select_classes":
@@ -2892,6 +2902,114 @@ async function getCurveVerdicts(ctx: AgentCtx): Promise<AiToolResult> {
       skippedEmpty,
       refused,
       wounded,
+    },
+  };
+}
+
+/** t504 — the session's time, read from the same well the Gantt drinks
+ *  (lib/timeline-walk): honest windows only ([startedAt → +duration], a
+ *  live run stretching to now), the bars' own chronological order, and
+ *  every aggregate pre-computed as a READ — a time question is never
+ *  arithmetic from receipts (a duration without startedAt is half a
+ *  truth; updatedAt is not a window). Human words come from the
+ *  inspector's own fmtDuration — same dialect, two faces. */
+async function getSessionTimeline(ctx: AgentCtx): Promise<AiToolResult> {
+  const active = await getActiveProject();
+  if (!active) return { ok: false, summary: "No active project" };
+  // Sequential on purpose (t503's doctrine keeps its slice honest): two
+  // indexed reads of a local db gain nothing from fan-out, and the walk
+  // defines its OWN order (start, then name) — no db default rides in.
+  const jobs = await db.job.findMany({ where: { projectId: ctx.projectId } });
+  const workspaces = await db.workspace.findMany({ where: { projectId: ctx.projectId } });
+  const wsName = new Map(workspaces.map((w) => [w.id, w.name]));
+  const walk = walkTimeline(
+    jobs.map((j) => ({
+      id: j.id,
+      name: j.name,
+      type: j.type,
+      status: j.status,
+      workspace: (j.workspaceId ? wsName.get(j.workspaceId) : undefined) ?? "Main",
+      startedAt: j.startedAt, // Date | null — the well converts, never guesses
+      duration: j.duration,
+    })),
+    Date.now(),
+  );
+
+  const iso = (ms: number): string => new Date(ms).toISOString();
+
+  if (walk.rows.length === 0) {
+    return {
+      ok: true,
+      summary:
+        jobs.length === 0
+          ? "No jobs on the canvas yet — nothing to time."
+          : `No runs yet — ${walk.neverStarted} job${walk.neverStarted === 1 ? "" : "s"} the engine never started; the timeline waits for its first window.`,
+      detail: {
+        window: null,
+        runs: [],
+        longest: [],
+        busyMs: 0,
+        running: [],
+        failed: 0,
+        neverStarted: walk.neverStarted,
+      },
+    };
+  }
+
+  const human = (ms: number): string => fmtDuration(ms);
+  const runRows = walk.rows.map((r) => ({
+    jobId: r.job.id,
+    name: r.job.name,
+    type: r.job.type,
+    workspace: r.job.workspace,
+    status: r.job.status,
+    startedAt: iso(r.start),
+    endedAt: r.job.status === "running" ? null : iso(r.end),
+    durationMs: r.ms,
+    durationHuman: human(r.ms),
+    sharePct: Math.round((r.ms / walk.span) * 1000) / 10,
+  }));
+  const longest = [...walk.rows]
+    .sort((a, b) => b.ms - a.ms)
+    .slice(0, 3)
+    .map((r) => ({ jobId: r.job.id, name: r.job.name, ms: r.ms, human: human(r.ms) }));
+  const busyMs = walk.rows.reduce((acc, r) => acc + r.ms, 0);
+  const runningRows = walk.rows
+    .filter((r) => r.job.status === "running")
+    .map((r) => ({ jobId: r.job.id, name: r.job.name, elapsedMs: r.ms, elapsedHuman: human(r.ms) }));
+  const failed = walk.rows.filter((r) => r.job.status === "failed").length;
+
+  const head = `${walk.rows.length} run${walk.rows.length === 1 ? "" : "s"} across ${human(walk.span)} (first start → last end: ${iso(walk.t0)} → ${iso(walk.t0 + walk.span)}) — the bars' own windows, chronological.`;
+  const longestLine = `Longest: ${longest.map((l) => `${l.name} ${l.human}`).join(" · ")}.`;
+  const busyLine = `Busy total ${human(busyMs)} (windows summed — parallel runs double-count).`;
+  const liveLine =
+    runningRows.length > 0 ? ` ${runningRows.length} still running (the window stretches to now).` : "";
+  const failLine =
+    failed > 0
+      ? ` ${failed} failed run${failed === 1 ? "" : "s"} keep their windows — time spent failing is real time.`
+      : "";
+  const absentLine =
+    walk.neverStarted > 0
+      ? ` ${walk.neverStarted} job${walk.neverStarted === 1 ? " has" : "s have"} no window (never started) — counted, not invented.`
+      : "";
+
+  return {
+    ok: true,
+    summary: `${head} ${longestLine} ${busyLine}${liveLine}${failLine}${absentLine}`,
+    detail: {
+      window: {
+        startedAt: iso(walk.t0),
+        endedAt: iso(walk.t0 + walk.span),
+        spanMs: walk.span,
+        spanHuman: human(walk.span),
+      },
+      runs: runRows,
+      longest,
+      busyMs,
+      busyHuman: human(busyMs),
+      running: runningRows,
+      failed,
+      neverStarted: walk.neverStarted,
     },
   };
 }

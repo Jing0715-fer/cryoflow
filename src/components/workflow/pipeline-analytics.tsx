@@ -34,6 +34,7 @@ import {
   Waves,
 } from "lucide-react";
 import { fmtClock, fmtDuration } from "@/lib/duration";
+import { walkTimeline } from "@/lib/timeline-walk";
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
@@ -280,14 +281,12 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
 
   /* Task 123 — session timeline: the run window each job actually occupied.
    *
-   * The axis is REAL run data: the engine stamps startedAt when a job flips
-   * to running and writes the measured elapsed into duration on completion,
-   * so [startedAt, startedAt + duration] is the honest window (updatedAt is
-   * NOT — every poll merge touches it, all rows would share one instant).
-   * Jobs the engine never started (seeded / idle) have no window and stay
-   * off the bars; the footer counts them instead of pretending. A live run
-   * stretches to "now" — a 5s ticker only exists while one is running,
-   * otherwise the axis is frozen data and costs no timers. */
+   * t504: the arithmetic (which window is honest, who is counted, the
+   * sort) moved to lib/timeline-walk — ONE well, the bars and the
+   * agent's get_session_timeline drink it, so the model can never
+   * disagree with this Gantt about when anything ran. What stays here
+   * is the display dialect: the 5s ticker that exists only while a
+   * run is live, and the ticks the axis draws. */
   const anyRunning = scoped.some((j) => j.status === "running");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -296,32 +295,19 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
     return () => clearInterval(t);
   }, [anyRunning]);
 
-  const runs = useMemo(() => {
-    const rows = scoped
-      .filter(
-        (j) =>
-          j.startedAt &&
-          (j.status === "completed" || j.status === "failed" || j.status === "running")
-      )
-      .map((j) => {
-        const start = new Date(j.startedAt as string).getTime();
-        const end =
-          j.status === "running" ? Math.max(now, start + 1000) : start + Math.max(1000, j.duration);
-        return { job: j, start, end, ms: Math.max(1000, end - start) };
-      })
-      .filter((r) => Number.isFinite(r.start) && r.end > r.start)
-      .sort((a, b) => a.start - b.start || a.job.name.localeCompare(b.job.name));
-    if (rows.length === 0) return { rows, t0: 0, span: 0, ticks: [] as number[] };
-    const t0 = rows[0].start;
-    const span = Math.max(rows[rows.length - 1].end - t0, 1000);
-    const step = niceStepMs(span);
-    const ticks: number[] = [];
-    for (let t = 0; t <= span + 1; t += step) ticks.push(t);
-    return { rows, t0, span, ticks };
-  }, [scoped, now]);
+  const walk = useMemo(() => walkTimeline(scoped, now), [scoped, now]);
+  const ticks = useMemo(() => {
+    if (walk.rows.length === 0) return [] as number[];
+    const step = niceStepMs(walk.span);
+    const out: number[] = [];
+    for (let t = 0; t <= walk.span + 1; t += step) out.push(t);
+    return out;
+  }, [walk]);
+  const runs = useMemo(() => ({ ...walk, ticks }), [walk, ticks]);
 
-  /** jobs the engine never started — the timeline's honest absentees */
-  const neverRan = scoped.filter((j) => !j.startedAt).length;
+  /** jobs the engine never started — the timeline's honest absentees
+   *  (t504: the count drinks the well too, never a private twin) */
+  const neverRan = walk.neverStarted;
 
   // clear the copied-✓ timer on unmount (never setState after unmount)
   useEffect(
