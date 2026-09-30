@@ -149,6 +149,7 @@ import { walkWorkdir } from "@/lib/relion/outputs-list";
 import { isMrcPath, poolProfile, readMrcAxisProfiles, readMrcHeader } from "@/lib/mrc";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { readPathrefTarget } from "@/lib/relion/pathref";
+import { detectRelion, type RelionStatus } from "@/lib/relion/system";
 import { cachedCompute } from "@/lib/relion/statcache";
 
 export interface AiToolResult {
@@ -543,6 +544,12 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "get_environment_report",
+    description:
+      "The host's RELION ENVIRONMENT in one read — the engine popover's own probe as data: is RELION installed and where, which version, how jobs execute it (native spawn vs WSL bridge), every install the scan discovered (PATH / RELION_HOME / known paths / home scan / WSL distros), the selected install, binary and external-tool presence (which of the roster's binaries actually exist on disk), and — when the search came up empty — the probe's OWN not-found guidance, composed from the same facts the search produced (RELION_HOME set?, PATH miss, which known dirs exist), so the advice can never drift from what was probed. THE tool for '这台机器装了 RELION 吗 / can I run jobs here / which RELION version / why is RELION not found / is the environment ready / what executes my jobs'. Polite read: it drinks the same cached status the header poll serves (fresh-while-revalidate) — it never fires a forced re-probe (extra WSL/subprocess storms are the Re-detect button's job, and the answer's checkedAt / saved-snapshot flag say exactly how old it is). Physical truth, not belief: what the probe saw on disk, byte for byte — the annex is the probe's own status, the engine popover drinks the same cup. Zero knobs.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "get_storage_report",
     description:
       "The active project's DISK WEIGHT in one read — the Storage dialog's own ledger as data: every run directory physically walked under data/relion/<projectId>/ (per-dir bytes + files, the six-category split maps/stacks/tables/logs/plots/other), the heaviest jobs and heaviest files by bytes, the totals. THE tool for '这个项目占了多少磁盘 / what is eating my disk / which job is the heaviest / 磁盘还剩多少 / what can be cleaned up'. Physical truth, not DB belief: a directory whose job row is gone still counts (an orphan, said so) — the disk fills regardless of what the database thinks. Read-only LOCATOR: it names the whales and the categories, it never deletes or cleans anything — the Storage dialog's Clean doors stay the only writers. Zero knobs: the walk is the dialog's walk, not a filtered one.",
@@ -836,6 +843,8 @@ export async function executeAiTool(
         return await getSessionTimeline(ctx);
       case "get_sweep_verdict":
         return getSweepVerdict(ctx);
+      case "get_environment_report":
+        return await getEnvironmentReport(ctx);
       case "get_storage_report":
         return await getStorageReport(ctx);
       case "get_curve_verdicts":
@@ -2966,6 +2975,85 @@ function getSweepVerdict(ctx: AgentCtx): AiToolResult {
     summary: `The session's last sweep: ${sweep.rows.length} profiles (${measured} measured${failed > 0 ? `, ${failed} failed` : ""})${winnerName ? `, winner: ${winnerName}` : ""} — the annex below is the session report's own words, byte for byte.`,
     detail: { sweep_report_md: buildSweepReport(sweep.rows, sweep.bestId) },
   };
+}
+
+/* ---- get_environment_report ---------------------------------------- */
+
+/** t512 — the environment's AGENT face, as a PURE presenter so the bench
+ *  can fixture a probe answer without spawning a single wsl.exe. The well
+ *  is the paper's own: detectRelion is the EXACT probe the engine
+ *  popover's poll serves (the route adds only a 403 gate and ?force=1 —
+ *  the tool never passes force). Three honest answers:
+ *   - probe crashed → ok:false (a probe that threw has no status to quote);
+ *   - not found → ok:true, the absence said out loud, and the annex
+ *     carries hint + wsl.note VERBATIM — guidance composed at probe time
+ *     from the same facts the search produced, so it cannot drift;
+ *   - found → ok:true, the summary is a LOCATOR (version / execution /
+ *     path / install count / binary & external presence — every number a
+ *     lookup or filter of the status object, never a re-derivation), and
+ *     the annex is the probe's own status with freshness riding FIRST
+ *     (a saved-snapshot answer that dresses up as fresh is a lie of
+ *     omission — t511's cap-rides-window-head law, freshness edition). */
+export function presentEnvironmentReport(status: RelionStatus | null): AiToolResult {
+  if (!status) {
+    return {
+      ok: false,
+      summary:
+        "The environment probe itself failed — no status came back to quote. The header engine popover's Re-detect button re-runs the probe by hand; its result lands here on the next read.",
+    };
+  }
+  const binariesPresent = status.binaries.filter((b) => b.present).length;
+  const externalsPresent = status.externals.filter((e) => e.present).length;
+  if (!status.found) {
+    return {
+      ok: true,
+      summary: `RELION is not found on this host — the scan answered empty (WSL: ${
+        status.wsl.available
+          ? "a distro answered but holds no RELION"
+          : `unavailable (${status.wsl.unavailableReason ?? "no reason given"})`
+      }). The annex carries the probe's own not-found guidance byte for byte — and the header's Re-detect button fires a fresh scan when the machine has changed under us.`,
+      detail: {
+        found: false,
+        hint: status.hint ?? null,
+        wsl: status.wsl,
+        binaries: status.binaries,
+        externals: status.externals,
+        checkedAt: status.checkedAt,
+      },
+    };
+  }
+  const selected = status.installs.find((i) => i.id === status.selectedId) ?? null;
+  return {
+    ok: true,
+    summary: `RELION ${status.version ?? "(version unreadable)"} is ready — executed ${
+      status.execution === "wsl" ? "through the WSL bridge" : "natively"
+    } from ${status.path ?? "an unknown path"} (found via ${status.source ?? "?"}${
+      selected && status.installs.length > 1
+        ? `; ${status.installs.length} installs known, one selected`
+        : ""
+    }${status.autoPicked ? ", selection auto-picked" : ""}). Binaries ${binariesPresent}/${status.binaries.length} present, external tools ${externalsPresent}/${status.externals.length}. Answer served from ${
+      status.fromCache ? "the saved snapshot (a fresh probe is re-verifying in the background)" : "a fresh probe"
+    }, checked ${status.checkedAt} — the annex is the probe's own status, the engine popover drinks the same cup.`,
+    detail: {
+      servedFrom: status.fromCache ? "saved-snapshot" : "fresh-probe",
+      checkedAt: status.checkedAt,
+      environment: status,
+    },
+  };
+}
+
+/** t512 — the executor: a polite read of the host's RELION probe. No
+ *  force — extra WSL/subprocess storms are the Re-detect button's door;
+ *  a throw means the probe itself failed, and the presenter says so
+ *  instead of inventing a status. */
+async function getEnvironmentReport(_ctx: AgentCtx): Promise<AiToolResult> {
+  let status: RelionStatus | null = null;
+  try {
+    status = await detectRelion();
+  } catch {
+    status = null;
+  }
+  return presentEnvironmentReport(status);
 }
 
 /* ---- get_storage_report -------------------------------------------- */
