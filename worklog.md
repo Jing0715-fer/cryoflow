@@ -6181,3 +6181,4 @@ Stage Summary:
 - **「先例要对代码验证」**：bench 与 docstring 都把并行先例误记成 "map walk"，实况 walkVolumeOwners 也是顺序的——真先例是 measureOwnerPeaks；笔误也是谎言，断言抓出来了
 - **「键盘到达 = hover 到达」**：t495 芯片只有 hover 脸，键盘用户 tab 过去无可见焦点——门族一致性律补齐最后一面
 - 产出：measureCurveVerdicts 并行化（序保/abort 原样/wounded 原样）+ t495 芯片 focus-visible rider + t496 bench 20/0 + 61 套回归全绿 + 秒表三连（19.5s → 8.1s → 2.8s，6.4-7x）+ 截图 ×1
+- [终验补记] push 完成（54f4dfb..9f9131a → origin/main 三方对齐）；landing 200 复核通过（本窗 server 收割两次均已复火，世界健康）。Task 496 收官，下窗从 Task 497 起编。
