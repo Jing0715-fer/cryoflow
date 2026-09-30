@@ -117,6 +117,7 @@ import { parseActionBlocks, type AssistantAction } from "@/lib/ai/action-blocks"
 import { hasAgedToolHistory } from "@/lib/ai/stale-history";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkflowStore } from "@/lib/store";
+import { CopyButton } from "@/components/workflow/copy-button";
 import { JOB_LINK_PROTOCOL, linkifyJobs } from "@/lib/linkify-jobs";
 import type { JobDTO } from "@/lib/types";
 import type {
@@ -360,6 +361,24 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
     // see the arrival flash.
     if (item.jobId) useWorkflowStore.getState().revealJob(item.jobId);
   }, [item.jobId]);
+  // t510 — the receipt's two faces: the pre is a WINDOW (the first 4,000
+  // characters, so a get_workflow_state payload can't take the whole
+  // panel), what Copy takes is the WHOLE payload — the same bytes the
+  // well carried, untruncated. Objects speak their JSON form (the tool's
+  // own voice); strings and unparseable payloads speak themselves.
+  const detail = React.useMemo(() => {
+    let full: string;
+    try {
+      full =
+        typeof item.detail === "string"
+          ? item.detail
+          : JSON.stringify(item.detail, null, 2);
+    } catch {
+      full = String(item.detail);
+    }
+    return { window: full.slice(0, 4000), full };
+  }, [item.detail]);
+  const detailTruncated = detail.full.length > detail.window.length;
   return (
     <div className="group overflow-hidden rounded-lg border border-border bg-card text-xs shadow-sm transition-colors hover:border-primary/30 hover:bg-muted/30">
       <div className="flex items-stretch">
@@ -423,15 +442,28 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
             args {argsOneLine(item.args)}
           </p>
           {item.detail != null && (
-            <pre className="max-h-48 overflow-auto rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
-              {(() => {
-                try {
-                  return JSON.stringify(item.detail, null, 2).slice(0, 4000);
-                } catch {
-                  return String(item.detail);
-                }
-              })()}
-            </pre>
+            <div>
+              {/* t510 — the detail's caption row: the receipt gets the same
+                  copy door every paper face already has ("Copy ledger",
+                  "Copy report" → "Copy detail"). The one clipboard
+                  affordance (t170) rides in — no second clipboard dialect. */}
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="font-mono text-[10px] text-muted-foreground">detail</span>
+                <CopyButton text={detail.full} label="Copy detail" />
+              </div>
+              <pre className="max-h-48 overflow-auto rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
+                {detail.window}
+              </pre>
+              {/* t510 — the window never lies about being a window: when
+                  the payload ran past 4,000 characters the card says so
+                  and names the door that takes the rest. */}
+              {detailTruncated && (
+                <p className="mt-1 text-[10px] text-muted-foreground/70">
+                  showing the first {detail.window.length.toLocaleString()} of{" "}
+                  {detail.full.length.toLocaleString()} characters — Copy takes all of it
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -105,14 +105,34 @@ function ProjectSwitcher() {
   const activeRemote = project?.remote ?? null;
 
   return (
-    <div className="flex items-center gap-1.5">
+    // t510 — min-w-0 on the wrapper AND the trigger: flexbox floors rule
+    // (a nowrap trigger's min-content is its FULL name — the fixed w-[]
+    // is only a preference). Without the chain the trigger refuses below
+    // 275px and paints over the actions cluster; with it the value
+    // ellipsises and the row degrades gracefully.
+    <div className="flex min-w-0 items-center gap-1.5">
       <Select value={project?.id ?? ""} onValueChange={onChange}>
         <SelectTrigger
-          className="h-8 w-[150px] rounded-lg border bg-card text-xs font-medium xl:w-[220px]"
+          // t510 — tiered width: 170 at xl (1280–1535, where the row's
+          // budget measured 650px: brand 266 + workspace 160 + this 170
+          // + gaps 30 = 626 ≤ 650), the roomy 220 back from 2xl. The
+          // name truncates a touch harder in the tight band; the full
+          // name lives in the title and the dropdown. min-w-[130px] = a
+          // name-worthy floor (an ellipsis with no name teaches nothing);
+          // the binding badge's truncating text yields below it.
+          className="h-8 w-[150px] min-w-[130px] rounded-lg border bg-card text-xs font-medium xl:w-[170px] 2xl:w-[220px]"
           aria-label="Active project"
           title={project?.name}
         >
-          <SelectValue placeholder={pending ? "Switching…" : "Select project"} />
+          {/* t510 — the trigger speaks the NAME, nothing else (the same law
+              WorkspaceSelect's trigger already obeys). Radix renders the
+              selected item's whole content here — its shrink-0 RELION
+              badge used to eat ~60px of every width and the whole name
+              below 190px; the badge still lives on every dropdown row,
+              and remote-ness has the outer violet binding badge. */}
+          <SelectValue placeholder={pending ? "Switching…" : "Select project"}>
+            <span className="truncate">{project?.name ?? ""}</span>
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {projects.map((p) => (
@@ -141,9 +161,14 @@ function ProjectSwitcher() {
         </SelectContent>
       </Select>
       {activeRemote ? (
+        // t510 — the binding badge joins the shrink chain (it used to be
+        // shrink-0: a hard 105px floor that ate the row's budget and left
+        // the project trigger an ellipsis with no name — the ORIGINAL SIN
+        // of the 1280 overflow, visible only in a remote-bound world).
+        // Now it truncates with the trigger; the full host lives in title.
         <Badge
           variant="outline"
-          className="h-8 max-w-[170px] shrink-0 gap-1 rounded-lg border-violet-500/40 bg-violet-500/10 px-2 text-[10px] font-medium normal-case tracking-normal text-violet-600 dark:text-violet-400"
+          className="h-8 max-w-[170px] min-w-0 gap-1 rounded-lg border-violet-500/40 bg-violet-500/10 px-2 text-[10px] font-medium normal-case tracking-normal text-violet-600 dark:text-violet-400"
           title={`Remote project — data lives on ${activeRemote.username}@${activeRemote.host}:${activeRemote.port}; the import browser and the run dialog target this cluster`}
         >
           <Server className="size-3 shrink-0" aria-hidden="true" />
@@ -451,7 +476,7 @@ function WorkspaceSelect() {
           (active ? `Workspace: ${active.name}` : "Workspaces load with the project") +
           (elsewhereHue !== "none" ? ` · Elsewhere: ${elsewhere.names.join(", ")}` : "")
         }
-        className="h-8 w-[128px] rounded-lg border bg-card text-xs font-medium sm:w-[160px]"
+        className="h-8 w-[128px] min-w-0 rounded-lg border bg-card text-xs font-medium sm:w-[160px]"
       >
         <span className="flex min-w-0 items-center gap-1.5">
           <Layers className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
@@ -595,7 +620,13 @@ function NoteSpotlightChip() {
           : `${noted} job${noted === 1 ? "" : "s"} carry annotations — ${on ? "showing" : "click to spotlight"} them`
       }
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors",
+        // t510 — the chip joins the wide tier (2xl): at 1280 the middle
+        // row's three controls painted 207px past their container INTO
+        // the actions cluster (measured: RELION badge x=678 w=162 vs
+        // this chip x=783 — 57px interpenetration, "not found" over
+        // "note"). The lens is the row's least-essential control (the
+        // dashboard Noted chip is its second entry) — it yields first.
+        "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex",
         on
           ? "border-amber-500/60 bg-amber-500/10"
           : "border-border bg-card hover:bg-secondary/60",
@@ -686,10 +717,30 @@ export function Header() {
             while the RELION chip already started at x=1169 — 46px of
             interpenetration). The counters need ~270px of row that only
             exists from ~1700px up; 2xl (1536) was a lie since t300. */}
-        <div className="hidden items-center gap-2 xl:flex">
+        {/* t510 — re-measured, the RIGHT cluster grew again (t419 AI door,
+            t436 storage, t438 knock bell, the remote-clusters door): at
+            1280 the middle tier overflowed INTO it a second time (RELION
+            badge x=678 vs spotlight chip x=783 — 57px of interpenetration;
+            the row's children painted 207px past their 650px container).
+            The tier re-cut, same law: xl = workspace + project only (the
+            project trigger gives 50px back: 170 in the tight band), the
+            lens chip — the row's least-essential control — rises to 2xl
+            beside the roomy 220px trigger. Measured at 1280/1366/1440:
+            626 ≤ 650, 626 ≤ 736, 626 ≤ 810 — slack in every band. */}
+        {/* t510 — min-w-0 rides the row: when a future tier miscalculates,
+            the row itself compresses (triggers truncate) instead of the
+            whole row painting over the actions cluster unclipped. */}
+        <div className="hidden min-w-0 items-center gap-2 xl:flex">
           <WorkspaceSelect />
           <ProjectSwitcher />
-          <div className="hidden items-center gap-2 min-[1700px]:flex" aria-label="Workflow statistics">
+          {/* t510 — the counters' tier re-measured (t301 said 1700; that
+              measurement predates the right cluster's t419/t436/t438
+              growth): the row's natural width with all four controls is
+              ~1311px, which exists from ~2000 up (at 1700 the project
+              trigger crushed to 54px — an ellipsis with no name). Below
+              2000 the footer census speaks the same three numbers — the
+              counters are the most redundant chrome, they wait longest. */}
+          <div className="hidden items-center gap-2 min-[2000px]:flex" aria-label="Workflow statistics">
             <StatChip
               icon={<Boxes className="size-3.5" />}
               label="jobs"
