@@ -25,6 +25,7 @@
 
 import { mdCell } from "@/lib/md";
 import { fmtDuration } from "@/lib/duration";
+import { timelineSharePct } from "@/lib/timeline-walk";
 import {
   fmtAngstrom,
   fmtMicron,
@@ -737,6 +738,60 @@ export const curveVerdictsCsv = (rows: CurveVerdictRow[] | null): string | null 
   return [line(["job_id", "job", "curve", "verdict"]), ...body].join("\n");
 };
 
+/** The timeline window's machine face (t506) — the honest windows the
+ *  bars draw, the tool quotes, and the report's glance summarizes, now
+ *  leaving as a grid a spreadsheet can drink. The row shape mirrors the
+ *  agent's per-run roster (get_session_timeline): same windows, same ISO
+ *  stamps, same share of the span — CSV and tool are TWO MACHINE
+ *  READERS of the same walk, and a number that differs between them is
+ *  a number someone re-derived (twins fork, imports don't: share comes
+ *  from the well's timelineSharePct, the human words from fmtDuration).
+ *  A live run's ended_at speaks an empty cell — "still open" in CSV
+ *  grammar is blank, never a guess. No invented rows: jobs the engine
+ *  never started have no window, so they are not here (the caller's
+ *  roster counts them instead). Cells are quoted only when they must
+ *  be (RFC 4180 — names may carry commas). An empty roster returns
+ *  null: the caller refuses honestly (a silent empty file would be a
+ *  lying door). */
+export interface TimelineCsvRow {
+  jobId: string;
+  jobName: string;
+  jobType: string;
+  workspace: string;
+  status: string;
+  /** epoch ms — the window's open */
+  startMs: number;
+  /** epoch ms — null while the window is open (a live run) */
+  endMs: number | null;
+  durationMs: number;
+  /** the session span the shares are read against (from the same walk) */
+  spanMs: number;
+}
+export const timelineRunsCsv = (rows: TimelineCsvRow[] | null): string | null => {
+  if (!rows || rows.length === 0) return null;
+  const quote = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const line = (parts: string[]) => parts.map(quote).join(",");
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const body = rows.map((r) =>
+    line([
+      r.jobId,
+      r.jobName,
+      r.jobType,
+      r.workspace,
+      r.status,
+      iso(r.startMs),
+      r.endMs != null ? iso(r.endMs) : "",
+      String(r.durationMs),
+      fmtDuration(r.durationMs),
+      timelineSharePct(r.durationMs, r.spanMs).toFixed(1),
+    ]),
+  );
+  return [
+    line(["job_id", "job", "type", "workspace", "status", "started_at", "ended_at", "duration_ms", "duration_human", "share_pct"]),
+    ...body,
+  ].join("\n");
+};
+
 /**
  * The curve family's voice: each kind's verdict line quotes the SAME
  * well the panels' interpretation strips render and the agent tool
@@ -1081,6 +1136,13 @@ export const inventoryCsvFilename = (): string =>
  *  never masquerading as the inventory's. */
 export const curveVerdictsCsvFilename = (): string =>
   `session-curve-verdicts-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+
+/** t506: the timeline windows' own CSV filename — the same timestamp
+ *  grammar as its siblings, its own name: the windows' machine grid
+ *  travels under the timeline's flag, never masquerading as the job
+ *  inventory's (which speaks created/updated, not honest windows). */
+export const timelineRunsCsvFilename = (): string =>
+  `session-timeline-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
 
 /** t237: the portable-HTML sibling of the report filename — the echo
  *  (buildSessionReportHtml) travels under the report's own name with a

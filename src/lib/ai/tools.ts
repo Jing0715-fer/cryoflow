@@ -35,7 +35,7 @@ import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { fmtBytes } from "@/lib/relion/disk-usage";
 import { fmtDuration } from "@/lib/duration";
-import { walkTimeline, timelineLedger } from "@/lib/timeline-walk";
+import { walkTimeline, timelineLedger, timelineSharePct } from "@/lib/timeline-walk";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
 import {
   graveRowsOf,
@@ -2972,7 +2972,7 @@ async function getSessionTimeline(ctx: AgentCtx): Promise<AiToolResult> {
     endedAt: r.job.status === "running" ? null : iso(r.end),
     durationMs: r.ms,
     durationHuman: human(r.ms),
-    sharePct: Math.round((r.ms / walk.span) * 1000) / 10,
+    sharePct: timelineSharePct(r.ms, walk.span), // t506 — one arithmetic, the CSV drinks it too
   }));
   const longest = leaders
     .slice(0, 3)

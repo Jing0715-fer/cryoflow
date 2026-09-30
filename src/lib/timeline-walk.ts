@@ -131,3 +131,13 @@ export function timelineLedger<T>(rows: readonly TimelineRow<T>[]): TimelineLedg
     leaders: [...rows].sort((a, b) => b.ms - a.ms),
   };
 }
+
+/** One window's share of the span (t506): a percentage with one decimal
+ *  ("12.3"). The tool's per-run roster (t504) and the timeline's CSV
+ *  machine face (t506) are the two readers — ONE arithmetic, so a
+ *  spreadsheet and the model can never disagree about who took how
+ *  much of the session. A zero span (nobody ran) shares zero. */
+export function timelineSharePct(ms: number, spanMs: number): number {
+  if (spanMs <= 0) return 0;
+  return Math.round((ms / spanMs) * 1000) / 10;
+}

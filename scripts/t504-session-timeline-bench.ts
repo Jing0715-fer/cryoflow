@@ -188,8 +188,7 @@ ok(/\.slice\(0, 3\)/.test(execBody), "the longest read is a top-3 (the '哪一�
 // ledger instead of hand-summing. Same numbers, one arithmetic.
 ok(/timelineLedger\(walk\.rows\)/.test(execBody), "the busy total and the leaders are the well's ledger read (t505: one arithmetic, the report drinks it too)");
 ok(!/\.reduce\(/.test(execBody), "no hand-rolled sum left behind — the ledger owns the reduce now");
-ok(/Math\.round\(\(r\.ms \/ walk\.span\) \* 1000\) \/ 10/.test(execBody),
-  "each run's share of the span is the walk's own arithmetic");
+ok(/timelineSharePct\(r\.ms, walk\.span\)/.test(execBody), "each run's share of the span is the well's own arithmetic (t506: the CSV drinks the same share)");
 ok(/parallel runs double-count/.test(execBody), "the busy line confesses the overlap (an honest sum says so)");
 ok(/counted, not invented/.test(execBody), "the absentees line keeps the honest-accounting phrase");
 ok(/time spent failing is real time/.test(execBody), "the failed line keeps the real-time phrase");

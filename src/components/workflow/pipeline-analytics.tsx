@@ -28,6 +28,7 @@ import {
   ChartGantt,
   Check,
   ClipboardCopy,
+  Clock,
   Crosshair,
   Download,
   Filter,
@@ -35,6 +36,7 @@ import {
 } from "lucide-react";
 import { fmtClock, fmtDuration } from "@/lib/duration";
 import { walkTimeline } from "@/lib/timeline-walk";
+import { timelineRunsCsv, timelineRunsCsvFilename, type TimelineCsvRow } from "@/lib/qc-report"; // t506 — the windows' machine face
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
@@ -387,13 +389,16 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
     }
   };
 
+  // null/"" both mean the legacy "Unassigned" bucket (same as the chips) —
+  // lifted to component scope (t506): the windows' CSV speaks the same
+  // workspace names the inventory's does, so one resolver serves both
+  const wsName = (id: string | null | undefined) =>
+    id == null || id === ""
+      ? "Unassigned"
+      : (workspaces.find((w) => w.id === id)?.name ?? id);
+
   /** Full job inventory of the current scope → timestamped CSV download. */
   const exportCsv = () => {
-    const wsName = (id: string | null | undefined) =>
-      // null/"" both mean the legacy "Unassigned" bucket (same as the chips)
-      id == null || id === ""
-        ? "Unassigned"
-        : (workspaces.find((w) => w.id === id)?.name ?? id);
     const header = [
       "name",
       "type",
@@ -426,6 +431,32 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
     toast({
       title: "CSV exported",
       description: `${rows.length} jobs · scope: ${scopeLabel}`,
+    });
+  };
+
+  /** The windows' machine face (t506): the SAME walk the bars draw, as
+   *  a spreadsheet-ready grid — job inventory CSV speaks created/updated
+   *  (archive fields); this one speaks honest windows (startedAt → end,
+   *  measured duration, share of the span). A live run's ended_at is
+   *  the CSV builder's business (blank, never a guess). */
+  const exportTimelineCsv = () => {
+    const rows: TimelineCsvRow[] = runs.rows.map((r) => ({
+      jobId: r.job.id,
+      jobName: r.job.name,
+      jobType: r.job.type,
+      workspace: wsName(r.job.workspaceId),
+      status: r.job.status,
+      startMs: r.start,
+      endMs: r.job.status === "running" ? null : r.end,
+      durationMs: r.ms,
+      spanMs: runs.span,
+    }));
+    const csv = timelineRunsCsv(rows);
+    if (!csv) return; // nobody ran — a silent empty file would be a lying door
+    downloadText(timelineRunsCsvFilename(), csv, "text/csv;charset=utf-8");
+    toast({
+      title: "Timeline CSV exported",
+      description: `${rows.length} run${rows.length === 1 ? "" : "s"} · scope: ${scopeLabel}`,
     });
   };
 
@@ -478,6 +509,15 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <Download className="size-3.5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={exportTimelineCsv}
+              title="Download the session timeline (honest windows: start, end, duration, share) as CSV"
+              aria-label="Export timeline as CSV"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Clock className="size-3.5" aria-hidden="true" />
             </button>
           </div>
           {wsOptions.length > 1 && (
