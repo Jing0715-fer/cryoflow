@@ -6422,3 +6422,4 @@ Stage Summary:
 - **「会话记忆的三跳证词」**：race 是客户端内存（in-memory by design），工具只引用客户端递来的证词——panel→route→ctx 三跳各守其律（携证词、递原样、边界护栏），off-shape 即诚实缺席，从不发明赢家
 - **「定位器不是重推器」**：工具 summary 只说计数与赢者名（按 id 查表），判词算术零次重推——annex 逐字节原文，解析或重算自家导出是漂移之母（t194 教义的 agent 版）
 - 产出：parseSweepSnapshot/SWEEP_ROSTER_CAP（qc-report 家）+ get_sweep_verdict（名册第 26 器）+ AgentCtx.sweep + 证词桥三跳 + t508 bench 34/0 + 13 家计数断言随册演进 25→26 + 活体两幕（no-race 诚实 + race 逐数引用）+ 证物归档
+- [rebase 附记] push 时撞并行窗 `09ba382 fix(ui): t503 — the last-touched window leads`（panel 窗口提升/aiSummonSeq + 12 家 bench 的 REPO 根解析去硬编码 + dev-server watchdog）——rebase 无伤（panel 异 hunk 合流：其 660 行 summonSeq / 本窗 1282 行 sweep 证词桥共存），rebase 后家族 73 套复绿 + tsc/eslint 0，push `09ba382..b2a3637` 三方对齐。**下窗注意：并行窗活跃**——开局除读本文件外先 `git fetch` 对齐 origin，编号以 worklog 实尾为准（并行 fix 消息里的「t503」是其引用的特性号非任务号，勿误判撞号）。
