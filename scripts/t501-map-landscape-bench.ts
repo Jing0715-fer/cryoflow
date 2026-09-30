@@ -1,5 +1,5 @@
 /**
- * t500 — the agent reads the landscape: the Map QC inventory's AGENT
+ * t501 — the agent reads the landscape: the Map QC inventory's AGENT
  * face. The paper (t211), the doors (t213) and the CSV grid (t232) had
  * the landscape to themselves; the assistant could read ONE job's
  * curves (get_job_curves) or two same-stage runs (compare_jobs) but
@@ -61,7 +61,7 @@ const mapWalkSrc = read("src/lib/map-walk.ts");
 
 // ---------------------------------------------------------------- T1
 section("T1 the well — the moved walk really walks; the route carries no twin");
-const walkRoot = `${REPO}/scripts/.tmp-t500-walk`;
+const walkRoot = `${REPO}/scripts/.tmp-t501-walk`;
 rmSync(walkRoot, { recursive: true, force: true });
 mkdirSync(`${walkRoot}/early`, { recursive: true });
 mkdirSync(`${walkRoot}/d1/d2/d3/d4`, { recursive: true });

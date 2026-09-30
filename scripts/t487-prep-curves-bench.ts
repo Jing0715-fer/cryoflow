@@ -368,8 +368,8 @@ ok(
 {
   const nums = [...promptSrc.matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
   ok(
-    nums.join(",") === "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15",
-    "doctrine numbers run 1–15 with no gaps (extension, not rebirth)"
+    nums.join(",") === "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16",
+    "doctrine numbers run 1–16 with no gaps (extension, not rebirth — t500's law 16 rides the same ladder)"
   );
 }
 

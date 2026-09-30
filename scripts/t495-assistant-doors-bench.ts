@@ -115,7 +115,7 @@ ok(/urlTransformKeepDoors/.test(panelSrc) && /const urlTransformKeepDoors = \(ur
 ok(/urlTransform=\{urlTransformKeepDoors\}/.test(panelSrc), "the prose Markdown mounts the transform — without it react-markdown's default urlTransform strips cryoflow-job:// to \"\" and every door arrives DISARMED (caught live: the override read href=\"\" and fell through to the plain anchor)");
 ok(/node: _node/.test(panelSrc), "the hast node is stripped from the spread (letting it ride {...rest} paints node=[object Object] onto the real DOM — caught live in the first render)");
 ok(panelSrc.includes("components={PROSE_COMPONENTS}"), "the prose Markdown mounts the override");
-ok(/components=\{PROSE_COMPONENTS\} urlTransform=\{urlTransformKeepDoors\}>\{linkifyJobs\(item\.text, jobs\)\}/.test(panelSrc), "linkify runs at RENDER on the assistant prose (derived, never stored) — override + transform mounted beside it");
+ok(/components=\{PROSE_COMPONENTS\} urlTransform=\{urlTransformKeepDoors\}>\{linkifyJobs\((?:item|seg)\.text, jobs\)\}/.test(panelSrc), "linkify runs at RENDER on the assistant prose (derived, never stored) — override + transform mounted beside it (t500's segment loop rides the same render law)");
 
 // ---------------------------------------------------------------- T3
 section("T3 the honesty — user words stay user words, export bytes stay clean");

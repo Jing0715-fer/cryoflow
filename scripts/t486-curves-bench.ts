@@ -348,8 +348,8 @@ ok(
 {
   const nums = [...promptSrc.matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
   ok(
-    nums.length === 15 && nums.every((n, i) => n === i + 1),
-    `doctrine numbers run 1–15 with no gaps (${nums.join(",")})`
+    nums.length === 16 && nums.every((n, i) => n === i + 1),
+    `doctrine numbers run 1–16 with no gaps (${nums.join(",")})`
   );
 }
 

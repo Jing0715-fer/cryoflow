@@ -1,8 +1,8 @@
 /**
- * CryoFlow — the job workdir listing, ONE well (t500).
+ * CryoFlow — the job workdir listing, ONE well (t501).
  *
  * The outputs route lived alone with this walk for its whole life; the
- * agent's new landscape read (get_map_landscape, t500) needs the SAME
+ * agent's new landscape read (get_map_landscape, t501) needs the SAME
  * listing — files, kinds, dims, friendly labels — and a second copy in
  * ai/tools.ts would be a twin waiting to fork. So the walk moves here
  * VERBATIM (a change of address, not a rewrite — the qc-report t197

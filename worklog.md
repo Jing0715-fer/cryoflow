@@ -6282,3 +6282,4 @@ Stage Summary:
 - **「旧答案有三层」**：旧进程（pkill 没杀干净）、旧编译（.next/dev 增量残留）、旧会话（panel 恢复历史，模型引用旧工具结果不复测）——三层「旧」叠成同一张脸；排障时每层单独定谳，最后靠 New chat 一锤定音
 - **「模型会走捷径」**：会话历史里有答案时，模型倾向复述而不重新测量——工具是读数、不是记忆；要新数字就得新会话或明确指令
 - 产出：get_map_landscape（schema+执行器+dispatch）+ outputs-list 抽库 + map-walk 常量井 + t501 bench 50/0 + glob 抬顶（本窗 bench 纳新）+ 11 邻家 bench 计数演进 22→23 + 同井逐格活体全谱 + 截图 ×1
+- [终验补记] push 时发现**编号撞车**：并行用户工单窗（沙箱重置后复库）已把 Task 500 落上 origin（a729451 决策按钮/浮动窗/stale-session 回落 + 8ccb559）——rebase 到其上，本窗真号改判 **501**（worklog 条目、bench 文件名、源码注释、截图名随行重编；两窗改动零文件重叠，rebase 无伤）。撞车的连锁账：并行窗的 prompt law 16 / assistant 气泡段循环重构，撞了四家源码断言型 bench——t486/t487/t484 的「laws 连续」断言 1–15 演进为 1–16、t495 的 linkify 渲染断言演进为段循环形态（seg.text，渲染律不变）——演进后**全家 66 套 0 败** + tsc 0 + eslint 0。push 完成，origin/main 三方对齐。Task 501 收官，下窗从 Task 502 起编。

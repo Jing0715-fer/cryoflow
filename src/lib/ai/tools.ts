@@ -122,7 +122,7 @@ import {
   ChartJobNotFound,
 } from "@/lib/chart-data";
 import { fmtAngstrom, fmtMicron, reportedPassport } from "@/lib/chart-rows";
-// t500 — the agent reads the landscape: the inventory's OWN arithmetic
+// t501 — the agent reads the landscape: the inventory's OWN arithmetic
 // (peak/agreement/weakest/delta), the walk's OWN constants, the listing's
 // OWN well — imports all, no second derivation anywhere.
 import {
@@ -2579,7 +2579,7 @@ const fmtUm = fmtMicron;
 
 /* ---- get_map_landscape --------------------------------------------- */
 
-/** t500 — the agent reads the landscape. The Session QC report's Map QC
+/** t501 — the agent reads the landscape. The Session QC report's Map QC
  *  inventory has been a paper face (t211), a door family (t213) and a CSV
  *  grid (t232); this is its AGENT face. One walk over the completed
  *  roster in the paper's OWN queue (volume-capable types ride the

@@ -3,7 +3,7 @@ import { closeSync, openSync, readFileSync, readSync, statSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
-// t500 — the walk moved to ONE well (lib/relion/outputs-list): the agent's
+// t501 — the walk moved to ONE well (lib/relion/outputs-list): the agent's
 // landscape read drinks the same cup, twins don't fork.
 import {
   classify,
@@ -24,7 +24,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 /* ------------------------------------------------------------------ */
 /* GET /api/jobs/[id]/outputs                                          */
-/* (types + the walk live in lib/relion/outputs-list since t500 —      */
+/* (types + the walk live in lib/relion/outputs-list since t501 —      */
 /*  the agent's landscape read walks the SAME cup)                     */
 /* ------------------------------------------------------------------ */
 

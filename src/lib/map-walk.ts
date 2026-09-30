@@ -1,8 +1,8 @@
 /**
- * CryoFlow — the map walk's shared constants (t500).
+ * CryoFlow — the map walk's shared constants (t501).
  *
  * The session report's landscape walk picked these numbers for its own
- * probes; the agent's landscape read (get_map_landscape, t500) walks
+ * probes; the agent's landscape read (get_map_landscape, t501) walks
  * the SAME roster with the SAME cap and the SAME notion of a main map.
  * Constants with two consumers live in ONE place (twins fork, imports
  * don't) — and this place must stay IMPORT-FREE (the report dialog is
@@ -26,7 +26,7 @@ export const MAP_BRIEF_CAP = 24;
 /** Which job TYPES can plausibly own a volume (t155): the walk's queue
  *  puts these candidates FIRST (refine3d / class3d / postprocess /
  *  multibody), so the cap lands on real map owners before it ever
- *  touches the never-volume tail. The agent's landscape read (t500)
+ *  touches the never-volume tail. The agent's landscape read (t501)
  *  walks the SAME queue — a landscape question answered from a
  *  different order is a landscape lied about. */
 export const VOLUME_CAPABLE_RE = /refine3d|class3d|postprocess|multibody/i;

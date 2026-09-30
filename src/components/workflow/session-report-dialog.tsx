@@ -85,7 +85,7 @@ import type {
   MotionResponse,
   TopazTrainingResponse,
 } from "@/lib/chart-rows";
-// t500 — the walk's own constants moved to ONE well: the agent's landscape
+// t501 — the walk's own constants moved to ONE well: the agent's landscape
 // read (get_map_landscape) walks the same roster with the same cap and the
 // same main-map law. Twins fork, imports don't.
 import { MAP_BRIEF_CAP, MAIN_MAP_RE, VOLUME_CAPABLE_RE } from "@/lib/map-walk";
