@@ -264,6 +264,7 @@ const base = {
   mapError: false,
   mapInventory: null,
   sweep: null,
+  timeline: null, // t505 — the time family is another window's patient
 };
 
 const rows: InstanceType<typeof Object> extends never ? never : import("../src/lib/qc-report").CurveVerdictRow[] = [

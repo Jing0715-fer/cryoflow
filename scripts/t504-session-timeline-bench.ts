@@ -183,7 +183,11 @@ ok(!/toLocaleTimeString/.test(toolsSrc),
   "ISO-only absolute stamps — a server clock's locale never lies about time zones");
 ok(/toISOString\(\)/.test(execBody), "the executor stamps ISO");
 ok(/\.slice\(0, 3\)/.test(execBody), "the longest read is a top-3 (the '哪一步最耗时' answer pre-computed)");
-ok(/reduce\(\(acc, r\) => acc \+ r\.ms, 0\)/.test(execBody), "the busy total is a read over the walk's windows");
+// t505 — the reduce moved into the well (timelineLedger): the report's
+// glance drinks the same arithmetic, so the executor now reads the
+// ledger instead of hand-summing. Same numbers, one arithmetic.
+ok(/timelineLedger\(walk\.rows\)/.test(execBody), "the busy total and the leaders are the well's ledger read (t505: one arithmetic, the report drinks it too)");
+ok(!/\.reduce\(/.test(execBody), "no hand-rolled sum left behind — the ledger owns the reduce now");
 ok(/Math\.round\(\(r\.ms \/ walk\.span\) \* 1000\) \/ 10/.test(execBody),
   "each run's share of the span is the walk's own arithmetic");
 ok(/parallel runs double-count/.test(execBody), "the busy line confesses the overlap (an honest sum says so)");

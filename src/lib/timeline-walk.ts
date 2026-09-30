@@ -104,3 +104,30 @@ export function walkTimeline<T extends TimelineJobShape>(
   const span = Math.max(rows[rows.length - 1].end - t0, TIMELINE_MIN_WINDOW_MS);
   return { rows, t0, span, neverStarted };
 }
+
+/** One reading of the ledger over the walk's windows (t505): the busy
+ *  total and the leaders' order. The walk's own chronological rows are
+ *  NEVER touched — the bars and the tool's per-run roster speak
+ *  start-ascending, and "how long in total" / "which step was the
+ *  heaviest" are DIFFERENT readings of the same windows, so this is
+ *  where that arithmetic lives now (twins fork, imports don't): the
+ *  agent's get_session_timeline (t504) and the session report's
+ *  "Pipeline at a glance" time lines (t505) both drink this one well.
+ *  The busy sum counts every window — parallel runs double-count, and
+ *  every face that quotes it says so in its own dialect. The leaders
+ *  are a stable ms-descending copy: equal windows keep their start
+ *  order (the earlier run wins the tie), and leaders[0] is the longest
+ *  single step. */
+export interface TimelineLedger<T> {
+  /** every window summed — parallel runs double-count (the caller says so) */
+  busyMs: number;
+  /** the rows' ms-descending copy — leaders[0] is the heaviest run */
+  leaders: TimelineRow<T>[];
+}
+
+export function timelineLedger<T>(rows: readonly TimelineRow<T>[]): TimelineLedger<T> {
+  return {
+    busyMs: rows.reduce((acc, r) => acc + r.ms, 0),
+    leaders: [...rows].sort((a, b) => b.ms - a.ms),
+  };
+}

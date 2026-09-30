@@ -16,10 +16,15 @@
  * second derivation waiting to drift). It adds only the pipeline glance
  * and honest empty states. Like every builder in this family it carries
  * NO timestamp — the same session state always yields the same bytes;
- * the filename carries the export stamp.
+ * the filename carries the stamp. (t505's ONE deliberate edge: the
+ * glance's TIME lines are a snapshot reading — stamped by the act of
+ * opening the report, a live run's window stretched to that instant
+ * exactly as the bars and the agent's read stretch theirs. A session
+ * with nothing running still yields the same bytes for the same state.)
  */
 
 import { mdCell } from "@/lib/md";
+import { fmtDuration } from "@/lib/duration";
 import {
   fmtAngstrom,
   fmtMicron,
@@ -848,6 +853,24 @@ export interface PipelineGlance {
   waiting: number;
 }
 
+/** The time family's READING for the glance (t505) — the caller walked
+ *  the SAME well the bars and the agent drink (walkTimeline +
+ *  timelineLedger) and passes the numbers, not the rows: the builder
+ *  speaks, it never re-walks. The durations are already the walk's own
+ *  honest windows ([startedAt → +duration], a live run stretched to the
+ *  caller's reading of "now"). */
+export interface SessionTimelineGlance {
+  /** runs with a real window (completed / failed / running) */
+  runCount: number;
+  /** wall-clock span: first start → last end */
+  spanMs: number;
+  /** every window summed — parallel runs double-count (the line says so) */
+  busyMs: number;
+  /** the heaviest single step's name, or null when nobody ran */
+  longestName: string | null;
+  longestMs: number;
+}
+
 /**
  * ONE father for the session QC report (t197): the document that binds
  * the report families under a single cover. It NEVER parses the family
@@ -886,8 +909,15 @@ export const buildSessionReport = (opts: {
   curves: CurveVerdictRow[] | null;
   curvesPending: boolean;
   curvesError: boolean;
+  /** t505 — the time family joins the glance: the caller's READING of
+   *  the timeline well (span / busy / heaviest step — the same windows
+   *  the bars draw and get_session_timeline quotes). Null when nothing
+   *  ran: the time lines honest-absent, one word fewer, nothing
+   *  invented. The numbers arrive pre-walked; the builder never
+   *  re-derives them from any other section's bytes. */
+  timeline: SessionTimelineGlance | null;
 }): string => {
-  const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep, curves, curvesPending, curvesError } = opts;
+  const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep, curves, curvesPending, curvesError, timeline } = opts;
   const lines: string[] = [];
   lines.push("# CryoFlow session QC report");
   lines.push("");
@@ -905,7 +935,18 @@ export const buildSessionReport = (opts: {
   if (pipeline && pipeline.total > 0) {
     lines.push(`- **${pipeline.succeeded}** succeeded job${pipeline.succeeded === 1 ? "" : "s"} feed this report's QC sections;`);
     lines.push(`- **${pipeline.running}** running · **${pipeline.failed}** failed — failures stay counted here, never dropped;`);
-    lines.push(`- **${pipeline.waiting}** waiting (idle or submitted) — no verdict exists for work that has not run.`);
+    lines.push(`- **${pipeline.waiting}** waiting (idle or submitted) — no verdict exists for work that has not run;`);
+    // t505 — the time family's three lines: the same walk the bars draw
+    // and the agent's read quotes, in the report's own dialect. The
+    // waiting line above already says who never started; the time lines
+    // never repeat that count — a number said twice is a number doubted.
+    if (timeline && timeline.runCount > 0) {
+      lines.push(`- **${fmtDuration(timeline.spanMs)}** wall-clock span across **${timeline.runCount}** run${timeline.runCount === 1 ? "" : "s"} (first start → last end);`);
+      if (timeline.longestName) {
+        lines.push(`- heaviest step: **${mdCell(timeline.longestName)}** at **${fmtDuration(timeline.longestMs)}**;`);
+      }
+      lines.push(`- **${fmtDuration(timeline.busyMs)}** of measured compute (windows summed — parallel runs double-count).`);
+    }
   } else {
     lines.push("No jobs on the canvas yet — add nodes, run them, and their verdicts will gather here.");
   }

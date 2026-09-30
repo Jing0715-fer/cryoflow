@@ -49,6 +49,7 @@ import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown"
 import remarkGfm from "remark-gfm";
 import { copyOrFallback, downloadText } from "@/lib/download";
 import { probesForType } from "@/lib/curve-walk"; // t503 — one probe map, two walkers
+import { walkTimeline, timelineLedger } from "@/lib/timeline-walk"; // t505 — the report drinks the time well too
 import { buildSessionReportHtml, reportTocOf, type ReportTocItem } from "@/lib/report-html";
 import type { JobDTO } from "@/lib/types";
 import {
@@ -934,6 +935,25 @@ export default function SessionReportDialog({
     return { total: jobs.length, succeeded, running, failed, waiting: jobs.length - succeeded - running - failed };
   }, [jobs]);
 
+  // t505 — the time family's reading for the glance: the SAME well the
+  // bars and the agent's read drink, walked once at report-open (the
+  // now is this memo's reading of the current instant — a live run's
+  // window stretches there, and the builder says the lines are a
+  // snapshot). Numbers, not rows: the ledger's busy sum and heaviest
+  // step travel, the windows themselves stay in the well.
+  const timelineGlance = React.useMemo(() => {
+    const walk = walkTimeline(jobs, Date.now());
+    if (walk.rows.length === 0) return null;
+    const { busyMs, leaders } = timelineLedger(walk.rows);
+    return {
+      runCount: walk.rows.length,
+      spanMs: walk.span,
+      busyMs,
+      longestName: leaders[0]?.job.name ?? null,
+      longestMs: leaders[0]?.ms ?? 0,
+    };
+  }, [jobs]);
+
   const md = React.useMemo(
     () =>
       buildSessionReport({
@@ -947,8 +967,9 @@ export default function SessionReportDialog({
         curves,
         curvesPending,
         curvesError,
+        timeline: timelineGlance,
       }),
-    [project?.name, pipeline, mapQc, mapPending, mapError, mapInventory, lastSweep, curves, curvesPending, curvesError],
+    [project?.name, pipeline, mapQc, mapPending, mapError, mapInventory, lastSweep, curves, curvesPending, curvesError, timelineGlance],
   );
 
   // t234: the compass and its needle. `toc` is the md's second surface

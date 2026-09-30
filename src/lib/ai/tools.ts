@@ -35,7 +35,7 @@ import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { fmtBytes } from "@/lib/relion/disk-usage";
 import { fmtDuration } from "@/lib/duration";
-import { walkTimeline } from "@/lib/timeline-walk";
+import { walkTimeline, timelineLedger } from "@/lib/timeline-walk";
 import { getActiveProject, projectRemoteTarget } from "@/lib/projects";
 import {
   graveRowsOf,
@@ -2957,6 +2957,11 @@ async function getSessionTimeline(ctx: AgentCtx): Promise<AiToolResult> {
   }
 
   const human = (ms: number): string => fmtDuration(ms);
+  // t505 — the busy total and the leaders' order moved into the well
+  // (timelineLedger): the report's glance drinks the same arithmetic,
+  // and twins fork, imports don't. The numbers are byte-for-byte the
+  // ones the t504 executor computed by hand.
+  const { busyMs, leaders } = timelineLedger(walk.rows);
   const runRows = walk.rows.map((r) => ({
     jobId: r.job.id,
     name: r.job.name,
@@ -2969,11 +2974,9 @@ async function getSessionTimeline(ctx: AgentCtx): Promise<AiToolResult> {
     durationHuman: human(r.ms),
     sharePct: Math.round((r.ms / walk.span) * 1000) / 10,
   }));
-  const longest = [...walk.rows]
-    .sort((a, b) => b.ms - a.ms)
+  const longest = leaders
     .slice(0, 3)
     .map((r) => ({ jobId: r.job.id, name: r.job.name, ms: r.ms, human: human(r.ms) }));
-  const busyMs = walk.rows.reduce((acc, r) => acc + r.ms, 0);
   const runningRows = walk.rows
     .filter((r) => r.job.status === "running")
     .map((r) => ({ jobId: r.job.id, name: r.job.name, elapsedMs: r.ms, elapsedHuman: human(r.ms) }));
