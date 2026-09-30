@@ -6221,3 +6221,4 @@ Stage Summary:
 - **「两种空说两种话」**：pending 的空（still reading）与落定的空（nothing to say）在门上分脸——t491 的伤/缺席二语定律在导出嘴上的回声
 - **「指南针会指坟」**：任务书里的「3D 体积截面」与脑中的「mini-TOC」都已被前窗建完——选题前先勘察现存面，过时指引第三次不认；同样的十次方圆，不如一次 rg
 - 产出：curveVerdictsCsv + curveVerdictsCsvFilename（qc-report）+ exportCurveCsv 两嘴门 + 两枚 emerald 门 + t498 bench 31/0 + 63 套回归全绿 + 活体字节捕双嘴全中 + 截图 ×2
+- [终验补记] push 完成（6fafd77..7237755 → origin/main 三方对齐）；本窗 feature（fdb27c6）与 worklog（7237755）分车兑现。push 后 landing 200 复核通过（本窗 server 收割两次均已复火，世界健康）。Task 498 收官，下窗从 Task 499 起编。
