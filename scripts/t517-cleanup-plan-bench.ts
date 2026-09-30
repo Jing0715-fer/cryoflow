@@ -82,8 +82,8 @@ const { isCleanableStatus } = await import("../src/lib/storage-clean");
 console.log("T1. the face (roster, knob, description laws)");
 
 must(
-  AI_TOOLS.length === 31 && new Set(AI_TOOLS.map((t) => t.name)).size === 31,
-  `T1a: the roster holds 31 unique tools (got ${AI_TOOLS.length})`
+  AI_TOOLS.length === 32 && new Set(AI_TOOLS.map((t) => t.name)).size === 32,
+  `T1a: the roster holds 32 unique tools (got ${AI_TOOLS.length})`
 );
 const face = AI_TOOLS.find((t) => t.name === "get_cleanup_plan");
 must(face != null, "T1b: get_cleanup_plan sits in the roster");
@@ -121,6 +121,7 @@ console.log("T2. the well (route shell, POST face untouched, no delete in the re
 
 const wellBody = read("src/lib/relion/cleanup-plan.ts");
 const routeBody = read("src/app/api/jobs/[id]/cleanup/route.ts");
+const execBody = read("src/lib/relion/cleanup-execute.ts");
 must(
   wellBody.includes("export async function computeCleanupPlan") &&
     wellBody.includes("export function walkLocalRunFiles") &&
@@ -144,11 +145,11 @@ must(
   "T2d: the GET is a protocol shell — one well line, no moved brains left behind"
 );
 must(
-  routeBody.includes("deleteRemoteFiles") &&
-    routeBody.includes("inFlight") &&
+  execBody.includes("deleteRemoteFiles") &&
+    execBody.includes("inFlight") &&
     routeBody.includes('const VALID_TIERS: CleanupTierId[] = ["safe", "diagnostics", "bulk"]') &&
     routeBody.includes("Cross-site job actions are not allowed"),
-  "T2e: the write face keeps its shovel, its lock, its tiers and its 403 door"
+  "T2e: the write face keeps its shovel and its lock in the execute well, its tiers and its 403 door in the route (t518: guards follow the law, not the address)"
 );
 
 /* ------------------------------------------------------------------ */
@@ -433,7 +434,7 @@ console.log("T5. the neighbors (the read family's laws stay put)");
 
 const toolsBody = read("src/lib/ai/tools.ts");
 must(
-  toolsBody.includes("the Storage dialog's Clean doors stay the only writers"),
+  toolsBody.includes("the Storage dialog's Clean doors and the agent's cleanup_job_files are the only writers"),
   "T5a: get_storage_report's boundary law verbatim (the map's writer clause)"
 );
 must(

@@ -179,8 +179,8 @@ console.log("T1. still 21 tools; the description now names the résumé");
   const tool = AI_TOOLS.find((t) => t.name === "list_clusters");
   must(tool != null, "T1a: list_clusters is in the catalog");
   must(
-    AI_TOOLS.length === 31 && new Set(AI_TOOLS.map((t) => t.name)).size === 31,
-    `T1b: 31 unique tools — t517's cleanup plan is the newest birth, extensions only since (got ${AI_TOOLS.length})`,
+    AI_TOOLS.length === 32 && new Set(AI_TOOLS.map((t) => t.name)).size === 32,
+    `T1b: 32 unique tools — t518's cleanup verb is the newest birth, extensions only since (got ${AI_TOOLS.length})`,
   );
   const params = (tool?.parameters ?? {}) as {
     properties?: Record<string, unknown>;

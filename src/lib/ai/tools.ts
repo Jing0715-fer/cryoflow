@@ -35,7 +35,8 @@ import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { fmtBytes } from "@/lib/relion/disk-usage";
 import { computeCleanupPlan } from "@/lib/relion/cleanup-plan";
-import type { CleanupPlan, CleanupSidePlan } from "@/lib/hpc/cleanup";
+import { runCleanupExclusive } from "@/lib/relion/cleanup-execute";
+import type { CleanupExecuteResult, CleanupPlan, CleanupSidePlan } from "@/lib/hpc/cleanup";
 import { computeStorageReport, type StorageResponse } from "@/lib/relion/storage-report";
 import { fmtDuration } from "@/lib/duration";
 import { walkTimeline, timelineLedger, timelineSharePct } from "@/lib/timeline-walk";
@@ -582,19 +583,39 @@ export const AI_TOOLS: ToolSchema[] = [
   {
     name: "get_storage_report",
     description:
-      "The active project's DISK WEIGHT in one read — the Storage dialog's own ledger as data: every run directory physically walked under data/relion/<projectId>/ (per-dir bytes + files, the six-category split maps/stacks/tables/logs/plots/other), the heaviest jobs and heaviest files by bytes, the totals. THE tool for '这个项目占了多少磁盘 / what is eating my disk / which job is the heaviest / 磁盘还剩多少 / what can be cleaned up'. Physical truth, not DB belief: a directory whose job row is gone still counts (an orphan, said so) — the disk fills regardless of what the database thinks. Read-only LOCATOR: it names the whales and the categories, it never deletes or cleans anything — the Storage dialog's Clean doors stay the only writers. Zero knobs: the walk is the dialog's walk, not a filtered one.",
+      "The active project's DISK WEIGHT in one read — the Storage dialog's own ledger as data: every run directory physically walked under data/relion/<projectId>/ (per-dir bytes + files, the six-category split maps/stacks/tables/logs/plots/other), the heaviest jobs and heaviest files by bytes, the totals. THE tool for '这个项目占了多少磁盘 / what is eating my disk / which job is the heaviest / 磁盘还剩多少 / what can be cleaned up'. Physical truth, not DB belief: a directory whose job row is gone still counts (an orphan, said so) — the disk fills regardless of what the database thinks. Read-only LOCATOR: it names the whales and the categories, it never deletes or cleans anything — the Storage dialog's Clean doors and the agent's cleanup_job_files are the only writers, both drinking the same planner. Zero knobs: the walk is the dialog's walk, not a filtered one.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "get_cleanup_plan",
     description:
-      "One job's CLEANUP MENU in one read — the per-job cleanup dialog's own plan as data: what the run's directory holds that the planner classifies as deletable, sorted into its three tiers (safe: iteration & scratch files — redundant chainable copies, beaten iterations, .cf-* shards and .tmp scratch; diagnostics: CTF & plot byproducts; bulk: intermediate image data, only for motioncorr/extract/polish), each tier with its file count, its raw bytes and the planner's stated consequence, plus the keep-set's own account — outputs, input-data doors (symlinks), resume checkpoints — what survives and why. THE tool for '这个任务能清什么 / what can I clean in this job / how much disk would each tier free / is it safe to clean X'. get_storage_report is the project's map (which run directory weighs most); this is one job's menu (what inside it is scratch). Read-only PLANNER PREVIEW: it deletes nothing — the shovel is the cleanup dialog's guarded write (cross-site door, liveness 409, in-flight lock), and a running or queued job answers with that reason verbatim (a live run's files are being written). The plan is the dialog's own plan: same walk, same classifier, same keep-set — the dialog drinks the same cup. One knob: the job id.",
+      "One job's CLEANUP MENU in one read — the per-job cleanup dialog's own plan as data: what the run's directory holds that the planner classifies as deletable, sorted into its three tiers (safe: iteration & scratch files — redundant chainable copies, beaten iterations, .cf-* shards and .tmp scratch; diagnostics: CTF & plot byproducts; bulk: intermediate image data, only for motioncorr/extract/polish), each tier with its file count, its raw bytes and the planner's stated consequence, plus the keep-set's own account — outputs, input-data doors (symlinks), resume checkpoints — what survives and why. THE tool for '这个任务能清什么 / what can I clean in this job / how much disk would each tier free / is it safe to clean X'. get_storage_report is the project's map (which run directory weighs most); this is one job's menu (what inside it is scratch). Read-only PLANNER PREVIEW: it deletes nothing — the shovel is cleanup_job_files (the agent's verb) and the cleanup dialog's Clean door (the pointer's), one guarded write behind two doors (cross-site 403, liveness 409, in-flight lock), and a running or queued job answers with that reason verbatim (a live run's files are being written). The plan is the dialog's own plan: same walk, same classifier, same keep-set — the dialog drinks the same cup. One knob: the job id.",
     parameters: {
       type: "object",
       properties: {
         job_id: { type: "string", description: "The job's id (get_workflow_state lists ids)." },
       },
       required: ["job_id"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "cleanup_job_files",
+    description:
+      "The SHOVEL — one job's intermediate-file cleanup, executed: the write face of get_cleanup_plan's menu. Deletes only what the same planner classifies into the tiers you pass (safe: iteration & scratch files — redundant chainable copies, beaten iterations, .cf-* shards and .tmp scratch; diagnostics: CTF & plot byproducts; bulk: intermediate image data, only for motioncorr/extract/polish) and re-walks the directory LIVE first, so a stale preview can never mandate a deletion (TOCTOU-safe by construction — the request carries scopes and tiers, NEVER a file list; there is no knob for paths and there never will be). THE tool for '帮我清掉这个作业的中间文件 / clean this job's intermediates / free the scratch disk'. The keep-set is the contract and is never touched — outputs, input-data doors (symlinks), resume checkpoints — so run get_cleanup_plan FIRST and read its keep-set before choosing tiers. A running or queued job is refused with its reason (a live run's files are being written); the receipt speaks per side (files deleted, bytes freed, the cluster manifest rewritten when the remote side cleaned) and every per-file failure rides the annex verbatim. Knobs: the job id, which sides (local and/or cluster), which tiers.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: { type: "string", description: "The job's id (get_workflow_state lists ids)." },
+        local: { type: "boolean", description: "Clean the local run directory." },
+        remote: { type: "boolean", description: "Clean the cluster-side workdir (only meaningful for a job that ran remotely, with a live connection)." },
+        tiers: {
+          type: "array",
+          items: { type: "string", enum: ["safe", "diagnostics", "bulk"] },
+          description: "Which tiers to delete: safe (scratch & redundant intermediates), diagnostics (CTF & plots), bulk (large image data — motioncorr/extract/polish only).",
+        },
+      },
+      required: ["job_id", "local", "remote", "tiers"],
       additionalProperties: false,
     },
   },
@@ -896,6 +917,8 @@ export async function executeAiTool(
         return await getStorageReport(ctx);
       case "get_cleanup_plan":
         return await getCleanupPlan(ctx, args);
+      case "cleanup_job_files":
+        return await cleanupJobFiles(ctx, args);
       case "get_curve_verdicts":
         return await getCurveVerdicts(ctx);
       case "select_classes":
@@ -3936,6 +3959,112 @@ async function getCleanupPlan(
     return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
   }
   return presentCleanupPlan(plan);
+}
+
+/** t518 — the shovel's receipt as a PURE presenter so the bench can
+ *  fixture an execution without deleting a single byte. The well is the
+ *  route's own: runCleanupExclusive is the EXACT execution the cleanup
+ *  route's POST serves (lifted verbatim into lib/relion/cleanup-execute
+ *  — the live re-walk, the per-file rm, the remote twin, the manifest
+ *  rewrite, the per-job lock), so the receipt is the dialog's own
+ *  result. Per side: files deleted and bytes freed (fmtBytes is the
+ *  only human voice — the annex keeps raw digits, by reference), a
+ *  zero pass says so instead of pretending, and every per-file failure
+ *  rides verbatim. Refusals (running / queued / never ran) speak the
+ *  well's own error, which IS the plan face's reason — one voice for
+ *  both faces. */
+export function presentCleanupExecution(jobName: string, result: CleanupExecuteResult): AiToolResult {
+  if (!result.ok) {
+    return { ok: false, summary: `${jobName}: ${result.error}` };
+  }
+  const sides: string[] = [];
+  if (result.local) {
+    sides.push(
+      result.local.deleted === 0
+        ? `local — nothing matched the selected tiers (0 files deleted, 0 B freed)`
+        : `local — ${result.local.deleted} file${result.local.deleted === 1 ? "" : "s"} deleted, ${fmtBytes(result.local.freedBytes)} freed`
+    );
+  }
+  if (result.remote) {
+    sides.push(
+      result.remote.deleted === 0
+        ? `cluster — nothing matched the selected tiers (0 files deleted, 0 B freed)${
+            result.remote.manifestRewritten ? " — manifest rewritten" : ""
+          }`
+        : `cluster — ${result.remote.deleted} file${
+            result.remote.deleted === 1 ? "" : "s"
+          } deleted, ${fmtBytes(result.remote.freedBytes)} freed${
+            result.remote.manifestRewritten ? " — cluster manifest rewritten" : ""
+          }`
+    );
+  }
+  const errors = [...(result.local?.errors ?? []), ...(result.remote?.errors ?? [])];
+  const errorLine =
+    errors.length > 0
+      ? ` ${errors.length} per-file failure${errors.length === 1 ? "" : "s"} ${
+          errors.length === 1 ? "rides" : "ride"
+        } the annex verbatim.`
+      : "";
+  return {
+    ok: true,
+    summary: `Cleaned ${jobName}: ${sides.join(" · ")}.${errorLine} The shovel re-walked LIVE and deleted only the planner's tiers — the keep-set (outputs, input doors, resume checkpoints) was never touched.`,
+    detail: {
+      ...(result.local ? { local: result.local } : {}),
+      ...(result.remote ? { remote: result.remote } : {}),
+    },
+  };
+}
+
+/** t518 — the executor: the SAME pre-scope the plan face rides (the
+ *  session's project, soft links resolved), then the shared shovel —
+ *  the dialog's POST and this verb are two doors into one per-job-
+ *  serial execution, and the lock lives in the well, not in either
+ *  door. The knobs are scopes and tiers ONLY: a file list has no knob
+ *  to arrive through, which is what makes the TOCTOU law structural. */
+async function cleanupJobFiles(
+  ctx: AgentCtx,
+  args: Record<string, unknown>
+): Promise<AiToolResult> {
+  const jobId = String(args.job_id ?? "");
+  if (!jobId) {
+    return {
+      ok: false,
+      summary:
+        "cleanup_job_files needs a job id — pass the job's id (get_workflow_state lists ids)",
+    };
+  }
+  const local = args.local === true;
+  const remote = args.remote === true;
+  if (!local && !remote) {
+    return {
+      ok: false,
+      summary:
+        "Nothing selected — choose at least one side (local or cluster): pass local: true and/or remote: true",
+    };
+  }
+  const VALID_TIERS = new Set(["safe", "diagnostics", "bulk"]);
+  const tiers = (Array.isArray(args.tiers) ? args.tiers : []).map(String).filter((t) => VALID_TIERS.has(t));
+  if (tiers.length === 0) {
+    return {
+      ok: false,
+      summary:
+        "No tiers selected — pick what to clean: safe, diagnostics and/or bulk (get_cleanup_plan shows what each would take)",
+    };
+  }
+  const job = await findJobInProject(jobId, ctx.projectId);
+  if (!job) {
+    return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
+  }
+  const effective = job.linkedJobId ? await findEffectiveJob(job.id) : job;
+  if (!effective) {
+    return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
+  }
+  const result = await runCleanupExclusive(
+    effective.id,
+    { local, remote },
+    tiers as Array<"safe" | "diagnostics" | "bulk">
+  );
+  return presentCleanupExecution(effective.name, result);
 }
 
 /* ---- judge_2d_classes (the VLM tool) ---------------------------------- */
