@@ -3407,7 +3407,6 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     }
     // clipBox/applyClipBoxIntent are stable component closures; the guard
     // refs make the effect idempotent regardless of render churn
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, initialClipBox]);
 
   /* ---------------- sub-volume export (t254) ---------------- */

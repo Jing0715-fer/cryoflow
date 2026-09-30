@@ -1,4 +1,3 @@
-/* eslint-disable */
 /**
  * AUTO-GENERATED from RELION 5.0.0 sources (tag 5.0.0):
  *   - src/pipeline_jobs.cpp  (option definitions + getCommands flag mapping)

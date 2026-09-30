@@ -125,7 +125,6 @@ export function useAnchorParent(
     };
     // candidateKey is the stable identity of the candidate list; the box
     // speaks through its joined voxel coordinates
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [importJobId, candidateKey, box?.start.join(","), box?.size.join(",")]);
 
   const job = resolved ? jobs.find((j) => j.id === resolved.jobId) : undefined;

@@ -418,8 +418,7 @@ function esc(s) {
 }
 
 const lines = [];
-lines.push(`/* eslint-disable */
-/**
+lines.push(`/**
  * AUTO-GENERATED from RELION 5.0.0 sources (tag 5.0.0):
  *   - src/pipeline_jobs.cpp  (option definitions + getCommands flag mapping)
  *   - src/gui_jobwindow.cpp  (tab layout: names, order, expert toggles)

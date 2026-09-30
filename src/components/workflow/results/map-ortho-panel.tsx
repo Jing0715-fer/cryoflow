@@ -281,7 +281,6 @@ function OrthoTile({
   // and only ONE upward report should ride each committed value.
   useEffect(() => {
     onPositionChange?.(pos);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pos]);
 
   // t278 — voxel-true stepping: when the grid is known, one notch (slider

@@ -138,7 +138,6 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
       alive = false;
     };
     // candidateKey is the stable identity of the candidate list
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id, refPath, candidateKey]);
 
   const provider = resolved ? jobs.find((j) => j.id === resolved.providerId) : undefined;

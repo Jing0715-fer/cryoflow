@@ -310,6 +310,7 @@ export function DensityHistogramStrip({
   // SAME instrument for the NEXT image's distribution.
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount: loading rides the effect, not the render body
     setState("loading");
     setData(null);
     fetch(
@@ -401,9 +402,9 @@ export function DensityHistogramStrip({
   const numFocus = useRef(false);
   useEffect(() => {
     if (numFocus.current) return; // under a typing hand — hands off
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror the resolved window into the inputs while no hand owns them
     setNumLo(winNow ? String(winNow.lo) : "");
     setNumHi(winNow ? String(winNow.hi) : "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winNow]);
   const commitNum = () => {
     if (!onPickWindow) return;
