@@ -30,6 +30,7 @@ import {
   turnsSinceLastUser,
 } from "./sessions";
 import { buildSystemPrompt } from "./prompt";
+import { hasAgedToolHistory } from "./stale-history";
 import { AI_TOOLS, executeAiTool } from "./tools";
 import { chatOnce } from "./wire";
 import type { AiEvent, AiMessage } from "./types";
@@ -98,6 +99,11 @@ export async function runAiIteration(input: AgentRunInput): Promise<AgentRunResu
   if (staleNotice) events.push({ type: "notice", message: staleNotice });
 
   // ---- new user message --------------------------------------------------
+  // t502 — the old answer admits its age: tool results in a restored
+  // session are readings of a world that moved on. The reminder rides the
+  // system prompt (rebuilt every request, never stored) — only on a NEW
+  // user turn; a continue's tool chatter is mid-loop and fresh.
+  let staleHistory = false;
   const message = typeof input.message === "string" ? input.message.trim().slice(0, 8000) : "";
   if (!message && !input.cont) {
     return {
@@ -107,6 +113,7 @@ export async function runAiIteration(input: AgentRunInput): Promise<AgentRunResu
     };
   }
   if (message) {
+    staleHistory = hasAgedToolHistory(session.messages, Date.now());
     session.messages.push({ role: "user", content: message, at: Date.now() });
   } else {
     // a continue needs a pending tool round: the last message must be a
@@ -159,6 +166,7 @@ export async function runAiIteration(input: AgentRunInput): Promise<AgentRunResu
     projectMode: active.meta.mode,
     projectRemote: remoteLabel,
     jobCount,
+    staleHistory,
   });
 
   let response;

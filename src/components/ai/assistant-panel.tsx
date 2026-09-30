@@ -112,6 +112,7 @@ import {
 import { cn } from "@/lib/utils";
 import { filterSessions, groupSessionsByDay, matchIndex } from "@/lib/ai/session-groups";
 import { parseActionBlocks, type AssistantAction } from "@/lib/ai/action-blocks";
+import { hasAgedToolHistory } from "@/lib/ai/stale-history";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkflowStore } from "@/lib/store";
 import { JOB_LINK_PROTOCOL, linkifyJobs } from "@/lib/linkify-jobs";
@@ -671,6 +672,9 @@ export function AssistantPanel() {
   const [armedDelete, setArmedDelete] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<"all" | "tools" | "fails">("all");
   const [showJump, setShowJump] = React.useState(false);
+  // t502 — the restored conversation's age face: one-time, ephemeral, not
+  // an event and not persisted (the transcript itself stays plain).
+  const [staleBanner, setStaleBanner] = React.useState(false);
   // ---- t428: the drawer's rename door (one row edits at a time) --------
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameDraft, setRenameDraft] = React.useState("");
@@ -890,9 +894,13 @@ export function AssistantPanel() {
         if (data.session && data.session.messages.length > 0) {
           setSessionId(data.session.id);
           setItems(messagesToItems(data.session.messages));
+          // t502 — aged tool readings in a restored transcript float the
+          // banner; a fresh conversation stays silent.
+          setStaleBanner(hasAgedToolHistory(data.session.messages, Date.now()));
         } else {
           setSessionId(null);
           setItems([]);
+          setStaleBanner(false);
         }
       } catch {
         /* offline start with an empty transcript */
@@ -998,6 +1006,8 @@ export function AssistantPanel() {
       if (!data.session) return;
       setSessionId(data.session.id);
       setItems(messagesToItems(data.session.messages));
+      // t502 — the drawer switch is a restore too: the same age law.
+      setStaleBanner(hasAgedToolHistory(data.session.messages, Date.now()));
       setFilter("all");
       autoScroll.current = true;
       setShowJump(false);
@@ -1112,6 +1122,7 @@ export function AssistantPanel() {
     if (!message || busy) return;
     setInput("");
     setBusy(true);
+    setStaleBanner(false); // t502 — the user spoke: the conversation is live again
     abortRef.current = false;
     setBusyLabel("思考中…");
     setItems((prev) => [...prev, { kind: "user", text: message, key: `u${Date.now()}` }]);
@@ -1196,6 +1207,7 @@ export function AssistantPanel() {
     }
     setItems([]);
     setFilter("all");
+    setStaleBanner(false); // t502 — a new chat has no history to be old
     if (historyOpen) void loadSessions();
     toast.success("已开始新对话", { description: "画布上的任务不受影响" });
   }
@@ -1758,6 +1770,22 @@ export function AssistantPanel() {
             </Button>
           )}
         </div>
+
+        {/* ---- t502: the restored conversation's age banner ----
+            one-time, ephemeral — cleared by a send or a new chat;
+            never an event, never persisted, the transcript stays plain */}
+        {staleBanner && (
+          <div
+            data-stale-banner
+            role="status"
+            className="mx-3 mb-1 flex items-start gap-2 rounded-lg border border-amber-600/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-700 dark:text-amber-400"
+          >
+            <History className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              这是恢复的旧对话 — 里面的测量读数可能已过期；直接提问，工具会重新测量。
+            </span>
+          </div>
+        )}
 
         {/* ---- composer ---- */}
         {/* safe-area: on notched phones the composer rides the home

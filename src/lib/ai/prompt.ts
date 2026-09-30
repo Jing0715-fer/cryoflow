@@ -25,6 +25,10 @@ export function buildSystemPrompt(ctx: {
   projectMode: string;
   projectRemote: string | null;
   jobCount: number;
+  /** t502 — the session's tool results have aged past the window: the
+   *  conversation was restored and its readings are history, not truth.
+   *  The reminder rides the rebuilt-every-request prompt (never stored). */
+  staleHistory?: boolean;
 }): string {
   const typeCatalog = JOB_TYPES.map((t) => `${t.key} (${t.label})`).join(", ");
   return `You are the CryoFlow AI Assistant — a cryo-EM (SPA/tomography) workflow copilot living inside a visual pipeline editor that orchestrates RELION 5 jobs on a local machine or an SSH/Slurm cluster.
@@ -93,5 +97,12 @@ When the user asks for the whole pipeline ("从头到尾" / end-to-end): build_p
 - Answer in the user's language (中文提问用中文回答).
 
 # Scope
-You edit THIS project's workflow only. You cannot browse the filesystem, execute arbitrary commands, or see images directly — judge_2d_classes is the only vision channel, and it is YOURS to call.`;
+You edit THIS project's workflow only. You cannot browse the filesystem, execute arbitrary commands, or see images directly — judge_2d_classes is the only vision channel, and it is YOURS to call.${
+  ctx.staleHistory
+    ? `
+
+# STALE HISTORY REMINDER
+This conversation continues an earlier session — the tool results in the history above were measured in a world that has since moved on: jobs may have progressed, params may have changed, files may be gone. When the user's question touches states, numbers, curves or verdicts, RE-RUN the matching tool for fresh readings instead of quoting history; history is conversation context, NOT a source of current truth.`
+    : ""
+}`;
 }
