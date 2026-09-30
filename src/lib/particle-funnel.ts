@@ -636,3 +636,72 @@ export function funnelLedgerText(
 
   return lines.join("\n");
 }
+
+/* ------------------------------------------------------------------ */
+/* The grid — the ledger's machine face (t509)                          */
+/* ------------------------------------------------------------------ */
+
+/** t509 — the funnel CSV's own flag: the chain's host name rides the
+ *  filename as a slug (the ledger text names the host in its first
+ *  line; the grid names it in the file), same stamp grammar as the
+ *  family's session-* siblings — the grid travels under its own name,
+ *  never masquerading as another family's export. */
+export function funnelLedgerCsvFilename(hostName: string): string {
+  const safe = hostName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `particle-funnel-${safe || "chain"}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+}
+
+/** t509 — the ledger's machine grid: the SAME rows the bars drink and
+ *  the copy button speaks, one row per mainline station. t463 taught
+ *  the ledger to travel as prose; this teaches it the grid — a script
+ *  can now chain-analyze drop rates without re-walking the canvas.
+ *
+ *  The columns speak the walk's own truths, never re-derivations:
+ *  - `stage` is the walk's order (1..N) — a chain's meaning IS its
+ *    sequence, and a spreadsheet sort must not be able to lose it.
+ *  - `count`/`unit`/`classes`/`per_mic` speak raw machine digits (no
+ *    thousands separators — the prose twin's toLocaleString is the
+ *    human voice, not the grid's) and go BLANK when the receipt said
+ *    nothing countable (an amber row) — blank is CSV grammar for
+ *    "never counted", never a guess, never a zero.
+ *  - `edge_verb` is the walk's own classification of the edge INTO
+ *    this station (carry/shed/gain/transform); the first station has
+ *    no edge and says blank. The prose delta line (−N · x% lost) is
+ *    the clipboard's voice — the verb is the structured truth, and
+ *    the reader computes the magnitude from the counts themselves (a
+ *    transform warns them NOT to divide across units).
+ *  - `note` rides the row's own subnote (a declared expand factor, a
+ *    rebalance anisotropy, an amber row's status) — quoted per RFC
+ *    4180 when it must be.
+ *
+ *  An empty ledger returns null: the caller refuses honestly (a
+ *  silent empty file would be a lying door). */
+export function funnelLedgerCsv(
+  ledger: Pick<FunnelLedger, "rows">,
+): string | null {
+  if (ledger.rows.length === 0) return null;
+  const quote = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const line = (parts: string[]) => parts.map(quote).join(",");
+  const body = ledger.rows.map((row, i) =>
+    line([
+      String(i + 1),
+      row.jobId,
+      row.name,
+      row.type,
+      row.kind,
+      row.unit ?? "",
+      row.count != null ? String(row.count) : "",
+      row.classes != null ? String(row.classes) : "",
+      row.perMic != null ? String(row.perMic) : "",
+      row.delta?.kind ?? "",
+      row.subnote ?? "",
+    ]),
+  );
+  return [
+    line(["stage", "job_id", "station", "job_type", "kind", "unit", "count", "classes", "per_mic", "edge_verb", "note"]),
+    ...body,
+  ].join("\n");
+}

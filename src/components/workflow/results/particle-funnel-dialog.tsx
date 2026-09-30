@@ -33,7 +33,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Filter } from "lucide-react";
+import { Check, Copy, Download, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,8 +43,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { JobDTO } from "@/lib/types";
+import { downloadText } from "@/lib/download";
+import { toast } from "@/hooks/use-toast";
 import {
   FUNNEL_ENTRY_TYPES,
+  funnelLedgerCsv,
+  funnelLedgerCsvFilename,
   funnelLedgerText,
   type FunnelLedger,
   type FunnelRow,
@@ -153,6 +157,20 @@ function useLedgerCopy(payload: FunnelPayload, jobName: string) {
   return { copied, copyLedger };
 }
 
+/* t509 — the ledger's grid leaves through its own door: the SAME rows
+ * the bars drink and the copy speaks, through the family's builder and
+ * its own filename flag. An empty ledger refuses honestly (no silent
+ * empty file); the toast names the chain and the station count. */
+const exportLedgerCsv = (payload: FunnelPayload, jobName: string) => {
+  const csv = funnelLedgerCsv(payload);
+  if (!csv) return; // no stations — a silent empty file would be a lying door
+  downloadText(funnelLedgerCsvFilename(jobName), csv, "text/csv;charset=utf-8");
+  toast({
+    title: "Funnel CSV exported",
+    description: `${payload.rows.length} stations · ${jobName}`,
+  });
+};
+
 /* t462 — exported for the canvas door: the plain-sight funnel opens the
  * SAME face the inspector door opens (one chain question, one dialect). */
 export function ParticleFunnelDialog({
@@ -233,8 +251,21 @@ export function ParticleFunnelDialog({
           live on its card and in the results below.
         </div>
 
-        {/* t463 — the ledger travels: the whole chain as clipboard text */}
-        <div className="flex justify-end border-t pt-3">
+        {/* t463 + t509 — the ledger travels twice: clipboard prose, and
+            now the machine grid (one row per station, edge verbs in cells) */}
+        <div className="flex justify-end gap-2 border-t pt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1.5 rounded-md text-xs"
+            onClick={() => exportLedgerCsv(payload, job.name)}
+            aria-label="Export the funnel ledger as CSV — one row per station, counts and edge verbs"
+            title="Download the ledger as a spreadsheet grid — raw counts per station, the walk's own edge verbs, blanks where the receipt said nothing countable."
+            data-testid="funnel-export-csv"
+          >
+            <Download className="size-3.5" aria-hidden="true" />
+            CSV
+          </Button>
           <Button
             variant="outline"
             size="sm"
