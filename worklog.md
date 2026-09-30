@@ -6200,3 +6200,4 @@ Stage Summary:
 - **「对照实验要分离变量」**：受控 300ms patch 证「开火面」（19 发 1.5s 内全注册），纯客户端对照实验证「延迟面」（7.0s → 1.6s，4.5x），行为面证「序与契约」——三个证据各管一件事，合起来才是完整定谳
 - **「并行有边界，边界有名字」**：浏览器每主机 6 连接、dev server 单进程 CPU 段串行化——fan-out 的收益被它们封顶（4.5x 而非 19x）；生产里两者更薄，且它们本来就是天然的并发闸门（㉞ bounded pool 的前置答案）
 - 产出：walkVolumeOwners 并行化（序保/abort 原样/skip 原样/cap 原样）+ t497 bench 17/0 + 62 套回归全绿 + 三证据链活体（开火面/延迟面 4.5x/行为面）+ 磁盘清理 +485M + 截图 ×1
+- [终验补记] push 完成（773143e..d149beb → origin/main 三方对齐）。记录一笔：本窗 worklog 条目被 `git add -A` 扫进了 feature commit d149beb 同车（惯例是 worklog 单独成 commit）——内容完整上树，仅排版与惯例有偏差，特此如实记课：收官时先 commit feature 再补 worklog，别让 -A 代劳。push 后 landing 200 复核通过（本窗 server 收割一次已复火，世界健康）。Task 497 收官，下窗从 Task 498 起编。
