@@ -403,10 +403,12 @@ ok(
   dialogSrc.includes("curveVerdictOf") && dialogSrc.includes("CurveVerdictRow"),
   "dialog imports the paper's curve voice (curveVerdictOf + row type)"
 );
+const wellSrc = readFileSync(path.join(REPO, "src/lib/curve-walk.ts"), "utf8");
 ok(
   dialogSrc.includes("measureCurveVerdicts") &&
-    /CURVE_PROBES_BY_TYPE[^;]*postprocess[\s\S]*refine3d\|class3d\|class2d\|initialmodel[\s\S]*ctffind[\s\S]*motioncorr[\s\S]*topaz/.test(dialogSrc),
-  "probe map covers postprocess / 3D runs / ctffind / motioncorr / topaz"
+    /CURVE_PROBES_BY_TYPE[^;]*postprocess[\s\S]*refine3d\|class3d\|class2d\|initialmodel[\s\S]*ctffind[\s\S]*motioncorr[\s\S]*topaz/.test(wellSrc) &&
+    dialogSrc.includes("probesForType"),
+  "probe map covers postprocess / 3D runs / ctffind / motioncorr / topaz (t503: the map lives in the well, the dialog walks it)"
 );
 ok(
   dialogSrc.includes('CURVE_ROUTE_SEGMENT[kind]') && dialogSrc.includes('topaz: "topaz-training"'),

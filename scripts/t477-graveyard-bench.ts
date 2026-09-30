@@ -80,12 +80,12 @@ const GRAVE_DIR = path.join(DATA_DIR, "deleted-jobs");
 /* T1 — the catalog                                                     */
 /* ------------------------------------------------------------------ */
 
-console.log("T1. 23 tools; the graveyard read and the restore verb");
+console.log("T1. 24 tools; the graveyard read and the restore verb");
 
 {
   must(
-    AI_TOOLS.length === 23 && new Set(AI_TOOLS.map((t) => t.name)).size === 23,
-    `T1a: 23 unique tools (got ${AI_TOOLS.length})`,
+    AI_TOOLS.length === 24 && new Set(AI_TOOLS.map((t) => t.name)).size === 24,
+    `T1a: 24 unique tools (got ${AI_TOOLS.length})`,
   );
   const list = AI_TOOLS.find((t) => t.name === "list_deleted");
   const restore = AI_TOOLS.find((t) => t.name === "restore_deleted");

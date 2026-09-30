@@ -62,7 +62,7 @@ console.log("T1. the catalog wears the ledger read");
 const funnelTool = AI_TOOLS.find((t) => t.name === "get_funnel_chain");
 must(funnelTool != null, "T1a: get_funnel_chain is in the catalog (the 15th tool)");
 must(
-  AI_TOOLS.length === 23 && new Set(AI_TOOLS.map((t) => t.name)).size === 23,
+  AI_TOOLS.length === 24 && new Set(AI_TOOLS.map((t) => t.name)).size === 24,
   `T1b: 23 unique tools (got ${AI_TOOLS.length})`,
 );
 const funnelParams = (funnelTool?.parameters ?? {}) as {

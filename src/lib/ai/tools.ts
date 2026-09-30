@@ -127,6 +127,8 @@ import { fmtAngstrom, fmtMicron, reportedPassport } from "@/lib/chart-rows";
 // OWN well — imports all, no second derivation anywhere.
 import {
   contestedCrown,
+  curveVerdictOf,
+  CURVE_KIND_LABELS,
   deltaVsWinner,
   localAgreement,
   outlierRowIdx,
@@ -137,6 +139,7 @@ import {
   weakestCellOf,
 } from "@/lib/qc-report";
 import { MAP_BRIEF_CAP, MAIN_MAP_RE, VOLUME_CAPABLE_RE } from "@/lib/map-walk";
+import { probesForType } from "@/lib/curve-walk"; // t503 — the verdicts walk drinks the same probe map
 import { walkWorkdir } from "@/lib/relion/outputs-list";
 import { isMrcPath, poolProfile, readMrcAxisProfiles, readMrcHeader } from "@/lib/mrc";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
@@ -513,6 +516,12 @@ export const AI_TOOLS: ToolSchema[] = [
       "The session's MAP LANDSCAPE in one read — the Session QC report's Map QC inventory, read by the agent: every completed job whose workdir holds a true 3D volume (newest first, the same walk the paper obeys), each owner's main map, that map's density-landscape PEAK (where the mass concentrates along depth, as % of depth), the Δ against the winner (the newest owner — the row the deep report rides), the SHAPE AGREEMENT r with the winner (Pearson on the shared 0–100% fraction scale, both resampled to the finer grid; the winner's own row lands at 1.00 through the same arithmetic, no special case) and the WEAKEST quarter band (where the shape parts ways, Q1–Q4 with the band's own r). Candidates with no readable volume, no on-disk workdir or a refused profile are honestly skipped, never guessed; the roster cap is the paper's own (24). THE tool for 'which job produced the best map / 哪张 map 最好 / which classification won / is the session's map geography sane / 全景如何' — a landscape question is a WALK over the whole roster: get_job_curves reads ONE job's curves, compare_jobs reads two runs of the same stage, this reads the session's geography.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
+  {
+    name: "get_curve_verdicts",
+    description:
+      "The session's CURVE VERDICTS in one read — the Session QC report's Curve verdicts table, read by the agent: walk the completed roster (newest first, the paper's own order and cap) and for every completed job probe the chart kinds its type predicts (a PostProcess speaks FSC + Guinier, a 3D run speaks FSC + angular distribution, CtfFind speaks CTF fit, MotionCorr speaks drift, a picker job speaks training epochs), then word each answer through the paper's OWN verdict builder — so every row is the table's wording byte for byte, never a paraphrase. Probes whose workdir holds no such curve are honestly skipped (counted, never guessed); a probe whose data refused marks the walk wounded and the walk goes on (partial truth over silence). Zero knobs: the walk is the paper's walk, not a filtered one. THE tool for '这个会话的曲线判读如何 / what did the session's curves say / summarize the curve verdicts / 哪些曲线还没量' — a session-wide verdict question is a WALK over the whole roster: get_job_curves reads ONE job's curves with full sampled data, this reads every curve's ONE-LINE verdict at once.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -797,6 +806,8 @@ export async function executeAiTool(
         return await getJobCurves(ctx, String(args.job_id ?? ""), Array.isArray(args.kinds) ? args.kinds.map(String) : undefined);
       case "get_map_landscape":
         return await getMapLandscape(ctx);
+      case "get_curve_verdicts":
+        return await getCurveVerdicts(ctx);
       case "select_classes":
         return await selectClasses(ctx, args);
       default:
@@ -2747,6 +2758,140 @@ async function getMapLandscape(ctx: AgentCtx): Promise<AiToolResult> {
         shapeR: r.r,
         weakestBand: r.weakest,
       })),
+    },
+  };
+}
+
+/* ---- get_curve_verdicts --------------------------------------------- */
+
+/** One kind's data through the chart-data well (t486) — the same loaders
+ *  the routes serve and get_job_curves reads. curveVerdictOf's switch
+ *  consumes exactly this union. */
+async function loadCurveData(
+  kind: CurveKind,
+  jobId: string,
+): Promise<Parameters<typeof curveVerdictOf>[1]> {
+  switch (kind) {
+    case "fsc":
+      return loadFsc(jobId);
+    case "guinier":
+      return loadGuinier(jobId);
+    case "angdist":
+      return loadAngDist(jobId);
+    case "ctf":
+      return loadCtf(jobId);
+    case "motion":
+      return loadMotion(jobId);
+    case "topaz":
+      return loadTopazTraining(jobId);
+  }
+}
+
+/** t503 — the agent reads the verdicts. The Session QC report's Curve
+ *  verdicts table has been a paper face (t494), a door family (t494), a
+ *  CSV grid (t498) and a compass pulse (t499); this is its AGENT face —
+ *  the same sister-task get_map_landscape (t501) did for the Map QC
+ *  inventory. One walk over the completed roster in the paper's OWN
+ *  order (newest first — the curve walk never re-queues by volume
+ *  capability; that is the MAP walk's law, not this one's) with the
+ *  paper's OWN cap (lib/map-walk's MAP_BRIEF_CAP) and the paper's OWN
+ *  probe map (lib/curve-walk — one birthplace, two walkers). Each
+ *  probe's data comes from the chart-data well (t486: the routes' own
+ *  loaders — no HTTP self-fetch, no second derivation) and is worded
+ *  through curveVerdictOf BEFORE it travels to the model, so a spoken
+ *  verdict and the paper's row are byte-for-byte the same sentence by
+ *  construction. An empty body (the workdir holds no such curve) is an
+ *  honest skip — counted; a refused read (job gone mid-walk, unreadable
+ *  source) marks the walk wounded and the walk goes on — partial truth
+ *  over silence, the t211 doctrine the dialog itself obeys. The curve
+ *  column speaks the paper's own word (CURVE_KIND_LABELS — never a raw
+ *  token), the same dialect the CSV grid (t498) already speaks. No
+ *  fan-out here on purpose: the client walks learned to run (t496/t497)
+ *  because wire round-trips bill per-RTT; the server walk drinks from
+ *  local disk through one loader call — the slowest-probe bill doesn't
+ *  apply, and a sequential loop keeps the walk order trivially the
+ *  paper's order. */
+async function getCurveVerdicts(ctx: AgentCtx): Promise<AiToolResult> {
+  const active = await getActiveProject();
+  if (!active) return { ok: false, summary: "No active project" };
+  const jobs = await db.job.findMany({
+    where: { projectId: ctx.projectId },
+  });
+  const completed = jobs.filter((j) => j.status === "completed");
+  // The paper's OWN order (session-report-dialog's byRecency law):
+  // newest first as a real three-way comparator — updatedAt desc, the
+  // id tiebreak keeps same-instant stamps (a gallery restore writes
+  // them all at once) deterministic.
+  const byRecency = (a: (typeof completed)[number], b: (typeof completed)[number]) =>
+    a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : a.id < b.id ? -1 : 1;
+  const candidates = [...completed].sort(byRecency).slice(0, MAP_BRIEF_CAP);
+
+  const rows: { jobId: string; job: string; curve: string; verdict: string }[] = [];
+  let skippedEmpty = 0;
+  let refused = 0;
+
+  for (const job of candidates) {
+    for (const kind of probesForType(job.type)) {
+      try {
+        const d = await loadCurveData(kind, job.id);
+        const verdict = curveVerdictOf(kind, d);
+        if (!verdict) {
+          skippedEmpty += 1; // this workdir holds no such curve — the walk goes on
+          continue;
+        }
+        rows.push({ jobId: job.id, job: job.name, curve: CURVE_KIND_LABELS[kind], verdict });
+      } catch {
+        refused += 1; // this probe's data refused — the walk goes on, wounded
+      }
+    }
+  }
+
+  const wounded = refused > 0;
+  const capped = completed.length > candidates.length;
+
+  if (rows.length === 0) {
+    return {
+      ok: true,
+      summary:
+        completed.length === 0
+          ? "No completed jobs yet — no curve has spoken."
+          : `Walked ${candidates.length} completed candidates (newest first): no curve spoke (${skippedEmpty} probes answered empty, ${refused} refused${wounded ? " — the walk went on wounded" : ""}).`,
+      detail: {
+        roster: candidates.length,
+        verdicts: [],
+        skippedEmpty,
+        refused,
+        wounded,
+      },
+    };
+  }
+
+  const lines: string[] = [];
+  lines.push(
+    `${rows.length} curve verdict${rows.length === 1 ? "" : "s"} (the paper's walk: completed roster, newest first${capped ? `, roster capped at ${MAP_BRIEF_CAP}` : ""}) — each row is the Curve verdicts table's own wording, byte for byte.`,
+  );
+  for (const r of rows) {
+    lines.push(`${r.job} — ${r.curve}: ${r.verdict}`);
+  }
+  const parts: string[] = [];
+  if (skippedEmpty > 0) parts.push(`${skippedEmpty} probes answered empty (the workdir holds no such curve)`);
+  if (refused > 0) parts.push(`${refused} probes refused (the walk went on wounded)`);
+  if (parts.length > 0) lines.push(`Skipped honestly: ${parts.join("; ")}.`);
+
+  return {
+    ok: true,
+    summary: lines.join(" "),
+    detail: {
+      roster: candidates.length,
+      verdicts: rows.map((r) => ({
+        jobId: r.jobId,
+        job: r.job,
+        curve: r.curve,
+        verdict: r.verdict,
+      })),
+      skippedEmpty,
+      refused,
+      wounded,
     },
   };
 }

@@ -48,6 +48,7 @@ import { Copy, Download, FileDown, FileSpreadsheet, Globe, Printer } from "lucid
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { copyOrFallback, downloadText } from "@/lib/download";
+import { probesForType } from "@/lib/curve-walk"; // t503 — one probe map, two walkers
 import { buildSessionReportHtml, reportTocOf, type ReportTocItem } from "@/lib/report-html";
 import type { JobDTO } from "@/lib/types";
 import {
@@ -115,23 +116,6 @@ interface ProfileResponse {
   bins?: number[];
   error?: string;
 }
-
-/** t490 — which curve kinds can a job type plausibly carry? The probe
- *  budget's own map: a PostProcess writes the FSC + Guinier pair, a 3D
- *  run (refine/class3d/class2d/initialmodel) may carry an FSC (model
- *  star — t486 proved a 2D class can) and the angular distribution of
- *  its data star, CtfFind speaks CTF fits, MotionCorr speaks drift,
- *  a picker-training job speaks topaz epochs. The route is the honest
- *  second gate: a probe whose workdir holds no such curve answers an
- *  empty body and is skipped — the map only decides where to ASK,
- *  never what to SAY. Types outside the map never spend a probe. */
-const CURVE_PROBES_BY_TYPE: [RegExp, CurveKind[]][] = [
-  [/postprocess/, ["fsc", "guinier"]],
-  [/refine3d|class3d|class2d|initialmodel|multibody/, ["fsc", "angdist"]],
-  [/ctffind/, ["ctf"]],
-  [/motioncorr/, ["motion"]],
-  [/topaz/, ["topaz"]],
-];
 
 /** The kind's name on the wire — the tool's "topaz" rides the
  *  topaz-training route (the one kind whose route segment differs). */
@@ -736,7 +720,7 @@ async function measureCurveVerdicts(
 ): Promise<{ rows: CurveVerdictRow[]; wounded: boolean }> {
   const probes: { job: { id: string; name: string; type: string }; kind: CurveKind }[] = [];
   for (const job of candidates.slice(0, MAP_BRIEF_CAP)) {
-    const kinds = CURVE_PROBES_BY_TYPE.find(([re]) => re.test(job.type))?.[1] ?? [];
+    const kinds = probesForType(job.type);
     for (const kind of kinds) probes.push({ job, kind });
   }
   if (probes.length === 0) return { rows: [], wounded: false };
