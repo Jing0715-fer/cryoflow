@@ -6122,3 +6122,4 @@ Stage Summary:
 - **「fixture 必须说 loader 的语言」**：t490 证人 bench 的合成 label 填了裸字段名，护照一出它就现形——合成数据不是二等公民，它的字符串也该是真实系统能说出的字符串
 - **「短形说话、长形旅行」**：verdict 行与 spoken line 用压缩护照（句子已含 RELION），tooltip 与 identity card 保留完整 label——两种粒度两种用途，断言钉死各不越界
 - 产出：reportedPassport（chart-rows 共享面）+ qc-report fsc/guinier 两行护照 + ai/tools 两句 spoken 护照 + t493 bench 21/0 + t490 证人 fixture 修正与断言演进 52/0 + 58 套回归全绿 + Session QC 报告八行护照活体
+- [终验补记] push 完成（f822c8b..a3a2413 → origin/main 三方对齐）；landing 200 复核通过。Task 493 收官，下窗从 Task 494 起编。
