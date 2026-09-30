@@ -6498,3 +6498,21 @@ Stage Summary:
 - **「polite read」**：工具饮 header 轮询的同一杯缓存，从不 force——WSL/subprocess 风暴是 Re-detect 按钮的门；checkedAt/servedFrom 骑窗首自报答案几岁，扮成新鲜的快照是 omission 谎（t511 帽律的鲜度版）
 - **「缺席指引也逐字节」**：not-found 的 hint 是探针从自己搜过的 facts 合成的——annex verbatim 携带，模型答复的每个 fact 可溯源；否定答案是成功的探针，零发明版本零发明路径
 - 产出：get_environment_report（名册第 28 器）+ presentEnvironmentReport 纯 presenter + 15 家 27→28 涟漪 + t512 bench 38/0（首跑全绿）+ 77 套回归全绿 + 活体逐字节对账（hint/checkedAt 同戳）+ 证物归档
+## Task 513 (2026-09-30, 用户直报窗 —— The Selection That Actually Executes)
+
+- [开局] 用户两条直报（IM 通道，非 cron）：①「识别好分类的结果还是不准确，能否在 prompt 中加入更详细关于好分类的判断标准」②「后面选择了选哪些类后，实际并没有在 job 中完成执行选择」。上一会话现场：judge_2d_classes 两次调用对同一张 50 类平均图给出严重分歧的判决（6 keep vs 18 keep，class 11/35 直接互相矛盾），且其中一次 JSON 解析塌掉（summary 报 0 keep / 0 maybe，advice 里是裸思维文本）；select_classes 建了 2D Class Selection 3 [cmunoa75q001cuw6sdeqxiocm] 后任务静卧 idle——选择从未执行。自号 513（本窗起点在另一沙箱以 508 起编，推送时远端已至 512——按序改号，内容不变）。
+- [诊断 — 三层根因，两层在产品一层在判定] ①**本地车道瞎读出生选择**：runSelect2dNative 只读 params.selectedClasses（字符串），而画廊「create downstream」与 AI 工具生的 select2d 只带 classStarSelection（对象）——远程车道饮 per-class stars 消费它，本地车道完全无视 → 回落 auto occupancy（≥0.5×最大类）——**选的根本不是用户点的类**（B5 判例：点 [3] 会选成 [1,2]）。②**AI 工具建而不跑**：selectClasses 建行画边即返——select2d 是引擎原生秒级任务却静卧。③**判定漂移**：单行判据（"crisp internal structure…blurry/junk"）撑不起 50 格灰度图，视觉模型两次自相矛盾；部分供应商把 JSON 包在思维文本里，parseJudgeVerdict 塌掉后 summary 谎报 0/0。
+- [交付①— 判定 prompt 全量重写（tools.ts）] 单行判据 → 四段结构化评标：**KEEP 四条**（边界清晰不溶噪 / 包络内有组织细节——α 螺旋亮杆、β 折叠长板、domain 分叶沟槽，10-25 Å 粒噪分明即合格 / 尺寸与其它好类一致=同一分子 / 信号高于噪声地板）；**MAYBE**（包络清但内部弱 / 对比度低 / 小而锐的稀有取向——初始模型之宝 /「真拿不准就 maybe，别反复横跳」）；**REJECT 八签名**（空盒 / 无细节软边团——大占比不救 / 冰：亮锐边块·六边形·冰环 / 碳膜：硬直线·厚条·锯齿边 / 聚集体 / 贴边切割 / 漂移充电条纹斑马 / 单类内混合尺寸=平均了垃圾）；**跨类一致性**（好类尺寸必须一致——同分子同尺寸，异尺寸即 junk / 取向多样性优于重复视角，同视角取更锐 / 数字是背景图像是证据，≤15 Å 强 / 15-25 可用 / >30 弱证据）；每条 reason 必须引用所见证据（「杆状密度可见」）不许只报名目。
+- [交付②— 一次修复回合（tools.ts）] parseJudgeVerdict 塌掉时用「只回 JSON、无围栏、无前后文」的修复 prompt 再调一次 visionOnce——一次秒级延迟救回整个判决（0/0 事故正是这一格）。
+- [交付③— 本地车道出生选择回退（engine.ts）] explicitSelectionOf(job)：字符串 param 优先（面板编辑过的列表是用户最新的话）→ 空缺时读 classStarSelection.classes（画廊/AI 出生选择）→ 仍无才 auto。mode 行诚实标注来源（manual 2 classes **(birth selection)**）。runSelect2dNative 的 selection expression 改饮此井——画廊生、AI 生、面板编三路同律。
+- [交付④— select_classes 建了就跑（tools.ts）] select2d 目标：db 建行 + 画边后直接 startJob（引擎原生同步完成，亚秒级）——summary 带诚实回执（RAN: 500 of 600 particles kept… / waiting: not-ready 自动接续 / start refused 原话）；**双写**：selectedClasses="1, 2"（本地车道直接读）+ classStarSelection（远程车道 per-class stars）——哪条道接活都选用户点的集。重目标（class3d/refine3d/initialmodel）保持只建不跑（真算力需用户选道）——summary 明说 created unstarted。工具 description、系统 prompt 律 5、judge nextStep 三处同步改口。
+- [t513 bench — 23/0] 新建 scripts/t513-select-executes.ts（隔离世界 + 600 粒 300/200/100 三类 fixture，data.star + model.star 见证）：A 组 11 断言（建了就跑：completed / 结果行 500 of 600 / summary RAN 回执 / selectedClasses 烘焙 "1, 2" / classStarSelection 骑行 / 输出 star 落盘恰 500 行 / 边在）；B 组 5 断言（画廊形——只有对象无字符串：B3 出生集 [1,2] 被选非 auto；**B5 判别器**：出生 [3] 恰留 100 粒——auto 会说 500；B4 mode 行报 birth selection）；C 组 1 断言（字符串 "3" 压过出生 [1,2]——面板编辑是最新的话）；D 组 3 断言（class3d 目标 idle 不自跑 + summary 诚实）。自捕×1（fixture 未种 model.star 见证——latestIterationDataStar 的证人律，补种即绿）。
+- [回归] t419 155 pass / 1 fail——fail 为 F8 工具计数 19≠25（干净树同数：t471/t490/t501/t504/t505/t506 六窗扩编的 bench 迟滞，非本窗回归）；tsc 0 错；eslint 触碰文件 0 新增（全树 10 问题与干净树逐字节同）。t513 bench 23/0。
+- [最终态] 三文件一 bench：tools.ts（评标 + 修复回合 + 建了就跑）、engine.ts（出生选择回退）、prompt.ts（律 5 改口）、scripts/t513-select-executes.ts。用户环境（真实部署）拉取后：判定更稳（证据引证 + 拿不准归 maybe + 解析塌掉有二次机会）、select_classes 一口建且跑、画廊生 select2d 本地跑也选对集。遗留（下窗候选）：㊽' 已销案（t507）；新遗留：**F8 工具计数断言随 25 张嘴演进**（一行修，下窗顺手）。
+
+Stage Summary:
+- **「判官先要自洽」**：两次调用两套判决的判官比没有判官更糟——评标从单行扩成四段结构（keep 四条 / maybe 三形 / reject 八签名 / 跨类一致性），每条 reason 必须引用所见证据，拿不准归 maybe 不许横跳；JSON 塌掉有一次修复回合兜底
+- **「出生选择是用户的原话」**：画廊点选 / AI 工具写的 classStarSelection 在本地车道曾经被无视（auto occupancy 顶班——选错集）；现在 explicitSelectionOf 让字符串 param（最新编辑）优先、出生选择回退、auto 兜底，三路同律，mode 行报出生来源
+- **「建了就跑」**：select2d 是引擎原生亚秒任务——AI 工具建行画边即 startJob，summary 带诚实回执（RAN + 保留粒子数）；重目标只建不跑（真算力归用户选道）
+- **「双写双道」**：selectedClasses（本地车道读）+ classStarSelection（远程车道读）同时落 params——哪条道接活都选用户点的集
+- 产出：四段评标 prompt + 修复回合 + explicitSelectionOf 回退 + select_classes 建了就跑 + 三处口径同步（description / 律 5 / nextStep）+ t513 bench 23/0 + t419 基线持平

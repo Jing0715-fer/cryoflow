@@ -481,7 +481,7 @@ export const AI_TOOLS: ToolSchema[] = [
   {
     name: "select_classes",
     description:
-      "Act on a judged classification: create a selection job wired to the chosen classes (default select2d 'Particle Selection'; class3d/refine3d/initialmodel also accept class selections). classes are 1-based class numbers.",
+      "Act on a judged classification: create a selection job wired to the chosen classes. Default target select2d ('Particle Selection') is engine-native — it is created AND RUN immediately (a synchronous STAR rewrite, sub-second), so the selection actually executes and the result reports how many particles were kept. class3d/refine3d/initialmodel targets are created unstarted (real compute — the user reviews params and picks a lane). classes are 1-based class numbers.",
     parameters: {
       type: "object",
       properties: {
@@ -3620,18 +3620,51 @@ async function judge2dClasses(
         `class ${c.cls}: ${(c.fraction * 100).toFixed(1)}% (${c.count} particles)${c.resolution != null ? `, estimated resolution ${c.resolution} Å` : ", resolution unknown"}`
     )
     .join("\n");
+  // t508 — the rubric, in full. The thin one-line criteria let the vision
+  // model flip-flop between runs on the same sheet (two calls, two very
+  // different verdicts — the user's complaint). A judge that cannot agree
+  // with itself is worse than no judge: this prompt pins the decision to
+  // EVIDENCE the model must cite per class, gives junk its own signature
+  // list, and demands cross-class consistency (same molecule = same size).
   const prompt = `You are a senior cryo-EM scientist judging 2D class averages from a RELION 2D classification (iteration ${stats.iteration ?? "?"}, ${stats.total} particles total, ${sheet.rendered} classes shown in the image, left-to-right / top-to-bottom order = class number).
 
 Per-class statistics (class number = grid cell order):
 ${table}
 ${question ? `\nThe user asks: ${question}` : ""}
 
-Judge each class: crisp internal structure + strong signal (α-helices, β-sheets, clear boundaries) = "keep"; decent but ambiguous = "maybe"; blurry / junk / ice / carbon / empty = "reject". Small classes can still be good; huge classes that are featureless blobs are reject. Weigh the resolution estimates: lower Å is better when present.
+JUDGE EACH CLASS with this rubric. Work the checks in order and, in each "reason", cite what you actually SEE (the evidence), never a bare category name.
 
-Answer with ONLY a JSON object:
-{"classes":[{"cls":1,"verdict":"keep|maybe|reject","reason":"<short>"}],"advice":"<2-3 sentences: overall data quality + which classes to take forward and why>"}`;
+KEEP — a class earns "keep" only when it shows a coherent single particle WITH resolved internal detail:
+1. Defined boundary: the particle's silhouette is crisp against the background; its edge does not dissolve into surrounding noise.
+2. Internal structure INSIDE the particle envelope: alpha-helices (bright rod-shaped densities), beta-sheets (elongated slabs), domain lobes, grooves or cavities. At 2D-class resolutions (10-25 A) detail is patchy and grainy — that is fine, it just has to be clearly above the noise floor and ORGANIZED (following the particle's shape, not random speckle).
+3. One coherent particle size: the class shows a single consistent particle, matching the dimensions of the other clearly good classes — they are all views of the SAME molecule.
+4. Signal above noise: the box corners/background are visibly emptier than the particle region.
 
-  const analysis = await visionOnce({
+MAYBE — a real particle with weak evidence:
+- Clear outer envelope but soft/faint interior detail.
+- Correct size and a plausible view, but low contrast or noisy.
+- Small population yet visibly structured — a rare orientation can be precious for the initial model.
+When genuinely torn between keep and reject, say "maybe" — do not flip-flop.
+
+REJECT — junk signatures; ANY ONE is disqualifying:
+- Empty or near-empty box: uniform noise, no particle.
+- Featureless blob: particle-sized or larger mass with NO internal detail and soft edges (failed alignment; huge occupancy does not rescue it).
+- Ice contamination: bright sharp-edged patches, hexagonal/crystalline patterns, ice rings.
+- Carbon / support film: straight hard edges, thick bars, zig-zag boundary lines crossing the box.
+- Aggregates: irregular clumps clearly larger than the particle.
+- Edge artifacts: the density is pushed against or cut by the box border.
+- Drift/charging artifacts: periodic zebra stripes or bands.
+- Mixed sizes/shapes inside one average (the class averaged unrelated junk).
+
+CROSS-CLASS CONSISTENCY — judge the sheet as a SET, not isolated boxes:
+- All keep classes must agree on particle size; a "structured" class of a different size is junk (it averaged something else).
+- Prefer a DIVERSE set of orientations (distinct views of the molecule) over near-duplicate views; when two classes show the same view, keep only the sharper one.
+- The statistics above are context; the IMAGE is the evidence. A big featureless class is still junk; a small sharp class can be a valuable rare view. When a resolution is given: lower A is better — <=15 A strong, 15-25 A typical/usable, >30 A weak evidence.
+
+OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fences, no trailing commentary. It must contain an entry for EVERY class in the image, exactly once:
+{"classes":[{"cls":1,"verdict":"keep|maybe|reject","reason":"<short, evidence-citing>"}],"advice":"<2-3 sentences: overall data quality + which classes to take forward and why>"}`;
+
+  let analysis = await visionOnce({
     flavor: assistant.flavor,
     apiKey: assistant.apiKey,
     model: assistant.vlmModel,
@@ -3640,7 +3673,24 @@ Answer with ONLY a JSON object:
     imageBase64: sheet.png.toString("base64"),
   });
 
-  const verdict = parseJudgeVerdict(analysis);
+  // t508 — one repair round: some vision models wrap the JSON in musing or
+  // truncate it (the run that judged 50 classes as "0 keep / 0 maybe" was
+  // exactly this — the verdict parse fell through to the raw text). One
+  // retry with the JSON demanded again costs a second of latency and saves
+  // the whole verdict.
+  let verdict = parseJudgeVerdict(analysis);
+  if (!verdict) {
+    analysis = await visionOnce({
+      flavor: assistant.flavor,
+      apiKey: assistant.apiKey,
+      model: assistant.vlmModel,
+      baseUrl: assistant.baseUrl,
+      prompt: `Your previous answer was not a bare JSON object and could not be parsed. Reply again with ONLY the JSON object — no text before or after, no markdown fences. One entry for every class shown, exactly this shape:
+{"classes":[{"cls":1,"verdict":"keep|maybe|reject","reason":"<short, evidence-citing>"}],"advice":"<2-3 sentences>"}`,
+      imageBase64: sheet.png.toString("base64"),
+    });
+    verdict = parseJudgeVerdict(analysis);
+  }
   const keepCount = verdict ? verdict.classes.filter((c) => c.verdict === "keep").length : 0;
   const maybeCount = verdict ? verdict.classes.filter((c) => c.verdict === "maybe").length : 0;
   return {
@@ -3653,7 +3703,7 @@ Answer with ONLY a JSON object:
       rawAnalysis: verdict ? analysis : undefined,
       classStats: stats.classes,
       nextStep: verdict
-        ? `Call select_classes({job_id:"${job.id}", classes:[${verdict.classes.filter((c) => c.verdict === "keep").map((c) => c.cls).join(",")}]}) to wire the selection (confirm with the user first)`
+        ? `Call select_classes({job_id:"${job.id}", classes:[${verdict.classes.filter((c) => c.verdict === "keep").map((c) => c.cls).join(",")}]}) to create AND run the selection (confirm the class list with the user first; a select2d target executes immediately)`
         : undefined,
     },
   };
@@ -3696,6 +3746,13 @@ async function selectClasses(ctx: AgentCtx, args: Record<string, unknown>): Prom
     ...defaultParams(targetType),
     classStarSelection: { jobId: source.id, classes: unique },
   };
+  // t508 — bake the explicit list the LOCAL engine lane reads: the remote
+  // lane consumes classStarSelection (per-class stars cluster-side), the
+  // local lane reads selectedClasses — write BOTH so whichever lane takes
+  // the job, the picked set is the set it selects. (engine.ts also falls
+  // back to classStarSelection now — belt AND suspenders, because
+  // gallery-born select2d jobs from the UI carry only the object.)
+  if (targetType === "select2d") storedParams.selectedClasses = unique.join(", ");
   const job = await db.job.create({
     data: {
       projectId: ctx.projectId,
@@ -3716,9 +3773,34 @@ async function selectClasses(ctx: AgentCtx, args: Record<string, unknown>): Prom
       data: { projectId: ctx.projectId, fromJobId: source.id, toJobId: job.id },
     });
   }
+
+  // t508 — a select2d is engine-native and completes synchronously (a STAR
+  // rewrite, sub-second): create AND run in one gesture. The user's
+  // complaint was exactly this gap — the job was minted, the selection
+  // never executed. Heavy target types (class3d/refine3d/initialmodel)
+  // stay unstarted: they are minutes-to-hours of compute and need the
+  // lane decision (local vs cluster) reviewed by the user.
+  let runNote = " — created unstarted (review its params, then run)";
+  let detailExtra: Record<string, unknown> = {};
+  if (targetType === "select2d") {
+    const outcome = await startJob(job, {});
+    if (outcome.error) {
+      runNote = ` — start refused: ${outcome.error}`;
+    } else if (outcome.waiting) {
+      runNote = ` — waiting: ${outcome.waiting} (auto-starts when its upstream completes)`;
+    } else if (outcome.busy) {
+      runNote = ` — busy: ${outcome.busy}`;
+    } else if (outcome.job.status === "completed") {
+      runNote = ` — RAN: ${outcome.job.result ?? "completed"}`;
+      detailExtra = { status: outcome.job.status, result: outcome.job.result };
+    } else {
+      runNote = ` — status ${outcome.job.status}`;
+      detailExtra = { status: outcome.job.status };
+    }
+  }
   return {
     ok: true,
-    summary: `Created ${job.name} [${job.id}] selecting classes ${unique.join(", ")} from ${source.name} (the per-class stars auto-join on dispatch)`,
-    detail: { jobId: job.id, type: targetType, classes: unique },
+    summary: `Created ${job.name} [${job.id}] selecting classes ${unique.join(", ")} from ${source.name}${runNote}`,
+    detail: { jobId: job.id, type: targetType, classes: unique, ...detailExtra },
   };
 }

@@ -5809,11 +5809,41 @@ async function intermediateClassSource(
 }
 
 /**
+ * t508 — where a select2d's explicit class list lives. Two doors, one
+ * law: the selectedClasses string param (the panel field, adoptWithSelect's
+ * baked list) wins; when it is "auto"/unset, the classStarSelection baked
+ * at birth (the class gallery's "create downstream", or the AI
+ * assistant's select_classes) answers instead. Before this the local lane
+ * read ONLY the string and silently fell to "auto" occupancy for
+ * birth-selected jobs — keeping the WRONG set (the remote lane always
+ * honored the birth selection through the cluster's per-class stars).
+ */
+function explicitSelectionOf(job: EngineJobRef): { list: string; source: "param" | "birth" } | null {
+  const params = job.params as Record<string, unknown> | null;
+  const raw = String(params?.selectedClasses ?? "").trim();
+  if (raw !== "" && raw !== "auto") return { list: raw, source: "param" };
+  const sel = params?.classStarSelection;
+  if (sel && typeof sel === "object" && !Array.isArray(sel)) {
+    const classes = (sel as { classes?: unknown }).classes;
+    if (Array.isArray(classes)) {
+      const list = [
+        ...new Set(
+          classes.map((c) => Number(c)).filter((c) => Number.isInteger(c) && c > 0)
+        ),
+      ].sort((a, b) => a - b);
+      if (list.length > 0) return { list: list.join(", "), source: "birth" };
+    }
+  }
+  return null;
+}
+
+/**
  * Select2d: RELION "Subset selection" on 2D class averages, programmatic
  * edition. The input is a Class2D run's per-iteration data STAR (every row
  * carries _rlnClassNumber); the output keeps ONLY the rows whose class is
- * selected — "auto" (occupancy ≥ cutoff × best class) or an explicit
- * comma list driven by the class gallery in the job panel.
+ * selected — "auto" (occupancy ≥ cutoff × best class), an explicit
+ * comma list driven by the class gallery in the job panel, or the birth
+ * selection baked by the gallery / the AI assistant (t508).
  *
  * t402b — the source no longer has to be FINISHED: a class2d/class3d
  * upstream mid-flight (or torn) answers through its newest settled round
@@ -5839,7 +5869,11 @@ async function runSelect2dNative(job: EngineJobRef, upstream: UpstreamRef[]): Pr
   const outStar = path.join(workdir, "particles_select2d.star");
 
   // ---- selection expression -------------------------------------------
-  const rawSel = String((job.params as Record<string, unknown> | null)?.selectedClasses ?? "auto").trim();
+  // t508 — the birth selection answers when the string param is unset (see
+  // explicitSelectionOf): a gallery/AI-born select2d now selects EXACTLY
+  // the classes that were picked, not "auto" occupancy.
+  const selFrom = explicitSelectionOf(job);
+  const rawSel = (selFrom?.list ?? "auto").trim();
   const cutoff = Math.max(0, Math.min(1, num(job, "occupancyCutoff", 0.5)));
   const explicit =
     rawSel !== "auto" && rawSel !== ""
@@ -5911,7 +5945,7 @@ async function runSelect2dNative(job: EngineJobRef, upstream: UpstreamRef[]): Pr
             error: `selectedClasses lists ${explicit.join(", ")} but the classification only has classes ${available.join(", ")} — pick classes in the gallery first`,
           };
         }
-        mode = `manual ${keep.size} class${keep.size > 1 ? "es" : ""}${missing.length > 0 ? ` (ignored: ${missing.join(", ")})` : ""}`;
+        mode = `manual ${keep.size} class${keep.size > 1 ? "es" : ""}${selFrom?.source === "birth" ? " (birth selection)" : ""}${missing.length > 0 ? ` (ignored: ${missing.join(", ")})` : ""}`;
       } else {
         const maxCount = Math.max(0, ...counts.values());
         keep = new Set([...counts.entries()].filter(([, n]) => n >= cutoff * maxCount).map(([c]) => c));
