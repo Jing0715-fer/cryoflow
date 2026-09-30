@@ -139,6 +139,8 @@ import {
   shapeAgreement,
   weakestBand,
   weakestCellOf,
+  buildSweepReport,
+  type SessionSweepState,
 } from "@/lib/qc-report";
 import { MAP_BRIEF_CAP, MAIN_MAP_RE, VOLUME_CAPABLE_RE } from "@/lib/map-walk";
 import { probesForType } from "@/lib/curve-walk"; // t503 — the verdicts walk drinks the same probe map
@@ -157,6 +159,9 @@ export interface AiToolResult {
 export interface AgentCtx {
   /** The active project id (resolved once per iteration). */
   projectId: string;
+  /** t508 — the client's last sweep race (session memory; null when no
+   *  race ran this session). The sweep tool quotes it verbatim. */
+  sweep?: SessionSweepState | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -530,6 +535,12 @@ export const AI_TOOLS: ToolSchema[] = [
       "The session's TIME in one read — the analytics page's own Gantt as data: every run's HONEST window ([startedAt → startedAt+duration]; the engine stamps startedAt when a job flips to running and writes the measured elapsed into duration on completion — updatedAt is NOT a window, every poll touches it), a live run stretching to now, in the bars' own chronological order. Per run: id, name, type, status, workspace, started/ended ISO stamps, duration (ms + the inspector's own human words), share of the session span; plus the aggregates the bars keep: the session window (first start → last end), the LONGEST runs (top 3 — the read for '哪一步最耗时'), total busy time (windows summed — parallel runs double-count, the number says so), the still-running list and the never-started absentees (counted, never invented). Zero knobs. THE tool for '哪一步最耗时 / how long did this take / when did X run / what ran in parallel / show the timeline' — a time question is a READ over honest windows, never arithmetic from receipts.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
+  {
+    name: "get_sweep_verdict",
+    description:
+      "The session's LAST HPC scheduling sweep in one read — the same profile-comparison verdict the Session QC report binds VERBATIM: per-profile makespan / utilization / queue wait / GPU-hours, the winner with its margin over the slowest contestant, failed profiles kept visible (a report that drops a contestant lies). THE tool for '哪个 HPC 配置赢了 / which profile should I submit with / how did the race go / compare the cluster profiles'. Session memory, not a database: a race lives in the client's session and a reload starts a new one — with no race on record the tool says so and points at the HPC queue panel's Compare profiles (it never invents a winner). Zero knobs: the verdict is the report's own words, word for word.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -816,6 +827,8 @@ export async function executeAiTool(
         return await getMapLandscape(ctx);
       case "get_session_timeline":
         return await getSessionTimeline(ctx);
+      case "get_sweep_verdict":
+        return getSweepVerdict(ctx);
       case "get_curve_verdicts":
         return await getCurveVerdicts(ctx);
       case "select_classes":
@@ -2913,6 +2926,39 @@ async function getCurveVerdicts(ctx: AgentCtx): Promise<AiToolResult> {
  *  arithmetic from receipts (a duration without startedAt is half a
  *  truth; updatedAt is not a window). Human words come from the
  *  inspector's own fmtDuration — same dialect, two faces. */
+/* ---- get_sweep_verdict --------------------------------------------- */
+
+/** t508 — the sweep verdict's AGENT face. The race is client session
+ *  memory (in-memory by design, a reload is a new session), so the
+ *  answer quotes what the client's request handed over (ctx.sweep,
+ *  already boundary-guarded by parseSweepSnapshot) and words it through
+ *  the paper's OWN builder — the md the report binds, byte for byte.
+ *  The summary is a LOCATOR (counts + winner name looked up by id),
+ *  never a re-derivation of the verdict arithmetic: parsing or
+ *  re-computing your own export is a second derivation waiting to
+ *  drift. No race on record → the report's own empty-state dialect
+ *  (one race, one sentence, two faces). */
+function getSweepVerdict(ctx: AgentCtx): AiToolResult {
+  const sweep = ctx.sweep;
+  if (!sweep || sweep.rows.length === 0) {
+    return {
+      ok: true,
+      summary:
+        "No scheduling sweep has run in this session yet — open the HPC queue panel and run Compare profiles; the winner's verdict will be bound here and in the session report verbatim.",
+    };
+  }
+  const measured = sweep.rows.filter((r) => r.r).length;
+  const failed = sweep.rows.length - measured;
+  const winnerName = sweep.bestId
+    ? (sweep.rows.find((r) => r.p.id === sweep.bestId)?.p.name ?? null)
+    : null;
+  return {
+    ok: true,
+    summary: `The session's last sweep: ${sweep.rows.length} profiles (${measured} measured${failed > 0 ? `, ${failed} failed` : ""})${winnerName ? `, winner: ${winnerName}` : ""} — the annex below is the session report's own words, byte for byte.`,
+    detail: { sweep_report_md: buildSweepReport(sweep.rows, sweep.bestId) },
+  };
+}
+
 async function getSessionTimeline(ctx: AgentCtx): Promise<AiToolResult> {
   const active = await getActiveProject();
   if (!active) return { ok: false, summary: "No active project" };

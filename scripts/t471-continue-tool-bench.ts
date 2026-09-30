@@ -91,8 +91,8 @@ console.log("T1. the catalog wears the verb");
 const cont = AI_TOOLS.find((t) => t.name === "continue_run");
 must(cont != null, "T1a: continue_run is in the catalog (the 18th tool)");
 must(
-  AI_TOOLS.length === 25 && new Set(AI_TOOLS.map((t) => t.name)).size === 25,
-  `T1b: 25 unique tools (got ${AI_TOOLS.length})`,
+  AI_TOOLS.length === 26 && new Set(AI_TOOLS.map((t) => t.name)).size === 26,
+  `T1b: 26 unique tools — t508's sweep read is the newest birth (got ${AI_TOOLS.length})`,
 );
 const contParams = (cont?.parameters ?? {}) as {
   properties?: Record<string, unknown>;

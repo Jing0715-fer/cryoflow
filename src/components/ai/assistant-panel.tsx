@@ -1275,6 +1275,11 @@ export function AssistantPanel() {
           body: JSON.stringify({
             ...(first ? { message } : { continue: true }),
             ...(mySession ? { sessionId: mySession } : {}),
+            // t508 — the sweep's testimony rides EVERY request (ctx is
+            // per-iteration server-side): the race is client session
+            // memory, and the agent's sweep tool can only quote what the
+            // client hands it. getState() = the freshest race at send time.
+            sweep: useWorkflowStore.getState().lastSweep,
           }),
           signal: controller.signal,
         });

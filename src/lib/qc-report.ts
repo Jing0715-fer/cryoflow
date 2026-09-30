@@ -898,6 +898,70 @@ export interface SessionSweepState {
   bestId: string | null;
 }
 
+/** The sweep snapshot's roster cap (t508) — a real race is a handful of
+ *  profiles; a body carrying more is not a race and is refused rather
+ *  than truncated (dropping contestants changes the verdict). A named
+ *  constant, so the cap has one birthplace. */
+export const SWEEP_ROSTER_CAP = 64;
+
+/** t508 — the sweep snapshot's boundary guard. The agent's sweep tool
+ *  quotes what the CLIENT hands it (a race is client session memory —
+ *  in-memory by design, a reload is a new session), so the chat body's
+ *  sweep field is validated before it can become a verdict. Anything
+ *  off-shape is null: honest absence, never a half-validated winner.
+ *  A bestId that names no contestant is malformed by definition (the
+ *  winner must be a contestant — a dangling id would flip the md into
+ *  its "none finished" branch and lie about a finished race); a roster
+ *  beyond the cap is not a real race and is REFUSED rather than
+ *  truncated (dropping contestants changes the verdict — the same law
+ *  that keeps the failures list visible). Unknown fields are stripped:
+ *  the ctx rides the clean snapshot, never the wire's junk. */
+export const parseSweepSnapshot = (input: unknown): SessionSweepState | null => {
+  if (typeof input !== "object" || input == null) return null;
+  const raw = input as { rows?: unknown; bestId?: unknown };
+  if (!Array.isArray(raw.rows) || raw.rows.length === 0 || raw.rows.length > SWEEP_ROSTER_CAP) return null;
+  const rows: SweepRow[] = [];
+  for (const item of raw.rows) {
+    if (typeof item !== "object" || item == null) return null;
+    const r = item as { p?: unknown; r?: unknown; err?: unknown };
+    if (typeof r.p !== "object" || r.p == null) return null;
+    const p = r.p as SweepProfile;
+    if (
+      typeof p.id !== "string" || p.id === "" ||
+      typeof p.name !== "string" || p.name === "" ||
+      typeof p.gpuModel !== "string" ||
+      !Number.isFinite(p.gpusPerNode) || !Number.isFinite(p.nodes) ||
+      !Number.isFinite(p.arrayConcurrency) || !Number.isFinite(p.gpuSpeedup)
+    ) return null;
+    let res: SweepRow["r"];
+    if (r.r != null) {
+      if (typeof r.r !== "object") return null;
+      const x = r.r as { makespanMin?: unknown; gpuUtilization?: unknown; avgWaitMin?: unknown; totalGpuHours?: unknown };
+      if (
+        !Number.isFinite(x.makespanMin as number) ||
+        !Number.isFinite(x.gpuUtilization as number) ||
+        !Number.isFinite(x.avgWaitMin as number) ||
+        !Number.isFinite(x.totalGpuHours as number)
+      ) return null;
+      res = {
+        makespanMin: x.makespanMin as number,
+        gpuUtilization: x.gpuUtilization as number,
+        avgWaitMin: x.avgWaitMin as number,
+        totalGpuHours: x.totalGpuHours as number,
+      };
+    }
+    if (r.err != null && typeof r.err !== "string") return null;
+    rows.push({
+      p,
+      ...(res ? { r: res } : {}),
+      ...(typeof r.err === "string" ? { err: r.err } : {}),
+    });
+  }
+  const bestId = raw.bestId == null ? null : raw.bestId;
+  if (bestId !== null && (typeof bestId !== "string" || !rows.some((row) => row.p.id === bestId))) return null;
+  return { rows, bestId };
+};
+
 /** Job-status counts for the prologue's pipeline glance. */
 export interface PipelineGlance {
   total: number;

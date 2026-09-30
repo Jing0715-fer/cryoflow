@@ -39,12 +39,14 @@ export async function POST(request: NextRequest) {
       message?: unknown;
       continue?: unknown;
       action?: unknown;
+      sweep?: unknown; // t508 — the client's last sweep race (session memory)
     };
     const result = await runAiIteration({
       sessionId: typeof body.sessionId === "string" ? body.sessionId : undefined,
       message: typeof body.message === "string" ? body.message : undefined,
       cont: body.continue === true,
       action: body.action === "reset" ? "reset" : undefined,
+      sweep: body.sweep,
     });
     if (result.error && result.events.length === 0) {
       return NextResponse.json({ error: result.error }, { status: 500 });

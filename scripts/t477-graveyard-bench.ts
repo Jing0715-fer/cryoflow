@@ -84,8 +84,8 @@ console.log("T1. 24 tools; the graveyard read and the restore verb");
 
 {
   must(
-    AI_TOOLS.length === 25 && new Set(AI_TOOLS.map((t) => t.name)).size === 25,
-    `T1a: 25 unique tools (got ${AI_TOOLS.length})`,
+    AI_TOOLS.length === 26 && new Set(AI_TOOLS.map((t) => t.name)).size === 26,
+    `T1a: 26 unique tools — t508's sweep read is the newest birth (got ${AI_TOOLS.length})`,
   );
   const list = AI_TOOLS.find((t) => t.name === "list_deleted");
   const restore = AI_TOOLS.find((t) => t.name === "restore_deleted");

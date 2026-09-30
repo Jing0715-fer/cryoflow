@@ -31,6 +31,7 @@ import {
 } from "./sessions";
 import { buildSystemPrompt } from "./prompt";
 import { hasAgedToolHistory } from "./stale-history";
+import { parseSweepSnapshot } from "../qc-report"; // t508 — the sweep snapshot's boundary guard
 import { AI_TOOLS, executeAiTool } from "./tools";
 import { chatOnce } from "./wire";
 import type { AiEvent, AiMessage } from "./types";
@@ -50,6 +51,10 @@ export interface AgentRunInput {
   message?: string;
   cont?: boolean;
   action?: "reset";
+  /** t508 — the client's last sweep race, as the panel's store holds it
+   *  (session memory rides every request; boundary-guarded into ctx by
+   *  parseSweepSnapshot — off-shape becomes null, honest absence). */
+  sweep?: unknown;
 }
 
 export async function runAiIteration(input: AgentRunInput): Promise<AgentRunResult> {
@@ -202,7 +207,10 @@ export async function runAiIteration(input: AgentRunInput): Promise<AgentRunResu
 
   // ---- tool execution -----------------------------------------------------
   if (response.toolCalls.length > 0) {
-    const ctx = { projectId: active.project.id };
+    // t508 — the client's sweep testimony rides in with the request and is
+    // boundary-guarded here: off-shape becomes null (honest absence), a real
+    // race becomes the snapshot the sweep tool quotes verbatim.
+    const ctx = { projectId: active.project.id, sweep: parseSweepSnapshot(input.sweep) };
     let budget = TOOL_CALL_BUDGET - toolCallsUsed(session);
 
     for (const call of response.toolCalls) {
