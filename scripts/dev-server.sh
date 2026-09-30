@@ -52,5 +52,14 @@ export CRYOFLOW_TRUST_GATEWAY=1
 # t402 — log to a FILE, not /dev/null: a silent death (node exits in the
 # first seconds, no kernel OOM record, nothing to read) cost this window
 # three blind restarts. The log is the witness.
-setsid node node_modules/next/dist/bin/next dev ${DEV_NEXT_ARGS:-} > "${REPO_ROOT}/.qa-logs/dev-server.log" 2>&1 < /dev/null &
+# t503 — logs live OUTSIDE the repo tree. The old path (.qa-logs/ inside
+# the checkout) fed a self-sustaining rebuild fire: the server's own
+# request log (the browser polls /api/jobs every ~2s) wrote a line, Next's
+# dev watcher saw the change, Fast Refresh rebuilt, the rebuild LOGGED
+# more lines, and the loop ate ~44MB/s until the RSS recycle killed the
+# server — every QA window eventually collapsed into it (the t501 OOM
+# storms were this, unnamed). /tmp is outside the watcher's world.
+QA_LOG_DIR="${CRYOFLOW_QA_LOG_DIR:-/tmp/cryoflow-qa}"
+mkdir -p "$QA_LOG_DIR"
+setsid node node_modules/next/dist/bin/next dev ${DEV_NEXT_ARGS:-} > "$QA_LOG_DIR/dev-server.log" 2>&1 < /dev/null &
 # this script exits immediately → server re-parents to init → survives

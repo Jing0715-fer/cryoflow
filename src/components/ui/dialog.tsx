@@ -38,6 +38,20 @@ const COMPANION_WINDOW_SELECTOR = "[data-companion-window]"
  * half — the dismissal guard honors it. */
 const DIALOG_LIVE_SELECTOR = "[data-dialog-live]"
 
+/** t503 — sibling surfaces: the companion contract made MULTIPLE Radix
+ * surfaces live at once (a dialog + the assistant, a dialog opened FROM
+ * the assistant, a settings dialog over an inspector…). Radix's
+ * DismissableLayer was built for a single-modal world: focus that moves
+ * into ANOTHER surface fires this one's onFocusOutside and dismisses it
+ * (live repro: opening AI settings from the assistant auto-focuses a
+ * button inside the fresh dialog — the focusin landed "outside" the job
+ * inspector and killed it). In a multi-window world, interacting with one
+ * surface belongs to THAT surface: clicks and focus inside any sibling
+ * surface never dismiss this one. Same class of exemption as companion
+ * windows; sheets ride along (mobile detail sheets share the contract). */
+const SIBLING_SURFACE_SELECTOR =
+  '[data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="sheet-content"]'
+
 type CompanionWindowsContextValue = {
   /** How many companion windows are currently open (drives the yield). */
   count: number
@@ -83,15 +97,18 @@ function useCompanionWindow(): () => void {
   return ctx ? ctx.register : NOOP
 }
 
-/** True when the event originated inside a registered companion window
- * (or a live summon door — same exemption, smaller surface). Radix's
- * outside handlers receive the custom event dispatched ON the original
- * target, so .target is the real pointerdown/focus/keydown spot. */
+/** True when the event originated inside a registered companion window,
+ * a live summon door (same exemption, smaller surface), or a SIBLING
+ * surface (t503 — another dialog/sheet layer that shares the screen).
+ * Radix's outside handlers receive the custom event dispatched ON the
+ * original target, so .target is the real pointerdown/focus/keydown spot. */
 function isFromLiveZone(event: Event): boolean {
   const target = event.target
   return (
     target instanceof Element &&
-    target.closest(`${COMPANION_WINDOW_SELECTOR}, ${DIALOG_LIVE_SELECTOR}`) != null
+    target.closest(
+      `${COMPANION_WINDOW_SELECTOR}, ${DIALOG_LIVE_SELECTOR}, ${SIBLING_SURFACE_SELECTOR}`
+    ) != null
   )
 }
 
@@ -192,6 +209,7 @@ function DialogContent({
   onInteractOutside,
   onFocusOutside,
   onEscapeKeyDown,
+  onPointerDownCapture,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -229,6 +247,30 @@ function DialogContent({
         onInteractOutside={companionGuard(onInteractOutside)}
         onFocusOutside={companionGuard(onFocusOutside)}
         onEscapeKeyDown={companionGuard(onEscapeKeyDown)}
+        /* t503 — click-to-front, the dialog's half of the window law:
+         * while a companion window is open this dialog is a LIVE surface,
+         * and the last-touched window leads. The assistant re-asserts
+         * itself on every dialog mount (its own observer) and on every
+         * summon (the seq door); this handler gives the dialog the same
+         * right on interaction — a pointerdown anywhere on it moves its
+         * content node (a direct body child — Radix portals the shared
+         * Dialog with no wrapper) to the END of body, above the companion.
+         * DOM moves never remount, so leaf state (tab, scroll, inputs)
+         * survives untouched. A no-op when already last. */
+        onPointerDownCapture={(e) => {
+          onPointerDownCapture?.(e)
+          if (e.defaultPrevented) return
+          if (!companionOpen) return
+          const el = e.currentTarget
+          if (
+            el instanceof HTMLElement &&
+            el.isConnected &&
+            el.parentElement === document.body &&
+            document.body.lastElementChild !== el
+          ) {
+            document.body.appendChild(el)
+          }
+        }}
         {...props}
       >
         {children}
@@ -330,6 +372,7 @@ export function onEscapeClose(
 export {
   COMPANION_WINDOW_SELECTOR,
   DIALOG_LIVE_SELECTOR,
+  SIBLING_SURFACE_SELECTOR,
   CompanionWindowsProvider,
   Dialog,
   DialogClose,

@@ -56,11 +56,15 @@
 # ~210s, cold compile done"). Old quarantines beyond the newest two are
 # reaped so the hygiene itself cannot fill the disk (each .next ~330MB).
 #
-# Run detached:  (nohup bash scripts/dev-server-watchdog.sh >> .qa-logs/dev-watchdog.log 2>&1 &)
+# Run detached:  (nohup bash scripts/dev-server-watchdog.sh >> /tmp/cryoflow-qa/dev-watchdog.log 2>&1 &)
 # Stop with:     pkill -f dev-server-watchdog
 cd "$(dirname "$0")/.." || exit 1
-mkdir -p .qa-logs
-LOG=.qa-logs/dev-watchdog.log
+# t503 — logs live OUTSIDE the repo tree (see dev-server.sh's note): an
+# in-tree heartbeat fed Next's dev watcher a rebuild fire that ate ~44MB/s
+# of RSS until the recycle threshold — the t501 "OOM storms" were this.
+QA_LOG_DIR="${CRYOFLOW_QA_LOG_DIR:-/tmp/cryoflow-qa}"
+mkdir -p "$QA_LOG_DIR"
+LOG="$QA_LOG_DIR/dev-watchdog.log"
 
 # single-keeper, kernel edition (t405): the first pgrep-count guard (loose
 # pattern) matched its own launcher's command string; the anchored rewrite
@@ -69,7 +73,7 @@ LOG=.qa-logs/dev-watchdog.log
 # an flock on a lockfile is atomic, held by exactly one live process, and
 # the kernel releases it at process death. Two keepers are now impossible
 # by construction, not by pattern-matching.
-exec 9>>.qa-logs/dev-watchdog.lock
+exec 9>>"$QA_LOG_DIR/dev-watchdog.lock"
 if ! flock -n 9; then
   echo "[$(date -u +%H:%M:%SZ)] another watchdog holds the lock — exiting (single-keeper law)" >> "$LOG"
   exit 0

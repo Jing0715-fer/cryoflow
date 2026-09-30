@@ -24,7 +24,13 @@
 
 import { readFileSync } from "fs";
 
-const REPO = "/home/z/my-project";
+/* t503 — the checkout moves between sandbox resets (my-project era ->
+ * cryoflow home); resolve the repo root from THIS file, not a
+ * hardcoded absolute path that rots the bench the moment the tree moves. */
+const REPO = (await import("node:path")).default.resolve(
+  (await import("node:url")).fileURLToPath(new URL(".", import.meta.url)),
+  "..",
+);
 
 let pass = 0;
 let fail = 0;

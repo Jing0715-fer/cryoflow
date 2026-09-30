@@ -612,6 +612,13 @@ interface WorkflowState {
   aiAssistantOpen: boolean;
   setAiAssistantOpen: (open: boolean) => void;
   aiPendingPrompt: string | null;
+  /** t503 — the summon sequence. Every openAiAssistant() call bumps it,
+  *  even when the window is ALREADY open: the header door must always
+  *  visibly answer. The panel re-raises itself (moves its portal to the
+  *  front of body) on every bump — the user's bug was the buried
+  *  assistant (a dialog that opened later stacked above it) where the
+  *  button's set({open: true}) was a no-op and nothing surfaced. */
+  aiSummonSeq: number;
   /** Open the assistant, optionally carrying a question to send immediately. */
   openAiAssistant: (prompt?: string) => void;
   /** One-shot: returns the pending prompt and clears it. */
@@ -1718,6 +1725,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   helpGuideOpen: false,
   aiAssistantOpen: false,
   aiPendingPrompt: null,
+  aiSummonSeq: 0,
   aiSettingsOpen: false,
   minimapOpen: true,
   noteSpotlight: false,
@@ -4917,7 +4925,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setHelpGuideOpen: (open) => set({ helpGuideOpen: open }),
   setAiAssistantOpen: (open) => set({ aiAssistantOpen: open }),
   openAiAssistant: (prompt) =>
-    set({ aiAssistantOpen: true, ...(prompt ? { aiPendingPrompt: prompt } : {}) }),
+    set((s) => ({
+      aiAssistantOpen: true,
+      aiSummonSeq: s.aiSummonSeq + 1,
+      ...(prompt ? { aiPendingPrompt: prompt } : {}),
+    })),
   consumeAiPendingPrompt: () => {
     const p = get().aiPendingPrompt;
     if (p) set({ aiPendingPrompt: null });

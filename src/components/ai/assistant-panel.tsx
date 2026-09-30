@@ -654,6 +654,10 @@ function buildFollowUp(jobs: JobDTO[]): { icon: LucideIcon; text: string } | nul
 export function AssistantPanel() {
   const open = useWorkflowStore((s) => s.aiAssistantOpen);
   const setOpen = useWorkflowStore((s) => s.setAiAssistantOpen);
+  // t503 — every openAiAssistant() call bumps this, even when already open:
+  // the settle effect below re-runs and the window re-asserts itself at the
+  // front of body. The header door always visibly answers.
+  const summonSeq = useWorkflowStore((s) => s.aiSummonSeq);
   const aiSettingsOpen = useWorkflowStore((s) => s.aiSettingsOpen);
   const setAiSettingsOpen = useWorkflowStore((s) => s.setAiSettingsOpen);
   const consumeAiPendingPrompt = useWorkflowStore((s) => s.consumeAiPendingPrompt);
@@ -729,6 +733,7 @@ export function AssistantPanel() {
     const el = rootRef.current;
     if (
       el &&
+      el.isConnected &&
       el.parentElement === document.body &&
       document.body.lastElementChild !== el
     ) {
@@ -736,18 +741,93 @@ export function AssistantPanel() {
     }
   };
 
+  // t503 — the origin stamp for the dialog-raise observer below: a dialog
+  // opened BY a click inside this window (the AI-settings door in the
+  // header, e.g.) must land ON TOP — the user just asked for it. The
+  // origin is WHERE the last pointerdown landed (companion zone or not),
+  // recorded by a document-level capture listener — latency-free, unlike
+  // the first draft's 150ms time window which a slow dev-mode render
+  // (portal mounting 200ms+ after the click) simply outlived.
+  const lastPtrInCompanion = React.useRef(false);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDocPointerDown = (e: PointerEvent) => {
+      lastPtrInCompanion.current = !!(
+        e.target instanceof Element &&
+        e.target.closest('[data-companion-window]')
+      );
+    };
+    document.addEventListener("pointerdown", onDocPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown, true);
+  }, [open]);
+  const onRootPointerDownCapture = () => {
+    raiseToFront();
+  };
+
   // The summon race: registering as a companion can flip an open modal
   // dialog to non-modal, and Radix's implementation swap REMOUNTS that
   // dialog's content — the fresh portal appends to body AFTER this window,
   // so the dialog the user just summoned OVER lands on top of it. One
   // delayed re-raise settles the order the way the gesture meant it: the
-  // just-summoned window leads. (A later-opened dialog still wins — this
-  // only runs on open, not on every dialog mount.)
+  // just-summoned window leads. t503: the effect also re-runs on every
+  // summonSeq bump — clicking the header door while this window is
+  // already open (possibly buried under a dialog that opened later) now
+  // re-asserts it instead of being a silent no-op.
   React.useEffect(() => {
     if (!open) return;
+    raiseToFront();
     const t = setTimeout(raiseToFront, 60);
     return () => clearTimeout(t);
-  }, [open]);
+  }, [open, summonSeq]);
+
+  // t503 — the burial law: a dialog that OPENS while this window is open
+  // must not stack above it. Radix portals every shared Dialog's content
+  // as a DIRECT body child ([data-slot="dialog-content"]), appended at the
+  // end — which paints over this window (both z-50, DOM order decides).
+  // The user's ticket: the job detail page opened after the assistant and
+  // completely covered it, with no way back (a covered window cannot be
+  // clicked to raise itself). The observer flips the order back — the
+  // companion contract says dialogs YIELD. The escape hatch: when the
+  // mount follows a pointerdown INSIDE this window (the AI-settings door),
+  // the dialog keeps the front — it was summoned from here on purpose.
+  // AlertDialog is a separate primitive (alert-dialog-content) and stays
+  // deliberately above; mobile is exempt (the full-screen face owns the
+  // viewport; nothing to un-bury).
+  React.useEffect(() => {
+    if (!open || isMobile) return;
+    const isDialogContent = (n: Node): n is Element =>
+      n instanceof Element &&
+      (n.matches('[data-slot="dialog-content"]') ||
+        !!n.querySelector('[data-slot="dialog-content"]'));
+    const mo = new MutationObserver((muts) => {
+      // t503b — a DOM MOVE reports the same node in BOTH removedNodes and
+      // addedNodes (one record): that is the dialog's own click-to-front
+      // (dialog.tsx re-appends its content), not a fresh mount. Without
+      // this filter the two laws fight — the dialog raises itself, the
+      // observer reads the move as a mount, and re-buries it under this
+      // window a frame later; the user could NEVER bring a dialog to the
+      // front by clicking it. A move is not a mount: ignore it.
+      const moved = new Set<Node>();
+      for (const m of muts) for (const n of m.removedNodes) moved.add(n);
+      let mounted = false;
+      for (const m of muts) {
+        for (const n of m.addedNodes) {
+          if (moved.has(n)) continue;
+          if (isDialogContent(n)) mounted = true;
+        }
+      }
+      if (!mounted) return;
+      // a dialog summoned from INSIDE a companion window (the AI-settings
+      // door) keeps the front — the last pointerdown was in here on
+      // purpose; anything else (canvas card, header, palette) yields.
+      if (lastPtrInCompanion.current) return;
+      // let the dialog finish mounting (focus, measurements) before the
+      // re-order — a settled move, not a race
+      setTimeout(raiseToFront, 0);
+    });
+    mo.observe(document.body, { childList: true });
+    return () => mo.disconnect();
+  }, [open, isMobile]);
 
   // restore the persisted geometry (or take the default home position).
   // A MOBILE mount mints nothing: the full-screen face needs no geometry,
@@ -1453,7 +1533,7 @@ export function AssistantPanel() {
       aria-modal="false"
       aria-label="AI 助手"
       onKeyDown={onWindowKeyDown}
-      onPointerDownCapture={raiseToFront}
+      onPointerDownCapture={onRootPointerDownCapture}
       className={cn(
         // pointer-events-auto: some layer COULD still flip body-wide
         // pointer-events off (a modal Select, an AlertDialog) — the window

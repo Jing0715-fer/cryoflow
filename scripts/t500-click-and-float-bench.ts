@@ -39,6 +39,15 @@
  *                      while the assistant is open, interactions inside
  *                      it never dismiss a dialog, the window is a body
  *                      child tied at z-50 with click-to-front
+ *   T8 t503 the order — the detail page OPENED AFTER the assistant used
+ *                      to bury it with no way back (a covered window
+ *                      cannot click itself to the front), and the header
+ *                      door was a no-op against an already-open window.
+ *                      Now the last-touched window leads: a fresh dialog
+ *                      mount re-asserts the assistant (move≠mount), a
+ *                      dialog's own click raises IT, the summon seq
+ *                      always answers, and sibling surfaces stop killing
+ *                      each other's focus
  */
 
 import { readFileSync } from "fs";
@@ -313,7 +322,9 @@ ok(
   "the window is a direct body child (DOM order vs dialogs, escapes shell stacking contexts)",
 );
 ok(
-  panelSrc.includes("onPointerDownCapture={raiseToFront}") && panelSrc.includes("body.lastElementChild !== el"),
+  panelSrc.includes("onPointerDownCapture={onRootPointerDownCapture}") &&
+    panelSrc.includes("onRootPointerDownCapture = () => {") &&
+    panelSrc.includes("body.lastElementChild !== el"),
   "click-to-front: a touch re-appends to body end — the z-tiebreak among z-50 citizens",
 );
 ok(
@@ -374,6 +385,65 @@ ok(
 ok(
   panelSrc.includes("consumeAiPendingPrompt"),
   "the class gallery's「AI 分析」one-shot door survives",
+);
+
+/* ---------------------------------------------------------------- */
+section("T8 t503 the order — the last-touched window leads");
+
+const storeSrc = read("src/lib/store.ts");
+ok(
+  storeSrc.includes("aiSummonSeq: number;") &&
+    storeSrc.includes("aiSummonSeq: s.aiSummonSeq + 1") &&
+    storeSrc.includes("aiSummonSeq: 0,"),
+  "the summon seq: openAiAssistant bumps it every call (the header door answers even when already open)",
+);
+ok(
+  panelSrc.includes("s.aiSummonSeq") && panelSrc.includes("[open, summonSeq]"),
+  "the panel re-raises on every seq bump — a buried assistant is one header click away",
+);
+ok(
+  panelSrc.includes('n.matches(\'[data-slot="dialog-content"]\')') &&
+    panelSrc.includes("mo.observe(document.body, { childList: true })"),
+  "the burial law: a dialog that mounts while the window is open re-asserts the companion (observer on body)",
+);
+ok(
+  panelSrc.includes("const moved = new Set<Node>();") &&
+    panelSrc.includes("if (moved.has(n)) continue;") &&
+    panelSrc.includes("A move is not a mount: ignore it"),
+  "move ≠ mount: the dialog's own click-to-front (a re-append) never counter-raises the companion",
+);
+ok(
+  panelSrc.includes("lastPtrInCompanion") &&
+    panelSrc.includes("e.target.closest('[data-companion-window]')") &&
+    panelSrc.includes('document.addEventListener("pointerdown", onDocPointerDown, true)'),
+  "the origin flag: dialogs summoned from inside a companion keep the front (latency-free, document capture)",
+);
+ok(
+  panelSrc.includes("el.isConnected &&"),
+  "raiseToFront is unmount-safe (a closing window never re-appends a dying node)",
+);
+ok(
+  dialogSrc.includes("SIBLING_SURFACE_SELECTOR") &&
+    dialogSrc.includes('[data-slot="alert-dialog-content"]') &&
+    dialogSrc.includes('[data-slot="sheet-content"]'),
+  "sibling surfaces declared: dialog + alert + sheet contents share the screen contract",
+);
+ok(
+  /isFromLiveZone[\s\S]{0,400}SIBLING_SURFACE_SELECTOR/.test(
+    dialogSrc.replace(/\n\s*\*[^\n]*/g, ""),
+  ),
+  "the dismissal guard exempts sibling surfaces — focus into one surface never kills another",
+);
+ok(
+  dialogSrc.includes("onPointerDownCapture?.(e)") &&
+    dialogSrc.includes("if (!companionOpen) return") &&
+    dialogSrc.includes("document.body.appendChild(el)"),
+  "the dialog's half of the window law: a click on a live dialog raises it (composed after the caller's own handler)",
+);
+ok(
+  dialogSrc.includes("const el = e.currentTarget") &&
+    dialogSrc.includes("el.parentElement === document.body"),
+  "the raise moves the content node itself (Radix portals shared dialogs with no wrapper)",
 );
 
 /* ---------------------------------------------------------------- */
