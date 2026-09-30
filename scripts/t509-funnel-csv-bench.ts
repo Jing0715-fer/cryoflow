@@ -150,7 +150,7 @@ ok(/The funnel reads the receipts; it does not mutate — a different chain come
 ok(/export const FUNNEL_NOTE =/.test(libSrc), "the bars' own note intact");
 const toolsSrc = read("src/lib/ai/tools.ts");
 ok(/case "get_funnel_chain":/.test(toolsSrc) && /funnelLedgerOf/.test(toolsSrc), "the agent face (t468) keeps its walk");
-ok(AI_TOOLS.length === 30, "the roster holds 30 tools — t515's products read is the newest birth, the grid is still a lib export");
+ok(AI_TOOLS.length === 31, "the roster holds 31 tools — t517's cleanup plan is the newest birth, the grid is still a lib export");
 ok(/"started_at",\s*\n\s*"duration_ms",/.test(read("src/components/workflow/pipeline-analytics.tsx")),
   "t507's archive window columns keep their seats");
 ok(/"job_id","job","type","workspace","status","started_at","ended_at","duration_ms","duration_human","share_pct"/.test(

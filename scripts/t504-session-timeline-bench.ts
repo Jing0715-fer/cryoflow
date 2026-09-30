@@ -147,7 +147,7 @@ ok(/start ascending, name breaking ties/.test(wellSrc),
 /* ------------------------------------------------------------------ */
 section("T3 — tool shape (the 25th tool, zero knobs)");
 
-ok(AI_TOOLS.length === 30, `AI_TOOLS holds 30 tools — t515's products read is the newest birth (got ${AI_TOOLS.length})`);
+ok(AI_TOOLS.length === 31, `AI_TOOLS holds 31 tools — t517's cleanup plan is the newest birth (got ${AI_TOOLS.length})`);
 const tool = AI_TOOLS.find((t) => t.name === "get_session_timeline") as
   | (typeof AI_TOOLS[number] & { description: string })
   | undefined;

@@ -108,8 +108,8 @@ section("T1  the face — roster, knob, laws");
   const cs = AI_TOOLS.find((t) => t.name === "get_continue_sources");
   ok(Boolean(cs), "T1a: get_continue_sources is on the roster");
   ok(
-    AI_TOOLS.length === 30 && new Set(AI_TOOLS.map((t) => t.name)).size === 30,
-    `T1b: 30 unique tools — t515's products read is the newest birth (got ${AI_TOOLS.length})`
+    AI_TOOLS.length === 31 && new Set(AI_TOOLS.map((t) => t.name)).size === 31,
+    `T1b: 31 unique tools — t517's cleanup plan is the newest birth (got ${AI_TOOLS.length})`
   );
   const params = cs?.parameters as { properties?: Record<string, unknown>; required?: string[] } | undefined;
   ok(

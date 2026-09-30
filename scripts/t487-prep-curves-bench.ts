@@ -72,7 +72,7 @@ const tool = AI_TOOLS.find((t) => t.name === "get_job_curves") as
 
 /* ---------------- T1 tool shape ---------------- */
 section("T1 — the prep trio is named with its science");
-ok(AI_TOOLS.length === 30, `AI_TOOLS still holds 30 tools — t515's products read is the newest birth (got ${AI_TOOLS.length})`);
+ok(AI_TOOLS.length === 31, `AI_TOOLS still holds 31 tools — t517's cleanup plan is the newest birth (got ${AI_TOOLS.length})`);
 const desc = tool?.description ?? "";
 ok(
   desc.includes("ctf (per-micrograph CTF fit quality") &&

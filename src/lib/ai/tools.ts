@@ -34,6 +34,8 @@ import { allAdjacency, portsValid } from "@/lib/edge-ports";
 import { findCycle } from "@/lib/graph-cycle";
 import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { fmtBytes } from "@/lib/relion/disk-usage";
+import { computeCleanupPlan } from "@/lib/relion/cleanup-plan";
+import type { CleanupPlan, CleanupSidePlan } from "@/lib/hpc/cleanup";
 import { computeStorageReport, type StorageResponse } from "@/lib/relion/storage-report";
 import { fmtDuration } from "@/lib/duration";
 import { walkTimeline, timelineLedger, timelineSharePct } from "@/lib/timeline-walk";
@@ -583,6 +585,19 @@ export const AI_TOOLS: ToolSchema[] = [
       "The active project's DISK WEIGHT in one read — the Storage dialog's own ledger as data: every run directory physically walked under data/relion/<projectId>/ (per-dir bytes + files, the six-category split maps/stacks/tables/logs/plots/other), the heaviest jobs and heaviest files by bytes, the totals. THE tool for '这个项目占了多少磁盘 / what is eating my disk / which job is the heaviest / 磁盘还剩多少 / what can be cleaned up'. Physical truth, not DB belief: a directory whose job row is gone still counts (an orphan, said so) — the disk fills regardless of what the database thinks. Read-only LOCATOR: it names the whales and the categories, it never deletes or cleans anything — the Storage dialog's Clean doors stay the only writers. Zero knobs: the walk is the dialog's walk, not a filtered one.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
+  {
+    name: "get_cleanup_plan",
+    description:
+      "One job's CLEANUP MENU in one read — the per-job cleanup dialog's own plan as data: what the run's directory holds that the planner classifies as deletable, sorted into its three tiers (safe: iteration & scratch files — redundant chainable copies, beaten iterations, .cf-* shards and .tmp scratch; diagnostics: CTF & plot byproducts; bulk: intermediate image data, only for motioncorr/extract/polish), each tier with its file count, its raw bytes and the planner's stated consequence, plus the keep-set's own account — outputs, input-data doors (symlinks), resume checkpoints — what survives and why. THE tool for '这个任务能清什么 / what can I clean in this job / how much disk would each tier free / is it safe to clean X'. get_storage_report is the project's map (which run directory weighs most); this is one job's menu (what inside it is scratch). Read-only PLANNER PREVIEW: it deletes nothing — the shovel is the cleanup dialog's guarded write (cross-site door, liveness 409, in-flight lock), and a running or queued job answers with that reason verbatim (a live run's files are being written). The plan is the dialog's own plan: same walk, same classifier, same keep-set — the dialog drinks the same cup. One knob: the job id.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: { type: "string", description: "The job's id (get_workflow_state lists ids)." },
+      },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -879,6 +894,8 @@ export async function executeAiTool(
         return await getContinueSources(ctx, args);
       case "get_storage_report":
         return await getStorageReport(ctx);
+      case "get_cleanup_plan":
+        return await getCleanupPlan(ctx, args);
       case "get_curve_verdicts":
         return await getCurveVerdicts(ctx);
       case "select_classes":
@@ -3809,6 +3826,116 @@ async function getJobCurves(
     summary: `Curves of "${job.name}" (${job.type}): ${spoken.join("; ")}`,
     detail: { jobId: job.id, curves },
   };
+}
+
+/* ---- get_cleanup_plan ----------------------------------------------- */
+
+/** t517 — the cleanup face as a PURE presenter so the bench can fixture
+ *  a plan without touching a single workdir. The well is the route's
+ *  own: computeCleanupPlan is the EXACT assembly the cleanup route's
+ *  GET serves (lifted verbatim into lib/relion/cleanup-plan — the
+ *  walk, the liveness verdict, the remote join, the downstream
+ *  census), so the annex is the cleanup dialog's payload byte for
+ *  byte. The summary is a LOCATOR: each tier's bytes and counts are
+ *  looked up in the groups the planner already shaped (fmtBytes is the
+ *  only human voice; the annex keeps the planner's raw digits), the
+ *  keep-set and the downstream census are counted, and a not-runnable
+ *  reason rides FIRST, verbatim (the route's own words — a running or
+ *  queued job's refusal is the answer). The freshness stamp rides the
+ *  head (t512's law): a plan is a snapshot of a walk — the dialog's
+ *  guarded write re-walks LIVE and never trusts it. */
+export function presentCleanupPlan(plan: CleanupPlan): AiToolResult {
+  const lead = plan.runnable
+    ? `${plan.job.name} (${plan.job.type})`
+    : `${plan.job.name} (${plan.job.type}): ${plan.reason}`;
+  // the refusal reasons end in their own period — never stack a second one
+  const leadSentence = /[.!?]$/.test(lead) ? lead : `${lead}.`;
+
+  const sideLine = (side: CleanupSidePlan, label: string): string => {
+    if (!side.exists) {
+      return `${label}: ${side.note ?? side.error ?? "nothing on disk to clean"}`;
+    }
+    if (side.groups.length === 0) {
+      return `${label}: nothing cleanable — all ${side.kept.count} file${
+        side.kept.count === 1 ? "" : "s"
+      } (${fmtBytes(side.kept.bytes)}) ${side.kept.count === 1 ? "sits" : "sit"} in the keep-set`;
+    }
+    const tiers = side.groups
+      .map(
+        (g) =>
+          `${g.label.toLowerCase()}: ${fmtBytes(g.bytes)} in ${g.count} file${
+            g.count === 1 ? "" : "s"
+          }`
+      )
+      .join(" · ");
+    return `${label}: ${tiers} — ${side.kept.count} file${
+      side.kept.count === 1 ? "" : "s"
+    } (${fmtBytes(side.kept.bytes)}) ${side.kept.count === 1 ? "survives" : "survive"} in the keep-set`;
+  };
+
+  const sides: string[] = [sideLine(plan.local, "local")];
+  if (!plan.remote) {
+    sides.push("no cluster record — a local-only run");
+  } else if (plan.remote.exists) {
+    sides.push(
+      sideLine(plan.remote, `cluster (${plan.remote.connection?.name ?? "unknown connection"})`)
+    );
+  } else {
+    sides.push(`cluster: ${plan.remote.error ?? "not listable"}`);
+  }
+
+  const downstreamLine =
+    plan.downstream.length > 0
+      ? ` ${plan.downstream.length} downstream job${
+          plan.downstream.length === 1 ? "" : "s"
+        } may still read the kept outputs — weigh them before bulk tiers.`
+      : "";
+
+  return {
+    ok: true,
+    summary: `${leadSentence} ${sides.join(" · ")}.${downstreamLine} Plan walked at ${plan.checkedAt} — the cleanup dialog drinks the same cup; deletion stays with its guarded write.`,
+    detail: {
+      runnable: plan.runnable,
+      ...(plan.reason ? { reason: plan.reason } : {}),
+      checkedAt: plan.checkedAt,
+      local: plan.local,
+      remote: plan.remote,
+      downstream: plan.downstream,
+    },
+  };
+}
+
+/** t517 — the executor: the cleanup dialog reads the EFFECTIVE job
+ *  (soft links resolve to the original before any walk) and so does
+ *  this read — pre-scoped to the session's project (a plan from another
+ *  project's job is not this session's business). Read-only by law:
+ *  showing the menu is the tool's job, swinging the shovel is the
+ *  dialog's guarded write (and any future write verb must inherit its
+ *  liveness and re-walk laws, never this preview's payload). */
+async function getCleanupPlan(
+  ctx: AgentCtx,
+  args: Record<string, unknown>
+): Promise<AiToolResult> {
+  const jobId = String(args.job_id ?? "");
+  if (!jobId) {
+    return {
+      ok: false,
+      summary: "get_cleanup_plan needs a job id — pass the job's id (get_workflow_state lists ids)",
+    };
+  }
+  const job = await findJobInProject(jobId, ctx.projectId);
+  if (!job) {
+    return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
+  }
+  const effective = job.linkedJobId ? await findEffectiveJob(job.id) : job;
+  if (!effective) {
+    return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
+  }
+  const plan = await computeCleanupPlan(effective.id);
+  if (!plan) {
+    return { ok: false, summary: `Job not found: ${jobId} — get_workflow_state lists the canvas's ids` };
+  }
+  return presentCleanupPlan(plan);
 }
 
 /* ---- judge_2d_classes (the VLM tool) ---------------------------------- */
