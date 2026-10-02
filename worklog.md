@@ -6769,3 +6769,28 @@ Stage Summary:
 - **「判例要变成守卫才不再重蹈」**：t461 的 21 连败五窗后以同款数学重演（本窗三连败）——build-guard 把 buff/cache 坍缩签名、kernel 墙、GO 配方全部固化成磨前 3 秒体检；守卫首跑的 NO-GO 与实测互为见证
 - **「找不到 ≠ 不存在，先查定位器再查产品」**：icon-only 按钮没有 textContent（aria-label 才是真名），空账本不渲染历史条（换有账的 job），networkidle 在轮询 app 上是伪等待——t523 遗留①的三个坑全是测量方法的错，UI 本体一直健康
 - 产出：watchdog 伴生常驻化 + mem-profile 测量器 + boot 车道修正 + prod-3001.sh 正典化 + build-guard 守卫 + 历史条活体截图（遗留①收官）+ 家族 86/0 全绿 + 环境课×2（双 chrome 冲突 / 陈旧缓存空页）
+
+---
+
+Task ID: 525
+Agent: main (Z.ai Code, window 2026-10-03 03:08 cron)
+Task: 执行 t524 遗留①——build-guard GO 窗的 build 验证。**standalone 时隔多窗重生（build exit 0）**，prod 车道 161MB 出生体重接管 :3000，family-run qa 全批 on prod 11/0——t520 内存天花板的物理解除 + t523「family-run 全量不可行」判例的打破。意外收获：qa68 隔离哨兵建成以来首次实弹咬真入侵，checker/哨兵随之学会湮灭态。
+
+Work Log:
+- [开局] t524 收官态确认（HEAD d0255d8 零分叉，磁盘 4.7G 51%）。QA 快检绿：dev 200 + watchdog 在岗（伴生律首夜值守）+ console 0。build-guard 首判 NO-GO（available 1061MB）——但守卫文本自身规定了程序：**停 dev 腾 2GB 后重判**。
+- [守卫程序三步走] ①停 dev+watchdog+chrome → 重判：available 3005 ✓ 但 buff/cache 1094 < 1500（页缓存坍缩态）→ 守卫药方自带预热命令。②预热执行（node_modules 全量 cat ~12s）：1094→1442MB——**撞出守卫内部矛盾**：node_modules 的页缓存物理天花板 ~1.44-1.46GB（t461 实测预热上限 1457，本窗 1442），1500 的守卫线坐在自己药方的可达域之外，永远差一点。③守卫线修正 1500→1450（自洽律入注释）→ 连续预热立即重判（页缓存自然衰减 ~10MB/分钟，不能隔时间）→ **GO（buff/cache 1530 + available 3053）——守卫建成以来首次 GO**。
+- [BUILD GREEN — exit 0] GO 配方忠实执行：`NODE_OPTIONS='--max-old-space-size=1344' npx next build --webpack`（dev 已停 + CRYOFLOW_NO_WATCHDOG 语义 + 无 chrome）。t461 的 21 连败 + t524 的三连败之后首绿——判例数学（需求 ~2.8GB anon vs 墙 ~3.0GB）在「温暖页缓存 + available 腾空」的窗口里刚好挤过。产物：standalone 664M + static/public 拷贝 + provenance 戳 `.next/.built-at-commit = d0255d8`（= HEAD，fresh）。
+- [prod 车道接管 :3000] PORT=3000 prod-3001.sh 起服 10s 上线 200。**出生体重 161MB**（mem-profile 同款测量：dev turbopack 2.0GB 的 1/12）——4GB 箱子上 prod + chrome + bench 全共存无压力，t520 内存天花板对 QA 车道**物理解除**。
+- [家族 on prod] recent-family bench 86 套 0 失败 ✓；**family-run --filter qa 全批 11 套 0 real-fail（wall 417.7s）**——t523「family-run 全量在箱子内存天花板下不可行」在 prod 车道被打破（qa 批先行，t41x 批留待下窗）。活体：21 卡 + console 0 错 + title 正常（agent-browser 陈旧缓存空页复发一次，close+fresh 重试即愈——t524 课的固定动作）。
+- [意外收获 — 哨兵首次实弹] qa6 批首跑咬出 qa68 real-fail：**隔离哨兵（Task 274 建成）第一次真咬**。取证：①`mini-services/` 空壳回根（仅 .gitkeep 一个 tracked 占位，沙箱重建残影）——git rm 治愈；②`_legacy-archive/` 只剩 README——**隔离物全部湮灭**（persist/relion-projects 等是 untracked 运行时数据，沙箱重置清场，README 随 git 幸存；同批湮灭：/home/z/empiar-10017 与本地 RELION 构建——t520 已见证，本窗入档）。checker 的「7/7 成员 present」旧语义在湮灭世界永假——**造假空目录违反诚实律，改讲湮灭态**：checker 成员缺失+根干净 = `quarantine content LOST`（资产损失入档，非检疫失败——守卫的威胁模型是「根要干净」，不是「数据还在」）；qa68 成员断言随律演进 present-or-honestly-lost（t501/t514 守卫随律判例）；README 增湮灭记录节。治愈后 qa68 **26 断言全绿**（Phase C 实弹照常：假入侵→exit 2→点名→愈合→0）。
+- [qa55 世界漂移随律] qa5 批咬出 qa55 real-fail：dashboard completed 过滤断言硬编码「exactly one completed project」——世界已 3 项目全 completed（t521 seeder + t522 账本入账 + t474 画廊多窗贡献）。修复：镜像同套 key-2 的 presence-aware 形态（chip 自报卡数即真相，不再记世界）。solo 全绿。
+- [验证-终] tsc 0 + eslint 0 errors（触碰四件：build-guard / checker / qa68 / qa55——.sh 的 ignored warning 是 bash 不归 eslint 的正常提示）+ qa68 26/0 + qa55 solo 绿 + qa 批 11/0 + bench 86/0。
+- [最终态与下窗提示] **prod standalone (:3000) 在跑**（d0255d8，161MB）；dev 停、watchdog 停。下窗注意三条：①代码未变可直接续用 prod（build-guard SKIP 门会认 BUILD_ID+standalone+provenance）；②若需 dev 车道：dev-server.sh 的 stale 清理 `pkill -f next-server` 会**误杀 prod listener**（同款进程名 next-server (v16.1.3)）——先 PORT=3000 场景知情选择；③代码变了要重磨：守卫程序 = 停 dev/prod → 预热 node_modules（~12s）→ 守卫判 GO → 1344 webpack 配方。下窗从 Task 526 起编。
+- [遗留池] ①family-run t41x 批 on prod（qa 批已通，内存天花板已解，t41x 的 SERVER-SKIP 可复跑）；②watchdog flock 竞态重试（低优先，补岗律够用）；③t522 遗留③老世界持久 seeder；④t519 建议 #1/#4；⑤EMPIAR 真数据回归（数据已湮灭，需从公开库重取——资产可再生的唯一途径）；⑥off-mainline 出口、remote diagnostics。
+
+Stage Summary:
+- **「守卫的判例终于自己兑现」**：t461 的 21 连败五窗冤魂，被守卫三步程序（腾内存→预热→GO）一次送走——build exit 0 不是运气，是「温暖页缓存 1530 + available 3053 + 1344 配方」三个数字同时站到历史绿窗的位置；守卫线 1500→1450 的自洽修正让药方与药线终于闭合
+- **「161MB 对 2.0GB：QA 车道的物理解放」**：prod standalone 十秒上线、十二分之一的出生体重——t520 立案两窗的内存天花板不是被修好的，是被**绕开的**；family-run qa 全批 11/0 在 dev 车道时代需要分批挣扎，在 prod 上一次跑完
+- **「哨兵咬的第一口是真的」**：qa68 建成以来首判 real-fail，咬出的不是产品 bug 而是世界的两处漂移（tracked 占位回根 + untracked 隔离物湮灭）——checker 学会讲湮灭态（LOST 入档而非造假 present），哨兵断言随律演进，README 的湮灭记录让资产损失成为可审计的一行
+- **「bench 里的世界假设要一次清理干净」**：qa55 的「exactly one completed project」与 qa68 的「7/7 present」同病同治——世界的计数移动（seeder/入账/画廊多窗贡献），断言改读 chip 自报的卡数；守卫随律走（t501/t514 判例第三次兑现）
+- 产出：BUILD GREEN（standalone 664M + provenance d0255d8）+ prod :3000 车道（161MB）+ family-run qa 批 11/0 on prod + 哨兵湮灭语义 + qa55 presence-aware + build-guard 自洽修正 + README 湮灭记录
