@@ -30,6 +30,7 @@ import * as React from "react";
 import { useTheme } from "next-themes";
 import {
   Command as CommandIcon,
+  Activity,
   Copy,
   Download,
   FileJson,
@@ -105,6 +106,11 @@ export const OPEN_EVENT = "cryoflow:open-palette";
  *  exists only on the header strip is a door the keyboard cannot reach
  *  (the t210 doctrine, palette edition). */
 export const SESSION_REPORT_EVENT = "cryoflow:open-session-report";
+
+/** t530: the palette's diagnostics door — same handshake, same
+ *  owner-listens law: the header owns the panel, the palette only rings
+ *  the bell. A box's vitals are facts the keyboard should reach too. */
+export const SYSTEM_DIAGNOSTICS_EVENT = "cryoflow:open-system-diagnostics";
 
 /** Per-chart icon + accent for the Export group — the SAME icon the chart's
  *  own header carries, so a palette row is recognizably "that chart" before
@@ -1023,6 +1029,22 @@ export function CommandPalette() {
               Open the session QC report
               <span className="ml-1.5 text-[10px] text-muted-foreground">
                 pipeline glance · map inventory · sweep verdict, one printable paper
+              </span>
+            </span>
+          </CommandItem>
+          <CommandItem
+            value="system diagnostics memory lanes disk build guard provenance census vitals health"
+            onSelect={() => {
+              close(); // the panel is the next modal — drop the palette first
+              window.dispatchEvent(new CustomEvent(SYSTEM_DIAGNOSTICS_EVENT));
+            }}
+            className="gap-2.5"
+          >
+            <Activity className="size-4 shrink-0 text-teal-600" />
+            <span className="flex-1 text-sm">
+              Open system diagnostics
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                memory lanes · disk · engine build progress · the running build's provenance
               </span>
             </span>
           </CommandItem>

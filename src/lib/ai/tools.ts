@@ -155,6 +155,12 @@ import { isMrcPath, poolProfile, readMrcAxisProfiles, readMrcHeader } from "@/li
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { readPathrefTarget } from "@/lib/relion/pathref";
 import { detectRelion, type RelionStatus } from "@/lib/relion/system";
+import { readDiagnostics, presentSystemDiagnostics, type DiagnosticsPayload } from "@/lib/diagnostics";
+
+// t530 — the box's agent face lives in the pure diagnostics module (the
+// bench's node lane imports the presenter without dragging this world);
+// the re-export keeps the AI surface's own namespace honest.
+export { presentSystemDiagnostics };
 import { cachedCompute } from "@/lib/relion/statcache";
 import { computeJobOutputs, type JobOutputsResult } from "@/lib/relion/job-outputs";
 
@@ -569,6 +575,12 @@ export const AI_TOOLS: ToolSchema[] = [
     parameters: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "get_system_diagnostics",
+    description:
+      "The BOX's VITALS in one read — the System diagnostics dialog's own payload as data: memory lanes from /proc/meminfo (total / available / page cache) judged against the build guard's canonical lines (available ≥2600MB = a rebuild may start; page cache ≥1450MB = no collapse profile), disk usage from statfs, the running build's provenance stamp (which commit the server was baked from, standalone or dev lane) and the world census (projects / jobs / running). THE tool for '这台机器还撑得住吗 / how's the box doing / 内存还够吗 / can we afford a rebuild right now / 磁盘还剩多少（整机） / what's running on this machine'. Read-only POLLEN: bytes from /proc, statfs and the built stamp, counts from the world — no process sniffing, no RELION re-probe (the engine's own story is get_environment_report's cup; this is the host's). Zero knobs.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "get_continue_sources",
     description:
       "A run's RESTART DOORS in one read — the inspector's 'Continue from here:' picker as data: every optimiser round the run can legally resume from, its own arc (self) and any upstream refinement's rounds. Per round: the iteration number, the optimiser.star path, whether EVERY sibling RELION reload is present (an incomplete round is shown but never a legal --continue target), and the CHECKPOINT — the newest complete self round, live tree over archived generations, the picker's own pick, never re-derived. Per source: the lane (a remote row's paths speak CLUSTER coordinates — a host shell would misread them) and the honest wounds (a source that could not be read carries its own error; a capped listing says it is a floor, not all). THE tool for '这个任务能从哪继续 / what can this run continue from / where's the newest checkpoint / which iteration would --iter resume'. Read-only LOCATOR: it names the doors — continue_run is the verb that opens one. The roster is the picker's own walk and the checkpoint is the picker's own pick: the Continue dialog drinks the same cup. One knob: the job id.",
@@ -952,6 +964,8 @@ export async function executeAiTool(
         return await getJobOutputs(ctx, args);
       case "get_environment_report":
         return await getEnvironmentReport(ctx);
+      case "get_system_diagnostics":
+        return await getSystemDiagnostics(ctx);
       case "get_continue_sources":
         return await getContinueSources(ctx, args);
       case "get_storage_report":
@@ -3270,6 +3284,22 @@ async function getEnvironmentReport(_ctx: AgentCtx): Promise<AiToolResult> {
     status = null;
   }
   return presentEnvironmentReport(status);
+}
+
+/* ---- get_system_diagnostics ---------------------------------------- */
+
+/** t530 — the executor: a polite read of the host's vitals. The presenter
+ *  (presentSystemDiagnostics) lives in the pure diagnostics module — same
+ *  cup as the route and the dialog; a throw means the read itself failed,
+ *  and the presenter says so instead of inventing numbers. */
+async function getSystemDiagnostics(_ctx: AgentCtx): Promise<AiToolResult> {
+  let payload: DiagnosticsPayload | null = null;
+  try {
+    payload = await readDiagnostics();
+  } catch {
+    payload = null;
+  }
+  return presentSystemDiagnostics(payload);
 }
 
 /* ---- get_continue_sources ------------------------------------------- */

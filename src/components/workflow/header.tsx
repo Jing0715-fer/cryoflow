@@ -3,6 +3,7 @@
 import * as React from "react";
 import nextDynamic from "next/dynamic";
 import {
+  Activity,
   Boxes,
   Check,
   CheckCircle2,
@@ -29,13 +30,16 @@ import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
 import { RemoteClusterButton } from "./remote-cluster-dialog";
 import { KnockSettingsButton } from "./finish-knock-button";
-import { CommandPaletteTrigger, SESSION_REPORT_EVENT } from "./command-palette";
+import { CommandPaletteTrigger, SESSION_REPORT_EVENT, SYSTEM_DIAGNOSTICS_EVENT } from "./command-palette";
 import { EngineBuildRail, EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 // t197: the session QC report is code-split (react-markdown + remark-gfm
 // ride their own chunk) — the app shell never pays for the document
 // renderer until the report is opened for the first time.
 const SessionReportDialog = nextDynamic(() => import("./session-report-dialog"), { ssr: false });
 const StorageDialog = nextDynamic(() => import("./storage-dialog"), { ssr: false });
+// t530: the diagnostics panel is code-split too — its rail + bars only
+// ride a chunk when someone actually asks how the box is doing.
+const SystemDiagnosticsDialog = nextDynamic(() => import("./system-diagnostics-dialog"), { ssr: false });
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -666,6 +670,10 @@ export function Header() {
   // per-project fact ("how much disk am I using") that belongs next to
   // the session report, not inside any one job's inspector.
   const [storageOpen, setStorageOpen] = React.useState(false);
+  // t530 — the system diagnostics door: the box-level facts (memory
+  // lanes, disk, provenance, census) sit one level above the storage
+  // map, so the button sits one slot beside it.
+  const [diagOpen, setDiagOpen] = React.useState(false);
   // t221: the palette's report door — the palette dispatches, the owner
   // listens (the OPEN_EVENT handshake, the reverse hop). The header owns
   // the dialog; the palette only names the door, it never mounts a
@@ -680,6 +688,13 @@ export function Header() {
     const open = () => setStorageOpen(true);
     window.addEventListener(STORAGE_OPEN_EVENT, open);
     return () => window.removeEventListener(STORAGE_OPEN_EVENT, open);
+  }, []);
+  // t530: the diagnostics door's ear — the palette names the door, the
+  // header owns the panel (same reverse-hop handshake).
+  React.useEffect(() => {
+    const open = () => setDiagOpen(true);
+    window.addEventListener(SYSTEM_DIAGNOSTICS_EVENT, open);
+    return () => window.removeEventListener(SYSTEM_DIAGNOSTICS_EVENT, open);
   }, []);
 
   const total = jobs.length;
@@ -822,6 +837,18 @@ export function Header() {
         >
           <HardDrive className="size-4" aria-hidden="true" />
         </Button>
+        {/* t530 — the box's vitals: one slot beside the storage map, one
+            level up in scope (project bytes → host health). */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => setDiagOpen(true)}
+          aria-label="System diagnostics"
+          title="System diagnostics — memory lanes against the build guard's lines, disk, engine build progress and the running build's provenance"
+        >
+          <Activity className="size-4" aria-hidden="true" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -868,6 +895,7 @@ export function Header() {
         </Button>
       </div>
       <SessionReportDialog open={reportOpen} onOpenChange={setReportOpen} />
+      <SystemDiagnosticsDialog open={diagOpen} onOpenChange={setDiagOpen} />
       <StorageDialog open={storageOpen} onOpenChange={setStorageOpen} />
     </header>
   );

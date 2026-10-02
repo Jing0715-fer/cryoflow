@@ -389,6 +389,54 @@ export interface RelionBuildProgressClient {
   stages: RelionBuildStageClient[];
 }
 
+/* ------------------------------------------------------------------ */
+/* System diagnostics (t530) — mirrors of src/lib/diagnostics.ts       */
+/* ------------------------------------------------------------------ */
+
+/** The canonical memory lines (MB): build guard GO + cache collapse + dev recycle. */
+export const MEMORY_LINES_CLIENT = {
+  guardAvailable: 2600,
+  guardBuffCache: 1450,
+  recycle: 2600,
+} as const;
+
+export interface MemoryLanesClient {
+  memTotalMb: number;
+  memAvailableMb: number;
+  buffCacheMb: number;
+  swapTotalMb: number;
+  availableLane: "go" | "nogo";
+  cacheLane: "warm" | "collapsed";
+  verdict: "danger" | "watch" | "healthy";
+  verdictReason: string;
+}
+
+export interface DiskVitalsClient {
+  totalMb: number;
+  freeMb: number;
+  usedPct: number;
+}
+
+export interface BuildProvenanceClient {
+  commit: string | null;
+  standalone: boolean;
+}
+
+export interface WorldCensusClient {
+  projects: number;
+  jobs: number;
+  runningJobs: number;
+}
+
+/** GET /api/diagnostics payload — the box's vitals in one read. */
+export interface DiagnosticsClient {
+  memory: MemoryLanesClient | null;
+  disk: DiskVitalsClient | null;
+  provenance: BuildProvenanceClient;
+  world: WorldCensusClient | null;
+  generatedAt: string;
+}
+
 /** Light-weight mirror of RelionStatus (server module) for the client store. */
 export interface SystemStatusClient {
   found: boolean;
