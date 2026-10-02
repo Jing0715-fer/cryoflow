@@ -50,10 +50,13 @@ if [ "${avail:-0}" -lt 2600 ]; then
   echo "        then re-run this gate. History: a collapsed box never got greener mid-spree."
   exit 2
 fi
-if [ "${buff:-0}" -lt 1500 ]; then
-  echo "NO-GO — buff/cache ${buff}MB < 1500MB (collapsed page cache — the t461 21-loss profile)."
+if [ "${buff:-0}" -lt 1450 ]; then
+  echo "NO-GO — buff/cache ${buff}MB < 1450MB (collapsed page cache — the t461 21-loss profile)."
   echo "        Even with free anonymous memory the cold compile re-reads node_modules (~1.4GB);"
-  echo "        wait for the cache to warm (or cat node_modules -r > /dev/null once) and re-run."
+  echo "        warm it: cat \$(find node_modules -type f -size -2M) > /dev/null once (~12s), then re-run."
+  echo "        (t525: the line is 1450, not 1500 — node_modules' own cache ceiling is ~1.44-1.46GB"
+  echo "        (t461 preheat reached 1457, t525 reached 1442); a 1500 line sat ABOVE the guard's own"
+  echo "        prescribed remedy and could never be satisfied by it. The guard must be self-consistent.)"
   exit 2
 fi
 
