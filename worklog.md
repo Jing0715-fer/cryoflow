@@ -6794,3 +6794,26 @@ Stage Summary:
 - **「哨兵咬的第一口是真的」**：qa68 建成以来首判 real-fail，咬出的不是产品 bug 而是世界的两处漂移（tracked 占位回根 + untracked 隔离物湮灭）——checker 学会讲湮灭态（LOST 入档而非造假 present），哨兵断言随律演进，README 的湮灭记录让资产损失成为可审计的一行
 - **「bench 里的世界假设要一次清理干净」**：qa55 的「exactly one completed project」与 qa68 的「7/7 present」同病同治——世界的计数移动（seeder/入账/画廊多窗贡献），断言改读 chip 自报的卡数；守卫随律走（t501/t514 判例第三次兑现）
 - 产出：BUILD GREEN（standalone 664M + provenance d0255d8）+ prod :3000 车道（161MB）+ family-run qa 批 11/0 on prod + 哨兵湮灭语义 + qa55 presence-aware + build-guard 自洽修正 + README 湮灭记录
+
+---
+
+Task ID: 526
+Agent: main (Z.ai Code, window 2026-10-03 03:38 cron)
+Task: t525 遗留①——family-run t41 批 on prod 解冻（SERVER-SKIP 清算）+ EMPIAR 资产债的活体消费者应答 + 世界收拾。t41 批 3/3 全绿；diag-t380 诚实挂池等真数据。
+
+Work Log:
+- [开局] t525 收官态确认（HEAD bc55e59 零分叉；磁盘 3.6G 63%——build 产物吃 1G，健康）。**prod :3000 跨窗存活**（200，RSS 200MB——prod 无 dev 的膨胀病，watchdog 缺岗也稳）。QA 全绿：console 0 + world 21 卡 + tsc 0 + eslint 0 + bench 86/0。
+- [t416 — 断言随律] solo 取证：FAIL「curated next-steps universe carries denoise」——**字面匹配撞上产品正当演进**：motioncorr/ctffind 的 next-steps 在后窗正当新增了 "excludemg"，bench 钉死整段数组文本。修复：语义化断言（三键各含 topazdenoise + topazdenoise 流向 autopick/manualpick/topaztrain——denoise 契约的语义本体），excludemg 的加入不再误报。ALL PASS。
+- [t415 — EMPIAR 债的第一个活体消费者] family-run + solo 双双 real-fail，取证链：世界里 t415 残骸 import `result: "EMPIAR directory not found: /home/z/empiar-10017/micrographs"`——**/home/z/empiar-10017（10 张真微图，untracked）湮灭后第一个咬到它的套件**（t520 见证消失→t525 README 入档→本窗活体咬人）。检查 import 车道契约（engine.ts:3028）：只要目录里有 .mrc（sort 建表，无内容校验）→ **合成 fixture 是正当重建**（qa5x seeder 合成 mrc 先例）：qa-t526-empiar-seed.mjs 合成 10 张 256² float32 mrc（文件数同真集、正弦扫灰度可渲染、头 label 明写 synthetic）。重建后 t415 主链全绿（fixture import 完成 + motioncorr stop-failed + strip 断言 + cleanup + console 0）。roster 断言「21↔21」恢复——首轮 rosterBefore=0 是 DELETE 残骸后 active 指针瞬时态，重跑自愈（断言本身 presence-aware 无需改）。
+- [diag-t380 — 诚实挂池] empiar 批 real-fail，三层债定性：①suite 硬编码死树 `/home/z/cryoflow`（**正当 bug 修复**：ROOT 改 import.meta.dirname 动态推导，CF_ROOT 覆盖保留——t525 prod-3001.sh 同款刀法）；②真数据指纹（Falcon 4096² 微图 + POLARITY 极性断言「all-positive ice」）——**合成件替代 = 让考官作弊**，fidelity 套件的考题就是真数据；③mock 集群 /data2/empiar-10017 镜像缺失（随真数据一起挂池）。处置：层 1 修掉，套件保持 real-fail——**EMPIAR 10017 真数据需从公开库重取**（t525 README 已入档路径），重取后 diag-t380 自动复活。
+- [世界收拾] t41 批运转的残骸清算：2 个 t415 fixture 残骸项目（双轮死于 Phase B 未走自身 cleanup）+ **6 个 t416 Denoise 历史残骸**（每跑一轮建一个 murdr/murs 系列 project 不自删的历史累积）+ 1 个 diag-t380 残骸（active 悬其上使 /api/jobs 只见 1 job——虚惊一场，正典无损，active 指针随删除自动修复）。9 DELETE 后名册回归 3 正典（β-Gal / t474 画廊 / Tutorial），world 21/16，console 0。
+- [家族全景] bench 86/0 + qa 批 11/0（t525）+ **t41 批 3/0（本窗，SERVER-SKIP 冻结户全解冻）** + empiar 批 1 real-fail（真数据债挂池）——t523「family-run 全量不可行」在 prod 车道上只剩最后一个真数据洞。
+- [验证-终] tsc 0 + eslint 0（触碰四件：t416 / diag-t380 / qa-t526-empiar-seed / t415 未改但复跑验证）+ 活体 21 卡/16 svg/console 0（agent-browser 陈旧缓存空页第三犯——close+?fresh 固定动作即愈）。
+- [最终态] prod :3000 续跑（d0255d8 build——本窗零 src 改动，provenance 仍 fresh）。两 commit（test + docs 分车）后推送。下窗从 Task 527 起编。遗留池：①**EMPIAR 10017 真数据从公开库重取**（diag-t380 复活的唯一路径；mock /data2 镜像随之重建；真数据到位后「EMPIAR 真数据回归」继承池项才可动）；②watchdog flock 竞态重试（低优先）；③t522 遗留③老世界持久 seeder；④t519 建议 #1/#4；⑤off-mainline 出口、remote diagnostics。
+
+Stage Summary:
+- **「SERVER-SKIP 的冻结户清零了」**：t41 批三套从「内存天花板欠账」到 prod 车道 37.7s 全绿——t523 的「全量不可行」不再是判例而是历史；冻结的代价清单（谁被 skip 了多久）值得每窗盘点
+- **「资产湮灭的账，最终由消费者来讨」**：EMPIAR 目录死了四窗无人察觉，t415 的 fixture 一跑就咬出来——**untracked 数据的死亡不是档案问题，是链路问题**；合成 fixture 恢复链路（import 车道的契约就是「有 .mrc」），fidelity 考官（diag-t380）留给真数据——两种诚实各司其职
+- **「断言要钉语义，不要钉字面」**：excludemg 的正当加入让 t416 的整段数组字面匹配碎掉；denoise 契约（生产者报价 + 流向 pick/train）才是要守的东西——与 qa55 的 presence-aware、qa68 的湮灭态同一哲学：**世界会动，断言跟着语义走**
+- **「残骸要按名册清，不是按眼见清」**：6 个 t416 历史残骸 + active 指针悬空制造的世界塌缩假象——删项目时 active 自动修复的 product 语义（removeProjectMeta）再次免检通过；世界卫生是每窗的活，名册（/api/projects）比画布（active 视角）诚实
+- 产出：t41 批 3/0 解冻 + EMPIAR 合成 fixture seeder + t416 断言语义化 + diag-t380 死树修复（真数据债诚实挂池）+ 世界收拾 9 项目 + 家族三车道全景（86+11+3 全绿）
