@@ -49,3 +49,17 @@ check-foreign-trees.mjs 的台账保留（「根目录无遗留、检疫区结�
 入档（本节），不等于检疫失败。同批湮灭的还有 /home/z/empiar-10017（EMPIAR
 10017 原始微图）与本地 RELION 构建——EMPIAR 数据可从公开库重取，继承池的
 「EMPIAR 真数据回归」因此仍挂池。
+
+## 复活记录（t527，2026-10-03）——EMPIAR-10017 真数据归位
+
+上面「可从公开库重取」的悬账本窗兑现：EBI 带宽实测 ~644 KB/s（4 并发 ~4 MB/s），
+t380 时代 16 KB/s 的「重下 8 小时」借口作废。`scripts/t527-fetch-empiar.sh` +
+`scripts/qa-t527-empiar-real-seed.mjs`（双车道：bash 快取 / node 法典，身份律 =
+67,109,888 B + 4096² float32 + 全正冰采样）把 **10 张真微图 + 10 个 Henderson
+.coord 送回 /home/z/empiar-10017/micrographs**（641 MB，与湮灭前的史档一字不差），
+并把前 8 张硬链接进 mock cluster 的 /data2 镜像（8+8，diag-t380 的考题形状）。
+本检疫区的 `relion-projects/empiar-10017-真实全流程/` 仍是湮灭态——那是带 RELION
+工程语义的档案（STAR 全链 + 验证项目），真数据回去不等于档案回去；但 diag-t380
+fidelity 大考自此在真字节上判卷（REAL-data 模式 90/0），「EMPIAR 真数据回归」
+池项由本窗摘牌。合成 fallback（qa-t526-empiar-seed.mjs）降为 16 KB/s 世界的
+ documented 备胎，永不满足 fidelity 考试。

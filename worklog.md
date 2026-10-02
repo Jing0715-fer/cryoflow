@@ -6817,3 +6817,29 @@ Stage Summary:
 - **「断言要钉语义，不要钉字面」**：excludemg 的正当加入让 t416 的整段数组字面匹配碎掉；denoise 契约（生产者报价 + 流向 pick/train）才是要守的东西——与 qa55 的 presence-aware、qa68 的湮灭态同一哲学：**世界会动，断言跟着语义走**
 - **「残骸要按名册清，不是按眼见清」**：6 个 t416 历史残骸 + active 指针悬空制造的世界塌缩假象——删项目时 active 自动修复的 product 语义（removeProjectMeta）再次免检通过；世界卫生是每窗的活，名册（/api/projects）比画布（active 视角）诚实
 - 产出：t41 批 3/0 解冻 + EMPIAR 合成 fixture seeder + t416 断言语义化 + diag-t380 死树修复（真数据债诚实挂池）+ 世界收拾 9 项目 + 家族三车道全景（86+11+3 全绿）
+
+---
+
+Task ID: 527
+Agent: main (Z.ai Code, window 2026-10-03 04:08 cron)
+Task: t526 遗留①——EMPIAR-10017 真数据从公开库重取（池项挂牌四窗后兑现）。10 真微图 + 10 Henderson coords 归位（641MB 与史档一字不差），mock 镜像 8+8 硬链接重建，**diag-t380 fidelity 大考在真字节上复活（REAL-data 模式 90/0）**——t380 的「合成件替代=让考官作弊」判例自此有了正解：考试学会按数据的物理真实分层判卷。
+
+Work Log:
+- [开局] 树态考古：摘要脑内的「Task 524 收官」已过时两代——worklog 实录 t525（standalone BUILD GREEN、prod :3000 161MB 接管）+ t526（t41 批解冻 3/0、EMPIAR 合成 fixture、diag-t380 诚实挂池），HEAD 5e46443 + harness auto-commit ad2b08d（t415 截图落档，uuid 名）。QA 基线全绿：prod :3000 存活（api 7ms）+ tsc/eslint 0 + console 0 + 正典 3 项目（21/16 + 5 + 6）。
+- [选题定谳] 遗留池①的头号障碍是带宽：t380 时代 EBI 实测 16 KB/s（重下 8 小时不可行）才退而合成。本窗实测 **644 KB/s 单流、4 并发 ~4 MB/s**——借口作废，窗口打开。EMPIAR 公开库可达（200），84 张 mrc + 84 个 coord 成对在盘。
+- [真数据重取] `scripts/t527-fetch-empiar.sh`（后台 4 并发、curl -C - 断点续传、字节验证）：10 个 stem = 字母序前 10（前 8 与 make-empiar10017-fixtures.py 的 MICS 史档完全吻合）→ 10 mic（67,109,888 B 各）+ 10 coord 秒级到分钟级落地 /home/z/empiar-10017/micrographs。coords 是像素坐标（Henderson 格式，632 picks/张）。
+- [seeder 法典] `scripts/qa-t527-empiar-real-seed.mjs`：身份律（字节数 + 4096² float32 头 + NX=NY=4096 NZ=1 + 全正冰采样）→ 镜像 staging（前 8 张 **硬链接**进 fs/data2/empiar-10017/{micrographs,coords}——537MB 镜像只花 12K 新盘）→ 合成件退役（真集验证通过才拆台）。首发就活捉 bash 车道 1 张坏文件（15_36_26 未完成）并重下——身份律不是装饰。t526 seeder 头注降级为 16 KB/s 世界的 documented 备胎。
+- [diag-t380 真数据首考 — 84/89] 12 job 全链在真字节上跑通（Import→…→PostProcess 82s），P4 3D 极性、P5 negativeStain 重钉全过。5 败全是「合成校准 vs 真实物理」交界带。**物理定谳**（t527-probe-real-polarity.mjs 读真 float 字节）：原始未 dose-weighting 的 Falcon-II 数据粒子对比度只有 **~0.1-1%**（68% picks 比局部冰暗、中位比 1.0008-1.002、max 1.010），冰背景 ~70,000 计数——8-bit PNG 渲染物理不可见；合成件的山寨对比度（-430 vs σ150）高出两个数量级。P1/P2/P3 的可见度断言在给真数据判合成物理的罪；极性机器本身无辜（unflipped-on-noise 正是正确的门行为）。
+- [REALITY MODE] diag-t380 学会按数据身份分层判卷：reality probe 读 float 字节探合成网格 blob 位（rig 比 <0.9，真数据 ≈1.0）→ **REAL 模式**：极性定律在浮点精度判（30 Henderson picks disk vs 局部环，67% 更暗、中位比 1.0008），LoG 机器断言（真原始字节 3 picks = 诚实计数），渲染门服务断言；**SYNTH 模式**：原全套可见度 bars 照旧（合成校准台）。修程三次活体自捕：块级 const 作用域（判词行 ReferenceError）、probe 坐标未钳制（负 y 越界）、coord 样本 head -6 太少（改读全文件）。终态 **90 passed, 0 failed [REAL-data mode]**。
+- [t415 — roster 移动靶第三课] solo 复跑咬出「roster restored 11 (got 21)」：baseline 是 /api/jobs（**active project 视角**），suite 开跑时 active 悬在我留下的 t380 项目（11 jobs）上，fixture 清理时 removeProjectMeta 自动移指针到 21-job 教程。修复：baseline 改 /api/projects 的**总 job 和**（active 无关，43=21+5+6+11 恒定）——qa55 chip 自报、t416 语义化之后，移动靶家族再添一员。ALL PASS。
+- [家族回归] bench 86/0 + qa 批 11/0（wall 422.5s，solo-recovery 0）+ diag-t380 REAL 90/0——三车道全绿，t523「全量不可行」的最后真数据洞补上。世界卫生：t380 残骸 DELETE，名册回归 3 正典，active 回教程（21 jobs）。
+- [文档三件] mock-cluster README 补回 .gitignore 引用却随湮灭丢失的 fetch 正典节（seeder 命令 + 身份律 + rig/REAL 双世界说明）；_legacy-archive README 增「复活记录（t527）」节（与 t525 湮灭记录对仗：资产可再生的路径兑现了）；t526 seeder 备胎注记。
+- [验证-终] tsc 0 + eslint 0（触碰五件：diag-t380 / t415 / qa-t527 seeder / t526 seeder / t527-probe）+ prod :3000 全程零 src 改动（provenance 仍 fresh，d0255d8 build 续用）+ 定妆照 shots-qa/t527-empiar-real-canvas.png（68 卡/204 svg/console 0）。
+
+Stage Summary:
+- **「带宽的借口是会过期的」**：t380 时代 16 KB/s 逼出的合成镜像，在 644 KB/s 的今天成了可重取的账——挂池四窗的债不是被遗忘而是被等待；环境几何浮动会还债也会讨债（buff/cache 坍缩与 EBI 提速同为一根表的两面）
+- **「考试要按考卷的物理判卷」**：真原始数据的粒子对比度 ~0.1%（要靠 MotionCorr dose-weighting 才可见）——8-bit 可见度 bar 只能判合成件；浮点精度的极性定律（picks 比局部冰暗）才是真数据扛得住的考题。fidelity 考试从此双模：REAL 判物理，RIG 判显示——**两种诚实各判各的世界**
+- **「seeder 进 repo，数据留树外」**：641MB 真数据 + 537MB 硬链接镜像全部 gitignored，身份律 + 下载程序 + 拓扑全部 tracked——沙箱重置从「资产湮灭」降级为「一条命令的等待」；t526 合成 fallback 保住链路底线但永不冒充真数据
+- **「roster 的真相在名册不在画布」**：/api/jobs 是 active 视角（移动靶），/api/projects 的总 job 和才是世界账本——t526 的「名册比画布诚实」判例从世界卫生延伸到了断言基线
+- 产出：EMPIAR-10017 真数据归位（10+10，641MB）+ 双车道 seeder（bash 快取 / node 法典）+ diag-t380 REALITY MODE 90/0 + t415 总和基线 + fetch/镜像/退役一条龙 + 文档三件
+- [最终态] prod :3000 续跑（d0255d8 build，本窗零 src 改动）。三 commit（ops + test + docs 分车）后推送（随车带 harness auto-commit ad2b08d）。下窗从 Task 528 起编。遗留池：①**t372 的 /data2/empiar10017 镜像**（无 dash 旧布局，t372 diag 若要复活需同款 seeder 处理——真数据已在手，只差 staging）；②t276 的 _legacy-archive relion-projects 档案仍湮灭（真 RELION 工程语义档案，非数据本身）；③watchdog flock 竞态重试（低优先）；④t522 遗留③老世界持久 seeder；⑤t519 建议 #1/#4；⑥off-mainline 出口、remote diagnostics。

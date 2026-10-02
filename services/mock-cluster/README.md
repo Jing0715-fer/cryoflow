@@ -64,12 +64,37 @@ command string are rewritten** before execution:
 
 - `/projects/…`  → `<…>/services/mock-cluster/fs/projects/…`
 - `/home/cryo/…` → `<…>/services/mock-cluster/fs/home/cryo/…`
+- `/data2/…`     → `<…>/services/mock-cluster/fs/data2/…` (t300 — the
+  cluster's data scratch: Relion installs, movie/particle staging)
 
 So `mkdir -p /projects/cryoflow/x` really creates
 `fs/projects/cryoflow/x` on this machine. Configure the app with
 `remoteRoot=/projects/cryoflow` and everything just works — no other setting
 needed. (Reverse translation is not needed: the app reads files back through
 the same exec channel.)
+
+## The EMPIAR-10017 mirror (`fs/data2/empiar-10017/`) — real data, never in git
+
+diag-t380's fidelity exam grades `fs/data2/empiar-10017/` as **8 real
+Falcon-II micrographs + 8 Henderson `.coord` files** (the first 8 of the
+entry's alphabetical listing, `Falcon_2012_06_12-14_33_35_0.mrc` …
+`-15_33_42_0.mrc`, 67,109,888 B each). The directory is gitignored on
+purpose (537 MB of mirror as hardlinks ≈ 12 KB of new disk) — after a
+sandbox reset, restore it with the tracked law:
+
+```bash
+node scripts/qa-t527-empiar-real-seed.mjs
+# downloads 10 mics + 10 coords to /home/z/empiar-10017/micrographs (skip-fast
+# when present), verifies the identity law (byte size + 4096² float32 header +
+# all-positive ice sample), hardlinks 8+8 into fs/data2/empiar-10017/, retires
+# any t526 synthetic stand-ins
+```
+
+The t380-era fallback (`python3 scripts/make-empiar10017-fixtures.py`) still
+regenerates a same-shape SYNTHETIC mirror for bandwidth-starved worlds —
+diag-t380's reality probe tells the two apart from the float bytes and grades
+each by what it can honestly carry. The synthetic rig never satisfies the
+REAL-data polarity laws again.
 
 ## The `module` tool
 
