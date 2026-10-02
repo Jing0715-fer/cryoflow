@@ -21,6 +21,7 @@
 
 import { readdirSync, rmSync, statSync } from "fs";
 import path from "path";
+import { appendCleanupExecution, type CleanupDoor } from "@/lib/relion/cleanup-history";
 import { classifyCleanup, type CleanupExecuteResult, type CleanupTierId } from "@/lib/hpc/cleanup";
 import {
   deleteRemoteFiles,
@@ -84,18 +85,70 @@ function pruneLocalEmptyDirs(workdir: string): void {
   }
 }
 
+/** t522 — the verdict journal: every execution (or refusal) through this
+ *  shovel lands in the ledger, whichever door knocked. Best-effort by
+ *  law — the journal ride must never break the run it witnesses. */
+function journalVerdict(
+  door: CleanupDoor,
+  jobId: string,
+  jobName: string,
+  projectId: string,
+  scopes: { local: boolean; remote: boolean },
+  tiers: CleanupTierId[],
+  result: CleanupExecuteResult
+): void {
+  try {
+    appendCleanupExecution({
+      at: new Date().toISOString(),
+      jobId,
+      jobName,
+      projectId,
+      door,
+      scopes: { ...scopes },
+      tiers: [...tiers],
+      ok: result.ok,
+      ...(result.ok ? {} : { error: result.error }),
+      ...(result.ok && result.local
+        ? { local: { deleted: result.local.deleted, freedBytes: result.local.freedBytes, failures: result.local.errors.length } }
+        : {}),
+      ...(result.ok && result.remote
+        ? {
+            remote: {
+              deleted: result.remote.deleted,
+              freedBytes: result.remote.freedBytes,
+              failures: result.remote.errors.length,
+              manifestRewritten: result.remote.manifestRewritten,
+            },
+          }
+        : {}),
+    });
+  } catch {
+    /* the ledger is a witness, not a participant */
+  }
+}
+
 async function executeCleanup(
   jobId: string,
   scopes: { local: boolean; remote: boolean },
-  tiers: CleanupTierId[]
+  tiers: CleanupTierId[],
+  door: CleanupDoor
 ): Promise<CleanupExecuteResult> {
   const resolved = await resolveCleanupJob(jobId);
-  if (!resolved) return { ok: false, error: "Job not found" };
-  const { record, runnable, reason } = resolved;
-  if (!record?.workdir) {
-    return { ok: false, error: "This job has not run yet — nothing to clean." };
+  if (!resolved) {
+    journalVerdict(door, jobId, "", "", scopes, tiers, { ok: false, error: "Job not found" });
+    return { ok: false, error: "Job not found" };
   }
-  if (!runnable) return { ok: false, error: reason ?? "the run is still live" };
+  const { job, record, runnable, reason } = resolved;
+  if (!record?.workdir) {
+    const refused: CleanupExecuteResult = { ok: false, error: "This job has not run yet — nothing to clean." };
+    journalVerdict(door, jobId, job.name, job.projectId, scopes, tiers, refused);
+    return refused;
+  }
+  if (!runnable) {
+    const refused: CleanupExecuteResult = { ok: false, error: reason ?? "the run is still live" };
+    journalVerdict(door, jobId, job.name, job.projectId, scopes, tiers, refused);
+    return refused;
+  }
 
   const tierSet = new Set<CleanupTierId>(tiers);
   const wanted = (groups: Array<{ tier: CleanupTierId; paths?: string[] }>) =>
@@ -195,7 +248,13 @@ async function executeCleanup(
     }
   }
 
-  return { ok: true, ...(localSide ? { local: localSide } : {}), ...(remoteSide ? { remote: remoteSide } : {}) };
+  const verdict: CleanupExecuteResult = {
+    ok: true,
+    ...(localSide ? { local: localSide } : {}),
+    ...(remoteSide ? { remote: remoteSide } : {}),
+  };
+  journalVerdict(door, jobId, job.name, job.projectId, scopes, tiers, verdict);
+  return verdict;
 }
 
 /* ------------------------------------------------------------------ */
@@ -212,11 +271,12 @@ const inFlight = new Map<string, Promise<CleanupExecuteResult>>();
 export function runCleanupExclusive(
   jobId: string,
   scopes: { local: boolean; remote: boolean },
-  tiers: CleanupTierId[]
+  tiers: CleanupTierId[],
+  door: CleanupDoor
 ): Promise<CleanupExecuteResult> {
   const running = inFlight.get(jobId);
   if (running) return running;
-  const task = executeCleanup(jobId, scopes, tiers);
+  const task = executeCleanup(jobId, scopes, tiers, door);
   inFlight.set(jobId, task);
   task.finally(() => {
     inFlight.delete(jobId);

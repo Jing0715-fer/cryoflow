@@ -85,8 +85,8 @@ const typeCleanupExecute = await import("../src/lib/hpc/cleanup");
 console.log("T1. the face (roster, knobs, description laws, the pair)");
 
 must(
-  AI_TOOLS.length === 32 && new Set(AI_TOOLS.map((t) => t.name)).size === 32,
-  `T1a: the roster holds 32 unique tools (got ${AI_TOOLS.length})`
+  AI_TOOLS.length === 33 && new Set(AI_TOOLS.map((t) => t.name)).size === 33,
+  `T1a: the roster holds 33 unique tools (got ${AI_TOOLS.length})`
 );
 const face = AI_TOOLS.find((t) => t.name === "cleanup_job_files");
 must(face != null, "T1b: cleanup_job_files sits in the roster");
@@ -151,8 +151,8 @@ must(
 must(
   !routeBody.includes("function executeCleanup") &&
     !routeBody.includes("const inFlight") &&
-    routeBody.includes("await runCleanupExclusive(id, scopes, tiers)"),
-  "T2c: the route POST is a shell — one well line, no lock left behind"
+    routeBody.includes('await runCleanupExclusive(id, scopes, tiers, "dialog")'),
+  "T2c: the route POST is a shell — one well line signed with its door, no lock left behind (t522: the door rides the ledger)"
 );
 must(
   routeBody.includes('"Nothing selected — choose at least one side (local or cluster)"') &&
@@ -414,8 +414,8 @@ must(
 );
 
 const [lockA, lockB] = await Promise.all([
-  runCleanupExclusive(clsJob.id, { local: true, remote: false }, ["safe"]),
-  runCleanupExclusive(clsJob.id, { local: true, remote: false }, ["safe"]),
+  runCleanupExclusive(clsJob.id, { local: true, remote: false }, ["safe"], "agent"),
+  runCleanupExclusive(clsJob.id, { local: true, remote: false }, ["safe"], "agent"),
 ]);
 must(
   lockA === lockB && lockA.ok === true,

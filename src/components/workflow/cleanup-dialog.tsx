@@ -27,6 +27,7 @@ import {
   Check,
   Eraser,
   HardDrive,
+  History,
   Loader2,
   RefreshCw,
   Server,
@@ -59,6 +60,7 @@ import {
   type CleanupTierId,
 } from "@/lib/hpc/cleanup";
 import { toast } from "@/hooks/use-toast";
+import type { CleanupHistoryEntry } from "@/lib/relion/cleanup-history";
 import type { JobDTO } from "@/lib/types";
 
 function fmtBytes(n: number): string {
@@ -89,6 +91,20 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
   const [scopeRemote, setScopeRemote] = React.useState(true);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [executing, setExecuting] = React.useState(false);
+  // t522 — the shovel's own past: this job's ledger entries (either door),
+  // newest first, at most three on the strip. The audit rides with the ask.
+  const [history, setHistory] = React.useState<CleanupHistoryEntry[] | null>(null);
+
+  const loadHistory = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/cleanup-history", { cache: "no-store" });
+      if (!res.ok) return;
+      const body = (await res.json()) as { entries?: CleanupHistoryEntry[] };
+      setHistory((body.entries ?? []).filter((e) => e.jobId === job.id).slice(0, 3));
+    } catch {
+      /* the strip is a witness too — an unreachable ledger just stays hidden */
+    }
+  }, [job.id]);
 
   const loadPlan = React.useCallback(
     async (refresh = false) => {
@@ -117,8 +133,11 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
   );
 
   React.useEffect(() => {
-    if (open) void loadPlan();
-  }, [open, loadPlan]);
+    if (open) {
+      void loadPlan();
+      void loadHistory();
+    }
+  }, [open, loadPlan, loadHistory]);
 
   // the offered tiers reset the checkboxes to their doctrine defaults
   // every time a fresh plan lands (safe on, the sharp ones opt-in)
@@ -221,6 +240,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
           : {}),
       });
       onCleaned?.();
+      void loadHistory();
       onOpenChange(false);
     } catch (e) {
       toast({
@@ -279,6 +299,52 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
                     {plan.reason}
                   </div>
                 )}
+
+                {history && history.length > 0 ? (
+                  <div
+                    data-cleanup-history=""
+                    className="rounded-md border bg-muted/30 px-3 py-2.5"
+                  >
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                      <History className="size-3" aria-hidden="true" />
+                      Recent cleanups on this job
+                    </div>
+                    <ul className="mt-1.5 space-y-1">
+                      {history.map((e, i) => (
+                        <li
+                          key={`${e.at}-${i}`}
+                          className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-snug text-muted-foreground"
+                        >
+                          <span className="font-mono text-[10px] text-foreground/60">
+                            {new Date(e.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="h-3.5 px-1 font-mono text-[8.5px] font-normal uppercase tracking-wide text-foreground/70"
+                          >
+                            {e.door}
+                          </Badge>
+                          {!e.ok ? (
+                            <span className="text-amber-700 dark:text-amber-300">
+                              refused — {e.error ?? "no reason recorded"}
+                            </span>
+                          ) : (
+                            <span>
+                              {[
+                                e.local ? `${e.local.deleted} local file${e.local.deleted === 1 ? "" : "s"} · ${fmtBytes(e.local.freedBytes)}` : null,
+                                e.remote ? `${e.remote.deleted} cluster file${e.remote.deleted === 1 ? "" : "s"} · ${fmtBytes(e.remote.freedBytes)}` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ") || "nothing matched the tiers"}
+                              {" · "}
+                              {e.tiers.join("+")}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
 
                 <SideCard
                   side="local"

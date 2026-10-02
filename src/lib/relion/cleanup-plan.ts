@@ -110,7 +110,7 @@ export function walkLocalRunFiles(workdir: string): {
 /* ------------------------------------------------------------------ */
 
 export interface ResolvedJob {
-  job: { id: string; name: string; type: string; status: string };
+  job: { id: string; name: string; type: string; status: string; projectId: string };
   record: RunRecord | null;
   runnable: boolean;
   reason?: string;
@@ -121,7 +121,7 @@ export async function resolveCleanupJob(id: string): Promise<ResolvedJob | null>
   if (!job) return null;
   const record = getRun(job.id) ?? null;
   const shell = {
-    job: { id: job.id, name: job.name, type: job.type, status: job.status },
+    job: { id: job.id, name: job.name, type: job.type, status: job.status, projectId: job.projectId },
     record,
   };
   if (!record?.workdir) {

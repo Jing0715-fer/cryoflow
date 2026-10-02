@@ -36,6 +36,7 @@ import { ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { fmtBytes } from "@/lib/relion/disk-usage";
 import { computeCleanupPlan } from "@/lib/relion/cleanup-plan";
 import { runCleanupExclusive } from "@/lib/relion/cleanup-execute";
+import { readCleanupHistory, type CleanupHistoryEntry } from "@/lib/relion/cleanup-history";
 import type { CleanupExecuteResult, CleanupPlan, CleanupSidePlan } from "@/lib/hpc/cleanup";
 import { computeStorageReport, type StorageResponse } from "@/lib/relion/storage-report";
 import { fmtDuration } from "@/lib/duration";
@@ -589,7 +590,7 @@ export const AI_TOOLS: ToolSchema[] = [
   {
     name: "get_cleanup_plan",
     description:
-      "One job's CLEANUP MENU in one read — the per-job cleanup dialog's own plan as data: what the run's directory holds that the planner classifies as deletable, sorted into its three tiers (safe: iteration & scratch files — redundant chainable copies, beaten iterations, .cf-* shards and .tmp scratch; diagnostics: CTF & plot byproducts; bulk: intermediate image data, only for motioncorr/extract/polish), each tier with its file count, its raw bytes and the planner's stated consequence, plus the keep-set's own account — outputs, input-data doors (symlinks), resume checkpoints — what survives and why. THE tool for '这个任务能清什么 / what can I clean in this job / how much disk would each tier free / is it safe to clean X'. get_storage_report is the project's map (which run directory weighs most); this is one job's menu (what inside it is scratch). Read-only PLANNER PREVIEW: it deletes nothing — the shovel is cleanup_job_files (the agent's verb) and the cleanup dialog's Clean door (the pointer's), one guarded write behind two doors (cross-site 403, liveness 409, in-flight lock), and a running or queued job answers with that reason verbatim (a live run's files are being written). The plan is the dialog's own plan: same walk, same classifier, same keep-set — the dialog drinks the same cup. One knob: the job id.",
+      "One job's CLEANUP MENU in one read — the per-job cleanup dialog's own plan as data: what the run's directory holds that the planner classifies as deletable, sorted into its three tiers (safe: iteration & scratch files — redundant chainable copies, beaten iterations, .cf-* shards and .tmp scratch; diagnostics: CTF & plot byproducts; bulk: intermediate image data, only for motioncorr/extract/polish), each tier with its file count, its raw bytes and the planner's stated consequence, plus the keep-set's own account — outputs, input-data doors (symlinks), resume checkpoints — what survives and why. THE tool for '这个任务能清什么 / what can I clean in this job / how much disk would each tier free / is it safe to clean X'. get_storage_report is the project's map (which run directory weighs most); this is one job's menu (what inside it is scratch). Read-only PLANNER PREVIEW: it deletes nothing — the shovel is cleanup_job_files (the agent's verb) and the cleanup dialog's Clean door (the pointer's), one guarded write behind two doors (cross-site 403, liveness 409, in-flight lock), both doors signing the same ledger that get_cleanup_history reads; a running or queued job answers with that reason verbatim (a live run's files are being written). The plan is the dialog's own plan: same walk, same classifier, same keep-set — the dialog drinks the same cup. One knob: the job id.",
     parameters: {
       type: "object",
       properties: {
@@ -602,7 +603,7 @@ export const AI_TOOLS: ToolSchema[] = [
   {
     name: "cleanup_job_files",
     description:
-      "The SHOVEL — one job's intermediate-file cleanup, executed: the write face of get_cleanup_plan's menu. Deletes only what the same planner classifies into the tiers you pass (safe: iteration & scratch files — redundant chainable copies, beaten iterations, .cf-* shards and .tmp scratch; diagnostics: CTF & plot byproducts; bulk: intermediate image data, only for motioncorr/extract/polish) and re-walks the directory LIVE first, so a stale preview can never mandate a deletion (TOCTOU-safe by construction — the request carries scopes and tiers, NEVER a file list; there is no knob for paths and there never will be). THE tool for '帮我清掉这个作业的中间文件 / clean this job's intermediates / free the scratch disk'. The keep-set is the contract and is never touched — outputs, input-data doors (symlinks), resume checkpoints — so run get_cleanup_plan FIRST and read its keep-set before choosing tiers. A running or queued job is refused with its reason (a live run's files are being written); the receipt speaks per side (files deleted, bytes freed, the cluster manifest rewritten when the remote side cleaned) and every per-file failure rides the annex verbatim. Knobs: the job id, which sides (local and/or cluster), which tiers.",
+      "The SHOVEL — one job's intermediate-file cleanup, executed: the write face of get_cleanup_plan's menu. Deletes only what the same planner classifies into the tiers you pass (safe: iteration & scratch files — redundant chainable copies, beaten iterations, .cf-* shards and .tmp scratch; diagnostics: CTF & plot byproducts; bulk: intermediate image data, only for motioncorr/extract/polish) and re-walks the directory LIVE first, so a stale preview can never mandate a deletion (TOCTOU-safe by construction — the request carries scopes and tiers, NEVER a file list; there is no knob for paths and there never will be). THE tool for '帮我清掉这个作业的中间文件 / clean this job's intermediates / free the scratch disk'. The keep-set is the contract and is never touched — outputs, input-data doors (symlinks), resume checkpoints — so run get_cleanup_plan FIRST and read its keep-set before choosing tiers. A running or queued job is refused with its reason (a live run's files are being written); the receipt speaks per side (files deleted, bytes freed, the cluster manifest rewritten when the remote side cleaned) and every per-file failure rides the annex verbatim. Every verdict — executed or refused — is signed into the cleanup ledger both doors share; get_cleanup_history reads it back. Knobs: the job id, which sides (local and/or cluster), which tiers.",
     parameters: {
       type: "object",
       properties: {
@@ -616,6 +617,18 @@ export const AI_TOOLS: ToolSchema[] = [
         },
       },
       required: ["job_id", "local", "remote", "tiers"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_cleanup_history",
+    description:
+      "The cleanup LEDGER in one read — every deletion this machine has actually performed through either door (the Storage dialog's Clean button or your own cleanup_job_files), newest first: when it ran, which job, which door, which tiers, what each side deleted and freed, and every refusal with its reason verbatim. THE tool for '这台机器最近清过什么 / what was cleaned recently / did anyone already clean this job / who deleted the intermediates / 清理历史'. Reads the same ledger both doors write — the audit of the past, never a preview: get_storage_report maps the present disk, get_cleanup_plan previews what WOULD go, this answers what DID. Zero knobs except an optional job filter; read-only — it never deletes anything.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: { type: "string", description: "Optional: only this job's cleanup attempts (get_workflow_state lists ids). Omit for the whole ledger." },
+      },
       additionalProperties: false,
     },
   },
@@ -947,6 +960,8 @@ export async function executeAiTool(
         return await getCleanupPlan(ctx, args);
       case "cleanup_job_files":
         return await cleanupJobFiles(ctx, args);
+      case "get_cleanup_history":
+        return await getCleanupHistory(ctx, args);
       case "get_curve_verdicts":
         return await getCurveVerdicts(ctx);
       case "select_classes":
@@ -4090,9 +4105,94 @@ async function cleanupJobFiles(
   const result = await runCleanupExclusive(
     effective.id,
     { local, remote },
-    tiers as Array<"safe" | "diagnostics" | "bulk">
+    tiers as Array<"safe" | "diagnostics" | "bulk">,
+    "agent"
   );
   return presentCleanupExecution(effective.name, result);
+}
+
+/* ---- get_cleanup_history (the ledger's read face) --------------------- */
+
+/** t522 — the shared time voice: absolute date+time, the ledger's entries
+ *  are audits ("what happened at 14:32") not ages ("3 minutes ago" rots
+ *  between turns). */
+function ledgerTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/** The side phrase both the summary and the per-entry lines speak — the
+ *  t518 receipt voice (fmtBytes the only bytes, singular/plural verbs). */
+function ledgerSidePhrase(label: string, side: { deleted: number; freedBytes: number }, extra?: string): string {
+  return side.deleted === 0
+    ? `${label} — nothing matched (0 files, 0 B)${extra ?? ""}`
+    : `${label} — ${side.deleted} file${side.deleted === 1 ? "" : "s"}, ${fmtBytes(side.freedBytes)} freed${extra ?? ""}`;
+}
+
+/** t522 — the ledger's face. The past tense of the cleanup family: every
+ *  entry is one verdict (an execution with its numbers, or a refusal with
+ *  its reason verbatim), spoken newest-first. The empty face is an answer,
+ *  not an apology — it names the two doors that would make it non-empty. */
+export function presentCleanupHistory(entries: CleanupHistoryEntry[], jobFilter?: string): AiToolResult {
+  if (entries.length === 0) {
+    return {
+      ok: true,
+      summary: jobFilter
+        ? `The cleanup ledger holds no attempt on ${jobFilter} — nothing was ever cleaned through either door for this job (get_cleanup_plan previews what WOULD go; cleanup_job_files swings the shovel).`
+        : "The cleanup ledger is empty — nothing has been cleaned through either door (the Storage dialog's Clean button or cleanup_job_files) yet. get_cleanup_plan previews what WOULD go; cleanup_job_files swings the shovel.",
+      detail: { entries: [] },
+    };
+  }
+  const lines = entries.map((e) => {
+    if (!e.ok) {
+      return `${ledgerTime(e.at)} — ${e.jobName || e.jobId} [${e.door}] REFUSED: ${e.error ?? "no reason recorded"}`;
+    }
+    const sides: string[] = [];
+    if (e.local) sides.push(ledgerSidePhrase("local", e.local));
+    if (e.remote)
+      sides.push(
+        ledgerSidePhrase(
+          "cluster",
+          e.remote,
+          e.remote.manifestRewritten ? " — manifest rewritten" : ""
+        )
+      );
+    const sideText = sides.length > 0 ? sides.join(" · ") : "no side matched the request";
+    return `${ledgerTime(e.at)} — ${e.jobName || e.jobId} [${e.door}] ${e.tiers.join("+")}: ${sideText}`;
+  });
+  const attempts = entries.length;
+  const executed = entries.filter((e) => e.ok).length;
+  const refused = attempts - executed;
+  return {
+    ok: true,
+    summary: `${attempts} cleanup attempt${attempts === 1 ? "" : "s"} in the ledger (newest first) — ${executed} executed, ${refused} refused:${
+      lines.length <= 8 ? ` ${lines.join(" | ")}` : ` ${lines.slice(0, 8).join(" | ")} — and ${attempts - 8} older in the annex`
+    }`,
+    detail: { entries },
+  };
+}
+
+async function getCleanupHistory(ctx: AgentCtx, args: Record<string, unknown>): Promise<AiToolResult> {
+  const jobId = typeof args.job_id === "string" && args.job_id.trim() ? args.job_id.trim() : null;
+  let entries = readCleanupHistory();
+  if (jobId) {
+    entries = entries.filter((e) => e.jobId === jobId);
+    if (entries.length > 0) {
+      const name = entries[0].jobName;
+      return presentCleanupHistory(entries, name || jobId);
+    }
+    // an unknown id and a known-but-never-cleaned id deserve different truths
+    const job = await findJobInProject(jobId, ctx.projectId);
+    return presentCleanupHistory([], job?.name ?? jobId);
+  }
+  return presentCleanupHistory(entries);
 }
 
 /* ---- judge_2d_classes (the VLM tool) ---------------------------------- */
