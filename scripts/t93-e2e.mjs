@@ -96,7 +96,7 @@ await p.addInitScript(() => {
     fullPath,
     file: (cb, err) => {
       try { cb(new File([content], name, { type: "application/json" })); }
-      catch (e) { err && err(e); }
+      catch (e) { if (err) err(e); }
     },
   });
   const mkBig = (name, fullPath, bytes) => ({

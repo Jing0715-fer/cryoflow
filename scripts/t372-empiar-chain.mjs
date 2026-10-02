@@ -253,7 +253,7 @@ let ihFail = [];
 for (const f of files.filter((x) => fs.statSync(x).size < 8_000_000).slice(0, 60)) {
   try {
     execSync(
-      `node -e "const {Client}=require('/home/z/cryoflow/node_modules/ssh2');const c=new Client();c.on('ready',()=>{c.exec('bash -lc \\"relion_image_handler --i ${f} --multiply_constant 1 --o _probe_t372 2>&1 | tail -2; rm -f ${f%.mrcs}_probe_t372.mrcs ${f%.mrc}_probe_t372.mrc 2>/dev/null\\"',(e,s)=>{let o='';s.on('data',d=>o+=d);s.stderr.on('data',d=>o+=d);s.on('close',()=>{console.log(o);c.end();});});}).connect({host:'127.0.0.1',port:3022,username:'cryo',password:'demo'});"`,
+      `node -e "const {Client}=require('/home/z/cryoflow/node_modules/ssh2');const c=new Client();c.on('ready',()=>{c.exec('bash -lc \\"relion_image_handler --i ${f} --multiply_constant 1 --o _probe_t372 2>&1 | tail -2; rm -f \${f%.mrcs}_probe_t372.mrcs \${f%.mrc}_probe_t372.mrc 2>/dev/null\\"',(e,s)=>{let o='';s.on('data',d=>o+=d);s.stderr.on('data',d=>o+=d);s.on('close',()=>{console.log(o);c.end();});});}).connect({host:'127.0.0.1',port:3022,username:'cryo',password:'demo'});"`,
       { encoding: "utf8", timeout: 90_000, stdio: ["ignore", "pipe", "pipe"] }
     );
   } catch (e) {

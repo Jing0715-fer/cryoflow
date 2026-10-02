@@ -702,6 +702,34 @@ export interface ClassStat {
   resolution: number | null;
 }
 
+/**
+ * t520 — derive the stack's NAME from per-class .mrc files when the stack
+ * itself stayed on the cluster. Under the key-files policy (t339/t474) the
+ * local mirror syncs per-class .mrc + stars only; a local-only readdir made
+ * the judge refuse a FINISHED remote run ("wait for the run to finish" — a
+ * lie about a healthy world). RELION's own naming convention carries the
+ * truth: run_itNNN_classMMM.mrc ⇔ run_itNNN_classes.mrcs, so the per-class
+ * files name the stack the pull-lane should fetch. Returns null when no
+ * per-class file matches the iteration (nothing to derive from).
+ */
+export function deriveClassStackFromPerClass(
+  workdir: string,
+  iteration: number | null
+): string | null {
+  if (iteration == null) return null;
+  const it = String(iteration).padStart(3, "0");
+  const prefix = `run_it${it}_class`;
+  let names: string[] = [];
+  try {
+    names = readdirSync(workdir);
+  } catch {
+    return null;
+  }
+  const perClass = names.filter((n) => n.startsWith(prefix) && /\.mrc$/i.test(n));
+  if (perClass.length === 0) return null;
+  return `run_it${it}_classes.mrcs`;
+}
+
 /** Occupancy from the latest settled data star + resolution from the model star. */
 export function classStatsFromWorkdir(workdir: string): {
   iteration: number | null;
@@ -4094,7 +4122,15 @@ async function judge2dClasses(
   }
 
   const stats = classStatsFromWorkdir(workdir);
-  if (!stats.stackFile || stats.classes.length === 0) {
+  // t520 — the stackless world's feed: the local scan may see no classes.mrcs
+  // (the key-files policy keeps stacks cluster-side) while the per-class
+  // .mrc files carry the stack's name — derive it so the pull-lane below
+  // can fetch the feed instead of refusing a finished run.
+  let stackFile = stats.stackFile;
+  if (!stackFile) {
+    stackFile = deriveClassStackFromPerClass(workdir, stats.iteration);
+  }
+  if (!stackFile || stats.classes.length === 0) {
     return {
       ok: false,
       summary: `${job.name} has no class averages in its workdir yet (iteration ${stats.iteration ?? "none"}) — wait for the run to finish or check its results`,
@@ -4102,9 +4138,9 @@ async function judge2dClasses(
   }
 
   // the image — local mirror first, cluster pull when the stack stayed remote
-  let stackAbs = path.join(workdir, stats.stackFile);
+  let stackAbs = path.join(workdir, stackFile);
   if (!existsSync(stackAbs) && run?.remote) {
-    const pulled = await fetchRemoteFileIntoWorkdir(run, stats.stackFile);
+    const pulled = await fetchRemoteFileIntoWorkdir(run, stackFile);
     if (!pulled.ok) {
       return {
         ok: false,
@@ -4113,11 +4149,11 @@ async function judge2dClasses(
     }
   }
   if (!existsSync(stackAbs)) {
-    return { ok: false, summary: `Class stack ${stats.stackFile} is not readable on this machine` };
+    return { ok: false, summary: `Class stack ${stackFile} is not readable on this machine` };
   }
   const sheet = await renderClassSheetPng(stackAbs);
   if (!sheet) {
-    return { ok: false, summary: `Could not render ${stats.stackFile} to an image (unreadable MRC?)` };
+    return { ok: false, summary: `Could not render ${stackFile} to an image (unreadable MRC?)` };
   }
 
   // the numbers that ride with the image
@@ -4206,9 +4242,22 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
   // options (conservative vs inclusive) have exact numbers to quote.
   const keepCls = verdict ? verdict.classes.filter((c) => c.verdict === "keep").map((c) => c.cls).sort((a, b) => a - b) : [];
   const maybeCls = verdict ? verdict.classes.filter((c) => c.verdict === "maybe").map((c) => c.cls).sort((a, b) => a - b) : [];
+  // t520 — the zero-keep branch. When NO class merits keep the old nextStep
+  // literally instructed select_classes({classes:[]}) — a call the tool
+  // REFUSES ("classes must be a non-empty list of class numbers"), so the
+  // field test's all-junk worlds got text-only advice with no action block
+  // while the instruction pointed at a wall. A zero-keep verdict is advice
+  // about the RUN (re-run with different params or better data), never a
+  // selection to force: 0 keep + 0 maybe ships NO tiers at all (nothing
+  // is selectable — the field's absence speaks), and 0 keep + maybe>0
+  // ships the borderline set under its honest name — the gamble it is,
+  // never a recommendation.
+  const zeroKeep = verdict !== null && keepCls.length === 0;
+  const classTotal = stats.classes.length;
+  const fewerClasses = Math.max(2, Math.floor(classTotal / 2));
   return {
     ok: true,
-    summary: `Judged ${verdict?.classes.length ?? stats.classes.length} classes of ${job.name} (iteration ${stats.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe — ${truncate(verdict?.advice ?? analysis, 300)}`,
+    summary: `Judged ${verdict?.classes.length ?? stats.classes.length} classes of ${job.name} (iteration ${stats.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe${zeroKeep ? " — NO class merits a selection (zero-keep verdict)" : ""} — ${truncate(verdict?.advice ?? analysis, 300)}`,
     detail: {
       iteration: stats.iteration,
       judgedClasses: verdict?.classes ?? null,
@@ -4216,17 +4265,22 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
       rawAnalysis: verdict ? analysis : undefined,
       classStats: stats.classes,
       ...(verdict
-        ? {
-            tiers:
-              maybeCls.length > 0
-                ? { conservative: keepCls, inclusive: [...keepCls, ...maybeCls].sort((a, b) => a - b) }
-                : { single: keepCls },
-            nextStep: `Call select_classes({job_id:"${job.id}", classes:[${keepCls.join(",")}]}) to create AND run the selection (a select2d target executes immediately; confirm the class list with the user first).${
-              maybeCls.length > 0
-                ? ` When presenting options, offer the TWO tiers as separate actions: conservative = keep only [${keepCls.join(", ")}], inclusive = keep + maybe [${[...keepCls, ...maybeCls].sort((a, b) => a - b).join(", ")}] — the user picks the trade-off.`
-                : ` The maybe set is empty — the keep list is the single sensible selection.`
-            }`,
-          }
+        ? zeroKeep
+          ? {
+              ...(maybeCls.length > 0 ? { tiers: { borderline: maybeCls } } : {}),
+              nextStep: `ZERO keepable classes (${keepCount} keep / ${maybeCount} maybe of ${classTotal}) — select_classes REFUSES an empty list, so do NOT call it. The verdict is about the RUN, not a selection to force: close with an action block (law 16) offering the re-run trade-offs — [重跑·减类数] re-run ${job.name} with fewer classes (${fewerClasses} instead of ${classTotal} — too many classes shred a weak signal into noise), [重跑·加迭代] more iterations (these classes may not have settled), [先查上游] inspect what feeds it (get_funnel_chain on the chain, or judge the picks). Say plainly that a run with zero solid keeps is a data-or-params problem, not a patience problem.${maybeCls.length > 0 ? ` The borderline set [${maybeCls.join(", ")}] is the only non-empty selection this verdict permits — offer it only as the explicit gamble, never as advice.` : ""}`,
+            }
+          : {
+              tiers:
+                maybeCls.length > 0
+                  ? { conservative: keepCls, inclusive: [...keepCls, ...maybeCls].sort((a, b) => a - b) }
+                  : { single: keepCls },
+              nextStep: `Call select_classes({job_id:"${job.id}", classes:[${keepCls.join(",")}]}) to create AND run the selection (a select2d target executes immediately; confirm the class list with the user first).${
+                maybeCls.length > 0
+                  ? ` When presenting options, offer the TWO tiers as separate actions: conservative = keep only [${keepCls.join(", ")}], inclusive = keep + maybe [${[...keepCls, ...maybeCls].sort((a, b) => a - b).join(", ")}] — the user picks the trade-off.`
+                  : ` The maybe set is empty — the keep list is the single sensible selection.`
+              }`,
+            }
         : {}),
     },
   };
