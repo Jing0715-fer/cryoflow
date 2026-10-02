@@ -6899,3 +6899,19 @@ Stage Summary:
 - 产出：环境芯片 build 徽章 + 双嘴 EngineBuildRail + readBuildProgress 证据读法 + born-install known-path + AI 工具随律 + build-day 编排器（含第 5.5 拷贝步）+ t529 bench（87th）+ 首舞 BUILD GREEN + 定妆照 ×2
 
 [最终态与下窗提示] prod :3000 跑新 standalone（7eda08b，provenance fresh）；磨机复岗续磨 MPICH（cc1 活体）。下窗从 Task 530 起编。**磨机接管点照旧**：①`relion_refine --version` 印 5.0.0 即磨成；②身份过 → seeder（若 staging 被清）→ `node scripts/t372-empiar-chain.mjs`（P0 门自动开）；③磨完家族回归 + t372 全链入 worklog。若 src 再变：`bash scripts/t529-rebuild-standalone.sh` 一支令重建（守卫门内嵌，磨机自动礼让）。遗留池：①**t372 全链活体大考**（磨机收官即兑现）；②t276 的 _legacy-archive relion-projects 档案仍湮灭；③watchdog flock 竞态重试（低优先）；④t522 遗留③老世界持久 seeder；⑤t519 建议 #1/#4；⑥off-mainline 出口、remote diagnostics。
+
+---
+
+Task ID: 530
+Agent: main (Z.ai Code, window 2026-10-03 06:29 cron)
+Task: t529 遗留⑥轮替——磨机等待期的互补题「remote diagnostics 的产品化」：/api/diagnostics + System diagnostics 面板 + AI get_system_diagnostics 三张嘴；随窗活捉镜像律咬到自己（t242/t243 真败定谳与修复）。[期中条目——family-run 失败波清账与部署进行中]
+
+Work Log:
+- [开局] 树态考古：摘要脑内的「Task 524 收官」已过时五代——worklog 实录 t525-529，HEAD 93bd005 三方对齐。磨机活体：MPICH make -j2 磨中（yaksa pup int8→int32 层，225+ CC units），cmake/tiff stamps DONE，relion_refine 未生。QA 基线：prod :3000 200（3ms）+ tsc 0 + eslint 0 + console 0 + bench 87 套中（family-run 后台起跑）。
+- [选题定谳] 遗留池①t372 大考仍候磨机（MPICH 层 225+ units，本窗不可达）→ 互补题选池项⑥「remote diagnostics」的本地实现：战役的数字（t524 recycle line / t525 守卫双线 / t529 build 进度）此前只活在 ops 脚本与 worklog 散文里，产品没有一张「机器体检」的面孔。
+- [交付① well] src/lib/diagnostics.ts：readDiagnostics 一井四fact——memory（/proc/meminfo 解析 + composeMemoryLanes 纯函数：available 线 2600 判 go/nogo、buff/cache 线 1450 判 warm/collapsed、verdict danger<watch<healthy 三态判词引经 t461/t525）+ disk（statfs 纯函数）+ provenance（.next/.built-at-commit + standalone 探测）+ world census（prisma 三 count）。律法全遵守：composers 纯函数可注入（t529）、证据从字节不嗅进程（t528）、honest null 不造数（t195）、常量 MEMORY_LINES 把战役数字钉成产品常数（bench 钉死 2600/1450 不许漂）。
+- [交付② route+panel+tool] /api/diagnostics（t259 同款 isLocalRequest 门，Cross-site 403 判词）；system-diagnostics-dialog.tsx（header Activity 图标钮 + 三 section：Memory lanes 双 bar 带线上标 GO 2600/warm 1450、Engine&grinder 复用 EngineBuildRail（rail 单源 store，两井不漂）、Disk、World&build（census 三 tile + provenance chip）；HonestEmpty 诚实空态 + Refresh + generatedAt）；AI 工具 get_system_diagnostics（schema+dispatcher+executor，presenter presentSystemDiagnostics 落纯模块 tools.ts 仅 re-export——node strip-only 车道咬出 parameter property 惊魂，presenter 搬家让 bench 双运行时可达）；command palette 增 System diagnostics 门（SYSTEM_DIAGNOSTICS_EVENT 握手，header 听铃）。
+- [bench 第 88 套] scripts/t530-diagnostics-bench.ts：七节 53 断言（parseMeminfo free 语义、canonical lines 钉死、verdict 四边界 1449/1450/2599/2600、disk 纯数学、provenance 四态 fixture、presenter locator 摘要+honest null、live smoke 自洽、三张嘴 wiring 结构断言）。bun + node 双运行时 53/53。
+- [活捉 — 镜像律咬到自己] family-run 撞出 t242/t243 真败（PASS 27/2 与 154/2）→ mirror-probe 复刻二分定谳：**t529 的 composer 长出缩进命令行（"  grind / resume / check: …"）而 EngineHintBlock 的 muted 分支没有 whitespace-pre——浏览器吞掉前导空格，渲染行序与井字节不再 byte-identical**。镜像律存在的意义就是禁这个漂移，而它咬到的第一个正是自己的渲染器。修复：行类组合化（A/B + 缩进命令行 → mono+whitespace-pre；散文 → whitespace-pre-wrap 保换行），双套 mono 钉 2→3（A、B、grind/resume 三条命令行——rail 同款 mono 语法）。
+- [活捉 — 字面钉撞上正当环境] t242 Phase A 钉死「RELION_HOME — not set」在 prod 车道上必碎：prod-3001.sh 正当 export RELION_HOME=/home/z/relion-install（目录不存在——真 build 在 /home/z/relion-build 磨着），hint 诚实地换了方言「set to …, but the directory does not exist」。修复按 t416 律第三演进：钉方言不改字面——正则钉三种合法方言（not set / set-but-empty / set-but-missing）。
+- [family-run 失败波 — 清账中] 本窗 family-run 实录 15+ REAL-FAIL（t219/t223/t242/t243/t245/t246/t247/t253/t256/t258/t260/t263/t268…）：t242/t243 上两条已修；余下主波是**世界基线过时**（t219「roster is 15 (got 21)」——教程项目 21 jobs 的世界 vs 套件两窗前烤死的 15 基线；t529 宣称的 87/0 存疑，本窗是教程长到 21 后的第一次全量 family）+ 本窗早段并行 probe 的自污染。处置律：等 run 收官拿全列表 → 部署新 build（渲染器修复必须上车）→ 逐套 solo 三角定谳（真产品 bug vs 过时钉）→ 全量复跑。[清账进行中]
