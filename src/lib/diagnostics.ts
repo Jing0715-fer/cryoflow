@@ -183,14 +183,31 @@ export interface BuildProvenance {
 /**
  * The provenance stamp t525's recipe writes at build time
  * (.next/.built-at-commit). The prod lane runs with the project root as
- * cwd, so a relative read lands on the tree's stamp.
+ * its launch cwd — BUT Next's standalone server.js calls
+ * process.chdir(__dirname) at boot, so the running server's cwd is
+ * .next/standalone, two levels below the stamp. The reader therefore
+ * walks UP (bounded) from cwd looking for the stamp — the tree's stamp
+ * is the authoritative one regardless of which lane launched.
  */
 export function readBuildProvenance(root = process.cwd()): BuildProvenance {
   try {
-    const stamp = join(root, ".next", ".built-at-commit");
-    const commit = existsSync(stamp) ? readFileSync(stamp, "utf8").trim() || null : null;
-    const standalone = existsSync(join(root, ".next", "standalone", "server.js"));
-    return { commit, standalone };
+    let dir = root;
+    let stamp: string | null = null;
+    for (let hop = 0; hop < 4; hop++) {
+      const candidate = join(dir, ".next", ".built-at-commit");
+      if (existsSync(candidate)) {
+        stamp = readFileSync(candidate, "utf8").trim() || null;
+        break;
+      }
+      const parent = join(dir, "..");
+      if (parent === dir) break; // filesystem root — stop walking
+      dir = parent;
+    }
+    // standalone layout probe at the FOUND root (or the original root when
+    // no stamp exists — a dev lane keeps its own honest false)
+    const base = stamp !== null ? dir : root;
+    const standalone = existsSync(join(base, ".next", "standalone", "server.js"));
+    return { commit: stamp, standalone };
   } catch {
     return { commit: null, standalone: false };
   }

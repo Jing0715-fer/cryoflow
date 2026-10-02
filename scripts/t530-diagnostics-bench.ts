@@ -162,6 +162,15 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
     writeFileSync(path.join(fx, ".next", "standalone", "server.js"), "main();");
     const full = readBuildProvenance(fx);
     must(full.commit === "deadbeef" && full.standalone === true, "provenance — stamp + server.js → standalone with sha");
+    // t530 live-caught: the standalone server chdir's into .next/standalone,
+    // so the RUNNING lane's cwd is two levels below the tree's stamp — the
+    // reader walks up and still lands on the authoritative bytes.
+    const inner = path.join(fx, ".next", "standalone");
+    const fromInside = readBuildProvenance(inner);
+    must(
+      fromInside.commit === "deadbeef" && fromInside.standalone === true,
+      "provenance — reading from the standalone cwd walks up to the tree's stamp"
+    );
   } finally {
     rmSync(fx, { recursive: true, force: true });
   }
