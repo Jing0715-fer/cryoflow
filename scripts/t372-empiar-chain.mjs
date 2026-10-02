@@ -26,6 +26,13 @@
  *      dmin<dmax, dmean inside range
  */
 import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+
+// t528 — the repo root is WHERE THIS SCRIPT LIVES (the dead-tree
+// /home/z/cryoflow hardcode died with the sandbox that spawned it;
+// diag-t380's t526 fix, same knife). CF_ROOT keeps the override door.
+const ROOT = process.env.CF_ROOT ?? path.resolve(import.meta.dirname, "..");
 
 const BASE = process.env.CF_BASE ?? "http://localhost:3000";
 const ORIGIN = { Origin: BASE, "Content-Type": "application/json" };
@@ -86,11 +93,31 @@ const mkEdge = async (fromJobId, toJobId, fromPort, toPort) => {
 
 /* ---------------- P0 preflight ---------------- */
 console.log("== P0: preflight ==");
-const probe = execSync(
-  `node -e "const {Client}=require('${"/home/z/cryoflow/node_modules/ssh2"}');const c=new Client();c.on('ready',()=>{c.exec('bash -lc \\"which relion_refine; relion_refine --version 2>&1 | head -1\\"',(e,s)=>{let o='';s.on('data',d=>o+=d);s.stderr.on('data',d=>o+=d);s.on('close',()=>{console.log(o);c.end();});});}).connect({host:'127.0.0.1',port:3022,username:'cryo',password:'demo'});"`,
-  { encoding: "utf8", timeout: 30_000 }
-);
-must(probe.includes("/home/z/relion-build/bin/relion_refine"), "P0a the mock cluster resolves the REAL relion_refine");
+// t528 — the preflight is a DOOR, not a cliff: the real RELION build was
+// annihilated by the sandbox reset (t525 record) and rebuilt by recipe
+// (scripts/t528-rebuild-relion.sh). A missing build must exit with an
+// honest BLOCKED verdict (exit 2) — not an unhandled execSync throw, and
+// NEVER a graded run against the stub world (the t380 law: 合成件替代 =
+// 让考官作弊，stub 车道冒充真 RELION 同罪).
+if (!fs.existsSync(path.join(ROOT, "node_modules/ssh2"))) {
+  console.error("BLOCKED: ssh2 module missing at", path.join(ROOT, "node_modules/ssh2"), "— bun install first");
+  process.exit(2);
+}
+let probe = "";
+try {
+  probe = execSync(
+    `node -e "const {Client}=require('${ROOT}/node_modules/ssh2');const c=new Client();c.on('ready',()=>{c.exec('bash -lc \\"which relion_refine; relion_refine --version 2>&1 | head -1\\"',(e,s)=>{let o='';s.on('data',d=>o+=d);s.stderr.on('data',d=>o+=d);s.on('close',()=>{console.log(o);c.end();});});}).connect({host:'127.0.0.1',port:3022,username:'cryo',password:'demo'});"`,
+    { encoding: "utf8", timeout: 30_000 }
+  );
+} catch (e) {
+  console.error(`BLOCKED: the mock cluster :3022 did not answer the probe (${String(e.message).slice(0, 120)}) — services/mock-cluster running?`);
+  process.exit(2);
+}
+if (!probe.includes("/home/z/relion-build/bin/relion_refine")) {
+  console.error("BLOCKED: the mock cluster resolves no REAL relion_refine — /home/z/relion-build annihilated? Rebuild by recipe: bash scripts/t528-rebuild-relion.sh (the stub lane must never stand in for the fidelity chain)");
+  process.exit(2);
+}
+must(true, "P0a the mock cluster resolves the REAL relion_refine");
 must(probe.includes("5.0.0"), `P0b RELION version 5.0.0 (${probe.trim().split("\n").pop().trim()})`);
 
 /* ---------------- P1 connection + project ---------------- */
@@ -208,13 +235,10 @@ await finish(mc.id, "P8b motioncorr (real relion_motioncorr --use_own)", 600_000
 
 /* ---------------- V: validation ---------------- */
 console.log("== V: MRC/MRCS validation (the user's question) ==");
-const dataDir = "/home/z/cryoflow/data/relion-projects";
 // collect every mrc/mrcs the mock cluster produced, straight from the
 // cluster fs root (independent of the sync-back mirror — the CLUSTER-side
 // truth is what relion_display reads on the user's side)
-const fs = await import("node:fs");
-const path = await import("node:path");
-const clusterRoot = "/home/z/cryoflow/services/mock-cluster/fs/projects/cryoflow";
+const clusterRoot = path.join(ROOT, "services/mock-cluster/fs/projects/cryoflow");
 const walk = (dir, acc = []) => {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
@@ -253,7 +277,7 @@ let ihFail = [];
 for (const f of files.filter((x) => fs.statSync(x).size < 8_000_000).slice(0, 60)) {
   try {
     execSync(
-      `node -e "const {Client}=require('/home/z/cryoflow/node_modules/ssh2');const c=new Client();c.on('ready',()=>{c.exec('bash -lc \\"relion_image_handler --i ${f} --multiply_constant 1 --o _probe_t372 2>&1 | tail -2; rm -f \${f%.mrcs}_probe_t372.mrcs \${f%.mrc}_probe_t372.mrc 2>/dev/null\\"',(e,s)=>{let o='';s.on('data',d=>o+=d);s.stderr.on('data',d=>o+=d);s.on('close',()=>{console.log(o);c.end();});});}).connect({host:'127.0.0.1',port:3022,username:'cryo',password:'demo'});"`,
+      `node -e "const {Client}=require('${ROOT}/node_modules/ssh2');const c=new Client();c.on('ready',()=>{c.exec('bash -lc \\"relion_image_handler --i ${f} --multiply_constant 1 --o _probe_t372 2>&1 | tail -2; rm -f \${f%.mrcs}_probe_t372.mrcs \${f%.mrc}_probe_t372.mrc 2>/dev/null\\"',(e,s)=>{let o='';s.on('data',d=>o+=d);s.stderr.on('data',d=>o+=d);s.on('close',()=>{console.log(o);c.end();});});}).connect({host:'127.0.0.1',port:3022,username:'cryo',password:'demo'});"`,
       { encoding: "utf8", timeout: 90_000, stdio: ["ignore", "pipe", "pipe"] }
     );
   } catch (e) {
