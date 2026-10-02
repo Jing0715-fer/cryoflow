@@ -6871,3 +6871,31 @@ Stage Summary:
 - **「考官的门要讲人话」**：P0 三路 BLOCKED 各自指名缺失资产与重建命令（exit 2 + 判词行），绝 execSync 裸抛、绝 stub 世界评分——t380 律「合成件替代 = 让考官作弊」的 stub 附属条款
 - **「两种诚实各判各的世界」**（t527 判例重演）：data/ = 真 mic 硬链接（数量即契约，P2c 的 /5 micrographs/i）；movie/ = 真字节 walked-window 裁剪的确定性合成栈（label 明写）——真 relion_motioncorr 考机械，diag-t380 考保真，考卷不混
 - 产出：无 dash staging seeder（幂等+身份律）+ t372 双脚本死树修复与优雅 P0 门 + RELION 5.0.0 重建配方（四段幂等+内存闸+身份判词）+ 磨机开转（cmake/tiff 段收官、MPICH 磨中）+ 磨机课×2（后台收割差分 / MPICH 4.x 移除 ch3）
+
+---
+
+Task ID: 529
+Agent: main (Z.ai Code, window 2026-10-03 05:53 cron)
+Task: t528 遗留③轮替——磨机等待期的互补题「环境芯片学会看见磨机」：product 端第一课是检测学（born install 必须被找到）+ 第二课是进度学（磨机进度从盘上证据读出）；随车交付 build-day 编排器（磨机礼让下的 standalone 重建一支令）。t372 大考仍候磨机（MPICH 磨中，本窗不动考卷）。
+
+Work Log:
+- [开局] 树态考古：摘要脑内的「Task 524 收官」已过时四代——worklog 实录 t525-528，HEAD 7eda08b 三方对齐。磨机接管点确认：MPICH `make -j2` 活体磨中（cc1 37.9% CPU，297 CC units，t528 收官后 +13），stamps cmake+libtiff 两段 DONE。QA 基线全绿：prod :3000 200（9ms）+ tsc 0 + eslint 0 + 世界正典 21 卡/221 svg + console 0 + bench 86/0。
+- [选题定谳] 活体 snapshot 里芯片自述「RELION not found」——t528 复兴战役在产品里是盲的，且**磨机产后产品也找不到它**：native known paths 有 /home/z/relion-install/bin 却无配方前缀 /home/z/relion-build/bin，而 prod-3001.sh 的 RELION_HOME 指向 /home/z/relion-install——born install 只剩 home scan 一条侥幸路（~/*relion*/bin 模式命中）。磨机还需数小时（t372 大考本窗不可达），选题即此互补题：让 app 看见 RELION 的诞生。
+- [检测学] candidateDirs() 增列配方前缀 bin/（known-path 源，t529 注）——born install 从 scan-luck 升级为确定性候选；AI 工具 get_environment_report 描述随律（"how far along is the RELION rebuild" 可答）。
+- [进度学] readBuildProgress(root)（root 可注入，bench 用）：证据 = stamp 三件（cmake/tiff/mpich）+ bin/relion_refine 本体；**current = 首个未完成段 = 配方恰好会续磨处**（make+stamp 幂等律的镜像）；无任何证据的裸目录 = 不是 build tree（null）。composeNativeHint 增 buildProgress 注入事实——**composer 保持纯函数**，fixture 无此事实则字节不变（t242 钉死世界不破）。probe 在 not-found 时读真实树，found 则 null（**出生证不越 found 世界**）。
+- [UI 铁轨] EngineBuildRail（engine-guidance.tsx）：4 段进度 rail（done=teal 对勾 / current=amber Loader2 旋转+徽章 / queued=muted 空圈），resume 命令 mono 行，全部段完时提示 Re-detect 即晋升。**一张嘴变两张**：header 芯片 popover + dashboard 引擎卡 popover（t242 mirror law 延伸——rebuild 是环境真相的一部分，guidance 说到哪 rail 跟到哪）。芯片 label 学会「RELION not found · build 2/4」，title 带 tree 路径。
+- [build-day 编排器] scripts/t529-rebuild-standalone.sh：磨机礼让下的重建一支令——SKIP（provenance fresh）→ 暂停磨机（进程组 TERM，stamp 幸存，resume 精确）→ 停 prod（ss listener pid，t332 律）→ **守卫门内嵌**（available≥2600 + buff/cache≥1450，t525 自洽数字）→ 1344 webpack 配方 → provenance 戳 → static/public 拷贝 → prod 复产 → 磨机复岗 → 等 200 + 报 /api/system build 块。每步显式恢复路径（NO-GO 恢复 prod+磨机；build 败恢复磨机、prod 诚实 Down）。
+- [首舞即 BUILD GREEN] 舞步全通：磨机暂停（PGID 30993）→ 门判 GO（available 3447 + buff/cache 1610）→ build exit 0 → provenance 7eda08b → prod 复产 → 磨机复岗。**t525 的 GO 窗从一次性窗口变成一支命令**（脚本把暂停/守卫/复产编成程序，未来 src 变更窗直接调用）。
+- [现场活捉 — standalone 静态根定律] 首次浏览器验证撞上「Loading CryoFlow…」卡死 + 全 chunk 404 + logo 404——**next build 重生成 standalone 时不带 client 资产**，t525 配方的「static/public 拷贝」步在编排器首版缺失；补拷贝后仍 404，**重启 prod 才愈——standalone 服务器在 boot 时解析静态根**（拷贝必须先于启动；编排器顺序本就正确，现场是先启动后拷贝才 404）。拷贝步入案为编排器第 5.5 步（live-caught 缺失，自愈+防再犯一体）。t524 陈旧缓存课的重建变体顺带入档：chunk 哈希全换后旧浏览器会话卡引导，close+fresh 固定动作即愈。
+- [活体证明] /api/system（带 t259 same-origin 头——curl 裸访 403 是门在岗的正确行为）：build 2/4 · cmake done · libtiff done · **MPICH current** · RELION queued + hint 带 rebuild 节与 resume 命令。浏览器：芯片「RELION not found · build 2/4」+ 两张嘴 rail 各 4 段 + console 0。定妆照 ×2 归档 .qa-logs/（t529-env-build-rail.png / t529-dashboard-rail.png）。
+- [验证-终] tsc 0 + eslint 0（触碰六件 src + 新 bench）+ 新 bench 双运行时 24/0（bun + node ts-alias 车道）+ **家族 87 套 0 失败（glob 自动纳新第 87 套，在新 prod build 上复跑）** + 磨机复岗活体（cc1 54.7% CPU）+ 内存健康（avail 2385MB）。
+
+Stage Summary:
+- **「磨机不能只在 ops 里，要让产品看得见」**：t528 立起的复兴战役此前只活在 shell 日志里——芯片的「not found」对正在出生的 RELION 是谎言的一半；进度从 stamp 文件与二进制本体读出，不嗅探进程（t528 身份判词的镜像律：identity from bytes, not from memory）
+- **「born install 的位次要写进检测，不能赌 scan 的宽宏」**：RELION_HOME 指向别处、known paths 缺配方前缀——磨机产后唯一可见路是 home scan 的模式巧合；known-path 一行让它从侥幸变契约，bench 把两条路都钉住
+- **「composer 吃注入的事实，不吃盘上的真相」**：buildProgress 是 NativeSearchFacts 的可选成员而非 composer 内的 fs 读——纯函数律让 t242 的字节钉死与 rebuild 叙事共存，两种诚实各判各的世界（t527/t528 判例第三次重演）
+- **「standalone 的静态根在 boot 时定谳」**：拷贝步缺失的症状不是 500 而是全体 chunk 404 + 引导卡死；补拷贝不重启仍 404——static/public 拷贝与启动的次序是定律不是建议，编排器把它编进程序
+- **「GO 窗从窗口变命令」**：t525 用一整窗凑齐的温暖窗三数字（腾内存/预热/门判），本窗编成一支令——磨机礼让是暂停恢复（stamp 幂等）而非牺牲，build-day 从此是可复用仪式
+- 产出：环境芯片 build 徽章 + 双嘴 EngineBuildRail + readBuildProgress 证据读法 + born-install known-path + AI 工具随律 + build-day 编排器（含第 5.5 拷贝步）+ t529 bench（87th）+ 首舞 BUILD GREEN + 定妆照 ×2
+
+[最终态与下窗提示] prod :3000 跑新 standalone（7eda08b，provenance fresh）；磨机复岗续磨 MPICH（cc1 活体）。下窗从 Task 530 起编。**磨机接管点照旧**：①`relion_refine --version` 印 5.0.0 即磨成；②身份过 → seeder（若 staging 被清）→ `node scripts/t372-empiar-chain.mjs`（P0 门自动开）；③磨完家族回归 + t372 全链入 worklog。若 src 再变：`bash scripts/t529-rebuild-standalone.sh` 一支令重建（守卫门内嵌，磨机自动礼让）。遗留池：①**t372 全链活体大考**（磨机收官即兑现）；②t276 的 _legacy-archive relion-projects 档案仍湮灭；③watchdog flock 竞态重试（低优先）；④t522 遗留③老世界持久 seeder；⑤t519 建议 #1/#4；⑥off-mainline 出口、remote diagnostics。
