@@ -121,10 +121,16 @@ console.log("== PHASE A: the product face ==");
     wf.includes('outp("micrographs", "Denoised micrographs (denoised_micrographs.star)", "micrographs")'),
     "the output port keeps the micrograph schema (pick/train consume it)"
   );
+  // t526 — semantic, not literal: the curated arrays legitimately GREW
+  // after this bench was written (excludemg joined motioncorr/ctffind's
+  // next-steps), so pinning the exact array text kept the bench failing on
+  // evolution, not on absence. The denoise contract is: both micrograph
+  // producers offer denoise, and denoise flows on to pick/train.
+  const nextBlock = wf.slice(wf.indexOf("motioncorr: ["), wf.indexOf("topazdenoise: [") + 200);
   must(
-    wf.includes('motioncorr: ["ctffind", "topazdenoise", "manualpick", "autopick"]') &&
-      wf.includes('ctffind: ["topazdenoise", "manualpick", "autopick"]') &&
-      wf.includes('topazdenoise: ["autopick", "manualpick", "topaztrain"]'),
+    /motioncorr: \[[^\]]*"topazdenoise"/.test(nextBlock) &&
+      /ctffind: \[[^\]]*"topazdenoise"/.test(nextBlock) &&
+      /topazdenoise: \[[^\]]*"autopick"[^\]]*"manualpick"[^\]]*"topaztrain"/.test(nextBlock),
     "the curated next-steps universe carries denoise (motioncorr/ctffind → it → pick/train)"
   );
 

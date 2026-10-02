@@ -31,7 +31,12 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
-const ROOT = process.env.CF_ROOT ?? "/home/z/cryoflow";
+// t526 — the default root follows THIS script's repo (scripts/.. /, the
+// dev-server.sh law): the old hard default /home/z/cryoflow died with the
+// sandbox rebuilds (t325/t328 era; t525 confirmed it gone), and the suite
+// kept reading a dead tree's data/relion — ENOENT as a verdict about the
+// wrong world. CF_ROOT still overrides for a twin checkout.
+const ROOT = process.env.CF_ROOT ?? path.join(import.meta.dirname, "..");
 const BASE = process.env.CF_BASE ?? "http://localhost:3000";
 const MOCK = `${ROOT}/services/mock-cluster`;
 const SH = { Origin: BASE, Referer: `${BASE}/` };
