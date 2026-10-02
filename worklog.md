@@ -6843,3 +6843,31 @@ Stage Summary:
 - **「roster 的真相在名册不在画布」**：/api/jobs 是 active 视角（移动靶），/api/projects 的总 job 和才是世界账本——t526 的「名册比画布诚实」判例从世界卫生延伸到了断言基线
 - 产出：EMPIAR-10017 真数据归位（10+10，641MB）+ 双车道 seeder（bash 快取 / node 法典）+ diag-t380 REALITY MODE 90/0 + t415 总和基线 + fetch/镜像/退役一条龙 + 文档三件
 - [最终态] prod :3000 续跑（d0255d8 build，本窗零 src 改动）。三 commit（ops + test + docs 分车）后推送（随车带 harness auto-commit ad2b08d）。下窗从 Task 528 起编。遗留池：①**t372 的 /data2/empiar10017 镜像**（无 dash 旧布局，t372 diag 若要复活需同款 seeder 处理——真数据已在手，只差 staging）；②t276 的 _legacy-archive relion-projects 档案仍湮灭（真 RELION 工程语义档案，非数据本身）；③watchdog flock 竞态重试（低优先）；④t522 遗留③老世界持久 seeder；⑤t519 建议 #1/#4；⑥off-mainline 出口、remote diagnostics。
+
+---
+
+Task ID: 528
+Agent: main (Z.ai Code, window 2026-10-03 04:53 cron)
+Task: t527 遗留①——t372 复活三部曲（无 dash staging seeder + 死树路径修复/优雅 P0 门 + **真 RELION 5.0.0 重建配方后台开磨**）。[期中条目——磨机进行中，收官时补最终态]
+
+Work Log:
+- [开局] 树态考古：摘要脑内的「Task 524 收官」已过时三代——worklog 实录 t525（standalone GREEN/prod 接管）+ t526（t41 批解冻/EMPIAR 合成 fixture）+ t527（真数据归位/diag-t380 REAL 90/0），HEAD d36e7bf 三方对齐。QA 基线全绿：prod :3000 存活（api 6ms）+ tsc 0 + eslint 0 + 世界正典（3 项目，active 21 jobs——/api/projects 的 jobCount 字段为 0，job 真账在 /api/jobs 的 active 视角，t527 判例再证）+ console 0 + bench **86/0**。
+- [选题定谳] 遗留池①「t372 的 /data2/empiar10017 无 dash 镜像」开工前先验前提，定谳三层：①staging（轻，seeder 可救）；②t372 两脚本三处死树路径 `/home/z/cryoflow`（diag-t380 同款病，同款刀法可救）；③**真 RELION build 湮灭**（t525 入档：/home/z/relion-build 不存在；fs/opt/bin stub 落空现役；t372 P0 硬性要求真 relion_refine 5.0.0——t380 律「合成件替代 = 让考官作弊」，stub 冒充同罪）→ 重建是 t372 复活的真正门槛。
+- [依赖侦察 — 三点定谳] RELION 5.0.0 CMakeLists 源码核对：**GSL 不需要了**（5.0 已甩掉 3.x 的 GSL 包，少一整级）；**find_package(TIFF REQUIRED)**（box 无 dev 头 → libtiff 需源码自编）；**find_package(MPI REQUIRED)**（MPICH 需源码自编）；FFTW 双+单精度在盘 ✓、png/zlib 在盘 ✓、pip ✓、sudo 封死（apt 路 closed）。工具链 2 核 4GB——RELION 本体 -j1 约 2-4h，**非单窗任务** → t527 律「配方进 repo，产物树外，幂等可续」。
+- [交付① seeder] `scripts/qa-t528-empiar-nodash-seed.mjs`：data/ EXACTLY 5 真 mic（P2c 断言 `/5 micrographs/i`，数量即契约；字母序前 5，硬链接 335MB 零新盘）+ movie/ 2 个合成 movie 栈（5 帧×1024² float32，真 mic 字节的 walked-window 裁剪 + mulberry32 确定性 σ=3 噪声，MRC label 明写 synthetic crop of real bytes——P8 考的是真 relion_motioncorr 的机械，fidelity 考试是 diag-t380 的职守，两种诚实各判各的世界）。身份律全 10 mic 先验后 staging，运行 1s 通。
+- [交付② 脚本手术] t372-empiar-chain.mjs：ROOT 动态推导（CF_ROOT 覆盖保留，t526 diag-t380 同款刀法）+ ssh2 require ×2 / clusterRoot / dataDir 死变量清除；**P0 从悬崖改门**：ssh2 缺席 / mock cluster 不应答 / 真 relion 缺席 三路全部 BLOCKED exit 2（诚实判词 + 指向重建配方），绝 execSync 裸抛、绝 stub 世界评分。t372-validate.mjs 同款两处。活体验证：P0 门在真世界上如实 BLOCKED exit 2 ✓。
+- [交付③ 重建配方] `scripts/t528-rebuild-relion.sh`：四段幂等（stamp 文件 + make 可续）——cmake 静态二进制（pip 外的 sudo-free 路）→ libtiff 4.6.0 → MPICH 4.2.2（ch3:tcp 免 ucx/ofi，--disable-fortran）→ RELION 5.0.0（GUI=OFF CUDA=OFF，DoublePrec_CPU=ON = t372 头注的「user's exact flavor」；-j1 内存闸）。三律内嵌：**memory gate**（每段 make 前 MemAvailable 闸门，等 10 分钟不成则 REFUSE——build-guard 律永不盲烧，prod :3000 不陪葬）；**politeness**（nice -n 10）；**single grinder**（flock，第二实例 exit 3）。身份判词 = `relion_refine --version` 印 5.0.0（t372 P0b 的精确契约）。日志全在 /tmp/cryoflow-qa/（t503 律）。
+- [后台开磨] setsid nohup 起磨：stage 1 cmake 9 秒 DONE → stage 2 libtiff 构建中。[磨机进行中——收官时补最终态]
+- [磨机课×2] ①**后台进程收割活捉**：首磨（setsid nohup 简版惯用法，无 stdin 重定向/subshell 包裹）在 tiff cmake configure 中途静默暴毙——内核零事件（dmesg 全窗无 oom），用户态收割定谳；mock cluster（17:48 起）与 next-server（19:18 起）证明守护进程可跨调用存活 → 改用 watchdog 的完整分离惯用法（subshell 包裹 + `</dev/null` + `>>`）后进程树跨工具调用稳定存活。②**ch3:tcp 是 3.x 记忆**：MPICH 4.0 移除 ch3 设备，configure 6 秒即败（`src/mpid/ch3/channels/tcp does not exist`）——改默认 ch4:ofi（内嵌 libfabric 免外部依赖）后 configure 过。幂等设计两次兑现：cmake/tiff stamp 识别跳过 + mpich tarball 缓存命中。
+- [进展] stage 1 cmake DONE（9s）→ stage 2 libtiff DONE → stage 3 MPICH make -j2 开磨（21:24）。[磨机进行中——收官时补最终态]
+- [磨机进展-收官盘点] stage 1 cmake DONE（9s）→ stage 2 libtiff DONE（cmake+make+install 全绿）→ stage 3 MPICH make -j2 磨中（收官时 284 个 CC 单元，yaksa 生成层 ~3-4 文件/分钟，预计还需 2-4h；内存健康 2.5GB available，nice 10 礼让 prod）。RELION 本体（-j1，2-4h）排队在后。磨机以完整分离惯用法在后台续磨；若窗口边界被收割，恢复 = 重跑一条命令（stamp 跳段 + make 续物 + tarball 缓存三重幂等）。
+- [验证-终] tsc 0 + eslint 0（触碰四件：t372-chain / t372-validate / t528-seeder / t528-recipe bash 语法门）+ seeder 幂等重跑通过（1s，计数断言持守）+ P0 BLOCKED 门在真实湮灭世界上活体验证（exit 2 + 指向配方的诚实判词）+ QA 基线全绿（bench 86/0 + prod 存活 + console 0）。
+- [最终态与下窗提示] prod :3000 续跑（d0255d8 build，本窗零 src 改动，provenance 仍 fresh）。三 commit（ops + test + docs 分车）后推送。下窗从 Task 529 起编。**磨机接管点：①重跑 `bash scripts/t528-rebuild-relion.sh`（幂等续磨；看 `.stamps/` 与身份判词 `relion_refine --version` = 5.0.0）；②身份过 → `node scripts/t372-empiar-chain.mjs`（P0 门自动开；staging 若被沙箱清场先跑 `node scripts/qa-t528-empiar-nodash-seed.mjs`，seeder 会先跑身份律）；③磨完家族回归 + t372 全链账本入 worklog。**遗留池：①**t372 全链活体大考**（磨机收官后即兑现，本窗已铺完轨）；②t276 的 _legacy-archive relion-projects 档案仍湮灭；③watchdog flock 竞态重试（低优先）；④t522 遗留③老世界持久 seeder；⑤t519 建议 #1/#4；⑥off-mainline 出口、remote diagnostics。
+
+Stage Summary:
+- **「选题先定价，前提先验真」**：池项①字面是「只差 staging 的镜像」，开工前三层定价把它验成了一场编译战役——staging（轻）+ 死树修复（轻）+ RELION 重建（重资产 2-8h）；不验前提的选题会把整个窗口误投给一个 seeder
+- **「配方进 repo，产物树外，幂等可续」**（t527 律延伸到编译器）：stamp 跳段 + make 续物 + tarball 缓存的三重幂等，让沙箱重置与进程收割都降级为「一条命令的等待」；本窗内它已两次兑现（cmake/tiff 跳段 + mpich 缓存命中）
+- **「分离惯用法是活命的差分，不是仪式」**：简版 setsid nohup 在 cmake 中途静默暴毙（内核零事件，用户态收割定谳）；watchdog 的完整惯用法（subshell 包裹 + stdin /dev/null）跨调用稳活——不调试收割者，抄活着的先例
+- **「考官的门要讲人话」**：P0 三路 BLOCKED 各自指名缺失资产与重建命令（exit 2 + 判词行），绝 execSync 裸抛、绝 stub 世界评分——t380 律「合成件替代 = 让考官作弊」的 stub 附属条款
+- **「两种诚实各判各的世界」**（t527 判例重演）：data/ = 真 mic 硬链接（数量即契约，P2c 的 /5 micrographs/i）；movie/ = 真字节 walked-window 裁剪的确定性合成栈（label 明写）——真 relion_motioncorr 考机械，diag-t380 考保真，考卷不混
+- 产出：无 dash staging seeder（幂等+身份律）+ t372 双脚本死树修复与优雅 P0 门 + RELION 5.0.0 重建配方（四段幂等+内存闸+身份判词）+ 磨机开转（cmake/tiff 段收官、MPICH 磨中）+ 磨机课×2（后台收割差分 / MPICH 4.x 移除 ch3）
