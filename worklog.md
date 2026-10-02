@@ -6644,3 +6644,27 @@ Stage Summary:
   3. **VLM 专用模型**：builtin 车道 vlmModel 与 chat 同为 glm-4-plus；若有更强视觉模型可分离（设置里已有 vlmModel 字段）
   4. **测试断言库沉淀**：t519 矩阵可固化为 CI 式回归（限流窗口是执行障碍，可加 --judge-only 分层跑）
   5. **EMPIAR 真数据回归**（继承池常驻）：真实 class 平均图源仍是最终考官
+
+---
+
+Task ID: 521
+Agent: main (Z.ai Code, window 2026-10-02 23:23 cron)
+Task: QA 发现回归家族 6 套失败（t427/t464/t486/t487/t488/t490）——定性为 t519 世界重建 + t518 真清后的 fixture 漂移（非代码回归）。本窗修复：移植 qa5x 确定性曲线生成器重建 tutorial fixture 世界（DB 行 + engine state + 盘上星文件）+ t464 T7 改合成树自持。
+
+Work Log:
+- [开局] fetch 对齐（HEAD=4cbe96b=t519）。磁盘 6.2G 自由 35%。QA：mock 集群 3022 是 SSH 协议端口（HTTP 探活 000 是测量方法错，test-client 才是正镜——本窗误杀一个活集群后重launch，无实伤）；tsc 0 + eslint 0。
+- [并发邻居] 本窗自始即在**并发 agent** 同仓工作（trace 不同）：它自号 520 选题 0-keep action（t519 建议 #2），改动 prompt.ts（law 5 零 keep 教义）+ tools.ts（judge zero-keep 分支）+ 新增 t520-zero-keep-bench（8.8KB，家族 PASS）+ t520-seed-tail（世界收尾：等 class2d 完成→补 select2d→stackless 手术）+ 4 处 lint 微修（qa63/qa64/t372/t93 的 `err && err(e)`→`if (err) err(e)`）。其 LLM 循环间隙极长（一度静默 40 分钟，本窗曾误判其死亡并准备代其落档——**后在其活体作业 QA Refine Live/QA Class2D Source 出现在共享世界时纠正判读**）。协作律落地：本窗全程零触碰 src/lib/ai/*，其文件留在工作树由其自行落档；commit 全程精确 staging，无 git add -A。
+- [定性] 家族 84 套 6-7 失败（t489 两跑间翻绿=活体时序性）：t486/487/488/490 依赖已逝 tutorial fixture（三层全灭：db 行 + engine run 记录 + data/relion workdir——t519 沙箱重置把 1.3G data/relion 削到 456M 单项目）；t464 T7 硬编码「真 class2d 镜像=11,464 文件」的 t460 普查数（t518 真清后镜像 239）；t427 硬编码旧世界 job id。六失败同根：**bench 把世界历史当 fixture**。
+- [修复①— tutorial fixture 世界重生（scripts/qa-t521-tutorial-seed.mjs，新）] 幸存考古：qa50/qa51/qa52/qa58 python seeder 就是当年 fixture 星文件的原始生成器——曲线数学 verbatim 移植（fsc_curve logistic、guinier 线性族、rng 确定性）。seeder 幂等重建：项目 cmukrk2yy0000rjobryvy0pzu（t487/t488 硬编码的旧项目 id）+ 6 作业全显式 id（t427 硬编码的 import/autopick/postprocess 三 id 原样复活；engine workdir 律 ${type}_${id.slice(-8)} 全程一致）+ import→autopick 边（picks BFS 的owner 链）+ engine-state.json 六条 RunRecord（temp+rename 原子写）+ projects.json 注册（active 指针不动）。盘上文件：postprocess.star（data_general B −52.4 + data_fsc 40 壳 0.143@~3.12Å + data_guinier 36 点）、micrographs_ctf.star（24 行含 optics 块）、corrected_micrographs.star（24 行 early>late）、run_it020_data.star（900 粒子双叶角分布）+ run_it020_half1_model.star（gold FSC，t486 T4 的 source=model 面）+ 24 个头合法 256×256 float32 mrc（共 ~6MB）+ 24 个 per-mic autopick coord star（17 picks×24=408 FOM 全带）。
+- [修复②— t464 T7 合成树自持] 真 bash 语义原封（11,464 普查数、door 家族领先、cap-50 金丝雀、旧新普查对账全保留），只换树的出身：mkdtempSync 自建 3 door + 8 圆目录 11,461 深文件的合成树，finally 清理（T6 先例同律）。bench 头注写明 t518 真清正当性（清理做了它的工作，bench 的世界假设随葬）。
+- [自捕×1] t487 T2 缓存律首跑失败：我给的 ctf fixture defocusU 随文件序单调降 → 「文件序首=排序序首」撞上 `firstFileOrderName !== sortedName` 断言。修 seeder 不修 bench：defocus 基值改确定性置换 ((i*7+5) mod 24)（7 对 24 可逆，最大值落 mic_014，文件序首仍是 mic_001）。
+- [假警报课×2] picks 路由 146 行与 chart-data 384 行在工具输出中呈「语法残缺」（`.micName` / `alf1]`）——字节级 od/xxd 复核均为**显示渲染吞方括号**（`[m` / `[half1` 被吃）。「测量工具会骗人，字节级才定谳」再 +1；差点修一个不存在的 bug。
+- [server 收割×3] dev server 三次被杀（并发 lint 峰值 ~1GB + HMR 嫌疑），dev-server.sh 三次复火；world 每次复原。
+- [验证-终] 六失败全绿：t427 12/0 + t486 51/0 + t487 37/0 + t488 37/0 + t490 59/0 + t464 51/0；**家族 84 套 0 失败**（含邻居的 t520 bench）；tsc 0 + eslint 0（触碰两件）；活体：canvas 卡片渲染 + console 0 错 + 证物截图归档。
+- [最终态] HEAD = 4cbe96b + 本窗两 commit（feature + docs 分车）。工作树另存邻居 t520 未提交工作（零触碰）。下窗从 Task 522 起编（若邻居以 520 落档）。遗留池新增：①**seeder 进 bootstrap**——未来沙箱重置后先跑 `node scripts/qa-t521-tutorial-seed.mjs` 再跑家族（worklog 即文档）；②mock-cluster fs/data2/t474ui-particles 未跟踪目录（活体 class2d 的远端产出）归属待定；③「清理历史的读脸」（t518 遗留③）仍是清账家族下一个自然成员；④t519 建议 #1（judge 边缘稳定性）与 #4（e2e 矩阵分层回归）继续挂池。
+
+Stage Summary:
+- **「家族学会了自种世界」**：六个 bench 的失败没有一个是代码的错——它们诚实地报出了世界的变迁；修复不是让 bench 学会闭嘴（skip 不是绿），而是让世界能被确定性重生（qa5x 曲线数学移植 + 显式 id + 幂等 upsert），bench 一行断言未松
+- **「硬编码 id 是契约不是债」**：t427 的三个 job id、t487/t488 的项目 id 曾像垃圾一样被绕过——本窗把它们当作坐标原点 verbatim 复活；「活体世界是移动的靶，fixture 必须有出生证」
+- **「邻居判读要随证据更新」**：40 分钟静默 ≠ 死亡（LLM 循环间隙可以很长），共享世界里冒出陌生作业才是活着的铁证；协作落在文件界线（零触碰 src/lib/ai/*）与精确 staging，不落在乐观假设上
+- 产出：qa-t521-tutorial-seed（tutorial fixture 世界重生器）+ t464 T7 合成树化 + t487 ctf fixture 置换修 + 六失败全绿 + 家族 84/0 + 证物归档
