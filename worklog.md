@@ -6668,3 +6668,26 @@ Stage Summary:
 - **「硬编码 id 是契约不是债」**：t427 的三个 job id、t487/t488 的项目 id 曾像垃圾一样被绕过——本窗把它们当作坐标原点 verbatim 复活；「活体世界是移动的靶，fixture 必须有出生证」
 - **「邻居判读要随证据更新」**：40 分钟静默 ≠ 死亡（LLM 循环间隙可以很长），共享世界里冒出陌生作业才是活着的铁证；协作落在文件界线（零触碰 src/lib/ai/*）与精确 staging，不落在乐观假设上
 - 产出：qa-t521-tutorial-seed（tutorial fixture 世界重生器）+ t464 T7 合成树化 + t487 ctf fixture 置换修 + 六失败全绿 + 家族 84/0 + 证物归档
+
+---
+
+Task ID: 522
+Agent: main (Z.ai Code, window 2026-10-03 00:08 cron)
+Task: QA 基线发现幽灵作业 + 清账家族补齐第三员。①「QA Refine Live」（qa60 pid=1 永动 fixture，旧世界残留）送终；②get_cleanup_history（名册第 33 器）——账本写脸 + AI 读脸 + 对话框历史条 + 界律演进 + 涟漪；③t431 世界再漂移修复。注：Task 520 的零 keep 工作由 harness 以 auto-commit 8abe34b 落档（uuid commit 名、无 worklog 条目、本窗补推三方对齐）。
+
+Work Log:
+- [开局] HEAD=8abe34b（邻居 t520 落档，uuid 风格 commit、未推送、无 worklog 条目——本窗补推并对齐）。磁盘 5.2G 自由 45%。双服务熄火复火；**邻居 harness 收尾扫描**（family-run --filter qa47→qa49→…逐套件 e2e）与窗口并行，其 pattern cleanup 反复误杀 dev server 与 mock 集群（本窗 server 死 5 次，全部 dev-server.sh 复火）。
+- [幽灵送终] 「QA Refine Live」卡死 42% running——定性非产品 bug：qa60-seed-fsc.py 的**故意设计**（running 行需要 /proc 可解析的 pid，否则 reconcile 判 stale；pid=1 init 恒活、owns nothing、QA never stops this job）。但旧世界已无人消费此永动卡，且它会让 running 拒绝分支误伤清理。送终路径：HTTP stop 门被收割者反复掐死（5 次复火皆 mid-call 殒命）→ 改按 route 本地分支的**同款判词外科手术**（row: failed/0/"stopped by user — re-run resumes from checkpoint" + record: done/exitCode 137）。活体可见：画布卡片翻转 failed（带 ! 徽章）。stop 门的进程内活测（t522-phantom-stop.mjs）因 engine 编译期即被收割而延后，脚本留库下窗可跑。
+- [主菜 — 清账账本 + 第 33 器] 家族语义补全：storage report 是现在的地图、cleanup plan 是未来的菜单、执行回执是一次动词——**过去无脸**。交付①lib/relion/cleanup-history.ts：appendCleanupExecution + readCleanupHistory（cap 50——t464 帽律；temp+rename 原子写；拒绝与执行同权入账——审计语义；写账永不断 run——witness 律）。交付②shovel 记账：executeCleanup 三条出路（not-found / 未跑 / live 拒绝 / 成功）全部 journalVerdict，door 参数贯穿 runCleanupExclusive（required——tsc 逼两门报名号：route 传 "dialog"、verb 传 "agent"）。交付③第 33 器 get_cleanup_history：zero-knob（可选 job 过滤），presentCleanupHistory 说 t518 方言（fmtBytes 唯一人声、file/files 单复、REFUSED 原话、attempts/executed/refused 普查、annex 按引用骑 entries、空脸点名两扇门、绝对时间不说过期相对词）。交付④GET /api/cleanup-history 薄壳（isLocalRequest 门 + lib 唯一读脑，零 parse 泄漏）。交付⑤cleanup-dialog 的「Recent cleanups on this job」条（门徽章 + 时间 + 判词 + refused 琥珀色——审计随问而行，挥铲前先看铲史）。交付⑥界律演进：law 2 问句 +「这台机器最近清过什么？」、plan 脸「both doors signing the same ledger that get_cleanup_history reads」、shovel 脸「signed into the ledger both doors share」。
+- [涟漪] 名册 32→33：23 文件值+消息双侧定向 sed（t394/t419/t468-481/t486-490/t503-518 全家族）+ birth 谱「t518's cleanup verb → t522's history read is the newest birth」+ t481 出生名单 +t522；grep 复扫零残留。
+- [自捕×1 — 投毒桶] bench T3/T4g/T5b/T5g/T5h 七发连败，字节级取证（lib 埋点 console.error）定谳：**readLedger 在文件缺失时 return EMPTY（模块级单例），appendCleanupExecution 的 entries.push() 把第一条记录永久毒进共享数组**——此后每次「缺文件→空脸」都吐毒数组、rm 后首个 append 双写毒条目。根治：freshLedger() 每次新对象 + append 走副本展开 + 读回时 [...parsed.entries] 拷贝。教训入骨：**默认形状的单例绝不能从一个『写者也读的 getter』手里逃逸**。这是 bench 在出厂前咬住的第二个真 bug（第一个是 t518 的 existsSync 悬空 symlink）。
+- [世界再漂移×1] t431 W1.2 失败：extract_3rakbln8 workdir 被邻居 harness 扫描清空（mtime 16:18 铁证）——manifest 缺失 → total 0。修复：按 RemoteManifest 契约补种（2 文件 + 全员到家 manifest，remaining 0/total 2）。t431 20/0。
+- [守卫随律×1] t518 T2c 断言咬旧壳形（无门参数）→ 随律演进咬新形 'runCleanupExclusive(id, scopes, tiers, "dialog")'（t501/t514 判例：守卫随律走不随址死）。
+- [验证-终] t522 bench 34/0（井帽律/原子行/空脸/双门一账/门归因/拒绝原话/普查数学/fmtBytes 唯一人声/无裸字节泄漏/job 过滤/家族律/薄壳/条）；**家族 85 套 0 失败**；tsc 0 + eslint 0（触碰八件）；活体：真清理 POST 双发（tutorial Post-process + QA Post-process 双 zero-pass——keep-set 保护 postprocess.star 的诚实空 receipt）→ GET /api/cleanup-history 回读两条门归因条目；幽灵 failed 徽章活体可见；console 0 错 + 证物截图归档。
+- [最终态] 本窗两 commit（feature + docs 分车）后推送。下窗从 Task 523 起编。遗留池：①**stop 门的进程内活测**（t522-phantom-stop.mjs 留库，收割者安静的窗口跑）；②**对话框条的活体截图**（bench + API 双证已足，UI 截图被收割者耗尽窗口未拍）；③老 QA 世界（cmur3ti51）缺持久 seeder——extract manifest 修过一次，e2e 扫描再清空还得再修（候选：把 qa58 扩成老世界全量 seeder）；④t519 建议 #1/#4、EMPIAR、off-mainline 出口、remote diagnostics 照旧挂池。
+
+Stage Summary:
+- **「清账家族学会了记得」**：地图（现在）、菜单（未来）、回执（一次）、账本（过去）——四件套齐；两扇门共用一铲也共用一账，拒绝与执行同权入账，「谁在何时清了什么」从考古题变成一行读脸
+- **「毒桶是 getter 递出去的」**：七个失败断言围殴出一只经典共享可变单例——EMPTY 被首个 push 永久污染；freshLedger 三行根治，教训写入源码注释也写进本档：默认形状的单例绝不能从写者共用的 getter 手里逃逸
+- **「收割者改不了判词」**：HTTP 门被掐五次，送终照常落地——判词从产品源码逐字复刻（row/record 双写同形），诚实的是判词本身，不是运载它的那根网线
+- 产出：cleanup-history 井（记账+读脸+帽律+原子写）+ 第 33 器 get_cleanup_history + presentCleanupHistory + GET 薄壳 + 对话框历史条 + 界律三处演进 + 23 文件涟漪 + 投毒桶根治 + t431/t518 守卫随律 + 家族 85/0 + 活体双 zero-pass 入账回读 + 证物归档
