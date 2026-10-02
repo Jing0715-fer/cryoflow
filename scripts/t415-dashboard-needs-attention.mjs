@@ -77,7 +77,15 @@ async function pollUntil(fn, ms, step = 1500) {
 const FIXTURE_JOB = "t415 strip motioncorr";
 
 // ---- the world's own numbers, captured BEFORE the fixture lands ----------
-const rosterBefore = ((await api("GET", "/api/jobs")).body?.jobs ?? []).length;
+// t527 — the roster baseline is the TOTAL JOB SUM across /api/projects, not
+// the /api/jobs view: that view is the ACTIVE project's jobs, and the active
+// pointer legitimately moves during the suite (removeProjectMeta auto-repairs
+// it when fixtures die) — this window bit it live: the suite opened while a
+// diag-t380 project (11 jobs) was active and finished on the 21-job tutorial.
+// The sum is active-invariant; the fixture must return it to baseline.
+const worldJobs = (body) =>
+  (body?.projects ?? []).reduce((a, p) => a + (p.stats?.total ?? 0), 0);
+const rosterBefore = worldJobs((await api("GET", "/api/projects")).body);
 const failedBefore = ((await api("GET", "/api/activity/recent?limit=20&status=failed")).body?.jobs ?? []).length;
 
 console.log("== PHASE 0: the honest fail fixture — the suite owns its failure ==");
@@ -264,7 +272,8 @@ console.log("== PHASE E: console + roster ==");
   );
   must(noise.length === 0, `console clean (0 real errors; got ${noise.length}${noise.length ? ": " + noise[0].slice(0, 120) : ""})`);
   const jobs = (await api("GET", "/api/jobs")).body?.jobs ?? [];
-  must(jobs.length === rosterBefore, `roster restored to the world's own ${rosterBefore} (got ${jobs.length})`);
+  const rosterAfter = worldJobs((await api("GET", "/api/projects")).body);
+  must(rosterAfter === rosterBefore, `roster restored to the world's own ${rosterBefore} (got ${rosterAfter})`);
   must(
     jobs.every((j) => !(j.name ?? "").includes("t415 strip")),
     "zero fixture residue in the world"
