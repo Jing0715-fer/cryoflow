@@ -6717,3 +6717,30 @@ Stage Summary:
 - **「fixture 也要有证人」**：witness 律（data star 必有伴行 optimiser/model star）拦住了假 round——qa58 fixture 缺一行证人让每个新世界的画廊全盲；真 RELION 从不孤行，fixture 也不该
 - **「裸沙箱的世界要一次种全」**：roster 21 的活体实例 + t474 画廊 + mock fs 都不随 git 走——restore-gallery.py 是唯一正典重建器，它的每一处 fixture 缺口都是下一个裸沙箱的地雷（本窗排了 witness 一颗）
 - 遗留（下窗候选）：①**箱子内存天花板**——OOM 风暴判例已立案（anon-rss 2.5GB + 页缓存撞 3.9GB 顶），webpack 车道 1792MB 只买 200s；候选方向：DEV_HEAP_MB 再调、批再拆、Turbopack 原生内存病根；②qa 批剩余 2 失败（qa63/qa49 世界补全债）+ SERVER-SKIP 复跑；③t522 遗留池照旧继承（stop 门进程内活测、对话框条截图、老世界持久 seeder）；④EMPIAR/off-mainline 照旧挂池
+
+---
+
+Task ID: 523
+Agent: main (Z.ai Code, window 2026-10-03 01:08 cron)
+Task: QA 基线 + t522 遗留①补课（stop 门进程内活测）撞出产品级真 bug——stop 门对幽灵 pid=1 record 的全树误杀——本窗修复 + 双律钉死 + 顺案收掉 qa63 漏报失败（tab 假设过时）+ node 双方言钥匙。
+
+Work Log:
+- [开局] 第 109 份过时 Task 13 指引照例不认。实尾 = t522 收官 + 并发 16:52 窗（uuid commit 7ce65ec，其 worklog 补录证词以 Task ID: 520 落档）——它修了 qa58 witness star + 名册涟漪 32→33 补齐 + t522 漏网的 route "dialog" 门参数，已自行推送，本窗验尸确认无需代劳。磁盘 4.9G 自由 48%（健康），.next 914M 回涨观察中。
+- [QA 基线] 双服务熄火复火（dev 200 + mock test-client 15/15）；landing/api 200、console 0 错；world 21/16 vs 正典 22/15——移动的靶采样（t521 判例），bench 是唯一硬契约；tsc 0。
+- [主菜自动定谳 — The Stop Door Learns the Past Tense] 补课 t522 遗留①：跑留库的 t522-phantom-stop.mjs → 进程静默死亡零输出（连 Bash 工具会话都被带崩）→ 分步探针定位：engine import 成功、db 成功、**死在 stopRun(JOB) 内部** → 定谳：幽灵 record（QA Refine Live，qa60 fixture）pid=1 且 done=false，stopRun 无视 done、见 /proc/1 恒活 → kill 树 = [1, ...descendantsOf(1)] = **全容器进程树** → SIGTERM 自杀。**误杀半径活体实锤**：dev server + mock 集群 + 后台 family-run 全陪葬。
+- [判例翻案] qa60 seeder 注释自曝错误假设：「pid 1 owns nothing we could hurt (a stop call would signal-0 probe only)」——qa60 作者以为 stop 只做 signal-0 活性探测，不知 stopRun 建全树 SIGTERM。**t522 的「HTTP stop 门 5 次 mid-call 殒命（收割者掐网线）」真凶正是此 bug**——5 次「收割」是自杀武器 5 次走火（当时 HTTP 门放行因 row status=running）。record 每跑一次 qa60 seeder 就重放一次（pid=1 + done=false 复活），t522 声称的 record 送终被 seeder 冲掉——这解释了 t522 认知与本窗实态的矛盾。
+- [修复 — engine.ts stopRun 双律] LAW 1 done 早退律：finished record 是过去时，stop 门拒绝诚实（"the record says this run already ended"）且不碰任何进程（re-run 写新 record，没有 leftover 可停）；LAW 2 pid≤1 守卫：init 不是任何作业的 RELION 进程，陈旧/污染 record 指向 init 时解析为「无 pid」而非树。live child 存活路径一行未动（本进程真子进程照杀）。修复位置 = 门脑层，HTTP 门/agent verb/进程内三车道同饮。
+- [配套①— node 双方言钥匙（scripts/ts-alias-hook.mjs + ts-alias-register.mjs）] node 24 原生 type stripping 跑产品 lib 的两把锁：@/ tsconfig 别名 + extensionless 相对导入——register hook 双解，产品门脑（engine.ts 链）首次进程内可达。t522 遗留①的解锁器，「stop 门进程内活测」从留库不可跑变为家族形状。
+- [配套②— type 混值导入普查与修复] hook 撞出 node 严格链接 vs SWC 宽容的方言差：symmetry 四文件（pointgroups/index/rotation/icosahedron）把纯 type 别名（Mat3/Vec3/RotationType）混进值导入——SWC 自动剥离、node 链接期断链。t523-type-import-census.mjs 一次性静态普查全库 387 文件 → 修复 4 文件 5 处 inline type modifier → 复扫零残留。engine.ts:81 本就合规（type Mat3 写对）。
+- [配套③— 幽灵 record 数据手术补课] 实态 done=false + pid=1（比 t522 认知更危险——undone 幽灵连 LAW 1 都挡不住、全靠 LAW 2）；手术 pid=None + done=true + exitCode 137 + 判词原话（t522 row 判词同款），t522 的送终这才在 record 面真正落地。
+- [t523 bench — 10 断言全绿 + SURVIVOR 终审] canary 幸存者断言是钉子：spawn 无关 sleep 兄弟进程，每个幽灵 stop 后断言 (a) bench 自己活着能断言 (b) canary 无恙——**修复前该 bench 会死于第一个幽灵 stop**（活体自证）。A done=true+pid1 诚实拒绝 / B done=false+pid1 init 守卫 / C done=true+真形 pid 过去时优先 / D 死 pid = no live process / E 真树杀回归（victim 真死 + canary 无恙 + record interrupted）。双引擎绿：bun（家族车道，无 hook 原生 paths）+ node --import（活测车道）。
+- [顺案 — qa63 REAL-FAIL 的漏报与真相] 家族复跑撞出 qa63 real-fail（solo 双败）→ **stash 对照实验定谳与本窗改动无关**（t516 判例）→ 追查：family-report 里 qa63 在 t522 窗（00:48）已 real-fail——**t522 的「家族 85 套 0 失败」只覆盖 recent-family（bun bench 车道），family-run 的 qa 失败无人读报告漏报了**；t520 窗把它立案为「世界补全债」移交。本窗深挖翻案：**不是世界债，是 qa63 的 tab 假设过时**——inspector tab 化演进后 FSC section 藏在 Results tab 后（qa49 早有 "results tab: tab-clicked"，qa63 全文无 tab 处理），seeder 全绿 + API curl 完美 + 浏览器 fetch 200 三重证明数据无恙。修复：qa63 插 Results tab 切换（qa49 模板）→ SMOKE GREEN（compare dialog 6 rows + console 0）。判例：**smoke 的 DOM 假设是产品演进的隐形债务人，报告无人读 = 白跑**。
+- [验证] t523 bench 10/0；recent-family **86 套全绿 ×2**（t523 bench glob 自动入列；第二次复跑确认）；family-run：qa00/qa63/qa47/t417 PASS + qa49/qa50 SOLO-RECOVERY（t521 transient 判例签名）——**t417 是名册里唯一真用 stopRun 的成员，solo PASS**；t41 批其余 SKIPPED(SERVER)（t520 内存天花板债，非本窗范围）；tsc 0 + eslint 0（触碰七件：engine + symmetry 四件 + qa63 + t523 bench）。
+- [未竟] ①cleanup dialog 历史条活体截图（t522 遗留②）——playwright 三次尝试：JS click 不触发 inspector（真实指针事件可开）、Clean 按钮在 QA Post 300 的 inspector 初始层不露出、复火循环耗尽时间——脚本留库（t523-dialog-shot.mjs）下窗可跑，bench+API 双证维持已足结论；②family-run 全量在箱子内存天花板下不可行（OOM 风暴复演：server 复火→家族压死→等待循环），分批策略是本窗的临时解，病根在 t520 判例①。
+- [教训入骨] ①「signal-0 探测 ≠ 可杀证明」：/proc 活性只证明进程存在，不证明它属于你——动树前先问 record 的 done 与 pid 的身份；②「两把锁的车道要有两把钥匙」：bun 读 tsconfig paths 原生通过，node 严格链接要 hook——同一个 lib 在两个 runner 里是两种方言，bench 要双引擎验；③「报告写了没人读等于没跑」：family-report 的 real-fail 挂了一窗没人看见——家族 runner 的输出要有消费者。
+
+Stage Summary:
+- **「stop 门学会了过去时」**：finished record 是证词不是靶子——LAW 1 让门对已终结的 run 诚实拒绝，LAW 2 让 init 永远不是嫌疑人；修复前的门会把 [1, ...全容器] 当作「这个作业的进程树」——一次点击的杀伤半径是整台机器
+- **「探针死于自己的剑」**：t522 留库的活测脚本第一次真跑就自杀（顺带全容器陪葬）——「补测试」撞出「真 bug」是 QA 惯例的最高回报；静默死亡零输出不是玄学，是分步探针把死亡点钉到行
+- **「假设的尸体要验明正身」**：qa60 注释里的错误假设活了五窗，t522 的五次「收割」冤案翻案为五次走火；qa63 的「开 modal 即见 FSC」在 tab 化后变成隐形债——两具尸体同一死因：没人读变更后的世界
+- 产出：stopRun 双律（done 早退 + pid≤1 守卫）+ t523-stop-guard-bench（canary 幸存者钉子，双引擎绿）+ ts-alias-hook/register（node 双方言钥匙）+ type 混值普查与四文件修复 + 幽灵 record 数据手术补课 + qa63 tab 修复（SMOKE GREEN）+ 判例翻案×2（t522 收割冤案 / qa63 世界债冤案）
