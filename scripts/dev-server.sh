@@ -18,9 +18,34 @@
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
-# already up? then do nothing
+# t524 — THE GUARD RIDES WITH THE SERVER. The watchdog's own header says
+# "Run detached: (nohup bash scripts/dev-server-watchdog.sh …)" — a line a
+# human must remember, and five windows of bare-OOM deaths (t520's five
+# kills, t521's three, t523's dmesg witness at anon-rss 2.0GB, this
+# window's own global OOM kill on pid 11942) prove memory always beats
+# that memory. Every invocation of this script now carries its own
+# watchdog — BOTH paths, the fresh boot below AND the already-running
+# early exit (whose bare `exit 0` was exactly where the first cut of this
+# edit put the guard: unreachable, self-caught in one live test). The
+# flock single-keeper law makes a second instance a no-op BY
+# CONSTRUCTION, so this is safe to call from anywhere — manual boots,
+# agent re-fires, and the watchdog's own boot() (which re-enters this
+# script while ALREADY holding the lock; the nested invocation loses
+# flock and exits, no recursion). CRYOFLOW_NO_WATCHDOG=1 opts out for
+# ceremonies that must not be resurrected mid-flight (e.g. a deliberate
+# `next build` that needs the 4GB box's headroom while the dev lane is
+# down).
+ensure_watchdog() {
+  [ "${CRYOFLOW_NO_WATCHDOG:-}" = "1" ] && return 0
+  QA_LOG_DIR="${CRYOFLOW_QA_LOG_DIR:-/tmp/cryoflow-qa}"
+  mkdir -p "$QA_LOG_DIR"
+  ( setsid nohup bash scripts/dev-server-watchdog.sh >> "$QA_LOG_DIR/dev-watchdog.log" 2>&1 < /dev/null & )
+}
+
+# already up? then do nothing — but the guard still reports for duty
 if curl -sf -o /dev/null --max-time 3 http://localhost:3000/api/jobs; then
-  echo "already running"
+  ensure_watchdog
+  echo "already running (watchdog ensured)"
   exit 0
 fi
 # stale lock/socket cleanup: kill leftovers from a crashed run
@@ -63,3 +88,4 @@ QA_LOG_DIR="${CRYOFLOW_QA_LOG_DIR:-/tmp/cryoflow-qa}"
 mkdir -p "$QA_LOG_DIR"
 setsid node node_modules/next/dist/bin/next dev ${DEV_NEXT_ARGS:-} > "$QA_LOG_DIR/dev-server.log" 2>&1 < /dev/null &
 # this script exits immediately → server re-parents to init → survives
+ensure_watchdog

@@ -17,7 +17,15 @@
 # data tree lands in .next/standalone/data — a directory EVERY `next build`
 # deletes in its first seconds. Pin the real repo tree; the DB path is
 # already absolute.
-cd /home/z/cryoflow || exit 1
+cd /home/z/my-project || exit 1
+# t524 — the true repo tree is /home/z/my-project; /home/z/cryoflow died
+# with the sandbox rebuilds (t325/t328 era). REPO_ROOT is now derived from
+# THIS script's location (dev-server.sh law), and PORT is parameterized:
+#   default 3001 keeps every historical witness (diag-t32x) intact;
+#   PORT=3000 scripts/prod-3001.sh is the t524 QA lane — the standalone
+#   server (born a few hundred MB) transparently REPLACES the dev lane
+#   (born 2GB, t524 mem-profile) on the exact port family-run's probe
+#   already hardcodes, so the family needs zero edits.
 # t332 — ALWAYS restart, never "already running": this is a QA launcher
 # for the CURRENT build. The shortcut served stale in-memory code twice
 # (an instance from before a `next build` keeps answering :3001 while the
@@ -30,8 +38,9 @@ cd /home/z/cryoflow || exit 1
 # "next-server (v16.1.3)" — NOT "server.js", so pkill -f misses it — and
 # fuser silently no-ops. The listener's own pid from ss, killed by
 # number, is the only thing that reliably clears the port.
+PORT_GIVEN="${PORT:-3001}"
 listener_pid() {
-  ss -ltnp 2>/dev/null | awk '$4 ~ /:3001$/ { if (match($0, /pid=[0-9]+/)) { print substr($0, RSTART+4, RLENGTH-4); exit } }'
+  ss -ltnp 2>/dev/null | awk -v p=":$PORT_GIVEN" '$4 ~ p"$" { if (match($0, /pid=[0-9]+/)) { print substr($0, RSTART+4, RLENGTH-4); exit } }'
 }
 for i in 1 2 3 4 5; do
   pid="$(listener_pid)"
@@ -39,17 +48,19 @@ for i in 1 2 3 4 5; do
   kill -9 "$pid" 2>/dev/null
   sleep 1
 done
-export DATABASE_URL="file:/home/z/cryoflow/db/cryoflow.db"
-export CRYOFLOW_DATA_DIR="/home/z/cryoflow/data"
+export DATABASE_URL="file:/home/z/my-project/db/cryoflow.db"
+export CRYOFLOW_DATA_DIR="/home/z/my-project/data"
 export RELION_HOME="/home/z/relion-install"
 export RELION_CTFFIND_EXECUTABLE="/home/z/ctffind-4.1.14/bin/ctffind"
 export LD_LIBRARY_PATH="/home/z/downloads/debroot/root/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
 export PATH="/home/z/.venv/bin:/home/z/relion-install/bin:${PATH}"
-export PORT=3001 NODE_ENV=production
+export PORT="$PORT_GIVEN" NODE_ENV=production
 export HOSTNAME=127.0.0.1
 export NODE_OPTIONS="--max-old-space-size=896"
 # the log lives at the REPO ROOT (prod-3001.log) — the diag suites' log
 # witnesses read exactly there (t325's server-log greps; moving it broke
 # four witness assertions for one run — keep the path stable)
-setsid /usr/bin/node /home/z/cryoflow/.next/standalone/server.js > /home/z/cryoflow/prod-3001.log 2>&1 < /dev/null &
+# t524 — node, not bun (t328: bun balloons under prisma query logging),
+# and /usr/bin/node resolved from the true tree's runtime
+setsid /usr/bin/node /home/z/my-project/.next/standalone/server.js > /home/z/my-project/prod-3001.log 2>&1 < /dev/null &
 exit 0

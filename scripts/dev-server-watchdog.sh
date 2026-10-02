@@ -107,16 +107,16 @@ prewarm() {
 
 boot() {
   echo "[$(date -u +%H:%M:%SZ)] server down, no next dev process — booting with hardened env" >> "$LOG"
-  # t416 — 1792, not 1280: t402's own testimony says the WEBPACK dev lane
-  # needs ~1792MB of V8 heap to compile the home graph ("896 dies with
-  # Ineffective mark-compacts"); the 1280 here was a Turbopack-era leftover
-  # and every watchdog resurrect at 1280 entered the pathological
-  # compile-thrash loop the same window watched live (three witnesses).
-  # The standalone lane remains the doctrine's home (t405/t406) — this dev
-  # lane is the degraded fallback for windows where the build is
-  # environmentally unreachable (t416: kernel line ~3.55GB vs cold-compile
-  # appetite ~4.5GB — the ladder testimony).
-  DEV_HEAP_MB=1792 DEV_NEXT_ARGS="--webpack" bash scripts/dev-server.sh >> "$LOG" 2>&1
+  # t524 — boot the DEFAULT lane, not the webpack escape hatch. t416's
+  # DEV_HEAP_MB=1792 + --webpack predates the t461 verdict ("QA runs on the
+  # dev lane, the verified recipe") and the t524 mem-profile verdict: on
+  # today's tree the webpack lane is BORN at ~2.5GB RSS — 100MB under this
+  # watchdog's own recycle line, a recycle storm by construction (boot ->
+  # 2.5GB -> recycle -> boot ...) — while the turbopack default (896 heap)
+  # is born at ~2.0GB steady state and compiles routes normally (live
+  # witness this window: born 2.0GB, zero growth over 45s of traffic).
+  # The default lane is the single source of truth; the watchdog boots it.
+  bash scripts/dev-server.sh >> "$LOG" 2>&1
   if prewarm; then
     boot_fail_streak=0
     return 0
