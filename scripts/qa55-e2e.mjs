@@ -416,14 +416,27 @@ const phaseB = async () => {
   if (gs.cards !== allN) throw new Error(`key 1 did not restore grid: ${gs.cards} vs ${allN}`);
   if (band.Running.pressed !== "false") throw new Error("key 1 did not clear running");
 
-  // key 3 — completed filter (sandbox has exactly one completed project)
+  // key 3 — completed filter (t525: presence-aware, mirroring the key-2
+  // block above — the old "sandbox has exactly one completed project"
+  // assumption died when t521's tutorial seeder, t522's cleanup-ledger
+  // entries and t474's gallery all landed completed jobs across 3 projects;
+  // the chip's own card count is the truth, not a remembered world)
   if (pressKey("3") !== "dispatched") throw new Error("dispatch failed");
   await sleep(600);
   gs = gridState();
   band = kpiBand();
   step(`  after key 3: cards=${gs.cards} completedPressed=${band.Completed.pressed}`);
   if (band.Completed.pressed !== "true") throw new Error("key 3 did not engage completed filter");
-  if (gs.cards !== 1) throw new Error(`completed presence filter expected 1 card, got ${gs.cards}`);
+  const completedPresence = (() => {
+    const chip = gs.chipRow && gs.chipRow.find((c) => c.t.startsWith("Completed "));
+    return chip ? (chip.n ?? parseInt(chip.t.replace(/[^\d]/g, ""), 10)) : 0;
+  })();
+  if (completedPresence > 0) {
+    if (gs.cards !== completedPresence)
+      throw new Error(`completed filter should show ${completedPresence} card(s), got ${gs.cards}`);
+  } else if (gs.cards !== 0) {
+    throw new Error("completed filter with zero completed projects should empty the grid");
+  }
 
   // Ctrl+2 — browser territory (tab switching), the app must not react
   if (pressKey("2", { ctrl: true }) !== "dispatched") throw new Error("dispatch failed");
