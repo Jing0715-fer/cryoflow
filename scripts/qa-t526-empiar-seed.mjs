@@ -5,14 +5,20 @@
 // _legacy-archive/README.md) — and this window bit the FIRST live consumer:
 // t415's honest-fail fixture died at `EMPIAR directory not found`.
 //
+// t527 — SUPERSEDED AS THE PRIMARY LAW: the real data is back (EBI
+// bandwidth recovered ~40×), restored by scripts/qa-t527-empiar-real-seed.mjs
+// (bash twin: scripts/t527-fetch-empiar.sh). This seeder remains the
+// documented FALLBACK for a 16 KB/s world — it restores the fixture CHAIN
+// (import/motioncorr/strip lanes) but can never satisfy the fidelity exam:
+// diag-t380's reality probe reads the float bytes and grades synthetic
+// contrast as what it is.
+//
 // The import lane's contract (engine.ts:3028) needs only: a directory of
 // *.mrc files. It sorts names and writes the STAR — no content checksum,
-// no fidelity gate (fidelity is diag-t380's separate job, and the REAL data
-// for that must be re-downloaded from EMPIAR 10028/10017 when the pool
-// task unfreezes). So a seeded set of header-legal float32 mrcs restores
-// the fixture CHAIN honestly: same file count as the real set (10), same
-// extension contract, synthetic pixels marked as synthetic in the header's
-// unused label field.
+// no fidelity gate (fidelity is diag-t380's separate job). So a seeded set
+// of header-legal float32 mrcs restores the fixture CHAIN honestly: same
+// file count as the real set (10), same extension contract, synthetic
+// pixels marked as synthetic in the header's unused label field.
 //
 // Re-run any time a sandbox reset eats the directory. Idempotent: skips
 // when the files are already present.
