@@ -91,6 +91,21 @@ for (let i = 0; i < 5 && !modal; i++) {
 }
 must(modal, "inspector modal opens for the completed postprocess job");
 
+// ---- the results tab (t523 fix) ----
+// The inspector grew tabs (qa49's "results tab: tab-clicked" walked the same
+// road); the FSC section lives behind the Results tab now — the old
+// "open modal, see FSC" assumption has been silently false since the tab
+// lands, and the suite has been REAL-FAILing on it since at least t522's
+// family run (its report carried the verdict nobody read).
+const tab = await p.evaluate(() => {
+  const t = [...document.querySelectorAll('[role=tab]')].find((x) => x.textContent.trim().includes("Results"));
+  if (!t) return "NO-TAB";
+  t.click();
+  return "tab-clicked";
+});
+must(tab === "tab-clicked", "results tab exists and opens (the inspector's tabbed body)");
+await sleep(2500);
+
 const fsc = await p.evaluate(() =>
   !!document.querySelector('section[aria-label="Fourier-shell correlation"]'));
 must(fsc, "FSC section rendered inside inspector (state→workdir resolution alive post-migration)");

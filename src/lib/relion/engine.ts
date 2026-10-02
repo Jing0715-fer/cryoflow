@@ -577,7 +577,23 @@ function probeWslTree(state: RunRecord): void {
 export async function stopRun(jobId: string): Promise<{ stopped: boolean; message: string }> {
   const child = live.get(jobId);
   const state = readRuns()[jobId];
-  const pid = child?.pid ?? state?.pid ?? null;
+  // ---- the ghost-pid guards (t523) --------------------------------------
+  // qa60's forever-running fixture seeded a record with pid 1 and done=true;
+  // stopRun ignored `done`, saw /proc/1 alive (init ALWAYS is), and built the
+  // kill tree as [1, ...descendantsOf(1)] — the whole container. One stop
+  // click took the dev server, the mock cluster and a running regression
+  // batch with it (t523's probe died by its own sword, the live proof).
+  // LAW 1 — a finished record is the past tense: the stop door never acts on
+  // it (a re-run writes a fresh record; there is nothing left to stop).
+  // LAW 2 — pid ≤ 1 is nobody's RELION process: init is never a job. A stale
+  // or polluted record pointing at init resolves to "no pid", not to a tree.
+  if (!child && state?.done) {
+    return {
+      stopped: false,
+      message: "the record says this run already ended — nothing to stop (a re-run creates a fresh record)",
+    };
+  }
+  const pid = child?.pid ?? (state?.pid != null && state.pid > 1 ? state.pid : null);
 
   // ---- WSL bridge runs --------------------------------------------------
   // The host-side pid is the wsl.exe session host; the distro-internal

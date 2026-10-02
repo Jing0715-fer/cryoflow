@@ -15,8 +15,8 @@
  */
 
 import {
-  Vec3,
-  Mat3,
+  type Vec3,
+  type Mat3,
   matIdentity,
   matEqual,
   matRoundKey,
