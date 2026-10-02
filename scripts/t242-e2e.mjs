@@ -43,7 +43,16 @@ must(sys.found === false, "engine not found (demo host truth)");
 must(typeof sys.hint === "string" && sys.hint.length > 40, "hint present and substantial");
 const hint = sys.hint ?? "";
 must(hint.includes("CryoFlow searched this host"), "opens with the searched-this-host line");
-must(hint.includes("RELION_HOME — not set"), "RELION_HOME fact line");
+// t530 — the pin learned the world: the prod lane legitimately exports
+// RELION_HOME (prod-3001.sh), so the well may answer "not set" (dev lane)
+// or one of the two "set to …, but …" dialects (a dead or binary-less
+// export). The contract is the FACT LINE's shape, not one world's bytes —
+// the t416 lesson (pin the semantics, not the literal), third evolution.
+const rhLine = (hint.split("\n").find((l) => l.includes("RELION_HOME —")) ?? "").trim();
+must(
+  /^· RELION_HOME — (not set|set to .+, but (no relion_refine in it|the directory does not exist))$/.test(rhLine),
+  `RELION_HOME fact line speaks one of the three legal dialects (got: "${rhLine}")`
+);
 must(hint.includes("PATH — no relion_refine on PATH"), "PATH fact line");
 must(hint.includes("Known locations"), "known-locations fact line");
 must(hint.includes("Home scan"), "home-scan fact line");
@@ -92,7 +101,10 @@ const uiText = (await block.innerText()).replace(/\r/g, "").trim();
 must(normLines(uiText) === normLines(hint), "popover lines === API hint lines, byte-identical and in order (two mouths, one well)");
 
 const monoLines = block.locator("p.font-mono");
-must((await monoLines.count()) === 2, "A/B remedy lines render mono (exactly 2)");
+// t530 — three command lines now: the A/B remedies and t529's indented
+// grind/resume line (it renders mono like the rail does — and the mirror
+// law demands its leading spaces survive, which mono+pre guarantees).
+must((await monoLines.count()) === 3, "command lines render mono (A, B and the grind/resume line) (exactly 3)");
 
 const cls = (await block.getAttribute("class")) ?? "";
 must(cls.includes("amber"), "guidance block carries the amber tint (actionable, not informational)");

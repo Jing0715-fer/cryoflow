@@ -102,7 +102,9 @@ must((await block.count()) === 1, "one guidance block in the dashboard popover")
 const uiText = (await block.innerText()).replace(/\r/g, "").trim();
 must(normLines(uiText) === normLines(hint), "dashboard popover lines === API hint lines, byte-identical and in order (third mouth, one well)");
 
-must((await block.locator("p.font-mono").count()) === 2, "A/B remedy lines render mono (exactly 2)");
+// t530 — three command lines now (A/B + t529's indented grind/resume line):
+// the mirror law's byte fidelity and the rail's mono grammar agree.
+must((await block.locator("p.font-mono").count()) === 3, "command lines render mono (A, B and the grind/resume line) (exactly 3)");
 must(((await block.getAttribute("class")) ?? "").includes("amber"), "guidance block carries the amber tint");
 
 // t238's law in the dashboard popover: wide mono line borrows scroll from
