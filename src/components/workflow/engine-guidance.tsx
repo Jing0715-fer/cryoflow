@@ -35,6 +35,16 @@ import type { RelionBuildProgressClient, RelionInstallClient } from "@/lib/types
  * share. A/B remedy lines keep the composer's column alignment alive
  * (whitespace-pre font-mono); wide lines borrow scroll from their own
  * band (t238 law, inside the popover too).
+ *
+ * t530 — the mirror law caught its own renderer: t529's composer grew
+ * an indented command line ("  grind / resume / check: …") and the
+ * muted branch dropped its leading spaces (no whitespace-pre), so the
+ * rendered non-empty lines were NOT byte-identical to the well's — the
+ * exact drift the mirror law exists to forbid. The line class is
+ * compositional now: commands (A/B remedies and indented continuations)
+ * render mono + whitespace-pre, prose renders whitespace-pre-wrap (its
+ * bytes carry no leading spaces today, and the wrap it keeps is
+ * presentation — the SEQUENCE of non-empty lines stays the well's).
  */
 export function EngineHintBlock({ hint }: { hint: string }) {
   return (
@@ -48,9 +58,9 @@ export function EngineHintBlock({ hint }: { hint: string }) {
           key={i}
           className={cn(
             "text-[10px] leading-relaxed",
-            /^[AB]\)/.test(line.trim())
+            /^[AB]\)/.test(line.trim()) || /^\s/.test(line)
               ? "whitespace-pre font-mono text-foreground/80"
-              : "text-muted-foreground"
+              : "whitespace-pre-wrap text-muted-foreground"
           )}
         >
           {line}
