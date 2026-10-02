@@ -241,6 +241,22 @@ with open(star_path, "w") as f:
     f.write("\n".join(lines) + "\n")
 print(f"star: {star_path} ({row - 1} rows)")
 
+# t520 — the witness star: engine.ts's latestIterationDataStar only accepts
+# a data star that has a sibling optimiser/model/half1_model star (a REAL
+# RELION run always writes them together — a lone data star is a torn round).
+# This fixture seeded the data star alone, so the /classes route's stats read
+# iter=None → 0 classes → the gallery verify failed on every fresh world.
+# One honest witness makes the fixture a round RELION would recognize.
+witness_path = os.path.join(workdir, f"run_it{ITER:03d}_optimiser.star")
+with open(witness_path, "w") as f:
+    f.write(
+        "data_optimiser\n\n"
+        f"loop_\n_rlnCurrentIteration {ITER}\n"
+        "_rlnNumberOfClasses 8\n"
+        "_rlnHasFSCMarks 1\n"
+    )
+print(f"witness: {witness_path}")
+
 # ---- run_it012_unmasked_classes.mrcs — 64×64×8 float32 stack ----
 N = 64
 import math

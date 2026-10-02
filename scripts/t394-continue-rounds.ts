@@ -310,7 +310,7 @@ console.log("D — optimiserRoundsFromNames + scanLocalWorkdir (the round analys
       scanned.entries.every((e) => !e.path.includes(".cryoflow_prev")),
       "the t385 archive's rounds never answer the LOCAL scan (the remote lane lists them as their own archived group — t395)"
     );
-    must(scanned.entries[0].iteration === 2 && scanned.entries[0].size === 32, "sizes + mtime ride the local entries");
+    must(scanned.entries[0].iteration === 2 && scanned.entries[0].size === 33, "sizes + mtime ride the local entries");
     must(typeof scanned.entries[0].mtimeMs === "number", "the local lane carries the mirror's clock");
   } finally {
     rmSync(dir, { recursive: true, force: true });

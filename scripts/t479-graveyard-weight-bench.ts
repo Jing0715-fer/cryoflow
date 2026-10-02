@@ -275,7 +275,7 @@ console.log("T3. the grave dies as a name; its workdir dies only with a free id"
 
   must(existsSync(path.join(EXTERNAL_DIR, "outside.star")), "T3k: a workdir outside RELION_DIR is never touched, even with a free id");
 
-  must(AI_TOOLS.length === 32 && !AI_TOOLS.some((t) => /bury|clear|forget/.test(t.name)),
+  must(AI_TOOLS.length === 33 && !AI_TOOLS.some((t) => /bury|clear|forget/.test(t.name)),
     "T3l: no bulk-burial verb exists — the agent names graves, the user's door buries them (the t295 law)");
 }
 

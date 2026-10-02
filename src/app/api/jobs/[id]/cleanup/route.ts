@@ -113,7 +113,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // below), never silently cleaned; the per-job in-flight lock rides in
     // the well too, so the dialog's POST and the agent's cleanup verb are
     // two doors into the same per-job-serial shovel (t518)
-    const result = await runCleanupExclusive(id, scopes, tiers);
+    const result = await runCleanupExclusive(id, scopes, tiers, "dialog");
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 409 });
     }
