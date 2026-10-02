@@ -6691,3 +6691,29 @@ Stage Summary:
 - **「毒桶是 getter 递出去的」**：七个失败断言围殴出一只经典共享可变单例——EMPTY 被首个 push 永久污染；freshLedger 三行根治，教训写入源码注释也写进本档：默认形状的单例绝不能从写者共用的 getter 手里逃逸
 - **「收割者改不了判词」**：HTTP 门被掐五次，送终照常落地——判词从产品源码逐字复刻（row/record 双写同形），诚实的是判词本身，不是运载它的那根网线
 - 产出：cleanup-history 井（记账+读脸+帽律+原子写）+ 第 33 器 get_cleanup_history + presentCleanupHistory + GET 薄壳 + 对话框历史条 + 界律三处演进 + 23 文件涟漪 + 投毒桶根治 + t431/t518 守卫随律 + 家族 85/0 + 活体双 zero-pass 入账回读 + 证物归档
+
+---
+
+Task ID: 520
+Agent: main (Z.ai Code, 16:52 cron 窗——与 t521/t522 并行交错的共享沙箱窗)
+Task: 沙箱复活 + 世界重建 + judge 双修（零 keep 诚实分支 + 无栈判官饲料）——工作主体由 harness 以 auto-commit 8abe34b 落档，本条补上它欠的 worklog 证词
+
+Work Log:
+- 【开局：沙箱是一具旧尸】本地树停在 Task 272 时代快照（+1 条 uuid 自动提交），origin/main 已被并行血脉推进 413 commits 至 t519（4cbe96b）。df 6.3G 健康（t516 水位惯例）。data/ 仅 8K、services/ 136K、db 是空白 provisioning——**世界全灭的裸恢复**，连 /home/z/empiar-10017 与本地 RELION 构建都不在。
+- 【复活手术】git reset --hard origin/main（uuid 提交的 family-run.mjs 中间态已被 origin 686 行版本涵盖，判弃）→ bun install（仅 +socket.io-client）→ db push → **.env 归一判例**：dev-server.sh 硬钉 DATABASE_URL=db/cryoflow.db，而 scaffold 的 .env 指向 custom.db（异常车道）——世界差点播错库；.env 改指正典 + 逐字节迁移 + 硬重启驱幽灵 inode。mock 集群 launch.sh 复活（:3022 SSH ok）。
+- 【世界①：t474 画廊】qa-t474ui-seed 后台跑被收割者三杀（0 字节日志）——前台 25 秒试探定位真相（seed 无病，reaper 是唯一死因）；class2d 派发已被产品引擎接手照跑（200 迭代，slurmState COMPLETED，3826 文件回同步）——**poller 会死，run 不会**；t520-seed-tail.mjs 手工补尾（select2d 双边接线 + 无栈手术 202 栈移除 + 状态档）。画廊活体验收：26 图 26 载入、0「no image」、console 0。
+- 【世界②：正典活体实例】restore-gallery.py 全链——撞上 **witness 律缺证人**：qa58 fixture 只种 run_it012_data.star，engine 的 latestIterationDataStar 要求伴行 _optimiser/_model/_half1_model star（真 RELION 永远同写）——/classes 读出 iter=None→0 类。qa58-seed-gallery.py 补种一行证人 star，seeder 链全绿，**roster 21（16 completed）正典全血复活**。
+- 【交付①：零 keep 诚实分支】t519 遗留②「全 junk 时只给文字无 action」深挖出一层更狠的：旧 nextStep 字面指示 select_classes({classes:[]})——**一个必被拒绝的调用**（工具明文拒绝空列表）。四象限契约落位：keep>0+maybe>0→conservative/inclusive（不动）、keep>0+maybe=0→single（不动）、keep=0+maybe>0→borderline（赌局实名，never advice）、keep=0+maybe=0→无 tiers（缺席即证词）+ nextStep 教重跑权衡（减类数 Math.floor(K/2) 计算值/加迭代/查上游）+ law 5 补零 keep 教义。
+- 【交付②：无栈判官饲料】活体真判官第一枪抓到的产品缺口：judge 对无栈世界（key-files 政策，t339/t474——栈只在集群）报「等运行结束」的谎（run 明明 completed）。根因 classStatsFromWorkdir 只扫本地目录。修复 = **deriveClassStackFromPerClass**：RELION 自己的命名律（run_itNNN_classMMM.mrc ⇔ run_itNNN_classes.mrcs）从逐类 .mrc 推导栈名，交给既有集群拉取车道（fetchRemoteFileIntoWorkdir）。
+- 【活体：真模型端到端】builtin 车道（glm-4-plus）走产品自己的门：judge_2d_classes 对无栈世界 OK=true——12 类 it200 经推导+拉取真判（**只有推导车道可达**），「0 keep / 0 maybe — NO class merits a selection (zero-keep verdict)」新 summary 亲口说话；终答带 action block 三选项（减类数 12→6/加迭代/先查上游）= nextStep 教义逐字兑现；途中撞 429 限流——t519 重试教义活体履约（退避耗尽后文案诚实说「稍等重发，无需换供应商」），2.5 分钟窗口恢复后重发成功。
+- 【回归】t520 bench 44/0（含四象限行为 + 推导契约 + t519 姊妹回归）｜t519 32/0｜t513 双套 61/0（判官 prompt 领域亲跑）｜tsc 0｜eslint 0/0——顺手治好四件存量：qa63-race-test 的内联 require 上提、qa64 .cjs 实名抑制（require 即该方言的 import）、t93 的 err&&err(e) 改 if、**t372 死文件复活**（bash 参数展开 ${f%.mrcs} 在 JS 模板字面量里是非法 token——eslint 抓出一个从未跑过的 SyntaxError 死脚本，两处转义修复后 node --check 通过）。
+- 【家族 qa 批血泪】9 real-fail → 世界重建后 2（qa63/qa49，fixture 补全债）——但**箱子内存天花板**（3.9GB）：server anon-rss 2.27-2.59GB + 页缓存 + 基线 = OOM 风暴，server 十分钟内五杀（idle 也死）；webpack 车道 + DEV_HEAP_MB=1792 撑到 ~200s（GC 呼吸可见）仍是死。600s 工具天花板腰斩一次（t302 中断证词履约）。**qa 批余下两失败与 SERVER-SKIP 归档为世界补全 + 内存判例债，移交下窗**。
+- 【协作发现】与 t521/t522 三窗并行共享一棵树：harness 以 uuid 自动提交保存我未落档的工作（8abe34b），t522 见证并写入协调标记「其工作细节以其 commit 为准」；文件界线纪律（t522 零触碰我的 src/lib/ai/* 主体）+ 精确 staging 双向成立。教训：**共享沙箱里 commit 前必须 git status 验尸变更集归属**——别人的 diff 不是自己的战利品。
+
+Stage Summary:
+- **「零 keep 是对 run 的忠告，不是硬选的清单」**：0 keep 时 select_classes 无路可走（拒绝空列表）——旧 nextStep 指着墙教模型撞；四象限契约让每种判决都有自己的下一步，borderline 永远是赌局不是建议
+- **「判官的饲料不能只有本地的栈」**：画廊能懒拉集群逐类 .mrc 而判官只认本地 classes.mrcs——同一个无栈世界两张脸；RELION 命名律（classMMM ⇔ classes.mrcs）是免费的真相源，推导一行 + 拉取复用既有车道
+- **「poller 会死，run 不会」**：后台 seed 被收割者三杀，但 dispatch 已交产品引擎——远程 run 的生命在引擎不在 poller；前台试探定位 reaper、手工补尾闭环，比与收割者赌 setsid 更诚实
+- **「fixture 也要有证人」**：witness 律（data star 必有伴行 optimiser/model star）拦住了假 round——qa58 fixture 缺一行证人让每个新世界的画廊全盲；真 RELION 从不孤行，fixture 也不该
+- **「裸沙箱的世界要一次种全」**：roster 21 的活体实例 + t474 画廊 + mock fs 都不随 git 走——restore-gallery.py 是唯一正典重建器，它的每一处 fixture 缺口都是下一个裸沙箱的地雷（本窗排了 witness 一颗）
+- 遗留（下窗候选）：①**箱子内存天花板**——OOM 风暴判例已立案（anon-rss 2.5GB + 页缓存撞 3.9GB 顶），webpack 车道 1792MB 只买 200s；候选方向：DEV_HEAP_MB 再调、批再拆、Turbopack 原生内存病根；②qa 批剩余 2 失败（qa63/qa49 世界补全债）+ SERVER-SKIP 复跑；③t522 遗留池照旧继承（stop 门进程内活测、对话框条截图、老世界持久 seeder）；④EMPIAR/off-mainline 照旧挂池
