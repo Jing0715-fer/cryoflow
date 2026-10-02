@@ -6744,3 +6744,28 @@ Stage Summary:
 - **「探针死于自己的剑」**：t522 留库的活测脚本第一次真跑就自杀（顺带全容器陪葬）——「补测试」撞出「真 bug」是 QA 惯例的最高回报；静默死亡零输出不是玄学，是分步探针把死亡点钉到行
 - **「假设的尸体要验明正身」**：qa60 注释里的错误假设活了五窗，t522 的五次「收割」冤案翻案为五次走火；qa63 的「开 modal 即见 FSC」在 tab 化后变成隐形债——两具尸体同一死因：没人读变更后的世界
 - 产出：stopRun 双律（done 早退 + pid≤1 守卫）+ t523-stop-guard-bench（canary 幸存者钉子，双引擎绿）+ ts-alias-hook/register（node 双方言钥匙）+ type 混值普查与四文件修复 + 幽灵 record 数据手术补课 + qa63 tab 修复（SMOKE GREEN）+ 判例翻案×2（t522 收割冤案 / qa63 世界债冤案）
+
+---
+
+Task ID: 524
+Agent: main (Z.ai Code, window 2026-10-03 02:38 cron)
+Task: QA 基线全绿（家族 86/0）后自主选题 = **内存天花板治理**——watchdog 伴生常驻化 + RSS 成分测量定谳 + prod 车道正典化与 build-guard 守卫；顺手收 t522/t523 双窗遗留①（cleanup dialog 历史条活体截图）。
+
+Work Log:
+- [开局] 第 110 份过时 Task 13 指引照例不认。实尾 = t523 收官（HEAD e159a7c）。磁盘 4.6G 自由 51%（健康）。QA 基线全绿：双服务 200 + console 0 错 + world 21/16（移动靶采样）+ tsc 0 + eslint 0 + 家族 86 套 0 失败。
+- [选题活体证据] 诊断第一步即撞上现行犯：dmesg 实锤 **global OOM kill 刚发生**（`Killed process 11942 (next-server) anon-rss:2047304kB`）——t520 判例①的 OOM 风暴本窗复演，且 watchdog 缺岗（t403-t407 基建齐全但需手动 nohup 启动，五窗死亡史证明「靠人记得」必败）。选题定谳：内存天花板治理三件套。
+- [A. 守护伴生] dev-server.sh 新增 ensure_watchdog()：**双路径**挂岗——fresh boot 尾部 AND already-running 早退分支（首版只挂文件尾被 25 行 `exit 0` 绕过，活体自捕后重构）。flock single-keeper 使重复调用 by-construction 幂等（嵌套实例活体验证：`another watchdog holds the lock — exiting`）；CRYOFLOW_NO_WATCHDOG=1 逃生门（build 等仪式期间）。**复活律活体**：pkill server → watchdog 30s 内复火 200（prewarm attempt 4）。竞态活捉：pkill watchdog 后立即 ensure_watchdog 会被垂死进程未释放的 flock 挡掉误退（flock -n 不重试）——补岗律：pkill 后再调一次 dev-server.sh 即可，记录在案。
+- [B. 测量定谳] scripts/mem-profile.mjs（/proc status+smaps_rollup 采样器）：**turbopack 默认车道出生体重 2.0GB 稳态**（复火 25 分钟后 45s 采样：rss 1.94-2.05GB、growth <10MB——不是泄漏，是出生即胖）；anon 1.73GB >> V8 cap 896MB = **turbopack native 侧在 cap 之外**（t520「原生内存病根」数字化定谳）；file=0 全 anon。webpack 车道出生 2.5GB（watchdog 复活活体测得）。
+- [boot 车道修正] watchdog boot() 的 t416 遗产（DEV_HEAP_MB=1792 + --webpack）在今日树上**出生即 2.5GB，离自家 recycle 线 2.6GB 差 100MB = recycle 风暴 by construction**（boot→2.5GB→recycle→boot…）。修正：boot 回归 dev-server.sh 默认车道（turbopack 896——本窗活体验证健康，t461「QA 转 dev lane 已验证配方」处置判例同源）。单一事实源达成。
+- [C. prod 车道与守卫] ①prod-3001.sh 正典化：死树 /home/z/cryoflow → /home/z/my-project（脚本位置推导），PORT 参数化（默认 3001 保历史 diag 见证；PORT=3000 即家族零改动的 QA 车道）。②build 三连败诚实入案：turbopack 裸跑 137（1m34s）+ cap1792 重试 137（dmesg：MainThread anon 3.03GB，V8 cap 外 native ~1.2GB）——**考古 t461「21 连败」判例后立即停磨**（webpack 需求 >1700MB vs 墙 ~3.02GB 数学性无窗；根因环境几何 buff/cache 坍缩 2439→776MB；本窗 buff/cache 885MB 同款坍缩态，且首发 turbopack build 又清了暖 .next——4459 行判例同款陷阱重踩）。③swap 路封死（sudo 不可用）。④scripts/build-guard.sh：t461 判例变可执行守卫——SKIP（standalone 在盘直接 prod-3001.sh）/ NO-GO（available<2600 或 buff/cache<1500 拒磨防盲烧）/ GO（温暖窗 + 1344 webpack 配方建议）；首跑 NO-GO 与实测三连败互相验证。
+- [遗留①收官 — 历史条活体截图三重考古] ①t523 脚本真 bug：goto(networkidle) 在 2s 轮询 /api/jobs 的 app 上**永不触发**（15s TimeoutError 元凶）→ domcontentloaded + 显式等待；②t523「Clean 按钮初始层不露出」判词翻案：Clean 是 **icon-only eraser 按钮**（job-inspector.tsx:2789，aria-label 无 textContent），hasText 定位器永远找不到——aria-label 定位器一发命中（header row，无需 tab walk）；③「Recent cleanups on this job」条**条件渲染**：QA Post 300 无账不渲染 → 换 QA Post-process（t522 账本持有者）→ 历史条活体呈现（`Oct 2, 17:08 · dialog 门 · 0 local files · 0 B · safe`），截图归档 .qa-logs/t524-cleanup-dialog-history.png。bench+API 双证之外的 UI 第三证补齐。
+- [环境课×2] agent-browser 陈旧缓存空页：navigate 后 snapshot 空页但 dev 200——`?fresh=1` 绕缓存即愈；双 chrome 资源冲突：agent-browser 的 chrome 与 playwright chromium 抢 2GB headroom（t523 take-2 的 120s hang 定谳为 launch 竞态）——pkill headless_shell 后 playwright 探针全绿。
+- [验证-终] tsc 0 + eslint 0（触碰五件：dev-server.sh / watchdog / prod-3001.sh / build-guard.sh / mem-profile.mjs）+ 家族 86 套 0 失败 + 活体 console 0 error（fresh session 定谳，map-download 报错为 server 换代窗口旧账）+ watchdog 三律（复活/单守/伴生）活体 + 内存终态 available 3.07GB。
+- [最终态] 本窗三 commit（ops + qa + docs 分车）后推送。下窗从 Task 525 起编。遗留池：①**build-guard GO 窗口的实际 build 验证**（等 buff/cache 恢复 ~2.4GB 的温暖窗再磨，配方已在守卫里；standalone 车道若复活，家族 QA 内存需求从 2GB 降到几百 MB，family-run 全量解锁）；②watchdog flock 竞态可加重试（补岗律已够用，低优先）；③t523 的 ts-alias hook 车道与 t522 遗留③（老世界持久 seeder）照旧；④t519 建议 #1/#4、EMPIAR、off-mainline、remote diagnostics 照旧挂池。
+
+Stage Summary:
+- **「守护必须伴生，不能靠记性」**：watchdog 基建齐全五窗，死于「要人记得 nohup 一行」——ensure_watchdog 双路径挂岗后，任何调用 dev-server.sh 的车道（人工/agent/watchdog 自身）都自动获得守护；复活律 30s 活体闭环
+- **「出生体重不是泄漏，但同样杀人」**：turbopack 出生 2.0GB 稳态零增长、webpack 出生 2.5GB——病根是编译器在 cap 外的 native 胃口，4GB 箱子的数学由 mem-profile 用 /proc 数字定谳；t416 的 webpack 救援配方在今日树上反成 recycle 风暴源，boot 车道回归默认即单一事实源
+- **「判例要变成守卫才不再重蹈」**：t461 的 21 连败五窗后以同款数学重演（本窗三连败）——build-guard 把 buff/cache 坍缩签名、kernel 墙、GO 配方全部固化成磨前 3 秒体检；守卫首跑的 NO-GO 与实测互为见证
+- **「找不到 ≠ 不存在，先查定位器再查产品」**：icon-only 按钮没有 textContent（aria-label 才是真名），空账本不渲染历史条（换有账的 job），networkidle 在轮询 app 上是伪等待——t523 遗留①的三个坑全是测量方法的错，UI 本体一直健康
+- 产出：watchdog 伴生常驻化 + mem-profile 测量器 + boot 车道修正 + prod-3001.sh 正典化 + build-guard 守卫 + 历史条活体截图（遗留①收官）+ 家族 86/0 全绿 + 环境课×2（双 chrome 冲突 / 陈旧缓存空页）
