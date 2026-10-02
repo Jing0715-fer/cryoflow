@@ -50,7 +50,7 @@ import { withLiveStats } from "@/lib/live-stats";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
 import { KpiSparkline } from "./kpi-sparkline";
-import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
+import { EngineBuildRail, EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
@@ -2456,6 +2456,9 @@ export function ProjectDashboard() {
                       />
                       <p className="text-sm font-semibold">RELION not detected</p>
                     </div>
+                    {/* t529 — the second mouth: the rebuild rail rides wherever
+                        the guidance speaks (mirror law, one well many mouths). */}
+                    {system.build && <EngineBuildRail build={system.build} />}
                     <EngineHintBlock hint={system.hint} />
                     <EngineReDetectRow />
                   </div>

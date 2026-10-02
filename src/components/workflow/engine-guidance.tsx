@@ -5,7 +5,7 @@ import { Check, Loader2, RefreshCw, Server, Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
-import type { RelionInstallClient } from "@/lib/types";
+import type { RelionBuildProgressClient, RelionInstallClient } from "@/lib/types";
 
 /* ------------------------------------------------------------------ */
 /* Engine guidance — one well, many mouths                              */
@@ -56,6 +56,103 @@ export function EngineHintBlock({ hint }: { hint: string }) {
           {line}
         </p>
       ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* EngineBuildRail — the grinder's mouth (t529)                         */
+/* ------------------------------------------------------------------ */
+/* While the t528 recipe grinds the REAL RELION 5.0.0 in its tree-       */
+/* external prefix, the not-found world is not silent anymore: the       */
+/* status carries the build progress (read from stamp files + the        */
+/* installed binary, never from process sniffing) and this rail renders  */
+/* it stage by stage. Both mouths render it wherever the guidance        */
+/* speaks — the rebuild is part of the environment's truth.              */
+/* States are honest by construction: done = the evidence exists on      */
+/* disk; current = the stage the recipe would resume; queued = not       */
+/* started. When relion_refine lands, found outranks the birth           */
+/* certificate and the rail retires itself.                             */
+export function EngineBuildRail({ build }: { build: RelionBuildProgressClient }) {
+  const done = build.stages.filter((s) => s.state === "done").length;
+  const current = build.stages.find((s) => s.state === "current");
+  return (
+    <div
+      className="space-y-1.5 rounded-md border border-teal-500/30 bg-teal-500/5 px-2 py-1.5"
+      data-engine-build-rail
+      aria-label="RELION rebuild progress"
+    >
+      <p className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span>Rebuild in progress</span>
+        <span
+          className="font-normal normal-case tracking-normal tabular-nums text-muted-foreground/70"
+          title={`${done} of ${build.stages.length} recipe stages done — the current stage is where an interrupted grind resumes`}
+        >
+          {done}/{build.stages.length} stages
+        </span>
+      </p>
+      <ol className="space-y-1">
+        {build.stages.map((s, i) => (
+          <li
+            key={s.key}
+            className="flex items-center gap-1.5 text-[10px] leading-relaxed"
+            title={
+              s.state === "done"
+                ? `${s.label} — completed (evidence on disk)`
+                : s.state === "current"
+                  ? `${s.label} — current: the recipe resumes here`
+                  : `${s.label} — queued: not started`
+            }
+          >
+            <span
+              className={cn(
+                "flex size-3.5 shrink-0 items-center justify-center rounded-full border",
+                s.state === "done"
+                  ? "border-teal-500 bg-teal-500"
+                  : s.state === "current"
+                    ? "border-amber-500 bg-amber-500/15"
+                    : "border-muted-foreground/30 bg-transparent"
+              )}
+              aria-hidden="true"
+            >
+              {s.state === "done" ? (
+                <Check className="size-2.5 text-white" />
+              ) : s.state === "current" ? (
+                <Loader2 className="size-2.5 animate-spin text-amber-600 dark:text-amber-400" />
+              ) : null}
+            </span>
+            <span
+              className={cn(
+                "min-w-0 truncate",
+                s.state === "done" && "text-muted-foreground",
+                s.state === "current" && "font-medium text-foreground",
+                s.state === "queued" && "text-muted-foreground/60"
+              )}
+            >
+              {i + 1}. {s.label}
+            </span>
+            {s.state === "current" && (
+              <Badge
+                variant="outline"
+                className="ml-auto h-4 shrink-0 border-amber-500/40 bg-amber-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+              >
+                current
+              </Badge>
+            )}
+          </li>
+        ))}
+      </ol>
+      <p
+        className="truncate font-mono text-[9px] text-muted-foreground/70"
+        title={`grind / resume / check: ${build.recipe}`}
+      >
+        resume: {build.recipe}
+      </p>
+      {current === undefined && (
+        <p className="text-[9px] text-teal-700 dark:text-teal-300">
+          All stages done — the next Re-detect promotes the fresh install to the found world.
+        </p>
+      )}
     </div>
   );
 }

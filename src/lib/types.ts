@@ -363,6 +363,32 @@ export interface RelionInstallClient {
   cached?: boolean;
 }
 
+/**
+ * One stage of the rebuild-from-recipe pipeline (the t528 recipe tree).
+ * The reader derives states purely from on-disk evidence (stamp files and
+ * the installed binary) — no process sniffing, no drift from what exists.
+ */
+export interface RelionBuildStageClient {
+  /** Stable stage key ("cmake" | "libtiff" | "mpich" | "relion"). */
+  key: string;
+  /** Human label shown in the rail. */
+  label: string;
+  /** done: its stamp/binary exists. current: first not-done stage (where the
+   *  recipe would resume). queued: not started. */
+  state: "done" | "current" | "queued";
+}
+
+/** Rebuild-in-progress facts for the t528 recipe tree (/home/z/relion-build).
+ *  Present on the status ONLY while no usable install was found — a born
+ *  RELION outranks its own birth certificate. */
+export interface RelionBuildProgressClient {
+  /** The recipe tree root. */
+  root: string;
+  /** The one command that grinds/resumes/checks the pipeline. */
+  recipe: string;
+  stages: RelionBuildStageClient[];
+}
+
 /** Light-weight mirror of RelionStatus (server module) for the client store. */
 export interface SystemStatusClient {
   found: boolean;
@@ -403,6 +429,13 @@ export interface SystemStatusClient {
    * Rendered in the engine popover under the status fields.
    */
   hint?: string | null;
+  /**
+   * Rebuild-from-recipe progress (t529) — the grinder made visible. Present
+   * only when the search found NO usable install AND the host carries the
+   * recipe's build tree (/home/z/relion-build) with stage evidence on disk.
+   * The chip learns "· build 2/4" and the popovers render the stage rail.
+   */
+  build?: RelionBuildProgressClient | null;
 }
 
 /**

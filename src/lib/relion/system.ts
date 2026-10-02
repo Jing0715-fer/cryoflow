@@ -30,13 +30,77 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFi
 import os from "os";
 import path from "path";
 import { DATA_DIR } from "@/lib/paths";
-import type { SystemStatusClient, WslStatusClient } from "@/lib/types";
+import type {
+  RelionBuildProgressClient,
+  SystemStatusClient,
+  WslStatusClient,
+} from "@/lib/types";
 
 /** Full server-side RELION status (same shape as the client mirror). */
 export type RelionStatus = SystemStatusClient;
 
 /** Bundled dependency stack (sandbox / engine-relion-env parity). */
 const DEPS_CTFFIND = "/home/z/relion-build/deps/ctffind/bin/ctffind";
+
+/* ------------------------------------------------------------------ */
+/* Rebuild-from-recipe progress (t529) — the grinder made visible       */
+/* ------------------------------------------------------------------ */
+/* scripts/t528-rebuild-relion.sh rebuilds the REAL RELION 5.0.0 in a    */
+/* tree-external prefix. Its stage completion lives in stamp files and   */
+/* the installed binary — pure on-disk evidence, so the environment      */
+/* probe can READ the pipeline's progress without sniffing processes     */
+/* (t528's own doctrine: identity from bytes, not from memory). While    */
+/* no usable install is found, the status carries this block so the      */
+/* chip says "build 2/4" instead of a bare "not found" — and the moment  */
+/* relion_refine lands, the found world outranks the birth certificate.  */
+
+/** The t528 recipe's install prefix (its bin/ is also a detection candidate). */
+export const RECIPE_BUILD_ROOT = "/home/z/relion-build";
+/** The one command that grinds/resumes/checks the pipeline (t528 recipe). */
+export const RECIPE_BUILD_CMD = "bash scripts/t528-rebuild-relion.sh";
+
+/**
+ * Read the recipe tree's stage progress from disk evidence only.
+ * Returns null when the root is missing or carries NO stage evidence at all
+ * (a bare directory is not a build tree). Injectable root keeps this pure
+ * enough for the bench to exercise every stage combination on fixtures.
+ */
+export function readBuildProgress(
+  root: string = RECIPE_BUILD_ROOT
+): RelionBuildProgressClient | null {
+  const stamps = path.join(root, ".stamps");
+  const binDir = path.join(root, "bin");
+  const relionBin = path.join(binDir, "relion_refine");
+  const hasStamp = (name: string) => existsSync(path.join(stamps, name));
+  const hasRelion = existsSync(relionBin);
+  const hasEvidence =
+    hasStamp("cmake.done") ||
+    hasStamp("tiff.done") ||
+    hasStamp("mpich.done") ||
+    hasRelion ||
+    existsSync(path.join(root, "deps")) ||
+    existsSync(path.join(root, "src", "relion"));
+  if (!hasEvidence) return null;
+
+  const raw: { key: string; label: string; done: boolean }[] = [
+    { key: "cmake", label: "cmake (static toolchain)", done: hasStamp("cmake.done") },
+    { key: "libtiff", label: "libtiff 4.6", done: hasStamp("tiff.done") },
+    { key: "mpich", label: "MPICH 4.2", done: hasStamp("mpich.done") },
+    { key: "relion", label: "RELION 5.0.0", done: hasRelion },
+  ];
+  // "current" is the first not-done stage — where the recipe would resume
+  // (make + stamps make resume exact; nothing is re-done that is done).
+  let currentSeen = false;
+  const stages = raw.map((s) => {
+    if (s.done) return { key: s.key, label: s.label, state: "done" as const };
+    if (!currentSeen) {
+      currentSeen = true;
+      return { key: s.key, label: s.label, state: "current" as const };
+    }
+    return { key: s.key, label: s.label, state: "queued" as const };
+  });
+  return { root, recipe: RECIPE_BUILD_CMD, stages };
+}
 
 /** Resolve the ctffind executable a NATIVE install would use (PATH → bin dir → bundled deps). */
 async function resolveNativeCtffind(binDir: string): Promise<string | null> {
@@ -346,7 +410,7 @@ interface NativeCandidate {
   source: string;
 }
 
-function candidateDirs(): NativeCandidate[] {
+export function candidateDirs(): NativeCandidate[] {
   const candidates: NativeCandidate[] = [];
   if (process.env.RELION_HOME) {
     candidates.push({ dir: path.join(process.env.RELION_HOME, "bin"), source: "RELION_HOME" });
@@ -355,6 +419,7 @@ function candidateDirs(): NativeCandidate[] {
   const home = os.homedir();
   for (const dir of [
     "/home/z/relion-install/bin",
+    "/home/z/relion-build/bin", // the t528 recipe's install prefix — the born install must be found (t529)
     "/usr/local/bin",
     "/opt/relion/bin",
     path.join(home, "relion-install/bin"),
@@ -382,6 +447,11 @@ export interface NativeSearchFacts {
   knownDirs: { dir: string; exists: boolean }[];
   /** Number of home-scan candidate dirs the scan matched (before validity). */
   homeScanHits: number;
+  /** Rebuild-from-recipe progress (t529) — injected by the probe when the
+   *  host carries the t528 recipe tree. The composer stays pure: it renders
+   *  the fact it is given and never reads the filesystem itself, so fixtures
+   *  without the fact get byte-identical output (t242 law holds). */
+  buildProgress?: RelionBuildProgressClient | null;
 }
 
 /**
@@ -421,6 +491,18 @@ export function composeNativeHint(f: NativeSearchFacts): string {
       ? `· Home scan — ${f.homeScanHits} *relion* bin dir(s) under ~, none holds relion_refine`
       : "· Home scan — ~/*relion*/bin + one level into myproject|src|build|builds|code|dev|projects|tools|opt (nothing matched)"
   );
+  if (f.buildProgress) {
+    const bp = f.buildProgress;
+    const done = bp.stages.filter((s) => s.state === "done").length;
+    const current = bp.stages.find((s) => s.state === "current");
+    lines.push(
+      `· A REAL RELION rebuild is in progress in ${bp.root} — ${done} of ${bp.stages.length} stages done` +
+        (current
+          ? `, stage ${bp.stages.indexOf(current) + 1} (${current.label}) is current.`
+          : ", all stages done — press Re-detect once the binary lands.")
+    );
+    lines.push(`  grind / resume / check: ${bp.recipe}`);
+  }
   lines.push("");
   lines.push("To make an install visible, either:");
   lines.push("A) put its bin on PATH:      export PATH=/path/to/relion/bin:$PATH");
@@ -985,6 +1067,12 @@ async function runProbe(): Promise<RelionStatus> {
         : selected.source) + (selected.cached ? " · saved" : "")
     : null;
 
+  // t529 — the grinder made visible: while nothing usable was found, check
+  // whether the t528 recipe tree is mid-rebuild on this host (disk evidence
+  // only). A found install nulls this — the born RELION outranks its birth
+  // certificate and the chip speaks the found world's language.
+  const buildProgress = found ? null : readBuildProgress();
+
   const status: RelionStatus = {
     found,
     execution,
@@ -1016,7 +1104,10 @@ async function runProbe(): Promise<RelionStatus> {
             ).values(),
           ],
           homeScanHits: nativeCandidates.filter((c) => c.source === "home scan").length,
+          buildProgress,
         }),
+    // t529 — structured rebuild progress for the UI rail (null while found)
+    build: buildProgress,
   };
 
   writeSnapshot(status);

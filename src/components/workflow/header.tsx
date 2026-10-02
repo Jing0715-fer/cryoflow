@@ -30,7 +30,7 @@ import { HelpPopover } from "./help-popover";
 import { RemoteClusterButton } from "./remote-cluster-dialog";
 import { KnockSettingsButton } from "./finish-knock-button";
 import { CommandPaletteTrigger, SESSION_REPORT_EVENT } from "./command-palette";
-import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
+import { EngineBuildRail, EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 // t197: the session QC report is code-split (react-markdown + remark-gfm
 // ride their own chunk) — the app shell never pays for the document
 // renderer until the report is opened for the first time.
@@ -203,12 +203,18 @@ function RelionStatusChip() {
   const viaWsl = (system?.source ?? "").startsWith("WSL");
   const fromCache = system?.fromCache === true;
   const extraInstalls = Math.max(0, (system?.installs.length ?? 0) - 1);
+  // t529 — while the recipe grinds a REAL RELION in its build tree, the
+  // not-found chip says how far along it is instead of a bare "not found".
+  const build = system?.build ?? null;
+  const buildDone = build ? build.stages.filter((s) => s.state === "done").length : 0;
   const label = found
     ? `RELION ${system?.version ?? ""}${viaWsl ? " · WSL" : ""}${extraInstalls > 0 ? ` · +${extraInstalls}` : ""}`.trim()
-    : "RELION not found";
+    : `RELION not found${build ? ` · build ${buildDone}/${build.stages.length}` : ""}`;
   const title = found
     ? `RELION ${system?.version ?? "?"} · ${system?.path ?? ""}${viaWsl ? " (inside WSL)" : ""}${extraInstalls > 0 ? ` — ${extraInstalls} more install(s) detected, click to switch` : ""}${fromCache ? " · status from the saved last detection, re-verifying in the background" : ""}`
-    : "RELION not detected on this host — click for guidance";
+    : build
+      ? `RELION not detected yet — a rebuild from the recipe is in progress (${buildDone}/${build.stages.length} stages done) in ${build.root}. Click for the stage rail + guidance.`
+      : "RELION not detected on this host — click for guidance";
 
   // WSL three-state: RELION found inside WSL / WSL ok but RELION not on PATH /
   // WSL itself unavailable — never collapse the last two into one message.
@@ -370,6 +376,7 @@ function RelionStatusChip() {
               </p>
             )}
           </div>
+          {!found && build && <EngineBuildRail build={build} />}
           {!found && system?.hint && <EngineHintBlock hint={system.hint} />}
           <InstallSwitcher />
           <div>
