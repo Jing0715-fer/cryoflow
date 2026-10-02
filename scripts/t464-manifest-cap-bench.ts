@@ -235,41 +235,70 @@ function shQuote(p: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* T7 — REAL SHELL, the real class2d mirror (the tree t460 bit)        */
+/* T7 — REAL SHELL, synthetic big tree (the t460 census, reborn)       */
 /* ------------------------------------------------------------------ */
+/* t521 — this block used to run bash over the LIVE class2d mirror
+ * (data/relion/<tutorial>/class2d_rlhupb8a, the 11,464-file tree t460
+ * bit). The t518 cleanup then did its JOB on that very mirror — 11,348
+ * files deleted, 239 survivors — and the bench's world assumption died
+ * with them. The tree is now grown here, hermetically: same census
+ * (11,464), same shape (root door family + deep round history), same
+ * real bash over real paths. The assertions are untouched; only the
+ * tree's provenance moved from world-history to this file.            */
 
 {
-  console.log("T7 — real bash over the real class2d mirror (11,464 files)");
-  const dir = path.join(process.cwd(), "data", "relion", "cmukrk2yy0000rjobryvy0pzu", "class2d_rlhupb8a");
-  const DOOR = ["run_data.star", "run_model.star", "run_optimiser.star"];
+  console.log("T7 — real bash over a synthetic 11,464-file tree");
+  const dir = mkdtempSync(path.join(process.cwd(), ".qa-logs", "t464-big-"));
+  try {
+    // the door family — the grammar pins these ahead of every deep file
+    for (const f of ["run_data.star", "run_model.star", "run_optimiser.star"]) {
+      writeFileSync(path.join(dir, f), "root\n");
+    }
+    // 11,461 deep round files across 8 round dirs = the t460 census (11,464)
+    const DEEP = 11461;
+    for (let i = 0; i < DEEP; i++) {
+      const sub = path.join(dir, `r${String((i % 8) + 1).padStart(3, "0")}`);
+      if (i < 8) mkdirSync(sub);
+      writeFileSync(path.join(sub, `run_it${String(Math.floor(i / 8) + 1).padStart(4, "0")}_data.star`), "round\n");
+    }
+  } catch (err) {
+    rmSync(dir, { recursive: true, force: true });
+    throw err;
+  }
 
-  // full cap — the default world: complete, and the door leads
-  const fullRun = spawnSync("bash", ["-c", manifestFindScript(REMOTE_MANIFEST_MAX, shQuote(dir))], { encoding: "utf8" });
-  must(fullRun.status === 0, "T7 the script exits 0 against the real tree");
-  const full = parseManifestListing(fullRun.stdout, REMOTE_MANIFEST_MAX);
-  must(full.truncated === false, "T7 at the default cap the real world is complete — no false alarm");
-  must(full.entries.length === 11464, "T7 every real file is listed (the t460 census)");
-  const fullRels = new Set(full.entries.map((e) => e.rel));
-  must(DOOR.every((d) => fullRels.has(d)), "T7 the FINAL family is in the ledger");
-  const firstDeep = full.entries.findIndex((e) => e.rel.includes("/"));
-  const lead = new Set(full.entries.slice(0, firstDeep < 0 ? undefined : firstDeep).map((e) => e.rel));
-  must(DOOR.every((d) => lead.has(d)), "T7 the door rides AHEAD of every round file");
-  must(full.entries.some((e) => typeof e.mtimeSec === "number" && e.mtimeSec! > 0), "T7 real mtimes parse");
+  try {
+    const DOOR = ["run_data.star", "run_model.star", "run_optimiser.star"];
 
-  // the old grammar's count, for the same tree — the censuses must agree
-  const wc = spawnSync("bash", ["-c", `cd ${shQuote(dir)} && find . -type f -not -name '.cf-*' -not -path './.cryoflow_prev/*' | wc -l`], { encoding: "utf8" });
-  must(Number(wc.stdout.trim()) === full.entries.length, "T7 the new enumeration counts exactly what the old one counted");
+    // full cap — the t460 world: complete, and the door leads
+    const fullRun = spawnSync("bash", ["-c", manifestFindScript(REMOTE_MANIFEST_MAX, shQuote(dir))], { encoding: "utf8" });
+    must(fullRun.status === 0, "T7 the script exits 0 against the big tree");
+    const full = parseManifestListing(fullRun.stdout, REMOTE_MANIFEST_MAX);
+    must(full.truncated === false, "T7 at the default cap the big tree is complete — no false alarm");
+    must(full.entries.length === 11464, "T7 every file is listed (the t460 census, grown fresh)");
+    const fullRels = new Set(full.entries.map((e) => e.rel));
+    must(DOOR.every((d) => fullRels.has(d)), "T7 the FINAL family is in the ledger");
+    const firstDeep = full.entries.findIndex((e) => e.rel.includes("/"));
+    const lead = new Set(full.entries.slice(0, firstDeep < 0 ? undefined : firstDeep).map((e) => e.rel));
+    must(DOOR.every((d) => lead.has(d)), "T7 the door rides AHEAD of every round file");
+    must(full.entries.some((e) => typeof e.mtimeSec === "number" && e.mtimeSec! > 0), "T7 real mtimes parse");
 
-  // small cap — the world that used to die silently now confesses, and
-  // the door still makes it home
-  const small = parseManifestListing(
-    spawnSync("bash", ["-c", manifestFindScript(50, shQuote(dir))], { encoding: "utf8" }).stdout,
-    50
-  );
-  must(small.truncated === true, "T7 a cap of 50 against 11,464 files fires the canary");
-  must(small.entries.length === 50, "T7 the small ledger keeps its cap");
-  const smallRels = new Set(small.entries.map((e) => e.rel));
-  must(DOOR.every((d) => smallRels.has(d)), "T7 even at 50, the FINAL family is inside — the door never dies");
+    // the old grammar's count, for the same tree — the censuses must agree
+    const wc = spawnSync("bash", ["-c", `cd ${shQuote(dir)} && find . -type f -not -name '.cf-*' -not -path './.cryoflow_prev/*' | wc -l`], { encoding: "utf8" });
+    must(Number(wc.stdout.trim()) === full.entries.length, "T7 the new enumeration counts exactly what the old one counted");
+
+    // small cap — the world that used to die silently now confesses, and
+    // the door still makes it home
+    const small = parseManifestListing(
+      spawnSync("bash", ["-c", manifestFindScript(50, shQuote(dir))], { encoding: "utf8" }).stdout,
+      50
+    );
+    must(small.truncated === true, "T7 a cap of 50 against 11,464 files fires the canary");
+    must(small.entries.length === 50, "T7 the small ledger keeps its cap");
+    const smallRels = new Set(small.entries.map((e) => e.rel));
+    must(DOOR.every((d) => smallRels.has(d)), "T7 even at 50, the FINAL family is inside — the door never dies");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /* ------------------------------------------------------------------ */
