@@ -76,6 +76,8 @@ import { RELION_DIR } from "@/lib/paths";
 import { resolveAssistant } from "./settings";
 import { visionOnce } from "./wire";
 import type { ToolSchema } from "./wire";
+import { mergeJudgePasses } from "./judge-merge";
+import type { JudgeVerdict } from "./judge-merge";
 import { resolveJobTypeKey, typeResolutionNote } from "./type-aliases";
 import {
   funnelDoorCandidate,
@@ -844,10 +846,10 @@ export function classStatsFromWorkdir(workdir: string): {
 }
 
 /** Extract the JSON verdict from a VLM answer (fences, prose, or raw). */
-export interface JudgeVerdict {
-  classes: { cls: number; verdict: string; reason: string }[];
-  advice: string;
-}
+// t545 — the JudgeVerdict type moved to ./judge-merge (the merge module is
+// the pure home both the parser's consumers and the two-pass merge share);
+// re-exported here so the import surface stays put.
+export type { JudgeVerdict } from "./judge-merge";
 export function parseJudgeVerdict(text: string): JudgeVerdict | null {
   if (!text) return null;
   const candidates: string[] = [];
@@ -4364,6 +4366,58 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
     });
     verdict = parseJudgeVerdict(analysis);
   }
+
+  // t545 — the SECOND PASS (t519 field-test suggestion #1). One read of the
+  // sheet is one opinion: 7 of 11 edge classes flipped keep/maybe between
+  // fresh sessions. A keep only ships when it survives TWO independent
+  // reads of the same sheet under the SAME rubric — mergeJudgePasses turns
+  // the keep set into the intersection and lands every torn class in the
+  // honest maybe band. The confirm pass degrades honestly: an unparseable
+  // (or thrown) second read leaves the first verdict standing, marked in
+  // detail — stability bought where it confirms, never silence.
+  let confirm: {
+    agreed?: number;
+    torn?: number;
+    missing?: number;
+    moved?: { cls: number; from: string; to: string }[];
+    failed?: true;
+  } | null = null;
+  if (verdict) {
+    try {
+      const confirmAnalysis = await visionOnce({
+        flavor: assistant.flavor,
+        apiKey: assistant.apiKey,
+        model: assistant.vlmModel,
+        baseUrl: assistant.baseUrl,
+        prompt,
+        imageBase64: sheet.png.toString("base64"),
+      });
+      const confirmVerdict = parseJudgeVerdict(confirmAnalysis);
+      if (confirmVerdict) {
+        const merged = mergeJudgePasses(verdict, confirmVerdict);
+        if (!merged.degenerate) {
+          confirm = {
+            agreed: merged.agreed,
+            torn: merged.torn,
+            missing: merged.missing,
+            moved: merged.moved,
+          };
+          verdict = merged.verdict;
+        } else {
+          confirm = { failed: true };
+        }
+      } else {
+        confirm = { failed: true };
+      }
+    } catch {
+      confirm = { failed: true };
+    }
+  }
+  const confirmNote = confirm
+    ? confirm.failed
+      ? " · second pass unreadable — first verdict stands"
+      : ` · two-pass: ${confirm.agreed} agreed${confirm.torn ? `, ${confirm.torn} → maybe` : ""}${confirm.missing ? `, ${confirm.missing} unconfirmed` : ""}`
+    : "";
   const keepCount = verdict ? verdict.classes.filter((c) => c.verdict === "keep").length : 0;
   const maybeCount = verdict ? verdict.classes.filter((c) => c.verdict === "maybe").length : 0;
   // t519 — the tiered suggestion: the field test showed the model folds the
@@ -4387,10 +4441,11 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
   const fewerClasses = Math.max(2, Math.floor(classTotal / 2));
   return {
     ok: true,
-    summary: `Judged ${verdict?.classes.length ?? stats.classes.length} classes of ${job.name} (iteration ${stats.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe${zeroKeep ? " — NO class merits a selection (zero-keep verdict)" : ""} — ${truncate(verdict?.advice ?? analysis, 300)}`,
+    summary: `Judged ${verdict?.classes.length ?? stats.classes.length} classes of ${job.name} (iteration ${stats.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe${zeroKeep ? " — NO class merits a selection (zero-keep verdict)" : ""}${confirmNote} — ${truncate(verdict?.advice ?? analysis, 300)}`,
     detail: {
       iteration: stats.iteration,
       judgedClasses: verdict?.classes ?? null,
+      confirm,
       advice: verdict?.advice ?? analysis,
       rawAnalysis: verdict ? analysis : undefined,
       classStats: stats.classes,
