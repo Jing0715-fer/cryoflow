@@ -9,12 +9,19 @@
  * plane), then startJob on the job's OWN lane — zero private mutation
  * path (t419 law, third write tool).
  *
- * The dispatch is asserted to its honest refusal face (the t419 bench
- * convention — no bench fakes a RELION install): the sandbox has no
- * RELION and no cluster, so startJob answers "RELION not detected" on
- * the local lane and "cluster connection not found" on the job's own
- * cluster lane — and BOTH answers prove the plan was assembled, written
- * through the spec, and handed to the product's own dispatch.
+ * The dispatch is asserted through the product's OWN gates (the t419 bench
+ * convention — no bench fakes an install): RELION-aware since t546, the
+ * bench asks the engine's own detectRelion() which world it is in, then
+ * pins the face that world honestly shows —
+ *   - RELION absent  → the refusal face: startJob answers "RELION not
+ *     detected" and the plan still rides the summary (t471's original face);
+ *   - RELION present → the fired face: the gates OPEN and the run record's
+ *     argv carries RELION's own `--continue <checkpoint>` dialect.
+ * Both faces prove the plan was assembled, written through the spec, and
+ * handed to the product's own dispatch — the world-independent invariants
+ * (plan arithmetic, DB writes, detail contract) are pinned in BOTH worlds,
+ * so the bench never again breaks just because the world grew an install
+ * (t545: "世界长大时，钉会先于产品碎").
  *
  * Run: bun run scripts/t471-continue-tool-bench.ts
  */
@@ -76,11 +83,49 @@ const detail = (r: { detail?: unknown }): ContinueDetail => (r.detail ?? {}) as 
 const { executeAiTool, AI_TOOLS } = await import("../src/lib/ai/tools");
 const { buildSystemPrompt } = await import("../src/lib/ai/prompt");
 const { db } = await import("../src/lib/db");
-const { upsertRun } = await import("../src/lib/relion/engine");
+const { upsertRun, stopRun, getRun } = await import("../src/lib/relion/engine");
 const { checkpointOf, continuePlanOf, continueParamWrites, iterKnobOf } = await import(
   "../src/lib/convergence-continue"
 );
 const { continueSourcesFor } = await import("../src/lib/relion/continue-sources");
+
+/* ------------------------------------------------------------------ */
+/* The world's own face — RELION-aware since t546                      */
+/* ------------------------------------------------------------------ */
+
+// The t528 recipe's install lives on this host since the grinding windows:
+// the sandbox GREW a RELION, and the old refusal-shape pins broke against
+// it (t545's fossil verdict). Ask the engine's own detection which world
+// this is — cold bench world: no snapshot, no cache, one honest fullProbe.
+const { detectRelion } = await import("../src/lib/relion/system");
+const world = await detectRelion();
+const relionPresent = world.found === true && world.path != null;
+console.log(
+  `world: RELION ${relionPresent ? `PRESENT (${world.version ?? "?"} at ${world.path})` : "absent"} — pinning the ${relionPresent ? "fired --continue" : "honest refusal"} face`,
+);
+
+/** Settle a fired job back to a completed face (present-world hygiene):
+ *  the fake-star spawn dies on its own in milliseconds, but WHEN the
+ *  engine's flip lands is a race — force the settled record so the next
+ *  fire reads a SETTLED run deterministically in both worlds. */
+const settleFired = async (jobId: string, workdir: string) => {
+  await stopRun(jobId).catch(() => {}); // a dead spawn makes this a no-op
+  await db.job.update({ where: { id: jobId }, data: { status: "completed" } });
+  upsertRun(jobId, {
+    jobId,
+    projectId: project.id,
+    type: "class2d",
+    pid: null,
+    cmd: "bench",
+    workdir,
+    logFile: path.join(workdir, "run.out"),
+    errFile: path.join(workdir, "run.err"),
+    startedAt: new Date().toISOString(),
+    outputs: {},
+    done: true,
+    exitCode: 0,
+  } as Parameters<typeof upsertRun>[1]);
+};
 
 /* ------------------------------------------------------------------ */
 /* T1. the catalog wears the verb                                       */
@@ -381,20 +426,43 @@ console.log("T3. the crown fire — plan, writes, the product's own dispatch");
 {
   const r = await executeAiTool("continue_run", { job_id: crown.id }, ctx);
   const d = detail(r);
-  // the dispatch is REACHED and answered by the sandbox's honest face
-  must(
-    r.summary.includes("Start refused") && r.summary.includes("RELION not detected"),
-    "T3a: the dispatch is reached — the engine's own RELION gate answers (no private refusal)",
-  );
-  // the plan rides the summary even on refusal — the agent reports what WOULD run
+  const fnContPath = path.join(crownWd, "run_it005_optimiser.star");
+  if (relionPresent) {
+    // the FIRED face — the gates opened, RELION's dialect reached the argv
+    must(
+      r.ok === true &&
+        r.summary.includes("continues from Round 005") &&
+        r.summary.includes("the local lane"),
+      "T3a: the dispatch is reached and OPENED — the engine's own gates pass, no private refusal",
+    );
+    must(
+      getRun(crown.id)?.cmd?.includes("--continue") === true &&
+        getRun(crown.id)?.cmd?.includes(fnContPath) === true,
+      "T3a2: the fired argv speaks RELION's own --continue dialect at the plan's checkpoint",
+    );
+  } else {
+    // the REFUSAL face — the engine's own RELION gate answers
+    must(
+      r.summary.includes("Start refused") && r.summary.includes("RELION not detected"),
+      "T3a: the dispatch is reached — the engine's own RELION gate answers (no private refusal)",
+    );
+  }
+  // the plan rides the summary on BOTH faces — the agent reports what runs
   must(
     r.summary.includes("Round 005") && r.summary.includes("iterations 25 + 5 → 30") && r.summary.includes("--iter is the TOTAL"),
     "T3b: the plan line carries the checkpoint round and RELION's total law",
   );
-  must(
-    r.summary.includes(`fn_cont=${path.join(crownWd, "run_it005_optimiser.star")}`),
-    "T3c: the fn_cont write is named in the summary",
-  );
+  if (relionPresent) {
+    must(
+      d.fnCont === fnContPath,
+      "T3c: the fn_cont write is named in the detail (the fired face carries it in argv, not prose)",
+    );
+  } else {
+    must(
+      r.summary.includes(`fn_cont=${fnContPath}`),
+      "T3c: the fn_cont write is named in the summary",
+    );
+  }
   // the DB carries the plan (the product's own resume path reads it)
   const after = await db.job.findUniqueOrThrow({ where: { id: crown.id } });
   const stored = JSON.parse(after.params) as Record<string, unknown>;
@@ -500,6 +568,11 @@ console.log("T6. no private brain — the shared brains' own arithmetic");
       "T6c: the DB carries exactly continueParamWrites' keys/values — the tool wrote the shared brain's writes, byte for byte",
     );
   }
+  if (relionPresent) {
+    // T3's fire STARTED a real (fake-star) run — settle it BEFORE the second
+    // fire, or the T2d running-gate races the engine's async death flip
+    await settleFired(crown.id, crownWd);
+  }
   const d = detail(await executeAiTool("continue_run", { job_id: crown.id, more: 10 }, ctx));
   must(
     d.currentIter === 30 && d.totalIter === 40,
@@ -534,6 +607,16 @@ console.log("T7. the prompt wears the CONTINUE LAW");
 }
 
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* Present-world hygiene — the fired faces leave dead runs behind      */
+/* ------------------------------------------------------------------ */
+
+if (relionPresent) {
+  // the fake-star spawns die in milliseconds on their own; stopRun is the
+  // disciplined belt (a hung spawn would be killed, a dead one is a no-op)
+  for (const j of [crown, vdam, clamp]) await stopRun(j.id).catch(() => {});
+}
 
 console.log(`\nt471 — ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
