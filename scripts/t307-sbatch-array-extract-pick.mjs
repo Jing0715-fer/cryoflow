@@ -519,12 +519,18 @@ try {
     // 空间占用尽量小一些」) syncs extract's TEXT products only — per-mic
     // .mrcs stacks stay on the cluster WHATEVER THEIR SIZE. Existence is
     // judged where the data is: one SSH batch tests every row's path.
+    // t538 — the REAL relion_preprocess (RELION 5.0.0) speaks the PIPELINER
+    // dialect: the part_star's ImageName rows are CWD- (project-root-)
+    // relative — "extract_x/micrographs/mic-XX.mrcs", NO ../, NO extra/ —
+    // so the paths resolve from the PROJECT ROOT, the same base every
+    // submit-lane command runs from (the t316 law), not from the star's
+    // own dir (the RELION-3 dialect the fake spoke).
     const paths = rows.map((l) => l.split("@")[1].split("\t")[0]);
-    const workdir = `/projects/cryoflow/${c2.projectId}/extract_${c2.id.slice(-8)}`;
+    const projRoot = `/projects/cryoflow/${c2.projectId}`;
     // one loop, one counter — a bare `; list | grep -c` would pipe only the
     // LAST test (the shell's grammar), not the whole batch
     const listing = client(
-      `cd ${workdir} 2>/dev/null || exit 0; c=0; for p in ${paths.join(" ")}; do [ -f "$p" ] && c=$((c+1)); done; echo $c`
+      `cd ${projRoot} 2>/dev/null || exit 0; c=0; for p in ${paths.join(" ")}; do [ -f "$p" ] && c=$((c+1)); done; echo $c`
     );
     stacksHome = Number(listing.trim().split("\n").pop()) || 0;
   }
@@ -543,18 +549,23 @@ try {
   }
   must(
     slashDotDot === 0,
-    `C2: NO ../ survives the merge (got ${slashDotDot} shard-relative rows)`
+    `C2: NO ../ survives the merge (got ${slashDotDot} shard-relative rows — the real rows are project-relative already)`
   );
   must(
     stacksHome === mergedRows,
-    `C2: every referenced stack EXISTS relative to the merged star (${stacksHome}/${mergedRows})`
+    `C2: every referenced stack EXISTS from the project root (the pipeliner cwd the rows speak) (${stacksHome}/${mergedRows})`
   );
-  const extraStacks = client(
-    `ls /projects/cryoflow/${c2.projectId}/extract_${c2.id.slice(-8)}/extra/ 2>/dev/null | grep -c '_extract\\.mrcs'`
+  // t538 — the REAL stack tree: relion_preprocess mirrors the input row's
+  // dirname under --part_dir and names each stack after the mic base —
+  // input rows say micrographs/mic-XX.mrc → stacks at
+  // <workdir>/micrographs/mic-XX.mrcs (no extra/, no _extract suffix — the
+  // RELION-3 dialect the fake spoke is gone with the fake's reign).
+  const stackTree = client(
+    `ls /projects/cryoflow/${c2.projectId}/extract_${c2.id.slice(-8)}/micrographs/ 2>/dev/null | grep -c '\\.mrcs$'`
   );
   must(
-    Number(extraStacks) === MICS,
-    `C2: the shared extra/ tree holds one stack per micrograph — zero collisions (${extraStacks}/${MICS})`
+    Number(stackTree) === MICS,
+    `C2: the workdir's stack tree holds one particle stack per micrograph — zero collisions (${stackTree}/${MICS})`
   );
 
   // ---- C3: the control — extract WITHOUT shards ------------------------------
