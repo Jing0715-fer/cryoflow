@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""CryoFlow mock-cluster ctffind — a CTFFIND-4.1 CLI shim for REAL relion.
+
+t533 — the t530 grinder installed the REAL RELION 5.0.0 on this sandbox and
+the mock-cluster doctrine says the real binaries WIN over the python stubs.
+That left one hole: relion_run_ctffind needs an INNER CTFFIND-4.1 executable
+(--ctffind_exe / RELION_CTFFIND_EXECUTABLE / `command -v ctffind`), and the
+box has none — the product's probe reported null, the cluster argv carried no
+--ctffind_exe, and every ctffind run skipped all micrographs with
+"cannot get CTF values" then exited 1 (the t263 real-fail).
+
+This shim IS that inner executable, speaking the exact contract RELION 5.0's
+ctffind_runner.cpp speaks (verified against the on-box source):
+
+  invocation:  env LC_ALL=C <ctffind_exe> > <fn_log> << EOF   (via a shell
+               script RELION writes per micrograph) — the shim's STDOUT is
+               RELION's fn_log.
+  stdin lines: 1 micrograph path, 2 diagnostic .ctf image path, 3 angpix,
+               4 voltage, 5 Cs, 6 amplitude contrast, 7 box size, 8 res min,
+               9 res max, 10 defocus min, 11 defocus max, 12 defocus step,
+               then the y/n answer lines (astigmatism known?, exhaustive
+               search?, restraint?, astigmatism amount, [phase-shift block],
+               sample tilt?, expert options?) — answers are parsed loosely.
+  stdout must contain a line whose LAST word names a summary file (RELION
+  greps "Summary of results"); the summary file must carry
+    - a line containing "acceleration voltage:" whose NEXT line has 5
+      numbers: CS HT AmpCnst XMAG DStep, and
+    - a line containing "Columns:" whose NEXT line has ≥ 7 numbers:
+      [idx, DefU, DefV, Azimuth, (phase), CC, MaxRes].
+  exit 0.
+
+Values are deterministic per micrograph (hash-seeded) so re-runs and the
+family's golden files stay stable.
+"""
+import hashlib
+import os
+import sys
+import time
+
+# A real CTFFIND-4.1 fit takes tens of seconds per micrograph; the mock's
+# six 64x64 micrographs would otherwise complete faster than the server's
+# sweep can observe the run alive (the busy-door window the t263 suite
+# exercises would close before anyone could see it). The pace is a faithful
+# simulation choice, env-tunable for special cases.
+PACE_S = float(os.environ.get("CTFFIND_SHIM_PACE_S", "1.2"))
+
+
+def read_stdin_lines():
+    return sys.stdin.read().splitlines()
+
+
+def num(s, default=0.0):
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return default
+
+
+def main():
+    lines = read_stdin_lines()
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    if len(lines) < 12:
+        print("ERROR: ctffind shim expected >= 12 stdin lines, got %d" % len(lines))
+        return 1
+    mic = lines[0].strip()
+    if PACE_S > 0:
+        time.sleep(PACE_S)
+    # lines[1] is the diagnostic .ctf image path — nothing in RELION's runner
+    # reads it back, the shim skips writing it.
+    angpix = num(lines[2], 1.0) or 1.0
+    voltage = num(lines[3], 300.0)
+    cs = num(lines[4], 2.7)
+    amp = num(lines[5], 0.1)
+    box = int(num(lines[6], 256))
+    res_min = num(lines[7], 30.0)
+    dmin = num(lines[9], 5000.0)
+    dmax = num(lines[10], 50000.0)
+
+    # deterministic per-micrograph fit inside the search window
+    seed = int(hashlib.sha1(mic.encode("utf-8")).hexdigest()[:8], 16)
+    span = max(dmax - dmin, 1000.0)
+    def_u = dmin + span * (0.45 + 0.1 * ((seed % 100) / 100.0))
+    def_v = def_u * (1.0 + 0.05 * (((seed >> 7) % 50) / 500.0))
+    azimuth = 20.0 + ((seed >> 11) % 700) / 10.0
+    cc = 0.04 + ((seed >> 3) % 90) / 1000.0
+    max_res = max(min(res_min, 7.0) - 0.2, 3.0)
+
+    root = os.path.splitext(mic)[0]
+    summary = root + "_ctffind4.out"
+    parent = os.path.dirname(summary)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent, exist_ok=True)
+
+    print("CryoFlow mock ctffind (CTFFIND-4.1 contract shim)")
+    print("Input file: %s" % mic)
+    print("Pixel size [A]: %.4f   Box [px]: %d" % (angpix, box))
+    print("Voltage [kV]: %.1f   Cs [mm]: %.2f   Amplitude contrast: %.2f" % (voltage, cs, amp))
+    print("Summary of results: %s" % summary)
+    # The real ctffind4 average file's parameter row is ONE wide line that
+    # contains the words "acceleration voltage:" and carries (whitespace-
+    # tokenized) DStep at #3, HT at #8, CS at #13 and AmpCnst at #18 —
+    # ctffind_runner.cpp getCtffind4Results reads exactly those slots.
+    wide = "%s %s 0 0.35 0 0 0 0 %g 0 0 0 0 %g 0 0 0 0 %g" % (
+        "acceleration", "voltage:", voltage, cs, amp)
+    with open(summary, "w") as fh:
+        fh.write("# CryoFlow mock ctffind4 summary (t533 shim)\n")
+        fh.write(wide + "\n")
+        fh.write("Columns: # Defocus(U) Defocus(V) Azimuth PhaseShift CC MaxRes\n")
+        fh.write(
+            "1 %.1f %.1f %.1f %.4f %.4f %.2f\n"
+            % (def_u, def_v, azimuth, 0.0, cc, max_res)
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -83,6 +83,10 @@ const page = await context.newPage();
 const consoleErrors = [];
 page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 page.on("pageerror", (e) => consoleErrors.push(String(e)));
+// t533 — the URL witness: a console "404" without its URL is a rumor, not
+// evidence. Every 4xx/5xx response is recorded so the verdict can name it.
+const httpFails = [];
+page.on("response", (r) => { if (r.status() >= 400) httpFails.push(`${r.status()} ${r.url()}`); });
 
 const created = []; // probe job ids for cleanup (order: import, refine)
 
@@ -166,6 +170,7 @@ try {
   const sent = await sendRes.json();
   const importJob = sent.job;
   created.push(importJob.id);
+  console.log(`  (ids) import=${importJob.id}`);
   must(!!importJob?.id && importJob.type === "mapimport", "the Import Map citizen was created");
 
   // C2 — the import runs natively (page-level fetch: the same-origin door)
@@ -255,6 +260,7 @@ try {
   const probeBody = await mkRes.json();
   const probe = probeBody.job ?? probeBody;
   created.push(probe.id);
+  console.log(`  (ids) probe=${probe.id}`);
 
   const probeWd = `/home/z/my-project/data/relion/${probe.projectId}/refine3d_t258probe`;
   mkdirSync(probeWd, { recursive: true });
@@ -344,9 +350,12 @@ try {
 } finally {
   // ---- cleanup: probes die, crops sweep, roster returns to 15 -------------
   console.log("== cleanup ==");
+  console.log(`  (phase) httpFails BEFORE deletes: ${JSON.stringify(httpFails)}`);
   for (const id of created.reverse()) {
     await fetch(`${BASE}/api/jobs/${id}`, { method: "DELETE" });
   }
+  await sleep(2500); // t533 — let the open page's poll cycle observe the deletions
+  console.log(`  (phase) httpFails AFTER deletes: ${JSON.stringify(httpFails)}`);
   if (hostWd) {
     const sub = path.join(hostWd, "SubVolumes");
     try {
@@ -364,6 +373,7 @@ try {
 
 // ---- Phase D: console clean ----------------------------------------------
 console.log("== PHASE D: console ==");
+if (httpFails.length > 0) console.log("  http witnesses:", httpFails.slice(0, 6).join(" · "));
 must(consoleErrors.length === 0, `no real console errors (got ${consoleErrors.length}: ${consoleErrors[0] ?? ""})`);
 
 await browser.close();

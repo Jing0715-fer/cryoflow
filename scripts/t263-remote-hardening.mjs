@@ -161,8 +161,10 @@ try {
   const rr = src("src/lib/remote/remote-run.ts");
 
   // ① the staging heartbeat
+  // t533 — the pins follow the signature: the beat gained a startedAt
+  // parameter (t4xx bootId ownership) — pin the dialect, not the arity.
   must(
-    rr.includes("function startStagingBeat(jobId: string)") &&
+    rr.includes("function startStagingBeat(jobId: string") &&
       rr.includes("setInterval") &&
       rr.includes("stagingBeat: Date.now()"),
     "① the staging task touches remote.stagingBeat while it is alive"
@@ -176,7 +178,7 @@ try {
     "① a stale staging fails the row honestly AND finalizes the record"
   );
   must(
-    rr.includes("const stopBeat = startStagingBeat(job.id)") && rr.includes("stopBeat()"),
+    rr.includes("const stopBeat = startStagingBeat(job.id") && rr.includes("stopBeat()"),
     "① the beat is started with the task and stopped on both exits"
   );
 
@@ -355,7 +357,16 @@ try {
   must(missing.status === 404, `the probe route 404s honestly on an unknown id (got ${missing.status})`);
 
   // C3 — dispatch A through the API (the hardened startRemoteJob path)
-  const jobA = await mkJob({ type: "ctffind", name: "t263 CtfFind A" });
+  // t533 — use_given_ps:false: the sandbox's mock cluster runs the REAL
+  // RELION 5.0.0 build (t530's grinder installed it — the real binaries
+  // deliberately win over the python stubs). With the default
+  // use_given_ps=true, real relion_run_ctffind demands rlnCtfPowerSpectrum
+  // in the input star — a MotionCorr product this import→ctffind shortcut
+  // chain does not carry (the stub era tolerated it; the real era refuses).
+  // Computing the power spectra from the micrographs (use_given_ps=No) is
+  // a legitimate RELION workflow and keeps the suite's intent — dispatch
+  // hardening, not PS realism — intact.
+  const jobA = await mkJob({ type: "ctffind", name: "t263 CtfFind A", params: { use_given_ps: false, box: 64 } });
   must(!!jobA?.id, "the ctffind job A created");
   const e1 = await mkEdge(importJob.id, jobA.id, "micrographs", "micrographs");
   must(e1 === 200 || e1 === 201, `import → A wired (${e1})`);
@@ -415,7 +426,7 @@ try {
   const conn2 = `qa-t263-b-${Date.now().toString(36)}`;
   const mk2 = await mkConn(conn2, "QA t263 Mock B");
   must(mk2.status === 201, "the second connection is created");
-  const jobB = await mkJob({ type: "ctffind", name: "t263 CtfFind B" });
+  const jobB = await mkJob({ type: "ctffind", name: "t263 CtfFind B", params: { use_given_ps: false, box: 64 } });
   must(!!jobB?.id, "the ctffind job B created");
   const e2 = await mkEdge(importJob.id, jobB.id, "micrographs", "micrographs");
   must(e2 === 200 || e2 === 201, `import → B wired (${e2})`);
@@ -596,7 +607,14 @@ try {
   // to dev.log — the assertion's truth is "the words are in the SERVER's
   // log", so read whichever file this session's server actually wrote.
   let sweepLogged = false;
-  for (const logPath of ["/home/z/my-project/server.log", "/home/z/my-project/dev.log"]) {
+  // t533 — prod-3001.log joins the candidates: the standalone lane's stdout
+  // lives there (the t530 canonical — the log witnesses read exactly that
+  // file), and this session's heals are in it.
+  for (const logPath of [
+    "/home/z/my-project/prod-3001.log",
+    "/home/z/my-project/server.log",
+    "/home/z/my-project/dev.log",
+  ]) {
     try {
       const log = readFileSync(logPath, "utf8");
       if (log.includes("healed orphan row") || log.includes("went stale")) {

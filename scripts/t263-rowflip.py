@@ -38,23 +38,30 @@ def flip(path):
     """Flip the row IF this db holds the job; None = wrong db."""
     if not os.path.exists(path):
         return None
-    con = sqlite3.connect(path, timeout=10)
     try:
-        cur = con.cursor()
-        has = cur.execute("SELECT COUNT(*) FROM Job WHERE id=?", (jid,)).fetchone()[0]
-        if not has:
-            return None
-        if result is None:
-            cur.execute("UPDATE Job SET status=?, progress=? WHERE id=?", (status, progress, jid))
-        else:
-            cur.execute(
-                "UPDATE Job SET status=?, progress=?, result=? WHERE id=?",
-                (status, progress, result, jid),
-            )
-        con.commit()
-        return cur.execute("SELECT changes()").fetchone()[0]
-    finally:
-        con.close()
+        con = sqlite3.connect(path, timeout=10)
+        try:
+            cur = con.cursor()
+            has = cur.execute("SELECT COUNT(*) FROM Job WHERE id=?", (jid,)).fetchone()[0]
+            if not has:
+                return None
+            if result is None:
+                cur.execute("UPDATE Job SET status=?, progress=? WHERE id=?", (status, progress, jid))
+            else:
+                cur.execute(
+                    "UPDATE Job SET status=?, progress=?, result=? WHERE id=?",
+                    (status, progress, result, jid),
+                )
+            con.commit()
+            return cur.execute("SELECT changes()").fetchone()[0]
+        finally:
+            con.close()
+    except sqlite3.Error:
+        # t533 — a candidate db that cannot answer (no Job table — e.g. the
+        # QA template db/custom.db a stale shell env can point at) is NOT the
+        # server's db: skip it exactly like an absent file. A crash here used
+        # to kill the whole suite (the t533 window's "t263 套件自身崩溃").
+        return None
 
 
 for path in candidate_paths():

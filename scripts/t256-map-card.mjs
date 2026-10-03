@@ -118,17 +118,21 @@ must(
     mrcSrc.includes("rms: buf.readFloatLE(216)"),
   "readMrcHeader reads start (16/20/24), dmean (84) and rms (216) off the buffer it already holds"
 );
-const routeSrc = readFileSync("src/app/api/jobs/[id]/outputs/route.ts", "utf8");
+// t533 — the pins follow the assembly: the route became a protocol shell
+// (t515 moved the walk + the identity summary into lib/relion/job-outputs →
+// outputs-list), so the ledger reads the WELL, not the shell (t416: pin the
+// dialect, not the address).
+const listSrc = readFileSync("src/lib/relion/outputs-list.ts", "utf8");
 must(
-  routeSrc.includes("origin: hdr.start") && routeSrc.includes("dmean: hdr.dmean") && routeSrc.includes("rms: hdr.rms"),
-  "the outputs route mirrors the header read into the identity summary — zero extra I/O"
+  listSrc.includes("origin: hdr.start") && listSrc.includes("dmean: hdr.dmean") && listSrc.includes("rms: hdr.rms"),
+  "the outputs well mirrors the header read into the identity summary — zero extra I/O"
 );
 must(
-  routeSrc.includes("hdr.cella[2] > 0 && hdr.nz > 0 ? hdr.cella[2] / hdr.nz : 0"),
+  listSrc.includes("hdr.cella[2] > 0 && hdr.nz > 0 ? hdr.cella[2] / hdr.nz : 0"),
   "voxel spacing is computed cella[2]/nz, 0 when the header doesn't say"
 );
 must(
-  routeSrc.includes('.endsWith(".mrcs")'),
+  listSrc.includes('.endsWith(".mrcs")'),
   "stacks (.mrcs) don't get a map summary — in-plane axes are not navigable"
 );
 const viewSrc = readFileSync("src/components/workflow/results/results-view.tsx", "utf8");
