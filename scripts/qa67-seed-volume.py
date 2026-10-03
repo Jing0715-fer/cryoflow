@@ -66,7 +66,14 @@ def find_workdir() -> tuple[str, str]:
     SAME TYPES — refine3d for the QA_VOL_HOST="QA Refine3D" recipe, class2d
     for the default — completed, newest first. The seed promises "a volume
     lands in a job whose results dialog shows it", and the type is that
-    promise; the name was only ever one world's spelling of it."""
+    promise; the name was only ever one world's spelling of it.
+
+    t532 — /api/jobs is ACTIVE-POINTER-scoped (it returned the exam world's
+    10 jobs while the demo world held 23), so the type fallback lies
+    whenever another world is active. When the API scan finds no host, the
+    OLD-WORLD MANIFEST (data/old-world.json, written by
+    qa-t531-old-world-seed.mjs) is the cross-project contract: the chain's
+    refine3d/class2d id resolves through engine-state.json as usual."""
     jobs = api("/api/jobs")
     jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
     src = next((j for j in jobs if j.get("name") == SRC_NAME), None)
@@ -81,9 +88,20 @@ def find_workdir() -> tuple[str, str]:
             print(f"note: '{SRC_NAME}' not found — seeding into the healed chain's "
                   f"completed {host_type} job '{src.get('name')}' ({src['id']})")
     if not src:
+        # t532 — the manifest fallback (cross-project, active-pointer-immune)
+        try:
+            with open("data/old-world.json", "r", encoding="utf-8") as f:
+                man = json.load(f)
+            host_id = (man.get("chain") or {}).get(host_type)
+            if host_id:
+                print(f"note: no host in the active world — manifest fallback: "
+                      f"old-world {host_type} {host_id} (project {man.get('project', {}).get('name')})")
+                return host_id, None  # workdir resolved by the caller below
+        except FileNotFoundError:
+            pass
         raise SystemExit(
             f"FATAL: no seed host found — neither the gallery name '{SRC_NAME}' "
-            f"nor a completed job of the matching type in this world"
+            f"nor a completed job of the matching type in this world (and no old-world manifest)"
         )
     with open("data/engine-state.json", "r", encoding="utf-8") as f:
         state = json.load(f)
@@ -92,6 +110,15 @@ def find_workdir() -> tuple[str, str]:
     if not wd:
         raise SystemExit(f"FATAL: no workdir registered for {SRC_NAME} ({src['id']})")
     return src["id"], wd
+
+
+def workdir_of(job_id: str) -> str:
+    with open("data/engine-state.json", "r", encoding="utf-8") as f:
+        state = json.load(f)
+    wd = (state.get(job_id) or {}).get("workdir")
+    if not wd:
+        raise SystemExit(f"FATAL: no workdir registered for {job_id}")
+    return wd
 
 
 def blob(x, y, z, cx, cy, cz):
@@ -143,6 +170,8 @@ def write_mrc(path, vals):
 def main():
     clean = "--clean" in sys.argv
     job_id, wd = find_workdir()
+    if wd is None:  # manifest fallback — resolve through the ledger
+        wd = workdir_of(job_id)
     target = f"{wd}/{VOL_NAME}"
     import os
     if clean:

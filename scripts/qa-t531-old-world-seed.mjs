@@ -45,7 +45,7 @@
  * up engine-state writes live (readRuns is mtime-keyed — no restart).
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -429,7 +429,15 @@ function filePlan() {
   plan.push([wd.extract, "particles.mrcs", buildMrcStack(64, EXTRACT_N)]);
   plan.push([wd.class2d, "run_it012_data.star", buildParticlesStar(class2dRows, true)]);
   plan.push([wd.class2d, "run_it012_model.star", buildModelStar(3.18, true)]);
-  for (let c = 1; c <= 8; c++) plan.push([wd.class2d, `class00${c}.mrc`, buildMrcSingle(64)]);
+  // t532 — the class averages live OUTSIDE every job workdir
+  // (_fixtures/classes/): the map-inventory walk reads each job workdir's
+  // mrcs and its main-map law (MAIN_MAP_RE half0|postprocess.mrc, else fs
+  // order) made class001.mrc the class2d row's MAIN — hijacking the
+  // t219 tie world (the second row profiled class001, the twin profiled
+  // orthovol, the byte-identical tie died). The classes gallery reads
+  // them through the record's outputs paths — the ledger, not the
+  // workdir, is the address book.
+  for (let c = 1; c <= 8; c++) plan.push([path.join(PDIR, "_fixtures", "classes"), `class00${c}.mrc`, buildMrcSingle(64)]);
   plan.push([wd.select2d, "particles_select2d.star", buildParticlesStar(keptRows, true)]);
   plan.push([wd.select, "selected.star", buildParticlesStar(keptRows, true)]);
   plan.push([wd.class3d, "run_it003_data.star", buildParticlesStar(class3dRows, true)]);
@@ -452,7 +460,7 @@ function outputsPlan() {
     extract: { particles_star: rel(path.join(wd.extract, "extract.star")) },
     class2d: {
       particles_star: rel(path.join(wd.class2d, "run_it012_data.star")),
-      classes_mrc: Array.from({ length: 8 }, (_, i) => path.join(wd.class2d, `class00${i + 1}.mrc`)),
+      classes_mrc: Array.from({ length: 8 }, (_, i) => path.join(PDIR, "_fixtures", "classes", `class00${i + 1}.mrc`)),
     },
     select2d: { particles_star: rel(path.join(wd.select2d, "particles_select2d.star")) },
     select: { particles_star: rel(path.join(wd.select, "selected.star")) },
@@ -515,6 +523,13 @@ function seedLogs() {
   for (const t of CHAIN) {
     writeAtomic(path.join(wd[t], "run.log"), `seeded by qa-t531-old-world-seed — ${RESULTS[t]}\n`);
     writeAtomic(path.join(wd[t], "run.err"), "");
+  }
+  // t532 — stale-fixture sweep: the class averages used to live IN the
+  // class2d workdir (the main-map hijack, see filePlan's note); an
+  // idempotent re-seed must remove the old copies or the hijack returns.
+  for (let c = 1; c <= 8; c++) {
+    const stale = path.join(wd.class2d, `class00${c}.mrc`);
+    if (existsSync(stale)) unlinkSync(stale);
   }
 }
 

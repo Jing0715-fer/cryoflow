@@ -44,11 +44,20 @@ const jobs = async () =>
 
 /* ============ S: setup — the tied world ============ */
 section("S: the divergent world, then its TWIN");
+// t532 — the twin's lifecycle is the SUITE's own: a previous run's twin
+// (an orphan from a crashed attempt) must be cleaned BEFORE the pre-twin
+// ledger is taken, or the T2/Z1 identity law measures a ghost.
+execSync("python3 scripts/seed-twin.py --clean", { stdio: "pipe" });
 execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
 execSync("python3 scripts/qa67-seed-volume.py", { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 execSync("python3 scripts/seed-masked.py", { stdio: "pipe" });
 execSync("python3 scripts/seed-outlier.py", { stdio: "pipe" });
+// t532 — the pre-twin ledger is taken BEFORE the twin exists (the t530
+// pin-fix put it in the W section, AFTER seed-twin — the ledger then
+// counted the twin and T2/Z1's identity law could never hold). The W
+// section's rosterW stays the owner-lookup roster; the LEDGER is this.
+const ledgerPre = (await jobs()).length;
 const twinReceipt = execSync("python3 scripts/seed-twin.py", { encoding: "utf8" });
 must(twinReceipt.includes("TWIN_READY"), "S1 the twin seeder ran and said TWIN_READY");
 must(twinReceipt.includes("byte-identical=True"), "S2 the twin's volume is a COPY, byte-identical (one shape, no second father)");
@@ -58,8 +67,13 @@ must(!!twinId, "S3 the twin's id is on the receipt");
 /* ============ W: the wire — three owners, two landscapes ============ */
 section("W: the walk hears three; the twin reads as its source");
 const rosterW = await jobs();
-const host = rosterW.find((j) => j.name === "QA Refine3D");
-const second = rosterW.find((j) => j.name === "QA Class2D Source");
+// t532 — the fossil names ("QA Refine3D" / "QA Class2D Source") were one
+// world's spelling (the t407 seeder law); the promise is the TYPE. The
+// manifest's ids are the same contract spelled in DB.
+const { readFileSync: rf219 } = await import("node:fs");
+const MAN219 = JSON.parse(rf219("/home/z/my-project/data/old-world.json", "utf8"));
+const host = rosterW.find((j) => j.name === "QA Refine3D") ?? rosterW.find((j) => j.id === MAN219.chain.refine3d);
+const second = rosterW.find((j) => j.name === "QA Class2D Source") ?? rosterW.find((j) => j.id === MAN219.chain.class2d);
 const twin = rosterW.find((j) => j.name === "QA Class2D Twin");
 must(!!host && !!second && !!twin, "W1 all three owners in roster");
 const prof = async (id, p) =>
@@ -158,8 +172,8 @@ const rosterT = await jobs();
 // window that wrote it; the world legitimately grew since. The contract is
 // the IDENTITY — the world forgets exactly the twin and nothing else — so
 // the baseline is the suite's own rosterW (the ledger taken at setup).
-must(rosterT.length === rosterW.length && !rosterT.find((j) => j.name === "QA Class2D Twin"),
-  `T2 the roster returns to its pre-twin ledger (${rosterW.length}), twin gone (${rosterT.length})`);
+must(rosterT.length === ledgerPre && !rosterT.find((j) => j.name === "QA Class2D Twin"),
+  `T2 the roster returns to its pre-twin ledger (${ledgerPre}), twin gone (${rosterT.length})`);
 const deadProf = await fetch(`${BASE}/api/jobs/${twinId}/map-profile?path=orthovol.mrc&axis=z`, { headers: H });
 must(deadProf.status === 404 || (await deadProf.json()).error, "T3 the outputs route refuses the dead id");
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
@@ -167,7 +181,7 @@ must(!state[twinId], "T4 the run record left with the job (clearRunRecord, alive
 
 /* ============ Z: world hygiene ============ */
 section("Z: the world after");
-must((await jobs()).length === rosterW.length, "Z1 roster identity (the pre-twin ledger) after the whole dance");
+must((await jobs()).length === ledgerPre, "Z1 roster identity (the pre-twin ledger) after the whole dance");
 
 // t220: the negative branch on the wire — in the untied world the tie
 // note is NEVER born (the amber edge already speaks), and with the twin

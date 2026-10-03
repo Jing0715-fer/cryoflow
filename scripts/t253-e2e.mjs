@@ -92,8 +92,13 @@ must(
   "the t251 read-ring + t252 write-door gates are on disk (Task 13's recital, pinned)"
 );
 must(
-  readFileSync("src/app/api/jobs/[id]/fsc/route.ts", "utf8").includes("cachedFileCompute"),
-  "the chart hot path rides the statcache (recital #7, fixed)"
+  // t532 — the pin follows the t486 refactor: the loading half moved to
+  // chart-data.ts (one loader shared by the route and get_job_curves), so
+  // the statcache ride lives THERE now. The essence is the hot path, not
+  // the file that used to host it (the t416 law: pin the dialect).
+  readFileSync("src/lib/chart-data.ts", "utf8").includes('from "@/lib/relion/statcache"') &&
+    readFileSync("src/app/api/jobs/[id]/fsc/route.ts", "utf8").includes("loadFsc"),
+  "the chart hot path rides the statcache (recital #7, fixed — the loader moved to chart-data, the route drinks from it)"
 );
 must(
   /ONE edge query|batched/i.test(readFileSync("src/app/api/jobs/[id]/particles/route.ts", "utf8")),
@@ -119,10 +124,13 @@ for (let k = 0; k < 30; k++) {
 must(viewerUp, "Mol* viewer live");
 
 // expand the ortho strip (default collapsed)
+// t532 — under the exam grind (load ~19 on 2 cores) the actionability
+// "stable" wait never settles (the box keeps re-rasterizing); force-click
+// a plain accordion and give the data-state flip real time to land.
 const stripBtn = page.locator('button[aria-expanded]', { hasText: "Orthogonal slices" }).first();
 if ((await stripBtn.getAttribute("aria-expanded").catch(() => null)) === "false") {
-  await stripBtn.click();
-  await sleep(400);
+  await stripBtn.click({ force: true });
+  await sleep(1500);
 }
 must((await stripBtn.getAttribute("aria-expanded")) === "true", "the ortho strip is expanded");
 
@@ -130,7 +138,7 @@ const clipBtn = page.locator('button[aria-label="Toggle box clipping"]');
 let clipUp = await clipBtn.isVisible().catch(() => false);
 for (let k = 0; k < 9 && !clipUp; k++) { await sleep(5000); clipUp = await clipBtn.isVisible().catch(() => false); }
 must(clipUp, "the Clip toggle is on the contour row");
-await clipBtn.click();
+await clipBtn.click({ force: true });
 await sleep(600);
 must((await clipBtn.getAttribute("aria-pressed")) === "true", "box clipping is ON");
 
@@ -172,7 +180,7 @@ const band3 = page.locator('[role="img"][aria-label^="Clip keeps X 0 to 100 perc
 must((await band3.count()) === 1, "the XZ tile re-speaks at Z 0–80%");
 
 // Clip off — the tiles go silent
-await clipBtn.click();
+await clipBtn.click({ force: true });
 await sleep(600);
 must((await page.locator('[role="img"][aria-label^="Clip keeps"]').count()) === 0, "Clip off — no kept-outlines remain");
 must((await page.locator("text=clipped").count()) === 0, "Clip off — no badges remain");

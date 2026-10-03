@@ -104,6 +104,19 @@ def main():
     #    father, and the tie must be EXACT for the crown to be contested)
     outlier = find_by_name(OUTLIER_HOST, jobs)
     if not outlier:
+        # t532 — the fossil name was one world's spelling (t407 law); when
+        # the name is absent, the old-world manifest's class2d link is the
+        # same promise by type.
+        outlier = None
+        try:
+            with open("/home/z/my-project/data/old-world.json") as f:
+                cid = (json.load(f).get("chain") or {}).get("class2d")
+            if cid:
+                outlier = {"id": cid, "type": "class2d"}
+                print(f"note: '{OUTLIER_HOST}' by name absent — manifest class2d {cid}")
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+    if not outlier:
         sys.exit(f"outlier host '{OUTLIER_HOST}' missing — run seed-outlier first")
     src = os.path.join(job_workdir(project, outlier), VOL_NAME)
     if not os.path.exists(src):
