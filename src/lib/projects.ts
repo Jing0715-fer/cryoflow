@@ -221,10 +221,15 @@ export interface ProjectStats {
 /**
  * ProjectSummaryDTO extended with the extra fields the projects API serves
  * (createdAt + stats). ProjectSummaryDTO itself is frozen, so callers cast.
+ * t553 — `active` rides the list now: the pointer always lived in
+ * data/projects.json (file.active), but the READ never showed it, so
+ * external consumers (e2e harnesses, t551/t553) couldn't tell which card
+ * is the live world and fell to "last in list" — a label that lied.
  */
 export interface ProjectSummaryWithStats extends ProjectSummaryDTO {
   createdAt: string;
   stats: ProjectStats;
+  active: boolean;
 }
 
 const emptyStats = (): ProjectStats => ({ total: 0, running: 0, pending: 0, completed: 0, failed: 0 });
@@ -285,6 +290,7 @@ export async function listProjectsWithMeta(): Promise<ProjectSummaryWithStats[]>
       remote: projectRemoteRef(p.id),
       createdAt: p.createdAt.toISOString(),
       stats: statsBy.get(p.id) ?? emptyStats(),
+      active: file.active === p.id,
     };
   });
 }
