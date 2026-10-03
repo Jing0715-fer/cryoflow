@@ -7354,3 +7354,28 @@ Stage Summary:
 - 「全量家族跑的首次全绿是名册故事的终章」：t546 孤儿入册（93）→ t547 全量点名（99，98 绿）→ t548 契约会面（99 全绿）——三窗一弧：名册收网、陈债清偿、契约落位
 - 产出：t431 W1 契约迁移（20/0 ×2）+ family-run/recent-family 双 preflight + t542/t544 入 t54 批（FAMILY 83、批覆盖检查绿）+ 全量家族跑 99/99 + t548-launch-family.sh 留库
 - [下窗入口] ①24 个收据伤 workdir 的即时裁决候选：真被扫形（0fz4sl0w 等）是否走 product 的 bring-home 活体开火归家（cluster 侧可能仍持原件——用产品机制治世界，而非合成播种）；②t471 WSL-bridge 面（本沙箱永久 native，照实挂）；③遗留池：t276 _legacy-archive、off-mainline 出口、t519 #5 半化石重述。
+
+---
+Task ID: 549
+Agent: main (Z.ai Code, window 2026-10-04 05:08 cron)
+Task: t548 交接①「收据伤 workdir 的 bring-home 裁决」兑现——42 件全量交叉核验后用产品自己的门治愈全部可治者（3/3，18 文件跨真 SSH 车道归家），并把这轮脚本循环升华为产品功能（Homecoming sweep：项目级一键归家 + t549 e2e 四相 30 断言 ALL PASS 入册）。
+
+Work Log:
+- [开局] HEAD 71aa39d 对齐、树净；基线三绿（prod 200/2.7ms、tsc 0、eslint 0）+ 冒烟 console 0（β-Gal demo active · 83 jobs · 58 edges · build 29b1589）；disk 73%（较 t546 的 82% 缓解）、mem avail 2506。摘要脑内「Task 547 两度派单零执行」再证滞后——worklog 实录 t547/t548 皆已收官，本窗实为 549；cron 背诵的 Task 13 清单第 N+6 次核实为化石。
+- [裁决① — 交叉核验] t548 点名的真被扫形（0fz4sl0w/1h0r0vgv）cluster 侧目录已消失——两侧皆空，收据是永久历史，bring-home 无物可治（裁决：不治即诚实）。全量交叉核验升级了账本：42 个带 manifest 的 workdir 中恰好 3 个「本地缺件 ∧ cluster 侧仍持原件」（extract_nu8g3cvw 12/12、motioncorr_2w5c6ex2 3/3、motioncorr_yaf038c0 3/3）——其余 39 个为孤儿残留（job 已离 roster，UI 无面引用，t548 台账的「24 个」实为抽样视图）。
+- [活体开火 — bring-home live-fire] t549-bringhome-live-fire.mjs（C 类运维工具，按 t547 台账永不入册）：走产品自己的 POST /api/jobs/[id]/outputs/sync 批次门。首跑 1/3 治愈（yaf038c0 三件即刻归家），两个败形显形新事实：「The cluster connection for this run was deleted」——run 引用的 QA fixture 连接被当年套件 finally 删除（t308 L597/t537 L193）。考古产品补救语义（re-add it and re-run 话术 + upsertConnection 接受客户端指定 id + getConnection 每次从盘直读）后：同 id 重加连接 → 再开火 → 3/3 全部归家 → 按套件自身惯例清理 fixture 连接 → Phase V 证明治愈判定与连接无关（manifest+existsSync 读，不依赖 wire）。18 文件、字节精确（66560/17408/1049600b）。
+- [世界治愈的 UI 脸] Dashboard 上 "all brought home" ×3 实测渲染（compactStayReceipt 的 remaining===0 形）；39 个未愈者因 job 已不在册而无任何表面说谎——收据方言在世界中零假话。
+- [新功能 — Homecoming sweep] 把 live-fire 脚本的跨 job 循环升华为产品脸：homecoming-sweep.tsx（self-effacing t491——无债/未跑/无败即 null 渲染；no-flicker 律——null 注解计零；listing 是真相——remote tiles 来自 manifest join；t424 wire-death 律——chunk 级死亡止步全队；per-file 拒绝逐字上屏并归其 job 名下；「and N more」诚实溢出行；teal/amber 家族 styling + focus-visible 环 + tabular-nums + aria 全套）。挂载于 ActiveProjectSpotlight 的 Jobs 头行下。途中修出两枚真缺陷：①Stop 原只在 chunk 间隙生效——加 AbortController 让挂死 chunk 立即死（stop is not a suggestion）；②settled verdict 闪现 <200ms 即自隐——加 6s linger（小套件的确认必须可读，epilogue chips 才接管永久故事）。
+- [dance] 首跑 bench 全败定谳：prod 跑的是 t548 旧 build——新组件不在脸上。完整 dance：chrome/prod 三杀 + node_modules 预热（buff/cache 2117）→ 守卫 GO → 1344 webpack 一磨 GREEN（BdqQOeEuSaywUbxY0OVjj）→ prod 复起 200。中插两磨（AbortController + linger 后 3gFQgtIVQrQ6fxXHqBf）。
+- [t549 e2e 四相 30 断言 ALL PASS ×2 幂等] A 源码钉 9（self-effacing/no-flicker/CHUNK≤8/abort-on-stop/wire-death/逐字拒绝/family tokens/挂载点/路由 cap 真门）；B 真实世界 16——先 settle 再断言（本窗教训：probe 删件未还把 bench 世界假设掀了，settle 步让 bench 自愈前置）、bar 在真债务上醒来、真 SSH 归家、verdict 逐字、账本答 0、自隐；C 路由 mock 拒绝方言 6（verbatim refusal + 归 job 名 + and-2-more）；D 挂死 chunk 上 Stop 即停 3；console 门 0 unexpected（ERR_ABORTED 为自家 stop 的预期形）。入册 family-run.mjs（84 套各归唯一批，t54 批 3 套）。
+- [测量假象再添一课] 考古 t544 套件时 cat -A 显示 Buffer.concat(, data]) 疑似语法伤——od -c 定谳真实字节为 Buffer.concat([h, data])：渲染吃了 [h 两字节。文件健康，险些误修。第三次同类（选择器假 0、构建 ID 翻转、渲染吃字节）：钉要说字节，不说渲染。
+- [未做与理由] t471 WSL-bridge 面（本沙箱永久 native，照实再挂）；t276 _legacy-archive、off-mainline 出口（照旧门控）；t519 #5 半化石重述（judge 真类图源）；39 个孤儿残留 workdir 不治（治它=对不在册的 job 造假收据，t531 自律）。
+
+Stage Summary:
+- 「可治者的名单要交叉核验出来，不许抽样猜」：42 件收据伤全量对撞 cluster 侧实存——真被扫形（cluster 也空了）与可治形（两侧各持一半）是两种命运；裁决先分界，动作才有对象
+- 「产品的拒绝话术就是操作手册」："The cluster connection for this run was deleted" 不是终点是路标——re-add it 是产品自己指的 remedies，同 id 重加后门照常打开；修世界的动词先在产品的拒绝里找
+- 「治愈判定要与连接无关」：归家后删掉刚加的连接，remaining 依旧 0——manifest+existsSync 的算术不欠 wire 的情；套件的断言要钉住这种不依赖，世界才能安静地好着
+- 「确认要活到人能读完」：比世界更快的 UI 是 attention 的谎言——verdict linger 六秒再让位给 epilogue chips；stop 要立刻停：挂死的 chunk 死于 AbortController 而非下一个间隙
+- 「bench 的世界假设要自己治」：probe 的残骸掀了 bench 的前提——settle 步（先经产品门治愈再断言 self-effacing）让套件对历史免疫；世界不是给定的，是义务
+- 产出：3/3 收据伤 workdir 经产品门治愈（18 文件真 SSH 归家）+ HomecomingSweepBar（项目级一键归家，双缺陷修复随行）+ t549 e2e 四相 30 断言 ALL PASS ×2 入册（glob 84）+ dance 三磨全绿 + shots-qa 三图
+- [下窗入口] ①t519 #5 半化石重述（judge 真类图源——t474 世界已有真件，AI 车道窗）；②t471 WSL-bridge 面（真 WSL 世界稀缺，照实挂）；③遗留池：t276 _legacy-archive、off-mainline 出口；④家族全量跑在 3gFQgtIV build 上未复跑（t549 改动面已被 bench 覆盖，低风险）。
