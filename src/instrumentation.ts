@@ -31,6 +31,25 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   void warmBoot();
+  void mountReaper();
+}
+
+/**
+ * t533 — the global reaper mounts at boot: every world's running/pending
+ * jobs reconcile on a background beat, so a remote finalize is healed even
+ * when no browser is polling (the t532 exam's frozen-finish-line bug).
+ * DYNAMIC import on purpose: the reaper's static graph (engine + remote
+ * SSH + dispatch + prisma) would delay the listener — register()'s own
+ * law. The jobs GET route is the defensive second mount if this fails.
+ */
+async function mountReaper(): Promise<void> {
+  await sleep(8_000); // let the listener bind and the boot warmup start first
+  try {
+    const m = await import("@/lib/relion/global-reconcile");
+    m.ensureGlobalReconciler();
+  } catch (error) {
+    console.error("[reaper] boot mount failed (the jobs GET route remains the fallback):", error);
+  }
 }
 
 async function warmBoot(): Promise<void> {

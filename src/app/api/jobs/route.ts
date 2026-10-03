@@ -6,6 +6,7 @@ import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
 import { autoStartPendingDownstream } from "@/lib/relion/dispatch";
 import { reconcileRemoteJobs, remoteInfoFor } from "@/lib/remote/remote-run";
+import { ensureGlobalReconciler } from "@/lib/relion/global-reconcile";
 import { remainingForRun } from "@/lib/remote/remote-remaining";
 import type { JobDTO, EdgeDTO } from "@/lib/types";
 
@@ -103,6 +104,11 @@ function jobsVersionOf(projectId: string, body: string): string {
 
 export async function GET(request: NextRequest) {
   try {
+    // t533 — defensive reaper mount: the route already owns the heavy graph,
+    // so this is a free static mount (instrumentation's dynamic import is the
+    // primary one). After the first request ever, every world's remote
+    // finalize heals on the background beat even with no browser polling.
+    ensureGlobalReconciler();
     const active = await ensureActiveProject();
     if (!active) {
       return NextResponse.json({ jobs: [] });
