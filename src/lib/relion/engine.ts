@@ -8107,15 +8107,18 @@ function classDistributionFromData(
 
 /**
  * t535 — every *_autopick.star under the workdir, depth-bounded, sorted:
- * the real relion_autopick nests per-mic pick stars under the input row's
- * own directories (decomposePipelineFileName strips only <Type>/jobNNN/
- * prefixes, and this engine's hash-named workdirs never match), so the
- * stub-era flat micrographs/ scan saw none of them.
+ * the real relion_autopick writes each per-mic pick star at
+ * fn_odir + <input-row-root> (autopicker.cpp:4010-4015), and the input
+ * row's root can be ABSOLUTE (the mock's runner writes host-absolute
+ * corrected-star rows — fn_out is an absolute --o), nesting the picks
+ * `home/z/my-project/services/.../motioncorr_x/micrographs/mic_01_autopick.star`
+ * levels deep under the odir. Depth 12 covers that monster plus every
+ * shallower dialect (flat, project-relative at depth 2).
  */
 function listPerMicPickStars(workdir: string): string[] {
   const out: string[] = [];
   const walk = (dir: string, depth: number) => {
-    if (depth > 3) return;
+    if (depth > 12) return;
     let entries: import("node:fs").Dirent[];
     try {
       entries = readdirSync(dir, { withFileTypes: true });
