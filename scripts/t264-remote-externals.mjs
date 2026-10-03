@@ -414,12 +414,16 @@ try {
     `the picks are counted from the synced per-mic stars (${(completedA?.result ?? "").slice(0, 70)})`
   );
   const mirrorA = `/home/z/my-project/data/relion/${projId}/autopick_${jobA.id.slice(-8)}`;
+  // t535 — the real relion_autopick writes each pick star at
+  // fn_odir + <input-row-root> (autopicker.cpp:4010): the stub-era flat
+  // micrographs/ layout is gone — the mirror carries the nested dialect
+  // (motioncorr_x/micrographs/… or deeper under an absolute-row root).
+  // Any *_autopick.star anywhere under the workdir is the honest witness.
   let pickStarSynced = false;
   try {
-    pickStarSynced = execSync(`ls ${mirrorA}/micrographs 2>/dev/null || true`, { stdio: "pipe" })
+    pickStarSynced = execSync(`find ${mirrorA} -name '*_autopick.star' 2>/dev/null | head -n 1`, { stdio: "pipe" })
       .toString()
-      .split("\n")
-      .some((n) => n.endsWith("_autopick.star"));
+      .trim().length > 0;
   } catch { /* no dir */ }
   must(pickStarSynced, "a per-micrograph pick star synced back to the local mirror");
 
