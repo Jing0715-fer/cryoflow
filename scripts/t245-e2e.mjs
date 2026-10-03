@@ -62,6 +62,8 @@ const DOOR_RULES = [
   { name: "canvas tab", re: /^Workflow canvas \(Shift\+D toggles\)$/, kind: "row", rowRe: /Open project dashboard|Back to workflow canvas/ },
   { name: "note spotlight", re: /^Spotlight noted jobs$/, kind: "row", rowRe: /Spotlight noted jobs|Show all jobs \(spotlight off\)/ },
   { name: "session QC report", re: /^Session QC report$/, kind: "row", rowRe: /Open the session QC report/ },
+  { name: "system diagnostics", re: /^System diagnostics$/, kind: "row", rowRe: /Open system diagnostics/,
+    note: "t530 — the box's vitals join the index through a palette row (same handshake as the report: the palette names the door, the header owns the panel)" },
   { name: "help", re: /^Help — how to use the workflow canvas$/, kind: "row", rowRe: /Keyboard shortcuts/ },
   { name: "theme toggle", re: /^Switch to (light|dark) theme$/, kind: "row", rowRe: /Switch to (light|dark) theme/ },
   { name: "github", re: /^CryoFlow on GitHub \(opens in a new tab\)$/, kind: "row", rowRe: /Open CryoFlow on GitHub/ },
@@ -100,7 +102,7 @@ const doors = await page.evaluate(() => {
     title: el.getAttribute("title") || "",
   }));
 });
-must(doors.length === 13, `header door inventory pinned at 13 interactive elements (got ${doors.length})`);
+must(doors.length === 17, `header door inventory pinned at 17 interactive elements (got ${doors.length})`);
 
 // match every door against exactly one rule; flag unmapped doors.
 const doorNames = doors.map((d) => d.label);

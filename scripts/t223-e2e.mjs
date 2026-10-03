@@ -586,7 +586,10 @@ const chips = nav.locator(".report-compass-chip");
 const headEls = page.locator("[data-report-body] h2, [data-report-body] h3");
 const chipN = await chips.count();
 const headN = await headEls.count();
-must(chipN === headN && chipN === 9,
+// t530 — 9→10: the report legitimately grew a section (the timeline annex,
+// t505) after this pin was written; the count is the contract, the bump is
+// the contract learning the product's growth.
+must(chipN === headN && chipN === 10,
   `W2 the compass and the document agree on the section count (${chipN} chips vs ${headN} headings)`);
 let chipMismatch = null;
 for (let i = 0; i < chipN; i++) {
@@ -797,7 +800,7 @@ must(!/<link|@import|src="http/i.test(echo),
   "X4 self-contained (no external references — it reads anywhere, offline)");
 const echoHrefs = [...echo.matchAll(/href="#s(\d+)"/g)].map((m) => Number(m[1]));
 const echoIds = new Set([...echo.matchAll(/id="s(\d+)"/g)].map((m) => Number(m[1])));
-must(echoHrefs.length === 9 && echoHrefs.every((n, i) => n === i) && echoHrefs.every((n) => echoIds.has(n)),
+must(echoHrefs.length === 10 && echoHrefs.every((n, i) => n === i) && echoHrefs.every((n) => echoIds.has(n)),
   `X5 the contents pairs by index — ${echoHrefs.length} links, sequential, every one lands (zero injection, t234's law in the echo)`);
 const echoHeadTexts = [...echo.matchAll(/<h[23] id="s\d+">([^<]*)<\/h[23]>/g)].map((m) => m[1]);
 const echoTocTexts = [...echo.matchAll(/<li><a[^>]*href="#s\d+">([^<]*)<\/a><\/li>/g)].map((m) => m[1]);

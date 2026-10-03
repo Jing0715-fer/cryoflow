@@ -14,6 +14,24 @@
       "match": "^Print this view$",
       "keys": "⌘/Ctrl P",
       "reason": "The platform keyboard already owns this verb — the header button calls the same window.print()."
+    },
+    {
+      "name": "AI assistant",
+      "door": "AI assistant",
+      "match": "^AI assistant$",
+      "reason": "A summon door, not an index row — the assistant opens as a companion window that stays live beside any dialog (t501), and every tool it carries answers the palette's own question inside the conversation."
+    },
+    {
+      "name": "project storage",
+      "door": "Project storage overview",
+      "match": "^Project storage overview$",
+      "reason": "The storage map is a per-project fact surface with its own walk and ledger — its verb (Clean) lives in the map itself, where the bytes it would free are on screen."
+    },
+    {
+      "name": "finish knock",
+      "door": "Finish knock settings",
+      "match": "^Finish knock settings$",
+      "reason": "An opt-in notification switch for out-of-page channels — the bell's popover owns its three toggles and their browser-permission state; the palette has nothing to run."
     }
   ]
 }

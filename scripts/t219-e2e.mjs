@@ -154,8 +154,12 @@ section("T: DELETE the twin — the roster forgets, the disk remembers (undo doc
 const del = await fetch(`${BASE}/api/jobs/${twinId}`, { method: "DELETE", headers: H });
 must(del.ok, `T1 DELETE accepted (${del.status})`);
 const rosterT = await jobs();
-must(rosterT.length === 15 && !rosterT.find((j) => j.name === "QA Class2D Twin"),
-  `T2 the roster is 15 again, twin gone (${rosterT.length})`);
+// t530 — the pin learned the ledger: "15" was the pre-twin roster of the
+// window that wrote it; the world legitimately grew since. The contract is
+// the IDENTITY — the world forgets exactly the twin and nothing else — so
+// the baseline is the suite's own rosterW (the ledger taken at setup).
+must(rosterT.length === rosterW.length && !rosterT.find((j) => j.name === "QA Class2D Twin"),
+  `T2 the roster returns to its pre-twin ledger (${rosterW.length}), twin gone (${rosterT.length})`);
 const deadProf = await fetch(`${BASE}/api/jobs/${twinId}/map-profile?path=orthovol.mrc&axis=z`, { headers: H });
 must(deadProf.status === 404 || (await deadProf.json()).error, "T3 the outputs route refuses the dead id");
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
@@ -163,7 +167,7 @@ must(!state[twinId], "T4 the run record left with the job (clearRunRecord, alive
 
 /* ============ Z: world hygiene ============ */
 section("Z: the world after");
-must((await jobs()).length === 15, "Z1 roster identity (15) after the whole dance");
+must((await jobs()).length === rosterW.length, "Z1 roster identity (the pre-twin ledger) after the whole dance");
 
 // t220: the negative branch on the wire — in the untied world the tie
 // note is NEVER born (the amber edge already speaks), and with the twin

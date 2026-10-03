@@ -185,7 +185,7 @@ const c2 = await mkJob({
 });
 await mkEdge(ext.id, c2.id, "particles", "particles");
 await runRemote(c2.id);
-const c2J = await finish(c2.id, "P5b class2d (real relion_refine 5.0.0 serial, CPU)", 600_000);
+const c2J = await finish(c2.id, "P5b class2d (real relion_refine 5.0.0 serial, CPU)", 1500_000);
 
 /* ---------------- P6 initialmodel + refine3d ---------------- */
 console.log("== P6: initialmodel → refine3d ==");
@@ -195,7 +195,7 @@ const im = await mkJob({
 });
 await mkEdge(c2.id, im.id, "particles", "particles");
 await runRemote(im.id);
-const imJ = await finish(im.id, "P6a initialmodel (real relion_refine --denovo_3dref)", 900_000);
+const imJ = await finish(im.id, "P6a initialmodel (real relion_refine --denovo_3dref)", 1800_000);
 
 const r3 = await mkJob({
   projectId: pid, type: "refine3d", name: "refine3d",
@@ -204,7 +204,7 @@ const r3 = await mkJob({
 await mkEdge(im.id, r3.id, "model", "reference");
 await mkEdge(im.id, r3.id, "particles", "particles");
 await runRemote(r3.id);
-const r3J = await finish(r3.id, "P6b refine3d (real relion_refine, half-maps)", 900_000);
+const r3J = await finish(r3.id, "P6b refine3d (real relion_refine, half-maps)", 1800_000);
 
 /* ---------------- P7 maskcreate + postprocess ---------------- */
 console.log("== P7: maskcreate + postprocess ==");
