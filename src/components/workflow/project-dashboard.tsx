@@ -49,6 +49,7 @@ import { parseClassNotes, hasJudgment } from "@/lib/class-notes";
 import { withLiveStats } from "@/lib/live-stats";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
+import { HomecomingSweepBar } from "./homecoming-sweep";
 import { KpiSparkline } from "./kpi-sparkline";
 import { EngineBuildRail, EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
@@ -1880,6 +1881,10 @@ function ActiveProjectSpotlight({
             <ArrowRight className="size-3" aria-hidden="true" />
           </Button>
         </div>
+        {/* t549 — the project-level homecoming sweep: one bar aggregating
+            every owing receipt in the roster (self-effacing — renders
+            nothing while no annotation says files are still out). */}
+        <HomecomingSweepBar />
         {sorted.length > 0 && (
           // Task 94 — roster text search. Composes with the status chips
           // below (AND); role=search + the count chip are live screen
