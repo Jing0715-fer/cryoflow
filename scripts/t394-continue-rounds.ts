@@ -154,6 +154,42 @@ console.log("B — selfContinueInArgv (the remote lane's predicate)");
   must(selfContinueInArgv([], wd) === false, "an empty argv → false");
 }
 
+console.log("B2 — selfContinueInArgv speaks the pipeliner dialect (t537: relative --continue targets)");
+{
+  // t537 — the remote argv is PROJECT-RELATIVE now, so a self-continue's
+  // --continue target arrives as `class2d_aaa1/run_it012_optimiser.star`
+  // (cwd = the project root). The predicate resolves such targets against
+  // the project root LEXICALLY before the under-the-workdir comparison —
+  // a .. escape can never read as self-continue, and the aaa1/aaa12
+  // sibling-prefix trap holds in the relative dialect too.
+  const wd = "/data03/cryoflow/p1/class2d_aaa1";
+  const proj = "/data03/cryoflow/p1";
+  must(
+    selfContinueInArgv(["relion_refine", "--continue", "class2d_aaa1/run_it012_optimiser.star"], wd, proj) === true,
+    "a project-relative --continue aimed at this workdir's own round → true (the relativized argv's dialect)"
+  );
+  must(
+    selfContinueInArgv(["relion_refine", "--continue", "refine3d_bbb2/run_it025_optimiser.star"], wd, proj) === false,
+    "a project-relative sibling workdir → false (the stash keeps today's behavior)"
+  );
+  must(
+    selfContinueInArgv(["relion_refine", "--continue", "../refine3d_bbb2/run_it025_optimiser.star"], wd, proj) === false,
+    "a .. escape to a sibling → false (lexical resolution, no prefix accidents)"
+  );
+  must(
+    selfContinueInArgv(["relion_refine", "--continue", "./class2d_aaa1/run_it001_optimiser.star"], wd, proj) === true,
+    "a ./-prefixed relative target resolves (defensive)"
+  );
+  must(
+    selfContinueInArgv(["relion_refine", "--continue", "class2d_aaa12/run_it001_optimiser.star"], wd, proj) === false,
+    "the sibling-prefix trap (aaa1 vs aaa12) holds in the relative dialect too"
+  );
+  must(
+    selfContinueInArgv(["relion_refine", "--continue", "run_it001_optimiser.star"], wd) === false,
+    "a relative target WITHOUT the project root stays false (the pre-t537 defensive contract)"
+  );
+}
+
 console.log("C — explicitContinueOf + continueTargetsWorkdir (the local lane's gate)");
 {
   const job = (fn_cont?: unknown) => ({
@@ -299,18 +335,23 @@ console.log("D — optimiserRoundsFromNames + scanLocalWorkdir (the round analys
   const dir = mkdtempSync(path.join(tmpdir(), "cf394-scan-"));
   try {
     mkdirSync(path.join(dir, ".cryoflow_prev"), { recursive: true });
+    // t537 — the fixture and the size pin share ONE constant: a cron edit
+    // (7ce65ec) moved the pin to 33 while the fixture kept writing 32 —
+    // the pin's essence is "the scan reports the file's real byte count",
+    // so the assert reads the constant, never a literal that can drift.
+    const FIXTURE_BYTES = "x".repeat(33);
     for (const n of [
       "run_it002_optimiser.star", "run_it002_data.star", "run_it002_model.star", "run_it002_sampling.star", "run_it002_classes.mrcs",
       "run_it001_optimiser.star", "run_it001_data.star", "run_it001_model.star", "run_it001_sampling.star", "run_it001_classes.mrcs",
-    ]) writeFileSync(path.join(dir, n), "x".repeat(32));
-    writeFileSync(path.join(dir, ".cryoflow_prev", "run_it009_optimiser.star"), "x".repeat(32));
+    ]) writeFileSync(path.join(dir, n), FIXTURE_BYTES);
+    writeFileSync(path.join(dir, ".cryoflow_prev", "run_it009_optimiser.star"), FIXTURE_BYTES);
     const scanned = scanLocalWorkdir(dir, "class2d");
     must(scanned.error == null && scanned.entries.length === 2, "the local scan reads the root rounds");
     must(
       scanned.entries.every((e) => !e.path.includes(".cryoflow_prev")),
       "the t385 archive's rounds never answer the LOCAL scan (the remote lane lists them as their own archived group — t395)"
     );
-    must(scanned.entries[0].iteration === 2 && scanned.entries[0].size === 33, "sizes + mtime ride the local entries");
+    must(scanned.entries[0].iteration === 2 && scanned.entries[0].size === FIXTURE_BYTES.length, "sizes + mtime ride the local entries");
     must(typeof scanned.entries[0].mtimeMs === "number", "the local lane carries the mirror's clock");
   } finally {
     rmSync(dir, { recursive: true, force: true });
