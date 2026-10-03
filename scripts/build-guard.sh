@@ -61,8 +61,10 @@ if [ "${buff:-0}" -lt 1450 ]; then
 fi
 
 # ---- the historically-green recipe ----
-echo "GO — warm-window profile. The ledger's one-shot recipes (t460/t461-era) were:"
-echo "     NODE_OPTIONS='--max-old-space-size=1344' npx next build --webpack   (warm webpack cache)"
+echo "GO — warm-window profile. The blessed lane is the grinder — it finishes the trio"
+echo "     itself (BUILD_ID + standalone + static; the t550 lesson: the raw build leaves"
+echo "     the standalone blind to its own static, and the world freezes on 'Loading…'):"
+echo "     bash scripts/build-until-green.sh   (1344 webpack inside, cp + trio verify after)"
 echo "     turbopack builds are a trap on this box (Next 16 default; V8 caps don't bound its"
 echo "     native side; two t524 corpses + t461 x2 at rc=137)."
 echo "     During the build: keep CRYOFLOW_NO_WATCHDOG=1 and the dev lane DOWN."
