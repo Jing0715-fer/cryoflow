@@ -7285,3 +7285,25 @@ Stage Summary:
 - 「工具调用内的后台活不过调用边界」：nohup+& 不行、setsid+disown 不行（setsid sleep 300 对照实验实证），唯一活路是 launch.sh 形——中间脚本秒退让进程在调用结束前孤儿化到 init
 - 产出：judge-merge.ts 纯模块 + tools.ts 双 pass 接线 + t545 bench 33/0 + t545-launch-judge-only.sh + 五枚计数钉修复（t419/t468/t469/t470/t475/t471）+ --judge-only 分层首次实跑（4/6，B2/B3 双 pass 活体确认）+ t471/t431 化石定性入池
 - [下窗入口] ①t471 RELION-aware 重设计（continue fire 的跨世界钉法——先读 T3 的 2608/2615/2622 三分支再动）；②t419-ai-assistant 孤儿入册审计（DB 副作用套件的 roster 形态）；③家族余批新 build 抽查（t268/t264/t273 车道）；④遗留池：t276 _legacy-archive、off-mainline 出口、t23 遗留③老世界 seeder（t431 W1.1 的真解）、t519 #5 EMPIAR 常驻。
+
+---
+Task ID: 546
+Agent: main (Z.ai Code, window 2026-10-04 03:53 cron)
+Task: t545 交接①②③三连收官——t471 RELION-aware 两面钉重设计（世界探针 + fired argv 深钉 + T6d 前定场）、t419 孤儿入册审计（真因 = 缺 -bench 后缀，改名入册，顺带发现 42 文件宽孤儿类）、家族余批 t268/t264/t273 三绿；零 src 改动窗。
+
+Work Log:
+- [开局] HEAD df5a61d 对齐、树净；环境暖窗（buff/cache 1954、avail 2770、disk 82%）；QA 基线三绿（prod 200/2.5ms、tsc 0、eslint 0）+ agent-browser 冒烟 console 0（自绘画布 83 jobs · 58 edges · build ab9ce1a；`.react-flow__node` 选择器读 0 是测量假象——节点自绘非 react-flow 类名，截图为准）。摘要脑内「Task 540 四窗零执行」已过时六代——worklog 实录 t540–t545 全收官；cron 背诵的 Task 13 清单第 N+3 次核实为化石。
+- [选题] t545 下窗入口四条核账：③家族余批（t268/t264/t273 在 t545 build 上未跑）、②t419 孤儿入册、①t471 RELION-aware 重设计（t545 明言「先读 T3 的 2608/2615/2622 三分支再动」）——三条全接；④遗留池四条照旧门控。活体开火 t471：T3a/T3c 两钉败形复现（36/2）——RELION 5.0.0 在场，proceed 形替身 Start refused（T6d 恰因 spawn 毫秒自毙而侥幸绿——竞速运气非确定性）。
+- [交付① t471 两面钉] 门序考古（engine.ts startJob）：resolveInputs → cluster-resident 拒绝 → detectRelion 门（9433）→ resume/fresh spawn；fn_cont 消费链 = dietContinueArgv（6498）→ argv `--continue <fn_cont>` → displayCmd = argv.join(" ")。重设计五件：①世界探针——bench 冷世界无快照无缓存，detectRelion() 一次诚实 fullProbe，头行印「world: RELION PRESENT (5.0.0 at /home/z/relion-build/bin) — pinning the fired --continue face」；②face-aware T3a——present 钉 fired 形（ok:true + continues from Round 005 + the local lane）+ **T3a2 深钉**（getRun().cmd 含 --continue 与 fn_cont 路径——比旧 T3a 更深一层：计划到达 RELION 自己的 argv，非只到 dispatch 门），absent 逐字保存原钉；③世界无关不变量双面共钉（T3b 算术行 / T3d DB 写 / T3e–g detail 契约——两个世界的 summary 都载同款 planLine）；④T6d 前定场 settleFired（stopRun + DB status completed + upsertRun done:true exit:0——假星 spawn 毫秒自毙但引擎翻转时机是竞速，定场让第二次开火在两个世界都读 SETTLED run）；⑤收尾卫生——present 世界对 crown/vdam/clamp 三 fired job stopRun 清场。缺世界面由原钉逐字保存背书（t471–t544 七十窗已证形），present 面连跑两遍 39/0 幂等。
+- [交付② t419 孤儿入册] 审计推翻 t545 的恐惧前提：t419 头注自证「isolated DB + scripted mock LLM, no world pollution」——mkdtempSync + 自家 DATABASE_URL + CRYOFLOW_DATA_DIR 先于 import，零活体接触（grep :3000/agent-browser/data-relion/projects.json 全零）；「打 DB 建 job」打的是自家隔离 DB。孤儿化真因唯一：recent-family.sh glob `t[45][0-9][0-9]-*bench.ts` 的真实地板是 t400 而非注释所写 t420——t419 在数位类内、败于缺 `-bench.ts` 后缀。判决 = git mv 改名入册（glob 自动纳新的机制本就该接住它），recent-family.sh 头注写 t546 判决书 + 计数漂移如实修正（旧「66 as of Task 501」实为 93 = 92 + 改名）；t419-mock-llm.mjs 注释引用随行。改名后 156/0 全绿 2.4s，glob 93 文件实证。
+- [新发现 — 宽孤儿类 42 文件] comm 全类扫描：42 个 t4xx/t5xx 文件在两花名册之外；抽三件定性混类——真 bench（t420-agent-polish/t430-session-drawer：隔离世界断言套件）与活体工具（t429-qa-session-fixture 直写 prod DB、t452-live-surgery）同池。批量入册需逐件 nature 判决（bench → 改名；tool → 永不入册），专窗量级，入池。
+- [家族余批] t268/t264/t273 三套 ALL PASS（roster restore 钉照旧是 83 世界成长的见证）；t268 复启 prod 后 200/console 0 复核；shots-qa 五图随行刷新。
+- [未做与理由] ④遗留池四条照旧（t276 _legacy-archive、off-mainline 出口、t23 遗留③老世界 seeder、t519 #5——后者半化石：diag-t380-empiar 已在 family-run 压轴位常驻，真缺口只是 judge 的真类图源且 t474 世界已有真件）；宽孤儿类 42 文件判决（专窗）；t471 absent 世界的活体复验（本沙箱永久 present，absent 面由原钉保存背书——诚实记录而非假装验过）。
+
+Stage Summary:
+- 「钉要说世界的脸，不说世界的缺席」：RELION 在场后 proceed 形替身 refusal 形，两类形都是产品诚实——bench 探针问引擎自己「这是哪个世界」，再钉那个世界诚实给出的脸；世界无关的不变量（算术/DB/detail）双面共钉，钉从此不随 install 涨落碎
+- 「fired argv 是比 refusal 更深的证词」：旧 T3a 只证「到了 dispatch 门」，T3a2 证「计划到达 RELION 自己的 --continue argv」——门开了之后多看一眼 run record 的 cmd，纵深证据加一层
+- 「孤儿的第一嫌疑是花名册的拼写，不是套件的行为」：t419 一百窗孤儿，恐惧前提（打活体 DB）一查全假，真因只是一个后缀——入册审计先读头注自证的世界契约，再数 glob 的字符类
+- 「计数钉会死在注释里」：recent-family 头注「66 as of Task 501」早已漂移到 93——计数钉的意义是察觉漂移，注释里的数也是钉
+- 产出：t471 两面钉重设计（39/0 ×2 幂等）+ t419 改名入册（156/0，glob 93）+ 家族余批三绿 + 宽孤儿类 42 文件定性入池
+- [下窗入口] ①宽孤儿类判决专窗（42 文件逐件 nature 判决：bench 改名入册 / tool 永不入册；先 t402/t417/t420/t428/t430 五簇 .ts）；②t471 T3 的 WSL-bridge 世界面（present 世界若 execution=wsl，cmd 是 wrapped.display——含不含 --continue 待真 WSL 世界定谳，本沙箱永久 native）；③遗留池：t276 _legacy-archive、off-mainline 出口、t23 遗留③老世界 seeder、t519 #5 半化石重述（judge 真类图源）。
