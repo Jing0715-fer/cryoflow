@@ -4279,6 +4279,26 @@ export async function startRemoteJob(args: {
   // the staging planner after them keeps using the same map.
   const runs = readRuns();
   const upstreamRemoteTwins = new Map<string, string>();
+  // t540 — twin provenance: for each PAIR twin, the upstream job that
+  // contributed it and whether consuming it NOW is scheduler-ordered.
+  // A not-finalized contributor's twin would be MID-FLIGHT bytes (probe
+  // persistence can land iteration files into records' remoteOutputs), and
+  // the t372 mtime comparison cannot see "still being written". Covered =
+  // the sbatch lane's afterok will hold this dispatch until the
+  // contributor completes: same connection + a scheduler id — exactly the
+  // depIds predicate at submission.
+  // REACHABILITY (t540, honest): today's resolveInputs only resolves from
+  // providers with done && exitCode===0, and the lazy heal only probes
+  // done records — so a running contributor's twin cannot reach
+  // resolvedInputs, and this gate is DEFENSE-IN-DEPTH, not the front line.
+  // The front line is the resolver's own done-only rule (pinned by the
+  // t540 exam). The guard exists so a future resolver loosening (e.g.
+  // trusting a running provider's probed outputs for pipeliner-style
+  // scheduling) cannot silently reintroduce the race the t534 exam
+  // convicted: the direct lane has no scheduler to order anything, and
+  // depIds is connection-scoped, so a re-created same-host connection
+  // (t325) cannot order it either.
+  const twinOrigin = new Map<string, { jobName: string; notReady: boolean; covered: boolean }>();
   for (const up of upstream) {
     const rec = runs[up.id];
     if (!rec?.remote?.remoteOutputs) continue;
@@ -4295,9 +4315,17 @@ export async function startRemoteJob(args: {
     // of one shared filesystem lose the in-place pass this way — the
     // safe direction: bytes upload, the run still completes.)
     if (!sameClusterTarget(rec.remote, { connectionId: conn.id, host: connHostPort })) continue;
+    const notReady = rec.done !== true;
+    const covered =
+      isSlurm && rec.remote.connectionId === conn.id && rec.remote.slurmId != null;
     for (const [key, localTw] of Object.entries(rec.outputs)) {
       const remoteTw = rec.remote.remoteOutputs[key];
-      if (remoteTw && localTw) upstreamRemoteTwins.set(localTw.split(path.sep).join("/"), remoteTw);
+      if (remoteTw && localTw) {
+        const lk = localTw.split(path.sep).join("/");
+        upstreamRemoteTwins.set(lk, remoteTw);
+        if (notReady)
+          twinOrigin.set(lk, { jobName: up.name ?? up.type ?? up.id, notReady, covered });
+      }
     }
     // t324 — outputs that never came home: the verified cluster twin
     // satisfies the requirement by ITSELF (identity entry — both the
@@ -4306,9 +4334,18 @@ export async function startRemoteJob(args: {
     // cluster copy in place). Same cluster only (t325: connection OR
     // host — a re-created connection to the same host still holds these
     // paths; a genuinely different cluster does not).
+    // t540 — identity entries carry their provenance too: the resolver's
+    // case T hands the twin path to the staging loop AS the local input
+    // (no local mirror exists), so the race gate below must see the same
+    // not-finalized contributor through the identity key as through the
+    // pair key.
     for (const remoteTw of Object.values(rec.remote.remoteOutputs)) {
       const norm = remoteTw.split(path.sep).join("/");
-      if (!upstreamRemoteTwins.has(norm)) upstreamRemoteTwins.set(norm, remoteTw);
+      if (!upstreamRemoteTwins.has(norm)) {
+        upstreamRemoteTwins.set(norm, remoteTw);
+        if (notReady && !twinOrigin.has(norm))
+          twinOrigin.set(norm, { jobName: up.name ?? up.type ?? up.id, notReady, covered });
+      }
     }
   }
 
@@ -4704,6 +4741,30 @@ export async function startRemoteJob(args: {
     const local = localRaw.split(path.sep).join("/");
     const twin = upstreamRemoteTwins.get(local);
     if (twin) {
+      // t540 — the STALE-TWIN RACE gate (defense-in-depth; see the twin
+      // provenance block above for the honest reachability note: today's
+      // resolver parks on a not-finalized provider before any input can
+      // resolve, so this refusal is the invariant's second line, not the
+      // product's front door). A twin from a not-finalized contributor is
+      // mid-flight bytes; consuming it now — by skipping the upload
+      // (twinFresh) OR by re-uploading over it — races the upstream's own
+      // writes. The only honest orderings: wait for the run, or let the
+      // scheduler hold this dispatch (afterok, same connection + scheduler
+      // id). Neither exists on the direct lane, and depIds is
+      // connection-scoped — so a re-created same-host connection cannot
+      // order it either. Refuse at the request level (the t536 movies-gate
+      // dialect: teaching toast, the job row never flips).
+      const origin = twinOrigin.get(local);
+      if (origin && origin.notReady && !origin.covered) {
+        return fail(
+          `input "${key}" points at the cluster twin of "${origin.jobName}", which is still running — those bytes are mid-flight, not final. Dispatch "${job.name}" after it completes` +
+            (isSlurm
+              ? `, or dispatch from the same connection so the scheduler's afterok handoff can order the two runs`
+              : ` (the direct lane has no scheduler to order the handoff)`) +
+            `.`,
+          true
+        );
+      }
       // t372 — the STALE-TWIN gate. A twin means "the upstream ran on this
       // cluster and left its output in place" — but an upstream RE-RUN
       // (e.g. the import edited + re-run) updates the LOCAL mirror while
