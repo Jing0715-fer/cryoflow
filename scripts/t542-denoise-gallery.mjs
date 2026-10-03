@@ -115,6 +115,8 @@ console.log("== PHASE A: the product face ==");
     "the wipe card's real control is a keyboard-accessible range input");
   must(comp.includes('side-by-side') && comp.includes('show more'),
     "both views and the paging door exist");
+  must(comp.includes('unpaired') && comp.includes('no original'),
+    "an unpaired card speaks its absence (t543 — no fake original half, no one-image wipe)");
 
   const lazy = readFileSync(`${ROOT}/src/components/workflow/results/results-lazy.tsx`, "utf8");
   must(lazy.includes('DenoiseCompareGallery'), "the lazy barrel carries the chunk");

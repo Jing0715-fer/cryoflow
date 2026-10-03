@@ -76,13 +76,15 @@ function WipeCard({
       >
         <MrcImage src={originalSrc} alt={`${alt} (original)`} className="absolute inset-0 h-full rounded-none border-0" />
       </div>
-      {/* divider line + grip — the range input's face */}
+      {/* divider line + grip — the range input's face. The grip carries a
+          fuchsia halo while the card's invisible range control owns focus:
+          the keyboard user must see WHICH divider the arrows are scrubbing. */}
       <div
         className="pointer-events-none absolute inset-y-0 w-px bg-white/80 shadow-[0_0_6px_rgba(255,255,255,0.45)]"
         style={{ left: `${pos}%` }}
         aria-hidden="true"
       >
-        <span className="absolute left-1/2 top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-zinc-950/70 backdrop-blur-sm">
+        <span className="absolute left-1/2 top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-zinc-950/70 backdrop-blur-sm transition-shadow group-focus-within:shadow-[0_0_0_3px_rgba(232,121,249,0.4)]">
           <Wand2 className="h-2.5 w-2.5 text-white" aria-hidden="true" />
         </span>
       </div>
@@ -109,6 +111,7 @@ function WipeCard({
         step={1}
         value={pos}
         aria-label={`Wipe original / denoised for ${alt}`}
+        aria-valuetext={`${pos}% original · ${100 - pos}% denoised`}
         onChange={(e) => setPos(Number(e.target.value))}
         className="absolute inset-0 h-full w-full cursor-ew-resize appearance-none bg-transparent opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-fuchsia-400"
       />
@@ -215,34 +218,54 @@ export function DenoiseCompareGallery({
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {pairs.slice(0, shown).map((p) => (
           <figure key={p.name} data-denoise-card="" className="space-y-1">
-            {mode === "wipe" && p.denoised && p.original ? (
-              <WipeCard
-                denoisedSrc={pngUrl(jobId, p.denoised)}
-                originalSrc={pngUrl(p.originalJobId ?? jobId, p.original)}
-                alt={p.name}
-              />
+            {p.denoised && p.original ? (
+              mode === "wipe" ? (
+                <WipeCard
+                  denoisedSrc={pngUrl(jobId, p.denoised)}
+                  originalSrc={pngUrl(p.originalJobId ?? jobId, p.original)}
+                  alt={p.name}
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="space-y-0.5">
+                    <MrcImage
+                      src={pngUrl(p.originalJobId ?? jobId, p.original)}
+                      alt={`${p.name} (original)`}
+                      className="aspect-square"
+                    />
+                    <figcaption className="text-center font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
+                      original
+                    </figcaption>
+                  </div>
+                  <div className="space-y-0.5">
+                    <MrcImage
+                      src={pngUrl(jobId, p.denoised)}
+                      alt={`${p.name} (denoised)`}
+                      className="aspect-square"
+                    />
+                    <figcaption className="text-center font-mono text-[9px] uppercase tracking-wider text-fuchsia-600/80">
+                      denoised
+                    </figcaption>
+                  </div>
+                </div>
+              )
             ) : (
-              <div className="grid grid-cols-2 gap-1.5">
-                <div className="space-y-0.5">
-                  <MrcImage
-                    src={pngUrl(p.originalJobId ?? jobId, p.original ?? p.denoised ?? "")}
-                    alt={`${p.name} (original)`}
-                    className="aspect-square"
-                  />
-                  <figcaption className="text-center font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
-                    original
-                  </figcaption>
-                </div>
-                <div className="space-y-0.5">
-                  <MrcImage
-                    src={pngUrl(jobId, p.denoised ?? p.original ?? "")}
-                    alt={`${p.name} (denoised)`}
-                    className="aspect-square"
-                  />
-                  <figcaption className="text-center font-mono text-[9px] uppercase tracking-wider text-fuchsia-600/80">
-                    denoised
-                  </figcaption>
-                </div>
+              /* unpaired — an absence must never masquerade as a presence:
+                 no original means NO original-labeled half and NO divider
+                 (a wipe over one image is a lie); the tile speaks alone
+                 under the amber badge the header chip already taught. */
+              <div className="relative">
+                <MrcImage
+                  src={pngUrl(jobId, p.denoised ?? p.original ?? "")}
+                  alt={`${p.name} (denoised, unpaired)`}
+                  className="aspect-square"
+                />
+                <span
+                  className="pointer-events-none absolute left-1.5 top-1.5 rounded-sm bg-amber-950/70 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-amber-200 backdrop-blur-sm"
+                  title="no readable input star — the run consumed it before this view existed, or the provider's outputs left this machine"
+                >
+                  no original
+                </span>
               </div>
             )}
             <figcaption
