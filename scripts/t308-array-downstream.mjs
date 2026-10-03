@@ -57,6 +57,11 @@ const SH = {
 const SHJ = { ...SH, "Content-Type": "application/json" };
 const CONN = "qa-t308-downstream";
 const MICS = 12; // 12 micrographs: 4/shard at shards=3, 6/shard at shards=2
+// t538 — the fixture's same-source physics constant: one 512² LoG-band blob
+// per micrograph → the REAL relion_autopick picks exactly one per mic (the
+// t266 precedent) → the real extract writes one particle stack row per mic.
+// Every count assertion derives from this, never from a fake formula.
+const PICKS_PER_MIC = 1;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function pollUntil(fn, deadlineMs, intervalMs = 1500) {
@@ -311,11 +316,30 @@ try {
   console.log("== PHASE C1: pick in 3 shards, extract in 2 ==");
   const micsDir = `${ROOT}/data/relion/t308-array/mics`;
   mkdirSync(micsDir, { recursive: true });
-  for (let i = 1; i <= MICS; i++) {
-    execSync(
-      `node -e "const fs=require('fs');const b=Buffer.alloc(1024+64,0);b.write('mrc ',208);b.writeInt32LE(64,0);b.writeInt32LE(64,4);b.writeInt32LE(1,8);b.writeInt32LE(0,16);b.writeInt32LE(4,92);fs.writeFileSync('${micsDir}/mic-${String(i).padStart(2, "0")}.mrc',b)"`,
-      { cwd: ROOT, stdio: "pipe" }
-    );
+  // t538 — the t266 recipe (see t307's block for the full argument): the
+  // 64² toys gave the REAL LoG nothing to pick and the array cascade died
+  // of starvation. 512² float32, ONE dark Gaussian blob per micrograph
+  // (sigma 40 px — inside the LoG diameter band) → real picks, one per mic.
+  {
+    const W = 512, H = 512, SIGMA = 40, AMP = -1.0;
+    for (let i = 1; i <= MICS; i++) {
+      const buf = Buffer.alloc(1024 + W * H * 4);
+      buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
+      buf.writeInt32LE(2, 12); // mode 2 = float32
+      buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
+      buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
+      buf.write("MAP ", 208, "ascii");
+      buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
+      const bx = 256, by = 256; // one blob, centered — exactly one real pick per micrograph
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const dx = x - bx, dy = y - by;
+          const v = Math.sin((x + y) / 31) * 0.03 + AMP * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+          buf.writeFloatLE(v, 1024 + (y * W + x) * 4);
+        }
+      }
+      writeFileSync(path.join(micsDir, `mic-${String(i).padStart(2, "0")}.mrc`), buf);
+    }
   }
   const a0 = await mkJob({ type: "import", name: "t308 Import A0", params: { micrographsPath: micsDir, pixelSize: 1.77 }, x: 80, y: 80 });
   remoteWorkdirs.push(`/projects/cryoflow/${a0.projectId}/import_${a0.id.slice(-8)}`);
@@ -366,11 +390,10 @@ try {
   const rec2b = stateRuns()[e2.id];
   must(rec2b?.done === true && rec2b?.exitCode === 0, `E2: the record finalized done/exit 0 (exit ${rec2b?.exitCode})`);
   // the merged star's honesty (t307's own witnesses, replayed as the setup):
-  // expected rows from the fake's per-mic formula (n = index WITHIN a
-  // shard's slice — 6 mics per shard here), stacks all on disk, zero ../
-  const perMic = (n) => 8 + ((n * 2) % 5);
-  const perShard = 6;
-  const expectRows = 2 * Array.from({ length: perShard }, (_, i) => perMic(i + 1)).reduce((a, b) => a + b, 0);
+  // t538 — the rows are the REAL extract's: one blob per micrograph → one
+  // real LoG pick per mic → one extracted particle per mic, whatever the
+  // shard width. The fake's per-mic formula died with the stub era.
+  const expectRows = MICS * PICKS_PER_MIC;
   const mergedLocal = rec2b?.outputs?.particles_star;
   let mergedRowsTxt = "";
   let mergedRows = -1;
@@ -394,7 +417,14 @@ try {
   console.log("== PHASE C2: class2d consumes the merged star on the cluster ==");
   const c3 = await mkJob({
     type: "class2d", name: "t308 Class2D C3",
-    params: { numClasses: 4, iterations: 3 },
+    // t538 — doCtf:false is a LEGAL workflow choice (the t263 use_given_ps
+    // precedent): this chain is import → autopick → extract — no CTF leg
+    // upstream, so the particles star carries no CTF columns and the REAL
+    // relion_refine (first on the mock's PATH since t530) would die at
+    // startup claiming CTF data that was never estimated. The t352 GUI
+    // parity param drops --ctf from the argv exactly as the RELION GUI's
+    // own toggle does.
+    params: { numClasses: 4, iterations: 3, doCtf: false },
     x: 860, y: 80,
   });
   remoteWorkdirs.push(`/projects/cryoflow/${c3.projectId}/class2d_${c3.id.slice(-8)}`);

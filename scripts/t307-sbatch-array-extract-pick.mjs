@@ -76,6 +76,12 @@ const SH = {
 const SHJ = { ...SH, "Content-Type": "application/json" };
 const CONN = "qa-t307-array-pick";
 const MICS = 12; // 12 micrographs: 4/shard at shards=3, 6/shard at shards=2
+// t538 — the fixture's same-source physics constant: one 512² LoG-band blob
+// per micrograph → the REAL relion_autopick picks exactly one per mic (the
+// t266 precedent: every blob hits exactly once) → the real extract writes
+// exactly one particle per micrograph. Every count assertion derives from
+// this — the pin is the physics' honest byte count, never a fake formula.
+const PICKS_PER_MIC = 1;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function pollUntil(fn, deadlineMs, intervalMs = 1500) {
@@ -321,11 +327,35 @@ try {
   console.log("== PHASE C: the live loop ==");
   const micsDir = `${ROOT}/data/relion/t307-array/mics`;
   mkdirSync(micsDir, { recursive: true });
-  for (let i = 1; i <= MICS; i++) {
-    execSync(
-      `node -e "const fs=require('fs');const b=Buffer.alloc(1024+64,0);b.write('mrc ',208);b.writeInt32LE(64,0);b.writeInt32LE(64,4);b.writeInt32LE(1,8);b.writeInt32LE(0,16);b.writeInt32LE(4,92);fs.writeFileSync('${micsDir}/mic-${String(i).padStart(2, "0")}.mrc',b)"`,
-      { cwd: ROOT, stdio: "pipe" }
-    );
+  // t538 — the t266 recipe: the stub-era 64² toy micrographs gave the REAL
+  // relion_autopick nothing to pick (LoG's default diameter band 150–180 Å
+  // = 85–102 px at 1.77 Å is wider than the whole toy), the coords shards
+  // came home empty and the cascade starved. 512² float32 with ONE dark
+  // Gaussian blob per micrograph (sigma 40 px — in the LoG band, the t266
+  // physics that picked 36/36) → real picks, one per micrograph, and the
+  // array split's shards carry real rows. PICKS_PER_MIC is the same-source
+  // constant the count assertions derive from (the t537 D5 law: the pin is
+  // the physics' honest byte count, never a literal).
+  {
+    const W = 512, H = 512, SIGMA = 40, AMP = -1.0;
+    for (let i = 1; i <= MICS; i++) {
+      const buf = Buffer.alloc(1024 + W * H * 4);
+      buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
+      buf.writeInt32LE(2, 12); // mode 2 = float32
+      buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
+      buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
+      buf.write("MAP ", 208, "ascii");
+      buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
+      const bx = 256, by = 256; // one blob, centered — exactly one real pick per micrograph
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const dx = x - bx, dy = y - by;
+          const v = Math.sin((x + y) / 31) * 0.03 + AMP * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+          buf.writeFloatLE(v, 1024 + (y * W + x) * 4);
+        }
+      }
+      writeFileSync(path.join(micsDir, `mic-${String(i).padStart(2, "0")}.mrc`), buf);
+    }
   }
   const a0 = await mkJob({ type: "import", name: "t307 Import A0", params: { micrographsPath: micsDir, pixelSize: 1.77 }, x: 80, y: 80 });
   const runA0 = await fetch(`${BASE}/api/jobs/${a0.id}/run`, { method: "POST", headers: SHJ, body: "{}" });
@@ -361,9 +391,15 @@ try {
   );
   must(
     script1.includes('mkdir -p') && script1.includes("/micrographs") &&
+      // t538 — the REAL dialect rides the script: the gather reads the input
+      // star's _rlnMicrographName column and copies the pick stars home from
+      // the input rows' own dirs (autopicker.cpp:3368 — next to the mic)
+      script1.includes("_rlnMicrographName") &&
+      /for __d in \$\(awk/.test(script1) &&
+      // the legacy shard-dir scan stays (the fake's odir/micrographs dialect)
       /cp "[^"]*\/shard_\$__k"\/micrographs\/\*_autopick\.star "[^"]*\/micrographs\/" 2>\/dev\/null/.test(script1) &&
       script1.includes("-ge 3"),
-    "C1: the count gate's merge is the coords COLLECTION (mkdir micrographs + cp the per-mic stars home)"
+    "C1: the count gate's merge is the coords COLLECTION — the REAL gather (input-row dirs, autopicker.cpp:3368) + the legacy shard scan + the count gate"
   );
   const taskRow1 = await pollUntil(() => {
     const w = journalWord(`${sId1}_1`);
@@ -386,7 +422,7 @@ try {
   );
   must(
     typeof rec1b?.result === "string" && rec1b.result.includes(`across ${MICS} micrographs`),
-    `C1: the record's result counts ALL ${MICS} micrographs (${String(rec1b?.result).slice(0, 60)})`
+    `C1: the record's result counts ALL ${MICS} micrographs (${String(rec1b?.result).slice(0, 160)})`
   );
   const micStars = client(
     `ls /projects/cryoflow/${c1.projectId}/autopick_${c1.id.slice(-8)}/micrographs/ 2>/dev/null | grep -c '_autopick\\.star'`
@@ -466,11 +502,11 @@ try {
   );
   // the deep honesty witness: the merged star's rows reference extra/… (no
   // ../ survives) AND every referenced stack EXISTS relative to the star.
-  // Expected rows, computed from the fake's own per-mic formula (n = the
-  // index WITHIN a shard's slice — 6 mics per shard here): shards × Σ per(n).
-  const perMic = (n) => 8 + ((n * 2) % 5);
-  const perShard = 6; // 12 mics / 2 shards
-  const expectRows = 2 * Array.from({ length: perShard }, (_, i) => perMic(i + 1)).reduce((a, b) => a + b, 0);
+  // t538 — the rows are the REAL extract's: one blob per micrograph → one
+  // real LoG pick per micrograph → one extracted particle per micrograph,
+  // whatever the shard width. The old fake's per-mic formula died with the
+  // stub era — the pin derives from the fixture's physics, not from it.
+  const expectRows = MICS * PICKS_PER_MIC;
   const mergedLocal = rec2b?.outputs?.particles_star;
   let mergedRows = -1;
   let slashDotDot = -1;
@@ -496,6 +532,15 @@ try {
     mergedRows === expectRows,
     `C2: the merged particles.star lists ALL ${expectRows} particles across ${MICS} mics (got ${mergedRows} in ${mergedLocal ?? "no file"})`
   );
+  if (mergedRows !== expectRows && mergedRows > 0) {
+    // t538 — the physics' own word: the real LoG's pick count per blob is
+    // the fixture's ground truth, so a mismatch prints the actual rows'
+    // stack names (the shard split + per-mic identity in one glance)
+    const rows = starDataRows(readFileSync(mergedLocal, "utf8")).filter((l) => l.includes("@"));
+    console.log(`  (diag) first rows: ${rows.slice(0, 3).join(" | ")}`);
+    const mics = new Set(rows.map((l) => l.split("@")[1].split("/").pop().replace(/_extract\.mrcs$/, "")));
+    console.log(`  (diag) distinct stacks: ${mics.size} — rows/stack: ${(mergedRows / Math.max(1, mics.size)).toFixed(2)}`);
+  }
   must(
     slashDotDot === 0,
     `C2: NO ../ survives the merge (got ${slashDotDot} shard-relative rows)`
@@ -545,11 +590,11 @@ try {
   must(done3 === "completed", `C3: the plain run completed (got ${done3 ?? "still running"})`);
   const rec3b = stateRuns()[c3.id];
   const local3 = rec3b?.outputs?.particles_star;
-  // the unsplit fake counts per-mic n over ALL 12 micrographs (not per-shard)
-  const expectUnsplit = Array.from({ length: MICS }, (_, i) => perMic(i + 1)).reduce((a, b) => a + b, 0);
+  // t538 — the unsplit run extracts the SAME physics: one real pick per mic
+  const expectUnsplit = MICS * PICKS_PER_MIC;
   must(
     !!local3 && existsSync(local3) && starDataRows(readFileSync(local3, "utf8")).filter((l) => l.includes("@")).length === expectUnsplit,
-    `C3: the unsplit run's star lists all ${expectUnsplit} particles with the fake's own extra/ paths`
+    `C3: the unsplit run's star lists all ${expectUnsplit} particles with the real extract's extra/ paths`
   );
 
   // ---- C4: the honest refusal — ineligible type + shards ---------------------
