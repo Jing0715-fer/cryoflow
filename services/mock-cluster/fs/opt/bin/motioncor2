@@ -1,7 +1,127 @@
 #!/usr/bin/env python3
-"""Mock MotionCor2 (the external relion_run_motioncorr wraps). The mock
-flow never execs it directly — it exists so the t264 probe inventory finds
-motioncor2 on the cluster and the argv carries a CLUSTER path."""
+"""Mock MotionCor2 — the t535 contract shim (the real binary's own extern).
+
+Since t530 the REAL relion_run_motioncorr (/home/z/relion-build/bin leads
+MOCK_PATH) wins over the python stubs, and it invokes MotionCor2 PER MOVIE,
+then reads back what it asked for. The pre-t535 stub printed a line and
+wrote nothing, so every MotionCor2-lane run died: the dose-weighting rename
+(<OutMrc>_DW.mrc onto <OutMrc>) failed, and the runner's per-movie leg
+returned false. The t533 doctrine: the mock learns the real pieces it
+lacks, at the deepest layer the real binary calls.
+
+Contract, line-verified against motioncorr_runner.cpp (the built 5.0.0):
+
+  invocation (:562-639, one per movie, stdout redirected by the runner):
+    <exe> -InMrc <movie> -OutMrc <sum> -LogFile <root> -Bft <f> -PixSize <f>
+          -Patch <x> <y> [-Group n] [-Gain g] [-Throw n] -FmRef 0 [-Trunc n]
+          [-FtBin f] [-Kv <v> -FmDose <d> -InitDose <e>] [-DefectFile/-DefectMap]
+          [-SplitSum 1] [-ArcDir d] [extra args] -Gpu <i>
+    (the runner appends ` >> <sum>.out 2>> <sum>.err` — our stdout IS the
+     shift log the runner later parses)
+
+  what the runner reads back (:644-683):
+    - the sum at -OutMrc exists; with dose weighting (-Kv rode) the runner
+      DELETES the non-DW sum (or renames it to _noDW.mrc when the user opted
+      out of dose-weighted output) and RENAMES <OutMrc>_DW.mrc onto <OutMrc>
+      — the _DW twin MUST exist or the rename fails and the movie fails
+    - the .out shift log is OPTIONAL (getShiftsMotioncor2:709 tolerates an
+      unreadable file) — but speaking costs nothing and honest zero motion
+      beats silence
+
+  what we write:
+    <OutMrc>       single-section sum, dims from the movie header, data =
+                   the movie's first frame (an honest "aligned average" of
+                   one frame — the alignment itself is the mock's fiction)
+    <OutMrc>_DW.mrc  the same bytes, ONLY when -Kv rode
+    stdout         one "Full-frame alignment shift" block with a final
+                   "shift: 0.000000 0.000000" line (the parser's dialect,
+                   :723-731)
+"""
+import os
 import sys
-print("cryoflow-mock motioncor2: frame alignment would happen here", " ".join(sys.argv[1:]))
-sys.exit(0)
+
+
+def die(msg):
+    sys.stderr.write("cryoflow-mock motioncor2: %s\n" % msg)
+    sys.exit(1)
+
+
+def main():
+    argv = sys.argv[1:]
+    opts = {}
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a.startswith("-"):
+            if i + 1 < len(argv) and not argv[i + 1].startswith("-"):
+                opts[a.lstrip("-")] = argv[i + 1]
+                i += 2
+                continue
+            opts[a.lstrip("-")] = ""
+        i += 1
+
+    src = opts.get("InMrc")
+    out = opts.get("OutMrc")
+    if not src or not os.path.exists(src):
+        die("cannot read input movie: %s" % src)
+    if not out:
+        die("no -OutMrc given")
+
+    # the movie's header: nx @0, ny @4, nz @8, mode @12 (int32 LE), data @1024
+    with open(src, "rb") as fh:
+        head = fh.read(1024)
+        import struct
+
+        nx, ny, nz, mode = struct.unpack("<iiii", head[0:16])
+        if mode != 2 or nx <= 0 or ny <= 0:
+            die("unsupported movie header (mode=%s nx=%s ny=%s)" % (mode, nx, ny))
+        frame_bytes = nx * ny * 4
+        first = fh.read(frame_bytes)
+    if len(first) < frame_bytes:
+        die("movie truncated: %s" % src)
+
+    def write_sum(path):
+        buf = bytearray(1024 + frame_bytes)
+        struct.pack_into("<i", buf, 0, nx)
+        struct.pack_into("<i", buf, 4, ny)
+        struct.pack_into("<i", buf, 8, 1)  # single-section sum
+        struct.pack_into("<i", buf, 12, 2)  # mode 2 = float32
+        struct.pack_into("<i", buf, 28, nx)
+        struct.pack_into("<i", buf, 32, ny)
+        struct.pack_into("<i", buf, 36, 1)
+        pix = 0.0
+        try:
+            pix = float(opts.get("PixSize", "0"))
+        except ValueError:
+            pix = 0.0
+        if pix <= 0:
+            pix = 1.0
+        struct.pack_into("<f", buf, 40, nx * pix)
+        struct.pack_into("<f", buf, 44, ny * pix)
+        struct.pack_into("<f", buf, 48, pix)
+        buf[208:212] = b"MAP "
+        buf[212:216] = bytes([0x44, 0x44, 0x47, 0x47])
+        buf[1024:] = first
+        with open(path, "wb") as fh:
+            fh.write(bytes(buf))
+
+    # the non-dose-weighted sum (the runner deletes it, or renames it to
+    # _noDW.mrc when save_noDW rode) — and, under dose weighting, the _DW
+    # twin the runner renames ONTO the -OutMrc path (:660-676)
+    write_sum(out)
+    if "Kv" in opts:
+        root = out[:-4] if out.endswith(".mrc") else out
+        write_sum(root + "_DW.mrc")
+
+    # the shift log dialect (the runner's stdout redirect lands here; the
+    # parser wants "Full-frame alignment shift" then "shift: dx dy" lines)
+    frames = nz if nz > 0 else 1
+    print("cryoflow-mock motioncor2: aligned %d frame(s) of %s" % (frames, os.path.basename(src)))
+    print("Full-frame alignment shift")
+    for f in range(frames):
+        print("frame %d: shift: 0.000000  0.000000" % (f + 1))
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
