@@ -818,13 +818,27 @@ function resolveCtffind(bridge: WslBridge | null): string | null {
  */
 function linkDirInto(target: string, linkPath: string): boolean {
   try {
-    if (existsSync(linkPath)) {
+    // t534 — OCCUPIED, not exists: a DANGLING symlink occupies linkPath
+    // while existsSync (which follows the target) reports false. Skipping
+    // the re-point on that shape made symlinkSync throw EEXIST and the
+    // WHOLE folder import silently degrade to absolute STAR rows — and
+    // absolute host rows are unreadable on any cluster whose fs root maps
+    // the project tree elsewhere (the mock's FS_ROOT; the user's mount
+    // layout generally): the real relion_autopick died with "Cannot read
+    // file /projects/…" and every suite that imports into a shared world
+    // failed since the real binaries landed (t530). lstat sees the link
+    // itself; the catch below then removes it and re-points.
+    const occupied = (() => {
+      try { lstatSync(linkPath); return true; } catch { return false; }
+    })();
+    if (occupied) {
       // a previous import may point elsewhere — re-point the link
       try {
         if (realpathSync(linkPath) === realpathSync(target)) return true;
         rmSync(linkPath, { force: true, recursive: true });
       } catch {
-        /* stale/broken link — remove and recreate below */
+        // dangling link: realpath THREW before anything was removed —
+        // remove it here, or the recreate below dies on EEXIST again
         try {
           rmSync(linkPath, { force: true, recursive: true });
         } catch {
