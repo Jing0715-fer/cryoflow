@@ -1665,6 +1665,13 @@ export const REMOTE_OUTPUT_CANDIDATES: Record<string, RemoteOutputCandidate[]> =
   ctffind: [{ key: "micrographs_ctf_star", exact: ["micrographs_ctf.star"] }],
   autopick: [
     { key: "coords_star", exact: ["autopick.star"], glob: "micrographs/*_autopick.star", pick: "first" },
+    // t535 — the real relion_autopick nests per-mic pick stars under the
+    // input row's own directories (see collectOutputs' autopick case): a
+    // project-relative corrected star's rows (motioncorr_x/micrographs/…)
+    // put them one and two levels deep. The exact/glob above keeps the
+    // stub-era dialect; these two speak the real binary's.
+    { key: "coords_star", glob: "*/*_autopick.star", pick: "first" },
+    { key: "coords_star", glob: "*/*/*_autopick.star", pick: "first" },
   ],
   topaztrain: [{ key: "topaz_model", exact: ["topaz_model.sav"], glob: "*.sav", pick: "first" }],
   // the denoise face writes one denoised index star per run — the output
@@ -8098,6 +8105,33 @@ function classDistributionFromData(
   }
 }
 
+/**
+ * t535 — every *_autopick.star under the workdir, depth-bounded, sorted:
+ * the real relion_autopick nests per-mic pick stars under the input row's
+ * own directories (decomposePipelineFileName strips only <Type>/jobNNN/
+ * prefixes, and this engine's hash-named workdirs never match), so the
+ * stub-era flat micrographs/ scan saw none of them.
+ */
+function listPerMicPickStars(workdir: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string, depth: number) => {
+    if (depth > 3) return;
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p, depth + 1);
+      else if (/_autopick\.star$/.test(e.name)) out.push(p);
+    }
+  };
+  walk(workdir, 0);
+  return out.sort();
+}
+
 function countStarRows(starPath: string): number {
   try {
     const blocks = parseStarBlocks(readFileSync(starPath, "utf8"));
@@ -8162,23 +8196,39 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
       // The first one is the chainable coords output (Extract knows the
       // _autopick.star suffix convention); the combined pickname star, when
       // present, only mirrors them.
-      const perMic = globOne(path.join(workdir, "micrographs"), /_autopick\.star$/);
+      // t535 — the REAL relion_autopick decomposes the input row through
+      // decomposePipelineFileName (autopicker.cpp:4010-4015): a pipeliner
+      // row (MotionCorr/job002/mic.mrc) strips to a FLAT name, but this
+      // engine's project-relative rows (motioncorr_x/micrographs/mic.mrc)
+      // do NOT match the <Type>/jobNNN/ pattern and nest verbatim under the
+      // odir — <workdir>/motioncorr_x/micrographs/mic_01_autopick.star. The
+      // stub-era flat scan found none of them ("6 particles picked across 0
+      // micrographs"). Walk the workdir (bounded depth) instead of
+      // assuming one flat directory.
+      const perMicAll = listPerMicPickStars(workdir);
+      const perMic = perMicAll[0] ?? globOne(path.join(workdir, "micrographs"), /_autopick\.star$/);
       const star = firstExisting(workdir, ["autopick.star"]) ?? perMic;
       if (star) {
         outputs.coords_star = perMic ?? star;
         // count picks across all per-mic stars for the result message
         let picks = 0;
         let mics = 0;
-        try {
-          for (const f of readdirSync(path.join(workdir, "micrographs"))) {
-            if (!/_autopick\.star$/.test(f)) continue;
-            mics++;
-            picks += countStarRows(path.join(workdir, "micrographs", f));
-          }
-        } catch {
-          /* non-fatal: star may be the combined file */
-          picks = countStarRows(star);
+        for (const f of perMicAll) {
+          mics++;
+          picks += countStarRows(f);
         }
+        if (mics === 0) {
+          try {
+            for (const f of readdirSync(path.join(workdir, "micrographs"))) {
+              if (!/_autopick\.star$/.test(f)) continue;
+              mics++;
+              picks += countStarRows(path.join(workdir, "micrographs", f));
+            }
+          } catch {
+            /* non-fatal: star may be the combined file */
+          }
+        }
+        if (mics === 0) picks = countStarRows(star);
         result = `REAL: ${picks} particles picked across ${mics} micrographs`;
       }
       break;

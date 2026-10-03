@@ -114,26 +114,62 @@ def train(argv):
 def extract(argv):
     """Topaz extract: predict coordinates with a trained model.
 
-    The mock's honest answer: the contract's SHAPE without a CNN — `x y`
-    coordinate lines exactly like real topaz's output, so RELION's parsing
-    stays fed.
+    t535 — the REAL relion_autopick's contract (autopicker.cpp
+    autoPickTopazOneMicrograph): it preprocesses the micrograph itself into
+    <odir>proc/rank<N>.mrc, runs `<topaz_exe> extract … -o
+    <odir>proc/rank<N>.txt <odir>proc/rank<N>.mrc`, and reads the -o FILE
+    back with readTopazCoordinates — a first header line carrying at least
+    three columns named x_coord / y_coord / score, then one row per pick.
+    The pre-t535 face printed bare `x y` lines to STDOUT, so the real
+    binary died "readTopazCoordinate ERROR: Cannot open input file …
+    proc/rank000000.txt" (t264's C5). The mock writes the file now, with
+    picks placed on a fixed lattice inside the image's own dims (read from
+    the mrc header — no CNN, but an honest in-bounds answer).
     """
-    nr = 40
+    import struct
+
+    out_file = None
+    src = None
     i = 0
     while i < len(argv):
-        if argv[i] in ("-n", "--nr-particles") and i + 1 < len(argv):
-            try:
-                nr = max(1, int(float(argv[i + 1])))
-            except ValueError:
-                nr = 40
+        a = argv[i]
+        if a == "-o" and i + 1 < len(argv):
+            out_file = argv[i + 1]
             i += 2
             continue
+        if a in ("-n", "--nr-particles") and i + 1 < len(argv):
+            i += 2
+            continue
+        if not a.startswith("-") and src is None:
+            src = a
         i += 1
+
+    if out_file is None:
+        sys.stderr.write("cryoflow-mock topaz extract: no -o output file given\n")
+        return 1
+
+    # the processed micrograph's dims (nx @0, ny @4, mode @12 — int32 LE)
+    nx, ny = 512, 512
+    if src and os.path.exists(src):
+        try:
+            with open(src, "rb") as fh:
+                head = fh.read(1024)
+                nx, ny = struct.unpack("<ii", head[0:8])
+        except Exception:
+            pass
+    if nx <= 0 or ny <= 0:
+        nx, ny = 512, 512
+
+    # a deterministic lattice of picks, in-bounds, with descending scores —
+    # the shape RELION parses, the physics the mock can honestly afford
+    nr = 24
+    lines = ["x_coord\ty_coord\tscore"]
     for k in range(nr):
-        x = 64 + (k * 37) % 384
-        y = 64 + (k * 53) % 384
-        print(f"{x} {y}")
-    sys.stdout.flush()
+        x = int(nx * (0.1 + 0.8 * ((k * 7) % 10) / 9.0))
+        y = int(ny * (0.1 + 0.8 * ((k * 13) % 10) / 9.0))
+        lines.append("%d\t%d\t%.4f" % (x, y, 1.0 - k / float(nr)))
+    with open(out_file, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
     return 0
 
 
