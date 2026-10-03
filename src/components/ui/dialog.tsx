@@ -101,15 +101,28 @@ function useCompanionWindow(): () => void {
  * a live summon door (same exemption, smaller surface), or a SIBLING
  * surface (t503 — another dialog/sheet layer that shares the screen).
  * Radix's outside handlers receive the custom event dispatched ON the
- * original target, so .target is the real pointerdown/focus/keydown spot. */
-function isFromLiveZone(event: Event): boolean {
+ * original target, so .target is the real pointerdown/focus/keydown spot.
+ *
+ * `self` — the CURRENT dialog's own content node (t530). The sibling
+ * selector matches [data-slot="dialog-content"] — which is ALSO this
+ * dialog itself. Without the self check, a keydown whose target lives
+ * inside the dialog's own content (the normal state: Radix parks focus
+ * in the content, and the shortcuts dialog's filter input is focused
+ * on open) marks the dialog's OWN Escape as "from a sibling" and the
+ * guard swallows it — the dialog could never be Esc-closed while its
+ * content had focus (t246's "Esc closes the dialog" went real-fail on
+ * exactly this). Sibling means OTHER; self is exempt. */
+function isFromLiveZone(event: Event, self?: Element | null): boolean {
   const target = event.target
-  return (
-    target instanceof Element &&
-    target.closest(
-      `${COMPANION_WINDOW_SELECTOR}, ${DIALOG_LIVE_SELECTOR}, ${SIBLING_SURFACE_SELECTOR}`
-    ) != null
+  if (!(target instanceof Element)) return false
+  const zone = target.closest(
+    `${COMPANION_WINDOW_SELECTOR}, ${DIALOG_LIVE_SELECTOR}, ${SIBLING_SURFACE_SELECTOR}`
   )
+  if (zone == null) return false
+  // the zone is ME (or a dialog I live inside): my own keypress must
+  // still dismiss me — hand it back to Radix unprevented.
+  if (self && self.contains(zone)) return false
+  return true
 }
 
 /**
@@ -126,11 +139,14 @@ function isFromLiveZone(event: Event): boolean {
  * dialog under it.
  */
 function companionGuard<E extends Event>(
-  handler: ((event: E) => void) | undefined
+  handler: ((event: E) => void) | undefined,
+  selfRef?: { readonly current: Element | null }
 ): (event: E) => void {
+  // the ref read lives inside the RETURNED event handler — it executes at
+  // keydown time (Radix's capture listener), never during render
   return (event) => {
     handler?.(event)
-    if (!event.defaultPrevented && isFromLiveZone(event)) {
+    if (!event.defaultPrevented && isFromLiveZone(event, selfRef?.current)) {
       event.preventDefault()
     }
   }
@@ -216,10 +232,16 @@ function DialogContent({
 }) {
   const companions = React.useContext(CompanionWindowsContext)
   const companionOpen = (companions?.count ?? 0) > 0
+  // t530 — this dialog's OWN content node, for the escape guard's self
+  // exemption: the sibling-surface selector also matches this very node,
+  // and without the exemption a keydown whose target lives inside the
+  // content (Radix parks focus here on open) swallows its own Escape.
+  const selfRef = React.useRef<HTMLDivElement | null>(null)
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
+        ref={selfRef}
         data-slot="dialog-content"
         className={cn(
           // t383 — max-h + overflow: on short viewports (the hosted preview
@@ -246,7 +268,10 @@ function DialogContent({
         onPointerDownOutside={companionGuard(onPointerDownOutside)}
         onInteractOutside={companionGuard(onInteractOutside)}
         onFocusOutside={companionGuard(onFocusOutside)}
-        onEscapeKeyDown={companionGuard(onEscapeKeyDown)}
+        /* t530 — the self exemption rides ONLY the escape guard: escape
+         * targets can be inside this dialog (focused content), while the
+         * outside guards' targets are outside by definition. */
+        onEscapeKeyDown={companionGuard(onEscapeKeyDown, selfRef)}
         /* t503 — click-to-front, the dialog's half of the window law:
          * while a companion window is open this dialog is a LIVE surface,
          * and the last-touched window leads. The assistant re-asserts
