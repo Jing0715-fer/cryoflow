@@ -44,8 +44,11 @@ import { cn } from "@/lib/utils";
 import exemptions from "@/lib/palette-exemptions.json";
 
 interface ShortcutRow {
-  /** key chips — split on spaces into individual <kbd>s */
-  keys: string;
+  /** key chips — split on spaces into individual <kbd>s. Optional: the
+   *  exemption rows may carry NO keyboard path by design (t532 — the
+   *  AI/storage/knock doors); the row then renders the honest
+   *  "no keyboard path" marker instead of chips. */
+  keys?: string;
   text: string;
 }
 
@@ -162,8 +165,13 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   },
 ];
 
-/** split "⌘/Ctrl K" into ["⌘/Ctrl", "K"] chips (combo atoms are space-free) */
-const toChips = (keys: string) => keys.split(" ").filter(Boolean);
+/** split "⌘/Ctrl K" into ["⌘/Ctrl", "K"] chips (combo atoms are space-free).
+ *  t532 — exemption rows may have NO keys field by design (the AI/storage/
+ *  knock doors are exempt precisely because no keyboard path reaches them);
+ *  a missing keys used to crash the WHOLE app shell here (undefined.split —
+ *  the client-side exception t532's dance #4 live-caught via t246's honest
+ *  FAIL). Empty chips now render the honest "no keyboard path" marker. */
+const toChips = (keys?: string) => (keys ?? "").split(" ").filter(Boolean);
 
 export function ShortcutsDialog() {
   const open = useWorkflowStore((s) => s.shortcutsOpen);
@@ -186,7 +194,7 @@ export function ShortcutsDialog() {
           ? g.rows.filter(
               (r) =>
                 r.text.toLowerCase().includes(q) ||
-                r.keys.toLowerCase().includes(q) ||
+                (r.keys ?? "").toLowerCase().includes(q) ||
                 g.label.toLowerCase().includes(q),
             )
           : g.rows,
@@ -272,26 +280,30 @@ export function ShortcutsDialog() {
                     <dl className="mt-2 space-y-1.5">
                       {g.rows.map((r) => (
                         <div
-                          key={r.keys}
+                          key={r.keys ?? r.text}
                           className="flex items-center justify-between gap-4 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/50"
                         >
                           <dd className="text-xs leading-relaxed text-muted-foreground">
                             {r.text}
                           </dd>
                           <dt className="flex shrink-0 items-center gap-1">
-                            {toChips(r.keys).map((chip, i) => (
-                              <kbd
-                                key={i}
-                                className={cn(
-                                  "rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold",
-                                  current
-                                    ? "border-primary/40 bg-primary/10 text-primary"
-                                    : "bg-muted text-foreground/80"
-                                )}
-                              >
-                                {chip}
-                              </kbd>
-                            ))}
+                            {toChips(r.keys).length > 0 ? (
+                              toChips(r.keys).map((chip, i) => (
+                                <kbd
+                                  key={i}
+                                  className={cn(
+                                    "rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold",
+                                    current
+                                      ? "border-primary/40 bg-primary/10 text-primary"
+                                      : "bg-muted text-foreground/80"
+                                  )}
+                                >
+                                  {chip}
+                                </kbd>
+                              ))
+                            ) : (
+                              <span className="text-[10px] italic text-muted-foreground/70">no keyboard path</span>
+                            )}
                           </dt>
                         </div>
                       ))}
