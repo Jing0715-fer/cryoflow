@@ -3148,7 +3148,26 @@ export function buildSbatchScript(args: {
       // not a star: every shard's per-micrograph coordinate stars move home
       // (names are per-micrograph, shards are disjoint, so nothing can
       // overwrite anything). collectOutputs globs exactly these.
+      //
+      // t538 — the REAL relion_autopick ignores --odir for its per-mic pick
+      // stars: autopicker.cpp:3368 writes `getOutputRootName(fn_mic) + "_" +
+      // fn_out + ".star"` — the pick star lands NEXT TO ITS INPUT MICROGRAPH
+      // (fn_odir receives only the summary autopick.star, summary.star and
+      // the logfile). The shard dirs therefore hold NOTHING to collect in
+      // the real dialect — every shard wrote its picks straight into the
+      // input rows' own directories (disjoint mics, so even concurrently
+      // they never collide). The gather reads the FULL input star's
+      // _rlnMicrographName column (the same file the slice awk reads — the
+      // column index is taken from the label order, not assumed 1), derives
+      // each row's directory IN AWK (portable dirname, "." for bare rows)
+      // and copies every pick star home from where the binary wrote it. The
+      // legacy shard-dir scan stays below: the mock fake's dialect
+      // (odir/micrographs/) still speaks it, and a gather that finds nothing
+      // must not leave the canonical dir empty when a fake did write there.
       L.push(`    mkdir -p ${shQuote(W + "/micrographs")}`);
+      L.push(
+        `    for __d in $(awk '/^data_/{inloop=0;next} /^loop_/{inloop=1;n=0;next} inloop&&/^_/{n++;if($1=="_rlnMicrographName")col=n;next} inloop&&col&&NF>0&&$1!~/^#/{p=$col;i=length(p);while(i>0&&substr(p,i,1)!="/")i--;if(i>1)print substr(p,1,i-1);else print "."}' ${shQuote(array.inputStar)} 2>/dev/null | sort -u); do cp "$__d"/*_autopick.star ${shQuote(W + "/micrographs/")} 2>/dev/null || true; done`
+      );
       L.push(`    for __k in $(seq 1 ${N}); do`);
       L.push(`      [ -d "${W}/shard_$__k/micrographs" ] && cp "${W}/shard_$__k"/micrographs/*_autopick.star "${W}/micrographs/" 2>/dev/null || true`);
       L.push(`    done`);
