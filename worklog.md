@@ -7100,3 +7100,28 @@ Stage Summary:
 - 「钉的本质是真实字节计数，不是字面 33」：fixture 与钉同源常量后，钉不再可能漂移
 - 产出：argv 全线项目相对化（relProjectPath/relWorkdir）+ selfContinueInArgv 相对方言 + array 检测器随行 + t537 活体探针 + t394 B2/D5 + 三枚钉迁移 + dance #18/#19 双 GREEN + 十套新 build 验证批
 - [下窗入口] ①t307/t308 fixture 物理化（t266 配方：512² 暗色 blob sigma 40px、LoG 带内、12 微图各恰一 blob）——两套的 C 相级联断言随真件产出逐条定谳；②t268/t264/t266/t273 新 build 复跑清账；③遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 对未就绪上游的契约灰区（t534 立案）。
+
+---
+Task ID: 538
+Agent: main (Z.ai Code, window 2026-10-03 21:38 cron)
+Task: t537 交接①「t307/t308 fixture 物理化」落地——两套件在真件时代首次 ALL PASS，途中活捉并修复四枚产品级病根（coords 收集的方言盲区、pick-star census 双计、merge 边界空行孤儿化 donor 行、staging 只比尺寸的伪幂等），主打②四套件新 build 复跑清账全绿。
+
+Work Log:
+- [开局] HEAD 3a362e4（t537 收官）对齐；available 2804>2600 GO 线、buff/cache 1654>1450 暖线、disk 72%。QA 基线三绿（prod :3000 200/3ms、tsc 0、eslint 0）+ agent-browser 冒烟（409 按钮、console 0）。摘要脑内的「Task 525 起编」已过时十三代——以 worklog 为准，本窗实为 Task 538。
+- [解剖定谳] 两套件 fixture 坐实 t537 判决：64² 单帧玩具微图（node -e 手写 64 字节 buffer）→ 真 relion_autopick 的 LoG 默认直径带（150–180Å=85–102px@1.77Å）比整张图还宽 → 拣 0 → 级联饿死。t307 自 t530 真件时代起从未跑过，其 P 相计数断言（perMic 假件公式 124 行）与真件方言的差距比 fixture 本身更深。
+- [实证方法论] 通读 autopicker.cpp/preprocess.cpp 真源 + 四次手跑真二进制探针（/tmp 探针台：MRC 铸造、--LoG 旗标、coord 方言、image_handler 统计）+ 趁套件运行中从 mock fs 偷 stack 字节验尸——「纸上推演到极限就上探针」是本窗的方法论底色。真件方言三条铁律：①per-mic pick star = fn_odir + 输入行目录 + <mic>_autopick.star（t307 原门方言对 rows 说 micrographs/ 的世界本来就是对的）；②preprocess 的 part_star 行说 CWD-项目相对方言（extract_x/micrographs/mic-XX.mrcs——无 ../、无 extra/、无 _extract 后缀，RELION-3 方言随假件退位），stack 落 part_dir + 行目录 + <mic>.mrcs 并伴 per-mic _extract.star 侧车；③真件 star 行是空格分隔（t409 whitespace 律在 extract 方言上再兑现——t307 的 tab 切分把整行尾当路径，词分裂后 .mrcs 与原 .mrc 各中一次，24/12 之谜）。
+- [交付① census 去重] t535 的深度 walk 数到了数组收集的双副本（canonical 12 + shard 原件 12 = 「24 particles across 24 micrographs」）——listPerMicPickStars 按 basename 去重（basename 即微图身份），sort 令正典副本存活。
+- [交付② merge 边界清扫] 真 part_star 尾部带一个空白行；RELION 的 loop 解析器把 data 块内的空白行当**静默块终止符**——donor-1 的尾空白把 merged data_particles 块关在 donor-2 的行之前，RELION 只摄入 6/12 粒 → σ² 下溢 → 「zero sum of weights」（ml_optimiser.cpp:8096）。沙盒逐字节复现后定谳；块间空行是承重的（拆掉则下一个 # version 头变 0 列行报错），清扫只落「夹在两行 data 之间」的空白。rows + star 两分支同装。
+- [交付③ staging mtime 幂等] 重导同尺寸不同字节（再生 fixture）永远追不上集群陈旧副本——六 blob fixture（同 1024+512²×4）首跑后 picks 仍说 (257,257) 老坐标。stageFileTree（文件+目录两支）与 stageStarWithRelinks 补 mtime 新鲜度半律：本地比远端新 1.5s+ 即重传。
+- [交付④ fixture 六 blob 网格] 单心 blob 先证 LoG 物理（12/12 恰一）但饿死 class2d 的噪声统计：≤2 粒/噪声组时功率和下溢为精确零（σ² 谱全 2^-62 级浮点残渣）→ 0/0 NaN → 全零权重——240 粒对照实验 exit=0 实证。改用 t266 六 blob 网格（sigma 40px，36/36 先例）→ 12 微图 × 6 = **72 真粒**，PICKS_PER_MIC=6 同源常量贯全部计数钉（t537 D5 律）。
+- [dance #20-#23 四磨] 每轮 commit → 1344 webpack → GREEN → prod :3000 复起 → 复跑。#20 上车 gate 修复、#21 census 去重、#22 边界清扫+六 blob、#23 mtime 幂等——守卫四连 GO（暖窗之夜，无 NO-GO）。
+- [验证批] **t307 ALL PASS**（72 picked across 12 micrographs、72 行合并、stack 存在性 72/12×6=72、无 ../、正典树 12 stacks、C3 对照 72 行、C4 拒绝词原样）；**t308 ALL PASS**（真 relion_refine 7-rank MPI 车道吃下 72 粒、「2D classification finished — 72 particles」、PROVENANCE 逐序保真——真 refine 不打乱输入行序）；清账四套 **t273/t264/t266/t268 全部 ALL PASS**（t537 交接②收官）；agent-browser 冒烟 409 按钮 console 0（截图 .qa-logs/t538-smoke-final.png）。
+- [未做与理由] class2d 结果句的「1 classes」解析小刺（真 refine 的 run_classes.mrcs 是 nz=4 的多切片栈，计数口径待定谳——断言未咬到，留池）；t293-slurm-submit 复活考古、t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 对未就绪上游的契约灰区（t534 立案）照旧挂池。
+
+Stage Summary:
+- 「stub 的方言是 RELION-3 的遗产，真件说的是 pipeliner 的话」：行相对 cwd、栈随行目录、无 extra 后缀——t535/t537 的相对化律在产出端第三次兑现，no absolute row, no ../ row can be born
+- 「数据块的空白行是 RELION 的块终止符」：一个 donor 尾空白孤儿化了六个真粒子——字节级验尸（cat -A）+ 沙盒复现是唯一证人；「幂等」只比尺寸是伪律，mtime 才是新鲜度的另一半
+- 「统计荒漠里 σ² 会下溢成零」：12 粒 6 组的玩具物理喂不饱真 EM 的噪声估计——fixture 的物理量（每微图几个粒子）不是测试装饰，是管线活下去的口粮
+- 「纸上推演到极限就上探针」：手跑真二进制、偷运行中的 stack 字节、逐字节 cat -A——本窗四枚病根全部由探针定谳，无一靠猜
+- 产出：t307/t308 真件时代 ALL PASS + census 去重 + merge 边界清扫 + staging mtime 幂等 + 六 blob 物理化 + 四套清账全绿 + 四磨全 GREEN
+- [下窗入口] ①class2d「N classes」计数口径定谳（真 refine 的 classes mrcs 多切片栈 vs 计数器）；②家族余批（t302/t303 等未在 roster 的）或按 t537 交接③ t293-slurm-submit 复活考古；③遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 契约灰区。
