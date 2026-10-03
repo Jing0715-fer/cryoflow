@@ -92,6 +92,7 @@ const stateRuns = () => {
 const createdJobs = [];
 const connIds = [];
 let fixtureProjectId = null;
+let prevActiveProjectId = null; // the canvas-borrowing law: restored in finally
 let weLaunchedMock = false;
 
 // fabricate one tiny but VALID mrc (t265's recipe — 64×64 float32)
@@ -243,7 +244,14 @@ try {
   }
   must(true, weLaunchedMock ? "the mock cluster was launched by this suite" : "the resident mock cluster is listening");
 
-  // C1 — the fixture project (active switches to it — the t410 discovery)
+  // C1 — the fixture project (active switches to it — the t410 discovery).
+  // The canvas-borrowing law (t543): remember the previous active id so the
+  // finally below can restore it — the next roster-expecting suite reads the
+  // ACTIVE project's world.
+  try {
+    const meta = JSON.parse(readFileSync(`${ROOT}/data/projects.json`, "utf8"));
+    prevActiveProjectId = typeof meta.active === "string" ? meta.active : null;
+  } catch { /* no ledger — nothing to restore */ }
   const proj = await api("POST", "/api/projects", { name: `t416 Denoise ${Date.now().toString(36)}` });
   must(proj.status === 201 || proj.status === 200, `the fixture project is created (${proj.status})`);
   fixtureProjectId = proj.body?.project?.id ?? proj.body?.id ?? null;
@@ -291,9 +299,12 @@ try {
   must(test.status === 200 && test.body?.ok === true, `the probe completes (ok=${test.body?.ok})`);
   const extMap = test.body?.probe?.externals?.["relion/5.0.1"] ?? {};
   must(
-    typeof extMap.topaz === "string" && extMap.topaz.includes("/opt/bin/relion_python_topaz"),
+    typeof extMap.topaz === "string" && extMap.topaz.includes("relion_python_topaz"),
     `the cluster's topaz is inventoried (${extMap.topaz ?? "absent"})`
   );
+  // (t543 — the pin speaks the essence, not a path: since t530 the REAL
+  // build's wrapper is first on MOCK_PATH and is what the probe honestly
+  // reports and what executes; the old /opt/bin pin was the pre-t530 shape.
 
   const dispatchRemote = async (jobId, label) => {
     const d = await api("POST", `/api/jobs/${jobId}/run`, {
@@ -388,6 +399,14 @@ try {
 } finally {
   // ---- the cleanup: only our own residue, the world's names protected ----
   try {
+    // the canvas goes back first (t543): restore the previous active project,
+    // then the empty fixture shell dies
+    if (prevActiveProjectId) {
+      await fetch(`${BASE}/api/projects/switch`, { method: "POST", headers: SH, body: JSON.stringify({ id: prevActiveProjectId }) }).catch(() => {});
+    }
+    if (fixtureProjectId) {
+      await fetch(`${BASE}/api/projects/${fixtureProjectId}`, { method: "DELETE", headers: SH }).catch(() => {});
+    }
     for (const id of [...createdJobs].reverse()) {
       await fetch(`${BASE}/api/jobs/${id}`, { method: "DELETE", headers: SH });
     }

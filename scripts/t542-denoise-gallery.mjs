@@ -78,6 +78,7 @@ const client = (cmd) =>
 const createdJobs = [];
 const connIds = [];
 let fixtureProjectId = null;
+let prevActiveProjectId = null; // the canvas-borrowing law: restored in finally
 let weLaunchedMock = false;
 
 // t265/t416's recipe — one tiny but VALID mrc (64×64 float32)
@@ -146,6 +147,15 @@ try {
     await sleep(2500);
   }
   must(true, weLaunchedMock ? "the mock cluster was launched by this suite" : "the resident mock cluster is listening");
+
+  // the canvas-borrowing law (t543): POST /api/projects ACTIVATES the new
+  // project, and every roster-expecting suite after us reads the ACTIVE
+  // project's world — so remember the borrower's previous active id from
+  // data/projects.json and restore it in the finally below.
+  try {
+    const meta = JSON.parse(readFileSync("/home/z/my-project/data/projects.json", "utf8"));
+    prevActiveProjectId = typeof meta.active === "string" ? meta.active : null;
+  } catch { /* no ledger — nothing to restore */ }
 
   const proj = await api("POST", "/api/projects", { name: `t542 Gallery ${Date.now().toString(36)}` });
   must(proj.status === 201 || proj.status === 200, `the fixture project is created (${proj.status})`);
@@ -273,7 +283,10 @@ console.log("== PHASE E: the face in the world ==");
   must((await section.locator('[data-denoise-card]').count()) === 6, "six cards on the first page");
   must((await section.locator('input[type="range"]').count()) === 6, "every wipe card carries its range control");
   must((await section.getByText("originals: t542 Import").count()) >= 1, "the provider badge names the import");
-  // the wipe responds to its control: scrub the first card's divider left
+  // the wipe responds to its control: scrub the first card's divider left.
+  // The card's pos IS the original's left band width — pos 15 renders
+  // clip-path inset(0 85% 0 0) (the ORIGINAL clipped over the denoised
+  // base), so the honest pin asserts the complement, not the raw value.
   const firstRange = section.locator('input[type="range"]').first();
   await firstRange.focus().catch(() => {});
   await firstRange.fill("15").catch(() => {});
@@ -281,7 +294,7 @@ console.log("== PHASE E: the face in the world ==");
   const clip = await section.locator('[data-denoise-card]').first()
     .locator("div[style*='clip-path']").first()
     .getAttribute("style").catch(() => "");
-  must(clip != null && /15%/.test(clip ?? ""), `the divider scrubs (clip-path "${(clip ?? "").slice(0, 46)}…")`);
+  must(clip != null && /85%/.test(clip ?? ""), `the divider scrubs (pos 15 → original band 15% → clip "${(clip ?? "").slice(0, 46)}…")`);
   // the toggle flips to two-up
   await section.locator("button").filter({ hasText: "side-by-side" }).first().click();
   await sleep(350);
@@ -294,6 +307,15 @@ console.log("== PHASE E: the face in the world ==");
   console.log(`  FAIL: unexpected: ${e?.message ?? e}`);
 } finally {
   try {
+    // the canvas goes back first: restore the previous active project so
+    // the next roster-expecting suite reads the world it expects, then the
+    // empty fixture shell dies (its jobs are already gone below)
+    if (prevActiveProjectId) {
+      await fetch(`${BASE}/api/projects/switch`, { method: "POST", headers: SH, body: JSON.stringify({ id: prevActiveProjectId }) }).catch(() => {});
+    }
+    if (fixtureProjectId) {
+      await fetch(`${BASE}/api/projects/${fixtureProjectId}`, { method: "DELETE", headers: SH }).catch(() => {});
+    }
     for (const id of [...createdJobs].reverse()) {
       await fetch(`${BASE}/api/jobs/${id}`, { method: "DELETE", headers: SH });
     }
