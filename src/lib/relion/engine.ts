@@ -8132,7 +8132,26 @@ function listPerMicPickStars(workdir: string): string[] {
     }
   };
   walk(workdir, 0);
-  return out.sort();
+  // t538 — the array split's coords collection leaves the SAME micrograph's
+  // pick star in TWO places: the shard's own micrographs/ dir (where the
+  // real relion_autopick writes it — fn_odir + the input row's dir) and the
+  // canonical micrographs/ dir the count gate gathered it into
+  // (byte-identical copies — one mic, one star, the t307 disjoint-shards
+  // law). Counting both doubled every number: "24 particles picked across
+  // 24 micrographs" for 12 mics, witnessed live on the t307 array run the
+  // night the fixtures went physical. Dedupe by basename — the basename IS
+  // the mic's identity — and the sort puts the canonical copy
+  // (micrographs/…) before any shard_… copy, so the survivor is the
+  // canonical one.
+  const seen = new Set<string>();
+  return out
+    .sort()
+    .filter((p) => {
+      const base = path.basename(p);
+      if (seen.has(base)) return false;
+      seen.add(base);
+      return true;
+    });
 }
 
 function countStarRows(starPath: string): number {
