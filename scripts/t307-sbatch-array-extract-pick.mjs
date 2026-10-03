@@ -76,12 +76,16 @@ const SH = {
 const SHJ = { ...SH, "Content-Type": "application/json" };
 const CONN = "qa-t307-array-pick";
 const MICS = 12; // 12 micrographs: 4/shard at shards=3, 6/shard at shards=2
-// t538 — the fixture's same-source physics constant: one 512² LoG-band blob
-// per micrograph → the REAL relion_autopick picks exactly one per mic (the
-// t266 precedent: every blob hits exactly once) → the real extract writes
-// exactly one particle per micrograph. Every count assertion derives from
-// this — the pin is the physics' honest byte count, never a fake formula.
-const PICKS_PER_MIC = 1;
+// t538 — the fixture's same-source physics constant: the t266 grid of SIX
+// dark LoG-band blobs per 512² micrograph → the REAL relion_autopick picks
+// exactly six per mic (the t266 precedent: 36/36, every blob hits exactly
+// once) → the real extract writes six particle rows per mic. Every count
+// assertion derives from this — the pin is the physics' honest byte count,
+// never a fake formula. SIX also keeps the class2d leg's per-group noise
+// statistics alive: with ≤2 particles per noise group the real
+// relion_refine's initial σ² estimate underflows to exact zero and every
+// EM weight dies (0/0 → "zero sum of weights", witnessed live).
+const PICKS_PER_MIC = 6;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function pollUntil(fn, deadlineMs, intervalMs = 1500) {
@@ -330,12 +334,12 @@ try {
   // t538 — the t266 recipe: the stub-era 64² toy micrographs gave the REAL
   // relion_autopick nothing to pick (LoG's default diameter band 150–180 Å
   // = 85–102 px at 1.77 Å is wider than the whole toy), the coords shards
-  // came home empty and the cascade starved. 512² float32 with ONE dark
-  // Gaussian blob per micrograph (sigma 40 px — in the LoG band, the t266
-  // physics that picked 36/36) → real picks, one per micrograph, and the
-  // array split's shards carry real rows. PICKS_PER_MIC is the same-source
-  // constant the count assertions derive from (the t537 D5 law: the pin is
-  // the physics' honest byte count, never a literal).
+  // came home empty and the cascade starved. 512² float32 with the t266
+  // grid of SIX dark Gaussian blobs per micrograph (sigma 40 px — in the
+  // LoG band, the t266 physics that picked 36/36) → real picks, six per
+  // micrograph, and the array split's shards carry real rows. PICKS_PER_MIC
+  // is the same-source constant the count assertions derive from (the t537
+  // D5 law: the pin is the physics' honest byte count, never a literal).
   {
     const W = 512, H = 512, SIGMA = 40, AMP = -1.0;
     for (let i = 1; i <= MICS; i++) {
@@ -346,11 +350,17 @@ try {
       buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
       buf.write("MAP ", 208, "ascii");
       buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-      const bx = 256, by = 256; // one blob, centered — exactly one real pick per micrograph
+      const bxby = [
+        [128, 128], [256, 128], [384, 128],
+        [128, 384], [256, 384], [384, 384],
+      ]; // the t266 grid — six blobs, each exactly one real LoG pick
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
-          const dx = x - bx, dy = y - by;
-          const v = Math.sin((x + y) / 31) * 0.03 + AMP * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+          let v = Math.sin((x + y) / 31) * 0.03; // faint ice-like background
+          for (const [bx, by] of bxby) {
+            const dx = x - bx, dy = y - by;
+            v += AMP * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+          }
           buf.writeFloatLE(v, 1024 + (y * W + x) * 4);
         }
       }
@@ -525,7 +535,13 @@ try {
     // so the paths resolve from the PROJECT ROOT, the same base every
     // submit-lane command runs from (the t316 law), not from the star's
     // own dir (the RELION-3 dialect the fake spoke).
-    const paths = rows.map((l) => l.split("@")[1].split("\t")[0]);
+    // t538 — the REAL relion star rows are SPACE-separated (the fake wrote
+    // tabs; the t409 law already knew the engine's own natives speak
+    // whitespace): the ImageName path is the FIRST token after the @, and a
+    // hard tab split swallows the whole line tail — the existence loop then
+    // word-splits it and counts the .mrcs AND the original .mrc (24 hits
+    // for 12 rows, witnessed live).
+    const paths = rows.map((l) => l.split("@")[1].trim().split(/\s+/)[0]);
     const projRoot = `/projects/cryoflow/${c2.projectId}`;
     // one loop, one counter — a bare `; list | grep -c` would pipe only the
     // LAST test (the shell's grammar), not the whole batch
@@ -544,7 +560,7 @@ try {
     // stack names (the shard split + per-mic identity in one glance)
     const rows = starDataRows(readFileSync(mergedLocal, "utf8")).filter((l) => l.includes("@"));
     console.log(`  (diag) first rows: ${rows.slice(0, 3).join(" | ")}`);
-    const mics = new Set(rows.map((l) => l.split("@")[1].split("/").pop().replace(/_extract\.mrcs$/, "")));
+    const mics = new Set(rows.map((l) => l.split("@")[1].trim().split(/\s+/)[0].split("/").pop().replace(/\.mrcs$/, "")));
     console.log(`  (diag) distinct stacks: ${mics.size} — rows/stack: ${(mergedRows / Math.max(1, mics.size)).toFixed(2)}`);
   }
   must(
@@ -605,7 +621,7 @@ try {
   const expectUnsplit = MICS * PICKS_PER_MIC;
   must(
     !!local3 && existsSync(local3) && starDataRows(readFileSync(local3, "utf8")).filter((l) => l.includes("@")).length === expectUnsplit,
-    `C3: the unsplit run's star lists all ${expectUnsplit} particles with the real extract's extra/ paths`
+    `C3: the unsplit run's star lists all ${expectUnsplit} particles with the real extract's project-relative stack rows`
   );
 
   // ---- C4: the honest refusal — ineligible type + shards ---------------------

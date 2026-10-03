@@ -57,11 +57,14 @@ const SH = {
 const SHJ = { ...SH, "Content-Type": "application/json" };
 const CONN = "qa-t308-downstream";
 const MICS = 12; // 12 micrographs: 4/shard at shards=3, 6/shard at shards=2
-// t538 — the fixture's same-source physics constant: one 512² LoG-band blob
-// per micrograph → the REAL relion_autopick picks exactly one per mic (the
-// t266 precedent) → the real extract writes one particle stack row per mic.
-// Every count assertion derives from this, never from a fake formula.
-const PICKS_PER_MIC = 1;
+// t538 — the fixture's same-source physics constant: the t266 grid of SIX
+// dark LoG-band blobs per 512² micrograph → the REAL relion_autopick picks
+// exactly six per mic (the t266 precedent) → the real extract writes six
+// particle rows per mic. SIX also keeps the class2d leg's per-group noise
+// statistics alive: with ≤2 particles per noise group the real
+// relion_refine's initial σ² estimate underflows to exact zero and every
+// EM weight dies (0/0 → "zero sum of weights", witnessed live).
+const PICKS_PER_MIC = 6;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function pollUntil(fn, deadlineMs, intervalMs = 1500) {
@@ -318,8 +321,10 @@ try {
   mkdirSync(micsDir, { recursive: true });
   // t538 — the t266 recipe (see t307's block for the full argument): the
   // 64² toys gave the REAL LoG nothing to pick and the array cascade died
-  // of starvation. 512² float32, ONE dark Gaussian blob per micrograph
-  // (sigma 40 px — inside the LoG diameter band) → real picks, one per mic.
+  // of starvation. 512² float32, the t266 grid of SIX dark Gaussian blobs
+  // per micrograph (sigma 40 px — inside the LoG band) → real picks, six
+  // per mic — enough particles per noise group for the real class2d to
+  // estimate a living σ².
   {
     const W = 512, H = 512, SIGMA = 40, AMP = -1.0;
     for (let i = 1; i <= MICS; i++) {
@@ -330,11 +335,17 @@ try {
       buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
       buf.write("MAP ", 208, "ascii");
       buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-      const bx = 256, by = 256; // one blob, centered — exactly one real pick per micrograph
+      const bxby = [
+        [128, 128], [256, 128], [384, 128],
+        [128, 384], [256, 384], [384, 384],
+      ]; // the t266 grid — six blobs, each exactly one real LoG pick
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
-          const dx = x - bx, dy = y - by;
-          const v = Math.sin((x + y) / 31) * 0.03 + AMP * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+          let v = Math.sin((x + y) / 31) * 0.03; // faint ice-like background
+          for (const [bx, by] of bxby) {
+            const dx = x - bx, dy = y - by;
+            v += AMP * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+          }
           buf.writeFloatLE(v, 1024 + (y * W + x) * 4);
         }
       }
