@@ -267,7 +267,11 @@ try {
     "B: the engine's class2d accepts particles_star from extract (the edge contract the chain rides)"
   );
   must(
-    src.includes("upstreamRemoteTwins.set(localTw.split(path.sep).join(\"/\"), remoteTw)") &&
+    // t540 — the pair-set grew provenance bookkeeping (the race gate's
+    // twinOrigin rides the same loop), so the pin speaks the variable now
+    // instead of the one-line literal (the t537 D5 law: the pin's essence
+    // is the pass-through contract, not the formatting).
+    src.includes("upstreamRemoteTwins.set(lk, remoteTw)") &&
       /if \(twin(Fresh)?\) continue;/.test(src),
     "B: the twin pass-through lets a downstream submission reference an upstream output BY CLUSTER PATH (zero re-upload)"
   );
