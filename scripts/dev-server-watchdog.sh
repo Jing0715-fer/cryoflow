@@ -74,8 +74,24 @@ LOG="$QA_LOG_DIR/dev-watchdog.log"
 # the kernel releases it at process death. Two keepers are now impossible
 # by construction, not by pattern-matching.
 exec 9>>"$QA_LOG_DIR/dev-watchdog.lock"
-if ! flock -n 9; then
-  echo "[$(date -u +%H:%M:%SZ)] another watchdog holds the lock — exiting (single-keeper law)" >> "$LOG"
+# t531 — the flock race law finally coded (t524 witness, pool item ⑤):
+# dev-server.sh's pkill path calls ensure_watchdog immediately after the
+# kill. If a DYING keeper still holds fd 9 (SIGTERM delivered, teardown in
+# flight — the kernel releases the lock only at process death), the fresh
+# instance's non-blocking flock fails and it exits: the old keeper finishes
+# dying, and the world is left with NO guardian — the exact "watchdog
+# 竞态补岗" hole the t524 window had to patch by re-invoking dev-server.sh
+# by hand. Remedy: bounded retry, 6 × 2.5s ≈ 15s — far longer than any
+# teardown, far shorter than an unguarded gap that matters. A lock still
+# held after 15s belongs to a LIVE keeper and the single-keeper law stands
+# (the retry then never loops forever against a healthy peer).
+lock_ok=0
+for _ in 1 2 3 4 5 6; do
+  if flock -n 9; then lock_ok=1; break; fi
+  sleep 2.5
+done
+if [ "$lock_ok" = 0 ]; then
+  echo "[$(date -u +%H:%M:%SZ)] lock held through 15s of retries — a live keeper holds it, exiting (single-keeper law)" >> "$LOG"
   exit 0
 fi
 
