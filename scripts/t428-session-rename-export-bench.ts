@@ -15,7 +15,7 @@
  *      handlers — cross-site 403s, body validation, the attachment
  *      headers, and the pinning law answering 404 at the HTTP layer.
  *
- * Run: bun scripts/t428-session-rename-export.ts
+ * Run: bun scripts/t428-session-rename-export-bench.ts
  */
 
 import { execSync } from "child_process";

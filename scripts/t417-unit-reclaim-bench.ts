@@ -1,6 +1,6 @@
 /**
  * t417 unit suite — the reclaim-target judgment (pure logic, no server,
- * no cluster). Run: bun run scripts/t417-unit-reclaim.ts
+ * no cluster). Run: bun run scripts/t417-unit-reclaim-bench.ts
  *
  * These cover the parts of DELETE /api/projects/[id] where a bug EATS
  * DATA: the traversal guard, the one-segment-deep local root, the

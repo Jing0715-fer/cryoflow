@@ -13,7 +13,7 @@
  * D9 (matchIndex): the highlight helper's truth — the offset inside the
  *    DISPLAY text, case-insensitive, -1 when absent or query empty.
  *
- * Run: bun scripts/t430-session-drawer.ts
+ * Run: bun scripts/t430-session-drawer-bench.ts
  */
 
 import { mkdtempSync, mkdirSync } from "fs";

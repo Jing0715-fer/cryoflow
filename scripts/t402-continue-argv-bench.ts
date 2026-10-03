@@ -1,5 +1,5 @@
 /**
- * t402 — the continue argv diet bench (bun run scripts/t402-continue-argv.ts).
+ * t402 — the continue argv diet bench (bun run scripts/t402-continue-argv-bench.ts).
  *
  * The field report: a continue dispatched from the app printed
  *

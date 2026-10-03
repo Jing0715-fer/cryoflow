@@ -24,7 +24,7 @@
  *      cluster mirror, BOUND to a connection, DELETES with reclaimed.local
  *      naming the root, cluster[0].ok, both dirs GONE. The witness lane is
  *      the BOUND CONNECTION (pure product semantics: PATCH binding + delete);
- *      the records lane is covered at unit level (t417-unit-reclaim.ts) —
+ *      the records lane is covered at unit level (t417-unit-reclaim-bench.ts) —
  *      planting a fake record here would test nothing the product does, and
  *      the first draft's file-level record planting raced the live server's
  *      own state ownership (the poll sweep owns the file, not the suite).

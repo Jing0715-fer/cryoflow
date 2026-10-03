@@ -24,7 +24,7 @@
  *      silent fallback); the plain door still speaks inline session;
  *      the pinning law covers the new format too.
  *
- * Run: bun scripts/t429-stay-note-json-export.ts
+ * Run: bun scripts/t429-stay-note-json-export-bench.ts
  */
 
 import { execSync } from "child_process";

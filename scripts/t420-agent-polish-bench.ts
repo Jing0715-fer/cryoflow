@@ -16,7 +16,7 @@
  *      "从头到尾" → state → build_pipeline → run_job (waiting verdict, no
  *      engine spawn) → wait_for_jobs (honest still-pending) → narration
  *
- * Run: bun scripts/t420-agent-polish.ts
+ * Run: bun scripts/t420-agent-polish-bench.ts
  */
 
 import { execSync } from "child_process";
