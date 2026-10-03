@@ -53,6 +53,11 @@ export const ClassDistributionChart = dynamic(
   () => import("./class-distribution-chart").then((m) => m.ClassDistributionChart),
   { ssr: false, loading: chartLoading }
 );
+
+export const ClassAveragesTeaser = dynamic(
+  () => import("./class-averages-teaser").then((m) => m.ClassAveragesTeaser),
+  { ssr: false, loading: chartLoading }
+);
 export const AngularDistributionChart = dynamic(
   () => import("./angular-distribution-chart").then((m) => m.AngularDistributionChart),
   { ssr: false, loading: chartLoading }

@@ -148,6 +148,7 @@ import {
   MotionDriftChart,
   MicrographQcBoard,
   ClassDistributionChart,
+  ClassAveragesTeaser,
   AngularDistributionChart,
   CryoSparcAnglePanel,
   RebalanceReport,
@@ -1856,6 +1857,14 @@ function OverviewTab({
           per-bin trim chart from rebalance_report.json). */}
       {/rebalance/i.test(job.type) && job.status !== "idle" ? (
         <RebalanceReport jobId={job.id} />
+      ) : null}
+      {/* t544 — the class IMAGES: the t539 receipt said "1 of 4 classes
+          populated" — this teaser makes the two numbers visible (populated
+          bright, empty a ghost). Class2d speaks slices of the classes
+          stack; class3d/initialmodel speak per-class volumes; the
+          self-hide contract covers the rest. */}
+      {/(class2d|class3d|initialmodel)/i.test(job.type) && job.status !== "idle" ? (
+        <ClassAveragesTeaser jobId={job.id} running={job.status === "running"} />
       ) : null}
       {/* 2D/3D classification gets class occupancy bars. */}
       {isClassifyType && job.status !== "idle" ? (
