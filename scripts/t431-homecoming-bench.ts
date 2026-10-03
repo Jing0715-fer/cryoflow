@@ -13,17 +13,28 @@
  *                    sync-policy wordings × states × envelope matrix
  *   R1 (lib, tmp):   remainingFromWorkdir / remainingForRun — manifest ×
  *                    existsSync arithmetic against a temp workdir
- *   W1 (real world): the demo extract job's workdir counts 0/27 (the
- *                    t425 bring-home); skipped honestly when no demo
- *                    world is on disk
+ *   W1 (real world): the old world's canonical-chain extract workdir —
+ *                    resolved through data/old-world.json (the t531
+ *                    contract, seeder-guaranteed) — counts every
+ *                    manifested file home; skipped honestly when no old
+ *                    world is promised (no manifest on disk). A FAIL
+ *                    names the cure: node scripts/qa-t531-old-world-seed.mjs
  *
  * World contract: H1/R1 are world-free (tmp dirs only). W1 self-pins the
  * repo data tree (t428 lesson — a bench declares which world it reads)
- * and only ever READS.
+ * and only ever READS. The t548 lesson — it must also declare HOW: W1
+ * used to sample the FIRST extract_* dir in readdir order, which is
+ * roulette over ~30 workdirs whose receipts are honest in BOTH shapes —
+ * all-home after a bring-home, files-out under the key-files policy
+ * (the manifest is finalize's ledger of what LEGITIMATELY stayed on the
+ * cluster; remaining > 0 is the product working, not a wound). The one
+ * workdir whose all-home receipt is a CONTRACT, not luck, is the
+ * canonical chain's extract (its particles feed class2d — home is a
+ * functional need), and the t531 seeder rebuilds it after any sweep.
  */
 
 import { execSync } from "child_process";
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import path from "path";
 import os from "os";
 import { fileURLToPath } from "url";
@@ -206,33 +217,63 @@ must(
 must(remainingForRun(null) === null && remainingForRun(undefined) === null, "R1.7 no run → null");
 
 /* ------------------------------------------------------------------ */
-/* W1 — the real demo world (read-only; skipped when absent)           */
+/* W1 — the old world's canonical extract (read-only; skipped when     */
+/* the old world was never promised)                                   */
 /* ------------------------------------------------------------------ */
 
-console.log("W1. the demo extract workdir — the t425 bring-home, re-counted");
+console.log("W1. the canonical chain's extract workdir — the old-world contract, re-counted");
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const relionDir = path.join(ROOT, "data", "relion");
+const OLD_WORLD = path.join(ROOT, "data", "old-world.json");
+const SEEDER = "node scripts/qa-t531-old-world-seed.mjs";
 let counted = false;
-try {
-  const projects = readdirSync(relionDir) as string[];
-  outer: for (const proj of projects) {
-    const projDir = path.join(relionDir, proj);
-    for (const jd of readdirSync(projDir) as string[]) {
-      if (!jd.startsWith("extract_")) continue;
-      const workdir = path.join(projDir, jd);
+if (!existsSync(OLD_WORLD)) {
+  // No old-world manifest = no old world promised (a CI world). Skip, not
+  // fail — W1 pins a contract the seeder WRITES into existence.
+  console.log("  skip  no old world on disk (data/old-world.json absent)");
+} else {
+  // The contract is present — from here on, sickness FAILS and names the
+  // seeder, so the repair stays a command rather than an autopsy. The cure
+  // rides FAILURES only: an ok line has no use for a repair command.
+  const cure = (msg: string) => `${msg} (run: ${SEEDER})`;
+  const mustCure = (cond: boolean, name: string) => must(cond, cond ? name : cure(name));
+  let extractId: string | undefined;
+  let projId: string | undefined;
+  try {
+    const oldWorld = JSON.parse(readFileSync(OLD_WORLD, "utf8")) as {
+      project?: { id?: string };
+      chain?: { extract?: string };
+    };
+    projId = oldWorld.project?.id;
+    extractId = oldWorld.chain?.extract;
+  } catch (e) {
+    mustCure(false, `W1.0 the old-world manifest is unreadable (${String(e).slice(0, 80)})`);
+    counted = true;
+  }
+  if (extractId && projId) {
+    const workdir = path.join(ROOT, "data", "relion", projId, `extract_${extractId.slice(-8)}`);
+    if (!existsSync(workdir)) {
+      mustCure(false, `W1.0 extract_${extractId.slice(-8)} — the canonical extract workdir is gone`);
+      counted = true;
+    } else {
       const stat = remainingFromWorkdir(workdir);
       counted = true;
-      console.log(`      (${jd}: ${stat.remaining}/${stat.total})`);
-      must(stat.remaining === 0, `W1.1 ${jd} — every manifested file is home`);
-      must(stat.total > 0, `W1.2 ${jd} — the manifest is non-empty (a real receipt world)`);
-      break outer;
+      console.log(`      (extract_${extractId.slice(-8)}: ${stat.remaining}/${stat.total})`);
+      mustCure(
+        stat.remaining === 0,
+        `W1.1 extract_${extractId.slice(-8)} — every manifested file is home (${stat.remaining}/${stat.total} out)`,
+      );
+      mustCure(
+        stat.total > 0,
+        `W1.2 extract_${extractId.slice(-8)} — the manifest is non-empty (a real receipt world)`,
+      );
     }
+  } else if (!counted) {
+    mustCure(false, "W1.0 the old-world manifest lacks project.id / chain.extract");
+    counted = true;
   }
-} catch {
-  console.log("  skip  no demo world on disk (data/relion absent)");
 }
-if (!counted) console.log("  skip  no extract workdir found in data/relion");
+if (!counted) console.log("  skip  old world not resolved");
 
 /* ------------------------------------------------------------------ */
 
