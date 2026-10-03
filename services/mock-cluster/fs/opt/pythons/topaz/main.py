@@ -20,8 +20,19 @@ and appends stdout to run.out — so printing here IS writing the log the
 route reads. Model files follow real topaz's <save-prefix>epochN.sav; a
 topaz_model.sav twin keeps the engine's output discovery (glob *.sav) and
 the e2e's byte-identity assertions fed.
+
+t543 — the DENOISE face joins the module. The t415 denoise face lived only
+in the fs/opt/bin wrapper script, but on this box the REAL wrapper (first on
+MOCK_PATH) shadows it and answers through THIS module — so `topaz denoise`
+died "unknown subcommand 'denoise'" (the t542 live lane caught it). The face
+mirrors the wrapper's: per row the source micrograph is copied to
+<stem>_denoised.mrc (byte-faithful mrc, real file) and a
+denoised_micrographs.star index keeps the micrograph schema — the engine's
+collectOutputs and the remote output candidates both key on it.
 """
 import os
+import re
+import shutil
 import sys
 import time
 
@@ -173,6 +184,111 @@ def extract(argv):
     return 0
 
 
+MRC_RE = re.compile(r"\.(mrc|mrcs|tif|tiff)$", re.I)
+
+
+def _star_micrographs(star_path):
+    """_rlnMicrographName rows from a RELION star, resolved the way the mock
+    relion_autopick resolves its rows (star dir → cwd → star's parent): a
+    staged star keeps RELATIVE row names (`micrographs/mic.mrc`) while the
+    files land at the project's mapped path — the star's parent dir is the
+    level where the two meet. Absolute names pass through untouched."""
+    names = []
+    in_loop = False
+    col = False
+    with open(star_path, "r", errors="replace") as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line:
+                continue
+            if line.startswith("loop_"):
+                in_loop = True
+                col = False
+                continue
+            if line.startswith("_rln"):
+                if in_loop and not col and line.split()[0] == "_rlnMicrographName":
+                    col = True
+                continue
+            if line.startswith("data_") or line.startswith("#"):
+                continue
+            if in_loop and col:
+                names.append(line.split()[0])
+
+    star_dir = os.path.dirname(os.path.abspath(star_path))
+    parent = os.path.dirname(star_dir)
+
+    def resolve(n):
+        if os.path.isabs(n):
+            return n
+        for base in (star_dir, os.getcwd(), parent):
+            cand = os.path.normpath(os.path.join(base, n))
+            if os.path.exists(cand):
+                return cand
+        return n  # unresolved — the caller's missing-file exit speaks
+
+    return [resolve(n) for n in names]
+
+
+def denoise(argv):
+    """denoise face: --i <star> -o <outdir>/ [--downscale N] [--num-workers N]
+
+    Same shape the wrapper script (fs/opt/bin/relion_python_topaz) has spoken
+    since t415 — this port exists because execution never reaches that file:
+    /home/z/relion-build/bin (the REAL build) is first on MOCK_PATH, so the
+    real bash wrapper answers `relion_python_topaz` and imports THIS module.
+    Per row the source bytes are copied to <stem>_denoised.mrc (no CNN, but a
+    real file whose mrc header the PNG doors can render), a progress line in
+    the shape real topaz denoise speaks goes to stdout, and the
+    denoised_micrographs.star index (optics + micrographs blocks, absolute
+    rows) lands in the -o dir for the engine's collectOutputs."""
+    star = None
+    outdir = "."
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--i" and i + 1 < len(argv):
+            star = argv[i + 1]
+            i += 2
+            continue
+        if a == "-o" and i + 1 < len(argv):
+            outdir = argv[i + 1]
+            i += 2
+            continue
+        i += 1  # --downscale / --num-workers are honored by being harmless
+    if not star or not os.path.isfile(star):
+        print(f"cryoflow-mock topaz denoise: input star not found: {star}")
+        return 1
+    os.makedirs(outdir, exist_ok=True)
+    mics = _star_micrographs(star)
+    if not mics:
+        print("cryoflow-mock topaz denoise: no _rlnMicrographName rows in the star")
+        return 1
+    total = len(mics)
+    denoised = []
+    for k, mic in enumerate(mics, 1):
+        stem = MRC_RE.sub("", os.path.basename(mic))
+        dest = os.path.join(outdir, stem + "_denoised.mrc")
+        if os.path.isfile(mic):
+            shutil.copyfile(mic, dest)
+        else:
+            # a missing row dies per-file like the real CLI would — loud, not
+            # silent: a copied-past index over absent bytes would be a lie
+            print(f"cryoflow-mock topaz denoise: missing micrograph {mic}")
+            return 1
+        denoised.append(dest)
+        print(f"denoising micrograph {k}/{total}: {os.path.basename(mic)}", flush=True)
+    index = os.path.join(outdir, "denoised_micrographs.star")
+    with open(index, "w") as fh:
+        fh.write("data_optics\n\nloop_\n_rlnOpticsGroupName\n_rlnMicrographOriginalName\n_rlnVoltage\n_rlnSphericalAberration\n_rlnAmplitudeContrast\n_rlnOpticsGroup\nopticsGroup1    300    2.7    0.1    1\n\n")
+        fh.write("data_micrographs\n\nloop_\n_rlnMicrographName #1\n")
+        for d in denoised:
+            fh.write(f"{os.path.abspath(d)}\n")
+    print(f"Denoised {total} micrographs — index: {os.path.basename(index)}")
+    print("cryoflow-mock topaz denoise: CNN denoising simulated (source bytes copied)")
+    sys.stdout.flush()
+    return 0
+
+
 def main():
     argv = sys.argv[1:]
     sub = argv[0] if argv else ""
@@ -180,5 +296,7 @@ def main():
         sys.exit(train(argv[1:]))
     if sub == "extract":
         sys.exit(extract(argv[1:]))
-    print(f"cryoflow-mock topaz: unknown subcommand {sub!r} (train | extract)", file=sys.stderr)
+    if sub == "denoise":
+        sys.exit(denoise(argv[1:]))
+    print(f"cryoflow-mock topaz: unknown subcommand {sub!r} (train | extract | denoise)", file=sys.stderr)
     sys.exit(2)
