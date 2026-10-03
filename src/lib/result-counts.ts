@@ -72,8 +72,20 @@ export function parseResultCounts(result: string | null | undefined): ResultCoun
     out.micrographs = toNum(m[1]);
   }
 
-  // classes — class2d "50 classes · …", select "40/50 classes (…)"
-  if ((m = t.match(/([\d,]+) classes/))) {
+  // classes — the specific shapes first (they pick the RIGHT number),
+  // the generic "N classes" last:
+  // t539 — class2d "1 of 4 classes populated" → the POPULATED count (the
+  // select "kept" precedent: the number the data actually spread into;
+  // the stack may hold K averages, most empty). Select's "40/50 classes"
+  // → the KEPT count (what the output star actually carries — the module
+  // rule the particles lane already obeys; the generic shape was silently
+  // parsing the 50). Old receipts said "50 classes · …" (historical lines
+  // keep parsing through the generic shape).
+  if ((m = t.match(/([\d,]+) of [\d,]+ classes populated/))) {
+    out.classes = toNum(m[1]);
+  } else if ((m = t.match(/([\d,]+)\/[\d,]+ classes/))) {
+    out.classes = toNum(m[1]);
+  } else if ((m = t.match(/([\d,]+) classes/))) {
     out.classes = toNum(m[1]);
   }
 
