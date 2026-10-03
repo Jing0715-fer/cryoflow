@@ -7233,3 +7233,27 @@ Stage Summary:
 - 「钉要说 essence 不说路径，也要说换算不说字面」：t416 的 /opt/bin 钉死于时代更替，t542 的 15% 钉死于换算方向——两枚钉的失败方式不同、病根相同：钉盯住了实现的一个影子而非契约本身
 - 产出：mock topaz module shim denoise 面 + 两枚钉 essence 化 + 借画布还画布律（t542/t416 双套件）+ 画廊无配对诚实化 + 键盘光环 + aria-valuetext + 三套件 ALL PASS + 两磨全绿
 - [下窗入口] ①t519 建议 #1/#4（judge 双 pass/温度、断言库 --judge-only 分层）需 AI 车道独立窗；②家族余批新 build 抽查（t268/t264/t273 车道同 t308 已验，低风险记账未跑）；③遗留池：t276 _legacy-archive、off-mainline 出口、3D viewer 体积截面深化、palette 豁免清单产品化。
+
+---
+Task ID: 544
+Agent: main (Z.ai Code, window 2026-10-04 01:53 cron)
+Task: t543 交接的类均值视觉化收官——「Overview 页的 class-averages teaser」落地（t539 的「1 of 4 classes populated」从句子变成图像：K 张类均值 tile、有粒子者亮、空槽者为幽灵），双车道（组合栈切片 vs 逐类体积）、t539 双标签随行、自隐契约、e2e 四相 28 断言 ALL PASS；家族清账三套全绿；两磨一 NO-GO 一 GREEN。
+
+Work Log:
+- [开局] HEAD 08f655f 对齐、树净、环境暖窗（buff/cache 1747、avail 2798、disk 73%）；QA 基线三绿（tsc 0、eslint 0、prod 200/5ms）。cron 背诵的 Task 13 清单第 N+1 次核实为化石——遗留以 worklog 尾部为唯一真源。
+- [选题] t543 交接池盘点：t519 #1/#4 照旧 limiter 障碍；「class averages 视觉化」考古发现 RESULTS 页画廊已在（MrcGallery + occupancy strips），但 **Overview 页只有数字没有图像**——而 classes 路由早已备好一切（classesFile + classesSlices=K + occupancy + volumeFiles，连 remote 镜像 fallback 都在）。teaser 是把现成的事实接到缺图像的那页脸上。
+- [交付① teaser 组件] class-averages-teaser.tsx（lazy barrel 车道）：双车道——class2d 说组合栈切片（outputs/file montage=0&slice=N-1），class3d/initialmodel 说逐类体积（axis=z&pos=0.5 中心面），组合栈方言（mock class3d）自动退回切片道；K 张 tile 按类序排布，有粒子者亮、空槽者 opacity-25 grayscale 幽灵、最高占比 emerald 环、空槽 figcaption 说「—」；chip 说 t539 句形「N of K populated」（N<K 琥珀、N=K 翡翠）；标题随 t539 双标签（Class averages vs Class maps）；12 张封顶 + 「+N」诚实计数；自隐契约（t491）：type-gated 挂载、两道皆空即静默、fetch 伤走 ChartErrorStrip；renderError 诚实转述（remote 镜像冷时）。
+- [交付② 挂载] job-inspector Overview：ClassDistributionChart 上方（图像在上、柱状在下），class2d/class3d/initialmodel 且非 idle 才挂。
+- [e2e 四相 28 断言] A 产品面钉；B 活体车道——fixture 项目 + 真本地 import + 三个 classify job **落 PENDING**（无输入的 resolver 判词是「等上游」不是失败——t540 的等待判决在套件里再兑现）+ 计算型 workdir 直接种真件方言（run_unmasked_classes.mrcs 4 切片 + it000 data/model/optimiser 三件套见证）；C 门对——/classes 答 classesFile/K/occupancy、文件门切片与体积两方言经**有 record 的 import job** 验证（pending job 无 run record（t540）而文件门只说 record——同渲染器换车道验证）；D 世界中的脸。
+- [活捉 — 叠节点假 inspector] D 相首跑 FAIL 而探针 PASS——forensics 截图定谳：**无边的 fixture 画布把全部节点叠在同一点**，force-click 穿透节点堆打开了「t544 Empty」的 inspector（断言们在对的页找错的 job）。三连修：POST /api/jobs 的 x/y 让节点各就各位、点击弃 force（可按性守住命中）、inspector 加身份断言（名字而非仅 dialog 存在）。console 断言随行收窄：pending fixture 的四枚 tile 400 是预期占位形，其余才算真伤。
+- [两磨] #1 首磨 exit 137 于「Collecting page data」（prod 264MB anon + build worker 撞墙）——t461 律全清场（watchdog + prod 同杀 + 重预热 1774MB）→ **BUILD GREEN** → prod/watchdog 复起。suite 首跑 13→9→6→4→1→0 逐轮收敛。
+- [家族清账] 新 build 上 t268/t264/t273 **三套 ALL PASS**（roster 83 世界健康、active=demo、residue 0）；t264 的「roster restored to 15 (got 83)」ok 钉是世界成长的见证而非漂移。
+- [未做与理由] t3d volume 车道的 resident 实拍：demo 世界的 class3d 无 answerable 数据（skip 分支如实打印）；t519 #1/#4、t276 _legacy-archive、off-mainline 出口、palette 豁免清单产品化照旧挂池。
+
+Stage Summary:
+- 「把事实接到缺它的脸上，比新造事实便宜十倍」：classes 路由三年前就说了 classesFile/K/occupancy/volumeFiles——teaser 没写一行新后端，只是让 Overview 页看见 RESULTS 页早已看见的世界
+- 「叠着的节点让每次点击都是轮盘赌」：无边画布的全叠点是套件假绿色的沃土——force-click 穿透、非 force 超时、只有「位置撒开 + 身份断言」让点击重新诚实；探针 PASS 套件 FAIL 时，第一嫌疑是两者世界的几何差异
+- 「pending 不是失败，400 也不都是伤」：resolver 的等待判词、record-less job 的门 400——套件的断言要说清哪个形是产品诚实、哪个形才是伤口，否则诚实自己会被当成回归
+- 「『Collecting page data』阶段的墙要连 prod 一起清」：264MB 的 standalone server 在 build worker 站起来时正好把 anon 顶过线——t461 律的完整形是 watchdog+prod+chrome 三杀、预热、build、各归其位
+- 产出：ClassAveragesTeaser（双车道 + t539 双标签 + 自隐契约）+ Overview 挂载 + t544 e2e 四相 28 断言 ALL PASS + 叠节点 forensics 三连修 + 家族三套全绿 + 两磨全绿
+- [下窗入口] ①t519 建议 #1/#4（judge 双 pass/温度、断言库 --judge-only 分层）需 AI 车道独立窗；②teaser 的 resident 实拍待 demo 世界长出 answerable class3d（skip 分支已备）；③遗留池：t276 _legacy-archive、off-mainline 出口、palette 豁免清单产品化、3D viewer 截面深化。
