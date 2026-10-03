@@ -3183,6 +3183,21 @@ export function buildSbatchScript(args: {
       // FS=OFS=tab: touching $1 makes awk rebuild $0 — without it the
       // STAR's tab-separated columns would come back space-separated.
       const rowsRewrite = `i=index($1,"@"); if(i>0 && substr($1,i+1,3)=="../") $1=substr($1,1,i) substr($1,i+4)`;
+      // t538 — the boundary sweep: the real binaries' stars end with a
+      // whitespace-only line, and RELION's loop parser treats a blank line
+      // inside a data block as END-OF-BLOCK — donor-1's trailing blank
+      // terminated the merged data_particles block and every appended
+      // donor's rows were orphaned (RELION ingested 6 of 12 particles:
+      // "zero sum of weights", witnessed live and reproduced byte-for-byte
+      // on the sandbox). Blank lines BETWEEN blocks are load-bearing (they
+      // terminate the block before the next "# version" header — removing
+      // those makes the parser error on a 0-column row), so the sweep drops
+      // ONLY the blanks that sit between two data rows.
+      const boundarySweep =
+        `awk 'function isdata(s){return s !~ /^[ \\t]*$/ && s !~ /^data_/ && s !~ /^loop_/ && s !~ /^_/ && s !~ /^#/}` +
+        `{ if ($0 ~ /^[ \\t]*$/) { if (pend) print buf; buf=$0; pend=1; next }` +
+        `if (pend) { if (!(isdata($0) && prevdata)) print buf; pend=0 }` +
+        `print; prevdata=isdata($0) } END { if (pend) print buf }'`;
       if (array.merge === "rows") {
         L.push(`    __merged="${W}/${array.outStar}"`);
         L.push(`    __have=0`);
@@ -3208,7 +3223,7 @@ export function buildSbatchScript(args: {
         L.push(`          {next}' "$__f" >> "$__merged.cf-merge" 2>/dev/null || true`);
         L.push(`      fi`);
         L.push(`    done`);
-        L.push(`    [ "$__have" = "1" ] && mv "$__merged.cf-merge" "$__merged"`);
+        L.push(`    if [ "$__have" = "1" ]; then ${boundarySweep} "$__merged.cf-merge" > "$__merged.cf-merge2" && mv "$__merged.cf-merge2" "$__merged"; fi`);
       } else {
         L.push(`    __merged="${W}/${array.outStar}"`);
         L.push(`    __have=0`);
@@ -3229,7 +3244,7 @@ export function buildSbatchScript(args: {
         L.push(`        awk '/^data_/{block++; next} /^loop_/{next} /^_/{next} /^#/{next} block>=2 && NF>0' "$__f" >> "$__merged.cf-merge" 2>/dev/null || true`);
         L.push(`      fi`);
         L.push(`    done`);
-        L.push(`    [ "$__have" = "1" ] && mv "$__merged.cf-merge" "$__merged"`);
+        L.push(`    if [ "$__have" = "1" ]; then ${boundarySweep} "$__merged.cf-merge" > "$__merged.cf-merge2" && mv "$__merged.cf-merge2" "$__merged"; fi`);
       }
     }
     L.push(`      __bad="$(awk '$2!=0{print $2; exit}' "$RCF" 2>/dev/null || true)"`);
