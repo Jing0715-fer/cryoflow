@@ -15,9 +15,23 @@
 # same suffix rite (t402 continue-argv 32/0, t417 unit-reclaim ALL PASS, t420 agent-polish 54/0,
 # t428 session-rename-export 40/0, t429 stay-note-json-export 38/0, t430 session-drawer 19/0 —
 # each run green post-rename). The other 36 are orphans BY DESIGN: live QA tools/fixtures, one-shot
-# probes/diags, live-fire exams, world e2e suites (the t416/t542/t544 trio belongs to family-run's
-# world roster, a separate enrollment decision). The full 42-line ledger lives in worklog Task 547.
+# probes/diags, live-fire exams, world e2e suites. The world-e2e enrollment decision landed at t548:
+# t416/t417 were ALREADY family-run citizens (the t547 ledger over-counted the trio), and t542/t544
+# joined family-run's new t54 batch — so no world e2e remains a roster orphan. The full 42-line
+# ledger lives in worklog Task 547.
 cd "$(dirname "$0")/.."
+# t548 preflight: the old world's health announced before the family rides it
+# (the t531 seeder's own read-only --check; t431 W1 resolves its real-world
+# section through that contract). Non-fatal — the runner reports, it does not
+# repair; the message names the cure.
+if [ -f data/old-world.json ]; then
+  if node scripts/qa-t531-old-world-seed.mjs --check > /tmp/old-world-check.txt 2>&1; then
+    echo "PREFLIGHT old world healthy"
+  else
+    echo "PREFLIGHT OLD WORLD SICK — world-reading suites may fail; repair with: node scripts/qa-t531-old-world-seed.mjs"
+    tail -3 /tmp/old-world-check.txt
+  fi
+fi
 SUITES=$(ls scripts/t[45][0-9][0-9]-*bench.ts | sort)
 FAIL=0
 N=0

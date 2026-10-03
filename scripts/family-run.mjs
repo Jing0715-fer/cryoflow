@@ -12,7 +12,9 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (77 suites as of Task 313) —
+// The FAMILY roster is an audited membership list (83 suites as of Task 548 —
+// the t548 D-class enrollment added t542/t544; the old "77 as of Task 313"
+// count had drifted, and comment counts are pins too, the t546 lesson) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -146,6 +148,8 @@ const FAMILY = [
   "t415-dashboard-needs-attention.mjs", // the dashboard's failed jobs become a click: the status lens (?status=failed, bogus ignored — the DB's own vocabulary), the strip rendering ONLY when the world speaks a failure, the Task-126 deep-link landing from a chip, the honest fail fixture (a motioncorr stopped mid-run speaks failed), and zero-noise cleanup (the strip mirrors the world's failed set, nothing lingers) (Task 415)
   "t416-topaz-denoise.mjs", // the Topaz Denoise wrapper, a NEW job type: the wrapper contract (--i star in, the WRAPPER expands it where the files live — local/cluster lanes run the SAME argv, zero mirror special-casing), the denoised index keeps the micrograph schema (denoise → pick/train is the official topaz flow, the curated next-steps universe carries it), the mock wrapper's denoise face resolves mic rows the way the autopick fake does (star dir → cwd → star's parent), and the downstream autopick picks real particles OFF the denoised index (Task 415)
   "t417-project-delete-reclaim.mjs", // project deletion reclaims BOTH file planes: the dialog's promise ("removes the project with all of its jobs… cannot be undone") finally covers the local workdir root <RELION_DIR>/<projectId> and the cluster mirror <remoteRoot>/<projectId> (witnessed: 21 cluster husks + 36 local roots, 1.4GB, from earlier deletes) — the mirror witnesses are the run records (read before clearRunRecord erases them) plus the bound connection as the records-dead fallback, the judgment is a pure module (reclaim-targets.ts, unit-tested by t417-unit-reclaim-bench.ts via bun: traversal guards, dedup, tilde refusal), the ledger lands in the delete response's reclaimed block, and a mirrorless project deletes honestly with null/empty (Task 417)
+  "t542-denoise-gallery.mjs", // the Topaz Denoise compare gallery's READ side (t548 D-class enrollment — cost 14s solo): fixture project, a REAL import, the mock cluster's denoise dispatched REMOTE and COMPLETED, the pairs route walking the same lineage resolveInputs rides (provider named, stem map, both serving paths), the wipe card scrubbing and the side-by-side flip in the world, console clean
+  "t544-class-teaser.mjs", // the Overview tab's class-averages teaser (t548 D-class enrollment — cost 78s solo): fixture project + real import + three classify jobs landing PENDING (the resolver's waiting verdict), seeded workdirs speaking the refine dialect, the doors answering classesFile/slices/occupancy through the record-backed import, four tiles (2 bright + 2 ghosts) with the "2 of 4 populated" chip, console clean of unexpected errors
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------
@@ -172,6 +176,7 @@ const BATCHES = [
   { name: "t30", match: /^t30/ }, // t302 — the t30 decade registers itself on arrival
   { name: "t31", match: /^t31/ }, // t310 — the t31 decade registers itself on arrival
   { name: "t41", match: /^t41/ }, // t415 — the t41 decade registers itself on arrival
+  { name: "t54", match: /^t54/ }, // t542/t544 — the t54 decade registers itself on arrival (t548: the D-class world e2e enrollment, t547 handoff ①)
   // empiar — the full-chain regression rides LAST: it is the heaviest single
   // citizen (a live 12-job pipeline through mock Slurm, plus a rare
   // half-gig fixture regen after a harvest), and it prunes its own stale
@@ -484,6 +489,30 @@ if (priorBatch?.wallMs > 550_000) {
       `  ⚠ the "${reportKey}" batch last took ${(priorBatch.wallMs / 1000).toFixed(0)}s — close to the 600s tool ceiling. Consider splitting at the decade boundary.`,
     ),
   );
+}
+
+// t548 — the old world's health, announced BEFORE the family rides it. The
+// t531 seeder guarantees the canonical demo chain (and t431 W1 now resolves
+// its real-world section through that contract), so the seeder's own
+// read-only --check runs here as a preflight: a sweep is announced at the
+// top of the run — with the cure named — instead of being discovered
+// suite-by-suite as a pile of REAL-FAILs. Non-fatal by law: the runner
+// reports verdicts, it does not repair worlds.
+if (existsSync(path.join(ROOT, "data", "old-world.json"))) {
+  const pre = spawnSync("node", [path.join(SCRIPTS, "qa-t531-old-world-seed.mjs"), "--check"], {
+    encoding: "utf8",
+    timeout: 120_000,
+  });
+  const lastLine = (pre.stdout ?? "").trim().split("\n").filter(Boolean).slice(-1)[0] ?? "";
+  if (pre.status === 0) {
+    console.log(paint.dim(`  preflight: old world healthy (${lastLine || "CHECK PASS"})`));
+  } else {
+    console.log(
+      paint.yellow(
+        `  ⚠ preflight: OLD WORLD SICK (${lastLine || `exit ${pre.status}`}) — world-riding suites may fail; repair with: node scripts/qa-t531-old-world-seed.mjs`,
+      ),
+    );
+  }
 }
 
 console.log(
