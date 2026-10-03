@@ -7402,3 +7402,26 @@ Stage Summary:
 - 「世界假设是 bench 的义务」：fixture job 没种 DB 行、provider 没激活、session 删在 try 块里——每一枚都由真跑揭露；t543 的 let 律在自家 bench 里再兑一次
 - 产出：classStatsFromWorkdir 三方言 + 永不冒充律 + judge 四面接线 + t550 bench 36/0 ×2 入册（glob 100）+ 全量家族 100/100 + build-guard 配方真修复 + 静态 404 病定谳
 - [下窗入口] ①t474 真栈的 live-VLM 判词（AI 车道独立窗：t545-launch-judge-only.sh 车道已备，方言修复后的真模型判词是 #5 的终章）；②t471 WSL-bridge 面（照实挂）；③遗留池：t276 _legacy-archive、off-mainline 出口。
+
+---
+Task ID: 551
+Agent: main (Z.ai Code, window 2026-10-04 06:08 cron)
+Task: t550 交接①「t474 真栈 live-VLM 判词」兑现——AI 车道活体开张（GLM ALIVE 零 429），t519 #5 终章：三新会话真数据判词 6/6 全过 + Jaccard 1.00，t550 方言修复在真产品 wire 上活体确认（globalResolution 3.2 ×3 + 「run at 3.2 Å (global)」逐字 ×3 + 双 pass 遥测 ×3），judge 的 advice 自带交叉盘问（「3.2 Å 对 24 粒子物理不可能」）。零 src 改动窗。
+
+Work Log:
+- [开局] HEAD 24636cf 对齐、树净；基线三绿（prod 200/4.4ms、tsc 0、eslint 0）+ 冒烟 console 0（β-Gal demo active · 83 jobs · 58 edges · build 2856b9d——t550 ops 车未触 src，build 仍 fresh）；mem avail 2764、disk 73%。摘要脑内「Task 547 三度派单零执行」滞后三代——worklog 实录 t547–t550 皆收官，本窗实为 551；cron 背诵的 Task 13 清单第 N+8 次核实为化石。
+- [选题 + AI 车道探针] t550 下窗入口①即主菜；新 t551-ai-probe.mjs（C 类运维探针，一发轻量 chat 不触工具）——builtin GLM 200/9.4s 应答 "ALIVE"、零 429，AI 车道开张（t545 时点的 providers/health 缓存 "ok" 只是账面，真探针才是证词）。
+- [借画布律] POST /api/projects/switch → t474 QA gallery（cmur48ywy…，5 jobs，「2D Classification 1」class2d completed 在场）→ t545-launch-judge-only.sh 孤儿化起跑（pid 22719，log .qa-logs/t545-judge-only-221550.log）→ 三新会话同题 judge。
+- [判词证据 — 钱证四连] **6/6 checks · Jaccard 1.00/1.00/1.00**（t545 的 B1 行为方差本次痊愈——三会话全叫 VLM）：①wire detail `globalResolution: 3.2` ×3——t550 三方言修复活在真产品路径（非 bench 镜花）；②summary 逐字「· run at 3.2 Å (global)」×3 + detail.confirm 遥测 `{agreed:12, torn:0, missing:0, moved:[]}` ×3——t545 双 pass 律在真数据上成立；③逐类理由全图证据（"Featureless blob with no internal detail, only a soft circular density against a noisy background"）——零 unknown-collapse；④classStats per-class resolution null ×12、count 2、fraction 1/12——永不冒充律（全局绝不戴 per-class 徽章）活体在场。
+- [judge 的交叉盘问 — 本窗最亮] advice 面："The reported 3.2 Å global resolution is physically impossible for this data and likely indicates a severe overfitting error or a corrupted refinement run"——judge 读到全局 3.2 Å 后与真图证据对撞，诚实指认矛盾（24 粒子/12 类 = 每类 2 粒，类平均图本无内部细节）；nextStep 明令零保留路径（"select_classes REFUSES an empty list, so do NOT call it. The verdict is about the RUN, not a selection to force"）。全 reject 判词有据有识，非 t545 时代的 unknown 塌缩。
+- [清白审计] 三会话工具序列 = get_job_curves + judge_2d_classes，写工具零 ×3（select/run/delete/cleanup/create/build/update 全无）；meanTurns 3、meanMs 70.9s。
+- [还画布 + 世界健康] switch 回 demo（switch 响应 active: cmur3ti51…；列表响应不带 active 旗——以 switch 响应 + 截图为准）→ prod 200/1.5ms → console 0 → 截图确认 demo 画布 83 jobs · 58 edges · RELION 5.0.0 芯片。借还全程零污染。
+- [未做与理由] t471 WSL-bridge 面（本沙箱永久 native，照实再挂）；t276 _legacy-archive、off-mainline 出口（照旧门控）；真实可分辨 class2d run 的 keep 判词 live-fire（t474 栈真实但退化——每类 2 粒只能考 reject 形；keep 形在真数据上的活体开火需要一条真教程级 class2d run，入池为 AI 车道下窗候选）；零 src 改动故 dance 不需要，build 2856b9d 仍 fresh。
+
+Stage Summary:
+- 「缓存的 health 是账面，一发真探针才是证词」：providers/health 的 "ok" 停在昨日 22:14——t551-ai-probe 一发实答才让「AI 车道开张」成为可签的句子；判据要打在活体上，不打在台账上
+- 「方言修复的终章不在 bench 里，在 wire 上」：t550 的 36 断言证明模块诚实，本窗的 globalResolution ×3 + 逐字 summary ×3 证明产品路径同样诚实——bench 的世界与产品的世界要两次公证，缺一都是半证
+- 「judge 长大了的标志是会盘问出题人」：读到 3.2 Å 全局后不照单全收，与类平均图对撞后指认 overfitting/corruption 矛盾——数据接地的不只回答，还有怀疑；零 keep 的判词从「unknown 塌缩」进化为「有据有识的否决」
+- 「借还律的零污染要用两面证据」：switch 响应的 active 指针 + 截图的画布正典，胜过列表响应缺席的 active 旗——世界状态要有两个独立见证人
+- 产出：t519 #5 终章落定（真栈 live-VLM 6/6 · Jaccard 1.00 · wire 钱证 ×3 面）+ t551-ai-probe.mjs 留库 + shots-qa 两图 + report/log 留档
+- [下窗入口] ①AI 车道：真实可分辨 class2d run 的 keep 判词 live-fire（t474 栈只考得出 reject 形；keep 形需真教程级 run——借还律 + t551-ai-probe 车道均已备）；②t471 WSL-bridge 面（照实挂）；③遗留池：t276 _legacy-archive、off-mainline 出口。
