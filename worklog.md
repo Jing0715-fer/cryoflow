@@ -6973,3 +6973,27 @@ Stage Summary:
 - 「豁免门没有键盘路径，就没有 keys」：well 的形状即契约，消费端必须按契约容错——一行 split 让整壳陪葬，t246 的诚实 FAIL 是唯一证人
 - 「 fossil name 是一个世界的拼写」：type-fallback + manifest id 是同一承诺的两种拼写——套件与 seeder 与 well 三方同语后，跨世界解析不再是考古
 - 产出：exam 十环真账本（FSC 7.08 Å 收官）+ 四 seeder manifest 回退 + t219/t253/t246 全绿 + 全壳崩溃修复（08da05e）+ dance #4/#5 双 GREEN + active 指针复辟
+
+---
+Task ID: 533
+Agent: main (Z.ai Code, window 2026-10-03 11:53 cron)
+Task: 选题 A「reconcile 全项目化」落地为产品 + 选题 B 家族清批（t256/t258/t260/t263）；随窗活捉并修复「resolution-arc 门以网速自轮询」产品级风暴，mock 集群补齐真 ctffind 能力。
+
+Work Log:
+- [开局考古] 摘要脑内的「Task 525 起编」已过时八代——worklog 实录 t532 收官（exam 十环、active 复辟、dance #4/#5）。HEAD 7e2fd37（截图 cron 车未推送，本窗代推）。prod :3000 健康（200, 3ms）；buff/cache 1890；disk 93%（756M，重建靠 .next 2.6G 自循环）。
+- [交付① 全局 reaper（t532 遗留「reconcile 全项目化候选」兑现）] src/lib/relion/global-reconcile.ts：每 15s（CRYOFLOW_GLOBAL_RECONCILE_MS 可调，5s/5min 钳制，CRYOFLOW_NO_REAPER=1 逃生门）对全项目 running+pending 跑 GET 路由同款四件套——reconcileRealJobs + 按连接 remote sweep（pollState 节流与 GET 双驱动天然合并）+ 翻转腿（completed 触发 autoStartPendingDownstream；diff 同时认 running→completed 与 orphan heal 的 pending→completed 两扇门）+ t324 pending 重试腿全球化（boot 首拍即恢复所有世界的孤儿 pending）。双挂载 globalThis 单例防 dev 双实例双 interval：instrumentation.register +8s 动态 import（静态图会拖慢 listener——本文件自己的法）+ jobs GET 路由免费静态防御挂载。interval unref；有产出的 beat 才说话。t533-reaper-bench.ts 三定律 30 断言 bun+node 双运行时全绿（clamp 边界/翻转差集/重试规划纯函数 + 文件字节 wiring 断言 + 只读 live smoke）。
+- [bench 车祸现场] live smoke 连到 db/custom.db——持久 shell 里 t402b 模板 DATABASE_URL 泄漏进本会话！t522/t523 家规原是「硬赋值」而我写成 ||=。bench 改硬赋值入律；会话 env 已矫正。
+- [交付② 清批 t256] 三断言全是字面漂移钉（t515 把装配搬进 lib/relion/job-outputs→outputs-list，route 只剩协议壳）——特性完好（origin/pixel/cella[2]/nz/.mrcs 排除逐字在井里）。钉随重构搬迁（t253 惯例）→ ALL PASS。
+- [交付③ 产品级风暴活捉] t258/t260 各一条「404 console error」。t258 先升取证（response 监听记 4xx/5xx URL 证人——无 URL 的 404 是谣言）后对质：风暴在 src/components/workflow/results/resolution-arc-dialog.tsx——arcPresentationOf 每渲染铸新对象而它坐在 fetch effect 依赖里 → setRounds 重渲染 → 新对象 → 再 fetch → **以网络速度自轮询**（探针实测 ~6ms/次 ≈150 req/s，inspector 开着就锤服务器），作业被删则 404 大声。修复：useMemo(job.type)（continue-verb-row 家规）。t260 同根同修。
+- [交付④ t263 三窗悬案收官] ①rowflip.py 崩溃 = t402b 毒 DATABASE_URL（custom.db 无 Job 表）裸抛——sqlite3.Error 吞掉并跳过候选（「答不上的候选库不是服务器的库」）；②A/B 链全灭真因 = **磨机装的真 RELION 5.0.0 赢了 python stub**（教义使然），真 relion_run_ctffind 在 use_given_ps=true 下要求 star 带 rlnCtfPowerSpectrum——import→ctffind 直链的 mock 简化链没有 → exit 1。修复三层：套件 A/B 传 use_given_ps:false+box:64（合法工作流选择）+ **mock 集群学会真 ctffind**：fs/opt/bin/ctffind 契约 shim（对盒上 ctffind_runner.cpp 实源逐行核对：stdin 12+ 行逐行参数、stdout 含「Summary of results」末词指向 summary、summary 宽行含「acceleration voltage:」且 ≥19 token 于 #3/#8/#13/#18 读 DStep/HT/CS/AmpCnst、Columns 后行 ≥7 token 于 #1/#2/#3/#5/#6 读 defU/defV/azimuth/CC/maxres；每图 1.2s 诚实节奏防 running 窗口快过 sweep 头拍——首版无节奏时任务 4s 内跑完，409 busy 门整窗关闭）。probe 的 command -v ctffind 即刻上报，remote argv 自动带上 --ctffind_exe；mini 端到端验证真件「CTF estimated for 6 micrographs」completed。③Phase B 两条 stagingBeat 钉随 startedAt 参数签名漂移修方言 + heals 日志断言候选表补 prod-3001.log（t530 正典）。t263 ALL PASS（roster 39 条世界守卫盾仍在）。
+- [dance #6 + #7] #6：守卫诚实 NO-GO（buff/cache 1444<1450 差 6MB）→ node_modules 预热 15s（1444→1703）→ GO → BUILD GREEN 7e2fd37 上车 reaper。#7：useMemo 修复提交后 provenance 对账触发重build（守卫 SKIP 只看 HEAD——未提交漂移它看不见，这是 SKIP 语义的已知边界）→ BUILD GREEN e86fd5e 上车风暴修复。
+- [验证批] t256/t258/t260/t263 全部 ALL PASS + t246 壳卫兵 pass + bench 30/30 双运行时 + prod-3001.log 第 7 行「[reaper] global reconciler mounted (every 15s)」+ 冒烟 errors/console 双零。三车 commit：feat(reaper) + fix(results) + qa(t533) + docs(worklog)，push 对齐。
+- [下窗入口] ①reaper 的活体大考：派一个远端作业后切走 active 指针、关浏览器，15s 内看 inactive 世界自愈（本窗只有 wiring+bench 证据，无活体剧本）；②家族全量复跑收官（t256/t258/t260/t263 本窗已清，余 t266/t268/t273/t293/t299/t304-308 照旧）；③遗留池：t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4；④新功能池：Topaz wrapper（option-table 已有 relion_python_topaz 探测）、3D viewer 面板密度。
+- [未做与理由] live 大考剧本（reaper 自愈演示）需重启 prod + 切世界 + 造远端作业三件套，预算花在了 t263 的真件攻坚上——wiring/bench/挂岗日志三层证据已在，剧本留给下窗当开幕戏。
+
+Stage Summary:
+- 「完成不是被看见的，是被守护的」：全局 reaper 把 t532 的懒轮询律反转为产品律——无人驱动的世界也自愈
+- 「mock 学真件，缺什么补什么」：真 RELION 赢了 stub 是教义的胜利，也是 mock 的新债——契约 shim 对真源码逐行核对补上 ctffind 这块拼图
+- 「以网速自轮询是依赖数组的错」：每渲染铸新对象的方言表坐在 effect 依赖里，fetch 就成了永动机——useMemo 是门闩
+- 「无 URL 的 404 是谣言」：套件的 console 法要配 URL 证人——evidence from bytes 连自己的失败消息也不放过
+- 产出：global-reconcile.ts（reaper 全套）+ 风暴修复（e86fd5e）+ mock 真 ctffind shim + t256/t258/t260/t263 清批全绿 + bench 30/30 + dance #6/#7 双 GREEN
