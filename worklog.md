@@ -6997,3 +6997,29 @@ Stage Summary:
 - 「以网速自轮询是依赖数组的错」：每渲染铸新对象的方言表坐在 effect 依赖里，fetch 就成了永动机——useMemo 是门闩
 - 「无 URL 的 404 是谣言」：套件的 console 法要配 URL 证人——evidence from bytes 连自己的失败消息也不放过
 - 产出：global-reconcile.ts（reaper 全套）+ 风暴修复（e86fd5e）+ mock 真 ctffind shim + t256/t258/t260/t263 清批全绿 + bench 30/30 + dance #6/#7 双 GREEN
+
+---
+Task ID: 534
+Agent: main (Z.ai Code, window 2026-10-03 13:38 cron)
+Task: 交接开幕戏「reaper 活体大考」ALL PASS 收官；随后家族清批 t266 挖出「真二进制时代」三层产品病根（悬空 symlink→绝对行降级 / 索引行集群绝对 / to-local 挂载前缀怪物）全部修复 + mock 学会 topaz；t266 五窗积案 ALL PASS。
+
+Work Log:
+- [开局考古] 摘要脑内的「Task 525 起编」已过时九代——worklog 实录 t533 收官（global reaper 三层证据），HEAD d3618ac（截图 cron 车未推送，本窗代推）。环境：available 3306>2600 GO 线、buff/cache 2118>1450 暖线（t533 的 1444 差 6MB 本窗已过）；disk 93% 720M。QA 基线：tsc 0、console 0、**eslint 1 error**——dialog.tsx:274 react-hooks/refs「Cannot access refs during render」：t530 的 Esc 自豁免把 ref 传进 render 期调用的 companionGuard，规则无法证明「只在 keydown 期读」。
+- [交付① lint 修复] companionGuard 回归单参数；Esc 自豁免改为 prop 处内联箭头组合（与 click-to-front handler 同形——「箭头本身就是事件处理器，其 ref 读取自证是事件期」），运行时行为字节等价。t530/t534 双注释立案。
+- [选题 A — reaper 活体大考（t533 交接的开幕戏）] scripts/t534-reaper-exam.mjs：考试世界熄灯三件套——active 指针切走（POST /api/projects/switch）、浏览器 pkill（首页 2s 轮询即 GET 驱动 tick）、观察只走 sqlite 直读。剧本三代演进：①显式 remote 派发 twin（上游运行中）→ 集群照样 spawn（**契约灰区**：远端 dispatch 对未就绪上游不设门，立案 worklog）；②local lane 派发（A 尚 staging）→ provider 阶梯（failed>running>not-ready）接不住 → 硬失败；③**sqlite 种 pending 孤儿行**（leg 4 存在的意义）→ 零派发零竞态。**大考 ALL PASS**：A（远端 ctffind）running@+2s→completed@+37s 全黑；B（孤儿 pending）pending@+2s→running@+39s→completed@+67s 全黑；reaper 两拍自述 `examined=3 flips=1 retried=1`（retry leg 拉起 B）+ `examined=2 flips=1`（B 完成翻转）；B 判词 `REMOTE[cryo@127.0.0.1 · relion/5.0.1]: CTF estimated for 20 micrographs`——**remote passthrough 同集群零重传**；双 run record done/exit 0 + remote twin + mirror sync 全绿。t532 的「驱动 tick 的人才看得见完成」正式死亡：无人驾驶，世界两次自愈。
+- [剧本自己的坑] engine-state.json 是平铺（jobId 直接做键）无 runs 包裹层——首版 readRec 读 .runs?.[id] 全 null，4 条账本断言假 FAIL；python -c 的 sqlite 双引号=标识符（SET status="pending" 找名为 pending 的列）——参数化修复。t272 律：项目 DELETE 跑 clearRunRecord——事后验尸不可能，证据必须趁世界活着时取证（剧本 Phase C 已内置 B 判词行取证）。
+- [dance #8-#11 四磨] #8（9d324c2 dialog lint 修复）BUILD GREEN；#9（532695c linkDirInto）GREEN；#10（c61209a topaz 链）GREEN；#11（b256623 t266 门注释）首试 NO-GO（buff/cache 1361<1450）→ node_modules 预热 3.7s（1361→1898）→ GO——t525 药方第 N 次兑现。四车 provenance 全对齐。
+- [选题 B — 家族清批与三层病根] t266 首败 19 FAIL，链条源头「cluster LoG autopick completes (failed)」。离带复现（t534-diag-log.mjs 三代）逐层定谳：**病根零（背景）**：mock 的 MOCK_PATH 把 /home/z/relion-build/bin 排在 fs/opt/bin 之前——t530 磨机降生起真二进制永远赢 stub，套件从「stub 不读文件」时代进入「真件读文件」时代，一切文件不可达疾病全面爆发。**病根一**：engine.ts linkDirInto 用 existsSync 探已占路径——**悬空 symlink**（目标被旧清理扫走，如 demo 世界 micrographs→t271-mics）existsSync=false → 跳过重指向 → symlinkSync EEXIST → **整个目录导入静默降级绝对路径行**；真件按字面读行，宿主无 /projects 挂载 → `Cannot read file /projects/cryoflow/t266-mics/mic_01.mrc`。修复：lstat 占用检查 + catch 内 rmSync（t262 套件侧「sweep dangling symlinks」正是在绕这个产品洞）。**病根二**：synthesizeTrainingPicks 索引行 = 绝对本地路径 → to-remote 改写 → 集群绝对行 → 真件同样读不到（`File /projects/.../mic_05_autopick.star does not exist`）。修复：**索引行一律项目相对化**（local/direct/sbatch 三车道都以项目根为 cwd——RELION pipeliner 惯例），无法相对化的行诚实保留绝对形。**病根三**：rewriteStarPaths(to-local) 只换行内 remoteRoot 段——真件写出的 `<FS_ROOT>/projects/cryoflow/...` 行（宿主真实路径）改写后留下挂载前缀成 `<FS_ROOT>/home/z/...` 路径怪物（两界都不存在）。修复：整 token 匹配（`[^\s"']*remoteRoot/`）只留镜像孪生。
+- [mock 学会 topaz（t533 教义深化）] 真 relion_autopick --topaz_train 生成 topaz_train.bash 调 `<fn_topaz_exe> train ...`（autopicker.cpp:2957 逐行核对）；真 relion_python_topaz wrapper 跑 `python -c "from topaz.main import main"`——mock 无 topaz 模块 → PYTHON ERROR banner。修复三层：①fs/opt/pythons/topaz python 模块 shim（train 面：wild-shape 五 epoch + -o 曲线表 + <save-prefix>epochN.sav + topaz_model.sav；extract 面：x y 坐标行）；②commandEnv 注入 PYTHONPATH + .bash_profile 重导出（与 PATH 同舞）；③**head-guard filler**：binary 的块缓冲 stdout 在退出时于 offset 0 flush，把 `>>` 追加的 epoch 0 覆盖（run.out 只剩 1-4）——shim 先打 2KB filler 让 flush 落在无害字节上。教训：launch.sh 的 fuser -k 对老 server 失效（13h51m 老进程存活）——env 变更后必须 kill -9 + pgrep 验证 PID 更替。
+- [t266 微图物理化] 套件 64² 正弦微图无 blob 可拣（且 LoG 默认 150-180Å=85-102px 比整张 64² 图还大）——stub 时代 0 粒子照样绿；真件拒绝零 coords 训练（"no micrographs to train topaz on!"）。改造 512² + 暗色高斯 blob（sigma 40px 恰在 LoG 默认直径带内）→ **真 LoG 拣 36/36（每 blob 恰一个，物理精确命中）** → 真训练链全通。t266 **ALL PASS (43 ok)**——t530 以来五窗积案清零。t273 pass。
+- [清批余部与定谳] t268：真 relion_run_motioncorr 要求 data_movies 表 + _rlnMicrographMovieName 列（motioncorr_runner.cpp:257-263 逐行核对），app 喂 data_micrographs star → "no input movies to work on"——**下窗产品级课题**（movie 导入/输出注册链）。t293：outputs-list merge 三钉漂移（t515 重构搬迁族，t256 先例）。t299：C5 FAILED witness 一条待听证。t304-308：未及跑。余部归池。
+- [三车] fix(ui) 9d324c2 + fix(engine) 532695c + fix(remote) c61209a + fix(t266) b256623 + qa 车（reaper 大考 + 双 diag 脚本 + 截图）+ docs 车（本条）。
+
+Stage Summary:
+- 「无人驾驶的世界也会自愈」：reaper 大考把 t532 的懒轮询律反转为已证事实——active 切走 + 浏览器全灭 + sqlite 直读，远端作业 37s 翻转、孤儿 pending 39s 拉起、同集群零重传；[reaper] tick 两拍自述在案
+- 「真二进制赢的那天，所有文件不可达都成了现行犯」：MOCK_PATH 顺序是 t530 的隐形延迟爆炸——stub 时代的套件绿全是假象，真件逐字读 star 行，三处路径生成点（linkDirInto 降级 / 索引绝对行 / to-local 前缀怪物）连环引爆
+- 「悬空符号链接是 existsSync 的盲区」：占用检测要 lstat——目标死了链接还占着路径，EEXIST 把整个目录导入静默降级成绝对行；套件绕了五代的产品洞，一行 lstat 收官
+- 「索引行说项目方言」：RELION pipeliner 惯例 = 行相对项目根，三车道共享同一个 cwd 契约——绝对路径行在任何一界都可能是怪物
+- 「mock 在真二进制调用的最深一层学真件」：ctffind 在 exe 层、topaz 在 python 模块层——PYTHONPATH + 契约 shim 让真 wrapper 活过来；head-guard filler 则教会我们：binary 的缓冲 stdout 是文件里另一支笔
+- 产出：reaper 活体大考 ALL PASS + t266 五窗积案 ALL PASS(43) + t273 pass + linkDirInto/rewriteStarPaths/synthesizeTrainingPicks 三产品修复 + topaz python shim + dance #8-#11 四磨双 NO-GO 药方兑现 + t268 movies-star 定谳（下窗入口）
+- [下窗入口] ①t268 movies-star 产品链：import 的 movie 分类/输出注册 → motioncorr 的 --i 喂 data_movies+_rlnMicrographMovieName（motioncorr_runner.cpp:257 契约），连带 t268 剩余 2 断言；②清批 t293（outputs-list 钉搬迁，t256 先例）+ t299 C5 witness + t304-308；③reaper 大考剧本纳入家族 roster 候选（scripts/t534-reaper-exam.mjs 幂等可重跑）；④遗留池：t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 对未就绪上游的契约灰区（本窗大考①代剧本活捉）。
