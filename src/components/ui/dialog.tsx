@@ -137,16 +137,22 @@ function isFromLiveZone(event: Event, self?: Element | null): boolean {
  * (the keydown target) lives in a companion hands the keypress to the
  * companion's own handler instead: Esc peels the companion, not the
  * dialog under it.
+ *
+ * t534 — the escape guard NO LONGER rides this composer. Passing a ref
+ * into a function called during render is unprovable to the ref lint
+ * (react-hooks/refs — it cannot know the composer only reads the ref at
+ * keydown time), so the escape self-exemption composes INLINE at its prop
+ * (the same shape as the click-to-front handler below): an arrow passed
+ * directly as the event handler IS an event handler, and its ref read is
+ * self-evidently event-time. The three OUTSIDE guards keep the composer —
+ * their targets are outside by definition, no self exemption needed.
  */
 function companionGuard<E extends Event>(
-  handler: ((event: E) => void) | undefined,
-  selfRef?: { readonly current: Element | null }
+  handler: ((event: E) => void) | undefined
 ): (event: E) => void {
-  // the ref read lives inside the RETURNED event handler — it executes at
-  // keydown time (Radix's capture listener), never during render
   return (event) => {
     handler?.(event)
-    if (!event.defaultPrevented && isFromLiveZone(event, selfRef?.current)) {
+    if (!event.defaultPrevented && isFromLiveZone(event)) {
       event.preventDefault()
     }
   }
@@ -268,10 +274,18 @@ function DialogContent({
         onPointerDownOutside={companionGuard(onPointerDownOutside)}
         onInteractOutside={companionGuard(onInteractOutside)}
         onFocusOutside={companionGuard(onFocusOutside)}
-        /* t530 — the self exemption rides ONLY the escape guard: escape
+        /* t530/t534 — the self exemption rides ONLY the escape guard: escape
          * targets can be inside this dialog (focused content), while the
-         * outside guards' targets are outside by definition. */
-        onEscapeKeyDown={companionGuard(onEscapeKeyDown, selfRef)}
+         * outside guards' targets are outside by definition. Composed inline
+         * (not via companionGuard) so the ref read lives in a lambda that is
+         * ITSELF the prop handler — event-time execution is provable, and
+         * the render-phase pass-a-ref lint tripwire is structurally avoided. */
+        onEscapeKeyDown={(event) => {
+          onEscapeKeyDown?.(event)
+          if (!event.defaultPrevented && isFromLiveZone(event, selfRef.current)) {
+            event.preventDefault()
+          }
+        }}
         /* t503 — click-to-front, the dialog's half of the window law:
          * while a companion window is open this dialog is a LIVE surface,
          * and the last-touched window leads. The assistant re-asserts
