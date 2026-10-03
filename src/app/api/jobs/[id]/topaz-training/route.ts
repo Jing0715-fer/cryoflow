@@ -25,8 +25,8 @@ type RouteContext = { params: Promise<{ id: string }> };
  * and the chart self-hides.
  *
  * This shell keeps only the door laws: the same-origin guard (t266, the
- * t251-class sibling sweep — the parsed epochs LEAK the training log's
- * contents cross-site) and the 404/500 translations.
+ * t251-class sibling sweep — the parsed epochs LEAK workdir-derived data
+ * (the training log's contents) cross-site) and the 404/500 translations.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   if (!isLocalRequest(request)) {

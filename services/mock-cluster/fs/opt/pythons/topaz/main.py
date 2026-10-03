@@ -60,6 +60,16 @@ def train(argv):
         i += 1
 
     rows = _epochs()
+
+    # t534 — the head-guard filler. trainTopaz runs the train script as
+    # `>> run.out` while the REAL binary holds the same file via `>` with a
+    # BLOCK-BUFFERED stdout; the binary flushes its banner + closing lines
+    # AT EXIT — at byte offset 0 — clobbering whatever the script appended
+    # there first (epoch 0 died exactly this way: run.out carried epochs
+    # 1-4 and a banner sitting where epoch 0 had been). A single long line
+    # ahead of the epochs gives that flush harmless bytes to land on.
+    print("#" + " topaz training session (cryoflow-mock) " + "-" * 2048)
+    sys.stdout.flush()
     for train_line, test_line, _ in rows:
         time.sleep(0.3)  # the honest-pace law: a beat a human can see
         print(train_line)
