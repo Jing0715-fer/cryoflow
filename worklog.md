@@ -7023,3 +7023,32 @@ Stage Summary:
 - 「mock 在真二进制调用的最深一层学真件」：ctffind 在 exe 层、topaz 在 python 模块层——PYTHONPATH + 契约 shim 让真 wrapper 活过来；head-guard filler 则教会我们：binary 的缓冲 stdout 是文件里另一支笔
 - 产出：reaper 活体大考 ALL PASS + t266 五窗积案 ALL PASS(43) + t273 pass + linkDirInto/rewriteStarPaths/synthesizeTrainingPicks 三产品修复 + topaz python shim + dance #8-#11 四磨双 NO-GO 药方兑现 + t268 movies-star 定谳（下窗入口）
 - [下窗入口] ①t268 movies-star 产品链：import 的 movie 分类/输出注册 → motioncorr 的 --i 喂 data_movies+_rlnMicrographMovieName（motioncorr_runner.cpp:257 契约），连带 t268 剩余 2 断言；②清批 t293（outputs-list 钉搬迁，t256 先例）+ t299 C5 witness + t304-308；③reaper 大考剧本纳入家族 roster 候选（scripts/t534-reaper-exam.mjs 幂等可重跑）；④遗留池：t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 对未就绪上游的契约灰区（本窗大考①代剧本活捉）。
+
+---
+Task ID: 535
+Agent: main (Z.ai Code, window 2026-10-03 16:53 cron)
+Task: 交接入口①「t268 movies-star 产品链」落地——star-shape 门 + motioncor2 契约 shim + 三套件（t268/t267/t264）真二进制时代全面物理化 ALL PASS；随窗回收磁盘 1.2G+、六磨双 NO-GO 药方兑现。
+
+Work Log:
+- [开局考古] 摘要脑内的「Task 525 起编」已过时十代——worklog 实录 t534 收官（reaper 活体大考 + t266 五窗积案清零），HEAD 775533e 三方对齐。环境：available 3306>2600 GO 线；disk 93% 仅 722M。QA 基线：prod :3000 200 + tsc 0 + eslint 0 + console 0 + 主流程冒烟绿（RELION 5.0.0 芯片、40 job types、active 指针复辟）。
+- [磁盘手术] .next/dev 1.2G 陈旧 dev 车道残骸（prod 走 standalone 不读它）+ git gc（912M→768M）→ disk 93%→79%，2.0G 可用——六磨的燃料线。
+- [选题 A 定谳] t268 solo 3 FAIL（稳定复现）：真 relion_run_motioncorr 拒 micrographs star（motioncorr_runner.cpp:257-263 契约）+ probe 卡片读空。t372 大考 P8 已证产品端 movies 链全通（nodeType:"movies" + do_own + 真 multi-frame movies）——套件还活在 stub 时代。
+- [交付① star-shape 门] src/lib/relion/star-shape.ts（纯模块）：starMoviesShapeOf 逐字节分类 data_movies/data_micrographs 方言（label-LINE-only 语法，行值含标签文本不算列）；readStarMoviesShape 诚实 null（不可读不判决）。engine.ts motioncorr case 顶部接线：micrographs 形输入在派发前本地拒绝（「MotionCorr reads only MOVIES stars — … Node type = Movies … CTF directly」），不可读跳过门（真件仍然开口）。
+- [交付② motioncor2 契约 shim] services/mock-cluster/fs/opt/bin/motioncor2 从 print-line stub 长成真件外脑（逐行核对 motioncorr_runner.cpp:562-683）：解析 -InMrc/-OutMrc，写 sum + **_DW 孪生**（剂量加权舞：runner 删非 DW sum 并把 _DW 改名上座——_DW 缺席即 rename 失败 movie 失败），stdout 说 shift-log 方言（getShiftsMotioncor2 容错但说谎免费）。真件+shim 端到端实证：3 部 4 帧 512² movie 0.4s 全产出。
+- [交付③ 套件物理化] t268/t267/t264 制造器升级 4 帧 frame stacks + nodeType:"movies" + movies→movies 边；t268 保持 500 部喂 staging 心跳；t264 升 512² blob movies（t266 配方）——**无 params motioncorr 作业吃全套 GUI 默认（own+float16+patch5），真件 cropInFourierSpace 对玩具 64² 帧硬崩（"Invalid size given"）**，真实尺寸是唯一诚实形；t264 拣选腿改接 motioncorr 下游（picks 住在 micrographs 上，不住 raw movies）——stub 时代 import→autopick 直连在真件下拣 0。
+- [交付④ staging 行方言] rewriteStarPaths to-remote 腿产出**项目相对行**（t534 synthesizeTrainingPicks 律推广到 staging 本身）：旧集群绝对行（/projects/...）真件读不到（translateCommand 只翻译命令字符串不翻译 star 内容），real autopick 死于 "Cannot read file /projects/…"。projectSegment 由各 staging 调用点从 remoteTarget 的 remoteRoot 后首段推导，strip localRoot/<project>/ → 裸 pipeliner 行（cwd=project root 三车道共享）。
+- [交付⑤ per-mic census] 真件 per-mic pick star 写在 fn_odir + <input-row-root>（autopicker.cpp:4010 decomposePipelineFileName 只剥 <Type>/jobNNN/）：MotionCor2 车道 corrected 行宿主绝对 → picks 嵌套 home/z/.../motioncorr_x/micrographs/ 深达 11 层。collectOutputs 深度 12 有界递归 walk 取代 stub 时代平面 micrographs/ 扫描；REMOTE_OUTPUT_CANDIDATES autopick 补 */*_autopick.star 与 */*/*_autopick.star 两级 glob。
+- [交付⑥ topaz extract 面] mock topaz 模块 extract 面从 stdout 印行升级为真契约：写 -o 文件（首行 x_coord/y_coord/score 三列头 + 有界坐标行，autopicker.cpp:2732-2754 readTopazCoordinates 语法）——真件死于 "Cannot open input file .../proc/rank000000.txt" 的 stdout 形答案就此退役。
+- [bench 第 89 套] scripts/t535-star-shape-bench.ts：21 断言 bun+node 双运行时（纯分类字节诚实 / 世界方言（movies import 形、corrected 形、optics 块不说话）/ 接线字节 / 只读 live smoke）。
+- [dance #12-#16 五磨] #12（775533e）GREEN；#13 首试 NO-GO（buff/cache 1444<1450）→ node_modules 预热 9.5s（→2161）→ GO GREEN（3184af9）；#14 首试 NO-GO → 预热 → GO GREEN（eb54c9b）；#15 GREEN（5b05a82）；#16 GREEN（7707607）。t525 药方第 N 次兑现，守卫诚实拒绝与温暖窗预热已成标准舞步。
+- [验证批] t268 ALL PASS（500-movie 集群 motioncorr 真件完成 + REMOTE 判词收成 + probe 卡片作用域修复：卡片渲染于**选中**连接，旧 pre-t268 记录无 durationMs 曾赢默认选中读空——rail 按钮 aria-label 前缀点选自己的连接）；t267 ALL PASS ×2（MotionCor2 车道主语保住：argv 带集群 motioncor2 路径 + shim 喂真件完成）；t264 ALL PASS（topaz 探针钉改 essense（/relion_python_topaz$ 收尾，真 wrapper 赢 stub 是 t530 时代 rightful）、C3 本地腿方言更新（RELION 在场 → 诚实拒因移到 MotionCor2 缺失）、picks counted across 6 micrographs + 镜像 witness 改 find 嵌套方言）。
+- [未做与理由] t269/t270/t271/t272/t294/t295 的 movies 物理化（同款配方可复制，窗口预算花在 t264 的三层深挖上）；reaper 大考剧本入家族 roster；远端 argv 全线项目相对化（本轮修法的彻底版：--o 相对 → corrected 行原生相对 → 深嵌套消失——真正 pipeliner 方言端到端，动 dispatch 心脏，需独立窗）；t299 C5 witness、t276 _legacy-archive 照旧挂池。
+
+Stage Summary:
+- 「stub 的沉默是五代的假象」：真二进制读字面，一切玩具尺寸、绝对行、stdout 答案都是现行犯——fixture 物理化（4 帧、512²、blob）不是测试美化，是真件时代的入场券
+- 「无 params 的作业吃全套 GUI 默认」：own+float16+patch5 三默认叠加在 64² 帧上 = cropInFourierSpace 硬崩——默认值是产品对 RELION 的忠实，fixture 对物理的忠实才是配套义务
+- 「mock 学真件要学到它读回的那个文件」：motioncor2 的 _DW 孪生、topaz 的 -o 三列头——契约不在参数里，在 runner 退出后读回的路径里
+- 「行方言即 cwd 契约」：三车道 cwd=项目根，行就该说项目方言；绝对行在任何一界都可能是怪物（t534 律的第三 次 兑现）
+- 「守卫的 SKIP 只看 HEAD」：未提交漂移它看不见——先 commit 后 dance，t533 的已知边界第三次撞上
+- 产出：star-shape 门（纯模块+bench 89 套）+ motioncor2/topaz 双契约 shim + staging 项目相对行 + per-mic 深度 census + t268/t267/t264 三套 ALL PASS + 磁盘 93%→79% + 五磨全绿
+- [下窗入口] ①resume/ledger 家族 movies 物理化：t269/t270/t271/t272/t294/t295/t293/t304 同款配方（4 帧 movies + nodeType:movies + do_own 显式或真尺寸 fixture），逐套 solo 三角定谳；②远端 argv 项目相对化重构（本轮 staging 修法的彻底版，消灭宿主绝对行的深嵌套——motioncorr/autopick/extract 全类型）；③reaper 大考剧本入家族 roster 候选；④遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 对未就绪上游的契约灰区（t534 立案）。
