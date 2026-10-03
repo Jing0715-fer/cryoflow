@@ -152,11 +152,23 @@ try {
     if (r.status === 201 && r.body?.job?.id) createdJobs.push(r.body.job.id);
     return r.body?.job;
   };
+  // spread positions: an edge-less fixture canvas stacks every node at the
+  // same point, and a canvas click then opens the WRONG job's inspector
+  // (the t544 forensics caught the force-click punching through to "t544
+  // Empty") — positions make every node its own hit target
+  const SPREAD = [
+    { x: 120, y: 120 },
+    { x: 620, y: 120 },
+    { x: 120, y: 520 },
+    { x: 620, y: 520 },
+  ];
+  let spreadIdx = 0;
+  const mkSpreadJob = async (body) => mkJob({ ...body, ...(SPREAD[spreadIdx++] ?? { x: 900, y: 120 }) });
 
   // a REAL local import — the non-classify completed face
   mkdirSync(FIXTURE, { recursive: true });
   for (let i = 1; i <= 4; i++) writeFileSync(path.join(FIXTURE, `mic_0${i}.mrc`), mrcBytes(64, 64, 1, i));
-  const importJob = await mkJob({ type: "import", name: "t544 Import", params: { micrographsPath: FIXTURE, pixelSize: 1.77 } });
+  const importJob = await mkSpreadJob({ type: "import", name: "t544 Import", params: { micrographsPath: FIXTURE, pixelSize: 1.77 } });
   must(!!importJob?.id, "the import job exists");
   await api("POST", `/api/jobs/${importJob.id}/run`, {});
   for (let i = 0; i < 60; i++) {
@@ -171,7 +183,7 @@ try {
 
   // class2d — fails at dispatch (no extract inputs), then its computed
   // workdir receives the exact dialect the mock/real refine writes
-  const j2d = await mkJob({ type: "class2d", name: "t544 Class2D", params: {} });
+  const j2d = await mkSpreadJob({ type: "class2d", name: "t544 Class2D", params: {} });
   must(!!j2d?.id, "the class2d job exists");
   await runAndWaitNonIdle(j2d.id, "the class2d dispatch");
   const wd2d = workdirOf("class2d", j2d.id);
@@ -187,7 +199,7 @@ try {
   must(existsSync(path.join(wd2d, "run_unmasked_classes.mrcs")), "the class2d fixture stack is seeded");
 
   // class3d — the per-class VOLUME lane (real RELION dialect)
-  const j3d = await mkJob({ type: "class3d", name: "t544 Class3D", params: {} });
+  const j3d = await mkSpreadJob({ type: "class3d", name: "t544 Class3D", params: {} });
   must(!!j3d?.id, "the class3d job exists");
   await runAndWaitNonIdle(j3d.id, "the class3d dispatch");
   const wd3d = workdirOf("class3d", j3d.id);
@@ -199,7 +211,7 @@ try {
   writeFileSync(path.join(wd3d, "run_it000_optimiser.star"), OPTIMISER_STAR);
 
   // the honest empty: a class2d whose workdir never materializes
-  const jempty = await mkJob({ type: "class2d", name: "t544 Empty", params: {} });
+  const jempty = await mkSpreadJob({ type: "class2d", name: "t544 Empty", params: {} });
   must(!!jempty?.id, "the empty class2d job exists");
   await runAndWaitNonIdle(jempty.id, "the empty class2d dispatch");
 
@@ -251,10 +263,28 @@ try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await sleep(3000);
 
-  await page.locator(`[data-job="${j2d.id}"]`).first().click({ force: true }).catch(() => {});
+  // no force: a force-click punches through overlapping canvas nodes and
+  // opens the WRONG job's inspector (the t544 forensics caught exactly
+  // that — the dialog said "t544 Empty"). Actionability keeps the hit
+  // honest; the identity assertion below convicts any relapse.
+  await page.locator(`[data-job="${j2d.id}"]`).first().click().catch(() => {});
   await sleep(2500);
   must((await page.locator('[role="dialog"]').count()) > 0, "the inspector dialog opened");
+  must((await page.locator('[role="dialog"]').getByText("t544 Class2D", { exact: true }).count()) >= 1,
+    "the inspector is THE class2d job's (identity, not just a dialog)");
+  // t363's auto-tab law lands classifications on RESULTS — the teaser is an
+  // OVERVIEW face, so the suite clicks the Overview trigger like a user
+  await page.getByRole("tab").filter({ hasText: "Overview" }).first().click().catch(() => {});
+  await sleep(1800);
   const teaser = page.locator('section[aria-label="Class averages"]');
+  if (!(await teaser.isVisible().catch(() => false))) {
+    // forensics — the probe passes with identical steps; catch the delta
+    const sel = await page.locator('[role="dialog"] [role="tab"][aria-selected="true"]').first().textContent().catch(() => "?");
+    const anySel = await page.locator('[role="tab"][aria-selected="true"]').allTextContents().catch(() => []);
+    const secs = await page.locator('[role="dialog"] section').allTextContents().catch(() => []);
+    await page.screenshot({ path: `${ROOT}/.qa-logs/t544-phase-d-forensics.png` });
+    console.log(`  [forensics] selected tab: ${JSON.stringify(sel)} | page-wide selected: ${JSON.stringify(anySel)} | sections: ${JSON.stringify(secs.map((s) => s.slice(0, 36)))}`);
+  }
   must(await teaser.isVisible().catch(() => false), "the Overview shows the class-averages teaser");
   const tiles = teaser.locator("[data-class-tile]");
   must((await tiles.count()) === 4, `four class tiles (got ${await tiles.count()})`);
@@ -282,8 +312,10 @@ try {
     if (answerable) {
       await page.keyboard.press("Escape").catch(() => {});
       await sleep(600);
-      await page.locator(`[data-job="${resident.id}"]`).first().click({ force: true }).catch(() => {});
-      await sleep(3000);
+      await page.locator(`[data-job="${resident.id}"]`).first().click().catch(() => {});
+      await sleep(2500);
+      await page.getByRole("tab").filter({ hasText: "Overview" }).first().click().catch(() => {});
+      await sleep(1800);
       const rt = page.locator('section[aria-label="Class averages"]');
       if (await rt.isVisible().catch(() => false)) {
         const imgs = rt.locator("img");
@@ -302,7 +334,7 @@ try {
   // the empty job self-hides
   await page.keyboard.press("Escape").catch(() => {});
   await sleep(600);
-  await page.locator(`[data-job="${jempty.id}"]`).first().click({ force: true }).catch(() => {});
+  await page.locator(`[data-job="${jempty.id}"]`).first().click().catch(() => {});
   await sleep(2000);
   must((await page.locator('section[aria-label="Class averages"]').count()) === 0,
     "the empty job's Overview stays silent (absence, not a wound)");
@@ -310,12 +342,17 @@ try {
   // the import job never mounts one
   await page.keyboard.press("Escape").catch(() => {});
   await sleep(600);
-  await page.locator(`[data-job="${importJob.id}"]`).first().click({ force: true }).catch(() => {});
+  await page.locator(`[data-job="${importJob.id}"]`).first().click().catch(() => {});
   await sleep(1500);
   must((await page.locator('section[aria-label="Class averages"]').count()) === 0,
     "the import job never mounts a teaser (the type gate)");
 
-  must(consoleErrors.length === 0, `console stays clean (${consoleErrors.length} errors)`);
+  // the fixture's pending class2d has no run record (t540), so its four
+  // tile-byte requests answer 400 — the EXPECTED placeholder shape, not a
+  // wound. Anything else on the console is a real error and fails.
+  const unexpected = consoleErrors.filter((e) => !/400 \(Bad Request\)/.test(e));
+  must(unexpected.length === 0,
+    `console carries only the expected fixture tile 400s (${unexpected.length} unexpected of ${consoleErrors.length})`);
 } catch (e) {
   fail++;
   console.log(`  FAIL: unexpected: ${e?.message ?? e}`);
