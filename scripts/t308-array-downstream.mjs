@@ -477,6 +477,15 @@ try {
     typeof rec3b?.result === "string" && rec3b.result.includes(`${expectRows} particles`),
     `C3: the record's result names the CONSUMED count — ${expectRows} particles classified (got ${String(rec3b?.result).slice(0, 80)})`
   );
+  // t539 — the counting-semantics pin: 72 IDENTICAL six-blob particles give
+  // the real EM one populated class inside K=4 written averages (the probe
+  // read run_unmasked_classes.mrcs nz=4 + data.star distinct=1). The result
+  // line must speak BOTH numbers ("1 of 4 classes populated") — the old
+  // "1 classes" hiccup is dead grammar AND dead semantics.
+  must(
+    typeof rec3b?.result === "string" && rec3b.result.includes("1 of 4 classes populated"),
+    `C3: the result line names populated AND written classes — "1 of 4 classes populated" (got ${String(rec3b?.result).slice(0, 100)})`
+  );
   must(
     !!rec3b?.outputs?.classes_mrc && existsSync(rec3b.outputs.classes_mrc),
     `C3: classes_mrc harvested + synced home (${rec3b?.outputs?.classes_mrc ?? "absent"})`

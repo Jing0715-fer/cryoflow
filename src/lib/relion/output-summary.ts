@@ -465,7 +465,16 @@ export function summarizeOutputs(
       const stats: SummaryStat[] = [];
       if (parts != null)
         stats.push({ key: "particles", value: nfmt(parts), label: "particles classified", tone: "particle" });
-      if (k != null) stats.push({ key: "classes", value: nfmt(k), label: "classes", tone: "class" });
+      if (k != null)
+        stats.push({
+          key: "classes",
+          value: nfmt(k),
+          // t539 — the stack's nz counts every class average RELION wrote
+          // (K, populated or not); the result line's "N of K classes
+          // populated" is the occupancy. One word, two numbers, never again.
+          label: "class averages",
+          tone: "class",
+        });
       return { stats };
     }
 
@@ -496,7 +505,16 @@ export function summarizeOutputs(
           label: type === "class3d" ? "particles classified" : "particles seeded",
           tone: "particle",
         });
-      if (k != null) stats.push({ key: "classes", value: nfmt(k), label: "classes", tone: "class" });
+      if (k != null)
+        stats.push({
+          key: "classes",
+          value: nfmt(k),
+          // t539 — same word-split as the class2d card: k counts the class
+          // MAP files RELION wrote at the latest iteration (volumes, one per
+          // class), not the populated occupancy the result line speaks.
+          label: "class maps",
+          tone: "class",
+        });
       return { stats };
     }
 

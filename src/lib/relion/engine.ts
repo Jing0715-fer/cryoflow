@@ -8302,7 +8302,15 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
         const data = globLatest(workdir, /^run_it\d+_data\.star$/) ?? firstExisting(workdir, ["run_data.star"]);
         if (data) outputs.particles_star = data;
         result = "REAL: 2D classification finished — class averages written";
-        // class occupancy summary — the quality signal for 2D results
+        // class occupancy summary — the quality signal for 2D results.
+        // t539 — the two "classes" numbers are DIFFERENT truths and the line
+        // used to say only the smaller one: the stack's header nz counts every
+        // class average RELION wrote (K, populated or not — the probe's
+        // run_unmasked_classes.mrcs has nz=4 while all 72 particles sit in
+        // class 2), while the data star's distinct _rlnClassNumber counts only
+        // the POPULATED classes. The line now names both: "1 of 4 classes
+        // populated" — the card's stack stat (output-summary) is relabeled
+        // "class averages" so the two numbers never collide on one word again.
         const dist = data ? classDistributionFromData(data) : null;
         if (dist) {
           const ranked = [...dist.counts.entries()].sort((a, b) => b[1] - a[1]);
@@ -8310,7 +8318,13 @@ export function collectOutputs(type: string, workdir: string): { outputs: Record
             .slice(0, 3)
             .map(([cls, n]) => `class ${cls} ${Math.round((100 * n) / dist.total)}%`)
             .join(", ");
-          result = `REAL: 2D classification finished — ${dist.counts.size} classes · ${dist.total.toLocaleString()} particles · top: ${top}`;
+          const stackK = readMrcHeader(classes)?.nz ?? null;
+          const populated = dist.counts.size;
+          const classPhrase =
+            stackK != null && stackK > 0
+              ? `${populated} of ${stackK} classes populated`
+              : `${populated} ${populated === 1 ? "class" : "classes"} populated`;
+          result = `REAL: 2D classification finished — ${classPhrase} · ${dist.total.toLocaleString()} particles · top: ${top}`;
         }
       }
       break;
