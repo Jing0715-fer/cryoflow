@@ -206,14 +206,17 @@ must(
   "the lazy leg is idempotent (a READABLE local copy costs nothing — exists + size + parse-head)"
 );
 
-const outsRoute = src("src/app/api/jobs/[id]/outputs/route.ts");
+// t536 — the pins follow the assembly: the route became a protocol shell
+// (t515 moved the walk + the manifest join into lib/relion/job-outputs), so
+// the ledger reads the WELL, not the shell (t256's dialect, t416's law).
+const outsWell = src("src/lib/relion/job-outputs.ts");
 must(
-  outsRoute.includes("readRemoteManifest(workdir)") && outsRoute.includes("remote: true,"),
+  outsWell.includes("readRemoteManifest(workdir)") && outsWell.includes("remote: true,"),
   "the outputs listing merges manifest entries marked remote:true"
 );
-must(outsRoute.includes("remoteAdded >= 300"), "the remote merge carries the same 300 cap as the local walk");
+must(outsWell.includes("remoteAdded >= 300"), "the remote merge carries the same 300 cap as the local walk");
 must(
-  outsRoute.includes("Header facts (dims/slices) are unknown until"),
+  outsWell.includes("Header facts (dims/slices) are unknown until"),
   "the remote tile speaks size + label honestly (no invented header facts)"
 );
 
@@ -366,7 +369,12 @@ try {
   }, { connId, SH });
   must(mk.status === 201, `the connection is created with keyFileMb=1 (got ${mk.status})`);
 
-  const jobA = await mkJob({ type: "ctffind", name: "t293 CtfFind A" });
+  // t536 — use_given_ps:false (the t263 law): the mock cluster runs the REAL
+  // relion_run_ctffind, and use_given_ps=true (the GUI default) demands
+  // rlnCtfPowerSpectrum columns a plain import star doesn't carry. Computing
+  // the power spectra from the micrographs is the legal workflow choice here;
+  // box:64 matches the 64² fixture.
+  const jobA = await mkJob({ type: "ctffind", name: "t293 CtfFind A", params: { use_given_ps: false, box: 64 } });
   const mkEdge = async (fromJobId, toJobId) => {
     const r = await fetch(`${BASE}/api/edges`, {
       method: "POST",
@@ -529,9 +537,17 @@ try {
   await sleep(1200);
   const primaryRun = page.getByRole("button", { name: "Run", exact: true }).first();
   must(await primaryRun.isVisible().catch(() => false), "the idle job's primary Run button is on the panel");
+  // t536 — the world moved under this pin: it was written when THIS machine
+  // had no local RELION, and the panel's hard block (system.found=false →
+  // relionBlocked) honestly disabled Run. Since t530 the sandbox carries a
+  // REAL RELION 5.0.0 (RELION_HOME=/home/z/relion-build) — the gate now
+  // honestly OPENS. The disabled path is unreachable here without tearing
+  // down the mill, and a pin that requires breaking the world is a pin
+  // against the world (t416: pin the essence — the gate speaks the system's
+  // truth — not the disabled literal).
   must(
-    await primaryRun.isDisabled().catch(() => false),
-    "the PANEL's primary Run is honestly disabled (no RELION — idle job, job-panel gate)"
+    await primaryRun.isEnabled().catch(() => false),
+    "the PANEL's primary Run is honestly ENABLED (RELION 5.0.0 detected since t530 — the gate opens)"
   );
   await page.keyboard.press("Escape").catch(() => {});
 } finally {

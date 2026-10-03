@@ -162,22 +162,31 @@ try {
   // ---- Phase C: the live loop ---------------------------------------------
   console.log("== PHASE C: the live loop (a ledger that lands) ==");
 
-  // C1 — six tiny but valid MRC micrographs + a REAL local import
+  // C1 — six tiny but valid MRC movies + a REAL local import
+  // t536 — the real-binary era: MotionCorr consumes MOVIES (frame stacks).
+  // The stub accepted single-frame micrographs; the real relion_run_motioncorr
+  // refuses them (and the star-shape gate — now on BOTH lanes — refuses the
+  // micrographs-shaped star even earlier). The fixture grows up: 4-frame
+  // 64x64 float32 stacks (nz=4 in the header, per-frame signal so the
+  // alignment has something to align; the t268 recipe).
   mkdirSync(MICS_DIR, { recursive: true });
+  const N_FRAMES = 4;
   const names = ["mic_01.mrc", "mic_02.mrc", "mic_03.mrc", "mic_04.mrc", "mic_05.mrc", "mic_06.mrc"];
   for (const n of names) {
     const W = 64, H = 64;
-    const buf = Buffer.alloc(1024 + W * H * 4);
-    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
+    const buf = Buffer.alloc(1024 + W * H * 4 * N_FRAMES);
+    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(N_FRAMES, 8);
     buf.writeInt32LE(2, 12); // mode 2 = float32
-    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
-    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(N_FRAMES, 36);
+    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * N_FRAMES, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-    for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+    for (let s = 0; s < N_FRAMES; s++) {
+      for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7 + s) * 0.1, 1024 + (s * W * H + i) * 4);
+    }
     writeFileSync(path.join(MICS_DIR, n), buf);
   }
-  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (64x64 float32)");
+  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), `six mock movies fabricated (64x64 float32, ${N_FRAMES} frames)`);
 
   const mkJob = async (body) => {
     const r = await fetch(`${BASE}/api/jobs`, {
@@ -205,7 +214,9 @@ try {
   const importJob = await mkJob({
     type: "import",
     name: "t269 Import",
-    params: { micrographsPath: MICS_DIR, pixelSize: 1.77 },
+    // t536 — nodeType movies: the star must speak data_movies +
+    // rlnMicrographMovieName, the only dialect the real relion_run_motioncorr reads
+    params: { micrographsPath: MICS_DIR, pixelSize: 1.77, nodeType: "movies" },
   });
   must(!!importJob?.id, "the import job exists");
   await fetch(`${BASE}/api/jobs/${importJob.id}/run`, {
@@ -239,8 +250,14 @@ try {
   must(mk.status === 201, `the probeless connection is created (got ${mk.status})`);
 
   // C3 — bare-API dispatch → completion → the ledger lands
-  const jobM = await mkJob({ type: "motioncorr", name: "t269 MotionCorr Ledger" });
-  const eM = await mkEdge(importJob.id, jobM.id, "micrographs", "movies");
+  // t536 — do_own_motioncor: RELION's own CPU implementation is the honest
+  // lane on a rig without a MotionCor2 licence (the t372 P8 / t268 precedent);
+  // the GUI-default MotionCor2 lane needs real-size fixtures (512²) or the
+  // real binary's cropInFourierSpace hard-crashes on toy frames.
+  const jobM = await mkJob({ type: "motioncorr", name: "t269 MotionCorr Ledger", params: { do_own_motioncor: true } });
+  // t536 — with nodeType=movies the import's output port is "movies" (the
+  // micrographs port hides), and motioncorr's movies input accepts it.
+  const eM = await mkEdge(importJob.id, jobM.id, "movies", "movies");
   must(eM === 200 || eM === 201, `import → probeless-remote motioncorr wired (${eM})`);
   const dispatchM = await fetch(`${BASE}/api/jobs/${jobM.id}/run`, {
     method: "POST",

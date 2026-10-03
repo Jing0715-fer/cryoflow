@@ -362,13 +362,27 @@ try {
   );
   const heldState = client(`squeue -j ${cSlurmId} -h -o %T`);
   must(heldState === "PENDING", `C1: the mock HOLDS the child (squeue says ${heldState}) — the scheduler's ordering is real`);
-  const stripShot = await pollUntil(async () => {
+  // t536 — the world grew (the 60-job demo canvas) and the boot fit view
+  // shrunk to zoom ~0.26: at that scale the child card is a 60×28 dot,
+  // occluded by neighbours — elementFromPoint at the card's center answers
+  // a plain DIV, and the historical click-the-card choreography clicked
+  // nothing (45s of polls, zero dialogs). The app's OWN deep-link dialect
+  // is the honest door: the command palette's jumpToJob → openJob lands
+  // "idle→select+focus / submitted→inspect" — geometry-proof, zoom-proof,
+  // workspace-repairing. Drive THAT.
+  const openChildInspector = async () => {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await sleep(2000);
-    const card = page.locator("[data-job]", { hasText: "t304 Child C1" }).locator('[role="button"]').first();
-    try { await card.click({ timeout: 6000, force: true }); } catch { return null; }
-    await sleep(1200);
-    const body = await page.locator("body").innerText();
+    await page.getByRole("button", { name: "Open command palette (Ctrl+K)" }).click();
+    await sleep(500);
+    await page.getByPlaceholder("Jump to a job, add a type, run an action…").fill("t304 Child C1");
+    await sleep(600);
+    await page.locator("[cmdk-item]", { hasText: "t304 Child C1" }).first().click();
+    await sleep(1500);
+    return page.locator("body").innerText();
+  };
+  const stripShot = await pollUntil(async () => {
+    const body = await openChildInspector();
     // t304 FIX — the strip renders the GPU width between the id and the
     // state word ('Slurm job 61 · 6 GPU(s) · queued · waits on 60' — the
     // ctffind child requests 6 GPUs and the strip speaks them); the first
@@ -379,15 +393,14 @@ try {
   must(!!stripShot, "C1: the strip speaks the handoff ('· queued · waits on <id>')");
   if (!stripShot) {
     // diagnostic: what did the page ACTUALLY say at the last attempt?
-    try { await page.goto(BASE, { waitUntil: "domcontentloaded" }); await sleep(2000); } catch { /* dead */ }
     try {
-      const card = page.locator("[data-job]", { hasText: "t304 Child C1" }).locator('[role="button"]').first();
-      await card.click({ timeout: 6000, force: true });
-      await sleep(1500);
-      const body = await page.locator("body").innerText();
-      writeFileSync("/tmp/t304-strip-debug.txt", body.slice(0, 4000));
-      console.log("  (strip debug: /tmp/t304-strip-debug.txt)");
-    } catch { /* best effort */ }
+      const body = await openChildInspector();
+      const hasDialog = await page.evaluate(() => !!document.querySelector("[data-inspector-dialog]"));
+      console.log(`  (strip debug: dialog=${hasDialog} slurmJob=${body.includes("Slurm job")} waitsOn=${body.includes("waits on")})`);
+      writeFileSync("/tmp/t304-strip-debug.txt", body.slice(0, 8000));
+    } catch (e) {
+      console.log(`  (strip debug failed: ${e?.message ?? e})`);
+    }
   }
   await page.screenshot({ path: `${SHOTS}/t304-dependency-held.png` }).catch(() => {});
 
@@ -426,12 +439,7 @@ try {
   // (before this the word was fallback-only and the strip degraded to a
   // bare 'Ran on the cluster').
   const stripTerminal = await pollUntil(async () => {
-    await page.goto(BASE, { waitUntil: "domcontentloaded" });
-    await sleep(2000);
-    const card = page.locator("[data-job]", { hasText: "t304 Child C1" }).locator('[role="button"]').first();
-    try { await card.click({ timeout: 6000, force: true }); } catch { return null; }
-    await sleep(1200);
-    const body = await page.locator("body").innerText();
+    const body = await openChildInspector();
     return /Ran on the cluster · Slurm COMPLETED · /.test(body) ? body : null;
   }, 30_000, 2500);
   must(!!stripTerminal, "C1: the terminal strip speaks 'Ran on the cluster · Slurm COMPLETED · …' on the happy path");
