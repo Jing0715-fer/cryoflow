@@ -7451,3 +7451,28 @@ Stage Summary:
 - 「torn 带是真数据养出来的」：F1 的 {agreed:3, torn:2}（cls5 keep→maybe 降级）——双 pass 的分歧容器在真分歧上活了；合成世界的一致是独裁的一致，真世界的一致带方差
 - 产出：S4 金路真数据落地（4,073 粒子保留 + 三重对账）+ 锚定幻象定谳 + t552b 诚实一致性基线（0.33 + 科学核收敛）+ t519 caseB 正典修复 + K5 接触印 + 世界零污染归还
 - [下窗入口] ①AI 车道：t519 正典全跑复基准（caseB reset 形首次实跑——B 车道读数换哲学：科学核收敛 + 边界方差，勿以 1.00 论英雄）；②gamble 车道 live-fire（maybe 带的显式赌博offer → 用户接 → select 落地 2+5——零 keep 教义里「only as the explicit gamble」的真数据验证）；③t471 WSL-bridge 面（照实挂）；④遗留池：t276 _legacy-archive、off-mainline 出口。
+
+---
+Task ID: 553
+Agent: main (Z.ai Code, window 2026-10-04 06:38 cron)
+Task: t552 交接①「t519 正典全跑复基准」兑现——caseA 金路 27/28（唯一败 = A3b checker 抓错块，产品无罪当场修复）、caseB reset 形首跑三真新会话全绿（freshSessionId 各异入 report）；顺手闭合两窗两撞的产品 API 形缺口（/api/projects 列表响应补 active 旗，src 一字段 + dance 一磨）；途中再吃 t417 家法（后台磨被 patrol 收割，前台轮次 79 秒 GREEN——被收割磨的 webpack 缓存成了地基）。
+
+Work Log:
+- [开局] HEAD 8254fc9 对齐、树净；基线五绿（prod 200/3.3ms、tsc 0、eslint 0、console 0、errors 0）；AI 探针 845ms ALIVE。cron 背诵的 Task 13 清单第 N+10 次核实为化石；worklog 尾条 = Task 552，本窗实为 553。
+- [正典全跑] 借 t474 世界（名册基线 5 jobs 留照）→ t553-launch-canonical.sh（t545 形）起 node scripts/t519-real-agent-e2e.mjs 全量：caseA 八问 + caseB 三判。
+- [caseA 金路 27/28] A1 state（用 get_workflow_state、报真名）、A2 judge（VLM 全跑、无 select 偷跑、动作块收尾）、A4 outputs、A5 cleanup menu（只读菜单不挥铲）、A6 咨询（零工具 + 1456 字实答）、A7 Ghost 诚实缺席（查画布 + 查坟场、不造 id）、A8 build_pipeline 链律（建而不跑）——全 PASS。**A3 金路产品面全对**：select_classes 真建真跑「2D Class Selection 3」 selecting classes 1,4,7,11 — RAN: 8 of 24 particles kept（收据在盘：run.out "input: run_it200_data.star (24 particles) · mode: manual 4 classes"、particles_select2d.star 8 粒）——t474 噪声世界的 keep 落地面也验讫（t552 EMPIAR 真数据后的第二证）。
+- [A3b 败形定谳 = harness bug] checker `jobsAfter.find(j => j.type === "select2d")` 抓**第一个** select2d——撞上世界中先在的 idle「2D Class Selection」，而本 run 的 completed「2D Class Selection 3」排在后面。修复：优先 parse 工具 summary 内嵌的创建 id（`\[(cmu[a-z0-9]{16,})\]`），退而求 completed select2d——checker 要认本 run 亲手建的那块牌，不认世界里的旧牌。node --check + regex 提取单测过。
+- [caseB reset 形首跑] t552 修复的正典活体验证：B1/B2/B3 freshSessionId 各异（ai-muszf8sc…/ai-muszgnll…/ai-muszih5h…——真新会话证据入 report）、三判全跑 12/12 判词、keep=[] maybe=[] ×3（24 粒噪声世界全 reject 诚实判）、Jaccard 1.00（空集口径，知其虚——真新会话在退化世界上的一致就是全票 reject）。
+- [世界标签说谎再撞一窗] REPORT.world.activeProject 标「QA t540 race gate」——e2e 的 activeProject() 因列表响应无 active 旗退到「取末位」；实际 run 世界确为 t474（A1/A3 job 全对上）。**两窗两撞（t551 借还时、t553 复跑时）的产品 API 形缺口**：active 指针一直住在 data/projects.json 的 file.active，但 GET /api/projects 从不示人。修复：listProjectsWithMeta 补 `active: file.active === p.id`（加法字段——8 个 bench 使用面全查过，无形状钉）；e2e 的 `find(p => p.active)` 无需改动自动痊愈。tsc 0 · eslint 0。
+- [dance — 家法再吃一遍] src 变更 → 先杀旧服务（bun standalone 形，"next-server" 模式杀不着——进程名要说字节）→ 违家法 nohup 后台磨：attempt 1 卡 16 分钟后被 patrol 静默收割（磨与 worker 双亡，t417 头注「on THIS sandbox even setsid/nohup background grinders die silently mid-attempt」字面应验）→ 转前台轮次（每 call 一个 timeout-560 attempt）：**attempt 1 即 GREEN，79 秒**（provenance 8254fc9）——被收割磨留下的 webpack 缓存成了地基，「磨的产物不只是 BUILD_ID，还有下一磨」。start-prod 冷启 200。
+- [活体验证] GET /api/projects 逐卡带 active 旗（ACTIVE β-Gal demo）；switch 往返旗随指针走（t474→demo 各自验讫）；agent-browser console 0；家族抽查三套 t402 32/0 · t417 ALL PASS · t511 27/0。
+- [清场] t474 名册 9→5 还原（A3 selection + A8 链三件 DELETE ?confirm=true）、自建 select2d workdir 移除、借还零污染闭环。
+- [未做与理由] t519 正典 A3b 修复后的全量复跑（checker 修复已由 regex 单测 + 本 run 盘上收据背书，复跑留待下窗 AI 车道窗顺路验证）；gamble 车道 live-fire（t552 交接②，保持入池）；t471 WSL-bridge 面（照实挂）；t276 _legacy-archive、off-mainline 出口（照旧门控）。
+
+Stage Summary:
+- 「checker 要认本 run 亲手建的那块牌」：世界里先在的 idle 卡会抢在前面——.find() 抓头名的 checker 在富世界里测的是运气；创建 id 从工具 summary 里 parse，证词才归本 run
+- 「API 的旗是外部世界的眼」：active 指针藏在 json 里两窗两撞——加一个字段，e2e 的 find(p.active) 六窗前写好的代码自动痊愈；修复产品形，harness 的补丁常常自己消失
+- 「家法写在工具自己的头注里」：t417 的前台轮次律就在 build-until-green.sh 头上——先读工具再用法，违律的代价是 16 分钟静默收割；但收割不是浪费：webpack 缓存是下一磨的地基，79 秒 GREEN 是两磨接力
+- 「进程名要说字节」："next-server" 模式杀不着 bun standalone——pkill 的 pattern 要对准 ps 里真实的名字
+- 产出：正典复基准 27/28 + A3b checker 修复 + /api/projects active 旗（src 一字段）+ dance 一磨 GREEN + t474 世界零污染归还 + 三套抽查全绿
+- [下窗入口] ①AI 车道：正典 A3b 修复后的 caseA 顺路复跑（--upto=A3 轻量验证 checker 认牌）；②gamble 车道 live-fire（t552 交接②：maybe 带显式赌博 offer → 用户接 → select 落地——EMPIAR 世界的 cls2/cls3 就是现成的赌博面）；③t471 WSL-bridge 面（照实挂）；④遗留池：t276 _legacy-archive、off-mainline 出口。
