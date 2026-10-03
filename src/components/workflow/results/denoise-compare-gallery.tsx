@@ -1,0 +1,280 @@
+"use client";
+
+/**
+ * CryoFlow — Topaz Denoise before/after compare gallery (t542).
+ *
+ * Data: /api/jobs/[id]/denoise-pairs pairs every denoised micrograph in the
+ * run's denoised_micrographs.star index with its ORIGINAL under the provider
+ * job's workdir (the same primary leg the engine's resolveInputs rides —
+ * the gallery pairs against exactly the star the run consumed).
+ *
+ * Two views:
+ *   - wipe (default): one square per micrograph; the denoised render sits
+ *     underneath, the original is clipped to the left of a draggable
+ *     divider — drag right to reveal more original, left to reveal more
+ *     denoised. The range input is the real control (keyboard works,
+ *     arrow keys scrub), the visible line + grip are its face.
+ *   - side-by-side: the honest two-up, labels pinned.
+ *
+ * Self-hide contract (t491 vocabulary): a non-denoise job or a run without
+ * an index answers the route's empty body → the section never renders. A
+ * transient fetch failure renders the shared ChartErrorStrip — an absence
+ * must never masquerade as a wound, and a wound must never read as absence.
+ */
+
+import { useMemo, useState } from "react";
+import { Columns2, Sparkles, Wand2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ChartErrorStrip } from "./chart-error-strip";
+import { MrcImage } from "./mrc-image";
+import { useChartResource } from "@/lib/use-chart-resource";
+
+/** the denoise-pairs route's body — declared here (the house rule: the
+ *  component owns its fetch shape; the route owns the parsing) */
+interface DenoisePair {
+  name: string;
+  denoised: string | null;
+  original: string | null;
+  originalJobId: string | null;
+}
+
+interface DenoisePairsResponse {
+  jobId: string;
+  jobType: string;
+  total: number;
+  paired: number;
+  provider: { id: string; name: string } | null;
+  pairs: DenoisePair[];
+}
+
+const PAGE = 9;
+
+const pngUrl = (jobId: string, rel: string) =>
+  `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(rel)}&format=png`;
+
+/** one micrograph's wipe card — the denoised render with the original
+ *  clipped over it, one divider, two fading labels */
+function WipeCard({
+  denoisedSrc,
+  originalSrc,
+  alt,
+}: {
+  denoisedSrc: string;
+  originalSrc: string;
+  alt: string;
+}) {
+  // 0..100 — the percentage of WIDTH that shows the ORIGINAL (left side)
+  const [pos, setPos] = useState(50);
+  return (
+    <div className="group relative aspect-square overflow-hidden rounded-md border border-border bg-zinc-950">
+      {/* base: the denoised render fills the square */}
+      <MrcImage src={denoisedSrc} alt={`${alt} (denoised)`} className="absolute inset-0 h-full rounded-none border-0" />
+      {/* clipped overlay: the original, left of the divider */}
+      <div
+        className="absolute inset-0"
+        style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
+      >
+        <MrcImage src={originalSrc} alt={`${alt} (original)`} className="absolute inset-0 h-full rounded-none border-0" />
+      </div>
+      {/* divider line + grip — the range input's face */}
+      <div
+        className="pointer-events-none absolute inset-y-0 w-px bg-white/80 shadow-[0_0_6px_rgba(255,255,255,0.45)]"
+        style={{ left: `${pos}%` }}
+        aria-hidden="true"
+      >
+        <span className="absolute left-1/2 top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-zinc-950/70 backdrop-blur-sm">
+          <Wand2 className="h-2.5 w-2.5 text-white" aria-hidden="true" />
+        </span>
+      </div>
+      {/* labels fade toward the side they name */}
+      <span
+        className="pointer-events-none absolute left-1.5 top-1.5 rounded-sm bg-zinc-950/70 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-zinc-200 backdrop-blur-sm transition-opacity"
+        style={{ opacity: pos <= 8 ? 0.25 : 1 }}
+      >
+        original
+      </span>
+      <span
+        className="pointer-events-none absolute right-1.5 top-1.5 rounded-sm bg-fuchsia-950/70 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-fuchsia-200 backdrop-blur-sm transition-opacity"
+        style={{ opacity: pos >= 92 ? 0.25 : 1 }}
+      >
+        denoised
+      </span>
+      {/* the real control: a transparent range input riding the whole card.
+          The drag handle is the div above — this input is what keeps the
+          wipe keyboard-accessible (focus ring + arrows scrub). */}
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={pos}
+        aria-label={`Wipe original / denoised for ${alt}`}
+        onChange={(e) => setPos(Number(e.target.value))}
+        className="absolute inset-0 h-full w-full cursor-ew-resize appearance-none bg-transparent opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-fuchsia-400"
+      />
+    </div>
+  );
+}
+
+export function DenoiseCompareGallery({
+  jobId,
+  running,
+  className,
+}: {
+  jobId: string;
+  running?: boolean;
+  className?: string;
+}) {
+  const { status, data, error, retry } = useChartResource<DenoisePairsResponse>(
+    `/api/jobs/${jobId}/denoise-pairs`,
+    { pollMs: running ? 20_000 : null }
+  );
+  const [mode, setMode] = useState<"wipe" | "side">("wipe");
+  const [shown, setShown] = useState(PAGE);
+
+  const pairs = useMemo(() => data?.pairs ?? [], [data]);
+  const paired = data?.paired ?? 0;
+
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Denoise compare"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
+  if (status !== "ready" || pairs.length === 0) return null;
+
+  const allPaired = paired === pairs.length && data?.provider != null;
+
+  return (
+    <section
+      aria-label="Denoise compare"
+      data-denoise-gallery=""
+      className={cn(
+        "animate-rise rounded-lg border border-fuchsia-600/25 bg-gradient-to-b from-fuchsia-600/5 to-transparent p-3",
+        className
+      )}
+    >
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-fuchsia-600" aria-hidden="true" />
+          Denoise compare
+          <span className="font-normal text-muted-foreground/70">({data?.total} micrographs)</span>
+        </span>
+        {data?.provider && (
+          <span
+            className="inline-flex max-w-48 items-center gap-1 truncate rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-medium text-teal-700 dark:text-teal-300"
+            title={`originals served by ${data.provider.name}`}
+          >
+            originals: {data.provider.name}
+          </span>
+        )}
+        {allPaired ? (
+          <span className="rounded-full border border-emerald-600/30 bg-emerald-600/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+            {paired}/{pairs.length} paired
+          </span>
+        ) : (
+          <span
+            className="rounded-full border border-amber-600/30 bg-amber-600/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300"
+            title="no readable input star — the run consumed it before this view existed, or the provider's outputs left this machine"
+          >
+            denoised only
+          </span>
+        )}
+        <div className="ml-auto inline-flex overflow-hidden rounded-full border border-fuchsia-600/30">
+          {([
+            ["wipe", "wipe"],
+            ["side", "side-by-side"],
+          ] as const).map(([m, label]) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              aria-pressed={mode === m}
+              className={
+                "inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-semibold transition-colors " +
+                (mode === m
+                  ? "bg-fuchsia-600 text-white"
+                  : "bg-transparent text-muted-foreground hover:bg-fuchsia-600/10 hover:text-fuchsia-700 dark:hover:text-fuchsia-300")
+              }
+            >
+              {m === "wipe" ? (
+                <Wand2 className="h-3 w-3" aria-hidden="true" />
+              ) : (
+                <Columns2 className="h-3 w-3" aria-hidden="true" />
+              )}
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {pairs.slice(0, shown).map((p) => (
+          <figure key={p.name} data-denoise-card="" className="space-y-1">
+            {mode === "wipe" && p.denoised && p.original ? (
+              <WipeCard
+                denoisedSrc={pngUrl(jobId, p.denoised)}
+                originalSrc={pngUrl(p.originalJobId ?? jobId, p.original)}
+                alt={p.name}
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="space-y-0.5">
+                  <MrcImage
+                    src={pngUrl(p.originalJobId ?? jobId, p.original ?? p.denoised ?? "")}
+                    alt={`${p.name} (original)`}
+                    className="aspect-square"
+                  />
+                  <figcaption className="text-center font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
+                    original
+                  </figcaption>
+                </div>
+                <div className="space-y-0.5">
+                  <MrcImage
+                    src={pngUrl(jobId, p.denoised ?? p.original ?? "")}
+                    alt={`${p.name} (denoised)`}
+                    className="aspect-square"
+                  />
+                  <figcaption className="text-center font-mono text-[9px] uppercase tracking-wider text-fuchsia-600/80">
+                    denoised
+                  </figcaption>
+                </div>
+              </div>
+            )}
+            <figcaption
+              className="truncate text-center font-mono text-[10px] text-muted-foreground"
+              title={p.name}
+            >
+              {p.name}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+
+      {pairs.length > shown && (
+        <div className="mt-2 flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShown((s) => s + PAGE * 2)}
+            className="rounded-full border border-fuchsia-600/30 bg-fuchsia-600/5 px-3 py-1 text-[11px] font-semibold text-fuchsia-700 transition-colors hover:bg-fuchsia-600/15 dark:text-fuchsia-300"
+          >
+            show more ({pairs.length - shown} remaining)
+          </button>
+          <span className="text-[10px] text-muted-foreground/60">
+            remote runs pull each tile over SSH on first view
+          </span>
+        </div>
+      )}
+      <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+        drag the divider (or focus a card and use the arrow keys) to wipe between the raw
+        micrograph and its denoised render — real Topaz denoising removes detector noise the
+        picker trains better without; on this machine the mock wrapper copies bytes, so the
+        two renders agree, and the pairing itself is the receipt.
+      </p>
+    </section>
+  );
+}

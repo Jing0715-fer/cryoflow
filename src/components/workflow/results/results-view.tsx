@@ -74,7 +74,7 @@ import type { OutputSummary, SummaryStat } from "@/lib/relion/output-summary";
 import { cn } from "@/lib/utils";
 // t391 — the two recharts carriers ride the lazy barrel (see
 // results-lazy.tsx): recharts stays out of the eager home compile
-import { FscChart, TopazTrainingChart } from "./results-lazy";
+import { FscChart, TopazTrainingChart, DenoiseCompareGallery } from "./results-lazy";
 import { MrcImage } from "./mrc-image";
 import { MolViewer, type MolViewerTarget } from "./mol-viewer";
 import { useAnchorParent } from "./anchor-parent";
@@ -1084,6 +1084,14 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           finished and most worth reading. Dual-mount like the FSC chart;
           the component self-hides when the log has no epoch progress. */}
       <TopazTrainingChart jobId={job.id} running={job.status === "running"} />
+
+      {/* t542 — the denoise compare gallery: every denoised micrograph
+          paired with its original (wipe / side-by-side). Type-gated — the
+          pairs route is denoise-owned and the fetch would be a lie for any
+          other job. */}
+      {job.type === "topazdenoise" && (
+        <DenoiseCompareGallery jobId={job.id} running={job.status === "running"} />
+      )}
 
       {/* Maps & images gallery */}
       {mrcFiles.length > 0 && (

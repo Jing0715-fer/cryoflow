@@ -85,6 +85,12 @@ export const TopazTrainingChart = dynamic(
   () => import("./topaz-training-chart").then((m) => m.TopazTrainingChart),
   { ssr: false, loading: chartLoading }
 );
+// t542 — the denoise compare face rides its own chunk (MrcImage tiles +
+// the wipe cards stay out of the eager graph until a denoise job opens)
+export const DenoiseCompareGallery = dynamic(
+  () => import("./denoise-compare-gallery").then((m) => m.DenoiseCompareGallery),
+  { ssr: false, loading: chartLoading }
+);
 // t439+t440+t453 — the run A/B doors ride their own chunk (recharts scatter +
 // the compare brain stay out of the eager graph until a door opens);
 // one face, three domains (CTF / Motion / Class), all exported under stable names
