@@ -7052,3 +7052,27 @@ Stage Summary:
 - 「守卫的 SKIP 只看 HEAD」：未提交漂移它看不见——先 commit 后 dance，t533 的已知边界第三次撞上
 - 产出：star-shape 门（纯模块+bench 89 套）+ motioncor2/topaz 双契约 shim + staging 项目相对行 + per-mic 深度 census + t268/t267/t264 三套 ALL PASS + 磁盘 93%→79% + 五磨全绿
 - [下窗入口] ①resume/ledger 家族 movies 物理化：t269/t270/t271/t272/t294/t295/t293/t304 同款配方（4 帧 movies + nodeType:movies + do_own 显式或真尺寸 fixture），逐套 solo 三角定谳；②远端 argv 项目相对化重构（本轮 staging 修法的彻底版，消灭宿主绝对行的深嵌套——motioncorr/autopick/extract 全类型）；③reaper 大考剧本入家族 roster 候选；④遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 对未就绪上游的契约灰区（t534 立案）。
+
+---
+Task ID: 536
+Agent: main (Z.ai Code, window 2026-10-03 18:53 cron)
+Task: 交接入口①「resume/ledger 家族 movies 物理化」八套件全数 ALL PASS；随窗活捉并修复「star-shape 门在 remote 车道是死门」产品级缺口（staging 前本地拒，14ms 内点破 stub 时代接线）；t304 再活捉「世界长大压扁了套件的点击编排」并改驾 app 正典深链。
+
+Work Log:
+- [开局考古] 摘要脑内的「Task 525 起编」已过时十一代——worklog 实录 t535 收官（t268/t267/t264 物理化），HEAD 8de263b 三方对齐。环境：available 3286>2600 GO 线、buff/cache 1915>1450 暖线、disk 81%。QA 基线三绿（prod :3000 200/2ms、tsc 0、eslint 0）；mock 集群 :3022 在岗。
+- [选题] t535 交接入口①：家族八套（t269/t270/t271/t272/t293/t294/t295/t304）solo 三角定谳——t269 首跑 1 FAIL「REMOTE exit 1 (RELION reported an error)」，与 t535 的 t268 病根同款。
+- [交付① movies 门的 remote 半门（产品修复）] 定谳：t535 的星形门坐在 buildArgvCore（local 车道），而 remote 车道在 buildArgv 前已把 inputs 翻译成集群孪生路径（upstreamRemoteTwins/uploads.remote）——readStarMoviesShape 对本地不存在的路径诚实 null 跳门，「真件仍然开口」= exit 1 谜语。修复：remote-run.ts 预 staging 块（t313 CTF 门同址）补 motioncorr 分支——本地源 star 可读即分类，micrographs 形以 fail(requestError) 拒绝请求（toast 教学不翻 job 行）；twin-resolved star 保持 t324-a 降级律。tsc/eslint 0。
+- [交付② 家族四套 movies 配方] t269/t270/t271/t272 同款三刀：4 帧 64² fixture（nz=4 + 逐帧信号）+ import params nodeType:"movies" + 边改 movies→movies + motioncorr 加 do_own_motioncor:true（t268 先例：无 MotionCor2 牌照的诚实车道；GUI 默认 patch5 车道要 512² 真尺寸）。四套全 PASS（18-28s）。
+- [交付③ t293 三钉搬迁 + t263 律 + 世界迁移钉] 五 FAIL 三因：①outputs-list 三钉随 t515 重构搬迁（route 只剩协议壳，ledger 改读 job-outputs.ts 井——t256 方言）；②ctffind 无 params 吃 GUI 默认 use_given_ps=true → 真件要功率谱列——按 t263 律传 use_given_ps:false+box:64；③「Run 诚实禁用（无 RELION）」面板钉死于 t530 前世界——沙盒自 t530 起有真 RELION 5.0.0（/home/z/relion-build），门诚实开启，钉翻转为「诚实 ENABLED（t416：钉本质不钉字面）」。t293 PASS（40.8s）。t294/t295 首跑即绿。
+- [交付④ t304 深链改驾] 两 FAIL（条带 queued/terminal 正则永不命中）三代诊断递进：卡片在场（63 卡）→ 全页无 Slurm 词汇 → 三点击策略全灭（dialog=false）→ rect 铁证：命中的 [data-job] 元素 60×28（zoom~0.26 的缩微卡），elementFromPoint 在卡中心答裸 DIV——**60 job 的 demo 世界让 boot fit view 缩到卡片不可点，套件的历史点击编排被世界长大压死**。修复：改驾 app 正典深链——command palette 的 jumpToJob → openJob（「idle→select+focus / submitted→inspect」契约，几何/缩放/工作区三免疫）：Ctrl+K → fill → [cmdk-item] 点击 → inspector 开出。两处条带轮询共驾 openChildInspector。t304 PASS（65.5s）。
+- [bench + 活体开火] t535 star-shape bench 21/21 双运行时绿。新写 scripts/t536-gate-live-fire.mjs：stub 时代接线（无 nodeType import + micrographs→movies 边 + remote 派发）在活体 standalone 上 **14ms 内被拒**，拒绝词「MotionCorr reads only MOVIES stars — …Import the frame stacks with Node type = Movies」，job 行不翻 failed——旧世界这条线要白搬文件进集群再吃 exit 1 谜语。
+- [dance #17] t529 orchestrator：守卫 GO（buff/cache 1728、available 3410）→ BUILD GREEN → provenance 8de263b → prod :3000 复起，reaper 挂岗自述在案。重启安全预检：pgrep 无 relion 进程、mock squeue 空、DB running 行为孤儿（reaper boot 首拍律覆盖）。新 build 上抽查 t269/t304 双绿；agent-browser 冒烟 62 卡 + inspector 开 + console 0 错（截图 .qa-logs/t536-smoke-inspector.png）。
+- [未做与理由] t293-slurm-submit.mjs（不在家族 roster）仍是 stub 时代 micrographs→movies 接线且 standalone 直跑即崩（spawn 报错，需独立窗考古其前置）——remote 半门上车后它再被跑会得到诚实拒绝词而非 exit 1（门的 teachings 自动生效）；远端 argv 全线项目相对化重构（t535 交接②）动 dispatch 心脏，留给独立窗；t299 C5 witness、t276 _legacy-archive 照旧挂池。
+
+Stage Summary:
+- 「门的忠实要查它读的是哪个世界的路径」：remote 车道的输入在 buildArgv 前已换成集群孪生——对着本地不存在的路径做字节分类，诚实 null 反而成死门的帮凶；门的 remote 半张脸必须开在翻译之前
+- 「14ms 的拒绝比 30s 的谜语诚实」：requestError 教学不翻 job 行，staging 前点破 wiring 错误——字节门的正确位置在第一个字节搬动之前
+- 「世界长大了，套件的假设会饿死」：60 job 的画布把 fit view 缩到 zoom 0.26，卡片成 60×28 的点、被邻居遮挡——历史点击编排无声失败；套件的 UI 舞步要么跟随 app 正典深链（openJob 契约），要么每次都先证明自己的几何假设
+- 「钉要跟随世界，世界也要被钉见证」：t530 之前的「无 RELION」面板钉在真件时代成了伪证——钉的本质是「门说系统的真话」，不是「按钮是禁用的」
+- 产出：remote 半门（staging 前 14ms 拒）+ 八套件家族全绿（t269/t270/t271/t272/t293/t294/t295/t304）+ t536 live-fire 剧本 + t304 深链改驾 + dance #17 GREEN
+- [下窗入口] ①远端 argv 全线项目相对化重构（t535 交接②，本轮 staging 修法的彻底版——消灭 motioncorr/autopick/extract 宿主绝对行深嵌套，动 dispatch 心脏，需独立窗）；②家族余批清点（t299 C5 witness、t304-308 已清 t304）；③t293-slurm-submit.mjs 复活考古（off-roster，直跑即崩 + 需 movies 配方）；④遗留池：t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 对未就绪上游的契约灰区（t534 立案）。
