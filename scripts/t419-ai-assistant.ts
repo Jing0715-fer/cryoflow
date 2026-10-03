@@ -719,7 +719,12 @@ let sessionId = "";
   // …the roster grew a voice a window at a time — t518's cleanup verb is
   // the newest birth (32). The count advances with the roster, not with
   // this bench's memory of it.
-  must(AI_TOOLS.length === 33 && new Set(AI_TOOLS.map((t) => t.name)).size === 33, `F8: 33 unique tools (got ${AI_TOOLS.length})`);
+  // t545 — the count drifts whenever a tool joins without this pin being
+  // bumped (t530's get_system_diagnostics was the 34th and went unnoticed
+  // because this suite is rostered nowhere — the orphan finding is in the
+  // worklog). The honest number is the catalog's length; the pin exists to
+  // NOTICE drift, not to freeze history.
+  must(AI_TOOLS.length === 34 && new Set(AI_TOOLS.map((t) => t.name)).size === 34, `F8: 34 unique tools (got ${AI_TOOLS.length})`);
   must(AI_TOOLS.every((t) => t.parameters && typeof t.description === "string"), "F8: every tool wears a schema + description");
 }
 
