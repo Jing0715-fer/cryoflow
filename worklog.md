@@ -7193,3 +7193,43 @@ Stage Summary:
 - 「跑一遍胜过读十遍」：t293 的 12/18 挂钉 + bun 导出报错 + t536 门拒绝词，一次实跑把三窗挂账的考古题切成清晰的三簇；grep 是怀疑，实跑是判决
 - 产出：_retired/ 惯例 + t293-slurm-submit 判决书 + 家族抽查三套全绿 + t299 C5 池项结案
 - [下窗入口] ①t293-remote-borrow/t294/t295 新 build 复跑（roster t293 三套，与 t307/t269/t273 同批的低风险清账）；②t519 建议 #1/#4（judge 稳定性 + 断言库 --judge-only 分层）需 AI 车道独立窗；③遗留池：t276 _legacy-archive、off-mainline 出口、3D viewer 体积截面工具、Topaz wrapper。
+
+---
+Task ID: 542
+Agent: main (Z.ai Code, window 2026-10-04 00:38–01:15 cron, 摘要请求挤占后中断)
+Task: t541 交接①「t293-remote-borrow/t294/t295 新 build 复跑」清账 + Topaz 去噪对比画廊（denoise compare gallery）落地——窗体死于 dance 中途（build 被冷缓存 OOM 杀），feat/qa-shots 两车已 commit 但 worklog 未写；本条目由 t543 窗据实重建。
+
+Work Log:
+- [交接①清账] t293-remote-borrow/t294/t295 在竞速门 build 上 ALL PASS，三张 strips 截图刷新（commit 117b784）——t541 下窗入口①以三绿收官。
+- [交付 — denoise compare gallery] feat commit 48f02c4：①`/api/jobs/[id]/denoise-pairs` 路由——BY LABEL 读 run 的 denoised index star、provider 沿 engine 自家 lineageFor + accepted keys（resolveInputs 的同一条 primary leg）、按 stem 身份配对（行序诚实兜底）、每半张各走自家 job 的 outputs/file 门（remote tiles 骑 t289 lazy leg）、#5 加固门保留、payload 200 行封顶且 total 诚实；②DenoiseCompareGallery 组件——wipe 卡（键盘可达 range input 为真控制）+ side-by-side 切换 + show-more 分页 + ChartErrorStrip 伤口 + 诚实缺席自隐（t491 词汇）；③Topaz training 图表下 type-gated 挂载，chunk 骑 lazy barrel；④e2e scripts/t542-denoise-gallery.mjs（五相：产品面/活体车道/pairs 路由/诚实缺席/世界中的脸）。
+- [死因考古 — 由 t543 窗完成] dance build 于 17:15:29 commit 后启动，冷缓存（buff/cache 404MB）撞 t461 崩塌签名，内核 OOM 杀于 17:16——.next 半清场（server 路由已发射、BUILD_ID/standalone 缺席），prod :3000 跑在被删 inode 上。套件从未在完成的 build 上跑过：feat commit 的「6 cards, scrub, toggle, console clean」是断言清单不是通过证明。
+- [t543 窗验证] 重建暖窗 GO → 1344 webpack GREEN → prod 复起 → t542 套件首跑 13 FAIL（根因：mock topaz module shim 无 denoise 面）→ 修复后 39/39 ALL PASS——详见 Task 543。
+
+Stage Summary:
+- 「feat commit 的断言清单不是通过证明」：套件没在完成的 build 上跑过之前，commit message 里的绿色是愿望不是证据——e2e 的 ALL PASS 只存在于跑完那一刻
+- 「dance 死于半途比没开始更危险」：半清场的 .next 让 BUILD_ID 存在性成为不可信信号（stat 见过它、两分钟后它没了）——完整性要看 BUILD_ID + standalone/server.js + static 三件套
+- 产出：t293/t294/t295 清账三绿 + denoise-pairs 路由 + DenoiseCompareGallery + t542 e2e 五相套件（两车 commit；验证与修复由 t543 收官）
+
+---
+Task ID: 543
+Agent: main (Z.ai Code, window 2026-10-04 01:17 cron)
+Task: t542 半途窗的收官与定谳——完成死掉的 dance、修好 13 FAIL 的真病根（mock topaz module shim 无 denoise 面）、两枚陈旧钉随行、建立「借画布还画布」律、画廊的无配对诚实化 + 键盘光环；三套件 ALL PASS、世界复位、四车全绿。
+
+Work Log:
+- [开局考古] worklog 尾 = t541，但 git 已有两枚 t542 commit（feat 48f02c4 + shots 117b784）——上一窗死于 dance 中途。现场证据链：BUILD_ID 存在性在两次检查间翻转（stat 见过 → 两分钟后没了）、.next 半清场（server 路由 17:16 已发射、BUILD_ID/standalone 缺席）、prod 进程（16:32 启动）跑在被删 inode 上。定谳：commit 后启动的 dance build 撞冷缓存（buff/cache 404MB）被内核 OOM 杀于 17:16。cron 背诵的 Task 13 清单第 N 次核实全线化石（#5/#6/#7/#8/#13 及两大功能候选皆早已愈合）——遗留以 worklog 尾部 Stage Summary 为唯一真源。
+- [完成死掉的 dance] chrome 清场 + node_modules 全量顺序预热（find|xargs cat，1875MB）→ 守卫 GO → 1344 webpack GREEN → start-prod 复起 200。
+- [活捉真病根 — 13 FAIL] t542 套件首跑：`REMOTE exit 2 — cryoflow-mock topaz: unknown subcommand 'denoise'`。逐层解剖：MOCK_PATH 把真 build（/home/z/relion-build/bin）放在最前（t530 起）→ 真 relion_python_topaz bash 包装器胜出 → 它 `python -c "from topaz.main import main"` → PYTHONPATH 解析到 t534 的 module shim（只知 train|extract）→ denoise 死。t415 的 denoise 面只写在 fs/opt/bin 包装脚本里，而执行根本到不了那个文件。修复（t533 律「mock 在真二进制调用的最深层学会它缺的件」）：denoise 面进 module——星行按 mock autopick 的三方解析（star dir → cwd → parent）、逐行拷贝 <stem>_denoised.mrc、真 topaz 形的进度行、optics+micrographs 双块的 denoised_micrographs.star 绝对行索引；缺行响亮死、绝不静默索引。离线探针（ast + /tmp 夹具 + 真包装器 PATH 逐字复刻）三层全过再上套件。
+- [两枚陈旧钉随行] ①t542 擦拭钉：fill("15") 后断言 clip 含 "15%"——组件的 pos 本义是「左侧原图带宽」，pos 15 渲染 inset(0 85% 0 0)，实际擦拭一直工作、断言的换算猜反了——钉改说补数（85%）并把约定写进注释；②t416 清单钉：`.includes("/opt/bin/relion_python_topaz")` 是 t530 前的形——真 wrapper 上位后探针诚实报告真路径——钉改说 essence（存在可用的 relion_python_topaz）。
+- [借画布还画布律] t266 首跑 1 FAIL（roster 0 ≠ ≥15）追因：POST /api/projects 会 ACTIVATE 新项目（t410 发现的既有行为），t542/t416 都借了画布从未归还——三个 t542 Gallery + 两个 t416 Denoise 空壳滞留、demo 项目被顶下。手工复位（switch 回 demo + 删五枚空壳）后 t266/t416 ALL PASS。套件修复：进 finally 前从 data/projects.json 记住 prevActive → switch 归还 → 空壳 DELETE。**作用域教训**：prevActive 声明在 try 块内 let 对 finally 不可见，ReferenceError 会被 finally 自身的 catch 吞掉、整条清理链静默蒸发——声明必须上模块层。
+- [画廊诚实化 + 键盘细节] 无配对卡（original: null）在两种模式下都掉进两栏分支：去噪图顶着「original」标题渲染（p.original ?? p.denoised）、一张图上画擦拭分割线——双重谎言。改为无配对卡单 tile + 琥珀「no original」徽章（头部 chip 的既有词汇）；配对分支的 src 不再有 ?? 兜底谎言。键盘侧：group-focus-within 给握把加品红光环（键盘用户看得见箭头在擦哪条线）、range 加 aria-valuetext（「N% original · M% denoised」——读屏听到擦拭而不只是「50」）。Phase A 钉随行入套件。
+- [第二磨] 画廊 polish 的 dance 首试 exit 137（agent-browser 冒烟的 chrome 吃掉 anon，available 2576 < 2600 线）——chrome 清场 + 再预热（1729/3038）→ 守卫 GO → BUILD GREEN → prod 复起 → t542 套件 ALL PASS（含新钉）。
+- [验证批] t542 套件 40/40（修复前 13 FAIL → 修复后 39/39 → polish 后 40/40）；t416 ALL PASS（钉 essence 化 + 画布归还后首绿）；t266 ALL PASS（世界复位后 roster 83）；agent-browser 冒烟 console 0（截图 .qa-logs/t543-smoke-final.png）；世界健康：active=demo、roster 83、residue 0；tsc 0 / eslint 0。
+- [未做与理由] t519 建议 #1/#4（judge 稳定性 + 断言库 CI 化）照旧 limiter 窗口障碍；t276 _legacy-archive、off-mainline 出口照旧挂池；家族余批（t268/t264/t273 等）本窗未复跑——画廊改动是组件局部 + mock shim additive，t542/t416/t266 已覆盖改动面。
+
+Stage Summary:
+- 「执行永远到不了的文件会变成事实上的化石」：t415 的 denoise 面写在 opt/bin 包装脚本里，而 MOCK_PATH 的真 build 上位后 wrapper 名字被真文件冒名顶替、真文件又借 PYTHONPATH 把话筒递给 module shim——两代 mock 各说各的方言，真相只在活体开火里显形
+- 「借画布要还，而且要在 finally 里还」：POST /api/projects 的激活副作用让每个建 fixture 项目的套件都成了世界状态的债务人——roster 0 不是 bug 是债主上门；归还序是 switch 先于 DELETE，否则删的是别人
+- 「try 块里的 let 是 finally 的陌生人」：声明位置错了，ReferenceError 会被自己的 catch 吞掉，清理链无声蒸发——作用域是清理律的一部分
+- 「钉要说 essence 不说路径，也要说换算不说字面」：t416 的 /opt/bin 钉死于时代更替，t542 的 15% 钉死于换算方向——两枚钉的失败方式不同、病根相同：钉盯住了实现的一个影子而非契约本身
+- 产出：mock topaz module shim denoise 面 + 两枚钉 essence 化 + 借画布还画布律（t542/t416 双套件）+ 画廊无配对诚实化 + 键盘光环 + aria-valuetext + 三套件 ALL PASS + 两磨全绿
+- [下窗入口] ①t519 建议 #1/#4（judge 双 pass/温度、断言库 --judge-only 分层）需 AI 车道独立窗；②家族余批新 build 抽查（t268/t264/t273 车道同 t308 已验，低风险记账未跑）；③遗留池：t276 _legacy-archive、off-mainline 出口、3D viewer 体积截面深化、palette 豁免清单产品化。
