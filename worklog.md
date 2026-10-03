@@ -7149,3 +7149,26 @@ Stage Summary:
 - 「t302/t303 不是家族」：roster 物理化时代实际已收官——交接清单也要考古，否则下一个窗口会去物理化一个 runner 纪律探针
 - 产出：class2d 结果句双数（populated of K）+ 卡片 class averages/class maps 双标签 + receipt 解析器三形 + t539 bench 15 断言双运行时 + t308 口径钉 + probe watcher 修正 + dance 双磨全绿
 - [下窗入口] ①dispatch 契约灰区收窄版：陈旧 twin 竞速门（上游运行中 + twin 新鲜 + 无 afterok 兜底 → 派发前拒绝教学；t304 依赖车道豁免）——t534 立案的精确残形，动 dispatch 心脏需独立窗；②t293-slurm-submit.mjs 复活考古（off-roster 直跑即崩 + 需 movies 配方）；③遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4。
+
+---
+Task ID: 540
+Agent: main (Z.ai Code, window 2026-10-04 00:00 cron)
+Task: t539 交接①「dispatch 陈旧 twin 竞速门」落地并当场完成可达性定谳——门是纵深防御，前沿是 resolver 的 done-only 铁律；t540 考试 28 断言把三条可达真相同钉死（趴下不竞速 / 收官者供粮 / afterok 连接域），t308 源码钉随行迁移全绿。
+
+Work Log:
+- [开局] HEAD 33656bf 对齐、环境三线全绿（available 3285、buff/cache 1502、disk 72%）；QA 基线三绿 + agent-browser 冒烟 80 卡 console 0。
+- [解剖 dispatch 心脏] 时序考古：twin map 构建（4281）→ star 门 → twin census（t397）→ staging 循环（t372 twinFresh 门）→ depIds 收集（sbatch 时）。afterok 谓词逐字核对：`pr.remote && !pr.done && connectionId === conn.id && slurmId != null`；sameClusterTarget = connectionId OR 规范化 host（t325 重建连接）。
+- [假说一的生与死] 立案残形假说：t324 heal 探针把 mid-flight 迭代 star 持久化进 RUNNING 记录的 remoteOutputs → 两条无序消费车道（direct 无调度器 / t325 同主机跨连接 depIds 永不匹配）。门按此写好（twinOrigin 记账 PAIR+identity 双轨 + staging 请求级拒绝）。
+- [定谳反转 — 可达性为零] 活体开火连续 MISS 迫使深挖：**resolveInputs 只从 `done && exitCode===0` 的 provider 解析**（引擎 1878 行），lazy heal 的 healable 过滤同样要求 `st.done`（4026 行）——运行中 provider 的 twin 在当前架构**永远到不了 resolvedInputs**。t534 大考①的「集群照样 spawn」实为歧义形（B 合法吃已收官 import 的 star），非陈旧读。直读证据：D3（唯一 provider 运行中）派发 → `waiting: not-ready` 趴下 pending，零 run record。
+- [门的正确角色] 门保留为**纵深防御**（注释如实声明 REACHABILITY：今日 resolver 的 done-only 铁律是前沿，本门保证未来 resolver 松动——例如为 pipeliner 式调度信任运行中 provider 的 probed outputs——不会无声 reintroduce 竞速）。拒绝词教学完整：点名运行中的上游、mid-flight 字节、两条诚实排序（等完成 / 同连接 afterok）。
+- [t540 考试 28 断言全绿] 三相钉可达真相：**前沿律**——D3（唯一 provider = 运行中 U）趴下 pending，收据说「Waiting for upstream output … runs automatically once ready」，无 run record 无 staging；**歧义律**——D1（import 已收官 + U 运行中双 provider）在重建连接上派发成功，slurmDependsOn 空（depIds 连接域：t325 缺口如实记录），sbatch 脚本的 --i 永不指向 U 的 workdir（resolver 为收官者说话，mid-flight 字节无从诞生）；**排序律**——D2 同连接派发，afterok 骑 U 的 slurmId（slurmDependsOn ["540001"]）。方法论注：考试图两代演进——初版 import→U 边制造双 provider 合法备选（门正确不咬）、初版 U=motioncorr 违反 t262 端口律（输入口叫 movies）——终形 U=ctffind 孤立种植 + import 只作已收官 provider。
+- [dance + 回归] 6de9523 守卫 GO（buff/cache 1564、available 3288）→ BUILD GREEN → prod 复起 200/4ms。**t308 首跑 1 FAIL**：B 相源码钉 `upstreamRemoteTwins.set(localTw…)` 字面随门的 provenance 循环展开而漂移（t537 B2/D5 先例第 N 次）——钉改说变量 `set(lk, remoteTw)`（ essence 是 pass-through 契约非格式化）→ **t308 ALL PASS**（含 C3「1 of 4 classes populated」t539 钉在新 build 复绿）。
+- [未做与理由] t307/t269 等其余 remote 车道套件未复跑（门只新增拒绝路径且 t308 覆盖 array+twins+downstream 全表面，t540 考试钉派发语义）；t293-slurm-submit 复活考古、t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4 照旧挂池。
+
+Stage Summary:
+- 「立案要跟着剧本的进化走」：t534 的灰区立案写在考试自进化之前——追到底发现输入缺失已被门、twin 只属于收官者、运行中 provider 连解析资格都没有；残形不是洞，是一条铁律
+- 「不可达的门要如实自称纵深防御」：为假说写的门没有拆——它守的是不变量（不收官者的 twin 不上 argv），注释声明今日不可达 + 未来哪类松动会需要它；拒绝词依然教学完整
+- 「 resolver 的沉默就是产品的回答」：唯一 provider 运行中 → 趴下 pending 等自动唤醒，而不是竞速读半截字节；歧义时 resolver 为收官者供粮——前端一条等待消息胜过集群一次 exit 1 谜语
+- 「源码钉的 essence 律第三次兑现」：门的记账循环展开 PAIR set，钉的字面死了——钉改说变量名，契约（twin pass-through 零重传）原样钉死
+- 产出：twin provenance + 竞速门（纵深防御，诚实注释）+ t540 考试 28 断言（前沿/歧义/排序三相）+ t308 钉迁移全绿 + dance 全绿
+- [下窗入口] ①t293-slurm-submit.mjs 复活考古（off-roster 直跑即崩 + 需 movies 配方，t535 交接③挂账两窗）；②家族余批新 build 抽查（t307/t269/t273 车道同 t308 已验，低风险记账未跑）；③遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4。
