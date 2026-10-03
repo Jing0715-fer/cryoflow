@@ -7331,3 +7331,26 @@ Stage Summary:
 - 「孤儿判决的产出入册即终结」：42 件逐件有名字有归类，A 类六件改名后孤儿类清空——剩下的「孤儿」是设计（工具本就活在名册外），判决书让下一次扫描不再重复本窗
 - 产出：六 bench 入册（glob 99）+ 16 件计数钉清偿 + t483 diagnostics 门产品真修 + t500 钉本质化 + 两次全量家族跑（19 败→1 败）+ t483/t500/t471 相关 bench 全绿 + dance GREEN
 - [下窗入口] ①D 类 world e2e 入册决策（t416/t417-del/t542/t544 → family-run.mjs 的批次数组，需全量跑成本模型）；②t431 W1.1 老世界持久 seeder（t523 遗留③真解）；③t471 WSL-bridge 面（真 WSL 世界稀缺，照实挂）；④遗留池：t276 _legacy-archive、off-mainline 出口、t519 #5 半化石重述（judge 真类图源）。
+
+---
+Task ID: 548
+Agent: main (Z.ai Code, window 2026-10-04 04:38 cron)
+Task: t547 交接②①双收——t431 W1.1 真解（验尸推翻传来诊断：未归家收据非清场，钉超越契约，迁移到 t531 老世界契约 = 持久 seeder 环的完成形）+ D 类 world e2e 入册决策当场兑现（t416/t417 早已是公民，t542/t544 入 t54 新批）；两 runner 获老世界 preflight；全量家族跑首次 99/99 全绿。
+
+Work Log:
+- [开局] HEAD 7cf1d3a 对齐、树净；基线三绿（prod 200/4.4ms、tsc 0、eslint 0）+ agent-browser 冒烟 console 0（β-Gal demo active · 83 jobs · 58 edges · build 29b1589）。cron 背诵的 Task 13 清单第 N+5 次核实为化石；t547 交接四条逐一核账，②为主菜①为侧菜。
+- [验尸 — 传来诊断被推翻] t431 W1.1 活体败形（extract_q6t0oupm 12/17）。老世界 33 个 extract workdir 全量点验：24 个缺件（12-13 件/个），三类缺席方言（micrographs/ mrcs、extra/ mrcs、cf-merge star）。mtime 分流铁证：0fz4sl0w/1h0r0vgv（mtime Oct 3 14:28/16:34 晚于 manifest writtenAt Oct 2 23:47）= 真被扫；q6t0oupm（mtime 与 manifest writtenAt 23:47:03 秒级相等）= manifest 写后无人碰、extra/ 从未到家。读 manifest 生命周期定谳：.cf-remote-manifest.json 是 finalize 的台账（列 cluster 上合法留下的大件），sync-back 只带回 key-files，bring-home 是用户动词——remaining > 0 是 key-files 政策下的产品诚实合法形。判决：t545/t547 的「再次被清场」是未复核的传来诊断（对 t523 时代的 3rakbln8 为真——manifest 整个被删；对今日 q6t0oupm 全假）；W1.1 钉超越契约——「0/27 the t425 bring-home」钉的是 readdir 轮盘赌恰好落在已归家 workdir 上的运气，33 个 workdir 的收据两种形（all-home 与 files-out）都诚实。
+- [真解 — 契约会面] t531 seeder（「t522 遗留③ finally coded」）六窗前已建成且 --check 全绿，但 t431 W1 的世界契约（readdir 序第一件）从未与 seeder 的契约（data/old-world.json → chain.extract → extract_<id.slice(-8)>）会面。迁移：W1 经 old-world.json 解析正典链 extract（extract_3rakbln8，0/2——writtenAt 圆整秒 = t523 时代手工补种的签名）；契约缺席 = 诚实 skip（CI 世界，no old world promised）；契约在场但病（JSON 不可读 / 缺 project.id·chain.extract / workdir 消失 / remaining > 0）= FAIL 且败形消息点名治病命令（node scripts/qa-t531-old-world-seed.mjs）——持久 seeder 环自此闭环：check → 响亮败 → 跑 seeder → 绿。细节律：cure 后缀只骑败形（mustCure 包装——ok 行用不上治病命令）。20/0 ×2 幂等。
+- [D 类入册决策] t547 台账修正：t416-topaz-denoise/t417-project-delete-reclaim 本就在 family-run FAMILY 数组（「trio」过宽），真候选仅 t542/t544。单跑成本建模：t542 14.4s / t544 77.9s、双双 ALL PASS（fixture 项目自建自清、world-guard 护 83 workdir）。入册：FAMILY 81→83（头注旧「77 as of Task 313」计数漂移随行更新——注释里的数也是钉，t546 律）；新 t54 批注册（t54 decade registers itself on arrival，t30/t31/t41 判例）；--batches 覆盖检查绿（83 套各归唯一批）。t54 批活体：preflight 健康行 + 两套 PASS + wall 94s。
+- [两 runner 获 preflight] family-run.mjs（FAMILY RUN 头前）与 recent-family.sh（suites 循环前）各嵌 t531 seeder 的只读 --check：健康印 dim 一行、病印黄警示 + 治病命令。非致命律：runner 报告判词、不修世界。t548 全量跑日志首行「PREFLIGHT old world healthy」活体在场。
+- [全量家族跑] t548-launch-family.sh（setsid 孤儿化 launcher，t545 形）起 recent-family.sh 全量：**99 套 0 failures——首次可签字全绿证词**（t547 为 98/99，唯一败即 t431 W1.1）。跑后世界健康复核（t268 律）：prod 200/5.7ms + console 0 + 画布 83 jobs · 58 edges。零 src 改动——dance 不需要，prod build 29b1589 仍 fresh。
+- [24 个收据伤 workdir 不治——如实记] 未给 24 个缺件 workdir 种合成件：未归家收据形（q6t0oupm 系）是产品诚实，治它=造假；真被扫形（0fz4sl0w 系）收据重判 still-out 也诚实（文件确实不在）且 cluster 侧可能仍持原件——product 机制的 bring-home 才是真解，合成 mrcs 灌 ~300 文件是 seeder 污染（t531 自律：never pollute with synthetics）。判决入册，裁决权留后窗。
+- [未做与理由] t471 WSL-bridge 面（本沙箱永久 native，照实再挂）；t276 _legacy-archive、off-mainline 出口（照旧门控）；t519 #5 半化石重述（judge 真类图源，t474 世界已有真件）；t431 W1「workdir 消失」分支未活体开火（需删正典 workdir 代价不成比例，其形由 mustCure(false) 断言与 seeder --check 双背书）。
+
+Stage Summary:
+- 「收据缺不缺是政策的自由，不是世界的伤」：manifest 是 finalize 的台账、key-files 政策合法留大件在 cluster、bring-home 是用户动词——对一个从未归家的 workdir 钉「全员到家」是把运气钉成契约；钉要重铸到唯一被契约保证的那件上（正典链 extract，粒子喂 class2d，到家是功能需要）
+- 「传来诊断要过 mtime 的堂」：「再次被清场」传了三窗，mtime 一问分成两界——真被扫（mtime 晚于 writtenAt）与从未到家（mtime 与 writtenAt 秒级相等）；先分清谁病了再开方，方才能对症
+- 「持久 seeder 的最后一块不是 seeder，是套件与它的会面」：t531 seeder 六窗前已编码，让家族全绿的是钉迁移上它保证的契约 + 败形消息点名治病命令——工具与钉会面，环才算闭合
+- 「全量家族跑的首次全绿是名册故事的终章」：t546 孤儿入册（93）→ t547 全量点名（99，98 绿）→ t548 契约会面（99 全绿）——三窗一弧：名册收网、陈债清偿、契约落位
+- 产出：t431 W1 契约迁移（20/0 ×2）+ family-run/recent-family 双 preflight + t542/t544 入 t54 批（FAMILY 83、批覆盖检查绿）+ 全量家族跑 99/99 + t548-launch-family.sh 留库
+- [下窗入口] ①24 个收据伤 workdir 的即时裁决候选：真被扫形（0fz4sl0w 等）是否走 product 的 bring-home 活体开火归家（cluster 侧可能仍持原件——用产品机制治世界，而非合成播种）；②t471 WSL-bridge 面（本沙箱永久 native，照实挂）；③遗留池：t276 _legacy-archive、off-mainline 出口、t519 #5 半化石重述。
