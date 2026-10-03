@@ -6949,3 +6949,27 @@ Stage Summary:
 - 「种子要预埋物理」：class2d 歪斜分布让 select2d 的 auto 选择在数学上必然 168/240——重跑绿不是运气是设计；168/240 的活体输出与预埋分毫不差是 seeder 的活体证明
 - 产出：t372 预算 env 化（P6b 10800s）+ watchdog flock 有界重试 + qa-t531-old-world-seed.mjs（--check 自证）+ t313 manifest 解耦/裸抛加卫/钉本质化 + 大考预算伪败定谳入账
 - [下窗入口] ①读大考真账本：refine3d it002 落盘（估 03:20 UTC 前）→ maskcreate/postprocess auto-start → 世界链 COMPLETED 后按 dispatch 链逐环记账；脚本退出后 active 指针回教程；②**dance #4**：`bash scripts/t529-rebuild-standalone.sh`（exemptions JSON 在候 + 本窗零 src 漂移，守卫判 SKIP 或 GO 皆诚实）；③验证批：`node scripts/qa-t531-old-world-seed.mjs` 重跑幂等确认 → t245/t246/t219/t223/t253 + **t313（seeder 后首验）**；④家族全量复跑收官（t256-t313 待老世界 seeder 后逐套三角定谳）。遗留池：①大考收官账本；②t276 _legacy-archive 档案；③off-mainline 出口；④t519 建议 #1/#4。
+
+---
+
+Task ID: 532
+Agent: main (Z.ai Code, window 2026-10-03 10:23 cron)
+Task: 收官窗——大考真账本 + active 指针复辟 + dance #4/#5 + 验证批 t313/t219/t253/t223/t246 全绿；随窗活捉新 build 全壳客户端崩溃（keys-less 豁免行 split undefined）。
+
+Work Log:
+- [开局] 世界链冻结在终点线：refine3d it002 全部落盘（03:27）+ MPI 进程清零 + 集群 accounting 记 COMPLETED，而 DB 态仍是 running——**懒轮询律定谳**：远端 finalize 的 reconcile 由 /api/jobs GET 驱动且只见 active 世界（remote-run.ts「Called by the jobs GET route on every poll tick」），大考脚本一退场（02:39 logTailAt 冻结）世界失察。这是本窗第一枚产品级 QA 发现。
+- [复辟] 大考脚本已退场 → t530 清账①解禁：active 指针切回 demo 世界（23 jobs 可见），整个经典套件生态（按名寻址的 seeder 群）恢复原生假设。qa67-seed-volume.py / qa_lib.resolve_refine_host / seed-outlier.py / seed-twin.py 四处补 manifest 回退（active 世界无宿主时走 data/old-world.json 契约——回退只在按名失败后点火，双世界互不污染）。
+- [t313 首验 ALL PASS] 五相全绿：manifest 解析、13/13 链路 outputs 活体、select 星 project-relative、FSC 40 壳、workflow 四边 raw SQL、select2d 重跑绿、console 0。t522 遗留③→t531 seeder→t532 首验闭环。
+- [t219 三层修复 ALL PASS (29 ok)] ①种子层：qa67/qa_lib/seed-outlier 的 active 指针病以 manifest 回退治；②世界层：**class 均图 8 张 64³ 卷曾劫持 class2d 行的 main 选择**（MAIN_MAP_RE=half0|postprocess.mrc 不匹配时按文件序 class001 排前——我自己 t531 的 seeder 引入的病灶！），seeder 把 class 均图迁至 _fixtures/classes/（gallery 经账本路径照读、工作目录回归 orthovol 单卷正典）+ 陈旧文件清场步；③钉层：化石名（QA Refine3D）→ manifest id 回退、**pre-twin 账本时序修正**（t530 把 rosterW 拍在 seed-twin 之后——账本含 twin 则 T2/Z1 恒败）、twin 生命周期归套件（开跑先 --clean）。
+- [t253 ALL PASS (23 ok)] statcache 钉随 t486 重构搬迁（热路径在 chart-data.ts，路由 drinks from it——t416 律钉方言不钉字面）；load 19 下 actionability「stable」永不稳定 → 纯手风琴点击 force 化 + 预算 560s。
+- [t223 ALL PASS (156 ok)] 首试即绿——t530 罗盘修钉实证。
+- [大考收官] 切回大考世界驱动 reconcile tick：**第一拍 refine3d 翻 completed**（sync-back→collectOutputs→DB flip）。maskcreate 未自动起跑 → 第二枚发现：**P7a 的 mkEdge(r3→mask,"map","volume") 静默失败**（脚本未断言 mkEdge 返回值），maskcreate 从无边可达。补边（无端口 DB 行）→ 手动点燃 → maskcreate「soft-edged mask」→ postprocess 自动接棒「sharpened map · **FSC(0.143) = 7.08 Å**」。十环全通：import(5 真 EMPIAR 4096² 零上传)→LoG(10,866)→extract→class2d(5 类)→initialmodel→refine3d(half-maps)→mask→postprocess→movie 链(2 微图 motioncorr)。**t372 大考真账本收官**。twin 残骸（首败 t219 错落大考世界）DELETE。
+- [dance #4 + #5] 守卫先 NO-GO（buff/cache 1311<1450，诚实拒绝）→ node_modules 预热 13.7s → GO → BUILD GREEN df3da9d。上车后 **t246 引爆真回归**：「?」失灵→全壳客户端崩溃「Application error」——根因：三个 t530 豁免门（AI/storage/knock）天生无 keys 字段（正因无键盘路径才豁免），shortcuts-dialog 的 toChips 对 undefined 做 split，**一行 bug 杀死整个 app shell**（旧车 6b610c1 无此代码故从未暴露）。修复四件套：ShortcutRow.keys 可选、toChips 容错、过滤路径容错、空 chips 渲染诚实「no keyboard path」标记。tsc 0 → 提交 08da05e → dance #5 BUILD GREEN → **t246 ALL PASS (45 ok)**。
+- [下窗入口] ①家族全量复跑收官（t256-t313 待清批照旧：t256/t258/t260 老 manifest 契约现成，t263/t313 套件自身崩溃待查——t313 已在本窗 ALL PASS）；②遗留池：t276 _legacy-archive 档案、off-mainline 出口、t519 建议 #1/#4、**reconcile 全项目化候选**（inactive 世界的远端完成检测不该靠人驱动 tick——候选 src 改进：jobs GET 的 reconcile 扩为全项目或挂后台定时器）；③seed-twin --clean 纳入 t219 已完成，family-run 无需额外前置。
+
+Stage Summary:
+- 「驱动 tick 的人才看得见完成」：远端世界的作业状态不读不新——世界靠不住 observed，懒轮询的代价是静默冻结；候选产品律：reconcile 该是全球的，不是 active 的
+- 「seeder 的诚实也要看邻居」：class 均图是 class2d 的真产物，却劫持了 t219 的 tie 世界——fixture 的落位即契约，账本是地址簿不是工作目录
+- 「豁免门没有键盘路径，就没有 keys」：well 的形状即契约，消费端必须按契约容错——一行 split 让整壳陪葬，t246 的诚实 FAIL 是唯一证人
+- 「 fossil name 是一个世界的拼写」：type-fallback + manifest id 是同一承诺的两种拼写——套件与 seeder 与 well 三方同语后，跨世界解析不再是考古
+- 产出：exam 十环真账本（FSC 7.08 Å 收官）+ 四 seeder manifest 回退 + t219/t253/t246 全绿 + 全壳崩溃修复（08da05e）+ dance #4/#5 双 GREEN + active 指针复辟
