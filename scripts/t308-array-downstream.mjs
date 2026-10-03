@@ -413,9 +413,14 @@ try {
   must(rec3?.remote?.slurmArray === undefined, "C3: the record carries NO slurmArray (an ineligible type rides no split)");
   const script3 = client(`cat /projects/cryoflow/${c3.projectId}/class2d_${c3.id.slice(-8)}/.cf-sbatch.sh 2>/dev/null`);
   const mergedTwin = `/projects/cryoflow/${c3.projectId}/extract_${e2.id.slice(-8)}/particles.star`;
+  // t537 — the argv speaks the pipeliner dialect: the --i value is the twin
+  // PROJECT-RELATIVE (extract_<id>/particles.star, resolved against the
+  // script's cwd = the project root) — the same file by reference, the
+  // relative spelling of it
+  const mergedRel = `extract_${e2.id.slice(-8)}/particles.star`;
   must(
-    script3.includes(`--i ${mergedTwin}`) || script3.includes(`--i '${mergedTwin}'`) || script3.includes(mergedTwin),
-    "C3: the SUBMITTED script's --i is the CLUSTER TWIN of the merged star (by reference)"
+    script3.includes(`--i ${mergedRel}`) || script3.includes(`--i '${mergedRel}'`) || script3.includes(mergedRel),
+    "C3: the SUBMITTED script's --i is the CLUSTER TWIN of the merged star (by reference, project-relative)"
   );
   must(!script3.includes("/_staged/"), "C3: the merged star was NOT re-uploaded (no _staged/ detour)");
   must(!script3.includes("data/relion"),

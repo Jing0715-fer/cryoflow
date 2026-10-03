@@ -262,8 +262,12 @@ try {
   );
   must(
       src.includes('flavor && flavor.outArg === "--part_star"') &&
-      src.includes('? remoteWorkdir + "/" + flavor.outStar') &&
-      src.includes('pdi < 0 || String(argv[pdi + 1] ?? "") === remoteWorkdir + "/"'),
+      // t537 — the detector compares against the RELATIVE workdir form: the
+      // argv speaks the pipeliner dialect now, so the shape it inspects is
+      // the same dialect resolved against the script's cwd (the pin follows
+      // the refactor — t256's law)
+      src.includes('? relWorkdir + "/" + flavor.outStar') &&
+      src.includes('pdi < 0 || String(argv[pdi + 1] ?? "") === relWorkdir + "/"'),
     "B: the expected output per flavor + the shared --part_dir guard (rows merge demands the canonical part dir)"
   );
   must(

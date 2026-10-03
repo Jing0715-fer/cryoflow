@@ -304,7 +304,11 @@ try {
   must(
     dlg.includes('new Set(["motioncorr", "ctffind", "extract", "autopick"])') &&
       dlg.includes('data-array-shards-row=""') &&
-      dlg.includes("arrayEligible && shards >= 2 ? { shards: Math.min(ARRAY_MAX_SHARDS, shards) } : {}"),
+      // t537 — the pin follows the t397/t448 gate's growth (allowShards
+      // joined the condition): the essence is "shards ride only when the
+      // split is real AND the lane allows it", not the historical string
+      dlg.includes("allowShards && arrayEligible && shards >= 2") &&
+      dlg.includes("shards: Math.min(ARRAY_MAX_SHARDS, shards) }"),
     "B: the dialog gates the stepper to eligible types and sends shards only when split"
   );
   must(
