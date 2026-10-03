@@ -7425,3 +7425,29 @@ Stage Summary:
 - 「借还律的零污染要用两面证据」：switch 响应的 active 指针 + 截图的画布正典，胜过列表响应缺席的 active 旗——世界状态要有两个独立见证人
 - 产出：t519 #5 终章落定（真栈 live-VLM 6/6 · Jaccard 1.00 · wire 钱证 ×3 面）+ t551-ai-probe.mjs 留库 + shots-qa 两图 + report/log 留档
 - [下窗入口] ①AI 车道：真实可分辨 class2d run 的 keep 判词 live-fire（t474 栈只考得出 reject 形；keep 形需真教程级 run——借还律 + t551-ai-probe 车道均已备）；②t471 WSL-bridge 面（照实挂）；③遗留池：t276 _legacy-archive、off-mainline 出口。
+
+---
+Task ID: 552
+Agent: main (Z.ai Code, window 2026-10-04 06:23 cron)
+Task: t551 交接①「keep 判词真数据活体开火」兑现——EMPIAR-10017 t372 世界侦察出真金考卷（class2d K5：10,866 真 β-gal 粒子 × 5 类真结构图），S4 金路全落地（judge → 用户放行 → select_classes 真建真跑 4,073/10,866 保留 cls5，收据链字节对账）；途中活捉「三新会话」锚定幻象（chat(null) 挂 latestSessionForProject——t551/t545/t519 的 Jaccard 1.00 是同一会话的自我复述），t552b 真新会话重跑得诚实一致性 0.33 + 科学核收敛；t519 正典 caseB 顺手修复。零 src 改动窗。
+
+Work Log:
+- [开局] HEAD cfdbe3e 对齐、树净；基线五绿（prod 200/2.2ms、tsc 0、eslint 0、console 0、errors 0）。cron 背诵的 Task 13 清单第 N+9 次核实为化石；worklog 尾条 = Task 551，本窗实为 552。
+- [世界侦察] EMPIAR-10017 real t372（cmuro2ufe000mn5nb3qkwuy49，10 jobs）藏真管线：import → LoG pick → extract → **class2d K5**（completed）→ initialmodel → refine3d → post。K5 真件全在：10,866 真粒子（extract particles.star）、5 类、迭代森林 it000–003、per-class star（1,935/2,932/416/1,510/4,073）、model star 双方言（data_model_general CurrentResolution 25.17 Å + 单 loop per-class EstimatedResolution 25.17–45.31 Å——t550 三方言的第一/三路同 run 在场）。渲染 it003 五类接触印（shots-qa/t552-k5-classes.png）亲验：**cls2 C 形侧视、cls3 环形顶视、cls5 双叶密度——真 β-gal 结构特征**，正是 t474 退化栈（每类 2 粒）永远考不出的 keep 形考卷。
+- [AI 探针] t551-ai-probe 一发 918ms "ALIVE" 零 429——车道开张。
+- [live-fire S1–S4] t552-keep-verdict-live-fire.mjs（3×judge 一致性 + 1×金路 judge→用户放行→select）+ t545 形 launcher。**S1 教义复原弧**：judge(传名) → "Job not found: class2d K5" → get_workflow_state → judge(带 id) 成功——教义在失败后自我修复，活体在场。**S2/S3 锚定复述形**：零工具调用，逐字复述 S1 判词。
+- [活捉 — 「三新会话」是锚定幻象] 考古 agent.ts：`chat(null)` 落 `latestSessionForProject(project) ?? createSession`——**不给 sessionId 就挂项目最近旧会话**。t551/t545/t519 caseB 的「三新会话」实为同一延续会话：B1 真判（旧会话里早有 job id 所以首 call 直中）、B2/B3 引经据典零工具。Jaccard 1.00 是自我复述的幻象。产品无罪（t498 律「对话跟随世界」是意图 UX），错在测试 harness 把延续当新会话——世界假设是 bench 的义务（t549 律再兑）。
+- [S4 金路落地 — 本窗钱证] judge 全析（全局 25.17 Å「处于非常早期的阶段」+ 逐类 count/fraction/埃 + 图证据拒形）→ 用户放行（「按你推荐的保留类来，选 select2d，把选择跑起来」）→ **select_classes 真建真跑**：Created 2D Class Selection 1 [cmusywizj0001n57367viyh3p] selecting classes 5 — RAN: **4,073 of 10,866 particles kept** · 1/5 classes。**收据链三重字节对账**：judge 报 cls1 1,935 粒/17.8%/32.37 Å = particles_class001.star 行数 = model loop estRes；selection 收据 4,073 = particles_class005.star 行数 = select2d workdir particles_select2d.star 行数。keep 形首次真数据落地，产品算术端到端诚实。
+- [清场] DELETE /api/jobs/[id]?confirm=true 还原 10-job 名册 + rm 自建 select2d workdir 残留（1.6MB）——套件自清惯例；借还律零污染闭环（switch 回 demo，prod 200，console 0）。
+- [t552b — 真新会话重跑] action:"reset"（路由自己的 New chat 门）显式建会话再入：**三会话全部教义先行**（get_workflow_state → judge_2d_classes——没有历史拐杖时教义被遵守）× 判词 5/5 × 双 pass 全跑。判词分布：cls1 reject ×3 · cls5 keep/keep/torn-maybe · cls2 maybe ×3 · cls3 reject×2+maybe · cls4 torn→reject×2。**advice 三方收敛**（「数据 ~25 Å 低分辨、多数类 junk、唯 class 5 有真结构细节应带走」）。**诚实 Jaccard 0.00/0.00/1.00（mean 0.33）**——独立会话的真分歧在 keep/maybe 边界，科学核（cls5 最强、cls1 拒、cls2 边缘）稳如磐石；F1 confirm {agreed:3, torn:2, moved:[cls4 reject→maybe, cls5 keep→maybe]}、F3 {cls2 reject→maybe}——**torn/maybe 容器第一次吃下真数据的真分歧**（合成世界的 agreed:12 是独裁的一致）。
+- [正典修复] scripts/t519-real-agent-e2e.mjs caseB：{action:"reset"} 真新会话 + 解析最后一个 judge result（复原弧首 call 常败）+ freshSessionId 入 report；node --check 过。caseB 的 Jaccard 无断言阈值（仅报告），无需重校准；未来读数应以「科学核收敛 + 边界方差」哲学读，不以 1.00 读。
+- [未做与理由] t471 WSL-bridge 面（本沙箱永久 native，照实再挂）；t276 _legacy-archive、off-mainline 出口（照旧门控）；t519 正典全跑复基准（caseB 修复后的 B 车道验证留待 AI 车道窗——本窗 t552b 已证 reset 形活体可行）；judge harness 的 classStats 解析补课（res/frac 住在 detail.classStats 不在 judgedClasses——t552b 报告字段留空是解析缺口非产品缺口，S1 wire 逐字 + 盘上对账已证数字在 wire 上）。
+
+Stage Summary:
+- 「一致性证词要独立见证人」：同一会话的三次复述不是三个见证人——Jaccard 1.00 是锚定幻象，真新会话的 0.33 才是证词；复述不签判词，判词只从工具调用里长出来
+- 「锚定不是罪，是产品的脸；错的是把脸当门」：latestSessionForProject 的延续是 t498 律的产品意图（对话跟随世界）——测试要新会话就得走 reset 门，世界假设是 bench 自己的义务
+- 「keep 形的落地要过三重对账」：judge 读盘（1,935/17.8%/32.37 Å 字节对账）→ 判词 → selection STAR（4,073 = cls5 文件行数）——收据链全绿才算 landed；数字住在 detail.classStats，判词住在 judgedClasses，解析要说对块的名
+- 「fresh 会话教会义，旧会话教惰性」：三真新会话全部 state-first——教义在没有拐杖时被遵守；锚定会话的 agent 不查世界，它引经据典
+- 「torn 带是真数据养出来的」：F1 的 {agreed:3, torn:2}（cls5 keep→maybe 降级）——双 pass 的分歧容器在真分歧上活了；合成世界的一致是独裁的一致，真世界的一致带方差
+- 产出：S4 金路真数据落地（4,073 粒子保留 + 三重对账）+ 锚定幻象定谳 + t552b 诚实一致性基线（0.33 + 科学核收敛）+ t519 caseB 正典修复 + K5 接触印 + 世界零污染归还
+- [下窗入口] ①AI 车道：t519 正典全跑复基准（caseB reset 形首次实跑——B 车道读数换哲学：科学核收敛 + 边界方差，勿以 1.00 论英雄）；②gamble 车道 live-fire（maybe 带的显式赌博offer → 用户接 → select 落地 2+5——零 keep 教义里「only as the explicit gamble」的真数据验证）；③t471 WSL-bridge 面（照实挂）；④遗留池：t276 _legacy-archive、off-mainline 出口。
