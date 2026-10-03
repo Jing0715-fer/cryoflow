@@ -167,10 +167,18 @@ async function caseA(upto) {
   REPORT.cases.push(a3);
 
   // A3b verify the select2d actually completed (paper side)
+  // t553 — the world may hold OLDER idle select2d jobs (2D Class Selection,
+  // QA Class Select), and .find() grabbed the FIRST one — the checker
+  // read a pre-existing idle card while this run's created selection sat
+  // completed further down the list. Prefer the job THIS run created (the
+  // tool summary embeds its id); fall back to any completed select2d.
   const jobsAfter = await worldJobs();
-  const sel = jobsAfter.find((j) => j.type === "select2d");
+  const createdSel = (ranNote.match(/\[(cmu[a-z0-9]{16,})\]/) ?? [])[1];
+  const sel = (createdSel && jobsAfter.find((j) => j.id === createdSel))
+    || jobsAfter.find((j) => j.type === "select2d" && j.status === "completed")
+    || jobsAfter.find((j) => j.type === "select2d");
   check(a3, "a select2d job exists on the canvas", !!sel, sel ? `${sel.name} [${sel.id}] ${sel.status}` : "none");
-  if (sel) check(a3, "select2d completed (not idle)", sel.status === "completed", sel.status);
+  if (sel) check(a3, "select2d completed (not idle)", sel.status === "completed", sel ? `${sel.name} ${sel.status}` : "none");
   REPORT.world.select2d = sel ? { name: sel.name, status: sel.status, result: sel.result } : null;
   if (upto === "A3") return sid;
 
