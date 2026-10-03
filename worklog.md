@@ -7076,3 +7076,27 @@ Stage Summary:
 - 「钉要跟随世界，世界也要被钉见证」：t530 之前的「无 RELION」面板钉在真件时代成了伪证——钉的本质是「门说系统的真话」，不是「按钮是禁用的」
 - 产出：remote 半门（staging 前 14ms 拒）+ 八套件家族全绿（t269/t270/t271/t272/t293/t294/t295/t304）+ t536 live-fire 剧本 + t304 深链改驾 + dance #17 GREEN
 - [下窗入口] ①远端 argv 全线项目相对化重构（t535 交接②，本轮 staging 修法的彻底版——消灭 motioncorr/autopick/extract 宿主绝对行深嵌套，动 dispatch 心脏，需独立窗）；②家族余批清点（t299 C5 witness、t304-308 已清 t304）；③t293-slurm-submit.mjs 复活考古（off-roster，直跑即崩 + 需 movies 配方）；④遗留池：t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 对未就绪上游的契约灰区（t534 立案）。
+
+---
+Task ID: 537
+Agent: main (Z.ai Code, window 2026-10-03 20:08 cron)
+Task: t536 交接①「远端 argv 全线项目相对化重构」落地——集群命令行端到端说 pipeliner 方言（--i/--o 项目相对），活体探针全绿；随窗活捉并修复 array 检测器对自家方言的失明、selfContinueInArgv 的相对目标盲区、以及三枚钉漂移；t307/t308 定谳「先在 fixture 病」（t266 配方，下窗主打）。
+
+Work Log:
+- [开局] HEAD 6df2651（t536 收官）对齐；available 2756>2600 GO 线、disk 73%；QA 基线三绿 + agent-browser 冒烟（62 卡、console 0、截图 .qa-logs/t537-smoke-home.png）。
+- [解剖] t535 交付④已让 staging star 行项目相对，但 argv 仍说集群绝对（--o /projects/…、--i 孪生绝对）——真件从两者派生的每条路径（per-mic pick 根、fn_odir+行拼接）都可能再生宿主绝对行。提交脚本两车道本就 cd remoteProjectRoot（t316 律），buildArgv 拿到项目相对 workdir/inputs 后相对行与 cwd 契约严丝合缝。枚举 buildArgvCore 的 ctx.workdir 全部用法（全为 --o/--odir/--output-directory 二进制可见旗标 + synthesizeTrainingPicks 在 remote 车道按设计 pass-through）确认可安全相对化；项目根外的路径（外部 exe、cluster-native refs）诚实保留绝对形。
+- [交付① argv 相对化] remote-run.ts buildArgv 调用点：relProjectPath 帮手（under-project-root → 相对，否则原样）+ relWorkdir 常量；inputs 逐项映射。活体证据（t537-argv-dialect.mjs 全绿）：提交的 .cf-run.sh 命令行 `relion_run_motioncorr --i import_x/movies.star --o motioncorr_y/ …` 纯正方言，运行 completed，sync-back 的 corrected star 数据行零绝对 token——t535 的 11 层深嵌套怪物结构性死亡。
+- [交付② 消费者随行] ①selfContinueInArgv 加 remoteProjectRoot 参数：相对 --continue 目标按项目根词汇解析（../ 逃逸永不读作 self-continue，aaa1/aaa12 前缀陷阱在相对方言下同样成立），绝对目标保持 legacy 比对；②array 检测器（活体开火活捉：第一版相对化后 "array split unavailable for autopick"——检测器还在拿绝对 workdir 比对自家 argv）改比 relWorkdir 形。
+- [交付③ 钉随行] t394 bench B2 六案例（68/68 双 case 均绿）+ D5 fixture/钉同源常量（cron 提交 7ce65ec 把钉改 33 而 fixture 仍写 32 的失配，本质是「扫描报真实字节数」）；t307 B 钉迁 relWorkdir；t306 dialog 钉随 t397/t448 的 allowShards 门增长迁移；t308 --i 孪生钉改相对拼写。
+- [dance #18/#19] #18 首试 NO-GO（buff/cache 1000<1450）→ chrome 清场 + node_modules 顺序全量预热（1.19GB 读入，cache 831→1838）→ GO → BUILD KILLED 一次（killed build 释放页把 cache 打回 216）→ 再预热 → **BUILD GREEN**（provenance 6df2651）。#19（array 检测修复后）：守卫 SKIP 只看 HEAD 第 4 次撞上（t533 已知边界）→ **先 commit 后 dance**（aed594d/f0af3b1）→ BUILD GREEN。守卫拒绝、node_modules 预热（顺序 cat，非并行——并行 xargs 互相逐页）、SKIP 语义边界三课全部入账。
+- [验证批] 新 build 上十套全绿：t269/t270/t271/t272（movies 直连）、t293/t294/t295（borrow/forget/panorama）、t263（ctffind）、t267（probeless motioncorr）、t304（sbatch 依赖）、t306（array）；t537 活体探针 + t394 bench 68/68 + t535 bench 21/21 + agent-browser 冒烟 77 卡 console 0（截图 .qa-logs/t537-smoke-final.png）。
+- [定谳 — t307/t308 的先在病] 钉迁移后余 FAIL 全部同根：fixture 是 64² 单帧玩具微图，真件 LoG 拣 0 粒子 → extract/class2d 级联空转（exit 9）——t266 同款（512² 暗色高斯 blob sigma 40px）。t307/t308 自 t530 真件时代起从未跑过（t534 记「t304-308 未及跑」），非本窗回归。下窗按 t266 配方物理化两套 fixture。
+- [未做与理由] t268/t264/t266/t273 新 build 复跑（车道同 t269 已验，风险低但诚实记账未跑）；t293-slurm-submit 复活考古照旧挂池；t299 C5 witness、t276 _legacy-archive 照旧。
+
+Stage Summary:
+- 「方言要么全说，要么不说」：staging 行相对了、argv 还绝对——真件从两个世界各取一半拼出的仍是怪物；端到端相对后 no absolute row can be born
+- 「检测器必须看得懂自己放行的方言」：array 检测器拿绝对期望比对相对 argv，把自己的合法形状拒之门外——活体开火是唯一能抓住这类失明的证人
+- 「并行预热互相逐页」：xargs -P8 cat 抢页让 cache 停在 830MB，顺序 cat 1.19GB 才把 cache 送上 1838——暖窗的制造也是门手艺
+- 「钉的本质是真实字节计数，不是字面 33」：fixture 与钉同源常量后，钉不再可能漂移
+- 产出：argv 全线项目相对化（relProjectPath/relWorkdir）+ selfContinueInArgv 相对方言 + array 检测器随行 + t537 活体探针 + t394 B2/D5 + 三枚钉迁移 + dance #18/#19 双 GREEN + 十套新 build 验证批
+- [下窗入口] ①t307/t308 fixture 物理化（t266 配方：512² 暗色 blob sigma 40px、LoG 带内、12 微图各恰一 blob）——两套的 C 相级联断言随真件产出逐条定谳；②t268/t264/t266/t273 新 build 复跑清账；③遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 对未就绪上游的契约灰区（t534 立案）。
