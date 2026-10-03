@@ -185,11 +185,21 @@ try {
   // ---- Phase C: the live chain --------------------------------------------
   console.log("== PHASE C: the live chain (train on the cluster → the curve lights) ==");
 
-  // C1 — six tiny but valid MRC micrographs + a REAL local import job
+  // C1 — six valid MRC micrographs + a REAL local import job. t534 — the
+  // mics carry DARK GAUSSIAN BLOBS at the LoG defaults' scale (150–180 Å
+  // = 85–102 px at 1.77 Å → sigma ≈ 40 px): the stub era picked nothing
+  // and the trainer ran on an empty coords star; the REAL relion_autopick
+  // (first on the mock's PATH since t530) refuses to train on zero
+  // micrographs ("there are no micrographs to train topaz on!"). Real
+  // blobs → real picks → the trainer's synthesized picks star has rows.
   mkdirSync(MICS_DIR, { recursive: true });
   const names = ["mic_01.mrc", "mic_02.mrc", "mic_03.mrc", "mic_04.mrc", "mic_05.mrc", "mic_06.mrc"];
+  const W = 512, H = 512, SIGMA = 40, AMP = -1.0;
+  const BLOBS = [
+    [128, 128], [256, 128], [384, 128],
+    [128, 384], [256, 384], [384, 384],
+  ];
   for (const n of names) {
-    const W = 64, H = 64;
     const buf = Buffer.alloc(1024 + W * H * 4);
     buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
     buf.writeInt32LE(2, 12); // mode 2 = float32
@@ -197,10 +207,19 @@ try {
     buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-    for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let v = Math.sin((x + y) / 31) * 0.03; // faint ice-like background
+        for (const [bx, by] of BLOBS) {
+          const dx = x - bx, dy = y - by;
+          v += AMP * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+        }
+        buf.writeFloatLE(v, 1024 + (y * W + x) * 4);
+      }
+    }
     writeFileSync(path.join(MICS_DIR, n), buf);
   }
-  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (64x64 float32)");
+  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (512x512 float32, dark LoG-scale blobs)");
 
   const mkJob = async (body) => {
     const r = await fetch(`${BASE}/api/jobs`, {

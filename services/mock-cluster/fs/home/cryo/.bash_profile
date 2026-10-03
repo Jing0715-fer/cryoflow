@@ -6,3 +6,8 @@ if [ -n "$CRYOFLOW_MOCK_PATH" ]; then
   export PATH="$CRYOFLOW_MOCK_PATH"
 fi
 true
+# t534 — same dance as PATH: the topaz python-module shim rides PYTHONPATH
+# (the real relion_python_topaz wrapper imports the topaz module by name).
+if [ -n "$CRYOFLOW_MOCK_PYTHONPATH" ]; then
+  export PYTHONPATH="$CRYOFLOW_MOCK_PYTHONPATH"
+fi

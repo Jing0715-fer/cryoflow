@@ -22,7 +22,8 @@ const dbRead = (sql, arg) =>
 
 // 6 micrographs
 mkdirSync(MICS_DIR, { recursive: true });
-const W = 64, H = 64;
+const W = 512, H = 512, SIGMA = 40, AMP = -1.0;
+const BLOBS = [[128,128],[256,128],[384,128],[128,384],[256,384],[384,384]];
 for (let k = 1; k <= 6; k++) {
   const n = `mic_${String(k).padStart(2, "0")}.mrc`;
   const buf = Buffer.alloc(1024 + W * H * 4);
@@ -32,7 +33,11 @@ for (let k = 1; k <= 6; k++) {
   buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
   buf.write("MAP ", 208, "ascii");
   buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-  for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin((i + k) / 7) * 0.1, 1024 + i * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let v = Math.sin((x + y) / 31) * 0.03;
+    for (const [bx, by] of BLOBS) { const dx = x-bx, dy = y-by; v += AMP * Math.exp(-(dx*dx+dy*dy)/(2*SIGMA*SIGMA)); }
+    buf.writeFloatLE(v, 1024 + (y * W + x) * 4);
+  }
   writeFileSync(path.join(MICS_DIR, n), buf);
 }
 
@@ -90,9 +95,30 @@ const verdict = dbRead("SELECT status, result FROM Job WHERE id=?", log_.id);
 console.log("LoG verdict:", verdict[0], "\n", (verdict[1] ?? "").slice(0, 500));
 console.log("console errors:", consoleErrors.length);
 
+// the topaztrain leg — the t534 window's live reproduction of the trainer
+if (verdict[0] === "completed") {
+  const tr = await mkJob({ type: "topaztrain", name: "diag Topaz Train" });
+  await mkEdge(imp.id, tr.id, "micrographs", "micrographs");
+  await mkEdge(log_.id, tr.id, "coords", "coords");
+  await fetch(`${BASE}/api/jobs/${tr.id}/run`, {
+    method: "POST", headers: { ...SH, "Content-Type": "application/json" },
+    body: JSON.stringify({ remote: { connectionId: connId, module: "relion/5.0.1", mode: "direct" } }),
+  });
+  for (let i = 0; i < 90; i++) {
+    await sleep(2000);
+    const st = dbRead("SELECT status FROM Job WHERE id=?", tr.id);
+    if (st[0] !== "pending" && st[0] !== "running") break;
+  }
+  const tv = dbRead("SELECT status, result FROM Job WHERE id=?", tr.id);
+  console.log("topaztrain verdict:", tv[0], "\n", (tv[1] ?? "").slice(0, 600));
+  // keep the mirror for autopsy (no topaztrain cleanup)
+  console.log("(topaztrain mirror kept for autopsy)");
+}
+
 // cleanup: OUR jobs only (the world stays)
 await fetch(`${BASE}/api/jobs/${log_.id}`, { method: "DELETE", headers: SH });
 await fetch(`${BASE}/api/jobs/${imp.id}`, { method: "DELETE", headers: SH });
+if (typeof tr !== "undefined" && tr?.id) await fetch(`${BASE}/api/jobs/${tr.id}`, { method: "DELETE", headers: SH });
 await fetch(`${BASE}/api/remote/connections/${connId}`, { method: "DELETE", headers: SH });
 execSync(`rm -rf ${MICS_DIR}`);
 console.log("cleaned");

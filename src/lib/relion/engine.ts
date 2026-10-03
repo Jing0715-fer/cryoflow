@@ -2451,6 +2451,30 @@ export function synthesizeTrainingPicks(pickFile: string, micrographsStar: strin
       .filter((f) => /_autopick\.star$/i.test(f) || f === path.basename(pickFile))
       .sort();
 
+    // t534 — index rows must be PROJECT-RELATIVE, not absolute. Every lane
+    // that runs relion_autopick --topaz_train resolves the rows against ITS
+    // OWN cwd — the local engine's projectDirFor, the direct lane's wrapper
+    // cd, sbatch's chdir — all the project root (the RELION pipeliner law).
+    // The old absolute-local rows survived the to-remote rewrite as
+    // cluster-absolute `/projects/...` — and the REAL binary (first on the
+    // mock's PATH since t530) reads them against the host filesystem where
+    // no such mount exists: "File /projects/.../mic_05_autopick.star does
+    // not exist". A row that cannot be expressed project-relative keeps its
+    // absolute form (the to-remote rewrite still maps it for stub-era
+    // readers) — honesty over heroics.
+    const localRootAbs = RELION_DIR;
+    const projRel = (p: string): string => {
+      const norm = p.split(path.sep).join("/");
+      const rootNorm = localRootAbs.split(path.sep).join("/");
+      if (!norm.startsWith(rootNorm + "/")) return p;
+      const rest = norm.slice(rootNorm.length + 1);
+      const projId = rest.split("/")[0];
+      if (!projId) return p;
+      const projectRoot = path.join(localRootAbs, projId);
+      const rel = path.relative(projectRoot, p);
+      return rel.startsWith("..") ? p : rel.split(path.sep).join("/");
+    };
+
     const indexRows: string[] = [];
 
     // AutoPick-family branch ONLY when the resolved file is itself a
@@ -2466,7 +2490,7 @@ export function synthesizeTrainingPicks(pickFile: string, micrographsStar: strin
       for (const f of files) {
         const stem = f.replace(/_autopick\.star$/i, "").replace(/\.star$/i, "");
         const mic = byStem.get(stem) ?? `micrographs/${stem}.mrc`;
-        indexRows.push(`${mic}    ${path.join(dir, f)}`);
+        indexRows.push(`${mic}    ${projRel(path.join(dir, f))}`);
       }
     } else if (labels.includes("_rlnMicrographName")) {
       // ManualPick-style flat table (mic name + X/Y per row): split it into
@@ -2513,7 +2537,7 @@ export function synthesizeTrainingPicks(pickFile: string, micrographsStar: strin
             "",
           ].join("\n")
         );
-        indexRows.push(`${mic}    ${fn}`);
+        indexRows.push(`${mic}    ${projRel(fn)}`);
       }
     } else {
       return pickFile; // unrecognized shape — let RELION explain

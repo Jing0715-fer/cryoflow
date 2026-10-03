@@ -134,6 +134,13 @@ function commandEnv() {
     // `bash -l` sources /etc/profile which RESETS PATH; fs/home/cryo/.bash_profile
     // re-exports it from this variable (the app runs `bash -lc '…'`).
     CRYOFLOW_MOCK_PATH: MOCK_PATH,
+    // t534 — the topaz python-module shim: the REAL relion_python_topaz
+    // wrapper runs `python -c "from topaz.main import main ..."` and died on
+    // the missing module. The shim lives at fs/opt/pythons/topaz — PYTHONPATH
+    // makes the wrapper's import find it (the t533 doctrine: the mock learns
+    // the real pieces it lacks, at the deepest layer the real binary calls).
+    PYTHONPATH: `${FS_ROOT}/opt/pythons`,
+    CRYOFLOW_MOCK_PYTHONPATH: `${FS_ROOT}/opt/pythons`,
   };
 }
 

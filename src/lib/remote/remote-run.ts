@@ -1210,8 +1210,20 @@ export function rewriteStarPaths(
   const root = remoteRoot.replace(/\/$/, "");
   if (dir === "to-remote") {
     if (out.includes(localRoot + "/")) out = out.split(localRoot + "/").join(root + "/");
-  } else {
-    if (out.includes(root + "/")) out = out.split(root + "/").join(localRoot + "/");
+  } else if (out.includes(root + "/")) {
+    // t534 — the to-local leg maps the CLUSTER-absolute path TOKEN wherever
+    // it hides inside the row. The real binaries (first on the mock's PATH
+    // since t530) write rows that embed the cluster's own mount prefix
+    // BEFORE the remoteRoot — `<fs-root>/projects/cryoflow/...` is the host
+    // path of cluster path `/projects/...`. The old blind split/join on
+    // remoteRoot alone rewrote only the interior segment and left the mount
+    // prefix standing: `<fs-root>/home/z/.../data/relion/...` path monsters
+    // that exist in neither view — the topaz trainer's coordinate index
+    // then pointed at files no reader could open. Match the whole path
+    // token (everything up to the remoteRoot that no whitespace/quote
+    // interrupts) and keep only the mirror twin.
+    const tokenRe = new RegExp(`[^\\s"']*${root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/`, "g");
+    out = out.replace(tokenRe, localRoot + "/");
   }
   const map = loadStageMap();
   for (const e of Object.values(map)) {
