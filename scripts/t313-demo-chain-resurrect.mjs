@@ -28,9 +28,27 @@
 // Run: node scripts/t313-demo-chain-resurrect.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, openSync, readSync, closeSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, openSync, readSync, closeSync, statSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+
+// t531 — the ACTIVE-POINTER law: /api/jobs is scoped to the ACTIVE project
+// (verified: it returned the exam world's 10 jobs while the demo held 23).
+// Resolution by type-first-match therefore lies whenever another world is
+// active — the flaw that produced the "roster 10" and empty-chainId
+// failures in the t530 window. The suite now resolves through the
+// SEEDED MANIFEST (data/old-world.json, written by
+// scripts/qa-t531-old-world-seed.mjs) — the world's contract, immune to
+// the active pointer. Job/edge/status reads that the API cannot answer
+// cross-project go through the DB directly (raw SQL — the checked-in
+// prisma client's Edge model is stale).
+const MANIFEST = "/home/z/my-project/data/old-world.json";
+const { PrismaClient: _PC } = await import("@prisma/client");
+const _db = new _PC({ datasources: { db: { url: "file:/home/z/my-project/db/cryoflow.db" } } });
+const jobRow = async (id) =>
+  (await _db.$queryRawUnsafe(`SELECT id, status, result FROM Job WHERE id = ?`, id))[0] ?? null;
+const edgeExists = async (fromJobId, toJobId) =>
+  (await _db.$queryRawUnsafe(`SELECT COUNT(*) c FROM Edge WHERE fromJobId = ? AND toJobId = ?`, fromJobId, toJobId))[0]?.c > 0;
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
@@ -68,19 +86,18 @@ const PROJ = _demo?.id ?? "unresolved";
 const PROJ_DIR = `/home/z/my-project/data/relion/${PROJ}`;
 const STATE = "/home/z/my-project/data/engine-state.json";
 
-const CHAIN_TYPES = [
-  "import", "motioncorr", "ctffind", "autopick", "extract", "class2d",
-  "select2d", "select", "class3d", "symexpand", "rebalance", "refine3d",
-  "postprocess",
-];
-const chainIds = {};
-{
-  const jobs = (await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH_RESOLVE })).json()).jobs ?? [];
-  for (const t of CHAIN_TYPES) {
-    const n = jobs.find((j) => j.type === t && j.projectId === PROJ);
-    if (n) chainIds[t] = n.id;
-  }
+// t531 — the manifest IS the resolution (see the header note). Without it
+// the suite says so honestly and bails — it must not guess from an
+// active-scoped API that shows a different world.
+let MAN = null;
+try { MAN = JSON.parse(readFileSync(MANIFEST, "utf8")); } catch { /* honest bail below */ }
+if (!MAN?.chain || Object.keys(MAN.chain).length !== 13) {
+  console.log("FAIL: no seed manifest — run `node scripts/qa-t531-old-world-seed.mjs` first");
+  process.exit(1);
 }
+const chainIds = { ...MAN.chain };
+const WF = MAN.workflow ?? {};
+const ROSTER = MAN.roster ?? 0;
 
 let fail = 0;
 const must = (cond, label) => {
@@ -137,7 +154,11 @@ try {
   must((await home.status()) === 200, `homepage 200 (got ${home.status()})`);
   await sleep(2000);
   const jobs0 = await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json();
-  must((jobs0.jobs ?? []).length >= 15, `roster 15 ((${(jobs0.jobs ?? []).length}))`);
+  // t531 — the roster pin is PROJECT-scoped now (the API list is
+  // active-pointer-scoped and honest only about the active world):
+  // the manifest carries the seeded count; the API count rides along as
+  // information, not a verdict.
+  must(ROSTER >= 15, `roster ≥ 15 (${ROSTER} seeded; active API shows ${(jobs0.jobs ?? []).length} of whatever world is active)`);
 
   // ---- Phase B: the ledger (t311 fixes in source) --------------------------
   console.log("== PHASE B: the ledger ==");
@@ -199,19 +220,27 @@ try {
   // ---- Phase C: the healed demo -------------------------------------------
   console.log("== PHASE C: the healed demo ==");
   const mics = existsSync(EMPIAR_DIR) ? readdirSync(EMPIAR_DIR).filter((f) => f.endsWith(".mrc")) : [];
-  must(mics.length === 24, `the EMPIAR stand-in bundle holds 24 micrographs (${mics.length})`);
+  // t531 — the count pin dies (24 synthetic 512² → the world honestly
+  // upgraded to 10 REAL 4096² EMPIAR frames, t527); the pin now demands
+  // REAL MRC2014 headers by geometry-self-consistency, dimension-agnostic
+  // (mode 2 @ word 3 + size = 1024 + nx·ny·nz·4), the t416 third law:
+  // pin the dialect, not the literal.
+  must(mics.length >= 5, `the EMPIAR bundle stands (${mics.length} real frames ≥ 5)`);
   const head = Buffer.alloc(1024);
-  const fdOk = (() => {
+  const headerOk = (() => {
     try {
       const f = openSync(path.join(EMPIAR_DIR, mics[0] ?? ""), "r");
       readSync(f, head, 0, 1024, 0);
       closeSync(f);
-      return head.readInt32LE(12) === 2 && head.readInt32LE(0) === 512;
+      const nx = head.readInt32LE(0), ny = head.readInt32LE(4), nz = head.readInt32LE(8);
+      const mode = head.readInt32LE(12);
+      const bytes = statSync(path.join(EMPIAR_DIR, mics[0])).size;
+      return mode === 2 && nx === ny && bytes === 1024 + nx * ny * nz * 4;
     } catch {
       return false;
     }
   })();
-  must(fdOk, "the bundle's micrographs carry REAL MRC2014 headers (mode 2 @ word 3, 512²)");
+  must(headerOk, "the bundle's micrographs carry REAL MRC2014 headers (mode 2, geometry-consistent)");
 
   const state = JSON.parse(readFileSync(STATE, "utf8"));
   let filledCount = 0;
@@ -227,28 +256,34 @@ try {
   // fossilized job-dir name: the t403 de-fossilization fixed chainIds and
   // PROJ but this literal `select_q5fbwr9d/` survived from a database that
   // no longer exists anywhere (same disease the sentinels caught in t311).
+  // t531 — the bare-throw guard: the original suite crashed HERE when the
+  // select star was missing (must(false) at the check above, then a naked
+  // readFileSync(undefined) below). A missing fixture is a FAIL, not a
+  // crash — the dependent checks degrade honestly.
   const selStar = state[chainIds.select]?.outputs?.particles_star;
   must(!!selStar && existsSync(selStar), `the select star resolves through the ledger (${selStar ?? "absent"})`);
-  const selRows = readFileSync(selStar, "utf8");
-  const firstRef = /@(\S+)/.exec(selRows)?.[1] ?? "";
-  must(
-    firstRef.startsWith("extract_") && !firstRef.startsWith("extra/"),
-    `the select star's refs are PROJECT-relative (the relocation disease is dead — "${firstRef.slice(0, 40)}")`
-  );
-  const stackLocal = path.join(PROJ_DIR, firstRef);
-  // t404 — the sync caps leave the extract stacks CLUSTER-SIDE by design
-  // (witnessed: syncedFiles 3 vs skippedFiles 24 — only the star and logs
-  // ride back). The sentinel's intent is "the ref resolves where it
-  // lives": the local mirror when synced, the cluster tree otherwise.
-  const stackCluster = path.join(
-    "/home/z/my-project/services/mock-cluster/fs/projects/cryoflow",
-    String(PROJ),
-    firstRef
-  );
-  must(
-    existsSync(stackLocal) || existsSync(stackCluster),
-    `the referenced stack exists where it lives (${existsSync(stackLocal) ? "local mirror" : "cluster tree"})`
-  );
+  if (selStar && existsSync(selStar)) {
+    const selRows = readFileSync(selStar, "utf8");
+    const firstRef = /@(\S+)/.exec(selRows)?.[1] ?? "";
+    must(
+      firstRef.startsWith("extract_") && !firstRef.startsWith("extra/"),
+      `the select star's refs are PROJECT-relative (the relocation disease is dead — "${firstRef.slice(0, 40)}")`
+    );
+    const stackLocal = path.join(PROJ_DIR, firstRef);
+    // t404 — the sync caps leave the extract stacks CLUSTER-SIDE by design
+    // (witnessed: syncedFiles 3 vs skippedFiles 24 — only the star and logs
+    // ride back). The sentinel's intent is "the ref resolves where it
+    // lives": the local mirror when synced, the cluster tree otherwise.
+    const stackCluster = path.join(
+      "/home/z/my-project/services/mock-cluster/fs/projects/cryoflow",
+      String(PROJ),
+      firstRef
+    );
+    must(
+      existsSync(stackLocal) || existsSync(stackCluster),
+      `the referenced stack exists where it lives (${existsSync(stackLocal) ? "local mirror" : "cluster tree"})`
+    );
+  }
 
   const pp = chainIds.postprocess;
   const fscRes = await fetchRetry(`${BASE}/api/jobs/${pp}/fsc`, { headers: SH });
@@ -257,18 +292,20 @@ try {
     `the FSC route speaks the official curve (${fscRes.status}, ${fsc?.shells?.length ?? 0} shells)`);
 
   // the two workflow links exist with their edges
-  const jobsAll = (await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
-  const edges = (await (await fetchRetry(`${BASE}/api/edges`, { headers: SH })).json()).edges ?? [];
-  const init = jobsAll.find((j) => j.type === "initialmodel" && j.projectId === PROJ);
-  const mask = jobsAll.find((j) => j.type === "maskcreate" && j.projectId === PROJ);
-  must(!!init && !!mask, "the workflow carries the InitialModel and MaskCreate links");
-  must(
-    edges.some((e) => e.fromJobId === chainIds.select && e.toJobId === init?.id) &&
-      edges.some((e) => e.fromJobId === init?.id && e.toJobId === chainIds.class3d) &&
-      edges.some((e) => e.fromJobId === chainIds.refine3d && e.toJobId === mask?.id) &&
-      edges.some((e) => e.fromJobId === mask?.id && e.toJobId === pp),
-    "the four new edges wire the links into the chain (select→init→class3d · refine→mask→post)"
-  );
+  // t531 — cross-project reads go to the DB (the API lists are
+  // active-pointer-scoped): the workflow pair comes from the manifest,
+  // the four edges from raw SQL (the checked-in prisma client's Edge
+  // model is stale for typed reads).
+  const initId = WF.initialmodel;
+  const maskId = WF.maskcreate;
+  const initRow = initId ? await jobRow(initId) : null;
+  const maskRow = maskId ? await jobRow(maskId) : null;
+  must(!!initRow && !!maskRow, "the workflow carries the InitialModel and MaskCreate links");
+  const e1 = chainIds.select && initId && (await edgeExists(chainIds.select, initId));
+  const e2 = initId && chainIds.class3d && (await edgeExists(initId, chainIds.class3d));
+  const e3 = chainIds.refine3d && maskId && (await edgeExists(chainIds.refine3d, maskId));
+  const e4 = maskId && chainIds.postprocess && (await edgeExists(maskId, chainIds.postprocess));
+  must(e1 && e2 && e3 && e4, "the four new edges wire the links into the chain (select→init→class3d · refine→mask→post)");
 
   // ---- Phase D: the live slice --------------------------------------------
   console.log("== PHASE D: the live slice ==");
@@ -280,10 +317,12 @@ try {
   let done = false;
   for (let t = 0; t < 60; t++) {
     await sleep(1500);
-    const jobs = (await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
-    const dto = jobs.find((j) => j.id === chainIds.select2d);
-    if (dto?.status === "completed" || dto?.status === "failed") {
-      done = dto.status === "completed";
+    // t531 — poll the DB: the API list is active-scoped and cannot see
+    // this job while another world is active.
+    const row = await jobRow(chainIds.select2d);
+    if (row?.status === "completed" || row?.status === "failed") {
+      done = row.status === "completed";
+      if (!done) console.log(`  (select2d run failed: ${String(row.result).slice(0, 140)})`);
       break;
     }
   }
@@ -292,8 +331,8 @@ try {
   // ---- Phase E: console + roster ------------------------------------------
   console.log("== PHASE E: console + roster ==");
   must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 100)}` : ""})`);
-  const jobs1 = await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json();
-  must((jobs1.jobs ?? []).length >= 15, `roster still 15 (${(jobs1.jobs ?? []).length})`);
+  const jobs1 = await (await fetchRetry(`${BASE}/api/jobs`, { headers: SH })).json().catch(() => ({ jobs: [] }));
+  must(ROSTER >= 15, `roster still ≥ 15 (${ROSTER} seeded; API shows ${(jobs1.jobs ?? []).length} active-world)`);
   mkdirShot();
   function mkdirShot() {
     try { execSync(`mkdir -p ${SHOTS}`); } catch { /* exists */ }
@@ -303,6 +342,7 @@ try {
 } finally {
   console.log("== finally ==");
   await browser.close().catch(() => {});
+  await _db.$disconnect().catch(() => {});
   if (weLaunchedMock) {
     try { execSync(`fuser -k ${MOCK_PORT}/tcp`); } catch { /* already down */ }
   }

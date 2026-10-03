@@ -54,6 +54,16 @@ async function pollUntil(fn, ms, every = 1500) {
   }
   return null;
 }
+// t531 — budgets are MEASURED PHYSICS, not wishes: the 2-core box under a
+// 7-rank MPI refine grinds it002 at ~1.66h (t530/t531 live measurements),
+// so the t530 default of 1800s for P6b was a guaranteed pseudo-FAIL —
+// the job kept grinding while the poller gave up (the ledger now records
+// this as the budget-artifact verdict). Every budget is env-overridable
+// (T372_BUDGET_<NAME>, seconds) so future windows tune without edits.
+const budget = (name, fallbackSec) => {
+  const v = Number(process.env[`T372_BUDGET_${name}`]);
+  return (Number.isFinite(v) && v > 0 ? v : fallbackSec) * 1000;
+};
 const api = async (path, opts) => {
   const r = await fetch(`${BASE}${path}`, { ...opts, headers: { ...ORIGIN, ...(opts?.body ? { "Content-Type": "application/json" } : {}) } });
   return { status: r.status, body: await r.json().catch(() => ({})) };
@@ -185,7 +195,7 @@ const c2 = await mkJob({
 });
 await mkEdge(ext.id, c2.id, "particles", "particles");
 await runRemote(c2.id);
-const c2J = await finish(c2.id, "P5b class2d (real relion_refine 5.0.0 serial, CPU)", 1500_000);
+const c2J = await finish(c2.id, "P5b class2d (real relion_refine 5.0.0 serial, CPU)", budget("P5B", 1500));
 
 /* ---------------- P6 initialmodel + refine3d ---------------- */
 console.log("== P6: initialmodel → refine3d ==");
@@ -195,7 +205,7 @@ const im = await mkJob({
 });
 await mkEdge(c2.id, im.id, "particles", "particles");
 await runRemote(im.id);
-const imJ = await finish(im.id, "P6a initialmodel (real relion_refine --denovo_3dref)", 1800_000);
+const imJ = await finish(im.id, "P6a initialmodel (real relion_refine --denovo_3dref)", budget("P6A", 3600));
 
 const r3 = await mkJob({
   projectId: pid, type: "refine3d", name: "refine3d",
@@ -204,21 +214,23 @@ const r3 = await mkJob({
 await mkEdge(im.id, r3.id, "model", "reference");
 await mkEdge(im.id, r3.id, "particles", "particles");
 await runRemote(r3.id);
-const r3J = await finish(r3.id, "P6b refine3d (real relion_refine, half-maps)", 1800_000);
+// t531 physics: it000 ~20min + it001 ~20min + it002 ~1.66h ≈ 2.5-3h on
+// the 2-core box — the honest default is 10800s (3h), not t530's 1800s.
+const r3J = await finish(r3.id, "P6b refine3d (real relion_refine, half-maps)", budget("P6B", 10800));
 
 /* ---------------- P7 maskcreate + postprocess ---------------- */
 console.log("== P7: maskcreate + postprocess ==");
 const mk = await mkJob({ projectId: pid, type: "maskcreate", name: "mask", params: { angpix: 3.54 } });
 await mkEdge(r3.id, mk.id, "map", "volume");
 await runRemote(mk.id);
-const mkJ = await finish(mk.id, "P7a maskcreate", 300_000);
+const mkJ = await finish(mk.id, "P7a maskcreate", budget("P7A", 1200));
 
 const pp = await mkJob({ projectId: pid, type: "postprocess", name: "sharpen" });
 await mkEdge(r3.id, pp.id, "half1", "half1");
 await mkEdge(r3.id, pp.id, "half2", "half2");
 await mkEdge(mk.id, pp.id, "mask", "mask");
 await runRemote(pp.id);
-const ppJ = await finish(pp.id, "P7b postprocess", 300_000);
+const ppJ = await finish(pp.id, "P7b postprocess", budget("P7B", 1200));
 
 /* ---------------- P8 motioncorr (own implementation, synthetic movie) ---------------- */
 console.log("== P8: motioncorr (RELION's own, synthetic EMPIAR crop movie) ==");
