@@ -72,6 +72,7 @@ import {
   type UpstreamRef,
   type WaitKind,
 } from "@/lib/relion/engine";
+import { readStarMoviesShape } from "@/lib/relion/star-shape";
 import { remoteWorkdirForJob } from "@/lib/relion/workdir";
 import { gpuStrategyFor, slurmHms } from "@/lib/hpc/slurm";
 import {
@@ -4033,6 +4034,34 @@ export async function startRemoteJob(args: {
         waiting: "not-ready",
       };
     }
+  }
+
+  // ---- t536 — the movies gate's REMOTE half (before any staging) --------
+  // buildArgv's star-shape gate reads the CLUSTER twin path (the remote
+  // lane translates every input to its cluster address before the argv
+  // build), which never exists on THIS machine — readStarMoviesShape's
+  // honest-null skips the gate and the real binary dies mid-cluster as a
+  // cryptic "exit 1 (RELION reported an error)". The t269 suite lived
+  // through it: the local lane refused nothing because the gate was a
+  // dead letter on this lane. The LOCAL source star carries the same
+  // bytes the cluster will read — classify HERE, refuse the REQUEST
+  // before one byte is staged (fail(requestError) — a wiring mistake
+  // must not flip the job row to failed; the toast teaches).
+  if (job.type === "motioncorr" && resolved.inputs.micrographs_star) {
+    const localStar = resolved.inputs.micrographs_star;
+    if (existsSync(localStar)) {
+      const moviesShape = readStarMoviesShape(localStar);
+      if (moviesShape && moviesShape.dialect !== "movies") {
+        return fail(
+          `MotionCorr reads only MOVIES stars — the wired input ${localStar.split("/").pop() ?? localStar} is a ` +
+            `${moviesShape.table ?? "micrographs"} star (no rlnMicrographMovieName column; motioncorr_runner.cpp:261 refuses it). ` +
+            "Import the frame stacks with Node type = Movies and wire Import → MotionCorr; single-frame micrographs are already motion-corrected — feed CTF directly.",
+          true
+        );
+      }
+    }
+    // a twin-resolved star (cluster-only) keeps the buildArgv gate's own
+    // degradation: unreadable here → the binary still speaks (t324-a law)
   }
 
   // ---- t313 — the byte-verified CTF door (before any staging) -----------
