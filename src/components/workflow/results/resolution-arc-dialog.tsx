@@ -39,7 +39,7 @@
  *     whole arc on reopen.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Ruler, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,7 +90,14 @@ export function ResolutionArcEntry({ job }: { job: JobDTO }) {
   const [open, setOpen] = useState(false);
   // t459 — the dialect table gates the door: refine3d (gold) and the
   // classifications (serial) fetch; every other type never asks.
-  const presentation = arcPresentationOf(job.type);
+  // t533 — the table's object must be STABLE: arcPresentationOf mints a
+  // fresh object per call, and this value sits in the fetch effect's deps
+  // below. Identity-per-render meant every setRounds re-render minted a
+  // new "presentation", refired the effect, and the door polled ITSELF at
+  // network speed (a ~6ms fetch loop for as long as the inspector stayed
+  // open — and a 404 console error whenever the job was deleted under it).
+  // The house pattern is continue-verb-row's: useMemo on the true inputs.
+  const presentation = useMemo(() => arcPresentationOf(job.type), [job.type]);
 
   // One cheap cached GET per inspector mount of an ML face — the
   // door cannot know whether an arc exists without asking (data
