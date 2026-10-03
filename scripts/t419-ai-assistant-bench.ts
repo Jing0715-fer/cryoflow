@@ -18,7 +18,7 @@
  *      empty sessions excluded), the active-project pinning law on fetch
  *      and delete, and the delete contract.
  *
- * Run: bun scripts/t419-ai-assistant.ts
+ * Run: bun scripts/t419-ai-assistant-bench.ts
  */
 
 import { execSync } from "child_process";

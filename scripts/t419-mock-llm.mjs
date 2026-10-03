@@ -4,7 +4,8 @@
  *
  * An OpenAI-compatible endpoint (chat/completions + models) that speaks the
  * scripted assistant: enough brain to drive the REAL UI end-to-end without
- * a real API key. The bench (t419-ai-assistant.ts) covers the same state
+ * a real API key. The bench (t419-ai-assistant-bench.ts, t546 enrolled in
+ * recent-family.sh by the -bench suffix) covers the same state
  * machine in-process; this server exists so the BROWSER can ride the full
  * settings → chat → tool-cards → canvas-updates loop against the real Next
  * server.
