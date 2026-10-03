@@ -7379,3 +7379,26 @@ Stage Summary:
 - 「bench 的世界假设要自己治」：probe 的残骸掀了 bench 的前提——settle 步（先经产品门治愈再断言 self-effacing）让套件对历史免疫；世界不是给定的，是义务
 - 产出：3/3 收据伤 workdir 经产品门治愈（18 文件真 SSH 归家）+ HomecomingSweepBar（项目级一键归家，双缺陷修复随行）+ t549 e2e 四相 30 断言 ALL PASS ×2 入册（glob 84）+ dance 三磨全绿 + shots-qa 三图
 - [下窗入口] ①t519 #5 半化石重述（judge 真类图源——t474 世界已有真件，AI 车道窗）；②t471 WSL-bridge 面（真 WSL 世界稀缺，照实挂）；③遗留池：t276 _legacy-archive、off-mainline 出口；④家族全量跑在 3gFQgtIV build 上未复跑（t549 改动面已被 bench 覆盖，低风险）。
+
+---
+Task ID: 550
+Agent: main (Z.ai Code, window 2026-10-04 05:38 cron)
+Task: t549 交接①「t519 #5 judge 真类图源」兑现——真数据考古活捉真伤（真 RELION gold-standard 方言被 parser 无视，3.20 Å 全局分辨率在文件里躺着而 judge 对 12 类全说 unknown），classStatsFromWorkdir 学会三种真方言 + 永不冒充律，t550 bench 36/0 ×2 入册（glob 100）；途中意外收获全量家族跑 100/100 与 build-guard 配方真修复。
+
+Work Log:
+- [开局] HEAD 2856b9d 对齐、树净；基线三绿（prod 200/2ms、tsc 0、eslint 0）+ 冒烟 console 0、世界正典 OK；mem avail 3269、disk 73%。cron 背诵的 Task 13 清单第 N+7 次核实为化石；本窗主菜 = t549 下窗入口①。
+- [真数据考古 — 伤在方言] t474 世界（cmur48ywy…/class2d_8wy7dl3m）有真件：200 迭代 × 12 类真 RELION 森林（3625 文件）+ run_it200_classes.mrcs 真栈。读真 model star 定谳：**真 RELION gold-standard 方言 = data_model_general 键值对（_rlnCurrentResolution 3.20）+ data_model_half1 FSC 曲线 loop——没有 _rlnEstimatedResolution、没有 per-class loop**。而 classStatsFromWorkdir 只认 t520 合成件的单 loop 方言 → judge 在真件上对全部 12 类说 "resolution unknown"，文件里 3.20 Å 的真全局估计被整个丢弃；迭代森林里 CurrentResolution 28.00→8.52→3.21→3.20 的真精修轨迹同理全盲。
+- [交付① — 三方言 + 永不冒充] classStatsFromWorkdir 的分辨率解析重写为三态：①单 loop 行序=类序（t520 方言，回归保真）；②per-class blocks data_model_class_N 单行 loop（块名自带类号）；③gold-standard 全局（data_model_general 的 _rlnCurrentResolution → 新字段 globalResolution）。**永不冒充律：全局数绝不戴 per-class 徽章**——③路径的类分辨率保持 null（诚实 unknown），全局走自己的车道。judge 的四个面随行：prompt 头行带真全局（"The run's current resolution estimate (global, gold-standard): 3.2 Å."）、rubric 加 unknown 语境（gold-standard 只报全局——VLM 别把缺号当类失败，按图像证据判）、summary 带 "· run at 3.2 Å (global)"、detail 落 globalResolution；inspect_job 的读取面同享（globalResolutionA）。
+- [交付② — t550 bench 36/0 ×2] t419 形隔离世界（mkdtemp + env 先行 + prisma push + fetch 补丁）：A 五钉（gold-standard 全局不冒充 / per-class blocks 按块名归类 / t520 单 loop 回归 / 优先级律——具名块胜行序 loop / 空世界形）；B 真 t474 栈只读世界读 13 钉（iteration 200、12 类、24 粒子、fractions 和=1、per-class null ×12、global=3.2、栈名拾取与 per-class 森林推导双证、真字节渲染 12 tile + IHDR 网格数学 266×200）；C 真 bit-exact 拷贝经全 agent 环的端到端（mock VLM 捕获 wire prompt + 应 canned 12 类判词两遍）——**钱钉：wire 上的 prompt 载着真全局行**、真 census 在场、unknown 语境在 rubric、双 pass 同 prompt（t545 律）、merge agreed=12、summary 逐字。
+- [意外收获 — 全量家族 100/100] recent-family.sh 无 --list 分支——查名单的意图直接触发全量跑：**100 套 0 failures**（t550 bench glob 自动纳新 + t549 sweep bench 在册全绿）——t549 交接④「新 build 上的家族复跑」一并兑现，且这次是源码级全量证词。
+- [dance — 静态 404 病] rebuild 后世界卡死 "Loading CryoFlow…"：HTML 200 而全部 _next/static 404。定谳：`npx next build --webpack` 裸命令不做 package.json 的 cp 两步——standalone 对自己的 static 全盲；t549 侥幸活着是因为 webpack 内容哈希让未变 chunk 沿用旧静态文件。**t543 三件套律字面兑现：我查了 BUILD_ID + standalone/server.js 两件、漏了 static，就被咬了**。修复：补 cp 复起 → 世界复原 console 0；根因修复：build-guard.sh 的 GO 消息原推荐裸 build 命令——改指 build-until-green.sh（grinder 自带 cp + 三件套验证，L133/136 本就在）。
+- [测量假象第四课] 读 t419 bench 源码时渲染层把 `[m` 当 ANSI reset 吞字节（messages[messages…] 显示成 messagesessages…、mockToolCall 显示成 ockToolCall）——bun 刚跑 156/0 证明文件健康，python repr 逐行读证实。四课同族：选择器假 0、构建 ID 翻转、渲染吃字节、ANSI 吞 [m——**钉要说字节，渲染是说谎者**。
+- [未做与理由] t471 WSL-bridge 面（本沙箱永久 native，照实再挂）；t276 _legacy-archive、off-mainline 出口（照旧门控）；t474 世界的真栈 live-VLM 判词（AI 车道独立窗，t545-launch-judge-only.sh 车道已备，方言修复后的真模型判词留待限流窗）。
+
+Stage Summary:
+- 「真数据才会告诉你 parser 瞎在哪」：t520 合成件让三窗家族全绿，真 200 迭代森林一读就现形——gold-standard 方言的 3.20 Å 躺在文件里而 judge 全盘失明；fixture 是方言的独裁者，真件是方言的起义军
+- 「全局数绝不戴 per-class 徽章」：gold-standard 只报一个全局估计——把它塞进每个类是伪造精度；诚实的形是 globalResolution 自立字段 + prompt 明说「unknown 只是没有 per-class 号，不是类失败」
+- 「三件套律漏一件就咬人」：BUILD_ID + standalone + static——裸 build 让 standalone 对自己的静态全盲，世界停在 Loading 门；guard 的配方指错了路，指路牌也该修
+- 「世界假设是 bench 的义务」：fixture job 没种 DB 行、provider 没激活、session 删在 try 块里——每一枚都由真跑揭露；t543 的 let 律在自家 bench 里再兑一次
+- 产出：classStatsFromWorkdir 三方言 + 永不冒充律 + judge 四面接线 + t550 bench 36/0 ×2 入册（glob 100）+ 全量家族 100/100 + build-guard 配方真修复 + 静态 404 病定谳
+- [下窗入口] ①t474 真栈的 live-VLM 判词（AI 车道独立窗：t545-launch-judge-only.sh 车道已备，方言修复后的真模型判词是 #5 的终章）；②t471 WSL-bridge 面（照实挂）；③遗留池：t276 _legacy-archive、off-mainline 出口。
