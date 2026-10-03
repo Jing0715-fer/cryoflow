@@ -1203,26 +1203,34 @@ function rememberStage(localAbs: string, remote: string): void {
 export function rewriteStarPaths(
   content: string,
   dir: "to-remote" | "to-local",
-  remoteRoot: string
+  remoteRoot: string,
+  /** t535 — the cluster-side project directory name (the segment after the
+   *  remoteRoot). When given, mirror rows under `localRoot/<project>/…` are
+   *  rewritten PROJECT-RELATIVE (`motioncorr_x/micrographs/mic_01.mrc`) —
+   *  the pipeliner dialect the real binaries resolve against their cwd (the
+   *  remote project root). Without it the legacy cluster-absolute mapping
+   *  applies. */
+  projectSegment?: string
 ): string {
   let out = content;
   const localRoot = RELION_DIR.split(path.sep).join("/");
   const root = remoteRoot.replace(/\/$/, "");
   if (dir === "to-remote") {
     // t535 — the staged star's rows speak the RELION pipeliner dialect:
-    // PROJECT-RELATIVE (the t534 synthesizeTrainingPicks law, now extended
-    // to the staging rewrite itself). All three lanes run RELION with cwd =
-    // the remote project root, so stripping the local mirror root yields
-    // rows (`<projectId>/motioncorr_x/micrographs/mic_01.mrc`) that the
-    // REAL binaries resolve natively — the old cluster-ABSOLUTE mapping
-    // (`<remoteRoot>/<projectId>/…`) wrote rows no cluster binary could
-    // open (the mock's translateCommand covers command strings, not star
-    // CONTENT; the real relion_autopick died "Cannot read file
-    // /projects/…" on the re-uploaded corrected star, t264's C5). The
-    // relative rows are also already-valid mirror rows on the to-local
-    // side (they resolve under the local project dir), so no inverse
-    // rewrite is needed for them.
-    if (out.includes(localRoot + "/")) out = out.split(localRoot + "/").join("");
+    // PROJECT-RELATIVE (the t534 synthesizeTrainingPicks law, extended to
+    // the staging rewrite itself). All three lanes run RELION with cwd =
+    // the remote project root, so stripping the local mirror root AND the
+    // project segment yields rows the REAL binaries resolve natively — the
+    // old cluster-ABSOLUTE mapping wrote rows no cluster binary could open
+    // (the mock's translateCommand covers command strings, not star
+    // CONTENT; the real relion_autopick died "Cannot read file …" on the
+    // re-uploaded corrected star, t264's C5). The relative rows are also
+    // already-valid mirror rows on the to-local side (they resolve under
+    // the local project dir), so no inverse rewrite is needed for them.
+    if (projectSegment) {
+      out = out.split(`${localRoot}/${projectSegment}/`).join("");
+    }
+    if (out.includes(localRoot + "/")) out = out.split(localRoot + "/").join(root + "/");
   } else if (out.includes(root + "/")) {
     // t534 — the to-local leg maps the CLUSTER-absolute path TOKEN wherever
     // it hides inside the row. The real binaries (first on the mock's PATH
@@ -1415,12 +1423,19 @@ async function stageFileTree(
   localAbs: string,
   remoteTarget: string
 ): Promise<number> {
+  // t535 — the project segment (the path element after the remoteRoot) turns
+  // mirror rows into PROJECT-RELATIVE pipeliner rows (see rewriteStarPaths).
+  const expandedRoot = (await expandRemotePath(c, c.remoteRoot)).replace(/\/$/, "");
+  const projectSegment =
+    remoteTarget.startsWith(expandedRoot + "/")
+      ? remoteTarget.slice(expandedRoot.length + 1).split("/")[0] || undefined
+      : undefined;
   let uploaded = 0;
   const st = statSync(localAbs);
   if (st.isFile()) {
     let content: Buffer;
     if (/\.star$/i.test(localAbs)) {
-      const rewritten = rewriteStarPaths(readFileSync(localAbs, "utf8"), "to-remote", await expandRemotePath(c, c.remoteRoot));
+      const rewritten = rewriteStarPaths(readFileSync(localAbs, "utf8"), "to-remote", expandedRoot, projectSegment);
       content = Buffer.from(rewritten, "utf8");
     } else {
       content = readFileSync(localAbs);
@@ -1439,7 +1454,7 @@ async function stageFileTree(
     const fst = statSync(f);
     let content: Buffer;
     if (/\.star$/i.test(f)) {
-      const rewritten = rewriteStarPaths(readFileSync(f, "utf8"), "to-remote", await expandRemotePath(c, c.remoteRoot));
+      const rewritten = rewriteStarPaths(readFileSync(f, "utf8"), "to-remote", expandedRoot, projectSegment);
       content = Buffer.from(rewritten, "utf8");
     } else {
       content = readFileSync(f);
@@ -1498,7 +1513,13 @@ async function stageStarWithRelinks(
   remoteTarget: string,
   rewrites: Array<{ from: string; to: string }>
 ): Promise<number> {
-  let content = rewriteStarPaths(readFileSync(localStar, "utf8"), "to-remote", await expandRemotePath(c, c.remoteRoot));
+  // t535 — the project segment derivation, same as stageFileTree's
+  const expandedRoot = (await expandRemotePath(c, c.remoteRoot)).replace(/\/$/, "");
+  const projectSegment =
+    remoteTarget.startsWith(expandedRoot + "/")
+      ? remoteTarget.slice(expandedRoot.length + 1).split("/")[0] || undefined
+      : undefined;
+  let content = rewriteStarPaths(readFileSync(localStar, "utf8"), "to-remote", expandedRoot, projectSegment);
   content = applyRelinks(content, rewrites);
   const buf = Buffer.from(content, "utf8");
   const existing = await remoteStat(c, remoteTarget);
