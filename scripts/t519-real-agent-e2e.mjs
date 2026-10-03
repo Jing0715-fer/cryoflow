@@ -240,8 +240,21 @@ async function caseB() {
   for (let i = 1; i <= 3; i++) {
     console.log(`[B${i}] fresh session, same judge question`);
     if (i > 1) await sleep(45_000); // the VLM lane rate-limits on bursts
-    const r = await chat(null, Q, { label: `B${i}-judge` });
-    const ev = r.events.find((e) => e.type === "tool_result" && e.name === "judge_2d_classes");
+    // t552 — a TRULY fresh session: chat(null) attaches to the project's
+    // LATEST session (latestSessionForProject fallback), which made the old
+    // B2/B3 re-narrate B1's verdict with zero tool calls — history
+    // anchoring masquerading as agreement (Jaccard 1.00 was an artifact).
+    // { action: "reset" } is the route's own "New chat" door; we then chat
+    // WITH that session id so the fallback never fires.
+    const fresh = await postChat({ action: "reset" });
+    const freshSid = fresh.sessionId;
+    if (i > 1) await sleep(2_000);
+    const r = await chat(freshSid, Q, { label: `B${i}-judge` });
+    r.freshSessionId = freshSid;
+    // t552 — recovery arcs carry a FAILED first judge call (name passed
+    // raw); parse the LAST judge result, not the first.
+    const judgeResults = r.events.filter((e) => e.type === "tool_result" && e.name === "judge_2d_classes");
+    const ev = judgeResults[judgeResults.length - 1];
     const judged = ev?.detail?.judgedClasses ?? [];
     const keeps = judged.filter((c) => c.verdict === "keep").map((c) => c.cls).sort((a, b) => a - b);
     const maybes = judged.filter((c) => c.verdict === "maybe").map((c) => c.cls).sort((a, b) => a - b);
