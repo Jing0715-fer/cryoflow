@@ -1442,7 +1442,16 @@ async function stageFileTree(
       content = readFileSync(localAbs);
     }
     const existing = await remoteStat(c, remoteTarget);
-    if (!existing || existing.size !== content.length) {
+    // t538 — size alone is not idempotence: same byte count, different bytes
+    // (a regenerated fixture, a re-imported dataset with new frames) left the
+    // cluster running on STALE data forever — witnessed live: the six-blob
+    // t307 fixture never overtook the one-blob bytes the first run staged
+    // (same 1024 + 512*512*4), and the cluster's picks still spoke the old
+    // blob's coordinates. A local file NEWER than its remote copy is stale
+    // there; the 1.5s tolerance absorbs the stat's second granularity.
+    const stale =
+      !existing || existing.size !== content.length || st.mtimeMs - existing.mtimeMs > 1500;
+    if (stale) {
       const ok = await remoteUpload(c, content, remoteTarget);
       if (!ok) throw new Error(`upload failed: ${remoteTarget}`);
     }
@@ -1461,7 +1470,11 @@ async function stageFileTree(
       content = readFileSync(f);
     }
     const existing = await remoteStat(c, target);
-    if (!existing || existing.size !== content.length) {
+    // t538 — the mtime freshness half of the idempotence law (see above):
+    // same size, newer local bytes → the cluster copy is stale → upload.
+    const stale =
+      !existing || existing.size !== content.length || fst.mtimeMs - existing.mtimeMs > 1500;
+    if (stale) {
       const ok = await remoteUpload(c, content, target);
       if (!ok) throw new Error(`upload failed: ${target}`);
       uploaded += content.length;
@@ -1523,8 +1536,12 @@ async function stageStarWithRelinks(
   let content = rewriteStarPaths(readFileSync(localStar, "utf8"), "to-remote", expandedRoot, projectSegment);
   content = applyRelinks(content, rewrites);
   const buf = Buffer.from(content, "utf8");
+  const lst = statSync(localStar);
   const existing = await remoteStat(c, remoteTarget);
-  if (!existing || existing.size !== buf.length) {
+  // t538 — the mtime freshness half of the idempotence law (stageFileTree)
+  const stale =
+    !existing || existing.size !== buf.length || lst.mtimeMs - existing.mtimeMs > 1500;
+  if (stale) {
     const ok = await remoteUpload(c, buf, remoteTarget);
     if (!ok) throw new Error(`upload failed: ${remoteTarget}`);
   }
