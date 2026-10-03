@@ -725,7 +725,9 @@ export interface ClassStat {
   cls: number;
   count: number;
   fraction: number;
-  /** Å, from the model star's rlnEstimatedResolution (null when absent). */
+  /** Å, from the model star's per-class resolution (null when the dialect
+   *  carries none — a gold-standard run reports one GLOBAL number instead,
+   *  see classStatsFromWorkdir's globalResolution). */
   resolution: number | null;
 }
 
@@ -763,16 +765,21 @@ export function classStatsFromWorkdir(workdir: string): {
   classes: ClassStat[];
   total: number;
   stackFile: string | null;
+  /** Å — the run's own current-resolution estimate. The gold-standard
+   *  model dialect carries it as a GLOBAL key-value (data_model_general's
+   *  _rlnCurrentResolution); it never masquerades as a per-class number. */
+  globalResolution: number | null;
 } {
   let names: string[] = [];
   try {
     names = readdirSync(workdir);
   } catch {
-    return { iteration: null, classes: [], total: 0, stackFile: null };
+    return { iteration: null, classes: [], total: 0, stackFile: null, globalResolution: null };
   }
   const stackFile = pickClassStackName(names);
   const best = latestIterationDataStar(workdir);
-  if (!best) return { iteration: null, classes: [], total: 0, stackFile };
+  if (!best)
+    return { iteration: null, classes: [], total: 0, stackFile, globalResolution: null };
 
   // occupancy — count _rlnClassNumber rows in the particles loop
   let counts = new Map<number, number>();
@@ -808,8 +815,19 @@ export function classStatsFromWorkdir(workdir: string): {
     /* unreadable data star → occupancy stays empty */
   }
 
-  // per-class resolution — the model star's classes loop
+  // per-class resolution — the model star's THREE real dialects (t550 — the
+  // t520 fixtures only ever spoke the first; the real t474 200-iter forest
+  // speaks the third, and every class there read "resolution unknown" while
+  // the file held a perfectly good 3.20 Å global):
+  //   1. one loop with _rlnEstimatedResolution rows → class = row index + 1
+  //     (RELION 2D classification's per-class-rows shape, the t520 dialect)
+  //   2. per-class blocks data_model_class_N, single-row loops → class = N
+  //   3. gold-standard: data_model_general's _rlnCurrentResolution key-value
+  //     — a GLOBAL estimate; it lands on globalResolution and never on a
+  //     class (a global number wearing a per-class badge would be a lie the
+  //     judge's prompt then repeats)
   const resolutions = new Map<number, number>();
+  let globalResolution: number | null = null;
   const modelCandidates = [
     best.file.replace(/_data\.star$/i, "_model.star"),
     best.file.replace(/_data\.star$/i, "_half1_model.star"),
@@ -818,20 +836,38 @@ export function classStatsFromWorkdir(workdir: string): {
     if (!names.includes(cand)) continue;
     try {
       const file = parseStar(readFileSync(path.join(workdir, cand), "utf8"), 5000);
+      // dialect 2 first — per-class blocks are the most specific form
       for (const b of file.blocks) {
-        const loop = b.loop;
-        if (!loop || !loop.columns.includes("_rlnEstimatedResolution")) continue;
-        const resCol = loop.columns.findIndex((c) => c.startsWith("_rlnEstimatedResolution"));
-        loop.rows.forEach((row, i) => {
-          const res = parseFloat(row[resCol] ?? "");
-          if (Number.isFinite(res)) resolutions.set(i + 1, res);
-        });
-        break;
+        const perClass = /^model_class_(\d+)$/.exec(b.name);
+        if (!perClass || !b.loop) continue;
+        const resCol = b.loop.columns.findIndex((c) => c.startsWith("_rlnEstimatedResolution"));
+        const res = resCol >= 0 ? parseFloat(b.loop.rows[0]?.[resCol] ?? "") : NaN;
+        if (Number.isFinite(res)) resolutions.set(parseInt(perClass[1], 10), res);
+      }
+      // dialect 3 — the global, read wherever data_model_general speaks
+      for (const b of file.blocks) {
+        if (b.name !== "model_general" || b.loop) continue;
+        const cur = parseFloat(b.pairs["_rlnCurrentResolution"] ?? "");
+        if (Number.isFinite(cur) && cur > 0 && globalResolution == null) globalResolution = cur;
+      }
+      // dialect 1 — only when no per-class block already answered (row order
+      // is the class order there; a per-class block names its own class)
+      if (resolutions.size === 0) {
+        for (const b of file.blocks) {
+          const loop = b.loop;
+          if (!loop || !loop.columns.includes("_rlnEstimatedResolution")) continue;
+          const resCol = loop.columns.findIndex((c) => c.startsWith("_rlnEstimatedResolution"));
+          loop.rows.forEach((row, i) => {
+            const res = parseFloat(row[resCol] ?? "");
+            if (Number.isFinite(res)) resolutions.set(i + 1, res);
+          });
+          break;
+        }
       }
     } catch {
       /* unreadable model star → resolutions stay empty */
     }
-    if (resolutions.size > 0) break;
+    if (resolutions.size > 0 || globalResolution != null) break;
   }
 
   const classes: ClassStat[] = [...counts.entries()]
@@ -842,7 +878,7 @@ export function classStatsFromWorkdir(workdir: string): {
       resolution: resolutions.get(cls) ?? null,
     }))
     .sort((a, b) => a.cls - b.cls);
-  return { iteration: best.iteration, classes, total, stackFile };
+  return { iteration: best.iteration, classes, total, stackFile, globalResolution };
 }
 
 /** Extract the JSON verdict from a VLM answer (fences, prose, or raw). */
@@ -2716,6 +2752,9 @@ async function inspectJob(ctx: AgentCtx, jobId: string): Promise<AiToolResult> {
         ...(c.resolution != null ? { resolutionA: c.resolution } : {}),
       }));
       detail.iteration = stats.iteration;
+      // t550 — the run's global estimate rides the read face too: a
+      // gold-standard run's per-class "unknown" is not the run's silence
+      if (stats.globalResolution != null) detail.globalResolutionA = stats.globalResolution;
       return {
         ok: true,
         summary: `${job.name} (${job.status}): ${stats.classes.length} classes at iteration ${stats.iteration}, ${stats.total} particles${logTail.length > 0 ? `, log tail available` : ""}`,
@@ -4301,7 +4340,16 @@ async function judge2dClasses(
   // with itself is worse than no judge: this prompt pins the decision to
   // EVIDENCE the model must cite per class, gives junk its own signature
   // list, and demands cross-class consistency (same molecule = same size).
-  const prompt = `You are a senior cryo-EM scientist judging 2D class averages from a RELION 2D classification (iteration ${stats.iteration ?? "?"}, ${stats.total} particles total, ${sheet.rendered} classes shown in the image, left-to-right / top-to-bottom order = class number).
+  // t550 — the real-data voice: a gold-standard model star carries ONE
+  // global resolution estimate (data_model_general's _rlnCurrentResolution),
+  // not per-class numbers. The prompt says so explicitly, so the VLM stops
+  // reading "resolution unknown" as a per-class failure and judges classes
+  // by the evidence the image actually holds.
+  const globalResLine =
+    stats.globalResolution != null
+      ? ` The run's current resolution estimate (global, gold-standard): ${stats.globalResolution} Å.`
+      : "";
+  const prompt = `You are a senior cryo-EM scientist judging 2D class averages from a RELION 2D classification (iteration ${stats.iteration ?? "?"}, ${stats.total} particles total, ${sheet.rendered} classes shown in the image, left-to-right / top-to-bottom order = class number).${globalResLine}
 
 Per-class statistics (class number = grid cell order):
 ${table}
@@ -4334,7 +4382,7 @@ REJECT — junk signatures; ANY ONE is disqualifying:
 CROSS-CLASS CONSISTENCY — judge the sheet as a SET, not isolated boxes:
 - All keep classes must agree on particle size; a "structured" class of a different size is junk (it averaged something else).
 - Prefer a DIVERSE set of orientations (distinct views of the molecule) over near-duplicate views; when two classes show the same view, keep only the sharper one.
-- The statistics above are context; the IMAGE is the evidence. A big featureless class is still junk; a small sharp class can be a valuable rare view. When a resolution is given: lower A is better — <=15 A strong, 15-25 A typical/usable, >30 A weak evidence.
+- The statistics above are context; the IMAGE is the evidence. A big featureless class is still junk; a small sharp class can be a valuable rare view. When a resolution is given: lower A is better — <=15 A strong, 15-25 A typical/usable, >30 A weak evidence. "Resolution unknown" on a class means the run reports no PER-CLASS estimate (gold-standard runs report one global number — judge those classes by the image alone, not by the missing number).
 
 OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fences, no trailing commentary. It must contain an entry for EVERY class in the image, exactly once:
 {"classes":[{"cls":1,"verdict":"keep|maybe|reject","reason":"<short, evidence-citing>"}],"advice":"<2-3 sentences: overall data quality + which classes to take forward and why>"}`;
@@ -4439,11 +4487,15 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
   const zeroKeep = verdict !== null && keepCls.length === 0;
   const classTotal = stats.classes.length;
   const fewerClasses = Math.max(2, Math.floor(classTotal / 2));
+  // t550 — the global resolution rides the summary: "every class unknown"
+  // reads as a data problem when the run itself knows exactly where it stands
+  const globalNote = stats.globalResolution != null ? ` · run at ${stats.globalResolution} Å (global)` : "";
   return {
     ok: true,
-    summary: `Judged ${verdict?.classes.length ?? stats.classes.length} classes of ${job.name} (iteration ${stats.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe${zeroKeep ? " — NO class merits a selection (zero-keep verdict)" : ""}${confirmNote} — ${truncate(verdict?.advice ?? analysis, 300)}`,
+    summary: `Judged ${verdict?.classes.length ?? stats.classes.length} classes of ${job.name} (iteration ${stats.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe${zeroKeep ? " — NO class merits a selection (zero-keep verdict)" : ""}${confirmNote}${globalNote} — ${truncate(verdict?.advice ?? analysis, 300)}`,
     detail: {
       iteration: stats.iteration,
+      globalResolution: stats.globalResolution,
       judgedClasses: verdict?.classes ?? null,
       confirm,
       advice: verdict?.advice ?? analysis,
