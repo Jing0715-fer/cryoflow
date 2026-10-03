@@ -53,10 +53,10 @@ const { HELP_CHAPTERS, GUIDE_DOORS } = await import(
 /* T1 — the door registry's shape                                      */
 /* ------------------------------------------------------------------ */
 
-console.log("T1. GUIDE_DOORS — six doors, each with a label, names, an open");
+console.log("T1. GUIDE_DOORS — seven doors, each with a label, names, an open");
 
 {
-  must(GUIDE_DOORS.length === 6, "T1a: the registry carries 6 doors");
+  must(GUIDE_DOORS.length === 7, "T1a: the registry carries 7 doors");
   must(
     new Set(GUIDE_DOORS.map((d) => d.id)).size === GUIDE_DOORS.length,
     "T1b: door ids are unique",
@@ -70,8 +70,9 @@ console.log("T1. GUIDE_DOORS — six doors, each with a label, names, an open");
         "palette",
         "shortcuts",
         "report",
+        "diagnostics",
       ]),
-    "T1c: the doors are assistant / storage / clusters / palette / shortcuts / report",
+    "T1c: the doors are assistant / storage / clusters / palette / shortcuts / report / diagnostics",
   );
   must(
     GUIDE_DOORS.every(
@@ -114,8 +115,8 @@ console.log("T2. the governance — a door without a manual row fails the bench"
 
   const doorRows = rowsWithDoors.filter((r) => r.doorId).length;
   must(
-    doorRows === 6,
-    `T2f: exactly ${6} rows carry doors (the reach-a-surface rows), got ${doorRows}`,
+    doorRows === 7,
+    `T2f: exactly ${7} rows carry doors (the reach-a-surface rows), got ${doorRows}`,
   );
 }
 

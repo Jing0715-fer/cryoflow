@@ -59,7 +59,7 @@ ok(/Constants with two consumers live in ONE place/.test(walkSrc), "the well's d
 /* ------------------------------------------------------------------ */
 section("T2 — tool shape (the 24th tool, zero knobs)");
 
-ok(AI_TOOLS.length === 33, `AI_TOOLS holds 33 tools — t522's history read is the newest birth (got ${AI_TOOLS.length})`);
+ok(AI_TOOLS.length === 34, `AI_TOOLS holds 34 tools — t530's diagnostics read is the newest birth (t530 count-debt, caught by the t547 family run) (got ${AI_TOOLS.length})`);
 const tool = AI_TOOLS.find((t) => t.name === "get_curve_verdicts");
 ok(!!tool, "get_curve_verdicts is in the catalog");
 const props = (tool?.parameters as { properties?: Record<string, unknown> })?.properties ?? {};

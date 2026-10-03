@@ -84,8 +84,8 @@ type CleanupHistoryEntry = import("../src/lib/relion/cleanup-history").CleanupHi
 console.log("T1. the face (roster 33, the history verb's contract)");
 
 must(
-  AI_TOOLS.length === 33 && new Set(AI_TOOLS.map((t) => t.name)).size === 33,
-  `T1a: the roster holds 33 unique tools (got ${AI_TOOLS.length})`
+  AI_TOOLS.length === 34 && new Set(AI_TOOLS.map((t) => t.name)).size === 34,
+  `T1a: the roster holds 34 unique tools (got ${AI_TOOLS.length})`
 );
 const face = AI_TOOLS.find((t) => t.name === "get_cleanup_history");
 must(face != null, "T1b: get_cleanup_history sits in the roster");

@@ -85,8 +85,8 @@ const typeCleanupExecute = await import("../src/lib/hpc/cleanup");
 console.log("T1. the face (roster, knobs, description laws, the pair)");
 
 must(
-  AI_TOOLS.length === 33 && new Set(AI_TOOLS.map((t) => t.name)).size === 33,
-  `T1a: the roster holds 33 unique tools (got ${AI_TOOLS.length})`
+  AI_TOOLS.length === 34 && new Set(AI_TOOLS.map((t) => t.name)).size === 34,
+  `T1a: the roster holds 34 unique tools (got ${AI_TOOLS.length})`
 );
 const face = AI_TOOLS.find((t) => t.name === "cleanup_job_files");
 must(face != null, "T1b: cleanup_job_files sits in the roster");

@@ -344,8 +344,15 @@ ok(
   dialogSrc.includes("companionGuard(onPointerDownOutside)") &&
     dialogSrc.includes("companionGuard(onInteractOutside)") &&
     dialogSrc.includes("companionGuard(onFocusOutside)") &&
-    dialogSrc.includes("companionGuard(onEscapeKeyDown)"),
-  "outside pointerdown/interact/focus/Escape from a companion never dismiss the dialog",
+    // t547 essence re-pin — the escape leg evolved (t530/t534): it composes
+    // INLINE (not via companionGuard) so the ref read lives in a lambda that
+    // is itself the prop handler — caller judgment first, then the live-zone
+    // self exemption. The CONTRACT is unchanged: escape from a companion
+    // never dismisses; the pin says the composition, not one literal.
+    /onEscapeKeyDown=\{\(event\) => \{[\s\S]*?onEscapeKeyDown\?\.\(event\)[\s\S]*?isFromLiveZone\(event, selfRef\.current\)[\s\S]*?preventDefault\(\)/.test(
+      dialogSrc,
+    ),
+  "outside pointerdown/interact/focus/Escape from a companion never dismiss the dialog (escape composes inline since t530/t534)",
 );
 ok(
   dialogSrc.includes("companionOpen && \"shadow-2xl\""),

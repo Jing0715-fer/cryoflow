@@ -105,8 +105,8 @@ section("T2  the face — get_storage_report, roster 27");
 
 const entry = AI_TOOLS.find((t) => t.name === "get_storage_report");
 ok(
-  AI_TOOLS.length === 33 && new Set(AI_TOOLS.map((t) => t.name)).size === 33,
-  `the roster holds 33 tools, all names unique — t522's history read is the newest birth (got ${AI_TOOLS.length})`
+  AI_TOOLS.length === 34 && new Set(AI_TOOLS.map((t) => t.name)).size === 34,
+  `the roster holds 34 tools, all names unique — t522's history read is the newest birth (got ${AI_TOOLS.length})`
 );
 ok(
   !!entry &&

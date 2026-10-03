@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useWorkflowStore } from "@/lib/store";
-import { OPEN_EVENT, SESSION_REPORT_EVENT } from "./command-palette";
+import { OPEN_EVENT, SESSION_REPORT_EVENT, SYSTEM_DIAGNOSTICS_EVENT } from "./command-palette";
 import { REMOTE_CLUSTERS_OPEN_EVENT } from "./remote-cluster-dialog";
 import { STORAGE_OPEN_EVENT } from "./header";
 
@@ -118,6 +118,15 @@ export const GUIDE_DOORS: GuideDoor[] = [
     names: ["Session QC report"],
     open: () => window.dispatchEvent(new CustomEvent(SESSION_REPORT_EVENT)),
   },
+  {
+    // t547 — the t530-born diagnostics dialog gets its manual row: the T3e
+    // sweep convicted the wing without a row, and the manual answers. The
+    // header owns the dialog; the door only rings its bell.
+    id: "diagnostics",
+    label: "the system diagnostics",
+    names: ["System diagnostics", "diagnostics"],
+    open: () => window.dispatchEvent(new CustomEvent(SYSTEM_DIAGNOSTICS_EVENT)),
+  },
 ];
 
 /** The manual's single source of truth — every row names a real door. */
@@ -179,9 +188,10 @@ export const HELP_CHAPTERS: HelpChapter[] = [
       "⌘K / Ctrl+K opens the command palette — every header door is indexed there, so when a button hides, ask ⌘K first.",
       "Press ? for the full keyboard shortcut inventory.",
       "The Session QC report turns the session into a document — charts and verdicts, exportable as HTML or Markdown.",
+      "System diagnostics reads the install's health — the RELION detection, the reaper's heartbeat and the world's vitals in one dialog.",
       "Everything prints: the print stylesheet hides the chrome and lays the canvas out on paper.",
     ],
-    rowDoors: { 0: "palette", 1: "shortcuts", 2: "report" },
+    rowDoors: { 0: "palette", 1: "shortcuts", 2: "report", 3: "diagnostics" },
   },
 ];
 
