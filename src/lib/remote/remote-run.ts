@@ -1808,16 +1808,46 @@ export function describeMissingCommand(cmd: string): string | null {
  * construction: it returns false and the pre-run stash keeps today's exact
  * behavior (this workdir's own rounds are a stale generation then).
  */
-export function selfContinueInArgv(argv: readonly string[], remoteWorkdir: string): boolean {
+export function selfContinueInArgv(
+  argv: readonly string[],
+  remoteWorkdir: string,
+  /** t537 — the cluster-side project directory the script's `cd` speaks.
+   *  The relativized argv (t537) hands --continue PROJECT-RELATIVE targets
+   *  (the pipeliner dialect); they resolve against this root — lexically,
+   *  so a `../sibling_x/…` escape can never read as self-continue — before
+   *  the under-the-workdir comparison. Absolute targets keep the legacy
+   *  comparison verbatim. */
+  remoteProjectRoot?: string
+): boolean {
   const root =
     remoteWorkdir.endsWith("/") && remoteWorkdir.length > 1
       ? remoteWorkdir.slice(0, -1)
       : remoteWorkdir;
+  const projRoot = remoteProjectRoot?.replace(/\/+$/, "");
   for (let i = 0; i + 1 < argv.length; i++) {
     if (argv[i] !== "--continue") continue;
     const target = argv[i + 1];
-    if (typeof target !== "string" || !target.startsWith("/")) continue;
-    if (target === root || target.startsWith(root + "/")) return true;
+    if (typeof target !== "string" || target.length === 0) continue;
+    let abs: string;
+    if (target.startsWith("/")) {
+      abs = target;
+    } else if (projRoot) {
+      abs = projRoot;
+      for (const seg of target.split("/")) {
+        if (!seg || seg === ".") continue;
+        if (seg === "..") {
+          const cut = abs.lastIndexOf("/");
+          if (cut > projRoot.length) abs = abs.slice(0, cut);
+          continue;
+        }
+        abs = `${abs}/${seg}`;
+      }
+    } else {
+      // a relative target with no project root is not provably self —
+      // the wipe's other guards decide (the pre-t537 behavior)
+      continue;
+    }
+    if (abs === root || abs.startsWith(root + "/")) return true;
   }
   return false;
 }
@@ -5138,10 +5168,34 @@ export async function startRemoteJob(args: {
         }
       }
 
+      // t537 — the argv speaks the pipeliner dialect END-TO-END. The
+      // submitted script cds to the project root before the command runs
+      // (t316, BOTH lanes), and the staged star rows already read
+      // project-relative (t535) — but the argv itself still spoke
+      // cluster-absolute (--o /projects/…, --i twins absolute), so every
+      // path the real binary DERIVED from them (per-mic pick roots,
+      // fn_odir + input-row concatenations) could still birth
+      // host-mount absolute rows downstream — the deep nesting the t535
+      // census walked 11 levels to reach. Handing buildArgv the
+      // PROJECT-RELATIVE workdir and input twins makes every path the
+      // binary touches resolve natively against its cwd; no absolute row
+      // can be born. Paths OUTSIDE the project root (external exes,
+      // cluster-native refs) keep their absolute form — the honest shape
+      // the t535 staging law already speaks.
+      const relProjectPath = (p: string): string => {
+        const norm = p.split(path.sep).join("/");
+        const root = remoteProjectRoot.replace(/\/+$/, "");
+        return norm === root || norm.startsWith(root + "/")
+          ? norm.slice(root.length + 1)
+          : norm;
+      };
+      const relWorkdir = relProjectPath(remoteWorkdir);
       const built = await buildArgv({
         binDir,
-        workdir: remoteWorkdir,
-        inputs,
+        workdir: relWorkdir,
+        inputs: Object.fromEntries(
+          Object.entries(inputs).map(([k, v]) => [k, relProjectPath(v)])
+        ),
         job: jobRef,
         upstream,
         bridge: null,
@@ -5379,10 +5433,13 @@ export async function startRemoteJob(args: {
         // shard's stacks land in the SAME canonical extra/ tree.
         const wantOut =
           flavor && flavor.outArg === "--part_star"
-            ? remoteWorkdir + "/" + flavor.outStar
-            : remoteWorkdir + "/";
+            ? relWorkdir + "/" + flavor.outStar
+            : relWorkdir + "/";
+        // t537 — the argv speaks the pipeliner dialect (project-relative),
+        // so the array detector compares against the RELATIVE workdir form
+        // — the same shape it inspects, resolved against the script's cwd.
         const pdi = flavor?.merge === "rows" ? argv.indexOf("--part_dir") : -1;
-        const partDirOk = pdi < 0 || String(argv[pdi + 1] ?? "") === remoteWorkdir + "/";
+        const partDirOk = pdi < 0 || String(argv[pdi + 1] ?? "") === relWorkdir + "/";
         if (
           !flavor ||
           !inputStar.endsWith(".star") ||
@@ -5599,7 +5656,7 @@ export async function startRemoteJob(args: {
           // t394 — the self-continue carve-out rides the SHARED classifier
           // (same option the local lane's wipe speaks): a --continue aimed
           // inside this workdir keeps the iteration family in place.
-          const keepIterations = selfContinueInArgv(argv, remoteWorkdir);
+          const keepIterations = selfContinueInArgv(argv, remoteWorkdir, remoteProjectRoot);
           // t409 — the t265 staged index (training_picks.star) is uploaded
           // BEFORE this wipe (staging → argv → wipe → spawn) and is THIS
           // generation's input — the t350 auto-joinstar lesson restated:
