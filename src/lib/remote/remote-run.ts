@@ -1209,7 +1209,20 @@ export function rewriteStarPaths(
   const localRoot = RELION_DIR.split(path.sep).join("/");
   const root = remoteRoot.replace(/\/$/, "");
   if (dir === "to-remote") {
-    if (out.includes(localRoot + "/")) out = out.split(localRoot + "/").join(root + "/");
+    // t535 — the staged star's rows speak the RELION pipeliner dialect:
+    // PROJECT-RELATIVE (the t534 synthesizeTrainingPicks law, now extended
+    // to the staging rewrite itself). All three lanes run RELION with cwd =
+    // the remote project root, so stripping the local mirror root yields
+    // rows (`<projectId>/motioncorr_x/micrographs/mic_01.mrc`) that the
+    // REAL binaries resolve natively — the old cluster-ABSOLUTE mapping
+    // (`<remoteRoot>/<projectId>/…`) wrote rows no cluster binary could
+    // open (the mock's translateCommand covers command strings, not star
+    // CONTENT; the real relion_autopick died "Cannot read file
+    // /projects/…" on the re-uploaded corrected star, t264's C5). The
+    // relative rows are also already-valid mirror rows on the to-local
+    // side (they resolve under the local project dir), so no inverse
+    // rewrite is needed for them.
+    if (out.includes(localRoot + "/")) out = out.split(localRoot + "/").join("");
   } else if (out.includes(root + "/")) {
     // t534 — the to-local leg maps the CLUSTER-absolute path TOKEN wherever
     // it hides inside the row. The real binaries (first on the mock's PATH

@@ -49,6 +49,7 @@ import { csRowsToStar, judgeStackSamplings, type Cs2StarResult, type StackSampli
 import type { RemoteConnection, RemoteRunState } from "@/lib/remote/types";
 import { parseMrcHeaderBytes, readMrcHeader, type MrcHeader } from "@/lib/mrc";
 import { sniffImageFile, spreadSample, type HeaderSniffer, type SniffVerdict } from "./mrc-sniff";
+import { readStarMoviesShape } from "./star-shape";
 import { RELION_ALIASES, RELION_OPTIONS } from "./option-tables";
 import { extractInputGate, micrographRowsFromContent, parseStarBlocks, type StarBlock } from "./extract-gate";
 import { filterMicrographStar, parseExcludeNames } from "@/lib/exclude-list";
@@ -6957,6 +6958,24 @@ async function buildArgvCore(ctx: BuildCtx): Promise<string[] | { error: string 
     }
 
     case "motioncorr": {
+      // t535 — the real-binary era gate (motioncorr_runner.cpp:257-263):
+      // relion_run_motioncorr reads ONLY a movies star (data_movies with a
+      // rlnMicrographMovieName column). A micrographs star — the import's
+      // default node type, or a MotionCorr output chained into another
+      // MotionCorr — dies mid-cluster as a cryptic "exit 1 (RELION
+      // reported an error)"; the t268 fixture lived through five windows
+      // on the stub's indifference. The gate reads the star's OWN bytes
+      // BEFORE dispatch and speaks the actionable truth. Honest null
+      // (unreadable star) skips the gate — the binary still speaks.
+      const moviesShape = readStarMoviesShape(inputs.micrographs_star);
+      if (moviesShape && moviesShape.dialect !== "movies") {
+        return {
+          error:
+            `MotionCorr reads only MOVIES stars — the wired input ${inputs.micrographs_star.split("/").pop() ?? inputs.micrographs_star} is a ` +
+            `${moviesShape.table ?? "micrographs"} star (no rlnMicrographMovieName column; motioncorr_runner.cpp:261 refuses it). ` +
+            "Import the frame stacks with Node type = Movies and wire Import → MotionCorr; single-frame micrographs are already motion-corrected — feed CTF directly.",
+        };
+      }
       // t375 — RELION's own-vs-MotionCor2 switch (getCommandsMotioncorrJob,
       // pipeline_jobs.cpp:1559-1594). RELION 5's GUI default is its OWN
       // CPU implementation (do_own_motioncor=true — the critical path for
