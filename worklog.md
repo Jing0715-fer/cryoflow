@@ -7476,3 +7476,24 @@ Stage Summary:
 - 「进程名要说字节」："next-server" 模式杀不着 bun standalone——pkill 的 pattern 要对准 ps 里真实的名字
 - 产出：正典复基准 27/28 + A3b checker 修复 + /api/projects active 旗（src 一字段）+ dance 一磨 GREEN + t474 世界零污染归还 + 三套抽查全绿
 - [下窗入口] ①AI 车道：正典 A3b 修复后的 caseA 顺路复跑（--upto=A3 轻量验证 checker 认牌）；②gamble 车道 live-fire（t552 交接②：maybe 带显式赌博 offer → 用户接 → select 落地——EMPIAR 世界的 cls2/cls3 就是现成的赌博面）；③t471 WSL-bridge 面（照实挂）；④遗留池：t276 _legacy-archive、off-mainline 出口。
+
+---
+Task ID: 554
+Agent: main (Z.ai Code, window 2026-10-04 07:23 cron)
+Task: 双车道收口——t552 交接②「gamble 车道 live-fire」+ t553 交接①「正典 A3b 复跑」双双兑现，零 keep 教义四象限的赌局面第一次端到端落地。
+
+Work Log:
+- [开局] HEAD 37fa482 对齐、树净；基线五绿（prod 200/2.7ms、tsc 0、eslint 0、console 0/errors 0、AI 探针 ALIVE 9.3s——注：探针要打 /api/ai/chat 且带 Origin/Referer，打 /api/agent 会吃 HTML 404 形）。cron 背诵的 Task 13 第 N+11 次核实为化石；worklog 尾条 = Task 553，本窗实为 554。
+- [①AI 车道：正典 A3b 复跑] t474 陷阱世界（5 jobs，墙上挂着「2D Class Selection」「QA Class Select」两块 idle 旧牌——正是 t553 checker 抓错块的现场）前台轮次跑 t519 --upto=A3 + caseB：**17/17 全绿**。A3b 修复现场验证：checker 优先 parse 工具 summary 内嵌 id，认本 run 亲建的「2D Class Selection 3 [cmut12wkf0001n5fct8xm0mrf] completed」——旧牌再也没抢到镜。A3 RAN 收据复现（8 of 24 particles kept，噪声世界）；caseB 三 fresh 判 keep=[] maybe=[] ×3（诚实零 keep，空集 Jaccard 1.00 口径知虚）。跑前备份 t553 报告为 t553-canonical-report.json（t519 报告路径复用，勿覆盖无备份）。
+- [②gamble 车道 live-fire = 本窗主菜] t552b 只证了判词侧（F1 borderline / F2 F3 inclusive 的诚实方差），「用户接赌 → select 落地」这半程从未验过。写 scripts/t554-gamble-live-fire.mjs（t519 形）：世界门卫（active 非 EMPIAR 即 fail fast exit 2）→ t552 reset 形真新会话 → T1 判（doctrine get_workflow_state → judge_2d_classes）→ 判词 ground truth 从 tool_result detail parse（取最后一个 judge result，容重试弧）→ 双象限赌面（0 keep → borderline=maybe 集；keep>0 → inclusive=keep∪maybe）→ T2 用户接赌（实名点类、自认「不是正式建议」）→ select_classes → paper 侧收据（t553 checker 形）→ 清场还 roster。
+- [live-fire 战果 15/15] T1 判词 **0 keep / 3 maybe [2,3,5] / reject [1,4]**——borderline 象限亲临（two-pass: 2 agreed, 3 → maybe）；law 5 守住（T1 零 select）；AI 把赌局摆上桌（final text 实名 2/3/5）；T2 接赌 → select_classes 精确按赌注 [2,3,5] 落地——「2D Class Selection 1 [cmut18l3r0005n5fc2qwp7qcy] — RAN: **7,421 of 10,866 particles kept** · 3/5 classes (manual 3 classes)」= **68.3%**。t508 create-AND-run 律活体；roster 10→10 零污染。
+- [checker 又吃同型 bug——本窗自己的] 收据是给人读的：「7,421」的千分位逗号被首版 regex /(\d+) of/ 抓成 421（假读数 3.9%）——与 A3b 认错牌同根的 parse-the-receipt 类。修法：/([\d,]+)/ 且剥逗号再读数；用盘上真收据串单测验过 7,421/10,866=68.3%。t554 报告 json 里 result 原文完好，kept/total 派生字段带的是 bug 时代读数（0.039）——真数以本条目为准（0.683）。
+- [清场] t474 A3 select2d 删除还 5；EMPIAR 赌局 select2d 删除还 10；active 还 β-Gal demo（t341 tombstone 机制顺路在两删中履约）；终检 console/errors 0、prod 200。
+- [未做与理由] code review 遗留池 #5 fs/browse 鉴权、#6/#14 pathref 一致性、#7 chart 热路径全量读、#8 particles BFS N+1、#13 useMemo localStorage（本窗让位两车道收口，池子原样在）；3D viewer 体积截面、Topaz wrapper（同上）；t471 WSL-bridge 面（照实挂）；t276 _legacy-archive、off-mainline 出口（照旧门控）。
+
+Stage Summary:
+- 「赌博是用户接的名字，不是 AI 给的建议」：borderline 象限第一次走完全程——AI 只摆桌（0 keep / 3 maybe，offer it only as the explicit gamble），用户亲手接（实名点 2、3、5），select 落地 68.3% 真粒子。零 keep 教义四象限从此四分之四都有真数据收据；gamble 车道 PROVEN
+- 「checker 的敌人永远是自己人的解析」：A3b 认错牌（旧牌抢镜）、t554 读错数（千分位绊倒）——两代 checker 败形同根：收据是给人读的，证词要归本 run、数字要剥了逗号再读；checker 的每一个 parse 都要拿真收据串单测
+- 「世界门卫先行」：live-fire 脚本第一步验 active 世界，fail fast 比判错世界便宜十倍；借的世界要还（roster 5→5、10→10），tombstone 是免费的保险
+- 产出：gamble 车道端到端 PROVEN + 正典 A3b 复跑 17/17 + scripts/t554-gamble-live-fire.mjs（双象限门卫形 harness）+ 两世界零污染归还
+- [下窗入口] ①遗留池开张：#7 chart 路由全量同步读（guinier/resolution/angdist 热路径）与 #8 particles BFS N+1 是性能面两块硬骨头，#5 fs/browse 鉴权是安全面最响的一块；②AI 车道：gamble 的 inclusive 象限（keep>0+maybe>0 用户接赌选 keep∪maybe）本窗未亲临（borderline 先落），EMPIAR 世界 F2/F3 形判词随时可复现赌面；③新功能方向：3D viewer 体积截面工具、Topaz wrapper；④t471 WSL-bridge 面（照实挂）
