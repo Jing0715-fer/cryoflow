@@ -7307,3 +7307,27 @@ Stage Summary:
 - 「计数钉会死在注释里」：recent-family 头注「66 as of Task 501」早已漂移到 93——计数钉的意义是察觉漂移，注释里的数也是钉
 - 产出：t471 两面钉重设计（39/0 ×2 幂等）+ t419 改名入册（156/0，glob 93）+ 家族余批三绿 + 宽孤儿类 42 文件定性入池
 - [下窗入口] ①宽孤儿类判决专窗（42 文件逐件 nature 判决：bench 改名入册 / tool 永不入册；先 t402/t417/t420/t428/t430 五簇 .ts）；②t471 T3 的 WSL-bridge 世界面（present 世界若 execution=wsl，cmd 是 wrapped.display——含不含 --continue 待真 WSL 世界定谳，本沙箱永久 native）；③遗留池：t276 _legacy-archive、off-mainline 出口、t23 遗留③老世界 seeder、t519 #5 半化石重述（judge 真类图源）。
+
+---
+Task ID: 547
+Agent: main (Z.ai Code, window 2026-10-04 04:15 cron)
+Task: t546 交接①「宽孤儿类判决专窗」当场兑现——42 文件逐件 nature 判决，六件隔离 bench 改名入册（逐件跑绿）；首次全量家族跑（99 套）活捉 19 件陈债并当场清偿 18 件（16 件 t530 计数漂移 + t483 产品缺口真修 + t500 钉本质化），家族终态 98/99 绿（唯一败 = 已知池项 t431 W1.1）。
+
+Work Log:
+- [开局] HEAD d72a8c4 对齐、树净；基线三绿（prod 200/2.5ms、tsc 0、eslint 0）+ 冒烟 console 0；环境暖窗（avail 2745、disk 82%）。cron 背诵的 Task 13 清单第 N+4 次核实为化石。
+- [判决台账 — 42 件六类] comm 全类导出后逐件读头注 + 世界契约审计：**A 类（隔离 bench，改名入册）6 件**——t402-continue-argv（纯 argv 单测 32/0）、t417-unit-reclaim（纯逻辑单测，RELION_DIR 只是字符串入参，ALL PASS）、t420-agent-polish（54/0）、t428-session-rename-export（40/0）、t429-stay-note-json-export（38/0）、t430-session-drawer（19/0）；**B 类（活体工具/fixture，永不入册）**——t419-mock-llm、t429-qa-session-fixture、t430-qa-backdate、t430-qa-cleanup-empty-id、t430-qa-session-fixtures、t452-live-surgery、t519-tail、t520-seed-tail、t534-diag-log、t534-diag-mc；**C 类（一次性探针/见证）**——t519-diag-seed（指向 /home/z/cryoffow 异世界）、t519-make-judgeable-stack 与 t519-sheet-to-mrcs（可复用生成器，t519 正典）、t522-phantom-stop、t523-×4、t524-×2、t527-probe-real-polarity、t539-class2d-count-probe、t507-live-check；**D 类（活体 world e2e，family-run 世界名册的候选——独立入册决策，入池）**——t416-topaz-denoise、t417-project-delete-reclaim、t542-denoise-gallery、t544-class-teaser；**E 类（活体考试/运维）**——t534-reaper-exam、t536-gate-live-fire、t537-argv-dialect、t540-race-gate-live-fire、t413-archive-retention-janitor、t415-dashboard-needs-attention、t416-verify-fixes。
+- [交付① — 六件改名入册] git mv 加 -bench 后缀 + 六处自头注 Run 行 + 两处跨文件注释（family-run.mjs 的 t417 判词、t417-project-delete-reclaim 头注）随行；逐件跑绿（32/ALL/54/40/38/19）；glob 93→99 实证；recent-family.sh 头注写 t547 判决书（36 件「设计即孤儿」的非孤儿性载册）。
+- [首次全量家族跑 — 19 败显形] t547-launch-family.sh（setsid 孤儿化 launcher）跑 recent-family.sh 全量：99 套 80 绿 19 败——历窗只跑抽查、全量家族跑自 t521 后绝迹，陈债在孤儿入册的第一次全量点名中集体显形。三簇分类：**①计数漂移 16 件**（t476/t477/t479/t481/t486/t487/t503/t504/t509/t511/t512/t513/t515/t517/t518/t522——t530 第 34 器的欠账，t545 只修了 t419/t468/t469/t470/t475/t471 六近亲，graveyard 族与 voice 族漏网）；**②产品/演化 2 件**（t483、t500）；**③已知池项 1 件**（t431 W1.1 = t523 遗留③老世界缺持久 seeder）。
+- [交付② — 16 件计数钉] 批量 sed（条件 33→34 + 消息 + 「t530 count-debt, caught by the t547 family run」漂移史入注），复跑 15/15 全绿 + t479 单修后 36/0——t530 遗债全族清偿，第 34 器的钉账自此对齐。
+- [交付③ — t483 产品缺口真修] T3e 自动扫定罪「SYSTEM_DIAGNOSTICS_EVENT 在 src 有声明、在手册无行」——t530 新生的诊断对话框没有手册行。修 = GUIDE_DOORS 注册第 7 门 diagnostics（dispatch 事件，header 拥有对话框——owner-listens 律不破）+「Finding your way」章新行（行文含 names 全词）+ rowDoors 接线；t483 治理钉随行（T1a 7 门、T1c 清单、T2f 7 行）——43/0 绿。样式细则随行：手册的可达面多一行真门。
+- [交付④ — t500 钉本质化] escape 守卫自 t530/t534 起内联合成（caller 先言 + live-zone 自我豁免，ref 读在 lambda 本体内——lint 陷阱的结构性规避），companionGuard(onEscapeKeyDown) 字面死亡而契约（companion 的 Escape 永不 dismiss）原样——钉改说四事件契约 + escape 合成形状的正则本质，72/0 绿。
+- [dance] chrome 三杀 + node_modules 预热（buff/cache 2356）→ 守卫 SKIP（BUILD_ID 在）→ rm BUILD_ID 强制 GO → 1344 webpack GREEN → start-prod 复起 200/4ms → t483/t500 复绿 → 家族全程复跑 **99 套 98 绿 1 败**（唯一败 = t431 W1.1 池项）。世界正典复核：β-Gal demo active + RELION 5.0.0 芯片 + console 0。
+- [未做与理由] t431 W1.1 老世界 seeder（池中真解，非钉修）；D 类四件 world e2e 的 family-run 入册（需 full-run 成本模型与批次设计，专窗）；t471 WSL-bridge 面（本沙箱永久 native，t546 交接②如实再挂）。
+
+Stage Summary:
+- 「全量点名一次，胜过抽查十窗」：19 件陈债在孤儿入册的第一次全量家族跑中集体显形——抽查的世界是绿的手风琴，只有全量跑让「家族绿」成为一份可以签字的证词
+- 「产品缺口的铃铛是套件先摇的」：t483 的 T3e 扫描定罪「新对话框无手册行」——修的是手册与门的注册表，不是钉；产品真修与钉随行是同一件事的两半
+- 「钉的本质化要跟着合成的形状走」：t500 的 escape 守卫从 companionGuard 字面到内联 lambda，契约未动而实现换形——钉说「caller 先言 + live-zone 豁免」的合成，不说某一个函数名
+- 「孤儿判决的产出入册即终结」：42 件逐件有名字有归类，A 类六件改名后孤儿类清空——剩下的「孤儿」是设计（工具本就活在名册外），判决书让下一次扫描不再重复本窗
+- 产出：六 bench 入册（glob 99）+ 16 件计数钉清偿 + t483 diagnostics 门产品真修 + t500 钉本质化 + 两次全量家族跑（19 败→1 败）+ t483/t500/t471 相关 bench 全绿 + dance GREEN
+- [下窗入口] ①D 类 world e2e 入册决策（t416/t417-del/t542/t544 → family-run.mjs 的批次数组，需全量跑成本模型）；②t431 W1.1 老世界持久 seeder（t523 遗留③真解）；③t471 WSL-bridge 面（真 WSL 世界稀缺，照实挂）；④遗留池：t276 _legacy-archive、off-mainline 出口、t519 #5 半化石重述（judge 真类图源）。
