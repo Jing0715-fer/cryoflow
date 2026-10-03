@@ -7125,3 +7125,27 @@ Stage Summary:
 - 「纸上推演到极限就上探针」：手跑真二进制、偷运行中的 stack 字节、逐字节 cat -A——本窗四枚病根全部由探针定谳，无一靠猜
 - 产出：t307/t308 真件时代 ALL PASS + census 去重 + merge 边界清扫 + staging mtime 幂等 + 六 blob 物理化 + 四套清账全绿 + 四磨全 GREEN
 - [下窗入口] ①class2d「N classes」计数口径定谳（真 refine 的 classes mrcs 多切片栈 vs 计数器）；②家族余批（t302/t303 等未在 roster 的）或按 t537 交接③ t293-slurm-submit 复活考古；③遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4、远端 dispatch 契约灰区。
+
+---
+Task ID: 539
+Agent: main (Z.ai Code, window 2026-10-03 23:23 cron)
+Task: t538 交接①「class2d『N classes』计数口径定谳」落地——探针偷渡真件产物实锤两个口径分裂（stack nz=4 vs data.star populated=1），结果句改说「1 of 4 classes populated」、卡片双标签分流、receipt 解析器学新形（顺手活捉 select「40/50 classes」既存误读），t308 口径钉上账 ALL PASS；dance 双磨全绿。
+
+Work Log:
+- [开局] HEAD d7e5c2d 对齐（cron 截图车 ahead 1 未推，本窗代推）。摘要脑内的「Task 525 起编」已过时十四代——worklog 实录 t538 收官。环境三线全绿：available 2800>2600 GO 线、buff/cache 1660>1450 暖线、disk 72%。服务考古：prod :3000 200/3ms；mock 集群 :3022 被 curl 误报死亡（SSH2 端口非 HTTP——test-client 15/15 全过才是正典探针）。QA 基线三绿（tsc 0、eslint 0、console 0、80 卡 297 按钮在岗）。
+- [选题] t538 交接①：class2d 结果句「1 classes」解析小刺——断言未咬到留池。开局考古 t302/t303：非管线家族（runner 纪律探针 + slurm witness probe），无需 fixture 物理化，roster 物理化时代实际已收官。
+- [定谳 — 探针台] t308 清场律杀证据（脚本收官删 remote workdir + 本地 fixture），遂趁运行偷渡：首版 watcher 只盯 run_classes.mrcs 而**真件写 run_unmasked_classes.mrcs**（engine firstExisting 首选项）——偷渡失败两轮后从幸存的本地镜像（data/relion/<project>/class2d_*/，rmSync 只清 t308-array/t308-sandbox）直读真件字节：**A（栈）** run_unmasked_classes.mrcs nx=128 ny=128 **nz=4** mode=2——栈里躺着 K=4 张类平均（box 128 对应尺寸）；**B（粒子）** run_it003_data.star total=72、**distinctClassNumbers=1**（class 2: 72 粒 100%）——72 张相同六 blob 图被真 EM 养进一个类；**C（账）** ledger 结果句 `2D classification finished — 1 classes`（t308 重跑活捉原文）。RELION 自己的 model.star 说 `_rlnNrClasses 4`。判决：两个数字都对但说的是两个词——结果句的 1 = **populated classes**（语法还错），卡片统计的 4 = **class averages 写盘数**。
+- [交付① 结果句双数] engine.ts class2d case：readMrcHeader(classes).nz 读 K（firstExisting 返回绝对路径，readMrcHeader 失败诚实 null）→ 结果句 `REAL: 2D classification finished — 1 of 4 classes populated · 72 particles · top: class 2 100%`；栈头不可读时退化 `${N} class(es) populated`（单复数安全）。REMOTE 前缀车道验证：remote-run.ts 以 `collected.result.replace(/^REAL: /,"")` 复用 engine 结果——perClassNote 说「per-class star(s)」不同词无碰撞。
+- [交付② 卡片双标签] output-summary.ts 两处「classes」标签分流：class2d（k=stack nz）→ **"class averages"**；class3d/initialmodel（k=最新迭代 class map 文件数）→ **"class maps"**——两个数字不再共抢一个词。chip 色谱 key 未动（仍是 "classes"）渲染零漂移。
+- [交付③ 解析器随行 + 既存刺] result-counts.ts 的 `/([\d,]+) classes/` 会把新句解析成 4（written K）而非 1（populated）——specific-shape-first 修复：`N of K classes populated` → N（select「kept」先例：数据真正落进的数）；顺手活捉**既存误读**——select2d 的 `40/50 classes` 被 generic 正则解析成 50（total），违背模块自家的「SELECT keeps the KEPT count」诚实律（particles 车道早已服从），补 `([\d,]+)\/[\d,]+ classes` → 40。历史收据（"50 classes · …"）经 generic 形继续解析零破坏。bench：scripts/t539-result-counts-bench.ts **15 断言 bun+node 双运行时全绿**（L1 populated 形 / L2 kept 形 / L3 历史形 / L4 诚实 null）。
+- [dance #24/#25] 先 commit 后 dance（t537 律第 5 次兑现：守卫 SKIP 只看 HEAD）：#24（228c149 结果句+卡片+t308 口径钉）rm BUILD_ID → 守卫 GO（buff/cache 1580、available 3173）→ BUILD GREEN → prod :3000 复起（reaper 自述 `[reaper] tick: examined=4 flips=0 retried=2` 在案）→ **t308 重跑 ALL PASS 且新钉咬合**（`REMOTE[...]: 2D classification finished — 1 of 4 classes populated · 72 pa...` 收据原文入断言输出）；#25（01fef20 解析器）BUILD GREEN → prod 复起 → agent-browser 冒烟 80 卡 console 0（截图 .qa-logs/t539-smoke-final.png）。UI 验证闭环：t308 的 inspector strip 断言（"the inspector also speaks the class summary"）在新 build 上通过——结果句实渲染。
+- [立项不施工 — dispatch 契约灰区收窄] 重读 t534 大考剧本：其自进化已把「输入缺失」情形收进门内（182 行注释：product's dispatch-time input resolution **legitimately refuses**）——残余灰区仅剩**陈旧 twin 竞速**（上游重跑中，旧 twin mtime 未动 → t372 twinFresh 通过 → 集群读旧字节）。依赖门机制已明（t304 same-connection slurmId → afterok），但门要动 dispatch 心脏且需区分「调度器会兜底」与「裸竞速」两态——按 t537 律留独立窗，不赶工半成品门。
+- [未做与理由] t268/t264/t266/t273 新 build 复跑（#24 build 后车道逻辑未动、t308 已验、风险低记账未跑）；t293-slurm-submit 复活考古、t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4 照旧挂池。
+
+Stage Summary:
+- 「一个词两个数，是收据对自己撒谎的一半」：栈的 nz 数的是 RELION 写了什么（K 张平均，空不空都写），data.star 数的是粒子养活了什么（populated）——「1 of 4 classes populated」让两个真相同句异名，谁也不再冒充谁
+- 「探针的 watch 名要跟真件方言走」：真件先写 run_UNMASKED_classes.mrcs——盯错文件名的偷渡者两手空空；幸存的本地镜像才是清场律下永远在线的证人
+- 「解析器要学收据的新方言，也要替旧方言收尸」：specific-shape-first 让 populated/kept/historical 三代收据各归其位；generic 正则的最后一个数字崇拜连 select 的 40/50 都读了 50——模块自己的诚实律早已被自己违反
+- 「t302/t303 不是家族」：roster 物理化时代实际已收官——交接清单也要考古，否则下一个窗口会去物理化一个 runner 纪律探针
+- 产出：class2d 结果句双数（populated of K）+ 卡片 class averages/class maps 双标签 + receipt 解析器三形 + t539 bench 15 断言双运行时 + t308 口径钉 + probe watcher 修正 + dance 双磨全绿
+- [下窗入口] ①dispatch 契约灰区收窄版：陈旧 twin 竞速门（上游运行中 + twin 新鲜 + 无 afterok 兜底 → 派发前拒绝教学；t304 依赖车道豁免）——t534 立案的精确残形，动 dispatch 心脏需独立窗；②t293-slurm-submit.mjs 复活考古（off-roster 直跑即崩 + 需 movies 配方）；③遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4。
