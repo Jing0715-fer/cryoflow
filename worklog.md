@@ -7172,3 +7172,24 @@ Stage Summary:
 - 「源码钉的 essence 律第三次兑现」：门的记账循环展开 PAIR set，钉的字面死了——钉改说变量名，契约（twin pass-through 零重传）原样钉死
 - 产出：twin provenance + 竞速门（纵深防御，诚实注释）+ t540 考试 28 断言（前沿/歧义/排序三相）+ t308 钉迁移全绿 + dance 全绿
 - [下窗入口] ①t293-slurm-submit.mjs 复活考古（off-roster 直跑即崩 + 需 movies 配方，t535 交接③挂账两窗）；②家族余批新 build 抽查（t307/t269/t273 车道同 t308 已验，低风险记账未跑）；③遗留池：t299 C5 witness、t276 _legacy-archive、off-mainline 出口、t519 建议 #1/#4。
+
+---
+Task ID: 541
+Agent: main (Z.ai Code, window 2026-10-04 00:38 cron)
+Task: t540 交接①「t293-slurm-submit.mjs 复活考古」以档案退休结案——考古证明四簇特性全部活在演化形（envLines 注入/GPU 指令/.cf-exit/scancel 均有现代覆盖），探针发现门被 t388 交互快照取代；建立 scripts/_retired/ 退休惯例（判决书随行）；交接②家族抽查 t307/t269/t273 全绿 + t299 C5 witness 听证结案。
+
+Work Log:
+- [开局] HEAD e39074a 对齐、环境三线全绿（available 3230、buff/cache 1716、disk 72%）；QA 基线三绿 + 冒烟 80 卡 console 0。
+- [考古实跑] t293-slurm-submit.mjs 直跑：A 相 12/18 钉挂、B 考古台崩（bun run 报 `moduleLoadsInEnvLines` 导出不存在）、C3a 被 t536 movies 门 14ms 诚实拒绝（stub 时代 micrographs→motioncorr 接线，t535 预言兑现）。
+- [逐簇定谳] 全树 grep 逐项核对：①envLines → 脚本注入**活着**（remote-run.ts 两车道 1919/2737 行「connection environment lines」块；t372/t382/t387 携 envLines 连接真派发覆盖）；②GPU 数/分区指令**活着**（A14/A16 过：RemoteRunTarget.gpus/partition → buildSbatchScript --gres/--partition；t387/t306/t304 覆盖）；③.cf-exit + sacct 终态 + scancel **活着**（t267/t268 + t417）；④probe 侧 envLines 模块发现 + envLineModules 徽章 + parseSinfoPartitions **退役**（src 零命中；t388 交互快照车道取代——门从「probe 列出 envLines 装了什么」演化成「脚本继承交互 shell 所持」）；⑤C3 接线**过时**（movies 配方在 t268/t269）。
+- [判决：退休而非重写] 重写 = 重复五套现代覆盖；退休带判决书 = 保留收据。**scripts/_retired/ 惯例落地**：git mv 保留化石 + README 逐簇判决表（用户原话、verdict、现代覆盖指针三列）；律：无判决书禁删。gen 分支检查：家族 roster 的 t293 是 t293-remote-borrow.mjs（t536/t537 实跑的借车套件），本化石不在 run 车道；codemod-t414 的一次性文件列表是历史快照不受影响。
+- [交接②清账 — 家族抽查] 新 build 上 t307 ALL PASS（sbatch array extract/pick）、t269 ALL PASS（time ledger）、t273 ALL PASS（family report）——竞速门 build 的 remote 车道三面验证。
+- [池项结案 — t299 C5 witness] t299-slurm-sacct.mjs 全量 ALL PASS（两跑幂等）：C5 FAILED witness 四断言全过（exit 3 骑 sacct 映射、FAILED 上账、结果句说 exit code）、C6 CANCELLED → 143 停止契约——「一条待听证」在 t534-t540 的 sweep/exit 映射修复链中被顺带治愈，池项凭证据关闭。
+- [未做与理由] t519 建议 #1/#4（judge 双 pass/温度、断言库 CI 化）——limiter 窗口是执行障碍且需 AI 车道独立窗；3D viewer 截面工具、Topaz wrapper（新功能方向）——本窗预算花在考古与清账；t276 _legacy-archive（EMPIAR 数据件）照旧。
+
+Stage Summary:
+- 「化石是收据，不是垃圾」：退休 = git mv + 逐簇判决书；用户故事的每一半要么指向活着的产品形，要么指名退役的决策——判决书让下个考古者三十分钟走完本窗一小时的路
+- 「特性死于无名，活于有形」：probe 侧发现门死了，但它的用户问题（为什么看不到 relion 5）被 t388 交互快照以更好的形回答——考古的任务是找到演化的形，不是复活旧的形
+- 「跑一遍胜过读十遍」：t293 的 12/18 挂钉 + bun 导出报错 + t536 门拒绝词，一次实跑把三窗挂账的考古题切成清晰的三簇；grep 是怀疑，实跑是判决
+- 产出：_retired/ 惯例 + t293-slurm-submit 判决书 + 家族抽查三套全绿 + t299 C5 池项结案
+- [下窗入口] ①t293-remote-borrow/t294/t295 新 build 复跑（roster t293 三套，与 t307/t269/t273 同批的低风险清账）；②t519 建议 #1/#4（judge 稳定性 + 断言库 --judge-only 分层）需 AI 车道独立窗；③遗留池：t276 _legacy-archive、off-mainline 出口、3D viewer 体积截面工具、Topaz wrapper。
