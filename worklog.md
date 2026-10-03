@@ -7257,3 +7257,31 @@ Stage Summary:
 - 「『Collecting page data』阶段的墙要连 prod 一起清」：264MB 的 standalone server 在 build worker 站起来时正好把 anon 顶过线——t461 律的完整形是 watchdog+prod+chrome 三杀、预热、build、各归其位
 - 产出：ClassAveragesTeaser（双车道 + t539 双标签 + 自隐契约）+ Overview 挂载 + t544 e2e 四相 28 断言 ALL PASS + 叠节点 forensics 三连修 + 家族三套全绿 + 两磨全绿
 - [下窗入口] ①t519 建议 #1/#4（judge 双 pass/温度、断言库 --judge-only 分层）需 AI 车道独立窗；②teaser 的 resident 实拍待 demo 世界长出 answerable class3d（skip 分支已备）；③遗留池：t276 _legacy-archive、off-mainline 出口、palette 豁免清单产品化、3D viewer 截面深化。
+
+---
+Task ID: 545
+Agent: main (Z.ai Code, window 2026-10-04 02:53 cron)
+Task: t544 交接①「t519 建议 #1/#4（judge 边缘稳定性 + 断言库 --judge-only 分层）」三窗让位后兑现——judge 双 pass 取交集落地（结构性稳定，非温度祈祷）+ --judge-only 分层首次实跑 + 途中活捉五枚工具计数钉漂移（t530 遗债）与一枚世界长大化石（t471 三钉）。
+
+Work Log:
+- [开局] HEAD ab9ce1a 对齐、树净；环境暖窗（buff/cache 1501、avail 3247、disk 72%）；QA 基线三绿（prod 200/3ms、tsc 0、eslint 0、console 0）+ 世界正典（5 项目 / 83 active jobs / RELION 5.0.0 芯片）。cron 背诵的 Task 13 清单第 N+2 次核实为化石；t544 池四条逐一核账：「3D 截面深化」= 六窗定谳的坟指北（t217/t278 家族全在）、「palette 豁免清单产品化」= t246 已交付的化石再搬运（JSON $comment 自证 two-mouths 在产）、t276 _legacy-archive 与 off-mainline 出口照旧门控——真缺口只有 t519 #1/#4。选题定谳前先探针 AI 车道：builtin GLM 一发「ALIVE」零 429，本窗正式成为 AI 车道独立窗。
+- [考古三连] ①「--judge-only 分层」其实 t519 commit 当天就已建成（脚本头部 + argv 分派全在）——三窗让位时连它已存在都没核实，池条目化石化；②#1 的温度杠杆走不通：SDK CreateChatCompletionVisionBody 类型无 temperature 字段，塞未知字段是 send-and-hope——定谳结构性杠杆=双 pass 取交集（keep 须两次独立存活，稳定性是构造性的）；③bench 正典 = scripts/t[45][0-9][0-9]-*bench.ts 经 bun run（recent-family.sh glob）。
+- [交付① judge-merge.ts 纯模块] 合并律：keep = 两 pass 都 keep（交集）· reject = 两 pass 都 reject · 其余一切分歧落诚实 maybe 带（理由取第二读的 dissent）· 单边类 = maybe（未确认的读永不带信心出货）· parse 成功但零类 = degenerate（pass 1 原样出货）· moved/agreed/torn 遥测随行 · advice 留第一读。JudgeVerdict 类型迁居合并模块、tools.ts re-export 保持 import 面（twins fork, imports don't）。
+- [交付② tools.ts 双 pass 接线] confirm pass 跑同一 rubric prompt（独立读而非锚定「再想想」）；失败/抛异常诚实降级到第一判词（「second pass unreadable — first verdict stands」）——稳定性只在确认处买，从不买沉默；summary 携「· two-pass: N agreed, M → maybe」遥测；detail.confirm 落盘；t520 零 keep 教义的逐字串原样存活（其 bench 钉验证）。
+- [交付③ t545-judge-merge-bench.ts] 33 断言全过：合并律全表（9 形）· 缺边三形 · degenerate · 纯度（同入同出、入参不突变）· tools.ts 源码契约 8 钉（confirm 用同一 prompt、merged 先于计数、降级话术、t520 串未触碰）。
+- [活捉① t419 F8 计数漂移] bun 跑邻座 bench 时 t419 F8「33 unique tools (got 34)」——stash 对照证明 HEAD 就败：t530 的 get_system_diagnostics 是第 34 器且没人更新钉。根因考古：t419-ai-assistant.ts 不在任何花名册（family-run 的 node roster 无、recent-family 的 bench glob 无）——孤儿套件，三窗「家族全绿」天然看不见它。修：33→34 + 漂移史入注。
+- [活捉② 四枚同病钉] t468/t469/t470/t475 各有一枚 T1b「33 unique tools」——t530 遗债波及全家族。全修（33→34 + 注明 t530）。t471 的 T1b 同修。
+- [活捉③ t471 三枚世界长大化石] T3a/T3c/T6d 败于 stash 对照确认的 HEAD 旧债：bench 钉的是 t528 之前的「Start refused + RELION not detected」拒绝形，而 RELION 5.0.0 如今在沙箱在场——continue fire 诚实往前走了（waiting/proceed 分支）。需要 RELION-aware 重设计（确定性跨世界钉法：refusal 形或 proceed 形都是诚实），专窗量级，入池。
+- [活捉④ t431 W1.1] 「every manifested file is home」败 = t523 遗留③老世界缺持久 seeder 的老脸（extract manifest 文件再次被清场）——已知池项，照旧。
+- [真模型验证] 舞两磨：首磨 OOM Killed（chrome 漏杀 + 预热不足——t461 三杀律补课：pkill chrome + find node_modules 全预热 1758MB）；次磨 BUILD GREEN、prod 复起。--judge-only 经 t545-launch-judge-only.sh（孤儿化 launcher——直接 setsid 在工具调用内活不过调用边界，setsid sleep 300 对照实验证明）起跑：**B2/B3 全过——双 pass judge 经产品自己的门 12/12 agreed**（confirm 遥测 {agreed:12,torn:0,moved:[]}、summary 带「two-pass: 12 agreed」、零 keep 判词与 t519 原野测一致=24 粒子噪声世界全 reject 是诚实判）；B1 败形=agent 行为方差（改读 convergence/outputs 数据没叫 VLM——数据接地的诚实回答，非 429 非 4xx）。keep-set Jaccard 1.00（空集口径，知其虚而记其诚）。
+- [世界借还] t519 原生世界=QA t474 UI gallery 项目（class2d_8wy7dl3m 真件：200 迭代 ×12 类 per-iter per-class .mrc 全在）——「2D Classification 1」硬编码名在此项目正确；demo 世界无此名（借画布律：switch 到 t474 跑 e2e → 还回 demo active）。
+- [未做与理由] t471 RELION-aware 重设计（专窗：需定谳跨世界确定性钉法）；t431 老世界 seeder（t523 遗留③既有计划）；#4 的「断言库入族」残余（t419-ai-assistant 孤儿入册需行为设计：它打 DB 建 job，入 node roster 需 envOk 门与清场审计，本窗不动）。
+
+Stage Summary:
+- 「三窗让位的池条目，先核它是否早已建成」：--judge-only 分层在 t519 commit 当天就活着——让位的每一窗都在为已建成的东西让位；选题前先 git log -S 一下，让历史自己开口
+- 「稳定性买不到时就构造它」：SDK 的 vision body 不带温度旋钮，把赌 provider 行为换成结构律——keep 需要两张嘴同意，maybe 带收容一切分歧；降级路径（第二读失败）要说出口而不是假装读过
+- 「孤儿套件让『家族全绿』说谎」：t419-ai-assistant 不在两个花名册任何一处，t530 加工具没更新钉，三窗家族回归全绿照唱——计数钉的意义是察觉漂移，不是冻结历史；孤儿入册（或退役）需要自己的窗
+- 「世界长大时，钉会先于产品碎」：t471 钉着无 RELION 时代的拒绝形，RELION 5.0.0 降生后 fire 诚实前行——钉碎的那刻先问「是世界错了还是钉过时了」，两类修理（修产品 vs 重铸钉）是两种窗
+- 「工具调用内的后台活不过调用边界」：nohup+& 不行、setsid+disown 不行（setsid sleep 300 对照实验实证），唯一活路是 launch.sh 形——中间脚本秒退让进程在调用结束前孤儿化到 init
+- 产出：judge-merge.ts 纯模块 + tools.ts 双 pass 接线 + t545 bench 33/0 + t545-launch-judge-only.sh + 五枚计数钉修复（t419/t468/t469/t470/t475/t471）+ --judge-only 分层首次实跑（4/6，B2/B3 双 pass 活体确认）+ t471/t431 化石定性入池
+- [下窗入口] ①t471 RELION-aware 重设计（continue fire 的跨世界钉法——先读 T3 的 2608/2615/2622 三分支再动）；②t419-ai-assistant 孤儿入册审计（DB 副作用套件的 roster 形态）；③家族余批新 build 抽查（t268/t264/t273 车道）；④遗留池：t276 _legacy-archive、off-mainline 出口、t23 遗留③老世界 seeder（t431 W1.1 的真解）、t519 #5 EMPIAR 常驻。
