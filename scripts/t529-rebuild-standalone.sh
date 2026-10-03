@@ -158,7 +158,10 @@ if [ -z "$ok" ]; then
 fi
 echo "[build-day] prod :3000 is up (200)."
 echo "[build-day] /api/system build block (the live proof):"
-curl -sf --max-time 10 http://localhost:3000/api/system | node -e "
+# t530 live-caught (twice): the bare curl 403s against the t259 same-origin
+# door and the JSON parse speaks "(status parse failed)" — the proof step
+# NEVER worked. The door is the product being right; the caller must knock.
+curl -sf --max-time 10 -H "sec-fetch-site: same-origin" http://localhost:3000/api/system | node -e "
   let o=''; process.stdin.on('data', d => o+=d).on('end', () => {
     try { const s = JSON.parse(o); const b = s.build;
       if (!b) { console.log('  build block: ' + (s.found ? 'null (FOUND — relion resolved!)' : 'null')); return; }
