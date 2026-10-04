@@ -269,6 +269,82 @@
   --ink-40: color-mix(in oklch, var(--foreground) 40%, transparent);
 }
 
+/* ============================================================
+   Accent vocabulary — the color sources join the scale (t583)
+
+   The ink ladder (above) tokenizes transparency of the FOREGROUND.
+   The accent sources play the same game with three hue families,
+   and the color space is part of the name:
+
+   --glow-XX   teal (oklch) — the breathing family: run-glow's
+               ring/halo on RUNNING cards and its run-breathe chip
+               twin below. Every frame cites a rung, so the
+               animation's shape (rest 42/38 -> peak 78/62) lives
+               in the token set instead of scattered inline math,
+               and a reduced-motion freeze cites the same
+               vocabulary (60/48). The 0% rung (--glow-00) keeps
+               run-breathe's from-nothing start explicit.
+   --pulse-XX  primary in SRGB — the reveal family: reveal-flash's
+               bloom ring. srgb interpolates channels linearly,
+               oklch interpolates in a perceptual space — the SAME
+               number mixed in the two spaces lands on different
+               colors, so --pulse-45 and --tint-45 are deliberately
+               distinct rungs, not a typo.
+   --tint-XX   primary in oklch — the wash family: ::selection and
+               the progress-shimmer peak.
+
+   Dual-domain co-location, same reason as the ink ladder: the
+   sources themselves (--teal-glow, --primary) are theme-scoped,
+   so a :root-only definition would bake LIGHT mixes for every
+   dark-scope consumer (resolution happens on the declaring
+   element; descendants inherit the baked value). The pipeline
+   dual-forms these definitions exactly like the ink ones — old
+   browsers resolve to the OPAQUE source color (the blob the
+   inline form always produced), evergreens read the exact mix,
+   and the citing declarations stay verbatim-immune.
+
+   With this block the sheet carries ZERO inline color-mix
+   declarations outside definition lines: one vocabulary for
+   every transparency, foreground and accent alike. The witness
+   (t581 forensics) asserts coverage, not spot checks.
+   ============================================================ */
+:root {
+  --glow-00: color-mix(in oklch, var(--teal-glow) 0%, transparent);
+  --glow-10: color-mix(in oklch, var(--teal-glow) 10%, transparent);
+  --glow-14: color-mix(in oklch, var(--teal-glow) 14%, transparent);
+  --glow-22: color-mix(in oklch, var(--teal-glow) 22%, transparent);
+  --glow-38: color-mix(in oklch, var(--teal-glow) 38%, transparent);
+  --glow-42: color-mix(in oklch, var(--teal-glow) 42%, transparent);
+  --glow-48: color-mix(in oklch, var(--teal-glow) 48%, transparent);
+  --glow-60: color-mix(in oklch, var(--teal-glow) 60%, transparent);
+  --glow-62: color-mix(in oklch, var(--teal-glow) 62%, transparent);
+  --glow-78: color-mix(in oklch, var(--teal-glow) 78%, transparent);
+  --pulse-12: color-mix(in srgb, var(--primary) 12%, transparent);
+  --pulse-38: color-mix(in srgb, var(--primary) 38%, transparent);
+  --pulse-45: color-mix(in srgb, var(--primary) 45%, transparent);
+  --pulse-55: color-mix(in srgb, var(--primary) 55%, transparent);
+  --tint-26: color-mix(in oklch, var(--primary) 26%, transparent);
+  --tint-45: color-mix(in oklch, var(--primary) 45%, transparent);
+}
+.dark {
+  --glow-00: color-mix(in oklch, var(--teal-glow) 0%, transparent);
+  --glow-10: color-mix(in oklch, var(--teal-glow) 10%, transparent);
+  --glow-14: color-mix(in oklch, var(--teal-glow) 14%, transparent);
+  --glow-22: color-mix(in oklch, var(--teal-glow) 22%, transparent);
+  --glow-38: color-mix(in oklch, var(--teal-glow) 38%, transparent);
+  --glow-42: color-mix(in oklch, var(--teal-glow) 42%, transparent);
+  --glow-48: color-mix(in oklch, var(--teal-glow) 48%, transparent);
+  --glow-60: color-mix(in oklch, var(--teal-glow) 60%, transparent);
+  --glow-62: color-mix(in oklch, var(--teal-glow) 62%, transparent);
+  --glow-78: color-mix(in oklch, var(--teal-glow) 78%, transparent);
+  --pulse-12: color-mix(in srgb, var(--primary) 12%, transparent);
+  --pulse-38: color-mix(in srgb, var(--primary) 38%, transparent);
+  --pulse-45: color-mix(in srgb, var(--primary) 45%, transparent);
+  --pulse-55: color-mix(in srgb, var(--primary) 55%, transparent);
+  --tint-26: color-mix(in oklch, var(--primary) 26%, transparent);
+  --tint-45: color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -278,7 +354,7 @@
     font-feature-settings: "cv11", "ss01";
   }
   ::selection {
-    background: color-mix(in oklch, var(--primary) 26%, transparent);
+    background: var(--tint-26);
   }
 }
 
@@ -736,7 +812,7 @@
   background-image: linear-gradient(
     110deg,
     transparent 25%,
-    color-mix(in oklch, var(--primary) 45%, transparent) 50%,
+    var(--tint-45) 50%,
     transparent 75%
   );
   background-size: 200% 100%;
@@ -779,14 +855,14 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--teal-glow) 42%, transparent),
-      0 0 14px -2px color-mix(in oklch, var(--teal-glow) 38%, transparent),
+      0 0 0 1px var(--glow-42),
+      0 0 14px -2px var(--glow-38),
       0 6px 16px -4px var(--ink-10);
   }
   50% {
     box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--teal-glow) 78%, transparent),
-      0 0 24px -2px color-mix(in oklch, var(--teal-glow) 62%, transparent),
+      0 0 0 1px var(--glow-78),
+      0 0 24px -2px var(--glow-62),
       0 6px 16px -4px var(--ink-10);
   }
 }
@@ -809,8 +885,8 @@
   .job-running {
     animation: none;
     box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--teal-glow) 60%, transparent),
-      0 0 18px -2px color-mix(in oklch, var(--teal-glow) 48%, transparent);
+      0 0 0 1px var(--glow-60),
+      0 0 18px -2px var(--glow-48);
   }
 }
 
@@ -821,8 +897,9 @@
    from the sidebar without reading a single number — motion is the
    headline, the count is the detail. Background + a soft ring pulse
    (at h-5 a full halo would smear into the row), the SAME 2.1s cadence
-   as the card glow so both layers pulse in step; color-mix against the
-   shared --teal-glow var keeps both themes' hue/intensity coherent.
+   as the card glow so both layers pulse in step; both frames cite the
+   shared --glow-XX vocabulary (t583), so the chip and the card breathe
+   from the same rungs and the themes' hue/intensity stay coherent.
    prefers-reduced-motion: the chip freezes at its resting tint (the
    class's own static bg-teal-500/10 reads through) and the Loader2
    inside is silenced by motion-reduce:animate-none in the component —
@@ -830,12 +907,12 @@
 @keyframes run-breathe {
   0%,
   100% {
-    background-color: color-mix(in oklch, var(--teal-glow) 10%, transparent);
-    box-shadow: 0 0 0 0 color-mix(in oklch, var(--teal-glow) 0%, transparent);
+    background-color: var(--glow-10);
+    box-shadow: 0 0 0 0 var(--glow-00);
   }
   50% {
-    background-color: color-mix(in oklch, var(--teal-glow) 22%, transparent);
-    box-shadow: 0 0 0 3px color-mix(in oklch, var(--teal-glow) 14%, transparent);
+    background-color: var(--glow-22);
+    box-shadow: 0 0 0 3px var(--glow-14);
   }
 }
 
@@ -1721,11 +1798,11 @@
 @keyframes reveal-flash {
   0% {
     opacity: 0.95;
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 38%, transparent);
+    box-shadow: 0 0 0 0 var(--pulse-38);
   }
   70% {
     opacity: 0.5;
-    box-shadow: 0 0 0 14px color-mix(in srgb, var(--primary) 12%, transparent);
+    box-shadow: 0 0 0 14px var(--pulse-12);
   }
   100% {
     opacity: 0;
@@ -1734,8 +1811,8 @@
 }
 .reveal-flash {
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent);
+    0 0 0 2px var(--pulse-55),
+    0 0 0 1px var(--pulse-45);
   animation: reveal-flash 1.15s ease-out 1 both;
 }
 
