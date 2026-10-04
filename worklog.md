@@ -7679,3 +7679,31 @@ Stage Summary:
 - 「腾房要连自动复活的腿一起停」：watchdog 的职责（2 秒复活 :3000）与磨的生存条件（:3000 必须死着）互为反义——不 pkill watchdog，杀 prod 就是给它喂食信号；OOM 三杀的账要算到环境头上，不只算到堆参数头上
 - 「借世界要还，铸 job 要删」：birth 探针从 select_classes 的门进、按 t554 的清场律出——名册 83→83、active 回 EMPIAR，探针自己不留痕
 - 产出：SelectionReceipt 卡（auto/birth 双面活体 32 断言）+ 收据解析 lib + 路由 + 51/51 单测 + 看门狗喂 OOM 现行抓获；下窗入口：①judge 判词 worker 视角复核（AI 车道）或 Topaz 手势第三刀；②receipt 卡小打磨（ignored 列表的触发活体、1D select 收据的 native 车道活体——需铸 native select 探针）；③t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 563
+Agent: main (Z.ai Code, window 2026-10-04 12:08 cron)
+Task: Topaz 手势家族第三刀——denoise→train 交接卡（「Train on this stack」）。开局巡检五绿零 bug，主菜落地途中撞出真引擎暗礁（INPUTS 表拒绝 denoise 提供者），修掉并用引擎自己的诚实失败方言做了 A/B 证明。双路径活体 ALL GREEN ×2。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 562（交接摘要说 554——滞后于现实第 N+18 次兑付）；HEAD 2079b4e、树净；基线五绿（prod 200/2.4ms、tsc 0、eslint 0、AI 探针 ALIVE、console/errors 0 + Dashboard 巡检干净）；active=EMPIAR t372 零漂移。
+- [选道] t562 入口①两候选（judge worker 复核 vs Topaz 第三刀）取后者：手势家族两刀已 PROVEN 有现成家法形可镜像，judge 车道要等 VLM 心情。第三刀的真需求 = spec 自己的话（「the official topaz flow runs denoise → pick/train on the denoised images」）——t559 只做了 pick 半边，train 半边空悬。
+- [设计——一张嘴比前两刀都硬] topaztrain 有两张嘴：micrographs（denoise 输出直接喂，一条干净线）+ coords（手拣坐标 = denoise 阶段根本没有的真新信息）。手势守 mouth 律：coords 嘴必须在铸造前可喂——workspace 内搜 completed manualpick（spec 原话「hand-picked coordinates」把 autopick 排除在合法 coords 源外——在自己预测上训练是循环论证），找不到诚实拒绝。family form B：卡常驻、拒绝走 toast（t558 形），但样式加一层「真相在点击前」：卡上常驻注记，有源时 emerald 点名（`Coordinates will come from "Manual Picking 1"`）、无源时琥珀说明——注记随 store 活体计算，manualpick 完成的一刻无刷新翻面。
+- [store 动作 trainWithDenoisedStack] 家法镜像形：守卫（type+completed）→ coords 嘴预检（同 workspace、completed manualpick、逆序取最新）→ placeRightOf → 铸 topaztrain（训练自己的 dials 全按 spec 默认 200/-6/180/0.2，仅共享旋钮 Downscale/Workers 从 denoise 继承——同栈同尺度；Args 不跨阶段继承 t559 律）→ focusJob → 双 quiet wire（denoise.micrographs→train.micrographs + pick.coords→train.coords）→ toast 点名 coords 源（「honesty through naming」）。
+- [UI 卡 DenoiseTrainHandoff] results-view 的 topazdenoise+completed 段、pick 卡正下方（「pick 卡花今天的干净栈，train 卡长明天的模型」）；GraduationCap 是 topaztrain spec 自己的 icon、rose 家族色；data-canvas-ui="denoise-train-handoff" + data-testid="denoise-train-coords-note"。
+- [撞坑——新功能咬出旧暗礁] 配对图（workflow.ts）一直允许 topazdenoise→[autopick,manualpick,topaztrain]，但引擎 INPUTS 表三张 from 名单只有 [import,motioncorr,ctffind]——合法线在 run 时被引擎以「run Import first」拒之门外。**t559 铸的 pick 和本窗铸的 train 都会在第一次真跑时撞上**——canvas 说的和引擎说的不是一句话，正是 t557「产品新功能是最好的老 bug 探测器」第 N+1 次应验。修复：三张 from 名单补 topazdenoise（extract 有意不加——颗粒必须来自真像素，去噪网络的幻觉不能烤进 stack；注释钉明）。双喂场景由上游 BFS 顺序裁决（第一提供者胜出，inspector 显示 resolved input）。
+- [活体 A/B 证明] 修复的行为面用引擎自己的方言验证：旧表会在 RELION 启动前嘴拒（「run Import first」）；新表让 relion_autopick **真的执行**且 --i 指着 denoised_micrographs.star（随后呛在 mock star 的 optics 表格式上——mock 数据形状问题非接线问题）。断言三条：无嘴拒词、无 waiting 方言、失败文本的命令行正则 `relion_autopick[\s\S]*denoised_micrographs\.star`。
+- [撞坑1——remote 幽灵绑定] S1 造 QA import 时撞「this is a remote project, but its cluster connection was deleted」：EMPIAR 项目的 binding 指向 qa-t372-muro2rn5，该连接早已被前窗清理删掉（**绑定成幽灵留在了项目上——一笔世界卫生债**）。import 的 remote 腿设计上无本地逃生门（「the picked paths live on it」）。修法是借还律：脚本内摘除幽灵键（getProjectMeta 即读盘立竿见影）→ 探针全程 local 车道 → PHASE Z 字节级原样恢复 + process exit 安全网；活绑定则 FATAL exit 3（借活着的绑定不是本探针的职权）。
+- [撞坑2——QA manualpick 的口粮] manualpick native 跑需要 .coord 文件在微图旁（Henderson 形）——世界的 import 指向 /data2（死路径）、motioncorr 指向 mock-cluster fs（死路径），全 host 只有 /home/z/empiar-10017/micrographs 真有 .mrc+.coord 同居。修法：现场铸真 EMPIAR import（native 完成「10 micrographs imported」）→ wire → manualpick 完成「**5539 picks imported from Henderson .coord files**」。
+- [撞坑3——POST 形状三连] POST /api/jobs 与 /api/edges 返 **201** 不是 200（t560「别假设 REST 形状」第 N+1 次）；裸 POST /run 撞 t317 远程绑定派发——`{local:true}` 是面板 ▾ 的显式本车道门。
+- [dance] FRESH=1 两轮磨：attempt 4 GREEN ×2（rc=137 OOM 前三次是磨的常态，腾房律做全）。
+- [清场] about:blank 释放孤儿选中 → DELETE train/manualpick/import（边级联）→ 名册 12 还原、边账 13 还原、幽灵绑定字节级还原、active 复核 EMPIAR、console 0 + 无未对账 4xx/5xx。
+- [未做与理由] judge 判词 worker 复核（AI 车道重活，等真需求——且 inclusive 已满四象限，judge 复核是新维度不是补课）；receipt 卡小打磨（t562 入口②的 ignored 触发活体/1D native 活体，需铸 native select 探针，本窗让位第三刀）；幽灵绑定本身**未修**（它在世界里挂着是 QA 资产状态的一部分，本窗只做借还——若下窗想清债，UI 的 Remote clusters 面板重绑或清键皆可，但要留收据）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「第三刀比前两刀都难，难在第二张嘴」：pick 手势的嘴律是「继承已有的流」，train 手势的嘴律是「承认新信息（人的标签）从别的 job 来」——coords 找不到就该拒绝而不是铸半连线；卡上的注记把拒绝从 toast 之后提到点击之前，UI 不许等用户撞墙才说话
+- 「合法线不等于可跑线」：配对图和引擎 INPUTS 表是两本账，前者的放宽如果不同步后者，canvas 画的就是引擎不认的谎——t559 的 pick 躺了两窗才被第三刀咬出来；手势家族每加一刀都要问：这条线 run 起来过吗
+- 「A/B 证明用引擎自己的方言」：修复不是「测试通过」三个字，是失败文本从「run Import first」变成「relion_autopick --i denoised_micrographs.star …」——引擎的诚实失败本身就是最好的探针，读它比绕过它更有信息量
+- 「借还要分幽灵和活的」：幽灵绑定（指向已删连接）可以借——它本来就是错的；活绑定不能碰——那是用户的数据位置。借还律的判决书要先写清楚什么东西可以被借
+- 产出：DenoiseTrainHandoff 卡（双路径 + 活注记）+ trainWithDenoisedStack（家法形双线）+ 引擎 INPUTS 三表修复 + t563 harness（35 断言×2 连绿，含 A/B 方言证明与幽灵借还）+ 双面截图
+- [下窗入口] ①judge 判词 worker 视角复核（AI 车道）或 receipt 卡小打磨（t562 入口②：ignored 列表触发活体、1D select 收据 native 车道活体）；②Topaz 手势第四刀若有真需求（train→denoise？链上三卡已闭环：denoise→pick、denoise→train、train→pick 互相握手）；③世界卫生：EMPIAR 幽灵绑定 qa-t372-muro2rn5 的清理（清键或重绑，留收据）；④t471 WSL-bridge（照实挂）、t276（门控）
