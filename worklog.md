@@ -7898,3 +7898,26 @@ Stage Summary:
 - 「palette 永不脱靶，但要等 store 点完名」：canvas 点击是掷硬币（off-viewport = 静默 no-op），palette 读 store 永远命中；但 store 靠轮询认识新 mint——600ms 就打字是空枪，「先等 canvas 渲染它（data-job 在场），再让 palette 点名（首项断言），最后 Enter」三拍缺一不可
 - 「影随形不是影随动」：lean 的 translate 骑 motion-safe（运动），shadow answer 骑 hover:hover 却不骑 reduced-motion（paint）——运动与墨的分层教义从 inspector 的门家族长到了 canvas 上；hover ASKS selection ANSWERS 的宽度阶梯（2.9 vs 3.2）让问与答各有各的音量
 - 产出：canvas hover 语法（lean + shadow answer + wire glow @2.9 墨阶梯）+ t571 harness 27/27 ×2 连绿 + 门家族回归 115/115 + 单测 64/64；下窗入口：①judge worker 复核/class3d 判词（VLM 3D 面）仍是最重待办；②样式余量：command palette 入场 stagger、卡影 ladder 的下一 rung？；③功能余量：Topaz 第四刀、3D 体积截面（等真需求）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 572
+Agent: main (Z.ai Code, window 2026-10-04 17:53 cron)
+Task: t571 入口②兑现——palette 入场级联（the palette cascade：目录按你扫读的顺序进场），motion-as-wayfinding 从门与画布长进命令面板。开局巡检五绿零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 571（本链首次零滞后交接——上窗亲手写的条目原样在场）；HEAD f6b39fe、树净；基线五绿（prod 200/3ms、tsc 0、eslint 0、AI 栈上窗已验、active=EMPIAR roster 12）。QA 巡检：canvas 12 卡 13 线、console 干净。派单「Task 13 遗留池」第 N+15 次化石照旧。
+- [选道] judge worker 复核/class3d 判词（VLM 3D 面重活）与 Topaz/3D 截面（等真需求）让位于 t571 留下的样式入口②「palette 入场 stagger」：palette 是 store 的只读窗口（「palette 永不脱靶」t571 实锤），它的组就是目录——开盘级联让目录按扫读顺序进场，是 motion-is-wayfinding 的下一站。
+- [设计——过滤静默] 关键难点不是动画本身而是重启：cmdk 过滤时组走 display:none，CSS 动画在 display 切换回来时会重播——每个按键都重播级联就是噪音不是路标。解法三件套：①组级动画（不碰 item——item 重排更频繁）；②开盘 520ms 后（最后一级 210ms delay + 240ms duration 落定）挂 .palette-motion-settled 解除武装，关闭时翻转复位——「首现即播、过滤静默、每次开盘都是首演」（t570 chip 教义同门）；③空态 [cmdk-empty] 永不武装——它是真 mount/unmount，重播即「答案变了」。输入框永不移动：它是锚，列表向它进场。级联 240ms easeOutQuint（家族方言）+ 35ms 阶梯封顶 210ms，骑 motion-safe。
+- [实现] 两文件：globals.css（palette-group-enter / palette-empty-enter keyframe + 阶梯用 :nth-child(N of [cmdk-group])——separator 是兄弟节点，普通 nth-of-type 会数错）+ command-palette.tsx（cascadeSettled 状态 + 520ms setTimeout 随 open 翻转 + Dialog className 三元拼接，cn 顺路补导）。
+- [dance] 腾房律做全 → FRESH=1 SEMI_MB=8 attempt 1-2 被 OOM 杀（rc=137）attempt 3 GREEN（107s）→ start-prod + watchdog 复位 200。
+- [活体 t572 20/20 ×2 连绿] Face P1: 武装窗口内批量读组（8 组）animation-name/duration/ease/fill/delay 全实锤（0s→0.035s→…→0.175s + 0.21s 封顶）；Face P2: 520ms 后 settled 类落位、8/8 组 animation-name none；Face P3: 过滤静默——组节点打 JS 属性标、「refine」过滤收窄到 3 组、清除后 8/8 同节点幸存（hidden 非 unmount）、0 重播；Face P4: 垃圾查询 [cmdk-empty] 挂载即播（palette-empty-enter @0.2s，settle 后依然）；Face P5: CSSOM 扫描实锤级联规则骑 prefers-reduced-motion: no-preference（inside 1 / outside 0）；Face P6: Escape 重开武装复位（每次开盘都是首演）；R: roster 12→12、console 0。
+- [harness 两坑皆自家化石] ①CSSOM 扫描初版零命中——重蹈 t570 覆辙（CSS Nesting 下叶规则也有 truthy 空 cssRules，truthy-return 永查不到自己的 cssText；「每级都要查 cssText」教训原文就在 worklog 里还是踩了）；②eval 体里的 // 注释被 flatten 吃掉下一行真代码（t567「多行 eval 必死」变体）——注释移出 eval 体即愈。
+- [📸] .qa-logs/shots/t572-cascade-open.png（开盘 250ms：Jobs 组首达，输入锚静止）。
+- [回归] palette 依赖户三连全绿：t569 13/13、t570 27/27、t571 27/27（三个 harness 的开场全走 palette——cascade 加了东西、没坏东西）；单测 t562 64/64；tsc 0；eslint 0。
+- [未做与理由] judge worker 复核/class3d 判词（VLM 3D 面论证重活等真需求）；Topaz 第四刀（链上闭环）；3D 体积截面（等真需求）；卡影 ladder 下一 rung（等真场景）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「级联即目录」：palette 的组序就是扫读序，入场动画按同一顺序展开——motion 在复述信息架构，不是装饰；输入锚静止让级联有参照物，「列表向锚进场」与 t570 的「箭头指向你要去的地方」同一句话的 palette 方言
+- 「重启是 CSS 动画的暗礁」：display:none→block 重播动画——过滤驱动的显隐必须解除武装；「首现即播、过滤静默」不是品味是正确性；空态是例外（真 mount，重播即语义）；这把 reduced-motion 分层教义（变换骑 motion-safe）与显隐生命周期教义（入场骑首次 mount）拼成了完整的 motion 生命周期观
+- 「教训写了还是会踩，所以测试要做」：CSSOM 的 truthy 空 cssRules 与 eval 注释吞噬都是 worklog 里的化石教训重演——好在这次是 harness 咬 harness，两跑全绿前就被抓出来；write it down 的价值不在记住，在下次踩的时候认得出
+- 产出：palette 级联（组阶梯 + 空态 + settle 解除武装 + 重开复位）+ t572 harness 20/20 ×2 连绿（零 mint 史上最轻活体）+ palette 依赖户回归 67/67 + 单测 64/64；下窗入口：①judge worker 复核/class3d 判词（VLM 3D 面）仍是最重待办；②样式余量：dashboard 卡片入场？find bar 的镜头语言？；③功能余量：Topaz 第四刀、3D 体积截面（等真需求）；④t471 WSL-bridge（照实挂）、t276（门控）
