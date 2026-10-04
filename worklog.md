@@ -7730,3 +7730,33 @@ Stage Summary:
 - 「幽灵类不计数，幽灵绑定不派发」：ignored 条款三行代码（L6017）写了两代窗才被真跑触发——[2,99] 进、2932 出、琥珀注记上卡；幽灵绑定清债同日结案，两者的共同点是：引擎/世界一直如实写着状态，缺的是有人把状态读出来。
 - 「腾房要连自动复活的腿一起停」（t562 律第 2 次应验）：watchdog 2 秒复活 prod 会喂 OOM；磨绿后 provenance 是 commit 标签不是代码指纹——lib 改动是否生效以活体断言为准，不以 provenance 为准。
 - 产出：1D class-aware modeKind 修复（lib + 54/54 单测）+ t564a/t564b 双活体（34 断言×2 连绿）+ 幽灵绑定清债（6/6 + 收据）+ 双面截图；下窗入口：①judge 判词 worker 视角复核（AI 车道）或 Topaz 手势第四刀（等真需求）；②receipt 卡远期打磨（1D first-N 活体需无类列 star——extract 世界的 particles.star 即候选，本窗让位双主菜）；③t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 565
+Agent: main (Z.ai Code, window 2026-10-04 13:08 cron)
+Task: t564 入口②兑现——receipt 卡最后一块未亮的面（1D first-N 活体）；主菜 AI 车道新需求：judge 判词戳（verdict stamp）——判词从聊天 ephemera 升格为 job 上的证据。开局巡检五绿零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 564（交接摘要说 554——滞后于现实第 N+20 次兑付）；HEAD fc4b682、树净；基线五绿（prod 200/2.8ms、tsc 0、eslint 0、AI 探针 200、active=EMPIAR t372 零漂移）。
+- [侦察修正——t564 的一个说法错了] t564 说「1D first-N 活体需无类列 star——extract 的 particles.star 即候选」。读盘实锤：extract 的 particles.star **带 _rlnClassNumber #4**（autopick 拾取自带类号），裸接线会再次点亮 class-aware 面。但引擎 ~L5692 `classCol >= 0 && cutoff > 0` 给了第二支路：**classCutoff=0 显式走 first-N**（mode 行原文两支皆备：「no _rlnClassNumber column or classCutoff=0」）。harness 用 params {maxParticles:2500, classCutoff:0} 精确命中。
+- [t565a — first-N 面 22/22 ×2 连绿] 世界门卫 → 铸 1D select（params 落盘验证；POST 响应 params 是对象不是 JSON 串——「别假设 REST 形状」再吃一遍）→ edge extract→select → {local:true} 跑 → 「2500 of 10866 particles selected」裸 result 行 → route 断言（mode 行逐字、modeKind first-n、0 类行、kept/total 精确、无类计数组）→ 卡上 FIRST-N chip + 「no per-class rows」注释行 + 「first 2,500」点名 + 无类 chip → 截图 → console 0 → DELETE 还名册 12→12。**收据家族矩阵满员**：2D auto/birth/inclusive/borderline + 1D class-aware/first-N。
+- [主菜 — AI 判词戳] 缺口实锤：judge_2d_classes 的判词只活在聊天记录里（sessions 是 20 条缓存非档案），reset 即蒸发；t419 的画廊门只管开门不管留痕。设计：判词按 job 落盘 data/ai-verdicts.json（冻结 schema 教义），一 job 一戳、最新胜、upsert 前插、cap 200。纯核 verdict-stamp-core.ts（零 import，node 直跑可测）+ fs 薄壳 verdict-stamps.ts（原子 rename，写戳失败永不 fail 判词本身）。
+- [铁律] 戳是笔记本条目不是引擎输出：footer 点名 model + two-pass 摘要，永不触碰粒子集/selection/params；门口消毒（verdict 枚举门、cls 正整数、reason 240/advice 800 截帽、counts 从验证后的类表重推导——永不信任调用方）；诚实缺席（无戳/挂了渲染 null，不涂红）。
+- [tools.ts 钩子] judge2dClasses 成功且 verdict 非空 → stampVerdict（model=assistant.vlmModel、twoPass= confirm failed→null 的诚实形）；detail 加 stampWritten；try/catch 包裹——判词照常投递，笔记本安静失败。
+- [路由 + 卡] GET /api/jobs/[id]/ai-verdict（isLocalRequest 403 家族形、findEffectiveJob 软链解析、无类型门——戳按 job id 键控，未来 3D 判词免迁移；available:false 带 type-aware note）。卡 ai-verdict-stamp.tsx（violet 家族）：counts chips（keep emerald/maybe amber/reject muted）+ 类 chip 按判词排序（keep→maybe→reject、cls asc——「读者的眼睛走 rubric 的路」）+ advice 220 截断 + footer「asked · model · two-pass: N agreed / single read」；reject 类号划线。挂 results-lazy 桶 own chunk + results-view class2d 门。
+- [单测 21/21] node 直跑真 TS 纯核：消毒门口（垃圾拒收、枚举门、截帽、counts 重推导——调用方撒谎的 counts 被无视）、upsert 一 job 一戳最新前插、cap 尾部丢弃、文件 round-trip、垃圾文本→空笔记本不 500。弯路：trim 测试假设「最旧在前」喂了错序夹具——店由 upsert 保证最新在前，测试错了改测试（t564 律再应验）。
+- [dance ×2] 两次 FRESH=1 磨均 attempt 1 GREEN（104s/102s，腾房律做全：pkill watchdog + 杀 prod + SEMI_MB=8）。第二次为名字车道修复进 bundle。
+- [活体 t565b — 判词戳三轮弧] run1 21/21 全绿：reset → 真 judge 弧（glm VLM 两 pass）→ 戳落盘（counts 1/2 与 summary 逐字一致、5 类行、model 点名、two-pass 3 agreed 2 torn）→ 卡渲染全链路 → console 0 → 名册零漂移（判者是读者不是建造者——零 job 铸造）。
+- [活捉 — AI 的懒惰撞墙] run2 的 fresh 会话里模型跳过 get_workflow_state 直接猜 job_id:"K5" → 工具诚实拒「Job not found: K5」→ 弧死在半路。**产品修复（共享解析器）**：findJobInProject 加名字车道——id → 软链 → 精确名 → 大小写不敏感 contains，均以「恰好一个匹配」为门（歧义拒之门外，诚实律）；judge 的 not-found 摘要加自纠线索（「pass the exact id or unambiguous name — get_workflow_state lists both」）。此修复惠及所有以 job_id 为嘴的工具族。
+- [活捉 — 零 keep 脸] run2 判词恰好 0 keep → 卡诚实不渲染 keep chip → harness 断言 fail——checker 没跟上卡的诚实条件渲染（t564「checker 要跟上引擎的诚实状态」同类）。修断言为形状感知：有 keep 断存在、零 keep 断诚实缺席。
+- [run3 22/22 全绿] LIVE upsert 证明（prevAt 05:46 → newAt 05:48 前进）+ 三轮判词方差全被戳忠实记录（3 agreed/2 torn → 0 keep 脸 → 5 全同意）→ 截图 ×2 → console 0 → 名册 12→12。
+- [边角三断言] 非 class2d 诚实缺席（type-aware note）、跨站 403（加固对）、未知 job 404。
+- [未做与理由] judge 判词的 worker 视角复核（两-pass 之外第三只眼——判词戳落地后其价值需重估，等真需求）；Topaz 第四刀（链上三卡闭环，等真需求）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「判词要活在 job 上，不是聊天里」：t560 让 provenance 从导出 PNG 走到活 UI，t562 让收据从 run.out 走到 Results 页——t565 把同一条律推到 AI 自己的声音上：判词是关于这个 run 的证据，reset 一个聊天面板不该蒸发它；戳的 footer（model、two-pass、asked 日期）让它永远不能冒充引擎输出
+- 「家庭矩阵满员的时刻，先回头查假说」：t564 点名的「无类列候选」被读盘证伪（autopick 拾取自带类号）——但引擎的第二支路（classCutoff=0）让 first-N 面照样点亮，mode 行原文两支皆备；worklog 的说法可以被证伪，引擎原文永远是唯一真源
+- 「AI 的懒惰是最好的 QA」：fresh 会话猜 "K5" 撞墙暴露的是共享解析器的真缺口——名字车道以唯一性为门补上，所有 job_id 工具族受益；工具的诚实拒绝要有自纠线索，否则模型在半路死掉
+- 「checker 也要跟上诚实」：零 keep 判词不渲染 keep chip 是卡的设计不是 bug——断言要形状感知（有则断存在、无则断诚实缺席），三轮判词方差（撕、零、全同意）恰好把三种脸全点亮
+- 产出：receipt 家族矩阵满员（t565a 22/22 ×2）+ AI 判词戳全家（纯核 21/21 单测 + fs 店 + 路由 + violet 卡 + tools 钩子）+ findJobInProject 名字车道 + t565b 22/22 ×2（含 LIVE upsert）+ 三轮判词方差收据 + 5 张截图
+- [下窗入口] ①judge worker 复核重估（判词已落盘，两-pass 已稳——第三只眼的价值要重新论证）或判词戳的家族延伸（class3d/refine3d 的 inspect 车道判词？需要 VLM 3D 面的论证）；②样式面：判词戳与收据卡的联排视觉（一个 job 两张卡时的栏宽/次序打磨）；③t471 WSL-bridge（照实挂）、t276（门控）
