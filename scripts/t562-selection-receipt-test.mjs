@@ -78,12 +78,15 @@ output: /home/z/my-project/data/relion/demo/select2d_y/particles_select2d.star (
 5,000 of 5,000 particles kept · 2/2 classes (manual 2 classes (birth selection) (ignored: 9, 12))
 `;
 
-/* Fixture 4 — engine-spec shape (runSelectNative L5721-5746): the 1D
-   select family — "particles selected" verb, "kept N/M classes" group,
-   and the no-class fallback (first-N). Both result lines. */
+/* Fixture 4 — engine-spec shape (runSelectNative L5741-5755, verbatim
+   template): the 1D select family's TWO mutually exclusive shapes.
+   t562's first draft mixed them (a mode: first-N line WITH class rows);
+   the real engine never writes that — class-aware has NO mode line (the
+   result line's occupancy verdict is the only rule evidence), first-N
+   has the mode line but no class rows. Both pinned as the engine writes
+   them. */
 const SELECT_1D_CLASSES = `CryoFlow engine-native select 2026-10-04T05:30:00.000Z
 input:  /data/extract/particles.star (1200 particles)
-mode: first-N (no _rlnClassNumber column or classCutoff=0)
 class occupancy (count · kept):
   class 1: 800 · kept
   class 2: 400 · PRUNED
@@ -150,16 +153,19 @@ check("ignored [9, 12]", JSON.stringify(b?.ignored) === "[9,12]", JSON.stringify
 check("modeKind still manual", b?.modeKind === "manual");
 check("5000 of 5000 (the birth set covers the input)", b?.kept === 5000 && b?.total === 5000);
 
-console.log("— fixture 4: the 1D select family (selected verb, kept-group, bare)");
+console.log("— fixture 4: the 1D select family (two real shapes, selected verb)");
 const s1 = parseSelectionReceipt(SELECT_1D_CLASSES);
 check("parses", s1 !== null);
 check("verb select (no 2d)", s1?.verb === "select");
-check("modeKind first-n", s1?.modeKind === "first-n");
+check("no mode line → mode stays null", s1?.mode === null);
+check("t564 pin: result line's occupancy verdict → modeKind auto", s1?.modeKind === "auto", s1?.modeKind);
 check("800 of 1200", s1?.kept === 800 && s1?.total === 1200);
 check("'kept 1/2 classes' group read", s1?.keptClasses === 1 && s1?.totalClasses === 2);
 check("two classes", s1?.classes.length === 2);
 const s2 = parseSelectionReceipt(SELECT_1D_BARE);
 check("bare result parses", s2 !== null);
+check("mode line quoted", s2?.mode === "first-N (no _rlnClassNumber column or classCutoff=0)");
+check("first-N kind", s2?.modeKind === "first-n");
 check("kept 500 / no class group → nulls", s2?.kept === 500 && s2?.keptClasses === null && s2?.totalClasses === null);
 check("no classes rows → empty list", s2?.classes.length === 0);
 

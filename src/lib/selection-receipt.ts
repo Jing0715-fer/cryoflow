@@ -175,6 +175,20 @@ export function parseSelectionReceipt(logText: string): SelectionReceipt | null 
   // torn write guard: a receipt without its result line is not a receipt
   if (kept == null || total == null) return null;
 
+  // The 1D class-aware receipt has NO mode line (runSelectNative only
+  // writes one for the first-N fallback) — but its result line carries
+  // the deciding rule verbatim: "(occupancy ≥ 0.5× best)". That verdict
+  // is engine-written evidence of WHAT decided the keep set, so the
+  // card's chip should read "occupancy rule", not a grey "selection".
+  // Derive modeKind from it; the mode STRING stays null (honest: there
+  // is no mode line to quote).
+  let kind: SelectionModeKind = mode ? modeKindOf(mode) : "unknown";
+  if (!mode && resultM) {
+    const lineEnd = block.indexOf("\n", resultM.index);
+    const resultLine = block.slice(resultM.index, lineEnd < 0 ? undefined : lineEnd);
+    if (/\(occupancy ≥ [\d.]+×\s*best\)/.test(resultLine)) kind = "auto";
+  }
+
   return {
     verb: head.verb,
     ranAt: ranAtMs != null ? head.stamp : null,
@@ -183,7 +197,7 @@ export function parseSelectionReceipt(logText: string): SelectionReceipt | null 
     inputParticles,
     outputParticles,
     mode,
-    modeKind: mode ? modeKindOf(mode) : "unknown",
+    modeKind: kind,
     birth: mode ? /birth selection/.test(mode) : false,
     ignored: mode ? ignoredOf(mode) : [],
     kept,
