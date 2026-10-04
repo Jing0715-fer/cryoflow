@@ -276,7 +276,10 @@ async function main() {
 }
 
 function writeReport() {
-  const out = path.join(OUT_DIR, "t554-gamble-live-fire-report.json");
+  // CF_REPORT_NAME — a rerun of this harness for a different quadrant
+  // writes its own report (t555's inclusive-quadrant run), never the
+  // t554 borderline artifact.
+  const out = path.join(OUT_DIR, process.env.CF_REPORT_NAME ?? "t554-gamble-live-fire-report.json");
   writeFileSync(out, JSON.stringify(REPORT, null, 2));
   console.log(`report: ${out}`);
 }
