@@ -255,14 +255,22 @@ export function AiVerdictStamp({
                 onClick={() => void useWorkflowStore.getState().openJob(viaJobId)}
                 title={`This opinion was given about the parent class2d run "${viaJobName}" — click to open its tab`}
                 className={cn(
-                  "inline-flex items-center gap-0.5 rounded px-0.5 -mx-0.5 text-left transition-colors",
+                  // t570 — same motion dialect as the receipt's door: the
+                  // dotted underline fades in/out symmetrically (ink
+                  // transparent → current, a color fade), the ArrowUpRight
+                  // leans up-right on hover (motion as wayfinding), and
+                  // every transform rides motion-safe.
+                  "group inline-flex items-center gap-0.5 rounded px-0.5 -mx-0.5 text-left transition-colors",
                   "hover:bg-violet-600/10 hover:text-violet-700 dark:hover:text-violet-300",
-                  "hover:underline underline-offset-2 decoration-dotted",
+                  "underline underline-offset-2 decoration-dotted decoration-transparent hover:decoration-current",
                   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 )}
               >
                 verdict on {viaJobName}
-                <ArrowUpRight className="h-2.5 w-2.5 shrink-0 opacity-60" aria-hidden="true" />
+                <ArrowUpRight
+                  className="h-2.5 w-2.5 shrink-0 opacity-60 transition-[opacity,transform] duration-200 ease-out group-hover:opacity-100 motion-safe:group-hover:translate-x-px motion-safe:group-hover:-translate-y-px"
+                  aria-hidden="true"
+                />
               </button>
             ) : (
               <span

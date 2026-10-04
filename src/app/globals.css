@@ -447,6 +447,37 @@
   }
 }
 
+/* Door-family wayfinding entrance (t570) — the inspector return chip
+   doesn't just pop into the identity row after a door landing: it walks
+   in FROM where you came (a 6px slide from the left, the exact direction
+   its own ArrowLeft points). Motion as wayfinding, not decoration: the
+   entrance restates the chip's answer to "刚从哪来" before you read a
+   word. 220ms easeOutQuint — enough to be seen, never enough to stall
+   the header it lands in. The fill mode is `both` so a mid-swap paint
+   never flashes the unpositioned chip. prefers-reduced-motion: the chip
+   appears at rest (presence alone still informs — the same honesty the
+   ws-running chip practices above). */
+@keyframes inspector-chip-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.inspector-chip-enter {
+  animation: inspector-chip-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inspector-chip-enter {
+    animation: none;
+  }
+}
+
 /* ============================================================
    Custom scrollbars
    ============================================================ */

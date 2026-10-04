@@ -2637,13 +2637,25 @@ function InspectorHeader({
                 onClick={() => void goBackFromInspector()}
                 title={`You came here from "${cameFrom.name}" — click to go back`}
                 className={cn(
-                  "inline-flex max-w-[16rem] items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                  "border-border/60 bg-muted/40 text-muted-foreground transition-colors",
+                  // t570 — motion as wayfinding: the chip walks in from the
+                  // left (the direction its own arrow points) after a door
+                  // landing, the arrow leans further back on hover (where
+                  // you'd GO), and a press settles the pill 3% down — a
+                  // physical button, not a painted one. Transforms are
+                  // motion, so every transform nudge rides motion-safe;
+                  // color fades stay unguarded (the house reads fades as
+                  // color, not movement).
+                  "inspector-chip-enter group inline-flex max-w-[16rem] items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                  "border-border/60 bg-muted/40 text-muted-foreground transition-all duration-150",
                   "hover:border-foreground/20 hover:bg-muted hover:text-foreground",
+                  "motion-safe:active:scale-[0.97]",
                   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 )}
               >
-                <ArrowLeft className="size-2.5 shrink-0" aria-hidden="true" />
+                <ArrowLeft
+                  className="size-2.5 shrink-0 transition-transform duration-200 ease-out motion-safe:group-hover:-translate-x-px"
+                  aria-hidden="true"
+                />
                 <span className="truncate">back to {cameFrom.name}</span>
               </button>
             )}

@@ -277,14 +277,25 @@ export function SelectionReceipt({
                   : `Source run the selection rode — click to open "${fromName}"`
               }
               className={cn(
-                "inline-flex items-center gap-0.5 rounded px-0.5 -mx-0.5 text-left transition-colors",
+                // t570 — the door learns to move: the dotted underline no
+                // longer pops, it FADES in and out symmetrically (the line
+                // is always laid, its ink travels transparent → current —
+                // a pure color fade, reduced-motion safe by nature), and
+                // the ArrowUpRight leans up-right on hover: the arrow
+                // points where you'd GO, motion as wayfinding. The nudge
+                // is a transform, so it rides motion-safe; the fade and
+                // tint stay unguarded (fades are color, not movement).
+                "group inline-flex items-center gap-0.5 rounded px-0.5 -mx-0.5 text-left transition-colors",
                 "hover:bg-emerald-600/10 hover:text-emerald-700 dark:hover:text-emerald-300",
-                "hover:underline underline-offset-2 decoration-dotted",
+                "underline underline-offset-2 decoration-dotted decoration-transparent hover:decoration-current",
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               )}
             >
               from {fromName}
-              <ArrowUpRight className="h-2.5 w-2.5 shrink-0 opacity-60" aria-hidden="true" />
+              <ArrowUpRight
+                className="h-2.5 w-2.5 shrink-0 opacity-60 transition-[opacity,transform] duration-200 ease-out group-hover:opacity-100 motion-safe:group-hover:translate-x-px motion-safe:group-hover:-translate-y-px"
+                aria-hidden="true"
+              />
             </button>
           ) : (
             <span title={provenance?.kind === "birth" ? "The selection came baked at birth (AI select_classes or a gallery gesture)" : "Source run the selection rode"}>
