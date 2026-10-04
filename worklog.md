@@ -8143,3 +8143,25 @@ Stage Summary:
 - 「计算样式读数要有 settle 纪律」：React 重挂载会把 transition 重置到 t=0（透明零），固定 sleep 是 prod 时代假设——poll-until-geometry 才是对 reactive 世界诚实的量法。t576「dev 分级挂载」教义的第五例
 - 「手动考古要防浏览器顶包」：探针 Chrome 死后 agent-browser eval 自启默认 Chrome 顶上——你量到的「翻转为 hover:none」其实是换了个浏览器。工具的静默降级会污染证据链，关键实验要单次调用内闭环（forensics 脚本模式）
 - 产出：the whisper（globals.css + job-inspector 四面 + results-view KeyNumbersStrip，共 7 卡面入伙、Note editor 明确除外）+ t580 活体 28/29（cascade-witnessed 降级链 + 三级 Escape 兜底）+ t580-cascade-forensics（级联枚举定谳脚本）+ 单测 113 断言回归；下窗入口：①build 日 = FRESH gate → prod → t580 全绿复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体；②ink token 化（ladder 词表 + 管线免疫）；③judge 风暴活体半场；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 581 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 04:23 cron, Task 572 第 4 次派单)
+Task: t580 入口②兑现——ink token 化：卡影 ladder 从数值巧合升格为真词表（--ink-04/06/09/10/14/18），served 声明管线免疫三段证据链定谳；途中五课（谓词恒真、模板字面量吃 regex、孤儿 chrome 占港、watchdog 裸 nohup 死、陈旧检查模式假阴性）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 580（交接摘要说 571——滞后第 N+34 次兑付）；HEAD 4f67df8、树净；dev regime 五绿（200/36ms、tsc 0 全量、eslint 0、AI 信封 {sessionId,events,needsContinue}、active=EMPIAR jobs 12 roster 6 项目）；available 1201MB < 3.5GB → 非 build 日；派单「Task 13 遗留池」第 N+24 次化石（t574 已葬）。
+- [选道] t580 入口②「ink token 化（ladder 词表 + 管线免疫）」；入口③「图瘦身」上窗已验尸为化石（t391 results-lazy barrel）——入口收敛干净。
+- [产品——ink token] 全量盘点 globals.css 的 inline color-mix：前景墨 14 档（4/5/6/9/10/12/14/16/18/20/22/24/28/40）+ teal-glow 家族 + primary/srgb 脉冲环。t580 点名的六档 ladder 词表落成 --ink-04/06/09/10/14/18：rest 6/10（.card-lift + run-glow 环境墨×3）、ask 6/14（.card-hover-lean/.dash-card-hover）、commit 6/18（.card-lift-lg）、whisper 4/9（.insp-card-whisper）——12 处声明全部改引 var()。token 与主题定义同域共置（:root + .dark 两份，--teal-glow L713 先例）：自定义属性里的 var() 在声明元素上解析后代际继承，单 :root 声明会在 <html> 以下的 dark scope 烘焙 light 墨。TSX 侧 color-mix（edges-layer 的 stroke 常量、swipe-sheet 的 inline gradient）是运行时字符串不过 CSS 管线，不在火场。grid（5/12/16）、scrollbar（20-40）、teal、primary、srgb 家族照实留作未来 rung（一窗一面）。
+- [管线免疫——三段证据链] ①首查 served CSS：无 var() 引用且 token 定义被双形化（fallback 不透明 var(--foreground) + @supports color-mix 真值）——疑「管线内联」，顺手重启 dev；②vanilla lightningcss 五案实验（同表字面量/使用点 fallback/@property 注册/间接 var/十六进制）全不内联、不拆分——内联者另有其人，嫌疑转向应用真实管线；③用 @tailwindcss/postcss 原链重跑同案：.x 声明 var(--ink-06) 逐字存活于顶层零拆分——token 策略本身成立，served2 的「内联」是重启后取早的陈旧混合（dev chunk 名跨编译稳定，取早了读到旧字节）；④served3（干净重启后）定谳：五 ladder 规则 + run-glow keyframes 双帧全部 verbatim、零 @supports 包裹、定义双形序正确（fallback 先 truth 后，:root/.dark 各一份）。注释初版「老浏览器 box-shadow falls back to NONE」被实证纠错：管线对定义本身也双形，老浏览器拿 opaque fallback → 与 token 化前的 blob 行为完全一致——收益是声明免疫 + --ink-XX 成为真运行时 API，不是老浏览器改善，注释照实改写。
+- [t581 witness 43/43] F1 五规则 verbatim 且 outside @supports；F2 旧 inline 签名 served 清零；F3 六 token × fallback/truth × :root/.dark 双域 + truth-after-fallback 序；F4 keyframes var(--ink-10) ×3（rest 层 + 双帧）；F5 源侧 12 引用（剥注释计数——教义注释里的 var(--ink-14) 提及会假阳性 13）；R1 注入探针 .card-lift computed 解析为双层 0.06/0.1 逐位（token 真解析——「声明 verbatim 但死 token」的场景被排除）；R2 元素级覆写 --ink-10 流入 computed shadow（真 API 非 dead definition）。
+- [回归] t571 28/28（canvas hover 面——产品改动零位移最强见证）+ t580 29/29（比上窗 best 28/29 多救回 Escape flaky——三级兜底链立功）+ 单测 113（t562 64 + t573 11 + t574 16 + t575 22）+ tsc 0 全量 + eslint 0（src + 新脚本）；roster 12→12、console 双净、零世界污染。
+- [途中五课] ①dev watcher 丢事件（8.5h 老进程 touch 无效）→ controlled recycle；裸 nohup relaunch 的 watchdog 被 reaper 连树带走（boot 日志后无下文、进程表全空），dev-server.sh 自家 ensure_watchdog 的 setsid 形态才是活的——「脚本头部注释给的命令，要用脚本自家生效的形态跑」；②pollUntil 谓词返回裸对象 {cards:0} 恒真——守卫「成功」于 t≈0、150s 预算从未运行，而三次复刻诊断 8s 出 12 卡逼出真相：谓词必须是断言（cards > 0）不是数据（t571 hydration 守卫家法的变体第 N 例）；③模板字面量吃 regex 反斜杠：\/ 变 / 产生 // 注释炸弹吞掉 IIFE 后半（readJson 得 null）——t579 flatten 教义深一层，修法是 DOM 侧只取字符串、解析全回 Node；④timeout 杀 harness 留孤儿 chrome 占 9324 港，下一跑连上僵尸 CDP 挂死 applyShim（t580 教义「杀 harness 前先看它铸了什么」浏览器版第二例）——pkill 端口 + rm profile 清场后 29/29；⑤「served 陈旧」的检查模式错位：rg var\(--ink- 对定义（--ink-10: 不带 var( 前缀）不匹配，stale 判定要先确认检查模式本身能匹配新形态。
+- [未做与理由] 其余墨家族 token 化（grid/scrollbar/teal/primary/srgb——一窗一面；teal 动画内部双形拆分注意逐帧一致性）；judge 风暴活体半场（等世界稳定夜）；build 日全家桶（t576 27-face 首跑 + t569/t570/t572 prod 复核 + t573/t574/t575 活体——等箱体 ≥3.5GB）；in-place census 的 mapLocalToRemote verbatim 回退（照实注记，动它先过 t387 语法）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「token 是词表，免疫要实证」：源侧引 var() 不等于 served 侧免疫——管线对自定义属性「定义」做双形、对引用它们的「声明」却放行 verbatim，这个不对称只有干净重启后的 served3 才能定谳。三段证据链每段都推翻前段（vanilla lightningcss 无辜 → 真实管线无辜 → 陈旧混合背锅）——怀疑要轮转，结论要轮流当被告
+- 「谓词是断言，不是数据」：{cards:0} 是对象、对象永远 truthy——pollUntil 拿到它就「成功」，150s 预算形同虚设。「等到」与「看到」的差别就是断言型谓词与数据型谓词的差别；三次环境诊断都对、脚本三次都错时，怀疑要回到自己的守卫逻辑
+- 「传输层在每一层改写源码」：// 注释被拍平吃掉（t579）、regex 反斜杠被模板字面量吃掉（t581）——IIFE 过境的每一层（模板字面量 → flatten → eval）都有自己的嘴。最安全的 IIFE 是纯赋值：DOM 侧只取字符串，一切解析回 Node
+- 「杀 harness 要清港口」：node 死了 chrome 不死，僵尸占着 CDP 端口，下一个 harness 连上的是它的鬼魂——挂死的 shim 不是 shim 的错。清场三件：pkill 端口、rm profile、再跑
+- 产出：ink ladder 六档 token（:root+.dark 双域共置、教义注释随行）+ 12 声明转正 + t581 witness 43/43 + t581-inklab/t581-inklab-postcss（机制定谳双见证）+ 回归全绿；下窗入口：①build 日 = FRESH gate → prod 全家桶（t580/t571/t578 复核 + t576 27-face 首跑 + t573/t574/t575 活体）；②ink ladder 下一 rung：其余墨家族 token 化（teal 动画逐帧一致性）；③find bar chip 级联微表情（t578 入口②余量）；④judge 风暴活体半场；⑤t471 WSL-bridge（照实挂）、t276（门控）
