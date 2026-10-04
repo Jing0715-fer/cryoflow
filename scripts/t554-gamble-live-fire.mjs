@@ -187,6 +187,16 @@ async function main() {
   const zeroKeep = keep.length === 0;
   const gambleSet = zeroKeep ? [...maybe] : [...new Set([...keep, ...maybe])].sort((a, b) => a - b);
   REPORT.gamble = { quadrant: zeroKeep ? "borderline" : "inclusive", set: gambleSet };
+  // CF_QUADRANT — target a specific face (t561): the judge's boundary is
+  // honest variance (t552b: F1 0-keep, F2/F3 keep=[5]); rerolling is the
+  // legitimate way to reach the unvisited quadrant, and a wrong-face run
+  // must NOT fire T2 (no select, no cleanup debt — exit before the offer)
+  const wantQuadrant = process.env.CF_QUADRANT ?? null;
+  if (wantQuadrant && (zeroKeep ? "borderline" : "inclusive") !== wantQuadrant) {
+    console.log(`    face is ${zeroKeep ? "borderline" : "inclusive"} — CF_QUADRANT=${wantQuadrant} wants otherwise; reroll for a fresh judge mood`);
+    writeReport();
+    process.exit(3);
+  }
   if (gambleSet.length === 0) {
     check("gamble face exists this round", false, "0 keep / 0 maybe — no gamble to fire; rerun when the judge sees a maybe");
     writeReport();

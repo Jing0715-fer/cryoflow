@@ -337,8 +337,12 @@ const v0 = violetInFooter(img0);
 must(v0 === 0, `A0: fresh block, provenance null — footer has NO violet (got ${v0})`);
 
 // A1 — ⌖ jump: the camera swings face-on; the dialogue rides the footer
+// AND the live UI now speaks it (t561: the violet chip beside the sliders)
 await page.locator('[data-canvas-ui="ortho-oblique-jump"]').click();
 await sleep(500);
+const chip1 = page.locator('[data-canvas-ui="ortho-oblique-prov"]');
+must(await chip1.isVisible().catch(() => false) && (await chip1.textContent().catch(() => "")).includes("⌖"),
+  `A1: the live chip speaks the jump ("${(await chip1.textContent().catch(() => "")).trim()}")`);
 const img1 = await exportFooter("a1-jump");
 const v1 = violetInFooter(img1);
 must(v1 > 0, `A1: after ⌖ jump the footer speaks the provenance (violet px ${v1})`);
@@ -349,6 +353,8 @@ await thetaThumb.scrollIntoViewIfNeeded().catch(() => {});
 await thetaThumb.focus();
 await page.keyboard.press("ArrowRight"); // step 5 — ANY scrub voids
 await sleep(400);
+must(!(await page.locator('[data-canvas-ui="ortho-oblique-prov"]').isVisible().catch(() => false)),
+  "A2: the scrub revokes the live chip too (gone from the sliders)");
 const img2 = await exportFooter("a2-scrub");
 const v2 = violetInFooter(img2);
 must(v2 === 0, `A2: after the θ scrub the footer is silent again (violet px ${v2})`);
@@ -364,6 +370,10 @@ const thNow = await thetaThumb.getAttribute("aria-valuenow");
 const phiThumb = page.getByRole("slider", { name: "Azimuth angle of the plane normal" }).first();
 const phNow = await phiThumb.getAttribute("aria-valuenow");
 must(thNow === "45" && phNow === "45", `A3: the adopt landed θ${thNow}·φ${phNow} (expected 45·45)`);
+const chip3 = page.locator('[data-canvas-ui="ortho-oblique-prov"]');
+const chip3Text = (await chip3.textContent().catch(() => "")).trim();
+must((await chip3.isVisible().catch(() => false)) && chip3Text.includes("⤸") && chip3Text.includes("45°·45°"),
+  `A3: the live chip speaks the adopt ("${chip3Text}")`);
 const img3 = await exportFooter("a3-adopt");
 const v3 = violetInFooter(img3);
 must(v3 > 0, `A3: after ⤸ adopt the footer speaks again (violet px ${v3})`);
@@ -374,6 +384,8 @@ await sleep(400);
 const thR = await thetaThumb.getAttribute("aria-valuenow");
 const phR = await phiThumb.getAttribute("aria-valuenow");
 must(thR === "0" && phR === "0", `A4: the reset returns the plane (θ${thR}·φ${phR})`);
+must(!(await page.locator('[data-canvas-ui="ortho-oblique-prov"]').isVisible().catch(() => false)),
+  "A4: the reset revokes the live chip (gone)");
 const img4 = await exportFooter("a4-reset");
 const v4 = violetInFooter(img4);
 must(v4 === 0, `A4: after the reset the footer is silent (violet px ${v4})`);
