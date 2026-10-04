@@ -1009,6 +1009,38 @@ export function WorkflowCanvas() {
   // the "no matches" honestly instead).
   const findLens = findMatchIds != null && findMatchIds.size > 0;
 
+  // Task 579 — the ripple: matches answer in READING ORDER. The lens
+  // counts over the same workspace-ordered list the canvas renders (the
+  // memo above); the halo wave takes its beat from that same order —
+  // index × 24ms, capped at 12 steps so a wide match set is a snap, not
+  // a slow parade. Only NEWLY-matched cards ignite (persisting matches
+  // keep their settled ring — refining the query must not re-strobe the
+  // whole lens); a null prev means the lens just OPENED, and the full
+  // set replays — re-entrance is re-arrival, the t572 law. useEffect +
+  // ref (not a render-time memo) so Strict Mode's double render can't
+  // consume the diff twice.
+  const prevFindMatchRef = React.useRef<Set<string> | null>(null);
+  const [findFlash, setFindFlash] = React.useState<Map<string, number> | null>(null);
+  React.useEffect(() => {
+    if (findMatchIds == null || findMatchIds.size === 0) {
+      prevFindMatchRef.current = findMatchIds ?? null;
+      setFindFlash((f) => (f == null ? f : null));
+      return;
+    }
+    const prev = prevFindMatchRef.current;
+    prevFindMatchRef.current = findMatchIds;
+    const flash = new Map<string, number>();
+    let step = 0;
+    for (const j of jobs) {
+      if (!findMatchIds.has(j.id)) continue;
+      if ((prev == null || !prev.has(j.id)) && step <= 12) {
+        flash.set(j.id, Math.min(step, 12) * 24);
+      }
+      step++;
+    }
+    setFindFlash((f) => (flash.size === 0 ? (f == null ? f : null) : flash));
+  }, [findMatchIds, jobs]);
+
   // history panel (local open state — the panel is a transient surface,
   // not a persisted preference)
   const [historyOpen, setHistoryOpen] = React.useState(false);
@@ -1995,6 +2027,7 @@ export function WorkflowCanvas() {
               }
               spotlightContext={noteSpotlight && !hasJudgment(job) && contextIds.has(job.id)}
               findMatch={findLens && findMatchIds!.has(job.id)}
+              findFlashDelay={findFlash?.get(job.id)}
               selected={selectedIds.includes(job.id)}
               primary={selectedId === job.id}
               bandMatch={bandIds?.has(job.id) ?? false}

@@ -883,6 +883,13 @@ interface JobCardProps {
    *  — those are stronger intents, and the count chip still tells the
    *  user the card matched. */
   findMatch?: boolean;
+  /** Task 579 — the ripple slot. When the lens LANDS on new matches, the
+   *  canvas hands each newly-matched card its reading-order delay (ms);
+   *  the card's ::after halo ignites at that slot (fill-mode none keeps
+   *  the halo invisible until its turn — an ignite wave, not a decay
+   *  wave). Persisting matches get NO delay (no re-flash on refine);
+   *  undefined means "not a flash card this pass". */
+  findFlashDelay?: number;
   /** Pending connection source ({jobId, port}) or null. */
   pendingFrom: PendingFrom | null;
   /** Type key of the pending source job (for port compatibility pulses). */
@@ -1429,6 +1436,7 @@ function jobCardPropsEqual(a: JobCardProps, b: JobCardProps): boolean {
     a.primary !== b.primary ||
     a.bandMatch !== b.bandMatch ||
     a.findMatch !== b.findMatch ||
+    a.findFlashDelay !== b.findFlashDelay ||
     a.isReady !== b.isReady ||
     a.inspected !== b.inspected ||
     a.onSelect !== b.onSelect ||
@@ -1460,6 +1468,7 @@ export const JobCard = React.memo(function JobCard({
   primary,
   bandMatch,
   findMatch,
+  findFlashDelay,
   pendingFrom,
   pendingFromType,
   isReady,
@@ -1990,6 +1999,7 @@ export const JobCard = React.memo(function JobCard({
       <div
         data-job={job.id}
         data-find-match={findMatch ? "true" : undefined}
+        data-find-ring-flash={findFlashDelay != null ? "" : undefined}
         data-spotlight-context={spotlightContext && !dimmed ? "true" : undefined}
         className={cn(
           "absolute",
@@ -2002,7 +2012,10 @@ export const JobCard = React.memo(function JobCard({
           width: CARD_W,
           height: CARD_H,
           zIndex: selected || bandMatch ? 30 : findMatch ? 25 : dragging ? 20 : 10,
-        }}
+          ...(findFlashDelay != null
+            ? { "--find-ring-d": `${findFlashDelay}ms` }
+            : null),
+        } as React.CSSProperties}
       >
         {/* Task 124 — arrival flash: keyed by focusEpoch so each reveal
             re-triggers the animation; pointer-events-none keeps it pure

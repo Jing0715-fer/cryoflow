@@ -473,6 +473,45 @@
   [data-find-tick] {
     animation: find-tick 480ms ease-out;
   }
+  /* Task 579 — the ripple: the count answers, then the matches answer in
+     reading order. Each newly-matched card gets a halo overlay (::after on
+     the [data-job] host) that ignites at its wave slot — index × 24ms,
+     capped at 12 steps (a wide match set is a snap, not a slow parade).
+     fill-mode stays `none` so the halo is INVISIBLE during its delay and
+     at rest: an ignite wave (dark → lit → settled), not a decay wave —
+     the settled amber ring underneath is the truth the flash hands off
+     to, the same hue the count chip ticks in and the ring rides. The
+     flash fires only when data-find-ring-flash APPEARS (newly matched;
+     persisting matches never re-strobe) and disappears without an exit
+     ritual ("return is not an arrival", the t578 law). Whole block rides
+     prefers-reduced-motion: no-preference like the cascade above — a
+     reduced-motion lens gets instant static rings, no overlay at all. */
+  [data-find-ring-flash]::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 16px;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow:
+      0 0 0 3px oklch(0.769 0.188 70.08 / 0.55),
+      0 0 22px 6px oklch(0.769 0.188 70.08 / 0.35);
+  }
+  @keyframes find-ring-flash {
+    0% {
+      opacity: 0;
+    }
+    25% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  [data-find-ring-flash]::after {
+    animation: find-ring-flash 620ms ease-out;
+    animation-delay: var(--find-ring-d, 0ms);
+  }
 }
 
 /* ============================================================
