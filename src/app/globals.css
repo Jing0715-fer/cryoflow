@@ -318,6 +318,32 @@
   }
 }
 
+/* t580 — the shadow ladder's third rung: the modal whisper. The inspector
+   is a .card-lift-lg world (18% committed elevation); a full 14% answer
+   from the cards INSIDE it would fight the dialog's own height and read
+   as a second spotlight. So the modal's quiet panels whisper — 4%/9%,
+   one register below the canvas/dashboard answer — a depth cue within
+   the dialog's plane, not a competing elevation. The other half of the
+   grammar: nothing inside a modal ever leans. The dialog's own arrival
+   WAS the motion event; contents rising to the hand would promise clicks
+   these informational panels don't own (the ladder's kind-split, t576,
+   taken one surface deeper — display cards answer shadow only, and here
+   they don't even host buttons). The Note editor keeps its own focus
+   language and never joins the whisper. One ink scale, one clock: 200ms,
+   the house timing. Paint-only, hover-capable pointers only — the house
+   doctrine silences movement, never ink, and a touch tap never leaves
+   ink floating (idiom since Task 174/176). */
+.insp-card-whisper {
+  transition: box-shadow 200ms ease;
+}
+@media (hover: hover) {
+  .insp-card-whisper:hover {
+    box-shadow:
+      0 1px 2px color-mix(in oklch, var(--foreground) 4%, transparent),
+      0 6px 14px -5px color-mix(in oklch, var(--foreground) 9%, transparent);
+  }
+}
+
 /* t572 — the palette cascade. The command palette is the store's read
    window ("the palette never misses" — t571), and its groups are the
    table of contents: on open they arrive TOP TO BOTTOM in the order

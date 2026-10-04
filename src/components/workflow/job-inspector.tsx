@@ -1405,7 +1405,7 @@ function ParamsGrid({ job }: { job: JobDTO }) {
         <div
           key={g.tab}
           data-print-atomic=""
-          className="overflow-hidden rounded-xl border bg-card"
+          className="insp-card-whisper overflow-hidden rounded-xl border bg-card"
           data-testid={`inspector-params-${g.tab}`}
         >
           <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2">
@@ -1472,7 +1472,7 @@ function OutputsSummary({ files }: { files: OutputFile[] }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {items.map(({ kind, label, icon: Icon, color }) => (
-        <div key={kind} data-print-atomic="" className="flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5">
+        <div key={kind} data-print-atomic="" className="insp-card-whisper flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5">
           <Icon className={cn("size-4 shrink-0", color)} aria-hidden="true" />
           <div className="min-w-0">
             <p className="text-lg font-semibold leading-none tabular-nums text-foreground/90">
@@ -1754,7 +1754,7 @@ function ReceiptCountStrip({ counts }: { counts: ResultCounts }) {
       className="flex flex-wrap gap-2"
     >
       {stats.map((s) => (
-        <div key={s.key} data-stat={s.key} className="min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5">
+        <div key={s.key} data-stat={s.key} className="insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5">
           <p className={cn("text-xl font-bold leading-tight tabular-nums", s.tone)}>{s.value}</p>
           <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{s.label}</p>
         </div>
@@ -1899,7 +1899,7 @@ function OverviewTab({
         <TopazTrainingChart jobId={job.id} running={job.status === "running"} />
       ) : null}
       <Section icon={Activity} title="Timeline">
-        <div data-print-atomic="" className="rounded-xl border bg-card p-5 pt-4">
+        <div data-print-atomic="" className="insp-card-whisper rounded-xl border bg-card p-5 pt-4">
           <Timeline job={job} />
         </div>
       </Section>

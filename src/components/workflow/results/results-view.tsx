@@ -2325,7 +2325,7 @@ export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
         <div
           key={s.key}
           data-stat={s.key}
-          className="min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5"
+          className="insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5"
           title={s.hint}
         >
           <p
