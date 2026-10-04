@@ -295,7 +295,7 @@ try {
       await sleep(1500);
     }
   } catch { /* best effort — the cluster side still holds it */ }
-  try { browser && (await browser.close()); } catch { /* gone */ }
+  try { await browser?.close(); } catch { /* gone */ }
 }
 
 console.log(fail === 0 ? "\nALL PASS" : `\n${fail} FAIL`);
