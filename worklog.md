@@ -7875,3 +7875,26 @@ Stage Summary:
 - 「变换是运动，淡入是颜色」：reduced-motion 的分层不是一刀切——transform/animation 骑 motion-safe，色彩过渡（含 text-decoration-color 墨色淡入）天然安全不设防；dotted underline 的对称淡入淡出证明「常铺线 + 透明墨」比「hover 才画线」更优雅也更可动画
 - 「emulation 态顶掉真实能力位」：让无头浏览器说桌面真话的 trick 是启动旗标（--blink-settings 桌面 hover/pointer 位），而非运行时 Emulation 调用——CDP 的 setEmulatedMedia/setTouchEmulationEnabled 一旦执行就以 emulation 态为真；测试环境学：能力位在出生时设定，事后修补只会说谎
 - 产出：门家族 motion 方言（chip 入场 keyframe + 双门 underline 淡入 + 双箭头微移 + chip 按压）+ t570 harness 27/27 ×2 连绿（计算样式级断言）+ 门家族回归 88/88 + 单测 64/64 + 只读 CDP 验证器脚本；下窗入口：①t566 入口①重估（judge worker 复核/class3d 判词——VLM 3D 面）仍是最重待办；②样式余量：canvas 卡片 hover 的 micro-lift？command palette 的入场 stagger？；③功能余量：Topaz 第四刀、3D 体积截面（等真需求）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 571
+Agent: main (Z.ai Code, window 2026-10-04 17:28 cron)
+Task: t570 入口②兑现——canvas 的 hover 语法（the canvas answers hover：card lean + wire glow），接手上一窗死亡遗产并收官。开局即考古。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 570；但 HEAD 8e64d7f 是 UUID-cron 自动打包提交（未推送）——打开一看是 Task 571 的 WIP：canvas hover lean + hover 通道点亮邻线（job-card/canvas/edges-layer/globals.css + t571 harness ×2，文件 mtime 16:43-16:56 +08），worklog 零字。上一窗死于收官前，infra 在本窗启动瞬间把树打包成 cron 提交（腾树行为）。交接摘要说 Task 567——滞后于现实第 N+25 次兑付。基线：prod 200、roster 12、active=EMPIAR。
+- [考古——虚惊一场的「损坏」] diff 输出里 `const overedJobId, setHoveredJobId]`（`[h` 两字符失踪）疑似语法错误，但全量 tsc（--incremental false）rc=0 零输出、且 t570 窗构建绿过同一行的父版本——字符码验证（0x5b 0x68 = `[h` 在场）实锤文件健康，是本窗输出管道的 ANSI 消毒层在吃 `[h` 序列。教训：输出可疑时用字符码定谳，不跟渲染管道的谎言走；读回显永远可能是三手信息。
+- [遗产盘点] 上窗设计已完整：lean（translate 0 -2px 骑 hover:hover + motion-safe，easeOutQuint 200ms；CSS translate 与 drag loop 的 transform 是两条独立合成通道互不打架）+ hover 通道（卡片 transform host 的 pointerenter/leave → canvas 本地 useState → EdgesLayer 点亮触碰线 STROKE_ACTIVE @2.9 宽——低于 selection 的 3.2；hover ASKS，selection ANSWERS）+ memo 比较器载 onHoverChange（useState setter 恒等，hover 永不重渲染单卡）。缺的只有验证、shadow 的兑现、worklog 与规矩提交。
+- [活体首跑 20/25 暴露两层] 产品缺口 ×1：globals.css 只有 shadow transition 没有 :hover shadow 规则——「lets its shadow answer」是空头承诺（上窗死前没写完的正是这块）。harness 缺口 ×4：focus-flow 断言吃 evalJs 双重编码返回（t567 老坑 N+2）；W3 的 `className.includes("ring-")` 永真——卡体基础类天生带 focus-visible:ring-2（假阳性，比失败更危险）；off-screen 卡点击是掷硬币（click ✓ 但落空，静默 no-op）；dim 链三连败皆由此。
+- [产品补课——shadow answer] 补 :hover box-shadow（rest 6%/10% → hover 6%/14% rung，一眼深于 rest、仍明显低于 lift-lg 的 18% 承诺），骑 hover:hover（触摸不粘，Task 174/176 家法）但**不骑 reduced-motion**——影是 paint 非运动，家法分层教义（「变换是运动，淡入是颜色」的姊妹篇：影随形不是影随动；reduced-motion 用户失去 2px 升起但保留影子加深）。dance 腾房律全做 → FRESH=1 SEMI_MB=8 attempt 1 GREEN（105s）→ start-prod + watchdog 复位 200。
+- [harness 补课三连] ①centerCard 返回值 JSON.parse（双重编码）；②W3 弃点击改 palette——idle 探针的 openJob 走 select+focus 分支（select() 置的 selectedId 正是 wire dim 读的 slice；不开 dialog、无需 Escape），palette 永不脱靶；③palette 前先轮询 canvas DOM——store 靠 ~2s 轮询才认识新 mint，铸后 600ms 就打字 = palette 匹配空、Enter 静默 no-op（手动复现同序列 dim 13/13 实锤产品无罪，纯时序）；命中后加首项断言再 Enter；选中见证从 ring-class 假阳性换成 dim 直方图（13/13 g.style.opacity=var(--dim-wire)）。
+- [活体 t571 27/27 ×2 连绿] Face L1: lean none→0px -2px + shadow 深化实读（rgba 同形不同深）+ easeOutQuint 实读；Face W1: 触线 2.9 ×2、对照线 2.25、墨色区分（0.32 vs 0.52）、世界不暗（对照 opacity 1）；Face W2: unhover 全回落（2.25 + translate none）；Face W3: palette 点名探针（首项断言）→ dim 13/13 → hover K5 触线 2.9 透 dim 而来 + gop 保持 var(--dim-wire) + 对照 2.25 @ dim——「问题在变暗的世界里依然被回答」；📸 探针选中态（真 ring 可见 + idle 编辑面板开）→ console 0 → roster 12→12 ×2。
+- [回归] 门家族五连全绿：t570 27/27、t569 13/13、t568 24/24、t567 26/26、t566 25/25（115 断言）；单测 t562 64/64；tsc 0（全量非增量）；eslint 0。
+- [未做与理由] judge worker 复核/class3d 判词（VLM 3D 面论证重活等真需求）；Topaz 第四刀（链上闭环）；3D 体积截面（等真需求）；palette 入场 stagger（下一块样式余量）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「死亡窗的 WIP 是半成品不是废品」：infra 打包的 UUID-cron 提交不是垃圾是种子——上窗死于收官前但设计完整（三通道注释把 translate/transform 分工写透），本窗只补了一个产品缺口（shadow answer）+ 四个 harness 假阳性就 27/27 ×2。接手遗产的正确姿势：先考古（diff→tsc→字符码三重验证）、再盘点、再补课，不重写
+- 「假阳性比失败更危险」：ring-class 检查永真——断言通过不等于产品对；dim 直方图才是选中态的诚实见证。t567「checker 的三层活捉全是自己的」再+一例：这次说谎的是断言本身（className.includes("ring-") 对任何卡都为真）
+- 「palette 永不脱靶，但要等 store 点完名」：canvas 点击是掷硬币（off-viewport = 静默 no-op），palette 读 store 永远命中；但 store 靠轮询认识新 mint——600ms 就打字是空枪，「先等 canvas 渲染它（data-job 在场），再让 palette 点名（首项断言），最后 Enter」三拍缺一不可
+- 「影随形不是影随动」：lean 的 translate 骑 motion-safe（运动），shadow answer 骑 hover:hover 却不骑 reduced-motion（paint）——运动与墨的分层教义从 inspector 的门家族长到了 canvas 上；hover ASKS selection ANSWERS 的宽度阶梯（2.9 vs 3.2）让问与答各有各的音量
+- 产出：canvas hover 语法（lean + shadow answer + wire glow @2.9 墨阶梯）+ t571 harness 27/27 ×2 连绿 + 门家族回归 115/115 + 单测 64/64；下窗入口：①judge worker 复核/class3d 判词（VLM 3D 面）仍是最重待办；②样式余量：command palette 入场 stagger、卡影 ladder 的下一 rung？；③功能余量：Topaz 第四刀、3D 体积截面（等真需求）；④t471 WSL-bridge（照实挂）、t276（门控）
