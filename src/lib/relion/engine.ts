@@ -1457,10 +1457,20 @@ const INPUTS: Record<string, InputReq[]> = {
     { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import"], label: "micrographs.star (run Import first)" },
   ],
   manualpick: [
-    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
+    // t563 — topazdenoise joins the provider list: the canvas pairing map
+    // has always allowed denoise → pick on the clean stack (the official
+    // topaz flow picks the denoised images), but this table silently
+    // refused the provider — a legal wire whose run failed with "run Import
+    // first" is the canvas-vs-engine lie this table exists to prevent.
+    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise"], label: "micrographs.star (run Import or Topaz Denoise first)" },
   ],
   autopick: [
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
+    // t563 — topazdenoise provider (see the manualpick note): the denoised
+    // star keeps the micrograph schema, so picking on the clean stack
+    // resolves exactly like the raw one. When BOTH a motioncorr and a
+    // denoise feed are wired, upstream BFS order decides — first provider
+    // carrying the output wins (the inspector shows the resolved input).
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise"], label: "micrographs.star (run Import or Topaz Denoise first)" },
     {
       key: "refs_mrc",
       accepts: ["classes_mrc", "model_mrc"],
@@ -1482,7 +1492,11 @@ const INPUTS: Record<string, InputReq[]> = {
     },
   ],
   topaztrain: [
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
+    // t563 — topazdenoise provider (see the manualpick note): the official
+    // flow trains ON the denoised images. extract deliberately stays
+    // denoise-free — particles must come from real pixels, the denoiser's
+    // hallucinations must not bake into the stacks.
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise"], label: "micrographs.star (run Import or Topaz Denoise first)" },
     {
       key: "train_picks",
       accepts: ["coords_star"],
