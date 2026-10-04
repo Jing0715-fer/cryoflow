@@ -576,6 +576,87 @@ export async function renderClassSheetPng(
   return { png, rendered: n, total };
 }
 
+/* ------------------------------------------------------------------ */
+/* 3D class FACES sheet (t573) — one row per 3D class, three faces     */
+/* ------------------------------------------------------------------ */
+
+/** the faces-sheet cell edge — three faces per row still read at 128 px */
+const FACES_CELL = 128;
+/** defensive ceiling: a class3d with >16 classes renders its first 16 */
+const FACES_MAX_CLASSES = 16;
+
+/**
+ * t573 — render EVERY 3D class of a classification as ONE image: each row
+ * is one class volume, its three orthogonal center faces side by side
+ * (XY / XZ / YZ — the plane and its two perpendicular cuts), bright on
+ * black, per-face percentile contrast. The 3D judge's feed: where the 2D
+ * judge reads a class-average sheet, this judge reads what a VOLUME
+ * actually looks like from three directions — a coherent macromolecule
+ * agrees with itself across faces; noise never does.
+ *
+ * Rows follow the caller's order (the discovery's class order); columns
+ * are always the same three faces. Per-face stretch (not one global
+ * window) — classes differ wildly in density scale, and a global stretch
+ * would flatten the weak ones into blackness.
+ */
+export async function renderClass3dFacesSheet(
+  entries: { cls: number; file: string }[]
+): Promise<{ png: Buffer; rendered: number; total: number } | null> {
+  const list = entries.slice(0, FACES_MAX_CLASSES);
+  if (list.length === 0) return null;
+  const h0 = readMrcHeader(list[0].file);
+  if (!h0) return null;
+  const cols = 3;
+  const gap = MONTAGE_GAP;
+  const cell = Math.min(FACES_CELL, h0.nx, h0.ny);
+  const rows = list.length;
+  const gw = cols * cell + (cols + 1) * gap;
+  const gh = rows * cell + (rows + 1) * gap;
+  const grid = Buffer.alloc(gw * gh, 0); // black background — cryo-EM convention
+  // column order = the plane's normal axis: XY (normal z), XZ (normal y), YZ (normal x);
+  // z faces read via readMrcSlice, x/y faces via readMrcOrthoSlice (OrthoAxis covers the
+  // reconstructed planes only — the z normal is the volume's native stacking axis)
+  const axes: Array<"x" | "y" | "z"> = ["z", "y", "x"];
+  let rendered = 0;
+  for (let r = 0; r < list.length; r++) {
+    const file = list[r].file;
+    const h = readMrcHeader(file);
+    if (!h) continue;
+    let anyFace = false;
+    for (let c = 0; c < cols; c++) {
+      const axis = axes[c];
+      const idx =
+        axis === "z"
+          ? Math.floor(h.nz / 2)
+          : axis === "y"
+            ? Math.floor(h.ny / 2)
+            : Math.floor(h.nx / 2);
+      const plane =
+        axis === "z"
+          ? (() => {
+              const values = readMrcSlice(file, idx, h);
+              return values ? { values, width: h.nx, height: h.ny } : null;
+            })()
+          : readMrcOrthoSlice(file, axis, idx, h);
+      if (!plane) continue;
+      const small = downsample(plane.values, plane.width, plane.height, cell);
+      const gray = stretchToGray(small.values, undefined, undefined);
+      const cx = gap + c * (cell + gap);
+      const cy = gap + r * (cell + gap);
+      for (let y = 0; y < small.height && y < cell; y++) {
+        for (let x = 0; x < small.width && x < cell; x++) {
+          grid[(cy + y) * gw + (cx + x)] = gray[y * small.width + x];
+        }
+      }
+      anyFace = true;
+    }
+    if (anyFace) rendered++;
+  }
+  if (rendered === 0) return null;
+  const png = await grayToPng(grid, gw, gh);
+  return { png, rendered, total: entries.length };
+}
+
 /** Render one slice of a stack enlarged for the dialog view (≤ 768 px). */
 export async function renderMrcLargePng(
   file: string,

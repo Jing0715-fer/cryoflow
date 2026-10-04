@@ -51,7 +51,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         note:
           effective.type === "class2d"
             ? "No AI verdict yet — ask the assistant to judge this job's classes"
-            : "AI verdicts are stamped by the judge (class2d jobs)",
+            : effective.type === "class3d"
+              ? "No AI verdict yet — ask the assistant to judge this job's 3D classes"
+              : "AI verdicts are stamped by the judge (class2d/class3d jobs)",
       });
     }
 

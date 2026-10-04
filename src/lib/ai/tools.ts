@@ -70,7 +70,8 @@ import {
   selfScanErrorOf,
 } from "@/lib/convergence-continue";
 import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
-import { renderClassSheetPng } from "@/lib/mrc";
+import { renderClassSheetPng, renderClass3dFacesSheet } from "@/lib/mrc";
+import { discoverClassVolumes } from "./class3d-volumes";
 import { parseStar } from "@/lib/starfile";
 import { RELION_DIR } from "@/lib/paths";
 import { resolveAssistant } from "./settings";
@@ -488,6 +489,20 @@ export const AI_TOOLS: ToolSchema[] = [
       properties: {
         job_id: { type: "string", description: "A class2d job (completed or with results)" },
         question: { type: "string", description: "Optional focus, e.g. '只挑大于5000粒子的类'" },
+      },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "judge_3d_classes",
+    description:
+      "THE VISION TOOL for 3D classification results: renders every class volume as three orthogonal center faces (XY/XZ/YZ, one row per class), reads per-class occupancy from the data star, sends the faces sheet to a vision model, and returns a per-class keep/maybe/reject verdict with reasons plus overall advice. Call whenever the user asks which 3D classes are good / which conformations won. For 2D class averages use judge_2d_classes.",
+    parameters: {
+      type: "object",
+      properties: {
+        job_id: { type: "string", description: "A class3d job (completed or with results)" },
+        question: { type: "string", description: "Optional focus, e.g. '只留紧凑的球形类'" },
       },
       required: ["job_id"],
       additionalProperties: false,
@@ -1003,6 +1018,8 @@ export async function executeAiTool(
         return await inspectJob(ctx, String(args.job_id ?? ""));
       case "judge_2d_classes":
         return await judge2dClasses(ctx, String(args.job_id ?? ""), typeof args.question === "string" ? args.question : undefined);
+      case "judge_3d_classes":
+        return await judge3dClasses(ctx, String(args.job_id ?? ""), typeof args.question === "string" ? args.question : undefined);
       case "get_job_curves":
         return await getJobCurves(ctx, String(args.job_id ?? ""), Array.isArray(args.kinds) ? args.kinds.map(String) : undefined);
       case "get_map_landscape":
@@ -4569,6 +4586,250 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
                   ? ` When presenting options, offer the TWO tiers as separate actions: conservative = keep only [${keepCls.join(", ")}], inclusive = keep + maybe [${[...keepCls, ...maybeCls].sort((a, b) => a - b).join(", ")}] — the user picks the trade-off.`
                   : ` The maybe set is empty — the keep list is the single sensible selection.`
               }`,
+            }
+        : {}),
+    },
+  };
+}
+
+/* ---- judge_3d_classes (the VLM tool, volume edition) ------------------- */
+
+/**
+ * t573 — the 3D judge: judge_2d_classes' volume sibling. Where the 2D judge
+ * reads a class-average sheet, this judge reads every class VOLUME as three
+ * orthogonal center faces (XY/XZ/YZ — one row per class, the same render
+ * pipeline the ortho browser serves) and reads per-class occupancy from the
+ * data star (the SAME parser the 2D judge uses — class3d's data star carries
+ * per-particle _rlnClassNumber rows just like class2d's). The VLM argues
+ * from FACES: a coherent macromolecule agrees with itself across the three
+ * cuts; noise never does. Verdicts stamp through the same door (the route
+ * was built type-agnostic from day one), select_classes accepts class3d
+ * sources natively, and the two-pass merge keeps the honest-maybe law.
+ */
+async function judge3dClasses(
+  ctx: AgentCtx,
+  jobId: string,
+  question?: string
+): Promise<AiToolResult> {
+  const job = await findJobInProject(jobId, ctx.projectId);
+  if (!job)
+    return {
+      ok: false,
+      summary: `Job not found: ${jobId} — pass the job's exact id or its unambiguous name (get_workflow_state lists both)`,
+    };
+  if (job.type !== "class3d") {
+    return {
+      ok: false,
+      summary: `judge_3d_classes works on class3d jobs — ${job.name} is ${job.type}. For 2D class averages use judge_2d_classes; for a single map's quality use inspect_job + get_job_curves (FSC).`,
+    };
+  }
+  const assistant = resolveAssistant();
+  if (!assistant) {
+    return { ok: false, summary: "The AI provider is not configured (settings → AI provider) — configure one, then ask again" };
+  }
+
+  const run = getRun(job.id);
+  const workdir = run?.workdir ?? path.join(RELION_DIR, job.projectId, `${job.type}_${job.id.slice(-8)}`);
+  if (!existsSync(workdir)) {
+    return { ok: false, summary: `${job.name} has no results yet (status ${job.status}) — run it first` };
+  }
+
+  // the volumes — the run's LAST iteration is its last word about its classes
+  const found = discoverClassVolumes(workdir);
+  if (found.volumes.length === 0) {
+    return {
+      ok: false,
+      summary: `${job.name} has no per-class volumes in its workdir yet (no run_itNNN_classMMM.mrc) — wait for the run to finish or check its results`,
+    };
+  }
+
+  // the numbers that ride with the image — occupancy from the data star
+  // (the parser counts _rlnClassNumber rows; class3d's dialect is identical)
+  const stats = classStatsFromWorkdir(workdir);
+  const occByCls = new Map(stats.classes.map((c) => [c.cls, c]));
+  const table = found.volumes
+    .map(({ cls }) => {
+      const st = occByCls.get(cls);
+      return st
+        ? `class ${cls}: ${(st.fraction * 100).toFixed(1)}% (${st.count} particles)`
+        : `class ${cls}: occupancy unknown (no data-star rows for this class)`;
+    })
+    .join("\n");
+
+  // the image — rows = classes, columns = the three orthogonal faces
+  const sheet = await renderClass3dFacesSheet(
+    found.volumes.map(({ cls, file }) => ({ cls, file }))
+  );
+  if (!sheet) {
+    return { ok: false, summary: `Could not render the class volumes to an image (unreadable MRC?)` };
+  }
+
+  const prompt = `You are a senior cryo-EM scientist judging 3D classification results from a RELION 3D classification (job's latest iteration ${found.iteration ?? "?"}). The image shows ONE ROW PER CLASS: each row is one 3D class volume rendered as its THREE ORTHOGONAL CENTER FACES — left: XY slice (top view), middle: XZ slice (front view), right: YZ slice (side view). Rows are in class-number order (${sheet.rendered} of ${sheet.total} classes shown, top row = class ${found.volumes[0]?.cls ?? 1}). Bright = density, black = solvent.
+
+Per-class statistics (occupancy = the share of particles the classification assigned to that class):
+${table}
+${question ? `\nThe user asks: ${question}` : ""}
+
+JUDGE EACH CLASS (each ROW) with this rubric. Work the checks in order and, in each "reason", cite what you actually SEE across the faces (the evidence), never a bare category name.
+
+KEEP — a class earns "keep" only when the VOLUME is a coherent macromolecule:
+1. Cross-face agreement: the three faces describe ONE consistent object — a compact envelope in the XY face whose extent is plausible against the XZ and YZ cuts (the same width, no contradiction between views). A real 3D structure agrees with itself from every direction; noise never does.
+2. Connected, centered density: one dominant connected mass near the box center, with recognizable molecular shape (lobes, domains, elongation — anything ORGANIZED).
+3. Internal structure: density variation inside the envelope (domains, channels, helix-level detail is rare at classification resolution — organized texture is enough), clearly above the noise floor.
+4. Solvent region emptier than the molecule region: the box corners/background read flatter than the object.
+
+MAYBE — real structure with weak evidence:
+- A coherent envelope in some faces but soft/ambiguous in others.
+- Low contrast or noisy yet visibly organized and correctly sized.
+- Small occupancy but a distinct, plausible conformation (a rare state can be scientifically precious).
+When genuinely torn between keep and reject, say "maybe" — do not flip-flop.
+
+REJECT — junk signatures; ANY ONE is disqualifying:
+- Noise cube: uniform speckle across all three faces, no dominant mass.
+- Single-plane phantom: density in ONE face only that vanishes in the perpendicular cuts (a 2D accident, not a 3D structure).
+- Elongated streak / rail: density smeared into a line across a face (alignment failure or preferred-orientation artifact taken to absurdity).
+- Empty or near-empty volume: essentially nothing above the noise floor.
+- Clipped blob: the mass is cut off by the box edge (the reconstruction grew outside its box).
+- Fragmented mess: several disconnected similar-sized clumps with no envelope (over-regularized or misaligned averaging).
+
+CROSS-CLASS CONSISTENCY — judge the sheet as a SET, not isolated rows:
+- KEEP classes must agree on molecular size across rows (all views of the SAME molecule in different conformations/orientations); a "structured" class of wildly different size is suspect.
+- Distinct conformations are the POINT of 3D classification — prefer a set of coherent, different-looking keeps over near-duplicates.
+- Occupancy is context, not evidence: a big featureless volume is still junk; a small sharp volume can be the rare state that matters. Occupancy "unknown" means the data star carried no rows for that class — judge that class by its faces alone.
+
+OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fences, no trailing commentary. It must contain an entry for EVERY class row in the image, exactly once:
+{"classes":[{"cls":${found.volumes[0]?.cls ?? 1},"verdict":"keep|maybe|reject","reason":"<short, evidence-citing>"}],"advice":"<2-3 sentences: overall classification quality + which classes to take forward and why>"}`;
+
+  let analysis = await visionOnce({
+    flavor: assistant.flavor,
+    apiKey: assistant.apiKey,
+    model: assistant.vlmModel,
+    baseUrl: assistant.baseUrl,
+    prompt,
+    imageBase64: sheet.png.toString("base64"),
+  });
+
+  // the same repair round the 2D judge runs (t508): some vision models wrap
+  // the JSON in musing or truncate it — one retry demanding bare JSON saves
+  // the whole verdict.
+  let verdict = parseJudgeVerdict(analysis);
+  if (!verdict) {
+    analysis = await visionOnce({
+      flavor: assistant.flavor,
+      apiKey: assistant.apiKey,
+      model: assistant.vlmModel,
+      baseUrl: assistant.baseUrl,
+      prompt: `Your previous answer was not a bare JSON object and could not be parsed. Reply again with ONLY the JSON object — no text before or after, no markdown fences. One entry for every class shown, exactly this shape:
+{"classes":[{"cls":${found.volumes[0]?.cls ?? 1},"verdict":"keep|maybe|reject","reason":"<short, evidence-citing>"}],"advice":"<2-3 sentences>"}`,
+      imageBase64: sheet.png.toString("base64"),
+    });
+    verdict = parseJudgeVerdict(analysis);
+  }
+
+  // the same second-pass law (t545): a keep ships only when it survives TWO
+  // independent reads of the same sheet under the SAME rubric; an unreadable
+  // confirm pass degrades honestly to the first verdict.
+  let confirm: {
+    agreed?: number;
+    torn?: number;
+    missing?: number;
+    moved?: { cls: number; from: string; to: string }[];
+    failed?: true;
+  } | null = null;
+  if (verdict) {
+    try {
+      const confirmAnalysis = await visionOnce({
+        flavor: assistant.flavor,
+        apiKey: assistant.apiKey,
+        model: assistant.vlmModel,
+        baseUrl: assistant.baseUrl,
+        prompt,
+        imageBase64: sheet.png.toString("base64"),
+      });
+      const confirmVerdict = parseJudgeVerdict(confirmAnalysis);
+      if (confirmVerdict) {
+        const merged = mergeJudgePasses(verdict, confirmVerdict);
+        if (!merged.degenerate) {
+          confirm = {
+            agreed: merged.agreed,
+            torn: merged.torn,
+            missing: merged.missing,
+            moved: merged.moved,
+          };
+          verdict = merged.verdict;
+        } else {
+          confirm = { failed: true };
+        }
+      } else {
+        confirm = { failed: true };
+      }
+    } catch {
+      confirm = { failed: true };
+    }
+  }
+  const confirmNote = confirm
+    ? confirm.failed
+      ? " · second pass unreadable — first verdict stands"
+      : ` · two-pass: ${confirm.agreed} agreed${confirm.torn ? `, ${confirm.torn} → maybe` : ""}${confirm.missing ? `, ${confirm.missing} unconfirmed` : ""}`
+    : "";
+  const keepCount = verdict ? verdict.classes.filter((c) => c.verdict === "keep").length : 0;
+  const maybeCount = verdict ? verdict.classes.filter((c) => c.verdict === "maybe").length : 0;
+  const keepCls = verdict ? verdict.classes.filter((c) => c.verdict === "keep").map((c) => c.cls).sort((a, b) => a - b) : [];
+  const maybeCls = verdict ? verdict.classes.filter((c) => c.verdict === "maybe").map((c) => c.cls).sort((a, b) => a - b) : [];
+
+  // the stamp rides the same door (t565): the route was built type-agnostic,
+  // so a 3D verdict lands on the job's record like any 2D one.
+  let stampWritten = false;
+  if (verdict) {
+    try {
+      stampWritten =
+        stampVerdict({
+          jobId: job.id,
+          at: Date.now(),
+          iteration: found.iteration,
+          model: assistant.vlmModel,
+          twoPass:
+            confirm && !confirm.failed
+              ? {
+                  agreed: confirm.agreed ?? 0,
+                  torn: confirm.torn ?? 0,
+                  missing: confirm.missing ?? 0,
+                }
+              : null,
+          classes: verdict.classes,
+          advice: verdict.advice,
+        }) != null;
+    } catch {
+      stampWritten = false;
+    }
+  }
+
+  const zeroKeep = verdict !== null && keepCls.length === 0;
+  const classTotal = found.volumes.length;
+  const fewerClasses = Math.max(2, Math.floor(classTotal / 2));
+  return {
+    ok: true,
+    summary: `Judged ${verdict?.classes.length ?? classTotal} 3D classes of ${job.name} (iteration ${found.iteration ?? "?"}): ${keepCount} keep / ${maybeCount} maybe${zeroKeep ? " — NO class merits a selection (zero-keep verdict)" : ""}${confirmNote} — ${truncate(verdict?.advice ?? analysis, 300)}`,
+    detail: {
+      iteration: found.iteration,
+      judgedClasses: verdict?.classes ?? null,
+      confirm,
+      stampWritten,
+      advice: verdict?.advice ?? analysis,
+      rawAnalysis: verdict ? analysis : undefined,
+      classVolumes: found.volumes.map((v) => v.cls),
+      ...(verdict
+        ? zeroKeep
+          ? {
+              ...(maybeCls.length > 0 ? { tiers: { borderline: maybeCls } } : {}),
+              nextStep: `ZERO keepable 3D classes (${keepCount} keep / ${maybeCount} maybe of ${classTotal}) — select_classes REFUSES an empty list, so do NOT call it. The verdict is about the RUN, not a selection to force: close with an action block (law 16) offering the re-run trade-offs — [重跑·减类数] re-run ${job.name} with fewer classes (${fewerClasses} instead of ${classTotal}), [重跑·加迭代] more iterations (these classes may not have settled), [先查参考] the 3D reference this run started from may be wrong (inspect_job on its reference source). Say plainly that a run with zero solid keeps is a data-or-params problem, not a patience problem.`,
+            }
+          : {
+              tiers:
+                maybeCls.length > 0
+                  ? { conservative: keepCls, inclusive: [...keepCls, ...maybeCls].sort((a, b) => a - b) }
+                  : { single: keepCls },
+              nextStep: `Call select_classes({job_id:"${job.id}", classes:[${keepCls.join(",")}]}) to act on the verdict — a select2d target runs immediately, heavier targets are created unstarted for the user to review. Confirm the class list with the user first when the classes feed further 3D compute (class3d/refine3d).`,
             }
         : {}),
     },
