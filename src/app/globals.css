@@ -267,6 +267,57 @@
   }
 }
 
+/* t576 — the shadow ladder's next rung. t571 gave canvas cards the hover
+   lean (shadow answer + 2px rise). But hover targets split in two kinds:
+   cards you can DRAG as a whole (the lean follows your hand — honest) and
+   cards that merely HOST buttons (a rise would promise a click the card
+   itself doesn't own). The shadow ANSWER belongs to both; only the rise
+   belongs to drag-kind cards. The ladder, one ink scale:
+     .card-lift        rest — 10%      (static cards)
+     .card-shadow-answer / .card-hover-lean:hover
+                       ask  — 14%      (hovered)
+     .card-lift-lg     commit — 18%    (dialogs, pinned surfaces)
+   This rung speaks from the dashboard: .dash-card-hover carries the
+   shadow answer plus the card's colour transitions in ONE unlayered rule
+   — unlayered custom classes beat Tailwind's layered utilities, so there
+   is exactly one owner of the transition channel and no cascade fight
+   (the shell drops its transition-[...] utility accordingly). The KPI
+   drill-downs are true buttons — they add .dash-card-lean and get the
+   2px rise too; project-grid cards host their actions in a footer row,
+   so they answer in shadow only. Movement rides motion-safe; paint and
+   hover ride (hover: hover) — a touch tap never leaves ink floating
+   (house idiom since Task 174/176). */
+.dash-card-hover {
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+@media (hover: hover) {
+  .dash-card-hover:hover {
+    box-shadow:
+      0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
+      0 10px 24px -6px color-mix(in oklch, var(--foreground) 14%, transparent);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* compound selector outranks .dash-card-hover deterministically (0,2,0
+     vs 0,1,0) — the lean adds the translate channel without re-stating
+     the paint channels it must keep */
+  .dash-card-hover.dash-card-lean {
+    transition:
+      box-shadow 200ms ease,
+      border-color 200ms ease,
+      background-color 200ms ease,
+      translate 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (hover: hover) {
+    .dash-card-hover.dash-card-lean:hover {
+      translate: 0 -2px;
+    }
+  }
+}
+
 /* t572 — the palette cascade. The command palette is the store's read
    window ("the palette never misses" — t571), and its groups are the
    table of contents: on open they arrive TOP TO BOTTOM in the order
@@ -314,6 +365,68 @@
      the message ("the answer changed"), so it never disarms */
   .palette-motion [cmdk-empty] {
     animation: palette-empty-enter 200ms ease both;
+  }
+}
+
+/* t576 — the dashboard cascade (t572's sister page). The palette's groups
+   are the table of contents and arrive top-to-bottom; the dashboard is
+   the same doctrine at page scale: the survey arrives in SCAN ORDER —
+   the five KPI cards left-to-right, then the bands top-down (attention
+   strip, activity, saved views, spotlight, project grid, footnote). The
+   page header is the INPUT's sister: it never moves — content arrives
+   beneath it. The structural arms:
+     [data-dash-band] > *   the KPI cards (nth-child staircase, 35ms —
+                            membership is static, the band never filters)
+     [data-dash-enter]      section bands; each rung carries its own
+                            --dash-d (the ladder spans nesting levels, so
+                            nth-child would lie about the order it can't
+                            see — the variable is honest per element)
+     [data-dash-empty]      empty states — they mount fresh on every
+                            appearance, so like [cmdk-empty] their replay
+                            IS the message and they never disarm
+   The root .dash-motion gains .dash-motion-settled ~660ms after mount
+   (last rung: 340ms delay + 240ms duration + margin) — the same "first
+   paint plays, filtering stays silent" disarm as the palette: search,
+   sort and the presence filters re-render but never re-mount a band, so
+   a settled dashboard never replays. The shell swaps Dashboard ⇄ Canvas
+   by unmounting, so EVERY entry is a fresh mount and a first performance
+   — no close-flip machinery needed. Grid project cards never animate
+   individually (they re-filter on every keystroke — the band-level
+   entrance is the only voice they get). Movement rides motion-safe;
+   reduced-motion users get the instant dashboard. */
+@keyframes dash-enter {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes dash-empty-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dash-motion:not(.dash-motion-settled) [data-dash-enter] {
+    animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--dash-d, 0ms);
+  }
+  /* the KPI staircase — left-to-right among static band members */
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(1) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 0ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(2) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 35ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(3) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 70ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(4) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 105ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(5) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 140ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(n+6) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 140ms; }
+  /* empty states mount fresh — replay IS the message (never disarms) */
+  .dash-motion [data-dash-empty] {
+    animation: dash-empty-enter 200ms ease both;
   }
 }
 

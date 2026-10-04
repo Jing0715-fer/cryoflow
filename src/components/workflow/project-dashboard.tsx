@@ -338,11 +338,18 @@ const KpiCard = React.forwardRef<
   );
 
   const shell = cn(
-    "card-lift group/kpi relative flex flex-col justify-center gap-0 overflow-hidden rounded-xl border bg-card p-4 text-left transition-[box-shadow,border-color,background-color]",
+    // t576 — the shell drops its Tailwind transition utility so the
+    // unlayered .dash-card-hover owns the whole transition channel
+    // (shadow answer + colour tint, one rule, no cascade fight); the
+    // drill-downs are true buttons, so they lean (t571's rise) as well
+    "card-lift group/kpi relative flex flex-col justify-center gap-0 overflow-hidden rounded-xl border bg-card p-4 text-left",
+    interactive
+      ? "dash-card-hover dash-card-lean"
+      : "",
     interactive
       ? pressed
         ? "cursor-pointer border-primary/50 ring-1 ring-primary/30"
-        : "cursor-pointer hover:border-primary/40 hover:shadow-md"
+        : "cursor-pointer hover:border-primary/40"
       : "border-border"
   );
 
@@ -469,7 +476,10 @@ function DashboardProjectCard({
   return (
     <div
       className={cn(
-        "card-lift group relative flex flex-col overflow-hidden rounded-xl border bg-card p-4 transition-shadow hover:shadow-md",
+        // t576 — shadow answer, no rise: the card hosts its actions in a
+        // footer row, the body itself is not a click target — a lean would
+        // promise a click it doesn't own (the ladder's kind split)
+        "card-lift dash-card-hover group relative flex flex-col overflow-hidden rounded-xl border bg-card p-4",
         isActive ? "border-primary/50 ring-1 ring-primary/25" : "border-border"
       )}
     >
@@ -2087,13 +2097,32 @@ export function ProjectDashboard() {
   // during SSR so the effect below re-syncs on the client)
   const [sortKey, setSortKey] = React.useState<ProjectSortKey>("oldest");
 
+  // t576 — the dashboard cascade (t572's sister page): the survey arrives
+  // in scan order — KPI cards left-to-right, then the bands top-down.
+  // Armed on mount, settled ~660ms later (last rung: 340ms delay + 240ms
+  // duration + margin). The shell unmounts this view on every Canvas ⇄
+  // Dashboard swap, so every entry is a fresh mount and a first
+  // performance — no close-flip machinery, a single one-shot timer. The
+  // timer runs regardless of motion preference: under reduced motion the
+  // class lands on a root whose cascade rules never existed (CSS-side
+  // gate), which costs nothing and keeps this hook motion-blind.
+
   // spotlight Jobs-list filter — hoisted from ActiveProjectSpotlight so the
   // 5/6 keys below drive the SAME state the chips render (keyboard and
   // pointer share one source of truth)
   const [jobFilter, setJobFilter] = React.useState<JobFilter>("all");
 
+  // t576 — cascade armed until the one-shot effect below settles it
+  const [dashSettled, setDashSettled] = React.useState(false);
+
   React.useEffect(() => {
     setSortKey(loadSortKey());
+  }, []);
+
+  // t576 — the cascade's one-shot disarm (see the state above)
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setDashSettled(true), 660);
+    return () => window.clearTimeout(t);
   }, []);
 
   const changeSort = (key: ProjectSortKey) => {
@@ -2277,8 +2306,14 @@ export function ProjectDashboard() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto nice-scroll">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 xl:max-w-7xl">
-        {/* page header */}
+      <div
+        className={cn(
+          "mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 xl:max-w-7xl",
+          "dash-motion",
+          dashSettled && "dash-motion-settled"
+        )}
+      >
+        {/* page header — the anchor: it never moves (the input's sister, t572) */}
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
@@ -2336,7 +2371,11 @@ export function ProjectDashboard() {
             dimension to reveal). t301: five-up only from xl — under the
             max-w-6xl cap an lg viewport squeezed each card to ~180px; lg
             now falls back to a roomy 3+2 while xl+ keeps the single row. */}
-        <div data-atomic-grid className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        <div
+          data-atomic-grid
+          data-dash-band
+          className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+        >
           <KpiCard
             icon={<FolderGit2 className="size-5" />}
             value={projects.length}
@@ -2517,28 +2556,46 @@ export function ProjectDashboard() {
 
         {/* needs attention — failed jobs across all projects (t415); renders
             nothing on a green world, so the rhythm below is untouched */}
-        <div className="mt-6">
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "140ms" } as React.CSSProperties}
+          className="mt-6"
+        >
           <FailedJobsStrip />
         </div>
 
         {/* cross-project recent activity — the "where did I leave off" strip */}
-        <div className="mt-6">
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "180ms" } as React.CSSProperties}
+          className="mt-6"
+        >
           <RecentActivityFeed activeProjectId={activeId} />
         </div>
 
         {/* cross-project saved views — the "my inspection work" shelf */}
-        <div className="mt-6">
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "220ms" } as React.CSSProperties}
+          className="mt-6"
+        >
           <SavedViewsGallery />
         </div>
 
         {/* active project spotlight */}
-        <div className="mt-6">
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "260ms" } as React.CSSProperties}
+          className="mt-6"
+        >
           <ActiveProjectSpotlight jobFilter={jobFilter} setJobFilter={setJobFilter} />
         </div>
 
         {/* projects grid */}
         <div
           ref={gridRef}
+          data-dash-enter
+          style={{ "--dash-d": "300ms" } as React.CSSProperties}
           className={cn(
             "mt-6 scroll-mt-4 rounded-xl transition-shadow duration-700 motion-reduce:transition-none",
             gridFlash && "ring-2 ring-primary/40 ring-offset-4 ring-offset-background"
@@ -2597,7 +2654,10 @@ export function ProjectDashboard() {
           </div>
 
           {projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-14 text-center">
+            <div
+              data-dash-empty
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-14 text-center"
+            >
               <div className="flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                 <FolderGit2 className="size-5" aria-hidden="true" />
               </div>
@@ -2612,11 +2672,17 @@ export function ProjectDashboard() {
             </div>
           ) : filtered.length === 0 ? (
             query.trim() ? (
-              <p className="rounded-xl border border-dashed py-10 text-center text-xs text-muted-foreground">
+              <p
+                data-dash-empty
+                className="rounded-xl border border-dashed py-10 text-center text-xs text-muted-foreground"
+              >
                 No project matches “{query.trim()}”.
               </p>
             ) : (
-              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-10 text-center">
+              <div
+                data-dash-empty
+                className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-10 text-center"
+              >
                 <p className="text-xs text-muted-foreground">
                   No project with {gridFilter} jobs right now.
                 </p>
@@ -2645,8 +2711,12 @@ export function ProjectDashboard() {
           )}
         </div>
 
-        {/* footnote */}
-        <p className="mt-8 text-center text-[10px] text-muted-foreground/60">
+        {/* footnote — the cascade's last rung */}
+        <p
+          data-dash-enter
+          style={{ "--dash-d": "340ms" } as React.CSSProperties}
+          className="mt-8 text-center text-[10px] text-muted-foreground/60"
+        >
           Project dashboards persist per browser session — switching here never interrupts
           running jobs.
         </p>
