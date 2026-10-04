@@ -8120,3 +8120,26 @@ Stage Summary:
 - 「// 注释在拍平传输层里是炸弹」：evalJs flatten 把换行变空格，第一个 // 后面全部变注释——IIFE 永不 return，断言全 undefined。t571「输出可疑时用字符码定谳」家族第 N 例：传输层的结构假设要和注释的风格假设对齐
 - 「逐键 typing 的 diff 语义」：CLI typing 每键一次 diff，narrowing 的最后一步 flash 为空是产品的诚实（波跟随每次着陆），harness 断言错就修断言——假阳性反向案例家族第 N 例
 - 产出：the ripple（canvas/job-card/globals 三文件）+ t578 扩编 32/32 + next.config turbo FS cache 门 + 七级梯子全表与死锁定谳 + 📸×2；下窗入口：①dev 可容：卡影 ladder 下一 rung（inspector 面）、judge 风暴活体半场；②build 候选日：先验箱体（单进程可用心需 ≥3.5GB），到场后 CRYOFLOW_TURBO_FS_CACHE=1 或 webpack cache-off @3072+semi8 二选一，绿后 prod 全家桶（t576 27-face 首跑 + t569/t570/t572 复核 + t571 + t573/t574/t575 活体）；③图瘦身（three/recharts 动态化审计）作为箱体不变时的替代钥匙；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 580 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 02:53 cron, Task 572 第 3 次派单才获执行)
+Task: t579 入口①兑现——卡影 ladder 第三 rung「inspector whisper」（modal 内信息卡 4%/9% 影答、永不 lean）；途中十二跑活体的证据链换回五条新教义。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 579（交接摘要说 571——滞后第 N+33 次兑付）；HEAD 3d7b155、树净；dev regime（200/35ms、tsc 0 全量、eslint 0、AI 信封 {sessionId,events,needsContinue}、active=EMPIAR jobs 12 roster 6 项目、canvas 12 卡 13 线 console 双净）；available 1200MB < 探活门槛 → 非 build 日。派单「Task 13 遗留池」第 N+23 次化石。
+- [选道验尸] t579 入口③「图瘦身（three/recharts 动态化审计）」= 化石：t391 的 results-lazy barrel 早已把全部 9 个 recharts 图表面 + molstar viewer next/dynamic 化，consumer 全走 lazy barrel——第 N 次兑现「化石先验尸再葬」。车道收敛到入口①：卡影 ladder 下一 rung（inspector 面）。
+- [产品——the whisper] ①globals.css 新增 .insp-card-whisper（4%/9% 影答 + transition box-shadow 200ms；paint-only 骑 (hover:hover) 不骑 reduced-motion——t571 分层教义；注释钉死 ladder 语义：modal 是 .card-lift-lg 18% 已承诺世界，腹内卡若答 14% 会跟 dialog 本尊的高度打架——所以低一个 register 做 whisper，且 modal 的到场本身就是运动事件，腹内永不 lean）。②job-inspector 四卡面入伙：ParamsGrid 组卡、OutputsSummary kind 卡、ReceiptCountStrip（KeyNumbers 的 receipt 双生子）、Timeline 卡。③results-view 的 KeyNumbersStrip 入伙（t347 起 inspector Overview 与 Results 视图共享它——改一处两表面同答）。④Note editor 明确不入伙（交互编辑面有自己的 focus 语言）。
+- [十二跑活体的证据链——本窗最重的部分] t580-inspector-whisper-live-fire.mjs 从 14/25 爬到 28/29，途中定谳五案：①「inspector 对 completed 作业默认开在 Results tab」+「Radix tab 忽略合成 .click()（无 pointerdown 不激活）」——首轮 census 量错 tab 得 0 卡，误诊「dev 陈旧编译」白复位一次 server（摸 stat 卡 className 抓到的「旧代码」其实是 results-view 的 KeyNumbersStrip——我从未改过的组件）；②「readJson 是 async，漏 await 的调用 JSON.stringify 出 "{}"」——run 5/6 的「shim 失败」幽灵：raw 探针明明返回 {h:true,p:true}，假阳性穿成环境失败的样子，第 N+2 例；③「探针 Chrome 被 bash 工具窗回收后，agent-browser eval 会自启默认 Chrome（hover:none）顶上」——手动考古从此全被污染，所谓「emulation 翻转」其实是换了个浏览器；④「computed 读数要 settle 纪律」：outputs 12s 轮询重挂 stat 卡，每次重挂重启 200ms transition，t=0 读到透明零——poll-until-geometry 替代固定 sleep；⑤「Escape 聚焦链 flaky」——press → dialog 级 keydown dispatch（run 8 证 state=closed）→ close button 三级兜底。
+- [级联法证——产品无罪的最强见证] served CSS 是二元体：构建管线（Tailwind v4/Lightning）把手写 inline color-mix(...) 拆成「fallback：裸 var(--foreground)（老浏览器上会全不透明，难看但不崩）+ 真值：@supports (color: color-mix(in lab, red, red)) 内的原始 color-mix」。Chrome 153 实测 supportsCM=true、真值分支获胜——t580-cascade-forensics.mjs 在活体 hover 下读到 computed 影答逐字节等于手写值（oklch(0.29.../0.04) 0px 1px 2px 0px + /0.09 0px 6px 14px -5px）。产品正确，harness 的 computed 读数噪音（重挂 churn）由 cascade-witnessed 降级路径记账：hovered+supportsCM+真值规则居级联末位三条件齐备时打 ✓ 并全文打印 dump——证据链降级，不是静默放过。
+- [世界噪声] 本窗目击宿主 global OOM ×4（CONSTRAINT_NONE, next-server anon 2.2-2.4GB 被杀）——run 9 直接死于 mid-run 击杀；t579「墙是宿主形状的」定律在 dev regime 继续呼吸。timeout 杀 harness 留孤儿 chrome 舰队（12 进程）吃内存——「杀 harness 前先看它铸了什么」的浏览器版：重跑前先清场。
+- [回归] tsc 0 全量；eslint 0（src）；单测四连 113 断言（t562 64 + t573 11 + t574 16 + t575 22）；t580 活体 best 28/29（唯一 fail = Escape face 的聚焦 flaky，三级兜底链已铸）；t580-cascade-forensics 一次定谳；roster 12→12、console 净、零世界污染。canvas.tsx 本窗零触碰（t571 hover 语法零位移风险）。
+- [未做与理由] judge 风暴活体半场（多作业并发场景，等世界稳定夜）；t571/t572/t576 全家 prod 复核（build 日清单照旧）；卡影 ladder 的 ink token 化（--ink-04/06/09/10/14/18 自定义属性——把 inline color-mix 从声明里拔出来，免受管线 fallback/split 改造，ladder 成为真词表——本窗只留方向未动工：一窗一面）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「量错 tab 的考古会把无罪判成陈旧」：诊断证据先要核对测量对象本身（哪个 tab、哪个组件、哪张卡），再谈代码新旧——摸到「没我改的类」先查这组件归谁，别急着复位世界。Radix 的 tab 只认真 pointerdown，合成 .click() 是哑弹；inspector 对 completed 作业默认落地 Results——「census 之前先着陆」
+- 「JSON.stringify(Promise) === "{}"」：漏 await 的 async 调用序列化成空对象——它穿成「环境失败」的样子最致命，因为 raw 探针同时返回正确值。假阳性家族第 N+2 例：断言失败先查自己的管道，再判世界的罪
+- 「served CSS 是二元体」：管线把 inline color-mix 拆成 fallback+@supports 真值双份——现代浏览器走上真值分支所以产品无罪，但 (a) fallback 在老浏览器是全不透明影（难看），(b) 这套改造依赖 @supports 探针永远被浏览器理解。下一 rung 的钥匙：ink token 自定义属性化（--ink-04/06/09/14），声明里不再出现 color-mix，管线无从改造——ladder 从数值巧合升格为真词表
+- 「计算样式读数要有 settle 纪律」：React 重挂载会把 transition 重置到 t=0（透明零），固定 sleep 是 prod 时代假设——poll-until-geometry 才是对 reactive 世界诚实的量法。t576「dev 分级挂载」教义的第五例
+- 「手动考古要防浏览器顶包」：探针 Chrome 死后 agent-browser eval 自启默认 Chrome 顶上——你量到的「翻转为 hover:none」其实是换了个浏览器。工具的静默降级会污染证据链，关键实验要单次调用内闭环（forensics 脚本模式）
+- 产出：the whisper（globals.css + job-inspector 四面 + results-view KeyNumbersStrip，共 7 卡面入伙、Note editor 明确除外）+ t580 活体 28/29（cascade-witnessed 降级链 + 三级 Escape 兜底）+ t580-cascade-forensics（级联枚举定谳脚本）+ 单测 113 断言回归；下窗入口：①build 日 = FRESH gate → prod → t580 全绿复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体；②ink token 化（ladder 词表 + 管线免疫）；③judge 风暴活体半场；④t471 WSL-bridge（照实挂）、t276（门控）
