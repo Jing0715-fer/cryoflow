@@ -198,7 +198,7 @@
    OPAQUE to the minifier — it cannot be statically evaluated, so
    the served rule survives verbatim and the pipeline has nothing
    to rewrite. color-mix() now lives only at these definition
-   sites, six lines per theme.
+   sites, fourteen lines per theme.
 
    Naming: the register IS the percentage of foreground ink. One
    scale reads the whole ladder:
@@ -206,6 +206,14 @@
      ask     --ink-06 / --ink-14   (hover answer, canvas + dash)
      commit  --ink-06 / --ink-18   (.card-lift-lg dialogs)
      whisper --ink-04 / --ink-09   (t580, panels inside modals)
+   t582 — the vocabulary went TOTAL: the hairline and chrome inks
+   joined the same scale, so EVERY foreground mix in the sheet
+   rides a token (no inline foreground color-mix survives):
+     hairline --ink-16 / --ink-12 / --ink-05   (canvas grid dots,
+                 fine grid, header grid-pattern lines)
+     chrome   --ink-28 / --ink-24 / --ink-40   (scrollbar-color
+                 rest, webkit thumb, thumb hover) and --ink-22 /
+                 --ink-20 (.nice-scroll dense-list variant)
 
    Scope: var() inside a custom property resolves at the element
    where THAT property is declared, then the resolved value
@@ -221,7 +229,8 @@
    behind @supports — so an old browser resolves the token to
    OPAQUE ink and the ladder degrades to exactly the blob the
    inline form always produced (unchanged story; it now lives in
-   six lines per theme instead of twelve declarations). Evergreens
+   fourteen lines per theme instead of twenty-one declarations).
+   Evergreens
    read the exact mix, and the declarations are IMMUNE: single
    verbatim rules, no per-declaration re-roll of the fallback
    split, and --ink-XX is a REAL runtime API — an override on any
@@ -229,19 +238,35 @@
    ============================================================ */
 :root {
   --ink-04: color-mix(in oklch, var(--foreground) 4%, transparent);
+  --ink-05: color-mix(in oklch, var(--foreground) 5%, transparent);
   --ink-06: color-mix(in oklch, var(--foreground) 6%, transparent);
   --ink-09: color-mix(in oklch, var(--foreground) 9%, transparent);
   --ink-10: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --ink-12: color-mix(in oklch, var(--foreground) 12%, transparent);
   --ink-14: color-mix(in oklch, var(--foreground) 14%, transparent);
+  --ink-16: color-mix(in oklch, var(--foreground) 16%, transparent);
   --ink-18: color-mix(in oklch, var(--foreground) 18%, transparent);
+  --ink-20: color-mix(in oklch, var(--foreground) 20%, transparent);
+  --ink-22: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --ink-24: color-mix(in oklch, var(--foreground) 24%, transparent);
+  --ink-28: color-mix(in oklch, var(--foreground) 28%, transparent);
+  --ink-40: color-mix(in oklch, var(--foreground) 40%, transparent);
 }
 .dark {
   --ink-04: color-mix(in oklch, var(--foreground) 4%, transparent);
+  --ink-05: color-mix(in oklch, var(--foreground) 5%, transparent);
   --ink-06: color-mix(in oklch, var(--foreground) 6%, transparent);
   --ink-09: color-mix(in oklch, var(--foreground) 9%, transparent);
   --ink-10: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --ink-12: color-mix(in oklch, var(--foreground) 12%, transparent);
   --ink-14: color-mix(in oklch, var(--foreground) 14%, transparent);
+  --ink-16: color-mix(in oklch, var(--foreground) 16%, transparent);
   --ink-18: color-mix(in oklch, var(--foreground) 18%, transparent);
+  --ink-20: color-mix(in oklch, var(--foreground) 20%, transparent);
+  --ink-22: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --ink-24: color-mix(in oklch, var(--foreground) 24%, transparent);
+  --ink-28: color-mix(in oklch, var(--foreground) 28%, transparent);
+  --ink-40: color-mix(in oklch, var(--foreground) 40%, transparent);
 }
 
 @layer base {
@@ -262,7 +287,7 @@
    ============================================================ */
 .canvas-grid {
   background-image: radial-gradient(
-    color-mix(in oklch, var(--foreground) 16%, transparent) 1px,
+    var(--ink-16) 1px,
     transparent 1px
   );
   background-size: 22px 22px;
@@ -270,7 +295,7 @@
 
 .canvas-grid-fine {
   background-image: radial-gradient(
-    color-mix(in oklch, var(--foreground) 12%, transparent) 1px,
+    var(--ink-12) 1px,
     transparent 1px
   );
   background-size: 11px 11px;
@@ -860,8 +885,7 @@
    ============================================================ */
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--foreground) 28%, transparent)
-    transparent;
+  scrollbar-color: var(--ink-28) transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
@@ -871,26 +895,26 @@
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--foreground) 24%, transparent);
+  background: var(--ink-24);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklch, var(--foreground) 40%, transparent);
+  background: var(--ink-40);
   background-clip: content-box;
 }
 /* slimmer variant for dense lists (dashboard rows, stage rails) */
 .nice-scroll {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
+  scrollbar-color: var(--ink-22) transparent;
 }
 .nice-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 .nice-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--foreground) 20%, transparent);
+  background: var(--ink-20);
   background-clip: content-box;
 }
 
@@ -939,12 +963,12 @@
 
 .grid-pattern-header {
   background-image: linear-gradient(
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
+      var(--ink-05) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
+      var(--ink-05) 1px,
       transparent 1px
     );
   background-size: 28px 28px;
