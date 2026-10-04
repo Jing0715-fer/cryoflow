@@ -236,6 +236,21 @@ try {
   if (m?.h !== true) throw new Error("environment shim failed — hover assertions would be meaningless");
   browserLive = true;
 
+  /* ---- hydration guard (t578 lesson): the fixed 3200ms open sleep was a
+          prod-era assumption. On a dev-regime server (cold compile, host
+          pressure, mid-window OOM restarts) hydration can land seconds to
+          minutes after load — and every keystroke fired pre-hydration
+          (Ctrl+K, typing, Enter) vanishes without a trace, reading as
+          {"open":false} on the focus face while every post-sleep face
+          passes. Poll for actual canvas cards before the first palette
+          interaction, not just a loaded page. ------------------------- */
+  const hydrated = await pollUntil(async () => {
+    const raw = evalJs(`JSON.stringify({ cards: document.querySelectorAll('[data-job]').length })`);
+    let v = null; try { v = JSON.parse(raw || "null"); } catch { /* stays null */ }
+    return v?.cards > 0 ? v : null;
+  }, 90000, 1000);
+  check("canvas hydrated (cards in DOM)", hydrated?.cards > 0, `${hydrated?.cards} cards`);
+
   /* ============ center the hover target on the canvas ================== */
   console.log(`\n[center] ${class2d.name} → inspector Focus → Escape`);
   const centered = await centerCard(class2d.id, class2d.name);
