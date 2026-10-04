@@ -8186,3 +8186,26 @@ Stage Summary:
 - 「状态是承诺，动画是形式」：Radix data-state=closed 就是关闭的应答；dev 里 exit 动画挂起让元素滞留 DOM， demanding unmount 是把动画形式当产品承诺。t580 run-8 的目击笔记早就写了答案——重读自己的旧证据
 - 「transparent 有两种拼法」：computed 值把关键词序列化成 rgba(0,0,0,0)——断言「无」要认无的所有形态。序列化层永远在改写字面
 - 产出：ink 词表 TOTAL（八档新 token + 九处转正 + 教义注释升级）+ t581 witness 扩编 86/86（F6 hairline/chrome + R3 运行时 + TOTAL 断言）+ t580 harness 两处化石修复（cascade-witnessed 双形态、dialogGone 关闭语义）+ 回归全绿（t571 28 + t578 32 + t580 29 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t580/t571/t578/t582 witness 复核 + t576 27-face 首跑 + t573/t574/t575 活体）；②teal/primary/srgb 异色源词表（--glow-XX/--pulse-XX）；③find bar chip 级联微表情；④judge 风暴活体半场；⑤t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 583 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 05:53 cron, Job 362852, Task 572 第 5 次派单)
+Task: t582 入口②兑现——异色源词表：--glow-XX/--pulse-XX/--tint-XX 三家族 16 档落地，色源层→档位层→使用层三层架构收官；witness 86→179；途中一课（CSS Color 4 序列化拼法）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 582（交接摘要说 571——滞后第 N+35 次兑付）；HEAD b404407、树净；dev regime 五绿（200/29ms、tsc 0 全量、eslint 0、AI 信封 {sessionId,events,needsContinue}、roster 6 项目 jobs 12）；available 1143MB < 3.5GB → 非 build 日（dmesg 的 global_oom 仍是历史记录，t579「墙是宿主形状的」定律未解）；派单「Task 13 遗留池」第 N+26 次化石（t574 已葬）。
+- [选道] 入口①build 日被内存否决（1143MB << 3.5GB）；入口③图瘦身 t580 已验尸为化石（t391 results-lazy barrel）；车道收敛到入口②：teal/primary/srgb 异色源词表——ink TOTAL（t582）的对等收官。
+- [盘点] 全 sheet 剩余 inline color-mix 引用 16 处 16 档：teal-glow 家族 10 处（run-glow 双帧 42/38→78/62 + reduced-motion 冻结 60/48 + run-breathe 10/00→22/14）、primary srgb 4 处（reveal-flash 0% 帧 38 + 70% 帧 12 + rest 双环 55/45）、primary oklch 2 处（::selection 26 + progress-shimmer 峰 45）。定义行 60 = ink 14 档×2 域 + accent 16 档×2 域（脑算 92 错、实数 60——「量过再写」第 N+1 例，幸落在临时输出未落盘）。
+- [产品——三层架构] 色源层（--teal-glow 单值 var、主题可调，t-era 先例原位保留）→ 档位层（--glow-XX/--pulse-XX/--tint-XX 词表，accent vocabulary 块与 ink 块同区共置）→ 使用层（keyframes/规则引用档位）。**色彩空间即语义**：pulse-45（srgb 线性插值）与 tint-45（oklch 感知插值）同值不同色、刻意分档不互替——教义注释钉死「deliberately distinct rungs, not a typo」。双域共置（:root+.dark 各 16 行）：色源本身主题作用域，:root 单域声明会在 html 以下烘焙 light 色（t581 解析代际教义）。--glow-00 保留 run-breathe 从零起步的显式语义。16 处声明转正；顺手修一处过时注释（run-breathe 还在说「color-mix against the shared --teal-glow var」——转正声明时差点漏了转正注释）。
+- [witness 86→179] F7：16 档定义双形断言（fallback var(--source) 先 + color-mix truth 后 × root+dark 各 ≥2）镜像 F3；F8：16 使用处 verbatim + outside @supports + **精确 citation 计数**（served var(--glow-*)==10 / pulse==4 / tint==2——管线若对使用处双形化，计数翻倍即炸；「存在断言」只证有，精确计数证不多不少）+ 帧形状断言（rest 42/38 → peak 78/62）；F9：源侧 accent 计数 16 + TOTAL 升级为三源（剥全部定义行后 foreground/teal-glow/primary 的 color-mix 零存活）；R4：三家族元素级 inline citation 探针（box-shadow 直接引 var——呼吸动画里读 computed 是移动靶，无动画探针才是确定性读数，顺带证明 token 是真 API）断言 alpha 0.42/0.38/0.26 + pulse 序列化非 oklch；R5：.dark 切换下 glow-42 解析值改变——双域共置在做真功的实证（:root 单域定义会全树烘焙 light teal）。
+- [序列化化石一课] 首跑 178/179，唯一 fail = 自家断言假设「srgb mix → rgba()」：Chrome 153 实际输出 CSS Color 4 形态 color(srgb -0.004 0.6 0.558 / 0.38)——rgba 是 2020s 拼法，color(srgb) 是现行标准拼法。修断言认两种形态、只排除「是 oklch」。t582「transparent 有两种拼法」教义家族第 N+1 例：序列化层永远在改写字面，断言要认无的所有形态。
+- [回归] witness 179/179；t571 28/28（canvas hover 面——canvas.tsx 本窗零触碰）+ t578 32/32（find lens + ripple）+ t580 29/29（inspector whisper——Escape 三级兜底链连续第二窗全绿，flaky 定谳为长脸序列状态病的结论加固）；单测 113（t562 64 + t573 11 + t574 16 + t575 22）；tsc 0 全量；eslint 0（src + witness）；roster 12→12、console 净、零世界污染、零孤儿进程。
+- [未做与理由] find bar chip 级联微表情（t578 入口②余量——一窗一车道，样式余量留下窗）；judge 风暴活体半场（等世界稳定夜）；build 日全家桶（等箱体 ≥3.5GB——今晨 available 1143MB）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「色彩空间是词表的一部分」：pulse-45 与 tint-45 同值不同空间——srgb 沿通道线性插值、oklch 在感知均匀空间插值，同一个数字落在不同的颜色上。把两者塞进一个词表会让 token 名撒谎；分家不是洁癖，是数学。命名前先问「这个档位的语义单位是什么」
+- 「精确计数是双形化的探测器」：F8 的 served citation 计数（10/4/2）把 t581 的核心胜利从「存在」升级为「恰好多不多不少」——管线对定义双形、对引用放行的不对称一旦反转（比如未来版本对声明也做 fallback split），计数翻倍，断言在当窗就炸而不是被人眼发现。验证「恰好 N」比验证「≥1」贵一个数量级，也诚实一个数量级
+- 「动画里的 token 要用无动画的探针证」：呼吸动画中途读 computed box-shadow 是移动靶（50% 帧与 0% 帧之间有无数中间值）；元素级 inline citation（style 直接引 var(--glow-42)）读数确定、无动画干扰，还同时证明 token 是可引用的真 API 而非死定义——一个探针双份证据
+- 「双域是否在做功要实证」：定义了 :root+.dark 两份不等于运行时真的分叉——R5 切 .dark 读同一 citation 的解析值，light/dark 不同才是「双域生效」的见证。t581 的解析代际教训至此有了活体证据面
+- 「注释也是要维护的产品」：run-breathe 的教义注释还在描述三个窗之前的实现（color-mix against --teal-glow）——声明转正时注释差点没跟上。过时注释是化石的前体：它教下一个读者错误的事实。改产品时 grep 自己的教义注释
+- 产出：accent vocabulary（--glow-XX 10 档 + --pulse-XX 4 档 + --tint-XX 2 档，双域共置，16 声明转正，三层架构教义注释）+ witness 86→179（F7/F8/F9/R4/R5）+ 过时注释修复 + 序列化断言修正；下窗入口：①build 日 = FRESH gate → prod 全家桶（t583 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②find bar chip 级联微表情；③judge 风暴活体半场；④t471 WSL-bridge（照实挂）、t276（门控）
