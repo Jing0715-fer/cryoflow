@@ -101,7 +101,7 @@ const OLD = [
 for (const sig of OLD) ok(`absent: ${sig.slice(0, 48)}…`, !served.includes(sig));
 
 console.log("F3 — definitions dual-formed (fallback first, truth after, both themes)");
-for (const pct of ["04", "06", "09", "10", "14", "18"]) {
+for (const pct of ["04", "05", "06", "09", "10", "12", "14", "16", "18", "20", "22", "24", "28", "40"]) {
   const token = `--ink-${pct}`;
   const fb = [...served.matchAll(new RegExp(token.replace(/-/g, "\\-") + ":\\s*var\\(--foreground\\)", "g"))].map((m) => m.index);
   const tr = [...served.matchAll(new RegExp(token.replace(/-/g, "\\-") + ":\\s*color-mix\\(in oklch, var\\(--foreground\\) " + Number(pct) + "%, transparent\\)", "g"))].map((m) => m.index);
@@ -114,13 +114,37 @@ console.log("F4 — run-glow keyframes keep var(--ink-10)");
 const ink10 = [...served.matchAll(/0 6px 16px -4px var\(--ink-10\)/g)].length;
 ok("ink-10 ambient layer x3 (rest + 2 keyframe frames)", ink10 === 3, `found ${ink10}`);
 
-console.log("F5 — on-disk source: 12 ladder sites say var(--ink-XX)");
+console.log("F5 — on-disk source: 21 ladder+hairline+chrome sites say var(--ink-XX)");
 const src = readFileSync(GLOBALS, "utf8");
 // strip CSS comments first — the doctrine comment mentions var(--ink-14) in prose
 const srcNoComments = src.replace(/\/\*[\s\S]*?\*\//g, "");
 const varRefs = [...srcNoComments.matchAll(/var\(--ink-\d+\)/g)].length;
-ok("12 var(--ink-XX) declaration refs in globals.css", varRefs === 12, `found ${varRefs}`);
-ok("no inline foreground mix left in ladder shadows", !/0 1px 2px color-mix/.test(src) && !/0 6px 16px -4px color-mix/.test(src));
+ok("21 var(--ink-XX) declaration refs in globals.css", varRefs === 21, `found ${varRefs}`);
+// vocabulary TOTAL (t582): outside the definition lines, no foreground
+// color-mix survives anywhere in the sheet
+const bodyNoDefs = srcNoComments.replace(/^\s*--ink-\d+:\s*color-mix[^;]*;/gm, "");
+ok(
+  "zero inline foreground color-mix outside token definitions",
+  !bodyNoDefs.includes("color-mix(in oklch, var(--foreground)"),
+);
+
+console.log("F6 — hairline/chrome declarations verbatim at top level (t582)");
+const CHROME_INK = [
+  ["canvas-grid", "var(--ink-16) 1px"],
+  ["canvas-grid-fine", "var(--ink-12) 1px"],
+  ["scrollbar-color: var(--ink-28) transparent", null],
+  ["-webkit-scrollbar-thumb", "background: var(--ink-24)"],
+  ["-webkit-scrollbar-thumb:hover", "background: var(--ink-40)"],
+  ["nice-scroll", "scrollbar-color: var(--ink-22) transparent"],
+  ["nice-scroll::-webkit-scrollbar-thumb", "background: var(--ink-20)"],
+  ["grid-pattern-header", "var(--ink-05) 1px"],
+];
+for (const [sel, decl] of CHROME_INK) {
+  const needle = (decl ?? sel).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const m = served.match(new RegExp(needle));
+  ok(`${decl ?? sel} verbatim`, !!m, "not found in served CSS");
+  if (m) ok(`${decl ?? sel} outside @supports`, !insideSupports(m.index), "wrapped in @supports");
+}
 
 /* ---------- runtime faces ---------- */
 // pre-warm the world before the browser lands (t571 house pattern): a freshly
@@ -215,6 +239,33 @@ try {
     return out;
   })())`);
   ok("override flows into computed shadow", !!r2 && r2.changed && r2.overridden !== "none", JSON.stringify(r2));
+
+  console.log("R3 — hairline/chrome inks resolve (grid dots + scrollbar-color)");
+  const r3 = readJson(`JSON.stringify((function(){
+    var grid = document.createElement("div");
+    grid.className = "canvas-grid";
+    grid.style.cssText = "position:absolute;left:-9999px;top:0;width:40px;height:40px;";
+    document.body.appendChild(grid);
+    var gridBg = getComputedStyle(grid).backgroundImage;
+    grid.remove();
+    var scroll = document.createElement("div");
+    scroll.className = "nice-scroll";
+    scroll.style.cssText = "position:absolute;left:-9999px;top:0;width:40px;height:40px;";
+    document.body.appendChild(scroll);
+    var sbColor = getComputedStyle(scroll).scrollbarColor;
+    scroll.remove();
+    return { gridBg: gridBg, scrollbarColor: sbColor };
+  })())`);
+  ok("probe strings returned", !!r3 && !!r3.gridBg && !!r3.scrollbarColor, JSON.stringify(r3));
+  if (r3 && r3.gridBg && r3.scrollbarColor) {
+    const gridAlpha = Number((r3.gridBg.match(/\/\s*([\d.]+)\)/) || [])[1]);
+    const sbAlpha = Number((r3.scrollbarColor.match(/\/\s*([\d.]+)\)/) || [])[1]);
+    ok("grid dot ink resolves at 0.16", Math.abs(gridAlpha - 0.16) < 1e-6, `${r3.gridBg.slice(0, 80)} alpha=${gridAlpha}`);
+    // Chrome serializes the `transparent` keyword as rgba(0, 0, 0, 0) in
+    // computed scrollbar-color — accept both spellings of "nothing"
+    const secondLayerClear = /transparent|rgba\(0, 0, 0, 0\)|#0000/.test(r3.scrollbarColor);
+    ok("scrollbar ink resolves at 0.22 over clear track", Math.abs(sbAlpha - 0.22) < 1e-6 && secondLayerClear, `${r3.scrollbarColor.slice(0, 90)} alpha=${sbAlpha}`);
+  }
 } catch (e) {
   fail++; console.log("FAIL  runtime faces —", e.message);
 } finally {

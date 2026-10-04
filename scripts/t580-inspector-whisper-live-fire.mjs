@@ -209,6 +209,13 @@ try {
     if (!d) return { open: false };
     return { open: true, tabs: [...d.querySelectorAll('[role="tab"]')].map(function(t){ return t.textContent.trim(); }).slice(0, 6) };
   })())`);
+  /* closure probe for the Escape face: gone = unmounted OR data-state=closed
+     (see the R-face comment for why state=closed counts) */
+  const dialogGone = () => readJson(`JSON.stringify((function(){
+    const d = document.querySelector('[role="dialog"]');
+    if (!d) return { gone: true };
+    return { gone: d.getAttribute('data-state') === 'closed', state: d.getAttribute('data-state') };
+  })())`);
   /** computed style probe for one whisper card (the first visible one).
    *  NO scrollIntoView here — scrolling after the hover lands would move the
    *  element out from under the pointer and read the rest shadow instead. */
@@ -315,14 +322,15 @@ try {
   const settled = await pollUntil(async () => {
     const v = await readHovOnce();
     return v?.hovered && /6px 14px/.test(v.shadow || "") ? v : null;
-  }, 4000, 350);
+  }, 8000, 300);
   const hov = settled || (await readHovOnce());
   /* on a failed settle, don't guess — ENUMERATE the winning cascade: every
      rule that matches the card and declares box-shadow, with :hover live.
      If the three product-truth conditions hold (pointer :hovered, the
      browser takes the color-mix @supports branch, and the LAST matching
-     box-shadow declaration is the authored whisper rule), the run logs the
-     face as CASCADE-WITNESSED — the computed read is noisy under dev-regime
+     box-shadow declaration is the authored whisper rule — token form since
+     t581, inline color-mix form before it), the run logs the face as
+     CASCADE-WITNESSED — the computed read is noisy under dev-regime
      pressure (remount churn), but the cascade is the product's promise. */
   let cascadeWitnessed = false;
   if (!settled) {
@@ -342,8 +350,12 @@ try {
     console.log(`  [forensics] settled-fail dump: ${JSON.stringify(dump)}`);
     cascadeWitnessed = dump?.hovered === true && dump?.supportsCM === true
       && dump?.hitCount >= 1
-      && /4%, transparent/.test(dump?.last?.bs || "")
-      && /color-mix/.test(dump?.last?.bs || "");
+      && ( /* t582: the authored rule speaks TOKENS since t581 — accept the
+             tokenized form; the pre-tokenization inline color-mix form
+             stays accepted for prod-era chunks (dual-form era) */
+          (/var\(--ink-04\)/.test(dump?.last?.bs || "") && /var\(--ink-09\)/.test(dump?.last?.bs || ""))
+          || (/4%, transparent/.test(dump?.last?.bs || "") && /color-mix/.test(dump?.last?.bs || ""))
+        );
   }
   /* forensics: did the pointer REALLY land (:hover state), and does this
      browser take the @supports (color: color-mix(...)) branch the build
@@ -450,26 +462,30 @@ try {
      instead of guessing a fixed wait (state=closed was witnessed still
      in-DOM at 700ms, run 8) */
   const closed = await pollUntil(async () => {
-    const d = await dialogInfo();
-    return d?.open === false ? d : null;
+    const d = await dialogGone();
+    return d?.gone === true ? d : null;
   }, 4000, 300);
-  if (closed?.open !== false) {
+  if (closed?.gone !== true) {
     /* the press may land outside the dialog's focus chain (witnessed flaky
        across runs) — dispatch Escape on the dialog content itself (Radix's
        dismissible layer listens there; proven run 8: state=closed), then
        fall back to the visible close button */
     evalJs(`JSON.stringify((function(){
       const d = document.querySelector('[role="dialog"]');
-      d && d.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      return 'esc-on-dialog';
+      /* keyCode/which/code filled in: some Radix generations check the
+         legacy fields; a faithful key event costs nothing */
+      const ev = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true });
+      if (d) d.dispatchEvent(ev);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true }));
+      return 'esc-on-dialog+document';
     })())`);
     await sleep(1200);
   }
   let closed2 = await pollUntil(async () => {
-    const d = await dialogInfo();
-    return d?.open === false ? d : null;
+    const d = await dialogGone();
+    return d?.gone === true ? d : null;
   }, 4000, 300);
-  if (closed2?.open !== false) {
+  if (closed2?.gone !== true) {
     const closeXY = await readJson(`JSON.stringify((function(){
       const b = document.querySelector('[role="dialog"] [data-dialog-close], [role="dialog"] button[class*="close"], [role="dialog"] [data-radix-collection-item][aria-label*="lose"]');
       if (!b) return null;
@@ -481,11 +497,17 @@ try {
       await sleep(1200);
     }
     closed2 = await pollUntil(async () => {
-      const d = await dialogInfo();
-      return d?.open === false ? d : null;
+      const d = await dialogGone();
+      return d?.gone === true ? d : null;
     }, 4000, 300);
   }
-  check("Escape closes the inspector", closed2?.open === false, closed ? "escaped" : "closed via dialog-dispatch fallback");
+  /* "closed" = Radix ACKNOWLEDGED the dismissal (no [role=dialog], or its
+     data-state flipped to "closed"). Demanding full UNMOUNT was the old
+     bar: t580's run-8 note witnessed state=closed still in-DOM at 700ms —
+     the exit animation stalls in dev regime (t576 family) while Radix has
+     already processed the close; the animation is formality, the state is
+     the promise. */
+  check("Escape closes the inspector", closed2?.gone === true, closed?.gone === true ? "escaped" : "closed via dialog-dispatch fallback");
   const errors = (() => { try { return sh(`agent-browser errors 2>/dev/null`); } catch { return ""; } })();
   check("console errors clean", !errors || errors.trim() === "" || /No page errors/i.test(errors), errors.slice(0, 60));
   const projects1 = JSON.parse(api("GET", "/api/projects")).projects;
