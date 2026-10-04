@@ -7570,3 +7570,26 @@ Stage Summary:
 - 「先读头注再选运行时」：t402b 的 bun-ism、agent-browser 的 detached ref、seed 的借还副作用——工具的边界写在它们自己的头注/行为里
 - 产出：adopt 回程票端到端（事件对 + 逆数学 + UI 块 + flash）+ Mol* 相机侧保留 bug 修复（getInvariantFocus）+ t557 单测 19/19 + 三向闭环活体证据（恒等/精确/定点）
 - [下窗入口] ①Topaz wrapper 产品化（topaztrain job type 已有产品面，wrapper 补参数面/曲线面——连续两窗候选未动，下窗优先）；②oblique 终章钩子：⌖/adopt 的读数入 tetraptych footer（导出件记录相机与平面的对话）、roll 采纳（up→tile 手性对齐）若真有需求再议；③gamble inclusive 象限；④t471 WSL-bridge（照实挂）
+
+---
+Task ID: 558
+Agent: main (Z.ai Code, window 2026-10-04 08:53 cron)
+Task: t557 入口①兑现——Topaz train→pick 交接产品化（「Pick with this model」）：引擎收据「connect into Auto-picking (Topaz mode)」从手工接线苦差变成一键手势。双路径（诚实拒绝 / 成功铸造）浏览器活体全过。
+
+Work Log:
+- [开局] HEAD 6e72a52 对齐、树净；基线五绿（prod 200/2.6ms、tsc 0、eslint 0、console/errors 0、AI 探针 ALIVE）。worklog 尾条 = Task 557；派单 Task 13 清单第 N+14 次化石（N+12 已验尸闭光，背诵零信息量确认）。
+- [侦察] Topaz 面积比入口笔记暗示的完整得多：topaztrain/topazdenoise 全参数面、TopazTrainingChart（loss+P/R 双视图，t488/t491）、DenoiseCompareGallery（t542）、mock topaz shim（t534）、AI get_result_curves topaz kind。真缺口 = 交接：训练完成后用户要手动加 Auto-picking、开 Topaz tab、拉线——引擎注释自己承认这是 chore。
+- [store 动作 pickWithTopazModel(fromJobId)] 完全镜像 adoptWithSelect 的家法形：①守卫（job 在且 topaztrain、completed）；②微图 mouth 必须先有源可继承——edges 找 toPort=micrographs 的 feed，找不到诚实拒绝（「canvas 上的半接线 pick 是图会一直说的谎」——adoptWithSelect 律）；③placeRightOf 找空位；④POST /api/jobs 铸 autopick，params 带训练自己的 dials（pickingMethod:"Topaz" + topazNrParticles/Threshold/Diameter/Downscale/Workers/Args 逐项 ?? 兜底）；⑤set selectedId/selectedIds + invalidateRedo + focusJob；⑥双线 quiet connect（train.model→topazModel + 源.micrographs→micrographs——pick 消费训练消费的同一条流，官方 topaz flow 里就是 denoised 栈）；⑦toast 是手势的声音。
+- [UI 卡 TopazPickHandoff] results-view 的 topaztrain+completed 段，训练曲线正下方——「上面的曲线说模型多好，这张卡说拿它做什么」。rose accent（topaztrain spec 自己的颜色）：Crosshair 图标 + 标题 + 一句话机制 + outline 按钮（busy Loader2 防双击）；data-canvas-ui="topaz-pick-handoff"。
+- [dance] FRESH=1 前台轮次 attempt 1 GREEN（provenance 6e72a52）。tsc 0 · eslint 0。
+- [浏览器活体 — 双路径] demo 世界现成考卷：completed「diag Topaz Train」（workdir 真有 topaz_model.sav 798B，但零 feed）+ pending「t266 Topaz Train」（有 Import+LoG feed）。①拒绝路径：点按钮 → toast「The training job has no micrographs source to inherit — wire one in first」，零铸造；②成功路径：POST edge（t266 Import→diag train micrographs）+ 整页重载让 store 吃进边 → 点按钮 → toast「Topaz Pick minted…review the params and run」→ 名册 83→84，「Automated Picking 15」落在 train 右侧空位，params 逐项对上（Topaz 模式 + 五 dials 全继承），双线就位（d4iauq:model→topazModel + 9kmxjk:micrographs→micrographs）；③focusJob 清 inspectId——铸造后 inspector 关、canvas 落在新 job 选择上（设计行为）。
+- [弯路记] ①diag 卡簇在世界坐标里互相叠压（多张卡几乎同位）——canvas 点端口/拖卡全被覆盖层吃掉（covered-by 报错 + 拖动无效）；②mouse 原语画线也败（pointer capture 的 resolveReleasePort 没吃到目标端口）——绕道 API POST edge + 整页 reload 让 store 重建，比跟画布交互搏斗便宜十倍；③元素截图抓到空白（卡片在滚动视口外）——scrollIntoView 后重抓 13KB 真图。三弯一条：QA 要会绕路，别跟 UI 的重叠层死磕。
+- [清场] DELETE 铸造的 autopick（?confirm=true，边级联）+ DELETE 试加的 edge——名册 83 还原、diag train feeds 0 还原、t402b 自擦自建后 switch 回 demo。console/errors 0、prod 200。
+- [未做与理由] tetraptych footer 收编 ⌖/adopt 读数（t557 入口②，小而美，下窗顺路）；denoise→train/pick 的同款交接卡（同一手势家族，待真需求）；gamble inclusive 象限（等 VLM 心情）；t471 WSL-bridge（照实挂）；t276（门控）。
+
+Stage Summary:
+- 「收据里的下一步就是产品」：引擎注释写着「connect into Auto-picking (Topaz mode)」两代窗没人问——把收据里的动词变成按钮，就是产品化本身；交接卡放在训练曲线正下方，曲线说质量、卡说行动
+- 「手势要遵守 mouth 先喂饱的律」：铸造前拒绝无源的 pick（canvas 不说谎），铸造后双线齐落（model + 继承的微图源）——adoptWithSelect 的形是家法，不是参考
+- 「QA 会绕路」：世界坐标叠压的卡簇让三种 UI 交互全哑——API POST + reload 让 store 重建比跟覆盖层搏斗便宜；但清场要连试加的 edge 一起还，借还律不看绕路的姿势
+- 产出：Pick with this model 双路径活体（拒绝诚实 + 铸造精确）+ store 动作（家法形）+ rose 交接卡 + 名册/边零污染归还
+- [下窗入口] ①tetraptych footer 收编 ⌖/adopt 读数（t557 入口②）；②denoise→pick/train 同款交接卡（手势家族扩员，若做 Topaz 第二刀）；③AI 车道：gamble inclusive；④t471 WSL-bridge（照实挂）
