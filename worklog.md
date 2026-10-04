@@ -7983,3 +7983,47 @@ Stage Summary:
 - 「镜像不判词，原件才有意见」：soft-link 的判词走 findEffectiveJob 归于原件——planner 跳过镜像，否则一对镜像在 newest-wins 下互相覆写
 - 「 fossil 池的葬礼」：七连验尸全部化石——#5/#6/#14/#7/#8 在 t251/t486 世代就已修好，#13 从未存在，3D 截面与 Topaz 是建成后被当蓝图。悬置清单的价值不在修复承诺而在定期再核；本窗起派单的遗留池正式清空，后续窗的选道只看 worklog 尾条的「下窗入口」
 - 产出：judge worker（plan 纯模块+shell+settings autoJudge+状态路由+sweep hasVerdict+卡徽章+设置开关）+ t574 单测 16/16 + 活体 28/28 ×2 连绿 + 世界修复（集群侧 extract 输入在场，本世界类作业全道复活）+ 回归 190 活体断言；下窗入口：①样式余量——dashboard 卡片入场（t572 入口②的姊妹篇）、卡影 ladder 下一 rung；②功能余量——judge worker 的 class3d 侧需先解 mock 引擎栈供给（世界修复的 extract 输入已就位，class3d 集群道或可试）；③judge worker 观察窗——多类多作业的队列排空节拍（cap=1 的公平性在风暴下的实证）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 575 (收官 — interim 段保留于下)
+Agent: main (Z.ai Code, window 2026-10-04 20:25 cron)
+Task: t574 入口②兑现——class3d 集群道复活（the fake cluster learns to speak 3D）：stub 补 3D per-class 方言，worker 自动判词在真引擎道上闭环。
+
+Work Log (interim):
+- [开局核实] worklog 尾条=Task 574（交接摘要说 571——滞后第 N+27 次兑付）；HEAD 408aa2f、树净；基线五绿（prod 200/3ms、tsc 0 全量、eslint 0、AI 探针结构化信封 ALIVE（注意 chat 契约是 {message} 单数，{messages:[]} 会得到诚实报错——探针写法错产品无罪）、active=EMPIAR jobs=12 roster=6 项目）；agent-browser QA：canvas 12 卡 13 线、console/errors 零输出。派单「Task 13 遗留池」第 N+18 次化石（t574 已葬，照旧零信息量）。
+- [选道——t574 入口②] class3d worker 自动判词的引擎道。t573 判词走的是合成 feed（引擎道被「粒子栈在 mock 集群侧」堵死）；t574 世界修复后「class3d 集群道或可试」。本窗侦察结论：**全链就绪，唯一硬缺口在 stub 方言**——
+  - 输入侧：class2d K5（particles_star，star 行携带绝对宿主路径直指集群树内 extract 栈，t574 修复的 motif 栈在场）+ initialmodel C1（model_mrc，引擎原生 VDAM 写真 64³，refine3d 当年已用同链跑通集群道=reference 上传机制 t365 已验证）都已 completed；
+  - worker 侧：planner 管辖 class3d、judge-worker.ts 分发 judge3dClasses（t574 已建）；
+  - discovery 侧：discoverClassVolumes 读 run_itNNN_classMMM.mrc（stub 文件名恰好匹配）；
+  - sync-back 侧：BULK_TYPES 不含 class3d → keyFileMb 16MB 逐文件门 → 1MB/类的 64³ 体积回家无阻；
+  - 渲染侧：stretchToGray 的 auto-flip（负密度主导 >1.0× 翻亮）天然认 cf_cryo.negative_volume 方言，mrc.ts 零改动；
+  - **缺口**：stub relion_refine 从不认识 class3d——mode 默认 classify2d 且无人传 --mode，per-class 文件写 2D 方言（64×64×1 kind="classes"），判词三面（XY/XZ/YZ）退化成 1 像素条。判词读的是画面不是想象（t573 教义）：喂 2D 条给 3D 判词是假活体。
+- [实现计划] 两文件镜像工程：①cf_cryo.py 加 class_volume(dim, seed, amp)——3D 类体积（负蛋白核心+零均值溶剂，per-class 形状变异：半径/偏移/单轴拉伸/双叶，weak 类 amp 压平——判别谱进 3D）；②relion_refine stub 车道推断（--ref 在场 && 无 --split_random_halves && 无 --grad = class3d，全从 argv 自己的真话来）+ class3d 车道 per-class 写 64³（real: class_volume；legacy: kind="volume" nz=64）+ seed round 补 per-class + final 别名 run_class00C.mrc 全类补齐（真 class3d 收尾动作，class001 覆写为末轮真体积——比 9903 噪声更诚实）。
+- [dance 重估] 本窗产品改动纯 Python（src/ 零字节），stub 每次执行全新读取、无 daemon 缓存——FRESH 重建是零增量的 OOM 轮盘赌，免；以 tsc 0 全量 + eslint 0 + prod 200 为树绿见证，理由如实入 worklog。
+
+Stage Summary (interim):
+- 选道逻辑：t574 入口②的功能闭环价值 > 样式余量（dashboard 入场留作下窗入口①）；「上窗的化石可能已成地基」的下篇——「上窗堵死的道可能已被世界修复打开」
+- 本窗车道：stub 3D 方言（class_volume + 车道推断 + per-class 64³ + seed/final 补齐）→ 单测裸调 stub 双道验证 → 活体 t575（引擎集群道 class3d → worker tick 自动判词 → stamp → 徽章 → 清理归还）→ 回归 t574/t573/单测三连
+
+---
+Task ID: 575 (收官)
+Agent: main (Z.ai Code, window 2026-10-04 20:25 cron)
+Task: t574 入口②兑现——class3d 集群道复活（the fake cluster learns to speak 3D）：stub 补 3D per-class 方言，worker 自动判词在真引擎道上闭环，判别谱在世界尺度开闸。
+
+Work Log (收官续):
+- [实现——两文件镜像工程] ①cf_cryo.py 加 class_volume(dim, seed, amp)：负蛋白核心+零均值溶剂的 RELION 密度方言；包络（椭球+偏移+单轴拉伸，真实同分子共享形状的诚实）+ 2–4 个 domain 叶（种子化球坐标）+ 偶数种子 cavity（内部空腔）+ weak 类 amp 压平（weak_class_preset 携进 3D）。②relion_refine stub 车道推断（--ref && !split && !grad+denovo = class3d，argv 自己的真话）+ 主循环 class3d 分支写 64³（real: class_volume；legacy: kind="volume" 诚实 3D）+ seed round it000 per-class 补齐 + final 别名 run_class00C.mrc 全类 copy_final（真 class3d 收尾动作，class001 的 9903 噪声被末轮真体积覆写——no-tag finals 与 it-last 一致正是 discoverClassVolumes 依赖的契约）+ continue 分支镜像三处（车道推断自带一份——它在主流程推断之前跑）。
+- [单测 t575-stub3d-test.mjs 22/22] 裸调 stub 三车道（diag-t320 模式）：real_mode 64³ float32 逐类+字节精确+seed round+final 别名 byte-identical+half maps/classes.mrcs 兼容；legacy 道（重要发现：t308 审计对缺失栈是硬拒绝，legacy 只能经「存在但坏头」触发——garbage.mrcs 是唯一诚实入口）；class2d 字节稳定（2D 平均值/nz=K 栈/无多余别名——t574 世界不因本窗位移）。
+- [dance 重估兑现] src/ 零字节改动 → 免 FRESH 重建（零增量的 OOM 轮盘赌）；tsc 0 全量 + eslint 0（含新 harness）+ prod 200 为树绿见证；stub 每次执行全新读取、无 daemon 缓存，无需重启。页脚 build c73843e 与 HEAD src 同源，截图自证。
+- [活体三课] ①首跑集群道 exit 1 实锤新缺口：派发对输入 star 走「集群侧 in-place 读取」（t338/t346 集群原生教义），K5 的集群侧 twin（class2d_ewxp1nl8/run_it003_data.star）窗间被清——t574 修的是 extract 层，本窗把 repairWorld 向链上一级延伸（repairUpstreamTwins：宿主最新 run_itNNN_data.star → 集群侧 twin 路径，幂等、留场、世界基础设施非探针）；②in-place census 的路径 doubling（fs/home/z/my-project/services/... 前缀叠加）——诊断性 note、非阻塞（"did not run" 的 t343 诚实），运行时真正的门是 stub 自己的 t308 审计；照实注记不修（诊断 cosmetics vs 运行正确性分属两账）；③**假阳性自家逮**：截图相对路径落在 daemon cwd（t574 同病，两张全失踪）且我的 "screenshot taken" 检查无条件 true——绝对路径 + existsSync 诚实验尸，两处都修。
+- [判别谱的世界尺度复现] 首个结构化版本（单核高斯球）判词全 reject——VLM 的 "featureless blob" 签名逐字命中（t573 教义：fixture 保真度=被测物现实，这次的 fixture 是世界的产物本身）；升级 domain/cavity 结构后 24/24 ×2 判词谱开闸（1:reject 2:reject 3:maybe 4:reject，弱类/无结构类 reject、结构类 maybe——judge 对合成体积的分辨与 t573 fixture 教训在世界尺度互证）。
+- [活体 t575 24/24 ×3 连绿] W+preflight → 铸 class3d（K=4, iter=3）→ 双 wire（K5 particles_star + C1 model_mrc）→ 集群 run 100% → 宿主侧 per-class 64³ float32 4/4（3D 方言经 sync-back 回家，1MB/类 < keyFileMb 16MB）→ final 别名回家 → worker tick 内 ai-verdict 自动 available（4 类、glm-4-plus、枚举、时间戳）→ sweep hasVerdict → ledger 记 type class3d → 卡徽章 DOM 实证 + 📸（诚实落盘）→ K5 stamp `at` 不变 + ledger 零触碰 → DELETE+rm+原子修剪 → roster 12→12、stamps 1→1、console 0。
+- [回归] t574 28/28（worker 域+class2d 道字节稳定实证）、t573 14/14（judge3d 域，rubric sanity band 双向过）；单测 t575 22/22 + t574 16/16 + t573 11/11 + t562 64/64；tsc 0 全量；eslint 0。
+- [未做与理由] in-place census 路径 doubling 修复（诊断 cosmetics，非阻塞 note；独立小修可入下窗）；class3d continue 道的活体（stub 已镜像 3D 方言，但世界无 continue 探针场景）；dashboard 卡片入场（t572 入口②姊妹篇，样式余量留给下窗）；judge worker 风暴观察窗（cap=1 公平性，等多作业并发场景）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary (收官):
+- 「上窗堵死的道可能已被世界修复打开」：t573 判词走合成 feed 因「粒子栈在集群侧」堵死引擎道，t574 世界修复后本窗只补一个 stub 方言缺口就全线贯通——悬置车道定期再核的教义第二次兑付（第一次是 t573 发现「3D 截面」化石早已建成）
+- 「方言在 argv 自己的真话里」：引擎从不传 --mode，stub 的车道只能从旗标组合推断（--ref && !split && !grad = class3d）——「the DIALECT from the argv's own truth」（t456 原文）从 model-star 家族长到了整条 3D 车道；continue 分支自带一份推断，因为它在主流程之前跑——同一句真话在两处各说一遍，好过跨作用域借用
+- 「世界修复要跟着输入链走」：t574 修 extract 层时 class 作业复活了，但 class3d 的输入在链上一级（K5 的 twin）——in-place 读取的集群原生教义意味着「每个上游输出的 twin 都是世界基础设施」；twin 被清的症状不是报错而是「silently mid-job」的 exit 1，好在 run.err 里的 CRYOFLOW_NOTE 把要的路径原样说了出来
+- 「判别谱是 fixture 的镜子」：全 reject 不是 judge 坏了——光滑高斯球在 rubric 眼里就该 reject；domain/cavity 结构上桌后 maybe 出现。世界的产物质量决定 judge 的分辨力——这条 t573 教训的 World 版：给世界造物时就要按「judge 要读它」的标准造
+- 「假阳性也会穿成检查的样子」：无条件 true 的 "screenshot taken" 检查 + 落在 daemon cwd 的相对路径截图——断言通过、证据不存在。修法两层：绝对路径落盘 + existsSync 验尸；「检查要做它说的话」与 t571 的 ring-class 假阳性同宗，第 N 例
+- 产出：stub class3d 3D 方言（车道推断+per-class 64³+seed/final 补齐+continue 镜像）+ cf_cryo.class_volume（domain/cavity/weak 结构化 3D 类体积）+ t575 单测 22/22 + 活体 24/24 ×3 连绿（真引擎道、真 VLM、真 sync-back、零污染归还）+ 世界修复向上延伸（K5 twin star 留场）+ 判别谱世界尺度开闸；下窗入口：①样式余量——dashboard 卡片入场（t572 入口②姊妹篇）、卡影 ladder 下一 rung；②小修——in-place census 路径 doubling（诊断 note 的 cosmetics）；③功能余量——class3d continue 道活体、judge worker 风暴观察窗；④t471 WSL-bridge（照实挂）、t276（门控）
