@@ -7853,3 +7853,25 @@ Stage Summary:
 - 「一级深度是声明不是缺陷」：ping-pong（回程 chip 又指向出发地）是设计——历史栈需要管理语义（清栈时机、栈上限、跨对话持久化），一级 chip 只回答门的问题「刚从哪来」；诚实的产品先回答小问题
 - 「捕获先于搬迁」：openJob 的 hop 会换 jobs 数组——名字与 projectId 在任何 await 之前 snapshot 进 chip 状态，跨项目回程不裸奔；同项目存在性实证 + 跨项目快照信任，两种诚实各管一段
 - 产出：cameFromJob 换岗捕获（store 六处）+ inspector 返回 chip + t569 harness 13/13 ×2 连绿 + 门家族回归 75/75（t568+t567+t566）；下窗入口：①t566 入口①重估（judge worker 复核/class3d 判词——VLM 3D 面）仍是最重待办；②样式余量：chip 的 motion 细节（入场 fade/slide？）；③功能余量：Topaz 第四刀、3D 体积截面（等真需求）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 570
+Agent: main (Z.ai Code, window 2026-10-04 15:23 cron)
+Task: t569 入口②兑现——门家族的 motion 语言（chip 入场 + 门 hover 微动作），motion as wayfinding。开局巡检五绿零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 569（交接摘要说 567——滞后于现实第 N+24 次兑付；「Task 13」派单化石照旧零信息量）；HEAD 028e129、树净；基线五绿（prod 200/3.3ms、tsc 0、eslint 0 problem、AI 探针 ALIVE、active=EMPIAR t372 roster 12）。QA 巡检：canvas 25 节点、console 干净、直开 K5 无 chip（t569 Face B 语义如实）。
+- [选道] judge worker 复核/class3d 判词（VLM 3D 面重活）与 Topaz/3D 截面（等真需求）让位于 t569 留下的样式入口②：门家族三窗全是「 paint 即 affordance」——hover tint + 瞬间弹出的 dotted underline，箭头是静态的。本窗给家族一套 motion 方言，论题一句话：箭头指向你要去的地方。
+- [设计——三层 reduced-motion 语义] 变换（transform/animation）是运动，骑 motion-safe；色彩淡入（tint/underline ink）是颜色不是运动，不设防（house 自 assistant-panel group-hover:opacity 以来的读法）；chip 入场是具名 keyframe（globals.css 家法：ws-running 同款注释+media 静音）。chip：入场左滑 6px/220ms/cubic-bezier(0.22,1,0.36,1) easeOutQuint + both fill + ArrowLeft hover 左移 1px + active:scale-[0.97]（transition-all 承载）。双门：underline 从 hover:underline 瞬间弹出改为常铺线 + 墨色 decoration-transparent→hover:decoration-current（transition-colors 原生覆盖 text-decoration-color——进淡出淡对称，纯色彩过渡天然 reduced-motion 安全）+ ArrowUpRight hover 右上 1px + opacity .6→1。
+- [实现] 四文件：globals.css（.inspector-chip-enter keyframe + reduce 静音，comment 讲透 motion-as-wayfinding）、job-inspector.tsx（chip 加 inspector-chip-enter + group + transition-all + motion-safe:active:scale + ArrowLeft lean）、selection-receipt.tsx / ai-verdict-stamp.tsx（门加 group + underline 常铺墨透明 + 箭头 lean，双卡同方言不同家族色）。UI 断言把手（data-canvas-ui）零新增——t567 埋的把手本就够用。
+- [dance] 腾房律做全 → FRESH=1 SEMI_MB=8 attempt 1-6 被 OOM 杀（rc=137，heap 挤）→ attempt 7 GREEN → start-prod + watchdog 复位 200。
+- [harness 之环境一课] 首跑 16/23 暴露两层真问题：① tailwind 4 的 translate 是 CSS translate 属性不是 transform（断言读错属性）；② 无头 Chrome 报告 (hover:none)/(pointer:none)——手机媒体——而 tailwind 4 把每个 group-hover: 包进 @media(hover:hover)，hover 断言无从证。追凶三层：CSSOM 扫描初版被 CSS Nesting（style rule 空着 cssRules 也存在）骗过——每级都要查 cssText；`agent-browser connect` 指向带 --blink-settings 桌面能力位（primaryHoverType=2/primaryPointerType=4）的自建 Chrome 后 matchMedia 才说真话；**而第一版 shim 里的 Emulation.setEmulatedMedia/setTouchEmulationEnabled 调用自己就把 hover 翻回 none**（emulation 态一存在就顶掉真实能力位）—— shim 改为只读验证器，启动位是全部 trick。沙箱在调用间收割后台进程（setsid/nohup/disown 都拦不住，prod 服务器除外——未知机制），harness 因此自包含：spawn Chrome 子进程 → connect → 断言 → finally SIGKILL。
+- [活体 t570 27/27 ×2 连绿] Face M1: verdict 门 before（箭头 .6/none、墨 rgba(0,0,0,0)）→ hover 后（opacity 1、translate 1px -1px、墨 oklch(0.491 0.27 292.581) violet 实锤淡入、transition 覆盖 opacity+transform @0.2s）；Face M2: receipt 门同手势（emerald 双胞胎）；Face M4a: 双门 lean 骑 motion-safe；Face M3: 门点击落地父 tab（motion 加了东西、没坏东西）+ chip 入场 keyframe inspector-chip-enter@220ms easeOutQuint 实读 + chip 箭头 hover 左移 -1px；Face M4b: chip 三件套 class 在场；Face R: chip 点回探针行（t569 ping-pong 契约幸存）→ 📸 → console 0 → 名册 12→12 ×2。
+- [回归] t569 13/13、t568 24/24、t567 26/26、t566 25/25——门家族 88 断言全绿；单测 t562 套件 64/64；lint 0 problem（harness 的 ternary-expression warning 顺路修掉）；tsc 0。
+- [未做与理由] judge worker 复核/class3d 判词（VLM 3D 面论证重活等真需求）；Topaz 第四刀（链上闭环）；3D 体积截面（等真需求）；chip 入场在 ping-pong 换岗时不重放（chip 节点跨换岗持久——React 不 remount——首现即播、换岗静默是正确行为，未强行 force remount）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「运动是路标不是装饰」：门家族的每个微动作都在复述导航语义——ArrowUpRight hover 右上 leaning 是「往外走」，ArrowLeft hover 左移是「往回走」，chip 入场从左滑入是「你从左边来」；motion 与文案（back to X / from X / verdict on X）说的是同一句话，只是用动觉再说一遍
+- 「变换是运动，淡入是颜色」：reduced-motion 的分层不是一刀切——transform/animation 骑 motion-safe，色彩过渡（含 text-decoration-color 墨色淡入）天然安全不设防；dotted underline 的对称淡入淡出证明「常铺线 + 透明墨」比「hover 才画线」更优雅也更可动画
+- 「emulation 态顶掉真实能力位」：让无头浏览器说桌面真话的 trick 是启动旗标（--blink-settings 桌面 hover/pointer 位），而非运行时 Emulation 调用——CDP 的 setEmulatedMedia/setTouchEmulationEnabled 一旦执行就以 emulation 态为真；测试环境学：能力位在出生时设定，事后修补只会说谎
+- 产出：门家族 motion 方言（chip 入场 keyframe + 双门 underline 淡入 + 双箭头微移 + chip 按压）+ t570 harness 27/27 ×2 连绿（计算样式级断言）+ 门家族回归 88/88 + 单测 64/64 + 只读 CDP 验证器脚本；下窗入口：①t566 入口①重估（judge worker 复核/class3d 判词——VLM 3D 面）仍是最重待办；②样式余量：canvas 卡片 hover 的 micro-lift？command palette 的入场 stagger？；③功能余量：Topaz 第四刀、3D 体积截面（等真需求）；④t471 WSL-bridge（照实挂）、t276（门控）
