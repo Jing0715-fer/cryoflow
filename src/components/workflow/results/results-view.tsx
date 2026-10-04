@@ -34,6 +34,7 @@ import {
   Loader2,
   RefreshCw,
   ScrollText,
+  Sparkles,
   Square,
   Table2,
   ZoomIn,
@@ -1105,6 +1106,15 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         <DenoiseCompareGallery jobId={job.id} running={job.status === "running"} />
       )}
 
+      {/* t559 — the denoise→pick handoff (the gesture family's second
+          cut): the gallery above says how much cleaner the pixels got,
+          this card says what to DO with them — the official topaz flow
+          runs denoise → pick on the same images, and the pick consumes
+          the denoised star unchanged. */}
+      {job.type === "topazdenoise" && job.status === "completed" && (
+        <DenoisePickHandoff jobId={job.id} />
+      )}
+
       {/* Maps & images gallery */}
       {mrcFiles.length > 0 && (
         <section aria-label="Maps and images" data-canvas-ui="maps-gallery" tabIndex={-1} ref={molFocusRef} className="outline-none">
@@ -2096,6 +2106,62 @@ function TopazPickHandoff({ jobId }: { jobId: string }) {
             <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
           )}
           Pick with this model
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** t559 — the denoise→pick handoff: the gesture family's second cut.
+ *  The compare gallery above says how much cleaner the pixels got; this
+ *  card says what to DO with them — mint an Auto-picking job in Topaz
+ *  mode wired to the denoised stack itself (the official topaz flow runs
+ *  denoise → pick on the same images; the pick's topazModel mouth stays
+ *  honestly empty — the general model picks until a trained one exists,
+ *  which is the train card's gesture). Rose: the denoise spec's own hue. */
+function DenoisePickHandoff({ jobId }: { jobId: string }) {
+  const pickWithDenoisedStack = useWorkflowStore((s) => s.pickWithDenoisedStack);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await pickWithDenoisedStack(jobId);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section
+      aria-label="Put the clean stack to work"
+      data-canvas-ui="denoise-pick-handoff"
+      className="rounded-lg border border-rose-600/25 bg-rose-500/[0.04] p-3"
+    >
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
+            Put the clean stack to work
+          </h4>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            Mints an Auto-picking job in Topaz mode wired to this denoised stack — the official
+            topaz flow picks the denoised images. The general model picks until you train one;
+            review the params, then run.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={run}
+          disabled={busy}
+          className="shrink-0 border-rose-600/40 text-rose-700 hover:bg-rose-600/10 hover:text-rose-800 dark:text-rose-300 dark:hover:text-rose-200"
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          Pick this stack
         </Button>
       </div>
     </section>

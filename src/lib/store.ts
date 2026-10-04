@@ -945,6 +945,13 @@ interface WorkflowState {
    *  source. The engine's "connect into Auto-picking (Topaz mode)"
    *  receipt becomes a button instead of a manual wiring chore. */
   pickWithTopazModel: (fromJobId: string) => Promise<void>;
+  /** t559 — the denoise→pick handoff (the gesture family's second cut):
+   *  mint an Auto-picking job in Topaz mode wired to the denoised stack
+   *  itself — the official topaz flow runs denoise → pick on the SAME
+   *  images, and the denoised star keeps the micrograph schema so the
+   *  pick consumes it unchanged. The general Topaz model picks it until
+   *  a trained one exists. */
+  pickWithDenoisedStack: (fromJobId: string) => Promise<void>;
   connect: (
     from: string,
     to: string,
@@ -3847,6 +3854,68 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         title: "Topaz Pick minted",
         description:
           "Auto-picking (Topaz mode) wired to the trained model, micrographs inherited from the training input — review the params and run.",
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the Topaz pick");
+    }
+  },
+
+  /** t559 — the denoise→pick handoff. Same family form as
+   *  pickWithTopazModel, one wire fewer: the denoised stack IS the
+   *  micrographs source (the output star keeps the micrograph schema),
+   *  so the minted pick needs no inheritance — its one mouth feeds
+   *  straight from the denoise output, and the topazModel mouth stays
+   *  honestly empty (the general model picks until a trained one
+   *  exists — that's the train→pick card's job, t558). */
+  pickWithDenoisedStack: async (fromJobId) => {
+    const { jobs } = get();
+    const denoise = jobs.find((j) => j.id === fromJobId);
+    if (!denoise || denoise.type !== "topazdenoise") {
+      errToast("That job is gone — refresh and try again");
+      return;
+    }
+    if (denoise.status !== "completed") {
+      errToast("The denoised stack isn't ready yet — wait for the run to complete");
+      return;
+    }
+    try {
+      const place = placeRightOf(denoise, jobs);
+      // the pick starts where the denoise ended for the knobs the two
+      // stages share (downscale, workers); the pick's own dials keep
+      // their spec defaults — nothing here is inherited on faith
+      const params: Record<string, ParamValue> = {
+        pickingMethod: "Topaz",
+        topazNrParticles: 300,
+        topazThreshold: -6,
+        topazDiameter: 180,
+        topazDownscale: denoise.params.topazDownscale ?? -1,
+        topazWorkers: denoise.params.topazWorkers ?? 1,
+        topazArgs: "",
+      };
+      const { job: pick } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "autopick",
+          x: place.x,
+          y: place.y,
+          workspaceId: denoise.workspaceId ?? undefined,
+          params,
+        }),
+      });
+      set({
+        jobs: [...get().jobs, pick],
+        selectedId: pick.id,
+        selectedIds: [pick.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(pick.id);
+      // one quiet wire — the card's toast is the gesture's voice
+      await get().connect(denoise.id, pick.id, "micrographs", "micrographs", { quiet: true });
+      toast({
+        title: "Topaz Pick minted",
+        description:
+          "Auto-picking (Topaz mode) wired to the denoised stack — the general model picks it until you train one. Review the params and run.",
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to mint the Topaz pick");
