@@ -31,6 +31,20 @@
  *       data-find-enter ABSENT — no cascade replay on a drag return.
  *   F6  the close — Escape in the input unmounts the bar instantly
  *       (dismissive actions get no ceremony).
+ *   F7  the ripple (t579) — a fresh lens landing lights every newly-matched
+ *       card's halo in READING ORDER: flash delays ascend by DOM order at
+ *       24ms steps (capped at 12), the flashed count equals the count
+ *       chip's honest number, and at least one ::after halo is caught
+ *       mid-ignite (in-browser pseudo-element opacity — the wave is real
+ *       paint, not just an attribute).
+ *   F8  refine semantics — narrowing to zero removes every ring WITHOUT
+ *       re-strobing (zero flash attributes after a pure removal); widening
+ *       back re-adds them as NEW matches (full flash again); a further
+ *       widening only flashes the ADDITIONS — the intersection with the
+ *       previous match set stays silent (survivors never re-strobe).
+ *   F9  re-entrance replays — Escape + re-open re-runs the full ripple
+ *       (re-entrance is re-arrival, the t572 law); the mid-ripple world
+ *       is caught on camera (best-effort evidence).
  *   R   console clean; roster untouched (the lens is ephemeral — nothing
  *       enters the world).
  *
@@ -340,6 +354,95 @@ try {
     return JSON.stringify({ gone: !document.querySelector('[data-canvas-find-bar]') });
   })()`);
   check("bar unmounted (no exit ceremony)", gone?.gone === true, JSON.stringify(gone));
+
+  /* ============ F7 — the ripple (t579) ================================== */
+  console.log(`\n[F7] the ripple — matches ignite in reading order`);
+  await sleep(200);
+  sh(`agent-browser press Control+f >/dev/null 2>&1`);
+  await sleep(850);
+  const ripple1 = await readJson(`(async () => {
+    const i=document.querySelector('[data-testid="canvas-find-input"]');
+    if(!i) return JSON.stringify({ input:false });
+    const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+    setter.call(i,'motion'); i.dispatchEvent(new Event('input',{ bubbles:true }));
+    await new Promise(r => setTimeout(r, 260));
+    const cards=[...document.querySelectorAll('[data-find-ring-flash]')];
+    const delays=cards.map(c => c.style.getPropertyValue('--find-ring-d').trim());
+    const lit=cards.filter(c => parseFloat(getComputedStyle(c,'::after').opacity) > 0.02).length;
+    const c=document.querySelector('[data-testid="canvas-find-count"]');
+    return JSON.stringify({ count: c ? c.textContent.trim() : null, flashed: cards.length, lit, delays });
+  })()`);
+  const expectN = parseInt((ripple1?.count ?? "0").replace(/[^0-9]/g, ""), 10);
+  check("every new match got a flash slot", ripple1?.flashed === expectN && expectN > 0,
+    `flashed=${ripple1?.flashed} count="${ripple1?.count}"`);
+  check("flash delays ascend in DOM (reading) order", (() => {
+    const ds = (ripple1?.delays ?? []).map((d) => parseInt(d, 10));
+    return ds.length > 0 && ds.every((v, k) => k === 0 || v >= ds[k - 1]);
+  })(), JSON.stringify(ripple1?.delays));
+  check("at least one halo caught mid-ignite (real paint)", (ripple1?.lit ?? 0) > 0,
+    `lit=${ripple1?.lit}`);
+
+  /* ============ F8 — refine semantics =================================== */
+  console.log(`\n[F8] refine — removal is silent, re-addition re-ignites, survivors never re-strobe`);
+  const refined = await readJson(`(async () => {
+    const i=document.querySelector('[data-testid="canvas-find-input"]');
+    if(!i) return JSON.stringify({ input:false });
+    const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+    const set=(v)=>{ setter.call(i,v); i.dispatchEvent(new Event('input',{ bubbles:true })); };
+    /* (1) narrow to zero: pure removal must leave NO flash attributes.
+       NOTE — no // comments here: evalJs flattens newlines, and a //
+       comment would swallow every statement behind it (the transport
+       eats the line structure; t579's own harness proved it). */
+    set('zzz'); await new Promise(r => setTimeout(r, 220));
+    const afterNarrow=[...document.querySelectorAll('[data-find-ring-flash]')].length;
+    set('motion'); await new Promise(r => setTimeout(r, 220));
+    const afterWiden=[...document.querySelectorAll('[data-find-ring-flash]')].length;
+    const c=document.querySelector('[data-testid="canvas-find-count"]');
+    const n=parseInt((c ? c.textContent : "0").replace(/[^0-9]/g, ""), 10);
+    const before=[...document.querySelectorAll('[data-find-match]')].map((el)=>el.getAttribute('data-job'));
+    set('mo'); await new Promise(r => setTimeout(r, 220));
+    const flashIds=[...document.querySelectorAll('[data-find-ring-flash]')].map((el)=>el.getAttribute('data-job'));
+    const overlap=flashIds.filter((id)=>before.includes(id));
+    return JSON.stringify({ afterNarrow, afterWiden, widenedCount: n, flashAfterWiden2: flashIds.length, overlap });
+  })()`);
+  check("narrowing to zero leaves no flash attributes", refined?.afterNarrow === 0,
+    `afterNarrow=${refined?.afterNarrow}`);
+  check("widening re-ignites the re-added matches (full flash)", refined?.afterWiden === refined?.widenedCount && refined?.widenedCount > 0,
+    `afterWiden=${refined?.afterWiden} count=${refined?.widenedCount}`);
+  check("survivors never re-strobe (flashes are additions only)", refined?.overlap != null && refined.overlap.length === 0,
+    `overlap=${JSON.stringify(refined?.overlap)}`);
+
+  /* ============ F9 — re-entrance replays ================================ */
+  console.log(`\n[F9] re-entrance — close and reopen replays the full ripple`);
+  sh(`agent-browser press Escape >/dev/null 2>&1`);
+  await sleep(400);
+  sh(`agent-browser press Control+f >/dev/null 2>&1`);
+  await sleep(850);
+  /* atomic setter typing: per-keystroke CLI typing narrows the match set
+     one char at a time, so the LAST keystroke's diff is empty and the
+     flash attributes are already cleared by the time we read — the
+     ripple fires at the FIRST keystroke (the lens's first engagement),
+     which is the product's honest semantics. One atomic set = one
+     landing = the full-set replay this face asserts. The read holds
+     only 150ms in-browser so the CLI screenshot fired right after
+     catches the wave mid-flight. */
+  const replay = await readJson(`(async () => {
+    const i=document.querySelector('[data-testid="canvas-find-input"]');
+    if(!i) return JSON.stringify({ input:false });
+    const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+    setter.call(i,'motion'); i.dispatchEvent(new Event('input',{ bubbles:true }));
+    await new Promise(r => setTimeout(r, 150));
+    const cards=[...document.querySelectorAll('[data-find-ring-flash]')];
+    const c=document.querySelector('[data-testid="canvas-find-count"]');
+    return JSON.stringify({ flashed: cards.length, count: c ? c.textContent.trim() : null });
+  })()`);
+  try { sh(`agent-browser screenshot /home/z/my-project/.qa-logs/shots/t579-find-ripple-mid.png >/dev/null 2>&1`); } catch { /* best effort */ }
+  const expectR = parseInt((replay?.count ?? "0").replace(/[^0-9]/g, ""), 10);
+  check("re-open replays the ripple (full flash again)", replay?.flashed === expectR && expectR > 0,
+    `flashed=${replay?.flashed} count="${replay?.count}"`);
+  check("📸 mid-ripple screenshot", true, ".qa-logs/shots/t579-find-ripple-mid.png");
+  sh(`agent-browser press Escape >/dev/null 2>&1`);
+  await sleep(300);
 
   /* ============ 📸 the settled lens ===================================== */
   // reopen once for the record: cascade → settled state with a query

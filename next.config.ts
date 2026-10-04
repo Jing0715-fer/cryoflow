@@ -226,6 +226,21 @@ const nextConfig: NextConfig = {
     // t406 — see the webpack hook above: the two build-regime knobs.
     webpackMemoryOptimizations: true,
     cpus: 1,
+    // t579 — the cold-start deadlock breaker. The t576 catastrophe ate the
+    // last warm webpack cache; since then every prod build is fully cold and
+    // the cold graph (120+ windows of growth) needs ≥2.5GB (webpack V8
+    // live-set, cache off, pinned at every cap 1344→2560) / ≥2.9GB
+    // (turbopack RSS, kernel global_oom) against a ~3.2GB single-process
+    // wall — every run dies at its cap, and the warm cache that would shrink
+    // the live-set is only written by a build that survives. Turbopack's
+    // persistent task engine breaks the circle: with the build filesystem
+    // cache on, each attempt persists completed task state to disk and the
+    // NEXT attempt resumes from there — the t402/t416 grinder doctrine (the
+    // cache carries progress) reborn on the other engine. Env-gated: it is
+    // default-false in Next itself, and warm days shouldn't pay the
+    // serialization tax.
+    turbopackFileSystemCacheForBuild:
+      process.env.CRYOFLOW_TURBO_FS_CACHE === "1",
   },
 };
 
