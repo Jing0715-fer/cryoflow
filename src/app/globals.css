@@ -650,6 +650,38 @@
     animation: find-drop 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: var(--find-d, 0ms);
   }
+  /* t584 — the chip cascade: the sentence lands, then its words are
+     spoken. The rows are the lens coming down; the chips are its
+     filter wheels clicking into place, one by one, in reading order —
+     the same index-as-arrival doctrine as t572's groups and t579's
+     ripple. Each chip carries an inline --find-cd computed component-
+     side (row landing + index × 24ms: status base 280ms, type base
+     340ms) — a per-element variable, not nth-child, because the two
+     rows have different bases and the type row's width flexes with
+     the world. The travel is −3px (half the row's −6px: a chip is a
+     PASSENGER of the landed row, its own motion is a settle, not a
+     drop) and 160ms (small things land faster). `both` fill keeps
+     un-lit chips invisible inside the fading-in row — the row arrives
+     as an empty shell and the words light up after it lands. Rung 0
+     never cascades: the input pill is the ANCHOR (t572's law — the
+     input is what everything else arrives to), its count/arrows/close
+     appear with it. Same one-shot per open as the rungs: the whole
+     block dies with data-find-enter, so typing and drag returns never
+     replay it. */
+  @keyframes find-chip-enter {
+    from {
+      opacity: 0;
+      translate: 0 -3px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+  [data-find-enter] [data-find-chip] {
+    animation: find-chip-enter 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--find-cd, 0ms);
+  }
   /* the count answers: when the number changes (N matches → 1 of N),
      the tick span flashes the find dialect's amber — the same hue the
      matched cards ring with (job-card's findMatch border) — so the

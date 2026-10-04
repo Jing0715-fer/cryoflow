@@ -117,6 +117,23 @@ export const STATUS_CHIP: Record<string, { dot: string; active: string }> = {
   },
 };
 
+/** t584 — the chip cascade's timing words. The rows land first
+ *  (find-drop: --find-d 0/60/120ms over a 220ms travel); then each chip
+ *  lights at its row's LANDING + index × step — "the sentence lands,
+ *  then its words are spoken in reading order". The step is 24ms
+ *  (t579's ripple step): chips are small, their parade must stay
+ *  snappy. The settle window (720ms in the arming effect below) is
+ *  budgeted from these numbers: the type row lands at 340ms and the
+ *  widest real-world chip row (~8 categories) finishes at
+ *  340 + 7×24 + 160 = 668ms < 720ms — the disarm never cuts a chip
+ *  mid-flight. Rung 0 (input pill, count, arrows, close) is the ANCHOR
+ *  and never cascades — t572's law: the input is what everything else
+ *  arrives to. If you retune the rows, retune these. */
+const ROW_TRAVEL_MS = 220;
+const CHIP_STEP_MS = 24;
+const STATUS_CHIP_BASE_MS = 60 + ROW_TRAVEL_MS;
+const TYPE_CHIP_BASE_MS = 120 + ROW_TRAVEL_MS;
+
 /** The FULL find predicate — status gate first, then the text gate.
  *  With a status chip active and an empty query every job of that
  *  status matches (the chip alone is a lens); with no chip the empty
@@ -160,18 +177,21 @@ export function CanvasFindBar() {
   // arming state initialized at mount would be disarmed by its own settle
   // timer before the FIRST Ctrl+F ever landed (the live-fire caught this
   // dead on arrival). So arming follows the findOpen TRANSITION instead:
-  // false → true arms the cascade and starts the settle window (last rung
-  // 120ms + 220ms travel + margin); true → false (a close) resets the
-  // edge so the next open replays. A wire-drag stand-down never touches
-  // findOpen — the attribute stays disarmed through it, so a drag return
-  // cannot replay the entrance (a return is not an arrival).
+  // false → true arms the cascade and starts the settle window (the
+  // budget is now two-phase: the type row lands at 120 + 220 = 340ms,
+  // then its chips stair in — the widest row finishes ~668ms, so 720ms
+  // is the first round number that never cuts a chip mid-flight);
+  // true → false (a close) resets the edge so the next open replays. A
+  // wire-drag stand-down never touches findOpen — the attribute stays
+  // disarmed through it, so a drag return cannot replay the entrance
+  // (a return is not an arrival).
   const [enterArmed, setEnterArmed] = React.useState(false);
   const findOpenEdge = React.useRef(false);
   React.useEffect(() => {
     if (findOpen && !findOpenEdge.current) {
       findOpenEdge.current = true;
       setEnterArmed(true);
-      const id = setTimeout(() => setEnterArmed(false), 560);
+      const id = setTimeout(() => setEnterArmed(false), 720);
       return () => clearTimeout(id);
     }
     if (!findOpen) findOpenEdge.current = false;
@@ -398,7 +418,7 @@ export function CanvasFindBar() {
         aria-label="Filter matches by status"
         className="flex items-center gap-0.5 rounded-full border bg-card/95 px-1.5 py-1 shadow-md backdrop-blur"
       >
-        {FIND_STATUSES.map(({ value, label }) => {
+        {FIND_STATUSES.map(({ value, label }, chipIdx) => {
           const active = findStatus === value;
           const chip = STATUS_CHIP[value];
           return (
@@ -406,6 +426,8 @@ export function CanvasFindBar() {
               key={value}
               type="button"
               data-testid={`canvas-find-status-${value}`}
+              data-find-chip=""
+              style={{ "--find-cd": `${STATUS_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
               aria-pressed={active}
               title={active ? `Clear the ${label.toLowerCase()} filter` : `Only ${label.toLowerCase()} jobs`}
               onClick={() => setFindStatus(active ? "all" : value)}
@@ -444,13 +466,15 @@ export function CanvasFindBar() {
           aria-label="Filter matches by type"
           className="flex max-w-[min(92vw,560px)] flex-wrap items-center justify-center gap-0.5 rounded-full border bg-card/95 px-1.5 py-1 shadow-md backdrop-blur"
         >
-          {presentCategories.map(({ key, label, hint }) => {
+          {presentCategories.map(({ key, label, hint }, chipIdx) => {
             const active = findCategory === key;
             return (
               <button
                 key={key}
                 type="button"
                 data-testid={`canvas-find-type-${key}`}
+                data-find-chip=""
+                style={{ "--find-cd": `${TYPE_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
                 aria-pressed={active}
                 title={active ? `Clear the ${label} filter` : `Only ${hint.toLowerCase()}`}
                 onClick={() => setFindCategory(active ? "all" : key)}
