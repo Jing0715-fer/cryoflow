@@ -514,6 +514,14 @@ interface WorkflowState {
   selectedIds: string[];
   /** Job opened in the large inspector modal (submitted jobs only). */
   inspectId: string | null;
+  /** t569 — the inspector's return chip: when openJob SWAPS an open
+   *  inspector for another job (a footer door inside the dialog), the job
+   *  that was showing rides here so the header can offer the way back.
+   *  One level deep — the chip's own click is openJob, which re-captures
+   *  (ping-pong), never a history stack. Direct navigation (a canvas
+   *  click) and a dialog close both clear it: the context only means
+   *  something while the swap it came from is still on screen. */
+  cameFromJob: { id: string; name: string; projectId: string } | null;
   pendingFrom: PendingFrom | null;
   /** Pan + zoom of the free canvas viewport. */
   viewport: Viewport;
@@ -1010,6 +1018,10 @@ interface WorkflowState {
   distributeSelected: (axis: "h" | "v") => void;
   /** Open the big job inspector (submitted jobs); null closes it. */
   inspect: (id: string | null) => void;
+  /** t569 — the return chip's way back: the openJob dialect itself (the
+   *  hint carries the captured project so a cross-project swap still
+   *  returns home). One level — back is a door, not a stack. */
+  goBackFromInspector: () => Promise<void>;
   /** Switch the top-level view (canvas ⇄ project dashboard). */
   setView: (view: "canvas" | "dashboard") => void;
   setPendingFrom: (pending: PendingFrom | null) => void;
@@ -1730,6 +1742,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedId: null,
   selectedIds: [],
   inspectId: null,
+  cameFromJob: null,
   historyPast: [],
   historyFuture: [],
   pendingFrom: null,
@@ -4720,11 +4733,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   inspect: (id) => {
     if (id !== null) {
-      // inspector replaces the right-side editing panel
-      set({ inspectId: id, selectedId: null });
+      // inspector replaces the right-side editing panel; a direct canvas
+      // navigation is not a door — the return context dies here (t569)
+      set({ inspectId: id, selectedId: null, cameFromJob: null });
     } else {
-      set({ inspectId: null });
+      set({ inspectId: null, cameFromJob: null });
     }
+  },
+
+  // t569 — the return chip's click: the openJob dialect with the captured
+  // project as the hint, so the way back is exactly the way it came.
+  goBackFromInspector: async () => {
+    const from = get().cameFromJob;
+    if (!from) return;
+    await get().openJob(from.id, { projectId: from.projectId });
   },
   setView: (view) => set({ view }),
   setPendingFrom: (pending) => set({ pendingFrom: pending }),
@@ -5209,6 +5231,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       focusEpoch: s.focusEpoch + 1,
       // the modal would cover the canvas — close it so the user sees the focus
       inspectId: null,
+      cameFromJob: null,
     })),
 
   revealJob: (id) => {
@@ -5231,6 +5254,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   openJob: async (id, hint) => {
     const findJob = () => get().jobs.find((j) => j.id === id);
     const homeWs = (j) => j?.workspaceId ?? "";
+    // t569 — capture the inspector's current tenant BEFORE any hop moves
+    // the jobs array: the name and its home project travel WITH the chip,
+    // so a cross-project return still has a label and a door home.
+    const prevInspectId = get().inspectId;
+    const prevCameFrom = {
+      name: prevInspectId
+        ? get().jobs.find((j) => j.id === prevInspectId)?.name ?? ""
+        : "",
+      projectId: get().project?.id ?? "",
+    };
     // 1. landing repair. jobs in the store belong to the ACTIVE project —
     // a hit here can only need a workspace hop; a miss is either a ghost
     // or a cross-project row (the hint decides which).
@@ -5267,6 +5300,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       get().focusJob(id);
     } else {
       get().inspect(id);
+      // t569 — a door swap while a dialog was already showing: the way
+      // back rides on the header. inspect() just cleared the field; the
+      // capture restores it for THIS swap only. (The idle branch took
+      // select+focus — the dialog is gone, no chip to feed.)
+      if (prevInspectId && prevInspectId !== id) {
+        set({ cameFromJob: { id: prevInspectId, ...prevCameFrom } });
+      }
     }
   },
 }));

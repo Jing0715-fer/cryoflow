@@ -31,6 +31,7 @@ import {
   Copy,
   CopyPlus,
   Cpu,
+  ArrowLeft,
   History,
   Bug,
   Database,
@@ -2401,6 +2402,21 @@ function InspectorHeader({
   // before the PATCH lands) — the ref makes the second call a no-op, so
   // the server never sees the same rename twice.
   const renameCommitting = React.useRef(false);
+  // t569 — the return chip: openJob swaps (footer doors, palette jumps
+  // over the dialog) remember the job that was showing; the header offers
+  // the way back. Same-project cameFrom must still exist (the jobs array
+  // is the existence proof — a deleted origin offers no door); a
+  // cross-project capture trusts its own snapshot (the origin's roster
+  // governs there — same contract the palette's cross-project rows have).
+  const cameFrom = useWorkflowStore((s) => s.cameFromJob);
+  const goBackFromInspector = useWorkflowStore((s) => s.goBackFromInspector);
+  const activeProjectId = useWorkflowStore((s) => s.project?.id ?? "");
+  const cameFromVisible =
+    cameFrom != null &&
+    cameFrom.id !== job.id &&
+    (cameFrom.projectId === activeProjectId
+      ? jobs.some((j) => j.id === cameFrom.id)
+      : true);
   const commitRename = () => {
     if (!edit || edit.id !== job.id || renameCommitting.current) return;
     if (edit.draft.trim() === job.name) {
@@ -2614,6 +2630,23 @@ function InspectorHeader({
               </>
             )}
             <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
+            {cameFromVisible && cameFrom && (
+              <button
+                type="button"
+                data-canvas-ui="inspector-return-link"
+                onClick={() => void goBackFromInspector()}
+                title={`You came here from "${cameFrom.name}" — click to go back`}
+                className={cn(
+                  "inline-flex max-w-[16rem] items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                  "border-border/60 bg-muted/40 text-muted-foreground transition-colors",
+                  "hover:border-foreground/20 hover:bg-muted hover:text-foreground",
+                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                )}
+              >
+                <ArrowLeft className="size-2.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">back to {cameFrom.name}</span>
+              </button>
+            )}
           </div>
         </div>
 
