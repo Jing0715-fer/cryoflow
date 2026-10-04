@@ -8049,3 +8049,23 @@ Stage Summary:
 - 「杀 harness 也要清理纪律」：timeout 杀掉的活体会把铸到一半的世界留在桌上——+2 探针 +1 孤儿 stamp 直到下一次对账才现形。「零污染归还」的完整合同包括死于半途的运行
 - 「dev 分级挂载」：dev 的按需编译让组面分波进场——prod 时代铸的时序断言在 dev 上量到的是半座山。回归 harness 的时序面要标明它们是哪个 regime 的测量
 - 产出：dashboard 级联（6 段 rung + KPI 阶梯 + 空态 + 660ms 解除武装 + 重入重演）+ 卡影 ladder rung（dash-card-hover/dash-card-lean，14% 影答 + 按钮专属 lean）+ next.config 三件（turbopack root 放宽合法化世界的 symlink、tracer 排除 data/db、cache/parallelism env 逃生门）+ t576 harness 27-face（交付下窗首跑）+ 113 单测断言 + t571 27/27 回归；下窗入口：①build 可行时首跑 bash scripts/t576-dash-cascade-live-fire.mjs（活体 27 face + mid-cascade 截图）；②build-until-green.sh 加 FRESH 预检门（HEAD 探活失败不清旧 build）；③in-place census 路径 doubling 小修；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 577 (收官)
+Agent: main (Z.ai Code, window 2026-10-04 23:08 cron)
+Task: t576 遗嘱三连——①build 可行则首跑 t576 27-face 活体；②build-until-green.sh FRESH 预检门；③in-place census 路径 doubling 小修。梯子爬到历史最高处，verdict：墙是宿主形状的。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 576（交接摘要说 571——滞后第 N+29 次兑付）；HEAD cfc3fd7、树净；世界在 dev regime（t576 带子塌缩遗产：.next 无 trio 实锤、dashboard-on-dev 禁区）；派单「Task 13 遗留池」第 N+20 次化石（t574 已葬）。
+- [census doubling 验尸——化石标本起获与定谳] 删除作业记录里抓到活体标本（data/deleted-jobs/×2，t574 首跑产物）：`<FS_ROOT><FS_ROOT>/projects/...` FS_ROOT 前缀叠加进 awk 报错。复现脚本（t577-census-doubling-repro.mjs，5/5）逐字节搬运今日 translateCommand 对精确 census 命令形状重放——fs-rooted/集群绝对/混合三形状全字节正确，t387 lookbehind 无罪。定谳：标本是 t574 修复落地前的瞬时产物，触发器已死；真金是标本顺藤摸出的两处——①note 的 `why.slice(-140)` 对 fs-rooted 长路径（~250 字符起）斩首理由，标本自己就是伪证（"exit 2: my-project/services/..." 头没了）；②mapLocalToRemote 的 verbatim 回退让宿主拼写路径以 clusterHome 身份进 census（mock-native 语义、消费者都能处理、改它会动 t387 语法——照实注记不修）。修复：四处 slice(-140)→-320（clusterParticleRefCensus/catRemote/countRemoteStar/starUnreadableNote），注释钉死证据。
+- [FRESH 预检门——遗嘱②兑现，且比遗嘱多走一步] 旧 FRESH 是 clear-then-grind：t576 的 30 连灭就是 `next build` 开场清 .next 吃掉最后好 build。门倒转次序：FRESH=1 且 trio 在场 → 先 ONE 冷探活 build 进 .next-probe（next.config 新增 NEXT_PROBE=1 → distDir 覆写）→ 探活绿 = 探针本身就是 fresh build（冷编译同树、独立 distDir），在 .next-probe 内完成三件套（static/public/provenance）→ 原子换入（mv 链）→ t435 anti-tear 重启旧 standalone；探活败 → .next 原封不动 exit 1。两道附加门：dev 服务器在场拒绝探活（t576 的「ambient 剃到地板」必须包括 dev 自己——2.2GB 窃贼假设铸进工具）、磁盘 <2GB 拒绝。CRYOFLOW_NO_FRESH_PROBE=1 逃生门。
+- [梯子——本窗最重的证据链] ①dmesg 实锤宿主全局 OOM：`oom-kill:constraint=CONSTRAINT_NONE...global_oom` 杀 next-server（dev，anon 2.23GB）——不是 cgroup 墙，是 k8s 节点本身在窒息，t416「OOM 线随负载浮动」的宿主尺度版读到内核原话。②dev 之死归还 2.2GB（MemAvailable 1.2→3.26GB）——抓窗爬梯。③webpack 道：1344×3 全 rc=134（t416 甜点死于分配率非 live-set）；1792+NO_WEBPACK_CACHE+parallelism=1 abort（2046/2059 pinned，mu 0.22，mark-compact 1616ms，GC 占 78% 墙钟——allocation-rate 死亡签名；hatch 在 t576 自己的记录里就「无救」，本窗误读半句重试后如实归档）；2048+hatch abort（2043.6/2049.8，同签名）。④turbopack 道：t576 修好 symlink root 后首次在 band 开着时尝试——rc=137 kernel SIGKILL。⑤verdict：webpack 三帽×两形态 + turbopack 全灭、dev 已死、ambient 地板、host-global OOM 在案——墙是宿主形状的，repo 内杠杆全试尽，今天不是 build 的日子。梯子全程对照 t576 的同签名表（1344-1792 全灭）互相印证：死亡在编译图内部与节点外部同时成立，与代码 diff 无关。
+- [dev 复位与回归] bun run dev + 双 env 钉复位 200/5.6s；单测四连 113 断言（t562 64/64 + t573 11/11 + t574 16/16 + t575 22/22）；t571 26/27→27/27（focus face 首跑 {"open":false} = dev 冷编译竞态，复跑即绿——t576 已证此 harness dev 可容）；t569 6/13、t570 8/27——失败签名清一色「no element」（probe tab 在 dev 惰性编译时序下不挂载），t576 伪影家族精确重演，需 prod 复核；repro 5/5；tsc 0 全量；eslint 0（src+新脚本）；roster 12 jobs、6 projects、active=EMPIAR、console 净。
+- [未做与理由] t576 27-face 活体首跑（等 prod——harness 在位，build 回来第一天的事，gate 已守门）；t573/t574/t575 活体在 dev 上不跑（120s+ VLM 轮次的超时风险 = 孤儿污染，t576 的清理纪律教训：「杀 harness 前先看它铸了什么」）；t569/t570 prod 复核（同上）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「墙的名字叫 CONSTRAINT_NONE」：读内核原话的那一行比三十次重试都值钱——宿主节点全局 OOM（非 cgroup）意味着连「我们守规矩」都不构成安全边界，邻居的压力就能杀掉任何进程。「host 在呼吸」（t576）的完整版：整个节点在窒息，梯子签名不变时，对照实验要从「我的 diff vs HEAD」升级到「今天 vs 昨天」——环境本身要进实验组
+- 「dev 的死是本窗最大的礼物」：宿主 OOM 杀 dev 归还 2.2GB，梯子第一次在真正的 ambient 地板上爬——结果全灭，这才把「死亡在编译图内部（allocation-rate）」从猜想变成排除法结论。坏事发生的位置有时候就是证据本身；抓住窗口立刻爬（而不是先恢复服务）是对的
+- 「化石标本也要验尸，但验完要收手」：doubling 标本从删除作业起获→复现 5/5 证明今日代码无罪→触发器死在 t387 世代。真金是标本顺手实锤的 slice(-140) 斩首——「诊断 cosmetics」清单的正确消化姿势：验尸→留见证脚本→修证据实锤的部分→其余注记在案不硬修
+- 「预检门的哲学」：不可逆步骤（清 .next）要推迟到最后一个验证点（探活绿）之后；探活的副产品（probe 的编译缓存、甚至 probe 的 standalone 本身）直接转正，一次 build 双重身份——「先证明梯子能爬，再拆旧房子」，且证明本身就把新房子盖好了
+- 产出：FRESH 预检门（gate + NEXT_PROBE distDir + 探针转正换入 + dev/磁盘双拒绝门）+ census 斩首修复（-320×4）+ t577 复现见证 5/5 + 梯子 verdict 全表 + 回归 113 单测/t571 27/27（dev）；下窗入口：①host 回落日 = build 日：FRESH=1 走 gate → prod 起来后首跑 t576 27-face + t569/t570/t572 prod 复核 + t573/t574/t575 活体回归；②若 host 仍压：dev 可容的样式车道（find bar 镜头语言、卡影 ladder 再下一 rung）与 judge worker 风暴观察窗（多类多作业并发）；③census 的 mapLocalToRemote verbatim 回退注记在案（动它先过 t387 语法）；④t471 WSL-bridge（照实挂）、t276（门控）
