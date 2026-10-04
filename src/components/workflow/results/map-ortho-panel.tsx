@@ -86,6 +86,20 @@ export const ORTHO_SIGMA_REQUEST_EVENT = "cryoflow:ortho-sigma-request";
  *  slider drives. Completes the σ family: STATE echoes (3D→2D), REQUEST
  *  pulls (2D→3D), SET commands (2D→3D). */
 export const ORTHO_SIGMA_SET_EVENT = "cryoflow:ortho-sigma-set";
+/** 2D → 3D (t556): the OBLIQUE camera jump — the block's ⌖ swings the 3D
+ *  camera to look straight down the cut's normal, face-on at the plane.
+ *  dir = +normal (camera rides the −n side: from THERE, screen-right is
+ *  the tile's +u and screen-down is the tile's +v — the face-on view and
+ *  the tile agree chirality-for-chirality), up = −v. The plane itself
+ *  cannot be mirrored into Mol*'s axis-aligned slice; the camera CAN
+ *  agree with it, and that is the loop's oblique half. */
+export const OBLIQUE_VIEW_EVENT = "cryoflow:oblique-view";
+export interface ObliqueViewDetail {
+  /** unit plane normal in grid coords */
+  normal: [number, number, number];
+  /** unit screen-north for the face-on view (the tile's −v) */
+  up: [number, number, number];
+}
 
 /** the σ payload both directions speak: the contour level in σ units and
  *  the density sign it is measured on (negative = the inverted surface) */
@@ -176,6 +190,9 @@ const PROBE_COLOR = "rgba(56,189,248,0.8)";
 const EXPORT_BG = "#0b1220";
 const EXPORT_TILE_BORDER = "#334155";
 const EXPORT_TEXT = "#94a3b8";
+/** t556 — the fourth panel's accent: the oblique block's own violet
+ *  (text-violet-600), solid for label text on the dark strip */
+const EXPORT_OBLIQUE_ACCENT = "#7c3aed";
 /** solid (non-alpha) versions of the accents for label text on the dark strip */
 const AXIS_LABEL: Record<"x" | "y" | "z", string> = {
   x: "#f59e0b",
@@ -650,6 +667,10 @@ export function MapOrthoPanel({
    *  the chip stays absent and the export footer skips the σ segment
    *  rather than guessing a default (the footer must not lie). */
   const [isoSigma, setIsoSigma] = useState<OrthoSigmaState | null>(null);
+  /** t556 — the oblique block's export-facing state, kept in a ref (the
+   *  triptych export reads it at click time; scrubbing never re-renders
+   *  the panel). Null until the block mounts; .on gates the 4th panel. */
+  const obliqueInfoRef = useRef<ObliqueExportInfo | null>(null);
 
   const isStack = path.toLowerCase().endsWith(".mrcs");
 
@@ -849,7 +870,13 @@ export function MapOrthoPanel({
     if (exportState === "busy") return;
     setExportState("busy");
     try {
-      const [planeBitmaps, hist] = await Promise.all([
+      // t556 — the oblique block's fourth panel rides along when it is
+      // ON: the export becomes a tetraptych, the cut nobody aligned an
+      // axis to standing beside the three canonical ones. The PNG comes
+      // from the same door, at the SAME live params the block shows.
+      const ob = obliqueInfoRef.current;
+      const withOblique = !!(ob?.on);
+      const [planeBitmaps, hist, obliqueBitmap] = await Promise.all([
         Promise.all(
           TILES.map(async (t) => {
             const url = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&axis=${t.axis}&pos=${positions[t.axis].toFixed(3)}`;
@@ -859,9 +886,19 @@ export function MapOrthoPanel({
           })
         ),
         fetchHistForExport(),
+        withOblique
+          ? fetch(
+              `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&plane=oblique&theta=${ob.live.theta.toFixed(1)}&phi=${ob.live.phi.toFixed(1)}&offset=${(ob.live.offset / 100).toFixed(3)}`,
+              { cache: "no-store" }
+            ).then(async (r) => {
+              if (!r.ok) throw new Error(`oblique render failed (${r.status})`);
+              return createImageBitmap(await r.blob());
+            })
+          : Promise.resolve(null as ImageBitmap | null),
       ]);
       const planes = planeBitmaps;
-      const W = EXPORT_GAP * 4 + EXPORT_TILE * 3;
+      const panelCount = 3 + (obliqueBitmap ? 1 : 0);
+      const W = EXPORT_GAP * (panelCount + 1) + EXPORT_TILE * panelCount;
       const H = EXPORT_GAP + EXPORT_LABEL_H + EXPORT_TILE + EXPORT_GAP + EXPORT_FOOT_H;
       const cv = document.createElement("canvas");
       cv.width = W;
@@ -913,6 +950,30 @@ export function MapOrthoPanel({
           ctx.restore();
         }
       });
+      // t556 — the fourth panel: the oblique cut, violet accent (the
+      // block's own hue), no crosshair (it has no sibling planes to
+      // mark — its geometry IS its readout)
+      if (obliqueBitmap) {
+        const x0 = EXPORT_GAP + 3 * (EXPORT_TILE + EXPORT_GAP);
+        ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
+        ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+        ctx.textBaseline = "middle";
+        ctx.fillText("Oblique", x0, EXPORT_GAP + EXPORT_LABEL_H / 2);
+        ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillStyle = EXPORT_TEXT;
+        ctx.textAlign = "right";
+        const offPct = ob!.live.offset >= 0 ? `+${ob!.live.offset}` : `${ob!.live.offset}`;
+        ctx.fillText(
+          `θ ${ob!.live.theta}° · φ ${ob!.live.phi}° · ${offPct}%`,
+          x0 + EXPORT_TILE,
+          EXPORT_GAP + EXPORT_LABEL_H / 2
+        );
+        ctx.textAlign = "left";
+        ctx.drawImage(obliqueBitmap, x0, EXPORT_GAP + EXPORT_LABEL_H, EXPORT_TILE, EXPORT_TILE);
+        ctx.strokeStyle = EXPORT_TILE_BORDER;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, EXPORT_GAP + EXPORT_LABEL_H + 0.5, EXPORT_TILE - 1, EXPORT_TILE - 1);
+      }
       // footer: map name left, the map's density distribution centre
       // (t291), contour + focus fractions + moment right (t280 — the σ
       // segment joins when the embed has reported a contour: a figure
@@ -1173,7 +1234,7 @@ export function MapOrthoPanel({
           is noise), sliders scrub θ/φ/offset against the SAME file route
           door the tiles use. */}
       {open && !isStack && dims && (
-        <ObliqueSectionBlock jobId={jobId} path={path} dims={dims} />
+        <ObliqueSectionBlock jobId={jobId} path={path} dims={dims} onChange={(info) => { obliqueInfoRef.current = info; }} />
       )}
     </section>
   );
@@ -1231,20 +1292,40 @@ function obliqueFrame(
   }
   return {
     normal,
+    u,
+    v,
     support,
     offsetVox: offsetFrac * support,
     extent: [Math.round(uMax - uMin) + 1, Math.round(vMax - vMin) + 1] as [number, number],
   };
 }
 
+/** what the block reports upward — the triptych export's fourth panel
+ *  rides on it (a ref on the panel side, never a re-render per scrub) */
+interface ObliqueExportInfo {
+  on: boolean;
+  theta: number;
+  phi: number;
+  offset: number;
+  live: { theta: number; phi: number; offset: number };
+  extent: [number, number];
+  normal: [number, number, number];
+  offsetVox: number;
+}
+
 function ObliqueSectionBlock({
   jobId,
   path,
   dims,
+  onChange,
 }: {
   jobId: string;
   path: string;
   dims: [number, number, number];
+  /** reports the export-facing state on every settle — the panel keeps it
+   *  in a ref (export reads it at click time; scrubbing never re-renders
+   *  the panel) */
+  onChange?: (info: ObliqueExportInfo) => void;
 }) {
   const [on, setOn] = useState(false);
   const [theta, setTheta] = useState(45);
@@ -1264,6 +1345,33 @@ function ObliqueSectionBlock({
   const src = on
     ? `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&plane=oblique&theta=${live.theta.toFixed(1)}&phi=${live.phi.toFixed(1)}&offset=${(live.offset / 100).toFixed(3)}`
     : null;
+
+  // the export's fourth panel + the ⌖ camera jump both ride this
+  useEffect(() => {
+    onChange?.({
+      on,
+      theta,
+      phi,
+      offset,
+      live: { ...live },
+      extent: frame.extent,
+      normal: [...frame.normal] as [number, number, number],
+      offsetVox: frame.offsetVox,
+    });
+  }, [on, live.theta, live.phi, live.offset]);
+
+  // t556 — the ⌖: swing the 3D camera to look straight down the cut's
+  // normal (face-on at the plane). dir = +n puts the camera on the −n
+  // side — from THERE the face-on view agrees with the tile chirality
+  // for chirality (screen-right = +u, screen-down = +v), so up = −v.
+  const jumpToView = () => {
+    window.dispatchEvent(new CustomEvent(OBLIQUE_VIEW_EVENT, {
+      detail: {
+        normal: [...frame.normal] as [number, number, number],
+        up: [-frame.v[0], -frame.v[1], -frame.v[2]] as [number, number, number],
+      } satisfies ObliqueViewDetail,
+    }));
+  };
 
   return (
     <div className="border-t border-border/60 px-3 pb-3 pt-2" data-canvas-ui="ortho-oblique" data-oblique-state={on ? "on" : "off"}>
@@ -1367,6 +1475,16 @@ function ObliqueSectionBlock({
                 title="Back to the axis-aligned center plane (θ 0°, φ 0°, centered)"
               >
                 reset
+              </button>
+              <button
+                type="button"
+                onClick={jumpToView}
+                data-canvas-ui="ortho-oblique-jump"
+                className="rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10"
+                aria-label="Swing the 3D camera to look straight down this plane's normal"
+                title="⌖ the 3D view jumps face-on to this cut (the same ⌖ language the tiles speak)"
+              >
+                <Focus className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>
           </div>

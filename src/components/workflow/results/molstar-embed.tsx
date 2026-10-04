@@ -26,7 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -3126,6 +3126,25 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
     window.addEventListener(ORTHO_SLICE_EVENT, onOrtho);
     return () => window.removeEventListener(ORTHO_SLICE_EVENT, onOrtho);
+  }, []);
+
+  // t556 — the oblique block's ⌖: swing the camera to look straight down
+  // the cut's normal. The plane itself cannot ride Mol*'s axis-aligned
+  // slice, but the camera CAN agree with it — the face-on view that makes
+  // the 2D cut and the 3D scene describe the same geometry. Same easing
+  // and focus law as the axis presets (dir/up swing, target + radius
+  // kept); the ortho panel owns the chirality math (dir = +n, up = −v).
+  useEffect(() => {
+    const onObliqueView = (e: Event) => {
+      const d = (e as CustomEvent<{ normal?: number[]; up?: number[] }>).detail;
+      const n = d?.normal;
+      const up = d?.up;
+      if (!Array.isArray(n) || n.length !== 3 || n.some((c) => !Number.isFinite(c))) return;
+      if (!Array.isArray(up) || up.length !== 3 || up.some((c) => !Number.isFinite(c))) return;
+      applyViewPreset([n[0], n[1], n[2]], [up[0], up[1], up[2]]);
+    };
+    window.addEventListener(OBLIQUE_VIEW_EVENT, onObliqueView);
+    return () => window.removeEventListener(OBLIQUE_VIEW_EVENT, onObliqueView);
   }, []);
 
   // σ / sign changes flow into the live slice too (it shares the threshold)
