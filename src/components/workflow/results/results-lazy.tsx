@@ -148,3 +148,11 @@ export const AiVerdictStamp = dynamic(
   () => import("./ai-verdict-stamp").then((m) => m.AiVerdictStamp),
   { ssr: false, loading: chartLoading }
 );
+// t566 — the selection evidence row: a birth selection's Results tab
+// pairs the receipt (engine numbers — what was kept) with the parent's
+// AI verdict stamp (the judge's reasons — why) side by side; its own
+// chunk until a select job with a birth provenance opens
+export const SelectionEvidenceRow = dynamic(
+  () => import("./selection-evidence-row").then((m) => m.SelectionEvidenceRow),
+  { ssr: false, loading: chartLoading }
+);

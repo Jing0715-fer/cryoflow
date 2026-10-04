@@ -27,7 +27,7 @@ import { Sparkles } from "lucide-react";
 import type { VerdictStamp } from "@/lib/ai/verdict-stamp-core";
 import { cn } from "@/lib/utils";
 
-interface VerdictResponse {
+export interface VerdictResponse {
   jobId: string;
   type: string;
   available: boolean;
@@ -65,13 +65,28 @@ function orderedClasses(stamp: VerdictStamp) {
 export function AiVerdictStamp({
   jobId,
   refreshKey = 0,
+  prefetched,
+  viaJobName,
+  className,
 }: {
   jobId: string;
   refreshKey?: number;
+  /** t566 — when the caller already holds the response (the evidence row
+   * fetches it for the availability gate), skip the self-fetch: pass the
+   * response (or null while loading) and the card renders it verbatim. */
+  prefetched?: VerdictResponse | null;
+  /** t566 — set when the stamp rides a birth selection's tab: the opinion
+   * was given about the PARENT class2d run, and the footer says so — the
+   * card may never masquerade as a verdict about the job hosting it. */
+  viaJobName?: string;
+  /** t566 — grid placement when the card rides the evidence row. */
+  className?: string;
 }) {
-  const [data, setData] = useState<VerdictResponse | null>(null);
+  const [fetched, setFetched] = useState<VerdictResponse | null>(null);
 
   useEffect(() => {
+    // t566 — a caller-supplied response replaces the self-fetch entirely.
+    if (prefetched !== undefined) return;
     // one fetch per (job, refresh tick): the stamp only changes when a
     // judge re-speaks, but riding the Results tab's poll cadence keeps
     // the card in step with a fresh judge call made moments ago.
@@ -84,17 +99,23 @@ export function AiVerdictStamp({
         const body: VerdictResponse | null = res.ok
           ? ((await res.json()) as VerdictResponse)
           : null;
-        if (!cancelled) setData(body);
+        if (!cancelled) setFetched(body);
       } catch {
         // quiet absence — a missing opinion must not paint the tab red
-        if (!cancelled) setData(null);
+        if (!cancelled) setFetched(null);
       }
     };
     void run();
     return () => {
       cancelled = true;
     };
-  }, [jobId, refreshKey]);
+  }, [jobId, refreshKey, prefetched]);
+
+  // t566 — the effective response: the caller's when provided (even as
+  // null while its fetch is in flight), our own otherwise — ONE render
+  // path reads it (the empty-grid live catch: skipping the fetch without
+  // feeding the render left the card an eternal null).
+  const data = prefetched !== undefined ? prefetched : fetched;
 
   const stamp = data?.available ? data.stamp : null;
   if (!data || !stamp) return null;
@@ -117,7 +138,10 @@ export function AiVerdictStamp({
     <section
       aria-label="AI verdict"
       data-canvas-ui="ai-verdict-stamp"
-      className="rounded-lg border border-violet-600/20 bg-violet-500/[0.03] p-3"
+      className={cn(
+        "rounded-lg border border-violet-600/20 bg-violet-500/[0.03] p-3",
+        className
+      )}
     >
       {/* header: who spoke, and the shape of the opinion */}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -213,6 +237,16 @@ export function AiVerdictStamp({
           <>
             {(askedLabel || stamp.model) && <span aria-hidden="true">·</span>}
             <span title="The second read was unreadable — the first verdict stands">single read</span>
+          </>
+        )}
+        {viaJobName && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span
+              title={`This opinion was given about the parent class2d run "${viaJobName}" — this selection was born from it`}
+            >
+              verdict on {viaJobName}
+            </span>
           </>
         )}
       </div>

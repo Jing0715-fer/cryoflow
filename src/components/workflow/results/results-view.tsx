@@ -82,7 +82,7 @@ import {
   FscChart,
   TopazTrainingChart,
   DenoiseCompareGallery,
-  SelectionReceipt,
+  SelectionEvidenceRow,
   AiVerdictStamp,
 } from "./results-lazy";
 import { MrcImage } from "./mrc-image";
@@ -1071,14 +1071,16 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           Extract and had to read raw logs to know what they were. */}
       {data.warnings && data.warnings.length > 0 && <WarningsCard warnings={data.warnings} />}
 
-      {/* t562 — the selection receipt: the strip above says "N particles
-          selected"; this card says the story the engine logged beside it —
-          kept/pruned per class, what decided the keep set, where the
-          selection was born. Type-gated: the receipt route reads a native
-          select run's log, and fetching it for any other job would be a
-          lie. */}
+      {/* t566 — the selection evidence row: the receipt says what the
+          engine kept (per-class occupancy, the deciding mode, the birth
+          provenance); when that provenance is a birth from a class2d run
+          that carries an AI verdict stamp, the parent's opinion joins it
+          side by side — the numbers lead, the reasons follow. Type-gated
+          to selection verbs (the receipt route reads a native select
+          run's log); the pairing degrades honestly to the plain receipt
+          when there is no birth parent or no verdict to borrow. */}
       {(job.type === "select2d" || job.type === "select") && (
-        <SelectionReceipt jobId={job.id} refreshKey={refreshKey} />
+        <SelectionEvidenceRow jobId={job.id} refreshKey={refreshKey} />
       )}
 
       {/* t565 — the AI verdict stamp: a judge's verdict is evidence about

@@ -27,7 +27,7 @@ import { ClipboardCheck, Sparkles } from "lucide-react";
 import type { SelectionReceipt } from "@/lib/selection-receipt";
 import { cn } from "@/lib/utils";
 
-interface ReceiptResponse {
+export interface ReceiptResponse {
   jobId: string;
   type: string;
   available: boolean;
@@ -79,13 +79,24 @@ function orderedClasses(receipt: SelectionReceipt) {
 export function SelectionReceipt({
   jobId,
   refreshKey = 0,
+  prefetched,
+  className,
 }: {
   jobId: string;
   refreshKey?: number;
+  /** t566 — when the caller already holds the response (the evidence row
+   * fetches it for the birth provenance), skip the self-fetch: pass the
+   * response (or null while loading) and the card renders it verbatim. */
+  prefetched?: ReceiptResponse | null;
+  /** t566 — grid placement when the card rides the evidence row. */
+  className?: string;
 }) {
-  const [data, setData] = useState<ReceiptResponse | null>(null);
+  const [fetched, setFetched] = useState<ReceiptResponse | null>(null);
 
   useEffect(() => {
+    // t566 — a caller-supplied response replaces the self-fetch entirely:
+    // the row owns the wire so the receipt endpoint is hit exactly once.
+    if (prefetched !== undefined) return;
     // one fetch per (job, refresh tick): the receipt rides JobResultsLive's
     // 6s poll while a run is live (the class gallery's cadence) and freezes
     // once settled — the log's newest receipt block only changes when a run
@@ -100,17 +111,23 @@ export function SelectionReceipt({
         const body: ReceiptResponse | null = res.ok
           ? ((await res.json()) as ReceiptResponse)
           : null;
-        if (!cancelled) setData(body);
+        if (!cancelled) setFetched(body);
       } catch {
         // quiet absence — the Results tab's own surfaces cover the wire
-        if (!cancelled) setData(null);
+        if (!cancelled) setFetched(null);
       }
     };
     void run();
     return () => {
       cancelled = true;
     };
-  }, [jobId, refreshKey]);
+  }, [jobId, refreshKey, prefetched]);
+
+  // t566 — the effective response: the caller's when provided (even as
+  // null while its fetch is in flight), our own otherwise. ONE render
+  // path reads it, so prefetched mode renders the same card verbatim
+  // instead of an eternal null (the empty-grid live catch).
+  const data = prefetched !== undefined ? prefetched : fetched;
 
   const receipt = data?.available ? data.receipt : null;
   if (!data || !receipt) return null;
@@ -143,7 +160,10 @@ export function SelectionReceipt({
     <section
       aria-label="Selection receipt"
       data-canvas-ui="selection-receipt"
-      className="rounded-lg border border-emerald-600/20 bg-emerald-500/[0.03] p-3"
+      className={cn(
+        "rounded-lg border border-emerald-600/20 bg-emerald-500/[0.03] p-3",
+        className
+      )}
     >
       {/* header: what decided the keep set + how many classes survived */}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
