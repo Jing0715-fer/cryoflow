@@ -24,6 +24,7 @@ import {
   CloudDownload,
   Copy,
   Crop,
+  Crosshair,
   ExternalLink,
   FileDown,
   FileText,
@@ -38,6 +39,7 @@ import {
   ZoomIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useWorkflowStore } from "@/lib/store";
 import {
   Dialog,
   DialogContent,
@@ -1085,6 +1087,16 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           the component self-hides when the log has no epoch progress. */}
       <TopazTrainingChart jobId={job.id} running={job.status === "running"} />
 
+      {/* t558 — the train→pick handoff: the chart above says how good the
+          model is, this card says what to DO with it. One gesture mints
+          the Auto-picking job (Topaz mode, the training's own dials),
+          wires the model in, and inherits the micrographs source — the
+          engine receipt "connect into Auto-picking (Topaz mode)" becomes
+          a button instead of a manual wiring chore. */}
+      {job.type === "topaztrain" && job.status === "completed" && (
+        <TopazPickHandoff jobId={job.id} />
+      )}
+
       {/* t542 — the denoise compare gallery: every denoised micrograph
           paired with its original (wipe / side-by-side). Type-gated — the
           pairs route is denoise-owned and the fetch would be a lie for any
@@ -2027,6 +2039,66 @@ function RemoteFileTile({
         </a>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* t558 — the Topaz train→pick handoff card                            */
+/* ------------------------------------------------------------------ */
+
+/** The trained model's next step, as a gesture instead of a chore: one
+ *  click mints the Auto-picking job (Topaz mode) with the training's own
+ *  dials carried over, wires model → topazModel, and inherits this job's
+ *  micrographs source — so the pick consumes the same stream the training
+ *  did (the denoised stack, in the official topaz flow). The store action
+ *  refuses honestly before minting when the micrographs mouth has no
+ *  source to inherit (a half-wired pick on the canvas is a lie). */
+function TopazPickHandoff({ jobId }: { jobId: string }) {
+  const pickWithTopazModel = useWorkflowStore((s) => s.pickWithTopazModel);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await pickWithTopazModel(jobId);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section
+      aria-label="Put the model to work"
+      data-canvas-ui="topaz-pick-handoff"
+      className="rounded-lg border border-rose-600/25 bg-rose-500/[0.04] p-3"
+    >
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
+            <Crosshair className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
+            Put the model to work
+          </h4>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            Mints an Auto-picking job in Topaz mode with this training's own dials carried
+            over, wires the trained model in, and inherits the micrographs source — review
+            the params, then run.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={run}
+          disabled={busy}
+          className="shrink-0 border-rose-600/40 text-rose-700 hover:bg-rose-600/10 hover:text-rose-800 dark:text-rose-300 dark:hover:text-rose-200"
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          Pick with this model
+        </Button>
+      </div>
+    </section>
   );
 }
 

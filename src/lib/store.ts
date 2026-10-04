@@ -53,6 +53,7 @@ import type {
   EdgeDTO,
   JobDTO,
   JobStatus,
+  ParamValue,
   ProjectDTO,
   ProjectSummaryDTO,
   SystemStatusClient,
@@ -938,6 +939,12 @@ interface WorkflowState {
    *  are found by kind, never assumed: a host missing a mouth refuses
    *  honestly before anything is minted. */
   adoptWithSelect: (fromRunId: string, toRunId: string, classNumbers: number[]) => Promise<void>;
+  /** t558 — the Topaz train→pick handoff: mint an Auto-picking job in
+   *  Topaz mode with the training's own dials carried over, wire the
+   *  trained model into it, and inherit the training job's micrographs
+   *  source. The engine's "connect into Auto-picking (Topaz mode)"
+   *  receipt becomes a button instead of a manual wiring chore. */
+  pickWithTopazModel: (fromJobId: string) => Promise<void>;
   connect: (
     from: string,
     to: string,
@@ -3777,6 +3784,72 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       await get().adoptDownstream(fromRunId, selectJob.id);
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to mint the class selection");
+    }
+  },
+
+  pickWithTopazModel: async (fromJobId) => {
+    const { jobs, edges } = get();
+    const train = jobs.find((j) => j.id === fromJobId);
+    if (!train || train.type !== "topaztrain") {
+      errToast("That job is gone — refresh and try again");
+      return;
+    }
+    if (train.status !== "completed") {
+      errToast("The model isn't trained yet — wait for the run to complete");
+      return;
+    }
+    // the micrographs mouth must be feedable BEFORE anything is minted:
+    // the pick consumes the SAME stream the training did (the denoised
+    // stack, in the official flow) — a half-wired pick on the canvas is
+    // a lie the graph would keep telling (the adoptWithSelect law).
+    const feed = edges.find((e) => e.toJobId === train.id && e.toPort === "micrographs");
+    const source = feed ? jobs.find((j) => j.id === feed.fromJobId) : undefined;
+    if (!feed || !source) {
+      errToast("The training job has no micrographs source to inherit — wire one in first");
+      return;
+    }
+    try {
+      const place = placeRightOf(train, jobs);
+      // the recipe carries over: Topaz mode + the training's own dials —
+      // the pick starts where the training ended, every knob editable
+      const params: Record<string, ParamValue> = {
+        pickingMethod: "Topaz",
+        topazNrParticles: train.params.topazNrParticles ?? 200,
+        topazThreshold: train.params.topazThreshold ?? -6,
+        topazDiameter: train.params.topazDiameter ?? 180,
+        topazDownscale: train.params.topazDownscale ?? -1,
+        topazWorkers: train.params.topazWorkers ?? 1,
+        topazArgs: train.params.topazArgs ?? "",
+      };
+      const { job: pick } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "autopick",
+          x: place.x,
+          y: place.y,
+          workspaceId: train.workspaceId ?? undefined,
+          params,
+        }),
+      });
+      set({
+        jobs: [...get().jobs, pick],
+        selectedId: pick.id,
+        selectedIds: [pick.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(pick.id);
+      // the wires, quiet — the card's toast is the gesture's voice:
+      // model → Topaz mode, micrographs follow the training input
+      await get().connect(train.id, pick.id, "model", "topazModel", { quiet: true });
+      await get().connect(source.id, pick.id, feed.fromPort, "micrographs", { quiet: true });
+      toast({
+        title: "Topaz Pick minted",
+        description:
+          "Auto-picking (Topaz mode) wired to the trained model, micrographs inherited from the training input — review the params and run.",
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the Topaz pick");
     }
   },
 
