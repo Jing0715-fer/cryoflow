@@ -84,6 +84,20 @@ if (missingDeps.length > 0) {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // t576 — turbopack's build root widens from the project root to /home/z:
+  // the EMPIAR-10017 world (t372) serves its micrographs through
+  // data/relion/<id>/micrographs → /home/z/empiar-10017/micrographs, and
+  // that realpath leaves the project root — turbopack's symlink validator
+  // panics ("points out of the filesystem root") on the first app-route
+  // whose graph touches it (observed on micrographs/ and picks/ routes).
+  // The dataset mount and the checkout are siblings under /home/z, so a
+  // root at /home/z legalizes the world's own links without moving a byte
+  // of data. (The webpack lane never saw this: its tracer walked data/**
+  // with looser rules — the outputFileTracingExcludes below now covers
+  // both engines.)
+  turbopack: {
+    root: "/home/z",
+  },
   // t401 — inlined at compile time (client) / build time (standalone):
   // the footer's "build <sha>" is the served process's own version.
   env: {
@@ -106,7 +120,20 @@ const nextConfig: NextConfig = {
   // globals.css mirrors this one-for-one. The qa68 detector fails loudly
   // if any legacy name ever reappears in the repo root.
   outputFileTracingExcludes: {
-    "*": ["tool-results/**", "_legacy-archive/**"],
+    "*": [
+      "tool-results/**",
+      "_legacy-archive/**",
+      // t576 — the runtime data planes join the exclusion: turbopack's
+      // tracer walks the whole project tree (the same appetite t273 caught
+      // on webpack's EACCES) and data/ carries 66 symlinks — the import
+      // feature links uploads into job dirs, and consumed uploads leave
+      // dangling targets. One dangling link inside an [app-route]'s walk
+      // is a TurbopackInternalError ("points out of the filesystem
+      // root") that kills the whole build; the server reads this tree at
+      // runtime via CRYOFLOW_DATA_DIR and never needs it traced.
+      "data/**",
+      "db/**",
+    ],
   },
   // ssh2 (t261-remote's transport) is a Node-only lib whose dynamic
   // requires Turbopack cannot place into ESM chunks ("non-ecmascript
@@ -147,6 +174,29 @@ const nextConfig: NextConfig = {
   webpack: (config, { dev }) => {
     if (!dev) {
       config.optimization = { ...config.optimization, minimize: false };
+    }
+    // t576 — the collapsed-band escape hatch. 2026-10-04 14:00Z: the same
+    // compile graph that greened at heap 1344 eleven hours earlier now
+    // died at EVERY pin — 1344/1440/1536 V8-abort (live-set > 1536), 
+    // 1664/1696/1792 kernel-SIGKILL at a rock-hard 3.38GB anon wall
+    // (dmesg ×3), cold cache and semi 4/8 alike. The only wall never
+    // touched: the webpack cache subsystem itself — its in-memory index
+    // plus serialization Buffers are pure overhead on a one-shot build
+    // (external measured ~1.6GB at kill time). CRYOFLOW_NO_WEBPACK_CACHE=1
+    // trades cross-attempt warmth (t402/t416's lever) for that memory:
+    // each attempt is fully cold but the peak drops below both walls.
+    // Env-gated so warm days keep the t416 dessert untouched.
+    if (process.env.CRYOFLOW_NO_WEBPACK_CACHE === "1") {
+      config.cache = false;
+      // t576 — the firehose throttle, same escape hatch: the abort signature
+      // ("Ineffective mark-compacts", heap pinned AT the cap, 23-29% survival)
+      // is an ALLOCATION-RATE death, not a live-set death — webpack's default
+      // parallelism (100 concurrent module jobs) fills the young gen faster
+      // than the GC can fold it at any cap the kernel allows. Serial module
+      // processing trades wall-time (a cold compile stretches past 60s) for a
+      // flat allocation curve — the same lever as cpus:1 but INSIDE the
+      // compilation, where the pin above showed the real pressure is.
+      config.parallelism = 1;
     }
     return config;
   },
