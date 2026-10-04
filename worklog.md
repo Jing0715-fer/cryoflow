@@ -7593,3 +7593,37 @@ Stage Summary:
 - 「QA 会绕路」：世界坐标叠压的卡簇让三种 UI 交互全哑——API POST + reload 让 store 重建比跟覆盖层搏斗便宜；但清场要连试加的 edge 一起还，借还律不看绕路的姿势
 - 产出：Pick with this model 双路径活体（拒绝诚实 + 铸造精确）+ store 动作（家法形）+ rose 交接卡 + 名册/边零污染归还
 - [下窗入口] ①tetraptych footer 收编 ⌖/adopt 读数（t557 入口②）；②denoise→pick/train 同款交接卡（手势家族扩员，若做 Topaz 第二刀）；③AI 车道：gamble inclusive；④t471 WSL-bridge（照实挂）
+
+---
+Task ID: 559
+Agent: main (Z.ai Code, window 2026-10-04 09:08 cron)
+Task: t558 入口①兑现——tetraptych footer 收编 ⌖/adopt 读数（欠了一窗的小而美）；入口②兑现——denoise→pick 同款交接卡（手势家族第二刀）。双车道 + 浏览器活体。
+
+Work Log:
+- [开局] HEAD c04e6f2 对齐、树净；基线五绿（prod 200/3ms、tsc 0、eslint 0、AI 探针 200、console/errors 0）。worklog 尾条 = Task 558（交接摘要说的 554 早已被四窗跑完——滞后于现实第 N 次兑付）；派单 Task 13 清单第 N+15 次化石。
+- [车道A — provenance 读数入 footer] ObliqueExportInfo 加 provenance {kind:"jump"|"adopt", theta, phi}：⌖ 记相机对齐这刀时的 θ/φ、⤸ 记采自相机的 θ/φ；滑杆 scrub/reset 即作废（读数不再成立就不许上 footer——footer 不得说谎律）。export 两 run 形：dialogue 读数（`⌖ 45°·30°` / `⤸ 135°·210°`）用 violet 画在焦点读数左侧，宽度计入 measure-first 布局（histogram span 相应让位）。
+- [车道B — DenoisePickHandoff] 真需求 = spec 描述自己承认（「the official topaz flow runs denoise → pick on the denoised images」+ 输出 star 保持 micrograph schema）；topazModel 口是 optional——denoise→pick 是单嘴干净手势（denoise 输出即源，无继承可言、无拒绝路径，train→pick 的嘴律在这里天然满足）。store 动作 pickWithDenoisedStack（家法镜像形）：守卫（type+completed）→ placeRightOf → 铸 autopick（Topaz 模式；pick 自己的 dials 用 spec 默认，仅共享旋钮 Downscale/Workers 从 denoise 继承——Args 不跨阶段继承，语义不同）→ focusJob → 单条 quiet wire（denoise.micrographs→pick.micrographs，topazModel 口诚实留空）→ toast。
+- [status] 代码完成 tsc 0 · eslint 0；活体验证进行中。
+
+---
+Task ID: 560
+Agent: main (Z.ai Code, window 2026-10-04 10:23 cron)
+Task: 接手 Task 559 的残局——上一窗死于活体验证中途（worklog 尾条停在「代码完成 tsc 0 · eslint 0；活体验证进行中」，树不净四文件未提交）。本窗唯一使命：把 t559 双车道验证到 PROVEN，修验证路上撞出的坑，分车收官。
+
+Work Log:
+- [开局核实] 交接摘要说尾条=Task 554，worklog 实际尾条=Task 559（滞后于现实第 N+16 次兑付——tail worklog 是唯一可靠的开工仪式）。HEAD c04e6f2、树不净（map-ortho-panel / results-view / store + worklog 各带 t559 未提交改动）。基线：prod 200/3ms、tsc 0、eslint 0、AI 探针 200；active=EMPIAR t372 世界（借还零漂移：本窗全程未切世界，两车道素材恰好都在——refine3d completed 供车道A、topazdenoise completed 供车道B）。
+- [车道B 活体 — denoise→pick 交接卡] 22 断言×2 连绿：卡片上墙（completed topazdenoise 的 Results 视图）→ 点「Pick this stack」→ 铸 idle autopick（Topaz 模式；300/-6/180/args "" 各旋钮精确按 spec 默认，仅 Downscale/Workers 从 denoise 继承——Args 不跨阶段继承）→ placeRightOf（x 900 > 560）→ 单条 quiet wire micrographs→micrographs → 清场 DELETE（边级联）→ 花名册 12/边账 13 还原。
+- [车道A 活体 — tetraptych footer 的 ⌖/⤸ 对话] 17 断言×2 连绿：导出 PNG 在浏览器外用 t291 的 zlib 解码器逐像素数 footer 带内的 violet（#7c3aed——对话是 footer 唯一合法的 violet）。五态状态机全落地：A0 fresh block 无对话=诚实缺席（0 px）；A1 ⌖ jump 后对话上 footer（77 px）；A2 θ 滑杆一格作废读数（0 px）；A3 ⤸ adopt（合成 camera-state 事件 dir=[½,½,√½]→θ45·φ45，DOM aria-valuenow 双断言）（87 px）；A4 reset 回零并再作废（0 px）。栅格 2118×638 = t291 三联画 1592 + 一块 tile+gap，四联画形确认。
+- [撞坑1 — GET /api/jobs/[id] 是 405] 首版脚本对铸出的 job 发 GET 详情，405 空体让 params 断言全读 undefined（wire 都对了参数全空——形状问题的经典指纹）。roster DTO 本身带 params/x/y 全量，curl 验证后改读 minted 对象。教训：**别假设 REST 形状，405 会让「断言全空」伪装成「功能全坏」**。
+- [撞坑2 — wire 竞态] 第二轮跑 wire 断言 FAIL（上一轮明明绿）：store 的 connect POST 在 roster 已见 mint 之后才落地——铸与连线不是原子，脚本在两者之间读账。改 pollUntil 轮询 wire。教训：**铸出≠连上，quiet wire 有自己的时差，轮询是唯一的诚实读法**。
+- [撞坑3 — force-click 打在动画中的 modal 上] Mol* 启动 dance 首版用 force-click，modal 尚在动画中点击落空，molstar 45s 不起（探针 plain click 却次次成功）。改回 plain click + 逐段 pollUntil + 失败重试一次。教训：**force 越过 actionability 也越过了动画时序，探针成功形就是该抄的形**。
+- [撞坑4 — 幽灵 /command 404] 清场 DELETE 掉浏览器正选中的 mint 后，roster 轮询刷新让 inspector 重挂载，对已删 id 补发一发 /command 预览 fetch → 诚实 404（时有时无，与轮询时序竞速）。hook 本身优雅吞掉非 OK 响应——测试编排产物，非 app bug。修法：B3 清场后立即 about:blank 释放孤儿选中。教训：**在 UI 背后删它正看着的 job，要替它把视线移开再走**。
+- [撞坑5 — 已知的诚实 404 家族] EMPIAR 世界的种子 refine3d 活在 remote-bound 项目里：t354 合成 per-iteration chips（t474 派生目标猜测的另一半），sheet 路由对不存在的 run_itNNN_classes.mrcs 诚实 404（SSH 重拉腿偶发 502-wobble，server.log「refused by the wire」同源）。画廊有错误卡+重试，UI 不说谎。QA 白名单按响应 URL 对账（404 响应只许 sheet 路由×refine3d 这一种），console 计数不对账（浏览器会对同一拒绝重复记日志）。裁决：设计内行为，不动。
+- [status] 两车道 ALL GREEN ×2 连跑（39 断言/轮）；t559 的代码原样通过——本窗对 src 零改动，全部产出在验证侧。harness scripts/t560-t559-handoff-live-fire.mjs（世界门卫 fail-fast、借还零漂移、about:blank 释放、URL 白名单对账可复用）。导出物 shots-qa/t560-a{0..4}-*.png 五连拍记录 footer 对话全生命周期。
+
+Stage Summary:
+- 「验证是代码的成人礼」：t559 写完没验完就断窗，代码在树里裸奔一整窗——活体不是收尾的仪式感，是提交前唯一的安全带；本窗 5 个撞坑里 4 个在验证侧、0 个在 t559 代码里，裸奔期恰好零事故是运气不是设计。
+- 「断言全空≠功能全坏」：405/DTO 形状错会让整组参数断言集体读 undefined，先查形状再疑实现——wire 绿而 params 全空就是形状指纹。
+- 「铸与连有时差」：quiet wire 在 roster 之后落地，轮询是唯一诚实的读法；同理探针的 plain-click 形、清场后的 about:blank——QA 的每一步时序都要自己负责。
+- 「白名单对账要对响应不对计数」：诚实拒绝（404/502-wobble）按 URL 白名单放行且必须在账上留痕，console 重复记日志不追——账本不能说谎，日志可以啰嗦。
+- 产出：t559 双车道 PROVEN（39 断言×2 连绿）+ 5 连拍导出物 + harness；下窗入口：①遗留池 #7 chart 路由全量同步读 / #8 particles BFS N+1 / #5 fs/browse 鉴权仍是性能与安全面三块硬骨头；②AI 车道 gamble inclusive 象限（t554 门卫形可复用）；③t559 未做：tetraptych footer 的 provenance 读数与 adoptFlash 的可视化联动的打磨（小）；④t471 WSL-bridge（照实挂）、t276（门控）。
