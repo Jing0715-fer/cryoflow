@@ -19,7 +19,7 @@
  *        the erasable-syntax TS directly; no mirror copy in this file)
  */
 
-import { parseSelectionReceipt } from "../src/lib/selection-receipt.ts";
+import { parseSelectionReceipt, jobRefFromInputPath } from "../src/lib/selection-receipt.ts";
 
 let pass = 0, fail = 0;
 const check = (name, ok, note = "") => {
@@ -206,6 +206,26 @@ check("comma'd body line (future engine dialect) reads 4,073 → 4073",
     return p?.classes.find((c) => c.cls === 5)?.count === 4073;
   })(),
 );
+
+console.log("— t568: the input path names the producer (log-first provenance)");
+check("inputPath extracted verbatim",
+  g?.inputPath === "/home/z/my-project/data/relion/cmuro2ufe000mn5nb3qkwuy49/class2d_ewxp1nl8/run_it003_data.star",
+  g?.inputPath?.slice(-40));
+check("workdir leaf maps to (class2d, ewxp1nl8)",
+  JSON.stringify(jobRefFromInputPath(g?.inputPath ?? "")) === JSON.stringify({ type: "class2d", idTail: "ewxp1nl8" }),
+  JSON.stringify(jobRefFromInputPath(g?.inputPath ?? "")));
+check("auto fixture's input path maps too",
+  (() => { const r = jobRefFromInputPath(a?.inputPath ?? ""); return r?.type === "class2d" && r?.idTail === "etgj3moi"; })(),
+  a?.inputPath?.slice(-40));
+check("1D fixture's plain dir (no _tail8) → null (never a guess)",
+  jobRefFromInputPath("/data/extract/particles.star") === null);
+check("bare filename → null", jobRefFromInputPath("particles.star") === null);
+check("root child → null", jobRefFromInputPath("/particles.star") === null);
+check("leaf without underscore → null", jobRefFromInputPath("/home/x/class2dabc/run.star") === null);
+check("tail shorter than 8 → null", jobRefFromInputPath("/home/x/class2d_abc/run.star") === null);
+check("empty string → null", jobRefFromInputPath("") === null);
+check("chained select source maps (select2d leaf)",
+  (() => { const r = jobRefFromInputPath("/data/relion/p/select2d_07cmphsk/particles_select2d.star"); return r?.type === "select2d" && r?.idTail === "07cmphsk"; })());
 
 console.log(`\n${pass} pass, ${fail} fail`);
 process.exit(fail === 0 ? 0 : 1);

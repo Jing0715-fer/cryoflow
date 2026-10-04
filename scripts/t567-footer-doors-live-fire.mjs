@@ -18,7 +18,11 @@
  *      A2  fresh-open the probe again, click the receipt's "from" door →
  *          the same landing, through the other card.
  *   B  param select (selectedClasses, no birth provenance) → plain
- *      receipt, NO door (provenance.sourceJobId is null — honest absence).
+ *      receipt, NO pairing (kind param never borrows the stamp) — but
+ *      the "from" footer IS a door since t568 (log-first provenance:
+ *      the logged input path maps back to the wired parent; this face
+ *      originally asserted the doorless plain text — t568 flipped it,
+ *      see t568-footer-doors-live-fire.mjs for the focused proof).
  *
  * Runs in the EMPIAR world in place (no switch), deletes both mints on
  * the way out (roster must return to its starting count).
@@ -244,8 +248,8 @@ try {
   check("from-door lands on the parent's own tab too", !!land2,
     land2 ? "stamp owned, row/receipt/from gone" : JSON.stringify(evalJs(landJs)));
 
-  /* ================= FACE B — param select, NO door ================== */
-  console.log("\n[Face B] param select (selectedClasses 3) → plain receipt, doorless footer");
+  /* ================= FACE B — param select → plain receipt, from-door = */
+  console.log("\n[Face B] param select (selectedClasses 3) → plain receipt, from-door via the log (t568)");
   const mintB = JSON.parse(api("POST", "/api/jobs", {
     type: "select2d",
     name: "t567 Plain Probe",
@@ -275,9 +279,10 @@ try {
     return r.available ? r : null;
   }, 10000);
   check("receipt available", !!receiptB);
-  check("provenance kind = param, NO source job (door precondition fails)",
-    receiptB?.provenance?.kind === "param" && !receiptB?.provenance?.sourceJobId,
-    `kind=${receiptB?.provenance?.kind ?? "?"} src=${receiptB?.provenance?.sourceJobId ?? "null"}`);
+  check("provenance kind = param (no birth)", receiptB?.provenance?.kind === "param", receiptB?.provenance?.kind);
+  check("t568: source mapped from the LOG (params name nothing)",
+    receiptB?.provenance?.sourceJobId === class2d.id && !!receiptB?.provenance?.sourceJobName,
+    `${receiptB?.provenance?.sourceJobName ?? "none"} (from ${receiptB?.provenance?.sourceJobId ? "log path" : "params"})`);
 
   await openJob("t567 Plain Probe");
   const plainRaw = await pollUntil(() => {
@@ -298,11 +303,11 @@ try {
   let plain = null;
   try { plain = JSON.parse(plainRaw ?? "null"); } catch { /* stays null */ }
   check("plain receipt still renders", plain?.receipt === true);
-  check("param source stays plain text — NO door offered", plain?.door === false,
+  check("t568: the param lane's from footer IS a door now", plain?.door === true,
     plain?.fromText || "no from footer text");
   if (plain?.fromText) {
-    check("the footer still tells the relation (text intact)",
-      /^from /.test(plain.fromText), plain.fromText.slice(0, 50));
+    check("the door names the wired parent",
+      new RegExp(`from\\s*${class2d.name}`).test(plain.fromText), plain.fromText.slice(0, 60));
   }
 
   const errs = sh(`agent-browser errors 2>/dev/null`).trim();
