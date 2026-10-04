@@ -23,8 +23,9 @@
  */
 
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { ArrowUpRight, Sparkles } from "lucide-react";
 import type { VerdictStamp } from "@/lib/ai/verdict-stamp-core";
+import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 export interface VerdictResponse {
@@ -67,6 +68,7 @@ export function AiVerdictStamp({
   refreshKey = 0,
   prefetched,
   viaJobName,
+  viaJobId,
   className,
 }: {
   jobId: string;
@@ -79,6 +81,10 @@ export function AiVerdictStamp({
    * was given about the PARENT class2d run, and the footer says so — the
    * card may never masquerade as a verdict about the job hosting it. */
   viaJobName?: string;
+  /** t567 — the parent's id, when known: the "verdict on" footer becomes
+   * a door into the parent's own tab. A name without an id stays plain
+   * text — never offer a door whose destination is unverified. */
+  viaJobId?: string;
   /** t566 — grid placement when the card rides the evidence row. */
   className?: string;
 }) {
@@ -242,11 +248,29 @@ export function AiVerdictStamp({
         {viaJobName && (
           <>
             <span aria-hidden="true">·</span>
-            <span
-              title={`This opinion was given about the parent class2d run "${viaJobName}" — this selection was born from it`}
-            >
-              verdict on {viaJobName}
-            </span>
+            {viaJobId ? (
+              <button
+                type="button"
+                data-canvas-ui="verdict-via-link"
+                onClick={() => void useWorkflowStore.getState().openJob(viaJobId)}
+                title={`This opinion was given about the parent class2d run "${viaJobName}" — click to open its tab`}
+                className={cn(
+                  "inline-flex items-center gap-0.5 rounded px-0.5 -mx-0.5 text-left transition-colors",
+                  "hover:bg-violet-600/10 hover:text-violet-700 dark:hover:text-violet-300",
+                  "hover:underline underline-offset-2 decoration-dotted",
+                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                )}
+              >
+                verdict on {viaJobName}
+                <ArrowUpRight className="h-2.5 w-2.5 shrink-0 opacity-60" aria-hidden="true" />
+              </button>
+            ) : (
+              <span
+                title={`This opinion was given about the parent class2d run "${viaJobName}" — this selection was born from it`}
+              >
+                verdict on {viaJobName}
+              </span>
+            )}
           </>
         )}
       </div>

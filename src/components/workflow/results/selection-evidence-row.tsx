@@ -138,6 +138,7 @@ export function SelectionEvidenceRow({
       <AiVerdictStamp
         jobId={source.id}
         viaJobName={source.name ?? undefined}
+        viaJobId={source.id}
         refreshKey={refreshKey}
         prefetched={stamp}
         className="lg:col-span-3"

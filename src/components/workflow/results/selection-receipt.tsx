@@ -23,8 +23,9 @@
  */
 
 import { useEffect, useState } from "react";
-import { ClipboardCheck, Sparkles } from "lucide-react";
+import { ArrowUpRight, ClipboardCheck, Sparkles } from "lucide-react";
 import type { SelectionReceipt } from "@/lib/selection-receipt";
+import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 export interface ReceiptResponse {
@@ -257,11 +258,39 @@ export function SelectionReceipt({
 
       {/* footer: where the selection was born + when the receipt was written */}
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-        {fromName && (
-          <span title={provenance?.kind === "birth" ? "The selection came baked at birth (AI select_classes or a gallery gesture)" : "Source run the selection rode"}>
-            from {fromName}
-          </span>
-        )}
+        {fromName &&
+          // t567 — the door, not just the label: when the provenance names
+          // a live job (id AND name — the name proves the row still exists,
+          // a deleted parent offers no door), "from" opens that run's own
+          // tab. A source known only as a string (receipt.source) stays
+          // plain text — never a door whose destination is unverified.
+          (provenance?.sourceJobId && provenance?.sourceJobName ? (
+            <button
+              type="button"
+              data-canvas-ui="receipt-from-link"
+              onClick={() =>
+                void useWorkflowStore.getState().openJob(provenance.sourceJobId!)
+              }
+              title={
+                provenance?.kind === "birth"
+                  ? `The selection came baked at birth (AI select_classes or a gallery gesture) — click to open "${fromName}"`
+                  : `Source run the selection rode — click to open "${fromName}"`
+              }
+              className={cn(
+                "inline-flex items-center gap-0.5 rounded px-0.5 -mx-0.5 text-left transition-colors",
+                "hover:bg-emerald-600/10 hover:text-emerald-700 dark:hover:text-emerald-300",
+                "hover:underline underline-offset-2 decoration-dotted",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              )}
+            >
+              from {fromName}
+              <ArrowUpRight className="h-2.5 w-2.5 shrink-0 opacity-60" aria-hidden="true" />
+            </button>
+          ) : (
+            <span title={provenance?.kind === "birth" ? "The selection came baked at birth (AI select_classes or a gallery gesture)" : "Source run the selection rode"}>
+              from {fromName}
+            </span>
+          ))}
         {ranAtLabel && (
           <>
             {fromName && <span aria-hidden="true">·</span>}
