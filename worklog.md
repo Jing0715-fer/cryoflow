@@ -8255,3 +8255,26 @@ Stage Summary:
 - 「getAnimations() 是动画的账本，animationName 只是规则的回声」：规则匹配期间 computed animationName 永远报名字，fill-mode none 的已结束动画却不在 getAnimations() 里——断言「动画结束」要查账本不是听回声；而 getAnimations() 包含 transition（transition-colors 一动就 +6 条）——按 animationName 过滤才是点名
 - 「in-arm 时序必须整体搬进 eval」：openLens 的 900ms CLI sleep 超过 720ms settle 窗——helper 返回后的一切点击都已是 post-arm。t578 的通道延迟退役通道从「读数」升格为「动作」：凡是比通道短的时间窗，窗口内的读与动都必须同 eval 原子
 - 产出：the click-settle（globals.css chip-set stanza + canvas-find-bar chipSetKeys 门控三处）+ t585 witness 20/20（含幽灵探针）+ t584 C2 梯度断言加固 + dev watcher/缓存双课定谳管道 + 回归全绿；下窗入口：①build 日 = FRESH gate → prod 全家桶（t585/t584/t583 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②judge 风暴活体半场；③find lens 语法下一站候选：count chip 的 press 应答（计数门也是门）或 Esc 卸装时 rows 的轻声退位（对称语言）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 586 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 06:53 cron, Job 362852)
+Task: t585 入口③兑现——「世界应答手掌」app 级 press 语言（Button 基座 motion-safe:active:scale-[0.96] + find bar 三处裸 button 入伙）；witness 22/22 首跑全绿（含与 t585 click-settle 的交接面）；途中宿主 global OOM 击杀 dev server（复位如常）+ t584 C2 抖动三连定谳为 harness 结构病（3-landing 接受环重构）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 585（本会话上窗）；HEAD 677993c、树净；dev regime 五绿（tsc 0 全量、eslint 0、AI 信封、roster 6 active=EMPIAR jobs 12、canvas 12 卡 13 线 console 净）；available 1200MB < 3.5GB → 非 build 日。化石验尸：Topaz wrapper 已是完整实现（topazNrParticles/Threshold/Diameter/Model/Args 全在 workflow.ts——「Topaz wrapper」第 N+29 次化石）；undo/redo 已在（Task 97/104 delete-toast undo + 时间线 UI——第 N+30 次化石）。
+- [选道] 全 app grep `active:` 零命中——Button ghost 仅 hover:bg-accent，整个世界没有 press 触觉。车道：「世界应答手掌」——一个 class of truth。
+- [产品——the press answer] ①Button cva 基座 += `motion-safe:active:scale-[0.96]`（transition-all 基座已有 → dip 150ms 双向缓动）；movement 骑 reduced-motion（t571 分层教义，Tailwind v4 motion-safe 变体正是该门的工具形态）；disabled:pointer-events-none 让 :active 对死按钮永不点火。②find bar 三处裸 button（count door + status chips + type chips）入伙：transition-colors → transition-all + 同一 utility。③边界照实声明：Button 组件 + 显式入伙的裸 button；Radix menu/listbox items 有自己的选中语言，不入。④与 t585 click-settle 的语义叠层：持住 = 被拿起（0.96 dip），松开 = 滤轮咔哒归位（chip-set 从 0.94 过冲落定）——动画在点火瞬间接管通道，dip→settle 无缝交棒。
+- [t586 witness 22/22 首跑] P1 真输入 dip（合成 pointerdown 不驱动 :active——agent-browser mouse down/up 是 CDP 级真输入；dip 是持续态，通道延迟反而让读数落在稳态 0.96）+ P5 零 layout shift（邻居 rect 按位相同——scale 是独立变换属性）+ P2 死按钮不动（disabled n=0 的 find prev）+ P3 裸 button 入伙验证 + 交接面（release 后 anim=chip-set、scale=1.00587——back-out 过冲中飞被活捉，两声部一手势实锤）+ P4 CSSOM motion-safe 门内唯一 + R roster 12→12 console 净。📸×2。
+- [served-CSS 预检门当窗回本] witness 开浏览器前先 curl served CSS 断言编译产物在场（t585 的 watcher 丢事件教训升格为结构门）——首查即抓到 dev server 已死：宿主 global OOM 再杀 next-server（anon 2.09GB，t579 定律又添一笔；尸体归还 2GB → available 3142MB，仍 < 3.5GB build 门槛，t579 测量数学不越）。dev-server.sh 复位后 served 逐字在场（`@media (prefers-reduced-motion: no-preference) { .motion-safe\:active\:scale-\[0\.96\]:active { scale: .96 } }`）。
+- [t584 C2 抖动定谳——harness 结构病] 回归连败三窗三签名（全零 → 0.87 头 → 0.73 头尾坍缩）：中飞采样相位在 dev 主线程抖动下不可赌。重构：①接受环——单次着陆（Escape→Ctrl+F→380ms in-page 采样）×3，接受首个真抓到波的样本（started 头 ≥2 严格递减）；②不变量重构——梯度断言改为「started 头严格递减 + ≥1 chip 真中飞（0.02<o<0.98）」，绝对相位照实让位给抖动；阶梯断言（280..376 精确）继续钉死时刻表。重跑 19/19（首次着陆即中）。「re-entrance is re-arrival」成为重试机制的字面支撑。
+- [回归] t586 22/22 + t585 20/20 + t584 19/19（接受环后）+ t578 32/32 + t571 28/28 + 单测四连 113（64+11+16+22）+ tsc 0 全量 + eslint 0（src + 双 harness）；roster 12→12、console 全家族净、零世界污染。
+- [未做与理由] judge 风暴活体半场（等世界稳定夜——本窗宿主又 OOM 一次，夜仍不稳）；build 日全家桶（峰值 available 3142MB 仍 < 3.5GB 门槛）；count door 的专属 press 微表情深化（press 语言已全家覆盖，一窗一面收手）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「一个 class of truth 胜过一百处特判」：press 语言落在 Button 基座一处，全 app 数百按钮一次入伙——反例是给每个按钮加 active: 类。「回答手掌」是按钮的定义性义务，不是逐个装饰；边界的声明（Radix items 不入）与覆盖同等重要
+- 「:active 只认真输入」：合成 pointerdown 不驱动浏览器的激活态——t570 的 hover shim 教义在 press 上的镜像。真输入从 CDP 来（agent-browser mouse down/up）；dip 是持续态不是飞行，通道延迟从敌人变成量具（稳态读数）
+- 「持续态与点火态的交接写在动画优先级里」：按住时 :active 的 transition scale 0.96 说话；松开瞬间 chip-set 动画从 0.94 接管（动画在级联中胜过 transition）——两个声部无需协调代码，CSS 的优先级就是交接协议。0.96→0.94 的 2% 跳变在「都是压缩态」的语义下不可见
+- 「三窗三签名的抖动是 harness 的病，不是世界的病」：同一面三次失败、三种相位——把「中飞采样」从一次性断言升格为接受环（3 次着陆取首个真波），抖动被结构吸收而不是被阈值放纵。阶梯断言（精确时刻表）与梯度断言（有序真 paint）分工：时刻表不容抖动，相位宽容抖动
+- 「served-CSS 预检门的价值在抓死世界」：本窗它抓到的不是陈旧 CSS 而是 server 尸体（global OOM）——预检门的第一收获永远是「世界还在不在」，第二才是「世界新不新」。开浏览器前的每一次廉价 curl 都是省下的幻影跑
+- 产出：the press answer（button.tsx 基座 + find bar 三处）+ t586 witness 22/22 首跑（真输入 dip / 零 layout / 死区免疫 / 交接过冲 / motion-safe 门）+ t584 C2 接受环重构 + served-CSS 预检门结构化 + 回归全家绿（t585 20 + t584 19 + t578 32 + t571 28 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t586/t585/t584/t583 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②judge 风暴活体半场（等世界稳定夜）；③样式候选：minimap tabs 或 zoom % 读数的 zoom-tick 微表情（toolbar 的活声部）；④t471 WSL-bridge（照实挂）、t276（门控）
