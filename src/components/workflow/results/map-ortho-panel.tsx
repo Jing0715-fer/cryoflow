@@ -1010,10 +1010,20 @@ export function MapOrthoPanel({
       const base = path.split("/").pop() || path;
       const sigmaSeg = isoSigma ? `iso ${isoSigma.sign < 0 ? "-" : ""}${isoSigma.sigma.toFixed(2)} σ · ` : "";
       const f = `${sigmaSeg}focus x ${Math.round(positions.x * 100)}% · y ${Math.round(positions.y * 100)}% · z ${Math.round(positions.z * 100)}%   ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
+      // t559 — the camera↔plane dialogue: HOW the current cut was last
+      // chosen — ⌖ the camera swung face-on to it, ⤸ the cut adopted the
+      // camera's view. Only speaks while the reading still holds (a hand
+      // on a slider revokes it) — the footer must not lie. Violet: the
+      // oblique block's own hue, so the provenance reads as the fourth
+      // panel's voice inside the footer.
       ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
       const nameW = ctx.measureText(base).width;
       ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
-      const statsW = ctx.measureText(f).width;
+      const prov = withOblique ? ob?.provenance : undefined;
+      const dialogue = prov ? `${prov.kind === "jump" ? "⌖" : "⤸"} ${prov.theta}°·${prov.phi}°` : null;
+      const fW = ctx.measureText(f).width;
+      const dialogueW = dialogue ? ctx.measureText(dialogue).width + 14 : 0;
+      const statsW = fW + dialogueW;
       const spanL = EXPORT_GAP + nameW + 18;
       const spanR = W - EXPORT_GAP - statsW - 18;
       const thumbW = Math.min(EXPORT_THUMB_W, spanR - spanL);
@@ -1085,6 +1095,10 @@ export function MapOrthoPanel({
       ctx.fillStyle = EXPORT_TEXT;
       ctx.textAlign = "right";
       ctx.fillText(f, W - EXPORT_GAP, footY);
+      if (dialogue) {
+        ctx.fillStyle = EXPORT_OBLIQUE_ACCENT;
+        ctx.fillText(dialogue, W - EXPORT_GAP - fW - 14, footY);
+      }
       ctx.textAlign = "left";
       const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
       if (!blob) throw new Error("encode failed");
@@ -1356,6 +1370,11 @@ interface ObliqueExportInfo {
   extent: [number, number];
   normal: [number, number, number];
   offsetVox: number;
+  /** t559 — how the CURRENT cut was last chosen: ⌖ sent the camera to
+   *  face it, ⤸ adopted it from the camera. Cleared the moment a hand
+   *  (slider / reset) moves the plane — the export footer only speaks
+   *  readings that still hold (the footer must not lie). */
+  provenance?: { kind: "jump" | "adopt"; theta: number; phi: number } | null;
 }
 
 function ObliqueSectionBlock({
@@ -1386,6 +1405,15 @@ function ObliqueSectionBlock({
     return () => clearTimeout(t);
   }, [on, theta, phi, offset]);
 
+  // t559 — the cut's provenance: which gesture last chose it (⌖ the
+  // camera faced this cut, ⤸ the cut adopted the camera). A hand on a
+  // slider (or the reset) revokes it — a reading that no longer holds
+  // must not ride to the export footer.
+  const [provenance, setProvenance] = useState<ObliqueExportInfo["provenance"]>(null);
+  const scrubTheta = (v: number) => { setTheta(v); setProvenance(null); };
+  const scrubPhi = (v: number) => { setPhi(v); setProvenance(null); };
+  const scrubOffset = (v: number) => { setOffset(v); };
+
   const frame = obliqueFrame(dims, theta, phi, offset / 100);
   const src = on
     ? `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&plane=oblique&theta=${live.theta.toFixed(1)}&phi=${live.phi.toFixed(1)}&offset=${(live.offset / 100).toFixed(3)}`
@@ -1402,14 +1430,16 @@ function ObliqueSectionBlock({
       extent: frame.extent,
       normal: [...frame.normal] as [number, number, number],
       offsetVox: frame.offsetVox,
+      provenance,
     });
-  }, [on, live.theta, live.phi, live.offset]);
+  }, [on, live.theta, live.phi, live.offset, provenance]);
 
   // t556 — the ⌖: swing the 3D camera to look straight down the cut's
   // normal (face-on at the plane). dir = +n puts the camera on the −n
   // side — from THERE the face-on view agrees with the tile chirality
   // for chirality (screen-right = +u, screen-down = +v), so up = −v.
   const jumpToView = () => {
+    setProvenance({ kind: "jump", theta, phi });
     window.dispatchEvent(new CustomEvent(OBLIQUE_VIEW_EVENT, {
       detail: {
         normal: [...frame.normal] as [number, number, number],
@@ -1440,6 +1470,7 @@ function ObliqueSectionBlock({
       setTheta(inv.theta);
       setPhi(inv.phi);
       setAdoptFlash(true);
+      setProvenance({ kind: "adopt", theta: inv.theta, phi: inv.phi });
     };
     window.addEventListener(ORTHO_CAMERA_STATE_EVENT, onCameraState);
     return () => window.removeEventListener(ORTHO_CAMERA_STATE_EVENT, onCameraState);
@@ -1503,7 +1534,7 @@ function ObliqueSectionBlock({
                 max={180}
                 step={5}
                 value={[theta]}
-                onValueChange={(v) => setTheta(v[0] ?? 0)}
+                onValueChange={(v) => scrubTheta(v[0] ?? 0)}
                 aria-label="Polar angle of the plane normal"
               />
             </div>
@@ -1520,7 +1551,7 @@ function ObliqueSectionBlock({
                 max={360}
                 step={5}
                 value={[phi]}
-                onValueChange={(v) => setPhi(v[0] ?? 0)}
+                onValueChange={(v) => scrubPhi(v[0] ?? 0)}
                 aria-label="Azimuth angle of the plane normal"
               />
             </div>
@@ -1539,7 +1570,7 @@ function ObliqueSectionBlock({
                 max={100}
                 step={2}
                 value={[offset]}
-                onValueChange={(v) => setOffset(v[0] ?? 0)}
+                onValueChange={(v) => scrubOffset(v[0] ?? 0)}
                 aria-label="Signed offset of the plane along its normal"
               />
             </div>
@@ -1552,7 +1583,7 @@ function ObliqueSectionBlock({
               </span>
               <button
                 type="button"
-                onClick={() => { setTheta(0); setPhi(0); setOffset(0); }}
+                onClick={() => { setTheta(0); setPhi(0); setOffset(0); setProvenance(null); }}
                 className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 title="Back to the axis-aligned center plane (θ 0°, φ 0°, centered)"
               >
