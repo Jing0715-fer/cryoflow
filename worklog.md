@@ -7707,3 +7707,26 @@ Stage Summary:
 - 「借还要分幽灵和活的」：幽灵绑定（指向已删连接）可以借——它本来就是错的；活绑定不能碰——那是用户的数据位置。借还律的判决书要先写清楚什么东西可以被借
 - 产出：DenoiseTrainHandoff 卡（双路径 + 活注记）+ trainWithDenoisedStack（家法形双线）+ 引擎 INPUTS 三表修复 + t563 harness（35 断言×2 连绿，含 A/B 方言证明与幽灵借还）+ 双面截图
 - [下窗入口] ①judge 判词 worker 视角复核（AI 车道）或 receipt 卡小打磨（t562 入口②：ignored 列表触发活体、1D select 收据 native 车道活体）；②Topaz 手势第四刀若有真需求（train→denoise？链上三卡已闭环：denoise→pick、denoise→train、train→pick 互相握手）；③世界卫生：EMPIAR 幽灵绑定 qa-t372-muro2rn5 的清理（清键或重绑，留收据）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 564
+Agent: main (Z.ai Code, window 2026-10-04 13:23 cron)
+Task: Task 563 入口②兑现——receipt 卡双活体补课（1D select native 车道活体 + ignored 列表触发活体），途中用单测钉死一枚 fixture 造形错误，顺路修掉 1D class-aware 收据的灰 chip；入口③幽灵绑定清债一并结案。开局巡检五绿零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 563（交接摘要说 554——滞后于现实第 N+19 次兑付）；HEAD 2b46e06、树净；基线五绿（prod 200/2.9ms、tsc 0、eslint 0 error、AI 探针 ALIVE、console 0）；active=EMPIAR t372 与 t563 收官一致。途中小坑：/api/projects 列表项无 isActive 字段，用 p.active 才是真相——一次假警报（「active 变 demo 了」）靠 /api/jobs 的 projectId 拨乱反正。
+- [侦察——fixture 造形错误现行] 复读 t562 单测 fixture 4（自称 engine-spec shape (runSelectNative L5721-5746)）发现它把 1D 家族两个互斥形状捏在一起：mode: first-N 行 + class occupancy 行共存。真引擎从不这么写——class-aware 形没有 mode 行（result 行的 (occupancy ≥ 0.5× best) 是唯一判定证据），first-N 形有 mode 行但没有类行。混合 fixture 当时照样「通过」（mode 行存在 → modeKind=first-n），于是真实 1D class-aware 收据（无 mode 行）在产品里被判 unknown → 灰 "selection" chip——**UI 上这枚 chip 一直是错的，没人见过真收据所以没人发现**。t562 入口②的「1D native 活体」恰好是照妖镜。
+- [lib 打磨] parseSelectionReceipt：mode 为 null 时从 result 行原文读判定证据——/(occupancy ≥ [\d.]+×\s*best)/ 命中 → modeKind "auto"（mode 字符串保持 null：没有 mode 行就不引用，诚实推导只落在 kind 上）。UI 零改动（MODE_CHIP.auto 天青 chip 本就存在）。t554 收据解析律注脚：× 是引擎模板里的字面量，正则同字面量匹配。
+- [单测 54/54] fixture 4 拆成两个真形：1D class-aware（无 mode 行、有类行、result 带 occupancy 判定）断言 mode=null + modeKind=auto（t564 pin）；1D first-N（有 mode 行、无类行、裸 result）断言 mode 原文 + modeKind=first-n。原 51 净增 3。
+- [dance] lib 改动后 prod 仍旧 bundle——t564a 首跑 2 fail（route 与卡都还读旧 parse）。腾房律做全（pkill watchdog + 杀 prod + SEMI_MB=8）→ FRESH=1 attempt 1 GREEN（100 秒）→ start-prod + watchdog 复位。磨的产物 provenance 仍指 HEAD commit——build 吃的是工作树，provenance 只是标签，别被它骗了以为是旧代码。
+- [活体 A 面 — 1D native] t564a 17/17：世界门卫（active 非 EMPIAR 即 exit 2）→ 铸 1D select + 真 edge（POST /api/edges {fromJobId,toJobId} 201，端口自动配对）from class2d K5 → {local:true} 跑（t317 显式本车道门）→ "1000 of 10866 particles selected · kept 2/5 classes (occupancy ≥ 0.5× best)" → route：verb=select、mode=null、modeKind=auto、5 类行 → 卡上 **OCCUPANCY RULE 天青 chip**（灰 selection 退役）→ 截图目检（kept 前排 emerald/pruned 划线后排、9.2% 条带）→ console 0 → DELETE 还名册 12→12。细节：1D select 的 maxParticles 默认 1000 先于类过滤截断——收据如实显示 1000/10866=9.2%，引擎语义不是 bug。
+- [活体 B 面 — ignored 触发] t564b 17/17：铸 birth select2d classes=[2,99]（class 2 真实存在=2932 粒、99 是幽灵类）→ {local:true} 跑 → mode 行一字不差 "manual 1 class (birth selection) (ignored: 99)"（engine L6017 missing 条款首次被真跑触发）→ route：birth、ignored=[99]、kept=2932（幽灵类不计数）、1/5 classes → 卡上 **MANUAL 靛 + ✨BORN 紫 + 琥珀 "ignored: 99"** 三 chip 同框 + "from class2d K5" footer → 截图目检 → DELETE 还名册 12→12。
+- [副菜 — 幽灵绑定清债] t564c 6/6：实锤（projects.json EMPIAR meta 带 remote:{connectionId:"qa-t372-muro2rn5"}，注册表 9 连接无此 id）→ 门卫（若连接活着的 FATAL exit 3——清活绑定不是探针的职权，t563 借还律的判决书升格成代码）→ 清 remote 键 → API 复核 remote=null、名字 intact、active 指针不动 → 收据 .qa-logs/t564c-ghost-settle.json（before/after/registry 证据）。t563 的借还手法从此不需要——探针们在 EMPIAR 世界直行。
+- [未做与理由] judge 判词 worker 复核（AI 车道重活，等真需求）；Topaz 第四刀（链上三卡已闭环，等真需求）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「fixture 也会撒谎：它把两个形状捏成一个，测试全绿，chip 全灰」——单测的夹具必须逐字来自引擎模板，不是「差不多像」；t562 造 fixture 4 时没对照 runSelectNative 的 logText 就手写了一个混合形，引擎的真形反而从未被钉住。测出「全部通过」不等于测出了引擎——这次是活体先咬出 chip 错、再回溯到 fixture 错。
+- 「1D 家族没有 mode 行，判定证据长在 result 行里」：引擎只在 first-N 回退时写 mode 行，class-aware 形的判定规则以 "(occupancy ≥ 0.5× best)" 的形式活在 result 行——parse 层诚实推导 kind 而不合成 mode 字符串，卡上天青 chip 亮起且无一句假话。
+- 「幽灵类不计数，幽灵绑定不派发」：ignored 条款三行代码（L6017）写了两代窗才被真跑触发——[2,99] 进、2932 出、琥珀注记上卡；幽灵绑定清债同日结案，两者的共同点是：引擎/世界一直如实写着状态，缺的是有人把状态读出来。
+- 「腾房要连自动复活的腿一起停」（t562 律第 2 次应验）：watchdog 2 秒复活 prod 会喂 OOM；磨绿后 provenance 是 commit 标签不是代码指纹——lib 改动是否生效以活体断言为准，不以 provenance 为准。
+- 产出：1D class-aware modeKind 修复（lib + 54/54 单测）+ t564a/t564b 双活体（34 断言×2 连绿）+ 幽灵绑定清债（6/6 + 收据）+ 双面截图；下窗入口：①judge 判词 worker 视角复核（AI 车道）或 Topaz 手势第四刀（等真需求）；②receipt 卡远期打磨（1D first-N 活体需无类列 star——extract 世界的 particles.star 即候选，本窗让位双主菜）；③t471 WSL-bridge（照实挂）、t276（门控）
