@@ -7830,3 +7830,26 @@ Stage Summary:
 - 「昨日 checker 今日种子」：t567 Face B 的「无门」断言不是被丢掉了，而是被翻转成了 t568 的主菜——活体观察到的缺口是下一个功能的入场券；harness 头注如实记下行为变更的时刻，测试的历史和产品的历史同一条线
 - 「kind 与 source 是两回事」：kind（birth/param/auto）描述 keep 集的表达式从哪来，source 描述输入从哪来——映射只填 source 永不碰 kind，param 车道拿到门但不借戳，t566 的联排语义原封不动
 - 产出：log-first provenance（lib inputPath+jobRefFromInputPath、路由唯一性映射）+ 单测 64/64 + t568 harness 24/24 ×2 + t567 翻转面 26/26 + t566 回归 25/25；下窗入口：①t566 入口①重估（judge worker 复核/class3d 判词——VLM 3D 面论证）；②样式/功能余量：Topaz 第四刀、3D 体积截面（等真需求）；③门家族远期：跨卡导航的「返回」面（落地后如何回到子 job——浏览器历史/inspector 栈？小而顺的下一块）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 569
+Agent: main (Z.ai Code, window 2026-10-04 15:08 cron)
+Task: t568 入口③兑现——门家族的返回面（the return chip）：openJob 换岗时记住来处，inspector 头部给一级返回 chip，门→落地→返回三部曲收口。开局巡检五绿零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 568、HEAD b957e30、树净；基线五绿（prod 200/4.1ms、tsc 0、eslint 0 problem、AI 探针 ALIVE、active=EMPIAR t372）。
+- [选道] judge worker 复核/class3d 判词（VLM 3D 面重活）与 Topaz 第四刀、3D 截面（等真需求）让位于门家族的「返回」：t567/t568 两窗把用户送到了父亲的 tab，但回程只能靠 Ctrl+K 重新找人——导航闭环缺最后一块。
+- [设计——一级门不是历史栈] store 新增 cameFromJob {id,name,projectId}：openJob 在**换岗**时捕获（prevInspectId 存在且 ≠ 目标才记——冷启动直开无来处）；捕获发生在任何 hop 之前（名字与其所属项目随行，跨项目回程仍有标签有门）；inspect() 直调（画布点击=非门的导航）与 close 双路清场——上下文只在促成它的换岗还在屏幕上时才有意义；idle 分支走 select+focus（dialog 已亡，无 chip 可喂）。chip 点击 = goBackFromInspector = openJob 本尊（hint 带捕获的 projectId）——回程就是来时的路，且会再捕获（ping-pong 永动，一级深度如实声明）。
+- [幽灵门卫] chip 渲染门槛：cameFrom.id ≠ 当前 job + 同项目必须 jobs 数组存在性实证（被删的来处不派门——t567 律）；跨项目捕获信自己的快照（对端名册自治，与 palette 跨项目行同契约）。
+- [实现] store.ts（状态+初始值+inspect 清场+focusJob 清场+goBackFromInspector+openJob 捕获）+ job-inspector.tsx（InspectorHeader 身份行 StatusBadge 旁的 chip：ArrowLeft + 截断名 + muted→fg hover + focus ring + data-canvas-ui inspector-return-link）。
+- [dance] 腾房律做全 → FRESH=1 SEMI_MB=8 attempt 1 GREEN（104s）→ start-prod + watchdog 复位 200。
+- [活体 t569 13/13 ×2 连绿] Face A 全往返：铸 birth select [2,5] → run 7,005/10,866 → 配对行 → verdict 门 → 落地父 tab（戳在、访客卡走光）→ chip 在场且点名 "back to t569 Return Probe" → click chip → 回到配对行（row+stamp+门全数归位）→ 再捕获 chip 点名 "back to class2d K5"（ping-pong 实证）→ 📸 → Face B: 直开 K5（fresh page + palette）→ 无 chip（非门的导航不欠任何人回程）→ console 0 → 名册 12→12 ×2。
+- [回归] t568 24/24、t567 26/26、t566 25/25——换岗捕获对三窗门家族零扰动。
+- [边角诚实] 截图选区是证据行（chip 在 header 未入画框）——chip 存在性与文案由 DOM 断言 ×2 实证，不以截图为证。
+- [未做与理由] judge worker 复核/class3d 判词（VLM 3D 面论证，等真需求）；Topaz 第四刀（链上闭环）；跨项目 chip 的端到端活体（需双项目世界，本窗同项目世界已足）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「回程就是来时的路」：chip 的 click 不是新发明的返回动作，是 goBackFromInspector→openJob 本尊带原 hint——workspace hop/跨项目/inspect 分支全部复用；门家族三窗（t567 门、t568 真源、t569 回程）没有一窗新造导航原语，全在 openJob 方言上生长
+- 「一级深度是声明不是缺陷」：ping-pong（回程 chip 又指向出发地）是设计——历史栈需要管理语义（清栈时机、栈上限、跨对话持久化），一级 chip 只回答门的问题「刚从哪来」；诚实的产品先回答小问题
+- 「捕获先于搬迁」：openJob 的 hop 会换 jobs 数组——名字与 projectId 在任何 await 之前 snapshot 进 chip 状态，跨项目回程不裸奔；同项目存在性实证 + 跨项目快照信任，两种诚实各管一段
+- 产出：cameFromJob 换岗捕获（store 六处）+ inspector 返回 chip + t569 harness 13/13 ×2 连绿 + 门家族回归 75/75（t568+t567+t566）；下窗入口：①t566 入口①重估（judge worker 复核/class3d 判词——VLM 3D 面）仍是最重待办；②样式余量：chip 的 motion 细节（入场 fade/slide？）；③功能余量：Topaz 第四刀、3D 体积截面（等真需求）；④t471 WSL-bridge（照实挂）、t276（门控）
