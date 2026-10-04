@@ -8278,3 +8278,26 @@ Stage Summary:
 - 「三窗三签名的抖动是 harness 的病，不是世界的病」：同一面三次失败、三种相位——把「中飞采样」从一次性断言升格为接受环（3 次着陆取首个真波），抖动被结构吸收而不是被阈值放纵。阶梯断言（精确时刻表）与梯度断言（有序真 paint）分工：时刻表不容抖动，相位宽容抖动
 - 「served-CSS 预检门的价值在抓死世界」：本窗它抓到的不是陈旧 CSS 而是 server 尸体（global OOM）——预检门的第一收获永远是「世界还在不在」，第二才是「世界新不新」。开浏览器前的每一次廉价 curl 都是省下的幻影跑
 - 产出：the press answer（button.tsx 基座 + find bar 三处）+ t586 witness 22/22 首跑（真输入 dip / 零 layout / 死区免疫 / 交接过冲 / motion-safe 门）+ t584 C2 接受环重构 + served-CSS 预检门结构化 + 回归全家绿（t585 20 + t584 19 + t578 32 + t571 28 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t586/t585/t584/t583 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②judge 风暴活体半场（等世界稳定夜）；③样式候选：minimap tabs 或 zoom % 读数的 zoom-tick 微表情（toolbar 的活声部）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 587 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 07:08 cron, Job 362852)
+Task: t586 入口③兑现——zoom % 读数的 odometer tick 微表情（toolbar 的活声部）；首跑 25/27 两败皆自家断言的 parsing 病（translate 双分量序列化）；t584 一次 5 败验尸为负载采样伪影（世界安静即绿）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 586（交接摘要说 584——滞后第 N+37 次兑付）；HEAD e9db6c1、树净；dev regime 五绿（200/32ms、tsc 0 全量、eslint 0、AI 信封 {sessionId,events,needsContinue}、roster 6 active=EMPIAR jobs 12）；available 1068MB < 3.5GB → 非 build 日。agent-browser QA：canvas 12 卡 13 线 console 净 + find bar smoke（开镜 13 chips、settled 净、无幽灵键、Escape 收口）。footer build 戳 677993c≠HEAD 核实为 t401 记录在案的 dev 行为（server 启动时定格、注释自释），非 bug。
+- [选道] 入口①build 日被内存否决（1068MB << 3.5GB）；入口②judge 风暴（等稳定夜）；车道收敛到入口③「zoom-tick 微表情」——t586 给了按钮 press 应答（手掌），本窗给 zoom 读数自己的声音（里程计）。
+- [产品——the odometer tick] 触发面=离散命令双咽喉：zoomAroundCenter（±按钮）+ resetView（按钮+右键菜单同源），两路径（含 !rect 早退）都接线；比较走 Math.round（读数只为自己的文字变化说话，「无变化无声音」顺带吞掉 clamp no-op）。永不 tick：wheel/pinch（连续手势——数字本身的流动就是连续声部；逐帧重触发入场=t585 幽灵的 zoom 版「帧不能成为事件」）；frameBounds 初载 fit（读数的出生不是事件——arming-edge 静默，t585 fresh-lens 法）；bookmark/focus 跳转（Task 124 的 glide 自有声音，tick 属 instant 手势家族，照实留下窗）。方向=机械里程计：值增→鼓轮上滚（新数字从下方进入 +2px）、值减→从上方（−2px）——inline --zoom-tick-y 变量对元素诚实（双方向一个 keyframe）。运动语法：140ms（digit 比 chip 小，家族律「越小越快」，~8 帧@60fps——首稿注释把 140ms 写成「2 帧」的自算错当场改写，「量过再写」第 N+2 例）、travel 梯度 行6→chip3→digit2、家族缓动 cubic-bezier(0.22,1,0.36,1)、both fill、motion-safe 门内。机制=find-tick 习语（React key 重挂载 one-shot：nonce 递增→新 span→动画重放；初挂 nonce=0 无 data-zoom-tick=出生静默）。pinch 手指间实时气泡是连续声部自己的身体，天然不 tick。
+- [witness 27/27] G1 served-CSS 预检门（t586 结构门当窗先验：var(--zoom-tick-y) 管线幸存逐字验证——watcher 本窗没丢事件）；G2 出生静默（初载无 attr）；G3 in-eval 原子 timing（click+25/55ms 双采样：from 态 held y=2/o=0.35 → 中飞 y=1.07/o=0.65，完整起飞故事）+ key 重挂载 + varY=2px + 数字步增 + 零 layout（w 44→44）；G4 反方向 varY=-2px + 步降；G5 wheel 静默（合成 WheelEvent 真缩放 42%→46% 非空泛守卫 + span 同节点 + 零动画）；G6 reset 46%→100% tick 一次 + 二次 reset 同节点静默；G7 CSSOM motion-safe 门内唯一 + keyframes 在场；R roster 12→12 console 净。CDP 9327（僵尸留港教义：9323=t578/9324=t584/9325=t585/9326=t586）。📸 t587-zoom-gauge.png（G6 resting 态：gauge 100% 世界重居中）。
+- [首跑 25/27 两败皆自家断言病] ①computed translate 序列化为双分量 "0px 2px"（x 恒 0、运动在 y），parseFloat 取了 x 分量——修 yOf 取空格后第二分量；②25ms 采样抓到 from 态（fill:both 在首帧前持有 from）——from 态 y=2px 本身是诚实起飞证据（t585 0.94-catch 同族），修双样本接受环（y>0.05 且 o<0.999 任一样本成立即起飞）。修后 27/27，双采样讲出完整飞行故事。
+- [t584 一次 5 败验尸——负载采样伪影] 回归连跑中 t584 三窗全 miss + 收尾样本 armed:false（bar 开着、13 chips 在、动画全 none）。活体探针（独立 chrome 9328、安静世界）armed:true@380ms 定谳产品无辜；重跑 19/19 且 C2 抓到真波 [0.87/0.64/0.15/0/0]。根因：back-to-back witness + tsc 全量把 dev 主线程压弯，landing 相位被 stall——t586「三窗三签名是 harness 的病」的负载版。照实记录不追改绿色 harness（一窗一车道；若下窗复现，加 inter-landing settle sleep）。
+- [回归] t587 27/27 + t586 22/22 + t585 20/20 + t584 19/19 + t578 32/32 + 单测四连 113（t562 64 + t573 11 + t574 16 + t575 22）+ tsc 0 全量 + eslint 0（src + 新 harness）；roster 12→12、console 全家族净、零世界污染、零孤儿进程（9328 探针用后即清）。
+- [未做与理由] bookmark/focus 跳转的抵达应答（glide 家族自有声音，留下窗候选「glide 与 tick 的对话」）；teal 动画逐帧一致性审计（t583 注记）；judge 风暴活体半场（等世界稳定夜）；build 日全家桶（等箱体 ≥3.5GB——今晨 available 1068MB）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「离散才有声音，连续是流动本身」：wheel/pinch 的 % 数字逐帧变化——那已经是连续手势的声音，逐帧重触发入场动画=把流动切成碎片。t585 的「disarm 不能成为事件」在 zoom 上的镜像：「帧不能成为事件」。读数 tick 只属于命令（按钮/重置），正如 click-settle 只属于点击、级联只属于入场
+- 「读数只为自己的文字变化说话」：Math.round 比较——raw float 变了但显示没变就不出声（clamp no-op 免费吞掉）。声音的语义单位是「用户看到的数字」，不是内部状态。t584 的「变量对元素诚实」+ 本窗的「变量对显示诚实」同族
+- 「from 态是证据，不是失败」：headless 帧钟抖动下，25ms 采样抓到 fill:both 持有的 from 态（y=2/o=0.35）——不是「没抓到中飞」，是「抓到了起飞前的静止」：from 键帧带 var、both 在计时，证据链完整。t585 的 0.94-catch、t586 的接受环、本窗的双样本——相位断言的家族解法：不变量优先于相位，多采样吸收抖动
+- 「computed 序列化永远在改写字面」：translate 源写单值 0 var(--y)，computed 出 "0px 2px" 双分量——t582「transparent 两种拼法」、t583「color(srgb) 新拼法」家族第 N+1 例。断言解析层要认序列化的形态，不认源码的形态
+- 「负载是世界的一部分」：t584 的 5 败不在产品也不在 harness 逻辑，在「跑 harness 时的世界」——back-to-back 压弯 dev 主线程，landing 相位被 stall。验尸管道：独立探针复现产品路径 → 世界安静重跑全绿。「确定性失败」先问世界再问代码：修改绿色 harness 之前，先给世界一次安静的机会
+- 产出：the odometer tick（canvas.tsx 四处 + globals.css zoom-tick stanza + 教义注释含触发面/静默面/家族语法全文）+ t587 witness 27/27（served 预检门 + 出生静默 + in-eval 双采样 + wheel 静默 + reset 单声 + CSSOM 门）+ 📸 + 回归全家绿（t586 22 + t585 20 + t584 19 + t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t587/t586/t585/t584 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②judge 风暴活体半场；③样式候选：bookmark/focus 跳转的抵达应答（glide 与 tick 的对话）或 minimap FIT/NODES/SEL 三钮的 press 深化；④t471 WSL-bridge（照实挂）、t276（门控）
