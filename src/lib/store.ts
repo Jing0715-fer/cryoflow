@@ -952,6 +952,16 @@ interface WorkflowState {
    *  pick consumes it unchanged. The general Topaz model picks it until
    *  a trained one exists. */
   pickWithDenoisedStack: (fromJobId: string) => Promise<void>;
+  /** t563 — the denoise→train handoff (the gesture family's third cut):
+   *  mint a Topaz Training job wired to the denoised stack (the spec's
+   *  own words: the official flow runs denoise → pick/train on the
+   *  denoised images). Training's SECOND mouth — hand-picked
+   *  coordinates — is information the denoise stage doesn't have, so
+   *  the gesture hunts a completed Manual Picking on the canvas and
+   *  wires its coords in; none found → honest refusal BEFORE anything
+   *  is minted (a half-wired training job is the canvas lie the
+   *  adoptWithSelect law forbids). */
+  trainWithDenoisedStack: (fromJobId: string) => Promise<void>;
   connect: (
     from: string,
     to: string,
@@ -3919,6 +3929,95 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to mint the Topaz pick");
+    }
+  },
+
+  /** t563 — the denoise→train handoff. Same family form as the two
+   *  pick gestures, one mouth harder: training consumes micrographs
+   *  AND hand-picked coordinates. The micrographs mouth feeds straight
+   *  from the denoise output (one clean wire); the coords mouth is
+   *  genuinely NEW information — the human's labels — so the gesture
+   *  hunts the canvas for a completed Manual Picking (the spec's own
+   *  "hand-picked coordinates") and wires its coords in. Refuses
+   *  honestly when none exists: the mint would hang half-wired on the
+   *  canvas, the adoptWithSelect law. Training's own dials keep their
+   *  spec defaults — only the shared-stack knobs (downscale, workers)
+   *  inherit from the denoise; Args never cross stages (t559 law). */
+  trainWithDenoisedStack: async (fromJobId) => {
+    const { jobs } = get();
+    const denoise = jobs.find((j) => j.id === fromJobId);
+    if (!denoise || denoise.type !== "topazdenoise") {
+      errToast("That job is gone — refresh and try again");
+      return;
+    }
+    if (denoise.status !== "completed") {
+      errToast("The denoised stack isn't ready yet — wait for the run to complete");
+      return;
+    }
+    // the coords mouth must be feedable BEFORE anything is minted:
+    // training without hand-picked coordinates has nothing to learn
+    // from — the same pre-flight the train→pick gesture runs on its
+    // micrographs mouth (t558). Same-workspace picks only: the card
+    // lives in THIS workspace's results view, and a pick the user
+    // can't see on this canvas is not a source the gesture may quote.
+    const pick = [...jobs]
+      .reverse()
+      .find(
+        (j) =>
+          j.type === "manualpick" &&
+          j.status === "completed" &&
+          (j.workspaceId ?? null) === (denoise.workspaceId ?? null)
+      );
+    if (!pick) {
+      errToast(
+        "Training needs hand-picked coordinates — add a Manual Picking job on this stack, pick some particles, then try again"
+      );
+      return;
+    }
+    try {
+      const place = placeRightOf(denoise, jobs);
+      // training starts where the denoise ended for the knobs the two
+      // stages share (downscale, workers — same stack, same scale);
+      // the training's own dials keep their spec defaults and Args
+      // don't cross stages (t559 law — different semantics per stage)
+      const params: Record<string, ParamValue> = {
+        topazNrParticles: 200,
+        topazThreshold: -6,
+        topazDiameter: 180,
+        topazTestRatio: 0.2,
+        topazDownscale: denoise.params.topazDownscale ?? -1,
+        topazWorkers: denoise.params.topazWorkers ?? 1,
+        topazArgs: "",
+      };
+      const { job: train } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "topaztrain",
+          x: place.x,
+          y: place.y,
+          workspaceId: denoise.workspaceId ?? undefined,
+          params,
+        }),
+      });
+      set({
+        jobs: [...get().jobs, train],
+        selectedId: train.id,
+        selectedIds: [train.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(train.id);
+      // two quiet wires — the card's toast is the gesture's voice:
+      // the denoised stack feeds the training images, the manual picks
+      // (named in the toast — honesty through naming) feed the labels
+      await get().connect(denoise.id, train.id, "micrographs", "micrographs", { quiet: true });
+      await get().connect(pick.id, train.id, "coords", "coords", { quiet: true });
+      toast({
+        title: "Topaz Training minted",
+        description: `Wired to the denoised stack and coordinates from "${pick.name}" — review the params and run.`,
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the Topaz training");
     }
   },
 

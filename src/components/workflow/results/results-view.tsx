@@ -30,6 +30,7 @@ import {
   FileText,
   FolderOpen,
   Globe,
+  GraduationCap,
   Layers,
   Loader2,
   RefreshCw,
@@ -1130,6 +1131,16 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         <DenoisePickHandoff jobId={job.id} />
       )}
 
+      {/* t563 — the denoise→train handoff (the gesture family's third
+          cut): the pick card above says what to do with the clean stack
+          TODAY (general model); this card says how to GET a trained one
+          — the official flow trains on the denoised images too, and the
+          coords mouth is fed from the workspace's completed Manual
+          Picking (honest refusal when none exists). */}
+      {job.type === "topazdenoise" && job.status === "completed" && (
+        <DenoiseTrainHandoff jobId={job.id} />
+      )}
+
       {/* Maps & images gallery */}
       {mrcFiles.length > 0 && (
         <section aria-label="Maps and images" data-canvas-ui="maps-gallery" tabIndex={-1} ref={molFocusRef} className="outline-none">
@@ -2177,6 +2188,92 @@ function DenoisePickHandoff({ jobId }: { jobId: string }) {
             <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
           )}
           Pick this stack
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** t563 — the denoise→train handoff: the gesture family's third cut.
+ *  The pick card above spends the clean stack on TODAY's picking
+ *  (general model); this card grows tomorrow's — the official topaz
+ *  flow trains on the denoised images too. One mouth harder than the
+ *  pick gestures: training consumes hand-picked coordinates, which is
+ *  information the denoise stage doesn't have, so this card TELLS THE
+ *  TRUTH BEFORE THE CLICK — the coords source is named while it
+ *  exists, and its absence is announced in amber instead of leaving
+ *  the honesty to a refusal toast after the fact. GraduationCap: the
+ *  training spec's own icon; rose: the family hue. */
+function DenoiseTrainHandoff({ jobId }: { jobId: string }) {
+  const trainWithDenoisedStack = useWorkflowStore((s) => s.trainWithDenoisedStack);
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const denoise = jobs.find((j) => j.id === jobId);
+  // the coords source, computed live — a Manual Picking that completes
+  // later flips this card's note from amber to named, no reload needed
+  const coordsSource = useMemo(() => {
+    if (!denoise) return undefined;
+    return [...jobs]
+      .reverse()
+      .find(
+        (j) =>
+          j.type === "manualpick" &&
+          j.status === "completed" &&
+          (j.workspaceId ?? null) === (denoise.workspaceId ?? null)
+      );
+  }, [jobs, denoise]);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await trainWithDenoisedStack(jobId);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section
+      aria-label="Grow a trained model"
+      data-canvas-ui="denoise-train-handoff"
+      className="rounded-lg border border-rose-600/25 bg-rose-500/[0.04] p-3"
+    >
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
+            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
+            Grow a trained model
+          </h4>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            Mints a Topaz Training job wired to this denoised stack — the official flow
+            trains on the denoised images too. Training&apos;s second mouth is hand-picked
+            coordinates; review the params, then run.
+          </p>
+          <p
+            className={
+              coordsSource
+                ? "mt-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-300"
+                : "mt-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-300"
+            }
+            data-testid="denoise-train-coords-note"
+          >
+            {coordsSource
+              ? `Coordinates will come from "${coordsSource.name}"`
+              : "Needs a completed Manual Picking on this canvas — pick some particles first"}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={run}
+          disabled={busy}
+          className="shrink-0 border-rose-600/40 text-rose-700 hover:bg-rose-600/10 hover:text-rose-800 dark:text-rose-300 dark:hover:text-rose-200"
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          Train on this stack
         </Button>
       </div>
     </section>
