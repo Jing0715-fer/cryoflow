@@ -7654,3 +7654,28 @@ Stage Summary:
 - 「读数要活在用户眼前」：provenance 此前只活在导出 PNG 里（QA 被迫数像素）——徽章让对话在滑杆旁可见、且遵守同一条诚实律（scrub 即消失）；活 UI 与导出物说同一句话，谁也不比谁多知道。
 - 「OOM 三杀时腾房比调堆快」：1344 堆帽在 build external 涨到 3.19GB 时失灵——t461 三杀腾房 + SEMI_MB=8 半空间是一对组合拳，98 秒 green；磨的产物不只是 BUILD_ID，还有下一磨的地基（第 N+1 次应验）。
 - 产出：遗留池关闭（六项化石收据）+ inclusive 象限 PROVEN（64.5% 收据）+ provenance 活体徽章 + 扩展 harness（43 断言×2 连绿）；下窗入口：①新需求自选（四象限已满、池子已空——AI 车道可考虑 judge 判词的 worker 视角复核、或 select2d 收据进入 job 详情的 receipt 卡）；②Topaz 手势家族第三刀（若有真需求）；③t471 WSL-bridge（照实挂）、t276（门控）。
+
+---
+Task ID: 562
+Agent: main (Z.ai Code, window 2026-10-04 11:23 cron)
+Task: Task 561 入口①兑现——select2d 收据卡（SelectionReceipt）：引擎 run.out 里躺了两代窗的 per-class occupancy 收据，从生日志提升为 Results 页的一等卡。双面活体（auto / birth）全绿，途中活捉看门狗喂 OOM 的现行。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 561（交接摘要说 554——滞后于现实第 N+17 次兑付）；HEAD cf4a56a、树净；基线五绿（prod 200/2.8ms、tsc 0、eslint 0、AI pong、console/errors 0）；active=EMPIAR t372 与 t561 收官一致。
+- [侦察——缺口实锤] select2d 的 Results 页只有文件列表 + 一行 result chip；output-summary 给一个数（"particles selected N"）；ClassGallery 在参数页有 occupancy 面但那是「将来要选什么」，不是「上次选了什么」。而引擎 runSelect2dNative/runSelectNative 在 run.out 写了完整收据：per-class occupancy（kept/PRUNED）、input/output 粒子数、决定 keep 集的 mode、result 行。收据写了两代窗，没人读。主菜定案：Task 561 入口①「select2d 收据进入 job 详情的 receipt 卡」。
+- [纯脑] src/lib/selection-receipt.ts parseSelectionReceipt：取 LAST 收据块（recordNativeRun 追加，重跑后最新块即真相）；两种数字方言都吃——正文行无千分位（模板字面量）而 result 行带 toLocaleString 逗号，全走一个剥逗号读数器（t554 律：7,421 必须读成 7421 不是 421，单测钉死）；select(1D) 同家族同吃（"particles selected" 动词 + "kept N/M classes" 组 + first-N 模式）；撕裂写入拒收（header 无 result 行 → null）。
+- [路由] GET /api/jobs/[id]/selection-receipt：isLocalRequest 403（workdir 派生数据加固对，log/outputs/file 同门）；findEffectiveJob 软链解析；非 select 家族 404；params JSON 字符串解出 provenance——classStarSelection（AI select_classes 或画廊 birth 手势）→ kind "birth" + 源 job 名查询；selectedClasses 串 → "param"；否则 "auto"；无收据时诚实 {available:false, note}（mock 老车道/未跑不撒谎）。
+- [UI 卡] results/selection-receipt.tsx（ride results-lazy 桶，own chunk）：emerald 收据卡——mode chip（manual 靛/occupancy rule 天青/first-N 灰）+ birth violet "✨BORN" chip；大数 168 kept of 240 + 右侧 % 徽章；emerald 渐变分数条（width 过渡，motion-reduce 关）；class chips kept 前排（occupancy 降序）pruned 后排（划线计数），16 上限 + "+N more"；footer from <源名> · ran <时间戳> · ignored 琥珀提示；data-canvas-ui="selection-receipt"；诚实缺席（fetch 中/不可用渲染 null，缺收据不给 Results 页涂红）。挂载点：KeyNumbersStrip/WarningsCard 之后——「条带说那个数，卡讲那个数的故事」。
+- [单测 51/51] node 24 直跑真 TS lib（无镜像副本，契约钉在真代码上）；夹具全部真收据：t554 赌局那份（7,421 of 10,866=68.2956%，首版断言常数自己写错 68.275——测试也会错，改常数复跑）、demo auto（168 of 240=70%）、engine-spec 造 birth+ignored+source、1D select 两形、追加重跑（LAST 块胜）、撕裂拒绝、garbage 时间戳降级、逗号正文行前瞻。
+- [dance — 看门狗喂 OOM 现行] FRESH=1 三连 rc=137 于 Collecting page data——腾房律做全（杀 prod、SEMI_MB=8）仍死。ps --sort=-rss 抓现行：qa-server-watchdog.sh 在磨的半途探到 :3000 空闲，2 秒内 start-prod 复活 prod（+240MB）+ 01:28 的僵尸 bun 双份在岗——OOM 是它喂的。pkill watchdog + kill -9 僵尸 → attempt 1 GREEN 100s（provenance cf4a56a）→ start-prod 复位 + watchdog 复位。t415 的「腾房」要连自动复活的腿一起停，否则腾了个寂寞。
+- [活体 A 面 — auto] t562-receipt-live-fire 16/16：借 demo 世界（completed「QA Class Select」=168/240 收据在案）→ Ctrl+K palette 方言跳 job → 卡上墙（168/240/70%/OCCUPANCY RULE/2/8 classes kept/8 chips/ran 戳）→ 分数条 style.width 精确 70% → 截图目检（kept emerald 无划线、pruned 划线灰）→ 预收据期 1D select（mock 车道 run.log）诚实缺席 → console 0 → 还 EMPIAR 零漂移。
+- [活体 B 面 — birth] t562b-birth-face-live-fire 16/16：现场铸一枚 birth select2d（走 select_classes 同门：POST /api/jobs 顶层 classStarSelection + run）→ 同步跑完（"168 of 240 · manual 2 classes (birth selection)"）→ 路由 provenance kind=birth + sourceJobName="QA Class2D Source" → 卡上 ✨BORN chip + "from QA Class2D Source" footer → 截图目检 → DELETE 还名册（83→83）→ 还 EMPIAR。
+- [弯路记] ①「/api/projects/[id]/jobs」是我编的形状——404 HTML 让 JSON.parse 当场爆（t560「别假设 REST 形状」再吃一遍；真形 = GET /api/jobs active 项目域 + classStarSelection 是 POST 顶层字段不是 params 键）；②agent-browser 没有 text 命令——探针先探工具词汇表，eval+innerText 才是真话筒；③eval 表达式里嵌 String.raw 反引号炸模板字面量——readCard 助手函数化，JSON.stringify 传参。
+- [未做与理由] judge 判词 worker 复核（Task 561 另一候选——AI 车道重活，等真需求）；Topaz 手势第三刀（同上）；t471 WSL-bridge（照实挂）；t276（门控）。
+
+Stage Summary:
+- 「收据要活在产品里，不是日志里」：引擎把 per-class 收据写进 run.out 两代窗，UI 只给一个数——把生日志提升为一等卡不是新功能，是把已有的诚实搬到用户眼前；card 永不与引擎分歧，因为它读的就是引擎写的唯一真相（不重推导、不重新数 star）
+- 「两种数字方言、一个读数器」：正文无逗号、result 行带逗号——收据解析的一个剥逗号读数器吃尽两形，t554 的 7,421→421 bug 类在单测里钉了三口棺材（result 行、正文行、未来方言）
+- 「腾房要连自动复活的腿一起停」：watchdog 的职责（2 秒复活 :3000）与磨的生存条件（:3000 必须死着）互为反义——不 pkill watchdog，杀 prod 就是给它喂食信号；OOM 三杀的账要算到环境头上，不只算到堆参数头上
+- 「借世界要还，铸 job 要删」：birth 探针从 select_classes 的门进、按 t554 的清场律出——名册 83→83、active 回 EMPIAR，探针自己不留痕
+- 产出：SelectionReceipt 卡（auto/birth 双面活体 32 断言）+ 收据解析 lib + 路由 + 51/51 单测 + 看门狗喂 OOM 现行抓获；下窗入口：①judge 判词 worker 视角复核（AI 车道）或 Topaz 手势第三刀；②receipt 卡小打磨（ignored 列表的触发活体、1D select 收据的 native 车道活体——需铸 native select 探针）；③t471 WSL-bridge（照实挂）、t276（门控）
