@@ -8209,3 +8209,24 @@ Stage Summary:
 - 「双域是否在做功要实证」：定义了 :root+.dark 两份不等于运行时真的分叉——R5 切 .dark 读同一 citation 的解析值，light/dark 不同才是「双域生效」的见证。t581 的解析代际教训至此有了活体证据面
 - 「注释也是要维护的产品」：run-breathe 的教义注释还在描述三个窗之前的实现（color-mix against --teal-glow）——声明转正时注释差点没跟上。过时注释是化石的前体：它教下一个读者错误的事实。改产品时 grep 自己的教义注释
 - 产出：accent vocabulary（--glow-XX 10 档 + --pulse-XX 4 档 + --tint-XX 2 档，双域共置，16 声明转正，三层架构教义注释）+ witness 86→179（F7/F8/F9/R4/R5）+ 过时注释修复 + 序列化断言修正；下窗入口：①build 日 = FRESH gate → prod 全家桶（t583 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②find bar chip 级联微表情；③judge 风暴活体半场；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 584 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 06:09 cron, Job 362852, Task 572 第 6 次派单)
+Task: t583 入口②兑现——find bar chip 级联微表情：行落地后 chip 逐个点亮（二阶段入场「句子落地，词语开口」），settle 560→720ms 重预算；witness 19/19 首跑全绿，t578 32/32 零位移，产品与 harness 全程零意外。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 583（交接摘要说 571——滞后第 N+36 次兑付）；HEAD 12834e2、树净；dev regime 五绿（200/29ms、tsc 0 全量、eslint 0、AI 信封 {sessionId,events,needsContinue}、roster 6 项目 active=EMPIAR jobs 12）；available 1097MB < 3.5GB → 非 build 日；load 0.19 host 在呼吸；agent-browser QA canvas 12 卡 13 线 console 净。派单「Task 13 遗留池」第 N+27 次化石（t574 已葬）。
+- [选道] 入口①build 日被内存否决（1097MB << 3.5GB）；车道收敛到入口②「find bar chip 级联微表情」（t578 入口②的最后一笔余量）。
+- [产品——the chips speak] 二阶段入场设计：行先落地（find-drop 0/60/120ms + 220ms travel），然后行内 chip 按「row landing + index × 24ms」逐个点亮——status base 280ms（60+220）、type base 340ms（120+220），步长 24ms（t579 ripple 步长）；travel −3px（行 −6px 的一半：chip 是落地行的乘客，自己的动作是 settle 不是 drop）、160ms（小东西落地更快）；`both` fill 让未轮到 chip 在渐显行内保持隐形——「行以空壳到场，词语在落地后点亮」。**锚点定律**：rung 0（输入药丸/计数/箭头/关闭）永不级联——t572 法「input 是一切其余事物到场的目的地」；级联只属于 filter chips（镜片的滤轮）。**每元素变量而非 nth-child**：--find-cd 由组件侧计算内联（两行 base 不同、type 行宽度随世界伸缩，nth-child 会数错或需要每行覆写）——t576 [data-dash-d] 的「变量对元素诚实」先例。
+- [settle 重预算 560→720ms] 旧 560ms 只够三行落地（120+220=340ms + margin）；chip 加入后最宽真实世界（EMPIAR 实测 8 个 type chip）的 cascade 在 340+7×24+160=668ms 收尾——720ms 是首个绝不斩断 mid-flight chip 的整值；armed 注释的预算算术照实改写（「预算来自这些数：改了行就改这些常数」）。TSX 侧三常数（ROW_TRAVEL_MS/CHIP_STEP_MS/两 base）单一事实源，CSS 不藏数字。
+- [witness t584 19/19 首跑] C1 两阶段共存（t≈380ms in-browser 读：rungs 仍 find-drop 0/60/120 + 五 status chip find-chip-enter 阶梯 280/304/328/352/376）；C2 中飞 paint 单调梯度 [0.94/0.82/0.52/0.00/0.00]——easeOutQuint 让头部先声夺人、尾部扛着波；C3 type row 8 chip 同语法后 base（340+24i，实测 [340..508]）；C4 disarmed 后 chip 全报 none + typing 不重演；C5 重入重放（armed + chips 复演）；C6 anchor 子元素（input/span/buttons）无 data-find-chip 且永不 find-chip-enter；R roster 12→12、console 净。📸×2（mid-cascade 目检：status row 左三全亮 Idle 半透 Pending 微光、type row「Extraction」正被点燃——真 paint 的镜头证据 + settled lens）。t578 脚手架全程复用（world guard/hydration 轮询/evalJs+JSON.parse/in-browser timing），CDP 换 9324 港（t581 孤儿占港教义：清 profile + 专港）。
+- [回归] t578 32/32（find lens 全家族——同表面零位移最强见证；F3 disarm 面在 720ms 新窗下照常收口）；单测四连 113 断言（t562 64 + t573 11 + t574 16 + t575 22）；tsc 0 全量；eslint 0（src + 新 harness）；canvas.tsx 本窗零触碰（t571 hover 面零风险）。
+- [未做与理由] chip 切换应答微表情（active dot pop——一窗一面，留下窗候选）；teal 动画逐帧一致性审计（t583 注记）；judge 风暴活体半场（等世界稳定夜）；build 日全家桶（等箱体 ≥3.5GB——今晨 available 1097MB）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「句子落地，词语才开口」：行级级联（t578）与 chip 级联（本窗）是同一句话的两个语法层次——行是一次降落，chip 是降落后的逐词重音。二阶段的关键是 `both` fill 的「空壳到场」：行先以容器身份落地（边框/底色/blur），词语在行落地之后才逐个点燃——若 chip 与行同时渐显（单阶段），乘法透明度会把两句话糊成一句含混的低语。阶段分离不是装饰，是可读性
+- 「锚点定律的反面是乘客定律」：t572 说 input 永不动（一切其余事物到场的目的地）；本窗补全对偶——chip 是落地行的乘客，自己的 travel 是行的一半、自己的时长更短。「大结构承载，小结构安顿」：级联家族（palette 6px/dashboard 8px/find 行 6px/chip 3px）的 travel 梯度随元素尺寸收缩，运动语言才有层级
+- 「预算是注释的一部分」：settle 窗从 560 到 720 不是拍脑袋——是 340+7×24+160=668ms 的算术与「最宽真实世界」的实测（EMPIAR 恰好 8 chip）共同钉死的。时序预算写进注释时要把算式一起写：下一个改行延时的人需要知道 disarm 窗是怎么来的，否则斩断 mid-flight 的 bug 会在某个更宽的世界里复活
+- 「in-browser timing 是级联 harness 的唯一诚实量法」：C2 的梯度 [0.94→0.00] 只有在 keydown 派发与读数同处一个 eval 内部（380ms in-page await）才可断言——CLI 往返的数百 ms 会把「中飞」变成「落地后」，把真波量成属性摆设。t578 的通道延迟退役通道在两阶段场景从优化升格为前提
+- 产出：the chips speak（canvas-find-bar.tsx 四处 + globals.css find-chip-enter stanza）+ settle 560→720ms 重预算 + t584 witness 19/19 首跑 + 📸×2 + 回归全绿（t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t584/t583 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②chip 切换应答微表情（active dot pop / press answer——find chip 的第三人称格）；③judge 风暴活体半场；④t471 WSL-bridge（照实挂）、t276（门控）
