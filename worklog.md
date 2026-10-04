@@ -7760,3 +7760,29 @@ Stage Summary:
 - 「checker 也要跟上诚实」：零 keep 判词不渲染 keep chip 是卡的设计不是 bug——断言要形状感知（有则断存在、无则断诚实缺席），三轮判词方差（撕、零、全同意）恰好把三种脸全点亮
 - 产出：receipt 家族矩阵满员（t565a 22/22 ×2）+ AI 判词戳全家（纯核 21/21 单测 + fs 店 + 路由 + violet 卡 + tools 钩子）+ findJobInProject 名字车道 + t565b 22/22 ×2（含 LIVE upsert）+ 三轮判词方差收据 + 5 张截图
 - [下窗入口] ①judge worker 复核重估（判词已落盘，两-pass 已稳——第三只眼的价值要重新论证）或判词戳的家族延伸（class3d/refine3d 的 inspect 车道判词？需要 VLM 3D 面的论证）；②样式面：判词戳与收据卡的联排视觉（一个 job 两张卡时的栏宽/次序打磨）；③t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 566
+Agent: main (Z.ai Code, window 2026-10-04 13:53 cron)
+Task: t565 入口②兑现——判词戳与收据卡的联排视觉：把「一个 job 两张卡」从假说做成真形态。诞生于赌局（birth）的 select job 在 Results 页同时展示收据（留了什么）与父亲的判词戳（为什么留），途中活捉三连（prefetched 只跳不喂 / 多行 eval shell 必死 / CLI 双重 JSON 编码）。开局巡检五绿零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 565（交接摘要说 554——滞后于现实第 N+21 次兑付）；HEAD 4c0007b、树净；基线五绿（prod 200/5.4ms、tsc 0、eslint 0、AI 探针 200、active=EMPIAR t372 与 t565 收官一致）。派单背诵的「Task 13 遗留池」再验尸：t543 已「全池闭光，化石 N+12」，#5/#6/#7/#8/#13 全修，cron 遗留面照旧零信息量。
+- [选道] t565 入口①（judge worker 复核/class3d 判词——需 VLM 3D 面论证）让位于入口②：读盘实锤 judge_2d_classes 严格 class2d 门（tools.ts L4298），今天 select2d 永远只有收据、class2d 永远只有戳——「一 job 两卡」尚不存在。但 t564b 收据有「from class2d K5」footer、收据路由的 provenance 带 sourceJobId/Name（classStarSelection {jobId, classes}）——赌局诞生的子 job 本来就认得它的判词父亲。联排的真实形态：birth select 的 Results 页把父亲的戳借来并排。
+- [设计——引擎领先，观点殿后] SelectionEvidenceRow（results 桶新 own chunk）：行自取收据响应（provenance 即门卫：kind==="birth" 且 sourceJobId 存在才取父亲的戳）→ 配对时渲染 lg:grid-cols-5（收据 emerald col-span-2 左、判词 violet col-span-3 右，引擎数字领路、AI 理由殿后），非配对时诚实退化成通栏收据——绝不渲染半宽卡守空轨。戳卡加 viaJobName：footer「verdict on {父亲名}」+ tooltip 点名借据关系，戳在别人家做客永不冒充本 job 的判词。零双取：收据端点整页只打一次（行取完喂 prefetched），param/auto 选择永远不为父亲的戳买单。
+- [两张卡的扩展] SelectionReceipt/AiVerdictStamp 各加 prefetched（提供即跳过自取、渲染原样读它）+ className（网格跨列）props，AiVerdictStamp 另加 viaJobName；class2d tab 的自取路径零改动（prefetched===undefined 时行为逐字节不变）。
+- [活捉一——跳过取数不等于喂了渲染] 首跑 UI 全挂：行翻到 paired 网格但**网格是空的**。读编译 chunk：`if (prefetched !== undefined) return` 跳了自取，渲染路径却还在读内部 state（prefetched 模式下永远 null）→ 卡片永恒 null。修复：`const data = prefetched !== undefined ? prefetched : fetched`——一条渲染路，prefetched 喂什么渲染什么。两卡同修。
+- [dance] 两次 FRESH=1 磨均 attempt 1 GREEN（100s/102s，腾房律做全：杀 prod + SEMI_MB=8，watchdog 本就无岗）→ start-prod 复位 200。
+- [活捉二——多行 eval 走 shell 必死] harness 首版 rowJs 是多行模板串：JSON.stringify 的 \n 经 shell 落在 JS **代码位**=SyntaxError，2>/dev/null 吃掉证词，evalJs 静默返回空。修复：evalJs 先把 \n 归一成空格再 stringify（本 harness 的表达式都不需要真换行）。
+- [活捉三——CLI 双重 JSON 编码] 修完行仍挂：📸 截图成功证明元素在 DOM 里，poll 却 25 秒全 null。实测：agent-browser eval 返回的是**JSON 编码的字符串**（"{\"row\":true}"），剥外层引号剩 {\"row\":true}，JSON.parse 必炸。修复：evalJs 用真正的 JSON.parse 解外层包装（parse 出 string 才是答案，parse 不动再退回剥引号）。
+- [活捉四——同 URL 二次 open 是软 no-op] Face B 的 palette 跳转静默失效：上一个 face 的 inspector dialog 还开着，模态吃掉 Ctrl+K。修复：openJob 先去 about:blank 再开 BASE，保证每 face 新鲜 SPA 态。
+- [25/25 ×2 连绿] Face A：铸 birth select（classes=[2,5]=判词的 keep∪maybe 赌面）→ 自动连线（POST /api/jobs 的 classStarSelection 自带 edge！）→ {local:true} 跑 → 「7,005 of 10,866 · 2/5 classes (birth selection)」= 64.5% → route 断言（birth+sourceJobId）→ UI 断言（行挂载、grid 类、双卡、并排几何 s.left≥r.right-1、2:3 栏宽、footer「verdict on class2d K5」、chips、notebook footer）→ 📸。Face B：param select（selectedClasses "3" + 手动 edge——param select 无 birth 源可解析输入，native 跑必须连线，t564a 形）→ 416/10,866 param kind → UI 断言：无行、普通收据在、无戳卡。console 0、名册 12→12 两轮。K5 自己的 tab 复核：自取戳卡照常渲染，class2d 行为零改动。
+- [世界卫生] 途中三枚调试探针一枚孤儿（mint 半途解析失败但服务端已建）——逐一 DELETE 还 12；删 job 用**完整 id**（截断 id 404）。
+- [未做与理由] 「birth 而父亲无戳」负例分支：本世界唯一 class2d（K5）已有戳，为它重铸一份未判分类要烧几分钟引擎时间换同一守卫行里的一个布尔（Face B 已练 `!source`，`!stamp?.available` 同行）——如实注记在 harness 头注里。judge worker 复核、Topaz 第四刀、t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「一 job 两张卡」不是布局问题，是证据关系问题：赌局诞生的 select 天生有两个真相——引擎记录的留集（收据）与触发它的判词（戳）。把两个真相并排放，用户第一次不用跨 job 对答案：本窗的收据 7,005=类 5+2，判词 keep∪maybe=类 5+2——两卡互证，账目自动对上
+- 「借来的证据要署原主」：戳在子 job 的 tab 上带着「verdict on class2d K5」的 footer 做客——渲染可以借，冒充不可以；与收据「from X」footer 同位同形，家族语法一致
+- 「checker 的三层活捉全是自己的」：prefetched 只跳不喂（产品 bug）、多行 eval shell 必死（harness bug）、CLI 双重编码（harness bug）——📸 打印成功与断言失败同框是破案关键（元素在 DOM 里=产品没错=harness 错）；「测试失败先分清是谁的错」再+一例
+- 「POST /api/jobs 的 classStarSelection 自带 edge」：t564b 只铸不连能跑通是因为 birth 源可解析输入；param select 才暴露「无 birth 源必须手动连线」——同一 mint 两条路，REST 形状再看一遍（t563 POST 形状三连的续集）
+- 产出：SelectionEvidenceRow（配对/诚实退化双形态）+ 双卡 prefetched/viaJobName/className 扩展 + t566 harness 25/25 ×2 + 联排截图；下窗入口：①judge worker 复核重估或 class3d 判词（需 VLM 3D 面论证）；②收据「verdict on」与「from」footer 的点击跳转（跨卡导航——戳的 footer 点到父亲 tab？小而顺）；③t471 WSL-bridge（照实挂）、t276（门控）
