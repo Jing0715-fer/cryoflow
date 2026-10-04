@@ -7944,3 +7944,42 @@ Stage Summary:
 - 「VLM 读的是画面不是想象」：四类全 reject 的首跑不是 judge 坏了——阶跃球在 rubric 眼里就该 reject（featureless blob 签名逐字命中）。fixture 的保真度决定判词测试的意义；判别谱（keep/maybe/reject 各有 其位）才是通过标准，不是「判词和我的期望一致」
 - 「会话是活的，测试要按活的写」：多轮续跑协议 + 会话历史复用 + 探针名唯一化——agent 循环的测试不能假设一次 POST 一个回合；「上一轮的记忆」会替本轮开火
 - 产出：judge_3d_classes（三面论证 VLM 判词全链）+ renderClass3dFacesSheet + discoverClassVolumes + t573 单测 11/11 + 活体 14/14 ×2 连绿（真 VLM 两阶段、真 stamp、零污染归还）；下窗入口：①judge worker 化（后台自动判词）或 Topaz 第四刀；②样式余量：dashboard 入场（t572 入口②）；③verify 3D 判词在真 class3d 输出上的表现（本世界 mock 引擎 class3d 需先解栈供给）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 574 (进行中 — 中途 checkpoint)
+Agent: main (Z.ai Code, window 2026-10-04 19:08 cron)
+Task: 开局巡检 + 遗留池六条逐条验尸。
+
+Work Log (interim):
+- [开局核实] worklog 尾条=Task 573（交接摘要说 571 —— 滞后第 N+26 次兑付；Task 572 派单已被 17:53 窗自己消化）；HEAD c73843e、树净；基线五绿（prod 200/4ms、tsc 0 全量、eslint 0、AI 探针结构化信封 {sessionId,events,needsContinue}、active=EMPIAR roster 12 jobs）；agent-browser QA：canvas 12 卡 13 线、console/errors 零输出。
+- [遗留池验尸 —— 七连化石，池子清空] ①#5 fs/browse 无鉴权 → 已修（http-guard isLocalRequest + Host pin 反 DNS rebinding，路由注释「Hardening (#5, rounds 1+2)」）；②#6/#14 pathref 与 star 包含策略 → 已修（resolveInsideJobWorkdir 统一两个 outputs 路由，注释「both holes are closed」）；③#7 chart 路由全量同步读 → 已修（t486/487 六 loader 搬 chart-data.ts + cachedFileCompute statcache）；④#8 particles BFS N+1 → 已修（Batched BFS 注释自证：每深度一条边查询 + 一条批量 job 查询）；⑤#13 useMemo 内 localStorage 写 → 不存在（全库扫描零命中）；⑥「3D viewer 体积截面」→ t573 已 debunk（t260/t278/t281/t283 全建完）；⑦Topaz wrapper → 也是化石（topaztrain/topazdenoise/autopick --topaz_model/--topaz_train 全链在场，t563 补齐 denoise provider）。
+- [里程碑] 派单遗留池正式清空：自本窗起「Task 13 Stage Summary 遗留池」对现实零指涉，后续窗不再需要验尸。
+- [选道] t573 入口① judge worker 化——「判词在你开口之前到场」。判词链已全通（judge2d/3dClasses 自包含、stampVerdict 服务端 JSON、ai-verdict route、Results 卡），只缺自动触发半场。架构镜像 t533 reaper（boot mount + globalThis 单例 + unref interval + env 逃生门）。
+
+Stage Summary (interim):
+- 遗留池全灭：六条 plus 两个功能方向七连化石——「已知遗留」清单的价值不在修复承诺，在定期再核；上窗的化石可能已成地基（t573 教义）的下篇：下窗的债可能早已还清
+- 本窗车道：judge worker（plan 纯模块 + fs/db shell + settings autoJudge + 状态路由 + sweep hasVerdict + 卡徽章 + 设置开关）
+
+---
+Task ID: 574 (收官)
+Agent: main (Z.ai Code, window 2026-10-04 19:08 cron)
+Task: t573 入口①兑现——judge worker（the verdict arrives before you ask：判词在你开口之前到场）。遗留池七连验尸清空。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 573（交接摘要说 571——滞后第 N+26 次兑付；Task 572 派单已被 17:53 窗自己消化）；HEAD c73843e、树净；基线五绿（prod 200/4ms、tsc 0 全量、eslint 0、AI 探针 {sessionId,events,needsContinue}、active=EMPIAR roster 12）；agent-browser QA：12 卡 13 线、console/errors 零输出。派单「Task 13 遗留池」第 N+17 次化石。
+- [遗留池验尸——七连化石，池子清空] ①#5 fs/browse 无鉴权→已修（http-guard 同源门+Host pin 反 DNS rebinding，路由注释「Hardening (#5, rounds 1+2)」）；②#6/#14 pathref/star 包含策略→已修（resolveInsideJobWorkdir 统一两 outputs 路由，「both holes are closed」）；③#7 chart 全量同步读→已修（t486/487 chart-data.ts + statcache）；④#8 particles BFS N+1→已修（Batched BFS 注释自证）；⑤#13 useMemo 内 localStorage 写→不存在（全库零命中）；⑥「3D 体积截面」→t573 已 debunk；⑦Topaz wrapper→也是化石（topaztrain/topazdenoise/--topaz_model/--topaz_train 全链在场，t563 补齐）。里程碑：自本窗起「Task 13 遗留池」对现实零指涉。
+- [选道] t573 入口① judge worker 化。判词链已全通（judge2d/3dClasses 自包含、stampVerdict 服务端 JSON、ai-verdict route、Results 卡），只缺自动触发半场。架构镜像 t533 reaper：boot mount（instrumentation +10s 动态 import，静态图会拖 listener——本家法）+ globalThis 单例（dev 双实例共享）+ 状态路由防御性第二挂载。
+- [实现] 八文件：judge-worker-plan.ts（纯 planner：autoJudge/provider 双 policy dead-lift、type/status 管辖、镜像跳过——link 的判词属于原件、watermark 新鲜度、stamp 存在跳过、最老先出、每 tick 1 个的 politeness 封顶；clampJudgeTickMs 10s–10min——t525 无忙循环无昏迷律）；judge-worker.ts（fs/db shell：tick 扫描→planner→调 judge2d/3dClasses（本窗从 tools.ts 导出）→stamp→ledger；watermark 双记忆——stamps 文件是 per-job 记忆，data/judge-worker.json 是 per-ERA 记忆（首启初始化为 now 防回目风暴，重启后 downtime 期间的完成照判——reaper 无头自愈教义的判词版）；CRYOFLOW_NO_JUDGE_WORKER=1 逃生门、CRYOFLOW_JUDGE_WORKER_MS 调频；tick 重入守卫、永不响死）；settings.ts（autoJudge 全局开关：验证修复+DTO+PUT 早车道——toggle-only body 不需要 provider 行）；ai/judge-worker/route.ts（状态内省：mounted/autoJudge/providerOk/tickMs/ledger×20）；jobs sweep（hasVerdict 每拍计算——listStampIds 一次整读，与 readRuns 同成本级）；types/store（JobDTO.hasVerdict + jobsEqual 显式比较——不写则 reference-stability merge 永吞首现）；job-card（卡面 Row 2 紫罗兰 ✦ 徽章——t444 staleness glyph 同款 icon-only 模式，aria+title 说全句）；ai-settings-dialog（「分类完成后自动判词」Switch——worker 每拍读同一 settings 文件）。
+- [本窗三堂引擎课] ①本地道是真 RELION：local:true 分发到 /home/z/relion-build/bin/relion_refine（4MB 真 ELF）——preflight 过后真计算，探针在 8×8 全零栈上死于「Radius of circular mask is too large」；本地道对活体 harness 太重。②集群道是 fake relion（fs/opt/bin/relion_refine python stub）：star 行的绝对栈路径按宿主字面路径审计；`--i` 相对路径从 .cf-run.sh cd 后的项目目录解析；stacks 可读时 real-mode（numpy 类均值=成员框均值），不可读时降级 LCG 噪声类。③EMPIAR 世界的集群侧 extract 输入（star+5 栈）在窗间被清——任何道都无法完成类作业。修复（harness 的 W face）：star 拷回集群项目目录+按 star 行的宿主字面路径合成 5×64×64 带 motif 信号栈（numpy 真均值→判词有真内容）；修复幂等且**保留**——是 K5 时代就有的世界基础设施，不是探针。t573 feed 教义的本窗版：先辨「被测物是谁」——判词非引擎，走 fake 集群道。
+- [harness 两坑] ①cap=1 误期：planner 的 politeness 封顶把「两候选都对」变成「先出最老」——修测试预期不改产品（假阳性反向案例：测试错产品对）；②首次跑 VDAM 200 miniBatches×0.9s sleep=3 分钟+——mint 带 params {algorithm:"em", iterations:3, numClasses:4}，fake 秒级完成。
+- [活体 t574 28/28 ×2 连绿] W：世界修复幂等；A：mint→wire→集群 run→completed→worker tick 内 ai-verdict 自动 available（4 类、glm-4-plus、枚举判词、all-reject 是判词对合成 motif 的诚实意见——zero-keep 分支原样出货）→sweep hasVerdict→卡徽章 DOM 实证→ledger 记录；B：K5 的 stamp at 全窗不变+ledger 零触碰；C：autoJudge off→B 完成+2 ticks 静默→B 先删再复原→重振无追溯风暴；📸 .qa-logs/shots/t574-verdict-badge.png；roster 12→12、stamps 1→1、console 0。
+- [回归] t573 14/14、t569 13/13、t571 27/27、t572 20/20、t570 27/27、t567 26/26、t566 25/25、t568 24/24（门家族 115+judge 域+palette 依赖户全绿，共 190 活体断言）；单测 t574 16/16+t573 11/11+t562 64/64；tsc 0 全量；eslint 0（src+新 harness）。
+- [事故一课] 复合命令里顺手 rm 的 glob 撞了 src/app/api/jobs/[id]/log/route.ts——git checkout 秒还原（本窗从未改过、与 HEAD 一致，prod 跑 standalone 不受影响）。教训：清理命令与检查命令永不混行；rm 的路径要么全写要么先 echo。
+- [未做与理由] class3d 的 worker 自动判词已在 planner 管辖内但本世界 mock 引擎 class3d 需先解栈供给（t573 已注记）；判词 worker 的 toast 推送（需 push 通道——徽章经 1.2s sweep 已是即时通知）；Topaz 第四刀（本窗验尸确认全链在场，仅差活体演示场景）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「判词在你开口之前到场」：t565/t573 的 judge 是问答式工具——只有想到问的人才配得到意见；worker 把判词变成世界的属性，完成的分类自带 AI 意见。产品语义从「你问 AI 答」翻转为「AI 先说、你来驳」——而翻转到 UI 只需一枚 violet ✦：徽章经 1.2s sweep 到场，零推送通道、零额外请求
+- 「双记忆防重判」：stamps 文件是 per-job 记忆（一个作业一条意见，worker 永不覆写——显式 re-ask 才是覆写路径），watermark 是 per-ERA 记忆（首启 now 防回目风暴、重启照判 downtime 完成防止漏判）；policy 关闭期间的完成永不追溯——「用户说不」优先于「补齐档案」
+- 「镜像不判词，原件才有意见」：soft-link 的判词走 findEffectiveJob 归于原件——planner 跳过镜像，否则一对镜像在 newest-wins 下互相覆写
+- 「 fossil 池的葬礼」：七连验尸全部化石——#5/#6/#14/#7/#8 在 t251/t486 世代就已修好，#13 从未存在，3D 截面与 Topaz 是建成后被当蓝图。悬置清单的价值不在修复承诺而在定期再核；本窗起派单的遗留池正式清空，后续窗的选道只看 worklog 尾条的「下窗入口」
+- 产出：judge worker（plan 纯模块+shell+settings autoJudge+状态路由+sweep hasVerdict+卡徽章+设置开关）+ t574 单测 16/16 + 活体 28/28 ×2 连绿 + 世界修复（集群侧 extract 输入在场，本世界类作业全道复活）+ 回归 190 活体断言；下窗入口：①样式余量——dashboard 卡片入场（t572 入口②的姊妹篇）、卡影 ladder 下一 rung；②功能余量——judge worker 的 class3d 侧需先解 mock 引擎栈供给（世界修复的 extract 输入已就位，class3d 集群道或可试）；③judge worker 观察窗——多类多作业的队列排空节拍（cap=1 的公平性在风暴下的实证）；④t471 WSL-bridge（照实挂）、t276（门控）
