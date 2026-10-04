@@ -14,7 +14,17 @@
  *        first, color-mix truth after — for BOTH :root and .dark
  *    F4  run-glow keyframes keep var(--ink-10) verbatim (2 frames) plus the
  *        .card-lift rest layer (1)
- *    F5  on-disk source: all 12 ladder sites say var(--ink-XX)
+ *    F5  on-disk source: all 21 ink sites say var(--ink-XX); the TOTAL
+ *        assertion (t582/t583): outside definition lines, NO color-mix
+ *        against foreground/teal-glow/primary survives anywhere
+ *    F6  hairline/chrome declarations verbatim at top level (t582)
+ *    F7  accent vocabulary definitions (t583: --glow-XX/--pulse-XX/--tint-XX,
+ *        16 rungs x root+dark) are dual-formed exactly like the ink ones
+ *    F8  every accent USE site cites var() verbatim, outside @supports; the
+ *        served var(--glow|pulse|tint-*) citation count is EXACTLY 10/4/2 —
+ *        a dual-formed use site would double the count and fail here
+ *    F9  on-disk accent refs == 16 (comments stripped — doctrine prose
+ *        mentions tokens too)
  *
  *  Runtime faces (desktop Chrome + agent-browser, injected probe — reads the
  *  SERVED stylesheet end-to-end):
@@ -23,6 +33,13 @@
  *        serve verbatim declarations that paint nothing)
  *    R2  overriding --ink-10 on the element changes the computed shadow —
  *        the vocabulary is a REAL runtime API, not dead definitions
+ *    R3  hairline/chrome inks resolve (grid dots + scrollbar-color)
+ *    R4  accent tokens resolve through an element-level var() citation:
+ *        --glow-42 paints alpha 0.42, --pulse-38 alpha 0.38, --tint-26
+ *        alpha 0.26 — one probe per family, no animation interference
+ *    R5  toggling .dark changes what --glow-42 resolves to — the dual-domain
+ *        co-location is doing real work (a :root-only definition would bake
+ *        light teal for the dark scope)
  *
  *  Single-lifetime probe per the t580 forensics doctrine: one Chrome, one
  *  session, every assertion inside this process.
@@ -114,19 +131,21 @@ console.log("F4 — run-glow keyframes keep var(--ink-10)");
 const ink10 = [...served.matchAll(/0 6px 16px -4px var\(--ink-10\)/g)].length;
 ok("ink-10 ambient layer x3 (rest + 2 keyframe frames)", ink10 === 3, `found ${ink10}`);
 
-console.log("F5 — on-disk source: 21 ladder+hairline+chrome sites say var(--ink-XX)");
+console.log("F5 — on-disk source: 21 ink refs + accent vocabulary TOTAL (t582/t583)");
 const src = readFileSync(GLOBALS, "utf8");
 // strip CSS comments first — the doctrine comment mentions var(--ink-14) in prose
 const srcNoComments = src.replace(/\/\*[\s\S]*?\*\//g, "");
 const varRefs = [...srcNoComments.matchAll(/var\(--ink-\d+\)/g)].length;
 ok("21 var(--ink-XX) declaration refs in globals.css", varRefs === 21, `found ${varRefs}`);
-// vocabulary TOTAL (t582): outside the definition lines, no foreground
-// color-mix survives anywhere in the sheet
-const bodyNoDefs = srcNoComments.replace(/^\s*--ink-\d+:\s*color-mix[^;]*;/gm, "");
+// vocabulary TOTAL (t582 foreground, t583 accents): outside the definition
+// lines, no color-mix against ANY source survives anywhere in the sheet
+const bodyNoDefs = srcNoComments.replace(/^\s*--(ink|glow|pulse|tint)-\d+:\s*color-mix[^;]*;/gm, "");
 ok(
-  "zero inline foreground color-mix outside token definitions",
-  !bodyNoDefs.includes("color-mix(in oklch, var(--foreground)"),
+  "zero inline color-mix outside token definitions (all sources)",
+  !/color-mix\(\s*in\s+(oklch|srgb),\s*var\(--(foreground|teal-glow|primary)\)/.test(bodyNoDefs),
 );
+const accentRefs = [...srcNoComments.matchAll(/var\(--(glow|pulse|tint)-\d+\)/g)].length;
+ok("16 var(--glow|pulse|tint-XX) declaration refs", accentRefs === 16, `found ${accentRefs}`);
 
 console.log("F6 — hairline/chrome declarations verbatim at top level (t582)");
 const CHROME_INK = [
@@ -145,6 +164,62 @@ for (const [sel, decl] of CHROME_INK) {
   ok(`${decl ?? sel} verbatim`, !!m, "not found in served CSS");
   if (m) ok(`${decl ?? sel} outside @supports`, !insideSupports(m.index), "wrapped in @supports");
 }
+
+console.log("F7 — accent definitions dual-formed like the ink ones (t583)");
+const ACCENT_DEFS = [
+  ...["00", "10", "14", "22", "38", "42", "48", "60", "62", "78"].map((p) => [`glow-${p}`, "teal-glow", "oklch"]),
+  ...["12", "38", "45", "55"].map((p) => [`pulse-${p}`, "primary", "srgb"]),
+  ...["26", "45"].map((p) => [`tint-${p}`, "primary", "oklch"]),
+];
+for (const [token, source, space] of ACCENT_DEFS) {
+  const esc = token.replace(/-/g, "\\-");
+  const fb = [...served.matchAll(new RegExp("--" + esc + ":\\s*var\\(--" + source + "\\)", "g"))].map((m) => m.index);
+  const tr = [...served.matchAll(new RegExp("--" + esc + ":\\s*color-mix\\(in " + space + ", var\\(--" + source + "\\) " + Number(token.split("-")[1]) + "%, transparent\\)", "g"))].map((m) => m.index);
+  ok(`--${token} fallback defs >= 2 (root+dark)`, fb.length >= 2, `found ${fb.length}`);
+  ok(`--${token} truth defs >= 2 (root+dark)`, tr.length >= 2, `found ${tr.length}`);
+  ok(`--${token} truth after fallback`, tr.length > 0 && fb.length > 0 && Math.min(...tr) > Math.min(...fb));
+}
+
+console.log("F8 — accent use sites cite var() verbatim; citation counts are EXACT");
+const ACCENT_USES = [
+  ["run-glow rest ring", "0 0 0 1px var\\(--glow-42\\)"],
+  ["run-glow rest halo", "0 0 14px -2px var\\(--glow-38\\)"],
+  ["run-glow peak ring", "0 0 0 1px var\\(--glow-78\\)"],
+  ["run-glow peak halo", "0 0 24px -2px var\\(--glow-62\\)"],
+  ["run-glow reduced ring", "0 0 0 1px var\\(--glow-60\\)"],
+  ["run-glow reduced halo", "0 0 18px -2px var\\(--glow-48\\)"],
+  ["run-breathe rest bg", "background-color:\\s*var\\(--glow-10\\)"],
+  ["run-breathe rest ring", "0 0 0 0 var\\(--glow-00\\)"],
+  ["run-breathe peak bg", "background-color:\\s*var\\(--glow-22\\)"],
+  ["run-breathe peak ring", "0 0 0 3px var\\(--glow-14\\)"],
+  ["reveal-flash 0% bloom", "0 0 0 0 var\\(--pulse-38\\)"],
+  ["reveal-flash 70% spread", "0 0 0 14px var\\(--pulse-12\\)"],
+  ["reveal-flash rest 2px", "0 0 0 2px var\\(--pulse-55\\)"],
+  ["reveal-flash rest 1px", "0 0 0 1px var\\(--pulse-45\\)"],
+  ["::selection wash", "var\\(--tint-26\\)"],
+  ["shimmer peak", "var\\(--tint-45\\)\\s*50%"],
+];
+for (const [name, needle] of ACCENT_USES) {
+  const m = served.match(new RegExp(needle));
+  ok(`${name} verbatim`, !!m, "citation not found in served CSS");
+  if (m) ok(`${name} outside @supports`, !insideSupports(m.index), "wrapped in @supports");
+}
+// exact totals: the pipeline must NOT dual-form use sites (it dual-forms
+// definitions — F3/F7 — but citations are verbatim, t581's core win). If a
+// future pipeline change re-rolls the fallback split per declaration, every
+// count doubles and this face catches it.
+const glowCites = [...served.matchAll(/var\(--glow-\d+\)/g)].length;
+const pulseCites = [...served.matchAll(/var\(--pulse-\d+\)/g)].length;
+const tintCites = [...served.matchAll(/var\(--tint-\d+\)/g)].length;
+ok("served glow citations == 10", glowCites === 10, `found ${glowCites}`);
+ok("served pulse citations == 4", pulseCites === 4, `found ${pulseCites}`);
+ok("served tint citations == 2", tintCites === 2, `found ${tintCites}`);
+// frame shape lives in the token set: rest 42/38 -> peak 78/62, freeze 60/48
+const framePairs = [
+  ["run-glow rest cites 42 before 38", served.indexOf("0 0 0 1px var(--glow-42)") >= 0 && served.indexOf("0 0 14px -2px var(--glow-38)") >= 0],
+  ["run-glow peak cites 78 before 62", served.indexOf("0 0 0 1px var(--glow-78)") >= 0 && served.indexOf("0 0 24px -2px var(--glow-62)") >= 0],
+];
+for (const [name, cond] of framePairs) ok(name, cond, "frame vocabulary drifted");
 
 /* ---------- runtime faces ---------- */
 // pre-warm the world before the browser lands (t571 house pattern): a freshly
@@ -265,6 +340,63 @@ try {
     // computed scrollbar-color — accept both spellings of "nothing"
     const secondLayerClear = /transparent|rgba\(0, 0, 0, 0\)|#0000/.test(r3.scrollbarColor);
     ok("scrollbar ink resolves at 0.22 over clear track", Math.abs(sbAlpha - 0.22) < 1e-6 && secondLayerClear, `${r3.scrollbarColor.slice(0, 90)} alpha=${sbAlpha}`);
+  }
+
+  console.log("R4 — accent tokens resolve through element-level citations (one probe per family)");
+  // The keyframes/animations breathe — a probe riding .job-running would read
+  // a moving target. Instead each probe cites the token DIRECTLY in an inline
+  // box-shadow: no animation, deterministic alpha, and it proves the token is
+  // a real runtime API (R2's doctrine, accent edition).
+  const r4 = readJson(`JSON.stringify((function(){
+    var probe = function(cite){
+      var el = document.createElement("div");
+      el.style.cssText = "position:absolute;left:-9999px;top:0;width:40px;height:40px;box-shadow:" + cite;
+      el.setAttribute("data-t581-probe", "1");
+      document.body.appendChild(el);
+      var v = getComputedStyle(el).boxShadow;
+      el.remove();
+      return v;
+    };
+    return {
+      glow: probe("0 0 0 1px var(--glow-42)"),
+      pulse: probe("0 0 0 1px var(--pulse-38)"),
+      tint: probe("0 0 0 1px var(--tint-26)")
+    };
+  })())`);
+  ok("accent probe strings returned", !!r4 && !!r4.glow && !!r4.pulse && !!r4.tint, JSON.stringify(r4));
+  if (r4 && r4.glow && r4.pulse && r4.tint) {
+    const a = (s) => Number((s.match(/\/\s*([\d.]+)\)/) || [])[1]);
+    ok("--glow-42 paints alpha 0.42", Math.abs(a(r4.glow) - 0.42) < 1e-6, `${r4.glow.slice(0, 90)} alpha=${a(r4.glow)}`);
+    ok("--pulse-38 paints alpha 0.38", Math.abs(a(r4.pulse) - 0.38) < 1e-6, `${r4.pulse.slice(0, 90)} alpha=${a(r4.pulse)}`);
+    ok("--tint-26 paints alpha 0.26", Math.abs(a(r4.tint) - 0.26) < 1e-6, `${r4.tint.slice(0, 90)} alpha=${a(r4.tint)}`);
+    // the color SPACE is part of the name: the srgb mix must NOT serialize
+    // as oklch. Modern Chrome emits CSS Color 4 form `color(srgb r g b / a)`
+    // (first-run lesson: rgba() was the 2020s spelling — accept both; the
+    // serialization layer rewrites literals, assertions must read every form)
+    ok("pulse serializes as srgb, not oklch", /color\(srgb|rgba?\(/.test(r4.pulse) && !/oklch/.test(r4.pulse), r4.pulse.slice(0, 60));
+  }
+
+  console.log("R5 — .dark changes what --glow-42 resolves to (dual domains at work)");
+  // teal-glow is theme-scoped (light oklch(0.72 0.14 182) / dark oklch(0.78
+  // 0.13 182)), so the SAME citation must paint different colors per scope —
+  // a :root-only definition would bake light teal for the whole tree.
+  const r5 = readJson(`JSON.stringify((function(){
+    var root = document.documentElement;
+    var wasDark = root.classList.contains("dark");
+    var el = document.createElement("div");
+    el.style.cssText = "position:absolute;left:-9999px;top:0;width:40px;height:40px;box-shadow:0 0 0 1px var(--glow-42)";
+    el.setAttribute("data-t581-probe", "1");
+    document.body.appendChild(el);
+    var light = getComputedStyle(el).boxShadow;
+    root.classList.add("dark");
+    var dark = getComputedStyle(el).boxShadow;
+    if (!wasDark) root.classList.remove("dark");
+    el.remove();
+    return { light: light, dark: dark, wasDark: wasDark };
+  })())`);
+  ok("dark toggle probe returned", !!r5 && !!r5.light && !!r5.dark, JSON.stringify(r5 && { wasDark: r5.wasDark }));
+  if (r5 && r5.light && r5.dark) {
+    ok("glow-42 differs across scopes", r5.light !== r5.dark, `light=${r5.light.slice(0, 60)} dark=${r5.dark.slice(0, 60)}`);
   }
 } catch (e) {
   fail++; console.log("FAIL  runtime faces —", e.message);
