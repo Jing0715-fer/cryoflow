@@ -108,6 +108,89 @@ if standalone_complete && [ "${FRESH:-0}" != "1" ]; then
   exit 0
 fi
 
+# ---------------------------------------------------- t577: the FRESH preflight gate
+# t576's catastrophe, closed at the source. The old FRESH order was
+# clear-then-grind: `next build` cleared .next on attempt 1, the host raised
+# the OOM wall mid-day, 30+ attempts died, and the world was left with NO
+# build at all (the grinder ate the last good trio). The gate inverts the
+# order: ONE full cold probe build into .next-probe FIRST (its own distDir —
+# next.config honors NEXT_PROBE=1). Probe dies → the wall is up today, the
+# trio in .next stays untouched, exit 1. Probe greens → the probe IS the
+# fresh build (it compiled this same tree cold, in its own distDir): finish
+# the trio inside .next-probe, swap it in atomically, anti-tear the server.
+# CRYOFLOW_NO_FRESH_PROBE=1 keeps the old clear-first behavior for diehards.
+if [ "${FRESH:-0}" = "1" ] && standalone_complete && [ "${CRYOFLOW_NO_FRESH_PROBE:-0}" != "1" ]; then
+  # t577 — the dev server is ambient too. t576's ladder never regained the
+  # band while `next dev` (~2.2GB resident) sat beside it — "ambient stripped
+  # to the floor" (t415) must include the dev regime itself. The gate refuses
+  # to probe with dev up; the remedy is one command.
+  gate_pid="$(ss -tlnp 2>/dev/null | grep ':3000 ' | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -1)"
+  if [ -n "$gate_pid" ] \
+     && tr '\0' ' ' < "/proc/$gate_pid/cmdline" 2>/dev/null | grep -q 'next dev'; then
+    echo "$(stamp) FRESH preflight: a next dev server (pid $gate_pid) is on :3000 — it holds ~2GB of the"
+    echo "        build band (t576's invisible thief: the dev regime is ambient too). Stop it first:"
+    echo "          kill $gate_pid    — then re-run with FRESH=1."
+    exit 1
+  fi
+  free_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
+  if [ "${free_kb:-0}" -lt 2097152 ]; then
+    echo "$(stamp) FRESH preflight: ${free_kb}KB free < the 2GB scratch a second build tree needs —"
+    echo "        refusing to gamble the last good trio on a disk-bound probe."
+    exit 1
+  fi
+  echo "$(stamp) FRESH preflight: probing the wall — ONE cold build into .next-probe (the trio in .next stays untouched)"
+  rm -rf .next-probe
+  PROBE_LOG=".qa-logs/build-probe.log"
+  NEXT_PROBE=1 NODE_OPTIONS="--max-old-space-size=${HEAP_MB}${EXTRA_V8:+ $EXTRA_V8}" \
+    timeout 560 node node_modules/next/dist/bin/next build --webpack >> "$PROBE_LOG" 2>&1
+  probe_rc=$?
+  if [ "$probe_rc" -eq 0 ] && [ -f ".next-probe/BUILD_ID" ] && [ -f ".next-probe/standalone/server.js" ]; then
+    echo "$(stamp) FRESH preflight: probe GREEN — finishing its trio and swapping it in"
+    mkdir -p .next-probe/standalone/.next
+    cp -r .next-probe/static .next-probe/standalone/.next/ 2>/dev/null || true
+    cp -r public .next-probe/standalone/ 2>/dev/null || true
+    ( git rev-parse HEAD 2>/dev/null || echo unknown ) > .next-probe/.built-at-commit
+    rm -rf .next.prev
+    mv .next .next.prev && mv .next-probe .next && rm -rf .next.prev
+    echo "$(stamp) FRESH preflight: swap complete — BUILD_ID $(cat "$BUILD_ID") (provenance: $(cat .next/.built-at-commit))"
+    # t435 anti-tear, probe edition — the same law the grind path enforces:
+    # a standalone older than the build it now serves gets restarted here,
+    # so even a bare FRESH invocation leaves a coherent world.
+    tear_pid="$(ss -tlnp 2>/dev/null | grep ':3000 ' | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -1)"
+    if [ -n "$tear_pid" ] \
+       && tr '\0' ' ' < "/proc/$tear_pid/cmdline" 2>/dev/null | grep -q 'standalone/server.js'; then
+      echo "$(stamp) ANTI-TEAR: restarting pre-swap standalone (pid $tear_pid) onto the fresh build"
+      kill "$tear_pid" 2>/dev/null || true
+      for _ in $(seq 1 5); do [ -d "/proc/$tear_pid" ] || break; sleep 1; done
+      if [ -d "/proc/$tear_pid" ]; then
+        echo "$(stamp)   pid $tear_pid ignored SIGTERM (bun's own law) — escalating to SIGKILL"
+        kill -9 "$tear_pid" 2>/dev/null || true
+        sleep 1
+      fi
+      ( DATABASE_URL="file:$(pwd)/db/cryoflow.db" CRYOFLOW_DATA_DIR="$(pwd)/data" NODE_ENV=production \
+          nohup bun .next/standalone/server.js >> server.log 2>&1 & )
+      up="000"
+      for _ in $(seq 1 20); do
+        sleep 3
+        up="$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 http://localhost:3000/ || true)"
+        [ "$up" = "200" ] && break
+      done
+      if [ "$up" = "200" ]; then
+        echo "$(stamp) ANTI-TEAR: fresh standalone answers 200 — memory and disk speak the same build"
+      else
+        echo "$(stamp) ANTI-TEAR WARNING: the restarted server never answered 200 (last $up)."
+        echo "$(stamp)   the BUILD is green; the WORLD needs scripts/reboot-recover.sh — run it."
+      fi
+    fi
+    exit 0
+  fi
+  echo "$(stamp) FRESH preflight: probe FAILED rc=$probe_rc — the wall is up today; the last good build in .next is UNTOUCHED."
+  echo "        (probe log: $PROBE_LOG — CRYOFLOW_NO_FRESH_PROBE=1 forces the old clear-first grind)"
+  tail -4 "$PROBE_LOG" | sed 's/^/    | /'
+  rm -rf .next-probe
+  exit 1
+fi
+
 echo "$(stamp) build-until-green: start (cap=$MAX_ATTEMPTS) — logging to $LOG"
 
 attempt=0

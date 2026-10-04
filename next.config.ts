@@ -84,6 +84,14 @@ if (missingDeps.length > 0) {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // t577 — the FRESH preflight's probe distDir. The grinder's gate (t576's
+  // direct antidote) probes the OOM wall with ONE full cold build into
+  // .next-probe BEFORE touching the last good trio in .next — the t576
+  // catastrophe was `next build` clearing .next on attempt 1 and every
+  // later attempt dying on the host's raised wall, leaving NO build at all.
+  // A probe that dies leaves .next untouched; a probe that greens becomes
+  // the build itself (trio finished inside .next-probe, then swapped in).
+  ...(process.env.NEXT_PROBE === "1" ? { distDir: ".next-probe" } : {}),
   // t576 — turbopack's build root widens from the project root to /home/z:
   // the EMPIAR-10017 world (t372) serves its micrographs through
   // data/relion/<id>/micrographs → /home/z/empiar-10017/micrographs, and
