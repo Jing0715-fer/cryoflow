@@ -267,6 +267,56 @@
   }
 }
 
+/* t572 — the palette cascade. The command palette is the store's read
+   window ("the palette never misses" — t571), and its groups are the
+   table of contents: on open they arrive TOP TO BOTTOM in the order
+   you'll scan them — the cascade IS the index. Group-level only, never
+   items: filtering re-displays groups (display:none → block restarts
+   CSS animations), so the entrance must disarm once it has played —
+   the dialog gains .palette-motion-settled ~520ms after open (after
+   the last rung lands: 210ms delay + 240ms duration) and re-arms on
+   every fresh open (the flip resets on close). First paint plays,
+   filtering stays silent — the same doctrine as the inspector chip's
+   entrance (t570). The INPUT never moves: it is the anchor the list
+   arrives to. Movement rides motion-safe; reduced-motion users keep
+   the dialog's own fade. */
+@keyframes palette-group-enter {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes palette-empty-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .palette-motion:not(.palette-motion-settled) [cmdk-group] {
+    animation: palette-group-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* the staircase — index among group siblings (nth-child `of S` syntax:
+     separators are siblings too, so plain nth-of-type would miscount) */
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(2 of [cmdk-group]) { animation-delay: 35ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(3 of [cmdk-group]) { animation-delay: 70ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(4 of [cmdk-group]) { animation-delay: 105ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(5 of [cmdk-group]) { animation-delay: 140ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(6 of [cmdk-group]) { animation-delay: 175ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(n+7 of [cmdk-group]) { animation-delay: 210ms; }
+  /* the empty state mounts fresh on every appearance — its replay IS
+     the message ("the answer changed"), so it never disarms */
+  .palette-motion [cmdk-empty] {
+    animation: palette-empty-enter 200ms ease both;
+  }
+}
+
 /* ============================================================
    Edge animations
    ============================================================ */

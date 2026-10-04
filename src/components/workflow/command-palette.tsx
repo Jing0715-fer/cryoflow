@@ -74,6 +74,7 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { REMOTE_CLUSTERS_OPEN_EVENT } from "./remote-cluster-dialog";
 import { useWorkflowStore } from "@/lib/store";
 import { stageWorkflowFiles } from "@/lib/import-stage";
@@ -129,6 +130,22 @@ const CHART_ICONS: Record<
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
+  // t572 — the cascade's disarm flip: the group entrance plays on OPEN,
+  // then ~520ms later (after the last rung lands: 210ms delay + 240ms
+  // duration) the settled class disarms the animation — because hiding a
+  // group while filtering sets display:none, and un-hiding it later would
+  // REPLAY the entrance (CSS animations restart on display toggles). The
+  // flip resets on close, so every fresh open gets its cascade again:
+  // first paint plays, filtering stays silent.
+  const [cascadeSettled, setCascadeSettled] = React.useState(false);
+  React.useEffect(() => {
+    if (!open) {
+      setCascadeSettled(false);
+      return;
+    }
+    const t = setTimeout(() => setCascadeSettled(true), 520);
+    return () => clearTimeout(t);
+  }, [open]);
   // Task 179: the replay-script dialog is a palette-owned export surface —
   // selecting the row closes the palette first, then opens the dialog (the
   // exportJson/native-picker pattern: one modal at a time, no nesting).
@@ -499,7 +516,13 @@ export function CommandPalette() {
       onOpenChange={setOpen}
       title="Command palette"
       description="Search jobs, job types and canvas actions"
-      className="sm:max-w-lg"
+      className={cn(
+        "sm:max-w-lg",
+        // t572 — the cascade rides this class; settled disarms the
+        // entrance so filter re-displays stay silent (see the state above)
+        "palette-motion",
+        cascadeSettled && "palette-motion-settled"
+      )}
     >
       <CommandInput placeholder="Jump to a job, add a type, run an action…" />
       <CommandList className="max-h-[60vh]">
