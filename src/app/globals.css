@@ -682,6 +682,37 @@
     animation: find-chip-enter 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: var(--find-cd, 0ms);
   }
+  /* t585 — the third voice: the toggle answer. t584 gave the chips their
+     entrance (the wheels arrive); this gives the ACTIVATION its own
+     syllable — a filter clicking into place: scale snaps from 0.94 and
+     the back-out bezier (0.34, 1.56, 0.64, 1) springs it past 1 and
+     lands it. The trigger is an explicit transient key the component
+     sets on a POST-ARM activating click ([data-chip-set]) — NOT a bare
+     aria-pressed rule, and here is why: a rule keyed only on
+     [aria-pressed="true"] would newly-match at the DISARM too (when
+     data-find-enter leaves the root, every still-active chip starts
+     matching) and ghost-pop them with no click at all — the disarm must
+     never become an event (the t578 law). The component gates the key
+     on !enterArmed (a click inside the entrance window is answered by
+     color alone — the cascade owns the chips' animation channel) and
+     clears the set on EVERY open (the arming edge), so a fresh lens
+     never inherits last session's voice. Deactivation adds no key and
+     flips aria-pressed back — the release is quiet, no exit ceremony.
+     The :not([data-find-enter]) scope stays as the structural HANDSHAKE
+     with the entrance: while armed, the cascade owns the channel, full
+     stop. Both chip families speak it — status chips and the dot-less
+     type chips get the same body language, one grammar per surface.
+     Movement rides prefers-reduced-motion: no-preference like every
+     other travel in this file; the color answer (transition-colors)
+     stays with all users. */
+  @keyframes chip-set {
+    from {
+      scale: 0.94;
+    }
+  }
+  [data-canvas-find-bar]:not([data-find-enter]) [data-find-chip][data-chip-set][aria-pressed="true"] {
+    animation: chip-set 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
   /* the count answers: when the number changes (N matches → 1 of N),
      the tick span flashes the find dialect's amber — the same hue the
      matched cards ring with (job-card's findMatch border) — so the

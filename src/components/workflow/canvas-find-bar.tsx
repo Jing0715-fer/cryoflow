@@ -186,11 +186,24 @@ export function CanvasFindBar() {
   // disarmed through it, so a drag return cannot replay the entrance
   // (a return is not an arrival).
   const [enterArmed, setEnterArmed] = React.useState(false);
+  // t585 — the toggle answer's key set: which chips have earned a
+  // click-settle THIS session. Populated only by post-arm activating
+  // clicks (a click inside the entrance window is answered by color
+  // alone — the cascade owns the chips' animation channel while armed),
+  // and cleared on every open below: a fresh lens owns a fresh voice,
+  // and a stale key from last session would ghost-pop at THIS
+  // session's disarm (the CSS rule newly-matches the moment
+  // data-find-enter leaves the root — the disarm must never become an
+  // event). The set never shrinks while the lens is open: a
+  // deactivation's silence comes from aria-pressed flipping back, not
+  // from revoking the key — so a quick off→on replays the settle.
+  const [chipSetKeys, setChipSetKeys] = React.useState<ReadonlySet<string>>(new Set());
   const findOpenEdge = React.useRef(false);
   React.useEffect(() => {
     if (findOpen && !findOpenEdge.current) {
       findOpenEdge.current = true;
       setEnterArmed(true);
+      setChipSetKeys(new Set());
       const id = setTimeout(() => setEnterArmed(false), 720);
       return () => clearTimeout(id);
     }
@@ -427,10 +440,25 @@ export function CanvasFindBar() {
               type="button"
               data-testid={`canvas-find-status-${value}`}
               data-find-chip=""
+              data-chip-set={chipSetKeys.has(`status:${value}`) ? "" : undefined}
               style={{ "--find-cd": `${STATUS_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
               aria-pressed={active}
               title={active ? `Clear the ${label.toLowerCase()} filter` : `Only ${label.toLowerCase()} jobs`}
-              onClick={() => setFindStatus(active ? "all" : value)}
+              onClick={() => {
+                const next = active ? "all" : value;
+                setFindStatus(next);
+                // t585 — the settle is an ACTIVATION answer and a POST-ARM
+                // one: a click inside the entrance window is answered by
+                // color alone, and the disarm itself never plays anything
+                // (a rule keyed only on aria-pressed would ghost-pop every
+                // still-active chip when data-find-enter is removed — the
+                // rule cannot tell the disarm from a click). The key set
+                // starts empty every open, so only genuine post-arm
+                // activations carry a voice.
+                if (!enterArmed && next !== "all") {
+                  setChipSetKeys((prev) => new Set(prev).add(`status:${value}`));
+                }
+              }}
               className={cn(
                 "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
                 active
@@ -474,10 +502,20 @@ export function CanvasFindBar() {
                 type="button"
                 data-testid={`canvas-find-type-${key}`}
                 data-find-chip=""
+                data-chip-set={chipSetKeys.has(`type:${key}`) ? "" : undefined}
                 style={{ "--find-cd": `${TYPE_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
                 aria-pressed={active}
                 title={active ? `Clear the ${label} filter` : `Only ${hint.toLowerCase()}`}
-                onClick={() => setFindCategory(active ? "all" : key)}
+                onClick={() => {
+                  const next = active ? "all" : key;
+                  setFindCategory(next);
+                  // t585 — same voice as the status chips: activation
+                  // answers post-arm only; the release (next === "all")
+                  // is quiet (dismissive actions get no ceremony).
+                  if (!enterArmed && next !== "all") {
+                    setChipSetKeys((prev) => new Set(prev).add(`type:${key}`));
+                  }
+                }}
                 className={cn(
                   "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
                   active
