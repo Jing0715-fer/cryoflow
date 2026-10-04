@@ -918,6 +918,15 @@ export function WorkflowCanvas() {
   // FRESH lists; only the workspace render layer consumes these.
   const deferredJobs = React.useDeferredValue(jobs);
   const deferredEdges = React.useDeferredValue(edges);
+  // t571 — the hover channel: which canvas card the pointer is over, so
+  // the edges layer can light the wires that touch it ("what feeds this
+  // job?"). Ephemeral VIEW state — lives here, not in the store: it has
+  // no meaning outside the canvas render tree, dies with it, and would
+  // only add a store tick to every pointer crossing. The setter identity
+  // is stable, so the memoized JobCards never re-render from hover; only
+  // the edges layer (the consumer) re-renders, and its geometry memo
+  // doesn't (deps are edges/jobs — only the stroke choices recompute).
+  const [hoveredJobId, setHoveredJobId] = React.useState<string | null>(null);
   const [revealCount, setRevealCount] = React.useState<number | null>(null);
   const [seenCount, setSeenCount] = React.useState(0);
   if (deferredJobs.length !== seenCount) {
@@ -1969,7 +1978,12 @@ export function WorkflowCanvas() {
             // properties inherit downward to this div's print rules)
           }}
         >
-          <EdgesLayer edges={deferredEdges} jobs={renderJobs} judgedIds={noteSpotlight ? judgedIds : null} />
+          <EdgesLayer
+            edges={deferredEdges}
+            jobs={renderJobs}
+            judgedIds={noteSpotlight ? judgedIds : null}
+            hoveredJobId={hoveredJobId}
+          />
           <LiveWire rootRef={rootRef} jobs={jobs} />
           {renderJobs.map((job) => (
             <JobCard
@@ -1998,6 +2012,7 @@ export function WorkflowCanvas() {
               onStartConnect={setPendingFromProxy}
               onCancelConnect={cancelConnect}
               onConnect={connectProxy}
+              onHoverChange={setHoveredJobId}
             />
           ))}
         </div>

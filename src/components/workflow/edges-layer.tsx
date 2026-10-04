@@ -86,6 +86,7 @@ export const EdgesLayer = React.memo(function EdgesLayer({
   edges,
   jobs,
   judgedIds,
+  hoveredJobId,
 }: {
   edges: EdgeDTO[];
   jobs: JobDTO[];
@@ -98,6 +99,15 @@ export const EdgesLayer = React.memo(function EdgesLayer({
    *  this the lens dimmed 24 cards and left every wire between them
    *  at full strength — loud threads through a darkened world. */
   judgedIds?: Set<string> | null;
+  /** t571 — the hover channel: the id of the canvas card the pointer is
+   *  currently over (null when over empty canvas / gaps). Wires that
+   *  touch the hovered card LIGHT UP — a question the canvas answers
+   *  with ink ("what feeds this job?"). The grammar is deliberately
+   *  NOT selection's: hover lights the touched wires and leaves the
+   *  world alone; selection additionally dims every unrelated wire.
+   *  Hover ASKS, selection ANSWERS. Ephemeral view state owned by the
+   *  canvas render tree — deliberately not store material. */
+  hoveredJobId?: string | null;
 }) {
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
@@ -151,23 +161,37 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         const touchesJudged = judgedIds != null && (judgedIds.has(from.id) || judgedIds.has(to.id));
         const dimmed =
           (selectedId != null && !touchesSelected) || (judgedIds != null && !touchesJudged);
+        // t571 — the hover answer: this wire touches the card under the
+        // pointer. It lights (STROKE_ACTIVE ink, a mid width) but does
+        // NOT dim its neighbors and does NOT get the halo/glow — those
+        // are selection's and edge-hover's privileges. A hovered wire
+        // under the selection dim still peeks through (ink × dim).
+        const touchesHoveredCard =
+          hoveredJobId != null && (from.id === hoveredJobId || to.id === hoveredJobId);
 
         const gradId = running || primed ? `url(#edge-grad-${edge.id})` : null;
         const stroke = running
           ? gradId ?? "var(--primary)"
           : hovered || touchesSelected
             ? STROKE_ACTIVE
-            : primed
-              ? gradId ?? STROKE_READY
-              : STROKE_BASE;
+            : touchesHoveredCard
+              ? STROKE_ACTIVE
+              : primed
+                ? gradId ?? STROKE_READY
+                : STROKE_BASE;
         const dotFill = running
           ? "var(--primary)"
           : hovered || touchesSelected
             ? STROKE_ACTIVE
-            : primed
-              ? STROKE_READY
-              : DOT_BASE;
-        const width = hovered || touchesSelected ? 3.2 : running ? 2.75 : 2.25;
+            : touchesHoveredCard
+              ? STROKE_ACTIVE
+              : primed
+                ? STROKE_READY
+                : DOT_BASE;
+        // width ladder: corridor/selection 3.2 · card-hover 2.9 · running
+        // 2.75 · base 2.25 — hover reads as "raised a notch", clearly
+        // below selection's full commitment.
+        const width = hovered || touchesSelected ? 3.2 : touchesHoveredCard ? 2.9 : running ? 2.75 : 2.25;
 
         return (
           <g

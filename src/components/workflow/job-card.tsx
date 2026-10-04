@@ -906,6 +906,13 @@ interface JobCardProps {
   onStartConnect: (pending: PendingFrom) => void;
   onCancelConnect: () => void;
   onConnect: (from: string, to: string, fromPort: string, toPort: string) => void;
+  /** t571 — the hover channel: the card reports pointer enter/leave to the
+   *  canvas so the EDGES LAYER can light the wires that touch this card
+   *  ("what feeds me?"). Ephemeral view state — deliberately NOT store
+   *  material; the canvas owns it, the wires read it. The memo comparator
+   *  carries it because the callback identity is a stable useState setter
+   *  (equal forever → the hover channel never re-renders a single card). */
+  onHoverChange?: (id: string | null) => void;
 }
 
 interface DragState {
@@ -1430,7 +1437,8 @@ function jobCardPropsEqual(a: JobCardProps, b: JobCardProps): boolean {
     a.onGroupDragCommit !== b.onGroupDragCommit ||
     a.onStartConnect !== b.onStartConnect ||
     a.onCancelConnect !== b.onCancelConnect ||
-    a.onConnect !== b.onConnect
+    a.onConnect !== b.onConnect ||
+    a.onHoverChange !== b.onHoverChange
   ) {
     return false;
   }
@@ -1463,6 +1471,7 @@ export const JobCard = React.memo(function JobCard({
   onStartConnect,
   onCancelConnect,
   onConnect,
+  onHoverChange,
 }: JobCardProps) {
   // t444 — this card's staleness slice: a stable object ref while the
   // world is quiet (memo cards skip), a fresh ref only when THIS card's
@@ -2005,7 +2014,11 @@ export const JobCard = React.memo(function JobCard({
             className="reveal-flash pointer-events-none absolute -inset-1.5 z-40 rounded-2xl print:hidden"
           />
         )}
-      {/* transform host: card body + ports move together (zero lag) */}
+      {/* transform host: card body + ports move together (zero lag).
+          t571 — the host is also the hover sensor: pointerenter/leave
+          here covers the body AND the ports (one gesture, one report).
+          leave carries null; adjacent cards batch leave→enter into one
+          render, so sweeping the canvas never flickers the wires. */}
       <div
         ref={cardRef}
         className="absolute inset-0"
@@ -2014,6 +2027,8 @@ export const JobCard = React.memo(function JobCard({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
+        onPointerEnter={() => onHoverChange?.(job.id)}
+        onPointerLeave={() => onHoverChange?.(null)}
       >
         {/* Card body (clipped so the color bar follows the rounded corners) */}
         <div
@@ -2022,6 +2037,13 @@ export const JobCard = React.memo(function JobCard({
           aria-label={`${job.name} — ${spec?.label ?? job.type}, ${job.status}`}
           className={cn(
             "card-lift no-drag-select absolute inset-0 cursor-grab overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
+            // t571 — the hover lean rides the CSS `translate` property on
+            // THIS element while the drag offset rides `transform` on the
+            // HOST above: two independent composited channels that can
+            // never fight. Suppressed while dragging — a card being
+            // carried should not also float (hover persists under the
+            // pointer capture; the lean would hover a moving card).
+            !dragging && "card-hover-lean",
             selected
               ? primary
                 ? "border-primary ring-2 ring-primary/60"

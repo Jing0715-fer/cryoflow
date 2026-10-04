@@ -226,6 +226,47 @@
     0 16px 40px -12px color-mix(in oklch, var(--foreground) 18%, transparent);
 }
 
+/* t571 — the hover lean. Canvas cards are cursor-grab: on hover the card
+   leans INTO your hand — it rises 2px and lets its shadow answer (the
+   shadow transition is paint, unguarded by the house's motion doctrine;
+   the rise is movement, so it lives behind prefers-reduced-motion). The
+   lean rides the CSS `translate` property, NOT `transform`: the drag
+   loop patches style.transform on the transform HOST one level up, and
+   translate composes independently — a hovering card mid-drag can never
+   fight the drag offset. Timing is the door family's easeOutQuint
+   (t569/t570) — the canvas speaks the same motion dialect as the
+   inspector it opens. */
+.card-hover-lean {
+  transition: box-shadow 200ms ease;
+}
+/* the shadow ANSWERS the rise — pure paint (colour mixing, no geometry),
+   so it is deliberately NOT gated by prefers-reduced-motion; the house
+   doctrine silences movement, never ink. Hover-capable pointers only:
+   a touch tap must not leave a card floating on its shadow (house idiom
+   since Task 174/176). One rung deeper than .card-lift's 10% rest —
+   still visibly below .card-lift-lg's 18% commitment. */
+@media (hover: hover) {
+  .card-hover-lean:hover {
+    box-shadow:
+      0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
+      0 10px 24px -6px color-mix(in oklch, var(--foreground) 14%, transparent);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card-hover-lean {
+    transition:
+      box-shadow 200ms ease,
+      translate 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* the rise itself is movement — this hover rule rides motion-safe; the
+     shadow above already answers for users who opted out of motion */
+  @media (hover: hover) {
+    .card-hover-lean:hover {
+      translate: 0 -2px;
+    }
+  }
+}
+
 /* ============================================================
    Edge animations
    ============================================================ */
