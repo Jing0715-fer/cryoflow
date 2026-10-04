@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { findEffectiveJob } from "@/lib/link";
 import { getLogTail } from "@/lib/relion/engine";
-import { parseSelectionReceipt } from "@/lib/selection-receipt";
+import { parseSelectionReceipt, jobRefFromInputPath } from "@/lib/selection-receipt";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -117,6 +117,34 @@ export async function GET(request: NextRequest, context: RouteContext) {
             ? "The run log carries no selection receipt (pre-receipt run or a non-native lane)"
             : "No receipt yet — the job has not completed a selection run",
       });
+    }
+
+    // ---- t568 — log-first source ----------------------------------------
+    // When the params don't name a source job (a param tick or an auto run
+    // wired from an upstream), the logged input path still does: the engine
+    // reads its input from the producer's workdir, whose leaf is
+    // `{type}_{id-tail8}` (workdirFor) — a deterministic (type, id-tail)
+    // pair. The wire can be rewired after a run; the log cannot — this is
+    // the run-time-true relation, not the current graph. Uniqueness gate:
+    // zero or several candidates → no mapping (honest absence beats a
+    // guessed door).
+    if (!sourceJobId && receipt.inputPath) {
+      const ref = jobRefFromInputPath(receipt.inputPath);
+      if (ref) {
+        const candidates = await db.job.findMany({
+          where: {
+            projectId: effective.projectId,
+            type: ref.type,
+            id: { endsWith: ref.idTail },
+          },
+          select: { id: true, name: true },
+          take: 2,
+        });
+        if (candidates.length === 1) {
+          sourceJobId = candidates[0].id;
+          sourceJobName = candidates[0].name;
+        }
+      }
     }
 
     return NextResponse.json({

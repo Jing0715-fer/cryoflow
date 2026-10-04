@@ -57,6 +57,11 @@ export interface SelectionReceipt {
   /** the t402b source note's job name (before the engine's " — " copy) */
   source: string | null;
   inputParticles: number | null;
+  /** the input star's absolute path — the run-time-true source the
+   * engine logged (t568: maps back to the producing job via the
+   * deterministic workdir leaf `{type}_{id-tail8}`; the wire can be
+   * rewired after a run, the log cannot) */
+  inputPath: string | null;
   outputParticles: number | null;
   /** the raw mode line value ("manual 3 classes (birth selection)") */
   mode: string | null;
@@ -99,6 +104,26 @@ function ignoredOf(mode: string): number[] {
 const HEADER_RE = /^CryoFlow engine-native (select2d|select) (.+)$/gm;
 
 /**
+ * t568 — the input star's path names the job that PRODUCED it. The engine
+ * writes every job's outputs under a workdir whose leaf is
+ * `{type}_{id-tail8}` (workdirFor), so the parent directory of the logged
+ * input path is a deterministic (type, id-tail) pair the route can look
+ * up. Pure string surgery — the DB lookup and its uniqueness gate live in
+ * the route; garbage in (bare filename, root child, foreign leaf shape)
+ * → null, never a guess.
+ */
+export function jobRefFromInputPath(
+  inputPath: string
+): { type: string; idTail: string } | null {
+  if (!inputPath) return null;
+  const segs = inputPath.split("/");
+  const dir = segs[segs.length - 2] ?? "";
+  const m = /^([a-z0-9]+)_([A-Za-z0-9]{8})$/.exec(dir);
+  if (!m) return null;
+  return { type: m[1], idTail: m[2] };
+}
+
+/**
  * Parse the NEWEST receipt block out of a native select run's log text.
  * Returns null when the log carries no complete receipt (a header line
  * without its result line is a torn write — refuse to half-read it).
@@ -133,8 +158,9 @@ export function parseSelectionReceipt(logText: string): SelectionReceipt | null 
   }
 
   // "input:  /path/run_it003_data.star (10866 particles)"
-  const inputM = /^input:\s+.*\(([\d,]+) particles\)/m.exec(block);
-  const inputParticles = inputM ? receiptNumber(inputM[1]) : null;
+  const inputM = /^input:\s+(\S+) \(([\d,]+) particles\)/m.exec(block);
+  const inputPath = inputM ? inputM[1] : null;
+  const inputParticles = inputM ? receiptNumber(inputM[2]) : null;
 
   // "output: /path/particles_select2d.star (7421 particles)"
   const outputM = /^output:\s+.*\(([\d,]+) particles\)/m.exec(block);
@@ -194,6 +220,7 @@ export function parseSelectionReceipt(logText: string): SelectionReceipt | null 
     ranAt: ranAtMs != null ? head.stamp : null,
     ranAtMs,
     source,
+    inputPath,
     inputParticles,
     outputParticles,
     mode,
