@@ -8165,3 +8165,24 @@ Stage Summary:
 - 「传输层在每一层改写源码」：// 注释被拍平吃掉（t579）、regex 反斜杠被模板字面量吃掉（t581）——IIFE 过境的每一层（模板字面量 → flatten → eval）都有自己的嘴。最安全的 IIFE 是纯赋值：DOM 侧只取字符串，一切解析回 Node
 - 「杀 harness 要清港口」：node 死了 chrome 不死，僵尸占着 CDP 端口，下一个 harness 连上的是它的鬼魂——挂死的 shim 不是 shim 的错。清场三件：pkill 端口、rm profile、再跑
 - 产出：ink ladder 六档 token（:root+.dark 双域共置、教义注释随行）+ 12 声明转正 + t581 witness 43/43 + t581-inklab/t581-inklab-postcss（机制定谳双见证）+ 回归全绿；下窗入口：①build 日 = FRESH gate → prod 全家桶（t580/t571/t578 复核 + t576 27-face 首跑 + t573/t574/t575 活体）；②ink ladder 下一 rung：其余墨家族 token 化（teal 动画逐帧一致性）；③find bar chip 级联微表情（t578 入口②余量）；④judge 风暴活体半场；⑤t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 582 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 05:23 cron, Job 362852)
+Task: t581 入口②兑现——ink 词表补全 TOTAL（hairline/chrome 九处并入同一尺度，--ink-05/12/16/20/22/24/28/40 八档新 token）；途中修 harness 两处化石（cascade-witnessed 旧签名条件、Escape 关闭语义），产品零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 581（本会话上窗）；HEAD 8c1561b、树净；dev regime 五绿（200/26ms、tsc 0 全量、eslint 0、AI 信封、active=EMPIAR jobs 12 roster 6）；available 1267MB < 3.5GB → 非 build 日；派单「Task 13 遗留池」第 N+25 次化石。agent-browser 轻量 QA：canvas 12 卡 13 线、errors 0。
+- [选道] t581 入口②「其余墨家族 token 化」——前景墨词表补全：grid（5/12/16）+ scrollbar（20/22/24/28/40）九处并入同一 ink 尺度。teal/primary/srgb 是异色源家族（--glow-XX/--pulse-XX 自成词表），照实留下一个 rung。
+- [产品——vocabulary TOTAL] 八档新 token（--ink-05/12/16/20/22/24/28/40，:root+.dark 双域共置）+ 九处声明转正：.canvas-grid 16%、.canvas-grid-fine 12%、scrollbar-color 28%、webkit thumb 24%/hover 40%、.nice-scroll 22%/20%、.grid-pattern-header 5%×2。教义注释升级：「the vocabulary went TOTAL」——sheet 内**零** inline 前景 color-mix 存活（剥注释+剥定义行后 grep 为空），one ink scale 成为字面事实。修订一处自算错误：新转正实为 9 处（脑算 11）、总引用 21（非 23）——注释与 witness 计数照实改写。「量过再写」第 N 例。
+- [witness 扩编 86/86] F3 十四档双形验证；F5 期望 21 + 词表 TOTAL 断言；F6 八处 hairline/chrome verbatim + outside @supports；R3 运行时解析（grid 点墨 0.16、scrollbar 墨 0.22）。一课：Chrome 把 `transparent` 关键词在 computed scrollbar-color 里序列化为 rgba(0,0,0,0)——断言要认「无」的两种拼法。
+- [回归与两处 harness 化石] t571 28/28、t578 32/32、单测 113、tsc 0、eslint 0、roster 12→12。t580 三连 26-28/29，验尸两案：①cascade-witnessed 第四条件匹配**旧 inline 签名**（`4%, transparent` + `color-mix`）——t581 token 化后规则文本变 var(--ink-04/09)，此条件永不通过；t581 窗 29/29 只因 settle 主路径成功、fallback 从未执行——「改了产品的输出形态，要 grep 所有断言该形态的检查」。修：接受 token 形态（旧形态保留兼容 prod-era chunk）。②Escape 面要求**元素卸载**才算关闭，而 t580 run-8 自家笔记早就目击「state=closed 仍 in-DOM 700ms」——Radix 已应答关闭、dev 里 exit 动画挂起（t576 dev-regime 伪影家族），卸载是动画的形式、状态才是承诺。修：dialogGone 探针认 data-state=closed；tier-2 合成键补 keyCode/which/code。修后 29/29。
+- [产品健康双探针] Escape 手动取证两次：BODY 聚焦下 CLI Escape 关闭 ✓、悬停 whisper 卡 10s 后 Escape 关闭 ✓ 且 [role=dialog] 零残留——harness flake 是长脸序列状态病，非产品回归。
+- [未做与理由] teal/primary/srgb 异色源 token 化（自成词表，下一 rung，teal 动画逐帧一致性照旧注意）；find bar chip 级联微表情（t578 入口②余量）；judge 风暴活体半场（等世界稳定夜）；build 日全家桶（等箱体 ≥3.5GB）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「词表的完整是它成为词表的时刻」：六档 ladder token 只是影子系统的词表；九处 hairline/chrome 并入后，前景墨只剩一种写法——「检查 sheet 里还有没有 inline 前景 mix」从不可能变成一条断言。词汇表的价值在覆盖率的最后一格
+- 「改输出形态的人 owns 所有读它的人」：t581 把 served 规则从 color-mix 改成 var() token，t580 harness 里匹配旧形态的 cascade-witnessed 条件就悄悄变成了化石——而它 29/29 地活过了一整个窗，因为主路径成功时 fallback 从不执行。「检查的 fallback 路径也要跟着产品演化走」
+- 「状态是承诺，动画是形式」：Radix data-state=closed 就是关闭的应答；dev 里 exit 动画挂起让元素滞留 DOM， demanding unmount 是把动画形式当产品承诺。t580 run-8 的目击笔记早就写了答案——重读自己的旧证据
+- 「transparent 有两种拼法」：computed 值把关键词序列化成 rgba(0,0,0,0)——断言「无」要认无的所有形态。序列化层永远在改写字面
+- 产出：ink 词表 TOTAL（八档新 token + 九处转正 + 教义注释升级）+ t581 witness 扩编 86/86（F6 hairline/chrome + R3 运行时 + TOTAL 断言）+ t580 harness 两处化石修复（cascade-witnessed 双形态、dialogGone 关闭语义）+ 回归全绿（t571 28 + t578 32 + t580 29 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t580/t571/t578/t582 witness 复核 + t576 27-face 首跑 + t573/t574/t575 活体）；②teal/primary/srgb 异色源词表（--glow-XX/--pulse-XX）；③find bar chip 级联微表情；④judge 风暴活体半场；⑤t471 WSL-bridge（照实挂）、t276（门控）
