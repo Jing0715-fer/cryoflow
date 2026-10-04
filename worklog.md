@@ -7921,3 +7921,26 @@ Stage Summary:
 - 「重启是 CSS 动画的暗礁」：display:none→block 重播动画——过滤驱动的显隐必须解除武装；「首现即播、过滤静默」不是品味是正确性；空态是例外（真 mount，重播即语义）；这把 reduced-motion 分层教义（变换骑 motion-safe）与显隐生命周期教义（入场骑首次 mount）拼成了完整的 motion 生命周期观
 - 「教训写了还是会踩，所以测试要做」：CSSOM 的 truthy 空 cssRules 与 eval 注释吞噬都是 worklog 里的化石教训重演——好在这次是 harness 咬 harness，两跑全绿前就被抓出来；write it down 的价值不在记住，在下次踩的时候认得出
 - 产出：palette 级联（组阶梯 + 空态 + settle 解除武装 + 重开复位）+ t572 harness 20/20 ×2 连绿（零 mint 史上最轻活体）+ palette 依赖户回归 67/67 + 单测 64/64；下窗入口：①judge worker 复核/class3d 判词（VLM 3D 面）仍是最重待办；②样式余量：dashboard 卡片入场？find bar 的镜头语言？；③功能余量：Topaz 第四刀、3D 体积截面（等真需求）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 573
+Agent: main (Z.ai Code, window 2026-10-04 18:23 cron)
+Task: judge_3d_classes 兑现——3D 分类判词（the volume judge：VLM 三面论证），挂掉「最重待办」这把锁。开局巡检五绿零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 572（零滞后第 2 次连庄）；HEAD 3bf9b7d、树净；基线五绿（prod 200、tsc 0、eslint 0、active=EMPIAR roster 12）；canvas 12 卡 13 线 console 净。派单「Task 13 遗留池」第 N+16 次化石。
+- [选道——化石方向的再核] 「3D viewer 体积截面」实为化石：t260/t278/t281/t283 已把正交切片/密度探针/直方图/clip 面全建完（本次侦察才看清）。功能车道改判 t566 入口①悬了八窗的 judge worker 复核/class3d 判词——侦察发现地基早已打完：outputs 路由的轴重构渲染器、model star 的三类方言解析、verdict-stamp 的类型无关门（t565 注释原文「a future judge extension (3D classes) rides the same door」）、select_classes 对 class3d 源的原生接受。缺口只剩 judge 本尊。
+- [实现——镜像工程四件] ①mrc.ts：renderClass3dFacesSheet（每类一行 × XY/XZ/YZ 三面，64px 格、黑底、逐面百分位拉伸——类间密度尺度差大，全局窗会把弱类压成黑）；②class3d-volumes.ts：discoverClassVolumes（run_itNNN_classMMM.mrc 方言，最新迭代胜出、类号升序、无标签终稿/旧迭代/stack/star 全排除——无别名文件，node 裸测可引）；③tools.ts：judge_3d_classes schema+case+judge3dClasses（occupancy 复用 classStatsFromWorkdir——class3d 的 data star 同构；三面 rubric prompt：跨面一致性/连通居中/内部组织度/溶剂更空；repair 轮+两阶段 mergeJudgePasses+stampVerdict+tiered nextStep 全套家法镜像）；④路由 note 与 prompt.ts 的 judge 枚举补 3D。
+- [单测 11/11] t573-judge3d-test：合成 24³ MRC fixture（手写 1024 头+float32 体素）钉 discovery（最新迭代/排序/四类诱饵排除/诚实空）与 sheet（真 PNG 几何/16 类封顶/坏头 null/球面双峰 vs 噪斑对比）。途中活捉自家测试的 sharp 坑：灰度 PNG 解码回 raw 是 3 通道 sRGB——1 通道步长采样读成花屏，判词「渲染器坏了」实为断言读错，channels 步进即愈（假阳性再+1 例）。
+- [dance] 腾房律 → FRESH=1 attempt 1 GREEN（104s）→ start-prod + watchdog 复位 200。
+- [活体的三堂课] ①引擎 class3d 车道在本世界走不通：粒子栈在 mock 集群侧，preflight 拒绝 10866 行缺文件（local:true 与裸 POST 双双实测）——判词 harness 学 t519 铸造可判读 feed（假造 workdir=真实判词对象，引擎非被测物）；②chat 回合是多轮续跑协议：单发 POST 停在 needsContinue，tool call 还没发生——harness 要循环 {sessionId, continue:true}；③chat 路由默认复用最近会话——旧历史记着已删探针的 id，agent 照旧开火 Job not found——探针名加时间戳 tag 保唯一。
+- [判词方差与 fixture 现实主义] 32³ fixture（纯阶跃球）首轮四类全 reject——VLM 理由「三面均匀无特征 blob」是**真话**：rubric 的 reject 签名「featureless blob」正是它看到的；第二跑结构升级后 maybe/maybe 与 reject/reject 之间摇摆（32px 面太糊）。64³+强内部对比（domain A/B/C+空腔+螺旋棒，双叶+中丝+裂缝）后 14/14 ×2 连绿：#1 maybe #2 keep/maybe #3 reject #4 reject——判别谱全开且稳定。「测试 fixture 的保真度就是被测物的现实」再+一课。
+- [活体 t573 14/14 ×2 连绿] 世界门卫→铸探针→造 feed→assistant 真 VLM 两阶段判词→stamp 过 t565 门（4 类、枚举、模型名、advice）→rubric sanity band（coherent 不双拒、junk 不双 keep——t519 零分辨即失败律）→DELETE 探针+rm 假造 workdir+原子修剪孤儿 stamp→roster 12→12、console 0。
+- [回归] t573 单测 11/11、t562 套件 64/64、tsc 0（全量）、eslint 0；门家族五窗本轮未重跑（tools/mrc/route/prompt 均为加法，不触 door 家族文件面——如实注记）。
+- [未做与理由] judge worker 复核（自动 judge 的后台化——判词已是 on-demand 工具，worker 化等真需求）；Topaz 第四刀（链上闭环）；palette stagger 的 dashboard 姊妹篇（t572 入口②余量）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「地基早就打完了」：3D 判词悬了八窗被称「最重待办」，实测是四文件镜像工程——t565 的类型无关 stamp 门、outputs 的轴渲染、model star 三方言解析、select_classes 的 class3d 接受，全是前窗埋好的管件。悬而未决的清单值得定期再核：上窗的化石可能已成地基
+- 「VLM 读的是画面不是想象」：四类全 reject 的首跑不是 judge 坏了——阶跃球在 rubric 眼里就该 reject（featureless blob 签名逐字命中）。fixture 的保真度决定判词测试的意义；判别谱（keep/maybe/reject 各有 其位）才是通过标准，不是「判词和我的期望一致」
+- 「会话是活的，测试要按活的写」：多轮续跑协议 + 会话历史复用 + 探针名唯一化——agent 循环的测试不能假设一次 POST 一个回合；「上一轮的记忆」会替本轮开火
+- 产出：judge_3d_classes（三面论证 VLM 判词全链）+ renderClass3dFacesSheet + discoverClassVolumes + t573 单测 11/11 + 活体 14/14 ×2 连绿（真 VLM 两阶段、真 stamp、零污染归还）；下窗入口：①judge worker 化（后台自动判词）或 Topaz 第四刀；②样式余量：dashboard 入场（t572 入口②）；③verify 3D 判词在真 class3d 输出上的表现（本世界 mock 引擎 class3d 需先解栈供给）；④t471 WSL-bridge（照实挂）、t276（门控）
