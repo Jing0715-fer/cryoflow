@@ -7546,3 +7546,27 @@ Stage Summary:
 - 「导出件要打开看」：2118×638 的数字对了才算数，打开目检四面板布局/六边形/直方图才敢说 PROVEN——数字可以算错（首验 2078 假败），像素不会撒谎
 - 产出：oblique↔3D 相机跳转（⌖）+ tetraptych export + 浏览器活体 + 真下载件目检；dance attempt 1 GREEN
 - [下窗入口] ①Topaz wrapper 产品化（topaztrain job type 已有产品面，wrapper 补参数面/曲线面）；②3D→2D 反向：相机位姿→θ/φ 采纳（⌖ 的回程票）；③gamble inclusive 象限；④t471 WSL-bridge（照实挂）
+
+---
+Task ID: 557
+Agent: main (Z.ai Code, window 2026-10-04 08:23 cron)
+Task: t556 入口②兑现——oblique 2D↔3D 循环的回程票（adopt：3D 相机位姿 → θ/φ）端到端落地；途中活捉并修掉潜伏两代窗的 Mol* 相机侧保留 bug（focus() 的 matchDirection 翻面）。
+
+Work Log:
+- [开局] HEAD c75522e 对齐、树净；基线五绿（prod 200/3ms、tsc 0、eslint 0、console/errors 0、AI 探针 ALIVE）。cron 派单第 N+13 次化石；worklog 尾条 = Task 556（交接摘要说的 555 早已被两窗跑完——交接滞后于现实再兑一次）。
+- [adopt — 回程票落地] 新事件对 ORTHO_CAMERA_REQUEST/STATE（σ 家族同款同步拉取形）：block 的 ⇸ adopt 按钮（ScanEye 紫，⌖ Focus 旁）发 REQUEST → embed 读 `cam.state` 答 unit dir（= target − position，正是 applyViewPreset 驱动律的逆）→ block `cameraDirToAngles`（obliqueFrame 法向构造的严格逆：θ=acos(nz)∈[0,180]、φ=atan2(ny,nx)∈[0,360)、整度、极点 φ 塌缩为 0、退化 null）→ setOn(true) + θ/φ 落滑杆 + 140ms debounce 走既有门取 PNG + 紫 flash（FOLLOW_FLASH_MS 同款「3D 刚驱动了我」语言，tile 紫环 + 按钮高亮）。roll 不采纳（u/v 是 block 的正典系——⌖ 仍是 canonicalize roll 的那半环）；offset 不采纳（preset 家族 target 恒在盒心，offset 0 已切中）。dir→θ/φ 数学放 panel 侧（平面语言的家），embed 只答原始方向。
+- [活捉 — focus() 的侧保留 bug] 首轮浏览器验证 adopt 读出对跖点（45/30 → 135/210）：探针实锤 ⌖ 之后的相机 target−position = **−n(45,30)（机器精度）**——不是默认视角的巧合，是 `Camera.focus()` 把 dir AND up 都喂进 `Vec3.matchDirection(requested, CURRENT)`：dot>0 ? copy : negate——**符号永远迁就相机当前所在侧**。t283/t556 注释「verified against molstar source (position = target − dir·d)」是对 getFocus 的误读：matchDirection(out, a=dir, b=当前 delta) 翻的是请求方向不是当前视线。后果：从背面按「Front」悄悄落在 BACK、⌖ 可能从镜像侧面对截面（tile 手性翻转）——潜伏了整个 preset 家族（键盘 1-6、工具行按钮、⌖）两代窗。
+- [修复] applyViewPreset 换 `getInvariantFocus(target, radius, up, dir)`（`Vec3.copy(delta, dir)` 逐字不翻）+ 同款 `setState(snap, 320)` 缓动——preset 与 ⌖ 从此落在它们点名的侧。修复后实弹：⌖ 探针 = [0.612372, 0.353553, 0.707107] = +n(45,30) 六位小数精确。
+- [t557 单测 19/19] scripts/t557-camera-adopt-test.mjs（t555 镜像形）：grid 往返 264 pose 零漂移、双极点 + 近极噪声 φ 塌缩、6 组真实轨道 pos/target→dir→adopt→frame 法向 |dot|>0.9999（1° 整数化的预算 cos(0.707°)≈0.99992——首版 0.99999 阈值是测试自己的错）、对跖面等价（offset 0 同一几何平面）、退化 null ×4、500 seeded 随机方向域、adopt∘frame=id 定律。t555 oblique 回归 12/12 复跑全绿。
+- [dance] 两磨均 FRESH=1 前台轮次 **attempt 1 GREEN**（provenance c75522e），anti-tear 自动重启 standalone。tsc 0 · eslint 0。
+- [浏览器活体] ⌖ → adopt 恒等闭环（45/30 → 45/30）；键盘 preset 3（Left dir=[1,0,0]）→ 探针 [1,0,0] → adopt 读 θ90/φ0、n(1.00,0.00,0.00)、64×64 vox tile 真图；adopt→⌖ 定点律（[1,0,0] → [1,0,6.66e-17]，浮点 ε）；截图 .qa-logs/shots/t557-adopt-loop.png 目检（读数行 reset + ⌖ + adopt 双紫钮在场）；console 0 error。
+- [弯路记] ①修复前首轮 ⌖ 点击「✓ Done 但相机不动」——oblique PNG 载入重渲行、按钮 ref 失联（agent-browser 对 detached 节点照样报 Done），t556「先验元素活性」教训再吃一遍，重 snapshot 后即好；②family 抽查 t402b 用 node 跑吃 ERR_INVALID_ARG_TYPE——`import.meta.dir` 是 Bun-ism，头注写了 bun 跑（先读头注）；③t402b seed 会自擦自建并把 active 拉走——借还律收尾 switch 回 β-Gal demo。
+- [未做与理由] Topaz wrapper 产品化（t556 入口①，下窗主菜候选——本窗让位 adopt 的 bug 现场解剖）；gamble inclusive 象限（等 VLM 心情）；3D→2D 的 roll 采纳与 offset 采纳（设计上有意不采，注释已钉理由）；t471 WSL-bridge（照实挂）；t276（门控）。
+
+Stage Summary:
+- 「点名的方向就该是落地的方向」：Camera.focus() 的 matchDirection 是侧保留不是方向设定——两代窗的 preset/⌖ 注释都在自欺；getInvariantFocus 才是「Front 就在正面」的那个函数。发现它的不是 code review，是 adopt 的恒等闭环测试：产品新功能是最好的老 bug 探测器
+- 「回程票的数学是严格的逆」：frame 的法向构造（θ,φ→n）与 adopt（n→θ,φ）互为反函数——grid 上 264 pose 零漂移、adopt∘frame=id 是定律不是巧合；对跖点是同一几何平面（offset 0），侧不重要，读数才重要
+- 「roll 和 offset 有意不采」：u/v 是 block 的正典系（读数与渲染可复现），offset 的家在滑杆（preset 家族 target 恒在盒心）——联动不是全盘照搬，是各说各的语言
+- 「先读头注再选运行时」：t402b 的 bun-ism、agent-browser 的 detached ref、seed 的借还副作用——工具的边界写在它们自己的头注/行为里
+- 产出：adopt 回程票端到端（事件对 + 逆数学 + UI 块 + flash）+ Mol* 相机侧保留 bug 修复（getInvariantFocus）+ t557 单测 19/19 + 三向闭环活体证据（恒等/精确/定点）
+- [下窗入口] ①Topaz wrapper 产品化（topaztrain job type 已有产品面，wrapper 补参数面/曲线面——连续两窗候选未动，下窗优先）；②oblique 终章钩子：⌖/adopt 的读数入 tetraptych footer（导出件记录相机与平面的对话）、roll 采纳（up→tile 手性对齐）若真有需求再议；③gamble inclusive 象限；④t471 WSL-bridge（照实挂）
