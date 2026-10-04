@@ -8,7 +8,7 @@ import { readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
-import { isMrcPath, readMrcHeader, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
+import { isMrcPath, readMrcHeader, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcObliquePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
 import { displayPolarityFor } from "@/lib/render-polarity";
 
 export const dynamic = "force-dynamic";
@@ -329,7 +329,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // Resolved ONCE per request from the job's own params or its import
       // ancestor; an explicit lo/hi window still bypasses all of this.
       const polarity = await displayPolarityFor(job);
-      if (axis !== "z") {
+      // t555 — plane=oblique is the plane family the box axes don't
+      // cover: theta (polar, deg), phi (azimuth, deg) name the normal,
+      // offset ∈ −1…1 rides it (fraction of the box's support). Same
+      // window/polarity pipeline, same volumes-only law as axis planes.
+      const planeParam = url.searchParams.get("plane");
+      if (planeParam === "oblique") {
+        if (isStack) {
+          return NextResponse.json(
+            { error: "Oblique planes are for 3D volumes — stacks browse images with slice/montage" },
+            { status: 400 }
+          );
+        }
+        const num = (raw: string | null, lo: number, hi: number, dflt: number) => {
+          const v = raw !== null ? Number.parseFloat(raw) : NaN;
+          return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt;
+        };
+        const theta = num(url.searchParams.get("theta"), 0, 180, 0);
+        const phi = num(url.searchParams.get("phi"), 0, 360, 0);
+        const offset = num(url.searchParams.get("offset"), -1, 1, 0);
+        png = await renderMrcObliquePng(abs, theta, phi, offset, undefined, win, polarity);
+      } else if (axis !== "z") {
         if (isStack) {
           return NextResponse.json(
             { error: "Orthogonal planes are for 3D volumes — stacks browse images with slice/montage" },

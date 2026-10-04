@@ -51,7 +51,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanLine, TriangleAlert } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanLine, Slice, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
@@ -1168,6 +1168,210 @@ export function MapOrthoPanel({
           />
         </div>
       )}
+      {/* t555 — the OBLIQUE section: the plane family the box axes don't
+          cover. Volumes only, its own on/off (a render nobody asked for
+          is noise), sliders scrub θ/φ/offset against the SAME file route
+          door the tiles use. */}
+      {open && !isStack && dims && (
+        <ObliqueSectionBlock jobId={jobId} path={path} dims={dims} />
+      )}
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* t555 — the OBLIQUE section: the plane nobody aligned an axis to     */
+/* ------------------------------------------------------------------ */
+
+const OBLIQUE_DEG = Math.PI / 180;
+
+/** mirror of the server's plane-frame math (mrc.ts readMrcObliqueSlice):
+ *  the readouts must speak the numbers the render obeys — computed here
+ *  so scrubbing needs no round trip. Keep the two in lockstep. */
+function obliqueFrame(
+  dims: [number, number, number],
+  thetaDeg: number,
+  phiDeg: number,
+  offsetFrac: number
+) {
+  const [nx, ny, nz] = dims;
+  const t = thetaDeg * OBLIQUE_DEG;
+  const p = phiDeg * OBLIQUE_DEG;
+  const normal: [number, number, number] = [
+    Math.sin(t) * Math.cos(p),
+    Math.sin(t) * Math.sin(p),
+    Math.cos(t),
+  ];
+  let u: [number, number, number];
+  if (Math.abs(normal[2]) > 0.999) {
+    u = [1, 0, 0];
+  } else {
+    const len = Math.hypot(normal[0], normal[1]);
+    u = [normal[1] / len, -normal[0] / len, 0];
+  }
+  const v: [number, number, number] = [
+    normal[1] * u[2] - normal[2] * u[1],
+    normal[2] * u[0] - normal[0] * u[2],
+    normal[0] * u[1] - normal[1] * u[0],
+  ];
+  const c: [number, number, number] = [(nx - 1) / 2, (ny - 1) / 2, (nz - 1) / 2];
+  let support = 0;
+  let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+    const d: [number, number, number] = [
+      (i ? nx - 1 : 0) - c[0],
+      (j ? ny - 1 : 0) - c[1],
+      (k ? nz - 1 : 0) - c[2],
+    ];
+    support = Math.max(support, Math.abs(d[0] * normal[0] + d[1] * normal[1] + d[2] * normal[2]));
+    const pu = d[0] * u[0] + d[1] * u[1] + d[2] * u[2];
+    const pv = d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
+    uMin = Math.min(uMin, pu); uMax = Math.max(uMax, pu);
+    vMin = Math.min(vMin, pv); vMax = Math.max(vMax, pv);
+  }
+  return {
+    normal,
+    support,
+    offsetVox: offsetFrac * support,
+    extent: [Math.round(uMax - uMin) + 1, Math.round(vMax - vMin) + 1] as [number, number],
+  };
+}
+
+function ObliqueSectionBlock({
+  jobId,
+  path,
+  dims,
+}: {
+  jobId: string;
+  path: string;
+  dims: [number, number, number];
+}) {
+  const [on, setOn] = useState(false);
+  const [theta, setTheta] = useState(45);
+  const [phi, setPhi] = useState(30);
+  // percent of the box's support along the normal, −100…100
+  const [offset, setOffset] = useState(0);
+  // the PNG refetch rides one timer behind the slider — a drag emits a
+  // storm of values, the render only obeys the one that settles
+  const [live, setLive] = useState({ theta: 45, phi: 30, offset: 0 });
+  useEffect(() => {
+    if (!on) return;
+    const t = setTimeout(() => setLive({ theta, phi, offset }), 140);
+    return () => clearTimeout(t);
+  }, [on, theta, phi, offset]);
+
+  const frame = obliqueFrame(dims, theta, phi, offset / 100);
+  const src = on
+    ? `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=png&plane=oblique&theta=${live.theta.toFixed(1)}&phi=${live.phi.toFixed(1)}&offset=${(live.offset / 100).toFixed(3)}`
+    : null;
+
+  return (
+    <div className="border-t border-border/60 px-3 pb-3 pt-2" data-canvas-ui="ortho-oblique" data-oblique-state={on ? "on" : "off"}>
+      <div className="flex w-full items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOn((o) => !o)}
+          aria-expanded={on}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
+          <Slice className="h-3.5 w-3.5 shrink-0 text-violet-600" aria-hidden="true" />
+          <span className="text-xs font-semibold text-foreground/85">Oblique section</span>
+          <span className="truncate text-[10px] text-muted-foreground">
+            θ polar · φ azimuth — the cut the box axes never cover
+          </span>
+          <ChevronDown
+            className={cn(
+              "ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+              on && "rotate-180"
+            )}
+            aria-hidden="true"
+          />
+        </button>
+      </div>
+      {on && (
+        <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,320px)_1fr]">
+          <div className="overflow-hidden rounded border border-border/60 bg-black/80">
+            {src ? (
+              <MrcImage
+                src={src}
+                alt={`Oblique section at θ ${theta}°, φ ${phi}°, offset ${offset}%`}
+                className="block w-full"
+              />
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-2.5">
+            <div>
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground" htmlFor="oblique-theta">
+                  θ polar
+                </label>
+                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{theta}°</span>
+              </div>
+              <Slider
+                id="oblique-theta"
+                min={0}
+                max={180}
+                step={5}
+                value={[theta]}
+                onValueChange={(v) => setTheta(v[0] ?? 0)}
+                aria-label="Polar angle of the plane normal"
+              />
+            </div>
+            <div>
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground" htmlFor="oblique-phi">
+                  φ azimuth
+                </label>
+                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{phi}°</span>
+              </div>
+              <Slider
+                id="oblique-phi"
+                min={0}
+                max={360}
+                step={5}
+                value={[phi]}
+                onValueChange={(v) => setPhi(v[0] ?? 0)}
+                aria-label="Azimuth angle of the plane normal"
+              />
+            </div>
+            <div>
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground" htmlFor="oblique-offset">
+                  offset
+                </label>
+                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {offset >= 0 ? "+" : ""}{offset}% · {frame.offsetVox >= 0 ? "+" : ""}{frame.offsetVox.toFixed(1)} vox
+                </span>
+              </div>
+              <Slider
+                id="oblique-offset"
+                min={-100}
+                max={100}
+                step={2}
+                value={[offset]}
+                onValueChange={(v) => setOffset(v[0] ?? 0)}
+                aria-label="Signed offset of the plane along its normal"
+              />
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+              <span title="Unit plane normal in grid coordinates">
+                n ({frame.normal.map((c) => c.toFixed(2)).join(", ")})
+              </span>
+              <span title="In-plane extent in voxels — the true cut size">
+                {frame.extent[0]}×{frame.extent[1]} vox
+              </span>
+              <button
+                type="button"
+                onClick={() => { setTheta(0); setPhi(0); setOffset(0); }}
+                className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Back to the axis-aligned center plane (θ 0°, φ 0°, centered)"
+              >
+                reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

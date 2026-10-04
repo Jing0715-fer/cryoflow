@@ -1015,6 +1015,262 @@ export async function renderMrcOrthoPng(
 }
 
 /* ------------------------------------------------------------------ */
+/* Oblique sections (t555 — the plane picks its own orientation)       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The orthogonal browser answers "what's inside along X/Y/Z"; a real
+ * reconstruction also wants the plane NOBODY aligned an axis to — the
+ * helical axis, the preferred-orientation plane, the cut that separates
+ * two lobes. An oblique section is an arbitrary plane through the box,
+ * named by a normal (θ polar from +Z, φ azimuth) and a signed offset
+ * along that normal. The server samples it by trilinear interpolation
+ * and renders it through the SAME window/polarity/PNG pipeline as every
+ * other thumbnail — one display truth, one more plane family.
+ *
+ * The whole volume is decoded once and cached per (size, mtime) — the
+ * same invalidation law statcache obeys (RELION writes in discrete
+ * steps), with a tiny 2-entry LRU because a decoded volume is tens of
+ * MB, not KB.
+ */
+
+/** hard cap on the volume a single oblique session may keep decoded —
+ *  256³ float32 (the largest map this product realistically serves) is
+ *  64 MB; the cap is what turns a "the box is 1024³" request into a
+ *  clean refusal instead of an OOM */
+const MAX_VOLUME_DATA_BYTES = 256 * 1024 * 1024;
+
+const VOLUME_CACHE_MAX = 2;
+
+const volumeCache = new Map<string, { key: string; vol: Float32Array }>();
+
+/**
+ * Decode the FULL voxel volume (z-major sections, row-major inside) —
+ * cached across calls while the file's (size, mtime) stands. Returns
+ * null for headers that lie, oversized data blocks or short reads.
+ */
+function readMrcVolumeCached(file: string, h: MrcHeader): Float32Array | null {
+  const count = h.nx * h.ny * h.nz;
+  const dataBytes = count * h.bytesPerVoxel;
+  if (count <= 0 || dataBytes > MAX_VOLUME_DATA_BYTES) return null;
+  let st: { size: number; mtimeMs: number };
+  try {
+    const s = statSync(file);
+    st = { size: s.size, mtimeMs: s.mtimeMs };
+  } catch {
+    return null;
+  }
+  const slot = `${file}\u0000oblique-volume`;
+  const key = `${st.size}:${st.mtimeMs}`;
+  const hit = volumeCache.get(slot);
+  if (hit && hit.key === key) {
+    volumeCache.delete(slot);
+    volumeCache.set(slot, hit); // LRU refresh
+    return hit.vol;
+  }
+  const offset = 1024 + h.nsymbt;
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return null;
+  }
+  try {
+    const raw = Buffer.alloc(dataBytes);
+    let got = 0;
+    while (got < dataBytes) {
+      const n = readSync(fd, raw, got, dataBytes - got, offset + got);
+      if (n <= 0) return null;
+      got += n;
+    }
+    const vol = decodeRawVoxels(raw, h.mode, count);
+    if (volumeCache.size >= VOLUME_CACHE_MAX && !volumeCache.has(slot)) {
+      const oldest = volumeCache.keys().next().value;
+      if (oldest !== undefined) volumeCache.delete(oldest);
+    }
+    volumeCache.set(slot, { key, vol });
+    return vol;
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+export interface MrcObliqueSlice {
+  values: Float32Array;
+  width: number;
+  height: number;
+  /** unit plane normal in grid coords (x, y, z) */
+  normal: [number, number, number];
+  /** unit in-plane axes: image x runs along u, image y along v */
+  uAxis: [number, number, number];
+  vAxis: [number, number, number];
+  /** the plane's anchor point (center + offset·normal), voxel coords */
+  anchor: [number, number, number];
+  /** the applied signed offset in voxels (−support … +support) */
+  offsetVoxels: number;
+  /** in-plane extent in voxels (the pre-downsample grid) */
+  extentVoxels: [number, number];
+}
+
+/** upper bound on the sampled in-plane grid per axis — a diagonal cut of
+ *  a huge box is decimated by step (readouts report the TRUE extent) */
+const OBLIQUE_MAX_SAMPLES = 768;
+
+const DEG = Math.PI / 180;
+
+/**
+ * Sample one oblique plane through the volume: trilinear interpolation,
+ * edge-clamped; samples outside the box land as non-finite and are then
+ * filled with the plane's finite mean — mid-gray after the stretch, so
+ * "outside the volume" never reads as "zero density" (the percentile
+ * window also stays finite; NaN would poison its sort).
+ */
+export function readMrcObliqueSlice(
+  file: string,
+  thetaDeg: number,
+  phiDeg: number,
+  offsetFrac: number,
+  header?: MrcHeader
+): MrcObliqueSlice | null {
+  const h = header ?? readMrcHeader(file);
+  if (!h || h.nz < 1) return null;
+  const vol = readMrcVolumeCached(file, h);
+  if (!vol) return null;
+  const { nx, ny, nz } = h;
+
+  const t = Number.isFinite(thetaDeg) ? Math.min(180, Math.max(0, thetaDeg)) * DEG : 0;
+  const p = Number.isFinite(phiDeg) ? Math.min(360, Math.max(0, phiDeg)) * DEG : 0;
+  const normal: [number, number, number] = [
+    Math.sin(t) * Math.cos(p),
+    Math.sin(t) * Math.sin(p),
+    Math.cos(t),
+  ];
+  // in-plane horizontal: n × ẑ (degenerate at the poles → the x axis)
+  let u: [number, number, number];
+  if (Math.abs(normal[2]) > 0.999) {
+    u = [1, 0, 0];
+  } else {
+    const len = Math.hypot(normal[0], normal[1]);
+    u = [normal[1] / len, -normal[0] / len, 0];
+  }
+  // v = n × u — unit, in-plane, perpendicular to both
+  const v: [number, number, number] = [
+    normal[1] * u[2] - normal[2] * u[1],
+    normal[2] * u[0] - normal[0] * u[2],
+    normal[0] * u[1] - normal[1] * u[0],
+  ];
+
+  const c: [number, number, number] = [(nx - 1) / 2, (ny - 1) / 2, (nz - 1) / 2];
+  // the box's support along each axis of the plane frame (voxel units)
+  const corner = (i: number, j: number, k: number): [number, number, number] => [
+    i ? nx - 1 : 0,
+    j ? ny - 1 : 0,
+    k ? nz - 1 : 0,
+  ];
+  let supportN = 0;
+  let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+    const co = corner(i, j, k);
+    const d: [number, number, number] = [co[0] - c[0], co[1] - c[1], co[2] - c[2]];
+    supportN = Math.max(supportN, Math.abs(d[0] * normal[0] + d[1] * normal[1] + d[2] * normal[2]));
+    const pu = d[0] * u[0] + d[1] * u[1] + d[2] * u[2];
+    const pv = d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
+    uMin = Math.min(uMin, pu); uMax = Math.max(uMax, pu);
+    vMin = Math.min(vMin, pv); vMax = Math.max(vMax, pv);
+  }
+  const frac = Number.isFinite(offsetFrac) ? Math.min(1, Math.max(-1, offsetFrac)) : 0;
+  const offsetVoxels = frac * supportN;
+  const anchor: [number, number, number] = [
+    c[0] + offsetVoxels * normal[0],
+    c[1] + offsetVoxels * normal[1],
+    c[2] + offsetVoxels * normal[2],
+  ];
+
+  // sampling step keeps the grid inside the cap (true extent reported)
+  const stepU = Math.max(1, Math.ceil((uMax - uMin) / OBLIQUE_MAX_SAMPLES));
+  const stepV = Math.max(1, Math.ceil((vMax - vMin) / OBLIQUE_MAX_SAMPLES));
+  const width = Math.max(1, Math.floor((uMax - uMin) / stepU) + 1);
+  const height = Math.max(1, Math.floor((vMax - vMin) / stepV) + 1);
+  const values = new Float32Array(width * height);
+
+  const sampleAt = (px: number, py: number, pz: number): number => {
+    const x0 = Math.floor(px), y0 = Math.floor(py), z0 = Math.floor(pz);
+    const fx = px - x0, fy = py - y0, fz = pz - z0;
+    let acc = 0, wsum = 0;
+    for (let dz = 0; dz <= 1; dz++) {
+      const z = z0 + dz;
+      if (z < 0 || z >= nz) continue;
+      const wz = dz ? fz : 1 - fz;
+      if (wz === 0) continue;
+      for (let dy = 0; dy <= 1; dy++) {
+        const y = y0 + dy;
+        if (y < 0 || y >= ny) continue;
+        const wy = dy ? fy : 1 - fy;
+        if (wy === 0) continue;
+        for (let dx = 0; dx <= 1; dx++) {
+          const x = x0 + dx;
+          if (x < 0 || x >= nx) continue;
+          const wx = dx ? fx : 1 - fx;
+          if (wx === 0) continue;
+          acc += vol[(z * ny + y) * nx + x] * wx * wy * wz;
+          wsum += wx * wy * wz;
+        }
+      }
+    }
+    return wsum > 0 ? acc / wsum : NaN;
+  };
+
+  for (let j = 0; j < height; j++) {
+    const alongV = vMin + j * stepV;
+    for (let i = 0; i < width; i++) {
+      const alongU = uMin + i * stepU;
+      values[j * width + i] = sampleAt(
+        anchor[0] + alongU * u[0] + alongV * v[0],
+        anchor[1] + alongU * u[1] + alongV * v[1],
+        anchor[2] + alongU * u[2] + alongV * v[2]
+      );
+    }
+  }
+  // non-finite (outside the box) ← the plane's finite mean: mid-tone in
+  // the render, and the percentile window keeps its sort finite
+  let sum = 0, n = 0;
+  for (let i = 0; i < values.length; i++) {
+    if (Number.isFinite(values[i])) { sum += values[i]; n++; }
+  }
+  if (n > 0 && n < values.length) {
+    const mean = sum / n;
+    for (let i = 0; i < values.length; i++) {
+      if (!Number.isFinite(values[i])) values[i] = mean;
+    }
+  }
+
+  return {
+    values, width, height, normal, uAxis: u, vAxis: v,
+    anchor, offsetVoxels,
+    extentVoxels: [Math.round(uMax - uMin) + 1, Math.round(vMax - vMin) + 1],
+  };
+}
+
+/** Render an oblique plane through the SAME gray pipeline as the rest of
+ *  the display family (downsample → stretch → PNG). */
+export async function renderMrcObliquePng(
+  file: string,
+  thetaDeg: number,
+  phiDeg: number,
+  offsetFrac: number,
+  header?: MrcHeader,
+  window?: MrcWindow,
+  polarity?: MrcPolarity
+): Promise<Buffer | null> {
+  const slice = readMrcObliqueSlice(file, thetaDeg, phiDeg, offsetFrac, header);
+  if (!slice) return null;
+  const small = downsample(slice.values, slice.width, slice.height, MAX_W);
+  return grayToPng(stretchToGray(small.values, window, polarity), small.width, small.height);
+}
+
+/* ------------------------------------------------------------------ */
 /* Sub-volume export (t254 — the clip box learns to write .mrc)         */
 /* ------------------------------------------------------------------ */
 
