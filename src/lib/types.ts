@@ -35,6 +35,10 @@ export interface JobDTO {
   engine?: "relion";
   /** True when a real-run log file exists on disk (computed, not stored). */
   hasLog?: boolean;
+  /** t574 — the job carries an AI verdict stamp (computed per sweep from
+   *  the stamps file). The card's badge and the Results tab's stamp card
+   *  read it; absent = "not a judged classification". */
+  hasVerdict?: boolean;
   /** Present while the job's latest run executes on a REMOTE SSH cluster
    *  (connection, module, cluster workdir, phase …) — see lib/remote/types. */
   runRemote?: import("./remote/types").RemoteRunInfo | null;

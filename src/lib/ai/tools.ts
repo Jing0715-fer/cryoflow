@@ -4298,7 +4298,7 @@ async function getCleanupHistory(ctx: AgentCtx, args: Record<string, unknown>): 
 
 /* ---- judge_2d_classes (the VLM tool) ---------------------------------- */
 
-async function judge2dClasses(
+export async function judge2dClasses(
   ctx: AgentCtx,
   jobId: string,
   question?: string
@@ -4606,7 +4606,7 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
  * was built type-agnostic from day one), select_classes accepts class3d
  * sources natively, and the two-pass merge keeps the honest-maybe law.
  */
-async function judge3dClasses(
+export async function judge3dClasses(
   ctx: AgentCtx,
   jobId: string,
   question?: string

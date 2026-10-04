@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
 import type {
@@ -62,6 +63,7 @@ export function AiSettingsDialog() {
   const [baseUrl, setBaseUrl] = React.useState("");
   const [model, setModel] = React.useState("");
   const [vlmModel, setVlmModel] = React.useState("");
+  const [autoJudge, setAutoJudge] = React.useState(true);
   const [models, setModels] = React.useState<string[]>([]);
   const [modelSource, setModelSource] = React.useState<"api" | "builtin" | null>(null);
   const [fetching, setFetching] = React.useState(false);
@@ -89,6 +91,7 @@ export function AiSettingsDialog() {
         const activeId = data.settings.activeProvider ?? data.providers[0]?.id ?? "";
         setProviderId(activeId);
         setVlmModel(data.settings.vlmModel ?? "");
+        setAutoJudge(data.settings.autoJudge !== false);
       } catch {
         if (!cancelled) toast.error("AI 设置加载失败");
       }
@@ -220,6 +223,7 @@ export function AiSettingsDialog() {
           ...(provider?.custom && baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
           ...(provider && !provider.custom ? { baseUrl: baseUrl.trim() } : {}),
           ...(vlmModel.trim() ? { vlmModel: vlmModel.trim() } : {}),
+          autoJudge,
         }),
       });
       const data = (await res.json()) as { settings?: AiSettingsDto; error?: string };
@@ -612,6 +616,30 @@ export function AiSettingsDialog() {
                 用于 AI 分析 2D class 平均图 — 建议选支持视觉的模型
                 {provider?.visionDefault ? `（推荐 ${provider.visionDefault}）` : ""}。
               </p>
+            </div>
+          </div>
+
+          {/* t574 — the judge worker's product face: finished classifications
+              get their VLM verdict in the background (the stamp + card
+              badge arrive on their own). Off keeps judging strictly
+              on-demand (ask the assistant). The toggle rides the save —
+              the worker reads the same settings file each tick. */}
+          <div className="rounded-lg border bg-muted/30 px-3.5 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="ai-auto-judge" className="text-xs font-semibold">
+                  分类完成后自动判词
+                </Label>
+                <p className="text-[10px] leading-snug text-muted-foreground/80">
+                  2D/3D 分类跑完由 AI 自动检查并盖章（Results 页可见，卡片带 ✦ 标记）。关闭后仅在主动询问时判词。
+                </p>
+              </div>
+              <Switch
+                id="ai-auto-judge"
+                checked={autoJudge}
+                onCheckedChange={setAutoJudge}
+                aria-label="分类完成后自动判词"
+              />
             </div>
           </div>
         </div>

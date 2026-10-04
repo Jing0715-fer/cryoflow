@@ -8,6 +8,7 @@ import { autoStartPendingDownstream } from "@/lib/relion/dispatch";
 import { reconcileRemoteJobs, remoteInfoFor } from "@/lib/remote/remote-run";
 import { ensureGlobalReconciler } from "@/lib/relion/global-reconcile";
 import { remainingForRun } from "@/lib/remote/remote-remaining";
+import { listStampIds } from "@/lib/ai/verdict-stamps";
 import type { JobDTO, EdgeDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -209,6 +210,18 @@ export async function GET(request: NextRequest) {
       return dto;
     });
     projectLinks(jobsOut, workspaceNames);
+    // t574 — the judge worker's face on the canvas: one wholesale stamps
+    // read per sweep (listStampIds — the same cost class as readRuns)
+    // and every classification that carries an opinion wears hasVerdict.
+    // The card's badge, the version token and the stamp file move
+    // together: a fresh auto-verdict lands on the next sweep beat (1.2s
+    // live), no extra request anywhere.
+    const stampIds = listStampIds();
+    if (stampIds.size > 0) {
+      for (const dto of jobsOut) {
+        if (stampIds.has(dto.id)) dto.hasVerdict = true;
+      }
+    }
     // t393 — version token: hash the exact body (see jobsVersionOf above).
     // The stringify is paid once and REUSED as the response body — the
     // unchanged lane skips NextResponse.json's own re-serialization, and

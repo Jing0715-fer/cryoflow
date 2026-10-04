@@ -32,6 +32,7 @@ export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   void warmBoot();
   void mountReaper();
+  void mountJudgeWorker();
 }
 
 /**
@@ -49,6 +50,22 @@ async function mountReaper(): Promise<void> {
     m.ensureGlobalReconciler();
   } catch (error) {
     console.error("[reaper] boot mount failed (the jobs GET route remains the fallback):", error);
+  }
+}
+
+/**
+ * t574 — the judge worker mounts at boot, two seconds behind the reaper
+ * (the same dynamic-import law: the judge graph drags tools.ts + the VLM
+ * client + prisma, none of which may delay the listener). The status
+ * route (GET /api/ai/judge-worker) is the defensive second mount.
+ */
+async function mountJudgeWorker(): Promise<void> {
+  await sleep(10_000);
+  try {
+    const m = await import("@/lib/ai/judge-worker");
+    m.ensureJudgeWorker();
+  } catch (error) {
+    console.error("[judge-worker] boot mount failed (the status route remains the fallback):", error);
   }
 }
 

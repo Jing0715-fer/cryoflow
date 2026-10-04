@@ -93,6 +93,8 @@ export interface AiSettingsDto {
   providers: Record<string, AiProviderConfigDto>;
   /** Model used by the VLM judge (null = the active provider's main model). */
   vlmModel: string | null;
+  /** t574 — auto-judge finished classifications (the judge worker's toggle). */
+  autoJudge: boolean;
   /**
    * t472 — named repairs the loader made to a hand-edited settings file
    * (dangling activeProvider, wrong-typed fields, unknown version…).

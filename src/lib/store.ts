@@ -1201,6 +1201,12 @@ export function jobEquals(a: JobDTO, b: JobDTO): boolean {
     a.note === b.note && // Task 164: judged-ness flows from this field — the header count, the lens tiers and the dashboard chip all read it; a poll that swallowed a note change would freeze all three (updatedAt happens to bump on every PATCH today, but the equality predicate must not DEPEND on that courtesy)
     a.engine === b.engine &&
     a.hasLog === b.hasLog &&
+    // t574 — the verdict badge is COMPUTED per sweep from the stamps file
+    // (like hasLog from disk, like remoteRemaining): a worker stamp lands
+    // WITHOUT touching the row (updatedAt never moves), so the equality
+    // predicate must compare it explicitly or the reference-stability
+    // merge swallows the badge's first appearance forever.
+    (a.hasVerdict ?? false) === (b.hasVerdict ?? false) &&
     (a.workspaceId ?? null) === (b.workspaceId ?? null) &&
     (a.linkedJobId ?? null) === (b.linkedJobId ?? null) &&
     (a.linkedName ?? null) === (b.linkedName ?? null) &&

@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Server,
   SlidersHorizontal,
+  Sparkles,
   SquarePen,
   StickyNote,
   Trash2,
@@ -2242,6 +2243,24 @@ export const JobCard = React.memo(function JobCard({
                 label + link chip, nothing else. */}
             <div className="flex items-center gap-1.5">
               <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
+              {/* t574 — the auto-judge's face: a classification that carries
+                  an AI verdict wears the stamp glyph beside its status, so
+                  the worker's work is visible from the canvas without
+                  opening anything. Icon-only — the t444 staleness glyph's
+                  pattern (the t409 face discipline: the alarm is an icon,
+                  the sentence lives in aria + title); the violet is the
+                  verdict stamp card's family color (t570's door dialect). */}
+              {job.hasVerdict && job.status === "completed" ? (
+                <span
+                  data-canvas-ui="job-verdict-badge"
+                  role="img"
+                  aria-label="AI verdict ready"
+                  title="AI verdict ready — see the Results tab"
+                  className="flex size-3.5 shrink-0 items-center justify-center text-violet-600 dark:text-violet-400"
+                >
+                  <Sparkles className="size-3" aria-hidden="true" />
+                </span>
+              ) : null}
               {/* t444 — the staleness wavefront, icon-only (the t409 face
                   discipline: provenance text lives in the tooltip/inspector,
                   the card carries the ALARM). A completed result built on an

@@ -107,7 +107,19 @@ export function validateAiSettings(raw: unknown): {
     problems.push(`unknown settings version ${JSON.stringify(parsed.version)} — loaded as best effort`);
   }
 
-  return { data: { version: 1, activeProvider, providers, vlmModel }, problems };
+  // t574 — the judge worker's toggle. Optional in the file (older files
+  // predate it — absence means the default, true); a WRONG type is
+  // repaired to the default with a named problem, like every field here.
+  let autoJudge = true;
+  if (parsed.autoJudge !== undefined && parsed.autoJudge !== null) {
+    if (typeof parsed.autoJudge === "boolean") {
+      autoJudge = parsed.autoJudge;
+    } else {
+      problems.push(`autoJudge was not a boolean — reset to the default (on)`);
+    }
+  }
+
+  return { data: { version: 1, activeProvider, providers, vlmModel, autoJudge }, problems };
 }
 
 export interface AiProviderConfig {
@@ -121,9 +133,17 @@ export interface AiSettingsData {
   activeProvider: string | null;
   providers: Record<string, AiProviderConfig>;
   vlmModel: string | null;
+  /**
+   * t574 — auto-judge finished classifications (the judge worker's
+   * toggle). Default true: with the builtin lane the marginal cost is
+   * the bundled SDK's own quota, and the feature IS the product —
+   * "the verdict arrives before you ask". Turn it off (dialog switch or
+   * PUT {autoJudge:false}) to keep judging strictly on-demand.
+   */
+  autoJudge: boolean;
 }
 
-const EMPTY: AiSettingsData = { version: 1, activeProvider: null, providers: {}, vlmModel: null };
+const EMPTY: AiSettingsData = { version: 1, activeProvider: null, providers: {}, vlmModel: null, autoJudge: true };
 
 export function loadAiSettings(): AiSettingsData {
   return loadAiSettingsDetailed().data;
@@ -182,6 +202,7 @@ export function aiSettingsDto(data: AiSettingsData = loadAiSettings()): AiSettin
     activeProvider: data.activeProvider ?? "builtin",
     providers,
     vlmModel: data.vlmModel,
+    autoJudge: data.autoJudge,
   };
 }
 
@@ -206,6 +227,8 @@ export interface SaveSettingsInput {
   activate?: unknown;
   /** VLM model override (string = set, null = clear, undefined = keep). */
   vlmModel?: unknown;
+  /** t574 — the judge worker's toggle (boolean = set, undefined = keep). */
+  autoJudge?: unknown;
 }
 
 /**
@@ -214,6 +237,31 @@ export interface SaveSettingsInput {
  */
 export function applySettingsUpdate(raw: SaveSettingsInput): { data: AiSettingsData; error?: string } {
   const data = loadAiSettings();
+
+  // t574 — the auto-judge toggle is a GLOBAL setting, not provider config:
+  // a body carrying autoJudge (and nothing else) updates it without
+  // needing a provider row — the dialog's switch fires alone. Combined
+  // bodies ride the provider path below, which saves the same data.
+  {
+    const providerOnly =
+      raw.provider === undefined &&
+      raw.apiKey === undefined &&
+      raw.model === undefined &&
+      raw.baseUrl === undefined &&
+      raw.vlmModel === undefined &&
+      raw.activate === undefined;
+    if (raw.autoJudge !== undefined) {
+      if (typeof raw.autoJudge !== "boolean") {
+        return { data, error: "autoJudge must be a boolean" };
+      }
+      data.autoJudge = raw.autoJudge;
+      if (providerOnly) {
+        saveAiSettings(data);
+        return { data };
+      }
+    }
+  }
+
   const providerId = typeof raw.provider === "string" ? raw.provider : "";
   const provider = aiProvider(providerId);
   if (!provider) {

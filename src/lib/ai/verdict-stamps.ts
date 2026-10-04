@@ -64,3 +64,14 @@ export function getVerdictStamp(jobId: string): VerdictStamp | null {
   if (!jobId) return null;
   return readFile().find((s) => s.jobId === jobId) ?? null;
 }
+
+/**
+ * t574 — the worker's batched door: every job id that carries a stamp,
+ * in ONE file read. The sweep's hasVerdict leg and the judge worker's
+ * already-stamped gate both ask "which jobs have opinions" wholesale —
+ * per-job lookups would read the file N times for a set that lives in
+ * one small JSON.
+ */
+export function listStampIds(): Set<string> {
+  return new Set(readFile().map((s) => s.jobId));
+}
