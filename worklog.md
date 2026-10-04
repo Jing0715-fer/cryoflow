@@ -7524,3 +7524,25 @@ Stage Summary:
 - 「53ms 的 scrub」：体积解码一次缓存、采样是纯算术——滑杆拉动的手感是产品价值本身；warm render 53ms 意味着 oblique 浏览和正交浏览一样是「流体」，不是「等图」
 - 产出：oblique section 端到端（mrc 核 + route 门 + UI 块）+ 12/12 单测 + 浏览器活体验证 + gamble 车道 PROVEN ×3 + 遗留池 N+12 结案
 - [下窗入口] ①oblique 的下一步钩子：Mol* 联动（oblique 平面法向喂 box-clip 的 invert 面，θ/φ→clip 平面朝向——2D↔3D 循环的 oblique 版）、triptych export 收编 oblique 第四面板；②Topaz wrapper 产品化；③AI 车道：gamble inclusive 象限等 VLM 心情（或换一个有 keep 的世界）；④t471 WSL-bridge 面（照实挂）
+
+---
+Task ID: 556
+Agent: main (Z.ai Code, window 2026-10-04 08:08 cron)
+Task: t555 入口①兑现——oblique 的 2D↔3D 循环闭环（⌖ 相机跳转沿法向正视截面）+ triptych export 收编 oblique 第四面板（tetraptych），浏览器活体 + 真下载件目检全过。
+
+Work Log:
+- [开局] HEAD 9ab66c8 对齐、树净；五绿基线（prod 200/3ms、tsc 0、eslint 0、console/errors 0）。
+- [坐标系推演先行] 面朝斜平面看，tile 与 3D 视图的左右/上下要同手性：tile i=0 在左 = uMin（+u 向右）、j=0 在顶 = vMin（+v 向下，PNG 光栅序）。从 −n 侧看（dir=+n）：screen-right = up×(−dir)，取 up=−v ⇒ right = (−v)×(−n) = v×n = u ✓、screen-down = +v ✓——dir=+normal、up=−v 是唯一同时满足两轴的手性解。推演写进事件注释，防下窗重推。
+- [⌖ 相机跳转（2D→3D 的 oblique 半环）] panel 侧：OBLIQUE_VIEW_EVENT（"cryoflow:oblique-view"）+ ObliqueViewDetail {normal, up}；obliqueFrame 扩展返回 u/v；block 读数行加 ⌖ 按钮（violet Focus 图标，与 tile 家族同语）。embed 侧：监听器复用 applyViewPreset（既有的 dir/up 摆动 + 320ms 缓动 + target/radius 保持律——键盘 1-6 预设同一条路）；非法 payload 直接丢弃。平面本体进不了 Mol* 轴对齐 slice——但相机能 agreeing with it，这就是循环的 oblique 半环；3D→2D 反向（相机位姿→θ/φ）留作钩子。
+- [tetraptych export] oblique 状态经 onChange 上提至 panel 的 obliqueInfoRef（ref 而非 state——scrub 永不重渲 panel，export 点击时读现值）；exportTriptych 三元组扩四元：oblique on 时并行取第四张 PNG（同门同 live 参数）、W = GAP×(n+1)+TILE×n 动态、第四面板 violet 标签 "Oblique" + 读数 θ/φ/offset%、无 crosshair（它没有 sibling 平面——几何即读数）；footer/σ/直方图全兼容。EXPORT_OBLIQUE_ACCENT = #7c3aed（block 自己的 violet-600）。
+- [dance] FRESH=1 前台轮次 **attempt 1 GREEN**（provenance 9ab66c8），anti-tear 自动重启。tsc 0 · eslint 0（顺手拔了两处多余 eslint-disable）· t555 oblique 单测 12/12 复跑全绿。
+- [浏览器活体] Mol* 弹窗 → ortho 展开 → oblique 展开 → 点 ⌖：截图前后字节差 124KB→64KB（画布重渲）→ 弹窗整图目检：相机已斜向正视、结构呈斜视角；工具行 CONTOUR/σ chip 全在场。点 export：~/Downloads/ortho-orthovol-001953.png 落盘 **2118×638**（= 14×5 + 512×4 精确 tetraptych；首验脚本自算 2078 是自己的错）——目检：四面板（XY/XZ/YZ 各带 crosshair + Oblique 无 crosshair）+ footer 直方图与 σ/时刻，oblique 面板的六边形截界清白可见。
+- [弯路记] 弹窗截图三连失败根因：`screenshot [selector] [path]` 形式把文件存到 CWD 而非 tmp 目录，我的 cp 抓了旧缓存——「工具说存哪就去哪找」；scroll 要打 [role=dialog] 内层 .overflow-y-auto（fixed overlay 不吃 window scroll）；viewport set 后旧截图序列不变。三弯路一条教训：截图验证先验文件 mtime 再读图。
+- [未做与理由] 3D→2D 反向 echo（相机位姿→θ/φ 采纳）——钩子已留，价值待证；Topaz wrapper（下窗主菜候选）；gamble inclusive 象限（等 VLM 心情）；t471 WSL-bridge（照实挂）；t276（门控）。
+
+Stage Summary:
+- 「手性是相机与图像的契约」：dir=+n、up=−v 的唯一解让 2D tile 与 3D 正视图左右上下全同手——几何联动不是「大概朝那边看」，是像素级的约定；推演一次写进注释，下窗不再重付
+- 「第四面板的入场券是 ref 不是 state」：scrub 高频更新走 onChange→ref（零重渲），export 低频读取点击时取现值——高频写与低频读各行其道，tetraptych 与 triptych 共享同一条绘制律
+- 「导出件要打开看」：2118×638 的数字对了才算数，打开目检四面板布局/六边形/直方图才敢说 PROVEN——数字可以算错（首验 2078 假败），像素不会撒谎
+- 产出：oblique↔3D 相机跳转（⌖）+ tetraptych export + 浏览器活体 + 真下载件目检；dance attempt 1 GREEN
+- [下窗入口] ①Topaz wrapper 产品化（topaztrain job type 已有产品面，wrapper 补参数面/曲线面）；②3D→2D 反向：相机位姿→θ/φ 采纳（⌖ 的回程票）；③gamble inclusive 象限；④t471 WSL-bridge（照实挂）
