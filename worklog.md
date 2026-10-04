@@ -7627,3 +7627,30 @@ Stage Summary:
 - 「铸与连有时差」：quiet wire 在 roster 之后落地，轮询是唯一诚实的读法；同理探针的 plain-click 形、清场后的 about:blank——QA 的每一步时序都要自己负责。
 - 「白名单对账要对响应不对计数」：诚实拒绝（404/502-wobble）按 URL 白名单放行且必须在账上留痕，console 重复记日志不追——账本不能说谎，日志可以啰嗦。
 - 产出：t559 双车道 PROVEN（39 断言×2 连绿）+ 5 连拍导出物 + harness；下窗入口：①遗留池 #7 chart 路由全量同步读 / #8 particles BFS N+1 / #5 fs/browse 鉴权仍是性能与安全面三块硬骨头；②AI 车道 gamble inclusive 象限（t554 门卫形可复用）；③t559 未做：tetraptych footer 的 provenance 读数与 adoptFlash 的可视化联动的打磨（小）；④t471 WSL-bridge（照实挂）、t276（门控）。
+
+---
+Task ID: 561
+Agent: main (Z.ai Code, window 2026-10-04 11:08 cron)
+Task: 遗留池开张（入口①）+ AI 车道 gamble inclusive（入口②）。开局先清点池子——结果六项全是化石，池子就地关闭；主菜 inclusive 一发入魂；顺手把 t560 挂起的小打磨（provenance 活体徽章）做掉。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 560（与上窗收官一致，交接摘要第二次零滞后）；HEAD 4222729、树净；基线五绿（prod 200/2ms、tsc 0、eslint 0、AI 探针 200）；active=EMPIAR t372（本窗全程零切世界）。
+- [遗留池清点——六项全关闭] 派单 Task 13 清单第 N+17 次化石，且这次连修复都比化石老：
+  · #5 fs/browse 无鉴权 → route 头部已有「Hardening (#5, rounds 1+2)」isLocalRequest+Host 钉扎；活体取证：跨站 403（连 chart 路由同门法 t251）、同源 200。
+  · #7 chart 全量同步读 → t486 已把 loader 移入 chart-data.ts 并挂 cachedFileCompute（mtime 缓存）；活体：guinier 热读 2.7-5.4ms×3。
+  · #8 particles BFS N+1 → 「Batched BFS: ONE edge query per depth level + ONE job query」注释在案；活体：200 / 73ms。
+  · #13 useMemo 内 localStorage 写 → 写已移入 store.ts 显式动作（「Writes only happen on explicit save/delete actions」注释在案）。
+  · #6/#14 pathref 包含策略不一致 → jobfile.ts 模块文档明写两路由分裂政策已由 resolveInsideJobWorkdir 统一；pathref 只走 file 路由是文档化的故意设计（「deliberately NOT part of this helper」）。
+  裁决：遗留池正式关闭，worklog 尾部 Stage Summary 是唯一真源——派单清单永不可能是。
+- [主菜 — gamble inclusive 象限 PROVEN] t555 窗已试两次 inclusive 都抽到 borderline（0 keep）；本窗给 t554 harness 加 CF_QUADRANT 过滤器（错脸 exit 3 不点火 T2，重抽合法化），**第一抽即中**：keep=[5]+maybe=[2]（t552b 的 F2 脸重现）。T2 接赌话术「不只选 keep 的 class 5，把 maybe 的 class 2 也带上（inclusive）」→ select_classes 精确落地 [2,5] → t508 同步执行 → 收据「7,005 of 10,866 particles kept」=**64.5%**（千分位安全解析）→ 清场 select2d 删除、roster 12→12。**四象限四分之四全 PROVEN**（borderline t554+t555×2、inclusive t561）。报告 .qa-logs/t561-gamble-inclusive-try1.json（15/15）。
+- [打磨 — provenance 活体徽章] t560 的 Lane A 只能用 PNG 像素验证对话（活 UI 无痕迹）——补上：oblique 块滑杆列顶部加 violet 徽章（⌖/⤸ θ°·φ°，与导出 footer 同格式同诚实律：scrub/reset 即消失）。data-canvas-ui="ortho-oblique-prov" 给了未来 QA 一个 DOM 把手。
+- [dance — OOM 三杀与腾房律] FRESH=1 磨 build：三连 rc=137（内核 OOM，build 进程 anon-rss 3.19GB——1344MB 堆帽管不住 external，dmesg global_oom 实锤）。t461 完整形处置：杀 prod 腾房（-240MB）+ t459 半空间杠杆 SEMI_MB=8 → **attempt 1 GREEN 98s** → start-prod 复位 200、active 复核零漂移。
+- [探针悬案] 徽章首读 ⌖ 45°·30° 与「默认 0/0」预期矛盾——探针（camera-state 监听 + 前后状态读）定谳：oblique 块初始值**本来就是 θ45·φ30**（"the cut the box axes never cover" 的刻意默认切面），jump 诚实记录了真实 θ/φ；embed 对 jump 零回声（事件列表空），无覆写路径。误的是我的预期，不是徽章。
+- [status] 扩展 harness 43 断言 × 2 连绿 ALL GREEN（B 车道 22 + A 车道 17 + Z 4）；tsc 0 · eslint 0；console 除已知诚实 sheet 404 外 0。
+
+Stage Summary:
+- 「池子的死法是化石的胜利」：遗留池六项全部在之前的窗里被修掉且修复各有签名注释（#5 的 Hardening rounds、#7 的 t486、#8 的 Batched BFS、#13 的显式动作注释、#6/#14 的统一政策文档）——没有一项是「碰巧好了」；worklog 尾部 Stage Summary 是唯一真源这句话第 N 次兑付。
+- 「inclusive 缺的是彩票不是代码」：t554 harness 早支持双象限，t555 两窗抽不中是判词的诚实边界方差；CF_QUADRANT 过滤器把重抽从「烧 T2 弧」变成「exit 3 换张票」——一发入魂。四象限从此四分之四有真数据收据。
+- 「读数要活在用户眼前」：provenance 此前只活在导出 PNG 里（QA 被迫数像素）——徽章让对话在滑杆旁可见、且遵守同一条诚实律（scrub 即消失）；活 UI 与导出物说同一句话，谁也不比谁多知道。
+- 「OOM 三杀时腾房比调堆快」：1344 堆帽在 build external 涨到 3.19GB 时失灵——t461 三杀腾房 + SEMI_MB=8 半空间是一对组合拳，98 秒 green；磨的产物不只是 BUILD_ID，还有下一磨的地基（第 N+1 次应验）。
+- 产出：遗留池关闭（六项化石收据）+ inclusive 象限 PROVEN（64.5% 收据）+ provenance 活体徽章 + 扩展 harness（43 断言×2 连绿）；下窗入口：①新需求自选（四象限已满、池子已空——AI 车道可考虑 judge 判词的 worker 视角复核、或 select2d 收据进入 job 详情的 receipt 卡）；②Topaz 手势家族第三刀（若有真需求）；③t471 WSL-bridge（照实挂）、t276（门控）。
