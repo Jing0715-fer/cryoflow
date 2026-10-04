@@ -406,7 +406,7 @@ async function catRemote(conn: RemoteConnection, p: string): Promise<{ text: str
       // (the t343 field receipt showed exactly that: "…particles.st", 120
       // chars in, no reason in sight).
       const why = (cat.stderr || "").trim().split("\n").pop() ?? "";
-      lastErr = cat.error ?? `exit ${cat.code}${why ? `: ${why.slice(-140)}` : ""}`;
+      lastErr = cat.error ?? `exit ${cat.code}${why ? `: ${why.slice(-320)}` : ""}`;
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
     }
@@ -471,7 +471,13 @@ async function clusterParticleRefCensus(
         return { rows, total, err: null };
       }
       const why = (res.stderr || "").trim().split("\n").pop() ?? "";
-      lastErr = res.error ?? `exit ${res.code}${why ? `: ${why.slice(-140)}` : ""}`;
+      // t577 — the tail keeps 320 chars, not 140: the mock's fs-rooted paths
+      // (a twin recorded as <FS_ROOT>/projects/… runs ~250 chars alone) made
+      // slice(-140) amputate the reason's HEAD mid-path — the deleted-job
+      // specimen shows the note reading "exit 2: my-project/services/…" with
+      // the "No such file" verdict intact but the tool and path unrecognizable.
+      // The line is already line-bounded; the slice only guards pathological walls.
+      lastErr = res.error ?? `exit ${res.code}${why ? `: ${why.slice(-320)}` : ""}`;
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
     }
@@ -564,7 +570,7 @@ async function countRemoteStar(
         lastErr = "the awk spoke no row count";
       } else {
         const why = (res.stderr || "").trim().split("\n").pop() ?? "";
-        lastErr = res.error ?? `exit ${res.code}${why ? `: ${why.slice(-140)}` : ""}`;
+        lastErr = res.error ?? `exit ${res.code}${why ? `: ${why.slice(-320)}` : ""}`;
       }
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
@@ -1126,7 +1132,7 @@ function starUnreadableNote(what: "micrographs" | "particles", rd: StarRead): st
   }
   return (
     `${what} star unreadable — the local copy this dispatch would upload (${rd.readAt}) is missing` +
-    `${rd.err ? `: ${rd.err.slice(-140)}` : ""}; run the upstream job again`
+    `${rd.err ? `: ${rd.err.slice(-320)}` : ""}; run the upstream job again`
   );
 }
 
