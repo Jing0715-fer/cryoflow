@@ -7808,3 +7808,25 @@ Stage Summary:
 - 「跳转方言全家通用」：openJob 是 palette、dashboard、remote-cluster 共用的那条路（workspace hop→跨项目→inspect）——footer 门不是新发明第四种导航，是把既有方言接进证据卡；harness 的落地断言用结构差异（戳在、行/收据/via 全走光）而非脆弱的 headline 选择器
 - 「门是加法不是重构」：t566 的 25 断言在 row DOM 变更后原样全绿——innerText 不在乎 span 还是 button，几何不在乎 footer 里多了个 icon；证据行的形态语言（引擎左、判词右、2:3）原封未动
 - 产出：footer 双门（receipt「from」+ stamp「verdict on」→ 父 job 自己的 tab）+ t567 harness 24/24 ×2 连绿 + t566 回归 25/25 + 联排门把手截图 + t549 warning 清零；下窗入口：①t566 入口①重估（judge worker 复核/class3d 判词——VLM 3D 面论证）或新功能面（Topaz 手势第四刀、3D viewer 体积截面——都「等真需求」状态照旧）；②样式面余量：门 hover 的 motion 细节（underline 动画/图标微移——cubic-bezier 微弹？）；③t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 568
+Agent: main (Z.ai Code, window 2026-10-04 14:53 cron)
+Task: t567 Face B 活体观察的缺口兑现——log-first provenance：edge 供料的 param/auto select 也有「from」footer 和跳门。开局巡检五绿零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 567、HEAD 4a9de7d、树净；基线五绿（prod 200/3.6ms、tsc 0、eslint 0 problem、AI 探针 ALIVE、active=EMPIAR t372）。派单「Task 13 遗留池」照旧化石（t543 已全池闭光）。
+- [选道——昨天自家 harness 咬出的真缺口] t567 Face B：param select 挂着 edge 从 class2d 供料，收据却没有「from」footer——provenance 只读 params.classStarSelection.jobId，边图沉默。读盘实锤引擎真相：两个 select writer（engine.ts L5743/L6063）都写 `input: <绝对路径> (N particles)`，输入 star 活在产出者的 workdir 里，而 workdirFor 是确定性的 `{type}_{id后8}`——路径→job 反查无需边图、无需猜测。
+- [设计——log 而非线] 选 log-first 而非 edge 回退：跑后可以改线，日志不能——收据卡「永不与实跑顶嘴」的家法延伸到 from 关系：provenance 是引擎读了什么，不是画布现在连着什么。诚实门：workdir 叶正则 `([a-z0-9]+)_([A-Za-z0-9]{8})` 不中即 null（裸文件名/根子/七位尾巴/无下划线全拒）；DB findMany（projectId+type+endsWith）take 2，**恰好一个候选才派门**——零或多候选诚实缺席。
+- [实现] 三处：lib（SelectionReceipt.inputPath 提取——input 正则从「.*(\d+)」收紧为「(\S+) (\d+)」双捕获 + 纯核 jobRefFromInputPath 导出可单测）；路由（!sourceJobId && inputPath 时映射——birth 的 params 已有名所以永不触发，param/auto 独享回退）；UI **零改动**（t567 的门本就响应 provenance.sourceJobId——昨日埋的门今日有更多路可开）。
+- [单测 64/64] t562 套件 +10：真收据 fixture 的 inputPath 逐字提取、两张真世界路径的 (type, idTail) 映射、链式 select2d 叶映射、五个垃圾形负例（1D fixture 的裸 extract 目录恰好是天然负例）。54→64。
+- [dance] 腾房律做全 → FRESH=1 SEMI_MB=8 attempt 1 GREEN（101s）→ start-prod + watchdog 复位 200。
+- [活体 t568 24/24 ×2 连绿] Face A: param select+edge → run 416/10,866 → API 断言（kind param + sourceJobId=K5 来自日志路径）→ UI（普通收据无联排——param 永不借戳——但有门）→ click → 落地父 tab（戳在、行/收据/门走光、dialog headline 点名）→ Face C: **跑后删 edge → 映射纹丝不动**（log 是第一真相源）→ fresh-open 门还在 → Face B: auto select（params 全空）→ kind auto + 供料者点名（occupancy 规则的跑也知道谁喂的）→ console 0 → 名册 12→12 ×2。
+- [回归] t567 更新 Face B 后 26/26（原「无门」断言翻转成「有门 + 来自日志」——行为变更如实注记在 harness 头注）；t566 25/25 原样绿（param 无联排、戳不借——映射不碰 kind 语义）。
+- [未做与理由] t566 入口①（judge worker 复核/class3d 判词——VLM 3D 面论证重活等真需求）；Topaz 第四刀（链上闭环）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「日志不会改线」：provenance 的第一真相源从 params 升格为引擎日志的 input 路径——params 会缺（param/auto 根本不写源）、线会变（跑后可以重连），只有日志永远说真话：引擎读了哪个文件、文件住在谁家。workdirFor 的确定性让「路径→job」是字符串手术而非图遍历，唯一性门把「猜」从系统里开除
+- 「昨日 checker 今日种子」：t567 Face B 的「无门」断言不是被丢掉了，而是被翻转成了 t568 的主菜——活体观察到的缺口是下一个功能的入场券；harness 头注如实记下行为变更的时刻，测试的历史和产品的历史同一条线
+- 「kind 与 source 是两回事」：kind（birth/param/auto）描述 keep 集的表达式从哪来，source 描述输入从哪来——映射只填 source 永不碰 kind，param 车道拿到门但不借戳，t566 的联排语义原封不动
+- 产出：log-first provenance（lib inputPath+jobRefFromInputPath、路由唯一性映射）+ 单测 64/64 + t568 harness 24/24 ×2 + t567 翻转面 26/26 + t566 回归 25/25；下窗入口：①t566 入口①重估（judge worker 复核/class3d 判词——VLM 3D 面论证）；②样式/功能余量：Topaz 第四刀、3D 体积截面（等真需求）；③门家族远期：跨卡导航的「返回」面（落地后如何回到子 job——浏览器历史/inspector 栈？小而顺的下一块）；④t471 WSL-bridge（照实挂）、t276（门控）
