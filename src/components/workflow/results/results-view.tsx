@@ -77,7 +77,12 @@ import type { OutputSummary, SummaryStat } from "@/lib/relion/output-summary";
 import { cn } from "@/lib/utils";
 // t391 — the two recharts carriers ride the lazy barrel (see
 // results-lazy.tsx): recharts stays out of the eager home compile
-import { FscChart, TopazTrainingChart, DenoiseCompareGallery } from "./results-lazy";
+import {
+  FscChart,
+  TopazTrainingChart,
+  DenoiseCompareGallery,
+  SelectionReceipt,
+} from "./results-lazy";
 import { MrcImage } from "./mrc-image";
 import { MolViewer, type MolViewerTarget } from "./mol-viewer";
 import { useAnchorParent } from "./anchor-parent";
@@ -1063,6 +1068,16 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {/* t330 — run.out warnings surfaced: the user saw "some warnings" in
           Extract and had to read raw logs to know what they were. */}
       {data.warnings && data.warnings.length > 0 && <WarningsCard warnings={data.warnings} />}
+
+      {/* t562 — the selection receipt: the strip above says "N particles
+          selected"; this card says the story the engine logged beside it —
+          kept/pruned per class, what decided the keep set, where the
+          selection was born. Type-gated: the receipt route reads a native
+          select run's log, and fetching it for any other job would be a
+          lie. */}
+      {(job.type === "select2d" || job.type === "select") && (
+        <SelectionReceipt jobId={job.id} refreshKey={refreshKey} />
+      )}
 
       {/* Import Map identity card — the map's own story (t256): size and
           spacing from the header, the density statistics the header

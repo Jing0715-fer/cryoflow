@@ -134,3 +134,10 @@ export const ParticleFunnelEntry = dynamic(
     import("./particle-funnel-dialog").then((m) => m.ParticleFunnelEntry),
   { ssr: false, loading: panelLoading }
 );
+// t562 — the selection receipt: the engine's run.out receipt promoted
+// from a raw log tail to a card (kept/pruned per class, the deciding
+// mode, the birth provenance) — its own chunk until a select job opens
+export const SelectionReceipt = dynamic(
+  () => import("./selection-receipt").then((m) => m.SelectionReceipt),
+  { ssr: false, loading: chartLoading }
+);
