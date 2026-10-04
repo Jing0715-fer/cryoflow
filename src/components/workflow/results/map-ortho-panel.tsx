@@ -1521,6 +1521,20 @@ function ObliqueSectionBlock({
             ) : null}
           </div>
           <div className="flex flex-col gap-2.5">
+            {/* t561 — the dialogue's LIVE voice: the same reading the
+                export footer draws (⌖/⤸ θ°·φ°, violet) rides here as a
+                chip while it holds — and vanishes the moment a hand
+                revokes it. The footer must not lie; neither may the
+                sliders' own neighborhood. */}
+            {provenance && (
+              <span
+                data-canvas-ui="ortho-oblique-prov"
+                title="How this cut was last chosen — ⌖ the camera swung face-on to it, ⤸ the cut adopted the camera's view. A hand on any slider revokes it."
+                className="inline-flex items-center gap-1 self-start rounded-full border border-violet-600/30 bg-violet-600/10 px-2 py-0.5 font-mono text-[10px] tabular-nums text-violet-700 dark:text-violet-300"
+              >
+                {provenance.kind === "jump" ? "⌖" : "⤸"} {provenance.theta}°·{provenance.phi}°
+              </span>
+            )}
             <div>
               <div className="mb-1 flex items-baseline justify-between gap-2">
                 <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground" htmlFor="oblique-theta">
