@@ -181,6 +181,69 @@
   --sidebar-ring: oklch(0.74 0.118 184);
 }
 
+/* ============================================================
+   t581 — the ink ladder: the shadow system's true vocabulary.
+   Every card answer since t571 (lean → dash → whisper → the
+   run-glow's ambient floor) mixed its ink inline: color-mix(in
+   oklch, var(--foreground) N%, transparent) handwritten straight
+   into each box-shadow. t580's cascade forensics caught the bill:
+   the build pipeline (Tailwind v4 / Lightning CSS) rewrites every
+   INLINE color-mix() into a dual form — a fallback declaration
+   with the bare opaque var(--foreground) for old browsers, plus
+   the real value behind @supports. Evergreen browsers win the
+   truth branch, but the ladder's declarations lived at the
+   pipeline's mercy: every edit re-rolls the split, and the
+   fallback branch is a fully-opaque ink blob (ugly, not broken).
+   The tokens end that: a declaration that says var(--ink-14) is
+   OPAQUE to the minifier — it cannot be statically evaluated, so
+   the served rule survives verbatim and the pipeline has nothing
+   to rewrite. color-mix() now lives only at these definition
+   sites, six lines per theme.
+
+   Naming: the register IS the percentage of foreground ink. One
+   scale reads the whole ladder:
+     rest    --ink-06 / --ink-10   (.card-lift, run-glow floor)
+     ask     --ink-06 / --ink-14   (hover answer, canvas + dash)
+     commit  --ink-06 / --ink-18   (.card-lift-lg dialogs)
+     whisper --ink-04 / --ink-09   (t580, panels inside modals)
+
+   Scope: var() inside a custom property resolves at the element
+   where THAT property is declared, then the resolved value
+   inherits. Declaring only at :root would bake the light ink for
+   any dark scope below <html>, so the tokens ride :root AND .dark
+   — the --teal-glow precedent (below, t-era job-running). Print
+   overrides --foreground on both scopes too, so the ladder prints
+   with paper ink automatically.
+
+   Old browsers without color-mix (pre-2023 evergreens): the
+   pipeline dual-forms the DEFINITIONS themselves — a top-level
+   `--ink-06: var(--foreground)` fallback plus the color-mix truth
+   behind @supports — so an old browser resolves the token to
+   OPAQUE ink and the ladder degrades to exactly the blob the
+   inline form always produced (unchanged story; it now lives in
+   six lines per theme instead of twelve declarations). Evergreens
+   read the exact mix, and the declarations are IMMUNE: single
+   verbatim rules, no per-declaration re-roll of the fallback
+   split, and --ink-XX is a REAL runtime API — an override on any
+   element flows into its shadow.
+   ============================================================ */
+:root {
+  --ink-04: color-mix(in oklch, var(--foreground) 4%, transparent);
+  --ink-06: color-mix(in oklch, var(--foreground) 6%, transparent);
+  --ink-09: color-mix(in oklch, var(--foreground) 9%, transparent);
+  --ink-10: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --ink-14: color-mix(in oklch, var(--foreground) 14%, transparent);
+  --ink-18: color-mix(in oklch, var(--foreground) 18%, transparent);
+}
+.dark {
+  --ink-04: color-mix(in oklch, var(--foreground) 4%, transparent);
+  --ink-06: color-mix(in oklch, var(--foreground) 6%, transparent);
+  --ink-09: color-mix(in oklch, var(--foreground) 9%, transparent);
+  --ink-10: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --ink-14: color-mix(in oklch, var(--foreground) 14%, transparent);
+  --ink-18: color-mix(in oklch, var(--foreground) 18%, transparent);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -216,14 +279,14 @@
 /* Soft layered card shadow (light theme signature) */
 .card-lift {
   box-shadow:
-    0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
-    0 6px 16px -4px color-mix(in oklch, var(--foreground) 10%, transparent);
+    0 1px 2px var(--ink-06),
+    0 6px 16px -4px var(--ink-10);
 }
 
 .card-lift-lg {
   box-shadow:
-    0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
-    0 16px 40px -12px color-mix(in oklch, var(--foreground) 18%, transparent);
+    0 1px 2px var(--ink-06),
+    0 16px 40px -12px var(--ink-18);
 }
 
 /* t571 — the hover lean. Canvas cards are cursor-grab: on hover the card
@@ -248,8 +311,8 @@
 @media (hover: hover) {
   .card-hover-lean:hover {
     box-shadow:
-      0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
-      0 10px 24px -6px color-mix(in oklch, var(--foreground) 14%, transparent);
+      0 1px 2px var(--ink-06),
+      0 10px 24px -6px var(--ink-14);
   }
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -296,8 +359,8 @@
 @media (hover: hover) {
   .dash-card-hover:hover {
     box-shadow:
-      0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
-      0 10px 24px -6px color-mix(in oklch, var(--foreground) 14%, transparent);
+      0 1px 2px var(--ink-06),
+      0 10px 24px -6px var(--ink-14);
   }
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -339,8 +402,8 @@
 @media (hover: hover) {
   .insp-card-whisper:hover {
     box-shadow:
-      0 1px 2px color-mix(in oklch, var(--foreground) 4%, transparent),
-      0 6px 14px -5px color-mix(in oklch, var(--foreground) 9%, transparent);
+      0 1px 2px var(--ink-04),
+      0 6px 14px -5px var(--ink-09);
   }
 }
 
@@ -693,13 +756,13 @@
     box-shadow:
       0 0 0 1px color-mix(in oklch, var(--teal-glow) 42%, transparent),
       0 0 14px -2px color-mix(in oklch, var(--teal-glow) 38%, transparent),
-      0 6px 16px -4px color-mix(in oklch, var(--foreground) 10%, transparent);
+      0 6px 16px -4px var(--ink-10);
   }
   50% {
     box-shadow:
       0 0 0 1px color-mix(in oklch, var(--teal-glow) 78%, transparent),
       0 0 24px -2px color-mix(in oklch, var(--teal-glow) 62%, transparent),
-      0 6px 16px -4px color-mix(in oklch, var(--foreground) 10%, transparent);
+      0 6px 16px -4px var(--ink-10);
   }
 }
 
