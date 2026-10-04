@@ -344,3 +344,57 @@ def negative_volume(dim, seed=1):
     # Gaussian would make every slice all-negative, a shape no real map has)
     core = -1.6 * _np.exp(-(r ** 2) / (2 * (dim * 0.16) ** 2))
     return (noise + core).astype(_np.float32)
+
+
+def class_volume(dim, seed=1, amp=1.0):
+    """A 3D CLASS volume in RELION's density dialect (t575): a NEGATIVE
+    protein core over zero-mean solvent noise, shaped per class so distinct
+    classes read as distinct structures across all three orthogonal faces
+    (the 3D judge's feed, t573's faces sheet).
+
+    Deterministic per (dim, seed, amp):
+      · an ellipsoidal ENVELOPE (radius 0.16–0.20·dim, slight center
+        offset, one axis stretched 1.0–1.35× — the shared molecule shape
+        real class3d volumes of one particle agree on)
+      · 2–4 DOMAIN lobes hugging the envelope at seeded spherical
+        coordinates — the internal organization the rubric reads
+        ("coherent core, internal texture") and the feature a bare
+        Gaussian blob lacks (the t573 lesson, verbatim: a featureless
+        sphere earns its own reject signature)
+      · a CAVITY inside the envelope for even seeds — an internal void
+        the XZ/YZ faces read as texture
+      · amp flattens the weak-contrast classes toward noise (the 2D
+        class_image's own weak-preset dialect, carried into 3D)
+
+    numpy required (the mock's python has it; the legacy lane never calls
+    this — see relion_refine's _is_class3d branch).
+    """
+    if _np is None:
+        raise RuntimeError("numpy required for class_volume")
+    rng = _np.random.default_rng(seed)
+    noise = (rng.random((dim, dim, dim), dtype=_np.float32) - 0.5) * 0.4
+    zz, yy, xx = _np.mgrid[0:dim, 0:dim, 0:dim].astype(_np.float32)
+    c = (dim - 1) / 2.0
+    r0 = dim * (0.16 + 0.04 * ((seed * 7919) % 100) / 100.0)
+    ox = (((seed * 31) % 100) - 50) / 50.0 * dim * 0.05
+    oy = (((seed * 47) % 100) - 50) / 50.0 * dim * 0.05
+    stretch = 1.0 + 0.35 * ((seed * 104729) % 100) / 100.0
+    ax = [(xx - c - ox), (yy - c - oy), (zz - c)]
+    ax[(seed * 131) % 3] = ax[(seed * 131) % 3] / stretch
+    r = _np.sqrt(ax[0] ** 2 + ax[1] ** 2 + ax[2] ** 2)
+    core = -0.9 * amp * _np.exp(-(r ** 2) / (2 * r0 ** 2))
+    ndom = 2 + (seed * 7) % 3
+    for k in range(ndom):
+        dk = seed * 977 + k * 613
+        th = (dk % 360) * math.pi / 180.0
+        ph = ((dk // 360) % 180) * math.pi / 180.0
+        rr = r0 * (0.45 + 0.25 * ((dk // 7) % 100) / 100.0)
+        dxp = rr * math.sin(ph) * math.cos(th)
+        dyp = rr * math.sin(ph) * math.sin(th)
+        dzp = rr * math.cos(ph)
+        dr = _np.sqrt((ax[0] - dxp) ** 2 + (ax[1] - dyp) ** 2 + (ax[2] - dzp) ** 2)
+        core = core - 0.8 * amp * _np.exp(-(dr ** 2) / (2 * (r0 * 0.32) ** 2))
+    if seed % 2 == 0:
+        cav = _np.sqrt((ax[0] - r0 * 0.3) ** 2 + (ax[1] + r0 * 0.25) ** 2 + ax[2] ** 2)
+        core = core + 0.9 * amp * _np.exp(-(cav ** 2) / (2 * (r0 * 0.18) ** 2))
+    return (noise + core).astype(_np.float32)

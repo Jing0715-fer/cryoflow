@@ -225,6 +225,14 @@ if isinstance(_cont, str) and _cont.strip():
     # it used to read that LATER variable and die with a NameError after
     # computing it006 (the round burned, the ledger honest). Define it here.
     _split_halves = bool(opts.get("split_random_halves"))
+    # t575 — the class3d lane rides the same argv dialect here: the
+    # continue branch runs BEFORE the main flow's own inference, so it
+    # carries its own copy (--ref && no --split_random_halves && no
+    # --grad --denovo_3dref). A continued class3d then keeps writing 3D
+    # per-class volumes instead of regressing to the 2D stub dialect.
+    _is_class3d = "ref" in opts and not _split_halves and not (
+        "grad" in opts and "denovo_3dref" in opts
+    )
     # --iter on a continue is RELION's TOTAL (the option table's help
     # verbatim: "if 10 iterations have been performed previously and one
     # restarts to perform an additional 5 … the number given here should
@@ -260,7 +268,12 @@ if isinstance(_cont, str) and _cont.strip():
         # incomplete (missing run_itXXX_class001.mrc) and the checkpoint
         # gate kept serving the pre-continue head. Mirror the family.
         for _c in range(1, _ncls + 1):
-            write_mrc(os.path.join(outdir, f"run_it{_its}_class{_c:03d}.mrc"), 64, 64, 1, _c * 31 + _it, kind="volume")
+            # t575 — class3d continues speak the 3D volume dialect (64³);
+            # every other lane keeps its legacy bytes untouched.
+            write_mrc(
+                os.path.join(outdir, f"run_it{_its}_class{_c:03d}.mrc"),
+                64, 64, 64 if _is_class3d else 1, _c * 31 + _it, kind="volume",
+            )
         write_mrc(os.path.join(outdir, f"run_it{_its}_half1_class001.mrc"), 64, 64, 64, 101 + _it)
         write_mrc(os.path.join(outdir, f"run_it{_its}_half2_class001.mrc"), 64, 64, 64, 202 + _it)
         # the gold-standard family the picker's companion law reads by NAME
@@ -299,6 +312,16 @@ if isinstance(_cont, str) and _cont.strip():
     write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, 9901)
     write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, 9902)
     write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, 9903)
+    if _is_class3d:
+        # t575 — the class3d closing move mirrored in continue mode: final
+        # no-tag copies PER CLASS, each byte-identical to the last round's
+        # volume (the fresh lane's own contract, continued).
+        _last_it = _start_it + _n_more
+        for _c in range(1, _ncls + 1):
+            copyfile(
+                os.path.join(outdir, f"run_it{_last_it:03d}_class{_c:03d}.mrc"),
+                os.path.join(outdir, f"run_class{_c:03d}.mrc"),
+            )
     # t456 — the finals speak the model dialect the fsc route reads:
     # run_half1_model.star (candidate #1: the final gold FSC table) and
     # run_model.star's data_model_general._rlnCurrentResolution (the
@@ -324,6 +347,18 @@ mode = opts.get("mode", "classify2d") if isinstance(opts.get("mode"), str) else 
 # serial dialect → the plain model star. Both carry the FSC loop so the
 # fsc chart lights for every refine shape.
 _split_halves = bool(opts.get("split_random_halves"))
+# t575 — the 3D CLASSIFICATION lane rides the argv's own truth too: --ref
+# present, NO --split_random_halves (that's refine3d's gold dialect) and
+# no --grad --denovo_3dref (that's initialmodel's de-novo dialect) is
+# exactly the serial Class3D dispatch (engine.ts case "class3d"). The
+# engine never passes --mode, so the old default lumped class3d in with
+# classify2d and its per-class files came out 2D (64×64×1) — the 3D
+# judge's faces sheet (t573) then read degenerate one-pixel XZ/YZ cuts.
+# A real relion_refine class3d writes one 3D VOLUME per class per
+# iteration; the fake now speaks that dialect on both lanes (cf_cryo
+# class_volume when the stacks are readable, kind="volume" noise else).
+_is_initialmodel = "grad" in opts and "denovo_3dref" in opts
+_is_class3d = "ref" in opts and not _split_halves and not _is_initialmodel
 
 # ---- the input star is the contract (t308) ------------------------------
 star_in = opts.get("i", "")
@@ -529,6 +564,21 @@ if real_mode and cf_cryo:
     )
 else:
     write_mrc(os.path.join(outdir, "run_it000_classes.mrcs"), 64, 64, ncls, 4096)
+# t575 — the seed round's per-class VOLUMES for the class3d lane: a real
+# relion_refine class3d writes run_it000_classNNN.mrc from the random
+# start up (discovery reads the LATEST iteration only, but the workdir
+# should speak the real dialect from the first round).
+if _is_class3d:
+    if real_mode and cf_cryo:
+        for c in range(1, ncls + 1):
+            cf_cryo.write_mrc(
+                os.path.join(outdir, f"run_it000_class{c:03d}.mrc"),
+                64, 64, 64,
+                cf_cryo.class_volume(64, seed=c * 31),
+            )
+    else:
+        for c in range(1, ncls + 1):
+            write_mrc(os.path.join(outdir, f"run_it000_class{c:03d}.mrc"), 64, 64, 64, c * 31, kind="volume")
 with open(os.path.join(outdir, "run_it000_optimiser.star"), "w") as fh:
     fh.write(f"\ndata_optimiser\n\n_rlnCurrentIteration 0\n_rlnNumberOfClasses {ncls}\n")
 
@@ -581,6 +631,20 @@ for it in range(1, iters + 1):
     _weak = cf_cryo.weak_class_preset(ncls) if (real_mode and cf_cryo) else set()
     _class_imgs = []
     for c in range(1, ncls + 1):
+        if _is_class3d:
+            # t575 — the class3d lane writes a 3D VOLUME per class (the
+            # real binary's dialect): cf_cryo.class_volume when the input
+            # stacks were readable (per-class shape variance + the weak
+            # preset carried into 3D — the judge's discriminative spectrum),
+            # the legacy noise volume (now honestly 64³) otherwise. The 2D
+            # class-average machinery below stays untouched for class2d.
+            if real_mode and cf_cryo:
+                amp = 0.15 if c in _weak else 1.0
+                vol = cf_cryo.class_volume(64, seed=c * 31 + it, amp=amp)
+                cf_cryo.write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 64, vol)
+            else:
+                write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 64, c * 31 + it, kind="volume")
+            continue
         if real_mode and cf_cryo:
             # membership follows the SAME (p, it) formula as the data star:
             # enumerate particles in row order (p = row index among @-rows)
@@ -699,6 +763,19 @@ else:
     write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, 9901)
     write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, 9902)
     write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, 9903)
+# t575 — the class3d closing move: a real relion_refine class3d leaves a
+# final no-tag copy PER CLASS (run_class001.mrc … run_class00K.mrc), each
+# byte-identical to the last round's volume. The class001 write above
+# (a 9903-seeded synthetic) gets overwritten by the honest alias — the
+# no-tag finals and the it-last volumes then agree, which is the contract
+# discoverClassVolumes deliberately relies on (it reads _it-tagged files
+# only; the no-tag copies are the humans' convenience).
+if _is_class3d:
+    for c in range(1, ncls + 1):
+        copy_final(
+            os.path.join(outdir, f"run_it{iters:03d}_class{c:03d}.mrc"),
+            os.path.join(outdir, f"run_class{c:03d}.mrc"),
+        )
 copy_final(os.path.join(outdir, f"run_it{iters:03d}_optimiser.star"), os.path.join(outdir, "run_optimiser.star"))
 print(f"wrote {final_classes} + {final_data} after {iters} iterations ({npart} particles classified)")
 sys.exit(0)
