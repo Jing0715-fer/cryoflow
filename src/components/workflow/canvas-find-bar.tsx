@@ -366,7 +366,7 @@ export function CanvasFindBar() {
             requestAnimationFrame(() => inputRef.current?.focus());
           }}
           title="Jump to next match"
-          className="shrink-0 cursor-pointer whitespace-nowrap rounded px-0.5 text-[11px] font-medium tabular-nums text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          className="shrink-0 cursor-pointer whitespace-nowrap rounded px-0.5 text-[11px] font-medium tabular-nums text-muted-foreground transition-all motion-safe:active:scale-[0.96] hover:bg-muted/60 hover:text-foreground"
         >
           {/* keyed remount per label: the amber tick is a one-shot per
               change (t578), not a blinking ornament */}
@@ -460,7 +460,7 @@ export function CanvasFindBar() {
                 }
               }}
               className={cn(
-                "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
+                "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all motion-safe:active:scale-[0.96]",
                 active
                   ? chip.active
                   : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -517,7 +517,7 @@ export function CanvasFindBar() {
                   }
                 }}
                 className={cn(
-                  "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
+                  "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all motion-safe:active:scale-[0.96]",
                   active
                     ? "border-primary/60 bg-primary/10 text-foreground"
                     : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
