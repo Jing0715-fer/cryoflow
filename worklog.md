@@ -8090,3 +8090,33 @@ Stage Summary:
 - 「harness 的时代假设」：prod 时代的 3200ms 固定 sleep 是 prod 的测量——dev regime 要 hydration 轮询。t576「dev 分级挂载」教义的第四例（palette/inspector 也吃慢水合）；regime 变迁时回归 harness 的时序面要重新标定
 - 「补丁自己也要被验证」：修 harness 的第一版补丁引用了不存在的助手，ReferenceError 被 pollUntil 静默吞掉——「轮询面 undefined cards 而下一面通过」这个反直觉组合正是暴露它的指纹。假阳性假阴性都会穿成检查的样子，第 N+1 例
 - 产出：find bar 镜头语言（级联+卸下甲胄+amber tick，t572/t576 语法第三座悬浮面）+ t578 storm 基准 18/18（S1-S7 公平队列全谱）+ t578 活体 24/24 首跑 + t571 hydration 守卫修复 28/28 + 诊断见证 t578-focus-diag.mjs + 📸×2（mid-cascade/settled）；下窗入口：①host 回落日=build 日：FRESH gate → prod → t576 27-face 首跑 + t569/t570/t572 prod 复核 + t573/t574/t575 活体回归；②dev 可容：卡影 ladder 再下一 rung、find bar chip 级联微表情；③judge worker 风暴活体半场（多类多作业并发）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 579 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 01:38 cron)
+Task: build 日判定——七级梯子的完整证据链与冷启动死锁的数学闭环；dev 可容车道兑现 t578 入口②：find lens 的 ripple（matched ring 阅读顺序级联）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 578（交接摘要说 571——滞后第 N+31 次兑付）；HEAD 786ddf6、树净；dev regime 五绿（200/34ms、tsc 0 全量、eslint 0、AI 探针结构化信封、active=EMPIAR roster 12 jobs 6 项目、canvas 12 卡 13 线 console 净）；派单「Task 13 遗留池」第 N+22 次化石（t574 已葬）。
+- [build 日判定——宿主呼吸回来了] load 0.08、dmesg 无新 OOM、available 1142MB < 探活 1.65GB——但 dev server 在场占 ~2.2GB。t577 教义「dev 之死归还 2.2GB」：先杀 watchdog 再杀 dev，available 2995MB——超过门槛，今天是 build 日。
+- [FRESH gate 的空转与第一个意外] FRESH=1 跑 build-until-green.sh 600s 超时且零日志——验尸发现 standalone_complete=false（.next 无 BUILD_ID，t576 灾变遗产）→ gate 的探活路径整体跳过 → 落入老 grind 循环；且 UTC/本地时区混淆（+8）让 mtime 看起来「停在昨天」，实际就是本窗。25s bash -x 追踪实锤脚本 25s 内进 loop——600s 是冷编译没跑完被工具窗掐死，非 OOM。
+- [梯子——七级全表] ①webpack 1344 裸跑：V8 abort 钉死 cap（1339/1351）~2min；②1440+semi8：钉 1434/1444 ~2min09s；③1664+semi8：钉 1657/1666 ~1min57s——每次都钉死在各自 cap，冷 live-set ≥1.7GB 且随进度爬；④turbopack 默认：kernel global_oom @anon 3.06GB；⑤webpack 2560+cache-off（CRYOFLOW_NO_WEBPACK_CACHE=1 平化分配+砍 1.6GB cache 外部）：钉 2554/2560 ~127s——冷 live-set ≥2.5GB，cache-off 也一样；⑥turbopack+FS cache（新增 turbopackFileSystemCacheForBuild env 门）：kernel 杀 @3.06GB，cache 只落 12K——build cache 只在成功终点写，OOM 死不增量落盘，续跑是空枪；⑦ambient 剃到地板（杀 Chrome QA 会话归还 ~200MB，t415 教义复读）后 turbopack 再试：kernel 杀 @anon 3.29GB 且仍在爬。
+- [定谳——冷启动死锁的数学闭环] 暖 cache 时代（t574 的 72s 绿）build live-set ~1.3GB 是反序列化；t576 灾变吃掉 cache 后每次 build 全冷，重解析+codegen 全图（120+ 窗功能增长的真实体重）≥3.1-3.3GB，而箱体单进程天花板 ~3.3GB（4GB 总量 - infra 634MB 地板 - kernel 开销）——缺口 ~0.5GB，两台引擎都差同一口气；写 cache 只能靠活下来的 build，活下来需要 cache。死锁三要素（cold peak > ceiling；cache 只在终点写；无人能活）全部测量实锤。t577 的「host 在呼吸」升级版：不是今天墙高——是冷 build 的需求已经长到墙上之上，且随每个功能窗继续长。
+- [伦理收梯] 第 7 次 global_oom 后停手——global_oom 是节点级事件，会压宿主邻居；t577 定律双向成立（邻居的压能杀我们，我们的压能杀邻居）。七次 kernel 事件一窗足够。
+- [遗产] next.config.ts 新增 turbopackFileSystemCacheForBuild env 门（CRYOFLOW_TURBO_FS_CACHE=1，默认关）：更大箱体或图瘦身落地日的现成钥匙（turbopack 持久任务引擎的 build cache——今天的死法证明了它在、只是救不了同一窗）；FRESH gate 守护的「最后好 build」暂缺，gate 的 dev/磁盘双拒绝门照常值守。
+- [dev 复位] dev-server-watchdog nohup 复位，200/34ms；世界回 dev regime。
+- [产品——the ripple] t578 入口②兑现：find lens 的第四面——matched ring 级联。镜头落下时所有命中卡同时亮环是强光糊脸；新语法：计数 chip 闪 amber → 命中卡的光晕按阅读顺序（count 数的同一 workspace 序）逐一点燃，index×24ms 封顶 12 步（宽匹配集是 snap 不是游行）。ignite wave 而非 decay wave：::after 光晕 fill-mode none——delay 期间隐形、轮到才点燃、620ms 衰减交棒给 settled amber ring（trigger 与 consequence 同 hue，t578 方言）。只有 NEWLY-matched 点燃（refine 不重闪幸存者——narrowing never re-strobes）；lens 重开全量重放（re-entrance is re-arrival，t572 法）；Escape 即卸装无退场仪式（t578 法）。全块骑 prefers-reduced-motion: no-preference（t571 分层教义）；useEffect+ref diff（render-time memo 会被 Strict Mode 双渲染吃掉 diff）。
+- [三文件] canvas.tsx（findFlash effect：prev ref + 阅读序 step 计数 + setFindFlash；JobCard 传 findFlashDelay）；job-card.tsx（props+comparator 加 findFlashDelay——漏掉 arePropsEqual flash prop 会被吞——外层 div data-find-ring-flash + --find-ring-d 内联 var + CSSProperties cast）；globals.css（find-ring-flash 块：::after 光晕 base opacity 0 + keyframes 0→25%→100% + animation-delay var）。
+- [活体 t578 扩编 32/32] F7 涟漪三断言（flashed==count chip 的诚实数字；delays 按 DOM 序非降；伪元素 opacity >0.02——波是真 paint 不是属性摆设）+ F8 精炼语义三断言（narrow 到零零属性；widen 回来全量重闪；再 widen 只闪 additions——overlap==[] 集合代数断言零词汇猜测）+ F9 重入重放（全量 flash 复现）+ 📸 mid-ripple（155KB 诚实落盘）。
+- [harness 两课] ①evalJs 的 flatten（\n→空格）让 // 注释吞掉整行后续代码——IIFE 永不 return、readJson 得 null：会被拍平的传输层里 // 注释是炸弹，改用块注释；②CLI 逐键 typing 的 ripple 语义：每键 diff 一次，逐键 narrowing 的最后一步 diff 为空 → flash 属性已被清——产品语义是对的（波跟随镜头的每次着陆，首键全量、后续 silent），F9 的断言错而不是产品错——改原子 setter typing（一次 set = 一次着陆 = 全量重放断言）。
+- [回归] t578 32/32（含 F1-F6 原面全绿——产品改动零位移）+ t571 28/28（canvas 被改，hover 面无扰）+ storm 18/18 + 单测 113（64+11+16+22）+ tsc 0 全量 + eslint 0（src+harness）；roster 12→12、console 净。
+- [未做与理由] 卡影 ladder 再下一 rung（inspector 面未动——一窗一面切干净）；judge worker 风暴活体半场（多作业并发场景仍候）；t576 27-face 与 t569/t570/t572 prod 复核与 t573/t574/t575 活体（等 prod build——见死锁定谳，需要更大箱体或图瘦身）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「冷 build 的体重是功能的影子」：120+ 窗的功能增长把冷编译 live-set 从 t459 时代的 ~1.4GB 长到今天的 ≥3.1GB——暖 cache 时代这是看不见的债，t576 一次性还本。deadlock 不是「今天的墙高」而是「树已经长到任何一窗都爬不上去」——第一次以测量而非推断定谳
+- 「七级梯子的价值在签名对比表」：1344/1440/1664 全部钉死在各自 cap 是 live-set 死亡的指纹；cache-off 的 2560 钉死排除「cache 外部内存是主犯」；turbopack 的 kernel 杀排除「换引擎就行」——三个排除法把「箱体不够」从假设变成结论。对照实验要横跨引擎，不只横跨 cap
+- 「伦理是收梯的刹车」：第 7 次 global_oom 停手——kernel 事件是节点级外溢，邻居在墙的另一边。「host 在呼吸」的完整版是 host 是共享的
+- 「波该是点燃不是衰减」：ignite wave（fill-mode none：delay 隐形→轮到点燃→衰减交棒）让 ripple 读作「镜头扫过」；decay wave（所有卡同时亮起再逐个熄灭）读作「集体断电」——同一个 delay 变量，fill-mode 的取舍决定语义
+- 「// 注释在拍平传输层里是炸弹」：evalJs flatten 把换行变空格，第一个 // 后面全部变注释——IIFE 永不 return，断言全 undefined。t571「输出可疑时用字符码定谳」家族第 N 例：传输层的结构假设要和注释的风格假设对齐
+- 「逐键 typing 的 diff 语义」：CLI typing 每键一次 diff，narrowing 的最后一步 flash 为空是产品的诚实（波跟随每次着陆），harness 断言错就修断言——假阳性反向案例家族第 N 例
+- 产出：the ripple（canvas/job-card/globals 三文件）+ t578 扩编 32/32 + next.config turbo FS cache 门 + 七级梯子全表与死锁定谳 + 📸×2；下窗入口：①dev 可容：卡影 ladder 下一 rung（inspector 面）、judge 风暴活体半场；②build 候选日：先验箱体（单进程可用心需 ≥3.5GB），到场后 CRYOFLOW_TURBO_FS_CACHE=1 或 webpack cache-off @3072+semi8 二选一，绿后 prod 全家桶（t576 27-face 首跑 + t569/t570/t572 复核 + t571 + t573/t574/t575 活体）；③图瘦身（three/recharts 动态化审计）作为箱体不变时的替代钥匙；④t471 WSL-bridge（照实挂）、t276（门控）
