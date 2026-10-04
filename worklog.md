@@ -8069,3 +8069,24 @@ Stage Summary:
 - 「化石标本也要验尸，但验完要收手」：doubling 标本从删除作业起获→复现 5/5 证明今日代码无罪→触发器死在 t387 世代。真金是标本顺手实锤的 slice(-140) 斩首——「诊断 cosmetics」清单的正确消化姿势：验尸→留见证脚本→修证据实锤的部分→其余注记在案不硬修
 - 「预检门的哲学」：不可逆步骤（清 .next）要推迟到最后一个验证点（探活绿）之后；探活的副产品（probe 的编译缓存、甚至 probe 的 standalone 本身）直接转正，一次 build 双重身份——「先证明梯子能爬，再拆旧房子」，且证明本身就把新房子盖好了
 - 产出：FRESH 预检门（gate + NEXT_PROBE distDir + 探针转正换入 + dev/磁盘双拒绝门）+ census 斩首修复（-320×4）+ t577 复现见证 5/5 + 梯子 verdict 全表 + 回归 113 单测/t571 27/27（dev）；下窗入口：①host 回落日 = build 日：FRESH=1 走 gate → prod 起来后首跑 t576 27-face + t569/t570/t572 prod 复核 + t573/t574/t575 活体回归；②若 host 仍压：dev 可容的样式车道（find bar 镜头语言、卡影 ladder 再下一 rung）与 judge worker 风暴观察窗（多类多作业并发）；③census 的 mapLocalToRemote verbatim 回退注记在案（动它先过 t387 语法）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 578 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 01:08 cron)
+Task: 死窗考古与补课——UUID-cron d5cbe84 里的 Task 578 WIP（find bar 镜头语言 + judge worker 风暴基准）验尸、跑绿、收官；t571 focus 面三连败验尸定谳为 harness 缺 hydration 守卫并修复。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 577（交接摘要说 571——滞后第 N+30 次兑付）；HEAD 顶 UUID-cron d5cbe84 = 死窗 WIP 被 infra 打包（「半成品不是废品」教义的考古对象），树净；基线五绿（dev regime 延续：200/33ms、tsc 0 全量、eslint 0、AI 探针结构化信封 {sessionId,events,needsContinue}、active=EMPIAR roster 12）；派单「Task 13 遗留池」第 N+21 次化石（t574 已葬）。
+- [考古——死窗遗赠盘点] d5cbe84 四文件：canvas-find-bar.tsx（+66：镜头语言——enterArmed 骑 findOpen 边沿 false→true 挂 560ms settle 窗；wire drag 从 unmount 改卸下甲胄 opacity-0/pointer-events-none/aria-hidden——「return is not an arrival」；count 升 aria-live polite + React key 逐变重挂的 data-find-tick 一次性闪）；globals.css（+45：find-drop 级联 −6px 落镜 220ms easeOutQuint 骑 prefers-reduced-motion、--find-d 0/60/120ms 三 rung、find-tick amber-500 闪与 matched 卡 ring 同 hue——触发与后果同色）；scripts/t578-find-lens-live-fire.mjs（373 行活体：世界守卫+in-browser timing 退役通道延迟+诚实清理+90s 水合守卫）与 scripts/t578-storm-test.mjs（173 行纯 planner 基准）。代码注释自证「the live-fire caught this dead on arrival」——死窗已迭代至少一轮，tsc/eslint 全绿证明 WIP 成熟，直接补课不重写。
+- [补课三跑全绿] ①storm 基准 18/18（S1 首拍只进全局最老合格者；S2 五作业五拍严格最老先出跨类型共享公平队列、排空后零churn；S3 镜像全程隐身原件照常得拍；S4 中暴 arrival 排龄不插队；S5 pre-watermark 遗物唯一候选也不浮现；S6 policy 压倒 backlog；S7 clamp 10s/10min 地板天花板）；②find-lens 活体 24/24 首跑（F1 Ctrl+F 100ms 内 armed+三 rung find-drop+阶梯 0/60/120ms；F2 📸 mid-cascade；F3 settle 解除武装 typing 不重演；F4 count 诚实+polite live region+Enter 进环 amber tick 闪；F5 拖线时在 DOM 内隐身 opacity 0/pe none、Escape 归来不重演级联；F6 Escape 瞬时卸装无退场仪式；📸 settled lens；roster 12→12、console 净）；③AI 探针信封（注意本窗实测契约 {message} 单数）。
+- [focus 面验尸——本窗最重的证据链] t571 回归三连败于 focus face {"open":false}。假设一「dev 冷编译竞态，复跑即绿」（t577 的已知伪影）被证伪：温热 server 第三跑仍败。假设二「WIP 回归」被诊断脚本 t578-focus-diag.mjs 证伪：harness 同款 Chrome+shim 下 D1 palette 97 项/D2 输入收窄 1 项 class2d K5/D3 Enter→dlg:true，卸 shim 重放同样 dlg:true——产品与环境双无罪。定谳：t571 harness 缺 hydration 守卫——openApp 的 3200ms 固定 sleep 是 prod 时代假设，dev 慢水合（本窗 dev server 17:19 被宿主 OOM 杀死后 watchdog 换新，首次编译 cold）时 centerCard 的 Ctrl+K 在 React 挂载前开火、键全落空；其后的 L1/W 面全过只因 centerCard 自带 4.2s sleep「等到了」水合——失败面不是错的，是来得太早的。修复：镜像 t578 的 90s 轮询守卫（pollUntil cards>0）+ 注释钉死证据链。首版补丁引用了不存在的 readJson（t578 的助手，t571 只有 evalJs）——ReferenceError 被 pollUntil 吞成 90s 空转，幸而 90s 等待让 focus 面过、而轮询面自身 undefined cards 暴露了它；改 t571 自家 evalJs+JSON.parse 惯用法后 28/28（27 面+新 hydration 面）。
+- [dmesg 铁证与 build 判决] 宿主全局 OOM 再次击杀 next-server（oom-kill:constraint=CONSTRAINT_NONE...global_oom，task=next-server，anon-rss 2287992kB≈2.23GB）——t577「墙是宿主形状的」verdict 今夜仍成立，dev-server-watchdog 换新成功（200 恢复）。本窗末内存 825MB available < 探活 build 所需 ~1.65GB live set——FRESH gate 的探活单发必死，不爬已知死梯，build 判决：今夜无望，如实跳过（gate 本身仍守护着最后好 build——但本窗 .next 无 BUILD_ID，standalone 早已不在，gate 的保护对象暂缺）。
+- [回归] t578 storm 18/18 + find-lens 24/24 + t571 28/28（守卫后）；单测 113（t562 64 + t573 11 + t574 16 + t575 22）；tsc 0 全量；eslint 0（src+新 harness+诊断脚本）；roster 12→12、stamps 1、console 净。t569/t570/t572/t576 27-face 与 t573/t574/t575 活体仍候 prod（t577 doctrine：dev 时序伪影家族不重跑不误诊）。
+- [未做与理由] FRESH 探活 build（内存 825MB，已知死梯）；judge worker 风暴的活体半场（storm test 是 bench 级，多类多作业活体等多作业并发场景）；卡影 ladder 再下一 rung（样式余量留给 dev 可容的下窗）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「半成品不是废品」第三次兑付：d5cbe84 考古→盘点→补课零重写——tsc/eslint 全绿 + 注释自证已迭代，直接跑绿收官。死亡窗的遗产评估顺序：先考古（diff→tsc→阅读自证注释）再决定补课还是重写，接手姿势比重写手艺更值钱
+- 「失败面不是错的，是来得太早的」：focus 面三连败的真相是 keystrokes 落在水合前的虚空——而「复跑即绿」的旧诊断是上一窗在稍暖环境下量到的偶然。假设也要复跑证伪：诊断脚本 shim/unshim 双过是产品无罪的手术刀，第三跑温热仍败是竞态论死刑
+- 「harness 的时代假设」：prod 时代的 3200ms 固定 sleep 是 prod 的测量——dev regime 要 hydration 轮询。t576「dev 分级挂载」教义的第四例（palette/inspector 也吃慢水合）；regime 变迁时回归 harness 的时序面要重新标定
+- 「补丁自己也要被验证」：修 harness 的第一版补丁引用了不存在的助手，ReferenceError 被 pollUntil 静默吞掉——「轮询面 undefined cards 而下一面通过」这个反直觉组合正是暴露它的指纹。假阳性假阴性都会穿成检查的样子，第 N+1 例
+- 产出：find bar 镜头语言（级联+卸下甲胄+amber tick，t572/t576 语法第三座悬浮面）+ t578 storm 基准 18/18（S1-S7 公平队列全谱）+ t578 活体 24/24 首跑 + t571 hydration 守卫修复 28/28 + 诊断见证 t578-focus-diag.mjs + 📸×2（mid-cascade/settled）；下窗入口：①host 回落日=build 日：FRESH gate → prod → t576 27-face 首跑 + t569/t570/t572 prod 复核 + t573/t574/t575 活体回归；②dev 可容：卡影 ladder 再下一 rung、find bar chip 级联微表情；③judge worker 风暴活体半场（多类多作业并发）；④t471 WSL-bridge（照实挂）、t276（门控）
