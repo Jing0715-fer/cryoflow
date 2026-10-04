@@ -78,6 +78,7 @@ import { visionOnce } from "./wire";
 import type { ToolSchema } from "./wire";
 import { mergeJudgePasses } from "./judge-merge";
 import type { JudgeVerdict } from "./judge-merge";
+import { stampVerdict } from "./verdict-stamps";
 import { resolveJobTypeKey, typeResolutionNote } from "./type-aliases";
 import {
   funnelDoorCandidate,
@@ -930,12 +931,24 @@ type PrismaJob = Awaited<ReturnType<typeof db.job.findFirst>>;
 
 async function findJobInProject(jobId: string, projectId: string): Promise<PrismaJob> {
   const job = await db.job.findFirst({ where: { id: jobId, projectId } });
-  if (!job) {
-    // links resolve to their original (the same door every jobs/[id] route uses)
-    const linked = await findEffectiveJob(jobId);
-    if (linked && linked.projectId === projectId) return linked;
-  }
-  return job;
+  if (job) return job;
+  // links resolve to their original (the same door every jobs/[id] route uses)
+  const linked = await findEffectiveJob(jobId);
+  if (linked && linked.projectId === projectId) return linked;
+  // t565 — the NAME LANES: the model sometimes answers "judge class2d K5"
+  // with job_id:"K5" (caught live by the stamp harness's second arc — the
+  // first arc resolved the name through get_workflow_state, the second
+  // guessed and hit the wall). Exact-name first, then a case-insensitive
+  // contains — each gated to EXACTLY ONE match in the project; an
+  // ambiguous name refuses (the honest law) and the caller's not-found
+  // summary points at get_workflow_state so the model self-corrects.
+  const jobs = await db.job.findMany({ where: { projectId } });
+  const byExact = jobs.filter((j) => j.name === jobId);
+  if (byExact.length === 1) return byExact[0];
+  const needle = jobId.toLowerCase();
+  const byContains = jobs.filter((j) => j.name.toLowerCase().includes(needle));
+  if (byContains.length === 1) return byContains[0];
+  return null;
 }
 
 function truncate(s: string | null | undefined, max = 200): string {
@@ -4274,7 +4287,14 @@ async function judge2dClasses(
   question?: string
 ): Promise<AiToolResult> {
   const job = await findJobInProject(jobId, ctx.projectId);
-  if (!job) return { ok: false, summary: `Job not found: ${jobId}` };
+  // t565 — the self-correcting refusal: "Job not found: K5" left the model
+  // with nowhere to go (run2's arc ended there); the hint names the door
+  // that lists the real ids so the next turn can recover on its own.
+  if (!job)
+    return {
+      ok: false,
+      summary: `Job not found: ${jobId} — pass the job's exact id or its unambiguous name (get_workflow_state lists both)`,
+    };
   if (job.type !== "class2d") {
     return {
       ok: false,
@@ -4474,6 +4494,37 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
   // options (conservative vs inclusive) have exact numbers to quote.
   const keepCls = verdict ? verdict.classes.filter((c) => c.verdict === "keep").map((c) => c.cls).sort((a, b) => a - b) : [];
   const maybeCls = verdict ? verdict.classes.filter((c) => c.verdict === "maybe").map((c) => c.cls).sort((a, b) => a - b) : [];
+  // t565 — the verdict stamp: a judge's opinion is evidence about THIS
+  // job, not chat ephemera. Stamp it onto the job's record (one per job,
+  // newest wins) so the Results tab can show what the AI said long after
+  // the session that asked is gone. The stamp never touches selections
+  // or params — a notebook entry, labelled with the model and the
+  // two-pass summary. A failed stamp write must never fail the judge
+  // call: the verdict still ships, the notebook just stays quiet.
+  let stampWritten = false;
+  if (verdict) {
+    try {
+      stampWritten =
+        stampVerdict({
+          jobId: job.id,
+          at: Date.now(),
+          iteration: stats.iteration ?? null,
+          model: assistant.vlmModel,
+          twoPass:
+            confirm && !confirm.failed
+              ? {
+                  agreed: confirm.agreed ?? 0,
+                  torn: confirm.torn ?? 0,
+                  missing: confirm.missing ?? 0,
+                }
+              : null,
+          classes: verdict.classes,
+          advice: verdict.advice,
+        }) != null;
+    } catch {
+      stampWritten = false;
+    }
+  }
   // t520 — the zero-keep branch. When NO class merits keep the old nextStep
   // literally instructed select_classes({classes:[]}) — a call the tool
   // REFUSES ("classes must be a non-empty list of class numbers"), so the
@@ -4498,6 +4549,7 @@ OUTPUT — return ONE JSON object and NOTHING else: no preamble, no markdown fen
       globalResolution: stats.globalResolution,
       judgedClasses: verdict?.classes ?? null,
       confirm,
+      stampWritten,
       advice: verdict?.advice ?? analysis,
       rawAnalysis: verdict ? analysis : undefined,
       classStats: stats.classes,

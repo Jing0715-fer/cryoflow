@@ -141,3 +141,10 @@ export const SelectionReceipt = dynamic(
   () => import("./selection-receipt").then((m) => m.SelectionReceipt),
   { ssr: false, loading: chartLoading }
 );
+// t565 — the AI verdict stamp: the judge's verdict promoted from chat
+// ephemera to a job-level card (per-class verdict chips, the model,
+// the two-pass summary) — its own chunk until a class2d job opens
+export const AiVerdictStamp = dynamic(
+  () => import("./ai-verdict-stamp").then((m) => m.AiVerdictStamp),
+  { ssr: false, loading: chartLoading }
+);

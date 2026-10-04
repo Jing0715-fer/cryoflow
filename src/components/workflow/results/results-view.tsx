@@ -83,6 +83,7 @@ import {
   TopazTrainingChart,
   DenoiseCompareGallery,
   SelectionReceipt,
+  AiVerdictStamp,
 } from "./results-lazy";
 import { MrcImage } from "./mrc-image";
 import { MolViewer, type MolViewerTarget } from "./mol-viewer";
@@ -1078,6 +1079,17 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           lie. */}
       {(job.type === "select2d" || job.type === "select") && (
         <SelectionReceipt jobId={job.id} refreshKey={refreshKey} />
+      )}
+
+      {/* t565 — the AI verdict stamp: a judge's verdict is evidence about
+          this run, stamped onto the job's record at judge time — it lives
+          on the Results tab long after the chat session that asked is
+          gone. Type-gated to class2d (the judge's only mouth); honest
+          absence when no judge has ever spoken about this job. The stamp
+          is a notebook entry — the footer names the model and the pass
+          summary, and it never touches the particle counts. */}
+      {job.type === "class2d" && (
+        <AiVerdictStamp jobId={job.id} refreshKey={refreshKey} />
       )}
 
       {/* Import Map identity card — the map's own story (t256): size and
