@@ -1520,18 +1520,47 @@ export function WorkflowCanvas() {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  /* t587 — the readout's voice: the odometer tick. The zoom % span is the
+   *  toolbar's live gauge, and a gauge should speak when the world rescales
+   *  under a COMMAND — the two step buttons and reset (both entry surfaces:
+   *  toolbar buttons and the context menu route through these two fns).
+   *  What never ticks, by design:
+   *  - wheel / pinch: continuous gestures — the digits themselves changing
+   *    ARE the continuous voice; re-firing an entrance per frame is the
+   *    "disarm became an event" anti-pattern (t585's ghost, zoom edition).
+   *  - the initial-load fit (frameBounds): the readout's first value is its
+   *    birth, not an event — arming-edge silence (t585's fresh-lens law).
+   *  - bookmark / focus jumps: arrivals already GLIDE (Task 124's own
+   *    voice); a glide and a tick are different sentences.
+   *  The tick rides a React key remount (the find-tick idiom): nonce up →
+   *  new span → the one-shot animation plays once and the element rests.
+   *  Direction is the mechanical-odometer metaphor: the value growing
+   *  rolls the drum UP (the new digit enters from below, +2px), the value
+   *  shrinking drops it in from above (−2px). Comparison runs on the
+   *  ROUNDED percent — the readout only speaks when its own text changes
+   *  ("no change, no sound" also swallows clamped no-ops for free). */
+  const [zoomTick, setZoomTick] = React.useState<{ n: number; dy: number } | null>(null);
+  const tickZoomReadout = React.useCallback((fromZoom: number, toZoom: number) => {
+    const from = Math.round(fromZoom * 100);
+    const to = Math.round(toZoom * 100);
+    if (to === from) return;
+    setZoomTick((t) => ({ n: (t?.n ?? 0) + 1, dy: to > from ? 2 : -2 }));
+  }, []);
+
   const zoomAroundCenter = (targetZoom: number) => {
     const rect = rootRef.current?.getBoundingClientRect();
+    const s = useWorkflowStore.getState();
     if (!rect) {
+      tickZoomReadout(s.viewport.zoom, targetZoom);
       setViewport({ zoom: targetZoom });
       return;
     }
-    const s = useWorkflowStore.getState();
     const cx = rect.width / 2;
     const cy = rect.height / 2;
     const nz = clamp(targetZoom, ZOOM_MIN, ZOOM_MAX);
     const px = (cx - s.viewport.x) / s.viewport.zoom;
     const py = (cy - s.viewport.y) / s.viewport.zoom;
+    tickZoomReadout(s.viewport.zoom, nz);
     setViewport({ x: cx - px * nz, y: cy - py * nz, zoom: nz });
   };
 
@@ -1833,6 +1862,9 @@ export function WorkflowCanvas() {
     // origin (0,0) is just an arbitrary point once coordinates can go
     // negative — centering avoids resetting into empty space)
     const rect = rootRef.current?.getBoundingClientRect();
+    // the gauge speaks only when its number changes: a second reset at
+    // 100% re-centers silently (t587 — "no change, no sound")
+    tickZoomReadout(useWorkflowStore.getState().viewport.zoom, 1);
     if (!rect || jobs.length === 0) {
       setViewport({ x: 0, y: 0, zoom: 1 });
       return;
@@ -2216,7 +2248,16 @@ export function WorkflowCanvas() {
         >
           <ZoomOut className="size-4" />
         </Button>
-        <span className="w-11 text-center text-xs font-medium tabular-nums text-muted-foreground">
+        <span
+          key={zoomTick?.n ?? 0}
+          data-zoom-tick={zoomTick ? "" : undefined}
+          style={
+            zoomTick
+              ? ({ "--zoom-tick-y": `${zoomTick.dy}px` } as React.CSSProperties)
+              : undefined
+          }
+          className="w-11 text-center text-xs font-medium tabular-nums text-muted-foreground"
+        >
           {Math.round(zoom * 100)}%
         </span>
         <Button
