@@ -8230,3 +8230,28 @@ Stage Summary:
 - 「预算是注释的一部分」：settle 窗从 560 到 720 不是拍脑袋——是 340+7×24+160=668ms 的算术与「最宽真实世界」的实测（EMPIAR 恰好 8 chip）共同钉死的。时序预算写进注释时要把算式一起写：下一个改行延时的人需要知道 disarm 窗是怎么来的，否则斩断 mid-flight 的 bug 会在某个更宽的世界里复活
 - 「in-browser timing 是级联 harness 的唯一诚实量法」：C2 的梯度 [0.94→0.00] 只有在 keydown 派发与读数同处一个 eval 内部（380ms in-page await）才可断言——CLI 往返的数百 ms 会把「中飞」变成「落地后」，把真波量成属性摆设。t578 的通道延迟退役通道在两阶段场景从优化升格为前提
 - 产出：the chips speak（canvas-find-bar.tsx 四处 + globals.css find-chip-enter stanza）+ settle 560→720ms 重预算 + t584 witness 19/19 首跑 + 📸×2 + 回归全绿（t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t584/t583 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②chip 切换应答微表情（active dot pop / press answer——find chip 的第三人称格）；③judge 风暴活体半场；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 585 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 06:23 cron, Job 362852)
+Task: t584 入口②兑现——chip 切换应答微表情（click-settle 激活应答）；途中活体抓到一个真产品 bug（disarm 幽灵应答）并修掉；dev watcher 丢事件教义第二次兑付（CSS 编辑静默丢失）+ Turbopack dev 陈旧产物连坐。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 584（本会话上窗）；HEAD 16d2305、树净；dev regime 五绿（200/27ms、tsc 0 全量、eslint 0、AI 信封、roster 6 active=EMPIAR jobs 12）；available 1439MB < 3.5GB → 非 build 日；agent-browser QA canvas 12 卡 13 线 console 净。派单「Task 13 遗留池」第 N+28 次化石（t574 已葬）。
+- [选道] t584 入口②「chip 切换应答微表情」——find chip 的第三人称格：t584 给了入场（滤轮到场），本窗给激活自己的音节（滤轮咔哒入位）。
+- [产品 v1——纯 CSS 规则匹配触发] `[data-canvas-find-bar]:not([data-find-enter]) [data-find-chip][aria-pressed="true"] { animation: chip-set 260ms cubic-bezier(0.34,1.56,0.64,1) }` + `@keyframes chip-set { from { scale: 0.94 } }`——back-out 贝塞尔从 0.94 弹过 1 再落定，「咔哒」的运动形态。设计语义：激活是事件（settle 应答），释放是安静（无退场仪式，t578 法）；:not([data-find-enter]) 作结构性握手（armed 窗口内级联独占动画通道）。
+- [witness 17/21 首跑——四处失败验尸] ①T2 假阳性：规则持续匹配 → animationName 永读 "chip-set"，"已结束" 的诚实见证是 getAnimations()（第一跑把「规则匹配」当成「动画在放」）；②T6 选择器吃 row：`[data-testid^="canvas-find-type-"]` 先命中 row 容器（canvas-find-type-row），非 chip——补 [data-find-chip] 判别符；③T5 前提证伪：closeFind 重置 findQuery/findStatus/findCategory（store L5219）——「每次开镜都是新世界」是产品语义，「reopen 时仍有 active chip」场景不存在；④T7 walker bug：Chrome 原生嵌套让每个 CSSStyleRule 都有 cssRules（空表也 truthy）——先 descend 再 check 的顺序吞掉了所有规则。
+- [真 bug——disarm 幽灵应答] 验尸中发现：纯 aria-pressed 规则在 disarm 时刻（data-find-enter 从 root 移除）会对所有仍 active 的 chip 新匹配 → 无点击却 pop——「disarm 不能成为事件」（t578 教义的反面教材）。修法（v2）：激活应答改为 React 门控显式键集——chipSetKeys 只在 `!enterArmed && next !== "all"` 的点击时 add；arming edge 每次开镜清空集合（「新镜片拥有新声音」——上次会话的键会在本次 disarm 幽灵复现）；释放不撤销键（安静来自 aria-pressed 翻回）→ 快速 off→on 重放 settle；规则改键 `[data-chip-set]` + 保留 aria-pressed + :not 握手。幽灵在所有路径上不可能：in-arm 点击不加键、开镜清键、disarm 无键可匹配。
+- [witness 20/20 定谳] T1 激活应答（in-browser timing 60ms 处 scale=0.94 mid-chunk）+ T2 三重诚实见证（规则匹配 chip-set / getAnimations 0 / scale natural）+ T3 释放安静 + T4 重激活重放 + T5 幽灵探针（in-arm 点击 keySet:false + anim find-chip-enter→disarm 后 none/settles:0）+ 新镜片保证（pressed 0/keyed 0）+ T6 type chip 同语法 + T7 CSSOM 层级（motion-safe 门内唯一）+ R roster/console。📸×2。
+- [dev watcher 丢事件——第二次兑付] 第三跑幽灵探针抓到 `keySet:false 但 settles:1`——门控生效、属性缺席、动画照放，唯一自洽解释：served CSS 还是旧规则。取证：CSSOM cssText 定谳 served = 旧规则（无 [data-chip-set]）；源文件 L713 正确 → watcher 丢了 CSS 编辑事件（t581 教义原样重演：TSX 热更在流、CSS 静默丢失）。修复阶梯：pkill+脚本重启（t581：dev-server.sh 自家 setsid 形态）→ **仍旧规则**（新 server 继承 .next 里陈旧 dev 编译产物——连坐）；touch 源文件 → 无效（mtime 不触发）；rm -rf .next 冷启动 → 新规则逐字 served（200/17.3s，available 831MB 也活——dev 冷编译 ≠ build 冷编译）。λ：curl 页面 grep chunk URL → 直接下载 served CSS grep 规则签名，是比 CSSOM walk 更快的定谳管道。
+- [t584 C2 抖动一课] 回归跑 C2 两连败（全零 → 0.87 头）：recycle 后冷缓存首开的 dispatch→render 管线抖动让中飞采样相位漂移——梯度（o0>o2>o4, 尾近零）才是「真 paint 有序波」的诚实不变量，绝对相位（o0>0.9）是抖动部分；修断言放宽头阈值、留梯度 + 注释钉死第三跑教训。
+- [回归] t585 20/20 + t584 19/19 + t578 32/32（find lens 全家族零位移）+ 单测四连 113（64+11+16+22）+ tsc 0 全量 + eslint 0（src+双 harness）；roster 12→12、console 双净、零世界污染。
+- [未做与理由] judge 风暴活体半场（等世界稳定夜）；build 日全家桶（等箱体 ≥3.5GB——本窗 available 1439MB 峰值仍远）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「disarm 不能成为事件」的完整版：祖先态驱动的动画规则（:not([data-find-enter]) + aria-pressed）在祖先属性变化时会「新匹配」所有后代——规则无法区分「用户点击」和「框架 disarm」。显式瞬态键（React 门控 + arming edge 清空）把触发器还给因果：只有真正的 post-arm 激活点击才领到声音。CSS 的声明式匹配在「状态机」场景会替你说你没说的话
+- 「served 是真相，源不是」：源文件正确 ≠ 世界正确——watcher 丢事件后，served CSS 停在过去，而 TSX 热更还在流（半新半旧的混合世界最难诊断：门控生效、规则陈旧，两个证据指向相反结论）。定谳管道：CSSOM cssText / 直接下载 served chunk grep 签名——「输出可疑时用字符码定谳」的 CSS 版
+- 「recycle 不等于干净」：rm 掉的是进程，留下的是 .next——新 server 从陈旧 dev 编译产物继续 serve（连坐）。t581 的「controlled recycle」在 watcher 丢事件场景不够，要「controlled cold boot」（rm .next）。touch 在 mtime 语义下对 turbopack 的缓存校验是空枪
+- 「getAnimations() 是动画的账本，animationName 只是规则的回声」：规则匹配期间 computed animationName 永远报名字，fill-mode none 的已结束动画却不在 getAnimations() 里——断言「动画结束」要查账本不是听回声；而 getAnimations() 包含 transition（transition-colors 一动就 +6 条）——按 animationName 过滤才是点名
+- 「in-arm 时序必须整体搬进 eval」：openLens 的 900ms CLI sleep 超过 720ms settle 窗——helper 返回后的一切点击都已是 post-arm。t578 的通道延迟退役通道从「读数」升格为「动作」：凡是比通道短的时间窗，窗口内的读与动都必须同 eval 原子
+- 产出：the click-settle（globals.css chip-set stanza + canvas-find-bar chipSetKeys 门控三处）+ t585 witness 20/20（含幽灵探针）+ t584 C2 梯度断言加固 + dev watcher/缓存双课定谳管道 + 回归全绿；下窗入口：①build 日 = FRESH gate → prod 全家桶（t585/t584/t583 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②judge 风暴活体半场；③find lens 语法下一站候选：count chip 的 press 应答（计数门也是门）或 Esc 卸装时 rows 的轻声退位（对称语言）；④t471 WSL-bridge（照实挂）、t276（门控）
