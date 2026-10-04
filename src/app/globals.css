@@ -431,6 +431,51 @@
 }
 
 /* ============================================================
+   Task 578 — the find bar's lens language (the cascade, the tick).
+   t572 gave the palette a cascade; t576 gave the dashboard the same
+   grammar; the find bar is the third floating surface and now speaks
+   it. The bar hangs from the top edge, so it LOWERS into place
+   (−6px settling to 0 — the drop reads as "the lens comes down over
+   the work") in three rungs: the input pill first (the anchor of the
+   lens), then the status row, then the type row, 60ms apart. The
+   travel rides prefers-reduced-motion: no-preference (t571's layered
+   doctrine); `both` fill keeps un-rung rows invisible during their
+   delay. Disarm is code-side: the root's data-find-enter is removed
+   after the settle window, so the cascade is a one-shot per OPEN —
+   typing, chip clicks and wire-drag returns never replay it, and a
+   re-open remounts the bar (replay = re-entrance, the t572 law).
+   ============================================================ */
+@keyframes find-drop {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-find-enter] [data-find-rung] {
+    animation: find-drop 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--find-d, 0ms);
+  }
+  /* the count answers: when the number changes (N matches → 1 of N),
+     the tick span flashes the find dialect's amber — the same hue the
+     matched cards ring with (job-card's findMatch border) — so the
+     trigger and its consequence speak one color. Paint-only; the span
+     is remounted by React key per change, making the flash a one-shot. */
+  @keyframes find-tick {
+    0% {
+      color: oklch(0.769 0.188 70.08); /* amber-500, the find ring's hue */
+    }
+  }
+  [data-find-tick] {
+    animation: find-tick 480ms ease-out;
+  }
+}
+
+/* ============================================================
    Edge animations
    ============================================================ */
 /* t349 — the marching offset MUST be an exact multiple of the dash

@@ -43,6 +43,16 @@
  *    text ∧ status ∧ stage — combine in one exported predicate; a stage
  *    that doesn't exist can't be a filter, and a single-category
  *    workspace hides the row entirely.
+ *  • Task 578 — the lens language. The bar now ENTERS like a lens
+ *    lowering over the work (the t572 palette / t576 dashboard cascade
+ *    grammar, third floating surface): input pill first, chip rows
+ *    60/120ms behind, settle disarms, re-open remounts and replays.
+ *    Two motion-semantics debts come due with it: (a) a wire drag used
+ *    to UNMOUNT the bar — the stand-down is now opacity/pointer-events
+ *    only, so a return is visibly NOT an arrival and the cascade never
+ *    replays on a drag end; (b) the count is a polite live region and
+ *    flashes the find dialect's amber when the cycle advances — the
+ *    same hue the matched cards ring with.
  */
 
 import * as React from "react";
@@ -144,6 +154,29 @@ export function CanvasFindBar() {
  *  → "1 of N" only once something is actually centered). */
   const [cur, setCur] = React.useState<number | null>(null);
 
+  // Task 578 — the entrance cascade is a ONE-SHOT per open. TRAP: this
+  // component does NOT mount on open — the early return sits after the
+  // hooks, so the instance exists from page load (rendering null). An
+  // arming state initialized at mount would be disarmed by its own settle
+  // timer before the FIRST Ctrl+F ever landed (the live-fire caught this
+  // dead on arrival). So arming follows the findOpen TRANSITION instead:
+  // false → true arms the cascade and starts the settle window (last rung
+  // 120ms + 220ms travel + margin); true → false (a close) resets the
+  // edge so the next open replays. A wire-drag stand-down never touches
+  // findOpen — the attribute stays disarmed through it, so a drag return
+  // cannot replay the entrance (a return is not an arrival).
+  const [enterArmed, setEnterArmed] = React.useState(false);
+  const findOpenEdge = React.useRef(false);
+  React.useEffect(() => {
+    if (findOpen && !findOpenEdge.current) {
+      findOpenEdge.current = true;
+      setEnterArmed(true);
+      const id = setTimeout(() => setEnterArmed(false), 560);
+      return () => clearTimeout(id);
+    }
+    if (!findOpen) findOpenEdge.current = false;
+  }, [findOpen]);
+
   const matches = React.useMemo(() => {
     if (!findOpen) return [] as JobDTO[];
     return jobs.filter((j) => jobMatchesFind(j, findQuery, findStatus, findCategory));
@@ -231,7 +264,13 @@ export function CanvasFindBar() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (!findOpen || pendingFrom) return null;
+  // The stand-down: a wire drag (pendingFrom) used to unmount the bar
+  // entirely — which would have made any entrance choreography replay
+  // on every drag end. Now the bar lowers its voice instead of leaving:
+  // opacity 0, pointer-events none, aria-hidden — still mounted, still
+  // disarmed, invisible to the drag and to assistive tech alike. A
+  // return is not an arrival; the cascade agrees.
+  if (!findOpen) return null;
 
   // Honest zero: with no query AND no chip the bar simply isn't looking
   // for anything (no count); but an armed lens with zero hits must say
@@ -250,11 +289,20 @@ export function CanvasFindBar() {
       data-canvas-ui="find-bar"
       data-canvas-find-bar=""
       data-testid="canvas-find-bar"
-      className="no-print card-lift absolute left-1/2 top-3 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5"
+      data-find-enter={enterArmed ? "true" : undefined}
+      className={cn(
+        "no-print card-lift absolute left-1/2 top-3 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5 transition-opacity duration-150",
+        pendingFrom && "pointer-events-none opacity-0",
+      )}
       role="search"
       aria-label="Find jobs on canvas"
+      aria-hidden={pendingFrom ? true : undefined}
     >
-      <div className="flex items-center gap-1 rounded-full border bg-card/95 py-1 pl-2.5 pr-1 shadow-md backdrop-blur">
+      <div
+        data-find-rung="0"
+        style={{ "--find-d": "0ms" } as React.CSSProperties}
+        className="flex items-center gap-1 rounded-full border bg-card/95 py-1 pl-2.5 pr-1 shadow-md backdrop-blur"
+      >
       <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <input
         ref={inputRef}
@@ -276,6 +324,7 @@ export function CanvasFindBar() {
         <button
           type="button"
           data-testid="canvas-find-count"
+          aria-live="polite"
           onClick={() => {
             go(1);
             // keyboard continuity: focus returns to the input so typing
@@ -286,16 +335,19 @@ export function CanvasFindBar() {
           title="Jump to next match"
           className="shrink-0 cursor-pointer whitespace-nowrap rounded px-0.5 text-[11px] font-medium tabular-nums text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
         >
-          {countLabel}
+          {/* keyed remount per label: the amber tick is a one-shot per
+              change (t578), not a blinking ornament */}
+          <span key={countLabel} data-find-tick="">{countLabel}</span>
         </button>
       ) : (
         <span
           data-testid="canvas-find-count"
+          aria-live="polite"
           className={`shrink-0 whitespace-nowrap px-0.5 text-[11px] font-medium tabular-nums ${
             findQuery.trim() ? "text-destructive" : "text-muted-foreground"
           }`}
         >
-          {countLabel}
+          <span key={countLabel} data-find-tick="">{countLabel}</span>
         </span>
       )}
       <Button
@@ -340,6 +392,8 @@ export function CanvasFindBar() {
           and the chips ARE the discovery surface (no funnel detour). */}
       <div
         data-testid="canvas-find-status-row"
+        data-find-rung="1"
+        style={{ "--find-d": "60ms" } as React.CSSProperties}
         role="group"
         aria-label="Filter matches by status"
         className="flex items-center gap-0.5 rounded-full border bg-card/95 px-1.5 py-1 shadow-md backdrop-blur"
@@ -384,6 +438,8 @@ export function CanvasFindBar() {
       {presentCategories.length > 1 && (
         <div
           data-testid="canvas-find-type-row"
+          data-find-rung="2"
+          style={{ "--find-d": "120ms" } as React.CSSProperties}
           role="group"
           aria-label="Filter matches by type"
           className="flex max-w-[min(92vw,560px)] flex-wrap items-center justify-center gap-0.5 rounded-full border bg-card/95 px-1.5 py-1 shadow-md backdrop-blur"
