@@ -7497,3 +7497,30 @@ Stage Summary:
 - 「世界门卫先行」：live-fire 脚本第一步验 active 世界，fail fast 比判错世界便宜十倍；借的世界要还（roster 5→5、10→10），tombstone 是免费的保险
 - 产出：gamble 车道端到端 PROVEN + 正典 A3b 复跑 17/17 + scripts/t554-gamble-live-fire.mjs（双象限门卫形 harness）+ 两世界零污染归还
 - [下窗入口] ①遗留池开张：#7 chart 路由全量同步读（guinier/resolution/angdist 热路径）与 #8 particles BFS N+1 是性能面两块硬骨头，#5 fs/browse 鉴权是安全面最响的一块；②AI 车道：gamble 的 inclusive 象限（keep>0+maybe>0 用户接赌选 keep∪maybe）本窗未亲临（borderline 先落），EMPIAR 世界 F2/F3 形判词随时可复现赌面；③新功能方向：3D viewer 体积截面工具、Topaz wrapper；④t471 WSL-bridge 面（照实挂）
+
+---
+Task ID: 555
+Agent: main (Z.ai Code, window 2026-10-04 07:38 cron)
+Task: 遗留池全池验尸（N+12 次化石结案）→ gamble 车道 PROVEN ×3 → 主菜：3D viewer 任意取向截面（oblique section）端到端落地——server 重采样 + file route 门 + ortho panel 内嵌 UI + 12/12 单测 + 浏览器活体。
+
+Work Log:
+- [开局] HEAD 883c6dd 对齐、树净；基线五绿（prod 200/3ms、tsc 0、eslint 0、AI 探针 ALIVE、console/errors 0）。
+- [遗留池验尸 = 本窗第一刀] 派单背诵的 Task 13 清单逐项核验：#5 fs/browse 鉴权——route L101 isLocalRequest 在位（t251 sibling closure 注释亲证）；#7 chart 全量同步读——statcache.ts 头注逐字对上（「polled every 1–2 s… re-read + re-parse」，mtime 键控 + 24 槽 LRU）；#8 particles BFS N+1——route L280「Batched BFS」注释点名旧形已葬；#13 localStorage——三处 setItem 全在 handler 不在 useMemo；#6/#14 pathref——validate-before-open 设计文档化。**全池闭光，化石 N+12**；cron 派单的遗留面自此零信息量。
+- [gamble 车道 PROVEN ×3] t554 harness 补 CF_REPORT_NAME 覆盖（不同象限各写各的 report，不覆 t554 borderline 原件）后 EMPIAR 世界再跑两枪：maybe [4,5]（7,421→**5,583/10,866 = 51.4%**）与 maybe [2,5]（**7,005/10,866 = 64.5%**）——三跑三形 borderline，maybe 集各异（[2,3,5]/[4,5]/[2,5]），cls2/cls5 稳定核复现。inclusive 象限（keep>0）今日 VLM 心情不产——其产品路径与 borderline 完全同路（同 select_classes 落地点），仅 nextStep 措辞分支由 t520 bench 钉背书，车道照此收口。两世界 roster 10→10 零污染。
+- [主菜：oblique section（t555）] 真缺口 = Mol* slice 只做轴对齐 + box-clip 只做六面——螺旋轴、优取向平面、双叶切面这些「盒子轴没人对齐过」的平面没有家。四件套：
+  ① mrc.ts 重采样核：readMrcVolumeCached（全体积解码一次，(size,mtime) 键控 2 槽 LRU，MAX_VOLUME_DATA_BYTES=256MB 上限拒绝 OOM）；readMrcObliqueSlice（θ/φ 法向 + offset 沿法向 ±support、框角投影定 extent、三线性插值、盒外样本 NaN→有限均值——中灰「体积外」永不读成「零密度」，percentile 窗的 sort 不吃 NaN）；renderMrcObliquePng（downsample→stretchToGray→grayToPng——与全家 thumbnail 同一条显示真理）。
+  ② file route png 分支：plane=oblique&theta&phi&offset（stack 拒绝同 axis 律、参数钳位 0-180/0-360/±1、垃圾参数回默认不 500）——同一扇门（isLocalRequest + pathref + polarity 全继承）。
+  ③ map-ortho-panel 内嵌 ObliqueSectionBlock：折叠形（默认 off——没人要的 render 是噪声）、θ/φ/offset 三滑杆 + 140ms debounce 重取、读数行（法向矢量 / 真实 extent vox / offset vox / reset）、violet Slice 图标——与 panel 家族同一视觉语。
+  ④ scripts/t555-oblique-test.mjs：合成 48×52×40 体积（Gaussian 团 + 斜脊线）×12 检——θ=0 平面与中心 z 切面 r=1.0000、θ=90 帧转感知 r=0.9997、45° 斜切六边形内全有限 + rect 角出盒是合法几何、±0.98 offset 擦角 0.4% 诚实在内、live route 真图 2693 字节 PNG、垃圾参数 200。
+- [dance — 家法第三吃] FRESH=1 前台轮次：**attempt 1 即 GREEN**（provenance 883c6dd），anti-tear 自动重启 standalone（t434 闭源于源）。t415 清场（agent-browser close）先行。
+- [浏览器活体] canvas → QA Refine3D 卡 → inspector → Enlarge orthovol → 「View in 3D (Mol*)」→ Mol* 弹窗 → Orthogonal slices 展开 → **Oblique section 块在场** → 展开出 tile + 三滑杆；θ 45°→55° 键盘 scrub → alt 更新（debounce→重取闭环）→ 截图目检：六边形截界清晰可见（盒外中灰区）、读数 n(0.71,0.41,0.57) · 87×102 vox · reset 齐。console 0 error。
+- [回归 + 性能] file route 四车道全 200（ortho-x 3554B / ortho-z 1670B / legacy thumb 1670B / oblique 3798B）；PNG 随 θ 变化（45°≠90°）且确定性（同参同字节）；warm render 53ms（体积缓存 + 采样快——scrub 是流体）。tsc 0 · eslint 0。
+- [未做与理由] Topaz wrapper（下窗候选，topaztrain job type 已有产品面）；#1-#4/#9-#12 旧审查项（#5-#8/#13/#14 已验尸闭光，其余项在更早窗闭）；t471 WSL-bridge（照实挂）；t276 _legacy-archive、off-mainline 出口（照旧门控）。
+
+Stage Summary:
+- 「化石清单的验尸官」：派单背诵的遗留池整池已被往窗闭光——逐项核实（注释亲证 + 代码在场）比相信清单便宜；遗留面的唯一真源是代码与 worklog，从不是派单
+- 「轴对齐之外的平面也该有家」：oblique 的三件套（重采样核 / 门的分支 / 内嵌 UI）全部走既有家法——同一条 gray 管线、同一扇 file route 门、同一个 panel 视觉语；新平面家族没有新造世界
+- 「测试的框转也是框转」：v=n×u 在 θ=90 时是 -ẑ——首版测试忘了翻 j 轴（r=0.9948 的假败）；rect 角出盒是 45° 切的合法几何（「全有限」是错检查）；测试错不等于代码错，但每一处假败都要解剖到根源才能改
+- 「53ms 的 scrub」：体积解码一次缓存、采样是纯算术——滑杆拉动的手感是产品价值本身；warm render 53ms 意味着 oblique 浏览和正交浏览一样是「流体」，不是「等图」
+- 产出：oblique section 端到端（mrc 核 + route 门 + UI 块）+ 12/12 单测 + 浏览器活体验证 + gamble 车道 PROVEN ×3 + 遗留池 N+12 结案
+- [下窗入口] ①oblique 的下一步钩子：Mol* 联动（oblique 平面法向喂 box-clip 的 invert 面，θ/φ→clip 平面朝向——2D↔3D 循环的 oblique 版）、triptych export 收编 oblique 第四面板；②Topaz wrapper 产品化；③AI 车道：gamble inclusive 象限等 VLM 心情（或换一个有 keep 的世界）；④t471 WSL-bridge 面（照实挂）
