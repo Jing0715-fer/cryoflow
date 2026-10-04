@@ -7786,3 +7786,25 @@ Stage Summary:
 - 「checker 的三层活捉全是自己的」：prefetched 只跳不喂（产品 bug）、多行 eval shell 必死（harness bug）、CLI 双重编码（harness bug）——📸 打印成功与断言失败同框是破案关键（元素在 DOM 里=产品没错=harness 错）；「测试失败先分清是谁的错」再+一例
 - 「POST /api/jobs 的 classStarSelection 自带 edge」：t564b 只铸不连能跑通是因为 birth 源可解析输入；param select 才暴露「无 birth 源必须手动连线」——同一 mint 两条路，REST 形状再看一遍（t563 POST 形状三连的续集）
 - 产出：SelectionEvidenceRow（配对/诚实退化双形态）+ 双卡 prefetched/viaJobName/className 扩展 + t566 harness 25/25 ×2 + 联排截图；下窗入口：①judge worker 复核重估或 class3d 判词（需 VLM 3D 面论证）；②收据「verdict on」与「from」footer 的点击跳转（跨卡导航——戳的 footer 点到父亲 tab？小而顺）；③t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 567
+Agent: main (Z.ai Code, window 2026-10-04 14:38 cron)
+Task: t566 入口②兑现——footer 门（the footer doors）：把「verdict on / from」从标签升格为导航，跨卡跳转从假说做成真手势。开局巡检五绿零 bug。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 566（交接摘要说 554——滞后于现实第 N+22 次兑付；派单背诵的「Task 13 遗留池」第 N+13 次零信息量）；HEAD bbb7944、树净；基线五绿（prod 200/4.6ms、tsc 0、eslint 0 error +1 脚本 warning、AI 探针 reset ALIVE、active=EMPIAR t372 与 t566 收官一致）。
+- [选道] t566 入口①（judge worker 复核/class3d 判词——VLM 3D 面论证重活）让位于入口②「小而顺」：读盘实锤 store.openJob（store.ts L5231）就是全 app 的跳转方言——workspace hop→跨项目切换→select+focus（idle）/inspect（非 idle），command palette 与 dashboard 同款；receipt 路由的 provenance（L65-105）在 params.classStarSelection.jobId 存在时读 DB 取 sourceJobName——「名字非 null = DB 实锤父 job 活着」就是门的诚实前提。
+- [设计——幽灵不派门] 两卡 footer 升格为 button 的门槛不同：receipt 门要求 provenance.sourceJobId && sourceJobName 都在（名字来自 DB 现读，父 job 被删则名字 null → 从 receipt.source 回退的纯文本，永不派门）；stamp 门用显式 viaJobId prop（row 传 source.id）+ viaJobName 在场——viaJobName 缺席即自己家的戳，本就无 footer 可点。样式方言：dotted underline on hover + 家族色 hover 底（emerald/violet 600/10）+ ArrowUpRight h-2.5 + focus-visible ring + title 补「click to open」承诺；data-canvas-ui receipt-from-link / verdict-via-link 给 harness 留把手。
+- [实现] 三文件：selection-receipt.tsx（from footer 双形态 span/button + useWorkflowStore 直调 getState().openJob——command-palette 同款）、ai-verdict-stamp.tsx（verdict on footer 双形态 + viaJobId prop）、selection-evidence-row.tsx（viaJobId={source.id} 接线）。store.ts 本在 eager bundle，dynamic chunk 引它零增重。
+- [dance] 腾房律做全（pkill watchdog + 杀 prod）→ FRESH=1 SEMI_MB=8 attempt 1 GREEN（104s，anti-tear 自动复位没走上路因为 prod 已死——start-prod + watchdog 手动复位 200）。
+- [活体 t567 24/24 ×2 连绿] 世界门卫 → 铸 birth select [2,5]（判词 keep∪maybe 赌面）→ run → 7,005/10,866=64.5% → 配对行挂载 → 双门断言（BUTTON tag + svg icon + title 点名承诺）→ 📸 → A1: click verdict-via-link → 落地断言（戳在、row/receipt/via-link 全走光=借来的卡变成了自己家的卡、dialog headline 含 "class2d K5"）→ A2: fresh-open 再走 receipt-from-link → 同一落地 → Face B: param select（src=null）→ footer 无门纯文本（诚实缺席）→ console 0 → 名册 12→12 ×2。
+- [回归] t566 25/25 全绿——row DOM 变了（footer span→button）但 innerText 断言照读、几何 2:3 照旧：门是加法不是重构。
+- [边角] 顺路修掉 t549 脚本的 pre-existing eslint warning（`browser && (await …)` → `await browser?.close()`）——lint 首次 0 problem。
+- [未做与理由] judge worker 复核重估、class3d 判词（VLM 3D 面论证，重活等真需求）；「birth 而父亲无戳」负例（t566 头注原样继承——本世界唯一 class2d 已有戳，重烧引擎换同一守卫行的布尔不值）；Topaz 第四刀（链上闭环）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「门只通往核实过的地方」：footer 升格为 button 的门槛不是「有没有名字」而是「DB 有没有实锤这行还在」——sourceJobName 来自 receipt 路由的现读 DB 查询，被删的父亲自动退回纯文本；openJob 的幽灵守卫是第二道锁，但诚实的设计是第一道就不给幽灵开门
+- 「跳转方言全家通用」：openJob 是 palette、dashboard、remote-cluster 共用的那条路（workspace hop→跨项目→inspect）——footer 门不是新发明第四种导航，是把既有方言接进证据卡；harness 的落地断言用结构差异（戳在、行/收据/via 全走光）而非脆弱的 headline 选择器
+- 「门是加法不是重构」：t566 的 25 断言在 row DOM 变更后原样全绿——innerText 不在乎 span 还是 button，几何不在乎 footer 里多了个 icon；证据行的形态语言（引擎左、判词右、2:3）原封未动
+- 产出：footer 双门（receipt「from」+ stamp「verdict on」→ 父 job 自己的 tab）+ t567 harness 24/24 ×2 连绿 + t566 回归 25/25 + 联排门把手截图 + t549 warning 清零；下窗入口：①t566 入口①重估（judge worker 复核/class3d 判词——VLM 3D 面论证）或新功能面（Topaz 手势第四刀、3D viewer 体积截面——都「等真需求」状态照旧）；②样式面余量：门 hover 的 motion 细节（underline 动画/图标微移——cubic-bezier 微弹？）；③t471 WSL-bridge（照实挂）、t276（门控）
