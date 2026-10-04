@@ -51,7 +51,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanLine, Slice, TriangleAlert } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanEye, ScanLine, Slice, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
@@ -99,6 +99,28 @@ export interface ObliqueViewDetail {
   normal: [number, number, number];
   /** unit screen-north for the face-on view (the tile's −v) */
   up: [number, number, number];
+}
+
+/** 3D → 2D (t557): the ⌖'s RETURN ticket. The panel pulls, the embed
+ *  answers with the live view direction, and the oblique block takes it
+ *  as its plane normal — orbit to an interesting plane in 3D, adopt it,
+ *  and the 2D cut renders the geometry you were just looking through.
+ *  Only the direction crosses the wire: the camera's roll is deliberately
+ *  NOT adopted (u/v stay the block's canonical frame, derived from n, so
+ *  readouts and renders stay reproducible — ⌖ remains the way to
+ *  canonicalize the roll), and offset stays the user's own dial (the
+ *  preset family keeps the target at the box center, where offset 0
+ *  already cuts). Synchronous pull like the σ family's REQUEST/STATE. */
+export const ORTHO_CAMERA_REQUEST_EVENT = "cryoflow:ortho-camera-request";
+/** the answering half: dir = unit view direction (camera→target) in the
+ *  map's frame — exactly the law applyViewPreset drives in reverse
+ *  (focus(): position = target − dir·d), so adopt → ⌖ lands the camera
+ *  back on the same face-on line. Grid axes == cartesian axes holds for
+ *  the isotropic-voxel maps cryo-EM produces (the same assumption the ⌖
+ *  jump already makes). */
+export const ORTHO_CAMERA_STATE_EVENT = "cryoflow:ortho-camera-state";
+export interface OrthoCameraStateDetail {
+  dir: [number, number, number];
 }
 
 /** the σ payload both directions speak: the contour level in σ units and
@@ -1300,6 +1322,29 @@ function obliqueFrame(
   };
 }
 
+/** t557 — the inverse of obliqueFrame's normal construction: a unit view
+ *  direction (camera→target) becomes the block's (θ, φ). θ = polar =
+ *  acos(nz) clamped to [0,180]; φ = azimuth = atan2(ny,nx) normalized to
+ *  [0,360). Both rounded to whole degrees — the readouts and the render
+ *  URL speak them, and a degree is finer than any orbit a hand settles
+ *  on. Returns null for a degenerate direction (zero length or
+ *  non-finite): nothing to adopt. At the poles (θ rounds to 0 or 180)
+ *  φ collapses to 0 — every azimuth is the same normal there, and 0 is
+ *  the honest one instead of atan2's noise-driven arbitrary value. */
+export function cameraDirToAngles(
+  dir: readonly [number, number, number]
+): { theta: number; phi: number } | null {
+  if (dir.length !== 3 || dir.some((c) => !Number.isFinite(c))) return null;
+  const len = Math.hypot(dir[0], dir[1], dir[2]);
+  if (!(len > 1e-9)) return null;
+  const nz = dir[2] / len;
+  const theta = Math.round(Math.acos(Math.min(1, Math.max(-1, nz))) / OBLIQUE_DEG);
+  let phi = Math.round(Math.atan2(dir[1] / len, dir[0] / len) / OBLIQUE_DEG);
+  phi = ((phi % 360) + 360) % 360;
+  if (theta === 0 || theta === 180) phi = 0;
+  return { theta, phi };
+}
+
 /** what the block reports upward — the triptych export's fourth panel
  *  rides on it (a ref on the panel side, never a re-render per scrub) */
 interface ObliqueExportInfo {
@@ -1373,6 +1418,36 @@ function ObliqueSectionBlock({
     }));
   };
 
+  // t557 — the ⌖'s return ticket: pull the live view direction from the
+  // embed and take it as this plane's normal. The answer rides back in
+  // the same tick (window events are synchronous); adoption auto-enables
+  // the block and the 140ms debounce fetches the cut through the standing
+  // door. The tile flashes violet — the same "the 3D scene just drove me"
+  // language the sibling tiles speak (FOLLOW_FLASH_MS).
+  const [adoptFlash, setAdoptFlash] = useState(false);
+  useEffect(() => {
+    if (!adoptFlash) return;
+    const t = setTimeout(() => setAdoptFlash(false), FOLLOW_FLASH_MS);
+    return () => clearTimeout(t);
+  }, [adoptFlash]);
+  useEffect(() => {
+    const onCameraState = (e: Event) => {
+      const dir = (e as CustomEvent<OrthoCameraStateDetail>).detail?.dir;
+      if (!Array.isArray(dir) || dir.length !== 3 || dir.some((c) => !Number.isFinite(c))) return;
+      const inv = cameraDirToAngles(dir as [number, number, number]);
+      if (!inv) return;
+      setOn(true);
+      setTheta(inv.theta);
+      setPhi(inv.phi);
+      setAdoptFlash(true);
+    };
+    window.addEventListener(ORTHO_CAMERA_STATE_EVENT, onCameraState);
+    return () => window.removeEventListener(ORTHO_CAMERA_STATE_EVENT, onCameraState);
+  }, []);
+  const adoptCamera = () => {
+    window.dispatchEvent(new CustomEvent(ORTHO_CAMERA_REQUEST_EVENT));
+  };
+
   return (
     <div className="border-t border-border/60 px-3 pb-3 pt-2" data-canvas-ui="ortho-oblique" data-oblique-state={on ? "on" : "off"}>
       <div className="flex w-full items-center gap-2">
@@ -1398,7 +1473,14 @@ function ObliqueSectionBlock({
       </div>
       {on && (
         <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,320px)_1fr]">
-          <div className="overflow-hidden rounded border border-border/60 bg-black/80">
+          <div
+            className={cn(
+              "overflow-hidden rounded border bg-black/80 transition-[border-color,box-shadow] duration-300",
+              adoptFlash
+                ? "border-violet-500/70 shadow-[0_0_0_3px_rgba(139,92,246,0.25)]"
+                : "border-border/60"
+            )}
+          >
             {src ? (
               <MrcImage
                 src={src}
@@ -1485,6 +1567,19 @@ function ObliqueSectionBlock({
                 title="⌖ the 3D view jumps face-on to this cut (the same ⌖ language the tiles speak)"
               >
                 <Focus className="h-3 w-3" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={adoptCamera}
+                data-canvas-ui="ortho-oblique-adopt"
+                className={cn(
+                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+                  adoptFlash && "bg-violet-600/15"
+                )}
+                aria-label="Adopt the current 3D camera direction as this plane's normal"
+                title="⤸ adopt — the jump's return ticket: the view you're orbiting becomes this cut (roll and offset stay yours; ⌖ re-snaps the roll)"
+              >
+                <ScanEye className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>
           </div>

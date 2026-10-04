@@ -26,7 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -1174,11 +1174,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   /* ---------------- standard view orientations ------------------------- */
   // Axis-aligned presets are the daily bread of cryo-EM inspection — look
   // straight down X/Y/Z to judge anisotropy, check the top/bottom of the
-  // box, or return to the default ¾ view. Camera.focus(target, radius,
-  // durationMs, up, dir) keeps the current target + zoom radius and only
-  // swings the view direction (dir = camera→target, up = screen north),
-  // eased over 320 ms — verified against molstar/lib/mol-canvas3d/camera.js
-  // (getFocus matches deltaDirection to `dir`, position = target − dir·d).
+  // box, or return to the default ¾ view. The swing keeps the current
+  // target + zoom radius and only changes the view line (dir = camera→
+  // target, up = screen north), eased over 320 ms.
+  //
+  // t557 — getInvariantFocus, NOT focus(). Camera.focus() runs dir AND up
+  // through Vec3.matchDirection(requested, CURRENT), which keeps the SIGN
+  // that agrees with the camera's current side of the target (dot > 0 ?
+  // copy : negate) — a "Front" press from the back half of the orbit
+  // silently lands you on the BACK, and the ⌖ jump could face the cut
+  // from the wrong side (tile chirality then mirrors). Found live while
+  // proving the adopt→⌖ round trip: the probed camera sat at exactly −n
+  // after a ⌖ that asked for +n. The invariant variant copies dir/up
+  // verbatim; the same eased setState(durationMs) does the animating.
   const VIEW_PRESETS: Array<{ key: string; label: string; dir: [number, number, number]; up: [number, number, number] }> = [
     { key: "front", label: "Front", dir: [0, 0, -1], up: [0, 1, 0] },
     { key: "back", label: "Back", dir: [0, 0, 1], up: [0, 1, 0] },
@@ -1193,8 +1201,14 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     const st = cam.state;
     const target = Array.from(st.target ?? [0, 0, 0]) as [number, number, number];
     const radius = Number(st.radius) || 0;
-    if (!(radius > 0)) return; // focus() ignores radius ≤ 0 — nothing framed yet
-    cam.focus(target, radius, 320, up as unknown as Parameters<typeof cam.focus>[3], dir as unknown as Parameters<typeof cam.focus>[4]);
+    if (!(radius > 0)) return; // nothing framed yet — both focus variants ignore it
+    const snap = cam.getInvariantFocus(
+      target as unknown as Parameters<typeof cam.getInvariantFocus>[0],
+      radius,
+      up as unknown as Parameters<typeof cam.getInvariantFocus>[2],
+      dir as unknown as Parameters<typeof cam.getInvariantFocus>[3],
+    );
+    cam.setState(snap, 320);
   };
   // keyboard: 1-6 swing to the matching axis view, 0 returns to the default
   // ¾ view — same muscle memory as the canvas (0 = reset). Scoped to the
@@ -3145,6 +3159,35 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
     window.addEventListener(OBLIQUE_VIEW_EVENT, onObliqueView);
     return () => window.removeEventListener(OBLIQUE_VIEW_EVENT, onObliqueView);
+  }, []);
+
+  // t557 — the ⌖'s return ticket: the oblique block pulls (synchronous
+  // window event), the embed answers with the live view direction. dir =
+  // unit (target − position) — exactly the law applyViewPreset drives in
+  // reverse (focus(): position = target − dir·d), so adopt → ⌖ lands the
+  // camera back on the same face-on line. Only the direction crosses the
+  // wire: the block's u/v roll is canonical (⌖ re-snaps it) and offset
+  // stays the user's dial (the preset family keeps target at box center,
+  // where offset 0 already cuts).
+  useEffect(() => {
+    const onCameraRequest = () => {
+      const cam = pluginRef.current?.canvas3d?.camera;
+      if (!cam) return;
+      const st = cam.state;
+      const t = st.target;
+      const p = st.position;
+      if (!t || !p) return;
+      const dx = t[0] - p[0];
+      const dy = t[1] - p[1];
+      const dz = t[2] - p[2];
+      const len = Math.hypot(dx, dy, dz);
+      if (!(len > 1e-9)) return;
+      window.dispatchEvent(new CustomEvent<OrthoCameraStateDetail>(ORTHO_CAMERA_STATE_EVENT, {
+        detail: { dir: [dx / len, dy / len, dz / len] },
+      }));
+    };
+    window.addEventListener(ORTHO_CAMERA_REQUEST_EVENT, onCameraRequest);
+    return () => window.removeEventListener(ORTHO_CAMERA_REQUEST_EVENT, onCameraRequest);
   }, []);
 
   // σ / sign changes flow into the live slice too (it shares the threshold)
