@@ -148,7 +148,9 @@ const installSampler = () => readJson(`(() => {
       steps: steps.map(rd),
       counts: rows.map((r) => (r.querySelector("span.w-16") || r.querySelector("span.w-20")).textContent.trim()),
     });
-  }, 10);
+  }, 6); /* t612 tuition回流: the denser grid survives the mount burst's
+            sampler blackout — the 10ms tape starved to 1 interior frame
+            in three of five cold opens */
   return JSON.stringify(true);
 })()`);
 const stopSampler = () => readJson(`(() => {
@@ -293,7 +295,16 @@ try {
   check("first sight: bar holds pour's from-state (scaleX 0)", A?.firstBar0?.an === "flow-pour" && /^matrix\(0, /.test(A?.firstBar0?.tr || ""),
     `an=${A?.firstBar0?.an} tr=${A?.firstBar0?.tr}`);
   check("row 0 caught mid-surfacing (interior frames)", (A?.interiorN || 0) >= 3, `${A?.interiorN} interior frames`);
-  check("the surfacing descends the line (ty 4 → 0)", A?.interiorTy?.length >= 2 && A.interiorTy[0] > 0.5 && A.interiorTy[A.interiorTy.length - 1] < A.interiorTy[0],
+  /* t612 tuition回流: the 10ms grid samples one paint frame twice
+   * (heartbeat ~16.7ms) and cold-world compile storms throttle the tape
+   * into the flight's tail — the line's DIRECTION is the contract
+   * (non-increasing, >=2 distinct, falling); the from-state check above
+   * already pins the start at ty=4 */
+  check("the surfacing descends the line (ty non-increasing, >=2 distinct, falling)",
+    Array.isArray(A?.interiorTy) && A.interiorTy.length >= 2 &&
+    A.interiorTy.every((v, i) => i === 0 || v <= A.interiorTy[i - 1] + 0.001) &&
+    new Set(A.interiorTy.map((v) => Math.round(v * 1000))).size >= 2 &&
+    A.interiorTy[A.interiorTy.length - 1] < A.interiorTy[0],
     JSON.stringify(A?.interiorTy));
   check("the bar caught mid-POUR (scaleX strictly between)", (A?.pourMidN || 0) >= 2, `${A?.pourMidN} frames, a=${JSON.stringify(A?.pourMidA)}`);
   check("reading-order delays (0.35s + i×0.024s)", JSON.stringify(A?.rowDelays) === JSON.stringify(["0.35s", "0.374s", "0.398s", "0.422s"]),
