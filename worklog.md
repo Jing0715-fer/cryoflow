@@ -8569,3 +8569,23 @@ Stage Summary:
 - 「污染会穿窗」：本窗 forensic 的探针残留把下一窗 witness 的世界推到 14——roster 门、hydration 门、expect-15 的 reload 检查全部级联假红。t597 的 heal-before-measure 从「启动时序纪律」升级为「跨窗纪律」：每个 witness 的 boot 都要先治愈自己的家族可能留下的痕迹
 - 「浏览器会死，死前的话不算数」：OOM 杀 tab 后 agent-browser eval 对僵尸页返回空——白屏不是产品崩了，是 witnesses 在对空气作证。blank page 的第一问是「标签页活着吗」（bodyLen + reload + 新会话对照），不是「我改坏了什么」
 - 产出：the card birth（store birthSeq/birthIds/birthArm/consumeBirths + 12 出生动词 + canvas renderJobs 通道消费者 + globals.css card-enter stanza）+ t598 witness 44/44 + t574 28/28 复跑 + 📸 + 回归全家绿（t596 29 + t595 23 + t594 28 + t593 36 + t592 32 + t591 35 + t590 22 + t589 14 + t588 28 + t587 27 + t586 22 + t585 20 + t584 19 + t578 32 + 单测六连 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t598/t597/.../t584 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体——等箱体 ≥3.5GB）；②judge 风暴活体半场（等世界稳定夜）；③样式/语义候选：adopt 家族出生的真实 UI 流见证（对比/检查表面驱动 exclude/select/pick）或 switched-workspace import 的后 commit 标记见证（需第二工作区世界）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 599 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 16:24 cron, Job 362852, Task 572 系第 17 次派单)
+Task: t598 入口③候选兑现——the wire's half of the birth voice：batch 合并创建的 wires（import/pipeline-template/duplicate）没有任何手势画过它们，卡片升入时它们仍瞬时 pop；现在它们与卡片走同一阶梯（payload 顺序连续 24ms 步进）并用 stroke-dashoffset 画出自己；手动连线保持瞬现（LiveWire 跟随手指，t359——重画是故障不是声音）；t599 witness 36/36 首跑全绿。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 598（本会话上窗收官）；HEAD ddb8481、树净；四绿（200/33ms、tsc 0 全量、eslint 0、roster 12）；available 1244MB < 3.5GB → 非 build 日（入口①第 7 窗否决）。派单「Task 13 遗留池」第 N+40 次化石。
+- [读链定案] EdgesLayer 结构：`<g data-edge-id>` 内 hit path（透明 16px 走廊）/glow underlay/主 path 共享 data-e="d"——出生声音只应触碰可见主笔，加 pathLength={1} + data-e-main=""（加法属性，拖拽 patch 循环的 d 通道零干涉）。connect 动词深读：t359 乐观边是客户端铸造 id 且 POST 沿用同 id（元素永不替换）——但手动连线的 pending LiveWire 已跟随手指，完成的线从未缺席，draw-in 反而是故障感。设计边界画在「谁画过这条线」上：手势画的线瞬现（连续性即入场），batch 合并的线（import/pipeline/duplicate）无人生过它们 → draw-in。
+- [产品——三面] ①store.ts：birthEdgeIds 字段（免疫面注释原封：restore/poll/adoption 永不 arm）+ birthArm 加第三参 edgeIds（默认 []，12 个既有站点零改动）+ consumeBirths(played, playedEdges) 双消费 + 三个 batch 站点接线（importWorkflowBatch/pipeline-template 的 freshEdges + duplicate 的 rewired）。②canvas.tsx：消费者扩展——cards 与 edges 走合并计数器（step 连续，cap 12）、edges 骑 deferredEdges 通道（与 renderJobs 同理——t598 的机制跟随通道之律对 wire 同样成立）、退休扫除双属性、deps 加 birthEdgeIds/deferredEdges。③EdgesLayer：pathLength={1} + data-e-main=""。④globals.css：edge-draw-in 键 + media 门 stanza——dasharray 2 + offset 2.02→1（.02 过冲藏 round linecap 的圆点；period-4 图案保证重复 dash 的第二份在整个扫程不入窗——dasharray 1 的教科书写法会在 98% 处漏出第二个 dash 的 cap）。
+- [witness 36/36 首跑全绿] G0 源级三 batch arm + EdgesLayer 把手 + stanza + served 双签名（26 chunks + 4 css）；Q 12c/13e；W1 THE WIRE'S SHARE（import 3 卡 + 2 线：卡 0/24/48 线 72/96 同一阶梯、∃ 中扫帧 offset 1.81∈(1,2.02)、前缀干净（卡与线）、play armed、相机一步、toast、退休双扫、15c/15e）；W2 THE SILENT RESTORE（UI 删除中链卡 Wire B → 双线随卡卸载 → Ctrl+Z 卡与线归家 15e 零武装——历史不是出生，对 wire 同样成立）；W3 reload 静默（卡与线）；R roster 12→12 + console 净 + 📸。
+- [回归] t599 36 + t598 44 + t593 36 + t578 32 + t595 23 + t594 28 + t592 32 + t591 35 + t590 22 + t589 14 + t588 28 + t587 27 + t586 22 + t585 20 + t584 19 全绿 + t596 29/29×3、28/29×2（W4 grow 的 ∃中间帧在内存压力下被冻结窗口吞样——settle 恒正确 2940、同跑 W1 shrink 流动正常、minimap 机制本窗零改动——t596 已立档的冻结伪影记录在案）+ 单测六连 + tsc 0 全量 + eslint 0。
+- [未做与理由] connect 动词的 drawIn opt（addLinkedStep/adopt 家族的程序化接线如今仍瞬现——区分手动/程序化需要跨 ~8 站点的显式契约，batch 面是本窗的真 gap，单线伴随卡级联的 pop 较轻；已记档为半场）；switched-workspace import 的后 commit 标记见证（需第二工作区世界，连续第二窗挂起）；judge 风暴活体半场（等稳定夜）；build 日全家桶（等 ≥3.5GB——今晨 1244MB）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「入场声音的边界画在『谁画过这条线』上」：同一根 wire，手势画的（LiveWire 跟随手指，完成即连续）不许重画——重画是故障；batch 合并的（无人生过它们）必须画出——pop 是撒谎。声音跟着「元素是否曾被另一个渲染表象占据」走，不跟着「元素是否新建」走——pending 表象也算占位
+- 「dasharray 1 的教科书写法会漏」：pathLength=1 + dasharray 1 + offset 1→0 是 draw-in 的标准答案，但 round linecap 在 offset 恰为 1 时于起点漏一个 cap 圆点，且重复图案的第二份 dash 在 98% 处入窗。修法：dasharray 2（period 4，第二份 dash 全程在窗外）+ 过冲 2.02（cap 完全离路）→ 1。教科书公式在没有 cap 和 repeat 的假设下才成立——把它们请回来再推一遍
+- 「同一阶梯是节奏的最小解」：cards 与 wires 本可各走各的级联（两套 base/step/预算），但「世界以一个呼吸物质化并连接」只允许一个节拍器——合并计数器让 payload 顺序成为唯一的时序真相，退休预算一个窗口覆盖全家族。两个机制共用一个预算比两个机制各自诚实更诚实
+- 「冻结伪影的复核要跑出分母」：t596 W4 本窗 5 跑 3 绿 2 红——单看一跑红会误判为 t599 位移；分母（5 跑、settle 恒正确、同跑 shrink 流动正常、机制零改动）才能把红归档为已立档的冻结伪影。假红的验尸材料是复跑的分布，不是单次红行
+- 产出：the wire's share（store birthEdgeIds/birthArm 三参/consumeBirths 双消费 + 三 batch 站点 + EdgesLayer pathLength/data-e-main + canvas 消费者双通道合并阶梯 + globals.css edge-draw-in stanza）+ t599 witness 36/36 首跑全绿 + 📸 + 回归全家绿；下窗入口：①build 日 = FRESH gate → prod 全家桶（等箱体 ≥3.5GB）；②judge 风暴活体半场（等世界稳定夜）；③样式/语义候选：connect 的 drawIn opt（addLinkedStep/adopt 家族程序化接线的 draw-in——跨 ~8 站点的显式契约）或 switched-workspace import 的后 commit 标记见证（需第二工作区世界，连续两窗挂起）；④t471 WSL-bridge（照实挂）、t276（门控）
