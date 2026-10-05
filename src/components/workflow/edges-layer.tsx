@@ -318,7 +318,8 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                 stroke={running ? "var(--primary)" : STROKE_ACTIVE}
                 strokeWidth={1}
                 opacity={0.4}
-                style={{ pointerEvents: "none" }}
+                data-summon=""
+                style={{ pointerEvents: "none", "--summon-cd": "0ms" } as React.CSSProperties}
               />
             )}
             <circle
@@ -344,16 +345,22 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                   void removeEdge(edge.id);
                 }}
               >
-                <title>Remove connection</title>
-                <circle r={16} fill="transparent" />
-                <circle r={9} className="fill-card stroke-border" strokeWidth={1} />
-                <path
-                  d="M -3.2 -3.2 L 3.2 3.2 M 3.2 -3.2 L -3.2 3.2"
-                  className="stroke-foreground"
-                  strokeWidth={1.75}
-                  strokeLinecap="round"
-                  fill="none"
-                />
+                {/* t603 — the summoned voice: the X is the answer's TOOL.
+                    An inner g carries the entrance (scale+fade) so the
+                    outer translate stays untouched. It mounts 24ms after
+                    the halo (family staircase). */}
+                <g data-summon="rise" style={{ "--summon-cd": "24ms" } as React.CSSProperties}>
+                  <title>Remove connection</title>
+                  <circle r={16} fill="transparent" />
+                  <circle r={9} className="fill-card stroke-border" strokeWidth={1} />
+                  <path
+                    d="M -3.2 -3.2 L 3.2 3.2 M 3.2 -3.2 L -3.2 3.2"
+                    className="stroke-foreground"
+                    strokeWidth={1.75}
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                </g>
               </g>
             )}
             {/* hover tooltip with caret — patched position lives in data-e
@@ -369,7 +376,16 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                   const sub = `${g.fromPortLabel} → ${g.toPortLabel}`;
                   const w = Math.max(title.length * 6.6, sub.length * 5.3) + 26;
                   return (
-                    <g transform="translate(0, -36)">
+                    /* t603 — the summoned voice: the tooltip is the answer's
+                       NAME. It rides the outer g's scale(1/zoom) system, so
+                       its entrance is opacity-only (a rise or scale here
+                       would inherit the zoom's magnitude — a summoning must
+                       not carry the zoom's luggage). It mounts 48ms in. */
+                    <g
+                      data-summon=""
+                      transform="translate(0, -36)"
+                      style={{ "--summon-cd": "48ms" } as React.CSSProperties}
+                    >
                       <rect
                         x={-w / 2}
                         y={-22}

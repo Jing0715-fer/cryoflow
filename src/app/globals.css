@@ -2097,6 +2097,43 @@
   }
 }
 
+/* t603 — the summoned voice. Birth has a voice (t598/t599/t600), death
+   has one (t601/t602) — but the THIRD way a thing appears was still
+   silent: hover asks a question and the answer pops into existence.
+   Three summoned faces on a wire now surface on the family staircase
+   (24ms): the halo ring is the answer's PLACE (0ms — its keyframe only
+   declares `from`; the final 0.4 lives on the element's own opacity, a
+   single source of truth), the X button is the answer's TOOL (24ms,
+   rise 0.6 → 1 — an inner g carries it so the outer translate attr is
+   untouched, and a local frame keeps the scale's magnitude constant),
+   the tooltip is the answer's NAME (48ms, opacity-only — it rides the
+   scale(1/zoom) system, and a rise there would inherit the zoom's
+   magnitude: a summoning must not carry the zoom's luggage). Budget:
+   48 + 140 = 188ms < 200ms — a summoning is immediate feedback, faster
+   than a birth. The exit is instant BY DESIGN: the answer follows the
+   question — the finger left, the answer leaves with it; lingering
+   would be the glitch, not the manners. */
+@keyframes summon-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes summon-rise-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-edges-layer] [data-summon] {
+    animation: summon-fade-in 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--summon-cd, 0ms);
+  }
+  [data-edges-layer] [data-summon="rise"] {
+    animation-name: summon-rise-in;
+  }
+}
+
 /* t601 — the card's last breath. Birth has a voice (t598/t599); death
    had none — a deleted card vanished in the same commit that moved the
    truth, an event with no figure. Now the DELETE verbs (single confirm,
