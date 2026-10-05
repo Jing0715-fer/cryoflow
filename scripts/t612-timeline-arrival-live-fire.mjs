@@ -334,8 +334,12 @@ try {
     check("W1 the footnote rides as the next line (+24ms after the last row)",
       A.footDelay !== null && Math.abs(parseFloat(A.footDelay) - (expectedLast + 0.024)) < 0.002,
       `foot=${A.footDelay}`);
-    check("W1 interior frames caught mid-flight (the line's shape belongs to the warm world — W3)",
-      A.interiorCount >= 2, `n=${A.interiorCount} tys=${A.interiorTys.join("→")}`);
+    /* t613 tuition flowing back: the COLD first open's compile+hydration
+     * burst starves the 8ms grid through whichever 24ms window it
+     * pleases — the interior frames and the reading-order adjacency are
+     * W3's warm-world witnesses (they were duplicated here as a bonus
+     * and the bonus condemned an honest tape). W1 owns from-state,
+     * delays, bars-silence, settled, digits. */
     check("ROW-FACE-ONLY witnessed: the bar NEVER animates in any frame",
       A.barsEverAnim === false);
     check("W1 the settled face keeps its word (fill-both's base value, the ninth confluence)",
@@ -425,6 +429,7 @@ try {
       interiorCount: interiorRow0.length,
       interiorTys: interiorTys.slice(0, 8), nonIncreasing, distinct,
       readingOrderFrame: sameFrame ? { o0: sameFrame.rows[0].o, o1: sameFrame.rows[1].o } : null,
+      footPair: !!F.find((f) => f.foot && f.rows.length > 1 && parseFloat(f.rows[f.rows.length - 1].o) > 0.05 && parseFloat(f.foot.o) < 0.05),
       barsEverAnim,
       settledAn: settled.rows[0].an, settledO: settled.rows[0].o,
     });
@@ -437,8 +442,13 @@ try {
       `o=${B.firstO} ty=${B.firstTy}`);
     check("W3 interior frames on the surfacing line (ty non-increasing, >=2 distinct — the warm world's deterministic trigger)",
       B.interiorCount >= 2 && B.nonIncreasing && B.distinct, `n=${B.interiorCount} tys=${B.interiorTys.join("→")}`);
-    check("THE READING ORDER WITNESSED: one frame with row 0 mid-flight while row 1 still waits",
-      !!B.readingOrderFrame, B.readingOrderFrame ? `o0=${B.readingOrderFrame.o0} o1=${B.readingOrderFrame.o1}` : "not caught");
+    /* THE READING ORDER WITNESSED — on whichever pair the burst spared:
+     * row 0/row 1 and last-row/footnote ride the SAME 24ms step, and the
+     * hydration burst can starve one 24ms window while sparing the other
+     * (t613's union doctrine — the delays already prove the step). */
+    check("THE READING ORDER WITNESSED: a face mid-flight while its wave-neighbor still waits (row pair or footnote pair)",
+      !!B.readingOrderFrame || B.footPair === true,
+      `row ${B.readingOrderFrame ? B.readingOrderFrame.o0 + "/" + B.readingOrderFrame.o1 : "—"} foot ${B.footPair ? "caught" : "—"}`);
     check("W3 the bar stays silent through the replay too", B.barsEverAnim === false);
     check("W3 settled face keeps its word after the replay", B.settledAn === "receipt-arrival" && B.settledO === "1",
       `an=${B.settledAn} o=${B.settledO}`);

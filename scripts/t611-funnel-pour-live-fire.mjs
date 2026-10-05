@@ -270,12 +270,20 @@ try {
   /* ---------- W1: THE POUR ---------- */
   console.log("\n[W1] the pour");
   check("sampler installed before the finger", (await installSampler()) === true);
-  const d1 = await shiftD();
-  const secUp = await pollUntil(async () => {
-    const v = await readJson(`JSON.stringify(!!document.querySelector("section[aria-label='Pipeline analytics']"))`);
-    return v === true ? v : null;
-  }, 60000, 300);
-  check("dashboard opened (Shift+D → analytics section)", d1 === true && secUp === true);
+  /* t613 tuition: the toggle is a GESTURE, the section's presence is the
+   * fact — a single synthetic dispatch can be swallowed by a transient
+   * (or starved by a memory-pressured box); retry ONLY while the section
+   * is absent so a slow open can never be double-toggled shut */
+  let secUp = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    secUp = await pollUntil(async () => {
+      const v = await readJson(`JSON.stringify(!!document.querySelector("section[aria-label='Pipeline analytics']"))`);
+      return v === true ? v : null;
+    }, 8000, 300);
+    if (secUp === true) break;
+    await shiftD();
+  }
+  check("dashboard opened (Shift+D → analytics section)", secUp === true);
   /* the ladder lands on a two-hop async (mount → 3 fetches → state):
    * poll patiently — heavy tabs' mounts arrive late (t608's lesson) */
   const ladderUp = await pollUntil(async () => {
