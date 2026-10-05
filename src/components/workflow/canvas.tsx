@@ -59,7 +59,7 @@ import {
   downloadWorkflowJson,
   workflowFileName,
 } from "@/lib/workflow-io";
-import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom, type HistoryEntry, type HistoryEntryKind } from "@/lib/store";
+import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom, type HistoryEntry, type HistoryEntryKind, type Viewport } from "@/lib/store";
 import { beginGroupDrag, endGroupDrag, moveGroupDrag } from "@/lib/group-drag";
 import type { JobDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -144,6 +144,12 @@ interface PanState {
 /** padding around the live-wire's anchor+cursor box — generous so the
  *  rubber band keeps drawing while the cursor roams the infinite canvas */
 const WIRE_PAD = 900;
+
+/** t588 — when the glide class retracts after a programmatic arrival: the
+ *  transition runs 0.48s, the extra 40ms is slack so the class never
+ *  peels off mid-bezier (t124's original 520 margin, now named — both
+ *  the focus effect and the bookmark arrivals share the one number). */
+const GLIDE_RETRACT_MS = 520;
 
 /**
  * Temporary "live wire" following the cursor while a connection is pending
@@ -1336,19 +1342,15 @@ export function WorkflowCanvas() {
     if (!job || !rect) return;
     // a readable zoom: bump very low zooms up so the card is legible
     const zoom = clamp(Math.max(useWorkflowStore.getState().viewport.zoom, 0.7), ZOOM_MIN, 1);
-    // Task 124 — arrivals GLIDE, gestures stay instant: the transition class
-    // lives only for this programmatic jump (wheel/pan never add it, so the
-    // transform stays raw under the user's hand); the timer retracts it
-    // right after the cubic-bezier lands
-    const ws = rootRef.current?.querySelector("[data-canvas='workspace']");
-    ws?.classList.add("viewport-glide");
-    const retract = setTimeout(() => ws?.classList.remove("viewport-glide"), 520);
-    setViewport({
+    // Task 124 — arrivals GLIDE, gestures stay instant. t588 — the jump
+    // rides the shared arrival dialogue (hold + glide + coda tick) so the
+    // readout lands WITH the world; the glide class and its retract timer
+    // live in beginGlideArrival, wheel/pan never touch any of it.
+    beginGlideArrival({
       x: rect.width / 2 - (job.x + CARD_W / 2) * zoom,
       y: rect.height / 2 - (job.y + CARD_H / 2) * zoom,
       zoom,
     });
-    return () => clearTimeout(retract);
   }, [focusEpoch]);
 
   // The viewport is a pure CSS transform on the workspace — the section must
@@ -1494,6 +1496,7 @@ export function WorkflowCanvas() {
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault(); // React onWheel is passive — hence the raw listener
+      releaseArrivalHold(); // t588 — the hand owns the number again
       const rect = el.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
@@ -1530,8 +1533,11 @@ export function WorkflowCanvas() {
    *    "disarm became an event" anti-pattern (t585's ghost, zoom edition).
    *  - the initial-load fit (frameBounds): the readout's first value is its
    *    birth, not an event — arming-edge silence (t585's fresh-lens law).
-   *  - bookmark / focus jumps: arrivals already GLIDE (Task 124's own
-   *    voice); a glide and a tick are different sentences.
+   *  - bookmark / focus arrivals ride the DIALOGUE (t588): the world
+   *    glides (Task 124), the readout holds the value the world is at,
+   *    and the drum rolls ONCE when the world lands — see the arrival
+   *    block below. t587 called a glide and a tick different sentences;
+   *    the dialogue is how they answer each other.
    *  The tick rides a React key remount (the find-tick idiom): nonce up →
    *  new span → the one-shot animation plays once and the element rests.
    *  Direction is the mechanical-odometer metaphor: the value growing
@@ -1547,7 +1553,82 @@ export function WorkflowCanvas() {
     setZoomTick((t) => ({ n: (t?.n ?? 0) + 1, dy: to > from ? 2 : -2 }));
   }, []);
 
+  /* t588 — the arrival dialogue. Bookmark and focus arrivals GLIDE
+   *  (Task 124), and this block teaches the readout to answer: while the
+   *  transition travels, the gauge HOLDS the value the world is at — the
+   *  state jumped at launch, but the number must not arrive before the
+   *  world does ("the number arrives when the world does"). At the
+   *  retract moment the drum rolls once (the t587 odometer), from the
+   *  held value to the landed value — silent when the rounded percent
+   *  did not change (a pan-only arrival keeps "no change, no sound").
+   *  - Commands (± / reset) keep the t587 voice: instant world, tick at
+   *    launch. A zoom command mid-glide releases the hold first — the
+   *    newest voice wins, and the landing goes silent (it already
+   *    spoke). The wheel releases too: the hand owns the number.
+   *  - prefers-reduced-motion: the world teleports (the glide class is
+   *    CSS-gated off), so the number travels with it — no hold, no coda
+   *    (the tick is a motion-family voice; JS reads the same media query
+   *    the CSS gate uses).
+   *  - Rapid re-arrival mid-flight: the hold keeps the FIRST value (the
+   *    displayed number never changed), one retract timer serves the
+   *    whole chain, and the coda speaks once for the whole journey. */
+  const [heldZoom, setHeldZoom] = React.useState<number | null>(null);
+  const heldZoomRef = React.useRef<number | null>(null);
+  const glideRetractRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const releaseArrivalHold = React.useCallback(() => {
+    if (heldZoomRef.current == null) return;
+    heldZoomRef.current = null;
+    setHeldZoom(null);
+  }, []);
+  const beginGlideArrival = React.useCallback(
+    (target: Partial<Viewport>) => {
+      const s = useWorkflowStore.getState();
+      const ws = rootRef.current?.querySelector("[data-canvas='workspace']");
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        // motion off: the world teleports, the number travels with it —
+        // no hold, no coda (the tick is a motion-family voice)
+        setViewport(target);
+        return;
+      }
+      const displayed = heldZoomRef.current ?? s.viewport.zoom;
+      heldZoomRef.current = displayed;
+      setHeldZoom(displayed);
+      ws?.classList.add("viewport-glide");
+      if (glideRetractRef.current) clearTimeout(glideRetractRef.current);
+      setViewport(target);
+      glideRetractRef.current = setTimeout(() => {
+        glideRetractRef.current = null;
+        ws?.classList.remove("viewport-glide");
+        const from = heldZoomRef.current ?? useWorkflowStore.getState().viewport.zoom;
+        heldZoomRef.current = null;
+        setHeldZoom(null);
+        tickZoomReadout(from, useWorkflowStore.getState().viewport.zoom);
+      }, GLIDE_RETRACT_MS);
+    },
+    [setViewport, tickZoomReadout],
+  );
+  // unmount: never leave a retract timer firing into a dead DOM
+  React.useEffect(
+    () => () => {
+      if (glideRetractRef.current) clearTimeout(glideRetractRef.current);
+    },
+    [],
+  );
+
+  // t588 — the keyboard slot relay (1–9): the store hands over the
+  // target, the canvas performs the arrival (consume-once — a canvas
+  // remount must not re-glide to a stale target)
+  const arrivalEpoch = useWorkflowStore((s) => s.arrivalEpoch);
+  React.useEffect(() => {
+    if (!arrivalEpoch) return;
+    const { arrivalTarget, consumeViewportArrival } = useWorkflowStore.getState();
+    if (!arrivalTarget) return;
+    consumeViewportArrival();
+    beginGlideArrival(arrivalTarget);
+  }, [arrivalEpoch, beginGlideArrival]);
+
   const zoomAroundCenter = (targetZoom: number) => {
+    releaseArrivalHold(); // t588 — a command mid-glide reclaims the number
     const rect = rootRef.current?.getBoundingClientRect();
     const s = useWorkflowStore.getState();
     if (!rect) {
@@ -1861,6 +1942,7 @@ export function WorkflowCanvas() {
     // infinite canvas: "100%" also recenters on the content bbox (the
     // origin (0,0) is just an arbitrary point once coordinates can go
     // negative — centering avoids resetting into empty space)
+    releaseArrivalHold(); // t588 — a command mid-glide reclaims the number
     const rect = rootRef.current?.getBoundingClientRect();
     // the gauge speaks only when its number changes: a second reset at
     // 100% re-centers silently (t587 — "no change, no sound")
@@ -2258,7 +2340,10 @@ export function WorkflowCanvas() {
           }
           className="w-11 text-center text-xs font-medium tabular-nums text-muted-foreground"
         >
-          {Math.round(zoom * 100)}%
+          {/* t588 — during an arrival glide the gauge shows the HELD value
+              (where the world IS), not the state's target: the number
+              arrives when the world does. Commands bypass the hold. */}
+          {Math.round((heldZoom ?? zoom) * 100)}%
         </span>
         <Button
           variant="ghost"
@@ -2496,7 +2581,10 @@ export function WorkflowCanvas() {
                       type="button"
                       className="flex min-w-0 flex-1 items-center justify-between rounded px-1.5 py-1 text-left text-xs hover:bg-accent"
                       onClick={() => {
-                        setViewport(bm.viewport);
+                        // t588 — the row click is an ARRIVAL, not a
+                        // teleport: same dialogue as the slot keys (hold,
+                        // glide, coda tick) via the one shared helper
+                        beginGlideArrival(bm.viewport);
                         setBookmarksOpen(false);
                       }}
                       title={`Jump to "${name}"`}

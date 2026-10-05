@@ -1916,9 +1916,11 @@
   animation: reveal-flash 1.15s ease-out 1 both;
 }
 
-/* Programmatic viewport arrivals GLIDE (store.revealJob / focus): the
-   canvas adds this class only around the focus-driven setViewport —
-   wheel and pan never touch it, so gestures stay raw. */
+/* Programmatic viewport arrivals GLIDE (store.revealJob / focus / bookmark
+   jumps, t588): the canvas adds this class around any focus- or
+   bookmark-driven setViewport — wheel and pan never touch it, so gestures
+   stay raw. The readout rides the same arrival (the held zoom + the coda
+   tick live in the canvas's beginGlideArrival). */
 .viewport-glide {
   transition:
     transform 0.48s cubic-bezier(0.22, 0.61, 0.36, 1),

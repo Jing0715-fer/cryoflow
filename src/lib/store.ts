@@ -544,6 +544,13 @@ interface WorkflowState {
   focusJobId: string | null;
   /** Increments per focus request so the canvas effect re-fires. */
   focusEpoch: number;
+  /** t588 — viewport-shaped arrival relay (bookmark slot keys 1–9): the
+   *  store cannot touch the workspace DOM class, so the jump validates the
+   *  seat and hands over the target; the canvas performs the
+   *  hold-glide-coda arrival. The focusJob idiom (Task 124) applied to a
+   *  Viewport instead of a job. */
+  arrivalEpoch: number;
+  arrivalTarget: Viewport | null;
   /** One-shot deep link from the command palette's Class notes group
    *  (Task 81): "open THIS class's note editor". The job panel consumes it
    *  (switches to the params tab, the gallery opens the lightbox on the
@@ -1035,10 +1042,15 @@ interface WorkflowState {
   saveViewportBookmark: (name: string) => boolean;
   deleteViewportBookmark: (name: string) => void;
   /** Jump straight to the saved view holding hotkey `slot` (1–9) for THIS
-   *  (project:workspace) — Task 101. Routes through setViewport (zoom clamp
-   *  gate); false when no bookmark holds the seat — an honest dead key, no
+   *  (project:workspace) — Task 101. t588: hands the target to the canvas
+   *  arrival relay (the canvas lands it via setViewport, zoom clamps there);
+   *  false when no bookmark holds the seat — an honest dead key, no
    *  phantom jump (mirrors the dashboard's empty-slice dead filters). */
   jumpToViewportBookmark: (slot: number) => boolean;
+  /** t588 — consume-once for the arrival relay: the canvas nulls the
+   *  target when it picks it up, so a canvas remount (view switch away
+   *  and back) never re-glides to a stale target. */
+  consumeViewportArrival: () => void;
   setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
@@ -1761,6 +1773,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   pendingClassFocus: null,
   lastSweep: null,
   focusEpoch: 0,
+  arrivalEpoch: 0,
+  arrivalTarget: null,
   templatePresetsOpen: false,
   templateSuggestions: null,
   customTemplates: [],
@@ -4819,17 +4833,22 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }),
   jumpToViewportBookmark: (slot) => {
     // key derivation mirrors save/delete EXACTLY — one rule, four sites.
-    // The jump lands via setViewport, so the jump is also written through
-    // to the session memory ("where I am now") and zoom clamps to range.
+    // t588 — the jump rides the arrival relay: setViewport happens in the
+    // canvas, which owns the glide class, the held readout and the coda
+    // tick (the store cannot reach the workspace DOM). The boolean stays
+    // synchronous — the caller's preventDefault decision needs it now;
+    // the world lands one commit later, imperceptibly. Session memory
+    // ("where I am now") is written when the canvas lands the jump.
     const s = get();
     const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
     const named = s.viewportBookmarks[key];
     if (!named) return false;
     const hit = Object.values(named).find((b) => b.slot === slot);
     if (!hit) return false;
-    s.setViewport(hit.viewport);
+    set({ arrivalTarget: hit.viewport, arrivalEpoch: get().arrivalEpoch + 1 });
     return true;
   },
+  consumeViewportArrival: () => set({ arrivalTarget: null }),
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),
