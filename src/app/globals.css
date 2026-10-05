@@ -1041,6 +1041,65 @@
   }
 }
 
+/* t611 — the funnel pours. PipelineAnalytics (the dashboard's
+   at-a-glance section) rises as furniture (rise-in, 350ms), and its
+   innards hold the second layer of the family's two-layer honesty —
+   furniture arrives, then the quantities take their places:
+
+   • flow rows surface in reading order (receipt-arrival's own word —
+     the pipeline's stages are the engine's answers, facts coming up
+     out of the machine), 24ms step;
+   • each bar POURS along the flow's own axis — scaleX from its left
+     edge, where the particles enter the stage. A horizontal word for
+     a horizontal semantic: the only genuinely new direction in the
+     section, so it is the only new keyframe (t607: new semantics
+     deserve new words, but only the direction is new — bezier and
+     transform dialect inherited);
+   • ladder steps surface with the receipt's word, reading order
+     (oldest → newest), the arrow connector riding its step.
+
+   The counts and deltas NEVER move (no count-up — t609's law: a
+   rolling digit would pretend computation the engine already did).
+   Timing: innards start at 350ms (the section's rise-in has landed —
+   furniture first, then the quantities), 24ms steps. Widest real
+   funnel is 7 stages: 350 + 6×24 + 480 = 974ms pour tail. CSS
+   animations run ONCE per mount: re-renders that preserve keys (the
+   status filter chips re-composing the same rows) cannot restart
+   them — re-composition is not re-arrival; a REMOUNT (dashboard
+   re-entry) is, and replays the whole grammar honestly. The session
+   timeline keeps its own words: its bars speak through left/width
+   transitions when data moves, and the running row's soft-pulse is a
+   living word an entrance shorthand would kill — its arrival rides
+   the section. */
+[data-analytics-arrival] [data-flow-row],
+[data-analytics-arrival] [data-ladder-step] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--ad, 0ms);
+}
+
+@keyframes flow-pour {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+[data-analytics-arrival] [data-flow-bar] {
+  animation: flow-pour 0.48s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--ad, 0ms);
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-analytics-arrival] [data-flow-row],
+  [data-analytics-arrival] [data-ladder-step],
+  [data-analytics-arrival] [data-flow-bar] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy

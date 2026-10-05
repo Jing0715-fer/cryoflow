@@ -21,7 +21,7 @@
  * ≥ 1 resolution milestone) so empty/draft projects stay clean.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   Award,
@@ -44,6 +44,33 @@ import { toast } from "@/hooks/use-toast";
 import { TypeIcon } from "./icons";
 import { cn } from "@/lib/utils";
 import { downloadText } from "@/lib/download";
+
+/* t611 — the innards' arrival grammar (the funnel pours). The section
+ * rises as furniture (rise-in, 350ms); the innards hold the SECOND layer
+ * of the family's two-layer honesty (t610: furniture arrives, the
+ * measurement stays) — here the measurement stays STILL (no count-up,
+ * t609's law: a rolling digit would pretend computation the engine
+ * already did) and it is the FACES that arrive:
+ *
+ *   • flow rows surface in reading order (receipt-arrival's word — the
+ *     pipeline's stages are the engine's answers), 24ms step;
+ *   • each bar POURS along the flow's own axis — scaleX from its left
+ *     edge, where the particles enter the stage (the section's only
+ *     genuinely new direction, so the family's only new keyframe);
+ *   • ladder steps surface with the receipt's word, oldest → newest.
+ *
+ * INNER_BASE_MS is the section's own rise-in landing beat — furniture
+ * first, then the quantities take their places. CSS animations run once
+ * per MOUNT: re-renders that preserve keys (the status filter chips
+ * re-composing the same rows) cannot restart them — re-composition is
+ * not re-arrival; a remount (dashboard re-entry) is, and replays the
+ * grammar honestly. The session timeline keeps its own words (left/width
+ * transitions for data moves; the running row's soft-pulse is a living
+ * word an entrance shorthand would kill) — its arrival rides the
+ * section. Timing constants live here as the single source of truth:
+ * widest real funnel is 7 stages → 350 + 6×24 + 480 = 974ms pour tail. */
+const INNER_BASE_MS = 350;
+const STEP_MS = 24;
 
 /* ------------------------------------------------------------------ */
 /* Particle-flow parsing                                               */
@@ -493,6 +520,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   return (
     <section
       aria-label="Pipeline analytics"
+      data-analytics-arrival=""
       className="animate-rise rounded-xl border bg-gradient-to-b from-muted/40 to-transparent p-4"
     >
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -606,7 +634,12 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 const delta = prev != null ? row.count - prev : null;
                 const w = Math.max(8, Math.round((row.count / maxCount) * 100));
                 return (
-                  <div key={row.jobId} className="group/flow flex items-center gap-2">
+                  <div
+                    key={row.jobId}
+                    className="group/flow flex items-center gap-2"
+                    data-flow-row=""
+                    style={{ "--ad": `${INNER_BASE_MS + i * STEP_MS}ms` } as CSSProperties}
+                  >
                     <span
                       className={cn(
                         "flex size-5 shrink-0 items-center justify-center rounded ring-1 ring-inset",
@@ -624,7 +657,8 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                     <div className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-muted/70">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-teal-600/70 to-teal-500/45 transition-[width] duration-700 ease-out group-hover/flow:from-teal-600 group-hover/flow:to-teal-500/70"
-                        style={{ width: `${w}%` }}
+                        style={{ width: `${w}%`, "--ad": `${INNER_BASE_MS + i * STEP_MS}ms` } as CSSProperties}
+                        data-flow-bar=""
                       />
                     </div>
                     <span className="w-16 shrink-0 text-right text-[11px] font-semibold tabular-nums">
@@ -669,7 +703,12 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                     ? m.reported
                     : (m.at143 ?? m.reported);
                 return (
-                  <div key={m.jobId} className="flex items-center gap-1">
+                  <div
+                    key={m.jobId}
+                    className="flex items-center gap-1"
+                    data-ladder-step=""
+                    style={{ "--ad": `${INNER_BASE_MS + i * STEP_MS}ms` } as CSSProperties}
+                  >
                     {i > 0 && <ArrowRight className="size-3 text-muted-foreground/40" aria-hidden="true" />}
                     <button
                       type="button"
