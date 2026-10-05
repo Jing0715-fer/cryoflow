@@ -38,6 +38,7 @@
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, copyFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { connect as tcpConnect } from "node:net";
 
 const BASE = "http://localhost:3000";
 const EMPIAR_ID = "cmuro2ufe000mn5nb3qkwuy49";
@@ -195,6 +196,45 @@ function repairUpstreamTwins(class2dJob) {
   return [];
 }
 
+/* ---- orphan sweep (self-heal for the hard-kill scenario) ----------------
+ * A previous run may have died between mint and finally (OOM / window
+ * kill — paid live this window: a failed probe against a dead cluster
+ * stayed in the world forever). Any t575 probe left behind in a terminal
+ * state is swept HERE, with the exact cleanup the finally would have done.
+ * A RUNNING probe means another instance is live right now — abort rather
+ * than fight it.
+ *
+ * Placement is doctrine: the sweep runs BEFORE the roster baseline is
+ * captured, because a baseline that includes the orphan haunts every later
+ * comparison (first drill run: roster0 read 13 with the orphan still in,
+ * the sweep healed to 12, and both roster checks failed against the
+ * polluted 13 — heal before you measure). */
+{
+  console.log("\n[orphan sweep] probes left by dead runs");
+  const orphans = jobsOfActive().filter((j) =>
+    typeof j.name === "string" && j.name.startsWith("t575 Volume Lane Probe"));
+  const running = orphans.filter((j) => j.status === "running");
+  if (running.length) {
+    console.error(`  ✗ ${running.length} t575 probe(s) RUNNING — another instance is live; aborting`);
+    process.exit(3);
+  }
+  const preCount = jobsOfActive().length;
+  for (const o of orphans) {
+    api("DELETE", `/api/jobs/${o.id}?confirm=true`);
+    rmSync(workdirOf(o.id), { recursive: true, force: true });
+    pruneStamps([o.id]);
+    console.log(`  ✓ swept an orphan probe left by a dead run — ${o.name} (${o.status})`);
+  }
+  if (orphans.length) {
+    await sleep(400);
+    const post = jobsOfActive().length;
+    check("orphan sweep removed exactly the orphans", post === preCount - orphans.length,
+      `${preCount} → ${post} (swept ${orphans.length})`);
+  } else {
+    check("no orphan probes from dead runs", true);
+  }
+}
+
 /* ---- world guard ------------------------------------------------------- */
 const projects = JSON.parse(api("GET", "/api/projects")).projects;
 const active = projects.find((p) => p.active || p.isActive);
@@ -230,6 +270,27 @@ const st0 = workerStatus();
 check("worker mounted", st0.mounted === true, `tick ${st0.tickMs}ms`);
 check("autoJudge armed", st0.autoJudge === true);
 check("provider configured", st0.providerOk === true);
+
+/* ---- the cluster gate (t597 — the orphan-probe lesson, paid live) ------
+ * A dead window minted a probe against a DEAD cluster (ECONNREFUSED at
+ * staging), the window was hard-killed before the finally could sweep, and
+ * the failed probe stayed in the world forever — roster 13, pollution.
+ * The gate makes that state unrepresentable: no listener on the cluster
+ * port → abort BEFORE minting anything. Zero mutation beats perfect
+ * cleanup — the finally is the safety net, not the plan. */
+const clusterAlive = () => new Promise((resolve) => {
+  const s = tcpConnect(3022, "127.0.0.1");
+  s.once("connect", () => { s.destroy(); resolve(true); });
+  s.once("error", () => resolve(false));
+  s.setTimeout(2000, () => { s.destroy(); resolve(false); });
+});
+console.log("\n[preflight] cluster gate");
+if (!(await clusterAlive())) {
+  console.error("  ✗ mock cluster unreachable on 127.0.0.1:3022 — refusing to mint any probe");
+  console.error("    start it first: bash services/mock-cluster/launch.sh  (aborted with ZERO world mutation)");
+  process.exit(2);
+}
+check("mock cluster listening on 3022", true, "t380-conn target alive before any mutation");
 
 const mintProbe = (name) => {
   const m = JSON.parse(api("POST", "/api/jobs", {

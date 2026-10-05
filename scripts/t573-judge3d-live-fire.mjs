@@ -116,8 +116,13 @@ const minted = [];
 
 try {
   /* ---- world guard ---------------------------------------------------- */
+  // t597: the guard used to pin roster0 === 12 — a hardcoded census rots
+  // with the world (t596 caught it live as 13/14). The honest invariant is
+  // "the world I measured at entry is the world I return at the end" — the
+  // final check below already compares against roster0, so the guard only
+  // asserts the world is EMPIAR and the census is sane.
   const active = JSON.parse(api("GET", "/api/projects")).projects.find((p) => p.active);
-  check("world guard ok — EMPIAR active, roster " + roster0, active?.id === EMPIAR_ID && roster0 === 12, active?.name?.slice(0, 24));
+  check("world guard ok — EMPIAR active, roster " + roster0, active?.id === EMPIAR_ID && roster0 > 0, active?.name?.slice(0, 24));
 
   /* ---- mint the probe + fabricate its workdir -------------------------- */
   // the name carries a per-run tag: the chat route RESUMES the latest
