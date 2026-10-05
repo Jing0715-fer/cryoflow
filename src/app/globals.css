@@ -1010,6 +1010,37 @@
   }
 }
 
+/* t609 — the tally walks the row. The key-numbers strip is the counted
+   face that leads the Results view (t330) and the inspector's Overview
+   (t347), with the run-receipt fallback strip as its third host — one
+   grammar, all three surfaces. The counts were taken from the star at
+   count time; the wire merely delivers them — so the geometry is the
+   receipt's own word (receipt-arrival above: +4px surfacing, 240ms, the
+   family bezier). t606's doctrine: same direction, same speed, no new
+   keyframe. What IS new is the chorus — the cards surface in READING
+   ORDER, each 24ms after the one before (t584's chip step), a tally
+   being taken left to right; the amber coverage footnote joins the row
+   as the next line of the tally (--kd = card count × step). No count-up
+   on the digits: the number is already counted, and a rolling digit
+   would pretend computation the engine already did. Mount = arrival —
+   the strip mounts when the summary fetch lands (the Results view and
+   the Overview lead), the receipt strip mounts with its tab panel (the
+   tab switch is the event); Radix's round-trip replays both honestly.
+   The cards whisper via box-shadow only, so fill-both holding transform
+   at 0 never fights the hover ink. */
+[data-key-arrival] [data-stat],
+[data-key-arrival] [data-coverage-note] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--kd, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-key-arrival] [data-stat],
+  [data-key-arrival] [data-coverage-note] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy

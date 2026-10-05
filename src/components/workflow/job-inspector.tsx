@@ -1720,6 +1720,12 @@ const COUNT_TONE_CLASS: Record<string, string> = {
  * (remote-only files, a lost run record), the receipt's own counted numbers
  * — written by the engine at finalize, honestly counted from the output
  * star — still lead the Overview. Same card grammar as KeyNumbersStrip.
+ *
+ * t609 — and the same arrival manner: the numbers ride the job DTO, so
+ * this face mounts with its tab panel — the tab switch is the event, and
+ * the tally walks its row exactly like the live-counted strip (24ms step,
+ * the receipt's surfacing word). Radix's round-trip replays it honestly:
+ * every arrival deserves the same manner.
  */
 function ReceiptCountStrip({ counts }: { counts: ResultCounts }) {
   const stats: { key: string; value: string; label: string; tone: string }[] = [];
@@ -1749,12 +1755,18 @@ function ReceiptCountStrip({ counts }: { counts: ResultCounts }) {
     <section
       aria-label="Key numbers (run receipt)"
       data-key-numbers=""
+      data-key-arrival=""
       data-receipt-counts=""
       data-print-keep=""
       className="flex flex-wrap gap-2"
     >
-      {stats.map((s) => (
-        <div key={s.key} data-stat={s.key} className="insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5">
+      {stats.map((s, i) => (
+        <div
+          key={s.key}
+          data-stat={s.key}
+          style={{ "--kd": `${i * 24}ms` } as React.CSSProperties}
+          className="insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5"
+        >
           <p className={cn("text-xl font-bold leading-tight tabular-nums", s.tone)}>{s.value}</p>
           <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{s.label}</p>
         </div>

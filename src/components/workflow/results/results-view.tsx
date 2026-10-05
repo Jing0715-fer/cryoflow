@@ -10,7 +10,7 @@
  * reports → workdir footer.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 // t350 — per-iteration class snapshots (live + picker)
 import { ClassIterationGallery } from "./class-iteration-gallery";
 import {
@@ -2311,20 +2311,35 @@ const STAT_TONE_CLASS: Record<string, string> = {
  * t347 — exported: the inspector's Overview tab now leads with the same
  * key-numbers strip the Results view opens with (one grammar, both
  * surfaces — the user's 「颗粒数需要显示得醒目些，不仅在任务窗口中」).
+ *
+ * t609 — the tally walks the row: the strip mounts the moment the summary
+ * fetch lands (mount = arrival), and the count surfaces in READING ORDER —
+ * each card 24ms after the one before (t584's chip step), the coverage
+ * footnote joining as the next line of the tally. The geometry is the
+ * receipt's word (receipt-arrival, +4px, 240ms — the counts were taken
+ * from the star at count time; the wire merely delivers). No count-up on
+ * the digits: the number is already counted, and a rolling digit would
+ * pretend computation the engine already did.
  */
+/** the tally's step: each count surfaces 24ms after the one before it —
+ * the reading-order cadence the find bar's chips proved (t584). */
+const TALLY_STEP_MS = 24;
+
 export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
   if (summary.stats.length === 0) return null;
   return (
     <section
       aria-label="Key numbers"
       data-key-numbers=""
+      data-key-arrival=""
       data-print-keep=""
       className="flex flex-wrap gap-2"
     >
-      {summary.stats.map((s: SummaryStat) => (
+      {summary.stats.map((s: SummaryStat, i) => (
         <div
           key={s.key}
           data-stat={s.key}
+          style={{ "--kd": `${i * TALLY_STEP_MS}ms` } as CSSProperties}
           className="insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5"
           title={s.hint}
         >
@@ -2344,6 +2359,7 @@ export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
       {summary.coverage?.note && (
         <p
           data-coverage-note=""
+          style={{ "--kd": `${summary.stats.length * TALLY_STEP_MS}ms` } as CSSProperties}
           className="flex w-full items-start gap-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
         >
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
