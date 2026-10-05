@@ -9,6 +9,7 @@ import { create } from "zustand";
 import { toast, type ToastActionElement } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible, nextStepsFor } from "./workflow";
+import { computeEdgeGeoms } from "./edge-geom";
 import {
   upstreamEdgesOf,
   faithfulWires,
@@ -508,6 +509,106 @@ const birthArm = (
   birthEdgeIds: [...s.birthEdgeIds, ...edgeIds],
 });
 
+/* ------------------------------------------------------------------ */
+/* t601 — the card's last breath (the death voice)                     */
+/* ------------------------------------------------------------------ */
+
+/** t601 — the death breath's timing words, the birth family's mirror.
+ *  The SAME 24ms staircase (t579 ripple → t584 chips → t598 cards →
+ *  t599 wires) walks the leaving world; the fade itself is slower than
+ *  the entrance (400ms vs 240ms — leaving is more deliberate than
+ *  arriving). Retire budget: 12×24 + 400 + 120 = 808ms, the t584
+ *  settle-budget discipline applied to the exit window. */
+const DEATH_STEP_MS = 24;
+const DEATH_MAX_STEPS = 12;
+const DEATH_FADE_MS = 400;
+
+/** A dying card's frozen memory. The store truth (jobs/edges) loses the
+ *  card in the SAME commit that arms the ghost — the ghost is pure
+ *  rendering furniture: the seat, the identity chrome, and the wires
+ *  frozen as path strings (computeEdgeGeoms at arm time — after the
+ *  commit the endpoints are gone and no geometry could be computed).
+ *  A frozen wire does not follow a live endpoint dragged mid-breath:
+ *  the ghost remembers the wire as it WAS — 400ms of memory, not a
+ *  live channel. */
+export interface DeathGhostWire {
+  id: string;
+  d: string;
+  step: number;
+}
+
+export interface DeathGhost {
+  id: string;
+  x: number;
+  y: number;
+  type: string;
+  name: string;
+  status: string;
+  /** staircase index — payload order, capped (one command, one exhale
+   *  that reads as a breath, not a roll call) */
+  step: number;
+  bornAt: number;
+  /** wires attached to this dying card, geometry frozen at arm time.
+   *  Each wire is remembered by exactly ONE ghost (the smaller-step
+   *  endpoint) so a wire between two dying cards fades once. */
+  wires: DeathGhostWire[];
+}
+
+/** t601 — build the ghosts for one finger-commanded delete. Called from
+ *  removeJobsRaw BEFORE the removal set() — the dying jobs and their
+ *  edges are passed in while still in state, which is the whole point:
+ *  the wire geometry is frozen from the living world's own math. */
+function buildDeathGhosts(
+  deletedIds: string[],
+  jobs: JobDTO[],
+  edges: EdgeDTO[]
+): DeathGhost[] {
+  const dyingSet = new Set(deletedIds);
+  const stepOf = new Map<string, number>();
+  deletedIds.forEach((id, i) => stepOf.set(id, Math.min(i, DEATH_MAX_STEPS)));
+  const touching = edges.filter((e) => dyingSet.has(e.fromJobId) || dyingSet.has(e.toJobId));
+  // each wire is remembered by ONE ghost — the smaller-step endpoint
+  const wireHome = new Map<string, string>();
+  for (const e of touching) {
+    const fs = stepOf.get(e.fromJobId);
+    const ts = stepOf.get(e.toJobId);
+    if (fs != null && ts != null) wireHome.set(e.id, fs <= ts ? e.fromJobId : e.toJobId);
+    else wireHome.set(e.id, fs != null ? e.fromJobId : e.toJobId);
+  }
+  // freeze the geometry from the LIVING world (endpoints all present)
+  const geoms = touching.length > 0 ? computeEdgeGeoms(touching, jobs, null) : [];
+  const geomById = new Map(geoms.map((g) => [g.edge.id, g]));
+  const now = Date.now();
+  return deletedIds.map((id, i) => {
+    const j = jobs.find((x) => x.id === id);
+    const step = Math.min(i, DEATH_MAX_STEPS);
+    return {
+      id,
+      x: j?.x ?? 0,
+      y: j?.y ?? 0,
+      type: j?.type ?? "",
+      name: j?.name ?? "",
+      status: j?.status ?? "idle",
+      step,
+      bornAt: now,
+      wires: touching
+        .filter((e) => wireHome.get(e.id) === id)
+        .map((e) => {
+          const other = e.fromJobId === id ? e.toJobId : e.fromJobId;
+          const otherStep = stepOf.get(other);
+          const g = geomById.get(e.id);
+          return {
+            id: e.id,
+            d: g?.d ?? "",
+            // a wire between two dying cards shares the earlier breath
+            step: otherStep != null ? Math.min(step, otherStep) : step,
+          };
+        })
+        .filter((w) => w.d !== ""),
+    };
+  });
+}
+
 interface WorkflowState {
   jobs: JobDTO[];
   /** t393 — the last-seen /api/jobs version token. pollTick sends it as
@@ -617,6 +718,25 @@ interface WorkflowState {
    *  the same window. Silent faces unchanged: restore/poll/adoption
    *  never arm. */
   birthEdgeIds: string[];
+  /** t601 — the death voice, armed by DELETE VERBS only (the mirror of
+   *  the birth law). Armed: deleteJob (the confirm dialog's Delete) and
+   *  deleteSelected (the bulk confirm) — the two fingers that kill.
+   *  NEVER armed — the silent faces, by construction: redo's
+   *  removeJobsRaw (history replay — the cards already died once in the
+   *  user's memory), undoImport's self-deletes (walking history back),
+   *  the AI tool's direct db delete (the canvas learns of it via poll —
+   *  found dead, not killed before your eyes), poll itself, adoption
+   *  loads. The ghost is pure rendering furniture: truth moves in the
+   *  SAME commit (minimap, counts, selection stay honest), the canvas
+   *  renders the frozen memory while the breath plays, and retires it
+   *  when the window closes. A resurrection during the breath (Ctrl+Z
+   *  mid-fade) prunes the ghost immediately — the death was revoked. */
+  deathSeq: number;
+  /** t601 — the frozen memories currently breathing out. Appended per
+   *  arm, pruned on resurrection, retired wholesale when the window
+   *  closes. Rendered below the living cards (a ghost never covers the
+   *  living); pointer-events none throughout. */
+  deathGhosts: DeathGhost[];
   /** t593 — the pre-tidy seats of every moved card, captured at the bump
    *  so the canvas can FLIP (invert from the old seat, play to the new)
    *  without racing the commit. Read together with layoutKind and
@@ -915,7 +1035,7 @@ interface WorkflowState {
    *  (Task 104). Returns the ids whose DELETE round-tripped. */
   removeJobsRaw: (
     ids: string[],
-    opts?: { keepSelection?: boolean }
+    opts?: { keepSelection?: boolean; deathArm?: boolean }
   ) => Promise<{ deleted: string[]; error: string | null }>;
   setTemplatePresetsOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
@@ -1172,6 +1292,11 @@ interface WorkflowState {
   /** t598 — the canvas retires ids it has played (per-id consume: unplayed
    *  ids survive for a later commit that actually mounts them). */
   consumeBirths: (played: string[], playedEdges: string[]) => void;
+  /** t601 — prune ghosts whose card is live again (undo during the
+   *  breath): the death was revoked, the memory must not outlive it. */
+  pruneDeathGhosts: (aliveIds: string[]) => void;
+  /** t601 — the breath window closed: retire every ghost wholesale. */
+  retireDeathGhosts: () => void;
   setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
@@ -1894,6 +2019,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   layoutKind: null,
   layoutFlipFrom: [],
   birthSeq: 0,
+  deathSeq: 0,
+  deathGhosts: [],
   birthIds: [],
   birthEdgeIds: [],
   focusJobId: null,
@@ -2723,6 +2850,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // delete, bulk delete, the redo of an undone delete — flows through
     // here, so one recording point covers the whole delete family.
     tombstoneJobIds(deleted);
+    // t601 — the death breath arms IN THE SAME set() as the removal (the
+    // t600 same-commit law, applied to the exit): the geometry freeze
+    // reads the LIVING world above, and one commit both moves the truth
+    // and hands the canvas its ghosts — no frame shows the card gone
+    // with no memory in its seat. opts.deathArm is the finger's flag:
+    // deleteJob/deleteSelected pass it; redo calls bare (history replay
+    // is silent, the mirror of t598's restore law).
+    const ghosts = opts?.deathArm
+      ? buildDeathGhosts(deleted, get().jobs, get().edges)
+      : [];
     // keepSelection: when the PRIMARY card goes away, promote the first
     // remaining selected card (the single-delete behavior since Task 97)
     const restIds = get().selectedIds.filter((x) => !delSet.has(x));
@@ -2736,6 +2873,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({
       jobs: get().jobs.filter((j) => !delSet.has(j.id)),
       edges: get().edges.filter((e) => !delSet.has(e.fromJobId) && !delSet.has(e.toJobId)),
+      ...(ghosts.length > 0
+        ? {
+            deathSeq: get().deathSeq + 1,
+            deathGhosts: [...get().deathGhosts, ...ghosts],
+          }
+        : {}),
       selectedId: opts?.keepSelection ? primary : null,
       selectedIds: opts?.keepSelection ? restIds : [],
       inspectId: prevInspect != null && delSet.has(prevInspect) ? null : prevInspect,
@@ -3647,7 +3790,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           edges: get().edges.filter((e) => e.fromJobId === id || e.toJobId === id),
         }
       : null;
-    const { deleted, error } = await get().removeJobsRaw([id], { keepSelection: true });
+    const { deleted, error } = await get().removeJobsRaw([id], {
+      keepSelection: true,
+      deathArm: true, // t601 — the finger's delete earns its last breath
+    });
     if (deleted.length === 0) {
       errToast(error ?? "Failed to delete job");
       return;
@@ -4684,7 +4830,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       jobs: get().jobs.filter((j) => idSet.has(j.id)),
       edges: get().edges.filter((e) => idSet.has(e.fromJobId) || idSet.has(e.toJobId)),
     };
-    const { deleted } = await get().removeJobsRaw(ids);
+    const { deleted } = await get().removeJobsRaw(ids, {
+      deathArm: true, // t601 — a bulk delete exhales in payload order
+    });
     const failed = ids.length - deleted.length;
     const deletedSet = new Set(deleted);
     // the undo payload covers the FULFILLED deletions only
@@ -5080,6 +5228,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       birthIds: s.birthIds.filter((id) => !played.includes(id)),
       birthEdgeIds: s.birthEdgeIds.filter((id) => !playedEdges.includes(id)),
     })),
+  // t601 — resurrection supersedes the breath: a ghost whose card is
+  // live again leaves immediately (the undo's restore mounts silently —
+  // t598's law — and TWO memories of one seat would be a haunting)
+  pruneDeathGhosts: (aliveIds) => {
+    if (aliveIds.length === 0) return;
+    const alive = new Set(aliveIds);
+    set((s) => ({
+      deathGhosts: s.deathGhosts.filter((g) => !alive.has(g.id)),
+    }));
+  },
+  retireDeathGhosts: () => set({ deathGhosts: [] }),
   jumpToOrigin: () => {
     // t589 — "0" is the origin's seat. The number row 0–9 is ONE family
     // of places (saved views + the origin), so the jump rides the same

@@ -2097,6 +2097,64 @@
   }
 }
 
+/* t601 — the card's last breath. Birth has a voice (t598/t599); death
+   had none — a deleted card vanished in the same commit that moved the
+   truth, an event with no figure. Now the DELETE verbs (single confirm,
+   bulk confirm) arm frozen memories in the store, the canvas renders
+   them BELOW the living cards, and each ghost mounts ALREADY dying: the
+   animation runs on mount with `both` fill, so the from-frame (the card
+   as it was) is pinned with no attribute dance. The figure is the
+   entrance's mirror — literally: cubic-bezier(.64,0,.78,0) is the exact
+   point-reflection of the family's (.22,1,.36,1), a breath that starts
+   calm and accelerates into nothing; 400ms (leaving is more deliberate
+   than arriving); a 5px sink (the exhale's gravity — the card rose 8px
+   INTO place, it settles 5px OUT of it); 0.985 scale. The 24ms
+   staircase is the SAME one the births walk — one rhythm for the
+   world's arrivals AND its departures. The wires are the body's organs:
+   each fades on its card's step, geometry frozen at arm time (a memory
+   of the wire as it was, not a live channel). Silence by construction:
+   redo and undoImport's self-deletes are history replay (the cards
+   already died once in the user's memory), the AI tool's delete reaches
+   the canvas via poll (found dead, not killed before your eyes). A
+   resurrection during the breath (Ctrl+Z mid-fade) prunes the ghost at
+   once — the death was revoked, the memory must not outlive it. Under
+   reduced motion the whole layer is display:none (no frozen corpse). */
+@keyframes card-exit {
+  from {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    translate: 0 5px;
+    scale: 0.985;
+  }
+}
+@keyframes ghost-wire-exit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-dying] {
+    animation: card-exit 400ms cubic-bezier(0.64, 0, 0.78, 0) both;
+    animation-delay: var(--death-cd, 0ms);
+  }
+  [data-ghost-wire] {
+    animation: ghost-wire-exit 400ms cubic-bezier(0.64, 0, 0.78, 0) both;
+    animation-delay: var(--death-cd, 0ms);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-death-ghost-layer] {
+    display: none;
+  }
+}
+
 /* Task 172 — touch comfort inside the mobile panel Sheet. The JobPanel's
    form controls were built to the DESKTOP panel's density (h-8/h-9
    inputs ≈ 32–36px tall); a finger needs taller targets. Scoped to the

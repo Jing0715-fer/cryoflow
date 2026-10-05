@@ -67,7 +67,8 @@ import { toast } from "@/hooks/use-toast";
 import { EdgesLayer } from "./edges-layer";
 import { PipelineKpi } from "./pipeline-kpi";
 import { CanvasMinimap } from "./canvas-minimap";
-import { JobCard } from "./job-card";
+import { JobCard, STATUS_FLOOR } from "./job-card";
+import { TypeIcon } from "./icons";
 import { ParamsDiffDialog } from "./params-diff-dialog";
 import { useDropImport, DropImportOverlay } from "./drop-import";
 import { stageWorkflowFiles } from "@/lib/import-stage";
@@ -1592,6 +1593,72 @@ export function WorkflowCanvas() {
   // "Ready" hint: idle job whose upstream (any incoming edge, possibly in
   // ANOTHER workspace — links included) is completed.
   const allJobs = useWorkflowStore((s) => s.jobs);
+
+  /* ---------------- t601 — the card's last breath ---------------- */
+
+  // The exit's timing words mirror the entrance's (the 24ms staircase,
+  // a slower 400ms fade — leaving is more deliberate than arriving);
+  // the constants live in the store next to the ghost builder they
+  // parameterize (DEATH_STEP_MS / DEATH_FADE_MS). Retire budget:
+  // 12×24 + 400 + 120 = 808ms — the attributes must outlive the last
+  // ghost's exhale, the t584 settle-budget discipline.
+  const CARD_DEATH_RETIRE_MS = 12 * 24 + 400 + 120;
+  const deathSeq = useWorkflowStore((s) => s.deathSeq);
+  const deathGhosts = useWorkflowStore((s) => s.deathGhosts);
+  // The RENDER face rides the card layer's own deferral (the t595
+  // mechanism-follows-channel law, death edition): the cards mount on
+  // the deferred pass (useDeferredValue, t571 machinery), so a dead
+  // card also UNMOUNTS one deferred commit after the urgent truth — a
+  // ghost mounted on the urgent pass would overlap its own corpse for
+  // a frame or two. Deferred, the ghost mounts in the SAME commit the
+  // card actually leaves: one commit, one body. The effects below keep
+  // the urgent subscription — supersede and retire timing are about
+  // truth, not paint.
+  const renderDeathGhosts = React.useDeferredValue(deathGhosts);
+  const deathSweepRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (deathSweepRef.current) clearTimeout(deathSweepRef.current);
+    },
+    []
+  );
+  // The render face of resurrection: a ghost whose card is live again is
+  // skipped THE SAME COMMIT the card returns (the effect below prunes
+  // the store data a beat later) — no frame of haunting, not even one.
+  const breathingGhosts = renderDeathGhosts.filter(
+    (g) => !allJobs.some((j) => j.id === g.id)
+  );
+  // Two duties, both OUTSIDE the paint path (the ghost elements carry
+  // their own mount-time animation with `both` fill — the from-frame is
+  // pinned by CSS, no attribute dance needed): ① resurrection
+  // supersedes the breath — a ghost whose card is live again (Ctrl+Z
+  // mid-fade) is pruned at once, TWO memories of one seat would be a
+  // haunting; ② the window closes — the sweep is bornAt-based, so a
+  // poll tick re-running this effect recomputes the remaining window
+  // instead of pushing it (a timer re-armed on every jobs change would
+  // never close under a 1.2s run-cadence poll).
+  React.useEffect(() => {
+    if (deathGhosts.length === 0) return;
+    const aliveIds = deathGhosts
+      .map((g) => g.id)
+      .filter((id) => allJobs.some((j) => j.id === id));
+    if (aliveIds.length > 0) {
+      useWorkflowStore.getState().pruneDeathGhosts(aliveIds);
+      return; // the prune re-triggers this effect via deathGhosts
+    }
+    const now = Date.now();
+    const youngest = Math.max(...deathGhosts.map((g) => g.bornAt));
+    const remaining = CARD_DEATH_RETIRE_MS - (now - youngest);
+    if (remaining <= 0) {
+      useWorkflowStore.getState().retireDeathGhosts();
+      return;
+    }
+    if (deathSweepRef.current) clearTimeout(deathSweepRef.current);
+    deathSweepRef.current = setTimeout(() => {
+      deathSweepRef.current = null;
+      useWorkflowStore.getState().retireDeathGhosts();
+    }, remaining);
+  }, [deathSeq, deathGhosts, allJobs]);
   // Note spotlight lens (Task 75, predicate upgraded in Task 83): cards
   // without human judgment dim as one unit — the class lives on the
   // positioned [data-job] root so body, badge and ports recede together
@@ -2316,6 +2383,101 @@ export function WorkflowCanvas() {
             hoveredJobId={hoveredJobId}
           />
           <LiveWire rootRef={rootRef} jobs={jobs} />
+          {/* t601 — the death breath's ghost layer: frozen memories of the
+              cards a finger's delete is taking, rendered BELOW the living
+              cards (a ghost never covers the living) and above the wires.
+              Each ghost mounts ALREADY dying — the CSS animation runs on
+              mount with `both` fill, so the from-frame (the card as it
+              was) is pinned with no attribute dance, and the mirror
+              bezier carries it out. Wires are the body's organs: each
+              fades on its card's step (the frozen d — geometry captured
+              in the same commit the store lost the endpoints). The whole
+              layer is pointer-events-none and aria-hidden: the dead
+              cannot be interacted with, and screen readers already saw
+              the removal announced via the store truth. */}
+          {breathingGhosts.length > 0 && (
+            <div
+              data-death-ghost-layer=""
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-0"
+            >
+              <svg
+                width={1}
+                height={1}
+                className="absolute left-0 top-0"
+                style={{ overflow: "visible" }}
+              >
+                {breathingGhosts.flatMap((g) =>
+                  g.wires.map((w) => (
+                    <path
+                      key={w.id}
+                      data-ghost-wire={w.id}
+                      d={w.d}
+                      fill="none"
+                      stroke="color-mix(in oklch, var(--foreground) 32%, transparent)"
+                      strokeWidth={2.25}
+                      strokeLinecap="round"
+                      style={
+                        { "--death-cd": `${w.step * 24}ms` } as React.CSSProperties
+                      }
+                    />
+                  ))
+                )}
+              </svg>
+              {breathingGhosts.map((g) => {
+                const spec = jobType(g.type);
+                return (
+                  <div
+                    key={g.id}
+                    data-dying={g.id}
+                    className="absolute overflow-hidden rounded-xl border bg-card"
+                    style={
+                      {
+                        left: g.x,
+                        top: g.y,
+                        width: CARD_W,
+                        height: CARD_H,
+                        zIndex: 5,
+                        "--death-cd": `${g.step * 24}ms`,
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div
+                      className={cn(
+                        "absolute inset-y-0 left-0 w-1 opacity-80",
+                        spec?.color.bg
+                      )}
+                    />
+                    <div className="flex h-full flex-col justify-center gap-1 py-2.5 pl-4 pr-3.5">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset",
+                            spec?.color.soft,
+                            spec?.color.border
+                          )}
+                        >
+                          <TypeIcon
+                            name={spec?.icon ?? "Boxes"}
+                            className={cn("size-3.5", spec?.color.text)}
+                          />
+                        </span>
+                        <p className="truncate text-sm font-semibold tracking-tight leading-none opacity-90">
+                          {g.name}
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        "absolute inset-x-0 bottom-0 h-[3px]",
+                        STATUS_FLOOR[g.status] ?? STATUS_FLOOR.idle
+                      )}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {renderJobs.map((job) => (
             <JobCard
               key={job.id}
