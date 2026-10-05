@@ -1255,6 +1255,38 @@
   opacity: var(--dim-ghost);
 }
 
+/* t591 — the segmented control's settled voice. t586 gave buttons the
+   press answer (the hand is held); t585 gave the find chips the toggle
+   answer (a filter clicking into place). The minimap's framing-mode
+   control is the same gesture family — a mode click — and until now its
+   bg-card thumb appeared instantly, a silent surface change. The settle
+   is the chip-set syllable in its smallest body: scale snaps from 0.94
+   and the same back-out bezier springs it past 1 and lands it. The
+   family size law (t587: the smaller the element, the faster the voice)
+   budgets the duration between the odometer digit (140ms) and the find
+   chip's toggle (260ms): this pill is smaller than a chip (9px type),
+   so 200ms. The trigger is the transient [data-mm-set] key the component
+   sets on an activating click — NOT a bare [aria-pressed="true"] rule:
+   the t585 disarm law applies double here, because this control has a
+   SYSTEMIC coercion (sel → fit when the selection empties) that would
+   ghost-pop the fit button with no click at all; the component clears
+   the key at that edge so a later re-click can re-arm. Deactivation
+   adds no key and flips aria-pressed back — the release is quiet, no
+   exit ceremony; a re-click on the live mode changes nothing and says
+   nothing (no change, no sound). Rides prefers-reduced-motion:
+   no-preference like every other travel in this file; the color answer
+   (transition-all, shared with the press dip) stays with all users. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mm-set {
+    from {
+      scale: 0.94;
+    }
+  }
+  [data-mm-btn][data-mm-set][aria-pressed="true"] {
+    animation: mm-set 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+
 /* ============================================================
    Favorite chip — touch long-press arming (Task 163)
    A touch reorder starts with a ~450ms hold. A hold with no

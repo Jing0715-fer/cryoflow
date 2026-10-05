@@ -187,6 +187,31 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   }, [findOpen, findQuery, findStatus, findCategory, jobs]);
   const findLens = findMatchIds != null && findMatchIds.size > 0;
 
+  // sel with an empty selection is fit (the button disables itself, but
+  // an active sel must also survive the selection clearing mid-session)
+  // — hoisted above the empty-jobs early return: the t591 honesty effect
+  // below needs the live mode, and rules-of-hooks has no exceptions for
+  // "map not drawn" (the same discipline the find hooks obey).
+  const effMode: MmMode = mode === "sel" && selIds.size === 0 ? "fit" : mode;
+
+  // t591 — the transient click-activation key (t585's data-chip-set
+  // idiom, segmented-control dialect): set on an activating click, and a
+  // CSS rule keyed on [data-mm-set][aria-pressed="true"] speaks the
+  // settle. A bare aria-pressed rule would ghost-pop the fit button the
+  // moment sel coerces home (selection emptied → effMode falls back with
+  // NO click — the disarm-never-becomes-an-event law in its coercion
+  // costume) and would newly-match at remounts too.
+  const [mmSet, setMmSet] = React.useState<MmMode | null>(null);
+
+  // the key's honesty edge: when the click-activated mode stops being
+  // the live mode, the key names a state the world no longer shows —
+  // clear it so a later re-click of that mode can re-arm the animation
+  // (React restarts a CSS animation only on a NEW attribute match; an
+  // attribute that never leaves never re-fires).
+  React.useEffect(() => {
+    if (mmSet && mmSet !== effMode) setMmSet(null);
+  }, [mmSet, effMode]);
+
   if (jobs.length === 0) return null;
 
   // viewport window in WORLD coordinates:
@@ -199,9 +224,6 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     h: size.h / zoom,
   };
 
-  // sel with an empty selection is fit (the button disables itself, but
-  // an active sel must also survive the selection clearing mid-session)
-  const effMode: MmMode = mode === "sel" && selIds.size === 0 ? "fit" : mode;
   const selFocus = effMode === "sel";
   // find-dim never stacks on sel focus — selection is the stronger intent
   const findDimActive = findLens && !selFocus;
@@ -347,13 +369,22 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 key={m.id}
                 type="button"
                 data-mm-btn={m.id}
+                data-mm-set={mmSet === m.id ? "" : undefined}
                 title={m.title}
                 aria-pressed={effMode === m.id}
                 disabled={disabled}
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => setMode(m.id)}
+                onClick={() => {
+                  setMode(m.id);
+                  setMmSet(m.id); // the click's own voice (t591) — see mmSet
+                }}
                 className={cn(
-                  "rounded px-1 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide transition-colors",
+                  // t586's press recipe: transition-all + the motion-safe
+                  // dip — the segment answers the hand (held = 0.96) and
+                  // the mode change (the mm-set settle) on one channel;
+                  // the animation owns scale while it runs, the transition
+                  // owns it at rest (the CSS cascade is the handoff).
+                  "rounded px-1 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide transition-all motion-safe:active:scale-[0.96]",
                   effMode === m.id
                     ? "bg-card text-primary shadow-sm"
                     : "text-muted-foreground/60 hover:text-foreground",
