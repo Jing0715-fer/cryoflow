@@ -1968,6 +1968,28 @@
   .viewport-glide {
     transition: none !important;
   }
+  [data-flip-play] [data-job] {
+    transition: none !important;
+  }
+}
+
+/* t593 — the tidy rebuild answers. While the canvas holds data-flip-play
+   on the workspace, every moved card's transform channel plays its FLIP:
+   inverted at the pre-tidy seat (pinned by a reflow in the same tick),
+   then released to fly home onto the re-formed wire skeleton. Curve and
+   duration are the viewport glide's EXACTLY (0.48s, cubic-bezier(0.22,
+   0.61, 0.36, 1)) — the camera and the cards are one arrival, one
+   rhythm. The transform channel is otherwise drag-owned (JobCard's
+   group-follower writes it imperatively); the attribute lives only for
+   the 520ms retract window and is removed by the same timer that serves
+   the camera, so a drag never meets a transition on its own channel.
+   Belt-and-braces media gate: the JS side checks the same query before
+   arming (the viewport-glide trust model), but a future armer that
+   forgets the check gets silence, not a seizure. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-flip-play] [data-job] {
+    transition: transform 0.48s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
 }
 
 /* Task 172 — touch comfort inside the mobile panel Sheet. The JobPanel's

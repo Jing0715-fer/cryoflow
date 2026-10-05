@@ -1302,14 +1302,12 @@ export function WorkflowCanvas() {
     panBy(pendX, pendY);
   }, [panBy]);
 
-  /** Frame a workflow bounding box in the viewport (shared by auto-arrange,
-   *  the initial-load fit, the memory restore and the fit COMMAND). The
-   *  voice boundary lives at the callers, not here (t590): the fit command
-   *  ticks (it is a scale command like ± and reset), while the systemic
-   *  callers stay silent — a birth, a remembered restore or a world
-   *  rebuild is not an event (t585's arming-edge law, t587's surface
-   *  definition). */
-  const frameBounds = useCallback(
+  /** Pure fit geometry — WHERE the camera must sit so the bounds are
+   *  framed. No voice, no write: the computation is shared by the instant
+   *  (systemic) fits and the tidy arrival (t593), because the answer's
+   *  MOUTH is the caller's, never the geometry's (t590's boundary, now
+   *  with two mouths). */
+  const computeFrame = useCallback(
     (viewW: number, viewH: number, minX: number, minY: number, maxX: number, maxY: number) => {
       const bw = maxX - minX;
       const bh = maxY - minY;
@@ -1328,13 +1326,29 @@ export function WorkflowCanvas() {
       // content fits, centering still wins (its pad ≥ 48 by definition);
       // when the floor hides the far sides, the near corner stays
       // reachable — panning can always get to what the floor cropped.
-      setViewport({
+      return {
         x: Math.max(48, (viewW - bw * zoom) / 2) - minX * zoom,
         y: Math.max(48, (viewH - bh * zoom) / 2) - minY * zoom,
         zoom: +zoom.toFixed(3),
-      });
+      };
     },
-    [setViewport]
+    []
+  );
+
+  /** Frame a workflow bounding box in the viewport (shared by auto-arrange,
+   *  the initial-load fit, the memory restore and the fit COMMAND). The
+   *  voice boundary lives at the callers, not here (t590): the fit command
+   *  ticks (it is a scale command like ± and reset), while the systemic
+   *  callers stay silent — a birth, a remembered restore or a systemic
+   *  world rebuild is not an event (t585's arming-edge law, t587's
+   *  surface definition). The tidy rebuild is the exception that proves
+   *  the boundary: it IS the user's finger, so it answers — through the
+   *  arrival dialogue, never through this helper (t593). */
+  const frameBounds = useCallback(
+    (viewW: number, viewH: number, minX: number, minY: number, maxX: number, maxY: number) => {
+      setViewport(computeFrame(viewW, viewH, minX, minY, maxX, maxY));
+    },
+    [setViewport, computeFrame]
   );
 
   // inspector "Focus" button: center the requested job in the viewport
@@ -1396,7 +1410,7 @@ export function WorkflowCanvas() {
   // every mount fit-again even when a remembered view existed (Task 99 bug).
   const fittedEpochRef = React.useRef<number | null>(null);
   if (fittedEpochRef.current === null) fittedEpochRef.current = layoutEpoch;
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (loading || jobs.length === 0) return;
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -1413,6 +1427,66 @@ export function WorkflowCanvas() {
       frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
     };
     if (epochChanged) {
+      // t593 — the rebuild's answer is drawn by WHO bumped the epoch, not
+      // by the epoch itself. The tidy is the user's finger: the world
+      // answers — the wire skeleton re-forms at the destination (edges
+      // read the store and are correct immediately), and every moved card
+      // FLIPs home onto it while the camera rides the arrival dialogue.
+      // Import landings and template applies (layoutKind null) stay
+      // systemic: a world arriving from a file is a birth, not a gesture.
+      // useLayoutEffect, not useEffect — the FLIP's inverted frame must
+      // be pinned before the first paint, or the new seats flash for a
+      // frame before the flight begins.
+      const st = useWorkflowStore.getState();
+      if (st.layoutKind === "command") {
+        const flipFrom = st.layoutFlipFrom;
+        st.consumeLayoutCommand(); // consume-once (the t588 relay law)
+        beginGlideArrival(
+          computeFrame(
+            rect.width,
+            rect.height,
+            Math.min(...jobs.map((j) => j.x)),
+            Math.min(...jobs.map((j) => j.y)),
+            Math.max(...jobs.map((j) => j.x + CARD_W)),
+            Math.max(...jobs.map((j) => j.y + CARD_H))
+          )
+        );
+        // Per-frame wire-following EXISTS for drags (the [data-e] patch
+        // loop), but duplicating that machinery for a 12-card
+        // choreography is a different window. Cards converging onto the
+        // skeleton read as intentional: detach, fly, meet.
+        const ws = rootRef.current?.querySelector<HTMLElement>("[data-canvas='workspace']");
+        if (
+          ws &&
+          flipFrom.length > 0 &&
+          !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        ) {
+          const flying: HTMLElement[] = [];
+          for (const f of flipFrom) {
+            const el = ws.querySelector<HTMLElement>(`[data-job="${f.id}"]`);
+            if (!el) continue;
+            const j = jobs.find((jd) => jd.id === f.id);
+            if (!j) continue;
+            const dx = f.x - j.x;
+            const dy = f.y - j.y;
+            if (!dx && !dy) continue;
+            el.style.transform = `translate(${dx}px, ${dy}px)`;
+            flying.push(el);
+          }
+          if (flying.length > 0) {
+            void ws.offsetWidth; // pin the inverted frame before playing
+            ws.setAttribute("data-flip-play", "");
+            for (const el of flying) el.style.transform = "";
+            if (flipRetractRef.current) clearTimeout(flipRetractRef.current);
+            flipRetractRef.current = setTimeout(() => {
+              flipRetractRef.current = null;
+              ws.removeAttribute("data-flip-play");
+              for (const el of flying) el.style.transform = ""; // drag channel clean
+            }, GLIDE_RETRACT_MS);
+          }
+        }
+        return;
+      }
       // import/arrange wins over memory — and the fit lands in memory via
       // the store's write-through, so "where I left it" becomes the fit
       frameAll();
@@ -1424,7 +1498,9 @@ export function WorkflowCanvas() {
       return;
     }
     frameAll();
-  }, [loading, jobs, frameBounds, fitKey, layoutEpoch, setViewport]);
+    // computeFrame is a stable [] callback; beginGlideArrival is omitted
+    // to match the focus effect's local convention (it reads getState()).
+  }, [loading, jobs, frameBounds, fitKey, layoutEpoch, setViewport, computeFrame]);
 
   // "Ready" hint: idle job whose upstream (any incoming edge, possibly in
   // ANOTHER workspace — links included) is completed.
@@ -1583,6 +1659,9 @@ export function WorkflowCanvas() {
   const [heldZoom, setHeldZoom] = React.useState<number | null>(null);
   const heldZoomRef = React.useRef<number | null>(null);
   const glideRetractRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // t593 — the card FLIP's retract timer, serving the SAME window as the
+  // camera's glideRetractRef: one journey, one rhythm (GLIDE_RETRACT_MS).
+  const flipRetractRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseArrivalHold = React.useCallback(() => {
     if (heldZoomRef.current == null) return;
     heldZoomRef.current = null;
@@ -1619,6 +1698,7 @@ export function WorkflowCanvas() {
   React.useEffect(
     () => () => {
       if (glideRetractRef.current) clearTimeout(glideRetractRef.current);
+      if (flipRetractRef.current) clearTimeout(flipRetractRef.current);
     },
     [],
   );

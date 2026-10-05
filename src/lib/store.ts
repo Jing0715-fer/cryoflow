@@ -540,6 +540,19 @@ interface WorkflowState {
   paletteDrag: string | null;
   /** Increments on every one-click auto-arrange (canvas fit-views on change). */
   layoutEpoch: number;
+  /** t593 — WHO bumped the epoch last. "command" = the user's tidy: the
+   *  world answers (the canvas consumes into the card FLIP + the camera
+   *  arrival dialogue). null = systemic — import landings and template
+   *  applies rebuild the world silently (a world arriving from a file is
+   *  a birth, not a gesture; t590's law with the finger as the boundary).
+   *  The vocabulary exists so a future face can promote import the same
+   *  way, not a promise that it already does. */
+  layoutKind: "command" | null;
+  /** t593 — the pre-tidy seats of every moved card, captured at the bump
+   *  so the canvas can FLIP (invert from the old seat, play to the new)
+   *  without racing the commit. Read together with layoutKind and
+   *  retired by consumeLayoutCommand (consume-once, the t588 relay law). */
+  layoutFlipFrom: Array<{ id: string; x: number; y: number }>;
   /** Job to center the canvas on (inspector "Focus" button). */
   focusJobId: string | null;
   /** Increments per focus request so the canvas effect re-fires. */
@@ -1056,6 +1069,9 @@ interface WorkflowState {
    *  target when it picks it up, so a canvas remount (view switch away
    *  and back) never re-glides to a stale target. */
   consumeViewportArrival: () => void;
+  /** t593 — the canvas retires the tidy's answer payload after reading it
+   *  (consume-once: a canvas remount must never replay an old rebuild). */
+  consumeLayoutCommand: () => void;
   setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
@@ -1774,6 +1790,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   viewportBookmarks: hydrateViewportBookmarks(),
   paletteDrag: null,
   layoutEpoch: 0,
+  layoutKind: null,
+  layoutFlipFrom: [],
   focusJobId: null,
   pendingClassFocus: null,
   lastSweep: null,
@@ -2368,6 +2386,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({
         jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
         edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+        // t593 — explicitly NOT a command: an import landing rebuilds the
+        // world silently (the finger dropped a file, but the world's
+        // refit is birth-framing, not an answer to a tidy request).
+        layoutKind: null,
+        layoutFlipFrom: [],
         layoutEpoch: get().layoutEpoch + 1, // canvas fit-views the new content
       });
       get().invalidateRedo();
@@ -2414,6 +2437,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         set({
           jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
           edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+          // t593 — systemic (see the sibling import bump): silent rebuild.
+          layoutKind: null,
+          layoutFlipFrom: [],
           layoutEpoch: get().layoutEpoch + 1, // fit-view the imported graph
         });
         createdIds.push(...data.jobs.map((j) => j.id));
@@ -2898,6 +2924,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({
       jobs: get().jobs.map((j) => ({ ...j, ...(positions.get(j.id) ?? {}) })),
       layoutEpoch: get().layoutEpoch + 1,
+      // t593 — the tidy is a COMMAND (the user's finger): the canvas
+      // consumes these two into the world's answer — the cards FLIP home
+      // from their pre-tidy seats (`before` is the FLIP's First) while
+      // the camera rides the arrival dialogue. Import bumps below stay
+      // explicitly null: a world landing from a file is systemic.
+      layoutKind: "command",
+      layoutFlipFrom: before,
     });
     // t383 — the tidy write is a batch of every moved job; hold them all
     // so an in-flight poll cannot un-tidy the canvas mid-flight, and bump
@@ -4854,6 +4887,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     return true;
   },
   consumeViewportArrival: () => set({ arrivalTarget: null }),
+  /** t593 — the tidy's answer payload is read once and retired. */
+  consumeLayoutCommand: () => set({ layoutKind: null, layoutFlipFrom: [] }),
   jumpToOrigin: () => {
     // t589 — "0" is the origin's seat. The number row 0–9 is ONE family
     // of places (saved views + the origin), so the jump rides the same
@@ -4961,6 +4996,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({
         jobs: allJobs,
         edges: allEdges,
+        // t593 — systemic (template apply): silent rebuild.
+        layoutKind: null,
+        layoutFlipFrom: [],
         layoutEpoch: get().layoutEpoch + 1, // canvas fit-views the new content
       });
       // Task 129 — the applied body is an island: propose wires from its
