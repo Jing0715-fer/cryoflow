@@ -8475,3 +8475,25 @@ Stage Summary:
 - 「先取证再选道，候选才不会走错门」：t592 的候选词是「是否值得一个 arrival 应答」——取证后发现真 gap 不是「没有 pulse」而是「标记在旅程中撒谎」。候选是方向，活体证据才是选票；照着候选词直接做一个 pulse 动画，谎言还在，装饰照加
 - 「witness 的每一次假败都是 harness 自家的指纹」：本轮四跑学费——// 注释吞行（t579 再现）、固定延时赌帧钟、bare 标量字符串、0.00px 旅程——没有一笔是产品病。witness 变绿的那次运行什么都没证明，证明的是前几跑的验尸质量
 - 产出：the map's marker rides（globals.css t594 stanza + print 合并组，零 TSX）+ t594 witness 28/28 一次全绿 + 📸 + 回归全家绿（t593 34 + t592 32 + t591 35 + t590 22 + t589 14 + t588 28 + t587 27 + t586 22 + t585 20 + t584 19 + t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t594/t593/.../t584 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体——等箱体 ≥3.5GB）；②judge 风暴活体半场（等世界稳定夜）；③样式/语义候选：import 落地的应答升级（layoutKind 词汇已备）或 minimap 模式切换重定框的应答（先答「框是家具还是事件」）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 595 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 12:24 cron, Job 362852, Task 572 系第 13 次派单)
+Task: t594 下窗入口③第二候选兑现——「the mode-switch reframe flows」：minimap 模式切换的世界盒瞬跳升格为 rAF 投影流动（thumb settle t591 + 地图流动 t595，一次手势两个器官）；witness 22/22；coercion 边不动画（t591 之律以旗标画在手指上）；途中修 t593 harness 的可抓卡判定（环境几何漂移现行）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 594（本会话上窗收官）；HEAD a2cbfea、树净、0 未推送；五绿（200/25ms、tsc 0 全量、eslint 0、roster 6 active=EMPIAR jobs 12）；available 991MB < 3.5GB → 非 build 日。派单「Task 13 遗留池」第 N+36 次化石。
+- [选道取证] 入口①build 日否决（991MB）；②judge 风暴（等稳定夜）；收敛入口③第二候选「minimap 模式切换重定框」——t594 留下的设计题「框是家具还是事件」。活体测量：fit→nodes 的 viewBox Δw=151/Δh=378 世界单位、地图像素高 101→88（13% 跳变）——重定框是可见事件不是家具。且地图本就是连续流表面（pan/zoom 每帧流动），模式切换是同一投影迈出的一大步——让它也流动。
+- [设计——arm 画在手指上] thumb 点击是手指（t591 给了 thumb settle；地图内容是同一手势的另一半器官）。机制：viewBox 无 CSS 把柄（attribute 非 property）——诚实机制在 JS：rAF lerp 渲染盒 200ms（= thumb settle 的节奏；easeOut cubic 无过冲——back-out 会弹跳整个投影，框是帧不是按钮）。纪律：arm 旗标只在 thumb onClick（手指），coercion 边（清选→sel 回落 fit，无点击）永不武装——t591 的 disarm-never-becomes-an-event 之律。快照在 handler 里取（目标 render 的 body 算出 world 时它已是目标——在屏盒必须在那一 render 前抓住）。pin 在 useLayoutEffect（first paint 前钉住旧盒——t593 FLIP 教义的 JS 版），终帧 bit-exact 退休（setAnimBox(null)，t591 honesty law）。
+- [产品] canvas-minimap.tsx 五处：①MM_REFLOW_MS=200 模块常量（家族算式注释）；②reframe 旗标/快照/rAF refs + animBox state（early return 下移过纯派生区保 hooks 序）；③world = animBox ?? worldBox 单点换轨——viewBox、mmH、stroke widths、vp rect 夹值、toWorld 点击映射全部读同一盒（投影整体流动）；④useLayoutEffect 消费旗标（pin + lerp + retire）+ 卸载取消 rAF；⑤thumb onClick 快照+arm。lastRenderedBoxRef 的记录进 layout effect（eslint react-hooks 禁 render 期写 ref——语义不变：handler 快照读的是上次 commit 的值）。
+- [witness 22/22] Q 世界 12c/13e+mode=fit；G0 源级 reduced-motion 守卫（本窗无 CSS stanza 可断言——JS 信任模型文本断言）；W1 THE FLOW（原子 in-page：w 3488→3428@50→3369@100→3337 落定，单调 easeOut；px 高 101→94→88 随框流动；旧瞬移代码在 @50 读到目的地必假）；W2 回程流动 + 落定==原始 fit 盒逐字（transient bit-exact 退休）；W3 同模重点击零churn（thumb 独声，t591 S3 同款）；W4 coercion 两段 snap（Escape 两段式清除：#1 撤多选→sel 框 560 合法中间态 snap；#2 清 primary→coercion→fit 盒 3487.6 三采样零中间值——systemic 静默）；R roster 12→12、lens 闭、console 净。📸 t595-mm-reflow-settled.png。
+- [harness 学费三笔] ①eval 模板正则二次转义过度（\\\\s→\\s 变字面反斜杠——空格没切开 viewBox 全 NaN）；②Escape 是两段式清除——断言前先问「这次按键的真实语义是什么」（@40 的 560 不是流产物是合法单选框）；③t593 D 面拖拽两连败验尸：第一 DOM 卡的 birth-fit 屏位 TODAY 落在 minimap 覆盖下（elementFromPoint 指纹=minimap-svg，视口 1280×577），指针按在地图上拖拽变成地图事件——环境几何漂移不是产品病，修法=pickHittableCard（elementFromPoint 挑真可抓卡，Zoom out 兜底重试），t593 witness 34→36 全绿。
+- [回归] t593 36 + t592 32 + t591 35 + t590 22 + t589 14 + t588 28 + t587 27 + t586 22 + t585 20 + t584 19（首跑即绿）+ t578 32 + 单测四连 113（64+11+16+22）+ tsc 0 全量 + eslint 0（src + 新旧 harness）；console 全家族净、零孤儿进程。
+- [未做与理由] import 落地的应答升级（t593/t594 候选照传——先答「新世界的入场是否已有自己的声音」；世界突变测试面需要专门设计，非低内存窗工作量）；judge 风暴活体半场（等稳定夜）；build 日全家桶（等箱体 ≥3.5GB——今晨 available 991MB）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「框是家具还是事件？答案还是那只手指」：t591 问过一次（thumb settle），t594 问过一次（marker ride），本窗第三次——模式切换的重定框是拇指按下的一次手势，地图内容是它的另一半器官。但 arm 只在 click：coercion、选择收缩、出生——一切没有点击的框变化照旧瞬跳。手势词汇表在「谁的手指」上第三次自洽
+- 「投影的诚实机制在 JS，不在 CSS」：到达家族的前三员（glide/flip/marker ride）都是 CSS transition——因为它们的通道是 transform/geometry property。viewBox 是 attribute 不是 property，CSS 无把柄——流动只能 rAF lerp。机制跟随通道存在，不跟随家族惯例存在——「测机制自己的通道」的产品版
+- 「快照要在目标 render 之前抓」：点击处理器里 world 还没变成目标，lastRenderedBoxRef 还是在屏盒——一次性窗口；目标 render 的 body 一跑，world 就已是目标。竞态不在浏览器帧里，在 React 的 render/effect 序里——t594 的「commit 晚于 classList」是同一序的另一面
+- 「harness 的失败先问世界的几何，再问产品的代码」：t593 两连败的指纹是 elementFromPoint=minimap-svg——世界（座位）、视口（1280×577）、覆盖（地图浮层）三者的组合漂移。产品无罪的证据链：静止态几何与改动前逐位相同。修 harness 不是遮丑，是让断言回到它本来想抓的机制（拖拽落库）而不是环境的巧合（第一卡恰好可抓）
+- 产出：the mode-switch reframe flows（canvas-minimap.tsx rAF lerp 五处手术，零 CSS）+ t595 witness 22/22 + 📸 + t593 harness 36/36（可抓卡判定）+ 回归全家绿（t592 32 + t591 35 + t590 22 + t589 14 + t588 28 + t587 27 + t586 22 + t585 20 + t584 19 + t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（等箱体 ≥3.5GB）；②judge 风暴活体半场（等稳定夜）；③样式/语义候选：import 落地的应答升级（先答「新世界的入场是否已有自己的声音」）或「选择收缩的框变化」（W4 stage-1 的 560 盒——无点击的框变化是否永远 snap，还是选择也算半个手指）；④t471 WSL-bridge（照实挂）、t276（门控）
