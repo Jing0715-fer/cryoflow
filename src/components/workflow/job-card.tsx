@@ -200,9 +200,46 @@ function HomecomingChip({ job }: { job: JobDTO }) {
   );
 }
 
+/**
+ * t605 — the news face. Birth, death and the summon all answer a HAND —
+ * but a status can change with no finger anywhere near the card: the
+ * sweep completes a running job, the poll merges the new status a tick
+ * later, and the world changed behind the page's back. The surface that
+ * already shows the state acknowledges the news QUIETLY: it blooms once
+ * in its own new color and settles — an acknowledgment, not a ceremony
+ * (news is slower than a summon's reply but faster than a birth).
+ *
+ * Returns a transition counter. The consumer keys its animated element
+ * with it: 0 = the mount (the state the element was BORN showing is not
+ * news — the no-flicker law: a card never flashes a state it hasn't
+ * seen), n>0 = the nth transition, each bump a remount, each remount a
+ * one-shot bloom (the CSS lives on [data-news]/[data-news-floor]). A
+ * re-render with the same display word (a progress tick, a position
+ * write, a neighbor's poll) keeps the counter and the element identity
+ * — nothing replays.
+ */
+function useStatusNews(display: string): number {
+  const [prev, setPrev] = React.useState<string | null>(null);
+  const [news, setNews] = React.useState(0);
+  if (prev !== display) {
+    // React's render-phase adjustment: the word swap and the bloom land
+    // in ONE commit — the surface never shows the new word un-blooming.
+    if (prev !== null) setNews((n) => n + 1);
+    setPrev(display);
+  }
+  return news;
+}
+
 export function StatusBadge({ status, queued }: { status: string; queued?: boolean }) {
+  // t322 — a queued remote run wears the pending dialect: the badge's
+  // face is its DISPLAY WORD, so the hook keys on it (a scheduler
+  // release — queued→running — is a semantic transition and blooms too).
+  const display = queued ? "queued" : status;
+  const news = useStatusNews(display);
   return (
     <Badge
+      key={news}
+      data-news={news > 0 ? "true" : undefined}
       variant="outline"
       className={cn(
         "h-5 gap-1 rounded-full px-2 text-[10px] font-medium capitalize",
@@ -1515,6 +1552,14 @@ export const JobCard = React.memo(function JobCard({
   // span remounts it, restarting the CSS animation for every arrival.
   const revealEpoch = useWorkflowStore((s) => (s.focusJobId === job.id ? s.focusEpoch : 0));
 
+  // t605 — the news face at CANVAS distance. The pill badge speaks at
+  // panel distance; the floor speaks at canvas distance (t350) — the
+  // same transition deserves the same manners at both. The display word
+  // mirrors the floor's own color choice (a queued remote run paints
+  // pending amber): the bloom keys on what the eye actually sees.
+  const floorDisplay = isSlurmQueued(job) ? "pending" : job.status || "idle";
+  const floorNews = useStatusNews(floorDisplay);
+
   const cardRef = React.useRef<HTMLDivElement>(null);
   const dragRef = React.useRef<DragState | null>(null);
   const portDragRef = React.useRef<PortDragState | null>(null);
@@ -2118,8 +2163,15 @@ export const JobCard = React.memo(function JobCard({
 
           {/* t350 — the status floor (see STATUS_FLOOR): the horizontal
               state axis. Painted after the wash so terminal accents sit on
-              top; clipped to the rounded corners by overflow-hidden. */}
+              top; clipped to the rounded corners by overflow-hidden.
+              t605 — the floor carries the news face too: keyed on the
+              transition counter, a status change remounts it and the
+              one-shot brightness pulse acknowledges the news at canvas
+              distance (a mount shows no pulse — born states are not
+              news; the no-flicker law holds at both distances). */}
           <div
+            key={floorNews}
+            data-news-floor={floorNews > 0 ? "true" : undefined}
             aria-hidden="true"
             className={cn(
               "absolute inset-x-0 bottom-0 h-[3px]",
