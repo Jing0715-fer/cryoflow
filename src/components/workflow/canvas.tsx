@@ -1303,7 +1303,12 @@ export function WorkflowCanvas() {
   }, [panBy]);
 
   /** Frame a workflow bounding box in the viewport (shared by auto-arrange,
-   *  the initial-load fit and the focus button). */
+   *  the initial-load fit, the memory restore and the fit COMMAND). The
+   *  voice boundary lives at the callers, not here (t590): the fit command
+   *  ticks (it is a scale command like ± and reset), while the systemic
+   *  callers stay silent — a birth, a remembered restore or a world
+   *  rebuild is not an event (t585's arming-edge law, t587's surface
+   *  definition). */
   const frameBounds = useCallback(
     (viewW: number, viewH: number, minX: number, minY: number, maxX: number, maxY: number) => {
       const bw = maxX - minX;
@@ -1525,14 +1530,17 @@ export function WorkflowCanvas() {
 
   /* t587 — the readout's voice: the odometer tick. The zoom % span is the
    *  toolbar's live gauge, and a gauge should speak when the world rescales
-   *  under a COMMAND — the two step buttons and reset (both entry surfaces:
-   *  toolbar buttons and the context menu route through these two fns).
+   *  under a COMMAND — the two step buttons, reset and fit-to-content
+   *  (every entry surface routes through these three fns: toolbar ±/reset,
+   *  context menu reset + fit; t590 wired the third throat).
    *  What never ticks, by design:
    *  - wheel / pinch: continuous gestures — the digits themselves changing
    *    ARE the continuous voice; re-firing an entrance per frame is the
    *    "disarm became an event" anti-pattern (t585's ghost, zoom edition).
-   *  - the initial-load fit (frameBounds): the readout's first value is its
-   *    birth, not an event — arming-edge silence (t585's fresh-lens law).
+   *  - the SYSTEMIC fits (frameBounds callers): the initial-load fit is
+   *    the readout's birth, the memory restore is where it left off, the
+   *    auto-arrange fit is a world rebuild — none is an event (t585's
+   *    arming-edge law, generalized in t590).
    *  - bookmark / focus arrivals ride the DIALOGUE (t588): the world
    *    glides (Task 124), the readout holds the value the world is at,
    *    and the drum rolls ONCE when the world lands — see the arrival
@@ -1931,11 +1939,21 @@ export function WorkflowCanvas() {
   const zoomToFit = () => {
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect || jobs.length === 0) return;
+    // t590 — the third scale command finds its voice. "Zoom to fit" is a
+    // rescale of the view (t589's "places glide, scales command"), so it
+    // joins ± and reset in the t587 family: instant world, tick at
+    // launch, and "no change, no sound" swallows an already-fitted zoom
+    // for free. Mid-glide the command reclaims the number first (the
+    // newest voice wins); the pending arrival coda goes silent on its
+    // own — after the fit, from == to, so the retract reads no change.
+    releaseArrivalHold();
+    const from = useWorkflowStore.getState().viewport.zoom;
     const minX = Math.min(...jobs.map((j) => j.x));
     const maxX = Math.max(...jobs.map((j) => j.x + CARD_W));
     const minY = Math.min(...jobs.map((j) => j.y));
     const maxY = Math.max(...jobs.map((j) => j.y + CARD_H));
     frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
+    tickZoomReadout(from, useWorkflowStore.getState().viewport.zoom);
   };
 
   const resetView = () => {
