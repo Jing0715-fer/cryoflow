@@ -40,6 +40,7 @@ import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { parseClassNotes } from "@/lib/class-notes";
+import { useStatusNews } from "@/lib/use-status-news"; // t606 — the hook moved to lib: the news face now speaks at THREE distances (badge, floor, minimap dot)
 import { isStayReceipt, stayReceiptHead } from "@/lib/remote/stay-receipt";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
@@ -198,36 +199,6 @@ function HomecomingChip({ job }: { job: JobDTO }) {
       {resolved ? "home" : `${rem.remaining} on cluster`}
     </span>
   );
-}
-
-/**
- * t605 — the news face. Birth, death and the summon all answer a HAND —
- * but a status can change with no finger anywhere near the card: the
- * sweep completes a running job, the poll merges the new status a tick
- * later, and the world changed behind the page's back. The surface that
- * already shows the state acknowledges the news QUIETLY: it blooms once
- * in its own new color and settles — an acknowledgment, not a ceremony
- * (news is slower than a summon's reply but faster than a birth).
- *
- * Returns a transition counter. The consumer keys its animated element
- * with it: 0 = the mount (the state the element was BORN showing is not
- * news — the no-flicker law: a card never flashes a state it hasn't
- * seen), n>0 = the nth transition, each bump a remount, each remount a
- * one-shot bloom (the CSS lives on [data-news]/[data-news-floor]). A
- * re-render with the same display word (a progress tick, a position
- * write, a neighbor's poll) keeps the counter and the element identity
- * — nothing replays.
- */
-function useStatusNews(display: string): number {
-  const [prev, setPrev] = React.useState<string | null>(null);
-  const [news, setNews] = React.useState(0);
-  if (prev !== display) {
-    // React's render-phase adjustment: the word swap and the bloom land
-    // in ONE commit — the surface never shows the new word un-blooming.
-    if (prev !== null) setNews((n) => n + 1);
-    setPrev(display);
-  }
-  return news;
 }
 
 export function StatusBadge({ status, queued }: { status: string; queued?: boolean }) {

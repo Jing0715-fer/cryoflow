@@ -58,6 +58,9 @@ import { capturePointer } from "@/lib/pointer";
 import { cn } from "@/lib/utils";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
 import { jobMatchesFind } from "./canvas-find-bar";
+import { useStatusNews } from "@/lib/use-status-news";
+import { isSlurmQueued } from "./job-card";
+import type { JobDTO } from "@/lib/types";
 
 const MM_W = 192;
 const MM_MIN_H = 88;
@@ -83,6 +86,95 @@ const STATUS_FILL: Record<string, string> = {
   completed: "#10b981",
   failed: "#f43f5e",
 };
+
+/**
+ * t606 — one dot, the news face's THIRD distance. The badge speaks at
+ * panel distance, the card's floor at canvas distance (t605), and the
+ * map's dot at the farthest zoom of all — the bird's-eye where a status
+ * change arrives with NO finger anywhere near (the poll merges, the fill
+ * swaps) — and until now the swap was silent. The dot is a surface that
+ * already shows the state, so it owes the same manners: it blooms ONCE
+ * in its own new color and settles.
+ *
+ * The vocabulary is the FLOOR's (brightness pulse on [data-news-floor]) —
+ * the map is canvas distance too, one semantic one value; the hook is
+ * the shared lib one (use-status-news), keyed on the DISPLAY word —
+ * what the eye sees: a queued remote run paints pending amber here as
+ * well (t322's dialect, the same at every distance). key={news} remounts
+ * the rect on a real transition — a one-shot bloom — and restarts the
+ * running SMIL pulse honestly (the pulse belongs to the new state's
+ * life). Quiet re-renders (a progress tick, a position write, a
+ * neighbor's poll) keep the key and the DOM node — nothing replays.
+ * Mounts carry no bloom (news=0): a born state is not news.
+ */
+function MinimapDot({
+  job, selected, inMulti, dimmed, findHit, findDim, selDoor, s,
+}: {
+  job: JobDTO;
+  selected: boolean;
+  inMulti: boolean;
+  dimmed: boolean;
+  findHit: boolean;
+  findDim: boolean;
+  selDoor: boolean;
+  s: number;
+}) {
+  const word = isSlurmQueued(job) ? "pending" : job.status || "idle";
+  const news = useStatusNews(word);
+  return (
+    <rect
+      key={news}
+      data-canvas-ui="minimap-dot"
+      data-job-id={job.id}
+      data-mm-dim={dimmed || findDim ? "1" : undefined}
+      data-mm-find={findHit ? "1" : undefined}
+      data-mm-door={findHit || selDoor ? "1" : undefined}
+      data-news-floor={news > 0 ? "true" : undefined}
+      x={job.x}
+      y={job.y}
+      width={CARD_W}
+      height={CARD_H}
+      rx={26}
+      fill={STATUS_FILL[word] ?? STATUS_FILL.idle}
+      // Task 166 — status ink stays attribute-borne (idle 0.55 /
+      // active 0.9); the recession moved to the .mm-chip-dim class
+      // consuming the ladder's --dim-whisper rung (the map's old
+      // ad-hoc chip depth and the compare curves' whisper differed
+      // by a hair — drift, not design; one semantic, one value).
+      // Presentation attributes rank below every CSS rule, so the
+      // class overrides the attribute without !important, and door
+      // chips never co-occur with the dim.
+      opacity={job.status === "idle" ? 0.55 : 0.9}
+      className={cn(
+        "transition-opacity duration-300",
+        (dimmed || findDim) && "mm-chip-dim",
+        // Task 137/139 — a door chip brightens on hover to say so
+        // (stroke stays primary/amber, fill stays the world's —
+        // the lens never repaints the world's colors)
+        (findHit || selDoor) && "cursor-pointer hover:opacity-100",
+      )}
+      stroke={
+        selected || inMulti
+          ? "var(--primary)"
+          : findHit
+            ? "#f59e0b"
+            : "none"
+      }
+      strokeOpacity={inMulti ? 0.45 : 1}
+      strokeWidth={s}
+    >
+      <title>{`${job.name} — ${job.status}${job.status === "running" ? ` (${Math.round(job.progress)}%)` : job.result ? ` · ${compactStayReceipt(job.result, job.remoteRemaining?.remaining)}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
+      {job.status === "running" && !dimmed && !findDim && (
+        <animate
+          attributeName="opacity"
+          values="0.55;0.95;0.55"
+          dur="1.8s"
+          repeatCount="indefinite"
+        />
+      )}
+    </rect>
+  );
+}
 
 interface CanvasMinimapProps {
   /** the canvas viewport element — measured for the viewport window rect */
@@ -593,7 +685,10 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         {/* job chips colored by status (hover → name tooltip via <title>)
             — stroke widths scale with the world box so chips stay visible
             when the minimap zooms out on the infinite canvas; in sel focus
-            unselected chips dim (and their running pulse rests) */}
+            unselected chips dim (and their running pulse rests). t606 —
+            each dot is a MinimapDot: the news face's third distance, the
+            map acknowledges a poll-merged status with one brightness
+            bloom in its own new color */}
         {(() => {
           const s = Math.max(4, Math.min(26, world.w / 80));
           return jobs.map((j) => {
@@ -608,56 +703,17 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             // outlives its gesture is a lie
             const selDoor = selFocus && selIds.has(j.id);
             return (
-              <rect
+              <MinimapDot
                 key={j.id}
-                data-canvas-ui="minimap-dot"
-                data-job-id={j.id}
-                data-mm-dim={dimmed || findDim ? "1" : undefined}
-                data-mm-find={findHit ? "1" : undefined}
-                data-mm-door={findHit || selDoor ? "1" : undefined}
-                x={j.x}
-                y={j.y}
-                width={CARD_W}
-                height={CARD_H}
-                rx={26}
-                fill={STATUS_FILL[j.status] ?? STATUS_FILL.idle}
-                // Task 166 — status ink stays attribute-borne (idle 0.55 /
-                // active 0.9); the recession moved to the .mm-chip-dim class
-                // consuming the ladder's --dim-whisper rung (the map's old
-                // ad-hoc chip depth and the compare curves' whisper differed
-                // by a hair — drift, not design; one semantic, one value).
-                // Presentation attributes rank below every CSS rule, so the
-                // class overrides the attribute without !important, and door
-                // chips never co-occur with the dim.
-                opacity={j.status === "idle" ? 0.55 : 0.9}
-                className={cn(
-                  "transition-opacity duration-300",
-                  (dimmed || findDim) && "mm-chip-dim",
-                  // Task 137/139 — a door chip brightens on hover to say so
-                  // (stroke stays primary/amber, fill stays the world's —
-                  // the lens never repaints the world's colors)
-                  (findHit || selDoor) && "cursor-pointer hover:opacity-100",
-                )}
-                stroke={
-                  selected || inMulti
-                    ? "var(--primary)"
-                    : findHit
-                      ? "#f59e0b"
-                      : "none"
-                }
-                strokeOpacity={inMulti ? 0.45 : 1}
-                strokeWidth={s}
-              >
-                <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${compactStayReceipt(j.result, j.remoteRemaining?.remaining)}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
-                {j.status === "running" && !dimmed && !findDim && (
-                  <animate
-                    attributeName="opacity"
-                    values="0.55;0.95;0.55"
-                    dur="1.8s"
-                    repeatCount="indefinite"
-                  />
-                )}
-              </rect>
+                job={j}
+                selected={selected}
+                inMulti={inMulti}
+                dimmed={dimmed}
+                findHit={findHit}
+                findDim={findDim}
+                selDoor={selDoor}
+                s={s}
+              />
             );
           });
         })()}
