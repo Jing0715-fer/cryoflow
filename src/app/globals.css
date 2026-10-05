@@ -1100,6 +1100,43 @@
   }
 }
 
+/* t612 — the timeline walks in. The session timeline (the analytics
+   section's full-width third view) joins the SAME wave its siblings
+   started: its REVEAL rows surface in reading order with the receipt's
+   own word (zero new keyframes — the definition stays exactly once),
+   continuing the count past the flow and the ladder so the page reads
+   as one surfacing top-down. The never-ran footnote rides as the rows'
+   next line (--td = the row after the last row).
+
+   The ROW FACE ONLY, per the t611 decision: the bars inside keep their
+   own words — transition-[left,width] speaks when data moves, and the
+   running row's soft-pulse is a living word an entrance shorthand
+   would kill. An entrance on the row must not leak onto the bar:
+   the selectors below name the row and the footnote, never the bar.
+
+   Timing: the wave continues the count past the FLOW ONLY (the faces
+   that spoke synchronously before the timeline) — row i starts at
+   350 + (flow + i)×24. The ladder is NEVER folded in: it is async and
+   mounts when its milestones land — folding a late fetch into these
+   delays would SHIFT them and replay the rows (re-render becoming
+   re-arrival). Canonical world: 4 flow rows + 11 runs → the last row
+   lands at 350 + 14×24 + 240 = 926ms, the footnote at 710ms — the
+   same ~1s envelope the funnel's pour tail keeps. CSS animations run
+   once per mount: re-composition is not re-arrival (t611's law); a
+   dashboard re-entry remounts and replays honestly. */
+[data-tl-arrival] [data-tl-row],
+[data-tl-arrival] [data-tl-never] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--td, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tl-arrival] [data-tl-row],
+  [data-tl-arrival] [data-tl-never] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy

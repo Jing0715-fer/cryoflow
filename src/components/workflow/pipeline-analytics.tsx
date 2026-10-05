@@ -64,11 +64,30 @@ import { downloadText } from "@/lib/download";
  * per MOUNT: re-renders that preserve keys (the status filter chips
  * re-composing the same rows) cannot restart them — re-composition is
  * not re-arrival; a remount (dashboard re-entry) is, and replays the
- * grammar honestly. The session timeline keeps its own words (left/width
- * transitions for data moves; the running row's soft-pulse is a living
- * word an entrance shorthand would kill) — its arrival rides the
- * section. Timing constants live here as the single source of truth:
- * widest real funnel is 7 stages → 350 + 6×24 + 480 = 974ms pour tail. */
+ * grammar honestly. Timing constants live here as the single source of
+ * truth: widest real funnel is 7 stages → 350 + 6×24 + 480 = 974ms pour
+ * tail.
+ *
+ * t612 — the session timeline joins the same wave: its REVEAL rows
+ * surface in reading order with the receipt's word, continuing the
+ * count past the FLOW (the faces that spoke synchronously before it)
+ * so the page reads as one surfacing top-down. The never-ran footnote
+ * rides as the rows' next line. The ROW FACE ONLY, per the t611
+ * decision: the bars keep their own words (left/width transitions for
+ * data moves; the running row's soft-pulse is a living word an
+ * entrance shorthand would kill) — an entrance on the bar would both
+ * fight the transition and silence the pulse.
+ *
+ * The wave counts the FLOW ONLY — never the ladder. The ladder is
+ * ASYNC: it mounts when its milestones land (three fetches after the
+ * section mounts), so folding milestones.length into the timeline's
+ * delays would let a late fetch SHIFT every row's animation-delay —
+ * and a shifted delay on a finished animation replays it: re-render
+ * would become re-arrival, the exact dishonesty the grammar forbids.
+ * The ladder speaks on its own mount with the section's own base; the
+ * timeline's wave is built from synchronous faces alone. Canonical
+ * world: 4 flow rows + 11 runs → the last row lands at
+ * 350 + 14×24 + 240 = 926ms, the footnote at 710ms. */
 const INNER_BASE_MS = 350;
 const STEP_MS = 24;
 
@@ -767,6 +786,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
           <div
             className="mt-5 border-t pt-4"
             data-canvas-ui="analytics-timeline"
+            data-tl-arrival=""
             data-tl-count={runs.rows.length}
           >
             <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
@@ -788,7 +808,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                     />
                   ))}
                 </div>
-                {runs.rows.map((r) => {
+                {runs.rows.map((r, ti) => {
                   const x = ((r.start - runs.t0) / runs.span) * 100;
                   const w = Math.max((r.ms / runs.span) * 100, 0.75);
                   const spec = jobType(r.job.type);
@@ -799,6 +819,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                       className="group relative flex w-full cursor-pointer items-center gap-2 rounded py-[3px] text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                       data-tl-row=""
                       data-status={r.job.status}
+                      style={{ "--td": `${INNER_BASE_MS + (flow.length + ti) * STEP_MS}ms` } as CSSProperties}
                       onClick={() => revealJob(r.job.id)}
                       title={`Reveal ${r.job.name} on the canvas — ${r.job.status}, ran ${fmtDuration(r.ms)}`}
                     >
@@ -863,7 +884,11 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               </div>
             </div>
             {neverRan > 0 && (
-              <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground/70" data-tl-never="">
+              <p
+                className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground/70"
+                data-tl-never=""
+                style={{ "--td": `${INNER_BASE_MS + (flow.length + runs.rows.length) * STEP_MS}ms` } as CSSProperties}
+              >
                 {neverRan} of {scoped.length} job{scoped.length === 1 ? "" : "s"} in scope never
                 started — bars cover engine runs only (startedAt → measured wall time)
               </p>
