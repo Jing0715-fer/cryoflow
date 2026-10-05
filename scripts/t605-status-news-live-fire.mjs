@@ -462,8 +462,12 @@ try {
   console.log(`\n[G0] the source contract`);
   const hookRefs = sh(`rg -c "useStatusNews" src/components/workflow/job-card.tsx || true`);
   check("useStatusNews: one hook, two consumers", parseInt(hookRefs || "0", 10) >= 3, `refs=${hookRefs}`);
-  const newsRefs = sh(`rg -c "data-news-floor" src/components/workflow/job-card.tsx || true`);
-  check("the floor carries the news attribute", parseInt(newsRefs || "0", 10) >= 2, `refs=${newsRefs}`);
+  /* t606 — the hook moved to its lib home (use-status-news.ts) and the
+   * floor vocabulary now lives at BOTH canvas distances: the card's
+   * floor AND the map's dot. The family count is the honest contract —
+   * a single-file count would fossilize the old architecture. */
+  const newsRefs = sh(`rg -c "data-news-floor" src/components/workflow/job-card.tsx src/components/workflow/canvas-minimap.tsx 2>/dev/null | awk -F: '{ s += $NF } END { print s + 0 }'`);
+  check("the floor vocabulary lives at both canvas distances (card floor + map dot)", parseInt(newsRefs || "0", 10) >= 2, `refs=${newsRefs}`);
   const cssBloom = sh(`rg -c "status-news-bloom" src/app/globals.css || true`);
   const cssFloor = sh(`rg -c "status-news-floor" src/app/globals.css || true`);
   check("css: both keyframes present", parseInt(cssBloom || "0", 10) >= 2 && parseInt(cssFloor || "0", 10) >= 2, `bloom=${cssBloom} floor=${cssFloor}`);
