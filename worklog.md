@@ -8967,3 +8967,24 @@ Stage Summary:
 - 「教义的第二个消费者让教义成为教义」：mount 账本从 t613 的 roster 走到 t614 的 workspaces——票属于脸不属于座位，在「创建 append-safe、删除平移」的新宿主上原样成立。react-compiler 的 ref 禁令把账本搬进 useState 懒初始化——生命周期与 ref 全同，教义换了宿主继续活
 - 「dev 世界的 chrome 会穿错误的外衣」：nextjs-portal 存在≠出错、data-nextjs-toast 是 dev 指示器——断言读机制（shadow dialog 对），不读存在性。加上 Radix 族真实输入方言与 textContent 渲染形态，本窗三笔都是「合同读机制不读形态」的延伸教案
 - 产出：the tab surfaces（data-ws-arrival 作用域 + 五面 --wd + WS 常量算式 + mount 账本第二消费者 + globals.css t614 块零新键帧）+ t614 witness 34/34（三跑）+ t614-qa-probe 20/20（真实点击学费入注）+ t614-diag.mjs（Radix tabs 教案现场）+ 📸×2 + build 日 judgment 全套证据（三钉 + t579 考古 + 图瘦身审计 + 环境剃刀测量）+ 回归全家绿；下窗入口：①ProjectPanel 死代码移除（chore 车：866 行文件里 ~520 行死码，只留 NewProjectDialog 及其依赖；witness=tsc/eslint+页面行为不变）②judge 风暴活体半场（等稳定夜）③样式候选：JobPalette（Catalog 标签）的家族扫描（侧栏最后一块未扫面）或 inspector 模态内新面④build 日：等更大箱体或真实 dep 移除提案（t579 两钥匙均不可用）
+
+---
+Task ID: 615 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 06:54 cron, Job 362852, Task 572 系第 34 次派单)
+Task: t614 下窗入口①兑付——ProjectPanel 死码移除（chore 车，一窗一道切干净）。witness = tsc/eslint 0 + 页面行为不变（t615-panel-cut-witness 14/14）+ 回归 t614/t612 全绿。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 614 收官（派单摘要说 584——滞后第 N+61 次兑付）；HEAD 9c974a9 树净；available 890MB < 3.5GB → 非 build 日（被动判定第 24 窗否决——t579 两钥匙仍不可用，chore 车道收敛）；盘 89%；dev 世界在跑（next-server 2.3GB，无 chrome 孤儿，curl 200）。
+- [死码定谳 + 闭包圈定] 全仓 rg 证实 ProjectPanel 零消费者（src 内仅定义行 project-panel.tsx:684）；NewProjectDialog 唯一消费者 project-dashboard.tsx:2840（app-shell dynamic import 链）。死码闭包 = Local types（ProjectStats/ProjectCard，68-85）+ Small pieces（ModeBadge/EngineBadge/RemoteBadge/StatChip，87-160）+ ProjectCardRow（491-678）+ ProjectPanel（680-867）+ 六个死 import 块（formatDistanceToNow、withLiveStats、ProjectSummaryDTO type、AlertDialog×7、Badge、lucide icons 六枚 Boxes/ChevronRight/Clock/LayoutDashboard/Pencil/Trash2——CheckCircle2/FolderGit2/Loader2/Plus/Server/Snowflake/TriangleAlert 因 dialog 复用而活）。
+- [切除] 866→377 行（-489 行）；头注释改写为「the New project dialog」并注记家族史（panel 被 Workspaces tab 退役、本文件只剩 dashboard 还开着的 dialog）。tsc 0 全量 + eslint 0（panel + dashboard 消费者）。
+- [witness 14/14（三跑，CDP 9334 专港 + 清 profile）] hydrate 12c + canvas 12c/13e pre-flight；D1 Shift+D 翻 dashboard（window keydown 非 Radix——合成派发诚实，t584 教义）；D2 New project 真实指针点击（snapshot ref flow）→ dialog 挂载（title/name input/Create button/mode select 四面俱全）；D3 data-location 两 lane 完好（textContent 渲染形态："This machinelocal drives · browse & run here" 无空格直拼——t614 学费②的活体印证）；D4 Cancel 关闭；R Shift+D 回 canvas 12c/13e + 零 Next crash dialog（诚实错误判据 = shadow dialog 对，非 portal 存在性）。
+- [学费一笔（harness 侧）] **裸 boolean eval 在窄轮询里抖**：`JSON.stringify(!!…)` 的返回是双重编码 `"\"false\""`，readJson 双解码本可解，但在 300ms 轮询环里两跑全灭（readJson 三连败返 null，8 秒窗口烧完）。t615-diag.mjs 定谳：产品完全正确（BEFORE "true" → AFTER "false"），病在断言发明的裸 boolean 形态。修 = 改用同 script 内 D2 已证明稳定的 IIFE 字符串路径（`open ? "open" : "closed"`），第三跑 14/14。教义：**读法要跟同 harness 里已证明的路径同构，别为一条断言发明新形态**。
+- [回归全家绿] t614-ws-surface-live-fire 34/34 首跑 + t612-timeline-arrival-live-fire 46/46 首跑（死码切除零位移——工作区面与时间线面都不认识死者的坟）；tsc 0 + eslint 0 维持。
+- [未做与理由] build 日全家桶（available 890MB 第 24 窗被动否决；t579 两钥匙——更大箱体或真实 dep 移除——均未到来，t614 图瘦身审计已证 recharts t391 起即 lazy、无三钉可拔）；judge 风暴活体半场（等稳定夜——连续挂）；样式车道 JobPalette（Catalog 标签）家族扫描（本窗 chore 道已占——一窗一道，顺延下窗入口①）；KPI wire 药丸（等穿越 0.143 的世界）；switched-workspace import 见证（连续十八窗）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「死码的第二次死亡是被点名」：t614 探针发现（Projects grid 是陈旧账目）、t615 兑付成一刀——交接账本里的「下窗入口①」从发现到落地隔一个窗。切除的 489 行里没有一行活着的 UI；chore 车的 witness 与 feat 车相反，它证明的是「没有变化」：dialog 生命周期原样、lanes 原样、canvas 世界原样、崩溃网空。「挂账要核对现实」的完整闭环 = 发现（t614）+ 切除（t615）
+- 「witness 证无比证有更难」：证有（a wave arrived）读动画属性即可；证无（behavior unchanged）要覆盖行为的每一张脸——本窗挑了 dialog 全生命周期（开→面→lanes→关→世界往返）当代表，因为它是死码唯一牵连的活消费者（project-dashboard 的 New project 按钮到 NewProjectDialog）
+- 「读法要跟已证明路径同构」：D4 两跑同位红，诊断先证产品清白再修断言——双编码不是错、错在断言发明了 harness 里没人用过的裸 boolean 形态还把它放进最窄的轮询环。t615-diag.mjs 保留为教案现场（t614-diag.mjs 的姊妹篇）
+- 「一窗一道」的 chore 版：死码切除独占本窗，样式车道不并排——同窗开两道刀口的 tree 会把「行为不变」的证词稀释成「行为大体不变」。JobPalette（Catalog 标签）家族扫描（侧栏最后一块未扫面，t614 交接③）顺延为下窗样式入口
+- 产出：project-panel.tsx 866→377 行 + 家族史头注释 + t615-panel-cut-witness.mjs 14/14（三跑）+ t615-diag.mjs（D4 教案）+ 回归 t614 34/t612 46 + tsc 0 + eslint 0；下窗入口：①样式车道 JobPalette（Catalog 标签）家族扫描（侧栏最后一块未扫面）；②judge 风暴活体半场（等稳定夜）；③build 日被动重测（available ≥3.5GB 或两钥匙任一到来）；④t471 WSL-bridge（照实挂）、t276（门控）
