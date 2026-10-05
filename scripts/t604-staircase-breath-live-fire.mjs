@@ -494,6 +494,12 @@ try {
     !!(dlg && /Delete 3 jobs/.test(dlg.title) && dlg.names >= 3), dlg ? `names=${dlg.names} "${dlg.title}"` : "no dialog");
 
   await sleep(600); /* the dialog's own open animation (fade/zoom ~200ms) */
+  /* the t605 window's tuition, same doctrine one step later in the
+   * gesture: the dialog's Radix mount reflow also needs its drain —
+   * tonight the confirm's onClick queued past the whole observation
+   * window twice (frames=1, the breath landed after stop) — the world
+   * needs more quiet between gesture steps than the assertion needs */
+  await sleep(2000);
 
   await readJson(SAMPLER);
   /* confirm with a REAL CDP mouse click at the destructive button's
@@ -512,7 +518,7 @@ try {
   check("W1 the confirm click dispatched (agent-browser real mouse)", true, `(${btn.x},${btn.y})`);
   /* the shot races the 400ms fade — opportunistic, never gated on */
   try { sh(`agent-browser screenshot /home/z/my-project/.qa-logs/shots/t604-mid-staircase.png >/dev/null 2>&1`); } catch { /* */ }
-  await sleep(2600);
+  await sleep(7000);
   const f1 = await readJson(stopSampler, 6);
   const frames1 = Array.isArray(f1 && f1.frames) ? f1.frames : [];
   check("W1 sampler captured the exhale", frames1.length >= 3,
