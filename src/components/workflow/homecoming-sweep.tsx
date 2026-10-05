@@ -51,7 +51,17 @@ type OwingJob = { id: string; name: string; remaining: number };
 
 const MAX_SHOWN_FAILURES = 4;
 
-export function HomecomingSweepBar() {
+export function HomecomingSweepBar({
+  /** t613 — the spotlight wave's ticket for this face: when present the
+   *  root joins the arrival grammar (data-spot-sweep + --sd); the bar
+   *  mounts ONCE (an animation is a mount event, not a render event) so
+   *  a late-appearing story arrives in its reading-order seat without
+   *  shifting anyone else's delay. Absent → the bar mounts as it
+   *  always did (no other call site passes it). */
+  arrivalDelay,
+}: {
+  arrivalDelay?: string;
+}) {
   const jobs = useWorkflowStore((s) => s.jobs);
   const pollTick = useWorkflowStore((s) => s.pollTick);
 
@@ -237,6 +247,12 @@ export function HomecomingSweepBar() {
   return (
     <div
       data-testid="homecoming-sweep"
+      data-spot-sweep={arrivalDelay === undefined ? undefined : ""}
+      style={
+        arrivalDelay === undefined
+          ? undefined
+          : ({ "--sd": arrivalDelay } as React.CSSProperties)
+      }
       role="status"
       aria-busy={running}
       aria-label={

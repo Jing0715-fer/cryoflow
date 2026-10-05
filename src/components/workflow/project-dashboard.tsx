@@ -907,7 +907,61 @@ function SavedViewsGallery() {
 /* Active project spotlight                                             */
 /* ------------------------------------------------------------------ */
 
-function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
+/* t613 — the spotlight's own wave (the innards beyond the analytics).
+ * The card rises as furniture (dash-enter, the 260ms rung); the
+ * analytics section speaks for itself since t611 (its INNER_BASE owns
+ * its own beat); the REMAINING faces take their places in reading
+ * order with the receipt's own word — ZERO new keyframes, the family's
+ * vocabulary is already complete for "a fact surfaces":
+ *
+ *   banner (the project's identity face) → stage label row → the
+ *   StageChips in pipeline order (each chevron riding the chip it
+ *   introduces) → the jobs label → the homecoming sweep → the roster
+ *   rows, top = newest, reading order = display order.
+ *
+ * SPOT_BASE_MS is the card's inner landing beat — harmonized with the
+ * analytics' INNER_BASE so one card has ONE beat (the card's dash-enter
+ * is still ramping until 260+240=500ms; the faces' early frames ride
+ * under that ramp, the same multiplication the analytics innards have
+ * lived since t611). STEP_MS is the family's 24ms reading step.
+ *
+ * The wave counts ONLY its own synchronous faces — never the
+ * analytics' (its flow length is data-dependent and the ladder is
+ * async; folding them in would shift these delays on every refetch —
+ * t612's law). And the TAIL's base freezes the head's face count at
+ * the spotlight's FIRST MOUNT: the roster is newest-first, so a newly
+ * submitted job would PREPEND — a positional index would shift every
+ * row's delay, and a shifted delay on a finished animation replays it
+ * (re-render becoming re-arrival, the exact fraud the grammar forbids).
+ * So the tail keeps a MOUNT LEDGER: each face's ticket is assigned
+ * once, in DOM encounter order of its first appearance; a later face
+ * joins the TAIL of the wave (mount = arrival — the ladder's own
+ * semantics); re-renders find their ticket and keep it (re-composition
+ * is not re-arrival). The ledger resets when the active project
+ * changes — the wave belongs to one project's first surfacing.
+ * Chrome never rides: the search box and the status filter chips are
+ * lenses, not faces (t611's own precedent); the banner's Progress
+ * meter keeps its own width-transition word (the row-face-only law,
+ * banner edition).
+ * Canonical world: 12 chips + 12 rows → banner 350, stage label 374,
+ * chips 398..662, jobs label 686, sweep 710, rows 734..998 — a 1238ms
+ * settle, the page's dominant card reading a beat past the funnel's
+ * ~1s envelope beneath it. */
+const SPOT_BASE_MS = 350;
+const SPOT_STEP_MS = 24;
+
+function StageChip({
+  job,
+  onClick,
+  arrivalDelay,
+}: {
+  job: JobDTO;
+  onClick: () => void;
+  /** t613 — the wave ticket: when present the chip is a face of the
+   *  spotlight's arrival grammar (data-spot-chip + --sd); when absent
+   *  the chip mounts as it always did (other call sites, if any). */
+  arrivalDelay?: string;
+}) {
   const spec = jobType(job.type);
   const running = job.status === "running" && job.startedAt != null;
   const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
@@ -921,6 +975,12 @@ function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
       type="button"
       onClick={onClick}
       title={`${job.name} — ${job.status}${job.result ? ` · ${compactStayReceipt(job.result, job.remoteRemaining?.remaining)}` : ""}`}
+      data-spot-chip={arrivalDelay === undefined ? undefined : ""}
+      style={
+        arrivalDelay === undefined
+          ? undefined
+          : ({ "--sd": arrivalDelay } as React.CSSProperties)
+      }
       className={cn(
         "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm",
         job.status === "running"
@@ -1714,6 +1774,10 @@ function ActiveProjectSpotlight({
   // silently filters project B's first paint.
   const [rosterQuery, setRosterQuery] = React.useState("");
   const [prevProjectId, setPrevProjectId] = React.useState<string | null>(project?.id ?? null);
+  // t613 — the wave's mount ledger (the law lives in the docblock above
+  // SPOT_BASE_MS): the head's face count frozen at first mount + one
+  // ticket per tail face, assigned once and never rewritten.
+  const spotWave = React.useRef<{ chips: number; tail: Map<string, number> } | null>(null);
   // status filter for the Jobs list — chips double as a mini status bar;
   // "all" is the default so the section reads exactly as before until used.
   // "noted" (Task 76) is the property filter: it answers "which jobs carry
@@ -1728,9 +1792,13 @@ function ActiveProjectSpotlight({
   // Render-time adjustment (Task 88 pattern — no extra frame, no effect):
   // project switched → the stale query would filter rows the user never
   // searched for, so drop it in the same render that adopts the new id.
+  // t613 — the wave resets with it: the ledger's tickets belong to one
+  // project's first surfacing; project B's roster is a NEW surfacing
+  // (re-frozen head count, re-issued tickets, fresh reading order).
   if (project.id !== prevProjectId) {
     setPrevProjectId(project.id);
     setRosterQuery("");
+    spotWave.current = null;
   }
 
   const sorted = [...deferredJobs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -1766,13 +1834,45 @@ function ActiveProjectSpotlight({
     : statusSlice;
   const pct = sorted.length > 0 ? Math.round((completed.length / sorted.length) * 100) : 0;
 
+  // t613 — the roster's display order, hoisted from the JSX so the
+  // ledger's fill reads the SAME order the faces render in (top of the
+  // table = index 0 of the wave's tail).
+  const rosterDisplay = [...visibleJobs].reverse();
+  // t613 — the wave ledger, filled on miss every render (the Task 88
+  // pattern again: render-time, no extra frame, no effect). Existing
+  // tickets are never rewritten — that is the whole law: a rewritten
+  // delay on a finished animation replays it. The encounter order is
+  // the DOM's: jobs label → sweep → rows (display order).
+  const wave = spotWave.current ?? (spotWave.current = { chips: sorted.length, tail: new Map() });
+  let waveTicket = wave.tail.size;
+  const waveTicketOf = (key: string): string => {
+    let t = wave.tail.get(key);
+    if (t === undefined) {
+      t = SPOT_BASE_MS + (2 + wave.chips) * SPOT_STEP_MS + waveTicket++ * SPOT_STEP_MS;
+      wave.tail.set(key, t);
+    }
+    return `${t}ms`;
+  };
+  const jobsLabelDelay = waveTicketOf("jobslabel");
+  const sweepDelay = waveTicketOf("sweep");
+  const spotRowDelays = new Map(rosterDisplay.map((j) => [j.id, waveTicketOf(`row:${j.id}`)]));
+  // the head's faces are positional — the stage rail is createdAt-ascending,
+  // so a new job APPENDS and existing chips keep their indices (no freeze
+  // needed on this side; only the tail, newest-first, needed the ledger)
+  const spotChipDelay = (i: number) => `${SPOT_BASE_MS + (2 + i) * SPOT_STEP_MS}ms`;
+
   return (
     <section
       aria-label="Active project spotlight"
+      data-spot-arrival=""
       className="card-lift overflow-hidden rounded-xl border bg-card"
     >
       {/* gradient banner */}
-      <div className="relative overflow-hidden border-b bg-gradient-to-r from-teal-500/10 via-primary/5 to-transparent px-4 py-3.5 sm:px-5">
+      <div
+        data-spot-banner=""
+        style={{ "--sd": `${SPOT_BASE_MS}ms` } as React.CSSProperties}
+        className="relative overflow-hidden border-b bg-gradient-to-r from-teal-500/10 via-primary/5 to-transparent px-4 py-3.5 sm:px-5"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Snowflake className="size-4 shrink-0 text-primary" aria-hidden="true" />
           <h2 className="text-sm font-semibold tracking-tight">{project.name}</h2>
@@ -1793,7 +1893,11 @@ function ActiveProjectSpotlight({
 
       <div className="p-4 sm:p-5">
         {/* stage rail */}
-        <div className="mb-2 flex items-center gap-1.5">
+        <div
+          data-spot-stagelabel=""
+          style={{ "--sd": `${SPOT_BASE_MS + SPOT_STEP_MS}ms` } as React.CSSProperties}
+          className="mb-2 flex items-center gap-1.5"
+        >
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Pipeline stages
           </p>
@@ -1845,13 +1949,15 @@ function ActiveProjectSpotlight({
               <React.Fragment key={j.id}>
                 {i > 0 && (
                   <span
+                    data-spot-link=""
+                    style={{ "--sd": spotChipDelay(i) } as React.CSSProperties}
                     className="flex items-center text-muted-foreground/40"
                     aria-hidden="true"
                   >
                     <ChevronRight className="size-3.5" />
                   </span>
                 )}
-                <StageChip job={j} onClick={() => openJob(j.id)} />
+                <StageChip job={j} onClick={() => openJob(j.id)} arrivalDelay={spotChipDelay(i)} />
               </React.Fragment>
             ))}
           </div>
@@ -1871,7 +1977,11 @@ function ActiveProjectSpotlight({
             roster's identity (Jobs · N · newest first) is carried by the
             REAL <thead> band inside the table below, which repeats on every
             printed page. Printing both would say "Jobs" twice on page 1. */}
-        <div className="no-print mb-2 flex items-center gap-1.5">
+        <div
+          data-spot-jobslabel=""
+          style={{ "--sd": jobsLabelDelay } as React.CSSProperties}
+          className="no-print mb-2 flex items-center gap-1.5"
+        >
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Jobs
           </p>
@@ -1894,7 +2004,7 @@ function ActiveProjectSpotlight({
         {/* t549 — the project-level homecoming sweep: one bar aggregating
             every owing receipt in the roster (self-effacing — renders
             nothing while no annotation says files are still out). */}
-        <HomecomingSweepBar />
+        <HomecomingSweepBar arrivalDelay={sweepDelay} />
         {sorted.length > 0 && (
           // Task 94 — roster text search. Composes with the status chips
           // below (AND); role=search + the count chip are live screen
@@ -2025,8 +2135,12 @@ function ActiveProjectSpotlight({
                 </tr>
               </thead>
               <tbody>
-                {[...visibleJobs].reverse().map((j) => (
-                  <tr key={j.id}>
+                {rosterDisplay.map((j) => (
+                  <tr
+                    key={j.id}
+                    data-spot-row=""
+                    style={{ "--sd": spotRowDelays.get(j.id) } as React.CSSProperties}
+                  >
                     <td>
                       <JobRow job={j} onOpen={() => openJob(j.id)} />
                     </td>

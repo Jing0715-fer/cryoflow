@@ -1137,6 +1137,54 @@
   }
 }
 
+/* t613 — the spotlight's own wave. The active-project spotlight's
+   remaining faces join the arrival grammar their analytics siblings
+   started (t611/t612): the banner, the stage label row, the StageChips
+   (each chevron riding the chip it introduces), the jobs label, the
+   homecoming sweep and the roster rows surface in reading order with
+   the receipt's own word — ZERO new keyframes (the family's vocabulary
+   is already complete for "a fact surfaces"; the definition stays
+   exactly once).
+
+   The wave counts only its own synchronous faces. The tail's base
+   freezes the head's face count at the spotlight's first mount, and
+   the rows' tickets come from a MOUNT LEDGER (assigned once, in DOM
+   encounter order; a later face joins the tail) — the roster is
+   newest-first, so a positional index would shift every delay when a
+   job prepends, and a shifted delay on a finished animation replays it
+   (re-render becoming re-arrival). Chrome never rides: the search box
+   and the status filter chips are lenses, not faces (t611's
+   precedent). The banner's Progress meter keeps its own width
+   transition (the row-face-only law, banner edition).
+
+   Canonical: 12 chips + 12 rows → the last row starts at
+   350 + (2 + 12 + 1 + 12)×24 = 998ms; the card settles at 1238ms — the
+   dominant card reads a beat past the funnel's ~1s envelope beneath
+   it. CSS animations run once per mount: re-composition is not
+   re-arrival; a dashboard re-entry remounts and replays honestly. */
+[data-spot-arrival] [data-spot-banner],
+[data-spot-arrival] [data-spot-stagelabel],
+[data-spot-arrival] [data-spot-chip],
+[data-spot-arrival] [data-spot-link],
+[data-spot-arrival] [data-spot-jobslabel],
+[data-spot-arrival] [data-spot-sweep],
+[data-spot-arrival] [data-spot-row] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--sd, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-spot-arrival] [data-spot-banner],
+  [data-spot-arrival] [data-spot-stagelabel],
+  [data-spot-arrival] [data-spot-chip],
+  [data-spot-arrival] [data-spot-link],
+  [data-spot-arrival] [data-spot-jobslabel],
+  [data-spot-arrival] [data-spot-sweep],
+  [data-spot-arrival] [data-spot-row] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy
