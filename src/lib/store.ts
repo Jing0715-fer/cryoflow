@@ -471,6 +471,23 @@ export interface HistoryEntry {
  *  grow it unbounded. */
 const HISTORY_CAP = 50;
 
+/** t596 — selection-set signature: the primary + the sorted multi ids.
+ *  The five selection verbs compare the next selection against the live
+ *  one through this and bump `selReframeSeq` ONLY on a real change — a
+ *  re-anchor on an already-selected card (stepArrowFocus revisit, a
+ *  re-click of the primary) is a no-op for the map's sel frame, and a
+ *  no-op must not arm a flow. */
+const selSig = (id: string | null, ids: string[]) =>
+  `${id ?? ""}|${[...ids].sort().join(",")}`;
+const selReframeBump = (
+  s: { selReframeSeq: number; selectedId: string | null; selectedIds: string[] },
+  nextId: string | null,
+  nextIds: string[]
+) =>
+  selSig(nextId, nextIds) === selSig(s.selectedId, s.selectedIds)
+    ? {}
+    : { selReframeSeq: s.selReframeSeq + 1 };
+
 interface WorkflowState {
   jobs: JobDTO[];
   /** t393 — the last-seen /api/jobs version token. pollTick sends it as
@@ -1002,6 +1019,22 @@ interface WorkflowState {
   ) => Promise<void>;
   removeEdge: (id: string) => Promise<void>;
   pollTick: () => Promise<void>;
+
+  /** t596 — the selection-jump counter the minimap's sel frame reads to
+   *  tell FLOWS from SNAPS. The five selection verbs (select /
+   *  stepArrowFocus / toggleSelect / selectMany / selectAll) bump it ONLY
+   *  when the selection set actually changes; every other writer of the
+   *  selection fields (delete cleanup, workspace switch, load, inspect,
+   *  the server-poll merges) writes them directly and NEVER bumps — those
+   *  reframes are the world's own work (t590's systemic silence), not a
+   *  finger. The consumer (canvas-minimap) compares this against a
+   *  seen-ref inside its box-record effect and rides a reframe flow when
+   *  the live framing mode is sel; the coercion edge (selection emptied →
+   *  effMode falls back to fit) bumps too but the consumer's effMode gate
+   *  keeps that edge snap-silent (t591's disarm-never-becomes-an-event
+   *  law). Undo never touches the selection, so it is immune by
+   *  construction. */
+  selReframeSeq: number;
 
   select: (id: string | null) => void;
   /** Shift-click toggle: add/remove a card from the multi-selection (the
@@ -1780,6 +1813,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   subtreeOrch: null,
   selectedId: null,
   selectedIds: [],
+  selReframeSeq: 0,
   inspectId: null,
   cameFromJob: null,
   historyPast: [],
@@ -4438,52 +4472,76 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  select: (id) => set({ selectedId: id, selectedIds: id ? [id] : [] }),
+  select: (id) =>
+    set((s) => ({
+      selectedId: id,
+      selectedIds: id ? [id] : [],
+      ...selReframeBump(s, id, id ? [id] : []),
+    })),
   stepArrowFocus: (id, extend) =>
-    set((s) =>
-      extend
-        ? {
-            selectedId: id,
-            selectedIds: s.selectedIds.includes(id)
-              ? s.selectedIds
-              : [...s.selectedIds, id],
-          }
-        : { selectedId: id, selectedIds: [id] }
-    ),
+    set((s) => {
+      const nextIds = extend
+        ? s.selectedIds.includes(id)
+          ? s.selectedIds
+          : [...s.selectedIds, id]
+        : [id];
+      return {
+        selectedId: id,
+        selectedIds: nextIds,
+        ...selReframeBump(s, id, nextIds),
+      };
+    }),
 
-  toggleSelect: (id) => {
-    const ids = get().selectedIds;
-    if (ids.includes(id)) {
-      const rest = ids.filter((x) => x !== id);
-      const nextPrimary =
-        get().selectedId === id ? (rest[rest.length - 1] ?? null) : get().selectedId;
-      set({ selectedIds: rest, selectedId: nextPrimary });
-    } else {
-      set({ selectedIds: [...ids, id], selectedId: id });
-    }
-  },
+  toggleSelect: (id) =>
+    set((s) => {
+      const ids = s.selectedIds;
+      if (ids.includes(id)) {
+        const rest = ids.filter((x) => x !== id);
+        const nextPrimary =
+          s.selectedId === id ? (rest[rest.length - 1] ?? null) : s.selectedId;
+        return {
+          selectedIds: rest,
+          selectedId: nextPrimary,
+          ...selReframeBump(s, nextPrimary, rest),
+        };
+      }
+      const joined = [...ids, id];
+      return {
+        selectedIds: joined,
+        selectedId: id,
+        ...selReframeBump(s, id, joined),
+      };
+    }),
 
-  selectMany: (ids) => {
-    const unique = [...new Set(ids)];
-    if (unique.length === 0) {
-      set({ selectedId: null, selectedIds: [] });
-      return;
-    }
-    const prev = get().selectedId;
-    set({
-      selectedIds: unique,
-      selectedId: prev && unique.includes(prev) ? prev : unique[unique.length - 1],
-    });
-  },
+  selectMany: (ids) =>
+    set((s) => {
+      const unique = [...new Set(ids)];
+      if (unique.length === 0) {
+        return {
+          selectedId: null,
+          selectedIds: [],
+          ...selReframeBump(s, null, []),
+        };
+      }
+      const prev = s.selectedId;
+      const nextPrimary = prev && unique.includes(prev) ? prev : unique[unique.length - 1];
+      return {
+        selectedIds: unique,
+        selectedId: nextPrimary,
+        ...selReframeBump(s, nextPrimary, unique),
+      };
+    }),
 
   selectAll: () => {
-    const ws = get().activeWorkspaceId;
-    const ids = get().jobs.filter((j) => jobInWorkspace(j, ws)).map((j) => j.id);
+    const s = get();
+    const ids = s.jobs.filter((j) => jobInWorkspace(j, s.activeWorkspaceId)).map((j) => j.id);
     if (ids.length === 0) return;
-    const prev = get().selectedId;
+    const prev = s.selectedId;
+    const nextPrimary = prev && ids.includes(prev) ? prev : ids[0];
     set({
       selectedIds: ids,
-      selectedId: prev && ids.includes(prev) ? prev : ids[0],
+      selectedId: nextPrimary,
+      ...selReframeBump(s, nextPrimary, ids),
     });
   },
 

@@ -103,6 +103,10 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   const edges = useActiveWorkspaceEdges();
   const selectedId = useWorkflowStore((s) => s.selectedId);
   const selectedIds = useWorkflowStore((s) => s.selectedIds);
+  // t596 — the selection-jump counter: bumps on a real change made by
+  // the five selection verbs; the box-record effect compares it with a
+  // seen-ref and rides the reframe flow when sel framing is live
+  const selReframeSeq = useWorkflowStore((s) => s.selReframeSeq);
   const viewport = useWorkflowStore((s) => s.viewport);
   const setViewport = useWorkflowStore((s) => s.setViewport);
   const focusJob = useWorkflowStore((s) => s.focusJob);
@@ -238,9 +242,20 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   const reframeArmRef = React.useRef(false);
   const reframeRafRef = React.useRef<number | null>(null);
   const [animBox, setAnimBox] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  // the box on screen as of the last render — the handler snapshots it
-  // before the click's own render recomputes it
+  // the box on screen as of the last render — the mode-click handler
+  // snapshots it (BEFORE the click's own render recomputes it) so the
+  // flow rides from what the user actually sees
   const lastRenderedBoxRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  // t596 — the selection-jump watcher's side of the store contract:
+  // `selReframeSeq` bumps ONLY on a real selection change made by the
+  // five selection verbs (delete cleanup, workspace switch, load,
+  // inspect and the server poll write the fields directly and never
+  // bump — those reframes snap). The ref holds the last seq this
+  // component has ANSWERED; initializing it from the value at mount
+  // keeps the birth quiet (a reload with a live selection must not
+  // flow on first paint — t590's systemic silence, F3 face).
+  const seenSelSeqRef = React.useRef<number | null>(null);
 
   // viewport window in WORLD coordinates:
   // screen = vx + wx·zoom  →  wx = (screen − vx) / zoom
@@ -287,25 +302,17 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   // as a whole
   const world = animBox ?? worldBox;
 
-  // the box on screen, recorded after every commit — a mode click
-  // snapshots it (in the handler, BEFORE the click's own render runs)
-  // so the flow rides from what the user actually sees
-  React.useLayoutEffect(() => {
-    lastRenderedBoxRef.current = world;
-  });
-
-  // the arm flag → the flow. Runs after the target render computed the
-  // new box, before paint: the first painted frame is still the
-  // on-screen box (the pin), and the lerp rides from there. The final
-  // frame is the computed box; setAnimBox(null) hands the channels back
-  // — a transient that retires (t591's honesty law).
-  React.useLayoutEffect(() => {
-    if (!reframeArmRef.current) return;
-    reframeArmRef.current = false;
+  // t596 — one reframe voice, two arms. Extracted from the t595 effect
+  // body so the selection-jump observer (the box-record effect below)
+  // can share the exact same flow: reduced-motion snaps, a same-box
+  // "change" answers with silence, the first painted frame is the pin
+  // (no snapped frame), the lerp is the thumb settle's rhythm (t591:
+  // one gesture, one rhythm), and the transient retires bit-exactly.
+  const startReframe = (
+    from: { x: number; y: number; w: number; h: number },
+    to: { x: number; y: number; w: number; h: number }
+  ) => {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const from = reframeFromRef.current;
-    const to = worldBox;
-    if (!from) return;
     if (
       Math.abs(from.x - to.x) < 0.5 &&
       Math.abs(from.y - to.y) < 0.5 &&
@@ -335,6 +342,44 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
       }
     };
     reframeRafRef.current = requestAnimationFrame(step);
+  };
+
+  // the box on screen, recorded after every commit — a mode click
+  // snapshots it (in the handler, BEFORE the click's own render runs)
+  // so the flow rides from what the user actually sees. t596 — this
+  // effect also OBSERVES selection jumps: it reads the previous box
+  // BEFORE overwriting it, which is exactly the snapshot the sel-frame
+  // flow needs (arm-in-each-caller would scatter five components for
+  // no gain, and only the store's seq knows which changes are the
+  // finger's). Runs before the thumb relay below: if both arms ever
+  // landed in one commit, this one's honest snapshot wins and the
+  // thumb relay's own same-box check silently declines.
+  React.useLayoutEffect(() => {
+    const prev = lastRenderedBoxRef.current;
+    lastRenderedBoxRef.current = world;
+    if (seenSelSeqRef.current !== selReframeSeq) {
+      seenSelSeqRef.current = selReframeSeq;
+      // the coercion edge (selection emptied → effMode falls back to
+      // fit) bumps the seq too, but its box change is the SYSTEM's
+      // work (t591's disarm-never-becomes-an-event law) — only a jump
+      // inside a live sel framing (Escape collapse, Ctrl+A growth, a
+      // dot/card re-anchor, the band's commit) rides the flow.
+      if (effMode === "sel" && prev) startReframe(prev, worldBox);
+    }
+  });
+
+  // the arm flag → the flow. Runs after the target render computed the
+  // new box, before paint: the first painted frame is still the
+  // on-screen box (the pin), and the lerp rides from there. The final
+  // frame is the computed box; setAnimBox(null) hands the channels back
+  // — a transient that retires (t591's honesty law). t596 — the body
+  // moved into startReframe; the thumb channel remains handler-armed
+  // (the finger), this effect only relays it.
+  React.useLayoutEffect(() => {
+    if (!reframeArmRef.current) return;
+    reframeArmRef.current = false;
+    const from = reframeFromRef.current;
+    if (from) startReframe(from, worldBox);
   });
 
   // unmount: never leave a reframe rAF firing into a dead DOM
