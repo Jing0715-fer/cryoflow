@@ -8336,3 +8336,25 @@ Stage Summary:
 - 「账本里的幽灵」：fill:both 的 finished 动画在 getAnimations() 里永续「in effect」——计数断言被幽灵（虚高）和重挂载（幽灵掉出 document，delta 归零）双向击败。playState 才是生与死的判别器：幽灵 finished、新声 running。t585 的「查账本别听回声」需要补全：账本里也有不该在场的旧账，读账要读状态位
 - 「断言比较世界的值，不比较你猜的值」：ZOOM_STEP 落 110% 而断言写死 120%——把「Beta 的 zoom」作为期望值从 B1 传递给 B3，断言链自洽于世界而非作者的记忆。硬编码的期望值是还没发作的化石
 - 产出：the arrival dialogue（store 中继 + beginGlideArrival + 三处注释手术）+ t588 witness 28/28 + 📸 + 回归全家绿（t587 27 + t586 22 + t585 20 + t584 19 + t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t588/t587/t586/t585/t584 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②judge 风暴活体半场（等世界稳定夜）；③样式/语义候选：key 0 的 origin 到达（command 家族的跨层 tick 接线）或 minimap FIT/NODES/SEL press 深化；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 589 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 08:08 cron, Job 362852)
+Task: t588 入口③兑现——「the origin's seat」：key 0 从裸瞬移升格为 origin 到达（jumpToOrigin 入 arrival relay），0-9 数字行统一为「地点家族」同方言；补齐 dashboard guard（1-9 有而 0 一直缺失）；witness 14/14（首跑 13/14，唯败是自家方向硬编码——「断言比较世界的值」教义当窗兑付于作者自己）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 588（本会话上窗收官）；HEAD 7646060、树净；五绿（200/28ms、tsc 0 全量、eslint 0、AI 信封、roster 6 active=EMPIAR jobs 12）；available 1329MB < 3.5GB → 非 build 日。agent-browser QA（CDP 9329）：canvas 12 卡 13 线、console 净；顺手取证 key 0 基线行为：52%→100% 即跳、无 glide/hold/tick（cls:false）——0-9 数字行里唯一的孤儿。派单「Task 13 遗留池」第 N+30 次化石。
+- [选道] 入口①build 日否决（1329MB << 3.5GB）；②judge 风暴（等稳定夜）；收敛 t588 入口③第一候选「key 0 的 origin 到达」——t588 已铺好 relay 基础设施，本窗是把最后一个孤儿领回家的接线窗。minimap FIT/NODES/SEL press 深化照实留下窗。
+- [产品——the origin's seat] ①store.ts：jumpToOrigin 动作（arrival relay 语义：{x:0,y:0,zoom:1} + epoch 递增；与 jumpToViewportBookmark 同构——origin 是「座位 0」上的一个地点）；②app-shell：key-0 分支改道 s.jumpToOrigin() + **补齐 s.view !== "dashboard" guard**（1-9/F/N 一直有而 0 缺失——dashboard 拥有数字行；canvas 无条件渲染故 relay 消费安全，guard 是家族一致性决策而非内存需求）；③文案两处：app-shell 头注释（「0 — reset pan/zoom」→「return to the origin view, glides like 1–9」）+ shortcuts-dialog（"Reset pan & zoom"→"Return to the origin view (100 %, glides)"）；④canvas.tsx 零改动——t588 的 consume-once relay 原样接管。
+- [witness 14/14（第二跑；首跑 13/14）] G0 served-CSS 预检门；K1 origin 到达（zoom away 62% → "0"：class@70ms + hold=62%（state 已跳 origin）+ coda running@520-660 窗 + 落地 100% + varY 按世界方向 +2px）；K2 重跳静默（origin 处再按 "0"：class churn、span 同节点、playState 全 finished——fill:both 幽灵滞留教义复用）；R roster 12→12、console 净。📸 t589-origin-settled.png。dashboard guard 为代码级决策（tsc 评审），无活体面——harness 注释里照实声明「是决策不是疏漏」。
+- [首跑一败——自家教义当窗兑付] K1 断言硬编码「drum rolling DOWN」而世界从 62% 长到 100%——增值 UP（+2px）产品正确、断言写死了方向。修法：parseFloat(fromText) < 100 推导期望方向，断言链自洽于世界。t588 Stage Summary 刚写下的「断言比较世界的值，不比较你猜的值」在同一窗兑付于作者自己——硬编码的期望值是还没发作的化石，化石发酵只隔了一个时辰。
+- [回归] t588 28/28（relay 中继零位移——最高邻接面）+ t587 27/27 + t586 22/22 + t585 20/20 + t584 19/19 + t578 32/32 + 单测四连 113（64+11+16+22）+ tsc 0 全量（.next/dev/routes.d.ts 半写状态首查误报，3s 后自愈——dev 产物目录的瞬态快照不是源码错误）+ eslint 0（src + 新 harness）；roster 12→12、console 全家族净、零世界污染。
+- [未做与理由] minimap FIT/NODES/SEL press 深化（一窗一面留下窗）；frameBounds（fit 按钮）的 tick 缺口（t587 表面定义外的命令家族孤儿——与 key 0 同族但属 minimap/toolbar 表面，留下窗候选）；teal 动画逐帧一致性审计（t583 注记）；judge 风暴活体半场（等世界稳定夜）；build 日全家桶（等箱体 ≥3.5GB——今晨 available 1329MB）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「地点 glide，尺度 command」：数字行 0-9 现在是同一个语义家族——0 是 origin 的座位，1-9 是书签的座位，全部骑同一条 arrival relay（glide + hold + coda）；± 与 reset 是尺度命令（围绕当前视野重标定，instant + tick at launch）。分界线不在「键盘还是按钮」，在「 travelled to a place 还是 rescaled the view」——语义边界划在世界的运动形态上，不划在输入设备上
+- 「最后一个孤儿是家族定义的试金石」：t588 统一了 1-9 与 focus，key 0 静默瞬移依旧——只有把家族名单数到最后一员，缺口才可见。修完 0，回头看 fit 按钮（frameBounds）又是尺度家族里没领声音的一个——孤儿清点要按「语义家族的全部成员」而非「这次改动的文件」
+- 「guard 的缺失是历史边界的化石」：key 0 无 dashboard guard 不是设计而是 1-9 后加 guard 时它不在场——补 guard 是把家族边界画完整（dashboard 拥有数字行）。Canvas 无条件渲染让 relay 消费即便无 guard 也安全，但「安全」不等于「一致」
+- 「教义最快兑付的地方是作者自己」：同一窗写下的「断言比较世界的值」在同一窗被自己的方向硬编码违反——教义不是写在 worklog 里给别人看的，是写给下一个改这行代码的人（往往是自己、往往就是当窗）。写完教义立刻用它审自己当窗的断言
+- 「dev 产物的瞬态快照不是源码错误」：.next/dev/types/routes.d.ts 被 tsc 抓到半写状态报语法错——3 秒后自愈。判定「错误属于谁」先看路径在不在源码树：产物目录的中间态快照值得一次重跑，不值得一次返工
+- 产出：the origin's seat（store jumpToOrigin + app-shell 改道与 guard 补齐 + 两处文案）+ t589 witness 14/14 + 📸 + 回归全家绿（t588 28 + t587 27 + t586 22 + t585 20 + t584 19 + t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t589/t588/t587/t586/t585/t584 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②judge 风暴活体半场（等世界稳定夜）；③样式/语义候选：minimap FIT/NODES/SEL press 深化或 frameBounds（fit）的尺度命令 tick 接线（key 0 的同族孤儿）；④t471 WSL-bridge（照实挂）、t276（门控）
