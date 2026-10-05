@@ -89,6 +89,15 @@ interface CanvasMinimapProps {
   rootRef: React.RefObject<HTMLDivElement | null>;
 }
 
+/** t595 — the reframe flow's rhythm: 200ms, the thumb settle's own
+ *  duration (t591) — one gesture, one rhythm; the map's projection flows
+ *  beneath the settling thumb. Ease-out cubic, no overshoot: a back-out
+ *  would bounce the whole projection — the box is a frame, not a button.
+ *  (The projection has no CSS handle — viewBox is an attribute, not a
+ *  property — so this voice lives in JS, unlike its CSS siblings in the
+ *  arrival family.) */
+const MM_REFLOW_MS = 200;
+
 export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   const jobs = useActiveWorkspaceJobs();
   const edges = useActiveWorkspaceEdges();
@@ -148,7 +157,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
    *  through the viewBox. */
   const toWorld = (e: React.PointerEvent): { x: number; y: number } | null => {
     const rect = svgRef.current?.getBoundingClientRect();
-    const vb = worldBox;
+    const vb = world;
     if (!rect || !vb) return null;
     const scale = Math.min(rect.width / vb.w, rect.height / vb.h);
     const offX = (rect.width - vb.w * scale) / 2;
@@ -212,7 +221,26 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     if (mmSet && mmSet !== effMode) setMmSet(null);
   }, [mmSet, effMode]);
 
-  if (jobs.length === 0) return null;
+  // t595 — the reframe flows. A mode click changes the world box (fit
+  // unions the viewport window in, nodes/sel frame content only) —
+  // measured live at Δw=151/Δh=378 world units and a 13% jump in the
+  // map's pixel height: a visible event, not furniture. The projection
+  // has no CSS handle (viewBox is an attribute, not a property), so the
+  // flow is a rAF lerp of the rendered box over MM_REFLOW_MS — the
+  // thumb's own settle rhythm (t591): one gesture, two organs. The arm
+  // flag lives in the click handler (the finger), NOT in an effMode
+  // effect: the coercion edge (selection emptied → sel falls back to fit
+  // with no click) never arms — t591's disarm-never-becomes-an-event
+  // law. The snapshot is taken in the handler too — by the time the
+  // target render's body runs, `world` already IS the target, so the
+  // on-screen box must be caught before that render overwrites the ref.
+  const reframeFromRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const reframeArmRef = React.useRef(false);
+  const reframeRafRef = React.useRef<number | null>(null);
+  const [animBox, setAnimBox] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  // the box on screen as of the last render — the handler snapshots it
+  // before the click's own render recomputes it
+  const lastRenderedBoxRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
   // viewport window in WORLD coordinates:
   // screen = vx + wx·zoom  →  wx = (screen − vx) / zoom
@@ -252,8 +280,72 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     ...frameJobs.map((j) => j.y + CARD_H),
     withVp ? view.y + view.h : -Infinity
   ) + MM_PAD;
-  const world = { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 };
-  const worldBox = world;
+  const worldBox = { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 };
+  // during a reframe the rendered box is the lerp's current frame; every
+  // derivation (viewBox, mmH, stroke widths, the vp rect's clamps, and
+  // toWorld's click mapping) reads this ONE box so the projection flows
+  // as a whole
+  const world = animBox ?? worldBox;
+
+  // the box on screen, recorded after every commit — a mode click
+  // snapshots it (in the handler, BEFORE the click's own render runs)
+  // so the flow rides from what the user actually sees
+  React.useLayoutEffect(() => {
+    lastRenderedBoxRef.current = world;
+  });
+
+  // the arm flag → the flow. Runs after the target render computed the
+  // new box, before paint: the first painted frame is still the
+  // on-screen box (the pin), and the lerp rides from there. The final
+  // frame is the computed box; setAnimBox(null) hands the channels back
+  // — a transient that retires (t591's honesty law).
+  React.useLayoutEffect(() => {
+    if (!reframeArmRef.current) return;
+    reframeArmRef.current = false;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const from = reframeFromRef.current;
+    const to = worldBox;
+    if (!from) return;
+    if (
+      Math.abs(from.x - to.x) < 0.5 &&
+      Math.abs(from.y - to.y) < 0.5 &&
+      Math.abs(from.w - to.w) < 0.5 &&
+      Math.abs(from.h - to.h) < 0.5
+    ) {
+      return; // same box — a re-click of the live mode answers with silence
+    }
+    if (reframeRafRef.current != null) cancelAnimationFrame(reframeRafRef.current);
+    const t0 = performance.now();
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+    setAnimBox({ ...from }); // pin BEFORE paint — no snapped frame
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / MM_REFLOW_MS);
+      const k = easeOut(t);
+      setAnimBox({
+        x: from.x + (to.x - from.x) * k,
+        y: from.y + (to.y - from.y) * k,
+        w: from.w + (to.w - from.w) * k,
+        h: from.h + (to.h - from.h) * k,
+      });
+      if (t < 1) {
+        reframeRafRef.current = requestAnimationFrame(step);
+      } else {
+        reframeRafRef.current = null;
+        setAnimBox(null); // retire — the computed box takes over
+      }
+    };
+    reframeRafRef.current = requestAnimationFrame(step);
+  });
+
+  // unmount: never leave a reframe rAF firing into a dead DOM
+  React.useEffect(
+    () => () => {
+      if (reframeRafRef.current != null) cancelAnimationFrame(reframeRafRef.current);
+    },
+    [],
+  );
+
+  if (jobs.length === 0) return null;
 
   const mmH = Math.round(
     Math.min(MM_MAX_H, Math.max(MM_MIN_H, (MM_W * world.h) / world.w))
@@ -375,6 +467,13 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 disabled={disabled}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => {
+                  // t595 — the finger arms the reframe: snapshot the
+                  // on-screen box BEFORE this click's render computes the
+                  // target, then flag; the layout effect rides from the
+                  // snapshot. The coercion edge never passes here — it
+                  // has no click (t591's law).
+                  reframeFromRef.current = lastRenderedBoxRef.current;
+                  reframeArmRef.current = true;
                   setMode(m.id);
                   setMmSet(m.id); // the click's own voice (t591) — see mmSet
                 }}
