@@ -8301,3 +8301,38 @@ Stage Summary:
 - 「computed 序列化永远在改写字面」：translate 源写单值 0 var(--y)，computed 出 "0px 2px" 双分量——t582「transparent 两种拼法」、t583「color(srgb) 新拼法」家族第 N+1 例。断言解析层要认序列化的形态，不认源码的形态
 - 「负载是世界的一部分」：t584 的 5 败不在产品也不在 harness 逻辑，在「跑 harness 时的世界」——back-to-back 压弯 dev 主线程，landing 相位被 stall。验尸管道：独立探针复现产品路径 → 世界安静重跑全绿。「确定性失败」先问世界再问代码：修改绿色 harness 之前，先给世界一次安静的机会
 - 产出：the odometer tick（canvas.tsx 四处 + globals.css zoom-tick stanza + 教义注释含触发面/静默面/家族语法全文）+ t587 witness 27/27（served 预检门 + 出生静默 + in-eval 双采样 + wheel 静默 + reset 单声 + CSSOM 门）+ 📸 + 回归全家绿（t586 22 + t585 20 + t584 19 + t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t587/t586/t585/t584 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②judge 风暴活体半场；③样式候选：bookmark/focus 跳转的抵达应答（glide 与 tick 的对话）或 minimap FIT/NODES/SEL 三钮的 press 深化；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 588 (途中)
+Agent: main (Z.ai Code, window 2026-10-05 07:38 cron, Job 362852, Task 572 系第 7 次派单)
+Task: t587 入口③兑现中——「glide 与 tick 的对话」：bookmark 跳转（行点击 + 槽位键）从裸瞬移升格为 arrive（glide + 读数按住 + 落地 coda tick）；途中发现 t587 注释一处失实（bookmark 并不 glide）。
+
+Work Log (mid-work):
+- [开局核实] worklog 尾条=Task 587（交接摘要说 584——滞后第 N+38 次兑付）；HEAD 548442a、树净；五绿（200/34ms、tsc 0 全量、eslint 0、AI 信封、roster 6 active=EMPIAR jobs 12）；available 1190MB < 3.5GB → 非 build 日。agent-browser QA（CDP 9329）：canvas 12 卡 13 线（data-edge-id 才是正确属性）、console 净、find bar 开镜 13 chips + chip 点击注册 + Escape 收口、zoom odometer tick 活体点火（52% tick span 在场）——产品零 bug。
+- [选道] 入口①build 日否决（1190MB）；②judge 风暴（等稳定夜）；收敛入口③。读链发现真 gap：focus 跳转有 glide（Task 124 viewport-glide）+ reveal-flash，但 bookmark 行点击（canvas L2505 裸 setViewport）与槽位键 1-9（store jumpToViewportBookmark L4820 裸 setViewport）是静默瞬移——t587 tick 注释「bookmark / focus jumps: arrivals already GLIDE」对 bookmark 失实。
+- [产品] store.ts：arrivalEpoch/arrivalTarget 中继（focusJob 习语施加于 Viewport）+ consumeViewportArrival（consume-once 防重挂载复活陈旧目标）+ jumpToViewportBookmark 改道中继（布尔同步返回保 preventDefault 决策）；canvas.tsx：beginGlideArrival 共享助手（hold+glide+coda）+ heldZoom/heldZoomRef/glideRetractRef + releaseArrivalHold（命令与 wheel 中飞夺回读数）+ focus effect 改道 + 行点击改道 + gauge 显示 heldZoom ?? zoom + GLIDE_RETRACT_MS 常量命名（520 = 0.48s + 40ms slack）；注释手术三处（t587 tick 块、focus effect、globals.css viewport-glide）。
+- [smoke 已绿] in-page 原子验证：hold@70ms（120% 按住，state 已跳 100%）、class churn、coda tick 中飞、fresh 读数 gauge 100% + varY −2px。首读曾用陈旧 span 引用（coda 重挂载新 span）——「getAnimations 是账本」教义的 DOM 版：跨重挂载的引用必须 fresh 重查。
+- 下一步：t588 witness harness（CDP 9330）+ 回归家族 + 收官。
+
+---
+Task ID: 588 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 07:38 cron, Job 362852, Task 572 系第 7 次派单)
+Task: t587 入口③兑现——「glide 与 tick 的对话」：bookmark 跳转（行点击 + 槽位键 1-9）从裸瞬移升格为 arrive（glide + 读数按住 + 落地 coda tick），focus 家族（含 find-bar Enter、minimap 点击）并入同一助手；witness 28/28（首跑 24/28，四败皆 harness 断言病）；途中纠正 t587 注释一处失实。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 587（交接摘要说 584——滞后第 N+38 次兑付）；HEAD 548442a、树净；五绿（200/34ms、tsc 0 全量、eslint 0、AI 信封 {sessionId,events,needsContinue}、roster 6 active=EMPIAR jobs 12）；available 1190MB < 3.5GB → 非 build 日。agent-browser QA（CDP 9329 专港 + 清 profile）：canvas 12 卡 13 线（data-edge-id 才是正确属性选择器）、console 净、find bar 开镜 13 chips + chip 点击注册 + Escape 收口、zoom odometer tick 活体点火（52% tick span 在场）——产品零 bug。派单「Task 13 遗留池」第 N+29 次化石。
+- [选道] 入口①build 日被内存否决（1190MB << 3.5GB）；入口②judge 风暴（等世界稳定夜）；收敛入口③「glide 与 tick 的对话」。读链发现真 gap：focus 跳转有 glide（Task 124 viewport-glide）+ reveal-flash，但 bookmark 行点击（canvas 裸 setViewport）与槽位键 1-9（store jumpToViewportBookmark 裸 setViewport）是静默瞬移——t587 tick 注释「bookmark / focus jumps: arrivals already GLIDE」对 bookmark 失实（注释也是要维护的产品，第 N+2 例）。
+- [产品——the arrival dialogue] ①store.ts：arrivalEpoch/arrivalTarget 中继（focusJob 习语施加于 Viewport：store 碰不到 workspace DOM class）+ consumeViewportArrival（consume-once：canvas 重挂载绝不复活陈旧目标）+ jumpToViewportBookmark 改道中继（布尔同步返回保 app-shell 的 preventDefault 决策；世界晚一个 commit 落地，不可感知）。②canvas.tsx：beginGlideArrival 共享助手——hold（heldZoom/heldZoomRef 按住读数：state 在 launch 已跳、显示必须等世界）+ glide class + retract 定时器（GLIDE_RETRACT_MS=520 常量命名：0.48s + 40ms slack，focus effect 与 bookmark 双路径共享一个数）+ 落地 coda tick（复用 t587 odometer：held→live 比较，圆整不变即静默）；releaseArrivalHold（命令 ±/reset 与 wheel 中飞夺回读数——最新的声音赢，落地转静默）；reduced-motion 早退（世界瞬移、数字随行——tick 是 motion 家族的声音，JS 读 CSS 同款媒体查询）；focus effect 改道 + bookmark 行点击改道 + gauge 显示 heldZoom ?? zoom。rapid re-arrival：hold 保第一个值（显示从未变过）、单 retract 定时器服务全链、coda 为整个旅程只说一次。③find-bar Enter / minimap 点击 / job-card 菜单的 focusJob 全部免费入伙（同 epoch 通道）。④注释手术三处：t587 tick 块（失实句改写为对话语义）、focus effect、globals.css viewport-glide 触发面。
+- [witness 28/28（第二跑；首跑 24/28）] G0 served-CSS 预检门（glide 与 tick 双签名）；B1 UI 生 Book mark 双席位（trigger→input→save，slots ["1","2"]）；B2 行点击到达（hold@70ms=110% 而 state 已跳 100%、retract、span 重挂载、drum −2px、落地 100%）；B3 槽位键到达（store 中继→epoch→consume-once→助手；coda running 态在 520-660ms 窗被抓、drum +2px、落 Beta 值）；B4 重跳静默（同席位重跳 class 照常 churn 但 span 同节点、无新动画）；B5 focus 家族同助手（find-bar Enter→focusJob：class churn、coda 静默——100% focus 不改 zoom，到达只在数字有事可说时出声）；B6 consume-once（reload 后无幻影再 glide + 出生静默照旧）；R roster 12→12、console 净。📸 t588-arrival-settled.png。
+- [首跑四败验尸——皆 harness 断言病] ①regex 双反斜杠：.mjs 源里 /\\d+% 匹配字面 \d——t581「模板字面量吃反斜杠」家族在源文件层的变体；②硬编码 120%：ZOOM_STEP 实落 110%——断言比较「Beta 的值」不比较「我猜的数字」；③④fill:both 的 finished 动画在 getAnimations() 里「in effect」永续滞留（t585 教义「已结束动画不在账本里」只对 fill:none 成立）——计数 delta 被幽灵与重挂载掉出 document 双向击败，诚实的判别器是 playState==="running"（幽灵 finished、coda running）；airborne 采样窗从 70/120ms（coda 起飞前，vacuous）搬到 540/590ms。
+- [smoke 一课] 手写 smoke 的终读用了点击前捕获的 span 引用——coda tick 重挂载新 span 后旧引用读出「120% 未落地」假象（t585「getAnimations 是账本」的 DOM 版：跨重挂载的引用必须 fresh 重查）。fresh 读数立即全中（gauge 100% + varY −2px）。
+- [回归] t587 27/27（gauge 高邻接面零位移）+ t586 22/22 + t585 20/20 + t584 19/19 + t578 32/32 + 单测四连 113（t562 64 + t573 11 + t574 16 + t575 22）+ tsc 0 全量 + eslint 0（src + 新 harness）；roster 12→12、console 全家族净、零世界污染。
+- [未做与理由] key 0（origin 瞬移）不在本窗车道（command 家族留 t587 表面定义，且 tickZoomReadout 在 canvas 而 key 处理在 app-shell——跨层接线留下窗候选）；teal 动画逐帧一致性审计（t583 注记）；judge 风暴活体半场（等世界稳定夜）；build 日全家桶（等箱体 ≥3.5GB——今晨 available 1190MB）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「数字到达时，世界也到达」：glide 的状态在 launch 瞬间就跳到终值，CSS transition 只是世界的迟到——读数若跟着 state 走，数字会比世界先到（一个说谎的里程计）。hold 的语义不是「延迟更新」，是「读数对世界诚实」：显示世界所在，不显示被告知的去处。coda tick 是到达的句点——t587 说「glide 与 tick 是不同的句子」，本窗教会它们互相接话：glide 是句子，coda 是句号
+- 「程序化到达是一家人」：focus（Task 124）有 glide、bookmark 是瞬移——同族不同命只因实现先后。beginGlideArrival 一处定义后，行点击、槽位键、find-bar Enter、minimap 点击、job-card 菜单全部同声。让语义家族共享一个实现，比让每个入口各自实现语义便宜得多，也诚实得多
+- 「store 碰不到 DOM，epoch 是它的话筒」：slot 键在 app-shell、读数在 canvas、glide class 在 workspace——跨层到达用 epoch+target 中继（focusJob 习语的 Viewport 版），consume-once 防重挂载复活。布尔同步返回与异步落地的分离：「决定现在给，世界稍后到」
+- 「账本里的幽灵」：fill:both 的 finished 动画在 getAnimations() 里永续「in effect」——计数断言被幽灵（虚高）和重挂载（幽灵掉出 document，delta 归零）双向击败。playState 才是生与死的判别器：幽灵 finished、新声 running。t585 的「查账本别听回声」需要补全：账本里也有不该在场的旧账，读账要读状态位
+- 「断言比较世界的值，不比较你猜的值」：ZOOM_STEP 落 110% 而断言写死 120%——把「Beta 的 zoom」作为期望值从 B1 传递给 B3，断言链自洽于世界而非作者的记忆。硬编码的期望值是还没发作的化石
+- 产出：the arrival dialogue（store 中继 + beginGlideArrival + 三处注释手术）+ t588 witness 28/28 + 📸 + 回归全家绿（t587 27 + t586 22 + t585 20 + t584 19 + t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（t588/t587/t586/t585/t584 witness 复核 + t580/t571/t578 复核 + t576 27-face 首跑 + t569/t570/t572 复核 + t573/t574/t575 活体）；②judge 风暴活体半场（等世界稳定夜）；③样式/语义候选：key 0 的 origin 到达（command 家族的跨层 tick 接线）或 minimap FIT/NODES/SEL press 深化；④t471 WSL-bridge（照实挂）、t276（门控）
