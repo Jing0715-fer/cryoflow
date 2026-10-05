@@ -2031,6 +2031,41 @@
   }
 }
 
+/* t598 — the card birth. Every surface in the app has an entrance voice
+   (palette-group-enter, dash-enter, find-drop, inspector-chip-enter,
+   mm-set) — the canvas card, the protagonist, popped into existence
+   silently. Birth VERBS arm ids in the store (mint, linked step/copy,
+   pipeline template, import per file, duplicate, the adopt family); the
+   canvas marks mounted cards data-born under data-birth-play BEFORE
+   first paint (useLayoutEffect — the t593 from-frame doctrine) and
+   retires the attributes when the entrance window closes. The figure is
+   the family's: an 8px rise (the dashboard-tile figure — the biggest
+   member; `translate` property, so it composes with the drag-owned
+   transform channel instead of colliding), the family curve, 240ms, a
+   24ms staircase in store order — for an import the pipeline assembles
+   in execution order. A birth is not a displacement: no FLIP (the cards
+   never stood anywhere else), and the camera stays silent (a frame-set
+   is framing, not a journey — the tidy's arrival dialogue answers a
+   gesture's displacement; a birth answers with its own voice). History
+   restores (undoDelete / restoreFromGraveyard), poll replaces and
+   adoption loads never arm — silence by construction, t590's law. */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-birth-play] [data-born] {
+    animation: card-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--card-d, 0ms);
+  }
+}
+
 /* Task 172 — touch comfort inside the mobile panel Sheet. The JobPanel's
    form controls were built to the DESKTOP panel's density (h-8/h-9
    inputs ≈ 32–36px tall); a finger needs taller targets. Scoped to the

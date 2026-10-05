@@ -1502,6 +1502,71 @@ export function WorkflowCanvas() {
     // to match the focus effect's local convention (it reads getState()).
   }, [loading, jobs, frameBounds, fitKey, layoutEpoch, setViewport, computeFrame]);
 
+  /* ---------------- t598 — the card birth ---------------- */
+
+  // The birth's timing words. The family's entrance figure: a 240ms rise
+  // (palette/dash), a 24ms staircase (t579 ripple, t584 chips) walked in
+  // store order — for an import the pipeline assembles in execution
+  // order — capped at 12 steps so a 50-card import reads as "the world
+  // materializes" instead of a roll call. Retire budget: 12×24 + 240 +
+  // 120 slack = 648ms — the attributes must outlive the last card's
+  // landing, exactly the t584 settle-budget discipline.
+  const CARD_BIRTH_STEP_MS = 24;
+  const CARD_BIRTH_MAX_STEPS = 12;
+  const CARD_BIRTH_RETIRE_MS =
+    CARD_BIRTH_MAX_STEPS * CARD_BIRTH_STEP_MS + 240 + 120;
+  const birthSeq = useWorkflowStore((s) => s.birthSeq);
+  const birthIds = useWorkflowStore((s) => s.birthIds);
+  const birthRetractRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (birthRetractRef.current) clearTimeout(birthRetractRef.current);
+    },
+    []
+  );
+  // Marks mounted born-cards BEFORE their first paint (useLayoutEffect —
+  // the entrance's from-frame must be pinned, the t593 FLIP doctrine: the
+  // world's answer starts honest on frame one or it lies). The card layer
+  // renders at TRANSITION priority (useDeferredValue + the reveal
+  // staircase, t571-era machinery): the newborn mounts one commit AFTER
+  // the urgent store pass — so the effect rides renderJobs (the layer's
+  // OWN channel, t595's mechanism-follows-channel law), re-running on
+  // every deferred commit until the cards are actually in the DOM, and
+  // pins them before THAT paint. Per-id consume: a switched-workspace
+  // import's cards mount on the LATER commit (the switch), so unmarked
+  // ids survive in the payload until found or the window retires.
+  // History restores, poll replaces and adoption loads never arm — their
+  // silence is by construction, not by filtering here.
+  React.useLayoutEffect(() => {
+    if (birthIds.length === 0) return;
+    const ws = rootRef.current?.querySelector<HTMLElement>("[data-canvas='workspace']");
+    if (!ws) return;
+    const found: string[] = [];
+    for (const id of birthIds) {
+      const el = ws.querySelector<HTMLElement>(`[data-job="${id}"]`);
+      if (!el || el.hasAttribute("data-born")) continue;
+      el.setAttribute("data-born", "");
+      el.style.setProperty(
+        "--card-d",
+        `${Math.min(found.length, CARD_BIRTH_MAX_STEPS) * CARD_BIRTH_STEP_MS}ms`
+      );
+      found.push(id);
+    }
+    if (found.length === 0) return;
+    void ws.offsetWidth; // pin the entrance's from-frame before playing
+    ws.setAttribute("data-birth-play", "");
+    useWorkflowStore.getState().consumeBirths(found);
+    if (birthRetractRef.current) clearTimeout(birthRetractRef.current);
+    birthRetractRef.current = setTimeout(() => {
+      birthRetractRef.current = null;
+      ws.removeAttribute("data-birth-play");
+      for (const el of Array.from(ws.querySelectorAll<HTMLElement>("[data-born]"))) {
+        el.removeAttribute("data-born");
+        el.style.removeProperty("--card-d");
+      }
+    }, CARD_BIRTH_RETIRE_MS);
+  }, [birthSeq, birthIds, renderJobs, activeWorkspaceId]);
+
   // "Ready" hint: idle job whose upstream (any incoming edge, possibly in
   // ANOTHER workspace — links included) is completed.
   const allJobs = useWorkflowStore((s) => s.jobs);

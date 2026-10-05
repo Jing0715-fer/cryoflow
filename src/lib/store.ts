@@ -488,6 +488,22 @@ const selReframeBump = (
     ? {}
     : { selReframeSeq: s.selReframeSeq + 1 };
 
+/** t598 — the birth-arm payload for one verb's set(): bumps the seq and
+ *  accumulates the fresh ids (per-id consume keeps rapid successive
+ *  verbs honest — a multi-file import arms once per file merge).
+ *  Spread into the SAME set() as the new jobs — one commit, so the
+ *  canvas's layout effect pins the entrance's from-frame before the
+ *  cards' first paint. Birth verbs only — the silent faces (undo
+ *  restore, poll replace, adoption loads) are documented at birthSeq
+ *  and never call this. */
+const birthArm = (
+  s: { birthSeq: number; birthIds: string[] },
+  ids: string[]
+): { birthSeq: number; birthIds: string[] } => ({
+  birthSeq: s.birthSeq + 1,
+  birthIds: [...s.birthIds, ...ids],
+});
+
 interface WorkflowState {
   jobs: JobDTO[];
   /** t393 — the last-seen /api/jobs version token. pollTick sends it as
@@ -562,9 +578,32 @@ interface WorkflowState {
    *  arrival dialogue). null = systemic — import landings and template
    *  applies rebuild the world silently (a world arriving from a file is
    *  a birth, not a gesture; t590's law with the finger as the boundary).
-   *  The vocabulary exists so a future face can promote import the same
-   *  way, not a promise that it already does. */
+   *  t598 — the question this vocabulary left open ("does the new
+   *  world's entrance already have its own voice?") is now answered: the
+   *  CARDS carry the birth voice (birthSeq/birthIds below — every other
+   *  surface in the app had an entrance; the card, the protagonist,
+   *  popped). The camera stays silent on births: the frame-set is
+   *  framing, not a journey — the tidy's camera ride answers a
+   *  displacement, and a birth displaces nothing. */
   layoutKind: "command" | null;
+  /** t598 — the card-birth voice, armed by birth VERBS only. Every
+   *  surface in the app has an entrance (palette-group-enter,
+   *  dash-enter, find-drop, inspector-chip-enter); the canvas card had
+   *  none. Armed: mint (addJobAt), linked step, linked copy, pipeline
+   *  template, import batch (per file), duplicate/twin, and the adopt
+   *  family (exclude/select/pick/train). NEVER armed — the silent faces,
+   *  by construction: undoDelete's backJobs and restoreFromGraveyard
+   *  (history restore is not an event, t590), pollTick (server replace,
+   *  bookkeeping), adoption/legacy loads (a world loading, not cards
+   *  being born), cross-tab poll arrivals. The canvas marks mounted
+   *  cards before first paint, consumes per id (a switched-workspace
+   *  import marks on the commit that actually mounts the cards), and
+   *  retires the attributes when the entrance window closes. seq lets
+   *  the consumer tell successive arms apart without diffing id arrays. */
+  birthSeq: number;
+  /** t598 — ids awaiting their entrance; accumulated across rapid
+   *  successive verbs (a multi-file import arms once per file merge). */
+  birthIds: string[];
   /** t593 — the pre-tidy seats of every moved card, captured at the bump
    *  so the canvas can FLIP (invert from the old seat, play to the new)
    *  without racing the commit. Read together with layoutKind and
@@ -1105,6 +1144,9 @@ interface WorkflowState {
   /** t593 — the canvas retires the tidy's answer payload after reading it
    *  (consume-once: a canvas remount must never replay an old rebuild). */
   consumeLayoutCommand: () => void;
+  /** t598 — the canvas retires ids it has played (per-id consume: unplayed
+   *  ids survive for a later commit that actually mounts them). */
+  consumeBirths: (played: string[]) => void;
   setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
@@ -1826,6 +1868,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   layoutEpoch: 0,
   layoutKind: null,
   layoutFlipFrom: [],
+  birthSeq: 0,
+  birthIds: [],
   focusJobId: null,
   pendingClassFocus: null,
   lastSweep: null,
@@ -2120,6 +2164,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         jobs: [...get().jobs, job].map((j) =>
           j.id === id ? { ...j, linkCount: (j.linkCount ?? 0) + 1 } : j
         ),
+        // t598 — the linked copy is a fresh card in the destination world
+        ...birthArm(get(), [job.id]),
         activeWorkspaceId: workspaceId,
         selectedId: job.id,
         selectedIds: [job.id],
@@ -2310,7 +2356,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           ...(params && Object.keys(params).length > 0 ? { params } : {}),
         }),
       });
-      set({ jobs: [...get().jobs, job], selectedId: job.id, selectedIds: [job.id] });
+      set({
+        jobs: [...get().jobs, job],
+        ...birthArm(get(), [job.id]), // t598 — a mint is a birth
+        selectedId: job.id,
+        selectedIds: [job.id],
+      });
       // a fresh card has no faithful inverse (recreating it would mint a
       // new id) — the redo branch dies here (Task 104)
       get().invalidateRedo();
@@ -2384,7 +2435,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           workspaceId: src.workspaceId ?? undefined,
         }),
       });
-      set({ jobs: [...get().jobs, job], selectedId: job.id, selectedIds: [job.id] });
+      set({
+        jobs: [...get().jobs, job],
+        ...birthArm(get(), [job.id]), // t598 — the linked step is born here
+        selectedId: job.id,
+        selectedIds: [job.id],
+      });
       get().invalidateRedo();
       // the wire — connect() validates ports, guards cycles, draws the
       // optimistic edge immediately (t359) and persists in the background
@@ -2417,9 +2473,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       const have = new Set(get().jobs.map((j) => j.id));
       const haveEdges = new Set(get().edges.map((e) => e.id));
+      const freshJobs = data.jobs.filter((j) => !have.has(j.id));
       set({
-        jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
+        jobs: [...get().jobs, ...freshJobs],
         edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+        // t598 — the pipeline assembles itself in execution order
+        ...birthArm(get(), freshJobs.map((j) => j.id)),
         // t593 — explicitly NOT a command: an import landing rebuilds the
         // world silently (the finger dropped a file, but the world's
         // refit is birth-framing, not an answer to a tidy request).
@@ -2468,9 +2527,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         });
         const have = new Set(get().jobs.map((j) => j.id));
         const haveEdges = new Set(get().edges.map((e) => e.id));
+        const freshJobs = data.jobs.filter((j) => !have.has(j.id));
         set({
-          jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
+          jobs: [...get().jobs, ...freshJobs],
           edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+          // t598 — the new world materializes: per-file cascade, honest to
+          // the sequential merges (each file's cards enter on their own
+          // commit, in the file's own order)
+          ...birthArm(get(), freshJobs.map((j) => j.id)),
           // t593 — systemic (see the sibling import bump): silent rebuild.
           layoutKind: null,
           layoutFlipFrom: [],
@@ -3643,6 +3707,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       set({
         jobs: [...get().jobs, job],
+        ...birthArm(get(), [job.id]), // t598 — the twin is born
         selectedId: job.id,
         selectedIds: [job.id],
         // the old default stands: without openInspector the inspector steps
@@ -3822,6 +3887,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       set({
         jobs: [...get().jobs, excludeJob],
+        ...birthArm(get(), [excludeJob.id]), // t598 — the filter is born
         selectedId: excludeJob.id,
         selectedIds: [excludeJob.id],
       });
@@ -3888,6 +3954,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       set({
         jobs: [...get().jobs, selectJob],
+        ...birthArm(get(), [selectJob.id]), // t598 — the selection is born
         selectedId: selectJob.id,
         selectedIds: [selectJob.id],
       });
@@ -3956,6 +4023,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       set({
         jobs: [...get().jobs, pick],
+        ...birthArm(get(), [pick.id]), // t598 — the picker is born
         selectedId: pick.id,
         selectedIds: [pick.id],
       });
@@ -4020,6 +4088,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       set({
         jobs: [...get().jobs, pick],
+        ...birthArm(get(), [pick.id]), // t598 — the picker is born
         selectedId: pick.id,
         selectedIds: [pick.id],
       });
@@ -4107,6 +4176,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       set({
         jobs: [...get().jobs, train],
+        ...birthArm(get(), [train.id]), // t598 — the trainer is born
         selectedId: train.id,
         selectedIds: [train.id],
       });
@@ -4678,6 +4748,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({
         jobs: [...get().jobs, ...newJobs],
         edges: [...get().edges, ...rewired],
+        ...birthArm(get(), newJobs.map((j) => j.id)), // t598 — copies are born
         selectedIds: newJobs.map((j) => j.id),
         selectedId: newJobs[newJobs.length - 1]?.id ?? null,
         inspectId: null,
@@ -4947,6 +5018,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   consumeViewportArrival: () => set({ arrivalTarget: null }),
   /** t593 — the tidy's answer payload is read once and retired. */
   consumeLayoutCommand: () => set({ layoutKind: null, layoutFlipFrom: [] }),
+  consumeBirths: (played) =>
+    set((s) => ({ birthIds: s.birthIds.filter((id) => !played.includes(id)) })),
   jumpToOrigin: () => {
     // t589 — "0" is the origin's seat. The number row 0–9 is ONE family
     // of places (saved views + the origin), so the jump rides the same
