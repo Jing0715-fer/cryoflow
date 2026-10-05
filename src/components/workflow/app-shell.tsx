@@ -330,7 +330,8 @@ export function AppShell() {
 
   /* Canvas keyboard shortcuts (n8n-style power moves):
    *   F    — center the selected job
-   *   0    — reset pan/zoom
+   *   0    — return to the origin view (t589: glides like 1–9 — the
+   *          number row is one family of places)
    *   1–9  — jump to a bookmarked view (Task 101, stable hotkey seats)
    *   +/−  — zoom in/out around the viewport center
    *   Del  — delete the selected job
@@ -423,9 +424,13 @@ export function AppShell() {
           e.preventDefault();
           void s.redo();
         }
-      } else if (k === "0") {
+      } else if (k === "0" && s.view !== "dashboard") {
+        // t589 — "0" is the origin's seat: the number row 0–9 is ONE
+        // family of places (saved views + the origin), all riding the
+        // arrival relay (glide + held readout + coda tick). Canvas-scoped
+        // like 1–9/F/N — the dashboard owns the digit row for its filters.
         e.preventDefault();
-        s.setViewport({ x: 0, y: 0, zoom: 1 });
+        s.jumpToOrigin();
       } else if (k >= "1" && k <= "9" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         // bookmark hotkey jump (Task 101): digits 1–9 land on the saved
         // view holding that seat. Canvas-only scope like F/N — the

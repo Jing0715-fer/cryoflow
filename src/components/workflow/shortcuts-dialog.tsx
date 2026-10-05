@@ -107,7 +107,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       // duplicate).
       { keys: "/", text: "Focus the palette search — type to filter the job catalog" },
       { keys: "← → ↑ ↓", text: "Walk the graph — hop the anchor to the nearest card in that direction (⇧ extends)" },
-      { keys: "0", text: "Reset pan & zoom (100 %)" },
+      { keys: "0", text: "Return to the origin view (100 %, glides)" },
       { keys: "1–9", text: "Jump to a bookmarked view — seats shown in the bookmarks panel" },
       { keys: "+ / −", text: "Zoom in / out around the viewport center" },
       { keys: "M", text: "Toggle the world-overview map (bottom-right)" },

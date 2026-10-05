@@ -1047,6 +1047,11 @@ interface WorkflowState {
    *  false when no bookmark holds the seat — an honest dead key, no
    *  phantom jump (mirrors the dashboard's empty-slice dead filters). */
   jumpToViewportBookmark: (slot: number) => boolean;
+  /** t589 — return to the origin view (the "0" seat): the origin is a
+   *  PLACE like any bookmarked view, so the jump rides the same arrival
+   *  relay (glide + held readout + coda) as keys 1–9 — the whole number
+   *  row speaks one dialect. */
+  jumpToOrigin: () => void;
   /** t588 — consume-once for the arrival relay: the canvas nulls the
    *  target when it picks it up, so a canvas remount (view switch away
    *  and back) never re-glides to a stale target. */
@@ -4849,6 +4854,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     return true;
   },
   consumeViewportArrival: () => set({ arrivalTarget: null }),
+  jumpToOrigin: () => {
+    // t589 — "0" is the origin's seat. The number row 0–9 is ONE family
+    // of places (saved views + the origin), so the jump rides the same
+    // arrival relay as 1–9: the canvas performs the hold-glide-coda and
+    // the readout lands with the world. A silent re-jump (already at the
+    // origin) churns the glide but the coda stays quiet — "no change,
+    // no sound" holds here too.
+    set({ arrivalTarget: { x: 0, y: 0, zoom: 1 }, arrivalEpoch: get().arrivalEpoch + 1 });
+  },
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),
