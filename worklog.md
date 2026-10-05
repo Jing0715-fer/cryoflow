@@ -8521,3 +8521,27 @@ Stage Summary:
 - 「五败先问会话状态，再问产品」：t584 三连 14/19 时几乎要修 harness 采样窗——probe 取证（armed=true、opacity 严格递减、CSSOM 在场）证明产品健康，干净会话重跑即绿。连环 witness 跑之后的世界不是产品代码的世界——「重跑一次」是 harness 病的最便宜验尸，但重跑前先取证留指纹，否则重跑就是遮丑
 - 「免疫面是 by construction 的设计资产」：delete 清理/load/切工作区/inspect/poll 直接写选择字段不走动词、undo 不碰选择、focusJob 不动选择——这些「不 bump」不是巧合是结构，写进字段注释后它们就是契约的一部分。观察通道（store seq + box-record effect 读 prev）比 arm-in-each-caller 少四个组件的接线，且只有 store 知道哪些变化是手指——快照的正确来源是「上一个 commit」，它本来就在 effect 手里
 - 产出：the selection verbs are fingers（store selReframeSeq/selSig/五动词 bump + minimap startReframe 双臂/box-record 观察/出生静默）+ t596 witness 29/29 + 📸 + t595 witness 契约更新 23/23×2 + 回归全家绿（t593 36 + t592 32 + t591 35 + t590 22 + t589 14 + t588 28 + t587 27 + t586 22 + t585 20 + t584 19 + t578 32 + 单测 113 + tsc/eslint 0）；下窗入口：①build 日 = FRESH gate → prod 全家桶（等箱体 ≥3.5GB）；②judge 风暴活体半场（等稳定夜）；③样式/语义候选：import 落地的应答升级（先答「新世界的入场是否已有自己的声音」）或 t573 活体 roster 硬编码修正（顺手小修）；④t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 597 (收官)
+Agent: main (Z.ai Code, window 2026-10-05 14:09 cron, Job 362852, Task 572 系第 15 次派单)
+Task: QA 现行抓污染 → 清零 → t575/t573/单测 guinier 三条红车道全部复活并免疫——「孤儿探针窗」：数据面首查即见 roster 13（多一个 failed 的 t575 探针孤儿），顺藤摸出 13:5x 死窗、清理三层防线、基线时序教义与断言定罪真相三案，全程零产品改动。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 596（交接摘要说 584——滞后第 N+44 次兑付）；HEAD 9c92df1、树净；200/32ms；available 885MB < 3.5GB → 非 build 日（入口①第 5 窗否决）。派单「Task 13 遗留池」第 N+38 次化石。
+- [QA 现行抓污染] 数据面首查 13 jobs = 11c+1i+**1 failed**——「t575 Volume Lane Probe」（13:59:51 创建，t380 mock cluster ECONNREFUSED 127.0.0.1:3022，staging 即死）。取证：无 t575 进程、3022 无监听 → 13:5x 窗口被硬杀（本箱 OOM 前科），死在 finally 之前，探针成孤儿；worklog 无该窗条目=死在收官前。三面核查（cluster fs 无 class3d_ibjsutdp / host fs 无残留 / ai-verdicts 无孤儿 stamp）→ 唯一污染点是 job 本体，DELETE 后 roster 12 恢复。副产品：autoJudge 掉闸（同族死法——死在 restore 之前），PUT /api/ai/settings 武装回 true。
+- [免疫手术——harness 三处，零产品改动] ① t575 集群门：preflight TCP connect 3022，不可达 → exit 2 零突变退出（门证据当场跑：死集群 → 干净中止、roster 12 保持、零 mint）；② 孤儿清扫：启动时清扫「t575 Volume Lane Probe」遗留（DELETE + rmSync workdir + pruneStamps——与 finally 同一清理原语），RUNNING 探针 = 并发守卫 exit 3；③ t573 roster 动态基线：硬编码 `roster0 === 12` → `> 0`（终检本就比对 roster0，硬编码只会随世界漂移假红——t596 现行 13/14 的根）。
+- [孤儿演习两发——「演习是清扫路径唯一诚实的量法」] 绿跑里的清理路径走零迭代（真孤儿早在装门前被手工清了）——造孤儿让它吃才算见证。第一发揭出「基线测在治愈之前」：roster0 在孤儿在场时捕获（13），清扫治愈到 12，两处 roster 比较全假红（13→12 被判 ✗——**清扫工作正常，是基线的时刻错了**）；修法=清扫挪到 roster0 捕获之前（heal before you measure）+ 断言改「恰好移除 swept 数」（post === pre − swept，能抓过度删除）；第二发全绿（13 → 12 swept 1 + world guard 读治愈基线 12 + 26/26）。MultiEdit 原子性失效一次（第三处 old_str 不匹配但前两处已落）——大手术要逐段验证再跑。
+- [t575 全量复活：26/26 两跑全绿] 两窗挂起的「活体超时」终兑付——探针上集群跑满 100%、3D 体积 64³ float32 回家、judge worker 自动判读（stamp 形/模型/时间戳）、Face B 紫 ✦ badge + 📸、Face D one-opinion（K5 stamp 不动）、roster 12→12、stamp 1→1、console 净。t573 复活：14/14（roster 动态基线当场验证）+ rubric sanity band（coherent → keep/maybe、junk → reject）。
+- [guinier 单测重生——全家唯一红] 旧测试吃已删除世界的真 EPS fixture（`cmto3ts7j…/postprocess_guinier.eps` ENOENT 现行），fixture 不在 git 史、盘上无任何 postprocess EPS。升格为**合成 CPlot2D EPS + 解析往返对账**：按 parser 语法契约（灰 rlineto 网格 / 绝对 moveto-lineto 数据线 / 居中 show=x 刻度 / 右对齐 show=y 刻度 / 色在块尾）从解析曲线生成 EPS，回读后与解析真值逐点比对——40 点 x Δ1.7e-8、y Δ1.3e-6（parser 标定算术对上真值，比旧「看着合理」强）+ 结构拒绝面三件（空 / 无网格 / 单刻度 → null）+ legacy 真文件模式保留（argv）。9/9。
+- [guinier 三笔作者学费——皆 harness 自家] ①合成曲线飞出自画轴范围（sharpened +2 超过轴顶 -4 → canvas 越界 → parser 的图例过滤器**正确**丢弃 → 全 null——parser 无罪，补「轴内自检」守卫）；②offset 容差 1e-6 < toFixed(4) 量化噪声 ~2.7e-6（容差不诚实）；③**offset 断言符号写反**：`sharpened − (original − 2)` 把精确 +2.0 读成恒定 4.0 偏差——调试脚本的常数指纹（4.000e+0 不是噪声）是「错在断言不在产品」的最快验尸；断言能定罪真相，先问「产品对时它会读到什么」。
+- [回归全家桶] t596 29 + t595 23 + t594 28 + t593 36 + t592 32 + t591 35 + t590 22 + t589 14 + t588 28 + t587 27 + t586 22 + t585 20 + t584 19 + t578 32 全绿 + t575 26×2 + t573 14 + guinier 9 + 其余单测（presets 17 / topaz 15 / resume 17 / root-cause / workflow-compat 全绿）+ tsc 0 全量 + eslint 0（src + 三处 harness）；roster 12→12 全家族、console 净、零孤儿进程；mock cluster 留在场上（t380-conn 基础设施，门会挡它的缺席）。
+- [未做与理由] import 落地应答升级（五窗照传——先答「新世界的入场是否已有自己的声音」；低内存窗不做世界突变面）；judge 风暴活体半场（等稳定夜）；build 日全家桶（等 ≥3.5GB——今晨 885MB）；t574 活体复跑（本轮未跑，worker 与集群车道已全通，下窗顺手）；t471 WSL-bridge（照实挂）、t276（门控）。
+
+Stage Summary:
+- 「污染的根因不是清理失败，是创建太早」：finally 是安全网不是计划——探针在任何 preflight 之前就可能铸造，被硬杀的世界连安全网都拿不到。防线按突变时序排列：让坏状态不可表示（gate）优于坏状态可清理（sweep）优于坏状态可修复（finally）——每层都比下一层便宜，且只有第一层对硬杀免疫
+- 「治愈先于测量」：基线必须描述治愈后的世界——带着孤儿测的 baseline 会用幽灵缠住之后每一次比较（roster0=13 让两处全绿断言假红）。self-heal 的正确位置在一切读数之前，不在 preflight 清单的中间
+- 「断言能定罪真相」：符号写反的 offset 断言把精确 +2.0 读成恒定 4.0 偏差——连续假败先画容差预算（量化噪声 ~2.7e-6），再问「如果产品是对的，断言会读到什么」；恒定指纹（不是噪声的常数）指向断言自身，不是产品
+- 「测试吃 graveyard 时，往返比遗物更诚实」：fixture 依赖已删除世界的测试只会死于意外；按对方语法合成输入、回读、与解析真值比对，验证的是标定算术本身且永久自包含——fixture 测试验证「世界还记得」，往返测试验证「数学还成立」
+- 「演习是清理路径唯一诚实的量法」：全绿运行里的清理分支常走零迭代——「编译通过」≠「清扫能用」。造一个它该吃的东西让它吃（drill orphan），看清扫的计数断言咬合，才算见过它工作
+- 产出：t575 三层免疫（gate/sweep/动态基线 + heal-before-measure 时序）+ 孤儿演习两发定谳 + t575 26/26×2 + t573 14/14 + guinier 往返 9/9（唯一红测试复活）+ 回归全家绿 + autoJudge 再武装 + mock cluster 复役；下窗入口：①build 日 = FRESH gate → prod 全家桶（等箱体 ≥3.5GB）；②judge 风暴活体半场（等世界稳定夜）；③样式/语义候选：import 落地的应答升级（六窗悬置——先答「新世界的入场是否已有自己的声音」）或 t574 活体复跑（顺手）；④t471 WSL-bridge（照实挂）、t276（门控）
