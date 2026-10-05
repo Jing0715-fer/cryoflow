@@ -1066,8 +1066,20 @@ interface WorkflowState {
     toPort?: string,
     /** t442 — quiet mode: duplication wires N edges in one gesture and
      *  the receipt belongs to the DUPLICATION toast (t146's aggregate
-     *  law), not to N per-wire announcements. Errors still speak. */
-    opts?: { quiet?: boolean }
+     *  law), not to N per-wire announcements. Errors still speak.
+     *  t600 — drawIn: the verb's wire draws itself in on the cards'
+     *  staircase (the third face of t599's "who ever drew the line"
+     *  boundary). Three faces: (1) the finger-dragged LiveWire never
+     *  arms — its pending stroke occupied the wire's place, the
+     *  completed line is CONTINUITY (t359); (2) the panel's port-pair
+     *  click never arms — the user named THAT wire, item by item; (3)
+     *  the VERB's wires arm — a next-step / twin / adoption wire is
+     *  payload the world grew alongside a newborn card (the user
+     *  clicked "add a step" or "filter" or "train", never "draw this
+     *  wire"), and nobody ever drew it. Rollback direction is safe:
+     *  a failed POST leaves the id unconsumed in the payload, and the
+     *  birth window's retire sweeps it (per-id consume, t598). */
+    opts?: { quiet?: boolean; drawIn?: boolean }
   ) => Promise<void>;
   removeEdge: (id: string) => Promise<void>;
   pollTick: () => Promise<void>;
@@ -2457,8 +2469,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       get().invalidateRedo();
       // the wire — connect() validates ports, guards cycles, draws the
-      // optimistic edge immediately (t359) and persists in the background
-      await get().connect(src.id, job.id, step.fromPort, step.toPort);
+      // optimistic edge immediately (t359) and persists in the background.
+      // t600 — the next step's wire is the verb's payload, not a drawn
+      // line: it draws in alongside the newborn card (one breath).
+      await get().connect(src.id, job.id, step.fromPort, step.toPort, { drawIn: true });
       // arrival: focus frames the new card (the source may live far from
       // the viewport center) without stealing the params panel's context
       get().focusJob(job.id);
@@ -3738,6 +3752,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       for (const w of manual) {
         await get().connect(w.fromJobId, job.id, w.fromPort ?? undefined, w.toPort ?? undefined, {
           quiet: true,
+          drawIn: true, // t600 — the twin's re-wires are payload too
         });
       }
       const wired = manual.length + (autoEdge ? 1 : 0);
@@ -3912,7 +3927,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       get().focusJob(excludeJob.id);
       // the wire run B → filter (connect validates, draws optimistically,
       // persists — the t359 law the duplication already rides)
-      await get().connect(runB.id, excludeJob.id, fromPort, toPort);
+      await get().connect(runB.id, excludeJob.id, fromPort, toPort, {
+        drawIn: true, // t600 — the filter's feed is grown, not drawn
+      });
       // the adoption: run A's downstream re-parents onto the FILTER —
       // its own receipt names the filter as the new provider (the graph
       // shows the verdict as wiring, not as a memory)
@@ -3982,6 +3999,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       for (const pair of wirePairs) {
         await get().connect(runB.id, selectJob.id, pair.fromPort, pair.toPort, {
           quiet: true,
+          drawIn: true, // t600 — the adoption's feeds are grown, not drawn
         });
       }
       // the adoption: run A's downstream re-parents onto the SELECTION —
@@ -4048,8 +4066,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       get().focusJob(pick.id);
       // the wires, quiet — the card's toast is the gesture's voice:
       // model → Topaz mode, micrographs follow the training input
-      await get().connect(train.id, pick.id, "model", "topazModel", { quiet: true });
-      await get().connect(source.id, pick.id, feed.fromPort, "micrographs", { quiet: true });
+      await get().connect(train.id, pick.id, "model", "topazModel", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
+      await get().connect(source.id, pick.id, feed.fromPort, "micrographs", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
       toast({
         title: "Topaz Pick minted",
         description:
@@ -4112,7 +4136,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       get().invalidateRedo();
       get().focusJob(pick.id);
       // one quiet wire — the card's toast is the gesture's voice
-      await get().connect(denoise.id, pick.id, "micrographs", "micrographs", { quiet: true });
+      await get().connect(denoise.id, pick.id, "micrographs", "micrographs", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
       toast({
         title: "Topaz Pick minted",
         description:
@@ -4202,8 +4229,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // two quiet wires — the card's toast is the gesture's voice:
       // the denoised stack feeds the training images, the manual picks
       // (named in the toast — honesty through naming) feed the labels
-      await get().connect(denoise.id, train.id, "micrographs", "micrographs", { quiet: true });
-      await get().connect(pick.id, train.id, "coords", "coords", { quiet: true });
+      await get().connect(denoise.id, train.id, "micrographs", "micrographs", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
+      await get().connect(pick.id, train.id, "coords", "coords", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
       toast({
         title: "Topaz Training minted",
         description: `Wired to the denoised stack and coordinates from "${pick.name}" — review the params and run.`,
@@ -4257,11 +4290,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // back with a toast.
     const optimisticId = crypto.randomUUID();
     unconfirmedEdges.add(optimisticId);
+    // t600 — the draw-in arm rides the SAME set() as the optimistic
+    // edge (one commit, so the layout effect pins the from-frame before
+    // the wire's first paint — the t599 batch law, now for verbs).
     set({
       edges: [
         ...get().edges,
         { id: optimisticId, fromJobId: from, toJobId: to, fromPort, toPort },
       ],
+      ...(opts?.drawIn
+        ? { birthEdgeIds: [...get().birthEdgeIds, optimisticId] }
+        : null),
       pendingFrom: null,
     });
     // wire edits have no id-stable inverse (re-creating mints a new edge
