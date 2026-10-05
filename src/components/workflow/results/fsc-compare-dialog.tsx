@@ -818,7 +818,7 @@ export function FscCompareDialog({
                           dot={false}
                           activeDot={{ r: 4, fill: pal.stroke }}
                           connectNulls
-                          isAnimationActive={false}
+                          isAnimationActive={false /* the curves don't dance — the t610 mute law (fsc-chart.tsx header) */}
                         />
                       );
                     })}

@@ -180,7 +180,7 @@ export function GuinierChart({
               stroke={TEAL}
               strokeWidth={1.8}
               dot={false}
-              isAnimationActive={false}
+              isAnimationActive={false /* the curve doesn't dance — the t610 mute law (fsc-chart.tsx header): a refetch hands the line a new array and an animated curve would re-draw itself on every poll */}
               name="lnAmp"
             />
             {hasSharpened ? (

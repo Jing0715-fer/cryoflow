@@ -325,7 +325,7 @@ export function TopazTrainingChart({
               dot={{ r: 1.5, fill: TEAL, strokeWidth: 0 }}
               activeDot={{ r: 4, fill: TEAL }}
               connectNulls
-              isAnimationActive={false}
+              isAnimationActive={false /* the curves don't dance — the t610 mute law (fsc-chart.tsx header): the live poll re-hands every training curve its data and an animated line would re-draw itself each tick */}
               name="trainLoss"
             />
             <Line

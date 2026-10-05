@@ -193,7 +193,7 @@ export function ResolutionChart({
               fill="url(#resFill)"
               dot={{ r: 1.5, fill: TEAL, strokeWidth: 0 }}
               activeDot={{ r: 4, fill: TEAL }}
-              isAnimationActive={false}
+              isAnimationActive={false /* the curve doesn't dance — the t610 mute law (fsc-chart.tsx header) */}
             />
           </AreaChart>
         </ResponsiveContainer>

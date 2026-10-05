@@ -218,7 +218,7 @@ function ResolutionArcDialog({
                 stroke="#0d9488"
                 strokeWidth={2}
                 dot={{ r: 2.5, fill: "#0d9488" }}
-                isAnimationActive={false}
+                isAnimationActive={false /* the curve doesn't dance — the t610 mute law (fsc-chart.tsx header) */}
               />
             </LineChart>
           </ResponsiveContainer>

@@ -192,7 +192,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
               fillOpacity={0.75}
               stroke={TEAL}
               strokeWidth={1}
-              isAnimationActive={false}
+              isAnimationActive={false /* the curve doesn't dance — the t610 mute law (fsc-chart.tsx header) */}
             />
           </ScatterChart>
         </ResponsiveContainer>

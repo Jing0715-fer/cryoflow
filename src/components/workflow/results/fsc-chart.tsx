@@ -13,6 +13,26 @@
  *
  * X axis: resolution in Å, REVERSED so the high-resolution end (right) is
  * "further along" — the conventional cryo-EM orientation.
+ *
+ * t610 — THE CURVE DOESN'T DANCE (the chart family's mute law; this file is
+ * its eldest host — guinier, resolution, ctf-quality, topaz-training, the
+ * resolution arc dialog and the FSC compare dialog all inherit it).
+ *
+ * Every Recharts line/area/bar in this family carries
+ * `isAnimationActive={false}`, and that is a DECISION, not an omission:
+ * recharts re-runs its line-draw animation whenever the data prop's array
+ * identity changes, and these charts' parents refetch (JobResults' Refresh,
+ * the 30s live poll while a job runs) — every refetch hands the curve a
+ * fresh array even when the numbers are identical. An animated curve would
+ * re-perform its own drawing on each of those moments: motion without
+ * change, noise wearing the costume of news. The measurements are already
+ * measured; the wire merely delivers them.
+ *
+ * The two-layer honesty that replaces it: the CARD rises once (animate-rise
+ * on the section below — the furniture arriving when its data first lands)
+ * and the CURVE stays still inside it (the measurement itself). Refresh,
+ * poll ticks and re-mounts are all silent by the same law. Do not "fix"
+ * these flags back to animated.
  */
 
 import { useMemo, useState } from "react";
