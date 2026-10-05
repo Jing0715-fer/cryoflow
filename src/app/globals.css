@@ -1965,10 +1965,16 @@
   .reveal-flash {
     display: none !important;
   }
-  .viewport-glide {
-    transition: none !important;
-  }
-  [data-flip-play] [data-job] {
+  /* t594 — one merged print group (the paper has no arrivals): the flash
+     never prints (the span also carries print:hidden), a mid-glide print
+     must not smear the transform, the flip never flies mid-paper, and the
+     map's marker has no journey on paper. NOTE: the minifier DROPPED this
+     rule when it was a separate selector it had to merge itself (served
+     sheet carried only the first two) — merging by hand keeps all four
+     honest in the product. */
+  .viewport-glide,
+  [data-flip-play] [data-job],
+  [data-canvas-ui="minimap-vp"] {
     transition: none !important;
   }
 }
@@ -1989,6 +1995,39 @@
 @media (prefers-reduced-motion: no-preference) {
   [data-flip-play] [data-job] {
     transition: transform 0.48s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+}
+
+/* t594 — the map's marker rides the journey. beginGlideArrival writes the
+   destination into the store ONCE and lets the workspace's CSS transition
+   carry the camera (t588); the minimap's viewport window rect reads the
+   same store — without a transition it TELEPORTS to the destination on
+   the first painted frame while the camera is still mid-flight: for
+   0.48s every arrival, the "you are here" marker lies about where you
+   are. x/y/width/height are SVG geometry properties (transitionable in
+   every modern engine), and the arming signal is the SAME viewport-glide
+   class the camera rides, reached from the section through :has() — the
+   map is a sibling of the workspace, not its descendant. Curve and
+   duration are the camera's and the cards' EXACTLY (t593's one-journey-
+   one-rhythm law, now three organs: skeleton first, cards fly, camera
+   glides, and the map's marker rides its own projection of the same
+   journey). Wheel and pan never arm the class, so live tracking stays
+   1:1 instant; zoom commands tick but don't glide (t590) and stay
+   instant too. rx and stroke-width follow the world box, not the
+   viewport — furniture of the frame, left to re-frame instantly. In fit
+   mode the map's projection (the viewBox) re-frames once at arrival
+   start — that reframe is furniture moving with the frame; the ride is
+   the journey. Belt-and-braces media gate mirrors the flip stanza (the
+   JS armer already checks the same query; a future armer that forgets
+   gets silence, not a seizure). */
+@media (prefers-reduced-motion: no-preference) {
+  [data-canvas="viewport"]:has([data-canvas="workspace"].viewport-glide)
+    [data-canvas-ui="minimap-vp"] {
+    transition:
+      x 0.48s cubic-bezier(0.22, 0.61, 0.36, 1),
+      y 0.48s cubic-bezier(0.22, 0.61, 0.36, 1),
+      width 0.48s cubic-bezier(0.22, 0.61, 0.36, 1),
+      height 0.48s cubic-bezier(0.22, 0.61, 0.36, 1);
   }
 }
 
