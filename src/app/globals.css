@@ -2118,7 +2118,14 @@
    the canvas via poll (found dead, not killed before your eyes). A
    resurrection during the breath (Ctrl+Z mid-fade) prunes the ghost at
    once — the death was revoked, the memory must not outlive it. Under
-   reduced motion the whole layer is display:none (no frozen corpse). */
+   reduced motion the whole layer is display:none (no frozen corpse).
+   t602 — the wire killed ALONE (the hover X on the wire itself, the
+   I/O tab's remove chip) breathes in the same layer and the same air:
+   [data-ghost-wire] is shared, the loner only carries data-ghost-loner
+   as a DOM contract marker (no CSS of its own). A lone wire has no
+   gravity to sink with — it only fades, no staircase (each click is
+   its own command; the staircases serve ONE command taking multiple
+   bodies). */
 @keyframes card-exit {
   from {
     opacity: 1;

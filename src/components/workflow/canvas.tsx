@@ -1668,6 +1668,68 @@ export function WorkflowCanvas() {
   // the lens claims to spotlight "noted" work.
   const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
   const allEdges = useWorkflowStore((s) => s.edges);
+
+  /* ---------------- t602 — the wire's own last breath ---------------- */
+
+  // The loner's exit rides the organ's air (ghost-wire-exit is shared):
+  // a lone wire has no gravity to sink with, it only fades — 400ms on
+  // the same mirror bezier, no staircase (each click is its own command;
+  // the t601 staircases serve ONE command taking multiple bodies).
+  // Retire budget: 0 delay + 400 + 120 = 520ms — the attributes must
+  // outlive the exhale, the t584 settle-budget discipline.
+  const EDGE_DEATH_RETIRE_MS = 400 + 120;
+  const deathEdgeSeq = useWorkflowStore((s) => s.deathEdgeSeq);
+  const deathEdgeGhosts = useWorkflowStore((s) => s.deathEdgeGhosts);
+  // The render face rides the WIRES' own deferral: the edges layer mounts
+  // on the deferred pass (deferredEdges — the t595 mechanism-follows-channel
+  // law), so the wire also UNMOUNTS one deferred commit after the urgent
+  // truth — a loner mounted urgent would overlap its own corpse for a
+  // frame or two. Deferred, the ghost mounts in the SAME commit the wire
+  // actually leaves: one commit, one body (the t601 law, loner edition).
+  const renderDeathEdgeGhosts = React.useDeferredValue(deathEdgeGhosts);
+  const deathEdgeSweepRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (deathEdgeSweepRef.current) clearTimeout(deathEdgeSweepRef.current);
+    },
+    []
+  );
+  // The render face of revival: a loner whose wire is live again (a
+  // failed DELETE's restore) is skipped THE SAME COMMIT the wire returns
+  // (the effect below prunes the store data a beat later) — no frame of
+  // haunting, not even one. The urgent truth decides (t601): revival and
+  // retire are about truth, not paint.
+  const breathingEdgeGhosts = renderDeathEdgeGhosts.filter(
+    (g) => !allEdges.some((e) => e.id === g.id)
+  );
+  // Two duties, both OUTSIDE the paint path (the ghost elements carry
+  // their own mount-time animation with `both` fill): ① a revival
+  // supersedes the breath at once; ② the window closes bornAt-based, so
+  // a poll tick re-running this effect recomputes the remaining window
+  // instead of pushing it (a timer re-armed on every edges change would
+  // never close under the 1.2s run-cadence poll).
+  React.useEffect(() => {
+    if (deathEdgeGhosts.length === 0) return;
+    const aliveIds = deathEdgeGhosts
+      .map((g) => g.id)
+      .filter((id) => allEdges.some((e) => e.id === id));
+    if (aliveIds.length > 0) {
+      useWorkflowStore.getState().pruneDeathEdgeGhosts(aliveIds);
+      return; // the prune re-triggers this effect via deathEdgeGhosts
+    }
+    const now = Date.now();
+    const youngest = Math.max(...deathEdgeGhosts.map((g) => g.bornAt));
+    const remaining = EDGE_DEATH_RETIRE_MS - (now - youngest);
+    if (remaining <= 0) {
+      useWorkflowStore.getState().retireDeathEdgeGhosts();
+      return;
+    }
+    if (deathEdgeSweepRef.current) clearTimeout(deathEdgeSweepRef.current);
+    deathEdgeSweepRef.current = setTimeout(() => {
+      deathEdgeSweepRef.current = null;
+      useWorkflowStore.getState().retireDeathEdgeGhosts();
+    }, remaining);
+  }, [deathEdgeSeq, deathEdgeGhosts, allEdges]);
   // Task 164 — the context radius. The lens used to be a binary flood:
   // every unjudged card sank to the same deep dim, which kept the judged
   // islands but erased WHERE they sit in the pipeline. Now the unjudged
@@ -2394,8 +2456,11 @@ export function WorkflowCanvas() {
               in the same commit the store lost the endpoints). The whole
               layer is pointer-events-none and aria-hidden: the dead
               cannot be interacted with, and screen readers already saw
-              the removal announced via the store truth. */}
-          {breathingGhosts.length > 0 && (
+              the removal announced via the store truth. t602 — the layer
+              also hosts the LONERS: wires killed alone (the hover X on
+              the wire itself, the I/O tab's remove chip) breathe in the
+              same svg and the same air, marked data-ghost-loner. */}
+          {(breathingGhosts.length > 0 || breathingEdgeGhosts.length > 0) && (
             <div
               data-death-ghost-layer=""
               aria-hidden="true"
@@ -2407,6 +2472,23 @@ export function WorkflowCanvas() {
                 className="absolute left-0 top-0"
                 style={{ overflow: "visible" }}
               >
+                {/* t602 — the loners breathe FIRST (below the organs): the
+                    body's death is the louder memory. Same ghost gray,
+                    same air; the staircase does not apply — each click is
+                    its own command, so the breath starts at once. */}
+                {breathingEdgeGhosts.map((g) => (
+                  <path
+                    key={g.id}
+                    data-ghost-wire={g.id}
+                    data-ghost-loner=""
+                    d={g.d}
+                    fill="none"
+                    stroke="color-mix(in oklch, var(--foreground) 32%, transparent)"
+                    strokeWidth={2.25}
+                    strokeLinecap="round"
+                    style={{ "--death-cd": "0ms" } as React.CSSProperties}
+                  />
+                ))}
                 {breathingGhosts.flatMap((g) =>
                   g.wires.map((w) => (
                     <path

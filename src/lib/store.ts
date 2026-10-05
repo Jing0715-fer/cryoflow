@@ -554,6 +554,20 @@ export interface DeathGhost {
   wires: DeathGhostWire[];
 }
 
+/** t602 — a wire killed ALONE (the hover X on the wire itself, the I/O
+ *  tab's remove chip — every removeEdge call site in the app is a
+ *  finger) leaves a frozen memory of its own. Wires that die WITH their
+ *  body are organs of the card's ghost (t601) and never enter this
+ *  family: whichever verb removes the edge first is the only one that
+ *  ever saw it, so the two ghost families are disjoint by construction.
+ *  Geometry frozen at arm time (a memory of the wire as it was, not a
+ *  live channel — the t601 organ law, loner edition). */
+export interface DeathEdgeGhost {
+  id: string;
+  d: string;
+  bornAt: number;
+}
+
 /** t601 — build the ghosts for one finger-commanded delete. Called from
  *  removeJobsRaw BEFORE the removal set() — the dying jobs and their
  *  edges are passed in while still in state, which is the whole point:
@@ -575,8 +589,12 @@ function buildDeathGhosts(
     if (fs != null && ts != null) wireHome.set(e.id, fs <= ts ? e.fromJobId : e.toJobId);
     else wireHome.set(e.id, fs != null ? e.fromJobId : e.toJobId);
   }
-  // freeze the geometry from the LIVING world (endpoints all present)
-  const geoms = touching.length > 0 ? computeEdgeGeoms(touching, jobs, null) : [];
+  // freeze the geometry from the LIVING world (endpoints all present) —
+  // t602 — from the FULL edge list, not the touching subset: the
+  // fan-apart offsets among a shared endpoint's wires are part of what
+  // the eye saw, and a subset-computed memory would remember a wire
+  // that never rendered
+  const geoms = edges.length > 0 ? computeEdgeGeoms(edges, jobs, null) : [];
   const geomById = new Map(geoms.map((g) => [g.edge.id, g]));
   const now = Date.now();
   return deletedIds.map((id, i) => {
@@ -737,6 +755,17 @@ interface WorkflowState {
    *  closes. Rendered below the living cards (a ghost never covers the
    *  living); pointer-events none throughout. */
   deathGhosts: DeathGhost[];
+  /** t602 — the loner wire's death epoch (bumped per arm, the render face
+   *  reads it to re-run revival/retire duties). */
+  deathEdgeSeq: number;
+  /** t602 — the frozen memories of wires killed ALONE (the hover X on the
+   *  wire itself, the I/O tab's remove chip — every removeEdge call site
+   *  is a finger, so the arm lives in the verb by construction). Wires
+   *  that die WITH their body are organs of the card's ghost (t601) and
+   *  never enter this family: whichever verb removes the edge first is
+   *  the only one that ever saw it. Same breathing protocol as the cards:
+   *  pruned on revival, retired wholesale when the window closes. */
+  deathEdgeGhosts: DeathEdgeGhost[];
   /** t593 — the pre-tidy seats of every moved card, captured at the bump
    *  so the canvas can FLIP (invert from the old seat, play to the new)
    *  without racing the commit. Read together with layoutKind and
@@ -1297,6 +1326,12 @@ interface WorkflowState {
   pruneDeathGhosts: (aliveIds: string[]) => void;
   /** t601 — the breath window closed: retire every ghost wholesale. */
   retireDeathGhosts: () => void;
+  /** t602 — prune loners whose wire is live again (a failed DELETE's
+   *  restore mid-breath): the death was revoked, the memory must not
+   *  outlive it. */
+  pruneDeathEdgeGhosts: (aliveIds: string[]) => void;
+  /** t602 — the loner's breath window closed: retire wholesale. */
+  retireDeathEdgeGhosts: () => void;
   setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
@@ -2021,6 +2056,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   birthSeq: 0,
   deathSeq: 0,
   deathGhosts: [],
+  deathEdgeSeq: 0,
+  deathEdgeGhosts: [],
   birthIds: [],
   birthEdgeIds: [],
   focusJobId: null,
@@ -4520,10 +4557,38 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   removeEdge: async (id) => {
     const victim = get().edges.find((e) => e.id === id);
     if (!victim) return; // already gone (a second click on a dying chip)
+    // The X on the wire itself and the I/O chip's remove are FINGERS
+    // (the only removeEdge call sites in the app), so every removeEdge
+    // death is a kill before the user's eyes and earns its breath by
+    // construction — no opt needed, the arm lives in the verb (the
+    // mirror of t601's "arm in the finger verbs").
+    // t602 — freeze the loner's memory BEFORE the arm (after the commit
+    // the endpoints are gone and no geometry could be computed — the
+    // t601 builder law). The geometry comes from the FULL living list:
+    // the fan-apart offsets (computeEdgeGeoms spreads wires that share
+    // an endpoint) are part of what the eye saw — a memory computed
+    // from the victim alone would remember a wire that never rendered.
+    const geom = computeEdgeGeoms(get().edges, get().jobs, null).find(
+      (g) => g.edge.id === victim.id
+    );
+    const ghost: DeathEdgeGhost | null = geom
+      ? { id: victim.id, d: geom.d, bornAt: Date.now() }
+      : null;
     // t359 — THE WIRE VANISHES NOW (same receipt as connect: never make
     // the visible canvas wait on an API round trip); persistence runs in
     // the background and a real failure restores it with a toast.
-    set({ edges: get().edges.filter((e) => e.id !== id) });
+    // t602 — the arm rides the SAME set() (the t600 same-commit law,
+    // death edition): one commit moves the truth and hands the canvas
+    // its memory.
+    set({
+      edges: get().edges.filter((e) => e.id !== id),
+      ...(ghost
+        ? {
+            deathEdgeGhosts: [...get().deathEdgeGhosts, ghost],
+            deathEdgeSeq: get().deathEdgeSeq + 1,
+          }
+        : {}),
+    });
     get().invalidateRedo();
     toast({ title: "Edge removed" });
     if (unconfirmedEdges.has(id)) {
@@ -4540,7 +4605,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // exactly what was asked; anything else restores it
     } catch (err) {
       if ((err as Error & { status?: number }).status !== 404) {
-        set({ edges: [...get().edges, victim] });
+        // t602 — the death was revoked; the loner's memory must not
+        // outlive it (one seat, one memory — the revival supersede).
+        set({
+          edges: [...get().edges, victim],
+          deathEdgeGhosts: get().deathEdgeGhosts.filter((g) => g.id !== victim.id),
+        });
         errToast(err instanceof Error ? err.message : "Failed to remove edge");
       }
     }
@@ -5239,6 +5309,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }));
   },
   retireDeathGhosts: () => set({ deathGhosts: [] }),
+  // t602 — the loner's revival and retire: the exact t601 verbs on the
+  // wire's own family (one seat, one memory; the sweep stays bornAt-based
+  // so a poll tick recomputes the window instead of pushing it)
+  pruneDeathEdgeGhosts: (aliveIds) => {
+    if (aliveIds.length === 0) return;
+    const alive = new Set(aliveIds);
+    set((s) => ({
+      deathEdgeGhosts: s.deathEdgeGhosts.filter((g) => !alive.has(g.id)),
+    }));
+  },
+  retireDeathEdgeGhosts: () => set({ deathEdgeGhosts: [] }),
   jumpToOrigin: () => {
     // t589 — "0" is the origin's seat. The number row 0–9 is ONE family
     // of places (saved views + the origin), so the jump rides the same
