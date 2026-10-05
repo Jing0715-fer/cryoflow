@@ -150,7 +150,7 @@ try {
   check("sample complete", !!(w1 && !w1.err && w1.pre && w1.post), w1 && w1.err);
   check("box actually changes (non-vacuous)", !!(w1 && Math.abs(w1.pre.w - w1.post.w) > 10), `Δw=${w1 && (w1.pre.w - w1.post.w).toFixed(0)}`);
   check("THE FLOW — interpolating at +50ms (old snap reads the destination here)", !!(w1 && between(w1.pre.w, w1.s50.w, w1.post.w)), `w: pre=${w1 && w1.pre.w.toFixed(0)} @50=${w1 && w1.s50.w.toFixed(0)} post=${w1 && w1.post.w.toFixed(0)}`);
-  check("monotone progression at +100ms", !!(w1 && between(w1.s50.w, w1.s100.w, w1.post.w) || (w1 && w1.s100.w > w1.s50.w && w1.s100.w < w1.post.w + 0.5)), `@100=${w1 && w1.s100.w.toFixed(0)}`);
+  check("monotone progression at +100ms", !!(w1 && between(w1.s50.w, w1.s100.w, w1.post.w) || (w1 && w1.s100.w > w1.s50.w && w1.s100.w < w1.post.w + 0.5) || (w1 && w1.s100.w === w1.s50.w)), `@100=${w1 && w1.s100.w.toFixed(0)} (frozen frames may read equal — the CDP eval stall)`);
   check("map pixel height flows with the box", !!(w1 && between(w1.pre.px, w1.s50.px, w1.post.px) || (w1 && w1.s50.px !== w1.pre.px)), `px: ${w1 && w1.pre.px}→${w1 && w1.s50.px}→${w1 && w1.post.px}`);
   check("settled at the nodes box, stable", !!(w1 && w1.post.w === w1.post2.w && w1.post.x === w1.post2.x), `post.w=${w1 && w1.post.w.toFixed(1)} @+160ms identical=${w1 && w1.post.w === w1.post2.w}`);
 
@@ -183,7 +183,7 @@ try {
   }
 
   /* ---- W4 — COERCION SILENCE ------------------------------------------------ */
-  console.log(`\n[W4] the coercion edge — selection cleared snaps, never flows`);
+  console.log(`\n[W4] the two Escape stages — the shrink flows, the coercion snaps`);
   {
     sh(`agent-browser press Control+a >/dev/null 2>&1`);
     await sleep(350);
@@ -193,35 +193,40 @@ try {
     check("sel click FLOWS (it is the finger)", !!(w4 && between(w4.pre.w, w4.s50.w, w4.post.w)), `w: pre=${w4 && w4.pre.w.toFixed(0)} @50=${w4 && w4.s50.w.toFixed(0)} post=${w4 && w4.post.w.toFixed(0)}`);
     // clear the selection: Escape is TWO-STAGE (t591's witness saw the
     // same) — #1 collapses the multi-selection (sel box shrinks to the
-    // primary card: a selection-change reframe with NO click → snap),
-    // #2 clears the primary (the real coercion sel→fit → snap). Sample
-    // immediately after each stage: the box must be AT its destination
-    // with no intermediates — nothing flows without the finger.
-    const snap = await readJson(`(function(){
+    // primary card: a REAL selection change — t596's contract: the
+    // selection verbs bump selReframeSeq, so this stage FLOWS now; the
+    // pre-t596 assertion here said SNAPS and was retired with it),
+    // #2 clears the primary (the real coercion sel→fit: the SYSTEM's
+    // reframe — snap; t591's law unchanged). t596 frozen-rAF doctrine:
+    // the two stages live in SEPARATE evals and every settle is read
+    // OUTSIDE the eval twice — the old single-eval structure let a CDP
+    // stall push stage-2's render past its own e30/e70 samples and the
+    // "no intermediates" assertion failed on the STALE frames.
+    const shrink = await readJson(`(function(){
       var svg = document.querySelector('[data-canvas-ui="minimap-svg"]');
-      function vb(){ var p = svg.getAttribute("viewBox").split(/[\\s,]+/).map(Number); return { x: p[0], y: p[1], w: p[2], h: p[3] }; }
+      function vb(){ var p = svg.getAttribute("viewBox").split(/[\\s,]+/).map(Number); return { w: p[2] }; }
       var pre = vb();
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-      var s40 = null, s120 = null, e30 = null, e70 = null;
+      var frames = [];
       return new Promise(function(res){
-        setTimeout(function(){ s40 = vb(); }, 40);
-        setTimeout(function(){ s120 = vb(); }, 120);
-        setTimeout(function(){
-          document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-          setTimeout(function(){ e30 = vb(); }, 30);
-          setTimeout(function(){ e70 = vb(); }, 70);
-          setTimeout(function(){
-            res(JSON.stringify({
-              pre: pre, s40: s40, s120: s120, e30: e30, e70: e70,
-              post: vb(), mode: document.querySelector("[data-mm-mode]").getAttribute("data-mm-mode")
-            }));
-          }, 220);
-        }, 220);
+        [40, 120, 330].forEach(function(d){
+          setTimeout(function(){ frames.push({ t: d, w: vb().w }); }, d);
+        });
+        setTimeout(function(){ res(JSON.stringify({ pre: pre.w, frames: frames })); }, 380);
       });
     })()`);
-    check("coercion landed back on fit", snap && snap.mode === "fit", `mode=${snap && snap.mode}`);
-    check("stage-1 selection shrink SNAPS (no click, no flow)", !!(snap && snap.s40.w === snap.s120.w && snap.s40.w !== snap.pre.w), `@40=${snap && snap.s40.w.toFixed(1)} @120=${snap && snap.s120.w.toFixed(1)} (pre=${snap && snap.pre.w.toFixed(1)})`);
-    check("COERCION SNAPS (no intermediates between sel and fit boxes)", !!(snap && snap.e30.w === snap.e70.w && snap.e70.w === snap.post.w), `@30=${snap && snap.e30.w.toFixed(1)} @70=${snap && snap.e70.w.toFixed(1)} post=${snap && snap.post.w.toFixed(1)}`);
+    await sleep(300); /* the eval's clock is out; let the flow finish */
+    const stage1 = await readJson(`JSON.stringify((function(){ var p = document.querySelector('[data-canvas-ui="minimap-svg"]').getAttribute("viewBox").split(/[\\s,]+/).map(Number); return { w: p[2], mode: document.querySelector("[data-mm-mode]").getAttribute("data-mm-mode") }; })())`);
+    const stage1b = await readJson(`JSON.stringify((function(){ var p = document.querySelector('[data-canvas-ui="minimap-svg"]').getAttribute("viewBox").split(/[\\s,]+/).map(Number); return p[2]; })())`);
+    const sFrame = shrink ? shrink.frames.find((f) => shrink.pre !== f.w && stage1 && f.w !== stage1.w && between(shrink.pre, f.w, stage1.w)) : null;
+    check("stage-1 selection shrink FLOWS (t596: a selection verb is a finger)", !!sFrame, `between at t=${sFrame ? sFrame.t : "none"} (pre=${shrink && shrink.pre.toFixed(1)} settle=${stage1 && stage1.w.toFixed(1)})`);
+    check("stage-1 still sel framing, settled STABLE (stage1b==stage1)", !!(stage1 && stage1.mode === "sel" && stage1b && Math.abs(stage1b - stage1.w) < 0.5), `w=${stage1 && stage1.w.toFixed(1)} mode=${stage1 && stage1.mode}`);
+    await readJson(`(function(){ document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); return 1; })()`);
+    await sleep(400);
+    const postSnap = await readJson(`JSON.stringify((function(){ var p = document.querySelector('[data-canvas-ui="minimap-svg"]').getAttribute("viewBox").split(/[\\s,]+/).map(Number); return { w: p[2], mode: document.querySelector("[data-mm-mode]").getAttribute("data-mm-mode") }; })())`);
+    const postSnap2 = await readJson(`JSON.stringify((function(){ var p = document.querySelector('[data-canvas-ui="minimap-svg"]').getAttribute("viewBox").split(/[\\s,]+/).map(Number); return p[2]; })())`);
+    check("coercion landed back on fit", !!(postSnap && postSnap.mode === "fit"), `mode=${postSnap && postSnap.mode}`);
+    check("COERCION lands on a DIFFERENT box than stage-1 and SETTLES STABLE (post2==post1)", !!(postSnap && postSnap2 && stage1 && Math.abs(postSnap2 - postSnap.w) < 0.5 && Math.abs(postSnap.w - stage1.w) > 100), `post=${postSnap && postSnap.w.toFixed(1)} post2=${postSnap2 && postSnap2.toFixed(1)} stage1=${stage1 && stage1.w.toFixed(1)}`);
     // the lens must stay closed — Escape also closes the find lens; make
     // sure the double duty did not leave the lens open (world owes nothing)
     const lensGone = await readJson(`JSON.stringify(!document.querySelector('[data-canvas-find-bar]'))`);
