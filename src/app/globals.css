@@ -947,6 +947,38 @@
   }
 }
 
+/* t607 — the stamp lands. The AI verdict stamp is the Results tab's only
+   mute card: every chart card rises (rise-in above), but the stamp is not
+   a measurement — it is a JUDGMENT, and a stamp does not rise, it lands.
+   Direction IS the semantic: the numbers rise, the verdict drops. Same
+   entrance family (replays on tab switches — Radix unmounts inactive
+   panels, and each mount IS a fresh fetch arriving) and the family
+   bezier, but 240ms — a stamp lands faster than data rises. Mount =
+   arrival: the card mounts the moment its fetch lands (honest absence
+   until then), so a static data attribute on the section is the whole
+   story; -4px is the chip travel's older sibling (chips -3px, rows -6px).
+   Same transform dialect as rise-in (translateY), no scale luggage. */
+@keyframes verdict-stamp-arrival {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-verdict-arrival] {
+  animation: verdict-stamp-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-verdict-arrival] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy

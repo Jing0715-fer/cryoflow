@@ -16,6 +16,9 @@
  *    pass summary and the date — it can never masquerade as engine
  *    output, and it never touches particle counts (the receipt card
  *    beside it owns those).
+ *  - MOUNT IS ARRIVAL (t607): the card mounts the moment its fetch
+ *    lands, so every mount replays the arrival — the stamp LANDS
+ *    (verdict-stamp-arrival) while the chart cards around it rise.
  *  - HONEST ABSENCE: no stamp, fetch failure, or a non-class2d job →
  *    render null. A missing opinion must not paint the tab red.
  *  - THE ORDER IS THE JUDGMENT: keep chips lead (cls asc), then maybe,
@@ -144,6 +147,12 @@ export function AiVerdictStamp({
     <section
       aria-label="AI verdict"
       data-canvas-ui="ai-verdict-stamp"
+      /* t607 — mount = arrival. The card mounts the moment its fetch
+       * lands (honest absence until then), so a static attribute is the
+       * whole story: every mount is a fresh verdict arriving from the
+       * wire, and the stamp LANDS (globals.css verdict-stamp-arrival) —
+       * the chart cards around it rise, the judgment drops. */
+      data-verdict-arrival=""
       className={cn(
         "rounded-lg border border-violet-600/20 bg-violet-500/[0.03] p-3",
         className
