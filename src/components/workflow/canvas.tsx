@@ -1517,6 +1517,7 @@ export function WorkflowCanvas() {
     CARD_BIRTH_MAX_STEPS * CARD_BIRTH_STEP_MS + 240 + 120;
   const birthSeq = useWorkflowStore((s) => s.birthSeq);
   const birthIds = useWorkflowStore((s) => s.birthIds);
+  const birthEdgeIds = useWorkflowStore((s) => s.birthEdgeIds);
   const birthRetractRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(
     () => () => {
@@ -1532,30 +1533,47 @@ export function WorkflowCanvas() {
   // the urgent store pass — so the effect rides renderJobs (the layer's
   // OWN channel, t595's mechanism-follows-channel law), re-running on
   // every deferred commit until the cards are actually in the DOM, and
-  // pins them before THAT paint. Per-id consume: a switched-workspace
-  // import's cards mount on the LATER commit (the switch), so unmarked
-  // ids survive in the payload until found or the window retires.
-  // History restores, poll replaces and adoption loads never arm — their
-  // silence is by construction, not by filtering here.
+  // pins them before THAT paint. t599 — the wires ride the same cascade:
+  // edges mount on the deferredEdges pass, and cards and wires walk ONE
+  // staircase (payload order, one rhythm — the world materializes and
+  // connects in a single breath). Per-id consume: a switched-workspace
+  // import's newborns mount on the LATER commit (the switch), so
+  // unmarked ids survive in the payload until found or the window
+  // retires. History restores, poll replaces and adoption loads never
+  // arm — their silence is by construction, not by filtering here.
   React.useLayoutEffect(() => {
-    if (birthIds.length === 0) return;
+    if (birthIds.length === 0 && birthEdgeIds.length === 0) return;
     const ws = rootRef.current?.querySelector<HTMLElement>("[data-canvas='workspace']");
     if (!ws) return;
     const found: string[] = [];
+    const foundEdges: string[] = [];
+    let step = 0;
     for (const id of birthIds) {
       const el = ws.querySelector<HTMLElement>(`[data-job="${id}"]`);
       if (!el || el.hasAttribute("data-born")) continue;
       el.setAttribute("data-born", "");
       el.style.setProperty(
         "--card-d",
-        `${Math.min(found.length, CARD_BIRTH_MAX_STEPS) * CARD_BIRTH_STEP_MS}ms`
+        `${Math.min(step, CARD_BIRTH_MAX_STEPS) * CARD_BIRTH_STEP_MS}ms`
       );
       found.push(id);
+      step += 1;
     }
-    if (found.length === 0) return;
+    for (const id of birthEdgeIds) {
+      const el = ws.querySelector<HTMLElement>(`[data-edge-id="${id}"]`);
+      if (!el || el.hasAttribute("data-edge-born")) continue;
+      el.setAttribute("data-edge-born", "");
+      el.style.setProperty(
+        "--card-d",
+        `${Math.min(step, CARD_BIRTH_MAX_STEPS) * CARD_BIRTH_STEP_MS}ms`
+      );
+      foundEdges.push(id);
+      step += 1;
+    }
+    if (found.length === 0 && foundEdges.length === 0) return;
     void ws.offsetWidth; // pin the entrance's from-frame before playing
     ws.setAttribute("data-birth-play", "");
-    useWorkflowStore.getState().consumeBirths(found);
+    useWorkflowStore.getState().consumeBirths(found, foundEdges);
     if (birthRetractRef.current) clearTimeout(birthRetractRef.current);
     birthRetractRef.current = setTimeout(() => {
       birthRetractRef.current = null;
@@ -1564,8 +1582,12 @@ export function WorkflowCanvas() {
         el.removeAttribute("data-born");
         el.style.removeProperty("--card-d");
       }
+      for (const el of Array.from(ws.querySelectorAll<HTMLElement>("[data-edge-born]"))) {
+        el.removeAttribute("data-edge-born");
+        el.style.removeProperty("--card-d");
+      }
     }, CARD_BIRTH_RETIRE_MS);
-  }, [birthSeq, birthIds, renderJobs, activeWorkspaceId]);
+  }, [birthSeq, birthIds, birthEdgeIds, renderJobs, deferredEdges, activeWorkspaceId]);
 
   // "Ready" hint: idle job whose upstream (any incoming edge, possibly in
   // ANOTHER workspace — links included) is completed.

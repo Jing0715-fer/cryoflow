@@ -2066,6 +2066,37 @@
   }
 }
 
+/* t599 — the wire's half of the birth voice. A batch merge (import,
+   pipeline template, duplicate) creates wires NO gesture ever drew —
+   they popped into existence while their cards rose in. Now they walk
+   the SAME staircase (one rhythm: the world materializes and connects
+   in a single breath), each wire drawing itself between the newborn
+   cards. The draw-in rides the path's OWN channel: stroke-dashoffset
+   on a pathLength="1" stroke (dasharray 2, offset 2.02 → 1 — the .02
+   overshoot hides the round linecap's dot before the tip starts, and
+   the period-4 pattern keeps the repeating dash's second copy outside
+   the visible unit for the whole sweep). A MANUAL connect never arms:
+   its pending LiveWire followed the finger (t359), so the completed
+   wire was never absent — redrawing it would be a glitch, not a voice.
+   The transparent hit corridor and the glow underlay are untouched
+   (data-e-main marks only the visible stroke). Retire sweeps the
+   attribute with the cards' window (one window, one budget). */
+@keyframes edge-draw-in {
+  from {
+    stroke-dashoffset: 2.02;
+  }
+  to {
+    stroke-dashoffset: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-birth-play] [data-edge-born] path[data-e-main] {
+    stroke-dasharray: 2;
+    animation: edge-draw-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--card-d, 0ms);
+  }
+}
+
 /* Task 172 — touch comfort inside the mobile panel Sheet. The JobPanel's
    form controls were built to the DESKTOP panel's density (h-8/h-9
    inputs ≈ 32–36px tall); a finger needs taller targets. Scoped to the

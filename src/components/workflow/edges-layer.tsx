@@ -269,6 +269,12 @@ export const EdgesLayer = React.memo(function EdgesLayer({
             <path
               d={g.d}
               data-e="d"
+              /* t599 — the draw-in's handles: pathLength normalizes the
+                 dash math to one unit (no measuring), data-e-main marks
+                 the VISIBLE stroke so the birth voice doesn't touch the
+                 transparent hit corridor or the glow underlay. */
+              pathLength={1}
+              data-e-main=""
               fill="none"
               stroke={stroke}
               strokeWidth={width}

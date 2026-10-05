@@ -495,13 +495,17 @@ const selReframeBump = (
  *  canvas's layout effect pins the entrance's from-frame before the
  *  cards' first paint. Birth verbs only — the silent faces (undo
  *  restore, poll replace, adoption loads) are documented at birthSeq
- *  and never call this. */
+ *  and never call this. t599 — batch edge merges pass wire ids too:
+ *  the wires draw in on the SAME staircase (one rhythm), while a
+ *  manual connect never arms (the LiveWire followed the finger). */
 const birthArm = (
-  s: { birthSeq: number; birthIds: string[] },
-  ids: string[]
-): { birthSeq: number; birthIds: string[] } => ({
+  s: { birthSeq: number; birthIds: string[]; birthEdgeIds: string[] },
+  ids: string[],
+  edgeIds: string[] = []
+): { birthSeq: number; birthIds: string[]; birthEdgeIds: string[] } => ({
   birthSeq: s.birthSeq + 1,
   birthIds: [...s.birthIds, ...ids],
+  birthEdgeIds: [...s.birthEdgeIds, ...edgeIds],
 });
 
 interface WorkflowState {
@@ -604,6 +608,15 @@ interface WorkflowState {
   /** t598 — ids awaiting their entrance; accumulated across rapid
    *  successive verbs (a multi-file import arms once per file merge). */
   birthIds: string[];
+  /** t599 — edge ids awaiting their draw-in, armed by the BATCH merges
+   *  that create wires without any gesture ever drawing them (import,
+   *  pipeline template, duplicate). A MANUAL connect keeps its instant
+   *  receipt: the pending LiveWire followed the finger (t359), so the
+   *  completed wire was never absent — redrawing it would be a glitch,
+   *  not a voice. Same staircase as the cards (one rhythm), retired by
+   *  the same window. Silent faces unchanged: restore/poll/adoption
+   *  never arm. */
+  birthEdgeIds: string[];
   /** t593 — the pre-tidy seats of every moved card, captured at the bump
    *  so the canvas can FLIP (invert from the old seat, play to the new)
    *  without racing the commit. Read together with layoutKind and
@@ -1146,7 +1159,7 @@ interface WorkflowState {
   consumeLayoutCommand: () => void;
   /** t598 — the canvas retires ids it has played (per-id consume: unplayed
    *  ids survive for a later commit that actually mounts them). */
-  consumeBirths: (played: string[]) => void;
+  consumeBirths: (played: string[], playedEdges: string[]) => void;
   setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
@@ -1870,6 +1883,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   layoutFlipFrom: [],
   birthSeq: 0,
   birthIds: [],
+  birthEdgeIds: [],
   focusJobId: null,
   pendingClassFocus: null,
   lastSweep: null,
@@ -2474,11 +2488,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const have = new Set(get().jobs.map((j) => j.id));
       const haveEdges = new Set(get().edges.map((e) => e.id));
       const freshJobs = data.jobs.filter((j) => !have.has(j.id));
+      const freshEdges = data.edges.filter((e) => !haveEdges.has(e.id));
       set({
         jobs: [...get().jobs, ...freshJobs],
-        edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
-        // t598 — the pipeline assembles itself in execution order
-        ...birthArm(get(), freshJobs.map((j) => j.id)),
+        edges: [...get().edges, ...freshEdges],
+        // t599 — the wires draw in after the cards, same staircase
+        ...birthArm(get(), freshJobs.map((j) => j.id), freshEdges.map((e) => e.id)),
         // t593 — explicitly NOT a command: an import landing rebuilds the
         // world silently (the finger dropped a file, but the world's
         // refit is birth-framing, not an answer to a tidy request).
@@ -2528,13 +2543,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const have = new Set(get().jobs.map((j) => j.id));
         const haveEdges = new Set(get().edges.map((e) => e.id));
         const freshJobs = data.jobs.filter((j) => !have.has(j.id));
+        const freshEdges = data.edges.filter((e) => !haveEdges.has(e.id));
         set({
           jobs: [...get().jobs, ...freshJobs],
-          edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+          edges: [...get().edges, ...freshEdges],
           // t598 — the new world materializes: per-file cascade, honest to
           // the sequential merges (each file's cards enter on their own
-          // commit, in the file's own order)
-          ...birthArm(get(), freshJobs.map((j) => j.id)),
+          // commit, in the file's own order). t599 — the file's wires
+          // draw in on the same staircase.
+          ...birthArm(get(), freshJobs.map((j) => j.id), freshEdges.map((e) => e.id)),
           // t593 — systemic (see the sibling import bump): silent rebuild.
           layoutKind: null,
           layoutFlipFrom: [],
@@ -4748,7 +4765,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({
         jobs: [...get().jobs, ...newJobs],
         edges: [...get().edges, ...rewired],
-        ...birthArm(get(), newJobs.map((j) => j.id)), // t598 — copies are born
+        // t599 — the copies' internal wires draw in with the copies
+        ...birthArm(get(), newJobs.map((j) => j.id), rewired.map((e) => e.id)),
         selectedIds: newJobs.map((j) => j.id),
         selectedId: newJobs[newJobs.length - 1]?.id ?? null,
         inspectId: null,
@@ -5018,8 +5036,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   consumeViewportArrival: () => set({ arrivalTarget: null }),
   /** t593 — the tidy's answer payload is read once and retired. */
   consumeLayoutCommand: () => set({ layoutKind: null, layoutFlipFrom: [] }),
-  consumeBirths: (played) =>
-    set((s) => ({ birthIds: s.birthIds.filter((id) => !played.includes(id)) })),
+  consumeBirths: (played, playedEdges) =>
+    set((s) => ({
+      birthIds: s.birthIds.filter((id) => !played.includes(id)),
+      birthEdgeIds: s.birthEdgeIds.filter((id) => !playedEdges.includes(id)),
+    })),
   jumpToOrigin: () => {
     // t589 — "0" is the origin's seat. The number row 0–9 is ONE family
     // of places (saved views + the origin), so the jump rides the same
