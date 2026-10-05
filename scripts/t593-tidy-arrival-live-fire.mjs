@@ -197,6 +197,32 @@ const dragCardBy = async (id, dx, dy) => {
   return true;
 };
 
+/* t595 tuition — the first DOM card is not necessarily GRABBABLE: at
+   today's managed-browser window size the birth-fit can park it under
+   the minimap overlay (witnessed: elementFromPoint at the card center
+   returned minimap-svg, the drag panned the map, the seat never moved).
+   A user grabs a card they can SEE — pick the first card whose center
+   actually hits its own element. */
+const pickHittableCard = async () => {
+  for (let i = 0; i < 8; i++) {
+    const hit = await readJson(`JSON.stringify((function(){
+      var cards = document.querySelectorAll("[data-job]");
+      for (var k = 0; k < cards.length; k++) {
+        var b = cards[k].getBoundingClientRect();
+        var cx = Math.round(b.x + b.width / 2), cy = Math.round(b.y + b.height / 2);
+        var h = document.elementFromPoint(cx, cy);
+        if (h && cards[k].contains(h)) return { id: cards[k].getAttribute("data-job"), idx: k };
+      }
+      return { id: null };
+    })())`);
+    if (hit && hit.id) return hit.id;
+    // every card covered (should not happen): nudge the camera and retry
+    await readJson(`(function(){ var b = document.querySelector('[aria-label="Zoom out"]'); if (b) b.click(); return "ok"; })()`);
+    await sleep(400);
+  }
+  return null;
+};
+
 try {
   /* ---- boot: ONE browser, ONE pointer ---------------------------------- */
   console.log(`[boot] close-all — the CLI pointer must have exactly one target`);
@@ -253,7 +279,8 @@ try {
 
   /* ---- D — the perturbation (a real drag) -------------------------------- */
   console.log(`\n[D] drag one card — give the tidy something to answer`);
-  const dragId = await readJson(`JSON.stringify(document.querySelector("[data-job]").getAttribute("data-job"))`);
+  const dragId = await pickHittableCard();
+  check("drag target hittable (not under the map chrome)", !!dragId, `id=${dragId}`);
   const seatBefore = snapshot[dragId];
   const dragged = await dragCardBy(dragId, 260, 40);
   const seatAfter = (await seatsOf())[dragId];
@@ -424,7 +451,8 @@ try {
   /* ---- W4 — the relay re-arms -------------------------------------------- */
   console.log(`\n[W4] second drag+tidy rides again — then the world goes home`);
   {
-    const id2 = await readJson(`JSON.stringify(document.querySelector("[data-job]").getAttribute("data-job"))`);
+    const id2 = await pickHittableCard();
+    check("second drag target hittable", !!id2, `id=${id2}`);
     const dragged2 = await dragCardBy(id2, -220, 60);
     check("second drag committed", dragged2 === true);
     undoDebt++;
