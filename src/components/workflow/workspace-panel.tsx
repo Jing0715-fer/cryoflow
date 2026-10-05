@@ -8,6 +8,15 @@
  * actions: switch / rename / delete (jobs fall back to the default space).
  * Cross-workspace moves and copy-as-link live on the job card's context
  * menu — this panel is the navigator.
+ *
+ * t614 — the panel's faces join the arrival grammar their dashboard
+ * siblings started (t611/t612/t613): header → hint → cards → stats
+ * itemize, riding the family's receipt word (zero new keyframes). The
+ * full timing law lives in the WS_BASE_MS docblock below; the short
+ * version: the base is a USER-GESTURE beat (the panel mounts on the
+ * user's own tab click), and the cards' delays come from a MOUNT LEDGER
+ * (a ticket belongs to a face, not a seat — deletion shifts indices,
+ * and a shifted delay on a finished animation replays it).
  */
 
 import * as React from "react";
@@ -48,8 +57,36 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
-/* Row                                                                  */
+/* Arrival timing (t614)                                                */
 /* ------------------------------------------------------------------ */
+
+/* t614 — the wave's timing words, the single source of truth. The base
+ * is a USER-GESTURE beat: the panel mounts on the user's own tab click
+ * (Radix TabsContent unmounts on leave — every entry is a fresh
+ * surfacing), so 90ms sits between the find bar's gesture echoes (status
+ * row 60ms, type row 120ms); the dashboard's 350ms card-arrival beat
+ * would read as lag on a click the user just made.
+ *
+ * The wave: header (BASE) → hint (BASE+STEP) → card i (BASE +
+ * (HEAD_FACES + i)×STEP via the MOUNT LEDGER below) → its stats row
+ * itemizes one step after its card (+STEP). Card i and card i-1's stats
+ * share a beat — the wave interleaves; every 24ms something starts.
+ * Canonical single-workspace world: 90 / 114 / 138 / 162 — settled at
+ * 162 + 240 = 402ms; each extra card adds 24ms to the tail.
+ *
+ * THE MOUNT LEDGER (t613's law, second consumer): a ticket belongs to a
+ * FACE, not a seat. Workspace creation APPENDS to the store list
+ * (append-safe), but a DELETION shifts every later row's index — and a
+ * shifted delay on a finished animation replays it (re-render becoming
+ * re-arrival). So cards keep a tail ledger keyed by workspace id:
+ * filled on miss at render time (the Task 88 pattern — no extra frame,
+ * no effect), never rewritten. The ledger ref dies with the Radix
+ * unmount on tab leave, so every fresh entry re-issues it — the t613
+ * "project switch resets the ledger" semantics, for free. */
+const WS_BASE_MS = 90;
+const WS_STEP_MS = 24;
+/** the fixed head of the wave (faces before the cards): header, hint */
+const WS_HEAD_FACES = 2;
 
 interface LiveStats {
   total: number;
@@ -66,6 +103,7 @@ function WorkspaceRow({
   stats,
   editing,
   editName,
+  arrivalDelay,
   onStartEdit,
   onCancelEdit,
   onCommitRename,
@@ -79,6 +117,11 @@ function WorkspaceRow({
   stats: LiveStats;
   editing: boolean;
   editName: string;
+  /** t614 — the card's wave ticket in ms (the mount ledger's word for
+   * this face). Absent = mount without a ticket (rides no wave). The
+   * stats row derives its own +STEP beat from this — one number in, the
+   * itemize rhythm computed next to the row that owns it. */
+  arrivalDelay?: number;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onCommitRename: () => void;
@@ -90,6 +133,12 @@ function WorkspaceRow({
     <div
       role="button"
       tabIndex={0}
+      data-ws-card={arrivalDelay !== undefined ? "" : undefined}
+      style={
+        arrivalDelay !== undefined
+          ? ({ "--wd": `${arrivalDelay}ms` } as React.CSSProperties)
+          : undefined
+      }
       aria-current={isActive ? "true" : undefined}
       title={
         isActive
@@ -169,8 +218,19 @@ function WorkspaceRow({
         </div>
       )}
 
-      {/* live stats */}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {/* live stats — the row is ONE face of the wave (t614): the
+          entrance names the row, never the chips inside it — the running
+          chip's animate-spin is a living word an entrance shorthand
+          would kill. The row itemizes one step after its card. */}
+      <div
+        data-ws-stats={arrivalDelay !== undefined ? "" : undefined}
+        style={
+          arrivalDelay !== undefined
+            ? ({ "--wd": `${arrivalDelay + WS_STEP_MS}ms` } as React.CSSProperties)
+            : undefined
+        }
+        className="mt-2 flex flex-wrap items-center gap-1.5"
+      >
         <span
           className="inline-flex h-5 items-center gap-1 rounded-md bg-secondary/60 px-1.5 text-[10px] font-medium tabular-nums"
           title={`${stats.total} job${stats.total === 1 ? "" : "s"} in this workspace`}
@@ -330,6 +390,15 @@ export function WorkspacePanel() {
     if (ok) cancelEdit();
   };
 
+  // t614 — the wave's mount ledger: one ticket per card, keyed by
+  // workspace id, filled on miss at render time (the Task 88 pattern —
+  // no extra frame, no effect), never rewritten. A lazy useState holds
+  // the Map (the react-compiler lint forbids render-phase ref reads —
+  // and the lifecycle is identical anyway): it dies with the Radix
+  // unmount on tab leave, so every fresh entry re-issues the ledger (a
+  // new surfacing) — no explicit reset exists or is needed.
+  const [wsWave] = React.useState<Map<string, number>>(() => new Map());
+
   const handleCreate = async () => {
     const trimmed = newName.trim();
     if (trimmed.length < 1 || trimmed.length > 60 || creating) return;
@@ -342,10 +411,28 @@ export function WorkspacePanel() {
     }
   };
 
+  // t614 — the ledger's fill-on-miss pass, BEFORE the JSX so the tickets
+  // read the SAME order the cards render in (top of the list = the wave's
+  // first card slot). Existing tickets are never rewritten — that is the
+  // whole law: a rewritten delay on a finished animation replays it.
+  const wave = wsWave;
+  const waveTicketOf = (id: string): number => {
+    let t = wave.get(id);
+    if (t === undefined) {
+      t = WS_BASE_MS + (WS_HEAD_FACES + wave.size) * WS_STEP_MS;
+      wave.set(id, t);
+    }
+    return t;
+  };
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col" data-ws-arrival="">
       {/* header */}
-      <div className="flex shrink-0 items-center gap-2 p-3 pb-2">
+      <div
+        data-ws-header=""
+        style={{ "--wd": `${WS_BASE_MS}ms` } as React.CSSProperties}
+        className="flex shrink-0 items-center gap-2 p-3 pb-2"
+      >
         <Layers className="size-3.5 text-primary" aria-hidden="true" />
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Workspaces
@@ -366,7 +453,11 @@ export function WorkspacePanel() {
       </div>
 
       {/* hint */}
-      <p className="px-3 pb-2 text-[10px] leading-relaxed text-muted-foreground/80">
+      <p
+        data-ws-hint=""
+        style={{ "--wd": `${WS_BASE_MS + WS_STEP_MS}ms` } as React.CSSProperties}
+        className="px-3 pb-2 text-[10px] leading-relaxed text-muted-foreground/80"
+      >
         Each workspace is a separate canvas inside the project. Right-click a
         job card → <span className="font-medium text-foreground/80">Copy as link to…</span> to
         continue its pipeline in another workspace.
@@ -374,7 +465,13 @@ export function WorkspacePanel() {
 
       {/* list */}
       {workspaces.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+        <div
+          data-ws-empty=""
+          style={{
+            "--wd": `${WS_BASE_MS + WS_HEAD_FACES * WS_STEP_MS}ms`,
+          } as React.CSSProperties}
+          className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center"
+        >
           <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
             <Layers className="size-5" aria-hidden="true" />
           </div>
@@ -395,6 +492,7 @@ export function WorkspacePanel() {
               stats={liveStats.get(w.id) ?? { total: 0, running: 0, pending: 0, completed: 0, links: 0 }}
               editing={editingId === w.id}
               editName={editName}
+              arrivalDelay={waveTicketOf(w.id)}
               onStartEdit={() => startEdit(w)}
               onCancelEdit={cancelEdit}
               onCommitRename={commitRename}

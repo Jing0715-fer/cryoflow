@@ -1185,6 +1185,56 @@
   }
 }
 
+/* t614 — the workspaces tab surfaces. The sidebar's last silent family
+   joins the arrival grammar its dashboard siblings started (t611/t612/
+   t613): the panel's header, the hint, the workspace cards and each
+   card's stats row surface in reading order with the receipt's own word
+   — ZERO new keyframes (the definition stays exactly once).
+
+   The beat is a USER-GESTURE beat, not a page-load beat: the panel
+   mounts on the user's own tab click (Radix TabsContent unmounts on
+   leave — every entry is a fresh surfacing), so the base is 90ms —
+   between the find bar's status row (60ms) and type row (120ms), the
+   family's gesture echoes; the dashboard's 350ms card beat would read
+   as lag on a click the user just made.
+
+   The cards' tickets come from a MOUNT LEDGER (t613's law, second
+   consumer): a ticket belongs to a face, not a seat. Creation APPENDS
+   (append-safe), but a DELETION shifts every later row's index — and a
+   shifted delay on a finished animation replays it. The ledger keys by
+   workspace id, fills on miss at render time, and is never rewritten;
+   the ref dies with the tab unmount, so each entry re-issues fresh.
+
+   The ROW FACE ONLY, stats edition: the stats row itemizes one step
+   after its card, but the selectors name the row as ONE unit — never
+   the chips inside it. The running chip's animate-spin is a living
+   word (the ws-running pulse of the canvas, transplanted here); a
+   chip-level entrance would kill it. The New button is chrome (an
+   action verb, always available — a lens, not a face) and the inline
+   rename input is a tool, not content: neither ever rides.
+
+   Canonical (single workspace "Main"): header 90, hint 114, card 138,
+   stats 162 — settled at 402ms. Each extra card adds 24ms to the tail;
+   card i and card i-1's stats share a beat — the wave interleaves. */
+[data-ws-arrival] [data-ws-header],
+[data-ws-arrival] [data-ws-hint],
+[data-ws-arrival] [data-ws-card],
+[data-ws-arrival] [data-ws-stats],
+[data-ws-arrival] [data-ws-empty] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--wd, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ws-arrival] [data-ws-header],
+  [data-ws-arrival] [data-ws-hint],
+  [data-ws-arrival] [data-ws-card],
+  [data-ws-arrival] [data-ws-stats],
+  [data-ws-arrival] [data-ws-empty] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy
