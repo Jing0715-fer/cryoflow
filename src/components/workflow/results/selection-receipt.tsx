@@ -20,6 +20,15 @@
  * has no story to tell — the listing's empty-state already says so). A
  * fetch failure also stays quiet: the Results tab's own retry covers the
  * wire, and a missing receipt must not paint the tab red.
+ *
+ * t608 — the receipt's arrival: MOUNT IS ARRIVAL (the t607 law's second
+ * consumer). The card mounts the moment its fetch lands, so a static
+ * data attribute is the whole mechanism. Direction mirrors the judge:
+ * the verdict lands from above (-4px, imposed by authority), the engine's
+ * receipt SURFACES from below (+4px — facts come up out of the machine,
+ * like a receipt printing out of its slot); in the paired evidence row
+ * the two answers converge on the reading line. Same 240ms as the stamp:
+ * the receipt was decided at run time, the wire merely delivers it.
  */
 
 import { useEffect, useState } from "react";
@@ -161,6 +170,7 @@ export function SelectionReceipt({
     <section
       aria-label="Selection receipt"
       data-canvas-ui="selection-receipt"
+      data-receipt-arrival=""
       className={cn(
         "rounded-lg border border-emerald-600/20 bg-emerald-500/[0.03] p-3",
         className

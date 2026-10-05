@@ -979,6 +979,37 @@
   }
 }
 
+/* t608 — the receipt surfaces. The evidence row pairs two answers about
+   one selection: the judge's verdict (above, lands -4px — imposed by
+   authority) and the engine's receipt (the machine's answer). Direction
+   IS the semantic's mirror: facts come UP out of the machine, like a
+   receipt printing out of its slot (+4px), and in the paired row the two
+   answers converge on the reading line. Same 240ms as the stamp — the
+   receipt was decided at run time, the wire merely delivers it; answers
+   are equally prompt. Mount = arrival (honest absence until the fetch
+   lands), same family bezier, same transform dialect (translateY), no
+   scale luggage. */
+@keyframes receipt-arrival {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-receipt-arrival] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-receipt-arrival] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy
