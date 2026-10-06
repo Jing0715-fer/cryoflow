@@ -307,6 +307,34 @@ export function JobSearchLens({
           })}
         </div>
       )}
+
+      {/* t637 — the keyboard contract, made visible. Every binding the
+          lens honors (↑/↓ move · ↵ open · esc dismiss) lived in the code
+          and nowhere on screen; the CornerDownLeft glyph on the active
+          row whispered "Enter works" but ↑/↓ and Esc were invisible. The
+          chips borrow the KPI shortcut badge's register (rounded border,
+          text-[9px], muted — project-dashboard.tsx:304) so the app's
+          shortcut language stays one voice, and the bar shares the
+          header's bg-muted/40 strip so the popover reads as a sandwich:
+          context on top, content in the middle, contract at the bottom. */}
+      <div
+        data-lens-hints=""
+        className="flex items-center gap-3 border-t bg-muted/40 px-3 py-1.5 text-[10px] text-muted-foreground"
+      >
+        <span className="flex items-center gap-1">
+          <kbd className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]" aria-hidden="true">↑</kbd>
+          <kbd className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]" aria-hidden="true">↓</kbd>
+          navigate
+        </span>
+        <span className="flex items-center gap-1">
+          <kbd className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]" aria-hidden="true">↵</kbd>
+          open
+        </span>
+        <span className="flex items-center gap-1">
+          <kbd className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]" aria-hidden="true">esc</kbd>
+          close
+        </span>
+      </div>
     </div>
   );
 }

@@ -81,6 +81,14 @@ try {
   }
   must(rows.length > 0, `lens opens for q=class with ${rows.length} row(s)`);
   must(wire.length > 0, `the lens asked the feed (wire: ${wire.join(" | ") || "SILENT"})`);
+  // t637 — the keyboard contract is on screen: the hint footer rides the
+  // open popover with its four kbd chips (↑ ↓ ↵ esc). Invisible keys are
+  // undiscoverable keys; this assert keeps the bar from regressing away.
+  const hints = await p.evaluate(() => ({
+    bar: !!document.querySelector("[data-job-lens] [data-lens-hints]"),
+    chips: [...document.querySelectorAll("[data-job-lens] [data-lens-hints] kbd")].length,
+  }));
+  must(hints.bar && hints.chips === 4, `hint footer visible with kbd chips (bar=${hints.bar}, chips=${hints.chips})`);
   if (rows.length === 0) {
     const dump = await p.evaluate(() => {
       const el = document.querySelector("[data-job-lens]");
