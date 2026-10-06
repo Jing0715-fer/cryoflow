@@ -9548,3 +9548,41 @@ Stage Summary:
 - 「派单模板的遗留清单也要过期审查」：Task 13 六项被 t633 结案后仍随派单巡游三个窗——陈旧清单的每次复述都是潜在重复劳动；t633 的「直接对质现树」判词应成为读单第一律
 - 「键盘契约要看得见」：功能在代码里 ≠ 功能存在——不可发现的快捷键等于没有；hint footer 是 UX 的诚实原则从「行为不撒谎」到「能力要自报」的延伸
 - 产出：透镜键盘契约脚注 + 探针 12 断言全绿 + 📸×1；commit feat 车 bfdcc6c；本窗终态：HEAD 后树净、t252 ALL PASS ×2、t637-ui-probe 6/0、t636 探针 12/0、console 0、15 rows / 0 orphans
+
+---
+Task ID: 638 (QA lane — in progress)
+Agent: main (cron window)
+Task: t156/t157 实跑立案（t637 入口②）；Topaz wrapper 方向第四次核实为背诵化石
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 637 加场（bfdcc6c → 6567d2a docs 车）；树净已推送；free -m available 1211MB < 3.5GB → 本窗非 build 日；server 即 t637 窗 16:41 刚换的新锅（PID 14754，RSS 2255MB = boot 正常水位），无需再换。
+- [QA 双绿] t252 ALL PASS（roster 15 正典）+ t637-ui-probe 6 pass / 0 fail。
+- [入口勘察] t637 下窗入口①「Topaz wrapper」核实：topaztrain/topazdenoise/autopick Topaz tab/training 路由/图表全在——worklog 430/572/768/959 行四度判决的背诵化石，勿再立项；「3D 体积截面」t260 已建（t637 加场已判）。真入口 = ② t156/t157 实跑。
+- [t156 实跑立案+破案] Phase B「gallery never opened」：①验尸先确认 t632 的 cleanup-on-fail 修复**生产实战生效**（套件死后 QA rows=0，种子链被自家 cleanup 收走）；②overlay 探针抓真凶：点击点 (1330,687) 顶上元素 = Canvas minimap 的 framing-mode 按钮——t632 考古重塑 demo bbox 后，boot fit 把种子 select2d 卡片恰好送进 minimap 遮挡区。
+- [判决] 产品无缺口：M 键（shortcuts dialog Canvas 组 113 行）+ zoom dock MapIcon 按钮即文档化的门，minimapOpen session-local by design（store.ts:883 注释明文）；t156 写于世界更小的年代，是套件盲人不是产品病。
+- [修复] t156 两处 boot 块（Phase B + Phase E corrupt-seed 新上下文）各加 `p.keyboard.press("M")` + t638 注释——套件用产品自己的门，像它代言的用户一样。
+
+---
+Task ID: 638 收官
+Agent: main (cron window)
+Task: t156/t157 实跑立案兑现——两套件首次完整 ALL PASS；顺手抓到三只真虫（boot 铸键 / 成功路径泄漏 / 陈旧 oracle），加场两枚增量（geometry 回执升格 + minimap M chip）
+
+Work Log:
+- [QA 开局] t252 ALL PASS + t637-ui-probe 6/0；新锅（t637 窗 16:41 boot）水位 2255MB 正常；build 日第 48 窗否决（available 1211MB < 3.5GB）。
+- [入口勘察] t637 下窗入口①「Topaz wrapper」= 背诵第四次阵亡（worklog 430/572/768/959 行四度判决）；「3D 体积截面」t260 已建。真入口 = ② t156/t157 实跑。
+- [t156 破案] Phase B「gallery never opened」：先确证 t632 cleanup-on-fail 修复**实战生效**（套件死后 QA rows=0）；overlay 探针（新仪器 t638-overlay-probe）抓真凶——点击点顶上元素 = Canvas minimap 的 framing-mode 按钮：t632 考古重塑 demo bbox 后 boot fit 把种子卡片送进 minimap 遮挡区。判决：产品无缺口（M 键 = shortcuts dialog Canvas 组文档化的门，minimapOpen session-local by design），套件是盲人。
+- [t156 修复] 两处 boot 块（Phase B + Phase E）各加 `p.keyboard.press("M")` + t638 注释——套件用产品自己的门。
+- [t157 破案] 死于源码 oracle「apply gate reuses canvas membership predicate」：regex 锚在旧 receiver `j.jobs` 上，t370 已换 `landedJobs`（过滤后清单，防刚删 id 偷 selection）——**oracle 陈旧、源码更强**，谓词本体一字未变。修 oracle 而非源码，label 里刻 t370 判词。
+- [t157 深挖 = 真 bug #1] Phase F「fresh boot 写零 cryoflow.* 键」抓到 assistant panel 铸键：restore effect 的 setGeo(默认几何) 触发 persist-on-change effect——**每次 fresh boot 把没人选过的默认位置写进存储冒充用户意图**。修复：persist 改挂手势终点（onUp 且真的移动了 / 双击 snap-home），挂载恢复、viewport clamp 一律读时调适不回写；GEO_MOBILE_BP=768 活体视口检查替代滞后 isMobile hook。
+- [t156 深挖 = 真 bug #2] 深挖 take-home 为何滞留：**cleanup() 只活在 main().catch**——成功路径打印 ALL PASS 后裸退，新鲜种子链永远滞留成居民（t628 教义「a specimen is not a resident」被绿色套件自己违反；t637 探针 roster 静默 17 行的真因）。修复：cleanup() 上移成功路径（Phase Z roster 断言之后、ALL PASS 之前），失败路径保留。世界验收 17→15、0 QA 残留。
+- [加场 A·功能] geometry 回执升格「一次手势一次回执」：旧 persist-on-change 拖拽期 ~60 次/秒写存储；新律 = 回执住在手势终点（拖拽 onUp 落笔一次、snap-home 即时一次），bare click 零回执，存储里只剩用户选过的形状。geoRef 镜像 + dragMovedRef 把「有拖拽」与「真移动」分开。
+- [加场 B·样式] minimap header 加 M kbd chip（`data-mm-hint`，透镜 hints 同款 kbd 语汇 text-[9px]/rounded border/bg-background）——dismiss 门的就地可发现性，「从它遮住的房间看得见门」；pointer-events-none 不吃拖拽面手势。
+- [新仪器] t638-e2e（11 断言）：铸键死刑 / bare click 静默 / 拖拽 pointerup 落笔且持拖后形状 / M 门往返 / reload 复位持拖位置 / console 0。判例：reload 断言量窗口根 [data-ai-assistant]（left/top 即 geo 原点）而非标题文本（头内偏移 ~63px 骗过第一版探针）。
+- [回归] t156 34 ✓ + t157 35 ✓（基线 15）+ t252 ✓ + t637-ui-probe 6/0 + t638 11 ✓；tsc 0 + eslint 0。
+
+Stage Summary:
+- 「绿色套件也会留垃圾」：t156 的 cleanup 只住在失败路径——绿色 = 使命完成的假象下，fresh 种子链每跑一次就多一次滞留；roster 17 对 15 的静默漂移跨了多个窗无人察觉。成功路径与失败路径同律：标本必须回家，verdict 打印在收尾之后。
+- 「oracle 锚的是名字，源码活的是意思」：t157 的 regex 锚死 `j.jobs` 而 t370 已把 receiver 换成更强的 `landedJobs`——谓词未动、receive 名字动了，oracle 就该死。修 oracle 判词里刻上源码的现名与理由，让下个窗读到的是判词不是尸检。
+- 「boot 铸键是存储 intent 律的隐形违例」：restore effect 的 setGeo + persist-on-change 的合谋让默认几何冒充用户选择；persist-on-change 还顺带 ~60 次/秒的拖拽期写。修法升格为「一次手势一次回执」——effect 只留镜像，写入住进手势终点。
+- 「遮挡的门要能从房间里看见」：minimap 遮挡区是 session-local by design 的合法代价，但 M 门此前只活在 shortcuts dialog 与 zoom dock title 里；kbd chip 把契约贴到门所在的房间，t637 加场的「契约要看得见」教义再下一城。
+- 下窗入口：①EMPIAR 12-job 轻量重建（整窗工程，t637 入口③仍未动）②judge 风暴（等稳定夜）③t156/t157 已兑现销账，勿再立项 ④样式/功能车道继续（Task 13 遗留清单与 Topaz wrapper 均为化石，勿考古）⑤build 日三车道（available ≥ 3.5GB 才开，本窗 1211MB 第 48 窗否决）。
