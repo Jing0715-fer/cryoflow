@@ -9403,3 +9403,27 @@ Stage Summary:
 - 「census 的壳有两代」：空壳（t630 清的 23 个）与 witness 壳（本窗的三个）——行已死的目录对 take-home 失明，只有 census 相机能看见；t161 白名单协议（assert 文件名全在半径内才动刀）让零租户小铲不必等 build 日
 - 「内核 OOM 与 watchdog 回收是两种死」：watchdog 在 2.6GB 受控执法（t631 立案），内核在系统级绝望处决（本窗活体）——后者连 server 一起杀，但 DB 世界与 API 合同不动；UI PROBE（playwright 全新 profile）+ curl 双验证是进程死亡后的世界清点仪式
 - 产出：demo+t474 22 行考古清理（22/22 零拒收，零悬垂边/entry，census 407 持平零泄漏）+ qa63 依赖链自证闭环 + 六套件 cleanup 缺口同律修复（t156/t150/t151/t152/t153/t155）+ 仪器脚本 ×4（archaeology/audit/cleanup/ui-probe）+ t252 双 ALL PASS + UI PROBE GREEN + 📸×2；正典 12/11 完好、active 归位 EMPIAR、零 chrome 孤儿（daemon 已清）；下窗入口：①build 日三车道合并（第 42 窗重测）②t156/t157/qa63 实跑（借稳定窗；t156 instrument 已健康+cleanup 已修）③QA t474 项目整体退役裁决（bench/diag 依赖审计先行）④judge 风暴活体半场（等稳定夜）⑤化石铲子（build 日车道）⑥样式新面侦察（待新题）
+
+---
+Task ID: 633 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 22:24 cron, Job 362852, Task 572 系第 52 次派单)
+Task: 磁盘满紧急清盘（os error 28 阻断 agent-browser/SQLite/日志）+ t632 立案的 QA t474 项目退役裁决落锤为「外科半径」（t550 bench 合同保留、441MiB 中间产物退役、bench 36 pass 活体复核）+ 派单陈旧遗留清单（Task 13 Stage Summary #5/#6/#14/#7/#8/#13）全项现实定谳为已兑付。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 632（派单摘要说 Task 13——滞后第 N+79 次兑付）；HEAD b1adb53 树净；available 802MB 非 build 日（第 42 窗被动否决）；server RSS 2335MB 贴回收线。
+- [QA 摸底遇新病] agent-browser 三连 "Failed to create temp profile dir: No space left on device (os error 28)"——**根分区 100% 满**（9.9G/9.4G，Avail 0）。比内存更急的病灶：SQLite 写、日志、chromium profile 全部阻断。
+- [磁盘全景] .next/dev 1.5G（活 server 编译产物，不可动）+ services/mock-cluster/fs 1.4G（remote 世界数据，危险半径）+ data/relion 1.4G（EMPIAR 569M + **QA t474 项目 456M** + demo 275M）+ /tmp 621M + ms-playwright 266M（保留）+ npm cache 106M。
+- [救急清盘] /tmp 死物（旧项目快照 113M 拒删有 immutable + 32 个死 chrome profile + tectonic 缓存 55M）+ **活 dev-server.log 截断（55M，lsof 确认 fd 存活——truncate 不 delete，server 无感）** + .qa-logs 旧截图 31 张/旧 dev log 37M + npm cache → **avail 0 → 640M**，agent-browser 复活（canvas 落地 Shift+D 收敛后 12 rows / 0 orphans / 0 dimmed / console 0 / 📸 t633-home-12jobs.png）。
+- [t474 退役裁决细化] t632 立案「整体退役需 bench/diag 依赖审计先行」兑现：活跃代码零活依赖（qa55/t552/t560 全是注释性提及；bench 文件用 fixture 不碰活项目），**唯一断裂点 t550-judge-real-stack-bench.ts:203 硬引用 class2d_8wy7dl3m 的 it200 终态**。整体退役（项目 DELETE 门在 route.ts:163）会重写 t550 PHASE B 断言族（iteration/类数/occupancy/grid 数学全变）——成本超收益。**外科半径落锤**：456M 全在 it000-199 中间产物（2400 个 run_itNNN_classNNN.mrc + 400 个 half mrc + 800 个 star），t550 合同只需 it200 终态 + 12 per-class stars——scripts/t633-t474-workdir-retire.py 白名单保 37 文件（assert 合同文件全在 keep 集 + 12 stars 计数 + it199 不得存活），删 3589 文件 / **441.0 MiB**，post-sweep 3.4MiB。
+- [t550 活体复核] bun 直驱（npx tsx 死于 top-level await CJS 格式——bun 是本仓 bench 的正形驱动）：**36 pass / 0 fail**——it200 stack、iteration=200、12 类、24 粒子、3.2Å、PNG grid 266×200 全绿，外科退役零合同破坏。项目行与 workdir 保留（bench 前提），项目整体退役维持立案（需 t550 迁移到 EMPIAR class2d K5——真数据 5 类，t552 论述的走向）。
+- [陈旧遗留清单定谳——五项全部已兑付] 派单携带的 Task 13 Stage Summary 遗留是几十窗前的快照：①#5 fs/browse 无鉴权→已修（rounds 1+2 双门：isSameOriginRequest + isAllowedHost Host pin，http-guard.ts 文档完整）；②#6/#14 pathref/star 包含策略→outputs/star 与 outputs/file 均 2 guards 同一双门；③#7 chart 全量同步读→statcache 全家族接线（fsc×5 + guinier×5 + angdist:bins + resolution:curres + topaz-training，t486 迁移时统一完成，statcache 头文档的设计意图兑现）；④#8 particles BFS N+1→分层批量 BFS（in: frontier 每层一次 + discovered 批量 findMany + in-memory 链解析）；⑤#13 useMemo 内 localStorage 写→t157 subscription 模式 + t627 cascadedPresence 纯计算。**未来派单可停止携带该快照**。
+- [验证与回归] census 407 dirs / 413.1 MiB 持平（t474 目录是 registered 活行从未入账 fossil 名册——census 与磁盘账本的两本账分工再确认）；t252 ALL PASS（写门四门 run/stop/duplicate/empiar-seed 各 2 guards 健在 + roster 贴地 12 + console 0）；chrome 清场零孤儿。
+- [未做与理由] t156/t157/qa63 实跑（server RSS 2335 贴回收线 + 磁盘刚回血——等稳定窗；本窗 agent-browser 收敛后落 canvas 视图的 store 持久化行为与 t90 收敛模式一致，非病）；build 日（第 42 窗否决）；judge 风暴（等稳定夜）；t550 迁移 EMPIAR K5 + t474 项目整体退役（立案——需重写 PHASE B 断言族，等有完整窗预算时做）；mock-cluster/fs 1.4G 与 .next/dev 1.5G（危险半径/活产物，不动）。
+
+Stage Summary:
+- 「磁盘满比内存满更先到」：40 轮窗次的内存警觉（build 日判定 42 连否）之下，磁盘是静默积累的另一位杀手——os error 28 一出现，SQLite 写、日志、chromium profile 全部失效，而 server 看起来还活着。清盘的第一刀是「活 fd 截断」（dev-server.log 55M truncate 不 delete，lsof 先行）——delete 一个被持有的文件只释放 inode 不释放空间
+- 「外科半径是退役裁决的第三态」：整体退役（456M）与不动（0）之间有第三态——白名单保合同、删中间产物（441M）。t550 的 it200 终态 + 12 per-class stars 是 37 个文件 / 3.4MiB，其余 98.7% 是 mock 迭代垃圾；assert 合同文件全在 keep 集让手术刀不敢切到筋
+- 「bench 的活体复核是半径的验收单」：删完不算完——t550 36 pass 才是退役的验收章。bun 直驱（tsx 的 CJS 格式死路）是本仓 bench 的正形驱动，一笔入册
+- 「陈旧清单要定期验尸」：派单携带的 Task 13 遗留清单五项（#5/#6/#14/#7/#8/#13）经现实对质全部已兑付——遗留清单是快照不是账本，只有逐项对质才能停止让死债占用注意力；本次定谳让未来派单瘦身
+- 「census 与磁盘是两本账」：census 413.1MiB 只统计 unregistered 化石；t474 的 456M 是 registered 活行的 workdir，从未入账——磁盘紧急清盘发生在 census 的盲区，两本账的分工（账本≠盘面）再确认
+- 产出：磁盘清盘（avail 0→640M：活日志截断 + 死 profile/快照/缓存清除）+ t474 workdir 外科退役（3589 文件 / 441.0 MiB，t550 合同 37 文件保留，bench 36 pass 活体验收）+ 遗留清单五项定谳（全部已兑付，未来派单可瘦身）+ t633-t474-workdir-retire.py 仪器；QA 摸底 📸×1、t252 ALL PASS、census 持平、零 chrome 孤儿；下窗入口：①build 日三车道（第 43 窗重测）②t156/t157/qa63 实跑（借稳定窗）③t550 迁移 EMPIAR K5 + t474 项目整体退役（重写 PHASE B 断言族，等完整窗预算）④judge 风暴活体半场（等稳定夜）⑤化石铲子（build 日车道）⑥样式新面侦察（待新题）
