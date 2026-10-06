@@ -51,6 +51,7 @@ import { CornerDownLeft, Loader2, SearchX } from "lucide-react";
 import { TypeIcon } from "./icons";
 import { StatusBadge, isSlurmQueued } from "./job-card";
 import { useWorkflowStore } from "@/lib/store";
+import { Kbd } from "@/components/ui/kbd";
 import { jobType } from "@/lib/workflow";
 import { fmtAgo } from "@/lib/duration";
 import { cn } from "@/lib/utils";
@@ -322,16 +323,16 @@ export function JobSearchLens({
         className="flex items-center gap-3 border-t bg-muted/40 px-3 py-1.5 text-[10px] text-muted-foreground"
       >
         <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]" aria-hidden="true">↑</kbd>
-          <kbd className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]" aria-hidden="true">↓</kbd>
+          <Kbd className="bg-background" aria-hidden="true">↑</Kbd>
+          <Kbd className="bg-background" aria-hidden="true">↓</Kbd>
           navigate
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]" aria-hidden="true">↵</kbd>
+          <Kbd className="bg-background" aria-hidden="true">↵</Kbd>
           open
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]" aria-hidden="true">esc</kbd>
+          <Kbd className="bg-background" aria-hidden="true">esc</Kbd>
           close
         </span>
       </div>

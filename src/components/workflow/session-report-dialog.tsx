@@ -37,6 +37,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import {
   Dialog,
   DialogContent,
@@ -1638,12 +1639,12 @@ export default function SessionReportDialog({
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             Download report
-            <kbd
-              className="no-print ml-0.5 rounded border bg-muted px-1 font-mono text-[9px] font-semibold text-muted-foreground"
+            <Kbd
+              className="no-print ml-0.5 text-muted-foreground"
               aria-hidden="true"
             >
               M
-            </kbd>
+            </Kbd>
           </Button>
           <Button
             variant="ghost"
@@ -1655,12 +1656,12 @@ export default function SessionReportDialog({
           >
             <Globe className="h-3.5 w-3.5" aria-hidden="true" />
             Download HTML
-            <kbd
-              className="no-print ml-0.5 rounded border bg-muted px-1 font-mono text-[9px] font-semibold text-muted-foreground"
+            <Kbd
+              className="no-print ml-0.5 text-muted-foreground"
               aria-hidden="true"
             >
               H
-            </kbd>
+            </Kbd>
           </Button>
           <Button
             variant="ghost"

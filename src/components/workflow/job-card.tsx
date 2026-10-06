@@ -539,7 +539,7 @@ function JobCardMenu({
             >
               <Copy />
               Duplicate {bulk.count} jobs
-              <ContextMenuShortcut>⌘D</ContextMenuShortcut>
+              <ContextMenuShortcut>⌘/Ctrl+D</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
@@ -684,7 +684,7 @@ function JobCardMenu({
           <ContextMenuItem onClick={() => void duplicateJob(job.id)}>
             <Copy />
             Duplicate
-            <ContextMenuShortcut>⌘D</ContextMenuShortcut>
+            <ContextMenuShortcut>⌘/Ctrl+D</ContextMenuShortcut>
           </ContextMenuItem>
         )}
         <ContextMenuItem onClick={copyId}>
@@ -783,7 +783,7 @@ function JobCardMenu({
             >
               {noteDraft.length}/{NOTE_LIMIT}
             </span>
-            <span className="text-[10.5px] text-muted-foreground">⌘↵ to save</span>
+            <span className="text-[10.5px] text-muted-foreground">⌘/Ctrl ↵ to save</span>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             {job.note ? (

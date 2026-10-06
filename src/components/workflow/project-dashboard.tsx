@@ -85,6 +85,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -301,12 +302,12 @@ const KpiCard = React.forwardRef<
           // shortcut badge: faintly visible at rest (discoverability — the
           // chevron was hover-only), brightens on hover; inherits border
           // color from currentColor so it reads on every card tone
-          <kbd
-            className="no-print pointer-events-none absolute right-1.5 top-1.5 rounded border px-1 text-[9px] font-semibold leading-[14px] text-muted-foreground/40 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/80"
+          <Kbd
+            className="no-print pointer-events-none absolute right-1.5 top-1.5 bg-transparent text-muted-foreground/40 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/80"
             aria-hidden="true"
           >
             {kbd}
-          </kbd>
+          </Kbd>
         ) : corner ? (
           // corner override (t243): same whisper dynamics as the chevron
           // (hover-only brightening), different verb — the icon decides
@@ -1741,12 +1742,12 @@ function StatusFilterChip({
         // currentColor border keeps the badge legible in both the active
         // tone and the muted rest state; hidden on the smallest screens
         // where the tap targets are thumb-reachable anyway
-        <kbd
-          className="ml-0.5 hidden rounded-[3px] border px-[3px] text-[8px] font-bold normal-case leading-[11px] sm:inline-block"
+        <Kbd
+          className="ml-0.5 hidden rounded-[3px] bg-transparent px-[3px] text-[8px] font-bold normal-case leading-[11px] sm:inline-block"
           aria-hidden="true"
         >
           {kbd}
-        </kbd>
+        </Kbd>
       ) : null}
     </button>
   );

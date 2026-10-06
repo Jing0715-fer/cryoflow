@@ -39,6 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Kbd } from "@/components/ui/kbd";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import exemptions from "@/lib/palette-exemptions.json";
@@ -309,17 +310,17 @@ export function ShortcutsDialog() {
                           <dt className="flex shrink-0 items-center gap-1">
                             {toChips(r.keys).length > 0 ? (
                               toChips(r.keys).map((chip, i) => (
-                                <kbd
+                                <Kbd
                                   key={i}
                                   className={cn(
-                                    "rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold",
+                                    "px-1.5 py-0.5 text-[10px]",
                                     current
                                       ? "border-primary/40 bg-primary/10 text-primary"
                                       : "bg-muted text-foreground/80"
                                   )}
                                 >
                                   {chip}
-                                </kbd>
+                                </Kbd>
                               ))
                             ) : (
                               <span className="text-[10px] italic text-muted-foreground/70">no keyboard path</span>
@@ -336,7 +337,7 @@ export function ShortcutsDialog() {
         </div>
 
         <p className="shrink-0 border-t px-5 py-2.5 text-[10px] text-muted-foreground/80">
-          Press <kbd className="rounded border bg-muted px-1 font-mono text-[9px]">?</kbd>{" "}
+          Press <Kbd>?</Kbd>{" "}
           anywhere to reopen · Escape closes one layer
         </p>
       </DialogContent>

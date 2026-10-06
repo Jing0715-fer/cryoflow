@@ -53,6 +53,7 @@
 
 import * as React from "react";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges } from "@/lib/store";
+import { Kbd } from "@/components/ui/kbd";
 import { CARD_W, CARD_H } from "@/lib/workflow";
 import { capturePointer } from "@/lib/pointer";
 import { cn } from "@/lib/utils";
@@ -599,12 +600,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             title="Press M to hide the map — the zoom dock's map button brings it back"
             className="pointer-events-none flex items-center text-muted-foreground/50"
           >
-            <kbd
-              className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]"
-              aria-hidden="true"
-            >
-              M
-            </kbd>
+            <Kbd className="bg-background" aria-hidden="true">M</Kbd>
           </span>
         </div>
         <div

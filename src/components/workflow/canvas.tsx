@@ -73,6 +73,7 @@ import { ParamsDiffDialog } from "./params-diff-dialog";
 import { useDropImport, DropImportOverlay } from "./drop-import";
 import { stageWorkflowFiles } from "@/lib/import-stage";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ContextMenu,
@@ -2813,7 +2814,7 @@ export function WorkflowCanvas() {
         </Button>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         {/* Task 134 — find lens toggle, same dialect as the minimap
-            toggle: one keypress (Ctrl+F) and this button agree on one
+            toggle: one keypress (⌘/Ctrl+F) and this button agree on one
             source of truth; active state reads the store. */}
         <Button
           variant="ghost"
@@ -2822,7 +2823,7 @@ export function WorkflowCanvas() {
           onClick={() => (findOpen ? closeFind() : openFind())}
           aria-pressed={findOpen}
           aria-label="Find jobs on canvas"
-          title="Find jobs by name or type (Ctrl+F)"
+          title="Find jobs by name or type (⌘/Ctrl+F)"
           data-canvas-ui="find-toggle"
         >
           <Search className="size-4" />
@@ -2998,13 +2999,13 @@ export function WorkflowCanvas() {
                     data-canvas-ui="viewport-bookmark-row"
                   >
                     {bm.slot != null && (
-                      <kbd
-                        className="shrink-0 rounded border bg-muted px-1 font-mono text-[10px] leading-4 text-muted-foreground"
+                      <Kbd
+                        className="shrink-0 bg-muted text-[10px] leading-4 text-muted-foreground"
                         title={`Press ${bm.slot} on the canvas to jump here`}
                         data-canvas-ui="viewport-bookmark-slot"
                       >
                         {bm.slot}
-                      </kbd>
+                      </Kbd>
                     )}
                     <button
                       type="button"

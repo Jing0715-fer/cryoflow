@@ -4,6 +4,7 @@ import * as React from "react";
 import { BookOpen, HelpCircle, MousePointer2, Link2, Play, ZoomIn, Trash2, Keyboard } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { useWorkflowStore } from "@/lib/store";
 
 const TIPS: { icon: React.ReactNode; text: string }[] = [
@@ -96,9 +97,7 @@ export function HelpPopover() {
         >
           <Keyboard className="size-3.5 text-primary" aria-hidden="true" />
           View all keyboard shortcuts
-          <kbd className="ml-auto rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground/80">
-            ?
-          </kbd>
+          <Kbd className="ml-auto px-1.5 py-0.5 text-[10px]">?</Kbd>
         </Button>
       </PopoverContent>
     </Popover>

@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { JOB_CATEGORIES, JOB_TYPES, jobType } from "@/lib/workflow";
+import { Kbd } from "@/components/ui/kbd";
 import { useWorkflowStore } from "@/lib/store";
 import { TypeIcon } from "./icons";
 
@@ -682,12 +683,12 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             className="h-8 rounded-lg pl-8 pr-12 text-xs shadow-none transition-[box-shadow] focus-visible:ring-primary/40"
           />
           {!query && (
-            <kbd
-              className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border bg-muted/60 px-1 py-px font-mono text-[9px] leading-none text-muted-foreground/70 transition-opacity group-focus-within/search:opacity-0 sm:block"
+            <Kbd
+              className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 bg-muted/60 py-px leading-none text-muted-foreground/70 transition-opacity group-focus-within/search:opacity-0 sm:block"
               aria-hidden="true"
             >
               /
-            </kbd>
+            </Kbd>
           )}
           {query && (
             <button
@@ -1109,10 +1110,10 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             ext
           </span>
           <span className="ml-auto hidden items-center gap-1 text-muted-foreground/70 lg:flex">
-            <kbd className="rounded border bg-muted/60 px-1 py-px font-mono text-[8.5px] leading-none">/</kbd>
+            <Kbd className="bg-muted/60 py-px leading-none">/</Kbd>
             search
             <span className="mx-0.5 text-muted-foreground/40">·</span>
-            <kbd className="rounded border bg-muted/60 px-1 py-px font-mono text-[8.5px] leading-none">⏎</kbd>
+            <Kbd className="bg-muted/60 py-px leading-none">⏎</Kbd>
             add
           </span>
         </div>
