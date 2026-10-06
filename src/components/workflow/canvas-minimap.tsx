@@ -579,13 +579,34 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         draggingRef.current = false;
       }}
     >
-      {/* header: caption + framing-mode segmented control — buttons stop
-          propagation so the container's navigate-on-pointerdown never
-          hijacks a mode click */}
+      {/* header: caption + dismiss hint + framing-mode segmented control —
+          buttons stop propagation so the container's navigate-on-pointerdown
+          never hijacks a mode click */}
       <div className="flex items-center justify-between gap-1 px-0.5 pb-0.5">
-        <p className="pointer-events-none text-[9px] font-medium uppercase tracking-widest text-muted-foreground/70">
-          map
-        </p>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="pointer-events-none text-[9px] font-medium uppercase tracking-widest text-muted-foreground/70">
+            map
+          </p>
+          {/* t638 — the dismiss door, in place: the map occludes whatever
+              canvas region it floats over, and M (or the zoom dock's map
+              button) is the way out — but a door you can't see from the
+              room it serves is barely a door. The kbd chip is the lens
+              hints' vocabulary (t637 加场: a keyboard contract made
+              visible), one voice at every distance. pointer-events-none:
+              inside the drag surface, the chip must never eat a press. */}
+          <span
+            data-mm-hint=""
+            title="Press M to hide the map — the zoom dock's map button brings it back"
+            className="pointer-events-none flex items-center text-muted-foreground/50"
+          >
+            <kbd
+              className="rounded border bg-background px-1 text-[9px] font-semibold leading-[14px]"
+              aria-hidden="true"
+            >
+              M
+            </kbd>
+          </span>
+        </div>
         <div
           role="group"
           aria-label="Minimap framing mode"
