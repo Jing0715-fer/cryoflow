@@ -9302,3 +9302,27 @@ Stage Summary:
 - 「普查相机先于铲子」：406 目录 / 407 MiB 的化石盘面第一次有了逐目录的名字、年龄、字节、租户信号——清理车道的每一步裁决（尤其 163 个 remote manifest 租户）都需要这张地图；只读仪器零风险先落地，铲子等 build 日
 - 「负结果为样式车道收口」：SavedViewsGallery law 的未扫面普查证明 dashboard 是最后一个大缺口——star-table/results 头/class-gallery 都有自己的诚实方言；样式车道的价值在「缺口的真」，不在「样式的多」
 - 产出：qa82 Z 段自洁生命周期（Z3/Z4 + --clean 半径 + 顺序铁律，ALL PASS 19 断言）+ scripts/census-workdir-fossils.py（406 目录 / 407 MiB 全图 + 租户点名 + JSON 报告）+ 产品合同发现立案（jobs POST/GET 的 active 语义 vs resolve_project 幻觉）+ 📸×1；t252 ALL PASS、世界 12/11 归位、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②化石清理铲子（build 日优先——有相机、有地图、163 租户需逐目录裁决）③qa77 深休眠复活（方法论裁决 + 本窗落点幻觉新前提）④第四级第二刀真 sync-back（等输出型活体夜）⑤下一块新面侦察（样式车道待新侦察）⑥build 日被动重测（第 37 窗否决）
+
+---
+Task ID: 629 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 17:39 cron, Job 362852, Task 572 系第 48 次派单)
+Task: t628 下窗入口③兑付——qa77 深休眠复活整窗落地（t622 方法论 + t628 落点幻觉新前提收束）：套件自建孤儿标本、自洁带回家，「活体实例教义」翻案为「标本非住户」；五跑尸检链换来 52 断言 ALL PASS 与零污染世界。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 628（派单摘要说 Task 13——滞后第 N+75 次兑付）；HEAD 352b884 树净；available 963MB 非 build 日（第 38 窗被动否决）。
+- [QA 摸底] agent-browser 127.0.0.1 绕解析 + Shift+D 单按（双按是 toggle 会弹回 canvas）：正典 12 rows / 0 orphans / 12 badged（全 Main）、workspaces 仅 Main、无遗产名、11 completed + 1 idle、console 0 error、📸 t629-home-12jobs.png。
+- [复活病理定谳] qa77 前提=active 项目持 workspaceId NULL 孤儿 + 遗产名（"Import Movies 1" 系）幂等再孤儿化——EMPIAR 零孤儿零遗产名 → 确定性深休眠（t627 立案、t628 添新前提）。UI 合同普查：组件迁至 workflow/project-dashboard.tsx，data-row-ws/orphan/adopt、Unassigned chip（经 dataFilter prop）、Adopted into toast、All chip title（无 kbd 时精确 "Show all jobs only"）、group/row、data-job 全幸存；主 roster 无渲染上限（唯一 CAP 在 failed 抽屉）。POST 路由：新 job 出生即入 Main（projectWorkspaces[0].id），POST 零 mkdir（workdir 由 engine 派发时惰性创建）→ 从未派发的标本天然无 workdir 租户。
+- [方法论裁决落地] D3 旧教义「adopted job kept as the feature's living instance」正是 t628 census 定罪的「无害遗留」幻觉——住户标本是常驻第 13 行与地板算术的谎。翻案为 qa82 生命周期：SEED → STUDY → TAKE HOME（孤儿是标本，不是住户）；幂等改 S 相再发现（崩溃前任的标本按名重拾、用毕带走）；t628 landing fiction 由套件 OWNED（POST 落 active 正是套件要的落点，prisma 直连孤儿化——PATCH 路由只动不卸）。
+- [重写 qa77-e2e.mjs] 六相：S 自建标本（S0 workdir 目录集快照 + QA Overflow 扫除 + 多余标本清走 + prisma 再孤儿化）→ A 归属（A1-A10 原合同）→ B 收养（B1-B5，B4b 死控分支天然触发）→ B6/C 深链（QA Overflow 临时工作区 + ambient idle job 当 mover 且必送回）→ D 卸台（D0-D4）→ Z 带回家（产品门 DELETE + 环境基线算术 s0Count−s0Strays + workdir 集合相等断言 + engine-state 串扫）。铠甲三件套：t523 两段律（domcontentloaded + 等 roster 渲染不等网络）、t622 启动参数 + 分段换浏览器（三段各住收割线内）、t627 取证相机（crash/disconnected/uncaught）。
+- [五跑尸检链] ①跑：prisma P2021（main.Job 不存在）——t623 教义重演：shell 导出的 DATABASE_URL 是说谎者，套件 pin .env/CANONICAL_DB；②跑：B6 起 "Target page closed" 后 async 链停摆成僵尸（uncaught 处理器吞异常不退）——真凶 spot locator 捕获旧 page 对象，relaunch 换页后打在死页上；fix=spot() 每次重建 + uncaught/unhandled 即退 + 420s 看门狗；③跑：B 相 4 FAIL 簇——内存挤压（available 571MB）下 PATCH 慢于 4s 固定窗：toast 迟到、B2b 在 PATCH 落地前读 API 真值、B3/B4 读到乐观 store 瞬态——**乐观 store 的假象窗口 vs 服务端真值**：等待律（waitForApi 轮询 12s + waitForDom）替代固定窗，B2 toast 监听提到 click 之前布防（click 解析本身可慢过 toast 寿命）；④跑：D4 三条页面 ReferenceError——waitForFunction 回调在浏览器端求值，函数体内自由标识符（defaultWs/OVERFLOW_WS）必须经 arg 传参（轮询每次抛错→等待静默超时→断言靠应用自身 poll 才绿，仪器病非产品病）；C3 多行链式 spot\n.locator 逃过 sed 被取证相机当场抓获；⑤跑 **ALL PASS（52 断言 / 0 FAIL）**：全新种子路径（标本 6447ut 走完 POST→收养→深链→带走）、console 0 error、世界还原 {"completed":11,"idle":1}。
+- [半径验证] Z6 workdir 目录集 507=507（集合相等，零新增）；Z7 engine-state 零引用；窗级 census 复跑 **406 dirs / 407.0 MiB 与 t628 完全持平**——复活零污染实证。
+- [回归] t252 ALL PASS（写门 + roster 贴地 12 + console 0）+ 其截图帧随惯例刷新；agent-browser 终态：dashboard 12 rows / 0 orphans / 12 badged、console 0 error、📸 t629-final-12jobs.png；chrome 清场零孤儿。
+- [未做与理由] build 日（第 38 窗否决，963MB）；judge 风暴活体半场（等稳定夜）；第四级第二刀真 sync-back（等输出型活体夜）；化石清理铲子（build 日车道——406 目录地图在册、163 租户逐目录裁决）；qa58 种子器 17 消费者全面自洁推广（qa82/qa77 已示范生命周期，其余消费者逐套审计后套用）；样式新面（t628 普查收束为负后待新侦察）。
+
+Stage Summary:
+- 「标本非住户」：qa77 的复活不是把套件修到能跑，是把它的世界观修对——「留一个活体实例在正典世界」的教义在 census 的算术下就是泄漏的温柔说法；自建世界 + 带回家的完整动词表（POST→prisma→产品门 DELETE→半径核查）让套件的世界观与正典世界可共存
+- 「乐观 store 的瞬态不是真值，固定窗是把瞬态当真值的机器」：内存挤压让 PATCH 慢于任何固定窗，B3/B4 在乐观窗口里全绿、B2b 在真值面前全红——同一份证据两个答案，差的是「问的是 store 还是服务器」；等待律的完整形态：API 轮询真值 + DOM 等渲染 + toast 监听先于 click 布防
+- 「waitForFunction 的回调活在浏览器里」：序列化边界上 node 闭包变量全是幽灵，自由标识符在页面 console 里以 ReferenceError 的形式报丧——轮询仪器的静默超时比红断言更危险（等待死了、断言靠应用自身的 poll 才绿，绿是借来的）；一切经 arg 传参是跨边界的铁律
+- 「取证相机是套件自己的法医」：僵尸进程（吞异常不退）、多行链式选择器逃过 sed、C3 死因——两行 disconnected/uncaught 监听 + 即退语义让每一次死都有名字和地址；看门狗是最后的安全网，清理债由下一跑的 S 相偿还（幂等再发现设计专门为此买单）
+- 「reuse 路径的基线算术要减去谱系垃圾」：S0 看到的世界可能已含崩溃前任的标本——诚实的目标不是「回到 S 相快照」而是「回到无 qa77 谱系垃圾的环境基线」（s0Count−s0Strays）；套件对前任遗留的清理是超额完成，不是对基线的违反
+- 产出：qa77-e2e.mjs 复活全重写（六相 + 三件铠甲 + 崩溃恢复 + 半径核查，52 断言 ALL PASS）+ t252 截图帧刷新 + 📸×2（t629-home / t629-final）；t252 回归 ALL PASS、census 406/407MiB 持平零污染；正典 12/11 完好、零 chrome 孤儿；下窗入口：①judge 风暴活体半场（等稳定夜）②qa58 种子器 17 消费者自洁推广（qa82/qa77 生命周期已示范，逐套审计套用）③化石清理铲子（build 日车道）④第四级第二刀真 sync-back（等输出型活体夜）⑤样式新面侦察（待新题）⑥build 日被动重测（第 38 窗否决）
