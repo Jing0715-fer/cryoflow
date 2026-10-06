@@ -52,6 +52,27 @@ const evalSteady = async (page, fn, ...args) => {
     }
   }
 };
+// t622 — the respawn gate: the sandbox's watchdog reaps next-server under
+// memory pressure and a supervisor respawns it; the respawn window (~30s)
+// outlives fetchSteady's connection retries and eats whatever the suite
+// was doing mid-flight (the palette's registry fetch, the outputs
+// listing, the export POST). t622's crime-scene diag caught the full
+// anatomy: a boot that opened the palette during a respawn saw 77 rows
+// and NO Projects group (the registry fetch died silently), and the
+// export's download event never came. The gate promotes the suite's own
+// fetchSteady doctrine to a section boundary: before each critical
+// section, wait until the server actually answers.
+const waitServerHealthy = async (timeoutMs = 120000) => {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    try {
+      const r = await fetch(`${BASE}/api/jobs`, { cache: "no-store" });
+      if (r.ok) return true;
+    } catch { /* the respawn window — keep waiting */ }
+    await sleep(4000);
+  }
+  return false;
+};
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -96,13 +117,26 @@ must(!!proj, `the dossier's project resolved on the wire (${proj?.name ?? "none"
 // no-op, the suite keeps the guard so the fossil can never come back)
 let projRow = null;
 for (let attempt = 1; attempt <= 3 && !projRow; attempt++) {
+  // t622 — outlive a respawn: the gate waits for the server before each
+  // attempt, so the palette's registry fetch rides a live server (the
+  // product's backfill heals the store side; the gate heals the suite side).
+  await waitServerHealthy();
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await page.waitForSelector('button[aria-label="Open command palette (Ctrl+K)"]', { timeout: 30000 });
   await page.click('button[aria-label="Open command palette (Ctrl+K)"]');
   await page.waitForSelector('[cmdk-root]', { timeout: 10000 });
-  await sleep(600);
+  // t622 — the row WAITS for the boot, not for a fixed beat: the palette
+  // button hydrates before load()'s six-route Promise.all lands, and a
+  // fixed 600ms snapshot raced the boot on every attempt (the store's
+  // projects arrive when they arrive; the palette re-renders them the
+  // moment they land). Poll for the row inside the open palette — the
+  // t621 pollUntil doctrine; the reload loop below stays as the outer guard.
   const candidate = page.locator('[data-slot="command-item"]', { hasText: proj.name }).first();
-  if ((await candidate.count()) >= 1) { projRow = candidate; break; }
+  for (let waited = 0; waited < 20000 && !projRow; waited += 500) {
+    if ((await candidate.count()) >= 1) { projRow = candidate; break; }
+    await sleep(500);
+  }
+  if (projRow) break;
   await page.keyboard.press("Escape");
   await sleep(800);
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -117,6 +151,7 @@ if (projRow) {
 }
 
 section("open the inspector on the FSC-bearing job");
+await waitServerHealthy();
 await page.goto(BASE, { waitUntil: "domcontentloaded" });
 await sleep(2500);
 // third fossil layer: the old world's localStorage remembered the Workflow
@@ -150,6 +185,27 @@ const fscWarm = await evalSteady(page, async (jid) => {
   return false;
 }, post.id);
 must(fscWarm, "the FSC wire is warm before the export");
+// t622 — warm the WHOLE collector, not just the FSC wire: the report's
+// Promise.all fires six routes (fsc, resolution, motion, ctf, angdist,
+// topaz-training) and every cold compile sits inside the download
+// window — the 20s timeout was eaten by five compiles the warm-up never
+// touched. The same incremental-warmth doctrine, family-sized.
+const familyWarm = await evalSteady(page, async (jid) => {
+  const routes = ["fsc", "resolution", "motion", "ctf", "angdist", "topaz-training"];
+  for (let i = 0; i < 30; i++) {
+    let allOk = true;
+    for (const route of routes) {
+      try {
+        const r = await fetch(`/api/jobs/${jid}/${route}`, { cache: "no-store" });
+        if (!r.ok) allOk = false;
+      } catch { allOk = false; }
+    }
+    if (allOk) return true;
+    await new Promise((res) => setTimeout(res, 2000));
+  }
+  return false;
+}, post.id);
+must(familyWarm, "the collector's six wires are warm before the export");
 let doors = await evalSteady(page, () => ({
   md: !!document.querySelector('button[aria-label="Export run report"]'),
   html: !!document.querySelector('button[aria-label="Export run report as HTML"]'),
@@ -170,47 +226,64 @@ if (!(doors.md && doors.html)) {
 must(doors.md && doors.html, `the dossier's two doors stand (md ${doors.md}, html ${doors.html})`);
 
 section("export the echo");
-const [dl] = await Promise.all([
-  page.waitForEvent("download", { timeout: 20000 }),
-  page.locator('button[aria-label="Export run report as HTML"]').click(),
-]);
-must(new RegExp(`^cryoflow-report-${SLUG}-[a-z0-9]+\\.html$`).test(dl.suggestedFilename()),
-  `the echo travels under the dossier's own name (${dl.suggestedFilename()})`);
-const html = readFileSync(await dl.path(), "utf8");
+// t622 — armored export: a server respawn mid-export used to kill the
+// suite with an uncaught TimeoutError BEFORE the world-hygiene section
+// could report (the crash hid the completed-floor and console gates).
+// The export is now a counted assertion; a dead download fails honestly
+// and the suite still files its full hygiene report.
+let dl = null;
+let exportErr = null;
+try {
+  [dl] = await Promise.all([
+    page.waitForEvent("download", { timeout: 20000 }),
+    page.locator('button[aria-label="Export run report as HTML"]').click(),
+  ]);
+} catch (err) {
+  exportErr = err;
+}
+must(!!dl,
+  `the echo downloads (server respawn mid-export is the t622 suspect${exportErr ? `: ${String(exportErr?.message ?? exportErr).split("\n")[0]}` : ""})`);
+const html = dl ? readFileSync(await dl.path(), "utf8") : "";
 const h2s = (html.match(/<h2/g) || []).length;
 const figs = (html.match(/<figure class="shot">/g) || []).length;
 const links = [...html.matchAll(/href="#([a-z0-9-]+)"/g)];
 const deadLinks = links.filter((m) => !html.includes(`id="${m[1]}"`)).length;
-must(html.startsWith("<!DOCTYPE html>"), "doctype first");
-must(!/<script/i.test(html), "a document, not an app (zero script)");
-must(!/<link|@import|src="http/i.test(html), "self-contained (no external references)");
-must(html.includes(`<title>CryoFlow run report — ${JOB}</title>`), "the title is the dossier's own");
-must(html.includes('h2:target, h3:target { animation: echo-glow'), "the landing light rides the shared CSS");
-must(figs >= 1 && html.includes('src="data:image/png;base64,'), `the chart snapshot travels inside the bytes (${figs} figure)`);
-must(deadLinks === 0, `no dead links (${links.length} anchor links, ${deadLinks} dead)`);
-must(!/\]\(#/.test(html), "no raw md link syntax survives the dress");
-// the md's own FSC section must have survived verbatim-ish: the section
-// head and the milestone table's Field column
-must(html.includes("FSC curve") && html.includes("<th"), "the FSC section and its table stand");
+if (dl) {
+  must(new RegExp(`^cryoflow-report-${SLUG}-[a-z0-9]+\\.html$`).test(dl.suggestedFilename()),
+    `the echo travels under the dossier's own name (${dl.suggestedFilename()})`);
+  must(html.startsWith("<!DOCTYPE html>"), "doctype first");
+  must(!/<script/i.test(html), "a document, not an app (zero script)");
+  must(!/<link|@import|src="http/i.test(html), "self-contained (no external references)");
+  must(html.includes(`<title>CryoFlow run report — ${JOB}</title>`), "the title is the dossier's own");
+  must(html.includes('h2:target, h3:target { animation: echo-glow'), "the landing light rides the shared CSS");
+  must(figs >= 1 && html.includes('src="data:image/png;base64,'), `the chart snapshot travels inside the bytes (${figs} figure)`);
+  must(deadLinks === 0, `no dead links (${links.length} anchor links, ${deadLinks} dead)`);
+  must(!/\]\(#/.test(html), "no raw md link syntax survives the dress");
+  // the md's own FSC section must have survived verbatim-ish: the section
+  // head and the milestone table's Field column
+  must(html.includes("FSC curve") && html.includes("<th"), "the FSC section and its table stand");
+}
 
 section("the frames — the document alone");
-writeFileSync(TMP, html);
-try {
-  const echo = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await echo.goto(`file://${process.cwd()}/${TMP}`, { waitUntil: "domcontentloaded" });
-  await echo.waitForTimeout(600);
-  // frame 1: the dossier standing alone — title, field table, the
-  // Summary section beneath (the app is not in the room)
-  await echo.screenshot({ path: "scripts/shots-t223/t241-run-echo-travels-2x.png", scale: "css" });
-  // frame 2: the picture inside the bytes — the FSC curve figure
-  await echo.locator("figure.shot").first().scrollIntoViewIfNeeded();
-  await sleep(300);
-  const figBox = await echo.locator("figure.shot").first().boundingBox();
-  must(!!figBox && figBox.height > 100, `the figure has a body on paper (${Math.round(figBox?.height ?? 0)}px)`);
-  await echo.screenshot({ path: "scripts/shots-t223/t241-run-echo-figure-2x.png", scale: "css" });
-  await echo.close();
-} finally {
-  unlinkSync(TMP);
+if (dl) {
+  writeFileSync(TMP, html);
+  try {
+    const echo = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await echo.goto(`file://${process.cwd()}/${TMP}`, { waitUntil: "domcontentloaded" });
+    await echo.waitForTimeout(600);
+    // frame 1: the dossier standing alone — title, field table, the
+    // Summary section beneath (the app is not in the room)
+    await echo.screenshot({ path: "scripts/shots-t223/t241-run-echo-travels-2x.png", scale: "css" });
+    // frame 2: the picture inside the bytes — the FSC curve figure
+    await echo.locator("figure.shot").first().scrollIntoViewIfNeeded();
+    await sleep(300);
+    const figBox = await echo.locator("figure.shot").first().boundingBox();
+    must(!!figBox && figBox.height > 100, `the figure has a body on paper (${Math.round(figBox?.height ?? 0)}px)`);
+    await echo.screenshot({ path: "scripts/shots-t223/t241-run-echo-figure-2x.png", scale: "css" });
+    await echo.close();
+  } finally {
+    unlinkSync(TMP);
+  }
 }
 
 section("world hygiene");
@@ -220,6 +293,12 @@ section("world hygiene");
 must((roster0.jobs ?? []).filter((j) => j.status === "completed").length >= 11,
   `the healed chain stands (>= 11 completed) (${(roster0.jobs ?? []).filter((j) => j.status === "completed").length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length})`);
+if (consoleErrors.length) {
+  // t622 — telemetry on failure: the gate stays exact (zero), the sample
+  // says WHO spoke so the next diagnosis does not start from a count.
+  console.log("  console error sample:");
+  consoleErrors.slice(0, 8).forEach((e) => console.log("    -", String(e).slice(0, 160)));
+}
 await page.close();
 await browser.close();
 
