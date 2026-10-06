@@ -41,6 +41,16 @@ type RouteContext = { params: Promise<{ id: string }> };
  * still leaving (the ledger decides the final state); null = the question
  * never applied. The DB row and the toast speak the difference instead of
  * claiming "stopped" flatly in both cases.
+ *
+ * t625 — the receipt's third level: the stop-time words are the BEST
+ * KNOWLEDGE, not the final word — the cluster's accounting ledger holds
+ * that. Every slurm-mode stop (killed or missed) opens the question on the
+ * record (`remote.accountingPending`), and the sweep's sacct consult lands
+ * the ledger's terminal answer: COMPLETED heals the row (the cancel arrived
+ * after the run had finished — the heal is a landing, not a flip),
+ * CANCELLED confirms the stamp (case closed), FAILED/TIMEOUT name the run's
+ * own death. A ledger that stays silent past the patience window has the
+ * receipt's stamp stand.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -73,6 +83,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // this one only feeds the receipt's words).
       const outcome = await remoteStopRun(id, { settleMs: 8_000 });
       const missed = !outcome.stopped;
+      // t625 — slurm-mode stops open the accounting question: the ledger
+      // holds the FINAL word for the slurmId, whatever the receipt just
+      // said. Missed stops promise the same thing ("the cluster ledger
+      // decides the final state") — a refused scancel is often "already
+      // finished", exactly when sacct holds a COMPLETED row.
+      const slurmBackfill = rec.remote.mode === "slurm" && !!rec.remote.slurmId;
       // finalize the record now — a SIGKILL'd wrapper never writes its exit
       // file, and a !done record would ghost-block re-runs (isRunAlive).
       // The receipt decides the words (t618 feat docket): a confirmed kill
@@ -86,6 +102,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 ...cur,
                 done: true,
                 ...(missed ? {} : { exitCode: cur.exitCode ?? 137 }),
+                ...(slurmBackfill
+                  ? { remote: { ...cur.remote, accountingPending: { at: Date.now(), missed } } }
+                  : {}),
                 result:
                   cur.result ??
                   (missed
@@ -94,6 +113,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
               }
             : null
       );
+      // t625 — the handshake's mirror case (t623's fresh-read fixed the
+      // sweep-yields-to-route order; THIS is the route-yields-to-sweep
+      // order): the background reconciler sweeps RUNNING rows globally on
+      // a 15s beat, and a stop's own in-flight window (the 8s settle wait,
+      // or the dying wrapper's exit file landing first) lets the tick
+      // finalize the record BEFORE this route's updateRun — whose !done
+      // guard then rightly declines to speak over the tick's fresh words.
+      // The QUESTION is not a word: open it on the tick-finalized record
+      // too, so the ledger's last word is still consulted. The landing's
+      // own guards (RECEIPT_STAMPS on the record's words, the failed-row
+      // condition on the flip) keep this write honest in both orders.
+      if (slurmBackfill) {
+        updateRun(
+          id,
+          (cur) =>
+            cur.remote && cur.done && cur.remote.slurmId && !cur.remote.accountingPending
+              ? {
+                  ...cur,
+                  remote: { ...cur.remote, accountingPending: { at: Date.now(), missed } },
+                }
+              : null
+        );
+      }
       // give the cluster a beat to write the exit status, then reflect the
       // DB (the remote poll sweep finalizes + syncs checkpoints on its next
       // tick — typically ≤5s)

@@ -489,4 +489,22 @@ export interface RemoteRunState {
    * the sentence after the sweep's tail cache rolls over).
    */
   storageDiagVerdict?: string;
+  /**
+   * t625 — the stop receipt's OPEN QUESTION: the record was finalized at
+   * stop time with its stop-time best knowledge (the 137 user-stop stamp,
+   * or the missed receipt's "the ledger decides" promise), while the
+   * cluster's accounting ledger holds the FINAL word — a scancel accepted
+   * around an already-finishing run means sacct may answer COMPLETED (the
+   * landing), CANCELLED (the stamp confirmed), or FAILED with the run's
+   * own exit (the ledger's verdict). The sweep consults sacct for the
+   * slurmId, lands the ledger's terminal word on record and row, and
+   * clears the flag; a ledger that stays silent past the patience window
+   * has the receipt's stamp stand. Set for slurm-mode stops only (killed
+   * AND missed — both promise the ledger decides); absent on direct
+   * pid-group kills (no ledger to consult) and on re-runs (a fresh record
+   * never inherits the question). `missed` rides along so the landing can
+   * name WHICH promise it fulfills (the missed receipt's row promised the
+   * ledger's word; the killed receipt's row named the user).
+   */
+  accountingPending?: { at: number; missed: boolean };
 }

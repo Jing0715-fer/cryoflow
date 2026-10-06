@@ -43,7 +43,7 @@
  * overlaps — the pollState adaptive floors already make the sweep polite.
  */
 import { db } from "@/lib/db";
-import { reconcileRealJobs } from "@/lib/relion/engine";
+import { reconcileRealJobs, readRuns } from "@/lib/relion/engine";
 import { autoStartPendingDownstream } from "@/lib/relion/dispatch";
 import { reconcileRemoteJobs } from "@/lib/remote/remote-run";
 
@@ -123,18 +123,41 @@ export async function globalReconcileTick(): Promise<ReaperTickVerdict> {
     orderBy: { createdAt: "asc" },
   });
   const verdict: ReaperTickVerdict = { examined: stuck.length, flips: 0, retried: 0 };
-  if (stuck.length === 0) return verdict;
+
+  // t625 — the accounting backfill's rows are TERMINAL (the stop receipt's
+  // failed row) and thus invisible to the stuck query — but the LEDGER FILE
+  // knows exactly which ids carry the open question. Computed BEFORE the
+  // empty-world early return: a quiet night (no running/pending rows
+  // anywhere) is exactly when the stop receipts have settled and their
+  // open questions still need the ledger's answer. A plain JSON read + an
+  // indexed fetch — no SSH until the consult itself. Their heals
+  // deliberately do NOT enter the transition leg's before-set: a
+  // stop-receipt row healing to completed must not fire downstream
+  // dispatch (the stop's intent stands; the ledger's word only heals the
+  // row).
+  const accountingIds = Object.values(readRuns())
+    .filter((r) => r.done && r.remote?.accountingPending)
+    .map((r) => r.jobId);
+  const accountingRows = accountingIds.length
+    ? await db.job.findMany({ where: { id: { in: accountingIds } } }).catch(() => [])
+    : [];
+
+  if (stuck.length === 0 && accountingRows.length === 0) return verdict;
 
   // 1. local finalize + progress (ledger-driven, DB-conditional flips).
   const localFinal = await reconcileRealJobs(stuck).catch(() => stuck);
+  const sweepInput = [
+    ...localFinal,
+    ...accountingRows.filter((r) => !stuck.some((s) => s.id === r.id)),
+  ];
 
   // 2. the remote sweep — await it (no UI is waiting on this beat; a slow
   // wire delays the TICK, and the re-entrancy guard skips the beats it
   // overlaps). Its per-connection pollState throttle coalesces with any
   // GET-driven sweep already in flight.
-  let sweptFinal = localFinal;
+  let sweptFinal = sweepInput;
   try {
-    sweptFinal = await reconcileRemoteJobs(localFinal);
+    sweptFinal = await reconcileRemoteJobs(sweepInput);
   } catch {
     /* the sweep's verdicts land on the next beat — never die loudly */
   }

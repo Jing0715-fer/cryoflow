@@ -6777,6 +6777,23 @@ function aliveCheckScript(
 const pollState = new Map<string, { at: number; inflight: boolean; lastMs: number }>();
 
 /**
+ * t625 — the accounting backfill's own per-connection throttle. The
+ * consult is rare (only slurm-mode stops open the question) and the
+ * ledger's words are minutes-scale late at best — a 20s floor keeps the
+ * patience window honest without poking the login node per sweep tick.
+ */
+const ACCOUNTING_CONSULT_FLOOR_MS = 20_000;
+const accountingPollState = new Map<string, { at: number; inflight: boolean }>();
+
+/**
+ * t625 — how long the backfill waits for the accounting ledger to speak
+ * before the receipt's stop-time stamp stands for good. Real slurm's
+ * accounting lag is seconds-to-minutes; a ledger that is OFF (or purged
+ * the job) never answers — the flag must not age into a per-tick SSH tax.
+ */
+const ACCOUNTING_BACKFILL_PATIENCE_MS = 10 * 60_000;
+
+/**
  * t346 — how long a single sweep's SSH round trip may take. Was 15s: the
  * t345 field ticket proved a mere `cat` on the user's login node can exceed
  * that (exec = sshd fork + shell + slow /data03), so the sweep itself timed
@@ -6910,6 +6927,67 @@ async function finalizeStagingGhostsFromPastIncarnations(jobs: Job[]): Promise<v
   }
 }
 
+/* t625 — the receipt-word set the accounting landing may overwrite. A
+ * stop-finalized record carries exactly one of these; anything else means
+ * someone else already gave the record its own words and the landing must
+ * not speak over them. */
+const RECEIPT_STAMPS: ReadonlySet<string> = new Set([
+  "stopped by user",
+  "stop missed — no live cluster session found; the cluster ledger decides the final state",
+]);
+
+/**
+ * t625 — the t299 exit contract, the same dialect the accounting fallback
+ * speaks: CANCELLED is the stop contract (the t297 TERM trap's 143), a
+ * signal death with a clean exit rides 128+sig, TIMEOUT killed by the
+ * walltime limit is a failure even at exit 0 (timeout(1)'s 124).
+ */
+function mapSacctWordToExit(word: string, exitNum: number | null, sigNum: number | null): number {
+  const mapped =
+    word === "CANCELLED"
+      ? 143
+      : exitNum !== null && exitNum !== 0
+        ? exitNum
+        : sigNum !== null && sigNum !== 0
+          ? 128 + sigNum
+          : 0;
+  return word === "TIMEOUT" && mapped === 0 ? 124 : mapped;
+}
+
+/**
+ * t625 — land the accounting ledger's terminal word on the record and
+ * clear the open question in the same write. The generation guards mirror
+ * the sweep's everywhere-else shape: only a DONE record that still carries
+ * the question and still belongs to the sweep's snapshot may be touched —
+ * a re-run replaces the record wholesale (fresh records never inherit the
+ * question) and the startedAt pin closes the classification→landing race.
+ */
+function landAccountingVerdict(
+  jobId: string,
+  startedAt: string,
+  patch: { exitCode?: number; result?: string; slurmState?: string; slurmElapsedMs?: number }
+): void {
+  updateRun(jobId, (cur) =>
+    cur.remote?.accountingPending && cur.done && cur.startedAt === startedAt
+      ? {
+          ...cur,
+          ...(patch.exitCode !== undefined ? { exitCode: patch.exitCode } : {}),
+          ...(patch.result !== undefined ? { result: patch.result } : {}),
+          remote: {
+            ...cur.remote,
+            accountingPending: undefined,
+            ...(patch.slurmState && cur.remote.slurmState !== patch.slurmState
+              ? { slurmState: patch.slurmState }
+              : {}),
+            ...(patch.slurmElapsedMs != null && cur.remote.slurmElapsedMs == null
+              ? { slurmElapsedMs: patch.slurmElapsedMs }
+              : {}),
+          },
+        }
+      : null
+  );
+}
+
 export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
   void finalizeStagingGhostsFromPastIncarnations(jobs).catch(() => null);
   const runs = readRuns();
@@ -6917,6 +6995,12 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
   const heal: BatchEntry[] = [];
   const stagingEntries: BatchEntry[] = [];
   const orphans: Array<{ job: Job; rec: RunRecord }> = [];
+  // t625 — the stop receipt's open questions: done records whose stop was
+  // slurm-mode (the receipt stamped 137/user-stop at stop time) and whose
+  // row already landed on the receipt's failed sentence — the accounting
+  // ledger may still hold a DIFFERENT final word (COMPLETED / the run's
+  // own exit). Consulted below, in one batched sacct per connection.
+  const accounting: Array<{ job: Job; rec: RunRecord }> = [];
   const out = [...jobs];
   for (const job of jobs) {
     const rec = runs[job.id];
@@ -6928,6 +7012,20 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
       // re-apply it below (no SSH needed). The status guard keeps a live
       // user re-run safe: only a non-terminal row may be healed.
       if (job.status === "running" || job.status === "pending") orphans.push({ job, rec });
+      // t625 — the backfill speaks to the receipt's OWN row: failed (the
+      // route's flip) or completed (the background tick's mid-stop
+      // finalize may have landed the row FIRST — its fast path). A
+      // running/pending row is a user re-run (the record would have been
+      // replaced, flag gone — double-guarded). The consult closes the
+      // question on the record in both cases; only a FAILED row is ever
+      // flipped (the landing's where-guard), a completed row keeps its
+      // writer's words. The 800ms stop-route window lands here as a
+      // skipped tick, picked up on the next sweep.
+      else if (
+        rec.remote.accountingPending &&
+        (job.status === "failed" || job.status === "completed")
+      )
+        accounting.push({ job, rec });
       continue;
     }
     const entry: BatchEntry = { job, rec, remote: rec.remote };
@@ -7018,7 +7116,7 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
     }
   }
 
-  if (active.length === 0 && heal.length === 0) return out;
+  if (active.length === 0 && heal.length === 0 && accounting.length === 0) return out;
 
   // group by connection — t325-a (M2): resolve DEAD ids to a live
   // HOST-MATCHED connection BEFORE grouping. The old shape failed a
@@ -7677,6 +7775,172 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
       }
     } finally {
       pollState.set(connId, { at: Date.now(), inflight: false, lastMs: Date.now() - sweepT0 });
+    }
+  }
+
+  // ---- t625 — the stop receipt's accounting backfill (the third level) ---
+  // The receipt's stop-time words are the BEST KNOWLEDGE; the cluster's
+  // accounting ledger holds the FINAL word. One batched sacct per
+  // connection per 20s floor, four honest outcomes:
+  //   COMPLETED  → the landing: the row heals failed → completed (the
+  //                cancel arrived after the run had finished — the same
+  //                "the heal is a landing, not a flip" doctrine as t618),
+  //                the record earns exit 0.
+  //   CANCELLED (killed receipt) → the stamp confirmed — case closed, no
+  //                words change, the SSH tax ends.
+  //   any other terminal word → the ledger's verdict lands on row + record
+  //                (the run died its own death while the stop was being
+  //                accepted — the words name it, the exit follows the
+  //                t299 contract).
+  //   silence past the patience window → the receipt's stamp stands for
+  //                good (accounting OFF or the job purged — the flag must
+  //                not age into a per-tick SSH tax).
+  // A missed receipt's promise ("the cluster ledger decides the final
+  // state") is fulfilled by the SAME mechanism — the landing words name
+  // which promise they fulfill. Re-runs are safe by construction: a fresh
+  // record never inherits the question, the row flip is conditional on
+  // the failed status, and the startedAt pin closes the classification→
+  // landing race. Downstream dispatch deliberately does NOT fire on the
+  // COMPLETED heal — the user stopped this workflow; the ledger's word
+  // heals the row, it does not overrule the stop's intent (the orphan
+  // heal's own precedent).
+  if (accounting.length > 0) {
+    const byConnAcc = new Map<
+      string,
+      { conn: RemoteConnection | null; entries: Array<{ job: Job; rec: RunRecord }> }
+    >();
+    for (const e of accounting) {
+      const r = e.rec.remote!;
+      let conn = getConnection(r.connectionId);
+      if (!conn) {
+        // t325-a — the host-matched fallback: a re-created connection on
+        // the same cluster keeps the receipt's promise consultable.
+        const wanted = normalizeClusterHost(r.host);
+        if (wanted)
+          conn =
+            loadConnections().find(
+              (c) => normalizeClusterHost(`${c.host}:${c.port}`) === wanted
+            ) ?? null;
+      }
+      const key = conn ? conn.id : `lost:${r.connectionId}`;
+      const bucket = byConnAcc.get(key) ?? { conn, entries: [] };
+      bucket.entries.push(e);
+      byConnAcc.set(key, bucket);
+    }
+    for (const [key, { conn, entries }] of byConnAcc) {
+      const ast = accountingPollState.get(key) ?? { at: 0, inflight: false };
+      if (ast.inflight || Date.now() - ast.at < ACCOUNTING_CONSULT_FLOOR_MS) continue;
+      accountingPollState.set(key, { at: Date.now(), inflight: true });
+      try {
+        // no connection anywhere — the patience window decides (a
+        // re-created connection would have matched above, t325-a)
+        if (!conn) {
+          for (const e of entries) {
+            const opened = e.rec.remote!.accountingPending!;
+            if (Date.now() - opened.at > ACCOUNTING_BACKFILL_PATIENCE_MS) {
+              landAccountingVerdict(e.job.id, e.rec.startedAt, {});
+              console.log(
+                `remote-run: the accounting question for "${e.job.name}" expired unheard (no live connection) — the stop receipt's stamp stands`
+              );
+            }
+          }
+          continue;
+        }
+        const ids = shQuote(
+          [...new Set(entries.map((e) => String(Number(e.rec.remote!.slurmId))))].join(",")
+        );
+        const res = await exec(
+          conn,
+          `sacct -j ${ids} -n -P -o JobID,State,ExitCode,Elapsed 2>/dev/null`,
+          { timeoutMs: 20_000 }
+        );
+        if (res.error) continue; // wire trouble — the question stays open
+        // exact master-id rows only: sacct emits step rows (100.batch,
+        // 100.extern) beside the master row; the master row is the one
+        // that speaks for the job.
+        const rows = new Map<string, string[]>();
+        for (const line of (res.stdout ?? "").split("\n")) {
+          const f = line.trim().split("|");
+          if (f.length >= 3 && /^\d+$/.test(f[0])) rows.set(f[0], f);
+        }
+        for (const e of entries) {
+          const r = e.rec.remote!;
+          const opened = r.accountingPending!;
+          const f = rows.get(String(Number(r.slurmId)));
+          const state = f?.[1]?.trim() ?? "";
+          const word = /^[A-Z_]+/.exec(state)?.[0] ?? "";
+          // the ledger is still thinking (RUNNING/COMPLETING), the row is
+          // not there yet (accounting lag), or the word is unknown — all
+          // three WAIT; only a terminal word or the patience window acts.
+          if (
+            !f ||
+            !word ||
+            /^(PENDING|RUNNING|COMPLETING|SUSPENDED|REQUEUED)/.test(word) ||
+            !/^(COMPLETED|FAILED|CANCELLED|TIMEOUT|NODE_FAIL|BOOT_FAIL|OUT_OF_|PREEMPTED|DEADLINE|SPECIAL_EXIT)/.test(
+              word
+            )
+          ) {
+            if (!f && Date.now() - opened.at > ACCOUNTING_BACKFILL_PATIENCE_MS) {
+              landAccountingVerdict(e.job.id, e.rec.startedAt, {});
+              console.log(
+                `remote-run: the accounting question for "${e.job.name}" expired unheard (the ledger stayed silent) — the stop receipt's stamp stands`
+              );
+            }
+            continue;
+          }
+          const exitParts = /^(\d+):(\d+)$/.exec(f[2]?.trim() ?? "");
+          const exitNum = exitParts ? Number(exitParts[1]) : null;
+          const sigNum = exitParts ? Number(exitParts[2]) : null;
+          const elapsedMs = parseSlurmElapsed(f[3]);
+          const exitLabel = `${exitNum ?? "?"}:${sigNum ?? "?"}`;
+          if (word === "CANCELLED" && !opened.missed) {
+            // the scheduler killed what we asked it to — the receipt's
+            // stamp confirmed; close the case, keep every word.
+            landAccountingVerdict(e.job.id, e.rec.startedAt, { slurmState: word });
+            console.log(
+              `remote-run: the ledger says CANCELLED for "${e.job.name}" — the stop receipt's stamp confirmed, case closed`
+            );
+            continue;
+          }
+          const completed = word === "COMPLETED" && exitNum === 0 && sigNum === 0;
+          const sentence = completed
+            ? opened.missed
+              ? `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had found nothing to kill because the run had already finished`
+              : `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop's cancellation arrived after the run had finished`
+            : opened.missed
+              ? `the cluster ledger recorded the run ${word} (exit ${exitLabel}) — the stop had found no live session to kill; the ledger's word stands`
+              : `the cluster ledger recorded the run ${word} (exit ${exitLabel}) after the stop was accepted — the ledger's word stands`;
+          landAccountingVerdict(e.job.id, e.rec.startedAt, {
+            exitCode: completed ? 0 : mapSacctWordToExit(word, exitNum, sigNum),
+            result: sentence,
+            slurmState: word,
+            ...(elapsedMs != null ? { slurmElapsedMs: elapsedMs } : {}),
+          });
+          // the row: completed heals the whole row; any other verdict only
+          // swaps the words (both conditional on the receipt's failed row —
+          // a user re-run's running/pending row is untouchable)
+          const flip = completed
+            ? {
+                status: "completed" as const,
+                progress: 100,
+                result: sentence,
+                duration: Math.max(500, Date.now() - new Date(e.rec.startedAt).getTime()),
+              }
+            : { result: sentence };
+          const flipped = await db.job
+            .updateMany({ where: { id: e.job.id, status: "failed" }, data: flip })
+            .catch(() => null);
+          if (flipped && flipped.count > 0) {
+            const healed = await db.job.findUnique({ where: { id: e.job.id } });
+            if (healed) replace(out, healed);
+          }
+          console.log(
+            `remote-run: the ledger's word landed for "${e.job.name}": ${word} (exit ${exitLabel}) — ${completed ? "the stop-receipt row healed completed" : "the row's words follow the ledger"}`
+          );
+        }
+      } finally {
+        accountingPollState.set(key, { at: Date.now(), inflight: false });
+      }
     }
   }
   return out;
