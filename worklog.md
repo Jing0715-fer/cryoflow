@@ -9449,3 +9449,29 @@ Stage Summary:
 - 「固定窗死了两次，轮询活了两次」：FSC section 与 compare rows 是同一课的两个新标本——「元素出现≠数据到达」在 inspector 分页与 dialog 扫描两个场景各验一遍；t630 等待律的第三课已成家族抗体，套件侧剩余固定窗进入清零倒计时
 - 「租户在的壳不进小铲」：7 个新化石行全死，5 个零租户 import 壳当窗清、2 个带 remote-manifest 的 motioncorr 壳立案 build 日——162+2 的租户裁决名单继续积攒，白名单协议（t633）只覆盖零租户零歧义区
 - 产出：qa63-smoke 四刀修复 + SMOKE GREEN（t631 立案首兑）+ t156 instrument 全绿账（cleanup 链实战）+ 5 壳清（census 407 持平）+ t474 迁移窗级立案（VLM 基线协议）；EMPIAR 12/11 全程归位、t252 ALL PASS、📸×1、零 chrome 孤儿；下窗入口：①build 日三车道（第 44 窗重测）②t156/t157 实跑（instrument 已全备，等真稳定窗）③t550 迁移 EMPIAR K5 + t474 整体退役（VLM 基线录制协议）④judge 风暴活体半场（等稳定夜）⑤化石铲子（build 日；motioncorr ×2 点名）⑥样式新面侦察（待新题）
+
+---
+Task ID: 635 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 22:54 cron, Job 362852, Task 572 系第 54 次派单)
+Task: 样式新面侦察开局撞上环境级灾难——sandbox 容器实例被整体替换（rootfs 换新），代码倒退 Task 272 时代、DB/workdir/engine-state/EMPIAR bundle 全灭；本窗兑付世界重建（代码 git 恢复 + seeder 三级链 + server 正统复位）+ 二渡兑付 t635 功能题「跨项目 job 搜索透镜」（第一渡成果毁于 reset，凭验证过的经验重做更快）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 634（派单摘要说 Task 13——滞后第 N+81 次兑付）；HEAD 9f95192 树净；available 960MB 非 build 日（第 44 窗被动否决）；server RSS 2183MB 贴线（t156/t157 实跑继续持有）。
+- [QA 摸底] agent-browser 摸底遇仪器语义差异：press Shift+d 发 key='d' 而产品要 'D'（app-shell.tsx:300 的 e.key !== "D" 守卫）——直派 KeyboardEvent 绕过，roster 12 rows / 0 orphans / chips All 12-11-1 正典，console 零产品错误。产品无病，仪器记录归档。
+- [择路] 样式新面侦察（t634 入口⑥，多窗未动车道）：历史侦察定谳 dashboard 缺口已关（t627）、arrival 家族已满编（⌘K t572 + Catalog palette t616 + find bar t578）——转向功能缺口，锁定 dashboard 项目搜索只搜名字（92 jobs 分散 6 项目，「哪个项目跑过 Topaz」须逐个点入）。
+- [灾难发现] 功能实现第一渡完成后 API 验证遇 500 → server 死亡 → 复活后 API 返回陌生世界（3 jobs 默认模板）→ 全面验尸实锤：**rootfs id 变更（c-6abfca15→c-6ac51074）、HEAD 倒退 a03a29f（Task 272 时代）、worklog 尾条 Task 272、db/cryoflow.db 不存在、data/relion 空、services/mock-cluster 2.6MB（原 1.4GB）、/home/z/empiar-10017 空**——sandbox 容器实例被外部整体替换，git 工作树回到几周前快照。
+- [恢复①代码] origin/main 未受影响（每窗收官即推送的纪律兑付）——git fetch + reset --hard origin/main → 9f95192（Task 634 收官）一步归位。
+- [恢复②DB 世界三级链] prisma db push（cryoflow.db 建表）→ t521 tutorial seeder（Tutorial 6 jobs，幂等 upsert）→ **qa-t635-demo-skeleton-seed.mjs 新写**（t531 预言的 "extend it for the demo if this ever fires" 当窗兑现：demo 项目 hard id + 13 链 completed jobs + 12 edges，t521 的 upsert 模式）→ t531 old-world seeder 接手（15 jobs + 全 workdir star/classes.mrc + engine-state 13 链 + old-world.json manifest roster 15；唯一余留 FAIL=EMPIAR bundle 等 fetch）。
+- [恢复③server 复位] 新容器 init 自起的 server（`bash -c next dev | tee dev.log`）不走 dev-server.sh 的 HARD override → DATABASE_URL 落 .env 的 custom.db（容器模板变量）并自建 3-job 默认世界——这正是 dev-server.sh:66 t377 注释预言的投毒场景。处置：杀 init 进程树 → dev-server.sh 正统重启（HARD override 钉 cryoflow.db + CRYOFLOW_DATA_DIR）+ watchdog 单 keeper 复活 → active 指针经 POST /api/projects/switch（body {id}——fetch body 用 projectId 会吃 400，SH 头纪律）→ demo 15 completed 归位。
+- [t635 功能二渡] API /api/activity/recent 加 q 透镜（name/type contains 跨全项目；**SQLite 无 Prisma mode:"insensitive"——Postgres-only 参数，第一渡在此吃 500**，SQLite LIKE 对 ASCII 天然不区分大小写，plain contains 即大小写免疫）；新组件 job-search-lens.tsx（250ms 防抖 + AbortController 陈旧响应守卫 + ↑↓/Enter/Esc 键盘 + Esc dismissed 不偷 query 的 find-bar 律 + refocus 重开 + 6+ 截断诚实计数 + t613 mount-arrival）；dashboard 集成（searchInputRef + aria-expanded/controls）；globals.css lens-rise 块（+6px 上升语义——find bar 下降的镜像）。
+- [LENS LIVE 全绿] q=class 4 hits 跨 2 项目（API）→ UI lens 4 行（icon+badge+项目名+ago+count）→ ArrowDown×2 → Enter → inspector 开（同项目）→ Esc → lens 关 query 留 → refocus 重开（focus 事件接线）→ 📸 t635-lens-live.png；tsc 0 + eslint 0。
+- [回归与立案] t252 ALL PASS（roster 15 满足 ≥12 + 四写门 + console 0）；EMPIAR 真数据 fetch（t527，EBI ~644KB/s，640MB ≈ 17 分钟）setsid 后台进行中（PID 5002）——**EMPIAR active 12-job 世界恢复立案下窗**（fetch 完成后 t527 mirror staging + t528 no-dash + t372 全链或轻量替代；t372 全链需真 RELION build + 数小时，需独立评估）；engine build 丢失（header "RELION not found"）立案（编译小时级或寻 binary 通道）。
+- [未做与理由] t156/t157 实跑（世界重建消耗本窗大半，且新世界 roster 15 与套件世界的 12 假设需逐套对账——下窗先跑 t252 已过再定）；t474 项目退役/迁移（其 DB 行随灾难消失——**立案撤销**，K5 世界待 EMPIAR 恢复后按 t633 外科协议重建）；judge 风暴/化石铲子/build 日（环境未备）。
+
+Stage Summary:
+- 「收官即推送的纪律是灾难保险」：sandbox 容器整体替换让本地世界倒退几十窗，origin/main 一条 reset 命令一步归位——40+ 窗的工作只存在于远端，推送不是仪式是备份
+- 「server 的启动方式决定它看到哪个世界」：同一个 repo、同一个 .env，容器 init 的 `next dev` 与 dev-server.sh 的 setsid+HARD-override 是两个世界（custom.db 模板 vs cryoflow.db 钉死）——t377 的投毒预言六窗后活体应验，「环境先于产品」的验尸顺序再次兑付
+- 「t531 的预言分支是设计不是遗憾」："extend it for the demo if this ever fires" 写在六窗前的 FAIL 分支里，本窗 fires 即兑现——seeder 家族的幂等+分层（骨架/世界/fixture 各有车道）让 wipe 后的重建是一条命令链而不是一次考古
+- 「SQLite 的 insensitive 是 Postgres 的方言」：Prisma mode:"insensitive" 在 SQLite 吃 500——引擎方言差异要在所选引擎上验证，第一渡的教训是功能代码的「一次通过」不成立于跨引擎假设
+- 「灾难中的功能题用二渡验证经验」：第一渡成果毁于 reset，但验证路径（API 三连/键盘全链/Esc 语义）已实测，二渡 20 分钟走完一小时的路——「做过一次的世界有路标」
+- 产出：世界重建三级链（git reset + db push + t521/t635-skeleton/t531 seeders）+ server 正统复位（dev-server.sh + watchdog + active 指针）+ t635 跨项目 job 搜索透镜全链（API q + lens 组件 + dashboard 集成 + lens-rise）+ qa-t635-demo-skeleton-seed.mjs + LENS LIVE 📸 + t252 ALL PASS；demo 世界 15 jobs 归位 active、Tutorial 6 备份、console 0；下窗入口：①EMPIAR 世界恢复（fetch 验收 → mirror staging → active 12-job 世界的轻量重建 vs t372 全链裁决）②t156/t157 实跑（新世界对账后）③engine build 恢复（"RELION not found" header 病）④suite 世界假设对账（t252 过了，其余套件逐套）⑤judge 风暴/化石铲子（等环境）
