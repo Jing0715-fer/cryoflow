@@ -22,8 +22,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const evalJs = (expr) => execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim();
 const unq = (s) => (s || "").replace(/^"|"$/g, "");
 let PASS = 0;
+// t631 — forensics BEFORE cleanup closes the browser (qa67 doctrine).
+const dumpForensics = () => {
+  try {
+    const out = execSync(`${AB} eval --stdin`, {
+      encoding: "utf8", timeout: 15_000,
+      input: `JSON.stringify({md: (window.__mdLog||[]).slice(0,10), errs: (window.__qaErrs||[]).slice(0,6), tabs: [...document.querySelectorAll('[role=tab]')].map(t=>t.textContent.trim()).slice(0,9), jobCards: document.querySelectorAll('[data-job]').length, url: location.href.slice(0,50)})`,
+    }).trim();
+    console.log(`  [forensics] ${out}`);
+  } catch { console.log(`  [forensics] unavailable (browser gone)`); }
+};
 const must = (cond, label) => {
-  if (!cond) { console.log(`FATAL: ${label}`); cleanup(); process.exit(1); }
+  if (!cond) { console.log(`FATAL: ${label}`); dumpForensics(); cleanup(); process.exit(1); }
   PASS++;
   console.log(`  ok: ${label}`);
 };
@@ -41,19 +51,51 @@ const errCollector = `(() => {
   window.__qaErrs = [];
   window.addEventListener('error', (e) => window.__qaErrs.push(String(e.message || e).slice(0, 160)));
   window.addEventListener('unhandledrejection', (e) => window.__qaErrs.push('rej:' + String((e.reason && e.reason.message) || e.reason).slice(0, 160)));
+  window.__mdLog = [];
+  ['mousedown','mouseup','click'].forEach(t => window.addEventListener(t, (e) => {
+    if (window.__mdLog.length < 40) window.__mdLog.push(t + '@' + Math.round(e.clientX) + ',' + Math.round(e.clientY) + ' trusted:' + e.isTrusted + ' on:' + (e.target.tagName || '?'));
+  }, true));
   window.__qaErrColl = true;
   return 'errcoll-on';
 })()`;
 const realClick = async (findExpr) => {
-  const coords = evalJs(
-    `(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
-  );
-  if (!coords || coords === "null") return "NO-ELEMENT";
-  const c = JSON.parse(coords);
-  sh(`${AB} mouse move ${c.x} ${c.y}`);
-  sh(`${AB} mouse down`);
-  sh(`${AB} mouse up`);
-  return `clicked@${c.x},${c.y}`;
+  // t631 — the sighted click (qa67 doctrine): scroll only if out of view,
+  // settle, verify with elementFromPoint, and RETURN OBJECTS from eval (a
+  // JSON.stringify string return gets double-encoded by the CLI and
+  // .covered reads undefined — the click then never fires).
+  for (let round = 0; round < 6; round++) {
+    const st = evalJs(`(() => {
+      const el = (${findExpr}); if (!el) return null;
+      const r0 = el.getBoundingClientRect();
+      if (r0.bottom < 0 || r0.top > window.innerHeight) el.scrollIntoView({ block: 'center' });
+      return 'scrolled';
+    })()`);
+    if (!st || st === "null") return "NO-ELEMENT";
+    await sleep(600);
+    const pos = () => evalJs(`(() => {
+      const el = (${findExpr}); if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const x = Math.round(r.x + r.width/2), y = Math.round(r.y + r.height/2);
+      const hit = (y < 0 || y > window.innerHeight) ? null : document.elementFromPoint(x, y);
+      return { x, y, covered: !!hit && (hit === el || el.contains(hit)) };
+    })()`);
+    const s1 = JSON.parse(await pos());
+    if (!s1 || s1.covered === undefined) return "NO-ELEMENT";
+    await sleep(600);
+    const c = JSON.parse(await pos());
+    if (!c || c.covered === undefined) return "NO-ELEMENT";
+    // t631 — 2px tolerance: dialogs with lazy images shift layout while
+    // loading; exact-equality stability was too brittle (UNVERIFIED loops).
+    const stable = Math.abs(s1.x - c.x) <= 2 && Math.abs(s1.y - c.y) <= 2;
+    if (c.covered && stable) {
+      sh(`${AB} mouse move ${c.x} ${c.y}`);
+      sh(`${AB} mouse down`);
+      sh(`${AB} mouse up`);
+      return `clicked@${c.x},${c.y}`;
+    }
+    await sleep(400);
+  }
+  return "UNVERIFIED";
 };
 
 // ---- job id ----------------------------------------------------------------
@@ -90,37 +132,53 @@ console.log(`PHASE A GREEN (${PASS} asserts)`);
 console.log("— PHASE B: reverse sync (3D → 2D) —");
 
 sh(`${AB} close`); await sleep(1200);
-sh(`${AB} set viewport 1600 900`);
+// t631 — same as qa67: no emulated viewport (page must equal the physical
+// window or CDP clicks beyond 1280×577 land in the void).
 sh(`${AB} open ${B}`);
 await sleep(5000);
 evalJs(errCollector);
 
 let onCanvas = false;
-for (let i = 0; i < 10 && !onCanvas; i++) {
-  const probe = evalJs(`(() => {
+// t631 — the vacuous-truth fix (qa67 doctrine): 'NOCARD'.includes("CARD")
+// is TRUE, so the old probe passed from iteration zero. Honest booleans
+// + an explicit job-card count (jobs stream in asynchronously).
+for (let i = 0; i < 14 && !onCanvas; i++) {
+  const stRaw = evalJs(`JSON.stringify((() => {
     const card = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${CARD}'));
-    const dash = !!document.querySelector('h1') && (document.querySelector('h1').textContent||'').includes('Dashboard');
-    return (card ? 'CARD' : 'NOCARD') + (dash ? '+DASH' : '');
-  })()`);
-  if (probe.includes("CARD")) onCanvas = true;
-  else if (probe.includes("DASH")) {
+    const h1 = (document.querySelector('h1')||{}).textContent || '';
+    return { card: !!card, dash: h1.includes('Dashboard'), jobCards: document.querySelectorAll('[data-job]').length };
+  })())`);
+  let st = {};
+  try { const once = JSON.parse(stRaw); st = typeof once === "string" ? JSON.parse(once) : once; } catch {}
+  if (st.card && (st.jobCards || 0) > 0) { onCanvas = true; break; }
+  if (st.dash) {
     evalJs(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D', shiftKey: true, bubbles: true }))`);
     await sleep(2200);
   } else await sleep(2000);
 }
 must(onCanvas, "canvas renders with the class2d job card");
 
+// t631 — the toggle death-spiral fix (qa67 doctrine): ask the inspector's
+// state first, poll for the tab, never blind-click the card while open.
 let inResults = false;
-for (let i = 0; i < 6 && !inResults; i++) {
-  const c = await realClick(
-    `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${CARD}'))`,
-  );
-  if (c.includes("clicked@")) {
-    await sleep(1800);
-    await realClick(`[...document.querySelectorAll('[role=tab]')].find(t => t.textContent.trim() === 'Results')`);
-    await sleep(1200);
-    inResults = unq(evalJs(`String(!!document.querySelector('section[aria-label="Maps and images"]'))`)) === "true";
-  } else await sleep(1500);
+for (let i = 0; i < 8 && !inResults; i++) {
+  const inspectorOpen = unq(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => ['Overview','Log','Results','Files'].includes(t.textContent.trim())))`)) === "true";
+  if (!inspectorOpen) {
+    const c = await realClick(
+      `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${CARD}'))`,
+    );
+    if (!c.includes("clicked@")) { await sleep(1500); continue; }
+    let opened = false;
+    for (let w = 0; w < 12 && !opened; w++) { await sleep(500); opened = unq(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => ['Overview','Log','Results','Files'].includes(t.textContent.trim())))`)) === "true"; }
+    if (!opened) continue;
+  }
+  let tabFound = false;
+  for (let w = 0; w < 8 && !tabFound; w++) { await sleep(400); tabFound = unq(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => t.textContent.trim() === 'Results'))`)) === "true"; }
+  if (!tabFound) continue;
+  await realClick(`[...document.querySelectorAll('[role=tab]')].find(t => t.textContent.trim() === 'Results')`);
+  let sec = false;
+  for (let w = 0; w < 10 && !sec; w++) { await sleep(500); sec = unq(evalJs(`String(!!document.querySelector('section[aria-label="Maps and images"]'))`)) === "true"; }
+  inResults = sec;
 }
 must(inResults, "inspector opens on the Results tab with Maps & images");
 
@@ -154,18 +212,32 @@ must(tiles === 3, `strip expands to three plane tiles (${tiles})`);
 
 // voxel readouts ride on dims: pos 0.5 of 64 → index 33 (1-based)
 let readout = "";
-for (let i = 0; i < 8 && !readout; i++) {
+// t631 — a freshly bounced dev server cold-compiles the outputs route on
+// first hit; 7s starved the dims fetch. 60s is still honest — the readout
+// DOES arrive.
+for (let i = 0; i < 30 && !readout; i++) {
   readout = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-z]')?.textContent.match(/z \\d+\\/\\d+/)?.[0] || '')`));
-  if (!readout) await sleep(900); // dims fetch may still be in flight
+  if (!readout) await sleep(2000);
 }
 must(readout === "z 33/64", `XY tile readout shows the voxel index (got ${readout || "none"})`);
 
 // ⌖ mirror the XY plane into 3D (slice on, axis z, pos = 0.5)
-await realClick(`document.querySelector('[data-canvas-ui=ortho-tile-z] button[aria-label^="Show the XY plane"]')`);
+// t631 — the mirror click used to be fired ONCE and its result discarded:
+// inside the Mol* dialog the tiles' PNGs stream in and shift layout, so a
+// single sighted click can honestly return UNVERIFIED. Retry with settle.
+let mirrorClick = "not-fired";
+for (let i = 0; i < 5; i++) {
+  mirrorClick = await realClick(`document.querySelector('[data-canvas-ui=ortho-tile-z] button[aria-label^="Show the XY plane"]')`);
+  if (process.env.QA68_DEBUG) console.log(`  [dbg] mirror try${i} -> ${mirrorClick}`);
+  if (mirrorClick.includes("clicked@")) break;
+  await sleep(1500);
+}
 await sleep(1200);
 // the 3D cross-section row must be alive before we drive it
+// t631 — 10s starved the Mol* canvas mount on a memory-pressured night
+// (the embed applies the mirrored intent once its canvas is up); 60s.
 let slice3d = "";
-for (let i = 0; i < 8 && !slice3d.startsWith("OK"); i++) {
+for (let i = 0; i < 30 && !slice3d.startsWith("OK"); i++) {
   slice3d = unq(evalJs(`(() => {
     const t = [...document.querySelectorAll('button[aria-label="Toggle cross-section plane"]')].pop();
     const s = document.querySelector('[role=slider][aria-label^="Cross-section plane position"]');
@@ -173,7 +245,7 @@ for (let i = 0; i < 8 && !slice3d.startsWith("OK"); i++) {
     if (!s) return 'NO-SLIDER';
     return 'OK pressed=' + t.getAttribute('aria-pressed');
   })()`));
-  if (!slice3d.startsWith("OK")) await sleep(1200);
+  if (!slice3d.startsWith("OK")) await sleep(2000);
 }
 must(slice3d.startsWith("OK") && slice3d.includes("true"),
   `crosshair lights the 3D cross-section (got ${slice3d})`);

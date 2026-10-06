@@ -34,8 +34,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const evalJs = (expr) => execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim();
 const unq = (s) => (s || "").replace(/^"|"$/g, "");
 let PASS = 0;
+// t631 — the forensics must be dumped BEFORE cleanup closes the browser;
+// a camera that dies with the crime scene is a decoration, not a camera.
+const dumpForensics = () => {
+  try {
+    const out = execSync(`${AB} eval --stdin`, {
+      encoding: "utf8", timeout: 15_000,
+      input: `JSON.stringify({md: (window.__mdLog||[]).slice(0,20), errs: (window.__qaErrs||[]).slice(0,6), url: location.href.slice(0,50)})`,
+    }).trim();
+    console.log(`  [forensics] ${out}`);
+  } catch { console.log(`  [forensics] unavailable (browser gone)`); }
+};
 const must = (cond, label) => {
-  if (!cond) { console.log(`FATAL: ${label}`); cleanup(); process.exit(1); }
+  if (!cond) { console.log(`FATAL: ${label}`); dumpForensics(); cleanup(); process.exit(1); }
   PASS++;
   console.log(`  ok: ${label}`);
 };
@@ -55,19 +66,60 @@ const errCollector = `(() => {
   window.__qaErrs = [];
   window.addEventListener('error', (e) => window.__qaErrs.push(String(e.message || e).slice(0, 160)));
   window.addEventListener('unhandledrejection', (e) => window.__qaErrs.push('rej:' + String((e.reason && e.reason.message) || e.reason).slice(0, 160)));
+  // t631 forensic camera — did the CDP mouse events actually reach the page?
+  window.__mdLog = [];
+  ['mousedown','mouseup','click'].forEach(t => window.addEventListener(t, (e) => {
+    if (window.__mdLog.length < 40) window.__mdLog.push(t + '@' + Math.round(e.clientX) + ',' + Math.round(e.clientY) + ' trusted:' + e.isTrusted + ' on:' + (e.target.tagName || '?') + '.' + String(e.target.className || '').slice(0, 20));
+  }, true));
   window.__qaErrColl = true;
   return 'errcoll-on';
 })()`;
 const realClick = async (findExpr) => {
-  const coords = evalJs(
-    `(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
-  );
-  if (!coords || coords === "null") return "NO-ELEMENT";
-  const c = JSON.parse(coords);
-  sh(`${AB} mouse move ${c.x} ${c.y}`);
-  sh(`${AB} mouse down`);
-  sh(`${AB} mouse up`);
-  return `clicked@${c.x},${c.y}`;
+  // t631 — the moving-target lesson, upgraded from the blind-coordinates
+  // lesson: the canvas auto-pans itself back after scrollIntoView (~120px
+  // drift within 1s), so ANY coordinate measured at scroll time is stale
+  // by the time the click lands. The sighted click: scroll only if the
+  // element is out of view, wait for the pan to settle, re-measure, and
+  // verify with elementFromPoint that the element (or a descendant) really
+  // is under the crosshair BEFORE firing the mouse sequence.
+  for (let round = 0; round < 6; round++) {
+    const st = evalJs(`(() => {
+      const el = (${findExpr}); if (!el) return null;
+      const r0 = el.getBoundingClientRect();
+      if (r0.bottom < 0 || r0.top > window.innerHeight) el.scrollIntoView({ block: 'center' });
+      return 'scrolled';
+    })()`);
+    if (!st || st === "null") return "NO-ELEMENT";
+    await sleep(600); // let any auto-pan / pan-restore settle
+    // t631 encoding lesson — return the OBJECT, not JSON.stringify(it):
+    // the CLI JSON-encodes whatever eval returns, so a string return gets
+    // double-encoded and JSON.parse hands back the inner STRING whose
+    // .covered is undefined — the sighted click then never fires.
+    const pos = () => evalJs(`(() => {
+      const el = (${findExpr}); if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const x = Math.round(r.x + r.width/2), y = Math.round(r.y + r.height/2);
+      const hit = (y < 0 || y > window.innerHeight) ? null : document.elementFromPoint(x, y);
+      return { x, y, covered: !!hit && (hit === el || el.contains(hit)) };
+    })()`);
+    const s1 = JSON.parse(await pos());
+    if (!s1 || s1.covered === undefined) return "NO-ELEMENT";
+    await sleep(600); // second sample — the canvas layout animation must be DONE
+    const c = JSON.parse(await pos());
+    if (!c || c.covered === undefined) return "NO-ELEMENT";
+    // t631 — 2px tolerance: dialogs with lazy images shift layout while
+    // loading; exact-equality stability was too brittle (UNVERIFIED loops).
+    const stable = Math.abs(s1.x - c.x) <= 2 && Math.abs(s1.y - c.y) <= 2;
+    if (process.env.QA67_DEBUG) console.log(`    [dbg] r${round}: s1=${JSON.stringify(s1)} s2=${JSON.stringify(c)} stable=${stable}`);
+    if (c.covered && stable) {
+      sh(`${AB} mouse move ${c.x} ${c.y}`);
+      sh(`${AB} mouse down`);
+      sh(`${AB} mouse up`);
+      return `clicked@${c.x},${c.y}`;
+    }
+    await sleep(400);
+  }
+  return "UNVERIFIED"; // never fire blind — the caller's loop will retry
 };
 
 // ---- job id (from the API, same lookup the seed used) ----------------------
@@ -146,41 +198,82 @@ console.log(`PHASE A GREEN (${PASS} asserts)`);
 console.log("— PHASE B: ortho panel UI —");
 
 sh(`${AB} close`); await sleep(1200);
-sh(`${AB} set viewport 1600 900`);
+// t631 — NO emulated viewport: `set viewport 1600 900` renders the page in
+// a 1600×900 space while CDP mouse events fire in the physical window's
+// 1280×577 space (overlay, top-left anchored, no scaling). Anything below
+// y=577 is visible-and-verifiable to eval but UNREACHABLE to the mouse —
+// the exact void where the orthovol clicks died. Keep page == window and
+// let the sighted click scroll within the page instead.
 sh(`${AB} open ${B}`);
 await sleep(5000);
 evalJs(errCollector);
 
 // dashboard → canvas
+// t631 — the vacuous-truth bug: the old probe returned 'CARD'/'NOCARD' and
+// checked `probe.includes("CARD")` — "NOCARD" CONTAINS "CARD", so the probe
+// was true from iteration zero whether or not any canvas existed. It never
+// verified anything; the suite marched onto empty canvases (jobs stream in
+// asynchronously) and clicked into the void. Honest booleans + explicit
+// job-card count now.
 let onCanvas = false;
-for (let i = 0; i < 10 && !onCanvas; i++) {
-  const probe = evalJs(`(() => {
+for (let i = 0; i < 14 && !onCanvas; i++) {
+  const stRaw = evalJs(`JSON.stringify((() => {
     const card = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${CARD}'));
-    const dash = !!document.querySelector('h1') && (document.querySelector('h1').textContent||'').includes('Dashboard');
-    return (card ? 'CARD' : 'NOCARD') + (dash ? '+DASH' : '');
-  })()`);
-  if (probe.includes("CARD")) onCanvas = true;
-  else if (probe.includes("DASH")) {
+    const h1 = (document.querySelector('h1')||{}).textContent || '';
+    return { card: !!card, dash: h1.includes('Dashboard'), jobCards: document.querySelectorAll('[data-job]').length };
+  })())`);
+  let st = {};
+  try { const once = JSON.parse(stRaw); st = typeof once === "string" ? JSON.parse(once) : once; } catch {}
+  if (process.env.QA67_DEBUG) console.log(`    [trace] i${i}: card=${st.card} dash=${st.dash} jobCards=${st.jobCards}`);
+  if (st.card && (st.jobCards || 0) > 0) { onCanvas = true; break; }
+  if (st.dash) {
     evalJs(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D', shiftKey: true, bubbles: true }))`);
     await sleep(2200);
   } else await sleep(2000);
 }
 must(onCanvas, "canvas renders with the class2d job card");
 
+// t631 bisect — run the suite's OWN boot + one sighted click, then stop and
+// dump. Discriminates "the boot poisons the session" from "a later step does".
+if (process.env.QA67_ONLY_BOOT) {
+  const state = unq(evalJs(`JSON.stringify({h1: (document.querySelector('h1')||{}).textContent, roleBtns: document.querySelectorAll('[role=button]').length, qaCard: [...document.querySelectorAll('[role=button]')].filter(x => (x.textContent||'').includes('QA Class2D Source')).length, anyQAText: document.body.textContent.includes('QA Class2D Source')})`));
+  console.log(`  [bisect] page state: ${state}`);
+  const r = await realClick(`[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${CARD}'))`);
+  console.log(`  [bisect] card realClick -> ${r}`);
+  await sleep(2500);
+  const inspector = unq(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t=>['Overview','Log','Results','Files'].includes(t.textContent.trim())))`));
+  const md = unq(evalJs(`JSON.stringify((window.__mdLog||[]).slice(0,8))`));
+  console.log(`  [bisect] inspector=${inspector} mdLog=${md}`);
+  process.exit(inspector === "true" ? 0 : 3);
+}
+
 // completed job card → big inspector modal → Results tab
+// t631 — the toggle death-spiral lesson: on a slow (OOM-night) render the
+// fixed 1800ms window can miss the modal's tabs; the loop then re-clicks
+// the CARD, which TOGGLES the modal closed. Ask the dialog's state first,
+// poll for the tab (waiting law), and never blind-click the card while the
+// inspector is already open.
 let inResults = false;
-for (let i = 0; i < 6 && !inResults; i++) {
-  const c = await realClick(
-    `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${CARD}'))`,
-  );
-  if (c.includes("clicked@")) {
-    await sleep(1800);
-    await realClick(
-      `[...document.querySelectorAll('[role=tab]')].find(t => t.textContent.trim() === 'Results')`,
+for (let i = 0; i < 8 && !inResults; i++) {
+  const inspectorOpen = unq(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => ['Overview','Log','Results','Files'].includes(t.textContent.trim())))`)) === "true";
+  if (!inspectorOpen) {
+    const c = await realClick(
+      `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${CARD}'))`,
     );
-    await sleep(1200);
-    inResults = unq(evalJs(`String(!!document.querySelector('section[aria-label="Maps and images"]'))`)) === "true";
-  } else await sleep(1500);
+    if (!c.includes("clicked@")) { await sleep(1500); continue; }
+    let opened = false;
+    for (let w = 0; w < 12 && !opened; w++) { await sleep(500); opened = unq(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => ['Overview','Log','Results','Files'].includes(t.textContent.trim())))`)) === "true"; }
+    if (!opened) continue;
+  }
+  let tabFound = false;
+  for (let w = 0; w < 8 && !tabFound; w++) { await sleep(400); tabFound = unq(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => t.textContent.trim() === 'Results'))`)) === "true"; }
+  if (!tabFound) continue;
+  await realClick(
+    `[...document.querySelectorAll('[role=tab]')].find(t => t.textContent.trim() === 'Results')`,
+  );
+  let sec = false;
+  for (let w = 0; w < 10 && !sec; w++) { await sleep(500); sec = unq(evalJs(`String(!!document.querySelector('section[aria-label="Maps and images"]'))`)) === "true"; }
+  inResults = sec;
 }
 must(inResults, "inspector opens on the Results tab with Maps & images");
 
@@ -221,11 +314,14 @@ for (let i = 0; i < 6; i++) {
 must(tiles === 3, `strip expands to three plane tiles (${tiles})`);
 
 // all three PNGs actually load
+// t631 — 15s starved the server-side slice reconstruction (strided reads
+// for x/y planes) on a memory-pressured night; 60s is still honest — the
+// images DO arrive, they just render at OOM-night speed.
 let loaded = 0;
-for (let i = 0; i < 10; i++) {
+for (let i = 0; i < 30; i++) {
   loaded = Number(unq(evalJs(`String([...document.querySelectorAll('[data-canvas-ui^=ortho-tile] img')].filter(im => im.naturalWidth > 0).length)`)));
   if (loaded >= 3) break;
-  await sleep(1500);
+  await sleep(2000);
 }
 must(loaded === 3, `all three plane PNGs render (${loaded}/3)`);
 
@@ -237,7 +333,14 @@ sh(`${AB} press End`);
 await sleep(1400); // debounce 220ms + fetch + render
 const yReadout = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-y]')?.textContent.match(/y \\d+\\/\\d+/)?.[0] || 'none')`));
 must(yReadout === "y 64/64", `End jumps the readout to the last voxel (got ${yReadout})`);
-const ySrc1 = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-y] img')?.src || 'none')`));
+// t631 — the fixed 1400ms window assumed debounce+state+render beats
+// memory pressure; poll for the src propagation instead.
+let ySrc1 = "";
+for (let i = 0; i < 15; i++) {
+  ySrc1 = unq(evalJs(`String(document.querySelector('[data-canvas-ui=ortho-tile-y] img')?.src || 'none')`));
+  if (ySrc1 !== ySrc0 && ySrc1.includes("pos=1")) break;
+  await sleep(1000);
+}
 must(ySrc0 !== ySrc1 && ySrc1.includes("pos=1"), "scrubbed position reaches the render URL");
 let yLoaded = false;
 for (let i = 0; i < 8 && !yLoaded; i++) {
