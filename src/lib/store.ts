@@ -3847,13 +3847,29 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   stopJob: async (id) => {
     try {
-      const data = await api<{ job: JobDTO; stopped: boolean; message: string }>(
-        `/api/jobs/${id}/stop`,
-        { method: "POST" }
-      );
+      const data = await api<{
+        job: JobDTO;
+        stopped: boolean;
+        message: string;
+        outcome?: "killed" | "missed" | "already-ended";
+      }>(`/api/jobs/${id}/stop`, { method: "POST" });
       set({ jobs: get().jobs.map((j) => (j.id === id ? data.job : j)) });
+      // t618's feat docket — the toast speaks the RECEIPT, not a guess.
+      // "Job already idle" used to cover every stopped:false — including a
+      // missed kill whose run may still be finishing on the cluster. Three
+      // classes, three titles; the legacy fallback keeps old shapers honest.
+      const title =
+        data.outcome === "killed"
+          ? "Job stopped"
+          : data.outcome === "missed"
+            ? "Stop missed — nothing to kill"
+            : data.outcome === "already-ended"
+              ? "Job already ended"
+              : data.stopped
+                ? "Job stopped"
+                : "Job already ended";
       toast({
-        title: data.stopped ? "Job stopped" : "Job already idle",
+        title,
         description: data.message,
       });
     } catch (err) {

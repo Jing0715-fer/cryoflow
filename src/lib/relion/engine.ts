@@ -575,7 +575,24 @@ function probeWslTree(state: RunRecord): void {
     the record is marked interrupted directly
  * Returns what happened, for the API response.
  */
-export async function stopRun(jobId: string): Promise<{ stopped: boolean; message: string }> {
+/**
+ * The stop receipt's class — what ACTUALLY happened, not what the click
+ * wished. t618's feat docket: `stopped` alone collapsed three truths into
+ * one boolean, so the UI guessed ("Job already idle") while the route
+ * pre-wrote "stopped by user" even when the kill was missed. The receipt
+ * now speaks for itself:
+ *   killed        — a live tree received the signal (the SIGTERM/SIGKILL
+ *                   actually flowed; the record may be finalized here)
+ *   missed        — nothing was killed: no live process matched the record
+ *                   (the run ended outside this session, or never started)
+ *   already-ended — LAW 1's past tense: the record itself says the run
+ *                   ended; the stop door never acts on the past
+ */
+export type StopRunOutcome = "killed" | "missed" | "already-ended";
+
+export async function stopRun(
+  jobId: string
+): Promise<{ stopped: boolean; message: string; outcome: StopRunOutcome }> {
   const child = live.get(jobId);
   const state = readRuns()[jobId];
   // ---- the ghost-pid guards (t523) --------------------------------------
@@ -591,6 +608,7 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
   if (!child && state?.done) {
     return {
       stopped: false,
+      outcome: "already-ended",
       message: "the record says this run already ended — nothing to stop (a re-run creates a fresh record)",
     };
   }
@@ -629,6 +647,7 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
     }
     return {
       stopped: true,
+      outcome: "killed",
       message: `stopped WSL session pid ${pid} (pkill sent inside ${distro ?? "default distro"})`,
     };
   }
@@ -645,9 +664,9 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
       } catch {
         /* raced away */
       }
-      return { stopped: true, message: `stopped pid ${pid} (Windows terminate)` };
+      return { stopped: true, outcome: "killed", message: `stopped pid ${pid} (Windows terminate)` };
     }
-    return { stopped: false, message: "no live process for this job" };
+    return { stopped: false, outcome: "missed", message: "no live process for this job" };
   }
 
   for (const p of tree) {
@@ -685,7 +704,8 @@ export async function stopRun(jobId: string): Promise<{ stopped: boolean; messag
   }
   return {
     stopped: true,
-    message: `stopped pid ${pid} (${tree.length} processes${killed > 0 ? `, ${killed} SIGKILLed` : ""})`,
+    outcome: "killed",
+    message: `stopped pid ${pid} (${tree.length} process${tree.length === 1 ? "" : "es"}${killed > 0 ? `, ${killed} SIGKILLed` : ""})`,
   };
 }
 
@@ -10290,6 +10310,20 @@ export async function reconcileRealJobs(jobs: Job[]): Promise<Job[]> {
           // interrupted / orphan logic below, as before
         }
       }
+    }
+
+    if (!state.done) {
+      // t623 — the stop race: this sweep's `runs` snapshot may predate the
+      // stop route's own finalize (the engine's record lands mid-kill while
+      // the DB row still says running). Composing interruptedResult from
+      // the stale snapshot CLOBBERS the receipt's own words — the tombstone
+      // said "interrupted (exit unknown)" over a record that had already
+      // spoken "stopped by user". One fresh read before judging: if the
+      // record finalized while we swept (same startedAt — no re-run
+      // generation shift), speak ITS terminal truth via the branches below,
+      // not the snapshot's guess.
+      const fresh = readRuns()[job.id];
+      if (fresh && fresh.done && fresh.startedAt === state.startedAt) state = fresh;
     }
 
     if (!state.done) {

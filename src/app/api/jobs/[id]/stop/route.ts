@@ -20,6 +20,17 @@ type RouteContext = { params: Promise<{ id: string }> };
  * REMOTE runs (record.remote): kill the cluster-side SESSION (process group
  * leader from .cf-pid) over SSH — same semantics, distant tree. Checkpoints
  * stay on the cluster and sync back; re-run resumes from them.
+ *
+ * t618's feat docket — the receipt contract: the response carries
+ * `outcome: "killed" | "missed" | "already-ended"` alongside the legacy
+ * `stopped` boolean, and the LEDGER honors it. A confirmed kill earns the
+ * user-stop stamp (exit 137, "stopped by user"). A MISSED kill claims
+ * NOTHING: no 137, no "stopped by user" — the ledger record keeps whatever
+ * exit it logged, the interim result names the miss, and the cluster-ledger
+ * reconcile lands the real truth when the run's records come home (the heal
+ * that used to LOOK like a flip from "stopped" to "completed" was the
+ * pre-written lie speaking twice; with the miss named, the heal is just a
+ * landing).
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -47,13 +58,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const rec = getRun(id);
     if (rec?.remote) {
       const outcome = await remoteStopRun(id);
+      const missed = !outcome.stopped;
       // finalize the record now — a SIGKILL'd wrapper never writes its exit
-      // file, and a !done record would ghost-block re-runs (isRunAlive)
+      // file, and a !done record would ghost-block re-runs (isRunAlive).
+      // The receipt decides the words (t618 feat docket): a confirmed kill
+      // earns the 137 user-stop stamp; a missed kill claims nothing — the
+      // cluster ledger decides the final state when the records come home.
       updateRun(
         id,
         (cur) =>
           cur.remote && !cur.done
-            ? { ...cur, done: true, exitCode: cur.exitCode ?? 137, result: cur.result ?? "stopped by user" }
+            ? {
+                ...cur,
+                done: true,
+                ...(missed ? {} : { exitCode: cur.exitCode ?? 137 }),
+                result:
+                  cur.result ??
+                  (missed
+                    ? "stop missed — no live cluster session found; the cluster ledger decides the final state"
+                    : "stopped by user"),
+              }
             : null
       );
       // give the cluster a beat to write the exit status, then reflect the
@@ -67,7 +91,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
           data: {
             status: "failed",
             progress: 0,
-            result: `stopped by user (cluster-side session killed) — re-run resumes from the last synced checkpoint`,
+            result: missed
+              ? "stop missed (no live cluster session found) — the cluster ledger decides the final state when the run's records come home"
+              : `stopped by user (cluster-side session killed) — re-run resumes from the last synced checkpoint`,
           },
         });
       }
@@ -77,6 +103,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({
         job: dto,
         stopped: outcome.stopped,
+        outcome: outcome.outcome,
         message: outcome.message,
       });
     }
@@ -87,7 +114,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // The exit handler usually wins the DB write (child SIGTERM → exit
     // event → status failed, exit −1). Give it a moment, then reflect
     // whatever the DB says; if nothing landed (restart-orphaned tree),
-    // mark it ourselves.
+    // mark it ourselves. The receipt decides the words: a missed kill
+    // doesn't claim the user stopped anything (t618 feat docket).
     await new Promise((r) => setTimeout(r, 400));
     let job = await db.job.findUnique({ where: { id } });
     if (job && job.status === "running") {
@@ -96,7 +124,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
         data: {
           status: "failed",
           progress: 0,
-          result: wasAlive ? "stopped by user — re-run resumes from checkpoint" : "stopped by user",
+          result: outcome.stopped
+            ? wasAlive
+              ? "stopped by user — re-run resumes from checkpoint"
+              : "stopped by user"
+            : outcome.outcome === "already-ended"
+              ? "the run had already ended — nothing was stopped"
+              : wasAlive
+                ? "the run ended between the check and the stop — nothing was killed"
+                : "stop missed — no live process found; the run ended outside this session",
         },
       });
     }
@@ -104,6 +140,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({
       job: toJobDTO(job ?? existing),
       stopped: outcome.stopped,
+      outcome: outcome.outcome,
       message: outcome.message,
     });
   } catch (error) {

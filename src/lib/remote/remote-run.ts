@@ -8877,14 +8877,31 @@ async function awaitSlurmTeardown(
  * delete the workdir right after need it (project delete); the single-job
  * routes' tombstone semantics make the dying tree's last writes harmless.
  */
+/**
+ * The remote stop receipt's class — the remote sibling of engine's
+ * StopRunOutcome (t618 feat docket). The remote branch only ever speaks
+ * two of the three classes: "killed" (the signal was accepted by the
+ * scheduler / the pid group) or "missed" (nothing was killed — the
+ * connection is gone, scancel refused, or the pid file was never
+ * written). "already-ended" is the local LAW-1's word; remotely the same
+ * truth arrives later as the cluster ledger's heal.
+ */
+type RemoteStopOutcome = "killed" | "missed";
+
 export async function remoteStopRun(
   jobId: string,
   opts: { settleMs?: number } = {}
-): Promise<{ stopped: boolean; message: string }> {
+): Promise<{ stopped: boolean; message: string; outcome: RemoteStopOutcome }> {
   const rec = getRun(jobId);
-  if (!rec?.remote) return { stopped: false, message: "not a remote run" };
+  if (!rec?.remote)
+    return { stopped: false, outcome: "missed", message: "not a remote run" };
   const conn = getConnection(rec.remote.connectionId);
-  if (!conn) return { stopped: false, message: "the connection for this run was deleted — kill the process on the cluster manually" };
+  if (!conn)
+    return {
+      stopped: false,
+      outcome: "missed",
+      message: "the connection for this run was deleted — kill the process on the cluster manually",
+    };
   const r = rec.remote;
   if (r.mode === "slurm" && r.slurmId) {
     const res = await exec(conn, `scancel ${shQuote(String(Number(r.slurmId)))}`, { timeoutMs: 15_000 });
@@ -8900,6 +8917,7 @@ export async function remoteStopRun(
     }
     return {
       stopped: ok,
+      outcome: ok ? "killed" : "missed",
       message: ok
         ? `sent scancel to Slurm job ${r.slurmId} — the scheduler tears the process tree down on the compute node` +
           (opts.settleMs
@@ -8921,6 +8939,7 @@ export async function remoteStopRun(
   const killed = /KILLED/.test(res.stdout);
   return {
     stopped: killed,
+    outcome: killed ? "killed" : "missed",
     message: killed
       ? `sent SIGTERM+SIGKILL to the cluster-side session (pid group ${rec.remote.pid})`
       : "no live cluster pid found (already exited?)",
