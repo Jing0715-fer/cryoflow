@@ -9894,3 +9894,23 @@ Stage Summary:
 - 「canvas 不是无碰撞的测试路径」：两 workspace 的卡片在同一画布物理重叠，hit-test 拦截让自动化点击超时——dashboard 的 roster 行是语义单元（Task 80）也是无碰撞路径。「测试要走的路是产品给人准备的路」，roster 行的 button[title^="Open"] 就是。
 - 「选择器从实况来，不从记忆来」：title 在 th 不在 button、Shift+D 有焦点陷阱——e2e 的三处失败全是「我以为的 DOM」vs「浏览器里的 DOM」的偏差。dump-first 的诊断脚本（t650-css-diag 同款方法）每次都值那三十秒。
 - 产出：star route ?export=tsv 全量车道 + star-table 三态排序/aria-sort/导出链接 + t651-e2e 22/0 + 📸×1（t651-star-sort.png）；下窗入口：①功能车道继续（import-gallery 多选 + palette fuzzy——star-table 模式的复刻空间：列头交互/批量操作/导出语义三件套）②样式细节车道（star-table 的列宽适配/单元格 hover 展开 72 字符截断全文）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 61 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 652 收官
+Agent: main (cron window, Job 362852)
+Task: t651 入口②兑现——样式细节车道：star-table 读出自己的形状（类型化列对齐 + 截断永不死路）
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 651 收官（star-table 三态排序 + TSV 全量导出 + t651-e2e 22/0）；树净 HEAD 0bfa4ea；available 979MB 非 build 日（第 62 窗否决）；server 200/30ms；t252 ALL PASS 基线绿。摘要链再度证实滞后（其称 Task 632，实际已 651）——铁律「先 tail worklog」再次值回票价。
+- [普查定靶] t652-star-survey.mjs 只读巡历 active 项目 15 个 job 的全部 15 个 STAR 文件（workdir 实况）：最宽单元格 = 44 字符（micrographs.star MicrographName），12/15 文件数值主导（角度/defocus/FOM 全部左对齐中）。结论：① 72 截断上限在正典世界永不触发——它是真实用户文件的加固而非活行为；② 对齐语法才是可见交付。
+- [实现] star-table.tsx：①类型化对齐——数值列（isNumericAlignColumn 采样）th+td 右对齐，字符串列保持左缘，# 索引列加入数值语法（右对齐）；②截断不死路——超 72 字符的 cell 可见切片照旧，但全值进 title + cursor-help + 页脚提示「hover truncated cells (…) for the full value」，且提示只在真有截断时出现（诚实提示：没有问题就不许说话）。
+- [e2e 三幕] t652-e2e 24/0：A 组 API 基线 2 锚（JSON 预览语义 + 导出 no-store——本窗只动 UI，API 须自证未被拖累）；B 组真实世界 12 锚（五处对齐语法 computed textAlign + 两条普查背书的负锚点「零 title/提示缺席」+ 排序回归 aria-sort + 原生序复原）；C 组拦截世界 9 锚（page.route 合成 96 字符路径：可见切片 72+…、全值在 title、help 光标、页脚提示现身、未截断格不装 help、对齐语法跨世界存活）；D 组 console 0 + 📸（t652-star-shape.png）。
+- [语义发现] 首跑 21/3 揪出真问题：demo 世界 ImageName 值 `0000001@extract…/particles.mrcs` 被 parseFloat 判成数值列（前导数字！）→ 39 字符标识符被右对齐。裁决：排序律与对齐律不是同一个谓词——排序问「能否按数值比较而不撒谎」（parseFloat 容忍数字前缀，粒子序号恰是有意义的键），对齐问「这列读起来是不是数字」（Number() 全值判定，`0000001@path` 不是数字）。isNumericAlignColumn 与 isNumericColumn 分治，各答各的问题。另修 C 组测试自身定位 bug（负锚点错选被截断格）。
+- [回归全家四绿] t651-e2e 22/0（直系前任全锚点无损）+ t252 ALL PASS + qa78 ALL PASS + t652 24/0；tsc 0 + eslint 0。
+
+Stage Summary:
+- 「一个词两个语义要两份判词」：numeric 在排序和对齐里不是同一个概念——parseFloat 律让 `0000001@…` 参与数值排序（粒子序号是键），Number() 律让它留在左缘（它是标识符不是数）。如果对齐偷懒复用排序谓词，得到的是一根 39 字符右对齐的路径，看起来像 bug 因为它就是。t650 的「身份豁免判据是语义绑定」在类型系统之外的第三个案例。
+- 「截断不许是死路」：JS 切片 + title + cursor-help + 页脚提示是四件套合同——可见文本是呈现，title 是值的真相，光标是邀请，提示是教学。且提示有出庭义务：hasTruncated 为假时它必须缺席，为不存在的问题提供说明与撒谎同罪。
+- 「拦截世界测试死代码的活合同」：72 截断在正典世界永不触发（普查 44 字符封顶），但合同必须被验证——page.route 拦截 star 端点合成 96 字符路径，真实 UI 路径一寸不动，正典世界一行不污（t632 考古刚清完 QA 行，绝不回填）。种子世界测不到的加固，拦截世界来作证。
+- 「MultiEdit 不原子」：工具文档声称全原子，实测按序应用、遇错停机——首调 7 处编辑生效 5 处却报整体失败。恢复动作是「读文件盘点实况」而不是「重放整包」：编辑器状态的世界同样要 tail 实况，不许盲信报错文本。
+- 产出：star-table 类型化对齐 + 截断四件套合同 + isNumericAlignColumn 分治谓词 + t652-e2e 24/0 + t652-star-survey 普查工具（15 文件宽度形态）+ 📸×1；下窗入口：①功能车道（import-gallery 多选 + palette fuzzy——t651 入口①余项）②语义色语汇余量评估（t650 入口②余项：lib map 身份字符串 16 处 + workflow.ts 色板判词）③star-table 粘性 # 索引列（本窗评估后搁置：半透明斑马纹让 sticky 单元格透视滚动内容，需不透明行底 token 设计，独立任务）④build 日三车道（available ≥ 3.5GB，本窗第 62 次否决）⑤judge 风暴（等稳定夜）
