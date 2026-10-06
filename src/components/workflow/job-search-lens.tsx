@@ -33,6 +33,17 @@
  * Style: mount is arrival (t572's law — replay = re-entrance, no close-flip
  * machinery; the lens-rise keyframes in globals.css play once per mount);
  * dark-mode via tokens only; .no-print keeps the paper channel clean.
+ *
+ * t636 — the type-ahead emphasis: each row now shows WHERE the query
+ * landed. The first case-insensitive occurrence in the job name (and in
+ * the type label) wears a token-styled mark — plain indexOf, no regex
+ * (the query is user bytes, not a pattern), first hit only (the scanning
+ * convention). The row also carries data-lens-hit="name"|"type" — the
+ * honest answer to "why is this row here": the API matches name OR raw
+ * type, and when the match lives in the raw type but the humanized label
+ * doesn't carry it (q="ctffind" vs "CTF Estimation"), the label segment
+ * swaps to the raw type token so the highlighted substring is always
+ * visible on the row that earned it.
  */
 
 import * as React from "react";
@@ -58,6 +69,25 @@ interface LensJob {
 
 const LENS_LIMIT = 6;
 const DEBOUNCE_MS = 250;
+
+const ci = (s: string) => s.toLowerCase();
+
+/** the type-ahead mark: first case-insensitive occurrence of q in text.
+ * No regex (query text is user bytes), first hit only (scanning
+ * convention), token classes only (the dark-mode law). */
+function Emph({ text, q }: { text: string; q: string }) {
+  const i = q ? ci(text).indexOf(ci(q)) : -1;
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <span className="rounded-[3px] bg-primary/15 px-0.5 font-semibold text-foreground">
+        {text.slice(i, i + q.length)}
+      </span>
+      {text.slice(i + q.length)}
+    </>
+  );
+}
 
 export function JobSearchLens({
   query,
@@ -209,6 +239,19 @@ export function JobSearchLens({
         <div ref={listRef} className="max-h-64 overflow-y-auto nice-scroll p-1">
           {(jobs ?? []).map((job, i) => {
             const spec = jobType(job.type);
+            // where the API's match lives — name first (the human's token),
+            // then the raw type; rows the query reached through neither
+            // surface stay honest as "none" instead of faking a hit
+            const hit = ci(job.name).includes(ci(q))
+              ? "name"
+              : ci(job.type).includes(ci(q))
+                ? "type"
+                : "none";
+            const label = spec?.label ?? job.type;
+            // the label is a humanized string that may not carry the raw
+            // token the API matched ("ctffind" → "CTF Estimation") — swap
+            // to the raw type so the highlighted substring is visible
+            const showRawType = hit === "type" && !ci(label).includes(ci(q));
             return (
               <button
                 key={job.id}
@@ -217,6 +260,7 @@ export function JobSearchLens({
                 aria-selected={i === active}
                 data-active={i === active ? "true" : undefined}
                 data-lens-row=""
+                data-lens-hit={hit}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(job)}
                 className={cn(
@@ -236,11 +280,15 @@ export function JobSearchLens({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
-                    <span className="truncate text-xs font-semibold">{job.name}</span>
+                    <span className="truncate text-xs font-semibold">
+                      <Emph text={job.name} q={q} />
+                    </span>
                     <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
                   </span>
                   <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                    <span className="truncate">{spec?.label ?? job.type}</span>
+                    <span className="truncate">
+                      {showRawType ? <Emph text={job.type} q={q} /> : <Emph text={label} q={q} />}
+                    </span>
                     <span aria-hidden="true">·</span>
                     <span className="truncate font-medium">{job.projectName ?? "Unknown project"}</span>
                     <span aria-hidden="true">·</span>
