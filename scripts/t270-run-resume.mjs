@@ -127,7 +127,13 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 >= 15, `roster identity 15 (got ${roster0})`);
+  // t617 — the identity floor follows the canonical world, not an era: the
+  // sole-workspace EMPIAR world holds 12 jobs (the canvas truth every
+  // recent witness asserts, 12c/13e). The old floor of 15 counted three
+  // store-orphan residue jobs that the t617 window's cold dev-server boots
+  // re-scanned and pruned — the static baseline finally caught up with
+  // reality, so the floor follows the world now.
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 
   // ---- Phase B: the résumé's ledger ---------------------------------------
@@ -470,7 +476,10 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n >= 15, `roster restored to 15 (got ${n})`);
+    // t617 — the restore is judged against the PRE-TEST roster (dynamic,
+    // not an era): the phases' own scratch jobs are deleted above, so the
+    // roster must return to at least where it started.
+    must(n >= roster0, `roster restored (got ${n}, pre-test ${roster0})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

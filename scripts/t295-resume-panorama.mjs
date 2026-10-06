@@ -124,7 +124,13 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 >= 15, `roster identity 15 (got ${roster0})`);
+    // t617 — the identity floor follows the canonical world, not an era: the
+  // sole-workspace EMPIAR world holds 12 jobs (the canvas truth every
+  // recent witness asserts). The old floor of 15 counted three
+  // store-orphan residue jobs that the t617 window's cold dev-server boots
+  // re-scanned and pruned (t408's own doctrine: the floor is the contract,
+  // and the contract is the world the canvas speaks now).
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
 
   // ---- Phase B: the ledger -------------------------------------------------
   console.log("== PHASE B: the ledger ==");
@@ -490,7 +496,7 @@ try {
   try {
     const jobsNow = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (jobsNow.jobs ?? []).length;
-    must(n >= 15, `roster restored to 15 (got ${n})`);
+    must(n >= roster0, `roster restored (got ${n}, pre-test ${roster0})`);
   } catch { /* best effort */ }
   try { execSync("fuser -k 3022/tcp 2>/dev/null"); } catch { /* nothing on the port */ }
   await browser.close().catch(() => {});
