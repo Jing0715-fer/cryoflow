@@ -9914,3 +9914,26 @@ Stage Summary:
 - 「拦截世界测试死代码的活合同」：72 截断在正典世界永不触发（普查 44 字符封顶），但合同必须被验证——page.route 拦截 star 端点合成 96 字符路径，真实 UI 路径一寸不动，正典世界一行不污（t632 考古刚清完 QA 行，绝不回填）。种子世界测不到的加固，拦截世界来作证。
 - 「MultiEdit 不原子」：工具文档声称全原子，实测按序应用、遇错停机——首调 7 处编辑生效 5 处却报整体失败。恢复动作是「读文件盘点实况」而不是「重放整包」：编辑器状态的世界同样要 tail 实况，不许盲信报错文本。
 - 产出：star-table 类型化对齐 + 截断四件套合同 + isNumericAlignColumn 分治谓词 + t652-e2e 24/0 + t652-star-survey 普查工具（15 文件宽度形态）+ 📸×1；下窗入口：①功能车道（import-gallery 多选 + palette fuzzy——t651 入口①余项）②语义色语汇余量评估（t650 入口②余项：lib map 身份字符串 16 处 + workflow.ts 色板判词）③star-table 粘性 # 索引列（本窗评估后搁置：半透明斑马纹让 sticky 单元格透视滚动内容，需不透明行底 token 设计，独立任务）④build 日三车道（available ≥ 3.5GB，本窗第 62 次否决）⑤judge 风暴（等稳定夜）
+
+---
+Task ID: 653 收官
+Agent: main (cron window, Job 362852)
+Task: t652 入口①兑现（功能车道）——搜索匹配 fuzzy 单源化：lib/job-match.ts 新家（includes 契约 + 子序列方言）+ 三消费方迁移（find-bar/canvas/minimap）+ 撞见并修好一个预存的 setState-in-render 产品 bug（go() 的副作用住进了 updater）+ t653 单元 25/0 + e2e 11/0 + 回归全家十四绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 652 收官（摘要链滞后 N+93 后恢复执行；摘要称 Task 632，实际已 652——铁律「先 tail worklog」再值一次）；树净 HEAD c3d6993；available 955MB 非 build 日（第 63 窗否决）；server 200/31ms；基线四绿（t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS）。插曲：基线脚本名记岔（t252-e2e → 实为 t252-write-gates）——「选择器从实况来」对脚本名同样成立。
+- [定靶] t652 入口①两候选：import-gallery 多选 vs palette fuzzy。侦察发现 palette（command-palette）底层 cmdk 已 fuzzy——「palette fuzzy」的真正缺口在 find bar 一侧：jobMatchesQuery（canvas-find-bar）是纯 includes 子串匹配，RELION 操作员的缩写方言（cls2/ref3d/ctffnd）全部哑火；且该谓词自称「one matcher, two consumers」（canvas ring + minimap dots 经 jobMatchesFind 共享），住在组件文件里而非 lib——语义共享靠导出注释约束。lens 的 /api/activity/recent?q= 服务端 includes 是合同不是方言（跨项目 feed 的服务端匹配），明确划出射程。
+- [单源化] lib/job-match.ts 新家：subsequenceMatch（贪心左到右子序列扫描——最早锚点留最长尾巴）+ jobMatchesQuery（includes 先行保旧契约字节不动，q.length≥2 才开 fuzzy——单字符是子串问题不是模式）+ jobMatchesFind（Task 134 空查询合同 + status/category gate 原样随迁）。三消费方（canvas-find-bar 内部、canvas.tsx、canvas-minimap.tsx）直连 lib，find-bar 的 export 删除——「one matcher, many consumers」从此由 import graph 执行，不靠注释。
+- [判词] fuzzy 是集合问题不是排名问题——boolean 无打分（cmdk 的打分是 palette 自己的方言）；lens 不动（服务端合同）。长度守卫的诚实判词：单字符子序列 ≡ 子串（数学等价），守卫今日冗余，但它买的是「fuzzy 是缩写 dialect（至少两个字符）」的语义边界——未来谁把 includes 拆掉，单字符世界不会悄悄变宽。
+- [预存 bug 撞见] e2e 首跑 console 1 错：React「Cannot update a component (CanvasFindBar) while rendering a different component (WorkflowCanvas)」。因果分离三步：①分阶段诊断脚本（打开/输入/清空/重开全 0 警告——纯查询无辜）②Enter 腿诊断（Enter #1 后警告现身）③git stash 本窗改动在 t652 收官 HEAD 复跑同序列——同样警告。**预存产品 bug 实锤，非本窗引入**。病灶 = go() 把 focusJob() 写在 setCur 的 updater 函数体内：updater 必须纯（React 渲染期重放 + Strict Mode 双跑），里面的 zustand set = 渲染期更新他组件 + focusEpoch 隐性双派发。修复 = 副作用搬出 updater（闭包 cur 算 next → focusJob → setCur；go() 全部调用点是离散用户事件，无同 tick 重入，无 stale 风险）。修复后 Enter 全程 0 警告。
+- [t653-match-unit 25/0] A 组原始 primitive 七锚（cls2⊂Class2D 方言、ctffnd⊂CtfFind 掉字母、ac⊂abc 空隙本质、cb⊄abc 顺序 binding）+ B 组谓词十一锚（includes 三回归 + fuzzy 增长四证 + 守卫三锚）+ C 组 find 谓词六锚（Task 134、chip alone is a lens、gate 与 fuzzy 的交）。自纠一课：首跑两 FAIL 是探针自己把「CB⊂abc」的期望值写反（c 在末尾 b 就回不去了）——写死的假锚比漏写的锚更毒，修锚不修码。
+- [t653-e2e 11/0] playwright 直驱（qa66 教义）：dashboard tab → Workflow canvas tab（view switcher 语义门）→ find-toggle → canvas-find-input。三幕：①「2dc」fuzzy 新命中（正典世界无任何子串）= 2 卡 ring（2D classification + 2D class selection）+ 计数「2 matches」②「ca2」同字母乱序 = 诚实零（「no matches」destructive 语调 + 零 ring）③「ctf」includes 回归 = 恰 1 卡。清空 → ring 全消（Task 134 活体）；Enter → 循环存活 + 📸×2（t653-fuzzy-2dc.png / t653-find-bar.png）。
+- [回归全家十四绿] t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0 + t651 22/0 + t652 24/0（直系前任全锚无损）+ t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t646 21/0 + t647 24/0 + t648 15/0 + t649 18/0 + t650 21/0；tsc 0 + eslint 0 ×2。
+
+Stage Summary:
+- 「语义共享靠 import graph，不靠导出注释」：jobMatchesQuery 的「one matcher, two consumers」在 find-bar 里靠一句注释背书——注释不阻止第四个消费者抄一份本地实现。迁进 lib 后共享是编译事实：想用 matcher 就得 import lib，方言无处生根。t650 的「单源化最小侵入形态」（现场 API 不动、换值的来源）在函数世界的对应物：消费方改 import 行，谓词签名零变化。
+- 「撞见的 bug 不分内外」：setState-in-render 警告在 t652 HEAD 上活得好好的——没人按过 Enter？不，是没人盯着 console 看 Enter 那一刻。本窗 e2e 顺手把它抓了出来：修 bug 的成本在撞见时最低（诊断脚本已就位、stash 验证十秒完成）。QA 铁律「bug 优先修」的隐含前提是「撞见即修」，拖到下一个窗就是重新建上下文的两倍成本。
+- 「updater 必须纯，副作用住在外面」：setCur(prev => { focusJob(...); return next; }) 是个安静的 double agent——它把「移动焦点」这个副作用藏在 React 可能重放、Strict Mode 必双跑的函数里。警告只是显影（渲染期更新他组件）；focusEpoch 双派发是暗伤（语义漂移无警告）。判词：updater 只做「从 prev 到 next 的计算」，世界突变全部留在事件处理器——「计算住 updater，副作用住事件」。
+- 「fuzzy 的价值在方言，不在纠错」：cls2/ref3d/ctffnd 不是拼写错误，是操作员的缩写母语——includes 对母语充耳不闻。子序列匹配买的正是这层：query 的每个字符按序在场即可，空隙是缩写的形状。长度守卫（≥2）划清「缩写」与「单字符撒网」的界线；顺序 binding（ca2 ≠ 2dc）保住了「匹配即断言」的语义——匹配集变宽但不许变成噪声。
+- 「探针的 FAIL 先审自己」：首跑 2 FAIL 全是探针的锚写反（CB⊂abc 期望 true——c 在末尾 b 回不去）。锚错了产品无罪，此时改码就是把对的改错。「恒真的锚最危险」（t648）的姊妹篇：写反的锚会咬无辜的码。
+- 产出：lib/job-match.ts（subsequenceMatch + jobMatchesQuery + jobMatchesFind 单源）+ 三消费方迁移（canvas-find-bar/canvas.tsx/canvas-minimap.tsx）+ 预存 setState-in-render bug 修复（go() 副作用出 updater）+ t653-match-unit 25/0 + t653-e2e 11/0 + 诊断两枚（t653-diag/diag2——因果分离的工具化）+ 📸×2；下窗入口：①功能车道继续（import-gallery 多选 + lightbox ←→ 导航——t651 入口①最后余项；palette fuzzy 已在本窗超额兑现）②样式细节车道（find bar 匹配卡的 fuzzy 高亮可视化——data-find-match 已在，Emph 标记的 find bar 版待议）③star-table 粘性 # 索引列（t652 搁置项：需不透明行底 token 设计）④judge 风暴（等稳定夜）⑤build 日三车道（available ≥ 3.5GB，本窗第 63 窗否决）⑥演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
