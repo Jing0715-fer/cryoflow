@@ -9723,3 +9723,26 @@ Stage Summary:
 - 「路线搬了门没搬」：t588 把 jump 的路线从 store 直呼 setViewport 改成 arrivalTarget 中继，但 zoom clamp 门从未离开 store 的 setViewport——oracle 断「路线」时先问「门在哪」；行为相（B/C/E）活着证明落地仍在工作，静态相锁的是合同不是实现
 - 「cleanup 正形是套件族的通用疫苗」：t103 的三轮 FATAL 八具尸是旧形 must 的必然产物，t101 同款缺口只是还没轮到泄漏；t156 范式（纯 throw + main().catch 收尸）已是第六次移植，任何「死时状态泄漏」的套件都该先打这一针再谈别的
 - 产出：t103 重生（31 断言：S-a 活体镜像 + S1 计算化竖直 cone 扫描 + cleanup 正形 + G 相迁移）+ t101 重生（33 断言：D4 中继契约 + D5 迁移 + cleanup 正形）+ t644-wrap 机械包裹脚本留档；下窗入口：①t105 已在 t643 重生、t103/t101 本窗重生——qa78/t252/t637/t641 全绿在册，套件族考古告一段落 ②样式/功能车道继续 ③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 54 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 645 收官
+Agent: main (cron window, Job 362852)
+Task: t644 入口②兑现——chip 语域统一：ui/chip.tsx 原语立法（五尺寸×双色调×交互变体）+ 七方言 28 现场扫荡（16 文件）+ t645 探针 20/0；侦察雷达同窗立案下一单（rose/red/destructive 语义色三归一 + downloadBlob 收编）
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 644 收官（派单又称 Task 13——第 N+87 次陈旧模板语）；树净 HEAD 87251f3；available 918MB 非 build 日（第 55 窗否决）；server 200/30ms。
+- [QA 四绿基线] t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS——世界健康后才动工程。
+- [侦察定靶] Explore agent 三线侦察（样式一致性/功能缺口/技术债），头部立项：①chip 方言——`inline-flex items-center` 手写骨架 85 处/37 文件，七种方言（9/10/10.5/11px × px-2/px-2.5/px-1.5 × rounded-full/md/bare × medium/semibold/继承 × 两代 focus ring × 两档 press scale），kbd 律的 chip 版复现且规模 ×1.5；②语义色 token 缺位（rose 386 vs red 50 vs destructive token，~470 处手配 dark: 变体）——下一单；③downloadBlob ×12 手舞（Task 191 法令的漏网）——搭头候选。Task 13/Topaz/3D 截面清单第 N 次核实为化石未立项。
+- [原语立法] ui/chip.tsx：cva 五尺寸（xs 9px 微缩 / sm 10px 静态读数 / md 11px 正典 toggle / lg 11px semibold 大药丸 tabs / stamp 10px 方章）× 双色调（outline 描边 / muted 无边框洗）× interactive（t586 canonical ring-[3px] + motion-safe:active:scale-[0.96] + transition-all 让按压滑动而非瞬跳）× asChild（Slot 合并，button 场景 data-slot="chip" 直接落 button）。立法时一次自我纠正：stamp 初稿带 font-medium，考古发现两个 stamp 现场均继承字重——立法要忠实方言主流值，stamp 无自身字重。
+- [扫荡 28/28] 16 文件：D1 正典组 ×8（fsc-chart masked、continue-verb-row +N、canvas-find-bar status/type ×2、fsc-compare legend、class-averages-teaser、assistant-panel FilterChip（10px→11px 归档）、job-inspector back-link（10px→11px + scale 0.97→0.96 + ring-1→canonical，t570 注释扩刻 t645 故事））；D2 大药丸组 ×6（compare-face lens tabs、results-view final/it/all ×3（it 的 font-mono 现场保留）、path-browser DW.mrc、class-iteration-gallery 迭代 tab（font-mono 10px→11px 归档，seed/zero-data 内嵌徽章保留））；D3 小药丸 ×2（cryosparc orbit toggle、fsc-compare source 徽章 semibold 保留为现场 delta）；D4 章 ×2 + 溢出章 ×2（ai-verdict-stamp/selection-receipt 各自 class 章 +N more）；D5 裸 muted ×8（picks-map ×2、particle-browser 工厂 chip() 就地换骨 + fomTone 覆盖、import-gallery、angular-distribution、cryosparc 粒子读数）；9px 微缩 ×3（job-card homecoming、selection-receipt label/born）；KV 章 ×1（import-gallery 本地 Chip 撞名→StatChip 改名 + 内部换 stamp 骨架 + bg-muted/40 delta）；assistant-panel violet 集群章 ×1（裸 rounded 覆盖保留）。
+- [陷阱两枚] ①MultiEdit old_str 范围过窄三次留下开/闭标签残骸（cryosparc `</span>`、fsc-compare `</span>`、selection-receipt `</span>`）——tsc 十秒抓获，t642 教训（MultiEdit 失败要 diff）的反面补充：**成功也要 diff**，old_str 不含闭合标签是系统性风险；②import-gallery 本地组件与原语撞名 TS2440——改名 StatChip 是诚实解（label:value 是不同角色，不该被原语吞并）。
+- [探针立法] t645-probe 20/0：A 原语五档+interactive 正典在案；B 七方言骨架字串递归普查归零 + legend chips 经原语渲染；C DOM 活体——find bar status chips 16 枚 data-slot="chip"（Slot 合并证据）+ 计算样式三锚（radius=infinity→2^25px、11px、1px hairline）；D console 0。探针自身一课：Tailwind v4 的 rounded-full 是 `calc(infinity*1px)`，Chromium 解析为 3.35544e+07px——断言量级不断言拼写。
+- [回归八绿] t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS + t105 46 + t642 11/0 + t103 31 + t101 33；世界 33 jobs / 0 QA 行；tsc 0 + eslint 0。
+- [下一单已立案] 语义色 token 化（--success/--warning/--running 进 globals.css + Tailwind @theme 映射 → rose 家族 386 处迁移 → ~470 处手配 dark: 变体整体退役 → 状态色 map 三胞胎收进 lib/status-style.ts）+ downloadBlob 双子（lib/download.ts 补 blob 语义，12 处手舞清偿）。
+
+Stage Summary:
+- 「方言普查要用骨架字串做探针，用角色做分类」：七方言的本质不是七个像素差而是两种角色（静态读数 vs 交互 toggle）+ 一种章形；立法先分角色再定档位，五尺寸不是拍脑袋是现场分布的直接誊写——md 是现场数最多的（8 处），lg 次之，xs/stamp 各自角色清晰
+- 「立法要忠实方言的主流值」：stamp 初稿带 font-medium 是我以为的章该有的样子，考古两个现场发现它们都是继承字重——原语的默认值必须来自现场的众数，不能来自立法者的品味；一次自我纠正胜过两处现场覆盖
+- 「Slot 合并让 asChild 成为原语的舞台出口」：button 场景不需要第二套 API——Chip 的骨架经 Slot 落在 button 上，data-testid/aria-pressed/onClick 全部留在现场，data-slot="chip" 同时成为探针的活体锚点；16 枚 chips 的 computed style 三锚（radius/type/border）是统一的实打实证据
+- 「infinity 也要断言量级」：rounded-full 在 v4 是 calc(infinity*1px)，浏览器报 2^25px——探针断言「是什么」不如断言「属于什么量级」；oracle 要懂渲染引擎的方言，正如套件要懂世界的方言
+- 产出：ui/chip.tsx 原语 + 16 文件 28 现场扫荡 + import-gallery StatChip 撞名解 + t645 探针（20/0）+ 📸×1（t645-chip-vocab.png）；下窗入口：①语义色 token 化（本窗立案，rose/red/destructive 三归一 + dark: 变体退役 ~470 处，样式车道最大单）②downloadBlob 双子 + fmtBytes ×6 收编（C8 搭头，半小时级）③star-table 排序/导出 + import-gallery 多选 + palette fuzzy（B5 功能补差）④judge 风暴（等稳定夜）⑤build 日三车道（available ≥ 3.5GB，本窗第 55 窗否决）⑥演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
