@@ -8873,9 +8873,11 @@ async function awaitSlurmTeardown(
  *  t297: slurm records die by scancel (the scheduler owns the tree on the
  *  compute node; a login-node kill could never reach it).
  * t418 — opts.settleMs: after a successful scancel, poll the scheduler
- * until the job actually leaves the queue (bounded). Only callers that
- * delete the workdir right after need it (project delete); the single-job
- * routes' tombstone semantics make the dying tree's last writes harmless.
+ * until the job actually leaves the queue (bounded). The project-delete
+ * route NEEDS it (the rm -rf below races the tree's last writes); the
+ * single-job stop route WANTS it (t624): the receipt should say whether
+ * the tree is GONE or merely dying, and `settled` rides the response so
+ * the toast can say "stopped" vs "accepted" without guessing.
  */
 /**
  * The remote stop receipt's class — the remote sibling of engine's
@@ -8891,40 +8893,52 @@ type RemoteStopOutcome = "killed" | "missed";
 export async function remoteStopRun(
   jobId: string,
   opts: { settleMs?: number } = {}
-): Promise<{ stopped: boolean; message: string; outcome: RemoteStopOutcome }> {
+): Promise<{
+  stopped: boolean;
+  message: string;
+  outcome: RemoteStopOutcome;
+  /** t624 — did the job actually leave the queue inside the settle window?
+   *  null = the question never applied (non-slurm kill, scancel failed, or
+   *  no window requested — the project-delete-era shape). true = confirmed
+   *  gone; false = the cancellation was accepted but the tree was still
+   *  leaving at the deadline — the ledger decides the final state. */
+  settled: boolean | null;
+}> {
   const rec = getRun(jobId);
   if (!rec?.remote)
-    return { stopped: false, outcome: "missed", message: "not a remote run" };
+    return { stopped: false, outcome: "missed", settled: null, message: "not a remote run" };
   const conn = getConnection(rec.remote.connectionId);
   if (!conn)
     return {
       stopped: false,
       outcome: "missed",
+      settled: null,
       message: "the connection for this run was deleted — kill the process on the cluster manually",
     };
   const r = rec.remote;
   if (r.mode === "slurm" && r.slurmId) {
     const res = await exec(conn, `scancel ${shQuote(String(Number(r.slurmId)))}`, { timeoutMs: 15_000 });
     const ok = res.code === 0 && !res.error;
-    // t418 — the teardown confirmation is OPTIONAL and bounded: the
-    // single-job routes keep the workdir as a tombstone (the dying tree's
-    // last writes land in preserved files — harmless), so they pass no
-    // settleMs. The project-delete route DOES rm -rf the mirror right
-    // after, so it asks the scheduler to confirm the tree is gone first.
-    let settled = false;
+    // t418 — the teardown confirmation is OPTIONAL and bounded. The
+    // project-delete route NEEDS it (the rm -rf below races the tree's
+    // last writes); the single-job stop route asks for it since t624 —
+    // the workdir stays a tombstone either way (no rm), but the RECEIPT
+    // wants the verdict: gone (confirmed) vs still leaving (accepted).
+    let settled: boolean | null = null;
     if (ok && opts.settleMs && opts.settleMs > 0) {
       settled = await awaitSlurmTeardown(conn, Number(r.slurmId), opts.settleMs);
     }
     return {
       stopped: ok,
       outcome: ok ? "killed" : "missed",
+      settled,
       message: ok
         ? `sent scancel to Slurm job ${r.slurmId} — the scheduler tears the process tree down on the compute node` +
-          (opts.settleMs
-            ? settled
-              ? " (teardown confirmed — the job left the queue)"
-              : " (teardown NOT confirmed before the deadline — a delete below may race the tree's last writes)"
-            : "")
+          (settled === true
+            ? " (teardown confirmed — the job left the queue)"
+            : settled === false
+              ? " (teardown NOT confirmed before the deadline — the job was still leaving the queue; the cluster ledger decides the final state)"
+              : "")
         : `scancel ${r.slurmId} failed${res.stderr.trim() ? `: ${res.stderr.trim().slice(0, 200)}` : " (already finished?)"}`,
     };
   }
@@ -8940,6 +8954,7 @@ export async function remoteStopRun(
   return {
     stopped: killed,
     outcome: killed ? "killed" : "missed",
+    settled: null,
     message: killed
       ? `sent SIGTERM+SIGKILL to the cluster-side session (pid group ${rec.remote.pid})`
       : "no live cluster pid found (already exited?)",

@@ -3852,15 +3852,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         stopped: boolean;
         message: string;
         outcome?: "killed" | "missed" | "already-ended";
+        settled?: boolean | null;
       }>(`/api/jobs/${id}/stop`, { method: "POST" });
       set({ jobs: get().jobs.map((j) => (j.id === id ? data.job : j)) });
       // t618's feat docket — the toast speaks the RECEIPT, not a guess.
       // "Job already idle" used to cover every stopped:false — including a
       // missed kill whose run may still be finishing on the cluster. Three
       // classes, three titles; the legacy fallback keeps old shapers honest.
+      // t624 — the slurm receipt gained a verdict: a kill whose teardown was
+      // NOT confirmed inside the window is "accepted", not "stopped" — the
+      // scheduler took the cancellation but the tree was still leaving.
       const title =
         data.outcome === "killed"
-          ? "Job stopped"
+          ? data.settled === false
+            ? "Stop accepted — the cluster is tearing it down"
+            : "Job stopped"
           : data.outcome === "missed"
             ? "Stop missed — nothing to kill"
             : data.outcome === "already-ended"

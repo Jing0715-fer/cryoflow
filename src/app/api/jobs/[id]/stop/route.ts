@@ -31,6 +31,16 @@ type RouteContext = { params: Promise<{ id: string }> };
  * that used to LOOK like a flip from "stopped" to "completed" was the
  * pre-written lie speaking twice; with the miss named, the heal is just a
  * landing).
+ *
+ * t624 — the teardown confirmation window (t418's awaitSlurmTeardown on the
+ * single-job door): scancel exiting 0 means the scheduler ACCEPTED the
+ * cancellation, not that the tree is dead — for seconds the ranks keep
+ * flushing (COMPLETING, in squeue-speak). The remote stop now polls squeue
+ * for a bounded 8s and carries the verdict as `settled` on the response:
+ * true = the job left the queue (the tree is GONE); false = accepted but
+ * still leaving (the ledger decides the final state); null = the question
+ * never applied. The DB row and the toast speak the difference instead of
+ * claiming "stopped" flatly in both cases.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -57,7 +67,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // ---- remote branch: the process tree lives on the cluster ----------
     const rec = getRun(id);
     if (rec?.remote) {
-      const outcome = await remoteStopRun(id);
+      // t624 — the bounded confirmation window (8s: a healthy scheduler
+      // purge lands in 1–3s, the deadline only caps the WAIT, never the
+      // kill — the project-delete's 15s budget exists for the rm below,
+      // this one only feeds the receipt's words).
+      const outcome = await remoteStopRun(id, { settleMs: 8_000 });
       const missed = !outcome.stopped;
       // finalize the record now — a SIGKILL'd wrapper never writes its exit
       // file, and a !done record would ghost-block re-runs (isRunAlive).
@@ -93,7 +107,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
             progress: 0,
             result: missed
               ? "stop missed (no live cluster session found) — the cluster ledger decides the final state when the run's records come home"
-              : `stopped by user (cluster-side session killed) — re-run resumes from the last synced checkpoint`,
+              : outcome.settled === true
+                ? "stopped by user (cluster-side session killed; teardown confirmed — the job left the queue) — re-run resumes from the last synced checkpoint"
+                : outcome.settled === false
+                  ? "stopped by user (cluster-side cancellation accepted — the job was still leaving the queue after the confirmation window; the cluster ledger decides the final state) — re-run resumes from the last synced checkpoint"
+                  : `stopped by user (cluster-side session killed) — re-run resumes from the last synced checkpoint`,
           },
         });
       }
@@ -105,6 +123,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         stopped: outcome.stopped,
         outcome: outcome.outcome,
         message: outcome.message,
+        settled: outcome.settled,
       });
     }
 
