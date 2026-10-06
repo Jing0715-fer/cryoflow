@@ -2136,7 +2136,7 @@ function TopazPickHandoff({ jobId }: { jobId: string }) {
     <section
       aria-label="Put the model to work"
       data-canvas-ui="topaz-pick-handoff"
-      className="rounded-lg border border-rose-600/25 bg-rose-500/[0.04] p-3"
+      className="rounded-lg border border-rose-600/25 bg-danger/[0.04] p-3"
     >
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
@@ -2192,7 +2192,7 @@ function DenoisePickHandoff({ jobId }: { jobId: string }) {
     <section
       aria-label="Put the clean stack to work"
       data-canvas-ui="denoise-pick-handoff"
-      className="rounded-lg border border-rose-600/25 bg-rose-500/[0.04] p-3"
+      className="rounded-lg border border-rose-600/25 bg-danger/[0.04] p-3"
     >
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
@@ -2266,7 +2266,7 @@ function DenoiseTrainHandoff({ jobId }: { jobId: string }) {
     <section
       aria-label="Grow a trained model"
       data-canvas-ui="denoise-train-handoff"
-      className="rounded-lg border border-rose-600/25 bg-rose-500/[0.04] p-3"
+      className="rounded-lg border border-rose-600/25 bg-danger/[0.04] p-3"
     >
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">

@@ -290,7 +290,7 @@ export function NewProjectDialog({
                                 c.lastProbe?.ok
                                   ? "bg-emerald-500"
                                   : c.lastProbe
-                                    ? "bg-rose-500"
+                                    ? "bg-danger"
                                     : "bg-slate-400 dark:bg-slate-500"
                               )}
                               aria-hidden="true"

@@ -160,7 +160,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function probeDot(c: RemoteConnectionDTO): { className: string; label: string } {
   const secs = c.lastProbe?.durationMs != null ? ` in ${(c.lastProbe.durationMs / 1000).toFixed(1)}s` : "";
   if (c.lastProbe?.ok) return { className: "bg-emerald-500", label: `reachable — last probe ok${secs}` };
-  if (c.lastProbe) return { className: "bg-rose-500", label: `last probe failed${secs}${c.lastProbe.error ? `: ${c.lastProbe.error}` : ""}` };
+  if (c.lastProbe) return { className: "bg-danger", label: `last probe failed${secs}${c.lastProbe.error ? `: ${c.lastProbe.error}` : ""}` };
   return { className: "bg-slate-400 dark:bg-slate-500", label: "never tested" };
 }
 
@@ -188,7 +188,7 @@ function ProbeCard({
             "text-[10px]",
             probe.ok
               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-              : "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+              : "border-rose-500/40 bg-rose-500/10 text-danger"
           )}
         >
           {probe.ok ? "reachable" : "unreachable"}
@@ -234,7 +234,7 @@ function ProbeCard({
       ) : null}
 
       {probe.error ? (
-        <p className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-2 py-1.5 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300" role="alert">
+        <p className="rounded-md border border-rose-500/30 bg-danger/[0.06] px-2 py-1.5 text-[11px] leading-relaxed text-danger" role="alert">
           {probe.error}
         </p>
       ) : null}
@@ -334,7 +334,7 @@ function ProbeCard({
 function resumeDot(e: ConnectionRunResumeEntry): { className: string; label: string } {
   if (!e.done) return { className: "bg-amber-500", label: "still running" };
   if (e.exitCode === 0) return { className: "bg-emerald-500", label: "completed" };
-  return { className: "bg-rose-500", label: `failed (exit ${e.exitCode})` };
+  return { className: "bg-danger", label: `failed (exit ${e.exitCode})` };
 }
 
 /** The cluster's résumé: an aggregate line + the ≤3 newest runs, each
@@ -488,7 +488,7 @@ function RunResumeCard({
         {resume.failed > 0 ? (
           <Badge
             variant="outline"
-            className="border-rose-500/40 bg-rose-500/10 text-[10px] text-rose-700 dark:text-rose-300"
+            className="border-rose-500/40 bg-rose-500/10 text-[10px] text-danger"
             data-resume-failed=""
           >
             {resume.failed} stopped/failed
@@ -702,7 +702,7 @@ function RunResumeCard({
         </p>
       ) : null}
       {bulkError ? (
-        <p role="alert" data-resume-forget-dead-error="" className="text-[10px] leading-relaxed text-rose-700 dark:text-rose-300">
+        <p role="alert" data-resume-forget-dead-error="" className="text-[10px] leading-relaxed text-danger">
           {bulkError}
         </p>
       ) : null}
@@ -710,7 +710,7 @@ function RunResumeCard({
         <p
           role="alert"
           data-resume-forget-error=""
-          className="text-[10px] leading-relaxed text-rose-700 dark:text-rose-300"
+          className="text-[10px] leading-relaxed text-danger"
         >
           {forgetError}
         </p>
@@ -1610,7 +1610,7 @@ function ConnectionEditor({
           ) : (
             <p
               role="alert"
-              className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
+              className="text-[11px] leading-relaxed text-danger"
               data-verify-module-error=""
             >
               {verifyResult.error}
@@ -1621,7 +1621,7 @@ function ConnectionEditor({
 
       {testError ? (
         <p
-          className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
+          className="rounded-md border border-rose-500/30 bg-danger/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-danger"
           role="alert"
         >
           {testError}
@@ -1647,7 +1647,7 @@ function ConnectionEditor({
 
       {error ? (
         <p
-          className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
+          className="rounded-md border border-rose-500/30 bg-danger/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-danger"
           role="alert"
         >
           {error}
@@ -1773,7 +1773,7 @@ function ConnectionEditor({
           </p>
         ) : (
           <p
-            className="mt-2 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
+            className="mt-2 text-[11px] leading-relaxed text-danger"
             role="alert"
             data-storage-check-error=""
           >

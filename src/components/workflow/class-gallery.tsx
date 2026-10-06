@@ -844,10 +844,10 @@ export function ClassGallery({
           tiles the field reports carried. */}
       {failedImgs.size > 0 && data?.renderError != null && (
         <div
-          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-3 py-2"
+          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-rose-500/30 bg-danger/5 px-3 py-2"
           data-render-error=""
         >
-          <span className="min-w-0 flex-1 text-[10px] leading-relaxed text-rose-600 dark:text-rose-400">
+          <span className="min-w-0 flex-1 text-[10px] leading-relaxed text-danger">
             class images unavailable — {data.renderError}
           </span>
           <button

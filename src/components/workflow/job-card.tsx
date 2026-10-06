@@ -36,6 +36,7 @@ import {
   visibleOutputs,
 } from "@/lib/workflow";
 import { useWorkflowStore, type PendingFrom } from "@/lib/store";
+import { isSlurmQueued } from "@/lib/status-style";
 import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
@@ -83,25 +84,10 @@ import { toast } from "@/hooks/use-toast";
 /* Shared bits (also used by the details panel)                        */
 /* ------------------------------------------------------------------ */
 
-/**
- * t322 — a Slurm-queued remote run is NOT "running": the scheduler holds
- * the job (PENDING, often waiting on an upstream afterok dependency — the
- * user's autopick-while-ctffind-runs report). The DB status stays
- * "running" (the sweep's honest ladder owns the lifecycle), but every
- * STATUS SURFACE renders the scheduler's own word instead: "Queued",
- * amber, no fake progress. Structural typing: every DTO flavor with a
- * runRemote rides the same helper.
- */
-export function isSlurmQueued(job: {
-  status: string;
-  runRemote?: { mode?: string; slurmState?: string } | null;
-}): boolean {
-  return (
-    job.status === "running" &&
-    job.runRemote?.mode === "slurm" &&
-    job.runRemote?.slurmState === "PENDING"
-  );
-}
+/* t646 — isSlurmQueued relocated to lib/status-style (the word law is
+ * lib-level, not a component's shared bit). Re-exported so the five
+ * importers keep their paths. */
+export { isSlurmQueued };
 
 export const STATUS_STYLES: Record<string, string> = {
   idle: "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400",
@@ -779,7 +765,7 @@ function JobCardMenu({
               className={cn(
                 "text-[10.5px] tabular-nums",
                 noteDraft.length >= NOTE_LIMIT
-                  ? "font-semibold text-rose-600 dark:text-rose-400"
+                  ? "font-semibold text-danger"
                   : "text-muted-foreground"
               )}
             >
@@ -1318,7 +1304,7 @@ function JobCardPreview({
             className={cn(
               "line-clamp-2 rounded border px-2 py-1.5 text-[10.5px] leading-snug",
               job.status === "failed"
-                ? "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                ? "border-rose-500/30 bg-rose-500/10 text-danger"
                 : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
             )}
             title={job.result}
@@ -2130,7 +2116,7 @@ export const JobCard = React.memo(function JobCard({
           {job.status === "failed" ? (
             <div
               aria-hidden="true"
-              className="absolute inset-0 bg-rose-500/[0.045] dark:bg-rose-500/[0.07]"
+              className="absolute inset-0 bg-danger/[0.045] dark:bg-danger/[0.07]"
             />
           ) : null}
 
@@ -2266,7 +2252,7 @@ export const JobCard = React.memo(function JobCard({
                 <span
                   aria-hidden="true"
                   title="Failed"
-                  className="ml-auto flex size-4.5 shrink-0 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold leading-none text-white shadow-sm"
+                  className="ml-auto flex size-4.5 shrink-0 items-center justify-center rounded-full bg-danger text-[11px] font-bold leading-none text-white shadow-sm"
                 >
                   !
                 </span>
@@ -2533,7 +2519,7 @@ export const JobCard = React.memo(function JobCard({
                 ) : null
               ) : job.status === "failed" ? (
                 <p
-                  className="truncate text-[11px] leading-[15px] text-rose-600 dark:text-rose-400"
+                  className="truncate text-[11px] leading-[15px] text-danger"
                   title={job.result ?? "Run failed — check logs"}
                 >
                   {displayResult(job.result) ?? job.result ?? "Run failed — check logs"}

@@ -106,7 +106,11 @@ const ToastClose = React.forwardRef<
       //    was a BRIGHTER red — red ink on brighter red). red-200 keeps
       //    the tint language and clears the 3:1 UI bar in both themes
       //    (~3.3:1) now that the surface is one red in both themes.
-      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 hover-none:opacity-100 before:absolute before:-inset-2.5 before:content-[''] group-[.destructive]:text-red-200 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
+      //    t646 — the surface's hue moved to rose (--destructive now
+      //    rides rose-600), so the on-surface accent rungs follow the
+      //    family: rose-200/rose-50/rose-400 at the SAME lightness rungs
+      //    — contrast verdicts unchanged, hue wheel unified.
+      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 hover-none:opacity-100 before:absolute before:-inset-2.5 before:content-[''] group-[.destructive]:text-rose-200 group-[.destructive]:hover:text-rose-50 group-[.destructive]:focus:ring-rose-400 group-[.destructive]:focus:ring-offset-rose-600",
       className
     )}
     toast-close=""

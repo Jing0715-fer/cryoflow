@@ -69,6 +69,22 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  /* t646 — the STATUS SEMANTIC vocabulary. rose (401 sites) / red (54) /
+     destructive (shadcn contract) all speak DANGER in three hues; success
+     (emerald), warning (amber), running (teal) follow the minimap's
+     canonical hex map. Four tokens, one voice: text-danger / bg-danger/10 /
+     border-danger … resolve at use-site, so the .dark flip below re-inks
+     every consumer at once — the ~470 hand-paired dark: variants retire
+     into the token. Values are the Tailwind v4 palette verbatim
+     (node_modules/tailwindcss/theme.css), NOT hand-picked: the field's
+     mode shades (600 light ink / 400 dark ink), documented canonicalization
+     for the dialects that sat one rung off (700/300 pairs, 500-based
+     washes). Alpha modifiers ride color-mix, so bg-danger/10 keeps its
+     wash law in both themes. */
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-running: var(--running);
   --color-destructive: var(--destructive);
   /* Task 175 — this mapping was MISSING since the shadcn v4 migration:
      `text-destructive-foreground` generated NO rule (the class existed,
@@ -118,8 +134,19 @@
   --muted-foreground: oklch(0.523 0.024 232);
   --accent: oklch(0.935 0.031 188);
   --accent-foreground: oklch(0.36 0.075 192);
-  --destructive: oklch(0.577 0.245 27.325);
+  /* t646 — hue unification: the danger family is ROSE in this app (401
+     sites vs red's 54); destructive now wears the same oklch as rose-600.
+     Lightness is UNCHANGED from Task 175's verdict (600-territory in both
+     themes — dark once rode red-400 and white ink collapsed to ~2.7:1),
+     only the hue wheel moved 27.3° → 17.6°. Contrast law intact. */
+  --destructive: oklch(58.6% 0.253 17.585);
   --destructive-foreground: oklch(0.985 0.005 200);
+  /* t646 — status semantics: the minimap's canonical hex map, tokenized.
+     Light ink rungs (600s); the .dark block below carries the 400s. */
+  --danger: oklch(58.6% 0.253 17.585);   /* rose-600 */
+  --success: oklch(59.6% 0.145 163.225); /* emerald-600 */
+  --warning: oklch(66.6% 0.179 58.318);  /* amber-600 */
+  --running: oklch(60% 0.118 184.704);   /* teal-600 */
   --border: oklch(0.902 0.009 220);
   --input: oklch(0.894 0.01 220);
   --ring: oklch(0.615 0.108 186);
@@ -159,10 +186,18 @@
   /* Task 175 — dark used a BRIGHTER red (red-400, oklch 0.704), which
      collapsed every destructive label once text-destructive-foreground
      actually applied: near-white on red-400 = ~2.7:1. Unified with the
-     light token (red-600 territory): white ink = ~4.5:1, the X's
-     red-200 = ~3.3:1, and the family reads as ONE red in both themes. */
-  --destructive: oklch(0.577 0.245 27.325);
+     light token (600-territory): white ink = ~4.5:1, the X's 200-rung
+     = ~3.3:1, and the family reads as ONE red in both themes.
+     t646 — the token follows the family hue (rose-600) at the SAME
+     lightness; the Task 175 contrast verdict is untouched. */
+  --destructive: oklch(58.6% 0.253 17.585);
   --destructive-foreground: oklch(0.985 0.005 200);
+  /* t646 — dark ink rungs (400s): the field's own pair pattern (rose-600
+     ink with a dark:rose-400 partner, 33 sites) pinned these shades. */
+  --danger: oklch(71.2% 0.194 13.428);   /* rose-400 */
+  --success: oklch(76.5% 0.177 163.223); /* emerald-400 */
+  --warning: oklch(82.8% 0.189 84.429);  /* amber-400 */
+  --running: oklch(77.7% 0.152 181.912); /* teal-400 */
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.74 0.118 184);

@@ -284,7 +284,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
             ) : error ? (
               <div
                 role="alert"
-                className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-3 py-2.5 text-xs text-rose-700 dark:text-rose-300"
+                className="rounded-md border border-rose-500/30 bg-danger/[0.06] px-3 py-2.5 text-xs text-danger"
               >
                 {error}
               </div>
@@ -525,7 +525,7 @@ function SideCard({
         {sidePlan.error ? (
           <span
             role="note"
-            className="min-w-0 basis-full truncate text-[11px] text-rose-600 dark:text-rose-400"
+            className="min-w-0 basis-full truncate text-[11px] text-danger"
             title={sidePlan.error}
           >
             {sidePlan.error}

@@ -61,7 +61,7 @@ const MARKER_TONE: Record<string, string> = {
   idle: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
   run: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
   wait: "bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/30",
-  fail: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30",
+  fail: "bg-rose-500/10 text-danger border-rose-500/30",
   native: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
 };
 
@@ -237,7 +237,7 @@ export function PipelineScriptDialog({
             Assembling the pipeline…
           </div>
         ) : data?.error ? (
-          <div className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] p-3 text-xs text-rose-700 dark:text-rose-300">
+          <div className="rounded-md border border-rose-500/30 bg-danger/[0.06] p-3 text-xs text-danger">
             {data.error}
           </div>
         ) : (

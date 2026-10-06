@@ -57,10 +57,10 @@ import { Kbd } from "@/components/ui/kbd";
 import { CARD_W, CARD_H } from "@/lib/workflow";
 import { capturePointer } from "@/lib/pointer";
 import { cn } from "@/lib/utils";
+import { STATUS_HEX, statusWord } from "@/lib/status-style";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
 import { jobMatchesFind } from "./canvas-find-bar";
 import { useStatusNews } from "@/lib/use-status-news";
-import { isSlurmQueued } from "./job-card";
 import type { JobDTO } from "@/lib/types";
 
 const MM_W = 192;
@@ -79,14 +79,9 @@ const MM_MODES: { id: MmMode; label: string; title: string }[] = [
   { id: "sel", label: "sel", title: "Frame the selection only — everything else dims" },
 ];
 
-/** status → minimap fill (hex: SVG attrs don't take Tailwind classes) */
-const STATUS_FILL: Record<string, string> = {
-  idle: "#a1a1aa",
-  pending: "#f59e0b",
-  running: "#14b8a6",
-  completed: "#10b981",
-  failed: "#f43f5e",
-};
+/** status → minimap fill — t646: the hex map lives in lib/status-style
+ * (single source; this SVG context is why the twin exists, see its head
+ * note). */
 
 /**
  * t606 — one dot, the news face's THIRD distance. The badge speaks at
@@ -120,7 +115,7 @@ function MinimapDot({
   selDoor: boolean;
   s: number;
 }) {
-  const word = isSlurmQueued(job) ? "pending" : job.status || "idle";
+  const word = statusWord(job);
   const news = useStatusNews(word);
   return (
     <rect
@@ -136,7 +131,7 @@ function MinimapDot({
       width={CARD_W}
       height={CARD_H}
       rx={26}
-      fill={STATUS_FILL[word] ?? STATUS_FILL.idle}
+      fill={STATUS_HEX[word] ?? STATUS_HEX.idle}
       // Task 166 — status ink stays attribute-borne (idle 0.55 /
       // active 0.9); the recession moved to the .mm-chip-dim class
       // consuming the ladder's --dim-whisper rung (the map's old

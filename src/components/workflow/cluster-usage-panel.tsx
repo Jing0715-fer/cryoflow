@@ -77,7 +77,7 @@ function StateChip({ state }: { state: string }) {
         : state === "ALLOCATED"
           ? "text-muted-foreground"
           : nodeUnavailable({ state })
-            ? "text-rose-600 dark:text-rose-400"
+            ? "text-danger"
             : "text-muted-foreground";
   return (
     <span className={cn("shrink-0 font-mono text-[10px] font-medium", tone)}>
@@ -375,9 +375,9 @@ export function ClusterUsagePanel({
           </p>
         )
       ) : !data?.ok ? (
-        <div className="flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-2.5 py-2" role="note">
-          <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden="true" />
-          <p className="text-[10.5px] leading-snug text-rose-700 dark:text-rose-300">
+        <div className="flex items-start gap-2 rounded-md border border-rose-500/30 bg-danger/[0.06] px-2.5 py-2" role="note">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-danger" aria-hidden="true" />
+          <p className="text-[10.5px] leading-snug text-danger">
             Live usage unavailable — {data?.error ?? "unknown error"}. The submit
             button still works; this panel is informational.
           </p>
@@ -483,7 +483,7 @@ export function ClusterUsagePanel({
                         className={cn(
                           "w-[86px] shrink-0 text-right font-mono text-[10px] tabular-nums",
                           gFree === 0
-                            ? "text-rose-600 dark:text-rose-400"
+                            ? "text-danger"
                             : gTone === "tight"
                               ? "text-amber-600 dark:text-amber-400"
                               : "text-emerald-600 dark:text-emerald-400"

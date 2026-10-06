@@ -150,7 +150,7 @@ const TYPE_COLOR: Record<string, string> = {
   select: "bg-amber-500/25 border-amber-500/40 text-amber-700 dark:text-amber-300",
   class2d: "bg-fuchsia-500/25 border-fuchsia-500/40 text-fuchsia-700 dark:text-fuchsia-300",
   class3d: "bg-indigo-500/25 border-indigo-500/40 text-indigo-700 dark:text-indigo-300",
-  refine3d: "bg-rose-500/25 border-rose-500/40 text-rose-700 dark:text-rose-300",
+  refine3d: "bg-rose-500/25 border-rose-500/40 text-danger",
   postprocess: "bg-emerald-500/25 border-emerald-500/40 text-emerald-700 dark:text-emerald-300",
   maskcreate: "bg-green-500/25 border-green-500/40 text-green-700 dark:text-green-300",
 };
@@ -469,7 +469,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
           </div>
 
           {error ? (
-            <div className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] p-3 text-xs text-rose-700 dark:text-rose-300">
+            <div className="rounded-md border border-rose-500/30 bg-danger/[0.06] p-3 text-xs text-danger">
               {error}
             </div>
           ) : sim ? (
@@ -697,7 +697,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                           </span>
                         ) : null}
                         {row.err ? (
-                          <span className="shrink-0 text-[9.5px] italic text-rose-600 dark:text-rose-400">{row.err}</span>
+                          <span className="shrink-0 text-[9.5px] italic text-danger">{row.err}</span>
                         ) : null}
                         {row.r ? (
                           <span className="flex shrink-0 items-baseline gap-2 tabular-nums">

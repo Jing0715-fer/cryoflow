@@ -208,7 +208,7 @@ export function PipelineKpi() {
       className="-mx-1 px-1 text-xs font-semibold tabular-nums"
     >
       <ProgressRing done={stats.completed} total={stats.total} />
-      <span className={stats.failed > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
+      <span className={stats.failed > 0 ? "text-danger" : "text-foreground"}>
         {stats.completed}
         <span className="text-muted-foreground">/{stats.total}</span>
       </span>
@@ -263,7 +263,7 @@ export function PipelineKpi() {
             className={
               resValue <= TARGET_ANGSTROM
                 ? "rounded-full border border-emerald-600/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
-                : "rounded-full border border-rose-600/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300"
+                : "rounded-full border border-rose-600/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-danger"
             }
           >
             {resValue <= TARGET_ANGSTROM ? (

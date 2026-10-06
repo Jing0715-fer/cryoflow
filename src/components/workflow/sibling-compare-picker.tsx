@@ -49,7 +49,7 @@ const STATUS_DOT: Record<string, string> = {
   running: "bg-teal-500 animate-soft-pulse",
   pending: "bg-amber-500 animate-soft-pulse",
   completed: "bg-emerald-500",
-  failed: "bg-rose-500",
+  failed: "bg-danger",
 };
 
 /** per-sibling preview chip, computed from the SAME classifyParamRows brain

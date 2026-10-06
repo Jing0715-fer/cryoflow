@@ -2005,7 +2005,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   "size-1.5 shrink-0 rounded-full",
                   j.status === "completed" && "bg-emerald-500",
                   j.status === "running" && "animate-pulse bg-amber-500",
-                  j.status === "failed" && "bg-red-500",
+                  j.status === "failed" && "bg-danger",
                   j.status !== "completed" && j.status !== "running" && j.status !== "failed" && "bg-muted-foreground/40",
                 )}
               />
@@ -4875,7 +4875,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       "rounded-md px-2 py-1 text-[10px] leading-snug " +
                       (clipSendNote.ok
                         ? "border border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
-                        : "border border-red-600/30 bg-red-600/10 text-red-700 dark:text-red-300")
+                        : "border border-red-600/30 bg-red-600/10 text-danger")
                     }
                   >
                     {clipSendNote.text}

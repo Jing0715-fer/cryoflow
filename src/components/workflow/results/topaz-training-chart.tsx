@@ -178,7 +178,7 @@ export function TopazTrainingChart({
           </span>
         )}
         {finalPR[1] != null && (
-          <span className="rounded-full border border-rose-600/30 bg-rose-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-rose-700 dark:text-rose-300">
+          <span className="rounded-full border border-rose-600/30 bg-rose-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-danger">
             R {(finalPR[1] * 100).toFixed(0)}%
           </span>
         )}

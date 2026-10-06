@@ -403,7 +403,7 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
               "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md",
               item.ok
                 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                : "bg-rose-500/10 text-danger"
             )}
           >
             <Icon className="size-3.5" aria-hidden="true" />
@@ -418,7 +418,7 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
                 />
               ) : (
                 <XCircle
-                  className="size-3.5 shrink-0 text-rose-600 dark:text-rose-400"
+                  className="size-3.5 shrink-0 text-danger"
                   aria-label="failed"
                 />
               )}
@@ -491,7 +491,7 @@ function Notice({ item }: { item: Extract<UiItem, { kind: "notice" }> }) {
           ? "border-border bg-muted/40 text-muted-foreground"
           : info
             ? "border-border bg-muted/40 text-muted-foreground"
-            : "border-rose-600/30 bg-rose-500/[0.06] text-rose-700 dark:text-rose-300"
+            : "border-rose-600/30 bg-danger/[0.06] text-danger"
       )}
     >
       <Icon
@@ -638,7 +638,7 @@ function FilterChip({
       className={cn(
         active
           ? tone === "rose"
-            ? "border-rose-600/40 bg-rose-500/10 text-rose-700 dark:text-rose-400"
+            ? "border-rose-600/40 bg-rose-500/10 text-danger"
             : "border-teal-500/50 bg-teal-500/10 text-teal-600 dark:text-teal-400"
           : "border-transparent bg-secondary/60 text-muted-foreground hover:text-foreground"
       )}
@@ -1683,7 +1683,7 @@ export function AssistantPanel() {
                       aria-hidden="true"
                       className={cn(
                         "size-1.5 shrink-0 rounded-full",
-                        health.state === "unreachable" ? "bg-red-500" : "bg-amber-500"
+                        health.state === "unreachable" ? "bg-danger" : "bg-amber-500"
                       )}
                     />
                   )}

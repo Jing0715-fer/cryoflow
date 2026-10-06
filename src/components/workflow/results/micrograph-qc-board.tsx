@@ -48,13 +48,13 @@ import { cn } from "@/lib/utils";
 const BUCKET_TILE: Record<QcBucket, string> = {
   healthy: "border-l-emerald-500/70",
   watch: "border-l-amber-500/80",
-  offender: "border-l-rose-500/90 bg-rose-500/[0.04]",
+  offender: "border-l-rose-500/90 bg-danger/[0.04]",
 };
 
 const BUCKET_VALUE: Record<QcBucket, string> = {
   healthy: "text-emerald-700 dark:text-emerald-300",
   watch: "text-amber-700 dark:text-amber-300",
-  offender: "text-rose-700 dark:text-rose-300",
+  offender: "text-danger",
 };
 
 const CTF_METRICS: CtfMetric[] = ["resolution", "astigmatism", "fom"];
@@ -206,7 +206,7 @@ export function MicrographQcBoard({
           {empties > 0 && (
             <>
               {" · "}
-              <span className="text-rose-700 dark:text-rose-300">
+              <span className="text-danger">
                 {empties} empty
               </span>
             </>
@@ -214,7 +214,7 @@ export function MicrographQcBoard({
           {offenders > 0 && (
             <>
               {" · "}
-              <span className="text-rose-700 dark:text-rose-300">{offenders} offender{offenders === 1 ? "" : "s"}</span>
+              <span className="text-danger">{offenders} offender{offenders === 1 ? "" : "s"}</span>
               {watch > 0 && <>, <span className="text-amber-700 dark:text-amber-300">{watch} watch</span></>}
             </>
           )}

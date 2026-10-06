@@ -354,7 +354,7 @@ export function AiSettingsDialog() {
                           data-testid={`ai-health-dot-${p.id}`}
                           className={cn(
                             "size-1.5 shrink-0 rounded-full",
-                            h.state === "unreachable" ? "bg-red-500" : "bg-amber-500"
+                            h.state === "unreachable" ? "bg-danger" : "bg-amber-500"
                           )}
                           title={h.detail}
                           aria-label={
@@ -439,7 +439,7 @@ export function AiSettingsDialog() {
                 h.state === "ok"
                   ? { label: "正常", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" }
                   : h.state === "unreachable"
-                    ? { label: "不可达", dot: "bg-red-500", text: "text-red-600 dark:text-red-400" }
+                    ? { label: "不可达", dot: "bg-danger", text: "text-danger" }
                     : h.state === "rejected"
                       ? { label: "被拒绝", dot: "bg-amber-500", text: "text-amber-700 dark:text-amber-400" }
                       : { label: "应答异常", dot: "bg-amber-500", text: "text-amber-700 dark:text-amber-400" };
@@ -586,7 +586,7 @@ export function AiSettingsDialog() {
                       : "填写 API key 后自动获取，或手动输入模型名"}
               </p>
               {fetchError && (
-                <p className="text-xs text-rose-600 dark:text-rose-400" role="alert">
+                <p className="text-xs text-danger" role="alert">
                   {fetchError}
                 </p>
               )}

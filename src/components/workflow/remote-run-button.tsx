@@ -802,7 +802,7 @@ export function RemoteRunButton({
                                   c.lastProbe?.ok
                                     ? "size-1.5 shrink-0 rounded-full bg-emerald-500"
                                     : c.lastProbe
-                                      ? "size-1.5 shrink-0 rounded-full bg-rose-500"
+                                      ? "size-1.5 shrink-0 rounded-full bg-danger"
                                       : "size-1.5 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"
                                 }
                                 aria-hidden="true"

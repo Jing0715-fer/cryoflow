@@ -135,7 +135,7 @@ const WORD_STYLES: Record<string, string> = {
   "mask-carried":
     "border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
   "beyond the box":
-    "border border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400",
+    "border border-red-500/40 bg-red-500/10 text-danger",
 };
 
 function FinalVerdictDialog({
@@ -229,7 +229,7 @@ function FinalVerdictDialog({
             ) : null}
             {nyquist != null ? (
               <div
-                className="absolute top-full mt-1.5 -translate-x-1/2 whitespace-nowrap text-[10px] font-medium text-red-600 dark:text-red-400"
+                className="absolute top-full mt-1.5 -translate-x-1/2 whitespace-nowrap text-[10px] font-medium text-danger"
                 style={{ left: `${Math.min(Math.max(pos(nyquist), 0), 100)}%` }}
               >
                 box edge {nyquist.toFixed(1)} Å

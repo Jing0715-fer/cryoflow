@@ -620,7 +620,7 @@ export function HpcProfilesEditor({
         )}
 
         {error ? (
-          <div className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] p-2.5 text-xs text-rose-700 dark:text-rose-300" role="alert">
+          <div className="rounded-md border border-rose-500/30 bg-danger/[0.06] p-2.5 text-xs text-danger" role="alert">
             {error}
           </div>
         ) : null}

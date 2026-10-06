@@ -175,7 +175,7 @@ export function FscChart({
             asChild
             className={
               showMasked
-                ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                ? "border-rose-500/40 bg-rose-500/10 text-danger"
                 : "border-muted-foreground/25 bg-muted text-muted-foreground hover:border-rose-500/40 hover:text-rose-700 dark:hover:text-rose-300"
             }
           >

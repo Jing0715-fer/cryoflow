@@ -191,7 +191,7 @@ const STATUS_DOT: Record<string, string> = {
   pending: "bg-amber-500",
   running: "bg-teal-500 animate-pulse",
   completed: "bg-emerald-500",
-  failed: "bg-rose-500",
+  failed: "bg-danger",
 };
 
 /* ------------------------------------------------------------------ */
@@ -605,7 +605,7 @@ function DashboardProjectCard({
             </span>
           )}
           {(stats?.failed ?? 0) > 0 && (
-            <span className="flex items-center gap-0.5 text-rose-600 dark:text-rose-400">
+            <span className="flex items-center gap-0.5 text-danger">
               <CircleAlert className="size-3" aria-hidden="true" />
               {stats?.failed}
             </span>
@@ -1391,7 +1391,7 @@ function ProgressSparkline({ values, samples }: { values: number[]; samples: num
               className={cn(
                 "inline-flex items-center gap-px",
                 delta > 0 && "text-emerald-500 dark:text-emerald-400",
-                delta < 0 && "text-red-500 dark:text-red-400",
+                delta < 0 && "text-danger",
                 Math.abs(delta) < 0.005 && "opacity-60",
               )}
             >
@@ -1628,12 +1628,12 @@ function FailedJobsStrip() {
     <section
       aria-label="Needs attention — failed jobs across all projects"
       data-testid="needs-attention"
-      className="card-lift rounded-xl border border-red-500/25 bg-red-500/[0.04] px-4 py-3.5 sm:px-5"
+      className="card-lift rounded-xl border border-red-500/25 bg-danger/[0.04] px-4 py-3.5 sm:px-5"
     >
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <TriangleAlert className="size-4 shrink-0 text-red-500" aria-hidden="true" />
         <h2 className="text-sm font-semibold tracking-tight">Needs attention</h2>
-        <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-red-600 dark:text-red-400">
+        <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-danger">
           {failed.length} failed
         </span>
         <span className="text-xs text-muted-foreground">
@@ -1651,7 +1651,7 @@ function FailedJobsStrip() {
             } · jumps to its canvas and opens the inspector`}
             className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-red-500/30 bg-card px-2.5 py-1 text-xs transition-colors hover:bg-red-500/10"
           >
-            <span className="size-1.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
+            <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
             <span className="max-w-52 truncate font-medium">{j.name}</span>
             {j.projectName && j.projectId !== activeProjectId ? (
               <span className="max-w-36 truncate text-muted-foreground">{j.projectName}</span>
@@ -1720,7 +1720,7 @@ function StatusFilterChip({
         : tone === "emerald"
           ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
           : tone === "rose"
-            ? "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            ? "border-rose-500/40 bg-rose-500/10 text-danger"
             : "border-foreground/25 bg-foreground text-background";
   return (
     <button
@@ -1986,7 +1986,7 @@ function ActiveProjectSpotlight({
             <Badge
               variant="outline"
               className={cn(
-                "h-4.5 gap-1 border-rose-500/40 bg-rose-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400",
+                "h-4.5 gap-1 border-rose-500/40 bg-rose-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-danger",
                 running.length === 0 && pending.length === 0 && "ml-auto"
               )}
             >

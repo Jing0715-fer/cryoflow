@@ -102,7 +102,7 @@ export const STATUS_CHIP: Record<string, { dot: string; active: string }> = {
       "border-emerald-400/70 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/60 dark:text-emerald-300",
   },
   failed: {
-    dot: "bg-rose-500",
+    dot: "bg-danger",
     active:
       "border-rose-400/70 bg-rose-500/10 text-rose-700 dark:border-rose-500/60 dark:text-rose-300",
   },

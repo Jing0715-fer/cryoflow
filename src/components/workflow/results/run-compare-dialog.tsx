@@ -733,10 +733,10 @@ function RunCompareDialog<R extends { name: string }>({
                       {excluding ? (
                         <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                       ) : (
-                        <ListX className="size-3.5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+                        <ListX className="size-3.5 text-danger" aria-hidden="true" />
                       )}
                       Continue downstream, excluding these
-                      <span className="font-semibold text-rose-600 dark:text-rose-400">
+                      <span className="font-semibold text-danger">
                         ({regressedSeries.length})
                       </span>
                     </Button>

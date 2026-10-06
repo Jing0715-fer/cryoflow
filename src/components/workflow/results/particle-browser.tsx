@@ -90,7 +90,7 @@ const fmt = (v: number | null | undefined, digits = 2, suffix = "") =>
 
 /** CTF-fit FOM health colour (matches the CTF quality panel grading) */
 const fomTone = (fom: number) =>
-  fom >= 0.08 ? "text-emerald-600 dark:text-emerald-400" : fom >= 0.05 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400";
+  fom >= 0.08 ? "text-emerald-600 dark:text-emerald-400" : fom >= 0.05 ? "text-amber-600 dark:text-amber-400" : "text-danger";
 
 function chip(children: React.ReactNode, title?: string) {
   // t645 — the local factory now defers to the chip primitive; the

@@ -104,7 +104,7 @@ export function VerdictChips({
       <span className="rounded-full bg-teal-600/10 px-2 py-0.5 font-medium text-teal-700 dark:text-teal-400">
         {v.improved} {words.better}
       </span>
-      <span className="rounded-full bg-rose-600/10 px-2 py-0.5 font-medium text-rose-700 dark:text-rose-400">
+      <span className="rounded-full bg-rose-600/10 px-2 py-0.5 font-medium text-danger">
         {v.regressed} {words.worse}
       </span>
       <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
@@ -254,7 +254,7 @@ export function MoverList({
       <div
         className={
           "mb-1.5 text-[11px] font-medium " +
-          (tone === "teal" ? "text-teal-700 dark:text-teal-400" : "text-rose-700 dark:text-rose-400")
+          (tone === "teal" ? "text-teal-700 dark:text-teal-400" : "text-danger")
         }
       >
         {title}
@@ -276,7 +276,7 @@ export function MoverList({
                   className={
                     tone === "teal"
                       ? "font-medium text-teal-700 dark:text-teal-400"
-                      : "font-medium text-rose-700 dark:text-rose-400"
+                      : "font-medium text-danger"
                   }
                 >
                   ({fmtDelta(d.delta, digits)}

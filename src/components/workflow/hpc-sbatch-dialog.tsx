@@ -174,7 +174,7 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
             <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> Generating…
           </div>
         ) : data?.error ? (
-          <div className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] p-3 text-xs text-rose-700 dark:text-rose-300">
+          <div className="rounded-md border border-rose-500/30 bg-danger/[0.06] p-3 text-xs text-danger">
             {data.error}
           </div>
         ) : (

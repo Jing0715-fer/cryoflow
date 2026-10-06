@@ -42,7 +42,7 @@ const AMBER = "#d97706";
 function fomTone(fom: number): string {
   if (fom >= 0.1) return "text-emerald-700 dark:text-emerald-300";
   if (fom >= 0.05) return "text-amber-700 dark:text-amber-300";
-  return "text-rose-700 dark:text-rose-300";
+  return "text-danger";
 }
 
 export function CtfQualityChart({ jobId, className }: { jobId: string; className?: string }) {

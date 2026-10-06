@@ -53,7 +53,7 @@ function verdictTone(verdict: "healthy" | "watch" | "danger") {
     case "watch":
       return { dot: "bg-amber-500", text: "text-amber-600 dark:text-amber-400", label: "Watch" };
     case "danger":
-      return { dot: "bg-red-500", text: "text-red-600 dark:text-red-400", label: "Danger" };
+      return { dot: "bg-danger", text: "text-danger", label: "Danger" };
   }
 }
 
@@ -397,7 +397,7 @@ export default function SystemDiagnosticsDialog({
             </Button>
           </div>
           {failed && (
-            <p data-testid="diag-failed" className="text-[11px] text-red-600 dark:text-red-400">
+            <p data-testid="diag-failed" className="text-[11px] text-danger">
               The diagnostics read failed — the API refused or is unreachable. Retry when the lane is healthy.
             </p>
           )}

@@ -631,7 +631,7 @@ function LogConsole({
           <span className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-400">
             <span className="relative flex size-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-rose-500" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-danger" />
             </span>
             live
           </span>
@@ -833,7 +833,7 @@ function LogConsole({
           data-log-diagnosis=""
           role="note"
           aria-label={`Failure diagnosis: ${findings.length} finding${findings.length === 1 ? "" : "s"}`}
-          className="mx-3 mt-2 shrink-0 rounded-lg border border-rose-500/25 bg-rose-500/[0.06] p-3"
+          className="mx-3 mt-2 shrink-0 rounded-lg border border-rose-500/25 bg-danger/[0.06] p-3"
         >
           <div className="flex items-center gap-1.5">
             <Stethoscope className="size-3.5 shrink-0 text-rose-400" aria-hidden="true" />
@@ -1048,7 +1048,7 @@ function Timeline({ job }: { job: JobDTO }) {
                 "flex size-10 items-center justify-center rounded-full border-2 bg-card shadow-sm",
                 s.done
                   ? s.tone === "bad"
-                    ? "border-rose-500 text-rose-600"
+                    ? "border-danger text-rose-600"
                     : s.tone === "good"
                       ? "border-emerald-500 text-emerald-600"
                       : s.tone === "wait"
@@ -1144,12 +1144,12 @@ function ResultSummary({
   if (job.status === "failed") {
     return (
       <div className="flex items-start gap-3 rounded-lg border border-rose-600/30 bg-rose-600/5 p-3.5" data-print-atomic="">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-rose-600/15 text-rose-600 dark:text-rose-400">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-rose-600/15 text-danger">
           <AlertTriangle className="size-4.5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">Job failed</p>
-          <p className="mt-0.5 break-words text-xs leading-relaxed text-rose-700 dark:text-rose-300">
+          <p className="mt-0.5 break-words text-xs leading-relaxed text-danger">
             {job.result ?? "The engine exited with an error — see the Log tab for details."}
           </p>
           {diagnosis && diagnosis.length > 0 ? (
@@ -1165,14 +1165,14 @@ function ResultSummary({
               data-overview-diagnosis=""
               role="note"
               aria-label={`Failure diagnosis: ${diagnosis.length} finding${diagnosis.length === 1 ? "" : "s"} in the full log`}
-              className="mt-2.5 rounded-lg border border-rose-500/20 bg-rose-500/[0.05] p-2.5"
+              className="mt-2.5 rounded-lg border border-rose-500/20 bg-danger/[0.05] p-2.5"
             >
               <div className="flex items-center gap-1.5">
-                <Stethoscope className="size-3.5 shrink-0 text-rose-500 dark:text-rose-400" aria-hidden="true" />
-                <span className="ovd-head-label text-[11px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-300">
+                <Stethoscope className="size-3.5 shrink-0 text-danger" aria-hidden="true" />
+                <span className="ovd-head-label text-[11px] font-semibold uppercase tracking-wider text-danger">
                   Failure diagnosis
                 </span>
-                <span className="ovd-count rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-rose-600 dark:text-rose-300">
+                <span className="ovd-count rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-danger">
                   {diagnosis.length} {diagnosis.length === 1 ? "finding" : "findings"}
                 </span>
                 <span className="ovd-note hidden min-w-0 truncate text-[10px] text-muted-foreground sm:inline">
@@ -1189,7 +1189,7 @@ function ResultSummary({
                       title={f.hint}
                       className="inline-flex max-w-full items-center gap-1 rounded-full border border-rose-500/20 bg-zinc-950/[0.03] py-0.5 pl-1.5 pr-2 dark:bg-zinc-950/40"
                     >
-                      <Icon className="size-3 shrink-0 text-rose-500 dark:text-rose-400" aria-hidden="true" />
+                      <Icon className="size-3 shrink-0 text-danger" aria-hidden="true" />
                       <span className="ovd-chip-label min-w-0 truncate text-[10.5px] font-medium text-rose-700 dark:text-rose-200">
                         {f.label}
                       </span>
@@ -1629,7 +1629,7 @@ function JobNoteSection({ job }: { job: JobDTO }) {
 
   const counterTone =
     draft.length >= NOTE_MAX
-      ? "text-rose-600 dark:text-rose-400"
+      ? "text-danger"
       : draft.length >= NOTE_MAX - 50
         ? "text-amber-600 dark:text-amber-400"
         : "text-muted-foreground";
@@ -1685,7 +1685,7 @@ function JobNoteSection({ job }: { job: JobDTO }) {
               <span className="text-muted-foreground/70">Stored with the job, not the browser</span>
             )}
             {error ? (
-              <span className="truncate text-rose-600 dark:text-rose-400" role="alert">
+              <span className="truncate text-danger" role="alert">
                 {error} — retries on your next edit
               </span>
             ) : null}
@@ -3067,7 +3067,7 @@ function InspectorHeader({
                               {c.kind === "added" ? (
                                 <span className="mr-1 font-bold text-teal-600 dark:text-teal-400" aria-hidden="true">+</span>
                               ) : c.kind === "removed" ? (
-                                <span className="mr-1 font-bold text-rose-600 dark:text-rose-400" aria-hidden="true">−</span>
+                                <span className="mr-1 font-bold text-danger" aria-hidden="true">−</span>
                               ) : null}
                               {c.key}
                             </td>
@@ -3707,7 +3707,7 @@ function InspectorBody({
               <Terminal className="size-3.5 max-sm:hidden" aria-hidden="true" />
               Log
               {job.status === "running" ? (
-                <span className="ml-0.5 size-1.5 rounded-full bg-rose-500" aria-label="live" />
+                <span className="ml-0.5 size-1.5 rounded-full bg-danger" aria-label="live" />
               ) : null}
             </TabsTrigger>
             <TabsTrigger value="results" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">

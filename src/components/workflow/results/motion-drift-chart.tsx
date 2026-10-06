@@ -52,7 +52,7 @@ const AMBER = "#f59e0b";
 /** drift tone: the app's health buckets against the pack's own scale —
  *  a micrograph is an offender when it drifts ≥ mean + 2σ of ITS run. */
 function driftTone(total: number, mean: number, sd: number): string {
-  if (total >= mean + 2 * sd) return "text-rose-700 dark:text-rose-300";
+  if (total >= mean + 2 * sd) return "text-danger";
   if (total >= mean + 1 * sd) return "text-amber-700 dark:text-amber-300";
   return "text-emerald-700 dark:text-emerald-300";
 }

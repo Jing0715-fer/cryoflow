@@ -95,7 +95,7 @@ function Delta({
           className={cn(
             "font-semibold",
             improved && "text-emerald-600 dark:text-emerald-400",
-            degraded && "text-rose-600 dark:text-rose-400",
+            degraded && "text-danger",
             !improved && !degraded && "text-foreground"
           )}
         >

@@ -502,7 +502,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
               key={t.id}
               className={cn(
                 "group flex items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 transition-colors",
-                armed ? "border-rose-300 bg-rose-500/5" : "hover:border-primary/40"
+                armed ? "border-rose-300 bg-danger/5" : "hover:border-primary/40"
               )}
               data-canvas-ui="custom-template-row"
               data-template-id={t.id}

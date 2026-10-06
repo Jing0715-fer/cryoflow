@@ -668,8 +668,8 @@ export default function StorageDialog({
 
         <div className="nice-scroll flex-1 overflow-y-auto px-5 py-4">
           {error ? (
-            <div className="flex flex-col items-start gap-3 rounded-lg border border-rose-500/30 bg-rose-500/[0.06] p-4">
-              <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p>
+            <div className="flex flex-col items-start gap-3 rounded-lg border border-rose-500/30 bg-danger/[0.06] p-4">
+              <p className="text-sm text-danger">{error}</p>
               <Button variant="outline" size="sm" onClick={() => void load()}>
                 <RotateCcw className="size-3.5" aria-hidden="true" /> Try again
               </Button>
