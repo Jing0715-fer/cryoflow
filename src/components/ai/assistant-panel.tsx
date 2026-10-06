@@ -587,6 +587,12 @@ interface WinGeo {
 const GEO_KEY = "cryoflow.assistant.geometry.v1";
 const GEO_MIN_W = 360;
 const GEO_MIN_H = 420;
+/** t500's mobile breakpoint, t638 — the full-screen face ignores geometry
+ * (its narrow clamp would poison the persisted desktop shape), so every
+ * WRITE path re-checks the live viewport rather than the useIsMobile
+ * hook (whose matchMedia effect lags the first render — the restore
+ * effect's comment owns that lesson). */
+const GEO_MOBILE_BP = 768;
 
 function clampGeo(g: WinGeo, vw: number, vh: number): WinGeo {
   const w = Math.min(Math.max(g.w, GEO_MIN_W), Math.max(vw - 16, GEO_MIN_W));
@@ -734,6 +740,23 @@ export function AssistantPanel() {
 
   // ---- t500: the floating window (desktop) — geometry, drag, resize ----
   const [geo, setGeo] = React.useState<WinGeo | null>(null);
+  // t638 — storage echoes INTENT, one echo per gesture (the Task 153 #13
+  // family law this panel was quietly minting against). The old
+  // persist-on-change effect had two sins: it fired ~60×/s during a drag,
+  // and on FRESH BOOT the restore effect's setGeo(stored | default)
+  // tripped it into writing the DEFAULT geometry under the user's name —
+  // a position nobody chose, faithfully restored forever after (t157's
+  // Phase F caught exactly this mint). The echo now lives at gesture END:
+  // a drag persists ONCE on pointerup (and only if the hand actually
+  // moved — a bare click says nothing), the double-click snap-home
+  // persists once by itself. Everything else — boot restore, viewport
+  // resize clamps — is a view-time accommodation, applied on read and
+  // never written back: storage holds the shape the user chose, not the
+  // shape the viewport lent. geoRef mirrors the live shape for the
+  // unmounting-proof window listeners; dragMovedRef separates "a drag
+  // happened" from "a drag moved".
+  const geoRef = React.useRef<WinGeo | null>(null);
+  const dragMovedRef = React.useRef(false);
   const dragRef = React.useRef<{
     mode: "move" | "e" | "s" | "se";
     px: number;
@@ -891,17 +914,11 @@ export function AssistantPanel() {
     setGeo(defaultGeo(window.innerWidth, window.innerHeight));
   }, []);
 
-  // persist on change — NEVER while mobile: the full-screen face ignores
-  // geometry, and a 390px-viewport clamp must not shrink the desktop
-  // layout the user will come back to
+  // t638 — the geo mirror (the gesture listeners below close over
+  // nothing; the ref is how they read the live shape at gesture end)
   React.useEffect(() => {
-    if (!geo || isMobile) return;
-    try {
-      localStorage.setItem(GEO_KEY, JSON.stringify(geo));
-    } catch {
-      /* private mode etc — position is a session-only luxury then */
-    }
-  }, [geo, isMobile]);
+    geoRef.current = geo;
+  }, [geo]);
 
   // the viewport may shrink (window resize, devtools) — the window stays
   // inside. Mobile-width viewports are EXEMPT: they render the full-screen
@@ -933,6 +950,7 @@ export function AssistantPanel() {
       if (!d) return;
       const dx = e.clientX - d.px;
       const dy = e.clientY - d.py;
+      dragMovedRef.current = true; // t638 — this gesture actually moved
       setGeo((prev) => {
         const base = prev ?? d.start;
         const vw = window.innerWidth;
@@ -949,6 +967,19 @@ export function AssistantPanel() {
       if (dragRef.current) {
         dragRef.current = null;
         document.body.style.userSelect = "";
+        // t638 — one echo per gesture, at its end: the shape is written
+        // ONCE when the hand lets go (and only if it moved), instead of
+        // ~60 setItem calls a second on the way there. The live viewport
+        // check (not the lagging isMobile hook) keeps a phone-shaped
+        // session from ever writing desktop geometry.
+        if (dragMovedRef.current && geoRef.current && window.innerWidth >= GEO_MOBILE_BP) {
+          try {
+            localStorage.setItem(GEO_KEY, JSON.stringify(geoRef.current));
+          } catch {
+            /* private mode etc — position is a session-only luxury then */
+          }
+        }
+        dragMovedRef.current = false;
       }
     };
     window.addEventListener("pointermove", onMove);
@@ -970,6 +1001,7 @@ export function AssistantPanel() {
     }
     const base = geo ?? defaultGeo(window.innerWidth, window.innerHeight);
     dragRef.current = { mode, px: e.clientX, py: e.clientY, start: base };
+    dragMovedRef.current = false; // t638 — each gesture's echo is its own
     document.body.style.userSelect = "none"; // no text-selection trails
     // NOTE: no e.preventDefault() here — preventDefault on pointerdown
     // suppresses the derived mouse events (click/dblclick), and the header's
@@ -977,7 +1009,18 @@ export function AssistantPanel() {
     // the touch-none class instead (the CSS way, not the event way).
   };
 
-  const resetGeo = () => setGeo(defaultGeo(window.innerWidth, window.innerHeight));
+  const resetGeo = () => {
+    const home = defaultGeo(window.innerWidth, window.innerHeight);
+    setGeo(home);
+    // t638 — snap-home is the user's own choice: one echo, immediately
+    if (window.innerWidth >= GEO_MOBILE_BP) {
+      try {
+        localStorage.setItem(GEO_KEY, JSON.stringify(home));
+      } catch {
+        /* private mode etc — position is a session-only luxury then */
+      }
+    }
+  };
 
   // t500: double-click-to-reset rides a NATIVE listener on the header (a
   // ref, not React's onDoubleClick). React 19's synthetic lane ignored
