@@ -75,8 +75,10 @@ const roster = async () =>
 
 const must = (cond, label) => {
   if (!cond) {
-    console.log(`FAIL: ${label}`);
-    void cleanup().then(() => process.exit(1));
+    // pure throw — the unified main().catch runs cleanup (t632 fix: the old
+    // `void cleanup().then(exit)` raced main().catch's synchronous exit(1),
+    // killing the take-home execSyncs mid-flight and leaking the seeded
+    // chain — witnessed live when Phase B died in the narrow runway)
     throw new Error(`FAIL: ${label}`);
   }
   PASS++;
@@ -316,4 +318,11 @@ async function main() {
   console.log(`\nT156 ALL PASS (${PASS} assertions)`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch(async (e) => {
+  console.error(e);
+  // t630 doctrine — a FAIL takes its specimens home too (t157 pattern):
+  // the seeded gallery chain must not linger as a resident because the
+  // run died mid-phase.
+  try { await cleanup(); } catch {}
+  process.exit(1);
+});
