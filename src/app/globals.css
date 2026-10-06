@@ -1235,6 +1235,63 @@
   }
 }
 
+/* t616 — the palette's own wave. The Catalog tab — the sidebar's default
+   face, present from the server HTML at boot — joins the arrival grammar
+   its rail sibling (t614) and dashboard siblings (t611/t612/t613)
+   started: the header row, the favorites/recents label rows, their
+   chips, the 14 category headers, the open category's rows and the tier
+   legend surface in reading order with the receipt's own word — ZERO new
+   keyframes (the definition stays exactly once; the family's vocabulary
+   for "a fact surfaces" is already complete).
+
+   The beat is the RAIL'S PULSE: 90ms, the same USER-GESTURE beat the
+   Workspaces tab sings (t614) — one rail, one pulse. The palette's boot
+   mount is server-rendered (its wave begins at first paint, before the
+   canvas cards at 260ms — furniture before content), and its gesture
+   remounts (tab switch, mobile Sheet) answer the click without the
+   dashboard's 350ms lag.
+
+   The tickets come from a MOUNT LEDGER (t613's law, THIRD consumer —
+   and its stress test: the palette hosts all four index-shift shapes —
+   favorites REORDER, recents PREPEND, categories FOLD/UNFOLD, search
+   RE-FILTERS): a ticket belongs to a face, not a seat; filled on miss
+   at render time in reading order, never rewritten; the ledger dies
+   with the tab unmount / Sheet close, so every fresh entry re-issues.
+
+   THE FOLD LAW: a row nominates only while its category is open. A
+   folded row is not part of the visible composition (its wrapper holds
+   it at a 0px grid track and 0 opacity), so it holds no ticket;
+   unfolding nominates it at the ladder's tail (mount is arrival,
+   t613's ladder semantics) — the attribute appearing is the animation's
+   cue, because CSS starts an animation the moment an element begins
+   matching its rule. The category headers and the footer ARE standing
+   faces — always mounted, always nominated.
+
+   Chrome never rides: the search box is a lens (t611/t613), the
+   fav-filter star an action verb, the "/" kbd hint decoration, the
+   clear/rename verbs ride their label rows (the banner/Progress
+   precedent), and the drag ghost PORTALS outside this subtree — past
+   the arrival scope by topology. The selectors name rows and label
+   rows, never the buttons' inner stars/spinners (the row-face-only
+   law): the fav chip's amber lift and the row's hover translate-x keep
+   speaking the `translate` PROPERTY while fill-both pins `transform`
+   — different dialects, no fight (t609's note, property-split edition).
+
+   Canonical fresh boot (no favorites/recents — both are client-only,
+   arriving post-hydration at the ledger's tail): 19 faces, header 90 →
+   footer 522, settled at 762ms; the personal faces (favorites, recents)
+   join at 546+ once the localStorage read lands. */
+[data-pal-arrival] [data-pal-face] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--pd, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-pal-arrival] [data-pal-face] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy

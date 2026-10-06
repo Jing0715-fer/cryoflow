@@ -87,6 +87,54 @@ const FAV_TOUCH_SLOP_PX = 10;
  * localStorage with the same sanitize-or-default contract as recents. */
 const FAV_KEY = "cryoflow-fav-types";
 
+/* ------------------------------------------------------------------ */
+/* t616 — arrival timing (the palette's own wave)                      */
+/* ------------------------------------------------------------------ */
+
+/* t616 — the wave's timing words, the single source of truth. The base
+ * is the RAIL'S PULSE: 90ms, the same beat the sibling Workspaces tab
+ * sings (t614's USER-GESTURE beat) — one rail, one pulse. The Catalog
+ * tab is the sidebar's default face and mounts from the SERVER HTML at
+ * boot, so its wave starts at first paint, before the canvas cards
+ * (260ms) have even begun — furniture speaks first, content lands
+ * after; and when the user returns via tab switch or opens the mobile
+ * Sheet, the same 90 answers their click instead of the dashboard's
+ * lag-prone 350 (t614's rationale verbatim).
+ *
+ * The wave reads the palette's DOM encounter order at each face's first
+ * render, 24ms per face. Canonical fresh-boot composition (no favorites,
+ * no recents — both are client-only and arrive after hydration): header
+ * 90 → cat:import 114 → its 3 rows 138/162/186 → the 13 remaining
+ * category headers 210..474 → footer 522 — 19 faces, settled at 762ms.
+ * Each visible face's ticket is its honest seat in that first reading.
+ *
+ * THE MOUNT LEDGER (t613's law, third consumer — and its stress test:
+ * the palette hosts ALL FOUR index-shift shapes the family knows):
+ *   • favorites REORDER (Task 155 drag / Alt+arrows splice),
+ *   • recents PREPEND (pushRecent unshifts the newest to the head),
+ *   • categories FOLD/UNFOLD (rows nominate only while their category
+ *     is open — a folded row is not part of the visible composition,
+ *     so it holds no ticket; unfolding nominates it at the ladder's
+ *     tail: mount is arrival, t613's ladder semantics),
+ *   • search RE-FILTERS (forced-open categories nominate their matching
+ *     rows in encounter order; clearing de-nominates; re-searching
+ *     replays the frozen tickets).
+ * A positional index would shift under all four and replay finished
+ * animations. So every face keeps a tail ledger keyed by face id:
+ * filled on miss at render time (the Task 88 pattern — no extra frame,
+ * no effect), never rewritten. The ledger dies with the Radix tab
+ * unmount (and with the mobile Sheet close), so every fresh entry
+ * re-issues it — "project switch resets the ledger", for free.
+ *
+ * Chrome never rides: the search box is a lens (t611/t613 precedent),
+ * the fav-filter star is an action verb, the "/" kbd hint is
+ * decoration, the drag ghost portals OUTSIDE this subtree (and past
+ * the arrival scope by topology). The header's star filter and the
+ * recents' clear verb ride their label rows as part of the row face —
+ * the banner/Progress precedent (the wave names rows, not verbs). */
+const PAL_BASE_MS = 90;
+const PAL_STEP_MS = 24;
+
 function readFavs(): string[] {
   try {
     const raw = localStorage.getItem(FAV_KEY);
@@ -129,7 +177,7 @@ function pushRecent(type: string): void {
 }
 
 /**
- * Job type palette (RELION 5 catalog: 13 collapsible categories) —
+ * Job type palette (RELION 5 catalog: 14 collapsible categories) —
  * drag-to-create onto the canvas. Keyboard fallback: Enter / Space adds the
  * job at the viewport center (legacy placement). Used in the desktop
  * sidebar and inside the mobile Sheet.
@@ -304,6 +352,23 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
           t.category.toLowerCase().includes(q)
       )
     : baseTypes;
+
+  // t616 — the wave's mount ledger: one ticket per face, keyed by face
+  // id, filled on miss at render time in JSX evaluation order (which IS
+  // the palette's reading order), never rewritten. A lazy useState holds
+  // the Map (the react-compiler lint forbids render-phase ref reads —
+  // and the lifecycle is identical anyway): it dies with the Radix
+  // unmount on tab leave / Sheet close, so every fresh entry re-issues
+  // the ledger (a new surfacing) — no explicit reset exists or is needed.
+  const [palWave] = React.useState<Map<string, number>>(() => new Map());
+  const waveTicketOf = (id: string): number => {
+    let t = palWave.get(id);
+    if (t === undefined) {
+      t = PAL_BASE_MS + palWave.size * PAL_STEP_MS;
+      palWave.set(id, t);
+    }
+    return t;
+  };
 
   /* ---------------- drag-to-create --------------------------------- */
 
@@ -551,10 +616,14 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
     .filter((t): t is NonNullable<typeof t> => t != null);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col" data-pal-arrival="">
       {/* ---- header: title + search ---- */}
       <div className="shrink-0 space-y-2.5 p-3 pb-2">
-        <div className="flex items-center gap-2 px-1 max-lg:pr-9">
+        <div
+          className="flex items-center gap-2 px-1 max-lg:pr-9"
+          data-pal-face="hdr"
+          style={{ "--pd": `${waveTicketOf("hdr")}ms` } as React.CSSProperties}
+        >
           {/* Task 176: below lg the palette is the SHEET, and the sheet's
               built-in Close (absolute right-4) lands exactly on the count
               badge once the viewport hits the fold band — the row reserves
@@ -636,7 +705,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       {/* ---- favorites quick-add chips (Task 133) ---- */}
       {!searching && favSpecs.length > 0 && (
         <div className="shrink-0 border-b bg-muted/25 px-3 py-2">
-          <div className="mb-1.5 flex items-center gap-1.5">
+          <div className="mb-1.5 flex items-center gap-1.5" data-pal-face="fav-label" style={{ "--pd": `${waveTicketOf("fav-label")}ms` } as React.CSSProperties}>
             <Star className="size-3 fill-amber-400 text-amber-500" aria-hidden="true" />
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
               Favorites
@@ -703,6 +772,8 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                   }}
                   data-fav-chip=""
                   data-fav-chip-index={i}
+                  data-pal-face="fav"
+                  style={{ "--pd": `${waveTicketOf(`fav:${t.key}`)}ms` } as React.CSSProperties}
                   data-fav-dragging={dragging && !favDragViaTouch ? "true" : undefined}
                   data-fav-lifted={lifting ? "true" : undefined}
                   data-fav-arming={arming ? "true" : undefined}
@@ -744,7 +815,11 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       {/* ---- recently used quick-add chips ---- */}
       {!searching && recentSpecs.length > 0 && (
         <div className="shrink-0 border-b bg-muted/25 px-3 py-2">
-          <div className="mb-1.5 flex items-center gap-1.5">
+          <div
+            className="mb-1.5 flex items-center gap-1.5"
+            data-pal-face="recent-label"
+            style={{ "--pd": `${waveTicketOf("recent-label")}ms` } as React.CSSProperties}
+          >
             <Clock3 className="size-3 text-muted-foreground/80" aria-hidden="true" />
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
               Recently used
@@ -773,6 +848,8 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                 type="button"
                 onClick={() => void recordAndAdd(t.key)}
                 title={`Add ${t.label} at the viewport center`}
+                data-pal-face="recent"
+                style={{ "--pd": `${waveTicketOf(`recent:${t.key}`)}ms` } as React.CSSProperties}
                 className={cn(
                   "flex items-center gap-1.5 rounded-full border bg-card py-1 pl-1.5 pr-2.5 text-[11px] font-medium shadow-sm transition-all hover:-translate-y-px hover:shadow active:translate-y-0",
                   "hover:border-primary/40 hover:ring-1 hover:ring-primary/25"
@@ -801,7 +878,12 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
         className="nice-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-1"
       >
         {favOnly && favSpecs.length === 0 && (
-          <div className="px-3 py-8 text-center" data-testid="palette-favs-empty">
+          <div
+            className="px-3 py-8 text-center"
+            data-testid="palette-favs-empty"
+            data-pal-face="empty"
+            style={{ "--pd": `${waveTicketOf("empty")}ms` } as React.CSSProperties}
+          >
             <Star className="mx-auto size-5 text-muted-foreground/40" aria-hidden="true" />
             <p className="mt-2 text-xs font-medium text-muted-foreground">
               No starred job types yet
@@ -820,7 +902,11 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
           </div>
         )}
         {filtered.length === 0 && !(favOnly && favSpecs.length === 0) && (
-          <div className="px-3 py-8 text-center">
+          <div
+            className="px-3 py-8 text-center"
+            data-pal-face="empty"
+            style={{ "--pd": `${waveTicketOf("empty")}ms` } as React.CSSProperties}
+          >
             <Search className="mx-auto size-5 text-muted-foreground/40" aria-hidden="true" />
             <p className="mt-2 text-xs font-medium text-muted-foreground">
               No job types match &ldquo;{query}&rdquo;
@@ -846,6 +932,8 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                 onClick={() => toggleCategory(cat.key)}
                 aria-expanded={isOpen}
                 title={cat.hint}
+                data-pal-face="cat"
+                style={{ "--pd": `${waveTicketOf(`cat:${cat.key}`)}ms` } as React.CSSProperties}
                 className="group/cat sticky top-0 z-10 flex w-full items-center gap-1.5 rounded-md bg-sidebar/80 px-2 py-1.5 text-left backdrop-blur-sm transition-colors hover:bg-accent/60"
               >
                 <ChevronDown
@@ -880,6 +968,20 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                         key={t.key}
                         variant="ghost"
                         className="group/item no-drag-select relative h-auto w-full justify-start gap-2.5 rounded-lg px-2.5 py-2 pl-3 text-left transition-all hover:translate-x-0.5 hover:rounded-md hover:bg-gradient-to-r hover:from-accent/80 hover:to-transparent"
+                        /* t616 — a row nominates ONLY while its category is
+                         * open: a folded row is not part of the visible
+                         * composition (the wrapper holds it at 0px track /
+                         * 0 opacity), so it takes no ticket; unfolding
+                         * nominates it at the ladder's tail. The attribute
+                         * appearing is the animation's cue — CSS starts an
+                         * animation the moment the element begins matching
+                         * its rule. */
+                        data-pal-face={isOpen ? "row" : undefined}
+                        style={
+                          isOpen
+                            ? ({ "--pd": `${waveTicketOf(`row:${t.key}`)}ms` } as React.CSSProperties)
+                            : undefined
+                        }
                         onPointerDown={(e) => handleItemPointerDown(e, t.key)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
@@ -988,7 +1090,11 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       </nav>
 
       {/* ---- footer: tier legend ---- */}
-      <div className="shrink-0 border-t bg-sidebar/60 px-3 py-2 backdrop-blur-sm">
+      <div
+        className="shrink-0 border-t bg-sidebar/60 px-3 py-2 backdrop-blur-sm"
+        data-pal-face="ftr"
+        style={{ "--pd": `${waveTicketOf("ftr")}ms` } as React.CSSProperties}
+      >
         <div className="flex items-center justify-between gap-2 text-[9.5px] text-muted-foreground">
           <span className="flex items-center gap-1" title="Runs on the real RELION engine">
             <span className="inline-block size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
