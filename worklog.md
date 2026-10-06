@@ -9280,3 +9280,25 @@ Stage Summary:
 - 「取证相机先于理论」：四次同位死亡 + 零内核 OOM + 空日志——理论候选（堆渐增/内核 OOM/产品 bug）全挂空；crash/disconnected 两行监听一贴，userspace reaper 的 ~100s 寿命签名当场落网；死亡位置与套件相位无关、只与本浏览器年龄有关的对照，是分段换浏览器方案的直接证词
 - 「套件红先验尸再动刀：世界死≠套件病」：qa77 与 qa82 同窗双红、病理完全不同——qa82 是铠甲债（可修），qa77 是世界漂移型深休眠（复活是整窗方法论工程）；修一个立一个，不让「测试失败优先修」把复活车道偷进来
 - 产出：search-mode 级联两面（roster chips + grid presence chips）+ dimmed 方言 + 空态文案方言 + qa82 铠甲三段（t523 两段式 + 分段换浏览器 + 取证相机）+ t94 同律加固 + 📸×3；tsc 0、eslint 0；t94/qa82/t252 三套件 ALL PASS；正典 12/11 完好、active 归位 EMPIAR、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②休眠套件逐套复活继续（t622 方法论；qa77 立案在册——世界漂移型，需自建世界裁决）③qa82 种子清理缺口销账（qa58 消费者审计后）④第四级第二刀真 sync-back（等输出型活体夜）⑤下一块新面侦察（样式车道已清空，级联后待新侦察）⑥build 日被动重测（第 36 窗否决）
+
+---
+Task ID: 628 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 17:24 cron, Job 362852, Task 572 系第 47 次派单)
+Task: t627 下窗入口③兑付 + 新面侦察收束——qa58 种子器消费者审计把「qa82 种子残留」翻案成产品合同发现（jobs POST 忽略 projectId、一律落 active——resolve_project 落点选择权是幻觉），qa82 Z 段自洁生命周期落地（seeder --clean 半径 + 产品门删除）；附赠 workdir 化石普查相机（406 目录 / 407 MiB 全图，租户信号逐一点名）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 627（派单摘要说 Task 13——滞后第 N+74 次兑付）；HEAD 1542ab4 树净；available 813MB 非 build 日（第 37 窗被动否决）。
+- [QA 摸底] agent-browser（127.0.0.1 绕解析，t627 教义生效）：正典 12/11、chips 12/11/1 零 dimmed（t627 级联静息态完好）、active 归位 EMPIAR、console 0 error、📸 t628-home-12jobs.png。
+- [样式新面侦察——负结果也是结果] SavedViewsGallery law 未扫面普查：star-table 已有 "showing X of Y rows" 脚注、results-view 的 Maps/STAR 列表头部自带 (N) 总数、class-gallery 有 "showing X of Y" + kept/noted chips、job-panel 的两个 max-h 是瞬态 popover——**dashboard 是该律最后一个大缺口，t620/t627 已关**；其余面各有自己的诚实方言，不为加样式而加样式。
+- [本窗定谳——resolve_project 落点幻觉] 入口③审计 qa58-seed-gallery.py（17 个消费者的共享种子器）：qa_lib.resolve_project() 返回 projects[0]（今晚= demo）——但种子实际落在 EMPIAR（active）。对质链：/api/jobs 的 GET **忽略 projectId 查询参数**（恒回 active 项目——三查询同返 12 实锤）、POST **忽略请求体 projectId**（create 一律 active.project.id，route.ts:304-320）。所以「种子无害遗留」（qa58 docblock 自称）的前提是错的——种子永远落在当晚的正典世界（EMPIAR 14 jobs，t613 波前算术活在 12）。QA_PROJECT env 也一样被路由废除。不动路由语义（t533 时代的「世界只有 active 一个」是有意设计、t252 写门合同面），销账落在套件侧自洁。
+- [qa82 Z 段自洁生命周期] Z3：先跑 seeder --clean（t161 半径协议：删 workdir 文件、无租户才弹 engine-state entry；**顺序是铁律——clean 会重放 seed 流程拿 job id，删 job 后 clean 会复活它们**），再经产品 DELETE 门删两个种子 job（Prisma 边级联 + linked-copies 守卫尊重）；Z4 断言世界无种子。幂等：崩溃前任的种子被本跑 S1 重拾、用毕、Z 段带走。
+- [验证] 换服仪式（813→863MB 单调用闭环）：qa82 **ALL PASS（19 断言）**——Z3 两种子产品门删除、Z4 全净、seeder --clean 半径生效；世界终态 12/11、零种子、零悬垂 entry（engine-state 对账）；t252 ALL PASS（写门 + console 0）；chrome 清场零孤儿。
+- [第二交付——化石普查相机] 对账顺藤摸出大盘面：**406 个未注册 workdir / 407 MiB**（demo 292 个 229 MiB 其中 163 个持租户信号 .cf-remote-manifest.json；EMPIAR 111 个 178 MiB）——产品 DELETE 门只级联 DB 行+边，workdir 目录从不回收，全部历史删除都在漏。scripts/census-workdir-fossils.py（只读仪器）：按后缀对账 engine-state 注册表、逐目录报告字节/最新 mtime/年龄/租户信号（t161 TENANT_SIGNALS 名单）/--json 报告。**只普查不删除**——163 个租户目录需要逐目录裁决（t161 半径教义推广），清理车道立案等 build 日（盘上工作无 chrome 税）。
+- [未做与理由] build 日（第 37 窗否决，813MB）；judge 风暴（等稳定夜）；第四级第二刀（等输出型活体夜）；qa77 深休眠复活（方法论裁决仍待整窗；本窗的落点幻觉发现给它添了新前提：自建世界要走 engine-state/workdir 半径，不然复活即污染）；化石清理执行（有相机无铲子——铲子等 build 日 + 租户裁决）；样式新面（普查收束为负，不为加而加）。
+
+Stage Summary:
+- 「种子器的落点选择权是幻觉」：qa_lib.resolve_project 的合同（projects[0]/QA_PROJECT）被 jobs 路由的 active 分配语义静默废除十七个消费者之久——「无害遗留」的自称经不起「落在哪里」的追问；读路由源码 + 三查询对质是这类幽灵合同的验尸刀
+- 「自洁的顺序是合同的一部分」：clean 会重放 seed 流程（它需要 job id），所以 clean 必须先于删 job——顺序颠倒的 clean 变成复活仪式；带半径的清理（t161）+ 产品门删除（边级联 + 守卫）是「套件带走自己的一切」的完整动词表
+- 「普查相机先于铲子」：406 目录 / 407 MiB 的化石盘面第一次有了逐目录的名字、年龄、字节、租户信号——清理车道的每一步裁决（尤其 163 个 remote manifest 租户）都需要这张地图；只读仪器零风险先落地，铲子等 build 日
+- 「负结果为样式车道收口」：SavedViewsGallery law 的未扫面普查证明 dashboard 是最后一个大缺口——star-table/results 头/class-gallery 都有自己的诚实方言；样式车道的价值在「缺口的真」，不在「样式的多」
+- 产出：qa82 Z 段自洁生命周期（Z3/Z4 + --clean 半径 + 顺序铁律，ALL PASS 19 断言）+ scripts/census-workdir-fossils.py（406 目录 / 407 MiB 全图 + 租户点名 + JSON 报告）+ 产品合同发现立案（jobs POST/GET 的 active 语义 vs resolve_project 幻觉）+ 📸×1；t252 ALL PASS、世界 12/11 归位、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②化石清理铲子（build 日优先——有相机、有地图、163 租户需逐目录裁决）③qa77 深休眠复活（方法论裁决 + 本窗落点幻觉新前提）④第四级第二刀真 sync-back（等输出型活体夜）⑤下一块新面侦察（样式车道待新侦察）⑥build 日被动重测（第 37 窗否决）
