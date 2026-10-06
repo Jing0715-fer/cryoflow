@@ -9678,3 +9678,27 @@ Stage Summary:
 - 「覆盖即文献」：每个 className 覆盖都是一次设计判决的显式化——为什么这里底是透明的、为什么那里字号是 10px；扫荡后的代码读起来是律法书不是赌猜集
 - 「失败的工具调用也要验尸」：MultiEdit 报失败 ≠ 什么都没发生——非原子的部分应用 + 重复 import 是本窗唯一 bug，tsc 十秒抓获；对工具的信任应以 diff 为准不以回执为准
 - 产出：ui/kbd.tsx 原语 + 9 文件 18 现场扫荡 + 5 处平台命名统一 + t642 探针（11/0）+ 📸×1（t642-kbd-vocab.png）；下窗入口：①t101/t103/t105 陈旧 oracle 考古（t641 立案，各值一整窗）②样式/功能车道继续 ③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 52 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 643 收官
+Agent: main (cron window, Job 362852)
+Task: t105 陈旧 oracle 考古（t641 立案入口①兑现）——判词升级为三重根因：F4 display-word 陈旧 oracle + E4 世界钳制撞墙（WORLD_MAX−CARD_W=19760）+ cleanup-on-fail 泄漏放大器；11 张套件化石清扫；t105 ALL PASS 46
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 642 收官（摘要链滞后 N+84，实际已推进 10 窗）；树净 HEAD bb0660e；available 1065MB 非 build 日（第 53 窗否决）；server 200/35ms。
+- [QA 四绿] t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS——世界健康后才动工程。
+- [三套件定谱] t101 FATAL 于 D4（静态）/ t103 FATAL 于 A1（行为）/ t105 FATAL 于 F4（静态）——按 t641 判词「各值一整窗」，本窗立案 t105（判据最具体）。
+- [信使诈骗案] 考古途中一场大型误会：sed/grep/cat -A 回显 canvas.tsx 出现 `historyPastistoryPast`（语法错误级损坏），但 tsc=0、SWC 实验拒绝同构文本、dev server 零错三方矛盾；od 字节级验尸证明现树实为 `historyPast[historyPast.length - 1].label` 完全合法——**工具输出传输层吞 `[h` 序列**（markdown 链接启发式误伤），回显不可信；结论：凡涉方括号代码的损坏判词，必须 od/十六进制验尸后才可立案。suite 的 F7 正则（`\[historyPast\[historyPast`）盘上字节完全正确，从未是病灶。
+- [F4 判词] 套件锚死 `STATUS_FILL[j.status]`，现世界已换代为 display word 链：`word = isSlurmQueued(job) ? "pending" : job.status || "idle"`（t322 方言）→ `STATUS_FILL[word] ?? STATUS_FILL.idle`（t606 news bloom 同 key）；SMIL `<animate opacity 0.55;0.95;0.55 dur=1.8s>` 从未移动。oracle 更新为锚链不锚历史拼写（pulse + word 读口 + queued→pending 映射三锚）。
+- [E4 法医] F4 修复后 E4（Ctrl+Shift+Z 重放拖拽）连爆两次。仪表化探针（keydown 日志 + toast + 视图 + store/DB 双读 + minimap dot 属性读 store 活体）四线索定谳：①Ctrl+Shift+z 事件到达（key="z" ctrl+shift 全真）②store 侧 redo 成功（title 翻转）③DB 恒 19760,12837 ④drag 后 DB 与 redo 后 DB **同值**——redo 忠实重放 entry，**entry 在 drag 时就捕获了钳制后的 x**。zoom=1、viewport 冻结、立即/静置两拖逐字节同值=确定性非竞态。根因：`endDrag` 的 `nx = clamp(origX + dx/zoom, WORLD_MIN, WORLD_MAX − CARD_W)`，WORLD_MAX=20000、CARD_W=240 → 天花板 **19760** 与观测值逐位吻合；y（12837 < 19888）无感。套件种子带 `X0 = maxX + 3000` 无上限，maxX > 16620 后 E4 必撞钳。
+- [泄漏放大器] 为何 maxX 长到 21567：t105/t103 的 `must()` 内 `process.exit(1)` **跳过 finally-cleanup**（t157 同款缺口，t105/t103 不在 Task 632 六套件修复批次）——每次 FATAL 泄漏全部种子卡；泄漏东移 maxX → 下轮种子更东（maxX+3000）→ E4 撞钳 → 再泄漏，雪崩。t641 的 stash 对照实验跑 t103（FATAL 于 A1）即泄漏起点（t103 全家 8 张 E1..E6+D1/D2 @14767..17767），t105 三轮 FATAL 各泄 3 张（A@19760=钳制天花板活体）。
+- [三修一扫] ①F4 oracle display-word 三锚（含 `isSlurmQueued(job) ? "pending"` 钉方言回归）②t105 清理-on-失败正形（must 纯 throw → main().catch await cleanup → exit 1，t156 范式）③种子带钳制安全上限（X0/Y0 = min(maxX+Δ, WORLD_MAX−CARD±600) + S1b 新断言「+140/+90 拖拽永不钳制」；若诚世将来真长到 cap 咬合，S1 距离断言会响亮失败，届时种子策略欠本窗一个真答案）④t643-fossil-sweep 清扫 11 张化石（qa77 律走产品门 DELETE），世界 26→15 诚实 jobs，maxX 归 1120。
+- [F5 顺藤] F4/E4 修通后 F5 曝露第三处陈旧：M 分支键盘 handler 已从 page.tsx 迁居 app-shell.tsx（line 379，dashboard 守卫健在）——oracle 改读 appShellSrc，split-guard 探针形状不变。
+- [回归] t105 ALL PASS（46 断言，含新 S1b）+ 四绿复跑（t252 ALL PASS / t637 6-0 / t641 10-0 / qa78 ALL PASS）+ 世界恒 15 jobs（t105 Z 相自清扫生效，零新泄漏）+ tsc 0 + eslint 0。
+
+Stage Summary:
+- 「 redo 无罪，拖拽的出生证明有假」：E4 的死因不是 redo 失效而是 entry 在 drag 时就记下了钳制坐标——行为断言失败时先问「链条上哪一环写下的值就已经是错的」，双读（store 活体 vs DB）+ 同值对称性（drag 后=redo 后）是把「哪一环」钉死的关键取证手法
+- 「世界的墙会吃掉测试的假设」：套件在无限画布的世界里做有限数学（maxX+3000 无上限），而 workflow.ts 早在 ±20000 焊死了墙——两个「真话」相撞时输的是后到的测试；种子带必须在世界合同（含 clamp 余量）内做几何
+- 「FATAL 不清扫的套件是世界的污染源」：泄漏放大器让一个陈旧 oracle（F4）在三轮里长成跨套件灾难（t103 全家 + t105 三张 + maxX 东移 20k px）；cleanup-on-fail 律的价值不在自己过审，而在**任何死法下都不改写世界的几何**——t632 律在本窗完成第三次执法（旁观受害 → 自家正形）
+- 「损坏判词先验信使」：本窗差点把传输层吞 `[h` 的视觉骗局立案为「产品源码语法损坏」——tsc/SWC/dev-server 三方矛盾是报警器，od 是法官；工具回显是证人不是物证
+- 产出：t105 修复三处（F4/F5 oracle + E4 种子带钳制 + cleanup-on-fail 正形）+ t643-fossil-sweep（11 化石→0）+ t643-redo-autopsy 探针（留档）；下窗入口：①t103 考古（A1 锥形导航断言，本窗已清其 8 张化石、S0 自愈可安全重跑，cleanup-on-fail 缺口同款待修）②t101 考古（D4 setViewport zoom clamp gate 静态断言）③样式/功能车道 ④judge 风暴（等稳定夜）⑤build 日三车道（available ≥ 3.5GB，本窗第 53 窗否决）
