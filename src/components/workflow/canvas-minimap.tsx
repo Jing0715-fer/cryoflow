@@ -59,7 +59,7 @@ import { capturePointer } from "@/lib/pointer";
 import { cn } from "@/lib/utils";
 import { STATUS_HEX, statusWord } from "@/lib/status-style";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
-import { jobMatchesFind } from "./canvas-find-bar";
+import { jobMatchesFind } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home
 import { useStatusNews } from "@/lib/use-status-news";
 import type { JobDTO } from "@/lib/types";
 

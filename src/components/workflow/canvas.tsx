@@ -51,7 +51,8 @@ import {
 } from "@/lib/workflow";
 import { hasJudgment } from "@/lib/class-notes";
 import { pendingWirePath } from "@/lib/edge-geom";
-import { CanvasFindBar, jobMatchesFind } from "./canvas-find-bar";
+import { CanvasFindBar } from "./canvas-find-bar";
+import { jobMatchesFind } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home
 import { CanvasFunnelDoor } from "./canvas-funnel-door";
 import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {

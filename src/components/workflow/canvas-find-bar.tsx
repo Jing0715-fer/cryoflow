@@ -60,20 +60,16 @@ import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
+import { jobMatchesFind } from "@/lib/job-match"; // t653 — the meaning lives in lib
 import { JOB_CATEGORIES, jobType } from "@/lib/workflow";
 import type { JobDTO, JobStatus } from "@/lib/types";
 import { STATUS_CHIP } from "@/lib/status-style"; // t647 — the chip family lives with the word law
 import { cn } from "@/lib/utils";
 
-/** Case-insensitive substring match against the job's own name and its
- *  type label. Exported so canvas.tsx dims/rings with the same
- *  predicate this bar counts with — one matcher, two consumers. */
-export function jobMatchesQuery(job: JobDTO, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return false;
-  if (job.name.toLowerCase().includes(q)) return true;
-  return (jobType(job.type)?.label ?? job.type).toLowerCase().includes(q);
-}
+// t653 — the matcher itself (jobMatchesQuery, jobMatchesFind) moved to
+// lib/job-match.ts: three consumers share it and lib is where shared
+// meaning lives. This file keeps the UI — the bar, its chips, its
+// parade — and imports the meaning from its new home.
 
 /** The status chips the lens can filter by, in the order a working
  *  scientist asks for them: what's moving now, what just landed, what
@@ -108,21 +104,8 @@ const CHIP_STEP_MS = 24;
 const STATUS_CHIP_BASE_MS = 60 + ROW_TRAVEL_MS;
 const TYPE_CHIP_BASE_MS = 120 + ROW_TRAVEL_MS;
 
-/** The FULL find predicate — status gate first, then the text gate.
- *  With a status chip active and an empty query every job of that
- *  status matches (the chip alone is a lens); with no chip the empty
- *  query matches nothing (Task 134's contract, unchanged). Exported
- *  next to jobMatchesQuery so the bar and the canvas share ONE
- *  definition of "is a match". */
-export function jobMatchesFind(job: JobDTO, query: string, status: JobStatus | "all", category: string | "all" = "all"): boolean {
-  if (status !== "all" && job.status !== status) return false;
-  // Task 138 — the type half: the match's job type must belong to the
-  // armed palette category (workflow stage). An unknown type has no
-  // category, so an armed stage lens honestly excludes it.
-  if (category !== "all" && jobType(job.type)?.category !== category) return false;
-  if (!query.trim()) return status !== "all" || category !== "all";
-  return jobMatchesQuery(job, query);
-}
+/** The FULL find predicate — status gate first, then the text gate —
+ *  lives in lib/job-match.ts (t653, next to the query matcher). */
 
 export function CanvasFindBar() {
   const findOpen = useWorkflowStore((s) => s.findOpen);
@@ -221,14 +204,19 @@ export function CanvasFindBar() {
   const go = React.useCallback(
     (dir: 1 | -1) => {
       if (n === 0) return;
-      setCur((prev) => {
-        const base = prev != null && prev < n ? prev : dir === 1 ? -1 : 0;
-        const next = (base + dir + n) % n;
-        focusJob(matches[next].id);
-        return next;
-      });
+      // t653 — the side effect leaves the updater. An updater must be a
+      // pure computation: React runs it during the render phase (and
+      // Strict Mode runs it TWICE), so the focusJob that used to live
+      // inside was a hidden double-dispatch of the focus epoch AND the
+      // source of React's setState-in-render warning. Compute from the
+      // closure (every go() call is a discrete user event — no same-tick
+      // re-entry), set, then focus: one dispatch, one arrival.
+      const base = cur != null && cur < n ? cur : dir === 1 ? -1 : 0;
+      const next = (base + dir + n) % n;
+      focusJob(matches[next].id);
+      setCur(next);
     },
-    [n, matches, focusJob],
+    [cur, n, matches, focusJob],
   );
 
   const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
