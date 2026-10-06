@@ -34,6 +34,21 @@
  *     NOT exported: sorting is a view aid, the file's native order is
  *     the artifact. Direct <a download> navigation rides the guard's
  *     'none' lane (file-route precedent).
+ *
+ * t652 — the table reads its own SHAPE (column-width adaptation):
+ *   - alignment is typed: a numeric column (the same isNumericColumn
+ *     sampling that drives the sort) right-aligns its cells AND its
+ *     header — angles, defoci and FOMs become decimal-adjacent and
+ *     scannable down the column; string columns (paths, names) keep
+ *     the left edge. The row index joins the numeric grammar.
+ *   - truncation is never a dead end: a cell longer than the cap keeps
+ *     its visible slice but hands the FULL value to title + a help
+ *     cursor, and the footer names the affordance — but only when some
+ *     cell actually truncated (an honest hint: absent when nothing was
+ *     cut). Census t652: the demo world's widest cell is 44 chars
+ *     (micrographs.star MicrographName), so in the seeded world the
+ *     cap never fires — it is hardening for real user files whose
+ *     paths run past a hundred characters.
  */
 
 import { useMemo, useState } from "react";
@@ -58,6 +73,19 @@ function shortColumn(col: string): string {
   return col.replace(/^_rln/, "").replace(/([a-z])([A-Z])/g, "$1 $2");
 }
 
+/** t652 — the cell cap: past this a cell's visible text is a slice and
+ * the full value rides in title (hover to reveal). The demo world's
+ * widest cell is 44 chars — this is real-file hardening, not a live
+ * behavior there. */
+const CELL_CAP = 72;
+
+/** Truncate for display; `full` is non-null exactly when the value was
+ * cut (the caller then owes the user a hover reveal). */
+function truncateCell(cell: string): { text: string; full: string | null } {
+  if (cell.length <= CELL_CAP) return { text: cell, full: null };
+  return { text: cell.slice(0, CELL_CAP) + "…", full: cell };
+}
+
 type SortDir = "asc" | "desc";
 
 /** t651 — numeric-column detection by sampling: REALION STAR columns are
@@ -75,6 +103,29 @@ function isNumericColumn(rows: string[][], col: number): boolean {
     if (cell.trim() === "") continue;
     filled++;
     if (Number.isFinite(parseFloat(cell))) numeric++;
+  }
+  return filled > 0 && numeric / filled >= 0.8;
+}
+
+/** t652 — the ALIGNMENT predicate is stricter than the sort's, and on
+ * purpose: the two answer different questions. "Can these cells be
+ * compared as numbers?" (sort, above) tolerates a numeric PREFIX —
+ * "0000001@extract/particles.mrcs" sorts by its particle index, which
+ * is the meaningful key. "Does this column READ as numbers?"
+ * (alignment, below) may not right-align a 39-character path that
+ * happens to start with digits — so a cell qualifies only when it is
+ * WHOLLY a number (Number(), not parseFloat). One word, two
+ * semantics, two verdicts. */
+function isNumericAlignColumn(rows: string[][], col: number): boolean {
+  if (rows.length === 0) return false;
+  const sample = rows.slice(0, 50);
+  let numeric = 0;
+  let filled = 0;
+  for (const row of sample) {
+    const cell = row[col] ?? "";
+    if (cell.trim() === "") continue;
+    filled++;
+    if (Number.isFinite(Number(cell))) numeric++;
   }
   return filled > 0 && numeric / filled >= 0.8;
 }
@@ -130,11 +181,27 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
     [data]
   );
 
+  // t652 — the alignment grammar reads its own, stricter census (see
+  // isNumericAlignColumn): this is the predicate that decides which
+  // columns' headers and cells right-align.
+  const alignNumericCols = useMemo(
+    () => new Set((data?.columns ?? []).map((_, c) => c).filter((c) => data && isNumericAlignColumn(data.rows, c))),
+    [data]
+  );
+
   const viewRows = useMemo(() => {
     if (!data) return [];
     if (!sort || sort.col >= data.columns.length) return data.rows;
     return makeSorter(data.rows, sort.col, sort.dir, numericCols.has(sort.col));
   }, [data, sort, numericCols]);
+
+  // t652 — the footer hint only speaks when it has something to say:
+  // if no cell was cut, "hover to reveal" would be instructions for a
+  // problem that does not exist.
+  const hasTruncated = useMemo(
+    () => viewRows.some((row) => row.some((cell) => (cell ?? "").length > CELL_CAP)),
+    [viewRows]
+  );
 
   const exportHref = `/api/jobs/${job.id}/outputs/star?path=${encodeURIComponent(path)}&export=tsv`;
 
@@ -195,7 +262,7 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
         <table className="w-full border-collapse">
           <thead className="sticky top-0 z-10">
             <tr>
-              <th className="border-b bg-muted/95 px-2 py-1.5 text-left font-mono text-[10px] font-semibold text-muted-foreground backdrop-blur">
+              <th className="border-b bg-muted/95 px-2 py-1.5 text-right font-mono text-[10px] font-semibold text-muted-foreground backdrop-blur">
                 #
               </th>
               {data.columns.map((col, c) => {
@@ -207,7 +274,8 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
                     title={col}
                     aria-sort={ariaSort}
                     className={cn(
-                      "whitespace-nowrap border-b bg-muted/95 px-2 py-1.5 text-left font-mono text-[10px] font-semibold backdrop-blur",
+                      "whitespace-nowrap border-b bg-muted/95 px-2 py-1.5 font-mono text-[10px] font-semibold backdrop-blur",
+                      alignNumericCols.has(c) ? "text-right" : "text-left",
                       active ? "text-foreground" : "text-muted-foreground"
                     )}
                   >
@@ -236,15 +304,24 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
           <tbody>
             {viewRows.map((row, i) => (
               <tr key={i} className={cn(i % 2 === 1 && "bg-muted/40", "hover:bg-accent/50")}>
-                <td className="px-2 py-1 font-mono text-[11px] text-muted-foreground/70">{i + 1}</td>
-                {row.map((cell, j) => (
-                  <td
-                    key={j}
-                    className="whitespace-nowrap px-2 py-1 font-mono text-[11px] text-foreground/90"
-                  >
-                    {cell.length > 72 ? cell.slice(0, 72) + "…" : cell}
-                  </td>
-                ))}
+                <td className="px-2 py-1 text-right font-mono text-[11px] text-muted-foreground/70">{i + 1}</td>
+                {row.map((cell, j) => {
+                  const numeric = alignNumericCols.has(j);
+                  const t = truncateCell(cell ?? "");
+                  return (
+                    <td
+                      key={j}
+                      title={t.full ?? undefined}
+                      className={cn(
+                        "whitespace-nowrap px-2 py-1 font-mono text-[11px] text-foreground/90",
+                        numeric ? "text-right" : "text-left",
+                        t.full && "cursor-help"
+                      )}
+                    >
+                      {t.text}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -255,6 +332,7 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
           showing {viewRows.length} of {data.rowCount} rows
           {data.truncated ? " (truncated)" : ""}
           {sort ? ` · sorted by ${shortColumn(data.columns[sort.col])} ${sort.dir}` : ""}
+          {hasTruncated ? " · hover truncated cells (…) for the full value" : ""}
         </span>
         <a
           href={exportHref}
