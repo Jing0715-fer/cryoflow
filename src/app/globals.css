@@ -1796,7 +1796,6 @@
      would stamp transient screen state onto archival paper; .no-print
      marks app-specific chrome */
   [data-slot="tooltip-content"],
-  [data-sonner-toaster],
   .no-print {
     display: none !important;
   }

@@ -27,7 +27,9 @@
 
 import * as React from "react";
 import { Check, Eye, EyeOff, Loader2, RefreshCw, Sparkles, ExternalLink, TriangleAlert } from "lucide-react";
-import { toast } from "sonner";
+// t641: sonner Toaster was never mounted — these toasts were dead-ends.
+// One vocabulary law: everything speaks the Radix use-toast dialect.
+import { toast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -93,7 +95,7 @@ export function AiSettingsDialog() {
         setVlmModel(data.settings.vlmModel ?? "");
         setAutoJudge(data.settings.autoJudge !== false);
       } catch {
-        if (!cancelled) toast.error("AI 设置加载失败");
+        if (!cancelled) toast({ title: "AI 设置加载失败", variant: "destructive" });
       }
     })();
     return () => {
@@ -228,15 +230,15 @@ export function AiSettingsDialog() {
       });
       const data = (await res.json()) as { settings?: AiSettingsDto; error?: string };
       if (!res.ok) {
-        toast.error(data.error ?? "保存失败");
+        toast({ title: data.error ?? "保存失败", variant: "destructive" });
         return;
       }
       if (data.settings) setSettings(data.settings);
       const label = providers.find((p) => p.id === providerId)?.label ?? providerId;
-      toast.success(`AI 已配置：${label} · ${model || stored?.model || ""}`);
+      toast({ title: `AI 已配置：${label} · ${model || stored?.model || ""}` });
       setOpen(false);
     } catch {
-      toast.error("保存失败 — 网络错误");
+      toast({ title: "保存失败 — 网络错误", variant: "destructive" });
     } finally {
       setSaving(false);
     }

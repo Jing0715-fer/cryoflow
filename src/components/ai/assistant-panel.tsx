@@ -100,7 +100,9 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+// t641: sonner Toaster was never mounted — these toasts were dead-ends.
+// One vocabulary law: everything speaks the Radix use-toast dialect.
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -1274,7 +1276,7 @@ export function AssistantPanel() {
         body: JSON.stringify({ title: draft }),
       });
       if (!res.ok) {
-        toast.error("重命名失败 — 会话可能已被删除");
+        toast({ title: "重命名失败 — 会话可能已被删除", variant: "destructive" });
         return;
       }
       const data = (await res.json()) as { ok: boolean; title: string | null };
@@ -1282,7 +1284,7 @@ export function AssistantPanel() {
         prev.map((s) => (s.id === id ? { ...s, title: data.title } : s))
       );
     } catch {
-      toast.error("重命名失败 — 网络不可达");
+      toast({ title: "重命名失败 — 网络不可达", variant: "destructive" });
     }
   }
 
@@ -1290,7 +1292,7 @@ export function AssistantPanel() {
     try {
       const res = await fetch(`/api/ai/sessions/${id}?format=${format}`);
       if (!res.ok) {
-        toast.error("导出失败 — 会话可能已被删除");
+        toast({ title: "导出失败 — 会话可能已被删除", variant: "destructive" });
         return;
       }
       const blob = await res.blob();
@@ -1307,9 +1309,9 @@ export function AssistantPanel() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success(format === "md" ? "已导出 Markdown 会话记录" : "已导出 JSON 会话记录");
+      toast({ title: format === "md" ? "已导出 Markdown 会话记录" : "已导出 JSON 会话记录" });
     } catch {
-      toast.error("导出失败 — 网络不可达");
+      toast({ title: "导出失败 — 网络不可达", variant: "destructive" });
     }
   }
 
@@ -1415,7 +1417,7 @@ export function AssistantPanel() {
     setFilter("all");
     setStaleBanner(false); // t502 — a new chat has no history to be old
     if (historyOpen) void loadSessions();
-    toast.success("已开始新对话", { description: "画布上的任务不受影响" });
+    toast({ title: "已开始新对话", description: "画布上的任务不受影响" });
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
