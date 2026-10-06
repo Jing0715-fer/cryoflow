@@ -9376,3 +9376,30 @@ Stage Summary:
 - 「回收线是跑道税」：turbopack 出生 2.2GB + 回收线 2.6GB = 400MB 跑道，Mol* 套件增量 1.2GB——回收必然落在套件中段。这不是 bug 是容量预算：Mol* 重套件的构建日立案（standalone server 无 dev 编译器气球、无回收线、无 HMR 重载），在此之前它们的 ALL PASS 是等一个不拥挤的夜
 - 「崩溃窗用标记关闭」：POST→PATCH 改名之间死掉的 seeder 留下无名孤儿，按名认领的 take-home 对它失明——id 标记在 POST 后立即落盘（窗口从多步收缩到单写），认领 id 优先名字回退，用毕销档。守卫抓泄漏是运气，标记消灭崩溃窗是设计
 - 产出：qa67 复活 ALL PASS 27 断言（五层仪器病修复 + 取证相机入编）+ qa68 instrument 层全修（9/10 断言，余下立案 build 日）+ qa58 seeder 崩溃窗标记硬化（活体循环验证）+ t252 ALL PASS + t630 下窗入口①的六套实跑账（qa66 ✓ qa67 ✓ qa68 9/10 t156/t157/qa63 立案）；正典 12/11 完好、census 390/407MiB 持平、零泄漏；下窗入口：①build 日三车道合并（化石铲子 + Mol* 套件 standalone 收割 + 第 41 窗重测）②t156/t157/qa63 实跑（借任意稳定窗先试，生产 server 夜为正解）③demo 20 行考古清理④judge 风暴活体半场（等稳定夜）⑤qa66 探针的诚实化小刀（playwright 自动等待使它无害，立案不动）⑥样式新面侦察（待新题）
+
+---
+Task ID: 632 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 21:54 cron, Job 362852, Task 572 系第 51 次派单)
+Task: t631 下窗入口②③合流兑付——t156/t157/qa63 实跑试窗被 441MB 死亡窄跑道改道（t156 取证 S1+X 段 9 断言全绿，instrument 无病），主线兑付 demo 考古清理整窗：qa63 依赖链自证（seed 幂等+落点=active+take-home 全链闭环）→ 22 行产品门删除零拒收 → 顺手全家族 cleanup 缺口修复（t156 + t150-155 六套）→ 内核 OOM 活体事件与 UI PROBE GREEN 收官。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 631（派单摘要说 Task 13——滞后第 N+78 次兑付）；HEAD 0e6f1a2 树净；available 1092MB 非 build 日（第 41 窗被动否决）。
+- [QA 摸底] agent-browser：正典 12 rows / 0 orphans / 0 dimmed / chips All 12-11-1 + grid All 6-1-5 零置灰 / console 0 error / 📸 t632-home-12jobs.png。
+- [择路改道] 实跑 t156 开跑：Phase S1 seed 成功 + X 段 9 断言全绿后 Phase B 死于 "Execution context destroyed"——取证发现 server RSS 2286→2491MB（回收线 2539 仅差 48MB）+ available 跌至 441MB：**死亡窄跑道**（t631 定谳的容量预算在深夜更窄）。t156 取证已足（S1+X 全绿=instrument 无病，死于环境非套件），三套实跑立案回稳定窗；主线切换入口③ demo 考古清理（零编译零浏览器税，纯 DB+产品门）。
+- [demo 考古定性] scripts/t632-demo-archaeology.mjs：demo 83 行中 20 行 QA 前缀（FSC 家族 7 + 流程链 11 + t533 重名探针 ×2，全 ws=cmur5d8r 非孤儿，age 3.4-3.9d）；t474 项目实为 5 行（t630 立案的 2 = QA 前缀对）。scripts/t632-predelete-audit.mjs：**22 行全部 no-workdir 零租户信号**；边只在 QA 行互连（产品门级联即可）。Job 模型无 workDir 字段学费一笔：workdir = data/relion/<projectId>/<dir suffix==jobId> 推导。
+- [qa63 依赖链自证] qa60-seed-fsc.py 幂等 by name 种出 7 行 → 落点=active（EMPIAR 12→19，t628 落点定谳再实锤）→ --take-home 全链闭环（产品门删除 + entry pop + workdir 空壳 rmdir + crash-window marker）。**demo 行非 qa63 依赖的前提成立**：Task 86 自 seeding 语义活体，qa63-smoke 的 try-seed 永远自给自足。qa58 家族 2 行残留（t156 Phase B 挂时 cleanup 未生效的活体泄漏——t630「FATAL 跳过 finally」在 t156 重演）由 qa58 --take-home 当窗带走，EMPIAR 回 12/0。
+- [t156 cleanup 缺口双修] ①main().catch 只 console.error+exit(1) 不调 cleanup（t157 正形对照）；②must() 的 void cleanup().then(exit) 与 catch 的同步 exit(1) 赛跑——void 不被 await，execSync 没跑完就被斩。修法：must 纯 throw（统一 catch 路径）+ catch 内 await cleanup() 再 exit。
+- [家族普查五套同病] t150/t151/t152/t153/t155：cleanup 仅关浏览器 + must void 赛跑 + catch 无 cleanup（chrome 孤儿债）。同律小刀修复 + node --check 全过——t630「失败也要带走标本」教义推广至全家族（t158/t159 已是正形）。
+- [22 行产品门删除] scripts/t632-demo-cleanup.mjs：枚举 prisma 侧（jobs GET 恒回 active——API 无按项目枚举通道，t628 定谳；qa77 混合律先例：枚举 prisma、删除走正门）、删除逐行走 DELETE /api/jobs/[id]（跨站守卫需 Origin/Referer 头）。**22/22 deleted 零拒收零 409**（含 running 行 QA Refine Live——DELETE 路由先 stopRun 再删的合同活体验证）；verify demo 63 jobs / 0 QA、t474 3 / 0、EMPIAR 12/0 纹丝不动。
+- [对账三笔] ①demo 边 40 条零悬垂（级联干净）；②engine-state 零悬垂（2 hits 为 t474 幸存活行的正常注册）；③census 410→407 dirs / 413.1 MiB——多出的三个 class2d 壳（t8jddfip/4afg2kln/mc1lswud）= t627/628/629 窗时代 qa58 seed 循环泄漏壳（行已死 take-home 失明、t630 清 23 空壳时非空幸免），内容全是 run_it012_* witness 三件套零租户——t161 半径协议覆盖，当窗小铲带走（assert 文件名白名单后 rmtree）。EMPIAR 111 dirs 持平、demo 无新 dir=本窗零泄漏实锤；demo 大目录（ctffind 64MiB/mapimport 64MiB/class2d ×2 11MiB 带租户）= build 日铲子车道原样。
+- [内核 OOM 活体事件] 收官巡检期 dmesg 实锤 `Out of memory: Killed process (next-server, anon-rss 2.15GB)`——内核 OOM（非 watchdog 回收线）杀 server，watchdog 复活（HTTP 200）；agent-browser daemon 陷入 CDP relaunch 循环（环境病非产品病）。世界经 curl 复核 12/11/0 QA 不受进程死亡影响。
+- [验证与回归] t252 OOM 前后双跑 ALL PASS（写门 + roster 贴地 12 + console 0）；agent-browser 崩坏后换 playwright 直驱（qa66 全新 profile 免疫教义）scripts/t632-ui-probe.mjs：**UI PROBE GREEN**（12 rows / 0 orphans / console 0 / 📸 t632-final-12jobs.png）。
+- [未做与理由] t157/qa63 完整实跑（死亡窄跑道——等稳定窗/生产 server 夜，t156 取证已证 instrument 健康且本窗已修其 cleanup 链）；build 日（第 41 窗否决，784-1092MB 区间）；qa66 探针诚实化（立案不动）；QA t474 项目整体退役 + t519/t520 diag 遗产审计（本窗只删 QA 前缀 2 行不越权，项目整体退役需 bench/diag 依赖审计——立案）；judge 风暴（等稳定夜）；化石铲子（build 日车道，本窗三壳小铲已按 t161 白名单协议预演）。
+
+Stage Summary:
+- 「依赖链的自证就是把前提变成实验」：qa63 依赖 demo 考古行的虚构死于一连三问——seed 幂等吗（created 标记）、落在哪（active 实锤）、带走后世界还在吗（12/0 归位）？自证完成后清理就不是冒险而是兑付
+- 「FATAL 时 cleanup 的三种死法：void 不被 await、catch 不调 cleanup、execSync 输给 exit」：t156 的双重缺口是全家族的通病样本——must 里的 void cleanup 与 main().catch 的同步 exit 是赛跑关系，execSync 的 take-home 永远输；统一异常路径（纯 throw → catch await cleanup）是唯一正形，六套同律修复后「失败也要带走标本」从教义变成结构
+- 「枚举 prisma、删除走正门」：API 有意只暴露 active 世界（t628 定谳），但 DELETE by id 是项目无关的——混合律让考古清理既尊重「世界只有 active 一个」的设计，又不必为了一次清理去切项目重载世界
+- 「census 的壳有两代」：空壳（t630 清的 23 个）与 witness 壳（本窗的三个）——行已死的目录对 take-home 失明，只有 census 相机能看见；t161 白名单协议（assert 文件名全在半径内才动刀）让零租户小铲不必等 build 日
+- 「内核 OOM 与 watchdog 回收是两种死」：watchdog 在 2.6GB 受控执法（t631 立案），内核在系统级绝望处决（本窗活体）——后者连 server 一起杀，但 DB 世界与 API 合同不动；UI PROBE（playwright 全新 profile）+ curl 双验证是进程死亡后的世界清点仪式
+- 产出：demo+t474 22 行考古清理（22/22 零拒收，零悬垂边/entry，census 407 持平零泄漏）+ qa63 依赖链自证闭环 + 六套件 cleanup 缺口同律修复（t156/t150/t151/t152/t153/t155）+ 仪器脚本 ×4（archaeology/audit/cleanup/ui-probe）+ t252 双 ALL PASS + UI PROBE GREEN + 📸×2；正典 12/11 完好、active 归位 EMPIAR、零 chrome 孤儿（daemon 已清）；下窗入口：①build 日三车道合并（第 42 窗重测）②t156/t157/qa63 实跑（借稳定窗；t156 instrument 已健康+cleanup 已修）③QA t474 项目整体退役裁决（bench/diag 依赖审计先行）④judge 风暴活体半场（等稳定夜）⑤化石铲子（build 日车道）⑥样式新面侦察（待新题）
