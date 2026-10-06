@@ -9631,3 +9631,27 @@ Stage Summary:
 - 「产品零改动是最高验收」：t262 全引擎（staging→dispatch→poll→sync→twin→stop）在新世界零改动 ALL PASS——remote 车道 16k 行的工程质量经受住了三次世界更换；本窗虫情：套件虫一只（非对称守卫），产品虫零只
 - 「套件死时 cleanup 要活」：t261 崩溃点在 finally 之前，cleanup 照样收干净 roster——cleanup-on-fail 律的价值不在自己过审而在任何死法下都不留尸
 - 产出：mock cluster 复活 + t261 ALL PASS（1 修复）+ t262 ALL PASS（0 修复）+ qa-t640-rehearsal-bed.sh 一键动词 + 回归双绿 + 残留三清；下窗入口：①样式/功能车道继续（Topaz/3D 截面/Task 13 清单皆化石勿考古）②t372 全链评估（需真 RELION build，等 build 日）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 50 窗否决）⑤演练床一键可重跑（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 641 收官
+Agent: main (cron window, Job 362852)
+Task: 侦察驱动车道——雷达击中真虫 P0（sonner 十 toast 从未挂载的死端）+ 发现性弧线收官（3D viewer 键盘组）+ qa78 三债复活 + 毒 DB 钉律扩散
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 640 收官（派单又称 Task 13——第 N+84 次陈旧模板语）；树净 HEAD c770992；available 989MB 非 build 日（第 51 窗否决）；server 200/31ms。
+- [QA 双绿] t252 ALL PASS + t637-ui-probe 6/0——世界健康后才动工程。
+- [侦察定靶] Explore agent 盘点 UI 面六项发现，头部两项立案：①P0 真虫——AI 面板十处 sonner toast 喂给一个从未挂载的 <Toaster/>（设置保存失败是死胡同、重命名失败静默回退、导出回执从未存在）；②发现性弧线尾巴——3D viewer 的 1–6/0/B 键盘层无 dialog 行（B 只被自己的完成 toast 提及，按一次才知道它存在）、lens 走查与 class sheet ←/→ 同病。Topaz/3D 截面/Task 13 均核实为化石未立项。
+- [toast 复合手术] 十处调用迁移 @/hooks/use-toast 正典语汇（error → variant:"destructive"、success → title+description）；陷阱三连拔：ui/sonner.tsx 删除、sonner 依赖卸载、print 样式表 [data-sonner-toaster] 死选择器删除——一个语汇，不留第二张嘴。tsc/eslint 双清。
+- [shortcuts 完形] 新组「3D map viewer」（1–6 / 0 / B，无 scope 故不参与 you-are-here）+ dashboard 组 lens 行 + gallery 组 sheet 行；molstar 两处就地契约（presets 尾注与书签空态都开口说 B）。t248 律第三次执法。
+- [t641 探针] 10 判据全绿：新对话 toast 活体落进 Radix viewport（修复前该元素在 DOM 里从未存在——金镜头）+ 三处 dialog 行 + console 0。判据：本版 Radix viewport 无 data 属性，锚 ol[class*="z-[100]"]；所有交互显式超时（面板 mount 重渲染循环会饿死无界 click——首跑 240s 卡死教出的律）。
+- [qa78 三债复活] 崩溃立案→三案并修：①re-orphan 候选锚死 pre-t635 任务名 → name-agnostic（任意 in-workspace 非链接 job）；②裸 PrismaClient 吃沙箱 TEMPLATE URL（.env → custom.db 三行 User/Post 残骸）→ P2022 ranParams → 钉 file:…/db/cryoflow.db（t639 模式，t377 毒律）；③零恢复逻辑 → worldJournal 全变更日志 + 成功/崩溃双路恢复（uncaughtException/unhandledRejection 网）——t637 的 0-orphan 合同不再被套件尸毒。C8 oracle 6→8（t246 的 not-in-palette 组从来没被数过）+ Phase D 盲等 2.5s → 有界轮询（空闲世界轮询周期 8s，t523 律）。ALL PASS。
+- [毒律扩散] t632 三件考古工具同样裸奔（今天重跑会静默读毒 DB）——三行钉 URL 补上，考古脚本验证读到真世界。
+- [诚实边界] t101/t103/t105 三套件 FATAL——stash 对照实验证明失败早于本窗（15 天未随世界演化，t157 同款陈旧 oracle：t105 F4 锚死 STATUS_FILL[j.status] 而 canvas-minimap 已换代）；三套修复各值一整窗考古，本窗不扩 — 立案存档下窗候选。
+- [回归] t252 ALL PASS ×2 + t637 6/0 ×2 + t641 10/0 + qa78 ALL PASS；tsc 0 + eslint 0；server 中途因 npm uninstall 重铸 node_modules 被 watchdog 按单 keeper 律自动换锅（18:11 新 boot，t637 提速参数全保留）。
+
+Stage Summary:
+- 「看不见的 toast 等于没写的 toast」：十处通知活在天真的 import 里——「代码调了 toast.success」与「用户看见了 success」之间隔着一个从未挂载的组件；修复的一半是迁移，另一半是拆除让 bug 可复发的陷阱文件本身
+- 「侦察先于立案，立案也要考古」：Explore 雷达的头部发现是估值最高的真虫（P0 死端 vs 一堆化妆项）；而派单的 Task 13/Topaz/3D 截面清单第 N 次核实全为化石——读单第一律是「直接对质现树」
+- 「套件的债务是世界的函数」：qa78 三笔债（名字锚、毒 URL、零恢复）在各自立窗时都不是债——世界换了四代后全部同时爆雷；worldJournal 双路恢复是 t632 cleanup 律在套件写侧的完整形态：不仅尸体要收，活体也要送回原位
+- 「盲等是在赌世界的钟」：2.5s 等 8s 的轮询周期读出的是假 FAIL——t523 律（轮询勿盲读）对套件内部同样适用，有界轮询是唯一诚实的等待
+- 产出：toast 复合 + 陷阱拆除（feat 车 db271f2）+ shortcuts 完形（feat 车 5d61609）+ qa78 三债复活/毒律扩散/t641 探针（qa 车 668d301）+ 📸×1（t641-shortcuts-toast.png）；下窗入口：①t101/t103/t105 陈旧 oracle 考古（各值一整窗，t157 判词模板可复用）②样式/功能车道继续（kbd 语汇统一 <Kbd> 原语 + 8 处方言清扫是现成下步）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 51 窗否决）⑤演练床一键可重跑（bash scripts/qa-t640-rehearsal-bed.sh --full）
