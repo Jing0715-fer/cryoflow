@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Check, Copy, Download, FileTerminal, Loader2 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { downloadBlob } from "@/lib/download"; // t646 — one blob sink for every export surface
 
 interface PipelineStepBrief {
   jobId: string;
@@ -131,14 +132,7 @@ export function PipelineScriptDialog({
   const download = () => {
     if (!data?.script) return;
     const blob = new Blob([data.script], { type: "text/x-shellscript" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = scriptFileName(data.projectName || "project");
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    downloadBlob(blob, scriptFileName(data.projectName || "project"));
   };
 
   const stats = data?.stats;

@@ -14,19 +14,9 @@
  * rasterizing (bounded walk — chart SVGs are small).
  */
 
-/** Trigger a client-side download for an in-memory blob. */
-export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // revoke on the next tick — Chrome keeps the download alive once the
-  // navigation has started, and a same-tick revoke can race it
-  window.setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
+// t646 — the blob sink lives in lib/download (one father for every export
+// surface; this file's private copy was the seed twin the others forked).
+import { downloadBlob } from "@/lib/download";
 
 export type CsvCell = string | number | null | undefined;
 export type CsvRow = Record<string, CsvCell>;

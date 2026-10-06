@@ -30,7 +30,8 @@ import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORT
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
-import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
+import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
+import { downloadBlob } from "@/lib/download";
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -1723,12 +1724,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         bookmarks: bookmarksRef.current,
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `cryoflow-views-${jobId.slice(-6)}-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, `cryoflow-views-${jobId.slice(-6)}-${new Date().toISOString().slice(0, 10)}.json`);
       toast({ title: `Exported ${bookmarksRef.current.length} view${bookmarksRef.current.length > 1 ? "s" : ""}`, description: "JSON file — import it on any job to reuse the setup." });
     } catch {
       toast({ title: "Export failed", variant: "destructive" });
@@ -2541,7 +2537,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         // together in Downloads
         const clipBase = `cryoflow-turntable-${viewerFileSlug(name)}-${viewerFileTimestamp()}`;
         const fileName = `${clipBase}.webm`;
-        downloadViewerBlob(blob, fileName);
+        downloadBlob(blob, fileName);
         const sizeNote = supersampled ? ` · ${mult}× supersampled` : "";
         const footerNote = figureLegend.length
           ? `figure footer + ${figureLegend.length}-map legend burned in · `
@@ -2570,7 +2566,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               },
             });
             if (viewerAliveRef.current && pluginRef.current === plugin) {
-              downloadViewerBlob(gifBlob, `${clipBase}.gif`);
+              downloadBlob(gifBlob, `${clipBase}.gif`);
               toast({
                 title: "Turntable GIF exported",
                 description: `${clipBase}.gif · ${gifFrames.length} frames × ${Math.round(gifDelay)} ms — replays the turn at true pace · ${fmtBytes(gifBlob.size)}`,

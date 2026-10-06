@@ -30,6 +30,35 @@ export function downloadText(
 }
 
 /**
+ * t646 — the blob twin of downloadText, collected from FOUR private
+ * re-derivations (chart-export's downloadBlob, viewer-export's
+ * downloadViewerBlob, template-io's downloadJsonBlob) and FOUR inline
+ * hand-dances (workflow-io, canvas-export, results-view's downloadBytes,
+ * map-ortho-panel, pipeline-script-dialog, assistant-panel's session
+ * export). The hand-dances were not merely style: four skipped the
+ * attach-before-click (the Firefox law this file's head note pins), and
+ * two revoked on the SAME tick (results-view, assistant-panel — the
+ * Chrome truncation law's exact trap). One mechanism, every sink.
+ *
+ * Signature follows the existing twins (blob first — the payload leads,
+ * the name labels it); the text twin keeps (filename, text) because its
+ * mime default reads naturally after the text.
+ */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // revoke on a later tick — an immediate revoke truncates the download;
+  // the longer fuse (vs downloadText's 1s) is the twins' established
+  // value, kept for the bigger PNG/WebM payloads this path carries
+  window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/**
  * t233: the copy-or-fallback ladder — ONE father. Task 232 built this
  * ladder twice by hand (the report's md door and its new CSV door were
  * structurally identical try/catch twins); Task 191's own law says

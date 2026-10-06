@@ -53,6 +53,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Chip } from "@/components/ui/chip";
 import { toast } from "@/hooks/use-toast";
+import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped attach + revoked same-tick)
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
 import { buildProfileReportHtml } from "@/lib/report-html";
 import {
@@ -827,13 +828,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   // per-job family). One busy state guards both: while either medium is
   // being collected, both doors rest.
   const downloadBytes = (content: string, name: string, mime: string) => {
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([content], { type: mime }), name);
   };
 
   const exportReport = useCallback(async () => {

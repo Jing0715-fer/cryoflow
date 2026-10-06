@@ -56,6 +56,7 @@ import { Slider } from "@/components/ui/slider";
 import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
+import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
 
 /** event names for the two-way 3D↔2D linkage — see molstar-embed.tsx */
 export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
@@ -1102,12 +1103,8 @@ export function MapOrthoPanel({
       ctx.textAlign = "left";
       const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, "image/png"));
       if (!blob) throw new Error("encode failed");
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
       const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
-      a.download = `ortho-${base.replace(/\.(mrc|mrcs)$/i, "")}-${stamp}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      downloadBlob(blob, `ortho-${base.replace(/\.(mrc|mrcs)$/i, "")}-${stamp}.png`);
       setExportState("ok");
     } catch {
       setExportState("err");

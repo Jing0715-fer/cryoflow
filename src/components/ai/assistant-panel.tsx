@@ -103,6 +103,7 @@ import {
 // t641: sonner Toaster was never mounted — these toasts were dead-ends.
 // One vocabulary law: everything speaks the Radix use-toast dialect.
 import { toast } from "@/hooks/use-toast";
+import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance revoked same-tick — the Chrome truncation trap)
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -1303,14 +1304,7 @@ export function AssistantPanel() {
       const cd = res.headers.get("content-disposition") ?? "";
       const match = /filename="([^"]+)"/.exec(cd);
       const filename = match?.[1] ?? `ai-session-${new Date().toISOString().slice(0, 10)}.${format}`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, filename);
       toast({ title: format === "md" ? "已导出 Markdown 会话记录" : "已导出 JSON 会话记录" });
     } catch {
       toast({ title: "导出失败 — 网络不可达", variant: "destructive" });

@@ -27,6 +27,9 @@
 import { toBlob } from "html-to-image";
 import type { JobDTO, EdgeDTO } from "./types";
 import { copyPngToClipboard } from "./chart-export";
+// t646 — the blob sink lives in lib/download (this dance skipped the
+// attach-before-click Firefox law)
+import { downloadBlob } from "@/lib/download";
 
 export interface CanvasExportMeta {
   projectName: string;
@@ -182,12 +185,7 @@ export async function canvasPngBlob(meta: CanvasExportMeta): Promise<CanvasPng> 
 export async function exportCanvasPng(meta: CanvasExportMeta): Promise<CanvasExportResult> {
   const png = await canvasPngBlob(meta);
 
-  const url = URL.createObjectURL(png.blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = png.fileName;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  downloadBlob(png.blob, png.fileName);
 
   return { fileName: png.fileName, width: png.width, height: png.height, bytes: png.blob.size };
 }
