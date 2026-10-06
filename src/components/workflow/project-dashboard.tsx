@@ -1774,6 +1774,39 @@ function ActiveProjectSpotlight({
   // silently filters project B's first paint.
   const [rosterQuery, setRosterQuery] = React.useState("");
   const [prevProjectId, setPrevProjectId] = React.useState<string | null>(project?.id ?? null);
+  // t620 — the roster viewport's honesty: max-h-80 shows ~5 of 12 rows and,
+  // until now, said NOTHING about the rows sitting below the fold (the
+  // SavedViewsGallery law — "says honestly how many more" — had covered the
+  // card wall, the chip strip and the failed strip, but not the roster).
+  // hiddenBelow is the LIVE count of rows under the fold: recomputed on
+  // every scroll event and on any resize/filter change, so the badge's
+  // number is always the truth of this exact scroll position, and it
+  // disappears the moment the last row is on screen.
+  const rosterScrollRef = React.useRef<HTMLDivElement>(null);
+  const [hiddenBelow, setHiddenBelow] = React.useState(0);
+  const syncHiddenBelow = React.useCallback(() => {
+    const el = rosterScrollRef.current;
+    if (!el) return;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (remaining <= 4) {
+      setHiddenBelow(0);
+      return;
+    }
+    const firstRow = el.querySelector("tbody tr");
+    const rowH = firstRow ? firstRow.getBoundingClientRect().height : 56;
+    setHiddenBelow(Math.ceil(remaining / rowH));
+  }, []);
+  // hooks stay above the `if (!project)` early return — the recount rides
+  // slice lengths (rows added/removed/filtered change the overflow) plus a
+  // ResizeObserver for container resizes the slices can't see.
+  React.useEffect(() => {
+    syncHiddenBelow();
+    const el = rosterScrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => syncHiddenBelow());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [syncHiddenBelow, deferredJobs.length, jobFilter, rosterQuery]);
   // t613 — the wave's mount ledger (the law lives in the docblock above
   // SPOT_BASE_MS): the head's face count frozen at first mount + one
   // ticket per tail face, assigned once and never rewritten.
@@ -1985,6 +2018,12 @@ function ActiveProjectSpotlight({
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Jobs
           </p>
+          {/* t620 — the screen label now speaks the count the printed thead
+              always carried: "Jobs · 12 · newest first". The All chip's n is
+              the filter's count; this one is the roster's identity. */}
+          <span className="text-[10px] tabular-nums text-muted-foreground/70">
+            {visibleJobs.length} ·
+          </span>
           <span className="text-[10px] tabular-nums text-muted-foreground/70">
             newest first
           </span>
@@ -2098,7 +2137,19 @@ function ActiveProjectSpotlight({
             )}
           </div>
         )}
-        <div className="max-h-80 overflow-y-auto pr-1 nice-scroll">
+        {/* t620 — the viewport wrapper: the scroll box gains keyboard reach
+            (tabIndex + region naming — Tab in, arrows scroll) and the
+            relative shell hosts the "+N more below" honesty badge, which
+            counts the rows under the fold LIVE and vanishes at the bottom. */}
+        <div className="relative">
+          <div
+            ref={rosterScrollRef}
+            onScroll={syncHiddenBelow}
+            tabIndex={0}
+            role="region"
+            aria-label={`Jobs roster — ${visibleJobs.length} rows, newest first`}
+            className="max-h-80 overflow-y-auto rounded-lg pr-1 nice-scroll focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
           {visibleJobs.length === 0 ? (
             q ? (
               <p
@@ -2149,6 +2200,21 @@ function ActiveProjectSpotlight({
               </tbody>
             </table>
           )}
+          </div>
+          {/* the honesty badge — pointer-events-none (scroll gestures pass
+              through) and aria-hidden (screen readers already have the row
+              count in the region's aria-label); the dashed-border pill is
+              the FailedJobsStrip "+N more" dialect, neutral-toned here. */}
+          {hiddenBelow > 0 ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-lg bg-gradient-to-t from-card via-card/85 to-transparent"
+            >
+              <span className="absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full border border-dashed border-border bg-card/95 px-2.5 py-0.5 text-[10px] tabular-nums text-muted-foreground shadow-sm">
+                +{hiddenBelow} more below
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
