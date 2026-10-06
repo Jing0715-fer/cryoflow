@@ -9231,3 +9231,27 @@ Stage Summary:
 - 「后台正确性需要存在性，但存在性会被 boot 快照冻结」：global-reconcile 是「无浏览器也正确」的承诺，但 stuck 查询的 world view（running/pending only）和 Next dev 的 boot 模块绑定都是它的暗礁——每加一类「terminal 但仍需照料」的行，都要重新问一遍：节拍看得见它吗？
 - 「witness 的 R 段要还原它偷走的一切，包括看不见的指针」：t624 留下 active 漂移，本窗 witness 的 W0 记录 prevActive、R 显式还原——hygiene 的完备性不是「删了我的东西」，是「世界回到我来之前」
 - 产出：回执第三级四文件（types/stop route/remote-run/global-reconcile）+ 第二机会写入（竞速翻案）+ t625-accounting-backfill-live-fire.mjs（38 断言 ALL PASS）+ inspect-t625-rows.mjs（时间戳验尸相机）+ 📸 1 张；tsc 0、eslint 0、node --check 0；t252 ALL PASS 回归；正典 12/11 完好、active 归位 EMPIAR、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②休眠套件逐套复活继续（t622 方法论）③下一块新面侦察（样式架空）④回执第四级：落账后的 outputs sync-back 侦察 ⑤build 日被动重测（第 34 窗否决）
+
+---
+Task ID: 626 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 15:39 cron, Job 362852, Task 572 系第 45 次派单)
+Task: t625 下窗入口④兑付——回执第四级第一刀：outputs ledger leg。侦察把 t625 的「heal 不同步 outputs（已知边界）」升格为「on-demand 政策对 healed job 已死」，落地 manifest-only 腿（一次 find、零下载、零 dispatch）；witness 三世界 + 早退线致盲翻案 + 探针偷指针自债。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 625（派单摘要语境说 619——滞后第 N+72 次兑付）；HEAD 64970fc 树净；available 931MB 非 build 日（第 35 窗被动否决）。
+- [QA 摸底] agent-browser 专港 9344 + 清 profile：正典 12 jobs / 11 completed / 1 idle、active 归位 EMPIAR（t625 R 段法则生效中）、console 0 error、📸 t626-home-12jobs.png。
+- [侦察定谳] 选道 t625 入口④。读 landAccountingVerdict/finalizeRemoteRun/syncBackWorkdir/t424 路由全链：**heal 不同步 outputs 不是「边界」，是「政策死亡」**——t424 批量取件、t289 懒取件、classes/iterations 视图全部以 remote manifest 为 exact-entry 授权源（路由自述「cannot be talked into fetching anything the ledger does not already name」），而 landing 从不写 manifest：落账的 run 行说 completed/100，Files tab 一无所知，取件门全锁。t289 教义「even a sync that dies mid-way leaves the outputs view knowing what the cluster holds」在 landing 路径上整体缺位。
+- [第四级第一刀·两文件] ①types.ts：RemoteRunState 增 outputsLedgerPending / outputsLedgerTries / outputsLedgerAt 三字段（问题/ strikes / 落地戳）；②remote-run.ts：landAccountingVerdict 每次落地（四种结局全路径：COMPLETED 落地、CANCELLED 确认、其他 terminal 词、沉默过期）同笔开题 outputsLedgerPending——「每次落地恰好一道题」；sweep 新桶 outputsLedger（旗标即守卫：无行状态守卫——落账行必为 failed/completed；重跑整体换记录，旗不继承）；腿=每记录一次 manifestFindScript（15s 窗）→ parseManifestListing → writeRemoteManifest → closeOutputsLedger({landed:true})——**刻意无 stale gate**（清单列一切，t367「Files tab 说 cluster 的真话」，只有 sync-back 的 PULL 才被门控，本腿不拉任何字节）；失败 bump tries（3 击闭题，防老化成 per-tick SSH 税）；workdir 消失即闭（ledger 侧零 SSH）；无连接保持开放（t325-a fallback 同款 courtesy，仅扫描成本）；30s per-connection floor 只节流重试。
+- [本窗最大学费——早退线致盲] witness 首跑 8 FAIL 验尸：W1 landing 成功开题但腿零日志、W3 连 ledger 侧即闭都没发生。加两行 t626diag 诊断线 + scripts/diag-t626-leg.mjs 最小探针（plant+drive+读日志）：**bucketed×5 但 leg-pass×0**——真凶 line 7199 快速早退 `if (active/heal/accounting 全空) return out` 不认新桶：只欠 outputs 债的 pass（healed 记录 done+terminal、无 active/heal/accounting）在最安静的路径上整体跳过腿。t625 教义逐字重演：「每加一类 terminal 但仍需照料的行，都要重新问一遍：节拍看得见它吗？」——守卫加 `outputsLedger.length === 0`，注释立法。探针复跑即见腿点火（diag 的远端 workdir 未建 → find exit 1 → tries 正确累积）。
+- [第二学费——探针自偷指针] 早退修复后 witness 二跑 ALL PASS，但其 R 段断言 prevActive=demo（cmur3ti...）而非正典 EMPIAR——**diag-t626-leg.mjs 自己欠的债**：POST /api/projects SETS ACTIVE，探针的 finally 没还指针（t624 留下、t625 QA 走回的同一笔）。产品门 switch 归还 EMPIAR + diag 脚本法典化 prevActive 记录/还原（R 段法则适用于一切造 fixture 的工具，无论多小）。
+- [witness] scripts/t626-outputs-ledger-live-fire.mjs（chrome-less，t625 脚手架 + mock 真 bash 的红利）：mock exec 是真 /bin/bash over 真 FS——腿的 find 直接枚举 witness 种下的真文件，无需 stub 语法。W1 landing 开题→腿一次 find→manifest 落本地 workdir（断言五重：manifest 在、star family 在（band a/b）、root 非 star 在（band c）、nested rounds 在（band d）、connectionId+remoteWorkdir 地址对）+ 词不动断言（记录 result 逐字=ledger 落地句）+ 零下载断言（workdir 里除 manifest 外空无一物）；W3 workdir gone 即闭（无 manifest、无 at、无 crash）；W2 mock exec-slow-ms lever（20000ms > 15s 轮超时，子串 "maxdepth 1" 仅 find 说）三击闭题——旗清、无 at、无 manifest、收据词（137/stopped by user）原封、lever 当场拆除；R 全还（账本快照/行/项目/连接/active 指针/mock 侧/artifacts）。**31 断言 ALL PASS**（二跑）。
+- [回归] t252 ALL PASS（写门+roster 贴地 12+console 哨兵）；t625 witness 复跑 ALL PASS（38 断言——t626 旗标与 t625 合同共存：landing 开新题、腿对 t625 的不存在 workdir 三击自闭、其断言面零扰动）；tsc 0、eslint 0、node --check 0；正典 12/11 复核、console 0 error、📸 t626-final-12jobs.png；chrome 清场零孤儿。
+- [未做与理由] build 日（第 35 窗否决，931MB）；judge 风暴活体半场（等稳定夜）；第四级第二刀（landing 后的真 sync-back：per-class star split + syncBackWorkdir + collectOutputs + 记录 outputs 键——完整形态等有输出型 job 的活体夜，本窗 manifest-only 已解锁全部取件门）；休眠套件逐套复活（长跑避收割区，内存制度 537MB 收尾）；下一块新面侦察（样式架空）。
+
+Stage Summary:
+- 「heal 不同步 outputs 不是边界，是政策死亡」：on-demand 取件的授权链是 manifest——landing 不写 manifest，政策对 healed job 就是死的。侦察的功把 t625 的「已知边界」升格成「必须修的病」：一句「fetchable on demand 政策已在」经不起对授权链的追问
+- 「ledger first 的教义也分级别」：sync-back 的清单先于下载（t289 本义）；本窗把同一教义推到逻辑终点——**零下载也先立清单**。manifest-only 腿证明「outputs view 知道 cluster 持有什么」可以不拉一个字节就成立；下载是清单的下游，不是清单的前提
+- 「早退线是节拍最安静也最致盲的出口」：快速路径守卫漏一个桶，新世界就在最安静的路上无人问津——witness 的 8 FAIL 全绿在 landing（有人看见）而全灭在腿（无人看见）；诊断线 pair（bucketed vs leg-pass）一贴就把「分类死了」和「腿死了」分尸干净。t625 定律现在有了自己的法条：every new bucket goes into the early-exit guard or it does not exist
+- 「腿命名文件，从不重写判词」：manifest leg 的全部产品是清单——词是账本的（landing 落的）、判词是收据的（stop 写的）、腿只陈述 cluster 持有什么。W1 的逐字句断言与 W2 的收据原封断言，把这个权力边界钉进了合同
+- 「探针也要守 R 段法则」：witness 的 prevActive 法典被自家 diag 绕过——hygiene 的完备性按「谁造 fixture」计，不按「谁大」计；修完顺手把法则编码进 diag，让最小工具也带着最大工具的教养
+- 产出：回执第四级第一刀两文件（types.ts 三字段 / remote-run.ts 落地开题+新桶+manifest 腿+早退守卫修复）+ t626-outputs-ledger-live-fire.mjs（31 断言二跑 ALL PASS）+ diag-t626-leg.mjs（分尸相机+法典化 prevActive）+ 📸×2；tsc 0、eslint 0、node --check 0；t252 + t625 双回归 ALL PASS；正典 12/11 完好、active 归位 EMPIAR、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②第四级第二刀：landing 后的真 sync-back（等输出型活体夜）③休眠套件逐套复活继续（t622 方法论）④下一块新面侦察（样式架空）⑤build 日被动重测（第 35 窗否决）
