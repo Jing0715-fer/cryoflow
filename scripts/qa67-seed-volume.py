@@ -168,7 +168,13 @@ def write_mrc(path, vals):
 
 
 def main():
-    clean = "--clean" in sys.argv
+    # --take-home is a deliberate alias of --clean here (t630 rollout):
+    # this seeder owns NO job rows — orthovol.mrc is a TENANT of the
+    # qa58 pair's workdir. Its only take-home duty is the radius (remove
+    # the volume so the landlord's --take-home sees a tenant-free
+    # workdir and can pop its entry + delete its rows). Tenant BEFORE
+    # host — the order is the iron law's second clause.
+    clean = "--clean" in sys.argv or "--take-home" in sys.argv
     job_id, wd = find_workdir()
     if wd is None:  # manifest fallback — resolve through the ledger
         wd = workdir_of(job_id)

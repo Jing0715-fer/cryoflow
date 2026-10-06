@@ -28,10 +28,21 @@ live job keeps done=False and a None pid — nothing in the app
 re-dispatches or liveness-checks running rows, so it stays honestly
 "running" until cleanup.
 
-Usage: python3 scripts/qa60-seed-fsc.py [--clean]
-  --clean removes the seeded star files + engine-state entries (the four
-  completed jobs stay; the QA Refine Live job is DELETED via the API so no
-  fake running card lingers on the canvas).
+Usage: python3 scripts/qa60-seed-fsc.py [--clean] [--take-home]
+  --clean removes nothing of the four SPECS hosts (Task 102 shared-fixture
+  doctrine) and deletes the QA Refine Live row + its traces so no fake
+  running card lingers on the canvas.
+
+  --take-home is the FULL specimen lifecycle (t630 rollout): everything
+  --clean does, PLUS the four SPECS hosts go home too — the standing-
+  fixture premise died with t628 (jobs POST assigns EVERY create to the
+  ACTIVE project, so these four land in whatever world is canonical that
+  night; the demo world's QA Post 300/320/385 + QA Refine 410 are that
+  archaeology). Consumers self-seed via this same find-or-create seeder
+  (Task 86/87 doctrine), so removal is order-safe. Radius first (files +
+  engine-state entries — a deleted row with a kept entry is a dangling
+  registration, t629's Z7 fail class), then the rows through the product
+  DELETE door (t97: DELETE never sweeps disk — the workdir DIR stays).
 """
 import datetime
 import json
@@ -181,7 +192,8 @@ def register_run(job: dict, workdir: str, done: bool = True, pid=None) -> None:
 
 
 def main() -> None:
-    clean = "--clean" in sys.argv
+    TAKE_HOME = "--take-home" in sys.argv
+    clean = "--clean" in sys.argv or TAKE_HOME
     jobs = api("/api/jobs")
     jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
     created_files = []
@@ -303,6 +315,44 @@ def main() -> None:
             print(f"clean: deleted live job {LIVE[0]}")
         else:
             print("clean: live job already absent")
+
+    if TAKE_HOME:
+        # t630 rollout — the four SPECS hosts go home (see docblock). The
+        # LIVE card above was already taken home by the clean branch.
+        for name, jtype, *_ in SPECS:
+            row = next((j for j in jobs if j.get("name") == name), None)
+            if row is None:
+                print(f"take-home: {name} already absent")
+                continue
+            # radius first: the seeded star file + the engine-state entry
+            # (pop BEFORE the row delete — a deleted row with a kept entry
+            # is a dangling registration, t629's Z7 fail class)
+            workdir = os.path.join(
+                "/home/z/my-project/data/relion", PROJECT, f"{jtype}_{row['id'][-8:]}"
+            )
+            for fname in ("postprocess.star", "run_half1_model.star"):
+                fpath = os.path.join(workdir, fname)
+                if os.path.exists(fpath):
+                    os.remove(fpath)
+                    print(f"take-home: removed {jtype}/{fname}")
+            try:
+                with open(STATE_PATH) as f:
+                    state = json.load(f)
+                if state.pop(row["id"], None) is not None:
+                    with open(STATE_PATH, "w") as f:
+                        json.dump(state, f, indent=2)
+                    print(f"take-home: entry popped for {name}")
+            except Exception as e:
+                print(f"take-home: state pop failed for {name} ({e})")
+            api(f"/api/jobs/{row['id']}", "DELETE")
+            print(f"take-home: deleted {name} ({row['id'][:10]}) via the product door")
+            # whole-specimen rule (t630): DELETE never sweeps disk (t97) —
+            # rmdir the per-job workdir only when the radius left it empty
+            try:
+                os.rmdir(workdir)
+                print(f"take-home: workdir removed (empty): {workdir}")
+            except OSError:
+                pass  # non-empty or already gone — the census will tell
 
 
 if __name__ == "__main__":

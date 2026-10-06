@@ -17,12 +17,25 @@ Select"), wired classAverages→classes, and flipped to completed directly
 in the DB (PATCH only allows status:"idle" — same approach the engine
 uses: the row is the source of truth for status, the workdir for output).
 
-Usage: python3 scripts/qa58-seed-gallery.py [--clean]
-  --clean removes the seeded workdir files (jobs/edge stay — harmless) and
-  pops the engine-state entry ONLY when the workdir holds no tenant files
-  (Task 161 cleanup-radius protocol — see qa_lib.py; qa67-seed-volume.py
-  drops orthovol.mrc into this workdir, and the /outputs route resolves
-  the workdir THROUGH the entry, so a popped entry orphans every tenant).
+Usage: python3 scripts/qa58-seed-gallery.py [--clean] [--take-home]
+  --clean removes the seeded workdir files and pops the engine-state entry
+  ONLY when the workdir holds no tenant files (Task 161 cleanup-radius
+  protocol — see qa_lib.py; qa67-seed-volume.py drops orthovol.mrc into
+  this workdir, and the /outputs route resolves the workdir THROUGH the
+  entry, so a popped entry orphans every tenant).
+
+  --take-home is the FULL specimen lifecycle (t628/t630 doctrine): radius
+  clean first (the order is iron law — the radius needs the job ids to
+  find the workdir; deleting rows first would make a re-seed resurrect
+  them), then the two job rows go home through the product DELETE door
+  (edges cascade; the linked-copies guard is respected). The old
+  "jobs/edge stay — harmless" premise is DEAD: t628 convicted it — the
+  jobs POST route assigns EVERY create to the ACTIVE project, so this
+  pair lands in whatever world is canonical that night and stays as a
+  resident. A specimen is not a resident. Refuses to delete (exit 2)
+  when tenants still hold the workdir: a deleted row with a kept entry
+  is a dangling registration — worse than a living resident. Order for
+  tenant suites (qa67/qa68): tenant --clean FIRST, then this --take-home.
 """
 import json
 import os
@@ -183,9 +196,17 @@ with open(state_path, "w") as f:
     json.dump(state, f, indent=2)
 print(f"run record: registered for {src['id']} → {workdir}")
 
-if "--clean" in sys.argv:
+TAKE_HOME = "--take-home" in sys.argv
+if "--clean" in sys.argv or TAKE_HOME:
     removed = []
-    for p in (star_path, mrcs_path):
+    # the radius is THREE files: the data star, the mrcs stack, AND the
+    # optimiser witness (run_it012_optimiser.star, written further down
+    # in the seed flow). The witness was missing from this radius forever
+    # — harmless while the rows stayed (the old fiction), but the
+    # t630 take-home guard refused on it on day one: a real radius leak,
+    # caught in vivo.
+    witness_path = os.path.join(workdir, f"run_it{ITER:03d}_optimiser.star")
+    for p in (star_path, mrcs_path, witness_path):
         if os.path.exists(p):
             os.remove(p)
             removed.append(os.path.basename(p))
@@ -201,7 +222,7 @@ if "--clean" in sys.argv:
     # this chain). A living job keeps its registration — outputs then
     # lists what is REALLY on disk (the route readdirSyncs the workdir);
     # a tenant-free workdir gets the honest pop, radius = seed radius.
-    own = {os.path.basename(star_path), os.path.basename(mrcs_path)}
+    own = {os.path.basename(star_path), os.path.basename(mrcs_path), os.path.basename(witness_path)}
     tenants = []
     try:
         tenants = sorted(f for f in os.listdir(workdir) if f not in own)
@@ -209,6 +230,14 @@ if "--clean" in sys.argv:
         pass  # no workdir at all — nothing to protect, pop below is honest
     if tenants:
         print(f"clean: engine-state entry KEPT — tenant files present: {tenants}")
+        if TAKE_HOME:
+            # t630 take-home guard: a deleted row with a kept entry is a
+            # dangling registration (t629's Z7 fail class) — worse than a
+            # living resident. The caller must clean the tenants FIRST
+            # (qa67/qa68 order: qa67-seed-volume --clean, then here).
+            print("take-home: REFUSED — tenants still hold the workdir "
+                  f"({', '.join(tenants)}); run the tenant's --clean first")
+            sys.exit(2)
     else:
         try:
             with open(state_path) as f:
@@ -222,6 +251,39 @@ if "--clean" in sys.argv:
     # the classes route 404s-by-empty when the workdir vanishes entirely —
     # keep the directory itself so a stale job never turns into a 500
     print(f"clean: removed {removed or 'nothing'}")
+    if TAKE_HOME:
+        # t630 — the rows go home through the product DELETE door (edges
+        # cascade via Prisma; the linked-copies guard is respected — the
+        # pair carries none). Idempotent: absent rows count as done.
+        gone = 0
+        for name in (SRC_NAME, SEL_NAME):
+            try:
+                jobs = api("/api/jobs")
+                # /api/jobs answers {"jobs":[…]} (dict) or […] depending on
+                # the route's envelope — unwrap before find-by-name
+                if isinstance(jobs, dict):
+                    jobs = jobs.get("jobs", [])
+                row = next((j for j in jobs if j.get("name") == name), None)
+            except Exception as e:
+                print(f"take-home: job lookup failed for {name} ({e})")
+                sys.exit(2)
+            if row is None:
+                gone += 1  # already home — idempotent re-run counts it
+                continue
+            api(f"/api/jobs/{row['id']}", "DELETE")
+            gone += 1
+            print(f"take-home: deleted {name} ({row['id'][:10]}…) via the product door")
+        print(f"take-home: {gone}/{2} rows home")
+        # the WHOLE specimen goes home: DELETE never sweeps disk (t97), so
+        # the per-job workdir would fossilize — one empty dir per cycle.
+        # os.rmdir only succeeds when EMPTY (the radius already removed
+        # everything we own; any tenant still present keeps the dir alive
+        # — the refusal guard above already exited by then).
+        try:
+            os.rmdir(workdir)
+            print(f"take-home: workdir removed (empty): {workdir}")
+        except OSError as e:
+            print(f"take-home: workdir kept ({e})")
     sys.exit(0)
 
 # ---- run_it012_data.star — particle→class assignment (1455 rows) ----
