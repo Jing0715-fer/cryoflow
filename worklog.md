@@ -9510,3 +9510,25 @@ Stage Summary:
 - 「慢不是挂，探针也要 t523 律」：1.2s 盲读给 3.8s 的合法迟到判了死刑；wire 抓包与 server log 交叉验证才定谳——探针的等待要用轮询+预算（20s），与套件等待律同一条根
 - 「恢复链是动词不是脚本」：三级 seeder 链第三次吃狗粮（t635 灾难、本窗误诊反转、bundle 清账），幂等重放从 panic 动作降级为例行 chore——这正是把恢复做成可重放动词的复利
 - 产出：恢复链重放全绿（DB 2 项目 21 jobs / canvas 15 nodes / t252 ALL PASS）+ EMPIAR 640MB 真数据 10/10 + t528 staging + t531 CHECK PASS（自洽修复）+ 透镜 type-ahead 高亮全链（11 pass/0 fail）+ 三件验尸仪器（world-census/net-diagnose/keepalive-probe）+ 📸×2；下窗入口：①EMPIAR 12-job 轻量重建裁决（正典 roster 考古先行）②dev 编译绞行治本（watcher ignore 或 build 车道）③t156/t157 实跑（15-job 世界对账）④engine build（等 build 日）⑤judge 风暴（等稳定夜）
+
+---
+Task ID: 637 (收官)
+Agent: main (Z.ai Code, window 2026-10-07 00:24 cron, Job 362852, 第 56 次派单)
+Task: 立案收割窗——t636 的「dev 编译绞行」治本车道落地，验尸过程反转了立案假设：inotify 判死 watcher 假说，真凶是 instrumentation.ts 的 edge bundle 永不编译成功、每请求重试 ~570ms + 48 errors；修复后每次 API 请求 ~100× 提速、日志火灾熄灭。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 636（派单摘要说 Task 13——滞后第 N+83 次兑付）；HEAD 59ebaa4 树净；available 1321MB 非 build 日（第 46 窗被动否决）；server 200 / RSS 2085MB；t252 ALL PASS（15 jobs / 写门 403 / console 0）。
+- [立案重审] 下窗入口②「dev 编译绞行治本（watchOptions ignored data//db/）」——t636 的立案假设是 jobs 轮询写 data/*.json 与 watcher 互绞。三段验尸：①活日志 /tmp/cryoflow-qa/dev-server.log 53MB/608k 行/30 分钟（≈340KB/s 的日志火灾），其中 node-module-in-edge-runtime 错误 23,177 个、Import trace 全部指向 Edge Instrumentation → instrumentation.ts → judge-worker/global-reconcile → engine/ssh/prisma 全家；②同请求复打判别（connections×3、projects×3，间隔 0.3s 零写入）：**每请求恒付 ~570-600ms "compile:" 开销**，compile: 字段=确保路由编译态最新的耗时；③inotify 全 repo 树监听（排除 .next/node_modules/.git）跨两次请求：**零写入**——watcher 假说死刑，失效是 dev server 内生的。
+- [根因定谳] Next 同时在 node 与 edge 两个 runtime 加载 instrumentation.ts；**edge bundler 静态追踪 dynamic import**——`await import("@/lib/ai/judge-worker")` 把整个 Node 图拖进 edge bundle（node:fs/node:path/prisma/ssh2 全部非法），编译永败；NEXT_RUNTIME 守卫只保护执行不保护编译（Turbopack 不做守卫后的死代码剪枝）。每次请求触发 instrumentation 重评估 → 重试必败的 edge 编译（整个 Node 图的编译量 ≈ 570ms）→ ~48 个 node-module 错误重放。480 请求 × 48 ≈ 23,177 完美对账；197 次贵编译分布（connections 45/45、jobs 18、edges 11）= 同病灶的不同投影。t636 的「3.8s = compile 2.6s + watcher 互绞」归因修正：绞行与 watcher 无关，全是这个必败重试。
+- [修复] instrumentation.ts 手术：register() 只留 warmBoot（纯 fetch+timer，双 runtime 都可编译）；mountReaper/mountJudgeWorker 的 dynamic import 连根拔除——reaper 经 jobs GET 路由的防御挂载（ensureGlobalReconciler, route.ts:112）、judge-worker 经 status 路由防御挂载（ensureJudgeWorker），warmBoot 路线表新增 /api/ai/judge-worker 保住 t574 boot 挂载契约；文件头部刻 t637 教义（edge bundler 静态追踪 dynamic import / 守卫不保护编译 / 本文件只许 import fetch+timer）。
+- [重启插曲] pkill→dev-server.sh 重启与旧 server 的端口释放赛跑：新 boot 撞见 3000 未释放 → 退避 3001；watchdog（单 keeper 律）16:41:59 判「no next dev process」用 hardened env 重新 boot → 收敛回唯一一对（14733→14754 @3000）。多 boot 混乱按构造自愈（dev-server.sh 自带 pkill + flock 单 keeper）；活体验证：api/projects 返回 Tutorial 6 + demo 15 = cryoflow.db 正统世界。
+- [修复验证·四门全绿] ①edge 错误：23,177 → **0**（boot 后 30 分钟全程零新增）；②stickiness：connections 580ms→**3-11ms**、projects 600ms→**5-25ms**、jobs →**10-16ms**（compile: 1-2ms 驻留——路由编译态终于保鲜）；③防御挂载：[reaper] mounted (every 15s) + [judge-worker] mounted (tick 30000ms) + [warmup] 六路由全 200（新增 judge-worker 站位）；④日志火灾：53MB/608k 行 → **2.4KB**。t252 ALL PASS 回归。
+- [t637-ui-probe 新仪器] playwright 直驱（qa66 教义）五判据：landing <5s（实测 347ms）/ dashboard Shift+D 收敛（t632 律：默认 canvas 视图，roster 在 dashboard 后面——首轮 0 rows FAIL 即此，采纳 t90 toggle 收敛律后 15 rows）/ console 0 / 会话内 /api/jobs 13-16ms / 访问期 edge 错误零新增——**6 pass / 0 fail**，📸 t637-home-postfix.png。
+- [未做与理由] t156/t157 实跑（server RSS 2356MB 贴 2.6GB 回收线——boot 编译图谱的正常水位但跑套件前先让 watchdog 换一口新锅）；Task 13 遗留清单考古（#5 fs/browse 无鉴权等——本窗被绞行验尸占满，下窗优先）；EMPIAR 12-job 轻量重建（整窗工程）；judge 风暴（等稳定夜）。
+
+Stage Summary:
+- 「立案的假设也要被验尸」：t636 立案时把绞行归因于 data/*.json 与 watcher 互绞——本窗 inotify 零写入一锤定音翻案；同请求复打（零写入仍付 570ms）是比「看日志猜」硬得多的证据等级；立案记录的是症状，不是病因，收割时重新验尸是纪律不是重做
+- 「守卫保护执行，不保护编译」：NEXT_RUNTIME 的 runtime 守卫让 edge bundle 照样把 Node 图整捆拖进去编译——「代码跑不到」与「代码编不过」是两个世界；凡双 runtime 文件（instrumentation/middleware）只许 import 双方都合法的东西，node-only 依赖一律走运行时防御挂载路由
+- 「每请求 570ms 的税，收了 120 个窗」：23,177 错误/30 分钟、每 API 请求 ~100× 的隐藏延迟、53MB 的日志火灾——全在一个 8 行手术（删两个 dynamic import 挂载函数）里终结；性能病灶的账要用量化对账单（480×48≈23,177）钉死，不许「感觉快了」
+- 「watchdog 是世界的免疫系统」：端口赛跑造成 3001 幽灵 boot，单 keeper 律在 16:41:59 把世界收敛回唯一正统——多 boot 混乱不需要人肉排雷，按构造自愈；「hardened env」一行日志背后是 t377 的投毒防御
+- 产出：edge-instrumentation 绞行根因定谳 + instrumentation.ts 手术（8 行删除 + 路线表 1 行新增 + t637 教义 20 行）+ 每请求 ~100× 提速 + 日志火灾熄灭 + t637-ui-probe 新仪器（6 pass/0 fail）+ 📸×1；t252 ALL PASS、console 0、15 rows / 0 orphans 正典；下窗入口：①Task 13 遗留清单考古（#5 fs/browse 无鉴权 / #6/#14 pathref-star 策略 / #7 chart 全量同步读 / #8 particles BFS N+1 / #13 useMemo 内 localStorage 写——逐项验存亡）②t156/t157 实跑（先让 server RSS 回落）③EMPIAR 12-job 轻量重建（整窗工程）④judge 风暴（等稳定夜）⑤build 日三车道（第 47 窗重测）
