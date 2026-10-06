@@ -9115,3 +9115,25 @@ Stage Summary:
 - 「两世界同语义」：打印 thead 自 t84 起就说「Jobs · N · newest first」，屏幕 label 却沉默到今天——补齐的不是新信息而是老信息在另一个世界的缺席；All chip 的 n 是过滤器的计数，label 的 N 是 roster 的身份，同一个数字两种角色各说各的
 - 「显示层说文件坏了，先 od 再信」：两工具一致的 `[h` 吃字几乎定谳了一场损坏——十六进制审计一锤定音；同样的纪律用在 HMR 报错上：增量对比（13→13）而非绝对计数定谳编译健康
 - 产出：roster 视口诚实性三连（+N more below 活徽章 / tabIndex+region+ring 键盘可达 / 屏幕版 count）+ 浏览器全链路验证（动态 7→3→GONE→7、键盘 198px、双📸）+ t613 witness 49/49 零位移 + 波及面排查五脚本；eslint 0；下窗入口：①judge 风暴活体半场（等稳定夜）②search-mode 级联见证（样式候选剩项）③休眠套件逐套复活车道④build 日被动重测（第 29 窗否决）⑤stop 语义产品级重设计（feat 车道，t618 立案）
+
+---
+Task ID: 621 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 12:24 cron, Job 362852, Task 572 系第 40 次派单)
+Task: t620 下窗入口②兑付——search-mode 级联专项见证（t616 交接点名的样式候选剩项）：palette 账本的第四个重组动词（search RE-FILTERS）的专属 witness，产品零改动（本窗全部变化在 harness 侧）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 620（派单摘要说 584——滞后第 N+67 次兑付）；HEAD 2e8ea45 树净；available 842MB 非 build 日（第 30 窗被动否决）；dev 世界健康。
+- [语义考古] 「search-mode 级联专项见证」出自 t616 窗交接：「W4/W5 已覆盖同一 fill-on-miss 机制，未单独开道」——即 palette 账本（PAL 90 + size×24，fill-on-miss never rewritten）在 search RE-FILTERS 动词下的行为（docblock 119-124：forced-open 类目按 encounter order 提名 / clearing de-nominates / re-searching 重放冻结票）从未被专项断言。
+- [侦察首撞 OOM] agent-browser 专港 9338 侦察中途 chrome 被环境收割（available 766MB）——转 diag 脚本策略（t621-diag.mjs：自管 chrome 生命周期、跑完即灭）；侦察金矿：boot 19 脸（90+24i 连续阶梯、Import 独开）、topaz 搜后 6 脸（Picking forced-open、3 行票 618/642/666、计数 3 of 40、chrome 静默）、清空回 19/40 of 40、重输同票。
+- [witness 落地] t621-palette-search-mode-live-fire.mjs（t616 骨架复用：专港 9338 清 profile + snapshot-ref 真点击/真键入 + 单连续 rAF 采样器 + walk 递归 G0）：S1 boot 账本冻结（19 脸 90+24i 严格读序、Import 独开、40 of 40）→ S2 forced-open（Picking aria-expanded false→true、3 of 40、search box 持词）→ S3 账本尾巴 → S4 de-nomination（Clear verb 真点击、回 19、回 40 of 40）→ S5 冻结重放（同词同票 618/642/666）→ S6 chrome 静默（search box 198 帧全 none、124 帧持词）→ R 全还（错误网空、Escape 关、canvas 12 卡不扰）。
+- [首跑 29/33 → 断言被世界纠正三课] ①**cat:Picking 票 = 258 不是 546**：类目头从不受折叠律阻拦（fold law 只挡 row）——boot 已领票，搜索重放冻结票，「票属于脸」的更强证据；②**rows 票 618 而非 546**：账本 size 在 miss 时是 22 不是 19——逐字符输入的中间前缀（t/to/top/topa）各自提名的脸先领了 546/570/594 并永不重写——**账本是盒子路过过的每个构图的化石记录，不只是落点的那张**；③doc idx 2-4 非 1-3（hdr+cat 在 rows 前）。
+- [G0 三改定谳] 顶层 cssRules 扫描永远读不到波规则——规则活在 @media 门（和 Tailwind layer）下，media 规则的 cssText 含 receipt-arrival 但无 selectorText（首跑 4 红里的一条其实从没绿过）；t616 的 walk 递归教义移植（MEDIA/LAYER/SUPPORTS 递归 + STYLE_RULE 按 selector 匹配）+ pollUntil 等懒 chunk + 读时序移到 palette 挂载后——G0 三条全绿。
+- [收敛] 五跑 34/34（全绿首达）+ 六跑/七跑 34/34 两连——**三连绿收敛**；eslint 0 双脚本；📸 未落（witness 的 screenshot 在 Escape 后才拍——时序错误，.qa-logs 侧无证据，照实记录；断言全在读数层不受影响）。
+- [未做与理由] build 日（第 30 窗被动否决）；judge 风暴活体半场（等稳定夜）；休眠套件逐套复活（t619 立案）；stop 语义产品级重设计（t618 立案 feat 车道）；pollUntil 零值哨兵回流（t621 harness 的轮询目标为对象/真值，未踩雷）；t621-diag.mjs 的自动化清场已内建（跑完即灭，无孤儿）。
+
+Stage Summary:
+- 「账本是化石记录，不是落点快照」：逐字符搜索让中间前缀提名的脸永久留票——最终构图 618/642/666 的出票账（size 22）自证了 t/to/top/topa 四个中间世界的存在。never rewritten 的设计在搜索动词下第一次露出完整含义：迟到的脸不重演早到的票，早退的脸不退票
+- 「折叠律只挡 row 不挡 header」：cat:Picking 的 258 重放证明类目头是常驻脸——forced-open 强制的是行不是头；W4 unfold 阶梯（行在展开尾票）与 S3 搜索阶梯（行在账本尾票）是同一律的两个动词面
+- 「反位置证明的搜索版」：rows 的 doc 座位 2/3/4 对应票 618/642/666——若延迟按座位算该是 138/162/186；W4「票说账本不说座位」在第四个动词下再钉一次
+- 「walk 递归是 CSSOM 的唯一诚实读法」：@media 门下的规则在顶层扫描里是「有词无选择器」的幽灵——首跑那条 G0 红不是间歇环境账而是读法错（四跑才承认）；t616 的 walk 移植一次到位
+- 产出：t621-palette-search-mode-live-fire.mjs（34 断言三连绿）+ t621-diag.mjs（侦察教案现场，自清场）+ 断言侧三课入档；eslint 0；下窗入口：①judge 风暴活体半场（等稳定夜）②休眠套件逐套复活车道（t619 立案，浅休眠先例 t252）③stop 语义产品级重设计（feat 车道，t618 立案）④build 日被动重测（第 30 窗否决）⑤样式候选已清空——下一块新面（command palette 的 arrival？search lens 家族的 dashboard 侧）需新侦察
