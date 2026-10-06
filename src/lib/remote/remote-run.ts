@@ -6794,6 +6794,21 @@ const accountingPollState = new Map<string, { at: number; inflight: boolean }>()
 const ACCOUNTING_BACKFILL_PATIENCE_MS = 10 * 60_000;
 
 /**
+ * t626 — the outputs ledger leg's per-connection throttle. The leg is
+ * once-per-record by construction (the flag closes it), so this floor only
+ * paces retries after wire trouble — gentler than the accounting consult's
+ * 20s: a login node mid-hiccup gets breathing room, and the tries budget
+ * bounds the total exposure to three rounds.
+ */
+const OUTPUTS_LEDGER_FLOOR_MS = 30_000;
+/**
+ * t626 — three silent `find` rounds close the question (see the type's
+ * comment: the honest state is the CLOSED question, not a per-tick tax).
+ */
+const OUTPUTS_LEDGER_MAX_TRIES = 3;
+const outputsLedgerPollState = new Map<string, { at: number; inflight: boolean }>();
+
+/**
  * t346 — how long a single sweep's SSH round trip may take. Was 15s: the
  * t345 field ticket proved a mere `cat` on the user's login node can exceed
  * that (exec = sshd fork + shell + slow /data03), so the sweep itself timed
@@ -6976,6 +6991,13 @@ function landAccountingVerdict(
           remote: {
             ...cur.remote,
             accountingPending: undefined,
+            // t626 — the landing opens the OUTPUTS question: whatever the
+            // ledger said (completed / cancelled-confirmed / the run's own
+            // death / silence), the sync-back never ran for this run — the
+            // outputs view is blind until the manifest leg names the
+            // workdir. Every landing path passes through this write, so
+            // every landed run gets exactly one question.
+            outputsLedgerPending: true,
             ...(patch.slurmState && cur.remote.slurmState !== patch.slurmState
               ? { slurmState: patch.slurmState }
               : {}),
@@ -6986,6 +7008,51 @@ function landAccountingVerdict(
         }
       : null
   );
+}
+
+/* t626 — close the outputs-ledger question: either the manifest landed
+ * (outputsLedgerAt stamps the landing) or the question closed unasked.
+ * Guard mirrors landAccountingVerdict: only a DONE record that still
+ * carries the question and still belongs to the sweep's snapshot may be
+ * touched — a re-run replaces the record wholesale and the startedAt pin
+ * closes any classification→landing race. */
+function closeOutputsLedger(jobId: string, startedAt: string, patch: { landed?: boolean }): void {
+  updateRun(jobId, (cur) =>
+    cur.remote?.outputsLedgerPending && cur.done && cur.startedAt === startedAt
+      ? {
+          ...cur,
+          remote: {
+            ...cur.remote,
+            outputsLedgerPending: undefined,
+            ...(patch.landed ? { outputsLedgerAt: Date.now() } : {}),
+          },
+        }
+      : null
+  );
+}
+
+/* t626 — one failed SSH round, one strike; three strikes close the
+ * question (the type comment's law: a login node that cannot answer `find`
+ * three ticks running will not answer the fetch doors either). Returns
+ * whether this bump spent the budget. */
+function bumpOutputsLedgerTries(jobId: string, startedAt: string): boolean {
+  let exhausted = false;
+  updateRun(jobId, (cur) => {
+    if (!cur.remote?.outputsLedgerPending || !cur.done || cur.startedAt !== startedAt)
+      return null;
+    const tries = (cur.remote.outputsLedgerTries ?? 0) + 1;
+    exhausted = tries >= OUTPUTS_LEDGER_MAX_TRIES;
+    return {
+      ...cur,
+      remote: {
+        ...cur.remote,
+        ...(exhausted
+          ? { outputsLedgerPending: undefined, outputsLedgerTries: undefined }
+          : { outputsLedgerTries: tries }),
+      },
+    };
+  });
+  return exhausted;
 }
 
 export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
@@ -7001,6 +7068,13 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
   // ledger may still hold a DIFFERENT final word (COMPLETED / the run's
   // own exit). Consulted below, in one batched sacct per connection.
   const accounting: Array<{ job: Job; rec: RunRecord }> = [];
+  // t626 — the outputs ledger's open questions: DONE records whose landing
+  // (any verdict) opened the outputs question — the sync-back never ran for
+  // them, the remote manifest is absent, and every on-demand fetch door
+  // (Files tab, t424 batch, t289 lazy) reads that manifest as its
+  // exact-entry authorization. Served below by one manifest-only SSH round
+  // per record.
+  const outputsLedger: Array<{ job: Job; rec: RunRecord }> = [];
   const out = [...jobs];
   for (const job of jobs) {
     const rec = runs[job.id];
@@ -7026,6 +7100,12 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         (job.status === "failed" || job.status === "completed")
       )
         accounting.push({ job, rec });
+      // t626 — the landing's own question: no row-status guard here (a
+      // landed row is failed or completed by construction) — the flag IS
+      // the guard, opened once by the landing and closed once below; a
+      // re-run replaces the record wholesale (fresh records never inherit
+      // the question), the same double-guard the accounting bucket relies on.
+      else if (rec.remote.outputsLedgerPending) outputsLedger.push({ job, rec });
       continue;
     }
     const entry: BatchEntry = { job, rec, remote: rec.remote };
@@ -7116,7 +7196,18 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
     }
   }
 
-  if (active.length === 0 && heal.length === 0 && accounting.length === 0) return out;
+  // t626 — the fast path's world view grows by one bucket: a pass whose
+  // only open questions are the outputs ledger's must NOT early-exit (the
+  // t625 law restated: every new class of "terminal but still needs care"
+  // row has to be visible to the sweep's every exit, and the quiet-night
+  // early return is the easiest one to go blind on).
+  if (
+    active.length === 0 &&
+    heal.length === 0 &&
+    accounting.length === 0 &&
+    outputsLedger.length === 0
+  )
+    return out;
 
   // group by connection — t325-a (M2): resolve DEAD ids to a live
   // HOST-MATCHED connection BEFORE grouping. The old shape failed a
@@ -7940,6 +8031,110 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
         }
       } finally {
         accountingPollState.set(key, { at: Date.now(), inflight: false });
+      }
+    }
+  }
+
+  // ---- t626 — the outputs ledger leg (the fourth level's first slice) ---
+  // The accounting landing closed the receipt's WORD question; this leg
+  // answers the OUTPUTS question the landing exposes: a healed run's row
+  // says completed/100 but the sync-back never ran for it — no local
+  // mirror and, crucially, NO REMOTE MANIFEST, the exact-entry
+  // authorization source the Files tab, the t424 batch bring-home, and the
+  // t289 lazy fetch all read. The on-demand policy exists but is DEAD for
+  // a landed job: the route "cannot be talked into fetching anything the
+  // ledger does not already name", and the ledger names nothing. One
+  // manifest-only SSH round per record (the same find grammar the
+  // sync-back opens with — t289's own "ledger first" doctrine: even a sync
+  // that dies mid-way leaves the outputs view knowing what the cluster
+  // holds): NO downloads, NO per-class split, NO collectOutputs, NO
+  // dispatch. What it buys: the Files tab speaks the cluster's truth (a
+  // stopped run's finished rounds included — the t356 doctrine), and every
+  // fetch door unlocks against exact manifest entries. The heavier slice —
+  // the actual sync-back — waits for an output-type live night (the t625
+  // docket's fourth level).
+  if (outputsLedger.length > 0) {
+    const byConnLedger = new Map<
+      string,
+      { conn: RemoteConnection | null; entries: Array<{ job: Job; rec: RunRecord }> }
+    >();
+    for (const e of outputsLedger) {
+      const r = e.rec.remote!;
+      let conn = getConnection(r.connectionId);
+      if (!conn) {
+        // t325-a — the host-matched fallback, the same courtesy the
+        // accounting consult extends: a re-created connection on the same
+        // cluster keeps the question answerable.
+        const wanted = normalizeClusterHost(r.host);
+        if (wanted)
+          conn =
+            loadConnections().find(
+              (c) => normalizeClusterHost(`${c.host}:${c.port}`) === wanted
+            ) ?? null;
+      }
+      const key = conn ? conn.id : `lost:${r.connectionId}`;
+      const bucket = byConnLedger.get(key) ?? { conn, entries: [] };
+      bucket.entries.push(e);
+      byConnLedger.set(key, bucket);
+    }
+    for (const [key, { conn, entries }] of byConnLedger) {
+      const lst = outputsLedgerPollState.get(key) ?? { at: 0, inflight: false };
+      if (lst.inflight || Date.now() - lst.at < OUTPUTS_LEDGER_FLOOR_MS) continue;
+      outputsLedgerPollState.set(key, { at: Date.now(), inflight: true });
+      try {
+        // no connection anywhere — the question stays open at scan cost
+        // only (a re-created connection answers it, t325-a); no SSH tax.
+        if (!conn) continue;
+        for (const e of entries) {
+          const r = e.rec.remote!;
+          const localWorkdir = e.rec.workdir;
+          if (!r.remoteWorkdir || !localWorkdir || !existsSync(localWorkdir)) {
+            // nothing left to serve the manifest to (cleanup took the
+            // workdir) or to name (record predates the workdir field):
+            // close the question deterministically instead of aging it
+            // into a per-tick rescan.
+            closeOutputsLedger(e.job.id, e.rec.startedAt, {});
+            console.log(
+              `remote-run: the outputs ledger question for "${e.job.name}" closed unasked (local workdir gone) — nothing to serve the manifest to`
+            );
+            continue;
+          }
+          try {
+            const res = await exec(
+              conn,
+              manifestFindScript(REMOTE_MANIFEST_MAX, shQuote(r.remoteWorkdir)),
+              { timeoutMs: 15_000 }
+            );
+            if (res.error || res.code !== 0) throw new Error(res.error ?? `exit ${res.code}`);
+            // no generation gate here on purpose: the manifest lists
+            // EVERYTHING the workdir holds (the t367 doctrine — the Files
+            // tab speaks the cluster's truth; only the sync-back's PULLS
+            // are gated, and this leg pulls nothing).
+            const { entries: files, truncated } = parseManifestListing(
+              res.stdout,
+              REMOTE_MANIFEST_MAX
+            );
+            writeRemoteManifest(localWorkdir, {
+              connectionId: r.connectionId,
+              remoteWorkdir: r.remoteWorkdir,
+              files: files.map((f) => ({ path: f.rel, size: f.size })),
+              ...(truncated ? { truncated: true } : {}),
+            });
+            closeOutputsLedger(e.job.id, e.rec.startedAt, { landed: true });
+            console.log(
+              `remote-run: the outputs ledger landed for "${e.job.name}" — ${files.length} file${files.length === 1 ? "" : "s"} named on the cluster (manifest only; no sync-back ran)${truncated ? " — the ledger is capped, the cluster holds more" : ""}`
+            );
+          } catch (err) {
+            const exhausted = bumpOutputsLedgerTries(e.job.id, e.rec.startedAt);
+            console.log(
+              `remote-run: the outputs ledger round failed for "${e.job.name}" (${
+                err instanceof Error ? err.message : String(err)
+              })${exhausted ? ` — the question closes after ${OUTPUTS_LEDGER_MAX_TRIES} silent rounds; the on-demand doors stay shut for this run` : " — the question stays open"}`
+            );
+          }
+        }
+      } finally {
+        outputsLedgerPollState.set(key, { at: Date.now(), inflight: false });
       }
     }
   }

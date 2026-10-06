@@ -507,4 +507,33 @@ export interface RemoteRunState {
    * ledger's word; the killed receipt's row named the user).
    */
   accountingPending?: { at: number; missed: boolean };
+  /**
+   * t626 — the OUTPUTS LEDGER's open question, opened by the accounting
+   * landing itself (the fourth level's first slice): a landed run's row may
+   * say completed/100, but the sync-back never ran for it — no local mirror
+   * and, crucially, NO REMOTE MANIFEST, which is the exact-entry
+   * authorization source the Files tab, the t424 batch bring-home, and the
+   * t289 lazy fetch all read. The on-demand policy exists but is DEAD for a
+   * landed job: the route "cannot be talked into fetching anything the
+   * ledger does not already name", and the ledger names nothing. The sweep's
+   * outputs-ledger leg answers this question with ONE manifest-only SSH
+   * round (the same find grammar the sync-back opens with — t289's own
+   * "ledger first" doctrine): no downloads, no per-class split, no
+   * dispatch. Cleared when the manifest lands (`outputsLedgerAt` stamps it)
+   * or the question closes unasked / after three silent rounds.
+   */
+  outputsLedgerPending?: boolean;
+  /**
+   * t626 — how many manifest rounds failed for this question. Three
+   * strikes close it: a login node that cannot answer `find` three ticks
+   * running will not answer the fetch doors either, and the honest state is
+   * the CLOSED question, not a per-tick SSH tax.
+   */
+  outputsLedgerTries?: number;
+  /**
+   * t626 — epoch ms the manifest leg landed (the outputs view now knows
+   * what the cluster holds). Absent = the question closed without a
+   * manifest (workdir gone, or the tries budget spent).
+   */
+  outputsLedgerAt?: number;
 }
