@@ -9655,3 +9655,26 @@ Stage Summary:
 - 「套件的债务是世界的函数」：qa78 三笔债（名字锚、毒 URL、零恢复）在各自立窗时都不是债——世界换了四代后全部同时爆雷；worldJournal 双路恢复是 t632 cleanup 律在套件写侧的完整形态：不仅尸体要收，活体也要送回原位
 - 「盲等是在赌世界的钟」：2.5s 等 8s 的轮询周期读出的是假 FAIL——t523 律（轮询勿盲读）对套件内部同样适用，有界轮询是唯一诚实的等待
 - 产出：toast 复合 + 陷阱拆除（feat 车 db271f2）+ shortcuts 完形（feat 车 5d61609）+ qa78 三债复活/毒律扩散/t641 探针（qa 车 668d301）+ 📸×1（t641-shortcuts-toast.png）；下窗入口：①t101/t103/t105 陈旧 oracle 考古（各值一整窗，t157 判词模板可复用）②样式/功能车道继续（kbd 语汇统一 <Kbd> 原语 + 8 处方言清扫是现成下步）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 51 窗否决）⑤演练床一键可重跑（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 642 收官
+Agent: main (cron window, Job 362852)
+Task: t641 入口②兑现——kbd 语域统一：ui/kbd.tsx 原语立法 + 18 处方言现场扫荡（9 文件）+ 平台命名律（⌘/Ctrl 字面量）+ t642 探针
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 641 收官（派单 Task 13 引用第 N+85 次陈旧）；树净 HEAD 49846d4；available 760MB 非 build 日（第 52 窗否决）；server 200/30ms（PID 384 持续稳定）。
+- [QA 四绿] t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS——世界健康后才动工程。
+- [方言普查] 18 处 <kbd> 现场 / 9 文件，八种方言（bg-background / bg-muted / muted/60 / 裸底 × 8/8.5/9/10px × semibold/bold/regular × mono/inherit × rounded/rounded-[3px]）——骨架全同、笔迹各异；t637 镜头脚注与 t638 minimap chip 同屏相邻时刺眼。
+- [原语立法] ui/kbd.tsx：<Kbd> 持有骨架（rounded border bg-muted px-1 font-mono text-[9px] font-semibold leading-[14px] text-foreground/80），现场持有布局——className 覆盖即 delta（tailwind-merge 解冲突），shadcn Button 同款模式。头注释刻 t642 教义（键盘合同必须处处看起来像同一把键盘）。
+- [扫荡 18/18] lens×4 + minimap（bg-background 覆盖，三明治律保留）；shortcuts dialog 行芯片（条件 tint 覆盖）+ footer；help-popover + help-guide（px-1.5 py-0.5 text-[10px] delta）；palette 输入位 + footer×2（bg-muted/60 覆盖，8.5px 越轨者归入 9px 正典档位）；dashboard KPI + filter chips（bg-transparent 覆盖——currentColor 律的设计原样保留）；canvas 书签槽 + report M/H×2（text-[10px]/leading-4 delta）。
+- [平台命名律] job-card ⌘D×2 → ⌘/Ctrl+D、⌘↵ to save → ⌘/Ctrl ↵（Windows 用户此前读到的是天书）；canvas find toggle title (Ctrl+F) → (⌘/Ctrl+F)（macOS 用户此前读到的也是天书）——与 shortcuts dialog 的既有 ⌘/Ctrl 语汇对齐。
+- [t642 探针] 11 判据全绿：源码普查（原语骨架 / 8.5px 消灭 / dashboard 设计保留 / lens 迁移）+ DOM 活体（find toggle title 说 ⌘/Ctrl+F）+ shortcuts dialog 77 枚芯片经原语渲染且计算字体为 monospace（统一的实打实证据——多方言本无 mono）+ console 0。
+- [插曲] MultiEdit 非原子行为两度咬人：失败的第一轮编辑其实已落 import（重复）+ 吞掉三行既有 import（useWorkflowStore/cn/exemptions）——tsc 一发命中，恢复后双清。教训入册：MultiEdit 报失败后必须 git diff 核对实际落盘状态。
+- [回归] t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS + t636 12/0（lens kbd 计数 oracle 在原语化后幸存——探针数 <kbd> 标签而原语仍渲染 kbd）+ t642 11/0；tsc 0 + eslint 0。
+
+Stage Summary:
+- 「统一的证据在计算样式里，不在类名里」：探针断言 getComputedStyle 的 font-family 含 mono 而非类字符串含 font-mono——语域统一的验收标准是浏览器真实渲染的像素，不是源码的愿望
+- 「原语持有骨架，现场持有布局」：8 种方言的本质是同一骨架 + 8 种布局环境的组合；把骨架收进一个组件、让现场只说 delta（bg-background=三明治、bg-transparent=currentColor 律、px-[3px]=紧芯片），方言就消失而设计保全
+- 「覆盖即文献」：每个 className 覆盖都是一次设计判决的显式化——为什么这里底是透明的、为什么那里字号是 10px；扫荡后的代码读起来是律法书不是赌猜集
+- 「失败的工具调用也要验尸」：MultiEdit 报失败 ≠ 什么都没发生——非原子的部分应用 + 重复 import 是本窗唯一 bug，tsc 十秒抓获；对工具的信任应以 diff 为准不以回执为准
+- 产出：ui/kbd.tsx 原语 + 9 文件 18 现场扫荡 + 5 处平台命名统一 + t642 探针（11/0）+ 📸×1（t642-kbd-vocab.png）；下窗入口：①t101/t103/t105 陈旧 oracle 考古（t641 立案，各值一整窗）②样式/功能车道继续 ③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 52 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
