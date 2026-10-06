@@ -784,10 +784,10 @@ function RunCompareDialog<R extends { name: string }>({
                       {selecting ? (
                         <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                       ) : (
-                        <Grid2x2Check className="size-3.5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+                        <Grid2x2Check className="size-3.5 text-running" aria-hidden="true" />
                       )}
                       Continue downstream, selecting these
-                      <span className="font-semibold text-teal-600 dark:text-teal-400">
+                      <span className="font-semibold text-running">
                         ({improvedSeries.length})
                       </span>
                     </Button>

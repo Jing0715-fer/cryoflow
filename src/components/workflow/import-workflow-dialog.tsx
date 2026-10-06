@@ -221,7 +221,7 @@ export function ImportWorkflowDialog() {
                       const ren = renameCountByFile[i] ?? 0;
                       return ren > 0 ? (
                         <span
-                          className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
+                          className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold text-warning"
                           role="status"
                           title={renameTitle(ren, targetWsName)}
                           data-testid="import-row-rename"
@@ -234,7 +234,7 @@ export function ImportWorkflowDialog() {
                     })()}
                     {entry.warning ? (
                       <span
-                        className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
+                        className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold text-warning"
                         role="status"
                         title={entry.warning}
                         data-testid="import-row-warning"

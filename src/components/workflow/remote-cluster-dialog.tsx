@@ -187,7 +187,7 @@ function ProbeCard({
           className={cn(
             "text-[10px]",
             probe.ok
-              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+              ? "border-success/40 bg-success/10 text-emerald-700 dark:text-emerald-300"
               : "border-rose-500/40 bg-rose-500/10 text-danger"
           )}
         >
@@ -207,7 +207,7 @@ function ProbeCard({
         {probe.gpus.length > 0 ? (
           <Badge
             variant="outline"
-            className="border-teal-500/30 bg-teal-500/10 text-[10px] font-normal text-teal-700 dark:text-teal-300"
+            className="border-running/30 bg-running/10 text-[10px] font-normal text-teal-700 dark:text-teal-300"
           >
             {probe.gpus.length} GPU{probe.gpus.length === 1 ? "" : "s"}
           </Badge>
@@ -479,7 +479,7 @@ function RunResumeCard({
         {resume.completed > 0 ? (
           <Badge
             variant="outline"
-            className="border-emerald-500/40 bg-emerald-500/10 text-[10px] text-emerald-700 dark:text-emerald-300"
+            className="border-success/40 bg-success/10 text-[10px] text-emerald-700 dark:text-emerald-300"
             data-resume-completed=""
           >
             {resume.completed} completed
@@ -1228,7 +1228,7 @@ function ConnectionEditor({
             size="sm"
             className={cn(
               "h-9 shrink-0 px-2.5 text-[11px] text-muted-foreground hover:text-foreground",
-              clearFlag && "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+              clearFlag && "bg-warning/10 text-amber-700 dark:text-amber-300"
             )}
             onClick={() => onClearFlag(!clearFlag)}
             aria-pressed={clearFlag}
@@ -1682,7 +1682,7 @@ function ConnectionEditor({
         )}
         <div className="flex-1" />
         {savedFlash ? (
-          <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400" role="status">
+          <span className="flex items-center gap-1 text-[11px] text-success" role="status">
             <Check className="size-3.5" aria-hidden="true" /> Saved
           </span>
         ) : dirty ? (

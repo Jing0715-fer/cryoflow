@@ -742,7 +742,7 @@ export default function StorageDialog({
               {receipt && (
                 <p
                   data-storage-receipt=""
-                  className="mt-3 flex items-start gap-2 rounded-lg border border-teal-500/30 bg-teal-500/[0.06] px-3 py-2 text-xs text-teal-700 dark:text-teal-300"
+                  className="mt-3 flex items-start gap-2 rounded-lg border border-running/30 bg-running/[0.06] px-3 py-2 text-xs text-teal-700 dark:text-teal-300"
                 >
                   <Eraser className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                   {receipt}
@@ -877,7 +877,7 @@ export default function StorageDialog({
                             }}
                             className={`flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
                               orphan
-                                ? "cursor-default bg-amber-500/[0.05]"
+                                ? "cursor-default bg-warning/[0.05]"
                                 : "hover:bg-muted/40"
                             }`}
                             title={
@@ -890,7 +890,7 @@ export default function StorageDialog({
                               <p className="truncate text-sm font-medium">
                                 {job.name}
                                 {orphan && (
-                                  <span className="ml-2 rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                                  <span className="ml-2 rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
                                     no job record
                                   </span>
                                 )}
@@ -1014,7 +1014,7 @@ export default function StorageDialog({
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                       <p className="text-sm font-semibold">{runLensRow.name}</p>
                       {runLensRow.jobId === null && (
-                        <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                        <span className="rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
                           no job record
                         </span>
                       )}
@@ -1117,7 +1117,7 @@ export default function StorageDialog({
                                   }}
                                   className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
                                     orphan
-                                      ? "cursor-default bg-amber-500/[0.05]"
+                                      ? "cursor-default bg-warning/[0.05]"
                                       : "hover:bg-muted/40"
                                   }`}
                                   title={
@@ -1153,7 +1153,7 @@ export default function StorageDialog({
                         </ul>
                       </>
                     ) : ledgerState === "unlisted" ? (
-                      <p className="mt-2 rounded-md border border-dashed border-amber-500/40 bg-amber-500/[0.05] p-3 text-xs text-amber-700 dark:text-amber-300">
+                      <p className="mt-2 rounded-md border border-dashed border-warning/40 bg-warning/[0.05] p-3 text-xs text-amber-700 dark:text-amber-300">
                         {ledgerDiskFiles.toLocaleString()} file
                         {ledgerDiskFiles === 1 ? "" : "s"} on disk
                         {runCatFilter ? " in this category" : ""} — but none made the walk's
@@ -1269,7 +1269,7 @@ export default function StorageDialog({
                                 }}
                                 className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors ${
                                   orphan
-                                    ? "cursor-default bg-amber-500/[0.05]"
+                                    ? "cursor-default bg-warning/[0.05]"
                                     : "hover:bg-muted/40"
                                 }`}
                                 title={
@@ -1284,7 +1284,7 @@ export default function StorageDialog({
                                   </p>
                                   <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                                     {orphan ? (
-                                      <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                                      <span className="rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
                                         no job record · {f.dirName}
                                       </span>
                                     ) : (
@@ -1341,7 +1341,7 @@ export default function StorageDialog({
                                 }}
                                 className={`flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${
                                   orphan
-                                    ? "cursor-default bg-amber-500/[0.05]"
+                                    ? "cursor-default bg-warning/[0.05]"
                                     : "hover:bg-muted/40"
                                 }`}
                                 title={
@@ -1354,7 +1354,7 @@ export default function StorageDialog({
                                   <p className="truncate text-sm font-medium">
                                     {r.name}
                                     {orphan && (
-                                      <span className="ml-2 rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                                      <span className="ml-2 rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
                                         no job record
                                       </span>
                                     )}
@@ -1416,7 +1416,7 @@ export default function StorageDialog({
               )}
 
               {data.truncated && (
-                <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-3 text-xs text-amber-700 dark:text-amber-300">
+                <p className="mt-3 rounded-lg border border-warning/30 bg-warning/[0.06] p-3 text-xs text-amber-700 dark:text-amber-300">
                   The walk hit its entry cap — the numbers above are floors, not totals.
                 </p>
               )}
@@ -1577,7 +1577,7 @@ export default function StorageDialog({
                               </Button>
                             ) : (
                               <span
-                                className={`shrink-0 text-[10px] ${g.rowSnapshot ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground/70"}`}
+                                className={`shrink-0 text-[10px] ${g.rowSnapshot ? "text-warning" : "text-muted-foreground/70"}`}
                                 title={g.why}
                               >
                                 {g.rowSnapshot ? "already restored" : "canvas undo only"}
@@ -1619,7 +1619,7 @@ export default function StorageDialog({
                                   : `${g.edges} wire${g.edges === 1 ? "" : "s"} to neighbours — they re-attach when the job comes back`}
                               </p>
                               {!g.restorable && g.why && (
-                                <p className={g.rowSnapshot ? "text-amber-600 dark:text-amber-400" : ""}>
+                                <p className={g.rowSnapshot ? "text-warning" : ""}>
                                   {g.why}
                                 </p>
                               )}
@@ -1655,7 +1655,7 @@ export default function StorageDialog({
               {graveReceipt && (
                 <p
                   data-testid="graveyard-receipt"
-                  className="mt-2 rounded-md border border-teal-500/30 bg-teal-500/[0.06] px-2.5 py-1.5 text-xs text-teal-700 dark:text-teal-300"
+                  className="mt-2 rounded-md border border-running/30 bg-running/[0.06] px-2.5 py-1.5 text-xs text-teal-700 dark:text-teal-300"
                 >
                   {graveReceipt}
                 </p>

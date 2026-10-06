@@ -101,7 +101,7 @@ export function VerdictChips({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="rounded-full bg-teal-600/10 px-2 py-0.5 font-medium text-teal-700 dark:text-teal-400">
+      <span className="rounded-full bg-running/10 px-2 py-0.5 font-medium text-teal-700 dark:text-teal-400">
         {v.improved} {words.better}
       </span>
       <span className="rounded-full bg-rose-600/10 px-2 py-0.5 font-medium text-danger">
@@ -117,7 +117,7 @@ export function VerdictChips({
       <span className="text-muted-foreground">of {pairsCount} paired</span>
       {(onlyA.length > 0 || onlyB.length > 0) && (
         <span
-          className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-400"
+          className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-amber-700 dark:text-amber-400"
           title={
             `Only in A: ${onlyA.slice(0, 6).join(", ")}` +
             (onlyA.length > 6 ? "…" : "") +

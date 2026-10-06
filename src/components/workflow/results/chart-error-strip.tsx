@@ -42,7 +42,7 @@ export function ChartErrorStrip({
       aria-live="polite"
       aria-label={`${label} could not be loaded`}
       className={cn(
-        "animate-rise flex items-start gap-2 rounded-lg border border-amber-600/25 bg-amber-600/5 p-3 text-[11px] leading-snug text-amber-700 dark:text-amber-300",
+        "animate-rise flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/5 p-3 text-[11px] leading-snug text-amber-700 dark:text-amber-300",
         className
       )}
     >
@@ -62,7 +62,7 @@ export function ChartErrorStrip({
         data-chart-error-retry=""
         onClick={onRetry}
         aria-label={`Retry loading ${label}`}
-        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-600/30 bg-amber-600/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-amber-600/20"
+        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-warning/20"
       >
         <RefreshCw className="size-3" aria-hidden="true" />
         Retry

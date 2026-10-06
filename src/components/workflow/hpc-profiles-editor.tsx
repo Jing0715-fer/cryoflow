@@ -83,8 +83,8 @@ const MAX_ENV_LINES = 12;
 export const MODEL_BADGE: Record<string, string> = {
   A100: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
   H100: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
-  V100: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
-  RTX4090: "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30",
+  V100: "bg-warning/10 text-amber-700 dark:text-amber-300 border-warning/30",
+  RTX4090: "bg-running/10 text-teal-700 dark:text-teal-300 border-running/30",
 };
 
 /* ---------------------------------------------------------------- */
@@ -642,7 +642,7 @@ export function HpcProfilesEditor({
           </Button>
           <div className="flex items-center gap-2">
             {savedFlash ? (
-              <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400" role="status">
+              <span className="flex items-center gap-1 text-[11px] text-success" role="status">
                 <Check className="size-3.5" aria-hidden="true" /> Saved — server view shown
               </span>
             ) : dirty ? (

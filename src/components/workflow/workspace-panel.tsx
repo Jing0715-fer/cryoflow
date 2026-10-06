@@ -248,7 +248,7 @@ function WorkspaceRow({
         )}
         {stats.running > 0 && (
           <span
-            className="ws-running inline-flex h-5 items-center gap-1 rounded-md bg-teal-500/10 px-1.5 text-[10px] font-medium tabular-nums text-teal-600 dark:text-teal-400"
+            className="ws-running inline-flex h-5 items-center gap-1 rounded-md bg-running/10 px-1.5 text-[10px] font-medium tabular-nums text-running"
             title={`${stats.running} running`}
           >
             <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -257,7 +257,7 @@ function WorkspaceRow({
         )}
         {stats.pending > 0 && (
           <span
-            className="inline-flex h-5 items-center gap-1 rounded-md bg-amber-500/10 px-1.5 text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
+            className="inline-flex h-5 items-center gap-1 rounded-md bg-warning/10 px-1.5 text-[10px] font-medium tabular-nums text-warning"
             title={`${stats.pending} pending — waiting for an upstream job`}
           >
             <Clock className="size-3" aria-hidden="true" />
@@ -266,7 +266,7 @@ function WorkspaceRow({
         )}
         {stats.completed > 0 && (
           <span
-            className="inline-flex h-5 items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 text-[10px] font-medium tabular-nums text-emerald-600 dark:text-emerald-400"
+            className="inline-flex h-5 items-center gap-1 rounded-md bg-success/10 px-1.5 text-[10px] font-medium tabular-nums text-success"
             title={`${stats.completed} completed`}
           >
             <CheckCircle2 className="size-3" aria-hidden="true" />

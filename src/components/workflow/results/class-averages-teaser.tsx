@@ -129,8 +129,8 @@ export function ClassAveragesTeaser({
           size="md"
           className={
             populated === K
-              ? "border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
-              : "border-amber-600/30 bg-amber-600/10 text-amber-700 dark:text-amber-300"
+              ? "border-success/30 bg-success/10 text-emerald-700 dark:text-emerald-300"
+              : "border-warning/30 bg-warning/10 text-amber-700 dark:text-amber-300"
           }
           title={
             populated === K

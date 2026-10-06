@@ -231,7 +231,7 @@ export function PicksMap({
     <section
       aria-label="Picked particles map"
       className={cn(
-        "rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "rounded-lg border border-running/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
       )}
     >
@@ -252,7 +252,7 @@ export function PicksMap({
 
       {/* t427 — the FOM threshold scrubber: the autopick QA instrument */}
       {fomMode && (
-        <div className="mb-2 flex items-center gap-3 rounded-md border border-teal-600/20 bg-background/60 px-3 py-2">
+        <div className="mb-2 flex items-center gap-3 rounded-md border border-running/20 bg-background/60 px-3 py-2">
           <span className="flex shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             <ScanEye className="h-3 w-3 text-teal-600" aria-hidden="true" />
             FOM ≥

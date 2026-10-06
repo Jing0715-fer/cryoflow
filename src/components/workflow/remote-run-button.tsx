@@ -870,7 +870,7 @@ export function RemoteRunButton({
                         </p>
                       </div>
                     ) : probedModules.length === 0 ? (
-                      <p className="text-[10.5px] leading-snug text-amber-600 dark:text-amber-400">
+                      <p className="text-[10.5px] leading-snug text-warning">
                         module not probed — Test the connection first (Remote clusters in the top bar),
                         or type the exact module name above.
                       </p>

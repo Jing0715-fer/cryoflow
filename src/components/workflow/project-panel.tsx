@@ -163,7 +163,7 @@ export function NewProjectDialog({
             {nameError ? (
               <p className="text-[11px] text-destructive">{nameError}</p>
             ) : duplicateName ? (
-              <p className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
+              <p className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-1.5 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
                 <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
                 <span>
                   A project named “{trimmed}” already exists — you can still
@@ -326,7 +326,7 @@ export function NewProjectDialog({
               </span>
             </p>
           )}
-          <div className="flex items-center gap-2 rounded-md border border-teal-500/30 bg-teal-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-teal-700 dark:text-teal-400">
+          <div className="flex items-center gap-2 rounded-md border border-running/30 bg-running/10 px-2.5 py-2 text-[11px] leading-relaxed text-teal-700 dark:text-teal-400">
             <Snowflake className="size-3.5 shrink-0" aria-hidden="true" />
             <span>
               Engine · real RELION{system?.version ? ` ${system.version}` : ""}
@@ -336,13 +336,13 @@ export function NewProjectDialog({
             </span>
           </div>
           {relionMissing && (
-            <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+            <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
               <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               RELION not detected — jobs will fail to start honestly.
             </p>
           )}
           {relionWslOnly && (
-            <p className="flex items-start gap-2 rounded-md border border-teal-500/30 bg-teal-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-teal-700 dark:text-teal-400">
+            <p className="flex items-start gap-2 rounded-md border border-running/30 bg-running/10 px-2.5 py-2 text-[11px] leading-relaxed text-teal-700 dark:text-teal-400">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               RELION {system?.version ?? "?"} detected in WSL
               {system?.wsl.distro ? ` (${system.wsl.distro})` : ""} — jobs run

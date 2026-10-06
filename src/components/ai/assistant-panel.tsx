@@ -240,7 +240,7 @@ const PROSE_COMPONENTS: Components = {
           data-assistant-door={id}
           aria-label={`在画布中定位 ${label}`}
           title={`在画布中定位 ${label}`}
-          className="rounded px-0.5 font-medium text-teal-700 underline decoration-teal-500/40 underline-offset-2 transition-colors hover:bg-teal-500/10 focus-visible:bg-teal-500/15 focus-visible:outline-none hover:decoration-teal-500 dark:text-teal-300"
+          className="rounded px-0.5 font-medium text-teal-700 underline decoration-teal-500/40 underline-offset-2 transition-colors hover:bg-running/10 focus-visible:bg-running/15 focus-visible:outline-none hover:decoration-teal-500 dark:text-teal-300"
           onClick={() => useWorkflowStore.getState().revealJob(id)}
         >
           {children}
@@ -403,7 +403,7 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
             className={cn(
               "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md",
               item.ok
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                ? "bg-success/10 text-success"
                 : "bg-rose-500/10 text-danger"
             )}
           >
@@ -414,7 +414,7 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
               <code className="font-mono text-[11px] font-medium text-foreground">{item.name}</code>
               {item.ok ? (
                 <CheckCircle2
-                  className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                  className="size-3.5 shrink-0 text-success"
                   aria-label="succeeded"
                 />
               ) : (
@@ -496,7 +496,7 @@ function Notice({ item }: { item: Extract<UiItem, { kind: "notice" }> }) {
       )}
     >
       <Icon
-        className={cn("mt-0.5 size-3 shrink-0", stop && "fill-current", info && "text-teal-600 dark:text-teal-400")}
+        className={cn("mt-0.5 size-3 shrink-0", stop && "fill-current", info && "text-running")}
         aria-hidden="true"
       />
       <span className="min-w-0 break-words">{item.text}</span>
@@ -543,7 +543,7 @@ function ActionButtons({
               "flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs leading-relaxed transition-all",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
               isFired
-                ? "border-teal-500/40 bg-teal-500/[0.08] text-teal-700 dark:text-teal-300"
+                ? "border-running/40 bg-running/[0.08] text-teal-700 dark:text-teal-300"
                 : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/[0.05] hover:shadow-sm",
               disabled && "cursor-not-allowed opacity-60"
             )}
@@ -552,7 +552,7 @@ function ActionButtons({
               className={cn(
                 "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md",
                 isFired
-                  ? "bg-teal-500/15 text-teal-600 dark:text-teal-400"
+                  ? "bg-running/15 text-running"
                   : "bg-primary/10 text-primary"
               )}
             >
@@ -640,7 +640,7 @@ function FilterChip({
         active
           ? tone === "rose"
             ? "border-rose-600/40 bg-rose-500/10 text-danger"
-            : "border-teal-500/50 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+            : "border-teal-500/50 bg-running/10 text-running"
           : "border-transparent bg-secondary/60 text-muted-foreground hover:text-foreground"
       )}
     >
@@ -1480,7 +1480,7 @@ export function AssistantPanel() {
               {s.id === sessionId && (
                 <Badge
                   variant="outline"
-                  className="h-4 shrink-0 rounded border-teal-500/40 bg-teal-500/10 px-1 text-[9px] font-medium text-teal-700 dark:text-teal-400"
+                  className="h-4 shrink-0 rounded border-running/40 bg-running/10 px-1 text-[9px] font-medium text-teal-700 dark:text-teal-400"
                 >
                   当前
                 </Badge>
@@ -1494,7 +1494,7 @@ export function AssistantPanel() {
                 {hit >= 0 ? (
                   <>
                     {display.slice(0, hit)}
-                    <span className="rounded-sm bg-teal-500/20 px-0.5 font-semibold text-foreground">
+                    <span className="rounded-sm bg-running/20 px-0.5 font-semibold text-foreground">
                       {display.slice(hit, hit + qLen)}
                     </span>
                     {display.slice(hit + qLen)}
@@ -1662,8 +1662,8 @@ export function AssistantPanel() {
                 <Badge
                   variant="outline"
                   className={cn(
-                    "hidden max-w-[200px] gap-1 truncate border-teal-500/40 bg-teal-500/10 px-1.5 font-mono text-[10px] font-normal text-teal-600 sm:inline-flex dark:text-teal-400",
-                    health && health.state !== "ok" && "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                    "hidden max-w-[200px] gap-1 truncate border-running/40 bg-running/10 px-1.5 font-mono text-[10px] font-normal text-running sm:inline-flex",
+                    health && health.state !== "ok" && "border-amber-500/50 bg-warning/10 text-amber-700 dark:text-amber-400"
                   )}
                   title={
                     health && health.state !== "ok"
@@ -1853,8 +1853,8 @@ export function AssistantPanel() {
           >
           {items.length === 0 && !busy && (
             <div className="flex flex-col items-center gap-4 pt-8 text-center">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500/15 to-cyan-500/10 ring-1 ring-teal-500/25">
-                <Bot className="size-7 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500/15 to-cyan-500/10 ring-1 ring-running/25">
+                <Bot className="size-7 text-running" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-sm font-medium">用一句话指挥整条流程</p>
@@ -1949,7 +1949,7 @@ export function AssistantPanel() {
                 <span className="text-xs text-muted-foreground">{busyLabel}</span>
                 <Badge
                   variant="outline"
-                  className="gap-1 border-teal-500/40 bg-teal-500/10 px-1 text-[10px] font-normal text-teal-600 dark:text-teal-400"
+                  className="gap-1 border-running/40 bg-running/10 px-1 text-[10px] font-normal text-running"
                 >
                   <Sparkles className="size-2.5" aria-hidden="true" />
                   AI
@@ -1959,7 +1959,7 @@ export function AssistantPanel() {
           )}
 
           {needsSetup && (
-            <div className="rounded-lg border border-amber-600/30 bg-amber-500/10 p-3 text-xs">
+            <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs">
               <p className="font-medium text-amber-700 dark:text-amber-400">还没有配置 AI 供应商</p>
               <p className="mt-1 text-muted-foreground">
                 选择供应商并填入 API key 后即可使用（OpenAI / Claude / Gemini / DeepSeek / Kimi / GLM / Qwen …）。
@@ -1967,7 +1967,7 @@ export function AssistantPanel() {
               <Button
                 size="sm"
                 variant="outline"
-                className="mt-2 h-7 gap-1 border-amber-600/40 text-amber-700 dark:text-amber-400"
+                className="mt-2 h-7 gap-1 border-warning/40 text-amber-700 dark:text-amber-400"
                 onClick={() => setAiSettingsOpen(true)}
               >
                 <Settings2 className="size-3.5" aria-hidden="true" />
@@ -1998,7 +1998,7 @@ export function AssistantPanel() {
           <div
             data-stale-banner
             role="status"
-            className="mx-3 mb-1 flex items-start gap-2 rounded-lg border border-amber-600/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-700 dark:text-amber-400"
+            className="mx-3 mb-1 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-amber-700 dark:text-amber-400"
           >
             <History className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
             <span>

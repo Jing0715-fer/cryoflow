@@ -1546,7 +1546,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     toast({
       title: `A view named “${nm}” already exists`,
       description: "Saved anyway — consider a distinct name so the menu stays tell-apart.",
-      className: "border-amber-500/40 bg-amber-50/95 text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/80 dark:text-amber-100",
+      className: "border-warning/40 bg-amber-50/95 text-amber-900 dark:border-warning/30 dark:bg-amber-950/80 dark:text-amber-100",
     });
 
   /** live duplicate check for the name field — amber ring + hint while
@@ -1621,12 +1621,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         {v.sigma.toFixed(2)} σ
       </span>
       {v.slice.on && (
-        <span className="rounded bg-teal-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-teal-700 dark:text-teal-400">
+        <span className="rounded bg-running/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-teal-700 dark:text-teal-400">
           slice {v.slice.axis} {Math.round(v.slice.pos * 100)}%
         </span>
       )}
       {v.clip.on && (
-        <span className="rounded bg-amber-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-amber-700 dark:text-amber-400">
+        <span className="rounded bg-warning/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-amber-700 dark:text-amber-400">
           {v.clip.box
             ? // t260 — an anchored box isn't slider-speakable; the chip says
               // "box" and lets the restored panel's readout carry the numbers
@@ -3899,8 +3899,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 className={cn(
                   "whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-xs font-bold tabular-nums",
                   sign > 0
-                    ? "bg-teal-600/10 text-teal-700 dark:text-teal-300"
-                    : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    ? "bg-running/10 text-teal-700 dark:text-teal-300"
+                    : "bg-warning/15 text-amber-700 dark:text-amber-300"
                 )}
                 title={
                   absolute != null
@@ -3929,7 +3929,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors " +
                       (Math.abs(sigma - p) < 0.001
                         ? "bg-teal-600 text-white"
-                        : "bg-muted text-muted-foreground hover:bg-teal-600/15 hover:text-teal-700 dark:hover:text-teal-300")
+                        : "bg-muted text-muted-foreground hover:bg-running/15 hover:text-teal-700 dark:hover:text-teal-300")
                     }
                   >
                     {p}σ
@@ -3950,7 +3950,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors " +
                     (sign < 0
                       ? "bg-amber-500 text-white"
-                      : "bg-muted text-muted-foreground hover:bg-amber-500/20 hover:text-amber-700 dark:hover:text-amber-300")
+                      : "bg-muted text-muted-foreground hover:bg-warning/20 hover:text-amber-700 dark:hover:text-amber-300")
                   }
                 >
                   −ρ / +ρ
@@ -4501,7 +4501,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       <div
                         id="profile-legend"
                         data-profile-legend="1"
-                        className="rounded-md border border-amber-600/25 bg-amber-500/[0.06] px-2 py-1.5 text-[9px] font-mono leading-relaxed text-muted-foreground"
+                        className="rounded-md border border-warning/25 bg-warning/[0.06] px-2 py-1.5 text-[9px] font-mono leading-relaxed text-muted-foreground"
                       >
                         <div className="mb-1 flex items-center gap-1 text-[8.5px] font-bold tracking-wide text-amber-700 dark:text-amber-300">
                           <BookOpen className="size-2.5" aria-hidden="true" />
@@ -4649,7 +4649,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                             "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
                             (legendOpen
                               ? "bg-amber-600 text-white"
-                              : "bg-muted text-muted-foreground hover:bg-amber-600/15 hover:text-amber-700 dark:hover:text-amber-300")
+                              : "bg-muted text-muted-foreground hover:bg-warning/15 hover:text-amber-700 dark:hover:text-amber-300")
                           }
                         >
                           <BookOpen className="size-2.5" aria-hidden="true" />
@@ -4728,7 +4728,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       <div
                         role="status"
                         aria-label="Profile export status"
-                        className="pt-0.5 font-mono text-[9.5px] tabular-nums text-emerald-600 dark:text-emerald-400"
+                        className="pt-0.5 font-mono text-[9.5px] tabular-nums text-success"
                       >
                         {profileExportNote}
                       </div>
@@ -4870,7 +4870,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     className={
                       "rounded-md px-2 py-1 text-[10px] leading-snug " +
                       (clipSendNote.ok
-                        ? "border border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
+                        ? "border border-success/30 bg-success/10 text-emerald-700 dark:text-emerald-300"
                         : "border border-red-600/30 bg-red-600/10 text-danger")
                     }
                   >
@@ -5324,7 +5324,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             className={cn(
               "size-8 rounded-lg shadow-sm transition-colors",
               shot === "done" &&
-                "border-emerald-500/40 text-emerald-600 hover:text-emerald-600 dark:text-emerald-400"
+                "border-success/40 text-success hover:text-emerald-600"
             )}
             onClick={() => runCapture("copy")}
             disabled={shot === "busy"}
@@ -5345,7 +5345,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             className={cn(
               "size-8 rounded-lg shadow-sm transition-colors",
               shot === "done" &&
-                "border-emerald-500/40 text-emerald-600 hover:text-emerald-600 dark:text-emerald-400"
+                "border-success/40 text-success hover:text-emerald-600"
             )}
             onClick={captureView}
             disabled={shot === "busy"}
@@ -5641,7 +5641,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   className={cn(
                     "h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2",
                     nameDupe
-                      ? "border-amber-500/70 focus-visible:border-amber-500 focus-visible:ring-amber-500/25"
+                      ? "border-amber-500/70 focus-visible:border-amber-500 focus-visible:ring-warning/25"
                       : "focus-visible:border-ring focus-visible:ring-ring/30",
                   )}
                 />
@@ -5658,7 +5658,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               {nameDupe && (
                 <p
                   id="bm-name-dupe-hint"
-                  className="mt-1 flex items-start gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-1 text-[10px] leading-tight text-amber-700 dark:text-amber-400"
+                  className="mt-1 flex items-start gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-1 text-[10px] leading-tight text-amber-700 dark:text-amber-400"
                 >
                   <TriangleAlert className="mt-px size-3 shrink-0" />
                   <span>
@@ -5870,7 +5870,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
 
             {importRoom === 0 && (
               <p
-                className="flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[10px] leading-snug text-amber-800 dark:text-amber-200"
+                className="flex items-center gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-[10px] leading-snug text-amber-800 dark:text-amber-200"
                 role="status"
                 data-canvas-ui="import-full-hint"
               >

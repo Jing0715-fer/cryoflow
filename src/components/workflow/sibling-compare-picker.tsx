@@ -32,6 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
+import { STATUS_DOT } from "@/lib/status-style"; // t647 — the dot family lives with the word law
 import { cn } from "@/lib/utils";
 import { summarizeParamDiff } from "./results/fsc-params-diff";
 import { ParamsDiffDialog } from "./params-diff-dialog";
@@ -44,13 +45,9 @@ const asDiffJob = (j: Pick<JobDTO, "id" | "name" | "type" | "params">) => ({
   params: (j.params ?? {}) as Record<string, unknown>,
 });
 
-/** status dots mirror StatusBadge's palette so a row reads before its text */
-const STATUS_DOT: Record<string, string> = {
-  running: "bg-teal-500 animate-soft-pulse",
-  pending: "bg-amber-500 animate-soft-pulse",
-  completed: "bg-emerald-500",
-  failed: "bg-danger",
-};
+/* t647 — the per-status dot moved to lib/status-style (STATUS_DOT);
+ * motion stays at the call site (the running and pending rows below
+ * add their own soft-pulse next to the lib dot). */
 
 /** per-sibling preview chip, computed from the SAME classifyParamRows brain
  *  as the dialog table — "1 differ" in the picker always means exactly one
@@ -81,7 +78,7 @@ export function SiblingDiffChip({
     <span
       data-testid={`${idPrefix}-sibling-diff`}
       data-diff-kind="differs"
-      className="flex h-4 shrink-0 items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold text-amber-700 dark:text-amber-400"
+      className="flex h-4 shrink-0 items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold text-amber-700 dark:text-amber-400"
       title={
         s.partial > 0
           ? `${s.changed} parameter(s) differ, ${s.partial} one-sided — opens the side-by-side table`
@@ -214,7 +211,8 @@ export function SiblingComparePicker({
                   <span
                     className={cn(
                       "size-1.5 shrink-0 rounded-full",
-                      STATUS_DOT[sib.status] ?? "bg-slate-400"
+                      STATUS_DOT[sib.status] ?? "bg-zinc-400", // t647 — unknown-state fallback joins the zinc neutral law
+                      (sib.status === "running" || sib.status === "pending") && "animate-soft-pulse"
                     )}
                     aria-hidden="true"
                   />

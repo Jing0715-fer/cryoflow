@@ -45,6 +45,7 @@ import {
   X,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { STATUS_DOT } from "@/lib/status-style"; // t647 — the dot family lives with the word law
 import { parseClassNotes, hasJudgment } from "@/lib/class-notes";
 import { withLiveStats } from "@/lib/live-stats";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
@@ -186,13 +187,9 @@ function sortProjects(list: ProjectCard[], key: ProjectSortKey): ProjectCard[] {
   return out;
 }
 
-const STATUS_DOT: Record<string, string> = {
-  idle: "bg-muted-foreground/40",
-  pending: "bg-amber-500",
-  running: "bg-teal-500 animate-pulse",
-  completed: "bg-emerald-500",
-  failed: "bg-danger",
-};
+/* t647 — STATUS_DOT moved to lib/status-style (the map family lives
+ * with the word law); imported at the top. Motion stays at the call
+ * site: the running row adds its own pulse next to the lib dot. */
 
 /* ------------------------------------------------------------------ */
 /* KPI band                                                             */
@@ -493,7 +490,7 @@ function DashboardProjectCard({
 
       <div className="flex items-start gap-2">
         <span
-          className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 ring-1 ring-inset ring-teal-500/30 dark:text-teal-400"
+          className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-running/10 text-running ring-1 ring-inset ring-running/30"
           aria-hidden="true"
         >
           {isPending ? (
@@ -543,7 +540,7 @@ function DashboardProjectCard({
       {/* rename-collision nudge — compact so the card only grows a few px
           while editing, and only when the typed name actually collides */}
       {renameDup && (
-        <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] leading-snug text-amber-700 dark:text-amber-400">
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] leading-snug text-amber-700 dark:text-amber-400">
           <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
           <span>
             Another project is already named “{name.trim()}” — Enter still
@@ -556,7 +553,7 @@ function DashboardProjectCard({
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <Badge
           variant="outline"
-          className="h-5 border-teal-500/40 bg-teal-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400"
+          className="h-5 border-running/40 bg-running/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-running"
         >
           RELION
         </Badge>
@@ -566,7 +563,7 @@ function DashboardProjectCard({
             "h-5 px-1.5 text-[9px] font-semibold uppercase tracking-wider",
             tomo
               ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
-              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              : "border-success/40 bg-success/10 text-success"
           )}
         >
           {tomo ? "TOMO" : "SPA"}
@@ -590,14 +587,14 @@ function DashboardProjectCard({
           <Boxes className="size-3" aria-hidden="true" />
           {total} jobs
           {(stats?.running ?? 0) > 0 && (
-            <span className="flex items-center gap-0.5 text-teal-600 dark:text-teal-400">
+            <span className="flex items-center gap-0.5 text-running">
               <Loader2 className="size-3 animate-spin" aria-hidden="true" />
               {stats?.running}
             </span>
           )}
           {(stats?.pending ?? 0) > 0 && (
             <span
-              className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400"
+              className="flex items-center gap-0.5 text-warning"
               title={`${stats?.pending} pending — waiting for an upstream job`}
             >
               <Clock className="size-3" aria-hidden="true" />
@@ -738,12 +735,12 @@ function GalleryViewChips({ b }: { b: GalleryBookmark }) {
         {v.sigma.toFixed(2)} σ
       </span>
       {v.slice?.on && (
-        <span className="rounded bg-teal-600/10 px-1 py-px font-mono text-[8px] font-medium text-teal-700 dark:text-teal-400">
+        <span className="rounded bg-running/10 px-1 py-px font-mono text-[8px] font-medium text-teal-700 dark:text-teal-400">
           slice {(v.slice.axis ?? "Z").toUpperCase()}
         </span>
       )}
       {v.clip?.on && (
-        <span className="rounded bg-amber-600/10 px-1 py-px font-mono text-[8px] font-medium text-amber-700 dark:text-amber-400">
+        <span className="rounded bg-warning/10 px-1 py-px font-mono text-[8px] font-medium text-amber-700 dark:text-amber-400">
           clip
         </span>
       )}
@@ -986,15 +983,22 @@ function StageChip({
       className={cn(
         "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm",
         job.status === "running"
-          ? "border-teal-500/50 ring-1 ring-teal-500/25"
+          ? "border-teal-500/50 ring-1 ring-running/25"
           : job.status === "completed"
-            ? "border-emerald-500/40"
+            ? "border-success/40"
             : job.status === "failed"
               ? "border-rose-500/40"
               : "border-border"
       )}
     >
-      <span className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[job.status] ?? "bg-muted-foreground/40")} aria-hidden="true" />
+      <span
+        className={cn(
+          "size-2 shrink-0 rounded-full",
+          STATUS_DOT[job.status] ?? "bg-muted-foreground/40",
+          job.status === "running" && "animate-soft-pulse" // t647 — motion at the call site (was animate-pulse, the soft rung is the canon)
+        )}
+        aria-hidden="true"
+      />
       <span
         className={cn(
           "flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset",
@@ -1146,7 +1150,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
                 role="img"
                 aria-label={`${classNotes.length} class${classNotes.length === 1 ? "" : "es"} noted`}
                 title={`Class notes on ${classNotes.map(([k]) => `Class ${k}`).join(", ")}`}
-                className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+                className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold tabular-nums text-warning"
               >
                 <StickyNote className="size-2.5" aria-hidden="true" />
                 {classNotes.length}
@@ -1173,7 +1177,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
                 role="img"
                 aria-label="Job not assigned to any workspace"
                 title={`Not on any canvas — adopt it into ${defaultWs?.name ?? "a workspace"} to make it visible`}
-                className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-dashed border-amber-500/50 bg-amber-500/5 px-1.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
+                className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-dashed border-amber-500/50 bg-warning/5 px-1.5 text-[9px] font-semibold text-warning"
               >
                 <TriangleAlert className="size-2.5" aria-hidden="true" />
                 Unassigned
@@ -1194,7 +1198,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
           ) : job.status === "running" ? (
             <span className="mt-1 flex items-center gap-2">
               <Progress value={job.progress} className="h-1 flex-1 overflow-hidden" />
-              <span className="shrink-0 text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400">
+              <span className="shrink-0 text-[10px] font-semibold tabular-nums text-running">
                 {Math.round(job.progress)}%
                 {rowElapsed > 0 ? (
                   <span data-testid="row-elapsed"> · {formatElapsed(rowElapsed)}</span>
@@ -1226,7 +1230,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
           title={`Move to ${defaultWs.name} — makes the job visible on that canvas`}
           onClick={adopt}
           disabled={adopting}
-          className="no-print flex h-5 shrink-0 items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-amber-600 transition-colors hover:bg-amber-500/20 disabled:opacity-50 dark:text-amber-400"
+          className="no-print flex h-5 shrink-0 items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-warning transition-colors hover:bg-warning/20 disabled:opacity-50"
         >
           {adopting ? (
             <Loader2 className="size-2.5 animate-spin" aria-hidden="true" />
@@ -1349,7 +1353,7 @@ function ProgressSparkline({ values, samples }: { values: number[]; samples: num
       : `${samples} sample${samples === 1 ? "" : "s"} so far`;
   return (
     <span
-      className="relative inline-flex shrink-0 text-teal-600 dark:text-teal-400"
+      className="relative inline-flex shrink-0 text-running"
       title={`Progress history — last ${samples} sample${samples === 1 ? "" : "s"}, oldest → newest`}
       role="img"
       aria-label={`Progress history, ${tipText}`}
@@ -1714,11 +1718,11 @@ function StatusFilterChip({
 }) {
   const toneCls =
     tone === "teal"
-      ? "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+      ? "border-running/40 bg-running/10 text-running"
       : tone === "amber"
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        ? "border-warning/40 bg-warning/10 text-warning"
         : tone === "emerald"
-          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          ? "border-success/40 bg-success/10 text-success"
           : tone === "rose"
             ? "border-rose-500/40 bg-rose-500/10 text-danger"
             : "border-foreground/25 bg-foreground text-background";
@@ -1964,7 +1968,7 @@ function ActiveProjectSpotlight({
           {running.length > 0 && (
             <Badge
               variant="outline"
-              className="ml-auto h-4.5 gap-1 border-teal-500/40 bg-teal-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400"
+              className="ml-auto h-4.5 gap-1 border-running/40 bg-running/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-running"
             >
               <Loader2 className="size-2.5 animate-spin" aria-hidden="true" />
               {running.length} running
@@ -1974,7 +1978,7 @@ function ActiveProjectSpotlight({
             <Badge
               variant="outline"
               className={cn(
-                "h-4.5 gap-1 border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400",
+                "h-4.5 gap-1 border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-warning",
                 running.length === 0 && "ml-auto"
               )}
             >
@@ -2670,7 +2674,7 @@ export function ProjectDashboard() {
                   ? "live engines active"
                   : "nothing in flight"
             }
-            tone="bg-teal-500/10 text-teal-600 ring-teal-500/30 dark:text-teal-400"
+            tone="bg-running/10 text-running ring-running/30"
             onClick={() => toggleGridFilter("running")}
             pressed={gridFilter === "running"}
             kbd="2"
@@ -2691,7 +2695,7 @@ export function ProjectDashboard() {
                   ? `${totals.failed} failed`
                   : "zero failures"
             }
-            tone="bg-emerald-500/10 text-emerald-600 ring-emerald-500/30 dark:text-emerald-400"
+            tone="bg-success/10 text-success ring-success/30"
             spark={
               activity ? (
                 <KpiSparkline
@@ -2731,7 +2735,7 @@ export function ProjectDashboard() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <CircleAlert
-                        className="size-4 text-amber-600 dark:text-amber-400"
+                        className="size-4 text-warning"
                         aria-hidden="true"
                       />
                       <p className="text-sm font-semibold">RELION not detected</p>
@@ -2768,7 +2772,7 @@ export function ProjectDashboard() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle2
-                      className="size-4 text-emerald-600 dark:text-emerald-400"
+                      className="size-4 text-success"
                       aria-hidden="true"
                     />
                     <p className="text-sm font-semibold">

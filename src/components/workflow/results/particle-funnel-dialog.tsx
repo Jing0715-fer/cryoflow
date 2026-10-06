@@ -212,7 +212,7 @@ export function ParticleFunnelDialog({
           {/* the closing number — the chain's postprocess receipt */}
           {payload.closing ? (
             <div className="mt-3 flex items-center gap-2 border-t pt-3 text-xs">
-              <span className="rounded-full bg-teal-600/10 px-2 py-0.5 font-medium text-teal-700 dark:text-teal-400">
+              <span className="rounded-full bg-running/10 px-2 py-0.5 font-medium text-teal-700 dark:text-teal-400">
                 closes at {payload.closing.resolution}
               </span>
               <span className="text-muted-foreground">

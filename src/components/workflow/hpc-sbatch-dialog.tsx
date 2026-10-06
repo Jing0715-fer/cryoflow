@@ -41,7 +41,7 @@ interface SbatchResponse {
 
 const MODE_COLOR: Record<string, string> = {
   "multi-gpu": "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
-  array: "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30",
+  array: "bg-running/10 text-teal-700 dark:text-teal-300 border-running/30",
   single: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
   cpu: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30",
 };

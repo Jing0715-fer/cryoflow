@@ -110,7 +110,7 @@ export function AngularDistributionChart({
       aria-label="Orientation distribution"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
       )}
     >
@@ -121,7 +121,7 @@ export function AngularDistributionChart({
           Orientation distribution
         </span>
         {running ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-teal-600/30 bg-teal-600/10 px-1.5 py-px text-[10px] font-medium text-teal-700 dark:text-teal-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-1.5 py-px text-[10px] font-medium text-teal-700 dark:text-teal-300">
             <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500" />
@@ -244,7 +244,7 @@ export function AngularDistributionChart({
               className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 rounded-md border bg-popover px-2 py-1 text-[10px] font-medium tabular-nums text-popover-foreground shadow-md"
             >
               rot {rotDeg}–{rotDeg + 360 / rotBins}° · tilt {tiltDeg}–{tiltDeg + 180 / tiltBins}°
-              <span className="ml-1.5 text-teal-600 dark:text-teal-400">
+              <span className="ml-1.5 text-running">
                 {hovered.count} ({((hovered.count / total) * 100).toFixed(1)}%)
               </span>
             </div>

@@ -118,7 +118,7 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
       className={cn("rounded-xl border bg-card print:break-inside-avoid", className)}
     >
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-        <Activity className="size-4 text-teal-600 dark:text-teal-400" aria-hidden />
+        <Activity className="size-4 text-running" aria-hidden />
         <h3 className="text-sm font-semibold">Accumulated motion</h3>
         {stats && stats.offenders > 0 ? (
           <span

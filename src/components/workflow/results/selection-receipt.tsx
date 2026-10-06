@@ -173,14 +173,14 @@ export function SelectionReceipt({
       data-canvas-ui="selection-receipt"
       data-receipt-arrival=""
       className={cn(
-        "rounded-lg border border-emerald-600/20 bg-emerald-500/[0.03] p-3",
+        "rounded-lg border border-success/20 bg-success/[0.03] p-3",
         className
       )}
     >
       {/* header: what decided the keep set + how many classes survived */}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <h4 className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-foreground/80">
-          <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+          <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
           Selection receipt
           <Chip
             size="xs"
@@ -216,7 +216,7 @@ export function SelectionReceipt({
         </span>
         {pctLabel != null && (
           <span
-            className="ml-auto rounded-full bg-emerald-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-400"
+            className="ml-auto rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-400"
             title={`${pctLabel}% of the input particles survived the selection`}
           >
             {pctLabel}%
@@ -246,7 +246,7 @@ export function SelectionReceipt({
               title={`class ${c.cls} — ${nfmt(c.count)} particles ${c.kept ? "kept" : "pruned"}`}
               className={
                 c.kept
-                  ? "border-emerald-600/30 bg-emerald-600/[0.08] text-emerald-800 dark:text-emerald-300"
+                  ? "border-success/30 bg-success/[0.08] text-emerald-800 dark:text-emerald-300"
                   : "border-border/60 bg-muted/40 text-muted-foreground/75"
               }
             >
@@ -298,7 +298,7 @@ export function SelectionReceipt({
                 // is a transform, so it rides motion-safe; the fade and
                 // tint stay unguarded (fades are color, not movement).
                 "group inline-flex items-center gap-0.5 rounded px-0.5 -mx-0.5 text-left transition-colors",
-                "hover:bg-emerald-600/10 hover:text-emerald-700 dark:hover:text-emerald-300",
+                "hover:bg-success/10 hover:text-emerald-700 dark:hover:text-emerald-300",
                 "underline underline-offset-2 decoration-dotted decoration-transparent hover:decoration-current",
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               )}
@@ -323,7 +323,7 @@ export function SelectionReceipt({
         {receipt.ignored.length > 0 && (
           <>
             {(fromName || ranAtLabel) && <span aria-hidden="true">·</span>}
-            <span className="text-amber-600 dark:text-amber-400" title="These classes were listed but not present in the input — ignored">
+            <span className="text-warning" title="These classes were listed but not present in the input — ignored">
               ignored: {receipt.ignored.join(", ")}
             </span>
           </>

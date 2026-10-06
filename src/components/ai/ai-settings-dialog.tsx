@@ -282,7 +282,7 @@ export function AiSettingsDialog() {
             return (
               <div
                 data-testid="ai-settings-problems"
-                className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-left"
+                className="rounded-md border border-warning/40 bg-warning/10 px-2.5 py-2 text-left"
               >
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
                   <TriangleAlert className="size-3 shrink-0" aria-hidden="true" />
@@ -437,7 +437,7 @@ export function AiSettingsDialog() {
               if (!h || !saved) return null;
               const tone =
                 h.state === "ok"
-                  ? { label: "正常", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" }
+                  ? { label: "正常", dot: "bg-emerald-500", text: "text-success" }
                   : h.state === "unreachable"
                     ? { label: "不可达", dot: "bg-danger", text: "text-danger" }
                     : h.state === "rejected"

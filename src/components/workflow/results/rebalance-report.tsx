@@ -94,7 +94,7 @@ function Delta({
         <span
           className={cn(
             "font-semibold",
-            improved && "text-emerald-600 dark:text-emerald-400",
+            improved && "text-success",
             degraded && "text-danger",
             !improved && !degraded && "text-foreground"
           )}

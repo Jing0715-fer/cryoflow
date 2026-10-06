@@ -67,7 +67,8 @@ import { toast } from "@/hooks/use-toast";
 import { EdgesLayer } from "./edges-layer";
 import { PipelineKpi } from "./pipeline-kpi";
 import { CanvasMinimap } from "./canvas-minimap";
-import { JobCard, STATUS_FLOOR } from "./job-card";
+import { JobCard } from "./job-card";
+import { STATUS_FLOOR, type StatusWord } from "@/lib/status-style"; // t647 — the floor map lives with the word law
 import { TypeIcon } from "./icons";
 import { ParamsDiffDialog } from "./params-diff-dialog";
 import { useDropImport, DropImportOverlay } from "./drop-import";
@@ -2553,7 +2554,7 @@ export function WorkflowCanvas() {
                     <div
                       className={cn(
                         "absolute inset-x-0 bottom-0 h-[3px]",
-                        STATUS_FLOOR[g.status] ?? STATUS_FLOOR.idle
+                        STATUS_FLOOR[g.status as StatusWord] ?? STATUS_FLOOR.idle
                       )}
                     />
                   </div>

@@ -687,7 +687,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                       <span
                         className={cn(
                           "w-14 shrink-0 text-right text-[10px] font-semibold tabular-nums",
-                          delta > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                          delta > 0 ? "text-success" : "text-warning"
                         )}
                         title={
                           delta > 0
@@ -736,7 +736,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                         "cursor-pointer rounded-lg border bg-card px-2.5 py-1.5 text-left shadow-sm transition-colors hover:border-violet-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                         m.reported != null && m.reported === best
                           ? "border-violet-500/40 ring-1 ring-violet-500/15"
-                          : "border-amber-500/30"
+                          : "border-warning/30"
                       )}
                       title={`${m.name}${m.label ? ` · ${m.label}` : ""} — click to reveal on the canvas`}
                     >

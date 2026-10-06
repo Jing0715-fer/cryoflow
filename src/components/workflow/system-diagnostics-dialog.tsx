@@ -49,9 +49,9 @@ const fmtMb = (mb: number) =>
 function verdictTone(verdict: "healthy" | "watch" | "danger") {
   switch (verdict) {
     case "healthy":
-      return { dot: "bg-teal-500", text: "text-teal-600 dark:text-teal-400", label: "Healthy" };
+      return { dot: "bg-teal-500", text: "text-running", label: "Healthy" };
     case "watch":
-      return { dot: "bg-amber-500", text: "text-amber-600 dark:text-amber-400", label: "Watch" };
+      return { dot: "bg-amber-500", text: "text-warning", label: "Watch" };
     case "danger":
       return { dot: "bg-danger", text: "text-danger", label: "Danger" };
   }

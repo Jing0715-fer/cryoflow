@@ -145,7 +145,7 @@ function ProjectSwitcher() {
                 <span className="max-w-[170px] truncate">{p.name}</span>
                 <Badge
                   variant="outline"
-                  className="h-4 shrink-0 border-teal-500/40 bg-teal-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-teal-600 dark:text-teal-400"
+                  className="h-4 shrink-0 border-running/40 bg-running/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-running"
                 >
                   RELION
                 </Badge>
@@ -191,7 +191,7 @@ function BinaryRow({ name, present }: { name: string; present: boolean }) {
   return (
     <span className="flex items-center gap-1.5 rounded-md border bg-secondary/50 px-1.5 py-0.5">
       {present ? (
-        <Check className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        <Check className="size-3 shrink-0 text-success" aria-hidden="true" />
       ) : (
         <X className="size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
       )}
@@ -253,9 +253,9 @@ function RelionStatusChip() {
             />
           </span>
           {found ? (
-            <CircleCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <CircleCheck className="size-3.5 text-success" aria-hidden="true" />
           ) : (
-            <CircleAlert className="size-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <CircleAlert className="size-3.5 text-warning" aria-hidden="true" />
           )}
           {/* t301 — a status chip is ONE line, full stop. Under header
               crowding (2xl stat chips + a remote project badge + a long
@@ -269,7 +269,7 @@ function RelionStatusChip() {
           {fromCache && (
             <Badge
               variant="outline"
-              className="h-4 shrink-0 border-amber-500/40 bg-amber-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+              className="h-4 shrink-0 border-warning/40 bg-warning/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-warning"
               title="This status was restored from the saved last detection — the server is re-verifying in the background and updates automatically"
             >
               saved
@@ -281,9 +281,9 @@ function RelionStatusChip() {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             {found ? (
-              <CircleCheck className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              <CircleCheck className="size-4 text-success" aria-hidden="true" />
             ) : (
-              <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+              <CircleAlert className="size-4 text-warning" aria-hidden="true" />
             )}
             <p className="text-sm font-semibold">
               {found
@@ -294,7 +294,7 @@ function RelionStatusChip() {
             </p>
             {fromCache && (
               <span
-                className="ml-auto flex shrink-0 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                className="ml-auto flex shrink-0 items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-warning"
                 title="data/relion-snapshot.json answered instantly; a fresh probe is running in the background"
               >
                 <RefreshCw className="size-2.5 animate-spin" aria-hidden="true" />
@@ -639,7 +639,7 @@ function NoteSpotlightChip() {
         // dashboard Noted chip is its second entry) — it yields first.
         "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex",
         on
-          ? "border-amber-500/60 bg-amber-500/10"
+          ? "border-amber-500/60 bg-warning/10"
           : "border-border bg-card hover:bg-secondary/60",
         noted === 0 && "opacity-50"
       )}
@@ -647,7 +647,7 @@ function NoteSpotlightChip() {
       <StickyNote
         className={cn(
           "size-3.5",
-          on ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+          on ? "text-warning" : "text-muted-foreground"
         )}
       />
       <span className="text-xs font-medium tabular-nums">{noted}</span>
@@ -773,13 +773,13 @@ export function Header() {
               icon={<Loader2 className="size-3.5 animate-spin" />}
               label="running"
               value={running}
-              tone="text-teal-600 dark:text-teal-400"
+              tone="text-running"
             />
             <StatChip
               icon={<CheckCircle2 className="size-3.5" />}
               label="completed"
               value={completed}
-              tone="text-emerald-600 dark:text-emerald-400"
+              tone="text-success"
             />
           </div>
           {/* lens control, not a stat — sits beside the counters but outside

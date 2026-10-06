@@ -260,7 +260,7 @@ export function HomecomingSweepBar({
           ? `Homecoming sweep running: ${progress.done} of ${progress.total} files settled`
           : `Homecoming: ${owingFiles} files on the cluster across ${owing.length} job${owing.length === 1 ? "" : "s"}`
       }
-      className="no-print mb-2 rounded-lg border border-teal-600/30 bg-teal-600/[0.04] px-3 py-2.5"
+      className="no-print mb-2 rounded-lg border border-running/30 bg-running/[0.04] px-3 py-2.5"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300">
@@ -299,7 +299,7 @@ export function HomecomingSweepBar({
             data-testid="homecoming-sweep-run"
             onClick={runSweep}
             disabled={owing.length === 0}
-            className="ml-auto flex h-6 items-center gap-1 rounded-md border border-teal-600/40 bg-teal-600/10 px-2 text-[11px] font-medium text-teal-700 transition-colors hover:bg-teal-600/20 focus-visible:ring-2 focus-visible:ring-teal-600/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-teal-300"
+            className="ml-auto flex h-6 items-center gap-1 rounded-md border border-running/40 bg-running/10 px-2 text-[11px] font-medium text-teal-700 transition-colors hover:bg-running/20 focus-visible:ring-2 focus-visible:ring-running/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-teal-300"
           >
             <House className="size-3" aria-hidden="true" />
             Bring home all
@@ -309,7 +309,7 @@ export function HomecomingSweepBar({
 
       {running && (
         <div
-          className="mt-1.5 h-1 overflow-hidden rounded-full bg-teal-600/15"
+          className="mt-1.5 h-1 overflow-hidden rounded-full bg-running/15"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
@@ -341,7 +341,7 @@ export function HomecomingSweepBar({
           {shownFailures.map((f, i) => (
             <li
               key={`${f.jobId}-${f.path ?? "job"}-${i}`}
-              className="flex items-start gap-1.5 rounded-md bg-amber-500/10 px-2 py-1 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
+              className="flex items-start gap-1.5 rounded-md bg-warning/10 px-2 py-1 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
             >
               <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
               <span>

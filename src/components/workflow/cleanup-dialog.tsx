@@ -263,7 +263,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
         >
           <DialogHeader className="shrink-0 border-b px-5 py-4 sm:px-6">
             <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
-              <Eraser className="size-4 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+              <Eraser className="size-4 text-running" aria-hidden="true" />
               Clean intermediates
             </DialogTitle>
             <DialogDescription className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
@@ -293,7 +293,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
                 {plan.runnable ? null : (
                   <div
                     role="note"
-                    className="rounded-md border border-amber-500/30 bg-amber-500/[0.07] px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300"
+                    className="rounded-md border border-warning/30 bg-warning/[0.07] px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300"
                     data-cleanup-blocked-note=""
                   >
                     {plan.reason}
@@ -380,7 +380,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
                   <div
                     role="note"
                     data-cleanup-downstream-warning=""
-                    className="rounded-md border border-amber-500/30 bg-amber-500/[0.07] px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300"
+                    className="rounded-md border border-warning/30 bg-warning/[0.07] px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300"
                   >
                     <span className="inline-flex items-center gap-1 font-medium">
                       <AlertTriangle className="size-3.5" aria-hidden="true" />

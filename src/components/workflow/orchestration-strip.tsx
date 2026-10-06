@@ -96,14 +96,14 @@ export function OrchestrationStrip() {
             </span>
             {orch.inherited ? (
               <span
-                className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                className="rounded-full border border-warning/40 bg-warning/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-warning"
                 title="This walk was adopted from another tab whose walker went silent — the claim law handed it here."
               >
                 inherited
               </span>
             ) : orch.resumed ? (
               <span
-                className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                className="rounded-full border border-warning/40 bg-warning/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-warning"
                 title="This walk survived a reload — the boot picked it up from the workspace record."
               >
                 resumed
@@ -124,7 +124,7 @@ export function OrchestrationStrip() {
                 </>
               ) : null}
               {orch.stopRequested ? (
-                <span className="ml-1 text-amber-600 dark:text-amber-400">· stopping…</span>
+                <span className="ml-1 text-warning">· stopping…</span>
               ) : null}
             </span>
           </div>

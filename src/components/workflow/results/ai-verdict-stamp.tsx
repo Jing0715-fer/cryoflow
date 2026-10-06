@@ -47,11 +47,11 @@ const VERDICT_CHIP: Record<
 > = {
   keep: {
     label: "keep",
-    cls: "border-emerald-600/30 bg-emerald-600/[0.08] text-emerald-800 dark:text-emerald-300",
+    cls: "border-success/30 bg-success/[0.08] text-emerald-800 dark:text-emerald-300",
   },
   maybe: {
     label: "maybe",
-    cls: "border-amber-600/30 bg-amber-600/[0.08] text-amber-700 dark:text-amber-300",
+    cls: "border-warning/30 bg-warning/[0.08] text-amber-700 dark:text-amber-300",
   },
   reject: {
     label: "reject",
@@ -172,12 +172,12 @@ export function AiVerdictStamp({
         </h4>
         <div className="flex items-center gap-1 text-[10px] tabular-nums">
           {stamp.counts.keep > 0 && (
-            <span className="rounded-full border border-emerald-600/30 bg-emerald-600/[0.08] px-1.5 py-px font-medium text-emerald-700 dark:text-emerald-300">
+            <span className="rounded-full border border-success/30 bg-success/[0.08] px-1.5 py-px font-medium text-emerald-700 dark:text-emerald-300">
               {stamp.counts.keep} keep
             </span>
           )}
           {stamp.counts.maybe > 0 && (
-            <span className="rounded-full border border-amber-600/30 bg-amber-600/[0.08] px-1.5 py-px font-medium text-amber-700 dark:text-amber-300">
+            <span className="rounded-full border border-warning/30 bg-warning/[0.08] px-1.5 py-px font-medium text-amber-700 dark:text-amber-300">
               {stamp.counts.maybe} maybe
             </span>
           )}

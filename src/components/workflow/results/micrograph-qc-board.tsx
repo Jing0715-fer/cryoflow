@@ -236,7 +236,7 @@ export function MicrographQcBoard({
                 className={cn(
                   "rounded border px-1.5 py-0.5 text-[10px] transition-colors",
                   metric === m
-                    ? "border-teal-500/40 bg-teal-500/10 font-medium text-teal-700 dark:text-teal-300"
+                    ? "border-running/40 bg-running/10 font-medium text-teal-700 dark:text-teal-300"
                     : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
                 )}
               >
@@ -254,7 +254,7 @@ export function MicrographQcBoard({
                   className={cn(
                     "rounded border px-1.5 py-0.5 text-[10px] transition-colors",
                     metric === m
-                      ? "border-teal-500/40 bg-teal-500/10 font-medium text-teal-700 dark:text-teal-300"
+                      ? "border-running/40 bg-running/10 font-medium text-teal-700 dark:text-teal-300"
                       : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
                   )}
                 >
@@ -270,7 +270,7 @@ export function MicrographQcBoard({
             className={cn(
               "rounded border px-1.5 py-0.5 text-[10px] transition-colors",
               worstFirst
-                ? "border-teal-500/40 bg-teal-500/10 font-medium text-teal-700 dark:text-teal-300"
+                ? "border-running/40 bg-running/10 font-medium text-teal-700 dark:text-teal-300"
                 : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
             )}
           >

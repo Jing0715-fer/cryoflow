@@ -145,13 +145,13 @@ const sweepCsvFilename = (): string =>
 const TYPE_COLOR: Record<string, string> = {
   import: "bg-sky-500/25 border-sky-500/40 text-sky-700 dark:text-sky-300",
   motioncorr: "bg-cyan-500/25 border-cyan-500/40 text-cyan-700 dark:text-cyan-300",
-  ctf: "bg-teal-500/25 border-teal-500/40 text-teal-700 dark:text-teal-300",
+  ctf: "bg-running/25 border-running/40 text-teal-700 dark:text-teal-300",
   extract: "bg-violet-500/25 border-violet-500/40 text-violet-700 dark:text-violet-300",
-  select: "bg-amber-500/25 border-amber-500/40 text-amber-700 dark:text-amber-300",
+  select: "bg-warning/25 border-warning/40 text-amber-700 dark:text-amber-300",
   class2d: "bg-fuchsia-500/25 border-fuchsia-500/40 text-fuchsia-700 dark:text-fuchsia-300",
   class3d: "bg-indigo-500/25 border-indigo-500/40 text-indigo-700 dark:text-indigo-300",
   refine3d: "bg-rose-500/25 border-rose-500/40 text-danger",
-  postprocess: "bg-emerald-500/25 border-emerald-500/40 text-emerald-700 dark:text-emerald-300",
+  postprocess: "bg-success/25 border-success/40 text-emerald-700 dark:text-emerald-300",
   maskcreate: "bg-green-500/25 border-green-500/40 text-green-700 dark:text-green-300",
 };
 const FALLBACK_COLOR = "bg-slate-500/25 border-slate-500/40 text-slate-700 dark:text-slate-300";
@@ -462,7 +462,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
               onChange={(v) => setParams((p) => ({ ...p, gpuSpeedup: v }))}
             />
             {clamped ? (
-              <span className="pb-1 text-[10px] italic text-amber-600 dark:text-amber-400" role="status">
+              <span className="pb-1 text-[10px] italic text-warning" role="status">
                 clamped to the server&apos;s contract ranges
               </span>
             ) : null}
@@ -495,7 +495,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                 <span>{sim.project.jobs} jobs · {sim.project.edges} deps</span>
                 <span>{sim.data.micrographs} micrographs · {sim.data.particles.toLocaleString()} particles</span>
                 {pendingEpisodes > 0 ? (
-                  <span className="text-amber-600 dark:text-amber-400">
+                  <span className="text-warning">
                     {pendingEpisodes} pending episode{pendingEpisodes === 1 ? "" : "s"} (Resources)
                   </span>
                 ) : null}
@@ -670,7 +670,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                       className={cn(
                         "block w-full rounded-md border px-2.5 py-2 text-left transition-colors",
                         row.r ? "cursor-pointer hover:bg-muted/50" : "cursor-not-allowed opacity-60",
-                        isBest ? "border-emerald-500/40 bg-emerald-500/[0.06]" : "border-border/60",
+                        isBest ? "border-success/40 bg-success/[0.06]" : "border-border/60",
                       )}
                       title={
                         row.r
@@ -691,7 +691,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                           {gpus} GPUs · ×{row.p.gpuSpeedup} · %{row.p.arrayConcurrency}
                         </span>
                         {isBest ? (
-                          <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                          <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-success">
                             <Trophy className="size-3" aria-hidden="true" />
                             fastest
                           </span>
@@ -738,7 +738,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
               </p>
               {exportNote ? (
                 <p
-                  className="text-[9.5px] font-medium text-emerald-600 dark:text-emerald-400"
+                  className="text-[9.5px] font-medium text-success"
                   role="status"
                   aria-label="Export status"
                   data-csv={lastCsv ?? undefined}

@@ -1436,7 +1436,7 @@
    shared --glow-XX vocabulary (t583), so the chip and the card breathe
    from the same rungs and the themes' hue/intensity stay coherent.
    prefers-reduced-motion: the chip freezes at its resting tint (the
-   class's own static bg-teal-500/10 reads through) and the Loader2
+   class's own static bg-running/10 reads through) and the Loader2
    inside is silenced by motion-reduce:animate-none in the component —
    the count number alone still informs. */
 @keyframes run-breathe {

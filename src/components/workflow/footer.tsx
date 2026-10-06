@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 import React from "react";
-import { FIND_STATUSES, STATUS_CHIP } from "./canvas-find-bar";
+import { FIND_STATUSES } from "./canvas-find-bar";
+import { STATUS_CHIP } from "@/lib/status-style"; // t647 — straight from the map family, no re-export relays
 
 export function Footer() {
   // The census counts the SAME workspace-scoped list the canvas renders —
@@ -154,7 +155,7 @@ export function Footer() {
                     {value === "running" && runningAge ? (
                       <span
                         data-testid="footer-running-elapsed"
-                        className="hidden font-semibold tabular-nums text-teal-600 dark:text-teal-400 lg:inline"
+                        className="hidden font-semibold tabular-nums text-running lg:inline"
                       >
                         · {runningAge}
                       </span>

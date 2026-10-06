@@ -609,7 +609,7 @@ export function AppShell() {
       {loadError && (
         <div
           role="alert"
-          className="flex flex-wrap items-center gap-2 border-b border-amber-300/60 bg-amber-100/80 px-4 py-2 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/60 dark:text-amber-200"
+          className="flex flex-wrap items-center gap-2 border-b border-amber-300/60 bg-amber-100/80 px-4 py-2 text-sm text-amber-900 dark:border-warning/40 dark:bg-amber-950/60 dark:text-amber-200"
         >
           <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate font-medium">{loadError}</span>

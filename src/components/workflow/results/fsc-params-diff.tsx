@@ -253,7 +253,7 @@ export function FscParamsDiff({
                   data-kind={row.kind}
                   className={cn(
                     "border-b border-border/40 last:border-b-0",
-                    row.kind === "changed" && "bg-amber-500/5"
+                    row.kind === "changed" && "bg-warning/5"
                   )}
                 >
                   <td

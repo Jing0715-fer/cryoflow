@@ -83,7 +83,7 @@ export function GuinierChart({
       aria-label="Guinier plot"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-amber-500/25 bg-gradient-to-b from-amber-500/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-warning/25 bg-gradient-to-b from-amber-500/5 to-transparent p-3",
         className
       )}
     >
@@ -96,12 +96,12 @@ export function GuinierChart({
           </span>
         </span>
         {bf != null ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
             B-factor {bf.toFixed(1)} Å²
           </span>
         ) : null}
         {running ? (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-running">
             <span className="relative flex size-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
               <span className="relative inline-flex size-1.5 rounded-full bg-teal-500" />

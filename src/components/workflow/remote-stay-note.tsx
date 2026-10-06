@@ -83,7 +83,7 @@ export function RemoteStayNote({
       <div
         role="note"
         data-stay-note="resolved"
-        className="rounded-md bg-teal-500/[0.07] px-2 py-1.5 text-[11px] leading-relaxed text-teal-700 dark:text-teal-300"
+        className="rounded-md bg-running/[0.07] px-2 py-1.5 text-[11px] leading-relaxed text-teal-700 dark:text-teal-300"
       >
         <span className="flex items-start gap-1.5 font-medium">
           <CheckCircle2 className="mt-px size-3.5 shrink-0" aria-hidden="true" />
@@ -91,7 +91,7 @@ export function RemoteStayNote({
             All brought home — nothing from this run is left on the cluster. Nothing to fetch.
           </span>
         </span>
-        <span className="mt-1 block border-l-2 border-teal-600/20 pl-2 text-[10.5px] leading-relaxed text-muted-foreground">
+        <span className="mt-1 block border-l-2 border-running/20 pl-2 text-[10.5px] leading-relaxed text-muted-foreground">
           At sync time: {note}
         </span>
       </div>
@@ -100,7 +100,7 @@ export function RemoteStayNote({
 
   return (
     <div role="note" data-stay-note="open" className="space-y-1">
-      <p className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+      <p className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
         {note}
       </p>
       <p className="flex items-center gap-1.5 px-2 text-[10.5px] leading-relaxed text-teal-700 dark:text-teal-300">
@@ -119,7 +119,7 @@ function PlainStayNote({ note }: { note: string }) {
     <p
       role="note"
       data-stay-note="original"
-      className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+      className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
     >
       {note}
     </p>

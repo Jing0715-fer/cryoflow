@@ -91,7 +91,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
       aria-label="CTF fit quality"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
       )}
     >
@@ -105,10 +105,10 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
         </span>
         {summary && (
           <>
-            <span className="rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+            <span className="rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
               defocus {summary.meanDefocus.toFixed(2)} µm
             </span>
-            <span className="rounded-full border border-amber-600/30 bg-amber-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+            <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
               astig ≤ {summary.maxAstigmatism.toFixed(2)} µm
             </span>
             {summary.worstResolution > 0 && (

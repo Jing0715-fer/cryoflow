@@ -90,7 +90,7 @@ export function ResolutionChart({
       aria-label="Resolution evolution"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
         className
       )}
     >
@@ -101,18 +101,18 @@ export function ResolutionChart({
           <span className="font-normal text-muted-foreground/70">({points.length} iterations)</span>
         </span>
         {current != null && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
             <Crosshair className="h-3 w-3" aria-hidden="true" />
             now {current.toFixed(2)} Å
           </span>
         )}
         {best != null && Math.abs(best - (current ?? best)) > 0.005 && (
-          <span className="rounded-full border border-emerald-600/30 bg-emerald-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
             best {best.toFixed(2)} Å
           </span>
         )}
         {running && (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-running">
             <span className="relative flex size-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
               <span className="relative inline-flex size-1.5 rounded-full bg-teal-500" />

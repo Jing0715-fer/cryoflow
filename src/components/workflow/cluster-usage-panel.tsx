@@ -71,9 +71,9 @@ interface ClusterUsageResponse {
 function StateChip({ state }: { state: string }) {
   const tone =
     state === "IDLE"
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-success"
       : state === "MIXED"
-        ? "text-amber-600 dark:text-amber-400"
+        ? "text-warning"
         : state === "ALLOCATED"
           ? "text-muted-foreground"
           : nodeUnavailable({ state })
@@ -485,8 +485,8 @@ export function ClusterUsagePanel({
                           gFree === 0
                             ? "text-danger"
                             : gTone === "tight"
-                              ? "text-amber-600 dark:text-amber-400"
-                              : "text-emerald-600 dark:text-emerald-400"
+                              ? "text-warning"
+                              : "text-success"
                         )}
                       >
                         {gFree}/{n.gpuTotal} free

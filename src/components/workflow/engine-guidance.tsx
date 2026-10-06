@@ -49,7 +49,7 @@ import type { RelionBuildProgressClient, RelionInstallClient } from "@/lib/types
 export function EngineHintBlock({ hint }: { hint: string }) {
   return (
     <div
-      className="space-y-0.5 overflow-x-auto rounded-md bg-amber-500/10 px-2 py-1.5"
+      className="space-y-0.5 overflow-x-auto rounded-md bg-warning/10 px-2 py-1.5"
       data-engine-hint
       aria-label="RELION discovery guidance"
     >
@@ -88,7 +88,7 @@ export function EngineBuildRail({ build }: { build: RelionBuildProgressClient })
   const current = build.stages.find((s) => s.state === "current");
   return (
     <div
-      className="space-y-1.5 rounded-md border border-teal-500/30 bg-teal-500/5 px-2 py-1.5"
+      className="space-y-1.5 rounded-md border border-running/30 bg-running/5 px-2 py-1.5"
       data-engine-build-rail
       aria-label="RELION rebuild progress"
     >
@@ -120,7 +120,7 @@ export function EngineBuildRail({ build }: { build: RelionBuildProgressClient })
                 s.state === "done"
                   ? "border-teal-500 bg-teal-500"
                   : s.state === "current"
-                    ? "border-amber-500 bg-amber-500/15"
+                    ? "border-amber-500 bg-warning/15"
                     : "border-muted-foreground/30 bg-transparent"
               )}
               aria-hidden="true"
@@ -128,7 +128,7 @@ export function EngineBuildRail({ build }: { build: RelionBuildProgressClient })
               {s.state === "done" ? (
                 <Check className="size-2.5 text-white" />
               ) : s.state === "current" ? (
-                <Loader2 className="size-2.5 animate-spin text-amber-600 dark:text-amber-400" />
+                <Loader2 className="size-2.5 animate-spin text-warning" />
               ) : null}
             </span>
             <span
@@ -144,7 +144,7 @@ export function EngineBuildRail({ build }: { build: RelionBuildProgressClient })
             {s.state === "current" && (
               <Badge
                 variant="outline"
-                className="ml-auto h-4 shrink-0 border-amber-500/40 bg-amber-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                className="ml-auto h-4 shrink-0 border-warning/40 bg-warning/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-warning"
               >
                 current
               </Badge>
@@ -241,7 +241,7 @@ function InstallRow({
       className={cn(
         "group flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors",
         selected
-          ? "border-teal-500/50 bg-teal-500/10"
+          ? "border-teal-500/50 bg-running/10"
           : "border-border bg-card hover:bg-secondary/60",
         pending && "opacity-70"
       )}
@@ -255,7 +255,7 @@ function InstallRow({
         aria-hidden="true"
       >
         {pending ? (
-          <Loader2 className="size-3 animate-spin text-teal-600 dark:text-teal-400" />
+          <Loader2 className="size-3 animate-spin text-running" />
         ) : (
           selected && <Check className="size-3 text-white" />
         )}
@@ -272,7 +272,7 @@ function InstallRow({
               "h-4 shrink-0 px-1 text-[9px] font-semibold uppercase tracking-wide",
               isWsl
                 ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
-                : "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+                : "border-running/40 bg-running/10 text-running"
             )}
           >
             {isWsl ? `WSL · ${install.distro ?? "default"}` : "native"}
@@ -289,7 +289,7 @@ function InstallRow({
           {install.cached && (
             <Badge
               variant="outline"
-              className="h-4 shrink-0 border-amber-500/40 bg-amber-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+              className="h-4 shrink-0 border-warning/40 bg-warning/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-warning"
               title="Restored from the saved last detection — it could not be re-verified this round (e.g. WSL was cold). Re-detect re-verifies it."
             >
               saved
@@ -307,7 +307,7 @@ function InstallRow({
       {isWsl ? (
         <Terminal className="size-3.5 shrink-0 text-cyan-600/70 dark:text-cyan-400/70" aria-hidden="true" />
       ) : (
-        <Server className="size-3.5 shrink-0 text-teal-600/70 dark:text-teal-400/70" aria-hidden="true" />
+        <Server className="size-3.5 shrink-0 text-running/70/70" aria-hidden="true" />
       )}
     </button>
   );

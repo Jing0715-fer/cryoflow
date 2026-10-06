@@ -26,10 +26,10 @@ import { cn } from "@/lib/utils";
 type InterpretationTone = "teal" | "amber" | "emerald" | "rose" | "fuchsia";
 
 const TONE_CLASS: Record<InterpretationTone, string> = {
-  teal: "border-teal-600/25 bg-teal-600/5 text-teal-700 dark:text-teal-300",
-  amber: "border-amber-600/25 bg-amber-600/5 text-amber-700 dark:text-amber-300",
+  teal: "border-running/25 bg-running/5 text-teal-700 dark:text-teal-300",
+  amber: "border-warning/25 bg-warning/5 text-amber-700 dark:text-amber-300",
   emerald:
-    "border-emerald-600/25 bg-emerald-600/5 text-emerald-700 dark:text-emerald-300",
+    "border-success/25 bg-success/5 text-emerald-700 dark:text-emerald-300",
   rose: "border-rose-600/25 bg-rose-600/5 text-danger",
   fuchsia:
     "border-fuchsia-600/25 bg-fuchsia-600/5 text-fuchsia-700 dark:text-fuchsia-300",

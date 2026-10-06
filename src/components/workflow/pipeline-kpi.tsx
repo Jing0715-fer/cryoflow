@@ -224,7 +224,7 @@ export function PipelineKpi() {
           title="Particles fed into 2D/3D classification"
           className="text-xs tabular-nums"
         >
-          <Snowflake className="size-3.5 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+          <Snowflake className="size-3.5 shrink-0 text-running" aria-hidden="true" />
           <span className="font-medium">{fmtNum(stats.particles)}</span>
           <span className="hidden text-muted-foreground sm:inline">particles</span>
         </KpiItem>
@@ -242,7 +242,7 @@ export function PipelineKpi() {
               : "Current reconstruction resolution — click to open the refinement results"
           }
           onClick={resSource ? () => inspect(resSource.id) : undefined}
-          className="rounded-full border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300"
+          className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300"
         >
           <Crosshair className="size-3 shrink-0" aria-hidden="true" />
           {resValue.toFixed(2)} Å
@@ -262,7 +262,7 @@ export function PipelineKpi() {
             title={`EMPIAR-10017 published: 4.2 Å (EMD-2824) — this map: ${resValue.toFixed(2)} Å`}
             className={
               resValue <= TARGET_ANGSTROM
-                ? "rounded-full border border-emerald-600/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
+                ? "rounded-full border border-success/40 bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
                 : "rounded-full border border-rose-600/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-danger"
             }
           >
@@ -292,7 +292,7 @@ export function PipelineKpi() {
         key="running"
         title={`${rj.name} — running · click to open its results`}
         onClick={() => inspect(rj.id)}
-        className="rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
+        className="rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
       >
         <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />
         <Activity className="hidden size-3 shrink-0 sm:block" aria-hidden="true" />

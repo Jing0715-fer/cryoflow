@@ -244,9 +244,9 @@ function ResolutionArcDialog({
               className={
                 "rounded-full px-2 py-0.5 font-medium " +
                 (verdict.word === "plateaued"
-                  ? "border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                  ? "border border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-400"
                   : verdict.word === "still improving"
-                    ? "bg-teal-600/10 text-teal-700 dark:text-teal-400"
+                    ? "bg-running/10 text-teal-700 dark:text-teal-400"
                     : "bg-muted text-muted-foreground")
               }
             >

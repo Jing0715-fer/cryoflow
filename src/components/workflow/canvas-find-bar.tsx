@@ -62,6 +62,7 @@ import { Chip } from "@/components/ui/chip";
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
 import { JOB_CATEGORIES, jobType } from "@/lib/workflow";
 import type { JobDTO, JobStatus } from "@/lib/types";
+import { STATUS_CHIP } from "@/lib/status-style"; // t647 — the chip family lives with the word law
 import { cn } from "@/lib/utils";
 
 /** Case-insensitive substring match against the job's own name and its
@@ -85,38 +86,10 @@ export const FIND_STATUSES: { value: JobStatus; label: string }[] = [
   { value: "pending", label: "Pending" },
 ];
 
-/** Chip dialect — the SAME hue family the status badges and minimap
- *  fills already use for each state (teal/emerald/rose/slate/amber); a
- *  filter chip that recolored "running" purple would be a lie. Exported
- *  so the footer's status census borrows the exact same hues — every
- *  surface that speaks "status" must use the world's own vocabulary. */
-export const STATUS_CHIP: Record<string, { dot: string; active: string }> = {
-  running: {
-    dot: "bg-teal-500",
-    active:
-      "border-teal-400/70 bg-teal-500/10 text-teal-700 dark:border-teal-500/60 dark:text-teal-300",
-  },
-  completed: {
-    dot: "bg-emerald-500",
-    active:
-      "border-emerald-400/70 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/60 dark:text-emerald-300",
-  },
-  failed: {
-    dot: "bg-danger",
-    active:
-      "border-rose-400/70 bg-rose-500/10 text-rose-700 dark:border-rose-500/60 dark:text-rose-300",
-  },
-  idle: {
-    dot: "bg-slate-400",
-    active:
-      "border-slate-400/70 bg-slate-500/10 text-slate-600 dark:border-slate-500/60 dark:text-slate-300",
-  },
-  pending: {
-    dot: "bg-amber-500",
-    active:
-      "border-amber-400/70 bg-amber-500/10 text-amber-700 dark:border-amber-500/60 dark:text-amber-300",
-  },
-};
+/** Chip dialect — t647 moved it to lib/status-style (STATUS_CHIP),
+ *  where the {dot, active} pair is composed from the same STATUS_TEXT
+ *  ink the badges speak; the footer's status census borrows it from
+ *  there directly. */
 
 /** t584 — the chip cascade's timing words. The rows land first
  *  (find-drop: --find-d 0/60/120ms over a 220ms travel); then each chip

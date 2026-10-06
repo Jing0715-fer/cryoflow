@@ -36,7 +36,12 @@ import {
   visibleOutputs,
 } from "@/lib/workflow";
 import { useWorkflowStore, type PendingFrom } from "@/lib/store";
-import { isSlurmQueued } from "@/lib/status-style";
+import {
+  isSlurmQueued,
+  STATUS_BADGE,
+  STATUS_FLOOR,
+  type StatusWord,
+} from "@/lib/status-style";
 import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
@@ -89,34 +94,11 @@ import { toast } from "@/hooks/use-toast";
  * importers keep their paths. */
 export { isSlurmQueued };
 
-export const STATUS_STYLES: Record<string, string> = {
-  idle: "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400",
-  pending:
-    "border-amber-400/60 text-amber-700 dark:border-amber-500/50 dark:text-amber-300",
-  running:
-    "border-teal-400/60 text-teal-700 dark:border-teal-500/50 dark:text-teal-300",
-  completed:
-    "border-emerald-400/60 text-emerald-700 dark:border-emerald-500/50 dark:text-emerald-300",
-  failed: "border-rose-400/60 text-rose-700 dark:border-rose-500/50 dark:text-rose-300",
-};
-
-/**
- * t350 — the status floor: a 3px accent across the card's bottom edge.
- * The pill badge speaks at card distance; the floor speaks at CANVAS
- * distance — zoomed out, a wall of cards resolves into a bar chart of
- * teal (running) / emerald (done) / rose (failed) / amber (waiting)
- * before any text is legible. Idle gets a slate whisper, not nothing:
- * "not yet run" is a different floor than "no floor". The left color
- * bar keeps carrying the CATEGORY identity, so category (vertical) and
- * state (horizontal) read on independent axes.
- */
-export const STATUS_FLOOR: Record<string, string> = {
-  idle: "bg-slate-400/25 dark:bg-slate-500/30",
-  pending: "bg-amber-400/80 dark:bg-amber-400/75",
-  running: "bg-teal-400/85 dark:bg-teal-400/80",
-  completed: "bg-emerald-400/75 dark:bg-emerald-400/70",
-  failed: "bg-rose-500/85 dark:bg-rose-500/80",
-};
+/* t647 — STATUS_STYLES/STATUS_FLOOR moved to lib/status-style as
+ * STATUS_BADGE/STATUS_FLOOR (the map family lives with the word law);
+ * imported above. The idle dialect also normalized slate → zinc: the
+ * minimap's idle hex #a1a1aa IS zinc-400, so the card's idle whisper
+ * now speaks the world's grey. */
 
 /**
  * t350 — strip the REMOTE[user@host · module]: envelope before a result
@@ -168,8 +150,8 @@ function HomecomingChip({ job }: { job: JobDTO }) {
       className={cn(
         "ml-auto gap-0.5",
         resolved
-          ? "border-teal-600/30 bg-teal-600/10 text-teal-700 dark:text-teal-300"
-          : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+          ? "border-running/30 bg-running/10 text-teal-700 dark:text-teal-300"
+          : "border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-300"
       )}
       title={
         resolved
@@ -204,7 +186,9 @@ export function StatusBadge({ status, queued }: { status: string; queued?: boole
         "h-5 gap-1 rounded-full px-2 text-[10px] font-medium capitalize",
         // t322 — a queued remote run wears the pending dialect (amber):
         // "running" would claim compute that has not started yet
-        queued ? STATUS_STYLES.pending : STATUS_STYLES[status] ?? STATUS_STYLES.idle
+        queued
+          ? STATUS_BADGE.pending
+          : STATUS_BADGE[status as StatusWord] ?? STATUS_BADGE.idle
       )}
     >
       {(queued || status === "pending") && (
@@ -1240,14 +1224,14 @@ function JobCardPreview({
               // that has not started, never an ETA on a held job
               <span
                 data-testid="preview-elapsed"
-                className="text-[10px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+                className="text-[10px] font-semibold tabular-nums text-warning"
               >
                 {elapsedText ? `${elapsedText} in queue` : "queued"}
               </span>
             ) : (
               <span
                 data-testid="preview-elapsed"
-                className="text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400"
+                className="text-[10px] font-semibold tabular-nums text-running"
               >
                 {elapsedText ? `${elapsedText} elapsed · ` : ""}
                 {Math.round(job.progress)}%
@@ -1264,7 +1248,7 @@ function JobCardPreview({
             loaded "Continue from here" gets its one emerald line — the
             same short face the context menu shows. */}
         {typeof job.params?.fn_cont === "string" && (job.params.fn_cont as string).trim() ? (
-          <p className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+          <p className="flex items-center gap-1 text-[10px] font-medium text-success">
             <History className="size-2.5 shrink-0" aria-hidden="true" />
             Next Run: {continueIntentShort((job.params.fn_cont as string).trim())}
           </p>
@@ -1305,7 +1289,7 @@ function JobCardPreview({
               "line-clamp-2 rounded border px-2 py-1.5 text-[10.5px] leading-snug",
               job.status === "failed"
                 ? "border-rose-500/30 bg-rose-500/10 text-danger"
-                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "border-success/30 bg-success/10 text-emerald-700 dark:text-emerald-300"
             )}
             title={job.result}
           >
@@ -1331,7 +1315,7 @@ function JobCardPreview({
             <div className="space-y-1">
               {job.note ? (
                 <p
-                  className="line-clamp-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10.5px] italic leading-snug text-amber-700 dark:text-amber-300"
+                  className="line-clamp-2 rounded border border-warning/30 bg-warning/10 px-2 py-1.5 text-[10.5px] italic leading-snug text-amber-700 dark:text-amber-300"
                   title={job.note}
                 >
                   {job.note}
@@ -1340,14 +1324,14 @@ function JobCardPreview({
               {shown.map(([k, v]) => (
                 <p
                   key={k}
-                  className="line-clamp-1 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1 text-[10px] italic leading-snug text-amber-700 dark:text-amber-300"
+                  className="line-clamp-1 rounded border border-warning/20 bg-warning/5 px-2 py-1 text-[10px] italic leading-snug text-amber-700 dark:text-amber-300"
                   title={`Class ${k}: ${v}`}
                 >
                   <span className="font-semibold not-italic">Class {k}</span> · {v}
                 </p>
               ))}
               {rest > 0 ? (
-                <p className="text-[9.5px] font-medium tabular-nums text-amber-600/80 dark:text-amber-400/80">
+                <p className="text-[9.5px] font-medium tabular-nums text-warning/80/80">
                   +{rest} more class note{rest === 1 ? "" : "s"}
                 </p>
               ) : null}
@@ -2136,7 +2120,7 @@ export const JobCard = React.memo(function JobCard({
               "absolute inset-x-0 bottom-0 h-[3px]",
               isSlurmQueued(job)
                 ? STATUS_FLOOR.pending
-                : STATUS_FLOOR[job.status] ?? STATUS_FLOOR.idle
+                : STATUS_FLOOR[job.status as StatusWord] ?? STATUS_FLOOR.idle
             )}
           />
 
@@ -2201,7 +2185,7 @@ export const JobCard = React.memo(function JobCard({
                     sideOffset={6}
                     className="w-64 p-0"
                   >
-                    <p className="border-b bg-amber-500/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                    <p className="border-b bg-warning/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
                       Note
                     </p>
                     <p className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-xs leading-relaxed text-foreground">
@@ -2227,7 +2211,7 @@ export const JobCard = React.memo(function JobCard({
                   role="img"
                   aria-label={`${classNoteEntries.length} class${classNoteEntries.length === 1 ? "" : "es"} noted`}
                   title={`Class notes on ${classNoteEntries.map(([k]) => `Class ${k}`).join(", ")}`}
-                  className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+                  className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold tabular-nums text-warning"
                 >
                   <StickyNote className="size-2.5" aria-hidden="true" />
                   {classNoteEntries.length}
@@ -2300,7 +2284,7 @@ export const JobCard = React.memo(function JobCard({
                     data-testid="stale-badge"
                     aria-label={d.long}
                     title={`${d.long}\nUpstream run started ${new Date(d.since).toLocaleString()}`}
-                    className="no-print flex size-3.5 shrink-0 items-center justify-center text-amber-600 dark:text-amber-400"
+                    className="no-print flex size-3.5 shrink-0 items-center justify-center text-warning"
                   >
                     <History className="size-3" aria-hidden="true" />
                   </span>
@@ -2320,7 +2304,7 @@ export const JobCard = React.memo(function JobCard({
                     data-testid="drift-badge"
                     aria-label={d.long}
                     title={`${d.long}${d.keys ? `\nChanged: ${d.keys}` : ""}`}
-                    className="no-print flex size-3.5 shrink-0 items-center justify-center text-amber-600 dark:text-amber-400"
+                    className="no-print flex size-3.5 shrink-0 items-center justify-center text-warning"
                   >
                     <SlidersHorizontal className="size-3" aria-hidden="true" />
                   </span>
@@ -2340,7 +2324,7 @@ export const JobCard = React.memo(function JobCard({
                   role="img"
                   aria-label={`Running on cluster ${job.runRemote.user}@${job.runRemote.host}${job.runRemote.module ? ` · module ${job.runRemote.module}` : ""}`}
                   title={`Running on ${job.runRemote.user}@${job.runRemote.host}${job.runRemote.module ? ` · module ${job.runRemote.module}` : ""}`}
-                  className="no-print flex size-3.5 shrink-0 items-center justify-center text-teal-600 dark:text-teal-400"
+                  className="no-print flex size-3.5 shrink-0 items-center justify-center text-running"
                 >
                   <Server className="size-3" aria-hidden="true" />
                 </span>
@@ -2356,7 +2340,7 @@ export const JobCard = React.memo(function JobCard({
                   data-testid="continue-badge"
                   aria-label={`Next Run ${continueIntentShort(continueTarget)}`}
                   title={continueIntentSentence(continueTarget)}
-                  className="no-print flex size-3.5 shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400"
+                  className="no-print flex size-3.5 shrink-0 items-center justify-center text-success"
                 >
                   <History className="size-3" aria-hidden="true" />
                 </span>
@@ -2480,7 +2464,7 @@ export const JobCard = React.memo(function JobCard({
                   {elapsedText ? (
                     <span
                       data-testid="card-elapsed"
-                      className="shrink-0 text-[9.5px] font-semibold tabular-nums text-teal-600 dark:text-teal-400"
+                      className="shrink-0 text-[9.5px] font-semibold tabular-nums text-running"
                       title={`Running for ${elapsedText}`}
                     >
                       {elapsedText}
@@ -2488,7 +2472,7 @@ export const JobCard = React.memo(function JobCard({
                   ) : null}
                   {etaText ? (
                     <span
-                      className="shrink-0 text-[9.5px] font-medium tabular-nums text-teal-600 dark:text-teal-400"
+                      className="shrink-0 text-[9.5px] font-medium tabular-nums text-running"
                       title={`Progress ${Math.round(job.progress)}% — ${etaText} remaining (estimate from current pace)`}
                     >
                       <span aria-hidden="true" className="text-muted-foreground">· </span>

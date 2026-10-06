@@ -1233,7 +1233,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   <a
                     href={fileUrl(job.id, f, "&format=raw")}
                     download={f.name}
-                    className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors hover:border-amber-600/40 hover:bg-amber-600/5"
+                    className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
                   >
                     <FileDown className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
                     <span className="truncate">{f.label ?? f.name}</span>
@@ -1251,7 +1251,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     /* data-print-keep: same paper contract as the STAR rows
                        above — the wrapped name/size record must print */
                     data-print-keep=""
-                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-amber-600/40 hover:bg-amber-600/5"
+                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
                   >
                     <ScrollText className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
                     <span className="truncate font-mono text-[11px]">{f.name}</span>
@@ -1611,7 +1611,7 @@ function MapIdentityCard({
     <section
       aria-label="Imported map"
       data-canvas-ui="map-identity"
-      className="rounded-lg border border-teal-600/30 bg-teal-600/[0.04] p-3"
+      className="rounded-lg border border-running/30 bg-running/[0.04] p-3"
     >
       <div className="flex items-center justify-between gap-2">
         <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
@@ -1624,11 +1624,11 @@ function MapIdentityCard({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span className="rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+        <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
           {dims.join(" × ")} vox
         </span>
         {map.pixel > 0 && (
-          <span className="rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+          <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
             {map.pixel.toFixed(2)} Å / voxel
           </span>
         )}
@@ -1686,7 +1686,7 @@ function MapIdentityCard({
               size="sm"
               variant="outline"
               data-testid="map-card-view-3d"
-              className="h-7 gap-1.5 border-teal-600/40 px-2.5 text-[11px] text-teal-700 hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+              className="h-7 gap-1.5 border-running/40 px-2.5 text-[11px] text-teal-700 hover:bg-running/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
               onClick={() => onView3D({ job, path: file.path, name: file.name })}
             >
               <Box className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1860,7 +1860,7 @@ function MrcGallery({
             className={
               filter === "final"
                 ? "border-teal-600 bg-teal-600 text-white shadow-sm"
-                : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
+                : "border-border bg-background text-muted-foreground hover:border-running/40 hover:text-foreground"
             }
           >
             <button
@@ -1880,7 +1880,7 @@ function MrcGallery({
               className={
                 filter === it
                   ? "border-teal-600 bg-teal-600 text-white shadow-sm"
-                  : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
+                  : "border-border bg-background text-muted-foreground hover:border-running/40 hover:text-foreground"
               }
             >
               <button
@@ -1900,7 +1900,7 @@ function MrcGallery({
             className={
               filter === "all"
                 ? "border-teal-600 bg-teal-600 text-white shadow-sm"
-                : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
+                : "border-border bg-background text-muted-foreground hover:border-running/40 hover:text-foreground"
             }
           >
             <button
@@ -2026,7 +2026,7 @@ function RemoteFileTile({
       data-remote-file=""
       data-remote-path={file.path}
     >
-      <span className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-teal-600/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-teal-700 shadow-sm dark:text-teal-300">
+      <span className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-running/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-teal-700 shadow-sm dark:text-teal-300">
         <Cloud className="size-2.5" aria-hidden="true" />
         on cluster
       </span>
@@ -2042,7 +2042,7 @@ function RemoteFileTile({
           <button
             type="button"
             onClick={() => setFetching(true)}
-            className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-md border border-border/50 bg-muted/40 text-muted-foreground transition-colors hover:border-teal-600/40 hover:text-foreground"
+            className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-md border border-border/50 bg-muted/40 text-muted-foreground transition-colors hover:border-running/40 hover:text-foreground"
             aria-label={`Fetch ${file.label ?? file.name} from the cluster and preview it`}
             title={`Fetch & preview — pulls ${formatBytes(file.size)} from the cluster over SSH, then renders it (stays on this machine afterwards)`}
             data-canvas-ui="remote-fetch-preview"
@@ -2389,7 +2389,7 @@ function WarningsCard({ warnings }: { warnings: string[] }) {
       aria-label="Run warnings"
       data-warnings-card=""
       data-print-keep=""
-      className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs"
+      className="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs"
     >
       <button
         type="button"
@@ -2397,7 +2397,7 @@ function WarningsCard({ warnings }: { warnings: string[] }) {
         aria-expanded={open}
         className="flex w-full items-center gap-2 text-left"
       >
-        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+        <AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <span className="font-medium text-amber-700 dark:text-amber-300">
           {warnings.length} warning{warnings.length === 1 ? "" : "s"} in run.out
         </span>
@@ -2414,7 +2414,7 @@ function WarningsCard({ warnings }: { warnings: string[] }) {
           {warnings.map((w, i) => (
             <li
               key={i}
-              className="break-words rounded bg-amber-500/10 px-2 py-1 font-mono text-[10px] leading-relaxed text-amber-800 dark:text-amber-200"
+              className="break-words rounded bg-warning/10 px-2 py-1 font-mono text-[10px] leading-relaxed text-amber-800 dark:text-amber-200"
             >
               {w}
             </li>
@@ -2581,7 +2581,7 @@ function RemoteBatchBar({
 
   return (
     <div
-      className="rounded-lg border border-teal-600/30 bg-teal-600/[0.04] px-3 py-2.5"
+      className="rounded-lg border border-running/30 bg-running/[0.04] px-3 py-2.5"
       data-canvas-ui="remote-batch-bar"
       role="status"
       aria-busy={running}
@@ -2622,7 +2622,7 @@ function RemoteBatchBar({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 gap-1.5 border-teal-600/40 px-2.5 text-[11px] text-teal-700 hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+                className="h-7 gap-1.5 border-running/40 px-2.5 text-[11px] text-teal-700 hover:bg-running/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
                 onClick={() => void bringHome()}
                 aria-label={`Fetch all ${total} cluster files to this machine`}
                 title="Bring them all home — small chunks over SSH, per-file verdicts, stoppable at any moment"
@@ -2649,7 +2649,7 @@ function RemoteBatchBar({
       </div>
       {(running || settled > 0) && (
         <div
-          className="mt-2 h-1 overflow-hidden rounded-full bg-teal-600/15"
+          className="mt-2 h-1 overflow-hidden rounded-full bg-running/15"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={total}

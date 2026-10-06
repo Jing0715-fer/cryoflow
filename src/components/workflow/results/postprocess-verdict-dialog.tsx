@@ -128,12 +128,12 @@ export function PostprocessVerdictEntry({ job }: { job: JobDTO }) {
 /* ------------------------------------------------------------------ */
 
 const WORD_STYLES: Record<string, string> = {
-  honest: "bg-teal-600/10 text-teal-700 dark:text-teal-400",
-  "modest gift": "bg-teal-600/10 text-teal-700 dark:text-teal-400",
+  honest: "bg-running/10 text-teal-700 dark:text-teal-400",
+  "modest gift": "bg-running/10 text-teal-700 dark:text-teal-400",
   "generous gift":
-    "border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    "border border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-400",
   "mask-carried":
-    "border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    "border border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-400",
   "beyond the box":
     "border border-red-500/40 bg-red-500/10 text-danger",
 };
@@ -207,7 +207,7 @@ function FinalVerdictDialog({
               label="official (corrected)"
               value={`${official.toFixed(1)} Å`}
               tone="font-semibold text-teal-700 dark:text-teal-400"
-              dot="bg-teal-500 ring-2 ring-teal-500/30"
+              dot="bg-teal-500 ring-2 ring-running/30"
               above={!unmasked}
             />
             {rawMasked != null ? (

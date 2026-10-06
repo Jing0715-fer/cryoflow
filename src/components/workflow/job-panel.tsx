@@ -170,7 +170,7 @@ function EngineBadge() {
   return (
     <Badge
       variant="outline"
-      className="h-5 border-teal-500/40 bg-teal-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400"
+      className="h-5 border-running/40 bg-running/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-running"
       title="Runs on the REAL RELION engine (real binaries, real data)"
     >
       RELION
@@ -1086,7 +1086,7 @@ function ContinueField({
                       {(s.entries.length > 0 || s.error) && (
                         <div className="flex items-center gap-1.5 bg-secondary/40 px-3 py-1.5">
                           {s.archived ? (
-                            <Archive className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                            <Archive className="h-3 w-3 shrink-0 text-warning" aria-hidden="true" />
                           ) : s.relation === "self" ? (
                             <History className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
                           ) : (
@@ -1108,7 +1108,7 @@ function ContinueField({
                             <span className="text-[10px] text-muted-foreground">local</span>
                           )}
                           {s.archived && (
-                            <span className="shrink-0 rounded-sm bg-amber-500/15 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400">
+                            <span className="shrink-0 rounded-sm bg-warning/15 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400">
                               archived
                             </span>
                           )}
@@ -1160,7 +1160,7 @@ function ContinueField({
                                 it {String(e.iteration).padStart(3, "0")}
                               </span>
                               {e.newest && (
-                                <Badge className="h-4 rounded-sm bg-emerald-500/15 px-1 text-[9px] font-medium text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-400">
+                                <Badge className="h-4 rounded-sm bg-success/15 px-1 text-[9px] font-medium text-emerald-700 hover:bg-success/15 dark:text-emerald-400">
                                   newest
                                 </Badge>
                               )}
@@ -1270,7 +1270,7 @@ function ContinueField({
         <div className="flex min-w-0 flex-wrap items-center gap-1 text-[10px]">
           {match ? (
             <>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-400">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-success/10 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-400">
                 <Check className="h-3 w-3" aria-hidden="true" />
                 it {String(match.entry.iteration).padStart(3, "0")}
               </span>
@@ -1289,7 +1289,7 @@ function ContinueField({
               </span>
               {match.entry.newest && (
                 <span
-                  className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-400"
+                  className="shrink-0 rounded bg-success/10 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-400"
                   title="the newest complete checkpoint in this group"
                 >
                   newest
@@ -1553,7 +1553,7 @@ function ParamsTab({
               autoSave.phase === "error"
                 ? "text-destructive"
                 : autoSave.phase === "saved" && !dirty
-                  ? "text-emerald-600 dark:text-emerald-400"
+                  ? "text-success"
                   : dirty
                     ? "text-primary"
                     : "text-muted-foreground"
@@ -1637,8 +1637,8 @@ function ResultsTab({ job }: { job: JobDTO }) {
               job.status === "failed"
                 ? "border-destructive/30 bg-destructive/10 text-destructive"
                 : pending
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                  ? "border-warning/30 bg-warning/10 text-amber-700 dark:text-amber-400"
+                  : "border-success/30 bg-success/10 text-emerald-700 dark:text-emerald-400"
             )}
             title={job.result}
           >
@@ -1656,7 +1656,7 @@ function ResultsTab({ job }: { job: JobDTO }) {
         </div>
       )}
       {pending && (
-        <p className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+        <p className="rounded-md border border-dashed border-warning/40 bg-warning/5 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
           The job did not fail — it is waiting for an upstream job. Fix and re-run
           the upstream job: this one then starts automatically once its inputs are
           ready.
@@ -1855,7 +1855,7 @@ function PanelBody({ job }: { job: JobDTO }) {
       className={cn(
         "w-full",
         remotePrimaryRun && "border-violet-500/40",
-        hasContinueTarget && "border-emerald-500/50 hover:bg-emerald-500/10"
+        hasContinueTarget && "border-emerald-500/50 hover:bg-success/10"
       )}
       size="sm"
       disabled={
@@ -2156,9 +2156,9 @@ function PanelBody({ job }: { job: JobDTO }) {
           <div
             role="note"
             title={`${job.runRemote.remoteWorkdir} — cluster workdir`}
-            className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-teal-500/25 bg-teal-500/[0.06] px-2 py-1.5 text-[11px] text-muted-foreground"
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-running/25 bg-running/[0.06] px-2 py-1.5 text-[11px] text-muted-foreground"
           >
-            <Server className="size-3.5 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+            <Server className="size-3.5 shrink-0 text-running" aria-hidden="true" />
             <span className="font-medium text-foreground/90">
               {job.runRemote.user}@{job.runRemote.host}
             </span>
@@ -2186,7 +2186,7 @@ function PanelBody({ job }: { job: JobDTO }) {
         {relionBlocked && (
           <p
             id="job-relion-blocked-hint"
-            className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400"
+            className="text-[11px] leading-relaxed text-warning"
           >
             {relionHint} — jobs will fail to start honestly.
           </p>
@@ -2208,7 +2208,7 @@ function PanelBody({ job }: { job: JobDTO }) {
           // has started yet
           <p
             role="note"
-            className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+            className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
           >
             {job.runRemote?.slurmDependsOn?.length
               ? `Queued on the cluster — Slurm holds it until ${job.runRemote.slurmDependsOn.join(", ")} lands.`
@@ -2227,7 +2227,7 @@ function PanelBody({ job }: { job: JobDTO }) {
         {job.status === "pending" && (
           <p
             role="note"
-            className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+            className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
           >
             {job.result ?? "Waiting for an upstream job to produce its outputs."}{" "}
             <span className="text-muted-foreground">
@@ -2400,7 +2400,7 @@ function CommandPreviewCompact({ job }: { job: JobDTO }) {
       {blocker ? (
         <p
           data-canvas-ui="command-blocker"
-          className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
+          className="rounded-md border border-warning/30 bg-warning/10 px-2 py-1.5 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
         >
           {blocker}
         </p>
