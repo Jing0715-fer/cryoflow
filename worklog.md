@@ -9702,3 +9702,24 @@ Stage Summary:
 - 「FATAL 不清扫的套件是世界的污染源」：泄漏放大器让一个陈旧 oracle（F4）在三轮里长成跨套件灾难（t103 全家 + t105 三张 + maxX 东移 20k px）；cleanup-on-fail 律的价值不在自己过审，而在**任何死法下都不改写世界的几何**——t632 律在本窗完成第三次执法（旁观受害 → 自家正形）
 - 「损坏判词先验信使」：本窗差点把传输层吞 `[h` 的视觉骗局立案为「产品源码语法损坏」——tsc/SWC/dev-server 三方矛盾是报警器，od 是法官；工具回显是证人不是物证
 - 产出：t105 修复三处（F4/F5 oracle + E4 种子带钳制 + cleanup-on-fail 正形）+ t643-fossil-sweep（11 化石→0）+ t643-redo-autopsy 探针（留档）；下窗入口：①t103 考古（A1 锥形导航断言，本窗已清其 8 张化石、S0 自愈可安全重跑，cleanup-on-fail 缺口同款待修）②t101 考古（D4 setViewport zoom clamp gate 静态断言）③样式/功能车道 ④judge 风暴（等稳定夜）⑤build 日三车道（available ≥ 3.5GB，本窗第 53 窗否决）
+
+---
+Task ID: 644 收官
+Agent: main (cron window, Job 362852)
+Task: t643 入口①兑现并扩容——t103 考古（A1 定谳为几何镜像化化石，非陈旧 regex）+ t101 顺藤收编（D4 定谳为 t588 中继路由化石）双套件重生 + 两处 cleanup-on-fail 正形
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 643 收官（派单又称 Task 13——第 N+86 次陈旧模板语）；树净 HEAD fb3a135；available 1265MB 非 build 日（第 54 窗否决）；server 200/31ms。
+- [QA 五绿基线] t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS + t105 46 PASS——世界健康后才动工程。
+- [t103 A1 活体验尸] 实跑 FATAL 于 A1：ArrowRight 锚中 E1 自己（合同要求 E1 被零前进排除）。handler 语义完好（forward<=0 门、±45° cone、drift 罚全在），S3 武装点读数精确——唯一矛盾指向「App 算的中心」与「套件算的中心」不同。定谳：**几何镜像化化石**。现树 lib/workflow CARD_W=240/CARD_H=112（git -S 定代：12f5d41，t349 卡片重设计），套件头注镜像 220×96 自初创——App 中心相对武装点东移 10px/南移 8px，E1 的 forward = +10 > 0，零前进排除被 10px 幽灵击穿，E1 以 10px 距离赢过 600px 外的 E2。**卡间距几何（cone/score）是中心偏移不变的**——只有绝对武装点与 pan 不变量读常数，这正是 B2/B5/C3 若活到也会死于同源的证明。
+- [t103 三修一扫] ①S-a 镜像改读活法：CARD_W/CARD_H 运行时从 src/lib/workflow.ts 正则提取（oracle 读世界的现律，不再抄死副本）；②S1 化石界限 `X0-1740 > Y0-160` 换成活体扫描：对每张旧卡 × E1..E4 链头验证 ±45° 竖直 cone 不可能进入（|vx| > |vy| 逐对计算）+ 900px 距离地板（防 drift 罚下的偷步），世界形状再变也是响亮失败而非静默通过；③cleanup-on-fail 正形（t156 范式）：must 纯 throw → main().catch await cleanup → exit 1，种子失败路径同改——旧形（void 关页 + 同步 exit）三轮 FATAL 泄 8 具尸（t643 扫过），本次实跑 Z1 证明 8 种子全数自清；④G2..G5 静态锚随 handler 迁居改读 app-shell.tsx（t643/F5 先例：M 分支先搬，箭头随后），label 刻迁移故事；B1/V1 判词机制纠偏（D2 从 E2 看是 26° in-cone 靠 drift 罚输掉、从 E3 看才是 79° 出锥；60° 非 64°）；死代码 clickCard（引用旧镜像且从未被调）退役。
+- [t101 顺藤收编] doctrine 原判「t103/t101/t105 各值一整窗」，但 t103 判词给出强先验（迁移波+路由漂移类化石），侦察成本仅一次实跑——t101 FATAL 于 D4（静态），当场定谳：**t588 中继路由化石**。jump 自 t588 改乘到达中继：store 只 `set({ arrivalTarget, arrivalEpoch+1 })`，canvas effect 消费后经 beginGlideArrival 落地，zoom clamp 门住在 store 的 setViewport 里从未搬家——D4 锚死的 `s.setViewport(hit.viewport)` 是 t588 前的旧路线拼写。修复：D4 锚中继三件套（arrivalTarget 派发 + jumpToViewportBookmark 存在 + clamp 门在位）+ label 刻 t588 故事；D5 同病（digit 分支已迁 app-shell 434 行）改读 shellSrc；cleanup-on-fail 同款正形。33 断言 ALL PASS——「各值一整窗」的先验被共同根因推翻，判词的杠杆值一窗。
+- [回归] t252 ALL PASS + t637 6/0 ×2 + t641 10/0 + qa78 ALL PASS + t105 46 PASS + t103 31 PASS + t101 33 PASS；世界恒 15 jobs 零残留；本窗零 src/ 改动（tsc/eslint 不适用），产品虫零只。
+
+Stage Summary:
+- 「陈旧 oracle 的死因常常不是名字漂移而是几何漂移」：A1 锚的谓词一个字都没错（E1 该被排除），错的是谓词脚下的地面——卡片长高 20px、加宽 16px，App 的中心就从套件的武装点旁边溜走了；修复的一半是读数（活体提取常数），另一半是把化石算术（X0-1740）换成对真实世界逐对验证的扫描
+- 「中心偏移不变性是几何断言的免疫边界」：cone/score/dead-end 全是卡间量，卡怎么变它们都不动；只有拿「世界点 vs 卡中心」做差的绝对量才吃几何漂移——写套件时先分类哪些断言站在不变区、哪些站在暴露区，暴露区的常数一个都不许硬编码
+- 「判词的杠杆能推翻工作量的先验」：t641 判「t101/t103/t105 各值一整窗」是对未知根因的诚实定价；t103 的判词一旦把根因钉进「迁移波化石」类，t101 的侦察就降为一次实跑——判词要写根因的类名，下个窗才有杠杆可用
+- 「路线搬了门没搬」：t588 把 jump 的路线从 store 直呼 setViewport 改成 arrivalTarget 中继，但 zoom clamp 门从未离开 store 的 setViewport——oracle 断「路线」时先问「门在哪」；行为相（B/C/E）活着证明落地仍在工作，静态相锁的是合同不是实现
+- 「cleanup 正形是套件族的通用疫苗」：t103 的三轮 FATAL 八具尸是旧形 must 的必然产物，t101 同款缺口只是还没轮到泄漏；t156 范式（纯 throw + main().catch 收尸）已是第六次移植，任何「死时状态泄漏」的套件都该先打这一针再谈别的
+- 产出：t103 重生（31 断言：S-a 活体镜像 + S1 计算化竖直 cone 扫描 + cleanup 正形 + G 相迁移）+ t101 重生（33 断言：D4 中继契约 + D5 迁移 + cleanup 正形）+ t644-wrap 机械包裹脚本留档；下窗入口：①t105 已在 t643 重生、t103/t101 本窗重生——qa78/t252/t637/t641 全绿在册，套件族考古告一段落 ②样式/功能车道继续 ③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 54 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
