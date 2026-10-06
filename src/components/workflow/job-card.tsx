@@ -192,13 +192,13 @@ export function StatusBadge({ status, queued }: { status: string; queued?: boole
       )}
     >
       {(queued || status === "pending") && (
-        <span className="animate-soft-pulse inline-block size-1.5 rounded-full bg-amber-500" />
+        <span className="animate-soft-pulse inline-block size-1.5 rounded-full bg-warning-500" />
       )}
       {status === "running" && !queued && (
-        <span className="animate-soft-pulse inline-block size-1.5 rounded-full bg-teal-500" />
+        <span className="animate-soft-pulse inline-block size-1.5 rounded-full bg-running-500" />
       )}
       {status === "completed" && (
-        <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
+        <span className="inline-block size-1.5 rounded-full bg-success-500" />
       )}
       {queued ? "queued" : status}
     </Badge>
@@ -2062,7 +2062,7 @@ export const JobCard = React.memo(function JobCard({
               !inspected &&
               !bandMatch &&
               !findMatch &&
-              "job-running border-teal-400/60 dark:border-teal-500/50",
+              "job-running border-running-400/60 dark:border-running-500/50",
             // soft links: dashed outline + tinted body (read-only mirror)
             job.linkedJobId != null &&
               !selected &&
@@ -2226,7 +2226,7 @@ export const JobCard = React.memo(function JobCard({
                 <span
                   aria-hidden="true"
                   title="Completed"
-                  className="ml-auto flex size-4.5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold leading-none text-white shadow-sm"
+                  className="ml-auto flex size-4.5 shrink-0 items-center justify-center rounded-full bg-success-500 text-[10px] font-bold leading-none text-white shadow-sm"
                 >
                   <svg viewBox="0 0 10 10" className="size-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M1.5 5.2 L3.8 7.5 L8.5 2.5" />
@@ -2439,7 +2439,7 @@ export const JobCard = React.memo(function JobCard({
                   }
                 >
                   <span
-                    className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500"
+                    className="inline-block size-1.5 shrink-0 rounded-full bg-warning-500"
                     aria-hidden="true"
                   />
                   <span className="truncate">
@@ -2513,7 +2513,7 @@ export const JobCard = React.memo(function JobCard({
                   className="flex min-w-0 items-start gap-1 text-[11px] leading-[15px] text-warning-700 dark:text-warning-300"
                   title={job.result ?? "Waiting for an upstream job"}
                 >
-                  <span className="mt-[5px] inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                  <span className="mt-[5px] inline-block size-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true" />
                   <span className="truncate">{job.result ?? "Waiting for an upstream job"}</span>
                 </p>
               ) : isReady ? (
@@ -2525,7 +2525,7 @@ export const JobCard = React.memo(function JobCard({
                  * the go-signal would be a lie. */
                 <p className="flex min-w-0 items-center gap-1.5 text-[11px] leading-[15px]">
                   <span
-                    className="inline-block size-1.5 shrink-0 rounded-full bg-emerald-500"
+                    className="inline-block size-1.5 shrink-0 rounded-full bg-success-500"
                     aria-hidden="true"
                   />
                   <span className="shrink-0 font-medium text-success-700 dark:text-success-300">

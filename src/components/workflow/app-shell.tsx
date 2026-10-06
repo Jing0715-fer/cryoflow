@@ -609,14 +609,14 @@ export function AppShell() {
       {loadError && (
         <div
           role="alert"
-          className="flex flex-wrap items-center gap-2 border-b border-amber-300/60 bg-amber-100/80 px-4 py-2 text-sm text-warning-900 dark:border-warning/40 dark:bg-amber-950/60 dark:text-warning-200"
+          className="flex flex-wrap items-center gap-2 border-b border-warning-300/60 bg-warning-100/80 px-4 py-2 text-sm text-warning-900 dark:border-warning/40 dark:bg-warning-950/60 dark:text-warning-200"
         >
           <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate font-medium">{loadError}</span>
           <Button
             size="sm"
             variant="outline"
-            className="h-7 gap-1.5 border-amber-400/60 text-warning-900 hover:bg-amber-200/60 dark:text-warning-200 dark:hover:bg-amber-900/60"
+            className="h-7 gap-1.5 border-warning-400/60 text-warning-900 hover:bg-warning-200/60 dark:text-warning-200 dark:hover:bg-warning-900/60"
             onClick={() => void useWorkflowStore.getState().load()}
           >
             <RefreshCw className="size-3.5" aria-hidden="true" />
@@ -626,7 +626,7 @@ export function AppShell() {
             size="icon"
             variant="ghost"
             aria-label="Dismiss error"
-            className="size-7 text-warning-900 hover:bg-amber-200/60 dark:text-warning-200 dark:hover:bg-amber-900/60"
+            className="size-7 text-warning-900 hover:bg-warning-200/60 dark:text-warning-200 dark:hover:bg-warning-900/60"
             onClick={() => useWorkflowStore.setState({ error: null })}
           >
             <X className="size-3.5" aria-hidden="true" />

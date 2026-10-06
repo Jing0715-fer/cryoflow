@@ -85,8 +85,8 @@ export function OrchestrationStrip() {
       <div className="card-lift-lg flex items-center gap-3 rounded-xl border bg-card/95 py-2.5 pr-2.5 pl-4 shadow-lg backdrop-blur">
         {/* the walk is alive — a breathing dot, not a static glyph */}
         <span className="relative flex size-2.5 shrink-0" aria-hidden="true">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-teal-500 opacity-60" />
-          <span className="relative inline-flex size-2.5 rounded-full bg-teal-600" />
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-running-500 opacity-60" />
+          <span className="relative inline-flex size-2.5 rounded-full bg-running-600" />
         </span>
 
         <div className="min-w-0">
@@ -146,9 +146,9 @@ export function OrchestrationStrip() {
                 title={orch.order[i]?.name}
                 className={
                   t === "done"
-                    ? "size-1.5 rounded-full bg-teal-600"
+                    ? "size-1.5 rounded-full bg-running-600"
                     : t === "active"
-                      ? "size-2 animate-pulse rounded-full bg-teal-500"
+                      ? "size-2 animate-pulse rounded-full bg-running-500"
                       : "size-1.5 rounded-full bg-border"
                 }
               />

@@ -242,13 +242,13 @@ function RelionStatusChip() {
             <span
               className={cn(
                 "absolute inline-flex h-full w-full rounded-full opacity-60",
-                found ? "animate-ping bg-emerald-500" : "bg-amber-500"
+                found ? "animate-ping bg-success-500" : "bg-warning-500"
               )}
             />
             <span
               className={cn(
                 "relative inline-flex size-2 rounded-full",
-                found ? "bg-emerald-500" : "bg-amber-500"
+                found ? "bg-success-500" : "bg-warning-500"
               )}
             />
           </span>
@@ -335,9 +335,9 @@ function RelionStatusChip() {
                   className={cn(
                     "size-1.5 rounded-full",
                     wslState === "relion"
-                      ? "bg-emerald-500"
+                      ? "bg-success-500"
                       : wslState === "no-relion"
-                        ? "bg-amber-500"
+                        ? "bg-warning-500"
                         : "bg-muted-foreground/40"
                   )}
                   aria-hidden="true"
@@ -639,7 +639,7 @@ function NoteSpotlightChip() {
         // dashboard Noted chip is its second entry) — it yields first.
         "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex",
         on
-          ? "border-amber-500/60 bg-warning/10"
+          ? "border-warning-500/60 bg-warning/10"
           : "border-border bg-card hover:bg-secondary/60",
         noted === 0 && "opacity-50"
       )}

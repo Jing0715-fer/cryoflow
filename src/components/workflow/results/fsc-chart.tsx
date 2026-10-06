@@ -55,12 +55,14 @@ import { fscShells, fscRenderable, fscRows, type FscResponse } from "@/lib/chart
 import { ChartExportButtons } from "./chart-export-buttons";
 import { ChartErrorStrip } from "./chart-error-strip";
 import { FscCompareDialog } from "./fsc-compare-dialog";
+import { STATUS_HEX } from "@/lib/status-style";
 
-const TEAL = "#14b8a6";
-const AMBER = "#f59e0b";
+// t650: SVG-series hex values flow from the STATUS_HEX single source.
+const TEAL = STATUS_HEX.running;
+const AMBER = STATUS_HEX.pending;
 const NOISE = "#71717a";
 const VIOLET = "#8b5cf6";
-const ROSE = "#f43f5e";
+const ROSE = STATUS_HEX.failed;
 
 export function FscChart({
   jobId,

@@ -675,7 +675,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                     </span>
                     <div className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-muted/70">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-teal-600/70 to-teal-500/45 transition-[width] duration-700 ease-out group-hover/flow:from-teal-600 group-hover/flow:to-teal-500/70"
+                        className="h-full rounded-full bg-gradient-to-r from-running-600/70 to-running-500/45 transition-[width] duration-700 ease-out group-hover/flow:from-running-600 group-hover/flow:to-running-500/70"
                         style={{ width: `${w}%`, "--ad": `${INNER_BASE_MS + i * STEP_MS}ms` } as CSSProperties}
                         data-flow-bar=""
                       />
@@ -847,10 +847,10 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                           className={cn(
                             "absolute top-1/2 h-2.5 -translate-y-1/2 rounded-[3px] transition-[left,width] duration-500 ease-out [print-color-adjust:exact] [-webkit-print-color-adjust:exact]",
                             r.job.status === "running"
-                              ? "animate-soft-pulse bg-amber-500"
+                              ? "animate-soft-pulse bg-warning-500"
                               : r.job.status === "failed"
                                 ? "bg-danger-500/85"
-                                : "bg-emerald-500/80"
+                                : "bg-success-500/80"
                           )}
                           style={{ left: `${x}%`, width: `${w}%` }}
                           data-tl-bar=""

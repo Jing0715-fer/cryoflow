@@ -1855,7 +1855,7 @@ function PanelBody({ job }: { job: JobDTO }) {
       className={cn(
         "w-full",
         remotePrimaryRun && "border-violet-500/40",
-        hasContinueTarget && "border-emerald-500/50 hover:bg-success/10"
+        hasContinueTarget && "border-success-500/50 hover:bg-success/10"
       )}
       size="sm"
       disabled={

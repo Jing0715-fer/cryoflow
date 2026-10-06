@@ -49,9 +49,9 @@ const fmtMb = (mb: number) =>
 function verdictTone(verdict: "healthy" | "watch" | "danger") {
   switch (verdict) {
     case "healthy":
-      return { dot: "bg-teal-500", text: "text-running", label: "Healthy" };
+      return { dot: "bg-running-500", text: "text-running", label: "Healthy" };
     case "watch":
-      return { dot: "bg-amber-500", text: "text-warning", label: "Watch" };
+      return { dot: "bg-warning-500", text: "text-warning", label: "Watch" };
     case "danger":
       return { dot: "bg-danger", text: "text-danger", label: "Danger" };
   }
@@ -81,9 +81,9 @@ function LaneBar({
   const pct = Math.max(0, Math.min(100, (valueMb / Math.max(1, maxMb)) * 100));
   const fill =
     tone === "go" || tone === "warm"
-      ? "bg-teal-500/80"
+      ? "bg-running-500/80"
       : tone === "nogo"
-        ? "bg-amber-500/80"
+        ? "bg-warning-500/80"
         : "bg-danger-500/80";
   return (
     <div data-testid="diag-lane" data-lane-tone={tone} className="space-y-1">
@@ -267,7 +267,7 @@ export default function SystemDiagnosticsDialog({
             {system?.found ? (
               <div className="space-y-1.5" data-testid="diag-engine-found">
                 <div className="flex items-center gap-2">
-                  <span className="size-2 rounded-full bg-teal-500" aria-hidden="true" />
+                  <span className="size-2 rounded-full bg-running-500" aria-hidden="true" />
                   <span className="font-mono text-xs text-foreground/90">
                     RELION {system.version ?? "?"}
                   </span>

@@ -240,7 +240,7 @@ const PROSE_COMPONENTS: Components = {
           data-assistant-door={id}
           aria-label={`在画布中定位 ${label}`}
           title={`在画布中定位 ${label}`}
-          className="rounded px-0.5 font-medium text-running-700 underline decoration-teal-500/40 underline-offset-2 transition-colors hover:bg-running/10 focus-visible:bg-running/15 focus-visible:outline-none hover:decoration-teal-500 dark:text-running-300"
+          className="rounded px-0.5 font-medium text-running-700 underline decoration-running-500/40 underline-offset-2 transition-colors hover:bg-running/10 focus-visible:bg-running/15 focus-visible:outline-none hover:decoration-running-500 dark:text-running-300"
           onClick={() => useWorkflowStore.getState().revealJob(id)}
         >
           {children}
@@ -640,7 +640,7 @@ function FilterChip({
         active
           ? tone === "rose"
             ? "border-danger-600/40 bg-danger-500/10 text-danger"
-            : "border-teal-500/50 bg-running/10 text-running"
+            : "border-running-500/50 bg-running/10 text-running"
           : "border-transparent bg-secondary/60 text-muted-foreground hover:text-foreground"
       )}
     >
@@ -1663,7 +1663,7 @@ export function AssistantPanel() {
                   variant="outline"
                   className={cn(
                     "hidden max-w-[200px] gap-1 truncate border-running/40 bg-running/10 px-1.5 font-mono text-[10px] font-normal text-running sm:inline-flex",
-                    health && health.state !== "ok" && "border-amber-500/50 bg-warning/10 text-warning-700 dark:text-warning-400"
+                    health && health.state !== "ok" && "border-warning-500/50 bg-warning/10 text-warning-700 dark:text-warning-400"
                   )}
                   title={
                     health && health.state !== "ok"
@@ -1677,7 +1677,7 @@ export function AssistantPanel() {
                       aria-hidden="true"
                       className={cn(
                         "size-1.5 shrink-0 rounded-full",
-                        health.state === "unreachable" ? "bg-danger" : "bg-amber-500"
+                        health.state === "unreachable" ? "bg-danger" : "bg-warning-500"
                       )}
                     />
                   )}

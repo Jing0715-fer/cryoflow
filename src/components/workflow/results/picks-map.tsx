@@ -231,7 +231,7 @@ export function PicksMap({
     <section
       aria-label="Picked particles map"
       className={cn(
-        "rounded-lg border border-running/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "rounded-lg border border-running/25 bg-gradient-to-b from-running-600/5 to-transparent p-3",
         className
       )}
     >

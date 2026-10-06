@@ -202,6 +202,8 @@ export function IdentityScatter({
               fill="#0d9488"
               fillOpacity={0.75}
             />
+            {/* rose-600 deep rung — series ink for "regressed"; SVG hex is
+                the SVG domain's native vocabulary (t650 verdict) */}
             <Scatter
               name={`${words.worse} (${regressed.length})`}
               data={regressed}
@@ -221,7 +223,7 @@ export function IdentityScatter({
       </div>
       <div className="-mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1">
-          <span className="size-2 rounded-full bg-teal-600" aria-hidden="true" /> {words.better}
+          <span className="size-2 rounded-full bg-running-600" aria-hidden="true" /> {words.better}
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="size-2 rounded-full bg-danger-600" aria-hidden="true" /> {words.worse}

@@ -110,7 +110,7 @@ export function AngularDistributionChart({
       aria-label="Orientation distribution"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-running-600/5 to-transparent p-3",
         className
       )}
     >
@@ -123,8 +123,8 @@ export function AngularDistributionChart({
         {running ? (
           <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-1.5 py-px text-[10px] font-medium text-running-700 dark:text-running-300">
             <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-running-500 opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-running-500" />
             </span>
             live
           </span>

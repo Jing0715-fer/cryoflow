@@ -43,6 +43,8 @@ const STROKE_HEX: Record<string, string> = {
   micrographs: "#14b8a6",
   coords: "#f59e0b",
   particles: "#8b5cf6",
+  // references2d category identity = rose-500 (lib/workflow.ts dot twin).
+  // SVG hex is the SVG domain's native vocabulary (t650 verdict).
   references2d: "#f43f5e",
   volume: "#f97316",
   halfmap: "#ec4899",

@@ -38,11 +38,15 @@ import {
   type TopazTrainingResponse,
 } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { STATUS_HEX } from "@/lib/status-style";
 
-const TEAL = "#14b8a6";
-const AMBER = "#f59e0b";
-const EMERALD = "#10b981";
-const ROSE = "#f43f5e";
+// SVG-series hex is the SVG domain's native vocabulary (token utility
+// classes do not exist for fill/stroke); the VALUES flow from the
+// STATUS_HEX single source since t650 — three verbatim copies retired.
+const TEAL = STATUS_HEX.running;
+const AMBER = STATUS_HEX.pending;
+const EMERALD = STATUS_HEX.completed;
+const ROSE = STATUS_HEX.failed;
 
 export function TopazTrainingChart({
   jobId,

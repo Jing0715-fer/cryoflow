@@ -288,7 +288,7 @@ export function NewProjectDialog({
                               className={cn(
                                 "size-1.5 shrink-0 rounded-full",
                                 c.lastProbe?.ok
-                                  ? "bg-emerald-500"
+                                  ? "bg-success-500"
                                   : c.lastProbe
                                     ? "bg-danger"
                                     : "bg-slate-400 dark:bg-slate-500"

@@ -97,7 +97,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
           fill="none"
           strokeWidth="3"
           strokeLinecap="round"
-          className="stroke-emerald-500 transition-[stroke-dashoffset] duration-500"
+          className="stroke-success-500 transition-[stroke-dashoffset] duration-500"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - pct)}
         />
@@ -248,8 +248,8 @@ export function PipelineKpi() {
           {resValue.toFixed(2)} Å
           {isLive && (
             <span className="relative ml-0.5 flex size-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-amber-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning-400 opacity-75" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-warning-500" />
             </span>
           )}
         </KpiItem>

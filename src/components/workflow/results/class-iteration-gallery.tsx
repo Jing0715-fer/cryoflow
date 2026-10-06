@@ -427,7 +427,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
           )}
           {running && (
             <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 motion-reduce:animate-none" aria-hidden="true" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500 motion-reduce:animate-none" aria-hidden="true" />
               live
             </span>
           )}
@@ -543,7 +543,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                   <span
                     className={cn(
                       "h-1.5 w-1.5 animate-pulse rounded-full motion-reduce:animate-none",
-                      isCurrent ? "bg-primary-foreground" : "bg-emerald-500"
+                      isCurrent ? "bg-primary-foreground" : "bg-success-500"
                     )}
                     aria-hidden="true"
                   />

@@ -267,7 +267,7 @@ function Highlighted({ line, q }: { line: string; q: string }) {
         p && p.toLowerCase() === qLower ? (
           <mark
             key={i}
-            className="rounded-sm bg-amber-400/30 px-0.5 text-warning-200"
+            className="rounded-sm bg-warning-400/30 px-0.5 text-warning-200"
           >
             {p}
           </mark>
@@ -680,8 +680,8 @@ function LogConsole({
             className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning-400"
           >
             <span className="relative flex size-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-amber-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning-400 opacity-75" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-warning-500" />
             </span>
             syncing
           </span>
@@ -696,7 +696,7 @@ function LogConsole({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="filter…"
               aria-label="Filter log lines"
-              className="h-7 w-28 rounded border border-zinc-700/80 bg-zinc-800/60 pl-6 pr-2 font-mono text-[11px] text-zinc-300 transition-all placeholder:text-zinc-600 focus:w-40 focus:border-teal-500/50 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+              className="h-7 w-28 rounded border border-zinc-700/80 bg-zinc-800/60 pl-6 pr-2 font-mono text-[11px] text-zinc-300 transition-all placeholder:text-zinc-600 focus:w-40 focus:border-running-500/50 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
             />
             {query ? (
               <button
@@ -1034,7 +1034,7 @@ function Timeline({ job }: { job: JobDTO }) {
         <div
           className={cn(
             "h-full rounded transition-all duration-700",
-            running ? "bg-gradient-to-r from-teal-500 to-teal-400" : finished ? "bg-emerald-500" : "bg-transparent"
+            running ? "bg-gradient-to-r from-running-500 to-running-400" : finished ? "bg-success-500" : "bg-transparent"
           )}
           style={{ width: finished ? "100%" : running ? `${Math.max(4, job.progress)}%` : "0%" }}
         />
@@ -1050,10 +1050,10 @@ function Timeline({ job }: { job: JobDTO }) {
                   ? s.tone === "bad"
                     ? "border-danger text-danger-600"
                     : s.tone === "good"
-                      ? "border-emerald-500 text-success-600"
+                      ? "border-success-500 text-success-600"
                       : s.tone === "wait"
-                        ? "border-amber-500 text-warning-600"
-                        : "border-teal-500 text-running-600"
+                        ? "border-warning-500 text-warning-600"
+                        : "border-running-500 text-running-600"
                   : "border-muted text-muted-foreground",
                 s.live && "animate-pulse"
               )}
@@ -1348,7 +1348,7 @@ function ParamRowLine({ row }: { row: ParamRow }) {
       <span className="flex min-w-0 items-baseline justify-end gap-1.5">
         {row.differs ? (
           <span
-            className="size-1.5 shrink-0 translate-y-[-1px] rounded-full bg-amber-500"
+            className="size-1.5 shrink-0 translate-y-[-1px] rounded-full bg-warning-500"
             title="differs from the current default for this job type"
             aria-label="differs from the current default"
           />
@@ -2816,8 +2816,8 @@ function InspectorHeader({
                   disabled={busy}
                   onClick={() => setConfirmRerun(true)}
                   className={cn(
-                    "h-7 gap-1.5 bg-teal-600 px-3 text-xs text-white hover:bg-teal-700",
-                    continueTarget !== "" && "bg-emerald-600 hover:bg-emerald-700"
+                    "h-7 gap-1.5 bg-running-600 px-3 text-xs text-white hover:bg-running-700",
+                    continueTarget !== "" && "bg-success-600 hover:bg-success-700"
                   )}
                 >
                   {busy ? <Loader2 className="size-3.5 animate-spin" /> : continueTarget !== "" ? <History className="size-3.5" /> : <Play className="size-3.5" />}
@@ -3655,9 +3655,9 @@ function InspectorBody({
         className={cn(
           "h-1 w-full shrink-0",
           job.status === "running"
-            ? "bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600"
+            ? "bg-gradient-to-r from-running-600 via-running-400 to-running-600"
             : job.status === "completed"
-              ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600"
+              ? "bg-gradient-to-r from-success-600 via-success-400 to-success-600"
               : "bg-gradient-to-r from-danger-600 via-danger-400 to-danger-600"
         )}
       />

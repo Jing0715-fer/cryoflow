@@ -354,7 +354,7 @@ export function AiSettingsDialog() {
                           data-testid={`ai-health-dot-${p.id}`}
                           className={cn(
                             "size-1.5 shrink-0 rounded-full",
-                            h.state === "unreachable" ? "bg-danger" : "bg-amber-500"
+                            h.state === "unreachable" ? "bg-danger" : "bg-warning-500"
                           )}
                           title={h.detail}
                           aria-label={
@@ -369,7 +369,7 @@ export function AiSettingsDialog() {
                     })()}
                     {settings?.providers?.[p.id]?.hasKey ? (
                       <span
-                        className="size-1.5 shrink-0 rounded-full bg-emerald-500"
+                        className="size-1.5 shrink-0 rounded-full bg-success-500"
                         title="已保存 API key"
                         aria-label="已保存 API key"
                       />
@@ -437,12 +437,12 @@ export function AiSettingsDialog() {
               if (!h || !saved) return null;
               const tone =
                 h.state === "ok"
-                  ? { label: "正常", dot: "bg-emerald-500", text: "text-success" }
+                  ? { label: "正常", dot: "bg-success-500", text: "text-success" }
                   : h.state === "unreachable"
                     ? { label: "不可达", dot: "bg-danger", text: "text-danger" }
                     : h.state === "rejected"
-                      ? { label: "被拒绝", dot: "bg-amber-500", text: "text-warning-700 dark:text-warning-400" }
-                      : { label: "应答异常", dot: "bg-amber-500", text: "text-warning-700 dark:text-warning-400" };
+                      ? { label: "被拒绝", dot: "bg-warning-500", text: "text-warning-700 dark:text-warning-400" }
+                      : { label: "应答异常", dot: "bg-warning-500", text: "text-warning-700 dark:text-warning-400" };
               return (
                 <div
                   data-testid="ai-health-line"

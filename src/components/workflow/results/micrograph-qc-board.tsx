@@ -46,8 +46,8 @@ import { type CtfResponse, type MotionResponse } from "@/lib/chart-rows";
 import { cn } from "@/lib/utils";
 
 const BUCKET_TILE: Record<QcBucket, string> = {
-  healthy: "border-l-emerald-500/70",
-  watch: "border-l-amber-500/80",
+  healthy: "border-l-success-500/70",
+  watch: "border-l-warning-500/80",
   offender: "border-l-danger-500/90 bg-danger/[0.04]",
 };
 
@@ -342,8 +342,8 @@ export function MicrographQcBoard({
                     r.bucket === "offender"
                       ? "bg-danger-500/80"
                       : r.bucket === "watch"
-                        ? "bg-amber-500/80"
-                        : "bg-emerald-500/50"
+                        ? "bg-warning-500/80"
+                        : "bg-success-500/50"
                   )}
                   style={{ width: `${barPct}%` }}
                 />

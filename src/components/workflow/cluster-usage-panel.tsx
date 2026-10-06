@@ -106,7 +106,7 @@ function ShareBar({
           tone === "none"
             ? "bg-danger-500/70"
             : tone === "tight"
-              ? "bg-amber-500/70"
+              ? "bg-warning-500/70"
               : "bg-foreground/30"
         )}
         style={{ width: `${pct}%` }}

@@ -647,7 +647,7 @@ export function HpcProfilesEditor({
               </span>
             ) : dirty ? (
               <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground" role="status">
-                <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" /> unsaved edits
+                <span className="size-1.5 rounded-full bg-warning-500" aria-hidden="true" /> unsaved edits
               </span>
             ) : null}
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOpen(false)}>

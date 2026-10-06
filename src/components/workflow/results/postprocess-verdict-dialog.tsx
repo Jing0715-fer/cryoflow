@@ -207,7 +207,7 @@ function FinalVerdictDialog({
               label="official (corrected)"
               value={`${official.toFixed(1)} Å`}
               tone="font-semibold text-running-700 dark:text-running-400"
-              dot="bg-teal-500 ring-2 ring-running/30"
+              dot="bg-running-500 ring-2 ring-running/30"
               above={!unmasked}
             />
             {rawMasked != null ? (
@@ -216,7 +216,7 @@ function FinalVerdictDialog({
                 label="raw mask (uncorrected)"
                 value={`${rawMasked.toFixed(1)} Å`}
                 tone="text-warning-700 dark:text-warning-400"
-                dot="bg-amber-500"
+                dot="bg-warning-500"
                 above={false}
               />
             ) : null}

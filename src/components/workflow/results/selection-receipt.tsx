@@ -230,7 +230,7 @@ export function SelectionReceipt({
           aria-label={`${pctLabel} percent of particles kept`}
         >
           <div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-600/80 to-emerald-500 transition-[width] duration-700 ease-out motion-reduce:transition-none"
+            className="h-full rounded-full bg-gradient-to-r from-success-600/80 to-success-500 transition-[width] duration-700 ease-out motion-reduce:transition-none"
             style={{ width: `${pct}%` }}
           />
         </div>

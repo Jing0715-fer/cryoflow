@@ -120,7 +120,7 @@ export function EngineBuildRail({ build }: { build: RelionBuildProgressClient })
                 s.state === "done"
                   ? "border-teal-500 bg-teal-500"
                   : s.state === "current"
-                    ? "border-amber-500 bg-warning/15"
+                    ? "border-warning-500 bg-warning/15"
                     : "border-muted-foreground/30 bg-transparent"
               )}
               aria-hidden="true"
@@ -241,7 +241,7 @@ function InstallRow({
       className={cn(
         "group flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors",
         selected
-          ? "border-teal-500/50 bg-running/10"
+          ? "border-running-500/50 bg-running/10"
           : "border-border bg-card hover:bg-secondary/60",
         pending && "opacity-70"
       )}

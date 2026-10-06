@@ -51,6 +51,7 @@ import {
   type ReportOverlay,
 } from "@/lib/qc-report";
 import { MrcImage } from "./mrc-image";
+import { STATUS_HEX } from "@/lib/status-style";
 import { Color } from "molstar/lib/mol-util/color";
 import "molstar/build/viewer/molstar.css";
 
@@ -1546,7 +1547,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     toast({
       title: `A view named “${nm}” already exists`,
       description: "Saved anyway — consider a distinct name so the menu stays tell-apart.",
-      className: "border-warning/40 bg-amber-50/95 text-warning-900 dark:border-warning/30 dark:bg-amber-950/80 dark:text-warning-100",
+      className: "border-warning/40 bg-warning-50/95 text-warning-900 dark:border-warning/30 dark:bg-warning-950/80 dark:text-warning-100",
     });
 
   /** live duplicate check for the name field — amber ring + hint while
@@ -1999,8 +2000,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 aria-hidden="true"
                 className={cn(
                   "size-1.5 shrink-0 rounded-full",
-                  j.status === "completed" && "bg-emerald-500",
-                  j.status === "running" && "animate-pulse bg-amber-500",
+                  j.status === "completed" && "bg-success-500",
+                  j.status === "running" && "animate-pulse bg-warning-500",
                   j.status === "failed" && "bg-danger",
                   j.status !== "completed" && j.status !== "running" && j.status !== "failed" && "bg-muted-foreground/40",
                 )}
@@ -3928,7 +3929,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     className={
                       "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors " +
                       (Math.abs(sigma - p) < 0.001
-                        ? "bg-teal-600 text-white"
+                        ? "bg-running-600 text-white"
                         : "bg-muted text-muted-foreground hover:bg-running/15 hover:text-running-700 dark:hover:text-running-300")
                     }
                   >
@@ -3949,7 +3950,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   className={
                     "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors " +
                     (sign < 0
-                      ? "bg-amber-500 text-white"
+                      ? "bg-warning-500 text-white"
                       : "bg-muted text-muted-foreground hover:bg-warning/20 hover:text-warning-700 dark:hover:text-warning-300")
                   }
                 >
@@ -4388,7 +4389,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                                         y={5}
                                         width={stepW}
                                         height={-r * 4.5}
-                                        fill="#f43f5e"
+                                        fill={STATUS_HEX.failed}
                                         opacity="0.3"
                                       />
                                     ) : null
@@ -4648,7 +4649,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           className={
                             "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
                             (legendOpen
-                              ? "bg-amber-600 text-white"
+                              ? "bg-warning-600 text-white"
                               : "bg-muted text-muted-foreground hover:bg-warning/15 hover:text-warning-700 dark:hover:text-warning-300")
                           }
                         >
@@ -5641,7 +5642,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   className={cn(
                     "h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2",
                     nameDupe
-                      ? "border-amber-500/70 focus-visible:border-amber-500 focus-visible:ring-warning/25"
+                      ? "border-warning-500/70 focus-visible:border-warning-500 focus-visible:ring-warning/25"
                       : "focus-visible:border-ring focus-visible:ring-ring/30",
                   )}
                 />
@@ -6065,7 +6066,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   key={s}
                   className={
                     "h-1 w-6 rounded-full transition-colors duration-300 " +
-                    (s === stage ? "bg-teal-600 animate-pulse" : sorder(s, stage) ? "bg-teal-600/60" : "bg-border")
+                    (s === stage ? "bg-running-600 animate-pulse" : sorder(s, stage) ? "bg-running-600/60" : "bg-border")
                   }
                 />
               ))}

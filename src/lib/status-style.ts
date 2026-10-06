@@ -115,9 +115,9 @@ export const STATUS_TEXT: Record<StatusWord, string> = {
  * idle's zinc replaces job-card's private slate dialect. */
 export const STATUS_BORDER: Record<StatusWord, string> = {
   idle: "border-zinc-300 dark:border-zinc-600",
-  pending: "border-amber-400/60 dark:border-amber-500/50",
-  running: "border-teal-400/60 dark:border-teal-500/50",
-  completed: "border-emerald-400/60 dark:border-emerald-500/50",
+  pending: "border-warning-400/60 dark:border-warning-500/50",
+  running: "border-running-400/60 dark:border-running-500/50",
+  completed: "border-success-400/60 dark:border-success-500/50",
   failed: "border-danger/60",
 };
 
@@ -135,9 +135,9 @@ export const STATUS_BADGE: Record<StatusWord, string> = Object.fromEntries(
  * rung 3); motion belongs to the call site (animate-soft-pulse). */
 export const STATUS_DOT: Record<StatusWord, string> = {
   idle: "bg-zinc-400 dark:bg-zinc-500",
-  pending: "bg-amber-500",
-  running: "bg-teal-500",
-  completed: "bg-emerald-500",
+  pending: "bg-warning-500",
+  running: "bg-running-500",
+  completed: "bg-success-500",
   failed: "bg-danger",
 };
 
@@ -154,18 +154,20 @@ export const STATUS_SOFT: Record<StatusWord, string> = {
  * card's bottom edge that reads as a bar chart at canvas distance
  * before any text is legible. Idle gets a zinc whisper, not nothing:
  * "not yet run" is a different floor than "no floor" (slate → zinc,
- * t647 neutral law). 400-runge solids — literal rung on purpose. */
+ * t647 neutral law). 400-rung solids ride the rung vocabulary since
+ * t650 — the "solid IS the rung" verdict recast once the 50–950 token
+ * scale existed; the pixels never moved. */
 export const STATUS_FLOOR: Record<StatusWord, string> = {
   idle: "bg-zinc-400/25 dark:bg-zinc-500/30",
-  pending: "bg-amber-400/80 dark:bg-amber-400/75",
-  running: "bg-teal-400/85 dark:bg-teal-400/80",
-  completed: "bg-emerald-400/75 dark:bg-emerald-400/70",
+  pending: "bg-warning-400/80 dark:bg-warning-400/75",
+  running: "bg-running-400/85 dark:bg-running-400/80",
+  completed: "bg-success-400/75 dark:bg-success-400/70",
   failed: "bg-danger-500/85 dark:bg-danger-500/80",
 };
 
 /** status → find-bar filter chip ({dot, active pair}). Migrated from
  * canvas-find-bar (t647): the dot is the SOLID rung, the active face is
- * wash+border (token) under the STATUS_TEXT ink. Exported for footer's
+ * wash+border (token) under the STATUS_TEXT ink. Exported for the footer's
  * status census — every surface that speaks "status" uses the world's
  * own vocabulary, borrowed not reinvented. */
 export const STATUS_CHIP: Record<StatusWord, { dot: string; active: string }> = {
@@ -174,15 +176,15 @@ export const STATUS_CHIP: Record<StatusWord, { dot: string; active: string }> = 
     active: `border-zinc-400/70 bg-zinc-500/10 ${STATUS_TEXT.idle}`,
   },
   pending: {
-    dot: "bg-amber-500",
+    dot: "bg-warning-500",
     active: `border-warning/70 bg-warning/10 ${STATUS_TEXT.pending}`,
   },
   running: {
-    dot: "bg-teal-500",
+    dot: "bg-running-500",
     active: `border-running/70 bg-running/10 ${STATUS_TEXT.running}`,
   },
   completed: {
-    dot: "bg-emerald-500",
+    dot: "bg-success-500",
     active: `border-success/70 bg-success/10 ${STATUS_TEXT.completed}`,
   },
   failed: {

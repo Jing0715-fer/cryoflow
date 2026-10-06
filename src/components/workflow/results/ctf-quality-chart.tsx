@@ -91,7 +91,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
       aria-label="CTF fit quality"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-running-600/5 to-transparent p-3",
         className
       )}
     >

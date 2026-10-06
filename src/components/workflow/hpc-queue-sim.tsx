@@ -721,7 +721,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                           <div
                             className={cn(
                               "absolute inset-y-0 left-0 rounded",
-                              isBest ? "bg-emerald-500/70" : "bg-slate-400/50",
+                              isBest ? "bg-success-500/70" : "bg-slate-400/50",
                             )}
                             style={{ width: `${worstMakespan > 0 ? Math.max(2, (row.r.makespanMin / worstMakespan) * 100) : 2}%` }}
                             aria-hidden="true"

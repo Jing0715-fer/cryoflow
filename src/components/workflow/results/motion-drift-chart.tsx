@@ -37,6 +37,7 @@ import {
   cn,
 } from "@/lib/utils";
 import { ChartInterpretation } from "./interpretation-strip";
+import { STATUS_HEX } from "@/lib/status-style";
 import { ChartErrorStrip } from "./chart-error-strip";
 import { useChartResource } from "@/lib/use-chart-resource";
 import {
@@ -46,8 +47,9 @@ import {
 } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
 
-const TEAL = "#14b8a6";
-const AMBER = "#f59e0b";
+// t650: SVG-series hex values flow from the STATUS_HEX single source.
+const TEAL = STATUS_HEX.running;
+const AMBER = STATUS_HEX.pending;
 
 /** drift tone: the app's health buckets against the pack's own scale —
  *  a micrograph is an offender when it drifts ≥ mean + 2σ of ITS run. */
@@ -214,7 +216,7 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
             <Bar dataKey="early" stackId="drift" fill={TEAL} radius={[0, 0, 0, 0]} />
             <Bar dataKey="late" stackId="drift" fill={AMBER} radius={[0, 3, 3, 0]}>
               {chartData.map((entry) => (
-                <Cell key={entry.name} fill={entry.offender ? "#f43f5e" : AMBER} fillOpacity={entry.offender ? 0.95 : 0.85} />
+                <Cell key={entry.name} fill={entry.offender ? STATUS_HEX.failed : AMBER} fillOpacity={entry.offender ? 0.95 : 0.85} />
               ))}
             </Bar>
           </BarChart>

@@ -60,7 +60,10 @@ type FaviconState = "quiet" | "running" | "failed";
 /** The app mark: a dark tile with a teal CTF ring (Thon rings are how
  *  cryo-EM judges micrograph quality — the brand IS the domain). The
  *  state dot sits top-right; teal-400 = alive, rose-500 = alarm
- *  (STATUS_CHIP's running/failed dialect, borrowed not reinvented). */
+ *  (STATUS_CHIP's running/failed dialect, borrowed not reinvented).
+ *  Serialized data-URI SVG: var() has no definition source here — hex
+ *  is mandatory (t650 verdict); the 400/500 bright rungs are chosen
+ *  for the dark tile, a favicon-local rung choice. */
 function faviconHref(state: FaviconState): string {
   const dot =
     state === "failed"

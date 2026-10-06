@@ -316,7 +316,7 @@ export function HomecomingSweepBar({
           aria-valuenow={pct}
           aria-label="Homecoming sweep progress"
         >
-          <div className="h-full rounded-full bg-teal-600/60 transition-[width] duration-300" style={{ width: `${pct}%` }} />
+          <div className="h-full rounded-full bg-running-600/60 transition-[width] duration-300" style={{ width: `${pct}%` }} />
         </div>
       )}
 

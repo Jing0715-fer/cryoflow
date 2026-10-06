@@ -131,6 +131,21 @@
   --color-running-700: oklch(51.1% 0.096 186.391);
   --color-running-800: oklch(43.7% 0.078 188.216);
   --color-running-900: oklch(38.6% 0.063 188.416);
+  /* t650 — the 50/950 extension: the t648 census read the field as
+     "no 50/950", because its bucketing only saw the TEXT-PROP domain.
+     The t650 solid-domain census found the wash/solid domain riding
+     amber-50/95 and amber-950/80 (molstar warning banner) — the same
+     lesson t649 learned when rose-950 surfaced from job-inspector's
+     hover floor: partial coverage = a whitelist that grows. Six rungs
+     complete the three families to 50–950 FULL, matching the danger
+     scale's coverage. Pure extension, zero renames by itself; values
+     verbatim from the Tailwind v4 palette (theme.css). */
+  --color-success-50: oklch(97.9% 0.021 166.113);
+  --color-success-950: oklch(26.2% 0.051 172.552);
+  --color-warning-50: oklch(98.7% 0.022 95.277);
+  --color-warning-950: oklch(27.9% 0.077 45.635);
+  --color-running-50: oklch(98.4% 0.014 180.72);
+  --color-running-950: oklch(27.7% 0.046 192.524);
   /* t649 — the DANGER rung vocabulary: rose and red hue names retire
      into semantic rungs, the same pure-rename move t648 made for
      emerald/amber/teal. Two dialects spoke danger by shade ladder:

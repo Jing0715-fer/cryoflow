@@ -300,9 +300,9 @@ function FunnelRowView({ row, index }: { row: FunnelRow; index: number }) {
           <span
             className={`inline-block size-1.5 rounded-full ${
               row.delta.kind === "shed"
-                ? "bg-amber-400"
+                ? "bg-warning-400"
                 : row.delta.kind === "gain"
-                  ? "bg-teal-400"
+                  ? "bg-running-400"
                   : row.delta.kind === "transform"
                     ? "bg-sky-400"
                     : "bg-border"

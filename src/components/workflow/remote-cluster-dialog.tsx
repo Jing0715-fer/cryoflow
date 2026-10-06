@@ -159,7 +159,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
  *  reachability is a quality of the connection worth seeing at a glance. */
 function probeDot(c: RemoteConnectionDTO): { className: string; label: string } {
   const secs = c.lastProbe?.durationMs != null ? ` in ${(c.lastProbe.durationMs / 1000).toFixed(1)}s` : "";
-  if (c.lastProbe?.ok) return { className: "bg-emerald-500", label: `reachable — last probe ok${secs}` };
+  if (c.lastProbe?.ok) return { className: "bg-success-500", label: `reachable — last probe ok${secs}` };
   if (c.lastProbe) return { className: "bg-danger", label: `last probe failed${secs}${c.lastProbe.error ? `: ${c.lastProbe.error}` : ""}` };
   return { className: "bg-slate-400 dark:bg-slate-500", label: "never tested" };
 }
@@ -332,8 +332,8 @@ function ProbeCard({
 /** Status dot for one résumé entry: the exit code IS the color (the stop
  *  route writes 137 for user-stopped runs, so rose covers both flavors). */
 function resumeDot(e: ConnectionRunResumeEntry): { className: string; label: string } {
-  if (!e.done) return { className: "bg-amber-500", label: "still running" };
-  if (e.exitCode === 0) return { className: "bg-emerald-500", label: "completed" };
+  if (!e.done) return { className: "bg-warning-500", label: "still running" };
+  if (e.exitCode === 0) return { className: "bg-success-500", label: "completed" };
   return { className: "bg-danger", label: `failed (exit ${e.exitCode})` };
 }
 
@@ -1687,7 +1687,7 @@ function ConnectionEditor({
           </span>
         ) : dirty ? (
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground" role="status">
-            <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" /> unsaved edits
+            <span className="size-1.5 rounded-full bg-warning-500" aria-hidden="true" /> unsaved edits
           </span>
         ) : null}
         {/* t289 — Test & probe lives on the CREATE form too: the by-value
@@ -2101,7 +2101,7 @@ export function RemoteClusterButton() {
         <Network className="size-4" aria-hidden="true" />
         {healthy ? (
           <span
-            className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-emerald-500 ring-2 ring-background"
+            className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-success-500 ring-2 ring-background"
             aria-hidden="true"
           />
         ) : null}

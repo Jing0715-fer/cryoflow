@@ -485,7 +485,7 @@ function DashboardProjectCard({
       {/* engine accent strip */}
       <div
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600"
+        className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-running-600 via-running-400 to-running-600"
       />
 
       <div className="flex items-start gap-2">
@@ -983,7 +983,7 @@ function StageChip({
       className={cn(
         "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm",
         job.status === "running"
-          ? "border-teal-500/50 ring-1 ring-running/25"
+          ? "border-running-500/50 ring-1 ring-running/25"
           : job.status === "completed"
             ? "border-success/40"
             : job.status === "failed"
@@ -1177,7 +1177,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
                 role="img"
                 aria-label="Job not assigned to any workspace"
                 title={`Not on any canvas — adopt it into ${defaultWs?.name ?? "a workspace"} to make it visible`}
-                className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-dashed border-amber-500/50 bg-warning/5 px-1.5 text-[9px] font-semibold text-warning"
+                className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-dashed border-warning-500/50 bg-warning/5 px-1.5 text-[9px] font-semibold text-warning"
               >
                 <TriangleAlert className="size-2.5" aria-hidden="true" />
                 Unassigned
@@ -1188,7 +1188,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
             // t322 — queued on slurm: no progress bar (0% would claim
             // compute that has not started), the queue wait speaks instead
             <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-warning-700 dark:text-warning-300">
-              <span className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+              <span className="inline-block size-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true" />
               <span className="truncate">
                 {job.runRemote?.slurmDependsOn?.length
                   ? `queued · waits on ${job.runRemote.slurmDependsOn.join(", ")}`
@@ -1546,7 +1546,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                     // would claim compute that has not started), the wait
                     // speaks instead — same word the roster row speaks
                     <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-warning-700 dark:text-warning-300">
-                      <span className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                      <span className="inline-block size-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true" />
                       <span className="truncate">
                         {j.runRemote?.slurmDependsOn?.length
                           ? `queued · waits on ${j.runRemote.slurmDependsOn.join(", ")}`
@@ -1560,7 +1560,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                     >
                       <span className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
                         <span
-                          className="progress-shimmer relative block h-full rounded-full bg-teal-600 transition-[width] duration-700 ease-out"
+                          className="progress-shimmer relative block h-full rounded-full bg-running-600 transition-[width] duration-700 ease-out"
                           style={{ width: `${Math.min(100, Math.max(2, j.progress * 100))}%` }}
                         />
                       </span>
@@ -1932,7 +1932,7 @@ function ActiveProjectSpotlight({
       <div
         data-spot-banner=""
         style={{ "--sd": `${SPOT_BASE_MS}ms` } as React.CSSProperties}
-        className="relative overflow-hidden border-b bg-gradient-to-r from-teal-500/10 via-primary/5 to-transparent px-4 py-3.5 sm:px-5"
+        className="relative overflow-hidden border-b bg-gradient-to-r from-running-500/10 via-primary/5 to-transparent px-4 py-3.5 sm:px-5"
       >
         <div className="flex flex-wrap items-center gap-2">
           <Snowflake className="size-4 shrink-0 text-primary" aria-hidden="true" />
