@@ -9208,3 +9208,26 @@ Stage Summary:
 - 「仪式完整性靠调用边界」：长跑套件第一敌人是内存制度（t622），第二是调用边界收割（本窗）——单调用闭环 停牌→boot→craft→witness→复牌，reaper 无缝可钻
 - 「flake 要验尸不要重试到绿」：单断言红先写最小探针分离「产品错/环境错」——时间线采样证明行句稳定后，pollUntil 铠甲给环境抖动，不给产品 bug
 - 产出：回执第二级三文件（remote-run.ts / stop route / store.ts）+ t624-stop-teardown-live-fire.mjs（45 断言两连 ALL PASS）+ diag-t624-row-words.mjs（时间线验尸相机）+ 📸 1 张；eslint 0、tsc 0；正典 12/11 完好、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②休眠套件逐套复活继续（t622 方法论 + 本窗单调用仪式）③下一块新面侦察（样式架空）④回执第三级：sacct 落账后 accepted→final 状态回填（sweep 与回执的握手增量）⑤build 日被动重测（第 33 窗否决）
+
+---
+Task ID: 625 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 14:54 cron, Job 362852, Task 572 系第 44 次派单)
+Task: t624 下窗入口④兑付——回执第三级：sacct 落账后 accepted→final 状态回填（sweep 与回执的握手增量）。stop 的 stop 时词降格为「最佳知识」，集群台账持最终词；witness 四世界活体 + tick 竞速翻案 + 第二机会写入。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 624（派单摘要说 Task 13——滞后第 N+71 次兑付）；HEAD ea47304 树净；available 901MB 非 build 日（第 34 窗被动否决）。
+- [QA 摸底+一笔 hygiene 债] agent-browser 专港 9342 + 清 profile：发现 t624 witness 留下 active 漂移（demo 被标 active——其 R 段还原了 fixtures/账本/连接但没还原 active 指针）——已用产品门 combobox 真点击切回 EMPIAR 正典（12 卡/13 edges/11 completed/console 0 error/📸 t625-home-12jobs.png）；chrome 清场 0 孤儿。此债直接塑造了本窗 witness 的 R 段设计（active 指针必须显式还原）。
+- [回执第三级·四文件] ①types.ts：RemoteRunState.accountingPending = { at, missed }——回执的开放问题：stop 时词是最佳知识（137 戳/missed 承诺），集群台账持最终词；②stop 路由：slurm 模式 stop（killed AND missed——missed 的「台账决定」承诺从此可机械兑现）打开 accountingPending；**第二机会写入**（见竞速翻案）；③remote-run.ts sweep：新 accounting 桶 → 每 20s/连接批量 sacct consult（JobID,State,ExitCode,Elapsed 四列、master-id 精确匹配防 step 行）→ 四结果：COMPLETED→行 heal failed→completed/100+记录 exit 0（heal is a landing，t618 教义；**不触发下游 dispatch——stop 意图不被台账推翻**，孤儿 heal 先例）；CANCELLED+killed 回执→戳确认闭案（词不动 SSH 税结束）；其他 terminal 词→行词随台账（exit 走 t299 合同方言：CANCELLED→143/128+sig/TIMEOUT→124）；沉默过耐心窗(10min)→戳永立（台账 OFF/作业被清的旗标不得老化成每 tick SSH 税）。t325-a host-matched fallback 让幻影连接的承诺也可兑现。RECEIPT_STAMPS 守卫：落账只覆盖回执句，不盖别人的词。④global-reconcile.ts：**stuck 查询只看 running/pending——会计行（terminal）对节拍不可见**；tick 在早退线之前读台账文件拿 flag ids（早退线之前——安静的夜恰是回填最需时刻）喂 sweep；其 heal 不进 transition leg 的 before-set（heal 不触发 dispatch）。
+- [本窗最大翻案——tick 与 stop 路由的 finalize 竞速] witness 二跑 13 FAIL 验尸：W1 行 updatedAt=创建后 5s=8s settle 窗口内——**后台 tick（boot 时旧模块）在 stop 中途把记录 finalize 了**（trap 的 EXIT:143 / craft 的 SACCT 行先到），路由的 !done 守卫随即谢绝 flag 写入——t623「sweep 让路由」的镜像场景「tick 先到路由后到」。修法不是抢而是让问题独立于词：**第二机会写入**——主 updateRun 守 !done（尊重 tick 的新鲜真话）之后，`cur.done && slurmId && !flag` 再开一次问题（问题不是词，落账的 RECEIPT_STAMPS/failed-行守卫保证两种交错都诚实）。t623 的握手家族补全：两种到达顺序都收敛到台账最终词。
+- [第二翻案——会计桶的分类守卫] witness 四跑 W3 单 FAIL：tick 快路径把行直接落成 completed，分类守卫只收 failed 行→旗标永无 consult 可闭。放宽到 {failed, completed}：记录级闭案照旧，行翻转守卫（failed only）不动 completed 行的词。
+- [witness] scripts/t625-accounting-backfill-live-fire.mjs（chrome-less，t624 脚手架 + drive 腿）：W0 roster≥12+prevActive 记录；W1 COMPLETED landing（真 sbatch→stop→journal craft last-row-wins→行 heal completed/100+行说 landing 句+记录 exit 0）；W2 CANCELLED 确认（scancel 自带行，戳立词不动）；W3 missed+COMPLETED（幻影连接+t325-a fallback+「已完结」missed 方言 landing）；W4 沉默过耐心（at 回拨 11min→旗清词不动）；R 全还（账本快照/行/项目/连接/journal/**active 指针**/roster 复核）。**38 断言 ALL PASS**（四跑迭代：二跑 13 FAIL→竞速翻案+drive 腿；四跑 1 FAIL→分类守卫；五跑全绿）。断言对两种握手交错容错（词的方言差异逐一点名）。
+- [学费三笔] ①**Next dev 的 background interval 持 boot 时模块**——route 热重载救不了 tick，witness 必须自带 drive 腿（GET /api/jobs 产品门驱动）不能依赖后台节拍；②**prevActiveId 的 try 块作用域**——finally 清场 ReferenceError 中途炸断，残留清了三遍（fixture 行/项目/连接/journal/active 指针），作用域声明必须提升到模块级；③**POST /api/projects 自带 set active**——fixture 创建即偷走 active 指针，witness 的 W0 必须记录 prevActive、R 必须先 switch 回再删 fixture（删除会把指针给「第一个项目」= demo，正是 QA 发现的漂移机制）。
+- [未做与理由] build 日（第 34 窗否决，934MB）；judge 风暴活体半场（等稳定夜）；休眠套件逐套复活（长跑避收割区）；下一块新面侦察（样式架空）；回执第四级侦察（落账后的 outputs sync-back——heal 不同步是已知边界，等有输出型 job 的活体夜）；t241 palette 见证复跑（backfill 健康启动下休眠，零接触论证仍成立）。
+
+Stage Summary:
+- 「stop 时词是最佳知识，台账持最终词」：回执三级递进完成——t618 让 API 说发生了什么（outcome 类），t624 让它区分受理与确认（settled），t625 让词向台账收敛（accountingPending consult）。停止一个你无法完全看见的远端树时，诚实的极限就是「我按下了按钮，账本会说出结局」——现在账本真的会说了
+- 「两个诚实写手的握手要管两种到达顺序」：t623 修了 sweep 让路由（陈旧快照 clobber），本窗翻案了 tick 先到路由后到（!done 守卫谢绝戳）——第二机会写入让「开问题」独立于「写词」：词的先后由守卫决定谁让谁，问题（元请求）必须无条件打开，否则最快的话筒把最权威的证词永远闷死
+- 「Heal 不是翻转，是落地；落地不接管意图」：COMPLETED 落账让行 heal 成 completed，但下游 dispatch 刻意不点火——用户按下的 stop 不被台账推翻（孤儿 heal 先例的推广）；第三级的边界诚实：heal 不同步 outputs（fetchable on demand 政策已在），outputs sync-back 是第四级的活
+- 「后台正确性需要存在性，但存在性会被 boot 快照冻结」：global-reconcile 是「无浏览器也正确」的承诺，但 stuck 查询的 world view（running/pending only）和 Next dev 的 boot 模块绑定都是它的暗礁——每加一类「terminal 但仍需照料」的行，都要重新问一遍：节拍看得见它吗？
+- 「witness 的 R 段要还原它偷走的一切，包括看不见的指针」：t624 留下 active 漂移，本窗 witness 的 W0 记录 prevActive、R 显式还原——hygiene 的完备性不是「删了我的东西」，是「世界回到我来之前」
+- 产出：回执第三级四文件（types/stop route/remote-run/global-reconcile）+ 第二机会写入（竞速翻案）+ t625-accounting-backfill-live-fire.mjs（38 断言 ALL PASS）+ inspect-t625-rows.mjs（时间戳验尸相机）+ 📸 1 张；tsc 0、eslint 0、node --check 0；t252 ALL PASS 回归；正典 12/11 完好、active 归位 EMPIAR、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②休眠套件逐套复活继续（t622 方法论）③下一块新面侦察（样式架空）④回执第四级：落账后的 outputs sync-back 侦察 ⑤build 日被动重测（第 34 窗否决）
