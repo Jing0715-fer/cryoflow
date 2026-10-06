@@ -54,6 +54,31 @@ WORKSPACE = resolve_workspace(PROJECT)
 SRC_NAME = "QA Class2D Source"
 SEL_NAME = "QA Class Select"
 
+# t631 — the crash-window marker: the seeder POSTs a row (the app assigns
+# an auto-name like "2D Class Selection 1") and only LATER PATCHes the QA
+# name onto it. A crash inside that window leaves a row the name-based
+# take-home cannot recognize — tonight that was a live leak (run11 died
+# between POST and PATCH; "2D Class Selection 1" outlived its suite).
+# The marker records the ids IMMEDIATELY after POST, so take-home can
+# claim its specimens by id even when the rename never happened.
+IDS_PATH = "/home/z/my-project/.qa-logs/qa58-seed-ids.json"
+
+def record_ids(src_id=None, sel_id=None):
+    try:
+        os.makedirs(os.path.dirname(IDS_PATH), exist_ok=True)
+        st = {}
+        if os.path.exists(IDS_PATH):
+            with open(IDS_PATH) as f:
+                st = json.load(f)
+        if src_id:
+            st["src"] = src_id
+        if sel_id:
+            st["sel"] = sel_id
+        with open(IDS_PATH, "w") as f:
+            json.dump(st, f, indent=2)
+    except Exception as e:
+        print(f"ids: record failed ({e})")
+
 # occupancy ladder — 8 classes, 1455 particles, occupancy DECOUPLED from
 # class number so the gallery's occupancy sort genuinely reorders (and the
 # auto cutoff still draws a 3-kept line):
@@ -93,6 +118,7 @@ if src:
 else:
     r = api("/api/jobs", "POST", {"type": "class2d", "x": 1050, "y": 780, "workspaceId": WORKSPACE})
     src = r.get("job") or r
+    record_ids(src_id=src["id"])  # marker BEFORE the rename — the crash window
     api("/api/jobs/" + src["id"], "PATCH", {"name": SRC_NAME})
     print(f"class2d (created):  {src['id']}")
 
@@ -102,6 +128,7 @@ if sel:
 else:
     r = api("/api/jobs", "POST", {"type": "select2d", "x": 1310, "y": 780, "workspaceId": WORKSPACE})
     sel = r.get("job") or r
+    record_ids(sel_id=sel["id"])  # marker BEFORE the rename — the crash window
     api("/api/jobs/" + sel["id"], "PATCH", {"name": SEL_NAME})
     print(f"select2d (created):  {sel['id']}")
 
@@ -255,15 +282,27 @@ if "--clean" in sys.argv or TAKE_HOME:
         # t630 — the rows go home through the product DELETE door (edges
         # cascade via Prisma; the linked-copies guard is respected — the
         # pair carries none). Idempotent: absent rows count as done.
+        # t631 — resolution is id-first (the crash-window marker),
+        # name-second: a specimen that died mid-rename is still ours.
+        try:
+            with open(IDS_PATH) as f:
+                ids_state = json.load(f)
+        except Exception:
+            ids_state = {}
         gone = 0
-        for name in (SRC_NAME, SEL_NAME):
+        for kind, name in (("src", SRC_NAME), ("sel", SEL_NAME)):
             try:
                 jobs = api("/api/jobs")
                 # /api/jobs answers {"jobs":[…]} (dict) or […] depending on
-                # the route's envelope — unwrap before find-by-name
+                # the route's envelope — unwrap before find
                 if isinstance(jobs, dict):
                     jobs = jobs.get("jobs", [])
-                row = next((j for j in jobs if j.get("name") == name), None)
+                row = None
+                marked_id = ids_state.get(kind)
+                if marked_id:
+                    row = next((j for j in jobs if j.get("id") == marked_id), None)
+                if row is None:
+                    row = next((j for j in jobs if j.get("name") == name), None)
             except Exception as e:
                 print(f"take-home: job lookup failed for {name} ({e})")
                 sys.exit(2)
@@ -272,7 +311,13 @@ if "--clean" in sys.argv or TAKE_HOME:
                 continue
             api(f"/api/jobs/{row['id']}", "DELETE")
             gone += 1
-            print(f"take-home: deleted {name} ({row['id'][:10]}…) via the product door")
+            via = "marker id" if row.get("name") != name else "name"
+            print(f"take-home: deleted {name} ({row['id'][:10]}…, via {via}) via the product door")
+        try:
+            if os.path.exists(IDS_PATH):
+                os.remove(IDS_PATH)  # specimens home — the marker retires
+        except Exception as e:
+            print(f"take-home: marker cleanup failed ({e})")
         print(f"take-home: {gone}/{2} rows home")
         # the WHOLE specimen goes home: DELETE never sweeps disk (t97), so
         # the per-job workdir would fossilize — one empty dir per cycle.
