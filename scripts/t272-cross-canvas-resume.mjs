@@ -262,10 +262,14 @@ try {
   // ---- Phase C: the live loop ---------------------------------------------
   console.log("== PHASE C: the live loop (second canvas → dispatch → cross-canvas row → cascade) ==");
 
-  // C0 — the demo project's id (to switch back to). The registry has a
+  // C0 — the STARTING canvas's id (to switch back to). The registry has a
   // cross-site guard — the same-origin SH headers are load-bearing here.
+  // t618 — "the first project in the registry" was a fossil: it named the
+  // canvas this suite was born on, and the registry has since grown other
+  // worlds (the β-Gal demo sorts first today). The honest target is the
+  // canvas that was ACTIVE when the suite started — the one roster0 read.
   const projects0 = await (await fetch(`${BASE}/api/projects`, { headers: SH })).json();
-  const demoProject = (projects0.projects ?? [])[0];
+  const demoProject = (projects0.projects ?? []).find((p) => p.active) ?? (projects0.projects ?? [])[0];
   must(!!demoProject?.id, `the demo project exists (${demoProject?.name ?? "?"})`);
   const demoId = demoProject?.id ?? null;
   if (!demoId) throw new Error("no demo project — the cross-canvas loop cannot proceed");
@@ -615,7 +619,11 @@ try {
   }
   try {
     const projectsNow = await (await fetch(`${BASE}/api/projects`, { headers: SH })).json();
-    const demo = (projectsNow.projects ?? []).find((p) => p.name !== SECOND_NAME);
+    // t618 — restore the canvas the suite STARTED on (the active marker),
+    // not "any project that isn't ours" — the same fossil as C0's target.
+    const demo = (projectsNow.projects ?? []).find((p) => p.id === demoId)
+      ?? (projectsNow.projects ?? []).find((p) => p.active)
+      ?? (projectsNow.projects ?? []).find((p) => p.name !== SECOND_NAME);
     if (demo) {
       await fetch(`${BASE}/api/projects/switch`, {
         method: "POST",

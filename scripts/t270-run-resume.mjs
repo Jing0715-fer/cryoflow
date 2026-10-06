@@ -37,6 +37,15 @@ const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
 const MOCK_PORT = 3022;
 const MICS_DIR = "/home/z/my-project/data/relion/t270-mics";
+// t618 — run 3's stop window needs a run that STAYS running: the real
+// RELION binary eats the tiny C1 input in well under a second, so the
+// running window was narrower than the poll step and the stop died at 409
+// (the whole C5 premise). The heavy input is the same recipe at 256x256
+// and 16 frames — 64x the pixel-frames, a multi-second exec leg with room
+// for the kill to land (16x was calibrated and still raced: the exec
+// finished under the stop's round trip and the ledger honestly counted a
+// completion — the crime scene lives in t618-diag2.mjs).
+const HEAVY_DIR = "/home/z/my-project/data/relion/t270-mics-heavy";
 const STATE_FILE = "/home/z/my-project/data/engine-state.json";
 
 let fail = 0;
@@ -225,6 +234,10 @@ try {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fromJobId, toJobId, fromPort, toPort }),
     });
+    if (r.status !== 200 && r.status !== 201) {
+      const b = await r.json().catch(() => ({}));
+      console.error(`  (edge ${r.status}: ${JSON.stringify(b).slice(0, 180)} | sent: ${JSON.stringify({ fromJobId, toJobId, fromPort, toPort }).slice(0, 180)})`);
+    }
     return r.status;
   };
   const readJob = async (id) => {
@@ -286,12 +299,16 @@ try {
     "the zero-run POST response omits the resume field (no résumé is the honest state)"
   );
 
-  const dispatchMotioncorr = async (label) => {
+  const dispatchMotioncorr = async (label, fromImportId = null) => {
     // t536 — do_own_motioncor: RELION's own CPU lane, the honest rig-less
     // choice (t372 P8 / t268 precedent); with nodeType=movies the import's
     // output port is "movies" (the micrographs port hides).
+    // t618 — an optional fromImportId lets run 3 wire to the HEAVY import.
+    // (The parameter is the ID STRING — the first draft wrote
+    // (fromImport ?? importJob).id, which read `.id` off a string and
+    // dispatched a fromJobId-less edge.)
     const job = await mkJob({ type: "motioncorr", name: label, params: { do_own_motioncor: true } });
-    const e = await mkEdge(importJob.id, job.id, "movies", "movies");
+    const e = await mkEdge(fromImportId ?? importJob.id, job.id, "movies", "movies");
     must(e === 200 || e === 201, `${label}: import → remote motioncorr wired (${e})`);
     const d = await fetch(`${BASE}/api/jobs/${job.id}/run`, {
       method: "POST",
@@ -344,23 +361,89 @@ try {
     "run 2's résumé grows to total 2 with the newest run FIRST (the reading line sorts)"
   );
 
-  // C5 — run 3 is dispatched then STOPPED: the 137 record joins the failed bucket
-  const job3 = await dispatchMotioncorr("t270 MotionCorr #3 (stopped)");
+  // C5 — run 3 is dispatched then STOPPED: the 137 record joins the failed
+  // bucket. t618 — the input is the HEAVY recipe (128x the pixel-frames:
+  // 256x256x32) via its own import, so the exec leg runs for many seconds
+  // and the stop window is a place, not a race.
+  mkdirSync(HEAVY_DIR, { recursive: true });
+  const HW = 256, HH = 256, HNF = 32;
+  for (const n of names) {
+    const W = HW, H = HH, NF = HNF;
+    const buf = Buffer.alloc(1024 + W * H * 4 * NF);
+    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(NF, 8);
+    buf.writeInt32LE(2, 12); // mode 2 = float32
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(NF, 36);
+    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * NF, 48);
+    buf.write("MAP ", 208, "ascii");
+    buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
+    for (let s = 0; s < NF; s++) {
+      for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7 + s) * 0.1, 1024 + (s * W * H + i) * 4);
+    }
+    writeFileSync(path.join(HEAVY_DIR, n), buf);
+  }
+  must(names.every((n) => existsSync(path.join(HEAVY_DIR, n))), `six heavy movies fabricated (${HW}x${HH} float32, ${HNF} frames — the stop window's running surface)`);
+  const heavyImport = await mkJob({
+    type: "import",
+    name: "t270 Import Heavy",
+    params: { micrographsPath: HEAVY_DIR, pixelSize: 1.77, nodeType: "movies" },
+  });
+  await fetch(`${BASE}/api/jobs/${heavyImport.id}/run`, { method: "POST", headers: { "Content-Type": "application/json", ...SH }, body: "{}" });
+  const heavyDone = await pollUntil(async () => {
+    const j = await readJob(heavyImport.id);
+    return j?.status === "completed" ? j : null;
+  }, 25_000);
+  must(!!heavyDone, "the heavy local import completed (engine-native)");
+  const job3 = await dispatchMotioncorr("t270 MotionCorr #3 (stopped)", heavyImport.id);
   const running3 = await pollUntil(async () => {
     const j = await readJob(job3.id);
     return j?.status === "running" ? j : null;
-  }, 60_000, 500);
+  }, 60_000, 250);
   must(!!running3, "run 3 reaches running (the stop window is open)");
+  // t618 — "running" spans TWO legs: the staging upload and the cluster
+  // exec. A stop during STAGING cancels the run before it ever executes —
+  // the ledger honestly records done/exit-0 with no staged leg and counts
+  // it completed (witnessed: the pre-fix runs' "3 completed" aggregate).
+  // The suite wants the EXEC kill (exit 137), so wait for the staged leg
+  // to surface on the record, then stop — the kill lands mid-exec.
+  const staged3 = await pollUntil(async () => {
+    const r = await readResume();
+    const e = (r?.recent ?? []).find((x) => x.jobId === job3.id);
+    return e && e.stagedMs != null && e.done === false ? e : null;
+  }, 60_000);
+  must(
+    !!staged3,
+    `run 3's staging leg completed (the exec is now the running surface — staged ${staged3?.stagedMs ?? "?"}ms)`
+  );
+  // t618 — the stop must land inside the EXEC leg: the cluster-side pid
+  // file (.cf-pid) exists only once the exec starts, and a stop inside the
+  // staging→exec gap reads NOPID (no kill) — the remote wrapper then
+  // finishes and the reconciler heals the record from the cluster's own
+  // exit-0 ledger (witnessed live; t618-diag2.mjs). The record's PHASE is
+  // the exec-start word the DTO already speaks: poll runRemote.phase
+  // until it flips from "staging" to "running", then stop immediately.
+  // The stop BODY's `stopped` flag is asserted so a missed kill fails
+  // loudly here, not downstream.
+  const execPhase = await pollUntil(async () => {
+    const j = await readJob(job3.id);
+    return j?.runRemote?.phase === "running" ? j.runRemote : null;
+  }, 60_000, 250);
+  must(!!execPhase, "run 3's record speaks phase=running (the exec leg is live)");
   const stopRes = await fetch(`${BASE}/api/jobs/${job3.id}/stop`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...SH },
     body: "{}",
   });
+  const stopBody = await stopRes.json().catch(() => ({}));
   must(stopRes.status === 200 || stopRes.status === 201, `run 3 is stopped by user (${stopRes.status})`);
+  must(stopBody?.stopped === true, `the cluster-side kill confirmed (stopped=${stopBody?.stopped}: ${String(stopBody?.message ?? "").slice(0, 60)})`);
+  // t618 — the stop's record FINALIZATION (exit 137 + the staged leg) races
+  // the SSH teardown's sweep; under load it can take tens of seconds. The
+  // suite's contract is the FINAL honest ledger, not a latency bound — poll
+  // until the stopped run's record is terminal.
   const resume3 = await pollUntil(async () => {
     const r = await readResume();
     return r && r.total >= 3 && r.failed >= 1 ? r : null;
-  }, 15_000);
+  }, 60_000);
   must(
     !!resume3 && resume3.total === 3 && resume3.completed === 2 && resume3.failed === 1 &&
       resume3.recent[0]?.jobId === job3.id && resume3.recent[0]?.exitCode === 137,
@@ -383,9 +466,18 @@ try {
   await sleep(800);
   const card = page.locator("[data-run-resume]").first();
   must(await card.isVisible().catch(() => false), "the résumé card renders inside the cluster dialog");
-  const totalTxt = ((await page.locator("[data-resume-total]").first().innerText().catch(() => "")) ?? "").trim();
-  const okTxt = ((await page.locator("[data-resume-completed]").first().innerText().catch(() => "")) ?? "").trim();
-  const badTxt = ((await page.locator("[data-resume-failed]").first().innerText().catch(() => "")) ?? "").trim();
+  // t618 — the badges read POLL-UNTIL-FINAL: the dialog's connections fetch
+  // (and the record finalize behind it) is a live-mutating surface, so a
+  // single fixed-sleep read caught mid-write shapes ("3 completed" — the
+  // stopped run counted before its exit landed). The final shape is the
+  // contract; the poll waits for it.
+  let totalTxt = "", okTxt = "", badTxt = "";
+  await pollUntil(async () => {
+    totalTxt = ((await page.locator("[data-resume-total]").first().innerText().catch(() => "")) ?? "").trim();
+    okTxt = ((await page.locator("[data-resume-completed]").first().innerText().catch(() => "")) ?? "").trim();
+    badTxt = ((await page.locator("[data-resume-failed]").first().innerText().catch(() => "")) ?? "").trim();
+    return totalTxt === "3 runs" && okTxt === "2 completed" && badTxt === "1 stopped/failed" ? "final" : null;
+  }, 30_000, 500);
   must(
     totalTxt === "3 runs" && okTxt === "2 completed" && badTxt === "1 stopped/failed",
     `the badges speak the aggregate ("${totalTxt}" · "${okTxt}" · "${badTxt}")`
@@ -394,8 +486,14 @@ try {
   must(entryCount === 3, `the résumé lists the ≤3 newest runs (got ${entryCount})`);
   // the NEWEST entry is the STOPPED run: its ledger honestly has only the
   // staging leg — the sync never happened, so speaking it would be a lie
-  // (t268's lesson: verify the world matches the assertion's assumption)
-  const firstEntry = ((await page.locator("[data-resume-entry]").first().innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
+  // (t268's lesson: verify the world matches the assertion's assumption).
+  // t618 — poll-until-final like the badges: a single read caught the row
+  // mid-finalize (name + type, no ledger words).
+  let firstEntry = "";
+  await pollUntil(async () => {
+    firstEntry = ((await page.locator("[data-resume-entry]").first().innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
+    return firstEntry.includes("motioncorr") && /staged /.test(firstEntry) && !/synced /.test(firstEntry) ? "final" : null;
+  }, 30_000, 500);
   must(
     firstEntry.includes("motioncorr") && /staged /.test(firstEntry) && !/synced /.test(firstEntry),
     `the stopped entry speaks only its staged leg (no sync, no lie — "${firstEntry.slice(0, 40)}")`
@@ -430,6 +528,7 @@ try {
     } catch { /* best effort */ }
   }
   try { rmSync(MICS_DIR, { recursive: true, force: true }); } catch { /* gone */ }
+  try { rmSync(HEAVY_DIR, { recursive: true, force: true }); } catch { /* gone */ }
   try {
     const fs = await import("node:fs");
     const ids = createdJobs.map((id) => id.slice(-8));

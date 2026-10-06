@@ -337,12 +337,26 @@ try {
 
   const jumpBtn = page.locator(`[data-resume-jump][data-resume-entry="${job1.id}"]`).first();
   must(await jumpBtn.isVisible().catch(() => false), "the completed run's entry is a real jump button");
-  const aria = (await jumpBtn.getAttribute("aria-label").catch(() => "")) ?? "";
+  // t618 — the row has TWO honest shapes: same-canvas rows speak the JOB
+  // name (aria "Open the inspector for <name>"; the row text carries the
+  // name + ledger), cross-canvas/gone rows speak the PROJECT name (t476's
+  // doctrine). The first draft's fixed sleep raced the canvas store's job
+  // hydration and read the cross-canvas shape for a SAME-canvas job. The
+  // row's shape settles when the store's jobs land — poll for it.
+  let aria = "";
+  await pollUntil(async () => {
+    aria = (await jumpBtn.getAttribute("aria-label").catch(() => "")) ?? "";
+    return aria.startsWith("Open the inspector for") ? "same-canvas" : null;
+  }, 15_000, 400);
   must(
     aria.includes("t271 MotionCorr Index"),
     `the button's aria-label speaks the job's NAME ("${aria}")`
   );
-  const entryTxt = ((await jumpBtn.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
+  let entryTxt = "";
+  await pollUntil(async () => {
+    entryTxt = ((await jumpBtn.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
+    return entryTxt.includes("t271 MotionCorr Index") && /staged /.test(entryTxt) ? "settled" : null;
+  }, 15_000, 400);
   must(
     entryTxt.includes("t271 MotionCorr Index") && entryTxt.includes("motioncorr") && /staged /.test(entryTxt),
     `the entry shows name + type + ledger ("${entryTxt.slice(0, 70)}")`

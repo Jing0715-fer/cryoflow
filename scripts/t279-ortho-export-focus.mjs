@@ -25,7 +25,7 @@
 //    focus restore untouched — the field is optional at every door.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 15
+//   A  demo truth — homepage 200, roster >= 12 (the canonical world)
 //   B  source ledger — the event pair, the export machinery, the four
 //      focus doors (capture / restore / import check / server whitelist)
 //   C  alive on the seeded 64³ world — the focus event reports the pick;
@@ -78,7 +78,10 @@ const SH = {
 console.log("== PHASE A: demo truth ==");
 await fetch(`${BASE}/`).then((r) => must(r.status === 200, `homepage 200 (got ${r.status})`));
 const roster = await (await fetch(`${BASE}/api/jobs`)).json();
-must((roster.jobs ?? []).length >= 15, `roster 15 (got ${(roster.jobs ?? []).length})`);
+// t618 — the roster floor follows the canonical world (12 jobs in the
+// sole-workspace EMPIAR world), not the era this suite was born in; the
+// >= 15 pins were propped by store-orphan residue jobs the cold boots pruned.
+must((roster.jobs ?? []).length >= 12, `roster >= 12 (got ${(roster.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const orthoSrc = readFileSync("src/components/workflow/results/map-ortho-panel.tsx", "utf8");
@@ -341,7 +344,7 @@ try {
 
 console.log("== PHASE Z: the world as it was ==");
 const rosterEnd = await (await fetch(`${BASE}/api/jobs`)).json();
-must((rosterEnd.jobs ?? []).length >= 15, `roster 15 after the dance (got ${(rosterEnd.jobs ?? []).length})`);
+must((rosterEnd.jobs ?? []).length >= 12, `roster >= 12 after the dance (got ${(rosterEnd.jobs ?? []).length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 80)}` : ""})`);
 
 console.log(fail === 0 ? "\nt279: ALL PASS" : `\nt279: ${fail} FAIL`);
