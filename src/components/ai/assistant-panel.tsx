@@ -240,7 +240,7 @@ const PROSE_COMPONENTS: Components = {
           data-assistant-door={id}
           aria-label={`在画布中定位 ${label}`}
           title={`在画布中定位 ${label}`}
-          className="rounded px-0.5 font-medium text-teal-700 underline decoration-teal-500/40 underline-offset-2 transition-colors hover:bg-running/10 focus-visible:bg-running/15 focus-visible:outline-none hover:decoration-teal-500 dark:text-teal-300"
+          className="rounded px-0.5 font-medium text-running-700 underline decoration-teal-500/40 underline-offset-2 transition-colors hover:bg-running/10 focus-visible:bg-running/15 focus-visible:outline-none hover:decoration-teal-500 dark:text-running-300"
           onClick={() => useWorkflowStore.getState().revealJob(id)}
         >
           {children}
@@ -543,7 +543,7 @@ function ActionButtons({
               "flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs leading-relaxed transition-all",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
               isFired
-                ? "border-running/40 bg-running/[0.08] text-teal-700 dark:text-teal-300"
+                ? "border-running/40 bg-running/[0.08] text-running-700 dark:text-running-300"
                 : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/[0.05] hover:shadow-sm",
               disabled && "cursor-not-allowed opacity-60"
             )}
@@ -1480,7 +1480,7 @@ export function AssistantPanel() {
               {s.id === sessionId && (
                 <Badge
                   variant="outline"
-                  className="h-4 shrink-0 rounded border-running/40 bg-running/10 px-1 text-[9px] font-medium text-teal-700 dark:text-teal-400"
+                  className="h-4 shrink-0 rounded border-running/40 bg-running/10 px-1 text-[9px] font-medium text-running-700 dark:text-running-400"
                 >
                   当前
                 </Badge>
@@ -1509,7 +1509,7 @@ export function AssistantPanel() {
               <span aria-hidden="true">·</span>
               <span>{s.messageCount} 条消息</span>
               {s.toolCount > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-teal-700/80 dark:text-teal-400/80">
+                <span className="inline-flex items-center gap-0.5 text-running-700/80 dark:text-running-400/80">
                   <Wrench className="size-2.5" aria-hidden="true" />
                   {s.toolCount}
                 </span>
@@ -1663,7 +1663,7 @@ export function AssistantPanel() {
                   variant="outline"
                   className={cn(
                     "hidden max-w-[200px] gap-1 truncate border-running/40 bg-running/10 px-1.5 font-mono text-[10px] font-normal text-running sm:inline-flex",
-                    health && health.state !== "ok" && "border-amber-500/50 bg-warning/10 text-amber-700 dark:text-amber-400"
+                    health && health.state !== "ok" && "border-amber-500/50 bg-warning/10 text-warning-700 dark:text-warning-400"
                   )}
                   title={
                     health && health.state !== "ok"
@@ -1960,14 +1960,14 @@ export function AssistantPanel() {
 
           {needsSetup && (
             <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs">
-              <p className="font-medium text-amber-700 dark:text-amber-400">还没有配置 AI 供应商</p>
+              <p className="font-medium text-warning-700 dark:text-warning-400">还没有配置 AI 供应商</p>
               <p className="mt-1 text-muted-foreground">
                 选择供应商并填入 API key 后即可使用（OpenAI / Claude / Gemini / DeepSeek / Kimi / GLM / Qwen …）。
               </p>
               <Button
                 size="sm"
                 variant="outline"
-                className="mt-2 h-7 gap-1 border-warning/40 text-amber-700 dark:text-amber-400"
+                className="mt-2 h-7 gap-1 border-warning/40 text-warning-700 dark:text-warning-400"
                 onClick={() => setAiSettingsOpen(true)}
               >
                 <Settings2 className="size-3.5" aria-hidden="true" />
@@ -1998,7 +1998,7 @@ export function AssistantPanel() {
           <div
             data-stale-banner
             role="status"
-            className="mx-3 mb-1 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-amber-700 dark:text-amber-400"
+            className="mx-3 mb-1 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning-700 dark:text-warning-400"
           >
             <History className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
             <span>

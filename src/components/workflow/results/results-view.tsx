@@ -1155,7 +1155,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {mrcFiles.length > 0 && (
         <section aria-label="Maps and images" data-canvas-ui="maps-gallery" tabIndex={-1} ref={molFocusRef} className="outline-none">
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-            <Layers className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+            <Layers className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
             Maps &amp; images
             <span className="font-normal text-muted-foreground">({mrcFiles.length})</span>
           </h4>
@@ -1222,7 +1222,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {logFiles.length > 0 && (
         <section aria-label="Logs and reports">
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-            <ScrollText className="h-3.5 w-3.5 text-amber-600" aria-hidden="true" />
+            <ScrollText className="h-3.5 w-3.5 text-warning-600" aria-hidden="true" />
             Logs &amp; reports
             <span className="font-normal text-muted-foreground">({logFiles.length})</span>
           </h4>
@@ -1235,7 +1235,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     download={f.name}
                     className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
                   >
-                    <FileDown className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+                    <FileDown className="h-3.5 w-3.5 shrink-0 text-warning-600" aria-hidden="true" />
                     <span className="truncate">{f.label ?? f.name}</span>
                     <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <span className="shrink-0 text-[10px] text-muted-foreground">
@@ -1253,7 +1253,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     data-print-keep=""
                     className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
                   >
-                    <ScrollText className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+                    <ScrollText className="h-3.5 w-3.5 shrink-0 text-warning-600" aria-hidden="true" />
                     <span className="truncate font-mono text-[11px]">{f.name}</span>
                     <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
                       {formatBytes(f.size)}
@@ -1281,7 +1281,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             aria-label="Copy workdir path"
           >
             {copied ? (
-              <Check className="h-3 w-3 text-emerald-600" aria-hidden="true" />
+              <Check className="h-3 w-3 text-success-600" aria-hidden="true" />
             ) : (
               <Copy className="h-3 w-3" aria-hidden="true" />
             )}
@@ -1301,7 +1301,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <Layers className="h-4 w-4 text-teal-600" aria-hidden="true" />
+                  <Layers className="h-4 w-4 text-running-600" aria-hidden="true" />
                   {imageFile.label ?? imageFile.name}
                 </DialogTitle>
                 <DialogDescription className="font-mono text-[11px]">
@@ -1526,7 +1526,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <ScrollText className="h-4 w-4 text-amber-600" aria-hidden="true" />
+                  <ScrollText className="h-4 w-4 text-warning-600" aria-hidden="true" />
                   {textFile.name}
                 </DialogTitle>
                 <DialogDescription className="font-mono text-[11px]">
@@ -1615,7 +1615,7 @@ function MapIdentityCard({
     >
       <div className="flex items-center justify-between gap-2">
         <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-          <Box className="h-3.5 w-3.5 shrink-0 text-teal-600" aria-hidden="true" />
+          <Box className="h-3.5 w-3.5 shrink-0 text-running-600" aria-hidden="true" />
           Imported map
         </h4>
         <span className="truncate font-mono text-[11px] text-muted-foreground" title={file.name}>
@@ -1624,11 +1624,11 @@ function MapIdentityCard({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+        <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-running-700 dark:text-running-300">
           {dims.join(" × ")} vox
         </span>
         {map.pixel > 0 && (
-          <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+          <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-running-700 dark:text-running-300">
             {map.pixel.toFixed(2)} Å / voxel
           </span>
         )}
@@ -1686,7 +1686,7 @@ function MapIdentityCard({
               size="sm"
               variant="outline"
               data-testid="map-card-view-3d"
-              className="h-7 gap-1.5 border-running/40 px-2.5 text-[11px] text-teal-700 hover:bg-running/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+              className="h-7 gap-1.5 border-running/40 px-2.5 text-[11px] text-running-700 hover:bg-running/10 hover:text-running-800 dark:text-running-300 dark:hover:text-running-200"
               onClick={() => onView3D({ job, path: file.path, name: file.name })}
             >
               <Box className="h-3.5 w-3.5" aria-hidden="true" />
@@ -2026,7 +2026,7 @@ function RemoteFileTile({
       data-remote-file=""
       data-remote-path={file.path}
     >
-      <span className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-running/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-teal-700 shadow-sm dark:text-teal-300">
+      <span className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-running/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-running-700 shadow-sm dark:text-running-300">
         <Cloud className="size-2.5" aria-hidden="true" />
         on cluster
       </span>
@@ -2080,7 +2080,7 @@ function RemoteFileTile({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-teal-600"
+            className="h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-running-600"
             onClick={() => onView3D(file)}
             aria-label={`View ${file.label ?? file.name} in 3D (Mol*)`}
             title="View in 3D — Mol* pulls this map from the cluster over SSH"
@@ -2277,8 +2277,8 @@ function DenoiseTrainHandoff({ jobId }: { jobId: string }) {
           <p
             className={
               coordsSource
-                ? "mt-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-300"
-                : "mt-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-300"
+                ? "mt-1.5 text-[11px] font-medium text-success-600 dark:text-success-300"
+                : "mt-1.5 text-[11px] font-medium text-warning-600 dark:text-warning-300"
             }
             data-testid="denoise-train-coords-note"
           >
@@ -2313,10 +2313,10 @@ function DenoiseTrainHandoff({ jobId }: { jobId: string }) {
 /** tone → value color: particles get the teal the maps speak, classes the
  *  violet of STAR tables, incomplete coverage the amber of warnings */
 const STAT_TONE_CLASS: Record<string, string> = {
-  particle: "text-teal-600 dark:text-teal-300",
+  particle: "text-running-600 dark:text-running-300",
   micrograph: "text-foreground",
   class: "text-violet-600 dark:text-violet-300",
-  warn: "text-amber-600 dark:text-amber-300",
+  warn: "text-warning-600 dark:text-warning-300",
 };
 
 /**
@@ -2372,7 +2372,7 @@ export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
         <p
           data-coverage-note=""
           style={{ "--kd": `${summary.stats.length * TALLY_STEP_MS}ms` } as CSSProperties}
-          className="flex w-full items-start gap-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+          className="flex w-full items-start gap-1.5 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300"
         >
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
           {summary.coverage.note}
@@ -2398,7 +2398,7 @@ function WarningsCard({ warnings }: { warnings: string[] }) {
         className="flex w-full items-center gap-2 text-left"
       >
         <AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
-        <span className="font-medium text-amber-700 dark:text-amber-300">
+        <span className="font-medium text-warning-700 dark:text-warning-300">
           {warnings.length} warning{warnings.length === 1 ? "" : "s"} in run.out
         </span>
         <ChevronDown
@@ -2414,7 +2414,7 @@ function WarningsCard({ warnings }: { warnings: string[] }) {
           {warnings.map((w, i) => (
             <li
               key={i}
-              className="break-words rounded bg-warning/10 px-2 py-1 font-mono text-[10px] leading-relaxed text-amber-800 dark:text-amber-200"
+              className="break-words rounded bg-warning/10 px-2 py-1 font-mono text-[10px] leading-relaxed text-warning-800 dark:text-warning-200"
             >
               {w}
             </li>
@@ -2588,7 +2588,7 @@ function RemoteBatchBar({
       aria-label={`Batch bring home: ${total} files on cluster`}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-running-700 dark:text-running-300">
           <Cloud className="size-3.5" aria-hidden="true" />
           {total} file{total === 1 ? "" : "s"} still on cluster
         </span>
@@ -2622,7 +2622,7 @@ function RemoteBatchBar({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 gap-1.5 border-running/40 px-2.5 text-[11px] text-teal-700 hover:bg-running/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+                className="h-7 gap-1.5 border-running/40 px-2.5 text-[11px] text-running-700 hover:bg-running/10 hover:text-running-800 dark:text-running-300 dark:hover:text-running-200"
                 onClick={() => void bringHome()}
                 aria-label={`Fetch all ${total} cluster files to this machine`}
                 title="Bring them all home — small chunks over SSH, per-file verdicts, stoppable at any moment"

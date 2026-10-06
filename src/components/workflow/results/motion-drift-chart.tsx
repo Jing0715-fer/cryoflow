@@ -53,8 +53,8 @@ const AMBER = "#f59e0b";
  *  a micrograph is an offender when it drifts ≥ mean + 2σ of ITS run. */
 function driftTone(total: number, mean: number, sd: number): string {
   if (total >= mean + 2 * sd) return "text-danger";
-  if (total >= mean + 1 * sd) return "text-amber-700 dark:text-amber-300";
-  return "text-emerald-700 dark:text-emerald-300";
+  if (total >= mean + 1 * sd) return "text-warning-700 dark:text-warning-300";
+  return "text-success-700 dark:text-success-300";
 }
 
 export function MotionDriftChart({ jobId, className }: { jobId: string; className?: string }) {

@@ -552,7 +552,7 @@ export function PathBrowserDialog({
                         setCwd(currentPath ? `${currentPath.replace(/[\\/]$/, "")}/${e.name}` : e.name);
                       }}
                     >
-                      <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500/80" aria-hidden="true" />
+                      <Folder className="h-3.5 w-3.5 shrink-0 text-warning-500/80" aria-hidden="true" />
                       <span className="min-w-0 flex-1 truncate">{e.name}</span>
                       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
                     </button>
@@ -609,7 +609,7 @@ export function PathBrowserDialog({
                       )}
                     >
                       {e.img ? (
-                        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500/80" aria-hidden="true" />
+                        <Check className="h-3.5 w-3.5 shrink-0 text-success-500/80" aria-hidden="true" />
                       ) : (
                         <span className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       )}
@@ -799,7 +799,7 @@ export function PathBrowserDialog({
           <p className="text-[11px] text-muted-foreground" role="status">
             {microCount > 0 ? (
               <>
-                <Check className="mr-1 inline h-3 w-3 text-emerald-600" aria-hidden="true" />
+                <Check className="mr-1 inline h-3 w-3 text-success-600" aria-hidden="true" />
                 {microCount} micrograph{microCount === 1 ? "" : "s"} (.mrc/.mrcs/.tif/.eer)
                 {data?.truncated && data.totalEntries != null
                   ? ` shown of ~${data.totalEntries} entries — `

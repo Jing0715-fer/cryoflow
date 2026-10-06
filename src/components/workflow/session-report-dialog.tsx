@@ -1666,7 +1666,7 @@ export default function SessionReportDialog({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 text-emerald-600 hover:bg-success/15 hover:text-emerald-600"
+            className="h-7 gap-1.5 text-success-600 hover:bg-success/15 hover:text-success-600"
             aria-label="Copy map inventory CSV"
             title="The same machine grid, straight to the clipboard — the download door's twin, one well, two mouths"
             onClick={() => exportCsv("copy")}
@@ -1677,7 +1677,7 @@ export default function SessionReportDialog({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 text-emerald-600 hover:bg-success/15 hover:text-emerald-600"
+            className="h-7 gap-1.5 text-success-600 hover:bg-success/15 hover:text-success-600"
             aria-label="Download map inventory CSV"
             title="The map inventory as a machine grid — job, main map, volumes, peak %, Δ winner (one row per owner, pending peaks blank)"
             onClick={() => exportCsv("download")}
@@ -1688,7 +1688,7 @@ export default function SessionReportDialog({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 text-emerald-600 hover:bg-success/15 hover:text-emerald-600"
+            className="h-7 gap-1.5 text-success-600 hover:bg-success/15 hover:text-success-600"
             aria-label="Copy curve verdicts CSV"
             title="The curve verdict table as a machine grid — job id, job, curve, verdict (one row per spoken curve)"
             onClick={() => exportCurveCsv("copy")}
@@ -1699,7 +1699,7 @@ export default function SessionReportDialog({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 text-emerald-600 hover:bg-success/15 hover:text-emerald-600"
+            className="h-7 gap-1.5 text-success-600 hover:bg-success/15 hover:text-success-600"
             aria-label="Download curve verdicts CSV"
             title="The curve verdicts as a machine grid — job id, job, curve, verdict; the same rows the paper's table speaks, one well, two faces"
             onClick={() => exportCurveCsv("download")}
@@ -1722,7 +1722,7 @@ export default function SessionReportDialog({
 
         {note && (
           <p
-            className="no-print rounded-md border border-success/30 bg-success/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300"
+            className="no-print rounded-md border border-success/30 bg-success/10 px-2 py-1 text-[11px] text-success-700 dark:text-success-300"
             role="status"
           >
             {note}

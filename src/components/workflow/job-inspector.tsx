@@ -267,7 +267,7 @@ function Highlighted({ line, q }: { line: string; q: string }) {
         p && p.toLowerCase() === qLower ? (
           <mark
             key={i}
-            className="rounded-sm bg-amber-400/30 px-0.5 text-amber-200"
+            className="rounded-sm bg-amber-400/30 px-0.5 text-warning-200"
           >
             {p}
           </mark>
@@ -317,9 +317,9 @@ function LogLine({
         "block px-1",
         index % 2 === 1 && "bg-white/[0.025]",
         tone === "error" && "bg-rose-500/10 text-rose-400",
-        tone === "warn" && "bg-warning/10 text-amber-300",
-        tone === "milestone" && "text-teal-300 font-semibold",
-        tone === "resolution" && "text-teal-200 font-semibold",
+        tone === "warn" && "bg-warning/10 text-warning-300",
+        tone === "milestone" && "text-running-300 font-semibold",
+        tone === "resolution" && "text-running-200 font-semibold",
         tone === "separator" && "text-zinc-600"
       )}
     >
@@ -649,7 +649,7 @@ function LogConsole({
               "rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
               matchCount === 0
                 ? "bg-rose-500/15 text-rose-400"
-                : "bg-warning/15 text-amber-400"
+                : "bg-warning/15 text-warning-400"
             )}
             title={`${matchCount} of ${lineCount} lines match “${query.trim()}”`}
           >
@@ -660,7 +660,7 @@ function LogConsole({
           <button
             type="button"
             onClick={() => setMode("full")}
-            className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-amber-400 transition-colors hover:bg-warning/25"
+            className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning-400 transition-colors hover:bg-warning/25"
             title={`Showing the last 600 of ${totalLines.toLocaleString()} lines — click to load the full log`}
           >
             +{(totalLines - lineCount).toLocaleString()} hidden — show full log
@@ -677,7 +677,7 @@ function LogConsole({
           <span
             data-log-waiting=""
             title={waitingHint}
-            className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-amber-400"
+            className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning-400"
           >
             <span className="relative flex size-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
@@ -722,7 +722,7 @@ function LogConsole({
                     className={cn(
                       "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
                       mode === m
-                        ? "bg-running/20 text-teal-300"
+                        ? "bg-running/20 text-running-300"
                         : "text-zinc-500 hover:text-zinc-300"
                     )}
                   >
@@ -747,7 +747,7 @@ function LogConsole({
                 }}
                 className={cn(
                   "h-7 gap-1.5 rounded px-2 text-[11px] text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
-                  follow && "bg-zinc-800 text-teal-300 hover:text-teal-200"
+                  follow && "bg-zinc-800 text-running-300 hover:text-running-200"
                 )}
               >
                 {follow ? <ArrowDown className="size-3.5" /> : <Pause className="size-3.5" />}
@@ -765,7 +765,7 @@ function LogConsole({
                 onClick={() => setWrap((w) => !w)}
                 className={cn(
                   "h-7 rounded px-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
-                  wrap && "bg-zinc-800 text-teal-300"
+                  wrap && "bg-zinc-800 text-running-300"
                 )}
               >
                 <WrapText className="size-3.5" />
@@ -882,7 +882,7 @@ function LogConsole({
                     {f.excerpt}
                   </p>
                   <p className="diag-hint mt-1 flex items-start gap-1 text-[10px] leading-relaxed text-zinc-500">
-                    <Lightbulb className="mt-px size-3 shrink-0 text-amber-400/80" aria-hidden="true" />
+                    <Lightbulb className="mt-px size-3 shrink-0 text-warning-400/80" aria-hidden="true" />
                     <span>{f.hint}</span>
                   </p>
                 </li>
@@ -933,7 +933,7 @@ function LogConsole({
             {logError ? (
               <p
                 data-log-error-banner=""
-                className="mb-2 flex items-center gap-1.5 rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] font-medium text-amber-400"
+                className="mb-2 flex items-center gap-1.5 rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] font-medium text-warning-400"
                 role="status"
               >
                 <AlertCircle className="size-3 shrink-0" aria-hidden="true" />
@@ -1050,10 +1050,10 @@ function Timeline({ job }: { job: JobDTO }) {
                   ? s.tone === "bad"
                     ? "border-danger text-rose-600"
                     : s.tone === "good"
-                      ? "border-emerald-500 text-emerald-600"
+                      ? "border-emerald-500 text-success-600"
                       : s.tone === "wait"
-                        ? "border-amber-500 text-amber-600"
-                        : "border-teal-500 text-teal-600"
+                        ? "border-amber-500 text-warning-600"
+                        : "border-teal-500 text-running-600"
                   : "border-muted text-muted-foreground",
                 s.live && "animate-pulse"
               )}
@@ -1091,7 +1091,7 @@ function ResultSummary({
     const deps = job.runRemote?.slurmDependsOn ?? [];
     return (
       <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/5 p-3.5" data-print-atomic="">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-amber-600">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning-600">
           <Clock className="size-4.5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -1110,7 +1110,7 @@ function ResultSummary({
   if (job.status === "running") {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-running/30 bg-running/5 p-3.5" data-print-atomic="">
-        <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-running/15 text-teal-600">
+        <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-running/15 text-running-600">
           <Loader2 className="size-4.5 animate-spin" aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -1125,12 +1125,12 @@ function ResultSummary({
   if (job.status === "pending") {
     return (
       <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/5 p-3.5" data-print-atomic="">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-amber-600">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning-600">
           <Clock className="size-4.5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">Waiting as pending</p>
-          <p className="mt-0.5 break-words text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+          <p className="mt-0.5 break-words text-xs leading-relaxed text-warning-700 dark:text-warning-300">
             {job.result ?? "Waiting for an upstream job to produce its outputs."}
           </p>
           <p className="mt-1 text-[10px] text-muted-foreground">
@@ -1263,7 +1263,7 @@ function ResultSummary({
   }
   return (
     <div className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/5 p-3.5" data-print-atomic="">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-emerald-600">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success-600">
         <Check className="size-4.5" aria-hidden="true" />
       </span>
       <div className="min-w-0">
@@ -1479,9 +1479,9 @@ function OutputsSummary({ files }: { files: OutputFile[] }) {
     return acc;
   }, {});
   const items = [
-    { kind: "mrc", label: "maps & images", icon: Layers, color: "text-teal-600" },
+    { kind: "mrc", label: "maps & images", icon: Layers, color: "text-running-600" },
     { kind: "star", label: "STAR tables", icon: Table2, color: "text-violet-600" },
-    { kind: "text", label: "logs & text", icon: ScrollText, color: "text-amber-600" },
+    { kind: "text", label: "logs & text", icon: ScrollText, color: "text-warning-600" },
     { kind: "image", label: "plots", icon: BarChart3, color: "text-rose-600" },
   ];
   return (
@@ -1516,7 +1516,7 @@ function Section({
     <section className="space-y-2.5">
       <div className="flex items-baseline gap-2">
         <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/70">
-          <Icon className="size-3.5 text-teal-600" aria-hidden="true" />
+          <Icon className="size-3.5 text-running-600" aria-hidden="true" />
           {title}
         </h4>
         {hint ? <span className="text-[10px] text-muted-foreground">{hint}</span> : null}
@@ -1725,7 +1725,7 @@ function JobNoteSection({ job }: { job: JobDTO }) {
 /** tone → value color: the same grammar the Results strip speaks
  * (particles teal, micrographs neutral, classes violet). */
 const COUNT_TONE_CLASS: Record<string, string> = {
-  particle: "text-teal-600 dark:text-teal-300",
+  particle: "text-running-600 dark:text-running-300",
   micrograph: "text-foreground",
   class: "text-violet-600 dark:text-violet-300",
 };
@@ -2076,7 +2076,7 @@ function CommandPreviewSection({ job }: { job: JobDTO }) {
       {blocker ? (
         <p
           data-canvas-ui="command-blocker"
-          className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+          className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300"
         >
           {blocker}
         </p>
@@ -2106,9 +2106,9 @@ function CommandPreviewSection({ job }: { job: JobDTO }) {
 /* ------------------------------------------------------------------ */
 
 const KIND_META: Record<OutputKind, { icon: React.ElementType; color: string; label: string }> = {
-  mrc: { icon: Layers, color: "text-teal-600", label: "MRC" },
+  mrc: { icon: Layers, color: "text-running-600", label: "MRC" },
   star: { icon: Table2, color: "text-violet-600", label: "STAR" },
-  text: { icon: ScrollText, color: "text-amber-600", label: "TEXT" },
+  text: { icon: ScrollText, color: "text-warning-600", label: "TEXT" },
   image: { icon: FileText, color: "text-rose-600", label: "PLOT" },
 };
 
@@ -2162,7 +2162,7 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                 className={cn(
                   "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[10px] font-semibold uppercase tracking-wide transition-colors",
                   active
-                    ? "border-running/40 bg-running/15 text-teal-700 dark:text-teal-300"
+                    ? "border-running/40 bg-running/15 text-running-700 dark:text-running-300"
                     : "border-border bg-card text-muted-foreground hover:bg-secondary/60"
                 )}
               >
@@ -2501,7 +2501,7 @@ function InspectorHeader({
           : s.tone === "class"
             ? COUNT_TONE_CLASS.class
             : s.tone === "warn"
-              ? "text-amber-600 dark:text-amber-300"
+              ? "text-warning-600 dark:text-warning-300"
               : COUNT_TONE_CLASS.micrograph;
       chips.push({
         key: s.key,
@@ -2989,7 +2989,7 @@ function InspectorHeader({
                   setClusterRunOpen(true);
                 }}
                 title="Re-run this job and every downstream job on the cluster — the door opens with the subtree rider checked"
-                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-warning/15 dark:text-amber-400"
+                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400"
               >
                 <Play className="size-3 shrink-0" aria-hidden="true" />
                 Re-run subtree ({subtreePlan.order.length})
@@ -3035,7 +3035,7 @@ function InspectorHeader({
                   aria-controls={diffTableId}
                   data-testid="drift-diff-toggle"
                   title={diffOpen ? "Collapse the per-setting receipt" : "Every changed setting, ran-with value → current value"}
-                  className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-warning/15 dark:text-amber-400"
+                  className="ml-auto inline-flex shrink-0 items-center gap-1 rounded border border-warning/30 bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-warning-700 transition-colors hover:bg-warning/15 dark:text-warning-400"
                 >
                   <ChevronDown
                     className={cn(
@@ -3191,7 +3191,7 @@ function InspectorHeader({
                 // one tooltip away, never lost to rounding
                 `exact: staged ${job.runRemote.stagedMs ?? "?"}ms · synced ${job.runRemote.syncMs ?? "?"}ms — the run's time ledger (staging = upload, sync-back = download)`
               }
-              className="min-w-0 truncate rounded border border-running/20 bg-running/[0.08] px-1.5 py-px font-mono text-[9.5px] tabular-nums text-teal-700 dark:text-teal-300"
+              className="min-w-0 truncate rounded border border-running/20 bg-running/[0.08] px-1.5 py-px font-mono text-[9.5px] tabular-nums text-running-700 dark:text-running-300"
             >
               staged {formatLedgerMs(job.runRemote.stagedMs) ?? "—"}
               {job.runRemote.syncMs != null ? ` · synced ${formatLedgerMs(job.runRemote.syncMs)}` : ""}
@@ -3216,7 +3216,7 @@ function InspectorHeader({
           </span>
           {eta != null && (
             <span
-              className="shrink-0 rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300"
+              className="shrink-0 rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-running-700 dark:text-running-300"
               title={`${formatEta(eta)} remaining — projected from the current pace (RELION iterations can speed up or slow down)`}
             >
               {formatEta(eta)} left

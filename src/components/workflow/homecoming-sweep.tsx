@@ -263,7 +263,7 @@ export function HomecomingSweepBar({
       className="no-print mb-2 rounded-lg border border-running/30 bg-running/[0.04] px-3 py-2.5"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-running-700 dark:text-running-300">
           {running ? (
             <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
           ) : (
@@ -299,7 +299,7 @@ export function HomecomingSweepBar({
             data-testid="homecoming-sweep-run"
             onClick={runSweep}
             disabled={owing.length === 0}
-            className="ml-auto flex h-6 items-center gap-1 rounded-md border border-running/40 bg-running/10 px-2 text-[11px] font-medium text-teal-700 transition-colors hover:bg-running/20 focus-visible:ring-2 focus-visible:ring-running/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-teal-300"
+            className="ml-auto flex h-6 items-center gap-1 rounded-md border border-running/40 bg-running/10 px-2 text-[11px] font-medium text-running-700 transition-colors hover:bg-running/20 focus-visible:ring-2 focus-visible:ring-running/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-running-300"
           >
             <House className="size-3" aria-hidden="true" />
             Bring home all
@@ -323,7 +323,7 @@ export function HomecomingSweepBar({
       {phase === "settled" && (
         <p
           data-testid="homecoming-sweep-verdict"
-          className="mt-1.5 flex items-center gap-1.5 text-[11px] leading-relaxed text-teal-700 dark:text-teal-300"
+          className="mt-1.5 flex items-center gap-1.5 text-[11px] leading-relaxed text-running-700 dark:text-running-300"
         >
           <House className="size-3 shrink-0" aria-hidden="true" />
           {stopped
@@ -341,19 +341,19 @@ export function HomecomingSweepBar({
           {shownFailures.map((f, i) => (
             <li
               key={`${f.jobId}-${f.path ?? "job"}-${i}`}
-              className="flex items-start gap-1.5 rounded-md bg-warning/10 px-2 py-1 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
+              className="flex items-start gap-1.5 rounded-md bg-warning/10 px-2 py-1 text-[10.5px] leading-relaxed text-warning-700 dark:text-warning-300"
             >
               <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
               <span>
                 <span className="font-medium">{f.jobName}</span>
-                {f.path ? <span className="text-amber-700/80 dark:text-amber-300/80"> · {f.path}</span> : null}
+                {f.path ? <span className="text-warning-700/80 dark:text-warning-300/80"> · {f.path}</span> : null}
                 {" — "}
                 {f.error}
               </span>
             </li>
           ))}
           {hiddenFailures > 0 && (
-            <li className="px-2 text-[10.5px] leading-relaxed text-amber-700/80 tabular-nums dark:text-amber-300/80">
+            <li className="px-2 text-[10.5px] leading-relaxed text-warning-700/80 tabular-nums dark:text-warning-300/80">
               and {hiddenFailures} more — Results → Bring home all on the job shows every verdict.
             </li>
           )}

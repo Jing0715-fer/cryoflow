@@ -29,7 +29,7 @@ export function CopyButton({ text, label }: { text: string; label?: string }) {
       }}
       aria-label={label ?? "Copy"}
     >
-      {copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+      {copied ? <Check className="size-3.5 text-success-600" /> : <Copy className="size-3.5" />}
       {label ? <span>{copied ? "Copied" : label}</span> : null}
     </Button>
   );

@@ -40,8 +40,8 @@ const AMBER = "#d97706";
 
 /** FOM health buckets (ctffind figure of merit 0–1). */
 function fomTone(fom: number): string {
-  if (fom >= 0.1) return "text-emerald-700 dark:text-emerald-300";
-  if (fom >= 0.05) return "text-amber-700 dark:text-amber-300";
+  if (fom >= 0.1) return "text-success-700 dark:text-success-300";
+  if (fom >= 0.05) return "text-warning-700 dark:text-warning-300";
   return "text-danger";
 }
 
@@ -97,7 +97,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <Radar className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <Radar className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           CTF fit quality
           <span className="font-normal text-muted-foreground/70">
             ({summary?.count ?? micrographs.length} micrographs)
@@ -105,10 +105,10 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
         </span>
         {summary && (
           <>
-            <span className="rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+            <span className="rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-running-700 dark:text-running-300">
               defocus {summary.meanDefocus.toFixed(2)} µm
             </span>
-            <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+            <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-warning-700 dark:text-warning-300">
               astig ≤ {summary.maxAstigmatism.toFixed(2)} µm
             </span>
             {summary.worstResolution > 0 && (

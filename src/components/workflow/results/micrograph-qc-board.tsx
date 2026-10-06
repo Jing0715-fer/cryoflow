@@ -52,8 +52,8 @@ const BUCKET_TILE: Record<QcBucket, string> = {
 };
 
 const BUCKET_VALUE: Record<QcBucket, string> = {
-  healthy: "text-emerald-700 dark:text-emerald-300",
-  watch: "text-amber-700 dark:text-amber-300",
+  healthy: "text-success-700 dark:text-success-300",
+  watch: "text-warning-700 dark:text-warning-300",
   offender: "text-danger",
 };
 
@@ -193,7 +193,7 @@ export function MicrographQcBoard({
       data-qc-offenders={offenders}
     >
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
-        <LayoutGrid className="size-3 shrink-0 text-teal-600" aria-hidden="true" />
+        <LayoutGrid className="size-3 shrink-0 text-running-600" aria-hidden="true" />
         <span className="text-[11px] font-medium text-foreground/80">
           {kind === "ctf"
             ? "CTF micrograph board"
@@ -215,12 +215,12 @@ export function MicrographQcBoard({
             <>
               {" · "}
               <span className="text-danger">{offenders} offender{offenders === 1 ? "" : "s"}</span>
-              {watch > 0 && <>, <span className="text-amber-700 dark:text-amber-300">{watch} watch</span></>}
+              {watch > 0 && <>, <span className="text-warning-700 dark:text-warning-300">{watch} watch</span></>}
             </>
           )}
         </span>
         {offenders === 0 && watch === 0 && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700 dark:text-emerald-300">
+          <span className="inline-flex items-center gap-0.5 text-[10px] text-success-700 dark:text-success-300">
             <TriangleAlert className="size-2.5" aria-hidden="true" />
             none
           </span>
@@ -236,7 +236,7 @@ export function MicrographQcBoard({
                 className={cn(
                   "rounded border px-1.5 py-0.5 text-[10px] transition-colors",
                   metric === m
-                    ? "border-running/40 bg-running/10 font-medium text-teal-700 dark:text-teal-300"
+                    ? "border-running/40 bg-running/10 font-medium text-running-700 dark:text-running-300"
                     : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
                 )}
               >
@@ -254,7 +254,7 @@ export function MicrographQcBoard({
                   className={cn(
                     "rounded border px-1.5 py-0.5 text-[10px] transition-colors",
                     metric === m
-                      ? "border-running/40 bg-running/10 font-medium text-teal-700 dark:text-teal-300"
+                      ? "border-running/40 bg-running/10 font-medium text-running-700 dark:text-running-300"
                       : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
                   )}
                 >
@@ -270,7 +270,7 @@ export function MicrographQcBoard({
             className={cn(
               "rounded border px-1.5 py-0.5 text-[10px] transition-colors",
               worstFirst
-                ? "border-running/40 bg-running/10 font-medium text-teal-700 dark:text-teal-300"
+                ? "border-running/40 bg-running/10 font-medium text-running-700 dark:text-running-300"
                 : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
             )}
           >

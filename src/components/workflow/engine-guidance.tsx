@@ -159,7 +159,7 @@ export function EngineBuildRail({ build }: { build: RelionBuildProgressClient })
         resume: {build.recipe}
       </p>
       {current === undefined && (
-        <p className="text-[9px] text-teal-700 dark:text-teal-300">
+        <p className="text-[9px] text-running-700 dark:text-running-300">
           All stages done — the next Re-detect promotes the fresh install to the found world.
         </p>
       )}

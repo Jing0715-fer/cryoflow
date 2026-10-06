@@ -465,11 +465,11 @@ export function CryoSparcAnglePlot({
       {/* header row */}
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <Globe2 className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <Globe2 className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           Orientation distribution · Mollweide
         </span>
         {running ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-1.5 py-px text-[10px] font-medium text-teal-700 dark:text-teal-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-1.5 py-px text-[10px] font-medium text-running-700 dark:text-running-300">
             <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500" />
@@ -484,8 +484,8 @@ export function CryoSparcAnglePlot({
             asChild
             className={cn(
               expandSym
-                ? "border-teal-600/60 bg-running/15 text-teal-700 dark:text-teal-300"
-                : "border-border/60 bg-muted/40 text-muted-foreground hover:border-running/40 hover:text-teal-700 dark:hover:text-teal-300"
+                ? "border-teal-600/60 bg-running/15 text-running-700 dark:text-running-300"
+                : "border-border/60 bg-muted/40 text-muted-foreground hover:border-running/40 hover:text-running-700 dark:hover:text-running-300"
             )}
           >
             <button
@@ -518,7 +518,7 @@ export function CryoSparcAnglePlot({
         <span
           className={cn(
             "inline-flex items-center gap-1 font-medium",
-            anisotropic ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"
+            anisotropic ? "text-warning-700 dark:text-warning-300" : "text-success-700 dark:text-success-300"
           )}
         >
           {anisotropic ? (

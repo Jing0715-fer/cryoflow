@@ -128,12 +128,12 @@ export function PostprocessVerdictEntry({ job }: { job: JobDTO }) {
 /* ------------------------------------------------------------------ */
 
 const WORD_STYLES: Record<string, string> = {
-  honest: "bg-running/10 text-teal-700 dark:text-teal-400",
-  "modest gift": "bg-running/10 text-teal-700 dark:text-teal-400",
+  honest: "bg-running/10 text-running-700 dark:text-running-400",
+  "modest gift": "bg-running/10 text-running-700 dark:text-running-400",
   "generous gift":
-    "border border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-400",
+    "border border-warning/40 bg-warning/10 text-warning-700 dark:text-warning-400",
   "mask-carried":
-    "border border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-400",
+    "border border-warning/40 bg-warning/10 text-warning-700 dark:text-warning-400",
   "beyond the box":
     "border border-red-500/40 bg-red-500/10 text-danger",
 };
@@ -206,7 +206,7 @@ function FinalVerdictDialog({
               pct={pos(official)}
               label="official (corrected)"
               value={`${official.toFixed(1)} Å`}
-              tone="font-semibold text-teal-700 dark:text-teal-400"
+              tone="font-semibold text-running-700 dark:text-running-400"
               dot="bg-teal-500 ring-2 ring-running/30"
               above={!unmasked}
             />
@@ -215,7 +215,7 @@ function FinalVerdictDialog({
                 pct={pos(rawMasked)}
                 label="raw mask (uncorrected)"
                 value={`${rawMasked.toFixed(1)} Å`}
-                tone="text-amber-700 dark:text-amber-400"
+                tone="text-warning-700 dark:text-warning-400"
                 dot="bg-amber-500"
                 above={false}
               />

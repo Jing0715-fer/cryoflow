@@ -96,18 +96,18 @@ export function ResolutionChart({
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <TrendingUp className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <TrendingUp className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           Resolution evolution
           <span className="font-normal text-muted-foreground/70">({points.length} iterations)</span>
         </span>
         {current != null && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-running-700 dark:text-running-300">
             <Crosshair className="h-3 w-3" aria-hidden="true" />
             now {current.toFixed(2)} Å
           </span>
         )}
         {best != null && Math.abs(best - (current ?? best)) > 0.005 && (
-          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-success-700 dark:text-success-300">
             best {best.toFixed(2)} Å
           </span>
         )}

@@ -187,7 +187,7 @@ function ProbeCard({
           className={cn(
             "text-[10px]",
             probe.ok
-              ? "border-success/40 bg-success/10 text-emerald-700 dark:text-emerald-300"
+              ? "border-success/40 bg-success/10 text-success-700 dark:text-success-300"
               : "border-rose-500/40 bg-rose-500/10 text-danger"
           )}
         >
@@ -207,7 +207,7 @@ function ProbeCard({
         {probe.gpus.length > 0 ? (
           <Badge
             variant="outline"
-            className="border-running/30 bg-running/10 text-[10px] font-normal text-teal-700 dark:text-teal-300"
+            className="border-running/30 bg-running/10 text-[10px] font-normal text-running-700 dark:text-running-300"
           >
             {probe.gpus.length} GPU{probe.gpus.length === 1 ? "" : "s"}
           </Badge>
@@ -479,7 +479,7 @@ function RunResumeCard({
         {resume.completed > 0 ? (
           <Badge
             variant="outline"
-            className="border-success/40 bg-success/10 text-[10px] text-emerald-700 dark:text-emerald-300"
+            className="border-success/40 bg-success/10 text-[10px] text-success-700 dark:text-success-300"
             data-resume-completed=""
           >
             {resume.completed} completed
@@ -697,7 +697,7 @@ function RunResumeCard({
         </div>
       ) : null}
       {bulkOk ? (
-        <p role="status" data-resume-forget-dead-ok="" className="text-[10px] text-emerald-700 dark:text-emerald-300">
+        <p role="status" data-resume-forget-dead-ok="" className="text-[10px] text-success-700 dark:text-success-300">
           Forgot {bulkOk.forgotten} dead entr{bulkOk.forgotten === 1 ? "y" : "ies"} · kept {bulkOk.kept} live
         </p>
       ) : null}
@@ -1228,7 +1228,7 @@ function ConnectionEditor({
             size="sm"
             className={cn(
               "h-9 shrink-0 px-2.5 text-[11px] text-muted-foreground hover:text-foreground",
-              clearFlag && "bg-warning/10 text-amber-700 dark:text-amber-300"
+              clearFlag && "bg-warning/10 text-warning-700 dark:text-warning-300"
             )}
             onClick={() => onClearFlag(!clearFlag)}
             aria-pressed={clearFlag}
@@ -1597,7 +1597,7 @@ function ConnectionEditor({
           verifyResult.ok ? (
             <p
               role="status"
-              className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300"
+              className="text-[11px] leading-relaxed text-success-700 dark:text-success-300"
               data-verify-module-ok=""
             >
               <span className="font-mono">{verifyResult.module}</span> loads — relion_refine at{" "}
@@ -1765,7 +1765,7 @@ function ConnectionEditor({
       ) : !creating && storageResult ? (
         storageResult.ok ? (
           <p
-            className="mt-2 text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300"
+            className="mt-2 text-[11px] leading-relaxed text-success-700 dark:text-success-300"
             role="status"
             data-storage-check-verdict=""
           >

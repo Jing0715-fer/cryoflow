@@ -185,7 +185,7 @@ export function ImportGallery({
       {/* header */}
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <Aperture className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <Aperture className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           Source micrographs
         </span>
         <Chip size="sm" tone="muted">

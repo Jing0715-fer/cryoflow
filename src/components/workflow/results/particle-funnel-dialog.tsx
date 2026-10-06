@@ -134,8 +134,8 @@ const UNIT_DOT: Record<string, string> = {
 
 const DELTA_TONE: Record<string, string> = {
   carry: "text-muted-foreground/70",
-  shed: "text-amber-700 dark:text-amber-400",
-  gain: "text-teal-700 dark:text-teal-400",
+  shed: "text-warning-700 dark:text-warning-400",
+  gain: "text-running-700 dark:text-running-400",
   transform: "text-sky-700 dark:text-sky-400",
 };
 
@@ -212,7 +212,7 @@ export function ParticleFunnelDialog({
           {/* the closing number — the chain's postprocess receipt */}
           {payload.closing ? (
             <div className="mt-3 flex items-center gap-2 border-t pt-3 text-xs">
-              <span className="rounded-full bg-running/10 px-2 py-0.5 font-medium text-teal-700 dark:text-teal-400">
+              <span className="rounded-full bg-running/10 px-2 py-0.5 font-medium text-running-700 dark:text-running-400">
                 closes at {payload.closing.resolution}
               </span>
               <span className="text-muted-foreground">

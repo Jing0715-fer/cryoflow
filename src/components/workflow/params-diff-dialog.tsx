@@ -125,7 +125,7 @@ export function ParamsDiffDialog({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <GitCompareArrows className="size-4 text-teal-600" aria-hidden="true" />
+            <GitCompareArrows className="size-4 text-running-600" aria-hidden="true" />
             Compare parameters
             <Button
               variant="ghost"

@@ -29,14 +29,19 @@
  * STATUS_DOT) moved here, and the maps below obey a THREE-RUNG LAW that
  * t646's rose pass implied but never had to state:
  *
- *   1. INK (text) — deep rung 700/300 literals, EXCEPT rose. The 600
- *      rungs of the t646 tokens are 3.2:1 (amber), 3.8:1 (emerald), and
- *      3.8:1 (teal) against white — below the 4.5:1 a 10px semibold
- *      badge word needs. rose-600 measures ≈4.5:1, which is why the t646
- *      codemod could retire the whole rose ink ladder into `text-danger`
- *      without a readability regression; amber/teal/emerald ink stays on
- *      the deep literals until a deep-rung token (e.g. --color-*-700)
- *      is legislated. Deep ink literals live HERE and nowhere else.
+ *   1. INK (text) — deep rung SEMANTIC tokens (t648), EXCEPT failed.
+ *      The 600 rungs of the t646 tokens are 3.2:1 (amber), 3.8:1
+ *      (emerald), and 3.8:1 (teal) against white — below the 4.5:1 a
+ *      10px semibold badge word needs. rose-600 measures ≈4.5:1, which
+ *      is why the t646 codemod could retire the whole rose ink ladder
+ *      into `text-danger` without a readability regression. t648 kept
+ *      this verdict and legislated what it predicted: the semantic RUNG
+ *      tokens (--color-warning-700 dark-side twin comes from the use-site
+ *      dark: prefix, values verbatim from the palette), so the field's
+ *      700/300 pairs renamed hue→semantic with zero pixels moved. Deep
+ *      ink tokens live HERE and in the non-exempt components; the
+ *      literal hue names survive only in the identity-exempt files
+ *      (t647's list) and this head note's history.
  *   2. WASH / BORDER (α classes) — token vocabulary (bg-success/10,
  *      border-running/25 …). An α wash reads as "the hue, diluted"; the
  *      500→600 base shift underneath it is the same verdict the t646
@@ -91,15 +96,18 @@ export function statusWord(job: {
   return (isSlurmQueued(job) ? "pending" : job.status || "idle") as StatusWord;
 }
 
-/** status → ink (text). t647: deep 700/300 literals for amber/teal/
- * emerald (the 600 token rungs miss 4.5:1 on white — see head note);
- * failed rides the token because rose-600 passes where they don't;
- * idle is zinc (was zinc here but slate in job-card — zinc won). */
+/** status → ink (text). t648: semantic RUNG tokens (warning-700/
+ * running-700/success-700 + dark: 300 twins) — the t647 deep literals
+ * with the hue name retired, pixels identical (the t648 tokens carry
+ * the palette's own oklch). The 600 token rungs still miss 4.5:1 on
+ * white — see head note; failed rides the token because rose-600
+ * passes where they don't; idle is zinc (was zinc here but slate in
+ * job-card — zinc won). */
 export const STATUS_TEXT: Record<StatusWord, string> = {
   idle: "text-zinc-600 dark:text-zinc-400",
-  pending: "text-amber-700 dark:text-amber-300",
-  running: "text-teal-700 dark:text-teal-300",
-  completed: "text-emerald-700 dark:text-emerald-300",
+  pending: "text-warning-700 dark:text-warning-300",
+  running: "text-running-700 dark:text-running-300",
+  completed: "text-success-700 dark:text-success-300",
   failed: "text-danger",
 };
 

@@ -841,7 +841,7 @@ function PathParamField({
             )
           ) : (
             <>
-              <Folder className="h-3 w-3 text-amber-500/80" aria-hidden="true" />
+              <Folder className="h-3 w-3 text-warning-500/80" aria-hidden="true" />
               <span>
                 {remoteBrowser
                   ? "Folder on the cluster — every image inside (stays there, zero upload)"
@@ -1108,7 +1108,7 @@ function ContinueField({
                             <span className="text-[10px] text-muted-foreground">local</span>
                           )}
                           {s.archived && (
-                            <span className="shrink-0 rounded-sm bg-warning/15 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-400">
+                            <span className="shrink-0 rounded-sm bg-warning/15 px-1 text-[9px] font-medium text-warning-700 dark:text-warning-400">
                               archived
                             </span>
                           )}
@@ -1160,7 +1160,7 @@ function ContinueField({
                                 it {String(e.iteration).padStart(3, "0")}
                               </span>
                               {e.newest && (
-                                <Badge className="h-4 rounded-sm bg-success/15 px-1 text-[9px] font-medium text-emerald-700 hover:bg-success/15 dark:text-emerald-400">
+                                <Badge className="h-4 rounded-sm bg-success/15 px-1 text-[9px] font-medium text-success-700 hover:bg-success/15 dark:text-success-400">
                                   newest
                                 </Badge>
                               )}
@@ -1270,7 +1270,7 @@ function ContinueField({
         <div className="flex min-w-0 flex-wrap items-center gap-1 text-[10px]">
           {match ? (
             <>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-success/10 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-400">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-success/10 px-1.5 py-0.5 font-medium text-success-700 dark:text-success-400">
                 <Check className="h-3 w-3" aria-hidden="true" />
                 it {String(match.entry.iteration).padStart(3, "0")}
               </span>
@@ -1289,7 +1289,7 @@ function ContinueField({
               </span>
               {match.entry.newest && (
                 <span
-                  className="shrink-0 rounded bg-success/10 px-1.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-400"
+                  className="shrink-0 rounded bg-success/10 px-1.5 py-0.5 font-medium text-success-700 dark:text-success-400"
                   title="the newest complete checkpoint in this group"
                 >
                   newest
@@ -1637,8 +1637,8 @@ function ResultsTab({ job }: { job: JobDTO }) {
               job.status === "failed"
                 ? "border-destructive/30 bg-destructive/10 text-destructive"
                 : pending
-                  ? "border-warning/30 bg-warning/10 text-amber-700 dark:text-amber-400"
-                  : "border-success/30 bg-success/10 text-emerald-700 dark:text-emerald-400"
+                  ? "border-warning/30 bg-warning/10 text-warning-700 dark:text-warning-400"
+                  : "border-success/30 bg-success/10 text-success-700 dark:text-success-400"
             )}
             title={job.result}
           >
@@ -1656,7 +1656,7 @@ function ResultsTab({ job }: { job: JobDTO }) {
         </div>
       )}
       {pending && (
-        <p className="rounded-md border border-dashed border-warning/40 bg-warning/5 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+        <p className="rounded-md border border-dashed border-warning/40 bg-warning/5 px-2.5 py-2 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300">
           The job did not fail — it is waiting for an upstream job. Fix and re-run
           the upstream job: this one then starts automatically once its inputs are
           ready.
@@ -2208,7 +2208,7 @@ function PanelBody({ job }: { job: JobDTO }) {
           // has started yet
           <p
             role="note"
-            className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+            className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300"
           >
             {job.runRemote?.slurmDependsOn?.length
               ? `Queued on the cluster — Slurm holds it until ${job.runRemote.slurmDependsOn.join(", ")} lands.`
@@ -2227,7 +2227,7 @@ function PanelBody({ job }: { job: JobDTO }) {
         {job.status === "pending" && (
           <p
             role="note"
-            className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+            className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300"
           >
             {job.result ?? "Waiting for an upstream job to produce its outputs."}{" "}
             <span className="text-muted-foreground">
@@ -2400,7 +2400,7 @@ function CommandPreviewCompact({ job }: { job: JobDTO }) {
       {blocker ? (
         <p
           data-canvas-ui="command-blocker"
-          className="rounded-md border border-warning/30 bg-warning/10 px-2 py-1.5 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
+          className="rounded-md border border-warning/30 bg-warning/10 px-2 py-1.5 text-[10.5px] leading-relaxed text-warning-700 dark:text-warning-300"
         >
           {blocker}
         </p>

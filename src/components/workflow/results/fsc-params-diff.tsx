@@ -164,7 +164,7 @@ export function FscParamsDiff({
       {/* header — taxonomy counts + the differences-only switch */}
       <div className="flex items-center gap-2 border-b border-border/70 px-2.5 py-1.5">
         <SlidersHorizontal
-          className="h-3.5 w-3.5 shrink-0 text-teal-600"
+          className="h-3.5 w-3.5 shrink-0 text-running-600"
           aria-hidden="true"
         />
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -175,7 +175,7 @@ export function FscParamsDiff({
           data-testid="fsc-params-counts"
           title={`${changed} parameter(s) differ between the selected jobs, ${partial} one-sided, ${same} identical`}
         >
-          {changed > 0 && <span className="text-amber-700 dark:text-amber-400">{changed} differ</span>}
+          {changed > 0 && <span className="text-warning-700 dark:text-warning-400">{changed} differ</span>}
           {changed > 0 && (partial > 0 || same > 0) && " · "}
           {partial > 0 && <span>{partial} one-sided</span>}
           {partial > 0 && same > 0 && " · "}
@@ -278,7 +278,7 @@ export function FscParamsDiff({
                           "px-1.5 py-1 text-right font-mono tabular-nums",
                           absent && "text-muted-foreground/40",
                           hot
-                            ? "font-semibold text-amber-700 dark:text-amber-400"
+                            ? "font-semibold text-warning-700 dark:text-warning-400"
                             : !absent
                               ? "text-foreground/80"
                               : ""

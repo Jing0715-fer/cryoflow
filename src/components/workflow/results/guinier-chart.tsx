@@ -89,14 +89,14 @@ export function GuinierChart({
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <TrendingDown className="h-3.5 w-3.5 text-amber-600" aria-hidden="true" />
+          <TrendingDown className="h-3.5 w-3.5 text-warning-600" aria-hidden="true" />
           Guinier plot
           <span className="font-normal text-muted-foreground/70">
             ({points.length} shells)
           </span>
         </span>
         {bf != null ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-warning-700 dark:text-warning-300">
             B-factor {bf.toFixed(1)} Å²
           </span>
         ) : null}

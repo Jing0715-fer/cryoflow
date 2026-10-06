@@ -207,7 +207,7 @@ export function SelectionReceipt({
 
       {/* the big numbers + the fraction bar */}
       <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-        <span className="text-xl font-semibold tabular-nums leading-none text-emerald-700 dark:text-emerald-400">
+        <span className="text-xl font-semibold tabular-nums leading-none text-success-700 dark:text-success-400">
           {receipt.kept != null ? nfmt(receipt.kept) : "?"}
         </span>
         <span className="text-[11px] text-muted-foreground">kept of</span>
@@ -216,7 +216,7 @@ export function SelectionReceipt({
         </span>
         {pctLabel != null && (
           <span
-            className="ml-auto rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-400"
+            className="ml-auto rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-success-700 dark:text-success-400"
             title={`${pctLabel}% of the input particles survived the selection`}
           >
             {pctLabel}%
@@ -246,7 +246,7 @@ export function SelectionReceipt({
               title={`class ${c.cls} — ${nfmt(c.count)} particles ${c.kept ? "kept" : "pruned"}`}
               className={
                 c.kept
-                  ? "border-success/30 bg-success/[0.08] text-emerald-800 dark:text-emerald-300"
+                  ? "border-success/30 bg-success/[0.08] text-success-800 dark:text-success-300"
                   : "border-border/60 bg-muted/40 text-muted-foreground/75"
               }
             >
@@ -298,7 +298,7 @@ export function SelectionReceipt({
                 // is a transform, so it rides motion-safe; the fade and
                 // tint stay unguarded (fades are color, not movement).
                 "group inline-flex items-center gap-0.5 rounded px-0.5 -mx-0.5 text-left transition-colors",
-                "hover:bg-success/10 hover:text-emerald-700 dark:hover:text-emerald-300",
+                "hover:bg-success/10 hover:text-success-700 dark:hover:text-success-300",
                 "underline underline-offset-2 decoration-dotted decoration-transparent hover:decoration-current",
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               )}

@@ -145,13 +145,13 @@ const sweepCsvFilename = (): string =>
 const TYPE_COLOR: Record<string, string> = {
   import: "bg-sky-500/25 border-sky-500/40 text-sky-700 dark:text-sky-300",
   motioncorr: "bg-cyan-500/25 border-cyan-500/40 text-cyan-700 dark:text-cyan-300",
-  ctf: "bg-running/25 border-running/40 text-teal-700 dark:text-teal-300",
+  ctf: "bg-running/25 border-running/40 text-running-700 dark:text-running-300",
   extract: "bg-violet-500/25 border-violet-500/40 text-violet-700 dark:text-violet-300",
-  select: "bg-warning/25 border-warning/40 text-amber-700 dark:text-amber-300",
+  select: "bg-warning/25 border-warning/40 text-warning-700 dark:text-warning-300",
   class2d: "bg-fuchsia-500/25 border-fuchsia-500/40 text-fuchsia-700 dark:text-fuchsia-300",
   class3d: "bg-indigo-500/25 border-indigo-500/40 text-indigo-700 dark:text-indigo-300",
   refine3d: "bg-rose-500/25 border-rose-500/40 text-danger",
-  postprocess: "bg-success/25 border-success/40 text-emerald-700 dark:text-emerald-300",
+  postprocess: "bg-success/25 border-success/40 text-success-700 dark:text-success-300",
   maskcreate: "bg-green-500/25 border-green-500/40 text-green-700 dark:text-green-300",
 };
 const FALLBACK_COLOR = "bg-slate-500/25 border-slate-500/40 text-slate-700 dark:text-slate-300";

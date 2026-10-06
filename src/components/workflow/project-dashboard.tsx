@@ -446,7 +446,7 @@ function DashboardProjectCard({
             unit="jobs"
             width={72}
             height={20}
-            className={allDone ? "text-emerald-500" : "text-muted-foreground/60"}
+            className={allDone ? "text-success-500" : "text-muted-foreground/60"}
           />
         );
       })
@@ -540,7 +540,7 @@ function DashboardProjectCard({
       {/* rename-collision nudge — compact so the card only grows a few px
           while editing, and only when the typed name actually collides */}
       {renameDup && (
-        <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] leading-snug text-amber-700 dark:text-amber-400">
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] leading-snug text-warning-700 dark:text-warning-400">
           <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
           <span>
             Another project is already named “{name.trim()}” — Enter still
@@ -735,12 +735,12 @@ function GalleryViewChips({ b }: { b: GalleryBookmark }) {
         {v.sigma.toFixed(2)} σ
       </span>
       {v.slice?.on && (
-        <span className="rounded bg-running/10 px-1 py-px font-mono text-[8px] font-medium text-teal-700 dark:text-teal-400">
+        <span className="rounded bg-running/10 px-1 py-px font-mono text-[8px] font-medium text-running-700 dark:text-running-400">
           slice {(v.slice.axis ?? "Z").toUpperCase()}
         </span>
       )}
       {v.clip?.on && (
-        <span className="rounded bg-warning/10 px-1 py-px font-mono text-[8px] font-medium text-amber-700 dark:text-amber-400">
+        <span className="rounded bg-warning/10 px-1 py-px font-mono text-[8px] font-medium text-warning-700 dark:text-warning-400">
           clip
         </span>
       )}
@@ -1135,7 +1135,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
                 role="img"
                 aria-label="Job has a note"
                 title={job.note}
-                className="no-print shrink-0 text-amber-500 dark:text-amber-400"
+                className="no-print shrink-0 text-warning-500 dark:text-warning-400"
               >
                 <StickyNote className="size-3" aria-hidden="true" />
               </span>
@@ -1187,7 +1187,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
           {job.status === "running" && isSlurmQueued(job) ? (
             // t322 — queued on slurm: no progress bar (0% would claim
             // compute that has not started), the queue wait speaks instead
-            <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-amber-700 dark:text-amber-300">
+            <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-warning-700 dark:text-warning-300">
               <span className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
               <span className="truncate">
                 {job.runRemote?.slurmDependsOn?.length
@@ -1394,7 +1394,7 @@ function ProgressSparkline({ values, samples }: { values: number[]; samples: num
             <span
               className={cn(
                 "inline-flex items-center gap-px",
-                delta > 0 && "text-emerald-500 dark:text-emerald-400",
+                delta > 0 && "text-success-500 dark:text-success-400",
                 delta < 0 && "text-danger",
                 Math.abs(delta) < 0.005 && "opacity-60",
               )}
@@ -1545,7 +1545,7 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                     // t322 — the feed's queue dialect: no shimmer bar (0%
                     // would claim compute that has not started), the wait
                     // speaks instead — same word the roster row speaks
-                    <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                    <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-warning-700 dark:text-warning-300">
                       <span className="inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
                       <span className="truncate">
                         {j.runRemote?.slurmDependsOn?.length
@@ -2702,7 +2702,7 @@ export function ProjectDashboard() {
                   values={activity.completed}
                   days={activity.days}
                   unit="completed"
-                  className="text-emerald-500"
+                  className="text-success-500"
                 />
               ) : undefined
             }

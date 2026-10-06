@@ -167,11 +167,11 @@ const CATEGORY_COLORS: Record<StorageCategoryId, string> = {
 };
 
 const CATEGORY_TEXT: Record<StorageCategoryId, string> = {
-  maps: "text-teal-700 dark:text-teal-300",
+  maps: "text-running-700 dark:text-running-300",
   stacks: "text-violet-700 dark:text-violet-300",
   tables: "text-sky-700 dark:text-sky-300",
   logs: "text-slate-600 dark:text-slate-400",
-  plots: "text-amber-700 dark:text-amber-300",
+  plots: "text-warning-700 dark:text-warning-300",
   other: "text-zinc-600 dark:text-zinc-400",
 };
 
@@ -742,7 +742,7 @@ export default function StorageDialog({
               {receipt && (
                 <p
                   data-storage-receipt=""
-                  className="mt-3 flex items-start gap-2 rounded-lg border border-running/30 bg-running/[0.06] px-3 py-2 text-xs text-teal-700 dark:text-teal-300"
+                  className="mt-3 flex items-start gap-2 rounded-lg border border-running/30 bg-running/[0.06] px-3 py-2 text-xs text-running-700 dark:text-running-300"
                 >
                   <Eraser className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                   {receipt}
@@ -890,7 +890,7 @@ export default function StorageDialog({
                               <p className="truncate text-sm font-medium">
                                 {job.name}
                                 {orphan && (
-                                  <span className="ml-2 rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                                  <span className="ml-2 rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-warning-700 dark:text-warning-300">
                                     no job record
                                   </span>
                                 )}
@@ -1014,7 +1014,7 @@ export default function StorageDialog({
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                       <p className="text-sm font-semibold">{runLensRow.name}</p>
                       {runLensRow.jobId === null && (
-                        <span className="rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                        <span className="rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-warning-700 dark:text-warning-300">
                           no job record
                         </span>
                       )}
@@ -1153,7 +1153,7 @@ export default function StorageDialog({
                         </ul>
                       </>
                     ) : ledgerState === "unlisted" ? (
-                      <p className="mt-2 rounded-md border border-dashed border-warning/40 bg-warning/[0.05] p-3 text-xs text-amber-700 dark:text-amber-300">
+                      <p className="mt-2 rounded-md border border-dashed border-warning/40 bg-warning/[0.05] p-3 text-xs text-warning-700 dark:text-warning-300">
                         {ledgerDiskFiles.toLocaleString()} file
                         {ledgerDiskFiles === 1 ? "" : "s"} on disk
                         {runCatFilter ? " in this category" : ""} — but none made the walk's
@@ -1284,7 +1284,7 @@ export default function StorageDialog({
                                   </p>
                                   <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                                     {orphan ? (
-                                      <span className="rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                                      <span className="rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-warning-700 dark:text-warning-300">
                                         no job record · {f.dirName}
                                       </span>
                                     ) : (
@@ -1354,7 +1354,7 @@ export default function StorageDialog({
                                   <p className="truncate text-sm font-medium">
                                     {r.name}
                                     {orphan && (
-                                      <span className="ml-2 rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                                      <span className="ml-2 rounded border border-warning/40 bg-warning/10 px-1 py-px text-[10px] font-medium text-warning-700 dark:text-warning-300">
                                         no job record
                                       </span>
                                     )}
@@ -1416,7 +1416,7 @@ export default function StorageDialog({
               )}
 
               {data.truncated && (
-                <p className="mt-3 rounded-lg border border-warning/30 bg-warning/[0.06] p-3 text-xs text-amber-700 dark:text-amber-300">
+                <p className="mt-3 rounded-lg border border-warning/30 bg-warning/[0.06] p-3 text-xs text-warning-700 dark:text-warning-300">
                   The walk hit its entry cap — the numbers above are floors, not totals.
                 </p>
               )}
@@ -1655,7 +1655,7 @@ export default function StorageDialog({
               {graveReceipt && (
                 <p
                   data-testid="graveyard-receipt"
-                  className="mt-2 rounded-md border border-running/30 bg-running/[0.06] px-2.5 py-1.5 text-xs text-teal-700 dark:text-teal-300"
+                  className="mt-2 rounded-md border border-running/30 bg-running/[0.06] px-2.5 py-1.5 text-xs text-running-700 dark:text-running-300"
                 >
                   {graveReceipt}
                 </p>

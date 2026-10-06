@@ -293,7 +293,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
                 {plan.runnable ? null : (
                   <div
                     role="note"
-                    className="rounded-md border border-warning/30 bg-warning/[0.07] px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300"
+                    className="rounded-md border border-warning/30 bg-warning/[0.07] px-3 py-2.5 text-xs text-warning-800 dark:text-warning-300"
                     data-cleanup-blocked-note=""
                   >
                     {plan.reason}
@@ -325,7 +325,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
                             {e.door}
                           </Badge>
                           {!e.ok ? (
-                            <span className="text-amber-700 dark:text-amber-300">
+                            <span className="text-warning-700 dark:text-warning-300">
                               refused — {e.error ?? "no reason recorded"}
                             </span>
                           ) : (
@@ -380,7 +380,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
                   <div
                     role="note"
                     data-cleanup-downstream-warning=""
-                    className="rounded-md border border-warning/30 bg-warning/[0.07] px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300"
+                    className="rounded-md border border-warning/30 bg-warning/[0.07] px-3 py-2.5 text-xs text-warning-800 dark:text-warning-300"
                   >
                     <span className="inline-flex items-center gap-1 font-medium">
                       <AlertTriangle className="size-3.5" aria-hidden="true" />

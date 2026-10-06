@@ -121,7 +121,7 @@ export function ClassAveragesTeaser({
       )}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Layers className="size-4 text-teal-600" aria-hidden="true" />
+        <Layers className="size-4 text-running-600" aria-hidden="true" />
         <h3 className="text-sm font-semibold">
           {isMaps ? "Class maps" : "Class averages"}
         </h3>
@@ -129,8 +129,8 @@ export function ClassAveragesTeaser({
           size="md"
           className={
             populated === K
-              ? "border-success/30 bg-success/10 text-emerald-700 dark:text-emerald-300"
-              : "border-warning/30 bg-warning/10 text-amber-700 dark:text-amber-300"
+              ? "border-success/30 bg-success/10 text-success-700 dark:text-success-300"
+              : "border-warning/30 bg-warning/10 text-warning-700 dark:text-warning-300"
           }
           title={
             populated === K

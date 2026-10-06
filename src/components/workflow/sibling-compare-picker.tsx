@@ -78,7 +78,7 @@ export function SiblingDiffChip({
     <span
       data-testid={`${idPrefix}-sibling-diff`}
       data-diff-kind="differs"
-      className="flex h-4 shrink-0 items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold text-amber-700 dark:text-amber-400"
+      className="flex h-4 shrink-0 items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold text-warning-700 dark:text-warning-400"
       title={
         s.partial > 0
           ? `${s.changed} parameter(s) differ, ${s.partial} one-sided — opens the side-by-side table`

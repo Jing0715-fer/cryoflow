@@ -167,7 +167,7 @@ export function ImportWorkflowDialog() {
       <DialogContent className="max-w-md gap-4" data-canvas-ui="import-workflow-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <ArrowDownToLine className="size-4 text-teal-600" aria-hidden="true" />
+            <ArrowDownToLine className="size-4 text-running-600" aria-hidden="true" />
             Import workflow{entries.length === 1 ? "" : "s"}
           </DialogTitle>
           <DialogDescription>

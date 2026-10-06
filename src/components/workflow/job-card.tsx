@@ -150,8 +150,8 @@ function HomecomingChip({ job }: { job: JobDTO }) {
       className={cn(
         "ml-auto gap-0.5",
         resolved
-          ? "border-running/30 bg-running/10 text-teal-700 dark:text-teal-300"
-          : "border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-300"
+          ? "border-running/30 bg-running/10 text-running-700 dark:text-running-300"
+          : "border-warning/40 bg-warning/10 text-warning-700 dark:text-warning-300"
       )}
       title={
         resolved
@@ -723,7 +723,7 @@ function JobCardMenu({
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <StickyNote className="size-4 text-amber-500" aria-hidden="true" />
+              <StickyNote className="size-4 text-warning-500" aria-hidden="true" />
               {job.note ? "Edit note" : "Add note"}
             </DialogTitle>
             <DialogDescription>
@@ -1289,7 +1289,7 @@ function JobCardPreview({
               "line-clamp-2 rounded border px-2 py-1.5 text-[10.5px] leading-snug",
               job.status === "failed"
                 ? "border-rose-500/30 bg-rose-500/10 text-danger"
-                : "border-success/30 bg-success/10 text-emerald-700 dark:text-emerald-300"
+                : "border-success/30 bg-success/10 text-success-700 dark:text-success-300"
             )}
             title={job.result}
           >
@@ -1315,7 +1315,7 @@ function JobCardPreview({
             <div className="space-y-1">
               {job.note ? (
                 <p
-                  className="line-clamp-2 rounded border border-warning/30 bg-warning/10 px-2 py-1.5 text-[10.5px] italic leading-snug text-amber-700 dark:text-amber-300"
+                  className="line-clamp-2 rounded border border-warning/30 bg-warning/10 px-2 py-1.5 text-[10.5px] italic leading-snug text-warning-700 dark:text-warning-300"
                   title={job.note}
                 >
                   {job.note}
@@ -1324,7 +1324,7 @@ function JobCardPreview({
               {shown.map(([k, v]) => (
                 <p
                   key={k}
-                  className="line-clamp-1 rounded border border-warning/20 bg-warning/5 px-2 py-1 text-[10px] italic leading-snug text-amber-700 dark:text-amber-300"
+                  className="line-clamp-1 rounded border border-warning/20 bg-warning/5 px-2 py-1 text-[10px] italic leading-snug text-warning-700 dark:text-warning-300"
                   title={`Class ${k}: ${v}`}
                 >
                   <span className="font-semibold not-italic">Class {k}</span> · {v}
@@ -2171,7 +2171,7 @@ export const JobCard = React.memo(function JobCard({
                 <HoverCard openDelay={150} closeDelay={120}>
                   <HoverCardTrigger asChild>
                     <span
-                      className="no-print flex size-3.5 shrink-0 cursor-help items-center justify-center text-amber-500 transition-transform duration-100 hover:scale-125 dark:text-amber-400"
+                      className="no-print flex size-3.5 shrink-0 cursor-help items-center justify-center text-warning-500 transition-transform duration-100 hover:scale-125 dark:text-warning-400"
                       data-note-badge=""
                       role="img"
                       aria-label={`Job note: ${job.note}`}
@@ -2185,7 +2185,7 @@ export const JobCard = React.memo(function JobCard({
                     sideOffset={6}
                     className="w-64 p-0"
                   >
-                    <p className="border-b bg-warning/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                    <p className="border-b bg-warning/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-warning-700 dark:text-warning-300">
                       Note
                     </p>
                     <p className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-xs leading-relaxed text-foreground">
@@ -2393,14 +2393,14 @@ export const JobCard = React.memo(function JobCard({
                 is one granularity deeper. */}
             {job.note ? (
               <p
-                className="hidden truncate text-[9px] italic leading-4 text-amber-700 print:block"
+                className="hidden truncate text-[9px] italic leading-4 text-warning-700 print:block"
                 title={job.note}
               >
                 {job.note}
               </p>
             ) : classNoteEntries.length > 0 ? (
               <p
-                className="hidden truncate text-[9px] italic leading-4 text-amber-700 print:block"
+                className="hidden truncate text-[9px] italic leading-4 text-warning-700 print:block"
                 title={classNoteEntries.map(([k, v]) => `Class ${k}: ${v}`).join(" — ")}
               >
                 {classNoteEntries.length === 1
@@ -2429,7 +2429,7 @@ export const JobCard = React.memo(function JobCard({
                 // moving) — the queue wait speaks instead, in the pending
                 // dialect, with the upstream ids when a dependency holds it
                 <p
-                  className="flex items-center gap-1 truncate text-[11px] leading-4 text-amber-700 dark:text-amber-300"
+                  className="flex items-center gap-1 truncate text-[11px] leading-4 text-warning-700 dark:text-warning-300"
                   title={
                     job.runRemote?.slurmDependsOn?.length
                       ? `Slurm holds this job until ${job.runRemote.slurmDependsOn.join(
@@ -2510,7 +2510,7 @@ export const JobCard = React.memo(function JobCard({
                 </p>
               ) : job.status === "pending" ? (
                 <p
-                  className="flex min-w-0 items-start gap-1 text-[11px] leading-[15px] text-amber-700 dark:text-amber-300"
+                  className="flex min-w-0 items-start gap-1 text-[11px] leading-[15px] text-warning-700 dark:text-warning-300"
                   title={job.result ?? "Waiting for an upstream job"}
                 >
                   <span className="mt-[5px] inline-block size-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
@@ -2528,7 +2528,7 @@ export const JobCard = React.memo(function JobCard({
                     className="inline-block size-1.5 shrink-0 rounded-full bg-emerald-500"
                     aria-hidden="true"
                   />
-                  <span className="shrink-0 font-medium text-emerald-700 dark:text-emerald-300">
+                  <span className="shrink-0 font-medium text-success-700 dark:text-success-300">
                     Ready
                   </span>
                   <ParamDigest job={job} spec={spec} />

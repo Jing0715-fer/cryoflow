@@ -238,7 +238,7 @@ export function PicksMap({
       {/* header */}
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <Crosshair className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <Crosshair className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           {fomMode ? "Pick QA — autopick FOM map" : "Picked particles"}
         </span>
         <Chip size="sm" tone="muted">
@@ -254,7 +254,7 @@ export function PicksMap({
       {fomMode && (
         <div className="mb-2 flex items-center gap-3 rounded-md border border-running/20 bg-background/60 px-3 py-2">
           <span className="flex shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <ScanEye className="h-3 w-3 text-teal-600" aria-hidden="true" />
+            <ScanEye className="h-3 w-3 text-running-600" aria-hidden="true" />
             FOM ≥
           </span>
           <Slider
@@ -266,7 +266,7 @@ export function PicksMap({
             aria-label="Picking quality threshold (figure of merit)"
             className="w-40 sm:w-56"
           />
-          <span className="w-12 shrink-0 text-right font-mono text-[11px] tabular-nums text-teal-700 dark:text-teal-300">
+          <span className="w-12 shrink-0 text-right font-mono text-[11px] tabular-nums text-running-700 dark:text-running-300">
             {fomMin.toFixed(3)}
           </span>
           <span

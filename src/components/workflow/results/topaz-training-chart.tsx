@@ -163,17 +163,17 @@ export function TopazTrainingChart({
           </span>
         )}
         {firstLoss != null && finalLoss != null && firstLoss > 0 && (
-          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-success-700 dark:text-success-300">
             ↓{Math.max(0, (1 - finalLoss / firstLoss) * 100).toFixed(0)}%
           </span>
         )}
         {bestTest != null && (
-          <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+          <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-warning-700 dark:text-warning-300">
             best test {bestTest.toFixed(3)}
           </span>
         )}
         {finalPR[0] != null && (
-          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-success-700 dark:text-success-300">
             P {(finalPR[0] * 100).toFixed(0)}%
           </span>
         )}

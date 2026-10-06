@@ -740,7 +740,7 @@ export function TemplatePresetsDialog() {
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Wand2 className="size-4 text-teal-600" aria-hidden="true" />
+            <Wand2 className="size-4 text-running-600" aria-hidden="true" />
             Scaffold standard SPA pipeline
           </DialogTitle>
           <DialogDescription>

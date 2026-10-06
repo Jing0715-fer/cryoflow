@@ -86,6 +86,51 @@
   --color-warning: var(--warning);
   --color-running: var(--running);
   --color-destructive: var(--destructive);
+  /* t648 — the DEEP INK rung vocabulary: semantic RUNG tokens for the
+     700/300-family ink pairs that t647's three-rung law kept as literals.
+     Why these are NOT folded into --success/&c above (the t646 collapse):
+     (1) contrast law — emerald/amber/teal 600 misses 4.5:1, so the light
+     theme needs the 700 rung, not the 600 the semantic token carries;
+     (2) the dark side splits across 300 AND 400 in the field, and α
+     variants (/80 /90) ride some of them — a single semantic token would
+     re-ink pixels. So the pairs keep their dark: twins, and the hue NAME
+     retires instead: text-emerald-700 dark:text-emerald-300 becomes
+     text-success-700 dark:text-success-300 — a pure rename (zero-pixel),
+     decided by t648's census (456 text-prop sites / 9 shades across the
+     non-exempt files). These are THEME-INDEPENDENT constants — unlike
+     the semantic tokens above, no :root/.dark flip; the pair's theme
+     switch is owned explicitly by the dark: prefix at the use-site.
+     Rung coverage = the census's observed shades (100–900; no 50/950 in
+     the field). Values are the Tailwind v4 palette verbatim
+     (node_modules/tailwindcss/theme.css) — the t646 lesson: the
+     palette's oklch is the law, not the remembered hex. */
+  --color-success-100: oklch(95% 0.052 163.051);
+  --color-success-200: oklch(90.5% 0.093 164.15);
+  --color-success-300: oklch(84.5% 0.143 164.978);
+  --color-success-400: oklch(76.5% 0.177 163.223);
+  --color-success-500: oklch(69.6% 0.17 162.48);
+  --color-success-600: oklch(59.6% 0.145 163.225);
+  --color-success-700: oklch(50.8% 0.118 165.612);
+  --color-success-800: oklch(43.2% 0.095 166.913);
+  --color-success-900: oklch(37.8% 0.077 168.94);
+  --color-warning-100: oklch(96.2% 0.059 95.617);
+  --color-warning-200: oklch(92.4% 0.12 95.746);
+  --color-warning-300: oklch(87.9% 0.169 91.605);
+  --color-warning-400: oklch(82.8% 0.189 84.429);
+  --color-warning-500: oklch(76.9% 0.188 70.08);
+  --color-warning-600: oklch(66.6% 0.179 58.318);
+  --color-warning-700: oklch(55.5% 0.163 48.998);
+  --color-warning-800: oklch(47.3% 0.137 46.201);
+  --color-warning-900: oklch(41.4% 0.112 45.904);
+  --color-running-100: oklch(95.3% 0.051 180.801);
+  --color-running-200: oklch(91% 0.096 180.426);
+  --color-running-300: oklch(85.5% 0.138 181.071);
+  --color-running-400: oklch(77.7% 0.152 181.912);
+  --color-running-500: oklch(70.4% 0.14 182.503);
+  --color-running-600: oklch(60% 0.118 184.704);
+  --color-running-700: oklch(51.1% 0.096 186.391);
+  --color-running-800: oklch(43.7% 0.078 188.216);
+  --color-running-900: oklch(38.6% 0.063 188.416);
   /* Task 175 — this mapping was MISSING since the shadcn v4 migration:
      `text-destructive-foreground` generated NO rule (the class existed,
      the theme token did not — the same silent-generation family as the

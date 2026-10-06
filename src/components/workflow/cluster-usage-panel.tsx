@@ -550,9 +550,9 @@ export function ClusterUsagePanel({
           className={cn(
             "flex items-start gap-1.5 px-1 text-[10.5px] leading-snug",
             askLine.tone === "enough"
-              ? "text-emerald-700 dark:text-emerald-300"
+              ? "text-success-700 dark:text-success-300"
               : askLine.tone === "tight"
-                ? "text-amber-700 dark:text-amber-300"
+                ? "text-warning-700 dark:text-warning-300"
                 : "text-muted-foreground"
           )}
           data-usage-ask-line=""

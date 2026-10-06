@@ -563,7 +563,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {copied ? (
-                <Check className="size-3.5 text-emerald-600" aria-hidden="true" />
+                <Check className="size-3.5 text-success-600" aria-hidden="true" />
               ) : (
                 <ClipboardCopy className="size-3.5" aria-hidden="true" />
               )}
@@ -643,7 +643,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
         {flow.length >= 2 && (
           <div>
             <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
-              <Filter className="size-3 text-teal-600" aria-hidden="true" />
+              <Filter className="size-3 text-running-600" aria-hidden="true" />
               Particle flow
             </p>
             <div className="space-y-1.5">
@@ -749,7 +749,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                             "text-sm font-bold tabular-nums",
                             m.reported != null && m.reported === best
                               ? "text-violet-700 dark:text-violet-300"
-                              : "text-amber-700 dark:text-amber-300"
+                              : "text-warning-700 dark:text-warning-300"
                           )}
                         >
                           {best?.toFixed(2)} Å
@@ -768,7 +768,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             <p className="mt-1.5 flex items-center gap-1 text-[10px] leading-relaxed text-muted-foreground/70">
               <Award className="size-3 shrink-0 text-violet-500/70" aria-hidden="true" />
               violet = RELION-reported · amber = 0.143 gold-standard crossing
-              <Crosshair className="ml-1 size-3 shrink-0 text-amber-500/70" aria-hidden="true" />
+              <Crosshair className="ml-1 size-3 shrink-0 text-warning-500/70" aria-hidden="true" />
               lower is better
             </p>
           </div>
@@ -790,7 +790,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             data-tl-count={runs.rows.length}
           >
             <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
-              <ChartGantt className="size-3 text-amber-600" aria-hidden="true" />
+              <ChartGantt className="size-3 text-warning-600" aria-hidden="true" />
               Session timeline
               <span className="font-normal text-muted-foreground">
                 · {runs.rows.length} run{runs.rows.length === 1 ? "" : "s"} across {fmtOffset(runs.span)}

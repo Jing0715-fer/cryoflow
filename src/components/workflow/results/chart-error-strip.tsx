@@ -42,7 +42,7 @@ export function ChartErrorStrip({
       aria-live="polite"
       aria-label={`${label} could not be loaded`}
       className={cn(
-        "animate-rise flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/5 p-3 text-[11px] leading-snug text-amber-700 dark:text-amber-300",
+        "animate-rise flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/5 p-3 text-[11px] leading-snug text-warning-700 dark:text-warning-300",
         className
       )}
     >

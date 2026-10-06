@@ -117,11 +117,11 @@ export function AngularDistributionChart({
       {/* header row */}
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <Compass className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <Compass className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           Orientation distribution
         </span>
         {running ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-1.5 py-px text-[10px] font-medium text-teal-700 dark:text-teal-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-1.5 py-px text-[10px] font-medium text-running-700 dark:text-running-300">
             <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500" />

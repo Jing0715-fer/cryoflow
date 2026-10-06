@@ -105,7 +105,7 @@ function Delta({
           <Trend
             className={cn(
               "size-3.5 self-center",
-              improved ? "text-emerald-500" : "text-rose-500"
+              improved ? "text-success-500" : "text-rose-500"
             )}
             aria-hidden="true"
           />

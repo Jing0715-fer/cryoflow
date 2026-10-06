@@ -132,7 +132,7 @@ export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef
       >
         <DialogHeader className="shrink-0 px-6 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-sm">
-            <Box className="h-4 w-4 shrink-0 text-teal-600" aria-hidden="true" />
+            <Box className="h-4 w-4 shrink-0 text-running-600" aria-hidden="true" />
             <span className="min-w-0 shrink truncate">{name}</span>
             <span
               className="min-w-0 flex-1 truncate font-mono text-[11px] font-normal text-muted-foreground"
