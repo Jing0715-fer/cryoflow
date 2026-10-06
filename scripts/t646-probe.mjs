@@ -69,8 +69,8 @@ const styleSrc = readFileSync("src/lib/status-style.ts", "utf8");
 must(
   styleSrc.includes("failed: \"text-danger\"") &&
     styleSrc.includes("completed: \"text-success-700 dark:text-success-300\"") && // t648: the deep ink renamed hue→semantic, anchor follows the law
-    styleSrc.includes("pending: \"bg-amber-500\"") &&
-    styleSrc.includes("running: \"bg-teal-500\"") &&
+    styleSrc.includes("pending: \"bg-warning-500\"") && // t650: the solid dot rides the rung vocabulary — anchor follows the law
+    styleSrc.includes("running: \"bg-running-500\"") &&
     styleSrc.includes("completed: \"bg-success/10\""),
   "A status-style.ts: the class layer speaks the status vocabulary (t647 rung recast)",
 );

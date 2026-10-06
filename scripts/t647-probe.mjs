@@ -70,7 +70,7 @@ must(
   "A idle speaks zinc (slate dialect retired)",
 );
 must(
-  /export const STATUS_DOT[\s\S]*?running: "bg-teal-500",/.test(libSrc) &&
+  /export const STATUS_DOT[\s\S]*?running: "bg-running-500",/.test(libSrc) && // t650: solid dots ride the rung vocabulary — anchor follows the law
     !libSrc.includes('bg-teal-500 animate'),
   "A the dot map holds COLOR only (motion stays at the call site)",
 );
@@ -180,7 +180,7 @@ for (let i = 0; i < 12 && badgeAlive.count === 0; i++) {
     // … dark:ink), so assert RUNGS not the concatenation
     const badges = [...document.querySelectorAll("*")].filter(
       (el) =>
-        /border-emerald-400\/60/.test(el.className || "") &&
+        /border-success-400\/60/.test(el.className || "") && // t650 recast: the border rung speaks the vocabulary
         /text-success-700/.test(el.className || "") &&
         (el.textContent || "").trim().toLowerCase() === "completed",
     );
@@ -190,7 +190,7 @@ for (let i = 0; i < 12 && badgeAlive.count === 0; i++) {
 }
 must(
   badgeAlive.count > 0,
-  "D a real badge wears the STATUS_BADGE.completed composite (border-emerald-400/60 + t648's text-success-700)",
+  "D a real badge wears the STATUS_BADGE.completed composite (border-success-400/60 + t648's text-success-700) — t650 recast the border rung",
   `count=${badgeAlive.count}`,
 );
 
@@ -207,7 +207,7 @@ const probe = await page.evaluate(() => {
   el.innerHTML = [
     '<span id="t647-ok-ink" class="text-success-700">x</span>',
     '<span id="t647-ref-ok" style="color:oklch(50.8% 0.118 165.612)">x</span>',
-    '<span id="t647-badge-border" class="border-emerald-400/60">x</span>',
+    '<span id="t647-badge-border" class="border-success-400/60">x</span>', // t650: border-success-400/60 lives in the field; emerald spelling retired
     `<span id="t647-ref-border" style="border:1px solid color-mix(in oklab, oklch(76.5% 0.177 163.223) 60%, transparent)">x</span>`,
   ].join("");
   document.body.appendChild(el);
