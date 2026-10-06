@@ -9043,3 +9043,30 @@ Stage Summary:
 - 「世界形变会追上静态基线——通常是在你最不该它追的时候」：resume 家族的 ≥15 地板靠 3 个孤儿残渣撑了 N 窗假绿，本窗的冷启重扫把它们清了，基线当场现形。t408 的教义原文就是为这一天写的：地板是合同，而合同是世界此刻说的话。修地板（12+动态 pre-test）与修产品分车，化石立案不混车道
 - 「环境的两次联手偷袭」：冷 .next 的 lazy chunk 竞态 + watchdog 的 RSS recycle 中途换服——前者用 WARMUP 腿+净 reload 驯化，后者用跑间换服从流程上根除。加上暖世界让 footer 抢窗（断言学会点名构图）、采样器连续化（peek 不停）——本窗 harness 的四笔学费全是「读法要跟世界的真实节拍同构」的延伸教案
 - 产出：the inspector's own wave（data-insp-arrival 作用域 + 五脸票 + INSP 常量算式 + InspectorBody 抽取 + mount 账本第四消费者 + 折叠律第二消费者·提名机制 + globals.css t617 块零新键帧）+ t617 witness 54/54 两连绿（五跑）+ t617-qa-probe 25/25 + t617-diag（tabpanel 污染教案）+ 📸×2 + resume 家族地板迁移五文件 + 世界修复两案（active 指针归位 + 残渣 prune 记档）+ 回归全家绿；下窗入口：①resume 家族深层化石 chore 车道（t270 stop-window/t271 aria 语义/t272 env + t278/t279 等同款地板清扫，t408 先例）；②judge 风暴活体半场（等稳定夜）；③样式候选：roster 折叠下诚实性侦察（IntersectionObserver 新机制）或 search-mode 级联专项见证或 KPI wire 药丸（等穿越 0.143 的世界）；④build 日被动重测（第 26 窗否决）；⑤pollUntil 零值哨兵回流（顺手）；⑥t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 618 (进行中)
+Agent: main (Z.ai Code, window 2026-10-06 10:09 cron, Job 362852, Task 572 系第 37 次派单)
+Task: t617 下窗入口①兑付——resume 家族化石 chore 车道（派单第 2 条「测试失败优先修复」点名）：诊断+修复 t270 run-3 stop-window / t271 aria 语义化石 / t272 跨画布环境账 + 全仓残留 15 地板清扫（t408 先例）。进行中记录：开局核实尾条=Task 617（派单摘要说 Task 13——滞后第 N+64 次兑付）；HEAD c92b8a5 树净；available 1003MB < 3.5GB 非 build 日（第 27 窗被动否决）；世界 12 卡健康。
+
+---
+Task ID: 618 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 10:09 cron, Job 362852, Task 572 系第 37 次派单)
+Task: t617 下窗入口①兑付——resume 家族化石 chore 车道（派单第 2 条「测试失败优先修复」点名）：t270/t271/t272 三套修复至 ALL PASS + t278/t279 地板修补 + 世界指针两度归位。产品零改动（本窗全部变化在 harness/测试侧）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 617（派单摘要说 Task 13——滞后第 N+64 次兑付）；HEAD c92b8a5 树净；available 1003MB 非 build 日（第 27 窗被动否决）；世界 12 卡健康。
+- [t270 三层病根逐层定谳] ①**running 窗口窄于采样步长**：真 RELION 二进制吃 6 部 64×64×4 小片 <1s 完成（t618-diag 活体：pending→completed 仅 500ms），stop 永远 409——修=HEAVY 配方（独立 import，像素帧 16×→最终 128×：256×256×32）；②**stop 落进 staging 段**：「running」横跨 staging 上传+集群 exec 两腿——staging 段停止=取消未跑，台账诚实记 done/exit 0/无 staged（聚合计 completed——witnessed「3 completed」假象）——修=轮询台账等 staged 腿浮现再停；③**stop 落进 staged→pid 窗口**：集群侧 .cf-pid 在 exec 起跑才落地——窗口内 stop= NOPID（击杀未发生）→远端 wrapper 跑完→页面加载触发 reconcile 从集群台账治愈本地记录（exit 0+sync 回家——t618-diag2 有/无页面加载对照实验实锤机制）——修=**轮询 runRemote.phase==="running"**（DTO 已有的 exec 起跑词）替代盲等+断言 stop body 的 stopped===true（missed kill 当场响亮失败）。副产品：resume3/徽章/entry 断言全部 poll-until-final（60s/30s 窗）——测试合同是「最终诚实台账」不是延迟上界。
+- [t271 一根两病] aria 与 entry 两断言同根：**行有两种诚实形**（同画布=aria 说 job 名+行文本带名字；跨画布/gone=t476 教义 aria 说 projectName）——固定 sleep 跑赢了画布 store 的 job 水合，同画布 job 被读成跨画布形——修=轮询等 aria 落定「Open the inspector for」形（15s 窗）。
+- [t272 时代假设化石] 「registry[0] = 切回目标」在出生时代成立；如今 registry 首位是 β-Gal demo（83 jobs）——测试把指针切到 demo、census(12) 永不落地、cleanup 又把指针留在这（**世界指针第二次被搬走**）——修=用 API 的 active:true 标记捕获起始画布（roster0 的真正出处）+cleanup 的 restore 同改。修后 ALL PASS 且 roster restored 12 ✓。
+- [t278/t279 地板修补] 交接点名的两套（ortho 系）>= 15 → >= 12（t408 教义注释入档）。**其余 ~94 个休眠套件的 15 系引用不动**——不可验证的机械改动不做，立案未来 codemod 车道（t408 migrate-roster-floor.py 先例，模式已文档化：roster-sentinel 行 + >= 15 → >= 12）。
+- [家族复跑与世界卫生] t270 ALL PASS ×2（修复后稳定）+ t271 ALL PASS + t272 ALL PASS + t294/t295 ALL PASS（复确认）= **resume 家族五套全绿**（本家族自 t408 时代后首次在新世界形下全绿）；t617 witness 54/54 复跑（换服后——chunk 竞态环境账复现一次，换服即愈，产品零改动零位移）；eslint 0（七 touched scripts）；node --check 全过。
+- [未做与理由] build 日（第 27 窗被动否决）；judge 风暴活体半场（等稳定夜）；~94 个休眠套件地板 codemod（独立机械车道——不可验证改动不做）；stop 语义的产品级重设计（stop 的远端击杀 vs reconcile 的集群台账治愈——本次以「相位轮询+击杀确认」让测试落在产品诚实窗口内；若产品要改「stop 必须终结远端进程」的合同，那是 feat 车道+专属 witness 的活）；roster 视口诚实性侦察（顺延）；pollUntil 哨兵回流（resume 家族已顺带用上，t613/t614 未踩雷顺延）。
+
+Stage Summary:
+- 「测试失败的第一问永远是：测试的时代假设还剩几个活着」：t270 的三层病根（窗口窄于步长、stop 落错腿、pid 窗口）+t271 的水合竞速+t272 的 registry[0]——五套全在「世界已经换了、断言还活在出生时代」的同一类病上。resume 家族自 t408 后首次在新世界形（12 卡单工作区+真二进制时代）下全绿
+- 「击杀确认要读回执」：stop 200 ≠ 杀掉了——NOPID 的击杀静默失败、远端跑完、reconciler 按集群台账治愈记录（**那治愈本身是诚实的**：文件真的回家了）。测试的回应不是抱怨翻转，而是把停止落在击杀能赢的窗口里（相位轮询）+读回执（stopped===true）——「合同读机制不读形态」的又一案：读回执，不读状态码
+- 「running 是两腿的」：staging 上传与集群 exec 同顶一个 running 状态——在错的腿上停止，得到的诚实台账（取消未跑）不是断言想要的（exec 击杀 137）。台账没有说谎，是停止的时机没踩在测试想测的那个世界上
+- 「对照实验是机制定谳的唯一捷径」：diag2 有/无页面加载的一字之差（90s 持守 137 vs 1s 内治愈成 exit 0+sync）——一行对照把「竞速/翻转/重写」三假设收敛成「页面加载触发 reconcile」一个机制。产物 t618-diag2.mjs 入档为教案现场
+- 「休眠套件的化石不扫」：94 个文件的地板引用一眼可改、无法验证——改了等于给仓里埋 94 个「没跑过的改动」。立案 codemod 车道（t408 的 migrate-roster-floor.py 是先例：脚本化+全量复跑），本窗只动交接点名的两套
+- 产出：resume 家族五套 ALL PASS（t270 两连+t271+t272+t294+t295）+ t278/t279 地板修补 + t618-diag/diag2 两教案现场 + 世界指针两次归位 + t617 witness 54/54 复跑（换服后）+ eslint 0；下窗入口：①休眠套件地板 codemod 车道（~94 文件，t408 脚本化先例）②judge 风暴活体半场（等稳定夜）③样式候选（roster 视口诚实性侦察/search-mode 级联见证）④build 日被动重测（第 27 窗否决）⑤t471 WSL-bridge（照实挂）、t276（门控）
