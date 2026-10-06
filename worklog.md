@@ -9185,3 +9185,26 @@ Stage Summary:
 - 「权力分层是 witness 的骨架」：动作走产品门（HTTP）、状态走 seed 权威（Prisma）、记录走账本文件（快照注入）——三层各取其真，套件才既真实又可控；W4 的 sleep 300 是「真击杀」的最廉价活体：SIGTERM 实流、kill -0 反证、引擎自 finalize，不用一颗 RELION 像素
 - 「shell 的环境变量不是 server 的真相」：裸 node 与 Next 的 env 装载隔着一个 .env；witness 的 DB 钉死必须从 .env 解析——「进程从哪启动」决定「它相信哪个世界」
 - 产出：stop 回执合同四文件（engine/remote/route/store）+ sweep 新鲜读修复 + 单复数细节刀 + t623-stop-receipt-live-fire.mjs（42 断言两连 ALL PASS）+ 回执三连活体（DB/账本级）+ 残留清场复原；eslint 0、tsc 0、node --check 0；t252 ALL PASS 回归、正典 12/11 完好；下窗入口：①judge 风暴活体半场（等稳定夜）②休眠套件逐套复活继续（t622 方法论）③下一块新面侦察（样式架空）④stop 的 slurm teardown 确认窗（本窗立案）⑤build 日被动重测（第 32 窗否决）
+
+---
+Task ID: 624 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 13:54 cron, Job 362852, Task 572 系第 43 次派单)
+Task: t623 下窗入口④兑付——stop 的 slurm teardown 确认窗（t623 立案的 feat 增量）：scancel exit 0 只是「受理」不是「树死」，回执第二级诚实化；witness 三态活体 + kill(-1) 世界杀手验尸 + 单调用仪式。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 623（派单摘要语境说 619——滞后第 N+70 次兑付）；HEAD 04f4a52 树净；available 799MB 非 build 日（第 33 窗被动否决）。
+- [QA 摸底] agent-browser 双姿态（专港 9340 亡后自管接手）：radix combobox 真点击切达 EMPIAR 正典项目——12 卡 / 12 jobs · 13 edges / 11 completed · 1 idle、console 0 error、📸 .qa-logs/shots/t624-home-12jobs.png；DB 直读定谳 EMPIAR 12/11 完好（demo 83 jobs 系教程世界自身积累，/api/jobs 不分桶返回全集属正常）。
+- [选道] t623 入口④。judge 风暴等稳定夜；休眠复活长跑避收割区（next-server 2.2GB）；build 日否决。
+- [回执第二级·三文件] ①remote-run.ts：remoteStopRun 返回增 settled: boolean|null（null=问题不适用；true=已出队；false=受理未出队），message 三句话（confirmed / NOT confirmed + ledger decides / 无后缀），project-delete 方言「a delete below may race」退役；②stop 路由：settleMs 8_000（交互预算，deadline 只封顶等待），DB 行按 settled 三分句——legacy 句「cluster-side session killed」逐字保留（t262 源码断言面），响应带 settled；③store.ts toast 第四句：killed+settled=false → "Stop accepted — the cluster is tearing it down"（受理≠停止）。tsc 0 eslint 0。
+- [witness] scripts/t624-stop-teardown-live-fire.mjs（chrome-less，authority 三层：HTTP 产品门 / Prisma seed 权威 + .env 钉死防 liar shell / mock 自身 stub 语法 craft）：W1 settled TRUE（真 sbatch sleep→scancel→squeue 首轮静默，kill -0 反证）；W2 settled FALSE（craft 不可杀目标——scancel 受理、marker+accounting 落地、squeue 全程 RUNNING 吃满 8s 窗、humble 句、137 照拿=受理归因成立）；W3 settled NULL（direct pid-group 杀，legacy 句逐字，sleeper 真死）；R 全还。45 断言两连 ALL PASS。
+- [本窗最大学费——witness 自己是世界杀手] 首版 W2 把 mock pid 文件指到 pid 1：POSIX kill 语义 kill(-1) 不是「组 1」而是「调用者可杀全体进程」通配符——mock scancel 的 kill -- -1 把 TERM 发给整个 z 宇宙（dev server、mock、witness、工具 shell 自身），仪式调用两度中途全灭（"Error calling tool" 的真身是 shell 被杀）。组 1 成员枚举不够，语义层才见刀口。修复=侦察器动态选目标：pid>1 + root 持有 + pgid==pid 私有组 + 组内无 z 成员 + stat 可读（kthreadd 当选）——kill(-P) 只及组内 root 成员，EPERM 静默即「不可杀」的精确实现。教训入 witness 头部。
+- [第二学费——换生循环与调用边界] tsc/eslint 尖峰把 next-server（2.2GB）推过全局 OOM 线（dmesg 实锤 anon-rss 1.76GB 击杀）；自家 watchdog 2.6GB 受控回收与 witness 起跑赛跑；工具调用树连坐收割。仪式定型：单工具调用内 停牌 watchdog → boot → mock+残扫 → witness → 复牌——reaper 无缝可钻。
+- [翻案+定谳] run7 单断言 flake（W1 DB 行句子）→ diag 探针（scripts/diag-t624-row-words.mjs）先修自身「没建连接→missed 分支」无效诊断，再以 0/500/1500/3000ms 四采样证明行句稳定——产品无罪，环境时序；两处行断言升 pollUntil 铠甲后两连 ALL PASS。
+- [未做与理由] build 日（第 33 窗否决）；judge 风暴（等稳定夜）；休眠复活长跑（内存制度不允许）；下一块新面侦察（样式架空）；toast DOM 级四句活体捕捉（t623 未竟 + 本窗第四句——留 build 日快连接）。
+
+Stage Summary:
+- 「受理不是停止」：scancel exit 0 是调度器收下请求，不是树死——COMPLETING 里的 rank 还在冲刷 stdout。第二级把 killed 拆成 confirmed（出队）与 accepted（未出队），DB 行、toast、message 三处按级说话；「the cluster ledger decides the final state」把终局权交还台账——t623 教义在更细粒度上重演
+- 「kill(-1) 是通配符不是组 1」：POSIX kill(pid<0) 里 -1 独占「全体可杀进程」；伪造 pid 文件是给调度器递刀，刀口必须验语义层——目标=root 私有组组长（pid>1），EPERM 静默才是「不可杀」的完整定义
+- 「仪式完整性靠调用边界」：长跑套件第一敌人是内存制度（t622），第二是调用边界收割（本窗）——单调用闭环 停牌→boot→craft→witness→复牌，reaper 无缝可钻
+- 「flake 要验尸不要重试到绿」：单断言红先写最小探针分离「产品错/环境错」——时间线采样证明行句稳定后，pollUntil 铠甲给环境抖动，不给产品 bug
+- 产出：回执第二级三文件（remote-run.ts / stop route / store.ts）+ t624-stop-teardown-live-fire.mjs（45 断言两连 ALL PASS）+ diag-t624-row-words.mjs（时间线验尸相机）+ 📸 1 张；eslint 0、tsc 0；正典 12/11 完好、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②休眠套件逐套复活继续（t622 方法论 + 本窗单调用仪式）③下一块新面侦察（样式架空）④回执第三级：sacct 落账后 accepted→final 状态回填（sweep 与回执的握手增量）⑤build 日被动重测（第 33 窗否决）
