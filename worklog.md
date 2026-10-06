@@ -9873,3 +9873,24 @@ Stage Summary:
 - 「法律自己的文本是验证者的陷阱」：assert 用 indexOf(":root") 定位翻转块，被 t648 注释里的「no :root/.dark flip」字样带偏——注释在立法文件里是证据链，在验证器的结构定位里是噪声。结构锚定要带语法特征（大括号），自然语言锚定迟早撞上判词自己的用词。
 - 「锚要懂 CSSOM 的方言」：dark: 变体的 selectorText 是 `.dark\:bg-warning-950\/80`——想锚 `.bg-` 开头就永远看不见 dark 侧；一个类一条规则，现场数 ≠ 规则数。探针的每一行 selectorText 断言都要先 dump 实况对表（本窗诊断脚本先跑、锚后写，才没有把 JIT 缓存当法律）。
 - 产出：六 50/950 token 立法（globals.css）+ 136 处/34 文件 solid 域色相名退役（零像素）+ 豁免表（12 文件 + 9 行模式，census/codemod 同源）+ 法典自清洁十二处 + SVG 单源收编六现场 + 四锚定注释 + t650 四件套（census/codemod/assert 35/probe 21/0）+ t646/t647 锚迁居（21/0 + 24/0）+ 📸×1（t650-solid-vocab.png）；下窗入口：①功能车道（star-table 排序/导出 + import-gallery 多选 + palette fuzzy——语汇工程四窗连发后功能优先）②语义色语汇余量评估（lib map 身份字符串 NAME 16 处 + workflow.ts 色板的处置判词）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 60 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 651 收官
+Agent: main (cron window, Job 362852)
+Task: t650 入口①兑现——功能车道回归：star-table 升格为可操作表格（数值感知三态排序 asc→desc→native + aria-sort a11y 合同 + 服务端全量 TSV 导出车道）+ t651-e2e 22/0（API 双车道语义 + 真实 UI 路径三态循环实况）
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 650 收官；树净 HEAD c20f7db；available 942MB 非 build 日（第 61 窗否决）；server 200/30ms；基线四绿（t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS）。
+- [定靶] 按入口①功能优先（语汇工程四窗连发后转向）：三候选（star-table 排序/导出、import-gallery 多选、palette fuzzy）选 star-table——数据结构明确（columns/rows）、交互面现成（列头 th）、导出有法可依（Task 191 法令 + lib/download twins + file route attachment 先例）。
+- [API 车道] star route 加 ?export=tsv：全量 loop 块（parseStar 200_000 行早已在服务端解析，UI 的 100 行只是视图预算不是文件真相——「导出 = 把文件本体数据拿走」的语义）；TSV 是 STAR 语汇正形（制表符分隔，pandas/Excel 免引号体操；头行保留 _rln 原名——UI 的 shortColumn 是视图便利不是数据身份）；safeExportName 学 file route 的 basename+引号清洗；guard 的 'none' 导航道放行直接 <a download>（file/subvolume/log 先例同款）。实况验证：241 行 = 1 头 + 240 全量（rowCount 240 > 预览 100 的标本价值）。
+- [UI 车道] star-table.tsx 升格：①三态循环排序（native→asc→desc→native），数值感知采样判定（前 50 行 parseFloat 比例 ≥0.8 → 数值列，防 _rlnMicrographName 字符串列塌成 0）；②comparator 判词——NaN/空值双向恒排尾（「缺失的 defocus 不是负无穷」）、并列 tie-break 回 native 序（等值键在重渲染间不抖动）；③aria-sort 合同——th[aria-sort] 随方向翻转 + 列头是 button（键盘可达）+ 箭头 aria-hidden 装饰化；④footer 排序提示（「sorted by AnglePsi desc」）与导出链接（TSV + title 刻语义：导出文件原生序，排序是视图辅助——排序态刻意不导出）。
+- [e2e 三课] ①canvas 卡片深链死路：两 workspace（demo β-Gal + 教程）的卡片物理重叠，badge 拦截 pointer events——dashboard 的 roster 行（Task 80 语义单元钩子）才是无碰撞路径，顶栏 view switcher（title=「Shift+D toggles」）是语义门；②Shift+D 键盘路径有焦点陷阱（初始焦点在搜索框 input，guard 忽略）——语义按钮直点替代；③title 属性在 th 不在 button（title={col} 是 th 的）——选择器先 dump 实况再写，别从记忆里抄。t651-e2e 22/0：A 组 API 8 锚（JSON 预览语义回归 + 导出全量/头名/disposition/no-store）+ B 组 UI 12 锚（roster 行→Results tab→STAR 卡→dialog→三态实况 asc 0000056@↔desc 0000004@→native 回归 + aria-sort 全程 + 导出 href）+ C console 0 + 📸（t651-star-sort.png）。
+- [回归全家十绿] t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0 + t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t650 21/0；tsc 0 + eslint 0。
+
+Stage Summary:
+- 「导出的诚实性在『导出的是什么』」：UI 显示 100 行（视图预算），导出 240 行（文件真相）——如果导出走客户端（拿 UI state 序列化）就只会导出 100 行还自称「导出」。序列化在数据所在地完成（服务端 export 车道），「视图预算」与「数据本体」的边界由 API 参数表达（rows vs export）。
+- 「排序是视图辅助，不进导出」：排序态刻意不参与 TSV——文件原序是 artifact，排序是用户此刻的观察方式；导出文件应该是别人也能用的数据，不是用户屏幕的快照。footer 的 title 刻了这个语义决定，让下一个读代码的人不必重新发明。
+- 「NaN 不是负无穷」：comparator 的空值/NaN 双向恒排尾是语义决定不是实现细节——asc 时 NaN 在尾、desc 时也在尾，因为「这个格子没有值」和「这个值最小」是两件事。数值感知采样（≥0.8 比例）同理：一个列是数值列由它的内容决定，不由它的名字决定。
+- 「canvas 不是无碰撞的测试路径」：两 workspace 的卡片在同一画布物理重叠，hit-test 拦截让自动化点击超时——dashboard 的 roster 行是语义单元（Task 80）也是无碰撞路径。「测试要走的路是产品给人准备的路」，roster 行的 button[title^="Open"] 就是。
+- 「选择器从实况来，不从记忆来」：title 在 th 不在 button、Shift+D 有焦点陷阱——e2e 的三处失败全是「我以为的 DOM」vs「浏览器里的 DOM」的偏差。dump-first 的诊断脚本（t650-css-diag 同款方法）每次都值那三十秒。
+- 产出：star route ?export=tsv 全量车道 + star-table 三态排序/aria-sort/导出链接 + t651-e2e 22/0 + 📸×1（t651-star-sort.png）；下窗入口：①功能车道继续（import-gallery 多选 + palette fuzzy——star-table 模式的复刻空间：列头交互/批量操作/导出语义三件套）②样式细节车道（star-table 的列宽适配/单元格 hover 展开 72 字符截断全文）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 61 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
