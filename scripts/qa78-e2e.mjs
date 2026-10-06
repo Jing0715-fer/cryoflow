@@ -13,6 +13,15 @@
 // Run: node scripts/qa78-e2e.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+// t377's poison law, t641 edition — a bare PrismaClient picks up the
+// sandbox's TEMPLATE DATABASE_URL (.env → db/custom.db, a User/Post-only
+// 3-row artifact). The suite must write THIS repo's live world, so the
+// URL is pinned exactly as dev-server.sh pins it (t639 seeder pattern)
+// BEFORE the client is constructed.
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+process.env.DATABASE_URL = `file:${REPO}/db/cryoflow.db`;
 const require = createRequire(import.meta.url);
 const { PrismaClient } = require("@prisma/client");
 
@@ -42,19 +51,33 @@ let orphans = list.filter((j) => !j.workspaceId);
 // (PATCH refuses NULL workspaceId by design, so prisma it is). Runs BEFORE
 // the note seeding so the orphan can't also be a note target (its note is
 // wiped here either way — Phase A asserts the 6-slice has no note badges).
+//
+// t641 repair — the suite had TWO world debts: ① the re-orphan candidate
+// was anchored to PRE-t635 job names ("Import Movies 1" …), which no
+// longer exist — the setup crashed before the browser ever launched; and
+// ② nothing restored the world afterward — a re-orphaned job stayed
+// orphaned (t632 doctrine: a suite that leaves residue poisons the next
+// probe — t637 asserts a ZERO-orphan roster). Now the candidate is
+// name-agnostic (any in-workspace, non-linked job) and every mutation is
+// journaled so the exit (success OR crash) puts the world back.
 const db = new PrismaClient();
+const worldJournal = []; // { id, workspaceId, note } — pre-mutation rows
+const touch = (j) => worldJournal.push({ id: j.id, workspaceId: j.workspaceId, note: j.note });
 if (orphans.length === 0) {
-  const formerNames = ["Import Movies 1", "Motion Correction 1", "CTF Estimation 1"];
-  const candidate = list.find((j) => j.workspaceId && !j.linkedJobId && formerNames.includes(j.name));
-  must(!!candidate, "re-orphan candidate found");
-  await db.job.update({ where: { id: candidate.id }, data: { workspaceId: null, note: null } });
+  const candidate = list.find((j) => j.workspaceId && !j.linkedJobId);
+  must(!!candidate, "re-orphan candidate found (name-agnostic since t641)");
+  if (candidate) {
+    touch(candidate);
+    await db.job.update({ where: { id: candidate.id }, data: { workspaceId: null, note: null } });
+  }
 } else {
+  touch(orphans[0]);
   await db.job.update({ where: { id: orphans[0].id }, data: { note: null } });
   for (const o of orphans.slice(1)) {
+    touch(o);
     await db.job.update({ where: { id: o.id }, data: { workspaceId: null } });
   }
 }
-await db.$disconnect();
 const fresh = (await api("/api/jobs")).json.jobs ?? [];
 orphans = fresh.filter((j) => !j.workspaceId);
 
@@ -64,6 +87,8 @@ const wsJobs = fresh.filter((j) => j.workspaceId && j.id !== orphans[0]?.id);
 must(wsJobs.length >= 3, `in-workspace jobs present (${wsJobs.length})`);
 const notedA = wsJobs[0];
 const notedB = wsJobs[1];
+touch(notedA);
+touch(notedB);
 const M1 = "KEYMARKER1 annotate for key 5";
 const M2 = "KEYMARKER2 annotate for key 5";
 // payloads ride under `body` — the qa77 silent-GET trap (top-level opts
@@ -80,7 +105,30 @@ must(orphans.length === 1, `exactly one orphan after setup (${orphans.length})`)
 must(notedCount === 2, `exactly two noted jobs after setup (${notedCount})`);
 console.log(`orphan: ${orphans[0].name} | noted: ${notedA.name}, ${notedB.name}`);
 
-const b = await chromium.launch();
+let b = null; // declared before the crash net — bail() must never TDZ
+
+/* ---------------- world-neutral exit (t641) ---------------- */
+// every mutation is journaled; the exit — success, must-failure pile-up,
+// or mid-phase crash — puts the world back the way it found it.
+const restoreWorld = async () => {
+  for (const row of worldJournal) {
+    await db.job.update({
+      where: { id: row.id },
+      data: { workspaceId: row.workspaceId, note: row.note },
+    });
+  }
+};
+const bail = async (err) => {
+  console.error("qa78 crashed — restoring the world before exit:", err?.message ?? err);
+  try { if (b) await b.close(); } catch {}
+  try { await restoreWorld(); } catch (e) { console.error("restore failed:", e?.message); }
+  try { await db.$disconnect(); } catch {}
+  process.exit(1);
+};
+process.on("uncaughtException", bail);
+process.on("unhandledRejection", bail);
+
+b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
 const consoleErrors = [];
 p.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
@@ -210,8 +258,11 @@ console.log("Phase C — shortcuts dialog: rows + you-are-here group");
   must((await reportActive.count()) === 0,
     "C7 the report group never claims you-are-here (a dialog is not a view)");
   const groupCount = await dlg.locator('section[aria-label$=" shortcuts"]').count();
-  must(groupCount === 6,
-    `C8 the dialog carries exactly six groups (${groupCount} — global · canvas · dashboard · gallery · report · touch)`);
+  // t641: 6 → 8 — t246's not-in-palette group was missing from this count
+  // all along (the suite predates it), and the 3D map viewer group joins
+  // this window. A group-count oracle drifts exactly like any other.
+  must(groupCount === 8,
+    `C8 the dialog carries exactly eight groups (${groupCount} — global · not-in-⌘K · canvas · dashboard · gallery · 3D viewer · report · touch)`);
   await p.keyboard.press("Escape");
   await p.waitForTimeout(300);
 }
@@ -222,9 +273,18 @@ console.log("Phase D — dead keys when the slice is empty");
   await ensureView("dashboard");
   await api(`/api/jobs/${notedA.id}`, { body: { note: "" } });
   await api(`/api/jobs/${notedB.id}`, { body: { note: "" } });
-  await p.waitForTimeout(2500); // poll tick: chips re-render at zero notes
+  // t523 law — the idle-world poll cadence is 8s (1200ms only while jobs
+  // run); a blind 2.5s wait was betting on a faster clock and read the
+  // STALE UI as a product bug. Poll until the chip actually re-renders
+  // away, bounded by two idle poll periods.
+  let chipGone = false;
+  for (let i = 0; i < 16; i++) {
+    chipGone = (await spot.locator('[data-filter="noted"]').count()) === 0;
+    if (chipGone) break;
+    await p.waitForTimeout(800);
+  }
 
-  must((await spot.locator('[data-filter="noted"]').count()) === 0,
+  must(chipGone,
     "D1 Noted chip gone at zero notes (Task 76 semantics)");
   const rowsBefore = await spot.locator("div.group\\/row").count();
   await press("5");
@@ -239,5 +299,7 @@ console.log("Phase D — dead keys when the slice is empty");
 }
 
 await b.close();
+await restoreWorld();
+await db.$disconnect();
 console.log(fail === 0 ? "\nqa78 ALL PASS" : `\nqa78 ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);

@@ -2,6 +2,11 @@
 // the ruling will touch. Read-only. (t161 radius doctrine: tenant alive
 // → the row stays; the product door cascades edges, but a linked-copy
 // guard may refuse — better to know before the first DELETE.)
+// t641 — pin the repo's own live DB before the client is constructed
+// (t377 poison law: a bare client eats the sandbox TEMPLATE URL from .env)
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+process.env.DATABASE_URL = `file:${path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")}/db/cryoflow.db`;
 import { PrismaClient } from "@prisma/client";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";

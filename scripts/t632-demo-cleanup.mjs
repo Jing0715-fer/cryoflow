@@ -13,6 +13,11 @@
 // has no per-project enumeration), while DELETE is id-addressed and
 // project-agnostic. qa77 precedent: enumerate via prisma, delete through
 // the product door.
+// t641 — pin the repo's own live DB before the client is constructed
+// (t377 poison law: a bare client eats the sandbox TEMPLATE URL from .env)
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+process.env.DATABASE_URL = `file:${path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")}/db/cryoflow.db`;
 import { PrismaClient } from "@prisma/client";
 
 const db = new PrismaClient();

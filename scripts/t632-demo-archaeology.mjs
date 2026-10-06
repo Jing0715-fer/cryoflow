@@ -1,6 +1,11 @@
 // t632 — demo archaeology census: the 20 QA rows t630 convicted in the demo
 // project, plus the 2 QA t474 rows. Read-only: names, states, workdirs,
 // tenant signals, per-row — so the ruling can be row-by-row (t628 doctrine).
+// t641 — pin the repo's own live DB before the client is constructed
+// (t377 poison law: a bare client eats the sandbox TEMPLATE URL from .env)
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+process.env.DATABASE_URL = `file:${path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")}/db/cryoflow.db`;
 import { PrismaClient } from "@prisma/client";
 
 const db = new PrismaClient();
