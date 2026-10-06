@@ -1835,6 +1835,85 @@ async function pollSystemUntilFresh(): Promise<void> {
   }
 }
 
+/** t622 — the empty-registry backfill. load()'s low-frequency routes ride
+ *  apiSteady (t407) so a mid-compile hiccup retries, but a FULL server
+ *  respawn (the OOM regime's watchdog reaping next-server, t622's live
+ *  witness) outlives those three attempts, the `.catch` fallbacks then
+ *  boot the app with EMPTY projects or workspaces, and nothing ever
+ *  retries (pollTick only polls /api/jobs) — the palette loses its
+ *  Projects group, the project panel shows nothing, until a manual
+ *  reload. t622's crime-scene diag caught the suite-side face of this:
+ *  t241's palette row failed three attempts in a row because the boot
+ *  that opened the palette raced exactly such a respawn. This backfill
+ *  is the missing retry: patient across a restart-sized window (~2min),
+ *  it re-pulls the routes that landed empty and heals the store.
+ *  The honesty rules:
+ *  - reference-identity guard — only the EXACT arrays this load() landed
+ *    (the fallback empties themselves) may be healed; a newer ingest
+ *    that replaced them owns the truth and the backfill stands down;
+ *  - an honest empty (a world with genuinely zero registries) heals
+ *    nothing and stops after one confirming pull — the backfill exists
+ *  for the fallback fingerprint, not to argue with the wire;
+ *  - the workspace heals only when the state has nowhere to stand
+ *    (null or a stale id): the same trust gate as the boot seed. */
+let registryBackfillInFlight = false;
+async function backfillRegistries(
+  projectsFingerprint: ProjectSummaryDTO[],
+  workspacesFingerprint: WorkspaceDTO[],
+): Promise<void> {
+  if (registryBackfillInFlight) return;
+  registryBackfillInFlight = true;
+  try {
+    for (let round = 0; round < 12; round++) {
+      await new Promise((resolve) => setTimeout(resolve, round === 0 ? 5000 : 10000));
+      const s = useWorkflowStore.getState();
+      const projectsStillMine =
+        s.projects === projectsFingerprint && s.projects.length === 0;
+      const workspacesStillMine =
+        s.workspaces === workspacesFingerprint && s.workspaces.length === 0;
+      if (!projectsStillMine && !workspacesStillMine) return;
+      let freshProjects: ProjectSummaryDTO[] | null = null;
+      let freshWorkspaces: WorkspaceDTO[] | null = null;
+      try {
+        if (projectsStillMine) {
+          freshProjects = (
+            await apiSteady<{ projects: ProjectSummaryDTO[] }>("/api/projects", 2)
+          ).projects;
+        }
+        if (workspacesStillMine) {
+          freshWorkspaces = (
+            await apiSteady<{ workspaces: WorkspaceDTO[] }>("/api/workspaces", 2)
+          ).workspaces;
+        }
+      } catch {
+        continue; // the server is still coming back — keep the window open
+      }
+      const landedProjects = !!freshProjects?.length;
+      const landedWorkspaces = !!freshWorkspaces?.length;
+      if (landedProjects || landedWorkspaces) {
+        useWorkflowStore.setState((prev) => {
+          const patch: Partial<WorkflowState> = {};
+          if (landedProjects && prev.projects === projectsFingerprint) {
+            patch.projects = freshProjects!;
+          }
+          if (landedWorkspaces && prev.workspaces === workspacesFingerprint) {
+            patch.workspaces = freshWorkspaces!;
+            const cur = prev.activeWorkspaceId;
+            if (cur === null || !freshWorkspaces!.some((w) => w.id === cur)) {
+              patch.activeWorkspaceId = freshWorkspaces![0]?.id ?? null;
+            }
+          }
+          return patch;
+        });
+        return;
+      }
+      if (freshProjects && freshWorkspaces) return; // both answered honestly empty
+    }
+  } finally {
+    registryBackfillInFlight = false;
+  }
+}
+
 function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
 }
@@ -2160,6 +2239,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         activeWorkspaceId: activeWs,
         loading: false,
       });
+      // t622 — the empty-registry backfill: these two lists are the only
+      // ingests whose failure lands SILENTLY (the `.catch` fallbacks).
+      // When a boot raced a full server respawn, they landed empty and
+      // nothing would ever retry — hand the fallback's own arrays to the
+      // backfill, whose reference-identity guard makes it a no-op the
+      // moment any newer ingest replaces them.
+      if (projs.projects.length === 0 || wsList.length === 0) {
+        void backfillRegistries(projs.projects, wsList);
+      }
       // Task 157 — session position: the FIRST data landing may restore
       // the selection the user closed the tab with. The seed is a bare
       // string, so the trust gate is reality itself: it applies only if
