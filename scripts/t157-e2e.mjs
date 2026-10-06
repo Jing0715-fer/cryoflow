@@ -88,6 +88,15 @@ process.on("SIGTERM", () => { console.log("SIGTERM"); process.exit(1); });
 async function cleanup() {
   try { if (p) await p.close(); } catch {}
   try { if (b) await b.close(); } catch {}
+  // t630 — fatal-path take-home: the pair must not outlive a crashed run
+  // either. Idempotent (Z5 already took them home on the green path).
+  try {
+    for (const name of [typeof ALPHA !== "undefined" ? ALPHA : "", typeof BETA !== "undefined" ? BETA : ""].filter(Boolean)) {
+      const jobs = await roster();
+      const row = jobs.find((j) => j.name === name);
+      if (row) await api(`/api/jobs/${row.id}`, "DELETE");
+    }
+  } catch { /* best-effort — the next run's Z5 name-fallback sweeps it */ }
 }
 
 /** seed one job idempotently by name; returns its id */
@@ -360,6 +369,26 @@ async function main() {
   must(badResponses.length === 0, `Z3 0 responses >= 400 (got: ${badResponses.slice(0, 3).join(" | ")})`);
   const rosterAfter = (await roster()).length;
   must(rosterAfter === rosterBefore, `Z4 roster restored (${rosterAfter} == ${rosterBefore})`);
+
+  /* -------- Phase Z5 — the specimens go home (t630 rollout) -------------- */
+  step("--- Phase Z5: take the seeded pair home ---");
+  // the old flow left ALPHA/BETA as residents of whatever world was
+  // active that night (t628 conviction: POST lands in ACTIVE). Delete
+  // through the product door — edges cascade; idempotent by id-first,
+  // name-fallback (a crashed earlier run's pair is re-found here).
+  let takenHome = 0;
+  for (const [id, name] of [[alphaId, ALPHA], [betaId, BETA]]) {
+    let target = id ? (await roster()).find((j) => j.id === id) : null;
+    if (!target) target = (await roster()).find((j) => j.name === name);
+    if (!target) { takenHome++; continue; } // already home
+    const del = await api(`/api/jobs/${target.id}`, "DELETE");
+    must(del.ok, `Z5 ${name} deleted through the product door`);
+    takenHome++;
+  }
+  must(takenHome === 2, `Z5 both specimens home (${takenHome}/2)`);
+  const rosterFinal = (await roster()).length;
+  must(rosterFinal === rosterBefore - 2,
+    `Z5 world back to the pre-seed baseline (${rosterFinal} == ${rosterBefore} - 2)`);
 
   console.log(`\nT157 ALL PASS (${PASS} assertions)`);
   await cleanup();

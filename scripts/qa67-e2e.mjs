@@ -41,6 +41,13 @@ const must = (cond, label) => {
 };
 function cleanup() {
   try { sh(`${AB} close`); } catch {}
+  // t630 rollout — the tenant's radius first (orthovol.mrc is a TENANT of
+  // the qa58 pair's workdir), then the host pair goes home through the
+  // seeder's take-home (radius + product-door DELETE). Tenant BEFORE host
+  // — the iron law's second clause; reversed order leaves a dangling
+  // engine-state entry (t629's Z7 fail class).
+  try { sh("python3 /home/z/my-project/scripts/qa67-seed-volume.py --clean"); } catch (e) { console.log(`  tenant clean warn: ${String(e).slice(0, 90)}`); }
+  try { sh("python3 /home/z/my-project/scripts/qa58-seed-gallery.py --take-home"); } catch (e) { console.log(`  take-home warn: ${String(e).slice(0, 90)}`); }
 }
 
 const errCollector = `(() => {

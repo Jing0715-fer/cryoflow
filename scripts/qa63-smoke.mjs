@@ -151,4 +151,10 @@ must(afterEsc === "NOCMP+INSP", `Esc closes compare dialog, inspector survives -
 must(consoleErrors.length === 0, `console errors: ${consoleErrors.length === 0 ? "0" : `**${consoleErrors.length}** ${JSON.stringify(consoleErrors.slice(0, 5))}`}`);
 
 await b.close();
+// t630 rollout — the whole fsc fixture family goes home (t630 seeder):
+// the QA Refine Live card AND the four SPECS hosts (they used to stay as
+// "shared fixtures" — t628 convicted the premise: POST lands in ACTIVE).
+// The next run re-seeds via the same find-or-create seeder (Task 86), so
+// this is order-safe for qa60/qa62/qa64.
+try { sh("python3 /home/z/my-project/scripts/qa60-seed-fsc.py --take-home"); } catch (e) { console.log(`  take-home warn: ${String(e).slice(0, 120)}`); }
 console.log("SMOKE GREEN");

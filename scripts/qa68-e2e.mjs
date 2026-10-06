@@ -29,6 +29,11 @@ const must = (cond, label) => {
 };
 function cleanup() {
   try { sh(`${AB} close`); } catch {}
+  // t630 rollout — this suite consumes BOTH fixtures (qa58 base + qa67
+  // volume): tenant radius first, then the host pair goes home. Same
+  // order law as qa67; reversed order dangles the engine-state entry.
+  try { sh("python3 /home/z/my-project/scripts/qa67-seed-volume.py --clean"); } catch (e) { console.log(`  tenant clean warn: ${String(e).slice(0, 90)}`); }
+  try { sh("python3 /home/z/my-project/scripts/qa58-seed-gallery.py --take-home"); } catch (e) { console.log(`  take-home warn: ${String(e).slice(0, 90)}`); }
 }
 
 const errCollector = `(() => {

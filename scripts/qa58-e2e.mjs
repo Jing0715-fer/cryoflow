@@ -47,6 +47,10 @@ const B = "http://localhost:3000";
 const SEL_JOB = "QA Class Select";
 const SEED = "python3 /home/z/my-project/scripts/qa58-seed-gallery.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa58-seed-gallery.py --clean";
+// t630 rollout — the specimen goes HOME: radius + product-door DELETE of
+// the pair. The old flow stopped at the radius and left the rows as
+// residents of whatever world was active that night (t628 conviction).
+const SEED_TAKE_HOME = "python3 /home/z/my-project/scripts/qa58-seed-gallery.py --take-home";
 const FATAL = (msg) => { step(`FATAL: ${msg}`); console.error(`FATAL: ${msg}`); process.exit(1); };
 const must = (cond, label) => { if (!cond) FATAL(label); else step(`  ok: ${label}`); };
 
@@ -249,7 +253,33 @@ async function phaseA() {
   if (!(await openSelectPanel())) FATAL("select2d panel with gallery never appeared");
 
   let g = await galleryProbe();
+  // t630 waiting law (t523/t629 lineage) — the panel opens before the
+  // /classes fetch lands, so the gallery's honest "Loading class
+  // averages…" variant loses the race against a fixed-window probe:
+  // under memory squeeze the fetch is slower than any constant sleep.
+  // Poll the DOM truth (cards rendered), never the network's voice.
+  for (let i = 0; i < 30 && (!g || g.cards !== 8); i++) {
+    await sleep(500);
+    g = await galleryProbe();
+  }
   step(`  gallery: ${JSON.stringify(g).slice(0, 220)}`);
+  if (!g || g.cards === 0) {
+    // t630 forensic camera — the empty-section variant matters: five
+    // renderers share this aria-label (no-upstream / loading / error /
+    // running / no-assignments). Dump the text + panel state so the
+    // failure names itself instead of forcing a manual reproduction.
+    const forensics = await p.evaluate(() => {
+      const sec = document.querySelector('section[aria-label="Class selection gallery"]');
+      const asides = [...document.querySelectorAll("aside")];
+      return {
+        variant: sec ? sec.textContent.replace(/\s+/g, " ").trim().slice(0, 160) : "NO-SECTION",
+        asides: asides.length,
+        aside1: (asides[1]?.textContent || "").replace(/\s+/g, " ").slice(0, 120),
+        jobCards: document.querySelectorAll("[data-job]").length,
+      };
+    });
+    step(`  forensics: ${JSON.stringify(forensics).slice(0, 300)}`);
+  }
   must(g && g.cards === 8, "gallery renders 8 class cards");
   must(g.pressed.filter((x) => x === "true").length === 3, "auto mode keeps exactly 3 classes (1,2,3)");
   must(g.zooms === 8, "8 hover-zoom buttons present");
@@ -380,9 +410,33 @@ async function phaseC() {
   step("== PHASE C: console + cleanup ==");
   // playwright dual collection replaces the in-page collector (qa70 template)
   const errs = consoleErrors;
-  must(errs.length === 0, `in-page console errors = 0 (got ${errs.length}: ${JSON.stringify(errs.slice(0, 3))})`);
-  sh(SEED_CLEAN);
-  step("  seed cleaned (workdir files + engine-state entry)");
+  // t630 split (t241 verdict codified) — the console collector mixes two
+  // species: PRODUCT errors (the app's own: React warnings, uncaught
+  // exceptions, real bad statuses) and TRANSPORT noise (the dev server's
+  // OOM death rattle: net::ERR_EMPTY_RESPONSE / CONNECTION_REFUSED /
+  // ERR_ABORTED on poll fetches while next-server cycles). The suite
+  // tests the app, so the assertion is on product errors; transport
+  // noise is logged honestly, never silently swallowed. Status-code
+  // failures ("status of 404/500") stay PRODUCT — a broken fetch is the
+  // app's confession even when the server survives.
+  const TRANSPORT = /net::ERR_(EMPTY_RESPONSE|CONNECTION_REFUSED|ABORTED|NETWORK_CHANGED|TIMED_OUT|CONNECTION_RESET)/;
+  const productErrs = errs.filter((e) => !TRANSPORT.test(e));
+  const transportNoise = errs.length - productErrs.length;
+  if (transportNoise > 0) step(`  (env) ${transportNoise} transport-noise console entries — dev-server OOM cycle, not product (${errs.find((e) => TRANSPORT.test(e))?.slice(0, 80)})`);
+  must(productErrs.length === 0, `in-page console PRODUCT errors = 0 (got ${productErrs.length}: ${JSON.stringify(productErrs.slice(0, 3))})`);
+  // tenant sweep BEFORE take-home (iron law's second clause: tenant
+  // before host) — a crashed qa67 leaves orthovol.mrc in this pair's
+  // workdir and the take-home would honestly refuse; sweeping the KNOWN
+  // tenant keeps crash recovery working while an UNKNOWN tenant still
+  // triggers the refusal (that's the guard's whole point)
+  try { sh("python3 /home/z/my-project/scripts/qa67-seed-volume.py --clean"); } catch (e) { step(`  tenant sweep warn: ${String(e).slice(0, 90)}`); }
+  sh(SEED_TAKE_HOME);
+  // the rows are GONE — the world carries no qa58 seeds (t630 lifecycle)
+  const rest = JSON.parse(sh("curl -s -H 'Origin: http://localhost:3000' http://localhost:3000/api/jobs"));
+  const rows = Array.isArray(rest) ? rest : rest.jobs;
+  const strays = rows.filter((j) => j.name === "QA Class2D Source" || j.name === "QA Class Select");
+  must(strays.length === 0, `world carries no qa58 seeds after take-home (got ${strays.map((s) => s.name).join(", ") || "none"})`);
+  step("  seed taken home (radius + product-door DELETE, rows verified gone)");
 }
 
 try { sh("pkill -f agent-browser"); } catch { /* none running */ }

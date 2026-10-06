@@ -89,6 +89,12 @@ process.on("SIGTERM", () => { console.log("SIGTERM"); process.exit(1); });
 async function cleanup() {
   try { if (p) await p.close(); } catch {}
   try { if (b) await b.close(); } catch {}
+  // t630 rollout — the gallery chain this suite seeded (qa58 seeder,
+  // idempotent by name) goes home: tenant sweep, radius, product-door
+  // DELETE. The rows used to linger as residents of the active world.
+  const run = (cmd) => execSync(cmd, { cwd: "/home/z/my-project", encoding: "utf8", timeout: 120_000 });
+  try { run("python3 scripts/qa67-seed-volume.py --clean"); } catch { /* tenant absent — fine */ }
+  try { run("python3 scripts/qa58-seed-gallery.py --take-home"); } catch (e) { console.log(`  take-home warn: ${String(e).slice(0, 120)}`); }
 }
 
 /** the gallery's grid order — class numbers in DOCUMENT order (the
