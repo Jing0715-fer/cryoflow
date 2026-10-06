@@ -40,10 +40,17 @@ const ROOT = "src";
 const SKIP_FILES = new Set([
   "src/lib/workflow.ts",
   "src/components/workflow/results/fsc-compare-dialog.tsx",
+  // t649 — the legislation file is exempt from its own law: the t649
+  // block's before→after example (text-rose-700 … becomes text-danger-700)
+  // is the verdict's evidence chain, not field (the t648 lesson).
+  "src/app/globals.css",
 ]);
 const SKIP_LINE_IF = [
   { file: "src/components/workflow/header.tsx", test: (l) => l.includes('=== "rose"') },
   { file: "src/components/workflow/results/fsc-chart.tsx", test: (l) => l.includes("linear-gradient(90deg, currentColor") },
+  // t649 — comment lines are history, not field (toast's Task 175
+  // verdict record carries text-red-300 as a quote).
+  { file: "*", test: (l) => l.trim().startsWith("//") || l.trim().startsWith("*") || l.trim().startsWith("/*") },
 ];
 
 function walk(dir) {
@@ -62,15 +69,24 @@ function walk(dir) {
 const RULES = [
   ["INK_PAIR", /(?<![\w:-])text-(?:rose|red)-[567]00 dark:text-(?:rose|red)-[3456]00/g],
   ["TAIL-prefixed-pair", /(?:[a-z-]+:)*text-(?:rose|red)-[567]00 dark:(?:[a-z-]+:)*text-(?:rose|red)-[3456]00/g],
-  ["SOFT", /(?:[a-z-]+:)*bg-(?:rose|red)-500\/(?:\d|\[0?\.\d+\])(?![\w-])/g],
-  ["BORDER", /(?:[a-z-]+:)*border-(?:rose|red)-500(?:\/(?:\d|\[0?\.\d+\]))?(?![\w/-])/g],
-  ["RING", /(?:[a-z-]+:)*ring-(?:rose|red)-500(?:\/(?:\d|\[0?\.\d+\]))?(?![\w/-])/g],
+  ["SOFT", /(?:[a-z-]+:)*bg-(?:rose|red)-500\/(?:\d+|\[0?\.\d+\])(?![\w-])/g],
+  ["BORDER", /(?:[a-z-]+:)*border-(?:rose|red)-500(?:\/(?:\d+|\[0?\.\d+\]))?(?![\w/-])/g],
+  ["RING", /(?:[a-z-]+:)*ring-(?:rose|red)-500(?:\/(?:\d+|\[0?\.\d+\]))?(?![\w/-])/g],
   ["SOLID", /(?:[a-z-]+:)*bg-(?:rose|red)-500(?![\w./-])/g],
-  ["TAIL-text-shade", /(?:[a-z-]+:)*text-(?:rose|red)-\d00(?![\w/-])/g],
-  ["TAIL-bg-shade", /(?:[a-z-]+:)*bg-(?:rose|red)-[4-9]00(?![\w./-])/g],
-  ["TAIL-gradient", /(?:from|via|to)-(?:rose|red)-\d00/g],
+  ["TAIL-text-shade", /(?:[a-z-]+:)*text-(?:rose|red)-\d{2,3}(?![\w/-])/g],
+  ["TAIL-bg-shade", /(?:[a-z-]+:)*bg-(?:rose|red)-\d{2,3}(?![\w./-])/g],
+  ["TAIL-gradient", /(?:from|via|to)-(?:rose|red)-\d{2,3}/g],
   ["NAME", /"(?:rose|red)"/g],
 ];
+// t649 — two blind-spot lessons baked into the rules above:
+// (1) α gap: the first edition read `\d` in SOFT/BORDER/RING, so
+//     two-digit alphas (/10 /15 /25 /30 …) fell OUTSIDE every bucket —
+//     89 sites no assert could ever see. `\d+` closes it; the codemod
+//     got the same fix the same window.
+// (2) rung gap: TAIL-* used `\d00` (three-digit hundreds only), so
+//     rose-50/rose-950 could never be bucketed. TAIL is the human-read
+//     wide net — it now takes any 2–3 digit rung; overlap-claiming
+//     keeps the SAFE buckets authoritative.
 
 const files = walk(ROOT).filter((f) => !SKIP_FILES.has(f.replaceAll("\\", "/")));
 const buckets = {};
@@ -83,10 +99,10 @@ for (const f of files) {
   const consumed = new Array(src.length).fill(false);
   // line-level exemptions: compute the char ranges the codemod would skip
   const skipRanges = [];
-  if (SKIP_LINE_IF.some(({ file }) => file === rel)) {
+  if (SKIP_LINE_IF.some(({ file }) => file === rel || file === "*")) {
     let off = 0;
     for (const line of src.split("\n")) {
-      if (SKIP_LINE_IF.some(({ file, test }) => file === rel && test(line))) skipRanges.push([off, off + line.length]);
+      if (SKIP_LINE_IF.some(({ file, test }) => (file === rel || file === "*") && test(line))) skipRanges.push([off, off + line.length]);
       off += line.length + 1;
     }
   }
