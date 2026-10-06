@@ -106,6 +106,7 @@ import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Chip } from "@/components/ui/chip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -630,12 +631,11 @@ function FilterChip({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
+    <Chip
+      size="md"
+      interactive
+      asChild
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors",
         active
           ? tone === "rose"
             ? "border-rose-600/40 bg-rose-500/10 text-rose-700 dark:text-rose-400"
@@ -643,8 +643,10 @@ function FilterChip({
           : "border-transparent bg-secondary/60 text-muted-foreground hover:text-foreground"
       )}
     >
-      {children}
-    </button>
+      <button type="button" onClick={onClick} aria-pressed={active}>
+        {children}
+      </button>
+    </Chip>
   );
 }
 

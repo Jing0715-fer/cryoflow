@@ -28,6 +28,7 @@ import React from "react";
 import { Check, ChevronLeft, ChevronRight, Loader2, Maximize2, RefreshCw, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import {
   Dialog,
   DialogContent,
@@ -481,22 +482,27 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               zeroHeader ? ZERO_HEADER_TITLE : null,
             ].filter((t): t is string => t != null);
             return (
-              <button
+              <Chip
                 key={s.iter}
-                type="button"
-                role="tab"
-                aria-selected={isCurrent}
-                data-iter-chip={s.iter}
-                title={verdicts.length > 0 ? verdicts.join("\n\n") : undefined}
-                onClick={() => setViewIter(s.iter)}
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] transition-colors",
-                  isCurrent
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border/70 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )}
+                size="lg"
+                interactive
+                asChild
+                className="flex shrink-0 gap-1.5 font-mono"
               >
-                it {pad3(s.iter)}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isCurrent}
+                  data-iter-chip={s.iter}
+                  title={verdicts.length > 0 ? verdicts.join("\n\n") : undefined}
+                  onClick={() => setViewIter(s.iter)}
+                  className={
+                    isCurrent
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border/70 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  }
+                >
+                  it {pad3(s.iter)}
                 {isSeed && (
                   <span
                     className={cn(
@@ -542,7 +548,8 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                     aria-hidden="true"
                   />
                 )}
-              </button>
+                </button>
+              </Chip>
             );
           })}
           {pinnedBehind && (

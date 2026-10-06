@@ -51,6 +51,7 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Chip } from "@/components/ui/chip";
 import { toast } from "@/hooks/use-toast";
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
 import { buildProfileReportHtml } from "@/lib/report-html";
@@ -1857,48 +1858,64 @@ function MrcGallery({
           <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Round
           </span>
-          <button
-            type="button"
-            aria-pressed={filter === "final"}
-            onClick={() => setFilter("final")}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums transition-colors",
+          <Chip
+            size="lg"
+            interactive
+            asChild
+            className={
               filter === "final"
                 ? "border-teal-600 bg-teal-600 text-white shadow-sm"
                 : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
-            )}
+            }
           >
-            final{maxIter >= 0 ? ` · it${String(maxIter).padStart(3, "0")}` : ""}
-          </button>
-          {iters.map((it) => (
             <button
-              key={it}
               type="button"
-              aria-pressed={filter === it}
-              onClick={() => setFilter(it)}
-              className={cn(
-                "rounded-full border px-2.5 py-1 font-mono text-[11px] font-semibold tabular-nums transition-colors",
+              aria-pressed={filter === "final"}
+              onClick={() => setFilter("final")}
+            >
+              final{maxIter >= 0 ? ` · it${String(maxIter).padStart(3, "0")}` : ""}
+            </button>
+          </Chip>
+          {iters.map((it) => (
+            <Chip
+              key={it}
+              size="lg"
+              interactive
+              asChild
+              className={
                 filter === it
                   ? "border-teal-600 bg-teal-600 text-white shadow-sm"
                   : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
-              )}
+              }
             >
-              it{String(it).padStart(3, "0")}
-            </button>
+              <button
+                type="button"
+                aria-pressed={filter === it}
+                onClick={() => setFilter(it)}
+                className="font-mono"
+              >
+                it{String(it).padStart(3, "0")}
+              </button>
+            </Chip>
           ))}
-          <button
-            type="button"
-            aria-pressed={filter === "all"}
-            onClick={() => setFilter("all")}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors",
+          <Chip
+            size="lg"
+            interactive
+            asChild
+            className={
               filter === "all"
                 ? "border-teal-600 bg-teal-600 text-white shadow-sm"
                 : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
-            )}
+            }
           >
-            all {files.length}
-          </button>
+            <button
+              type="button"
+              aria-pressed={filter === "all"}
+              onClick={() => setFilter("all")}
+            >
+              all {files.length}
+            </button>
+          </Chip>
           <span className="ml-auto text-[10px] text-muted-foreground">
             {shown.length} of {files.length} shown
           </span>

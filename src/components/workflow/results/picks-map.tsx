@@ -28,6 +28,7 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { Chip } from "@/components/ui/chip";
 import { useChartResource } from "@/lib/use-chart-resource";
 import { cn } from "@/lib/utils";
 import { ChartErrorStrip } from "./chart-error-strip";
@@ -240,15 +241,13 @@ export function PicksMap({
           <Crosshair className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
           {fomMode ? "Pick QA — autopick FOM map" : "Picked particles"}
         </span>
-        <span className="inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground">
-          <MousePointerClick className="h-3 w-3" aria-hidden="true" />
+        <Chip size="sm" tone="muted">
+          <MousePointerClick aria-hidden="true" />
           {fomMode
             ? `${shownTotal.toLocaleString()} / ${data.total.toLocaleString()} picks ≥ threshold`
             : `${data.total.toLocaleString()} picks`}
-        </span>
-        <span className="rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground">
-          ~{perMic}/micrograph
-        </span>
+        </Chip>
+        <Chip size="sm" tone="muted">~{perMic}/micrograph</Chip>
       </div>
 
       {/* t427 — the FOM threshold scrubber: the autopick QA instrument */}

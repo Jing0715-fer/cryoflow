@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Compass, Globe2, RadioTower, Orbit, TriangleAlert, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Chip } from "@/components/ui/chip";
 import { Mat3, matVec, plotSymmetryMatrices } from "@/lib/symmetry";
 
 export interface FibBin {
@@ -477,25 +478,30 @@ export function CryoSparcAnglePlot({
           </span>
         ) : null}
         {symMats ? (
-          <button
-            type="button"
-            onClick={() => setExpandSym((v) => !v)}
-            aria-pressed={expandSym}
+          <Chip
+            size="sm"
+            interactive
+            asChild
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-medium transition-colors",
               expandSym
                 ? "border-teal-600/60 bg-teal-600/15 text-teal-700 dark:text-teal-300"
                 : "border-border/60 bg-muted/40 text-muted-foreground hover:border-teal-600/40 hover:text-teal-700 dark:hover:text-teal-300"
             )}
           >
-            <Orbit className="h-3 w-3" aria-hidden="true" />
-            {expandSym ? `${symmetry} orbit on` : `apply ${symmetry}`}
-          </button>
+            <button
+              type="button"
+              onClick={() => setExpandSym((v) => !v)}
+              aria-pressed={expandSym}
+            >
+              <Orbit aria-hidden="true" />
+              {expandSym ? `${symmetry} orbit on` : `apply ${symmetry}`}
+            </button>
+          </Chip>
         ) : null}
-        <span className="ml-auto inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground">
-          <RadioTower className="h-3 w-3" aria-hidden="true" />
+        <Chip size="sm" tone="muted" className="ml-auto">
+          <RadioTower aria-hidden="true" />
           {total.toLocaleString()} particles{iterLabel ? ` · ${iterLabel}` : ""}
-        </span>
+        </Chip>
       </div>
 
       {body}

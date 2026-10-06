@@ -25,6 +25,7 @@
 import { useMemo } from "react";
 import { Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Chip } from "@/components/ui/chip";
 import { ChartErrorStrip } from "./chart-error-strip";
 import { MrcImage } from "./mrc-image";
 import { useChartResource } from "@/lib/use-chart-resource";
@@ -124,13 +125,13 @@ export function ClassAveragesTeaser({
         <h3 className="text-sm font-semibold">
           {isMaps ? "Class maps" : "Class averages"}
         </h3>
-        <span
-          className={cn(
-            "rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+        <Chip
+          size="md"
+          className={
             populated === K
               ? "border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
               : "border-amber-600/30 bg-amber-600/10 text-amber-700 dark:text-amber-300"
-          )}
+          }
           title={
             populated === K
               ? "every class the run wrote carries particles"
@@ -138,7 +139,7 @@ export function ClassAveragesTeaser({
           }
         >
           {populated} of {K} populated
-        </span>
+        </Chip>
         {(data?.total ?? 0) > 0 && data ? (
           <span className="text-[11px] text-muted-foreground">
             {data.total.toLocaleString()} particles

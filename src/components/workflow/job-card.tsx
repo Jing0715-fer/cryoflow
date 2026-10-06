@@ -46,6 +46,7 @@ import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 import { TypeIcon } from "./icons";
 import { Badge } from "@/components/ui/badge";
+import { Chip } from "@/components/ui/chip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -176,9 +177,10 @@ function HomecomingChip({ job }: { job: JobDTO }) {
   if (rem == null || !isStayReceipt(receipt)) return null;
   const resolved = rem.remaining === 0;
   return (
-    <span
+    <Chip
+      size="xs"
       className={cn(
-        "ml-auto flex shrink-0 items-center gap-0.5 rounded-full border px-1.5 py-px text-[9px] font-medium leading-none",
+        "ml-auto gap-0.5",
         resolved
           ? "border-teal-600/30 bg-teal-600/10 text-teal-700 dark:text-teal-300"
           : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
@@ -197,7 +199,7 @@ function HomecomingChip({ job }: { job: JobDTO }) {
     >
       <Home className={cn("size-2.5 shrink-0", resolved ? "" : "opacity-70")} aria-hidden="true" />
       {resolved ? "home" : `${rem.remaining} on cluster`}
-    </span>
+    </Chip>
   );
 }
 

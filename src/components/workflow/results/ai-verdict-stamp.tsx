@@ -30,6 +30,7 @@ import { ArrowUpRight, Sparkles } from "lucide-react";
 import type { VerdictStamp } from "@/lib/ai/verdict-stamp-core";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { Chip } from "@/components/ui/chip";
 
 export interface VerdictResponse {
   jobId: string;
@@ -194,25 +195,23 @@ export function AiVerdictStamp({
           {shown.map((c) => {
             const chip = VERDICT_CHIP[c.verdict];
             return (
-              <span
+              <Chip
                 key={c.cls}
+                size="stamp"
                 title={`class ${c.cls} — ${c.verdict}${c.reason ? `: ${c.reason}` : ""}`}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] tabular-nums",
-                  chip.cls
-                )}
+                className={chip.cls}
               >
                 <span className={cn("font-semibold", c.verdict === "reject" && "line-through opacity-70")}>
                   class {c.cls}
                 </span>
                 <span>{chip.label}</span>
-              </span>
+              </Chip>
             );
           })}
           {overflow > 0 && (
-            <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground/75">
+            <Chip size="stamp" className="border-border/60 bg-muted/40 text-muted-foreground/75">
               +{overflow} more
-            </span>
+            </Chip>
           )}
         </div>
       )}

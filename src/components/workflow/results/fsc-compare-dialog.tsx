@@ -63,6 +63,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Chip } from "@/components/ui/chip";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { cn } from "@/lib/utils";
 import { FscParamsDiff } from "./fsc-params-diff";
@@ -671,16 +672,17 @@ export function FscCompareDialog({
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                   {job.type}
                 </span>
-                <span
+                <Chip
+                  size="sm"
                   className={cn(
-                    "shrink-0 rounded-full border px-1.5 py-px text-[10px] font-semibold",
+                    "shrink-0 font-semibold",
                     job.source === "postprocess"
                       ? "border-amber-600/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
                       : "border-teal-600/30 bg-teal-500/10 text-teal-700 dark:text-teal-300"
                   )}
                 >
                   {job.source === "postprocess" ? "postprocess" : "half-maps"}
-                </span>
+                </Chip>
                 <span
                   className="inline-block h-0.5 w-4 shrink-0 rounded"
                   style={{ backgroundColor: pal.stroke }}
@@ -839,50 +841,56 @@ export function FscCompareDialog({
                 const isHidden = hidden.has(id);
                 const c = curves.get(id);
                 return (
-                  <button
+                  <Chip
                     key={id}
-                    type="button"
-                    data-testid={`fsc-compare-legend-${id}`}
-                    aria-pressed={!isHidden}
-                    onClick={() =>
-                      setHidden((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(id)) next.delete(id);
-                        else next.add(id);
-                        return next;
-                      })
-                    }
-                    onMouseEnter={() => setHoverId(id)}
-                    onMouseLeave={() => setHoverId((h) => (h === id ? null : h))}
-                    onFocus={() => setHoverId(id)}
-                    onBlur={() => setHoverId((h) => (h === id ? null : h))}
-                    title={
-                      c?.sourceFile
-                        ? `${c.sourceFile} — click to ${isHidden ? "show" : "hide"} this curve`
-                        : `click to ${isHidden ? "show" : "hide"} this curve`
-                    }
-                    className={cn(
-                      "inline-flex max-w-56 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                      isHidden
-                        ? "border-muted-foreground/25 bg-muted text-muted-foreground/60 line-through"
-                        : "border-border bg-background hover:border-primary/40",
-                      highlightId === id &&
-                        !isHidden &&
-                        "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
-                    )}
+                    size="md"
+                    interactive
+                    asChild
+                    className="max-w-56 gap-1.5"
                   >
-                    <span
-                      className="inline-block h-0.5 w-3.5 shrink-0 rounded"
-                      style={{ backgroundColor: isHidden ? undefined : pal.stroke }}
-                      aria-hidden="true"
-                    />
-                    <span className="truncate">{job.name}</span>
-                    {c?.resolutionAt143 != null && (
-                      <span className="shrink-0 font-mono tabular-nums text-[10px] text-muted-foreground">
-                        {c.resolutionAt143.toFixed(2)} Å
-                      </span>
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      data-testid={`fsc-compare-legend-${id}`}
+                      aria-pressed={!isHidden}
+                      onClick={() =>
+                        setHidden((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                          return next;
+                        })
+                      }
+                      onMouseEnter={() => setHoverId(id)}
+                      onMouseLeave={() => setHoverId((h) => (h === id ? null : h))}
+                      onFocus={() => setHoverId(id)}
+                      onBlur={() => setHoverId((h) => (h === id ? null : h))}
+                      title={
+                        c?.sourceFile
+                          ? `${c.sourceFile} — click to ${isHidden ? "show" : "hide"} this curve`
+                          : `click to ${isHidden ? "show" : "hide"} this curve`
+                      }
+                      className={cn(
+                        isHidden
+                          ? "border-muted-foreground/25 bg-muted text-muted-foreground/60 line-through"
+                          : "border-border bg-background hover:border-primary/40",
+                        highlightId === id &&
+                          !isHidden &&
+                          "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+                      )}
+                    >
+                      <span
+                        className="inline-block h-0.5 w-3.5 shrink-0 rounded"
+                        style={{ backgroundColor: isHidden ? undefined : pal.stroke }}
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{job.name}</span>
+                      {c?.resolutionAt143 != null && (
+                        <span className="shrink-0 font-mono tabular-nums text-[10px] text-muted-foreground">
+                          {c.resolutionAt143.toFixed(2)} Å
+                        </span>
+                      )}
+                    </button>
+                  </Chip>
                 );
               })}
             </div>

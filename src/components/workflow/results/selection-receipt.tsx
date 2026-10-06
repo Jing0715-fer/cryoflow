@@ -36,6 +36,7 @@ import { ArrowUpRight, ClipboardCheck, Sparkles } from "lucide-react";
 import type { SelectionReceipt } from "@/lib/selection-receipt";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { Chip } from "@/components/ui/chip";
 
 export interface ReceiptResponse {
   jobId: string;
@@ -181,19 +182,20 @@ export function SelectionReceipt({
         <h4 className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-foreground/80">
           <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
           Selection receipt
-          <span
-            className={cn(
-              "rounded-full border px-1.5 py-px text-[9px] font-medium uppercase tracking-wide",
-              chip.cls
-            )}
+          <Chip
+            size="xs"
+            className={cn("uppercase tracking-wide", chip.cls)}
           >
             {chip.label}
-          </span>
+          </Chip>
           {(receipt.birth || provenance?.kind === "birth") && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-violet-600/30 bg-violet-600/[0.08] px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-violet-700 dark:text-violet-300">
+            <Chip
+              size="xs"
+              className="border-violet-600/30 bg-violet-600/[0.08] uppercase tracking-wide text-violet-700 dark:text-violet-300"
+            >
               <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
               born
-            </span>
+            </Chip>
           )}
         </h4>
         {(receipt.keptClasses != null && receipt.totalClasses != null) && (
@@ -238,24 +240,24 @@ export function SelectionReceipt({
       {classes.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-1">
           {shown.map((c) => (
-            <span
+            <Chip
               key={c.cls}
+              size="stamp"
               title={`class ${c.cls} — ${nfmt(c.count)} particles ${c.kept ? "kept" : "pruned"}`}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] tabular-nums",
+              className={
                 c.kept
                   ? "border-emerald-600/30 bg-emerald-600/[0.08] text-emerald-800 dark:text-emerald-300"
                   : "border-border/60 bg-muted/40 text-muted-foreground/75"
-              )}
+              }
             >
               <span className="font-semibold">class {c.cls}</span>
               <span className={c.kept ? "" : "line-through opacity-70"}>{nfmt(c.count)}</span>
-            </span>
+            </Chip>
           ))}
           {overflow > 0 && (
-            <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground/75">
+            <Chip size="stamp" className="border-border/60 bg-muted/40 text-muted-foreground/75">
               +{overflow} more
-            </span>
+            </Chip>
           )}
         </div>
       )}

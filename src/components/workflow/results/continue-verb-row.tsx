@@ -26,6 +26,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Play, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import type { JobDTO } from "@/lib/types";
 import { useWorkflowStore } from "@/lib/store";
 import {
@@ -173,20 +174,25 @@ export function ContinueVerbRow({
           {options.map((n) => {
             const active = n === chosen;
             return (
-              <button
+              <Chip
                 key={n}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setMore(n)}
+                size="md"
+                interactive
+                asChild
                 className={
-                  "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors " +
-                  (active
+                  active
                     ? "border-primary/50 bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground")
+                    : "text-muted-foreground hover:text-foreground"
                 }
               >
-                +{n}
-              </button>
+                <button
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setMore(n)}
+                >
+                  +{n}
+                </button>
+              </Chip>
             );
           })}
         </div>

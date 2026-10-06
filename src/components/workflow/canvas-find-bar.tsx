@@ -58,6 +58,7 @@
 import * as React from "react";
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
 import { JOB_CATEGORIES, jobType } from "@/lib/workflow";
 import type { JobDTO, JobStatus } from "@/lib/types";
@@ -435,47 +436,53 @@ export function CanvasFindBar() {
           const active = findStatus === value;
           const chip = STATUS_CHIP[value];
           return (
-            <button
+            <Chip
               key={value}
-              type="button"
-              data-testid={`canvas-find-status-${value}`}
-              data-find-chip=""
-              data-chip-set={chipSetKeys.has(`status:${value}`) ? "" : undefined}
-              style={{ "--find-cd": `${STATUS_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
-              aria-pressed={active}
-              title={active ? `Clear the ${label.toLowerCase()} filter` : `Only ${label.toLowerCase()} jobs`}
-              onClick={() => {
-                const next = active ? "all" : value;
-                setFindStatus(next);
-                // t585 — the settle is an ACTIVATION answer and a POST-ARM
-                // one: a click inside the entrance window is answered by
-                // color alone, and the disarm itself never plays anything
-                // (a rule keyed only on aria-pressed would ghost-pop every
-                // still-active chip when data-find-enter is removed — the
-                // rule cannot tell the disarm from a click). The key set
-                // starts empty every open, so only genuine post-arm
-                // activations carry a voice.
-                if (!enterArmed && next !== "all") {
-                  setChipSetKeys((prev) => new Set(prev).add(`status:${value}`));
-                }
-              }}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all motion-safe:active:scale-[0.96]",
-                active
-                  ? chip.active
-                  : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
+              size="md"
+              interactive
+              asChild
+              className="flex gap-1.5"
             >
-              <span
-                aria-hidden="true"
+              <button
+                type="button"
+                data-testid={`canvas-find-status-${value}`}
+                data-find-chip=""
+                data-chip-set={chipSetKeys.has(`status:${value}`) ? "" : undefined}
+                style={{ "--find-cd": `${STATUS_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
+                aria-pressed={active}
+                title={active ? `Clear the ${label.toLowerCase()} filter` : `Only ${label.toLowerCase()} jobs`}
+                onClick={() => {
+                  const next = active ? "all" : value;
+                  setFindStatus(next);
+                  // t585 — the settle is an ACTIVATION answer and a POST-ARM
+                  // one: a click inside the entrance window is answered by
+                  // color alone, and the disarm itself never plays anything
+                  // (a rule keyed only on aria-pressed would ghost-pop every
+                  // still-active chip when data-find-enter is removed — the
+                  // rule cannot tell the disarm from a click). The key set
+                  // starts empty every open, so only genuine post-arm
+                  // activations carry a voice.
+                  if (!enterArmed && next !== "all") {
+                    setChipSetKeys((prev) => new Set(prev).add(`status:${value}`));
+                  }
+                }}
                 className={cn(
-                  "size-1.5 rounded-full",
-                  chip.dot,
-                  value === "running" && active && "animate-soft-pulse",
+                  active
+                    ? chip.active
+                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                 )}
-              />
-              {label}
-            </button>
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    chip.dot,
+                    value === "running" && active && "animate-soft-pulse",
+                  )}
+                />
+                {label}
+              </button>
+            </Chip>
           );
         })}
       </div>
@@ -497,34 +504,39 @@ export function CanvasFindBar() {
           {presentCategories.map(({ key, label, hint }, chipIdx) => {
             const active = findCategory === key;
             return (
-              <button
+              <Chip
                 key={key}
-                type="button"
-                data-testid={`canvas-find-type-${key}`}
-                data-find-chip=""
-                data-chip-set={chipSetKeys.has(`type:${key}`) ? "" : undefined}
-                style={{ "--find-cd": `${TYPE_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
-                aria-pressed={active}
-                title={active ? `Clear the ${label} filter` : `Only ${hint.toLowerCase()}`}
-                onClick={() => {
-                  const next = active ? "all" : key;
-                  setFindCategory(next);
-                  // t585 — same voice as the status chips: activation
-                  // answers post-arm only; the release (next === "all")
-                  // is quiet (dismissive actions get no ceremony).
-                  if (!enterArmed && next !== "all") {
-                    setChipSetKeys((prev) => new Set(prev).add(`type:${key}`));
-                  }
-                }}
-                className={cn(
-                  "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all motion-safe:active:scale-[0.96]",
+                size="md"
+                interactive
+                asChild
+                className={
                   active
                     ? "border-primary/60 bg-primary/10 text-foreground"
-                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                )}
+                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                }
               >
-                {label}
-              </button>
+                <button
+                  type="button"
+                  data-testid={`canvas-find-type-${key}`}
+                  data-find-chip=""
+                  data-chip-set={chipSetKeys.has(`type:${key}`) ? "" : undefined}
+                  style={{ "--find-cd": `${TYPE_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
+                  aria-pressed={active}
+                  title={active ? `Clear the ${label} filter` : `Only ${hint.toLowerCase()}`}
+                  onClick={() => {
+                    const next = active ? "all" : key;
+                    setFindCategory(next);
+                    // t585 — same voice as the status chips: activation
+                    // answers post-arm only; the release (next === "all")
+                    // is quiet (dismissive actions get no ceremony).
+                    if (!enterArmed && next !== "all") {
+                      setChipSetKeys((prev) => new Set(prev).add(`type:${key}`));
+                    }
+                  }}
+                >
+                  {label}
+                </button>
+              </Chip>
             );
           })}
         </div>

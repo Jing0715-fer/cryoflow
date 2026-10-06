@@ -15,6 +15,7 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2, Compass, Flame, RadioTower, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Chip } from "@/components/ui/chip";
 import { useChartResource } from "@/lib/use-chart-resource";
 import { angDistRenderable, angDistRows, type AngDistResponse } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
@@ -128,10 +129,10 @@ export function AngularDistributionChart({
             live
           </span>
         ) : null}
-        <span className="inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground">
-          <RadioTower className="h-3 w-3" aria-hidden="true" />
+        <Chip size="sm" tone="muted">
+          <RadioTower aria-hidden="true" />
           {total.toLocaleString()} particles · {iterLabel}
-        </span>
+        </Chip>
         <ChartExportButtons
           name="Orientation distribution"
           getRows={() => angDistRows(data)}

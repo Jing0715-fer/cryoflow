@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Chip } from "@/components/ui/chip";
 import { cn } from "@/lib/utils";
 import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
 import { parseBrowserSeed, type BrowserMode } from "@/lib/browser-seed";
@@ -700,21 +701,26 @@ export function PathBrowserDialog({
             )}
             {/* one-click quick select: dose-weighted motioncor2 outputs */}
             {!singleFile && (
-              <button
-                type="button"
-                onClick={() => quickSelect("DW.mrc")}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+              <Chip
+                size="lg"
+                interactive
+                asChild
+                className={
                   needle && needle === "dw.mrc"
                     ? "border-primary/60 bg-primary/10 text-primary"
                     : "border-primary/30 bg-primary/5 text-primary/90 hover:border-primary/50 hover:bg-primary/10"
-                )}
-                title="Select every file containing DW.mrc (dose-weighted) in this listing"
+                }
               >
-                <Zap className="h-3 w-3" aria-hidden="true" />
-                DW.mrc
-                <span className="font-mono text-[10px] opacity-70">({countByNeedle("DW.mrc")})</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => quickSelect("DW.mrc")}
+                  title="Select every file containing DW.mrc (dose-weighted) in this listing"
+                >
+                  <Zap aria-hidden="true" />
+                  DW.mrc
+                  <span className="font-mono text-[10px] opacity-70">({countByNeedle("DW.mrc")})</span>
+                </button>
+              </Chip>
             )}
           </div>
         )}

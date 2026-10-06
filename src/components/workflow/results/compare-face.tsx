@@ -28,6 +28,7 @@ import { TriangleAlert } from "lucide-react";
 import type { VerdictWords } from "@/lib/class-compare";
 import type { LensSpec, Verdict, Delta } from "@/lib/paired-compare";
 import { fmtDelta } from "@/lib/paired-compare";
+import { Chip } from "@/components/ui/chip";
 
 /** The lens switcher — one chip per lens, the active one filled. */
 export function LensChips<R>({
@@ -45,29 +46,34 @@ export function LensChips<R>({
       {lenses.map((l) => {
         const active = l.key === activeKey;
         return (
-          <button
+          <Chip
             key={l.key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onPick(l.key)}
+            size="lg"
+            interactive
+            asChild
             className={
-              "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors " +
-              (active
+              active
                 ? "border-primary/50 bg-primary/10 text-primary"
-                : "text-muted-foreground hover:text-foreground")
-            }
-            title={
-              l.higherIsBetter
-                ? `${l.label} — higher is better`
-                : `${l.label} — lower is better`
+                : "text-muted-foreground hover:text-foreground"
             }
           >
-            {l.label}
-            <span className="ml-1 font-normal opacity-70">
-              {l.higherIsBetter ? "↑ better" : "↓ better"}
-            </span>
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onPick(l.key)}
+              title={
+                l.higherIsBetter
+                  ? `${l.label} — higher is better`
+                  : `${l.label} — lower is better`
+              }
+            >
+              {l.label}
+              <span className="ml-1 font-normal opacity-70">
+                {l.higherIsBetter ? "↑ better" : "↓ better"}
+              </span>
+            </button>
+          </Chip>
         );
       })}
     </div>

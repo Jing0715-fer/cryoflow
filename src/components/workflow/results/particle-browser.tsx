@@ -34,6 +34,7 @@ import {
   DialogTitle,
   onEscapeClose,
 } from "@/components/ui/dialog";
+import { Chip } from "@/components/ui/chip";
 import { useChartResource } from "@/lib/use-chart-resource";
 import { cn } from "@/lib/utils";
 import { ChartErrorStrip } from "./chart-error-strip";
@@ -92,13 +93,12 @@ const fomTone = (fom: number) =>
   fom >= 0.08 ? "text-emerald-600 dark:text-emerald-400" : fom >= 0.05 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400";
 
 function chip(children: React.ReactNode, title?: string) {
+  // t645 — the local factory now defers to the chip primitive; the
+  // hand-written bare-muted skeleton it used to own is retired.
   return (
-    <span
-      title={title}
-      className="rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground"
-    >
+    <Chip size="sm" tone="muted" title={title}>
       {children}
-    </span>
+    </Chip>
   );
 }
 
@@ -187,9 +187,9 @@ function GroupSection({
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {chip(<>{group.count.toLocaleString()} particles</>)}
             {group.meanFom != null ? (
-              <span className={cn("rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums", fomTone(group.meanFom))} title="Mean CTF figure of merit">
+              <Chip size="sm" tone="muted" className={fomTone(group.meanFom)} title="Mean CTF figure of merit">
                 FOM {group.meanFom.toFixed(3)}
-              </span>
+              </Chip>
             ) : null}
             {group.worstRes != null
               ? chip(<>fits to {group.worstRes.toFixed(1)} Å</>, "Best resolution the CTF model still fits on this micrograph")

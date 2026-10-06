@@ -49,6 +49,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { Chip } from "@/components/ui/chip";
 import { useChartResource } from "@/lib/use-chart-resource";
 import { fscShells, fscRenderable, fscRows, type FscResponse } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
@@ -168,25 +169,30 @@ export function FscChart({
           </button>
         )}
         {hasMasked && (
-          <button
-            type="button"
-            onClick={() => setShowMasked((v) => !v)}
-            aria-pressed={showMasked}
-            title={
-              showMasked
-                ? "Hide the raw masked-maps FSC (before phase-randomization correction)"
-                : "Show the raw masked-maps FSC — its gap to the corrected curve is the mask-induced correlation boost"
-            }
+          <Chip
+            size="md"
+            interactive
+            asChild
             className={
-              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors " +
-              (showMasked
+              showMasked
                 ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
-                : "border-muted-foreground/25 bg-muted text-muted-foreground hover:border-rose-500/40 hover:text-rose-700 dark:hover:text-rose-300")
+                : "border-muted-foreground/25 bg-muted text-muted-foreground hover:border-rose-500/40 hover:text-rose-700 dark:hover:text-rose-300"
             }
           >
-            <Layers className="h-3 w-3" aria-hidden="true" />
-            masked (raw)
-          </button>
+            <button
+              type="button"
+              onClick={() => setShowMasked((v) => !v)}
+              aria-pressed={showMasked}
+              title={
+                showMasked
+                  ? "Hide the raw masked-maps FSC (before phase-randomization correction)"
+                  : "Show the raw masked-maps FSC — its gap to the corrected curve is the mask-induced correlation boost"
+              }
+            >
+              <Layers aria-hidden="true" />
+              masked (raw)
+            </button>
+          </Chip>
         )}
         {running && (
           <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">

@@ -30,6 +30,7 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Chip } from "@/components/ui/chip";
 import { MrcImage } from "./mrc-image";
 
 interface MicrographEntry {
@@ -79,13 +80,15 @@ function formatBytes(bytes: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function Chip({ label, value }: { label: string; value: string | null }) {
+function StatChip({ label, value }: { label: string; value: string | null }) {
   if (value == null) return null;
+  // t645 — renamed from the colliding local "Chip" and rebased on the
+  // primitive: stamp skeleton, muted/40 wash kept as a site delta.
   return (
-    <span className="inline-flex items-baseline gap-1 rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px] tabular-nums">
+    <Chip size="stamp" className="bg-muted/40">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-semibold text-foreground/80">{value}</span>
-    </span>
+    </Chip>
   );
 }
 
@@ -185,18 +188,19 @@ export function ImportGallery({
           <Aperture className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
           Source micrographs
         </span>
-        <span className="inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground">
-          <Grid3x3 className="h-3 w-3" aria-hidden="true" />
+        <Chip size="sm" tone="muted">
+          <Grid3x3 aria-hidden="true" />
           {data.total}
-        </span>
+        </Chip>
         {isCluster && data.cluster ? (
-          <span
-            className="inline-flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-px text-[10px] font-medium text-violet-700 dark:text-violet-300"
+          <Chip
+            size="sm"
+            className="rounded border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300"
             title={`${data.cluster.connectionName} — the files stay there (zero upload); thumbnails travel over SSH`}
           >
-            <Server className="h-3 w-3" aria-hidden="true" />
+            <Server aria-hidden="true" />
             on {data.cluster.host} · sample of {data.micrographs.length}
-          </span>
+          </Chip>
         ) : null}
         {isCluster ? (
           <button
@@ -211,10 +215,10 @@ export function ImportGallery({
           </button>
         ) : null}
         <div className="ml-auto flex flex-wrap gap-1">
-          <Chip label="pixel" value={data.pixelSize != null ? `${data.pixelSize} Å` : null} />
-          <Chip label="HT" value={data.voltage != null ? `${data.voltage} kV` : null} />
-          <Chip label="Cs" value={data.sphericalAberration != null ? `${data.sphericalAberration} mm` : null} />
-          <Chip label="Q0" value={data.amplitudeContrast != null ? `${data.amplitudeContrast}` : null} />
+          <StatChip label="pixel" value={data.pixelSize != null ? `${data.pixelSize} Å` : null} />
+          <StatChip label="HT" value={data.voltage != null ? `${data.voltage} kV` : null} />
+          <StatChip label="Cs" value={data.sphericalAberration != null ? `${data.sphericalAberration} mm` : null} />
+          <StatChip label="Q0" value={data.amplitudeContrast != null ? `${data.amplitudeContrast}` : null} />
         </div>
       </div>
 
