@@ -9070,3 +9070,25 @@ Stage Summary:
 - 「对照实验是机制定谳的唯一捷径」：diag2 有/无页面加载的一字之差（90s 持守 137 vs 1s 内治愈成 exit 0+sync）——一行对照把「竞速/翻转/重写」三假设收敛成「页面加载触发 reconcile」一个机制。产物 t618-diag2.mjs 入档为教案现场
 - 「休眠套件的化石不扫」：94 个文件的地板引用一眼可改、无法验证——改了等于给仓里埋 94 个「没跑过的改动」。立案 codemod 车道（t408 的 migrate-roster-floor.py 是先例：脚本化+全量复跑），本窗只动交接点名的两套
 - 产出：resume 家族五套 ALL PASS（t270 两连+t271+t272+t294+t295）+ t278/t279 地板修补 + t618-diag/diag2 两教案现场 + 世界指针两次归位 + t617 witness 54/54 复跑（换服后）+ eslint 0；下窗入口：①休眠套件地板 codemod 车道（~94 文件，t408 脚本化先例）②judge 风暴活体半场（等稳定夜）③样式候选（roster 视口诚实性侦察/search-mode 级联见证）④build 日被动重测（第 27 窗否决）⑤t471 WSL-bridge（照实挂）、t276（门控）
+
+---
+Task ID: 619 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 11:54 cron, Job 362852, Task 572 系第 38 次派单)
+Task: t618 下窗入口①兑付——休眠套件地板 codemod 车道（t408 谱系第二部）：~94 文件的 15 系地板化石脚本化迁移至正典 12 卡世界地板，两档诚实值（total 12 / completed 11），抽样复跑活体验证。产品零改动（本窗全部变化在 harness/测试侧）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 618（派单摘要说 584——滞后第 N+65 次兑付）；HEAD c7cfa94 树净；available 1185MB < 3.5GB 非 build 日（第 28 窗被动否决）；dev 世界健康（next-server pid 22025 @3000，curl 200，无 chrome 孤儿）。
+- [化石全量归类] rg 全集 126 行（125 行 ASCII `>= 15` + t291:267 的 Unicode `≥15`）；形态五类全录：total 地板（roster0/roster/jobs*.length）、completed 计数地板（t241-249 healed chain 系）、消息短语（identity 15 / canonical 15 / restored to 15 / still 15 / roster 15 / at 15 jobs / ≥ 15 / (>=15 completed)）、跨行 must（t241 代码行+消息行各自成行）、以及四类**排除定谳**：①seed/restore 工具自世界 pin（t313 demo-chain-resurrect、qa-t531 old-world-seed——seed 15 卡就该 pin 15，迁了工具就对自己撒谎）；②t141 betaSec clock 秒数地板（非 roster，词滤自然排除）；③t291 像素计数（同上）；④t278/t279 教义注释行（词滤+注释滤双排除）；另 `=== 15` 全域不碰（t599 wire counts ×4、t507 timeline rows ×3——t408 已把 roster 的 === 15 地板化，剩的是别的世界的 pin）。
+- [世界实测] API 活体：**12 卡 / 11 completed** → 两档地板合同：total `>= 12`（t278/t618 先例逐字背书）；completed `>= 11`（12 卡减 1 活卡=今天正典世界诚实支撑的最小值——地板是「今天成立的世界下限」，不是愿望值）。
+- [codemod 落地] `scripts/migrate-roster-floor-12.py`（t408 migrate-roster-floor.py 直系第二部）：行级精度过滤（roster 词四选一 roster/identity/intact/restored/healed + 非注释行 + 工具排除名单）、两档 floor_val（completed→11 其余→12）、消息短语受控枚举、dry-run/APPLIED 双模式、跑后自审计（剩余 >=15 清单打 EXCLUDED-TOOL/CHECK 标签）。**APPLIED: 77 文件 118 行迁移；8 行诚实保留（3 tool + 2 注释 + 1 clock + 2 像素）= 126 全集账目闭合**。
+- [验证四连] ①剩余审计零意外（rg 全量 8 处保留全命中预期名单，`=== 15` 7 处未触碰）；②迁移行裸 15 零残留（git diff + 行 grep 空）；③node --check 77 文件全过；④eslint 77 文件 0。
+- [抽样复跑两档活体] **t252-write-gates ALL PASS**（total 档贴地 12/12：roster identity 12、door probes 后 still 12、no-ops 后 still 12——write 门全绿，休眠套件复活首例见证）；t241-run-echo 16/18（completed 档地板 `>= 11` 贴地成立 11/11 ✓；两 fail 为该套件**非地板时代化石**：palette 行文案期望 t372 世界名 + console 34 条噪音——休眠深度照实立案，不属机械车道范围，不扩大修车）。
+- [agent-browser QA 摸底] 专港 9336 + 清 profile（t581/t616 教义；google-chrome 不存在的学费一笔——正典路径 /home/z/.agent-browser/browsers/chrome-153.0.8010.52/chrome）；navigate + eval 三连：title 正确、**12 张 data-job 卡渲染**、console 0 errors；📸 .qa-logs/shots/t585-home-12jobs.png（.qa-logs ignored，不入 git）；断连+清场，无孤儿无占港。
+- [未做与理由] build 日（第 28 窗被动否决）；judge 风暴活体半场（等稳定夜）；t241 的 palette/console 两处非地板化石（休眠深度记录，复活该套件时另立案）；其余休眠套件的逐套复活（车道目的已达——地板引用反映正典世界，复活路径畅通；逐套复活是未来独立车道）；roster 视口诚实性侦察 / search-mode 级联见证（样式候选顺延）；stop 语义产品级重设计（t618 立案的 feat 车道）。
+
+Stage Summary:
+- 「地板是今天成立的世界下限，不是愿望值」：15 系化石的病根不是数字错而是世界换了——正典 12 卡世界 honestly 支撑 total >= 12 与 completed >= 11 两档；机械迁移的诚实性不在「把 15 改小」而在「先活体实测世界（12/11），再按语义分档」——同一表面两种语义（total vs completed）两档地板，一刀切 12 会让 completed 行在今天就 fail（11<12）
+- 「工具的自世界 pin 不是化石」：t313 seed 15 卡链、qa-t531 seed 旧世界——它们的 `>= 15` 说的是「我造的世界是我说的大小」，迁 12 等于让工具对自己撒谎；机械车道的排除名单是脚本的诚实清单，不是迁移的失败清单
+- 「codemod 的可验证性 = 脚本化 + 账目闭合 + 活体抽样」：126 全集 = 118 迁移 + 8 保留逐行点名；剩余审计零意外 + 裸 15 零残留 + node --check/eslint 全过 + 两档各一活体复跑（t252 ALL PASS / t241 地板成立）——t408 先例的「脚本化+全量复跑」在 82 文件尺度上的可行版本：脚本入档可复跑，抽样证地板，逐套复活另立案
+- 「休眠套件的复活揭示休眠深度」：t252 一档迁移即全绿（浅休眠——只有地板化石）；t241 地板成立但另挂两处（深休眠——palette 文案/console 是别的时代的词）——地板迁移让「还有几层化石」第一次可测，这正是 codemod 车道为复活路径清障的意义
+- 产出：migrate-roster-floor-12.py（t408 谱系第二部）+ 77 文件 118 行地板迁移（两档 12/11）+ 8 行诚实保留审计 + t252 ALL PASS / t241 地板活体 + agent-browser QA 全绿（12 卡渲染、console 0）+ 📸 一张；eslint 0、node --check 全过；下窗入口：①judge 风暴活体半场（等稳定夜）②样式候选（roster 视口诚实性侦察 / search-mode 级联见证）③休眠套件逐套复活车道（t252 浅休眠已证可达；t241 深休眠两层）④build 日被动重测（第 28 窗否决）⑤stop 语义产品级重设计（feat 车道，t618 立案）
