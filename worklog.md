@@ -9586,3 +9586,24 @@ Stage Summary:
 - 「boot 铸键是存储 intent 律的隐形违例」：restore effect 的 setGeo + persist-on-change 的合谋让默认几何冒充用户选择；persist-on-change 还顺带 ~60 次/秒的拖拽期写。修法升格为「一次手势一次回执」——effect 只留镜像，写入住进手势终点。
 - 「遮挡的门要能从房间里看见」：minimap 遮挡区是 session-local by design 的合法代价，但 M 门此前只活在 shortcuts dialog 与 zoom dock title 里；kbd chip 把契约贴到门所在的房间，t637 加场的「契约要看得见」教义再下一城。
 - 下窗入口：①EMPIAR 12-job 轻量重建（整窗工程，t637 入口③仍未动）②judge 风暴（等稳定夜）③t156/t157 已兑现销账，勿再立项 ④样式/功能车道继续（Task 13 遗留清单与 Topaz wrapper 均为化石，勿考古）⑤build 日三车道（available ≥ 3.5GB 才开，本窗 1211MB 第 48 窗否决）。
+
+---
+Task ID: 639 收官
+Agent: main (cron window)
+Task: EMPIAR 12-job 轻量重建兑现（t635→t638 五窗悬置的整窗工程）——真字节锚定的新世界一等公民落地，active 指针零风险
+
+Work Log:
+- [QA 开局] t252 ALL PASS + t637-ui-probe 6/0；server 新锅（PID 23243，RSS 2315MB）；build 日第 49 窗否决（available 1173MB）。
+- [考古] EMPIAR 12-job 正典账本判定**不可恢复**（chips All 12-11-1 + grid All 6-1-5 的精确构成随 t372 时代湮灭）；/data2 staging 死、但 t527 真数据老家幸存（/home/z/empiar-10017，10 mrc + 10 coord，641MB）；t372 链 roster 9-10 job 可考。
+- [裁决] 重建「后继世界」而非复刻尸骸：同计数合同（12 jobs = 11 completed + 1 idle frontier），t639 组成 = 12 段 SPA 链；**无 motioncorr**——档案 Falcon 帧已是校正后 micrograph，校正段会是假科学，第 12 席给 maskcreate（postprocess 的真实上游）。
+- [关键架构判决] **Prisma 直写（t635 法）**：jobs POST 把一切 create 派给 active 项目（t628）+ POST /api/projects 硬编码 makeActive=true——API 车道播种必绑架指针、动 t252/t637 钉死的 t635 世界合同；直写 DB 显式 projectId 按构造零风险。注册表（projects.json）就地补条目、active 键原样携带。
+- [实现] qa-t639-empiar12-seed.mjs：project/workspace/12 job/15 边全 upsert（幂等）；硬 id 尾 8 = empiar01..12 → workdir 惯例 import_empiar01；import workdir 硬链接 10 张真 mics（t528 零盘法）+ engine-state run record；postprocess = idle 前哨（诚实的下一步）。判例 ×2：①Edge 表无端口列——API 的 fromPort/toPort 是创建时校验非存储，画布从 specs 现推；②schema @@unique([fromJobId,toJobId]) 不容双线——half1+half2 双线不可表达，一行足矣。
+- [活体验收] t639-ui-probe（9 断言）：三项目注册（Tutorial + demo + EMPIAR 10017）/ 切项目后 canvas 12 nodes / roster 12 rows / chips 带 12-11-1 计数 / idle 前哨在板 / 指针回家 / console 0。判例 ×2：①原生 fetch 切指针不动页面 store——store 的 switchProject = POST + load()，reload 重放 load()；②探针 A0 自愈开头——上一轮死在半路的指针遗留永不能毒死自己的重跑（实战首跑即中招：断言 demo 遇 EMPIAR）。
+- [回归] t252 ALL PASS + t637-ui-probe 6/0（指针复原后的 demo 世界原封）；📸×2（t639-empiar-dashboard / t639-home-restored）。
+
+Stage Summary:
+- 「后继优于复刻」：正典账本湮灭后，复刻尸骸（猜 12 个 job 名）不如诚实立新（同计数、真组成、真字节锚）——考古的结论写进 seeder 头注释，让下窗读到判决而非谜团
+- 「直写是指针的免疫」：API 车道的世界播种天然绑架 active（两层硬编码）；Prisma 直写 + 注册表就地补条 = t635 合同按构造不动。 seeding 的车道选择不是品味是合同
+- 「schema 即语法」：端口不入库（画布现推）、双线不可存（@@unique）——世界的 DNA 在 schema 与 specs 里，seeder 只是它们的誊写员
+- 「探针要能自愈」：A0 先回家再断言——探针自己的死尸不能毒死重跑；t523 律（轮询勿盲读）+ reload 重放 load() 是切项目验收的完整姿势
+- 下窗入口：①EMPIAR 世界已立——后继车道：remote/cluster 作业演练床（mock cluster P1 对接）或 t372 全链评估（需真 RELION build，等 build 日）②judge 风暴（等稳定夜）③样式/功能车道继续 ④build 日三车道（available ≥ 3.5GB，本窗第 49 窗否决）⑤qa-t639 seeder 幂等可重跑，任何清场后一条命令复活 EMPIAR 世界
