@@ -9746,3 +9746,29 @@ Stage Summary:
 - 「Slot 合并让 asChild 成为原语的舞台出口」：button 场景不需要第二套 API——Chip 的骨架经 Slot 落在 button 上，data-testid/aria-pressed/onClick 全部留在现场，data-slot="chip" 同时成为探针的活体锚点；16 枚 chips 的 computed style 三锚（radius/type/border）是统一的实打实证据
 - 「infinity 也要断言量级」：rounded-full 在 v4 是 calc(infinity*1px)，浏览器报 2^25px——探针断言「是什么」不如断言「属于什么量级」；oracle 要懂渲染引擎的方言，正如套件要懂世界的方言
 - 产出：ui/chip.tsx 原语 + 16 文件 28 现场扫荡 + import-gallery StatChip 撞名解 + t645 探针（20/0）+ 📸×1（t645-chip-vocab.png）；下窗入口：①语义色 token 化（本窗立案，rose/red/destructive 三归一 + dark: 变体退役 ~470 处，样式车道最大单）②downloadBlob 双子 + fmtBytes ×6 收编（C8 搭头，半小时级）③star-table 排序/导出 + import-gallery 多选 + palette fuzzy（B5 功能补差）④judge 风暴（等稳定夜）⑤build 日三车道（available ≥ 3.5GB，本窗第 55 窗否决）⑥演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 646 收官
+Agent: main (cron window, Job 362852)
+Task: t645 入口①兑现——语义色 token 化：--danger/--success/--warning/--running 四 token 立法 + destructive 色相归一（保 Task 175 亮度律）+ lib/status-style.ts 单源 + census 门控 codemod 121 处实扫 + t646 探针 21/0 + downloadBlob 父体收编十现场
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 645 收官（派单又称 Task 13——第 N+88 次陈旧模板语）；树净 HEAD 379d2da；available 999MB 非 build 日（第 56 窗否决）；server 200/29ms。
+- [QA 四绿基线] t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS——世界健康后才动工程。
+- [侦察定谳] rose 401 处/40 文件 + red 54 处 + destructive（shadcn 契约）同表 danger 语义、三种色相；rose 兼任 references2d 类目身份与 FSC 曲线系列色（非 danger，须豁免）；minimap hex map（failed=#f43f5e）是 SVG 正典。安全模式量化：无前缀 ink pair 78 + softs 26 + solids 21 + border 1 = 126 SAFE，85 处 tail（always-dark 面板 unpaired ink 71 + hover 亮度梯 9 + 渐变 3 + off-mode solids 5）+ 18 处 palette 名串。
+- [立法] globals.css 四 token（:root 600s / .dark 400s，值逐字取自 node_modules/tailwindcss/theme.css 的 oklch 调色板）+ @theme inline 映射；**--destructive 两主题同钉 rose-600**——色相归一而 Task 175 的亮度判词（dark 曾骑 red-400 致白字 2.7:1 崩塌）分毫未动。
+- [class 层立法] lib/status-style.ts：STATUS_HEX（SVG 孪生，minimap 逐字迁移）+ STATUS_TEXT/DOT/SOFT 三 map（token 语汇）+ statusWord + isSlurmQueued 迁居（job-card 再出口，五 importer 零 churn）；minimap 改读 STATUS_HEX[statusWord(job)]。迁移自纠一处失真：误给 isSlurmQueued 加 COMPLETING 分支——原文只查 PENDING，迁移必须逐字节保真。
+- [codemod] census（只读分桶器）+ codemod（--dry 先行）双脚本；前缀陷阱三防：①INK_PAIR 只收无前缀 base pair（hover:text-rose-700 dark:hover:text-rose-200 是亮度梯，折叠即杀 affordance——9 处留在 tail）②bg/border/ring 替换保前缀（dark:border-rose-500/60 → dark:border-danger/60）③内容级豁免（header 类目三元、fsc-chart masked 图例、fsc-compare 整文件系列色）。实扫 121 处/36 文件；census --assert 清零（豁免感知后）；重跑幂等 = 0。
+- [插曲两枚] ①MultiEdit 非原子第三次咬人：报败后编辑 1-2 已落盘 3-5 未落（t642 律「失败也要 diff」+「成功也要 diff」的双面版）；②codemod tally 顺序 bug——先写后读 = 零计数，改为先数后写并把教训刻进脚本。
+- [探针三课] t646-probe 21/0：A 立法 9 锚 + B census assert + C 法典活体（沙箱元素解析 token 工具类）+ D console 0。第一课：断言别用 v3 hex 记忆——Tailwind v4 oklch 调色板的真渲染 sRGB 是 (236,0,63) 非 #e11d48；第二课：var() 间接色序列化为 lab() 而内联 oklch 保持 oklch()——同色异拼法，等价断言必须经 canvas sRGB 归一（参照物=调色板 oklch 本尊）；第三课：dev CSS 藏在 @layer 内，cssRules 走顶层只见壳，须递归。
+- [t105 F4 余震] 回归首跑 FATAL——t643 立的 display-word oracle 锚死 minimap 字面量，本窗把 word 链迁进 lib 后字面量搬家；t157 判词模板第二次执法（oracle 随法迁居，合同不动），t105 46 断言 ALL PASS。
+- [downloadBlob 父体] lib/download.ts 补 blob 孪生（(blob, filename) 签名随两 twin 众数）；chart-export 私有（种子）+ viewer-export 的 downloadViewerBlob + template-io 的 downloadJsonBlob 退役 + workflow-io/canvas-export/results-view/map-ortho-panel/pipeline-script-dialog/molstar-embed（图、GIF、书签）/assistant-panel 内联手舞归一 = 十现场。**手舞非纯风格**：四处缺 attach-before-click（Firefox 律）、三处同 tick revoke（Chrome 截断律：results-view/assistant-panel/molstar 书签）——两真 bug 类清偿。展示 URL 上下文（gallery sheet img、fsc-snapshot SVG 光栅）按角色豁免。
+- [回归] t252 ALL PASS ×2 + t637 6/0 ×2 + t641 10/0 + qa78 ALL PASS ×2 + t105 46 + t645 20/0 + t642 11/0 + t103 31 + t101 33 + t646 21/0；tsc 0 + eslint 0 ×2；世界 33 jobs 零残留。
+
+Stage Summary:
+- 「token 立法的第一问不是加什么类而是谁不许动」：rose 的 401 处里有 danger 也有 references2d 的类目身份和 FSC 曲线系列色——盲目 sed 会把身份色一起吞进 danger；census 的 SAFE/tail/豁免三桶不是工程洁癖，是「一个词一个语义」能成立的前提
+- 「值要抄世界的调色板，不要抄记忆里的 hex」：token 的 oklch 逐字取自 theme.css，探针第一版却拿 v3 hex 当锚——Tailwind v4 的 rose-600 真渲染 (236,0,63)，#e11d48 是上一代的户口本；立法者的值可以迁移，探针的锚必须活在当下
+- 「计算样式的字符串会撒谎」：var() 间接色报 lab()、内联 oklch 报 oklch()，同色异拼；等价断言要么经公共空间归一（canvas sRGB），要么认输——「统一」的证据是渲染管线出口的像素，不是 devtools 里那行字
+- 「oracle 随法迁居是收编的尾款」：t105 F4 的 FATAL 是本窗重构的合法余震——把 display-word 链搬进 lib 的那一刻，t643 的修复就欠一次跟随；判词模板（合同未动，锚新家）第二次执法，成本十分钟
+- 「手舞不是风格债是行为债」：十处 blob 下载手舞里七处带真缺陷（缺 attach = Firefox 死路、同 tick revoke = Chrome 截断）——「先收编再谈优化」的清单项，一半的价值在 bug 清偿
+- 产出：四 token + destructive 归一（globals.css）+ lib/status-style.ts + codemod 121 处/36 文件 + downloadBlob 十现场收编 + t646 探针 21/0 + census/codemod 双脚本留档 + 📸×1（t646-danger-vocab.png）；下窗入口：①状态色 map 三胞胎收进 status-style.ts（job-card STATUS_STYLES/STATUS_FLOOR、canvas-find-bar、project-dashboard、sibling-compare-picker 的 map 消费化，codemod 已令其像素归一）②danger tail 85 处人工清偿（always-dark 面板 unpaired ink 为主，job-inspector 21/results-view 15/template-presets 9）③emerald/amber/teal 家族 token 迁移（success/warning/running 的 rose 式同款，~300 处）④judge 风暴（等稳定夜）⑤build 日三车道（available ≥ 3.5GB，本窗第 56 窗否决）⑥演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
