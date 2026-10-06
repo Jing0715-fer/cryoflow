@@ -9427,3 +9427,25 @@ Stage Summary:
 - 「陈旧清单要定期验尸」：派单携带的 Task 13 遗留清单五项（#5/#6/#14/#7/#8/#13）经现实对质全部已兑付——遗留清单是快照不是账本，只有逐项对质才能停止让死债占用注意力；本次定谳让未来派单瘦身
 - 「census 与磁盘是两本账」：census 413.1MiB 只统计 unregistered 化石；t474 的 456M 是 registered 活行的 workdir，从未入账——磁盘紧急清盘发生在 census 的盲区，两本账的分工（账本≠盘面）再确认
 - 产出：磁盘清盘（avail 0→640M：活日志截断 + 死 profile/快照/缓存清除）+ t474 workdir 外科退役（3589 文件 / 441.0 MiB，t550 合同 37 文件保留，bench 36 pass 活体验收）+ 遗留清单五项定谳（全部已兑付，未来派单可瘦身）+ t633-t474-workdir-retire.py 仪器；QA 摸底 📸×1、t252 ALL PASS、census 持平、零 chrome 孤儿；下窗入口：①build 日三车道（第 43 窗重测）②t156/t157/qa63 实跑（借稳定窗）③t550 迁移 EMPIAR K5 + t474 项目整体退役（重写 PHASE B 断言族，等完整窗预算）④judge 风暴活体半场（等稳定夜）⑤化石铲子（build 日车道）⑥样式新面侦察（待新题）
+
+---
+Task ID: 634 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 22:39 cron, Job 362852, Task 572 系第 53 次派单)
+Task: t631 三窗立案的实跑收割开镰——t156 instrument 全绿死于窄跑道重演（cleanup 链首次实战生效），qa63-smoke 四刀修复后 SMOke GREEN 全套通过（t630 接线后首次 ALL PASS）；两次活体泄漏由 take-home 幂等四次吃狗粮闭环；t474 整体退役重估为窗级工程立案。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 633（派单摘要说 Task 13——滞后第 N+80 次兑付）；HEAD 2eb1747 树净；available 1091MB 非 build 日（第 43 窗被动否决）；disk 656M 维持；server RSS 2063 → 跑道 ~476MB（比上窗宽一倍）——本窗条件最宽，择路 t631/t632 两窗立案的实跑收割。
+- [QA 摸底] agent-browser 复活正常（t633 清盘红利）：canvas 落地 Shift+D 收敛 → 12 rows / 0 orphans / console 0 / 📸 t634-home-12jobs.png。
+- [t156 实跑] Phase S1 seed 成功 + X 段 9 断言全绿 + Phase B 死于 "gallery never opened"——与 t632 同位但病理分层：**t632 修复的 cleanup 链首次实战生效**（catch → await cleanup → take-home 执行），只是 take-home 内的 seed 重放在内存挤压下半失败（QA Class Select 残留 1 行）——手动重跑 take-home 2/2 home，EMPIAR 回 12/0。**幂等动词的崩溃恢复语义三度吃狗粮**。instrument 已三层全绿，Phase B 死于 server RSS 2297 的窄跑道重演（gallery 页编译撞线），立案等真稳定窗。
+- [qa63-smoke 实跑→四刀修复→SMOKE GREEN] 首跑死 FSC section（固定窗 2.5s——t630 等待律第三课的老病，qa58/qa59 补了它没轮到）且 FATAL 裸 exit 泄漏 5 行 FSC 家族；二跑死 goto networkidle 超时（**t523 定律本尊——家族最后一个 networkidle 信徒**）且 TLA 顶层 throw 绕过 must 直崩再泄漏；三刀修复：①FSC section 固定窗→30×500ms 轮询真值 ②compare dialog 固定窗 1.8s→轮询（dialog 的 OPEN≠rows 的到达——fsc-index 全项目 workdir 扫描慢于固定窗，修后 9 行 through）③must FATAL→同步 takeHomeHome() 再 exit（playwright exit hook 收浏览器树）④TLA 顶层包 main()+catch（任何 throw 都走 takeHomeHome）+ goto 换 domcontentloaded 两段律。四刀后 **SMOKE GREEN 全套通过**（canvas/inspector/Results/FSC/compare 9 行/Esc 合同/console 0）——t630 接线后首次实跑 ALL PASS，t631 三窗立案的 qa63 首兑。FATAL 路径的 take-home 实战验证：修复前两连泄漏、修复后 FATAL 零泄漏。
+- [世界卫生] take-home 幂等动词四度兜底（t156 残留 1 行 + qa63 首跑 5 行 + 二跑 5 行 + 三跑后正常收尾）全程吃狗粮；census 412→407 dirs / 413.1 MiB 持平（qa63 循环零净壳；今晨 10:11-11:21+08 的 7 个 EMPIAR 壳行已死——5 个 import 探针壳 825B 零租户当窗清，2 个 motioncorr 壳带 .cf-remote-manifest 租户立案 build 日车道不破 163 租户逐目录裁决的例）；t252 ALL PASS；零 chrome 孤儿。
+- [t474 整体退役重估立案] K5 真数据对账完成（it003 终态、5 类、10,866 粒子、非均匀 occupancy、无 half split）——但 t550 PHASE C 的 judge 断言（"6 keep / 2 maybe · two-pass: 12 agreed"）是运行时录得的 VLM 基线，K5 五类的 keep/maybe 分布不可预知、two-pass agreement 无保证——迁移 = 重写 B+C 两段断言族 + 录制新 VLM 基线，窗级工程立案（t633 的「等完整窗预算」升级为「需 VLM 基线录制协议」）。
+- [未做与理由] t157 实跑（server RSS 2297 贴线——qa63 的四刀已把 instrument 层备齐，等真稳定窗）；build 日（第 43 窗否决）；t156 Phase B（同 t157）；t474 迁移（窗级工程 + VLM 基线协议）；judge 风暴（等稳定夜）；化石铲子（build 日；motioncorr ×2 已点名排队）。
+
+Stage Summary:
+- 「立案的收割要有条件的窗」：t631/t632/t633 三窗立案的实跑，条件从 441MB 死亡跑道等到 1091MB+476MB 跑道才开镰——立案不是债是期权，行权看环境；qa63 一窗收割兑现，t156/t157 继续持有
+- 「FATAL 裸 exit 的泄漏是结构性的，修复也要结构性」：qa63-smoke 的 TLA 顶层形状让 throw 绕过 must、让 must 绕过 cleanup、让 cleanup 绕不过同步 exit——三处缺口一处根因（无统一异常路径）；main() 包裹 + catch 内 takeHomeHome() + FATAL 内联 take-home 是同一律的三面
+- 「幂等动词是崩溃恢复的本体」：本窗 take-home 四度吃狗粮（半失败、FATAL 泄漏×2、正常收尾），每一次世界都回到 12/0——动词内部的半径+门删+空壳 rmdir 让「下一次跑」永远能收拾「上一次跑」的残局；这正是 t630 把清理做成动词而非套件内联代码的兑付
+- 「固定窗死了两次，轮询活了两次」：FSC section 与 compare rows 是同一课的两个新标本——「元素出现≠数据到达」在 inspector 分页与 dialog 扫描两个场景各验一遍；t630 等待律的第三课已成家族抗体，套件侧剩余固定窗进入清零倒计时
+- 「租户在的壳不进小铲」：7 个新化石行全死，5 个零租户 import 壳当窗清、2 个带 remote-manifest 的 motioncorr 壳立案 build 日——162+2 的租户裁决名单继续积攒，白名单协议（t633）只覆盖零租户零歧义区
+- 产出：qa63-smoke 四刀修复 + SMOKE GREEN（t631 立案首兑）+ t156 instrument 全绿账（cleanup 链实战）+ 5 壳清（census 407 持平）+ t474 迁移窗级立案（VLM 基线协议）；EMPIAR 12/11 全程归位、t252 ALL PASS、📸×1、零 chrome 孤儿；下窗入口：①build 日三车道（第 44 窗重测）②t156/t157 实跑（instrument 已全备，等真稳定窗）③t550 迁移 EMPIAR K5 + t474 整体退役（VLM 基线录制协议）④judge 风暴活体半场（等稳定夜）⑤化石铲子（build 日；motioncorr ×2 点名）⑥样式新面侦察（待新题）
