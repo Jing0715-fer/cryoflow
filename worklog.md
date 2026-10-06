@@ -9350,3 +9350,29 @@ Stage Summary:
 - 「console 错误有两个物种」：产品错误是 app 的忏悔，传输噪音是 dev server 的临终喉音——OOM 循环之夜把两者混在一个断言里，红的是环境、被审判的是产品；t241 的定性判例升格为套件结构（TRANSPORT 正则 + 产品断言 + 噪音如实入账），状态码错误永远留在产品侧
 - 「FATAL 跳过 finally」：qa58-e2e 的 FATAL→process.exit 直接跳过 phase 循环的 finally cleanup——每轮验尸失败都在漏种子；幂等再发现+下一跑回收是崩溃恢复的兜底，但「失败也要带走标本」的完整写法（t157 的 Z5+cleanup 双保险）才是正形
 - 产出：seeder `--take-home` 动词×3（qa58 含半径化石修复+拒收守卫+整只回家；qa60 含 SPECS 翻案；qa67 别名+铁律第二句）+ 8 套 E2E 生命周期接线 + 等待律第三课（qa58/qa59 双套）+ console 双物种拆分 + 23 空壳清扫；qa58/qa59 双 ALL PASS、t252 ALL PASS；EMPIAR 12/11 零 QA、census 389/407.0MiB（-37 壳）、📸×2；下窗入口：①qa66/qa67/qa68/t156/t157/qa63 接线套件按序实跑补验 ②demo 20 行考古清理（逐行裁决+qa63 依赖链自证）③judge 风暴活体半场（等稳定夜）④化石铲子（build 日车道）⑤第四级第二刀真 sync-back（等输出型活体夜）⑥样式新面侦察（待新题）⑦build 日被动重测（第 39 窗否决）
+
+---
+Task ID: 631 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 19:24 cron, Job 362852, Task 572 系第 50 次派单)
+Task: t630 下窗入口①兑付——六套接线套件按序实跑补验，被一台 OOM 循环夜的四层仪器病 archaeology 吞没：qa66/qa67 双 ALL PASS 入袋，qa68 冲到 9/10 断言后撞上受控回收赛跑（结构性能题，立案 build 日）；qa58 seeder 在活体泄漏中长出崩溃窗标记。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 630（派单说 Task 13——滞后第 N+77 次兑付）；HEAD e34ef25 树净；available 1083MB 非 build 日（第 40 窗被动否决）。
+- [QA 摸底] agent-browser daemon 流：正典 12 rows / 0 orphans / console 0 error。新教义：**手动 chrome 三连死、daemon 托管浏览器跨命令存活（probe 42→42）**——本窗起弃用手动启动；`--cdp` 钉不住（daemon 在命令间被杀）。
+- [qa66] ALL PASS 35 断言一次过（roving tabindex + paper pipeline + 强制暗色打印像素采样）——playwright 驱动每跑全新 profile，免疫今晚全部环境病，反证后续怪罪全部该落在 agent-browser 驱动侧。
+- [qa67 十二轮尸检链 → ALL PASS 27 断言] 四层病一层层剥：①**emulation 视口虚空**——`set viewport 1600 900` 让 eval 活在 1600×900、CDP 鼠标活在物理 1280×577（左上覆盖不缩放），y>577 的点击全部落虚空（ortho panel 实证标定：window(400,300)→page(400,300) 1:1）——弃用 emulation；②**空洞真探针**——`probe.includes("CARD")` 对 "NOCARD" 恒真，画布验证从第一天起就是装饰，套件在空画布（打印报头 h1 回退 "Workflow canvas"、0 卡）上裸奔——诚实布尔 + jobCards 计数；③**双重编码死锁**——我让 eval 返回 JSON.stringify 字符串，CLI 再包一层引号，JSON.parse 拿到的是字符串、`.covered` 读 undefined、视线点击永不开火（dbg 打印 covered:true 与 UNVERIFIED 并存的怪象由此）——eval 必须返回对象；④**移动靶**——canvas 挂载布局动画秒级漂移（277→397 实测）+ Radix 对话框内滚动回弹，盲点击全数落空——sighted click（越界才 scrollIntoView + 600ms×2 沉降双采样 + elementFromPoint 验证 + 2px 容差）+ element.click() 死路证明（卡片要 trusted 事件）；⑤**窄窗**——三张切片 PNG 15s 饿死 strided-read 重建、scrub src 传播 1400ms 固定窗、Mol* 画布挂载 10s——全部改轮询真值（60s/15s/60s）。
+- [取证相机入编] qa67/qa68 的 errCollector 内建 trusted-mousedown 记录器 + FATAL 时先 dump 后 cleanup（「随葬的相机是装饰品」）——qa67 的 0 事件记录一手定谳 mouse 命令 exit 0 但事件从未到页，逼出视口虚空层。
+- [qa68 九跑 → 9/10 断言] 同款五修 + mirror 步重试循环（原版单发且吞返回值）+ readout/PNG/toggle 三处窗口放长；inspector→Mol*→strip→readout 全绿后死在 crosshair toggle：**watchdog 受控回收在套件中段执法**（13:44:35Z RSS 2747476KB ≥ 2600000KB）→ HMR 全页重载 → 对话框栈蒸发 → NO-TOGGLE 永真。turbopack 出生 2.19GB + Mol* 增量 = 2.6GB 回收线前的跑道结构性不足；kernel OOM 线（~2.5GB anon）就在回收线上方，无数值空间。dev-server 机制考古：Next worker 自写 NODE_OPTIONS（896 帽 + --enable-source-maps 注入，父 env 与 NEXT_DISABLE_MEM_OVERRIDE 均被无视——t524 裁决的 turbopack 默认道即此）；webpack 逃生道同样死于 896 帽下的 GC 死亡螺旋。
+- [qa58 seeder 崩溃窗硬化（feat）] run11 的 seeder 在 POST→PATCH 改名之间被杀，行留应用自动名「2D Class Selection 1」，按名认领的 take-home 永远找不到它（活体泄漏：EMPIAR 13 jobs）——**崩溃窗标记**：POST 后立即写 .qa-logs/qa58-seed-ids.json，take-home 按 id 优先认领（名字回退）、用毕销档；孤儿行经产品门删除。seed→take-home 全循环活体验证（marker 写入/2-2 回家/销档）。
+- [环境考古志] `scripts/dev-server-watchdog.sh`（t403→t524 谱系）全套机关在册且执法正常：受控回收（RSS 2.6GB）、僵尸处决（240s 静默）、脏缓存隔离、单守护 flock；今晚它无过错——是 Mol* 重套件把跑道吃穿了。NODE_OPTIONS=896 全局环链条：容器 init → dev-server.sh → next dev → worker（Next 重写）。
+- [世界卫生闭环] take-home 2/2 回家（marker 硬化版）+ EMPIAR 终态 12/11/1 零 QA 零泄漏；census 390 dirs / 407.0 MiB（t630 基线 389 之下持平，+1 为 qa63 HOST_JOB 宿主考古行，非本窗泄漏）；t252 ALL PASS（写门 + roster 贴地 12 + console 0）+ 其截图帧随惯例刷新；一次性 probe 脚本（click-probe/poison-search）验尸完毕即焚；📸 t631-final-12jobs.png；chrome 清场零孤儿。
+- [未做与理由] t156/t157/qa63 实跑（与 qa68 同墙——它们的 Phase B 同样需要稳定窗，qa68 的九跑已把 instrument 层全部修好，等生产 server 夜即可收割）；build 日（第 40 窗否决，1083MB——**且新增立案：build+standalone server 是 Mol* 重套件赛跑的结构解**，~400MB 稳态无回收线）；demo 20 行考古清理（t630 立案原样）；judge 风暴（等稳定夜）；化石铲子（build 日车道）；样式新面（本窗为 instrument 车道，无新面侦察）。
+
+Stage Summary:
+- 「探针的空洞真比 FATAL 更危险」：`"NOCARD".includes("CARD")` 恒真让画布验证成了十二年的装饰——套件从未在验证画布，只是从 iteration 0 就"通过"；空画布上每一步断言都在为谎言作证。诚实的布尔 + 显式计数是唯一解，因为字符串 include 检查在词法上无法拒绝自己的否定
+- 「eval 返回对象，别返回字符串」：CLI 对返回值做一次 JSON 编码——对象进来是单层、JSON.stringify 字符串进来是双层；`JSON.parse` 拿到内层字符串后 `.covered` 是 undefined，视线点击的全部验证在 JS 层恒假，而 dbg 打印的原始串明明是 true——**仪器读数与仪器判定用了两个不同的世界**
+- 「emulation 视口是 eval 与输入的国境线」：set viewport 造出的页面空间里 elementFromPoint 样样都真，CDP 鼠标却活在物理窗口里——y>577 的区域「可见、可验证、不可点」。页内坐标系必须与输入坐标系同一，滚动交给页内的 sighted click
+- 「取证相机必须活过 FATAL」：随 cleanup 关掉的相机连尸检都做不了；FATAL 时先 dump 后 teardown 是相机的存在意义。零 trusted 事件的 mdLog 一锤定音「命令 exit 0 ≠ 事件到页」
+- 「回收线是跑道税」：turbopack 出生 2.2GB + 回收线 2.6GB = 400MB 跑道，Mol* 套件增量 1.2GB——回收必然落在套件中段。这不是 bug 是容量预算：Mol* 重套件的构建日立案（standalone server 无 dev 编译器气球、无回收线、无 HMR 重载），在此之前它们的 ALL PASS 是等一个不拥挤的夜
+- 「崩溃窗用标记关闭」：POST→PATCH 改名之间死掉的 seeder 留下无名孤儿，按名认领的 take-home 对它失明——id 标记在 POST 后立即落盘（窗口从多步收缩到单写），认领 id 优先名字回退，用毕销档。守卫抓泄漏是运气，标记消灭崩溃窗是设计
+- 产出：qa67 复活 ALL PASS 27 断言（五层仪器病修复 + 取证相机入编）+ qa68 instrument 层全修（9/10 断言，余下立案 build 日）+ qa58 seeder 崩溃窗标记硬化（活体循环验证）+ t252 ALL PASS + t630 下窗入口①的六套实跑账（qa66 ✓ qa67 ✓ qa68 9/10 t156/t157/qa63 立案）；正典 12/11 完好、census 390/407MiB 持平、零泄漏；下窗入口：①build 日三车道合并（化石铲子 + Mol* 套件 standalone 收割 + 第 41 窗重测）②t156/t157/qa63 实跑（借任意稳定窗先试，生产 server 夜为正解）③demo 20 行考古清理④judge 风暴活体半场（等稳定夜）⑤qa66 探针的诚实化小刀（playwright 自动等待使它无害，立案不动）⑥样式新面侦察（待新题）
