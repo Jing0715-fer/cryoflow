@@ -9137,3 +9137,27 @@ Stage Summary:
 - 「反位置证明的搜索版」：rows 的 doc 座位 2/3/4 对应票 618/642/666——若延迟按座位算该是 138/162/186；W4「票说账本不说座位」在第四个动词下再钉一次
 - 「walk 递归是 CSSOM 的唯一诚实读法」：@media 门下的规则在顶层扫描里是「有词无选择器」的幽灵——首跑那条 G0 红不是间歇环境账而是读法错（四跑才承认）；t616 的 walk 移植一次到位
 - 产出：t621-palette-search-mode-live-fire.mjs（34 断言三连绿）+ t621-diag.mjs（侦察教案现场，自清场）+ 断言侧三课入档；eslint 0；下窗入口：①judge 风暴活体半场（等稳定夜）②休眠套件逐套复活车道（t619 立案，浅休眠先例 t252）③stop 语义产品级重设计（feat 车道，t618 立案）④build 日被动重测（第 30 窗否决）⑤样式候选已清空——下一块新面（command palette 的 arrival？search lens 家族的 dashboard 侧）需新侦察
+---
+Task ID: 622 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 12:39 cron, Job 362852, Task 572 系第 41 次派单)
+Task: t621 下窗入口②兑付——休眠套件逐套复活车道（t619 立案）:t241 深休眠两层（palette 行文案 + console 噪音）。结果车道升维:复活变翻案+根因修复+产品补课。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 621（派单摘要语境说 619——滞后第 N+68 次兑付）; HEAD 2e8cf2a 树净; available 947MB 非 build 日（第 31 窗被动否决）; dev 世界健康。
+- [QA 摸底] agent-browser 专港 9339 + 清 profile（正典 chrome-153 路径 + 桌面 shim）; navigate + eval:12 卡渲染、console 0 errors、roster 区在; 📸 .qa-logs/shots/t622-home-12jobs.png; 断连清场。项目稳定 → 按入口②开道。
+- [首跑变天] t241 复跑不是 t619 记录的 16/18 而是 5/8 + 崩溃:palette 行 FAIL 之外多出 doors md/html false + download 等待 20s 超时崩溃——t619 时代 doors 是站着的（16/18 意味着 export 段全过）,这是 t619 之后的新伤,优先级升到修 bug。
+- [活体反证] chrome-153 里产品三证健康:①真点击 canvas 卡 → inspector 开（Overview/Log/Results/Files 四 tab）→ Results tab → doors md true html true; ②palette 开盘 97 rows、12 组、项目行 innerText 与 wire 名字节级全 ASCII（od -c 教义）一致; ③/api/jobs/{id}/outputs 200 / 11 files / 1.4s。产品无恙,嫌疑转向环境。
+- [犯罪现场] t622-diag.mjs（playwright chromium 自管生命周期+跑完即灭,t621-diag 教义）复刻套件 exact 条件:palette 77 rows、groups []、项目行无——然后第二个 goto 直接 ERR_CONNECTION_REFUSED:dev server 在 diag 中途死亡。ps 侧写:next-server 反复换生（worklog 22025 → 9497@04:56 → 11396@05:07）,RES 2.4GB = 57.9%——OOM 制度的看门狗收割+监管者换生循环,套件长跑正好骑在收割线上。
+- [本窗自伤一笔] 第二次 QA 的 chrome（9339）忘清场,~350MB 横跨两次 t241 重跑——t581 孤儿学费自己又交一遍;清场后 0 残留。
+- [根因三条,一体三面] ①palette 行 = boot 竞速:palette button hydrate 早于 load() 六路 Promise.all 落地,固定 600ms 快照每试必输——t619 的「palette 行文案期望 t372 世界名」诊断被推翻:套件的名字是活体解析的,从来没有文案化石,只有竞速; ②export = 收集器六路(fsc/resolution/motion/ctf/angdist/topaz-training)只有 fsc 被预热,五路冷编译坐在 20s download 窗口里——套件自己的「warm the exact wire」教义只做了六分之一; ③console 噪音(34/59 条) = 服务器换生的 net::ERR_CONNECTION_REFUSED / ERR_INCOMPLETE_CHUNKED_ENCODING——不是产品错误,是环境声音。
+- [产品补课] store.ts 空登记簿 backfill:load() 的 projects/workspaces 是仅有的两个静默落地失败的 ingest(catch fallback),t407 apiSteady 3 次尝试 ~7s 撑不过整场换生(~30s),pollTick 只轮 /api/jobs——空列表永不重试直到手动 reload。backfill 拿 fallback 自己的空数组做指纹;参考身份守卫(任何新 ingest 替换了它们即退位,永不与新真相打架);换生尺度耐心窗(12 轮 ~2min);诚实空(真零项目)一轮确认即停;workspace 只在无处可站(null/死 id)时 healing。tsc 0 eslint 0。
+- [套件铠甲] t241:waitServerHealthy 段落级换生门(120s 窗);palette 行从固定 600ms 快照改为开盘内 20s pollUntil(t621 教义移植,重载环降级为外圈守卫);收集器六路全家预热(familyWarm);export 装甲(try/catch 计数断言——崩溃不再吃掉 world hygiene 报告);console 失败时采样遥测(门保持精确零,样本说 WHO spoke)。node --check 0 eslint 0。
+- [复活证明] 清场(孤儿 0)+ 服务器换生(fresh,available 1303MB)后 t241 **20/0 ALL PASS**(palette row ✓ / doors ✓ / download ✓ / report 内容 10 条 ✓ / figure 288px ✓ / completed 地板 11 ✓ / console 0 ✓);t252 复跑 ALL PASS(产品改动回归零,12 卡地板贴地,console 0);三连断言全绿一夜可达。
+- [未做与理由] build 日(第 31 窗否决,947MB→1303MB 也远不够);judge 风暴活体半场(等稳定夜);stop 语义产品级重设计(t618 立案 feat 车道);下一块新面侦察(样式架 t621 清空后待新侦察);t616/t621 palette 见证复跑(backfill 在健康 boot 下是休眠代码——空指纹永不出现——零接触论证成立,未烧 chrome 预算)。
+
+Stage Summary:
+- 「深休眠的化石未必是化石」:t619 记录的 t241 两处化石本窗全部翻案——palette 是 boot 竞速,console 是换生噪音,doors 崩溃是预热缺口。t619「休眠深度可测」的下一课:深度也要验尸,化石名单要用活体证据重审——od -c 的诊断版(字节级反证+犯罪现场复刻)是把「文案化石」改名「竞速」的唯一路径
+- 「静默 fallback 是债,backfill 是还债」:catch(() => []) 的代价不在落地时而在永远——两个低频路由的空数组让 palette/项目面板无限期残废。唯一诚实的修复是让空指纹自己会好:参考身份守卫让 backfill 永不与新真相打架,耐心窗让它活过换生,诚实空让它不与 wire 争吵
+- 「套件的铠甲是教义的复利」:fetchSteady(t310)→apiSteady(t407 产品化)→evalSteady(t310)→pollUntil(t621)→waitServerHealthy+familyWarm(t622)——每一代都是上一代的段落级提升;铠甲的完整形态=连接层重试+段落门+全家预热+断言化崩溃+失败遥测五件套
+- 「长跑套件的第一敌人是内存制度」:4GB box 上 next-server 2.4GB + chromium 0.5GB = 收割线以下没有安全区;复活长跑套件的正确姿势=先清场(自己的孤儿最肥)再换生(替服务器拿新鲜起点)后起跑——铠甲负责活过换生,清场负责不给收割理由
+- 产出:store.ts 空登记簿 backfill + t241 铠甲五件套 + t622-diag.mjs(犯罪现场相机,自清场)+ 📸 1 张 + t241 20/0 ALL PASS + t252 ALL PASS;eslint 0、node --check 0;下窗入口:①judge 风暴活体半场(等稳定夜)②stop 语义产品级重设计(feat 车道,t618 立案)③下一块新面侦察(样式架空)④休眠套件逐套复活继续(t241 已证可达,翻案方法论成立)⑤build 日被动重测(第 31 窗否决)
