@@ -9092,3 +9092,26 @@ Stage Summary:
 - 「codemod 的可验证性 = 脚本化 + 账目闭合 + 活体抽样」：126 全集 = 118 迁移 + 8 保留逐行点名；剩余审计零意外 + 裸 15 零残留 + node --check/eslint 全过 + 两档各一活体复跑（t252 ALL PASS / t241 地板成立）——t408 先例的「脚本化+全量复跑」在 82 文件尺度上的可行版本：脚本入档可复跑，抽样证地板，逐套复活另立案
 - 「休眠套件的复活揭示休眠深度」：t252 一档迁移即全绿（浅休眠——只有地板化石）；t241 地板成立但另挂两处（深休眠——palette 文案/console 是别的时代的词）——地板迁移让「还有几层化石」第一次可测，这正是 codemod 车道为复活路径清障的意义
 - 产出：migrate-roster-floor-12.py（t408 谱系第二部）+ 77 文件 118 行地板迁移（两档 12/11）+ 8 行诚实保留审计 + t252 ALL PASS / t241 地板活体 + agent-browser QA 全绿（12 卡渲染、console 0）+ 📸 一张；eslint 0、node --check 全过；下窗入口：①judge 风暴活体半场（等稳定夜）②样式候选（roster 视口诚实性侦察 / search-mode 级联见证）③休眠套件逐套复活车道（t252 浅休眠已证可达；t241 深休眠两层）④build 日被动重测（第 28 窗否决）⑤stop 语义产品级重设计（feat 车道，t618 立案）
+
+---
+Task ID: 620 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 12:09 cron, Job 362852, Task 572 系第 39 次派单)
+Task: t619 下窗入口②兑付——roster 视口诚实性侦察→定谳→落地一窗完成：dashboard spotlight 的 Jobs 列表 320px 视口只显示 5/12 行却对折叠行零提示（SavedViewsGallery law 的未扫面），三连修（+N more below 诚实徽章 / 键盘可达 / 屏幕版 count）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 619（派单摘要说 584——滞后第 N+66 次兑付）；HEAD 253f9dd 树净；available 886MB 非 build 日（第 29 窗被动否决）；dev 世界健康。
+- [侦察（agent-browser 只读，专港 9337 清 profile）] roster 视口=project-dashboard ActiveProjectSpotlight 的 max-h-80(320px) 滚动容器：12 行 × 54.5px = 654px > 320px——**5 行满可见、7 行被裁**（scrollHeight 676、可滚 356px）；滚动机制本身诚实（scrollTopMax 356 精确到底、末行 overshoot 0）；thead 屏幕隐藏系 t84 打印专享（按设计）；**三缺口定谳**：①折叠行零提示（屏幕版 Jobs label 无 count——count 只活在打印 thead；无 show-all affordance；滚动暗示仅 6px thin 滚动条；卡区/chip strip/failed strip 都有 overflow button 而 roster 是该律未扫面）②容器 tabIndex=-1 键盘用户不可滚 ③SavedViewsGallery law「says honestly how many more」未覆盖 roster。
+- [三连修落位（产品方言全程对齐）] ①**+N more below 诚实徽章**：hiddenBelow = ceil(剩余溢出像素/首行实高)，onScroll 实时重算 + ResizeObserver + slice 长度变化兜底；滚动到底（remaining ≤ 4px 容差）自动消失；徽章 pointer-events-none（滚动手势穿透）+ aria-hidden（读屏已有 region label 的行数）+ FailedJobsStrip 的 border-dashed pill 方言中性色调 + 渐变底座 from-card；②**键盘可达**：容器 tabIndex=0 + role=region + aria-label「Jobs roster — N rows, newest first」+ rounded-lg + focus ring（ring-primary/50 产品方言）；③**屏幕版 count**：Jobs label 补「{visibleJobs.length} ·」与打印 thead 的「Jobs · N · newest first」同语义两世界对齐（All chip 的 n 是过滤器计数，label 是 roster 身份陈述——语义不同不重复）。
+- [hooks 规则细节] useRef/useState/useCallback/useEffect 全部置于 `if (!project) return null` 之前（early return 后的 hooks 数量漂移会炸）；effect deps 用 early-return 前已定义的 deferredJobs.length/jobFilter/rosterQuery。
+- [浏览器验证全链路] 徽章动态：top「+7 more below」（与侦察 clipped=7 精确一致）→ 滚过 4 行「+3 more below」→ 到底「GONE」→ 回顶重现「+7」；真实键盘：Tab 聚焦（focusable=true）+ 5×ArrowDown scrollTop 0→198px；region/aria-label/tabIndex/label count 全过；📸 t620-roster-badge.png + t620-roster-focus-ring.png。
+- [学费两笔] ①**Bash 回显吞 `[h` 序列**：sed/rg 输出把 `const [hiddenBelow` 显示成 `const iddenBelow`——两工具两处一致的吃字让本窗误判文件损坏，od -c 十六进制审计定谳文件完好（「显示层说文件坏了，先 od 再信」）；②React 批处理时序：dispatch scroll 事件后同步读徽章永远是旧值——async IIFE + wait(80) 后读数才诚实（in-browser timing 唯一诚实量法的延伸：读数要给 React 提交帧的时间）。
+- [HMR 中间态报错甄别] 两次 Edit 之间（容器开标签已入、闭合未入）HMR 推了 13 条 parse error；闭合 Edit 落地后编译恢复——console 13 条为历史累积：**以增量对比甄别**（验证前后 error 计数 13→13 无增长 = 当前编译干净；bodyOk false 是 hydration 未完的瞬态，bodyLen 9414 恢复即健康）。
+- [回归面] 波及面排查：t144/t142（`[data-roster-table] tr` 计数/hasText 查询）、qa84（`${spot} [data-roster-table]` 后代查询）均层级无关；徽章无 data-spot 钩子不入 t613 wave 账本；**t613-spot-wave-live-fire 复跑 49/49 全绿**（console clean 双通道、roster 6 行 1 active 分镜世界、12 jobs 无 mint）——wave 账本零位移。
+- [未做与理由] build 日（第 29 窗被动否决）；judge 风暴活体半场（等稳定夜）；search-mode 级联见证（样式候选顺延）；休眠套件逐套复活（t619 已立案）；stop 语义 feat 车道（t618 立案）；徽章的进场动画（第一版克制不加——shadow-sm 徽章本就是弱元素，数字跳动本身已是动态反馈）。
+
+Stage Summary:
+- 「视口诚实性 = 折叠区不说谎」：320px 藏 7 行却零提示是不诚实，SavedViewsGallery law（overflow 说诚实数字）补完它最后一个未扫面——affordance 的数字不是静态文案而是这一滚动瞬间的真值（onScroll 重算、到底即消失、回滚即重现）
+- 「可点性之外还有可键性」：t599 时代 inView 判据修正过鼠标的诚实，本窗 tabIndex=0 修正键盘的诚实——Tab 进、方向键滚、读屏靠 region aria-label 宣告行数；键盘不可达的滚动容器对键盘用户是「看起来能看实际看不了」的假面
+- 「两世界同语义」：打印 thead 自 t84 起就说「Jobs · N · newest first」，屏幕 label 却沉默到今天——补齐的不是新信息而是老信息在另一个世界的缺席；All chip 的 n 是过滤器的计数，label 的 N 是 roster 的身份，同一个数字两种角色各说各的
+- 「显示层说文件坏了，先 od 再信」：两工具一致的 `[h` 吃字几乎定谳了一场损坏——十六进制审计一锤定音；同样的纪律用在 HMR 报错上：增量对比（13→13）而非绝对计数定谳编译健康
+- 产出：roster 视口诚实性三连（+N more below 活徽章 / tabIndex+region+ring 键盘可达 / 屏幕版 count）+ 浏览器全链路验证（动态 7→3→GONE→7、键盘 198px、双📸）+ t613 witness 49/49 零位移 + 波及面排查五脚本；eslint 0；下窗入口：①judge 风暴活体半场（等稳定夜）②search-mode 级联见证（样式候选剩项）③休眠套件逐套复活车道④build 日被动重测（第 29 窗否决）⑤stop 语义产品级重设计（feat 车道，t618 立案）
