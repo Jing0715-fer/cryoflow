@@ -49,12 +49,14 @@ async function cleanup() {
 }
 const must = (cond, label) => {
   if (!cond) {
-    console.log(`FATAL: ${label}`);
-    // sync exit (t102 lesson): an async cleanup lets the caller keep
-    // running into a closed page — close fire-and-forget, die now
-    p?.close().catch(() => {});
-    b?.close().catch(() => {});
-    process.exit(1);
+    // t643 — pure throw (t156 law): the FATAL path must reach cleanup.
+    // The old body closed the browser fire-and-forget and process.exit(1)
+    // — which SKIPS the finally below, leaking every seeded card into the
+    // world; leaked cards push maxX east, the next run's band seeds
+    // further out, and E4's drag eventually collides with the WORLD_MAX
+    // clamp (the 19_760 ceiling this window autopsied). Cleanup now runs
+    // on EVERY death: main().catch awaits it, then exits.
+    throw new Error(`FAIL: ${label}`);
   }
   PASS++;
   console.log(`  ok: ${label}`);
@@ -157,6 +159,7 @@ const consoleErrors = [];
 p.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 p.on("pageerror", (e) => consoleErrors.push(String(e)));
 
+async function main() {
 try {
   /* ---------------- Phase S: seeding + minimap presence ---------------- */
   console.log("Phase S — seeding, minimap presence");
@@ -169,10 +172,23 @@ try {
   must(wsId !== "", "S0 workspace resolved for seeding");
   const maxY = all.reduce((m, j) => Math.max(m, j.y ?? 0), 0);
   const maxX = all.reduce((m, j) => Math.max(m, j.x ?? 0), 0);
-  const Y0 = Math.round(maxY + 2200);
-  const X0 = Math.round(maxX + 3000);
+  // t643 — workflow.ts welds the world shut at ±20_000 and every drag
+  // commit clamps to it (nx = min(origX + dx/zoom, WORLD_MAX − CARD_W)
+  // = 19_760). A band seeded past that ceiling turns E4's +140px drag
+  // into a silent snap-to-ceiling — the redo assertion then reads the
+  // clamp, not the drag. Cap the band inside the drag-safe margin; if
+  // the honest world ever grows close enough for the cap to bite, the
+  // S1 distance assertion below fails loudly and the seeding strategy
+  // owes a real answer (this window's autopsy found the ceiling the
+  // hard way: three leaked runs parked cards at x 20_767+ and A snapped
+  // to 19_760).
+  const WORLD_MAX = 20_000, CARD_W = 240, CARD_H = 112;
+  const Y0 = Math.min(Math.round(maxY + 2200), WORLD_MAX - CARD_H - 600);
+  const X0 = Math.min(Math.round(maxX + 3000), WORLD_MAX - CARD_W - 600);
   must(Y0 > maxY + 2000 && X0 > maxX + 2500,
     `S1 band is ${Y0 - maxY}px below and ${X0 - maxX}px east of the old world`);
+  must(X0 + 140 <= WORLD_MAX - CARD_W && Y0 + 90 <= WORLD_MAX - CARD_H,
+    "S1b band inside drag-safe bounds — a +140/+90 drag can never clamp");
   const seedSpecs = [
     ["t105 A", X0, Y0],
     ["t105 B", X0 + 400, Y0 + 260],
@@ -333,11 +349,27 @@ try {
   must(/minimapOpen: true/.test(storeSrc) && /setMinimapOpen: \(open\) => set\(\{ minimapOpen: open \}\)/.test(storeSrc) &&
        !/storage\.setItem\([^)]*minimap/i.test(storeSrc),
     "F3 store flag is session-local: default true, plain set, never persisted");
-  must(/<animate\b/.test(mmSrc) && /STATUS_FILL\[j\.status\]/.test(mmSrc),
-    "F4 running dots pulse (SMIL) and dots read the status fill map");
-  must(/k === "m" \|\| k === "M"/.test(pageSrc) &&
-       /s\.view !== "dashboard"/.test(pageSrc.split('k === "m"')[1]?.split("} else if")[0] ?? ""),
-    "F5 M branch exists with the dashboard guard");
+  // t643 verdict (t157 template) — this oracle was born anchoring
+  // STATUS_FILL[j.status]; the map's read path has since evolved into the
+  // display word (t322's dialect: Slurm queued paints pending at every
+  // distance; t606's news bloom keys on the same word). The SMIL half
+  // never moved. The world is right, the oracle was stale — anchor the
+  // CHAIN, not the historical spelling: pulse alive, fill rides
+  // STATUS_FILL[word], and the queued->pending mapping is pinned so a
+  // silent dialect regression still trips this wire.
+  must(/<animate\b/.test(mmSrc) && /STATUS_FILL\[word\]/.test(mmSrc) &&
+       /isSlurmQueued\(job\) \? "pending"/.test(mmSrc),
+    "F4 running dots pulse (SMIL); dots read the fill map through the display word (queued paints pending)");
+  // t643 verdict (t157 template) — this oracle anchored page.tsx, but the
+  // keyboard handler migrated to app-shell.tsx (the shell owns the global
+  // keymap now; page.tsx composes views). The CONTRACT never moved: an m/M
+  // branch with the dashboard guard toggling the session-local minimap
+  // flag. Anchor the handler's current home; the split-guard probe reads
+  // the same segment shape it always did.
+  const appShellSrc = readFileSync("src/components/workflow/app-shell.tsx", "utf8");
+  must(/k === "m" \|\| k === "M"/.test(appShellSrc) &&
+       /s\.view !== "dashboard"/.test(appShellSrc.split('k === "m"')[1]?.split("} else if")[0] ?? ""),
+    "F5 M branch exists with the dashboard guard (app-shell keymap)");
   must(/Toggle the world-overview map/.test(dialogSrc),
     "F6 shortcuts dialog documents M");
   must(/minimapOpen && <CanvasMinimap/.test(canvasSrc) &&
@@ -361,3 +393,10 @@ try {
 } finally {
   await cleanup();
 }
+}
+
+main().catch(async (e) => {
+  console.error(`FATAL: ${e?.message ?? e}`);
+  try { await cleanup(); } catch {}
+  process.exit(1);
+});
