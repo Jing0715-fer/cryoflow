@@ -9607,3 +9607,27 @@ Stage Summary:
 - 「schema 即语法」：端口不入库（画布现推）、双线不可存（@@unique）——世界的 DNA 在 schema 与 specs 里，seeder 只是它们的誊写员
 - 「探针要能自愈」：A0 先回家再断言——探针自己的死尸不能毒死重跑；t523 律（轮询勿盲读）+ reload 重放 load() 是切项目验收的完整姿势
 - 下窗入口：①EMPIAR 世界已立——后继车道：remote/cluster 作业演练床（mock cluster P1 对接）或 t372 全链评估（需真 RELION build，等 build 日）②judge 风暴（等稳定夜）③样式/功能车道继续 ④build 日三车道（available ≥ 3.5GB，本窗第 49 窗否决）⑤qa-t639 seeder 幂等可重跑，任何清场后一条命令复活 EMPIAR 世界
+
+---
+Task ID: 640 收官
+Agent: main (cron window, Job 362852)
+Task: t639 入口①兑现——remote/cluster 作业演练床（mock cluster P1 对接）：mock cluster 复活 + t261 P1 层 ALL PASS（一只套件虫）+ t262 全引擎零改动 ALL PASS + 演练床压缩为一键动词
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 639 收官（派单又称 Task 13——陈旧模板语，以实际为准）；树净 HEAD dde3ad7；available 1150MB 非 build 日（第 50 窗被动否决）；server HTTP 200 / 31ms（t637 手术后持续快）。
+- [QA 双绿] t252 ALL PASS + t637-ui-probe 6/0——世界健康后才动工程。
+- [方向勘察] Explore agent 盘点 remote 基建全貌：services/mock-cluster（真 SSH2 服务 :3022 + 假 Slurm/RELION 二进制 + 孤儿化 launch.sh + test-client）+ src/lib/remote 19 模块 ~16k 行 + t261/t262 套件早已在册——「演练床」不是建而是**复活**；t372 方言 P1 = connections/probe/remote-project 层。.cf-cluster-state.json 判幻影信号（只在 t632 审计 TENANT_SIGNALS 名单里出现，无生产者无消费者——防御性名单留置无害，勿立项）。
+- [mock cluster 复活] 孤儿化 launch.sh + 同调用 test-client 验活（echo ok/hostname/whoami 真 SSH 往返，bun PID 28230 收养成功）。
+- [t261 首跑破案] A/B/C 三相全绿后 ENOENT 崩溃于 registryAfter readFileSync（235 行）——**非对称守卫**：registryBefore（177 行）有 existsSync 守卫（注释明言 fresh sandbox 诚实空表），registryAfter 同课没学；新容器世界注册表文件从未落盘（惰性创建）。修复 = 对称守卫 + t640 注释。finally-cleanup 在崩溃时实战生效（t632 cleanup-on-fail 律第一次在「自己没修过的套件」上被旁观验证：roster 无泄漏）。
+- [t261 复跑] ALL PASS：门矩阵全 403（bare/cross/rebind × GET/POST/PATCH/DELETE + no-cors drive-by）+ 注册表字节恒等 + DTO 剥密 + 真 SSH 探针拿 mock 清单（relion/5.0.1 等四模块 + lmod）+ lastProbe 持久化 + secret keep/clear 语义 + 活环 create→probe→patch→delete 闭环 + dialog 渲染 + console 0。
+- [t262 全引擎] ALL PASS **零改动**：真 SSH staging 4 微图 → UI「Run on cluster (SSH)」派发 CtfFind → 进度流 cluster log 到 100% → STAR 回写重写 to-local → 输出+日志回同步（3 文件）→ 下游孪生 B 零重传同簇直跑（remote-twin fast path）→ 第三跑 C 中途 stop：SIGTERM+SIGKILL、失败行诚实、pid ESRCH 验尸、record 无幽灵活性 → console 0 → world-guard 盾 15 workdirs + roster 复原 15。产品虫零只。
+- [演练床一键化] scripts/qa-t640-rehearsal-bed.sh：ensure cluster（已在监听则跳过）+ SSH smoke（诚实 P0 门，绝不假过）；--full 顺序跑 t261+t262。默认模式验活通过。「恢复链是动词」教义移植到演练床。
+- [残留验收] 注册表 []、无 QA workdir、DB 零 QA 行；回归 t252 ALL PASS + t637-ui-probe 6/0。
+- [未做与理由] EMPIAR 世界的 idle postprocess 派真跑（会动 t639 世界合同 12-11-1——idle 前哨是诚实下一步不是待跑件，勿开）；t372 全链评估（需真 RELION build，等 build 日）；judge 风暴（等稳定夜）。
+
+Stage Summary:
+- 「演练床不是缺口是沉睡」：t639 立案的「mock cluster P1 对接」经盘点发现全链早已在册（服务+库+套件三件齐）——很多「新需求」其实是失联的旧资产；开工前先问「是不是已经有了」比「怎么建」便宜两个数量级
+- 「守卫要成对」：registryBefore 学过的课（existsSync 守卫）registryAfter 没学——同一文件的两次读必须同一世界假设；非对称守卫是套件时代的地层 bug，世界一换就露头
+- 「产品零改动是最高验收」：t262 全引擎（staging→dispatch→poll→sync→twin→stop）在新世界零改动 ALL PASS——remote 车道 16k 行的工程质量经受住了三次世界更换；本窗虫情：套件虫一只（非对称守卫），产品虫零只
+- 「套件死时 cleanup 要活」：t261 崩溃点在 finally 之前，cleanup 照样收干净 roster——cleanup-on-fail 律的价值不在自己过审而在任何死法下都不留尸
+- 产出：mock cluster 复活 + t261 ALL PASS（1 修复）+ t262 ALL PASS（0 修复）+ qa-t640-rehearsal-bed.sh 一键动词 + 回归双绿 + 残留三清；下窗入口：①样式/功能车道继续（Topaz/3D 截面/Task 13 清单皆化石勿考古）②t372 全链评估（需真 RELION build，等 build 日）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 50 窗否决）⑤演练床一键可重跑（bash scripts/qa-t640-rehearsal-bed.sh --full）
