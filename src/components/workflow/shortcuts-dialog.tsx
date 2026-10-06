@@ -130,6 +130,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "1–4", text: "Grid filter — all · running · completed · failed" },
       { keys: "5", text: "Jobs filter — noted (annotated) jobs only" },
       { keys: "6", text: "Jobs filter — unassigned orphans only" },
+      // t641: the search lens footer (t637) hints these contextually, but
+      // the dialog is the single discoverable surface — a live key with
+      // no row is a drift (t248's law).
+      { keys: "↑↓ ↵ Esc", text: "Search lens — walk the results, open the highlighted job, dismiss" },
     ],
   },
   {
@@ -140,6 +144,22 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "← → ↑ ↓", text: "Move focus across the class grid" },
       { keys: "Enter Space", text: "Toggle keep on the focused class" },
       { keys: "Home End", text: "Jump to the first / last class" },
+      { keys: "← →", text: "Step rounds inside the enlarged class sheet" },
+    ],
+  },
+  {
+    // t641 — the map viewer's keyboard layer was live but invisible:
+    // 1–6 axis presets + 0 reset had an in-popover hint, but B (quick-save
+    // bookmark) was spoken only by its own completion toast — you had to
+    // press it once by accident to learn it existed. Same law as t248:
+    // a live key with no row is a drift.
+    id: "viewer3d",
+    label: "3D map viewer",
+    hint: "While the map viewer is open — the camera has its own keys",
+    rows: [
+      { keys: "1–6", text: "Snap to a standard axis view — zoom stays put" },
+      { keys: "0", text: "Reset to the default ¾ view" },
+      { keys: "B", text: "Quick-save the current camera as a bookmark" },
     ],
   },
   {

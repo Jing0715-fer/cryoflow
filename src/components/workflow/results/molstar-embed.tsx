@@ -5590,7 +5590,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 </span>
               </button>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                Keys 1–6 / 0 work too. Swing the camera to an axis — zoom stays put.
+                Keys 1–6 / 0 work too — swing to an axis, zoom stays put. Press B to quick-save the current angle.
               </p>
             </PopoverContent>
           </Popover>
@@ -5673,7 +5673,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               <div className="mt-1.5 max-h-44 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
                 {bookmarks.length === 0 ? (
                   <p className="px-1 py-2 text-center text-[10px] text-muted-foreground">
-                    No bookmarks yet — set up a view, then save it.
+                    No bookmarks yet — set up a view, then save it (or press B to quick-save the current angle).
                   </p>
                 ) : (
                   bookmarks.map((b) => {
