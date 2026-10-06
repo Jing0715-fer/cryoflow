@@ -68,7 +68,7 @@ const styleSrc = readFileSync("src/lib/status-style.ts", "utf8");
 // spelling — the anchor follows the map; the token layer is untouched.
 must(
   styleSrc.includes("failed: \"text-danger\"") &&
-    styleSrc.includes("completed: \"text-emerald-700 dark:text-emerald-300\"") &&
+    styleSrc.includes("completed: \"text-success-700 dark:text-success-300\"") && // t648: the deep ink renamed hue→semantic, anchor follows the law
     styleSrc.includes("pending: \"bg-amber-500\"") &&
     styleSrc.includes("running: \"bg-teal-500\"") &&
     styleSrc.includes("completed: \"bg-success/10\""),

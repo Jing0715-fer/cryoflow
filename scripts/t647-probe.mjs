@@ -58,11 +58,11 @@ must(
   "A STATUS_BADGE is COMPOSED (border arrangement + ink law, one home per rung)",
 );
 must(
-  libSrc.includes('pending: "text-amber-700 dark:text-amber-300"') &&
-    libSrc.includes('running: "text-teal-700 dark:text-teal-300"') &&
-    libSrc.includes('completed: "text-emerald-700 dark:text-emerald-300"') &&
+  libSrc.includes('pending: "text-warning-700 dark:text-warning-300"') &&
+    libSrc.includes('running: "text-running-700 dark:text-running-300"') &&
+    libSrc.includes('completed: "text-success-700 dark:text-success-300"') &&
     libSrc.includes('failed: "text-danger"'),
-  "A ink = deep 700/300 literals, EXCEPT failed (rose-600 passes 4.5:1)",
+  "A ink = deep rung SEMANTIC tokens (t648 rename), EXCEPT failed (rose-600 passes 4.5:1)",
 );
 must(
   libSrc.includes('idle: "bg-zinc-400/25 dark:bg-zinc-500/30"') &&
@@ -181,7 +181,7 @@ for (let i = 0; i < 12 && badgeAlive.count === 0; i++) {
     const badges = [...document.querySelectorAll("*")].filter(
       (el) =>
         /border-emerald-400\/60/.test(el.className || "") &&
-        /text-emerald-700/.test(el.className || "") &&
+        /text-success-700/.test(el.className || "") &&
         (el.textContent || "").trim().toLowerCase() === "completed",
     );
     return { count: badges.length, sample: badges[0]?.className ?? "" };
@@ -190,17 +190,22 @@ for (let i = 0; i < 12 && badgeAlive.count === 0; i++) {
 }
 must(
   badgeAlive.count > 0,
-  "D a real badge wears the STATUS_BADGE.completed composite (border-emerald-400/60 + text-emerald-700)",
+  "D a real badge wears the STATUS_BADGE.completed composite (border-emerald-400/60 + t648's text-success-700)",
   `count=${badgeAlive.count}`,
 );
 
-// D2 — sandbox equivalence: the deep literals resolve to the palette's
-// own bytes (canvas-resolved sRGB; the t646 lesson — never memorize hex).
+// D2 — sandbox equivalence: the RUNG TOKEN classes resolve to the
+// palette's own bytes (canvas-resolved sRGB; the t646 lesson — never
+// memorize hex). t648 recast: the sandbox injects text-success-700 (a
+// class that lives in the renamed field — text-emerald-700 no longer
+// occurs outside exemption, so JIT may not even emit it), and the
+// equivalence now certifies the LEGISLATION: our copied oklch must
+// render byte-identical to the palette's own value.
 const probe = await page.evaluate(() => {
   const el = document.createElement("div");
   el.style.cssText = "position:absolute;visibility:hidden;";
   el.innerHTML = [
-    '<span id="t647-ok-ink" class="text-emerald-700">x</span>',
+    '<span id="t647-ok-ink" class="text-success-700">x</span>',
     '<span id="t647-ref-ok" style="color:oklch(50.8% 0.118 165.612)">x</span>',
     '<span id="t647-badge-border" class="border-emerald-400/60">x</span>',
     `<span id="t647-ref-border" style="border:1px solid color-mix(in oklab, oklch(76.5% 0.177 163.223) 60%, transparent)">x</span>`,
@@ -226,7 +231,7 @@ const probe = await page.evaluate(() => {
   return out;
 });
 const same = (a, z) => a.every((v, i) => Math.abs(v - z[i]) <= 1);
-must(same(probe.okInk, probe.refOk), "D text-emerald-700 ≡ palette emerald-700 (canvas bytes)", probe.okInk.join(","));
+must(same(probe.okInk, probe.refOk), "D text-success-700 ≡ palette emerald-700 bytes (t648 legislation faithful)", probe.okInk.join(","));
 must(same(probe.badgeBorder, probe.refBorder), "D border-emerald-400/60 ≡ color-mix 60% law", probe.badgeBorder.join(","));
 
 // E — console hygiene
