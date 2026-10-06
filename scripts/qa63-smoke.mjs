@@ -19,8 +19,22 @@ const HOST_JOB = "QA Post 320";
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// t633 — the whole fsc fixture family goes home (t630 seeder). Sync so a
+// FATAL can run it inline before exit (playwright's exit hook reaps the
+// browser process tree); the normal path calls the same verb at the end.
+const takeHomeHome = () => {
+  try { sh("python3 /home/z/my-project/scripts/qa60-seed-fsc.py --take-home"); } catch (e) { console.log(`  take-home warn: ${String(e).slice(0, 120)}`); }
+};
+
 const must = (cond, label) => {
-  if (!cond) { console.log(`FATAL: ${label}`); process.exit(1); }
+  if (!cond) {
+    // t630 doctrine — a FATAL takes its specimens home too (the old
+    // bare exit(1) leaked the seeded family live on t633's narrow runway;
+    // the next run's idempotent re-seed had to eat the dog food)
+    console.log(`FATAL: ${label}`);
+    takeHomeHome();
+    process.exit(1);
+  }
   console.log(`  ok: ${label}`);
 };
 
@@ -32,6 +46,12 @@ try { sh("pkill -f agent-browser"); } catch { /* none running */ }
 // rows vs the expected 5. Seed is idempotent by name, so the world this
 // suite needs exists regardless of who ran before.
 try { sh("python3 /home/z/my-project/scripts/qa60-seed-fsc.py >/dev/null 2>&1"); } catch { /* seed best-effort */ }
+// t633 — the whole body lives in main() so ANY throw (goto timeout,
+// evaluate context destroyed) reaches the catch, which takes the seeded
+// family home before exiting: the old top-level TLA shape let a goto
+// TimeoutError bypass must() entirely and leak all five rows (witnessed
+// live twice on the narrow runway; the idempotent re-seed ate it)
+async function main() {
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
 // dual collection replaces the old window.__qaErrs injection (qa70 template)
@@ -39,7 +59,11 @@ const consoleErrors = [];
 p.on("console", (m) => { if (m.type() === "error") consoleErrors.push(String(m.text() || m).slice(0, 160)); });
 p.on("pageerror", (e) => consoleErrors.push(String(e).slice(0, 160)));
 
-await p.goto(B, { waitUntil: "networkidle" });
+// t523 two-stage law — networkidle never settles on a 2s-polling app
+// (the last suite in the family still trusting it); arrive on
+// domcontentloaded and let the canvas-convergence loop below wait for the
+// REAL truth (the host job's card), not the network's silence
+await p.goto(B, { waitUntil: "domcontentloaded" });
 await sleep(1500);
 
 const curView = () =>
@@ -104,10 +128,16 @@ const tab = await p.evaluate(() => {
   return "tab-clicked";
 });
 must(tab === "tab-clicked", "results tab exists and opens (the inspector's tabbed body)");
-await sleep(2500);
-
-const fsc = await p.evaluate(() =>
-  !!document.querySelector('section[aria-label="Fourier-shell correlation"]'));
+// t630 waiting law, third lesson — the tab's appearance is not the data's
+// appearance: the FSC section rides a chart fetch that can lose to compiler
+// pressure on a narrow runway (witnessed live: the fixed 2.5s window died
+// while compare-dialog polling later in this file was already sane)
+let fsc = false;
+for (let i = 0; i < 30 && !fsc; i++) {
+  await sleep(500);
+  fsc = await p.evaluate(() =>
+    !!document.querySelector('section[aria-label="Fourier-shell correlation"]'));
+}
 must(fsc, "FSC section rendered inside inspector (state→workdir resolution alive post-migration)");
 
 // ---- compare dialog open/close ---------------------------------------------
@@ -117,9 +147,15 @@ for (let i = 0; i < 5 && !dialog; i++) {
   try {
     await p.locator('[role=dialog] button[aria-label*="compare"], [role=dialog] button[title*="compare"]')
       .first().click({ timeout: 3000 });
-    await sleep(1800);
-    rowCount = String(await p.locator("[data-testid=fsc-compare-row]").count());
-    dialog = Number(rowCount) >= 5;
+    // t630 waiting law, same lesson again — the dialog's OPEN is not the
+    // rows' arrival: the project FSC scan rides a workdir-walking index
+    // fetch that loses to compiler pressure on a narrow runway (the old
+    // single 1.8s window read 0 rows five times in a row, live)
+    for (let k = 0; k < 30 && !dialog; k++) {
+      await sleep(500);
+      rowCount = String(await p.locator("[data-testid=fsc-compare-row]").count());
+      dialog = Number(rowCount) >= 5;
+    }
   } catch { await sleep(1500); }
 }
 must(dialog, `compare dialog opens with rows (got ${rowCount}, expect 5)`);
@@ -151,10 +187,13 @@ must(afterEsc === "NOCMP+INSP", `Esc closes compare dialog, inspector survives -
 must(consoleErrors.length === 0, `console errors: ${consoleErrors.length === 0 ? "0" : `**${consoleErrors.length}** ${JSON.stringify(consoleErrors.slice(0, 5))}`}`);
 
 await b.close();
-// t630 rollout — the whole fsc fixture family goes home (t630 seeder):
-// the QA Refine Live card AND the four SPECS hosts (they used to stay as
-// "shared fixtures" — t628 convicted the premise: POST lands in ACTIVE).
-// The next run re-seeds via the same find-or-create seeder (Task 86), so
-// this is order-safe for qa60/qa62/qa64.
-try { sh("python3 /home/z/my-project/scripts/qa60-seed-fsc.py --take-home"); } catch (e) { console.log(`  take-home warn: ${String(e).slice(0, 120)}`); }
+// the normal path uses the same take-home verb the FATAL path uses
+takeHomeHome();
 console.log("SMOKE GREEN");
+}
+
+main().catch((e) => {
+  console.error(e);
+  takeHomeHome();
+  process.exit(1);
+});
