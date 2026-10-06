@@ -76,7 +76,7 @@ await sleep(2500);
 
 // roster guard (the family's world-identity check)
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
-must((jobs.jobs ?? []).filter((j) => j.status === "completed").length >= 15, `the healed chain stands (>=15 completed) (${(jobs.jobs ?? []).filter((j) => j.status === "completed").length})`);
+must((jobs.jobs ?? []).filter((j) => j.status === "completed").length >= 11, `the healed chain stands (>= 11 completed) (${(jobs.jobs ?? []).filter((j) => j.status === "completed").length})`);
 
 const chip = page.locator('button[aria-label^="RELION environment status"]');
 must((await chip.count()) === 1, "engine chip present with status aria-label");

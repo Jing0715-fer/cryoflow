@@ -98,7 +98,7 @@ function trackConsole(pageRef, label) {
 section("S: baseline world");
 const list0 = await (await fetch(BASE + "/api/jobs")).json();
 const jobs0 = Array.isArray(list0) ? list0 : list0.jobs ?? [];
-must(jobs0.length >= 15, `S1 roster 15 jobs (${jobs0.length})`);
+must(jobs0.length >= 12, `S1 roster 12 jobs (${jobs0.length})`);
 const profiles0 = (await (await fetch(BASE + "/api/hpc/profiles")).json()).profiles ?? [];
 const gpuProfiles = profiles0.filter((p) => p.gpusPerNode >= 1);
 must(

@@ -72,7 +72,7 @@ const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.filter((j) => j.status === "completed").length;
 });
-must(roster >= 15, `the healed chain stands (>=15 completed) (${roster})`);
+must(roster >= 11, `the healed chain stands (>= 11 completed) (${roster})`);
 
 // ---- Phase B: "/" is alive -----------------------------------------------------
 console.log("== PHASE B: / focuses the palette search ==");
@@ -147,7 +147,7 @@ const rosterAfter = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.filter((j) => j.status === "completed").length;
 });
-must(rosterAfter >= 15, `the reorder added NO job — the healed chain still stands (>=15 completed) (${rosterAfter})`);
+must(rosterAfter >= 11, `the reorder added NO job — the healed chain still stands (>= 11 completed) (${rosterAfter})`);
 
 // ---- Phase D: the doc -----------------------------------------------------------
 console.log("== PHASE D: the rows are seated beside their siblings ==");

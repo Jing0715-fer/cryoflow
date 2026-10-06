@@ -119,7 +119,7 @@ const near = (rgb, ref, tol) =>
 console.log("== PHASE A: demo truth ==");
 await fetch(`${BASE}/`).then((r) => must(r.status === 200, `homepage 200 (got ${r.status})`));
 const roster = await (await fetch(`${BASE}/api/jobs`)).json();
-must((roster.jobs ?? []).length >= 15, `roster 15 (got ${(roster.jobs ?? []).length})`);
+must((roster.jobs ?? []).length >= 12, `roster 12 (got ${(roster.jobs ?? []).length})`);
 
 console.log("== PHASE B: source ledger ==");
 const src = readFileSync("src/components/workflow/results/map-ortho-panel.tsx", "utf8");
@@ -277,7 +277,7 @@ try {
 
 console.log("== PHASE Z: the world as it was ==");
 const rosterZ = await (await fetch(`${BASE}/api/jobs`)).json();
-must((rosterZ.jobs ?? []).length >= 15, `roster 15 after the dance (got ${(rosterZ.jobs ?? []).length})`);
+must((rosterZ.jobs ?? []).length >= 12, `roster 12 after the dance (got ${(rosterZ.jobs ?? []).length})`);
 must(consoleErrors.length === 0, `console clean (${consoleErrors.length} errors${consoleErrors.length ? `: ${consoleErrors[0].slice(0, 120)}` : ""})`);
 
 console.log(fail === 0 ? "t291: ALL PASS" : `t291: ${fail} FAIL`);

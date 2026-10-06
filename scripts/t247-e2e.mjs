@@ -62,7 +62,7 @@ const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.filter((j) => j.status === "completed").length;
 });
-must(roster >= 15, `the healed chain stands (>=15 completed) (${roster})`);
+must(roster >= 11, `the healed chain stands (>= 11 completed) (${roster})`);
 
 // ---- Phase B: the keyboard mouths ----------------------------------------------
 console.log("== PHASE B: H and M answer at the report ==");

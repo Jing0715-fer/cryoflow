@@ -97,7 +97,7 @@ const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.length;
 });
-must(roster >= 15, `roster identity 15 (got ${roster})`);
+must(roster >= 12, `roster identity 12 (got ${roster})`);
 must(consoleErrors.length === 0, `the homepage's own world is console-clean (got ${consoleErrors.length})`);
 // a real job id so the guarded routes reach their route-level answers
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();

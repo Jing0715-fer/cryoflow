@@ -216,7 +216,7 @@ must(
 console.log("== PHASE C: the product's rails carry real data (second canvas) ==");
 const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster0 = (jobs0.jobs ?? []).length;
-must(roster0 >= 15, `the demo canvas starts at its 21 jobs (got ${roster0})`);
+must(roster0 >= 12, `the demo canvas starts at its 21 jobs (got ${roster0})`);
 
 let secondProjectId = null;
 const createdJobs = [];

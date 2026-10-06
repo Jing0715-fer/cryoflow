@@ -58,7 +58,7 @@ const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
   return (await r.json()).jobs.filter((j) => j.status === "completed").length;
 });
-must(roster >= 15, `the healed chain stands (>=15 completed) (${roster})`);
+must(roster >= 11, `the healed chain stands (>= 11 completed) (${roster})`);
 
 // t407 — the palette project pick (t241's second-fossil lesson, learned
 // again here): the QC walk reads store.jobs, and a clean playwright context

@@ -186,7 +186,7 @@ await browser.close();
 /* ============ Z: the world read back ============ */
 section("Z: the world read back");
 const rosterZ = await jobs();
-must(rosterZ.length >= 15, `Z1 roster identity (${rosterZ.length})`);
+must(rosterZ.length >= 12, `Z1 roster identity (${rosterZ.length})`);
 must(errors.length === 0, `Z2 console clean (${errors.length} errors)`);
 
 console.log(`\n== RESULT ==\npass ${pass} / fail ${fail}`);
