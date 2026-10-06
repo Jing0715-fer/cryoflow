@@ -232,7 +232,12 @@ try {
     "sec-fetch-dest": "empty",
   }, JSON.stringify({ host: "evil.example", username: "attacker", password: "nope" }));
   must(nocors === 403, `the no-cors cross-site drive-by dies at the door (got ${nocors})`);
-  const registryAfter = readFileSync("/home/z/my-project/data/remote-connections.json", "utf8");
+  // t640 — the AFTER read learns the same lesson as the BEFORE read (line 177):
+  // a fresh world never wrote the registry file, so ENOENT here too means the
+  // honest empty list, not a broken door. Asymmetric guards die together.
+  const registryAfter = existsSync("/home/z/my-project/data/remote-connections.json")
+    ? readFileSync("/home/z/my-project/data/remote-connections.json", "utf8")
+    : "[]";
   must(registryAfter === registryBefore, "the registry is BYTE-IDENTICAL behind the door");
 
   // ---- Phase D: the live loop ----------------------------------------------
