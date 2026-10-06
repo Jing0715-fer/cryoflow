@@ -357,8 +357,15 @@ try {
   // CHAIN, not the historical spelling: pulse alive, fill rides
   // STATUS_FILL[word], and the queued->pending mapping is pinned so a
   // silent dialect regression still trips this wire.
-  must(/<animate\b/.test(mmSrc) && /STATUS_FILL\[word\]/.test(mmSrc) &&
-       /isSlurmQueued\(job\) \? "pending"/.test(mmSrc),
+  // t646 (template's second enforcement) — the chain's home moved again,
+  // this time INTO lib: t646 single-sourced the status law in
+  // lib/status-style.ts (hex twin + statusWord), so the minimap reads
+  // STATUS_HEX[statusWord(job)] and the queued->pending literal lives in
+  // the lib. Contract unchanged: the word chain, the map, the pulse.
+  const statusStyleSrc = readFileSync("src/lib/status-style.ts", "utf8");
+  must(/<animate\b/.test(mmSrc) && /STATUS_HEX\[word\]/.test(mmSrc) &&
+       /statusWord\(job\)/.test(mmSrc) &&
+       /isSlurmQueued\(job\) \? "pending"/.test(statusStyleSrc),
     "F4 running dots pulse (SMIL); dots read the fill map through the display word (queued paints pending)");
   // t643 verdict (t157 template) — this oracle anchored page.tsx, but the
   // keyboard handler migrated to app-shell.tsx (the shell owns the global
