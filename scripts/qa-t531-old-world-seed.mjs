@@ -445,6 +445,12 @@ function filePlan() {
   plan.push([wd.symexpand, "particles_symexp.star", buildParticlesStar(keptRows.map((l) => l.replace(/(\d+\.\d{3})$/, (d) => (parseFloat(d) + 0.5).toFixed(3))), true)]);
   plan.push([wd.rebalance, "particles_rebalanced.star", buildParticlesStar(keptRows, true)]);
   plan.push([wd.refine3d, "run_it020_model.star", buildModelStar(3.62, true)]);
+  // the ledger claims the gold-standard half pair — write what
+  // outputsPlan asserts (the "real outputs" law; the t636 re-run
+  // exposed the claim-without-write gap once the third world split
+  // lost the snapshot's copies of these files)
+  plan.push([wd.refine3d, "run_it020_half1.mrc", buildMrcSingle(64)]);
+  plan.push([wd.refine3d, "run_it020_half2.mrc", buildMrcSingle(64)]);
   plan.push([wd.postprocess, "postprocess.star", buildPostprocessStar()]);
   return plan;
 }
