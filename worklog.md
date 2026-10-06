@@ -9255,3 +9255,28 @@ Stage Summary:
 - 「腿命名文件，从不重写判词」：manifest leg 的全部产品是清单——词是账本的（landing 落的）、判词是收据的（stop 写的）、腿只陈述 cluster 持有什么。W1 的逐字句断言与 W2 的收据原封断言，把这个权力边界钉进了合同
 - 「探针也要守 R 段法则」：witness 的 prevActive 法典被自家 diag 绕过——hygiene 的完备性按「谁造 fixture」计，不按「谁大」计；修完顺手把法则编码进 diag，让最小工具也带着最大工具的教养
 - 产出：回执第四级第一刀两文件（types.ts 三字段 / remote-run.ts 落地开题+新桶+manifest 腿+早退守卫修复）+ t626-outputs-ledger-live-fire.mjs（31 断言二跑 ALL PASS）+ diag-t626-leg.mjs（分尸相机+法典化 prevActive）+ 📸×2；tsc 0、eslint 0、node --check 0；t252 + t625 双回归 ALL PASS；正典 12/11 完好、active 归位 EMPIAR、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②第四级第二刀：landing 后的真 sync-back（等输出型活体夜）③休眠套件逐套复活继续（t622 方法论）④下一块新面侦察（样式架空）⑤build 日被动重测（第 35 窗否决）
+
+---
+Task ID: 627 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 16:24 cron, Job 362852, Task 572 系第 46 次派单)
+Task: t626 下窗入口③+样式候选兑付——search-mode 级联诚实性（search lens 家族 dashboard 侧，t621 明示待侦察面）：搜索态 chips 计数级联 + 零幸存 dimmed 方言，两面同律（roster chips + projects grid presence chips）；附赠一场与 userspace reaper 的验尸攻防（t523 定律两段式 + 分段换浏览器）。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 626（派单摘要说 Task 13——滞后第 N+73 次兑付）；HEAD e8790bd 树净；available 1104MB 非 build 日（第 36 窗被动否决）。
+- [QA 摸底] agent-browser 专港 + agent-browser 自管 profile（学费：`--user-data-dir` flag 对 `open` 无效——它自己造临时 profile，收尾 close 即净场）；localhost 解析失败 ERR_NAME_NOT_RESOLVED → 127.0.0.1 绕开（正典姿势新增一笔）；正典 12 jobs / 11 completed / 1 idle、active 归位 EMPIAR、console 0 error、📸 t627-home-12jobs.png。
+- [侦察定谳] t619 立案样式候选「search-mode 级联见证」+ t621 明示「search lens 家族的 dashboard 侧需新侦察」——本窗合流：roster 搜索激活时状态 chips 的 n 仍读全量 sorted（"Completed 11"），而点击产生的是 haystack ∩ filter 交集——**chips 在搜索态对级联结果撒谎**；projects grid 的 presence chips 同病（presence memo 读全量 projects，点击产生 query ∩ presence）。t94-e2e B4 明文锁定 count chip 分母=全量 roster——合同不动，级联只兑付 chips 自身的 n。
+- [级联落地·两面同律·两文件一面] project-dashboard.tsx：①haystack 谓词提 hoisted `inHaystack`（级联必须问点击会问的同一个问题，否则数字与它承诺的行漂移）+ `cascaded()` 助手——q 激活时每个 chip 的 n = haystack ∩ filter，静息态字节等同（q="" 短路）；②零幸存 chip **dimmed in place**（opacity-40 + hover 复原 + title 说 "none match the search"）——打字中 chips 弹入弹出是噪音，置灰的 0 是信息（眼睛扫一行就知道幸存者住在哪个相）；显隐仍锚静息计数，chips 永不中途消失；③All chip 级联（= count chip 的 X）；④空态文案方言补课："No {jobFilter} jobs match"（与既有 "No {jobFilter} jobs in this project yet" 同构）；⑤grid 侧 `cascadedPresence` memo 同律 + 共享 dimmed 方言；⑥idleSlice 显式化（级联要片不要计数）。
+- [活体验证全链路] motioncorr → All 1 / Completed 1 / Idle 0 DIMMED(op=0.4 实测) / count "1 of 12" / 1 行；乱词 + Completed chip 激活 → 全 chips 级联 0、DIM、"No completed jobs match"（t94 C2 合同 "0 of 12" 完好）；静息还原 All 12 / Completed 11 / Idle 1 零 dimmed；grid 面 EMPIAR → 1/6、All 1 / Running 0 DIM(原 2) / Completed 1(原 3) / Failed 0 DIM(原 4)；📸 t627-roster-cascade-dimmed.png + t627-roster-rest-12jobs.png；console 0 error。
+- [本窗最大战场——qa82/qa77 双红验尸] 回归首跑 qa82/qa77 双超时：①qa82 死于 networkidle——**t523 定律重演**（worklog 6761 行判例：networkidle 在 2s 轮询 app 上是伪等待）；②qa77 死于世界漂移——其复活假设要求 active 项目持 seed 孤儿（"Import Movies 1" 系），EMPIAR 正典世界 0 孤儿、裸 /api/jobs 只回 active 项目 → 确定性深休眠，**t622 车道立案不动车**（世界假设死了，套件没病）。
+- [qa82 铠甲三段进化] ①一段：networkidle → domcontentloaded（t523 律原文）——nav 全过但 D1 读得 **roster alive (0 rows)**：networkidle 原来身兼双职（到达 + 等 /api/jobs fetch 落定），二段补齐：**等 roster 渲染不等网络**（waitForFunction [data-roster-row] > 0）——D1-D3 全绿；②四连死验尸：E 段 reload "Target closed" 空日志、dmesg 零新 OOM、取证相机（crash/disconnected 监听）定谳 **userspace reaper ~90-100s chromium 寿命签名**（慢跑死于 D、快跑死于 E、永远死于本浏览器起跑后 ~100s——与套件位置无关）；③三段：**分段换浏览器**（relaunch 助手，D/E 相位边界各换新）——每段寿命压进收割线内，ALL PASS（15 断言）；取证线实录：旧浏览器在 E 段 API 期被收割、工作已交接新浏览器、套件无感。
+- [世界卫生两笔] ①qa82 首跑崩溃残留 2 个 QA Class* 种子 job（networkidle 超时致清理段未跑）——产品门 DELETE 清场归位正典 12/11；②qa82 套件自身只清注不清种子 job（Z1/Z2 后 14 jobs）——套件卫生缺口立案不改车（qa58 种子器多消费者，动它越权）；两跑间世界用产品门复位。
+- [回归] tsc 0、eslint 0、node --check 0；t94 ALL PASS（26 断言——B4 全量分母合同完好 + 铠甲同律加固）；qa82 ALL PASS（15 断言——D1 14 rows 活体、E3 死键诚实）；t252 ALL PASS（写门 + roster 贴地）；正典 12/11 复核、active 归位、📸×3。
+- [未做与理由] build 日（第 36 窗否决，1104MB）；judge 风暴活体半场（等稳定夜）；第四级第二刀真 sync-back（等输出型活体夜）；qa77 深休眠复活（t622 车道整窗立案——需先裁决「套件自建孤儿世界 vs 指认持孤儿项目」的方法论再动车）；qa82 种子清理缺口（qa58 多消费者越权风险）；count chip 分母改状态片大小（t94 B4 合同故意教义，不推翻）。
+
+Stage Summary:
+- 「chips 是过滤器也是仪表盘，两个角色在搜索态打架时诚实赢」：静息态 chip 计数是项目状态栏（qa47/qa82 合同），搜索态它必须回答「点击会产生什么」——级联不是换角色，是让计数永远说它按钮的真话；零幸存置灰是第三种话：「这个相在当前镜下是空的，但相还在」
+- 「chrome 弹性是噪音，chrome 置灰是信息」：打字中 chips 随级联弹入弹出会让眼睛追不上；显隐锚静息计数、明暗随活体计数——结构稳定、真值流动，SavedViewsGallery 律的又一次显形
+- 「伪等待的双职暴露要补后职」：t523 定律只说了前半句（networkidle 不可靠），本窗补上后半句教义——**去掉伪等待时先问它兼职了什么**；networkidle 兼职「等数据落定」，只换到达等价物会让 D1 读到 0 行还以为自己健康；等 DOM 的真值（roster 渲染），不等网络的声音
+- 「取证相机先于理论」：四次同位死亡 + 零内核 OOM + 空日志——理论候选（堆渐增/内核 OOM/产品 bug）全挂空；crash/disconnected 两行监听一贴，userspace reaper 的 ~100s 寿命签名当场落网；死亡位置与套件相位无关、只与本浏览器年龄有关的对照，是分段换浏览器方案的直接证词
+- 「套件红先验尸再动刀：世界死≠套件病」：qa77 与 qa82 同窗双红、病理完全不同——qa82 是铠甲债（可修），qa77 是世界漂移型深休眠（复活是整窗方法论工程）；修一个立一个，不让「测试失败优先修」把复活车道偷进来
+- 产出：search-mode 级联两面（roster chips + grid presence chips）+ dimmed 方言 + 空态文案方言 + qa82 铠甲三段（t523 两段式 + 分段换浏览器 + 取证相机）+ t94 同律加固 + 📸×3；tsc 0、eslint 0；t94/qa82/t252 三套件 ALL PASS；正典 12/11 完好、active 归位 EMPIAR、零残留；下窗入口：①judge 风暴活体半场（等稳定夜）②休眠套件逐套复活继续（t622 方法论；qa77 立案在册——世界漂移型，需自建世界裁决）③qa82 种子清理缺口销账（qa58 消费者审计后）④第四级第二刀真 sync-back（等输出型活体夜）⑤下一块新面侦察（样式车道已清空，级联后待新侦察）⑥build 日被动重测（第 36 窗否决）
