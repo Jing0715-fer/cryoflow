@@ -271,8 +271,8 @@ async function main() {
     "oracle: the two-way door writes the empty string, not a delete");
   must(/let selectionSeedApplied = false;/.test(src),
     "oracle: the seed applies ONCE per page load (once-flag)");
-  must(/j\.jobs\.find\(\(x\) => x\.id === seed && jobInWorkspace\(x, activeWs\)\)/.test(src),
-    "oracle: the apply gate reuses the canvas's own membership predicate");
+  must(/landedJobs\.find\(\(x\) => x\.id === seed && jobInWorkspace\(x, activeWs\)\)/.test(src),
+    "oracle: the apply gate reuses the canvas's own membership predicate (t638: the receiver is t370's landedJobs — the FILTERED list, so a just-deleted id the stale response still carries cannot steal the selection; the jobInWorkspace predicate is unchanged)");
   must(/useWorkflowStore\.subscribe\(\(s\) => \{\s*if \(s\.selectedId !== prevSelected\) \{\s*prevSelected = s\.selectedId;\s*persistSelectedJob\(s\.selectedId\);/.test(src),
     "oracle: the echo lives in a post-commit subscription on selectedId");
   must(/if \(typeof window !== "undefined"\) \{\s*let prevSelected = useWorkflowStore\.getState\(\)\.selectedId;/.test(src),

@@ -180,6 +180,15 @@ async function main() {
   await p.goto(BASE, { waitUntil: "networkidle" });
   await p.waitForSelector('[data-view="canvas"]', { timeout: 30000 });
   await sleep(900);
+  // t638 — the minimap floats bottom-right and the world grew (t632's
+  // archaeology reshaped the demo bbox): the boot fit can land the seeded
+  // select2d card UNDER the map, where a trusted click dies against the
+  // map's own drag surface (overlay probe: the framing-mode button was
+  // the top element at the card's center). The product's documented door
+  // is one keypress — M, the shortcuts dialog's Canvas group — so the
+  // suite now takes it, like the user it stands in for.
+  await p.keyboard.press("M");
+  await sleep(300);
 
   /* ---------- Phase X — source oracles ----------------------------------- */
   step("--- Phase X: source oracle — arrangement vs occlusion ---");
@@ -271,6 +280,7 @@ async function main() {
   );
   await p.goto(BASE, { waitUntil: "networkidle" });
   await p.waitForSelector('[data-view="canvas"]', { timeout: 30000 });
+  await p.keyboard.press("M"); // t638 — same door as Phase B (see above)
   await sleep(900);
   must(await openGallery("E"), "gallery opens over a corrupt seed");
   vb = await viewbar();
@@ -314,6 +324,16 @@ async function main() {
 
   await p.close(); p = null;
   await b.close(); b = null;
+
+  // t638 — the success path owes the same honesty as the failure path:
+  // cleanup() used to live ONLY in main().catch, so a GREEN run walked
+  // out the door leaving the freshly seeded gallery chain behind as a
+  // resident (the t628 doctrine: a specimen is not a resident — and the
+  // t637-ui-probe roster was quietly 17 rows for exactly this reason).
+  // The Phase Z roster assertion above compares against the post-seed
+  // baseline, so the take-home belongs HERE, after the assertion that
+  // pins the world's in-suite shape and before the verdict is printed.
+  await cleanup();
 
   console.log(`\nT156 ALL PASS (${PASS} assertions)`);
 }
