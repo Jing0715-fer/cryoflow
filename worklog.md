@@ -9795,3 +9795,30 @@ Stage Summary:
 - 「世界有分身，权威要显式」：同一台机器上 cryoflow.db（dev server 的 export 覆盖）与 custom.db（.env 默认）并存，prisma 直连脚本不显式指定 DATABASE_URL 就会读出另一个世界——「世界只剩 3 jobs」的假新闻差点立案。验证世界合同永远以 API/e2e 为准；直连是取证工具不是真相源。
 - 「探针的参照要和被测同源」：等价断言两边都过 canvas 归一，但参照 oklch 抄错色相行，等价照样失败——同色异拼法的坑在参照侧同样存在。D1 的 count=0 也不是产品 bug 而是 t523 律的又一次提醒：视图翻转 ≠ roster 挂载完成。
 - 产出：lib/status-style.ts 七 map 家（+STATUS_BORDER/STATUS_BADGE/STATUS_FLOOR/STATUS_CHIP，TEXT/DOT/SOFT 三分律 recast）+ 六文件消费化 + 489 处/57 文件 token 迁移 + 12 文件身份豁免清单 + t647 四件套（census/codemod/assert/probe 24/0）+ t646-probe 锚迁居（21/0）+ 📸×1（t647-status-family.png）；下窗入口：①deep ink 档 token 立法（--color-success-700 等色阶 token，~198 处深档 pair + 97 solo 可退役——emerald/amber/teal 家族最后一段）②always-dark 面板 ink 尾桶人工清偿（t646 立案：job-inspector 21/results-view 15/template-presets 9）③样式/功能车道继续（star-table 排序/导出 + import-gallery 多选 + palette fuzzy）④judge 风暴（等稳定夜）⑤build 日三车道（available ≥ 3.5GB，本窗第 57 窗否决）⑥演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 648 收官
+Agent: main (cron window, Job 362852)
+Task: t647 入口①兑现——deep ink 档语义 rung token 立法（27 token 全档）+ 色相名退役 codemod（456 处/52 文件）+ 法典 status-style.ts 戴新语汇 + t648 四件套（census/codemod/assert/probe 15/0）+ t646/t647 探针锚迁居（t157 模板第四、五次执法）
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 647 收官（摘要链滞后 N+89，实际已推进 15 窗——纯摘要传递窗连发后本窗恢复执行）；树净 HEAD f881874；available 999MB 非 build 日（第 58 窗否决）；server 200/31ms；基线四绿（t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS）。
+- [侦察定谱] t647 census 复用（豁免清单升级为 t647-assert 的完整 12 文件——command-palette/class-gallery/denoise-compare-gallery/palette/lib/workflow.ts 连坐豁免在案）：INK_PAIR_700_300 108 + 700_400 46 + α 变体 4 + SOLO_DEEP 46；**塌缩域 = 0**（PAIR_OTHER 20 处全是 900/200、800/300、500/400、600/300 等非 600/400 形态——塌缩必改像素，全数 manual 留档）；全档位普查（text-prop 含前缀）：**456 处 / 9 档 / 52 文件**（700×169、300×134、600×61、400×56、500×13、200×10、800×8、900×4、100×1）。
+- [立法] globals.css @theme 27 rung token（--color-success/warning/running-100..900），值逐字抄 node_modules/tailwindcss/theme.css 的 oklch（t646 律：调色板的 oklch 是法，记忆里的 hex 不是）。注释刻五条判词：①为何不塌缩进语义 token（contrast law：600 档 emerald/amber/teal 不过 4.5:1；dark 侧 300/400 两档并存；α 变体在骑）②纯改名 zero-pixel ③主题无关常量（与 :root/.dark 翻转的语义 token 相反，pair 的主题切换由使用处 dark: 显式承担）④档位覆盖 = 现场分布（100–900，无 50/950）⑤立法注释里的 before→after 对照示例。
+- [试金石两枚] codemod dry 先行首跑抓到 globals.css ×2 命中——验尸 = 立法注释里的对照示例被 text-prop 正则吃中；若实扫会把「emerald→success」的对照变成「success→success」废掉示例的对照意义。globals.css 加入豁免（立法文件自身）。dry 二跑 456/52 与 census 精确一致。
+- [实扫] 456 处/52 文件改名（emerald→success、amber→warning、teal→running，前缀与 α 全保留）；幂等复跑 0；残留普查仅在 11 豁免文件 + globals 注释。tsc 0 + eslint 0。
+- [法典迁移] status-style.ts STATUS_TEXT 三行深档字面量 → text-warning-700 dark:text-warning-300 / running / success；头注三分律 rung 1 判词更新（「deep 700/300 literals」→「deep rung SEMANTIC tokens (t648)」+「t648 kept this verdict and legislated what it predicted」——t647 预言的 token 是本窗兑现的）。
+- [JIT 验证] dev server CSS 产物中 .text-success-700/.text-warning-700（含 /80 /90 α 变体）规则全部生成——@theme 立法即工具类可用。
+- [t648 四件套] census（t648-deep-census，形态分桶器留档）+ codemod（t648-deep-codemod，count-before-write + 射程防护：uncovered rung FATAL 退出）+ assert（t648-assert：Family B 立法 27 token 逐字对照 theme.css + Family A 非豁免 text-prop 色相名清零——无档位白名单、无行级豁免，全档立法的意义所在 + 法典佩戴新语汇三锚）+ probe（15/0：A 立法四锚含「rung token 不在 :root/.dark」主题无关活体；B 双代 assert 共存——t648-assert 0 + t647-assert 仍 0；C 残留 0 + 语义语汇 464 处 + 深档主导 700s: 33/84/56 + class-gallery selection teal 豁免活体；D 三活体——.dark 作用域 dark:text-success-300 ≡ palette emerald-300 字节（dark 侧规则由法典用量 JIT emitted 的证明）、text-warning-700/90 ≡ color-mix 90%（α 骑 token）、真 badge 15 枚佩戴 text-success-700；E console 0）+ 📸×1（t648-rung-vocab.png）。
+- [锚迁居两枚] t647-probe（第四次）：A 组三字面量锚 → 新 token 判词、D1 badge 锚 text-emerald-700 → text-success-700、D2 沙箱升级（注入 text-success-700——text-emerald-700 已从非豁免源码消失 JIT 可能不再 emit；等价断言升级为**立法忠实度认证**：我们抄的 oklch 渲染值 ≡ 调色板原值）24/0；t646-probe（第五次）：A 组锚死 STATUS_TEXT.completed 旧字面量 → 新语汇 + 注释刻 t648，21/0。
+- [插曲两枚] ①MultiEdit 非原子第四次咬人：第三 edit 吃掉 counter 定义头、第四 edit 失败，孤儿函数体残骸——diff 十秒定位（t642 律「成功也要 diff」再度生效）；probe A 组两个写坏的锚（恒真废话 + 胡写 fallback）自查修正——锚要精确，恒真锚是假安全。②直连假新闻第二演：node -e PrismaClient 直查报「jobs: 3 / projects: 1」——t647 判过的连错 DB 坑原样复发（未显式 DATABASE_URL，读到 .env 旁支库）；API 权威验证 15 jobs workspace 视角 + 显式 DATABASE_URL 直查 33 jobs 全库视角 + 0 QA 行——双视角与 t647 收官逐位一致。
+- [回归全家十二绿] t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS + t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t646 21/0（迁居后）+ t647 24/0（迁居后）+ t648 15/0；tsc 0 + eslint 0 ×2；世界 33/15 双视角一致、0 QA 行。
+
+Stage Summary:
+- 「立法先问塌缩的代价，再定改名的边界」：t646 的 rose pair 能塌缩成单 token 是因为 rose-600 恰好是两主题的公约值；deep ink 的 dark 侧 300/400 两档并存 + α 变体在骑，塌缩必改像素——所以 t648 的立法对象是「色相名」不是「pair 结构」：dark: 孪生保留，名字退役。判词的杠杆在于分清「哪一层可以动」（命名层）与「哪一层是世界的承诺」（像素层）。
+- 「全档立法买的是 assert 的无例外性」：500 档 13 处、200 档 10 处、800 档 8 处、900 档 4 处、100 档 1 处——低频档单独看不值得立法；但部分档位立法意味着 assert 要背白名单，白名单每窗都在生息。27 token 一次性买断「非豁免文件 text-prop 色相名 = 0」这条零白名单规则，是低频档立法的真实回报。
+- 「立法文件要豁免自己的历史」：codemod 的正则分不清「注释里的 before→after 对照示例」和「待迁移的现场」——对照示例是立法的证据链，吃掉它示例就变成 success→success 的废话。豁免清单加 globals.css 不是特例而是必然：文本替换工具永远要防自己的说明书。
+- 「沙箱要注入活在世界里的类」：t647 的 D2 沙箱注入 text-emerald-700 在旧世界是等价断言，在 t648 后可能拿回空规则（类已无源码引用、JIT 不再 emit）——沙箱锚必须跟着消费现场走。迁居后的断言反而更强了：它认证的是「我们抄进立法的 oklch 与调色板原值在渲染层字节汇合」，即立法忠实度本身。
+- 「恒真的锚是最危险的锚」：本窗 probe 初稿写过 `x === false === false || true` 的恒真断言——它永远绿，永远不保护任何东西。锚的价值在「可能死」，恒真锚把安全感的账记在了假账本上；自查出来的假锚比探针抓出来的死锚更该刻进教训。
+- 「假新闻会换壳复发」：t647 判过的直连连错 DB，本窗原样再演一遍（node -e 未显式 DATABASE_URL 读到旁支库的「jobs: 3」）——判词不进流程就会复发；「世界合同的权威在 API 侧，直连诊断必须显式 DATABASE_URL」从此是流程步骤不是记忆项。
+- 产出：27 rung token 立法（globals.css）+ status-style.ts 法典迁移 + 456 处/52 文件色相名退役 + t648 四件套（census/codemod/assert/probe 15/0）+ t646/t647 探针锚迁居（21/0 + 24/0）+ 📸×1（t648-rung-vocab.png）；下窗入口：①always-dark 面板 ink 尾桶人工清偿（t646 立案：job-inspector 21/results-view 15/template-presets 9——纯手工逐处，codemod 射程外）②bg/border/ring solid 域色相名语义化评估（t647 三分律 rung 3 的「solid IS the rung」判词下的最后一个语汇统一候选，需先判身份豁免是否连坐）③样式/功能车道继续（star-table 排序/导出 + import-gallery 多选 + palette fuzzy）④judge 风暴（等稳定夜）⑤build 日三车道（available ≥ 3.5GB，本窗第 58 窗否决）⑥演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
