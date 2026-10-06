@@ -1678,7 +1678,11 @@ function FailedJobsStrip() {
 
 /** status filter chip for the spotlight Jobs list — single-select, the
  *  count rides along so the chips double as a mini status bar; active chip
- *  fills with the status tone, inactive stays a ghost outline */
+ *  fills with the status tone, inactive stays a ghost outline. t627 — the
+ *  cascade dialect: while a search lens is open upstream, `dimmed` marks a
+ *  chip whose slice has zero survivors — it dims IN PLACE (stability:
+ *  chips never pop in/out while typing) and the count reads 0 honestly;
+ *  hover restores full opacity so the chip stays discoverable. */
 function StatusFilterChip({
   label,
   n,
@@ -1688,6 +1692,7 @@ function StatusFilterChip({
   kbd,
   icon,
   dataFilter,
+  dimmed,
 }: {
   label: string;
   n: number;
@@ -1701,6 +1706,9 @@ function StatusFilterChip({
   icon?: React.ReactNode;
   /** e2e hook — stable identity for a chip regardless of label copy */
   dataFilter?: string;
+  /** t627 — an upstream search leaves this slice empty: honest 0, dimmed
+   *  in place, full opacity on hover */
+  dimmed?: boolean;
 }) {
   const toneCls =
     tone === "teal"
@@ -1719,10 +1727,11 @@ function StatusFilterChip({
       aria-keyshortcuts={kbd}
       data-filter={dataFilter}
       onClick={onClick}
-      title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only${kbd ? ` — or press ${kbd}` : ""}`}
+      title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only${kbd ? ` — or press ${kbd}` : ""}${dimmed ? " — none match the search" : ""}`}
       className={cn(
         "h-5 rounded-full border px-1.5 text-[9px] font-semibold uppercase tracking-wider transition-colors",
         active ? toneCls : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+        dimmed && "opacity-40 hover:opacity-100",
       )}
     >
       {icon}
@@ -1839,7 +1848,8 @@ function ActiveProjectSpotlight({
   const completed = sorted.filter((j) => j.status === "completed");
   const failed = sorted.filter((j) => j.status === "failed");
   const pending = sorted.filter((j) => j.status === "pending");
-  const idleCount = sorted.filter((j) => j.status === "idle").length;
+  const idleSlice = sorted.filter((j) => j.status === "idle");
+  const idleCount = idleSlice.length;
   const noted = sorted.filter(hasJudgment);
   // orphans only exist as a PROBLEM once the project has workspaces (before
   // that the canvas renders every job, so nothing is invisible) — same
@@ -1850,6 +1860,13 @@ function ActiveProjectSpotlight({
   // "which motioncorr runs are still idle" without leaving the dashboard.
   const q = rosterQuery.trim().toLowerCase();
   const wsNameById = new Map(workspaces.map((w) => [w.id, w.name]));
+  // the haystack predicate, hoisted so the chips can share it — the cascade
+  // (t627) must ask the SAME question the click will ask, or the numbers
+  // would drift from the rows they promise
+  const inHaystack = (j: (typeof sorted)[number]) =>
+    `${j.name} ${j.type} ${j.workspaceId ? (wsNameById.get(j.workspaceId) ?? "") : ""} ${j.status}`
+      .toLowerCase()
+      .includes(q);
   const statusSlice =
     jobFilter === "all"
       ? sorted
@@ -1858,13 +1875,18 @@ function ActiveProjectSpotlight({
         : jobFilter === "unassigned"
           ? unassigned
           : sorted.filter((j) => j.status === jobFilter);
-  const visibleJobs = q
-    ? statusSlice.filter((j) =>
-        `${j.name} ${j.type} ${j.workspaceId ? (wsNameById.get(j.workspaceId) ?? "") : ""} ${j.status}`
-          .toLowerCase()
-          .includes(q),
-      )
-    : statusSlice;
+  const visibleJobs = q ? statusSlice.filter(inHaystack) : statusSlice;
+  // t627 — search-mode cascade honesty: while the search lens is open, every
+  // status chip speaks the slice its click would ACTUALLY produce —
+  // n = haystack ∩ filter — instead of restating a rest-world count the
+  // click cannot honor. A chip whose cascade hits zero dims IN PLACE
+  // (chrome that pops in and out while typing is noise; a dimmed 0 is
+  // information — the eye can scan the row and see WHERE the survivors
+  // live). Visibility stays keyed on the rest counts, so chips never
+  // appear or vanish mid-word; rest state (no query) is byte-identical to
+  // the pre-cascade contract. The All chip cascades too: it answers "how
+  // many rows survive the search at all", which is the count chip's X.
+  const cascaded = (slice: typeof sorted) => (q ? slice.filter(inHaystack).length : slice.length);
   const pct = sorted.length > 0 ? Math.round((completed.length / sorted.length) * 100) : 0;
 
   // t613 — the roster's display order, hoisted from the JSX so the
@@ -2095,43 +2117,45 @@ function ActiveProjectSpotlight({
           // job list reads as a plain roster, not a filtered slice (a print
           //out that says "Noted 2" without the lens would be confusing)
           <div className="no-print mb-1.5 flex flex-wrap items-center gap-1" role="group" aria-label="Filter jobs by status">
-            <StatusFilterChip label="All" n={sorted.length} active={jobFilter === "all"} onClick={() => setJobFilter("all")} />
+            <StatusFilterChip label="All" n={cascaded(sorted)} active={jobFilter === "all"} onClick={() => setJobFilter("all")} />
             {running.length > 0 && (
-              <StatusFilterChip label="Running" n={running.length} tone="teal" active={jobFilter === "running"} onClick={() => setJobFilter("running")} />
+              <StatusFilterChip label="Running" n={cascaded(running)} tone="teal" active={jobFilter === "running"} onClick={() => setJobFilter("running")} dimmed={q !== "" && cascaded(running) === 0} />
             )}
             {pending.length > 0 && (
-              <StatusFilterChip label="Pending" n={pending.length} tone="amber" active={jobFilter === "pending"} onClick={() => setJobFilter("pending")} />
+              <StatusFilterChip label="Pending" n={cascaded(pending)} tone="amber" active={jobFilter === "pending"} onClick={() => setJobFilter("pending")} dimmed={q !== "" && cascaded(pending) === 0} />
             )}
             {completed.length > 0 && (
-              <StatusFilterChip label="Completed" n={completed.length} tone="emerald" active={jobFilter === "completed"} onClick={() => setJobFilter("completed")} />
+              <StatusFilterChip label="Completed" n={cascaded(completed)} tone="emerald" active={jobFilter === "completed"} onClick={() => setJobFilter("completed")} dimmed={q !== "" && cascaded(completed) === 0} />
             )}
             {failed.length > 0 && (
-              <StatusFilterChip label="Failed" n={failed.length} tone="rose" active={jobFilter === "failed"} onClick={() => setJobFilter("failed")} />
+              <StatusFilterChip label="Failed" n={cascaded(failed)} tone="rose" active={jobFilter === "failed"} onClick={() => setJobFilter("failed")} dimmed={q !== "" && cascaded(failed) === 0} />
             )}
             {idleCount > 0 && (
-              <StatusFilterChip label="Idle" n={idleCount} active={jobFilter === "idle"} onClick={() => setJobFilter("idle")} />
+              <StatusFilterChip label="Idle" n={cascaded(idleSlice)} active={jobFilter === "idle"} onClick={() => setJobFilter("idle")} dimmed={q !== "" && cascaded(idleSlice) === 0} />
             )}
             {noted.length > 0 && (
               <StatusFilterChip
                 label="Noted"
-                n={noted.length}
+                n={cascaded(noted)}
                 tone="amber"
                 active={jobFilter === "noted"}
                 onClick={() => setJobFilter(jobFilter === "noted" ? "all" : "noted")}
                 dataFilter="noted"
                 kbd="5"
+                dimmed={q !== "" && cascaded(noted) === 0}
                 icon={<StickyNote className="size-2.5" aria-hidden="true" />}
               />
             )}
             {unassigned.length > 0 && (
               <StatusFilterChip
                 label="Unassigned"
-                n={unassigned.length}
+                n={cascaded(unassigned)}
                 tone="amber"
                 active={jobFilter === "unassigned"}
                 onClick={() => setJobFilter(jobFilter === "unassigned" ? "all" : "unassigned")}
                 dataFilter="unassigned"
                 kbd="6"
+                dimmed={q !== "" && cascaded(unassigned) === 0}
                 icon={<TriangleAlert className="size-2.5" aria-hidden="true" />}
               />
             )}
@@ -2156,7 +2180,7 @@ function ActiveProjectSpotlight({
                 data-testid="roster-empty-search"
                 className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground"
               >
-                No jobs match “{rosterQuery.trim()}” — clear the search or pick another status chip.
+                No {jobFilter !== "all" ? `${jobFilter} ` : ""}jobs match “{rosterQuery.trim()}” — clear the search or pick another status chip.
               </p>
             ) : (
               <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
@@ -2389,6 +2413,24 @@ export function ProjectDashboard() {
     }),
     [projects]
   );
+  // t627 — search-mode cascade, the grid's face: while the projects search
+  // box holds a query, each presence chip speaks the slice its click would
+  // actually produce (query ∩ presence), not a rest-world count the click
+  // cannot honor. Same law the roster chips obey; zero-survivor chips dim
+  // in place via the shared StatusFilterChip dialect. Visibility stays
+  // keyed on the rest counts (presence.*) so chips never pop in/out while
+  // typing, and the header's "N / M" line stays the whole truth it was.
+  const cascadedPresence = React.useMemo(() => {
+    const cq = query.trim().toLowerCase();
+    const base = cq ? projects.filter((p) => p.name.toLowerCase().includes(cq)) : projects;
+    return {
+      all: base.length,
+      running: base.filter((p) => (p.stats?.running ?? 0) > 0).length,
+      completed: base.filter((p) => (p.stats?.completed ?? 0) > 0).length,
+      failed: base.filter((p) => (p.stats?.failed ?? 0) > 0).length,
+    };
+  }, [projects, query]);
+  const gridQueryOpen = query.trim() !== "";
 
   /** KPI → grid drill-down: apply the filter, then bring the grid into view
    *  with a one-shot highlight ring so the eye lands where the effect is. */
@@ -2789,12 +2831,15 @@ export function ProjectDashboard() {
             </span>
             {/* presence chips — same visual language as the spotlight's job
                 filters, but the unit is the project; counts show how many
-                projects carry each kind of work */}
+                projects carry each kind of work. t627 — while the projects
+                search holds a query the counts cascade to the slice the
+                click would actually produce; zero-survivor chips dim in
+                place (shared StatusFilterChip dialect). */}
             {projects.length > 0 && (
               <div className="ml-auto flex items-center gap-1" role="group" aria-label="Filter projects by job presence">
                 <StatusFilterChip
                   label="All"
-                  n={projects.length}
+                  n={gridQueryOpen ? cascadedPresence.all : projects.length}
                   active={gridFilter === "all"}
                   onClick={() => setGridFilter("all")}
                   kbd="1"
@@ -2802,31 +2847,34 @@ export function ProjectDashboard() {
                 {presence.running > 0 && (
                   <StatusFilterChip
                     label="Running"
-                    n={presence.running}
+                    n={gridQueryOpen ? cascadedPresence.running : presence.running}
                     tone="teal"
                     active={gridFilter === "running"}
                     onClick={() => toggleGridFilter("running")}
                     kbd="2"
+                    dimmed={gridQueryOpen && cascadedPresence.running === 0}
                   />
                 )}
                 {presence.completed > 0 && (
                   <StatusFilterChip
                     label="Completed"
-                    n={presence.completed}
+                    n={gridQueryOpen ? cascadedPresence.completed : presence.completed}
                     tone="emerald"
                     active={gridFilter === "completed"}
                     onClick={() => toggleGridFilter("completed")}
                     kbd="3"
+                    dimmed={gridQueryOpen && cascadedPresence.completed === 0}
                   />
                 )}
                 {presence.failed > 0 && (
                   <StatusFilterChip
                     label="Failed"
-                    n={presence.failed}
+                    n={gridQueryOpen ? cascadedPresence.failed : presence.failed}
                     tone="rose"
                     active={gridFilter === "failed"}
                     onClick={() => toggleGridFilter("failed")}
                     kbd="4"
+                    dimmed={gridQueryOpen && cascadedPresence.failed === 0}
                   />
                 )}
               </div>
