@@ -39,8 +39,30 @@ export async function GET(request: NextRequest) {
       ? (statusParam as (typeof STATUSES)[number])
       : null;
 
+    // t635 — the text lens: the dashboard's search box asks the SAME feed
+    // for jobs whose name or type contain the query, across ALL projects —
+    // the "which project ever ran Topaz" question the project-name-only
+    // grid filter cannot answer without clicking into every card. The
+    // haystack is name + type only (the roster's own two content columns —
+    // status has its dedicated lens above, workspace names are per-project
+    // scaffolding that means nothing in a cross-project result). SQLite has
+    // no Prisma `mode: "insensitive"` (a Postgres-only argument — it 500s
+    // here), but SQLite's LIKE is case-insensitive for ASCII by default,
+    // so plain `contains` IS the case-insensitive match on this engine;
+    // an empty/whitespace query is the no-lens rest state, byte-identical
+    // to the pre-t635 wire.
+    const qParam = (url.searchParams.get("q") ?? "").trim();
+    const textFilter = qParam
+      ? {
+          OR: [{ name: { contains: qParam } }, { type: { contains: qParam } }],
+        }
+      : null;
+
     const jobs = await db.job.findMany({
-      where: statusFilter ? { status: statusFilter } : undefined,
+      where:
+        statusFilter || textFilter
+          ? { ...(statusFilter ? { status: statusFilter } : {}), ...(textFilter ?? {}) }
+          : undefined,
       orderBy: { updatedAt: "desc" },
       take: limit,
       select: {

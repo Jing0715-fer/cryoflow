@@ -3460,3 +3460,30 @@ li[data-swipe="end"] {
   outline: 2px solid var(--msp-accent) !important;
   outline-offset: 2px;
 }
+
+/* ============================================================
+   t635 — the dashboard search lens's entrance. The find bar's lens
+   (t578) LOWERS into place; this one RISES from under its anchor
+   (the search input is above the panel, so +6px settling to 0 reads
+   as "the lens slides out from under the box it serves"). Mount =
+   open, unmount = closed — every open is a fresh mount and a first
+   performance (the t572 law: replay = re-entrance), so there is no
+   disarm machinery and no settle timer. Movement rides
+   prefers-reduced-motion: no-preference; `both` fill keeps the
+   panel invisible during its single 180ms.
+   ============================================================ */
+@keyframes lens-rise {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-job-lens] {
+    animation: lens-rise 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}

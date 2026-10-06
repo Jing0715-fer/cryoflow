@@ -58,6 +58,7 @@ import { jobType } from "@/lib/workflow";
 import { TypeIcon } from "./icons";
 import { PipelineAnalytics } from "./pipeline-analytics";
 import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
+import { JobSearchLens } from "./job-search-lens";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 // diff entry No.4 (Task 89): the roster is the SURVEY surface — "compare
@@ -2281,6 +2282,8 @@ export function ProjectDashboard() {
   const [deleting, setDeleting] = React.useState(false);
   const [pendingSwitch, setPendingSwitch] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
+  // t635 — the job lens rides under this input (Escape blurs through it)
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
   const [activity, setActivity] = React.useState<ActivityFeed | null>(null);
   // KPI drill-down: which presence filter the project grid is narrowed by.
   // Clicking the Running/Completed KPI card toggles it AND scrolls the grid
@@ -2557,12 +2560,22 @@ export function ProjectDashboard() {
                 aria-hidden="true"
               />
               <Input
+                ref={searchInputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search projects…"
-                aria-label="Search projects by name"
+                aria-label="Search projects by name, jobs across all projects"
                 className="h-9 w-44 pl-8 text-xs sm:w-56"
+                aria-expanded={query.trim() !== ""}
+                aria-controls="dashboard-job-lens"
+                autoComplete="off"
               />
+              {/* t635 — the lens: while the query is non-empty this panel
+                  lists JOB matches from every project (the grid below keeps
+                  filtering projects by name — the two surfaces divide the
+                  question honestly). Mount = open, unmount = closed; no
+                  third state. */}
+              <JobSearchLens query={query} inputRef={searchInputRef} />
             </div>
             <Select value={sortKey} onValueChange={(v) => changeSort(v as ProjectSortKey)}>
               <SelectTrigger
