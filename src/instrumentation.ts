@@ -24,6 +24,26 @@
  * The Origin header satisfies the http-guard's same-origin door
  * (server-side fetch carries no Sec-Fetch-* metadata — without it the
  * guarded routes would 403 the warmer; see lib/http-guard.ts).
+ *
+ * t637 — THIS FILE MUST COMPILE CLEAN FOR THE EDGE RUNTIME. Next loads
+ * instrumentation.ts in BOTH runtimes, and the edge bundler follows
+ * dynamic imports STATICALLY: a literal `await import("@/lib/...")`
+ * inside this file drags the whole Node graph (engine + ssh + prisma)
+ * into an edge bundle that can never compile. The runtime guard above
+ * protects EXECUTION, not COMPILATION. The live bill for ignoring this
+ * (t636's 「慢不是挂」three-judge verdict, root-caused here): every
+ * request re-attempted the doomed edge compile — ~570ms of "compile:"
+ * overhead on EVERY route hit (verified: three consecutive requests with
+ * ZERO filesystem writes between them, inotify silent), ~48 node-module
+ * errors re-emitted per request, 23,177 errors in the first 30 minutes
+ * of a fresh boot (53MB / 608k lines of log fire), and warmup routes
+ * never staying compiled. The fix by construction: this file imports
+ * NOTHING except fetch + timers, so both runtime bundles are trivially
+ * compilable. The reaper and the judge worker mount through their
+ * DEFENSIVE paths instead — warmBoot's first fetches hit the routes
+ * that mount them (jobs GET → ensureGlobalReconciler; the judge status
+ * route → ensureJudgeWorker), so boot-time mounting is preserved, just
+ * routed through a graph the edge bundler never sees.
  */
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -31,43 +51,14 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   void warmBoot();
-  void mountReaper();
-  void mountJudgeWorker();
 }
 
 /**
- * t533 — the global reaper mounts at boot: every world's running/pending
- * jobs reconcile on a background beat, so a remote finalize is healed even
- * when no browser is polling (the t532 exam's frozen-finish-line bug).
- * DYNAMIC import on purpose: the reaper's static graph (engine + remote
- * SSH + dispatch + prisma) would delay the listener — register()'s own
- * law. The jobs GET route is the defensive second mount if this fails.
+ * t533 — the global reaper story, post-t637: it mounts through the jobs
+ * GET route's defensive call (ensureGlobalReconciler, jobs/route.ts:112)
+ * when warmBoot's first fetch lands there — boot-time mounting preserved
+ * through a graph the edge bundler never traces.
  */
-async function mountReaper(): Promise<void> {
-  await sleep(8_000); // let the listener bind and the boot warmup start first
-  try {
-    const m = await import("@/lib/relion/global-reconcile");
-    m.ensureGlobalReconciler();
-  } catch (error) {
-    console.error("[reaper] boot mount failed (the jobs GET route remains the fallback):", error);
-  }
-}
-
-/**
- * t574 — the judge worker mounts at boot, two seconds behind the reaper
- * (the same dynamic-import law: the judge graph drags tools.ts + the VLM
- * client + prisma, none of which may delay the listener). The status
- * route (GET /api/ai/judge-worker) is the defensive second mount.
- */
-async function mountJudgeWorker(): Promise<void> {
-  await sleep(10_000);
-  try {
-    const m = await import("@/lib/ai/judge-worker");
-    m.ensureJudgeWorker();
-  } catch (error) {
-    console.error("[judge-worker] boot mount failed (the status route remains the fallback):", error);
-  }
-}
 
 async function warmBoot(): Promise<void> {
   const port = process.env.PORT ?? "3000";
@@ -121,6 +112,12 @@ async function warmBoot(): Promise<void> {
   // 4. the AI settings route — the assistant panel's on-open fetch
   const aiRes = await get("/api/ai/settings");
   marks.push(`/api/ai/settings ${aiRes?.status ?? "x"}`);
+
+  // 5. t637 — the judge worker's defensive mount lives in the status
+  //    route; hitting it here keeps the t574 boot-mount contract (the
+  //    direct import this file used to hold was the edge-graph poison).
+  const judgeRes = await get("/api/ai/judge-worker");
+  marks.push(`/api/ai/judge-worker ${judgeRes?.status ?? "x"}`);
 
   console.log(`[warmup] boot routes precompiled: ${marks.join(" · ")}`);
 }
