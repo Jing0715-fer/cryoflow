@@ -318,6 +318,40 @@ const noteAfter = (await listJobs()).find((j) => j.id === noteJob.id);
 must(JSON.parse(selAfter?.params?.classNotes ?? "{}") && Object.keys(JSON.parse(selAfter?.params?.classNotes ?? "{}")).length === 0, "Z1 classNotes emptied");
 must(!noteAfter?.note, "Z2 job note cleared");
 
+// Z3 — the seeds go home (t628). The seeder's own --clean protocol keeps
+// jobs/edges by design ("harmless" — qa58 docblock), but t628's audit
+// convicted that premise: the jobs POST route assigns EVERY create to the
+// ACTIVE project (the request's projectId is ignored — bare GET too), so
+// qa_lib's resolve_project landing choice is a silent fiction and the
+// QA Class2D/Select pair lands in whatever world is canonical that night
+// (tonight: EMPIAR at 14 jobs — the t613 wave arithmetic lives at 12).
+// This suite's seeds must not outlive it: delete through the product door
+// (edges cascade via Prisma; the linked-copies guard is respected — the
+// pair carries none). Idempotent: a crashed earlier run's seeds are
+// re-found by this run's S1, used, and taken home here.
+const seedNames = ["QA Class2D Source", "QA Class Select"];
+// order matters: the seeder's --clean RE-RUNS the seed flow first (it needs
+// the job ids), so it must come BEFORE the deletions — cleaning after would
+// resurrect the pair it just buried.
+try {
+  execSync("python3 scripts/qa58-seed-gallery.py --clean", { encoding: "utf8", timeout: 120_000, stdio: "pipe" });
+  console.log("  (z) seeder --clean ran (workdir files + engine-state radius)");
+} catch (e) {
+  console.log(`  (z) seeder --clean failed (continuing — radius is best-effort): ${String(e.message).slice(0, 100)}`);
+}
+let removed = 0;
+for (const name of seedNames) {
+  const stray = (await listJobs()).find((j) => j.name === name);
+  if (stray) {
+    const del = await fetch(`${BASE}/api/jobs/${stray.id}`, { method: "DELETE" });
+    must(del.ok, `Z3 seed "${name}" deleted through the product door`);
+    removed++;
+  } else {
+    removed++; // already gone — idempotent re-run counts it as done
+  }
+}
+must(removed === seedNames.length, "Z4 world carries no qa82 seeds after cleanup");
+
 await b.close();
 console.log(fail === 0 ? "QA82 ALL PASS" : `QA82 FAILED (${fail})`);
 process.exit(fail === 0 ? 0 : 1);
