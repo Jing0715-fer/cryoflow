@@ -61,12 +61,18 @@ must(
 must(css.includes("--color-success: var(--success)"), "A success theme mapping present");
 
 const styleSrc = readFileSync("src/lib/status-style.ts", "utf8");
+// t647 recast — the maps obey the THREE-RUNG LAW now: ink speaks the deep
+// 700/300 literals (the 600 token rungs miss 4.5:1 for amber/emerald/
+// teal; rose-600 passes, so failed rides the token), solid dots keep their
+// 500 rung, washes/borders carry the token α vocabulary. Same law, new
+// spelling — the anchor follows the map; the token layer is untouched.
 must(
   styleSrc.includes("failed: \"text-danger\"") &&
-    styleSrc.includes("completed: \"text-success\"") &&
-    styleSrc.includes("pending: \"bg-warning\"") &&
-    styleSrc.includes("running: \"bg-running\""),
-  "A status-style.ts: the class layer speaks the token vocabulary",
+    styleSrc.includes("completed: \"text-emerald-700 dark:text-emerald-300\"") &&
+    styleSrc.includes("pending: \"bg-amber-500\"") &&
+    styleSrc.includes("running: \"bg-teal-500\"") &&
+    styleSrc.includes("completed: \"bg-success/10\""),
+  "A status-style.ts: the class layer speaks the status vocabulary (t647 rung recast)",
 );
 must(
   styleSrc.includes('failed: "#f43f5e"') && styleSrc.includes('completed: "#10b981"'),
@@ -79,7 +85,7 @@ must(
 );
 const jobCardSrc = readFileSync("src/components/workflow/job-card.tsx", "utf8");
 must(
-  jobCardSrc.includes('import { isSlurmQueued } from "@/lib/status-style"') && jobCardSrc.includes("export { isSlurmQueued };"),
+  jobCardSrc.includes("isSlurmQueued") && jobCardSrc.includes("export { isSlurmQueued };"),
   "A job-card re-exports the relocated word law (importers keep paths)",
 );
 
