@@ -85,13 +85,56 @@ must(verifyCls["3"] === N3 && verifyCls["5"] === N5, "S4 classNotes survived the
 must(noteNow?.note === NOTE_TEXT, "S5 job note survived the zombie window");
 
 /* ---------------- browser ---------------- */
-const b = await chromium.launch();
-const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
+// t622 memory-institution armor (3 consecutive kernel OOM kills, all
+// clustered at the E-phase reload — the 5th/6th full dashboard load of one
+// context): chromium's footprint grows monotonically across navigations,
+// and on the 4GB/no-swap box next to a ~2.3GB next-server the late reloads
+// cross the line. Keep the heap small and the tmp backing honest.
+let b = await chromium.launch({
+  args: ["--disable-dev-shm-usage", "--js-flags=--max-old-space-size=256", "--disable-gpu"],
+});
+let p = await b.newPage({ viewport: { width: 1600, height: 900 } });
 const consoleErrors = [];
 p.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 p.on("pageerror", (e) => consoleErrors.push(String(e)));
+// t627 forensic camera: the E-phase reload has died 4x running ("Target
+// ... closed" with an empty log and NO kernel OOM in dmesg) — catch the
+// death itself and print WHO died and WHERE the page was.
+p.on("crash", () => console.log(`  [forensic] PAGE CRASHED at ${p.url()}`));
+b.on("disconnected", () => console.log("  [forensic] BROWSER DISCONNECTED"));
 
-await p.goto(BASE, { waitUntil: "networkidle" });
+// t627 — the userspace reaper's ~90-100s chromium lifetime signature (four
+// consecutive deaths, position-in-suite agnostic: slow runs died in D,
+// fast runs died in E — always ~100s after THIS browser's launch, never a
+// kernel OOM). The suite's honest counter: SEGMENTED BROWSERS — a fresh
+// browser per late phase keeps every browser's life inside the line.
+const relaunch = async () => {
+  try { await p.close(); } catch { /* already gone */ }
+  try { await b.close(); } catch { /* already gone */ }
+  b = await chromium.launch({
+    args: ["--disable-dev-shm-usage", "--js-flags=--max-old-space-size=256", "--disable-gpu"],
+  });
+  p = await b.newPage({ viewport: { width: 1600, height: 900 } });
+  p.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
+  p.on("pageerror", (e) => consoleErrors.push(String(e)));
+  p.on("crash", () => console.log(`  [forensic] PAGE CRASHED at ${p.url()}`));
+  b.on("disconnected", () => console.log("  [forensic] BROWSER DISCONNECTED"));
+  await p.goto(BASE, { waitUntil: "domcontentloaded" });
+  await p.waitForSelector('[data-canvas="viewport"]');
+  await p.waitForTimeout(1200);
+};
+process.on("uncaughtException", (e) => {
+  console.log(`  [forensic] uncaught: ${e.message} | page url: ${p?.url?.() ?? "?"} | closed: ${p?.isClosed?.() ?? "?"}`);
+});
+
+// t523 law (re-learned tonight the hard way): networkidle is a PSEUDO-wait
+// on an app that polls /api/jobs — a 1.2s poll cadence only sometimes leaves
+// the 500ms silence networkidle demands, so the wait is a timing lottery
+// (both of tonight's runs lost it in Phase D). domcontentloaded + explicit
+// waits is the honest arrival.
+await p.goto(BASE, { waitUntil: "domcontentloaded" });
+await p.waitForSelector('[data-canvas="viewport"]');
+await p.waitForTimeout(1200);
 await p.waitForSelector('[data-canvas="viewport"]');
 await p.waitForTimeout(600);
 
@@ -107,10 +150,24 @@ const ensureView = async (target) => {
 };
 // qa76 lesson: the view is in-memory state — after every reload we must
 // ARRIVE at the dashboard again before asserting anything about it
+// t523 law: networkidle is a PSEUDO-wait on an app that polls /api/jobs —
+// a 1.2s poll cadence only sometimes leaves the 500ms silence networkidle
+// demands, so the wait is a timing lottery. domcontentloaded + the existing
+// waitForTimeout is the honest arrival (same patch as qa82 tonight).
 const reloadToDashboard = async () => {
-  await p.reload({ waitUntil: "networkidle" });
-  await p.waitForTimeout(700);
+  await p.reload({ waitUntil: "domcontentloaded" });
+  await p.waitForTimeout(400);
   must(await ensureView("dashboard"), "  (nav) dashboard view reached after reload");
+  // t523 law, second half (tonight's second autopsy): arrival is not data —
+  // the old networkidle was doing DOUBLE duty (arrival AND settling the
+  // post-reload /api/jobs fetch); removing it exposed D1 reading a 0-row
+  // roster. Wait for the ROSTER to render, never for the network.
+  await p.waitForFunction(
+    () => document.querySelectorAll("[data-roster-row]").length > 0,
+    undefined,
+    { timeout: 15_000 },
+  );
+  await p.waitForTimeout(300);
 };
 // qa73 lesson (6th printing): playwright evaluate carries NO Node closures —
 // every identifier the browser side needs must ride in as an argument
@@ -218,6 +275,7 @@ must(paper.present && paper.hidden, "C1 class-notes badge is no-print (managemen
 
 /* ---------------- Phase D: resilience ---------------- */
 console.log("Phase D — resilience");
+await relaunch(); // fresh browser — the old one is ~60s old and the reaper's line is ~100s
 // corrupted param must degrade to "no notes", never break the roster
 await api(`/api/jobs/${sel.id}`, { params: { classNotes: "not-json{{" } });
 await sleep(2000);
@@ -237,6 +295,7 @@ must(rp.selBadgeCount === "1", "D3 valid note re-appears after the corruption pr
 
 /* ---------------- Phase E: dead key honesty ---------------- */
 console.log("Phase E — dead key honesty");
+await relaunch(); // fresh browser again — E's reloads were the 4x death site
 await api(`/api/jobs/${sel.id}`, { params: { classNotes: "{}" } });
 await api(`/api/jobs/${noteJob.id}`, { note: "" });
 await sleep(2500);
