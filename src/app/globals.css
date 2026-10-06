@@ -1292,6 +1292,61 @@
   }
 }
 
+/* t617 — the inspector's own wave. The job inspector — the modal a card
+   click opens over the canvas — joins the arrival grammar its siblings
+   started (t611/t612/t613/t614/t616): the status accent, the header, the
+   tab bar, the ACTIVE tab's panel and the workdir footer surface in
+   reading order with the receipt's own word — ZERO new keyframes (the
+   definition stays exactly once; the eighth family consumer).
+
+   The beat is the USER-GESTURE beat: 90ms, the rail's pulse (t614/t616),
+   between the find bar's gesture echoes (60/120) — the modal mounts on
+   the user's own card pointerup, and the dashboard's 350 page beat would
+   read as lag on a click the user just made. Canonical open composition
+   (accent, header, tabs, panel): 90 / 114 / 138 / 162 — settled at
+   162 + 240 = 402ms. The workdir footer is DATA-GATED (it mounts only
+   when the outputs fetch lands, usually a beat after the wave began),
+   and its face attribute APPEARING is the animation's cue — the late
+   arrival fills the ledger's tail (186) at its own mount, never the
+   seat (the t616 favorites precedent).
+
+   THE MOUNT LEDGER, fourth consumer (t613's law): the modal body mounts
+   with the dialog — Radix unmounts DialogContent on close — so the
+   ledger dies with it and every open re-issues fresh; tickets fill on
+   miss at JSX evaluation order = reading order, never rewritten.
+
+   THE FOLD LAW, second consumer (t616's law, new mechanism): Radix
+   TabsContent never unmounts its panels — it hides the inactive ones
+   (the hidden attribute) and strips their children, so "hanging in the
+   DOM but not in the composition" is the panels' PERMANENT condition.
+   The law answers with nomination instead of mount: only the ACTIVE
+   panel carries the face attribute; switching tabs de-nominates the old
+   panel (the rule stops matching — the element snaps home) and
+   nominates the new one, so a first visit pays the ledger's tail (210)
+   and a RETURN replays its frozen ticket (162). A ticket belongs to a
+   face, not a seat — and not to a mount, either.
+
+   Chrome never rides: the wave rule names only the five face ids — the
+   header's verbs, the tab triggers, the live dot, the files-count chip
+   and the footer's copy verb ride their faces' coattails (the
+   banner/Progress precedent) — and the rule itself never names a
+   button, input or spinner (the row-face-only law). The dialect note
+   (t616): the card-lift lean and hover lifts speak the `translate`
+   property while fill-both pins `transform` — different dialects, no
+   fight. Radix's one-frame mount guard (animationDuration: 0s on the
+   panel's first mount) expires at the first rAF, long before the
+   wave's 90ms+ tickets — the wave outruns the guard by construction. */
+[data-insp-arrival] [data-insp-face] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--insp-d, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-insp-arrival] [data-insp-face] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy

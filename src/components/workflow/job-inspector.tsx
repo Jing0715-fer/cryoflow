@@ -99,6 +99,20 @@ import { RemoteRunButton } from "./remote-run-button";
 import { CleanupDialog } from "./cleanup-dialog";
 import { useWorkflowStore } from "@/lib/store";
 
+/** t617 — the inspector wave's timing words. The modal mounts on the user's
+ *  own card click (a pointerup on a submitted card), so the beat is the
+ *  family's USER-GESTURE beat: 90ms — the rail's pulse (t614's Workspaces
+ *  tab, t616's Catalog tab), the find bar's gesture echoes (60/120) for
+ *  neighbors; the dashboard's 350 page-load beat would read as lag on a
+ *  click the user just made. Each face lands +24ms later in reading order;
+ *  the canonical open composition (accent, header, tabs, panel) settles at
+ *  162 + 240 = 402ms, and the workdir footer — DATA-GATED: it mounts only
+ *  when the outputs fetch lands, usually a beat after the wave started —
+ *  fills the ledger's tail (186) at its own mount, the t616 favorites
+ *  precedent: the late arrival pays the tail, never the seat. */
+const INSP_BASE_MS = 90;
+const INSP_STEP_MS = 24;
+
 /** " · 12.4 MB" for the staging phase line — "" when nothing staged yet. */
 function formatStagedBytes(bytes?: number): string {
   if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "";
@@ -3405,8 +3419,6 @@ export function JobInspector() {
     }
   }, [inspectId, job, job?.status]);
 
-  const filesCount = data?.files.length ?? 0;
-
   // Task 120: the Overview leg of the failure diagnosis — the strip lives in
   // the Log console, which unmounts with its tab, so the Overview summary
   // needs its own findings. A failed job's log is static: ONE ?full=1 fetch
@@ -3475,8 +3487,12 @@ export function JobInspector() {
         showCloseButton={false}
         /* data-inspector-dialog: the print opt-in (globals.css Task 114) —
            the ONLY dialog that becomes a paper document instead of
-           stepping aside; the attribute also anchors the probe contract */
+           stepping aside; the attribute also anchors the probe contract.
+           t617 — data-insp-arrival scopes the modal's own wave: the faces
+           inside (accent, header, tabs bar, the active tab's panel, the
+           workdir footer) surface in reading order on every open. */
         data-inspector-dialog=""
+        data-insp-arrival=""
         className="flex max-w-[min(1480px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1480px,96vw)] h-[min(940px,92dvh)] data-[state=open]:duration-300 print:[translate:none] print:[scale:none] print:[rotate:none]"
         aria-describedby={undefined}
         /* t391 — Radix auto-focuses the FIRST focusable child on open (the
@@ -3516,111 +3532,230 @@ export function JobInspector() {
         }}
       >
         {job ? (
-          <>
-            <InspectorPrintDoc job={job} tab={tab} />
-            {/* status accent */}
-            <div
-              aria-hidden="true"
-              className={cn(
-                "h-1 w-full shrink-0",
-                job.status === "running"
-                  ? "bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600"
-                  : job.status === "completed"
-                    ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600"
-                    : "bg-gradient-to-r from-rose-600 via-rose-400 to-rose-600"
-              )}
-            />
-            <DialogHeader className="shrink-0 space-y-0 border-b px-5 pb-3 pt-4 sm:px-6">
-              <DialogTitle asChild>
-                <div>
-                  <span className="sr-only">{job.name} — job inspector</span>
-                  <InspectorHeader
-                    job={job}
-                    summary={data?.summary ?? null}
-                    onCleaned={() => void loadOutputs()}
-                    remoteRemaining={data ? data.files.filter((f) => f.remote).length : null}
-                    renameEdit={renameEdit}
-                    onEditChange={setRenameEdit}
-                  />
-                </div>
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                Live log, intermediate results and output files for {job.name}
-              </DialogDescription>
-            </DialogHeader>
-
-            <Tabs value={tab} onValueChange={(v) => { if (inspectId != null) tabTouchedForRef.current = inspectId; setLogJumpFull(false); setTab(v); }} className="flex min-h-0 flex-1 flex-col gap-0">
-              {/* tab triggers are screen navigation — paper prints the ACTIVE
-                  tab and the report masthead names it ("showing Results") */}
-              {/* Task 176: below sm the bar compacts to survive the foldable
-                  band (280px): icons park (decorative, aria-hidden — the
-                  labels carry the meaning), padding/gap shave one step,
-                  the container drops to px-3, and the list itself can
-                  never outgrow its parent (max-w-full). Desktop ≥sm keeps
-                  the exact Task 114 bar — every change is max-sm-scoped. */}
-              <div className="no-print shrink-0 border-b px-3 pt-2.5 sm:px-6">
-                <TabsList className="h-9 max-w-full bg-muted/60 p-0.5">
-                  <TabsTrigger value="overview" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
-                    <LayoutDashboard className="size-3.5 max-sm:hidden" aria-hidden="true" />
-                    Overview
-                  </TabsTrigger>
-                  <TabsTrigger value="log" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
-                    <Terminal className="size-3.5 max-sm:hidden" aria-hidden="true" />
-                    Log
-                    {job.status === "running" ? (
-                      <span className="ml-0.5 size-1.5 rounded-full bg-rose-500" aria-label="live" />
-                    ) : null}
-                  </TabsTrigger>
-                  <TabsTrigger value="results" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
-                    <BarChart3 className="size-3.5 max-sm:hidden" aria-hidden="true" />
-                    Results
-                  </TabsTrigger>
-                  <TabsTrigger value="files" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
-                    <FolderOpen className="size-3.5 max-sm:hidden" aria-hidden="true" />
-                    Files
-                    {filesCount > 0 ? (
-                      <span className="rounded-full bg-muted px-1.5 text-[9px] font-semibold tabular-nums text-muted-foreground">
-                        {filesCount > 99 ? "99+" : filesCount}
-                      </span>
-                    ) : null}
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent value="overview" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-                <OverviewTab job={job} data={data} onOpenFiles={() => setTab("files")} diagnosis={fullFindings} onOpenDiagnosis={openDiagnosis} />
-              </TabsContent>
-
-              <TabsContent value="log" className="mt-0 min-h-0 flex-1 px-5 py-4 sm:px-6">
-                <LogConsole job={job} initialMode={logJumpFull ? "full" : undefined} />
-              </TabsContent>
-
-              <TabsContent value="results" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-                <JobResultsLive job={job} />
-              </TabsContent>
-
-              <TabsContent value="files" className="mt-0 min-h-0 flex-1 px-5 py-4 sm:px-6">
-                <FilesTab job={job} data={data} reload={() => void loadOutputs()} />
-              </TabsContent>
-            </Tabs>
-
-            {/* footer: workdir */}
-            {data?.workdir ? (
-              <footer className="flex shrink-0 items-center gap-2 border-t bg-muted/30 px-5 py-2 text-[11px] text-muted-foreground sm:px-6">
-                <FolderOpen className="size-3.5 shrink-0" aria-hidden="true" />
-                <span className="shrink-0 font-medium">workdir</span>
-                <span className="truncate font-mono" title={data.workdir}>
-                  {data.workdir}
-                </span>
-                <span className="ml-auto shrink-0">
-                  <CopyButton text={data.workdir} />
-                </span>
-              </footer>
-            ) : null}
-          </>
+          <InspectorBody
+            job={job}
+            data={data}
+            tab={tab}
+            onTabSelect={(v) => {
+              if (inspectId != null) tabTouchedForRef.current = inspectId;
+              setLogJumpFull(false);
+              setTab(v);
+            }}
+            /* the Overview tab's "jump to files" verb goes straight to the
+               tab (no latch, no logJumpFull clear) — the exact pre-t617
+               behavior, preserved verbatim through the extraction */
+            onTabSet={setTab}
+            logJumpFull={logJumpFull}
+            diagnosis={fullFindings}
+            onOpenDiagnosis={openDiagnosis}
+            renameEdit={renameEdit}
+            onRenameEditChange={setRenameEdit}
+            onCleaned={() => void loadOutputs()}
+            onReloadOutputs={() => void loadOutputs()}
+          />
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* t617 — the modal's body: the wave's host AND the mount ledger's     */
+/* FOURTH consumer (t613's law, after the spotlight t613, the          */
+/* workspaces t614, the palette t616). The body mounts with the        */
+/* dialog — Radix unmounts DialogContent on close — so the ledger      */
+/* dies with it and every open re-issues fresh, the t614/t616 law      */
+/* verbatim. Tickets fill on miss at JSX evaluation order = reading    */
+/* order and are never rewritten.                                      */
+/*                                                                     */
+/* THE FOLD LAW, second consumer (t616's law, new mechanism): Radix    */
+/* TabsContent NEVER unmounts its panels — it hides the inactive ones  */
+/* (the hidden attribute) and strips their children — so "hanging in   */
+/* the DOM but not in the composition" is the panels' PERMANENT        */
+/* condition. The law answers with nomination instead of mount: only   */
+/* the ACTIVE panel carries the face attribute. Switching tabs         */
+/* de-nominates the old panel (the rule stops matching — the element   */
+/* snaps home) and nominates the new one; the attribute appearing is   */
+/* the animation's cue, so a first visit pays the ledger's tail (210)  */
+/* and a RETURN replays its frozen ticket (162) — a ticket belongs to  */
+/* a face, not a seat, and not to a mount either.                      */
+/* ------------------------------------------------------------------ */
+function InspectorBody({
+  job,
+  data,
+  tab,
+  onTabSelect,
+  onTabSet,
+  logJumpFull,
+  diagnosis,
+  onOpenDiagnosis,
+  renameEdit,
+  onRenameEditChange,
+  onCleaned,
+  onReloadOutputs,
+}: {
+  job: JobDTO;
+  data: OutputsResponse | null;
+  tab: string;
+  onTabSelect: (v: string) => void;
+  onTabSet: (v: string) => void;
+  logJumpFull: boolean;
+  diagnosis: LogFinding[] | null;
+  onOpenDiagnosis: () => void;
+  renameEdit: { id: string; draft: string } | null;
+  onRenameEditChange: (next: { id: string; draft: string } | null) => void;
+  onCleaned: () => void;
+  onReloadOutputs: () => void;
+}) {
+  /* the ledger: useState lazy init (t614's law — react-compiler forbids
+   * render-phase ref access; useState's lifecycle is identical here),
+   * filled on miss at render time, never rewritten, dying with the body. */
+  const [ledger] = React.useState(() => new Map<string, number>());
+  const ticket = (id: string): number => {
+    let t = ledger.get(id);
+    if (t == null) {
+      t = INSP_BASE_MS - INSP_STEP_MS;
+      for (const v of ledger.values()) if (v > t) t = v;
+      t += INSP_STEP_MS;
+      ledger.set(id, t);
+    }
+    return t;
+  };
+  /* only the ACTIVE panel is nominated (the fold law above) — the other
+   * three panels spread nothing, so their (hidden, emptied) divs never
+   * match the wave rule. The face props are their own type: Radix's
+   * TabsContentProps predates arbitrary data-* attributes, and its
+   * required `value` must not ride the spread (the explicit value attr
+   * stays the single writer). JSX spreads skip excess-property checks,
+   * so the extra data attribute lands cleanly. */
+  const panelFace = (value: string): { "data-insp-face"?: string; style?: React.CSSProperties } =>
+    tab === value
+      ? {
+          "data-insp-face": `panel:${value}`,
+          style: { "--insp-d": `${ticket(`panel:${value}`)}ms` } as React.CSSProperties,
+        }
+      : {};
+  const filesCount = data?.files.length ?? 0;
+
+  return (
+    <>
+      <InspectorPrintDoc job={job} tab={tab} />
+      {/* status accent */}
+      <div
+        aria-hidden="true"
+        data-insp-face="accent"
+        style={{ "--insp-d": `${ticket("accent")}ms` } as React.CSSProperties}
+        className={cn(
+          "h-1 w-full shrink-0",
+          job.status === "running"
+            ? "bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600"
+            : job.status === "completed"
+              ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600"
+              : "bg-gradient-to-r from-rose-600 via-rose-400 to-rose-600"
+        )}
+      />
+      <DialogHeader
+        data-insp-face="header"
+        style={{ "--insp-d": `${ticket("header")}ms` } as React.CSSProperties}
+        className="shrink-0 space-y-0 border-b px-5 pb-3 pt-4 sm:px-6"
+      >
+        <DialogTitle asChild>
+          <div>
+            <span className="sr-only">{job.name} — job inspector</span>
+            <InspectorHeader
+              job={job}
+              summary={data?.summary ?? null}
+              onCleaned={onCleaned}
+              remoteRemaining={data ? data.files.filter((f) => f.remote).length : null}
+              renameEdit={renameEdit}
+              onEditChange={onRenameEditChange}
+            />
+          </div>
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Live log, intermediate results and output files for {job.name}
+        </DialogDescription>
+      </DialogHeader>
+
+      <Tabs value={tab} onValueChange={onTabSelect} className="flex min-h-0 flex-1 flex-col gap-0">
+        {/* tab triggers are screen navigation — paper prints the ACTIVE
+            tab and the report masthead names it ("showing Results") */}
+        {/* Task 176: below sm the bar compacts to survive the foldable
+            band (280px): icons park (decorative, aria-hidden — the
+            labels carry the meaning), padding/gap shave one step,
+            the container drops to px-3, and the list itself can
+            never outgrow its parent (max-w-full). Desktop ≥sm keeps
+            the exact Task 114 bar — every change is max-sm-scoped. */}
+        <div
+          data-insp-face="tabs"
+          style={{ "--insp-d": `${ticket("tabs")}ms` } as React.CSSProperties}
+          className="no-print shrink-0 border-b px-3 pt-2.5 sm:px-6"
+        >
+          <TabsList className="h-9 max-w-full bg-muted/60 p-0.5">
+            <TabsTrigger value="overview" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
+              <LayoutDashboard className="size-3.5 max-sm:hidden" aria-hidden="true" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="log" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
+              <Terminal className="size-3.5 max-sm:hidden" aria-hidden="true" />
+              Log
+              {job.status === "running" ? (
+                <span className="ml-0.5 size-1.5 rounded-full bg-rose-500" aria-label="live" />
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="results" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
+              <BarChart3 className="size-3.5 max-sm:hidden" aria-hidden="true" />
+              Results
+            </TabsTrigger>
+            <TabsTrigger value="files" className="h-8 gap-1.5 px-3 text-xs max-sm:gap-1 max-sm:px-1.5">
+              <FolderOpen className="size-3.5 max-sm:hidden" aria-hidden="true" />
+              Files
+              {filesCount > 0 ? (
+                <span className="rounded-full bg-muted px-1.5 text-[9px] font-semibold tabular-nums text-muted-foreground">
+                  {filesCount > 99 ? "99+" : filesCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="overview" {...panelFace("overview")} className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          <OverviewTab job={job} data={data} onOpenFiles={() => onTabSet("files")} diagnosis={diagnosis} onOpenDiagnosis={onOpenDiagnosis} />
+        </TabsContent>
+
+        <TabsContent value="log" {...panelFace("log")} className="mt-0 min-h-0 flex-1 px-5 py-4 sm:px-6">
+          <LogConsole job={job} initialMode={logJumpFull ? "full" : undefined} />
+        </TabsContent>
+
+        <TabsContent value="results" {...panelFace("results")} className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          <JobResultsLive job={job} />
+        </TabsContent>
+
+        <TabsContent value="files" {...panelFace("files")} className="mt-0 min-h-0 flex-1 px-5 py-4 sm:px-6">
+          <FilesTab job={job} data={data} reload={onReloadOutputs} />
+        </TabsContent>
+      </Tabs>
+
+      {/* footer: workdir — DATA-GATED: mounts when the outputs fetch
+          lands, so the face attribute APPEARING is the wave's cue and
+          the ledger's tail is the ticket (the t616 favorites ladder) */}
+      {data?.workdir ? (
+        <footer
+          data-insp-face="footer"
+          style={{ "--insp-d": `${ticket("footer")}ms` } as React.CSSProperties}
+          className="flex shrink-0 items-center gap-2 border-t bg-muted/30 px-5 py-2 text-[11px] text-muted-foreground sm:px-6"
+        >
+          <FolderOpen className="size-3.5 shrink-0" aria-hidden="true" />
+          <span className="shrink-0 font-medium">workdir</span>
+          <span className="truncate font-mono" title={data.workdir}>
+            {data.workdir}
+          </span>
+          <span className="ml-auto shrink-0">
+            <CopyButton text={data.workdir} />
+          </span>
+        </footer>
+      ) : null}
+    </>
   );
 }
 
