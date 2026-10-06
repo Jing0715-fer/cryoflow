@@ -9532,3 +9532,19 @@ Stage Summary:
 - 「每请求 570ms 的税，收了 120 个窗」：23,177 错误/30 分钟、每 API 请求 ~100× 的隐藏延迟、53MB 的日志火灾——全在一个 8 行手术（删两个 dynamic import 挂载函数）里终结；性能病灶的账要用量化对账单（480×48≈23,177）钉死，不许「感觉快了」
 - 「watchdog 是世界的免疫系统」：端口赛跑造成 3001 幽灵 boot，单 keeper 律在 16:41:59 把世界收敛回唯一正统——多 boot 混乱不需要人肉排雷，按构造自愈；「hardened env」一行日志背后是 t377 的投毒防御
 - 产出：edge-instrumentation 绞行根因定谳 + instrumentation.ts 手术（8 行删除 + 路线表 1 行新增 + t637 教义 20 行）+ 每请求 ~100× 提速 + 日志火灾熄灭 + t637-ui-probe 新仪器（6 pass/0 fail）+ 📸×1；t252 ALL PASS、console 0、15 rows / 0 orphans 正典；下窗入口：①新功能车道（Topaz wrapper / 3D viewer 体积截面工具等 t634 时代方向，或样式新面侦察——Task 13 遗留清单已被 t633 判 PAID IN FULL，勿再考古）②t156/t157 实跑（先让 server RSS 回落）③EMPIAR 12-job 轻量重建（整窗工程）④judge 风暴（等稳定夜）⑤build 日三车道（第 47 窗重测）
+
+---
+Task ID: 637 加场 (style/feature lane)
+Agent: main (同窗加场——绞行修复收官后预算仍有余)
+Task: 修正主条目的下窗入口误导（Task 13 遗留清单已被 t633 判 PAID IN FULL）后进入功能车道；t634 时代方向侦察确认「3D viewer 体积截面工具」也已被 t260 完整实现（clip planes + 三正交切片浏览器 + CCP4 服务端渲染），遂选紧凑真 UX 细节：透镜的键盘契约可视化。
+
+Work Log:
+- [勘误] 主条目下窗入口①原列「Task 13 遗留清单考古」——t633 的 worklog 已明确判 PAID IN FULL（http-guard 双门 / statcache / 分层 BFS / t157 订阅律），陈旧清单只存在于 cron 派单模板；已修正并 commit qa 车注明，未来窗勿再考古。
+- [方向侦察] 源码 TODO/FIXME 扫描 = 零自留债；molstar-embed（6101 行）已有 t260 clip planes（voxel 锚定 + 四线框边可移动裁剪面）+ map-ortho-panel（XY/XZ/YZ 三平面 scrub + 服务端 PNG 渲染）——体积截面工具 NOT 缺口。
+- [功能兑现] job-search-lens.tsx 加 data-lens-hints 脚注：↑↓ navigate / ↵ open / esc close 四枚 kbd chip——键盘契约从「代码里有、屏幕上无」变为可见；视觉镜像 KPI shortcut badge 语域（rounded border + text-[9px] + muted，project-dashboard.tsx:304 同声部），与 header 共用 bg-muted/40 条带让 popover 读作三明治（上 context / 中 content / 下 contract）；tsc 0 + eslint 0。
+- [仪器成长] t636-lens-emph-probe 增补第 3 条断言（bar 存在 + kbd×4）——**12 pass / 0 fail**，零回归；📸 t637-lens-hints.png。
+
+Stage Summary:
+- 「派单模板的遗留清单也要过期审查」：Task 13 六项被 t633 结案后仍随派单巡游三个窗——陈旧清单的每次复述都是潜在重复劳动；t633 的「直接对质现树」判词应成为读单第一律
+- 「键盘契约要看得见」：功能在代码里 ≠ 功能存在——不可发现的快捷键等于没有；hint footer 是 UX 的诚实原则从「行为不撒谎」到「能力要自报」的延伸
+- 产出：透镜键盘契约脚注 + 探针 12 断言全绿 + 📸×1；commit feat 车 bfdcc6c；本窗终态：HEAD 后树净、t252 ALL PASS ×2、t637-ui-probe 6/0、t636 探针 12/0、console 0、15 rows / 0 orphans
