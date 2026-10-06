@@ -110,7 +110,7 @@ const ToastClose = React.forwardRef<
       //    rides rose-600), so the on-surface accent rungs follow the
       //    family: rose-200/rose-50/rose-400 at the SAME lightness rungs
       //    — contrast verdicts unchanged, hue wheel unified.
-      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 hover-none:opacity-100 before:absolute before:-inset-2.5 before:content-[''] group-[.destructive]:text-rose-200 group-[.destructive]:hover:text-rose-50 group-[.destructive]:focus:ring-rose-400 group-[.destructive]:focus:ring-offset-rose-600",
+      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 hover-none:opacity-100 before:absolute before:-inset-2.5 before:content-[''] group-[.destructive]:text-danger-200 group-[.destructive]:hover:text-danger-50 group-[.destructive]:focus:ring-danger-400 group-[.destructive]:focus:ring-offset-danger-600",
       className
     )}
     toast-close=""

@@ -288,7 +288,7 @@ export function HomecomingSweepBar({
             type="button"
             data-testid="homecoming-sweep-stop"
             onClick={stop}
-            className="ml-auto flex h-6 items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/10 px-2 text-[11px] font-medium text-rose-700 transition-colors hover:bg-rose-500/20 focus-visible:ring-2 focus-visible:ring-rose-500/40 dark:text-rose-300"
+            className="ml-auto flex h-6 items-center gap-1 rounded-md border border-danger-500/40 bg-danger-500/10 px-2 text-[11px] font-medium text-danger-700 transition-colors hover:bg-danger-500/20 focus-visible:ring-2 focus-visible:ring-danger-500/40 dark:text-danger-300"
           >
             <Square className="size-3" aria-hidden="true" />
             Stop

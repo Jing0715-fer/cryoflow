@@ -381,7 +381,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 px-1.5 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+            className="h-6 px-1.5 text-[11px] text-danger-600 hover:bg-danger-500/10 hover:text-danger-700"
             onClick={() => setArmClear(true)}
             aria-label={`Clear all ${templates.length} templates`}
             title="Remove every saved template from this shelf"
@@ -393,7 +393,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
         {hasBatch && armClear && (
           <>
             <span
-              className="text-[10px] font-medium normal-case text-rose-600"
+              className="text-[10px] font-medium normal-case text-danger-600"
               data-testid="custom-template-clear-arm"
             >
               Delete all {templates.length}?
@@ -401,7 +401,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 gap-1 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+              className="h-6 gap-1 px-2 text-[11px] text-danger-600 hover:bg-danger-500/10 hover:text-danger-700"
               onClick={clearAll}
               data-testid="custom-template-clear-confirm"
             >
@@ -502,7 +502,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
               key={t.id}
               className={cn(
                 "group flex items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 transition-colors",
-                armed ? "border-rose-300 bg-danger/5" : "hover:border-primary/40"
+                armed ? "border-danger-300 bg-danger/5" : "hover:border-primary/40"
               )}
               data-canvas-ui="custom-template-row"
               data-template-id={t.id}
@@ -525,7 +525,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 gap-1 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+                    className="h-6 gap-1 px-2 text-[11px] text-danger-600 hover:bg-danger-500/10 hover:text-danger-700"
                     onClick={() => {
                       setArmDeleteId(null);
                       void deleteCustomTemplate(t.id);
@@ -579,7 +579,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 px-2 text-[11px] text-rose-600 opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-700 focus-visible:opacity-100 group-hover:opacity-100"
+                    className="h-6 px-2 text-[11px] text-danger-600 opacity-0 transition-opacity hover:bg-danger-500/10 hover:text-danger-700 focus-visible:opacity-100 group-hover:opacity-100"
                     onClick={() => setArmDeleteId(t.id)}
                     aria-label={`Delete template ${t.name}`}
                     title="Forget this template"

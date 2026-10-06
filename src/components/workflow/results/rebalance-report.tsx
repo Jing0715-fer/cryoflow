@@ -105,7 +105,7 @@ function Delta({
           <Trend
             className={cn(
               "size-3.5 self-center",
-              improved ? "text-success-500" : "text-rose-500"
+              improved ? "text-success-500" : "text-danger-500"
             )}
             aria-hidden="true"
           />
@@ -270,7 +270,7 @@ export function RebalanceReport({
                   <span className="absolute inset-y-0 left-1.5 flex items-center text-[9.5px] font-medium tabular-nums text-foreground/70 group-hover:text-foreground">
                     {b.countAfter.toLocaleString()} / {b.countBefore.toLocaleString()}
                     {b.removed > 0 ? (
-                      <span className="ml-1 text-rose-600/90 dark:text-rose-400/90">
+                      <span className="ml-1 text-danger-600/90 dark:text-danger-400/90">
                         −{b.removed.toLocaleString()}
                       </span>
                     ) : null}

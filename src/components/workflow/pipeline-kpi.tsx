@@ -263,7 +263,7 @@ export function PipelineKpi() {
             className={
               resValue <= TARGET_ANGSTROM
                 ? "rounded-full border border-success/40 bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success-700 dark:text-success-300"
-                : "rounded-full border border-rose-600/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-danger"
+                : "rounded-full border border-danger-600/30 bg-danger-500/10 px-2 py-0.5 text-[11px] font-semibold text-danger"
             }
           >
             {resValue <= TARGET_ANGSTROM ? (

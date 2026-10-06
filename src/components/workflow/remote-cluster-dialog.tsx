@@ -188,7 +188,7 @@ function ProbeCard({
             "text-[10px]",
             probe.ok
               ? "border-success/40 bg-success/10 text-success-700 dark:text-success-300"
-              : "border-rose-500/40 bg-rose-500/10 text-danger"
+              : "border-danger-500/40 bg-danger-500/10 text-danger"
           )}
         >
           {probe.ok ? "reachable" : "unreachable"}
@@ -234,7 +234,7 @@ function ProbeCard({
       ) : null}
 
       {probe.error ? (
-        <p className="rounded-md border border-rose-500/30 bg-danger/[0.06] px-2 py-1.5 text-[11px] leading-relaxed text-danger" role="alert">
+        <p className="rounded-md border border-danger-500/30 bg-danger/[0.06] px-2 py-1.5 text-[11px] leading-relaxed text-danger" role="alert">
           {probe.error}
         </p>
       ) : null}
@@ -488,7 +488,7 @@ function RunResumeCard({
         {resume.failed > 0 ? (
           <Badge
             variant="outline"
-            className="border-rose-500/40 bg-rose-500/10 text-[10px] text-danger"
+            className="border-danger-500/40 bg-danger-500/10 text-[10px] text-danger"
             data-resume-failed=""
           >
             {resume.failed} stopped/failed
@@ -677,7 +677,7 @@ function RunResumeCard({
               className={cn(
                 "ml-auto flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40",
                 bulkArmed
-                  ? "bg-rose-500/10 text-rose-700 hover:text-rose-800 dark:text-rose-300"
+                  ? "bg-danger-500/10 text-danger-700 hover:text-danger-800 dark:text-danger-300"
                   : "text-muted-foreground hover:text-foreground"
               )}
               title={
@@ -1621,7 +1621,7 @@ function ConnectionEditor({
 
       {testError ? (
         <p
-          className="rounded-md border border-rose-500/30 bg-danger/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-danger"
+          className="rounded-md border border-danger-500/30 bg-danger/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-danger"
           role="alert"
         >
           {testError}
@@ -1647,7 +1647,7 @@ function ConnectionEditor({
 
       {error ? (
         <p
-          className="rounded-md border border-rose-500/30 bg-danger/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-danger"
+          className="rounded-md border border-danger-500/30 bg-danger/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-danger"
           role="alert"
         >
           {error}
@@ -1665,8 +1665,8 @@ function ConnectionEditor({
             variant="ghost"
             size="sm"
             className={cn(
-              "h-9 text-sm text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400",
-              confirmDelete && "bg-rose-500/10"
+              "h-9 text-sm text-danger-600 hover:bg-danger-500/10 hover:text-danger-700 dark:text-danger-400",
+              confirmDelete && "bg-danger-500/10"
             )}
             onClick={() => (confirmDelete ? void remove() : setConfirmDelete(true))}
             disabled={deleting}

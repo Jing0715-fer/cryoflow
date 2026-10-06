@@ -987,7 +987,7 @@ function StageChip({
           : job.status === "completed"
             ? "border-success/40"
             : job.status === "failed"
-              ? "border-rose-500/40"
+              ? "border-danger-500/40"
               : "border-border"
       )}
     >
@@ -1632,12 +1632,12 @@ function FailedJobsStrip() {
     <section
       aria-label="Needs attention — failed jobs across all projects"
       data-testid="needs-attention"
-      className="card-lift rounded-xl border border-red-500/25 bg-danger/[0.04] px-4 py-3.5 sm:px-5"
+      className="card-lift rounded-xl border border-danger-500/25 bg-danger/[0.04] px-4 py-3.5 sm:px-5"
     >
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <TriangleAlert className="size-4 shrink-0 text-red-500" aria-hidden="true" />
+        <TriangleAlert className="size-4 shrink-0 text-danger-500" aria-hidden="true" />
         <h2 className="text-sm font-semibold tracking-tight">Needs attention</h2>
-        <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-danger">
+        <span className="rounded-full bg-danger-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-danger">
           {failed.length} failed
         </span>
         <span className="text-xs text-muted-foreground">
@@ -1653,7 +1653,7 @@ function FailedJobsStrip() {
             title={`Open “${j.name}” — failed ${fmtAgo(j.updatedAt)}${
               j.projectName && j.projectId !== activeProjectId ? ` in ${j.projectName}` : ""
             } · jumps to its canvas and opens the inspector`}
-            className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-red-500/30 bg-card px-2.5 py-1 text-xs transition-colors hover:bg-red-500/10"
+            className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-danger-500/30 bg-card px-2.5 py-1 text-xs transition-colors hover:bg-danger-500/10"
           >
             <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
             <span className="max-w-52 truncate font-medium">{j.name}</span>
@@ -1664,7 +1664,7 @@ function FailedJobsStrip() {
               {fmtAgo(j.updatedAt)}
             </span>
             <ChevronRight
-              className="size-3 shrink-0 text-red-500/60 transition-transform group-hover:translate-x-0.5"
+              className="size-3 shrink-0 text-danger-500/60 transition-transform group-hover:translate-x-0.5"
               aria-hidden="true"
             />
           </button>
@@ -1672,7 +1672,7 @@ function FailedJobsStrip() {
         {hidden > 0 ? (
           <button
             onClick={() => setShowAll(true)}
-            className="rounded-full border border-dashed border-red-500/40 px-2.5 py-1 text-xs text-red-600 transition-colors hover:bg-red-500/10 dark:text-red-400"
+            className="rounded-full border border-dashed border-danger-500/40 px-2.5 py-1 text-xs text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
           >
             +{hidden} more failed
           </button>
@@ -1724,7 +1724,7 @@ function StatusFilterChip({
         : tone === "emerald"
           ? "border-success/40 bg-success/10 text-success"
           : tone === "rose"
-            ? "border-rose-500/40 bg-rose-500/10 text-danger"
+            ? "border-danger-500/40 bg-danger-500/10 text-danger"
             : "border-foreground/25 bg-foreground text-background";
   return (
     <button
@@ -1990,7 +1990,7 @@ function ActiveProjectSpotlight({
             <Badge
               variant="outline"
               className={cn(
-                "h-4.5 gap-1 border-rose-500/40 bg-rose-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-danger",
+                "h-4.5 gap-1 border-danger-500/40 bg-danger-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-danger",
                 running.length === 0 && pending.length === 0 && "ml-auto"
               )}
             >

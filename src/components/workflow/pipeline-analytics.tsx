@@ -849,7 +849,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                             r.job.status === "running"
                               ? "animate-soft-pulse bg-amber-500"
                               : r.job.status === "failed"
-                                ? "bg-rose-500/85"
+                                ? "bg-danger-500/85"
                                 : "bg-emerald-500/80"
                           )}
                           style={{ left: `${x}%`, width: `${w}%` }}

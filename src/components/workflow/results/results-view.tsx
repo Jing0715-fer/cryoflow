@@ -2131,12 +2131,12 @@ function TopazPickHandoff({ jobId }: { jobId: string }) {
     <section
       aria-label="Put the model to work"
       data-canvas-ui="topaz-pick-handoff"
-      className="rounded-lg border border-rose-600/25 bg-danger/[0.04] p-3"
+      className="rounded-lg border border-danger-600/25 bg-danger/[0.04] p-3"
     >
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-            <Crosshair className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
+            <Crosshair className="h-3.5 w-3.5 shrink-0 text-danger-600" aria-hidden="true" />
             Put the model to work
           </h4>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
@@ -2150,7 +2150,7 @@ function TopazPickHandoff({ jobId }: { jobId: string }) {
           variant="outline"
           onClick={run}
           disabled={busy}
-          className="shrink-0 border-rose-600/40 text-rose-700 hover:bg-rose-600/10 hover:text-rose-800 dark:text-rose-300 dark:hover:text-rose-200"
+          className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
         >
           {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -2187,12 +2187,12 @@ function DenoisePickHandoff({ jobId }: { jobId: string }) {
     <section
       aria-label="Put the clean stack to work"
       data-canvas-ui="denoise-pick-handoff"
-      className="rounded-lg border border-rose-600/25 bg-danger/[0.04] p-3"
+      className="rounded-lg border border-danger-600/25 bg-danger/[0.04] p-3"
     >
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-            <Sparkles className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-danger-600" aria-hidden="true" />
             Put the clean stack to work
           </h4>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
@@ -2206,7 +2206,7 @@ function DenoisePickHandoff({ jobId }: { jobId: string }) {
           variant="outline"
           onClick={run}
           disabled={busy}
-          className="shrink-0 border-rose-600/40 text-rose-700 hover:bg-rose-600/10 hover:text-rose-800 dark:text-rose-300 dark:hover:text-rose-200"
+          className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
         >
           {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -2261,12 +2261,12 @@ function DenoiseTrainHandoff({ jobId }: { jobId: string }) {
     <section
       aria-label="Grow a trained model"
       data-canvas-ui="denoise-train-handoff"
-      className="rounded-lg border border-rose-600/25 bg-danger/[0.04] p-3"
+      className="rounded-lg border border-danger-600/25 bg-danger/[0.04] p-3"
     >
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
+            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-danger-600" aria-hidden="true" />
             Grow a trained model
           </h4>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
@@ -2292,7 +2292,7 @@ function DenoiseTrainHandoff({ jobId }: { jobId: string }) {
           variant="outline"
           onClick={run}
           disabled={busy}
-          className="shrink-0 border-rose-600/40 text-rose-700 hover:bg-rose-600/10 hover:text-rose-800 dark:text-rose-300 dark:hover:text-rose-200"
+          className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
         >
           {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />

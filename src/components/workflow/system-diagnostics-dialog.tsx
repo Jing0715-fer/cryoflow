@@ -84,7 +84,7 @@ function LaneBar({
       ? "bg-teal-500/80"
       : tone === "nogo"
         ? "bg-amber-500/80"
-        : "bg-red-500/80";
+        : "bg-danger-500/80";
   return (
     <div data-testid="diag-lane" data-lane-tone={tone} className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">

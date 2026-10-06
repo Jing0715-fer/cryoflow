@@ -404,7 +404,7 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
               "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md",
               item.ok
                 ? "bg-success/10 text-success"
-                : "bg-rose-500/10 text-danger"
+                : "bg-danger-500/10 text-danger"
             )}
           >
             <Icon className="size-3.5" aria-hidden="true" />
@@ -492,7 +492,7 @@ function Notice({ item }: { item: Extract<UiItem, { kind: "notice" }> }) {
           ? "border-border bg-muted/40 text-muted-foreground"
           : info
             ? "border-border bg-muted/40 text-muted-foreground"
-            : "border-rose-600/30 bg-danger/[0.06] text-danger"
+            : "border-danger-600/30 bg-danger/[0.06] text-danger"
       )}
     >
       <Icon
@@ -639,7 +639,7 @@ function FilterChip({
       className={cn(
         active
           ? tone === "rose"
-            ? "border-rose-600/40 bg-rose-500/10 text-danger"
+            ? "border-danger-600/40 bg-danger-500/10 text-danger"
             : "border-teal-500/50 bg-running/10 text-running"
           : "border-transparent bg-secondary/60 text-muted-foreground hover:text-foreground"
       )}
@@ -1520,7 +1520,7 @@ export function AssistantPanel() {
         {renamingId === s.id ? (
           <button
             type="button"
-            className="h-6 shrink-0 rounded-md border border-rose-600/40 px-1.5 text-[10px] font-medium text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
+            className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => void commitRename(s.id)}
           >
@@ -1531,7 +1531,7 @@ export function AssistantPanel() {
             {armedDelete === s.id ? (
               <button
                 type="button"
-                className="h-6 shrink-0 rounded-md border border-rose-600/40 px-1.5 text-[10px] font-medium text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
+                className="h-6 shrink-0 rounded-md border border-danger-600/40 px-1.5 text-[10px] font-medium text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
                 onClick={() => void removeSession(s.id)}
               >
                 确认
@@ -1540,7 +1540,7 @@ export function AssistantPanel() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-rose-600 focus-visible:opacity-100 group-hover:opacity-100"
+                className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-danger-600 focus-visible:opacity-100 group-hover:opacity-100"
                 onClick={() => armDelete(s.id)}
                 aria-label={`删除会话：${(s.title ?? s.preview).slice(0, 20)}`}
                 disabled={busy}

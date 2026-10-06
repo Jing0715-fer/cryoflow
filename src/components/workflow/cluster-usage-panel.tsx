@@ -104,7 +104,7 @@ function ShareBar({
         className={cn(
           "block h-full rounded-full transition-[width] duration-300",
           tone === "none"
-            ? "bg-rose-500/70"
+            ? "bg-danger-500/70"
             : tone === "tight"
               ? "bg-amber-500/70"
               : "bg-foreground/30"
@@ -375,7 +375,7 @@ export function ClusterUsagePanel({
           </p>
         )
       ) : !data?.ok ? (
-        <div className="flex items-start gap-2 rounded-md border border-rose-500/30 bg-danger/[0.06] px-2.5 py-2" role="note">
+        <div className="flex items-start gap-2 rounded-md border border-danger-500/30 bg-danger/[0.06] px-2.5 py-2" role="note">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-danger" aria-hidden="true" />
           <p className="text-[10.5px] leading-snug text-danger">
             Live usage unavailable — {data?.error ?? "unknown error"}. The submit

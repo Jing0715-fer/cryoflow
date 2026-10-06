@@ -381,7 +381,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
   if (!data || (data.classes.length === 0 && !data.classesFile && stacks.length === 0)) {
     if (data?.error) {
       return (
-        <div className="rounded-lg border border-rose-500/30 bg-danger/5 px-4 py-3 text-xs text-danger">
+        <div className="rounded-lg border border-danger-500/30 bg-danger/5 px-4 py-3 text-xs text-danger">
           Class snapshots unavailable — {data.error}
         </div>
       );
@@ -521,7 +521,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                       "rounded-full px-1 text-[9px] leading-4",
                       isCurrent
                         ? "bg-primary-foreground/20 text-primary-foreground"
-                        : "bg-rose-500/15 text-danger"
+                        : "bg-danger-500/15 text-danger"
                     )}
                   >
                     zero data
@@ -533,7 +533,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                       "rounded-full px-1 text-[9px] leading-4",
                       isCurrent
                         ? "bg-primary-foreground/20 text-primary-foreground"
-                        : "bg-rose-500/15 text-danger"
+                        : "bg-danger-500/15 text-danger"
                     )}
                   >
                     zero header
@@ -579,7 +579,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
       {current != null && (
         <div className="p-4" data-sheet-view={current.iter}>
           {sheetError != null ? (
-            <div className="flex min-h-32 w-full flex-col items-center justify-center gap-2 rounded-md border border-rose-500/30 bg-danger/5 px-4 py-6 text-center">
+            <div className="flex min-h-32 w-full flex-col items-center justify-center gap-2 rounded-md border border-danger-500/30 bg-danger/5 px-4 py-6 text-center">
               <span className="max-w-xl text-[11px] leading-relaxed text-danger" data-sheet-error="">{sheetError}</span>
               <Button
                 variant="outline"
@@ -737,7 +737,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               the cluster pull broke (the payload's honest refusal note) */}
           {failedSlices.size > 0 && data.renderError != null && (
             <p
-              className="border-t border-rose-500/20 bg-danger/5 px-4 py-2 text-[10px] leading-relaxed text-danger"
+              className="border-t border-danger-500/20 bg-danger/5 px-4 py-2 text-[10px] leading-relaxed text-danger"
               data-render-error=""
             >
               class images unavailable — {data.renderError}
@@ -750,7 +750,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               black squares pass as a result */}
           {data.zeroData === true && (
             <p
-              className="border-t border-rose-500/20 bg-danger/5 px-4 py-2 text-[10px] leading-relaxed text-danger"
+              className="border-t border-danger-500/20 bg-danger/5 px-4 py-2 text-[10px] leading-relaxed text-danger"
               data-zero-data=""
             >
               every class image of this round is all-zero — the averages were computed from
@@ -818,12 +818,12 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
                 squints at the pixels — the rose chip names the verdict,
                 the chip's tooltip on the chips bar carries the full story) */}
             {current != null && roundZeroData(current, data) && (
-              <span className="rounded-full bg-rose-500/15 px-1.5 text-[9px] leading-4 text-danger">
+              <span className="rounded-full bg-danger-500/15 px-1.5 text-[9px] leading-4 text-danger">
                 zero data
               </span>
             )}
             {current != null && current.nz === 0 && (
-              <span className="rounded-full bg-rose-500/15 px-1.5 text-[9px] leading-4 text-danger">
+              <span className="rounded-full bg-danger-500/15 px-1.5 text-[9px] leading-4 text-danger">
                 zero header
               </span>
             )}

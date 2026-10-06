@@ -620,7 +620,7 @@ export function HpcProfilesEditor({
         )}
 
         {error ? (
-          <div className="rounded-md border border-rose-500/30 bg-danger/[0.06] p-2.5 text-xs text-danger" role="alert">
+          <div className="rounded-md border border-danger-500/30 bg-danger/[0.06] p-2.5 text-xs text-danger" role="alert">
             {error}
           </div>
         ) : null}
@@ -630,8 +630,8 @@ export function HpcProfilesEditor({
             variant="ghost"
             size="sm"
             className={cn(
-              "h-8 text-xs text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400",
-              confirmDelete && "bg-rose-500/10"
+              "h-8 text-xs text-danger-600 hover:bg-danger-500/10 hover:text-danger-700 dark:text-danger-400",
+              confirmDelete && "bg-danger-500/10"
             )}
             onClick={() => (confirmDelete ? deleteProfile() : setConfirmDelete(true))}
             disabled={!selected || profiles.length <= 1}

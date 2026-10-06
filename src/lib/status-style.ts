@@ -160,7 +160,7 @@ export const STATUS_FLOOR: Record<StatusWord, string> = {
   pending: "bg-amber-400/80 dark:bg-amber-400/75",
   running: "bg-teal-400/85 dark:bg-teal-400/80",
   completed: "bg-emerald-400/75 dark:bg-emerald-400/70",
-  failed: "bg-rose-500/85 dark:bg-rose-500/80",
+  failed: "bg-danger-500/85 dark:bg-danger-500/80",
 };
 
 /** status → find-bar filter chip ({dot, active pair}). Migrated from

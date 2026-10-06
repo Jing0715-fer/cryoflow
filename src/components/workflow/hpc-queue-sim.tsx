@@ -150,7 +150,7 @@ const TYPE_COLOR: Record<string, string> = {
   select: "bg-warning/25 border-warning/40 text-warning-700 dark:text-warning-300",
   class2d: "bg-fuchsia-500/25 border-fuchsia-500/40 text-fuchsia-700 dark:text-fuchsia-300",
   class3d: "bg-indigo-500/25 border-indigo-500/40 text-indigo-700 dark:text-indigo-300",
-  refine3d: "bg-rose-500/25 border-rose-500/40 text-danger",
+  refine3d: "bg-danger-500/25 border-danger-500/40 text-danger",
   postprocess: "bg-success/25 border-success/40 text-success-700 dark:text-success-300",
   maskcreate: "bg-green-500/25 border-green-500/40 text-green-700 dark:text-green-300",
 };
@@ -469,7 +469,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
           </div>
 
           {error ? (
-            <div className="rounded-md border border-rose-500/30 bg-danger/[0.06] p-3 text-xs text-danger">
+            <div className="rounded-md border border-danger-500/30 bg-danger/[0.06] p-3 text-xs text-danger">
               {error}
             </div>
           ) : sim ? (

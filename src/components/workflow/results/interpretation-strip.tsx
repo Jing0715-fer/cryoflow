@@ -30,7 +30,7 @@ const TONE_CLASS: Record<InterpretationTone, string> = {
   amber: "border-warning/25 bg-warning/5 text-warning-700 dark:text-warning-300",
   emerald:
     "border-success/25 bg-success/5 text-success-700 dark:text-success-300",
-  rose: "border-rose-600/25 bg-rose-600/5 text-danger",
+  rose: "border-danger-600/25 bg-danger-600/5 text-danger",
   fuchsia:
     "border-fuchsia-600/25 bg-fuchsia-600/5 text-fuchsia-700 dark:text-fuchsia-300",
 };

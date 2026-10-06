@@ -4871,7 +4871,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       "rounded-md px-2 py-1 text-[10px] leading-snug " +
                       (clipSendNote.ok
                         ? "border border-success/30 bg-success/10 text-success-700 dark:text-success-300"
-                        : "border border-red-600/30 bg-red-600/10 text-danger")
+                        : "border border-danger-600/30 bg-danger-600/10 text-danger")
                     }
                   >
                     {clipSendNote.text}
@@ -5370,7 +5370,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 className={cn(
                   "size-8 rounded-lg shadow-sm transition-colors",
                   spin === "recording" &&
-                    "border-red-500/40 text-red-600 hover:text-red-600 dark:text-red-400"
+                    "border-danger-500/40 text-danger-600 hover:text-danger-600 dark:text-danger-400"
                 )}
                 disabled={spin === "recording"}
                 aria-label="Record a turntable video of the current view"

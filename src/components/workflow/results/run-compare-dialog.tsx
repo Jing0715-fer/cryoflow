@@ -700,7 +700,7 @@ function RunCompareDialog<R extends { name: string }>({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 gap-1.5 border-rose-300 px-2 text-[11px] hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-950"
+                      className="h-7 gap-1.5 border-danger-300 px-2 text-[11px] hover:bg-danger-50 dark:border-danger-800 dark:hover:bg-danger-950"
                       data-testid="adopt-with-exclude"
                       aria-label={
                         adoptableExclude

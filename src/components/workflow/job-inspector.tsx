@@ -316,7 +316,7 @@ function LogLine({
       className={cn(
         "block px-1",
         index % 2 === 1 && "bg-white/[0.025]",
-        tone === "error" && "bg-rose-500/10 text-rose-400",
+        tone === "error" && "bg-danger-500/10 text-danger-400",
         tone === "warn" && "bg-warning/10 text-warning-300",
         tone === "milestone" && "text-running-300 font-semibold",
         tone === "resolution" && "text-running-200 font-semibold",
@@ -334,7 +334,7 @@ function LogLegend() {
     ["bg-teal-400", "iteration"],
     ["bg-teal-200", "resolution"],
     ["bg-amber-400", "warning"],
-    ["bg-rose-400", "error"],
+    ["bg-danger-400", "error"],
   ];
   return (
     /* Task 176: the legend wraps below sm — the error chip measured 33px
@@ -628,9 +628,9 @@ function LogConsole({
         <Terminal className="size-3.5 text-zinc-500" aria-hidden="true" />
         <span className="font-mono text-[11px] font-medium text-zinc-400">run.out</span>
         {running ? (
-          <span className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-400">
+          <span className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-danger-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-danger-400">
             <span className="relative flex size-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger-400 opacity-75" />
               <span className="relative inline-flex size-1.5 rounded-full bg-danger" />
             </span>
             live
@@ -648,7 +648,7 @@ function LogConsole({
             className={cn(
               "rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
               matchCount === 0
-                ? "bg-rose-500/15 text-rose-400"
+                ? "bg-danger-500/15 text-danger-400"
                 : "bg-warning/15 text-warning-400"
             )}
             title={`${matchCount} of ${lineCount} lines match “${query.trim()}”`}
@@ -833,14 +833,14 @@ function LogConsole({
           data-log-diagnosis=""
           role="note"
           aria-label={`Failure diagnosis: ${findings.length} finding${findings.length === 1 ? "" : "s"}`}
-          className="mx-3 mt-2 shrink-0 rounded-lg border border-rose-500/25 bg-danger/[0.06] p-3"
+          className="mx-3 mt-2 shrink-0 rounded-lg border border-danger-500/25 bg-danger/[0.06] p-3"
         >
           <div className="flex items-center gap-1.5">
-            <Stethoscope className="size-3.5 shrink-0 text-rose-400" aria-hidden="true" />
-            <span className="diag-head-label text-[11px] font-semibold uppercase tracking-wider text-rose-300">
+            <Stethoscope className="size-3.5 shrink-0 text-danger-400" aria-hidden="true" />
+            <span className="diag-head-label text-[11px] font-semibold uppercase tracking-wider text-danger-300">
               Failure diagnosis
             </span>
-            <span className="diag-count rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-rose-300">
+            <span className="diag-count rounded-full bg-danger-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-danger-300">
               {findings.length} {findings.length === 1 ? "finding" : "findings"}
             </span>
             <span className="diag-ml hidden truncate text-[10px] text-zinc-500 xl:inline">
@@ -857,12 +857,12 @@ function LogConsole({
                 <li
                   key={f.id}
                   data-finding={f.id}
-                  className="diag-finding rounded-md border border-rose-500/15 bg-zinc-950/50 p-2"
+                  className="diag-finding rounded-md border border-danger-500/15 bg-zinc-950/50 p-2"
                 >
                   <div className="flex items-center gap-1.5">
-                    <Icon className="size-3.5 shrink-0 text-rose-400" aria-hidden="true" />
+                    <Icon className="size-3.5 shrink-0 text-danger-400" aria-hidden="true" />
                     <span
-                      className="diag-label truncate text-[11px] font-semibold text-rose-200"
+                      className="diag-label truncate text-[11px] font-semibold text-danger-200"
                       title={f.label}
                     >
                       {f.label}
@@ -1048,7 +1048,7 @@ function Timeline({ job }: { job: JobDTO }) {
                 "flex size-10 items-center justify-center rounded-full border-2 bg-card shadow-sm",
                 s.done
                   ? s.tone === "bad"
-                    ? "border-danger text-rose-600"
+                    ? "border-danger text-danger-600"
                     : s.tone === "good"
                       ? "border-emerald-500 text-success-600"
                       : s.tone === "wait"
@@ -1143,8 +1143,8 @@ function ResultSummary({
   }
   if (job.status === "failed") {
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-rose-600/30 bg-rose-600/5 p-3.5" data-print-atomic="">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-rose-600/15 text-danger">
+      <div className="flex items-start gap-3 rounded-lg border border-danger-600/30 bg-danger-600/5 p-3.5" data-print-atomic="">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-danger-600/15 text-danger">
           <AlertTriangle className="size-4.5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -1165,14 +1165,14 @@ function ResultSummary({
               data-overview-diagnosis=""
               role="note"
               aria-label={`Failure diagnosis: ${diagnosis.length} finding${diagnosis.length === 1 ? "" : "s"} in the full log`}
-              className="mt-2.5 rounded-lg border border-rose-500/20 bg-danger/[0.05] p-2.5"
+              className="mt-2.5 rounded-lg border border-danger-500/20 bg-danger/[0.05] p-2.5"
             >
               <div className="flex items-center gap-1.5">
                 <Stethoscope className="size-3.5 shrink-0 text-danger" aria-hidden="true" />
                 <span className="ovd-head-label text-[11px] font-semibold uppercase tracking-wider text-danger">
                   Failure diagnosis
                 </span>
-                <span className="ovd-count rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-danger">
+                <span className="ovd-count rounded-full bg-danger-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-danger">
                   {diagnosis.length} {diagnosis.length === 1 ? "finding" : "findings"}
                 </span>
                 <span className="ovd-note hidden min-w-0 truncate text-[10px] text-muted-foreground sm:inline">
@@ -1187,10 +1187,10 @@ function ResultSummary({
                       key={f.id}
                       data-ovd-chip={f.id}
                       title={f.hint}
-                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-rose-500/20 bg-zinc-950/[0.03] py-0.5 pl-1.5 pr-2 dark:bg-zinc-950/40"
+                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-danger-500/20 bg-zinc-950/[0.03] py-0.5 pl-1.5 pr-2 dark:bg-zinc-950/40"
                     >
                       <Icon className="size-3 shrink-0 text-danger" aria-hidden="true" />
-                      <span className="ovd-chip-label min-w-0 truncate text-[10.5px] font-medium text-rose-700 dark:text-rose-200">
+                      <span className="ovd-chip-label min-w-0 truncate text-[10.5px] font-medium text-danger-700 dark:text-danger-200">
                         {f.label}
                       </span>
                       {f.count > 1 ? (
@@ -1207,7 +1207,7 @@ function ResultSummary({
                 variant="outline"
                 size="sm"
                 onClick={onOpenDiagnosis}
-                className="mt-2 h-6 gap-1.5 border-rose-500/30 px-2 text-[10.5px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200"
+                className="mt-2 h-6 gap-1.5 border-danger-500/30 px-2 text-[10.5px] text-danger-600 hover:bg-danger-500/10 hover:text-danger-700 dark:text-danger-300 dark:hover:text-danger-200"
               >
                 <ArrowRight className="size-3" aria-hidden="true" />
                 Open the full diagnosis
@@ -1482,7 +1482,7 @@ function OutputsSummary({ files }: { files: OutputFile[] }) {
     { kind: "mrc", label: "maps & images", icon: Layers, color: "text-running-600" },
     { kind: "star", label: "STAR tables", icon: Table2, color: "text-violet-600" },
     { kind: "text", label: "logs & text", icon: ScrollText, color: "text-warning-600" },
-    { kind: "image", label: "plots", icon: BarChart3, color: "text-rose-600" },
+    { kind: "image", label: "plots", icon: BarChart3, color: "text-danger-600" },
   ];
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -2109,7 +2109,7 @@ const KIND_META: Record<OutputKind, { icon: React.ElementType; color: string; la
   mrc: { icon: Layers, color: "text-running-600", label: "MRC" },
   star: { icon: Table2, color: "text-violet-600", label: "STAR" },
   text: { icon: ScrollText, color: "text-warning-600", label: "TEXT" },
-  image: { icon: FileText, color: "text-rose-600", label: "PLOT" },
+  image: { icon: FileText, color: "text-danger-600", label: "PLOT" },
 };
 
 function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | null; reload: () => void }) {
@@ -2835,7 +2835,7 @@ function InspectorHeader({
                       setBusy(true);
                       void stopJob(job.id).finally(() => setBusy(false));
                     }}
-                    className="h-7 gap-1.5 px-2.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                    className="h-7 gap-1.5 px-2.5 text-xs text-danger-600 hover:bg-danger-50 hover:text-danger-700 dark:text-danger-400 dark:hover:bg-danger-950/40"
                   >
                     {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Square className="size-3.5" aria-hidden="true" />}
                     <span>Stop</span>
@@ -3658,7 +3658,7 @@ function InspectorBody({
             ? "bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600"
             : job.status === "completed"
               ? "bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600"
-              : "bg-gradient-to-r from-rose-600 via-rose-400 to-rose-600"
+              : "bg-gradient-to-r from-danger-600 via-danger-400 to-danger-600"
         )}
       />
       <DialogHeader

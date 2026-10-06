@@ -768,7 +768,7 @@ function JobCardMenu({
                     if (res.ok) setNoteOpen(false);
                   });
                 }}
-                className="mr-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-rose-600 hover:underline dark:hover:text-rose-400"
+                className="mr-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-danger-600 hover:underline dark:hover:text-danger-400"
               >
                 Clear note
               </button>
@@ -1288,7 +1288,7 @@ function JobCardPreview({
             className={cn(
               "line-clamp-2 rounded border px-2 py-1.5 text-[10.5px] leading-snug",
               job.status === "failed"
-                ? "border-rose-500/30 bg-rose-500/10 text-danger"
+                ? "border-danger-500/30 bg-danger-500/10 text-danger"
                 : "border-success/30 bg-success/10 text-success-700 dark:text-success-300"
             )}
             title={job.result}

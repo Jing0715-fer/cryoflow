@@ -123,7 +123,7 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
         {stats && stats.offenders > 0 ? (
           <span
             data-motion-offender-badge=""
-            className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+            className="inline-flex items-center gap-1 rounded-full bg-danger-100 px-2 py-0.5 text-[11px] font-medium text-danger-700 dark:bg-danger-500/15 dark:text-danger-300"
           >
             <TriangleAlert className="size-3" aria-hidden />
             {stats.offenders} outlier{stats.offenders > 1 ? "s" : ""} ≥ {stats.threshold.toFixed(1)} Å

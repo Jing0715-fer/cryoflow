@@ -131,6 +131,44 @@
   --color-running-700: oklch(51.1% 0.096 186.391);
   --color-running-800: oklch(43.7% 0.078 188.216);
   --color-running-900: oklch(38.6% 0.063 188.416);
+  /* t649 — the DANGER rung vocabulary: rose and red hue names retire
+     into semantic rungs, the same pure-rename move t648 made for
+     emerald/amber/teal. Two dialects spoke danger by shade ladder:
+     rose (the --danger/--destructive base, 401+ sites at t646) and red
+     (the minority dialect, ~12 class sites). t646 already pinned BOTH
+     semantic tokens (--danger, --destructive) to rose-600's oklch —
+     hue unification with a documented verdict — so red sites renaming
+     to danger rungs is a DOCUMENTED pixel change (red-500's oklch
+     differs from rose-500's), the tail of the canonicalization t646
+     started, not a new law. Rose sites are pure renames (zero-pixel):
+     text-rose-700 dark:text-rose-300 becomes text-danger-700
+     dark:text-danger-300 — the pair structure and the dark: twins are
+     the world's promise (t648 verdict: the naming layer moves, the
+     pixel layer does not). Theme-independent constants, like their
+     success/warning/running siblings: no :root/.dark flip; the pair's
+     theme switch is owned explicitly by the dark: prefix at the
+     use-site. Rung coverage 50–950 FULL: the field also carries rose-950
+     (job-inspector's dark hover floor) — the t648 lesson extended, low-
+     frequency rungs are exactly what buys the assert its no-exception
+     law; a partial coverage would need a whitelist that grows. Values
+     are the Tailwind v4 palette verbatim
+     (node_modules/tailwindcss/theme.css rose scale) — the t646 lesson:
+     the palette's oklch is the law, not the remembered hex. Identity
+     exemptions survive on purpose: workflow.ts's references2d category
+     dot (a palette member, not danger), fsc-chart's legend swatch
+     gradient line, molstar-embed's turntable REC badge (media-industry
+     recording red, not danger). */
+  --color-danger-50: oklch(96.9% 0.015 12.422);
+  --color-danger-100: oklch(94.1% 0.03 12.58);
+  --color-danger-200: oklch(89.2% 0.058 10.001);
+  --color-danger-300: oklch(81% 0.117 11.638);
+  --color-danger-400: oklch(71.2% 0.194 13.428);
+  --color-danger-500: oklch(64.5% 0.246 16.439);
+  --color-danger-600: oklch(58.6% 0.253 17.585);
+  --color-danger-700: oklch(51.4% 0.222 16.935);
+  --color-danger-800: oklch(45.5% 0.188 13.697);
+  --color-danger-900: oklch(41% 0.159 10.272);
+  --color-danger-950: oklch(27.1% 0.105 12.094);
   /* Task 175 — this mapping was MISSING since the shadcn v4 migration:
      `text-destructive-foreground` generated NO rule (the class existed,
      the theme token did not — the same silent-generation family as the

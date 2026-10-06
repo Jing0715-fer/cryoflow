@@ -249,7 +249,7 @@ type HistoryRowKind = HistoryEntryKind | "other";
 const HISTORY_KIND_META: Record<HistoryRowKind, { icon: typeof Move; noun: string; className: string }> = {
   move: { icon: Move, noun: "move", className: "text-muted-foreground" },
   tidy: { icon: Wand2, noun: "auto-arrange", className: "text-muted-foreground" },
-  delete: { icon: Trash2, noun: "delete", className: "text-rose-500/90" },
+  delete: { icon: Trash2, noun: "delete", className: "text-danger-500/90" },
   other: { icon: CircleDashed, noun: "edit", className: "text-muted-foreground" },
 };
 
@@ -797,7 +797,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
         <Button
           variant="ghost"
           size="icon"
-          className="size-7 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+          className="size-7 text-danger-600 hover:bg-danger-500/10 hover:text-danger-700 dark:text-danger-400 dark:hover:text-danger-300"
           onClick={() => setConfirmDel(true)}
           aria-label="Delete selection"
           title="Delete the selection (with every wire attached)"

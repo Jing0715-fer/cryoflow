@@ -48,7 +48,7 @@ import { cn } from "@/lib/utils";
 const BUCKET_TILE: Record<QcBucket, string> = {
   healthy: "border-l-emerald-500/70",
   watch: "border-l-amber-500/80",
-  offender: "border-l-rose-500/90 bg-danger/[0.04]",
+  offender: "border-l-danger-500/90 bg-danger/[0.04]",
 };
 
 const BUCKET_VALUE: Record<QcBucket, string> = {
@@ -323,7 +323,7 @@ export function MicrographQcBoard({
                   {(m as { late: number }).late.toFixed(1)} Å
                 </p>
               ) : isEmpty ? (
-                <p className="truncate text-[9px] text-rose-700/80 dark:text-rose-300/80">
+                <p className="truncate text-[9px] text-danger-700/80 dark:text-danger-300/80">
                   no picks — empty?
                 </p>
               ) : (
@@ -340,7 +340,7 @@ export function MicrographQcBoard({
                   className={cn(
                     "h-full rounded-full",
                     r.bucket === "offender"
-                      ? "bg-rose-500/80"
+                      ? "bg-danger-500/80"
                       : r.bucket === "watch"
                         ? "bg-amber-500/80"
                         : "bg-emerald-500/50"

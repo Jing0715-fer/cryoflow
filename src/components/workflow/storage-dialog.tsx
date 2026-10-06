@@ -201,7 +201,7 @@ function CleanDoor({
       size="icon"
       disabled={blocked}
       onClick={onOpen}
-      className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400"
+      className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-danger-500/10 hover:text-danger-600 dark:hover:text-danger-400"
       aria-label={
         blocked
           ? `${name} is ${status} — cleanup waits until it finishes`
@@ -668,7 +668,7 @@ export default function StorageDialog({
 
         <div className="nice-scroll flex-1 overflow-y-auto px-5 py-4">
           {error ? (
-            <div className="flex flex-col items-start gap-3 rounded-lg border border-rose-500/30 bg-danger/[0.06] p-4">
+            <div className="flex flex-col items-start gap-3 rounded-lg border border-danger-500/30 bg-danger/[0.06] p-4">
               <p className="text-sm text-danger">{error}</p>
               <Button variant="outline" size="sm" onClick={() => void load()}>
                 <RotateCcw className="size-3.5" aria-hidden="true" /> Try again

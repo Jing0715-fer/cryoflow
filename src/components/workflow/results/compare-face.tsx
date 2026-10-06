@@ -104,7 +104,7 @@ export function VerdictChips({
       <span className="rounded-full bg-running/10 px-2 py-0.5 font-medium text-running-700 dark:text-running-400">
         {v.improved} {words.better}
       </span>
-      <span className="rounded-full bg-rose-600/10 px-2 py-0.5 font-medium text-danger">
+      <span className="rounded-full bg-danger-600/10 px-2 py-0.5 font-medium text-danger">
         {v.regressed} {words.worse}
       </span>
       <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
@@ -224,7 +224,7 @@ export function IdentityScatter({
           <span className="size-2 rounded-full bg-teal-600" aria-hidden="true" /> {words.better}
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="size-2 rounded-full bg-rose-600" aria-hidden="true" /> {words.worse}
+          <span className="size-2 rounded-full bg-danger-600" aria-hidden="true" /> {words.worse}
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="size-2 rounded-full bg-slate-400" aria-hidden="true" /> {words.same}

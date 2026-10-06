@@ -730,7 +730,7 @@ export function ClassGallery({
             type="button"
             onClick={() => onChange("1")}
             title="Clear manual selection (keep only class 1 as a starting point)"
-            className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-rose-500/15 hover:text-rose-600 dark:hover:text-rose-300"
+            className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-danger-500/15 hover:text-danger-600 dark:hover:text-danger-300"
           >
             None
           </button>
@@ -844,7 +844,7 @@ export function ClassGallery({
           tiles the field reports carried. */}
       {failedImgs.size > 0 && data?.renderError != null && (
         <div
-          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-rose-500/30 bg-danger/5 px-3 py-2"
+          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-danger-500/30 bg-danger/5 px-3 py-2"
           data-render-error=""
         >
           <span className="min-w-0 flex-1 text-[10px] leading-relaxed text-danger">
@@ -857,7 +857,7 @@ export function ClassGallery({
               setFallbackImgs(new Set());
               setDataNonce((n) => n + 1);
             }}
-            className="flex shrink-0 items-center gap-1 rounded-md border border-rose-500/40 px-2 py-1 text-[10px] font-medium text-rose-700 transition-colors hover:bg-rose-500/10 dark:text-rose-300"
+            className="flex shrink-0 items-center gap-1 rounded-md border border-danger-500/40 px-2 py-1 text-[10px] font-medium text-danger-700 transition-colors hover:bg-danger-500/10 dark:text-danger-300"
           >
             <RefreshCw className="size-3" aria-hidden="true" />
             Retry
