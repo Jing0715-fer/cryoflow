@@ -9475,3 +9475,38 @@ Stage Summary:
 - 「SQLite 的 insensitive 是 Postgres 的方言」：Prisma mode:"insensitive" 在 SQLite 吃 500——引擎方言差异要在所选引擎上验证，第一渡的教训是功能代码的「一次通过」不成立于跨引擎假设
 - 「灾难中的功能题用二渡验证经验」：第一渡成果毁于 reset，但验证路径（API 三连/键盘全链/Esc 语义）已实测，二渡 20 分钟走完一小时的路——「做过一次的世界有路标」
 - 产出：世界重建三级链（git reset + db push + t521/t635-skeleton/t531 seeders）+ server 正统复位（dev-server.sh + watchdog + active 指针）+ t635 跨项目 job 搜索透镜全链（API q + lens 组件 + dashboard 集成 + lens-rise）+ qa-t635-demo-skeleton-seed.mjs + LENS LIVE 📸 + t252 ALL PASS；demo 世界 15 jobs 归位 active、Tutorial 6 备份、console 0；下窗入口：①EMPIAR 世界恢复（fetch 验收 → mirror staging → active 12-job 世界的轻量重建 vs t372 全链裁决）②t156/t157 实跑（新世界对账后）③engine build 恢复（"RELION not found" header 病）④suite 世界假设对账（t252 过了，其余套件逐套）⑤judge 风暴/化石铲子（等环境）
+
+---
+Task ID: 636 (进行时)
+Agent: main (Z.ai Code, window 2026-10-06 23:24 cron, Job 362852)
+Task: 开局即验尸第二场容器灾难——t635 收官后容器再次替换（23:14:55 boot），.env 陷阱让首个 census 误诊；本窗兑付恢复链重放 + EMPIAR fetch 复活，QA 全绿后进入 t528 staging / 功能车道。
+
+Work Log:
+- [开局核实] worklog 尾条=Task 635（派单摘要说 Task 13——滞后第 N+82 次兑付）；HEAD 91af3ca 树净；available 1130MB 非 build 日（第 45 窗被动否决）；disk 5.8G avail（新容器 rootfs 焕然一新，t633 的 0 avail 危机不复存在）；server RSS 2310MB 贴回收线。
+- [世界验尸·三段定谳] ①首个 census（未钉 DATABASE_URL）读 .env→custom.db 模板库（1 项目 3 jobs）误诊世界破碎；②钉死路径重读 cryoflow.db + 恢复链重放（skeleton 15 jobs/16 edges → t531 workdir/engine-state/manifest → t521 Tutorial 6）全绿；③真相：容器 23:14:55 再替换、23:20:23 陈旧快照批量复原（data/ workdir+manifest 存活而 db 是模板态），app ensureProject 引导种子 3-job 世界是快照态不是病。**.env 钉模板库 custom.db、正统 server 由 dev-server.sh HARD-override 喝 cryoflow.db——t377/t635 投毒预言的恒久形状，任何不钉路径的脚本都会喝错世界**（seeders 家族钉绝对路径正是为此）。
+- [EMPIAR fetch 复活] t635 的 setsid fetch（PID 5002）死于容器替换（log 2 行即断，mrc 1.2MB/67MB 半途）；本窗重启（断点续传生效，10 coord 全 OK，mics 4 路并行进行中）。
+- [恢复链 UI 验收] canvas 15 nodes / 15 completed / workspace Main / console 零错 / 📸 t636-canvas-15jobs.png；t252 ALL PASS（四写门 + JSON 契约门 + UI origin 门 + console 0；"roster still 12" 自适应满足 got 15）。
+- [进行中] fetch 验收后跑 qa-t528-empiar-nodash-seed（no-dash staging：从真字节硬链接重铺 /data2/empiar10017/{data,movie}）；功能车道择题中（EMPIAR 12-job 轻量重建 seeder vs 更小功能题）。
+
+---
+Task ID: 636 (收官)
+Agent: main (Z.ai Code, window 2026-10-06 23:24 cron, Job 362852, 第 55 次派单)
+Task: 二场容器灾难的恢复窗——重放 t635 三级 seeder 链 + EMPIAR 真数据 fetch 终验收 + t528 staging + t531 唯一余留 FAIL 清账 + 透镜 type-ahead 高亮功能题；开局被 .env 陷阱误导的「世界破碎」误诊在钉路径后反转，收尾用 wire-vs-server-log 交叉验证把「悬挂」定谳为「慢」。
+
+Work Log:
+- [开局核实·补记] worklog 尾条=Task 635；HEAD 91af3ca 树净；available 1130MB 非 build 日（第 45 窗被动否决）；disk 5.8G avail（新容器焕新，t633 磁盘危机不复存在）。
+- [世界验尸三段定谳] ①未钉 DATABASE_URL 的首个 census 喝 .env→custom.db 模板库（1 项目 3 jobs）误诊世界破碎；②钉 cryoflow.db 重读 + 恢复链重放（skeleton 15/16 → t531 → t521 Tutorial 6）全绿；③真相=容器 23:14:55 再替换 + 23:20:23 陈旧快照复原 + app ensureProject 引导种子。**.env 钉模板、正统 server 由 dev-server.sh HARD-override 喝 cryoflow.db——t377/t635 投毒形状恒在，脚本必须自钉路径（seeders 家族钉绝对路径正是为此）**；t636-world-census.mjs 头部已刻警告。
+- [EMPIAR 终验收] t635 的 setsid fetch（PID 5002）死于容器替换——且本窗复跑同样死于命令结束（**dev-server.sh 头注释亲证 sandbox 的 tool-call reaper 收割 bash 后代，后台工作须走 launcher-exit 孤儿化模式**）；前台 timeout 560 一次跑完：**FETCH VERDICT 10/10 mics verified, 0 bad，640.01MB**（4 路并行实测 ~2.5MB/s，t635 单流 644KB/s 的 17 分钟估计被并行吞吐纠正）。t528 no-dash staging：identity law 10/10 过，data/ 硬链接 5 真微图 + movie/ 2 合成帧栈。t531 --check：**EMPIAR bundle FAIL 清账 → CHECK PASS**。
+- [t531 自洽修复] check 新 FAIL "engine record refine3d: outputs live"——outputsPlan 声称 run_it020_half1/2.mrc 而 filePlan 从未写它们（t635 当时过 = 快照恰好带着副本，第三次世界分裂又丢了）；修=filePlan 补写两片 64³ half map（buildMrcStack 全零帧先例），**写它所声称的——seeder 自己的 real outputs 律**。
+- [恢复链 UI 验收] canvas 15 nodes / 15 completed / console 零错 / 📸 t636-canvas-15jobs.png；t252 ALL PASS（四写门+JSON 契约+UI origin 门；"roster still 12" 自适应 got 15）。
+- [功能题·透镜 type-ahead 高亮] job-search-lens.tsx：Emph 首个大小写不敏感命中穿 token 标记（plain indexOf 无 regex、只标首击、token 类暗色律）+ 行级 data-lens-hit=name|type|none 诚实标记 + type 命中而人话标签不携带时回退原始 type token（q=ctffind vs "CTF Estimation"）；**探针 11 pass / 0 fail**（q=class 4 行全 name-hit 带标记、Esc 不偷 query、refocus 重开、q=rebalance demo-only 行 Enter→inspector、active 指针不动、console 0）📸 t636-lens-emph.png。
+- [「悬挂」定谳为「慢」] 探针初版 1.2s 盲读判 fetch 死刑——wire 捕获只见 REQ 无响应，但 **server log 实录 q=class 200 in 3.8s (compile 2.6s)**：活跃页面会话期间每请求付 3-4s 重编译（jobs 轮询写 data/*.json 与 watcher 互相绞），fetch 合法迟到。t636-net-diagnose.mjs（wire×kernel 双栈表×第二页面三判别——**IPv4-only 快照读 dual-stack 监听=全零是谎**）+ t636-keepalive-probe.py（原始套接字 idle 8s 复用二连击破 stale-keep-alive 说）入册；dev 编译绞行使者立案下窗（watchOptions ignored data//db/ 或 prod-build 车道）。
+- [未做与理由] EMPIAR 12-job 世界轻量重建（正典 roster 考古未做——chips All 12-11-1 + grid All 6-1-5 的精确构成需 t372 时代账本，且 active 指针切换会动 t635 世界合同——整窗工程立案）；t156/t157 实跑（本窗被恢复+功能占满，且新世界 15 jobs 的逐套对账仍是前置）；engine build（第 45 窗非 build 日）；judge 风暴（等稳定夜）。
+
+Stage Summary:
+- 「喝哪个库是第一问」：同一个 repo 两本账（.env 的模板 custom.db vs dev-server.sh 钉死的 cryoflow.db），任何不钉路径的脚本都会读错世界——本窗首个 census 因此把 15-job 健康世界误诊为破碎；seeders 家族钉绝对路径不是洁癖是生存。世界验证的顺序：先问 server 进程的 environ，再问脚本自己的 DATABASE_URL，最后才轮到文件内容
+- 「后台进程在沙箱里是孤儿不是子民」：setsid nohup 挡不住 tool-call reaper（两次 fetch 死于同一把刀）；dev-server.sh 的 launcher-exit 模式（启动后脚本退出、进程孤给 init）是唯一正形——「survives the tool-call reaper」的注释就是文书
+- 「写它所声称的」：t531 声称 half pair 却不写，t635 的 PASS 只是快照偶然带着副本——声称与落盘的自我一致要靠 seeder 每次重放验证，不是靠环境施舍
+- 「慢不是挂，探针也要 t523 律」：1.2s 盲读给 3.8s 的合法迟到判了死刑；wire 抓包与 server log 交叉验证才定谳——探针的等待要用轮询+预算（20s），与套件等待律同一条根
+- 「恢复链是动词不是脚本」：三级 seeder 链第三次吃狗粮（t635 灾难、本窗误诊反转、bundle 清账），幂等重放从 panic 动作降级为例行 chore——这正是把恢复做成可重放动词的复利
+- 产出：恢复链重放全绿（DB 2 项目 21 jobs / canvas 15 nodes / t252 ALL PASS）+ EMPIAR 640MB 真数据 10/10 + t528 staging + t531 CHECK PASS（自洽修复）+ 透镜 type-ahead 高亮全链（11 pass/0 fail）+ 三件验尸仪器（world-census/net-diagnose/keepalive-probe）+ 📸×2；下窗入口：①EMPIAR 12-job 轻量重建裁决（正典 roster 考古先行）②dev 编译绞行治本（watcher ignore 或 build 车道）③t156/t157 实跑（15-job 世界对账）④engine build（等 build 日）⑤judge 风暴（等稳定夜）
