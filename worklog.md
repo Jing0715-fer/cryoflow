@@ -10505,3 +10505,41 @@ Stage Summary:
 - 「修好病的同时要给病人的活下去留路」：摘层栈不是没收 toast 的所有退出——timer/swipe/关闭钮/focused-Esc 四条原路全保留，a11y 的 focus-Esc 路径（B 腿）专锚验证。行为 fork 的完整交付 = 新语义锚 + 旧语义幸存锚。
 - 「自孤儿脚本直接发射，永不加 &」：脚本的 setsid 是它自己的原子；外面再套一层 & 就给 reaper 留了腰斩窗口（cp 半棵树 + 死壳）。**疗愈的幂等形式是 always-cp，不是 [ ! -d ] gate**——gate 只防「从未有过」，不防「半途而废」。
 - 产出：radix-toast-vendor.mjs + radix-toast-vendor.d.mts（fork 一层）+ ui/toast.tsx import 换源 + eslint ignores + prod-3001 疗愈幂等化 + t676-toast-eclipse.mjs（24 锚四腿 + 📸×1）；下窗入口：①功能车道（语义色 token ~470 处——连续十三窗记账，需整窗+稳定回归夜；「could not be restored」第三出口专属锚——molstar error 态受控注入，等稳定夜；Topaz wrapper / 3D viewer 体积截面仍在 backlog）②样式车道（toast 退出动画的 slide-out-to-right-full 在摘层后行为未变——账本清零）③judge 风暴（等稳定夜）④build 日三车道（钥匙七连零失败）⑤演练床一键（账在）⑥eclipse 修后的全 app Escape 巡检候选：dropdown/select menu 在 toast 活着时的一次 Esc 行为（机制同源已由 fork 根治，若要专锚可加）。
+
+---
+Task ID: 677 中途账（fossil 审计 + Runtime by stage 落码 — 构建进行中）
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080525)
+Task: 05:25 派单执行——开局五件套判稳 → 派单「已知遗留」清单逐项验尸 = **全灭（皆为化石）** → 定道真缺口：dashboard Pipeline Analytics 第四面「Runtime by stage」（per-stage 墙钟统计 + 瓶颈芯片 + CSV + copy-summary 扩展）+ tsc/eslint 0 + 构建中
+
+Work Log:
+- [开局五件套] worklog 尾条核实 = Task 676 收官；HEAD 14a1d4b 树净；fetch 0-0；available 3376MB（> 3.28GB 钥匙阈值）；server 200/2.7ms + console 净 + roster 17 全 completed——稳定。
+- [fossil 审计·派单遗留清单全灭] 逐项验尸 Task 13 时代清单：#5 fs/browse 无鉴权 = **已修**（t251 关账，browse route line 101 isLocalRequest 在案）；#6/#14 pathref 与 star 路由包含策略不一致 = **已修**（resolveInsideJobWorkdir 为 both outputs routes 的 single containment policy——lexical workdir scoping + realpath inside app data tree，star route 注释自证）；#7 chart 热路径全量同步读 = **已修**（statcache.ts 的 (size,mtime) LRU 早在 fsc/guinier/angdist 全线在骑，angdist line 703 "Poll-friendly" 注释自证）；#8 particles BFS N+1 = **已修**（"Batched BFS: ONE edge query per depth level" 注释在案）；#13 useMemo 内 localStorage 写 = **未能复现**（邻近扫描零命中，判已修或已重构）；Topaz wrapper = **已修**（engine 的 topaz-training.ts 在案 + roster 有 Topaz 席）；3D viewer 体积截面 = **已修**（t660/t661 clip 全家桶 + oblique plane 在 molstar-embed）。**教训：派单模板的「已知遗留」是 Task 13 时代的化石文本——每窗开工先验尸清单再定道，不得照单全收**（与「重点读末尾 Task 13 条目」同款滞后，但这次连清单本身也是滞后物）。
+- [定道·Runtime by stage] 真缺口侦察：dashboard 分析面板三面（flow/ladder/timeline）+ CSV×2 + copy summary（t506/t507 机器面在案）皆成熟，唯「哪一型 stage 吃墙钟」无答案——timeline 的 18 根 per-run 棒不聚合。新面 = per-type 聚合：n / median / p90 / total / share 条形 + 瓶颈芯片（≥2 型才显——单型「瓶颈」是同义反复）+ CSV 按钮 + copy-summary 段。
+- [实现] 新 lib `src/lib/stage-runtime.ts`（纯客户端）：stageRuntime() 骑 walkTimeline 同一口井（runs.rows 的 floored/live-stretched ms，**永不骑 raw j.duration——running 时 0/stale**），completed only（live run 的窗无末端，混进 sum 就是把部分测量当完成测量）；nearest-rank p90（ceil(p/100·n) 1-indexed，可断言无插值歧义）+ 经典 median（偶 n 取双中均值）+ share 一位小数；bottleneck = max totalMs 且 rows ≥ 2；stageRuntimeCsv() 机器列（ms 精确）与人话列（fmtDuration）并肩，RFC-4180 单元转义镜像面板自家语法；文件名 `runtime-by-stage-<ISO>.csv` 镜像 timelineRunsCsvFilename 语法。组件侧：runtime useMemo（runs.rows 过滤 completed → {type,label(jobType fallback),ms}）+ exportRuntimeCsv（空表静默不下载——撒谎的门）+ 工具栏第四按钮（Timer icon）+ copy-summary「Runtime by stage」段 + JSX 块（data-canvas-ui="analytics-runtime" / data-runtime-row={type} / data-runtime-bottleneck={type} / share 条 bg-primary/75 + ×n / ~median / total 三列 + 图例脚注「bars cover completed runs (a live run has no end yet)」）。
+- [撞见·MultiEdit 非原子] 本环境 MultiEdit 顺序应用、遇错不停（第三编辑 old_str 不存在，前两编辑已落盘且后续重放制造了重复 import）——**该环境的 MultiEdit 不是原子的**；修复 = 单 Edit 逐步 + 每步 grep 验尸。教训入账：关键落码用单 Edit，或 MultiEdit 后必验状态。
+- [撞见·TDZ 声明序] runtime useMemo 初落 milestones 之后、runs 之前——runs.rows 引用先于声明（const TDZ）——搬到 runs 声明之后。scopeLabel 的闭包引用合法（点击时求值）。
+- [现状] tsc 0 + eslint 0；构建发射中（cap 2816 直射）；t677 探针设计在案：dashboard 面直达（无需 viewer）——块渲染 + 行数/类型 + 瓶颈芯片指向 max-total 行 + 探针独立重算（import/motioncorr/max 三点抽查 median/p90/total/share 对 UI 文本）+ CSV 下载解析对账 + 世界完好 + 桶。
+
+---
+Task ID: 677 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080525)
+Task: 05:25 派单执行——fossil 审计（派单遗留清单全灭）+ 真缺口兑现：Pipeline Analytics 第四面「Runtime by stage」（per-type 墙钟统计 + 瓶颈芯片 + CSV 机器面 + copy-summary 段）+ t677 探针 30/0 二航全绿 + 回归全家绿（t675 一腿偶发竞态在案）+ 分车 commit push
+
+Work Log:
+- [开局五件套] worklog 尾条 = Task 676 收官；HEAD 14a1d4b 树净；fetch 0-0；available 3376MB；server 200/2.7ms + console 净 + roster 17 全 completed——稳定。
+- [fossil 审计] 派单「已知遗留」清单逐项验尸全灭：#5 fs/browse（t251 isLocalRequest 在案）/ #6+#14 pathref-star 包含策略（resolveInsideJobWorkdir = both outputs routes 的 single containment policy）/ #7 chart 热路径（statcache 的 (size,mtime) LRU 全线在骑）/ #8 particles BFS（batched BFS 注释在案）/ #13 useMemo localStorage 写（邻近扫描零命中）/ Topaz wrapper（engine topaz-training.ts + roster Topaz 席）/ 3D 体积截面（t660/t661 clip 全家桶）——**Task 13 时代的清单是化石文本，每窗验尸后再定道**。
+- [定道·Runtime by stage] 分析面板三面（flow/ladder/timeline）+ CSV×2 + copy summary 皆成熟，唯「哪一型 stage 吃墙钟」无答案——timeline 的 per-run 棒不聚合。新面 = per-type 聚合。
+- [feat] 新 lib `src/lib/stage-runtime.ts`（纯客户端）：stageRuntime() 骑 walkTimeline 同一口井（completed → ms = max(1000, duration)，永不骑 raw j.duration），completed only（live run 窗无末端）；nearest-rank p90 + 经典 median + share 一位小数；bottleneck = max totalMs 且 ≥2 型（单型「瓶颈」是同义反复）；stageRuntimeCsv() 十列（机器 ms + 人话 fmtDuration 并肩，RFC-4180 转义），文件名 `runtime-by-stage-<ISO>.csv`。组件：runtime useMemo + exportRuntimeCsv（空表静默）+ 工具栏第四按钮（Timer）+ copy-summary 段 + JSX 块（data-canvas-ui="analytics-runtime" / data-runtime-row / data-runtime-share / data-runtime-bottleneck / share 条 + ×n/~median/total 三列 + 脚注「bars cover completed runs (a live run has no end yet)」）。
+- [撞见·MultiEdit 非原子] 本环境 MultiEdit 顺序应用遇错不停（第三编辑假 old_str 失败但前两编辑已落，后续重放制造重复 import）——单 Edit 逐步 + grep 验尸。教训：关键落码用单 Edit，MultiEdit 后必验状态。
+- [撞见·TDZ] runtime useMemo 初落 runs 声明前——runs.rows 引用先于声明；搬到 runs 之后（scopeLabel 闭包引用合法，点击时求值）。
+- [t677-e2e 30/0 二航] 独立重算对账（探针自带 walk/median/p90/share 镜像实现，不 import 产品 lib——共享 bug 无处藏身）：prisma 注入 3 个 class3d drill 席（300k/450k/600k ms，PATCH 永不写 completed 故走 DB 直写）聚合进既有 class3d（n 1→4：median 6m 15s / p90 10m 0s / total 27m 30s）→ UI 行 title/share 芯片/排序/瓶颈芯片（「heaviest: 3D Classification · 36.9%」）逐一对账 + share 合计 ~100 + bar 全上色 + CSV 下载（文件名旗标/十列表头/13 行/机器+人话列全对账）+ export toast + teardown 无痕（types 回 13、roster 回 17）+ 桶净。一航 25/5 的五 FAIL 同根两病：share 芯片选择器层次（探针拿 div span.first() 拿到 bar——产品加 data-runtime-share 诚实锚）+ 探针 CSV 列索引手滑（p90_ms 是 c[5]）。
+- [撞见·t675 D 腿偶发] 本窗 t675 五航：前两航 D 腿 FAIL（palette 6 行应 5——恰在 server 重启后冷态），后三航全绿。autopsy 仪器已驻留 t675（FAIL 时吐行文本 + server 席位真相）。代码事实核查：embed 广播严格挂 PUT 链尾（putBookmarkSession 的 .then 在 PUT resolve 后），busy gate 排队有序，palette dedup+trailing 理论必收敛——纸上无法造出 6。判：**预存竞态（冷启动读慢窗口的 timing artifact），与本窗特性零关联**（分析面板不参与 bookmark 流；后三航带特性全绿）。若复发：palette open 时对「广播后陈读」re-validate 是候选修法。
+- [回归全家绿] tsc 0 + eslint 0 + t677 30/0 + t676 24/0 + t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0 + t675 38/0×3。fixture 惯犯 checkout 还原。
+- [build] 两轮 standalone（特性 + data-runtime-share 锚各一轮，~45s each，cap 2816 直射）+ PORT=3000 重启（教义直射 + always-cp 疗愈）+ root/chunk 双 200。本窗 OOM 零。
+
+Stage Summary:
+- 「清单会变化石，验尸是每窗的呼吸」：派单模板的「已知遗留」停留在 Task 13 时代——七项全部已在后续窗口关闭。开工先验尸清单再定道，不照单全收；worklog 是唯一活账本。
+- 「聚合面要替用户回答问题，不是把明细再画一遍」：timeline 的 18 根棒是明细的诚实，但「哪一型吃墙钟」是聚合的问题——Runtime by stage 用 n/median/p90/total/share 五个量回答它，瓶颈芯片只给一个词。第三个 lens 的加入遵守同一口井律（walkTimeline 的 ms），三张网格永不吵架。
+- 「探针的重算是独立的，不是复读」：t677 对账 UI/CSV 用的是探针自带镜像实现（同律不同码）——import 产品 lib 的对账只能证明「代码在跑」，独立重算才能证明「代码跑对了」。
+- 「MultiEdit 不是原子的」：本环境顺序应用遇错不停——关键落码用单 Edit 或每步 grep 验尸。TDZ 声明序是第二课：useMemo 引用 runs.rows 必须住在 runs 声明之后。
+- 产出：src/lib/stage-runtime.ts（纯客户端聚合 + CSV 机器面）+ pipeline-analytics 第四面（块 + 工具栏 Timer 按钮 + copy-summary 段 + 诚实锚）+ t677-runtime-by-stage.mjs（30 锚六腿 + prisma drill 注入/teardown + 独立重算对账 + 📸×2）+ t675 D 腿 autopsy 仪器驻留；下窗入口：①功能车道（语义色 token ~470 处——连续十四窗记账，需整窗+稳定回归夜；「could not be restored」第三出口专属锚等稳定夜）②样式车道（Runtime 块的入场动画未加入 t611/t612 编舞——若加需遵守家族两层诚实律，当前判「静态即可」）③judge 风暴（等稳定夜）④build 日三车道（钥匙九连零失败）⑤演练床一键（账在）⑥t675 D 腿冷启动竞态若复发：wire-tracing diag（记录每次 camera-bookmarks GET 的席数与时戳）+ palette open re-validate 候选修法。
