@@ -10565,3 +10565,29 @@ Stage Summary:
 - 「恒黑岛是合同不是债」：图像与控制台在黑地上读是 cryo-EM 的域正确；print 块早有裁定书；t678 用 lab 逐位相同把合同钉死（ΔL=0.000000）。后来者看到 26 处 bg-zinc-950 会手痒——探针会拦住那把扫帚。
 - 「仪器的三课」：radix modal 的 aria-hidden + pointer-lock 让 getByRole/点击双双失明（CSS 属性定位器 + 两实例测量是绕行道）；这台 Chrome 的 computed 色说 lab() 方言（归一化解析器要会说 lab/oklch/rgb 三方言）；[m 显示吞字惊魂（诊断要下到字节层才算数——od -c 是诚实检查）。
 - 产出：t678-theme-twin.mjs（26 锚五腿 + 📸×2）+ qa-t678-light-before/seam-audit/dark-walk/dark-walk2 + diag-t678-toggle + 账本线「语义色 token」关闭判决 + 暗面孪生五面 📸 证据链；下窗入口：①功能车道（「could not be restored」第三出口专属锚——molstar error 态受控注入，等稳定夜；Topaz wrapper/3D 截面已化石清账）②样式车道（账本清零——若再立新账必须先过 t678 的分层验尸）③judge 风暴（等稳定夜）④build 日三车道（钥匙十连零失败）⑤演练床一键（账在）⑥主题孪生扩展候选：dialog 族（storage/session-report/hpc/fsc-compare）的暗面专走若要专锚可加——机制已由 t678 覆盖核心面，当前判「文档化即可」。
+
+---
+Task ID: 679 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080625)
+Task: 06:25 派单执行——七探针全绿判稳（稳定夜）→ 兑现 Task 678 入口①「第三出口专属锚」→ 侦察拉出潜伏渲染崩真 bug（mirror 陈本 uncaught throw → 组件树崩）→ 产品修复（cleanBookmarkList 读入闸 + renderViewChips 纵深防御）+ t679 探针 21/0 五航 + 回归全家绿 + 分车 commit push
+
+Work Log:
+- [开局五件套] worklog 尾条核实 = Task 678 收官（派单文本「Task 13 条目」再演模板滞后，不采信）；HEAD 1a405f0 树净；fetch 0-0；available 3336MB（> 3.28GB 阈值）；server 200/2.6ms + agent-browser console 0 行 + 页面渲染正常。
+- [QA 判稳·稳定夜] 直系四探针（t678 26/0 + t676 24/0 + t677 30/0 + t675 38/0——D 腿无复发）+ 基线四绿（t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0）= 七探针全绿——今晚即账本等着的「稳定夜」，Task 678 入口①条件齐备。基线首跑敲错文件名再演（真名 t252-write-gates.mjs / qa78-e2e.mjs / t637-ui-probe.mjs / t641-probe.mjs——无 qa- 前缀）。
+- [定道·第三出口] 挂账多窗的「could not be restored」第三出口专属锚（bookmark 深链三出口之一，t669 已锚第二出口 not found）。侦察三发现：①「假成功窗口」不存在——pending 消费在 await fetch 之后，React 同一 commit 的后续 effects（restoreBookmarkRef 赋值）在 await 挂起期间同步跑完，消费时 handler 必真；②`if (!cam) return` 沉默出口在深链场景基本不可达（phase=ready 时 molstar 已挂）；③真触发面 = `applySliceIntent({ on: v.slice.on ... })` 对 slice 缺失的 view TypeError——而 cleanBookmarks 只验 bookmark 顶层 shape，**不验 view 内部**。
+- [撞见·真 bug] 一航 16/4 拉出真相：受控注入（mirror 播 malformed view + route.abort GET）后 TypeError 真的发生（`reading 'on'`），但它成了 **pageerror（uncaught）**——不是第三出口 toast，而是**组件树崩**（dialog 消失）。病灶 = `renderViewChips` 直接访问 `v.slice.on` / `v.clip.on` / `v.sigma.toFixed`——embed 书签行渲染 malformed 行时 uncaught throw。**import 路径有 saneImportedView 防线（degrade to pose-only），mirror/server 读入路径没有——同源不同律**。真实世界入口 = localStorage mirror 的历史陈本（旧版本 app 写入的 view shape；server 优先掩盖它，但离线/2.5s 超时窗口就是崩溃窗口）。
+- [审计副产品·server 防线] 路由 sanitizeView 是纵深防御第一线：`v.slice ?? {}` 永远补全 slice/clip——**通过 server PUT 构造 malformed view 不可行**（上盘即修好）。A 腿专锚验证（drill 席 PUT 后 server 存的 slice={"on":false,"axis":"Z","pos":0.5} REPAIRED）。残余入口只剩 mirror 陈本——这正是探针播种的场景（honest prior visit 留下的状态，不撒谎）。
+- [修复·读入闸 + 纵深] 两处产品码：①`cleanBookmarkList` helper（saneImportedView 之后定义，avoid use-before-define）= cleanBookmarks + view sane 化，mirror/server/readFresh 三处读入统一过闸（import 路径的既有语法模板 `.map((b) => ({ ...b, view: saneImportedView(b.view) }))` 铺开到每一条读入线）；②renderViewChips 纵深防御：sigma 数值守卫、`v.slice && v.slice.on`、`v.clip && v.clip.on`（chip 降级，树不倒）——渲染面是最后一道线。
+- [第三出口判决·文档化] mirror sane 化后 applied 列表的 view 永远 shape-current，深链第三出口的动态触发面归零——守门员 try/catch 保留在案（molstar 内部未知 throw 仍欠诚实 toast），判「文档化即可」（t678 入口⑥同款判决模式）。探针 header 记录判决。
+- [t679 五航 21/0] A 4（墙 4 卡 + drill 卡在 + **server REPAIRED 专锚**）+ B 2（positive control：seedview1 深链 → restored toast——管道与嘴都好）+ C 8（mirror 陈本 + abort valve → **pose-only 诚实恢复**：restored toast + 无假失败报警 + **dialog 活**（一航的老码死在这里）+ 无 remount + pending 一次性消费 + server 4 席 + 墙卡幸存）+ D 7（三种子名完好 + console 0 真 + abort 回声有界 + 404 0 + molstar unreachable 有界 + flap 有界 + teardown 回 3 席）+ 📸×2 目检（viewer 活 + toast「View "Probe drill broken view" restored」挺立——pose 飞了、optics 没动的 pose-only 语义；contour 停 2.00 σ）。
+- [探针三课] ①`unreachable` 是 molstar exhaustive switch 的 bare-throw（t668 源码注释在案），t669 设 molstarNoise 桶——t679 首设 ≤4 拍脑袋，四航揭示**分腿分布 leg B: 0 / leg C: 15**——噪声全在 abort valve 腿（仪器阀门与 molstar 的交互回声，非世界病），阈值取 t668 判例 ≤20；②「could not be restored」正则在 toast 全文匹配（title+description 拼接）里 name 与短语同行；③abort valve 装卸要配对（unroute），ladder 的 reload 期间 valve 保持 ON（场景一致性）。
+- [build + 重启] t673-build-standalone.sh 一次绿（~45s，cap 2816 直射）+ `PORT=3000 bash scripts/prod-3001.sh` 重启（t524 教义直射，永不加 &）+ root/chunk 双 200 验证。本窗 OOM 零。
+- [回归全家绿] tsc 0 + eslint 0 + t679 21/0×2（四航五航连绿）+ 同族三探针（t669 27/0 + t668 28/0 + t675 38/0）+ 直系（t676 24/0 + t677 30/0 + t678 26/0）+ 基线四绿（t252/qa78/t637/t641）。fixture 惯犯（t252-write-door-2x.png）checkout 还原不入车。
+
+Stage Summary:
+- 「探针去钉一条合同，钉出来的是它脚下的裂缝」：第三出口专属锚挂账多窗，今晚兑现的第一铲就挖出渲染崩真 bug——产品的渲染面对 shape 陈本零设防（v.slice.on uncaught → 组件树崩），而 import 路径的同款防线（saneImportedView）早在案。**防线存在不等于防线铺满——同源不同律就是裂缝的名字。**
+- 「每一条读入线都是一个 writer 的历史」：mirror 是旧版本 app 的账、server 是当前版本的账、import 文件是外部世界的账——三条线汇进同一个组件，组件的渲染与恢复假设的是**当前** shape。cleanBookmarkList 把「shape 归当前」的责任从每条线的源头（不可能齐）移到汇合口（一处收口）：**入口闸门修在汇合口，不是修在每个源头的道德里。**
+- 「纵深防御的最后一道是渲染面」：读入闸门把已知 shape 修齐，但渲染面对未知仍要设防——chip 是装饰，装饰的失败模式必须是「少显示一个芯片」，不是「整棵树陪葬」。`v.slice && v.slice.on` 的三处可选化 = 最后一道线的代价（三行）与收益（树）。
+- 「server 的 sanitize 是沉默的第一线」：drill 席 PUT 上去就被修好（A 腿专锚 REPAIRED）——malformed 根本上不了盘。真实世界的病只剩 mirror 陈本这条残余通道，而它正是离线姿势的诚实回退（local copy restores the views）——**防线越靠前，最后一道的守门员越接近零触发面；守门员的合同价值恰在于它永远待命。**
+- 「分腿计数让噪声找到主人」：unreachable 17 个的漂移在分腿计数后一目了然（B: 0 / C: 15）——全部住在 abort valve 腿 = 仪器的回声，不是世界的病。桶要分腿记数，阈值要引判例（t668 ≤20），拍脑袋的上限会被下一航打脸。
+- 产出：src/lib 无新文件；molstar-embed.tsx（cleanBookmarkList 读入闸 ×3 处 + renderViewChips 纵深防御）+ scripts/t679-third-exit.mjs（21 锚四腿 + 📸×2）+ 第三出口「文档化」判决入档；下窗入口：①功能车道（样式/功能若再立新账先过 t678 分层验尸；Topaz wrapper/3D 截面/token 账皆化石清账）②样式车道（账本清零——墙卡/palette 行/embed 行的三嘴家族 UI 已饱和）③judge 风暴（等稳定夜）④build 日三车道（钥匙十一连零失败）⑤演练床一键（账在）⑥三嘴家族的「shape 陈本」对账候选：墙（gallery route 聚合读）与 palette（TTL cache）拿到的行若来自旧 shape 的 server 历史——server sanitize 已在盘上保证，唯一残余是长命 TTL cache 跨版本——30s 自愈在案，判「文档化即可」。
