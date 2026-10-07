@@ -43,6 +43,11 @@
  * same inode, same pixels, zero bytes copied. The wall's NAME changes
  * ("Corrected micrographs"); the gestures (lightbox walk, compare
  * tray, pane stats) are the same hands on a different catalogue.
+ *
+ * t659/t664 — the compare dialog's aggregates: when EVERY pane measures
+ * the same detector geometry (t659) or the same bytes-per-pixel (t664),
+ * one line says it once. Only the agreement speaks — a difference stays
+ * visible in the per-pane rows, and an unmeasured pane confirms nothing.
  */
 
 import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -569,6 +574,29 @@ export function ImportGallery({
                   >
                     <Check className="h-3 w-3 text-running-600" aria-hidden="true" />
                     same dims across panes — {first.nx}×{first.ny} px
+                  </p>
+                );
+              })()}
+              {/* t664 — the second aggregate, same doctrine as the one above:
+                  when EVERY pane measures the same bytes-per-pixel, one line
+                  says it once (the storage mode the eyes already checked).
+                  Equality is judged on the FORMATTED values — the exact
+                  strings the per-pane rows display — so the aggregate can
+                  never contradict a row at the resolution the wall speaks.
+                  An unmeasured pane (null B/px) confirms nothing: no line. */}
+              {(() => {
+                const bpps = pickedEntries.map((m) => formatBytesPerPixel(m));
+                if (bpps.length < 2 || bpps.some((b) => b == null)) return null;
+                const first = bpps[0] as string;
+                if (!bpps.every((b) => b === first)) return null;
+                return (
+                  <p
+                    data-gallery-ui="compare-same-bpp"
+                    className="mt-0.5 flex items-center justify-center gap-1 text-[10px] font-medium text-muted-foreground"
+                    title="every pane measures the same bytes per pixel — float32 vs int16 agrees at the resolution shown; counted, not guessed"
+                  >
+                    <Check className="h-3 w-3 text-running-600" aria-hidden="true" />
+                    same B/px across panes — {first}
                   </p>
                 );
               })()}

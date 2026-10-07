@@ -52,6 +52,13 @@
  * t661 — the OBLIQUE block's ✂ toggle: the settled plane mirrors into the
  * embed's isosurface clip (OBLIQUE_CLIP_EVENT) — the surface opens along
  * the tile's exact geometry, the loop's third half after ⌖ and ⤸.
+ *
+ * t664 — the cut's 2D shadow: while the clip is live, every tile draws the
+ * LINE where that plane crosses its own slice (a dashed violet trace +
+ * scissors badge — `obliqueTraceOnTile`). The tiles listen to the same
+ * wire the embed speaks (request + applied-state ACK), so a chip clear or
+ * a bookmark revival outside the block's sliders still moves the shadow;
+ * the line mirrors the SCENE, not the block's UI.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -271,6 +278,7 @@ function OrthoTile({
   path,
   spec,
   dim,
+  dims,
   follow,
   clip,
   siblings,
@@ -283,6 +291,11 @@ function OrthoTile({
   spec: TileSpec;
   /** voxels along the movement axis (from the outputs listing) */
   dim?: number;
+  /** t664 — the FULL grid (from the outputs listing): the oblique trace's
+   *  plane constant lives in voxel space, so the line needs every axis'
+   *  extent, not just the movement axis'. Absent → no line (the honest
+   *  fallback the voxel readouts already speak). */
+  dims?: [number, number, number] | null;
   /** latest position driven by the 3D scene (nonce bumps per event) */
   follow?: { pos: number; nonce: number };
   /** latest box-clip state driven by the 3D scene (t253) */
@@ -439,6 +452,47 @@ function OrthoTile({
     return () => clearTimeout(t);
   }, [clipLit]);
 
+  // t664 — the 2D mirror of the oblique cut: the embed's isosurface clip is
+  // the 3D truth; this tile draws the LINE where that plane crosses its own
+  // slice. The tile listens to the same wire the embed speaks — the block's
+  // request (OBLIQUE_CLIP_EVENT) AND the embed's applied-state ACK
+  // (OBLIQUE_CLIP_STATE_EVENT, which a chip clear or a bookmark restore
+  // speaks outside the block's sliders) — last writer wins, so the line
+  // mirrors the SCENE, not the block's UI. Pure geometry, no I/O: like the
+  // crosshairs, it moves at slider rate; like the voxel readouts, it stays
+  // honest when the grid is unknown (no dims → no line). The kept side is
+  // the 3D guide's tick to tell (t662); the line is the shadow's location.
+  const [obliqueCut, setObliqueCut] = useState<{
+    theta: number;
+    phi: number;
+    offset: number;
+  } | null>(null);
+  useEffect(() => {
+    const adopt = (d: unknown) => {
+      if (!d || typeof d !== "object") return;
+      const det = d as { on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown };
+      if (det.on !== true) {
+        setObliqueCut(null);
+        return;
+      }
+      const theta = typeof det.theta === "number" && Number.isFinite(det.theta) ? det.theta : null;
+      const phi = typeof det.phi === "number" && Number.isFinite(det.phi) ? det.phi : null;
+      const offset = typeof det.offset === "number" && Number.isFinite(det.offset) ? det.offset : null;
+      if (theta == null || phi == null || offset == null) return;
+      setObliqueCut({ theta, phi, offset });
+    };
+    const onClip = (e: Event) => adopt((e as CustomEvent).detail);
+    const onAck = (e: Event) => adopt((e as CustomEvent).detail);
+    window.addEventListener(OBLIQUE_CLIP_EVENT, onClip);
+    window.addEventListener(OBLIQUE_CLIP_STATE_EVENT, onAck);
+    return () => {
+      window.removeEventListener(OBLIQUE_CLIP_EVENT, onClip);
+      window.removeEventListener(OBLIQUE_CLIP_STATE_EVENT, onAck);
+    };
+  }, []);
+  const obliqueTrace =
+    obliqueCut && dims ? obliqueTraceOnTile(spec, dims, pos, obliqueCut) : null;
+
   // t278 — the tri-planar crosshair. The tile's own position IS its plane;
   // the OTHER two axes' positions are drawn as dashed lines in the marked
   // plane's accent (see AXIS_COLOR): on the XY tile the vertical amber line
@@ -467,6 +521,52 @@ function OrthoTile({
         />
       );
     }
+  }
+
+  // t664 — the trace itself: a dashed violet line (the ✂ chip's own hue,
+  // violet-600) where the 3D cut crosses this slice, with the scissors
+  // badge at its midpoint — the line's sentence is "the cut passes here",
+  // and the badge binds it to the toggle that created it (t662's doctrine:
+  // a guide says the sentence it serves). Below the crosshair lines (the
+  // focus instruments read first), above the image; the density probe
+  // (cursor instrument) stays on top of everything.
+  let obliqueOverlay: React.ReactNode = null;
+  if (obliqueTrace) {
+    const midH = (obliqueTrace.x1 + obliqueTrace.x2) / 200;
+    const midV = (obliqueTrace.y1 + obliqueTrace.y2) / 200;
+    obliqueOverlay = (
+      <>
+        <svg
+          data-canvas-ui={`ortho-oblique-trace-${spec.axis}`}
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <line
+            x1={obliqueTrace.x1}
+            y1={obliqueTrace.y1}
+            x2={obliqueTrace.x2}
+            y2={obliqueTrace.y2}
+            stroke="#7c3aed"
+            strokeWidth={2}
+            strokeDasharray="5 3"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <div
+          data-canvas-ui={`ortho-oblique-badge-${spec.axis}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute flex size-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-violet-600/90 text-white shadow-sm"
+          style={{
+            left: pct(Math.min(0.92, Math.max(0.08, midH))),
+            top: pct(Math.min(0.92, Math.max(0.08, midV))),
+          }}
+        >
+          <Scissors className="size-2.5" />
+        </div>
+      </>
+    );
   }
 
   let clipOverlay: React.ReactNode = null;
@@ -625,6 +725,7 @@ function OrthoTile({
         />
         {clipOverlay}
         {crossLines}
+        {obliqueOverlay}
         {probe && (
           <>
             {/* t281 — the cursor's own crosshair: SOLID sky lines (the focus
@@ -1268,6 +1369,7 @@ export function MapOrthoPanel({
               path={path}
               spec={t}
               dim={dimFor(t.axis)}
+              dims={dims}
               follow={follow[t.axis]}
               clip={clip}
               siblings={positions}
@@ -1367,6 +1469,70 @@ function obliqueFrame(
     offsetVox: offsetFrac * support,
     extent: [Math.round(uMax - uMin) + 1, Math.round(vMax - vMin) + 1] as [number, number],
   };
+}
+
+/** t664 — the 2D mirror of the 3D oblique cut: where the clip plane crosses
+ *  THIS tile's slice, in the tile's own fraction coordinates (h left→right
+ *  along spec.hAxis, v top→bottom along spec.vAxis — the same renderer
+ *  truth the clip overlay and the crosshairs speak: axis 0 at the top row
+ *  and the left column, NO flip).
+ *
+ *  Geometry: the plane lives in voxel space (the server's frame — the same
+ *  math `obliqueFrame` mirrors for the readouts): n·p = n·c + offsetVox.
+ *  The tile's slice pins one coordinate (axisPos along the movement axis);
+ *  the other two ride the image fractions. Substituting p = (h·(n_h−1),
+ *  v·(n_v−1), axisPos·(n_axis−1)) leaves a LINE A·h + B·v = D, clipped to
+ *  the unit square. Returns endpoints in 0..100 viewBox units, or null
+ *  when nothing honest can be drawn: unknown grid, a plane parallel to
+ *  the slice (θ=0 on the matching axis — no line exists), or a grazing
+ *  pass that only touches a corner. Same function the test script mirrors
+ *  verbatim — the e2e asserts its numbers against the drawn DOM. */
+export function obliqueTraceOnTile(
+  spec: { axis: "x" | "y" | "z"; hAxis: "x" | "y" | "z"; vAxis: "x" | "y" | "z" },
+  dims: readonly [number, number, number],
+  axisPos: number,
+  cut: { theta: number; phi: number; offset: number }
+): { x1: number; y1: number; x2: number; y2: number } | null {
+  if (!dims || dims.length !== 3 || dims.some((d) => !(d > 1))) return null;
+  const frame = obliqueFrame([...dims] as [number, number, number], cut.theta, cut.phi, cut.offset);
+  const n = frame.normal;
+  const c: [number, number, number] = [
+    (dims[0] - 1) / 2,
+    (dims[1] - 1) / 2,
+    (dims[2] - 1) / 2,
+  ];
+  const AX: Record<"x" | "y" | "z", 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
+  const ai = AX[spec.axis];
+  const hi = AX[spec.hAxis];
+  const vi = AX[spec.vAxis];
+  const d0 = n[0] * c[0] + n[1] * c[1] + n[2] * c[2] + frame.offsetVox;
+  const A = n[hi] * (dims[hi] - 1);
+  const B = n[vi] * (dims[vi] - 1);
+  const D = d0 - n[ai] * axisPos * (dims[ai] - 1);
+  if (!Number.isFinite(A) || !Number.isFinite(B) || !Number.isFinite(D)) return null;
+  if (Math.hypot(A, B) < 1e-9) return null; // plane ∥ slice: no line (or the whole slice)
+  const pts: [number, number][] = [];
+  const consider = (h: number, v: number) => {
+    if (h >= -1e-6 && h <= 1 + 1e-6 && v >= -1e-6 && v <= 1 + 1e-6)
+      pts.push([Math.min(1, Math.max(0, h)), Math.min(1, Math.max(0, v))]);
+  };
+  if (Math.abs(B) > 1e-12) {
+    consider(0, D / B);
+    consider(1, (D - A) / B);
+  }
+  if (Math.abs(A) > 1e-12) {
+    consider(D / A, 0);
+    consider((D - B) / A, 1);
+  }
+  // dedupe corner touches — a line meets its square in at most two points
+  const uniq: [number, number][] = [];
+  for (const p of pts) {
+    if (!uniq.some((q) => Math.abs(q[0] - p[0]) < 1e-6 && Math.abs(q[1] - p[1]) < 1e-6))
+      uniq.push(p);
+  }
+  if (uniq.length !== 2) return null;
+  const [[h1, v1], [h2, v2]] = uniq;
+  return { x1: h1 * 100, y1: v1 * 100, x2: h2 * 100, y2: v2 * 100 };
 }
 
 /** t557 — the inverse of obliqueFrame's normal construction: a unit view
