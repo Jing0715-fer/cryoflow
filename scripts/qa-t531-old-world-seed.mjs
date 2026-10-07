@@ -28,6 +28,11 @@
  *   - Real data rides: the 10 Falcon micrographs in /home/z/empiar-10017
  *     are REAL EMPIAR frames (4096² mode 2, t527 fetch) — the seeder never
  *     pollutes them with synthetics; the stars name those 10 mics.
+ *     t657 — the stars stop being a text-only promise: the import workdir
+ *     now HARD-LINKS the 10 frames into micrographs/ (a directory entry
+ *     each, zero bytes copied, zero bytes mutated — the same inode), so
+ *     the gallery renders real pixels and the MRC headers carry real
+ *     dims. Linking is referencing, not polluting.
  *   - The manifest (data/old-world.json) is the CONTRACT: suites resolve
  *     the old world through it instead of the active-pointer-scoped
  *     /api/jobs list (t530 moved the active pointer to the exam world and
@@ -45,7 +50,7 @@
  * up engine-state writes live (readRuns is mtime-keyed — no restart).
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, unlinkSync, linkSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -167,9 +172,31 @@ function buildModelStar(res, withGoldFsc) {
 /* ---------- the old world's own dialects --------------------------------- */
 
 function buildImportStar(mics) {
-  const lines = ["data_micrographs", "", "loop_", "_rlnMicrographName #1"];
+  // t657 — the optics block the gallery header's chips read back
+  // (pixel/HT/Cs/Q0): the same numbers the t635 import params carry, so
+  // the star, the job form and the UI all speak one physics.
+  const lines = [
+    "data_optics", "", "loop_",
+    "_rlnOpticsGroup #1", "_rlnMicrographPixelSize #2", "_rlnVoltage #3",
+    "_rlnSphericalAberration #4", "_rlnAmplitudeContrast #5",
+    "1  1.77  300  2.7  0.1",
+    "",
+    "data_micrographs", "", "loop_", "_rlnMicrographName #1",
+  ];
   for (const m of mics) lines.push(`micrographs/${m}`);
   return lines.join("\n") + "\n";
+}
+
+/** t657 — the import workdir's frames ride as HARD LINKS to the real
+ *  EMPIAR bundle: one directory entry per frame, the same inode (zero
+ *  bytes copied on a 4GB-disk box, zero bytes mutated — linkSync refuses
+ *  to create a divergent copy by construction). Re-running skips frames
+ *  already on the wall (idempotent like every plan here). */
+function linkPlan() {
+  return micNames.map((m) => ({
+    src: path.join(EMPIAR_DIR, m),
+    dst: path.join(wd.import, "micrographs", m),
+  }));
 }
 
 function buildMotionStar(mics) {
@@ -486,7 +513,7 @@ function outputsPlan() {
 }
 
 const RESULTS = {
-  import: "10 real EMPIAR micrographs imported (paths stay in the bundle, zero upload)",
+  import: "10 real EMPIAR micrographs imported (hard-linked in place — zero upload, zero copy)",
   motioncorr: "10 micrographs aligned (own motioncorr, patch 3×3)",
   ctffind: "10 micrographs CTF-fitted — defocus family 14.6-12.7k Å",
   autopick: "170 particles picked across 10 micrographs (LoG)",
@@ -566,6 +593,19 @@ if (!CHECK) {
     writeAtomic(file, content);
     console.log(`  wrote ${path.relative(REPO, file)} (${content.length}B)`);
   }
+  // t657 — the frames: hard-link, never copy. Skip what's already linked
+  // (re-running the seeder must not churn directory entries).
+  for (const { src, dst } of linkPlan()) {
+    if (existsSync(dst)) continue;
+    mkdirSync(path.dirname(dst), { recursive: true });
+    try {
+      linkSync(src, dst);
+      console.log(`  linked ${path.relative(REPO, dst)} ← bundle`);
+    } catch (err) {
+      fail++;
+      console.log(`  FAIL  link ${path.relative(REPO, dst)} (${err.code ?? err.message})`);
+    }
+  }
   seedLogs();
   seedEngineRecords();
   console.log("  engine-state records: 13 chain links (done · exitCode 0 · real outputs)");
@@ -579,6 +619,18 @@ if (!CHECK) {
   for (const [dir, name] of plan) {
     const file = path.join(dir, name);
     ok(existsSync(file), `${path.relative(REPO, file)}`);
+  }
+  // t657 — every frame on the wall is the REAL bundle inode (same dev +
+  // ino as the source, not a copy): the “real data rides” law, verified.
+  for (const { src, dst } of linkPlan()) {
+    const okLink = existsSync(dst) && existsSync(src);
+    let same = false;
+    if (okLink) {
+      const a = statSync(src);
+      const b = statSync(dst);
+      same = a.dev === b.dev && a.ino === b.ino && a.size === b.size && a.size > 0;
+    }
+    ok(same, `frame hard-linked (same inode): ${path.basename(dst)}`);
   }
   const state = JSON.parse(readFileSync(STATE, "utf8"));
   for (const t of CHAIN) {

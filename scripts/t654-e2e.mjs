@@ -29,12 +29,11 @@ const consoleErrors = [];
 const resource404 = [];
 page.on("console", (m) => {
   if (m.type() !== "error") return;
-  // the demo world's Falcon .mrc files have no physical PNG previews —
-  // outputs/file?format=png answers 404 per frame and MrcImage degrades
-  // gracefully (verified pre-existing on the t652 HEAD: 10 thumbs → 10
-  // 404s before this window touched the component). These are RESOURCE
-  // facts about the world, not JavaScript errors; counted, bounded,
-  // and reported — never silently swallowed.
+  // t657 — the world upgrade: the seeder hard-links the REAL EMPIAR frames
+  // into the import workdir, so the frames RENDER and outputs/file answers
+  // 200 per frame. The old verdict ("bounded 404s, pre-existing, world
+  // state") is retired: the precise contract is now JS errors = 0 AND
+  // frame 404s = 0. t657-e2e holds the positive-face assertion.
   if (m.text().startsWith("Failed to load resource")) resource404.push(m.text());
   else consoleErrors.push(m.text());
 });
@@ -144,13 +143,14 @@ await sleep(400);
 must((await toggle.getAttribute("aria-pressed")) === "false", "B compare mode exits");
 must((await gallery.locator('[data-picked]').count()) === 0, "B the tray is stripped on exit (no stale ring)");
 
-// console hygiene — JS errors must be ZERO; the demo world's missing
-// preview files answer 404 (bounded, per-frame, pre-existing)
+// console hygiene — JS errors must be ZERO; the world now serves real
+// frames, so frame 404s must ALSO be zero (the t657 world upgrade)
 must(consoleErrors.length === 0, "C zero JavaScript console errors", `${consoleErrors.length}`);
 if (consoleErrors.length) console.log(consoleErrors.slice(0, 5));
-must(resource404.length > 0 && resource404.length <= 30,
-  "C resource 404s bounded and explained (demo world's missing previews)",
-  `${resource404.length} frame 404s — world state, not a regression`);
+must(resource404.length === 0,
+  "C zero frame 404s (the world upgrade retired the bounded-404 verdict)",
+  `${resource404.length}`);
+if (resource404.length) console.log(resource404.slice(0, 5));
 
 mkdirSync(".qa-logs", { recursive: true });
 await b.close();
