@@ -9982,3 +9982,23 @@ Stage Summary:
 - 「豁免的判据是身份，不是新旧」：新代码撞上旧立法，第一反应不该是「改码服从」而该是「判身份」。find mark 与 find ring 是同一方言（同 hue 词、同语义、同任务血统）——扩豁免行（带判决书注释）比改骑 warning token 诚实：后者像素相同但让一个组件对同一个概念说两个词，恰恰制造了语汇法要防的疾病。豁免表不是欠账是判例集。
 - 「fixture 也会漂」：t252 基线跑动重拍自己的截图 fixture，二进制 diff 混进 git status——QA 资产的漂移和 QA 失败一样要分离处置（还原，不入任务车）。世界的噪声进不了判决书。
 - 产出：lib/job-match.ts 单源化第二幕（jobMatchWhy + subsequenceSpans + 双视图改写）+ 卡片双落点字符晕（FindMarkedText + data-find-why 契约 + 防御守卫）+ canvas findWhyMap + t650 豁免表一扩（census/codemod 同源）+ t655-match-unit 25/0 + t655-e2e 20/0 + 📸×2；下窗入口：①样式细节车道（find bar 本体的 why 预览——cur 游标居中的 match 可在计数旁展示其 marks 摘要；compare dialog 图间统计 chip——t654 待议项）②功能车道（star-table 粘性 # 索引列——t652 搁置项需不透明行底 token 设计；palette 直达 compare/import-gallery 深链）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 65 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 656 收官
+Agent: main (cron window, Job 362852)
+Task: t655 入口②兑现（功能车道）——star-table 粘性 # 索引列（t652 搁置项，不透明行底 token 设计兑现）：sticky 左钉 + color-mix 合成行底（zebra/hover 双态、双主题）+ # 改原生文件序号（排序下钉住的列成为「文件序被搅乱」的可见地图）+ t656-e2e 17/0 + 回归全家十九绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 655 收官（find bar why 可视化）；树净 HEAD 98fe873；available 1047MB 非 build 日（第 66 窗否决）；server 200/19ms；基线四绿（t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS）。
+- [定靶] t655 下窗入口三候选：find bar 本体 why 预览（边际存疑——Enter 已居中卡片、marks 已在卡上）vs star-table 粘性 # 列（t652 搁置项，设计阻塞点已知）vs palette 深链。取粘性列：价值前提可实证（表格真横向滚）+ 阻塞点有解（不透明行底 token 设计已想清）+ 顺手修正一个语义债（# 是显示序还是文件序）。
+- [侦察实况] ①宿主面 = DialogContent bg-background（不是 bg-card——合成基座由此定）；②Tailwind v4 + --color-background: var(--background) 双主题解析（light oklch(0.979…) / dark 自解析）→ color-mix 可用；③t651-e2e 锚 td.nth(1)（数据列）非 # 列——# 语义改动不咬回归；④t652-e2e 锚 td.nth(0) 的对齐（硬编码 text-right 不随索引语义变）——安全；⑤t652 普查复跑：正典世界最宽 = postprocess.star（6 列、4 个 44 字符 FSC 表头 whitespace-nowrap）≈1368px > dialog 844px——唯一真溢出的文件。
+- [实现] star-table.tsx 三件：①粘性——corner th `sticky left-0 z-30`（与 thead 一起钉顶、自己再钉左、压过所有兄弟表头）+ thead z-10→z-20（根上下文压过身体格 z-10，对角滚动时身体格永不能盖角格）+ 身体 # td `sticky left-0 z-10` + 双侧 hairline border-r（gutter 恒在，不依赖 JS scroll state）；②不透明行底——粘性格自己上色：偶数行 `bg-[var(--color-background)]`、奇数行 `bg-[color-mix(in_srgb,var(--color-muted)_40%,var(--color-background))]`（= tr 的 translucent muted/40 合成后的精确不透明色）、`group-hover:bg-[color-mix(...accent_50%...)]`（group 加在 tr 上，hover 换色与行自己的 hover-replace-zebra 同律——变体压过基类，zebra 分支单一 bg utility 无级联歧义）；③# 改原生文件序号——makeSorter 返回 {row, idx} 对，native index 随行走：排序下钉住的列显示「这条数据原是文件第几条」，搅乱成为可见地图（t651「文件原生序是 artifact」判词的 UI 面）。
+- [t656-e2e 17/0] 导航换靶：Post-processing roster 行 → Results → STAR cards **逐卡开合读 scrollWidth 找真溢出者**（「选择器从实况来」——首卡 particles.star 恰好 844=844 不溢出，首跑 2 FAIL 教的课）。A 组解剖四锚（corner sticky both ways z-30 / 身体格 sticky + alpha=1——t652 阻塞点的墓碑 / hairline 在场）+ B 组物理四锚（溢出为真 1368>844、滚动后 # dx=0 钉住、数据列 -300px 移动、号码存活）+ C 组 scramble map 三锚（native #1 → 排序把 record #40 推到首位（FSC 表升序、desc 即搅乱者——探针方向自适应循环直到真搅动）→ aria-sort 退休 #1 回归）+ D hover 重涂粘性格（computed bg 前后变色——group-hover 合成色活体）+ E console 0 + 📸×2（t656-sticky-scrolled / t656-scramble-map）。e2e 自身一课：箭头函数体内 await 忘 async——语法层第一课。
+- [回归全家十九绿] t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0 + t651 22/0 + t652 24/0 + t653 25/0+11/0 + t654 25/0 + t655 25/0+20/0 + t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t646 21/0 + t647 24/0 + t648 15/0 + t649 18/0 + t650 21/0；tsc 0 + eslint 0。插曲：t252 fixture 截图再漂（基线跑动重拍）——checkout 还原不入车。
+
+Stage Summary:
+- 「搁置项的账要记在阻塞点上」：t652 搁置粘性列时写下的不是「不做」而是「需不透明行底 token 设计」——把阻塞点本身记进账本，本窗才能直接从解法开工。搁置是决策不是遗忘，账本记的是决策的欠条。
+- 「透明是粘性的敌人」：sticky 格必须有底色，而半透明底色 = 透视滚动内容的「幽灵列」——t652 的 blocker 一字不差。color-mix 是 token 时代的答案：不发明新颜色值，把「translucent wash 合成在已知表面上」的表达式交给 CSS，两个主题各自解析各自的结果。合成色不是近似色——它是行背景的代数展开。
+- 「粘住的东西最好是身份」：# 显示序（位置）钉在原地毫无意义——排序一次它就重编号，粘性只是把计数器钉住；# 文件序（身份）钉在原地才有了意义——数据滑动、身份不动，用户亲眼看到「排序是视图辅助，文件序是本体」。给列一个 sticky 的理由，先给它一个值得 sticky 的语义。
+- 「探针的靶子也要从实况来」：首跑 B 组 2 FAIL 不是产品错也不是锚错——是「靶子选错」（首个 star 文件恰好不溢出，粘性列无用武之地）。修法是让探针自己读 scrollWidth 找真溢出者（读实况），不是放宽断言（改实况）。排序方向同理：FSC 表升序让 asc 恰好不搅动——探针循环两个方向直到真搅动，「读，不希望」。
+- 产出：star-table 粘性 # 索引列（corner z 舞法 + color-mix 不透明行底 + 原生序号语义）+ t656-e2e 17/0（换靶逻辑 + 物理四锚 + scramble map）+ 📸×2；下窗入口：①样式细节车道（star-table 行 hover 时粘性列与数据列的过渡微调；compare dialog 图间统计 chip——t654 待议项）②功能车道（palette 直达 compare/import-gallery 深链；find bar 本体 why 预览——t655 评估边际后降级）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 66 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
