@@ -1029,12 +1029,15 @@ async function countRoster() {
 /* ---------- run or check --------------------------------------------------- */
 
 if (!CHECK) {
-  const plan = filePlan();
-  for (const [dir, name, content] of plan) {
-    const file = path.join(dir, name);
-    writeAtomic(file, content);
-    console.log(`  wrote ${path.relative(REPO, file)} (${content.length}B)`);
-  }
+  // t673 — the LINKS come before the PLAN. filePlan()'s denoise leg
+  // (buildDenoisedFrame, t665) READS the motioncorr workdir's corrected
+  // frames — which only exist once linkPlan() has laid its hard links.
+  // On every world since t665 the links predated the seeder (they
+  // survived the sweeps it was built to repair), so the read-before-link
+  // ordering slept; the first post-total-wipe run (this window: db +
+  // data/relion + engine-state + the EMPIAR bundle all gone at once)
+  // hit the ENOENT live. Inputs before plans — the same law the engine
+  // itself obeys (a run reads what its provider's workdir holds).
   // t657 — the frames: hard-link, never copy. Skip what's already linked
   // (re-running the seeder must not churn directory entries).
   for (const { src, dst } of linkPlan()) {
@@ -1047,6 +1050,12 @@ if (!CHECK) {
       fail++;
       console.log(`  FAIL  link ${path.relative(REPO, dst)} (${err.code ?? err.message})`);
     }
+  }
+  const plan = filePlan();
+  for (const [dir, name, content] of plan) {
+    const file = path.join(dir, name);
+    writeAtomic(file, content);
+    console.log(`  wrote ${path.relative(REPO, file)} (${content.length}B)`);
   }
   seedLogs();
   seedEngineRecords();
