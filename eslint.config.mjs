@@ -44,7 +44,11 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
+  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills",
+    // t676 — vendored compiled output (forked @radix-ui/react-toast dist):
+    // react-hooks rules read intent into compiler output and cry wolf;
+    // the file's provenance and one-line diff live in its header comment.
+    "src/lib/radix-toast-vendor.mjs", "src/lib/radix-toast-vendor.d.mts"]
 }];
 
 export default eslintConfig;
