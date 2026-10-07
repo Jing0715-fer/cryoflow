@@ -228,7 +228,7 @@ must((await wall.count()) === 1, "A the Saved views wall stands", `view landed o
 const wallHeading = await wall.locator("h2").first().innerText().catch(() => "");
 const wallCount = await wall.locator("[data-saved-view-card]").count();
 must(wallCount === 4, "A four cards stand after the drill seat mounted", `${wallCount}`);
-must((await wall.innerText()).includes("hover to delete"), "A the wall signs its delete affordance", wallHeading.replace(/\s+/g, " ").slice(0, 60));
+must((await wall.innerText()).includes("hover to rename or delete"), "A the wall signs its mouths (t674 grew the rename face onto the signage — the delete affordance still signed)", wallHeading.replace(/\s+/g, " ").slice(0, 60));
 must((await wall.locator(`[data-saved-view-card="${DRILL_ID}"]`).count()) === 1, "A the drill seat has its card");
 
 // ---------- B: the positive control — the palette row restores ----------
