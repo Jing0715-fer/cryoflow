@@ -22,6 +22,10 @@
  *   frames  → /micrographs first entry → outputs/file?format=png
  *   classes → the teaser's own lane rule: volume files win (axis=z&pos=0.5),
  *             the combined stack covers class2d (montage=0&slice=0)
+ *   denoise → /denoise-pairs first FULLY PAIRED row (the wipe card's own
+ *             gate — the gallery renders wipe/side cards only for rows
+ *             with both legs), showing the DENOISED leg: the wipe card's
+ *             base layer, the pixels the wall opens on
  * so a preview can never disagree with what the jump will show.
  */
 
@@ -36,10 +40,12 @@ const thumbCache = new Map<string, ThumbState>();
 
 const inFlight = new Map<string, Promise<string | null>>();
 
+export type ThumbKind = "frames" | "classes" | "denoise";
+
 /** one fetch chain per kind — resolved through the cache so concurrent
  *  activations of the same row share a single round trip */
 export function fetchPaletteThumb(
-  kind: "frames" | "classes",
+  kind: ThumbKind,
   jobId: string
 ): Promise<string | null> {
   const key = `${kind}:${jobId}`;
@@ -58,7 +64,7 @@ export function fetchPaletteThumb(
         const first = (d.micrographs ?? [])[0];
         if (!first?.path) throw new Error("empty wall");
         url = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(first.path)}&format=png`;
-      } else {
+      } else if (kind === "classes") {
         const r = await fetch(`/api/jobs/${jobId}/classes`, { cache: "no-store" });
         if (!r.ok) throw new Error("classes");
         const d = (await r.json()) as {
@@ -73,6 +79,18 @@ export function fetchPaletteThumb(
         } else {
           throw new Error("empty classes");
         }
+      } else {
+        // the wall's own gate: a wipe card exists only for a row with BOTH
+        // legs — the tile promises a pair, so it waits for a pair
+        const r = await fetch(`/api/jobs/${jobId}/denoise-pairs`, { cache: "no-store" });
+        if (!r.ok) throw new Error("denoise pairs");
+        const d = (await r.json()) as {
+          pairs?: { denoised?: string | null; original?: string | null }[];
+        };
+        const first = (d.pairs ?? []).find((p) => p.denoised && p.original);
+        if (!first?.denoised) throw new Error("empty wall");
+        // the wipe card's base layer — the pixels the wall opens on
+        url = `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(first.denoised)}&format=png`;
       }
       thumbCache.set(key, { url });
       return url;
@@ -88,7 +106,7 @@ export function fetchPaletteThumb(
 }
 
 /** test hook — the e2e asserts the cache without dragging fetch through it */
-export function peekThumbCache(kind: "frames" | "classes", jobId: string): ThumbState | undefined {
+export function peekThumbCache(kind: ThumbKind, jobId: string): ThumbState | undefined {
   return thumbCache.get(`${kind}:${jobId}`);
 }
 
@@ -97,7 +115,7 @@ export function PaletteGalleryThumb({
   jobId,
   label,
 }: {
-  kind: "frames" | "classes";
+  kind: ThumbKind;
   jobId: string;
   /** alt/teaching text for the tile's title */
   label: string;

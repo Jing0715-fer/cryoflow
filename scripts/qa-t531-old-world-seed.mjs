@@ -87,8 +87,17 @@ const WORKFLOW = [
   // image-surface group. The id is a CONSTANT: adopt-or-create by it,
   // so seed / check / re-seed all resolve the same node.
   { type: "topazdenoise", id: "cmututold000topazdenoise", name: "Topaz Denoise (seeded)" },
+  // t666 — the training branch joins the family: Topaz Train hangs off the
+  // denoise node (the t563 gesture's outcome made permanent — the official
+  // flow trains ON the denoised stack), and its arrival lights the last
+  // two shipped-dark Topaz surfaces (the t266 training curve, the t558
+  // train→pick handoff card) — both gated on a COMPLETED topaztrain job
+  // the world never grew until now. Constant id, adopt-or-create like
+  // every branch above.
+  { type: "topaztrain", id: "cmututold000topaztrain", name: "Topaz Train (seeded)" },
 ];
 const DENOISE_ID = "cmututold000topazdenoise";
+const TRAIN_ID = "cmututold000topaztrain";
 
 let rngState = 42;
 function rng() {
@@ -343,6 +352,51 @@ function buildDenoisedStar() {
   return lines.join("\n") + "\n";
 }
 
+/* t666 — the training curve's diary: topaz's per-epoch table, in the CSV
+ * dialect the tolerant parser (src/lib/relion/topaz-training.ts, pass A)
+ * reads — header names it + train/test loss + precision/recall, numeric
+ * rows below. Same synthetic family as the FSC curve: the job DECLARES
+ * "training happened, here is its loss", so a hand-authored table with
+ * the classic shape (both losses falling, test flattening while train
+ * keeps improving — the overfit gap the chart's stop-here story
+ * narrates, best epoch marked) is an honest answer, not a forgery.
+ * Deterministic constants — every seed produces the same diary. */
+function buildTopazTrainingLog() {
+  const header =
+    "seeded by qa-t531-old-world-seed — Topaz model trained on the denoised stack (general-model flow)\n";
+  const rows = [
+    [0, 0.912, 0.934, 0.31, 0.24],
+    [1, 0.847, 0.881, 0.36, 0.29],
+    [2, 0.771, 0.812, 0.41, 0.35],
+    [3, 0.698, 0.744, 0.47, 0.41],
+    [4, 0.633, 0.689, 0.52, 0.46],
+    [5, 0.574, 0.631, 0.56, 0.51],
+    [6, 0.521, 0.586, 0.61, 0.55],
+    [7, 0.478, 0.549, 0.64, 0.59],
+    [8, 0.441, 0.521, 0.67, 0.62],
+    [9, 0.411, 0.494, 0.69, 0.65],
+    [10, 0.386, 0.497, 0.71, 0.67],
+    [11, 0.366, 0.501, 0.72, 0.68],
+  ]
+    .map((r) => r.join(","))
+    .join("\n");
+  return `${header}\n# it,train_loss,test_loss,precision,recall\n${rows}\n`;
+}
+
+/* the trained-model artifact: topaz train writes a pickled CNN
+ * (topaz_model.sav family); nothing in the demo world consumes its
+ * bytes — the outputs ledger and the handoff card need its EXISTENCE,
+ * so existence (with a truthful label) is what it claims. */
+function buildTopazModelStub() {
+  return [
+    "CryoFlow seeded world — Topaz model artifact (topaz_model.sav family).",
+    "This stub stands where topaz train writes its pickled CNN.",
+    "Nothing consumes its bytes; the outputs ledger and the train→pick",
+    "handoff need its existence, so existence is what it claims.",
+    "",
+  ].join("\n");
+}
+
 function buildDenoisedFrame(srcPath) {
   const raw = readFileSync(srcPath);
   const nx = raw.readInt32LE(0);
@@ -542,6 +596,14 @@ async function ensureWorkflowNodes(proj, chain) {
       const mc = await db.job.findUnique({ where: { id: chain.motioncorr } });
       if (mc) { x = (mc.x ?? 160) + 40; y = (mc.y ?? 320) + 170; }
     }
+    // t666 — the training node hangs off the denoise node on the CANVAS
+    // too (below-right of its provider, never two nodes on one spot).
+    // Runs after the denoise entry in WORKFLOW order, so wf.topazdenoise
+    // is resolved here by creation or adoption alike.
+    if (node.type === "topaztrain" && wf.topazdenoise) {
+      const dn = await db.job.findUnique({ where: { id: wf.topazdenoise } });
+      if (dn) { x = (dn.x ?? 160) + 40; y = (dn.y ?? 320) + 170; }
+    }
     const created = await db.job.create({
       data: {
         id: node.id, projectId: proj.id, type: node.type, name: node.name,
@@ -557,6 +619,11 @@ async function ensureWorkflowNodes(proj, chain) {
     [chain.refine3d, wf.maskcreate],
     [wf.maskcreate, chain.postprocess],
     [chain.motioncorr, wf.topazdenoise],
+    // t666 — the official topaz flow: train ON the denoised stack (the
+    // t563 gesture's outcome made permanent). The DB row is portless;
+    // GET /api/edges infers micrographs→micrographs from the types, which
+    // is exactly the toPort the train→pick handoff hunts for its feed.
+    [wf.topazdenoise, wf.topaztrain],
   ].filter(([a, b]) => a && b);
   for (const [fromJobId, toJobId] of want) {
     // raw INSERT — the checked-in client's Edge model is stale (relation-only
@@ -599,6 +666,7 @@ const stackRef = STACK_REF.replace("extract_STACK", `extract_${chain.extract.sli
 const stackPath = path.join(PDIR, stackRef);
 const wd = Object.fromEntries(CHAIN.map((t) => [t, workdirOf(proj.id, t, chain[t])]));
 wd.denoise = workdirOf(proj.id, "topazdenoise", DENOISE_ID);
+wd.train = workdirOf(proj.id, "topaztrain", TRAIN_ID);
 
 // rows of the particle universe (240) and its derivatives
 rngState = 42; // every run reproduces the same universe
@@ -640,6 +708,11 @@ function filePlan() {
   for (const m of micNames) {
     plan.push([wd.denoise, m.replace(/\.mrc$/i, "_denoised.mrc"), buildDenoisedFrame(path.join(wd.motioncorr, "micrographs", m))]);
   }
+  // t666 — the training branch's world leg: the per-epoch diary inside
+  // run.log (the engine record's logFile — the loader's first, winning
+  // source) and the model artifact the outputs ledger registers.
+  plan.push([wd.train, "run.log", buildTopazTrainingLog()]);
+  plan.push([wd.train, "topaz_model.sav", buildTopazModelStub()]);
   // t532 — the class averages live OUTSIDE every job workdir
   // (_fixtures/classes/): the map-inventory walk reads each job workdir's
   // mrcs and its main-map law (MAIN_MAP_RE half0|postprocess.mrc, else fs
@@ -698,6 +771,9 @@ function outputsPlan() {
     // t665 — the key the denoise-pairs route reads FIRST (the on-disk
     // fallback is the same path — the ledger and the layout agree).
     topazdenoise: { micrographs_star: rel(path.join(wd.denoise, "denoised_micrographs.star")) },
+    // t666 — the key the engine itself speaks (outputs.topaz_model) and
+    // the port the autopick Topaz mode's model mouth accepts.
+    topaztrain: { topaz_model: rel(path.join(wd.train, "topaz_model.sav")) },
   };
 }
 
@@ -716,6 +792,7 @@ const RESULTS = {
   refine3d: "3D refinement finished — gold-standard FSC at 3.62 Å · half-maps on disk",
   postprocess: "postprocess finished — masked, sharpened · final resolution 3.12 Å (FSC=0.143)",
   topazdenoise: "10 micrographs denoised (Topaz) — 16×16 box average · 256² at 28.32 Å/px, derived from the run's own frames",
+  topaztrain: "Topaz model trained on the denoised stack — 12 epochs, best test loss 0.494 at epoch 9 · connect into Auto-picking (Topaz mode)",
 };
 
 function seedEngineRecords() {
@@ -756,6 +833,24 @@ function seedEngineRecords() {
     exitCode: 0,
     result: RESULTS.topazdenoise,
   };
+  // t666 — the training branch carries its own ledger record: the chart
+  // loader reads logFile (run.log, the diary inside), the handoff card
+  // reads done + exitCode, the pick mint reads nothing but the type.
+  state[TRAIN_ID] = {
+    jobId: TRAIN_ID,
+    projectId: proj.id,
+    type: "topaztrain",
+    pid: null,
+    cmd: "seeded:topaztrain",
+    workdir: wd.train,
+    logFile: path.join(wd.train, "run.log"),
+    errFile: path.join(wd.train, "run.err"),
+    startedAt: now,
+    outputs: outs.topaztrain,
+    done: true,
+    exitCode: 0,
+    result: RESULTS.topaztrain,
+  };
   writeAtomic(STATE, JSON.stringify(state, null, 2));
 }
 
@@ -766,6 +861,11 @@ function seedLogs() {
   }
   writeAtomic(path.join(wd.denoise, "run.log"), `seeded by qa-t531-old-world-seed — ${RESULTS.topazdenoise}\n`);
   writeAtomic(path.join(wd.denoise, "run.err"), "");
+  // t666 — the training diary lives INSIDE run.log (the loader's first
+  // and winning source); the generic loop above would have flattened it
+  // to a header line, so the training branch writes its own.
+  writeAtomic(path.join(wd.train, "run.log"), buildTopazTrainingLog());
+  writeAtomic(path.join(wd.train, "run.err"), "");
   // t532 — stale-fixture sweep: the class averages used to live IN the
   // class2d workdir (the main-map hijack, see filePlan's note); an
   // idempotent re-seed must remove the old copies or the hijack returns.
@@ -817,7 +917,7 @@ if (!CHECK) {
   }
   seedLogs();
   seedEngineRecords();
-  console.log("  engine-state records: 13 chain links + topazdenoise branch (done · exitCode 0 · real outputs)");
+  console.log("  engine-state records: 13 chain links + topazdenoise + topaztrain branches (done · exitCode 0 · real outputs)");
   await countRoster();
   writeManifest(wf);
   console.log(`  manifest: ${path.relative(REPO, MANIFEST)} (roster ${rosterCount})`);
@@ -858,6 +958,17 @@ if (!CHECK) {
   for (const row of denRows) {
     ok(existsSync(path.join(wd.denoise, row.trim().split(/\s+/)[0])), `denoised frame on disk: ${row.trim().split(/\s+/)[0]}`);
   }
+  // t666 — the training branch: ledger, model artifact, and the diary's
+  // epoch rows (the shape the tolerant parser's pass A reads — the chart
+  // needs ≥ 2 epochs to call it a curve).
+  const tr = state[TRAIN_ID];
+  ok(tr?.done === true && tr?.exitCode === 0 && tr?.type === "topaztrain", "engine record topaztrain: done + exit 0");
+  ok(tr && Object.values(tr.outputs ?? {}).flat().every((f) => existsSync(f)), "engine record topaztrain: outputs live");
+  ok(tr?.logFile === path.join(wd.train, "run.log") && existsSync(tr.logFile), "engine record topaztrain: logFile on disk");
+  const trainLog = readFileSync(path.join(wd.train, "run.log"), "utf8");
+  const epochRows = trainLog.split(/\r?\n/).filter((l) => /^\d+,[\d.]+,[\d.]+,[\d.]+,[\d.]+$/.test(l.trim()));
+  ok(epochRows.length === 12, `training diary: ${epochRows.length} epoch rows`);
+  ok(/^# it,train_loss,test_loss,precision,recall$/m.test(trainLog), "training diary: parser-dialect header");
   const m = JSON.parse(readFileSync(MANIFEST, "utf8"));
   ok(m.project?.id === proj.id && Object.keys(m.chain ?? {}).length === 13, "manifest: project + 13 chain ids");
   const selText = readFileSync(path.join(wd.select, "selected.star"), "utf8");
@@ -866,7 +977,7 @@ if (!CHECK) {
   ok(existsSync(stack), `the select star's stack resolves project-relative (${path.relative(REPO, stack)})`);
   ok(firstRef.startsWith("extract_") && !firstRef.startsWith("extra/"), `select star refs project-relative (${firstRef})`);
   await countRoster();
-  ok(rosterCount >= 16, `roster ≥ 16 (${rosterCount})`);
+  ok(rosterCount >= 17, `roster ≥ 17 (${rosterCount})`);
 }
 
 console.log(fail === 0 ? (CHECK ? "CHECK PASS" : "SEED OK") : `${fail} FAIL`);

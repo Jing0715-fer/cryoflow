@@ -842,6 +842,10 @@ export function CommandPalette() {
                     onSelect={() => jumpToDenoise(j.id)}
                     className="gap-2.5"
                   >
+                    {/* t666 — the first pair's tile, the wall's own gate
+                        (fully-paired row) and its own base layer (the
+                        denoised leg) — the t663 family's third kind */}
+                    <PaletteGalleryThumb kind="denoise" jobId={j.id} label={`First pair of ${j.name}'s wall`} />
                     <Wand2 className="size-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400" />
                     <span className="min-w-0 flex-1 truncate text-sm">
                       Denoise compare — <span className="font-medium">{j.name}</span>
