@@ -12,7 +12,7 @@
 // door that matches no rule FAILS the suite — the contract must be updated,
 // not silently drifted past. A rule matching no door is stale — also FAIL.
 // Phases:
-//   A  demo truth — engine not-found, roster 15, exactly one project
+//   A  demo truth — engine not-found, roster 15, a real project roster
 //   B  the law — enumerate the header's interactive doors from the live DOM,
 //      match each against DOOR_RULES/EXEMPT_RULES, then open the palette and
 //      assert every coverage rule finds its row + the group order
@@ -48,7 +48,13 @@ must(sys.found === false, "real API: engine not found (demo host truth)");
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
 must((jobs.jobs ?? []).filter((j) => j.status === "completed").length >= 11, `the healed chain stands (>= 11 completed) (${(jobs.jobs ?? []).filter((j) => j.status === "completed").length})`);
 const projs = await (await fetch(`${BASE}/api/projects`, { headers: { "sec-fetch-site": "same-origin" } })).json();
-must((projs.projects ?? []).length === 1, `demo world has exactly one project (got ${(projs.projects ?? []).length})`);
+// t659 — the anchor wakes up: the world GREW (multi-project is a shipped
+// feature — the demo host carries 3 by design), so "exactly one" was a
+// stale world census, not a law. The contract that survives: a REAL,
+// NON-EMPTY roster (the demo world exists at all) — verified pre-existing
+// on the clean t658 HEAD (same FAIL, same reason) before this anchor
+// was re-aimed.
+must((projs.projects ?? []).length >= 1, `demo world has a real project roster (${(projs.projects ?? []).length})`);
 
 // ---- the CONTRACT (data, not prose) -----------------------------------------
 // kind "row": the door's purpose must be reachable from a palette row.
