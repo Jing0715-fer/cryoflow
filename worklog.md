@@ -10149,3 +10149,24 @@ Stage Summary:
 - 「耐心要给对对象」：molstar 冷编译合法超一分钟、dims 重试合法需要 14 秒——e2e 的等待预算是合同的一部分，不是软弱；但耐心给的是「正在工作的东西」（编译中、重试中），不是「已死的循环」（重试耗尽的 dims——那是重收一次条带的恢复动作，等是等不来的）。分辨两者：看有没有人在做事。
 - 「环境的病有执行记录」：OOM killer 本窗又处决 next-server（1.97GB）——唤醒、冷编译、watchdog 自守重启全按判例走。重启后内存大幅回落（available 1061→3216MB）：服务器自己就是最大的内存泄漏嫌疑，定期重启是运维不是逃避。
 - 产出：buildObliqueGuidePlane 纯函数（描迹 + kept-side tick + 协变法向）+ embed 引导线（兄弟 SVG + 三路重投影触发）+ mol-viewer 布局修复（viewer 45% 保底 + 面板滚动——t555 日起的 shipped-dark 挤压）+ t662-oblique-guide-test 43/0 + t662-e2e 31/0（首跑三 FAIL 全为布局病显影，修复后零自纠）+ 📸×2；下窗入口：①功能车道（palette 三 Gallery 组行内预览缩略图——四窗待议，样式与功能交界；oblique 引导线的 2D 镜像——tile 上画同族描迹是否值得待议）②样式车道（chip 方言收编后续——语义色 token 缺位 ~470 处手配 dark: 变体，t640 时代立案未动）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 72 窗否决；重启后 3216MB 逼近门槛，下窗有望）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 663 收官
+Agent: main (cron window, Job 362852)
+Task: t662 下窗入口①兑现——palette 三 Gallery 组行内预览缩略图（四窗待议结清）：PaletteGalleryThumb 组件（cmdk data-selected 双方言跟随 + 模块级缓存 + 诚实缺席梯）+ t663-e2e 22/0 首跑零自纠 + t651 闪断锚硬化（hydration 竞速三度定谳）+ 回归全家绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 662 收官；HEAD 28839af 树净；available 1207MB 非 build 日（第 73 窗否决——上窗重启后的 3216MB 被回归跑动吃回，服务器仍是头号内存嫌疑）；server 200/13ms；基线四绿。
+- [QA 巡检] agent-browser + API：console 净、15 jobs 全 completed——稳定。插曲：巡检时 /micrographs 误读 0 条（我读错键名 entries≠micrographs）——物理世界 10 硬链帧完好，API total 10；「世界的病」与「我的读法」先分家再立案。
+- [定靶·四窗待议结清] palette 三 Gallery 组行内预览缩略图（t659 立项 → t660/t661/t662 三窗记账）。裁决：40px 行内 tile（非入口清单草图里的 64px——12 行 × 68px 会把 palette 变成骨架墙；tile 的职责是识别不是检视，跳转落在全墙）。挂载语义：active-gated peek（选中即来即走，非永久占位）。
+- [实现] palette-gallery-thumb.tsx：①选择跟随 = cmdk 1.1.1 自有 data-selected 属性的 MutationObserver（指针 hover 与方向键同一方言，一个观察者服务两种激活）；②取数配方 = 目的地表面自己服从的 URL（frames：/micrographs 首条 → outputs/file?format=png；classes：teaser 的车道规则 volumeFiles 优先 axis=z&pos=0.5 / classesFile montage=0&slice=0——预览永远不可能与跳转后看到的相矛盾）；③模块级缓存 = URL 即缓存（浏览器再缓存 PNG）、absent 也缓存（死墙不再每次 hover 重取）；④诚实梯 = idle/absent 不渲染（display-none wrapper 常驻 DOM 供 closest() 定位 cmdk-item 且零 flex-gap 泄漏）、loading 有界脉冲、ready 40px tile 仅在激活期间。首版 bug 自纠：idle 返回 null 会让 closest() 永远找不到 item——wrapper 必须常驻。
+- [t663-e2e 22/0 首跑零自纠] A 4（双组在场 + 激活前零可见 thumb）+ B 3（hover 升起 + naturalWidth>0 真渲染 + frame 配方 URL）+ C 5（离行塌缩=手势非固定件 + 17 步方向键到达 + 观察者方言升起 + 真渲染 + teaser 车道规则 URL）+ D 2（缓存：重激活零新增 /micrographs、/classes 请求——从 wire 层验证）+ E 3（500 墙 → state=absent + 无 img 无 spinner 循环 + Escape 干净退场）+ F 5（噪声五桶全零）+ 📸×2（t663-frame-peek / t663-class-peek）。
+- [t651 闪断锚硬化] AnglePsi-header 锚两窗内三度闪断（fail→rerun pass）——根因：固定 1.5s sleep 与 dialog 表格 hydration 竞速，内存压力下 hydration 合法超时。修锚：pollUntil 化（脚本从来没有这个助手——补上）+ 判决书注释。「按钮存在」的诚实形式是轮询，不是「1.5 秒内存在」。
+- [回归全家绿] 基线四绿复跑（palette 变更后强制）+ palette 合同（t659 27/0 + t660 30/0 + t245 ALL PASS）+ 直系（t651 22/0 硬化后 + t652 24/0 + t653-match-unit 25/0 + t654 25/0 + t655-match-unit 25/0 + t655-e2e 20/0 + t656 17/0 + t657 25/0 + t658 30/0）+ 遗产（t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t646 21/0 + t647 24/0 + t648 15/0 + t649 18/0 + t650 21/0）+ t663 22/0（新）；tsc 0 + eslint 0（一条 stale eslint-disable 顺手清）。fixture 漂移 checkout 还原不入车（判例第九演）。
+
+Stage Summary:
+- 「识别用 tile，检视用墙」：peek 的尺寸裁决（40px 非 64px）跟着职责走——tile 回答「这是哪面墙」，全墙回答「墙里有什么」。预览与目的地用同一 URL 配方（teaser 车道规则 verbatim），识别错误在结构上不可能：预览说错的话，跳转后的墙会当场反驳它。UI 语义的同源律（t662 的 anchor 钉子）在这里换了个形态：不是同一状态源，是同一数据配方。
+- 「激活的方言要读宿主的」：cmdk 的 data-selected 一个属性服务 hover 与方向键——新组件不发明自己的 hover/selected 状态机，只观察宿主已有的。发明第二套状态 = 两种激活可能打架（hover A 选 B）；读宿主的 = 免疫。挂载次序同理：wrapper 常驻（display-none）才能让 closest() 在 mount 时找到宿主——观察者的锚要先于观察存在。
+- 「缓存要连缺席一起缓存」：URL 即缓存 + absent 即缓存，一对双生判决——成功的不重取是性能，失败的不重取是诚实（spinner 循环是 UI 对用户撒的最大的谎：它假装失败是暂时的）。in-flight 去重让并发激活共享一次往返；e2e 从 wire 层数请求（不是看 UI 状态）让缓存成为可执行断言。
+- 「闪断锚的病根常在探针」：t651 三度闪断全查世界、查代码，最后定谳是探针自己的 1.5s 固定 sleep——「按钮存在」被写成了「按钮 1.5 秒内存在」。判词要说准它的边界（t661 教义的探针版）：每条 flaky 锚先问断言的真实形状，再问 sleep 是不是把存在性写成了时限。
+- 产出：PaletteGalleryThumb（cmdk 观察者 + 配方同源 + 双生缓存 + 诚实梯）+ palette 双组接线 + t663-e2e 22/0（首跑零自纠）+ t651 锚硬化（pollUntil 化）+ 📸×2；下窗入口：①功能车道（oblique 引导线的 2D 镜像——tile 上画同族描迹待议；语义色 token 缺位 ~470 处手配 dark: 变体——t640 时代立案，大工程宜整窗）②样式车道（compare dialog same-bpp 聚合行是否值得——t661 入口②余项）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，第 73 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
