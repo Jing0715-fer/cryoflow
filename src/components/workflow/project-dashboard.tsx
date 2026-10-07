@@ -761,6 +761,16 @@ function SavedViewsGallery() {
   // rapid deletes would race their read-filter-write cycles (the viewer's
   // putChain doctrine, wall-sized) — the second X waits, honestly.
   const [deleting, setDeleting] = React.useState<string | null>(null);
+  // t674 — the wall gets a rename face. The card now carries three mouths:
+  // the body jumps, the X deletes, the pencil renames — and ALL of them
+  // serialize through one busy gate (a rename and a delete racing their
+  // read-modify-write cycles would lose one of the writes; the second
+  // mouth waits, whoever it is). While a card is being edited, the jump
+  // mouth dissolves into the edit shell — a button cannot host an input,
+  // and a click that both edits and jumps is a gesture nobody asked for.
+  const [renaming, setRenaming] = React.useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = React.useState("");
+  const renameCancelRef = React.useRef(false);
   // the wall is a glance by default (12 cards); "Show all" expands it to
   // the full flat list without leaving the dashboard — state survives
   // refetches, and a shrinking collection just renders fewer cards
@@ -875,6 +885,75 @@ function SavedViewsGallery() {
     }
   };
 
+  /** t674 — rename from the wall. The delete contract's read-modify-write,
+   *  tuned for a name: READ FRESH AT CLICK TIME (the wall's gallery copy
+  *   may be stale — a view renamed in the viewer since this fetch keeps
+   *  its newer name), dupe-check against the SERVER list (the same law),
+   *  map-rename, PUT, then update the local copy in place and broadcast —
+   *  the palette and every other face re-read fresh. Three honest exits,
+   *  the viewer's rename menu speaks them all: renamed / dupe-warning
+   *  (still commits — a duplicate is a nudge, not a veto) / could-not.
+   *  Empty or untouched drafts return silently — an edit that never
+   *  happened is not a fact worth announcing. */
+  const renameView = async (v: GalleryEntry, b: GalleryBookmark, draft: string) => {
+    const nm = draft.trim().slice(0, 40);
+    if (!nm || nm === b.name) return; // empty or untouched — silent
+    try {
+      const r = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`);
+      if (!r.ok) throw new Error(`read ${r.status}`);
+      const j = (await r.json()) as { bookmarks?: Array<{ id: string; name?: string }> };
+      const list = j.bookmarks ?? [];
+      const dupe = list.some(
+        (x) => x && x.id !== b.id && (x.name ?? "").trim().toLowerCase() === nm.toLowerCase()
+      );
+      const w = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookmarks: list.map((x) => (x && x.id === b.id ? { ...x, name: nm } : x)),
+        }),
+      });
+      if (!w.ok) throw new Error(`write ${w.status}`);
+      setViews(
+        (prev) =>
+          prev?.map((row) =>
+            row.jobId === v.jobId
+              ? {
+                  ...row,
+                  bookmarks: row.bookmarks.map((x) =>
+                    x.id === b.id ? { ...x, name: nm } : x
+                  ),
+                }
+              : row
+          ) ?? null
+      );
+      // the OTHER mouths hear it too: a payload-less broadcast, every
+      // aggregate face re-reads the route (the t670/t671 symmetry)
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+      if (dupe)
+        toast({
+          title: `A view named “${nm}” already exists`,
+          description: "Renamed anyway — consider a distinct name so the menu stays tell-apart.",
+          className:
+            "border-warning/40 bg-warning-50/95 text-warning-900 dark:border-warning/30 dark:bg-warning-950/80 dark:text-warning-100",
+        });
+      else
+        toast({
+          title: "View renamed",
+          description: `“${b.name}” is now “${nm}” on ${v.jobName}.`,
+        });
+    } catch {
+      toast({
+        title: "Could not rename the view",
+        description:
+          "The server did not confirm the new name — the card keeps its old one.",
+      });
+    }
+  };
+
+  // one gate for every mutation mouth (see the rename state's comment)
+  const busy = deleting !== null || renaming !== null;
+
   return (
     <section
       aria-label="Saved 3D views across all projects"
@@ -884,7 +963,7 @@ function SavedViewsGallery() {
         <Mountain className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <h2 className="text-sm font-semibold tracking-tight">Saved views</h2>
         <span className="text-[11px] text-muted-foreground">
-          {total} bookmark{total === 1 ? "" : "s"} · {views.length} job{views.length === 1 ? "" : "s"} · click to jump, hover to delete
+          {total} bookmark{total === 1 ? "" : "s"} · {views.length} job{views.length === 1 ? "" : "s"} · click to jump, hover to rename or delete
         </span>
       </div>
       <div id="saved-views-wall" data-atomic-grid className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -895,12 +974,65 @@ function SavedViewsGallery() {
           // one for the other — no layout shift, nothing occluded) and
           // reveals itself to keyboards (focus-visible) and to
           // focus-within, so tabbing reaches a visible control.
+          // t674 — a third mouth: the pencil renames. It sits left of the
+          // X in the same floating-chip grammar, and while a card is being
+          // edited the jump mouth DISSOLVES (a button cannot host an
+          // input) — the card becomes its edit shell until blur settles.
+          const cardKey = `${v.jobId}:${b.id}`;
+          const isRenaming = renaming === cardKey;
           return (
             <div
-              key={`${v.jobId}:${b.id}`}
+              key={cardKey}
               data-saved-view-card={b.id}
               className="group/card relative flex min-w-0 items-center rounded-lg border bg-card transition-all motion-reduce:transition-none hover:border-primary/40 hover:shadow-sm"
             >
+              {isRenaming ? (
+                <div className="flex min-w-0 flex-1 items-center gap-2.5 p-2">
+                  <span
+                    className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md border bg-muted"
+                    aria-hidden="true"
+                  >
+                    {b.thumb ? (
+                      <img src={b.thumb} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Mountain className="absolute inset-0 m-auto size-4 text-muted-foreground/40" />
+                    )}
+                  </span>
+                  <input
+                    data-saved-view-rename-input={b.id}
+                    value={renameDraft}
+                    maxLength={40}
+                    autoFocus
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onBlur={() => {
+                      if (renaming !== cardKey) return;
+                      const d = renameDraft;
+                      setRenaming(null);
+                      if (renameCancelRef.current) {
+                        renameCancelRef.current = false;
+                        return;
+                      }
+                      void renameView(v, b, d);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        renameCancelRef.current = true;
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    aria-label={`Rename saved view “${b.name}”`}
+                    className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  />
+                  <span className="shrink-0 pr-1 text-[9px] leading-tight text-muted-foreground/70">
+                    Enter saves · Esc cancels
+                  </span>
+                </div>
+              ) : (
               <button
                 type="button"
                 onClick={() => void jump(v, b)}
@@ -946,10 +1078,25 @@ function SavedViewsGallery() {
                 aria-hidden="true"
               />
               </button>
+              )}
+              <button
+                type="button"
+                data-saved-view-rename={b.id}
+                onClick={() => {
+                  setRenaming(cardKey);
+                  setRenameDraft(b.name);
+                }}
+                disabled={busy}
+                aria-label={`Rename saved view “${b.name}”`}
+                title={`Rename “${b.name}” — gives this bookmark a new name (Enter saves, Esc cancels)`}
+                className="absolute right-9 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-md border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none hover:border-primary/40 hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 group-hover/card:opacity-100 group-focus-within/card:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Pencil className="size-2.5" aria-hidden="true" />
+              </button>
               <button
                 type="button"
                 onClick={() => void deleteView(v, b)}
-                disabled={deleting !== null}
+                disabled={busy}
                 aria-label={`Delete saved view “${b.name}”`}
                 title={`Delete “${b.name}” — removes this bookmark from ${v.jobName}'s saved views`}
                 className="absolute right-2 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-md border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none hover:border-destructive/40 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 group-hover/card:opacity-100 group-focus-within/card:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"

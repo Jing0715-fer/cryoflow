@@ -48,6 +48,7 @@ import {
   Maximize2,
   Moon,
   Network,
+  Pencil,
   Play,
   Radar,
   RadioTower,
@@ -541,6 +542,18 @@ export function CommandPalette() {
   //    the honest toasts, and the keep-the-row-on-failure ending all ride
   //    along unchanged.
   const [deletingView, setDeletingView] = React.useState<string | null>(null);
+  // t674 — the palette row gets the wall's rename face (t674 wall edition),
+  // palette-sized. Same contract, same single gate: the row's X and pencil
+  // BOTH wait while any mutation is in flight (a rename and a delete
+  // racing their read-modify-write cycles would lose one write), and the
+  // row's own TTL cache updates IN PLACE on success — a reopen inside the
+  // 30s window shows the new name at zero wire cost (the t670 double-clock
+  // law, rename edition). The slot becomes a trio: Mountain (idle) fades
+  // on hover, pencil and X sit side by side beneath it — one slot wider
+  // than the delete-only era, still zero layout shift on the hover swap.
+  const [renamingView, setRenamingView] = React.useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = React.useState("");
+  const renameCancelRef = React.useRef(false);
   const deleteSavedView = async (v: SavedViewEntry, b: SavedViewBookmark) => {
     const rowKey = `${v.jobId}:${b.id}`;
     if (deletingView) return; // one in-flight delete at a time — the second X waits
@@ -588,6 +601,86 @@ export function CommandPalette() {
       setDeletingView(null);
     }
   };
+
+  /** t674 — rename from the palette. The wall's rename contract (same
+   *  window) with two palette-owning differences, both inherited from the
+   *  delete's t670 edition:
+   *   • the row READS FRESH AT COMMIT TIME and PUTs the renamed list —
+   *     never its own possibly stale TTL cache copy;
+   *   • the palette's OWN clock renames with the server's: the module
+   *     cache maps the new name in place, so a reopen inside the 30s
+   *     window shows the truth at zero wire cost.
+   *  Three honest exits ride along (renamed / dupe-warning-still-commits /
+   *  could-not-rename), plus two silent ones (empty draft, untouched
+   *  draft) — an edit that never happened is not a fact worth announcing.
+   *  The keyboard laws live on the input itself: every keydown stops
+   *  propagation (cmdk's Command root would otherwise turn Enter into
+   *  the jump gesture and the search field never sees a stranger's
+   *  keystrokes), Enter blurs into the commit, Escape raises the cancel
+   *  flag first — the embed's rename grammar, row-sized. */
+  const renameSavedView = async (v: SavedViewEntry, b: SavedViewBookmark, draft: string) => {
+    const nm = draft.trim().slice(0, 40);
+    if (!nm || nm === b.name) return; // empty or untouched — silent
+    try {
+      const r = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`);
+      if (!r.ok) throw new Error(`read ${r.status}`);
+      const j = (await r.json()) as { bookmarks?: Array<{ id: string; name?: string }> };
+      const list = j.bookmarks ?? [];
+      const dupe = list.some(
+        (x) => x && x.id !== b.id && (x.name ?? "").trim().toLowerCase() === nm.toLowerCase()
+      );
+      const w = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookmarks: list.map((x) => (x && x.id === b.id ? { ...x, name: nm } : x)),
+        }),
+      });
+      if (!w.ok) throw new Error(`write ${w.status}`);
+      const renamer = (prev: SavedViewsState): SavedViewsState => {
+        if (prev.kind !== "ready") return prev;
+        return {
+          ...prev,
+          views: prev.views.map((row) =>
+            row.jobId === v.jobId
+              ? {
+                  ...row,
+                  bookmarks: row.bookmarks.map((x) =>
+                    x.id === b.id ? { ...x, name: nm } : x
+                  ),
+                }
+              : row
+          ),
+        };
+      };
+      savedViewsCache = renamer(savedViewsCache);
+      setSavedViews(savedViewsCache);
+      // the OTHER mouths hear it too: a payload-less broadcast, every
+      // aggregate face re-reads the route (the t670/t671 symmetry)
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+      if (dupe)
+        toast({
+          title: `A view named “${nm}” already exists`,
+          description: "Renamed anyway — consider a distinct name so the menu stays tell-apart.",
+          className:
+            "border-warning/40 bg-warning-50/95 text-warning-900 dark:border-warning/30 dark:bg-warning-950/80 dark:text-warning-100",
+        });
+      else
+        toast({
+          title: "View renamed",
+          description: `“${b.name}” is now “${nm}” on ${v.jobName}.`,
+        });
+    } catch {
+      toast({
+        title: "Could not rename the view",
+        description:
+          "The server did not confirm the new name — the row keeps its old name.",
+      });
+    }
+  };
+
+  // one gate for every mutation mouth on the row (see the rename state's comment)
+  const busyView = deletingView !== null || renamingView !== null;
 
   const runJob = (id: string) => {
     void useWorkflowStore.getState().runJob(id);
@@ -836,6 +929,17 @@ export function CommandPalette() {
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
+      // t674 — while a row is being renamed, Escape belongs to the EDIT
+      // (cancel the draft), not to the dialog. Radix listens for Escape on
+      // the document's CAPTURE phase (use-escape-keydown) — before any
+      // bubble-phase handler, so the rename input's stopPropagation can
+      // never reach it — but the layer honors defaultPrevented: the
+      // official extension point is onEscapeKeyDown. An editing row eats
+      // the first Escape (the input cancels the draft); a second Escape —
+      // the input gone, the flag cleared — closes the dialog normally.
+      onEscapeKeyDown={(e) => {
+        if (renamingView) e.preventDefault();
+      }}
       title="Command palette"
       description="Search jobs, job types and canvas actions"
       className={cn(
@@ -1098,7 +1202,12 @@ export function CommandPalette() {
             <CommandGroup
               heading={`Saved views · ${savedViewTotal} bookmark${savedViewTotal === 1 ? "" : "s"}${savedViewTotal > savedViewRows.length ? ` — first ${savedViewRows.length}` : ""}`}
             >
-              {savedViewRows.map(({ v, b }) => (
+              {savedViewRows.map(({ v, b }) => {
+                // t674 — the row is now THREE mouths: jump (the row body),
+                // delete (X), rename (pencil) — the wall's trio, palette-sized.
+                const rowKey = `${v.jobId}:${b.id}`;
+                const isRenaming = renamingView === rowKey;
+                return (
                 <CommandItem
                   key={`saved-view-${v.jobId}:${b.id}`}
                   value={`saved view 3d bookmark ${b.name} ${v.jobName} ${v.jobType}`}
@@ -1119,26 +1228,91 @@ export function CommandPalette() {
                   ) : (
                     <Mountain className="size-4 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
                   )}
-                  <span className="min-w-0 flex-1 truncate text-sm">
-                    Saved view — <span className="font-medium">{b.name}</span>
-                  </span>
+                  {/* while a row is being renamed, the name becomes the
+                      input — the "Saved view —" prefix dissolves with it
+                      (you are editing the name itself, not a labelled
+                      field). Every keydown stops propagation: cmdk's
+                      Command root would otherwise read Enter as the jump
+                      gesture and the arrows as list navigation, and the
+                      dialog's Escape-close rides document-level listeners
+                      the input must not feed. */}
+                  {isRenaming ? (
+                    <input
+                      data-palette-savedview-rename-input={b.id}
+                      value={renameDraft}
+                      maxLength={40}
+                      autoFocus
+                      onFocus={(e) => e.currentTarget.select()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          renameCancelRef.current = true;
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onBlur={() => {
+                        if (renamingView !== rowKey) return;
+                        const d = renameDraft;
+                        setRenamingView(null);
+                        if (renameCancelRef.current) {
+                          renameCancelRef.current = false;
+                          return;
+                        }
+                        void renameSavedView(v, b, d);
+                      }}
+                      aria-label={`Rename saved view “${b.name}”`}
+                      className="h-6 min-w-0 flex-1 rounded-md border bg-background px-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    />
+                  ) : (
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      Saved view — <span className="font-medium">{b.name}</span>
+                    </span>
+                  )}
                   <span className="max-w-32 shrink-0 truncate text-[11px] text-muted-foreground/70">
                     {v.jobName}
                   </span>
-                  {/* t670 — the row is two mouths, the wall's slot-swap
-                      grammar at palette scale: the Mountain tail (the jump
-                      mouth's affordance) and the X share one slot — hover
-                      swaps one for the other, no layout shift, nothing
-                      occluded. stopPropagation keeps cmdk's own onSelect
-                      (the jump) out of the delete's click; Tab still
-                      reaches a visible control (focus-visible +
-                      group-focus-within), and motion-reduce keeps the
-                      swap from animating. */}
-                  <span className="relative flex size-5 shrink-0 items-center justify-center">
+                  {/* t670 — the slot-swap grammar, grown into a TRIO (t674):
+                      the Mountain tail (the jump mouth's affordance) fades
+                      on hover and the pencil + X pair sits beneath it —
+                      the slot is one size wider than the delete-only era,
+                      still zero layout shift on the hover swap. The X
+                      keeps its t670 anchor name; the pencil takes the
+                      wall's floating-chip tones (primary, not destructive
+                      — rename builds, delete tears down). stopPropagation
+                      keeps cmdk's own onSelect (the jump) out of both
+                      mutation clicks; Tab still reaches visible controls
+                      (focus-visible + group-focus-within), and
+                      motion-reduce keeps the swap from animating. */}
+                  <span className="relative flex h-5 w-10 shrink-0 items-center justify-center">
                     <Mountain
-                      className="size-3.5 text-teal-600/70 transition-opacity group-hover/item:opacity-0 group-focus-within/item:opacity-0 motion-reduce:transition-none"
+                      className="absolute inset-0 m-auto size-3.5 text-teal-600/70 transition-opacity group-hover/item:opacity-0 group-focus-within/item:opacity-0 motion-reduce:transition-none"
                       aria-hidden="true"
                     />
+                    <button
+                      type="button"
+                      data-palette-savedview-rename={b.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setRenamingView(rowKey);
+                        setRenameDraft(b.name);
+                      }}
+                      disabled={busyView}
+                      aria-label={`Rename saved view “${b.name}”`}
+                      title={`Rename “${b.name}” — gives this bookmark a new name (Enter saves, Esc cancels)`}
+                      className="absolute left-0 top-0 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity motion-reduce:transition-none hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 group-hover/item:opacity-100 group-focus-within/item:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Pencil className="size-3" aria-hidden="true" />
+                    </button>
                     <button
                       type="button"
                       data-palette-savedview-delete={b.id}
@@ -1147,12 +1321,12 @@ export function CommandPalette() {
                         e.preventDefault();
                         void deleteSavedView(v, b);
                       }}
-                      disabled={deletingView !== null}
+                      disabled={busyView}
                       aria-label={`Delete saved view “${b.name}”`}
                       title={`Delete “${b.name}” — removes this bookmark from ${v.jobName}'s saved views`}
-                      className="absolute inset-0 flex items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity motion-reduce:transition-none hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 group-hover/item:opacity-100 group-focus-within/item:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity motion-reduce:transition-none hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 group-hover/item:opacity-100 group-focus-within/item:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {deletingView === `${v.jobId}:${b.id}` ? (
+                      {deletingView === rowKey ? (
                         <Loader2 className="size-3 animate-spin" aria-hidden="true" />
                       ) : (
                         <X className="size-3" aria-hidden="true" />
@@ -1160,7 +1334,8 @@ export function CommandPalette() {
                     </button>
                   </span>
                 </CommandItem>
-              ))}
+                );
+              })}
             </CommandGroup>
           </>
         )}
