@@ -64,13 +64,18 @@ export NODE_OPTIONS="--max-old-space-size=896"
 # and distDir-aware: the inner dir's NAME is whatever the build baked into
 # server.js ("./.next" normally; a probe build bakes "./.next-probe" — the
 # server reads static from ITS confession, not from habit).
+# t676 — ALWAYS cp, never gate on [ ! -d ]: a previous launch killed
+# mid-cp leaves a PARTIAL inner tree (this window: 24/106 chunks); the
+# gate then skips the heal and boots half a static tree behind a clean
+# 200. cp -r merges + overwrites, so the unconditional copy is the
+# idempotent form.
 srv_dist="$(sed -n 's/.*"distDir":"\.\/\([^"]*\)".*/\1/p' .next/standalone/server.js 2>/dev/null | head -1)"
 srv_dist="${srv_dist:-.next}"
-if [ -d .next/static ] && [ ! -d ".next/standalone/$srv_dist/static" ]; then
+if [ -d .next/static ]; then
   mkdir -p ".next/standalone/$srv_dist"
   cp -r .next/static ".next/standalone/$srv_dist/" 2>/dev/null || true
 fi
-if [ -d public ] && [ ! -d .next/standalone/public ]; then
+if [ -d public ]; then
   cp -r public .next/standalone/ 2>/dev/null || true
 fi
 # the log lives at the REPO ROOT (prod-3001.log) — the diag suites' log
