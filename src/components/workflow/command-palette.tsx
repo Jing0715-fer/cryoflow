@@ -39,6 +39,7 @@ import {
   FileText,
   FileUp,
   GraduationCap,
+  Mountain,
   Keyboard,
   BookOpen,
   Layers,
@@ -95,6 +96,7 @@ import {
 } from "@/lib/workflow-io";
 import { TypeIcon } from "./icons";
 import { PipelineScriptDialog } from "./pipeline-script-dialog";
+import { PENDING_VIEW_KEY } from "@/lib/view-link";
 
 /** t483: exported — the help guide's finding chapter names the palette,
  *  and a named door must open: the guide dispatches this, the palette's
@@ -130,8 +132,98 @@ const CHART_ICONS: Record<
   angdist: { Icon: RadioTower, tone: "text-teal-600" },
 };
 
+/* ---------------- t668 — the Saved views group's data half ---------------- */
+
+/** Shape of GET /api/views/gallery — the SAME interfaces the dashboard's
+ *  Saved views wall speaks (project-dashboard.tsx). One truth on the wire,
+ *  two readers; the palette needs only the jump-relevant slice of it. */
+interface SavedViewBookmark {
+  id: string;
+  name: string;
+  ts: number;
+  thumb?: string;
+}
+
+interface SavedViewEntry {
+  projectId: string | null;
+  projectName: string | null;
+  jobId: string;
+  jobName: string;
+  jobType: string;
+  jobStatus: string;
+  updatedAt: string;
+  bookmarks: SavedViewBookmark[];
+}
+
+type SavedViewsState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ready"; views: SavedViewEntry[]; fetchedAt: number }
+  | { kind: "absent"; fetchedAt: number };
+
+/** Module-level cache — session-lived, keyed by nothing (there is exactly
+ *  one gallery). Ready AND absent share the TTL: a dead wall answers once
+ *  per clock window, a fresh save surfaces within it. In-flight dedup so
+ *  two rapid opens share one round trip (the t663 doctrine, list-sized). */
+const SAVED_VIEWS_TTL_MS = 30_000;
+const SAVED_VIEWS_CAP = 8;
+let savedViewsCache: SavedViewsState = { kind: "idle" };
+let savedViewsInflight: Promise<SavedViewEntry[]> | null = null;
+
+async function fetchSavedViews(): Promise<SavedViewEntry[]> {
+  if (savedViewsInflight) return savedViewsInflight;
+  savedViewsInflight = (async () => {
+    const res = await fetch("/api/views/gallery", { cache: "no-store" });
+    if (!res.ok) throw new Error(`views gallery ${res.status}`);
+    const body = (await res.json()) as { views?: SavedViewEntry[] };
+    return body.views ?? [];
+  })().finally(() => {
+    savedViewsInflight = null;
+  });
+  return savedViewsInflight;
+}
+
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
+  // t668 — the Saved views group is the palette's first FETCHED group: the
+  // camera bookmarks live server-side (BookmarkSession), so the list rides
+  // /api/views/gallery — the SAME route the dashboard's Saved views wall
+  // reads (one environment one truth). Module-level cache with a short TTL:
+  // the palette opens often, the route serves ≤8 jobs with inline thumbs,
+  // and ABSENCE is cached by the same clock — a dead wall answers once, a
+  // fresh save shows up within half a minute (the t663 cache doctrine,
+  // tuned for a list instead of a tile).
+  const [savedViews, setSavedViews] = React.useState<SavedViewsState>(savedViewsCache);
+  React.useEffect(() => {
+    if (!open) return;
+    const hit = savedViewsCache;
+    if (hit.kind === "ready" && Date.now() - hit.fetchedAt < SAVED_VIEWS_TTL_MS) {
+      setSavedViews(hit);
+      return;
+    }
+    if (hit.kind === "absent" && Date.now() - hit.fetchedAt < SAVED_VIEWS_TTL_MS) {
+      setSavedViews(hit);
+      return;
+    }
+    setSavedViews({ kind: "loading" });
+    let alive = true;
+    void fetchSavedViews()
+      .then((views) => {
+        const next: SavedViewsState =
+          views.length > 0
+            ? { kind: "ready", views, fetchedAt: Date.now() }
+            : { kind: "absent", fetchedAt: Date.now() };
+        savedViewsCache = next;
+        if (alive) setSavedViews(next);
+      })
+      .catch(() => {
+        savedViewsCache = { kind: "absent", fetchedAt: Date.now() };
+        if (alive) setSavedViews(savedViewsCache);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
   // t572 — the cascade's disarm flip: the group entrance plays on OPEN,
   // then ~520ms later (after the last rung lands: 210ms delay + 240ms
   // duration) the settled class disarms the animation — because hiding a
@@ -281,6 +373,25 @@ export function CommandPalette() {
   const DENOISE_CAP = 12;
   const denoiseRows = denoiseJobs.slice(0, DENOISE_CAP);
 
+  // Saved views group (t668) — the FOURTH gallery family, and the first one
+  // the palette does not derive from the store: saved 3D camera views live
+  // in the BookmarkSession table, and the aggregate that spans projects is
+  // the SAME /api/views/gallery the dashboard wall reads. One row per
+  // bookmark (the jump surface mirrors the wall's flat cards, capped);
+  // NO status gate here beyond what the route already serves — the
+  // dashboard wall shows exactly these rows, and the jump's arrival is
+  // the embed's own honest toast when a view turns out unreadable.
+  const savedViewRows =
+    savedViews.kind === "ready"
+      ? savedViews.views
+          .flatMap((v) => v.bookmarks.map((b) => ({ v, b })))
+          .slice(0, SAVED_VIEWS_CAP)
+      : [];
+  const savedViewTotal =
+    savedViews.kind === "ready"
+      ? savedViews.views.reduce((n, v) => n + v.bookmarks.length, 0)
+      : 0;
+
   // Ctrl+K / ⌘K from anywhere + the header chip's custom event.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -356,6 +467,27 @@ export function CommandPalette() {
     const s = useWorkflowStore.getState();
     void s.openJob(jobId);
     s.requestDenoiseFocus(jobId);
+    close();
+  };
+
+  /** Saved-views deep link (t668): the dashboard wall's own recipe, VERBATIM
+   *  — the one-shot PENDING_VIEW_KEY handshake in sessionStorage (the 3D
+   *  embed consumes it once its bookmark list has loaded and flies to the
+   *  view; a view deleted in the meantime gets the embed's honest "not
+   *  found" toast instead of a silent no-op), then openJob with the
+   *  CROSS-PROJECT hint (the gallery spans projects; a row's home project
+   *  may not be the active one — the id will not resolve until the switch
+   *  lands). No store relay needed: the embed already speaks this door. */
+  const jumpToSavedView = (v: SavedViewEntry, b: SavedViewBookmark) => {
+    try {
+      sessionStorage.setItem(
+        PENDING_VIEW_KEY,
+        JSON.stringify({ jobId: v.jobId, bookmarkId: b.id })
+      );
+    } catch {
+      /* private mode — the jump still lands on the job */
+    }
+    void useWorkflowStore.getState().openJob(v.jobId, { projectId: v.projectId });
     close();
   };
 
@@ -857,6 +989,49 @@ export function CommandPalette() {
                   </CommandItem>
                 );
               })}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* ---------------- saved 3D views (t668) ---------------- */}
+        {savedViewRows.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Saved views · ${savedViewTotal} bookmark${savedViewTotal === 1 ? "" : "s"}${savedViewTotal > savedViewRows.length ? ` — first ${savedViewRows.length}` : ""}`}
+            >
+              {savedViewRows.map(({ v, b }) => (
+                <CommandItem
+                  key={`saved-view-${v.jobId}:${b.id}`}
+                  value={`saved view 3d bookmark ${b.name} ${v.jobName} ${v.jobType}`}
+                  onSelect={() => jumpToSavedView(v, b)}
+                  className="gap-2.5"
+                >
+                  {/* the thumb the save captured — inline data URL, zero
+                      extra fetches (the dashboard card's picture, row-);
+                      a thumb-less bookmark keeps the wall's own fallback */}
+                  {b.thumb ? (
+                    <img
+                      src={b.thumb}
+                      alt=""
+                      data-palette-savedview-thumb=""
+                      className="size-10 shrink-0 rounded-md border border-border/60 object-cover"
+                    />
+                  ) : (
+                    <Mountain className="size-4 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    Saved view — <span className="font-medium">{b.name}</span>
+                  </span>
+                  <span className="max-w-32 shrink-0 truncate text-[11px] text-muted-foreground/70">
+                    {v.jobName}
+                  </span>
+                  <Mountain
+                    className="size-3.5 shrink-0 text-teal-600/70 dark:text-teal-400/70"
+                    aria-hidden="true"
+                  />
+                </CommandItem>
+              ))}
             </CommandGroup>
           </>
         )}

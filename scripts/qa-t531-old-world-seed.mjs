@@ -53,6 +53,7 @@
  * up engine-state writes live (readRuns is mtime-keyed — no restart).
  */
 
+import { deflateSync } from "node:zlib";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, unlinkSync, linkSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -535,6 +536,74 @@ function buildMrcVolume(size = 64) {
   return Buffer.concat([header, data]);
 }
 
+/* ---------- t668 — the saved-view family: a real thumbnail derived from
+ * the REAL volume bytes (a Z-axis maximum-intensity projection of the
+ * same Gaussian blob the 3D viewer renders — the thumb declares "what
+ * this world looks like", and it is counted, not guessed). A minimal
+ * grayscale PNG encoder (zlib is built in; no canvas in Node) keeps the
+ * data-URL budget tiny (~1KB against the 48KB whitelist ceiling). ---- */
+
+let CRC_TABLE = null;
+function crc32(buf) {
+  if (!CRC_TABLE) {
+    CRC_TABLE = new Int32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      CRC_TABLE[n] = c;
+    }
+  }
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const t = Buffer.from(type, "ascii");
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([t, data])), 0);
+  return Buffer.concat([len, t, data, crc]);
+}
+
+/** 8-bit grayscale PNG from a w×h byte matrix (no filters — every
+ *  scanline speaks filter 0; deflate does the compression). */
+function grayscalePng(pixels, w, h) {
+  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 0; // color type: grayscale
+  const raw = Buffer.alloc((w + 1) * h);
+  for (let y = 0; y < h; y++) {
+    raw[y * (w + 1)] = 0; // filter: none
+    for (let x = 0; x < w; x++) raw[y * (w + 1) + 1 + x] = pixels[y * w + x];
+  }
+  const idat = deflateSync(raw, { level: 9 });
+  return Buffer.concat([sig, pngChunk("IHDR", ihdr), pngChunk("IDAT", idat), pngChunk("IEND", Buffer.alloc(0))]);
+}
+
+/** Z-axis MIP of the float32 volume (header at 1024, mode 2), gamma-
+ *  lifted so the blob's mid-tones survive the 8-bit window. */
+function buildVolumeMipThumb(volumeBuf, size = 64) {
+  const px = Buffer.alloc(size * size);
+  const amp = 100;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let m = 0;
+      for (let z = 0; z < size; z++) {
+        const v = volumeBuf.readFloatLE(1024 + 4 * (z * size * size + y * size + x));
+        if (v > m) m = v;
+      }
+      const t = Math.max(0, Math.min(1, m / amp));
+      px[y * size + x] = Math.round(255 * Math.pow(t, 0.6));
+    }
+  }
+  return `data:image/png;base64,${grayscalePng(px, size, size).toString("base64")}`;
+}
+
 /* ---------- the world itself --------------------------------------------- */
 
 let pass = 0, fail = 0;
@@ -854,6 +923,70 @@ function seedEngineRecords() {
   writeAtomic(STATE, JSON.stringify(state, null, 2));
 }
 
+/** t668 — the saved-view family: the refine3d half-maps' world gets THREE
+ *  named camera bookmarks (the dashboard's Saved views wall and — new —
+ *  the palette's Saved views group both read them through
+ *  /api/views/gallery; the jump itself rides the PENDING_VIEW_KEY
+ *  handshake the dashboard card already owns). Fixed ids: a re-seed
+ *  OVERWRITES the same three views — a bookmark is a named snapshot, and
+ *  idempotency is the seeder's own law. Camera poses speak the same
+ *  number family the product's own saves were observed writing (qa48's
+ *  proven-against-restore shape); the view half carries one plain iso
+ *  view, one Z-slice, one front-clip — the chips get something to say. */
+function buildSeedBookmarks() {
+  const thumb = buildVolumeMipThumb(buildMrcVolume(64));
+  const pose = (position, radius) => ({
+    mode: "camera",
+    fov: 0.876,
+    position,
+    up: [0, 1, 0],
+    target: [0.1, 0.2, 0.3],
+    radius,
+    radiusMax: 120,
+    fog: 0,
+    clipFar: 0,
+    minNear: 0,
+    minFar: 0,
+  });
+  const now = Date.now();
+  return [
+    {
+      id: "seedview1",
+      name: "Centered iso view",
+      ts: now - 3000,
+      thumb,
+      snapshot: pose([12.3, -4.5, 30.1], 52.4),
+      view: { sigma: 3, sign: 1, slice: { on: false, axis: "Z", pos: 0.5 }, clip: { on: false, x: 1, y: 1, z: 1, invert: false } },
+    },
+    {
+      id: "seedview2",
+      name: "Top-down slice",
+      ts: now - 2000,
+      thumb,
+      snapshot: pose([2, 28, 6], 60),
+      view: { sigma: 2, sign: 1, slice: { on: true, axis: "Z", pos: 0.5 }, clip: { on: false, x: 1, y: 1, z: 1, invert: false } },
+    },
+    {
+      id: "seedview3",
+      name: "Front half clipped",
+      ts: now - 1000,
+      thumb,
+      snapshot: pose([30, 2, 4], 55),
+      view: { sigma: 1.8, sign: 1, slice: { on: false, axis: "Z", pos: 0.5 }, clip: { on: true, x: 0.5, y: 1, z: 1, invert: false } },
+    },
+  ];
+}
+
+async function seedBookmarkSession() {
+  const data = JSON.stringify(buildSeedBookmarks());
+  await db.bookmarkSession.upsert({
+    where: { jobId: chain.refine3d },
+    update: { data },
+    create: { jobId: chain.refine3d, data },
+  });
+  console.log("  bookmark session: 3 saved views on the refine3d half-map world");
+}
+
 function seedLogs() {
   for (const t of CHAIN) {
     writeAtomic(path.join(wd[t], "run.log"), `seeded by qa-t531-old-world-seed — ${RESULTS[t]}\n`);
@@ -917,6 +1050,7 @@ if (!CHECK) {
   }
   seedLogs();
   seedEngineRecords();
+  await seedBookmarkSession();
   console.log("  engine-state records: 13 chain links + topazdenoise + topaztrain branches (done · exitCode 0 · real outputs)");
   await countRoster();
   writeManifest(wf);
@@ -978,6 +1112,25 @@ if (!CHECK) {
   ok(firstRef.startsWith("extract_") && !firstRef.startsWith("extra/"), `select star refs project-relative (${firstRef})`);
   await countRoster();
   ok(rosterCount >= 17, `roster ≥ 17 (${rosterCount})`);
+  // t668 — the saved-view family: the session row parses, three entries
+  // carry the three vec3s that ARE the pose, the thumbs are honest data
+  // URLs derived from the world's own volume, and the view half speaks
+  // the chips' language (sigma / slice / clip).
+  const bmRow = await db.bookmarkSession.findUnique({ where: { jobId: chain.refine3d } });
+  ok(bmRow != null, "bookmark session: row exists for the refine3d job");
+  let bmList = [];
+  try { bmList = JSON.parse(bmRow?.data ?? "[]"); } catch { /* corrupt — the anchors below speak */ }
+  ok(Array.isArray(bmList) && bmList.length === 3, `bookmark session: 3 entries (${bmList.length})`);
+  ok(bmList.every((b) =>
+    typeof b.id === "string" && typeof b.name === "string" &&
+    Array.isArray(b.snapshot?.position) && b.snapshot.position.length === 3 &&
+    Array.isArray(b.snapshot?.up) && Array.isArray(b.snapshot?.target) &&
+    Number.isFinite(b.snapshot?.radius)),
+    "bookmark session: every entry carries the pose vec3s + radius");
+  ok(bmList.every((b) => typeof b.thumb === "string" && b.thumb.startsWith("data:image/png;base64,")),
+    "bookmark session: thumbs are honest data-URL PNGs");
+  ok(bmList.filter((b) => b.view?.slice?.on).length === 1 && bmList.filter((b) => b.view?.clip?.on).length === 1,
+    "bookmark session: one slice view + one clip view (the chips have something to say)");
 }
 
 console.log(fail === 0 ? (CHECK ? "CHECK PASS" : "SEED OK") : `${fail} FAIL`);
