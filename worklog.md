@@ -10469,3 +10469,39 @@ Stage Summary:
 - 「一 Esc 一层」：radix 的 toast 自己就是一个 DismissableLayer（react-toast 源码 376 行实锤），活着的 toast 是最高层，Escape 的派发规则是每次按键只给最顶层——第一下吃 toast、第二下才轮到 dialog。这不是 bug 是叠层语法（与叠 dialog 的 Escape 行为同律）；但它是**隐形的**——toast 会自己消失，用户不知道第一次按键去了哪。探针的 closePalette 学会 press-poll-press；人类的直觉也是「再按一次」。
 - 「野 focus 的停靠死区」：点击一个会 unmount 自己的按钮（行的 X）后，FocusScope 把 focus 停在 DialogContent 壳上——diag-t675-escape2 实锤从这个停靠点出发的 Escape 谁也不 dismiss（defaultPrevented 全程 false）。修法不是 hack radix，是把 focus 送回「语法所在」：palette 的键盘语言住在搜索输入框里（输入搜索、Escape 关闭），行突变后 park 回去——既修死区又让删完能直接打字。「focus 是指针，mutation 要把指针还给键盘的家。」
 - 产出：embed 第四耳（write 守卫 fresh read）+ 墙读 token + palette trailing re-read + parkFocusOnPaletteInput + t675-fourth-ear.mjs（38 锚六航 + 📸×2）+ smoke-t675-overlay + diag-t675-escape 三连验尸 + closePalette press-poll-press；下窗入口：①功能车道（语义色 token ~470 处——连续十二窗记账，需整窗+稳定回归夜；「could not be restored」第三出口专属锚——molstar error 态受控注入，等稳定夜）②样式车道（账本清零）③judge 风暴（等稳定夜）④build 日三车道（钥匙六连零失败；turbopack standalone 的 repo 镜像瘦身候选仍在账）⑤演练床一键（账在）⑥toast-eclipse 的普适面：一 Esc 一层对全 app 的 radix dialog 都成立（viewer 的 Enlarge dialog 在 B 键 toast 后同样吃两下 Escape）——若用户流程被咬，候选修法是 ui/toast.tsx 给 ToastRoot 换掉 layer 注册（fork 一层）或全局 Escape 仲裁，当前判「文档化即可」。
+
+---
+Task ID: 676 中途账（fork 一层已落码 — 构建进行中）
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080454)
+Task: 04:54 派单执行——开局五件套 + QA 巡检判稳（console 净 / roster 17 全 completed）→ 定道 Task 675 入口⑥：toast-eclipse 普适修法——fork 一层（toast 摘出 DismissableLayer 仲裁栈）+ tsc/eslint 0 + 构建中
+
+Work Log:
+- [开局五件套] worklog 尾条核实 = Task 675 收官（派单文本「Task 13 条目」再演模板滞后）；HEAD c09fd10 树净；git fetch 0 behind / 0 ahead；available 3364MB（> 3.28GB 新钥匙阈值）；server 200/3.3ms + agent-browser console 净 + roster 17 全 completed——稳定，自主提新需求。
+- [定道·fork 一层] Task 675 入口⑥判决从「文档化即可」升级为「修」：吃透 radix 仲裁机制（dismissable-layer 源码实锤）——所有层共享一个全局 layers Set，Escape 只由最后注册的最高层应答；toast 后挂载故总是最高层 → dialog + toast 并存时第一下 Escape 被 toast 吃掉（t675 的「一 Esc 一层」），viewer Enlarge dialog、palette、dropdown menu 全 app 通用地吃这层隐形税。
+- [死路排除] Toast.Root 其实暴露 onEscapeKeyDown（透传 ToastImpl → composeEventHandlers），但 preventDefault 救不了场：toast 不关也不退出层栈，仍是最高层——此后每次 Escape 全灭（dialog 永远等不到最高层位），比 eclipse 更糟。**仲裁权不走 preventDefault，走层栈成员资格**。
+- [fork 手术] toast 的 DismissableLayer 只挂了 onEscapeKeyDown（无 disableOutsidePointerEvents、无 outside-dismiss 职责）→ 摘除 = 零副作用。vendor 方案：@radix-ui/react-toast@1.2.15 dist 编译产物逐字节保留（645 行，imports 全 hoisted 可解析）入 src/lib/radix-toast-vendor.mjs，唯一手术 = ToastImpl 的 DismissableLayer.Root unwrap（FORK DIFF 注释标记），li 直接渲染；Provider 的 Branch（focus/pointer 豁免）与 li 自己的 focused-Esc 路径保留。配 radix-toast-vendor.d.mts（export * 借原包类型，公共面零变化）；ui/toast.tsx 换 import 源；eslint config 增 vendor 双文件 ignores（react-hooks 规则读编译产物的意图全是狼来了）。
+- [修后语义] modal 语言归 modal：Escape 一步关 dialog/palette/menu（radix 官方语义全保留——onEscapeKeyDown 分层、focus return）；toast 走 duration timer（5s）/swipe/关闭钮/focused-Esc 四条原路自灭。t675 的 press-poll-press 探针语法天然适配（一次成功即 poll 过）。
+- [现状] tsc 0 + eslint 0（vendor 豁免后）；构建发射准备中（cap 2816 + 孤儿姿势钥匙，四连零失败在案）；t676 探针设计在写：A palette 内删行 → toast 活 → 一次 Esc 关 palette + toast 仍活 → 二次 Esc（无 modal）toast 仍活 → timer 自灭；B wall 无 modal toast → Esc 不吃 → timer 自灭；C focused toast Esc 保留路径；D 世界完好 + 桶。
+
+---
+Task ID: 676 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080454)
+Task: 04:54 派单执行——Task 675 入口⑥兑现：toast-eclipse 普适修法——fork 一层（toast 摘出 DismissableLayer 仲裁栈，radix-toast-vendor.mjs 逐字节 vendor + 单点 unwrap）+ t676 探针 24/0 一航全绿 + 回归全家绿 + prod-3001 疗愈幂等化 + 分车 commit push
+
+Work Log:
+- [开局五件套] worklog 尾条核实 = Task 675 收官（派单文本「Task 13 条目」再演模板滞后，不采信）；HEAD c09fd10 树净；git fetch 0 behind / 0 ahead；available 3364MB（> 3.28GB 新钥匙阈值）；server 200/3.3ms + agent-browser console 净 + roster 17 全 completed——稳定，自主提新需求。
+- [定道·fork 一层] Task 675 入口⑥判决从「文档化即可」升级为「修」。侦察吃透 radix 仲裁解剖（dismissable-layer 源码实锤）：所有层共享一个全局 layers Set，Escape 只由最后注册的最高层应答（useEscapeKeydown 的 isHighestLayer 门）；toast 后挂载故总是最高层 → dialog + toast 并存时第一下 Escape 被 toast 吃掉（t675「一 Esc 一层」的病根），palette/dialog/menu 全 app 通用地吃这层隐形税。
+- [死路排除·preventDefault 救不了场] Toast.Root 其实暴露 onEscapeKeyDown（Root 透传 toastProps → ToastImpl 解构 → composeEventHandlers(onEscapeKeyDown, 关 toast)），但 preventDefault 只能不关 toast——toast 不退出层栈仍是最高层，此后每次 Escape 全灭（dialog 永远等不到最高层位），比 eclipse 更糟。**仲裁权不走 preventDefault，走层栈成员资格**。
+- [手术·零副作用审计] toast 的 DismissableLayer.Root 只挂了 onEscapeKeyDown（无 disableOutsidePointerEvents、无 outside-dismiss 职责）→ 摘除 = 零副作用。vendor：@radix-ui/react-toast@1.2.15 dist 编译产物逐字节保留（645 行，13 个 radix 子包 imports 全 hoisted 可解析）入 src/lib/radix-toast-vendor.mjs，唯一手术 = ToastImpl 的 DismissableLayer.Root unwrap（FORK DIFF 注释标记，li 直接渲染）；Provider 的 Branch（toast 区 focus/pointer 豁免）与 li 自己的 focused-Esc 路径（tabIndex=0 + onKeyDown，a11y）保留。配 radix-toast-vendor.d.mts（export * 借原包类型——.tsx + @ts-nocheck 会松掉 ComponentPropsWithoutRef 推断，d.mts 才保真）；ui/toast.tsx 换 import 源；eslint.config.mjs 增 vendor 双文件 ignores（react-hooks 新规则读编译产物全是狼来了）。
+- [修后语义] modal 语言归 modal：Escape 一步关 dialog/palette/menu（radix 官方语义全保留——onEscapeKeyDown 分层、focus return、AlertDialog/dropdown 一并受益）；toast 走 duration timer（5s 默认）/swipe/关闭钮/focused-Esc 四条原路自灭。t675 的 press-poll-press 探针语法天然适配（一次成功即 poll 过）。
+- [撞见·prod-3001 疗愈对残树不幂等] 第一次重启我给自孤儿脚本加了 `&`（偏离教义）——reaper 腰斩在 cp -r 中途：inner static 树 24/106 chunks 残缺；第二次重启的疗愈 gate `[ ! -d ]` 见「目录存在」就跳过 → 死 SSR 壳带半棵静态树（root 200 + chunk 404）。修 = 疗愈改 always-cp（cp 合并覆盖天然幂等）+ 教训入账：**自孤儿脚本直接发射，永不加 &；疗愈 gate 不防残树，always-cp 才是幂等形式**。
+- [t676-e2e 24/0 一航全绿] setup 双 drill 席（adopt-or-create，3 种子不动）。S 1（墙 5 卡）+ A 9（palette 5 行 → 删 drill1 → toast + 行收缩 → **一次 Esc 关 palette（eclipse 破除）** → **toast 在 Esc 后挺立（money shot）** → 二次裸 Esc（无 modal）toast 仍不倒 → duration timer（5s）收尸不永生 → server 无 drill1）+ B 4（墙 rename drill2 → toast + 卡新名 → **toast li 可聚焦（tabIndex 0 契约）** → **focused-Esc 仍关 toast（a11y 路径幸存）**）+ C 2（palette 干净开关——无 toast 时一次 Esc）+ D 8（server 4 席 + 三种子原名完好 + teardown 复原 + console 0 真 + 404 0 + flap/hmr 有界）+ 📸×1（t676-toast-survives-esc.png：palette 已关全 dashboard 在目 + 右下 toast 挺立——破除 eclipse 的视觉实锤）。
+- [回归全家绿] tsc 0 + eslint 0 + 直系六探针（t675 38/0 + t674 53/0 + t673 31/0 + t671 30/0 + t670 31/0 + t669 27/0——Escape 语义全在射程内，press-poll-press 语法全部适配一次关）+ 基线四绿（t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0）。fixture 惯犯（t252-write-door-2x.png）checkout 还原不入车。
+- [build 车道] available 3364MB > 3.28GB 阈值 + 堆顶棚钥匙（cap 2816 + 孤儿姿势）→ t673-build-standalone.sh 一次绿（~42s 编译）+ PORT=3000 prod-3001 重启（第一次被 & 教训，第二次直射 + 残树手工补全 + 脚本硬化后第三次语义验证）+ root/chunk 双 200 验证。
+
+Stage Summary:
+- 「仲裁权不走 preventDefault，走层栈成员资格」：radix 的全局层栈里 Escape 归最高层独享——想让 modal 听到 Escape，唯一正解是把 ephemeral 成分摘出层栈，不是让它「拒绝处理」这一个事件（拒绝处理后它还是最高层，键盘从此全灭）。**权限问题换成员资格解决，不是换回答解决。**
+- 「toast 是通知不是 modal」：DismissableLayer 的成员资格本该是 modal 的特权；toast 挂着 layer 却只用了 Escape 一条职责（无 pointer-events 禁用、无 outside-dismiss）——摘除零副作用的审计让 fork 缩到一次 unwrap。vendor 逐字节保留 + FORK DIFF 注释 + d.mts 借原包类型 = **fork 的形态是「一条注释」，不是「一个重写」**。
+- 「修好病的同时要给病人的活下去留路」：摘层栈不是没收 toast 的所有退出——timer/swipe/关闭钮/focused-Esc 四条原路全保留，a11y 的 focus-Esc 路径（B 腿）专锚验证。行为 fork 的完整交付 = 新语义锚 + 旧语义幸存锚。
+- 「自孤儿脚本直接发射，永不加 &」：脚本的 setsid 是它自己的原子；外面再套一层 & 就给 reaper 留了腰斩窗口（cp 半棵树 + 死壳）。**疗愈的幂等形式是 always-cp，不是 [ ! -d ] gate**——gate 只防「从未有过」，不防「半途而废」。
+- 产出：radix-toast-vendor.mjs + radix-toast-vendor.d.mts（fork 一层）+ ui/toast.tsx import 换源 + eslint ignores + prod-3001 疗愈幂等化 + t676-toast-eclipse.mjs（24 锚四腿 + 📸×1）；下窗入口：①功能车道（语义色 token ~470 处——连续十三窗记账，需整窗+稳定回归夜；「could not be restored」第三出口专属锚——molstar error 态受控注入，等稳定夜；Topaz wrapper / 3D viewer 体积截面仍在 backlog）②样式车道（toast 退出动画的 slide-out-to-right-full 在摘层后行为未变——账本清零）③judge 风暴（等稳定夜）④build 日三车道（钥匙七连零失败）⑤演练床一键（账在）⑥eclipse 修后的全 app Escape 巡检候选：dropdown/select menu 在 toast 活着时的一次 Esc 行为（机制同源已由 fork 根治，若要专锚可加）。
