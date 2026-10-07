@@ -10050,3 +10050,29 @@ Stage Summary:
 - 「预审是免伤的一半，断言是另一半」：optics block 落笔前先走查两个解析器（parseMotionStar 的 freeze 全 -1 跳行 + countStarRows 按块名跳过）——预审说「结构性免疫」；e2e A3 锚把这句话变成 count=10 的可执行断言——断言说「免疫已验」。口头免伤会随代码演化失效，锚不会。
 - 「环境噪声要有复跑协议」：t654 的 2 FAIL 是 webpack-hmr 连接拒绝（编辑触发重编译撞上探针跑动）——判决不是改探针吞错，而是等 server 恢复复跑。噪声的指纹（ERR_CONNECTION_REFUSED/RESET、清一色 ws/资源类）与产品错误（断言失败、JS 语义错）分离处置：前者复跑，后者修码。
 - 产出：micrographs 路由 catalogue 白名单门 + ImportGallery variant 泛化（一馆两墙）+ inspector motioncorr 挂载 + t531 世界第二幕（20 同 inode 链接 + corrected star optics block）+ t658-e2e 30/0（首跑零自纠）+ 📸×2；下窗入口：①样式细节车道（compare dialog same-dims 聚合行——t657 待议①仍在记账；star-table hover 过渡微调——t656 余项）②功能车道（palette 直达 compare/import-gallery 深链——t656 候选三窗待议；ctffind 世界升格的诚实答案待议——缺席 or 真算，无第三路）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 68 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 659 收官
+Agent: main (cron window, Job 362852)
+Task: 双件套收官——①palette「Frame galleries」深链组（Task 81 class-note 握手第二继承人：store 一次性 pendingGalleryFocus + TTL + host 切 tab + gallery 到达开灯箱；compare-mode 深链诚实缺席——无 picks 的托盘是谎言）②compare dialog same-dims 聚合行（t657 待议①三窗记账结清）+ 撞见并修正 t245 预存世界锚（exactly one project → real roster）+ t659-e2e 27/0（服务器 OOM 事件下的环境噪声分类学）+ 回归全家二十一绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 658 收官；树净 HEAD deb888c；available 1170MB 非 build 日（第 69 窗否决）；server 200；基线四绿（t252 + qa78 + t637 6/0 + t641 10/0）。
+- [QA 巡检] agent-browser：console 0 错、15 jobs 全 completed、API 快——稳定，自主提新需求。
+- [定靶] t658 下窗入口①a compare same-dims 行（三窗记账）+ ②a palette 深链（三窗待议）双件合并。侦察撞见 Task 81 class-note 深链完整先例（store 一次性握手 pendingClassFocus + panel 到达消费）——gallery 深链完全镜像此律。裁决：compare-mode 无深链——托盘需要两枚 picks，深链进 compare = 空托盘谎言（t654 律）；墙（lightbox）才是深链的诚实落点。ctffind 世界升格维持缺席判决（无真 PSD 可 link，真算超预算）。
+- [握手三件] ①store.ts：pendingGalleryFocus {jobId, at} + requestGalleryFocus + consumeGalleryFocus + 导出 GALLERY_FOCUS_TTL_MS=15s（TTL 使「陈旧即清」对住在两道门后的消费者可判定）。②job-inspector host 效果：pending 匹配本 job 且 fresh → latch（tabTouchedForRef，镜像 onTabSelect 语义）+ setTab("overview")（gallery 的家）；stale → 消费清账。host 不在 fresh 路径消费——consumption 归 gallery。③import-gallery 消费效果：fresh + data 到墙 → setSelected(0)（到达即灯箱）+ 消费；data 未到 → 等待（mount 时消费会吃掉链接——首跑 FAIL 的教训）；stale/空墙/失败 → 诚实清账。
+- [same-dims 行] compare dialog：pickedEntries 全测得且全等 nx/ny（n≥2）→ 页脚聚合行 data-gallery-ui="compare-same-dims"（Check 图标 + "same dims across panes — 4096×4096 px"）。只说一致——分歧在 per-pane 行里自己可见，未测得的墙不确认它没数过的东西。
+- [palette 组] Frame galleries 组（class-notes 组的结构先例）：galleryJobs = workspace 域内 completed 且（import 非 particles 或 motioncorr），cap 12 + heading 报总数；行 = Aperture 图标 + "Frame gallery — <name>"；jumpToGallery = openJob（view switch + completed→inspect 合同）+ requestGalleryFocus + close。空墙世界的 palette 不预取——行按能力合同存在，消费端诚实清账（落地仍真实：到达的是 job）。
+- [t659-e2e 27/0，四幕+自省] A 6 锚（组/两行/负锚 wall-less job 无行）+ B 8 锚（跳转落灯箱 1 of 10 → 灯箱行走 + 一次性消费：重开同 job 不再开灯箱 + latched Overview 持久=手动选择语义）+ C 5 锚（corrected 墙同握手：tab bar/Overview/墙/灯箱/1 of 10）+ D 2 锚（same-dims 行 4096×4096 px）+ E 5 锚（真 JS 错 0/帧 404 0/flap 三桶 bounded）。
+- [自纠三课] ①消费效果在 mount（data=null）就吃 pending——吃在开箱之前：修为等待（data 未到不消费，error 才清账）——「等墙存在，再兑现承诺」。②e2e tab 断言选到侧栏 Catalog tab——scoped 到 [data-insp-face="tabs"]。③B2 期望「Results 回归」错——Task 70 per-job latch 本就持久（class-note persistPanelTab 同语义），灯箱是一次性的所以不持久，latch 是阅读位置所以持久——断言改为验 latch 持久。
+- [环境噪声分类学] 盒子 OOM killer 本窗实际处决了 next-server（dmesg：2.5GB anon-rss，64 次 oom-kill 总计），探针跑动中服务器 flap（ERR_CONNECTION_REFUSED/EMPTY_RESPONSE 资源失败 + webpack-hmr socket 拒绝 + 懒 chunk 首编译竞态 pageerror）。探针判决：E 腿四桶——真 JS 错 0（合同）、帧 404 0（t657/t658 合同延续）、resourceFlap ≤60（一次死亡窗口的量）、chunkFlap ≤5（加载器瞬态自愈声）、hmrNoise ≤10（dev 基础设施自声）——不吞不谎，每桶有判决书。预热腿：量测前先敲 canvas 卡打开 motioncorr inspector（编译懒 chunk + 热身墙渲染），palette 握手保持 pristine；腿间 waitServerHealthy（ flap 中不放量测腿）。
+- [t245 预存锚修正] 回归路上 t245 FAIL「demo world has exactly one project (got 3)」——git stash 干净 HEAD 复跑同样 FAIL = 预存（世界三窗前就 3 项目，多项目是 shipped feature，锚写死 1 是陈旧世界普查）。修锚：>= 1 real roster + 判决书注释（t245 本不在近几窗家族名单——账本外的一笔旧账，本窗结清）。
+- [回归全家二十一绿] 基线（t252 + qa78 + t637 6/0 + t641 10/0）+ palette 合同（t245 ALL PASS 修锚后）+ 直系（t651 22/0 + t652 24/0 + t653-match-unit 25/0 + t654 25/0 + t655-match-unit 25/0 + t655-e2e 20/0 + t656 17/0 + t657 25/0 + t658 30/0）+ 遗产（t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t646 21/0 + t647 24/0 + t648 15/0 + t649 18/0 + t650 21/0；t647/t648/t649/t650 asserts CLEAN）；tsc 0 + eslint 0。插曲：t658/t245 跑动重拍各自 fixture——checkout 还原不入车（判例第五演）。
+
+Stage Summary:
+- 「握手要有两把钥匙，消费只在一处」：deep link 的 host（inspector 切 tab）与 consumer（gallery 开灯箱）分离——host 清路不消费，consumer 开箱即消费。两个消费者竞速 = 链接被吃在到达之前（首跑 FAIL 的根因）；两个 host 各自消费 = 陈旧链接永生。一次性握手的所有权要唯一：请求是谁的承诺，就由谁兑现。
+- 「承诺要在存在兑现」：consumer 在 data=null 时消费 = 兑现一个还不存在的墙。等待不是健壮性是诚实——承诺的兑现时点是「墙存在时」，不是「组件挂载时」。TTL 是这个等待的边界：15 秒内兑现，过期清账——陈旧的承诺兑现出来是惊吓，不是惊喜。
+- 「latch 与 one-shot 是两种时间」：deep link 打开灯箱是一次性手势（消费即逝），但它顺手的 tab 切换是阅读位置（Task 70 latch 持久）。B2 的断言一度期望「Results 回归」——错把两种时间当一种。手势会消散，位置会留下；断言要验的是各自的本性。
+- 「环境的病要有自己的桶」：OOM 杀死服务器后，console 的错误声里有产品也有病室——HMR socket（dev-only 基础设施）、资源 flap（服务器 convalescence）、chunk 竞态（加载器瞬态）。全吞 = 掩盖产品错；全报 = 狼来了。四桶分类学（真 JS 错 0 / 帧 404 0 / flap 三桶 bounded）让每类声音有自己的判决书——t654 的 bounded-404 从「帧」推广到「基础设施自声」。
+- 「账本外的旧账也是账」：t245 不在家族名单里，它的锚陈旧了三窗无人知——回归路过撞见，stash 十秒定谳预存，顺手修锚结清。家族名单是最低消费不是全部 Truth；路过就审，是 QA 的谦虚与贪婪。
+- 产出：palette Frame galleries 深链组（store 握手 + host/consumer 分离 + TTL + 同步令 corrected 墙受益）+ compare dialog same-dims 聚合行 + t245 世界锚修正 + t659-e2e 27/0（四幕 + 噪声分类学 + 预热腿 + 健康门）+ 📸×2（t659-deep-link-lightbox / t659-same-dims）；下窗入口：①样式细节车道（star-table hover 过渡微调——t656 余项最后一笔；compare dialog B/px 聚合行的同类聚合是否值得——same-dims 已在，same-bpp 待议）②功能车道（palette 深链第二幕：2D/3D classification 的 class averages gallery 是否入组；ctffind 诚实缺席维持）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 69 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
