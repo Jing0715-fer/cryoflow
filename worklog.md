@@ -10002,3 +10002,27 @@ Stage Summary:
 - 「粘住的东西最好是身份」：# 显示序（位置）钉在原地毫无意义——排序一次它就重编号，粘性只是把计数器钉住；# 文件序（身份）钉在原地才有了意义——数据滑动、身份不动，用户亲眼看到「排序是视图辅助，文件序是本体」。给列一个 sticky 的理由，先给它一个值得 sticky 的语义。
 - 「探针的靶子也要从实况来」：首跑 B 组 2 FAIL 不是产品错也不是锚错——是「靶子选错」（首个 star 文件恰好不溢出，粘性列无用武之地）。修法是让探针自己读 scrollWidth 找真溢出者（读实况），不是放宽断言（改实况）。排序方向同理：FSC 表升序让 asc 恰好不搅动——探针循环两个方向直到真搅动，「读，不希望」。
 - 产出：star-table 粘性 # 索引列（corner z 舞法 + color-mix 不透明行底 + 原生序号语义）+ t656-e2e 17/0（换靶逻辑 + 物理四锚 + scramble map）+ 📸×2；下窗入口：①样式细节车道（star-table 行 hover 时粘性列与数据列的过渡微调；compare dialog 图间统计 chip——t654 待议项）②功能车道（palette 直达 compare/import-gallery 深链；find bar 本体 why 预览——t655 评估边际后降级）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 66 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 657 收官
+Agent: main (cron window, Job 362852)
+Task: t656 入口①兑现（compare dialog 图间统计 chip——t654 待议项两窗记账）——定靶侦察撞见影子世界病灶（star 声称 10 帧而物理零文件），世界升格：t531 seeder 硬链接 10 张真 EMPIAR 帧进 import workdir（零拷贝同 inode）+ buildImportStar 加 optics block + compare pane 统计行（dims + B/px 测量）+ t657-e2e 25/0 + t654 判决书升级（bounded-404 退休 → 帧 404=0 精确合同）+ 回归全家二十绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 656 收官；树净 HEAD e1b39e8；available 1023MB 非 build 日（第 67 窗否决）；server 200/34ms；基线四绿（t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS）。
+- [定靶·撞见] t656 入口①第一位 = compare dialog 图间统计 chip（t654/t656 连续两窗记账）。侦察三幕：①compare dialog 现状 = 每 pane 仅 figcaption（序号/名字/字节），DialogDescription 宣称 "same pixel size" 却无数据佐证；②demo 世界实况 = 10 张全 size=0/nx=0/ny=0、optics 全 null（per-pane 统计 chip 若只做诚实缺席，正典 e2e 无正锚）；③workdir 实况 = import_00import 下根本没有 micrographs/ 目录——**t531 seeder 的 filePlan 只写了 micrographs.star，物理帧从未落盘**。t654 的「世界的 404 不是码的 bug」判决改写：404 是 seed 偷懒的遮羞布（声明 "10 real EMPIAR micrographs imported" 而物理零字节——声明与存在不符才是真不诚实）。
+- [世界升格·硬链接] EMPIAR bundle 在场（/home/z/empiar-10017/micrographs，4096² float32 = 67109888B/帧）。拷贝不可行（64MB×10 = 640MB，4GB 盒子拒绝）；硬链接实验定谳（同设备 dev=44，linkSync OK；跨路径 EACCES 虚惊 = 写根目录被拒非跨设备）。t531 扩展三件：①linkPlan()（10 帧 src→dst，existsSync skip 保幂等，linkSync 失败 fail++ 快败）+ materialize 循环；②CHECK 模式加 same-inode 校验（dev+ino+size 三同 = 「真数据 ride」律的可执行版）；③buildImportStar 加 data_optics block（1.77 Å/300 kV/2.7 mm/0.1——与 t635 import params 一字不差，star/job form/UI 说同一种物理）。t654 判词「the seeder never pollutes them with synthetics」兼容性论证：link 是引用不是合成——零字节复制、零字节突变、同一 inode。
+- [世界升格·实锤] t531 重跑 SEED OK（10 linked ← bundle）+ --check CHECK PASS + API 全活：pixelSize 1.77/voltage 300/Cs 2.7/Q0 0.1、nx 4096/ny 4096/size 67109888 ×10。渲染管线首验：outputs/file?format=png 对 64MB float32 真帧 = HTTP 200、303KB PNG、0.5s（t391 clamp 的 sharp 管线首次吃真数据）。
+- [实现·pane 统计] import-gallery.tsx：formatBytesPerPixel（size÷nx·ny 的测量——「4.0 B/px 是 float32 的样子，但 chip 报它数出来的，header 知道模式」）+ figcaption 升格两行（row 1 身份：序号/名字/字节原样；row 2 测量：dims + B/px，data-gallery-ui="pane-stats" + data-pane-stat="dims|bpp" 语义锚 + title 教学）+ 诚实缺席律（nx≤0 或 size≤0 → 整行缺席——「教一个用不上的手势」禁律的数据版）。
+- [t657-e2e 25/0] 首跑全绿零自纠：A 组 14 锚（API 真值 10/10 + optics 四 chip 在场 + 尾注 4096×4096 px + 真渲染 10/10——scrollTo 败 loading=lazy + zero "unavailable" faces）+ B 组 9 锚（compare 全幕 + pane-stats ×2 + dims 双真值 + B/px 双 "4.0 B/px" + pick 顺序）+ C 组 2 锚（JS 错 0 + **帧 404 = 0**）+ 📸×2（t657-real-wall / t657-compare-stats）。
+- [判决书升级] t654-e2e 的「resource404.length > 0 && ≤ 30」（bounded、世界自白）退役 → 「=== 0」精确合同（JS 错 0 且帧 404 0）；复跑 25/0——t654 手势断言（lightbox walk/compare tray/退模式清场）在世界升格后全锚无损，figcaption 结构改造与旧断言（figcaption span first() = 序号）向后兼容。
+- [unit-runner 落地] 回归首跑 t653/t655-match-unit 崩溃（ERR_MODULE_NOT_FOUND——import 无扩展名 + lib 内部 @/ 别名，node strip-types 不解析）——考古无果后不再猜：scripts/unit-runner.mjs（createJiti + alias {"@": src} + argv 转移），t653 25/0 + t655 25/0 恢复。跑法从此有实名：`node scripts/unit-runner.mjs scripts/tXXX-match-unit.mjs`。
+- [回归全家二十绿] 基线四绿复跑（t252 + qa78 + t637 6/0 + t641 10/0）+ 直系前任（t651 22/0 + t652 24/0 + t653 25/0+11/0 + t654 25/0 + t655 25/0+20/0 + t656 17/0）+ 遗产（t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t646 21/0 + t647 24/0 + t648 15/0 + t649 18/0 + t650 21/0，t646-t650 asserts 全 CLEAN）+ t657 25/0（新）；tsc 0 + eslint 0。插曲：t252 fixture 截图三连漂（基线跑动重拍）——checkout 还原不入车（t655/t656 判例第三演）。
+
+Stage Summary:
+- 「世界的缺陷也可能是 seed 的欠账」：t654 把 404 判成「世界的真状态」并写进 bounded 判决书——当时诚实，但判决书不是终点：顺藤摸到 workdir 实况（star 声称 10 帧、物理零文件），才发现「世界自白」的幕后是 seeder 的 filePlan 欠账。判决书描述世界，不豁免世界；世界可以升级，判决书跟着精确化（bounded → =0）。对「预存/世界状态」类判决保留一次复审权，是 QA 的谦逊而非摇摆。
+- 「link 是引用，copy 是污染，合成是伪装」：64MB 真帧的世界升格有三条路——copy（640MB，4GB 盒子拒绝）、合成（诚实 header + 假像素，违背 t531 的「never pollutes」律）、硬链接（零字节、同 inode、真像素）。硬链接是唯一同时满足「真」与「省」的路——而 same-inode 校验把「真」从声明变成可执行断言（CHECK 模式 dev+ino+size 三同）。引用即共享本体，这是文件系统给的免费诚实。
+- 「测量不猜模式」：B/px chip 报 67109888÷4096² = 4.0，不报「float32」——4.0 是数出来的，float32 是推出来的。测量与推断的界线放在 UI 文案里（title 教学：「4.0 is float32, 2.0 int16; counted, not guessed」）；chip 本体只说测量。诚实的数据展示让用户自己长出推断，而不是替用户推断。
+- 「跑法也要有实名」：match-unit 三窗绿了却没人记跑法——本窗回归一跑就崩（ERR_MODULE_NOT_FOUND）。考古无果后不再猜，写 unit-runner（jiti + alias）把跑法变成代码：`node scripts/unit-runner.mjs scripts/tXXX-match-unit.mjs`。「选择器从实况来」对跑法同样成立——跑不出来的一切绿灯都是历史，不是现状。
+- 「判决书是活的」：t654 的 bounded-404 判决从「预存世界信号」写到「退役」只隔三窗——世界升格后旧断言（>0）会咬新的真状态（=0）。判决书必须跟世界的版本走；给判决书写退役条款（谁升级了它、为什么、新合同是什么），比让它悄悄失效诚实。
+- 产出：t531 世界升格（硬链接 10 真帧 + optics block + same-inode CHECK 锚 + RESULTS 文本诚实化）+ import-gallery pane 统计行（dims + B/px 测量 + 诚实缺席）+ t657-e2e 25/0（首跑零自纠）+ t654-e2e 判决书升级（25/0 复跑）+ unit-runner（跑法实名化）+ 📸×2；下窗入口：①样式细节车道（compare pane 统计行的横向一致性确认——全等 dims 时「same dims across panes」一行；star-table hover 过渡微调——t656 余项）②功能车道（palette 直达 compare/import-gallery 深链——t656 候选待议；真帧世界解锁的 motioncorr/ctffind demo 升格——下游 job 的预览不再 404 的世界红利）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 67 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
