@@ -77,6 +77,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { REMOTE_CLUSTERS_OPEN_EVENT } from "./remote-cluster-dialog";
+import { PaletteGalleryThumb } from "./palette-gallery-thumb";
 import { useWorkflowStore } from "@/lib/store";
 import { stageWorkflowFiles } from "@/lib/import-stage";
 import { hasJudgment, parseClassNotes } from "@/lib/class-notes";
@@ -749,6 +750,10 @@ export function CommandPalette() {
                     <span className="min-w-0 flex-1 truncate text-sm">
                       Frame gallery — <span className="font-medium">{j.name}</span>
                     </span>
+                    {/* t663 — the first frame's tile, fetched when the row is
+                        active (hover or arrows) and cached module-level; the
+                        honest ladder keeps wall-less rows icon-only */}
+                    <PaletteGalleryThumb kind="frames" jobId={j.id} label={`First frame of ${j.name}'s wall`} />
                     <TypeIcon
                       name={spec?.icon ?? "boxes"}
                       className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
@@ -780,6 +785,9 @@ export function CommandPalette() {
                     <span className="min-w-0 flex-1 truncate text-sm">
                       Class averages — <span className="font-medium">{j.name}</span>
                     </span>
+                    {/* t663 — the first class tile, same lane rule the teaser
+                        obeys (volumes win, the combined stack covers 2D) */}
+                    <PaletteGalleryThumb kind="classes" jobId={j.id} label={`First class of ${j.name}`} />
                     <TypeIcon
                       name={spec?.icon ?? "boxes"}
                       className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
