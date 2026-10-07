@@ -27,6 +27,15 @@ const must = (cond, label, detail) => {
   else { FAIL++; console.log(`  FAIL: ${label}${detail ? ` (${detail})` : ""}`); }
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const pollUntil = async (fn, timeoutMs = 10000) => {
+  const t0 = Date.now();
+  for (;;) {
+    const v = await fn().catch(() => null);
+    if (v) return v;
+    if (Date.now() - t0 > timeoutMs) return null;
+    await sleep(300);
+  }
+};
 
 // ---------- A: API ----------
 {
@@ -91,9 +100,13 @@ await sleep(1500);
 const dialog = page.locator('[role="dialog"]');
 must(await dialog.count() > 0, "B STAR dialog opens");
 
-// headers are buttons (keyboard operable)
+// headers are buttons (keyboard operable) — the dialog's table hydrates
+// after open, and under memory pressure that outlives any fixed sleep
+// (three flap convictions across two windows); the poll is the honest form
+// of "the button EXISTS", not "it exists within 1.5 s"
 const headerBtn = dialog.locator('thead th[title="_rlnAnglePsi"] button');
-must(await headerBtn.count() === 1, "B the AnglePsi header is a button (keyboard reachable)");
+const headerUp = await pollUntil(async () => (await headerBtn.count()) === 1 || null, 10000);
+must(!!headerUp, "B the AnglePsi header is a button (keyboard reachable)");
 
 const firstCellText = () => dialog.locator("tbody tr").first().locator("td").nth(1).innerText();
 const ariaSortOf = () => dialog.locator('th[aria-sort]').getAttribute("aria-sort");
