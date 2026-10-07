@@ -29,6 +29,7 @@
 import * as React from "react";
 import { useTheme } from "next-themes";
 import {
+  Aperture,
   Command as CommandIcon,
   Activity,
   Copy,
@@ -225,6 +226,28 @@ export function CommandPalette() {
   const CLASS_NOTE_CAP = 12;
   const notedClassRows = notedClasses.slice(0, CLASS_NOTE_CAP);
 
+  // Frame galleries group (t659) — the frame WALLS become palette
+  // citizens: one row per gallery-capable job, the jump lands INSIDE the
+  // lightbox (the Task 81 handshake's second heir rides in the store).
+  // Capability = the same contract the inspector mounts the gallery by:
+  // import jobs (micrographs node type — a particles import speaks a
+  // STAR, not frames) and MotionCorr jobs, both completed — an idle or
+  // running job has no wall yet, a promise the entry must not make.
+  // Whether the workdir's frames physically exist is a WORLD question
+  // the palette does not prefetch: the consumer clears the request
+  // honestly when the wall turns out empty (the jump still lands on the
+  // job — the arrival is real, only the lightbox is absent).
+  const galleryJobs = jobs
+    .filter(wsScope)
+    .filter((j) => {
+      if (j.status !== "completed") return false;
+      if (/^motioncorr$/i.test(j.type)) return true;
+      return /^import$/i.test(j.type) && String(j.params?.nodeType ?? "micrographs") !== "particles";
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const GALLERY_CAP = 12;
+  const galleryRows = galleryJobs.slice(0, GALLERY_CAP);
+
   // Ctrl+K / ⌘K from anywhere + the header chip's custom event.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -264,6 +287,20 @@ export function CommandPalette() {
     s.select(jobId);
     s.focusJob(jobId);
     s.requestClassFocus(jobId, cls);
+    close();
+  };
+
+  /** t659 — the Frame galleries deep link: land ON the wall. openJob
+   *  carries the view switch + the completed→inspect contract; the
+   *  one-shot pendingGalleryFocus handshake rides in the store — the
+   *  inspector host switches to the overview tab, the gallery opens the
+   *  lightbox at the first frame and consumes the request. Compare mode
+   *  deliberately has NO deep link: a tray with zero picks is the t654
+   *  lie — the wall is the honest direct destination. */
+  const jumpToGallery = (jobId: string) => {
+    const s = useWorkflowStore.getState();
+    void s.openJob(jobId);
+    s.requestGalleryFocus(jobId);
     close();
   };
 
@@ -653,6 +690,37 @@ export function CommandPalette() {
                     </span>
                     <span className="max-w-32 shrink-0 truncate text-[11px] text-muted-foreground/70">
                       {job.name}
+                    </span>
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* ---------------- frame galleries (t659 deep link) ---------------- */}
+        {galleryRows.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Frame galleries · ${galleryJobs.length} wall${galleryJobs.length === 1 ? "" : "s"}${galleryJobs.length > galleryRows.length ? ` — first ${galleryRows.length}` : ""}`}
+            >
+              {galleryRows.map((j) => {
+                const spec = jobType(j.type);
+                return (
+                  <CommandItem
+                    key={`gallery-${j.id}`}
+                    value={`frame gallery micrographs wall ${j.name} ${j.type}`}
+                    onSelect={() => jumpToGallery(j.id)}
+                    className="gap-2.5"
+                  >
+                    <Aperture className="size-4 shrink-0 text-running-600 dark:text-running-400" />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      Frame gallery — <span className="font-medium">{j.name}</span>
                     </span>
                     <TypeIcon
                       name={spec?.icon ?? "boxes"}

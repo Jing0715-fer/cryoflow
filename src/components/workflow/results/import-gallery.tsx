@@ -46,7 +46,7 @@
  */
 
 import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { Aperture, Columns3, Grid3x3, ImageIcon, RefreshCw, Server } from "lucide-react";
+import { Aperture, Check, Columns3, Grid3x3, ImageIcon, RefreshCw, Server } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,7 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
 import { Chip } from "@/components/ui/chip";
 import { MrcImage } from "./mrc-image";
 
@@ -218,6 +219,30 @@ export function ImportGallery({
       cancelled = true;
     };
   }, [jobId, reroll, isCorrected]);
+
+  // t659 — the Frame galleries deep link's CONSUMER leg: the palette
+  // asked for THIS wall (the one-shot pendingGalleryFocus rides in the
+  // store; the inspector host only cleared the way to the overview tab).
+  // Fresh request + wall on screen → the lightbox opens at the first
+  // frame — the arrival IS the lightbox, no half-gestures. The waiting
+  // law: while the data is still loading the request WAITS (consuming
+  // it at mount would eat the link before the wall exists); a stale
+  // request is cleared on sight, an empty wall or a failed fetch is
+  // cleared honestly — a lingering link can never re-open later (the
+  // Task 81 law).
+  const pendingGalleryFocus = useWorkflowStore((s) => s.pendingGalleryFocus);
+  const consumeGalleryFocus = useWorkflowStore((s) => s.consumeGalleryFocus);
+  useEffect(() => {
+    if (!pendingGalleryFocus || pendingGalleryFocus.jobId !== jobId) return;
+    if (Date.now() - pendingGalleryFocus.at >= GALLERY_FOCUS_TTL_MS) {
+      consumeGalleryFocus();
+      return;
+    }
+    // still loading — the effect re-runs when data or error arrives
+    if (data == null && !error) return;
+    if (data && data.micrographs.length > 0) setSelected(0);
+    consumeGalleryFocus();
+  }, [pendingGalleryFocus, jobId, data, error, consumeGalleryFocus]);
 
   /** advance + persist the sample generation (the re-sample button).
    * t654 — the wall changes, so the tray is emptied: picks that point
@@ -524,6 +549,29 @@ export function ImportGallery({
                   );
                 })}
               </div>
+              {/* t659 — the aggregate the eyes already make but the UI
+                  never said: when EVERY pane measures the same detector
+                  geometry, one line says it once, so the per-pane rows
+                  don't have to be re-read as a verdict. Only the
+                  agreement speaks — a difference is visible in the rows
+                  themselves, and an unmeasured wall (nx=0) confirms
+                  nothing it didn't count. */}
+              {(() => {
+                const measured = pickedEntries.filter((m) => m.nx > 0);
+                if (measured.length < 2 || measured.length !== pickedEntries.length) return null;
+                const first = measured[0];
+                if (!measured.every((m) => m.nx === first.nx && m.ny === first.ny)) return null;
+                return (
+                  <p
+                    data-gallery-ui="compare-same-dims"
+                    className="mt-1.5 flex items-center justify-center gap-1 text-[10px] font-medium text-muted-foreground"
+                    title="every pane's MRC header reports the same detector dimensions"
+                  >
+                    <Check className="h-3 w-3 text-running-600" aria-hidden="true" />
+                    same dims across panes — {first.nx}×{first.ny} px
+                  </p>
+                );
+              })()}
             </>
           ) : null}
         </DialogContent>

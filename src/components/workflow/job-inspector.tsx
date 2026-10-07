@@ -98,7 +98,7 @@ import { CopyButton } from "./copy-button";
 import { RemoteStayNote } from "./remote-stay-note";
 import { RemoteRunButton } from "./remote-run-button";
 import { CleanupDialog } from "./cleanup-dialog";
-import { useWorkflowStore } from "@/lib/store";
+import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
 
 /** t617 — the inspector wave's timing words. The modal mounts on the user's
  *  own card click (a pointerup on a submitted card), so the beat is the
@@ -3433,6 +3433,27 @@ export function JobInspector() {
       );
     }
   }, [inspectId, job, job?.status]);
+
+  // t659 — the Frame galleries deep link's HOST leg (the Task 81
+  // handshake's second heir): a palette jump to this job's frame wall
+  // lands on the OVERVIEW tab, where the gallery mounts. The host only
+  // clears the way — the request itself is consumed by the gallery once
+  // its wall renders (fresh: lightbox opens; stale: cleared on sight, so
+  // a lingering link can never surprise a later inspector open — the
+  // class-note law). The jump is a manual choice, so it latches the tab
+  // exactly like a user click does (onTabSelect semantics).
+  const pendingGalleryFocus = useWorkflowStore((s) => s.pendingGalleryFocus);
+  const consumeGalleryFocus = useWorkflowStore((s) => s.consumeGalleryFocus);
+  React.useEffect(() => {
+    if (inspectId == null || !job) return;
+    if (!pendingGalleryFocus || pendingGalleryFocus.jobId !== job.id) return;
+    if (Date.now() - pendingGalleryFocus.at < GALLERY_FOCUS_TTL_MS) {
+      tabTouchedForRef.current = inspectId;
+      setTab("overview");
+    } else {
+      consumeGalleryFocus();
+    }
+  }, [pendingGalleryFocus, job, inspectId, consumeGalleryFocus]);
 
   // Task 120: the Overview leg of the failure diagnosis — the strip lives in
   // the Log console, which unmounts with its tab, so the Overview summary

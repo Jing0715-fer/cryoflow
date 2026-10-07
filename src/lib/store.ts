@@ -18,6 +18,14 @@ import {
   twinSpot,
 } from "./duplicate-run";
 import { describeAdoption, planAdoption } from "./adopt-branch";
+
+/** t659 — the Frame galleries deep link's freshness window (ms). The
+ *  request is a GESTURE: it should fire while the user is still looking
+ *  at the arrival, not hours later. Host and consumer both clear stale
+ *  requests on sight (the class-note law: a stale request can never
+ *  re-open later) — the TTL is what makes "on sight" decidable for a
+ *  consumer that mounts behind two gates (inspector open + tab). */
+export const GALLERY_FOCUS_TTL_MS = 15_000;
 import { findStaleJobs, type StaleReport } from "./staleness";
 import { findDriftedJobs, type DriftReport } from "./params-drift";
 import { twinName, twinNamesFor } from "./twin-name";
@@ -788,6 +796,16 @@ interface WorkflowState {
    *  class) and clears it — never observed twice. */
   pendingClassFocus: { jobId: string; cls: number } | null;
   requestClassFocus: (jobId: string, cls: number) => void;
+  /** One-shot deep link from the command palette's Frame galleries group
+   *  (t659, the Task 81 handshake's second heir): "open THIS job's frame
+   *  wall in the lightbox". The inspector is the HOST (it switches to the
+   *  overview tab, where the gallery mounts); the gallery itself CONSUMES
+   *  the request once its data is on screen — fresh requests open, stale
+   *  ones (TTL) are cleared on sight so a lingering link can never
+   *  re-open later. */
+  pendingGalleryFocus: { jobId: string; at: number } | null;
+  requestGalleryFocus: (jobId: string) => void;
+  consumeGalleryFocus: () => void;
   /** The session's LAST HPC sweep (t197): the session QC report binds it
    *  verbatim. One slot — a finished race replaces the previous one
    *  wholesale; a race that never started writes nothing. In-memory by
@@ -2141,6 +2159,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   birthEdgeIds: [],
   focusJobId: null,
   pendingClassFocus: null,
+  pendingGalleryFocus: null,
   lastSweep: null,
   focusEpoch: 0,
   arrivalEpoch: 0,
@@ -5442,6 +5461,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),
+  requestGalleryFocus: (jobId) => set({ pendingGalleryFocus: { jobId, at: Date.now() } }),
+  consumeGalleryFocus: () => set({ pendingGalleryFocus: null }),
   setLastSweep: (s) => set({ lastSweep: s }),
   consumeClassFocus: () => set({ pendingClassFocus: null }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
