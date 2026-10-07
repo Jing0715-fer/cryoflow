@@ -10353,3 +10353,22 @@ Stage Summary:
 - 「快存的前 2.5 秒是世界给探针的陷阱」：embed 的书签加载有 2.5s cap——quick-save 在加载完成前按下，浏览器空账本全量 PUT 吞掉 server 上一切它没见过的席。这不是产品病（offline-first 的家的账本语义），是探针的时序罪——但它的指纹（server 只剩最后一个 bm）一开始像数据丢失事故。加载指纹（aria-label 的 — N saved）是产品的加载进度条——读它，别猜它。
 - 「探针的 setup 是断言的一部分」：修世界时写的 thumbless 种子让 C 腿的基线 img 变成 fallback——srcBefore 空串，must 判 FAIL，产品全对。isClean 的验尸要连「断言将读到的东西」一起验：席在、名字对、thumb 是 image——探针的 setup 与它的断言同责。「先疑仪表，再疑判据，终判世界」的第三层之外还有第零层：疑 setup 自己。
 - 产出：embed commitBookmarks 广播（挂 PUT 链尾）+ palette 常驻监听（refreshSavedViewsCache 动词）+ 演练床复验 ALL GREEN + t671-third-mouth.mjs（30 锚四航 + PNG 编码器 + 加载指纹守卫 + 三段式数墙）+ t668 断言放宽（探针间世界共享账）+ 📸×2；下窗入口：①功能车道（语义色 token ~470 处——连续九窗记账，需整窗+稳定回归夜；「could not be restored」第三出口专属锚——molstar error 态受控注入，等稳定夜）②样式车道（账本清零）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，第 81 窗否决）⑤演练床一键（本窗已复验 ALL GREEN，账本清零）⑥三嘴家族的收尾巡检候选：view 内书签列表的 rename/update 嘴的专属锚（t671 只锚了 update 的 thumb 与 remove/save 的存在性）
+
+---
+Task ID: 672 收官（陈旧沙箱和解窗）
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080011)
+Task: 00:09 派单执行——开局即撞「陈旧沙箱分叉」：本窗在 09-21 快照上做了整窗「Task 273 遗产验收」，push 时才发现 behind 899（真世系 273→671 在远端健在）——和解：回声入侧分支、真树复位 c9d5887、陈构建铲除、教训入账
+
+Work Log:
+- [分叉定谳] 本地 worklog 止于 Task 272、HEAD 94a10e5（09-21 无名 cron 提交，装着 family-run --report + t273 自验套件的「平行回声」）；续传摘要所称 Task 670/bc10d22 在本地树一无所获，push 被拒（non-fast-forward）后 fetch 勘察：origin/main = c9d5887（Task 671 tip），**behind 899**——三周真演进全在远端，本地沙箱是 09-21 陈旧快照。真世系自有 Task 273（09-17 双窗交付 family report），回声的每个「发现」（断言化石/第二把擦除嘴/.gitignore scratch）真世系都更早做完做对。真源律新增维度：**「树上的核实」不止 worklog 尾条，还要 git fetch 对账远端——沙箱可以是陈旧的，远端才是家族的真前线**。
+- [回声谢幕仪式] `git branch sandbox-echo-stale-task273`（本地留档，永不 push）→ `git reset --hard origin/main`（真树复位，树净 0 dirty）→ **rm -rf .next（陈 stale 树构建的 standalone 产物——Task 86 判例：陈构建用陈 chunk 说谎，留着就是给下窗埋的哑弹）** → 环境三杀（watchdog/server/mock cluster）+ port FREE 验证（3000/3022 双 0）。
+- [本窗在沙箱里挣到的、经得起同步的教训（真世系可直接继承）] ①**孤儿化才是收割器免疫，setsid 不是**：裸 nohup 与 `setsid cmd &`（仍是持久 shell 直系子进程）都跨不过工具调用边界（trivial sleep 对照实验证实），`( setsid nohup cmd … & )` 子 shell 即退→孤儿过继 PID 1 才活——start-prod.sh 守护姿势 `(nohup bash … &)` 的括号从来不是装饰；agent-browser 守护进程（PPID=1）即活证。②**build 栏 + 堆顶棚 = 新钥匙**：3.5GB 栏校准的是裸 build 的胃口——3.28GB available + `NODE_OPTIONS=--max-old-space-size=2816` + 孤儿姿势（防 600s 工具上限腰斩）= 零错误 standalone（在 stale 树上验证；真树需重验，但钥匙可搬）。③**dev 模式在 4GB 箱上 hosting 不了 e2e**：Turbopack 开机即 2.8GB RSS（405MB available），Chromium 尖峰必被 OOM 反杀——QA 必须 standalone（真世系早已如此，本窗用血复验了为什么）。④agent-ctx/ 与 .qa-logs/ 三周空窗会蒸发（t263 判例再现）——mkdir 先于 QA。⑤OOM 天气取证三连：dmesg 逐杀对时（16:17:08/16:36:43 两杀皆 next-server 2.5GB+Chromium 尖峰）、SKIPPED(SERVER) 与 fail 1 的天气判类、冷却后重跑定谳——老判例的全部流程在本窗走了一遍完整闭环。
+- [验收与和解后的世界] 真树 c9d5887 就位：worklog 尾条 = Task 671（第三嘴广播收官）；roster 语义已换代（真世系口径 17 席，沙箱旧口径 21 席的 restore-gallery.py 属旧世——**下窗 roster 断言以真世系脚本为准**）；family-run.mjs 真版已含 --report/--summary/--reset 与 899 提交的演进；standalone 产物已铲除，available 3435MB（若下窗立项需构建，堆顶棚钥匙在手）。
+- [收尾] worklog（本条）+ docs 车 commit + push（真 tip 之上）；回声两个 commit（94fe015+aa79f3b）留在 sandbox-echo-stale-task273 分支不入主线；无 UI 交付、无定妆照（和解窗）；本窗的家族回归（pass 51）是对 stale 树的——**不构成对真 tip 的回归证据，下窗 QA 需在真树上另起**。
+
+Stage Summary:
+- 「真源律的第三只眼：git fetch 对账远端」：worklog 尾条核实只证明「本地账本自洽」，证明不了「本地账本活在当下」——三周空窗后沙箱快照与远端前线分叉 899 提交，本窗若盲 push 就是把平行宇宙写进家族史。开局四件套从此五件：fetch 一次，behind 数亮出来。
+- 「回声要谢幕，不要合流」：陈旧基座上的认真工作（41 断言验收 + 七批回归全绿）依然不配 push——它验证的是一个不再存在的世界；side branch 留档、真树复位、陈构建铲除，「认真」不豁免「过时」。
+- 「本窗的正产出是四条可搬运的钥匙」：孤儿化括号姿势、build 堆顶棚（3.28GB 可成事）、dev 模式判死书、agent-ctx 复播——全部经对照实验或 dmesg 实锤，全部不依赖沙箱的陈旧性。
+- 「陈构建是留给下窗的哑弹」：rm -rf .next 不是清理是排爆——Task 86 的陈 chunk 谎言在 stale 树上会加倍（整个应用都是旧的）；下窗开工第一眼的 available 3435MB + 堆顶棚钥匙 = 最短构建路径。
+- 遗留（下窗候选）：Task 671 下窗入口清单原样有效（语义色 token / could-not-restore 专属锚 / judge 风暴 / 演练床账本清零 / rename-update 嘴锚）+ 新增：真树 standalone 构建重验（堆顶棚钥匙的第一次真世系应用）
