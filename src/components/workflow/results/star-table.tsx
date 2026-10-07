@@ -49,6 +49,20 @@
  *     (micrographs.star MicrographName), so in the seeded world the
  *     cap never fires — it is hardening for real user files whose
  *     paths run past a hundred characters.
+ *
+ * t656 — the index column learns to STAY (t652's deferred item):
+ *   - the # column is position-sticky left, in both header corner and
+ *     body — a wide STAR file scrolls under it while the record number
+ *     stays pinned (this table scrolls horizontally for real: nowrap
+ *     cells across 10+ columns dwarf any dialog).
+ *   - the sticky cell paints its own OPAQUE row color via color-mix
+ *     (zebra/hover composed over the dialog surface, theme-aware) — a
+ *     translucent sticky cell would let the scrolled columns bleed
+ *     through, which is exactly why t652 shelved this.
+ *   - # shows the row's NATIVE file index, not the display position:
+ *     under a sort the pinned column becomes the visible map of how
+ *     the file's order was scrambled — identity stays, arrangement
+ *     moves. (Sorting was always a view aid; now the aid is legible.)
  */
 
 import { useMemo, useState } from "react";
@@ -132,13 +146,18 @@ function isNumericAlignColumn(rows: string[][], col: number): boolean {
 
 /** t651 — the comparator: NaN/empty ride the tail in BOTH directions
  * (an absence is not a value); ties break on the file's native index
- * so equal keys hold still across re-renders. */
+ * so equal keys hold still across re-renders. t656 — the pairs keep
+ * each row's NATIVE index alongside it: the # column is the file's
+ * record number, not the display position — under a sort the sticky
+ * index column becomes the visible map of how the file's order was
+ * scrambled (t651's "the file's native order is the artifact", now
+ * readable in the very column that stays pinned). */
 function makeSorter(
   rows: string[][],
   col: number,
   dir: SortDir,
   numeric: boolean
-): string[][] {
+): { row: string[]; idx: number }[] {
   const keyed = rows.map((row, i) => ({ row, i, cell: row[col] ?? "" }));
   const flip = dir === "asc" ? 1 : -1;
   keyed.sort((a, b) => {
@@ -164,7 +183,7 @@ function makeSorter(
     if (cmp !== 0) return cmp * flip;
     return a.i - b.i;
   });
-  return keyed.map((k) => k.row);
+  return keyed.map((k) => ({ row: k.row, idx: k.i }));
 }
 
 export function StarTable({ job, path }: { job: JobDTO; path: string }) {
@@ -190,8 +209,9 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
   );
 
   const viewRows = useMemo(() => {
-    if (!data) return [];
-    if (!sort || sort.col >= data.columns.length) return data.rows;
+    if (!data) return [] as { row: string[]; idx: number }[];
+    if (!sort || sort.col >= data.columns.length)
+      return data.rows.map((row, idx) => ({ row, idx }));
     return makeSorter(data.rows, sort.col, sort.dir, numericCols.has(sort.col));
   }, [data, sort, numericCols]);
 
@@ -199,7 +219,7 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
   // if no cell was cut, "hover to reveal" would be instructions for a
   // problem that does not exist.
   const hasTruncated = useMemo(
-    () => viewRows.some((row) => row.some((cell) => (cell ?? "").length > CELL_CAP)),
+    () => viewRows.some(({ row }) => row.some((cell) => (cell ?? "").length > CELL_CAP)),
     [viewRows]
   );
 
@@ -260,9 +280,15 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
       </div>
       <div className="max-h-96 overflow-auto rounded-md border">
         <table className="w-full border-collapse">
-          <thead className="sticky top-0 z-10">
+          {/* t656 — z choreography: the header sits ABOVE the sticky index
+              column (z-20 root context vs the body cells' z-10), so a
+              diagonal scroll can never let a body cell cover the corner. */}
+          <thead className="sticky top-0 z-20">
             <tr>
-              <th className="border-b bg-muted/95 px-2 py-1.5 text-right font-mono text-[10px] font-semibold text-muted-foreground backdrop-blur">
+              {/* t656 — the corner cell sticks BOTH ways (top with its
+                  thead, left on its own) and stays above every header
+                  sibling while the columns slide under it. */}
+              <th className="sticky left-0 z-30 border-b border-r border-border/60 bg-muted/95 px-2 py-1.5 text-right font-mono text-[10px] font-semibold text-muted-foreground backdrop-blur">
                 #
               </th>
               {data.columns.map((col, c) => {
@@ -302,9 +328,28 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
             </tr>
           </thead>
           <tbody>
-            {viewRows.map((row, i) => (
-              <tr key={i} className={cn(i % 2 === 1 && "bg-muted/40", "hover:bg-accent/50")}>
-                <td className="px-2 py-1 text-right font-mono text-[11px] text-muted-foreground/70">{i + 1}</td>
+            {/* t656 — the row is a hover group so the sticky cell can join
+                the hover face: its background must be OPAQUE (the zebra
+                wash is translucent, and a translucent sticky cell lets
+                the scrolled columns bleed through — t652's deferred
+                blocker), so the composed color-mix layer repaints the
+                exact row color over the dialog surface, theme-aware in
+                both light and dark. group-hover outranks the zebra the
+                same way the row's own hover already did. */}
+            {viewRows.map(({ row, idx }, i) => (
+              <tr key={i} className={cn("group", i % 2 === 1 && "bg-muted/40", "hover:bg-accent/50")}>
+                <td
+                  data-star-idx-cell=""
+                  className={cn(
+                    "sticky left-0 z-10 border-r border-border/60 px-2 py-1 text-right font-mono text-[11px] text-muted-foreground/70",
+                    i % 2 === 1
+                      ? "bg-[color-mix(in_srgb,var(--color-muted)_40%,var(--color-background))]"
+                      : "bg-[var(--color-background)]",
+                    "group-hover:bg-[color-mix(in_srgb,var(--color-accent)_50%,var(--color-background))]"
+                  )}
+                >
+                  {idx + 1}
+                </td>
                 {row.map((cell, j) => {
                   const numeric = alignNumericCols.has(j);
                   const t = truncateCell(cell ?? "");
