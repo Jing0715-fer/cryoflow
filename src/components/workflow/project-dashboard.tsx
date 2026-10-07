@@ -48,7 +48,7 @@ import { useWorkflowStore } from "@/lib/store";
 import { STATUS_DOT } from "@/lib/status-style"; // t647 — the dot family lives with the word law
 import { parseClassNotes, hasJudgment } from "@/lib/class-notes";
 import { withLiveStats } from "@/lib/live-stats";
-import { PENDING_VIEW_KEY } from "@/lib/view-link";
+import { PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT } from "@/lib/view-link";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
 import { HomecomingSweepBar } from "./homecoming-sweep";
 import { KpiSparkline } from "./kpi-sparkline";
@@ -766,25 +766,34 @@ function SavedViewsGallery() {
   // refetches, and a shrinking collection just renders fewer cards
   const [showAllViews, setShowAllViews] = React.useState(false);
 
-  // same freshness trigger as the recent feed: mount + whenever the
-  // active project's job list moves (a saved view appearing/disappearing
-  // rides the same commit path as a job mutation)
+  // freshness triggers: mount, whenever the active project's job list
+  // moves, AND (t670) whenever the OTHER mutation mouth broadcasts — a
+  // palette-row delete must not leave the wall holding its stale copy
+  // until some unrelated job mutation happens to refresh it. The event
+  // carries no payload on purpose: the wall trusts only its own fresh
+  // read (the same doctrine as its own delete — read fresh at the moment
+  // of truth, never a possibly stale copy, whoever owns it).
   React.useEffect(() => {
     let alive = true;
-    fetch("/api/views/gallery")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d: { views?: GalleryEntry[] }) => {
-        if (alive)
-          setViews(
-            Array.isArray(d.views) ? d.views.filter((v) => v.bookmarks.length > 0) : []
-          );
-      })
-      .catch(() => {
-        /* the wall is a convenience, not a dependency — hide on failure */
-        if (alive) setViews(null);
-      });
+    const load = () => {
+      fetch("/api/views/gallery")
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((d: { views?: GalleryEntry[] }) => {
+          if (alive)
+            setViews(
+              Array.isArray(d.views) ? d.views.filter((v) => v.bookmarks.length > 0) : []
+            );
+        })
+        .catch(() => {
+          /* the wall is a convenience, not a dependency — hide on failure */
+          if (alive) setViews(null);
+        });
+    };
+    load();
+    window.addEventListener(SAVED_VIEWS_CHANGED_EVENT, load);
     return () => {
       alive = false;
+      window.removeEventListener(SAVED_VIEWS_CHANGED_EVENT, load);
     };
   }, [jobCount]);
 

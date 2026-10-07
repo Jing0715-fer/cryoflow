@@ -44,6 +44,7 @@ import {
   BookOpen,
   Layers,
   LayoutDashboard,
+  Loader2,
   Maximize2,
   Moon,
   Network,
@@ -59,6 +60,7 @@ import {
   Wand2,
   Waves,
   Workflow,
+  X,
   FileTerminal,
   RefreshCcw,
   FolderOpen,
@@ -76,6 +78,7 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT } from "@/lib/view-link";
 import { cn } from "@/lib/utils";
 import { REMOTE_CLUSTERS_OPEN_EVENT } from "./remote-cluster-dialog";
 import { PaletteGalleryThumb } from "./palette-gallery-thumb";
@@ -96,7 +99,6 @@ import {
 } from "@/lib/workflow-io";
 import { TypeIcon } from "./icons";
 import { PipelineScriptDialog } from "./pipeline-script-dialog";
-import { PENDING_VIEW_KEY } from "@/lib/view-link";
 
 /** t483: exported — the help guide's finding chapter names the palette,
  *  and a named door must open: the guide dispatches this, the palette's
@@ -489,6 +491,69 @@ export function CommandPalette() {
     }
     void useWorkflowStore.getState().openJob(v.jobId, { projectId: v.projectId });
     close();
+  };
+
+  // t670 — the palette row gets the wall's delete face (t669), palette-sized.
+  // The contract is the wall's VERBATIM, two palette-owning differences:
+  //  • the mutation stays on the per-job camera-bookmarks route — the row
+  //    READS FRESH AT CLICK TIME and PUTs the remaining list, never its own
+  //    possibly stale TTL cache copy (a view saved in the viewer since this
+  //    fetch must survive the delete);
+  //  • the palette's OWN clock shrinks with the server's: the module-level
+  //    TTL cache drops the bookmark here, so a reopen inside the 30s window
+  //    shows the post-delete truth at zero wire cost — the deleted row does
+  //    not haunt the list until the TTL expires (the t669 "double clock"
+  //    anchor, now owning both halves). The wall's single-flight key
+  //    (two rapid deletes would race their read-filter-write cycles),
+  //    the honest toasts, and the keep-the-row-on-failure ending all ride
+  //    along unchanged.
+  const [deletingView, setDeletingView] = React.useState<string | null>(null);
+  const deleteSavedView = async (v: SavedViewEntry, b: SavedViewBookmark) => {
+    const rowKey = `${v.jobId}:${b.id}`;
+    if (deletingView) return; // one in-flight delete at a time — the second X waits
+    setDeletingView(rowKey);
+    try {
+      const r = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`);
+      if (!r.ok) throw new Error(`read ${r.status}`);
+      const j = (await r.json()) as { bookmarks?: Array<{ id: string }> };
+      const rest = (j.bookmarks ?? []).filter((x) => x && x.id !== b.id);
+      const w = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookmarks: rest }),
+      });
+      if (!w.ok) throw new Error(`write ${w.status}`);
+      const shrink = (prev: SavedViewsState): SavedViewsState => {
+        if (prev.kind !== "ready") return prev;
+        const views = prev.views
+          .map((row) =>
+            row.jobId === v.jobId
+              ? { ...row, bookmarks: row.bookmarks.filter((x) => x.id !== b.id) }
+              : row
+          )
+          .filter((row) => row.bookmarks.length > 0);
+        return views.length > 0
+          ? { ...prev, views }
+          : { kind: "absent", fetchedAt: prev.fetchedAt };
+      };
+      savedViewsCache = shrink(savedViewsCache);
+      setSavedViews(savedViewsCache);
+      // the OTHER mouth hears it too: the dashboard wall re-reads the route
+      // (payload-less broadcast — the wall trusts only its own fresh fetch)
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+      toast({
+        title: `View “${b.name}” deleted`,
+        description: `Removed from ${v.jobName}'s saved views.`,
+      });
+    } catch {
+      toast({
+        title: "Could not delete the view",
+        description:
+          "The server did not confirm the removal — the row stays on the palette.",
+      });
+    } finally {
+      setDeletingView(null);
+    }
   };
 
   const runJob = (id: string) => {
@@ -1005,7 +1070,8 @@ export function CommandPalette() {
                   key={`saved-view-${v.jobId}:${b.id}`}
                   value={`saved view 3d bookmark ${b.name} ${v.jobName} ${v.jobType}`}
                   onSelect={() => jumpToSavedView(v, b)}
-                  className="gap-2.5"
+                  data-palette-savedview-row={b.id}
+                  className="group/item relative gap-2.5"
                 >
                   {/* the thumb the save captured — inline data URL, zero
                       extra fetches (the dashboard card's picture, row-);
@@ -1026,10 +1092,40 @@ export function CommandPalette() {
                   <span className="max-w-32 shrink-0 truncate text-[11px] text-muted-foreground/70">
                     {v.jobName}
                   </span>
-                  <Mountain
-                    className="size-3.5 shrink-0 text-teal-600/70 dark:text-teal-400/70"
-                    aria-hidden="true"
-                  />
+                  {/* t670 — the row is two mouths, the wall's slot-swap
+                      grammar at palette scale: the Mountain tail (the jump
+                      mouth's affordance) and the X share one slot — hover
+                      swaps one for the other, no layout shift, nothing
+                      occluded. stopPropagation keeps cmdk's own onSelect
+                      (the jump) out of the delete's click; Tab still
+                      reaches a visible control (focus-visible +
+                      group-focus-within), and motion-reduce keeps the
+                      swap from animating. */}
+                  <span className="relative flex size-5 shrink-0 items-center justify-center">
+                    <Mountain
+                      className="size-3.5 text-teal-600/70 transition-opacity group-hover/item:opacity-0 group-focus-within/item:opacity-0 motion-reduce:transition-none"
+                      aria-hidden="true"
+                    />
+                    <button
+                      type="button"
+                      data-palette-savedview-delete={b.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        void deleteSavedView(v, b);
+                      }}
+                      disabled={deletingView !== null}
+                      aria-label={`Delete saved view “${b.name}”`}
+                      title={`Delete “${b.name}” — removes this bookmark from ${v.jobName}'s saved views`}
+                      className="absolute inset-0 flex items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity motion-reduce:transition-none hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 group-hover/item:opacity-100 group-focus-within/item:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {deletingView === `${v.jobId}:${b.id}` ? (
+                        <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <X className="size-3" aria-hidden="true" />
+                      )}
+                    </button>
+                  </span>
                 </CommandItem>
               ))}
             </CommandGroup>

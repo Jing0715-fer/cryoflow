@@ -14,3 +14,15 @@ export interface PendingView {
   jobId: string;
   bookmarkId: string;
 }
+
+/**
+ * t670 — "saved views changed"broadcast. The collection now has TWO
+ * mutation mouths (the dashboard wall's X, t669; the palette row's X,
+ * t670), and the wall's own refetch trigger (jobCount) never fires for a
+ * bookmark mutation — a delete from the OTHER mouth would leave the wall
+ * holding its stale copy until some unrelated job mutation happened to
+ * refresh it. A delete dispatches this; the wall re-reads the route at
+ * click-time freshness (never trusts a payload — the same doctrine as its
+ * own delete: read fresh, render what the server confirms).
+ */
+export const SAVED_VIEWS_CHANGED_EVENT = "cryoflow:saved-views-changed";
