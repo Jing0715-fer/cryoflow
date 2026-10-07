@@ -10239,3 +10239,24 @@ Stage Summary:
 - 「铸选的完成时是 wire 落地」：D 腿二航的 2 FAIL 是探针在 mint POST 后裸读 /api/edges——connect() 的两次 POST 还在飞。产品一次没错过；「探针的预期会算错」家族（t664 几何课、t665 大小写课）添第三员：时序版。每个「手势的结局」断言先问结局的完成时在哪——job 出现？wire 落地？台账记账？在飞窗口里的裸读量到的是窗口不是结局。
 - 「世界的债要连本带息地还」：topaztrain 分支不是「加个 job」——它的诚实形态 = 台账（引擎自己的 outputs 键）+ 日记（解析器方言的 CSV，数字有故事的形状）+ 边（端口推导恰好喂 handoff 的猎取）+ 台账制品（.sav 的字节诚实：存在即它声称的一切）。t665 的盒滤波家族谱系再添一支：FSC 曲线声明「算出了曲线」、幻影体积声明「产出了 map」、denoised 帧声明「把帧变干净了」、训练日记声明「训练发生过且长这样」——各声明各的，互不冒充。
 - 产出：PaletteGalleryThumb 第三 kind（denoise 门 = 双腿齐全 + 底层 = denoised 腿）+ Denoise compare 组挂载 + seeder topaztrain 分支（日记 + 台账 + 边 + CHECK 七锚）+ t666-e2e 31/0（三航：恢复梯 + 在飞窗口课）+ 📸×2；下窗入口：①功能车道（语义色 token 缺位 ~470 处——t640 时代立案整窗工程，连续四窗记账；t665 深链家族巡检——三个 Gallery 组的 jump 深链各有 host/墙双门，值得一次跨组探针合账）②样式车道（compare 图间统计 chip——t654 待议余项尚在；thumb 的 loading 脉冲与 palette 骨架的呼吸节奏统一复核——t663 组件的 40px slot vs 行骨架）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 76 窗否决；OOM 三杀后重启回落过一次 3216MB——服务器重启仍是 build 日的最短路径）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 667 收官
+Agent: main (cron window, Job 362852)
+Task: t666 下窗入口①深链家族巡检兑现——三 Gallery 组 jump 深链 host/墙双门跨组探针合账（t667 25/0 双航，OOM 三杀窗口里恢复梯实战自证）+ ②车道两裁决（compare 统计 chip 聚合空间已满=不做；thumb 脉冲与骨架同族=不改）
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 666 收官（续接摘要称 Task 658——滞后八窗，铁律「先 tail worklog 不盲信摘要」再 value）；HEAD e1168d3 树净；available 1076MB 非 build 日（第 77 窗否决）；server 200/31ms；agent-browser 巡检 console 净 + roster 17 全 completed——稳定，自主提新需求。基线四绿（t252 + qa78 + t637 6/0 + t641 10/0）。
+- [定靶·跨组合账] t666 入口①「深链家族巡检值得一次跨组探针合账」兑现。侦察定谳：四条 pending 线在案（ClassFocus 带 cls / GalleryFocus / ClassAveragesFocus / DenoiseFocus），三个 Gallery 组行（Frame galleries / Class averages / Denoise compare）各配 jumper；t659/t660/t665 各窗只各证各家的到站，没有一支探针在一次会话里走完三家。合账的真合同 = 跨家族：给一堵墙发的请求永不开别家的手势；消费一家不伤别家；被消费的链接跨 tab 换向、跨整卡重开永不复活（Task 81 法，三家深）。
+- [t667-e2e 25/0 双航] A 5（三组同框 2/3/1 行 + 起点零 flash）+ B 4（第一跳 frames → lightbox "1 of 10" 到站 + Esc + Results→Overview tab 换向不复活）+ C 3（第二跳 classes → teaser 到站 + Overview 锁定 + frames lightbox 全程闭）+ D 4（第三跳 denoise → 墙 + fuchsia flash→fade + lightbox 三跳零串火）+ E 5（import 重开墙挂载且安静 + denoise 重开墙持久无 re-flash）+ F 5 桶全零 + 📸×2（t667-frames-arrival / t667-denoise-arrival）。
+- [探针三课] ①roster 开卡按钮 title = `Open ${job.name}`（job 名非 type——"Open own import" 是我编的，真形 "Open EMPIAR mics import"；t658 worklog 的 "Open own motioncorr" 是 job 恰好名叫 own motioncorr）；②openJob 强制落 canvas 视图——E 腿重开前要点 dashTab 回 dashboard（t665 的舞步 verbatim，这次先读了再抄）；③completed job 手动重开智能默认 = Results，import 墙挂 Overview——重开后先对齐 tab 再数 thumb。
+- [OOM 三杀与恢复梯] 本窗 dmesg 三度处决 next-server（10:23/10:51/10:52，后两杀夹住三航——三航 D 腿墙缺席与 flap 36 全是世界的呼吸，产品零错）。t665 的 waitServerHealthy + 搁浅 reload 梯移植入 t667（每次 jump 前、E 腿前、dialog 缺席时）——五航里梯子实战自证一次（denoise 重开搁浅 → reload → 重开成功）。
+- [②车道两裁决] ①compare 图间统计 chip（t654 余项三窗挂账）：聚合空间已满——per-pane 行（bytes/dims/bpp）+ same-dims（几何）+ same-bpp（存储模式）已替眼睛说完判定；"total bytes" 是记账不是判定，聚合行的职责是判定——结清=不做。②thumb loading 脉冲 vs palette 骨架（t666 入口②余项）：节奏同族（项目正典 skeleton = bg-accent animate-pulse，thumb = animate-pulse 同律），皮肤差异是语义（40px tile slot 有边界 vs 文本骨架）——结清=不改。
+- [回归·零产品码变更的诚实版] 本窗唯一产物 = scripts/t667-deeplink-family.mjs（探针），src/ 零改动——三十连全家跑是剧场不是回归。诚实版：tsc 0 + eslint 0 + t659 27/0 + t663 22/0（深链近亲抽查）+ t667 双航 25/0 + 开局基线四绿。fixture 漂移（t252）checkout 还原不入车（判例第十三演）。
+
+Stage Summary:
+- 「合账才照得出跨家族的病」：三窗各自 e2e 都是「我跳、我落、我消费」的单家族叙事——「一家的请求开别家的手势」「消费一家伤别家」「跨 tab/跨重开复活」这类病只有把三家放进同一次会话才可能显影。25 锚全绿本身是判决：四条 pending 线各自独立、各自一次性、互不串火。单一功能的验收单永远只覆盖它自己的故事；跨功能的合同要跨功能的探针。
+- 「探针的假设要对着现树验」：title 猜错、按钮串编造、tab 默认猜错——三课同一族：worklog 与源码里的锚点串是当时的实况快照，不是永真公式；每窗引用前 grep 一次（第五~六演的再 value）。t665 的 dashTab 舞步躺在自己窗的实录里，这次先读再抄省了两航——「跑法从实况来」的完整形态是「舞步也从实况来」。
+- 「梯子要在装它的同一航里被用到」：恢复梯移植后五航里实战自证（denoise 重开搁浅 → reload → 成功）——工具的最好验收是它服务的场景当场出现。OOM 三杀不是异常是常态（dmesg 三实锤）：waitServerHealthy 给「正在恢复的东西」，reload 梯给「刚死过的东西」，诊断倾泻给「只剩尸体的东西」——三件套按场景各司其职。
+- 「待议的诚实结局有两种，做或不做都要有判决书」：compare 统计 chip 三窗挂账、thumb 脉冲复核一窗挂账，本窗当场双裁决：不做（聚合空间已满，记账不是判定）与不改（节奏已同族，皮肤差异是语义）。挂账清零的形态不是每条都要长出代码——是每条都要长出判决；「不做」写在账本上比「待议」晾在账本上诚实。
+- 产出：t667-deeplink-family.mjs（25 锚跨组合账探针 + waitServerHealthy/reload 梯）+ 📸×2 + ②车道两判决 + 下窗入口：①功能车道（语义色 token 缺位 ~470 处——t640 时代立案整窗工程，连续五窗记账；bookmark 深链第二幕——书签存 oblique 平面但 palette 无直达，t664 入口①余项）②样式车道（star-table hover 过渡微调——t656 余项仍在账）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 77 窗否决；OOM 三杀后内存未见回落——服务器重启仍是 build 日的最短路径）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
