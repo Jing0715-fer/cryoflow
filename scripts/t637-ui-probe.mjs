@@ -34,12 +34,21 @@ const must = (cond, label, detail) => {
 };
 
 const logPath = "/tmp/cryoflow-qa/dev-server.log";
+// t673 — the log source follows the SERVING LANE, not a habit. This probe
+// was born in the dev regime and read the dev log; since t524/t529 QA rides
+// the standalone (prod-3001.log at the repo root), and this window's fresh
+// box had no stale dev log to read — errCount() returned -1 for BOTH
+// baselines and the leg convicted an absent file, twice, deterministically.
+// Count the poison across whichever lane logs exist (both is fine: the
+// disease can surface in either), and only report -1 when NO log exists.
+const logPaths = [logPath, "/home/z/my-project/prod-3001.log"];
 const errCount = () => {
-  try {
-    return readFileSync(logPath, "utf8").split("node-module-in-edge-runtime").length - 1;
-  } catch {
-    return -1;
+  let n = 0, seen = false;
+  for (const p of logPaths) {
+    try { n += readFileSync(p, "utf8").split("node-module-in-edge-runtime").length - 1; seen = true; }
+    catch { /* a lane that never ran has no log — not a crime */ }
   }
+  return seen ? n : -1;
 };
 
 const errorsBefore = errCount();
