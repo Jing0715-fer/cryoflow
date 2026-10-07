@@ -32,11 +32,13 @@ import {
   Crosshair,
   Download,
   Filter,
+  Timer,
   Waves,
 } from "lucide-react";
 import { fmtClock, fmtDuration } from "@/lib/duration";
 import { walkTimeline } from "@/lib/timeline-walk";
 import { timelineRunsCsv, timelineRunsCsvFilename, type TimelineCsvRow } from "@/lib/qc-report"; // t506 — the windows' machine face
+import { stageRuntime, stageRuntimeCsv, stageRuntimeCsvFilename, type StageRuntime } from "@/lib/stage-runtime"; // t677 — the per-stage wall-clock lens
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
@@ -353,6 +355,38 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   }, [walk]);
   const runs = useMemo(() => ({ ...walk, ticks }), [walk, ticks]);
 
+  /* t677 — Runtime by stage: the per-TYPE wall-clock lens. One type, one
+   * row — the timeline's bars aggregated into the answer to "which stage
+   * eats my clock?". Drinks the SAME walk (runs.rows — the floored,
+   * live-stretched measurement), completed runs only: a live run's window
+   * has no end yet, so counting it would mix a partial measurement into a
+   * sum of finished ones. */
+  const runtime: StageRuntime = useMemo(
+    () =>
+      stageRuntime(
+        runs.rows
+          .filter((r) => r.job.status === "completed")
+          .map((r) => ({
+            type: r.job.type,
+            label: jobType(r.job.type)?.label ?? r.job.type,
+            ms: r.ms,
+          }))
+      ),
+    [runs.rows]
+  );
+
+  /** The runtime table's machine face: heaviest-first, machine columns
+   *  (ms) beside the human words the row prints. */
+  const exportRuntimeCsv = () => {
+    const csv = stageRuntimeCsv(runtime);
+    if (!csv) return; // nothing completed — a silent empty file would be a lying door
+    downloadText(stageRuntimeCsvFilename(), csv, "text/csv;charset=utf-8");
+    toast({
+      title: "Runtime CSV exported",
+      description: `${runtime.rows.length} stage type${runtime.rows.length === 1 ? "" : "s"} · ${runtime.runs} completed run${runtime.runs === 1 ? "" : "s"} · scope: ${scopeLabel}`,
+    });
+  };
+
   /** jobs the engine never started — the timeline's honest absentees
    *  (t504: the count drinks the well too, never a private twin) */
   const neverRan = walk.neverStarted;
@@ -408,6 +442,22 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
         // minute label, which would read "+1m → +1m (completed, 8s)"
         lines.push(
           `  ${r.job.name}: +${fmtOffsetPrecise(r.start - runs.t0)} → +${fmtOffsetPrecise(r.end - runs.t0)} (${r.job.status}, ${fmtDuration(r.ms)})`
+        );
+      }
+    }
+    if (runtime.rows.length > 0) {
+      lines.push("");
+      lines.push(
+        `Runtime by stage (${runtime.runs} completed run${runtime.runs === 1 ? "" : "s"}, ${fmtDuration(runtime.totalMs)} summed):`
+      );
+      for (const r of runtime.rows) {
+        lines.push(
+          `  ${r.label}: ${r.n} run${r.n === 1 ? "" : "s"} · median ${fmtDuration(r.medianMs)} · p90 ${fmtDuration(r.p90Ms)} · total ${fmtDuration(r.totalMs)} (${r.sharePct}%)`
+        );
+      }
+      if (runtime.bottleneck) {
+        lines.push(
+          `  heaviest stage: ${runtime.bottleneck.label} (${runtime.bottleneck.sharePct}% of summed runtime)`
         );
       }
     }
@@ -585,6 +635,15 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <Clock className="size-3.5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={exportRuntimeCsv}
+              title="Download runtime by stage (per-type median, p90, total and share of wall clock) as CSV"
+              aria-label="Export runtime by stage as CSV"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Timer className="size-3.5" aria-hidden="true" />
             </button>
           </div>
           {wsOptions.length > 1 && (
@@ -893,6 +952,95 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 started — bars cover engine runs only (startedAt → measured wall time)
               </p>
             )}
+          </div>
+        )}
+
+        {/* runtime by stage -----------------------------------------------
+            The timeline's bars aggregated per TYPE: which stage eats the
+            wall clock. One row per stage type — icon, label, run count,
+            a share bar (the row's slice of summed runtime), then the
+            median/p90/total triple. Heaviest first; the bottleneck chip
+            rides the header line only when two or more types ran (with
+            one type "bottleneck" is a tautology, not an insight). */}
+        {runtime.rows.length > 0 && (
+          <div
+            className="mt-5 border-t pt-4"
+            data-canvas-ui="analytics-runtime"
+            data-runtime-types={runtime.rows.length}
+            data-runtime-runs={runtime.runs}
+          >
+            <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
+              <Timer className="size-3 text-primary" aria-hidden="true" />
+              Runtime by stage
+              <span className="font-normal text-muted-foreground">
+                · {runtime.runs} completed run{runtime.runs === 1 ? "" : "s"} · {fmtDuration(runtime.totalMs)} summed
+              </span>
+              {runtime.bottleneck && (
+                <span
+                  className="ml-auto rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[9.5px] font-semibold text-warning-700 dark:text-warning-300"
+                  data-runtime-bottleneck={runtime.bottleneck.type}
+                  title={`${runtime.bottleneck.label} holds ${runtime.bottleneck.sharePct}% of the summed wall clock (${runtime.bottleneck.n} run${runtime.bottleneck.n === 1 ? "" : "s"}, median ${fmtDuration(runtime.bottleneck.medianMs)})`}
+                >
+                  heaviest: {runtime.bottleneck.label} · {runtime.bottleneck.sharePct}%
+                </span>
+              )}
+            </p>
+            <div className="flex flex-col gap-1">
+              {runtime.rows.map((r) => {
+                const spec = jobType(r.type);
+                return (
+                  <div
+                    key={r.type}
+                    className="group flex items-center gap-2 rounded py-[3px] text-left transition-colors hover:bg-accent/50"
+                    data-runtime-row={r.type}
+                    title={`${r.label} — ${r.n} run${r.n === 1 ? "" : "s"} · median ${fmtDuration(r.medianMs)} · p90 ${fmtDuration(r.p90Ms)} · total ${fmtDuration(r.totalMs)}`}
+                  >
+                    <span className="flex w-9 shrink-0 justify-end">
+                      <span
+                        className={cn(
+                          "flex size-4.5 items-center justify-center rounded ring-1 ring-inset",
+                          spec?.color.soft,
+                          spec?.color.border
+                        )}
+                        aria-hidden="true"
+                      >
+                        <TypeIcon name={spec?.icon ?? "Boxes"} className="size-2.5" />
+                      </span>
+                    </span>
+                    <span className="w-28 shrink-0 truncate text-[10.5px] text-muted-foreground" title={r.label}>
+                      {r.label}
+                    </span>
+                    <div className="relative h-4 min-w-0 flex-1">
+                      <span
+                        className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-[3px] bg-primary/75 transition-[width] duration-500 ease-out [print-color-adjust:exact] [-webkit-print-color-adjust:exact]"
+                        style={{ width: `${Math.max(r.sharePct, 0.75)}%` }}
+                        data-runtime-bar=""
+                        aria-hidden="true"
+                      />
+                      <span
+                        className="absolute inset-y-0 right-1 flex items-center font-mono text-[9px] tabular-nums text-muted-foreground/80"
+                        data-runtime-share=""
+                      >
+                        {r.sharePct}%
+                      </span>
+                    </div>
+                    <span className="w-11 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-muted-foreground">
+                      ×{r.n}
+                    </span>
+                    <span className="w-12 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-muted-foreground" title={`p90 ${fmtDuration(r.p90Ms)}`}>
+                      ~{fmtDuration(r.medianMs)}
+                    </span>
+                    <span className="w-14 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-foreground/80">
+                      {fmtDuration(r.totalMs)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 flex items-center gap-1 text-[10px] leading-relaxed text-muted-foreground/70">
+              <Clock className="size-3 shrink-0 text-primary/70" aria-hidden="true" />
+              share of summed wall clock · ~median · total — bars cover completed runs (a live run has no end yet)
+            </p>
           </div>
         )}
     </section>
