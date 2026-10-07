@@ -9937,3 +9937,25 @@ Stage Summary:
 - 「fuzzy 的价值在方言，不在纠错」：cls2/ref3d/ctffnd 不是拼写错误，是操作员的缩写母语——includes 对母语充耳不闻。子序列匹配买的正是这层：query 的每个字符按序在场即可，空隙是缩写的形状。长度守卫（≥2）划清「缩写」与「单字符撒网」的界线；顺序 binding（ca2 ≠ 2dc）保住了「匹配即断言」的语义——匹配集变宽但不许变成噪声。
 - 「探针的 FAIL 先审自己」：首跑 2 FAIL 全是探针的锚写反（CB⊂abc 期望 true——c 在末尾 b 回不去）。锚错了产品无罪，此时改码就是把对的改错。「恒真的锚最危险」（t648）的姊妹篇：写反的锚会咬无辜的码。
 - 产出：lib/job-match.ts（subsequenceMatch + jobMatchesQuery + jobMatchesFind 单源）+ 三消费方迁移（canvas-find-bar/canvas.tsx/canvas-minimap.tsx）+ 预存 setState-in-render bug 修复（go() 副作用出 updater）+ t653-match-unit 25/0 + t653-e2e 11/0 + 诊断两枚（t653-diag/diag2——因果分离的工具化）+ 📸×2；下窗入口：①功能车道继续（import-gallery 多选 + lightbox ←→ 导航——t651 入口①最后余项；palette fuzzy 已在本窗超额兑现）②样式细节车道（find bar 匹配卡的 fuzzy 高亮可视化——data-find-match 已在，Emph 标记的 find bar 版待议）③star-table 粘性 # 索引列（t652 搁置项：需不透明行底 token 设计）④judge 风暴（等稳定夜）⑤build 日三车道（available ≥ 3.5GB，本窗第 63 窗否决）⑥演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 654 收官
+Agent: main (cron window, Job 362852)
+Task: t653 入口①兑现（功能车道最后余项）——import-gallery 升格两手势：lightbox 索引化 ←→ 导航（wrap +「i of n」语义锚）+ compare 多选模式（有序托盘/序号角标/Compare N 门/并排 dialog）+ demo 世界 404 的预存性验证（t652 HEAD 复现 10 thumb → 10 404）+ t654-e2e 25/0 + 回归全家十四绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 653 收官；树净 HEAD e39cc55；available 1431MB 非 build 日（第 64 窗否决）；server 200/34ms；基线四绿（t252 ALL PASS + t637 6/0 + t641 10/0 + qa78 ALL PASS）。
+- [定靶] t653 下窗入口①两手势：lightbox 导航 + 多选对比（t651 入口①自 star-table（t651/t652）后的最后余项）。侦察渲染链：ImportGallery 经 results-lazy dynamic 挂 job-inspector 的 **OverviewTab**（t315 挂载点：import 类型 + 非 idle + nodeType≠particles）——e2e 首跑才发现的导航坑：inspector 对 completed job 默认开 results tab，gallery 在 Overview 下，显式切 tab 后才可见。API 实况：active 项目 import job（cmuwipe63500import）本地模式 10 张 Falcon .mrc（total=10 = micrographs=10、非 cluster、pixelSize null、nx/ny=0）。
+- [实现] import-gallery.tsx 升格：①lightbox 索引化——selected 从 entry 对象改 index，←/→ wrap 算术（step = (s+dir+n)%n），「i of n」chip 刻 data-gallery-ui="walk-pos" 语义锚，DialogDescription 教学「←/→ to walk」（n>1 才出现——诚实提示）；②compare 模式——header toggle（aria-pressed + running rung token 活体佩戴），模式内卡片点击 = toggle pick（不开 lightbox），托盘是**有序数组**（pick order = compare order，非 Set——顺序语义），选中卡戴 ring-2 ring-running-600 + 右上序号角标（bg-running-600 text-white），「Compare N」按钮 N≥2 才启用（<2 时 disabled + title 教学换话），Compare dialog 按托盘数分列（2→cols-2、3→cols-3、4+→sm:cols-4）+ figcaption（序号/名字/字节）。
+- [诚实性三锚] ①re-sample 清托盘——墙变了，指向不在墙上的缩略图的托盘是谎言；②退模式清托盘——关门后留下看不见的托盘是隐形债；③Compare 按钮的 title 随启停换话——「Pick at least two thumbnails」vs「Open the side-by-side comparison」。
+- [t654-e2e 25/0] 真实世界 10 张：lightbox 全幕（1 of 10 → →2 of 10 → ←←wrap 10 of 10 → →wrap 1 of 10 + Esc 关）+ compare 全幕（toggle aria-pressed → 双击落 data-picked="1"/"2"（pick order 佩戴）→ Compare 2 启用 → dialog 双 pane 且 pane 序 = pick 序 → Esc 关 → 再点取消 → Compare 1 disabled → 退模式 → data-picked 全消）+ JS console 0 + 📸×2（t654-lightbox-walk / t654-compare）。自纠两课：①posText 首版选择器自我嵌套（lightbox.locator('[data-gallery-ui="lightbox"] …')——祖先自己找自己）；②gallery 挂载点误判（默认 results ≠ Overview）。
+- [404 预存性验证] e2e 首跑 console 17 错全是「Failed to load resource 404」——stash 本窗改动在 t652 HEAD 复跑：同样 10 thumb → 10 404（outputs/file?format=png 对 demo 世界物理不存在的 Falcon .mrc 预览文件）。**预存世界信号实锤**（MrcImage 优雅降级，页面无 JS 错）。e2e 响应：console 捕获分离——JS 错误必须 0，资源 404 计数 bounded（≤30）+ 判决书在案（「world state, not a regression」），不静默吞也不误报。
+- [回归全家十四绿] t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0 + t651 22/0 + t652 24/0 + t653 11/0（直系前任全锚无损）+ t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t646 21/0 + t647 24/0 + t648 15/0 + t649 18/0 + t650 21/0；tsc 0 + eslint 0。
+
+Stage Summary:
+- 「索引是导航的本体，对象是导航的影子」：selected 从 entry 对象改 index 后，wrap 算术、「i of n」、上一下一张全部自然落位——对象引用存的是「那张图」，index 存的是「走道上的位置」；导航问的是位置。第二顺序收益：对象模式在 reroll 后指向陈旧数据（entry 是旧数组元素），index 模式永远指向「当前墙上的第 i 张」——数据换了位置不换，导航不死。
+- 「托盘要有顺序，因为对比有顺序」：picks 用有序数组不用 Set——对比 pane 的排列 = 用户挑的顺序（你先关心谁，它就站在第一位）。Set 是「哪些」的数学，数组是「按什么讲」的叙事；产品的语义决定容器的形状。
+- 「模式的进出要打扫」：re-sample 清托盘、退模式清托盘——两条路都通向「托盘指向不存在的东西」的谎言。可见状态下佩戴的语义（ring、序号），在状态消失后必须消失；「退出不清场」不是便利是债务，债主是下一个进模式的用户。
+- 「世界的 404 不是码的 bug」：demo 世界的 Falcon 帧没有物理预览文件，每张缩略图 404 是世界的真状态（MrcImage 降级、无 JS 错）——但它一进 console 就和真 bug 混在一起。分离的法则是给每类信号一张判决书：JS 错误 = 0 是合同，资源 404 = bounded + 解释是世界的自白。stash 复现让「预存」从猜测变实锤（十秒的成本，买断归因的确定性）。
+- 「教学跟着状态走」：←/→ 教学只在 n>1 时出现；Compare 按钮 disabled 时 title 说「要两张」，enabled 时说「打开对比」——不存在「教一个用不上的手势」的提示。t652 的诚实提示律（hasTruncated 为假提示缺席）在交互层的第三演。
+- 产出：import-gallery lightbox ←→ 导航（wrap + walk-pos 锚 + 教学话术）+ compare 模式（有序托盘/序号角标/Compare N 门/分列并排 dialog）+ 诚实性三锚（re-sample/退模式清托盘 + title 换话）+ t654-e2e 25/0（含 404 预存性验证与 console 分离判决）+ 📸×2；下窗入口：①样式细节车道（compare dialog 的图间直方图/统计 chip 扩展；find bar fuzzy 高亮可视化——t653 待议项）②功能车道（star-table 粘性 # 索引列——t652 搁置项需不透明行底 token 设计；palette 直达 compare/import-gallery 深链）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 64 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
