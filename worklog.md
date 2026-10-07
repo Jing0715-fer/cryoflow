@@ -10260,3 +10260,29 @@ Stage Summary:
 - 「梯子要在装它的同一航里被用到」：恢复梯移植后五航里实战自证（denoise 重开搁浅 → reload → 成功）——工具的最好验收是它服务的场景当场出现。OOM 三杀不是异常是常态（dmesg 三实锤）：waitServerHealthy 给「正在恢复的东西」，reload 梯给「刚死过的东西」，诊断倾泻给「只剩尸体的东西」——三件套按场景各司其职。
 - 「待议的诚实结局有两种，做或不做都要有判决书」：compare 统计 chip 三窗挂账、thumb 脉冲复核一窗挂账，本窗当场双裁决：不做（聚合空间已满，记账不是判定）与不改（节奏已同族，皮肤差异是语义）。挂账清零的形态不是每条都要长出代码——是每条都要长出判决；「不做」写在账本上比「待议」晾在账本上诚实。
 - 产出：t667-deeplink-family.mjs（25 锚跨组合账探针 + waitServerHealthy/reload 梯）+ 📸×2 + ②车道两判决 + 下窗入口：①功能车道（语义色 token 缺位 ~470 处——t640 时代立案整窗工程，连续五窗记账；bookmark 深链第二幕——书签存 oblique 平面但 palette 无直达，t664 入口①余项）②样式车道（star-table hover 过渡微调——t656 余项仍在账）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 77 窗否决；OOM 三杀后内存未见回落——服务器重启仍是 build 日的最短路径）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 668 收官
+Agent: main (cron window, Job 362852)
+Task: t667 下窗入口①b 兑现——bookmark 深链第二幕：palette 第四 Gallery 组「Saved views」（跨项目相机书签直达，dashboard 卡的 PENDING_VIEW_KEY 配方 verbatim）+ 世界升格（seeder += refine3d 三书签：真 MIP thumb 从真体积字节派生）+ t668-e2e 28/0（十二航迭代：说谎的里程碑 / 骑梯的仪器 / 两种诚实缺席）+ 回归全家绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 667 收官（上窗 15 分钟前刚落）；HEAD 6194313 树净；available 1093MB 非 build 日（第 78 窗否决）；server 200 + console 净 + roster 17 全 completed——稳定。定道：语义色 token（整窗工程）在 OOM 脆弱窗继续缓行，选 bookmark 深链第二幕（t664 立项 t667 续账）。
+- [侦察定谳] 两套书签分家：Task 100 视口书签（canvas 快照 + 槽位 1-9，t588 域）≠ 相机书签（BookmarkSession 表 + camera-bookmarks 路由白名单：snapshot 三 vec3 是灵魂 + view 光学半 σ/slice/clip）。dashboard 墙已有 jump 卡（sessionStorage PENDING_VIEW_KEY 一次性握手 + openJob 跨项目 hint；molstar-embed 的书签列表加载后消费：飞行 + toast，删了的视图诚实 not-found）。curl /api/views/gallery = {"views":[]}——shipped-dark（t660 教义：先问「是真无还是没喂」），喂它。
+- [世界升格] qa-t531 seeder += refine3d 书签分支：手写灰度 PNG 编码器（zlib 内建 + CRC32，~40 行零依赖）+ Z 轴 MIP 从真体积字节派生 thumb（~1KB，对照 48KB 白名单顶）——thumb 声明「这个世界长什么样」，数出来不猜；三书签（Centered iso / Top-down slice / Front half clipped——chips 有话可说）固定 id 幂等覆写 + 相机姿势用 qa48 对着 restore 验过的数族。SEED OK + CHECK 五锚（行存在/3 条/vec3/真 thumb/一 slice 一 clip）+ 路由实况吐真数据。
+- [palette 组] 首个 FETCHED 组：/api/views/gallery（dashboard 墙同源——一环境一真相）+ 模块级 TTL 缓存 30s（ready 与 absent 同钟——死墙答一次、新存 30s 内现身；在飞去重，t663 教义的 list 版）+ 行（thumb 为 data URL 零取数/Mountain fallback + 「Saved view — 」家族语言 + job 名副文）+ jumpToSavedView = dashboard 配方 VERBATIM（sessionStorage + openJob 带 projectId hint）+ cap 8 + heading 报总数。TTL 缓存 wire 断言：二开零请求。
+- [t668-e2e 28/0，十二航] A 6（路由 200 + 3 书签 + 真 thumb + 故事名）+ B 5（组说话 + 3 行 + naturalWidth>0 真渲染 + 行名 job + 二开零请求）+ C 4（palette 闭 + inspector 开 + viewer 真就绪 + toast 报名且讲门）+ D 3（pending 消费 null + 二挂载真就绪 + delta 零新 restore）+ E 2（三挂载真就绪 + 二视图 restore）+ F 6 桶 + 📸×2。🎯
+- [第一课·说谎的里程碑] canvas3d 存在性 ≠ 就绪：window.__molstar 在 init 链早期置位，OOM 截断的编译让 init 中段死于 ChunkLoadError（diag-t668 插桩：plugin created → map fetched → init failed）→ phase=error → 书签 effect 永不跑 → pending 永不消费——探针的 molReady 却量到 true。修 = 等产品自己的 lifecycle 行（「olstar] ready」/「init failed」），console 插桩一发入魂（t661 教义第三次 value）。
+- [第二课·仪器骑梯] toast 观察器被 reload 杀死（window 对象随页亡）——恢复梯的每一步 reload 后必须重装仪器；E 腿 palette 在 post-ladder 页打不开也要 reload 重试环。梯子三件套扩员：waitServerHealthy 给恢复中的服务器、reload+RE-JUMP 给断了的腿、**仪器重装给死过的观察者**。
+- [第三课·两种诚实缺席] shipped-dark（世界没喂——种它）≠ honest not-found（喂了但喂的手被 OOM 杀——camera-bookmarks fetch 死 → applied=空 → embed 诚实说 not-found + 消费 pending）。后者是产品美德（「删了的视图报告而不是 no-op」），探针识别它并给一次 RE-JUMP 重试（新意图重新武装），不当断言失败。
+- [第四课·断言的作用域] D 的一次性判据跟着页生命周期走：ladder 重载后旧 toast 数无意义（3→1 是对两本账念同一句话）——改成 delta（基线后零新增 restore toast），同页/跨页两路径都诚实。
+- [OOM 战况] 本窗 dmesg 再添六杀（11:16~12:18），全窗 106 总账； flights 4-11 的每处 FAIL 都有 dmesg 实锤对应，产品码自首航后零变更——「探针在硬化，世界在垂死」的分家账目清晰。
+- [回归] tsc 0 + eslint 0（stale disable 清一次）+ 基线四绿（t252 + qa78 + t637 6/0 + t641 10/0）+ palette 家族（t245 ALL PASS + t659 27/0 + t663 22/0 + t667 25/0——上窗探针对本窗变更的复验）+ t668 28/0。fixture 零漂移。
+
+Stage Summary:
+- 「里程碑要量产品自己的话」：canvas3d 是探针的假设，lifecycle 行是产品的自述——当探针的里程碑和产品的进度条是两套钟，OOM 截断的瞬间就会显形为「探针说就绪了、产品还在 error」。修法不是加 sleep，是换度量对象：产品的 console.debug 就是它的进度条，读它。
+- 「仪器是探针身体的一部分，reload 切掉它一半」：恢复梯教会探针 reload，第十航教会探针仪器也会随页死——观察器、里程碑行、wire 计数器各自要跟着 reload 重装/清零/重读。梯子的完整清单是「世界 + 产品 + 仪器」三方的恢复，缺一方，判据就在替死去的仪器说话。
+- 「缺席要问到第二次」：shipped-dark 问「喂了吗」，not-found 问「喂的手还活着吗」——第一次问出种子，第二次问出重试。embed 的 not-found toast 是它「删了的视图诚实报告」合同的副产品，探针认出这个指纹并重试，是把产品美德当行为锚而不是当噪声。
+- 「跨页计数是两本账」：toast 对数器在 reload 前后量的是两个 window 的两个数组——一次性判据的正确形式是 delta（本窗口内零新增），它对 ladder 与无 ladder 两路径同构成立。每个跨恢复点的计数断言先问：我的基线和我的终读在同一本账上吗？
+- 「thumb 是世界的自画像」：种子书签的 thumb 不画装饰渐变（qa48 的 canvas 时代），从种子体积的字节做 MIP——预览与目的地同一数据源（t662 同源律的 thumb 版）：缩略图说错的话，restore 后的 3D 会当场反驳它。
+- 产出：palette Saved views 组（跨项目 + TTL 缓存 + dashboard 配方 verbatim）+ seeder 书签分支（PNG 编码器 + MIP thumb + 三视图 + CHECK 五锚）+ t668-e2e 28/0（十二航）+ diag-t668-consumer.mjs（插桩证词）+ 📸×2；下窗入口：①功能车道（语义色 token ~470 处——连续六窗记账，需整窗+稳定回归夜；「Saved view not found」的受控演练——删除书签后 jump 的诚实到站，t668 的诚实缺席路径值得自己的锚）②样式车道（star-table hover 过渡微调——t656 余项仍在账）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，第 78 窗否决；本窗 OOM 六杀——重启回落是唯一路径）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
