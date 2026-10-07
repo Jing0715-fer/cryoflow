@@ -10286,3 +10286,26 @@ Stage Summary:
 - 「跨页计数是两本账」：toast 对数器在 reload 前后量的是两个 window 的两个数组——一次性判据的正确形式是 delta（本窗口内零新增），它对 ladder 与无 ladder 两路径同构成立。每个跨恢复点的计数断言先问：我的基线和我的终读在同一本账上吗？
 - 「thumb 是世界的自画像」：种子书签的 thumb 不画装饰渐变（qa48 的 canvas 时代），从种子体积的字节做 MIP——预览与目的地同一数据源（t662 同源律的 thumb 版）：缩略图说错的话，restore 后的 3D 会当场反驳它。
 - 产出：palette Saved views 组（跨项目 + TTL 缓存 + dashboard 配方 verbatim）+ seeder 书签分支（PNG 编码器 + MIP thumb + 三视图 + CHECK 五锚）+ t668-e2e 28/0（十二航）+ diag-t668-consumer.mjs（插桩证词）+ 📸×2；下窗入口：①功能车道（语义色 token ~470 处——连续六窗记账，需整窗+稳定回归夜；「Saved view not found」的受控演练——删除书签后 jump 的诚实到站，t668 的诚实缺席路径值得自己的锚）②样式车道（star-table hover 过渡微调——t656 余项仍在账）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，第 78 窗否决；本窗 OOM 六杀——重启回落是唯一路径）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 669 收官
+Agent: main (cron window, Job 362852)
+Task: t668 下窗入口①b 兑现——「Saved view not found」受控演练（t669 27/0 四航：删除后 jump 的诚实到站拿到自己的锚）+ 墙上删除 affordance（dashboard Saved views 卡的 hover X：点击时新鲜 GET→过滤→PUT）+ 撞见并修复 embed pending 消费的静默吞没（门必须永远说话：parse 与消费的 catch 分离）+ ②star-table hover 化石判决（t660 已清）+ 回归全家绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 668 收官；HEAD b4a6128 树净；available 1208MB 非 build 日（第 79 窗否决）；server 200/13ms；agent-browser 巡检 console 净 + roster 17 全 completed（API 实况为准，rg 计数 18 是无关按钮混入）。基线四绿（t252 + qa78 + t637 6/0 + t641 10/0）。
+- [定道·化石判决] 入口②「star-table hover 过渡微调——t656 余项仍在账」对质 worklog 实况 = **t660 已收官清零**（「house 标准 transition-colors 150ms，最后一笔账本清零」），t667/t668 入口清单是复制粘贴的化石条目——现树 line 340/344 transition-colors 在案。判决=已清，不产码（入口清单每句话对质现树的再 value）。
+- [feat·墙上删除] SavedViewsGallery 卡从单 button 重构为 div 壳双嘴：body jump + hover X。X 与 ChevronRight 同槽换位（group-hover 交换 opacity——无布局位移、无遮挡），focus-visible + group-focus-within 键盘显影，motion-reduce 尊重；deleting 单飞键（第二个 X 等待——putChain 判例的墙版）；signage 更新「click to jump, hover to delete」。删除流：点击时新鲜 GET /camera-bookmarks → 过滤 → PUT 剩余（**从不 PUT 墙自己的 gallery 陈本**——viewer 里新存的视图必须幸存）→ 本地收缩（job 行空则整行退场）→ toast 诚实报告；失败保留卡片并明说。gallery 路由只读判词不变——突变仍归 per-job 路由所有。
+- [撞见·静默吞没] D 腿首航 pending 被消费（removeItem 实锤）但 not-found toast 永不上屏——三层剥洋葱：diag 观察者现场证产品 toast 完好 → 截图判 toast 未挂载（TOAST_REMOVE_DELAY=1e6，挂了必在画面）→ dmesg 五杀判世界死 fetch → **本地镜像（还揣着已删席位）答题 → restore 撞 molstar "unreachable" → 宽 catch 静默吞没**——请求被消费却零反馈，正是这扇门存在要消灭的结局。修复：parse 独享窄 catch（malformed 可忽略），消费块三出口全有判决——restored / not found / **could not be restored**（"…is on the shelf, but the viewer could not fly to it just now"）。门必须永远说话。
+- [t669-e2e 27/0 四航] setup 一次性第四席（API PUT adopt-or-create，三种子席不动）。A 4（墙立 + 4 卡 + signage + drill 卡）+ B 5（palette 四行 → jump → viewer ready → restore toast 阳性对照）+ C 6（X 静止 opacity 0 → hover 显影 → 墙收缩 → deleted toast → server=3）+ D 4（直写 PENDING_VIEW_KEY——palette 只是这扇门的一张嘴，TTL 竞速从被测对象里剥离；**镜像预降到删除后真相**：fetch 活也罢死也罢 applied 必无 drill，not-found 判决永远是门自己的声音 + pending 一次性消费）+ E 1（palette TTL 到期被删行自愈——双钟的另一半）+ F 7（三种子席完好 + gallery 路由同账 + 五桶 loop 校准界）+ 📸×2（t669-wall-delete / t669-not-found——not-found toast 带诚实因果上屏）。
+- [探针四课] ①store 持久视图：goto 落 canvas 而非 dashboard——ensureDashboard（header dashTab 常驻锚）先行；②**镜像双预置**（B=4 席/D=3 席）：都是诚实前次访问会留下的浏览器状态，flap 风暴下任何 fetch 结局都确定（B 的镜像揣着 drill——restore 判决不被死 fetch 偷走；D 的镜像降到真相——not-found 不被陈旧复活偷走）；③观察者哑火的验尸三梯：先疑仪表（diag 无过滤观察者证 toast 上屏）→ 再疑判据（截图 + 1e6ms 生命周期证未挂载）→ 终判世界（dmesg 实锤）——932 条 "unreachable" 是按帧抛的天气签名（~15 秒 × 60fps），不是产品 loop；④F 桶校准回 loop 检测本义（flap 60 / hmr 20，t668 的 1352 HMR 风暴才是 loop 签名）——bounds 捉 loop 不罚天气（t668 判例成文入探针）。
+- [OOM 战况] 本窗 dmesg 12+ 杀（12:58~13:42 最密三分钟两杀），最坏天气档；available 一度跌至 748MB。t669 四航（21/6 → 21/6 → 27/0）与 t667 四跑（20/4 → 0 FAIL → 崩 → 21/4）每次 FAIL 都有杀实锤对应——产品码自首航后两处变更全部收敛，「探针在硬化，世界在垂死」的分家账目再次清晰。
+- [回归] tsc 0 + eslint 0 + t668 28/0（直系：embed 重构后 C/D/E 合同逐条复验）+ t667 25/0（二跑；一/三/四跑天气）+ t669 27/0 + 基线四绿（qa78 ALL PASS + t637 6/0 + t252 ALL PASS + t641 10/0）。fixture 漂移（t252-write-door-2x.png）checkout 还原不入车（判例第十四演）。
+
+Stage Summary:
+- 「缺席要问到第二次，缺席的门要堵到最后一出口」：t668 问出「喂了吗/喂的手活着吗」，本窗问出「门说完所有该说的话吗」——not-found（删了的诚实报告）、restored（到站的指纹）之外还有第三出口 could-not-restore（shelf 上有、viewer 飞不过去）。沉默吞没是消费类 UI 最阴的病：请求被记账、反馈为零，用户对着空气回忆自己点过什么。catch 的宽度要跟着职责走：parse 的失败可忽略，消费的失败必须判决。
+- 「删除的脸要长在删除发生的地方」：跨项目书签的删除原先只能开回原 job 的 3D viewer——shelf 上的东西要在 shelf 上管理。但聚合面持突变要守两条戒：**从不 PUT 自己的陈本**（点击时新鲜 GET，viewer 里新存的视图必须幸存）与 **单飞串行**（putChain 判例的墙版）。X 与 chevron 同槽换位是墙的美学：无布局位移、无遮挡、hover 换嘴、键盘显影——静默的显影（opacity）而非布局跳变，是这个项目的 hover 语法。
+- 「探针的确定性要买在正确的层」：TTL 竞速用直写 pending 剥离（palette 只是门的一张嘴）；flap 风暴用镜像双预置吸收（B 揣着席位居、D 降到真相居——两个都是诚实浏览器态）。「确定性」不是没有随机，是把随机从被测对象身上挪到探针自己的_SETUP_里。条件分支是探针的软肋（t668 的 lesson），预置状态比条件重试诚实。
+- 「验尸要下到第三层」：观察者哑火的第一直觉是「仪表坏了」，第二层是「判据错了」，第三层才见真相（世界在杀服务器）。每层都有各自的实锤手段：无过滤观察者证产品行为、带生命周期的截图证 DOM 真相、dmesg 证世界——三层阶梯缺一层，判决就会停在错误的一层（这窗若停在第一层，就会冤枉产品；停在第二层，就会漏掉静默吞没这个真病）。
+- 「bounds 的本义要写回探针」：flap 10 在风暴窗每航必炸，但 10 与 1352 之间隔着的不是产品病是天气刻度——bound 的职责是捉 loop（每秒数百的锤击），不是惩罚风暴里的幸存者。校准要有据：t668 的 1352 HMR 风暴签名 + 本窗 932 unreachable 的按帧抛物线 + dmesg 逐杀对应。判据的数字要能讲出它存在的理由。
+- 产出：墙上删除 affordance（div 壳双嘴 + 同槽换位 + 新鲜 GET-PUT + 单飞）+ embed 门三出口（窄 catch + could-not-restore）+ t669-saved-view-notfound.mjs（27 锚四航 + 镜像双预置 + waitServerHealthy 梯）+ ②化石判决 + 📸×2；下窗入口：①功能车道（语义色 token ~470 处——连续七窗记账，需整窗+稳定回归夜；palette Saved views 行内删除——墙版删除的 palette 亲和版，t669 遗产；「could not be restored」路径的专属锚——本窗修复的第三出口尚未有自己的探针）②样式车道（墙卡 X 的 destructive hover 微调空间待议——已用 border/text destructive，是否值得 ring 层级；无）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，第 79 窗否决；本窗 OOM 12+ 杀——重启回落仍是唯一路径）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
