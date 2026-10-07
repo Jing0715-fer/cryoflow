@@ -322,6 +322,44 @@ function filterKeptRows(rows) {
   });
 }
 
+/** Shared honest-header finishing: the CCP4/MRC2000 words a real parser
+ *  reads. t661 — Mol*'s ParseCcp4 hard-requires the "MAP " magic (byte 208)
+ *  and a MACHST machine stamp (byte 212), and derives the grid→cartesian
+ *  transform from MX/MY/MZ + CELLA — the zero-filled stubs were refused at
+ *  load ("ccp4 format error"), leaving the 3D viewer's isosurface a zombie
+ *  whose every update died with "No suitable parent found". pixel = Å/voxel
+ *  (the world's 1.77 — the same number the star files and the import
+ *  params speak). Byte offsets follow the standard CCP4 layout:
+ *  MX/MY/MZ 28/32/36 · CELLA 40/44/48 · angles 52/56/60 · MAPC/R/S
+ *  64/68/72 · DMIN/DMAX/DMEAN 76/80/84 · NSYMBT 92 · ORIGIN 196 · MAP 208
+ *  · MACHST 212. */
+function finishMrcHeader(header, nx, ny, nz, pixel, dmin, dmax, dmean) {
+  header.writeInt32LE(nx, 28); // MX
+  header.writeInt32LE(ny, 32); // MY
+  header.writeInt32LE(nz, 36); // MZ
+  header.writeFloatLE(nx * pixel, 40); // CELLA x (Å)
+  header.writeFloatLE(ny * pixel, 44); // CELLA y
+  header.writeFloatLE(nz * pixel, 48); // CELLA z
+  header.writeFloatLE(90, 52); // alpha
+  header.writeFloatLE(90, 56); // beta
+  header.writeFloatLE(90, 60); // gamma
+  header.writeInt32LE(1, 64); // MAPC = 1 (X fastest)
+  header.writeInt32LE(2, 68); // MAPR = 2 (Y)
+  header.writeInt32LE(3, 72); // MAPS = 3 (Z slowest)
+  header.writeFloatLE(dmin, 76); // DMIN
+  header.writeFloatLE(dmax, 80); // DMAX
+  header.writeFloatLE(dmean, 84); // DMEAN
+  header.writeInt32LE(0, 88); // ISORT
+  header.writeInt32LE(0, 92); // NSYMBT
+  header.writeFloatLE(0, 96); // RMS
+  header.writeInt32LE(0, 196); // ORIGIN x
+  header.writeInt32LE(0, 200); // ORIGIN y
+  header.writeInt32LE(0, 204); // ORIGIN z
+  header.write("MAP ", 208, "ascii"); // the magic Mol* refuses to load without
+  header.writeInt32LE(0x4144, 212); // MACHST little-endian ("DA")
+  return header;
+}
+
 /** A REAL stacked MRC: mode 2 float32, frame × frame × frames — small but
  *  every header word honest (the size check demands the bytes). */
 function buildMrcStack(frame = 64, frames = EXTRACT_N) {
@@ -330,7 +368,7 @@ function buildMrcStack(frame = 64, frames = EXTRACT_N) {
   header.writeInt32LE(frame, 4);
   header.writeInt32LE(frames, 8);
   header.writeInt32LE(2, 12); // mode = float32
-  header.writeInt32LE(0, 92); // nsymbt
+  finishMrcHeader(header, frame, frame, frames, 1.77, 0, 0, 0);
   return Buffer.concat([header, Buffer.alloc(frame * frame * 4 * frames)]);
 }
 
@@ -341,8 +379,42 @@ function buildMrcSingle(size = 64) {
   header.writeInt32LE(size, 4);
   header.writeInt32LE(1, 8);
   header.writeInt32LE(2, 12);
-  header.writeInt32LE(0, 92);
+  finishMrcHeader(header, size, size, 1, 1.77, 0, 0, 0);
   return Buffer.concat([header, Buffer.alloc(size * size * 4)]);
+}
+
+/** A REAL 3D volume (t661): mode 2 float32, size³, carrying a Gaussian
+ *  blob phantom at the box center — the demo family's honest synthetic
+ *  (the class-average stacks are phantoms too). The nz=1 stubs this
+ *  replaces were header-only zero fills: Mol* refused to build an
+ *  isosurface on them (console errors from the state tree), the ortho
+ *  x/y tiles 400'd, and the oblique world stayed dark — a 3D viewer
+ *  world needs a volume with three live axes. 1 MB per map. */
+function buildMrcVolume(size = 64) {
+  const header = Buffer.alloc(1024);
+  header.writeInt32LE(size, 0);
+  header.writeInt32LE(size, 4);
+  header.writeInt32LE(size, 8);
+  header.writeInt32LE(2, 12);
+  const data = Buffer.alloc(size * size * size * 4);
+  const c = (size - 1) / 2;
+  const sigma = size / 8;
+  let o = 0;
+  let sum = 0;
+  for (let z = 0; z < size; z++) {
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const r2 = (x - c) ** 2 + (y - c) ** 2 + (z - c) ** 2;
+        const v = 100 * Math.exp(-r2 / (2 * sigma * sigma));
+        data.writeFloatLE(v, o);
+        sum += v;
+        o += 4;
+      }
+    }
+  }
+  // honest stats words: the phantom's own numbers, counted not guessed
+  finishMrcHeader(header, size, size, size, 1.77, 0, 100, sum / (size * size * size));
+  return Buffer.concat([header, data]);
 }
 
 /* ---------- the world itself --------------------------------------------- */
@@ -505,9 +577,11 @@ function filePlan() {
   // the ledger claims the gold-standard half pair — write what
   // outputsPlan asserts (the "real outputs" law; the t636 re-run
   // exposed the claim-without-write gap once the third world split
-  // lost the snapshot's copies of these files)
-  plan.push([wd.refine3d, "run_it020_half1.mrc", buildMrcSingle(64)]);
-  plan.push([wd.refine3d, "run_it020_half2.mrc", buildMrcSingle(64)]);
+  // lost the snapshot's copies of these files). t661 — real 3D
+  // volumes now: the nz=1 zero-fill stubs broke the 3D viewer world
+  // (Mol* isosurface refused, ortho x/y tiles 400'd, oblique dark).
+  plan.push([wd.refine3d, "run_it020_half1.mrc", buildMrcVolume(64)]);
+  plan.push([wd.refine3d, "run_it020_half2.mrc", buildMrcVolume(64)]);
   plan.push([wd.postprocess, "postprocess.star", buildPostprocessStar()]);
   return plan;
 }
