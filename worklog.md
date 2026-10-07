@@ -10076,3 +10076,27 @@ Stage Summary:
 - 「环境的病要有自己的桶」：OOM 杀死服务器后，console 的错误声里有产品也有病室——HMR socket（dev-only 基础设施）、资源 flap（服务器 convalescence）、chunk 竞态（加载器瞬态）。全吞 = 掩盖产品错；全报 = 狼来了。四桶分类学（真 JS 错 0 / 帧 404 0 / flap 三桶 bounded）让每类声音有自己的判决书——t654 的 bounded-404 从「帧」推广到「基础设施自声」。
 - 「账本外的旧账也是账」：t245 不在家族名单里，它的锚陈旧了三窗无人知——回归路过撞见，stash 十秒定谳预存，顺手修锚结清。家族名单是最低消费不是全部 Truth；路过就审，是 QA 的谦虚与贪婪。
 - 产出：palette Frame galleries 深链组（store 握手 + host/consumer 分离 + TTL + 同步令 corrected 墙受益）+ compare dialog same-dims 聚合行 + t245 世界锚修正 + t659-e2e 27/0（四幕 + 噪声分类学 + 预热腿 + 健康门）+ 📸×2（t659-deep-link-lightbox / t659-same-dims）；下窗入口：①样式细节车道（star-table hover 过渡微调——t656 余项最后一笔；compare dialog B/px 聚合行的同类聚合是否值得——same-dims 已在，same-bpp 待议）②功能车道（palette 深链第二幕：2D/3D classification 的 class averages gallery 是否入组；ctffind 诚实缺席维持）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 69 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 660 收官
+Agent: main (cron window, Job 362852)
+Task: 双件收官——①palette「Class averages」深链组（第三 Gallery 家族群：completed class2d/class3d/initialmodel；到达即 tab——teaser 无灯箱，单消费者无 TTL）+ 世界升格点亮 shipped-dark 的 teaser（t531 补种 class2d 栈 + class3d volumes 进 workdir）+ 撞见并修复 /classes 路由的真产品病（t474 stack 中心 refusal note 压过 t402b volume 车道的活 tiles）②star-table hover transition-colors（t656 余项最后一笔，账本清零）+ t660-e2e 30/0 + 回归全家二十二绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 659 收官；树净 HEAD da39c3e；available 1162MB 非 build 日（第 70 窗否决）；server 200；基线四绿。
+- [QA 巡检] agent-browser：console 0、15 jobs 全 completed——稳定。
+- [定靶] t659 入口②「class averages gallery 入组」侦察三步：①select2d edit-panel gallery 需要 idle——demo 的 select2d 是 completed，路断；②ClassAveragesTeaser（inspector overview）是 completed 类作业的类图面——但 /classes 路由对 demo 三类作业全部答 classesFile:null + volumeFiles:[]——teaser 自隐合同让这个 t544 就 shipped 的面**从未亮过**；③世界升格（t657 模式）补种 workdir 文件点亮它。骑手：star-table hover transition（t656 余项，房子标准 transition-colors 150ms）。
+- [世界升格] t531 filePlan += ①class2d/run_unmasked_classes.mrcs（buildMrcStack(64,8)——RELION 5 final unmasked stack，pickStackName 白名单在案）②class3d/run_it003_class00{1,2,3}.mrc（volume 车道正则匹配，迭代号随既有 run_it003_data.star）。SEED OK + CHECK PASS。/classes 路由双车道实况验证：class2d classesFile=slices 8、class3d volumeFiles=3、双 tile URL 均 200 PNG。
+- [hazard 预审] 新 workdir 文件的 map-walk 风险：.mrcs 栈无 dims → volume-walk 排除（class2d 安全）；class3d 的 nz=1 文件有 dims → 进入 landscape roster（此前 skipNoVolume）——风险实测化（回归家族兜底），t103/t105/t101 全绿 = 无劫持。
+- [深链实现] store +pendingClassAveragesFocus（无 TTL——Task 81 sync 形状，消费者是 inspector 自身）；inspector host 效果（t659 效果的 sibling）：匹配 → latch + setTab("overview") + 消费——「到达即 tab」：teaser 的 grid 就是浏览面，无灯箱阶段；palette「Class averages」组（挂载门正则与 teaser 一致 /class2d|class3d|initialmodel/ + completed，Layers 图标，cap 12 + heading 报总数；refine3d 无行负锚——它产 map 不产 classes）。
+- [真产品病] t660-e2e 首跑 D 腿 FAIL：class3d teaser 挂载（h3 "Class maps"）但 0 tile——手动复现实锤非探针伪影。根因：/classes 路由的 t474 fill-refusal note 是 **stack 中心**的（classesFile==null && classes.length>0 即写 renderError），t402b 的 volume 车道答了它也说「no class-average stack was found」——teaser 吃到 renderError 就渲染错误段而非 tiles。修复一行：note 只在两条车道都空时才说（`(volumeFiles ?? []).length === 0` 加入守卫）。**这是真 bug 而非 demo 欠账**：真实 RELION class3d 世界（只有 volumes 没有 stack）的 teaser 从 t474 起就永远显示错误横幅——世界升格只是让它显形。
+- [t660-e2e 30/0] A 4 锚（双车道 API 真值 + tile PNG）+ B 10 锚（组/3 行/refine3d 负锚/跳转落 Overview/teaser 亮/8 tiles 全渲染/populated chip "8 of 8"）+ C 2 锚（latched Overview 持久 + teaser 持久——face 不是 one-shot 手势）+ D 5 锚（inspector 换 job 确认/h3 "Class maps"/3 tiles 全渲染）+ E 4 锚（STAR 卡/sticky 真粘性/row+sticky 双 transition-colors computed-style 断言）+ F 5 锚（四桶 + 真 JS 错 0，本窗全程 0 flap）。
+- [回归全家二十二绿] 基线（t252 + qa78 + t637 6/0 + t641 10/0）+ palette 合同（t245 ALL PASS）+ 直系（t651 22/0 + t652 24/0 + t653-match-unit 25/0 + t654 25/0 + t655-match-unit 25/0 + t655-e2e 20/0 + t656 17/0 + t657 25/0 + t658 30/0 + t659 27/0）+ 遗产（t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t646 21/0 + t647 24/0 + t648 15/0 + t649 18/0 + t650 21/0；t647/t648/t649/t650 asserts CLEAN）；tsc 0 + eslint 0。插曲：t658/t656/t654 各一次瞬时崩/FAIL（服务器 flap 类，复跑即绿）；孤儿 chromium 进程清理（超时 run 的 b.close 未达）；t252 fixture 漂移 checkout 还原（判例第六演）。
+
+Stage Summary:
+- 「shipped-dark 也是债」：t544 的 teaser 自 hid 三窗无人知——自隐合同把「世界没喂它」翻译成「无声缺席」，产品看起来完整，功能其实缺席。世界升格（种文件）点亮它的那一刻，才知道亮的不是一个 demo 补丁，是一个真功能。判决书说「世界的真状态」时，要留一次复审：缺席是真无，还是没喂。
+- 「车道答了，拒绝注必须闭嘴」：t474 的 refusal note 写于 volume 车道之先，stack 缺席即出声——t402b 立了第二条车道，note 却没学会尊重它。真 class3d 世界的 teaser 从此永远错误横幅。修一行守卫的教训：**每加一条回答路径，回访所有「以缺席为前提」的话术**——它们的心智模型停在单车道时代。
+- 「到达的形态由浏览面决定」：frame 墙的浏览面是灯箱（深链开灯箱），class teaser 的浏览面是 grid（深链只切 tab）。同一个深链家族，两种到达形态——手势的落点不是模仿前例，是读「那面墙用什么姿势看」。teaser 无灯箱 → 无第二消费者 → 无 TTL 舞——握手形状跟着到达形态走。
+- 「挂载门正则就是行过滤器」：palette 行的能力判据直接抄 teaser 的 mount gate（/class2d|class3d|initialmodel/ + completed）——行承诺的面和 inspector 挂载的面一字不差，行永远不会指向一个不会出现的 face。两处正则要漂移时，唯一的答案是同一处常量……本窗先用注释钉住（route 内 regex 与 palette regex 隔着文件），下次账本记一笔。
+- 「内存压力下的回归节奏」：盒子 available 跌破 1GB 时 next-server 2.5GB 是定时炸弹——探针逐个跑、孤儿 chromium 即刻清、flap 类崩复跑不判死。回归的绿不是一次跑出来的，是在环境的心律不齐里逐格点亮的。
+- 产出：palette Class averages 深链组（store 握手 + inspector 单消费者 + 3 行正锚）+ 世界升格（class2d 栈 8 slices + class3d volumes ×3 进 workdir，CHECK 锚）+ /classes 路由 renderError 双车道守卫修复 + star-table hover transition（t656 余项清零）+ t660-e2e 30/0 + 📸×2（t660-class-averages / t660-star-hover）；下窗入口：①功能车道（3D viewer 体积截面工具——遗产清单最重的一项；Topaz wrapper 次之）②样式车道（palette 三 Gallery 组的行内预览缩略图——行 hover 时 64px tile 预览，是否值得待议）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 70 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
