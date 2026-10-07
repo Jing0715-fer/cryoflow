@@ -244,8 +244,6 @@ const badges = await page.evaluate(() => {
   for (let i = 0; i < 12; i++) {
     const n = document.querySelectorAll('.text-success-700[data-slot="chip"], [data-testid="job-card"] .text-success-700, .text-success-700').length;
     if (n > 0) return n;
-    // eslint-disable-next-line no-await-in-loop
-    void 0;
   }
   return document.querySelectorAll(".text-success-700").length;
 });
