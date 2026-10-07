@@ -785,18 +785,24 @@ function SavedViewsGallery() {
   // of truth, never a possibly stale copy, whoever owns it).
   React.useEffect(() => {
     let alive = true;
+    // t675 — a read token: two rapid broadcasts issue two concurrent GETs,
+    // and fetches can RESOLVE out of order — an older response landing
+    // after a newer one would pin the stale list under a fresh render.
+    // Only the latest issued read may apply; its elders go stale in peace.
+    let readToken = 0;
     const load = () => {
+      const token = ++readToken;
       fetch("/api/views/gallery")
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
         .then((d: { views?: GalleryEntry[] }) => {
-          if (alive)
+          if (alive && token === readToken)
             setViews(
               Array.isArray(d.views) ? d.views.filter((v) => v.bookmarks.length > 0) : []
             );
         })
         .catch(() => {
           /* the wall is a convenience, not a dependency — hide on failure */
-          if (alive) setViews(null);
+          if (alive && token === readToken) setViews(null);
         });
     };
     load();

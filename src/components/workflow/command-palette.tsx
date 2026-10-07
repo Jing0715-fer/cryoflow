@@ -193,8 +193,21 @@ async function fetchSavedViews(): Promise<SavedViewEntry[]> {
  *  cache, and the next open shows the truth even inside the 30s TTL
  *  window (a view saved or deleted in the viewer is never haunted by the
  *  clock). In-flight dedup (fetchSavedViews) keeps concurrent
- *  listener+open to one wire round trip; the LAST read wins the cache. */
+ *  listener+open to one wire round trip; the LAST read wins the cache.
+ *  t675 — and when an event arrives WHILE a read is on the wire, the
+ *  dedup would silently swallow it into a round trip that started before
+ *  that event's write committed (the stale-under-fresh-fetchedAt disease,
+ *  dedup-sized). So the trailing event arms exactly one more read after
+ *  the wire clears — a burst of N events costs at most two round trips,
+ *  and the last write is always the one that gets read. */
+let savedViewsReadOnWire = false;
+let savedViewsTrailingRead = false;
 function refreshSavedViewsCache() {
+  if (savedViewsReadOnWire) {
+    savedViewsTrailingRead = true;
+    return;
+  }
+  savedViewsReadOnWire = true;
   void fetchSavedViews()
     .then((views) => {
       savedViewsCache =
@@ -204,7 +217,36 @@ function refreshSavedViewsCache() {
     })
     .catch(() => {
       savedViewsCache = { kind: "absent", fetchedAt: Date.now() };
+    })
+    .finally(() => {
+      savedViewsReadOnWire = false;
+      if (savedViewsTrailingRead) {
+        savedViewsTrailingRead = false;
+        refreshSavedViewsCache();
+      }
     });
+}
+
+/** t675 — after a ROW mutation the clicked X (or the rename input that
+ *  blur-commits and unmounts) takes the row — and the browser's focus —
+ *  with it: FocusScope parks the stray focus on the dialog shell (the
+ *  DialogContent div). From that parking spot the palette's Escape-dismiss
+ *  NEVER fires even with no other layer in the way — diag-t675-escape2
+ *  pinned the split empirically: a keydown targeting the shell runs the
+ *  layer's escape path with NO dismissal (bubble-final defaultPrevented
+ *  stays false), while the same keydown targeting the search input
+ *  dismisses cleanly. (The OTHER Escape cost, separate and by design: a
+ *  fresh toast is radix's TOPMOST DismissableLayer — react-toast wraps
+ *  every toast in one — and one Escape per layer means the first press
+ *  dismisses the toast, the second dismisses the palette. Stacked-dialog
+ *  grammar, toast-sized.) The palette's keyboard grammar lives in the
+ *  input — type to search, Escape to close — so every row mutation parks
+ *  focus back where that grammar lives (after React's commit: the
+ *  setTimeout lands the focus call once the row is actually gone). */
+function parkFocusOnPaletteInput() {
+  window.setTimeout(() => {
+    (document.querySelector("[cmdk-input]") as HTMLElement | null)?.focus();
+  }, 0);
 }
 
 export function CommandPalette() {
@@ -599,6 +641,7 @@ export function CommandPalette() {
       });
     } finally {
       setDeletingView(null);
+      parkFocusOnPaletteInput();
     }
   };
 
@@ -620,7 +663,10 @@ export function CommandPalette() {
    *  flag first — the embed's rename grammar, row-sized. */
   const renameSavedView = async (v: SavedViewEntry, b: SavedViewBookmark, draft: string) => {
     const nm = draft.trim().slice(0, 40);
-    if (!nm || nm === b.name) return; // empty or untouched — silent
+    if (!nm || nm === b.name) {
+      parkFocusOnPaletteInput(); // the draft was nothing — still unmount the editor's focus
+      return; // empty or untouched — silent
+    }
     try {
       const r = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`);
       if (!r.ok) throw new Error(`read ${r.status}`);
@@ -676,6 +722,10 @@ export function CommandPalette() {
         description:
           "The server did not confirm the new name — the row keeps its old name.",
       });
+    } finally {
+      // the rename input unmounted at commit — its focus is parked on the
+      // shell (see parkFocusOnPaletteInput); hand it back to the grammar
+      parkFocusOnPaletteInput();
     }
   };
 

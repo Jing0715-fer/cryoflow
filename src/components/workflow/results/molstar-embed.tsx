@@ -1622,6 +1622,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // render frame) read stale closure state otherwise, and the last PUT
   // would resurrect the entry the first click deleted
   const bookmarksRef = useRef<CamBookmark[]>([]);
+  // t675 — the writer's side of the fourth ear (the listener below). Every
+  // local commit bumps the mutation counter, and every queued PUT holds the
+  // busy gate up until its fetch settles (the broadcast rides the chain
+  // tail, so a listener event arriving while the gate is up means our own
+  // chain is mid-flight). putFailed remembers the offline posture: when a
+  // PUT fails, the LOCAL copy holds the truth (putBookmarkSession's
+  // contract) and a fresh server read must not clobber it.
+  const bookmarkMutRef = useRef(0);
+  const putBusyRef = useRef(0);
+  const putFailedRef = useRef(false);
 
   const cleanBookmarks = (parsed: unknown): CamBookmark[] =>
     Array.isArray(parsed)
@@ -1740,6 +1750,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const putChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const putBookmarkSession = (list: CamBookmark[]) => {
     const go = async () => {
+      // t675 — the busy gate rises at queue time (go's body runs
+      // synchronously up to the first await) and falls only after THIS
+      // fetch settles, so a broadcast fired on the chain's tail always
+      // observes the gate already down for its own write — the listener
+      // reads only when no queued write is still in flight.
+      putBusyRef.current += 1;
       try {
         await putChainRef.current;
         await fetch(`/api/jobs/${jobId}/camera-bookmarks`, {
@@ -1750,8 +1766,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           }),
           keepalive: true,
         });
+        putFailedRef.current = false;
       } catch {
-        /* offline / dev server restarting — the local copy still holds it */
+        // offline / dev server restarting — the local copy still holds it
+        putFailedRef.current = true;
+      } finally {
+        putBusyRef.current -= 1;
       }
     };
     // t671 — the chain is now a RETURNED promise: the broadcast rides its
@@ -1769,6 +1789,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
    *  the server row all move together, so N rapid clicks can never disagree */
   const commitBookmarks = (next: CamBookmark[]) => {
     bookmarkDirtyRef.current = true;
+    bookmarkMutRef.current += 1;
     bookmarksRef.current = next;
     setBookmarks(next);
     try {
@@ -1793,6 +1814,84 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
     });
   };
+
+  // t675 — the FOURTH EAR. The embed is the managing mouth (its commits PUT
+  // the full list), but t674 made the aggregate mouths full managers too:
+  // the wall's pencil and the palette's trio slot can now rename or delete
+  // a view of the job THIS viewer is showing. Until now the embed never
+  // heard the family broadcast — its list (and bookmarksRef, the source
+  // every commit PUTs wholesale) went stale, and the stale copy had teeth:
+  // the next quick-save would PUT the foreign-deleted row right back
+  // (resurrection by full-list upsert). So the writer learns to listen —
+  // with a writer's guards, because a fresh read landing on a writer must
+  // respect the writes it lands on:
+  //  • the busy gate — while our own PUT chain has a write in flight, an
+  //    intermediate read would clobber state that already reflects the
+  //    queued commits; each commit broadcasts on the chain's tail, so the
+  //    LAST one re-reads the truth (the chain serializes, the ear waits);
+  //  • the offline posture — while the last local PUT failed, the LOCAL
+  //    copy holds the truth (putBookmarkSession's contract); reading the
+  //    server now could resurrect nothing but would bury a live local
+  //    mutation. The next successful PUT re-opens the door;
+  //  • the mid-read commit guard — a local commit landing while the read
+  //    is in flight discards the read (its own broadcast re-reads);
+  //  • the trailing re-read — an event arriving mid-read arms exactly one
+  //    more read (the deduplicated read may have started before the second
+  //    write committed).
+  // The event carries no payload on purpose: the embed reads its OWN route,
+  // the same doctrine as the wall and the palette reading theirs.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    let alive = true;
+    let reading = false;
+    let trailing = false;
+    const readFresh = () => {
+      reading = true;
+      const mutsAtStart = bookmarkMutRef.current;
+      void (async () => {
+        try {
+          const r = await fetch(`/api/jobs/${jobId}/camera-bookmarks`);
+          if (r.ok) {
+            const j = await r.json();
+            const server = cleanBookmarks(j?.bookmarks);
+            // a local commit landed mid-read — the list it read is already
+            // behind the mirror; that commit's broadcast re-reads the truth
+            if (alive && bookmarkMutRef.current === mutsAtStart) {
+              bookmarksRef.current = server;
+              setBookmarks(server);
+              try {
+                localStorage.setItem(camBookmarkKey(jobId), JSON.stringify(server));
+              } catch {
+                /* private mode — session-local list still works */
+              }
+            }
+          }
+        } catch {
+          /* offline / restarting — the local copy holds the truth */
+        } finally {
+          reading = false;
+          if (trailing && alive) {
+            trailing = false;
+            if (putBusyRef.current === 0 && !putFailedRef.current) readFresh();
+          }
+        }
+      })();
+    };
+    const onSavedViewsChanged = () => {
+      if (putBusyRef.current > 0) return; // our own chain is mid-flight — its last tail re-reads
+      if (putFailedRef.current) return; // offline posture: the local copy holds the truth
+      if (reading) {
+        trailing = true;
+        return;
+      }
+      readFresh();
+    };
+    window.addEventListener(SAVED_VIEWS_CHANGED_EVENT, onSavedViewsChanged);
+    return () => {
+      alive = false;
+      window.removeEventListener(SAVED_VIEWS_CHANGED_EVENT, onSavedViewsChanged);
+    };
+  }, [phase, jobId]);
 
   const removeBookmark = (id: string) =>
     commitBookmarks(bookmarksRef.current.filter((x) => x.id !== id));
