@@ -10543,3 +10543,25 @@ Stage Summary:
 - 「探针的重算是独立的，不是复读」：t677 对账 UI/CSV 用的是探针自带镜像实现（同律不同码）——import 产品 lib 的对账只能证明「代码在跑」，独立重算才能证明「代码跑对了」。
 - 「MultiEdit 不是原子的」：本环境顺序应用遇错不停——关键落码用单 Edit 或每步 grep 验尸。TDZ 声明序是第二课：useMemo 引用 runs.rows 必须住在 runs 声明之后。
 - 产出：src/lib/stage-runtime.ts（纯客户端聚合 + CSV 机器面）+ pipeline-analytics 第四面（块 + 工具栏 Timer 按钮 + copy-summary 段 + 诚实锚）+ t677-runtime-by-stage.mjs（30 锚六腿 + prisma drill 注入/teardown + 独立重算对账 + 📸×2）+ t675 D 腿 autopsy 仪器驻留；下窗入口：①功能车道（语义色 token ~470 处——连续十四窗记账，需整窗+稳定回归夜；「could not be restored」第三出口专属锚等稳定夜）②样式车道（Runtime 块的入场动画未加入 t611/t612 编舞——若加需遵守家族两层诚实律，当前判「静态即可」）③judge 风暴（等稳定夜）④build 日三车道（钥匙九连零失败）⑤演练床一键（账在）⑥t675 D 腿冷启动竞态若复发：wire-tracing diag（记录每次 camera-bookmarks GET 的席数与时戳）+ palette open re-validate 候选修法。
+
+---
+Task ID: 678 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080555)
+Task: 05:55 派单执行——语义色 token 账本线（连续十五窗记账的 ~470 处）全面法医审计 = 化石定谳；审计副产品 = 发现真实的设计合同「主题孪生」（token 面翻转 / 暗岛恒黑 / 真实 ThemeToggle 零回归覆盖）→ t678 探针 26/0 三航锁死；零产品码变更，零 build 需求
+
+Work Log:
+- [开局五件套] worklog 尾条核实 = Task 677 收官（派单文本「Task 13 条目」再演模板滞后）；HEAD ed13729 树净；fetch 0-0；available 3086MB（开局低于 3.28GB 阈值 → build 否决；QA 后回升 3378MB——最后零产品码变更，否决自然失效）；server 200/2.6ms + console 净 + roster 17 全 completed。
+- [QA 判稳] 直系三探针（t675 38/0——D 腿无复发，入口⑥继续挂观察 + t676 24/0 + t677 30/0）+ 基线四绿（t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0）= 七探针全绿，本窗即账本等着的「稳定回归夜」。t252 首跑异常 = 敲错文件名（t252-write-door.mjs 不存在，真名 t252-write-gates.mjs）——产品无病。
+- [定道·账本化石审计] Task 677 入口①「语义色 token ~470 处」连续十五窗记账，条件（整窗+稳定夜）今晚齐备 → 先普查：真实站点 1028 处/54 文件 → 分层验尸后**全盘反转：这条线是化石**。
+- [化石证据链] ① token 刻度工具类已在场：bg-running-600/bg-success-500/bg-danger-600/bg-warning-500（@theme 注册色阶）+ button.tsx「Task 177 token truce」注释；② 44 处 text-white 全是彩底章上的字面白（bg-teal-600/running-600/渐变 chip）= 正确配对非债；③ 26 处 bg-zinc-950 全住**故意的 always-dark 岛**：log 终端（job-inspector:618）、显微图框（mrc-image/import-gallery）、class 瓦片、map 帧、scrims（from-zinc-950/85）——图像与控制台在黑地上读是 cryo-EM 域正确，且 globals.css:2220-2233 已有印刷边界既往判决——**代码里已有裁定书**；④ 未配对 zinc 墨全部岛内自洽；配对形态（text-zinc-600 dark:text-zinc-400）已 theme-aware（status-style/storage-dialog/job-inspector 1233-1253）；⑤ slate 全是域编码（workflow.ts stage 色表、PORT_COLORS 点、compare-face same 点）；⑥ 四个 token 面组件（command-palette/palette/header/pipeline-analytics）zinc/slate **零命中**。结论：迁移已在中间十四窗实际发生（token 化+岛化+配对化+印刷裁定），剩余字面站即设计本体——**盲扫反而会毁设计**（岛会随主题翻转、图面会翻白）。
+- [审计副产品·真合同] ThemeToggle 是真的（header 太阳/月亮，next-themes，localStorage 持久）但**零回归覆盖**；暗面孪生用户可达。深走双主题五面：canvas/palette/inspector（overview/results/files/log）/dashboard+墙 全协调（📸×9 留档 .qa-logs）；岛 lab(2.51107) 跨主题逐位相同——恒黑合同实测成立。零伤口 = 零产品码变更。
+- [t678 探针 26/0 三航] 一航 30s 超时 = C 腿在 inspector 开着时 getByRole 找 toggle——**radix modal 给 dialog 外内容挂 aria-hidden + react-remove-scroll 锁 pointer**（修 = CSS 属性定位器 + 两实例合同测量：jump→测→Escape→切→再跳——合同是类的主题无关性，不是单节点存活）；二航 19/7 = **这台 Chrome 把 computed 色序列化成 lab()**（非 oklch 非 rgb——解析器补 lab L/100 分支；数值本身完美：body 97.6/5.6、岛 2.5）；三航 26/0 全绿。锚：S3（shell+toggle 单一+aria 浅装）+ A7（翻转/aria 换装/localStorage/双向 reload 持久）+ B5（body 0.976→0.056 + palette 卡 ΔL 0.92 + 双主题 105 行）+ C6（jump×2/终端×2/双主题 <0.2/Δ=0.000000）+ D2（暗墙 3 卡+暗 palette 行）+ E3（console 0 真/404 0/flap 有界）+ 📸×2。世界安全由构造保证：零服务端突变，主题活在一次性 context 的 localStorage。
+- [撞见·显示管线吞 [m]] 读 theme-toggle.tsx 时 cat/sed 两次显示 `const ounted, setMounted]`（疑似语法残缺！）——tsc 0 + esbuild 0 + od -c 字节级三证还原真相：**文件完好（const [mounted），是输出管线把 `[m` 当 SGR 序列吞了**（无 ESC 前缀的宽松剥离正则恰好命中）。教训：显示输出看似语法不可能时，od -c 才是诚实检查——差点为一个不存在的 bug 立案。
+- [车道纪律] 零产品码变更 → 无 build 需求；无 fixture 漂移；六新脚本 eslint 0。
+
+Stage Summary:
+- 「账本会撒谎，普查不会」：~470 处的账挂了十五窗，普查出 1028 处，验尸出 0 处活债——**这条线最诚实的形态是关闭**。中间十四窗每次让路都对（它们在真建功能），但没人回头验尸。化石审计是每窗的呼吸（Task 677 示范清单化石，本窗证明**账本行本身也会化石**）。
+- 「审计能发现账本没写的设计」：找语义债的路上找到的是真合同——token 面翻转/暗岛恒黑/印刷裁定/彩底字面白，四层语言井然。「欠债」的直觉来自数量，真相来自分层——数量不是债，无主的数量才是。
+- 「恒黑岛是合同不是债」：图像与控制台在黑地上读是 cryo-EM 的域正确；print 块早有裁定书；t678 用 lab 逐位相同把合同钉死（ΔL=0.000000）。后来者看到 26 处 bg-zinc-950 会手痒——探针会拦住那把扫帚。
+- 「仪器的三课」：radix modal 的 aria-hidden + pointer-lock 让 getByRole/点击双双失明（CSS 属性定位器 + 两实例测量是绕行道）；这台 Chrome 的 computed 色说 lab() 方言（归一化解析器要会说 lab/oklch/rgb 三方言）；[m 显示吞字惊魂（诊断要下到字节层才算数——od -c 是诚实检查）。
+- 产出：t678-theme-twin.mjs（26 锚五腿 + 📸×2）+ qa-t678-light-before/seam-audit/dark-walk/dark-walk2 + diag-t678-toggle + 账本线「语义色 token」关闭判决 + 暗面孪生五面 📸 证据链；下窗入口：①功能车道（「could not be restored」第三出口专属锚——molstar error 态受控注入，等稳定夜；Topaz wrapper/3D 截面已化石清账）②样式车道（账本清零——若再立新账必须先过 t678 的分层验尸）③judge 风暴（等稳定夜）④build 日三车道（钥匙十连零失败）⑤演练床一键（账在）⑥主题孪生扩展候选：dialog 族（storage/session-report/hpc/fsc-compare）的暗面专走若要专锚可加——机制已由 t678 覆盖核心面，当前判「文档化即可」。
