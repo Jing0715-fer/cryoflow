@@ -10170,3 +10170,28 @@ Stage Summary:
 - 「缓存要连缺席一起缓存」：URL 即缓存 + absent 即缓存，一对双生判决——成功的不重取是性能，失败的不重取是诚实（spinner 循环是 UI 对用户撒的最大的谎：它假装失败是暂时的）。in-flight 去重让并发激活共享一次往返；e2e 从 wire 层数请求（不是看 UI 状态）让缓存成为可执行断言。
 - 「闪断锚的病根常在探针」：t651 三度闪断全查世界、查代码，最后定谳是探针自己的 1.5s 固定 sleep——「按钮存在」被写成了「按钮 1.5 秒内存在」。判词要说准它的边界（t661 教义的探针版）：每条 flaky 锚先问断言的真实形状，再问 sleep 是不是把存在性写成了时限。
 - 产出：PaletteGalleryThumb（cmdk 观察者 + 配方同源 + 双生缓存 + 诚实梯）+ palette 双组接线 + t663-e2e 22/0（首跑零自纠）+ t651 锚硬化（pollUntil 化）+ 📸×2；下窗入口：①功能车道（oblique 引导线的 2D 镜像——tile 上画同族描迹待议；语义色 token 缺位 ~470 处手配 dark: 变体——t640 时代立案，大工程宜整窗）②样式车道（compare dialog same-bpp 聚合行是否值得——t661 入口②余项）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，第 73 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 664 收官
+Agent: main (cron window, Job 362852)
+Task: t663 下窗入口双件——①compare dialog same-bpp 聚合行（t661 入口②余项结清：formatted 值同源判等，t659 same-dims 的诚实镜像）②oblique cut 的 2D 镜像描迹（t663 待议结清：tile 上画平面∩切片交线 + ✂ 徽章，听 OBLIQUE_CLIP_EVENT/ACK 双声镜像场景真相）+ obliqueTraceOnTile 纯函数 14/0 + t664-e2e 32/0 + 回归全家绿 + OOM 三杀下的恢复环判例（warm-up 预热 + reload 重舞）
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 663 收官；树净 HEAD a1aa180；available 1040MB 非 build 日（第 74 窗否决）；server 200/30ms；agent-browser 巡检 console 净 + 15 jobs 全 completed——稳定，自主提新需求。
+- [定靶] t663 入口②a same-bpp（t661 入口②余项）+ ②b oblique 2D 镜像（待议侦察后定谳可行）双件合并。语义色 token（~470 处）仍记整窗工程不宜。侦察定谳：ortho tiles 是 <img> + 服务端切片路由（非相机画布），已有分数坐标覆层先例（crosshair/clip kept-region 同一映射语言）；oblique 事件线（OBLIQUE_CLIP_EVENT + ACK）是现成的真相广播——镜像线听同一根线即可，last-writer-wins 镜像 SCENE 而非 block UI。
+- [same-bpp] compare dialog 第二聚合行 data-gallery-ui="compare-same-bpp"：pickedEntries 全测得 bpp（formatBytesPerPixel 非 null）且 formatted 值全等（n≥2）才说——判等在显示分辨率上同源（聚合永远不与每面行矛盾，t662 同源律的数据配方版）；未测得的墙不确认它没数过的东西。独立第二行（加法），t659 same-dims 合同零改动。
+- [2D 镜像·纯函数] obliqueTraceOnTile（map-ortho-panel 内 obliqueFrame 毗邻、export）：平面在 voxel 空间 n·p = n·c + offsetVox（服务器帧——与 block 读数、oblique PNG 同一数学），tile 切片钉住一轴，代换后是直线 A·h + B·v = D，裁剪到单位方块；端点 0..100 viewBox 单位。诚实缺席：dims 未知/平面平行切片（θ=0 同轴）/擦角单点 → null，绝不猜线。
+- [2D 镜像·组件] OrthoTile：挂 OBLIQUE_CLIP_EVENT + OBLIQUE_CLIP_STATE_EVENT 双监听（chip clear 与 bookmark 复活在 block 滑条之外说话——tile 跟随场景）；dims 全量 prop 下传（平面常数需要每轴 extent）；SVG 覆层（#7c3aed ✂ 芯片紫、dashed 5 3、non-scaling-stroke、viewBox 0 0 100 100 preserveAspectRatio none）+ 中点 ✂ 徽章（size-4 圆章——线的话是「切割从这里经过」，徽章把它绑到创造它的 toggle，t662 引导线教义）；渲染序 image → clipOverlay → crossLines → obliqueOverlay → probe（光标仪器永远最上）。
+- [t664-oblique-trace-test 14/0] 手算正典（Z tile θ45φ30 → (78.87,0)↔(21.13,100)，中点恒 (50,50)）+ 中心不变量五角度 + 平行平面 null（θ0/θ180 同轴）+ 轴对齐法向正典（X tile 水平中线/Z tile 垂直中线）+ 全行为 sweep（解析分类：D 严格在 [min(0,A)+min(0,B), max(0,A)+max(0,B)] 内 → 必画且端点满足平面方程 n·p=d0；盒外 → 必 null；边界擦角两者皆容——31 drawn+verified + 5 honest absences）+ 诚实缺席五连（offset ±1 / 擦角 / 退化 dims ×3）。
+- [t664-e2e 32/0，五幕] A 7 锚（same-dims 合同延续 + same-bpp 说话 + 聚合值==每面行值 + 第三 pick 幸存）+ B 5 锚（舞步/条带/块/VIEW 不画线——斜视图不是切割/Z tile 默认位）+ C 6 锚（三 tile 全画 + Z 线==镜像公式逐位 + #7c3aed + 徽章骑线中点）+ D 6 锚（θ 刷 50°/Z 切片刷离中心后影子跟随公式/离中线可测位移/chip clear 全 tile 撤线/✂ 复活讲采纳角）+ E 5 桶全零 + 📸×2（t664-same-bpp / t664-oblique-trace）。
+- [自纠两课] ①badge style 断言：浏览器把 50.0% 序列化成 50%——断言正则容两种序列。②「θ50 线 ≠ θ45 线」是我算错：pos=0.5 + offset=0 时交线过中心且方向只依赖 φ，θ 解析消去（h(v)=½+tanφ/2−tanφ·v）——镜像公式自己证实（drawn==expected）。θ 的影子只在非中心切片上移动——改成把 Z 切片刷到 12/63 再断言（顺带验证「影子跟随切片」这个更有意义的 2D 行为）。探针的几何预期错了，产品的线是对的。
+- [OOM 三杀恢复判例] 本窗 dmesg 三度处决 next-server（2.2GB anon-rss 各一次）——molstar chunk 的 dev 编译是盒子最重的单操作。两层恢复梯入 e2e：①molstar 块缺席但 dialog 活 → 重收条带（t662 判例直系）；②ChunkLoadError 杀死 dialog 本体 → 整页 reload + 重舞（chunk 已编译缓存，只有首次编译在险）——人在服务器重启后也会刷新重走。新脚本 qa-t664-warmup.mjs：e2e 前给一次干净的编译机会（3 次尝试环，本窗首试即成）。bail 分支带诊断倾泻（tiles/dialogs/sections + console）。
+- [跑法实名第五演] t653-match-unit 首跑 ERR_MODULE_NOT_FOUND——worklog 自己的判例（unit 探针必走 node scripts/unit-runner.mjs，createJiti + @ 别名）就躺在 t653 窗的实录里。脚本名从实况来，跑法也要从实况来。
+- [回归全家绿] 基线四绿（t252 + qa78 + t637 6/0 + t641 10/0）+ oblique 域（t555 ALL PASS + t557 19/0 + t661-oblique-plane 20/0 + t661-e2e 28/0 + t662-oblique-guide 43/0 + t662-e2e 31/0）+ gallery 域（t657 25/0 + t658 30/0 + t659 27/0 + t660 30/0 + t663 22/0）+ palette 合同（t245 ALL PASS）+ 直系（t651 22/0 + t652 24/0 + t653-match-unit 25/0 + t653-e2e 11/0 + t654 25/0 + t655-match-unit 25/0 + t655-e2e 20/0 + t656 17/0）+ 遗产（t105 46 + t103 31 + t101 33 + t642~t650-probe 七连）；tsc 0 + eslint 0。fixture 漂移（t245/t252）checkout 还原不入车（判例第十演）。
+
+Stage Summary:
+- 「聚合行判等要判它显示的东西」：same-bpp 的相等在 formatted 值上判——聚合行说的「same」与每面行显示的「4.0 B/px」是同一分辨率下的同一句话，聚合与行在结构上不可能互相矛盾（t662 anchor 钉子的数据版：不是同一状态源，是同一显示配方）。判等在原始数值上判反而会撒谎：2.03 与 1.98 都显示 2.0，聚合若按原值判「不同」而每面行都写 2.0，读者看到的是墙自己反驳自己。
+- 「影子要听真话的那根线」：2D 镜像线的真相源是事件线上的 last-writer-wins（block 的请求 + embed 的 ACK）——chip 在 block 滑条之外 clear、bookmark 在块收起时复活，线都跟着场景走而不是跟着 block 的 UI 走。三个消费者（3D clip、block 读数、2D 影子）共享同一 (θ,φ,offset)，而线的几何走服务器的 obliqueFrame——与 block 读数和 oblique PNG 同一数学，三方在结构上同一口径。
+- 「探针的几何预期会算错，产品的线不会」：θ 在中心切片上被解析消去是我用镜像公式亲手证实的——预期错的断言改判定为「探针错」，不改产品。教训的正面形态：写几何断言前先问「这个量在什么条件下解析地不变」，不变就换一个能动的旋钮（切片位置）去测。断言要测差异，先确认差异存在。
+- 「环境的病要有恢复的梯子」：OOM 三杀不是异常是常态——e2e 的恢复梯（重收条带 → reload 重舞 → bail 倾泻）把人在同情境下的动作形式化：块缺席先试重收，dialog 死了就刷新重走，只剩尸体才倾泻验尸。warm-up 脚本把「第一次编译」这个最脆的窗口从 e2e 身上摘出去单独对待——耐心给对对象（t662 教义）的运维版。
+- 产出：same-bpp 聚合行 + obliqueTraceOnTile 纯函数 + 2D 镜像描迹全链（双监听/SVG/✂ 徽章/dims 下传）+ t664-oblique-trace-test 14/0 + t664-e2e 32/0（七跑迭代：探针四课 + 恢复环）+ qa-t664-warmup.mjs + 📸×2；下窗入口：①功能车道（3D cut 的 bookmark 深链第二幕待议——书签存 oblique 平面但 palette 无直达；2D/3D class 深链家族第三幕）②样式车道（语义色 token 缺位 ~470 处——t640 时代立案，整窗工程；compare 图间统计 chip——t654 待议余项）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 74 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
