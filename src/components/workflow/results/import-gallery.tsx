@@ -29,6 +29,13 @@
  *      lives in state, not in the network: picks are cleared when the
  *      sample changes (re-sample) or the mode exits — a tray pointing
  *      at thumbnails that are no longer on the wall would be a lie.
+ *
+ * t657 — the compare dialog learns what it is comparing: each pane
+ * carries a measured stats row (dims from the MRC header, bytes per
+ * pixel from size ÷ nx·ny) under the identity row. The demo world
+ * backs this with real physics — the seeder hard-links the ten real
+ * EMPIAR frames into the import workdir — so the numbers are counted,
+ * never invented, and honestly absent when a frame's header is unknown.
  */
 
 import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -90,6 +97,16 @@ function formatBytes(bytes: number): string {
     i++;
   }
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+/** t657 — measured bytes per pixel (size ÷ nx·ny): the per-frame storage
+ *  density the compare panes can line up side by side. It is a MEASUREMENT,
+ *  not a guess about the MRC mode — 4.0 B/px is what float32 looks like,
+ *  but the chip reports what it counted, the header knows the mode. */
+function formatBytesPerPixel(m: MicrographEntry): string | null {
+  const px = m.nx * m.ny;
+  if (!(m.nx > 0) || !(m.ny > 0) || !(m.size > 0) || px <= 0) return null;
+  return `${(m.size / px).toFixed(1)} B/px`;
 }
 
 function StatChip({ label, value }: { label: string; value: string | null }) {
@@ -447,20 +464,50 @@ export function ImportGallery({
                   : "grid-cols-2 sm:grid-cols-4"
                 )}
               >
-                {pickedEntries.map((m, i) => (
+                {pickedEntries.map((m, i) => {
+                  const bpp = formatBytesPerPixel(m);
+                  return (
                   <figure key={m.path} className="overflow-hidden rounded-md border border-running/25">
                     <MrcImage
                       src={fileUrl(m.path, isCluster ? "&full=1" : "&scale=large")}
                       alt={`Micrograph ${m.name}, comparison pane ${i + 1}`}
                       className="aspect-square"
                     />
-                    <figcaption className="flex items-baseline gap-1 border-t border-running/20 bg-muted/30 px-1 py-0.5">
-                      <span className="text-[9px] font-semibold tabular-nums text-running-700 dark:text-running-300">{i + 1}</span>
-                      <span className="truncate text-[9px] font-medium text-foreground/80" title={m.name}>{m.name}</span>
-                      <span className="ml-auto shrink-0 text-[8.5px] tabular-nums text-muted-foreground">{formatBytes(m.size)}</span>
+                    {/* t657 — the stats the panes can be compared on:
+                        row 1 identity (order · name · bytes), row 2 the
+                        measured geometry (dims · bytes-per-pixel) — both
+                        honest: absent when the header/stat says unknown. */}
+                    <figcaption className="border-t border-running/20 bg-muted/30 px-1 py-0.5">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-[9px] font-semibold tabular-nums text-running-700 dark:text-running-300">{i + 1}</span>
+                        <span className="truncate text-[9px] font-medium text-foreground/80" title={m.name}>{m.name}</span>
+                        <span className="ml-auto shrink-0 text-[8.5px] tabular-nums text-muted-foreground">{formatBytes(m.size)}</span>
+                      </div>
+                      {m.nx > 0 ? (
+                        <div
+                          data-gallery-ui="pane-stats"
+                          className="mt-px flex items-baseline gap-1.5 text-[8.5px] tabular-nums text-muted-foreground"
+                        >
+                          <span data-pane-stat="dims" title="detector dimensions from the MRC header">
+                            {m.nx}×{m.ny} px
+                          </span>
+                          {bpp ? (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span
+                                data-pane-stat="bpp"
+                                title="measured bytes per pixel — 4.0 is float32, 2.0 int16; counted, not guessed"
+                              >
+                                {bpp}
+                              </span>
+                            </>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </figcaption>
                   </figure>
-                ))}
+                  );
+                })}
               </div>
             </>
           ) : null}
