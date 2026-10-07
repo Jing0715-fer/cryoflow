@@ -22,9 +22,10 @@
  * must never masquerade as a wound, and a wound must never read as absence.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Columns2, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
 import { ChartErrorStrip } from "./chart-error-strip";
 import { MrcImage } from "./mrc-image";
 import { useChartResource } from "@/lib/use-chart-resource";
@@ -138,6 +139,47 @@ export function DenoiseCompareGallery({
   const pairs = useMemo(() => data?.pairs ?? [], [data]);
   const paired = data?.paired ?? 0;
 
+  // t665 — the deep link's CONSUMER gate (the inspector only cleared the
+  // way to the results tab): fresh request + wall on screen → the section
+  // scrolls into view and flashes its own fuchsia ring — the link promised
+  // the before/after wall, so the wall itself answers, not just the tab
+  // that contains it below the fold. The waiting law (t659 verbatim):
+  // while the fetch is still loading the request WAITS; a stale request is
+  // cleared on sight (the self-hide contract means this component may
+  // never render — the flash would have nothing to land on); an empty or
+  // wounded wall is cleared honestly. One-shot either way.
+  const rootRef = useRef<HTMLElement | null>(null);
+  const [flash, setFlash] = useState(false);
+  const pendingDenoiseFocus = useWorkflowStore((s) => s.pendingDenoiseFocus);
+  const consumeDenoiseFocus = useWorkflowStore((s) => s.consumeDenoiseFocus);
+  useEffect(() => {
+    if (!pendingDenoiseFocus || pendingDenoiseFocus.jobId !== jobId) return;
+    if (Date.now() - pendingDenoiseFocus.at >= GALLERY_FOCUS_TTL_MS) {
+      consumeDenoiseFocus();
+      return;
+    }
+    // still loading — the effect re-runs when data or error arrives
+    if (data == null && !error) return;
+    if (data && data.pairs.length > 0) {
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      rootRef.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      // the flash rides a paint-aligned callback, not the effect body (the
+      // set-state-in-effect law): the ring is a transient cue acknowledging
+      // the link's arrival, and its teardown must not live in THIS effect's
+      // cleanup — the consume() above flips the pending to null, the effect
+      // re-runs, and React runs the previous cleanup — a cleanup-cleared
+      // timer would kill its own flash-off and the ring would never fade
+      // (the t665 first-flight lesson).
+      requestAnimationFrame(() => {
+        setFlash(true);
+        setTimeout(() => setFlash(false), 1800);
+      });
+      consumeDenoiseFocus();
+      return;
+    }
+    consumeDenoiseFocus();
+  }, [pendingDenoiseFocus, jobId, data, error, consumeDenoiseFocus]);
+
   if (status === "wounded") {
     return (
       <ChartErrorStrip
@@ -154,10 +196,13 @@ export function DenoiseCompareGallery({
 
   return (
     <section
+      ref={rootRef}
       aria-label="Denoise compare"
       data-denoise-gallery=""
+      data-denoise-flash={flash ? "on" : undefined}
       className={cn(
-        "animate-rise rounded-lg border border-fuchsia-600/25 bg-gradient-to-b from-fuchsia-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-fuchsia-600/25 bg-gradient-to-b from-fuchsia-600/5 to-transparent p-3 transition-shadow duration-500",
+        flash && "ring-2 ring-fuchsia-500/70",
         className
       )}
     >
@@ -295,8 +340,7 @@ export function DenoiseCompareGallery({
       <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
         drag the divider (or focus a card and use the arrow keys) to wipe between the raw
         micrograph and its denoised render — real Topaz denoising removes detector noise the
-        picker trains better without; on this machine the mock wrapper copies bytes, so the
-        two renders agree, and the pairing itself is the receipt.
+        picker trains better without.
       </p>
     </section>
   );

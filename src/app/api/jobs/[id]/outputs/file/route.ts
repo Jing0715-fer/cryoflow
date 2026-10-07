@@ -10,8 +10,32 @@ import { isLocalRequest } from "@/lib/http-guard";
 import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
 import { isMrcPath, readMrcHeader, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcObliquePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
 import { displayPolarityFor } from "@/lib/render-polarity";
+import { cachedComputeAsync } from "@/lib/relion/statcache";
 
 export const dynamic = "force-dynamic";
+
+// t665 — the heavy-render semaphore. A PNG render of a large frame is the
+// box's heaviest single request (a 64 MB read + a sharp encode each); a
+// 9-tile wall firing at once reset connections under this machine's
+// memory regime before the stat cache could ever fill — the tiles showed
+// "unavailable" on every cold visit. Two renders at a time, the rest
+// queue: the browser waits for images (no img timeout), the queue drains
+// as renders land, and repeat visits are stat-check hits that never take
+// a slot at all (the cache is inside the slot).
+let heavyRunning = 0;
+const heavyQueue: (() => void)[] = [];
+async function withHeavySlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (heavyRunning >= 2) {
+    await new Promise<void>((release) => heavyQueue.push(release));
+  }
+  heavyRunning++;
+  try {
+    return await fn();
+  } finally {
+    heavyRunning--;
+    heavyQueue.shift()?.();
+  }
+}
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -334,43 +358,61 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // offset ∈ −1…1 rides it (fraction of the box's support). Same
       // window/polarity pipeline, same volumes-only law as axis planes.
       const planeParam = url.searchParams.get("plane");
-      if (planeParam === "oblique") {
-        if (isStack) {
-          return NextResponse.json(
-            { error: "Oblique planes are for 3D volumes — stacks browse images with slice/montage" },
-            { status: 400 }
-          );
-        }
-        const num = (raw: string | null, lo: number, hi: number, dflt: number) => {
-          const v = raw !== null ? Number.parseFloat(raw) : NaN;
-          return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt;
-        };
-        const theta = num(url.searchParams.get("theta"), 0, 180, 0);
-        const phi = num(url.searchParams.get("phi"), 0, 360, 0);
-        const offset = num(url.searchParams.get("offset"), -1, 1, 0);
-        png = await renderMrcObliquePng(abs, theta, phi, offset, undefined, win, polarity);
-      } else if (axis !== "z") {
-        if (isStack) {
-          return NextResponse.json(
-            { error: "Orthogonal planes are for 3D volumes — stacks browse images with slice/montage" },
-            { status: 400 }
-          );
-        }
-        png = await renderMrcOrthoPng(abs, axis, toPos(), undefined, win, polarity);
-      } else if (!isStack && posRaw !== null) {
-        // fractional z plane (pos) — without pos, the legacy slice/montage
-        // params below keep their meaning
-        png = await renderMrcOrthoPng(abs, "z", toPos(), undefined, win, polarity);
-      } else if (isStack && montageParam !== "0") {
-        const n = Math.min(16, Math.max(1, Number.parseInt(montageParam ?? "8", 10) || 8));
-        png = await renderMrcMontagePng(abs, n, win, polarity);
-      } else if (scale === "large") {
-        const slice = sliceParam !== null ? Number.parseInt(sliceParam, 10) || 0 : 0;
-        png = await renderMrcLargePng(abs, slice, win, polarity);
-      } else {
-        const slice = sliceParam !== null ? Number.parseInt(sliceParam, 10) || 0 : undefined;
-        png = await renderMrcSlicePng(abs, slice, win, polarity);
+      // the volume-only laws hoisted out of the render (they are
+      // request-shape validations — a cache miss never needs to reach
+      // them, and the cached compute below stays a pure render)
+      if (isStack && (planeParam === "oblique" || axis !== "z")) {
+        return NextResponse.json(
+          { error: planeParam === "oblique"
+            ? "Oblique planes are for 3D volumes — stacks browse images with slice/montage"
+            : "Orthogonal planes are for 3D volumes — stacks browse images with slice/montage" },
+          { status: 400 }
+        );
       }
+      // t665 — the render rides the stat cache: a wall re-mount (reopen,
+      // deep link, palette jump, tab round-trip) re-requests the SAME
+      // tiles, and every miss used to re-read a 64 MB frame + re-encode
+      // — under the box's memory regime the burst reset connections and
+      // the original legs showed "unavailable". The key carries every
+      // param that reaches the render + the resolved polarity; the
+      // (size, mtime) slot key invalidates when the file changes; a
+      // THROWN render (transient pressure) is not cached — the next
+      // request retries; a null render (unparseable file) is — the
+      // file's own bytes answer "no" deterministically.
+      const pngKey = `png|scale=${scale}|m=${montageParam}|s=${sliceParam}|ax=${axis}|pos=${posRaw ?? ""}|pl=${planeParam ?? ""}|th=${url.searchParams.get("theta")}|ph=${url.searchParams.get("phi")}|of=${url.searchParams.get("offset")}|lo=${loRaw ?? ""}|hi=${hiRaw ?? ""}|pol=${polarity}`;
+      png = await cachedComputeAsync(abs, pngKey, () =>
+        // only a MISS takes a heavy slot — a hit is a stat check
+        withHeavySlot(async () => {
+          if (planeParam === "oblique") {
+            const num = (raw: string | null, lo: number, hi: number, dflt: number) => {
+              const v = raw !== null ? Number.parseFloat(raw) : NaN;
+              return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt;
+            };
+            const theta = num(url.searchParams.get("theta"), 0, 180, 0);
+            const phi = num(url.searchParams.get("phi"), 0, 360, 0);
+            const offset = num(url.searchParams.get("offset"), -1, 1, 0);
+            return renderMrcObliquePng(abs, theta, phi, offset, undefined, win, polarity);
+          }
+          if (axis !== "z") {
+            return renderMrcOrthoPng(abs, axis, toPos(), undefined, win, polarity);
+          }
+          if (!isStack && posRaw !== null) {
+            // fractional z plane (pos) — without pos, the legacy slice/montage
+            // params below keep their meaning
+            return renderMrcOrthoPng(abs, "z", toPos(), undefined, win, polarity);
+          }
+          if (isStack && montageParam !== "0") {
+            const n = Math.min(16, Math.max(1, Number.parseInt(montageParam ?? "8", 10) || 8));
+            return renderMrcMontagePng(abs, n, win, polarity);
+          }
+          if (scale === "large") {
+            const slice = sliceParam !== null ? Number.parseInt(sliceParam, 10) || 0 : 0;
+            return renderMrcLargePng(abs, slice, win, polarity);
+          }
+          const slice = sliceParam !== null ? Number.parseInt(sliceParam, 10) || 0 : undefined;
+          return renderMrcSlicePng(abs, slice, win, polarity);
+        })
+      );
       if (!png) {
         return NextResponse.json({ error: "Could not render this MRC file" }, { status: 400 });
       }

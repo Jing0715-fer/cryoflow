@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
@@ -88,10 +88,34 @@ function readMicrographRows(starPath: string): StarRows | null {
   return { names, dir: path.dirname(starPath) };
 }
 
+/** the t658 basename reconciliation, brought to this route: the demo
+ *  world's catalogues speak two dialects (bare rows in the corrected star,
+ *  `micrographs/`-prefixed rows in the import star) while the frames live
+ *  one level down — the micrographs route already reconciles by basename
+ *  ("不逼世界改口"), and the pairing here needs the same amnesty or the
+ *  provider leg answers paired=0 against exactly the star the run
+ *  consumed. One bounded scan: the star dir's DIRECT subdirectories, one
+ *  basename match each (RELION's own layout is workdir/<lane>/<file>);
+ *  deeper trees are not the wrapper's shape. Misses cost a readdir of a
+ *  handful of entries — the route runs per request, not per row-batch. */
+function deepResolve(starDir: string, base: string): string | null {
+  try {
+    for (const ent of readdirSync(starDir, { withFileTypes: true })) {
+      if (!ent.isDirectory()) continue;
+      const cand = path.join(starDir, ent.name, base);
+      if (existsSync(cand)) return cand;
+    }
+  } catch {
+    // unreadable star dir — the honest null the caller already speaks
+  }
+  return null;
+}
+
 /** resolve a star row to an existing file: absolute rows stay, relative rows
  *  try the star's dir, its parent and the process cwd (the wrapper's own
  *  resolution order — a staged star keeps relative names while the files
- *  land at the project's mapped path). */
+ *  land at the project's mapped path); last, the basename reconciliation
+ *  under the star's own subdirectories. */
 function resolveRow(name: string, starDir: string): string | null {
   const candidates = path.isAbsolute(name)
     ? [name]
@@ -103,7 +127,7 @@ function resolveRow(name: string, starDir: string): string | null {
   for (const c of candidates) {
     if (existsSync(c)) return c;
   }
-  return null;
+  return deepResolve(starDir, path.basename(name));
 }
 
 /** a workdir-relative serving path — for a REMOTE run the synced-home index

@@ -79,7 +79,16 @@ const CHAIN = [
 const WORKFLOW = [
   { type: "initialmodel", id: "cmututold000initialmodel", name: "InitialModel (seeded)" },
   { type: "maskcreate", id: "cmututold00000maskcreate", name: "MaskCreate (seeded)" },
+  // t665 — the denoise branch joins the canonical world: Topaz Denoise
+  // hangs off MotionCorr (the provider the denoise-pairs route itself
+  // picks — first DONE upstream carrying an existing micrographs star),
+  // and its arrival lights the two shipped-dark surfaces (the t542
+  // before/after wall, the t559 pick handoff) plus the palette's third
+  // image-surface group. The id is a CONSTANT: adopt-or-create by it,
+  // so seed / check / re-seed all resolve the same node.
+  { type: "topazdenoise", id: "cmututold000topazdenoise", name: "Topaz Denoise (seeded)" },
 ];
+const DENOISE_ID = "cmututold000topazdenoise";
 
 let rngState = 42;
 function rng() {
@@ -314,6 +323,61 @@ function skewedClassOf(i) {
 const KEPT_CLASSES = { kept: 2 }; // c1 + c2 at the 0.5 cutoff
 const KEPT_N = CLASS_SKEW[0] + CLASS_SKEW[1];
 
+/* ---------- t665 — the Topaz denoise leg ----------------------------------
+ *  The wrapper's output dialect: <stem>_denoised.mrc beside a
+ *  denoised_micrographs.star indexing them (bare names — the flat style).
+ *  The pixels are DERIVED from the real EMPIAR frames the run consumed:
+ *  a 16×16 box average downsample to 256². That is a REAL noise reduction
+ *  (variance ∝ 1/N), so the t542 wipe compare shows the physics — the
+ *  nearest-neighbour PNG renderer keeps the original's full-noise σ while
+ *  the averaged side is visibly smoother, and the divider drag means
+ *  something. Headers honest (finishMrcHeader): dims 256, pixel
+ *  28.32 Å (1.77 × 16), MAP/MACHST, DMIN/DMAX/DMEAN counted from the
+ *  data, never guessed. Reads are sequential, one 64 MB frame at a
+ *  time — the box never holds two frames. */
+const DENOISE_POOL = 16;
+
+function buildDenoisedStar() {
+  const lines = ["data_micrographs", "", "loop_", "_rlnMicrographName #1"];
+  for (const m of micNames) lines.push(m.replace(/\.mrc$/i, "_denoised.mrc"));
+  return lines.join("\n") + "\n";
+}
+
+function buildDenoisedFrame(srcPath) {
+  const raw = readFileSync(srcPath);
+  const nx = raw.readInt32LE(0);
+  const ny = raw.readInt32LE(4);
+  const mode = raw.readInt32LE(12);
+  if (mode !== 2) throw new Error(`unexpected MRC mode ${mode} in ${srcPath} — the denoise leg derives from mode-2 float32 frames`);
+  const nsymbt = raw.readInt32LE(92);
+  const data = new Float32Array(raw.buffer, raw.byteOffset + 1024 + nsymbt, nx * ny);
+  const ox = nx / DENOISE_POOL, oy = ny / DENOISE_POOL;
+  if (!Number.isInteger(ox) || !Number.isInteger(oy)) throw new Error(`frame ${nx}×${ny} does not pool by ${DENOISE_POOL}`);
+  const out = new Float32Array(ox * oy);
+  let dmin = Infinity, dmax = -Infinity, sum = 0;
+  for (let y = 0; y < oy; y++) {
+    for (let x = 0; x < ox; x++) {
+      let s = 0;
+      for (let dy = 0; dy < DENOISE_POOL; dy++) {
+        const row = (y * DENOISE_POOL + dy) * nx + x * DENOISE_POOL;
+        for (let dx = 0; dx < DENOISE_POOL; dx++) s += data[row + dx];
+      }
+      const v = s / (DENOISE_POOL * DENOISE_POOL);
+      out[y * ox + x] = v;
+      if (v < dmin) dmin = v;
+      if (v > dmax) dmax = v;
+      sum += v;
+    }
+  }
+  const header = Buffer.alloc(1024);
+  header.writeInt32LE(ox, 0);
+  header.writeInt32LE(oy, 4);
+  header.writeInt32LE(1, 8);
+  header.writeInt32LE(2, 12);
+  finishMrcHeader(header, ox, oy, 1, 1.77 * DENOISE_POOL, dmin, dmax, sum / out.length);
+  return Buffer.concat([header, Buffer.from(out.buffer)]);
+}
+
 function filterKeptRows(rows) {
   // keep only classes 1-2 of a 5-column particles row
   return rows.filter((l) => {
@@ -470,10 +534,18 @@ async function ensureWorkflowNodes(proj, chain) {
   for (const node of WORKFLOW) {
     const existing = await db.job.findUnique({ where: { id: node.id } });
     if (existing) { wf[node.type] = existing.id; continue; }
+    // t665 — the denoise branch hangs off MotionCorr on the CANVAS too:
+    // placed below-right of its provider, not on the shared default spot
+    // (three nodes on one coordinate would render as one blob).
+    let x = 160, y = 320;
+    if (node.type === "topazdenoise" && chain.motioncorr) {
+      const mc = await db.job.findUnique({ where: { id: chain.motioncorr } });
+      if (mc) { x = (mc.x ?? 160) + 40; y = (mc.y ?? 320) + 170; }
+    }
     const created = await db.job.create({
       data: {
         id: node.id, projectId: proj.id, type: node.type, name: node.name,
-        x: 160, y: 320, status: "completed", progress: 100, params: "{}",
+        x, y, status: "completed", progress: 100, params: "{}",
         ...(sample?.workspaceId ? { workspaceId: sample.workspaceId } : {}),
       },
     });
@@ -484,6 +556,7 @@ async function ensureWorkflowNodes(proj, chain) {
     [wf.initialmodel, chain.class3d],
     [chain.refine3d, wf.maskcreate],
     [wf.maskcreate, chain.postprocess],
+    [chain.motioncorr, wf.topazdenoise],
   ].filter(([a, b]) => a && b);
   for (const [fromJobId, toJobId] of want) {
     // raw INSERT — the checked-in client's Edge model is stale (relation-only
@@ -525,6 +598,7 @@ const wf = CHECK ? {} : await ensureWorkflowNodes(proj, chain);
 const stackRef = STACK_REF.replace("extract_STACK", `extract_${chain.extract.slice(-8)}`);
 const stackPath = path.join(PDIR, stackRef);
 const wd = Object.fromEntries(CHAIN.map((t) => [t, workdirOf(proj.id, t, chain[t])]));
+wd.denoise = workdirOf(proj.id, "topazdenoise", DENOISE_ID);
 
 // rows of the particle universe (240) and its derivatives
 rngState = 42; // every run reproduces the same universe
@@ -558,6 +632,14 @@ function filePlan() {
   plan.push([wd.class3d, "run_it003_class001.mrc", buildMrcSingle(64)]);
   plan.push([wd.class3d, "run_it003_class002.mrc", buildMrcSingle(64)]);
   plan.push([wd.class3d, "run_it003_class003.mrc", buildMrcSingle(64)]);
+  // t665 — the denoise wall's world leg: the index + ten DERIVED frames
+  // (16×16 box average of the run's own real inputs — see the builders'
+  // note). Files land in the denoise workdir root, the star names them
+  // bare — the wrapper's own flat dialect.
+  plan.push([wd.denoise, "denoised_micrographs.star", buildDenoisedStar()]);
+  for (const m of micNames) {
+    plan.push([wd.denoise, m.replace(/\.mrc$/i, "_denoised.mrc"), buildDenoisedFrame(path.join(wd.motioncorr, "micrographs", m))]);
+  }
   // t532 — the class averages live OUTSIDE every job workdir
   // (_fixtures/classes/): the map-inventory walk reads each job workdir's
   // mrcs and its main-map law (MAIN_MAP_RE half0|postprocess.mrc, else fs
@@ -613,6 +695,9 @@ function outputsPlan() {
       postprocess_star: rel(path.join(wd.postprocess, "postprocess.star")),
       fsc_star: rel(path.join(wd.postprocess, "postprocess.star")),
     },
+    // t665 — the key the denoise-pairs route reads FIRST (the on-disk
+    // fallback is the same path — the ledger and the layout agree).
+    topazdenoise: { micrographs_star: rel(path.join(wd.denoise, "denoised_micrographs.star")) },
   };
 }
 
@@ -630,6 +715,7 @@ const RESULTS = {
   rebalance: "168 particles rebalanced across optics groups",
   refine3d: "3D refinement finished — gold-standard FSC at 3.62 Å · half-maps on disk",
   postprocess: "postprocess finished — masked, sharpened · final resolution 3.12 Å (FSC=0.143)",
+  topazdenoise: "10 micrographs denoised (Topaz) — 16×16 box average · 256² at 28.32 Å/px, derived from the run's own frames",
 };
 
 function seedEngineRecords() {
@@ -653,6 +739,23 @@ function seedEngineRecords() {
       result: RESULTS[t],
     };
   }
+  // t665 — the denoise branch carries its own ledger record (the route's
+  // registered-output leg reads outputs.micrographs_star from HERE).
+  state[DENOISE_ID] = {
+    jobId: DENOISE_ID,
+    projectId: proj.id,
+    type: "topazdenoise",
+    pid: null,
+    cmd: "seeded:topazdenoise",
+    workdir: wd.denoise,
+    logFile: path.join(wd.denoise, "run.log"),
+    errFile: path.join(wd.denoise, "run.err"),
+    startedAt: now,
+    outputs: outs.topazdenoise,
+    done: true,
+    exitCode: 0,
+    result: RESULTS.topazdenoise,
+  };
   writeAtomic(STATE, JSON.stringify(state, null, 2));
 }
 
@@ -661,6 +764,8 @@ function seedLogs() {
     writeAtomic(path.join(wd[t], "run.log"), `seeded by qa-t531-old-world-seed — ${RESULTS[t]}\n`);
     writeAtomic(path.join(wd[t], "run.err"), "");
   }
+  writeAtomic(path.join(wd.denoise, "run.log"), `seeded by qa-t531-old-world-seed — ${RESULTS.topazdenoise}\n`);
+  writeAtomic(path.join(wd.denoise, "run.err"), "");
   // t532 — stale-fixture sweep: the class averages used to live IN the
   // class2d workdir (the main-map hijack, see filePlan's note); an
   // idempotent re-seed must remove the old copies or the hijack returns.
@@ -712,7 +817,7 @@ if (!CHECK) {
   }
   seedLogs();
   seedEngineRecords();
-  console.log("  engine-state records: 13 chain links (done · exitCode 0 · real outputs)");
+  console.log("  engine-state records: 13 chain links + topazdenoise branch (done · exitCode 0 · real outputs)");
   await countRoster();
   writeManifest(wf);
   console.log(`  manifest: ${path.relative(REPO, MANIFEST)} (roster ${rosterCount})`);
@@ -742,6 +847,17 @@ if (!CHECK) {
     ok(r?.done === true && r?.exitCode === 0, `engine record ${t}: done + exit 0`);
     ok(Object.keys(r?.outputs ?? {}).length > 0 && Object.values(r?.outputs).flat().every((f) => existsSync(f)), `engine record ${t}: outputs live`);
   }
+  // t665 — the denoise branch: ledger, index, and every derived frame on
+  // disk (the pairing leg the route rides: bare rows → starDir direct hit).
+  const dr = state[DENOISE_ID];
+  ok(dr?.done === true && dr?.exitCode === 0 && dr?.type === "topazdenoise", "engine record topazdenoise: done + exit 0");
+  ok(dr && Object.values(dr.outputs ?? {}).flat().every((f) => existsSync(f)), "engine record topazdenoise: outputs live");
+  const denStar = readFileSync(path.join(wd.denoise, "denoised_micrographs.star"), "utf8");
+  const denRows = denStar.split(/\r?\n/).filter((l) => /_denoised\.mrc$/i.test(l.trim()));
+  ok(denRows.length === micNames.length, `denoised index: ${denRows.length} rows for ${micNames.length} frames`);
+  for (const row of denRows) {
+    ok(existsSync(path.join(wd.denoise, row.trim().split(/\s+/)[0])), `denoised frame on disk: ${row.trim().split(/\s+/)[0]}`);
+  }
   const m = JSON.parse(readFileSync(MANIFEST, "utf8"));
   ok(m.project?.id === proj.id && Object.keys(m.chain ?? {}).length === 13, "manifest: project + 13 chain ids");
   const selText = readFileSync(path.join(wd.select, "selected.star"), "utf8");
@@ -750,7 +866,7 @@ if (!CHECK) {
   ok(existsSync(stack), `the select star's stack resolves project-relative (${path.relative(REPO, stack)})`);
   ok(firstRef.startsWith("extract_") && !firstRef.startsWith("extra/"), `select star refs project-relative (${firstRef})`);
   await countRoster();
-  ok(rosterCount >= 15, `roster ≥ 15 (${rosterCount})`);
+  ok(rosterCount >= 16, `roster ≥ 16 (${rosterCount})`);
 }
 
 console.log(fail === 0 ? (CHECK ? "CHECK PASS" : "SEED OK") : `${fail} FAIL`);

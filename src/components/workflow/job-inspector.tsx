@@ -3470,6 +3470,27 @@ export function JobInspector() {
     consumeClassAveragesFocus();
   }, [pendingClassAveragesFocus, job, inspectId, consumeClassAveragesFocus]);
 
+  // t665 — the Denoise compare deep link's host: the t659 two-gate shape
+  // (not t660's), because the wall is NOT the arrival itself. The results
+  // tab is only the clearing of the way — the gallery consumes the request
+  // once it is on screen (scroll into view + flash), so a link that
+  // promises the before/after wall puts the wall in view, not just the tab
+  // that contains it somewhere below the fold. Stale requests are cleared
+  // on sight (the gallery's self-hide contract means its consumer may
+  // never mount — the Task 81 law: a lingering link can never re-open).
+  const pendingDenoiseFocus = useWorkflowStore((s) => s.pendingDenoiseFocus);
+  const consumeDenoiseFocus = useWorkflowStore((s) => s.consumeDenoiseFocus);
+  React.useEffect(() => {
+    if (inspectId == null || !job) return;
+    if (!pendingDenoiseFocus || pendingDenoiseFocus.jobId !== job.id) return;
+    if (Date.now() - pendingDenoiseFocus.at < GALLERY_FOCUS_TTL_MS) {
+      tabTouchedForRef.current = inspectId;
+      setTab("results");
+    } else {
+      consumeDenoiseFocus();
+    }
+  }, [pendingDenoiseFocus, job, inspectId, consumeDenoiseFocus]);
+
   // Task 120: the Overview leg of the failure diagnosis — the strip lives in
   // the Log console, which unmounts with its tab, so the Overview summary
   // needs its own findings. A failed job's log is static: ONE ?full=1 fetch

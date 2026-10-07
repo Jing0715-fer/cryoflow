@@ -265,6 +265,22 @@ export function CommandPalette() {
   const CLASS_AVERAGES_CAP = 12;
   const classAveragesRows = classAveragesJobs.slice(0, CLASS_AVERAGES_CAP);
 
+  // Denoise compare group (t665) — the third image-surface family: a
+  // completed Topaz denoise run speaks its before/after wall (every
+  // denoised micrograph paired with its original under the provider job's
+  // workdir — the exact fetch the gallery itself rides). Capability = the
+  // gallery's own mount gate (topazdenoise + completed — a running run's
+  // index is still growing, an idle one has no wall yet). The arrival is
+  // the t659 two-gate shape: the inspector clears the way to the results
+  // tab, the WALL consumes (scroll + flash) — a link that promises a
+  // before/after comparison must put the comparison in view.
+  const denoiseJobs = jobs
+    .filter(wsScope)
+    .filter((j) => /^topazdenoise$/i.test(j.type) && j.status === "completed")
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const DENOISE_CAP = 12;
+  const denoiseRows = denoiseJobs.slice(0, DENOISE_CAP);
+
   // Ctrl+K / ⌘K from anywhere + the header chip's custom event.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -329,6 +345,17 @@ export function CommandPalette() {
     const s = useWorkflowStore.getState();
     void s.openJob(jobId);
     s.requestClassAveragesFocus(jobId);
+    close();
+  };
+
+  /** Denoise-compare deep link (t665): land on the results tab and let the
+   *  wall itself finish the arrival (scroll into view + flash) — the two-
+   *  gate handshake the frame galleries use, tuned for a wall that lives
+   *  below the fold rather than a lightbox. */
+  const jumpToDenoise = (jobId: string) => {
+    const s = useWorkflowStore.getState();
+    void s.openJob(jobId);
+    s.requestDenoiseFocus(jobId);
     close();
   };
 
@@ -788,6 +815,37 @@ export function CommandPalette() {
                     {/* t663 — the first class tile, same lane rule the teaser
                         obeys (volumes win, the combined stack covers 2D) */}
                     <PaletteGalleryThumb kind="classes" jobId={j.id} label={`First class of ${j.name}`} />
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* ---------------- denoise compare (t665) ---------------- */}
+        {denoiseRows.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Denoise compare · ${denoiseJobs.length} run${denoiseJobs.length === 1 ? "" : "s"}${denoiseJobs.length > denoiseRows.length ? ` — first ${denoiseRows.length}` : ""}`}
+            >
+              {denoiseRows.map((j) => {
+                const spec = jobType(j.type);
+                return (
+                  <CommandItem
+                    key={`denoise-cmp-${j.id}`}
+                    value={`denoise compare before after pairs topaz ${j.name} ${j.type}`}
+                    onSelect={() => jumpToDenoise(j.id)}
+                    className="gap-2.5"
+                  >
+                    <Wand2 className="size-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400" />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      Denoise compare — <span className="font-medium">{j.name}</span>
+                    </span>
                     <TypeIcon
                       name={spec?.icon ?? "boxes"}
                       className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}

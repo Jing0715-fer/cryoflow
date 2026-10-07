@@ -806,6 +806,19 @@ interface WorkflowState {
   pendingGalleryFocus: { jobId: string; at: number } | null;
   requestGalleryFocus: (jobId: string) => void;
   consumeGalleryFocus: () => void;
+  /** One-shot deep link from the command palette's Denoise compare group
+   *  (t665, the third image-surface family): "show me THIS denoise run's
+   *  before/after wall". The t659 two-gate shape again, because the wall
+   *  is not the arrival itself: the inspector HOST clears the way (results
+   *  tab, where the gallery mounts — no consume), the gallery CONSUMES on
+   *  arrival (scroll into view + flash — the wipe divider is the browse
+   *  surface, and a link that promises a wall must put the wall in view).
+   *  TTL + clear-on-sight as in t659: the gallery's self-hide contract
+   *  means the consumer may never mount, and a lingering link can never
+   *  re-open later. */
+  pendingDenoiseFocus: { jobId: string; at: number } | null;
+  requestDenoiseFocus: (jobId: string) => void;
+  consumeDenoiseFocus: () => void;
   /** One-shot deep link from the command palette's Class averages group
    *  (t660): "show me THIS classification's class images". The arrival is
    *  the overview TAB itself — the class-averages teaser carries no
@@ -2169,6 +2182,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   focusJobId: null,
   pendingClassFocus: null,
   pendingGalleryFocus: null,
+  pendingDenoiseFocus: null,
   pendingClassAveragesFocus: null,
   lastSweep: null,
   focusEpoch: 0,
@@ -5473,6 +5487,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),
   requestGalleryFocus: (jobId) => set({ pendingGalleryFocus: { jobId, at: Date.now() } }),
   consumeGalleryFocus: () => set({ pendingGalleryFocus: null }),
+  requestDenoiseFocus: (jobId) => set({ pendingDenoiseFocus: { jobId, at: Date.now() } }),
+  consumeDenoiseFocus: () => set({ pendingDenoiseFocus: null }),
   requestClassAveragesFocus: (jobId) => set({ pendingClassAveragesFocus: { jobId } }),
   consumeClassAveragesFocus: () => set({ pendingClassAveragesFocus: null }),
   setLastSweep: (s) => set({ lastSweep: s }),

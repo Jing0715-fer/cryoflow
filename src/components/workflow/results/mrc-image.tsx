@@ -6,7 +6,7 @@
  */
 
 import { ImageIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export function MrcImage({
@@ -23,6 +23,25 @@ export function MrcImage({
   onLoaded?: () => void;
 }) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
+  // t665 — bounded retry for TRANSIENT kills: a 4096² tile render is the
+  // box's heaviest request, and a mid-burst connection reset used to be
+  // FINAL (an img never refires onError) — the tile said "unavailable"
+  // forever for a wound that heals in seconds. Two retries on a
+  // backing-off timer, the shimmer keeps meaning "rendering"; a dead URL
+  // (404/400) just burns the same two attempts and lands in the same
+  // honest error state. The cache-busting attempt param makes the retry
+  // a real request; the server's stat cache makes it cheap.
+  const [attempt, setAttempt] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  const imgSrc = attempt > 0 ? `${src}${src.includes("?") ? "&" : "?"}r=${attempt}` : src;
+  const onError = () => {
+    if (attempt < 2) {
+      timerRef.current = setTimeout(() => setAttempt((a) => a + 1), 1500 + attempt * 1500);
+    } else {
+      setStatus("error");
+    }
+  };
 
   return (
     <div
@@ -48,14 +67,16 @@ export function MrcImage({
         </div>
       ) : (
         <img
-          src={src}
+          key={attempt}
+          src={imgSrc}
           alt={alt}
           loading="lazy"
           onLoad={() => {
+            if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
             setStatus("loaded");
             onLoaded?.();
           }}
-          onError={() => setStatus("error")}
+          onError={onError}
           className={cn(
             "block h-auto w-full transition-opacity duration-300",
             status === "loaded" ? "opacity-100" : "opacity-0"
