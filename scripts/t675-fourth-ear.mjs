@@ -334,6 +334,14 @@ must(!!rowsInPopE, "E the embed's list ends consistent (no intermediate clobber)
 // ---------- D: the palette hears the embed's own mouths ----------
 await openPalette();
 const rowsD = await pollUntil(async () => (await savedRows().count()) === 5 || null, 10000);
+if (!rowsD) {
+  // the autopsy (t677 window): name the ghosts — row texts + the server's
+  // truth, so a stale cache and a resurrection can't hide behind a count
+  const texts = await savedRows().allTextContents().catch(() => []);
+  console.log(`  · D autopsy: palette rows = ${JSON.stringify(texts.map((t) => t.replace(/\s+/g, " ").slice(0, 60)))}`);
+  const serverSeats = await fetchSeats();
+  console.log(`  · D autopsy: server seats = ${serverSeats.map((s) => `${s.id}:${s.name}`).join(" | ")}`);
+}
 must(!!rowsD, "D the palette speaks five rows (the embed's save + deletes all broadcast)", `${await savedRows().count()}`);
 must((await page.locator("[cmdk-item]", { hasText: "View 7" }).count()) >= 1, "D the quick-saved view is in the palette (the embed's own mouth is still heard)");
 must((await page.locator("[cmdk-item]", { hasText: NAME_A2 }).count()) >= 1, "D the renamed drill carries its new name");
