@@ -366,6 +366,171 @@ export function buildObliqueClipPlane(
   };
 }
 
+/** The cut's 3D guide (t662) — WHERE the oblique plane crosses the volume.
+ *  A pixel-clip plane has no pixels of its own, so the surface opening along
+ *  it gives the eye no anchor; the guide computes the plane's trace polygon
+ *  against the volume's world-space box (the same [0, dims] box the clip
+ *  wireframe walks) plus a kept-side tick from the anchor — the direction
+ *  the flip promises survives (−N unless inverted, the mirror of the cut's
+ *  "invert=false keeps −n" contract).
+ *
+ *  The anchor IS the cut's anchor (buildObliqueClipPlane's position,
+ *  verbatim) so the guide can never drift from what the surface obeys. The
+ *  world normal comes from the voxel-space normal through the grid's basis
+ *  columns (Vᵀ·N = n — the plane equation transforms covariantly), which on
+ *  the documented isotropic law (t556) reduces to the cut's own direction
+ *  and keeps anisotropic or rotated grids honest too. Returns null when the
+ *  geometry is unusable (mirrors the clip builder's honest no-cut). */
+export interface ObliqueGuideGeometry {
+  /** plane ∩ box trace, wound consistently around N; fewer than 3 points
+   *  when the plane only grazes the box (the tick still draws) */
+  polygon: [number, number, number][];
+  /** the cut's own anchor (world) — the tick grows from here */
+  anchor: [number, number, number];
+  /** unit direction the KEPT half-space faces (−N unless flipped) */
+  keptDir: [number, number, number];
+  /** support of the box along the normal from the anchor (world units) —
+   *  the tick's scale reference */
+  support: number;
+}
+
+export function buildObliqueGuidePlane(
+  ob: { theta: number; phi: number; offset: number },
+  invert: boolean,
+  geo: ObliqueClipGeometry,
+  cols: [[number, number, number], [number, number, number], [number, number, number]]
+): ObliqueGuideGeometry | null {
+  const clip = buildObliqueClipPlane(ob, invert, geo);
+  if (!clip) return null;
+  const anchor = clip.position;
+  const dims = geo.dims;
+  // the voxel-space normal — the same recipe the clip builder swings +Y by
+  const t = Math.min(180, Math.max(0, ob.theta)) * OBLIQUE_DEG;
+  const p = Math.min(360, Math.max(0, ob.phi)) * OBLIQUE_DEG;
+  const n: [number, number, number] = [
+    Math.sin(t) * Math.cos(p),
+    Math.sin(t) * Math.sin(p),
+    Math.cos(t),
+  ];
+  // Vᵀ·N = n (row i: cols[i]·N = n[i]) via Cramer's rule with column
+  // replacement; a degenerate basis (zero or parallel columns) is a broken
+  // volume, not a guessable plane
+  const M = [
+    [cols[0][0], cols[0][1], cols[0][2]],
+    [cols[1][0], cols[1][1], cols[1][2]],
+    [cols[2][0], cols[2][1], cols[2][2]],
+  ];
+  const det3 = (a: number[]): number =>
+    a[0] * (a[4] * a[8] - a[5] * a[7]) -
+    a[1] * (a[3] * a[8] - a[5] * a[6]) +
+    a[2] * (a[3] * a[7] - a[4] * a[6]);
+  const flat = [M[0][0], M[0][1], M[0][2], M[1][0], M[1][1], M[1][2], M[2][0], M[2][1], M[2][2]];
+  const det = det3(flat);
+  if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return null;
+  const replaced = (k: number): number[] =>
+    flat.map((v, idx) => (idx % 3 === k ? n[idx % 3] : v));
+  let N: [number, number, number] = [
+    det3(replaced(0)) / det,
+    det3(replaced(1)) / det,
+    det3(replaced(2)) / det,
+  ];
+  const nLen = Math.hypot(N[0], N[1], N[2]);
+  if (!Number.isFinite(nLen) || nLen < 1e-12) return null;
+  N = [N[0] / nLen, N[1] / nLen, N[2] / nLen];
+
+  // the volume's world box — the full [0, dims] walk (extents = |col|·dims,
+  // the same convention the clip wireframe's corners use)
+  const corner = (a: number, b: number, c: number): [number, number, number] => [
+    geo.origin[0] + a * cols[0][0] + b * cols[1][0] + c * cols[2][0],
+    geo.origin[1] + a * cols[0][1] + b * cols[1][1] + c * cols[2][1],
+    geo.origin[2] + a * cols[0][2] + b * cols[1][2] + c * cols[2][2],
+  ];
+  const corners = [
+    corner(0, 0, 0), corner(dims[0], 0, 0),
+    corner(dims[0], dims[1], 0), corner(0, dims[1], 0),
+    corner(0, 0, dims[2]), corner(dims[0], 0, dims[2]),
+    corner(dims[0], dims[1], dims[2]), corner(0, dims[1], dims[2]),
+  ];
+  const edges: [number, number][] = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ];
+  const side = (q: [number, number, number]): number =>
+    N[0] * (q[0] - anchor[0]) + N[1] * (q[1] - anchor[1]) + N[2] * (q[2] - anchor[2]);
+  // plane ∩ box: every edge that straddles the plane yields one crossing;
+  // corners exactly ON the plane join too (deduped below)
+  const dedupeTol2 = 1e-8 * (geo.extents[0] ** 2 + geo.extents[1] ** 2 + geo.extents[2] ** 2);
+  const pts: [number, number, number][] = [];
+  const push = (q: [number, number, number]) => {
+    if (!pts.some((r) => (r[0] - q[0]) ** 2 + (r[1] - q[1]) ** 2 + (r[2] - q[2]) ** 2 < dedupeTol2))
+      pts.push(q);
+  };
+  for (const [a, b] of edges) {
+    const da = side(corners[a]);
+    const db = side(corners[b]);
+    if (da === 0) push(corners[a]);
+    if (db === 0 && b !== a) push(corners[b]);
+    if (da * db < 0) {
+      const f = da / (da - db);
+      push([
+        corners[a][0] + f * (corners[b][0] - corners[a][0]),
+        corners[a][1] + f * (corners[b][1] - corners[a][1]),
+        corners[a][2] + f * (corners[b][2] - corners[a][2]),
+      ]);
+    }
+  }
+  // wind the crossings consistently around the normal — in-plane basis from
+  // the farthest crossing, angles ascending → CCW as seen from +N
+  if (pts.length >= 3) {
+    const c: [number, number, number] = [0, 0, 0];
+    for (const q of pts) {
+      c[0] += q[0] / pts.length;
+      c[1] += q[1] / pts.length;
+      c[2] += q[2] / pts.length;
+    }
+    let far = pts[0];
+    let farD2 = -1;
+    for (const q of pts) {
+      const d2 = (q[0] - c[0]) ** 2 + (q[1] - c[1]) ** 2 + (q[2] - c[2]) ** 2;
+      if (d2 > farD2) {
+        farD2 = d2;
+        far = q;
+      }
+    }
+    let u: [number, number, number] = [
+      far[0] - c[0] - ((far[0] - c[0]) * N[0] + (far[1] - c[1]) * N[1] + (far[2] - c[2]) * N[2]) * N[0],
+      far[1] - c[1] - ((far[0] - c[0]) * N[0] + (far[1] - c[1]) * N[1] + (far[2] - c[2]) * N[2]) * N[1],
+      far[2] - c[2] - ((far[0] - c[0]) * N[0] + (far[1] - c[1]) * N[1] + (far[2] - c[2]) * N[2]) * N[2],
+    ];
+    const uLen = Math.hypot(u[0], u[1], u[2]);
+    if (uLen < 1e-9) return { polygon: [], anchor, keptDir: invert ? N : [-N[0], -N[1], -N[2]], support: 0 };
+    u[0] /= uLen;
+    u[1] /= uLen;
+    u[2] /= uLen;
+    const v: [number, number, number] = [
+      N[1] * u[2] - N[2] * u[1],
+      N[2] * u[0] - N[0] * u[2],
+      N[0] * u[1] - N[1] * u[0],
+    ];
+    const angle = (q: [number, number, number]): number => {
+      const r0 = q[0] - c[0];
+      const r1 = q[1] - c[1];
+      const r2 = q[2] - c[2];
+      return Math.atan2(r0 * v[0] + r1 * v[1] + r2 * v[2], r0 * u[0] + r1 * u[1] + r2 * u[2]);
+    };
+    pts.sort((qa, qb) => angle(qa) - angle(qb));
+  }
+  let support = 0;
+  for (const q of corners) support = Math.max(support, Math.abs(side(q)));
+  return {
+    polygon: pts,
+    anchor,
+    keptDir: invert ? N : [-N[0], -N[1], -N[2]],
+    support,
+  };
+}
+
 /** The viewport is a guest: it follows the room's theme. The Mol* canvas
  *  paints ITSELF — no computed-style audit can ever see its background, and
  *  the stock background is a near-white rectangle: a wound on a dark dialog.
@@ -3969,6 +4134,128 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       : null;
   };
 
+  /* -------- the oblique cut's guide (t662) -------- */
+
+  // The cut plane itself is invisible — the guide draws its trace (plane ∩
+  // box, from buildObliqueGuidePlane) plus a kept-side tick from the anchor,
+  // projected through the LIVE camera exactly like drawClipGuide. Reads the
+  // obliqueClipRef (live) so the camera-changed subscription can call it
+  // without re-subscribing; the intent effect below covers UI immediacy.
+  const obliqueGuideRef = useRef<SVGSVGElement | null>(null);
+  const obliquePolyRef = useRef<SVGPathElement | null>(null);
+  const obliqueTickRef = useRef<SVGLineElement | null>(null);
+  const obliqueTipRef = useRef<SVGCircleElement | null>(null);
+
+  const clearObliqueGuide = () => {
+    const poly = obliquePolyRef.current;
+    const tick = obliqueTickRef.current;
+    const tip = obliqueTipRef.current;
+    if (poly) poly.setAttribute("d", "");
+    if (tick) {
+      tick.setAttribute("x1", "0");
+      tick.setAttribute("y1", "0");
+      tick.setAttribute("x2", "0");
+      tick.setAttribute("y2", "0");
+    }
+    if (tip) tip.setAttribute("r", "0");
+  };
+
+  const drawObliqueGuide = () => {
+    const svg = obliqueGuideRef.current;
+    if (!svg) return;
+    if (!obliqueClipRef.current.on) {
+      clearObliqueGuide();
+      return;
+    }
+    const camera = pluginRef.current?.canvas3d?.camera;
+    const box = clipBox();
+    const pv = camera?.projectionView as number[] | undefined;
+    const w = containerRef.current?.clientWidth ?? 0;
+    const h = containerRef.current?.clientHeight ?? 0;
+    if (!camera || !box || !Array.isArray(pv) || pv.length < 16 || w < 2 || h < 2) {
+      clearObliqueGuide();
+      return;
+    }
+    const ob = obliqueClipRef.current;
+    const g = buildObliqueGuidePlane(
+      { theta: ob.theta, phi: ob.phi, offset: ob.offset },
+      ob.invert,
+      box,
+      box.cols
+    );
+    if (!g) {
+      clearObliqueGuide();
+      return;
+    }
+    // project (same GL pipeline as drawClipGuide); a point behind the camera
+    // would mirror the whole trace — the honest absence beats a mirrored one
+    const project = (p: [number, number, number]): [number, number] | null => {
+      const cx = pv[0] * p[0] + pv[4] * p[1] + pv[8] * p[2] + pv[12];
+      const cy = pv[1] * p[0] + pv[5] * p[1] + pv[9] * p[2] + pv[13];
+      const cw = pv[3] * p[0] + pv[7] * p[1] + pv[11] * p[2] + pv[15];
+      if (!Number.isFinite(cw) || cw <= 0.001) return null;
+      return [((cx / cw) + 1) / 2 * w, (1 - (cy / cw)) / 2 * h];
+    };
+    const poly = obliquePolyRef.current;
+    const tick = obliqueTickRef.current;
+    const tip = obliqueTipRef.current;
+    // the trace — every vertex must survive the projection (the polygon is
+    // dropped as a whole, per-edge dropping would draw a chimeric shape)
+    let d = "";
+    if (g.polygon.length >= 3) {
+      const s: [number, number][] = [];
+      let okAll = true;
+      for (const q of g.polygon) {
+        const p2 = project(q);
+        if (!p2) {
+          okAll = false;
+          break;
+        }
+        s.push(p2);
+      }
+      if (okAll) {
+        for (let i = 0; i < s.length; i++) {
+          const a = s[i];
+          const b = s[(i + 1) % s.length];
+          d += `M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+        }
+      }
+    }
+    if (poly) poly.setAttribute("d", d);
+    // the kept-side tick — a short normal stroke promising which half the
+    // surface keeps (the flip chip's promise, drawn where the eye is)
+    const len = 0.22 * g.support;
+    const tipW: [number, number, number] = [
+      g.anchor[0] + g.keptDir[0] * len,
+      g.anchor[1] + g.keptDir[1] * len,
+      g.anchor[2] + g.keptDir[2] * len,
+    ];
+    const a2 = project(g.anchor);
+    const b2 = project(tipW);
+    if (tick) {
+      if (a2 && b2) {
+        tick.setAttribute("x1", a2[0].toFixed(1));
+        tick.setAttribute("y1", a2[1].toFixed(1));
+        tick.setAttribute("x2", b2[0].toFixed(1));
+        tick.setAttribute("y2", b2[1].toFixed(1));
+      } else {
+        tick.setAttribute("x1", "0");
+        tick.setAttribute("y1", "0");
+        tick.setAttribute("x2", "0");
+        tick.setAttribute("y2", "0");
+      }
+    }
+    if (tip) {
+      if (a2 && b2) {
+        tip.setAttribute("cx", b2[0].toFixed(1));
+        tip.setAttribute("cy", b2[1].toFixed(1));
+        tip.setAttribute("r", "2.5");
+      } else {
+        tip.setAttribute("r", "0");
+      }
+    }
+  };
+
   /* -------- direct manipulation: drag a wireframe face = drag slider ----- */
 
   const onFacePointerDown = (axis: 0 | 1 | 2, e: React.PointerEvent<SVGPathElement>) => {
@@ -4018,12 +4305,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   };
 
   // orbit/zoom/pan → reproject (camera.changed covers every mutation,
-  // including drags from mol*'s own controls)
+  // including drags from mol*'s own controls) — both guides ride the same
+  // subscription (the box outline and the oblique trace share the camera)
   useEffect(() => {
     if (phase !== "ready") return;
     const camera = pluginRef.current?.canvas3d?.camera;
     if (!camera?.changed) return;
-    const sub = camera.changed.subscribe(() => drawClipGuide());
+    const sub = camera.changed.subscribe(() => {
+      drawClipGuide();
+      drawObliqueGuide();
+    });
     return () => {
       try {
         sub.unsubscribe();
@@ -4033,12 +4324,34 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
   }, [phase]);
 
+  // t662 — a layout resize re-projects both guides (the camera didn't move,
+  // but the viewport did; ResizeObserver catches what camera.changed misses —
+  // e.g. the ortho panel growing and re-sharing the dialog's height)
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      drawClipGuide();
+      drawObliqueGuide();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [phase]);
+
   // slider/toggle intent → immediate guide update (the shader clip itself
   // lands asynchronously through pumpClip; the frame previews the intent)
   useEffect(() => {
     if (phase !== "ready" || !clipOn) return;
     drawClipGuide();
   }, [phase, clipOn, clipX, clipY, clipZ, clipInvert]);
+
+  // t662 — the oblique guide follows its own intents the same way (✂,
+  // sliders, flip); the mirror state is the dep list, the ref is the truth
+  useEffect(() => {
+    if (phase !== "ready" || !obliqueClip.on) return;
+    drawObliqueGuide();
+  }, [phase, obliqueClip.on, obliqueClip.theta, obliqueClip.phi, obliqueClip.offset, obliqueClip.invert]);
 
   const absolute = stats ? stats.mean + sign * stats.sigma * sigma : null;
 
@@ -4126,6 +4439,39 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               <title>{["X", "Y", "Z"][ax]} clip face — drag to move the plane (sliders in the panel do the same)</title>
             </path>
           ))}
+        </svg>
+      )}
+
+      {/* t662 — the oblique cut's guide: the plane's trace (plane ∩ box)
+          plus a kept-side tick, projected live like the box outline above.
+          Pure visual — pointer-events-none everywhere (the cut is steered
+          from the 2D block and the chip; no drag targets here). */}
+      {obliqueClip.on && phase === "ready" && (
+        <svg
+          ref={obliqueGuideRef}
+          className="pointer-events-none absolute inset-0 z-[5] h-full w-full"
+          aria-hidden="true"
+          data-oblique-guide="true"
+        >
+          <path
+            ref={obliquePolyRef}
+            fill="none"
+            stroke="#8b5cf6"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.9}
+            vectorEffect="non-scaling-stroke"
+          />
+          <line
+            ref={obliqueTickRef}
+            stroke="#8b5cf6"
+            strokeWidth={2}
+            strokeLinecap="round"
+            opacity={0.95}
+            vectorEffect="non-scaling-stroke"
+          />
+          <circle ref={obliqueTipRef} fill="#8b5cf6" opacity={0.95} stroke="white" strokeWidth={1} />
         </svg>
       )}
 
