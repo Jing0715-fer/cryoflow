@@ -10330,3 +10330,26 @@ Stage Summary:
 - 「重试是一击」：abort 解除后的成功不需要 reload、不需要 re-arm、不需要重新 hover 定位——同一行的同一个 X，再点一次。失败诚实的设计终点是让重试廉价：行还在原位、X 还在槽上、状态没锁死。诚实失败不是「报错了事」，是「报错 + 原位保留 + 一击可重试」的三件套。
 - 「探针的仪器清单跟着航的形状走」：一航教 toggle 竞速（单发重开量的是竞速），二航教仪器寿命（observer 死于不是自己 reload 的 reload），三航收全绿——三个 FAIL 全部是探针的课，产品码三航零变更。t668 的「仪器重装」在 t670 长成完整形状：不是 reload 后装一次，是每个 judgment click 前幂等重装——因为风暴的 HMR 重载可能发生在任何两断言之间。
 - 产出：palette 行内删除（X 二嘴 + TTL 就地收缩 + 事件广播）+ 墙监听 refetch（view-link SAVED_VIEWS_CHANGED_EVENT）+ t670-palette-delete.mjs（31 锚三航 + abort 演练 + 双试环 + 仪器幂等重装）+ 📸×2；下窗入口：①功能车道（语义色 token ~470 处——连续八窗记账，需整窗+稳定回归夜；「could not be restored」第三出口的专属锚——t669 修复的第三出口仍未有自己的探针，受控触发需 molstar error 态注入，等稳定夜；bookmark 深链第三幕——书签在 palette 的 jump 已达，墙/行/嵌入三嘴对账已在案）②样式车道（palette 行 X 的 destructive ring 层级——墙版判「无」，palette 版同判，账本清零）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，第 80 窗否决；本窗 OOM 十三杀+——重启回落仍是唯一路径）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 671 收官
+Agent: main (cron window, Job 362852)
+Task: t670 下窗入口①兑现——第三嘴对称：embed commitBookmarks（书签的家，save/update/remove 单突变路径）广播 SAVED_VIEWS_CHANGED_EVENT（挂 PUT 链尾）+ palette 常驻监听新鲜读（TTL 窗口内的鬼魂清零）+ 入口⑤演练床 --full ALL GREEN + t671-e2e 30/0（四航：快存竞速课 / 墙视图课 / PUT 尾广播课 / 基线自伤课）+ 回归全家绿
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 670 收官；HEAD bc10d22 树净；available 1164MB 非 build 日（第 81 窗否决）；server 200/17.8ms + console 净——稳定，自主提新需求。
+- [入口⑤兑现] 演练床 --full 首次复验：mock cluster :3022 + SSH smoke + t261（P1 stratum）+ t262（full run engine）ALL GREEN，roster restored 17——remote/cluster 域健康，几窗挂账一次清。
+- [定道·第三嘴失明症] 侦察定谳：书签的家（molstar-embed 的书签列表）有自己的 save（B 键）/update（↻）/remove（✕）三突变，全走 commitBookmarks 单路径——但从不广播。palette 删除已广播（t670），embed 是第三张嘴：view 里存/删视图时墙 jobCount 永久失明（书签突变永不经过 job mutation）、palette 等 30s TTL。「第二嘴出生使第一嘴注释成化石」的第三形态——三嘴对称收尾。
+- [feat·广播挂链尾] commitBookmarks 的 dispatch 挂 putBookmarkSession 的 promise 尾（PUT 链 now RETURNED）：二航三 FAIL 的同根是同步 dispatch 在 PUT 在飞时发出——监听器的「新鲜读」竞速赢了写、把 stale 快照钉在新 fetchedAt 下（palette 开出 3 行世界刚长成 4 席、又开出 4 行刚删到 3 席——同一竞速的正反两脸）。墙自己的 pollUntil-N 把竞速藏住了；palette 的单次读把它暴露了。「广播的事实 = server 真相已变」——广播挂在写落盘之后，监听者一读即真相。
+- [feat·palette 常驻监听] CommandPalette 组件（非 dialog——常驻 mount）挂 SAVED_VIEWS_CHANGED_EVENT 监听 → refreshSavedViewsCache()（模块级动词，fetchSavedViews 的 inflight 去重复用）写 module cache——palette 关闭期间的所有突变即时记账，下次 open 在 TTL 窗口内也见真相。最后一次读赢 cache。
+- [t671-e2e 30/0，四航] setup 幂等重放三种子（带真 thumb——8x8 灰度 PNG，crc32+deflateSync 零依赖编码器照 t668 seeder 抄）。S 3（viewer ready + 「— 3 saved」加载指纹 + 墙基线）+ A 5（B 键快存 toast + server 4 + 墙零刷新长到 4 + palette 打开 4 行——监听器赢了 TTL 钟）+ B 5（书签菜单 ✕ 删 + server 3 + 墙零刷新缩到 3 + palette 3 行无鬼）+ C 3（↻ update + count 不变 + 墙 thumb src PNG→JPEG 换新——fresh capture served）+ D 6（palette jump 写对 pending + fresh mount 消费 + restored toast——三嘴不串火）+ F 6 + 📸×2。
+- [探针四课] ①快存竞速是探针罪：加载指纹「— N saved」出现前按 B——bookmarksRef 还是空，全量 PUT 吞掉种子三席（首航 server 只剩新 bm，16 FAIL 连锁）。修=等指纹再动。②墙在 dashboard 视图（t667 课再 value）：openJob 强制落 canvas，dialog 开着时墙不在 DOM——三段式（dialog 内操作、Esc×2 回 dashboard 读墙，「零刷新」由页面实例未换 + jobCount 未动作因果证人）。③广播时序是产品课（见 feat）。④探针的基线也会自伤：修世界时重放的种子丢了 thumb → C 腿 srcBefore 空串 FAIL——产品全对，探针的 setup 是说谎者；修=setup 的 isClean 连 thumb 一起验。
+- [回归·世界共享的账] tsc 0 + eslint 0 + t670 31/0（palette 删除合同复验——本窗监听器让删除也 refetch，t670 B 腿硬锚「重开见真相」两分支兼容仍绿）+ t669 27/0 + t668 28/0（二跑——一跑 A 腿「thumbs are PNGs」FAIL 是探针间世界共享冲突：t671 的 update 把 seedview1 thumb 换成 canvas JPEG，诚实产品行为；t668 断言放宽为 data:image/*——「诚实是真实字节，不是 PNG 垄断」）+ t671 30/0 + 基线四绿（t252 + qa78 + t637 6/0 + t641 10/0）。fixture 漂移五张（t252 惯犯 + 演练床 remote 三张）checkout 还原不入车。
+- [OOM 战况] 二航前 server 被杀一次（ECONNREFUSED，探针 setup 前就死——等 10s 恢复）；四航全程安静（flap 0 hmr 0）——天气窗口被耐心等到了。
+
+Stage Summary:
+- 「第三个嘴出生时，才看清整个家族的语言」：t669 建墙嘴（本地收缩即可），t670 建行嘴（TTL 缓存就地收缩 + 广播让墙听见），t671 才发现书签的家自己从不说话——存/改/删三种突变对两个聚合面都不可见。三嘴对称的完整形态：每个嘴突变时广播，每个面只信自己的新鲜读。事件无 payload 是对称的核心：广播的不是数据是「事实变了」，数据由各面自己去 server 取——没有任何一面持有「真相本体」，真相永远在路由后面。
+- 「广播要挂在写落盘之后」：dispatch 与 PUT 的相对时序是分布式语义的教科书案例——同步 dispatch 让监听者的「新鲜读」与写在飞竞速，输了的读把 stale 钉在新时间戳下（比明显的 stale 更毒：TTL 窗口内的每次 open 都信它）。墙的 pollUntil 把病藏住、palette 的单次读把病暴露——**同一病根，两个面两种症状**；「温和的断言」（重试）会掩盖病，「严格的断言」（单读）才能确诊。t670 的删除没有这个病，因为它 await PUT 后才 dispatch——合同写对了一次，复制时丢了对时序的敬畏。
+- 「快存的前 2.5 秒是世界给探针的陷阱」：embed 的书签加载有 2.5s cap——quick-save 在加载完成前按下，浏览器空账本全量 PUT 吞掉 server 上一切它没见过的席。这不是产品病（offline-first 的家的账本语义），是探针的时序罪——但它的指纹（server 只剩最后一个 bm）一开始像数据丢失事故。加载指纹（aria-label 的 — N saved）是产品的加载进度条——读它，别猜它。
+- 「探针的 setup 是断言的一部分」：修世界时写的 thumbless 种子让 C 腿的基线 img 变成 fallback——srcBefore 空串，must 判 FAIL，产品全对。isClean 的验尸要连「断言将读到的东西」一起验：席在、名字对、thumb 是 image——探针的 setup 与它的断言同责。「先疑仪表，再疑判据，终判世界」的第三层之外还有第零层：疑 setup 自己。
+- 产出：embed commitBookmarks 广播（挂 PUT 链尾）+ palette 常驻监听（refreshSavedViewsCache 动词）+ 演练床复验 ALL GREEN + t671-third-mouth.mjs（30 锚四航 + PNG 编码器 + 加载指纹守卫 + 三段式数墙）+ t668 断言放宽（探针间世界共享账）+ 📸×2；下窗入口：①功能车道（语义色 token ~470 处——连续九窗记账，需整窗+稳定回归夜；「could not be restored」第三出口专属锚——molstar error 态受控注入，等稳定夜）②样式车道（账本清零）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，第 81 窗否决）⑤演练床一键（本窗已复验 ALL GREEN，账本清零）⑥三嘴家族的收尾巡检候选：view 内书签列表的 rename/update 嘴的专属锚（t671 只锚了 update 的 thumb 与 remove/save 的存在性）
