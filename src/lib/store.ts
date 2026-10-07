@@ -806,6 +806,15 @@ interface WorkflowState {
   pendingGalleryFocus: { jobId: string; at: number } | null;
   requestGalleryFocus: (jobId: string) => void;
   consumeGalleryFocus: () => void;
+  /** One-shot deep link from the command palette's Class averages group
+   *  (t660): "show me THIS classification's class images". The arrival is
+   *  the overview TAB itself — the class-averages teaser carries no
+   *  lightbox, so there is no second consumer: the inspector consumes
+   *  the request the moment it clears the way (the Task 81 handshake's
+   *  shape — sync consumer, no TTL — not the t659 wall's two-gate one). */
+  pendingClassAveragesFocus: { jobId: string } | null;
+  requestClassAveragesFocus: (jobId: string) => void;
+  consumeClassAveragesFocus: () => void;
   /** The session's LAST HPC sweep (t197): the session QC report binds it
    *  verbatim. One slot — a finished race replaces the previous one
    *  wholesale; a race that never started writes nothing. In-memory by
@@ -2160,6 +2169,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   focusJobId: null,
   pendingClassFocus: null,
   pendingGalleryFocus: null,
+  pendingClassAveragesFocus: null,
   lastSweep: null,
   focusEpoch: 0,
   arrivalEpoch: 0,
@@ -5463,6 +5473,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),
   requestGalleryFocus: (jobId) => set({ pendingGalleryFocus: { jobId, at: Date.now() } }),
   consumeGalleryFocus: () => set({ pendingGalleryFocus: null }),
+  requestClassAveragesFocus: (jobId) => set({ pendingClassAveragesFocus: { jobId } }),
+  consumeClassAveragesFocus: () => set({ pendingClassAveragesFocus: null }),
   setLastSweep: (s) => set({ lastSweep: s }),
   consumeClassFocus: () => set({ pendingClassFocus: null }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),

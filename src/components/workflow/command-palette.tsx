@@ -248,6 +248,22 @@ export function CommandPalette() {
   const GALLERY_CAP = 12;
   const galleryRows = galleryJobs.slice(0, GALLERY_CAP);
 
+  // Class averages group (t660) — the OTHER image surface: completed
+  // classifications speak class tiles through the inspector's overview
+  // teaser (class2d slices of the combined stack; class3d/initialmodel
+  // per-class volumes — the exact mount gate the teaser itself uses, so
+  // a row never promises a face the inspector would not mount). The
+  // arrival is the overview tab: no lightbox, the teaser's grid IS the
+  // browse surface. Whether the workdir's stacks physically exist is a
+  // world question the palette does not prefetch — the teaser's own
+  // self-hide contract answers absence honestly at arrival.
+  const classAveragesJobs = jobs
+    .filter(wsScope)
+    .filter((j) => /^(class2d|class3d|initialmodel)$/i.test(j.type) && j.status === "completed")
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const CLASS_AVERAGES_CAP = 12;
+  const classAveragesRows = classAveragesJobs.slice(0, CLASS_AVERAGES_CAP);
+
   // Ctrl+K / ⌘K from anywhere + the header chip's custom event.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -301,6 +317,17 @@ export function CommandPalette() {
     const s = useWorkflowStore.getState();
     void s.openJob(jobId);
     s.requestGalleryFocus(jobId);
+    close();
+  };
+
+  /** t660 — the Class averages deep link: land on the classification's
+   *  overview tab, where the teaser tiles the classes. No lightbox — the
+   *  grid IS the browse surface — so the handshake has ONE consumer (the
+   *  inspector host) and no TTL dance (Task 81's sync shape). */
+  const jumpToClassAverages = (jobId: string) => {
+    const s = useWorkflowStore.getState();
+    void s.openJob(jobId);
+    s.requestClassAveragesFocus(jobId);
     close();
   };
 
@@ -721,6 +748,37 @@ export function CommandPalette() {
                     <Aperture className="size-4 shrink-0 text-running-600 dark:text-running-400" />
                     <span className="min-w-0 flex-1 truncate text-sm">
                       Frame gallery — <span className="font-medium">{j.name}</span>
+                    </span>
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* ---------------- class averages (t660 deep link) ---------------- */}
+        {classAveragesRows.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Class averages · ${classAveragesJobs.length} classification${classAveragesJobs.length === 1 ? "" : "s"}${classAveragesJobs.length > classAveragesRows.length ? ` — first ${classAveragesRows.length}` : ""}`}
+            >
+              {classAveragesRows.map((j) => {
+                const spec = jobType(j.type);
+                return (
+                  <CommandItem
+                    key={`class-avg-${j.id}`}
+                    value={`class averages tiles classification ${j.name} ${j.type}`}
+                    onSelect={() => jumpToClassAverages(j.id)}
+                    className="gap-2.5"
+                  >
+                    <Layers className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      Class averages — <span className="font-medium">{j.name}</span>
                     </span>
                     <TypeIcon
                       name={spec?.icon ?? "boxes"}

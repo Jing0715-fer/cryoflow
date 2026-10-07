@@ -341,7 +341,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // the cluster workdir genuinely holds no class-average stack. Both
       // worlds previously rendered as a silent dead grid — the banner now
       // names the world and the gallery's Retry re-asks.
-      if (classesFile == null && classes.length > 0) {
+      // t660 — the note is a DARK-GRID note, and the volume lane is a lit
+      // grid: when the per-class volumes answered (the real-RELION class3d
+      // dialect, t402b's own lane), there is no dark grid to explain — a
+      // stack-centric refusal here would override live tiles with an
+      // error paragraph (witnessed: the demo class3d teaser rendered the
+      // note instead of its three volumes). Refuse only when BOTH lanes
+      // came up empty.
+      if (classesFile == null && classes.length > 0 && (volumeFiles ?? []).length === 0) {
         fillRefusalNote = remote?.error
           ? `${remote.error} — the class-average stack could not be named from the cluster either`
           : "no class-average stack (run_itNNN_classes.mrcs) was found — neither in the local mirror nor in the cluster workdir this run dispatches into";

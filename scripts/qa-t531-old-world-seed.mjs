@@ -472,6 +472,20 @@ function filePlan() {
   plan.push([wd.extract, "particles.mrcs", buildMrcStack(64, EXTRACT_N)]);
   plan.push([wd.class2d, "run_it012_data.star", buildParticlesStar(class2dRows, true)]);
   plan.push([wd.class2d, "run_it012_model.star", buildModelStar(3.18, true)]);
+  // t660 — the class-averages stack moves INTO the workdir: RELION 5's
+  // final unmasked stack (run_unmasked_classes.mrcs, one 64px slice per
+  // class) is the file the /classes route's pickStackName looks for, and
+  // without it the inspector's class-averages teaser has shipped DARK
+  // (the self-hide contract answered "neither lane" every window). The
+  // _fixtures/classes/ copies stay (the t532 map-inventory law reads
+  // them); the workdir stack is the teaser's own address.
+  plan.push([wd.class2d, "run_unmasked_classes.mrcs", buildMrcStack(64, 8)]);
+  // t660 — class3d speaks per-class volumes (run_itNNN_class00K.mrc —
+  // the route's volume lane, iteration matching the run_it003_data.star
+  // already planted here): three classes, three central-z planes.
+  plan.push([wd.class3d, "run_it003_class001.mrc", buildMrcSingle(64)]);
+  plan.push([wd.class3d, "run_it003_class002.mrc", buildMrcSingle(64)]);
+  plan.push([wd.class3d, "run_it003_class003.mrc", buildMrcSingle(64)]);
   // t532 — the class averages live OUTSIDE every job workdir
   // (_fixtures/classes/): the map-inventory walk reads each job workdir's
   // mrcs and its main-map law (MAIN_MAP_RE half0|postprocess.mrc, else fs

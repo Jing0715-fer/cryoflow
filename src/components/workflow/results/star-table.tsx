@@ -337,11 +337,11 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
                 both light and dark. group-hover outranks the zebra the
                 same way the row's own hover already did. */}
             {viewRows.map(({ row, idx }, i) => (
-              <tr key={i} className={cn("group", i % 2 === 1 && "bg-muted/40", "hover:bg-accent/50")}>
+              <tr key={i} className={cn("group transition-colors", i % 2 === 1 && "bg-muted/40", "hover:bg-accent/50")}>
                 <td
                   data-star-idx-cell=""
                   className={cn(
-                    "sticky left-0 z-10 border-r border-border/60 px-2 py-1 text-right font-mono text-[11px] text-muted-foreground/70",
+                    "sticky left-0 z-10 border-r border-border/60 px-2 py-1 text-right font-mono text-[11px] text-muted-foreground/70 transition-colors",
                     i % 2 === 1
                       ? "bg-[color-mix(in_srgb,var(--color-muted)_40%,var(--color-background))]"
                       : "bg-[var(--color-background)]",

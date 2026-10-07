@@ -3455,6 +3455,21 @@ export function JobInspector() {
     }
   }, [pendingGalleryFocus, job, inspectId, consumeGalleryFocus]);
 
+  // t660 — the Class averages deep link's host: same landing (overview,
+  // where the teaser mounts), but the arrival IS the tab — the teaser has
+  // no lightbox, so there is no second consumer and the inspector
+  // consumes the request the moment it clears the way (Task 81's sync
+  // shape, no TTL). The jump is a manual choice, so it latches too.
+  const pendingClassAveragesFocus = useWorkflowStore((s) => s.pendingClassAveragesFocus);
+  const consumeClassAveragesFocus = useWorkflowStore((s) => s.consumeClassAveragesFocus);
+  React.useEffect(() => {
+    if (inspectId == null || !job) return;
+    if (!pendingClassAveragesFocus || pendingClassAveragesFocus.jobId !== job.id) return;
+    tabTouchedForRef.current = inspectId;
+    setTab("overview");
+    consumeClassAveragesFocus();
+  }, [pendingClassAveragesFocus, job, inspectId, consumeClassAveragesFocus]);
+
   // Task 120: the Overview leg of the failure diagnosis — the strip lives in
   // the Log console, which unmounts with its tab, so the Overview summary
   // needs its own findings. A failed job's log is static: ONE ?full=1 fetch
