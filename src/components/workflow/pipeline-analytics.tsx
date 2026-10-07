@@ -21,7 +21,7 @@
  * ≥ 1 resolution milestone) so empty/draft projects stay clean.
  */
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   Award,
@@ -29,9 +29,11 @@ import {
   Check,
   ClipboardCopy,
   Clock,
+  CornerDownRight,
   Crosshair,
   Download,
   Filter,
+  Route,
   Timer,
   Waves,
 } from "lucide-react";
@@ -39,6 +41,7 @@ import { fmtClock, fmtDuration } from "@/lib/duration";
 import { walkTimeline } from "@/lib/timeline-walk";
 import { timelineRunsCsv, timelineRunsCsvFilename, type TimelineCsvRow } from "@/lib/qc-report"; // t506 — the windows' machine face
 import { stageRuntime, stageRuntimeCsv, stageRuntimeCsvFilename, type StageRuntime } from "@/lib/stage-runtime"; // t677 — the per-stage wall-clock lens
+import { criticalPath } from "@/lib/critical-path"; // t681 — the chain that set the finish
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
@@ -293,6 +296,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const projectName = useWorkflowStore((s) => s.project?.name);
   const revealJob = useWorkflowStore((s) => s.revealJob);
+  const edges = useWorkflowStore((s) => s.edges); // t681 — the chain reads the canvas's own connections
   /** null = all workspaces; otherwise a workspace id ("" = legacy unassigned). */
   const [wsFilter, setWsFilter] = useState<string | null>(null);
   /** brief ✓ state on the copy-summary button */
@@ -373,6 +377,21 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
           }))
       ),
     [runs.rows]
+  );
+
+  /* t681 — Critical path: the chain that set the finish. The timeline's
+   * windows + the canvas's own edges, walked backwards from the run that
+   * finished last through each step's latest-finishing upstream. A live
+   * run has no end yet, so it waits outside the chain (the same honesty
+   * the runtime table speaks); failed runs keep their windows — time
+   * spent failing is real time, and a failed step can be the finisher. */
+  const critical = useMemo(
+    () =>
+      criticalPath(
+        runs.rows.filter((r) => r.job.status !== "running"),
+        edges,
+      ),
+    [runs.rows, edges]
   );
 
   /** The runtime table's machine face: heaviest-first, machine columns
@@ -459,6 +478,23 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
         lines.push(
           `  heaviest stage: ${runtime.bottleneck.label} (${runtime.bottleneck.sharePct}% of summed runtime)`
         );
+      }
+    }
+    if (critical && critical.chain.length > 0) {
+      lines.push("");
+      lines.push(
+        `Critical path (${critical.chain.length} step${critical.chain.length === 1 ? "" : "s"}, ${fmtDuration(critical.spanMs)} span):`
+      );
+      for (const s of critical.chain) {
+        const gap =
+          s.gapBeforeMs == null
+            ? ""
+            : s.gapBeforeMs > 0
+              ? `, waited ${fmtDuration(s.gapBeforeMs)} after upstream finished`
+              : s.gapBeforeMs < 0
+                ? `, overlapped ${fmtDuration(-s.gapBeforeMs)} with upstream`
+                : ", started as upstream finished";
+        lines.push(`  ${s.job.name}: ran ${fmtDuration(s.ms)}${gap}`);
       }
     }
     lines.push("");
@@ -1040,6 +1076,130 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             <p className="mt-1.5 flex items-center gap-1 text-[10px] leading-relaxed text-muted-foreground/70">
               <Clock className="size-3 shrink-0 text-primary/70" aria-hidden="true" />
               share of summed wall clock · ~median · total — bars cover completed runs (a live run has no end yet)
+            </p>
+          </div>
+        )}
+
+        {/* critical path -------------------------------------------------
+            The DAG-level lens the other faces don't carry: WHICH CHAIN of
+            dependencies decided when the pipeline could finish. Walked
+            backwards from the run that finished last, each step following
+            its latest-finishing upstream. Gap rows between steps speak the
+            idle honestly — "waited" when the pipeline (or its human) held
+            the door, "overlapped" when a step launched before its driver
+            finished. Bars show each step's slice of the chain's span, in
+            the timeline's own status colors (a failed step is real time). */}
+        {critical && critical.chain.length > 0 && (
+          <div
+            className="mt-5 border-t pt-4"
+            data-canvas-ui="analytics-critical"
+            data-critical-steps={critical.chain.length}
+            data-critical-span={critical.spanMs}
+            data-critical-busy={critical.busyMs}
+          >
+            <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
+              <Route className="size-3 text-primary" aria-hidden="true" />
+              Critical path
+              <span className="font-normal text-muted-foreground">
+                · {critical.chain.length} step{critical.chain.length === 1 ? "" : "s"} · {fmtDuration(critical.spanMs)} span
+              </span>
+              <span
+                className="ml-auto rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9.5px] font-semibold text-primary"
+                data-critical-finisher={critical.chain[critical.chain.length - 1].job.id}
+                title={`The pipeline's finish was set by ${critical.chain[critical.chain.length - 1].job.name} — every step here is a dependency it (transitively) waited on`}
+              >
+                ends with: {critical.chain[critical.chain.length - 1].job.name}
+              </span>
+            </p>
+            <div className="flex flex-col">
+              {critical.chain.map((s, i) => {
+                const spec = jobType(s.job.type);
+                return (
+                  <Fragment key={s.job.id}>
+                    {i > 0 && s.gapBeforeMs != null && (
+                      <p
+                        className="ml-9 flex items-center gap-1 py-[1px] pl-0.5 text-[9.5px] text-muted-foreground/70"
+                        data-critical-gap={i}
+                        title={
+                          s.gapBeforeMs > 0
+                            ? `The pipeline waited ${fmtDuration(s.gapBeforeMs)} between the previous step finishing and this one starting`
+                            : s.gapBeforeMs < 0
+                              ? `This step launched ${fmtDuration(-s.gapBeforeMs)} before its upstream finished`
+                              : "This step started as its upstream finished"
+                        }
+                      >
+                        <CornerDownRight className="size-2.5 shrink-0" aria-hidden="true" />
+                        {s.gapBeforeMs > 0
+                          ? `waited ${fmtDuration(s.gapBeforeMs)} after upstream finished`
+                          : s.gapBeforeMs < 0
+                            ? `overlapped ${fmtDuration(-s.gapBeforeMs)} with upstream`
+                            : "started as upstream finished"}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      className="group flex cursor-pointer items-center gap-2 rounded py-[3px] text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      data-critical-row={s.job.id}
+                      data-critical-index={i}
+                      onClick={() => revealJob(s.job.id)}
+                      title={`Reveal ${s.job.name} on the canvas — ${s.job.status}, ran ${fmtDuration(s.ms)}`}
+                    >
+                      <span className="flex w-9 shrink-0 justify-end">
+                        <span
+                          className={cn(
+                            "flex size-4.5 items-center justify-center rounded ring-1 ring-inset",
+                            spec?.color.soft,
+                            spec?.color.border
+                          )}
+                          title={s.job.name}
+                          aria-hidden="true"
+                        >
+                          <TypeIcon name={spec?.icon ?? "Boxes"} className="size-2.5" />
+                        </span>
+                      </span>
+                      <span
+                        className="w-28 shrink-0 truncate text-[10.5px] text-muted-foreground"
+                        title={s.job.name}
+                        data-critical-name=""
+                      >
+                        {s.job.name}
+                      </span>
+                      <div className="relative h-4 min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            "absolute top-1/2 h-2.5 -translate-y-1/2 rounded-[3px] transition-[left,width] duration-500 ease-out [print-color-adjust:exact] [-webkit-print-color-adjust:exact]",
+                            s.job.status === "failed" ? "bg-danger-500/85" : "bg-success-500/80"
+                          )}
+                          style={{
+                            left: `${((s.start - critical.chain[0].start) / Math.max(critical.spanMs, 1)) * 100}%`,
+                            width: `${Math.max((s.ms / Math.max(critical.spanMs, 1)) * 100, 0.75)}%`,
+                          }}
+                          data-critical-bar=""
+                          title={`${s.job.name} — ran ${fmtDuration(s.ms)}, step ${i + 1} of ${critical.chain.length}`}
+                        />
+                      </div>
+                      <span className="w-14 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-muted-foreground">
+                        {fmtDuration(s.ms)}
+                      </span>
+                      <Crosshair
+                        className="size-3 shrink-0 text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 print:hidden"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </Fragment>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 flex items-center gap-1 text-[10px] leading-relaxed text-muted-foreground/70">
+              <Route className="size-3 shrink-0 text-primary/70" aria-hidden="true" />
+              the chain the pipeline's finish actually waited on · ran {fmtDuration(critical.busyMs)}
+              {critical.gapMs > 0
+                ? ` + waited ${fmtDuration(critical.gapMs)}`
+                : critical.gapMs < 0
+                  ? ` − overlapped ${fmtDuration(-critical.gapMs)}`
+                  : " + waited 0s"}
+              {" = "}
+              {fmtDuration(critical.spanMs)} span — a live run has no end yet, so it waits outside the chain
             </p>
           </div>
         )}
