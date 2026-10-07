@@ -52,7 +52,7 @@ import {
 import { hasJudgment } from "@/lib/class-notes";
 import { pendingWirePath } from "@/lib/edge-geom";
 import { CanvasFindBar } from "./canvas-find-bar";
-import { jobMatchesFind } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home
+import { jobMatchWhy, jobMatchesFind, type MatchWhy } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home; t655 — the why rides the same lib
 import { CanvasFunnelDoor } from "./canvas-funnel-door";
 import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {
@@ -1014,6 +1014,23 @@ export function WorkflowCanvas() {
     for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory)) ids.add(j.id);
     return ids;
   }, [findOpen, findQuery, findStatus, findCategory, jobs]);
+  // t655 — the WHY map, computed from the same world the ring set is:
+  // for every ringing card, which text won (name or type label) and which
+  // character spans wash. Stable identity per query (one memo, one map),
+  // so the card memo comparator sees a new prop only when the lens
+  // actually moves. Empty-query chip lenses and textless gates yield no
+  // why — a card can ring without any character claiming credit, and
+  // that honesty is the feature (the chip is the why, t653).
+  const findWhyMap = React.useMemo(() => {
+    if (findMatchIds == null || findMatchIds.size === 0) return null;
+    const m = new Map<string, MatchWhy>();
+    for (const j of jobs) {
+      if (!findMatchIds.has(j.id)) continue;
+      const why = jobMatchWhy(j, findQuery);
+      if (why) m.set(j.id, why);
+    }
+    return m;
+  }, [findMatchIds, jobs, findQuery]);
   // The lens only engages with a live query AND at least one match — a
   // zero-match search must not blank the canvas (the count chip carries
   // the "no matches" honestly instead).
@@ -2573,6 +2590,7 @@ export function WorkflowCanvas() {
               }
               spotlightContext={noteSpotlight && !hasJudgment(job) && contextIds.has(job.id)}
               findMatch={findLens && findMatchIds!.has(job.id)}
+              findWhy={findWhyMap?.get(job.id)}
               findFlashDelay={findFlash?.get(job.id)}
               selected={selectedIds.includes(job.id)}
               primary={selectedId === job.id}

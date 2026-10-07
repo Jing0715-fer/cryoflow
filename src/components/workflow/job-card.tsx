@@ -44,6 +44,7 @@ import {
 } from "@/lib/status-style";
 import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
+import type { MatchWhy } from "@/lib/job-match"; // t655 — the why geometry rides the same lib the predicate lives in
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { parseClassNotes } from "@/lib/class-notes";
 import { useStatusNews } from "@/lib/use-status-news"; // t606 — the hook moved to lib: the news face now speaks at THREE distances (badge, floor, minimap dot)
@@ -863,6 +864,15 @@ interface JobCardProps {
    *  — those are stronger intents, and the count chip still tells the
    *  user the card matched. */
   findMatch?: boolean;
+  /** t655 — WHY this card matched the find lens, as geometry: which text
+   *  won (the card's own name or its type label) and which character
+   *  spans to wash amber. The visual answer to "why did THIS ring?" —
+   *  computed from the same predicate that lit the ring, so the mark
+   *  can never disagree with the match. Null (or undefined) when the
+   *  card rings for a reason with no text behind it — an empty query
+   *  riding a status/category chip — and the card honestly wears the
+   *  ring with no character claiming credit: the chip is the why. */
+  findWhy?: MatchWhy | null;
   /** Task 579 — the ripple slot. When the lens LANDS on new matches, the
    *  canvas hands each newly-matched card its reading-order delay (ms);
    *  the card's ::after halo ignites at that slot (fill-mode none keeps
@@ -1394,6 +1404,57 @@ function pendingRenderSig(
   return hits.length > 0 ? `other:${pending.dir}:${hits.join(",")}` : "";
 }
 
+/** t655 — the find dialect's character wash. The SAME amber family the
+ *  matched card rings with (border-amber-500 / ring-amber-500/50) — the
+ *  lens must not invent a second color language (t134's chip law, now
+ *  for characters). Quiet: a wash, not a recolor — the card's own ink
+ *  stays. Identity-exempt in the t650 census/codemod tables: this is
+ *  the hit ring's own amber, one dialect, one hue word. */
+const FIND_MARK_CLASS = "rounded-[2px] bg-amber-400/35 text-inherit dark:bg-amber-400/25";
+
+/** t655 — the WHY renderer: the card's text between amber washes. A
+ *  `<mark>` per span — the element IS the semantics ("highlighted for
+ *  reference"), the classes quiet its loud UA yellow to the find
+ *  dialect's wash. Defensive guard: should a span ever escape the
+ *  text's bounds (the lowercase-coordinate edge documented on
+ *  subsequenceSpans), the whole render falls back to plain text — a
+ *  wrong highlight is worse than none, and the ring still tells the
+ *  truth it always did. */
+function FindMarkedText({
+  text,
+  spans,
+}: {
+  text: string;
+  spans: ReadonlyArray<readonly [number, number]>;
+}) {
+  const trustworthy =
+    spans.length > 0 &&
+    spans.every(
+      ([s, e]) =>
+        Number.isInteger(s) &&
+        Number.isInteger(e) &&
+        0 <= s &&
+        s < e &&
+        e <= text.length,
+    );
+  if (!trustworthy) return <>{text}</>;
+  const out: React.ReactNode[] = [];
+  let at = 0;
+  spans.forEach(([s, e], i) => {
+    if (s > at)
+      out.push(<React.Fragment key={`t${i}`}>{text.slice(at, s)}</React.Fragment>);
+    out.push(
+      <mark key={`m${i}`} data-find-why-mark="" className={FIND_MARK_CLASS}>
+        {text.slice(s, e)}
+      </mark>,
+    );
+    at = e;
+  });
+  if (at < text.length)
+    out.push(<React.Fragment key="tail">{text.slice(at)}</React.Fragment>);
+  return <>{out}</>;
+}
+
 /**
  * t356 — JobCard's memo comparator. Default shallow equality re-rendered
  * EVERY card whenever `pendingFrom`/`pendingFromType` changed identity
@@ -1416,6 +1477,7 @@ function jobCardPropsEqual(a: JobCardProps, b: JobCardProps): boolean {
     a.primary !== b.primary ||
     a.bandMatch !== b.bandMatch ||
     a.findMatch !== b.findMatch ||
+    a.findWhy !== b.findWhy ||
     a.findFlashDelay !== b.findFlashDelay ||
     a.isReady !== b.isReady ||
     a.inspected !== b.inspected ||
@@ -1448,6 +1510,7 @@ export const JobCard = React.memo(function JobCard({
   primary,
   bandMatch,
   findMatch,
+  findWhy,
   findFlashDelay,
   pendingFrom,
   pendingFromType,
@@ -2153,8 +2216,13 @@ export const JobCard = React.memo(function JobCard({
                   <p
                     className="job-card-title truncate text-sm font-semibold tracking-tight leading-none"
                     title={job.name}
+                    data-find-why={findWhy?.source === "name" ? "name" : undefined}
                   >
-                    {job.name}
+                    {findWhy?.source === "name" ? (
+                      <FindMarkedText text={job.name} spans={findWhy.spans} />
+                    ) : (
+                      job.name
+                    )}
                   </p>
                 </HoverCardTrigger>
                 <JobCardPreview job={job} spec={spec} etaText={etaText} elapsedText={elapsedText} />
@@ -2353,8 +2421,13 @@ export const JobCard = React.memo(function JobCard({
               <span
                 className="min-w-0 truncate text-[10.5px] font-medium text-muted-foreground/90"
                 title={spec?.label ?? job.type}
+                data-find-why={findWhy?.source === "label" ? "label" : undefined}
               >
-                {spec?.label ?? job.type}
+                {findWhy?.source === "label" ? (
+                  <FindMarkedText text={spec?.label ?? job.type} spans={findWhy.spans} />
+                ) : (
+                  spec?.label ?? job.type
+                )}
               </span>
               {job.linkedJobId != null ? (
                 <span
