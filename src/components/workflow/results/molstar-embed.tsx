@@ -1652,7 +1652,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     if (phase !== "ready") return;
     let local: CamBookmark[] = [];
     try {
-      local = cleanBookmarks(JSON.parse(localStorage.getItem(camBookmarkKey(jobId)) ?? "[]"));
+      local = cleanBookmarkList(JSON.parse(localStorage.getItem(camBookmarkKey(jobId)) ?? "[]"));
     } catch {
       local = []; // private mode / corrupt entry — start empty
     }
@@ -1668,7 +1668,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         window.clearTimeout(timer);
         if (r.ok) {
           const j = await r.json();
-          server = cleanBookmarks(j?.bookmarks);
+          server = cleanBookmarkList(j?.bookmarks);
         }
       } catch {
         /* offline / timeout — the local copy restores the views */
@@ -1853,7 +1853,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           const r = await fetch(`/api/jobs/${jobId}/camera-bookmarks`);
           if (r.ok) {
             const j = await r.json();
-            const server = cleanBookmarks(j?.bookmarks);
+            const server = cleanBookmarkList(j?.bookmarks);
             // a local commit landed mid-read — the list it read is already
             // behind the mirror; that commit's broadcast re-reads the truth
             if (alive && bookmarkMutRef.current === mutsAtStart) {
@@ -2038,24 +2038,29 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   /** the optical annotation trio — shared by bookmark rows and the import
    *  preview dialog (same language in both places) */
   const renderViewChips = (v: BookmarkView) => (
+    // t679 — defensive reads: this renders whatever the read lane passed
+    // (the lanes all sane-ify now, but the renderer is the last line —
+    // a chip degrades, the tree does not)
     <span className="mt-0.5 flex flex-wrap items-center gap-1" aria-hidden="true">
-      <span className="rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-muted-foreground">
-        {v.sigma.toFixed(2)} σ
-      </span>
-      {v.slice.on && (
+      {typeof v.sigma === "number" && (
+        <span className="rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-muted-foreground">
+          {v.sigma.toFixed(2)} σ
+        </span>
+      )}
+      {v.slice && v.slice.on && (
         <span className="rounded bg-running/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-running-700 dark:text-running-400">
           slice {v.slice.axis} {Math.round(v.slice.pos * 100)}%
         </span>
       )}
-      {v.clip.on && (
+      {v.clip && v.clip.on && (
         <span className="rounded bg-warning/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-warning-700 dark:text-warning-400">
           {v.clip.box
             ? // t260 — an anchored box isn't slider-speakable; the chip says
               // "box" and lets the restored panel's readout carry the numbers
               "clip box"
             : `clip${(["x", "y", "z"] as const)
-                .filter((ax) => v.clip[ax] < 0.999)
-                .map((ax) => ` ${ax.toUpperCase()} ${Math.round(v.clip[ax] * 100)}%`)
+                .filter((ax) => v.clip![ax] < 0.999)
+                .map((ax) => ` ${ax.toUpperCase()} ${Math.round(v.clip![ax] * 100)}%`)
                 .join("")}${v.clip.invert ? " · flip" : ""}`}
         </span>
       )}
@@ -2163,6 +2168,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     }
     return o;
   };
+
+  /** t679 — the import lane's shape law, extended to EVERY read: a list
+   *  that enters this component (localStorage mirror, server route, import
+   *  file) is only as old as its oldest writer. An older build's mirror
+   *  entry can carry a view shape this build's renderer and restorer both
+   *  assume (v.slice.on crashed the whole tree, observed live by the t679
+   *  probe). cleanBookmarks checks the entry's own shape; this pass makes
+   *  the VIEW shape-current — anything unrecognizable degrades to a
+   *  pose-only bookmark (the legacy state), the same verdict the import
+   *  lane has always handed down. */
+  const cleanBookmarkList = (parsed: unknown): CamBookmark[] =>
+    cleanBookmarks(parsed).map((b) => ({ ...b, view: saneImportedView(b.view) }));
 
   const exportBookmarks = () => {
     if (bookmarksRef.current.length === 0) {
