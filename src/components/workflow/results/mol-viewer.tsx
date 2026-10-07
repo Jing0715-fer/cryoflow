@@ -146,6 +146,12 @@ export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-h-0 w-full flex-1 flex-col gap-2 px-6 pb-6">
+          {/* t662 — the viewer owns its share of the body: the ortho panel
+              below is capped at 55% and scrolls its overflow, because the
+              panel's natural height (three tiles + the oblique block) grew
+              past the body the day t555 shipped — and flex squeezed the
+              h-full canvas into a 3px sliver instead. The 3D view is the
+              main event: it keeps at least 45%, the panel scrolls under it. */}
           <div className="min-h-0 w-full flex-1">
             {open && (
               <MolStarEmbed jobId={job.id} path={path} name={name} initialClipBox={initialClipBox ?? null} />
@@ -153,7 +159,11 @@ export function MolViewer({ job, path, name, open, onOpenChange, restoreFocusRef
           </div>
           {/* orthogonal 2D slice browser — collapses to a one-line strip;
               hidden for .mrcs stacks (their ortho planes are in-image axes) */}
-          {open && <MapOrthoPanel jobId={job.id} path={path} />}
+          {open && (
+            <div className="min-h-0 w-full max-h-[55%] overflow-y-auto">
+              <MapOrthoPanel jobId={job.id} path={path} />
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
