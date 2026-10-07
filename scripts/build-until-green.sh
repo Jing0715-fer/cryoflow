@@ -146,12 +146,33 @@ if [ "${FRESH:-0}" = "1" ] && standalone_complete && [ "${CRYOFLOW_NO_FRESH_PROB
   probe_rc=$?
   if [ "$probe_rc" -eq 0 ] && [ -f ".next-probe/BUILD_ID" ] && [ -f ".next-probe/standalone/server.js" ]; then
     echo "$(stamp) FRESH preflight: probe GREEN — finishing its trio and swapping it in"
-    mkdir -p .next-probe/standalone/.next
-    cp -r .next-probe/static .next-probe/standalone/.next/ 2>/dev/null || true
+    # t673 — the probe's distDir is BAKED into the standalone's server.js
+    # ("distDir":"./.next-probe"). Next ≤15 normalized it to .next for
+    # standalone output and the old cp target silently rode that; Next 16
+    # preserves the resolved distDir, so the finishing cp below was healing
+    # a directory the server never reads (live-fired twice this window:
+    # both probe-swapped boots 200'd SSR while EVERY chunk 404'd — the
+    # t434 tear wearing a clean console). Resolve the real inner dir from
+    # the build's own confession, finish the trio THERE.
+    probe_dist="$(sed -n 's/.*"distDir":"\.\/\([^"]*\)".*/\1/p' .next-probe/standalone/server.js | head -1)"
+    [ -z "$probe_dist" ] && probe_dist=".next"
+    mkdir -p ".next-probe/standalone/$probe_dist"
+    cp -r .next-probe/static ".next-probe/standalone/$probe_dist/" 2>/dev/null || true
     cp -r public .next-probe/standalone/ 2>/dev/null || true
     ( git rev-parse HEAD 2>/dev/null || echo unknown ) > .next-probe/.built-at-commit
     rm -rf .next.prev
     mv .next .next.prev && mv .next-probe .next && rm -rf .next.prev
+    # t673 — normalize the swapped probe tree to the canonical .next inner
+    # dir: server.js's baked config and the dir itself move together, so
+    # every downstream consumer (prod-3001's boot, start-prod's t109 static
+    # heal, the family's fresh_server) sees the layout it always contracted
+    # for, and no ".next-probe" ghost survives inside a serving tree.
+    if [ "$probe_dist" != ".next" ] && [ -d ".next/standalone/$probe_dist" ]; then
+      rm -rf .next/standalone/.next
+      mv ".next/standalone/$probe_dist" .next/standalone/.next
+      sed -i "s#\"distDir\":\"./$probe_dist\"#\"distDir\":\"./.next\"#" .next/standalone/server.js
+      echo "$(stamp) FRESH preflight: probe distDir '$probe_dist' normalized to '.next' (baked config + inner dir)"
+    fi
     echo "$(stamp) FRESH preflight: swap complete — BUILD_ID $(cat "$BUILD_ID") (provenance: $(cat .next/.built-at-commit))"
     # t435 anti-tear, probe edition — the same law the grind path enforces:
     # a standalone older than the build it now serves gets restarted here,

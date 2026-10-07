@@ -57,6 +57,22 @@ export PATH="/home/z/.venv/bin:/home/z/relion-install/bin:${PATH}"
 export PORT="$PORT_GIVEN" NODE_ENV=production
 export HOSTNAME=127.0.0.1
 export NODE_OPTIONS="--max-old-space-size=896"
+# t109 via start-prod.sh, landed here by t673 — a standalone whose inner
+# static tree is missing boots a DEAD SSR SHELL: / answers 200 but every
+# chunk 404s (this window's probe-swapped boots wore that tear behind a
+# clean console for an hour). Heal the static tree before boot, idempotent
+# and distDir-aware: the inner dir's NAME is whatever the build baked into
+# server.js ("./.next" normally; a probe build bakes "./.next-probe" — the
+# server reads static from ITS confession, not from habit).
+srv_dist="$(sed -n 's/.*"distDir":"\.\/\([^"]*\)".*/\1/p' .next/standalone/server.js 2>/dev/null | head -1)"
+srv_dist="${srv_dist:-.next}"
+if [ -d .next/static ] && [ ! -d ".next/standalone/$srv_dist/static" ]; then
+  mkdir -p ".next/standalone/$srv_dist"
+  cp -r .next/static ".next/standalone/$srv_dist/" 2>/dev/null || true
+fi
+if [ -d public ] && [ ! -d .next/standalone/public ]; then
+  cp -r public .next/standalone/ 2>/dev/null || true
+fi
 # the log lives at the REPO ROOT (prod-3001.log) — the diag suites' log
 # witnesses read exactly there (t325's server-log greps; moving it broke
 # four witness assertions for one run — keep the path stable)

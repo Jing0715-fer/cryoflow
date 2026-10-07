@@ -92,19 +92,35 @@ const nextConfig: NextConfig = {
   // A probe that dies leaves .next untouched; a probe that greens becomes
   // the build itself (trio finished inside .next-probe, then swapped in).
   ...(process.env.NEXT_PROBE === "1" ? { distDir: ".next-probe" } : {}),
-  // t576 — turbopack's build root widens from the project root to /home/z:
-  // the EMPIAR-10017 world (t372) serves its micrographs through
+  // t576 — turbopack's build root widened from the project root to /home/z:
+  // the EMPIAR-10017 world (t372) served its micrographs through
   // data/relion/<id>/micrographs → /home/z/empiar-10017/micrographs, and
   // that realpath leaves the project root — turbopack's symlink validator
   // panics ("points out of the filesystem root") on the first app-route
   // whose graph touches it (observed on micrographs/ and picks/ routes).
-  // The dataset mount and the checkout are siblings under /home/z, so a
-  // root at /home/z legalizes the world's own links without moving a byte
-  // of data. (The webpack lane never saw this: its tracer walked data/**
-  // with looser rules — the outputFileTracingExcludes below now covers
-  // both engines.)
-  turbopack: {
-    root: "/home/z",
+  // t673 — the crutch retires: Next 16 UNIFIES turbopack.root with
+  // outputFileTracingRoot ("both set, they must have the same value" —
+  // it already prefers the tracing root, printing a warning per build).
+  // Two facts retire it honestly: (1) the t576 panic's durable cure was
+  // always the outputFileTracingExcludes below (data/** — "now covers
+  // both engines", t576's own words), and (2) the EMPIAR dataset itself
+  // has left the box (no /home/z/empiar-10017), so the symlink jail has
+  // nothing left to jail. What MUST survive is the flat standalone layout
+  // (the start fleet's contract — see the outputFileTracingRoot comment),
+  // which a /home/z root would re-nest. One root, pinned to the checkout.
+  outputFileTracingRoot: path.resolve(__dirname),
+  // t673 — the turbopack tracer's one known blind spot, met live: the
+  // standalone's traced next package shipped WITHOUT
+  // next/dist/lib/metadata/ — router-utils/filesystem.js does
+  // require("../../../lib/metadata/get-metadata-route") and the bun-booted
+  // standalone (reboot-recover's lane) died on boot with "Cannot find
+  // module ... get-metadata-route" (the node lane booting the same tree
+  // answered 200 — node never loads router-utils in prod standalone; bun's
+  // eager CJS interop does). Historical --webpack builds traced the file
+  // and bun booted for months; turbopack builds must name the gap
+  // explicitly. This is the canonical outputFileTracingIncludes cure.
+  outputFileTracingIncludes: {
+    "/**": ["./node_modules/next/dist/lib/metadata/**"],
   },
   // t401 — inlined at compile time (client) / build time (standalone):
   // the footer's "build <sha>" is the served process's own version.
