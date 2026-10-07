@@ -757,6 +757,10 @@ function SavedViewsGallery() {
   const openJob = useWorkflowStore((s) => s.openJob);
   const jobCount = useWorkflowStore((s) => s.jobs.length);
   const [views, setViews] = React.useState<GalleryEntry[] | null>(null);
+  // t669 — the wall gets a delete face. One in-flight key at a time: two
+  // rapid deletes would race their read-filter-write cycles (the viewer's
+  // putChain doctrine, wall-sized) — the second X waits, honestly.
+  const [deleting, setDeleting] = React.useState<string | null>(null);
   // the wall is a glance by default (12 cards); "Show all" expands it to
   // the full flat list without leaving the dashboard — state survives
   // refetches, and a shrinking collection just renders fewer cards
@@ -812,6 +816,56 @@ function SavedViewsGallery() {
     void openJob(v.jobId, { projectId: v.projectId });
   };
 
+  /** t669 — delete from the wall. The gallery route is read-only by
+   *  design: mutations stay on the per-job camera-bookmarks route, so the
+   *  wall READS FRESH AT CLICK TIME and PUTs the remaining list — never
+   *  its own possibly stale gallery copy (a view saved in the viewer
+   *  since this fetch must survive the delete). The route re-sanitizes
+   *  and drops the row entirely when the list runs empty. After the
+   *  server confirms, the wall shrinks locally (no refetch needed) and
+   *  reports honestly; a failed round trip keeps the card and says so.
+   *  The palette's own 30s clock covers its staleness (a jump at a stale
+   *  row gets the viewer's honest "not found" toast — the contract this
+   *  delete rides, not fights). */
+  const deleteView = async (v: GalleryEntry, b: GalleryBookmark) => {
+    const cardKey = `${v.jobId}:${b.id}`;
+    setDeleting(cardKey);
+    try {
+      const r = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`);
+      if (!r.ok) throw new Error(`read ${r.status}`);
+      const j = (await r.json()) as { bookmarks?: Array<{ id: string }> };
+      const rest = (j.bookmarks ?? []).filter((x) => x && x.id !== b.id);
+      const w = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookmarks: rest }),
+      });
+      if (!w.ok) throw new Error(`write ${w.status}`);
+      setViews(
+        (prev) =>
+          prev
+            ?.map((row) =>
+              row.jobId === v.jobId
+                ? { ...row, bookmarks: row.bookmarks.filter((x) => x.id !== b.id) }
+                : row
+            )
+            .filter((row) => row.bookmarks.length > 0) ?? null
+      );
+      toast({
+        title: `View “${b.name}” deleted`,
+        description: `Removed from ${v.jobName}'s saved views.`,
+      });
+    } catch {
+      toast({
+        title: "Could not delete the view",
+        description:
+          "The server did not confirm the removal — the card stays on the wall.",
+      });
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   return (
     <section
       aria-label="Saved 3D views across all projects"
@@ -821,20 +875,29 @@ function SavedViewsGallery() {
         <Mountain className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <h2 className="text-sm font-semibold tracking-tight">Saved views</h2>
         <span className="text-[11px] text-muted-foreground">
-          {total} bookmark{total === 1 ? "" : "s"} · {views.length} job{views.length === 1 ? "" : "s"} · click to jump
+          {total} bookmark{total === 1 ? "" : "s"} · {views.length} job{views.length === 1 ? "" : "s"} · click to jump, hover to delete
         </span>
       </div>
       <div id="saved-views-wall" data-atomic-grid className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {wall.map(({ v, b }) => {
           const spec = jobType(v.jobType);
+          // t669 — the card is a shell with two mouths: the body jumps,
+          // the X deletes. The X shares the chevron's slot (hover swaps
+          // one for the other — no layout shift, nothing occluded) and
+          // reveals itself to keyboards (focus-visible) and to
+          // focus-within, so tabbing reaches a visible control.
           return (
-            <button
+            <div
               key={`${v.jobId}:${b.id}`}
-              type="button"
-              onClick={() => void jump(v, b)}
-              title={`Open “${b.name}” — jumps to ${v.jobName}${v.projectName ? ` in ${v.projectName}` : ""} and restores the view in the 3D viewer`}
-              className="group/card flex min-w-0 items-center gap-2.5 rounded-lg border bg-card p-2 text-left transition-all motion-reduce:transition-none hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              data-saved-view-card={b.id}
+              className="group/card relative flex min-w-0 items-center rounded-lg border bg-card transition-all motion-reduce:transition-none hover:border-primary/40 hover:shadow-sm"
             >
+              <button
+                type="button"
+                onClick={() => void jump(v, b)}
+                title={`Open “${b.name}” — jumps to ${v.jobName}${v.projectName ? ` in ${v.projectName}` : ""} and restores the view in the 3D viewer`}
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
               <span
                 className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md border bg-muted"
                 aria-hidden="true"
@@ -870,10 +933,25 @@ function SavedViewsGallery() {
                 </span>
               </span>
               <ChevronRight
-                className="size-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover/card:translate-x-0.5"
+                className="size-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover/card:translate-x-0.5 group-hover/card:opacity-0 group-focus-within/card:opacity-0"
                 aria-hidden="true"
               />
-            </button>
+              </button>
+              <button
+                type="button"
+                onClick={() => void deleteView(v, b)}
+                disabled={deleting !== null}
+                aria-label={`Delete saved view “${b.name}”`}
+                title={`Delete “${b.name}” — removes this bookmark from ${v.jobName}'s saved views`}
+                className="absolute right-2 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-md border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none hover:border-destructive/40 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 group-hover/card:opacity-100 group-focus-within/card:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deleting === `${v.jobId}:${b.id}` ? (
+                  <Loader2 className="size-2.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <X className="size-2.5" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           );
         })}
       </div>

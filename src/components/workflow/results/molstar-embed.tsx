@@ -1687,30 +1687,45 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       // dashboard gallery deep-link: a saved view clicked on the dashboard
       // lands here — the viewer is up and the list has loaded, so fly to
       // that view once and clear the request (one-shot by design; a view
-      // deleted in the meantime reports honestly instead of no-op'ing)
+      // deleted in the meantime reports honestly instead of no-op'ing).
+      // t669 — the door must ALWAYS speak: only the PARSE gets the wide
+      // catch (a malformed entry is ignorable noise). Once the request is
+      // consumed, every exit owes a verdict — restore, honest not-found,
+      // or an honest could-not-restore. Silence after consumption is the
+      // one dishonest exit this door exists to prevent (observed live:
+      // a dead fetch made the local mirror answer, a molstar internal
+      // threw mid-restore, and the pending vanished without a word).
+      let pending: { jobId?: string; bookmarkId?: string } | null = null;
       try {
-        const pending = JSON.parse(
+        pending = JSON.parse(
           sessionStorage.getItem(PENDING_VIEW_KEY) ?? "null"
         ) as { jobId?: string; bookmarkId?: string } | null;
-        if (pending && pending.jobId === jobId && typeof pending.bookmarkId === "string") {
-          sessionStorage.removeItem(PENDING_VIEW_KEY);
-          const target = applied.find((b) => b.id === pending.bookmarkId);
-          if (!target) {
-            toast({
-              title: "Saved view not found",
-              description:
-                "It may have been deleted, or its server copy could not be read just now.",
-            });
-          } else {
+      } catch {
+        pending = null; // malformed pending entry — ignore, the wall stays usable
+      }
+      if (pending && pending.jobId === jobId && typeof pending.bookmarkId === "string") {
+        sessionStorage.removeItem(PENDING_VIEW_KEY);
+        const target = applied.find((b) => b.id === pending.bookmarkId);
+        if (!target) {
+          toast({
+            title: "Saved view not found",
+            description:
+              "It may have been deleted, or its server copy could not be read just now.",
+          });
+        } else {
+          try {
             restoreBookmarkRef.current(target);
             toast({
               title: `View “${target.name}” restored`,
               description: "Jumped here from the dashboard gallery.",
             });
+          } catch {
+            toast({
+              title: "Saved view could not be restored",
+              description: `“${target.name}” is on the shelf, but the viewer could not fly to it just now.`,
+            });
           }
         }
-      } catch {
-        /* malformed pending entry — ignore, the wall stays usable */
       }
     })();
   }, [phase, jobId]);
