@@ -147,8 +147,12 @@ must(views.length >= 1, "A the world has at least one bookmark-bearing job", `${
 const refine = views.find((v) => v.jobId === REFINE3D_ID);
 must(!!refine, "A the refine3d half-map world is on the shelf");
 must((refine?.bookmarks?.length ?? 0) === 3, "A three saved views ride the job", `${refine?.bookmarks?.length ?? 0}`);
-must((refine?.bookmarks ?? []).every((bm) => typeof bm.thumb === "string" && bm.thumb.startsWith("data:image/png;base64,")),
-  "A the thumbs are honest data-URL PNGs");
+// t671 relaxed the format: the seeder writes PNGs, but a viewer-side
+// update re-captures the thumb as a canvas JPEG (an honest byte of what
+// the world looks like now) — "honest" is a real data-URL image, not a
+// PNG monopoly
+must((refine?.bookmarks ?? []).every((bm) => typeof bm.thumb === "string" && bm.thumb.startsWith("data:image/")),
+  "A the thumbs are honest data-URL images (seeder PNGs or viewer JPEGs)");
 const names = (refine?.bookmarks ?? []).map((bm) => bm.name);
 must(names.includes("Centered iso view") && names.includes("Top-down slice") && names.includes("Front half clipped"),
   "A the three views carry their story names", names.join(" | "));
