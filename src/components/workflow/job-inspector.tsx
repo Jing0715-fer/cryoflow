@@ -1842,6 +1842,14 @@ function OverviewTab({
       String(job.params?.nodeType ?? "micrographs") !== "particles" ? (
         <ImportGallery jobId={job.id} />
       ) : null}
+      {/* t658 — MotionCorr gets the corrected wall: the same gallery,
+          pointed at the job's own corrected_micrographs.star. The frames
+          the seeder (demo) or RELION (real) leave in the workdir are the
+          motion-corrected micrographs — the first thing an operator
+          eyeballs after alignment, before trusting the drift chart. */}
+      {isMotionType && job.status !== "idle" ? (
+        <ImportGallery jobId={job.id} variant="corrected" />
+      ) : null}
       {/* manualpick + autopick jobs show the picked-particle overlay map
           (t427: autopick renders the FOM-colored QA variant). */}
       {/(manualpick|autopick)/i.test(job.type) && job.status !== "idle" ? (

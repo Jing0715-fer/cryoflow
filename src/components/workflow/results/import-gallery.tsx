@@ -36,6 +36,13 @@
  * backs this with real physics — the seeder hard-links the ten real
  * EMPIAR frames into the import workdir — so the numbers are counted,
  * never invented, and honestly absent when a frame's header is unknown.
+ *
+ * t658 — one gallery, two walls: the component generalizes to the
+ * MotionCorr job's corrected_micrographs.star (variant="corrected"),
+ * whose frames the seeder hard-links into the motioncorr workdir —
+ * same inode, same pixels, zero bytes copied. The wall's NAME changes
+ * ("Corrected micrographs"); the gestures (lightbox walk, compare
+ * tray, pane stats) are the same hands on a different catalogue.
  */
 
 import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -150,10 +157,16 @@ function lightboxKeydown(
 export function ImportGallery({
   jobId,
   className,
+  variant = "import",
 }: {
   jobId: string;
   className?: string;
+  /** t658 — which catalogue the wall reads: the import job's raw
+   *  frames (default) or the MotionCorr job's corrected ones. */
+  variant?: "import" | "corrected";
 }) {
+  const isCorrected = variant === "corrected";
+  const wallLabel = isCorrected ? "Corrected micrographs" : "Source micrographs";
   const [data, setData] = useState<MicrographsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   // t654 — the lightbox rides an INDEX (not the entry object): ←/→ are
@@ -186,7 +199,9 @@ export function ImportGallery({
     (async () => {
       try {
         const res = await fetch(
-          `/api/jobs/${jobId}/micrographs${reroll > 0 ? `?reroll=${reroll}` : ""}`,
+          `/api/jobs/${jobId}/micrographs?${isCorrected ? "catalogue=corrected_micrographs.star&" : ""}${
+            reroll > 0 ? `reroll=${reroll}` : ""
+          }`,
           { cache: "no-store" }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -202,7 +217,7 @@ export function ImportGallery({
     return () => {
       cancelled = true;
     };
-  }, [jobId, reroll]);
+  }, [jobId, reroll, isCorrected]);
 
   /** advance + persist the sample generation (the re-sample button).
    * t654 — the wall changes, so the tray is emptied: picks that point
@@ -260,7 +275,7 @@ export function ImportGallery({
 
   return (
     <section
-      aria-label="Source micrographs"
+      aria-label={wallLabel}
       className={cn(
         "rounded-lg border border-running/25 bg-gradient-to-b from-running-600/5 to-transparent p-3",
         className
@@ -270,7 +285,7 @@ export function ImportGallery({
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
           <Aperture className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
-          Source micrographs
+          {wallLabel}
         </span>
         <Chip size="sm" tone="muted">
           <Grid3x3 aria-hidden="true" />

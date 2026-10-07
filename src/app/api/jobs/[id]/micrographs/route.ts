@@ -188,6 +188,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
     const run = getRun(job.id);
+    // t658 — the gallery door serves a job's own frame catalogue. Import
+    // speaks micrographs.star; MotionCorr speaks corrected_micrographs.star
+    // (RELION 5's own name for the motion-corrected wall). A WHITELIST,
+    // not a free-form path: the route stays workdir-scoped, so a crafted
+    // catalogue value can only pick between the two legal names — it can
+    // never climb out of the workdir. Omitted → the import default, so
+    // every existing consumer (t651/t654/t657) reads the same bytes.
+    const CATALOGUES = ["micrographs.star", "corrected_micrographs.star"] as const;
+    const catalogueParam = new URL(request.url).searchParams.get("catalogue") ?? "";
+    const catalogue = (CATALOGUES as readonly string[]).includes(catalogueParam)
+      ? catalogueParam
+      : "micrographs.star";
     const empty: MicrographsResponse = {
       jobId: id,
       total: 0,
@@ -201,7 +213,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json(empty);
     }
 
-    const starPath = path.join(run.workdir, "micrographs.star");
+    const starPath = path.join(run.workdir, catalogue);
     if (!existsSync(starPath)) {
       return NextResponse.json(empty);
     }
@@ -232,7 +244,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           return NextResponse.json({ error: "Project is not bound to a cluster" }, { status: 400 });
         }
         if (!names.includes(preview)) {
-          return NextResponse.json({ error: "Not a micrograph of this import job" }, { status: 404 });
+          return NextResponse.json({ error: "Not a micrograph of this job" }, { status: 404 });
         }
         // t317 — only CLUSTER-ABSOLUTE rows can ride this door: a relative
         // row would `cat` against the SSH login shell's HOME (a pointless

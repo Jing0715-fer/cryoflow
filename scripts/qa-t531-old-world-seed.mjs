@@ -33,6 +33,9 @@
  *     each, zero bytes copied, zero bytes mutated — the same inode), so
  *     the gallery renders real pixels and the MRC headers carry real
  *     dims. Linking is referencing, not polluting.
+ *     t658 — the corrected wall joins the real world: the MotionCorr
+ *     workdir hard-links the SAME 10 inodes (two catalogues, one
+ *     bundle), and its corrected star grows the RELION 5 optics block.
  *   - The manifest (data/old-world.json) is the CONTRACT: suites resolve
  *     the old world through it instead of the active-pointer-scoped
  *     /api/jobs list (t530 moved the active pointer to the exam world and
@@ -191,16 +194,29 @@ function buildImportStar(mics) {
  *  EMPIAR bundle: one directory entry per frame, the same inode (zero
  *  bytes copied on a 4GB-disk box, zero bytes mutated — linkSync refuses
  *  to create a divergent copy by construction). Re-running skips frames
- *  already on the wall (idempotent like every plan here). */
+ *  already on the wall (idempotent like every plan here).
+ *  t658 — the corrected wall rides the same law: the MotionCorr workdir
+ *  gets its own directory entries pointing at the SAME inodes. Two
+ *  catalogues, one bundle — the demo world never stores a frame twice. */
 function linkPlan() {
-  return micNames.map((m) => ({
-    src: path.join(EMPIAR_DIR, m),
-    dst: path.join(wd.import, "micrographs", m),
-  }));
+  return micNames.flatMap((m) => [
+    { src: path.join(EMPIAR_DIR, m), dst: path.join(wd.import, "micrographs", m) },
+    { src: path.join(EMPIAR_DIR, m), dst: path.join(wd.motioncorr, "micrographs", m) },
+  ]);
 }
 
 function buildMotionStar(mics) {
+  // t658 — the corrected wall speaks the RELION 5 dialect the engine's
+  // own counter expects (t409: data_optics = group number + pixel size,
+  // skipped BY NAME so the count stays 10) and the micrographs route's
+  // parseOptics reads (_rlnMicrographPixelSize → the pixel chip). The
+  // physics matches the import star (1.77 Å — same detector, same
+  // project): star, form and UI keep saying one thing.
   const lines = [
+    "data_optics", "", "loop_",
+    "_rlnOpticsGroup #1", "_rlnMicrographPixelSize #2",
+    "1  1.77",
+    "",
     "data_micrographs", "", "loop_",
     "_rlnMicrographName #1", "_rlnAccumMotionTotal #2", "_rlnAccumMotionEarly #3", "_rlnAccumMotionLate #4",
   ];
