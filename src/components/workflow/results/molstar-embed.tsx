@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -26,7 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_VIEW_KEY } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -264,6 +264,107 @@ const buildProfileCsv = (bins: number[], axis: string): string =>
 
 const profileCsvFilename = (axis: string): string =>
   `map-profile-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+
+/* ------------------------------------------------------------------ */
+/* The oblique 3D cut (t661) — grid math → Mol*'s clip-plane language  */
+/* ------------------------------------------------------------------ */
+
+const OBLIQUE_DEG = Math.PI / 180;
+const CLIP_PLANE_IDENTITY_16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] as number[];
+
+/** the volume geometry buildObliqueClipPlane needs — the same shape
+ *  clipBox() reports for the loaded volume (origin/extents/dims) */
+export interface ObliqueClipGeometry {
+  origin: [number, number, number];
+  extents: [number, number, number];
+  dims: number[];
+}
+
+/**
+ * ONE builder for the oblique cut plane in Mol*'s pixel-clip language —
+ * the same plane family the 2D oblique tile samples (readMrcObliqueSlice /
+ * obliqueFrame: normal from (θ,φ), support over the 8 grid corners, anchor
+ * = center + frac·support·n). Grid == cartesian is the documented isotropic
+ * law (t556); the anchor converts through the grid-to-cartesian origin and
+ * per-axis voxel sizes so non-cubic boxes still land the plane where the
+ * tile cuts it.
+ *
+ * Mol* planes take their normal from rotating the default +Y by axis-angle
+ * (the same recipe the t253 PLANE_ROTATION table drives for the axes), so
+ * the rotation here is exactly +Y swung onto n: axis = ŷ×n normalized
+ * (degenerate at ±ŷ → the canonical fallbacks, identity and x̂·180°).
+ *
+ * invert=false keeps the −n half-space — the side the ⌖ camera rides, so
+ * the face-on view looks AT the cut. Returns null when the geometry is
+ * unusable: an honest no-cut beats a guessed plane.
+ */
+export function buildObliqueClipPlane(
+  ob: { theta: number; phi: number; offset: number },
+  invert: boolean,
+  geo: ObliqueClipGeometry
+):
+  | {
+      type: "plane";
+      invert: boolean;
+      position: [number, number, number];
+      rotation: { axis: [number, number, number]; angle: number };
+      scale: [number, number, number];
+      transform: number[];
+    }
+  | null {
+  const dims = geo.dims;
+  if (!Array.isArray(dims) || dims.length !== 3 || dims.some((d) => !(d >= 1))) return null;
+  const t = Math.min(180, Math.max(0, ob.theta)) * OBLIQUE_DEG;
+  const p = Math.min(360, Math.max(0, ob.phi)) * OBLIQUE_DEG;
+  const n: [number, number, number] = [
+    Math.sin(t) * Math.cos(p),
+    Math.sin(t) * Math.sin(p),
+    Math.cos(t),
+  ];
+  const c: [number, number, number] = [(dims[0] - 1) / 2, (dims[1] - 1) / 2, (dims[2] - 1) / 2];
+  // support along the normal — max over the box's 8 corners (voxel units),
+  // the corner walk the server and the panel both mirror
+  let supportN = 0;
+  for (let i = 0; i < 2; i++)
+    for (let j = 0; j < 2; j++)
+      for (let k = 0; k < 2; k++) {
+        const d: [number, number, number] = [
+          (i ? dims[0] - 1 : 0) - c[0],
+          (j ? dims[1] - 1 : 0) - c[1],
+          (k ? dims[2] - 1 : 0) - c[2],
+        ];
+        supportN = Math.max(supportN, Math.abs(d[0] * n[0] + d[1] * n[1] + d[2] * n[2]));
+      }
+  const frac = Number.isFinite(ob.offset) ? Math.min(1, Math.max(-1, ob.offset)) : 0;
+  const anchorVox: [number, number, number] = [
+    c[0] + frac * supportN * n[0],
+    c[1] + frac * supportN * n[1],
+    c[2] + frac * supportN * n[2],
+  ];
+  const pos: [number, number, number] = [
+    geo.origin[0] + anchorVox[0] * (geo.extents[0] / dims[0]),
+    geo.origin[1] + anchorVox[1] * (geo.extents[1] / dims[1]),
+    geo.origin[2] + anchorVox[2] * (geo.extents[2] / dims[2]),
+  ];
+  // +Y → n: axis = ŷ×n (unit), angle = acos(n·ŷ); poles get the honest
+  // canonical forms instead of a zero-axis NaN
+  const cosA = Math.min(1, Math.max(-1, n[1]));
+  let axis: [number, number, number];
+  if (cosA > 1 - 1e-6) axis = [0, 1, 0];
+  else if (cosA < -1 + 1e-6) axis = [1, 0, 0];
+  else {
+    const len = Math.hypot(n[2], n[0]);
+    axis = [n[2] / len, 0, -n[0] / len];
+  }
+  return {
+    type: "plane",
+    invert,
+    position: pos,
+    rotation: { axis, angle: (Math.acos(cosA) / OBLIQUE_DEG) },
+    scale: [1, 1, 1],
+    transform: CLIP_PLANE_IDENTITY_16,
+  };
+}
 
 /** The viewport is a guest: it follows the room's theme. The Mol* canvas
  *  paints ITSELF — no computed-style audit can ever see its background, and
@@ -1289,6 +1390,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
      *  positions at save time); absent (old bookmarks, or no ortho world
      *  open when the view was saved) restores the tiles untouched */
     focus?: { x: number; y: number; z: number };
+    /** t661 — the oblique 3D cut (the ortho block's ✂ mirror); present
+     *  only when the cut was ON at save time. Absent restores the live
+     *  cut untouched — a view saved before the cut existed never promised
+     *  one, and switching nothing is the honest fly-back for it */
+    oblique?: { on: boolean; theta: number; phi: number; offset: number; invert: boolean };
   };
   type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown>; view?: BookmarkView };
   // t279 — the ortho browser's tri-planar focus point, as last reported
@@ -1537,6 +1643,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     // angle and the right threshold should also land the three section
     // planes where the inspection was happening
     ...(orthoFocusRef.current ? { focus: { ...orthoFocusRef.current } } : {}),
+    // t661 — the oblique 3D cut rides along when it was on: the saved
+    // picture IS the cut surface, so fly-back means the plane too
+    ...(obliqueClipRef.current.on
+      ? {
+          oblique: {
+            on: true,
+            theta: obliqueClipRef.current.theta,
+            phi: obliqueClipRef.current.phi,
+            offset: obliqueClipRef.current.offset,
+            invert: obliqueClipRef.current.invert,
+          },
+        }
+      : {}),
   });
 
   /** gentle duplicate-name guard — saving/renaming to a name another view
@@ -1648,6 +1767,14 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           focus {Math.round(v.focus.x * 100)}/{Math.round(v.focus.y * 100)}/{Math.round(v.focus.z * 100)}%
         </span>
       )}
+      {v.oblique?.on && (
+        // t661 — the oblique 3D cut joins the chips: the saved view shows
+        // the surface was opened and at what plane. Violet, the oblique
+        // family's own hue since t556.
+        <span className="rounded bg-violet-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-violet-700 dark:text-violet-400">
+          cut {v.oblique.theta}°·{v.oblique.phi}°{v.oblique.invert ? " · flip" : ""}
+        </span>
+      )}
     </span>
   );
 
@@ -1671,6 +1798,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       // restore is a no-op whisper when no ortho panel is mounted)
       if (v.focus) {
         window.dispatchEvent(new CustomEvent(ORTHO_FOCUS_RESTORE_EVENT, { detail: { ...v.focus } }));
+      }
+      // t661 — the oblique cut flies back too (present-yet-off restores
+      // off; absent leaves the live cut untouched — legacy views never
+      // promised a cut)
+      if (v.oblique) {
+        applyObliqueClipIntent({
+          on: v.oblique.on,
+          theta: v.oblique.theta,
+          phi: v.oblique.phi,
+          offset: v.oblique.offset,
+          invert: v.oblique.invert,
+        });
       }
     }
   };
@@ -1707,6 +1846,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     if (o.focus !== undefined) {
       const f = o.focus as { x?: unknown; y?: unknown; z?: unknown } | null;
       if (!f || !num(f.x) || !num(f.y) || !num(f.z)) return undefined;
+    }
+    // t661 — oblique stays optional, but a present-yet-malformed one is
+    // poison to restoreBookmark just the same (the focus precedent)
+    if (o.oblique !== undefined) {
+      const ob = o.oblique as {
+        on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown; invert?: unknown;
+      } | null;
+      if (
+        !ob || typeof ob.on !== "boolean" || typeof ob.invert !== "boolean" ||
+        !num(ob.theta) || !num(ob.phi) || !num(ob.offset)
+      )
+        return undefined;
     }
     return o;
   };
@@ -2154,6 +2305,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         // Clip axes still at 1 are uncropped and silently omitted.
         const st = sliceStateRef.current;
         const cp = clipStateRef.current;
+        const ob = obliqueClipRef.current;
         const annotations: string[] = [];
         if (supersampled) annotations.push(`${mult}× supersampled`);
         if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
@@ -2163,6 +2315,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
           if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
         }
+        // t661 — a figure cut open by the oblique plane says so: the same
+        // θ/φ the 2D block's provenance chip and the 3D chip speak
+        if (ob.on) annotations.push(`oblique cut ${ob.theta}°·${ob.phi}°${ob.invert ? " · flip" : ""}`);
         if (overlays.length) {
           annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
         }
@@ -2375,6 +2530,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       // overlay legend the PNG figure pipeline would burn in.
       const st = sliceStateRef.current;
       const cp = clipStateRef.current;
+      const ob = obliqueClipRef.current;
       const annotations: string[] = [];
       if (supersampled) annotations.push(`${mult}× supersampled`);
       if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
@@ -2384,6 +2540,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
         if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
       }
+      if (ob.on) annotations.push(`oblique cut ${ob.theta}°·${ob.phi}°${ob.invert ? " · flip" : ""}`);
       if (overlays.length) {
         annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
       }
@@ -3226,7 +3383,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     z: number;
     invert: boolean;
     box: ClipBoxState | null;
-  }>({ on: false, x: 1, y: 1, z: 1, invert: false, box: null });
+    /** t661 — bumped on EVERY clip-affecting intent (axis sliders AND the
+     *  oblique mirror), so the pump's settle check can't miss a change that
+     *  arrived mid-commit while the slider fields stood still */
+    rev: number;
+  }>({ on: false, x: 1, y: 1, z: 1, invert: false, box: null, rev: 0 });
   const clipPending = useRef(false);
 
   /** cartesian box origin + extents (+ basis columns & grid dims) of the
@@ -3277,8 +3438,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     const VolumeRepresentation3D = VolumeReprRef.current;
     if (!plugin || !VolumeRepresentation3D || !reprRef.current) throw new Error("not ready");
     const st = clipStateRef.current;
+    const ob = obliqueClipRef.current;
 
-    const box = st.on ? clipBox() : null;
+    // t661 — the oblique cut needs the volume geometry even when the box
+    // language is off; one clipBox() walk serves both
+    const geoBox = clipBox();
+    const box = st.on ? geoBox : null;
     // Mol* planes take their normal from the rotation applied to the
     // geometry's default +Y — an angle-0 rotation leaves EVERY plane
     // Y-normal, which (probe-clip-side verdict, Task 260) turns the whole
@@ -3345,6 +3510,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           .filter(([, f]) => f < 0.999)
           .map(([axisIdx, f]) => plane(axisIdx as 0 | 1 | 2, f, st.invert));
 
+    // t661 — the oblique cut rides ALONGSIDE the box/slider planes (clip
+    // objects intersect: crop + section compose). No geometry → no plane:
+    // an honest uncut surface beats a guessed half-space.
+    if (ob.on && geoBox) {
+      const obliquePlane = buildObliqueClipPlane(
+        { theta: ob.theta, phi: ob.phi, offset: ob.offset },
+        ob.invert,
+        geoBox
+      );
+      if (obliquePlane) (objects as unknown[]).push(obliquePlane);
+    }
+
     await plugin
       .build()
       .to(reprRef.current)
@@ -3373,7 +3550,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         if (
           now.on === seen.on && now.invert === seen.invert &&
           now.x === seen.x && now.y === seen.y && now.z === seen.z &&
-          now.box === seen.box
+          now.box === seen.box && now.rev === seen.rev
         ) break;
       }
     } catch (err) {
@@ -3402,6 +3579,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       ...clipStateRef.current,
       ...patch,
       box: patch.box !== undefined ? patch.box : null,
+      rev: clipStateRef.current.rev + 1,
     };
     if (patch.on !== undefined) setClipOn(patch.on);
     if (patch.invert !== undefined) setClipInvert(patch.invert);
@@ -3467,6 +3645,70 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     // clipBox/applyClipBoxIntent are stable component closures; the guard
     // refs make the effect idempotent regardless of render churn
   }, [phase, initialClipBox]);
+
+  /* ---------------- the oblique 3D cut (t661) ---------------- */
+
+  // The ortho block's ✂ mirrors its settled plane here and the ISOSURFACE
+  // opens along it (commitClip appends the plane object). One state source
+  // (obliqueClipRef) feeds the commit, the chip and the bookmark capture;
+  // the React mirror is only the chip's face. invert lives on THIS side:
+  // which half of the surface survives is a 3D viewing choice, not part
+  // of the 2D plane's geometry.
+  const [obliqueClip, setObliqueClip] = useState({
+    on: false,
+    theta: 45,
+    phi: 30,
+    offset: 0,
+    invert: false,
+  });
+  const obliqueClipRef = useRef({ ...obliqueClip });
+
+  const applyObliqueClipIntent = (
+    patch: Partial<{ on: boolean; theta: number; phi: number; offset: number; invert: boolean }>
+  ) => {
+    obliqueClipRef.current = { ...obliqueClipRef.current, ...patch };
+    setObliqueClip({ ...obliqueClipRef.current });
+    clipStateRef.current = { ...clipStateRef.current, rev: clipStateRef.current.rev + 1 };
+    void pumpClip();
+    // 3D → 2D ACK (t661): the block's ✂ follows the scene — chip clear and
+    // bookmark restores retire/revive the cut outside its sliders, and the
+    // toggle must not lie about which of those states is live
+    window.dispatchEvent(
+      new CustomEvent(OBLIQUE_CLIP_STATE_EVENT, {
+        detail: { ...obliqueClipRef.current },
+      })
+    );
+  };
+
+  useEffect(() => {
+    const onObliqueClip = (e: Event) => {
+      const d = (e as CustomEvent<{ on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown }>)
+        .detail;
+      if (!d || typeof d !== "object") return;
+      if (d.on !== true) {
+        // the block's off-heartbeats retire the plane only when one is
+        // actually out (a fresh embed never pumps for a cut it never had)
+        if (obliqueClipRef.current.on) applyObliqueClipIntent({ on: false });
+        return;
+      }
+      const theta =
+        typeof d.theta === "number" && Number.isFinite(d.theta)
+          ? Math.min(180, Math.max(0, d.theta))
+          : null;
+      const phi =
+        typeof d.phi === "number" && Number.isFinite(d.phi)
+          ? Math.min(360, Math.max(0, d.phi))
+          : null;
+      const offset =
+        typeof d.offset === "number" && Number.isFinite(d.offset)
+          ? Math.min(1, Math.max(-1, d.offset))
+          : null;
+      if (theta === null || phi === null || offset === null) return;
+      applyObliqueClipIntent({ on: true, theta, phi, offset });
+    };
+    window.addEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
+    return () => window.removeEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
+  }, []);
 
   /* ---------------- sub-volume export (t254) ---------------- */
 
@@ -4909,6 +5151,58 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   </button>
                 </div>
                 )}
+              </div>
+            )}
+            {/* t661 — the oblique cut's 3D chip: the mirror is LIVE here —
+                the readout speaks exactly what commitClip obeys, so the
+                viewer and the 2D block never disagree about the plane.
+                flip retints which half-space survives; × retires the cut. */}
+            {obliqueClip.on && phase === "ready" && (
+              <div
+                data-testid="clip-oblique-chip"
+                data-clip-oblique="on"
+                className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-violet-600/25 bg-violet-600/5 px-2.5 py-2"
+              >
+                <Scissors className="size-3.5 shrink-0 text-violet-600" aria-hidden="true" />
+                <span className="text-[10px] font-semibold text-violet-700 dark:text-violet-300">3D cut</span>
+                <span
+                  data-testid="clip-oblique-readout"
+                  className="truncate font-mono text-[10px] tabular-nums text-muted-foreground"
+                  title="The plane the isosurface opens along — mirrored live from the oblique section block (θ polar · φ azimuth · offset)"
+                >
+                  θ {obliqueClip.theta}° · φ {obliqueClip.phi}° · {obliqueClip.offset >= 0 ? "+" : ""}{Math.round(obliqueClip.offset * 100)}%
+                </span>
+                <span className="ml-auto flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    data-testid="clip-oblique-flip"
+                    onClick={() => applyObliqueClipIntent({ invert: !obliqueClipRef.current.invert })}
+                    aria-pressed={obliqueClip.invert}
+                    title={
+                      obliqueClip.invert
+                        ? "The surface keeps the +n side — flip back to keep the camera-facing half"
+                        : "The surface keeps the −n (camera-facing) half — flip to keep the other side"
+                    }
+                    className={
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                      (obliqueClip.invert
+                        ? "bg-violet-600 text-white"
+                        : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
+                    }
+                  >
+                    flip
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="clip-oblique-clear"
+                    onClick={() => applyObliqueClipIntent({ on: false })}
+                    aria-label="Remove the oblique cut"
+                    title="Remove the oblique cut — the full isosurface returns (the 2D block's ✂ goes dark with it)"
+                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300"
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </span>
               </div>
             )}
             <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">

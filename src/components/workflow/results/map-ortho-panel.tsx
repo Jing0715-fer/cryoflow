@@ -48,10 +48,14 @@
  * truth, two consumers): this panel passes the live contour (cutSigma)
  * and the click→σ dispatch; the quick-look dialog renders the same
  * instrument read-only.
+ *
+ * t661 — the OBLIQUE block's ✂ toggle: the settled plane mirrors into the
+ * embed's isosurface clip (OBLIQUE_CLIP_EVENT) — the surface opens along
+ * the tile's exact geometry, the loop's third half after ⌖ and ⤸.
  */
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanEye, ScanLine, Slice, TriangleAlert } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
@@ -92,9 +96,26 @@ export const ORTHO_SIGMA_SET_EVENT = "cryoflow:ortho-sigma-set";
  *  dir = +normal (camera rides the −n side: from THERE, screen-right is
  *  the tile's +u and screen-down is the tile's +v — the face-on view and
  *  the tile agree chirality-for-chirality), up = −v. The plane itself
- *  cannot be mirrored into Mol*'s axis-aligned slice; the camera CAN
- *  agree with it, and that is the loop's oblique half. */
+ *  cannot ride Mol*'s axis-aligned slice representation; the camera CAN
+ *  agree with it (this event's half), and since t661 the isosurface CAN
+ *  be CUT by it too (OBLIQUE_CLIP_EVENT — the loop's third half). */
 export const OBLIQUE_VIEW_EVENT = "cryoflow:oblique-view";
+/** 2D → 3D (t661): the CUT half of the oblique loop. The block's ✂ toggle
+ *  mirrors the settled plane into the embed's isosurface clip: Mol*'s slice
+ *  representation is axis-aligned only (the wall t556 rounded with the
+ *  camera), but the isosurface's pixel-clip planes take ANY normal — the
+ *  surface opens along the 2D tile's exact geometry, and the tile's density
+ *  read plus the 3D cut surface describe the same plane from both sides.
+ *  detail = { on, theta, phi, offset } (offset in fractions, −1…1);
+ *  on:false retires the plane. The kept half is the 3D chip's flip. */
+export const OBLIQUE_CLIP_EVENT = "cryoflow:oblique-clip";
+/** 3D → 2D (t661): the cut's ACK — the embed echoes EVERY applied oblique
+ *  state ({ on, theta, phi, offset, invert }) so the block's ✂ toggle
+ *  agrees with the scene: chip flip is 3D-local (no 2D concept), but chip
+ *  clear / a bookmark restore retire or revive the plane OUTSIDE the
+ *  block's sliders — without the echo, a later scrub would silently
+ *  resurrect a cut the viewer already dismissed (the toggle would lie). */
+export const OBLIQUE_CLIP_STATE_EVENT = "cryoflow:oblique-clip-state";
 export interface ObliqueViewDetail {
   /** unit plane normal in grid coords */
   normal: [number, number, number];
@@ -697,22 +718,37 @@ export function MapOrthoPanel({
 
   const isStack = path.toLowerCase().endsWith(".mrcs");
 
-  // dims arrive from the outputs listing (one cheap JSON fetch per expand)
+  // dims arrive from the outputs listing (one cheap JSON fetch per expand).
+  // t661 — a transport-level failure (server flap / OOM-kill restart, the
+  // box's documented habit) used to swallow silently and darken the oblique
+  // world AND the voxel readouts until the dialog reopened. The retry is
+  // bounded (~14s — one OOM-restart window) and transport-only: a listing
+  // that answers but carries no dims for this file is an honest absence
+  // (the percentage fallback), never retried.
   useEffect(() => {
     if (!open || dims || isStack) return;
     let cancelled = false;
-    fetch(`/api/jobs/${jobId}/outputs`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { files?: { path: string; dims?: [number, number, number] }[] } | null) => {
-        if (cancelled || !data?.files) return;
-        const f = data.files.find((x) => x.path === path);
-        if (f?.dims) setDims(f.dims);
-      })
-      .catch(() => {
-        /* readouts fall back to percentages */
-      });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const grab = (retries: number) => {
+      fetch(`/api/jobs/${jobId}/outputs`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { files?: { path: string; dims?: [number, number, number] }[] } | null) => {
+          if (cancelled) return;
+          if (!data?.files) {
+            if (retries > 0) timer = setTimeout(() => grab(retries - 1), 3500);
+            return;
+          }
+          const f = data.files.find((x) => x.path === path);
+          if (f?.dims) setDims(f.dims);
+        })
+        .catch(() => {
+          if (!cancelled && retries > 0) timer = setTimeout(() => grab(retries - 1), 3500);
+        });
+    };
+    grab(4);
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [open, dims, isStack, jobId, path]);
 
@@ -1431,6 +1467,56 @@ function ObliqueSectionBlock({
     });
   }, [on, live.theta, live.phi, live.offset, provenance]);
 
+  // t661 — the CUT half: while this toggle is on, every settled reading
+  // rides to the embed over OBLIQUE_CLIP_EVENT and the isosurface opens
+  // along this exact plane. Toggling off (or collapsing the block) retires
+  // the plane — ONE effect owns both voices, so the mirror can never lag
+  // a slider: the dispatched state IS the block's state. The off voice
+  // only fires after this block actually SENT an on (the sentOnRef guard):
+  // a bookmark can revive the cut while the block is collapsed, and the
+  // block must not kill it with a mount heartbeat it never earned.
+  const [cut3d, setCut3d] = useState(false);
+  const sentOnRef = useRef(false);
+  useEffect(() => {
+    const live3d = on && cut3d;
+    if (live3d) {
+      sentOnRef.current = true;
+      window.dispatchEvent(
+        new CustomEvent(OBLIQUE_CLIP_EVENT, {
+          detail: { on: true, theta: live.theta, phi: live.phi, offset: live.offset / 100 },
+        })
+      );
+    } else if (sentOnRef.current) {
+      sentOnRef.current = false;
+      window.dispatchEvent(
+        new CustomEvent(OBLIQUE_CLIP_EVENT, {
+          detail: { on: false, theta: 0, phi: 0, offset: 0 },
+        })
+      );
+    }
+  }, [on, cut3d, live.theta, live.phi, live.offset]);
+  // the ACK half: the embed's chip and the bookmarks can retire or revive
+  // the cut OUTSIDE this block's sliders — the ✂ follows them (and adopts
+  // the revived plane's angles, so the sliders show the truth and the
+  // expansion never jumps), and a scrub never resurrects a dismissed cut
+  useEffect(() => {
+    const onAck = (e: Event) => {
+      const d = (e as CustomEvent<{ on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown }>).detail;
+      if (!d || typeof d.on !== "boolean") return;
+      setCut3d(d.on);
+      if (d.on) {
+        if (typeof d.theta === "number" && Number.isFinite(d.theta))
+          setTheta(Math.min(180, Math.max(0, Math.round(d.theta))));
+        if (typeof d.phi === "number" && Number.isFinite(d.phi))
+          setPhi(Math.min(360, Math.max(0, Math.round(d.phi))));
+        if (typeof d.offset === "number" && Number.isFinite(d.offset))
+          setOffset(Math.round(Math.min(1, Math.max(-1, d.offset)) * 100));
+      }
+    };
+    window.addEventListener(OBLIQUE_CLIP_STATE_EVENT, onAck);
+    return () => window.removeEventListener(OBLIQUE_CLIP_STATE_EVENT, onAck);
+  }, []);
+
   // t556 — the ⌖: swing the 3D camera to look straight down the cut's
   // normal (face-on at the plane). dir = +n puts the camera on the −n
   // side — from THERE the face-on view agrees with the tile chirality
@@ -1622,6 +1708,20 @@ function ObliqueSectionBlock({
                 title="⤸ adopt — the jump's return ticket: the view you're orbiting becomes this cut (roll and offset stay yours; ⌖ re-snaps the roll)"
               >
                 <ScanEye className="h-3 w-3" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCut3d((c) => !c)}
+                aria-pressed={cut3d}
+                data-canvas-ui="ortho-oblique-cut3d"
+                className={cn(
+                  "rounded p-0.5 text-violet-600 transition-colors hover:bg-violet-600/10",
+                  cut3d && "bg-violet-600/15"
+                )}
+                aria-label="Cut the 3D isosurface open at this plane"
+                title="✂ cut in 3D — the isosurface opens along this exact oblique plane (which half is kept flips from the viewer's chip)"
+              >
+                <Scissors className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>
           </div>
