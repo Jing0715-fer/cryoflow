@@ -72,6 +72,8 @@ interface WorkerState {
   startedAt: number;
   lastTickAt: number | null;
   lastScanAt: number | null;
+  /** the disposal boundary (ms epoch) — persisted; null until the first tick */
+  watermark: number | null;
   scanning: boolean;
   judged: JudgeRecord[];
 }
@@ -89,6 +91,7 @@ function state(): WorkerState {
       startedAt: Date.now(),
       lastTickAt: null,
       lastScanAt: null,
+      watermark: null,
       scanning: false,
       judged: [],
     };
@@ -132,9 +135,14 @@ function writeWatermark(ms: number): void {
 
 /**
  * One beat: scan → plan → judge (≤1) → advance the watermark. The
- * watermark advances to the SCAN START (not the scan end): a job that
- * completes mid-scan has updatedAt after it, so the next tick picks it
- * up — nothing falls between ticks.
+ * watermark is the DISPOSAL boundary, not the scan clock: with no
+ * candidates it moves to the scan start (nothing was skipped), but when
+ * a queue exists it moves only to the JUDGED seat's updatedAt — the
+ * seats still waiting keep their freshness (updatedAt > watermark), so
+ * the backlog truly drains one verdict per tick. (t680's live storm
+ * found the old scan-start advance drowning every queued seat after
+ * the first: the queue's second cell never came up for air — the doc
+ * promised a queue while the clock delivered an eviction.)
  */
 export async function judgeTick(): Promise<void> {
   const s = state();
@@ -165,16 +173,20 @@ export async function judgeTick(): Promise<void> {
       updatedAtMs: r.updatedAt.getTime(),
     }));
     const candidates = planJudgeCandidates(jobs, {
-      watermarkMs: s.lastScanAt ?? readWatermark() ?? scanStart,
+      watermarkMs: s.watermark ?? readWatermark() ?? scanStart,
       autoJudge: settings.autoJudge,
       providerOk: assistant != null,
       stampedIds,
     });
     s.lastScanAt = scanStart;
-    writeWatermark(scanStart);
     s.lastTickAt = Date.now();
 
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) {
+      // nothing was waiting — the scan start is the new disposal edge
+      s.watermark = scanStart;
+      writeWatermark(scanStart);
+      return;
+    }
 
     // one per tick — the planner already capped and sorted oldest-first
     const target = candidates[0];
@@ -195,6 +207,13 @@ export async function judgeTick(): Promise<void> {
     };
     s.judged.unshift(record);
     if (s.judged.length > 20) s.judged.length = 20;
+    // the disposal edge moves to the JUDGED seat's updatedAt (not the
+    // scan clock): the queue's remaining cells keep their freshness —
+    // a judged seat is held back by its stamp, not by the watermark; a
+    // tick that THROWS never reaches here, so its seat retries next
+    // beat (the catch's "the next tick re-tries" promise, kept)
+    s.watermark = target.updatedAtMs;
+    writeWatermark(target.updatedAtMs);
     console.log(
       `[judge-worker] ${record.ok ? "verdict stamped" : "judge declined"} — ${record.jobName}: ${record.summary.slice(0, 160)}`
     );
@@ -247,7 +266,7 @@ export function judgeWorkerStatus(): JudgeWorkerStatus {
     startedAt: s.startedAt,
     lastTickAt: s.lastTickAt,
     lastScanAt: s.lastScanAt,
-    watermark: s.lastScanAt ?? readWatermark(),
+    watermark: s.watermark ?? readWatermark(),
     judged: [...s.judged],
   };
 }
