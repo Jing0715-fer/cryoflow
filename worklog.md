@@ -10124,3 +10124,28 @@ Stage Summary:
 - 「插桩是最后的手术刀」：七轮诊断里 curl 200、页面 probe 200、探针绿——都没解释为什么 effect 不落地。console.log 进 effect 一发入魂：effect 开火了、fetch 发出了、网络死了。读代码推不出运行时真相时，插桩是唯一的地面测绘；但插桩必须撤干净（本窗撤净）——诊断工具自己不能成为新债。
 - 「ACK 是双向路口的灯」：✂→chip 单向镜像会在 chip clear/书签恢复时说谎（2D 说亮、3D 说暗，下次 scrub 诈尸）。OBLIQUE_CLIP_STATE 回声让块的 ✂ 跟随场景真值 + 采纳恢复的角度（展开不跳变）+ sentOnRef 守卫（块收起的心跳不杀 bookmark 复活的切面）。三个环各自终止——每加一个双向通道，先画它的全部环，确认每环都有终止条件再落笔。
 - 产出：oblique 3D cut 全链（2D ✂ + 事件对 + embed 状态机/rev 泵/chip/图注/bookmark）+ buildObliqueClipPlane 纯函数 + dims 有界重试 + seeder 真 MRC 头（三构造器全修）+ 64³ 幻影体积 + t661-e2e 28/0 + t661-oblique-plane-test 20/0 + 📸×2；下窗入口：①功能车道（Topaz wrapper——遗产清单次席；3D cut 的 wireframe 引导线——斜平面在 3D 里无可视线索，v2 可画法向短线）②样式车道（palette 三 Gallery 组行内预览缩略图——三窗待议；chip 与 clip 面板的 violet 家族统一复核）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 71 窗否决）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
+
+---
+Task ID: 662 收官
+Agent: main (cron window, Job 362852)
+Task: t661 下窗入口①兑现——斜平面 3D wireframe 引导线（plane∩box 描迹多边形 + kept-side tick，camera 投影 SVG 覆层）+ 锚点撞见并修复 shipped-dark 的 dialog 挤压病（ortho 面板把 3D viewport 压成 3px 缝，t555 日起）+ t662-oblique-guide-test 43/0 + t662-e2e 31/0 + 回归全家绿；Topaz wrapper 背诵化石第五次阵亡不入账
+
+Work Log:
+- [开局四件套] worklog 尾条核实 = Task 661 收官；HEAD 472319c 树净；available 1061MB 非 build 日（第 72 窗否决）；server 200/11ms；基线四绿（t252 + qa78 + t637 6/0 + t641 10/0）。
+- [QA 巡检] agent-browser + API：console 净、15 jobs 全 completed、3 项目——稳定，自主提新需求。
+- [定靶·化石第五阵亡] t661 入口①的「Topaz wrapper」考古定谳为背诵化石（worklog 430/572/768/959 四度判决 + t637 入口勘察第五次；topaztrain/topazdenoise/autopick Topaz tab/training 路由/图表全在现树）——t661 把它带进新窗时未考古，本窗补刀。真入口 = t661 亲立的「3D cut wireframe 引导线」（斜平面在 3D 里无可视线索）。violet 家族复核顺手结清：guide strokes 与 box guide 同 #8b5cf6、chip 文本 violet-600——两阶语言（描边 vs 强调）一致无漂移。
+- [实现·纯函数] buildObliqueGuidePlane（molstar-embed 内、与 buildObliqueClipPlane 毗邻）：anchor = 剪裁建造器自己的 position（verbatim 复用——画出的平面与服从的平面永不漂移）；世界法向走网格基（Vᵀ·N = n，协变变换——t556 各向同性律下退化为剪裁方向，各向异性也诚实）；描迹 = 平面∩盒（12 棱穿越、去重、绕 N 定向 CCW）；keptDir = ±N（invert=false 保 −n 的镜像合同）；support = 盒沿法向的支撑（tick 尺度）。
+- [实现·embed] drawObliqueGuide 镜像 drawClipGuide 的投影机群（projectionView 列主序、w≤0.001 弃点）；兄弟 SVG（pointer-events-none、z-[5]、#8b5cf6 家族）；双触发 = camera.changed 订阅扩两名 + intent 效果（on/θ/φ/offset/invert 五依赖）+ **ResizeObserver**（视口可以不动相机地变——t662 布局修复的直系受益者）。
+- [撞见·真布局病] e2e 首跑三 FAIL（trace 顶点出界 svg clientHeight=3、flip 后 tick 长度塌缩）→ 焦点探针定谳：**fullscreen viewer dialog 里展开 Orthogonal slices 条带后，MapOrthoPanel 的自然高度（三 tile + oblique 块 ≈900px）超过 body，flex 把 h-full 的画布挤成 3px 缝**——t661 自己的截图就是证据（3D 面同样被挤），每个 3D 交互照常工作所以从未有锚量过视口。修复（mol-viewer）：面板 max-h-[55%] + overflow-y-auto，viewer flex-1 保底 45%——3D 是主角，面板在它下面滚动。
+- [世界实况两则] ①dev server 被 OOM killer 处决一次（dmesg：anon-rss 1.97GB；第 N 次），唤醒后 molstar 冷编译合法超一分钟——dance 的 __molstar 轮询放宽到 120s + 迟到恢复窗；②dims 取数的有界重试（4×3.5s）会在 flap 窗口整体耗尽（诚实缺席不再重试）→ e2e 加一次「重收条带」恢复（open→false→true 重发 effect，人肉同样动作）。
+- [t662-oblique-guide-test 43/0] t661 镜像模式（组件在 Next build 后面，双函数 verbatim 镜像）：θ0/θ90 轴正典、共面性、盒边界、绕 N 一致绕向（6 组 θφ）、各向异性 N=normalize(n/s)、±1 边界偏移、零 dims/平行基退化 null、z 旋转基协变诚实、全滑条网格 anchor==剪裁位置 + keptDir 单位长 + flip 反向。
+- [t662-e2e 31/0] A 8（refine3d 完成 + 服务器斜面 PNG + dance/条带/块/✂ 就位）+ B 8（SVG 挂载 + 描迹 3..6 顶点 + 全顶点在视口内 1448×441 + tick 可见长 + 点在多边形内不变式（offset 0 时 anchor 就是平面中心）+ θ 刷 50° 描迹跟随）+ C 6（flip 动 tick 不动平面/anchor 不动/tip 精确镜像 Δ=2×offset/clear 退覆层/暗态刷不诈尸）+ D 3（box outline 与斜面描迹同层共存）+ E 5（真 JS 错 0/帧 404 0/flap 三桶 bounded）+ 📸×2（t662-oblique-guide / t662-guide-coexist）。自纠三课：ortho-export 是探针不是按钮（t661 的 dance 原样照抄）；dims 窗 12s→30s+重收恢复；bail 分支带诊断倾泻（strips/panels/tiles/dialogs + dims api）。
+- [回归全家] 基线四绿复跑 + 斜面域（t555 ALL PASS + t557 19/0 + t661-oblique-plane 20/0 + t661-e2e 28/0——布局修复不伤 t661 锚）+ 直系（t651 22/0 复跑 + t652 24/0 + t653-match-unit 25/0 + t654 25/0 + t655-match-unit 25/0 + t655-e2e 20/0 + t656 17/0 + t657 25/0 + t658 30/0 + t659 27/0 + t660 30/0 + t245 ALL PASS）+ 遗产（t105 46 + t103 31 + t101 33 + t642 11/0 + t645 20/0 + t646 21/0 + t647 24/0 + t648 15/0 + t649 18/0 + t650 21/0）；tsc 0 + eslint 0。插曲：t651 首跑 1 FAIL（AnglePsi header 可达性）复跑即绿——HMR 编译竞态噪声（mol-viewer 编辑落地恰逢跑动），噪声指纹与产品错分离处置；t252/t245 fixture 漂移 checkout 还原不入车（判例第八演）。
+
+Stage Summary:
+- 「新锚是老伤口的显影液」：dialog 挤压病从 t555 起 shipped-dark 四窗——每个 3D 交互都正常（chip/滑条/flip 全在 DOM 层工作），只有「trace 顶点必须在视口内」这条几何锚第一次量了视口本身才定谳。判决书只覆盖它量过的东西；每加一条新锚，它可能照出的是前人的病，不是自己的。t660 的拒绝注、本窗的 3px 画布——真产品病的两次显影都来自新功能的第一次精确测量。
+- 「引导线要说它服务的那句话」：kept-side tick 不是装饰——它画的是 flip 芯片承诺的那句话（「surface keeps the −n half」），方向随 flip 翻转、长度是 support 的比例、起点是剪裁自己的 anchor。UI 文案与几何同源（同一状态源、同一合同），说谎在结构上不可能；anchor 用 buildObliqueClipPlane 的 position verbatim，是把「画出来的」钉在「服从的」身上的那颗钉子。
+- 「化石要当场补刀」：t661 把 Topaz wrapper 记进下窗入口时没考古——化石第五次被核实（四度判决 + t637 勘察全在案）。入口清单的每一条都是承诺，承诺要对其读者负责：把「待议」写进清单之前，先对质现树。本窗把这次补刀记进账本，下窗入口清单以此为先例。
+- 「耐心要给对对象」：molstar 冷编译合法超一分钟、dims 重试合法需要 14 秒——e2e 的等待预算是合同的一部分，不是软弱；但耐心给的是「正在工作的东西」（编译中、重试中），不是「已死的循环」（重试耗尽的 dims——那是重收一次条带的恢复动作，等是等不来的）。分辨两者：看有没有人在做事。
+- 「环境的病有执行记录」：OOM killer 本窗又处决 next-server（1.97GB）——唤醒、冷编译、watchdog 自守重启全按判例走。重启后内存大幅回落（available 1061→3216MB）：服务器自己就是最大的内存泄漏嫌疑，定期重启是运维不是逃避。
+- 产出：buildObliqueGuidePlane 纯函数（描迹 + kept-side tick + 协变法向）+ embed 引导线（兄弟 SVG + 三路重投影触发）+ mol-viewer 布局修复（viewer 45% 保底 + 面板滚动——t555 日起的 shipped-dark 挤压）+ t662-oblique-guide-test 43/0 + t662-e2e 31/0（首跑三 FAIL 全为布局病显影，修复后零自纠）+ 📸×2；下窗入口：①功能车道（palette 三 Gallery 组行内预览缩略图——四窗待议，样式与功能交界；oblique 引导线的 2D 镜像——tile 上画同族描迹是否值得待议）②样式车道（chip 方言收编后续——语义色 token 缺位 ~470 处手配 dark: 变体，t640 时代立案未动）③judge 风暴（等稳定夜）④build 日三车道（available ≥ 3.5GB，本窗第 72 窗否决；重启后 3216MB 逼近门槛，下窗有望）⑤演练床一键（bash scripts/qa-t640-rehearsal-bed.sh --full）
