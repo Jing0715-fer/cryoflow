@@ -17,10 +17,22 @@
  * cache — no re-roll, no re-pull. The re-sample button advances the
  * counter (and remembers it) — a new deterministic five, still stable
  * until the next press.
+ *
+ * t654 — the gallery learns the two gestures a working scientist asks
+ * for next:
+ *   1. the lightbox navigates — ←/→ walk the micrographs (wrapping),
+ *      the header says "3 of 5", Esc still closes. Browsing five frames
+ *      is five clicks no more.
+ *   2. compare mode — the header toggle turns clicks into picks (a
+ *      ringed, numbered tray, kept in PICK ORDER); with two or more
+ *      picks the Compare button opens a side-by-side dialog. Selection
+ *      lives in state, not in the network: picks are cleared when the
+ *      sample changes (re-sample) or the mode exits — a tray pointing
+ *      at thumbnails that are no longer on the wall would be a lie.
  */
 
-import { useEffect, useState } from "react";
-import { Aperture, Grid3x3, ImageIcon, RefreshCw, Server } from "lucide-react";
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { Aperture, Columns3, Grid3x3, ImageIcon, RefreshCw, Server } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -95,6 +107,29 @@ function StatChip({ label, value }: { label: string; value: string | null }) {
 /** localStorage key for this job's sample generation (t322). */
 const rerollKey = (jobId: string) => `cryoflow:import-sample:${jobId}`;
 
+/** t654 — the lightbox's combined key handler: ←/→ walk (the wrap is
+ * pure arithmetic on the index), everything else falls through to the
+ * dialog's own Escape law. The state updater stays PURE (t653's law:
+ * computation in the updater, side effects in the event handler — here
+ * there is nothing but arithmetic, so the updater IS the handler). */
+function lightboxKeydown(
+  e: ReactKeyboardEvent,
+  count: number,
+  step: (dir: 1 | -1) => void,
+  close: () => void
+) {
+  if (count === 0) return;
+  if (e.key === "ArrowRight") {
+    e.preventDefault();
+    step(1);
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    step(-1);
+  } else {
+    onEscapeClose(close)(e as React.KeyboardEvent<HTMLDivElement>);
+  }
+}
+
 export function ImportGallery({
   jobId,
   className,
@@ -104,7 +139,16 @@ export function ImportGallery({
 }) {
   const [data, setData] = useState<MicrographsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<MicrographEntry | null>(null);
+  // t654 — the lightbox rides an INDEX (not the entry object): ←/→ are
+  // index arithmetic, and the header's "i of n" falls out of it.
+  const [selected, setSelected] = useState<number | null>(null);
+  // t654 — compare mode: the toggle turns clicks into picks. The tray is
+  // an ORDERED array of paths (pick order is compare order), and it is
+  // cleared whenever the wall it points at changes (re-sample, mode
+  // exit) — honesty about what the tray references.
+  const [compareMode, setCompareMode] = useState(false);
+  const [picks, setPicks] = useState<string[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
   // t322 — the reroll counter survives remounts per job: the initializer
   // reads it client-side (guarded for SSR), the re-sample button advances
   // AND persists it. The sample therefore stays THE SAME FIVE across
@@ -143,9 +187,13 @@ export function ImportGallery({
     };
   }, [jobId, reroll]);
 
-  /** advance + persist the sample generation (the re-sample button). */
+  /** advance + persist the sample generation (the re-sample button).
+   * t654 — the wall changes, so the tray is emptied: picks that point
+   * at thumbnails no longer on the wall would be a lie. */
   const resample = () => {
     setSelected(null);
+    setPicks([]);
+    setCompareMode(false);
     setReroll((n) => {
       const next = Math.min(n + 1, 9_999);
       try {
@@ -161,6 +209,25 @@ export function ImportGallery({
   if (!data || data.micrographs.length === 0) return null;
 
   const isCluster = data.cluster != null;
+  const micrographs = data.micrographs;
+  /** t654 — wrap-around walk for the lightbox (pure arithmetic). */
+  const step = (dir: 1 | -1) =>
+    setSelected((s) => (s == null ? s : (s + dir + micrographs.length) % micrographs.length));
+  /** t654 — toggle a pick, PRESERVING pick order (the tray is an
+   * ordered array, not a Set: compare order = the order you picked). */
+  const togglePick = (path: string) =>
+    setPicks((prev) =>
+      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
+    );
+  /** leaving compare mode empties the tray — a stale tray behind a
+   * closed mode is invisible debt. */
+  const exitCompare = () => {
+    setCompareMode(false);
+    setPicks([]);
+  };
+  const pickedEntries = picks
+    .map((p) => micrographs.find((m) => m.path === p))
+    .filter((m): m is MicrographEntry => m != null);
   // cluster rows (cluster-absolute paths) preview through the SSH door —
   // local rows through the outputs/file door as always
   const fileUrl = (relPath: string, extra = "") =>
@@ -214,6 +281,42 @@ export function ImportGallery({
             re-sample
           </button>
         ) : null}
+        {/* t654 — the compare toggle: clicks become picks. The mode is
+         * visible on the button (aria-pressed + the active face), the
+         * picks are visible on the wall (ring + tray number), and the
+         * tray itself is visible as an ordered chip row. */}
+        <button
+          type="button"
+          onClick={() => (compareMode ? exitCompare() : setCompareMode(true))}
+          aria-pressed={compareMode}
+          data-gallery-ui="compare-toggle"
+          className={cn(
+            "inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium transition-colors",
+            compareMode
+              ? "border-running-600/40 bg-running-600/10 text-running-700 dark:text-running-300"
+              : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          )}
+          title="Compare mode — click thumbnails to add them to a side-by-side tray"
+        >
+          <Columns3 className="h-3 w-3" aria-hidden="true" />
+          compare
+        </button>
+        {compareMode ? (
+          <button
+            type="button"
+            onClick={() => setCompareOpen(true)}
+            disabled={pickedEntries.length < 2}
+            data-gallery-ui="compare-open"
+            className="inline-flex items-center gap-1 rounded border border-running-600/40 bg-running-600/10 px-1.5 py-px text-[10px] font-semibold text-running-700 transition-colors hover:bg-running-600/20 dark:text-running-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-running-600/10"
+            title={
+              pickedEntries.length < 2
+                ? "Pick at least two thumbnails to compare"
+                : "Open the side-by-side comparison"
+            }
+          >
+            Compare {pickedEntries.length}
+          </button>
+        ) : null}
         <div className="ml-auto flex flex-wrap gap-1">
           <StatChip label="pixel" value={data.pixelSize != null ? `${data.pixelSize} Å` : null} />
           <StatChip label="HT" value={data.voltage != null ? `${data.voltage} kV` : null} />
@@ -224,23 +327,43 @@ export function ImportGallery({
 
       {/* thumbnail grid */}
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
-        {data.micrographs.map((m) => (
-          <button
-            key={m.path}
-            type="button"
-            onClick={() => setSelected(m)}
-            className="group relative overflow-hidden rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            title={`${m.name} — ${m.nx}×${m.ny} px · ${formatBytes(m.size)} — click to enlarge`}
-          >
-            <MrcImage src={fileUrl(m.path)} alt={`Micrograph ${m.name}`} className="aspect-square" />
-            <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-zinc-950/85 to-transparent px-1 pb-0.5 pt-2 text-[8.5px] font-medium text-zinc-200 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-              {m.name}
-            </span>
-            <span className="pointer-events-none absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-sm bg-zinc-950/70 text-zinc-300 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-              <ImageIcon className="size-2.5" aria-hidden="true" />
-            </span>
-          </button>
-        ))}
+        {micrographs.map((m, i) => {
+          const pickNo = picks.indexOf(m.path); // -1 unpicked, else 1-based tray order
+          const picked = pickNo >= 0;
+          return (
+            <button
+              key={m.path}
+              type="button"
+              data-gallery-ui="thumb"
+              data-picked={picked ? String(pickNo + 1) : undefined}
+              aria-pressed={compareMode ? picked : undefined}
+              onClick={() => (compareMode ? togglePick(m.path) : setSelected(i))}
+              className={cn(
+                "group relative overflow-hidden rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                picked && "ring-2 ring-running-600 ring-offset-1 ring-offset-card"
+              )}
+              title={
+                compareMode
+                  ? `${picked ? "Remove from" : "Add to"} the comparison tray — ${m.name}`
+                  : `${m.name} — ${m.nx}×${m.ny} px · ${formatBytes(m.size)} — click to enlarge`
+              }
+            >
+              <MrcImage src={fileUrl(m.path)} alt={`Micrograph ${m.name}`} className="aspect-square" />
+              <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-zinc-950/85 to-transparent px-1 pb-0.5 pt-2 text-[8.5px] font-medium text-zinc-200 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                {m.name}
+              </span>
+              {picked ? (
+                <span className="pointer-events-none absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-sm bg-running-600 font-semibold text-white">
+                  {pickNo + 1}
+                </span>
+              ) : (
+                <span className="pointer-events-none absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-sm bg-zinc-950/70 text-zinc-300 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                  <ImageIcon className="size-2.5" aria-hidden="true" />
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {dims ? (
@@ -256,29 +379,91 @@ export function ImportGallery({
         </p>
       ) : null}
 
-      {/* lightbox */}
+      {/* lightbox — t654: rides the index, walks with ←/→ (wrap), says
+          "i of n" so the walk has a place in the world */}
       <Dialog open={selected != null} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent
           className="max-w-2xl sm:max-w-2xl"
-          onKeyDown={onEscapeClose(() => setSelected(null))}
+          data-gallery-ui="lightbox"
+          onKeyDown={(e) =>
+            lightboxKeydown(e, micrographs.length, step, () => setSelected(null))
+          }
         >
-          {selected && (
+          {selected != null && micrographs[selected] ? (
             <>
               <DialogHeader>
-                <DialogTitle className="truncate font-mono text-sm">{selected.name}</DialogTitle>
+                <DialogTitle className="flex items-center gap-2 font-mono text-sm">
+                  <span className="truncate">{micrographs[selected].name}</span>
+                  <Chip size="stamp" className="shrink-0 border-running-600/40 bg-running-600/10 font-sans">
+                    <span data-gallery-ui="walk-pos" className="tabular-nums text-running-700 dark:text-running-300">
+                      {selected + 1} of {micrographs.length}
+                    </span>
+                  </Chip>
+                </DialogTitle>
                 <DialogDescription className="tabular-nums">
-                  {selected.nx}×{selected.ny} px · {formatBytes(selected.size)}
+                  {micrographs[selected].nx}×{micrographs[selected].ny} px · {formatBytes(micrographs[selected].size)}
                   {data.pixelSize != null ? ` · ${data.pixelSize} Å/px` : ""}
                   {data.voltage != null ? ` · ${data.voltage} kV` : ""}
+                  {micrographs.length > 1 ? " · ←/→ to walk" : ""}
                 </DialogDescription>
               </DialogHeader>
               <MrcImage
-                src={fileUrl(selected.path, isCluster ? "&full=1" : "&scale=large")}
-                alt={`Micrograph ${selected.name}, full view`}
+                key={micrographs[selected].path}
+                src={fileUrl(micrographs[selected].path, isCluster ? "&full=1" : "&scale=large")}
+                alt={`Micrograph ${micrographs[selected].name}, full view`}
                 className="max-h-[70vh]"
               />
             </>
-          )}
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* compare dialog — t654: the tray, side by side. Columns follow
+          the tray size (capped at 5: the sample itself is five, so a
+          wider grid is a grid nobody will ever fill). */}
+      <Dialog open={compareOpen} onOpenChange={(open) => !open && setCompareOpen(false)}>
+        <DialogContent
+          className="max-w-4xl sm:max-w-4xl"
+          data-gallery-ui="compare-dialog"
+          onKeyDown={onEscapeClose(() => setCompareOpen(false))}
+        >
+          {pickedEntries.length >= 2 ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-sm">
+                  <Columns3 className="h-4 w-4 text-running-600" aria-hidden="true" />
+                  Side-by-side · {pickedEntries.length} micrographs
+                </DialogTitle>
+                <DialogDescription>
+                  in the order you picked them — same contrast stretch, same
+                  pixel size, your eyes do the comparing
+                </DialogDescription>
+              </DialogHeader>
+              <div
+                className={cn(
+                  "grid gap-1.5",
+                  pickedEntries.length === 2 ? "grid-cols-2"
+                  : pickedEntries.length === 3 ? "grid-cols-3"
+                  : "grid-cols-2 sm:grid-cols-4"
+                )}
+              >
+                {pickedEntries.map((m, i) => (
+                  <figure key={m.path} className="overflow-hidden rounded-md border border-running/25">
+                    <MrcImage
+                      src={fileUrl(m.path, isCluster ? "&full=1" : "&scale=large")}
+                      alt={`Micrograph ${m.name}, comparison pane ${i + 1}`}
+                      className="aspect-square"
+                    />
+                    <figcaption className="flex items-baseline gap-1 border-t border-running/20 bg-muted/30 px-1 py-0.5">
+                      <span className="text-[9px] font-semibold tabular-nums text-running-700 dark:text-running-300">{i + 1}</span>
+                      <span className="truncate text-[9px] font-medium text-foreground/80" title={m.name}>{m.name}</span>
+                      <span className="ml-auto shrink-0 text-[8.5px] tabular-nums text-muted-foreground">{formatBytes(m.size)}</span>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
     </section>
