@@ -10372,3 +10372,40 @@ Stage Summary:
 - 「本窗的正产出是四条可搬运的钥匙」：孤儿化括号姿势、build 堆顶棚（3.28GB 可成事）、dev 模式判死书、agent-ctx 复播——全部经对照实验或 dmesg 实锤，全部不依赖沙箱的陈旧性。
 - 「陈构建是留给下窗的哑弹」：rm -rf .next 不是清理是排爆——Task 86 的陈 chunk 谎言在 stale 树上会加倍（整个应用都是旧的）；下窗开工第一眼的 available 3435MB + 堆顶棚钥匙 = 最短构建路径。
 - 遗留（下窗候选）：Task 671 下窗入口清单原样有效（语义色 token / could-not-restore 专属锚 / judge 风暴 / 演练床账本清零 / rename-update 嘴锚）+ 新增：真树 standalone 构建重验（堆顶棚钥匙的第一次真世系应用）
+
+---
+Task ID: 673 中途账（世界复活 + standalone 车道硬化 — 探针车道进行中）
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080155)
+Task: 01:55 派单执行——开局五件套后直撞「世界全灭」（db 0 字节 + data/relion 仅存 2 席 + EMPIAR 真帧蒸发 = Task 672 窗内陈沙箱 echo 回归的 fresh_server 换血）；按文档复链 t635→t527→t531 重建 17 席世界；途中逮住并修复三个真病（probe distDir 烘焙断裂 / turbopack tracer 的 metadata 盲区 / t531 seeder 的 link-before-plan 时序）
+
+Work Log:
+- [开局五件套] worklog 尾条核实 = Task 672 和解窗；HEAD 857bb10 树净；git fetch 0 behind（真前线在本地）；available 3420MB；server 死、双港 FREE（672 清场态）。
+- [build 日判定] 3420MB > Task 672 实测 3.28GB 阈值 + 堆顶棚钥匙在案 → 首次真世系 standalone 构建（cap 2816 + 孤儿姿势，t673-build-standalone.sh）。turbopack（Next 16 默认）~4 分钟绿。
+- [病一·布局嵌套] build 产出嵌套 standalone（my-project/ 子目录）——t576 的 turbopack.root=/home/z 把输出追踪根也抬走了；整个启动车队（prod-3001/start-prod/build-until-green trio 检查/reboot-recover）的契约是平面 .next/standalone/server.js。修 = next.config 增 outputFileTracingRoot 钉回项目根（编译根与输出根解耦）；Next 16 警告两根必须同值且以 tracing root 为准 → turbopack.root 已被静默忽略，化石退役（t576 的软链病早已由 outputFileTracingExcludes 的 data/** 根治 + EMPIAR 数据集已不在箱上，jail 无物可关）。
+- [病二·tracer 盲区] 平面 build 后 bun boot（reboot-recover 车道）死于 Cannot find module get-metadata-route——turbopack 追踪器漏接 router-utils/filesystem.js 的动态 require，standalone 的 next 包缺整个 dist/lib/metadata/（node 车道惰性加载才侥幸 200）。修 = outputFileTracingIncludes 显式补齐（产品级正解，两运行时通吃）。
+- [世界全灭定谳] /api/jobs P2021（表不存在）→ db/cryoflow.db 0 字节（boot 时 Prisma 新建）；custom.db 21 席 = 陈沙箱 echo 的旧世界；data/relion 仅 2 席；/home/z/empiar-10017 蒸发。真相：Task 672 窗内 echo 的回归（pass 51）在 17:22-17:44 跑了 fresh_server 车道（杀 server→扫 data→重种 starter，rode .env 的 custom.db）——17 席世界死于 672 reset 之前。
+- [世界复活·文档复链] reboot-recover（env 钉回 cryoflow.db + db push 建表）→ qa-t635-demo-skeleton-seed（13 链 DB 行 + 12 边）→ qa-t527-empiar-real-seed（EBI 真帧重取 ~670MB，两轮 10+2.5 分钟，10 mics 身份律 67,109,888B 精确 + 10 coords + mirror 8+8 硬链）→ qa-t531-old-world-seed（workdir 物理文件 + engine-state + old-world.json + 3 seed views）——CHECK PASS + roster 17 全 completed，真世系口径归位。
+- [病三·seeder 时序] t531 首跑 ENOENT：filePlan()（经 buildDenoisedFrame，t665 的 denoise 腿）读 motioncorr workdir 修正帧，但硬链由 linkPlan() 在 filePlan 之后才落——「输入先于计划」律。历史世界链路先于 seeder 存在（bug 自 t665 沉睡八窗），本次全灭后首跑新世界引信引爆。修 = linkPlan 提前到 filePlan 之前（注释含完整病理）。
+- [病四·probe distDir 烘焙] reboot-recover 的 FRESH probe（build 进 .next-probe 再 swap）boot 后 SSR 200 而全部 chunk 404——「干净 console 的 t434 撕裂」。根因：probe 的 distDir=./.next-probe 被烘焙进 standalone server.js（Next ≤15 会归一化 baked distDir，Next 16 保留——车队的 finishing cp 目标 .next-probe/standalone/.next/ 从此疗愈了一个 server 永不读的目录）；且 server 静态映射 boot 时快照，事后补盘无效。修 = build-until-green FRESH 段：distDir 自省（从 server.js 自己的 confession 解析）→ trio 落对位置 → swap 后归一化（baked config sed + 内层目录更名 .next）→ 下游全家（prod-3001/start-prod/fresh_server） sees 契约布局。FRESH=1 全链验证：probe 绿 → 归一化生效 → node 车道 boot → root+chunks 全 200。
+- [病五·prod-3001 缺 cp] prod-3001.sh 从未有过 start-prod.sh 的 t109 静态疗愈（历史上 build 侧的 cp 兜底）——补上（distDir 自省 + 幂等条件 cp）。
+- [附带发现] outputFileTracingRoot 钉项目根后 turbopack tracer 把整个 repo 镜像进 standalone（docs/截图/src 全在——冗余但无害，data/db 仍被排除）；probe build 会往 tsconfig.json 加 .next-probe/types include（本次 checkout 还原，车队不弄脏 tracked 文件——复发再议）。
+- [现状] server 200/全 chunk 200/console 净/17 席全 completed；app 水合完整（banner/tabs/demo project/种子链上墙）。进行中：t673 rename 嘴专属探针（Task 671 入口⑥——commitRename 合同：pencil→input→Enter 单提交路径 + Esc 旗 + dupe 警告仍提交 + 空名/未改静默；广播挂 PUT 链尾达墙与 palette）。
+
+---
+Task ID: 673 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080155)
+Task: 世界复活收官 + standalone 车道硬化（四病修复 + 两处车队对齐）+ t673-rename-mouth 31/0 一航全绿（Task 671 入口⑥兑现——rename 嘴的专属锚）+ t637 log 车道 fossil 修复 + 回归全家绿 + 分车 commit push
+
+Work Log:
+- [回归全家绿] tsc 0 + eslint 0（next.config/两探针）+ t673 31/0（一航全绿——世界复活后的新世界首锚）+ t671 30/0（直系：三嘴家族在新世界新 build 上复验，drills 来去无痕）+ 基线四绿（t252 ALL PASS + qa78 ALL PASS + t637 6/0 修后 + t641 10/0）。 fixture 零漂移。
+- [t673 探针四课] ①书签列表收在 trigger 后面——fingerprint 之后必须点开（t671 舞步的第一步，漏抄即 30s 超时）；②data-testid 骑在外层 span 上，input 在下一层——「Node is not an <input>」是 locator 层次的指纹，不是产品病（diag-t673-diag-pencil 验尸脚本留档）；③toast 观察者的正则被行文本误伤（「Probe renamed alpha」含 renamed——断言收紧为 /view renamed/i，observer 的匹配面要跟 toast 的标题走，不能跟世界里的任何字面走）；④E 腿的 Escape 会冒泡收掉列表——renameVia 自足开列表（判击手势要自己保证自己的舞台）。
+- [C 腿课] Esc×2 只关 dialog，不上 dashboard——backToDashboard 的真身是 Esc×2 + dashTab 点击（t671 verbatim，抄半句就是 0 卡）。
+- [t637 fossil 修复] E 腿读 dev 车道的 log（/tmp/cryoflow-qa/dev-server.log）——本窗 fresh box 无此文件，errCount -1 两跑同判（确定性，非天气）。修 = log 源跟随服务车道（dev log + prod-3001.log 双源求和，leg 本义不变）。
+- [OOM 战况] 本窗天气全程安静（flap 0 / hmr 0 / 无 dmesg 新杀）——available 3420→最低 1394（build 峰值）→3052 回落。第二次整窗无 OOM 的 build 日（Task 671 之后）。堆顶棚钥匙（2816）两次构建零失败。
+
+Stage Summary:
+- 「build 日判定的钥匙长出来了」：available ≥ 3.5GB 的旧栏在 3420MB 的今天继续否决就会错过整个窗口——Task 672 的 3.28GB 实测 + cap 2816 + 孤儿姿势 = 新钥匙，两次构建零失败验证。旧栏不是错的，是「裸 build 时代」的刻度；钥匙要跟着配方走。
+- 「probe build 的 distDir 是烘焙进 server.js 的」：Next ≤15 替 standalone 归一化 distDir，Next 16 保留——车队的 finishing cp 从此疗愈一个 server 永不读的目录（SSR 200 + 全 chunk 404 的撕裂穿着干净 console 生存了一小时）。修法三段：distDir 自省（从 server.js 自己的 confession 解析）→ trio 落对位置 → swap 后归一化（baked config + 内层目录一起改）。「probe greens becomes the build」要连 config 的口径一起 green。
+- 「追踪根是两个轴」：turbopack.root（编译期软链 jail）与 outputFileTracingRoot（输出布局）——t576 抬编译根时无意抬了输出根；Next 16 强制同值且以 tracing root 为准。钉回项目根 = 平面布局契约保住 + 化石 turbopack.root 退役（data/** excludes 早已是两引擎的根治 + EMPIAR 数据集已离箱）。同窗代价：turbopack tracer 把整个 repo 镜像进 standalone（冗余但无害——下窗若瘦身，从 excludes 下手）。
+- 「世界会死在你看不见的地方」：17 席世界死于 Task 672 窗内 echo 回归的 fresh_server（reset 之前！）——worklog 尾条核实证明不了世界活着。真库/数据平面/EMPIAR 真帧/3 seed views 全灭后的复链（t635 骨架 → t527 真帧 → t531 血肉）就是为这一天写的——但 t531 自己睡着一个 t665 埋下的时序雷（filePlan 读 linkPlan 还没建的输入），只有 post-total-wipe 首跑才引信引爆。「输入先于计划」——engine 的律，seeder 也要守。
+- 产出：standalone 车道硬化（next.config 双钉 + build-until-green 归一化 + prod-3001 t109 对齐 + t673-build-standalone 工具）+ 世界复活（t635+t527+t531 复链实跑 + t531 时序修复）+ t673-rename-mouth.mjs（31 锚：A happy / B palette 听见 / C wall 听见 / D dupe 警告仍提交 / E Esc 旗 / F 双静默出口 / G 世界完好+teardown）+ t637 log 车道修复 + diag-t673-diag-pencil 验尸 + 📸×1；下窗入口：①功能车道（语义色 token ~470 处——连续十窗记账，需整窗+稳定回归夜；「could not be restored」第三出口专属锚——molstar error 态受控注入，等稳定夜；palette/wall 行内 rename 亲和版候选——墙与 palette 现在只听 rename 不发 rename，管理嘴是否也要长在聚合面，待议）②样式车道（账本清零）③judge 风暴（等稳定夜）④build 日三车道（新钥匙 3.28GB+2816 已验证两连绿；turbopack standalone 的 repo 镜像瘦身候选）⑤演练床一键（本窗未动，账在）
