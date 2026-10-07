@@ -45,6 +45,7 @@ const EXEMPT_ROW_PATTERNS = [
   { f: "src/components/ai/assistant-panel.tsx", re: /from-teal-500(?:\/\d+)? to-cyan/, note: "AI brand gradient pair" },
   { f: "src/components/workflow/job-card.tsx", re: /border-teal-500 ring-2 ring-teal-500\/70/, note: "inspected focus ring" },
   { f: "src/components/workflow/job-card.tsx", re: /find lens hit/, note: "find-lens hit ring" },
+  { f: "src/components/workflow/job-card.tsx", re: /FIND_MARK_CLASS = /, note: "find-lens character wash (t655) — same search identity as the ring" },
   { f: "src/components/workflow/header.tsx", re: /=== "rose" \? "bg-rose-500"/, note: "elsewhere group dot ternary" },
   { f: "src/components/workflow/engine-guidance.tsx", re: /border-teal-500 bg-teal-500/, note: "engine checked face" },
 ];
