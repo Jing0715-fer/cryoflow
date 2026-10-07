@@ -25,7 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { PENDING_VIEW_KEY } from "@/lib/view-link";
+import { PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT } from "@/lib/view-link";
 import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
@@ -1754,7 +1754,15 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         /* offline / dev server restarting — the local copy still holds it */
       }
     };
+    // t671 — the chain is now a RETURNED promise: the broadcast rides its
+    // tail (a dispatch fired mid-flight races the write and pins a stale
+    // snapshot under a fresh fetchedAt). The chain still swallows network
+    // errors (the local copy holds the truth offline) — the broadcast on
+    // its tail says "the browser's bookmark state moved", and every
+    // listener answers with its own fresh read of whatever the server
+    // holds at that moment.
     putChainRef.current = go();
+    return putChainRef.current;
   };
 
   /** single mutation path — state, synchronous mirror, localStorage and
@@ -1768,7 +1776,22 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     } catch {
       /* private mode — the session-local list still works */
     }
-    void putBookmarkSession(next);
+    // t671 — the THIRD mouth speaks. save/update/remove all ride this one
+    // path, so every bookmark mutation broadcasts: the dashboard wall (whose
+    // jobCount trigger never fires for bookmarks) re-reads the route, and
+    // the palette's cache re-reads via its own listener — the next open
+    // shows the truth even inside its 30s TTL window. The event carries no
+    // payload on purpose: each surface trusts only its own fresh read (the
+    // t670 two-mouth symmetry, now three). AND the broadcast rides the PUT
+    // chain's tail, not this synchronous moment — a dispatch fired while
+    // the PUT is still in flight lets the listeners' fresh reads RACE the
+    // write and pin a stale snapshot under a fresh fetchedAt (the second
+    // flight paid for this: the palette opened to three rows the viewer
+    // had just outgrown, and to four it had just deleted). The wall's own
+    // poll-until-N hid the race; the palette's single read exposed it.
+    void putBookmarkSession(next).then(() => {
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+    });
   };
 
   const removeBookmark = (id: string) =>

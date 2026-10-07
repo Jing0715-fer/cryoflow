@@ -185,6 +185,27 @@ async function fetchSavedViews(): Promise<SavedViewEntry[]> {
   return savedViewsInflight;
 }
 
+/** t671 — the fresh-read verb the broadcast listener rides. The embed's
+ *  bookmark mutations (save/update/remove all share commitBookmarks, the
+ *  THIRD mouth) broadcast SAVED_VIEWS_CHANGED_EVENT; the palette — even
+ *  closed, so no state to update — re-reads the route into the module
+ *  cache, and the next open shows the truth even inside the 30s TTL
+ *  window (a view saved or deleted in the viewer is never haunted by the
+ *  clock). In-flight dedup (fetchSavedViews) keeps concurrent
+ *  listener+open to one wire round trip; the LAST read wins the cache. */
+function refreshSavedViewsCache() {
+  void fetchSavedViews()
+    .then((views) => {
+      savedViewsCache =
+        views.length > 0
+          ? { kind: "ready", views, fetchedAt: Date.now() }
+          : { kind: "absent", fetchedAt: Date.now() };
+    })
+    .catch(() => {
+      savedViewsCache = { kind: "absent", fetchedAt: Date.now() };
+    });
+}
+
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
   // t668 — the Saved views group is the palette's first FETCHED group: the
@@ -226,6 +247,18 @@ export function CommandPalette() {
       alive = false;
     };
   }, [open]);
+  // t671 — the third mouth's broadcast lands here: the palette listens
+  // even while closed (the listener lives on the always-mounted component,
+  // not the dialog) and re-reads the route into the module cache, so the
+  // TTL window never haunts a view the viewer just saved, updated, or
+  // deleted. Palette-open mutations ride the SAME listener (the delete X
+  // already shrinks in place; the embed cannot mutate while the palette
+  // is open — modal) — one wire shape for every mouth.
+  React.useEffect(() => {
+    const onSavedViewsChanged = () => refreshSavedViewsCache();
+    window.addEventListener(SAVED_VIEWS_CHANGED_EVENT, onSavedViewsChanged);
+    return () => window.removeEventListener(SAVED_VIEWS_CHANGED_EVENT, onSavedViewsChanged);
+  }, []);
   // t572 — the cascade's disarm flip: the group entrance plays on OPEN,
   // then ~520ms later (after the last rung lands: 210ms delay + 240ms
   // duration) the settled class disarms the animation — because hiding a
