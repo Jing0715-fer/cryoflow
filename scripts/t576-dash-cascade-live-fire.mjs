@@ -14,10 +14,10 @@
  * teaches the same dialect to the DASHBOARD at page scale: the five KPI
  * cards arrive left-to-right (a static band — membership never filters),
  * then the section bands top-down in scan order (attention, activity,
- * activity feed, saved views, preset shelf, spotlight, project grid,
- * footnote). The page header is
+ * activity feed, journal digest, saved views, preset shelf, spotlight,
+ * project grid, footnote). The page header is
  * the palette INPUT's sister: it never moves. The root .dash-motion
- * gains .dash-motion-settled ~700ms after mount; the shell unmounts the
+ * gains .dash-motion-settled ~740ms after mount; the shell unmounts the
  * view on every Canvas ⇄ Dashboard swap, so every entry replays — first
  * paint plays, re-renders stay silent. And the shadow ladder's next
  * rung: interactive KPI drill-downs answer hover with the 14% oklch
@@ -27,12 +27,12 @@
  *
  * Faces proven here (runs against :3000 — dev or prod):
  *   D1  the cascade, armed — sections' computed animation is dash-enter
- *       @240ms easeOutQuint both, delays via --dash-d (140 → 420ms; Task 711
+ *       @240ms easeOutQuint both, delays via --dash-d (140 → 460ms; Task 711
  *       added the activity-calendar rung, Task 716 the preset-shelf rung,
- *       the ladder grew to eight steps), and
+ *       Task 720 the journal-digest rung, the ladder grew to nine steps), and
  *       the KPI band's five children carry the 0/35/70/105/140 staircase;
  *       the header anchor has NO animation (the input's sister).
- *   D2  the disarm — settled at ~700ms, every rung's animation-name none.
+ *   D2  the disarm — settled at ~740ms, every rung's animation-name none.
  *   D3  filter silence + the empty state — sections tagged with a JS
  *       property survive a search round-trip with zero replay; the grid's
  *       empty state mounts fresh and its dash-empty-enter plays EVEN
@@ -52,7 +52,7 @@
  * heap/semi/cache/parallelism pin — the forensics live in the worklog).
  * This run legitimately faces the DEV server (next dev, on-demand
  * compile): the dashboard route is warmed once before the timed D1
- * capture so the on-demand compile never eats the 700ms arm window.
+ * capture so the on-demand compile never eats the 740ms arm window.
  *
  * Usage: node scripts/t576-dash-cascade-live-fire.mjs
  */
@@ -116,7 +116,7 @@ try {
   check("dashboard route warmed + returned to canvas", true, "warm pass done");
 
   /* ============ D1: the cascade, armed ================================= */
-  console.log(`\n[D1] the cascade, armed (read inside the 700ms window)`);
+  console.log(`\n[D1] the cascade, armed (read inside the 740ms window)`);
   evalJs(`JSON.stringify((function(){
     const btn=[].slice.call(document.querySelectorAll('button')).find(function(b){
       return b.textContent && b.textContent.indexOf('Dashboard')!==-1;
@@ -146,13 +146,13 @@ try {
   let a = null; try { a = JSON.parse(armed || "null"); } catch { /* stays null */ }
   check("dashboard root carries .dash-motion", a?.root === true, a?.root);
   check("cascade armed on first paint (not yet settled)", a?.settled === false, a?.settled);
-  check("eight section rungs present", (a?.reads ?? []).length === 8, `${(a?.reads ?? []).length} rung(s)`);
+  check("nine section rungs present", (a?.reads ?? []).length === 9, `${(a?.reads ?? []).length} rung(s)`);
   const r0 = (a?.reads ?? [])[0] ?? {};
   check("rung animation is dash-enter @240ms", r0.name === "dash-enter" && r0.dur === "0.24s", `${r0.name} @ ${r0.dur}`);
   check("timing is the family's easeOutQuint", (r0.ease ?? "").includes("cubic-bezier(0.22, 1, 0.36, 1)"), r0.ease);
   check("fill both — rungs hold their final frame", r0.fill === "both", r0.fill);
   const delays = (a?.reads ?? []).map((x) => x.delay);
-  check("section ladder 140→420ms top-down", delays[0] === "0.14s" && delays[1] === "0.18s" && delays[2] === "0.22s" && delays[3] === "0.26s" && delays[4] === "0.3s" && delays[5] === "0.34s" && delays[6] === "0.38s" && delays[7] === "0.42s", delays.join(" "));
+  check("section ladder 140→460ms top-down", delays[0] === "0.14s" && delays[1] === "0.18s" && delays[2] === "0.22s" && delays[3] === "0.26s" && delays[4] === "0.3s" && delays[5] === "0.34s" && delays[6] === "0.38s" && delays[7] === "0.42s" && delays[8] === "0.46s", delays.join(" "));
   const kidDelays = (a?.bandKids ?? []).map((x) => x.delay);
   check("KPI staircase 0/35/70/105/140ms left-to-right", kidDelays.length === 5 && kidDelays[0] === "0s" && kidDelays[1] === "0.035s" && kidDelays[2] === "0.07s" && kidDelays[3] === "0.105s" && kidDelays[4] === "0.14s", kidDelays.join(" "));
   check("KPI cards animate dash-enter", (a?.bandKids ?? []).every((k) => k.name === "dash-enter"), (a?.bandKids ?? [])[0]?.name);
@@ -165,7 +165,7 @@ try {
 
   /* ============ D2: the disarm ========================================= */
   console.log(`\n[D2] the disarm (after the settle flip)`);
-  await sleep(700);
+  await sleep(740);
   const settled = evalJs(`JSON.stringify((function(){
     const root=document.querySelector('.dash-motion');
     if(!root) return {root:false};
@@ -180,8 +180,8 @@ try {
             names:names, kidNames:kidNames};
   })())`);
   let s = null; try { s = JSON.parse(settled || "null"); } catch { /* stays null */ }
-  check("settled class landed by the D2 read (~700ms timer)", s?.settled === true, s?.settled);
-  check("section rungs disarmed (animation-name none)", (s?.names ?? []).length === 8 && s.names.every((n) => n === "none"), `${(s?.names ?? []).filter((n) => n === "none").length}/8 none`);
+  check("settled class landed by the D2 read (~740ms timer)", s?.settled === true, s?.settled);
+  check("section rungs disarmed (animation-name none)", (s?.names ?? []).length === 9 && s.names.every((n) => n === "none"), `${(s?.names ?? []).filter((n) => n === "none").length}/9 none`);
   check("KPI cards disarmed too", (s?.kidNames ?? []).length === 5 && s.kidNames.every((n) => n === "none"), `${(s?.kidNames ?? []).filter((n) => n === "none").length}/5 none`);
 
   /* ============ D3: filter silence + the empty state ==================== */
@@ -192,7 +192,7 @@ try {
     els.forEach(function(el,i){ el.__t576='r'+i; });
     return els.length;
   })())`);
-  check("sections tagged for identity", Number(tagged) === 8, `${tagged} tag(s)`);
+  check("sections tagged for identity", Number(tagged) === 9, `${tagged} tag(s)`);
   evalJs(`JSON.stringify((function(){
     const input=document.querySelector('input[aria-label="Search projects by name"]');
     if(input){ input.focus(); return 'ok'; } return 'no-input';
@@ -221,7 +221,7 @@ try {
     return {total:els.length, kept:kept, replayed:replayed};
   })())`);
   let p3 = null; try { p3 = JSON.parse(after || "null"); } catch { /* stays null */ }
-  check("same sections survived the round-trip", p3?.kept === p3?.total && p3?.total === 8, `${p3?.kept}/${p3?.total} kept`);
+  check("same sections survived the round-trip", p3?.kept === p3?.total && p3?.total === 9, `${p3?.kept}/${p3?.total} kept`);
   check("no replay on the settled dashboard", p3?.replayed === 0, `${p3?.replayed} replaying`);
 
   /* ============ D4: the ladder's kind split ============================ */

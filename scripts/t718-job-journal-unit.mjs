@@ -126,10 +126,15 @@ must(/const before = \(prevParams \?\? \{\}\) as Record<string, unknown>;\s*\n\s
 // ---------- C: the spine's face ----------
 console.log("C spine face:");
 const inspSrc = readFileSync("src/components/workflow/job-inspector.tsx", "utf8");
+// t720 AMENDMENT — the kind→face vocabulary moved to journal-kind-face.ts
+// (the dashboard's digest speaks it too); the census follows the words:
+// the shared module carries all seven, and the inspector IMPORTS rather
+// than defines (a second definition would be the drift returning)
+const faceSrc = readFileSync("src/components/workflow/journal-kind-face.ts", "utf8");
 must(["run", "kicked", "completed", "failed", "params", "note", "renamed"].every((k) =>
-  new RegExp(`^  ${k}: \\{ icon: `, "m").test(inspSrc)
-),
-  "C1 all seven kinds have their verb face");
+  new RegExp(`^  ${k}: \\{ icon: `, "m").test(faceSrc)
+) && !/const JOURNAL_KIND_FACE/.test(inspSrc) && inspSrc.includes('from "./journal-kind-face"'),
+  "C1 all seven kinds have their verb face (single source: journal-kind-face.ts, imported by both faces)");
 must(inspSrc.includes("const startedMs = job.startedAt ? new Date(job.startedAt).getTime() : null") &&
      inspSrc.includes("verb: \"Started\" as const") && inspSrc.includes("verb: \"Created\" as const"),
   "C2 the birth anchors are SYNTHETIC (from the row — full birth coverage with zero hooks)");

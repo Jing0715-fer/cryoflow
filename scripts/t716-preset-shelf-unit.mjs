@@ -10,11 +10,12 @@
 //   A  the shelf's own census — empty law, data dialect (one read + one
 //      reconcile + one event), display order, honest overflow, the
 //      delete mouth and its honest confirm, motion-reduce discipline.
-//   B  the cascade's shape sync — the eighth rung exists, the ladder
-//      reaches 420ms, and t576's assertions moved WITH the shape
+//   B  the cascade's shape sync — the ninth rung exists (t720's digest
+//      took 260, everything below shifted +40), the ladder reaches
+//      460ms, and t576's assertions moved WITH the shape
 //      (including the three counts t711's partial sync left stale).
 //   C  the settle-margin law — a NUMERIC check that the disarm timer
-//      exceeds the last rung's landing (700 > 420+240): the bug class
+//      exceeds the last rung's landing (740 > 460+240): the bug class
 //      t716 caught (a photo-finish settle) can't come back silently.
 //
 // Run:  node scripts/unit-runner.mjs scripts/t716-preset-shelf-unit.mjs
@@ -64,17 +65,17 @@ ok(/const PREVIEW_CAP = 3;/.test(shelfSrc) && shelfSrc.includes("+{knobs - PREVI
 // ---- B: the cascade's shape sync (L8179: form changed, checks follow) -----
 console.log("== B: cascade sync ==");
 ok(dashSrc.includes("<UserPresetShelf />"), "the dashboard hosts the shelf");
-ok(dashSrc.includes('"--dash-d": "300ms"') && dashSrc.indexOf("UserPresetShelf") < dashSrc.indexOf('"--dash-d": "300ms"'),
-  "the shelf's wrapper carries the new 300ms rung");
+ok(dashSrc.includes('"--dash-d": "340ms"') && dashSrc.indexOf("UserPresetShelf") < dashSrc.indexOf('"--dash-d": "340ms"'),
+  "the shelf's wrapper carries the 340ms rung (moved +40 when t720's digest took 260)");
 const dashDelays = [...dashSrc.matchAll(/"--dash-d": "(\d+)ms"/g)].map((m) => m[1]);
-ok(JSON.stringify(dashDelays) === JSON.stringify(["140", "180", "220", "260", "300", "340", "380", "420"]),
-  "the ladder is eight rungs, 140→420, no gaps or duplicates", dashDelays.join("/"));
-ok((t576.match(/eight section rungs present/) ?? []).length === 1 && t576.includes("(a?.reads ?? []).length === 8"),
-  "t576 armed count moved to eight (L8179, in the same window as the shape)");
-ok(t576.includes("delays[7] === \"0.42s\""), "t576's ladder assertion reaches 0.42s");
-ok(t576.includes("(s?.names ?? []).length === 8"), "t576 disarm count is eight — the stale 6 from t711's partial sync is fixed");
-ok(t576.includes("Number(tagged) === 8") && t576.includes("p3?.total === 8"),
-  "t576 D3 tag/total counts are eight — the other two stale 6s are fixed");
+ok(JSON.stringify(dashDelays) === JSON.stringify(["140", "180", "220", "260", "300", "340", "380", "420", "460"]),
+  "the ladder is nine rungs, 140→460, no gaps or duplicates", dashDelays.join("/"));
+ok((t576.match(/nine section rungs present/) ?? []).length === 1 && t576.includes("(a?.reads ?? []).length === 9"),
+  "t576 armed count moved to nine (L8179, in the same window as the shape)");
+ok(t576.includes('delays[8] === "0.46s"'), "t576's ladder assertion reaches 0.46s");
+ok(t576.includes("(s?.names ?? []).length === 9"), "t576 disarm count is nine (and the stale-6 fix of t716 stays fixed)");
+ok(t576.includes("Number(tagged) === 9") && t576.includes("p3?.total === 9"),
+  "t576 D3 tag/total counts are nine — ALL counts, not the named one");
 
 // ---- C: the settle-margin law (numeric — the bug class dies here) ---------
 console.log("== C: settle margin ==");
