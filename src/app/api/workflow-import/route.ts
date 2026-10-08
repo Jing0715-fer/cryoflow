@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { persistPortEdge, portsValid } from "@/lib/edge-ports";
@@ -155,6 +156,13 @@ function parseBody(
 }
 
 export async function POST(request: NextRequest) {
+  // t708 — the write door (doctrine in http-guard.ts + t252 Phase B2): a
+  // no-cors fetch can carry a JSON string body (text/plain is CORS-safelisted
+  // and request.json() reads bodies, not content types), so body-shape
+  // defense alone never closed a cross-site import. One door, every write.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site workflow imports are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const { jobs: inJobs, edges: inEdges, error: parseErr } = parseBody(body);

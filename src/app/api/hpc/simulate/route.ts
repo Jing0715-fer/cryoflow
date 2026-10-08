@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { readRuns } from "@/lib/relion/engine";
 import { gpuStrategyFor, simulateQueue, type SimJobInput } from "@/lib/hpc/slurm";
 import { isLogAutopick } from "@/lib/relion/log-autopick";
@@ -17,6 +18,13 @@ export const dynamic = "force-dynamic";
  * the profile speedup) when available, falling back to modelled minutes.
  */
 export async function POST(request: NextRequest) {
+  // t708 — the write door: the simulation is pure compute (no state), but
+  // it reads the whole graph and burns CPU per call — a blind no-cors JSON
+  // body makes it a free compute-amplification handle (doctrine
+  // http-guard.ts + t252 Phase B2). One door, every write handler.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site simulations are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
       clusterGpus?: unknown; nodes?: unknown; arrayConcurrency?: unknown; gpuSpeedup?: unknown;

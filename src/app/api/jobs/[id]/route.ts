@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { toJobDTO } from "@/lib/seed";
 import { getRun } from "@/lib/relion/engine";
 import { remoteStopRun } from "@/lib/remote/remote-run";
@@ -26,6 +27,13 @@ type RouteContext = { params: Promise<{ id: string }> };
  *    are visible; downstream consumers keep working through links)
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  // t708 — the write door: params here merge INTO the stored job (the same
+  // surface the interpreter-injection review locked to schema keys), so a
+  // blind write is a param mutation, not a cosmetic one (doctrine
+  // http-guard.ts + t252 Phase B2). One door, every write handler.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site job edits are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const body = (await request.json().catch(() => ({}))) as {
@@ -221,7 +229,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  * /api/jobs/restore) restores the row under the same id and re-attaches
  * every output.
  */
-export async function DELETE(_request: NextRequest, context: RouteContext) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  // t708 — the write door for uniformity (method-immune class — DELETE
+  // cannot be fired by forms or no-cors fetches; the door keeps the write
+  // surface one-shaped). Tombstone + cascade make this the heaviest
+  // single-row write in the app — door it like its PATCH sibling.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site job edits are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const existing = await db.job.findUnique({

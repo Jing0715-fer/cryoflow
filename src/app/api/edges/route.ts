@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { getActiveProject } from "@/lib/projects";
 import {
   allAdjacency,
@@ -55,6 +56,12 @@ async function createsCycle(from: string, to: string): Promise<boolean> {
  * UUID-shaped, collision-checked, otherwise minted here.
  */
 export async function POST(request: NextRequest) {
+  // t708 — the write door: an edge IS the dispatch plan (resolveInputs walks
+  // these wires), so a blind wire from a no-cors JSON body would silently
+  // re-route real pipelines (doctrine http-guard.ts + t252 Phase B2).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site graph edits are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
       id?: unknown;

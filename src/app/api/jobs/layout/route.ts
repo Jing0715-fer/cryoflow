@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { getActiveProject } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +28,16 @@ function sanitize(raw: unknown): LayoutUpdate[] {
 /**
  * POST /api/jobs/layout — batch position update (one-click auto-arrange).
  * Body: { updates: [{ id, x, y }] }. Only jobs of the active project move.
+ *
+ * t708 — the write door: coordinates are the t705 click-geometry lesson's
+ * raw material — a blind layout write could stack cards into click-hijack
+ * piles invisibly (the canvas hit-tests topmost). Doctrine http-guard.ts +
+ * t252 Phase B2; one door, every write handler.
  */
 export async function POST(request: NextRequest) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site layout writes are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as { updates?: unknown };
     const updates = sanitize(body.updates);

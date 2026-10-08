@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
@@ -63,8 +64,14 @@ export async function GET() {
 /**
  * POST /api/workspaces — body: { name } → new workspace in the ACTIVE
  * project, appended after the last one.
+ *
+ * t708 — the write door (no-cors JSON-body hole; doctrine http-guard.ts +
+ * t252 Phase B2). The GET above stays open this batch — readers round next.
  */
 export async function POST(request: NextRequest) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site workspace edits are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as { name?: unknown };
     const name = typeof body.name === "string" ? body.name.trim() : "";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "fs";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO, toEdgeDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
@@ -252,6 +253,12 @@ export async function GET(request: NextRequest) {
  *   mirrors the original and downstream jobs consume the original's outputs.
  */
 export async function POST(request: NextRequest) {
+  // t708 — the write door: job creation is the app's most generic write (a
+  // no-cors JSON body can name any type — doctrine http-guard.ts + t252
+  // Phase B2). The GET above stays open this batch (readers round next).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site job creation is not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
       type?: unknown;

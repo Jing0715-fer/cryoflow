@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { jobType } from "@/lib/workflow";
 import { persistPortEdge, portsValid } from "@/lib/edge-ports";
@@ -189,6 +190,13 @@ export async function GET(request: NextRequest) {
 
 /** Save a selection snapshot. */
 export async function POST(request: NextRequest) {
+  // t708 — the write door on every mutating handler of the shelf (save /
+  // rename / apply / forget): apply MINTS JOBS AND WIRES, the heaviest
+  // replay in the app — a no-cors JSON body could drive it blind (doctrine
+  // http-guard.ts + t252 Phase B2). The GET legs stay open this batch.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site template edits are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
       name?: unknown;
@@ -243,6 +251,9 @@ export async function POST(request: NextRequest) {
  * the POST's own (trim, cap, required) — two handlers, one contract.
  */
 export async function PATCH(request: NextRequest) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site template edits are not allowed" }, { status: 403 });
+  }
   try {
     const id = request.nextUrl.searchParams.get("id");
     if (!id) {
@@ -298,6 +309,9 @@ export async function PATCH(request: NextRequest) {
  * shape should never dead-end the whole apply on one drifted wire.
  */
 export async function PUT(request: NextRequest) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site template edits are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
       id?: unknown;
@@ -474,6 +488,9 @@ export async function PUT(request: NextRequest) {
  *          the toast can be honest about what just left.
  */
 export async function DELETE(request: NextRequest) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site template edits are not allowed" }, { status: 403 });
+  }
   try {
     const all = request.nextUrl.searchParams.get("all");
     if (all === "1" || all === "true") {

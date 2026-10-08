@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
@@ -9,8 +10,15 @@ type RouteContext = { params: Promise<{ id: string }> };
 /**
  * PATCH /api/workspaces/[id] — body: { name } (rename, 1–60 chars).
  * Only workspaces of the ACTIVE project can be touched.
+ *
+ * t708 — write doors on both handlers for policy uniformity (the methods
+ * are spec-immune to drive-by channels; the door keeps the write surface
+ * one-shaped — doctrine http-guard.ts + t252 Phase B2).
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site workspace edits are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const body = (await request.json().catch(() => ({}))) as { name?: unknown };
@@ -48,7 +56,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  * workspace first, so nothing is ever lost. The default workspace itself
  * cannot be deleted — a project always keeps at least one canvas.
  */
-export async function DELETE(_request: NextRequest, context: RouteContext) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site workspace edits are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const active = await ensureActiveProject();

@@ -1,5 +1,15 @@
 /**
- * CryoFlow — lightweight same-origin guard for sensitive read routes.
+ * CryoFlow — lightweight same-origin guard for sensitive routes.
+ *
+ * Coverage grew by verdict, not by decree: t251 doored the workdir-byte
+ * reads, t252 the bodyless action POSTs, t707 the saved-state pair, and
+ * t708 the whole write surface (13 routes / every POST-PUT-PATCH-DELETE
+ * handler) after the t252 "JSON routes self-defend" doctrine was found
+ * half-true — a no-cors fetch can carry a JSON string body in a
+ * safelisted text/plain envelope, and request.json() reads bodies, not
+ * content types. Readers without a write-adjacent threat (activity,
+ * command, rebalance, gallery, the api root…) stay doorless until their
+ * own round prices them.
  *
  * CryoFlow is a LOCAL single-user companion app, so there is no login to
  * put in front of /api/fs/browse. The realistic threat is a malicious web
