@@ -1046,7 +1046,7 @@ function SavedViewsGallery() {
                 type="button"
                 onClick={() => void jump(v, b)}
                 title={`Open “${b.name}” — jumps to ${v.jobName}${v.projectName ? ` in ${v.projectName}` : ""} and restores the view in the 3D viewer`}
-                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-2 text-left transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
               <span
                 className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md border bg-muted"
