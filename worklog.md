@@ -10825,3 +10825,22 @@ Stage Summary:
 - 「地板断言的消息要说地板的语言」：`n >= 12` 的意思是「世界不缩水」，写「restored to 12」就是说「世界是 12」——断言语义与消息语义的这段缝，十个窗里没人踩雷只因为世界恰好没缩水。作者日常数骑进消息里就是定时炸弹：世界一长，消息先撒谎，断言后失守。pre-suite 基线（roster0）不是更聪明的常数，是**把「检验的意思」直接写进断言的构造**——基线随世界走，消息随基线走，三层同源。
 - 「演练床的价值在醒来，不在在册」：十窗「账在」的候选一窗兑现，而且第一觉就回报了十窗睡眠的利息——一个假欠账的注销。非 build 日车道纪律（t688 首立）第二次执行即命中最佳标的：**账本里「零 build 可做」的存货不是二等候选，是天气的套利品**——feat 等晴天，脚本/审判/文档车不挑天气，而演练床恰好只在没人动产品时醒来才有意义。
 - 产出：scripts/t689-remote-log-face.mjs（新，15 锚五腿 + 网络证据捕获 + 重入）+ scripts/t262-remote-run-e2e.mjs（C7 diag→must + scoped/force + 冤案注释）+ scripts/t261-remote-connections.mjs（陈旧消息×2 → roster0 动态基线）+ scripts/qa-t640-rehearsal-bed.sh（头注释 t689 醒来记）+ shots-qa 刷新（t261/t262 档案帧 + t689 证据帧）；下窗入口：①功能车道（**若 build 日**：critical 块行第二动词（价值待判挂账中）；新缺口先过 t678 分层验尸；remote 世界现全绿，3D viewer/Topaz 系化石勿采）②样式车道（账本清零）③judge 风暴（declined 重试维持文档化；同毫秒双完成席在案）④build 日三车道（钥匙二十四连零失败在案；本窗零 build 零重启，prod 未动）⑤**演练床的日常化判决**：bed --full 可入回归轮换（建议每 3-5 窗一次或 remote 域改动后必跑——remote 世界改动频率低，全窗跑是浪费；t689 判「不入 bed 链」——它与 t262 C7 同合同，重复执行无增量信息，独立法证探针身份在案）⑥storage 合同执行（新 key 按命名律走）。
+
+---
+Task ID: 690 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081055)
+Task: 10:55 派单执行——开局三件套判稳（t677 30/0；available 3179MB < 3280 → 非 build 日，车道纪律第三次执行）→ 双物种普查（diag 升格审全家族执行 = 种群灭绝；TODO/deferred 意图普查 = 产品零技术债）+ agent-browser 活体 QA sweep（console 0 错 + 全表面合同为真）+ 双漂移探针绿（t689 15/0 + t687 34/0）→ worklog 收官 + docs 车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 689 收官（HEAD 8742874 树净；派单「Task 13 条目」与 #5/#6/#7/#8、3D viewer、Topaz 全系模板化石——t688 判例勿采）；server 200/5.7ms + t677 30/0 判稳先行；available 3179MB < 3280 → **非 build 日**（连续第二窗，比上窗再低 81MB——feat 车道全不可行）。
+- [普查一·diag 升格审] t689 教义「活过一天以上的 diag 都该面对升格审」的首次全家族执行：rg 扫 scripts/*.mjs 全部 \(diag\) 字面——7 文件 9 处，逐处验尸：t307 的 2 处 = 断言后的证据打印（rows/stacks 上下文，无指控语义）；t662/t665/qa54 的 3 处 = diag **变量**打印（数据上下文同种）；t618-diag.mjs 与 diag-t334 的 4 处 = 「diag」只住在**名字与变量名**里（诊断探针自身的命名，非判决行）；t262 的 1 处 = 上窗已治愈（diag→must）。**判决：指控型 diag（以观察之名行指控之实、无 must 背书的判决行）在全家族仅 t262 一例，已灭——种群灭绝，零新冤案**。
+- [普查二·技术债] src/ 全树 TODO/FIXME/HACK/XXX sweep：10 文件全部命中 `itXXX` RELION 文件名模式（run_itXXX_data.star 等）——**零真技术债标记**；「next window/not yet/for now」语义 sweep：11 文件全为合法文档（RELION option help 文案、status-style 注释、useDeferredValue 机械引用）——**产品代码零 deferred 意图**。两普查合并判决：代码库的「欠账」只存在于 worklog 账本（有判决有定价），不存在于代码注释（无主悬债）——**账本唯一真相源律的又一次自证**。
+- [活体 QA sweep] agent-browser 全表面：console 全程 0 错 + page errors 0；canvas 17 minimap dots == 17 cards（世界同源合同）；dashboard roster 8 activity 行 + lens off 无 confession chip（t627 rest-world 律）；⌘K palette 组渲染 + Recent 组按合同沉默（fresh session 空 trail 不渲染空壳——t684 律）+ lens off 无 critical chip。**每一面的「不在场」都验过：不是缺了东西，是合同说它该沉默**。
+- [漂移探针] t689 15/0×1（cluster :3022 跨窗存活——孤儿化 launcher 生效；face 合同稳定）+ t687 34/0（lens 家族最新合同）。世界与上窗 byte-identical（零 commit 零 build 零重启），漂移检测全绿。
+- [车道纪律] 非 build 日零 feat 尝试；本窗产物 = 两份普查判决 + 一份活体健康证词，全文档性质——**「审计的价值在定价」（t688）的姊妹篇：「普查的价值在灭绝证词」——证明某物种已不存在，与修好它同样入账**。
+
+Stage Summary:
+- 「普查的灭绝证词是负空间的入账」：t689 翻案后，教义要求全家族升格审——审的产出不是修复清单而是**灭绝证词**：指控型 diag 全家族仅一例且已治愈。负结果和正结果一样值一窗：它把「还有没有别的 t262」从悬案变成定论，下窗的入口清单不再需要携带这条疑云。
+- 「代码注释零悬债是账本律的自证」：TODO/FIXME 全为零（只有 RELION 文件名模式误命中）不是巧合——这个库的纪律是**任何欠账要么当场修、要么进 worklog 账本带着判决与再审条件**，从不在代码里留无主标记。两普查（diag 物种 + 意图标记）共同验证：账本外无第二真相源，账本内无未定价的债。
+- 「活体 QA 验的是不在场证明」：本窗 sweep 的关键断言全是**否定句**——lens off 时 chip 不在、空 trail 时 Recent 组不在、console 错误不在。表面的健康不是「东西都在」而是「在的都在场、不在的都有合同」——t627 rest-world 律（lens off 字节不动）在 QA 侧的镜像就是：**每一次缺席都该能指认它的合同**。
+- 产出：无新文件（普查 + 证词入 worklog 本段）；下窗入口：①功能车道（**若 build 日**：critical 块行第二动词（价值待判挂账中——revealJob 之外的 roster 定位/或判「revealJob 已够」）；新缺口先过 t678 分层验尸）②样式车道（账本清零）③judge 风暴（declined 重试维持文档化在案）④build 日三车道（钥匙二十四连零失败在案）⑤演练床轮换（t689 判「每 3-5 窗或 remote 域改动后」——本窗未到轮换点，cluster 跨窗存活已验）⑥storage 合同执行（新 key 按命名律走）。
