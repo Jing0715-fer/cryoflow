@@ -11,6 +11,8 @@
  *   t201-dark-viewer-2x.png    the full dark panorama
  *   t201-light-viewer-2x.png   the light panorama — unbury holds in both
  *                              rooms (the layout fix's room-agnosticism) */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707 — saved-state routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 import { execSync } from "node:child_process";

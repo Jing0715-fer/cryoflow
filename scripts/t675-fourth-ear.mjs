@@ -24,6 +24,8 @@
 //   E  two rapid local deletes (drill3+drill4) — the busy gate smoke
 //   D  the palette hears the embed's own mouths (5 rows incl. quick-save)
 //   F  world intact + teardown + noise buckets
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707 — saved-state routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 

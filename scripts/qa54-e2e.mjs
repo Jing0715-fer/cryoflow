@@ -60,13 +60,13 @@ const snap = (name) => ({
 const putBm = (list, jid = JID) => {
   for (let i = 0; i < 3; i++) {
     try {
-      sh(`curl -s --max-time 30 -X PUT "http://localhost:3000/api/jobs/${jid}/camera-bookmarks" -H "Content-Type: application/json" -d '{"bookmarks":${JSON.stringify(list)}}'`);
+      sh(`curl -s --max-time 30 -X PUT "http://localhost:3000/api/jobs/${jid}/camera-bookmarks" -H "Content-Type: application/json" -H "Origin: ${B}" -d '{"bookmarks":${JSON.stringify(list)}}'`);
       return;
     } catch { sleep(2500); }
   }
 };
 const serverRow = (jid = JID) => {
-  const raw = sh(`curl -s --max-time 20 "http://localhost:3000/api/jobs/${jid}/camera-bookmarks"`).replace(/\s+/g, "");
+  const raw = sh(`curl -s --max-time 20 -H "Origin: ${B}" "http://localhost:3000/api/jobs/${jid}/camera-bookmarks"`).replace(/\s+/g, "");
   try { return (JSON.parse(raw).bookmarks || []).length; } catch { return -1; }
 };
 

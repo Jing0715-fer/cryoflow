@@ -58,7 +58,7 @@ step(`jobs: host=${JID} sibling=${SID} (${sibling.name})`);
 const putBm = (list, jid = JID) => {
   for (let i = 0; i < 3; i++) {
     try {
-      const resp = sh(`curl -s --max-time 30 -X PUT "${B}/api/jobs/${jid}/camera-bookmarks" -H "Content-Type: application/json" -d '{"bookmarks":${JSON.stringify(list)}}'`);
+      const resp = sh(`curl -s --max-time 30 -X PUT "${B}/api/jobs/${jid}/camera-bookmarks" -H "Content-Type: application/json" -H "Origin: ${B}" -d '{"bookmarks":${JSON.stringify(list)}}'`);
       const got = serverRow(jid);
       if (got === list.length) return resp;
       step(`  putBm retry ${i}: want ${list.length} got ${got} resp=${resp.slice(0, 80)}`);
@@ -68,7 +68,7 @@ const putBm = (list, jid = JID) => {
   throw new Error(`putBm failed to land ${list.length} rows on ${jid}`);
 };
 const serverRow = (jid = JID) => {
-  const raw = sh(`curl -s --max-time 20 "${B}/api/jobs/${jid}/camera-bookmarks"`).replace(/\s+/g, "");
+  const raw = sh(`curl -s --max-time 20 -H "Origin: ${B}" "${B}/api/jobs/${jid}/camera-bookmarks"`).replace(/\s+/g, "");
   try { return (JSON.parse(raw).bookmarks || []).length; } catch { return -1; }
 };
 

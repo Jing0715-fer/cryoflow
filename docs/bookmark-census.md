@@ -201,3 +201,65 @@ the molstar-embed's saveBookmark speaks server-side); the Mol* relay chain
 flaky under the window's browser session and remains the honest full-drive
 path for a calmer window. The overlay twin (D0) stays at 0 rows — the first
 Layers-panel entry is still unborn, and the instrument is still waiting.
+
+## t707 addendum — the calm window delivers: D0 born, the full drive clean, the door's last gap priced
+
+The calmer window arrived and the Mol* full-drive relay ran clean end to end:
+node → inspector → Results → tile (Enlarge run_it020_half1) → View in 3D →
+viewer ready. Two firsts landed through the UI alone:
+
+1. **The overlay twin's first row (D0 0 → 1).** The Layers panel offered
+   orthovol + run_it020_half2; half2 went on (cyan, α 0.55), the σ-nudge
+   slider walked +0.15 with keyboard arrows, and the debounced PUT spoke the
+   merge contract. Both mirrors verified byte-identical (localStorage key
+   `cryoflow.mol-overlays:*` and the server row). The client plumbing that
+   t-dates built was exercised by a human-shaped drive for the first time —
+   add → live edit → persist all worked first try.
+2. **The first UI-driven bookmark save.** The popover's name field took
+   "t707 UI-driven save"; refine3d's row went 3 → 4 (seeder's three +
+   this one). Every prior row was API-staged; this one was born from the
+   same mouth a user speaks.
+
+The census scaled again without edits: 59 → **76/0** — Layer D armed on the
+new row (D0 world measure, D1 FK, D3 cap, D4 live-outputs resolution
+"self-heal debt: none", D2 shape, D5 sanitize replay, D6 live GET echo)
+plus the B-layer growth from the fifth bookmark entry.
+
+**D4's first execution caught a latent instrument gap.** With zero overlay
+rows the D-layer never fetched anything; the first row made D4 hit
+`/api/jobs/:id/outputs` — a t251-hardened route that rejects headerless
+curl-style clients — and the census (a headerless urllib client) got 403.
+The product door was RIGHT; the instrument learned to speak it: `fetch_json`
+now sends `Origin: ${BASE}` (the guard's own documented cure). The gap was
+invisible for exactly as long as the world was too small to reach it — the
+same shape as the t25 rotation's latent pins.
+
+**The saved-state door (staged, pending the next build day).** The full-API
+audit found the saved-state pair (camera-bookmarks, overlay-session) was the
+only jobs/[id] family without the t251 isLocalRequest gate. Both routes'
+GET/PUT now carry the door — staged in source; the running server is the
+frozen production bundle, so activation joins the next build-day batch with
+its own curl verdict (bare 403 / Origin 200 × both routes). The threat model
+is stated honestly in the routes: cross-origin PUT already needs a CORS
+preflight a drive-by page cannot pass; the door's added value is closing
+no-cors GET blind probing and making the job surface's policy uniform —
+one door, every handler.
+
+**The audit's larger territory (priced, next round).** The same sweep found
+22 routes across the whole API without the door: ~10 drive-by-reachable
+writers (workflow-import, pipeline-template, jobs POST, project POST, edges
+POST/DELETE-adjacent, subvolume-job, layout, workspaces, custom-template
+CRUD, hpc/simulate) and the blind-probeable GET readers (activity, command,
+rebalance, views/gallery, api root, providers/health, judge-worker,
+hpc/sbatch). That is the next hardening round's full ledger — the t251
+family closure's honest completion, one build-day batch wide.
+
+**The QA lane is forward-compatible.** Twelve probe scripts that touch the
+two saved-state routes (t200/201/203-shots, t200-e2e, t208, t280, t674,
+t675, t676 + curl-based qa45/54/57) now speak the door's language before
+the door is even live: a shared `scripts/lib/qa-origin.mjs` shim (one
+installOriginDoor() line per script) threads Origin through every Node
+fetch, and the curl shells carry `-H "Origin: ${B}"` (qa45 hardcodes its
+base — it has no B constant). Harmless against today's unguarded bundle,
+required against tomorrow's — the same both-worlds property the census's
+fetch_json fix has.

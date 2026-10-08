@@ -37,6 +37,8 @@
 //   Z  roster identity + console clean
 //
 // Run: node scripts/t280-ortho-sigma-chips.mjs   (server on :3000)
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707 — saved-state routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";

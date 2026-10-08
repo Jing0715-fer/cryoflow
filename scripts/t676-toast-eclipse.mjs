@@ -23,6 +23,8 @@
 //      → the FOCUSED path still closes it (a11y preserved)
 //   C  palette opens and closes with one Escape, no toast around
 //   D  world intact + teardown + noise buckets
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707 — saved-state routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 

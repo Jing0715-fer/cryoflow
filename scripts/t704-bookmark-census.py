@@ -214,7 +214,14 @@ MAGIC = {"png": b"\x89PNG", "jpeg": b"\xff\xd8\xff"}
 
 
 def fetch_json(url):
-    with urllib.request.urlopen(url, timeout=10) as r:
+    # t707 — the D4 live-outputs leg is the census's only contact with a
+    # t251-hardened route: isLocalRequest rejects headerless curl-style
+    # clients by design ("QA scripts should send -H Origin: ...", the
+    # guard's own doc line). The instrument now speaks the door's language:
+    # an Origin header whose host equals the request host passes the
+    # same-origin gate honestly — same evidence a browser fetch carries.
+    req = urllib.request.Request(url, headers={"Origin": BASE})
+    with urllib.request.urlopen(req, timeout=10) as r:
         return json.loads(r.read().decode())
 
 

@@ -31,6 +31,8 @@
 //      and restores UNDER ITS NEW NAME (id stable through every rename).
 //   H  the world intact (3 seeds, original names) + teardown (drills
 //      removed) + noise buckets.
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707 — saved-state routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 

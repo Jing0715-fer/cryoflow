@@ -249,7 +249,7 @@ const ensurePopover = async (uiName, triggerAria) => {
 const bmNames = (jid = JID, tries = 3) => {
   for (let i = 0; i < tries; i++) {
     try {
-      const raw = sh(`curl -s --max-time 20 "http://localhost:3000/api/jobs/${jid}/camera-bookmarks"`);
+      const raw = sh(`curl -s --max-time 20 -H "Origin: http://localhost:3000" "http://localhost:3000/api/jobs/${jid}/camera-bookmarks"`);
       if (raw.startsWith("{")) return JSON.parse(raw).bookmarks.map((b) => b.name);
     } catch { /* dev server under memory pressure — retry */ }
     sleep(2500);
@@ -259,7 +259,7 @@ const bmNames = (jid = JID, tries = 3) => {
 const putBm = (list, jid = JID) => {
   for (let i = 0; i < 3; i++) {
     try {
-      sh(`curl -s --max-time 30 -X PUT "http://localhost:3000/api/jobs/${jid}/camera-bookmarks" -H "Content-Type: application/json" -d '{"bookmarks":${JSON.stringify(list)}}'`);
+      sh(`curl -s --max-time 30 -X PUT "http://localhost:3000/api/jobs/${jid}/camera-bookmarks" -H "Content-Type: application/json" -H "Origin: http://localhost:3000" -d '{"bookmarks":${JSON.stringify(list)}}'`);
       return;
     } catch { sleep(2500); } // transient (OOM restart window) — retry
   }
