@@ -1136,8 +1136,27 @@ if (!CHECK) {
     Array.isArray(b.snapshot?.up) && Array.isArray(b.snapshot?.target) &&
     Number.isFinite(b.snapshot?.radius)),
     "bookmark session: every entry carries the pose vec3s + radius");
-  ok(bmList.every((b) => typeof b.thumb === "string" && b.thumb.startsWith("data:image/png;base64,")),
-    "bookmark session: thumbs are honest data-URL PNGs");
+  // t700 — the honesty criterion is the BYTES, not the codec: the app's
+  // save path (molstar-embed.tsx L1923) deliberately writes JPEG thumbs
+  // (toDataURL "image/jpeg", 0.72 — a size-conscious choice, comment says
+  // "small JPEG thumbnail") while the seed's own thumbs are grayscale
+  // PNGs. Both are honest rasters; a human re-saving a view through the
+  // app is the world working, not the world breaking. The png-only prefix
+  // check was the probe's vocabulary being narrower than the app's real
+  // contract. The upgraded assertion is STRICTER, not looser: the decoded
+  // payload must carry the magic bytes of the codec it declares (PNG
+  // 89 50 4E 47, JPEG FF D8 FF) — a data URL that lies about its own
+  // format is exactly the dishonesty this check exists to catch.
+  ok(bmList.every((b) => {
+    if (typeof b.thumb !== "string") return false;
+    const m = b.thumb.match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) return false;
+    const h = Buffer.from(m[2], "base64").subarray(0, 3);
+    return m[1] === "png"
+      ? h[0] === 0x89 && h[1] === 0x50 && h[2] === 0x4e
+      : h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff;
+  }),
+    "bookmark session: thumbs are honest data-URL rasters (magic bytes match the declared codec)");
   ok(bmList.filter((b) => b.view?.slice?.on).length === 1 && bmList.filter((b) => b.view?.clip?.on).length === 1,
     "bookmark session: one slice view + one clip view (the chips have something to say)");
 }
