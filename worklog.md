@@ -10666,3 +10666,26 @@ Stage Summary:
 - 「第四个 lens 的家是现成的」：工具栏四邻居（map·find·funnel·chain）共用 aria-pressed + store 旗 + 快捷键方言；P 键坐 N 旁（dim lens 语义同胞）；disabled 态借 undo 家族的诚实死按钮法。样式车道零新账——镜头全部骑既有视觉词汇（dim 类、stroke 阶梯、halo 语法、chip 家族、animate-rise），没有发明一种新的墨水。
 - 「viaEdgeId 是走法的记忆」：criticalPath 本来知道每步踩的是哪根线，只是没说出来——t682 让它说出来。一条走过的高亮线和一条没走的退让线之间的差，就是「链」从集合变成路径的那一瞬。出发 vs 到达的语义谎言被 grep 式自查逮住（注释说 arrival、代码做 departure）——**接口文档的每个词都要在代码里找得到对应物**。
 - 产出：src/lib/critical-path.ts（viaEdgeId 扩展）+ edges-layer.tsx（chainIds/chainEdgeIds props + dim 第三析取支 + chainInk/glow/width）+ canvas.tsx（chain memo 全图律 + 卡 dim 第三支 + 工具栏第四 lens 按钮 + 浮动 chip）+ store.ts（criticalLens 旗三处）+ app-shell.tsx（P 键）+ shortcuts-dialog.tsx（P 行入册）+ scripts/t682-critical-lens.mjs（28 锚六腿 + 📸×1）；下窗入口：①功能车道（候选：canvas-minimap 的链高亮联动（镜头 ON 时 minimap 也把链卡点亮——小而美）；palette recent 段；roster 第四 lens）②样式车道（镜头入场未加入 t611 编舞——chip 有 animate-rise、卡 dim 有 220ms transition，判「静态即可」与 face 同判）③judge 风暴下半场（declined 重试——文档化在案）④build 日三车道（钥匙十六连零失败）⑤演练床一键（账在）⑥快捷键 P 与 palette 输入焦点的互斥（typing guard 已覆盖——app-shell 的表单字段 guard 在 N/P 之前，判「已在案」）。
+
+---
+Task ID: 683 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080810)
+Task: 08:10 派单执行——开局三件套判稳（t677 30/0 判稳针先行；文件名惯犯再演一次真名 t677-runtime-by-stage）→ 兑现 Task 682 入口①首选：minimap 的链高亮联动「the chain lens reaches the map」（第三 mouth of one walk）+ data-mm-edge-id 诚实锚 + t683 探针 23/0 一航全绿 + 回归全家绿 + 分车 commit push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 682 收官（HEAD 1b2aacc 树净）；available 3328MB（> 3.28GB 阈值，build 日成立）；server 200/2.8ms + agent-browser console 0 行 + t677 30/0 判稳先行（首跑敲错文件名 MODULE_NOT_FOUND——真名 t677-runtime-by-stage.mjs，无 qa- 前缀惯犯第 N 演）。判稳针 30/0 = 稳定夜延续。
+- [定道·map 的链] Task 682 入口①首选「canvas-minimap 的链高亮联动——小而美」。侦察：minimap 的 find lens 联动先例（Task 136 第三消费者语法：findHit amber stroke + findDim whisper rung）+ t682 的 dim 律（卡 dim 联合律析取支、边 dim 按边 id）——第四 lens 借第三个 lens 的地图语法，零新墨水。
+- [feat·第三 mouth of one walk] canvas-minimap.tsx：criticalLens/graphJobs/graphEdges 三 selector + chainWalk useMemo（walkTimeline + criticalPath 全图律——**链是整张图的**：workspace-scoped walk 会让跨工作区依赖从链上无声掉队，地图会 dim 一张 canvas 保全墨的卡）+ chainJobIds/chainEdgeIds 双 memo（viaEdgeId 照抄 canvas 的出发语义）。**链不存储、每次现算**：face/canvas/map 三嘴共享 lib 不共享状态——永不吵架的根源。
+- [feat·卡的律] MinimapDot 加 chainHit/chainDim props：dim 联合三支（dimmed || findDim || chainDim）→ data-mm-dim + mm-chip-dim 同一 whisper rung + data-mm-chain 诚实锚（链卡无视觉新增——「链卡全墨、链外退」的对比即答案，与 canvas 完全同律）+ running pulse 联合三支（running 永不在链上——walk 滤 running——lens ON 时 map 的 pulse 也休息）。
+- [feat·线的律] 边 dim 第三支：`chainEdgeIds != null && !chainEdgeIds.has(e.id)`——**按边 id 不按端点**（t682 的刚立判例过图：端点在链上不等于这条线在故事里，走过 = 故事）。sel focus 保留端点律——selection 是邻域、chain 是路径，「two lenses, two geometries, each honest in its own」。走过线不加高亮档（照常即相对显形）——find lens 的克制律（只 dim 非匹配、不加匹配高亮）同款。
+- [feat·锚] minimap 的 line 原无 data 锚（只有 key）——探针按名字问每根线拿不到 → `data-mm-edge-id={e.id}`（t677 data-runtime-share / t681 data-critical-name 判例第四次引用：探针拿不到就给锚，不硬猜）。
+- [t683 一航 23/0 全绿] S 5（map 默认开 + 17/17 dots + lens off 三净：无 chain 无 dim 无退线）+ A 6（链卡 13/13 claim data-mm-chain + 无 dim + 链外 4/4 recede + 无 chain mark + mm-chip-dim rung 断言）+ B 3（walked 12/12 照常 + receded 6/6 退让 + 无越界——edge-id 律的直接证据）+ C 1（**镜像合同：canvas chip data-critical-steps(13) == map 链卡数(13)**——两嘴各自现算零共享内存，数字相等即合同成立）+ D 2（P 键双 toggle：关 → map 全回、开 → 故事回来）+ E 1 + F 6（桶净）+ 📸×1 目检（minimap 右下角：链卡深绿全墨、链外淡绿退让，二分清晰可读——画面即答案）。
+- [build + 重启] t673-build-standalone.sh 两轮（特性 + data-mm-edge-id 锚，钥匙十七、十八连零失败 ~60s）+ PORT=3000 prod-3001 重启（教义直射）+ root 200 ×2。本窗 OOM 零。
+- [回归全家绿] tsc 0 + eslint 0（产品 + 探针）+ t683 23/0×2 + 直系三针（t682 28/0 + t681 38/0 + t677 30/0）+ 基线四绿（t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0）。fixture 惯犯（t252-write-door-2x.png）**具名路径** checkout 还原——t682 教义的第二次正确执行。
+
+Stage Summary:
+- 「第三个嘴不记得任何事」：face 在 dashboard 说话、canvas lens 把答案画回现场、map 把同一答案画到最远的 zoom——三嘴共享的是 lib 不是状态，链在每一次渲染里重新走一遍。t683 的 C 腿把这句教义变成了可断言的合同：canvas chip 的 13 与 map 链卡的 13 各自独立算出，相等即「一走三读」成立——**如果哪天两嘴吵架，第一个被怀疑的应是共享的 lib，第二个才是任何一嘴的记忆**（而它们没有记忆）。
+- 「地图的 dim 律是边的 id，不是端点」：t682 在 canvas 立的判例今晚过图到 minimap——链上两卡之间的弦边在地图上同样退让。律的迁移不是复制粘贴而是语义的通过检查：sel focus 的端点律保留（邻域几何），chain 的边 id 律入场（路径几何），两个 lens 两种几何在同一个 SVG 里各说各的话且互不撒谎。
+- 「链卡不需要新的墨水」：find lens 给匹配 amber stroke（一个新颜色），chain lens 给链卡什么都不加——链卡保持 status fill，故事由「对比」读出（全墨 vs whisper 退让）。镜头的视觉预算花在退让上而不是标记上：**被留下的是故事，被退让的是世界——观众读的是差，不是符**。
+- 「pulse 也要守镜头的律」：running chip 的 SMIL pulse 在 chainDim 下休息（running 永不在链上——walk 滤它）——动画是状态的声音，dim 是状态的语义，语义退场时声音跟着闭嘴。三个布尔（dimmed/findDim/chainDim）的联合在 dot 的三个出口（data attr、class、animate 守卫）保持同一析取式——一处不一就会「看着 dim 了还在跳」。
+- 产出：canvas-minimap.tsx（chainWalk/chainJobIds/chainEdgeIds 全图律 + MinimapDot chainHit/chainDim + dim 联合三支 + 边 dim 边 id 律 + data-mm-chain/data-mm-edge-id 锚族 + 头注释 Task 683 段）+ scripts/t683-minimap-chain.mjs（23 锚六腿 + 📸×1）；下窗入口：①功能车道（候选：palette recent 段（t682 遗留候选）；roster 第四 lens；minimap 的 sel-focus 与 chain 联合取景（sel 框选时链卡是否参与 frame——当前判「文档化即可」，frame 是几何 lens 是语义））②样式车道（账本清零——map 的 dim 全骑 mm-chip-dim/mm-edge-dim 既有 rung，零新墨水）③judge 风暴下半场（declined 重试——文档化在案）④build 日三车道（钥匙十八连零失败）⑤演练床一键（账在）⑥「第三 mouth」的命名候选：若第四嘴（roster？timeline face 的 minimap？）再入场，walkTimeline+criticalPath 的调用点过三处时考虑提 walkOnce hook——当前三处各自 useMemo 成本可忽略，判「文档化即可」。
