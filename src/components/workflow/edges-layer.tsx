@@ -43,7 +43,7 @@
  */
 
 import * as React from "react";
-import { CARD_H, CARD_W } from "@/lib/workflow";
+import { CARD_H, CARD_W, PORT_COLORS, jobType } from "@/lib/workflow";
 import { computeEdgeGeoms, getLiveDrag, type EdgeGeom } from "@/lib/edge-geom";
 import { useWorkflowStore } from "@/lib/store";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
@@ -161,6 +161,12 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         const running = from.status === "running";
         // a completed source feeding an unfinished target — the wire is "primed"
         const primed = from.status === "completed" && to.status !== "completed";
+        // t734 — the wire's knowledge color: the FROM port's data kind is
+        // what the wire CARRIES, so its kind paints the wire's resting
+        // voice. Derived live from the book's own port spec (zero second
+        // directory); an unmapped/legacy edge keeps the neutral ink.
+        const edgeKind = jobType(from.type)?.outputs?.find((p) => p.name === edge.fromPort)?.kind;
+        const kindInk = edgeKind ? PORT_COLORS[edgeKind].wire : null;
         const touchesSelected =
           selectedId != null && (from.id === selectedId || to.id === selectedId);
         const hovered = hoveredId === edge.id;
@@ -204,7 +210,7 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                 ? STROKE_ACTIVE
                 : primed
                   ? gradId ?? STROKE_READY
-                  : STROKE_BASE;
+                  : kindInk ?? STROKE_BASE;
         const dotFill = running
           ? "var(--primary)"
           : isChainEdge
@@ -215,7 +221,7 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                 ? STROKE_ACTIVE
                 : primed
                   ? STROKE_READY
-                  : DOT_BASE;
+                  : kindInk ?? DOT_BASE;
         // width ladder: corridor/selection/chain 3.2 · card-hover 2.9 ·
         // running 2.75 · base 2.25 — the chain's wires read at the
         // selection's commitment (the lens answers, hover asks).
@@ -405,6 +411,9 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                   const title = `${from.name} → ${to.name}`;
                   const sub = `${g.fromPortLabel} → ${g.toPortLabel}`;
                   const w = Math.max(title.length * 6.6, sub.length * 5.3) + 26;
+                  // t734 — the card grows a third line when the book knows
+                  // the wire's data kind; the caret rides the bottom edge.
+                  const caretY = edgeKind ? 23 : 12;
                   return (
                     /* t603 — the summoned voice: the tooltip is the answer's
                        NAME. It rides the outer g's scale(1/zoom) system, so
@@ -420,18 +429,19 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                         x={-w / 2}
                         y={-22}
                         width={w}
-                        height={34}
+                        height={edgeKind ? 45 : 34}
                         rx={8}
                         className="fill-popover stroke-border"
                         strokeWidth={1}
                       />
-                      {/* caret anchoring the card to the wire */}
+                      {/* caret anchoring the card to the wire — drops with
+                          the card's third line when the kind speaks */}
                       <path
-                        d="M -4.5 12 L 4.5 12 L 0 18.5 Z"
+                        d={`M -4.5 ${caretY} L 4.5 ${caretY} L 0 ${caretY + 6.5} Z`}
                         className="fill-popover"
                       />
                       <path
-                        d="M -4.5 12 L -4.5 12.4 M 4.5 12 L 4.5 12.4"
+                        d={`M -4.5 ${caretY} L -4.5 ${caretY + 0.4} M 4.5 ${caretY} L 4.5 ${caretY + 0.4}`}
                         className="stroke-border"
                         strokeWidth={1}
                         fill="none"
@@ -452,6 +462,20 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                       >
                         {sub}
                       </text>
+                      {/* t734 — the third line: the wire's data KIND, the
+                          word the wire's resting ink paints with. Only
+                          when the book knows the port (legacy edges keep
+                          the two-line voice). */}
+                      {edgeKind ? (
+                        <text
+                          y={14.5}
+                          textAnchor="middle"
+                          className="fill-muted-foreground"
+                          style={{ fontSize: 8.5, fontStyle: "italic" }}
+                        >
+                          {String(edgeKind)} data
+                        </text>
+                      ) : null}
                     </g>
                   );
                 })()}

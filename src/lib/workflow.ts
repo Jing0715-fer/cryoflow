@@ -269,19 +269,28 @@ export const JOB_CATEGORIES: JobCategory[] = [
 /* Port colors by data kind (no blue/indigo anywhere)                  */
 /* ------------------------------------------------------------------ */
 
-export const PORT_COLORS: Record<PortKind, { dot: string; label: string; text: string }> = {
-  movies: { dot: "bg-cyan-500", label: "text-cyan-700 dark:text-cyan-300", text: "Cyan" },
-  micrographs: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal" },
-  coords: { dot: "bg-amber-500", label: "text-amber-700 dark:text-amber-300", text: "Amber" },
-  particles: { dot: "bg-violet-500", label: "text-violet-700 dark:text-violet-300", text: "Violet" },
-  references2d: { dot: "bg-rose-500", label: "text-rose-700 dark:text-rose-300", text: "Rose" },
-  volume: { dot: "bg-orange-500", label: "text-orange-700 dark:text-orange-300", text: "Orange" },
-  halfmap: { dot: "bg-pink-500", label: "text-pink-700 dark:text-pink-300", text: "Pink" },
-  mask: { dot: "bg-emerald-500", label: "text-emerald-700 dark:text-emerald-300", text: "Emerald" },
-  model: { dot: "bg-fuchsia-500", label: "text-fuchsia-700 dark:text-fuchsia-300", text: "Fuchsia" },
-  star: { dot: "bg-slate-500", label: "text-slate-700 dark:text-slate-300", text: "Slate" },
-  tiltseries: { dot: "bg-cyan-500", label: "text-cyan-700 dark:text-cyan-300", text: "Cyan" },
-  tomograms: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal" },
+/**
+ * t734 — each kind's vocabulary now speaks a fourth form: `wire`, the
+ * SVG stroke color the canvas paints a data wire with (the from port's
+ * kind is the wire's identity). It must be a hex VALUE, not a tailwind
+ * class: the JIT content globs scan components/app but not src/lib, so
+ * a class literal living here never compiles into the bundle. Same
+ * row, same edit point — changing a kind's color means touching the
+ * one line that carries all its forms.
+ */
+export const PORT_COLORS: Record<PortKind, { dot: string; label: string; text: string; wire: string }> = {
+  movies: { dot: "bg-cyan-500", label: "text-cyan-700 dark:text-cyan-300", text: "Cyan", wire: "#06b6d4" },
+  micrographs: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal", wire: "#14b8a6" },
+  coords: { dot: "bg-amber-500", label: "text-amber-700 dark:text-amber-300", text: "Amber", wire: "#f59e0b" },
+  particles: { dot: "bg-violet-500", label: "text-violet-700 dark:text-violet-300", text: "Violet", wire: "#8b5cf6" },
+  references2d: { dot: "bg-rose-500", label: "text-rose-700 dark:text-rose-300", text: "Rose", wire: "#f43f5e" },
+  volume: { dot: "bg-orange-500", label: "text-orange-700 dark:text-orange-300", text: "Orange", wire: "#f97316" },
+  halfmap: { dot: "bg-pink-500", label: "text-pink-700 dark:text-pink-300", text: "Pink", wire: "#ec4899" },
+  mask: { dot: "bg-emerald-500", label: "text-emerald-700 dark:text-emerald-300", text: "Emerald", wire: "#10b981" },
+  model: { dot: "bg-fuchsia-500", label: "text-fuchsia-700 dark:text-fuchsia-300", text: "Fuchsia", wire: "#d946ef" },
+  star: { dot: "bg-slate-500", label: "text-slate-700 dark:text-slate-300", text: "Slate", wire: "#64748b" },
+  tiltseries: { dot: "bg-cyan-500", label: "text-cyan-700 dark:text-cyan-300", text: "Cyan", wire: "#06b6d4" },
+  tomograms: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal", wire: "#14b8a6" },
 };
 
 /** Port shorthands. */
