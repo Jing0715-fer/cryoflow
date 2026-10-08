@@ -105,12 +105,15 @@ function jobsVersionOf(projectId: string, body: string): string {
 }
 
 export async function GET(request: NextRequest) {
-  // t709 priced this GET's door and DEFERRED it, on blast-radius grounds:
-  // the roster is the QA lane's hottest route (~300 bare scripts fetch
-  // it), and the read's only drive-by cost is the idempotent reaper mount
-  // the app performs on every poll anyway. The door lands with the
-  // read-halves batch (jobs/edges/project/workspaces/custom-template), a
-  // build-day-prep round wide, fronted by a mass Origin-shim patcher.
+  // t710 — the read-half door lands. The t709 deferral's preparation is
+  // done: the mass Origin shim covered the lane's hot path (the census's
+  // active bare count hit zero across 482 touching files before this
+  // gate was written — scripts/t710-collection-touchers.py), so the
+  // roster's hottest readers speak the door's language. Doctrine in
+  // http-guard.ts.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site job roster reads are not allowed" }, { status: 403 });
+  }
   try {
     // t533 — defensive reaper mount: the route already owns the heavy graph,
     // so this is a free static mount (instrumentation's dynamic import is the

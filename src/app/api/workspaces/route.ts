@@ -11,10 +11,13 @@ export const dynamic = "force-dynamic";
  * live mini-badges. The first workspace (lowest order) is the project's
  * default: new jobs land there and deleted workspaces' jobs fall back to it.
  */
-export async function GET() {
-  // t709 priced this read-half's door and deferred it with the collection
-  // GETs (see jobs/route.ts) — the QA hot-path blast radius wants its own
-  // mass-shim round before the gate lands.
+export async function GET(request: Request) {
+  // t710 — the read-half door lands (the t709 deferral's mass Origin shim
+  // covered the lane first; census: scripts/t710-collection-touchers.py).
+  // Doctrine in http-guard.ts.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site workspace reads are not allowed" }, { status: 403 });
+  }
   try {
     const active = await ensureActiveProject();
     if (!active) {

@@ -91,9 +91,12 @@ function validatePortPairs(payload: CustomTemplatePayload): string | null {
  *                                      cryoflow-template/1 file.
  */
 export async function GET(request: NextRequest) {
-  // t709 priced this read-half's door and deferred it with the collection
-  // GETs (see jobs/route.ts) — the QA hot-path blast radius wants its own
-  // mass-shim round before the gate lands.
+  // t710 — the read-half door lands (the t709 deferral's mass Origin shim
+  // covered the lane first; census: scripts/t710-collection-touchers.py).
+  // Doctrine in http-guard.ts.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site template reads are not allowed" }, { status: 403 });
+  }
   try {
     const active = await ensureActiveProject();
     if (!active) {

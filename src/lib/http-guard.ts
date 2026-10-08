@@ -13,11 +13,14 @@
  * finds of its own door census: jobs/restore POST — a write handler whose
  * guard was imported at t477 but whose CALL was lost in the restore-core
  * extraction, falsifying t708's "every write handler" claim — and the
- * ai/settings GET, on no ledger at all. Remaining, priced with reasons in
- * the routes: the five collection read-halves (jobs, edges, project,
- * workspaces, custom-template GET) defer to a dedicated round — the QA
- * lane's hot-path blast radius (~300 bare scripts) wants a mass Origin
- * shim before their gates land.
+ * ai/settings GET, on no ledger at all. t710 landed the last five: the
+ * collection read-halves (jobs, edges, project, workspaces,
+ * custom-template GET) came behind the t709 contract's preparatory
+ * round — the mass Origin shim (289 .mjs + 6 .sh via
+ * scripts/t710-mass-origin-shim.py) covered the lane's hot path FIRST,
+ * with the touchers census (scripts/t710-collection-touchers.py)
+ * certifying the active bare count at zero before the gates were
+ * written. Every exported handler now speaks one door.
  *
  * CryoFlow is a LOCAL single-user companion app, so there is no login to
  * put in front of /api/fs/browse. The realistic threat is a malicious web
