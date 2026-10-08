@@ -686,11 +686,12 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             // .no-print (Task 80 follow-up): interactive slice toggles —
             // on paper they read as "Unassigned · 1" junk and collide with
             // the dashboard roster's own Unassigned badge text
-            <div className="no-print flex flex-wrap items-center gap-1" role="group" aria-label="Filter analytics by workspace">
+            <div className="no-print flex flex-wrap items-center gap-1" role="group" aria-label="Filter analytics by workspace" data-analytics-scope-group="">
             <button
               type="button"
               onClick={() => setWsFilter(null)}
               aria-pressed={wsFilter == null}
+              data-analytics-scope-chip="all"
               className={cn(
                 "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
                 wsFilter == null
@@ -709,6 +710,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 // into the "all" filter
                 onClick={() => setWsFilter(w.id)}
                 aria-pressed={wsFilter === w.id}
+                data-analytics-scope-chip={w.id || "unassigned"}
                 title={`Scope the analytics to the “${w.name}” workspace`}
                 className={cn(
                   "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
@@ -1088,7 +1090,11 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             idle honestly — "waited" when the pipeline (or its human) held
             the door, "overlapped" when a step launched before its driver
             finished. Bars show each step's slice of the chain's span, in
-            the timeline's own status colors (a failed step is real time). */}
+            the timeline's own status colors (a failed step is real time).
+            t687 — the block now wears its step numbers in ink (the roster's
+            rank chips across the dashboard read the same walk) and, when
+            the scope chips carve the world, confesses "within <scope>" —
+            a scoped chain is a chain within the scope, not "the" one. */}
         {critical && critical.chain.length > 0 && (
           <div
             className="mt-5 border-t pt-4"
@@ -1103,6 +1109,20 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               <span className="font-normal text-muted-foreground">
                 · {critical.chain.length} step{critical.chain.length === 1 ? "" : "s"} · {fmtDuration(critical.spanMs)} span
               </span>
+              {/* t687 — the block confesses its world: a workspace-scoped
+                  chain is the chain WITHIN the scope (the walk drinks the
+                  scoped rows), which can legitimately differ from the
+                  project-wide chain the roster's rank chips speak. Silence
+                  here would let a reader read "the" critical path when
+                  this block is speaking "a" one. */}
+              {wsFilter != null && (
+                <span
+                  className="font-normal text-muted-foreground"
+                  data-critical-scope=""
+                >
+                  {' '}· within {scopeLabel}
+                </span>
+              )}
               <span
                 className="ml-auto rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9.5px] font-semibold text-primary"
                 data-critical-finisher={critical.chain[critical.chain.length - 1].job.id}
@@ -1118,7 +1138,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                   <Fragment key={s.job.id}>
                     {i > 0 && s.gapBeforeMs != null && (
                       <p
-                        className="ml-9 flex items-center gap-1 py-[1px] pl-0.5 text-[9.5px] text-muted-foreground/70"
+                        className="ml-[60px] flex items-center gap-1 py-[1px] pl-0.5 text-[9.5px] text-muted-foreground/70"
                         data-critical-gap={i}
                         title={
                           s.gapBeforeMs > 0
@@ -1141,9 +1161,23 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                       className="group flex cursor-pointer items-center gap-2 rounded py-[3px] text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                       data-critical-row={s.job.id}
                       data-critical-index={i}
+                      data-critical-step-num={i + 1}
                       onClick={() => revealJob(s.job.id)}
                       title={`Reveal ${s.job.name} on the canvas — ${s.job.status}, ran ${fmtDuration(s.ms)}`}
                     >
+                      {/* t687 — the step's number in ink: the bar's title
+                          always said "step i+1 of N" but only on hover; the
+                          roster's rank chips made the order visible from
+                          across the dashboard, and this block — the chain's
+                          own report — should not be the one face where the
+                          sequence needs a tooltip. A report's row number is
+                          its native tongue (the roster's law, at home). */}
+                      <span
+                        className="w-4 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground/60"
+                        aria-hidden="true"
+                      >
+                        {i + 1}
+                      </span>
                       <span className="flex w-9 shrink-0 justify-end">
                         <span
                           className={cn(
