@@ -11926,3 +11926,26 @@ Stage Summary:
 - 方法论遗产：**读数可信度分级**——exit code / 布尔 > od -c（空格分隔打断 [m）> 数字 > 无 [m 的文本 > 含 [m 的文本（最不可信）。凡读数含方括号+紧邻字母，先疑回显。
 - 下窗警戒：**文本读数先布尔复核**（grep -c / python in / exit code）；worklog 与源文件的写入路径不经回显层，写安全、读需验。
 - 产出：scripts/t740-read-integrity-check.mjs（9/0）+ shots-qa/t740-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 三十项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738/t739 激活判决 + **t740 激活判决（读完整性哨兵：job-card deps 全名在场、损坏方言不存在、括号配对、通道金丝雀）** + 验证网 ②非 build 日：自由选题（**kind 词汇第八读者**——拖线预览借线墨（接线前先看见将牵什么水）/图例卡行点击即聚焦该线/mini-map 缩微线借线墨；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③**床轮换 5/5——下窗若正点即 qa 批窗仪式第七演**（t731/t736 先例：指针核查 → seeder 双层幂等 → switch 复位 → census 三台 → t25 批整批 9/9 → world-guard 三证词 → UI 驱动再生长随行） ④census 轮换：零新路由/零种子/零 bookmark；本窗零手术 → 全舰队 25 件 exit-code 绿已跑；t650-assert 绿；lib 零手术；t576 live-fire 仍 world-drift pin。
+
+---
+Task ID: 741
+Agent: main (cron agent loop, Job 362852, trace ...0625)
+Task: 状态判定 → 床 5/5 正点 → **qa 批窗仪式第七演**（t731/t736 先例）+ 三件红根因显影与测试基建加固 + t741 UI 驱动再生长 → 两车 commit + push
+
+Work Log:
+- 开局三件套：worklog 尾条核实 = **t740 收官**（qa 648cb6c2 / docs 10d75a08）；server 200；available 3044MB < 3280 → **非 build 日连续第四十一窗** → 入口③床轮换 **5/5 正点**（t731/t736 后第七次轮换正点）→ **本窗 = qa 批窗仪式第七演**。
+- [格式考] 提取仪式脚本名时 grep「Task ID: 736」零命中——布尔复核揭示**段落头格式漂移**：既有格式是「## Task NNN — 日期派单窗（…）· 标题」（t731-t738 全用此式），t739/t740 误用「Task ID: NNN」新式。「段不存在」是假阴性——**worklog 单一真相源完好，无一段丢失**；本窗起回归「## Task NNN」正典格式。
+- [仪式·开局状态判定] 指针核查 = 停在老世界（/api/project 包裹形 {project}，active = cmuwipe6350000demoproject 未漂；roster {jobs, version} 17/17 满员，世界本未病）；seeder 双层幂等跑：qa-t635（L0 骨架 17 jobs / 18 edges / 1 workspace）+ qa-t531（SEED OK，bookmark session 重置回 3 saved）——「生长是可再生实验」第八演；switch 复位 = **空操作**（active 未漂，seeder 幂等不触指针——「没用上所以不做」）。
+- [仪式·census 三台] t699 **17/17**（incomplete 0，orphan 22 惰性化石）；t702 首跑 **111/31 = 施法相**（31 enrichments 自动施）→ 二跑 **156/0 = 证法相**（层序律活体第八次）；t704 **65/0 = seed 基线**（t719 预言第七次兑现）。
+- [仪式·整批 9/9——**三红显影 → 基建加固 → 修后全绿**（本窗主事件）] t251/t252/t256/t257/t258/t259 六件首跑即绿；**t253-e2e / t254-subvolume-export / t255-send-to-job 三件齐红**——死法同根：keyboard.press 处「Target page, context or browser has been closed」，两跑同位复现（18/31/32 ok 后僵死）非 flaky。DEBUG=pw:browser 时间线钉死：22:52:17 后浏览器**静默 134 秒**（非崩溃，renderer 僵死）直至 playwright kill；GPU 日志「GPU stall due to ReadPixels」×8——**SwiftShader 软渲染（本箱无 GPU）在 Mol* clip 重切时性能悬崖**：三件均为键盘密集探针（t253 一次走 96 步 press 驱动 slider），每步重切全量重渲染，渲染债务淹没 keypress ack。变量排查：bundle 冻结（10-08 01:58）早于 t737-t740 全部手术、探针代码 git 未动、seed 世界同基线——**不是代码回归，是环境负载时机**（t736 全绿是悬崖的幸运侧）。修复 = **测试基建加固**：三件 deviceScaleFactor 2→1（1720×940×4 = 6.5MP/帧 → 1.6MP/帧，像素税五倍减；断言全走 role/aria/text 零像素依赖，语义不变——t256-t258 键盘稀疏故同 DPR 2 无恙，反证交互密度是变量）。修后三件 **ALL PASS**——t25 批 9/9 全绿。
+- [world-guard 三证词] roster restored **17/17**；t251-guard-sweep changed = **空**（skipped 13 项惰性输出照旧）；build-guard **SKIP**（standalone 在盘 = 冻结 bundle 完好）。
+- [t741 UI 驱动再生长第七演] seeder 重置后世界回 3 saved——真实用户路径零歧途重演：e105 refine3d 卡（**与 t731/t736 同 ref**——ref 空间世界恒等律）→ inspector Results 标签（天然 selected，**连续第四窗零激活 retry**）→ half-map 门 e241（Enlarge run_it020_half1）→ dialog 内 View in 3D (Mol*) → viewer ready（Isosurface σ 滑杆在座）→ Camera view bookmarks **「3 saved」基线** → fill 注入「t741 UI-driven regrowth」→ Save → **面板即时 4 saved**（中途 Escape 关门后重演门路径再证 4 saved 持久）。
+- [生长确认三重] ①camera-bookmarks 门 4 entries（['Centered iso view','Top-down slice','Front half clipped','t741 UI-driven regrowth']——四名单仅第四名之差，各自自证名第七演）；②dashboard 墙 t741 卡在场（button「t741 UI-driven regrowth 2.00 σ 3D auto-refine · β-Gal…」+ rename 门在座；radix dialog 逐层 Escape 关门后 dialogs = 0）；③t704 重跑 **65→76 全绿**（+11 断言扩编第七次复演）。
+- [agent-browser 卫生] errors 0 行、console 0 行；截图 ×3 入档（t741-wall-7th-entry / t741-patrol / 复用快照 JSON），用毕即关。
+- 两车 commit：qa（t253/t254/t255 DPR 加固 + 截图）→ docs（worklog 本段）→ push。
+
+Stage Summary:
+- 「渲染债务的悬崖」：t25 批史上第一次三件齐红，根因不在代码在**像素税**——SwiftShader 每步全量重渲染 6.5MP，96 步 press 的债务把 ack 队列淹死。判词：**测试的绿不只是「代码对」，还是「环境此刻扛得住」——把运气换成余量（DPR 1），悬崖就变台阶**；断言读 role/aria/text 的测试天然配得上省下的五倍像素。
+- 「假阴性的形状」：「Task ID: 736 零命中」为真，「段不存在」为假——grep 只对字面负责，**格式漂移会把在场证成缺席**；布尔复核的正确用法是先问「搜的词形对吗」，再问「在不在」。
+- 「仪式的第七演」：指针未漂、seeder 幂等、census 三台、t25 批修后全绿、world-guard 三证词、UI 再生长三重确认——**仪式的价值此刻显影：世界被 seeder 重置回基线后，t25 批的三红被证明是环境时机而非世界病变——仪式证明的不是这次没病，是手术窗后的世界默认没病**（t736 判词的第七演重申）；本窗例外地补了半句：**仪式还证明仪器自己的余量够不够**。
+- 产出：scripts/t253-e2e.mjs / t254-subvolume-export.mjs / t255-send-to-job.mjs（DPR 2→1 + t741 判词注释）+ shots-qa/t741-wall-7th-entry.png / t741-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅一项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738/t739 激活判决 + t740 激活判决 + **t741 激活判决（读完整性哨兵 + t25 批 DPR 余量活体：三件键盘密集探针在 SwiftShader 下不再僵死）** + 验证网 ②非 build 日：自由选题（**kind 词汇第八读者**——拖线预览借线墨/图例卡行点击即聚焦该线/mini-map 缩微线借线墨；或新领土侦察） ③床轮换 **1/5**（仪式重置后带内第一窗，不动） ④census 轮换：零新路由/零种子/零 bookmark 新增（t741 生长经 UI 驱动已入基线 76）；t25 批修后全绿 + census 三台全跑（本窗仪式）；t650-assert 绿；lib 零手术；t576 live-fire 仍 world-drift pin。
