@@ -47,6 +47,7 @@ const EXEMPT_ROW_PATTERNS = [
   { f: "src/components/workflow/job-card.tsx", re: /find lens hit/, note: "find-lens hit ring" },
   { f: "src/components/workflow/find-mark.tsx", re: /FIND_MARK_CLASS = |rounded-\[2px\] bg-amber-400\/35/, note: "find-lens character wash (t655; t725: moved out of job-card when the palette's dialect rows became the wash's second face) — same search identity as the ring" },
   { f: "src/components/workflow/param-dialect-badge.tsx", re: /bg-amber-400\/35/, note: "dialect chip amber (t722; t725 exemption judgment: the badge-is-the-why hue is identity, not field) — same search identity as the wash" },
+  { f: "src/components/workflow/job-inspector.tsx", re: /whyHit && "rounded-md bg-amber-500\/5/, note: "param-why hit row whisper (t728) — same search identity as the wash/ring" },
   { f: "src/components/workflow/header.tsx", re: /=== "rose" \? "bg-rose-500"/, note: "elsewhere group dot ternary" },
   { f: "src/components/workflow/engine-guidance.tsx", re: /border-teal-500 bg-teal-500/, note: "engine checked face" },
 ];
