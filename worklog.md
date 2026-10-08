@@ -11949,3 +11949,22 @@ Stage Summary:
 - 「假阴性的形状」：「Task ID: 736 零命中」为真，「段不存在」为假——grep 只对字面负责，**格式漂移会把在场证成缺席**；布尔复核的正确用法是先问「搜的词形对吗」，再问「在不在」。
 - 「仪式的第七演」：指针未漂、seeder 幂等、census 三台、t25 批修后全绿、world-guard 三证词、UI 再生长三重确认——**仪式的价值此刻显影：世界被 seeder 重置回基线后，t25 批的三红被证明是环境时机而非世界病变——仪式证明的不是这次没病，是手术窗后的世界默认没病**（t736 判词的第七演重申）；本窗例外地补了半句：**仪式还证明仪器自己的余量够不够**。
 - 产出：scripts/t253-e2e.mjs / t254-subvolume-export.mjs / t255-send-to-job.mjs（DPR 2→1 + t741 判词注释）+ shots-qa/t741-wall-7th-entry.png / t741-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅一项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738/t739 激活判决 + t740 激活判决 + **t741 激活判决（读完整性哨兵 + t25 批 DPR 余量活体：三件键盘密集探针在 SwiftShader 下不再僵死）** + 验证网 ②非 build 日：自由选题（**kind 词汇第八读者**——拖线预览借线墨/图例卡行点击即聚焦该线/mini-map 缩微线借线墨；或新领土侦察） ③床轮换 **1/5**（仪式重置后带内第一窗，不动） ④census 轮换：零新路由/零种子/零 bookmark 新增（t741 生长经 UI 驱动已入基线 76）；t25 批修后全绿 + census 三台全跑（本窗仪式）；t650-assert 绿；lib 零手术；t576 live-fire 仍 world-drift pin。
+
+## Task 742 — 2026-10-09 07:10 派单窗（非 build 日 · 连续第四十二窗）· kind 词汇的第八读者：拖线预览借线墨——墨色先于线的存在
+
+Task: 07:10 cron 派单执行——开局三件套判稳（worklog 尾条核实 = **t741 收官**；布尔复核再显「假阴性」一课：搜「## Task 741」零命中引发段丢失疑云，落盘 diff 后真相 = t741 段头实为「Task ID: 741」旧式——**上窗说要回归正典格式却没执行**，段从未丢失；server 200；available 3045MB < 3280 → 非 build 日连续第四十二窗）→ 入口③床轮换 **1/5**（仪式重置后带内第一窗，不动）→ 入口②自由选题 = t741 遗言第一候选立案：**Task 742 = 拖线预览借线墨（kind 词汇第八读者）**。
+
+Work Log:
+- [开局·假阴性再演] grep「## Task 741」False → git show 1f71f96f 的 diff 落盘 python 解析：23 行插入全在，diff 首行「Task ID: 741」——**搜索词形错，非段丢失**；教训从「格式漂移会假阴性」升级为「**宣布的格式回归要落地执行，否则下窗自己就被自己骗**」。
+- [agent-browser 巡检] errors / console 零行，截图 t742-patrol.png 入档，用毕即关。
+- [手术·LiveWire 借墨] src/components/workflow/canvas.tsx 的 LiveWire memo（拖线预览线）：pendingFrom.port 已知 job.type → `outputKindOf(job.type, pendingFrom.port)` 推 kind → `const ink = liveKind ? PORT_COLORS[liveKind].wire : undefined`；**一线两圆三处借墨**：path stroke、出生锚点 fill（0.9）、光标端点 fill（0.55）——预览线出生那一刻就穿着它将有的墨色。无词素颜：`ink ?? "var(--primary)"` 显式 fallback ×3。
+- [语义甄别·in 起点的诚实] 探针 B 段首跑红「16 unnamed」——甄别后**不是病是语义**：outputKindOf 是「from 口流出什么」的词；**out 起点的拖线已知自己是什�（上墨），in 起点的拖线还在等对面的 output 来接（from 未知——素颜是等待的诚实，不是缺色）**。分开数验证：24 output 口全命名（out 起点零 ghost）、25 input 口诚实等待。t738「无词者保持素颜」的第三面：chip 素颜（legacy 边）、roster 不收留（图例）、**in 起点等待命名（预览线）**。
+- [探针 t742-live-wire-ink-unit.mjs 15/0] A 单源×5（outputKindOf 推导、PORT_COLORS[liveKind].wire 线墨、单 ink 变量喂三笔、素颜 fallback ×3）+ B live-fire×2（92 pairs 零 ghost kind；真实世界 24 out 口全命名 + 25 in 口诚实素颜）+ C 脸×5（stroke 骑 ink、双圆骑 ink、edge-flow 保留——**生长中的线可以流动，不许跳舞的只有图例**、svg aria-hidden——预览是耳语，屏读有真口、t742 判词在场）+ D 纯度×3（零 hue 类、零 storage、census 覆盖）。首跑一红 = specOf 不存在（真名 jobType——canvas 自己就用它）→ 修正后全绿。
+- [验证网] tsc 0 + eslint 0（canvas）+ **28 件探针全绿 / 0 红**（t650-assert + t742 + t734/t735/t737/t738/t739/t740 词汇家族 + t653×2/t655/t713-t718/t720-t722/t724/t725/t727-t730/t732/t733 全舰队，exit-code 通道）；agent-browser 复巡 errors/console 零行（LiveWire 墨色随下个 build 上 bundle，staged 预期）。
+- 三车 commit：feat（canvas LiveWire 借墨）→ qa（t742 探针）→ docs（worklog 本段，**## Task NNN 正典头真执行**）→ push。
+
+Stage Summary:
+- 「墨色先于线的存在」：t734 让已接的线有墨，t742 让**还没接的线**就有墨——用户拖线的那一刻就知道自己在牵什么水，颜色回答发生在声明的那一刻，而不是提交之后。判词：**预览是最早的教学现场——承诺未落，词已到场**。
+- 「等待的诚实」：in 起点的预览线素颜——from 侧未知，词无从谈起。t738 素颜律三面合一：chip 素颜（无词的 legacy 边）、roster 不收留（图例的画布口径）、in 起点等待命名（预览线）。判词：**素颜不是缺色，是「还不知道」的诚实显影——假装有词才是撒谎**。
+- 「线可以流动」：edge-flow 保留在预览线上——t737 判词「图例不跳舞」的边界此刻清晰：**目录与索引页是静物，水是活物；不许流动的是书页，不是河**。
+- 产出：src/components/workflow/canvas.tsx（LiveWire 借墨三笔 + t742 判词注释）+ scripts/t742-live-wire-ink-unit.mjs（15/0）+ shots-qa/t742-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅二项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738/t739/t740 激活判决 + **t742 激活判决（LiveWire 墨色活体：out 起点拖线即穿 kind 线墨、in 起点素颜等待、edge-flow 在场）** + 验证网 ②非 build 日：自由选题（**kind 第九读者的侦察**——mini-map 缩微线借线墨/图例卡行点击即聚焦该线/边创建 toast 报词；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **2/5**（带内不动） ④census 轮换：零新路由/零种子/零 bookmark；本窗组件手术（canvas LiveWire）→ 28 件探针 exit-code 全绿本窗已跑（含词汇家族）；t650-assert 绿；lib 零手术；t576 live-fire 仍 world-drift pin。
