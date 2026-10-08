@@ -49,6 +49,8 @@ const EXEMPT_ROW_PATTERNS = [
   { f: "src/components/workflow/find-mark.tsx", re: /FIND_MARK_CLASS = |rounded-\[2px\] bg-amber-400\/35/, note: "find-lens character wash (t655; t725: moved to find-mark.tsx when the palette joined the wash — t720's law, third execution) — the hit ring's own amber, same search identity" },
   { f: "src/components/workflow/param-dialect-badge.tsx", re: /bg-amber-400\/35/, note: "dialect chip amber (t722; t725 exemption judgment: the badge-is-the-why hue is identity, not field) — same search identity as the wash" },
   { f: "src/components/workflow/job-inspector.tsx", re: /whyHit && "rounded-md bg-amber-500\/5/, note: "param-why hit row whisper (t728) — the find lens's amber at whisper volume, the value row the t722 dialect's why points at; same search identity as the wash/ring" },
+  { f: "src/components/workflow/type-card-dialog.tsx", re: /bg-emerald-500\/10 text-emerald-600/, note: "tier core badge (t730) — the type-tier identity the palette's own tier badge wears (t647 file-exempt family): emerald speaks the CORE tier, not a job state" },
+  { f: "src/components/workflow/type-card-dialog.tsx", re: /bg-amber-500\/10 text-amber-600/, note: "tier external badge (t730) — same tier identity family: amber speaks EXTERNAL (needs a binary), not a find-lens or running hue" },
   { f: "src/components/workflow/header.tsx", re: /=== "rose" \? "bg-rose-500"/, note: "elsewhere group dot hue ternary — group identity (t649 row-exempt precedent)" },
   { f: "src/components/workflow/engine-guidance.tsx", re: /border-teal-500 bg-teal-500/, note: "engine selector checked face — selection identity (t647 class-gallery verdict family)" },
 ];
