@@ -23,6 +23,8 @@
 // Run: node scripts/qa67-e2e.mjs   (server on :3000; self-seeds since Task 161)
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const AB = "agent-browser";
 const B = "http://localhost:3000";
 const CARD = "QA Class2D Source";

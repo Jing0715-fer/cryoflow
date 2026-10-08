@@ -2,6 +2,8 @@
  * landscape with the half-map's color-matched line beneath it. */
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const OUT = "scripts/shots-t193";

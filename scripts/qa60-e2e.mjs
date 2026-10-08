@@ -23,6 +23,8 @@ import { appendFileSync } from "node:fs";
 // blank-page ""), one close→open→sentinel recovery ladder, then a tagged
 // error on double death. See scripts/lib/browser-transport.mjs.
 import { makeTransport } from "./lib/browser-transport.mjs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const AB = "agent-browser";
 const LOGF = "/home/z/my-project/.qa-logs/qa60-trace.log";

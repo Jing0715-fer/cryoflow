@@ -19,6 +19,8 @@
  */
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const ROOT = "/home/z/my-project";

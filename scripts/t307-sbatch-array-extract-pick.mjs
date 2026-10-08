@@ -60,6 +60,8 @@ import path from "node:path";
 import net from "node:net";
 import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const ROOT = "/home/z/my-project";
 const BASE = "http://localhost:3000";

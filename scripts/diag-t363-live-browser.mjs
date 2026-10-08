@@ -23,6 +23,8 @@
  */
 import { chromium } from "playwright";
 import { existsSync, readFileSync, rmSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = process.env.CF_BASE ?? "http://localhost:3005";
 const STATE_FILE = "/tmp/t363-state.json";

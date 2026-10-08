@@ -33,6 +33,8 @@
 //   E  the console contract — five buckets. 📸×2.
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const TRAIN_ID = "cmututold000topaztrain";

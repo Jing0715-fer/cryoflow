@@ -10,6 +10,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 // The repo root, resolved from THIS script (scripts/) — the old absolute
 // path pointed at a layout that no longer exists. CF_ROOT/CF_BASE env

@@ -1,6 +1,8 @@
 /* t188 shots 2 — zoomed crops: export header + receipt note (readable). */
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const OUT = "scripts/shots-t188";

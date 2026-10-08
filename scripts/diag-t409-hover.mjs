@@ -1,5 +1,7 @@
 // diag-t409-hover.mjs — does the hover preview open, and does the cluster line speak?
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const browser = await chromium.launch();

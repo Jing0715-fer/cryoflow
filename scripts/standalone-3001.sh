@@ -13,7 +13,7 @@
 # gets SIGTERMed at call end — observed twice on t391).
 set -u
 cd /home/z/cryoflow
-if curl -sf -o /dev/null --max-time 3 http://localhost:3001/api/jobs; then
+if curl -H "Origin: http://localhost:3001" -sf -o /dev/null --max-time 3 http://localhost:3001/api/jobs; then
   echo "already running"
   exit 0
 fi

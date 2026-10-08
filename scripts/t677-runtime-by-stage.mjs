@@ -27,6 +27,8 @@
 //   F  world intact + noise buckets
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const REPO = "/home/z/my-project";
 const BASE = "http://localhost:3000";

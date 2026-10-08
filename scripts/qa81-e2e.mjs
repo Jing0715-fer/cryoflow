@@ -13,6 +13,8 @@
 // Run: node scripts/qa81-e2e.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const SEL_JOB = "QA Class Select";

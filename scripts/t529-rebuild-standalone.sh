@@ -149,7 +149,7 @@ resume_grinder
 echo "[build-day] waiting for :3000…"
 ok=""
 for i in $(seq 1 30); do
-  if curl -sf -o /dev/null --max-time 3 http://localhost:3000/api/jobs; then ok=1; break; fi
+  if curl -H "Origin: http://localhost:3000" -sf -o /dev/null --max-time 3 http://localhost:3000/api/jobs; then ok=1; break; fi
   sleep 2
 done
 if [ -z "$ok" ]; then

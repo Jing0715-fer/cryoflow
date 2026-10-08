@@ -22,6 +22,8 @@
  */
 import { chromium } from "playwright";
 import { readFileSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa/";

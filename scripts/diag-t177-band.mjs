@@ -1,6 +1,8 @@
 /* diag for t177 D11/D12: dissect the desktop band select step by step.
    Reuses the probe's own place/band logic with verbose logging. */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

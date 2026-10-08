@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /** diag280f.mjs — why does the inspector show no [role=tab] at 280? */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();

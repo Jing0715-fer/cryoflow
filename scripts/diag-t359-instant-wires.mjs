@@ -26,6 +26,8 @@
  *   bash scripts/dev-server-3001.sh && bun scripts/diag-t359-instant-wires.mjs
  */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3001";
 const SHOTS = "/home/z/cryoflow/shots-qa/";

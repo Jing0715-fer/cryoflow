@@ -44,6 +44,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const run = promisify(execFile);
 
 const BASE = "http://localhost:3000";

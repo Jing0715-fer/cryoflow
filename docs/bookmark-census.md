@@ -367,3 +367,23 @@ Staged-world snapshot (honest): all eleven routes answer 200 bare and
 Origin alike; jobs/restore answers 405 to GET (method-speak). On
 activation day the bare column flips to 403 across all eleven — the
 pre-written verdict, no judgment calls.
+
+## t710 附记 — the read-halves close, the world resets, the census follows
+
+The t709 deferral contract executed in full: the mass Origin shim
+(289 .mjs + 6 .sh, installed by scripts/t710-mass-origin-shim.py after
+the touchers census certified the active bare count at zero) landed
+first, then the five collection GET doors (staged), and the census's
+EXPECTED_DOORLESS list is now an empty set — t709-door-coverage.py
+reports 112/112 handlers doored, 0 deferred.
+
+World event: this window's qa-family rotation re-proved the t705
+layering law — qa57's closing cleanup wiped the wall's refine3d session
+(putBm([]) is per-session; the t706 cross-job row on the MaskCreate job
+SURVIVED it, as did the D0 overlay row). The ritual ran as documented:
+seeder re-run (CHECK PASS, 3 canonical views back) → t701 L1 narrative
+patch → censuses re-run. t704 now audits 4 entries / 2 rows at 65/0 —
+the 76→65 delta is the t707 UI-driven save row the wipe took; the
+census's expectations export from the world (t706 law), so 65/0 is as
+green as 76/0 was. The UI-driven growth rows are re-growable on a quiet
+window; the D0 overlay layer never lost its armed state.

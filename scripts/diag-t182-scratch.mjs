@@ -1,3 +1,6 @@
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
+
 const BASE = "http://localhost:3000";
 const j = async (url, opts) => {
   const r = await fetch(BASE + url, opts);

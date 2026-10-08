@@ -3,7 +3,7 @@
 # setsid + immediate exit → the server re-parents to init and survives
 # tool-call recycling. The full runtime env rides along.
 cd /home/z/cryoflow || exit 1
-if curl -sf -o /dev/null --max-time 3 http://localhost:3005/api/jobs; then
+if curl -H "Origin: http://localhost:3005" -sf -o /dev/null --max-time 3 http://localhost:3005/api/jobs; then
   echo "already running"
   exit 0
 fi

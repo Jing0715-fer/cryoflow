@@ -5,6 +5,8 @@
 // before/after the drag (glide/animation suspicion), and runs the drag TWICE:
 // once immediately after the minimap navigation, once after a 2.5s settle.
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

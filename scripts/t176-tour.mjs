@@ -3,6 +3,8 @@
  *  console sweep still rides Playwright: 280px fold tour, console hygiene,
  *  and the three beauty shots (palette clamp, resurrected X, bar fit). */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();

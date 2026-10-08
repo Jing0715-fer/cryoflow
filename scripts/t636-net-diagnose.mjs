@@ -5,6 +5,8 @@
 // Run: node scripts/t636-net-diagnose.mjs
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const B = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

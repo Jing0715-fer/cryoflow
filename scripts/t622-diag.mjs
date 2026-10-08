@@ -10,6 +10,8 @@
  * Run: node scripts/t622-diag.mjs   (server on :3000)
  */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

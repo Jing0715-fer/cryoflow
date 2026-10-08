@@ -25,6 +25,8 @@
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const LOGF = "/home/z/my-project/.qa-logs/qa58-trace.log";
 const step = (m) => {

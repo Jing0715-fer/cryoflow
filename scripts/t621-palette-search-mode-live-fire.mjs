@@ -51,6 +51,8 @@
 
 import { execSync, spawn } from "node:child_process";
 import { rmSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 /* CDP dedicated port 9338 (9323 = t578, 9324 = t584/t604, 9325 = t605,

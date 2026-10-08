@@ -46,6 +46,8 @@ import { execSync } from "node:child_process";
 import path from "node:path";
 import { parseStar, biggestLoop, extractFsc, fscResolutionAtThreshold } from "../src/lib/starfile.ts";
 import { readMrcHeader } from "../src/lib/mrc.ts";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const ROOT = "/home/z/my-project";

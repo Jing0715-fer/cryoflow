@@ -10,7 +10,7 @@ done
 curl -s -o /dev/null -w "boot=%{http_code}\n" --max-time 3 http://localhost:3000/
 python3 scripts/qa60-seed-fsc.py --clean 2>&1 | tail -4
 echo "--- verification ---"
-curl -s --max-time 5 "http://localhost:3000/api/jobs" | python3 -c "
+curl -H "Origin: http://localhost:3000" -s --max-time 5 "http://localhost:3000/api/jobs" | python3 -c "
 import json, sys
 body = json.load(sys.stdin)
 jobs = body.get('jobs', body)

@@ -40,6 +40,8 @@
 import { readFileSync, existsSync, rmSync } from "fs";
 import path from "path";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 // t259 — the profiles route now sits behind the metadata door; node fetch

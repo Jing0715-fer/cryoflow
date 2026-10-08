@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /** diag280j.mjs — sample dialog presence at high frequency after touch tap. */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();

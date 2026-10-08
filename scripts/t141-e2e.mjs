@@ -51,6 +51,8 @@
 import { chromium } from "playwright";
 import { execSync } from "child_process";
 import { mkdirSync, readFileSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const OUT = "/home/z/my-project/.next/t141-shot";

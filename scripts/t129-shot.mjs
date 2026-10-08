@@ -1,6 +1,8 @@
 // t129-shot — visual verification of the post-apply suggestion chip.
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const OUT = "/home/z/my-project/.next/t129-shot";

@@ -38,6 +38,8 @@
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 // t259 — projects routes sit behind the metadata door; node fetch carries

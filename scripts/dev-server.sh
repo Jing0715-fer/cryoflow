@@ -43,7 +43,7 @@ ensure_watchdog() {
 }
 
 # already up? then do nothing — but the guard still reports for duty
-if curl -sf -o /dev/null --max-time 3 http://localhost:3000/api/jobs; then
+if curl -H "Origin: http://localhost:3000" -sf -o /dev/null --max-time 3 http://localhost:3000/api/jobs; then
   ensure_watchdog
   echo "already running (watchdog ensured)"
   exit 0

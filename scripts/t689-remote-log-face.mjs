@@ -26,6 +26,8 @@ import { execSync } from "node:child_process";
 import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";

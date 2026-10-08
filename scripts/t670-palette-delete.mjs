@@ -26,6 +26,8 @@
 //   F  the world intact (three seeded views untouched) + noise buckets. 📸×2.
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const REFINE3D_ID = "cmuwipe635000refine3d";

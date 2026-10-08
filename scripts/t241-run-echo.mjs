@@ -21,6 +21,8 @@
  */
 import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const TMP = "scripts/shots-t223/t241-run-echo-tmp.html";

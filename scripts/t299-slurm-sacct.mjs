@@ -43,6 +43,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, statSync } 
 import path from "node:path";
 import net from "node:net";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const ROOT = "/home/z/my-project";

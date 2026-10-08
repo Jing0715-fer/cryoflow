@@ -4,6 +4,8 @@
  * proof the fix never touched light mode, (3) the dark canvas at 2x. */
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const OUT = "scripts/shots-t192";

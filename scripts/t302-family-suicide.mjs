@@ -52,6 +52,8 @@
  */
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const ROOT = "/home/z/my-project";
 const FAMILY_RUN = `${ROOT}/scripts/family-run.mjs`;

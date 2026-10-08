@@ -7,6 +7,8 @@
  */
 
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const HEAVY_DIR = "/home/z/my-project/data/relion/t618-mics-heavy";

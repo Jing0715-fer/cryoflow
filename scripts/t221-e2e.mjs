@@ -45,6 +45,8 @@ section("S: the divergent overwrite, re-asserted");
 // owns its own world: the divergent overwrite is idempotent and LAST
 // (nothing may re-seed that file afterwards, the t215 ordering doctrine)
 import { execSync } from "node:child_process";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const outlierReceipt = execSync("python3 scripts/seed-outlier.py", { encoding: "utf8", cwd: process.cwd() });
 must(outlierReceipt.includes("DIVERGENT"), "S1 the divergent seeder ran and said so (the probe owns its world)");
 

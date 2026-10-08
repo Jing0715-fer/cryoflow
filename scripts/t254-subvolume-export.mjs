@@ -179,6 +179,8 @@ must(
 // vs the MRC gate's 400 must stay distinct (the seeder's workdir carries
 // only the map, so the test plants its own dummy — idempotent)
 import { readdirSync, writeFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const dummyTxt = path.join(workdir, "qa-notes.txt");
 if (!existsSync(dummyTxt)) writeFileSync(dummyTxt, "t254's MRC-gate probe file\n");
 const workdirFiles = readdirSync(workdir);

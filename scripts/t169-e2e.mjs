@@ -42,6 +42,8 @@ import { promisify } from "node:util";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseHygieneTables, isPrefixFamily } from "./lib/hygiene-tables.mjs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const run = promisify(execFile);
 
 const BASE = "http://localhost:3000";

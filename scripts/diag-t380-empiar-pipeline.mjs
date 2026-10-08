@@ -46,6 +46,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, openSync, readFileSync, readSync, closeSync, statSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 // t526 — the default root follows THIS script's repo (scripts/.. /, the
 // dev-server.sh law): the old hard default /home/z/cryoflow died with the

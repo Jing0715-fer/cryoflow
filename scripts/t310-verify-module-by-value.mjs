@@ -36,6 +36,8 @@ import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from "
 import { createHash } from "node:crypto";
 import { Socket } from "node:net";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";

@@ -14,6 +14,8 @@
 import { spawn, execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, copyFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const ROOT = "/home/z/my-project";
 const MOCK_PROJECTS = `${ROOT}/services/mock-cluster/fs/projects/cryoflow`;

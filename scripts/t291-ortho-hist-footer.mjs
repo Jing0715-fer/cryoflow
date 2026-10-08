@@ -35,6 +35,8 @@ import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";

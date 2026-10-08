@@ -40,6 +40,8 @@
 import { chromium } from "playwright";
 import { execSync, spawn } from "child_process";
 import { readFileSync, writeFileSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const OUT = "/home/z/my-project/.next/t152-shot";

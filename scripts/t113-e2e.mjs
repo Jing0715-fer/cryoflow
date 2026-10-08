@@ -21,6 +21,8 @@
 import { execSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const AB = "agent-browser";
 const B = "http://localhost:3000";

@@ -32,6 +32,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const ROOT = "/home/z/my-project";

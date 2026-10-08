@@ -10,6 +10,8 @@
 // OOM-restart windows in between: server healthy → dance → dead? → wait
 // → again. It asserts nothing about the app; it exists so the e2e can.
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const REFINE3D_ID = "cmuwipe635000refine3d";

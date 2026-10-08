@@ -19,6 +19,8 @@
 //   F  the console contract — five buckets. 📸×2.
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 let PASS = 0, FAIL = 0;

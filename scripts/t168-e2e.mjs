@@ -43,6 +43,8 @@ import { readFileSync, readdirSync } from "fs";
 import { execSync } from "child_process";
 import { join } from "path";
 import { parseHygieneTables } from "./lib/hygiene-tables.mjs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const ROOT = "/home/z/my-project";
 const SCRIPTS = `${ROOT}/scripts`;

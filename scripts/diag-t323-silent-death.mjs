@@ -46,6 +46,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const ROOT = "/home/z/cryoflow";
 const BASE = "http://localhost:3001";

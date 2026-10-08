@@ -22,13 +22,11 @@ METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 # radius wants a mass Origin-shim batch before these gates land). This
 # census is the ledger's guard: anything doorless OUTSIDE this list fails
 # the sweep; when the deferral round lands, shrink this list to zero.
-EXPECTED_DOORLESS = {
-    ("jobs/route.ts", "GET"),
-    ("edges/route.ts", "GET"),
-    ("project/route.ts", "GET"),
-    ("workspaces/route.ts", "GET"),
-    ("custom-template/route.ts", "GET"),
-}
+# t710 — the five collection read-halves landed their doors behind the
+# mass Origin shim (the t709 deferral contract executed), so the exemption
+# list is EMPTY: every exported handler on every route must speak the door.
+# Anything doorless fails this census outright.
+EXPECTED_DOORLESS = set()
 
 fail = 0
 total_handlers = 0

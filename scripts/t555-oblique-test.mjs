@@ -17,6 +17,8 @@
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const OUT_DIR = path.join(process.cwd(), ".qa-logs");
 mkdirSync(OUT_DIR, { recursive: true });

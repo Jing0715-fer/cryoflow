@@ -24,6 +24,8 @@
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 
 const BASE = process.env.BASE ?? "http://localhost:3000";

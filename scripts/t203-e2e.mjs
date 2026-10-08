@@ -23,6 +23,8 @@ import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 import { readFileSync } from "fs";
 import { execSync } from "node:child_process";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const RUN = Number(process.env.RUN ?? "1");

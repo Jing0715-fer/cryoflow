@@ -15,6 +15,8 @@ import { chromium } from "playwright";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 // t377's poison law, t641 edition — a bare PrismaClient picks up the
 // sandbox's TEMPLATE DATABASE_URL (.env → db/custom.db, a User/Post-only
 // 3-row artifact). The suite must write THIS repo's live world, so the

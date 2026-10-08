@@ -37,6 +37,8 @@
 //   F  the console contract — four buckets, real JS errors 0. 📸×2.
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const DEN = "cmututold000topazdenoise";

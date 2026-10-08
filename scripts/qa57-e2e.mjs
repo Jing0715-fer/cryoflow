@@ -15,6 +15,8 @@
 import { execSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { resolveRefineHost } from "./qa-refine-host.mjs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const AB = "agent-browser";
 const LOGF = new URL("../.qa-logs/qa57-trace.log", import.meta.url).pathname;

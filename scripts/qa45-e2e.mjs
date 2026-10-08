@@ -13,6 +13,8 @@
 //        Chrome + Turbopack compile spike together OOM-kill the dev server)
 import { execSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const PHASES = (process.env.QA_PHASES || "A,B,C,D").split(",");
 

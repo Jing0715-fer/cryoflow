@@ -9,6 +9,8 @@ import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

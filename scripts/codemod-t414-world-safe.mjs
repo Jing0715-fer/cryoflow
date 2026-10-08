@@ -12,6 +12,8 @@
 //
 // node scripts/codemod-t414-world-safe.mjs [--dry]
 import { readFileSync, writeFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const FILES = [
   "scripts/t262-remote-run-e2e.mjs",

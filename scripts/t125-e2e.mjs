@@ -15,6 +15,8 @@
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import { setTimeout as sleep } from "timers/promises";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 let b = null;

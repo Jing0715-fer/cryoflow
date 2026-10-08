@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /** diag280d.mjs — replicate diag280b's exact sheet-params timing. */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();

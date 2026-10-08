@@ -1,3 +1,6 @@
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
+
 // t643 — suite-fossil sweep. The t105/t103 FATALs (no cleanup-on-fail)
 // leaked 11 seeded cards into the world: t105 A/B/C (from today's runs,
 // A snapped to the 19760 WORLD_MAX−CARD_W clamp ceiling) and t103's full

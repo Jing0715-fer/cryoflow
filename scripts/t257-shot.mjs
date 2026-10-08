@@ -4,6 +4,8 @@ import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const OUT = "/home/z/my-project/download/shots-qa/t257-reference-card-2x.png";

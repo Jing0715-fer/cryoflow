@@ -24,6 +24,8 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const ROOT = process.env.CF_ROOT ?? "/home/z/cryoflow";
 const BASE = process.env.CF_BASE ?? "http://localhost:3001";

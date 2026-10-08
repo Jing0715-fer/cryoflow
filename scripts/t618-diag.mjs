@@ -9,6 +9,8 @@
 
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const MICS_DIR = "/home/z/my-project/data/relion/t270-mics";

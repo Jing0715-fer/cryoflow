@@ -6,7 +6,7 @@
 # "Failed to load external module" → every API route 500s on /api/jobs);
 # node resolves them fine (verified: home 200 + api 200).
 cd /home/z/cryoflow || exit 1
-if curl -sf -o /dev/null --max-time 3 http://localhost:3001/api/jobs; then
+if curl -H "Origin: http://localhost:3001" -sf -o /dev/null --max-time 3 http://localhost:3001/api/jobs; then
   echo "already running"
   exit 0
 fi

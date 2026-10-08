@@ -36,6 +36,8 @@
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const EMPIAR_ID = "cmuro2ufe000mn5nb3qkwuy49";
