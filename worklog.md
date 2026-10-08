@@ -11968,3 +11968,28 @@ Stage Summary:
 - 「等待的诚实」：in 起点的预览线素颜——from 侧未知，词无从谈起。t738 素颜律三面合一：chip 素颜（无词的 legacy 边）、roster 不收留（图例的画布口径）、in 起点等待命名（预览线）。判词：**素颜不是缺色，是「还不知道」的诚实显影——假装有词才是撒谎**。
 - 「线可以流动」：edge-flow 保留在预览线上——t737 判词「图例不跳舞」的边界此刻清晰：**目录与索引页是静物，水是活物；不许流动的是书页，不是河**。
 - 产出：src/components/workflow/canvas.tsx（LiveWire 借墨三笔 + t742 判词注释）+ scripts/t742-live-wire-ink-unit.mjs（15/0）+ shots-qa/t742-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅二项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738/t739/t740 激活判决 + **t742 激活判决（LiveWire 墨色活体：out 起点拖线即穿 kind 线墨、in 起点素颜等待、edge-flow 在场）** + 验证网 ②非 build 日：自由选题（**kind 第九读者的侦察**——mini-map 缩微线借线墨/图例卡行点击即聚焦该线/边创建 toast 报词；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **2/5**（带内不动） ④census 轮换：零新路由/零种子/零 bookmark；本窗组件手术（canvas LiveWire）→ 28 件探针 exit-code 全绿本窗已跑（含词汇家族）；t650-assert 绿；lib 零手术；t576 live-fire 仍 world-drift pin。
+
+## Task 743 — 2026-10-09 07:25 派单窗（非 build 日 · 连续第四十三窗）· kind 词汇的第九读者：mini-map 缩微线借线墨——鸟瞰与画布讲同一种颜色故事
+
+Task: 07:25 cron 派单执行——开局三件套判稳（worklog 尾条核实 = **t742 收官**；server 200；available 3074MB < 3280 → 非 build 日连续第四十三窗）→ 入口③床轮换 **3/5**（带内不动）→ 入口②自由选题 = t742 遗言第一候选立案：**Task 743 = mini-map 缩微线借线墨（kind 词汇第九读者）**。
+
+Work Log:
+- 开局 + 巡检：git 净、t742 三车在岸（feat 11c85551 / qa 4135dde6 / docs b9056123）；agent-browser errors/console 零行，t743-patrol.png 入档，用毕即关。
+- 侦察：canvas-minimap.tsx 在座（t136 时代起的鸟瞰图），边线块统一 stroke="currentColor" + text-muted-foreground + opacity 0.25——**鸟瞰线素色确认**，t742 遗言第一候选为真空白。
+- 手术四处（src/components/workflow/canvas-minimap.tsx）：
+  1. import 合流：`{ CARD_W, CARD_H, PORT_COLORS, outputKindOf }` 单行单井——零第二目录；
+  2. 边线块借墨：`const edgeKind = e.fromPort ? outputKindOf(a.type, e.fromPort) : undefined; const kindInk = edgeKind ? PORT_COLORS[edgeKind].wire : undefined;` → `stroke={kindInk ?? "currentColor"}`——从口问水、书里问色，与 edges-layer 同一问法；
+  3. 素颜第四面：`className={cn(!kindInk && "text-muted-foreground", dim && "mm-edge-dim")}`——muted 类只骑无词线（有墨的线带着自己忽略的类是死重）；无词线（legacy/未知口）保持素颜——t738 无词律四面合一（chip 素颜、roster 不收留、in 起点等待、map 线素颜）；
+  4. 探针锚扩展：`data-mm-edge-kind={edgeKind ?? ""}` 骑在 data-mm-edge-id 旁——断言可逐线问水而不问 stroke（t683 诚实锚的 t743 延伸）。
+- [一档律] 墨骑 stroke，嗓门不变：worded 与 wordless 共享 0.25 耳语，**两档亮度会往装饰层走私新语义（「有词=更响」）**——map 是回声不是教师，色彩故事要对齐，响度故事不重写；t166 退场档与 t683 链档原位不动。
+- 探针 scripts/t743-minimap-ink-unit.mjs（17/0）：A 单源×7（单行单井 import、outputKindOf 问法、PORT_COLORS wire hex、显式 currentColor 素颜回退、muted 类只骑无词线）+ B live-fire×1（真实世界按 map 口径重建：**18 线全 drawn · 18 inked across 7 kinds · 0 bare · 0 ghost**——与 t737/t739 的 roster 7 词 18 边三窗互证）+ C 脸×6（单档 opacity、t166 档存活、t683 链律+id 锚存活、kind 锚在场、pointerEvents none、t743 判词头注）+ D 纯度×3（零 hue 类、零 storage、census home 覆盖）。
+- 首跑一红：D 段 census 断言搜 PORT_COLORS 零命中——实际词形 `COLORS palette definition (t647)`（t742 探针用 OR 模式的原因），**词形错 → 假阴性**在自己探针里重演 t741/t742 格律课 → 修正 OR 词形后 17/0。
+- 验证网：tsc 0 + eslint 0（canvas-minimap）+ **29 件探针 29/29 绿**（t650-assert + t743 + 词汇家族 7 件 + t653×2/t655/t713-t718/t720-t722/t724/t725/t727-t730/t732/t733，exit-code 通道）；agent-browser 复巡 errors/console 零行（map 线墨随下个 build 上 bundle，staged 预期）。
+- 三车 commit：feat（minimap 借墨）→ qa（t743 探针 + 巡检截图）→ docs（worklog 本段）→ push。
+
+Stage Summary:
+- 「鸟瞰的诚实」：minimap 是画布的最远读者——1/10 尺度、0.25 耳语、纯装饰（pointerEvents none）。此前它的线是灰的，而画布的线有词有色：**同一批边在两个高度讲着两种颜色故事，远的那份在撒谎**。借墨之后鸟瞰与地面同谱——判词：**读者越远，越容易把故事讲成自己的；地图的职责是转译不是改写**。
+- 「借墨不借嗓门」：t734 的线墨、t742 的预览墨、t743 的缩微墨，三窗三次借的都是同一张表的 wire hex，但响度各守自己的 register——画布全声、预览中声、鸟瞰 0.25 耳语。判词：**词汇的传播是借色不借音量——每个读者有自己的距离，音量属于距离，颜色属于词**。
+- 「素颜第四面」：t738 无词律至此四面——chip 素颜（无词 legacy 边）、roster 不收留（图例画布口径）、in 起点等待命名（t742 预览线）、map 线素颜（本窗）。判词：**一个诚实的 undefined 要在每一层读者处保持同一个沉默**——四面同源，都是 outputKindOf 的 undefined 在不同介质里的显影。
+- 「词形课三连」：t741 格式漂移假阴性 → t742 段头旧式假阴性 → 本窗 census 词形假阴性——三窗三课同一根：**宣布断言前先问搜的词形对不对**；t742 探针的 OR 模式不是防御性冗余，是上一课的化石。判词：**探针也是读者，读者的第一课是识字**。
+- 产出：src/components/workflow/canvas-minimap.tsx（import 合流 + edgeKind/kindInk 推导 + stroke 骑墨 + data-mm-edge-kind 锚 + 一档律）+ scripts/t743-minimap-ink-unit.mjs（17/0）+ shots-qa/t743-patrol.png / t743-repatrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅三项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738/t739/t740/t741/t742 激活判决 + **t743 激活判决（mini-map 线墨活体：鸟瞰线从口问水借 wire hex、无词素颜、一档耳语、kind 锚在场）** + 验证网 ②非 build 日：自由选题（**kind 第十读者的侦察**——边创建 toast 报词/类型卡描边借线墨/edge tooltip 升卡；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **4/5**（带内不动） ④census 轮换：零新路由/零种子/零 bookmark；本窗组件手术（canvas-minimap）→ 29 件探针 exit-code 全绿本窗已跑；t650-assert 绿；lib 零手术（import 合流只读不改）；t576 live-fire 仍 world-drift pin。
