@@ -182,3 +182,22 @@ browser closed after use.
 4. **Census family rotation**: t699/t702 after any world surgery; t704 after any
    bookmark/overlay door or seed change (the preflight's thumb check now has a
    full-world sibling to cross-reference).
+
+## t706 addendum — the wall grows across jobs (the census scales with it)
+
+The t705-era world carried one row (refine3d, 3 canonical entries). t706 grew
+the wall across the job boundary: a second BookmarkSession row now lives on
+the MaskCreate job (cmututold00000maskcreate, 1 entry "t706 aux-band mask",
+cloned from the seeder's t668 entry shape — honest camera numbers, thumbless
+by design, the wall renders the Mountain placeholder). The gallery aggregate
+spoke for the first time with real multi-job data: 2 jobs, 4 entries.
+
+The census was not edited — it SCALED: 43 assertions on the one-row world
+became 59 on the two-row world (door replay, sanitize passthrough, gallery
+inclusion and contract echoes all re-exercised on the second row), 59/0.
+The write rode the per-job PUT door (the qa57 precedent — the same contract
+the molstar-embed's saveBookmark speaks server-side); the Mol* relay chain
+(node → inspector → Results → tile → enlarge → View in 3D → viewer) proved
+flaky under the window's browser session and remains the honest full-drive
+path for a calmer window. The overlay twin (D0) stays at 0 rows — the first
+Layers-panel entry is still unborn, and the instrument is still waiting.

@@ -30,6 +30,7 @@
 // Run: node scripts/t255-send-to-job.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 import { mkdirSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -47,7 +48,11 @@ try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
 await sleep(500);
 
 // seed the volume world (t210/t253/t254's recipe — idempotent, roster stays 15)
-execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
+// t706 — the host resolves through the manifest contract (qa-refine-host.mjs,
+// the qa-batch lesson): the name is the world's own spelling, never a pin.
+const HOST = resolveRefineHost();
+const JOB = HOST.name;
+execSync(`QA_VOL_HOST="${JOB}" python3 scripts/qa67-seed-volume.py`, { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
 // self-healing precondition: a previous crashed run may have left its probe
@@ -63,7 +68,7 @@ execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
 const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster0 = (jobs0.jobs ?? []).length;
-const host = (jobs0.jobs ?? []).find((j) => j.name === "QA Refine3D");
+const host = HOST;
 
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
 // engine-state.json maps job id → record at the TOP LEVEL (no .jobs wrapper)
@@ -86,7 +91,7 @@ const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
 must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
-must(!!host && !!workdir, "QA Refine3D in roster with an on-disk workdir");
+must(!!host && !!workdir, `${JOB} in roster with an on-disk workdir`);
 must(existsSync(parentPath), "the parent map (orthovol.mrc) is on disk");
 
 // ---- Phase B: the ledger -------------------------------------------------------

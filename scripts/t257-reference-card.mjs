@@ -28,8 +28,14 @@
 // Run: node scripts/t257-reference-card.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+
+// t706 — the host resolves through the manifest contract (qa-refine-host.mjs,
+// the qa-batch lesson): the name is the world's own spelling, never a pin.
+const HOST = resolveRefineHost();
+const JOB = HOST.name;
 
 const BASE = "http://localhost:3000";
 const TMP = "/home/z/my-project/scripts/tmp-t257";
@@ -54,7 +60,7 @@ for (const j of preJobs.filter((x) => x.type === "mapimport" || x.name.startsWit
 }
 // sweep t257-era probe crops from the host's SubVolumes
 {
-  const hostPre = preJobs.find((j) => j.name === "QA Refine3D");
+  const hostPre = preJobs.find((j) => j.id === HOST.id);
   const stPre = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
   const hostWd = hostPre ? stPre[hostPre.id]?.workdir : undefined;
   if (hostWd) {
@@ -70,7 +76,7 @@ for (const j of preJobs.filter((x) => x.type === "mapimport" || x.name.startsWit
 
 const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster0 = (jobs0.jobs ?? []).length;
-const host = (jobs0.jobs ?? []).find((j) => j.name === "QA Refine3D");
+const host = HOST;
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
 // engine-state.json maps job id → record at the TOP level (no .jobs wrapper)
 const hostWd = host ? state[host.id]?.workdir : undefined;
@@ -95,7 +101,7 @@ try {
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
   must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
-  must(!!host && !!hostWd, "QA Refine3D in roster with an on-disk workdir");
+  must(!!host && !!hostWd, `${JOB} in roster with an on-disk workdir`);
   must(existsSync(parentMap), "the parent map (orthovol.mrc) is on disk");
 
   // ---- Phase B: the ledger -------------------------------------------------

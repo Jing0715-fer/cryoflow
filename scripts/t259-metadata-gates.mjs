@@ -213,7 +213,10 @@ try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await sleep(2500);
   const jobCards = await page.locator("[data-job]").count();
-  must(jobCards >= 20, `the canvas renders its jobs through the new doors (${jobCards} cards)`);
+  // t706 — the expectation derives from the world: the canvas must render EVERY
+// job the roster door serves (the old ">= 20" was a fossil of a world with
+// 20+ cards; the t531 canonical roster carries 17).
+must(jobCards >= roster0.length, `the canvas renders its jobs through the new doors (${jobCards} cards >= roster ${roster0.length})`);
   // the header's project switcher reads /api/projects — it must show data
   const headerText = ((await page.locator("header").first().innerText().catch(() => "")) ?? "").trim();
   must(headerText.length > 0, "the header renders (project name came through the projects door)");

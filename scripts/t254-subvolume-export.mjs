@@ -38,6 +38,7 @@
 // Run: node scripts/t254-subvolume-export.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 import { mkdirSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -56,12 +57,16 @@ try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
 await sleep(500);
 
 // seed the volume world (t210/t253's recipe — idempotent, roster stays 15)
-execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
+// t706 — the host resolves through the manifest contract (qa-refine-host.mjs,
+// the qa-batch lesson): the name is the world's own spelling, never a pin.
+const HOST = resolveRefineHost();
+const JOB = HOST.name;
+execSync(`QA_VOL_HOST="${JOB}" python3 scripts/qa67-seed-volume.py`, { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster = (jobs.jobs ?? []).length;
-const host = (jobs.jobs ?? []).find((j) => j.name === "QA Refine3D");
+const host = HOST;
 
 // the parent map on disk — the export's ground truth
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
@@ -87,7 +92,7 @@ const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
 must(roster >= 12, `roster identity >= 12 (got ${roster})`);
-must(!!host && !!workdir, "QA Refine3D in roster with an on-disk workdir");
+must(!!host && !!workdir, `${JOB} in roster with an on-disk workdir`);
 must(existsSync(parentPath), "the parent map (orthovol.mrc) is on disk");
 
 // ---- Phase B: the ledger -------------------------------------------------------

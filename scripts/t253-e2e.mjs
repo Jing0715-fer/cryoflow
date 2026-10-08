@@ -33,6 +33,7 @@
 // Run: node scripts/t253-e2e.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 import { mkdirSync, existsSync, readFileSync } from "node:fs";
 
 const BASE = "http://localhost:3000";
@@ -49,12 +50,16 @@ try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
 await sleep(500);
 
 // seed the volume world (t210's recipe — idempotent, roster stays 15)
-execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
+// t706 — the host resolves through the manifest contract (qa-refine-host.mjs,
+// the qa-batch lesson): the name is the world's own spelling, never a pin.
+const HOST = resolveRefineHost();
+const JOB = HOST.name;
+execSync(`QA_VOL_HOST="${JOB}" python3 scripts/qa67-seed-volume.py`, { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster = (jobs.jobs ?? []).length;
-const host = (jobs.jobs ?? []).find((j) => j.name === "QA Refine3D");
+const host = HOST;
 
 const browser = await chromium.launch();
 const context = await browser.newContext({
@@ -72,7 +77,7 @@ const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
 must(roster >= 12, `roster identity >= 12 (got ${roster})`);
-must(!!host, "QA Refine3D in roster (the seeder's host)");
+must(!!host, `${JOB} in roster (the seeder's host)`);
 
 // ---- Phase B: the recital's ledger — both feature directions are BUILT --------
 console.log("== PHASE B: the recital's ledger ==");
