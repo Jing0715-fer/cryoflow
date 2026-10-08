@@ -11993,3 +11993,27 @@ Stage Summary:
 - 「素颜第四面」：t738 无词律至此四面——chip 素颜（无词 legacy 边）、roster 不收留（图例画布口径）、in 起点等待命名（t742 预览线）、map 线素颜（本窗）。判词：**一个诚实的 undefined 要在每一层读者处保持同一个沉默**——四面同源，都是 outputKindOf 的 undefined 在不同介质里的显影。
 - 「词形课三连」：t741 格式漂移假阴性 → t742 段头旧式假阴性 → 本窗 census 词形假阴性——三窗三课同一根：**宣布断言前先问搜的词形对不对**；t742 探针的 OR 模式不是防御性冗余，是上一课的化石。判词：**探针也是读者，读者的第一课是识字**。
 - 产出：src/components/workflow/canvas-minimap.tsx（import 合流 + edgeKind/kindInk 推导 + stroke 骑墨 + data-mm-edge-kind 锚 + 一档律）+ scripts/t743-minimap-ink-unit.mjs（17/0）+ shots-qa/t743-patrol.png / t743-repatrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅三项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738/t739/t740/t741/t742 激活判决 + **t743 激活判决（mini-map 线墨活体：鸟瞰线从口问水借 wire hex、无词素颜、一档耳语、kind 锚在场）** + 验证网 ②非 build 日：自由选题（**kind 第十读者的侦察**——边创建 toast 报词/类型卡描边借线墨/edge tooltip 升卡；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **4/5**（带内不动） ④census 轮换：零新路由/零种子/零 bookmark；本窗组件手术（canvas-minimap）→ 29 件探针 exit-code 全绿本窗已跑；t650-assert 绿；lib 零手术（import 合流只读不改）；t576 live-fire 仍 world-drift pin。
+
+## Task 744 — 2026-10-09 07:40 派单窗（非 build 日 · 连续第四十四窗）· kind 词汇的第十读者：收据念词——线被世界接受的那一刻，名字到场
+
+Task: 07:40 cron 派单执行——开局三件套判稳（worklog 尾条核实 = **t743 收官**；server 200；available 3046MB < 3280 → 非 build 日连续第四十四窗）→ 入口③床轮换 **4/5**（带内不动）→ 入口②自由选题 = t743 遗言第一候选立案：**Task 744 = 边创建收据报词（kind 词汇第十读者）**。
+
+Work Log:
+- 开局 + 巡检：git 净、t743 三车在岸（feat 4fa808c7 / qa 0ee1b74f / docs 74ff86cd）；agent-browser errors/console 零行，t744-patrol.png 入档，用毕即关。
+- 侦察：connect 成功路径已有 toast（title「Connected」+ description「A → B」）但**不念词**——t742 让预览穿墨、t734 让静息线穿墨、t743 让鸟瞰同谱，**收据却对水名保持沉默**；真空白确认。quiet 门（t442）原样在座：批量线的收据归批量 toast，per-wire 念词不会淹没它。
+- 手术两处（src/lib/store.ts）：
+  1. import 合流：workflow 单行加 `PORT_COLORS, outputKindOf`——零第二目录；
+  2. connect 收据升词：`const wireKind = fromJob && fromPort ? outputKindOf(fromJob.type, fromPort) : undefined;` → 有词收据 description 升为四子元行「{from} → {to} — ● {kind} data」（色点骑 wire hex、词骑 t735/t738 方言、点 aria-hidden 纯装饰）；无词线保持裸收据 `${fromName} → ${toName}`——**undefined 律第五面**。
+- [方言课·中途显影] 首版用 JSX 写 description——tsc 在文件尾 6180 行报 TS1109：**store.ts 是 .ts 文件，JSX 是语法错误**；文件自己的 createElement 方言在座（announce* 两个 action 先例）→ 改写 `React.createElement` 四子元（names/dash/dot/word 四 key）后 tsc 0。判词：**先问文件说什么方言，再开口；文件尾的语法错误是方言错误的远端回声**。
+- 探针 scripts/t744-receipt-word-unit.mjs（18/0）：A 单源×8（单行单井 import、outputKindOf 问法、PORT_COLORS wire hex、{kind} data 方言、裸收据回退、quiet 门存活、title 不动）+ B live-fire×3（类型空间 48 输出口零 ghost——收据永远遇得到词；真实世界 18 ported 边全念得出词 · 0 ghost；quiet: true 批量车道存活）+ C 脸×4（createElement 方言注、aria-hidden 点 + size-2、四子元四 key、t744 判词在场）+ D 纯度×3（零 hue 类、零 storage、census home OR 词形——**t743 的课预防性落地，首跑即过**）。
+- 首跑一红：A 段裸收据断言正则把 `\{` 误写成 `\(`（`\$\(` 匹配的是 `${(` 而非 `${`）——**词形课四连**（t741 格式漂移 → t742 段头 → t743 census 词形 → 本窗正则转义）修正后 18/0。
+- 验证网：tsc 0 + eslint 0（store）+ **30 件探针 30/30 绿**（t650-assert + t743/t744 新员 + 词汇家族 8 件 + t653×2/t655/t713-t718/t720-t722/t724/t725/t727-t730/t732/t733，exit-code 通道）；agent-browser 复巡 errors/console 零行（收据念词随下个 build 上 bundle，staged 预期）。
+- 三车 commit：feat（store 收据念词）→ qa（t744 探针 + 巡检截图）→ docs（worklog 本段）→ push。
+
+Stage Summary:
+- 「收据是词的最干净教学位」：预览借墨（t742）、静息穿墨（t734）、鸟瞰同谱（t743）都是世界在说；收据念词是**世界在用户刚开口之后回答**——用户亲手画了这条线，世界接受的那一刻念出水的名字。判词：**回答提问的教学永远先于主动布道；线的一生四站（预览、静息、鸟瞰、收据）至此全有声有色**。
+- 「安静的队列不吃收据」：t442 的 quiet 门原样守着——重复线 N 条一次手势，收据归批量 toast，per-wire 念词会把 aggregate 淹成噪音。判词：**词为手画的线而说，不为世界自己长的线而说**——verb 线的诞生有自己的收据，不重复开口。
+- 「第五面」：无词线保持裸收据——undefined 律第五面合流：chip 素颜（legacy 边）、roster 不收留（图例口径）、in 起点等待（预览）、map 线素颜（鸟瞰）、**收据裸（本窗）**。判词：**一个诚实的 undefined 现在在五层读者处保持同一个沉默——沉默是它唯一不会说谎的话**。
+- 「方言课」：.ts 文件里 JSX 是语法错误，而错误报在 6180 行的文件尾——**方言错误的诊断距离可以远离犯错现场**；文件内既有的 createElement 先例（announce*）是正确的口音来源。判词：**进新文件先听它已有人说的话；store.ts 的口音是 createElement，canvas.tsx 的口音才是 JSX**。
+- 「词形课四连」：四窗四课同根（格式漂移、段头旧式、census 词形、正则转义）——**宣布匹配前先逐字符问词形**；t743 的 OR 词形预防性落地首跑即过，课在生效。
+- 产出：src/lib/store.ts（import 合流 + connect 收据升词：wireKind 推导 + createElement 四子元行 + 裸收据回退）+ scripts/t744-receipt-word-unit.mjs（18/0）+ shots-qa/t744-patrol.png / t744-repatrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅四项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737-t743 七张激活判决 + **t744 激活判决（收据念词活体：手连线 toast 为「A → B — ● {kind} data」、无词裸收据、quiet 批量线不念、title 仍 Connected）** + 验证网 ②非 build 日：自由选题（**kind 第十一读者的侦察**——类型卡描边借线墨/edge hover tooltip 升卡/inspector 标题行报词；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③**床轮换 5/5——下窗若正点即 qa 批窗仪式第八演**（t731/t736/t741 先例：指针核查 → seeder 双层幂等 → switch 复位 → census 三台 → t25 批整批 9/9 → world-guard 三证词 → UI 驱动再生长随行） ④census 轮换：零新路由/零种子/零 bookmark；本窗 lib 手术（store connect 收据）→ 30 件探针 exit-code 全绿本窗已跑；t650-assert 绿；t576 live-fire 仍 world-drift pin。
