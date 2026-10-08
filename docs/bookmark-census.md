@@ -312,3 +312,58 @@ answers route-speak, bare and Origin columns identical, zero 403. After
 the build-day build: the bare column flips to 403 (door speaks first),
 the Origin column keeps route-speak. The flip IS the verdict; no
 judgment calls on activation day.
+
+## t709 addendum — the readers batch closes the ledger; the census prices its own blast radius
+
+The 22-route ledger's second half EXECUTED this window: the nine pure-read
+routes — activity ×2, judge-worker, providers/health, hpc/sbatch/[id], the
+jobs/[id]/command and rebalance previews, views/gallery, the api root — now
+carry the isLocalRequest door (staged like every batch before; the running
+bundle answers 200 in both header columns, the bare-column flip is the
+activation verdict). Two of the nine carry REAL execution stakes, not just
+uniformity: judge-worker's GET is a defensive mount (a blind probe would
+spin up the worker), and providers/health's `?refresh=1` would fire a full
+probe volley from a page that never sees a byte of the answer — the route's
+own t474-era "unguarded on secrecy grounds" comment is retired there, with
+the t472 secret law (never name a key) untouched.
+
+**The window's own instrument outran the ledger.** Building the door census
+(`scripts/t709-door-coverage.py`, whole-API sweep: every exported handler
+must call the guard in its own body) found 7 doorless handlers BEYOND the
+nine — and one of them falsified a staged claim: jobs/restore POST, a
+write, whose guard was IMPORTED at t477 but whose CALL was lost in the
+restore-core extraction; the route's own comment said "This handler is the
+door" while the body opened with the body-parse. That is the t252 lesson's
+mirror: a half-true doctrine, now a half-installed gate — the doc claimed
+it, the code forgot it, and only a mechanical sweep could see the gap.
+Fixed in-batch (the t708 jobs/[id] precedent). The ai/settings GET — on no
+ledger at all — joined the batch for free: its only QA touchers
+(t574/t605/t606) already speak Origin, so its door costs the lane nothing.
+
+**The census also priced the batch's STOP.** The other five finds are the
+collection read-halves (jobs, edges, project, workspaces, custom-template
+GET) — and their touch surface is ~300 bare scripts, the QA lane's hottest
+route among them. Gating them in this window would have bought one line of
+uniformity at the price of a mass breakage on activation day; so they are
+DEFERRED, priced in their own route comments and exempted in the census's
+EXPECTED_DOORLESS ledger (the sweep fails on any doorless handler OUTSIDE
+that list — the deferral is a contract, not an omission). The read-halves
+batch lands as a build-day-prep round fronted by a mass Origin-shim
+patcher, the t708-patch-qa-origin2.py pattern scaled to the hot path.
+
+**QA lane, forward-compatible (9 files).** The audit's real fetchers to
+the eleven doored routes, all now speaking the door's language: t181
+(activity/recent bare fetches), t184 (sbatch dry-run), t680 (judge-worker
+status), t170 (command preview via headerless curl), t636-keepalive-probe
+(raw socket — the Origin line rides the HTTP/1.1 bytes the guard's doc
+prescribes), and FOUR t707-lane gaps the audit caught early: t671, t673,
+t679, t669 fetch camera-bookmarks (and gallery) bare — red on the
+saved-state door's activation day had the sweep not run this window. The
+false-positive tax of the word-list audit ("command" the palette, t474 the
+source-level import, qa42/qa45 the browser mocks) was paid in eyeballs and
+kept the shim list honest: nine files, each verified.
+
+Staged-world snapshot (honest): all eleven routes answer 200 bare and
+Origin alike; jobs/restore answers 405 to GET (method-speak). On
+activation day the bare column flips to 403 across all eleven — the
+pre-written verdict, no judgment calls.
