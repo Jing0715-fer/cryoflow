@@ -10976,3 +10976,28 @@ Stage Summary:
 - 「幂等 patch 是世界手术的唯一安全形状」：exists-guard 逐文件 + record 键 guard + 固定时间戳（不用 Date.now()——重跑必须产出 byte-identical 的世界）+ 流散文件自清（首稿方言错留下的 run_class001.mrc 被脚本自己 rm）——**patch 的可重入性不是便利是正确性**：任何一次中途失败留下的半成品世界，下一次运行必须能自己走完整。
 - 「卫生释放的内存不是 build 日的通行证」：孤儿 chrome 占了 1.2GB 八小时无人察觉——杀之释放 370MB 后 available 3165 仍差 115MB，非 build 日判决不变。**判据测的是真实余量，卫生只是把浪费的还回去**；但这也意味着 build 日或在下几窗自然到达（若不再有泄漏源）——四窗合并批次的执行清单（t692 B 类 + t609 三件套 + t693 三扇门 + t694 十文件门 + 验证网）已逐窗就绪，钥匙只差内存。
 - 产出：docs/seed-gap-design.md（设计 + 第二层修正案）+ scripts/t696-seed-gap-patch.mjs（幂等，可重跑）+ shots-qa t262 两帧（bed 刷新）+ worklog 本段；下窗入口：①**build 日批次（合并价，五窗账一窗清）**：t692 B 类六处文件名容忍 + t609 完整复活三件套 + t693 三扇 GET 门 + t694 十文件写门（按 docs/write-door-verdicts.md 机械执行）+ **本窗新增候选：refine3d 分支的 run_itNNN_data.star 容忍（docs/seed-gap-design.md 相邻问题节，一线级）** + 验证（census 重跑 + t695 ×2 + gate-ripple 清单 + t609 活跑×2）②非 build 日：无遗留可选项目——C 类已兑现、era 预手术维持否决、样式账本清零、judge 风暴维持文档化 → 自主新需（存量审计系列下一站或世界故事富化）③演练床轮换（本窗窗 5 已跑，下轮 3-5 窗后）④t695 入回归轮换（本窗已随验证网跑过 ×2）。
+
+---
+Task ID: 697 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081326)
+Task: 13:25 派单执行——开局三件套判稳（t677 30/0；available 3166MB < 3280 → 非 build 日连续第九窗，与上窗持平=孤儿清除后无新泄漏）→ 入口②车道已清零 → 自主新需：**「锅炉样板遗留验尸」**——派单每窗重复的 Task-13 时代六条遗留主张逐条对照现源码，全部灭绝（#5 t251 已闭；#6/#14、#7、#8、#13 各带在源墓碑/设计注释）+ 两个新功能方向均已建成 → 截面家族 wire 级活体验证 → 判决文档入册 → worklog 收官 + docs 车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 696 收官（HEAD 014d2dc 树净）；t677 30/0 判稳先行；available 3166MB < 3280 → **非 build 日第九窗**（3165→3166 持平：t696 卫生后无新泄漏源，build 日差 114MB）。Task 696 入口②明言「非 build 日无遗留可选项目 → 自主新需（存量审计下一站或世界故事富化）」。
+- [定道·验尸而非新坟] 派单模板的「已知遗留」清单（#5/#6/#14/#7/#8/#13 + 3D 截面工具 + Topaz wrapper）是 Task-13 时代的快照，被 680+ 窗的样板搬运每窗复读——**从未有人回去验尸**。验尸的价值：或灭绝（省掉每窗复读的悬债）、或改判（并入 build 日批次定价）。选验尸。
+- [#13 useMemo localStorage 写 → EXTINCT] 25 个 localStorage 持有文件全扫：同行共现零 + 400 字符多行窗口零——**零 setItem/removeItem 落在任何 useMemo 体内**。store.ts 全部持久化 helper 意图驱动（handler 调用非渲染期）+ SSR 卫 + 隐私模式 try/catch，L228-230 设计注释明文律法：「Storage stays an echo of user intent, not of render state」（Task 153）。审查者当年看到的要么是 153 前的形状、要么已被重建。
+- [#7 chart 路由全量同步读 → EXTINCT] chart-data.ts 14 处 cachedFileCompute 全覆盖（loadFsc/loadGuinier/loadAngDist t486 三件套），statcache (size,mtimeMs) 键控 LRU（statcache.ts L51/L76 + async 孪生）；头注释自证「statcache hit rate survives the refactor untouched」。热路径每请求全量重读的世界不存在了。
+- [#8 particles BFS N+1 → EXTINCT 带墓碑] particles/route.ts L280-285 代码自述罪状与葬礼：「The old loop awaited findEffectiveJob PER EDGE — the classic N+1」→ 现为每深度一条 edge.findMany(in frontier) + 全 discovered 一条 job.findMany；逐节点 getRun 是内存 engine-state 读非 DB。
+- [#6/#14 pathref vs star 包含策略不一致 → EXTINCT 带墓碑] 两 outputs 路由统一走 resolveInsideJobWorkdir（jobfile.ts：NUL 检查 + 词法 workdir 域 + realpath 防植链），各调用 4 次；star 路由注释块宣判：「Both holes are closed」——审查者看到的不一致正是统一要杀的东西。
+- [#5 fs/browse 无鉴权 → EXTINCT] t251 关闭 + t693 门普查 88 路由复核（64 guarded + 判据判决）；本窗顺带确认 chart 路由 import isLocalRequest 在位。
+- [功能方向盘点·均已建成] ①3D 体积截面工具：mrc.ts 全家族（readMrcSlice/OrthoSlice/ObliqueSlice/Subvolume/AxisProfiles/Voxel/Histogram）+ file route 全部活体——wire 探针：z-slice 200/1949B、x-ortho 200/1949B（**与 z 字节同一 = 各向同性幻影的中心切片同一图**，非 bug）、oblique 200/3977B（真异几何）、value 仪器读回 (32,32,32)=99.4≈100（幻影峰值公式 100·exp(0) 到三位有效数字——**t696 种子律的体素级交叉验证**）、histogram 262144=64³ 全有限体素；②Topaz wrapper：topaztrain/topazdenoise 一等引擎类型，relion_python_topaz conda wrapper 三处接线（engine L7196/7284/7342），t692 已定价其设计沉默面。
+- [探针方言自病一记] wire 探针首用 `view=slice/ortho/oblique` 参数——三响应字节全同（1949B），审出：**路由词表是 `plane=oblique` + `axis/pos`，`view=` 被静默忽略全落默认支**。修正词表重探才有上述判决（若不审字节同，会把「三个不同面」误记——假阳性来自假词表）。
+- [agent-browser QA] Dashboard→refine3d inspector（租户按名）→Files tab（ALL 6/MRC 2/STAR 2/TEXT 2 芯片 + half 对 Download 行）全程 console 0 错；浏览器用毕即关。
+- [回归] 本窗零产品代码改动（纯文档 + wire/活体验证）——t677 30/0 覆盖；零 build 零重启。
+
+Stage Summary:
+- 「样板是债的防腐剂，也是债的掩体」：六条主张在每窗派单里复读 680+ 窗，从未被验证也从未被销账——因为「已知遗留」这个词让它们免于怀疑。**验尸的四份灭绝证词的共同点：代码里早就有葬礼（墓碑注释、设计律法、statcache 契约），只是没人回去读**。遗留清单的正确生命周期应该和探针一样：立案时带验证条件，验尸时带证据行——docs/task13-legacy-verdicts.md 就是那份销账凭证，未来窗口读到样板清单时应视其为历史而非债务。
+- 「灭绝判决的证据等级分三档：缺席、墓碑、律法」：#13 的证据是**缺席**（全扫零命中）+ **律法**（Task 153 注释明文禁止）；#7 是**契约**（statcache 键控不变式）；#8/#6/#14 是**墓碑**（代码自述被替换的罪行）。三档的可信度递增：缺席可能是没找到，律法是设计禁止，墓碑是修复本身在作证。**下次审计先问证据属于哪档，再决定信多少**。
+- 「探针的假阳性来自假词表」：view= 参数三连 1949B——若不审字节同，本窗会记下「三面皆活」的假 GREEN（实际只测了默认支三次）。与前窗 t695 的假阴性（ref 过期）互为镜像：**假阴性让活物蒙冤，假阳性让死物蒙赦——两边都是词表/协议先错，读数后错**。字节级比对（md5）是这类审的最廉价工具。
+- 「feature 方向的验尸要带活体验证」：两个方向若只读代码就判「已建成」，会漏掉 wire 层的真相（oblique 的 3977B、value 的 99.4、histogram 的 64³）——**「导出函数存在」与「端到端活着」之间隔着一层词表**。value 探针读回幻影峰值 99.4≈100 是本窗最优雅的副产物：t696 种子写的体素数学，被 t283 的直方图仪器在 680 窗后读回验证——世界的一致性经得起任意两层合同的互查。
+- 产出：docs/task13-legacy-verdicts.md（六条灭绝证词 + 两方向建成判决 + 证据行）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + 验证网 ②非 build 日：样板遗留清单已清空 → 存量审计系列自由选题（候选：UI 组件的可访问性普查、shots-qa 档案对齐审计、engine-state.json 35 records 对 17 jobs 的孤儿 record 普查）③演练床轮换（t696 窗 5 已跑，下轮 3-5 窗后）④t695 探针随 UI sweep 节奏。
