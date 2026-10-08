@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { capturePointer } from "@/lib/pointer";
 import { TypeCardDialog } from "./type-card-dialog"; // t730 — the dictionary door lives next to the shelf's own mouth
+import { TierBadge, TIER_NAMES } from "./tier-badge"; // t732 — the tier language's own home (fifth t720 execution)
 
 interface PaletteDragState {
   type: string;
@@ -1058,7 +1059,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                           }
                         }}
                         aria-label={`Drag to canvas to add ${t.label} (or press Enter)`}
-                        title={`${t.tier === "core" ? "Core (real engine)" : t.tier === "cmd" ? "Runs real RELION CLI" : "Needs external binary"} — drag onto the canvas`}
+                        title={`${TIER_NAMES[t.tier]} — drag onto the canvas`}
                       >
                         {/* left accent bar — grows on hover */}
                         <span
@@ -1187,27 +1188,10 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                             {w.field === "key" ? "key" : "cat"}
                           </span>
                         )}
-                        <span
-                          className={cn(
-                            "flex shrink-0 items-center gap-1 rounded px-1 py-px font-mono text-[8px] uppercase tracking-wide",
-                            t.tier === "core" &&
-                              "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                            t.tier === "cmd" && "bg-muted text-muted-foreground",
-                            t.tier === "external" &&
-                              "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                          )}
-                          aria-hidden="true"
-                        >
-                          <span
-                            className={cn(
-                              "inline-block size-1 rounded-full",
-                              t.tier === "core" && "bg-emerald-500",
-                              t.tier === "cmd" && "bg-muted-foreground/60",
-                              t.tier === "external" && "bg-amber-500"
-                            )}
-                          />
-                          {t.tier === "core" ? "core" : t.tier === "cmd" ? "cli" : "ext"}
-                        </span>
+                        {/* t732 — the tier badge moved to its own home
+                            (tier-badge.tsx): same hue words, same dot, same
+                            short words, one place to edit them. */}
+                        <TierBadge tier={t.tier} compact />
                       </Button>
                       );
                     })}

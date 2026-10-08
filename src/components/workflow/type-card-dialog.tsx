@@ -65,6 +65,7 @@ import {
 import type { ParamSchema } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TypeIcon } from "./icons";
+import { TierBadge } from "./tier-badge"; // t732 — the tier language's own home
 
 /** The provenance label under the upstream heading — the radius tag. */
 export const UPSTREAM_RADIUS_LABEL = "derived live from the ports themselves";
@@ -207,19 +208,9 @@ export function TypeCardDialog({
               <span className="rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
                 {spec.category}
               </span>
-              <span
-                className={cn(
-                  "rounded px-1.5 py-px font-mono text-[10px] uppercase tracking-wide",
-                  spec.tier === "core" &&
-                    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                  spec.tier === "cmd" && "bg-muted text-muted-foreground",
-                  spec.tier === "external" &&
-                    "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                )}
-                data-testid="type-card-tier"
-              >
-                {spec.tier}
-              </span>
+              {/* t732 — the tier language moved to tier-badge.tsx: same
+                  hue words, one home (the full face: whole word + title). */}
+              <TierBadge tier={spec.tier} testid="type-card-tier" />
               <span className="text-[10px] text-muted-foreground">
                 {spec.inputs.length} in · {spec.outputs.length} out
               </span>
