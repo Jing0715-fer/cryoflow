@@ -66,7 +66,14 @@ const host = HOST;
 const browser = await chromium.launch();
 const context = await browser.newContext({
   viewport: { width: 1720, height: 940 },
-  deviceScaleFactor: 2,
+  // t741 — deviceScaleFactor 1 (was 2): the clip slider drives ~96 discrete
+  // keyboard steps, each re-slicing the Mol* view; at DPR 2 the software
+  // rasterizer (SwiftShader — no GPU on this box) must repaint 6.5MP per
+  // step and the render debt drowned the keypress acks (browser frozen
+  // mid-recital, t736's green run was the lucky side of the cliff). The
+  // assertions read roles/aria/text — none of them needs the doubled
+  // pixels; the archive screenshots get crisper-but-smaller instead.
+  deviceScaleFactor: 1,
 });
 const page = await context.newPage();
 const consoleErrors = [];

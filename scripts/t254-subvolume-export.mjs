@@ -79,7 +79,10 @@ const parentVoxel = (i, j, k) => parent.readFloatLE(1024 + ((k * PN + j) * PN + 
 const browser = await chromium.launch();
 const context = await browser.newContext({
   viewport: { width: 1720, height: 940 },
-  deviceScaleFactor: 2,
+  // t741 — deviceScaleFactor 1 (was 2): keyboard-dense Mol* interaction
+  // under the software rasterizer; halving the pixel duty keeps the
+  // keypress acks alive. Assertions read roles/aria/text, not pixels.
+  deviceScaleFactor: 1,
 });
 const page = await context.newPage();
 const consoleErrors = [];
