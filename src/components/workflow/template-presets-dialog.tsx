@@ -45,6 +45,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { TemplateShapeHoverCard } from "@/components/workflow/template-shape-preview";
+import { subsequenceSpans } from "@/lib/job-match"; // t727 — the dialect's HOW lives in lib
+import { FindMarkedText } from "@/components/workflow/find-mark"; // t727 — the wash's own home (t720's law, fourth execution)
 import { cn } from "@/lib/utils";
 
 /** The symmetry selects' option list (mirrors workflow.ts / template route). */
@@ -239,9 +241,49 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
   }, [renameId, searchFocused, onEditingChange]);
 
   const q = searchQ.trim().toLowerCase();
+  // t727 — Shelf Dialect: the fourth search face joins the matcher
+  // family (canvas cards t653 → find bar t722 → roster t724 → palette
+  // t725 → shelf). HOW is lib's subsequenceSpans, single-source; WHAT
+  // is this surface's only operator-given domain — the template's
+  // name. The row's meta line (jobs · wires · date) is infrastructure
+  // vocabulary and stays unread (t724's ws/status law: operators never
+  // abbreviate infra, and a mis-typed digit lighting the whole shelf
+  // is noise, not search). Census verdicts recorded the same window:
+  // the log console keeps substring-only because log lines are PROSE
+  // (t725's exemption law — sentences are read, not abbreviated); the
+  // FilesTab path filter keeps substring-only because paths are
+  // infrastructure words whose enumerable dimension (kind) is already
+  // a chip (t722's chip-is-for-enumerable argument). No why-chip on
+  // this face: the name is ON the row, so the wash IS the why.
+  // Two-rung ladder mirrors palMatchWhy: whole substring first (byte
+  // compatible with the t132-era includes), then in-order
+  // abbreviation at q.length >= 2 — over a name, which is never
+  // prose. The spans Map is per-render (no state, no ref — it lives
+  // exactly as long as this render, t616's non-persistent ledger).
+  // Coordinates inherit subsequenceSpans' documented lowercase-length
+  // -stable assumption; FindMarkedText's guard still falls back to
+  // plain text should a span ever escape (inherit, don't invent).
+  const shelfSpans = new Map<
+    string,
+    ReadonlyArray<readonly [number, number]>
+  >();
   const visible =
     q.length > 0
-      ? templates.filter((t) => t.name.toLowerCase().includes(q))
+      ? templates.filter((t) => {
+          const at = t.name.toLowerCase().indexOf(q);
+          if (at !== -1) {
+            shelfSpans.set(t.id, [[at, at + q.length]]);
+            return true;
+          }
+          if (q.length >= 2) {
+            const spans = subsequenceSpans(q, t.name);
+            if (spans) {
+              shelfSpans.set(t.id, spans);
+              return true;
+            }
+          }
+          return false;
+        })
       : templates;
 
   const apply = (t: CustomTemplateSummary) => {
@@ -461,6 +503,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
             onBlur={() => setSearchFocused(false)}
             placeholder="Filter templates by name…"
             aria-label="Filter templates by name"
+            title="Substring first, then in-order abbreviations — matched characters highlight"
             className="h-7 pl-7 pr-16 text-[11px]"
             data-testid="custom-template-search"
           />
@@ -489,6 +532,9 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
           data-canvas-ui="custom-templates-no-match"
         >
           No templates match “{searchQ.trim()}” — press Escape or click the × to clear the filter.
+          {" "}
+          Abbreviations work too — any in-order characters match, e.g.
+          “cls2” finds a template named “2D Classification pass 2”.
         </p>
       ) : (
         <ul className="grid max-h-44 gap-1.5 overflow-y-auto pr-0.5" data-canvas-ui="custom-templates-list">
@@ -513,7 +559,14 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
               ) : (
                 <TemplateShapeHoverCard id={t.id} name={t.name}>
                   <p className="truncate text-xs font-medium" title={t.name}>
-                    {t.name}
+                    {/* t727 — the wash IS the why: matched characters
+                        glow amber (same FIND_MARK_CLASS hue the canvas
+                        cards ring with), plain ink between. No chip —
+                        nothing hidden on this row. */}
+                    <FindMarkedText
+                      text={t.name}
+                      spans={shelfSpans.get(t.id) ?? []}
+                    />
                   </p>
                   <p className="text-[10px] tabular-nums text-muted-foreground">
                     {t.jobCount} jobs · {t.edgeCount} wire{t.edgeCount === 1 ? "" : "s"} · {t.createdAt.slice(0, 10)}
