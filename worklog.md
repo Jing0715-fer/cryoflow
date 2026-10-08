@@ -11021,3 +11021,25 @@ Stage Summary:
 - 「沉默合同有第三棵树」：t627 的 rest-world 律验的是渲染树、t684 的 Recent 律验的是命令树，本窗的 26 组 cmdk 证明**同一合同在可达树里也成立**——空 trail 不渲染空壳，对屏幕阅读器和对面板同样真。合同的价值在于它对每棵树同时真；在一个树里成立而在另一个树里破的合同是待审的合同。
 - 「观察项与缺价的界线是修复的所有权」：aria-modal 缺席的修复者不是本仓库的组件代码而是 Radix 依赖——**给依赖行为定价成产品行等于给别人的账本记账**。观察项入册、注明所有权归属，是普查能给出的最诚实判决形状：它不假装缺口不存在，也不假装自己能修。
 - 产出：docs/a11y-census.md（两层普查数据 + 两观察项 + 方法伪影）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行（palette 显式 aria-label）+ 验证网 ②非 build 日：存量审计自由选题剩两候选（engine-state 35 records 孤儿普查 / shots-qa 档案对齐审计）③演练床轮换（t696 窗 5，本窗窗 3，下轮节奏内）④a11y 普查可低成本重跑（每面一个 eval）。
+
+---
+Task ID: 699 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081355)
+Task: 13:55 派单执行——开局三件套判稳（t677 30/0；available 3175MB < 3280 → 非 build 日连续第十一窗，回升 11MB）→ 入口②自由选题：**engine-state record 普查**（698 窗以来首个 record 层审计——t692 strip census 的盲区互补仪器）→ 捕获第三 C 类缺口 maskcreate（A 类设计沉默遮住的 record 缺口）→ 幂等 patch 活体完成其完整生命（17/17）→ Mol* 球体活体验证 → 判决文档 + worklog + 分车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 698 收官（HEAD cb2d33f 树净）；server 200/2.8ms + t677 30/0；available 3175MB < 3280 → **非 build 日第十一窗**（3164→3175 回升，差 105MB，无新泄漏源）。Task 698 入口②剩两候选中选 record 普查：t696 种子手术刚写过 record，本审计直接验证那场手术的世界一致性，正对「种子一致性单位 = job 完整生命」教义。
+- [仪器设计·盲区互补] t692 strip census 测的是 outputs 端点的 summary 腿——**A 类设计沉默 job（maskcreate/localres，output-summary L571 无 key numbers）没有 summary 可测，其 record 层的缺口对「看 summary 的仪器」永远不可见**。t699 record census 看 record 本身：completed job 五件套断言（record 存在 + workdir 在盘 + log/err 在盘 + outputs 逐值在盘（兼容 class2d 的数组形状）+ 端点 status=ok 非 missing-record 自白）。只读、世界随行、可重跑。
+- [普查判决] 36 records 对 17 jobs：13 cmuwipe 全对上 + 3 cmututold 对上 + **1 个缺生命 job：cmututold00000maskcreate**（DB 行 completed/progress 100/duration 8s，种子只写了 DB 行 + 两条边——record 零、workdir 零、文件零、outputs 端点回 missing-record 自白「re-run the job to rebuild」）+ **20 个孤儿 record = 化石世界**（cmuyb4tb50000on85bg44ugzz 项目已从 DB 灭绝，20 workdir 全部在盘——job 删了 record 和文件留着的完整尸体）。
+- [链上定性·升级关键] maskcreate 不是侧枝：**refine3d --half1→ maskcreate --mask→ postprocess，它在现役主链上**。resolveInputs（engine L1872）走 runs[up.id].outputs[key]——无 record 则 provider 被跳过，postprocess re-run 会被告知「run MaskCreate first」而 provider 本就 completed（t325 类谎言的本地形态）。且「re-run to rebuild」的建议在种子世界本身是谎言——种子不会因 re-run 复现。
+- [安全审计] 现役探针零引用（t677/t695/t692/t693 干净；family-run 仅 EMPIAR 链注释提及且那个世界自建）；bed world-guard 动态下限（18 ≥ 17 成立）；t695 世界随行（maskcreate summary 保持 null → wire 与 UI 两腿都无 strip，探针零改动）。patch 形状全承 t696 律：workdirFor 惯例名（type_id.slice(-8) → maskcreate_skcreate）、方言锚 exact 键表（engine L1744 maskcreate→mask_mrc:["mask.mrc"] + L6955 --o）、真体积（t661 律，64³ float32，mask 值 0..1：球核 1.0 + smoothstep 软边——relion_mask_create 的真形状，非 class map 高斯）、run.log/run.err 先行（t636 律）、固定时间戳（18:35:12.500Z 接续种子心跳族）、双跑幂等验讫。
+- [验证网全绿] census 重跑 **17/17 完整生命**（incomplete 0，orphans 20 不变）；outputs 端点 ok（mask.mrc kind=mrc slices=64 dims=[64,64,64]——端点自己的元数据读出真体积）；t677 30/0；**t695 125/0 ×2**（世界随行验收零改动）；agent-browser 活体（t695 协议：显式切换 + 租户按名 + 内层按钮 + 过期重锚）：inspector 租户验证 → Files tab「Mask · MRC · 64³ voxels · 1.0 MB · Download」→ Results tab「Maps & images (1)」Mask 卡 → Enlarge 中央切片渲染（z=32 of 64 · 64 sections）→ **View in 3D (Mol*)：等值面渲染出橙色球体**（shots-qa/t699-mask-molstar.png），Mol* console「map fetched 1049600 → ready」零错误——「MAP 」magic + MACHST 的存在理由本身就是 Mol* 的拒绝权。
+- [体素数学读回] Mol* 等值线 2.00σ 显示 0.9433——dmean 0.166 + σ≈0.389 → 0.166+2×0.389=0.944 ✓——种子体积的数学从第三方仪器读回自洽（t697 的 99.4 读回同一族：世界一致性经得起任意两层合同互查）。
+- [回归] 本窗零产品代码改动（世界数据 + 文档 + QA 仪器）——t677 首尾 30/0 + t695 ×2 覆盖 UI/线两层；零 build 零重启（engine-state.json mtime 变化 = engine L261-262 文档化容忍模式，缓存契约未触碰）；浏览器用毕即关。
+
+Stage Summary:
+- 「A 类设计沉默是 seed 缺口的掩体」：strip census 永远看不见 A 类 job 的 record 缺口，因为那类 job 在 summary 腿上「按设计不出场」——**基于单一消费者视野的 census，会把该消费者无视的 job 继承成自己的盲区**。t692 的仪器与 t699 的仪器是同一缺口空间的两半：summary 腿 + record 腿合起来才是「completed」的完整定义。第三 C 类缺口藏了 699 窗，不是没人看，是每双眼睛都长在 summary 那一侧。
+- 「法律先于执法仪器一个窗口到达」：t696 立法「completed job 必须带全声称产物」时只修了仪器能看见的两个缺口；t699 把教义推广成可重跑审计，立刻捕获第三个同胞。**没有可重跑审计的法律只是民俗**——后续任何新种子（EMPIAR、未来 demo 世界）都可以用一条脚本验收，执法成本在立法时就该定价。
+- 「探针的词表自病在 tab 列表上重演一记」：活体 QA 首查 tab 列表 grep 了 `Overview|Files|Log|Params`——把 Results 漏出词表，差点记下「maskcreate 无 Results tab」的假发现。回源码读 trigger 是无条件渲染，重查 snapshot 证实 Results 在。**假阴性来自假词表**（t697 的 view= 同族），每次 grep 都是词表审。
+- 「化石世界的处置是测量后的诚实」：20 孤儿 record + 20 完整 workdir = job 已删、尸体完整的化石世界（cmuyb4tb50000on85bg44ugzz）。**惯性（inert）是构造性证明的：record 按 job id 键控，resolveInputs 只沿活 job 的边走，化石 id 永远不可达**。删除是零功能收益的手术——测量后留下，把「若要清」的机械形状写进文档，是审计对世界的最低干预义务。
+- 产出：scripts/t699-record-census.py（只读五件套审计，可重跑）+ scripts/t699-maskcreate-life-patch.mjs（幂等双跑验讫）+ docs/record-census.md（判决 + 教训）+ docs/seed-gap-design.md 附记（家族完结）+ shots-qa t699 一帧（Mol* 球体）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选（refine3d run_itNNN_data.star）+ a11y 可选加强行 + 验证网（census ×2 + t695 ×2 + gate-ripple + t609 活跑×2）②非 build 日：存量审计剩一候选（shots-qa 档案对齐审计）或世界故事富化（rebalance/symexpand 的故事数字已齐——它们的 strip 活着但 result 文本可再富化）③演练床轮换（t696 窗 5，本窗窗 4，下轮 3-5 节奏内正点或下窗）④t699 record census 入回归轮换：任何种子/世界手术后必跑。
