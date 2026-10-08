@@ -170,6 +170,17 @@ export function deleteUserParamPreset(id: string): UserParamPreset[] {
   return next;
 }
 
+/** The one public BULK write (Task 717 — the portability face): the
+ *  file-import dialog computes a merged shelf with lib/preset-portability.ts
+ *  (pure — no storage there) and lands it through THIS function, so the
+ *  whole merged shelf rides the same single write well every other
+ *  mutation uses: localStorage first, then the t715 fire-and-forget PUT,
+ *  then the changed event. Import never builds a second storage path. */
+export function writeUserParamPresets(list: UserParamPreset[]): UserParamPreset[] {
+  persist(list);
+  return list;
+}
+
 /** The presets that can legally land on this job type — the gate the UI
  *  reads; the server's spec-key filter stays the second gate regardless. */
 export function presetsForType(presets: UserParamPreset[], type: string): UserParamPreset[] {

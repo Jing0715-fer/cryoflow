@@ -42,7 +42,19 @@ export interface SanitizedPreset {
   createdAt: number;
 }
 
-const MAX_PRESETS = 48;
+/** Sanitize ONE preset entry — exported for the file-import path
+ *  (t717): the portability module walks a file's entries through the
+ *  same single-entry gate so the file path and the API path cannot
+ *  drift apart, and counts each refusal as a receipt line instead of
+ *  relying on the whole-shelf skip-not-sink behavior. */
+export function sanitizePresetEntry(raw: unknown): SanitizedPreset | null {
+  return sanitizePreset(raw);
+}
+
+/** The shelf's cap, single-sourced: the server door and the file-import
+ *  merge both read THIS number (t717 — two caps would eventually
+ *  disagree about how big a shelf may be). */
+export const MAX_PRESETS = 48;
 const MAX_PARAM_KEYS = 64;
 const MAX_ID_CHARS = 64;
 const MAX_TYPE_CHARS = 64;
