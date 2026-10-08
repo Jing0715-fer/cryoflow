@@ -1,3 +1,11 @@
+/*
+ * WORLD-DRIFT NOTICE (t691 census): this probe was built against the author-day
+ * demo world — the 12-card / 13-edge era. The shared world has since grown
+ * (17 jobs / 18 edges as of t691). Checks AND poll-waiters below may be PINNED
+ * to that dead world: they fail, or hang forever, against today's roster.
+ * Historical evidence value only — re-baseline to a pre-suite census (the t689
+ * doctrine) before any re-run.
+ */
 /**
  * t596 — the selection verbs are fingers: the sel frame's shrink and
  * growth FLOW (200ms rAF lerp, the t595 voice), the coercion edge still

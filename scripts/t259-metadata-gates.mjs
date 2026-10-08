@@ -89,7 +89,7 @@ try {
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
   const roster0 = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(roster0.length >= 12, `roster identity 12 (got ${roster0.length})`);
+  must(roster0.length >= 12, `roster identity >= 12 (got ${roster0.length})`);
 
   // ---- Phase B: the ledger -------------------------------------------------
   console.log("== PHASE B: the ledger ==");

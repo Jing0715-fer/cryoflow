@@ -127,7 +127,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 >= 12, `roster identity 12 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(!!host && !!hostWd, "QA Refine3D in roster with an on-disk workdir");
   must(existsSync(parentMap), "the parent map (orthovol.mrc) is on disk");
 
@@ -528,7 +528,7 @@ try {
   }
   rmSync(TMP, { recursive: true, force: true });
   const after = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(after.length >= 12, `roster restored to 12 (got ${after.length})`);
+  must(after.length >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${after.length})`);
 }
 
 // ---- Phase D: console clean ----------------------------------------------

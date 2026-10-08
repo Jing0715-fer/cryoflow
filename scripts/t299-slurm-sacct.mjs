@@ -240,7 +240,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 >= 12, `roster identity 12 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   snap0 = readFileSync(STATE_FILE, "utf8"); // pre-suite record truth
@@ -634,7 +634,7 @@ try {
   await sleep(1200);
   try {
     const n = (await getJobs()).length;
-    must(n >= 12, `roster restored to 12 (got ${n})`);
+    must(n >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

@@ -30,7 +30,7 @@
  * a real-fail that sat in the tree until this window.
  *
  * Phases (no UI, no server rebuild — the runner testing its own death):
- *   A   the demo truth (app alive, roster identity 15)
+ *   A   the demo truth (app alive, roster populated (floor 12))
  *   B   the ledger (source assertions on family-run.mjs + the t273 pin)
  *   C   the live loop:
  *       C0  --batches: eleven batches, zero orphans, t30 registered

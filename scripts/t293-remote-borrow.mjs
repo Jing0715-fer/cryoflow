@@ -128,7 +128,7 @@ const readConns = () => {
 console.log("== PHASE A: demo truth ==");
 await fetch(`${BASE}/`).then((r) => must(r.status === 200, `homepage 200 (got ${r.status})`));
 const roster0 = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-must(roster0.length >= 12, `roster identity 12 (got ${roster0.length})`);
+must(roster0.length >= 12, `roster identity >= 12 (got ${roster0.length})`);
 must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 must(
   existsSync(`${MOCK_FS_ROOT}/opt/bin/relion_run_ctffind`) && existsSync(`${MOCK_FS_ROOT}/opt/bin/relion_refine`),

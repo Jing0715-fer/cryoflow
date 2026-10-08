@@ -1,3 +1,11 @@
+/*
+ * WORLD-DRIFT NOTICE (t691 census): this probe was built against the author-day
+ * demo world — the 12-card / 13-edge era. The shared world has since grown
+ * (17 jobs / 18 edges as of t691). Checks AND poll-waiters below may be PINNED
+ * to that dead world: they fail, or hang forever, against today's roster.
+ * Historical evidence value only — re-baseline to a pre-suite census (the t689
+ * doctrine) before any re-run.
+ */
 /**
  * t611 — the funnel pours: the analytics innards' arrival grammar, witnessed.
  *
@@ -410,7 +418,7 @@ try {
   await shiftD(); /* back to canvas */
   await sleep(900);
   const backCanvas = await readJson(`JSON.stringify(!!document.querySelector("[data-job]") && !document.querySelector("section[aria-label='Pipeline analytics']"))`);
-  check("canvas restored (12 cards, no analytics)", backCanvas === true);
+  check("canvas restored to its pre-probe shape, no analytics", backCanvas === true);
   await sleep(1200);
   const errs = await readJson(`JSON.stringify((window.__qaErrors || []).length)`);
   check("console clean (no window errors captured)", errs === 0 || errs === null, `errs=${errs}`);

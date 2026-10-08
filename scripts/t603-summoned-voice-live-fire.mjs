@@ -1,3 +1,11 @@
+/*
+ * WORLD-DRIFT NOTICE (t691 census): this probe was built against the author-day
+ * demo world — the 12-card / 13-edge era. The shared world has since grown
+ * (17 jobs / 18 edges as of t691). Checks AND poll-waiters below may be PINNED
+ * to that dead world: they fail, or hang forever, against today's roster.
+ * Historical evidence value only — re-baseline to a pre-suite census (the t689
+ * doctrine) before any re-run.
+ */
 /**
  * t603 — the summoned voice: live fire.
  *
@@ -357,7 +365,7 @@ try {
   const midHalo = withHalo.filter((f) => f.hop !== null && parseFloat(f.hop) > 0 && parseFloat(f.hop) < 0.4);
   check("W1 ∃ mid-fade halo frame (strictly inside (0, 0.4))", midHalo.length >= 1, `mid at t=${midHalo.map((f) => f.t).join(",") || "none"}`);
   const worldSteady = frames1.every((f) => f.c === 12 && f.e === 13);
-  check("W1 the summoning never touched the world (12c/13e across every frame)", worldSteady, "no mutation, no cascade of anything else");
+  check("W1 the summoning never touched the world (no mutation across any frame)", worldSteady, "no mutation, no cascade of anything else");
 
   /* the staircase delays — read from the LIVE computed style */
   const cds = await readJson(`JSON.stringify((function(){

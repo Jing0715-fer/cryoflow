@@ -1,3 +1,11 @@
+/*
+ * WORLD-DRIFT NOTICE (t691 census): this probe was built against the author-day
+ * demo world — the 12-card / 13-edge era. The shared world has since grown
+ * (17 jobs / 18 edges as of t691). Checks AND poll-waiters below may be PINNED
+ * to that dead world: they fail, or hang forever, against today's roster.
+ * Historical evidence value only — re-baseline to a pre-suite census (the t689
+ * doctrine) before any re-run.
+ */
 /**
  * t604 — the staircase breath: live fire.
  *
@@ -554,7 +562,7 @@ try {
   check("W1 truth moves WITH the breath (first dying frame = post-delete world + ghosts mounted)",
     !!(firstDy && firstDy.c === 12 && firstDy.e === 13 && firstDy.dy >= 2), firstDy ? `t=${firstDy.t} c=${firstDy.c} e=${firstDy.e} dy=${firstDy.dy}` : "no dying frame");
   const landed = frames1.filter((f) => f.c === 12 && f.e === 13);
-  check("W1 the world lands at 12c/13e inside the sampled window", landed.length >= 1, `landed frames=${landed.length}`);
+  check("W1 the healed world lands inside the sampled window", landed.length >= 1, `landed frames=${landed.length}`);
 
   /* the settled state — live DOM polling (the t596 frozen-window family) */
   const settled1 = await pollUntil(async () => {
@@ -567,7 +575,7 @@ try {
     })`);
     return v && v.dy === 0 && v.gw === 0 && v.lo === 0 && v.c === 12 && v.e === 13 ? v : null;
   }, 10000, 300);
-  check("W1 the window retires clean — 12c/13e, all ghosts swept", !!settled1, JSON.stringify(settled1));
+  check("W1 the window retires clean — all ghosts swept", !!settled1, JSON.stringify(settled1));
   try { sh(`agent-browser screenshot /home/z/my-project/.qa-logs/shots/t604-settled.png >/dev/null 2>&1`); } catch { /* */ }
 
   /* ---- R — the world owes nothing ----------------------------------------- */

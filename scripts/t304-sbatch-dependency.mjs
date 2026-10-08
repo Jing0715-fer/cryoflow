@@ -27,7 +27,7 @@
  * lie the sweep has to guess about.
  *
  * Phases:
- *   A   the demo truth (app alive, roster identity 15, mock listening)
+ *   A   the demo truth (app alive, roster populated (floor 12), mock listening)
  *   B   the ledger (source assertions on remote-run / types / strip / mock)
  *   C   the live loop (all through the REAL run route + REAL sweep):
  *       C1  dispatch under a live parent → the script carries the directive,
@@ -37,7 +37,7 @@
  *       C2  the parent FAILS → the mock journals CANCELLED for the child →
  *           the sweep maps 143 + the word (kill-on-invalid-dep, witnessed)
  *       C3  the control: no live upstream → no directive, runs immediately
- *   D   console clean + roster restored to 15
+ *   D   console clean + roster restored to its baseline
  */
 import { execSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -226,7 +226,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 >= 12, `roster identity 12 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   snap0 = readFileSync(STATE_FILE, "utf8");
@@ -578,7 +578,7 @@ try {
   await sleep(1200);
   try {
     const n = (await getJobs()).length;
-    must(n >= 12, `roster restored to 12 (got ${n})`);
+    must(n >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

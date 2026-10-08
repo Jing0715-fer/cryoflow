@@ -85,7 +85,7 @@ console.log("== PHASE A: demo truth ==");
 const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
-must(roster0 >= 12, `roster identity 12 (got ${roster0})`);
+must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
 must(!!host && !!workdir, "QA Refine3D in roster with an on-disk workdir");
 must(existsSync(parentPath), "the parent map (orthovol.mrc) is on disk");
 
@@ -361,7 +361,7 @@ must(delRes.status === 200 || delRes.status === 204, `the probe job deletes (got
 rmSync(path.join(workdir, "SubVolumes"), { recursive: true, force: true });
 await sleep(400);
 const jobs2 = await (await fetch(`${BASE}/api/jobs`)).json();
-must((jobs2.jobs ?? []).length >= 12, `roster restored to 12 (got ${(jobs2.jobs ?? []).length})`);
+must((jobs2.jobs ?? []).length >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${(jobs2.jobs ?? []).length})`);
 const edges2 = await (await fetch(`${BASE}/api/edges`)).json();
 must(
   !(edges2.edges ?? []).some((e) => e.toJobId === newJobId),

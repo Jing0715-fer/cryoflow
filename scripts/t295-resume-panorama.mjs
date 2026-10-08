@@ -47,7 +47,7 @@
  *          verified; the status line speaks the counts
  *   D  console clean
  *   finally  state file restored to the pre-suite truth, connection
- *            removed, roster back to 15
+ *            removed, roster back to its baseline
  */
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";

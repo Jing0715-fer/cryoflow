@@ -85,7 +85,7 @@ const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
 const roster0 = await page.evaluate(async () => (await (await fetch("/api/jobs")).json()).jobs.length);
-must(roster0 >= 12, `roster identity 12 (got ${roster0})`);
+must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
 must(consoleErrors.length === 0, `the homepage's own world is console-clean (got ${consoleErrors.length})`);
 
 // ---- Phase B: the write door ---------------------------------------------------

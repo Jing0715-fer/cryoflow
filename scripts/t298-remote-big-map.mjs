@@ -233,7 +233,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 >= 12, `roster identity 12 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), "the mock cluster answers on :3022");
 
   // ---- Phase B: the ledger -------------------------------------------------

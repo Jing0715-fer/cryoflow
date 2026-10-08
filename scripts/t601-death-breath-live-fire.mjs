@@ -1,3 +1,11 @@
+/*
+ * WORLD-DRIFT NOTICE (t691 census): this probe was built against the author-day
+ * demo world — the 12-card / 13-edge era. The shared world has since grown
+ * (17 jobs / 18 edges as of t691). Checks AND poll-waiters below may be PINNED
+ * to that dead world: they fail, or hang forever, against today's roster.
+ * Historical evidence value only — re-baseline to a pre-suite census (the t689
+ * doctrine) before any re-run.
+ */
 /**
  * t601 — THE LAST BREATH: the death voice for the delete verbs.
  *
@@ -18,7 +26,7 @@
  *       comes with it), the probe is deleted through the REAL dialog:
  *       truth moves the instant the ghost mounts (12 dots while it
  *       fades), ∃ mid-fade frames on card AND wire, seat preserved,
- *       staircase 0ms, retire sweeps, roster back to 12
+ *       staircase 0ms, retire sweeps, roster back to its baseline
  *   W2  THE SILENT HISTORY — delete → Ctrl+Z mid-breath: the restore
  *       mounts silently (t598 holds) and the ghost is superseded (no
  *       haunting); Ctrl+Y re-deletes with NO ghost (history replay is

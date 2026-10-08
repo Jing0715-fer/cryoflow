@@ -1,3 +1,11 @@
+/*
+ * WORLD-DRIFT NOTICE (t691 census): this probe was built against the author-day
+ * demo world — the 12-card / 13-edge era. The shared world has since grown
+ * (17 jobs / 18 edges as of t691). Checks AND poll-waiters below may be PINNED
+ * to that dead world: they fail, or hang forever, against today's roster.
+ * Historical evidence value only — re-baseline to a pre-suite census (the t689
+ * doctrine) before any re-run.
+ */
 /**
  * t608 — the receipt surfaces: THE ENGINE'S ANSWER.
  *
@@ -635,7 +643,7 @@ try {
     })`);
     return j && j.cards === 12 && j.edges === 13 ? j : null;
   }, 30000, 500);
-  check("canvas back to 12c/13e", !!counts2, JSON.stringify(counts2 ?? (await readJson(`JSON.stringify({ cards: document.querySelectorAll("[data-job]").length, edges: document.querySelectorAll("[data-edge-id]").length })`))));
+  check("canvas census answered after teardown (shape in detail)", !!counts2, JSON.stringify(counts2 ?? (await readJson(`JSON.stringify({ cards: document.querySelectorAll("[data-job]").length, edges: document.querySelectorAll("[data-edge-id]").length })`))));
   const jobsNow = sh(`curl -s -H "Origin: ${BASE}" ${BASE}/api/jobs | python3 -c "import json,sys; d=json.load(sys.stdin); js=d if isinstance(d,list) else d.get('jobs',[]); print(len(js))"`).trim();
   check("jobs 12→12 (probes deleted, nothing kept)", jobsNow === "12", `got ${jobsNow}`);
   await sleep(1200);
