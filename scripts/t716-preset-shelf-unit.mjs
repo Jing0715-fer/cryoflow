@@ -30,8 +30,13 @@ const t576 = readFileSync("scripts/t576-dash-cascade-live-fire.mjs", "utf8");
 
 // ---- A: the shelf's own census --------------------------------------------
 console.log("== A: the shelf ==");
-ok(shelfSrc.includes("if (presets === null || presets.length === 0) return null;"),
-  "empty law — zero snapshots and unread-first-frame render nothing (no decorative shelf)");
+// t717 AMENDMENT — the empty law grew a door: zero snapshots used to
+// render nothing wholesale; with carry (export/import) the zero shelf
+// has a LIVE function (import is how a fresh machine's shelf ever
+// fills), so the empty state renders the header + the import door, no
+// grid. Only the unread first frame stays dark.
+ok(shelfSrc.includes("if (presets === null) return null;") && shelfSrc.includes("preset-import-empty-door"),
+  "empty law (t717) — unread frame renders nothing; a zero shelf is a DOOR (live import mouth), not a decorative grid");
 ok(shelfSrc.includes("loadUserParamPresets()"), "reads through the ONE loader (no second truth)");
 ok(shelfSrc.includes("void reconcileUserParamPresets()"), "fires the t715 reconcile on mount (cross-browser adoption)");
 ok(shelfSrc.includes("window.addEventListener(USER_PARAM_PRESETS_EVENT, refresh)"),
