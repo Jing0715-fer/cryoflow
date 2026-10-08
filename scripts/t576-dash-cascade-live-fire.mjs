@@ -26,7 +26,8 @@
  *
  * Faces proven here (runs against :3000 — dev or prod):
  *   D1  the cascade, armed — sections' computed animation is dash-enter
- *       @240ms easeOutQuint both, delays via --dash-d (140 → 340ms), and
+ *       @240ms easeOutQuint both, delays via --dash-d (140 → 380ms; Task 711
+ *       added the activity-calendar rung, the ladder grew a seventh step), and
  *       the KPI band's five children carry the 0/35/70/105/140 staircase;
  *       the header anchor has NO animation (the input's sister).
  *   D2  the disarm — settled at ~660ms, every rung's animation-name none.
@@ -143,13 +144,13 @@ try {
   let a = null; try { a = JSON.parse(armed || "null"); } catch { /* stays null */ }
   check("dashboard root carries .dash-motion", a?.root === true, a?.root);
   check("cascade armed on first paint (not yet settled)", a?.settled === false, a?.settled);
-  check("six section rungs present", (a?.reads ?? []).length === 6, `${(a?.reads ?? []).length} rung(s)`);
+  check("seven section rungs present", (a?.reads ?? []).length === 7, `${(a?.reads ?? []).length} rung(s)`);
   const r0 = (a?.reads ?? [])[0] ?? {};
   check("rung animation is dash-enter @240ms", r0.name === "dash-enter" && r0.dur === "0.24s", `${r0.name} @ ${r0.dur}`);
   check("timing is the family's easeOutQuint", (r0.ease ?? "").includes("cubic-bezier(0.22, 1, 0.36, 1)"), r0.ease);
   check("fill both — rungs hold their final frame", r0.fill === "both", r0.fill);
   const delays = (a?.reads ?? []).map((x) => x.delay);
-  check("section ladder 140→340ms top-down", delays[0] === "0.14s" && delays[1] === "0.18s" && delays[2] === "0.22s" && delays[3] === "0.26s" && delays[4] === "0.3s" && delays[5] === "0.34s", delays.join(" "));
+  check("section ladder 140→380ms top-down", delays[0] === "0.14s" && delays[1] === "0.18s" && delays[2] === "0.22s" && delays[3] === "0.26s" && delays[4] === "0.3s" && delays[5] === "0.34s" && delays[6] === "0.38s", delays.join(" "));
   const kidDelays = (a?.bandKids ?? []).map((x) => x.delay);
   check("KPI staircase 0/35/70/105/140ms left-to-right", kidDelays.length === 5 && kidDelays[0] === "0s" && kidDelays[1] === "0.035s" && kidDelays[2] === "0.07s" && kidDelays[3] === "0.105s" && kidDelays[4] === "0.14s", kidDelays.join(" "));
   check("KPI cards animate dash-enter", (a?.bandKids ?? []).every((k) => k.name === "dash-enter"), (a?.bandKids ?? [])[0]?.name);
