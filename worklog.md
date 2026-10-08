@@ -10689,3 +10689,24 @@ Stage Summary:
 - 「链卡不需要新的墨水」：find lens 给匹配 amber stroke（一个新颜色），chain lens 给链卡什么都不加——链卡保持 status fill，故事由「对比」读出（全墨 vs whisper 退让）。镜头的视觉预算花在退让上而不是标记上：**被留下的是故事，被退让的是世界——观众读的是差，不是符**。
 - 「pulse 也要守镜头的律」：running chip 的 SMIL pulse 在 chainDim 下休息（running 永不在链上——walk 滤它）——动画是状态的声音，dim 是状态的语义，语义退场时声音跟着闭嘴。三个布尔（dimmed/findDim/chainDim）的联合在 dot 的三个出口（data attr、class、animate 守卫）保持同一析取式——一处不一就会「看着 dim 了还在跳」。
 - 产出：canvas-minimap.tsx（chainWalk/chainJobIds/chainEdgeIds 全图律 + MinimapDot chainHit/chainDim + dim 联合三支 + 边 dim 边 id 律 + data-mm-chain/data-mm-edge-id 锚族 + 头注释 Task 683 段）+ scripts/t683-minimap-chain.mjs（23 锚六腿 + 📸×1）；下窗入口：①功能车道（候选：palette recent 段（t682 遗留候选）；roster 第四 lens；minimap 的 sel-focus 与 chain 联合取景（sel 框选时链卡是否参与 frame——当前判「文档化即可」，frame 是几何 lens 是语义））②样式车道（账本清零——map 的 dim 全骑 mm-chip-dim/mm-edge-dim 既有 rung，零新墨水）③judge 风暴下半场（declined 重试——文档化在案）④build 日三车道（钥匙十八连零失败）⑤演练床一键（账在）⑥「第三 mouth」的命名候选：若第四嘴（roster？timeline face 的 minimap？）再入场，walkTimeline+criticalPath 的调用点过三处时考虑提 walkOnce hook——当前三处各自 useMemo 成本可忽略，判「文档化即可」。
+
+---
+Task ID: 684 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080825)
+Task: 08:25 派单执行——开局三件套判稳（t677 30/0 先行）→ 兑现 palette recent 段（t682/t683 连续两窗挂账候选）：store 汇合口的 session viewing trail + palette「Recent jobs」组 + 读时 join 的 ghost 对账 + t684 探针 25/0 三航 + 回归全家绿 + 分车 commit push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 683 收官（HEAD 43a9f0b 树净）；available 3326MB（> 3.28GB 阈值，build 日成立）；server 200/2.4ms + agent-browser console 0 行 + t677 30/0 判稳先行——稳定夜延续。
+- [定道·palette recent 段] Task 683 入口①候选连续两窗挂账。侦察：palette.tsx 侧栏的 recent 是 job **types**（quick-add chips）；command-palette（⌘K）有 Jobs 段（全列）但无 recent jobs。真缺口 = 「刚看完的 job 想跳回」的 session trail。
+- [feat·记录在汇合口] store.ts 四处：recentJobIds state（in-memory、cap 6）+ noteRecentJob（unshift 去重——re-visit 上浮）+ clearRecentJobs + **openJob 成功路径统一接线**（`job = findJob(); if (!job) return;` 之后、两个成功 dialect（idle select+focus / submitted inspect）共享的单点——ghost return 不记、landing repair 后记）。7 个 openJob 调用点（palette/dashboard/footer/verdict stamps/job-search-lens/remote/session-report）一次全覆盖——「入口闸门修在汇合口」的 t679 教义反向：**记录也修在汇合口**。
+- [feat·palette 是读者] command-palette.tsx：recentJobIds 订阅 + recentRows useMemo **读时 join**（byId.get + filter——trail 里的 ghost id 渲染无处，读时对账不假设 writer 清账）+「Recent jobs」组（Jobs 段之前）：heading JSX（Clock3 icon + 计数语境 + clear X button——heading 不在 cmdk item 内，天然无 onSelect 冒泡，t670 合同「一层向上」的放置诚实）+ 行语法照抄 Jobs 段（TypeIcon + name + status Badge + ↵）+ value 前缀 `recent job ...`（cmdk value 冲突规避 + "recent" 成为合法搜索词）+ data-palette-recent-row 诚实锚。空 trail 组不渲染（silence, not an empty shell）。
+- [t684 三航 25/0] 首航 24/1——唯一 FAIL 是探针自己的账（E 腿 clear 清空 trail 后 F 腿只有 drill 一行，「other rows survive」读到 0 行是正确行为）→ F 腿开头重建 trail（jump job1 做幸存者）→ 二航三航 25/0。S 3（fresh session 无 Recent 组 + Jobs 组在）+ A 3（jump job1 → head = job1 + 1 行）+ B 2（newest first 行序）+ C 2（re-visit 上浮去重、行数不变）+ D 2（**跨嘴记录**：dashboard「Recent activity」行点击走同一 openJob——palette 没看见 click，trail 首行却是它）+ E 3（X 清组 + 重开真空 + Jobs 组无损）+ F 5（drill 建入 → poll 送达 → jump → db 删 → **palette 开着活体收缩**：ghost 行退、其余行幸存——poll 换 jobs 引用 → recentRows 重算）+ G 6（桶净 + roster 不变）+ 📸×1 目检（Recent 组在顶、job1 上浮高亮、X 显影）。
+- [build + 重启] t673-build-standalone.sh 一次绿（钥匙十九连零失败 ~60s）+ PORT=3000 prod-3001 重启（教义直射）+ root 200。本窗 OOM 零。
+- [回归全家绿] tsc 0 + eslint 0（产品 ×2 + 探针）+ t684 25/0×2 + palette 域直系（t670 31/0 + t679 21/0）+ t683 23/0 + 基线四绿（t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0）。fixture 惯犯（t252-write-door-2x.png）具名路径 checkout 还原——第三次正确执行。
+
+Stage Summary:
+- 「记录修在汇合口，读取修在对账处」：t679 把「shape 归当前」的责任移到三条读入线的汇合口，t684 把「visited 归谁」的责任移到七个 jump 嘴的汇合口——openJob 的成功末端是唯一记录点，任何嘴的点击都变成同一条 trail 的饲养。七个调用点零个需要知道 trail 存在——**好的横切关注点是对调用者不可见的**。
+- 「palette 只是读者，不是史官」：Recent 组不持有任何状态——每次渲染把 trail 重新 join 到活的 jobs 数组上。ghost 腿钉的是这条合同最锋利的边：drill 被删、palette 开着、poll 换引用、行当场退场——**trail 不复活死者，且死亡不需要重开 palette 才生效**。读时 join 让「陈本对账」从每个 writer 的道德变成一个读者的算术。
+- 「空 trail 的诚实是沉默」：fresh session 的 Recent 组不存在（不是空壳组）；clear 后的重开同样真空。「Recent jobs」的 heading X 是第一个住在 cmdk group heading 里的交互按钮——它不需要阻 cmdk 冒泡（heading 不是 item，cmdk 的键盘导航与 onSelect 都不经过它）——t670 的「删除的 click 永不开 jump 的手势」在上一层结构上天然成立，合同的最高形态是不需要防御的放置。
+- 「探针的 FAIL 先审自己的账」：首航唯一 FAIL（other rows = 0）读三遍代码都对——直到想起 E 腿的 clear：F 腿的 trail 只有一个 drill，ghost 退后 0 行是**世界正确**的答案。探针腿与腿之间共享世界状态（trail 被 clear 是 D/E 腿的真实遗产），腿的预设必须对账上一腿的遗产——**跨腿状态是探针自己的 hidden writer**。
+- 产出：src/lib/store.ts（recentJobIds/noteRecentJob/clearRecentJobs 三处 + openJob 接线）+ command-palette.tsx（Recent jobs 组 + 读时 join + heading X + data-palette-recent-row 锚 + 头注释 family 清单）+ scripts/t684-palette-recent.mjs（25 锚七腿 + 📸×1）；下窗入口：①功能车道（候选：trail 的 localStorage 持久化（session trail → 持久 trail——需要 mirror 同步律 + 陈本对账，成本中；当前 in-memory 判「语义自洽」）；roster 第四 lens（t682 遗留）；palette recent 段的键盘 hint（组内 ↑↓ 行为 cmdk 原生，判「已在案」））②样式车道（账本清零——Recent 组全骑 cmdk 既有词汇，X 是 hover 显影 focus-visible ring，零新墨水）③judge 风暴下半场（declined 重试——文档化在案）④build 日三车道（钥匙十九连零失败）⑤演练床一键（账在）⑥cap 6 的容量审判（trail 第 7 个 visit 挤掉最老者——log 与 trail 的界线，判「cap 合理，文档化即可」）。
