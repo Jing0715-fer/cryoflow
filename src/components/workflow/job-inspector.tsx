@@ -105,8 +105,8 @@ import { RemoteStayNote } from "./remote-stay-note";
 import { RemoteRunButton } from "./remote-run-button";
 import { CleanupDialog } from "./cleanup-dialog";
 import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
-import { jobMatchWhy, jobMatchesFind } from "@/lib/job-match"; // t728 — the why's last mile reads the one matcher
-import { FindMarkedText } from "./find-mark"; // t728 — the wash's own home
+import { jobMatchWhy, jobMatchesFind, subsequenceSpans } from "@/lib/job-match"; // t728 — the why's last mile reads the one matcher; t729 — the filter's HOW too
+import { FindMarkedText, FIND_MARK_CLASS } from "./find-mark"; // t728 — the wash's own home; t729 — the filter chip's hue const
 
 /** t617 — the inspector wave's timing words. The modal mounts on the user's
  *  own card click (a pointerup on a submitted card), so the beat is the
@@ -1438,14 +1438,52 @@ interface ParamRow {
   differs: boolean;
 }
 
+/** t729 — the param filter exists only when the grid has something to
+ *  filter: below this many rows the whole grid fits on one screen and a
+ *  filter box would be chrome, not capability (the shelf's threshold
+ *  law, tuned for the grid's density). */
+const PARAM_FILTER_THRESHOLD = 8;
+
+/** t729 — why does this row answer the filter? The sixth search face's
+ *  ladder, mirroring the palette's reading order exactly: all substring
+ *  rungs first (label — what's visible on the row — then the option
+ *  key), then the guarded in-order abbreviation rungs in the same
+ *  order. Labels and keys are NAMES (option names, human labels) —
+ *  never prose — so the abbreviation rung reads them both; there is no
+ *  prose field on a grid row (the hover title is not a search field).
+ *  A row lights for ONE reason: the first rung that hits wins, and the
+ *  why's field decides the face — label hits wash their characters,
+ *  key hits wear the chip (the key is not on the face). */
+type ParamFilterWhy =
+  | { field: "label"; spans: ReadonlyArray<readonly [number, number]> }
+  | { field: "key" };
+
+function paramFilterWhy(
+  row: { key: string; label: string },
+  q: string,
+): ParamFilterWhy | null {
+  if (!q) return null;
+  const labelAt = row.label.toLowerCase().indexOf(q);
+  if (labelAt !== -1) return { field: "label", spans: [[labelAt, labelAt + q.length]] };
+  if (row.key.toLowerCase().includes(q)) return { field: "key" };
+  if (q.length >= 2) {
+    const labelSeq = subsequenceSpans(q, row.label);
+    if (labelSeq) return { field: "label", spans: labelSeq };
+    if (subsequenceSpans(q, row.key)) return { field: "key" };
+  }
+  return null;
+}
+
 function ParamRowLine({
   row,
   whyHit,
   whyTitle,
+  filterWhy,
 }: {
   row: ParamRow;
   whyHit?: boolean;
   whyTitle?: string;
+  filterWhy?: ParamFilterWhy;
 }) {
   const display = displayParamValue(row.value);
   return (
@@ -1473,8 +1511,28 @@ function ParamRowLine({
         )}
         title={`${row.label}${row.advanced ? " (expert option)" : ""}`}
       >
-        {row.label}
+        {/* t729 — the filter's why rides the reading order: a label hit
+            washes its characters (the same FindMarkedText the palette,
+            shelf and card faces wear); a key hit renders the chip (the
+            key is NOT on this row's face — chip-is-the-why, palette's
+            fourth-face geometry). The value cell is never filter-washed:
+            the filter matches label/key, and t728's value wash answers a
+            different question (the find lens's). Two whys, two homes. */}
+        {filterWhy && filterWhy.field === "label" ? (
+          <FindMarkedText text={row.label} spans={filterWhy.spans} />
+        ) : (
+          row.label
+        )}
       </span>
+      {filterWhy && filterWhy.field === "key" ? (
+        <span
+          className={cn("shrink-0 px-1 text-[9px] leading-4", FIND_MARK_CLASS)}
+          title={`Matched the parameter key "${row.key}"`}
+          data-param-filter-why="key"
+        >
+          key
+        </span>
+      ) : null}
       <span className="flex min-w-0 items-baseline justify-end gap-1.5">
         {row.differs ? (
           <span
@@ -1768,6 +1826,18 @@ function ParamsGrid({ job }: { job: JobDTO }) {
   const specParams = spec?.params ?? [];
   const specKeys = new Set(specParams.map((p) => p.key));
 
+  // t729 — the sixth search face: the grid filters its own rows. The
+  // filter state is EPHEMERAL (inspector-local useState — a persisted
+  // filter could boot a dead grid, the class-gallery law); the HOW is
+  // lib's subsequenceSpans (the one matcher family), the WHAT is the
+  // row's two name fields (label + option key — names, never prose).
+  // This filter answers "which setting is it?" INSIDE one job — a
+  // different radius from t722's global `key:value` (which job ever ran
+  // this value?) and from t728's find-lens wash (which row did MY query
+  // hit?): three questions, three faces, one matcher family.
+  const [paramFilter, setParamFilter] = React.useState("");
+  const fq = paramFilter.trim().toLowerCase();
+
   // t728 — the param why's last mile. t722's match why left spans empty
   // BY DESIGN: "the value lives in the params grid, the card face has no
   // words to wash." This grid is that home — when the canvas find lens
@@ -1836,35 +1906,108 @@ function ParamsGrid({ job }: { job: JobDTO }) {
   const total = groups.reduce((n, g) => n + g.rows.length, 0);
   if (total === 0) return null;
 
+  // t729 — filter before render: rows that miss the filter drop out,
+  // and a tab whose rows ALL miss drops out with them (an empty group
+  // header would claim params it does not show). The why ledger is
+  // per-render (t616's non-persistent ledger — it lives exactly as
+  // long as this render), and the count chip below is the predicate's
+  // product (t627 honesty): the Section hint above stays "complete ·
+  // N settings" (the capacity truth), the chip says "k of N" (the
+  // current view's truth) — two numbers, each honest at its own radius.
+  const filterWhys = new Map<string, ParamFilterWhy>();
+  const visibleGroups = fq
+    ? groups
+        .map((g) => ({
+          tab: g.tab,
+          rows: g.rows.filter((r) => {
+            const why = paramFilterWhy(r, fq);
+            if (why) filterWhys.set(r.key, why);
+            return why !== null;
+          }),
+        }))
+        .filter((g) => g.rows.length > 0)
+    : groups;
+  const visibleTotal = fq
+    ? visibleGroups.reduce((n, g) => n + g.rows.length, 0)
+    : total;
+
   return (
     <div className="space-y-4">
-      {groups.map((g) => (
-        <div
-          key={g.tab}
-          data-print-atomic=""
-          className="insp-card-whisper overflow-hidden rounded-xl border bg-card"
-          data-testid={`inspector-params-${g.tab}`}
-        >
-          <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
-              {g.tab}
+      {total >= PARAM_FILTER_THRESHOLD ? (
+        <div className="no-print relative">
+          <Search
+            className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            value={paramFilter}
+            onChange={(e) => setParamFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setParamFilter("");
+            }}
+            placeholder="Filter parameters by label or key…"
+            aria-label="Filter parameters by label or option key"
+            title="Substring first, then in-order abbreviations — matched characters highlight"
+            className="h-7 pl-7 pr-16 text-[11px]"
+            data-testid="inspector-param-filter"
+          />
+          {fq ? (
+            <span
+              className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 text-[9px] tabular-nums text-muted-foreground"
+              data-testid="inspector-param-filter-count"
+            >
+              {visibleTotal} of {total}
+              <button
+                type="button"
+                onClick={() => setParamFilter("")}
+                aria-label="Clear parameter filter"
+                className="rounded-sm p-px hover:bg-muted"
+                data-testid="inspector-param-filter-clear"
+              >
+                <X className="size-3" aria-hidden="true" />
+              </button>
             </span>
-            <span className="text-[10px] tabular-nums text-muted-foreground">
-              {g.rows.length} {g.rows.length === 1 ? "param" : "params"}
-            </span>
-          </div>
-          <div className="grid gap-x-8 gap-y-2 px-4 py-3.5 sm:grid-cols-2">
-            {g.rows.map((row) => (
-              <ParamRowLine
-                key={row.key}
-                row={row}
-                whyHit={whyKey === row.key}
-                whyTitle={whyTitle}
-              />
-            ))}
-          </div>
+          ) : null}
         </div>
-      ))}
+      ) : null}
+      {fq && visibleTotal === 0 ? (
+        <p
+          className="rounded-lg border border-dashed bg-muted/20 px-3 py-2.5 text-[11px] leading-snug text-muted-foreground"
+          data-testid="inspector-params-no-match"
+        >
+          No parameters match “{paramFilter.trim()}” — press Escape or click the × to clear the
+          filter. Abbreviations work too — any in-order characters of a label or option key match.
+        </p>
+      ) : (
+        visibleGroups.map((g) => (
+          <div
+            key={g.tab}
+            data-print-atomic=""
+            className="insp-card-whisper overflow-hidden rounded-xl border bg-card"
+            data-testid={`inspector-params-${g.tab}`}
+          >
+            <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
+                {g.tab}
+              </span>
+              <span className="text-[10px] tabular-nums text-muted-foreground">
+                {g.rows.length} {g.rows.length === 1 ? "param" : "params"}
+              </span>
+            </div>
+            <div className="grid gap-x-8 gap-y-2 px-4 py-3.5 sm:grid-cols-2">
+              {g.rows.map((row) => (
+                <ParamRowLine
+                  key={row.key}
+                  row={row}
+                  whyHit={whyKey === row.key}
+                  whyTitle={whyTitle}
+                  filterWhy={filterWhys.get(row.key)}
+                />
+              ))}
+            </div>
+          </div>
+        ))
+      )}
     </div>
   );
 }
