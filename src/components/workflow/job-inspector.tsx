@@ -105,6 +105,8 @@ import { RemoteStayNote } from "./remote-stay-note";
 import { RemoteRunButton } from "./remote-run-button";
 import { CleanupDialog } from "./cleanup-dialog";
 import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
+import { jobMatchWhy, jobMatchesFind } from "@/lib/job-match"; // t728 — the why's last mile reads the one matcher
+import { FindMarkedText } from "./find-mark"; // t728 — the wash's own home
 
 /** t617 — the inspector wave's timing words. The modal mounts on the user's
  *  own card click (a pointerup on a submitted card), so the beat is the
@@ -1436,13 +1438,33 @@ interface ParamRow {
   differs: boolean;
 }
 
-function ParamRowLine({ row }: { row: ParamRow }) {
+function ParamRowLine({
+  row,
+  whyHit,
+  whyTitle,
+}: {
+  row: ParamRow;
+  whyHit?: boolean;
+  whyTitle?: string;
+}) {
   const display = displayParamValue(row.value);
   return (
     <div
       key={row.key}
       data-print-atomic=""
-      className="flex min-w-0 items-baseline justify-between gap-3 border-b border-dashed border-border/40 pb-1.5 last:border-0 last:pb-0"
+      data-param-why-hit={whyHit || undefined}
+      className={cn(
+        "flex min-w-0 items-baseline justify-between gap-3 border-b border-dashed border-border/40 pb-1.5 last:border-0 last:pb-0",
+        // t728 — the hit row wears the lens's quiet whisper
+        // (border-amber-500/40 bg-amber-500/5, the class-gallery token
+        // family — the find lens's amber at whisper volume, never a
+        // second color language). Horizontal padding rides negative
+        // margins so the tint breathes without shifting the grid's
+        // rhythm. State, not arrival: no transition, no animation —
+        // motion-reduce is safe by construction.
+        whyHit && "rounded-md bg-amber-500/5 px-1.5 -mx-1.5",
+      )}
+      title={whyHit ? whyTitle : undefined}
     >
       <span
         className={cn(
@@ -1468,7 +1490,17 @@ function ParamRowLine({ row }: { row: ParamRow }) {
           )}
           title={display}
         >
-          {display}
+          {/* t728 — the value cell IS the hit's home: when the find
+              lens's param rung won on this row, the whole displayed
+              value washes amber (the same FIND_MARK_CLASS the card's
+              text wears). The wash covers the cell, not characters —
+              the matcher matched the raw stored value whole; the
+              display may format it (true → "Yes"), and washing the
+              formatted cell is the honest row-level claim. */}
+          <FindMarkedText
+            text={display}
+            spans={whyHit ? [[0, display.length]] : []}
+          />
         </span>
         {row.unit ? (
           <span className="shrink-0 text-[10px] text-muted-foreground">{row.unit}</span>
@@ -1736,6 +1768,36 @@ function ParamsGrid({ job }: { job: JobDTO }) {
   const specParams = spec?.params ?? [];
   const specKeys = new Set(specParams.map((p) => p.key));
 
+  // t728 — the param why's last mile. t722's match why left spans empty
+  // BY DESIGN: "the value lives in the params grid, the card face has no
+  // words to wash." This grid is that home — when the canvas find lens
+  // holds a param dialect query and THIS job is genuinely inside the
+  // lens (the FULL gate, chips included — the same jobMatchesFind the
+  // canvas's matched-set memo runs, so the row can never claim a match
+  // the card does not ring), the winning row shows itself here: quiet
+  // amber whisper + the value cell washed. Zero new storage: the lens
+  // state rides the store the find bar already owns (and closeFind
+  // clears the query, so a closed bar is an empty lens — the findOpen
+  // gate mirrors canvas's own line-for-line). Text queries are out of
+  // scope here: their why already washes the card's name/label; a
+  // second wash in the grid would be a second answer to the same
+  // question. The param why is different — its why badge points at the
+  // dialect, but the VALUE's row had no marker anywhere until now.
+  const findOpen = useWorkflowStore((s) => s.findOpen);
+  const findQuery = useWorkflowStore((s) => s.findQuery);
+  const findStatus = useWorkflowStore((s) => s.findStatus);
+  const findCategory = useWorkflowStore((s) => s.findCategory);
+  const paramWhy = React.useMemo(() => {
+    if (!findOpen || !findQuery.trim()) return null;
+    if (!jobMatchesFind(job, findQuery, findStatus, findCategory)) return null;
+    const why = jobMatchWhy(job, findQuery);
+    return why && why.source === "param" ? why : null;
+  }, [job, findOpen, findQuery, findStatus, findCategory]);
+  const whyKey = paramWhy?.key ?? null;
+  const whyTitle = paramWhy
+    ? `Matched your find query “${findQuery.trim()}” — key matches by substring, value equals exactly (the find bar's badge tells the same story)`
+    : undefined;
+
   const groups: { tab: string; rows: ParamRow[] }[] = [];
   for (const tab of tabsFor(spec)) {
     const rows: ParamRow[] = [];
@@ -1793,7 +1855,12 @@ function ParamsGrid({ job }: { job: JobDTO }) {
           </div>
           <div className="grid gap-x-8 gap-y-2 px-4 py-3.5 sm:grid-cols-2">
             {g.rows.map((row) => (
-              <ParamRowLine key={row.key} row={row} />
+              <ParamRowLine
+                key={row.key}
+                row={row}
+                whyHit={whyKey === row.key}
+                whyTitle={whyTitle}
+              />
             ))}
           </div>
         </div>
