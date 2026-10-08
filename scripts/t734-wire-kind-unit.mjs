@@ -78,8 +78,8 @@ must(pairOk, "A every wire hex pairs with its own dot class's hue-500 — same r
 must(/t734 — each kind's vocabulary now speaks a fourth form/.test(wf),
   "A the vocabulary's home carries the why (lib is outside the JIT globs — hex is the canvas's dialect)");
 
-must(/PORT_COLORS, jobType \} from "@\/lib\/workflow"/.test(edges),
-  "A the edges layer drinks the vocabulary AND the book's resolver");
+must(/PORT_COLORS, outputKindOf \} from "@\/lib\/workflow"/.test(edges),
+  "A the edges layer drinks the vocabulary AND the book's resolver (t735: the lookup moved into the book)");
 
 must(Object.keys(PORT_COLORS).every((k) => wf.includes(`${k}: { dot:`) || wf.includes(`${k}: {`)),
   "A all 12 rows live in workflow.ts (the census's COLORS-definition home, t647)");
@@ -106,8 +106,8 @@ must(ghostKinds.size === 0 && portCount >= 40,
   `B ${portCount} output ports across the book, ${kindCount} kinded — zero ghost kinds`,
   ghostKinds.size ? [...ghostKinds].join(",") : "all resolve");
 
-must(/jobType\(from\.type\)\?\.outputs\?\.find\(\(p\) => p\.name === edge\.fromPort\)\?\.kind/.test(edges),
-  "B the derivation reads the FROM port's own spec — zero second directory, no invented kinds");
+must(/outputKindOf\(from\.type, edge\.fromPort\)/.test(edges),
+  "B the derivation reads the FROM port's own spec through the book's outputKindOf — zero second directory (t735 单源)");
 
 must(/const kindInk = edgeKind \? PORT_COLORS\[edgeKind\]\.wire : null;/.test(edges),
   "B an unmapped/legacy edge keeps the neutral ink (null → ?? fallback)");
