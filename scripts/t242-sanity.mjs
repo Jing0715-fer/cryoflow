@@ -6,7 +6,16 @@
 //     known dirs all-missing vs some-exist vs all-exist; home scan 0 vs N hits
 //   • the A/B remedies + Re-detect closing (the promise the chip title makes)
 //   • determinism: same facts → byte-identical hint (the converter has no clock)
-import { composeNativeHint } from "../src/lib/relion/system.ts";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { composeNativeHint } = await __jiti.import("../src/lib/relion/system.ts");
 
 let fail = 0;
 const must = (cond, label) => {

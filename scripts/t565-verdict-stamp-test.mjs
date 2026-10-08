@@ -7,16 +7,16 @@
  */
 
 import assert from "node:assert/strict";
-import {
-  sanitizeStamp,
-  upsertStamp,
-  trimStamps,
-  parseStampsFile,
-  serializeStampsFile,
-  MAX_STAMPS,
-  MAX_REASON_CHARS,
-  MAX_ADVICE_CHARS,
-} from "../src/lib/ai/verdict-stamp-core.ts";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { sanitizeStamp, upsertStamp, trimStamps, parseStampsFile, serializeStampsFile, MAX_STAMPS, MAX_REASON_CHARS, MAX_ADVICE_CHARS } = await __jiti.import("../src/lib/ai/verdict-stamp-core.ts");
 
 let pass = 0, fail = 0;
 const check = (name, ok, note = "") => {

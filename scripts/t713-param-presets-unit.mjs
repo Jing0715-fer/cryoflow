@@ -13,7 +13,16 @@
 //      to the default is NOT a change; missing keys speak the default).
 //   C  the store itself — round-trip, type gate, corruption tolerance,
 //      delete hygiene, and the changed-event contract.
-import { snapshotSpecParams, countEffectiveDiffs, loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, presetsForType, USER_PARAM_PRESETS_EVENT } from "../src/lib/user-param-presets";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { snapshotSpecParams, countEffectiveDiffs, loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, presetsForType, USER_PARAM_PRESETS_EVENT } = await __jiti.import("../src/lib/user-param-presets");
 
 let PASS = 0, FAIL = 0, EVENTS = 0;
 const must = (cond, label, detail) => {

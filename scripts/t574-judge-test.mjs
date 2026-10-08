@@ -16,12 +16,16 @@
  * Usage: node scripts/t574-judge-test.mjs
  */
 
-import {
-  planJudgeCandidates,
-  clampJudgeTickMs,
-  DEFAULT_JUDGE_TICK_MS,
-  MAX_JUDGES_PER_TICK,
-} from "../src/lib/ai/judge-worker-plan.ts";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { planJudgeCandidates, clampJudgeTickMs, DEFAULT_JUDGE_TICK_MS, MAX_JUDGES_PER_TICK } = await __jiti.import("../src/lib/ai/judge-worker-plan.ts");
 
 let pass = 0, fail = 0;
 const check = (name, ok, evidence) => {

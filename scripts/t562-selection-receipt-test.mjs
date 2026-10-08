@@ -19,7 +19,16 @@
  *        the erasable-syntax TS directly; no mirror copy in this file)
  */
 
-import { parseSelectionReceipt, jobRefFromInputPath } from "../src/lib/selection-receipt.ts";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { parseSelectionReceipt, jobRefFromInputPath } = await __jiti.import("../src/lib/selection-receipt.ts");
 
 let pass = 0, fail = 0;
 const check = (name, ok, note = "") => {

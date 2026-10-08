@@ -40,7 +40,16 @@ globalThis.window = {
   },
 };
 
-import { recordJobEvent, readJobJournal, JOB_JOURNAL_KEY } from "../src/lib/job-journal";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { recordJobEvent, readJobJournal, JOB_JOURNAL_KEY } = await __jiti.import("../src/lib/job-journal");
 import { readFileSync } from "node:fs";
 
 const NOW = 1_760_000_000_000;

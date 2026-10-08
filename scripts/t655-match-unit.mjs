@@ -10,14 +10,17 @@
 //   C  the drift-proof law: predicate ⟺ why != null across a corpus,
 //      plus the marked-concat law (the marks literally spell the query)
 //      and the chip-alone honesty (ring without why).
-import {
-  jobMatchWhy,
-  jobMatchesQuery,
-  jobMatchesFind,
-  subsequenceMatch,
-  subsequenceSpans,
-} from "../src/lib/job-match";
-import { jobType } from "../src/lib/workflow";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { jobMatchWhy, jobMatchesQuery, jobMatchesFind, subsequenceMatch, subsequenceSpans } = await __jiti.import("../src/lib/job-match");
+const { jobType } = await __jiti.import("../src/lib/workflow");
 
 let PASS = 0, FAIL = 0;
 const must = (cond, label, detail) => {

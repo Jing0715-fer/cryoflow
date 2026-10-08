@@ -25,8 +25,17 @@
 // Run:  node scripts/unit-runner.mjs scripts/t714-palette-user-presets-unit.mjs
 // (the t653 runner pattern — jiti + alias mapping; the product IS the oracle.)
 
-import { recentFirst } from "../src/lib/user-param-presets";
-import { fmtAgo } from "../src/lib/duration";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { recentFirst } = await __jiti.import("../src/lib/user-param-presets");
+const { fmtAgo } = await __jiti.import("../src/lib/duration");
 import { readFileSync } from "node:fs";
 
 let pass = 0, fail = 0;

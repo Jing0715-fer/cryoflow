@@ -28,7 +28,16 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { jobMatchWhy, jobMatchesFind } from "../src/lib/job-match";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { jobMatchWhy, jobMatchesFind } = await __jiti.import("../src/lib/job-match");
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const readSrc = (rel) =>

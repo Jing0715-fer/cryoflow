@@ -9,7 +9,16 @@
 //      the guards (order, length, emptiness).
 //   C  jobMatchesFind — Task 134's empty-query contract and the status
 //      gate survive the fuzzy dialect untouched.
-import { jobMatchesQuery, jobMatchesFind, subsequenceMatch } from "../src/lib/job-match";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { jobMatchesQuery, jobMatchesFind, subsequenceMatch } = await __jiti.import("../src/lib/job-match");
 
 let PASS = 0, FAIL = 0;
 const must = (cond, label, detail) => {

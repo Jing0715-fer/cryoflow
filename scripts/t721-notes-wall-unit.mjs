@@ -36,7 +36,16 @@ const must = (cond, label, detail) => {
   else { FAIL++; console.log(`  FAIL: ${label}${detail ? ` (${detail})` : ""}`); }
 };
 
-import { hasJudgment, parseClassNotes, CLASS_NOTE_MAX } from "../src/lib/class-notes";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { hasJudgment, parseClassNotes, CLASS_NOTE_MAX } = await __jiti.import("../src/lib/class-notes");
 import { readFileSync } from "node:fs";
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");

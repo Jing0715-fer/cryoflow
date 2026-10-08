@@ -17,7 +17,16 @@
  *
  * bun run scripts/t413-archive-retention-janitor.mjs [--budget N]
  */
-import { reclaimScript, ARCHIVE_BUDGET_BYTES } from "../src/lib/remote/remote-cleanup.ts";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { reclaimScript, ARCHIVE_BUDGET_BYTES } = await __jiti.import("../src/lib/remote/remote-cleanup.ts");
 import { readdirSync, statSync, existsSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";

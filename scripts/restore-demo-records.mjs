@@ -13,8 +13,17 @@
 import { existsSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
-import { DATA_DIR } from "../src/lib/paths.ts";
-import { collectOutputs } from "../src/lib/relion/engine.ts";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { DATA_DIR } = await __jiti.import("../src/lib/paths.ts");
+const { collectOutputs } = await __jiti.import("../src/lib/relion/engine.ts");
 
 const STATE_FILE = path.join(DATA_DIR, "engine-state.json");
 const RELION_DIR = path.join(DATA_DIR, "relion");

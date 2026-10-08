@@ -31,8 +31,17 @@ const must = (cond, label, detail) => {
   else { FAIL++; console.log(`  FAIL: ${label}${detail ? ` (${detail})` : ""}`); }
 };
 
-import { exportShelfPayload, exportShelfFilename, importShelfPayload, PRESET_PAYLOAD_KIND, PRESET_PAYLOAD_VERSION } from "../src/lib/preset-portability";
-import { writeUserParamPresets } from "../src/lib/user-param-presets";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { exportShelfPayload, exportShelfFilename, importShelfPayload, PRESET_PAYLOAD_KIND, PRESET_PAYLOAD_VERSION } = await __jiti.import("../src/lib/preset-portability");
+const { writeUserParamPresets } = await __jiti.import("../src/lib/user-param-presets");
 import { readFileSync } from "node:fs";
 
 const NOW = 1_760_000_000_000;

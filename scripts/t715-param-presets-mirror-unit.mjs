@@ -48,8 +48,17 @@ globalThis.window = {
   },
 };
 
-import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, reconcileUserParamPresets, USER_PARAM_PRESETS_EVENT } from "../src/lib/user-param-presets";
-import { sanitizePresetShelf } from "../src/lib/param-preset-sanitize";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, reconcileUserParamPresets, USER_PARAM_PRESETS_EVENT } = await __jiti.import("../src/lib/user-param-presets");
+const { sanitizePresetShelf } = await __jiti.import("../src/lib/param-preset-sanitize");
 import { readFileSync } from "node:fs";
 
 const goodPreset = { id: "upp-1-abcde", type: "ctffind", name: "My standard pass", params: { box: 256, resMax: 8, fast: false }, createdAt: 1700000000000 };
