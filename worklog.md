@@ -11879,3 +11879,28 @@ Stage Summary:
 - 「无词者保持素颜」：legacy 无口边的 chip 无色点、title 裸 label——谱不假装收留它（t737 dim 律的 C 面）。判词：**诚实有两种：有词的读词，无词的不化妆**；undefined 在类型、在色点、在 title 三处同义。
 - 「TDZ 与 string 的同根红」：memo 引用后声明的变量、undefined 直传 string 参——两红都源于「无口边」这个概念在代码里没有名字。判词：**给语义一个显式的 undefined 分支，类型和执行序就同时安静**；`fromType && e.fromPort ? ... : undefined` 一行同时修两病。
 - 产出：src/components/workflow/job-panel.tsx（EdgeChip kind prop + 水点 + title 词 + IOTab edgeKinds ledger + PortRow 传递）+ scripts/t738-io-water-unit.mjs（14/0）+ shots-qa/t738-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 廿九项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737 激活判决 + **t738 激活判决（chip 水色活体：I/O 面 chip 借线墨 + title 词 + 无词素颜）** + 验证网 ②非 build 日：自由选题（**kind 词汇第七读者的侦察**——或图例 hover 边清单（title 升卡）；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **3/5**（带内不动） ④census 轮换：零新路由/零种子/零 bookmark；本窗组件手术（job-panel）→ t716/t727/t733/t734/t735/t737/t738 家族 701/0 本窗已全跑；t650-assert 已跑（35/0）；lib **本窗零手术**；t576 live-fire 仍 world-drift pin。
+
+---
+Task ID: 739
+Agent: main (cron agent loop, Job 362852, trace ...0555)
+Task: 状态判定 → agent-browser 巡检 → 非.build 日自由选题实装 → 验证网 → 三车 commit + push
+
+Work Log:
+- 开局三件套：tail worklog 尾条 = Task 738 收官（feat c4bfa8d2 / qa 5c9bd22c / docs e6ff04f8——摘要链说 738 未执行，实际早已三车在岸，「绝不信任摘要链」律再验一窗）；curl home 200；free available 3084MB < 3280MB → **非 build 日连续第卅九窗**，床轮换 3/5 带内不动。
+- agent-browser 巡检：open → errors 零行 / console 零行 / 195 钮满员；kind-legend DOM 查询 LEGEND MISSING → 查 .next/BUILD_ID = 10-08 01:58（早于 t737/t738 feat）→ **冻结 bundle 预期**（图例与 chip 水色随下个 build 上 bundle），截图 shots-qa/t739-patrol.png，用毕即关。
+- 定题（worklog 预写候选其一）：**t739 图例 hover 边清单——目录升级为索引页**。手术三处（src/components/workflow/canvas.tsx）：
+  1. legend useMemo 扩展：单遍循环既数数又收行（`rows: Map<PortKind, {from,to}[]>`），行名经同一 byId 查 jobs.name——**零第二目录零第二名录**；
+  2. **roster 口径修正：账本口径 → 画布口径**——`const to = byId.get(e.toJobId); if (!to) continue;`：一条线两端可见才入谱（与 edges-layer 画线同律：both endpoints visible）。判词：**图例索引的是画布上画的线，不是账本上记的线——账上有的不一定是画出来的**（t737 时代 roster 对全部 edges 数，跨 workspace 出线的 kind 被计数但不被画；本窗补全）；
+  3. 脸：每词包 relative wrapper，浮卡 condition-render（`{open && ...}`，DOM 安静到被问为止）、pointer-events-none（卡接不住自己的鼠标，hover 不抖）、bottom-full 向上弹（工具条住在画布地板，卡浮进它所描述的世界）、onMouseEnter + onFocus 双通道（手与键盘同权）、onMouseLeave/onBlur 带防抖（`cur === k ? null : cur`——离开的词关不掉别的词刚开的卡）、aria-describedby 只在 open 时挂、role="tooltip" + data-canvas-ui="kind-legend-card" 探针柄。浮卡三段：头行（色点 + kind + 计数）→ 边行清单（`{from.name} → {to.name}`，借线卡 t735 词形；truncate + w-max max-w-64 长名优雅退让）→ 脚行（click to focus · Esc to clear，从原生 title 迁入——**卡与 tooltip 不说两遍一样的话**，title 精简为 `{k} data on {wires} wires` 保计数职责，t737 探针词形断言仍绿）。
+  - 死代码自查：边行嵌套 title 在 pointer-events-none 卡内永远无法 hover 触发 → 去掉（弹不出的提示不是提示）。
+- 探针 scripts/t739-legend-card-unit.mjs（24/0）：A 单源×7（单遍收数收行、byId 查名、画布口径源码断言、roster 仍走 outputKindOf/PORT_COLORS 键序）+ B live-fire×2（真实 API 世界按画布口径重建：roster 7 词 sum 18 === both-end kinded 18，0 线在口径外——seed 世界无跨 workspace 线，两口径此刻重合；18 card rows 跨 7 词零幽灵名、每词行数 === 其计数）+ C 脸×10（wrapper relative、条件渲染、双通道、防抖、bottom-full、id+aria-describedby、tooltip role、title 词形保留、脚行提示、truncate + ruled footer）+ D 纯度×4（零 hue 类、零 motion、零 storage、census workflow.ts home 仍覆盖）。
+- 首跑一红：A 段第二半 regex 对 legendBlock 测 useMemo 段（useMemo 在 canvas 别处不在 legendBlock 切片内）→ 修正为脸部解构词形 `legend.map(({ kind: k, wires, rows })` 后 24/0。
+- 验证网：tsc 0 + eslint 0（canvas）+ t650-assert 35/0 + **25 件探针 725 pass / 0 fail**（t653-match 25 + t653-e2e 11 + t655 25 + t713 26 + t714 21 + t715 37 + t716 25 + t717 40 + t718 32 + t720 37 + t721 49 + t722 41 + t724 26 + t725 34 + t727 34 + t728 36 + t729 37 + t730 43 + t732 25 + t733 33 + t734 18 + t735 17 + t737 20 + t738 14 + t739 24）；agent-browser 复巡 errors/console 零行（索引页随下个 build 上 bundle，staged 预期）。
+- 三车 commit：feat（canvas 索引页 + 画布口径）→ qa（t739 探针 + 巡检截图）→ docs（worklog 本段）→ push。
+
+Stage Summary:
+- 「目录之后是索引页」：t737 的图例是书的目录（有哪些词、各多少线），t739 的 hover 卡是索引页（这个词的每条线从谁流向谁）。判词：**目录回答「有什么」，索引页回答「具体在哪」——翻目录的人还在选书，翻索引页的人已经知道要读哪一页**。hover 读（卡开），click 问（聚焦暗余）——两种手势两个深度，各不相扰。
+- 「画布口径」：roster 从账本口径改为画布口径——两端可见才入谱，与 edges-layer 画线同律。判词：**图例是画的注解，不是账的注解；画什么显什么，账上多出的那一笔不该有教学的声音**。seed 世界两口径重合（0 线在口径外），但律已立——跨 workspace 线出现之日，图例不会说画布没画的话。
+- 「卡与 tooltip 的分工」：title 只教计数（无障碍 fallback），卡教清单与操作——同一信息不说两遍，同一职责不设两处。判词：**迁移不是删除：click to focus 从 title 搬进卡脚，是因为读者此刻正看着卡——提示应该出现在眼睛在的地方**。
+- 「防抖的礼让」：onMouseLeave 带 `cur === k` 守卫——从词 A 滑向词 B 时，B 的 enter 先于 A 的 leave，A 的离开不得关掉 B 刚开的卡。判词：**并发的手势里，晚到的事实尊重早到的事实**。
+- 产出：src/components/workflow/canvas.tsx（legendHover state + legend useMemo 扩展收行 + 画布口径 + 浮卡三段）+ scripts/t739-legend-card-unit.mjs（24/0）+ shots-qa/t739-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 三十项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738 激活判决 + **t739 激活判决（图例索引页活体：hover 词浮卡列 from → to 行、键盘 focus 同开、Esc/再点/背景三重释放焦点、卡脚提示、2xl 词、画布口径 roster）** + 验证网 ②非 build 日：自由选题（**kind 词汇第八读者的侦察**——mini-map 缩微线借线墨？拖拽新线预览色？或图例卡行点击即聚焦该线？或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **4/5**（带内不动） ④census 轮换：零新路由/零种子/零 bookmark；本窗组件手术（canvas）→ t716/t727/t733/t734/t735/t737/t738/t739 家族 725/0 本窗已全跑；t650-assert 已跑（35/0）；lib **本窗零手术**；t576 live-fire 仍 world-drift pin。
