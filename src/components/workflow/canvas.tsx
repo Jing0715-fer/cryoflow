@@ -201,6 +201,15 @@ const LiveWire = React.memo(function LiveWire({
   if (!job) return null;
   const spec = jobType(job.type);
 
+  // t742 — the live wire wears its ink BEFORE it exists: the pending port
+  // already knows what data will flow (outputKindOf asks the same book the
+  // committed wires read), so the preview line paints the kind's resting
+  // wire hex while it is still being dragged. Wiring is the moment the
+  // user declares what flows — the color should answer immediately, not
+  // after the commit. A port without a word (no kind) stays bare primary:
+  // the wire-ink law's bare face — honest colorlessness, not a borrowed
+  // hue (t738's wordless chip, met again at the wire's birthplace).
+
   // "out" wires anchor at an output port (right edge); "in" wires anchor
   // at an input port (left edge) and are dragged backwards to an output
   let sx: number;
@@ -221,6 +230,8 @@ const LiveWire = React.memo(function LiveWire({
   const by = Math.min(sy, cursor.y) - WIRE_PAD;
   const bw = Math.abs(cursor.x - sx) + 2 * WIRE_PAD;
   const bh = Math.abs(cursor.y - sy) + 2 * WIRE_PAD;
+  const liveKind = outputKindOf(job.type, pendingFrom.port);
+  const ink = liveKind ? PORT_COLORS[liveKind].wire : undefined;
 
   return (
     <svg
@@ -231,10 +242,10 @@ const LiveWire = React.memo(function LiveWire({
       style={{ left: bx, top: by, overflow: "visible" }}
       aria-hidden="true"
     >
-      <circle cx={sx} cy={sy} r={4} fill="var(--primary)" opacity={0.9} />
+      <circle cx={sx} cy={sy} r={4} fill={ink ?? "var(--primary)"} opacity={0.9} />
       <path
         d={pendingWirePath(sx, sy, cursor.x, cursor.y, pendingFrom.dir === "in" ? "in" : "out")}
-        stroke="var(--primary)"
+        stroke={ink ?? "var(--primary)"}
         strokeWidth={2.5}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -242,7 +253,7 @@ const LiveWire = React.memo(function LiveWire({
         fill="none"
         className="edge-flow"
       />
-      <circle cx={cursor.x} cy={cursor.y} r={3} fill="var(--primary)" opacity={0.55} />
+      <circle cx={cursor.x} cy={cursor.y} r={3} fill={ink ?? "var(--primary)"} opacity={0.55} />
     </svg>
   );
 });
