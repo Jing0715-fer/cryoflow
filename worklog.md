@@ -10642,3 +10642,27 @@ Stage Summary:
 - 「blanket checkout 是对自己的工作扫射」：fixture 惯犯的还原判例从来是具名路径（git checkout -- <path>），blanket 形式一把火把未提交的特性也还了原。自救五编辑重放 + 重建 + 四航再绿——但学费入账：**还原命令的作用域必须和还原意图一样窄**。
 - 「判稳针也要守发射纪律」：判稳用的 t680 被 nohup+& 腰斩（0 字节日志），教义「自孤儿脚本直接发射，永不加 &」对判稳航同样生效——判稳航是航，不是备忘。
 - 产出：src/lib/critical-path.ts（回溯走法 + gap 语义 + 确定性比较器）+ pipeline-analytics.tsx 第五面（块 + edges store 直读 + copy summary 段 + data-critical-{row,index,name,gap,bar,finisher,steps,span,busy} 锚族）+ scripts/t681-critical-path.mjs（38 锚七腿 + drill 链延伸 + 剪贴板直读 + 📸×1）；下窗入口：①功能车道（账本续清——Critical path 落地后 analytics 五面满员；候选新缺口需再过 t678 分层验尸：canvas 链高亮 overlay（把第五面的链画回画布——dim 非链卡/强调链边，需过 t611 编舞家族两层诚实律，风险中高）、roster 面第四 lens？、palette recent 段）②样式车道（账本清零——第五面入场动画未加入 t611 编舞，判「静态即可」与 runtime 面同判）③judge 风暴下半场（declined 重试策略——文档化判例在案）④build 日三车道（钥匙十五连零失败）⑤演练床一键（账在）⑥gap=0（back-to-back）与单步链的世界边缘判「文档化即可」。
+
+---
+Task ID: 682 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610080755)
+Task: 07:55 派单执行——开局三件套判稳 → 兑现 Task 681 入口①：canvas 链高亮 overlay「critical path lens」（第五面的链画回画布——第四个 lens：map·find·funnel·chain）+ lib viaEdgeId 扩展（走法记录自己踩过的边）+ t682 探针 28/0 一航全绿 + 回归全家绿 + 分车 commit push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 681 收官（HEAD da58738 树净）；available 3337MB（> 3.28GB 阈值）；server 200/3.3ms + agent-browser console 0 行 + t677 30/0 判稳先行——稳定。
+- [定道·canvas lens] Task 681 入口①首选：face 在 dashboard 回答问题，canvas overlay 在 situ 回答——「看着 17 张卡，哪几张是链？」。风险预判中高（自绘 canvas + t611 编舞家族），实际落点极浅：dim 联合律加一个析取支、stroke 阶梯加一档、store 加一个 lens 旗。
+- [feat·lib viaEdgeId] critical-path.ts：CriticalEdge 加 id?（EdgeDTO 原样通过）+ CriticalStep 加 viaEdgeId（**出发语义**——step 把收工经哪根线交给下一棒；walk-back 离开每步时发现那条边；finisher 为 null）。自注谎言一次：初稿注释写「arrived through」而实现挂的是 departure——修注释对齐代码（链集合不变，t681 探针零影响）。store criticalLens 旗（noteSpotlight 同款三处：声明+初值+toggle——lens 是 viewing lens 不是 document property，内存态）。
+- [feat·edges-layer] chainIds/chainEdgeIds 双 prop（null = lens off）+ dim 联合律第三析取支（`chainEdgeIds != null && !isChainEdge`——**按边 id 不按端点**：走过的高亮，没走的退让，链上两卡之间的弦边也一样退（故事是走过的路径不是邻域））+ chainInk = primary 72%（比 live wire 低一档——lens 说话，engine 呐喊）+ width 3.2（与 selection 同档——lens 回答，hover 提问）+ glow 借 live wire 的 halo 语法（primary/0.1）。running 链边保留完整 live voice（数据流在下游跑，rank 高于故事）。
+- [feat·canvas] chain useMemo 骑 allJobs+allEdges 全图律（spotlight 半径同款——链是整张图的，dim 只落在本工作区的卡上）+ walkTimeline(jobs, Date.now()) 的 now 只被 running 行消费且该行被滤掉（诚实性由构造保证）+ JobCard dim 第三析取支 + 工具栏第四 lens 按钮（Route icon + aria-pressed + disabled=criticalWalk==null——无完成 run 时诚实死按钮，undo 家族法）+ 浮动 chip（bottom-14、pointer-events-none——chip 通报不抢手势、animate-rise、data-critical-steps/span/finisher 锚族——与 face 同数字同口径）。
+- [feat·键盘 + 帮助] app-shell P 键（N 同款 canvas 作用域律 + 修饰键 guard 挡浏览器 ⌘P 打印）+ shortcuts-dialog Canvas 组 P 行坐 N 旁（两个 dim lens 是语义同胞——「recede the world, keep the story at ink」）。
+- [t682 一航 28/0] S（toggle 站立/enable/lens 初始 off/chip 收起）+ A（chip steps/span 对独立镜像 + chip 人话 span + aria-pressed；卡二分：链卡全墨 13 张/链外卡深退 4 张全数断言；线二分：12 根走过线全 ink@3.2、未走线全 var(--dim-wire)——弦边含）+ B（P 键双 toggling + 卡回归）+ C（dashboard 往返镜头幸存——store 态 spotlight 法）+ D（dim 联合：N 开则链也退 17/17、N 关则链回墨——lens 独立 dim、ink 相乘）+ E（按钮关镜头世界复原）+ F（桶净）+ 📸×1。
+- [📸 两课] 一航截图逮到 chip 的 animate-rise 尾帧（偏淡）——静息诊断 opacity=1 定谳非病（入场动画的呼吸，不是 UI 病）；镜头 ON 的目检 = 13 张全墨卡成链 + teal 走过线 + 灰退侧枝，画面即答案。
+- [回归全家绿] tsc 0 + eslint 0 + t682 28/0 + 直系七针（t681 38/0 + t677 30/0 + t676 24/0 + t678 26/0 + t679 21/0 + t675 38/0 + t680 26/0）+ 基线四绿（t252 ALL PASS + qa78 ALL PASS + t637 6/0 + t641 10/0）。fixture 惯犯（shots-qa84/t252-write-door-2x.png）**具名路径** checkout 还原——上窗 blanket 扫射教训的第一次正确执行。
+- [build + 重启] t673-build-standalone.sh 一次绿（钥匙十六连零失败，~55s）+ PORT=3000 prod-3001 重启（教义直射）+ root 200。本窗 OOM 零。
+
+Stage Summary:
+- 「face 回答问题，lens 把答案画回现场」：第五面在 dashboard 说话，镜头在画布现形——同一口井（walkTimeline + criticalPath）、同一走法、两个嘴，探针各钉各的（t681 钉 face 的行与 gap，t682 钉镜头的卡与线），两嘴永不吵架的根源是「链不存储、每次现算」：store 只存镜头旗，链从 jobs+edges 派生——双嘴共享的是 lib 不是状态。
+- 「lens 的 dim 律是按边 id，不按端点」：链上两卡之间的弦边、链卡的侧枝——都退。端点在链上不等于这条线在故事里；走过 = 故事。与 spotlight 的「touching a judged card keeps full ink」 deliberate 不同——那个 lens 的故事是 radiating 的（判定向四周发光），链的故事是 path 的（只沿走法流动）——**两个 lens 两种几何，语法各自诚实**。
+- 「第四个 lens 的家是现成的」：工具栏四邻居（map·find·funnel·chain）共用 aria-pressed + store 旗 + 快捷键方言；P 键坐 N 旁（dim lens 语义同胞）；disabled 态借 undo 家族的诚实死按钮法。样式车道零新账——镜头全部骑既有视觉词汇（dim 类、stroke 阶梯、halo 语法、chip 家族、animate-rise），没有发明一种新的墨水。
+- 「viaEdgeId 是走法的记忆」：criticalPath 本来知道每步踩的是哪根线，只是没说出来——t682 让它说出来。一条走过的高亮线和一条没走的退让线之间的差，就是「链」从集合变成路径的那一瞬。出发 vs 到达的语义谎言被 grep 式自查逮住（注释说 arrival、代码做 departure）——**接口文档的每个词都要在代码里找得到对应物**。
+- 产出：src/lib/critical-path.ts（viaEdgeId 扩展）+ edges-layer.tsx（chainIds/chainEdgeIds props + dim 第三析取支 + chainInk/glow/width）+ canvas.tsx（chain memo 全图律 + 卡 dim 第三支 + 工具栏第四 lens 按钮 + 浮动 chip）+ store.ts（criticalLens 旗三处）+ app-shell.tsx（P 键）+ shortcuts-dialog.tsx（P 行入册）+ scripts/t682-critical-lens.mjs（28 锚六腿 + 📸×1）；下窗入口：①功能车道（候选：canvas-minimap 的链高亮联动（镜头 ON 时 minimap 也把链卡点亮——小而美）；palette recent 段；roster 第四 lens）②样式车道（镜头入场未加入 t611 编舞——chip 有 animate-rise、卡 dim 有 220ms transition，判「静态即可」与 face 同判）③judge 风暴下半场（declined 重试——文档化在案）④build 日三车道（钥匙十六连零失败）⑤演练床一键（账在）⑥快捷键 P 与 palette 输入焦点的互斥（typing guard 已覆盖——app-shell 的表单字段 guard 在 N/P 之前，判「已在案」）。
