@@ -87,6 +87,8 @@ export const EdgesLayer = React.memo(function EdgesLayer({
   jobs,
   judgedIds,
   hoveredJobId,
+  chainIds,
+  chainEdgeIds,
 }: {
   edges: EdgeDTO[];
   jobs: JobDTO[];
@@ -108,6 +110,18 @@ export const EdgesLayer = React.memo(function EdgesLayer({
    *  Hover ASKS, selection ANSWERS. Ephemeral view state owned by the
    *  canvas render tree — deliberately not store material. */
   hoveredJobId?: string | null;
+  /** t682 — the critical path lens, for wires. null when the lens is
+   *  OFF; a Set of the chain's job ids when ON. A wire the walk STOOD
+   *  ON carries the chain ink; every other wire recedes — including
+   *  chords between two chain cards the walk didn't use (the story is
+   *  the walked path, not the neighborhood) and side branches off a
+   *  chain card (the card is the story, that branch isn't). The same
+   *  union the selection and spotlight dims join: lenses dim
+   *  independently, ink multiplies. */
+  chainIds?: Set<string> | null;
+  /** The edge ids the chain walk actually used (the walked hops, in
+   *  chain order upstream of the finisher). null with the lens OFF. */
+  chainEdgeIds?: Set<string> | null;
 }) {
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
@@ -159,8 +173,13 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         // (a 2px stroke dies at the cards' 0.28 on the dark canvas —
         // wires keep one notch more ink than the cards they connect).
         const touchesJudged = judgedIds != null && (judgedIds.has(from.id) || judgedIds.has(to.id));
+        // t682 — the chain lens's wire law: only the walked hops keep their
+        // ink; every other wire recedes, whatever its endpoints are.
+        const isChainEdge = chainEdgeIds != null && chainEdgeIds.has(edge.id);
         const dimmed =
-          (selectedId != null && !touchesSelected) || (judgedIds != null && !touchesJudged);
+          (selectedId != null && !touchesSelected) ||
+          (judgedIds != null && !touchesJudged) ||
+          (chainEdgeIds != null && !isChainEdge);
         // t571 — the hover answer: this wire touches the card under the
         // pointer. It lights (STROKE_ACTIVE ink, a mid width) but does
         // NOT dim its neighbors and does NOT get the halo/glow — those
@@ -170,28 +189,37 @@ export const EdgesLayer = React.memo(function EdgesLayer({
           hoveredJobId != null && (from.id === hoveredJobId || to.id === hoveredJobId);
 
         const gradId = running || primed ? `url(#edge-grad-${edge.id})` : null;
+        // t682 — the chain lens's ink: the walked wire carries the primary
+        // at one notch under a live wire's full commitment (a lens speaks,
+        // a running engine SHOUTS). A running chain edge keeps its live
+        // voice entirely — data flowing downstream outranks the story.
+        const chainInk = "color-mix(in oklch, var(--primary) 72%, transparent)";
         const stroke = running
           ? gradId ?? "var(--primary)"
-          : hovered || touchesSelected
-            ? STROKE_ACTIVE
-            : touchesHoveredCard
+          : isChainEdge
+            ? chainInk
+            : hovered || touchesSelected
               ? STROKE_ACTIVE
-              : primed
-                ? gradId ?? STROKE_READY
-                : STROKE_BASE;
+              : touchesHoveredCard
+                ? STROKE_ACTIVE
+                : primed
+                  ? gradId ?? STROKE_READY
+                  : STROKE_BASE;
         const dotFill = running
           ? "var(--primary)"
-          : hovered || touchesSelected
-            ? STROKE_ACTIVE
-            : touchesHoveredCard
+          : isChainEdge
+            ? chainInk
+            : hovered || touchesSelected
               ? STROKE_ACTIVE
-              : primed
-                ? STROKE_READY
-                : DOT_BASE;
-        // width ladder: corridor/selection 3.2 · card-hover 2.9 · running
-        // 2.75 · base 2.25 — hover reads as "raised a notch", clearly
-        // below selection's full commitment.
-        const width = hovered || touchesSelected ? 3.2 : touchesHoveredCard ? 2.9 : running ? 2.75 : 2.25;
+              : touchesHoveredCard
+                ? STROKE_ACTIVE
+                : primed
+                  ? STROKE_READY
+                  : DOT_BASE;
+        // width ladder: corridor/selection/chain 3.2 · card-hover 2.9 ·
+        // running 2.75 · base 2.25 — the chain's wires read at the
+        // selection's commitment (the lens answers, hover asks).
+        const width = hovered || touchesSelected || isChainEdge ? 3.2 : touchesHoveredCard ? 2.9 : running ? 2.75 : 2.25;
 
         return (
           <g
@@ -253,13 +281,15 @@ export const EdgesLayer = React.memo(function EdgesLayer({
               onPointerEnter={() => setHoveredId(edge.id)}
               onPointerLeave={() => setHoveredId((cur) => (cur === edge.id ? null : cur))}
             />
-            {/* soft glow under live wires (wide translucent stroke) */}
-            {(running || hovered) && (
+            {/* soft glow under live wires and the chain's walked wires
+                (wide translucent stroke) — the lens borrows the live
+                wire's halo grammar at a calmer opacity */}
+            {(running || hovered || isChainEdge) && (
               <path
                 d={g.d}
                 data-e="d"
                 fill="none"
-                stroke={running ? "var(--primary)" : STROKE_ACTIVE}
+                stroke={running || isChainEdge ? "var(--primary)" : STROKE_ACTIVE}
                 strokeWidth={running ? 8 : 9}
                 strokeLinecap="round"
                 opacity={running ? 0.14 : 0.1}

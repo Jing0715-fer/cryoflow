@@ -118,6 +118,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "⌘/Ctrl Z", text: "Undo the last canvas change — move, align, tidy or delete" },
       { keys: "⇧ ⌘/Ctrl Z · ⌘/Ctrl Y", text: "Redo an undone change" },
       { keys: "N", text: "Note spotlight — dim jobs without a note" },
+      // t682 — the chain lens rides beside its semantic sibling: N and P
+      // are both "dim lenses" (recede the world, keep the story at ink),
+      // so the dialog seats them together.
+      { keys: "P", text: "Critical path lens — dim everything the finish didn't wait on" },
       { keys: "Delete", text: "Delete the selection (asks first)" },
       { keys: "⇧ Click", text: "Toggle a card in the selection" },
       { keys: "⇧ Drag", text: "Box-select on empty canvas" },

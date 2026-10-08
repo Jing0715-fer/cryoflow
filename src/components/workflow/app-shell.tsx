@@ -455,6 +455,16 @@ export function AppShell() {
           e.preventDefault();
           s.toggleNoteSpotlight();
         }
+      } else if ((k === "p" || k === "P") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // t682 — the critical path lens: the analytics panel's fifth face
+        // walked the chain that set the finish; P paints that walk back
+        // onto the canvas. Same canvas-scoped rule as N (the lens dims
+        // cards, the dashboard has none); the modifier guard keeps the
+        // browsers' ⌘/Ctrl+P print dialog out of the way.
+        if (s.view !== "dashboard") {
+          e.preventDefault();
+          s.toggleCriticalLens();
+        }
       } else if (k.startsWith("Arrow") && s.view !== "dashboard") {
         // Task 103 arrow-walk: spatial navigation across the graph. The
         // anchor hops to the nearest card in the pressed direction (small

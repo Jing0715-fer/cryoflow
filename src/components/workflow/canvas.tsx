@@ -29,6 +29,7 @@ import {
   Link2,
   Loader2,
   RotateCcw,
+  Route,
   Search,
   Trash2,
   Map as MapIcon,
@@ -50,6 +51,9 @@ import {
   portY,
 } from "@/lib/workflow";
 import { hasJudgment } from "@/lib/class-notes";
+import { walkTimeline } from "@/lib/timeline-walk"; // t682 — the chain drinks the same honest-window well
+import { criticalPath } from "@/lib/critical-path"; // t682 — the walk the fifth face speaks
+import { fmtDuration } from "@/lib/duration";
 import { pendingWirePath } from "@/lib/edge-geom";
 import { CanvasFindBar } from "./canvas-find-bar";
 import { jobMatchWhy, jobMatchesFind, type MatchWhy } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home; t655 — the why rides the same lib
@@ -1788,6 +1792,44 @@ export function WorkflowCanvas() {
     return ready;
   }, [allEdges, completedIds]);
 
+  /* t682 — the critical path lens: the same walk the analytics panel's
+   * fifth face speaks, computed over the WHOLE project graph (allJobs +
+   * allEdges — the spotlight's radius rides the same whole-graph law),
+   * so the lens can never disagree with the face about which cards are
+   * the story. Running rows wait outside the chain (a live run has no
+   * end yet — the face's own filter); `now` is the memo's reading of
+   * the instant, and its only consumer (a running row's stretched end)
+   * is discarded by that filter, so the reading stays honest for
+   * everything the chain keeps. The lens flag lives in the store (the
+   * spotlight's law — a viewing lens, not a document property); the
+   * chain itself is derived, never stored. */
+  const criticalLens = useWorkflowStore((s) => s.criticalLens);
+  const criticalWalk = React.useMemo(() => {
+    const w = walkTimeline(allJobs, Date.now());
+    return criticalPath(
+      w.rows.filter((r) => r.job.status !== "running"),
+      allEdges
+    );
+  }, [allJobs, allEdges]);
+  const chainIds = React.useMemo(
+    () =>
+      criticalLens && criticalWalk
+        ? new Set(criticalWalk.chain.map((s) => s.job.id))
+        : null,
+    [criticalLens, criticalWalk]
+  );
+  const chainEdgeIds = React.useMemo(
+    () =>
+      criticalLens && criticalWalk
+        ? new Set(
+            criticalWalk.chain
+              .map((s) => s.viaEdgeId)
+              .filter((x): x is string => x != null)
+          )
+        : null,
+    [criticalLens, criticalWalk]
+  );
+
   const pendingFromType = React.useMemo(
     () => (pendingFrom ? (jobs.find((j) => j.id === pendingFrom.jobId)?.type ?? null) : null),
     [pendingFrom, jobs]
@@ -2463,6 +2505,8 @@ export function WorkflowCanvas() {
             jobs={renderJobs}
             judgedIds={noteSpotlight ? judgedIds : null}
             hoveredJobId={hoveredJobId}
+            chainIds={chainIds}
+            chainEdgeIds={chainEdgeIds}
           />
           <LiveWire rootRef={rootRef} jobs={jobs} />
           {/* t601 — the death breath's ghost layer: frozen memories of the
@@ -2586,7 +2630,8 @@ export function WorkflowCanvas() {
               job={job}
               dimmed={
                 (noteSpotlight && !hasJudgment(job) && !contextIds.has(job.id)) ||
-                (findLens && !findMatchIds!.has(job.id))
+                (findLens && !findMatchIds!.has(job.id)) ||
+                (chainIds != null && !chainIds.has(job.id))
               }
               spotlightContext={noteSpotlight && !hasJudgment(job) && contextIds.has(job.id)}
               findMatch={findLens && findMatchIds!.has(job.id)}
@@ -2765,6 +2810,33 @@ export function WorkflowCanvas() {
         </div>
       )}
 
+      {/* t682 — the critical path lens's reading, in plain sight: the same
+          numbers the fifth face speaks (steps · span · finisher), riding
+          above the toolbar while the lens is ON. pointer-events-none —
+          the chip informs, it never steals a canvas gesture; the toggle
+          (button or P) is the only hand that moves it. */}
+      {criticalLens && criticalWalk && (
+        <div
+          data-canvas-ui="critical-chip"
+          data-critical-steps={criticalWalk.chain.length}
+          data-critical-span={criticalWalk.spanMs}
+          className="no-print animate-rise pointer-events-none absolute bottom-14 left-3 z-30 flex items-center gap-1.5 rounded-lg border bg-card/95 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur"
+        >
+          <Route className="size-3.5 text-primary" aria-hidden="true" />
+          <span className="font-semibold">Critical path</span>
+          <span className="text-muted-foreground">
+            · {criticalWalk.chain.length} step{criticalWalk.chain.length === 1 ? "" : "s"} ·{" "}
+            {fmtDuration(criticalWalk.spanMs)} span
+          </span>
+          <span
+            className="ml-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px text-[9.5px] font-semibold text-primary"
+            data-critical-finisher={criticalWalk.chain[criticalWalk.chain.length - 1].job.id}
+          >
+            ends with: {criticalWalk.chain[criticalWalk.chain.length - 1].job.name}
+          </span>
+        </div>
+      )}
+
       {/* Zoom controls + auto-arrange */}
       <div
         data-canvas-ui="zoom-controls"
@@ -2855,6 +2927,25 @@ export function WorkflowCanvas() {
             its decision (selection-first, crown fallback, honest
             blocks) owned by the pure brain in particle-funnel.ts. */}
         <CanvasFunnelDoor />
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* t682 — the critical path lens toggle, the toolbar's fourth lens
+            (map · find · funnel · chain): one keypress (P) and this button
+            agree on one store flag, the minimap/find dialect. Disabled
+            when no chain exists (no finished runs — a lens with nothing
+            to show is an honest dead button, the undo family's law). */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`size-7 ${criticalLens ? "text-primary" : ""}`}
+          onClick={() => useWorkflowStore.getState().toggleCriticalLens()}
+          disabled={criticalWalk == null}
+          aria-pressed={criticalLens}
+          aria-label="Toggle critical path lens"
+          title="Toggle the critical path lens (P) — keep the chain that set the finish at full ink, dim everything else"
+          data-canvas-ui="critical-toggle"
+        >
+          <Route className="size-4" />
+        </Button>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         {/* Task 104 — undo/redo live next to the tools they reverse: the
             buttons read the SAME stacks the keyboard walks, so a toast

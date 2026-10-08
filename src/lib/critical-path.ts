@@ -34,8 +34,11 @@
 
 import type { TimelineRow } from "./timeline-walk";
 
-/** Minimal edge shape the walk reads — the store's EdgeDTO passes as-is. */
+/** Minimal edge shape the walk reads — the store's EdgeDTO passes as-is
+ *  (t682 added the `id`: the canvas lens needs to know WHICH wire the
+ *  walk stood on, so the step records the edge it arrived through). */
 export interface CriticalEdge {
+  id?: string;
   fromJobId: string;
   toJobId: string;
 }
@@ -51,6 +54,14 @@ export interface CriticalStep<T> {
    *  positive = started this long after the driver finished; negative =
    *  launched before the driver finished (overlap). */
   gapBeforeMs: number | null;
+  /** The wire this step hands the finish through — the edge from THIS
+   *  step to the next step toward the finisher (departure, not arrival:
+   *  the walk-back discovers each hop while leaving the step). null for
+   *  the finisher (nothing leaves it). Untyped id passthrough: the
+   *  store's EdgeDTO.id flows verbatim; an edge with no id simply leaves
+   *  null (the step is still walked, the lens just can't light a
+   *  nameless wire). */
+  viaEdgeId: string | null;
 }
 
 export interface CriticalPathWalk<T> {
@@ -84,15 +95,16 @@ export function criticalPath<T extends { id: string; name: string }>(
   const byId = new Map<string, TimelineRow<T>>();
   for (const r of rows) byId.set(r.job.id, r);
   // whose finish could have gated mine — only edges whose BOTH endpoints
-  // have windows (dangling endpoints ignored, same rule as graph-cycle)
-  const preds = new Map<string, TimelineRow<T>[]>();
+  // have windows (dangling endpoints ignored, same rule as graph-cycle).
+  // t682 — the edge rides along: the walk remembers the wire it stood on.
+  const preds = new Map<string, Array<{ row: TimelineRow<T>; edgeId: string | null }>>();
   for (const e of edges) {
     const from = byId.get(e.fromJobId);
     const to = byId.get(e.toJobId);
     if (!from || !to) continue;
     const arr = preds.get(to.job.id);
-    if (arr) arr.push(from);
-    else preds.set(to.job.id, [from]);
+    if (arr) arr.push({ row: from, edgeId: e.id ?? null });
+    else preds.set(to.job.id, [{ row: from, edgeId: e.id ?? null }]);
   }
 
   // entry = the run that finished last — the pipeline's finisher
@@ -102,19 +114,25 @@ export function criticalPath<T extends { id: string; name: string }>(
   // walk backwards: each step's driver is its latest-finishing upstream
   const rev: CriticalStep<T>[] = [];
   let cur: TimelineRow<T> = entry;
+  let viaEdgeId: string | null = null; // the finisher arrived through no wire
   let guard = rows.length + 1; // acyclic by construction — belt-and-braces
   while (cur && guard-- > 0) {
     const ps = preds.get(cur.job.id);
-    const driver = ps && ps.length > 0 ? ps.reduce(laterOf) : undefined;
+    const driver =
+      ps && ps.length > 0
+        ? ps.reduce((a, b) => (laterOf(a.row, b.row) === b.row ? b : a))
+        : undefined;
     rev.push({
       job: cur.job,
       start: cur.start,
       end: cur.end,
       ms: cur.ms,
-      gapBeforeMs: driver ? cur.start - driver.end : null,
+      gapBeforeMs: driver ? cur.start - driver.row.end : null,
+      viaEdgeId,
     });
     if (!driver) break;
-    cur = driver;
+    cur = driver.row;
+    viaEdgeId = driver.edgeId;
   }
   const chain = rev.reverse();
   const busyMs = chain.reduce((acc, s) => acc + s.ms, 0);

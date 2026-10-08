@@ -940,6 +940,18 @@ interface WorkflowState {
    *  were dimmed last session" to survive a reload. Toggled from the
    *  header chip, the command palette, or the N key. */
   noteSpotlight: boolean;
+  /** t682 — the critical path lens: the analytics panel's fifth face
+   *  walked the chain that set the finish; this lens paints that same
+   *  walk back onto the canvas — chain cards keep full ink, everything
+   *  the finish didn't wait on recedes, the walked wires carry the
+   *  chain stroke. Same lens law as the note spotlight: in-memory only,
+   *  a viewing lens, not a document property. Toggled from the canvas
+   *  toolbar's Route button or the P key. The chain itself is NOT
+   *  stored — it's derived (canvas useMemo over walkTimeline +
+   *  criticalPath) so the lens can never disagree with the face about
+   *  which cards are the story. */
+  criticalLens: boolean;
+  toggleCriticalLens: () => void;
   /** Task 134 — canvas find bar (Ctrl/⌘+F). Two ephemeral fields:
    *  whether the floating find bar is open, and the live query typed
    *  into it. Matching cards ring amber; everything else recedes with
@@ -2199,6 +2211,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   aiSettingsOpen: false,
   minimapOpen: true,
   noteSpotlight: false,
+  criticalLens: false,
   findOpen: false,
   findQuery: "",
   findStatus: "all",
@@ -5876,6 +5889,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setAiSettingsOpen: (open) => set({ aiSettingsOpen: open }),
   setMinimapOpen: (open) => set({ minimapOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
+  toggleCriticalLens: () => set((s) => ({ criticalLens: !s.criticalLens })),
   openFind: () => set((s) => (s.findOpen ? s : { findOpen: true })),
   closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all", findCategory: "all" }),
   setFindQuery: (q) => set({ findQuery: q }),
