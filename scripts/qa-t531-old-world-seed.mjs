@@ -849,7 +849,7 @@ function outputsPlan() {
 const RESULTS = {
   import: "10 real EMPIAR micrographs imported (hard-linked in place — zero upload, zero copy)",
   motioncorr: "10 micrographs aligned (own motioncorr, patch 3×3)",
-  ctffind: "10 micrographs CTF-fitted — defocus family 14.6-12.7k Å",
+  ctffind: "10 micrographs CTF-fitted — defocus family 14.9-12.7k Å",
   autopick: "170 particles picked across 10 micrographs (LoG)",
   extract: "240 particles extracted — key-files law: STAR comes home, stack stays project-side",
   class2d: "2D classification finished — 8 classes · 240 particles · top: class 1 40%, class 2 30%",

@@ -23,7 +23,7 @@
  *     counts (170 picked / 240 extracted / 168 kept), class counts
  *     (K=8 / K=3), iteration numbers from the on-disk stars (it012
  *     class2d, it003 class3d, it020 refine3d), defocus family
- *     (14.6–12.7k Å), FSC anchors (3.62 Å refine, 3.12 Å post), the
+ *     (14.9–12.7k Å), FSC anchors (3.62 Å refine, 3.12 Å post), the
  *     engine's real defaults where read (ctffind Box 512 / ResMin 30 /
  *     ResMax 5 / dF 5000–50000; motioncorr --use_own --j 4).
  *   - Artifact manifests name the REAL files in each workdir (the
@@ -70,7 +70,7 @@ const STORIES = {
   ],
   "ctffind_0ctffind": [
     "[seeded] CtfFind — relion_run_ctffind --Box 512 --ResMin 30 --ResMax 5 --dFMin 5000 --dFMax 50000 --FStep 500 --fast_search --is_ctffind4:",
-    "[seeded]   10 micrographs fitted; defocus family 14.6k - 12.7k A (a tight, well-behaved population), astigmatism free.",
+    "[seeded]   10 micrographs fitted; defocus family 14.9k - 12.7k A (a tight, well-behaved population, astigmatism under 300 A).",
     "[seeded] manifest: micrographs_ctf.star — one row per micrograph, defocus U/V/angle + the fit's resolution ceiling.",
     "[seeded] downstream: Auto-pick (LoG) reads the CTF constants to size its bridges.",
   ],
