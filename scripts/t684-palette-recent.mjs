@@ -150,11 +150,30 @@ must((await recentRows().count()) === 2, "C the trail dedups (still 2 rows, not 
 await page.screenshot({ path: ".qa-logs/t684-recent-group.png" });
 
 // ---------- D: the cross-mouth write (dashboard row → same openJob) ----------
+// The leg's contract is "a row the palette never saw" — but the activity
+// feed orders by updatedAt DESC and the healed world's rows share ONE
+// timestamp (00:50:03), so the top row's identity among the tie is not
+// the probe's to assume: it can BE job1 or job2 (witnessed: the feed's
+// first row was job2, the head C had just floated — the assertion could
+// never pass). Pick the first row the palette truly hasn't seen; the
+// cross-mouth claim survives, the coincidence doesn't get to veto it.
 await page.keyboard.press("Escape");
 await sleep(500);
 await page.locator('[role="tab"][title^="Project dashboard"]').first().click().catch(() => {});
 await sleep(1500);
-const dashRow = page.locator('section[aria-label="Recent activity across all projects"] button').first();
+// :not() on the button's OWN attribute — Playwright's filter({ hasNot })
+// matches DESCENDANTS only, and the anchor lives on the button itself
+// (the first hasNot attempt was a silent no-op: it excluded nothing and
+// the head read job2 again)
+const dashRow = page
+  .locator(
+    'section[aria-label="Recent activity across all projects"] button[data-activity-job]:not([data-activity-job="' +
+      job1.id +
+      '"]):not([data-activity-job="' +
+      job2.id +
+      '"])'
+  )
+  .first();
 const dashUp = await pollUntil(async () => (await dashRow.count()) > 0 || null, 10000);
 if (dashUp) {
   await dashRow.click();
