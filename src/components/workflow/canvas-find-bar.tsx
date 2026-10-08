@@ -53,6 +53,14 @@
  *    replays on a drag end; (b) the count is a polite live region and
  *    flashes the find dialect's amber when the cycle advances — the
  *    same hue the matched cards ring with.
+ *  • t722 — the PARAM dialect. An explicit `key:value` query turns the
+ *    lens into a parameter lookup ("which jobs ever ran mask = 20?"):
+ *    the ring set is the matcher's param rung, cards ring WITHOUT any
+ *    character wash (a value in the params grid has no surface text to
+ *    claim), and an amber `params` badge says what kind of question is
+ *    being answered. The badge arms from the SAME parse the matcher
+ *    runs (parseParamQuery), so the marker and the meaning cannot
+ *    disagree — one dialect, one parser, three consumers and a badge.
  */
 
 import * as React from "react";
@@ -60,7 +68,7 @@ import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
-import { jobMatchesFind } from "@/lib/job-match"; // t653 — the meaning lives in lib
+import { jobMatchesFind, parseParamQuery } from "@/lib/job-match"; // t653 — the meaning lives in lib; t722 — the param dialect parser joins it
 import { JOB_CATEGORIES, jobType } from "@/lib/workflow";
 import type { JobDTO, JobStatus } from "@/lib/types";
 import { STATUS_CHIP } from "@/lib/status-style"; // t647 — the chip family lives with the word law
@@ -279,6 +287,16 @@ export function CanvasFindBar() {
         ? `${n} ${n === 1 ? "match" : "matches"}`
         : `${cur + 1} of ${n}`;
 
+  // t722 — the param dialect marker: when the query carries an explicit
+  // `key:value`, the ring set is answering a PARAM question, and the
+  // honest lens says so — the badge is the why for cards whose params
+  // matched while nothing on their surface claims credit (empty spans
+  // by design; the chip-is-the-why tradition, now with a new face).
+  // Computed from the same string the matcher reads — the marker and
+  // the meaning cannot disagree. A null (bare text query) renders
+  // nothing: the text ladder's why already lives in the card washes.
+  const paramDialect = parseParamQuery(findQuery);
+
   return (
     <div
       data-canvas-ui="find-bar"
@@ -305,12 +323,26 @@ export function CanvasFindBar() {
         value={findQuery}
         onChange={(e) => setFindQuery(e.target.value)}
         onKeyDown={onInputKeyDown}
-        placeholder="Find by name or type…"
-        aria-label="Find jobs by name or type"
+        placeholder="Find by name, type, or key:value…"
+        aria-label="Find jobs by name, type, or key:value parameter query"
         autoComplete="off"
         spellCheck={false}
         className="w-48 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/60 sm:w-60"
       />
+      {/* t722 — the dialect badge: rendered ONLY while the param dialect
+          is armed (the same parse the matcher runs), in the find lens's
+          own amber — the same hue the matched cards ring with, not a
+          second color language. The full match law lives on hover/aria:
+          keys by substring, values by exact equality. */}
+      {paramDialect ? (
+        <span
+          data-testid="canvas-find-param-badge"
+          title="Matching by parameter: key matches by substring, value must equal exactly"
+          className="shrink-0 whitespace-nowrap rounded-full bg-amber-400/35 px-1.5 py-px text-[10px] font-medium leading-4 text-inherit dark:bg-amber-400/25"
+        >
+          params
+        </span>
+      ) : null}
       {/* Task 137 — the count is a DOOR: with matches on hand, clicking it
           advances the cycle (same go(1) as Enter/next — one cursor, three
           triggers). Rendered as a span only in the honest-zero state where
