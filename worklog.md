@@ -11335,3 +11335,23 @@ Stage Summary:
 - 「生长是世界的自然行为，仪式是生长的随行义务」：本窗零脚本零 patch——生长由真实用户路径（全驾链 + 命名保存）驱动，census 随行重跑即是唯一的「手术」程序。t707（首条 UI 驱动保存）→ qa57 擦除（t710）→ t712（再生长）：世界的 UI-save 行现在有了完整的生命史——播种、收割、再播种，每次都有 census 见证。
 - 「65→76 的对称是 census 世界跟随律的最好证明」：断言数不是期望值而是世界的照片——生长一行，断言族自动扩编 11 条（thumb codec/门重放/时间戳钳制对新 entry 全套武装）。t708 律「期望从证据导出」在生长方向的推广：仪器跟着世界走，不是世界削足适履。
 - 产出：shots-qa/t712-{canvas-bookmark-saved,camera-bookmark-saved,wall-5th-entry}.png ×3 + 墙真身 5 entries/2 rows（4→5）+ t704 census 76/0 + worklog 本段；下窗入口：①**build 日批次（账单不变 = 七项，t711 清单照旧）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707/t708/t709/t710/t711 五张激活判决（t711 = t576 seven-rungs + 热图活体两相 + 新端点 curl 形状）+ 验证网 ②非 build 日：自由选题（新 UI 领土侦察：单 job 参数 preset 未建、canvas 上游/下游链高亮部分存在可深化；或世界故事富化） ③床轮换 3/5（进入节奏带，下窗 4/5 应预备） ④census 轮换：t704 已随生长跑（76/0）；t699/t702 零种子手术未触发；t709-door-coverage 随新路由。
+
+---
+
+## Task 713 — 2026-10-08 21:40 派单窗（非 build 日 · 连续第十四窗）· User Parameter Presets：调好的参数成为可穿戴资产
+
+Task: 21:40 cron 派单执行——开局三件套判稳（worklog 尾条 = t712 收官 566a58e6 两车树净；server 200；available 3115MB < 3280 → 非 build 日）→ t712 入口②双候选侦察：canvas 链高亮已有 rich lens 系统（t682 critical path + search-lens 链序 + selection dim——深化空间小）→ **单 job 参数 preset 精确定位真空白**：JOB_PRESETS（lib/job-presets.ts）是静态策划面（开发者手写、仅 add 时、palette 入口），缺的是**用户面**——从现存 job 保存当前参数快照、套用到任意同 type job、管理（删除）→ 立案 Task 713。
+
+Work Log:
+- [存储层判决（t712 律先问写到哪）] localStorage（`cryoflow.user-param-presets:v1`，命名空间对齐 mol-camera-bookmarks 惯例）——本地单用户 companion app 的诚实第一版（http-guard 自证单用户），server-row 双镜像（camera-bookmark 模式）列为跨浏览器面出现后的下一层；wire 形状即未来 PUT 形状。
+- [apply 语义 = 快照非 diff] 保存时展开为 FULL spec-key 快照（stored ?? default，scalar 门，非 spec 键与 null/array/object 值一律不入快照）——partial preset 会静默继承目标 job 的杂散旋钮；server PATCH params 的 merge 语义（incoming 覆盖 + 其余保留，jobs/[id]/route.ts L123 merge 块）天然给出「spec 键替换 + legacy 键（gallery picks、engine flags）不动」的着陆——一 PATCH 完成，无需先删后写。
+- [三件交付] ①lib/user-param-presets.ts（client-safe：load/add/delete/presetsForType/snapshotSpecParams/countEffectiveDiffs + USER_PARAM_PRESETS_EVENT 自定义事件——SAVED_VIEWS_CHANGED_EVENT 方言；损坏 JSON/非数组/外来形状行全部容错降级）②store.updateJobParams（renameJob 范式：optimistic + PATCH + server job 回写 + 外科回滚——单一写井律，不造第二条 PATCH 路径）③job-inspector ParamPresetsRow（Parameters Section 内、ParamsGrid 前：Save current… 命名 Dialog（1-60 律在 disable 不在迟错、Enter 保存）+ Apply preset DropdownMenu（apply-confirm AlertDialog 报「N params · M moved」——countEffectiveDiffs 讲 effective 值非 raw stored 行）+ Delete 菜单分区（键盘可达）+ inline flash 反馈（inspector 律：toast 会消失，行内文字等你）+ 失败仍由 store toast——两声部永不同因重复）。
+- [unit 探针 t713-param-presets-unit.mjs] node unit-runner + jiti（t653 先例形态），mock localStorage 内存实现：A 快照律（空 stored 全默认、stored 覆盖、非 spec 键隔离、null/array/object 降级、FULL 宽度）×7 + B effective-diff 律（stored==default 不算 move、缺键讲 default、空 preset 零 move）×4 + C store（往返、type 门、ghost 删除无副作用、损坏容错三连、事件名合同、过滤后诚实行幸存）×15 = **26 pass / 0 fail**。
+- [验证网] tsc 0 + eslint 0（lib/store/inspector/探针）+ t709-door-coverage 不触发（零新路由）+ 冻结 bundle 不受影响（agent-browser 轻巡检 console/errors 零行、截图 t713-canvas-patrol.png、用毕即关）；激活判决预写 build 日清单（inspector 活体：保存→快照→套用→diffs 计数→删除全流程 + 深浅两相截图）。
+- [keyboard a11y] 全部 Dialog/Menu/AlertDialog 走 Radix 焦点陷阱（焦点管理零自造），data-testid 全套（preset-save-open/name-input/save-confirm/apply-menu/apply-dialog/apply-confirm/flash）——探针按名可达（t686 锚律）。
+
+Stage Summary:
+- 「策划面与用户面完成 preset 家族」：JOB_PRESETS 讲「开发者认为这个类型值得怎么配」（静态表、add 时），user preset 讲「我把这个类型调到了哪里」（快照、任意时刻、同 type 穿戴）——两个面共享 params 方言（scalar-only、spec-key-only）但语义分工清晰；家族齐了，palette 的「Add with preset」与 inspector 的「Wear preset」是同一词汇表的两端。
+- 「快照语义是对用户记忆的忠诚」：partial preset 便宜但撒谎（「我存的是这套参数」≠「我存的是这几个旋钮」）；FULL 快照贵一点（每次覆盖全部 spec 键）但「wear = 和我保存时一模一样」的承诺零歧义——legacy 键不动的 server merge 让承诺的边界恰好落在 spec 键上，意外最小化与语义完整性同时成立。
+- 「语义探针先于 e2e」：t653 的先例（unit 钉语义、e2e 走真实画布）第三重复用——26 条断言在 build 日之前把快照律、diff 律、容错律钉死；激活日的活体验证只需要走 UI 流程，不用再发明期望。
+- 产出：src/lib/user-param-presets.ts（新）+ store.updateJobParams + inspector ParamPresetsRow + scripts/t713-param-presets-unit.mjs（26/0）+ shots-qa/t713-canvas-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 八项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707/t708/t709/t710/t711 五张激活判决 + **t713 激活判决（ParamPresetsRow 全流程活体：save→snapshot→apply（moved 计数对质 unit 探针）→delete + 深浅两相 + localStorage 持久跨刷新）** + 验证网 ②非 build 日：自由选题（palette 集成用户 preset 区、或 server 双镜像层、或新 UI 领土） ③床轮换 4/5（节奏带内，下窗 5/5 触发预备） ④census 轮换：t709-door-coverage 随新路由（本窗零新路由）；t704 随 bookmark 世界变化；t699/t702 随种子手术。
