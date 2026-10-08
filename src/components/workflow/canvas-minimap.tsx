@@ -32,6 +32,18 @@
  * jobMatchesFind predicate — the count, the card rings, and these dots
  * can never disagree about what a match is.
  *
+ * Task 683 — the chain lens reaches the map too: with the canvas's
+ * critical-path lens on (P), chain chips keep their status fill and
+ * everything the finish didn't wait on dims with the SAME whisper rung,
+ * and the map's wires split along the walked path — a wire the walk
+ * stood on keeps its ink, every unwalked wire (chords between chain
+ * chips included) recedes. The dim law reads EDGE IDS, not endpoints —
+ * the same law the canvas's edge layer obeys: endpoints on the chain
+ * do not mean the wire is in the story; walked = story. The chain is
+ * never stored — the map re-derives it from the same lib on every
+ * render (the third mouth of one walk: the face, the canvas lens, and
+ * this map can never disagree because none of them remembers).
+ *
  * Task 137 — the map leads: an amber match chip is a DOOR. A clean
  * press+release (≤6 px of travel) on one jumps the canvas to that job
  * (focusJob: center + legibility zoom + arrival flash — the same go()
@@ -61,6 +73,8 @@ import { STATUS_HEX, statusWord } from "@/lib/status-style";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
 import { jobMatchesFind } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home
 import { useStatusNews } from "@/lib/use-status-news";
+import { walkTimeline } from "@/lib/timeline-walk"; // t683 — the chain drinks the same honest-window well on the map
+import { criticalPath } from "@/lib/critical-path"; // t683 — the walk the fifth face speaks, now at bird's-eye
 import type { JobDTO } from "@/lib/types";
 
 const MM_W = 192;
@@ -104,7 +118,7 @@ const MM_MODES: { id: MmMode; label: string; title: string }[] = [
  * Mounts carry no bloom (news=0): a born state is not news.
  */
 function MinimapDot({
-  job, selected, inMulti, dimmed, findHit, findDim, selDoor, s,
+  job, selected, inMulti, dimmed, findHit, findDim, chainHit, chainDim, selDoor, s,
 }: {
   job: JobDTO;
   selected: boolean;
@@ -112,6 +126,8 @@ function MinimapDot({
   dimmed: boolean;
   findHit: boolean;
   findDim: boolean;
+  chainHit: boolean;
+  chainDim: boolean;
   selDoor: boolean;
   s: number;
 }) {
@@ -122,8 +138,9 @@ function MinimapDot({
       key={news}
       data-canvas-ui="minimap-dot"
       data-job-id={job.id}
-      data-mm-dim={dimmed || findDim ? "1" : undefined}
+      data-mm-dim={dimmed || findDim || chainDim ? "1" : undefined}
       data-mm-find={findHit ? "1" : undefined}
+      data-mm-chain={chainHit ? "1" : undefined}
       data-mm-door={findHit || selDoor ? "1" : undefined}
       data-news-floor={news > 0 ? "true" : undefined}
       x={job.x}
@@ -143,7 +160,7 @@ function MinimapDot({
       opacity={job.status === "idle" ? 0.55 : 0.9}
       className={cn(
         "transition-opacity duration-300",
-        (dimmed || findDim) && "mm-chip-dim",
+        (dimmed || findDim || chainDim) && "mm-chip-dim",
         // Task 137/139 — a door chip brightens on hover to say so
         // (stroke stays primary/amber, fill stays the world's —
         // the lens never repaints the world's colors)
@@ -160,7 +177,7 @@ function MinimapDot({
       strokeWidth={s}
     >
       <title>{`${job.name} — ${job.status}${job.status === "running" ? ` (${Math.round(job.progress)}%)` : job.result ? ` · ${compactStayReceipt(job.result, job.remoteRemaining?.remaining)}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
-      {job.status === "running" && !dimmed && !findDim && (
+      {job.status === "running" && !dimmed && !findDim && !chainDim && (
         <animate
           attributeName="opacity"
           values="0.55;0.95;0.55"
@@ -287,6 +304,45 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     return ids;
   }, [findOpen, findQuery, findStatus, findCategory, jobs]);
   const findLens = findMatchIds != null && findMatchIds.size > 0;
+
+  // Task 683 — the chain lens reaches the map: the SAME walk the canvas
+  // lens and the dashboard face speak, re-derived here from the whole
+  // graph (the chain is the whole graph's story — a workspace-scoped
+  // walk would let a cross-workspace dependency silently drop out of
+  // the chain and the map would dim a chip the canvas keeps at full
+  // ink). Null when the lens is off or nothing has finished yet — the
+  // honest dead lens, same as the canvas's disabled lens button. Hooks
+  // live ABOVE the empty-jobs early return — rules-of-hooks has no
+  // exceptions for "map not drawn" (the discipline the find hooks obey).
+  const criticalLens = useWorkflowStore((st) => st.criticalLens);
+  const graphJobs = useWorkflowStore((st) => st.jobs);
+  const graphEdges = useWorkflowStore((st) => st.edges);
+  const chainWalk = React.useMemo(() => {
+    if (!criticalLens) return null;
+    const w = walkTimeline(graphJobs, Date.now());
+    return criticalPath(
+      w.rows.filter((r) => r.job.status !== "running"),
+      graphEdges
+    );
+  }, [criticalLens, graphJobs, graphEdges]);
+  const chainJobIds = React.useMemo(
+    () =>
+      chainWalk
+        ? new Set(chainWalk.chain.map((step) => step.job.id))
+        : null,
+    [chainWalk]
+  );
+  const chainEdgeIds = React.useMemo(
+    () =>
+      chainWalk
+        ? new Set(
+            chainWalk.chain
+              .map((step) => step.viaEdgeId)
+              .filter((x): x is string => x != null)
+          )
+        : null,
+    [chainWalk]
+  );
 
   // sel with an empty selection is fit (the button disables itself, but
   // an active sel must also survive the selection clearing mid-session)
@@ -670,10 +726,23 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             const a = jobById.get(e.fromJobId);
             const b = jobById.get(e.toJobId);
             if (!a || !b) return null;
-            const dim = selFocus && !selIds.has(e.fromJobId) && !selIds.has(e.toJobId);
+            // Task 683 — the chain's edge law reads EDGE IDS, not endpoints
+            // (the canvas edge layer's t682 law, now on the map): a wire the
+            // walk stood on keeps its ink, every unwalked wire recedes —
+            // chords between chain chips included (endpoints on the chain
+            // do not mean the wire is in the story). Sel focus keeps its
+            // endpoint law — the selection is a neighborhood, the chain is
+            // a path; two lenses, two geometries, each honest in its own.
+            const dim =
+              (selFocus && !selIds.has(e.fromJobId) && !selIds.has(e.toJobId)) ||
+              (chainEdgeIds != null && !chainEdgeIds.has(e.id));
             return (
               <line
                 key={e.id}
+                // t683 — the probe's honest anchor: the map's wires tell the
+                // chain's story too (walked keeps ink, unwalked recedes), and
+                // an assertion needs to ask each wire by name
+                data-mm-edge-id={e.id}
                 x1={a.x + CARD_W}
                 y1={a.y + CARD_H / 2}
                 x2={b.x}
@@ -709,6 +778,13 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             const dimmed = selFocus && !selIds.has(j.id);
             const findHit = findLens && findMatchIds!.has(j.id);
             const findDim = findDimActive && !findHit;
+            // Task 683 — the chain lens dims independently (the canvas
+            // dim union's third disjunct, same law): chain chips keep
+            // full ink, everything off the chain recedes. Running chips
+            // are never on the chain (the walk filters them — a live run
+            // has no end yet), so a lens-on map rests their pulse too.
+            const chainHit = chainJobIds != null && chainJobIds.has(j.id);
+            const chainDim = chainJobIds != null && !chainHit;
             // Task 139 — the sel-mode door affordance: framed-bright chips
             // promise the jump the mode armed (cursor + hover brighten +
             // title tail), and never outside sel mode — an affordance that
@@ -723,6 +799,8 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 dimmed={dimmed}
                 findHit={findHit}
                 findDim={findDim}
+                chainHit={chainHit}
+                chainDim={chainDim}
                 selDoor={selDoor}
                 s={s}
               />
