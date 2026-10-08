@@ -10844,3 +10844,26 @@ Stage Summary:
 - 「代码注释零悬债是账本律的自证」：TODO/FIXME 全为零（只有 RELION 文件名模式误命中）不是巧合——这个库的纪律是**任何欠账要么当场修、要么进 worklog 账本带着判决与再审条件**，从不在代码里留无主标记。两普查（diag 物种 + 意图标记）共同验证：账本外无第二真相源，账本内无未定价的债。
 - 「活体 QA 验的是不在场证明」：本窗 sweep 的关键断言全是**否定句**——lens off 时 chip 不在、空 trail 时 Recent 组不在、console 错误不在。表面的健康不是「东西都在」而是「在的都在场、不在的都有合同」——t627 rest-world 律（lens off 字节不动）在 QA 侧的镜像就是：**每一次缺席都该能指认它的合同**。
 - 产出：无新文件（普查 + 证词入 worklog 本段）；下窗入口：①功能车道（**若 build 日**：critical 块行第二动词（价值待判挂账中——revealJob 之外的 roster 定位/或判「revealJob 已够」）；新缺口先过 t678 分层验尸）②样式车道（账本清零）③judge 风暴（declined 重试维持文档化在案）④build 日三车道（钥匙二十四连零失败在案）⑤演练床轮换（t689 判「每 3-5 窗或 remote 域改动后」——本窗未到轮换点，cluster 跨窗存活已验）⑥storage 合同执行（新 key 按命名律走）。
+
+---
+Task ID: 691 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081110)
+Task: 11:10 派单执行——开局三件套判稳（t677 30/0；available 3222MB < 3280 → 非 build 日，车道纪律第四次执行，六项入口清单全不适用后自主立新需）→ **t689 教义「地板断言的消息要说地板的语言」的家族级普查与修复**：四类病灶 108 处修复 + 48 文件 era 告示 + 三类合法方言判决在案 + bed --full（轮换窗 3 到点）ALL GREEN + t252 重跑绿 + 分车 commit push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 690 收官（HEAD 7841b35 树净；派单「Task 13 条目」模板滞后不采信）；server 200/5.5ms + t677 30/0 判稳先行；available 3222MB < 3280 → **非 build 日**（连续第三窗，feat 车道不可行）。Task 690 入口六项盘点全不适用或未到期（②账本清零③已判在案⑤演练床距上跑仅 2 窗未达 3-5 节奏⑥无新 key 立项）→ 自主立新需。
+- [定道·三波侦察] t690 双物种普查方法论的延续：A skip/only/todo 普查（rg 零命中——**灭绝证词**：套件里不存在被跳过的 must，没有无声停止指控的探针）；B src/ eslint-disable 普查（density-histogram.tsx 2 处，均自带行内定价注释——fetch-on-mount 与 mirror-while-no-hand，逃逸理由逐字在案，**合法方言零动作**）；C **t689 病家族级扫描命中富矿**——「roster identity 12」×26 文件、「roster restored to 12」×18 文件、era 钉死（`=== 12/13/14` 对共享世界）遍布 t576-t617 整个 live-fire 世代。**t689 只修了 t261/t262 两个文件的三处，同病在家族里还有一百多处**。
+- [重大发现·t262 漏治] t262 L130 的 `roster identity 12 (got ${roster0})` 在 t689 治疗中被漏掉（t689 只修了 L718 的 restored 行）——**同病同文件漏治**：grep 驱动的修复只盯「restored to」形状，没扫同文件的「identity」形状。活探针（bed 家族）的撒谎消息每轮 --full 都在打印，无人察觉——正是 t689 教义原话的活体重演。
+- [重大发现·t252 活体谎言] **t252-write-gates 在 identity-12 名单里——它是基线四绿的活探针**，每轮回归打印 `roster identity 12 (got 17)`：断言 `roster0 >= 12` 一直对、消息一直谎。与 t262 C7 冤案互为镜像：C7 是 diag 诽谤产品（假欠账），t252 是 must 自我诽谤（假 GREEN 里的假话）——两种病都活在「没人读消息」的缝隙里。
+- [D2 爆炸与改判] 钉死普查从预估 10 文件爆炸到 **41+ 文件 ~200 点位**（含 `hydrated === 12` ×36、poll-waiter `return n === 12 ? n` ×45——**waiter 在长大的世界里永不解析，探针会挂死**）。逐行贴告示的误分类风险过高 → 按 t688「审计的价值在定价」改判：**era 级文件头告示**（48 文件 × 8 行 WORLD-DRIFT NOTICE，零误分类风险，措辞对冲「may be PINNED」）——未来复活者打开文件第一眼就看到「先重设基线」，避免重演 t689 十窗假欠账的窗口损失。**修复只对活探针与消息谎言；休眠探针的断言手术被拒绝**（改了无法跑验证 = 制造新的未验证主张）。
+- [fixer 落地] scripts/t691-census-fix.py（用完即焚）：五变换全带期望计数断言 + 幂等守卫——首轮 T1 逮住 23/26 形状变异（t251/t253/t254 用 `roster` 非 `roster0` 作基线变量名），Edit 修正则后二轮补齐。终局：**T1 26/26**（identity 12 → identity >= 12，t623-t626 诚实方言）+ **T2 18/18**（`must(EXPR >= roster0, "roster restored to its pre-suite baseline (was ${roster0}, got ${EXPR})")`，t689 判例模式）+ **T3 8/7**（头注释绝对值 → 非绝对措辞，仅限注释行——t601 L312 的同名 check 消息因是钉死断言的准确描述而豁免）+ **T4 5/5**（era 消息谎言：断言验布尔/在场、消息报数字——t611/t608/t604×2/t603 改写为断言的真实意思）+ **T5 48 banners**。
+- [验证·静态层] node --check 77/77 触达文件零失败 + eslint 77/77 exit 0 + 残留形状扫描零命中 + shebang 埋葬检查干净（era 文件无 shebang，banner 无碰撞）+ T1-T5 逐类 read-back 全对。roster0 作用域安全：18 个 T2 文件的 roster0 全为顶层 const（闭包全可见）+ eslint no-undef 兜底。
+- [验证·活体层] **bed --full ALL GREEN**（轮换窗 3 到点：Task 689 后第 3 窗，恰在 3-5 节奏内）——t261+t262 全链绿，t262 的基线消息现场说出真话：`roster restored to its pre-suite baseline (was 17, got 17)`；world-guard 盾 17 workdirs，roster 17→17 复原。**t252 重跑 ALL PASS**（活探针消息修复后的再认证）。
+- [车道盘点] 80 文件 modified：77 探针（fix(qa) 车）+ shots-qa/t262 两帧（bed --full 活跑刷新，chore(qa) 车，c770992 判例）+ fixture 惯犯第 8 次（t252-write-door-2x.png——具名路径 checkout 还原不入车，第八次正确执行）。fixer 用完即焚（t686 判例）。
+
+Stage Summary:
+- 「教义的家族级执行，第一次就证明教义发布那天就没执行完」：t689 修了三个消息就宣布了教义，本窗全族普查发现同病还有 108 处——包括教义被修复的那个文件里就漏了一处（t262 L130）。**修复驱动的 grep 只盯你见过的形状；普查驱动的 rg 扫所有形状**。教训入律：任何「修好了」的宣布，范围动词必须与普查动词同宽——「修了 t261/t262 的陈旧消息」和「修了全家族的陈旧消息」是两个句子，后一句需要全族扫描作证据。
+- 「活探针的假话比死 diag 的假话更毒」：t262 C7 的 diag 诽谤了产品十窗（假欠账），t252 的 must 消息在每轮 GREEN 里撒谎十窗（假诚实）——**diag 的病是没人信它，must 的病是人人都信它**。断言与消息的缝在 GREEN 的掩护下无人查看，只有把「消息要说断言的语言」当合同的普查才能照出来。基线四绿的 t252 是本窗最高优先修复：它的消息每轮回归都在教育未来窗口「世界是 12」。
+- 「挂起的 waiter 是钉死断言的暴力版」：`must(x === 12)` 在世界里长到 17 时会 FAIL——响亮、可见、可疑；`pollUntil(() => n === 12)` 会**永不返回**——安静、超时、看似环境故障。钉死的等待器把陈旧世界的债务从「一次失败」升级成「一次悬死」，而悬死的诊断成本远高于失败。era 告示的「fail, or hang forever」措辞就是为这个升级写的。
+- 「era 级告示是定价，不是修复」：48 个休眠文件不手术（改了无法验证 = 新的未验证主张），只挂「先重设基线再跑」的告示——**修复的劳动放在复活那天，由复活窗口带着活体验证执行**。这与 t688 的 storage 祖父赦免同构：把一致性成本摊到本来就要动的时刻。告示的措辞保持对冲（may be pinned），因为普查不假装 enumeration 完整——**诚实的告示说「可能有病」，只有修复才说「病治好了」**。
+- 产出：scripts/ 77 探针修复（T1×26 + T2×18 + T3×7 文件 + T4×4 文件 + T5×48 banners）+ shots-qa t262 两帧刷新 + worklog 本段；下窗入口：①功能车道（**若 build 日**：critical 块行第二动词（价值待判挂账中）；新缺口先过 t678 分层验尸）②样式车道（账本清零）③judge 风暴（declined 重试维持文档化在案）④build 日三车道（钥匙二十四连零失败在案；本窗零 build 零重启，prod 未动）⑤演练床轮换（bed --full 本窗已跑=窗 3，下轮 3-5 窗后或 remote 域改动后）⑥**休眠探针复活律**：任何 era 文件（t570-t619 带 WORLD-DRIFT NOTICE 的 48 文件）复活重跑前，先重设基线（pre-suite census + roster0 模式）——告示已就位，执行是复活窗口的义务；新 probe 立项时禁用绝对世界值（roster0/词形地基已在 t689 判例与本窗 18 处 T2 模板中）。
