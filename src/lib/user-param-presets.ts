@@ -139,6 +139,16 @@ export function presetsForType(presets: UserParamPreset[], type: string): UserPa
   return presets.filter((p) => p.type === type);
 }
 
+/** Newest first, stable, non-mutating — the palette's "Add from your
+ *  presets" group reads this: the snapshot the user saved most recently
+ *  is the one they most likely want as a starting point, and an old
+ *  favorite is still one scroll away. loadUserParamPresets() returns
+ *  oldest-first (storage order); this is the display dialect, not a
+ *  different truth. */
+export function recentFirst(presets: UserParamPreset[]): UserParamPreset[] {
+  return [...presets].sort((a, b) => b.createdAt - a.createdAt);
+}
+
 /** How many spec keys the snapshot would actually MOVE on this job —
  *  the apply dialog's "M of N differ" line, computed against the job's
  *  current effective params (stored ?? default), not just the raw stored

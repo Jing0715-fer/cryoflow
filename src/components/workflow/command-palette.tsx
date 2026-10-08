@@ -93,6 +93,13 @@ import { hasJudgment, parseClassNotes } from "@/lib/class-notes";
 import type { JobDTO } from "@/lib/types";
 import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
 import { JOB_PRESETS } from "@/lib/job-presets";
+import { fmtAgo } from "@/lib/duration";
+import {
+  loadUserParamPresets,
+  recentFirst,
+  USER_PARAM_PRESETS_EVENT,
+  type UserParamPreset,
+} from "@/lib/user-param-presets";
 import { exportCanvasPng } from "@/lib/canvas-export";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { downloadCsv, fileSlug, copyTextToClipboard, rowsToTsv, type CsvRow } from "@/lib/chart-export";
@@ -264,6 +271,25 @@ export function CommandPalette() {
   // fresh save shows up within half a minute (the t663 cache doctrine,
   // tuned for a list instead of a tile).
   const [savedViews, setSavedViews] = React.useState<SavedViewsState>(savedViewsCache);
+  // t714 — the user face of the preset family joins the palette: the
+  // inspector's "Wear preset" rows and this group are the two ends of one
+  // vocabulary (the t713 doctrine), so a snapshot the user saved can now
+  // START a job, not just dress an existing one. localStorage reads are
+  // sync and cheap — no TTL cache (the saved-views cache exists because
+  // its list rides a wire; this one rides the user's own browser), re-read
+  // on every open and on the module's own changed event (multi-window or
+  // a future third mouth keeps the group honest the same way the
+  // inspector's row does).
+  const [userPresets, setUserPresets] = React.useState<UserParamPreset[]>([]);
+  React.useEffect(() => {
+    if (!open) return;
+    setUserPresets(loadUserParamPresets());
+  }, [open]);
+  React.useEffect(() => {
+    const onPresetsChanged = () => setUserPresets(loadUserParamPresets());
+    window.addEventListener(USER_PARAM_PRESETS_EVENT, onPresetsChanged);
+    return () => window.removeEventListener(USER_PARAM_PRESETS_EVENT, onPresetsChanged);
+  }, []);
   React.useEffect(() => {
     if (!open) return;
     const hit = savedViewsCache;
@@ -761,6 +787,17 @@ export function CommandPalette() {
    *  The new card lands selected, so the inspector shows exactly which
    *  knobs the preset moved off their defaults. */
   const addPreset = (p: (typeof JOB_PRESETS)[number]) => {
+    void useWorkflowStore.getState().addJob(p.type, p.params);
+    close();
+  };
+
+  /** t714 — the user-preset twin of addPreset: same one-shot contract
+   *  (place the type AND wear the params), same write well (store.addJob,
+   *  never a second param path), but the params are the user's own FULL
+   *  spec-key snapshot instead of the curated starting table. The store's
+   *  add path merges params the same way for both — one dialect, two
+   *  mouths, zero new semantics. */
+  const addUserPreset = (p: UserParamPreset) => {
     void useWorkflowStore.getState().addJob(p.type, p.params);
     close();
   };
@@ -1534,6 +1571,47 @@ export function CommandPalette() {
             );
           })}
         </CommandGroup>
+
+        {/* ---------------- add from your presets (t714) ----------------
+            The user face of the preset family: snapshots the user saved
+            in the inspector can now START a job. Same row dialect as the
+            curated group (type icon, label, medium-weight preset name),
+            but the right slot speaks the user's units — knob count and
+            the save's age — instead of a developer's note. Empty law: no
+            snapshots, no group, no heading orphan. */}
+        {userPresets.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Add from your presets">
+              {recentFirst(userPresets).map((p) => {
+                const t = jobType(p.type);
+                const knobs = Object.keys(p.params).length;
+                return (
+                  <CommandItem
+                    key={`user-preset-${p.id}`}
+                    value={`preset add your saved ${p.name} ${p.type} ${t?.label ?? ""}`}
+                    onSelect={() => addUserPreset(p)}
+                    className="gap-2.5"
+                  >
+                    <TypeIcon
+                      name={t?.icon ?? "boxes"}
+                      className={`size-4 shrink-0 ${t?.color.text ?? "text-muted-foreground"}`}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {t?.label ?? p.type}
+                      <span className="ml-1.5 font-medium">{p.name}</span>
+                    </span>
+                    <span className="hidden shrink-0 items-center gap-1 text-[10px] text-muted-foreground sm:inline-flex">
+                      <span>{knobs} {knobs === 1 ? "knob" : "knobs"}</span>
+                      <span aria-hidden>·</span>
+                      <span>{fmtAgo(p.createdAt)}</span>
+                    </span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
 
         <CommandSeparator />
 

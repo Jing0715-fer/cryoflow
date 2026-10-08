@@ -27,8 +27,10 @@ export function fmtClock(iso: string): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-/** Relative age: "just now" inside a minute, then "4m ago" etc. */
-export function fmtAgo(iso: string): string {
+/** Relative age: "just now" inside a minute, then "4m ago" etc.
+ *  Accepts an ISO string or an epoch-ms number (t714: the user-param
+ *  preset snapshots carry numeric createdAt; one dialect, both shapes). */
+export function fmtAgo(iso: string | number): string {
   const ms = Date.now() - new Date(iso).getTime();
   if (ms < 60_000) return "just now";
   return `${fmtDuration(ms)} ago`;
