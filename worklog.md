@@ -11132,3 +11132,26 @@ Stage Summary:
 - 「多合法候选处的 .find() 是身份丢失点」：几何门裁决有效性，但两个 64³ 体积都合法时第一个命中就是掷骰子——迭代中间体与终图同居一个 workdir 是真实 RELION 的正常形状，不是世界病。图自己的命名法（crop stem = 父 stem）是系统里已有的身份链，resolver 之前没接上。修复不加重 gate，只加重 order——合法性仍是几何独裁。
 - 「显示层谎言升到传输层」：`[`+单字符被吃覆盖了 Read/od/cat/python repr 四种工具——hex 转义探针与编译器判据（py_compile/node --check）是唯一可信对质。诊断输出的每个方括号都该被怀疑；od 也不免俗。
 - 产出：scripts/t703-t264-c5-forensics.mjs（只读取证，留驻）+ services/mock-cluster 两 stub 契约升级 + 三探针世界迁移/方言对齐 + src/components/workflow/results/anchor-parent.ts（resolver 文件身份，pending build）+ shots-qa 七帧刷新 + worklog 本段；下窗入口：①build 日批次（六窗账，清单更新）：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + t703 resolver 修复的 rebuild + t260 终验（含 GL-truth 在正确地图上的重读）+ 验证网 ②非 build 日：bookmark 世界的普查（t702 入口②候选——t700 thumb 魔数律的全量表审计：条目目标在盘、缩略图编解码诚实、引用解析）③演练床轮换（本窗窗 3 已跑，下窗窗 4；build 日先到则批次优先）④t699/t702 census 随世界手术必跑（本窗已跑）。
+
+---
+Task ID: 704 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081629)
+Task: 16:25 派单执行——开局三件套判稳（t677 30/0；available 3122MB < 3280 → 非 build 日连续第十六窗）→ 入口②自由选题：**bookmark 世界普查**（t702 入口预留候选——t700 thumb 魔数律从单 session 门卫升格为全贮存层仪器）→ 姊妹表合并审计（OverlaySession 与 BookmarkSession 合同恰好相反——纯相机数字永不 stale vs 文件引用必须自愈）→ 首跑 41/2 双 flag 定谳为探针自病（3 字节 vs 4 字节魔数）→ 修探针 44/0 → 验证网全绿 + 墙/菜单/恢复三层活体 → 判决文档 + worklog + 分车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 703 收官（HEAD f90138b 树净）；server 200/5ms + t677 30/0；available 3122MB < 3280 → 非 build 日第十六窗（3156→3122 微落 34MB，无新泄漏源）。Task 703 入口②唯一候选 bookmark 普查正点入道。
+- [世界勘探] bookmark 世界全图：storage（BookmarkSession jobId @unique + data JSON）→ 双门（per-job camera-bookmarks 严格 whitelist = 变更所有者：MAX 8 / thumb 48k chars / THUMB_RE png|jpeg；views/gallery 只读聚合 MAX_JOBS=8 宽松形）→ 三消费者（molstar-embed 双镜像 localStorage+server row / dashboard Saved-views 墙 / palette 跳转面）。今日实况：1 行 3 条目（refine3d：seedview1 人手 JPEG 1407B + seedview2/3 种子 PNG 桩 210/194B）。
+- [姊妹表洞察] OverlaySession 与 BookmarkSession 是**合同相反的同胞**：bookmark 存纯相机数字——路线注释自称「cannot go stale / no self-heal pass」从未被机械执行；overlay 存路径——每次 restore 对 live mrc outputs 重验证、双镜像同愈（molstar-embed restore filter L1381-1397）。A4（bookmark 无文件引用机械扫：扩展名/绝对路径/path-flavored keys 三重词表）与 D4（overlay path ∈ live mrc 清单）是同一问题的镜像两面：「这行能对世界撒谎吗」。
+- [仪器四层] scripts/t704-bookmark-census.py（只读可重跑世界随行）：**A 贮存真值**（FK LEFT JOIN 活、条目形状、pose 三 vec3 有界、view 形状含 t279 focus、thumb 魔数诚实 + IHDR/SOF 真解码（112×59 / 8×8 / 8×8）、写后于声称不变式 max(ts) ≤ updatedAt+61s）；**B 门重放**（route sanitize 忠实移植 → stored == sanitize(stored) 字节相等零缩水 + 双 GET 端点活体对账）；**C 合同回声**（8/48k/png|jpeg 上限对贮存断言）；**D overlay 姊妹**（0 行合法态——仪器先于第一条目到达）。
+- [首跑 41/2 定谳] 双 FAIL 均 seedview2/3「codec honesty declared png magic 89504e」——**探针自病非世界病**：payload[:3] == b"\x89PNG" 拿 3 字节比 4 字节常量永假，而紧邻断言 png_dims 刚证明 payload 真身是合法 PNG（8×8 px）——同一仪器的两个断言互相对质定谳。修 payload[:len(magic)] == magic → 44/0。t700 律在 JS→Python 迁移时魔数字节长度骑行未审：**换语言的法逐字节重赚正确性**（JPEG ffd8ff 恰 3 字节的运气在 PNG 上反噬）。
+- [updatedAt 漂移测量] updatedAt 00:49:32Z vs max ts 21:20:14Z（早 3.5h）——app 自身路径解释无腐坏：rename 保 ts 提交全表（L2027）/ add-delete 对；真不变式（条目不能新于承载它的写）成立。**测不变式不测传记**：断言 updatedAt≈max(ts) 会误伤每次 rename，断言写后于声称只捕不可能。
+- [验证网全绿] t677 30/0 + t699 record census 17/17（0 incomplete，orphans 20 不变）+ t702 narrative census 158/0 + t695 125/0。
+- [活体三层] agent-browser（t695 协议）：①Dashboard 墙——region "Saved 3D views across all projects" 3 卡全渲染（名 + σ/slice/clip 光学 chip + job/项目名 + rename/delete 可达名）；②server 喂养——空 localStorage 浏览器里 Mol* 面板仍「Camera view bookmarks — 3 saved」+ 三条目带日期（跨设备合同活体）；③恢复飞行——点 Centered iso view 相机飞回（橙色等值面居中）、t279 focus chip「50%/50%/50%」、seedview1 真 JPEG 缩略图（橙球照片）与 8×8 桩（诚实灰块）并排；console 仅 molstar debug（map fetched → ready）零错误；截图 shots-qa/t704-bookmark-restore.png；用毕即关。
+- [回归] 产品代码零改动（QA 仪器 + 文档）——四探针 + 双 census 覆盖；零 build 零重启。
+
+Stage Summary:
+- 「同胞表当合同相反时该共用一台普查」：bookmark 与 overlay 解决同一问题（session 跟着 job 跨设备）却用相反的物理——一个拒绝引用、一个反复自证。分开审会藏起设计对称性，合并审让 A4/D4 变成镜像断言，测的是设计而不只是数据。世界的两个「永不 stale」与「必须自愈」在同一面放大镜下才各自成为可执行的合同。
+- 「执法者在法换语言时逐字节重赚正确性」：codec-honesty 律扛过一次移植（JS check → bed preflight）坏在第二次（JS → Python）——律没错，是魔数的字节长度骑行未审。**永不可能为真的比较比没有比较更糟**：它伪装成覆盖直到真谎言走过。重跑的 44/0 之所以可信，靠的是 dims-parse 断言（payload 是合法 PNG 的独立证据）让误诊无处藏身——一台仪器内部的断言互质，是定谳「探针自病 vs 世界真病」最快的对质。
+- 「仪器先于第一条目到达」：overlay 半边审计空表不是浪费——t699 律（法先于执法仪器一窗）的立法版：这次仪器早到而非晚到。未来第一次 Layers-panel 保存将出生即被审计。空表的世界随行断言（D0）同时把「表存在且为空」从民俗升格为测量。
+- 「测不变式不测传记」：updatedAt 漂移像发现直到 app 自己的路径解释它——审计的判断力住在「选哪条不等式」里：写后于声称（+门自己的 61s 未来钳）只捕不可能，传记式等号只会误伤合法路径。普查每一条断言都是一次判决书写作：把自由度钳到恰好剩世界的不可能。
+- 产出：scripts/t704-bookmark-census.py（四层 44 断言只读可重跑）+ docs/bookmark-census.md（判决 + 双表物理 + 四教训）+ shots-qa t704 一帧（恢复飞行活体）+ worklog 本段；下窗入口：①build 日批次（六窗账清单不变）：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + **t703 resolver rebuild + t260 终验** + 验证网 ②非 build 日：saved-state 家族普查收官——自由选题（新 UI 领土：成本/算力仪表、run-history 时间线；或墙生长后 gallery 端点普查作 t704 衍生）③演练床轮换（t703 窗 3 后本窗窗 4；标准门 = family-run，preflight 已验不假鸣）④census 轮换：t699/t702 随世界手术必跑；t704 随 bookmark/overlay 门或种子变更触发。
