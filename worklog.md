@@ -11293,3 +11293,25 @@ Stage Summary:
 - 「qa 批的清理是世界事件，仪式随行」：t705 分层律第二次应验且加细——putBm([]) 是 per-session 擦除，跨 job 行与 overlay 层幸存，世界的伤是部分的；census 期望从世界导出（t706 律），65/0 与 76/0 同绿。生长行是可再生的实验，不是不可再失的资产。
 - 「判决书预写到了第五张」：t710-readers-sweep 入 staged-sweep 家族（t707 双路 + t708 写路 17 探针 + t709 十一门 + t710 五读者）——build 日从「临场判断日」变成「五张 diff 阅读单 + 一次 qa49 终验」。
 - 产出：scripts/t710-collection-touchers.py（+JSON manifest，回归轮换新成员）+ scripts/t710-mass-origin-shim.py（幂等补丁器）+ scripts/t710-readers-sweep.sh（激活判决）+ 295 车道 shim + 5 路由门（staged）+ guard 头注升格 + t709 census 豁免缩零 + docs/bookmark-census.md t710 附记 + 截图一帧 + worklog 本段；下窗入口：①**build 日批次（账单 +1：t710 五读者门激活判决 = sweep bare 列翻转）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + t703 resolver rebuild + t260 终验 + t705 墙按钮 a11y rebuild + qa49 B 相终验（墙非空——本窗已预演红相）+ t707/t708/t709/t710 四张激活判决 + 验证网（census 五台 + sweep 双列） ②非 build 日：自由选题（Mol* 全驾平静窗重试 + 墙 UI 行再生长；或成本/算力仪表、run-history 时间线等新 UI 领土） ③床轮换 1/5（本窗 qa 批已重置） ④census 轮换：**t710-collection-touchers.py 入回归轮换——任何车道大规模手术或门变更后必跑**；t709-door-coverage 随新路由必跑；t699/t702/t704 随世界手术必跑（本窗已跑全绿）。
+
+---
+
+## Task 711 — 2026-10-08 21:10 派单窗（非 build 日 · 连续第十二窗）· Activity Heatmap：dashboard 的 shape-of-time 面孔
+
+Task: 21:10 cron 派单执行——开局三件套判稳（worklog 尾条核实 = t710 收官 1dd5e03a 三车树净；server 探针 200；available 3126MB < 3280 → 非 build 日）→ 派单「Task 13 遗留清单」验尸：docs/task13-legacy-verdicts.md 灭绝证词在案（#5/#6/#7/#8/#13 + Topaz wrapper + 3D 体积截面全灭，topaz-training.ts 与 clip 全家桶皆活体）→ t710 入口②自由选题侦察：Mol* 全驾已 t708 平静窗结案全绿、run-history 时间线已 t612/t506/t677/t681 建成、成本/算力仪表已有 cluster-usage-panel + storage-dialog + pipeline-kpi——**活动热图 = 真空白**（project-dashboard 零 heatmap 命中；/api/activity 只有 ≤30 天累计 sparkline 面，无 per-day touched 增量、无周对齐日历窗）→ 立案 Task 711 = Activity Heatmap。
+
+Work Log:
+- [agent-browser 开局巡检] Dashboard tab selected + KPI band + 项目卡 + Recent activity region 全渲染、console/errors 零行、截图 shots-qa/t711-dashboard-pre.png、用毕即关（t695 协议）。
+- [新端点 /api/activity/heatmap] GET ?weeks=17（4..26 钳制）：一个新数据 FACE 非新事实——sparkline 的 days 数组长度对消费者承重（合同不拉长），日历要增量+周窗，独立端点；三增量 {created, completed, touched}，touched = updatedAt 落日任何 status（recent-feed 的 touch-time 哲学——只数 creation 的日历会在 shepherding 周保持灰色）；**周日对齐在 wire 侧做完**（首日=窗口起点所在周的周日，末列止于今天=诚实的「进行中周」）；totalJobs 随行供空态律；slim select 同款；UTC 日界同 /api/activity；isLocalRequest 门（t709 律新路由必带）。
+- [新组件 activity-heatmap.tsx] GitHub 式日历：列=周日对齐周、行=Sun/Tue/Thu/Sat 隔行标签、月份标签列首溢出式、格子 size-3 rounded-[3px] gap-[3px]；**相对档位**（L1=≥1 touch 恒亮，L2/L3/L4 按观测 max 三等分带下限——稀疏世界 max=2 仍有梯度不塌灰、繁忙世界不饱和于 L1）；颜色 = 单一 success token 的 25/45/70/100% 透明度阶梯（主题 token 本身换色，零重复调色板，深浅两相原生）；tooltip 讲增量拆分（「Oct 8: 5 touches · 2 created · 1 completed」）；today ring-primary 描边；hover ring 反馈；legend Less→More 明示「THIS world 的相对标尺」；sr-only 摘要段（GitHub a11y 方言：格子是画、段落是同数据的散文）；骨架 = 17 幽灵列与真网格同形；空态律（totalJobs=0 → null，诚实律拒绝全灰装饰）；fetch 失败 → null；一次 fetch 不轮询（日细胞不会在眼下移动）。
+- [宿主接线] project-dashboard：热图 section 插 FailedJobsStrip 与 RecentActivityFeed 之间（鸟瞰在 latest-eight 之前）；入场瀑布阶梯 6→7 档，全梯 +40ms 顺延（140/180/220/260/300/340/380），注释逐 rung 说明。
+- [形态契约同步] L8179 律「改了产品的输出形态，要 grep 所有断言该形态的检查」：t576-dash-cascade-live-fire.mjs 断言 six rungs 140→340 → 同步改 seven rungs 140→380（注释 + 两处 check）；其余四探针（t687/t686/t613/t611）只依赖 settle 时长与动画名不钉 rung 数——grep 验讫零改动。
+- [验证网] tsc 0 + eslint 0（三文件 + 探针）+ t709-door-coverage.py **113/113**（rglob 自动纳入新路由 112+1 doored）+ 冻结 bundle 不受影响（开局巡检照旧有效）；t576 新断言 = build 日激活判决（staged，与 t710 五门同模式）。
+- [staged 模式判定] server = production frozen bundle（BUILD_ID 01:58 UTC, bun standalone）——新端点 curl 404 = 预期行为非缺陷；新 UI 无法 prod 活体；本窗交付 = staged 代码 + 静态验证 + 门普查，激活日 = build 日批次（账单 +1：t576 seven-rung 判决 + dashboard 热图活体两相截图）。
+
+Stage Summary:
+- 「面孔三兄弟讲完活动的全部方言」：sparkline 讲趋势（累计线）、recent feed 讲最新八个名字（个体）、日历讲时间的形状（爆发与安静）——同一 wire 哲学（touch-time）三种增量形状，各得一个端点而不互相拉长合同。「一个形状一口井」：日历要「那天发生了多少」的增量与「周」的窗，sparkline 的 days 长度承重——独立端点不是重复，是让每个消费合同不被别人的形状劫持。
+- 「档位是相对的、诚实是绝对的」：热图档位按观测 max 相对分档（稀疏世界也有梯度），legend 亲口说「这是本世界的标尺」；但空世界不渲染（全灰是装饰假装数据）、失败不渲染、化石世界（窗口外）照常渲染灰网格加尾端彩格——三种空态三种诚实，全部在代码注释里立案。
+- 「形态契约的探针同步是一次 grep 的事，不是一次回归红的事」：插入第七 rung 的同时 t576 的断言已改——L8179 教训（「改了产品的输出形态，要 grep 所有断言该形态的检查」）在本窗是提前执行而非事后验尸；四探针 grep 验讫不钉 rung 数，改动半径 = 一个探针两处 check。
+- 「staged 世界里，404 也是预期行为」：frozen bundle 下新路由 404 非 bug——验证手段随模式切换（静态 + 源码普查 + 开局既有世界巡检），激活判决预写到 build 日清单；t710 的「判决书预写」律在 UI 领土的推广。
+- 产出：src/app/api/activity/heatmap/route.ts（新端点+门）+ src/components/workflow/activity-heatmap.tsx（新组件）+ project-dashboard.tsx 接线（七档瀑布）+ t576 断言同步 + shots-qa/t711-dashboard-pre.png + worklog 本段；下窗入口：①**build 日批次（账单再 +1 = 七项）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + t703 resolver rebuild + t260 终验 + t705 墙按钮 a11y rebuild + qa49 B 相终验 + t707/t708/t709/t710 四张激活判决 + **t711 激活判决（t576 seven-rungs 140→380 + 热图活体：渲染/格子数/月份标签/legend/深浅两相截图/新端点 curl 形状）** + 验证网（census 五台 + sweep 双列） ②非 build 日：自由选题（bookmark 墙 UI 行再生长 65→66；或新 UI 领土） ③床轮换 2/5（t710 窗 qa 批重置后第二窗） ④census 轮换：t709-door-coverage 已随新路由跑（113/113）；t699/t702/t704 随世界手术必跑（本窗零手术未触发）；t710-collection-touchers 若动车道大规模手术必跑。
