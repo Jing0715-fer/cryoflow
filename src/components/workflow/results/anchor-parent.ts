@@ -102,12 +102,35 @@ export function useAnchorParent(
     let alive = true;
     setResolved(null);
     (async () => {
+      // t703 — the crop's own name carries its parentage: the t255 send
+      // route names the crop <parent-stem>_crop_<box>.mrc, so the stem IS
+      // the graph's own file pointer. A parent workdir can hold several
+      // geometrically-valid volumes — a real InitialModel writes iteration
+      // intermediates (run_it005_class001.mrc) beside the final map it
+      // actually begat the crop from (run_model.mrc) — and the first
+      // geometric hit is then the WRONG generation. The name preference
+      // only ORDERS among files the geometric check already admitted; it
+      // can never admit a file the geometry refused (t256's law stands).
+      let preferredName: string | null = null;
+      try {
+        const own = await fetch(`/api/jobs/${importJobId}/outputs`, { cache: "no-store" });
+        if (own.ok) {
+          const ownData = (await own.json()) as { files?: ParentFile[] };
+          const crop = (ownData.files ?? []).find((f) => f.kind === "mrc");
+          if (crop) preferredName = crop.name.replace(/_crop_.*\.mrc$/i, ".mrc");
+        }
+      } catch {
+        // the preference degrades to the plain geometric scan — honest
+      }
       for (const pid of candidateIds) {
         try {
           const res = await fetch(`/api/jobs/${pid}/outputs`, { cache: "no-store" });
           if (!res.ok) continue;
           const data = (await res.json()) as { files?: ParentFile[] };
-          const hit = (data.files ?? []).find((f) => contains(f, box));
+          const passing = (data.files ?? []).filter((f) => contains(f, box));
+          const hit = preferredName
+            ? passing.find((f) => f.name === preferredName) ?? passing[0]
+            : passing[0];
           if (hit && hit.dims && alive) {
             setResolved({
               jobId: pid,
