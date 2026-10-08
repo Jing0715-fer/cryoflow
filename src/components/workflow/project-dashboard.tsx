@@ -53,6 +53,7 @@ import { PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT } from "@/lib/view-link";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
 import { HomecomingSweepBar } from "./homecoming-sweep";
 import { KpiSparkline } from "./kpi-sparkline";
+import { ActivityHeatmap } from "./activity-heatmap"; // Task 711 — the shape-of-time face (sparkline = trend, feed = latest, calendar = bursts & quiet)
 import { EngineBuildRail, EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
@@ -3156,10 +3157,22 @@ export function ProjectDashboard() {
           <FailedJobsStrip />
         </div>
 
-        {/* cross-project recent activity — the "where did I leave off" strip */}
+        {/* Task 711 — the activity calendar: the shape of time itself
+            (bursts, quiet stretches), speaking the same wire the feed's
+            touch philosophy speaks. Sits between the exception strip and
+            the detail feed — bird's-eye before the latest-eight. */}
         <div
           data-dash-enter
           style={{ "--dash-d": "180ms" } as React.CSSProperties}
+          className="mt-6"
+        >
+          <ActivityHeatmap />
+        </div>
+
+        {/* cross-project recent activity — the "where did I leave off" strip */}
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "220ms" } as React.CSSProperties}
           className="mt-6"
         >
           <RecentActivityFeed activeProjectId={activeId} />
@@ -3168,7 +3181,7 @@ export function ProjectDashboard() {
         {/* cross-project saved views — the "my inspection work" shelf */}
         <div
           data-dash-enter
-          style={{ "--dash-d": "220ms" } as React.CSSProperties}
+          style={{ "--dash-d": "260ms" } as React.CSSProperties}
           className="mt-6"
         >
           <SavedViewsGallery />
@@ -3177,7 +3190,7 @@ export function ProjectDashboard() {
         {/* active project spotlight */}
         <div
           data-dash-enter
-          style={{ "--dash-d": "260ms" } as React.CSSProperties}
+          style={{ "--dash-d": "300ms" } as React.CSSProperties}
           className="mt-6"
         >
           <ActiveProjectSpotlight jobFilter={jobFilter} setJobFilter={setJobFilter} />
@@ -3187,7 +3200,7 @@ export function ProjectDashboard() {
         <div
           ref={gridRef}
           data-dash-enter
-          style={{ "--dash-d": "300ms" } as React.CSSProperties}
+          style={{ "--dash-d": "340ms" } as React.CSSProperties}
           className={cn(
             "mt-6 scroll-mt-4 rounded-xl transition-shadow duration-700 motion-reduce:transition-none",
             gridFlash && "ring-2 ring-primary/40 ring-offset-4 ring-offset-background"
@@ -3312,7 +3325,7 @@ export function ProjectDashboard() {
         {/* footnote — the cascade's last rung */}
         <p
           data-dash-enter
-          style={{ "--dash-d": "340ms" } as React.CSSProperties}
+          style={{ "--dash-d": "380ms" } as React.CSSProperties}
           className="mt-8 text-center text-[10px] text-muted-foreground/60"
         >
           Project dashboards persist per browser session — switching here never interrupts
