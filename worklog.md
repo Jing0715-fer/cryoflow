@@ -11087,3 +11087,24 @@ Stage Summary:
 - 「故事的法律和工件的法律同一条」：t636 的 claim-without-write 说 record 不得点名不存在的文件；t701 把它推广到叙事——**日志不得讲世界不能证明的数字**。每行叙事的每个数都有出处（result 行/星文件/argv 实读/边表实况），这让富化的工作量大半花在「取证」而非「写作」上——而这正是它该有的样子：demo 世界的每一行字都是证据的转述，不是文学的发明。
 - 「合同性数据要显式排除在手术外」：topaztrain 的 CSV 块被 loader 解析、头行可能被 key——patch 的排除清单和手术对象清单一样长。**手术的安全边界 = 写什么 + 不写什么 + 为什么**：三者在脚本头注释里逐条立案，下一个读脚本的人（或窗）不需要重新发明边界。
 - 产出：scripts/t701-story-enrichment-patch.mjs（幂等双跑验讫）+ shots-qa t701 一帧（Log tab 叙事活体）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + 验证网②非 build 日：叙事层已富化收官——自由选题（下一层候选：project 故事——项目描述/工作流命名的叙事化；或 QA 仪器新面：Log tab 叙事的回归探针）③演练床轮换（t700 窗 5 已跑，本窗窗 1，下轮节奏内）④t695/census 随世界手术节奏轮换。
+
+---
+Task ID: 702 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081455)
+Task: 14:55 派单执行——开局三件套判稳（t677 30/0；available 3148MB < 3280 → 非 build 日连续第十四窗）→ 入口②自由选题：**叙事层执法仪器**（t701 立法无执法——t699 律「没有可重跑审计的法律只是民俗」）→ 首跑 143/4 → 四案逐一定谳（两探针自病 + 一种子双声音 + 一世界真病）→ 四层锁步幂等修正 → census 158/0 → 验证网全绿 + Log tab 活体 → 判决文档 + worklog + 分车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 701 收官（HEAD 16213ee 树净；摘要链再次滞后——14:10/14:40 两派单实则均已收官，tail 实录是唯一真相源）；server 200 + t677 30/0；available 3148MB < 3280 → 非 build 日第十四窗（3145→3148 微升）。Task 701 入口②两候选：project 故事（schema 无 description 字段 = build 日领土，否决）与 Log tab 叙事回归探针——选后者并升格为全层执法仪器。
+- [仪器设计] t701 立了叙事法（故事只讲世界能证明的 / 追加式 / 头行神圣）但无执法仪器；t702 census（只读、可重跑、世界随行）三层 158 断言：**A 形状**（17/17 run.log 在盘、≤25 行日志尾消费窗 tools.ts L2736、头行回声逐字等于 record.result、14 叙事的 head+空行+[seeded] 精确形状、三 canonical 谱系行数、topaztrain CSV 合同可解析）；**B 出处**（每个数字回到世界自己的工件：star 行数、类分布 96/240=40%+72/240=30%、defocus 族机械区间、FSC 锚 3.62/3.12 及其差 0.50 的算术、MRC 头 28.320=1.77×16、40 行 FSC、_rlnMaskName 的文件级 mask 边自证、engine.ts argv 源级、**每条 downstream 行双向对 DB Edge 图**——无幽灵消费者、postprocess 链尾由零出边证明）；**C 幂等见证**（t701 patch 重跑 14 skip 0 enrich——世界在自己的作者手下稳定）。
+- [首跑 143/4·四案定谳] ①class3d = 探针词表自病（世界写 Symmetry-expand，词表只有 Symmetry expansion）→ 词表加别名；②topaztrain = 种子双声音（head 短回声 vs record 富判决）→ head 字节稳定检 + record 数字 CSV 深检（row 9 test_loss 0.494 ✓、末行 it=11 ✓——record 的数字住在工件里）；③import 28.32 vs star 1.77 = 双尺度真相（探测器 1.77 vs 显微图尺度 MRC 头 28.320=1.77×16 精确）→ 探针改读对的工件；④**defocus 族 = 世界真病**：工件证明 [12722.7, 14850.9] Å 顶 14.9k 且 CtfAstigmatism 列明载 68.5–257.8 Å，种子 L852 截断成 14.6k、t701 叙事放大成 astigmatism free——双双低于法律标准。
+- [四层锁步修正] defocus 事实住四层（种子脚本 → engine-state record.result → run.log 头行回声 → t701 叙事+其作者脚本），head 回声契约（log 行 1 == seeded 前缀 + record.result）是结构不变式——单修 record 会断链。scripts/t702-defocus-verdict-patch.mjs 四层一次移动（14.6→14.9k；astigmatism free→under 300 A），双跑幂等验讫（amend 后全 skip）。**修正是修订不是 clobber**：头的结构/前缀/角色不动，只动假数字，回声契约前后都被 census 断言。census 的数字不是常量——从工件重算（round(max/1000,1)）与叙事/record 对账，世界数据再变则叙事被机械定罪。
+- [验证网全绿] census 重跑 **158/0**；t677 30/0；t699 record census 17/17 完整生命（世界手术后必跑律）；t695 125/0（世界随行零改动）；qa-t531 --check **CHECK PASS**（床 preflight 不携带陈旧常量——下轮床轮换不假鸣）。
+- [活体验证] agent-browser（t695 协议：显式导航 + 租户按名 CTF estimation + Radix tab 需全事件序列 pointerdown→click + 用毕即关）：ctffind Log tab 渲染修正后叙事活体——头行回声 14.9-12.7k Å + argv 行（--Box 512 --ResMin 30 --ResMax 5 --dFMin 5000 --dFMax 50000 --FStep 500）+ manifest + downstream 全行呈现，console 无错误条目，截图 shots-qa/t702-ctffind-log-amended.png 入档。
+- [回归] 产品代码零改动（世界数据 + QA 仪器 + 种子/patch 脚本的数字修正）；零 build 零重启（engine-state.json 外部写者容忍模式 L261-262）。
+
+Stage Summary:
+- 「法律的执法仪器先在法律自己的措辞里找到前四个违例」：首跑四 flag 中三个是 census 的词表或形式化、不是世界——顺序是先定谳后动代码：一台把世界修成自己假词表的普查，会把 bug 洗成判决（t697/t700 假词表家族的普查版）。定谳的三档结论——探针自病（修探针）、双声音（深检而非等号）、世界真病（幂等修正）——各自对应不同的修复所有者。
+- 「种子的声音与 record 的判决是两个声音，不是一个」：头行是日志的锚、record.result 是 job 的判决，二者通常一致只因种子同时写下——一致是惯例不是同一性。分叉处的强判据不是等号而是可证明性：record 的数字必须住在工件里（CSV row 9 的 0.494）。等号检查靠结构合同，深检靠证据等级。
+- 「定性主张是对定量主张的借贷，普查负责催收」：astigmatism free 败于法律的字面而非精神——世界自己的列证明 68.5–257.8 Å，小而非零。修正是写下数字（under 300 A）让主张变得机械可查。叙事里每一个不带数字的定性词，都是一笔待审计的债。
+- 「叙事层成为第四个有自己的仪器的层」：工件（床 world-guard）→ 记录（t699 census）→ 档案（t700 audit）→ 叙事（本 census）——每层的法律都先于仪器一窗到达，这个模式现在本身成了惯例：立法窗的下一窗就该问「执法仪器是什么」。
+- 产出：scripts/t702-narrative-census.py（只读三层 158 断言，可重跑）+ scripts/t702-defocus-verdict-patch.mjs（四层锁步幂等，双跑验讫）+ docs/narrative-census.md（判决 + 四案定谳 + 教训）+ shots-qa t702 一帧（修正后 Log tab 活体）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选（refine3d run_itNNN_data.star）+ a11y 可选加强行 + **新增：project 层叙事定价**（Project schema 无 description 字段——project 故事富化需 schema 迁移，归 build 日领土）+ 验证网 ②非 build 日：执法仪器系列收官——自由选题（新仪器面候选：bookmark 世界的普查？或 UI 新面 wire 探针随 UI 演进）③演练床轮换（t700 窗 5 后本窗窗 2，3-5 节奏内；标准门 = family-run，preflight 已验不假鸣）④census 家族轮换：t699/t702 随任何世界手术必跑，t702 额外随叙事/种子脚本变更触发。
