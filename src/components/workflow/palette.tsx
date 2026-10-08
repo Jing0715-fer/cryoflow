@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Clock3,
   GripVertical,
+  Info,
   Search,
   Shapes,
   Star,
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { capturePointer } from "@/lib/pointer";
+import { TypeCardDialog } from "./type-card-dialog"; // t730 — the dictionary door lives next to the shelf's own mouth
 
 interface PaletteDragState {
   type: string;
@@ -260,6 +262,10 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   // Task 133 — favorites: star order, client-only until mount (hydration)
   const [favs, setFavs] = React.useState<string[]>([]);
   const [favOnly, setFavOnly] = React.useState(false);
+  // t730 — the type card's subject: the key whose dictionary page is
+  // open (null = closed). One gate for the card, chips navigate by
+  // re-assigning the key — the dialog stays mounted, the page swaps.
+  const [cardKey, setCardKey] = React.useState<string | null>(null);
 
   const dragRef = React.useRef<PaletteDragState | null>(null);
   // Task 155 — the reorder drag's OWN ref (never the drag-to-create one)
@@ -1092,6 +1098,37 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                             )}
                           </span>
                         </span>
+                        {/* t730 — the dictionary door: opens the type card
+                            for THIS row (same span-as-button grammar the
+                            Task 133 star runs on — pointerdown swallowed so
+                            opening the card never starts a drag or adds).
+                            Sits left of the star: about-the-type precedes
+                            keep-the-type, the reading order the row's other
+                            faces already follow. */}
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`About ${t.label} — params, ports, neighbours`}
+                          title={`About ${t.label} — params, ports, neighbours`}
+                          data-testid={`palette-info-${t.key}`}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCardKey(t.key);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setCardKey(t.key);
+                            }
+                          }}
+                          className={cn(
+                            "flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition-all hover:text-muted-foreground group-hover/item:text-muted-foreground/60 focus-visible:text-muted-foreground hover:bg-accent"
+                          )}
+                        >
+                          <Info className="size-3" aria-hidden="true" />
+                        </span>
                         {/* Task 133 — star toggle: reserved width so the tier
                             badge never shifts; a span (not a nested button —
                             invalid DOM inside the row's button) with full
@@ -1237,6 +1274,19 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
           </div>,
           document.body
         )}
+
+      {/* t730 — the type card: the palette's dictionary door. Chips inside
+          the card navigate by re-assigning cardKey; a successful add
+          rides the same onAdded mouth the rows use, then closes. */}
+      <TypeCardDialog
+        typeKey={cardKey}
+        open={cardKey !== null}
+        onOpenChange={(o) => {
+          if (!o) setCardKey(null);
+        }}
+        onNavigate={(key) => setCardKey(key)}
+        onAdded={onAdded}
+      />
     </div>
   );
 }

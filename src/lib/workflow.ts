@@ -2171,6 +2171,78 @@ export function nextStepsFor(
   return steps;
 }
 
+/* ------------------------------------------------------------------ */
+/* Upstream directory (t730 — the type card's "who feeds me" question) */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One "who can feed this type" entry: the feeder type plus the port pair
+ * the auto-wire would use. Same shape idea as NextStep but aimed
+ * backwards — no caption, and no curated table behind it.
+ */
+export interface UpstreamStep {
+  /** Feeder job type key (JOB_TYPES entry). */
+  type: string;
+  /** Human label (same string the palette shows). */
+  label: string;
+  /** Lucide icon NAME (resolved through <TypeIcon>). */
+  icon: string;
+  /** Feeder's output port name that accepts the hand-off. */
+  fromPort: string;
+  /** This type's input port name that accepts it. */
+  toPort: string;
+}
+
+/**
+ * t730 — the type card's upstream question, answered by LIVE port
+ * arithmetic instead of a curated table: for every type in JOB_TYPES,
+ * can any of its (spec-visible) outputs feed any input of `key`? The
+ * symmetry with nextStepsFor is deliberate but the two radii are NOT the
+ * same kind of truth and must stay labelled as such wherever they render:
+ *
+ *   • nextStepsFor   — "what should I do next", CURATED canon (t384), in
+ *     RELION pipeline order, and the canon deliberately omits types the
+ *     ports would accept;
+ *   • upstreamOf     — "what COULD feed me", the full compatibility
+ *     directory derived at call time from portsCompatible itself. There
+ *     is no upstream canon anywhere in the codebase and inventing one
+ *     would be a second source for a question the ports already answer.
+ *
+ * Self-loops are kept on purpose: same-type chaining is a standard RELION
+ * move (re-classification, progressive refinement — see the NEXT_STEPS
+ * canon's own comment), so when a type's output genuinely feeds its own
+ * input, the directory must say so rather than hide the honest loop.
+ *
+ * One port pair per feeder (the FIRST compatible pair in spec order) —
+ * the same hit-and-break discipline nextStepsFor uses, so the directory
+ * stays a reading of types, not a port-pair atlas.
+ */
+export function upstreamOf(key: string): UpstreamStep[] {
+  const to = jobType(key);
+  if (!to || to.inputs.length === 0) return [];
+  const steps: UpstreamStep[] = [];
+  for (const candidate of JOB_TYPES) {
+    let hit: UpstreamStep | null = null;
+    for (const o of visibleOutputs(candidate, undefined)) {
+      for (const i of to.inputs) {
+        if (portsCompatible(candidate.key, o.name, key, i.name)) {
+          hit = {
+            type: candidate.key,
+            label: candidate.label,
+            icon: candidate.icon,
+            fromPort: o.name,
+            toPort: i.name,
+          };
+          break;
+        }
+      }
+      if (hit) break;
+    }
+    if (hit) steps.push(hit);
+  }
+  return steps;
+}
+
 /**
  * Default (first compatible) output→input port pair between two job types.
  * Used to give legacy DB edges a sensible port mapping.
