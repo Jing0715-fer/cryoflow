@@ -1788,6 +1788,30 @@
   opacity: var(--dim-ghost);
 }
 
+/* Roster chain lens (t686): the survey surface joins the walk family. A
+   row the finish didn't wait on recedes with the SAME ladder rung the
+   canvas cards dim by (recede + deep grayscale — one voice for "not on
+   the chain" across every face; the map's whisper was a scale law for
+   chips, a row of text keeps the card-grade rung). The print reset is
+   the filter chips' own .no-print law, row edition: the paper roster is
+   a plain roster — a dimmed row with no lens in sight would be
+   unexplained ink, exactly the confusion the chips' no-print comment
+   already ruled out. */
+.roster-chain-dim {
+  opacity: var(--dim-recede);
+  filter: grayscale(var(--dim-gray-deep));
+  transition:
+    opacity 200ms ease,
+    filter 200ms ease;
+}
+
+@media print {
+  .roster-chain-dim {
+    opacity: 1;
+    filter: none;
+  }
+}
+
 /* t591 — the segmented control's settled voice. t586 gave buttons the
    press answer (the hand is held); t585 gave the find chips the toggle
    answer (a filter clicking into place). The minimap's framing-mode

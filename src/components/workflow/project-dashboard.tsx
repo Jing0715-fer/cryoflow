@@ -30,6 +30,7 @@ import {
   Minus,
   Pencil,
   Plus,
+  Route,
   Search,
   Server,
   Snowflake,
@@ -62,6 +63,8 @@ import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } 
 import { JobSearchLens } from "./job-search-lens";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
+import { walkTimeline } from "@/lib/timeline-walk"; // t686 — the roster drinks the same honest-window well
+import { criticalPath } from "@/lib/critical-path"; // t686 — the walk the lens family speaks, now on the survey face
 // diff entry No.4 (Task 89): the roster is the SURVEY surface — "compare
 // run 1 vs run 2" is asked here more than anywhere, across every workspace
 // at once. Same shared picker as the inspector (one sibling list, one
@@ -1275,7 +1278,26 @@ function StageChip({
  * source, so the dashboard and the canvas cannot drift apart.)
  */
 
-function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
+function JobRow({
+  job,
+  onOpen,
+  chainRank,
+  chainTotal,
+  chainDim,
+}: {
+  job: JobDTO;
+  onOpen: () => void;
+  /** t686 — 1-based position on the critical chain, null when the lens is
+   *  off or this row is not on the chain. The roster is a LIST: rank is
+   *  its native language, the one thing the dim/contrast cannot carry —
+   *  the map's no-new-ink law was a SCALE law (a dot has no room), not a
+   *  universe law. */
+  chainRank: number | null;
+  /** the chain's full length — the rank chip's denominator */
+  chainTotal: number | null;
+  /** lens on, this row off the chain — the world recedes, one ladder rung */
+  chainDim: boolean;
+}) {
   const spec = jobType(job.type);
   const running = job.status === "running" && job.startedAt != null;
   const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
@@ -1343,7 +1365,14 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
     // "direct children" fragile, so suites anchor here instead
     <div
       data-roster-row=""
-      className="group/row flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/60"
+      data-job-id={job.id}
+      data-roster-chain={chainRank != null ? "" : undefined}
+      data-roster-chain-rank={chainRank ?? undefined}
+      data-roster-dim={chainDim ? "1" : undefined}
+      className={cn(
+        "group/row flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/60",
+        chainDim && "roster-chain-dim"
+      )}
     >
       <button
         type="button"
@@ -1365,6 +1394,23 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
           <span className="flex items-center gap-2">
             <span className="truncate text-xs font-semibold">{job.name}</span>
             <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
+            {chainRank != null && chainTotal != null ? (
+              // t686 — the rank chip: WHERE on the chain this run stands.
+              // The canvas lens lights the walked wires, the map keeps its
+              // chain dots at status fill — neither can say "third". The
+              // roster can, in the pill dialect this row already speaks
+              // (workspace chip, note badges): primary-tinted like the
+              // canvas chip's own finisher pill, .no-print because paper
+              // has no lens state to explain the number.
+              <span
+                data-roster-chain-chip=""
+                title={`Step ${chainRank} of ${chainTotal} on the critical path — the chain that decided when the pipeline could finish`}
+                className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-primary/30 bg-primary/10 px-1.5 text-[9px] font-semibold tabular-nums text-primary"
+              >
+                <Route className="size-2.5" aria-hidden="true" />
+                {chainRank}/{chainTotal}
+              </span>
+            ) : null}
             {job.note ? (
               // the row-level twin of the canvas badge (Task 73): amber
               // StickyNote, full text on hover, .no-print — the dashboard's
@@ -1759,6 +1805,11 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                 key={j.id}
                 type="button"
                 onClick={() => void open(j)}
+                // t686 — the row's identity anchor (the t677/t681/t683 law:
+                // when a probe can't reach a fact, hand it an anchor) —
+                // suites can now pick a row BY its job, not by its position
+                // in a feed whose tie order isn't the probe's to assume
+                data-activity-job={j.id}
                 className="group/row flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-secondary/60"
                 title={`Open ${j.name}${!isLocal && j.projectName ? ` in ${j.projectName}` : ""}`}
               >
@@ -2075,6 +2126,38 @@ function ActiveProjectSpotlight({
   // cleanup queue for orphans. State lives in ProjectDashboard (Task 78)
   // so keys 5/6 can drive it.
 
+  // t686 — the chain lens reaches the survey surface. t681 spoke the walk
+  // on the analytics block, t682 painted it on the canvas, t683 carried it
+  // to the map — but the roster, the face that lists EVERY job of the
+  // project across EVERY workspace, still told no story. With the lens on,
+  // this face re-derives the SAME walk from the SAME lib (never stored —
+  // the fourth mouth of one walk, none of the mouths remembers) and splits
+  // the rows along it: chain rows wear their rank (the roster is a LIST —
+  // order is its native language, the one thing the dim/contrast cannot
+  // carry), everything the finish didn't wait on recedes with the same
+  // ladder rung the canvas cards dim by. The walk drinks the deferred set
+  // — the same list the rows render from — so the lens can never disagree
+  // with what this face is showing. The whole-graph law rides straight
+  // through: the roster spans every workspace, so it is the ONE face where
+  // a cross-workspace hop stays visible on the chain.
+  const criticalLens = useWorkflowStore((s) => s.criticalLens);
+  const allEdges = useWorkflowStore((s) => s.edges);
+  const toggleCriticalLens = useWorkflowStore((s) => s.toggleCriticalLens);
+  const chainWalk = React.useMemo(() => {
+    if (!criticalLens) return null;
+    const w = walkTimeline(deferredJobs, Date.now());
+    return criticalPath(
+      w.rows.filter((r) => r.job.status !== "running"),
+      allEdges
+    );
+  }, [criticalLens, deferredJobs, allEdges]);
+  const chainRank = React.useMemo(() => {
+    if (!chainWalk) return null;
+    const m = new Map<string, number>();
+    chainWalk.chain.forEach((s, i) => m.set(s.job.id, i + 1));
+    return m;
+  }, [chainWalk]);
+
   if (!project) return null;
 
   // Render-time adjustment (Task 88 pattern — no extra frame, no effect):
@@ -2295,6 +2378,29 @@ function ActiveProjectSpotlight({
           <span className="text-[10px] tabular-nums text-muted-foreground/70">
             newest first
           </span>
+          {/* t686 — the lens's confession (the canvas chip's roster dialect):
+              while the lens is on, the label row says WHY rows recede and
+              how many rows the finish actually waited on. The chip is also
+              this face's dismissal verb — the toggle lives on the canvas
+              toolbar, but a reader standing on the dashboard should not
+              have to walk back to turn a lens off. Renders only while the
+              walk exists (lens on, at least one finished run): an empty
+              walk is silence, here as on every other mouth. */}
+          {chainWalk ? (
+            <button
+              type="button"
+              data-roster-lens-chip=""
+              data-roster-lens-steps={chainWalk.chain.length}
+              onClick={toggleCriticalLens}
+              aria-pressed={true}
+              title="The critical path lens is on — rows the finish didn't wait on recede. Click to turn it off (or press P)."
+              className="flex h-4 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 text-[9px] font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              <Route className="size-2.5" aria-hidden="true" />
+              Critical path · {chainWalk.chain.length} step
+              {chainWalk.chain.length === 1 ? "" : "s"}
+            </button>
+          ) : null}
           <Button
             size="sm"
             variant="outline"
@@ -2463,7 +2569,13 @@ function ActiveProjectSpotlight({
                     style={{ "--sd": spotRowDelays.get(j.id) } as React.CSSProperties}
                   >
                     <td>
-                      <JobRow job={j} onOpen={() => openJob(j.id)} />
+                      <JobRow
+                        job={j}
+                        onOpen={() => openJob(j.id)}
+                        chainRank={chainRank?.get(j.id) ?? null}
+                        chainTotal={chainWalk ? chainWalk.chain.length : null}
+                        chainDim={chainRank != null && !chainRank.has(j.id)}
+                      />
                     </td>
                   </tr>
                 ))}
