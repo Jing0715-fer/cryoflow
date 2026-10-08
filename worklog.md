@@ -11315,3 +11315,23 @@ Stage Summary:
 - 「形态契约的探针同步是一次 grep 的事，不是一次回归红的事」：插入第七 rung 的同时 t576 的断言已改——L8179 教训（「改了产品的输出形态，要 grep 所有断言该形态的检查」）在本窗是提前执行而非事后验尸；四探针 grep 验讫不钉 rung 数，改动半径 = 一个探针两处 check。
 - 「staged 世界里，404 也是预期行为」：frozen bundle 下新路由 404 非 bug——验证手段随模式切换（静态 + 源码普查 + 开局既有世界巡检），激活判决预写到 build 日清单；t710 的「判决书预写」律在 UI 领土的推广。
 - 产出：src/app/api/activity/heatmap/route.ts（新端点+门）+ src/components/workflow/activity-heatmap.tsx（新组件）+ project-dashboard.tsx 接线（七档瀑布）+ t576 断言同步 + shots-qa/t711-dashboard-pre.png + worklog 本段；下窗入口：①**build 日批次（账单再 +1 = 七项）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + t703 resolver rebuild + t260 终验 + t705 墙按钮 a11y rebuild + qa49 B 相终验 + t707/t708/t709/t710 四张激活判决 + **t711 激活判决（t576 seven-rungs 140→380 + 热图活体：渲染/格子数/月份标签/legend/深浅两相截图/新端点 curl 形状）** + 验证网（census 五台 + sweep 双列） ②非 build 日：自由选题（bookmark 墙 UI 行再生长 65→66；或新 UI 领土） ③床轮换 2/5（t710 窗 qa 批重置后第二窗） ④census 轮换：t709-door-coverage 已随新路由跑（113/113）；t699/t702/t704 随世界手术必跑（本窗零手术未触发）；t710-collection-touchers 若动车道大规模手术必跑。
+
+---
+
+## Task 712 — 2026-10-08 21:25 派单窗（非 build 日 · 连续第十三窗）· 墙 UI 行再生长：t710 预言的平静窗兑现
+
+Task: 21:25 cron 派单执行——开局三件套判稳（worklog 尾条 = t711 收官 45a4f4d8 三车树净；server 200；available 3111MB < 3280 → 非 build 日）→ t711 入口②第一候选 = **bookmark 墙 UI 行再生长 65→66**（t710 遗言：「76→65 差 = qa 擦走的 t707 UI-save 行——文档化历史，平静窗可再生长」）→ 立案 Task 712 = 走真实用户路径重演 t707 生长仪式。
+
+Work Log:
+- [歧途与识途] 侦察 canvas 工具栏发现两个 bookmark 世界：**viewport bookmarks**（canvas popover，saveViewportBookmark → localStorage 跨会话——注释自证「USER-CREATED asset (localStorage)」，不进 server 不进墙）vs **camera bookmarks**（Mol* viewer，PUT /api/jobs/:id/camera-bookmarks → server rows → SavedViewsGallery 墙真身 = t704 census 的世界）。首走 canvas popover 存「t712 UI-driven regrowth」66%——墙纹丝不动（4 卡不变），识破歧途：两个同名方言两个存储层。歧途产物 Delete 清零（世界卫生），shots-qa/t712-canvas-bookmark-saved.png 存档歧途证据。教训入 Stage Summary。
+- [全驾链重演] t708 平静窗路径全绿：Workflow → refine3d 节点 (e426) → inspector（Results tab 已 selected）→ Enlarge run_it020_half1 → View in 3D (Mol*) → viewer ready（contour/截面/overlay 全家桶在列——clip 全家桶 t660/t661 活体旁证）→「Camera view bookmarks — 3 saved」→ 命名输入「t712 UI-driven regrowth」→ Save。
+- [生长确认三重] ①面板即时「— 4 saved」+ t712 条目 + Update/Delete 配套按钮；②gallery 聚合 API：refine3d 行 3→**4 entries**（['Centered iso view','Top-down slice','Front half clipped','t712 UI-driven regrowth']）+ MaskCreate 行 1 条 = **5 entries / 2 rows**，updatedAt = 2026-10-08T13:34:06.475Z（保存时刻逐字）；③dashboard 墙真身 **5 卡**（「t712 UI-driven regrowth · 2.00 σ · 3D auto-refine」第五卡在列，计数 5 bookmarks · 2 jobs）——与 t707 先例（refine3d 3→4 + 墙第五卡）完全同构。
+- [census 随行] t704 bookmark census 重跑：**76 pass / 0 fail**（entries audited = 5, rows = 2）——65→76 完美对称：t710 的 65 是 qa 擦除后的伤口，本窗生长让世界回到 76 断言全武装（census 世界跟随无硬编码，生长即扩编）。
+- [Radix 伪影旁证] viewer 关闭后 Dashboard tab 点击被遮挡（「e18 covered by div#radix-_r_e_」）——t580 教训的活体重演（dialogGone 认 data-state=closed 而非卸载），Escape 释放后正常——伪影知识库的第三次现场印证。
+- [agent-browser 卫生] console error/warn 0 行、errors 0 行、截图 ×3 入档（canvas 歧途 + viewer 保存态 + 墙真身五卡）、用毕即关（t695 协议）。
+
+Stage Summary:
+- 「同名方言不是同一世界」：canvas viewport bookmark 与 Mol* camera bookmark 共享「bookmark」词根、共享 popover 交互形、共享「Save current view」按钮语言——但一个住 localStorage（per-browser 资产），一个住 server rows（census 的世界、墙的真身、跨浏览器的事实）。UI 侦察的第一课是问「这个动作写到哪一层」——层错了，动作再成功也不生长目标世界。假阳性不止来自假词表（t699），还来自同名异层。
+- 「生长是世界的自然行为，仪式是生长的随行义务」：本窗零脚本零 patch——生长由真实用户路径（全驾链 + 命名保存）驱动，census 随行重跑即是唯一的「手术」程序。t707（首条 UI 驱动保存）→ qa57 擦除（t710）→ t712（再生长）：世界的 UI-save 行现在有了完整的生命史——播种、收割、再播种，每次都有 census 见证。
+- 「65→76 的对称是 census 世界跟随律的最好证明」：断言数不是期望值而是世界的照片——生长一行，断言族自动扩编 11 条（thumb codec/门重放/时间戳钳制对新 entry 全套武装）。t708 律「期望从证据导出」在生长方向的推广：仪器跟着世界走，不是世界削足适履。
+- 产出：shots-qa/t712-{canvas-bookmark-saved,camera-bookmark-saved,wall-5th-entry}.png ×3 + 墙真身 5 entries/2 rows（4→5）+ t704 census 76/0 + worklog 本段；下窗入口：①**build 日批次（账单不变 = 七项，t711 清单照旧）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707/t708/t709/t710/t711 五张激活判决（t711 = t576 seven-rungs + 热图活体两相 + 新端点 curl 形状）+ 验证网 ②非 build 日：自由选题（新 UI 领土侦察：单 job 参数 preset 未建、canvas 上游/下游链高亮部分存在可深化；或世界故事富化） ③床轮换 3/5（进入节奏带，下窗 4/5 应预备） ④census 轮换：t704 已随生长跑（76/0）；t699/t702 零种子手术未触发；t709-door-coverage 随新路由。
