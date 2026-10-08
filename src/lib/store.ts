@@ -18,6 +18,7 @@ import {
   twinSpot,
 } from "./duplicate-run";
 import { describeAdoption, planAdoption } from "./adopt-branch";
+import { recordJobEvent } from "./job-journal"; // t718 — the event spine between the lifecycle dots
 
 /** t659 — the Frame galleries deep link's freshness window (ms). The
  *  request is a GESTURE: it should fire while the user is still looking
@@ -3495,6 +3496,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   saveJob: async (id, patch, opts) => {
     const silent = opts?.silent === true;
+    // t718 — the journal reads the patch's INTENT before the write: which
+    // human kind of fact is this patch? (Movement patches {x,y} journal
+    // nothing — a drag is not story.) Captured before the optimistic set
+    // so the params diff compares against the pre-write truth.
+    const prevJob = get().jobs.find((j) => j.id === id);
     try {
       const { job } = await api<{ job: JobDTO }>(`/api/jobs/${id}`, {
         method: "PATCH",
@@ -3502,6 +3508,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         body: JSON.stringify(patch),
       });
       set({ jobs: get().jobs.map((j) => (j.id === id ? job : j)) });
+      // t718 — journal the fact the patch carried (first match wins: the
+      // panel's patches carry one semantic key each by construction)
+      if (prevJob && !("x" in patch || "y" in patch)) {
+        if ("params" in patch && patch.params && typeof patch.params === "object") {
+          const before = (prevJob.params ?? {}) as Record<string, unknown>;
+          const after = patch.params as Record<string, unknown>;
+          const moved = Object.keys(after).filter((k) => String(before[k]) !== String(after[k])).length;
+          recordJobEvent(id, "params", `${moved} knob${moved === 1 ? "" : "s"}`);
+        } else if ("note" in patch) {
+          const n = typeof patch.note === "string" ? patch.note.trim() : "";
+          recordJobEvent(id, "note", n ? n.slice(0, 60) : "cleared");
+        } else if (typeof patch.name === "string") {
+          recordJobEvent(id, "renamed", patch.name);
+        }
+      }
       if (!silent) toast({ title: "Saved", description: `${job.name} updated` });
       return { ok: true };
     } catch (err) {
@@ -3572,6 +3593,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         throw new Error(data?.error ?? `Request failed (${res.status})`);
       }
       const started = data.job;
+      // t718 — the dispatch is a fact even when the engine holds the job
+      // as pending (waiting): the finger happened. A later pending→running
+      // poll lands as its own honest "kicked" (beyond the lib's 30s
+      // dedup window for long waits, deduped for fast local runs).
+      recordJobEvent(id, "run");
       if (data.waiting) {
         // job went PENDING — an upstream job failed or is still running;
         // not an error, the result line explains what to fix/re-run. It
@@ -3667,6 +3693,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
       const started = data.job;
       const info = started?.runRemote ?? null;
+      // t718 — a cluster dispatch is a run whose venue matters
+      recordJobEvent(id, "run", "to cluster");
       if (data.waiting) {
         // job went PENDING on the cluster path — upstream inputs are being
         // staged / an upstream job has not landed yet; it auto-starts the
@@ -4068,6 +4096,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         body: JSON.stringify({ params }),
       });
       set({ jobs: get().jobs.map((j) => (j.id === id ? job : j)) });
+      // t718 — a worn preset is a params fact: the count of knobs it moved
+      const before = (prevParams ?? {}) as Record<string, unknown>;
+      const moved = Object.keys(params)
+        .filter((k) => String(before[k]) !== String((params as Record<string, unknown>)[k]))
+        .length;
+      recordJobEvent(id, "params", `${moved} knob${moved === 1 ? "" : "s"}`);
       return true;
     } catch (err) {
       set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, params: prevParams } : j)) });
@@ -4977,6 +5011,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           finished.push({ job, kind: job.status });
         }
       }
+      // t718 — the engine's own starts and landings join the journal.
+      // Kicks within 30s of a recorded run dedup inside the lib (the
+      // dispatch's record wins — it knows the finger, the poll only knows
+      // the state); these are the starts NOBODY dispatched and the
+      // landings nobody has to catch live to remember.
+      for (const j of kicked) recordJobEvent(j.id, "kicked");
+      for (const f of finished) recordJobEvent(f.job.id, f.kind);
       // Task 147 — the light half of the sweep now obeys the same
       // aggregation law as the heavy half: two kickoffs in one tick used
       // to swallow the first auto-started notice exactly the way two

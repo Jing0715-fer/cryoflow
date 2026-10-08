@@ -94,6 +94,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, presetsForType, snapshotSpecParams, countEffectiveDiffs, reconcileUserParamPresets, USER_PARAM_PRESETS_EVENT, type UserParamPreset } from "@/lib/user-param-presets";
 import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
+import { readJobJournal, type JobJournalKind } from "@/lib/job-journal";
 import { planSubtreeRun } from "@/lib/subtree-run";
 import { jobType, tabsFor } from "@/lib/workflow";
 import { RELION_OPTIONS } from "@/lib/relion/option-tables";
@@ -1071,6 +1072,114 @@ function Timeline({ job }: { job: JobDTO }) {
         );
       })}
     </ol>
+  );
+}
+
+/* t718 — the journal spine: what happened BETWEEN the three dots.       */
+/* The strip above answers "where is this job NOW?" in milestones; this  */
+/* answers "what happened along the way?" in events — the rename, the    */
+/* knob-turns, the note, the dispatch, the engine's own starts and       */
+/* landings. A note is what the user CONCLUDED; the journal is what      */
+/* HAPPENED. Events come from lib/job-journal.ts (browser-local, capped, */
+/* coalesced); the birth and the first start are SYNTHETIC anchors read  */
+/* from the job row itself — the row already remembers them, so no hook  */
+/* needed for full birth coverage (templates, duplicates and imports     */
+/* all land here without a single extra record call). The store's jobs   */
+/* slice is the change bus: every recording hook lands through a store   */
+/* update, so this re-read on render is always current.                  */
+const JOURNAL_KIND_FACE: Record<JobJournalKind, { icon: React.ElementType; verb: string; tone?: "bad" | "good" }> = {
+  run: { icon: Play, verb: "Run started" },
+  kicked: { icon: Zap, verb: "Auto-started" },
+  completed: { icon: Check, verb: "Completed", tone: "good" },
+  failed: { icon: AlertTriangle, verb: "Failed", tone: "bad" },
+  params: { icon: SlidersHorizontal, verb: "Params changed" },
+  note: { icon: StickyNote, verb: "Note saved" },
+  renamed: { icon: Pencil, verb: "Renamed" },
+};
+const JOURNAL_CAP = 7;
+
+function JobJournal({ job }: { job: JobDTO }) {
+  const [showAll, setShowAll] = React.useState(false);
+  const events = readJobJournal(job.id); // a sync read of one small array — cheaper than a second subscription
+
+  interface SpineRow {
+    at: number;
+    icon: React.ElementType;
+    verb: string;
+    detail?: string;
+    tone?: "bad" | "good";
+  }
+
+  const startedMs = job.startedAt ? new Date(job.startedAt).getTime() : null;
+  const createdMs = job.createdAt ? new Date(job.createdAt).getTime() : null;
+  const spine: SpineRow[] = [
+    ...events.map((e) => {
+      const face = JOURNAL_KIND_FACE[e.kind];
+      return { at: e.at, icon: face.icon, verb: face.verb, detail: e.detail, tone: face.tone };
+    }),
+    // the synthetic anchors — the row's own memory of its birth and its
+    // first start; they sit in the sort like any other fact
+    ...(startedMs != null ? [{ at: startedMs, icon: Play, verb: "Started" as const }] : []),
+    ...(createdMs != null ? [{ at: createdMs, icon: Database, verb: "Created" as const }] : []),
+  ].sort((a, b) => b.at - a.at);
+
+  const shown = showAll ? spine : spine.slice(0, JOURNAL_CAP);
+  const hidden = spine.length - shown.length;
+
+  return (
+    <div className="mt-3 border-t pt-3" data-testid="job-journal">
+      {events.length === 0 ? (
+        <p className="mb-1.5 text-[10.5px] text-muted-foreground" data-testid="job-journal-empty">
+          The journal records what happens here — edits, notes and runs appear as they happen
+          (history begins when this browser first saw the job).
+        </p>
+      ) : null}
+      <ol className="ml-2 flex flex-col border-l border-muted pl-3.5">
+        {shown.map((row, i) => {
+          const Icon = row.icon;
+          return (
+            <li
+              key={`${row.at}-${row.verb}-${i}`}
+              data-testid="job-journal-row"
+              className="relative flex min-w-0 items-baseline gap-2 py-1"
+            >
+              <span
+                aria-hidden="true"
+                className="absolute -left-[21px] top-1/2 flex size-4 -translate-y-1/2 items-center justify-center rounded-full border bg-card"
+              >
+                <Icon
+                  className={cn(
+                    "size-2.5",
+                    row.tone === "bad" ? "text-danger" : row.tone === "good" ? "text-success-600" : "text-muted-foreground"
+                  )}
+                />
+              </span>
+              <span className="shrink-0 text-[11px] font-medium text-foreground/85">{row.verb}</span>
+              {row.detail ? (
+                <span className="min-w-0 truncate text-[11px] text-muted-foreground" title={row.detail}>
+                  {row.detail}
+                </span>
+              ) : null}
+              <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                {fmtAgo(row.at)}
+              </span>
+            </li>
+          );
+        })}
+        {hidden > 0 ? (
+          <li>
+            <button
+              type="button"
+              data-testid="job-journal-expand"
+              onClick={() => setShowAll(true)}
+              className="mt-0.5 text-[10.5px] text-muted-foreground transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              +{hidden} earlier event{hidden === 1 ? "" : "s"}
+            </button>
+          </li>
+        ) : null}
+      </ol>
+    </div>
   );
 }
 
@@ -2192,6 +2301,7 @@ function OverviewTab({
       <Section icon={Activity} title="Timeline">
         <div data-print-atomic="" className="insp-card-whisper rounded-xl border bg-card p-5 pt-4">
           <Timeline job={job} />
+          <JobJournal job={job} />
         </div>
       </Section>
       <Section
