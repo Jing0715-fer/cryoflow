@@ -10867,3 +10867,25 @@ Stage Summary:
 - 「挂起的 waiter 是钉死断言的暴力版」：`must(x === 12)` 在世界里长到 17 时会 FAIL——响亮、可见、可疑；`pollUntil(() => n === 12)` 会**永不返回**——安静、超时、看似环境故障。钉死的等待器把陈旧世界的债务从「一次失败」升级成「一次悬死」，而悬死的诊断成本远高于失败。era 告示的「fail, or hang forever」措辞就是为这个升级写的。
 - 「era 级告示是定价，不是修复」：48 个休眠文件不手术（改了无法验证 = 新的未验证主张），只挂「先重设基线再跑」的告示——**修复的劳动放在复活那天，由复活窗口带着活体验证执行**。这与 t688 的 storage 祖父赦免同构：把一致性成本摊到本来就要动的时刻。告示的措辞保持对冲（may be pinned），因为普查不假装 enumeration 完整——**诚实的告示说「可能有病」，只有修复才说「病治好了」**。
 - 产出：scripts/ 77 探针修复（T1×26 + T2×18 + T3×7 文件 + T4×4 文件 + T5×48 banners）+ shots-qa t262 两帧刷新 + worklog 本段；下窗入口：①功能车道（**若 build 日**：critical 块行第二动词（价值待判挂账中）；新缺口先过 t678 分层验尸）②样式车道（账本清零）③judge 风暴（declined 重试维持文档化在案）④build 日三车道（钥匙二十四连零失败在案；本窗零 build 零重启，prod 未动）⑤演练床轮换（bed --full 本窗已跑=窗 3，下轮 3-5 窗后或 remote 域改动后）⑥**休眠探针复活律**：任何 era 文件（t570-t619 带 WORLD-DRIFT NOTICE 的 48 文件）复活重跑前，先重设基线（pre-suite census + roster0 模式）——告示已就位，执行是复活窗口的义务；新 probe 立项时禁用绝对世界值（roster0/词形地基已在 t689 判例与本窗 18 处 T2 模板中）。
+
+---
+Task ID: 692 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081140)
+Task: 11:40 派单执行——开局三件套判稳（t677 30/0；available 3136MB < 3280 → 非 build 日连续第四窗）→ 兑现 Task 691 入口⑥「复活律」：t609 复活试点侦察 → **半途挖出真产品缺口**（key strip 在 demo 世界 12/17 无声）→ 试点升格为「strip 活性全普查」（17 jobs × lib 分支 × workdir 方言）→ 三类根因定价（设计沉默 4 / 方言缺口 6 / 种子缺口 2）+ build 日修复批次一线级定价 + worklog 收官 + qa 车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 691 收官（HEAD efe2fa5 树净）；server 200/2.6ms + t677 30/0 判稳先行；available 3136MB < 3280 → **非 build 日**（连续第四窗，比上窗再低 86MB——内存持续下行，build 日短期无望，零 build 车道存货是唯一口粮）。
+- [定道·复活试点] Task 691 入口⑥「复活律」的主动兑现：era 探针（48 个带 WORLD-DRIFT NOTICE 文件）选一个做复活试点，把 t691 的定价变成第一笔还款。选点标准 = 钉死点最少 + 覆盖现役轮换空白面：**t609-key-tally（566 行，3 pins）中选**——key-numbers strip 是 Results 视图的门面（t330），现役轮换零覆盖的最大 UI 面（t677 管 analytics、lens 家族管 canvas/dashboard、remote 管集群）。
+- [试点侦察·合同存活] G0 源合同逐条 grep 今日产物：data-key-arrival ×2 host、--kd ×2、TALLY_STEP_MS ×3、css rule ×4、**@keyframes receipt-arrival 恰定义一次**（复用合同完好）——tally 走行的产品合同扛住了 t610-t691 的全部演化，零漂移。
+- [真缺口出土] 世界守卫预检撞墙：今日世界 projects=1（作者日 6）、active=cmuwipe6350000demopr（非探针硬编码的 EMPIAR id）——demo 世界在 t609 之后整体变型过。顺藤摸瓜 fetch 今日 outputs：**extract 的 summary.stats 为空 → strip render null**。根因三层剥离：①workdir 存在（extract_0extract/，extract.star + particles.mrcs 俱在）；②lib 的 extract 分支 fileByName 只认 `particles.star`（真 RELION + remote 车道 L2032 的名字）；③world 里的 extract.star 系 qa-t531-old-world-seed L754 手写的种子方言——**分支在、合同在、数据在，只是文件名的方言不通，门面无声**。
+- [升格·全普查] 单点发现 → 家族普查（t690 方法论第三次执行）：scripts/t692-strip-aliveness-census.py（只读可重跑证据工具）扫全 17 jobs × outputs endpoint × workdir 实况——**判决：5 alive / 12 dead / 4 of the dead are DESIGNED**。途中自病一记：HDR 字符串带引号进 subprocess list-arg 裂成坏头 → 全表假 403——修为分离 arg 重跑（**探针 FAIL 先审自己的暗写者，第 N 次自证**）。
+- [三类根因定价] **A 类·设计性沉默（4）**：postprocess（FSC 图说话）、topaztrain（training curve 面）、topazdenoise、maskcreate——lib default case 注释 L569-571 自证在案，非 bug。**B 类·方言缺口（6，build 日修复批次，各一线级）**：extract（+extract.star→「240 particles extracted」）、select（+selected.star→168）、select2d（+particles_select2d.star→168）、symexpand（+particles_symexp.star→168）、rebalance（+particles_rebalanced.star→168）、autopick（+coords.star→175 picked + 覆盖注脚，coords.star 带完整 RELION 坐标列，lib 的 combined-star 扫描直接消化）；extract 的列回退（_rlnImageName→micBase）L387-393 现成，修复纯文件名容忍。**C 类·种子缺口（2，非产品 bug）**：refine3d（workdir 缺 run_data.star——halves+model.star 在、data.star 没种）、initialmodel（workdir 全空）——世界限制，修复属种子脚本的未来世界，不属 lib。
+- [复活经济重估] 修复批次落地后 strip 活性 5→11/17；t609 的 W1/W3 面（strip 计数走行 + receipt face）随之复活可行。试点侦察的其余收获入册备用：t609 的 roster0 已是活值赋值（R 腿天然健）；「project roster 6 with exactly 1 active」断言须改「恰一 active」结构合同；W1 的 per-entity 数字钉（10,866/5）须改 API 取证（digits == outputs 端点的 stats 值——wire 交付引擎真话，替代 fixture 记忆）；world guard 改认 active 存在而非硬编码 id。**t609 完整复活 = build 日（lib 修复 + 探针手术 + 活跑验证）三件套同窗执行。**
+- [回归] 本窗零产品代码改动（纯普查 + 定价）——t677 30/0 即覆盖；零 build 零重启（prod server 未动）。census 工具留驻 scripts/（可重跑证据，非一次性 fixer，不焚）。
+
+Stage Summary:
+- 「试点的一半价值是它挖出的东西，另一半是它自己不必活着」：t609 复活试点没跑成——但半途挖出了比复活本身更大的真相：门面在 demo 世界 12/17 无声。**试点不是承诺必须到底的隧道，是带回头报告的侦察队**；侦察队的报告（三类根因 + 一线级定价 + 复活三件套清单）比一次盲目的全量手术值钱。
+- 「方言缺口是集成测试的盲区：两边各自都对，合起来无声」：lib 说引擎语（particles.star，真 RELION + remote 车道一致），种子说种子语（extract.star），各自域内无 bug、无报错、无 FAIL——只有「用户该看见的数字没看见」这种无声。**两个正确的模块之间的缝，只有端到端的面上看（strip 活性普查）才能照出来**——单元合同（G0 源码 grep 全绿）与集成现实（strip null）可以并存十几个窗。
+- 「default case 的注释是设计沉默的唯一辩护席」：postprocess 等 4 job 的无声若没有 L569-571 那行注释自证，普查就只能判「缺口」——**「故意不做」必须住在代码里可被发现的位置**，否则设计沉默与遗漏无法区分（t688 的两扇门律在负空间的推广）。topazdenoise 是注释没点到名的成员——判「同类但未点名」，价格最低的未来分支候选。
+- 「『恰一 active』比『六个项目』活得长」：t609 的世界守卫把作者日的世界形状（6 projects + 特定 id）写进了硬编码——世界一变型就拒跑。正确的守卫验的是**结构合同**（存在恰一 active 世界、世界非空、有规范宿主），不是**世界快照**（id、数量）。守卫的义务是「别在借来的世界跑」，不是「只在作者日的世界跑」。
+- 产出：scripts/t692-strip-aliveness-census.py（只读普查工具，可重跑）+ worklog 本段；下窗入口：①**build 日首选批次**：B 类六处文件名容忍（output-summary.ts 一线级 ×6）+ build + 重启 + t692 census 重跑（预期 11 alive）+ agent-browser UI 抽查 + **t609 完整复活三件套**（lib 修复 + 探针手术 [world guard 结构合同化 + Q/R 基线骑 census + digits 改 API 取证 + 摘除 WORLD-DRIFT NOTICE] + 活跑×2）②非 build 日续零 build 车道（C 类种子缺口的种子脚本增补设计 = 纯文档；或 era 探针复活预手术 = 探针域内零 build 部分）③样式车道（账本清零）④judge 风暴（维持文档化在案）⑤演练床轮换（Task 691 窗 3 跑过，下轮 3-5 窗后）⑥storage 合同执行（新 key 按命名律走）。
