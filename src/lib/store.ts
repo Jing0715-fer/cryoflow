@@ -952,6 +952,18 @@ interface WorkflowState {
    *  which cards are the story. */
   criticalLens: boolean;
   toggleCriticalLens: () => void;
+  /** t684 — the session's viewing trail: the jobs you opened most
+   *  recently, newest first, capped. Recorded at openJob's success end
+   *  (the mouth EVERY jump speaks — palette, dashboard, footer, verdict
+   *  stamps — one write point, no reader can drift from any writer).
+   *  In-memory only, like the lenses: a trail of THIS session's walk,
+   *  not a document property — a reload starts a fresh trail. Readers
+   *  re-join against the live jobs array (a deleted job's id stays in
+   *  the trail but renders nowhere — the read-time join is the
+   *  convergence point that keeps a stale trail honest). */
+  recentJobIds: string[];
+  noteRecentJob: (id: string) => void;
+  clearRecentJobs: () => void;
   /** Task 134 — canvas find bar (Ctrl/⌘+F). Two ephemeral fields:
    *  whether the floating find bar is open, and the live query typed
    *  into it. Matching cards ring amber; everything else recedes with
@@ -2212,6 +2224,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   minimapOpen: true,
   noteSpotlight: false,
   criticalLens: false,
+  recentJobIds: [],
   findOpen: false,
   findQuery: "",
   findStatus: "all",
@@ -5890,6 +5903,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setMinimapOpen: (open) => set({ minimapOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
   toggleCriticalLens: () => set((s) => ({ criticalLens: !s.criticalLens })),
+  // t684 — newest first, deduped (a re-visited job floats back to the
+  // head), capped: a trail longer than a glance is a log, not a trail.
+  noteRecentJob: (id) =>
+    set((s) => ({ recentJobIds: [id, ...s.recentJobIds.filter((x) => x !== id)].slice(0, 6) })),
+  clearRecentJobs: () => set({ recentJobIds: [] }),
   openFind: () => set((s) => (s.findOpen ? s : { findOpen: true })),
   closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all", findCategory: "all" }),
   setFindQuery: (q) => set({ findQuery: q }),
@@ -5976,6 +5994,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // re-read after any load: a switch can replace the jobs array
     job = findJob();
     if (!job) return;
+    // t684 — the trail records HERE: past every landing repair and
+    // ghost return, on the single path both success dialects (idle
+    // select+focus / submitted inspect) share. A jump that never
+    // arrived records nothing — the trail is where you WENT, not
+    // where you pointed.
+    get().noteRecentJob(id);
     if (job.status === "idle") {
       get().select(id);
       get().focusJob(id);

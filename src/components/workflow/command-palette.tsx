@@ -4,6 +4,9 @@
  * CryoFlow — ⌘K / Ctrl+K command palette (Linear/n8n-style).
  *
  * Command families, all fuzzy-searchable:
+ *   • Recent jobs — the session's viewing trail (t684): the jobs you
+ *     opened most recently, newest first; recorded at openJob's mouth
+ *     (every jump feeds it), cleared by the heading's X
  *   • Jobs      — jump: idle → edit panel, submitted → results inspector
  *   • Run       — one-shot launch for idle jobs
  *   • Job types — add any catalog type onto the canvas
@@ -32,6 +35,7 @@ import {
   Aperture,
   Command as CommandIcon,
   Activity,
+  Clock3,
   Copy,
   Download,
   FileJson,
@@ -326,6 +330,17 @@ export function CommandPalette() {
 
   const jobs = useWorkflowStore((s) => s.jobs);
   const edges = useWorkflowStore((s) => s.edges);
+  // t684 — the session's viewing trail, re-joined against the live jobs
+  // array AT READ TIME (the convergence point that keeps a stale trail
+  // honest): a deleted job's id may linger in the trail, but it renders
+  // nowhere — every reader joins, no writer promises the world.
+  const recentJobIds = useWorkflowStore((s) => s.recentJobIds);
+  const recentRows = React.useMemo(() => {
+    const byId = new Map(jobs.map((j) => [j.id, j]));
+    return recentJobIds
+      .map((id) => byId.get(id))
+      .filter((j): j is NonNullable<typeof j> => j != null);
+  }, [jobs, recentJobIds]);
   const view = useWorkflowStore((s) => s.view);
   const setView = useWorkflowStore((s) => s.setView);
   const workspaces = useWorkflowStore((s) => s.workspaces);
@@ -1003,6 +1018,64 @@ export function CommandPalette() {
       <CommandInput placeholder="Jump to a job, add a type, run an action…" />
       <CommandList className="max-h-[60vh]">
         <CommandEmpty>No results — try a job name or a type like “refine”.</CommandEmpty>
+
+        {/* ---------------- recent jobs (t684) ---------------- */}
+        {recentRows.length > 0 && (
+          <>
+            <CommandGroup
+              heading={
+                <span className="flex items-center gap-1.5">
+                  <Clock3 className="size-3" aria-hidden="true" />
+                  <span>Recent jobs</span>
+                  <button
+                    type="button"
+                    data-palette-recent-clear
+                    aria-label="Clear recent jobs"
+                    title="Clear recent jobs"
+                    onClick={(e) => {
+                      // the clear's click never speaks the jump's gesture
+                      // (the t670 law, one layer up: the heading hosts no
+                      // cmdk item, so there is nothing to bubble into —
+                      // the stop is habit, honesty is the placement)
+                      e.stopPropagation();
+                      useWorkflowStore.getState().clearRecentJobs();
+                    }}
+                    className="ml-1 rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <X className="size-3" aria-hidden="true" />
+                  </button>
+                </span>
+              }
+            >
+              {recentRows.map((j) => {
+                const spec = jobType(j.type);
+                return (
+                  <CommandItem
+                    key={j.id}
+                    value={`recent job ${j.name} ${j.type} ${spec?.label ?? ""} ${j.status}`}
+                    data-palette-recent-row={j.id}
+                    onSelect={() => jumpToJob(j.id)}
+                    className="gap-2.5"
+                  >
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-4 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm">{j.name}</span>
+                    <Badge
+                      variant="outline"
+                      className="ml-auto h-5 shrink-0 rounded-full px-1.5 text-[9px] font-medium capitalize"
+                    >
+                      {j.status}
+                    </Badge>
+                    <CommandShortcut>↵</CommandShortcut>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
 
         {/* ---------------- jobs ---------------- */}
         <CommandGroup heading="Jobs">
