@@ -48,6 +48,7 @@ import {
 import { useWorkflowStore } from "@/lib/store";
 import { STATUS_DOT } from "@/lib/status-style"; // t647 — the dot family lives with the word law
 import { parseClassNotes, hasJudgment } from "@/lib/class-notes";
+import { jobMatchesQuery, parseParamQuery } from "@/lib/job-match"; // t724 — the roster speaks THE matcher's dialect (t653 subsequence + t722 params), not a private includes
 import { withLiveStats } from "@/lib/live-stats";
 import { PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT } from "@/lib/view-link";
 import { compactStayReceipt } from "@/lib/remote/stay-receipt";
@@ -57,6 +58,7 @@ import { ActivityHeatmap } from "./activity-heatmap"; // Task 711 — the shape-
 import { UserPresetShelf } from "./user-preset-shelf"; // Task 716 — the preset family's overview face (snapshots across every type, manageable in one place)
 import { JournalDigest } from "./journal-digest"; // Task 720 — the activity family's fourth face (the fingers' past tense, cross-job)
 import { NotesWall } from "./notes-wall"; // Task 721 — the notebook face (the mind's conclusions, this project, read in one place)
+import { ParamDialectBadge } from "./param-dialect-badge"; // t724 — one dialect marker for both search surfaces
 import { EngineBuildRail, EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
@@ -2191,15 +2193,32 @@ function ActiveProjectSpotlight({
   // Task 94 — the visible slice is (status filter) ∩ (text match). The
   // haystack spans name + type + workspace name + status so one box answers
   // "which motioncorr runs are still idle" without leaving the dashboard.
+  // t724 — the name/type half now speaks THE matcher (lib/job-match):
+  // the t653 abbreviation dialect ("cls2" finds Class2D) and the t722
+  // param dialect ("mask:20" finds the jobs that ran it) both work here,
+  // because one matcher for every search surface is the law — a private
+  // includes() in the dashboard would be a second matcher, and second
+  // matchers drift. The workspace/status words stay raw includes(): they
+  // are infrastructure vocabulary (never abbreviated by operators), and
+  // a subsequence over short status words would light the whole roster
+  // for one stray letter. Param queries are EXCLUSIVE (t722's law): the
+  // user declared the question type, so ws/status do not co-answer it.
   const q = rosterQuery.trim().toLowerCase();
+  const rosterParamDialect = parseParamQuery(rosterQuery);
   const wsNameById = new Map(workspaces.map((w) => [w.id, w.name]));
   // the haystack predicate, hoisted so the chips can share it — the cascade
   // (t627) must ask the SAME question the click will ask, or the numbers
   // would drift from the rows they promise
-  const inHaystack = (j: (typeof sorted)[number]) =>
-    `${j.name} ${j.type} ${j.workspaceId ? (wsNameById.get(j.workspaceId) ?? "") : ""} ${j.status}`
-      .toLowerCase()
-      .includes(q);
+  const inHaystack = (j: (typeof sorted)[number]) => {
+    if (jobMatchesQuery(j, rosterQuery)) return true;
+    if (rosterParamDialect) return false; // dialect runs are param-only
+    if (
+      j.workspaceId &&
+      (wsNameById.get(j.workspaceId) ?? "").toLowerCase().includes(q)
+    )
+      return true;
+    return q !== "" && j.status.includes(q);
+  };
   const statusSlice =
     jobFilter === "all"
       ? sorted
@@ -2427,6 +2446,9 @@ function ActiveProjectSpotlight({
           // below (AND); role=search + the count chip are live screen
           // chrome, so the whole row is no-print (paper prints the same
           // slice the band header counts, but never the lens itself).
+          // t724 — the input speaks THE matcher's dialect now (t653
+          // abbreviations + t722 key:value params), and the shared badge
+          // tells the user when the param dialect is the lens.
           <div
             className="no-print mb-1.5 flex items-center gap-2"
             role="search"
@@ -2441,7 +2463,7 @@ function ActiveProjectSpotlight({
                 data-testid="roster-search-input"
                 value={rosterQuery}
                 onChange={(e) => setRosterQuery(e.target.value)}
-                placeholder="Search name, type, workspace…"
+                placeholder="Search name, type, workspace, key:value…"
                 aria-label="Search the job roster"
                 spellCheck={false}
                 className="h-7 w-52 rounded-md border bg-background pl-7 pr-7 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-primary/30"
@@ -2458,6 +2480,7 @@ function ActiveProjectSpotlight({
                 </button>
               )}
             </div>
+            <ParamDialectBadge query={rosterQuery} testid="roster-param-badge" />
             {q !== "" && (
               <span
                 data-testid="roster-count-chip"
