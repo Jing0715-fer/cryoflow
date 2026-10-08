@@ -343,9 +343,13 @@ try {
     "the argv is a TRAINING argv (--topaz_train, not --topaz_extract)"
   );
   const picksArg = argvT.match(/--topaz_train_picks (\S+)/)?.[1] ?? "";
+  // t537 — the cluster lanes speak the pipeliner dialect: path arguments
+  // are PROJECT-RELATIVE (the script cd's to the project root), not
+  // cluster-absolute. The staged index lives in the trainer's own
+  // workdir, so the honest argv form is topaztrain_<id8>/training_picks.star.
   must(
-    picksArg.includes("training_picks.star") && picksArg.startsWith("/projects/cryoflow"),
-    `--topaz_train_picks is the STAGED index on the cluster (${picksArg || "absent"})`
+    picksArg === `topaztrain_${jobT.id.slice(-8)}/training_picks.star`,
+    `--topaz_train_picks is the STAGED index, project-relative (t537 pipeliner dialect) (${picksArg || "absent"})`
   );
   must(
     argvT.includes(`--fn_topaz_exe ${extMap.topaz}`),
@@ -358,8 +362,12 @@ try {
   const indexOnCluster = picksArg
     ? (() => {
         try {
+          // the relative arg resolves from the project root on the cluster
+          const abs = picksArg.startsWith("/")
+            ? picksArg
+            : `/projects/cryoflow/${projId}/${picksArg}`;
           return execSync(
-            `node services/mock-cluster/test-client.mjs 'cat ${picksArg} 2>/dev/null | head -12'`,
+            `node services/mock-cluster/test-client.mjs 'cat ${abs} 2>/dev/null | head -12'`,
             { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
           ).toString();
         } catch {
@@ -421,8 +429,8 @@ try {
   const argvA = String(recA?.cmd ?? "");
   const modelArg = argvA.match(/--topaz_model (\S+)/)?.[1] ?? "";
   must(
-    modelArg.includes("topaztrain_") && modelArg.startsWith("/projects/cryoflow"),
-    `--topaz_model points INTO the trainer's cluster workdir — twin pass-through, no re-upload (${modelArg || "absent"})`
+    modelArg === `topaztrain_${jobT.id.slice(-8)}/topaz_model.sav`,
+    `--topaz_model points INTO the trainer's cluster workdir — twin pass-through, project-relative (t537) (${modelArg || "absent"})`
   );
   must(
     argvA.includes(`--fn_topaz_exe ${extMap.topaz}`) && argvT.includes("--topaz_train"),

@@ -311,21 +311,32 @@ try {
     body: JSON.stringify({}),
   });
   await localRun.json().catch(() => ({}));
-  // The LOCAL world's honest refusal, observed live (t535 dialect): the
-  // sandbox now HAS a RELION (the t530 grinder's 5.0.0 is the found world),
-  // so the old "RELION not detected" bin-dir guard no longer fires — the
-  // MotionCor2 lookup does (the LOCAL message: this host has no MotionCor2).
-  // The movies star passes the t535 shape gate (this leg IS movies-shaped);
-  // the refusal still belongs to the local world; the cluster run is
-  // unaffected. A host WITHOUT a RELION would fail earlier at the guard —
-  // same law, earlier door.
+  // The LOCAL world's honest refusal, observed live — WHICH honest door
+  // fires depends on the host's own RELION truth, the same snapshot the
+  // engine's gate reads (data/relion-snapshot.json). A host WITH a RELION
+  // (the t530-era found world at /home/z/relion-build/bin) gets past the
+  // generic guard and fails at the MotionCor2 lookup — the lane-specific
+  // message. A host WITHOUT one (this sandbox after the relion-build
+  // directory left the disk) fails at the earlier generic guard. Both are
+  // the local lane honestly refusing; the probe derives its expectation
+  // from the world instead of pinning one era's disk layout (the t700
+  // law: the probe's vocabulary must be as wide as the world's contract).
+  const relionFound = (() => {
+    try {
+      const snap = JSON.parse(readFileSync("/home/z/my-project/data/relion-snapshot.json", "utf8"));
+      return Boolean(snap?.status?.found ?? snap?.found);
+    } catch {
+      return false; // no snapshot = nothing detected yet = the generic door
+    }
+  })();
+  const localRefusal = relionFound ? "MotionCor2 executable not found" : "RELION not detected";
   const jobLAfter = await pollUntil(async () => {
     const j = await readJob(jobL.id);
     return j?.status === "failed" ? j : null;
   }, 10_000);
   must(
-    jobLAfter?.status === "failed" && (jobLAfter?.result ?? "").includes("MotionCor2 executable not found"),
-    `LOCAL motioncorr fails honestly in ITS OWN world (${(jobLAfter?.result ?? "").slice(0, 60)}…)`
+    jobLAfter?.status === "failed" && (jobLAfter?.result ?? "").includes(localRefusal),
+    `LOCAL motioncorr fails honestly in ITS OWN world [relion ${relionFound ? "present" : "absent"}] (${(jobLAfter?.result ?? "").slice(0, 60)}…)`
   );
   await deleteJob(jobL.id);
   createdJobs.splice(createdJobs.indexOf(jobL.id), 1);
