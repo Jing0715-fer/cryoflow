@@ -59,6 +59,8 @@ import { useWorkflowStore } from "@/lib/store";
 import {
   jobType,
   nextStepsFor,
+  outputKindOf,
+  PORT_COLORS,
   tabsFor,
   upstreamOf,
 } from "@/lib/workflow";
@@ -101,6 +103,17 @@ function formatDefault(p: ParamSchema): string {
   }
   const raw = p.default;
   return raw === "" || raw == null ? "—" : String(raw);
+}
+
+/**
+ * t735 — the chip's kind sample: the same hex the canvas wire rests in
+ * (PORT_COLORS[kind].wire via the book's own outputKindOf), or null
+ * when the book is silent (unknown type/port — the chip keeps its
+ * two-part voice, icon + mono pair, no sample).
+ */
+function chipInk(typeKey: string, fromPort: string): string | null {
+  const kind = outputKindOf(typeKey, fromPort);
+  return kind ? PORT_COLORS[kind].wire : null;
 }
 
 export function TypeCardDialog({
@@ -252,7 +265,7 @@ export function TypeCardDialog({
                   <button
                     type="button"
                     data-testid={`type-card-upstream-chip-${u.type}`}
-                    title={`${u.fromPort} → ${u.toPort} — click to open ${u.label}`}
+                    title={`${u.fromPort} → ${u.toPort}${chipInk(u.type, u.fromPort) ? ` — ${outputKindOf(u.type, u.fromPort)} data` : ""} — click to open ${u.label}`}
                     onClick={() => onNavigate(u.type)}
                     className={cn(
                       "flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2 py-0.5 text-[11px] transition-colors hover:bg-accent",
@@ -261,6 +274,17 @@ export function TypeCardDialog({
                   >
                     <TypeIcon name={u.icon} className="size-3 shrink-0" />
                     <span className="truncate font-medium">{u.label}</span>
+                    {/* t735 — the kind's color sample rides the port pair:
+                        the same hex the canvas wire rests in (t734), so the
+                        chip teaches what the wire says — hand-off data has
+                        a color and the color has a word */}
+                    {chipInk(u.type, u.fromPort) ? (
+                      <span
+                        aria-hidden="true"
+                        className="size-1.5 shrink-0 rounded-full"
+                        style={{ background: chipInk(u.type, u.fromPort) as string }}
+                      />
+                    ) : null}
                     <span className="shrink-0 font-mono text-[9px] text-muted-foreground">
                       {u.fromPort}→{u.toPort}
                     </span>
@@ -299,12 +323,25 @@ export function TypeCardDialog({
                   <button
                     type="button"
                     data-testid={`type-card-downstream-chip-${d.type}`}
-                    title={`${d.caption} — click to open ${d.label}`}
+                    title={`${d.caption}${chipInk(spec.key, d.fromPort) ? ` — ${outputKindOf(spec.key, d.fromPort)} data` : ""} — click to open ${d.label}`}
                     onClick={() => onNavigate(d.type)}
                     className="flex max-w-full items-center gap-1.5 rounded-full border bg-card px-2 py-0.5 text-[11px] transition-colors hover:bg-accent"
                   >
                     <TypeIcon name={d.icon} className="size-3 shrink-0" />
                     <span className="truncate font-medium">{d.label}</span>
+                    {/* t735 — same kind sample as the upstream chip: one
+                        vocabulary, both radii (the wire into THIS type and
+                        the wire out of it speak the same colors). The
+                        downstream fromPort is THIS type's OWN output —
+                        NextStep.fromPort reads the SOURCE side, so the
+                        lookup keys on spec.key, not on the target type. */}
+                    {chipInk(spec.key, d.fromPort) ? (
+                      <span
+                        aria-hidden="true"
+                        className="size-1.5 shrink-0 rounded-full"
+                        style={{ background: chipInk(spec.key, d.fromPort) as string }}
+                      />
+                    ) : null}
                     <span className="shrink-0 font-mono text-[9px] text-muted-foreground">
                       {d.caption}
                     </span>

@@ -43,7 +43,7 @@
  */
 
 import * as React from "react";
-import { CARD_H, CARD_W, PORT_COLORS, jobType } from "@/lib/workflow";
+import { CARD_H, CARD_W, PORT_COLORS, outputKindOf } from "@/lib/workflow";
 import { computeEdgeGeoms, getLiveDrag, type EdgeGeom } from "@/lib/edge-geom";
 import { useWorkflowStore } from "@/lib/store";
 import type { EdgeDTO, JobDTO } from "@/lib/types";
@@ -163,9 +163,11 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         const primed = from.status === "completed" && to.status !== "completed";
         // t734 — the wire's knowledge color: the FROM port's data kind is
         // what the wire CARRIES, so its kind paints the wire's resting
-        // voice. Derived live from the book's own port spec (zero second
-        // directory); an unmapped/legacy edge keeps the neutral ink.
-        const edgeKind = jobType(from.type)?.outputs?.find((p) => p.name === edge.fromPort)?.kind;
+        // voice. t735 — the lookup lives in the book itself
+        // (outputKindOf): three readers of the same question is a
+        // directory, and directories live in lib. An unmapped/legacy
+        // edge keeps the neutral ink.
+        const edgeKind = edge.fromPort ? outputKindOf(from.type, edge.fromPort) : undefined;
         const kindInk = edgeKind ? PORT_COLORS[edgeKind].wire : null;
         const touchesSelected =
           selectedId != null && (from.id === selectedId || to.id === selectedId);
@@ -473,7 +475,11 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                           className="fill-muted-foreground"
                           style={{ fontSize: 8.5, fontStyle: "italic" }}
                         >
-                          {String(edgeKind)} data
+                          {/* t735 — the color sample rides the word: the
+                              same hex the wire rests in, drawn as a small
+                              dot so the card teaches what the wire says */}
+                          <tspan fill={PORT_COLORS[edgeKind].wire} style={{ fontStyle: "normal" }}>● </tspan>
+                          <tspan>{String(edgeKind)} data</tspan>
                         </text>
                       ) : null}
                     </g>

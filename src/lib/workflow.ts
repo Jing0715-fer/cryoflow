@@ -293,6 +293,18 @@ export const PORT_COLORS: Record<PortKind, { dot: string; label: string; text: s
   tomograms: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal", wire: "#14b8a6" },
 };
 
+/**
+ * t735 — the one way to ask the book "what data does THIS output port
+ * of THIS type carry?". The wire layer's ink, the type card's chip
+ * dots, and any future kind reader all resolve through here: a lookup
+ * written three times is a directory being born, and directories live
+ * in lib or nowhere. Unknown type or port → undefined (the caller
+ * keeps its honest fallback ink).
+ */
+export function outputKindOf(typeKey: string, portName: string): PortKind | undefined {
+  return jobType(typeKey)?.outputs?.find((p) => p.name === portName)?.kind;
+}
+
 /** Port shorthands. */
 const inp = (name: string, label: string, accepts: (PortKind | "*")[], multiple = false): PortSpec => ({
   name,
