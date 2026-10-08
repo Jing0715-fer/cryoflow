@@ -11179,3 +11179,26 @@ Stage Summary:
 - 「点击坐标的歧义是世界病不是探针病」：坐标点击建立在「每个可点目标独占自己的几何」之上——节点重叠时 .find() 找到的元素和 mouse 事件命中的元素是两个东西（getBoundingClientRect 说一套，elementFromPoint 说另一套）。t703 的 .find() 身份丢失点的几何版。修复在世界（布局手术）不在探针（换属性选择器是加固不是治愈）——产品对人类用户同样撒着这个谎。
 - 「诚实缺口合同要跟着世界的资料库长」：t525 的「无数据→plain 报告」在 t531 世界有了第二 FSC 源后变成错误期望——缺口不存在了， enriched 才是诚实。合同升格不软化律：来源必须具名、具名必须真实（文件在盘）、postprocess-only 证据必须随源消失。律的字面从「有没有节」升级为「节是否讲真话」。
 - 产出：scripts/qa-refine-host.mjs（共享宿主解析，manifest 合同 JS 孪生）+ scripts/t705-fsc-forensics.mjs（逐跳取证，留驻）+ scripts/t705-canvas-layout-patch.mjs（幂等布局手术）+ 五套探针手术 + seeder AUX_BAND 出生逻辑 + t702 census 去化石依赖（158→156）+ src 墙 jump 按钮 a11y 变体（pending build）+ shots-qa 两帧 + worklog 本段；下窗入口：①**build 日批次（七窗账，清单更新）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + t703 resolver rebuild + t260 终验 + **t705 墙按钮 a11y rebuild + qa49 B 相终验（墙非空时）** + 验证网 ②非 build 日：自由选题（墙生长实验——跨 job 书签经 UI 真写路径 + t704 census 执法；或成本/算力仪表、run-history 时间线等新 UI 领土）③演练床轮换（本窗窗 4 已跑，下窗窗 5 到硬上限；build 日先到则批次优先）④census 轮换：t699/t702 随世界手术必跑（本窗已跑），t704 随 bookmark/overlay 变更触发；**seeder 重跑后 t701/t702 patch 按层序重施已成文**。
+
+---
+Task ID: 706 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081818)
+Task: 18:10 派单执行——开局三件套判稳（server 200；available 3124MB < 3280 → 非 build 日连续第十八窗）→ ③床轮换窗 5（3-5 节奏硬上限正点，t25 批 9 套——加固门家族 report 时代零历史）→ 2/9 暴露七套真失败 → 优先修复车道：六套死名钉（qa 批同款「QA Refine3D」）+ 一套化石钉（t259 canvas 卡数 ≥20 钉旧世界）→ 七套手术 → t25 批 9/9 全绿 + 四重 census 验证网全绿 → 入口②墙生长实验（跨 job 书签落地 + t704 census 43→59 断言随世界扩编 59/0）→ worklog 收官 + 分车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 705 收官（HEAD a9a0ef5 树净）；server 200；available 3124MB < 3280 → 非 build 日第十八窗（3140→3124 微落）。入口③床轮换到硬上限正点——t25 批（t251-t259，9 套加固门/写门/卡片家族）report 时代零历史。
+- [床轮换·整批 t25] 首跑 **2/9，七套 REAL-FAIL（t253-t259）**——比 qa 批（五尸）更重。轮换硬上限的价值再次兑现：加固门家族自 t525 时代后从未整批跑。
+- [七案定谳——两族] ①六套死名钉（t253-258）：全部 `find(j.name === "QA Refine3D")`——qa 批同族病（pre-t531 死名），Python 侧 qa67 的名→型→manifest 三级回落早已免疫，JS 侧六套裸查。②t259 化石钉：`must(jobCards >= 20)`——canvas `[data-job]` 卡数钉在旧世界 20+ 卡时代（15 roster + mapimport 化石），现役正典 17。修复 = 六套接 `qa-refine-host.mjs`（t705 建成的共享宿主解析——一次建成两批受益）+ `QA_VOL_HOST="${JOB}"` 插值 + must 消息说派生名；t259 期望改 `jobCards >= roster0.length`（canvas 必须经门渲染 roster 的每一个 job——期望从世界导出）。
+- [附带收获——派单样板三遗留已有 pin 在案] t253 Phase B「recital 台账」自证：#7 chart 热路径已走 statcache（loader 迁 chart-data）、#8 particles BFS 已批量化、「Task 13 recital」t251 读环 + t252 写门在盘。派单文本的「已知遗留」清单是陈旧样板——**#5/#6/#13 仍待定价，#7/#8 已修**。
+- [t25 批终态] 七套 solo 全绿 + 整批 **9/9**（wall 526.8s——t253 191.8s + t254 116.8s + t255 105.7s 是家族里最重的三套，clip 截面/子体积导出/send-to-job 全链 UI 流）。
+- [验证网全绿] t699 17/17（orphans 20 不变）+ t702 156/0 + t704 43/0（生长前）+ t677 30/0——t25 套件的 seed/clean 世界随行零伤。
+- [入口②——墙生长实验] 跨 job 书签落地：MaskCreate job（cmututold00000maskcreate，0 行）新增 BookmarkSession 行 1 条目「t706 aux-band mask」——条目形状逐字段克隆 seeder t668 正典条目（诚实相机数字、thumbless 设计——墙渲染 Mountain 占位、pose 微调可辨）。写走 per-job PUT 门（qa57 先例——molstar-embed saveBookmark 的同一服务器合同）。gallery 聚合**首次真多 job 数据：2 jobs / 4 条目**。活体验墙：Dashboard 4 卡全渲染、MaskCreate 卡带自己的 job 名；截图 shots-qa/t706-wall-cross-job-growth.png 入档；console 零错误。
+- [仪器随世界扩编] t704 census 重跑 **43→59 断言 59/0**——census 未改一字，第二行使门重放/sanitize 透传/gallery 纳入/合同回声在真数据上全部再武装。docs/bookmark-census.md 附记立案（生长测量 + 写路径注记）。Mol* 全驾链（节点→inspector→Results→tile→enlarge→View in 3D→viewer）在本窗浏览器会话下间歇抖动，UI 全驾留待平静窗——PUT 门写与 census 执法等价（服务器真相同源）。overlay 孪生（D0）仍 0 行——首条 Layers-panel 条目未生，仪器仍在等待。
+- [回归] 产品代码零改动；QA 车道七文件（六套死名手术 + t259 化石钉）；世界变化 = DB 一行书签（运行时数据，不进 git）；census 文档附记。零 build 零重启。
+
+Stage Summary:
+- 「轮换硬上限不是仪式是债务」：qa 批（t705）与 t25 批（本窗）相继证明——任何 3-5 窗未整批的家族，暗处都攒着至少一批的词汇滞留与化石钉。t25 的七尸比 qa 的五尸更重，只因它更久没被审。轮换省下的十分钟，会在某个 build 日窗口连本带利讨回来。
+- 「共享解析模块一次建成两批受益」：t705 为 qa 批建的 qa-refine-host.mjs，本窗 t25 六套一行接入即愈——跨批次的疾病用跨批次的书治。下窗若轮换继续（t24/t26b/t27-t31 都还是零历史或陈历史），同一模块可能还要再服役。
+- 「期望从世界导出的三种形状」：宿主名 = manifest chain 查询（六套）；卡数下限 = roster 长度（t259）；断言数量 = 世界行数（t704 43→59）。仪器的期望不该是常数——世界的形状变了，期望的形状跟着变，而「变」本身由世界的数据驱动，不由仪器的记忆驱动。
+- 「墙生长是 saved-state 家族第一次真跨 job」：seeder 的 3 条目全住 refine3d——聚合面（gallery/墙）从出生就没见过多 job 数据。第二条目落在 MaskCreate 上，聚合的 join、MAX_JOBS=8、卡片 job 名渲染第一次真跑。世界长得一寸，仪器执法面积就大一寸（43→59）。
+- 产出：七套手术（t253-259）+ shots 刷新 + shots-qa/t706-wall-cross-job-growth.png + docs/bookmark-census.md t706 附记 + worklog 本段；下窗入口：①**build 日批次（七窗账清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + t703 resolver rebuild + t260 终验 + t705 墙按钮 a11y rebuild + **qa49 B 相终验（墙现非空——下次 qa 批将真刀真枪试 a11y 修复）** + 验证网 ②非 build 日：自由选题（Mol* 全驾书签保存的平静窗重试 + 首条 overlay；或成本/算力仪表、run-history 时间线等新 UI 领土）③演练床轮换（t705 窗 4 + 本窗窗 5 已到硬上限——下窗必须重置计数：本窗已跑即重置）④census 轮换：t699/t702/t704 随世界手术必跑（本窗已跑）。
