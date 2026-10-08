@@ -11065,3 +11065,25 @@ Stage Summary:
 - 「档案的判决记录是两层的，对账要下到第二层」：44 逐字提名看起来像 82% 孤儿，下挖一层 commit message 后覆盖反转为 89%——**第一层对账率是仪器深度 Artefakt，不是档案的病**。真孤儿 25 帧的三个族（奠基者/UUID 时代/邻居提交）各自是历史形状：审计的义务是测量并诚实入册，不是用删除把记分卡洗干净。
 - 「UUID 标题的提交是纪律的化石层」：分车 + 判决 message 的纪律是 700 窗里养成的，不是开天辟地就有的——8 帧住在无判决提交下就是地层证据。**惯例的价值在于它有开始**：现行的每一条（帧判决随行、commit 报 task id、幂等 patch、世界随行探针）都曾是某个窗口的发明，化石层提醒我们它们值得写下来而不是口口相传。
 - 产出：scripts/qa-t531-old-world-seed.mjs 修复（thumb 字节级判据）+ scripts/t700-shots-archive-audit.py（可重跑双层对账）+ docs/shots-archive-audit.md（档案判决）+ shots-qa t262 两帧（床刷新）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + 验证网②非 build 日：**存量审计系列四窗收官（t697 验尸 → t698 a11y → t699 record → t700 档案）——车道清零**，自由选题（世界故事富化 / 新功能方向：3D viewer 截面家族已建成、Topaz wrapper 已建成——可向 next.js 层新面延伸，如 run history 时间线视图、成本/算力仪表）③演练床轮换（本窗窗 5 已跑，下轮 3-5 窗后；**标准门 = family-run**）④t699 census + t695 随世界手术/UI 节奏轮换。
+
+---
+Task ID: 701 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081443)
+Task: 14:40 派单执行——开局三件套判稳（t677 30/0；available 3145MB < 3280 → 非 build 日连续第十三窗）→ 入口②：审计系列四窗收官、车道清零 → **世界故事富化**（叙事层普查：14 个单行日志 vs 3 个富日志）→ 幂等故事 patch（追加式 run.log 叙事 ×14，零 DB 写、topaztrain 合同日志不碰）→ 验证网绿 + Log tab 活体呈现 → worklog 收官 + 分车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 700 收官（HEAD 0b3e1d1 树净）；server 200/3.8ms + t677 30/0；available 3145MB < 3280 → 非 build 日第十三窗（3160→3145 回落 15MB）。
+- [定道] Task 700 入口②：存量审计系列四窗收官（t697 验尸 → t698 a11y → t699 record → t700 档案）车道清零；build 日批次天气不许可；床轮换新周期窗 1 不急。选世界故事富化——t699 入口预留的「rebalance/symexpand 的 strip 活着但叙事可再富化」，本窗把它从一句备注升格为全链条普查 + 活体执行。
+- [叙事普查] 17 jobs 的 run.log 行数 + result 行双面读：**3 富 vs 14 薄**——富：topaztrain 14 行训练日记（t666 模范：头行 + CSV 曲线块，被 training-curve loader 解析 = **合同性日志**）、initialmodel 3 行（t696）、maskcreate 4 行（t699）；薄：13 个 cmuwipe 链上 job + topazdenoise 恰好 1 行（「seeded by qa-t531-old-world-seed — <result 回声>」）。strip 说数字、Log tab 无话可说——世界的叙事层比工件层薄一层。
+- [消费者审计·先于手术] run.log 的 app 侧消费者全扫：唯一命中 = AI 工具的 log-tail 展示腿（tools.ts L2736 读尾 25 行，展示非解析）——**追加式富化恰好让叙事尾部可见**，零合同风险。topaztrain 的 CSV 块是解析合同（t666 loader 首要源）——显式排除在手术外。
+- [幂等 patch] scripts/t701-story-enrichment-patch.mjs（双跑验讫：14 enriched → 14 skip）：**追加式**——头行逐字保留（种子的声音、唯一可能被 key 的行），叙事往下长；幂等卫 = 薄形前置条件（当前内容恰为单行才动笔——re-seed 过的或已富的日志永不 clobber）。**零 DB 写、零 engine-state 写**——纯文件手术，外部写者容忍模式（engine L261-262）。
+- [叙事律·故事只讲世界能证明的] 每个数字有出处：颗粒数（170 picked / 240 extracted / 168 kept ← result 行）、类数（K=8/K=3 ← result）、迭代号（it012 class2d / it003 class3d / it020 refine3d ← 磁盘星文件名）、离焦族（14.6k–12.7k Å ← result）、FSC 锚（3.62 Å refine / 3.12 Å post / 0.143 判据 ← result）、ctffind 引擎实参（Box 512 / ResMin 30 / ResMax 5 / dF 5000–50000 ← engine argv 实读）、motioncorr（--use_own --j 4 ← engine argv）；工件清单点真名（每 workdir 的 ls 实况）；下游消费者点名（t699 的边表实况：motioncorr 喂 ctffind AND topazdenoise、refine3d 喂 postprocess half1 AND maskcreate map、maskcreate 喂 postprocess mask）。t636 claim-without-write 律的叙事版。
+- [验证网] t699 census 17/17 完整生命（0 incomplete，orphans 20 不变）+ t695 125/0（世界随行零改动）+ agent-browser 活体（t695 协议：Dashboard 显式切换 + 租户验证 + Log tab）：**refine3d 的 Log tab 全叙事渲染**——头行 + 20 迭代/FSC 3.62 Å/两半互不见/工件清单/下游双消费者（postprocess half1 + maskcreate map）逐行呈现，console 0 错，截图 shots-qa/t701-refine3d-log-narrative.png 入档，用毕即关。
+- [回归] 产品代码零改动（世界文件 + QA 仪器）——t677 30/0 + t695 125/0 + census 17/17 覆盖；零 build 零重启。
+
+Stage Summary:
+- 「世界的层是逐窗长出来的：工件层（t696/t699）→ 记录层（t699）→ 档案层（t700）→ 本窗的叙事层」——每层都有自己的仪器与判据。叙事层的特点是**它的消费者是人（和 AI 的 log-tail）**：strip 说「168 particles refined」，叙事说「两半从未见过面」——数字管正确性，故事管可理解性。demo 世界的教学价值大半住在叙事层：一个 690 窗老世界里，单行日志让 Log tab 成了最薄的面。
+- 「追加式是活世界的扩写形状」：不重写头行（种子的声音、任何 key 的锚）、不 clobber 既有内容（薄形前置条件 = 幂等卫 + 方向卫二合一）——**扩写的前提是不动旧账**。与 t696 的 exists-guard 相比，薄形卫更严：它不但要求「不存在」还要求「是它该改的那个形状」——形状不对就跳过，把判断留给对形状有主权的人（re-seed 或人工）。
+- 「故事的法律和工件的法律同一条」：t636 的 claim-without-write 说 record 不得点名不存在的文件；t701 把它推广到叙事——**日志不得讲世界不能证明的数字**。每行叙事的每个数都有出处（result 行/星文件/argv 实读/边表实况），这让富化的工作量大半花在「取证」而非「写作」上——而这正是它该有的样子：demo 世界的每一行字都是证据的转述，不是文学的发明。
+- 「合同性数据要显式排除在手术外」：topaztrain 的 CSV 块被 loader 解析、头行可能被 key——patch 的排除清单和手术对象清单一样长。**手术的安全边界 = 写什么 + 不写什么 + 为什么**：三者在脚本头注释里逐条立案，下一个读脚本的人（或窗）不需要重新发明边界。
+- 产出：scripts/t701-story-enrichment-patch.mjs（幂等双跑验讫）+ shots-qa t701 一帧（Log tab 叙事活体）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + 验证网②非 build 日：叙事层已富化收官——自由选题（下一层候选：project 故事——项目描述/工作流命名的叙事化；或 QA 仪器新面：Log tab 叙事的回归探针）③演练床轮换（t700 窗 5 已跑，本窗窗 1，下轮节奏内）④t695/census 随世界手术节奏轮换。
