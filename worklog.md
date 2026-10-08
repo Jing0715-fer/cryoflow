@@ -11202,3 +11202,27 @@ Stage Summary:
 - 「期望从世界导出的三种形状」：宿主名 = manifest chain 查询（六套）；卡数下限 = roster 长度（t259）；断言数量 = 世界行数（t704 43→59）。仪器的期望不该是常数——世界的形状变了，期望的形状跟着变，而「变」本身由世界的数据驱动，不由仪器的记忆驱动。
 - 「墙生长是 saved-state 家族第一次真跨 job」：seeder 的 3 条目全住 refine3d——聚合面（gallery/墙）从出生就没见过多 job 数据。第二条目落在 MaskCreate 上，聚合的 join、MAX_JOBS=8、卡片 job 名渲染第一次真跑。世界长得一寸，仪器执法面积就大一寸（43→59）。
 - 产出：七套手术（t253-259）+ shots 刷新 + shots-qa/t706-wall-cross-job-growth.png + docs/bookmark-census.md t706 附记 + worklog 本段；下窗入口：①**build 日批次（七窗账清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + t703 resolver rebuild + t260 终验 + t705 墙按钮 a11y rebuild + **qa49 B 相终验（墙现非空——下次 qa 批将真刀真枪试 a11y 修复）** + 验证网 ②非 build 日：自由选题（Mol* 全驾书签保存的平静窗重试 + 首条 overlay；或成本/算力仪表、run-history 时间线等新 UI 领土）③演练床轮换（t705 窗 4 + 本窗窗 5 已到硬上限——下窗必须重置计数：本窗已跑即重置）④census 轮换：t699/t702/t704 随世界手术必跑（本窗已跑）。
+
+---
+Task ID: 707
+Agent: main (cron loop 18:58, Job ID 362852)
+Task: 判状态 → agent-browser QA → 修 bug 或新需求（七条模板；上窗尾条 = t706 收官，HEAD df7e9b2 树净）
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 706 收官；server 200（后核实为 production 冻结 bundle：NODE_ENV=production bun .next/standalone/server.js，01:59 启动——源码改动需 build 日激活，「零 build 零重启」的真义）；available 3109MB < 3280 → 非 build 日第十九窗。床轮换计数已重置（上窗 t25 批即重置）。
+- [陈旧样板遗留全数定价闭合] 派单文本「已知遗留」五条逐一回源码：#5 fs/browse 已修（L97-106 isLocalRequest 双门：同源 + pinned Host 防 DNS rebinding）；#6/#14 包含策略不一致已修（t251 姊妹闭包——32 条 job 路由同门 + workdir 域 + pathref 逃生舱，particles L224 / micrographs L174 注释在案）；#7 chart 热路径已修（t706 recital 复核）；#8 BFS 已修（同）；#13 useMemo 内 localStorage 写已修（store.ts 两个 useMemo 均纯 filter，全 src 无渲染期写）。**五条全闭合，样板清单清零。**
+- [agent-browser QA + Mol* 全驾平静窗重试——全绿] 节点 → inspector（Results tab）→ FSC tile → Enlarge run_it020_half1 → View in 3D → viewer ready，全程零抖动零 ref 过期（t705 辅助节点手术保持：17 节点，refine3d (532,342) 与 maskcreate (532,448) 分行清晰）。上窗的「间歇抖动」在平静窗自愈——不是代码病，是会话病。
+- [D0 诞生——overlay 孪生首条 UI 驱动条目] Layers 面板（aria-label "Overlay maps — N active"）两张候选（orthovol / half2）→ 挂载 run_it020_half2（cyan α0.55）→ 键盘 ArrowRight×3 走 σ nudge +0.15 → debounce PUT merge → 服务器行真身（sigmaOffset 0.15，updatedAt 跳 11:06:48）→ 双镜像逐字节一致（localStorage cryoflow.mol-overlays:* ≡ GET /overlay-session）。客户端管线（t 时代建成）首次被人类形驾驶全链验证：add → live edit → persist 一次过。
+- [首条 UI 驱动书签保存] popover 输入 "t707 UI-driven save" → Save → refine3d 行 3→4（此前条目全部 API 播种）→ 墙真身渲染第五卡「t707 UI-driven save · 2.00 σ · 3D auto-refine」→ gallery 聚合 2 jobs / 5 entries。截图 ×3 入档 shots-qa/t707-{overlay-first-entry,bookmark-ui-save,wall-5th-entry}.png。
+- [t704 census 59 → 76/0] 仪器零改动随世界扩编：D 层首次武装（D0 世界测量 + D1 FK + D3 cap + D4 活产物解析 "self-heal debt: none" + D2 形状 + D5 sanitize replay + D6 live GET 回声）+ B 层第五条目扩展。**D4 首跑即揭仪器潜伏洞**：零行时代 D 层从不 fetch；首行使 D4 打到 t251 加固的 outputs 端点 → 无头 urllib 403。产品门是对的，仪器学会说门的语言（fetch_json 加 Origin: BASE——guard 文档行自己开的药方）。洞隐形时长 = 世界太小够不着的时长（与 t25 轮换化石钉同形）。
+- [saved-state 门——#6/#14 收官的最后一格] 全 API 面审计（22 条 route.ts 扫 isLocalRequest）：saved-state 双路（camera-bookmarks / overlay-session）是 jobs/[id] 家族仅存无门者 → 双路 GET/PUT 四 handler 全挂门（t251 姊妹闭包式样 + 诚实威胁模型注释：跨域 PUT 本需 preflight 跨域页过不了；门的价值 = 闭 no-cors GET 盲探 + 政策统一 one door every handler）。**staged 待建**：运行服务器是冻结 bundle，激活入下个 build 日批次（curl 判决 bare 403 / Origin 200 × 双路 × GET/PUT）。
+- [更大领土入账——下一轮加固战役完整清单] 同审计发现全 API 面 22 条无门路由：~10 条 no-cors POST 真实可达写路（workflow-import、pipeline-template、jobs POST、project POST、edges、subvolume-job、layout、workspaces、custom-template CRUD、hpc/simulate）+ 盲探可达 GET 读路（activity、command、rebalance、views/gallery、api 根、providers/health、judge-worker、hpc/sbatch）。完整台账入 docs/bookmark-census.md t707 附记——t251 家族闭包的诚实完结，一个 build 日批次宽。
+- [QA 车道向前兼容] 12 个触双路探针脚本学会门的语言（未建先说，双世界无害）：scripts/lib/qa-origin.mjs 共享 shim（installOriginDoor() 一行/脚本——Node fetch 全局织入 Origin）× 9 个 mjs（t200/201/203-shots、t200-e2e、t208、t280、t674、t675、t676）+ curl 型 qa45/54/57 六处 `-H "Origin: ${B}"`（qa45 无 B 常量硬编码——模板字面量 ${B} 陷阱逐文件核过）。node --check ×3 + shim 活体测试（裸 fetch 200 [门未激活] / shimmed 200 bookmarks:4）。t668 仅注释提及——跳过。
+- [验证网全绿] t704 76/0（59→76 生长）+ t699 17/17（orphans 20 惰性不变）+ t702 156/0 + t677 30/0。世界变化 = DB 两行（overlay + bookmark，运行时数据不进 git）。产品代码零激活（双路门 staged）零重启；census 文档附记 + QA 车道 14 文件 + shim + 补丁器入库。
+
+Stage Summary:
+- 「平静窗的价值是把间歇病从代码病里洗出来」：同一全驾链，上窗抖、本窗净——世界没变、代码没变，变的是浏览器会话的相位。判病要先问窗相再开刀：t705 的手术治的是真病（elementFromPoint 点击偷窃），本窗的「抖」不该治。
+- 「仪器的洞隐形于世界太小」：D 层写好之后零行世界从未执行过 D4；首行使 403 现形。census 的执法面积随世界生长（43→59→76），它的潜伏 bug 也随世界生长暴露——仪器不是写完就对的，是「被世界用到的那天」才第一次真正被测。
+- 「门的语言是文档自己写的」：http-guard 注释早写着「QA scripts should send -H Origin」——t251 当年只治了产品面没治仪器面，因为仪器那时没打加固端点。共享 shim（qa-origin.mjs）一次建成 12 脚本受益，qa-refine-host.mjs 的跨批受益律第三次应验。
+- 「production 冻结 bundle 是 staged 工作的物理基础」：源码批注（门）与运行时（无门）共存一窗而互不欺——qa 车道双世界无害（Origin 对无门服务器是惰性头），build 日激活时仪器已就位。build 日判决清单 +1：双路 bare 403 / Origin 200 × GET/PUT。
+- 产出：双路门 staged（2 route.ts）+ QA 车道（shim + 补丁器 + 12 脚本 + census Origin 修复）+ 截图 ×3 + census 文档 t707 附记 + worklog 本段；下窗入口：①**build 日批次（账单再 +1）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + t703 resolver rebuild + t260 终验 + t705 墙按钮 a11y rebuild + qa49 B 相终验 + **t707 双路门激活判决（curl bare 403 / Origin 200 ×2 路 ×GET/PUT）** + 验证网 ②非 build 日：**22 路加固战役可以拆批先打 POST 写路组**（~10 条，no-cors 真实可达——战役台账在 docs/bookmark-census.md t707 附记）或自由选题（成本/算力仪表、run-history 时间线等新 UI 领土）③床轮换计数 1/5（本窗未跑批次）④census 轮换：t699/t702/t704 已跑；t704 任何书签/overlay/门世界手术后必跑（D 层已武装，执法面积 76）。
