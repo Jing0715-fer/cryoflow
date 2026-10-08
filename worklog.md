@@ -11043,3 +11043,25 @@ Stage Summary:
 - 「探针的词表自病在 tab 列表上重演一记」：活体 QA 首查 tab 列表 grep 了 `Overview|Files|Log|Params`——把 Results 漏出词表，差点记下「maskcreate 无 Results tab」的假发现。回源码读 trigger 是无条件渲染，重查 snapshot 证实 Results 在。**假阴性来自假词表**（t697 的 view= 同族），每次 grep 都是词表审。
 - 「化石世界的处置是测量后的诚实」：20 孤儿 record + 20 完整 workdir = job 已删、尸体完整的化石世界（cmuyb4tb50000on85bg44ugzz）。**惯性（inert）是构造性证明的：record 按 job id 键控，resolveInputs 只沿活 job 的边走，化石 id 永远不可达**。删除是零功能收益的手术——测量后留下，把「若要清」的机械形状写进文档，是审计对世界的最低干预义务。
 - 产出：scripts/t699-record-census.py（只读五件套审计，可重跑）+ scripts/t699-maskcreate-life-patch.mjs（幂等双跑验讫）+ docs/record-census.md（判决 + 教训）+ docs/seed-gap-design.md 附记（家族完结）+ shots-qa t699 一帧（Mol* 球体）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选（refine3d run_itNNN_data.star）+ a11y 可选加强行 + 验证网（census ×2 + t695 ×2 + gate-ripple + t609 活跑×2）②非 build 日：存量审计剩一候选（shots-qa 档案对齐审计）或世界故事富化（rebalance/symexpand 的故事数字已齐——它们的 strip 活着但 result 文本可再富化）③演练床轮换（t696 窗 5，本窗窗 4，下轮 3-5 节奏内正点或下窗）④t699 record census 入回归轮换：任何种子/世界手术后必跑。
+
+---
+Task ID: 700 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081419)
+Task: 14:10 派单执行——开局三件套判稳（t677 30/0；available 3160MB < 3280 → 非 build 日连续第十二窗）→ **③床轮换窗 5（3-5 节奏上限正点）**：本窗首次经 family-run 跑床 → **preflight 捕获 OLD WORLD SICK** → 验尸定谳「世界对、探针词表过窄」（thumb 编解码之争）→ 字节级判据修复 CHECK PASS → t261+t262 全绿 → 次要车道 **shots-qa 档案对齐审计**（存量审计系列收官：89% 双层判决覆盖，三族弱帧诚实入册）→ worklog 收官 + 分车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 699 收官（HEAD 76f8024 树净）；server 200/4.2ms + t677 30/0；available 3160MB < 3280 → 非 build 日第十二窗（3175→3160 微落 15MB）。床轮换计数：t696 窗 5 → 本窗恰第 5 窗，节奏上限正点。
+- [床轮换·preflight 首鸣] family-run --filter t261 通过但 **preflight 报 OLD WORLD SICK (1 FAIL)**——qa-t531 --check 的「bookmark session: thumbs are honest data-URL PNGs」断裂。查 DB（db/cryoflow.db，注意 process.env.DATABASE_URL 须显式设——裸 PrismaClient 连错库返 0 rows 的假读）：refine3d 的 bookmark session 3 条目中 seedview1 是 JPEG data-URL（1407B 真缩略图），seedview2/3 仍是种子 PNG 桩（210/194B）。
+- [验尸·世界对探针错] 三层证据：①app 保存路径 molstar-embed L1923 有意写 JPEG（toDataURL "image/jpeg", 0.72，行内注释自述 "small JPEG thumbnail"——体积权衡是设计决策）；②seedview1 的 ts=2026-10-07T21:20Z（+08 今晨 05:20，孤儿 chrome 窗口期内的人工 re-save）——**人经由 app 重存视图是世界在工作，不是世界坏了**；③种子的 buildVolumeMipThumb 写 PNG 只是种子自己的实现细节，非世界合同。t668 check 的 png-only 前缀断言 = 探针词表窄于 app 真合同（t697 假词表家族的编码版）。
+- [修复·更严不更松] 判据从「前缀说 PNG」升格为「字节证明声明的编解码」：解码 payload 头 3 字节须匹配声明格式 magic（PNG 89 50 4E 47 / JPEG FF D8 FF）——**对自己的 Content-Type 撒谎的 data URL 才是该 check 要捕的不诚实**。语义覆盖面更广（PNG+JPEG），证据等级更高（magic 字节 vs 前缀字符串）。改后 --check CHECK PASS。
+- [流程发现·preflight 盲窗] 近几窗床跑绕过了 family-run（.family-report.json 仅 2 键：老 t27 + 本窗 adhoc）——preflight 住在 runner 里，直跑套件的门没有 preflight。**JPEG 今晨就位、t696 床跑全绿无报警**的矛盾由此解释：t696 直跑套件 = preflight 静默。本窗经 runner 跑床，drift 按设计被捕获。教训入册：床轮换的标准门是 family-run，直跑 = 放弃 preflight 的保护。
+- [床轮换全绿] t261 8.5s PASS + t262 43.6s PASS（preflight: old world healthy (CHECK PASS) 可见）；roster 17 completed 复原、18 workdirs（17+maskcreate）在盘、t699 census 重跑 17/17 完整生命；t262 两帧刷新（历窗判例形状入 chore 车）。浏览器无孤儿残留。
+- [次要车道·档案审计] shots-qa 档案（226 帧 41MB 全 tracked）对两层记录对账：**integrity 226/226 真 PNG 零损坏**；归属 217 task-named（t258..t699 全在真域）+ 6 probe + 3 t402b；worklog 逐字提名 44/226；**commit 证词层再接 157/182**（first-add commit message 报 task id 或文件干）——双层判决覆盖 **201/226 (89%)**。弱帧 25 三族：①档案奠基者 6（probe-*，2026-09-16 最早帧，命名纪律之前的口头判决）；②**UUID 标题提交 8 帧**（t323×4/t405/t426——message 整条是 UUID 的无判决提交是真实存在过的时代，分车纪律是后天养成的）；③归属漂移 ~11（t397 骑 perf(t400) 的 message 等——判决在一跳之内，只是文件名↔任务映射差几号）。处置：**测量后不删**——零损坏意味着 41MB 全是证据，弱帧是历史的形状不是烂账；惯例明文化（帧的判决须住 worklog 逐字提名或 commit message 报 task id——现行纪律已按此运转，89% 是它的追溯记分卡，未来窗口由构造保持 100%）。
+- [回归] 产品代码零改动（种子探针的判据修复 + QA 仪器 + 文档）——t677 首尾 30/0 + t695 125/0（含 console-0 断言）+ 床 t261/t262 + t699 census 重跑全绿；零 build 零重启。
+
+Stage Summary:
+- 「探针词表窄于世界真合同时，假阴性抓的是无辜者」：png-only 断言把一次正常的人机交互（重存视图，app 写 JPEG）判成世界病——**probe 的编解码词汇量 < app 的设计词汇量**，与其放宽到「都行」，不如升格到「字节自证」：诚实判据从字符串前缀升为 magic 字节，覆盖面与证据等级同时上涨。放宽与收紧不是对立——审的是「数据对自己撒谎」，不是「数据长什么样」。
+- 「preflight 只住在 runner 里，绕过 runner 就是绕过体检」：JPEG 今晨就位、t696 床跑全绿的矛盾暴露了双门结构——family-run 有 preflight，直跑套件的门裸奔。**保护措施如果不在唯一入口上，它就只保护走正门的人**；床轮换的标准门由此入册（runner 进，直跑出——除非有意识地接受裸奔）。
+- 「档案的判决记录是两层的，对账要下到第二层」：44 逐字提名看起来像 82% 孤儿，下挖一层 commit message 后覆盖反转为 89%——**第一层对账率是仪器深度 Artefakt，不是档案的病**。真孤儿 25 帧的三个族（奠基者/UUID 时代/邻居提交）各自是历史形状：审计的义务是测量并诚实入册，不是用删除把记分卡洗干净。
+- 「UUID 标题的提交是纪律的化石层」：分车 + 判决 message 的纪律是 700 窗里养成的，不是开天辟地就有的——8 帧住在无判决提交下就是地层证据。**惯例的价值在于它有开始**：现行的每一条（帧判决随行、commit 报 task id、幂等 patch、世界随行探针）都曾是某个窗口的发明，化石层提醒我们它们值得写下来而不是口口相传。
+- 产出：scripts/qa-t531-old-world-seed.mjs 修复（thumb 字节级判据）+ scripts/t700-shots-archive-audit.py（可重跑双层对账）+ docs/shots-archive-audit.md（档案判决）+ shots-qa t262 两帧（床刷新）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行 + 验证网②非 build 日：**存量审计系列四窗收官（t697 验尸 → t698 a11y → t699 record → t700 档案）——车道清零**，自由选题（世界故事富化 / 新功能方向：3D viewer 截面家族已建成、Topaz wrapper 已建成——可向 next.js 层新面延伸，如 run history 时间线视图、成本/算力仪表）③演练床轮换（本窗窗 5 已跑，下轮 3-5 窗后；**标准门 = family-run**）④t699 census + t695 随世界手术/UI 节奏轮换。
