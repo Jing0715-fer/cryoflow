@@ -159,23 +159,28 @@ console.log("C consumers:");
 // ---------- D: the find bar's badge face ----------
 console.log("D badge face:");
 {
+  // t724 AMENDMENT — the badge moved into param-dialect-badge.tsx (the
+  // roster search speaks the same dialect and imports the same marker).
+  // The census follows the words: the parser/amber/title assertions now
+  // read the badge component; the find bar's own census is the import.
+  const badge = readSrc("components/workflow/param-dialect-badge.tsx");
   const bar = readSrc("components/workflow/canvas-find-bar.tsx");
-  must(bar.includes("parseParamQuery"),
+  must(bar.includes('from "./param-dialect-badge"'),
+    "D the find bar renders the shared badge component");
+  must(badge.includes("parseParamQuery"),
     "D the badge arms from the SAME parser the matcher runs");
   must(bar.includes("canvas-find-param-badge"),
-    "D the badge carries its testid");
-  must(bar.includes("bg-amber-400/35"),
+    "D the badge carries its testid (via prop)");
+  must(badge.includes("bg-amber-400/35"),
     "D the badge wears the find dialect's amber — no second color language");
-  must(bar.includes("key matches by substring, value must equal exactly"),
+  must(badge.includes("key matches by substring, value must equal exactly"),
     "D the full match law lives in the badge's title/hover");
-  must(bar.includes("paramDialect ? ("),
+  must(badge.includes("if (!parseParamQuery(query)) return null"),
     "D the badge renders only while the dialect is armed");
   must(bar.includes('placeholder="Find by name, type, or key:value…"'),
     "D the placeholder names the new dialect (discovery without a tutorial)");
-  must(!bar.includes("transition") || !/param-badge[\s\S]{0,200}transition/.test(bar),
+  must(!badge.includes("transition") && !badge.includes("animate-"),
     "D the badge is a state, not an arrival — no cascade rung, no motion debt");
-  must(!/param-badge[\s\S]{0,200}animate-/.test(bar),
-    "D no entrance animation on a question-type marker (state, not event)");
 }
 
 console.log(`\n${PASS} pass / ${FAIL} fail`);
