@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,15 @@ type RouteContext = { params: Promise<{ id: string }> };
 // overlay entries, a bookmark cannot go stale: the snapshot is pure
 // camera numbers with no reference to files, so there is no self-heal
 // pass here — only a strict shape whitelist at the door.
+//
+// t707 — the saved-state door: both handlers carry the same
+// isLocalRequest gate as the workdir-byte routes (t251's sibling
+// closure). A bookmark row is the user's curated view library.
+// Cross-origin PUT already needs a CORS preflight a drive-by page
+// cannot pass — the door's added value is closing no-cors GET blind
+// probing (the route would still EXECUTE behind an opaque response)
+// and keeping the job surface's policy uniform: one door, every
+// handler.
 
 interface BookmarkSnapshot {
   mode?: string;
@@ -157,7 +167,13 @@ function sanitize(raw: unknown): BookmarkEntry[] {
   return out;
 }
 
-export async function GET(_req: NextRequest, ctx: RouteContext) {
+export async function GET(req: NextRequest, ctx: RouteContext) {
+  if (!isLocalRequest(req)) {
+    return NextResponse.json(
+      { error: "Cross-site access to saved viewer state is not allowed" },
+      { status: 403 },
+    );
+  }
   const { id } = await ctx.params;
   try {
     const row = await db.bookmarkSession.findUnique({ where: { jobId: id } });
@@ -175,6 +191,12 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 }
 
 export async function PUT(req: NextRequest, ctx: RouteContext) {
+  if (!isLocalRequest(req)) {
+    return NextResponse.json(
+      { error: "Cross-site access to saved viewer state is not allowed" },
+      { status: 403 },
+    );
+  }
   const { id } = await ctx.params;
   let body: unknown;
   try {
