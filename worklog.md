@@ -11468,3 +11468,24 @@ Stage Summary:
 - 「出生不需要钩子，row 自己记得」：合成锚判决把「不可能的钩点清单」（模板/duplicate/linkify/import 各自的创建路）折叠成组件里的两行——数据已经在 job row 里，再记录一遍是第二真相。
 - 「律住在 lib 里，call site 无法忘」：两个合并窗、双帽、DORMANT 律全部住在 job-journal.ts 内部——五个钩点每个都是一行 recordJobEvent，忘了合并律是不可能的，因为它们根本碰不到。
 - 产出：src/lib/job-journal.ts（新）+ src/lib/store.ts（import + 五钩点）+ src/components/workflow/job-inspector.tsx（JobJournal 组件 + Timeline 节接线）+ scripts/t718-job-journal-unit.mjs（32/0）+ shots-qa/t718-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 十四项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707/t708/t709/t710/t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716 激活判决 + t717 激活判决 + **t718 激活判决（journal 活体：旋钮/note/run/落地逐行现形 + kicked 免双记 + 合成出生行对质 row 字段）** + 验证网 ②非 build 日：自由选题（新 UI 领土侦察） ③床轮换 **5/5 硬上限正点——下窗必须跑 qa 批**（t710 窗重置后 t715/t716/t717/t718 四窗未整批 + t718 落了 store 手术 = 双重理由，t25 批优先） ④census 轮换：零触发面；t718 探针随 journal/store 手术必跑。
+
+## Task 719 — 2026-10-09 00:10 派单窗（非 build 日 · 连续第二十窗）· 床轮换 5/5 硬上限正点：t25 批 9/9 全绿 + t719 UI 驱动再生长
+
+Task: 00:10 cron 派单执行——开局三件套判稳（worklog 尾条核实 = **t718 收官**；server 200；available 3054MB < 3280 → 非 build 日连续第二十窗）→ 入口③床轮换 **5/5 硬上限正点**（t718 遗言双重理由：四窗未整批 + store 手术）→ **本窗 = qa 批窗**：t25 批（9 套）按 t714 成文仪式全流程执行 + t712 先例的 bookmark 再生长随行。
+
+Work Log:
+- [仪式·开局状态判定] 指针核查 = 停在老世界（cmuwipe，未漂）；roster 初判「2」为**探针自己的解析病**（dict 顶层 keys 当行数）——修正解析后 roster = 17/17 满员，世界本未病。seeder 幂等跑完无害（L0 基底重申：bookmark 会话重置回 3 saved、roster 17 落盘、engine-state 幸存）——「生长是可再生实验不是不可再失资产」的 t710 判词照旧。
+- [仪式·指针复位 + census 三台] switch 复位显式执行（ok active=cmuwipe）；t699 census **17/17**（incomplete 0，orphan 22 惰性化石）；t702 首跑 **111/31 = 施法相**（C 层自动施 14 enrichments——层序律活体第三次）→ 二跑 **156/0 = 证法相**（14 skips 0 enrichments，thin-shape guards stand）；t704 census **65/0**（4 entries / 2 rows = seed 基线）。
+- [仪式·整批 9/9 全绿] t251 hardening gates ALL PASS（16 面 ring：bare 403 / cross-site 403 / Host-pin 403 / same-origin 放行 / 合法用户无伤 / console 0）→ t252 write gates ALL PASS → t253 e2e ALL PASS（clip 家族洁检 + console 0）→ t254 subvolume export ALL PASS（53248 voxels 全数父母所有）→ t255 send-to-job ALL PASS → t256 map card ALL PASS → t257 reference card ALL PASS → t258 view-in-3d ALL PASS → t259 metadata gates ALL PASS。**t714 摘 shim 手术后首次整批——零病首跑**（bare 列断言测的是门不是 shim，手术的证词）。
+- [world-guard 三证词] roster restored **17/17**；t251-guard-sweep changed = **空**（无路由漂出其门）；build-guard SKIP（standalone 在盘 = 冻结 bundle 完好，src 超前 provenance 属 build 日事务）。
+- [t719 UI 驱动再生长（t712 先例重演）] seeder 重置后世界回 4 entries——真实用户路径重演生长仪式：Workflow → 3D auto-refine 卡（真鼠标 pointer 事件——卡片走 onPointerDown 非 click，eval click() 无效的教训入档）→ inspector Results → Enlarge run_it020_half1 → View in 3D (Mol*) → viewer ready（contour/σ/clip/slice 全家桶在列）→ Camera view bookmarks popover（**3 saved** 基线）→ 命名输入「t719 UI-driven regrowth」（React 受限输入用原型 setter + input 事件）→ Save → **面板即时 4 saved**。
+- [生长确认三重] ①gallery 聚合 API：refine3d 行 3→**4 entries**（['Centered iso view','Top-down slice','Front half clipped','t719 UI-driven regrowth']）+ MaskCreate 行 1 = **5 entries / 2 rows**，updatedAt = 保存时刻逐字；②dashboard 墙真身 **「5 bookmarks · 2 jobs」**、t719 卡在列；③t704 census 重跑 **65→76 全绿**（生长一 UI 行断言族自动扩编 11 条——thumb codec/门重放/时间戳钳制对新 entry 全套武装，t712 的 65→76 对称完美复演）。
+- [agent-browser 卫生] console error/warn 0 行（仅 molstar plugin 生命周期 debug 4 行）、errors 0 行、截图 ×2 入档（t719-camera-bookmark-saved + t719-wall-5th-entry）、用毕即关。
+- [探针自身病两处（本窗窗史）] ①「roster 2」假病：/api/jobs 返回 {jobs:[...]} 包裹形，len(dict) ≠ 行数——解析探针要先问形状再数数；②卡片点击：job card 走 onPointerDown 事件族，agent-browser eval 的 .click() 不触发 pointer 链——真鼠标 mouse move/down/up 才是全驾链的正路。
+
+Stage Summary:
+- 「轮换上限第三次兑现，这次是零债满绿」：t714 的双债（指针仪式缺环 + shim 中毒）清偿后，本窗整批 9/9 首跑零病——bare 列断言测门不测 shim 的手术证词、指针复位已入成文仪式、层序律（施法相红 → 证法相绿）按剧本走。轮换上限的理论价值第三次被实践确认，第一次以「无事发生」的形式确认——最好的轮换是让人忘记为什么要轮换的那一次。
+- 「假病也是病——探针的解析病」：「roster 2」差点触发一场不必要的 seeder 手术叙事（还好 seeder 幂等且无害）；仪器读数错误与世界疾病的症状难辨，纪律是先质疑自己的读数管再宣布世界有病（对质第二个证人——原始 response 体）。
+- 「生长仪式的成本在降」：t712 首次生长走了完整侦察 + 歧途（canvas bookmark 世界混淆）；本窗同仪式一气呵成——探针病（pointer vs click）是唯一的新知识，两窗间沉淀的路径知识（aria-label 定位、popover 的 data-radix 包裹、React 受限输入的原型 setter）全部复用。世界仪式的学习曲线是复利的。
+- 「65→76 的对称是第二次验证」：t712 生长的断言扩编规律（+11）在 t719 精确复现——census 世界跟随律不是巧合是结构：每个新 entry 带全套武装（thumb codec、门重放、钳制律），仪器跟着世界生长。
+- 产出：scripts/shots-qa/t719-camera-bookmark-saved.png + t719-wall-5th-entry.png + 墙真身 5 entries/2 rows（4→5）+ t704 census 76/0 + t25 批 9/9 判词 + world-guard 三证词 + worklog 本段；下窗入口：①**build 日批次（账单不变 = 十四项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707/t708/t709/t710/t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716 激活判决 + t717 激活判决 + t718 激活判决 + 验证网 ②非 build 日：自由选题（新 UI 领土侦察） ③床轮换 **1/5**（本窗 t25 批重置） ④census 轮换：t704 已随生长跑（76 基线，下窗 seeder 若跑将回 65——生长可再生）；t699/t702 已随仪式跑（下窗随种子手术再跑）；t709-door-coverage 随新路由。
