@@ -4,13 +4,29 @@
 The engine's motioncorr argv calls relion_run_motioncorr with
 --use_motioncor2 --motioncor2_exe <cluster path> (resolved by the t264
 externals probe — the mock rig ships motioncor2 next door). Reads
---i <micrographs.star>, simulates per-micrograph motion correction
+--i <movies star>, simulates per-micrograph motion correction
 (log lines with the word "micrograph" feed the progress parser), writes
 <outdir>/corrected_micrographs.star — the collectOutputs contract.
+
+The star reader speaks the t535 movies dialect: the engine dispatches
+MOVIES stars (data_movies with a _rlnMicrographMovieName column) — the
+exact column the REAL relion_run_motioncorr reads
+(motioncorr_runner.cpp:261 refuses a star without it). Pre-movies
+micrographs stars (_rlnMicrographName) keep working as the fallback;
+the value is read by COLUMN INDEX, not position zero, so optics-group
+leading columns never shift the name out from under the reader
+(the t533 law: the mock learns the missing piece at the deepest layer
+the real binary actually touches).
 """
 import os
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import cf_cryo
+except Exception:  # the dark-room helpers live next door; the star still works without them
+    cf_cryo = None
 
 argv = sys.argv[1:]
 opts = {}
@@ -33,22 +49,35 @@ if not star_in or not os.path.exists(star_in):
 mics = []
 with open(star_in) as fh:
     in_loop = False
-    name_col = None
+    headers = []
+    name_idx = None
     for line in fh:
         t = line.strip()
         if t == "loop_":
             in_loop = True
-            name_col = None
+            headers = []
+            name_idx = None
             continue
-        if t.startswith("_rlnMicrographName"):
-            name_col = t.split()[0]
+        if t.startswith("data_"):
+            in_loop = False
+            headers = []
+            name_idx = None
             continue
-        if t.startswith("_") or t.startswith("#") or t.startswith("data_"):
+        if not t or t.startswith("#"):
             continue
-        if in_loop and t and name_col:
+        if t.startswith("_"):
+            if in_loop:
+                headers.append(t.split()[0])
+            continue
+        if in_loop and headers:
+            if name_idx is None:
+                for want in ("_rlnMicrographMovieName", "_rlnMicrographName"):
+                    if want in headers:
+                        name_idx = headers.index(want)
+                        break
             cols = t.split()
-            if cols:
-                mics.append(cols[0])
+            if name_idx is not None and len(cols) > name_idx:
+                mics.append(cols[name_idx])
 
 print(f"cryoflow-mock motioncorr: {len(mics)} micrograph(s) via motioncor2 at {mc2}")
 # Per-micrograph pacing keeps the progress stream observable — but the
@@ -63,6 +92,43 @@ for n, mic in enumerate(mics, 1):
     sys.stdout.flush()
 
 os.makedirs(outdir, exist_ok=True)
+
+# The corrected micrographs are REAL single-frame sums (the t703 law): the
+# real relion_run_motioncorr consumes the frame STACKS and writes one
+# dose-weighted micrograph per movie — the corrected star's rows point at
+# those NEW files, not back at the movies. Downstream pickers read pixels
+# (t380 dark-blob realism); a row pointing at an nz=4 movie stack would
+# hand a 2D picker a cube (the exact ValueError the first t703 pass
+# exposed). Frame-mean here = the honest mock of the aligned sum; unreadable
+# movies degrade to a flat micrograph so the chain stays runnable.
+mic_dir = os.path.join(outdir, "micrographs")
+os.makedirs(mic_dir, exist_ok=True)
+corrected_rows = []
+for mic in mics:
+    base = os.path.basename(mic)
+    out_mic = os.path.join(mic_dir, base)
+    nx_out = ny_out = 512
+    vals = None
+    if cf_cryo is not None:
+        opened = cf_cryo.read_mrc(mic) if os.path.isabs(mic) else None
+        if opened:
+            nx_r, ny_r, nz_r, arr = opened
+            try:
+                if nz_r > 1 and cf_cryo._np is not None:
+                    img = cf_cryo._np.asarray(arr, dtype=cf_cryo._np.float32).reshape(nz_r, ny_r, nx_r).mean(axis=0)
+                    vals = img.astype(cf_cryo._np.float32)
+                else:
+                    vals = cf_cryo._np.asarray(arr, dtype=cf_cryo._np.float32).reshape(ny_r, nx_r)
+                nx_out, ny_out = nx_r, ny_r
+            except Exception:
+                vals = None  # a cube a 2D sum can't hold — flat fallback below
+    if vals is None:
+        vals = [0.0] * (nx_out * ny_out)
+    cf_cryo.write_mrc(out_mic, nx_out, ny_out, 1, vals, angpix=1.77)
+    # pipeliner dialect: rows resolve from the project root (the script's cwd)
+    corrected_rows.append(f"{os.path.basename(outdir.rstrip('/'))}/micrographs/{base}")
+print(f"wrote {len(corrected_rows)} corrected micrograph(s) under {os.path.basename(outdir.rstrip('/'))}/micrographs")
+
 out = os.path.join(outdir, "corrected_micrographs.star")
 with open(out, "w") as fh:
     # E2E extension (2026-09 review): REAL relion_run_motioncorr (RELION 5)
@@ -78,7 +144,7 @@ with open(out, "w") as fh:
     fh.write("_rlnAccumMotionTotal #2\n")
     fh.write("_rlnAccumMotionEarly #3\n")
     fh.write("_rlnAccumMotionLate #4\n")
-    for k, mic in enumerate(mics):
+    for k, mic in enumerate(corrected_rows):
         total = 2.2 + 0.3 * (k % 4)
         fh.write(f"{mic}\t{total:.2f}\t{total * 0.6:.2f}\t{total * 0.4:.2f}\n")
 print(f"wrote {out}")

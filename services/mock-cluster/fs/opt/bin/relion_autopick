@@ -246,10 +246,18 @@ for n, mic in enumerate(mics, 1):
             opened = cf_cryo.read_mrc(mic_path)
             if opened:
                 _nx, _ny, _nz, _vals = opened
-                detected = cf_cryo.dark_blob_picks(
-                    _vals, _nx, _ny, _diam_min, _diam_max, _log_thresh, max_picks=300
-                )
-                if len(detected) >= 3:
+                detected = None
+                try:
+                    detected = cf_cryo.dark_blob_picks(
+                        _vals, _nx, _ny, _diam_min, _diam_max, _log_thresh, max_picks=300
+                    )
+                except Exception:
+                    # the stub's own contract: "Unreadable mic / no detection →
+                    # legacy synthetic picks". A frame stack an nz=1 picker
+                    # cannot hold (motioncorr rows that still point at movies)
+                    # is exactly that shape — fall back, never die (t703).
+                    detected = None
+                if detected is not None and len(detected) >= 3:
                     real_picks = detected
     base = os.path.basename(mic)
     if base.endswith(".mrc"):
