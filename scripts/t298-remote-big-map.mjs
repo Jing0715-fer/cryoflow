@@ -56,6 +56,8 @@
 //   D  console clean;  Z  roster 15
 //
 // Run: node scripts/t298-remote-big-map.mjs   (server on :3000)
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import {

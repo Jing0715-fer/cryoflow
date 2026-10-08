@@ -25,6 +25,8 @@
 //      failed, terminal-row guard)
 //   D  console clean
 
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";

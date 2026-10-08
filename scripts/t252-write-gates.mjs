@@ -20,6 +20,16 @@
 //      GET/POST only, no-cors fetch GET/POST/HEAD only, and a CORS-mode
 //      cross-origin DELETE/PATCH/PUT needs a preflight that no route
 //      answers (no OPTIONS handlers exist) — blocked by spec.
+//
+// t708 CORRECTION to class 2 — the doctrine held for FORMS and for
+// CORS-mode fetch, but not for NO-CORS fetch: the browser safelists
+// text/plain bodies, and a string body may contain VALID JSON —
+// request.json() reads bodies, not Content-Type headers, so a bare
+// cross-site POST could carry a full payload to any JSON route (creating
+// jobs, edges, workspaces…). Phase B2 below asserts the closure: the
+// t708 writers batch (13 routes) carries the isLocalRequest door, and a
+// headerless JSON write dies 403 at it. The door also makes the job
+// surface's write policy uniform — one door, every write handler.
 // The door-open state for empiar-seed is deliberately NOT fired in QA:
 // it seeds a world (project + 10 jobs + auto-runs). The door is the same
 // isLocalRequest pair proven open on its three siblings — sibling-proof.
@@ -29,6 +39,9 @@
 //   B  the write door — run/stop/duplicate (fake id): bare 403 / cross
 //      Origin 403 / rebound Host 403 (curl forges) / same-origin → 404
 //      route-speak; empiar-seed: the three denials 403
+//   B2 the no-cors JSON hole (t708) — a headerless JSON write dies 403
+//      at the door once live; on a stale bundle it lands 201 and the
+//      probe deletes its own row through the same bare channel
 //   C  self-defense ledger — JSON routes reject a form-style urlencoded
 //      body (400) and explicitly reject empty payloads with their contract
 //      messages (400 + zero state change); roster unchanged throughout
@@ -121,6 +134,38 @@ must(
 // and the roster is untouched by all that poking
 const roster1 = await page.evaluate(async () => (await (await fetch("/api/jobs")).json()).jobs.length);
 must(roster1 >= 12, `roster still 12 after the door probes (got ${roster1})`);
+
+// ---- Phase B2: the no-cors JSON hole (the t708 correction) ---------------------
+// A no-cors fetch MAY carry a JSON string body (text/plain is safelisted;
+// request.json() reads bodies, not content types) — the t252 class-2
+// doctrine did not hold for it. The t708 writers batch doors 13 write
+// routes; a headerless JSON write must die 403 at the door. While the
+// running bundle predates activation the route answers 201 (doorless) —
+// the probe then DELETES what it created through the same bare channel
+// (which is exactly the hole, demonstrated) and reports honestly.
+console.log("== PHASE B2: no-cors JSON writes die at the door (t708) ==");
+const blindJson = await fetch(`${BASE}/api/jobs`, {
+  method: "POST",
+  headers: { "Content-Type": "text/plain" },
+  body: JSON.stringify({ type: "import", name: "t252 door probe", x: 40, y: 40 }),
+});
+if (blindJson.status === 403) {
+  must(true, "headerless JSON write → 403 at the t708 door (closed)");
+} else if (blindJson.status === 201 || blindJson.status === 200) {
+  const probeBody = await blindJson.json().catch(() => ({}));
+  const probeId = probeBody?.job?.id;
+  let cleaned = false;
+  if (probeId) {
+    const del = await fetch(`${BASE}/api/jobs/${probeId}`, { method: "DELETE" });
+    cleaned = del.ok;
+  }
+  must(
+    cleaned,
+    `door NOT yet live (stale bundle) — the blind write landed ${blindJson.status} and the probe deleted its own row through the same bare channel (${cleaned ? "cleaned" : "CLEANUP FAILED"})`
+  );
+} else {
+  must(false, `headerless JSON write → unexpected ${blindJson.status} (want 403 or the doorless 201)`);
+}
 
 // ---- Phase C: self-defense ledger ----------------------------------------------
 console.log("== PHASE C: the JSON routes defend themselves ==");

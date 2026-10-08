@@ -174,34 +174,50 @@ must(
 );
 
 // ---- Phase C: self-defense ledger ----------------------------------------------
-console.log("== PHASE C: self-defense ledger (the t252 class) ==");
+// t708 — the defense now LAYERS: the isLocalRequest door (staged) answers a
+// headerless drive-by with 403 BEFORE the body is read; the route's own
+// body/contract defenses (the t252 class) answer whatever slips past. The
+// drive-by shapes below stay BARE and accept either verdict — the message
+// names which layer answered. The CONTRACT probes (traversal, non-MRC,
+// degenerate, missing job) speak same-origin metadata so they keep testing
+// route-speak exactly, in both worlds (the t252 Phase C precedent).
+console.log("== PHASE C: self-defense ledger (the t252 class, t708 layering) ==");
 const sendUrl = `${BASE}/api/jobs/${host.id}/outputs/subvolume-job`;
 
-// urlencoded — the cross-site HTML form shape: dies at request.json()
+// urlencoded — the cross-site HTML form shape: dies at the door (403) once
+// it is live, at request.json() (400) until then — no state either way
 const formRes = await fetch(sendUrl, {
   method: "POST",
   headers: { "Content-Type": "application/x-www-form-urlencoded" },
   body: "path=orthovol.mrc&x0=0&x1=1",
 });
-must(formRes.status === 400, `urlencoded body → 400, no state (got ${formRes.status})`);
+must(
+  [400, 403].includes(formRes.status),
+  `urlencoded body dies — ${formRes.status === 403 ? "at the t708 door (403)" : "at the body parse (400)"} (got ${formRes.status})`
+);
 
-// empty JSON — missing path
+// empty JSON — missing path: bare, so the door (403) or the contract (400)
 const emptyRes = await fetch(sendUrl, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({}),
 });
-must(emptyRes.status === 400, `empty JSON → 400 (got ${emptyRes.status})`);
-const emptyErr = await emptyRes.json();
 must(
-  typeof emptyErr.error === "string" && emptyErr.error.includes("map path is required"),
-  `the empty body's contract message names the missing path ("${(emptyErr.error ?? "").slice(0, 60)}")`
+  [400, 403].includes(emptyRes.status),
+  `empty JSON dies — ${emptyRes.status === 403 ? "at the door (403)" : "at the contract (400)"} (got ${emptyRes.status})`
 );
+if (emptyRes.status === 400) {
+  const emptyErr = await emptyRes.json();
+  must(
+    typeof emptyErr.error === "string" && emptyErr.error.includes("map path is required"),
+    `the empty body's contract message names the missing path ("${(emptyErr.error ?? "").slice(0, 60)}")`
+  );
+}
 
 // traversal — the containment layer refuses before any map math
 const travRes = await fetch(sendUrl, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "sec-fetch-site": "same-origin" },
   body: JSON.stringify({ path: "../../../../../etc/passwd", x0: 0, x1: 0.5, y0: 0, y1: 0.5, z0: 0, z1: 0.5 }),
 });
 must(travRes.status === 400, `traversal path → 400 (got ${travRes.status})`);
@@ -211,7 +227,7 @@ const dummy = path.join(workdir, "qa-notes-t255.txt");
 writeFileSync(dummy, "not a map\n");
 const nonMrc = await fetch(sendUrl, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "sec-fetch-site": "same-origin" },
   body: JSON.stringify({ path: "qa-notes-t255.txt", x0: 0, x1: 0.5, y0: 0, y1: 0.5, z0: 0, z1: 0.5 }),
 });
 must(nonMrc.status === 400, `non-MRC path → 400 (got ${nonMrc.status})`);
@@ -225,7 +241,7 @@ rmSync(dummy, { force: true });
 // degenerate fractions — the geometry contract (lo < hi)
 const degen = await fetch(sendUrl, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "sec-fetch-site": "same-origin" },
   body: JSON.stringify({ path: "orthovol.mrc", x0: 0.5, x1: 0.5, y0: 0, y1: 1, z0: 0, z1: 1 }),
 });
 must(degen.status === 400, `degenerate fractions (lo === hi) → 400 (got ${degen.status})`);
@@ -233,7 +249,7 @@ must(degen.status === 400, `degenerate fractions (lo === hi) → 400 (got ${dege
 // missing job — honest 404
 const missingRes = await fetch(`${BASE}/api/jobs/nonexistent-t255/outputs/subvolume-job`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "sec-fetch-site": "same-origin" },
   body: JSON.stringify({ path: "orthovol.mrc", x0: 0, x1: 0.5, y0: 0, y1: 0.5, z0: 0, z1: 0.5 }),
 });
 must(missingRes.status === 404, `missing job → 404 (got ${missingRes.status})`);

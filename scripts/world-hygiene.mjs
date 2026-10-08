@@ -77,6 +77,8 @@
 // slots are occupancy-aware: a slot is only used if no CURRENT job
 // rectangle sits on it (relocations must not manufacture the next
 // overlap).
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { readFileSync } from "fs";
 const BASE = "http://localhost:3000";
 const j = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];

@@ -32,6 +32,8 @@
 //
 // Run: node scripts/t296-big-map-viewer.mjs   (server on :3000)
 
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, lstatSync, writeSync, openSync, closeSync } from "node:fs";
 import { execSync } from "node:child_process";

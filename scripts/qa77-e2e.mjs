@@ -41,6 +41,8 @@
 //      S-phase baseline (count / orphans / workspaces), zero new
 //      workdir directories, zero engine-state references
 // Run: node scripts/qa77-e2e.mjs   (server on :3000)
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";

@@ -29,6 +29,8 @@
 //   D  cleanup + console clean
 //
 // Run: node scripts/t256-map-card.mjs   (server on :3000)
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { resolveRefineHost } from "./qa-refine-host.mjs";

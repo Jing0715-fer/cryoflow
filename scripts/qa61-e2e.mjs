@@ -23,6 +23,8 @@
 //      SHEET alive (the pre-fix behavior closed both)
 //   C  CONSOLE: 0 page errors
 // Usage: QA_PHASES=A node scripts/qa61-e2e.mjs
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { appendFileSync } from "node:fs";
