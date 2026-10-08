@@ -10889,3 +10889,24 @@ Stage Summary:
 - 「default case 的注释是设计沉默的唯一辩护席」：postprocess 等 4 job 的无声若没有 L569-571 那行注释自证，普查就只能判「缺口」——**「故意不做」必须住在代码里可被发现的位置**，否则设计沉默与遗漏无法区分（t688 的两扇门律在负空间的推广）。topazdenoise 是注释没点到名的成员——判「同类但未点名」，价格最低的未来分支候选。
 - 「『恰一 active』比『六个项目』活得长」：t609 的世界守卫把作者日的世界形状（6 projects + 特定 id）写进了硬编码——世界一变型就拒跑。正确的守卫验的是**结构合同**（存在恰一 active 世界、世界非空、有规范宿主），不是**世界快照**（id、数量）。守卫的义务是「别在借来的世界跑」，不是「只在作者日的世界跑」。
 - 产出：scripts/t692-strip-aliveness-census.py（只读普查工具，可重跑）+ worklog 本段；下窗入口：①**build 日首选批次**：B 类六处文件名容忍（output-summary.ts 一线级 ×6）+ build + 重启 + t692 census 重跑（预期 11 alive）+ agent-browser UI 抽查 + **t609 完整复活三件套**（lib 修复 + 探针手术 [world guard 结构合同化 + Q/R 基线骑 census + digits 改 API 取证 + 摘除 WORLD-DRIFT NOTICE] + 活跑×2）②非 build 日续零 build 车道（C 类种子缺口的种子脚本增补设计 = 纯文档；或 era 探针复活预手术 = 探针域内零 build 部分）③样式车道（账本清零）④judge 风暴（维持文档化在案）⑤演练床轮换（Task 691 窗 3 跑过，下轮 3-5 窗后）⑥storage 合同执行（新 key 按命名律走）。
+
+---
+Task ID: 693 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081157)
+Task: 11:55 派单执行——开局三件套判稳（t677 30/0；available 3180MB < 3280 → 非 build 日连续第五窗）→ 自主新需：**t251/t259 门 sweep 的全家族 proactive 补全**（88 路由守卫普查——历次 sweep 全是反应式的，本窗首次正面全家扫描）→ 3 真 GET 发现 + 13 写门候选 + 8 豁免 + 可重跑 census 工具留驻 + worklog 收官 + qa 车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 692 收官（HEAD 08967d8 树净）；server 200/3.3ms + t677 30/0 判稳先行；available 3180MB < 3280 → **非 build 日**（连续第五窗，较上窗回升 44MB 但仍差 100MB——回升趋势初现，build 日或在望）。
+- [定道] Task 692 入口②的 t609 预手术被既有判决否决（「三件套同窗执行」——不做半验证手术）；②a 种子设计纯文档偏薄。选 **API 门普查**：t251 关闭 #5、t259 扫 8 holdout、t266 给 topaz-training 补门——历次全是**反应式**（探针/功能摸到哪扇门哪扇才装），全家正面扫描从未做过。零 build 纯读，恰配天气。
+- [普查·两波] 第一波 rg -L 误用（--follow 非 invert）——30 个「无守卫」实为带守卫，立即自纠改 --files-without-match：**88 路由，64 带 isLocalRequest，24 无**。第二波逐路由分诊：fs 指纹扫描（readFile/readdir/workdir/path.join/spawnSync…）+ 动词表——途中工具方言自病两记：①`.star` 正则撞 `.startedAt`（3 假阳性，inspect 当场抓获——census 工具自己的暗写者也要审，t684-t692 家族课的工具版）；②bash 管道 echo $? 读的是 head 的退出码非 rg 的（无效检查重做）。
+- [判决·3 FINDINGS（build 日批次，各 = 门 + 威胁模型注释 + gate-ripple 清单）] ①**GET /api/hpc/sbatch/[id]**（fs-refs 4，readFileSync 星文件内容直接出——#5 类正统兄弟，生于 09-07 前朝、错过历次反应式 sweep）；②**GET /api/jobs/[id]/rebalance**（读 workdir 的 rebalance_report.json 出）；③**GET /api/jobs/[id]/command**（不读文件内容但泄露 workdir 路径 + argv——t259 profiles 类兄弟：「low sensitivity 从不低值」）。三者皆 GET 读、皆 workdir/路径派生、皆生于 t259 之前。
+- [判决·13 CANDIDATES（按 t259 世界塑形判据逐路由定夺）] **workspaces + [id]**（重命名/删除——projects 系 t259 装了门而其兄弟 workspace 系没有：不对称坐实，六文件零 origin 代码验证）；**subvolume-job POST**（spawn 计算任务！）；**custom-template / workflow-import / pipeline-template**（世界塑形 import）；**edges GET,POST + [id] DELETE**（工作流图突变）；jobs/layout、hpc/simulate、jobs POST、project GET,POST、jobs/[id] PATCH,DELETE（低风险档，build 日按判据定）。gate-ripple 影响半径初评：sbatch 的敲门探针（t184/diag-t320）已带 Origin；rebalance/command 的 rg 命中多为源码 grep 非敲门——精确清单按 t259 成文程序（client type 单出口）当日执行。
+- [判决·8 EXEMPT] activity×2、ai/judge-worker、ai/providers/health、camera-bookmarks、overlay-session（hit 是注释）、api 根、views/gallery（hit 是 data:image 前缀检查）——纯 DB 读，威胁模型明文豁免。
+- [回归] 本窗零产品代码改动（纯普查 + 定价）——t677 30/0 即覆盖；零 build 零重启。census 工具留驻 scripts/（t692 判例：只读可重跑证据不焚）。
+
+Stage Summary:
+- 「反应式的门 sweep 永远在追赶，proactive 的普查一次清账」：t251→t259→t266 的装门史是被探针/功能推着走的——每扇门都是「那个路由被摸到了」才补。本窗正面扫描发现 24 个无门路由里 3 个真发现全部**生于 sweep 之前**（不是新路由逃逸，是旧路由从未被扫到）——**欠账不在新增里，在存量里**；存量的债只有全家普查能照出来（t690 灭绝证词、t691 家族普查、t692 strip 活性、t693 门 census——非 build 日车道已形成「存量审计系列」方法论）。
+- 「census 工具自身也是探针，它的方言也要审」：`.star` 撞 `.startedAt`、rg -L 当 invert 用、管道退出码读错——三次假信号全部发生在「判决前的证据层」，inspect 当场抓获。**普查的结论可以信任的前提是普查的工具过得了它自己的普查**——t684-t692 的「先审自己的暗写者」家族课，本窗补上工具方言版。
+- 「不对称是最容易被漏看的缺口」：projects 系装了门而 workspaces 系没装——单看每一面都有理由（t259 扫的是「当时的 holdout」），并排放着看才露出缝。**普查的价值在并排**：64:24 的比率本身不重要，24 里面的分层（读/写/豁免）才是判决——而分层只有把全部路由拉到一张桌上才可能。
+- 「findings 与 candidates 的界线是威胁模型不是直觉」：3 个 GET 直接入批次（workdir 派生读，#5 类正统）；13 个写路由是 CANDIDATE 不是 findings——t259 的判据（世界塑形 × JSON 写盲区）要逐路由过，不是一刀切全装（低风险档装门是仪式不是防线）。**普查给证据，判据给判决，两者不同源**。
+- 产出：scripts/t693-door-census.py（只读门 census，可重跑——build 日装门后重跑预期 64→67+）+ worklog 本段；下窗入口：①**build 日批次（合并价）**：t692 B 类六处文件名容忍 + t609 完整复活三件套 + t693 三扇 GET 门（+ 按判据定夺的写门子集）+ 各自验证（census 重跑 ×2 + gate-ripple 清单 + t609 活跑×2）——一个 build 日窗口可清三窗的账 ②非 build 日：写门判据的逐路由预审（纯文档）；era 探针复活预手术维持否决 ③样式车道（账本清零）④judge 风暴（维持文档化）⑤演练床轮换（Task 691 窗 3，下轮 3-5 窗后）⑥storage 合同执行。
