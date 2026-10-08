@@ -40,7 +40,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { PORT_COLORS, coerceParam, jobType, portsCompatible, tabsFor, visibleOutputs } from "@/lib/workflow";
+import { PORT_COLORS, coerceParam, jobType, outputKindOf, portsCompatible, tabsFor, visibleOutputs } from "@/lib/workflow";
 import { registerParamFlusher, useWorkflowStore } from "@/lib/store";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
 import { ClassGallery } from "./class-gallery";
@@ -197,20 +197,41 @@ function formatStagedBytes(bytes?: number): string {
 function EdgeChip({
   label,
   direction,
+  kind,
   onRemove,
 }: {
   label: string;
   direction: "in" | "out";
+  /** t738 — the WATER color: the kind the wire itself carries (derived
+   *  from the SOURCE job's output port — the same book every other
+   *  reader asks). Undefined for legacy port-less edges — a chip with
+   *  no word stays colorless: the sample never lies. */
+  kind?: PortKind | undefined;
   onRemove: () => void;
 }) {
+  const ink = kind ? PORT_COLORS[kind].wire : null;
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-secondary/60 py-1 pl-2 pr-1 text-xs">
+    <span
+      className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-secondary/60 py-1 pl-2 pr-1 text-xs"
+      title={kind ? `${label} — ${kind} data` : label}
+    >
       {direction === "in" ? (
         <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : null}
-      <span className="truncate" title={label}>
-        {label}
-      </span>
+      {/* t738 — the color sample rides the chip (t735's dialect): the
+          wire's resting hex, drawn as a dot, so the I/O face teaches
+          what the WIRE says — the port row's dot is the SOCKET's color
+          (what it can accept), the chip's dot is the WATER's color
+          (what actually flows). aria-hidden: the chip's title speaks,
+          the dot paints. */}
+      {ink ? (
+        <span
+          aria-hidden="true"
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: ink }}
+        />
+      ) : null}
+      <span className="truncate">{label}</span>
       {direction === "out" ? (
         <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : null}
@@ -360,6 +381,7 @@ function PortRow({
   port,
   direction,
   edges,
+  edgeKinds,
   jobNameById,
   onRemove,
   footer,
@@ -367,6 +389,8 @@ function PortRow({
   port: PortSpec;
   direction: "in" | "out";
   edges: EdgeDTO[];
+  /** t738 — edge id → the kind its wire carries (undefined = legacy). */
+  edgeKinds: Map<string, PortKind | undefined>;
   jobNameById: Map<string, string>;
   onRemove: (id: string) => void;
   /** Extra control under the chips row (e.g. "Link source…" picker). */
@@ -401,6 +425,7 @@ function PortRow({
                 jobNameById.get(direction === "in" ? e.fromJobId : e.toJobId) ?? "Unknown job"
               }
               direction={direction}
+              kind={edgeKinds.get(e.id)}
               onRemove={() => onRemove(e.id)}
             />
           ))
@@ -416,13 +441,31 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
   const jobs = useWorkflowStore((s) => s.jobs);
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
 
+  const incoming = edges.filter((e) => e.toJobId === job.id);
+  const outgoing = edges.filter((e) => e.fromJobId === job.id);
+
   const jobNameById = React.useMemo(
     () => new Map(jobs.map((j) => [j.id, j.name])),
     [jobs]
   );
 
-  const incoming = edges.filter((e) => e.toJobId === job.id);
-  const outgoing = edges.filter((e) => e.fromJobId === job.id);
+  // t738 — the WATER ledger: edge id → the kind the wire carries. The
+  // derivation is the same single lookup the wires themselves drink
+  // (outputKindOf on the SOURCE job's type + fromPort) — the I/O face
+  // asks the book, never re-derives. Legacy port-less edges land as
+  // undefined and their chips stay colorless (honest no-word).
+  const edgeKinds = React.useMemo(() => {
+    const jobTypeById = new Map(jobs.map((j) => [j.id, j.type]));
+    const m = new Map<string, PortKind | undefined>();
+    for (const e of [...incoming, ...outgoing]) {
+      const fromType = e.fromJobId ? jobTypeById.get(e.fromJobId) : undefined;
+      // a legacy edge without a fromPort speaks no word — undefined is
+      // its honest kind (the chip stays colorless)
+      m.set(e.id, fromType && e.fromPort ? outputKindOf(fromType, e.fromPort) : undefined);
+    }
+    return m;
+  }, [incoming, outgoing, jobs]);
+
   const inputs = spec?.inputs ?? [];
   const outputs = spec?.outputs ?? [];
 
@@ -461,6 +504,7 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
                   port={port}
                   direction="in"
                   edges={portEdges}
+                  edgeKinds={edgeKinds}
                   jobNameById={jobNameById}
                   onRemove={(id) => void removeEdge(id)}
                   footer={
@@ -494,6 +538,7 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
                 port={port}
                 direction="out"
                 edges={edgesFor(port, i, "out")}
+                edgeKinds={edgeKinds}
                 jobNameById={jobNameById}
                 onRemove={(id) => void removeEdge(id)}
               />
