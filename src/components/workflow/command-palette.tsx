@@ -97,6 +97,7 @@ import { fmtAgo } from "@/lib/duration";
 import {
   loadUserParamPresets,
   recentFirst,
+  reconcileUserParamPresets,
   USER_PARAM_PRESETS_EVENT,
   type UserParamPreset,
 } from "@/lib/user-param-presets";
@@ -284,6 +285,11 @@ export function CommandPalette() {
   React.useEffect(() => {
     if (!open) return;
     setUserPresets(loadUserParamPresets());
+    // t715 — the shelf may have grown on another browser since this one
+    // last looked; the reconcile announces through the changed event and
+    // the listener below re-reads. Fire-and-forget: the palette paints
+    // from the local list immediately, the sync lands whenever it lands.
+    void reconcileUserParamPresets();
   }, [open]);
   React.useEffect(() => {
     const onPresetsChanged = () => setUserPresets(loadUserParamPresets());

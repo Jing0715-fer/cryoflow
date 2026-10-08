@@ -166,3 +166,23 @@ model Edge {
   @@unique([fromJobId, toJobId])
   @@index([projectId])
 }
+
+/*
+ * Task 715 — the user param presets' server mirror (the t713 lib's
+ * second storage layer). One fixed row (id = "user-param-presets")
+ * holding the WHOLE collection as a JSON array of
+ * { id, type, name, params, createdAt } — the exact wire shape the
+ * localStorage lib already speaks, so the shelf is a mirror, not a
+ * second dialect. Unlike BookmarkSession (whose row is deleted when a
+ * job's list empties), this row is KEPT on empty: the row's existence
+ * is the "synced" flag — a fresh server that never saw a shelf must
+ * not be mistaken for "the user deleted everything on another
+ * browser", and the row surviving an empty PUT is what makes that
+ * distinction honest. Global by design: presets follow the USER, not
+ * any job or project.
+ */
+model PresetShelf {
+  id        String   @id
+  data      String
+  updatedAt DateTime @updatedAt
+}

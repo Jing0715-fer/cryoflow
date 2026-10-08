@@ -12,11 +12,17 @@
  * STORAGE LAYER — the t712 law says ask first. These presets live in
  * localStorage (`cryoflow.user-param-presets:v1`), the same layer the
  * canvas viewport bookmarks live on and the same layer the Mol* camera
- * bookmarks mirror instantly. A per-browser asset is the honest first
- * version for a local single-user companion app; a server-row sync (the
- * camera-bookmark dual-mirror pattern) is the natural next layer when a
- * cross-browser face asks for it — the shape here is already the wire
- * shape that sync would PUT.
+ * bookmarks mirror instantly. Since Task 715 they ALSO live on the
+ * server (the camera-bookmark dual-mirror pattern): one PresetShelf row
+ * behind /api/param-presets holding the WHOLE collection in this same
+ * wire shape. The dialect below is unchanged — load/add/delete stay
+ * sync and local (the inspector's and palette's laws don't move),
+ * persist() dual-writes (local first, then a fire-and-forget PUT whose
+ * failure the session shrugs off — localStorage stays the session
+ * truth), and reconcileUserParamPresets() adopts the server list when
+ * one exists (the shelf row's existence is the synced flag: a fresh
+ * server that never saw a shelf must not be mistaken for "the user
+ * deleted everything on another browser").
  *
  * APPLY SEMANTICS — a snapshot, not a diff. Saving expands the job's
  * params to a FULL spec-key snapshot (stored value when present, the
@@ -80,14 +86,45 @@ export function loadUserParamPresets(): UserParamPreset[] {
   }
 }
 
+const SHELF_ENDPOINT = "/api/param-presets";
+
+/** bumped on every local write — the reconcile's dirty-guard reads it so
+ *  a save that happens DURING a fetch is never overwritten by the stale
+ *  snapshot the fetch comes back with (the camera-bookmark dirtyRef
+ *  dialect, module-scoped because this lib is module-scoped). A sequence
+ *  counter, not a timestamp: two events in the same millisecond must
+ *  not coalesce into "no save happened". */
+let localWriteSeq = 0;
+
+function pushShelfToServer(list: UserParamPreset[]): void {
+  if (typeof window === "undefined" || typeof window.fetch !== "function") return;
+  try {
+    void window
+      .fetch(SHELF_ENDPOINT, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presets: list }),
+      })
+      .catch(() => {
+        /* offline / server down — localStorage stays the session truth;
+         * the next reconcile or save re-pushes. The mirror is an
+         * optimization over the local list, never a gate on it. */
+      });
+  } catch {
+    /* fetch itself refused (CSP, privacy mode) — same shrug */
+  }
+}
+
 function persist(list: UserParamPreset[]): void {
   if (typeof window === "undefined") return;
+  localWriteSeq += 1;
   try {
     window.localStorage.setItem(USER_PARAM_PRESETS_KEY, JSON.stringify(list));
   } catch {
     // quota/privacy-mode refusal — the caller's UI already treats the
     // in-memory list as the truth for this session; nothing to escalate
   }
+  pushShelfToServer(list);
   window.dispatchEvent(new CustomEvent(USER_PARAM_PRESETS_EVENT));
 }
 
@@ -137,6 +174,62 @@ export function deleteUserParamPreset(id: string): UserParamPreset[] {
  *  reads; the server's spec-key filter stays the second gate regardless. */
 export function presetsForType(presets: UserParamPreset[], type: string): UserParamPreset[] {
   return presets.filter((p) => p.type === type);
+}
+
+/** Adopt the server shelf into this browser — the dual-mirror's second
+ *  half (Task 715). Fire-and-forget: surfaces call it on open/mount and
+ *  let the changed event deliver the result. Laws:
+ *  - synced:true  → the server list IS the truth (even when empty —
+ *    a deletion on another browser propagates); adopt, re-seed the local
+ *    mirror, announce via the changed event. Skipped silently when the
+ *    server list already equals the local one (no event storms on
+ *    every palette open).
+ *  - synced:false → a server that never saw a shelf; the local list is
+ *    the truth and nothing moves (the first local save creates the row).
+ *  - fetch failed → the local list restores everything, silently.
+ *  - a local write that lands DURING the fetch wins (localWriteSeq
+ *    dirty-guard) — the user's just-made save is never regressed by a
+ *    stale snapshot.
+ *  In-flight dedup: two surfaces opening at once fire one GET, not two. */
+let reconcileInFlight: Promise<void> | null = null;
+
+export function reconcileUserParamPresets(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (reconcileInFlight) return reconcileInFlight;
+  const seqAtStart = localWriteSeq;
+  reconcileInFlight = (async () => {
+    try {
+      const r = await window.fetch(SHELF_ENDPOINT, { signal: AbortSignal.timeout(2500) });
+      if (!r.ok) return; // 403/404/500 — local list stays the truth
+      const j = (await r.json()) as { presets?: unknown; synced?: boolean };
+      if (!Array.isArray(j?.presets)) return;
+      if (j.synced !== true) return; // fresh server — local is the truth
+      if (localWriteSeq !== seqAtStart) return; // dirty-guard: local save raced ahead
+      const server = j.presets.filter(
+        (p): p is UserParamPreset =>
+          p != null &&
+          typeof p === "object" &&
+          typeof (p as UserParamPreset).id === "string" &&
+          typeof (p as UserParamPreset).type === "string" &&
+          typeof (p as UserParamPreset).name === "string" &&
+          (p as UserParamPreset).params != null &&
+          typeof (p as UserParamPreset).params === "object"
+      );
+      const local = loadUserParamPresets();
+      if (JSON.stringify(server) === JSON.stringify(local)) return; // already in step
+      try {
+        window.localStorage.setItem(USER_PARAM_PRESETS_KEY, JSON.stringify(server));
+      } catch {
+        return; // private mode — session stays on the local list
+      }
+      window.dispatchEvent(new CustomEvent(USER_PARAM_PRESETS_EVENT));
+    } catch {
+      /* offline / timeout — the local copy keeps its truth */
+    }
+  })().finally(() => {
+    reconcileInFlight = null;
+  });
+  return reconcileInFlight;
 }
 
 /** Newest first, stable, non-mutating — the palette's "Add from your

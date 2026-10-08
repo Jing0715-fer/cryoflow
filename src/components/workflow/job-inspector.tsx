@@ -91,7 +91,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, presetsForType, snapshotSpecParams, countEffectiveDiffs, USER_PARAM_PRESETS_EVENT, type UserParamPreset } from "@/lib/user-param-presets";
+import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, presetsForType, snapshotSpecParams, countEffectiveDiffs, reconcileUserParamPresets, USER_PARAM_PRESETS_EVENT, type UserParamPreset } from "@/lib/user-param-presets";
 import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
 import { planSubtreeRun } from "@/lib/subtree-run";
@@ -1409,6 +1409,10 @@ function ParamPresetsRow({ job }: { job: JobDTO }) {
   const refresh = React.useCallback(() => setPresets(loadUserParamPresets()), []);
   React.useEffect(() => {
     refresh();
+    // t715 — adopt the server shelf (fire-and-forget): a snapshot saved on
+    // another browser lands here via the changed event the reconcile
+    // dispatches; offline it shrugs and the local list answers.
+    void reconcileUserParamPresets();
     window.addEventListener(USER_PARAM_PRESETS_EVENT, refresh);
     return () => window.removeEventListener(USER_PARAM_PRESETS_EVENT, refresh);
   }, [refresh]);
