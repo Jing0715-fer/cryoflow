@@ -921,25 +921,47 @@ export function WorkflowCanvas() {
   // toolbar's legend (null when none). Ephemeral view state, same family
   // as the hover channel — deliberately not store material.
   const [legendKind, setLegendKind] = React.useState<PortKind | null>(null);
+  // t739 — the legend's hover card: which word's index card is open (null
+  // when none). Same ephemeral family as legendKind, and the two answer
+  // different questions: hover READS the list, click FOCUSES the wires —
+  // the card is the TOC's index page, the focus is the reading lamp.
+  const [legendHover, setLegendHover] = React.useState<PortKind | null>(null);
   // t737 — the legend face's roster: the kinds the CURRENT world's wires
   // actually wear, derived from the same book the wires themselves read
   // (outputKindOf + PORT_COLORS), in the book's own order. A legend of
   // colors this canvas never paints would be a lie; the roster is the
   // world's own chromatography. Each entry carries its wire count — the
-  // title teaches how MANY wires speak that word.
+  // title teaches how MANY wires speak that word. t739 — each entry also
+  // carries its wire ROWS (from-name → to-name), the index page the hover
+  // card prints; and the roster speaks the CANVAS's caliber: a wire
+  // belongs only when BOTH endpoints are visible jobs — the same law
+  // edges-layer paints by (cross-workspace flows leave the roster with
+  // their missing target). The legend indexes the drawn canvas, not the
+  // ledger: what isn't painted has no entry to teach from.
   const legend = React.useMemo(() => {
     const counts = new Map<PortKind, number>();
+    const rows = new Map<PortKind, { from: string; to: string }[]>();
     const byId = new Map(jobs.map((j) => [j.id, j] as const));
     for (const e of edges) {
       if (!e.fromPort) continue;
       const from = byId.get(e.fromJobId);
       if (!from) continue;
+      const to = e.toJobId ? byId.get(e.toJobId) : undefined;
+      if (!to) continue;
       const k = outputKindOf(from.type, e.fromPort);
-      if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+      if (!k) continue;
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+      const list = rows.get(k) ?? [];
+      list.push({ from: from.name, to: to.name });
+      rows.set(k, list);
     }
     return (Object.keys(PORT_COLORS) as PortKind[])
       .filter((k) => counts.has(k))
-      .map((k) => ({ kind: k, wires: counts.get(k) ?? 0 }));
+      .map((k) => ({
+        kind: k,
+        wires: counts.get(k) ?? 0,
+        rows: rows.get(k) ?? [],
+      }));
   }, [edges, jobs]);
   // t737 — Escape lets the focus go: the legend's question is a view
   // state, and one keypress retreats. Mounted only while a focus is live.
@@ -3244,36 +3266,88 @@ export function WorkflowCanvas() {
             wire's resting hex (t734's dialect — inline style, since the
             color table lives in lib where tailwind's JIT never looks);
             the word rides from 2xl up (the two-size law: compact face =
-            dot only, full face = dot + word). */}
+            dot only, full face = dot + word).
+            t739 — the TOC grows an index page: hovering (or keyboard-
+            focusing) a word opens ITS card — that word's wires listed as
+            "from → to" rows (the hover card's own name law, borrowed from
+            the wire card's title), the click/Escape hint riding the card's
+            footer instead of the native title (the card and the tooltip
+            should never say the same thing twice). The card is a view —
+            pointer-events-none so it can't catch its own mouse, condition-
+            rendered so the DOM stays quiet until asked, and anchored
+            bottom-full (the toolbar lives on the canvas floor; the card
+            floats up into the world it describes). */}
         <div
           data-canvas-ui="kind-legend"
           className="hidden items-center gap-1 pl-0.5 lg:flex"
           role="group"
           aria-label="Data kinds flowing on the canvas wires"
         >
-          {legend.map(({ kind: k, wires }) => {
+          {legend.map(({ kind: k, wires, rows }) => {
             const active = legendKind === k;
+            const open = legendHover === k;
             return (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setLegendKind(active ? null : k)}
-                aria-pressed={active}
-                title={`${k} data on ${wires} wire${wires === 1 ? "" : "s"} — click to focus, Escape to clear`}
-                data-canvas-ui="kind-legend-item"
-                data-kind={k}
-                className={cn(
-                  "flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                  active && "bg-accent text-foreground"
+              <div key={k} className="relative flex">
+                <button
+                  type="button"
+                  onClick={() => setLegendKind(active ? null : k)}
+                  onMouseEnter={() => setLegendHover(k)}
+                  onMouseLeave={() =>
+                    setLegendHover((cur) => (cur === k ? null : cur))
+                  }
+                  onFocus={() => setLegendHover(k)}
+                  onBlur={() =>
+                    setLegendHover((cur) => (cur === k ? null : cur))
+                  }
+                  aria-pressed={active}
+                  aria-describedby={open ? `kind-legend-card-${k}` : undefined}
+                  title={`${k} data on ${wires} wire${wires === 1 ? "" : "s"}`}
+                  data-canvas-ui="kind-legend-item"
+                  data-kind={k}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                    active && "bg-accent text-foreground"
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: PORT_COLORS[k].wire }}
+                  />
+                  <span className="hidden 2xl:inline">{k}</span>
+                </button>
+                {open && (
+                  <div
+                    id={`kind-legend-card-${k}`}
+                    role="tooltip"
+                    data-canvas-ui="kind-legend-card"
+                    data-kind={k}
+                    className="pointer-events-none absolute bottom-full left-0 z-40 mb-1.5 w-max max-w-64 rounded-md border bg-popover p-2 text-xs shadow-md"
+                  >
+                    <div className="flex items-center gap-1.5 font-medium text-foreground">
+                      <span
+                        aria-hidden="true"
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: PORT_COLORS[k].wire }}
+                      />
+                      <span>{k}</span>
+                      <span className="font-normal text-muted-foreground">
+                        · {wires} wire{wires === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="mt-1 space-y-0.5">
+                      {rows.map((r, i) => (
+                        <div key={i} className="truncate text-muted-foreground">
+                          {r.from} <span aria-hidden="true" className="text-border">→</span> {r.to}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-1.5 border-t pt-1.5 text-[10px] text-muted-foreground">
+                      click to focus · Esc to clear
+                    </div>
+                  </div>
                 )}
-              >
-                <span
-                  aria-hidden="true"
-                  className="size-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: PORT_COLORS[k].wire }}
-                />
-                <span className="hidden 2xl:inline">{k}</span>
-              </button>
+              </div>
             );
           })}
         </div>
