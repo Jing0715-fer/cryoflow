@@ -24,10 +24,11 @@
 //      roster snapshot trigger (jobs.length), honest nulls (fetch
 //      failure, empty window, all-dormant), the footer that points to
 //      the archive, motion-reduce honesty.
-//   D  the cascade's ninth rung — the dashboard ladder 140→460 with the
-//      digest at 260, the settle at 740 (460+240 = 700 lands, 40ms of
-//      margin — the t716 margin law, numerically re-proven), and the
-//      t576 live-fire probe synchronized (nine rungs, 0.46s, 740ms).
+//   D  the cascade's tenth-era ladder — 140→500 with the digest still at
+//      260 (t721's notes wall took 300, everyone after shifted +40), the
+//      settle at 780 (500+240 = 740 lands, 40ms of margin — the t716
+//      margin law, numerically re-proven), and the t576 live-fire probe
+//      synchronized (ten rungs, 0.5s, 780ms).
 //
 // Run:  node scripts/unit-runner.mjs scripts/t720-journal-digest-unit.mjs
 
@@ -193,39 +194,39 @@ must(/aria-label=\{`?\$\{face\.verb\} on \$\{job\.name\}/.test(digestSrc) || /ar
 must(!/\+N earlier|setShowAll/.test(digestSrc),
   "C13 no expander — a cross-job expander would BE a second archive (the shopwindow law's teeth)");
 
-// ---------- D: the cascade's ninth rung ----------
-console.log("D the cascade's ninth rung:");
+// ---------- D: the cascade's tenth-era ladder ----------
+console.log("D the cascade's tenth-era ladder:");
 
 const dashSrc = allSrc[1];
 const rungs = [...dashSrc.matchAll(/"--dash-d": "(\d+)ms"/g)].map((m) => Number(m[1]));
-must(rungs.length === 9 && rungs.join(",") === "140,180,220,260,300,340,380,420,460",
-  "D1 the dashboard ladder is nine rungs, 140→460", rungs.join(", "));
+must(rungs.length === 10 && rungs.join(",") === "140,180,220,260,300,340,380,420,460,500",
+  "D1 the dashboard ladder is ten rungs, 140→500", rungs.join(", "));
 
 // order-proof: the 260ms wrapper must be the one wrapping <JournalDigest />
 const at260 = dashSrc.indexOf('"--dash-d": "260ms"');
 const atDigest = dashSrc.indexOf("<JournalDigest />");
 const atFeed = dashSrc.indexOf("<RecentActivityFeed");
 must(at260 !== -1 && atDigest > at260 && atDigest - at260 < 400 && atDigest > atFeed,
-  "D2 the digest rides the 260ms rung (after the feed's 220, before saved views' 300)");
+  "D2 the digest rides the 260ms rung (after the feed's 220, before the notes wall's 300)");
 
 const settle = Number((dashSrc.match(/setDashSettled\(true\), (\d+)/) ?? [])[1]);
-must(settle === 740,
-  "D3 the settle timer moved with the ladder (740ms)");
+must(settle === 780,
+  "D3 the settle timer moved with the ladder (780ms)");
 
-must(460 + 240 === 700 && settle > 700 && settle - 700 === 40,
-  "D4 the margin law, numerically — last rung lands at 700, settle waits 40ms past it (not a photo finish)");
+must(500 + 240 === 740 && settle > 740 && settle - 740 === 40,
+  "D4 the margin law, numerically — last rung lands at 740, settle waits 40ms past it (not a photo finish)");
 
 const t576 = read("../scripts/t576-dash-cascade-live-fire.mjs");
-must(t576.includes('"nine section rungs present"') && t576.includes("length === 9"),
-  "D5a the t576 probe speaks nine rungs");
-must(t576.includes('delays[8] === "0.46s"') && t576.includes("140→460ms"),
-  "D5b the t576 ladder assertion reaches 0.46s");
-must(/await sleep\(740\);/.test(t576) && t576.includes("~740ms"),
-  "D5c the t576 disarm window moved to 740ms");
-must(!/length === 8[^0-9]/.test(t576) && !/sleep\(700\)/.test(t576),
+must(t576.includes('"ten section rungs present"') && t576.includes("length === 10"),
+  "D5a the t576 probe speaks ten rungs");
+must(t576.includes('delays[9] === "0.5s"') && t576.includes("140→500ms"),
+  "D5b the t576 ladder assertion reaches 0.5s");
+must(/await sleep\(780\);/.test(t576) && t576.includes("~780ms"),
+  "D5c the t576 disarm window moved to 780ms");
+must(!/length === 9[^0-9]/.test(t576) && !/sleep\(740\)/.test(t576),
   "D5d no stale count survives the sync (the t711 lesson: ALL counts, not the named one)");
 
-must(dashSrc.includes("460+240 = 700ms exactly"),
+must(dashSrc.includes("500+240 = 740ms exactly"),
   "D6 the dashboard's disarm comment explains the margin (the next rung's author re-checks)");
 
 // ---------- the ledger ----------
