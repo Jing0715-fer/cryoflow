@@ -39,11 +39,24 @@
  * are snapshots, not links. A job that already wore this preset keeps
  * its current params; the confirm dialog says so, because "delete"
  * next to a params list reads like it might reset something.
+ *
+ * THE SECOND DICTIONARY DOOR (t733) — the palette's rows have had one
+ * since t730: an info mouth that opens the Type Card (what is this
+ * type, where from, where next, what to tune). A snapshot's type line
+ * is exactly where that question gets asked on the shelf — a preset
+ * IS tuned knowledge about a type, and reading the type's four answers
+ * belongs next to it. Same TypeCardDialog instance (zero second face),
+ * same span-as-button grammar, same sentence; only the size is the
+ * card's dialect (t732's two-sizes-one-badge law, third verse). No
+ * onAdded housekeeping: the dialog closes itself after a successful
+ * add (the store's addJob rides the active project), and the shelf
+ * behind it is exactly as it was.
  */
 
 import * as React from "react";
-import { Download, SlidersHorizontal, Upload, X } from "lucide-react";
+import { Download, Info, SlidersHorizontal, Upload, X } from "lucide-react";
 import { TypeIcon } from "./icons";
+import { TypeCardDialog } from "./type-card-dialog"; // t733 — the shelf's dictionary door: the palette's card, same face
 import { jobType } from "@/lib/workflow";
 import { fmtAgo } from "@/lib/duration";
 import {
@@ -103,6 +116,9 @@ const REFUSAL_LINES: Record<string, string> = {
 export function UserPresetShelf() {
   const [presets, setPresets] = React.useState<UserParamPreset[] | null>(null);
   const [showAll, setShowAll] = React.useState(false);
+  // t733 — the dictionary door's single key (the palette's cardKey
+  // law): one card at a time, open = key !== null, closing resets.
+  const [cardKey, setCardKey] = React.useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<UserParamPreset | null>(null);
   // t717 import states — the dialog is a three-phase face
   // (pick file → preview receipt → done) over three slots
@@ -260,6 +276,36 @@ export function UserPresetShelf() {
                 </span>
                 <span className="truncate text-[10px] text-muted-foreground" title={p.type}>
                   {t?.label ?? p.type}
+                </span>
+                {/* t733 — the shelf's dictionary door: the same TypeCard the
+                    palette's rows open (t730), reached from the type line
+                    where the question actually lives. Same span-as-button
+                    grammar (pointerdown swallowed, Enter/Space spoken),
+                    same sentence; the size is the card's compact dialect
+                    (t732's two-sizes-one-badge law, third verse). The key
+                    is p.type verbatim — an unknown type gets an honest
+                    no-op card (the dialog renders null on no spec). */}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`About ${t?.label ?? p.type} — params, ports, neighbours`}
+                  title={`About ${t?.label ?? p.type} — params, ports, neighbours`}
+                  data-testid={`shelf-info-${p.type}`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCardKey(p.type);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setCardKey(p.type);
+                    }
+                  }}
+                  className="flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition-all hover:text-muted-foreground group-hover/preset:text-muted-foreground/60 focus-visible:text-muted-foreground hover:bg-accent"
+                >
+                  <Info className="size-2.5" aria-hidden="true" />
                 </span>
                 <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
                   {knobs} {knobs === 1 ? "knob" : "knobs"} · {fmtAgo(p.createdAt)}
@@ -493,6 +539,19 @@ export function UserPresetShelf() {
           )}
         </DialogContent>
       </Dialog>
+      {/* t733 — the dictionary door's shelf host: the same card the
+          palette opens, keyed by the one cardKey. No onAdded
+          housekeeping — after a successful add the dialog closes
+          itself (the store's addJob rides the active project), and
+          the shelf behind it is unchanged. */}
+      <TypeCardDialog
+        typeKey={cardKey}
+        open={cardKey !== null}
+        onOpenChange={(o) => {
+          if (!o) setCardKey(null);
+        }}
+        onNavigate={(key) => setCardKey(key)}
+      />
     </section>
   );
 }
