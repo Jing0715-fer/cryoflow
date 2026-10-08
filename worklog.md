@@ -10910,3 +10910,27 @@ Stage Summary:
 - 「不对称是最容易被漏看的缺口」：projects 系装了门而 workspaces 系没装——单看每一面都有理由（t259 扫的是「当时的 holdout」），并排放着看才露出缝。**普查的价值在并排**：64:24 的比率本身不重要，24 里面的分层（读/写/豁免）才是判决——而分层只有把全部路由拉到一张桌上才可能。
 - 「findings 与 candidates 的界线是威胁模型不是直觉」：3 个 GET 直接入批次（workdir 派生读，#5 类正统）；13 个写路由是 CANDIDATE 不是 findings——t259 的判据（世界塑形 × JSON 写盲区）要逐路由过，不是一刀切全装（低风险档装门是仪式不是防线）。**普查给证据，判据给判决，两者不同源**。
 - 产出：scripts/t693-door-census.py（只读门 census，可重跑——build 日装门后重跑预期 64→67+）+ worklog 本段；下窗入口：①**build 日批次（合并价）**：t692 B 类六处文件名容忍 + t609 完整复活三件套 + t693 三扇 GET 门（+ 按判据定夺的写门子集）+ 各自验证（census 重跑 ×2 + gate-ripple 清单 + t609 活跑×2）——一个 build 日窗口可清三窗的账 ②非 build 日：写门判据的逐路由预审（纯文档）；era 探针复活预手术维持否决 ③样式车道（账本清零）④judge 风暴（维持文档化）⑤演练床轮换（Task 691 窗 3，下轮 3-5 窗后）⑥storage 合同执行。
+
+---
+Task ID: 694 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081210)
+Task: 12:10 派单执行——开局三件套判稳（t677 30/0；available 3190MB < 3280 → 非 build 日连续第六窗，回升趋势观察中）→ 双车道：**t693 入口②「写门判据逐路由预审」**（13 候选 × t259 判据逐源码过堂 → 10 gate / 3 exempt 判决文档 + **假账册发现**）+ **入口⑤演练床轮换**（距 Task 691 窗 3 恰 3 窗，轮换点正点到达，bed --full ALL GREEN）→ worklog 收官 + 分车 commit push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 693 收官（HEAD 768dd54 树净）；server 200/3.2ms + t677 30/0 判稳先行；available 3190MB < 3280 → **非 build 日**（连续第六窗，较上窗回升 10MB——连续两窗回升，build 日或在两三窗内）。
+- [定道] Task 693 入口①（build 日合并批次）天气不许可 → **入口②（写门判据逐路由预审，纯文档）+ 入口⑤（演练床轮换——Task 691 窗 3 跑过，本窗恰是第 3 窗，3-5 节奏下限正点）**双车道并行（bed 后台跑，预审同窗推进）。
+- [bed --full ALL GREEN] t261+t262 全链绿（staging/dispatch/poll/sync/stop 五相 + face 合同 + console 0）；roster 基线对现场说真话 `was 17, got 17`（t689/t691 模板的活体持续履约）；world-guard 盾 17 workdirs。t262 两帧档案刷新入 chore 车（c770992 判例）。
+- [预审·方法] 13 候选逐源码过堂（全部路由文件通读，非动词表推断）+ 三件锚证：①对称性锚 = 30 个已装门文件全名单（全文件统一装门、无混合文件——家族模式）+ `jobs/[id]/stop` 已门 vs 其超集 DELETE 未门的最锐利不对称；②载体锚 = t259 C2 实证（no-cors text/plain JSON 装门前真实写进 profiles 注册表）；③ **hpc/simulate 零写验证**（rg persist/create/update/writeFile 零命中——动词表假象的实锤）。
+- [判决·10 GATE] jobs/[id] PATCH+DELETE（**超集论证**：DELETE 内部调用已门的 remoteStopRun/stopRun 再级联删行删边删记录——杀算力有门、杀算力兼抹除无门）；edges POST+GET / edges[id] DELETE（**侧门论证**：盲写 completed→pending 边被 t324 pending-retry ~20s 节奏消化即自动开算——run 路由的权力隔一跳可达）；workspaces POST+GET、workspaces/[id] PATCH+DELETE（projects 系兄弟已门）；custom-template 全动词（shelf CRUD + apply 铸行）；workflow-import POST（≤500 行铸造）；pipeline-template POST；jobs POST（批量写家的单行原语，一致性随行）；subvolume-job POST（workdir 写盘 + 铸 Import 行）。
+- [判决·3 EXEMPT] project POST（**自己 docstring 自认 GET 同义词**——动词表说候选、语义说读，判据称语义不称动词的海报儿童）；hpc/simulate POST（纯计算器零写验证）；jobs/layout POST（cosmetic 位移 sanitize 钳制）——三者均要求 build 日补行内定价注释（下次 census 不再重flag）。
+- [假账册发现·t689 类新样本] subvolume-job 的 t252 时代账册声称「no-cors fetch cannot reach state: request.json() throws」——**no-cors 腿被 t259 C2 实证驳倒**（no-cors 能发 text/plain 合法 JSON，request.json() 不看 Content-Type，t261 记录里攻击真实写进注册表 "2 saved"）。严格 parse 只杀 form 载体。判决：该路由不是「诚实缺席的门」而是「账册以为有门其实没有」——build 日装门时同步改写账册措辞（form 腿保留，no-cors 腿改认门）。
+- [gate-ripple 预扫] scripts/ 命中面：edges ~143 文件 / workspaces ~51 / custom-template 14 / subvolume-job 7 / simulate 6（豁免无 ripple）/ layout 2（豁免）/ workflow-import 2 / pipeline-template 1——多数为 GET 读与注释不受影响；精确写调用清单按 t259 成文程序（client type 单出口）装门当日产出。
+- [预期终态] 批次落地后 census 重跑：64 → 74 guarded，unguarded 24 → 11（3 GET findings 同日装门 + 8 文档化豁免）——**门族再无未定价成员：每条裸路由都是判决的裸，不是没数过的裸**。
+- [回归] 本窗零产品代码改动（纯文档 + bed 活跑）——t677 首尾双针 30/0 即覆盖；bed --full ALL GREEN 为 remote 世界活体健康证词；零 build 零重启（prod server 未动）。
+
+Stage Summary:
+- 「候选与发现的界线是判据，不是普查的动词表」：t693 留下的 13 个 CANDIDATE 本窗全部升格为判决——三个 exempt 的共同点是**语义与动词的分离**（project POST 是 GET 同义词、simulate 是计算器、layout 是化妆师），普查按动词表把它们拉上被告席，判据按语义当庭释放。**装门是防线建设，不是动词洁癖——给 project POST 装门的成本是一行，收益是零，但它污染「门 = 威胁模型」这个等式，让未来读者无法从门的有无反推危险的有无。**
+- 「最锐利的不对称是权力的超集」：stop 有门而 DELETE 无门——DELETE 干 stop 的全部活（remoteStopRun/stopRun）再干三件不可逆的。**单独看 DELETE「只是删个 job」，并排看它是已定罪权力的加链版**。不对称论证是普查的独有武器：单路由的威胁模型可以争辩，兄弟路由的权力差是算术。
+- 「盲写的最远路径是隔一跳的权力」：edges POST 自己不 spawn 任何东西——但 completed→pending 的盲边在 20s 内被 retry 节奏消化成真实算力。**威胁模型要沿数据流走到权力落地的位置，而不是停在路由的动词**：run 有门、retry 无门、edges 无门——攻击者选最后那扇。这条论证让 edges 从「拓扑化妆」升格为「算力侧门」。
+- 「账册的谎言分两代：t689 代的 diag 诽谤产品，t694 代的账册豁免自己」：subvolume-job 的 t252 时代账册在 t259 实证落地后没有跟着改——它引用的防御（request.json() 拒 no-cors）被同家族的实证证伪，但字面还站在代码里自称「honestly absent door」。**安全注释是威胁模型的存照，不是一次性文档：威胁模型升级（t259 的 no-cors 发现）时，所有引用旧模型的注释都是欠账**。这与 t691 的消息谎言同构——断言升级了，消息没跟上；这次是模型升级了，账册没跟上。
+- 产出：docs/write-door-verdicts.md（13 候选逐路由判决：判据重述 + 10 gate 各带威胁模型句与对称锚 + 3 exempt 各带定价 + 假账册修正案 + ripple 地图 + 预期终态）+ shots-qa t262 两帧（bed 刷新）+ worklog 本段；下窗入口：①**build 日批次（合并价，三窗账一窗清）**：t692 B 类六处文件名容忍 + t609 完整复活三件套 + t693 三扇 GET 门 + **t694 十文件写门（按 docs/write-door-verdicts.md 机械执行：每文件 guard 行 + 威胁模型注释 + subvolume 账册改写 + exempt 三件行内定价注释）** + 验证（census 重跑×2 预期 74/11 + gate-ripple 清单 + t609 活跑×2）②非 build 日：era 探针复活预手术维持否决；C 类种子缺口设计文档仍可选③样式车道（账本清零）④judge 风暴（维持文档化）⑤演练床轮换（本窗窗 3 已跑，下轮 3-5 窗后或 remote 域改动后）⑥storage 合同执行（新 key 按命名律走）。
