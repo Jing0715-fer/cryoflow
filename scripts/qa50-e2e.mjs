@@ -9,7 +9,8 @@
 //   C  console errors + close
 // Usage: QA_PHASES=A,B,C node scripts/qa50-e2e.mjs
 import { execSync } from "node:child_process";
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 
 const AB = "agent-browser";
 const LOGF = new URL("../.qa-logs/qa50-trace.log", import.meta.url).pathname;
@@ -35,7 +36,9 @@ const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim()
 
 const SEED = "python3 /home/z/my-project/scripts/qa50-seed-fsc.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa50-seed-fsc.py --clean";
-const JOB = "QA Refine3D";
+// t705 — the name is the world's own spelling, never a pin (qa-refine-host.mjs:
+// the JS twin of qa_lib.resolve_refine_host — manifest contract + type fallback)
+const JOB = resolveRefineHost().name;
 
 const openJobResults = async () => {
   sh(`${AB} open http://localhost:3000`);
@@ -148,12 +151,19 @@ const phaseA = async () => {
   await openJobResults();
 
   // the in-app FSC chart must light up from the seeded star (regression:
-  // the same payload feeds both chart and report)
-  const chart = unq(evalJs(`(() => {
-    const sec = document.querySelector('section[aria-label="Fourier-shell correlation"]');
-    if (!sec) return 'NO-CHART';
-    return (sec.textContent||'').includes('postprocess') ? 'chart-postprocess' : 'chart-other';
-  })()`));
+  // the same payload feeds both chart and report). t705 — POLL, not a
+  // single-shot eval: the section mounts async (useChartResource's fetch
+  // lands a tick after the Report button), so one eval races the mount
+  // and NO-CHART is a timing artifact, not a verdict.
+  let chart = "NO-CHART";
+  for (let i = 0; i < 12 && chart === "NO-CHART"; i++) {
+    await sleep(2000);
+    chart = unq(evalJs(`(() => {
+      const sec = document.querySelector('section[aria-label="Fourier-shell correlation"]');
+      if (!sec) return 'NO-CHART';
+      return (sec.textContent||'').includes('postprocess') ? 'chart-postprocess' : 'chart-other';
+    })()`));
+  }
   step(`  fsc chart: ${chart}`);
   if (chart !== "chart-postprocess") throw new Error(chart);
 
@@ -221,9 +231,18 @@ const phaseA = async () => {
   sh(`${AB} screenshot /home/z/my-project/agent-ctx/qa50-report.png`);
 };
 
-/** PHASE B — honest gap when no FSC data */
+/** PHASE B — source honesty when the canonical FSC source is removed.
+ *  t525 wrote this phase as the honest gap: clean postprocess.star, expect
+ *  a plain report with no FSC section. The t531 world grew a SECOND honest
+ *  FSC source (the refine workdir's run_it020_model.star — a real
+ *  gold-standard half-map curve), so the gap no longer exists and the
+ *  enriched toast is the world's truthful answer. The law that survives the
+ *  world's evolution is SOURCE HONESTY (t705): the report's FSC section
+ *  must name the source it actually used, the named file must exist on
+ *  disk, the removed seed must never be claimed, and the postprocess-only
+ *  section (Guinier) must vanish with its evidence. */
 const phaseB = async () => {
-  console.log("== PHASE B: honest gap (no FSC data) ==");
+  console.log("== PHASE B: source honesty (postprocess.star removed) ==");
   sh(SEED_CLEAN);
   // refresh outputs + give the FSC API's mtime-keyed cache a beat
   const rf = unq(evalJs(`(() => {
@@ -236,23 +255,28 @@ const phaseB = async () => {
   await sleep(2500);
   const { toasts, blobs } = await hookAndClickReport();
   if (!/Run report downloaded/i.test(toasts)) throw new Error(`toast missing: ${toasts}`);
-  if (/FSC table & curve snapshot/.test(toasts))
-    throw new Error(`toast should be plain variant: ${toasts}`);
   const mdRaw = await blobText();
   const md = mdRaw.includes("\\n") && !mdRaw.includes("\n")
     ? mdRaw.replace(/\\n/g, "\n")
     : mdRaw;
-  if (md.includes("## FSC curve")) throw new Error("FSC section should be absent without data");
-  // the sandbox workdir now carries OTHER honest data sources (Task 53+
-  // charts: micrographs_ctf.star, run_data.star, topaz logs) — the honest-
-  // gap contract is about the FSC section specifically: it must be absent,
-  // and no FSC-flavored PNG may embed. Other charts legitimately render
-  // from whatever data still exists in the workdir.
-  if (md.includes("## FSC curve") || /!\[[^\]]*FSC/i.test(md))
-    throw new Error("FSC section or PNG should be absent without the seed");
+  // the FSC section must name its source, never claim the removed seed,
+  // and the named file must exist in the workdir (canonical workdir law:
+  // data/relion/<project>/<type>_<id8>, the manifest contract)
+  const srcLine = (md.match(/`Source: ([^`]+)`/) || [])[1];
+  if (!srcLine) throw new Error("FSC section names no source file");
+  if (srcLine.includes("postprocess.star"))
+    throw new Error(`FSC still claims the removed seed: ${srcLine}`);
+  const manifest = JSON.parse(readFileSync("/home/z/my-project/data/old-world.json", "utf8"));
+  const hostId = manifest.chain.refine3d;
+  const wd = `/home/z/my-project/data/relion/${manifest.project.id}/refine3d_${hostId.slice(-8)}`;
+  if (!existsSync(`${wd}/${srcLine}`))
+    throw new Error(`FSC source file missing on disk: ${srcLine}`);
+  // the postprocess-only section must vanish with its evidence
+  if (md.includes("## Guinier"))
+    throw new Error("Guinier section should be absent without postprocess data");
   if (!md.includes("## Resolution") || !md.includes("## Outputs on disk"))
     throw new Error("base sections missing");
-  step(`  honest-gap markdown OK (${md.length}B, plain toast)`);
+  step(`  source-honesty OK (FSC from ${srcLine}, Guinier absent, ${md.length}B)`);
 };
 
 /** PHASE C — console + close */

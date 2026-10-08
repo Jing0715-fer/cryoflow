@@ -9,6 +9,7 @@
 // Usage: QA_PHASES=A,B,C node scripts/qa49-e2e.mjs
 import { execSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 
 const AB = "agent-browser";
 const LOGF = new URL("../.qa-logs/qa49-trace.log", import.meta.url).pathname;
@@ -31,6 +32,10 @@ const evalJs = (expr) =>
 const unq = (s) => (s || "").replace(/^"|"$/g, "");
 const J = (expr) => JSON.parse(unq(evalJs(expr)));
 const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim().toUpperCase());
+
+// t705 — the host is the world's own refine3d (name derived, never pinned —
+// the JS twin of qa_lib.resolve_refine_host via qa-refine-host.mjs)
+const JOB = resolveRefineHost().name;
 
 const realClick = async (findExpr) => {
   const coords = evalJs(
@@ -71,7 +76,7 @@ const phaseA = async () => {
   let node = "";
   for (let i = 0; i < 15 && !node.includes("clicked@"); i++) {
     node = await realClick(
-      `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('QA Refine3D') && (x.textContent||'').includes('completed'))`,
+      `[...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('${JOB}') && (x.textContent||'').includes('completed'))`,
     );
     if (!node.includes("clicked@")) await sleep(2000);
   }
@@ -133,7 +138,7 @@ const phaseA = async () => {
   if (md.includes("\\n") && !md.includes("\n")) md = md.replace(/\\n/g, "\n");
   md = md.replace(/\\"/g, '"');
   if (text.includes("# CryoFlow run report")) {
-    if (!text.includes("QA Refine3D")) throw new Error("report missing job name");
+    if (!text.includes(JOB)) throw new Error("report missing job name");
     if (!text.includes("## Resolution") || !text.includes("## Outputs on disk"))
       throw new Error("report missing sections");
     step("  content assertions: PASS (promise resolved)");

@@ -14,6 +14,7 @@
 // Usage: QA_PHASES=A node scripts/qa57-e2e.mjs  (production standalone!)
 import { execSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 
 const AB = "agent-browser";
 const LOGF = new URL("../.qa-logs/qa57-trace.log", import.meta.url).pathname;
@@ -39,15 +40,16 @@ const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim()
 
 const SEED = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py --clean";
-const JOB = "QA Refine3D";
 const B = "http://localhost:3000";
 
-// resolve job ids by NAME (workdir ids drift across seeds — qa53 lesson)
+// t705 — the host resolves through the manifest contract (qa-refine-host.mjs,
+// the JS twin of qa_lib.resolve_refine_host: manifest id + type fallback,
+// honest throw). The name is the world's own spelling, never a pin.
 const jobsRaw = sh(`curl -s --max-time 20 "${B}/api/jobs"`);
 const jobsArr = (() => { try { const d = JSON.parse(jobsRaw); return Array.isArray(d) ? d : d.jobs ?? []; } catch { return []; } })();
-const host = jobsArr.find((j) => j.name === JOB);
-const sibling = jobsArr.find((j) => j.name !== JOB);
-if (!host) throw new Error(`host job "${JOB}" not found`);
+const host = resolveRefineHost();
+const JOB = host.name;
+const sibling = jobsArr.find((j) => j.id !== host.id);
 if (!sibling) throw new Error("no sibling job found");
 const JID = host.id;
 const SID = sibling.id;
@@ -198,7 +200,7 @@ const openViewer = async () => {
   // flap); inside the Radix modal, programmatic .click() drives the
   // handlers with zero coordinates. orthovol.mrc is self-seeded (qa67
   // seeder, QA_VOL_HOST selects the refine3d sandbox).
-  sh(`QA_VOL_HOST="QA Refine3D" python3 /home/z/my-project/scripts/qa67-seed-volume.py >/dev/null 2>&1 || true; python3 /home/z/my-project/scripts/seed-refine-halves.py >/dev/null 2>&1 || true`);
+  sh(`QA_VOL_HOST="${JOB}" python3 /home/z/my-project/scripts/qa67-seed-volume.py >/dev/null 2>&1 || true; python3 /home/z/my-project/scripts/seed-refine-halves.py >/dev/null 2>&1 || true`);
   // world reset: a fresh load guarantees no stale modal overlaying the nav
   // (a leftover inspector from a prior phase covers everything otherwise)
   // the CLI JSON-encodes eval output — a bare `true` comes back as `"true"`
@@ -230,7 +232,7 @@ const openViewer = async () => {
   // timing rides on the same load, so only now does "no dialog" mean it
   let loaded = false;
   for (let c = 0; c < 20 && !loaded; c++) {
-    loaded = truthy(evalJs(`String([...document.querySelectorAll('[role=button]')].some(x => (x.textContent||'').includes('QA Refine3D')))`,));
+    loaded = truthy(evalJs(`String([...document.querySelectorAll('[role=button]')].some(x => (x.textContent||'').includes('${JOB}')))`,));
     if (!loaded) await sleep(1500);
   }
   await pollClose(10);
@@ -255,8 +257,8 @@ const openViewer = async () => {
         await sleep(800);
         onDash = truthy(evalJs(`String(!!document.querySelector('section[aria-label="Active project spotlight"]'))`));
       }
-      const rowPresent = truthy(evalJs(`String(!!document.querySelector('[title^="Open QA Refine3D"]'))`));
-      const row = rowPresent ? cliClick(`[title^="Open QA Refine3D"]`) : "absent";
+      const rowPresent = truthy(evalJs(`String(!!document.querySelector('[title^="Open ${JOB}"]'))`));
+      const row = rowPresent ? cliClick(`[title^="Open ${JOB}"]`) : "absent";
       step(`  entry ${i}: dash=${dash} row=${row}`);
       await sleep(3200);
       if (!truthy(evalJs(`String([...document.querySelectorAll('[role=tab]')].some(t => t.textContent.trim() === 'Results'))`))) continue;
@@ -494,7 +496,7 @@ const phaseB = async () => {
   let wall = null;
   for (let i = 0; i < 15 && !wall; i++) {
     await sleep(1500);
-    wall = J(`(() => { const s = ${sec}; if (!s) return null; const w = s.querySelector('#saved-views-wall'); const b = [...s.querySelectorAll('button')].find(x => /Show (all|less)/.test(x.textContent)); return { cards: w ? w.querySelectorAll(':scope > button').length : -1, btn: b ? { t: b.textContent.trim(), exp: b.getAttribute('aria-expanded') } : null }; })()`);
+    wall = J(`(() => { const s = ${sec}; if (!s) return null; const w = s.querySelector('#saved-views-wall'); const b = [...s.querySelectorAll('button')].find(x => /Show (all|less)/.test(x.textContent)); return { cards: w ? w.querySelectorAll(':scope > [data-saved-view-card]').length : -1, btn: b ? { t: b.textContent.trim(), exp: b.getAttribute('aria-expanded') } : null }; })()`);
   }
   if (!wall) throw new Error("gallery section never rendered");
   step(`  wall collapsed: ${JSON.stringify(wall)}`);
@@ -512,13 +514,13 @@ const phaseB = async () => {
   // (Task 107's template-literal cooking trap, phase-B edition)
   evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => /^Show all \\d+ bookmarks$/.test(x.textContent.trim())); if (!b) return 'NO-BTN'; b.scrollIntoView({ block: 'center' }); b.click(); return 'clicked'; })()`);
   await sleep(900);
-  wall = J(`(() => { const s = ${sec}; const w = s.querySelector('#saved-views-wall'); const b = [...s.querySelectorAll('button')].find(x => /Show (all|less)/.test(x.textContent)); return { cards: w.querySelectorAll(':scope > button').length, btn: { t: b.textContent.trim(), exp: b.getAttribute('aria-expanded') } }; })()`);
+  wall = J(`(() => { const s = ${sec}; const w = s.querySelector('#saved-views-wall'); const b = [...s.querySelectorAll('button')].find(x => /Show (all|less)/.test(x.textContent)); return { cards: w.querySelectorAll(':scope > [data-saved-view-card]').length, btn: { t: b.textContent.trim(), exp: b.getAttribute('aria-expanded') } }; })()`);
   step(`  wall expanded: ${JSON.stringify(wall)}`);
   if (!/Show less/.test(wall.btn.t) || wall.btn.exp !== "true") throw new Error(`expand failed: ${JSON.stringify(wall)}`);
 
   evalJs(`(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === 'Show less'); if (!b) return 'NO-BTN'; b.click(); return 'clicked'; })()`);
   await sleep(900);
-  wall = J(`(() => { const s = ${sec}; const w = s.querySelector('#saved-views-wall'); const b = [...s.querySelectorAll('button')].find(x => /Show (all|less)/.test(x.textContent)); return { cards: w.querySelectorAll(':scope > button').length, btn: { t: b.textContent.trim(), exp: b.getAttribute('aria-expanded') } }; })()`);
+  wall = J(`(() => { const s = ${sec}; const w = s.querySelector('#saved-views-wall'); const b = [...s.querySelectorAll('button')].find(x => /Show (all|less)/.test(x.textContent)); return { cards: w.querySelectorAll(':scope > [data-saved-view-card]').length, btn: { t: b.textContent.trim(), exp: b.getAttribute('aria-expanded') } }; })()`);
   if (wall.cards !== 12 || wall.btn.exp !== "false") throw new Error(`collapse failed: ${JSON.stringify(wall)}`);
   step("  wall collapse ✓");
   putBm([]);

@@ -16,6 +16,7 @@
 // Usage: QA_PHASES=A,B,C node scripts/qa55-e2e.mjs
 import { execSync } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 
 const AB = "agent-browser";
 const LOGF = new URL("../.qa-logs/qa55-trace.log", import.meta.url).pathname;
@@ -41,7 +42,9 @@ const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim()
 
 const SEED = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py --clean";
-const JOB = "QA Refine3D";
+// t705 — the name is the world's own spelling, never a pin (qa-refine-host.mjs:
+// the JS twin of qa_lib.resolve_refine_host — manifest contract + type fallback)
+const JOB = resolveRefineHost().name;
 const B = "http://localhost:3000";
 
 const openDashboard = async () => {

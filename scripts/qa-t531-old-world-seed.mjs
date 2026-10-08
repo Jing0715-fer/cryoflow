@@ -657,22 +657,18 @@ async function ensureWorkflowNodes(proj, chain) {
   for (const node of WORKFLOW) {
     const existing = await db.job.findUnique({ where: { id: node.id } });
     if (existing) { wf[node.type] = existing.id; continue; }
-    // t665 — the denoise branch hangs off MotionCorr on the CANVAS too:
-    // placed below-right of its provider, not on the shared default spot
-    // (three nodes on one coordinate would render as one blob).
-    let x = 160, y = 320;
-    if (node.type === "topazdenoise" && chain.motioncorr) {
-      const mc = await db.job.findUnique({ where: { id: chain.motioncorr } });
-      if (mc) { x = (mc.x ?? 160) + 40; y = (mc.y ?? 320) + 170; }
-    }
-    // t666 — the training node hangs off the denoise node on the CANVAS
-    // too (below-right of its provider, never two nodes on one spot).
-    // Runs after the denoise entry in WORKFLOW order, so wf.topazdenoise
-    // is resolved here by creation or adoption alike.
-    if (node.type === "topaztrain" && wf.topazdenoise) {
-      const dn = await db.job.findUnique({ where: { id: wf.topazdenoise } });
-      if (dn) { x = (dn.x ?? 160) + 40; y = (dn.y ?? 320) + 170; }
-    }
+    // t705 — the AUX BAND: the workflow pair and the topaz branch take a
+    // clean row below the chain (y=680) at the chain's own x pitch (260).
+    // History: the shared default spot (160,320) sat INSIDE the class2d–
+    // symexpand row's band, so the pair stacked exactly on initialmodel and
+    // the t665/t666 offsets (+40/+170 from the provider) landed the topaz
+    // branch on the same band — eleven overlapping pairs, and a real
+    // click-steal: the t705 forensic opened the Topaz Train inspector by
+    // clicking refine3d's center (coordinate clicks hit whatever paints
+    // last). "Three nodes on one coordinate render as one blob" (t665) now
+    // applies to the whole aux family: same row, chain pitch, zero overlaps.
+    const AUX_BAND = { initialmodel: [80, 680], maskcreate: [340, 680], topazdenoise: [600, 680], topaztrain: [860, 680] };
+    const [x, y] = AUX_BAND[node.type] ?? [160, 320];
     const created = await db.job.create({
       data: {
         id: node.id, projectId: proj.id, type: node.type, name: node.name,
