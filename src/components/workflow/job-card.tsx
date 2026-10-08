@@ -45,6 +45,7 @@ import {
 import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import type { MatchWhy } from "@/lib/job-match"; // t655 — the why geometry rides the same lib the predicate lives in
+import { FindMarkedText } from "./find-mark"; // t725 — the wash moved out when the palette became its second face
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { parseClassNotes } from "@/lib/class-notes";
 import { useStatusNews } from "@/lib/use-status-news"; // t606 — the hook moved to lib: the news face now speaks at THREE distances (badge, floor, minimap dot)
@@ -1404,56 +1405,10 @@ function pendingRenderSig(
   return hits.length > 0 ? `other:${pending.dir}:${hits.join(",")}` : "";
 }
 
-/** t655 — the find dialect's character wash. The SAME amber family the
- *  matched card rings with (border-amber-500 / ring-amber-500/50) — the
- *  lens must not invent a second color language (t134's chip law, now
- *  for characters). Quiet: a wash, not a recolor — the card's own ink
- *  stays. Identity-exempt in the t650 census/codemod tables: this is
- *  the hit ring's own amber, one dialect, one hue word. */
-const FIND_MARK_CLASS = "rounded-[2px] bg-amber-400/35 text-inherit dark:bg-amber-400/25";
-
-/** t655 — the WHY renderer: the card's text between amber washes. A
- *  `<mark>` per span — the element IS the semantics ("highlighted for
- *  reference"), the classes quiet its loud UA yellow to the find
- *  dialect's wash. Defensive guard: should a span ever escape the
- *  text's bounds (the lowercase-coordinate edge documented on
- *  subsequenceSpans), the whole render falls back to plain text — a
- *  wrong highlight is worse than none, and the ring still tells the
- *  truth it always did. */
-function FindMarkedText({
-  text,
-  spans,
-}: {
-  text: string;
-  spans: ReadonlyArray<readonly [number, number]>;
-}) {
-  const trustworthy =
-    spans.length > 0 &&
-    spans.every(
-      ([s, e]) =>
-        Number.isInteger(s) &&
-        Number.isInteger(e) &&
-        0 <= s &&
-        s < e &&
-        e <= text.length,
-    );
-  if (!trustworthy) return <>{text}</>;
-  const out: React.ReactNode[] = [];
-  let at = 0;
-  spans.forEach(([s, e], i) => {
-    if (s > at)
-      out.push(<React.Fragment key={`t${i}`}>{text.slice(at, s)}</React.Fragment>);
-    out.push(
-      <mark key={`m${i}`} data-find-why-mark="" className={FIND_MARK_CLASS}>
-        {text.slice(s, e)}
-      </mark>,
-    );
-    at = e;
-  });
-  if (at < text.length)
-    out.push(<React.Fragment key="tail">{text.slice(at)}</React.Fragment>);
-  return <>{out}</>;
-}
+// t725 — FindMarkedText (and with it the find wash's amber hue) moved
+// into ./find-mark when the palette's dialect rows became the wash's
+// second face — t720's law, third execution. The card is a consumer
+// now, exactly like every other face that explains a match.
 
 /**
  * t356 — JobCard's memo comparator. Default shallow equality re-rendered

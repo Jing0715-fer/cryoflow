@@ -12,6 +12,9 @@ import {
   X,
 } from "lucide-react";
 import { JOB_CATEGORIES, JOB_TYPES, jobType } from "@/lib/workflow";
+import type { JobTypeSpec } from "@/lib/types";
+import { subsequenceSpans, subsequenceMatch } from "@/lib/job-match"; // t725 — the dialect's HOW lives in lib
+import { FindMarkedText, FIND_MARK_CLASS } from "./find-mark"; // t725 — the wash's own home
 import { Kbd } from "@/components/ui/kbd";
 import { useWorkflowStore } from "@/lib/store";
 import { TypeIcon } from "./icons";
@@ -200,6 +203,50 @@ function pushRecent(type: string): void {
  * pan through a native non-passive touchmove. One gesture grammar per
  * pointer family, one shared drop machinery underneath both.
  */
+/** t725 — the palette's why: which field won the row its place, and
+ *  (for the fields the row actually shows) the character spans to wash.
+ *  The dialect's HOW lives in lib (substring first, then the t653
+ *  abbreviation subsequence guarded to q.length >= 2); the palette owns
+ *  the WHAT — the four words a type can be found by, read in the
+ *  palette's own reading order: label, description, then the two
+ *  invisible fields (key, category). The winner is the FIRST field in
+ *  that order — one answer, deterministic (t722's lexicographic law,
+ *  adapted: a row's reading order is the palette's determinism). The
+ *  invisible fields win as BARE facts — their text is not on the row's
+ *  surface, so there is nothing to wash; a chip names the field
+ *  instead (the badge-is-the-why tradition, t722). */
+type PalWhy =
+  | {
+      field: "label" | "description";
+      spans: ReadonlyArray<readonly [number, number]>;
+    }
+  | { field: "key" | "category" };
+
+function palMatchWhy(t: JobTypeSpec, query: string): PalWhy | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  const labelAt = t.label.toLowerCase().indexOf(q);
+  if (labelAt !== -1) return { field: "label", spans: [[labelAt, labelAt + q.length]] };
+  const descAt = t.description.toLowerCase().indexOf(q);
+  if (descAt !== -1) return { field: "description", spans: [[descAt, descAt + q.length]] };
+  if (t.key.toLowerCase().includes(q)) return { field: "key" };
+  if (t.category.toLowerCase().includes(q)) return { field: "category" };
+  // single characters are substring questions, not patterns — the same
+  // guard the matcher has always taken (fuzzying over one stray letter
+  // turns a narrow list into noise). The subsequence rungs read the
+  // palette's SHORT identity words only (label, key, category): a
+  // description is prose, and prose subsequence is noise — "class"
+  // as a subsequence lights up half the catalog's sentences (the probe
+  // caught exactly that on first run). Prose keeps its substring rung.
+  if (q.length >= 2) {
+    const labelSeq = subsequenceSpans(q, t.label);
+    if (labelSeq) return { field: "label", spans: labelSeq };
+    if (subsequenceMatch(q, t.key)) return { field: "key" };
+    if (subsequenceMatch(q, t.category)) return { field: "category" };
+  }
+  return null;
+}
+
 export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const addJob = useWorkflowStore((s) => s.addJob);
 
@@ -344,14 +391,16 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const searching = q.length > 0;
   // favorites-only gate applies FIRST, then search narrows within it
   const baseTypes = favOnly ? JOB_TYPES.filter((t) => favSet.has(t.key)) : JOB_TYPES;
+  // t725 — the dialect filter. Each row's why is computed ONCE here and
+  // read back at render — a plain per-render Map (no state, no refs; it
+  // lives exactly as long as the render that built it).
+  const whys = new Map<string, PalWhy>();
   const filtered = searching
-    ? baseTypes.filter(
-        (t) =>
-          t.label.toLowerCase().includes(q) ||
-          t.key.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q) ||
-          t.category.toLowerCase().includes(q)
-      )
+    ? baseTypes.filter((t) => {
+        const w = palMatchWhy(t, query);
+        if (w) whys.set(t.key, w);
+        return w !== null;
+      })
     : baseTypes;
 
   // t616 — the wave's mount ledger: one ticket per face, keyed by face
@@ -680,6 +729,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             }}
             placeholder="Search job types…"
             aria-label="Search job types"
+            title="Substring first, then in-order abbreviations — matched characters highlight"
             className="h-8 rounded-lg pl-8 pr-12 text-xs shadow-none transition-[box-shadow] focus-visible:ring-primary/40"
           />
           {!query && (
@@ -912,6 +962,15 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             <p className="mt-2 text-xs font-medium text-muted-foreground">
               No job types match &ldquo;{query}&rdquo;
             </p>
+            {/* t725 — the dialect teaches at the moment of need: an empty
+                result is exactly when the abbreviation vocabulary is
+                worth naming. */}
+            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground/70">
+              Abbreviations work too — try{" "}
+              <span className="font-mono">cls2</span>,{" "}
+              <span className="font-mono">ref3d</span> or{" "}
+              <span className="font-mono">ctffnd</span>.
+            </p>
             <button
               type="button"
               onClick={() => setQuery("")}
@@ -964,7 +1023,9 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
               >
                 <div className="overflow-hidden">
                   <div className="space-y-0.5 py-1">
-                    {items.map((t) => (
+                    {items.map((t) => {
+                      const w = searching ? whys.get(t.key) : undefined;
+                      return (
                       <Button
                         key={t.key}
                         variant="ghost"
@@ -1017,10 +1078,18 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium leading-tight">
-                            {t.label}
+                            {w && w.field === "label" ? (
+                              <FindMarkedText text={t.label} spans={w.spans} />
+                            ) : (
+                              t.label
+                            )}
                           </span>
                           <span className="block truncate text-[11px] leading-tight text-muted-foreground">
-                            {t.description}
+                            {w && w.field === "description" ? (
+                              <FindMarkedText text={t.description} spans={w.spans} />
+                            ) : (
+                              t.description
+                            )}
                           </span>
                         </span>
                         {/* Task 133 — star toggle: reserved width so the tier
@@ -1059,6 +1128,28 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                             aria-hidden="true"
                           />
                         </span>
+                        {/* t725 — the invisible fields' why: a key or
+                            category match has no character on the row's
+                            surface, so a chip names the field instead (the
+                            badge-is-the-why tradition, t722). Same amber
+                            via FIND_MARK_CLASS — one hue word for the
+                            whole lens. */}
+                        {w && (w.field === "key" || w.field === "category") && (
+                          <span
+                            data-pal-why={w.field}
+                            title={
+                              w.field === "key"
+                                ? `Matched the type key “${t.key}”`
+                                : `Matched the category “${t.category}”`
+                            }
+                            className={cn(
+                              "shrink-0 rounded px-1 py-px font-mono text-[8px] uppercase tracking-wide leading-4",
+                              FIND_MARK_CLASS
+                            )}
+                          >
+                            {w.field === "key" ? "key" : "cat"}
+                          </span>
+                        )}
                         <span
                           className={cn(
                             "flex shrink-0 items-center gap-1 rounded px-1 py-px font-mono text-[8px] uppercase tracking-wide",
@@ -1081,7 +1172,8 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                           {t.tier === "core" ? "core" : t.tier === "cmd" ? "cli" : "ext"}
                         </span>
                       </Button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
