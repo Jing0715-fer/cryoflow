@@ -218,6 +218,12 @@ export function AppShell() {
   // Initial data load
   React.useEffect(() => {
     void useWorkflowStore.getState().load();
+    // t685 — the persisted viewing trail seeds after hydration (SSR-safe
+    // window): the palette's read-time join is the trust gate, so the
+    // seed needs no freshness police — stored ids that resolve to no job
+    // simply render nowhere. Idempotent: a trail already alive in memory
+    // (a jump that landed before this effect) is never overwritten.
+    useWorkflowStore.getState().hydrateRecentJobs();
   }, []);
 
   React.useEffect(() => {

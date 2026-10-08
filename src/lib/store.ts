@@ -233,6 +233,50 @@ function persistKpiCollapsed(collapsed: boolean) {
 
 const SELECTED_JOB_KEY = "cryoflow.selectedJob.v1";
 
+/** t685 — localStorage key for the SESSION VIEWING TRAIL (Task 684's
+ *  recentJobIds, now cross-reload). The trail records the jobs you
+ *  opened, so losing it to a plain F5 was the most common way to lose
+ *  it — the storage echo makes the trail survive the reload while the
+ *  READ-TIME JOIN (the palette re-joins against the live jobs array)
+ *  stays the trust gate: a stored id that resolves to no job — deleted
+ *  overnight, hand-edited, another project — renders nowhere, so the
+ *  persisted trail needs no freshness police. Writes only happen on
+ *  real trail mutations (note/clear) — never on render (#13's law). */
+const RECENT_JOBS_KEY = "cryoflow.recentJobs.v1";
+
+/** Read the trail seed. Format whitelist: a JSON array of strings, capped
+ *  at the same CAP the writer obeys — a corrupt or oversized payload is
+ *  not policed, it is DROPPED (the honest unknown is "no trail", never
+ *  a crash). */
+function hydrateRecentJobsFromStorage(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_JOBS_KEY);
+    if (raw == null) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((x): x is string => typeof x === "string")
+      .slice(0, 6);
+  } catch {
+    return [];
+  }
+}
+
+/** Echo a committed trail transition to storage. A CLEARED trail writes
+ *  "[]" rather than deleting the key — "explicitly cleared" is a fact
+ *  about the user's session, and absence must not be misread by a future
+ *  hydration as "never existed" (Task 157's two-way-door law). Private
+ *  mode / quota: the trail stays in-RAM for this session. */
+function persistRecentJobs(ids: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RECENT_JOBS_KEY, JSON.stringify(ids));
+  } catch {
+    // the trail stays in-RAM for this session
+  }
+}
+
 /** Read the session-position seed (Task 157). Reads only — no format
  *  whitelist can name a job id, so the seed stays a BARE string and the
  *  real trust gate is the apply step in load(): a seed that does not
@@ -956,14 +1000,20 @@ interface WorkflowState {
    *  recently, newest first, capped. Recorded at openJob's success end
    *  (the mouth EVERY jump speaks — palette, dashboard, footer, verdict
    *  stamps — one write point, no reader can drift from any writer).
-   *  In-memory only, like the lenses: a trail of THIS session's walk,
-   *  not a document property — a reload starts a fresh trail. Readers
-   *  re-join against the live jobs array (a deleted job's id stays in
-   *  the trail but renders nowhere — the read-time join is the
-   *  convergence point that keeps a stale trail honest). */
+   *  t685 — the trail ECHOES to localStorage and survives a reload (the
+   *  seed hydrates post-mount); the read-time join against the live
+   *  jobs array is the trust gate — a deleted job's id stays in the
+   *  trail but renders nowhere (the convergence point that keeps a
+   *  stale trail honest). */
   recentJobIds: string[];
   noteRecentJob: (id: string) => void;
   clearRecentJobs: () => void;
+  /** t685 — one-shot hydrate of the persisted trail, called from the
+   *  app shell's mount effect (after hydration — the SSR-safe window:
+   *  initial state is [], the storage seed lands post-mount, and the
+   *  readers' read-time join needs no seed gate — it IS the trust
+   *  gate). */
+  hydrateRecentJobs: () => void;
   /** Task 134 — canvas find bar (Ctrl/⌘+F). Two ephemeral fields:
    *  whether the floating find bar is open, and the live query typed
    *  into it. Matching cards ring amber; everything else recedes with
@@ -5905,9 +5955,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   toggleCriticalLens: () => set((s) => ({ criticalLens: !s.criticalLens })),
   // t684 — newest first, deduped (a re-visited job floats back to the
   // head), capped: a trail longer than a glance is a log, not a trail.
+  // t685 — every committed transition echoes to storage (the write path
+  // is the ACTION, never a render — #13's law).
   noteRecentJob: (id) =>
-    set((s) => ({ recentJobIds: [id, ...s.recentJobIds.filter((x) => x !== id)].slice(0, 6) })),
-  clearRecentJobs: () => set({ recentJobIds: [] }),
+    set((s) => {
+      const next = [id, ...s.recentJobIds.filter((x) => x !== id)].slice(0, 6);
+      persistRecentJobs(next);
+      return { recentJobIds: next };
+    }),
+  clearRecentJobs: () => {
+    persistRecentJobs([]);
+    set({ recentJobIds: [] });
+  },
+  hydrateRecentJobs: () =>
+    set((s) => (s.recentJobIds.length > 0 ? s : { recentJobIds: hydrateRecentJobsFromStorage() })),
   openFind: () => set((s) => (s.findOpen ? s : { findOpen: true })),
   closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all", findCategory: "all" }),
   setFindQuery: (q) => set({ findQuery: q }),
