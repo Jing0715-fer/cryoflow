@@ -8,7 +8,7 @@ import * as React from "react";
 import { create } from "zustand";
 import { toast, type ToastActionElement } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible, nextStepsFor } from "./workflow";
+import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible, nextStepsFor, PORT_COLORS, outputKindOf } from "./workflow";
 import { computeEdgeGeoms } from "./edge-geom";
 import {
   upstreamEdgesOf,
@@ -4785,7 +4785,37 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // t442 — quiet mode: the duplication receipt speaks for the batch;
     // per-wire announcements would bury it under N toasts
     if (!opts?.quiet) {
-      toast({ title: "Connected", description: `${fromName} → ${toName}` });
+      // t744 — the receipt speaks the word (the vocabulary's tenth reader).
+      // The preview wore the ink before the wire existed (t742), the line
+      // wears it resting (t734) — and now the receipt NAMES what flows at
+      // the exact moment the world accepts the wire: the user just asked
+      // for this connection by hand, so this is the cleanest teaching slot
+      // the vocabulary ever gets. The dot rides the kind's wire hex (the
+      // same resting ink the canvas paints); the word rides the t735/t738
+      // dialect ("{kind} data"). A wordless wire (legacy port, no port,
+      // unknown kind) keeps the bare receipt — the undefined law's fifth
+      // face: an honest silence, never a fabricated word.
+      const wireKind = fromJob && fromPort ? outputKindOf(fromJob.type, fromPort) : undefined;
+      toast({
+        title: "Connected",
+        // .ts file — no JSX (the announce* actions above are this file's
+        // createElement dialect); the receipt's word row builds the same way
+        description: wireKind
+          ? React.createElement(
+              "span",
+              { className: "flex flex-wrap items-center gap-x-1.5 gap-y-0.5" },
+              React.createElement("span", { key: "names" }, `${fromName} → ${toName}`),
+              React.createElement("span", { key: "dash", className: "text-muted-foreground" }, "—"),
+              React.createElement("span", {
+                key: "dot",
+                "aria-hidden": true,
+                className: "inline-block size-2 shrink-0 rounded-full",
+                style: { background: PORT_COLORS[wireKind].wire },
+              }),
+              React.createElement("span", { key: "word" }, `${wireKind} data`),
+            )
+          : `${fromName} → ${toName}`,
+      });
     }
     try {
       const { edge } = await api<{ edge: EdgeDTO }>("/api/edges", {
