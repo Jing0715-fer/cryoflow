@@ -12,6 +12,9 @@ export const dynamic = "force-dynamic";
  * default: new jobs land there and deleted workspaces' jobs fall back to it.
  */
 export async function GET() {
+  // t709 priced this read-half's door and deferred it with the collection
+  // GETs (see jobs/route.ts) — the QA hot-path blast radius wants its own
+  // mass-shim round before the gate lands.
   try {
     const active = await ensureActiveProject();
     if (!active) {

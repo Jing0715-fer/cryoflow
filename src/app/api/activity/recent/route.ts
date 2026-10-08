@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { remoteInfoFor } from "@/lib/remote/remote-run";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,13 @@ export const dynamic = "force-dynamic";
  * contract.
  */
 export async function GET(request: NextRequest) {
+  // t709 — the reader door: the feed's slim select keeps the read cheap,
+  // which is exactly why a blind probe should not get to run it for free
+  // (execution behind an opaque response — doctrine in http-guard.ts;
+  // the nine-readers ledger in the t707 census addendum).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site activity reads are not allowed" }, { status: 403 });
+  }
   try {
     const url = new URL(request.url);
     const limit = Math.max(1, Math.min(20, Number.parseInt(url.searchParams.get("limit") ?? "8", 10) || 8));

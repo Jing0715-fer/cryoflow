@@ -18,7 +18,14 @@ export const dynamic = "force-dynamic";
  * learns "the endpoint is dead" from this field instead of the chat
  * teaching it one refused request at a time.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  // t709 — the reader door: the t474-era "unguarded on secrecy grounds"
+  // stance (shared with providers/health) is retired the same way — the
+  // door's value is execution-behind-opaque, not response secrecy. The
+  // settings DTO keeps honoring the t472 secret law either way.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site settings reads are not allowed" }, { status: 403 });
+  }
   try {
     const { data, problems } = loadAiSettingsDetailed();
     const dto = aiSettingsDto(data);

@@ -91,6 +91,9 @@ function validatePortPairs(payload: CustomTemplatePayload): string | null {
  *                                      cryoflow-template/1 file.
  */
 export async function GET(request: NextRequest) {
+  // t709 priced this read-half's door and deferred it with the collection
+  // GETs (see jobs/route.ts) — the QA hot-path blast radius wants its own
+  // mass-shim round before the gate lands.
   try {
     const active = await ensureActiveProject();
     if (!active) {

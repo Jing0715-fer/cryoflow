@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findEffectiveJob } from "@/lib/link";
+import { isLocalRequest } from "@/lib/http-guard";
 import { lineageFor } from "@/lib/relion/dispatch";
 import {
   buildArgv,
@@ -45,7 +46,15 @@ type RouteContext = { params: Promise<{ id: string }> };
  * names (runRealJob's mkdirSync is a launch side effect, not a preview
  * one; a preview that litters disk is a leak with a UI face).
  */
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  // t709 — the reader door: the preview resolves lineage + effective job
+  // + builds the full argv before answering — real compute a blind probe
+  // would get for free behind an opaque response. The door closes the
+  // probe and keeps the job surface uniform: one door, every handler
+  // (doctrine in http-guard.ts).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site command previews are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const job = await findEffectiveJob(id); // resolves soft links to the original

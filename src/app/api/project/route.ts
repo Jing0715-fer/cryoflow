@@ -6,6 +6,9 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/project — active project (seeds the demo when DB is empty). */
 export async function GET() {
+  // t709 priced this read-half's door and deferred it with the collection
+  // GETs (see jobs/route.ts) — the QA hot-path blast radius wants its own
+  // mass-shim round before the gate lands.
   try {
     const active = await ensureActiveProject();
     if (!active) {

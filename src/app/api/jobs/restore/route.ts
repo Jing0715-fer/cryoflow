@@ -21,6 +21,15 @@ export const dynamic = "force-dynamic";
  * never drift. This handler is the door: guard + body shape + the project.
  */
 export async function POST(request: NextRequest) {
+  // t709 — the door the comment below always claimed: the isLocalRequest
+  // guard was imported here since t477 but the call itself was lost in
+  // the restore-core extraction — the t709 census (t709-door-coverage.py)
+  // caught the import without the invocation. A restore re-attaches whole
+  // job lifetimes; a drive-by page must not be able to drive it (doctrine
+  // in http-guard.ts).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site job restores are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as { jobs?: unknown };
     const list = Array.isArray(body.jobs) ? (body.jobs as RestoreJobInput[]) : [];

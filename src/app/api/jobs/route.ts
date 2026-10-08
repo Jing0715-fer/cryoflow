@@ -105,6 +105,12 @@ function jobsVersionOf(projectId: string, body: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  // t709 priced this GET's door and DEFERRED it, on blast-radius grounds:
+  // the roster is the QA lane's hottest route (~300 bare scripts fetch
+  // it), and the read's only drive-by cost is the idempotent reaper mount
+  // the app performs on every poll anyway. The door lands with the
+  // read-halves batch (jobs/edges/project/workspaces/custom-template), a
+  // build-day-prep round wide, fronted by a mass Origin-shim patcher.
   try {
     // t533 — defensive reaper mount: the route already owns the heavy graph,
     // so this is a free static mount (instrumentation's dynamic import is the

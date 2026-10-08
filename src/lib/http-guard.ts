@@ -7,9 +7,17 @@
  * handler) after the t252 "JSON routes self-defend" doctrine was found
  * half-true — a no-cors fetch can carry a JSON string body in a
  * safelisted text/plain envelope, and request.json() reads bodies, not
- * content types. Readers without a write-adjacent threat (activity,
- * command, rebalance, gallery, the api root…) stay doorless until their
- * own round prices them.
+ * content types. t709 closed the t707 ledger's nine pure-reader routes
+ * (activity ×2, judge-worker, providers/health, hpc/sbatch/[id], the
+ * command and rebalance previews, views/gallery, the api root) plus two
+ * finds of its own door census: jobs/restore POST — a write handler whose
+ * guard was imported at t477 but whose CALL was lost in the restore-core
+ * extraction, falsifying t708's "every write handler" claim — and the
+ * ai/settings GET, on no ledger at all. Remaining, priced with reasons in
+ * the routes: the five collection read-halves (jobs, edges, project,
+ * workspaces, custom-template GET) defer to a dedicated round — the QA
+ * lane's hot-path blast radius (~300 bare scripts) wants a mass Origin
+ * shim before their gates land.
  *
  * CryoFlow is a LOCAL single-user companion app, so there is no login to
  * put in front of /api/fs/browse. The realistic threat is a malicious web
