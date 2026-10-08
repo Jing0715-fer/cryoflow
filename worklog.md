@@ -11001,3 +11001,23 @@ Stage Summary:
 - 「探针的假阳性来自假词表」：view= 参数三连 1949B——若不审字节同，本窗会记下「三面皆活」的假 GREEN（实际只测了默认支三次）。与前窗 t695 的假阴性（ref 过期）互为镜像：**假阴性让活物蒙冤，假阳性让死物蒙赦——两边都是词表/协议先错，读数后错**。字节级比对（md5）是这类审的最廉价工具。
 - 「feature 方向的验尸要带活体验证」：两个方向若只读代码就判「已建成」，会漏掉 wire 层的真相（oblique 的 3977B、value 的 99.4、histogram 的 64³）——**「导出函数存在」与「端到端活着」之间隔着一层词表**。value 探针读回幻影峰值 99.4≈100 是本窗最优雅的副产物：t696 种子写的体素数学，被 t283 的直方图仪器在 680 窗后读回验证——世界的一致性经得起任意两层合同的互查。
 - 产出：docs/task13-legacy-verdicts.md（六条灭绝证词 + 两方向建成判决 + 证据行）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + 验证网 ②非 build 日：样板遗留清单已清空 → 存量审计系列自由选题（候选：UI 组件的可访问性普查、shots-qa 档案对齐审计、engine-state.json 35 records 对 17 jobs 的孤儿 record 普查）③演练床轮换（t696 窗 5 已跑，下轮 3-5 窗后）④t695 探针随 UI sweep 节奏。
+
+---
+Task ID: 698 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081340)
+Task: 13:40 派单执行——开局三件套判稳（t677 30/0；available 3164MB < 3280 → 非 build 日连续第十窗，持平）→ 入口②自由选题：**UI 可访问性普查**（697 窗以来首次 a11y 审计，两层数据：源码 rg 全扫 + agent-browser 活 DOM 可达名计算）→ **灭绝证词：四主面 586 按钮视图 0 无名** + 两观察项诚实入册 → docs/a11y-census.md + worklog 收官 + docs 车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 697 收官（HEAD 01e8700 树净）；t677 30/0 判稳先行；available 3164MB < 3280 → **非 build 日第十窗**（3166→3164 持平）。Task 697 入口②三候选中选 a11y 普查：697 窗从未做过、正对「样式越做越细节」的深化、快照证据（aria-label 密集）预示基线好——普查要么给灭绝证词要么找缺口。
+- [源码层三扫全绿] ①onClick 非按钮元素零命中（未带 role 的交互 div/span/td/li 不存在）；②`<img>` 无 alt 零命中——首查前瞻正则六处误报皆多行 JSX 属性（alt 在下一行），逐点上下文读验清；③表单控件文件全部携带 aria-label/labelledby（10 文件 2-26 处）。
+- [活 DOM 层·四面普查] agent-browser eval 以可达名算法（aria-label → labelledby → textContent）逐面枚举：canvas 142 按钮 **0 无名** / 2 输入有名；Dashboard 114 按钮 **0 无名** / 3 img 全 alt；inspector 开（3D auto-refine 租户）180 按钮 **0 无名** + dialog labelledby 目标存在（指向租户标题）+ 焦点圈禁（activeElement 在 dialog 子树内）；⌘K palette 150 按钮 **0 无名** + 输入有名 + 26 cmdk 组（Recent 组按 t684 合同沉默——**沉默合同在 a11y 树里同样成立**）。合计 **586 按钮视图 0 无名**。Tab 穿越落在具名可见按钮。
+- [探针自病一记·租户断言先行] 首点 roster 行误中 map 卡「Centered iso view」钮（首个 /auto-refine/ 匹配）——dialog 照样开了且普查照跑，但租户提取读 aria-label 得空串，险些记下「dialog 无名」假发现——**labelledby 检查揭示名字住在一次间接引用之外（Radix 惯例）**。a11y 探针必须按可达树的方式算名字、自己的租户断言必须先过——t695 阴性读数律在可达树上的重述。
+- [两观察项·诚实入册不定价] ①aria-modal 系统性缺席（两 dialog 皆 null）——modal 语义经 Radix 焦点圈禁 + 外部内容隐藏照常交付，修复属 Radix 依赖层非产品行，留待未来的依赖升级窗口；②palette 输入的名骑 placeholder/id 而非显式 aria-label——可选的加强行，入 build 日批附录非缺口。
+- [回归] 本窗零产品代码改动（纯普查 + 文档）——t677 30/0 覆盖；agent-browser 普查即本窗 QA（console 0 由上窗探针与抽查持续作证）；零 build 零重启；浏览器用毕即关。
+
+Stage Summary:
+- 「可达名是 UI 最便宜的诚实」：586 按钮视图零无名不是运气——是 t80 语义壳课、aria-label 惯例、Radix labelledby 模式在 680 窗里累积的纪律。**每个控件自带名字意味着每次 census（每面一个 eval、约一分钟）就能守住这条基线**：未来任何忘名字的新控件都将是这个从未见过无名的普查里的第一个异常——普查的成本在立法时已定价为零。
+- 「a11y 探针的假发现来自假名字算法」：本窗最险的一记不是产品缺口而是探针自己的名字提取只读 aria-label、漏了 labelledby 间接引用——**可达名的计算规则（label → labelledby → 文本）是 AT 的合同，探针抄全才算数**（t689 抄全律在 a11y 域的形状）。假发现若入账，浪费的不是一行修复而是一个方向的怀疑。
+- 「沉默合同有第三棵树」：t627 的 rest-world 律验的是渲染树、t684 的 Recent 律验的是命令树，本窗的 26 组 cmdk 证明**同一合同在可达树里也成立**——空 trail 不渲染空壳，对屏幕阅读器和对面板同样真。合同的价值在于它对每棵树同时真；在一个树里成立而在另一个树里破的合同是待审的合同。
+- 「观察项与缺价的界线是修复的所有权」：aria-modal 缺席的修复者不是本仓库的组件代码而是 Radix 依赖——**给依赖行为定价成产品行等于给别人的账本记账**。观察项入册、注明所有权归属，是普查能给出的最诚实判决形状：它不假装缺口不存在，也不假装自己能修。
+- 产出：docs/a11y-census.md（两层普查数据 + 两观察项 + 方法伪影）+ worklog 本段；下窗入口：①**build 日批次（五窗账，清单不变）**：t692 B 类六处 + t609 三件套 + t693 三扇 GET 门 + t694 十文件门 + seed-gap 相邻容忍候选 + a11y 可选加强行（palette 显式 aria-label）+ 验证网 ②非 build 日：存量审计自由选题剩两候选（engine-state 35 records 孤儿普查 / shots-qa 档案对齐审计）③演练床轮换（t696 窗 5，本窗窗 3，下轮节奏内）④a11y 普查可低成本重跑（每面一个 eval）。
