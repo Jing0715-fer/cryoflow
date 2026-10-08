@@ -46,7 +46,8 @@ const EXEMPT_ROW_PATTERNS = [
   { f: "src/components/ai/assistant-panel.tsx", re: /from-teal-500(?:\/\d+)? to-cyan/, note: "AI avatar brand gradient (teal→cyan pair, cyan outside scope; renaming half would misname the brand pair)" },
   { f: "src/components/workflow/job-card.tsx", re: /border-teal-500 ring-2 ring-teal-500\/70/, note: "inspected focus ring — UI focus identity, not job running" },
   { f: "src/components/workflow/job-card.tsx", re: /find lens hit/, note: "find-lens hit ring (Task 134) — search highlight identity" },
-  { f: "src/components/workflow/job-card.tsx", re: /FIND_MARK_CLASS = /, note: "find-lens character wash (t655) — the hit ring's own amber, same search identity" },
+  { f: "src/components/workflow/find-mark.tsx", re: /FIND_MARK_CLASS = |rounded-\[2px\] bg-amber-400\/35/, note: "find-lens character wash (t655; t725: moved to find-mark.tsx when the palette joined the wash — t720's law, third execution) — the hit ring's own amber, same search identity" },
+  { f: "src/components/workflow/param-dialect-badge.tsx", re: /bg-amber-400\/35/, note: "dialect chip amber (t722; t725 exemption judgment: the badge-is-the-why hue is identity, not field) — same search identity as the wash" },
   { f: "src/components/workflow/header.tsx", re: /=== "rose" \? "bg-rose-500"/, note: "elsewhere group dot hue ternary — group identity (t649 row-exempt precedent)" },
   { f: "src/components/workflow/engine-guidance.tsx", re: /border-teal-500 bg-teal-500/, note: "engine selector checked face — selection identity (t647 class-gallery verdict family)" },
 ];
