@@ -154,3 +154,20 @@ B-class tolerances, not by this document's enthusiasm.
   10 dead), t677 re-run (30/0), t695 strip-ui-wire ×2 (world-following —
   the two waking faces are auto-verified in the UI without touching the
   probe), and one agent-browser spot check of the two faces.
+
+## Addendum (t699): the family is complete — the third sibling hid behind A-class silence
+
+The design above scoped two C-class gaps; the t699 record census
+(docs/record-census.md) found and patched the third: **maskcreate** —
+no record, no workdir, invisible to the t692 strip census because
+`output-summary.ts` L571 puts maskcreate in the designed-silence class
+(no key numbers → no summary → nothing to measure). It sits on the live
+main chain (refine3d --half1→ maskcreate --mask→ postprocess), so its
+missing record would have made postprocess re-runs resolve a mask from
+a provider that "isn't there". Patched by
+`scripts/t699-maskcreate-life-patch.mjs` (idempotent, double-run
+verified; mask.mrc is a real 64³ 0..1 volume — Mol* renders the sphere,
+contour math reads back consistent). Live world now stands at **17/17
+full lives**; the 20 cmuyb* orphan records are documented inert fossils
+of the deleted cmuyb4tb50000on85bg44ugzz project (workdirs intact,
+unreachable by construction, left in place).
