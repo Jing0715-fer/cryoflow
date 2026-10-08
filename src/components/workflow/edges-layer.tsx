@@ -46,7 +46,7 @@ import * as React from "react";
 import { CARD_H, CARD_W, PORT_COLORS, outputKindOf } from "@/lib/workflow";
 import { computeEdgeGeoms, getLiveDrag, type EdgeGeom } from "@/lib/edge-geom";
 import { useWorkflowStore } from "@/lib/store";
-import type { EdgeDTO, JobDTO } from "@/lib/types";
+import type { EdgeDTO, JobDTO, PortKind } from "@/lib/types";
 
 const STROKE_BASE = "color-mix(in oklch, var(--foreground) 32%, transparent)";
 const STROKE_ACTIVE = "color-mix(in oklch, var(--foreground) 52%, transparent)";
@@ -89,6 +89,7 @@ export const EdgesLayer = React.memo(function EdgesLayer({
   hoveredJobId,
   chainIds,
   chainEdgeIds,
+  legendKind,
 }: {
   edges: EdgeDTO[];
   jobs: JobDTO[];
@@ -122,6 +123,14 @@ export const EdgesLayer = React.memo(function EdgesLayer({
   /** The edge ids the chain walk actually used (the walked hops, in
    *  chain order upstream of the finisher). null with the lens OFF. */
   chainEdgeIds?: Set<string> | null;
+  /** t737 — the legend's focus: the kind word currently focused from
+   *  the toolbar's legend (null when none). A wire carrying ANOTHER
+   *  kind recedes on the --dim-wire rung — the question is "where does
+   *  THIS data flow", and a wire that speaks no word (unmapped/legacy,
+   *  edgeKind undefined) recedes with the rest: it is no word's story.
+   *  The same dim grammar selection and the lenses use; dims union,
+   *  ink multiplies. */
+  legendKind?: PortKind | null;
 }) {
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
@@ -187,7 +196,11 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         const dimmed =
           (selectedId != null && !touchesSelected) ||
           (judgedIds != null && !touchesJudged) ||
-          (chainEdgeIds != null && !isChainEdge);
+          (chainEdgeIds != null && !isChainEdge) ||
+          // t737 — the legend's focus: wires of OTHER kinds recede so the
+          // focused word's flow stands alone. A kindless (legacy/unmapped)
+          // wire is honest about having no word — it recedes too.
+          (legendKind != null && edgeKind !== legendKind);
         // t571 — the hover answer: this wire touches the card under the
         // pointer. It lights (STROKE_ACTIVE ink, a mid width) but does
         // NOT dim its neighbors and does NOT get the halo/glow — those

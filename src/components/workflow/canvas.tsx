@@ -44,10 +44,12 @@ import {
 import {
   CARD_H,
   CARD_W,
+  PORT_COLORS,
   ZOOM_MAX,
   ZOOM_MIN,
   ZOOM_STEP,
   jobType,
+  outputKindOf,
   portY,
 } from "@/lib/workflow";
 import { hasJudgment } from "@/lib/class-notes";
@@ -66,7 +68,7 @@ import {
 } from "@/lib/workflow-io";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom, type HistoryEntry, type HistoryEntryKind, type Viewport } from "@/lib/store";
 import { beginGroupDrag, endGroupDrag, moveGroupDrag } from "@/lib/group-drag";
-import type { JobDTO } from "@/lib/types";
+import type { JobDTO, PortKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { EdgesLayer } from "./edges-layer";
@@ -915,6 +917,40 @@ export function WorkflowCanvas() {
   // through linked copies — see store.linkJobTo)
   const jobs = useActiveWorkspaceJobs();
   const edges = useActiveWorkspaceEdges();
+  // t737 — the legend's focus: the kind word currently focused from the
+  // toolbar's legend (null when none). Ephemeral view state, same family
+  // as the hover channel — deliberately not store material.
+  const [legendKind, setLegendKind] = React.useState<PortKind | null>(null);
+  // t737 — the legend face's roster: the kinds the CURRENT world's wires
+  // actually wear, derived from the same book the wires themselves read
+  // (outputKindOf + PORT_COLORS), in the book's own order. A legend of
+  // colors this canvas never paints would be a lie; the roster is the
+  // world's own chromatography. Each entry carries its wire count — the
+  // title teaches how MANY wires speak that word.
+  const legend = React.useMemo(() => {
+    const counts = new Map<PortKind, number>();
+    const byId = new Map(jobs.map((j) => [j.id, j] as const));
+    for (const e of edges) {
+      if (!e.fromPort) continue;
+      const from = byId.get(e.fromJobId);
+      if (!from) continue;
+      const k = outputKindOf(from.type, e.fromPort);
+      if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    return (Object.keys(PORT_COLORS) as PortKind[])
+      .filter((k) => counts.has(k))
+      .map((k) => ({ kind: k, wires: counts.get(k) ?? 0 }));
+  }, [edges, jobs]);
+  // t737 — Escape lets the focus go: the legend's question is a view
+  // state, and one keypress retreats. Mounted only while a focus is live.
+  React.useEffect(() => {
+    if (legendKind == null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLegendKind(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [legendKind]);
   // t364 — the LANDING commit stays interruptible + progressive. When the
   // initial data load (or a workspace switch / workflow import) lands a big
   // canvas, mounting every card in ONE synchronous render pass blocked the
@@ -2241,6 +2277,9 @@ export function WorkflowCanvas() {
     const s = useWorkflowStore.getState();
     if (s.pendingFrom) s.cancelConnect();
     else s.select(null);
+    // t737 — a background click also releases the legend's focus: asking
+    // the world a new question lets the old answer go.
+    setLegendKind(null);
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
@@ -2507,6 +2546,7 @@ export function WorkflowCanvas() {
             hoveredJobId={hoveredJobId}
             chainIds={chainIds}
             chainEdgeIds={chainEdgeIds}
+            legendKind={legendKind}
           />
           <LiveWire rootRef={rootRef} jobs={jobs} />
           {/* t601 — the death breath's ghost layer: frozen memories of the
@@ -3192,6 +3232,51 @@ export function WorkflowCanvas() {
             <ImageUp className="size-4" />
           )}
         </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* t737 — the legend face: the kind vocabulary's table of contents,
+            living in the toolbar's tail. The words shown are the ones the
+            CURRENT world's wires actually wear (the same book —
+            outputKindOf + PORT_COLORS — the wires themselves read), in the
+            book's own order. Clicking a word FOCUSES its wires: every
+            other kind recedes on the --dim-wire rung (selection's dim
+            grammar, borrowed by a question instead of a job), and a second
+            click / Escape / a background click let it go. The dot is the
+            wire's resting hex (t734's dialect — inline style, since the
+            color table lives in lib where tailwind's JIT never looks);
+            the word rides from 2xl up (the two-size law: compact face =
+            dot only, full face = dot + word). */}
+        <div
+          data-canvas-ui="kind-legend"
+          className="hidden items-center gap-1 pl-0.5 lg:flex"
+          role="group"
+          aria-label="Data kinds flowing on the canvas wires"
+        >
+          {legend.map(({ kind: k, wires }) => {
+            const active = legendKind === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setLegendKind(active ? null : k)}
+                aria-pressed={active}
+                title={`${k} data on ${wires} wire${wires === 1 ? "" : "s"} — click to focus, Escape to clear`}
+                data-canvas-ui="kind-legend-item"
+                data-kind={k}
+                className={cn(
+                  "flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                  active && "bg-accent text-foreground"
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: PORT_COLORS[k].wire }}
+                />
+                <span className="hidden 2xl:inline">{k}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* workflow JSON import — hidden picker opened from the context menu;
