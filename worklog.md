@@ -10934,3 +10934,24 @@ Stage Summary:
 - 「盲写的最远路径是隔一跳的权力」：edges POST 自己不 spawn 任何东西——但 completed→pending 的盲边在 20s 内被 retry 节奏消化成真实算力。**威胁模型要沿数据流走到权力落地的位置，而不是停在路由的动词**：run 有门、retry 无门、edges 无门——攻击者选最后那扇。这条论证让 edges 从「拓扑化妆」升格为「算力侧门」。
 - 「账册的谎言分两代：t689 代的 diag 诽谤产品，t694 代的账册豁免自己」：subvolume-job 的 t252 时代账册在 t259 实证落地后没有跟着改——它引用的防御（request.json() 拒 no-cors）被同家族的实证证伪，但字面还站在代码里自称「honestly absent door」。**安全注释是威胁模型的存照，不是一次性文档：威胁模型升级（t259 的 no-cors 发现）时，所有引用旧模型的注释都是欠账**。这与 t691 的消息谎言同构——断言升级了，消息没跟上；这次是模型升级了，账册没跟上。
 - 产出：docs/write-door-verdicts.md（13 候选逐路由判决：判据重述 + 10 gate 各带威胁模型句与对称锚 + 3 exempt 各带定价 + 假账册修正案 + ripple 地图 + 预期终态）+ shots-qa t262 两帧（bed 刷新）+ worklog 本段；下窗入口：①**build 日批次（合并价，三窗账一窗清）**：t692 B 类六处文件名容忍 + t609 完整复活三件套 + t693 三扇 GET 门 + **t694 十文件写门（按 docs/write-door-verdicts.md 机械执行：每文件 guard 行 + 威胁模型注释 + subvolume 账册改写 + exempt 三件行内定价注释）** + 验证（census 重跑×2 预期 74/11 + gate-ripple 清单 + t609 活跑×2）②非 build 日：era 探针复活预手术维持否决；C 类种子缺口设计文档仍可选③样式车道（账本清零）④judge 风暴（维持文档化）⑤演练床轮换（本窗窗 3 已跑，下轮 3-5 窗后或 remote 域改动后）⑥storage 合同执行（新 key 按命名律走）。
+
+---
+Task ID: 695 收官
+Agent: main (cron window, Job 362852, trace 1a07549302235a99-cron-agent-loop-202610081225)
+Task: 12:25 派单执行——开局三件套判稳（t677 30/0；available 3174MB < 3280 → 非 build 日连续第七窗，回升趋势中断）→ agent-browser 活体 QA sweep（隔 4 窗轮换点到达，全家绿）→ **strip 活性的 UI 层首验**：五连测量伪影自捕（两次险些伪造 census-vs-UI 假矛盾）→ 干净协议下 census 判决活体全确认 + 双实例 strip 合同发现 → 教训铸成 scripts/t695-strip-ui-wire.mjs（125/0×2）→ worklog 收官 + qa/docs 车 push
+
+Work Log:
+- [开局三件套] worklog 尾条核实 = Task 694 收官（HEAD 9fbcd4f 树净）；server 200/6.2ms + t677 30/0；available 3174MB < 3280 → **非 build 日**（连续第七窗，较上窗回落 16MB——连续两窗回升的势头中断，build 日继续等）。
+- [活体 QA sweep] console 0 错 + page errors 0；canvas 17 cards == 17 minimap dots（世界同源）；lens off rest-world（0 critical chip + 0 confession chip）；⌘K palette 11 组渲染 + Recent 组按合同沉默；Dashboard 17 roster 行 + 9 条 activity 时戳。零产品 bug。
+- [census UI 层首验·五连伪影] 用 agent-browser 复核 t692 strip 活性判决时连捕五件自病：①text= 选择器语法不存在；②视图态暗写（minimap 在 Dashboard 视图当然缺席）；③**ref 失效静默失败**（e18 "Unknown ref"——后续所有 Dashboard 切换全没生效，视图停在 Workflow，ctffind 的「阴性」实为 extract 旧租户的重读）；④**completed job 的 inspector 智能默认落 Results tab**（t363 血统），strip 住 Overview tab——不在 Overview tab 上读数就是读错面；⑤未验租户的阴性读数（首次 extract 阴性未查 inspectorOpen）。③+④ 叠加险些伪造「ctffind UI 死 vs wire 活」的假矛盾。
+- [干净协议] Dashboard 切换显式验证 + roster 行内层 button DOM 直点（div 是语义壳，t80 课）+ openJob 跳转后**租户按名验证**（data-insp-face="header" 含 job 名）+ Overview tab 显式点击 + fetch 落地窗口 pollUntil + 再读 face。协议下判决：**motioncorr「10 MICROGRAPHS CORRECTED」活 ✓、ctffind「10 MICROGRAPHS WITH CTF」活 ✓、extract 死 ✓（B 类方言缺口）、postprocess 死 ✓（A 类设计沉默，receipt 兜底亦不亮）**——t692 census 的 API 层判决在 UI 层全体成立。
+- [合同发现·双实例 strip] JobResults（Results tab 载体，results-view.tsx L1064）**自带 KeyNumbersStrip 实例**——t347「one grammar, both surfaces」的真形状：**Results tab 的 strip 只读 summary 腿；receipt 兜底方言（job.result 解析）是 Overview 独有**（JobResults 从不读 result 行）。合并合同：Overview strip 在场 ⇔ summary 非空 ∨ receipt 可解析；Results strip 在场 ⇔ summary 非空。
+- [探针落地] scripts/t695-strip-ui-wire.mjs：**UI 面必须与 wire 一致**——逐 completed job 从 jobs API + outputs API + result 行（parseResultCounts **逐字抄自 src/lib/result-counts.ts**，t689 抄全律）重算期望，双 tab 断言 + 智能默认 tab 断言 + 租户按名断言 + console 0。世界随行（无 job id 无钉死计数）：build 日 B 类修复落地后 wire 醒 6 条，探针免改自动验证。**首跑自身又捕第六件伪影**（openJob 跳转后视图停在 canvas，循环内不回 Dashboard = 连续 16 个「row not found」假 FAIL）——修补 = 每迭代重验跑道。终局 **125/0 ×2**（重入性），eslint 0，census 重跑 5/12 与探针 wire 判决 5==5 互证。
+- [回归] 本窗零产品代码改动（新探针 + QA sweep）——t677 首针 30/0 覆盖；探针自带 console-0 断言即 UI 层健康证词；零 build 零重启。
+
+Stage Summary:
+- 「五件伪影叠加才制造一次假矛盾，但任何一件单独就足以毒死一个判决」：ctffind 的「UI 死」是 ref 静默失败（没切到 Dashboard）+ 智能默认 tab（读错面）+ 未验租户（不知道读的是谁）三件叠加的产物——每一件单独都「看起来像阴性」。**阴性读数的举证责任比阳性更重：阳性说「在场」有 DOM 为证，阴性说「不在场」必须先证明自己站对了地方**。这与 t691 的活探针假话同谱系：假 GREEN 里的假话人人信，假阴性里的假话连验证都不用就进账。
+- 「ref 是会过期的钥匙，DOM 查询才是常青的」：agent-browser 的 @ref 快照在 re-render 后全部失效，且失效是静默的（「Unknown ref」只在显式看时才出现）。本窗的后半段混沌全是 stale ref 造成的——**UI 探针的可靠姿势是每次交互前用语义锚（data-roster-row / data-insp-face / role）重新定位，ref 只作快照浏览**。
+- 「合同的发现是 sweep 的复利」：为验证 census 而被迫搞清的 inspector 结构本身入账——智能默认 tab（completed→Results，failed/running→Log，t363）、双实例 strip 的方言分界（receipt 兜底 Overview 独有）、roster 行的语义壳结构（t80 课在 roster 的形状）。**t695 探针把这些合同从「读代码才知道」变成「跑探针就守卫」**——build 日 B 类修复落地那天，它就是 UI 面的验收工具（wire 醒 6 条、UI 必须跟上），验证劳动在立法时就已定价。
+- 「探针自己的首跑也是它的暗写者审」：t695 首跑 16 连假 FAIL（循环内导航丢失）——探针作为「防伪影的协议」自身也要过伪影审，修补后的 per-iteration runway 重验把教训写进了探针的骨架。**协议若不内置于工具，它就只是 worklog 里的一段话；内置了，它就是每一次运行的义务**。
+- 产出：scripts/t695-strip-ui-wire.mjs（新，125/0×2，世界随行可重跑）+ worklog 本段；下窗入口：①**build 日批次（合并价，四窗账一窗清）**：t692 B 类六处文件名容忍 + t609 完整复活三件套 + t693 三扇 GET 门 + t694 十文件写门（按 docs/write-door-verdicts.md 机械执行）+ 验证（census 重跑×2 预期 74/11 + **t695 探针重跑×2——B 类落地后 UI 面 11 alive 自动验收** + gate-ripple 清单 + t609 活跑×2）②非 build 日：C 类种子缺口设计文档（refine3d 缺 run_data.star / initialmodel 空目录——种子脚本增补设计，仍可选）；era 预手术维持否决③样式车道（账本清零）④judge 风暴（维持文档化）⑤演练床轮换（Task 694 窗 3 已跑，本窗窗 4，下轮 3-5 窗节奏内或 remote 域改动后）⑥**t695 入回归轮换候选**：strip 合同被触碰时或 build 日验证时必跑；平时随 3-5 窗 UI sweep 节奏。
