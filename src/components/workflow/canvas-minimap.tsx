@@ -61,12 +61,21 @@
  * it frames brightly is "one of the ones you care about". Outside sel
  * mode a selected chip still pans: selection alone doesn't arm doors,
  * the FRAMING does — same discipline that keeps find doors lens-gated.
+ *
+ * Task 743 — the map's wires borrow the canvas's ink: every edge line
+ * asks the same kind question the edge layer asks (outputKindOf →
+ * PORT_COLORS wire hex) and paints the answer, so the bird's-eye and
+ * the canvas tell one color story — a map that mutes what the canvas
+ * inks is lying at altitude. A wire without a word keeps the muted
+ * bare face (t738's wordless law, fourth face). The ink rides the
+ * stroke, the loudness does not change: one register, opacity
+ * untouched, the dim rungs (t166 sel focus, t683 chain) stay put.
  */
 
 import * as React from "react";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges } from "@/lib/store";
 import { Kbd } from "@/components/ui/kbd";
-import { CARD_W, CARD_H } from "@/lib/workflow";
+import { CARD_W, CARD_H, PORT_COLORS, outputKindOf } from "@/lib/workflow"; // t743 — one well: the map's wires drink where the canvas drinks
 import { capturePointer } from "@/lib/pointer";
 import { cn } from "@/lib/utils";
 import { STATUS_HEX, statusWord } from "@/lib/status-style";
@@ -719,8 +728,13 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 : "Click to navigate."
         }`}
       >
-        {/* edges (thin, muted) — cheap straight port-to-port lines;
-            in sel focus, edges with no selected endpoint dim further */}
+        {/* edges (thin, kind-inked) — cheap straight port-to-port lines;
+            in sel focus, edges with no selected endpoint dim further.
+            t743 — the borrowed ink: the map asks the edge layer's own
+            question (outputKindOf at the from port) and paints the same
+            wire hex the canvas paints, so altitude cannot change the
+            story's colors. A wire without a word keeps the muted bare
+            face — the map never invents a color the book does not have. */}
         {edges.length <= 160 &&
           edges.map((e) => {
             const a = jobById.get(e.fromJobId);
@@ -736,24 +750,41 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             const dim =
               (selFocus && !selIds.has(e.fromJobId) && !selIds.has(e.toJobId)) ||
               (chainEdgeIds != null && !chainEdgeIds.has(e.id));
+            // t743 — the map's wires borrow the canvas's ink before the
+            // question of dim or chain: the from port names the water, the
+            // book names the hex. A wordless wire (legacy port, unknown
+            // kind) keeps the bare currentColor — the fourth face of the
+            // t738 wordless law (chip bare, roster unadmitted, in-start
+            // waiting, map wire bare).
+            const edgeKind = e.fromPort ? outputKindOf(a.type, e.fromPort) : undefined;
+            const kindInk = edgeKind ? PORT_COLORS[edgeKind].wire : undefined;
             return (
               <line
                 key={e.id}
                 // t683 — the probe's honest anchor: the map's wires tell the
                 // chain's story too (walked keeps ink, unwalked recedes), and
-                // an assertion needs to ask each wire by name
+                // an assertion needs to ask each wire by name. t743 extends
+                // the anchor with the kind: an assertion can now ask each
+                // wire what water it carries without reading its stroke.
                 data-mm-edge-id={e.id}
+                data-mm-edge-kind={edgeKind ?? ""}
                 x1={a.x + CARD_W}
                 y1={a.y + CARD_H / 2}
                 x2={b.x}
                 y2={b.y + CARD_H / 2}
-                stroke="currentColor"
+                stroke={kindInk ?? "currentColor"}
                 strokeWidth={Math.max(6, Math.min(18, world.w / 120))}
                 // Task 166 — the dim rides the ladder's --dim-ghost rung via
                 // the .mm-edge-dim class (an SVG presentation attribute
                 // cannot consume var()); the base ink stays attribute-borne.
+                // t743 — one register: the ink rides, the loudness does not
+                // change. Worded and wordless wires share the 0.25 whisper;
+                // a two-tier brightness would smuggle a new semantic ("has
+                // a word = louder") into a decoration layer. The muted
+                // color class only rides wordless wires — an inked wire
+                // carrying a class whose color it ignores is dead weight.
                 opacity={0.25}
-                className={cn("text-muted-foreground", dim && "mm-edge-dim")}
+                className={cn(!kindInk && "text-muted-foreground", dim && "mm-edge-dim")}
                 // Task 139 — the map's wires are pure decoration (the canvas
                 // wires carry the click-to-delete affordance, these don't):
                 // a wire crossing a chip's projected center must never steal
