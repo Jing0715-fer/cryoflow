@@ -47,6 +47,8 @@
  *       zero real console errors.
  */
 
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t709 — the reader-door routes (judge-worker status) reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, cpSync, copyFileSync } from "node:fs";
 import { renameSync } from "node:fs";

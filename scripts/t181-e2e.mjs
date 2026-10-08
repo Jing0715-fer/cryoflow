@@ -22,6 +22,8 @@
  * second toFractionFrame consumer) stays sane. Z: roster identity,
  * read-only proof.
  */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t709 — the reader-door routes (activity feed) reject headerless clients (the door's language)
 import { readFileSync } from "fs";
 import path from "path";
 import { chromium } from "playwright";

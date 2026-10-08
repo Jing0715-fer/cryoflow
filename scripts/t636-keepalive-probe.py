@@ -4,7 +4,14 @@
 import socket, time
 
 s = socket.create_connection(("127.0.0.1", 3000), timeout=5)
-req = b"GET /api/activity/recent?limit=2 HTTP/1.1\r\nHost: localhost:3000\r\nConnection: keep-alive\r\n\r\n"
+# t709 — the reader-door routes reject headerless clients; speak the door's
+# language the way the guard's own doc line prescribes (Origin == Host).
+req = (
+    b"GET /api/activity/recent?limit=2 HTTP/1.1\r\n"
+    b"Host: localhost:3000\r\n"
+    b"Origin: http://localhost:3000\r\n"
+    b"Connection: keep-alive\r\n\r\n"
+)
 
 s.sendall(req)
 time.sleep(0.6)

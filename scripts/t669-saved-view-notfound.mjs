@@ -27,6 +27,8 @@
 //   E  the dual clock's other half: the palette's TTL expires and the
 //      deleted row fades from the list (self-heal, no hand edits).
 //   F  the world intact (three seeded views untouched) + noise buckets. 📸×2.
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707/t709 — the saved-state and reader-door routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 

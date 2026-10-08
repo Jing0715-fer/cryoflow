@@ -36,6 +36,8 @@
  *      byte-for-byte, symlink back, probe fixtures deleted, read-only
  *      registry never written
  */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t709 — the reader-door routes (hpc/sbatch dry-run) reject headerless clients (the door's language)
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, renameSync, rmSync } from "fs";
 import path from "path";
 import { chromium } from "playwright";

@@ -28,6 +28,8 @@
 // The observer is reinstalled before EVERY judgment click (t670's second
 // lesson: the storm's HMR reload can kill it between any two assertions).
 
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707/t709 — the saved-state and reader-door routes reject headerless clients (the door's language)
 import { deflateSync } from "node:zlib";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";

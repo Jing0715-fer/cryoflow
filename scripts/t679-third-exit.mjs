@@ -46,6 +46,8 @@
 // permanent goalkeeper (the try/catch stays; unknown-unknown throws from
 // the viewer's own internals still owe the honest toast), documented
 // rather than drilled (the t678 entry-⑥ adjudication pattern).
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707/t709 — the saved-state and reader-door routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 

@@ -37,6 +37,8 @@
 //      writes the pending, a FRESH viewer mount consumes it, the restored
 //      toast lands (three mouths, no crossfire).
 //   F  the world intact (three seeded views) + noise buckets. 📸×2.
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707/t709 — the saved-state and reader-door routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { deflateSync } from "node:zlib";
