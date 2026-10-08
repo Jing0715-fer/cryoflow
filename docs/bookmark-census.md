@@ -263,3 +263,52 @@ fetch, and the curl shells carry `-H "Origin: ${B}"` (qa45 hardcodes its
 base — it has no B constant). Harmless against today's unguarded bundle,
 required against tomorrow's — the same both-worlds property the census's
 fetch_json fix has.
+
+## t708 addendum — the writers batch: the ledger executes, the t252 doctrine retires half-true
+
+The 22-route audit ledger's first half EXECUTED this window: all thirteen
+write routes — workflow-import, pipeline-template, jobs POST, project POST,
+edges POST/DELETE, jobs/[id] PATCH/DELETE (a ledger miss the per-file
+sweep caught: "jobs POST" was listed, the [id] write pair wasn't),
+subvolume-job, jobs/layout, workspaces POST/PATCH/DELETE,
+custom-template's four mutating handlers, hpc/simulate — now carry the
+isLocalRequest door on every POST/PUT/PATCH/DELETE handler (17 handlers,
+13 files). Staged with the rest of the build-day batch; the running
+bundle is untouched.
+
+**The discovery that made the batch urgent: the t252 doctrine retired
+half-true.** Class 2 claimed JSON-body routes self-defend because a
+no-cors fetch "cannot send JSON". Half true: no-cors cannot send
+*application/json*, but text/plain IS CORS-safelisted and a string body
+may contain valid JSON — and `request.json()` reads bodies, not content
+types. A bare cross-site POST could carry a full payload to any JSON
+route (creating jobs, edges, workspaces, driving the subvolume send's
+whole geometry contract). The door is the real closure; the strict
+parses stay as the second layer (they still kill the urlencoded form
+shape). Class 3 (PUT/PATCH/DELETE method immunity) survives review
+intact — those handlers are doored for policy uniformity, not necessity.
+t252's header comment carries the correction; its new Phase B2 fires a
+headerless JSON write and asserts it dies (403 when the door is live;
+201 + self-cleanup through the same bare channel on a stale bundle —
+the hole demonstrated and healed in one probe).
+
+**The QA lane learned the language before the door exists** (the t707
+both-worlds doctrine, second verse, 21 files): the shared
+`qa-origin.mjs` shim installed in every suite with bare node-level
+write-calls (t256-t260's canvas cluster, the remote family's mkJob/mkEdge
+helpers t262-t272, t296/t298, world-hygiene's janitor PATCH/DELETEs,
+qa61/qa64/qa77) — one import + one call each, harmless today, required
+tomorrow. t255's self-defense ledger now LAYERS: drive-by shapes stay
+bare and accept either verdict (403 door / 400 body-parse), while the
+contract probes (traversal, non-MRC, degenerate, missing job) speak
+same-origin metadata so route-speak stays exactly assertable in both
+worlds. t251/t252 deliberately stay raw — the doors' own tests must
+speak headerless to prove the door.
+
+**The sweep (scripts/t708-writers-sweep.sh) is the activation verdict,
+pre-written.** Stateless probes only (invalid bodies, fake ids — zero
+state change in either world). Today's doorless bundle: every probe
+answers route-speak, bare and Origin columns identical, zero 403. After
+the build-day build: the bare column flips to 403 (door speaks first),
+the Origin column keeps route-speak. The flip IS the verdict; no
+judgment calls on activation day.
