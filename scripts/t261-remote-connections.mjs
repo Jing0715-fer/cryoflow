@@ -27,8 +27,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { Socket } from "node:net";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { installOriginDoor } from "./lib/qa-origin.mjs";
-installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";

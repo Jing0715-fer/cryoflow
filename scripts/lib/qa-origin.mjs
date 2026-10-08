@@ -17,6 +17,28 @@
  * Idempotent; a no-op when headers already carry Origin (script wins).
  * Browser-driven pages are unaffected — the shim only patches the Node
  * process it runs in.
+ *
+ * ⚠ THE DOOR'S-OWN-TEST EXCLUSION (t714, learned the expensive way):
+ * a probe whose SUBJECT is the bare lane — any suite asserting
+ * "no metadata → 403" (t251 PHASE B, t252's blind-write phase, t259's
+ * gate matrix) — MUST NOT install this shim: it would dress the bare
+ * request in same-origin evidence and the assertion would test the
+ * shim, not the door. The t710 mass install threaded this import into
+ * 289 files mechanically and threaded it into these three too; the
+ * t25 batch's 5-window rotation ceiling is what exposed the poisoning
+ * (18/6 fails whose every line read "bare got 200"). Bare-column
+ * probes belong on the manual-exclusion list, exactly like the
+ * t708-writers-sweep precedent ("its bare column IS the door's own
+ * test — covered by design").
+ *
+ * ⚠ THE TRANSITIVE RULE (t714, second half of the same lesson): a
+ * SHARED module that installs this shim at its top level poisons every
+ * consumer — t254 imported resolveRefineHost() and got its bare fetch
+ * dressed by qa-refine-host.mjs's own install, even after t254's own
+ * install was removed. Shared libs under scripts/ must stay
+ * shim-free (they serve bare-column probes and normal probes alike);
+ * each entry-point script installs the shim for ITSELF, exactly once,
+ * after checking its own assertions don't own a bare column.
  */
 const ORIGIN_HEADERS = ["origin", "Origin"];
 

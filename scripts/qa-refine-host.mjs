@@ -26,8 +26,6 @@
 
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { installOriginDoor } from "./lib/qa-origin.mjs";
-installOriginDoor();
 
 const MANIFEST = "/home/z/my-project/data/old-world.json";
 const BASE = "http://localhost:3000";
