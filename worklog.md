@@ -11904,3 +11904,25 @@ Stage Summary:
 - 「卡与 tooltip 的分工」：title 只教计数（无障碍 fallback），卡教清单与操作——同一信息不说两遍，同一职责不设两处。判词：**迁移不是删除：click to focus 从 title 搬进卡脚，是因为读者此刻正看着卡——提示应该出现在眼睛在的地方**。
 - 「防抖的礼让」：onMouseLeave 带 `cur === k` 守卫——从词 A 滑向词 B 时，B 的 enter 先于 A 的 leave，A 的离开不得关掉 B 刚开的卡。判词：**并发的手势里，晚到的事实尊重早到的事实**。
 - 产出：src/components/workflow/canvas.tsx（legendHover state + legend useMemo 扩展收行 + 画布口径 + 浮卡三段）+ scripts/t739-legend-card-unit.mjs（24/0）+ shots-qa/t739-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 三十项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738 激活判决 + **t739 激活判决（图例索引页活体：hover 词浮卡列 from → to 行、键盘 focus 同开、Esc/再点/背景三重释放焦点、卡脚提示、2xl 词、画布口径 roster）** + 验证网 ②非 build 日：自由选题（**kind 词汇第八读者的侦察**——mini-map 缩微线借线墨？拖拽新线预览色？或图例卡行点击即聚焦该线？或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **4/5**（带内不动） ④census 轮换：零新路由/零种子/零 bookmark；本窗组件手术（canvas）→ t716/t727/t733/t734/t735/t737/t738/t739 家族 725/0 本窗已全跑；t650-assert 已跑（35/0）；lib **本窗零手术**；t576 live-fire 仍 world-drift pin。
+
+---
+Task ID: 740
+Agent: main (cron agent loop, Job 362852, trace ...0610)
+Task: 状态判定 → 巡检 → 疑似 bug 深挖（「ounted 陈雷」）→ 终局：显示层幻觉显影 → 布尔守护探针 → 两车 commit + push
+
+Work Log:
+- 开局三件套：tail worklog 尾条 = Task 739 收官（feat f922cafa / qa c48bab15 / docs b0a73974）；curl home 200；free available 3092MB < 3280MB → **非 build 日连续第四十窗**，床轮换 4/5 带内不动。
+- agent-browser 巡检：errors / console 零行，截图 shots-qa/t740-patrol.png，用毕即关。
+- **疑似陈雷显影与终局（本窗主事件）**：读 job-card.tsx 时文本通道显示 1544/1579 两行 deps 为 `}, ounted,`（无 m 无 [ ）——若真，运行时 ReferenceError + 下个 build 必炸。深挖链：tsc 报 0（incremental 嫌疑）→ grep/\b 词边界零输出 → Edit verbatim 拒绝该串 → rg 零输出 → python 同进程内布尔（`b'mounted' in l` = True）与文本显示（`ounted`）互斥 → od -c 十六进制转储见完整 `[ m o u n t e d`。
+- **机制钉死（双视角复现实验）**：同一字节流 `A}, [mounted, B` —— cat 回显吐出 `A}, ounted, B`（[m 被吞）、od -c 转储字节完好。结论：**stdout 回传层的 ANSI 剥离器以宽松正则（如 \[[0-9;]*m）把裸 `[m` 当零参数 SGR 重置序列剥除**——文件从未损坏、读取从未损坏、tsc 的 0 是真 0、Edit 的拒绝是正确行为、世界无恙。此前所有「ounted」读数均为回显幻觉：`[m` 恰好是 `[mounted` 的前两字节。
+- 判词：**仪器回显说谎时，文件才是真相——布尔值与 exit code 不经文本改写，是最后的可信通道；文本读数先布尔复核再采信**。od -c（字符间空格打断了 [m 连续性）是文本通道里唯一幸免的视角。
+- **产出守护探针 scripts/t740-read-integrity-check.mjs（9 pass / 0 fail，exit 0）**：A 哨兵行健康模式（deps 数组全名在场，双重 includes）+ B 损坏方言全文不存在 + C deps 行括号配对（4 paired / 0 unpaired）+ D 通道金丝雀（三文件字节数 + sha256 十六进制前缀——数字与 hex 不被改写）。label 特意避开裸 [m 字节（探针自己也要在染病通道上活得下来）。
+- **exit-code 通道全舰队复跑**：词汇家族 6 件绿（t650-assert / t734 / t735 / t737 / t738 / t739）+ **全舰队 25 件绿 / 0 红**——世界健康，无一探针受回显幻觉影响（探针断言走的是文件与 fetch，不走回显）。
+- 本窗**零代码手术**（job-card.tsx 从未病，无需修）；无 feat 车。
+- 两车 commit：qa（t740 守护探针 + 巡检截图）→ docs（worklog 本段）→ push。
+
+Stage Summary:
+- 「回显幻觉案」全链结案：现象（文本读数两字节蒸发）→ 假说（incremental 缓存说谎 → 文件真坏 → 页缓存分裂 → **ANSI 剥离器误伤**）→ 钉死（双视角复现：cat 吞 / od 全）→ 守护（布尔探针 9/0 入库）。判词：**环境的三层——文件、执行、回显——只有回显会撒谎；当文本与布尔打架，信布尔**。
+- 方法论遗产：**读数可信度分级**——exit code / 布尔 > od -c（空格分隔打断 [m）> 数字 > 无 [m 的文本 > 含 [m 的文本（最不可信）。凡读数含方括号+紧邻字母，先疑回显。
+- 下窗警戒：**文本读数先布尔复核**（grep -c / python in / exit code）；worklog 与源文件的写入路径不经回显层，写安全、读需验。
+- 产出：scripts/t740-read-integrity-check.mjs（9/0）+ shots-qa/t740-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 三十项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737/t738/t739 激活判决 + **t740 激活判决（读完整性哨兵：job-card deps 全名在场、损坏方言不存在、括号配对、通道金丝雀）** + 验证网 ②非 build 日：自由选题（**kind 词汇第八读者**——拖线预览借线墨（接线前先看见将牵什么水）/图例卡行点击即聚焦该线/mini-map 缩微线借线墨；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③**床轮换 5/5——下窗若正点即 qa 批窗仪式第七演**（t731/t736 先例：指针核查 → seeder 双层幂等 → switch 复位 → census 三台 → t25 批整批 9/9 → world-guard 三证词 → UI 驱动再生长随行） ④census 轮换：零新路由/零种子/零 bookmark；本窗零手术 → 全舰队 25 件 exit-code 绿已跑；t650-assert 绿；lib 零手术；t576 live-fire 仍 world-drift pin。
