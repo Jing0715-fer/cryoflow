@@ -1267,6 +1267,12 @@ interface WorkflowState {
    *  with a surgical rollback (only this job's name reverts — a poll that
    *  landed mid-flight keeps its updates). Returns false when refused. */
   renameJob: (id: string, name: string) => Promise<boolean>;
+  /** Task 713 — wear a parameter preset (PATCH params). The server merges
+   *  incoming over current (spec-key scalar filter), so a full snapshot
+   *  lands as "spec keys replaced, legacy keys untouched" in one call.
+   *  Optimistic with the rename's surgical rollback; returns false when
+   *  refused (unknown job / network error — the toast names the cause). */
+  updateJobParams: (id: string, params: Record<string, number | string | boolean>) => Promise<boolean>;
   deleteJob: (id: string) => Promise<void>;
   /** Clone a run as a fresh idle draft — t442: the twin inherits the
    *  params AND the upstream wiring (a parallel branch, not a bare
@@ -4042,6 +4048,30 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     } catch (err) {
       set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, name: prev.name } : j)) });
       errToast(err instanceof Error ? err.message : "Failed to rename job");
+      return false;
+    }
+  },
+
+  // Task 713 — the preset wear-through: one PATCH, server merges (spec-key
+  // scalar filter over the merge), optimistic map update with the rename's
+  // surgical rollback shape. The caller (inspector's presets row) already
+  // computed the snapshot; this action only owns the WIRE semantics.
+  updateJobParams: async (id, params) => {
+    const prev = get().jobs.find((j) => j.id === id);
+    if (!prev) return false;
+    const prevParams = prev.params;
+    set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, params } : j)) });
+    try {
+      const { job } = await api<{ job: JobDTO }>(`/api/jobs/${id}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ params }),
+      });
+      set({ jobs: get().jobs.map((j) => (j.id === id ? job : j)) });
+      return true;
+    } catch (err) {
+      set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, params: prevParams } : j)) });
+      errToast(err instanceof Error ? err.message : "Failed to apply preset");
       return false;
     }
   },

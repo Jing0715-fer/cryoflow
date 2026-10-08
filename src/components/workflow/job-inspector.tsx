@@ -24,6 +24,7 @@ import {
   ArrowDown,
   ArrowRight,
   BarChart3,
+  BookmarkPlus,
   Check,
   ChevronDown,
   ChevronRight,
@@ -59,6 +60,7 @@ import {
   Server,
   Skull,
   SlidersHorizontal,
+  Trash,
   Square,
   Stethoscope,
   Table2,
@@ -88,6 +90,8 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, presetsForType, snapshotSpecParams, countEffectiveDiffs, USER_PARAM_PRESETS_EVENT, type UserParamPreset } from "@/lib/user-param-presets";
 import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
 import { planSubtreeRun } from "@/lib/subtree-run";
@@ -1370,6 +1374,254 @@ function ParamRowLine({ row }: { row: ParamRow }) {
   );
 }
 
+/* Task 713 — user parameter presets row.
+ *
+ * The inspector face of the user-preset family (lib/user-param-presets.ts):
+ * SAVE the current job's full spec-key snapshot under a name, WEAR a saved
+ * snapshot on this job (one merge PATCH — spec keys replaced, legacy keys
+ * untouched), DELETE what outlived its usefulness. The curated face
+ * (JOB_PRESETS, command palette "Add with preset") hands a new job its
+ * starting params; this face is the user's own memory — "the combination
+ * that finally separated the classes".
+ *
+ * Detail laws inherited from the family:
+ *  - the 1–60 name law mirrors renameJob's server contract, so honest
+ *    typing never sees the 400;
+ *  - apply runs through the store's single write well (updateJobParams),
+ *    optimistic with the surgical rollback — never a second PATCH path;
+ *  - the confirm dialog counts what will MOVE (countEffectiveDiffs speaks
+ *    effective values — stored-else-default — not raw stored rows), so the
+ *    click lands without surprise;
+ *  - feedback is INLINE (the inspector's own law: a toast disappears, a
+ *    line under the controls waits for you); failures still toast from
+ *    the store action — the two voices never duplicate one cause.
+ */
+function ParamPresetsRow({ job }: { job: JobDTO }) {
+  const spec = jobType(job.type);
+  const updateJobParams = useWorkflowStore((s) => s.updateJobParams);
+  const [presets, setPresets] = React.useState<UserParamPreset[]>([]);
+  const [saveOpen, setSaveOpen] = React.useState(false);
+  const [applyTarget, setApplyTarget] = React.useState<UserParamPreset | null>(null);
+  const [name, setName] = React.useState("");
+  const [flash, setFlash] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const refresh = React.useCallback(() => setPresets(loadUserParamPresets()), []);
+  React.useEffect(() => {
+    refresh();
+    window.addEventListener(USER_PARAM_PRESETS_EVENT, refresh);
+    return () => window.removeEventListener(USER_PARAM_PRESETS_EVENT, refresh);
+  }, [refresh]);
+
+  const specParams = spec?.params ?? [];
+  const stored = (job.params ?? {}) as Record<string, unknown>;
+  const mine = presetsForType(presets, job.type);
+  const typeLabel = spec?.label ?? job.type;
+
+  if (specParams.length === 0) return null;
+
+  const doSave = () => {
+    const trimmed = name.trim();
+    if (trimmed.length < 1 || trimmed.length > 60) return;
+    const snap = snapshotSpecParams(specParams, stored);
+    addUserParamPreset(job.type, trimmed, snap);
+    setName("");
+    setSaveOpen(false);
+    setFlash(
+      `Saved “${trimmed}” — a full snapshot of ${Object.keys(snap).length} params, wearable on any ${typeLabel} job.`
+    );
+  };
+
+  const doApply = async (p: UserParamPreset) => {
+    // diffs speak BEFORE the wire moves anything — stored is still the
+    // pre-apply map here, exactly what the confirm dialog counted
+    const moved = countEffectiveDiffs(p, specParams, stored);
+    setApplyTarget(null);
+    setBusy(true);
+    const ok = await updateJobParams(job.id, p.params);
+    setBusy(false);
+    if (ok) {
+      setFlash(
+        `Applied “${p.name}” — ${Object.keys(p.params).length} params set, ${moved} moved from their previous values.`
+      );
+    }
+    // a refusal already toasted from the store action — silence here is
+    // the two-voices rule, not an omission
+  };
+
+  return (
+    <div
+      data-print-atomic=""
+      className="insp-card-whisper rounded-xl border bg-card px-4 py-3"
+      data-testid="inspector-param-presets"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <BookmarkPlus className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="text-xs font-semibold">Parameter presets</span>
+        <span className="text-[10px] tabular-nums text-muted-foreground">
+          {mine.length} for {typeLabel}
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1.5 px-2.5 text-xs"
+            onClick={() => {
+              setName("");
+              setFlash(null);
+              setSaveOpen(true);
+            }}
+            data-testid="preset-save-open"
+          >
+            <BookmarkPlus className="size-3.5" aria-hidden="true" />
+            Save current…
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 px-2.5 text-xs"
+                disabled={busy}
+                data-testid="preset-apply-menu"
+              >
+                <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+                Apply preset
+                <ChevronDown className="size-3" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel className="text-[11px]">Wear a saved parameter set</DropdownMenuLabel>
+              {mine.length === 0 ? (
+                <div className="px-2 py-3 text-[11px] leading-relaxed text-muted-foreground">
+                  No presets for {typeLabel} yet — tune a job's params, then save the combination here.
+                </div>
+              ) : (
+                <>
+                  {mine.map((p) => (
+                    <DropdownMenuItem
+                      key={p.id}
+                      className="gap-2"
+                      onSelect={() => {
+                        setFlash(null);
+                        setApplyTarget(p);
+                      }}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium">{p.name}</span>
+                      <span
+                        className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground"
+                        title={`${Object.keys(p.params).length} params in this snapshot`}
+                      >
+                        {Object.keys(p.params).length}p
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  {mine.map((p) => (
+                    <DropdownMenuItem
+                      key={`del-${p.id}`}
+                      className="gap-2 text-danger focus:text-danger"
+                      onSelect={() => {
+                        deleteUserParamPreset(p.id);
+                        setFlash(`Deleted “${p.name}”.`);
+                      }}
+                    >
+                      <Trash className="size-3" aria-hidden="true" />
+                      <span className="truncate text-xs">Delete “{p.name}”</span>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+      {flash && (
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground" role="status" data-testid="preset-flash">
+          {flash}
+        </p>
+      )}
+
+      {/* the naming dialog — the 1–60 law lives in the disable, not in a
+          late error; Enter saves like the note textarea does */}
+      <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
+        <DialogContent className="sm:max-w-sm" data-testid="preset-save-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Save current params as preset</DialogTitle>
+            <DialogDescription className="text-xs">
+              A full snapshot of this job's {specParams.length} {specParams.length === 1 ? "param" : "params"} for{" "}
+              {typeLabel} — wear it on any sibling job later, whatever its current knobs say.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && name.trim()) doSave();
+            }}
+            placeholder="e.g. My standard pass"
+            maxLength={60}
+            aria-label="Preset name"
+            autoFocus
+            data-testid="preset-name-input"
+          />
+          <p className="text-[10px] text-muted-foreground">
+            1–60 characters · stored in this browser (localStorage)
+          </p>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="ghost" size="sm" className="h-7 text-xs">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={!name.trim() || name.trim().length > 60}
+              onClick={doSave}
+              data-testid="preset-save-confirm"
+            >
+              Save preset
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* the wear-confirm — the move count is the whole point: an apply
+          that changes nothing deserves a glance, one that moves 14 knobs
+          deserves a deliberate click */}
+      <AlertDialog open={applyTarget !== null} onOpenChange={(o) => !o && setApplyTarget(null)}>
+        <AlertDialogContent data-testid="preset-apply-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm">Apply “{applyTarget?.name}”?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              {applyTarget && (
+                <>
+                  Sets all {Object.keys(applyTarget.params).length} params of this snapshot —{" "}
+                  <span className="font-semibold text-foreground">
+                    {countEffectiveDiffs(applyTarget, specParams, stored)}
+                  </span>{" "}
+                  will move from their current values. Legacy keys (gallery picks, engine flags) stay untouched.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-7 text-xs">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="h-7 text-xs"
+              onClick={() => applyTarget && void doApply(applyTarget)}
+              data-testid="preset-apply-confirm"
+            >
+              Apply
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 function ParamsGrid({ job }: { job: JobDTO }) {
   const spec = jobType(job.type);
   const stored = (job.params ?? {}) as Record<string, unknown>;
@@ -1943,6 +2195,7 @@ function OverviewTab({
         title="Parameters"
         hint={`complete · ${paramSettingsCount(job)} settings`}
       >
+        <ParamPresetsRow job={job} />
         <ParamsGrid job={job} />
       </Section>
       {/* Task 257 — the reference wears its face: class3d/refine3d show
