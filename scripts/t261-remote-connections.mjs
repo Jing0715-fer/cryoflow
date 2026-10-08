@@ -120,7 +120,10 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 >= 12, `roster identity 12 (got ${roster0})`);
+  // t689 — the pre-suite check is a FLOOR (a populated world to rehearse
+  // against), not an identity: the living world's roster has grown since
+  // the suite's authoring day, and the suite should welcome that.
+  must(roster0 >= 12, `the world roster is populated enough to rehearse against (baseline ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 
   // ---- Phase B: the ledger -------------------------------------------------
@@ -366,7 +369,11 @@ try {
     console.log("  (cleanup) stopped the mock cluster we launched");
   }
   const after = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(after.length >= 12, `roster restored to 12 (got ${after.length})`);
+  // t689 — the floor is the PRE-SUITE roster, not a frozen authoring-time
+  // constant ("restored to 12" was the world of the suite's authoring day;
+  // the living world has since grown). The meaning: the cleanup deleted
+  // exactly the intruders — the world roster never shrank.
+  must(after.length >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${after.length})`);
 }
 
 // ---- Phase E: console clean ----------------------------------------------

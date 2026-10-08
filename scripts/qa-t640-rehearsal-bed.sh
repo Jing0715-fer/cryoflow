@@ -9,6 +9,14 @@
 # script makes it repeatable — the rehearsal is a verb, not an archaeology
 # project (t639's entry-① doctrine, same law as the recovery chain).
 #
+# t689 — the bed's first wake after ten dormant windows caught a DIAG THAT
+# WAS SLANDERING THE PRODUCT: t262's C7 printed "the tab face is false" for
+# windows while the face was innocent all along (t689's isolated probe,
+# scripts/t689-remote-log-face.mjs, proved route → face → render works when
+# the click actually lands; the diag's unscoped locator + non-force click
+# never did). C7 is now a must, and the stale "roster restored to 12"
+# messages grew a dynamic pre-suite baseline.
+#
 # Doctrine:
 #   - the mock cluster is EXTERNAL infrastructure, never a child of the app:
 #     it survives via the orphaning launcher (services/mock-cluster/launch.sh,

@@ -502,20 +502,31 @@ try {
     logApi.status === 200 && (logBody?.tail ?? "").includes("cryoflow-mock ctffind"),
     `the log API streams the cluster's run.out (${logApi.status}, remote=${logBody?.remote}, "${(logBody?.tail ?? "").slice(0, 40)}")`
   );
-  const logTab = page.locator('[role="tab"]', { hasText: "Log" }).first();
-  await logTab.click().catch(() => {});
+  // t689 — the FACE verdict: the tab face renders the same words. The old
+  // diag printed "false" for windows — t689's isolated probe (15/0) proved
+  // the face innocent: route → face → render works when the click actually
+  // lands. The diag's own choreography was the culprit: an UNSCOPED
+  // [role="tab"] locator and a non-force click into the post-dispatch
+  // overlay world (toast/dialog residual) — the click never reached the
+  // trigger, the face never got its chance, and the diag slandered the
+  // product. Scoped (t681 lesson) + force, and promoted diag → must: a
+  // suite that watches the face must FAIL when the face breaks.
+  const logTab = page
+    .locator('[data-insp-face="tabs"] [role="tab"]', { hasText: "Log" })
+    .first();
+  await logTab.click({ force: true }).catch(() => {});
   let logAlive = await pollUntil(async () => {
     const t = await page.locator("body").innerText().catch(() => "");
     return t.includes("cryoflow-mock ctffind") ? true : null;
-  }, 10_000, 1500);
+  }, 12_000, 1500);
   if (!logAlive) {
-    await logTab.click().catch(() => {});
+    await logTab.click({ force: true }).catch(() => {});
     logAlive = await pollUntil(async () => {
       const t = await page.locator("body").innerText().catch(() => "");
       return t.includes("cryoflow-mock ctffind") ? true : null;
-    }, 10_000, 1500);
+    }, 12_000, 1500);
   }
-  console.log(`  (diag) the inspector's log tab rendered the cluster's words: ${!!logAlive} — the ROUTE above is the contract; the tab face is next-window's polish`);
+  must(logAlive, "the inspector's log tab renders the cluster's words (face = route's echo)");
 
   // C8 — the second dispatch, proven shape (feed = the LOCAL import; a
   // REMOTE-record feed stalls its staging task silently — Task 262's top
@@ -715,7 +726,11 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n >= 12, `roster restored to 12 (got ${n})`);
+    // t689 — the floor is the PRE-SUITE roster, not a frozen authoring-time
+    // constant: "restored to 12" was the world of 2026-10-06 (12 jobs); the
+    // living world has since grown. The assertion's meaning is "the cleanup
+    // deleted exactly the intruders — the world roster never shrank".
+    must(n >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }
