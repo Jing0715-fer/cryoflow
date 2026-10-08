@@ -22,7 +22,8 @@ const ROOT = "src";
 
 const EXEMPT_FILES = [
   "src/lib/workflow.ts",               // COLORS palette definition (t647)
-  "src/components/workflow/palette.tsx", // tier badges + gold star (t647)
+  "src/components/workflow/palette.tsx", // tier badges + gold star (t647; t732: the tier JSX moved to tier-badge.tsx, the file exemption stays for the gold star)
+  "src/components/workflow/tier-badge.tsx", // tier identity home (t732 — moved from palette/type-card per t720; t647's verdict family: emerald/muted/amber speak the TYPE TIER)
   "src/components/workflow/results/map-ortho-panel.tsx", // axis identity (t647)
   "src/components/workflow/results/fsc-chart.tsx",       // curve series identity (t647)
   "src/components/workflow/results/fsc-compare-dialog.tsx", // series identity (t647)
@@ -48,8 +49,6 @@ const EXEMPT_ROW_PATTERNS = [
   { f: "src/components/workflow/find-mark.tsx", re: /FIND_MARK_CLASS = |rounded-\[2px\] bg-amber-400\/35/, note: "find-lens character wash (t655; t725: moved out of job-card when the palette's dialect rows became the wash's second face) — same search identity as the ring" },
   { f: "src/components/workflow/param-dialect-badge.tsx", re: /bg-amber-400\/35/, note: "dialect chip amber (t722; t725 exemption judgment: the badge-is-the-why hue is identity, not field) — same search identity as the wash" },
   { f: "src/components/workflow/job-inspector.tsx", re: /whyHit && "rounded-md bg-amber-500\/5/, note: "param-why hit row whisper (t728) — same search identity as the wash/ring" },
-  { f: "src/components/workflow/type-card-dialog.tsx", re: /bg-emerald-500\/10 text-emerald-600/, note: "tier core badge (t730) — type-tier identity, not a job state (palette t647 family)" },
-  { f: "src/components/workflow/type-card-dialog.tsx", re: /bg-amber-500\/10 text-amber-600/, note: "tier external badge (t730) — type-tier identity, not a lens or running hue" },
   { f: "src/components/workflow/header.tsx", re: /=== "rose" \? "bg-rose-500"/, note: "elsewhere group dot ternary" },
   { f: "src/components/workflow/engine-guidance.tsx", re: /border-teal-500 bg-teal-500/, note: "engine checked face" },
 ];
