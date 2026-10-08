@@ -55,6 +55,7 @@ import { HomecomingSweepBar } from "./homecoming-sweep";
 import { KpiSparkline } from "./kpi-sparkline";
 import { ActivityHeatmap } from "./activity-heatmap"; // Task 711 — the shape-of-time face (sparkline = trend, feed = latest, calendar = bursts & quiet)
 import { UserPresetShelf } from "./user-preset-shelf"; // Task 716 — the preset family's overview face (snapshots across every type, manageable in one place)
+import { JournalDigest } from "./journal-digest"; // Task 720 — the activity family's fourth face (the fingers' past tense, cross-job)
 import { EngineBuildRail, EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
@@ -2665,7 +2666,7 @@ export function ProjectDashboard() {
 
   // t576 — the dashboard cascade (t572's sister page): the survey arrives
   // in scan order — KPI cards left-to-right, then the bands top-down.
-  // Armed on mount, settled at ~700ms (last rung: 420ms delay + 240ms
+  // Armed on mount, settled at ~740ms (last rung: 460ms delay + 240ms
   // duration + margin — the settle timer must always EXCEED the last
   // rung's landing with real margin, not meet it exactly; t711 and t716
   // each added a rung and pushed the ladder deeper, so this timer was
@@ -2688,12 +2689,12 @@ export function ProjectDashboard() {
     setSortKey(loadSortKey());
   }, []);
 
-  // t576 — the cascade's one-shot disarm (see the state above). 700ms:
-  // the last rung lands at 420+240 = 660ms exactly, and a disarm that
+  // t576 — the cascade's one-shot disarm (see the state above). 740ms:
+  // the last rung lands at 460+240 = 700ms exactly, and a disarm that
   // lands ON the final frame can clip it (timer vs rAF jitter) — the
   // settle needs 40ms of margin over the ladder's end, not a photo finish.
   React.useEffect(() => {
-    const t = window.setTimeout(() => setDashSettled(true), 700);
+    const t = window.setTimeout(() => setDashSettled(true), 740);
     return () => window.clearTimeout(t);
   }, []);
 
@@ -3185,10 +3186,24 @@ export function ProjectDashboard() {
           <RecentActivityFeed activeProjectId={activeId} />
         </div>
 
-        {/* cross-project saved views — the "my inspection work" shelf */}
+        {/* Task 720 — the journal digest: the activity family's fourth face.
+            The feed speaks the jobs' present tense (a job absorbs twenty
+            touches and stays one row); the digest unrolls those touches —
+            the renames, knob-turns, notes, dispatches, landings — into the
+            fingers' past tense, cross-job, reading the same browser-local
+            journal the inspector's Timeline spine reads. */}
         <div
           data-dash-enter
           style={{ "--dash-d": "260ms" } as React.CSSProperties}
+          className="mt-6"
+        >
+          <JournalDigest />
+        </div>
+
+        {/* cross-project saved views — the "my inspection work" shelf */}
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "300ms" } as React.CSSProperties}
           className="mt-6"
         >
           <SavedViewsGallery />
@@ -3202,7 +3217,7 @@ export function ProjectDashboard() {
             sibling: views you hunted, presets you tuned). */}
         <div
           data-dash-enter
-          style={{ "--dash-d": "300ms" } as React.CSSProperties}
+          style={{ "--dash-d": "340ms" } as React.CSSProperties}
           className="mt-6"
         >
           <UserPresetShelf />
@@ -3211,7 +3226,7 @@ export function ProjectDashboard() {
         {/* active project spotlight */}
         <div
           data-dash-enter
-          style={{ "--dash-d": "340ms" } as React.CSSProperties}
+          style={{ "--dash-d": "380ms" } as React.CSSProperties}
           className="mt-6"
         >
           <ActiveProjectSpotlight jobFilter={jobFilter} setJobFilter={setJobFilter} />
@@ -3221,7 +3236,7 @@ export function ProjectDashboard() {
         <div
           ref={gridRef}
           data-dash-enter
-          style={{ "--dash-d": "380ms" } as React.CSSProperties}
+          style={{ "--dash-d": "420ms" } as React.CSSProperties}
           className={cn(
             "mt-6 scroll-mt-4 rounded-xl transition-shadow duration-700 motion-reduce:transition-none",
             gridFlash && "ring-2 ring-primary/40 ring-offset-4 ring-offset-background"
@@ -3346,7 +3361,7 @@ export function ProjectDashboard() {
         {/* footnote — the cascade's last rung */}
         <p
           data-dash-enter
-          style={{ "--dash-d": "420ms" } as React.CSSProperties}
+          style={{ "--dash-d": "460ms" } as React.CSSProperties}
           className="mt-8 text-center text-[10px] text-muted-foreground/60"
         >
           Project dashboards persist per browser session — switching here never interrupts

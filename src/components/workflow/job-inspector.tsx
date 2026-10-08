@@ -95,6 +95,7 @@ import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, preset
 import { diagnoseFailureLines, diagnoseFailureLog, type LogFinding } from "@/lib/log-diagnosis";
 import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
 import { readJobJournal, type JobJournalKind } from "@/lib/job-journal";
+import { JOURNAL_KIND_FACE } from "./journal-kind-face";
 import { planSubtreeRun } from "@/lib/subtree-run";
 import { jobType, tabsFor } from "@/lib/workflow";
 import { RELION_OPTIONS } from "@/lib/relion/option-tables";
@@ -1087,15 +1088,9 @@ function Timeline({ job }: { job: JobDTO }) {
 /* all land here without a single extra record call). The store's jobs   */
 /* slice is the change bus: every recording hook lands through a store   */
 /* update, so this re-read on render is always current.                  */
-const JOURNAL_KIND_FACE: Record<JobJournalKind, { icon: React.ElementType; verb: string; tone?: "bad" | "good" }> = {
-  run: { icon: Play, verb: "Run started" },
-  kicked: { icon: Zap, verb: "Auto-started" },
-  completed: { icon: Check, verb: "Completed", tone: "good" },
-  failed: { icon: AlertTriangle, verb: "Failed", tone: "bad" },
-  params: { icon: SlidersHorizontal, verb: "Params changed" },
-  note: { icon: StickyNote, verb: "Note saved" },
-  renamed: { icon: Pencil, verb: "Renamed" },
-};
+/* kind → { icon, verb, tone } lives in journal-kind-face.ts — the       */
+/* SINGLE source shared with the dashboard's journal digest (Task 720);  */
+/* a vocabulary two faces speak must live in neither of them.            */
 const JOURNAL_CAP = 7;
 
 function JobJournal({ job }: { job: JobDTO }) {

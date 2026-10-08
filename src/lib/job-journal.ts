@@ -45,6 +45,14 @@
  * sites call recordJobEvent; the inspector reads readJobJournal. The
  * store's jobs slice is the change bus: every hook lands through a
  * store update, so the mounted section re-reads without a custom event.
+ *
+ * THE SECOND READING (Task 720) — readRecentJobEvents is the journal's
+ * cross-job read: every job's spine merged into one newest-first stream,
+ * the data behind the dashboard's journal digest (the activity family's
+ * fourth face). Still zero new storage and zero new hooks — the same map
+ * the five hook sites append to, just read ACROSS jobs instead of within
+ * one. The digest is a shopwindow over this stream; the archive remains
+ * the per-job spine (readJobJournal).
  */
 
 export const JOB_JOURNAL_KEY = "cryoflow.job-journal:v1";
@@ -172,4 +180,16 @@ export function recordJobEvent(
 export function readJobJournal(jobId: string): JobJournalEvent[] {
   const list = readMap()[jobId] ?? [];
   return [...list].sort((a, b) => b.at - a.at);
+}
+
+/** The journal's cross-job read (Task 720): every job's spine merged
+ *  into one newest-first stream, capped. The dashboard's journal digest
+ *  renders this; nothing writes through here — a pure lens over the
+ *  same map recordJobEvent maintains. Dormant journals (deleted jobs)
+ *  are included: filtering them needs the roster, which is the
+ *  component's business (it owns the id→name lookup), not the lib's. */
+export function readRecentJobEvents(cap = 24): JobJournalEvent[] {
+  const all: JobJournalEvent[] = [];
+  for (const list of Object.values(readMap())) all.push(...list);
+  return all.sort((a, b) => b.at - a.at).slice(0, Math.max(0, cap));
 }
