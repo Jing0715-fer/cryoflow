@@ -193,6 +193,17 @@ type JobSort = "heaviest" | "name";
  * describes. Unknown types keep the bare line (the undefined law's
  * fifth face); the sr-only ear line speaks the whole pour for readers
  * who hear instead of hover.
+ *
+ * t769 — the FOURTH seat joins: the graveyard drawer's type chip (the
+ * t478 grave row). The row's Restore door promises "its workdir, run
+ * record and wires re-attach as if the delete never happened" — the
+ * water previews WHICH wires: the promise seat's FIFTH face (picker's
+ * selection t763 → diff's side-by-side t766 → cleanup's destruction
+ * t767 → remote's dispatch t768 → the grave's RESTORATION). The
+ * helper's inline-flex is the intersection form: three prose hosts
+ * glue the water to the type word, this flex host seats it as a chip
+ * sibling — one container serves both physics (the boundary clause's
+ * third staging: context-neutral physics, the row's gap-2 speaks).
  */
 function StoragePours({ type }: { type: string }) {
   const spec = jobType(type);
@@ -1469,7 +1480,11 @@ export default function StorageDialog({
                    brain the agent's list_deleted reads); restorable graves
                    wear a Restore door that feeds the grave's OWN snapshot
                    back through the store's restore law; row-less graves
-                   and occupied ids say what they can and cannot do. */}
+                   and occupied ids say what they can and cannot do.
+                   t769 — each grave's type chip speaks the pours (the
+                   helper's FOURTH seat): the water previews the wires
+                   the Restore door re-attaches, the promise seat's
+                   restoration face. */}
               {graves && graves.length > 0 && (
                 <div
                   data-testid="graveyard-drawer"
@@ -1588,6 +1603,7 @@ export default function StorageDialog({
                             <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                               {g.type}
                             </span>
+                            <StoragePours type={g.type} />
                             <span
                               className="shrink-0 text-[10px] tabular-nums text-muted-foreground"
                               title={new Date(g.deletedAt).toLocaleString()}
