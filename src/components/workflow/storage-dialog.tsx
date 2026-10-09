@@ -717,7 +717,17 @@ export default function StorageDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="nice-scroll flex-1 overflow-y-auto px-5 py-4">
+        {/* t798 — the runs scroll is keyboard-reachable: a scrollable
+            region without a tab stop answers the wheel and nothing else
+            (the roster's 2672 dialect — tabIndex, region role, a name,
+            and the ring so the focus is visible). Arrow keys and Space
+            scroll it once focused; the t383 height cap holds. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Storage contents — disk totals and run directories"
+          className="nice-scroll flex-1 overflow-y-auto px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
           {error ? (
             <div className="flex flex-col items-start gap-3 rounded-lg border border-danger-500/30 bg-danger/[0.06] p-4">
               <p className="text-sm text-danger">{error}</p>

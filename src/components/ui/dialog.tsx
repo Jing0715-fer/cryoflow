@@ -401,15 +401,54 @@ function DialogContent({
   // t530 — this dialog's OWN content node, for the escape guard's self
   // exemption: the sibling-surface selector also matches this very node,
   // and without the exemption a keydown whose target lives inside the
-  // content (Radix parks focus here on open) swallows its own Escape.
+  // content (Radix parks focus on content/buttons at open) swallows its
+  // own Escape.
   const selfRef = React.useRef<HTMLDivElement | null>(null)
-  // t792 — register this surface with the shared return-address layer for
-  // its whole mounted life; the count drives the voluntary-exit stand-down
-  // (a focusin outside every surface while this counter is above zero is
-  // the user leaving on their own, never an opener to remember).
-  // t793 — the registration now lives in the exported useDialogFocusSurface
-  // (the alert and sheet bridges count themselves through the same hook).
+  // t798 — the flip's scroll memory. Opening or closing a companion
+  // window flips this dialog between Radix's modal and non-modal content
+  // implementations, which REMOUNTS the whole subtree (the t501-documented
+  // flip price — witnessed live twice: the focus reset via the remount's
+  // onMountAutoFocus, and the scroll reset: a runs list scrolled deep
+  // snapped back to 0 on BOTH flip directions). The remount honors state
+  // lifted above the content and refetches leaf effects, but the reader's
+  // PLACE is neither — it is the scroll sibling of the focus-relay law,
+  // and this memory is how the dialog keeps it. A capture-phase, passive
+  // scroll listener on the content node records every inner region's
+  // position as it moves (the memory is always current, no timing games
+  // with the dying subtree); on each flip-in the layout effect hands
+  // every region its place back — synchronously before paint, then once
+  // more on the next frame because the flip's leaf refetch can reflow
+  // the heights after the first paint. Fresh opens have no memory (the
+  // ref dies with the instance), so the top-of-page start stays honest.
+  const scrollMemoryRef = React.useRef<number[] | null>(null)
   useDialogFocusSurface()
+  React.useLayoutEffect(() => {
+    const root = selfRef.current
+    if (!root) return
+    const collectScrollables = () =>
+      Array.from(root.querySelectorAll<HTMLElement>("*")).filter(
+        (el) =>
+          el.scrollHeight > el.clientHeight + 4 &&
+          /(auto|scroll)/.test(getComputedStyle(el).overflowY)
+      )
+    const apply = () => {
+      const memory = scrollMemoryRef.current
+      if (!memory) return
+      collectScrollables().forEach((el, i) => {
+        if (memory[i] !== undefined) el.scrollTop = memory[i]
+      })
+    }
+    apply()
+    const raf = requestAnimationFrame(apply)
+    const onScroll = () => {
+      scrollMemoryRef.current = collectScrollables().map((el) => el.scrollTop)
+    }
+    root.addEventListener("scroll", onScroll, { capture: true, passive: true })
+    return () => {
+      cancelAnimationFrame(raf)
+      root.removeEventListener("scroll", onScroll, { capture: true })
+    }
+  }, [companionOpen])
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
