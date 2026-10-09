@@ -371,10 +371,15 @@ function remoteHostLabel(host: string | undefined): string {
 /* ------------------------------------------------------------------ */
 
 /**
- * Right-click / Shift+F10 menu on a job card. Mirrors the interactions the
- * card + inspector already expose (open · focus · run · reset · duplicate ·
- * delete) so power users never need to hunt for buttons. Store actions are
- * pulled straight from the zustand store — no prop drilling.
+ * Right-click / Menu-key (Shift+F10) menu on a job card. Mirrors the
+ * interactions the card + inspector already expose (open · focus · run ·
+ * reset · duplicate · delete) so power users never need to hunt for
+ * buttons. Store actions are pulled straight from the zustand store — no
+ * prop drilling. Since t783 the keyboard half is REAL: the card body
+ * translates the Menu key / Shift+F10 into a synthetic contextmenu at the
+ * card's center (the browser's own synthesis was unreliable — in the
+ * headless live body it never arrived), so the promise and the behavior
+ * finally agree.
  */
 function JobCardMenu({
   job,
@@ -2159,6 +2164,31 @@ export const JobCard = React.memo(function JobCard({
             ) {
               e.preventDefault();
               onCardNavigate(job.id, e.key === "ArrowUp" ? "up" : e.key === "ArrowDown" ? "down" : e.key === "ArrowLeft" ? "left" : "right");
+            }
+            // t783 — the card menu's keyboard face, made real. The doc above
+            // promised "Right-click / Shift+F10" but the browser's own
+            // synthesized contextmenu never arrived with a usable position
+            // (in the live body it never arrived at all) — the promise was
+            // airborne. The card now translates the Menu key / Shift+F10
+            // itself: preventDefault stops the browser's synthesis, and a
+            // synthetic contextmenu is dispatched at the CARD's center — the
+            // same event type a physical right-click produces, at a position
+            // that names the card, so Radix opens the SAME menu through the
+            // SAME path. One mechanism, two inputs; the menu's own ↑↓↵
+            // navigation was always Radix-native — only the opening was
+            // missing.
+            else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+              e.preventDefault();
+              const r = e.currentTarget.getBoundingClientRect();
+              e.currentTarget.dispatchEvent(
+                new MouseEvent("contextmenu", {
+                  bubbles: true,
+                  cancelable: true,
+                  clientX: r.left + r.width / 2,
+                  clientY: r.top + r.height / 2,
+                  button: 2,
+                }),
+              );
             }
           }}
         >

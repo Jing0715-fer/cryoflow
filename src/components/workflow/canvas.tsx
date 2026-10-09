@@ -2534,6 +2534,43 @@ export function WorkflowCanvas() {
   // events), so card dragging and panning are untouched.
   const { dropProps, active: dropActive, fileCount: dropFileCount, folderDrag: dropFolder } = useDropImport(stageWorkflowFiles);
 
+  // t783 — the background menu's keyboard face. The canvas menu answered
+  // right-click only: a keyboard user Tabbing to a card and pressing the
+  // Menu key / Shift+F10 reached the CARD's menu (when the browser
+  // synthesized the contextmenu at all), but the canvas's own menu — zoom
+  // to fit, reset, tidy, export, import — had no keyboard path because the
+  // section was unreachable (no tabIndex) and no handler translated the
+  // keys. Two moves, one mechanism:
+  //   · tabIndex={0} on the section — the canvas becomes a real tab stop
+  //     (a named landmark keyboard users can reach) and the natural focus
+  //     target after any click on empty canvas, which is where a pointer
+  //     user's right-click already lands;
+  //   · this handler — the Menu key / Shift+F10 pressed ON the section
+  //     preventDefaults the browser's own synthesis (whose coordinates are
+  //     unpredictable) and dispatches a synthetic contextmenu at the
+  //     section's center — the SAME event type a physical right-click
+  //     produces, so Radix opens the SAME menu through the SAME path. One
+  //     mechanism, two inputs; no second menu implementation to drift.
+  // The target guard keeps bubbling honest: when a CARD holds the focus
+  // its keydown bubbles up to this section, but the card's menu is the
+  // card's to open — the background menu only answers for itself.
+  const onCanvasKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key !== "ContextMenu" && !(e.key === "F10" && e.shiftKey)) return;
+    e.preventDefault();
+    const r = rootRef.current?.getBoundingClientRect();
+    if (!r) return;
+    rootRef.current?.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: r.left + r.width / 2,
+        clientY: r.top + r.height / 2,
+        button: 2,
+      }),
+    );
+  };
+
   return (
     <ContextMenu>
       {/* Pipeline paper is wide, not tall: the canvas view prints to a
@@ -2549,12 +2586,14 @@ export function WorkflowCanvas() {
           ref={rootRef}
           data-canvas="viewport"
           aria-label="Workflow canvas"
-          className="no-drag-select canvas-grid relative min-w-0 flex-1 touch-none overflow-hidden bg-background active:cursor-grabbing cursor-grab"
+          tabIndex={0}
+          className="no-drag-select canvas-grid relative min-w-0 flex-1 touch-none overflow-hidden bg-background active:cursor-grabbing cursor-grab outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
           {...dropProps}
+          onKeyDown={onCanvasKeyDown}
           style={{
             // infinite dot grid — painted on the viewport itself so it
             // covers the whole screen wherever the (unbounded) workspace
