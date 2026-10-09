@@ -59,8 +59,10 @@ import { useWorkflowStore } from "@/lib/store";
 import {
   jobType,
   nextStepsFor,
+  drinkKindsOf,
   outputKindOf,
   PORT_COLORS,
+  pourKindsOf,
   tabsFor,
   upstreamOf,
 } from "@/lib/workflow";
@@ -155,6 +157,15 @@ export function TypeCardDialog({
     [spec]
   );
 
+  // t746 — the water row's two radii, asked through the lib's own named
+  // questions (pourKindsOf / drinkKindsOf): pours ride the output ports'
+  // kind (the water's certainty), drinks ride the input sockets' capacity
+  // (t738's socket semantics). The card reads the book's answers — it
+  // does no port arithmetic itself (the t730 law); the wildcard-is-not-
+  // a-kind and key-order rules live in the lib home too.
+  const pourKinds = React.useMemo(() => (spec ? pourKindsOf(spec.key) : []), [spec]);
+  const drinkKinds = React.useMemo(() => (spec ? drinkKindsOf(spec.key) : []), [spec]);
+
   // Parameter groups: tabsFor gives the RELION GUI order; params that
   // name no tab land in "Additional" (the spec's own default, per
   // ParamSchema.tab's contract) — appended after the named tabs so the
@@ -234,6 +245,49 @@ export function TypeCardDialog({
         <p className="text-[13px] leading-relaxed text-muted-foreground">
           {spec.description}
         </p>
+
+        {/* t746 — the water row: the dictionary page's ingredient line.
+            The counts in the header say how many doors the type has; this
+            row says what water crosses them. Dots ride the same wire hex
+            the canvas rests in (PORT_COLORS[k].wire — the t735 sample,
+            now at the card's face); words ride the book's own names. */}
+        <div
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground"
+          data-testid="type-card-water"
+        >
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span className="font-medium">drinks</span>
+            {drinkKinds.length > 0 ? (
+              drinkKinds.map((k) => (
+                <span key={k} className="flex items-center gap-1">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block size-2 rounded-full"
+                    style={{ background: PORT_COLORS[k].wire }}
+                  />
+                  {k}
+                </span>
+              ))
+            ) : spec.inputs.length === 0 ? (
+              <span data-testid="type-card-water-nothing">nothing</span>
+            ) : (
+              <span data-testid="type-card-water-anything">anything</span>
+            )}
+          </span>
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span className="font-medium">pours</span>
+            {pourKinds.map((k) => (
+              <span key={k} className="flex items-center gap-1">
+                <span
+                  aria-hidden="true"
+                  className="inline-block size-2 rounded-full"
+                  style={{ background: PORT_COLORS[k].wire }}
+                />
+                {k}
+              </span>
+            ))}
+          </span>
+        </div>
 
         {/* ------------------------------------------------ upstream —
             the LIVE directory (upstreamOf). Every feeder is a clickable

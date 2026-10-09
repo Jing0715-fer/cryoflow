@@ -305,6 +305,34 @@ export function outputKindOf(typeKey: string, portName: string): PortKind | unde
   return jobType(typeKey)?.outputs?.find((p) => p.name === portName)?.kind;
 }
 
+/**
+ * t746 — the dictionary page's water row: the two radii of a type's
+ * water, both deduped and ordered by the book's own key order
+ * (PORT_COLORS — the roster's walk order since t737). pours = the output
+ * ports' kind (the water's certainty — what the type actually emits);
+ * drinks = the input sockets' accepts (the socket's capacity — t738's
+ * socket semantics: what the type can take). The wildcard is not a kind
+ * and contributes no word. One home in lib: the type card reads these
+ * named questions, it does not do port arithmetic (the t730 law — a
+ * lookup written in a component is a directory being born, and
+ * directories live in lib or nowhere).
+ */
+export function pourKindsOf(typeKey: string): PortKind[] {
+  const spec = jobType(typeKey);
+  if (!spec) return [];
+  return (Object.keys(PORT_COLORS) as PortKind[]).filter((k) =>
+    spec.outputs.some((o) => o.kind === k)
+  );
+}
+
+export function drinkKindsOf(typeKey: string): PortKind[] {
+  const spec = jobType(typeKey);
+  if (!spec) return [];
+  return (Object.keys(PORT_COLORS) as PortKind[]).filter((k) =>
+    spec.inputs.some((i) => (i.accepts ?? []).includes(k))
+  );
+}
+
 /** Port shorthands. */
 const inp = (name: string, label: string, accepts: (PortKind | "*")[], multiple = false): PortSpec => ({
   name,
