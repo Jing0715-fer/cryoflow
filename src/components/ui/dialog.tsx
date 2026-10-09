@@ -113,7 +113,21 @@ function useCompanionWindow(): () => void {
  * content had focus (t246's "Esc closes the dialog" went real-fail on
  * exactly this). Sibling means OTHER; self is exempt. */
 function isFromLiveZone(event: Event, self?: Element | null): boolean {
-  const target = event.target
+  // t814 — retarget-proofing: Radix's OUTSIDE events (pointerdown-outside,
+  // focus-outside, interact-outside) are CustomEvents dispatched ON THE
+  // LAYER NODE, so their `target` is the layer itself — never the
+  // pointer's destination. A guard that reads `event.target` asks the
+  // layer where the click landed and hears "me" every time: the live-zone
+  // match can never fire, and the door's click dismissed the dialog (the
+  // flip world's witness: a modal-born storage dialog closed when the AI
+  // summon door was clicked, while the door — kept hittable by the t501
+  // z-law — opened the companion: dismissal from the focus-outside path,
+  // whose custom event also points at the layer). The pointer's truth
+  // lives in `detail.originalEvent.target`; the keydown path (a NATIVE
+  // event, no detail) keeps reading `event.target` and is untouched.
+  const src = (event as { detail?: { originalEvent?: Event } }).detail
+    ?.originalEvent?.target
+  const target = src ?? event.target
   if (!(target instanceof Element)) return false
   const zone = target.closest(
     `${COMPANION_WINDOW_SELECTOR}, ${DIALOG_LIVE_SELECTOR}, ${SIBLING_SURFACE_SELECTOR}`
@@ -390,7 +404,6 @@ function getDialogFocusLayer(): DialogFocusLayer | null {
 export function returnFocusToOpener(event: Event): void {
   const layer = getDialogFocusLayer()
   const pocket = layer?.pocket ?? null
-  if (layer) layer.pocket = null
   // t813 — spend-or-yield: preventDefault only when the layer actually
   // has an address to spend. An empty pocket (the arming holes this file
   // no longer has — but a belt needs braces) previously ATE Radix's own
@@ -400,6 +413,19 @@ export function returnFocusToOpener(event: Event): void {
   // native one.
   if (!pocket || !pocket.isConnected || !isOpenerLike(pocket)) return
   if (isInsideClosingDialog(pocket)) return
+  // t814 — the remount discrimination: the yield's modal→non-modal swap
+  // fires the FocusScope's unmount auto-focus TOO (the old node detaches
+  // while the dialog itself LIVES — a surface is still data-state="open"
+  // in the DOM). Spending there hands the trigger the keyboard one frame
+  // before the remount's own onMountAutoFocus pulls it back into the
+  // content, and the pocket is empty when the REAL close comes (witnessed
+  // live: the Escape after a yield landed BODY). A real close has no open
+  // surface left; a remount has one. And the pocket is cleared only at
+  // the spend (the t788 order law governs the SPEND, not the entry — the
+  // first cut cleared at entry and the remount's own event emptied the
+  // pocket before its discrimination could speak).
+  if (openSurfaceExists()) return
+  layer && (layer.pocket = null)
   event.preventDefault()
   pocket.focus({ preventScroll: true })
   // The nested walk-back: a restored address inside a LIVING dialog
