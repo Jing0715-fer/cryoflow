@@ -28,7 +28,7 @@
 import * as React from "react";
 import { Box, CornerDownRight, Crop } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
-import { jobType } from "@/lib/workflow";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow";
 import type { JobDTO } from "@/lib/types";
 import { TypeIcon } from "./icons";
 import { MolViewer, type MolViewerTarget } from "./results/mol-viewer";
@@ -187,10 +187,40 @@ export function ReferenceMapCard({ job, refPath }: { job: JobDTO; refPath: strin
       }
     } else {
       const spec = jobType(provider.type);
+      // t760 — the water ask rides the spec the sentence already holds:
+      // jobType(provider.type) is the ask the label answer already made,
+      // pouring only re-reads it (the undefined law's fourth form —
+      // RECEIVED, the cheapest ask in the ladder).
+      const pouring = spec ? pourKindsOf(provider.type) : [];
       provenance = (
         <>
           produced by the{" "}
-          <span className="text-foreground/80">{spec?.label ?? provider.type}</span> job{" "}
+          <span className="text-foreground/80">{spec?.label ?? provider.type}</span>
+          {spec ? (
+            // t760 — the provenance sentence names the type in words
+            // ("produced by the {label} job"): a sentence that names the
+            // type can carry the pours line. The dots sit inline right
+            // after the label — prose demands the inline-flex variant of
+            // the family container (display:flex would break the sentence
+            // into blocks); one deliberate dialect drift, the seat itself
+            // is its witness.
+            <span
+              className="inline-flex shrink-0 items-center gap-1"
+              data-testid={`refmap-pours-${provider.type}`}
+            >
+              {pouring.map((k) => (
+                <span
+                  key={k}
+                  aria-hidden="true"
+                  title={`pours ${k}`}
+                  className="inline-block size-1.5 rounded-full"
+                  style={{ background: PORT_COLORS[k].wire }}
+                />
+              ))}
+              <span className="sr-only">pours {pouring.join(", ")}</span>
+            </span>
+          ) : null}{" "}
+          job{" "}
           <span className="font-mono text-foreground/80">{provider.name}</span>.
         </>
       );
