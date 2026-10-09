@@ -216,13 +216,16 @@ console.log("C — the face (seventeenth address, prose law's home turf)");
   );
   // the boundary clause's TWO FACES in one file (the t760 shape,
   // replayed): the prose host keeps paying its TWO explicit {" "} glue
-  // debts (the sentence head + the name gap), the file's eight
-  // truncate-family payments survive, and the seat added NEITHER
+  // debts (the sentence head + the name gap), and the text-flow ledger
+  // stands at ELEVEN — the original eight, grown by t804's house batch
+  // (the dialog's overflow-hidden + the region's overflow-y-auto + the
+  // verdict's archived override, which the surviving block comments
+  // volunteer to the counter — the t760 meta-law's known compromise)
   const glues = (code.match(/\{" "\}/g) ?? []).length;
   const payments = (code.match(/truncate|min-w-0|overflow|whitespace-nowrap/g) ?? []).length;
   assert(
-    glues === 2 && payments === 8,
-    "C7b boundary clause two faces: the prose host's TWO {\" \"} glue payments + EIGHT text-flow payments intact (the seat added neither)",
+    glues === 2 && payments === 11,
+    "C7b boundary clause two faces: the prose host's TWO {\" \"} glue payments intact + the text-flow ledger grown to ELEVEN (t804's house batch added three: the dialog's overflow-hidden, the reading region's overflow-y-auto, and the verdict's archived old override — block comments survive the stripper, the t760 meta-law's known compromise)",
     `glues ${glues}, payments ${payments}`,
   );
   assert(

@@ -159,8 +159,9 @@ ok(
   "J2 the mol* error fallback stays retired (t801's verdict, confirmed)",
 );
 ok(
-  classConv.includes("flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-4 overflow-y-auto"),
-  "J3 the content-node faces stand recorded, untouched (the next window's prime candidate)",
+  classConv.includes("flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0") &&
+    classConv.includes('role="region"'),
+  "J3 the content-node faces stand CURED — t804's house batch (the old gap-4 overflow-y-auto override this assert once watched as 'recorded, untouched' is retired; the gate catches the family growing, the amendment names the cure)",
 );
 /* J4 — the covered verdict's fact: the candidate list's rows carry
  * buttons AFTER the label (indexOf arithmetic — a slice TO the anchor
