@@ -45,7 +45,7 @@ import { Copy, Download, GanttChart, Layers, Loader2, Play, Trophy } from "lucid
 import { cn } from "@/lib/utils";
 import { downloadText } from "@/lib/download";
 import { mdCell } from "@/lib/md";
-import { jobType } from "@/lib/workflow";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
 // t197: the sweep report family moved to @/lib/qc-report — the session QC
 // report is its second consumer, and the lib is the one honest home
@@ -528,6 +528,12 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   </div>
                   {rows.map((row) => {
                     const spec = jobType(row.type);
+                    // t756 — asked once, read twice (dots + ear). The water
+                    // ask rides the spec the row already holds — it does
+                    // not ask twice. An unknown type keeps its honest
+                    // silence: no spec, no water, the queue row stays a
+                    // schedule line.
+                    const pouring = spec ? pourKindsOf(row.type) : [];
                     const label = spec?.label ?? row.type;
                     const color = TYPE_COLOR[row.type] ?? FALLBACK_COLOR;
                     return (
@@ -538,6 +544,28 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                         >
                           {label}
                         </div>
+                        {spec ? (
+                          // t756 — the schedule's type-named row reports
+                          // pours: a slot in the queue belongs to a type
+                          // with a thirst. The dots sit in the column
+                          // between label and gantt — decor and ear, never
+                          // inside the segments' time math.
+                          <span
+                            className="flex shrink-0 items-center gap-1"
+                            data-testid={`queue-pours-${row.key}`}
+                          >
+                            {pouring.map((k) => (
+                              <span
+                                key={k}
+                                aria-hidden="true"
+                                title={`pours ${k}`}
+                                className="inline-block size-1.5 rounded-full"
+                                style={{ background: PORT_COLORS[k].wire }}
+                              />
+                            ))}
+                            <span className="sr-only">pours {pouring.join(", ")}</span>
+                          </span>
+                        ) : null}
                         <div className="relative h-[18px] flex-1 overflow-hidden rounded bg-background/60">
                           {[0.25, 0.5, 0.75].map((f) => (
                             <div
