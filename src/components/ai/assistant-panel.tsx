@@ -1045,6 +1045,41 @@ export function AssistantPanel() {
     // once against a null ref and never re-runs on reopen.
   }, [isMobile, open]);
 
+  /** t797 — the close hand-back: the family law reaching the one floating
+   *  surface Radix never adopted. The companion is not a Radix layer — no
+   *  trigger-refocus machinery closes behind it — so both of its close
+   *  mouths (the layered-Esc peel, the header X) learned the law by hand:
+   *  the keyboard returns to the summon door after the panel unmounts
+   *  (the t788 order: the DOM commits first — the rAF lands post-commit,
+   *  the t794 wall-relay precedent; the t774 contract: preventScroll).
+   *  Two stands-down keep the hand-back honest:
+   *   • the focus guard — a close whose focus already lives elsewhere (the
+   *     door toggle itself, the tab order's own journey) steals from
+   *     nobody; only a close that orphans OUR focus hands anything back.
+   *   • the flip guard — with a dialog-family surface open beneath, the
+   *     companion's close flips the dialog back to modal and Radix
+   *     REMOUNTS its content subtree (the t501-documented flip price);
+   *     the remount's onMountAutoFocus owns the landing (witnessed live:
+   *     the dialog's first tabbable reasserts). A hand-back here would
+   *     fire AFTER the remount and steal the keyboard out of the dialog
+   *     world the user is still working in — stand down.
+   *  The door carries [data-dialog-live] (the t501 summon-door mark), so
+   *  the landing doubles as a live-zone focusin — the t796 exemption
+   *  keeps the dialog's return address armed for its own Escape. */
+  const closeWithHandBack = React.useCallback(() => {
+    const focusInside =
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement.closest("[data-companion-window]") != null;
+    const dialogBeneath = document.querySelector(
+      '[data-slot="dialog-content"][data-state="open"], [data-slot="alert-dialog-content"][data-state="open"], [data-slot="sheet-content"][data-state="open"]'
+    );
+    setOpen(false);
+    if (!focusInside || dialogBeneath) return;
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>("[data-dialog-live]")?.focus({ preventScroll: true });
+    });
+  }, [setOpen]);
+
   const onWindowKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "Escape") return;
     // t430's layered Esc, floating edition: a live query in the session
@@ -1057,7 +1092,7 @@ export function AssistantPanel() {
       setSessionQuery("");
       return;
     }
-    setOpen(false);
+    closeWithHandBack();
   };
 
   // ---- t424: the transcript filter's math (chips render only when the
@@ -1459,6 +1494,14 @@ export function AssistantPanel() {
                 void commitRename(s.id);
               } else if (e.key === "Escape") {
                 e.preventDefault();
+                // t797 — the innermost layer consumes its Escape (the t430
+                // layered-Esc law, rename edition): stopPropagation keeps
+                // the peel handler out of this event, so cancelling a
+                // rename no longer slams the whole panel shut — the NEXT
+                // Escape peels. (The search input earns the same layering
+                // through the root's live-query veto instead; the rename
+                // editor has no veto path, so the boundary lives here.)
+                e.stopPropagation();
                 cancelRename();
               }
             }}
@@ -1732,7 +1775,7 @@ export function AssistantPanel() {
             size="icon"
             data-nodrag=""
             className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
-            onClick={() => setOpen(false)}
+            onClick={() => closeWithHandBack()}
             aria-label="关闭 AI 助手"
             title="关闭 (Esc)"
           >
