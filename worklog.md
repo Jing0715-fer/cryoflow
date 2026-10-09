@@ -12017,3 +12017,25 @@ Stage Summary:
 - 「方言课」：.ts 文件里 JSX 是语法错误，而错误报在 6180 行的文件尾——**方言错误的诊断距离可以远离犯错现场**；文件内既有的 createElement 先例（announce*）是正确的口音来源。判词：**进新文件先听它已有人说的话；store.ts 的口音是 createElement，canvas.tsx 的口音才是 JSX**。
 - 「词形课四连」：四窗四课同根（格式漂移、段头旧式、census 词形、正则转义）——**宣布匹配前先逐字符问词形**；t743 的 OR 词形预防性落地首跑即过，课在生效。
 - 产出：src/lib/store.ts（import 合流 + connect 收据升词：wireKind 推导 + createElement 四子元行 + 裸收据回退）+ scripts/t744-receipt-word-unit.mjs（18/0）+ shots-qa/t744-patrol.png / t744-repatrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅四项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737-t743 七张激活判决 + **t744 激活判决（收据念词活体：手连线 toast 为「A → B — ● {kind} data」、无词裸收据、quiet 批量线不念、title 仍 Connected）** + 验证网 ②非 build 日：自由选题（**kind 第十一读者的侦察**——类型卡描边借线墨/edge hover tooltip 升卡/inspector 标题行报词；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③**床轮换 5/5——下窗若正点即 qa 批窗仪式第八演**（t731/t736/t741 先例：指针核查 → seeder 双层幂等 → switch 复位 → census 三台 → t25 批整批 9/9 → world-guard 三证词 → UI 驱动再生长随行） ④census 轮换：零新路由/零种子/零 bookmark；本窗 lib 手术（store connect 收据）→ 30 件探针 exit-code 全绿本窗已跑；t650-assert 绿；t576 live-fire 仍 world-drift pin。
+
+## Task 745 — 2026-10-09 07:55 派单窗（非 build 日 · 连续第四十五窗）· qa 批窗仪式第八演——世界被重置后，默认无病再次被证明
+
+Task: 07:55 cron 派单执行——开局三件套判稳（worklog 尾条核实 = **t744 收官**；server 200；available 3074MB < 3280 → 非 build 日连续第四十五窗）→ **入口③床轮换 5/5 正点 → qa 批窗仪式第八演**（t731/t736/t741 先例：指针核查 → seeder 双层幂等 → switch 复位 → census 三台 → t25 批整批 9/9 → world-guard 三证词 → UI 驱动再生长随行）→ 仪式全套 + 全舰队随行 + 两车 commit。
+
+Work Log:
+- [仪式·开局状态判定] 指针核查 = 停在老世界（active = cmuwipe6350000demoproject 未漂，包裹形 {project}；roster 17/17 满员——世界本未病）；seeder 双层幂等跑：qa-t635（L0 骨架 17 jobs / 18 edges / 1 workspace，exit 0）+ qa-t531（SEED OK，refine3d session 复位回 3 saved）；switch 复位 = **空操作**（active 未漂，seeder 幂等不触指针——「没用上所以不做」）。
+- [仪式·census 三台] t699 **incomplete 0 / orphan 22 惰性化石**；t702 首跑 **111/31 = 施法相**（31 enrichments 自动施）→ 二跑 **156/0 = 证法相**（层序律活体第九次）；t704 **65/0 = seed 基线**（t719 预言第八次兑现；entries audited 4 / rows 2 = refine3d 3 基线 + maskcreate 1 条 t706 遗产——census 结构性审计，无硬编码计数，世界跟随）。
+- [词形课·本窗两遇] ①camera-bookmarks 门自查：API 响应词形是 {bookmarks:[...]} 而非我假设的 {entries:[...]}——解析得空后直查 storage 层（sqlite BookmarkSession 2 rows）才见 3 saved 基线其实一直在座，**门健康与我的识字是两回事**；②console 巡检的 molstar 面包屑在回显通道显示为「olstar]」——**t740 的 [m 剥离幻觉在野外再显影**（[molstar] 的 [m 被回显层吞掉），良性 debug 行非错误，世界无恙。
+- [仪式·整批 9/9] t251/t252/t253-e2e/t254-subvolume-export/t255-send-to-job/t256/t257/t258/t259 九件**首跑即绿**——t741 的 DPR 加固（t253/t254/t255）第二验，SwiftShader 下零僵死，「悬崖变台阶」判词成立。
+- [world-guard 三证词] roster restored **17/17**；t251-guard-sweep changed = **空**（skipped 13 项惰性输出照旧）；build-guard **SKIP**（standalone 在盘 = 冻结 bundle 完好）。
+- [t745 UI 驱动再生长第八演] seeder 重置后 refine3d session 回 3 saved——真实用户路径零歧途重演：e105 refine3d 卡（**与 t731/t736/t741 同 ref——ref 空间世界恒等律第八演**）→ inspector Results 标签（天然 selected，**连续第五窗零激活 retry**）→ half-map 门 e241（Enlarge run_it020_half1）→ dialog 内 View in 3D (Mol*) → viewer ready（Isosurface σ 滑杆在座）→ Camera view bookmarks **「3 saved」基线** → fill 注入「t745 UI-driven regrowth」→ Save → **面板即时 4 saved**（Escape 关门后门路径 API 复核 4 entries 持久）。
+- [生长确认三重] ①camera-bookmarks 门 4 entries（['Centered iso view','Top-down slice','Front half clipped','t745 UI-driven regrowth']——四名单仅第四名之差，各自自证名第八演）；②dashboard 墙 t745 卡在场（button「t745 UI-driven regrowth 2.00 σ 3D auto-refine · β-Gal…」+ rename/delete 门在座）；③t704 重跑 **65→76 全绿**（+11 断言扩编第八次复演，entries 4→5）。
+- [agent-browser 卫生] errors 0 行、console 仅 molstar 良性 debug 面包屑（[m 剥离显影见上）；截图 ×2 入档（t745-wall-8th-entry / t745-patrol），用毕即关。
+- [随行验证网] 仪式窗零代码手术，无 feat 车；全舰队 **30 件 30/30 绿**随行复跑（t650-assert + t744 收据念词新员 + 词汇家族 8 件 + 全家，exit-code 通道）。
+- 两车 commit：qa（截图）→ docs（worklog 本段）→ push。
+
+Stage Summary:
+- 「仪式的第八演」：指针未漂、seeder 幂等、census 三台、t25 批 9/9、world-guard 三证词、UI 再生长三重确认——**仪式证明的不是这次没病，是手术窗后的世界默认没病**（t736 判词第八演重申）；t741 的 DPR 余量在仪式里第二次被证明够用——仪式还顺手复检了上一次手术的遗留（t741 的三件加固），这就是仪式的第二重价值：**它让每一次修复都持续被再审判**。
+- 「识字是仪式的一部分」：本窗两次词形课（门的 bookmarks≠entries、molstar 面包屑的 [m 剥离）都发生在仪式流程内而非探针里——**仪式执行者的每一手 API 解析都是一次小型读数，识字课不限于探针作者**；把「门回 0」误诊为「session 丢失」只差一步，是 storage 层直查把诊断拉回了正轨——**分层诊断（门 → 存储 → 回显）是误诊的解药**。
+- 「世界恒等律第八演」：e105/e241 与三窗前完全同 ref——seed 世界确定性重建的副产品是 ref 空间的恒等，UI 路径可以按 ref 图纸精确重演；「ref 空间世界恒等」从 t741 的观察升格为可依赖的仪式假设（连续四窗成立）。
+- 产出：shots-qa/t745-wall-8th-entry.png / t745-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅五项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737-t743 七张激活判决 + t744 激活判决（收据念词活体） + **t745 激活判决（仪式第八演全绿台账：census 三台 + t25 批 9/9 + world-guard 三证词 + 再生长三重）** + 验证网 ②非 build 日：自由选题（**kind 第十一读者的侦察**——类型卡描边借线墨/edge hover tooltip 升卡/inspector 标题行报词；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **1/5**（仪式重置后带内第一窗，不动） ④census 轮换：零新路由/零种子/零 bookmark 新增（t745 生长经 UI 驱动已入基线 76）；本窗零手术 → t25 批 + census 三台 + 全舰队 30/30 全跑（本窗仪式随行）；t576 live-fire 仍 world-drift pin。
