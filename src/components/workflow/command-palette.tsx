@@ -1584,6 +1584,11 @@ export function CommandPalette() {
         <CommandGroup heading="Add with preset">
           {JOB_PRESETS.map((p) => {
             const t = jobType(p.type);
+            // t753 — asked once, read twice (dots + ear). The gated ask:
+            // a preset's type can be unknown, so the component side of
+            // the undefined law holds here (t751's dialect — t752's
+            // direct ask is a right only JOB_TYPES members earn).
+            const pouring = t ? pourKindsOf(p.type) : [];
             return (
               <CommandItem
                 key={`preset-${p.type}-${p.preset}`}
@@ -1599,6 +1604,31 @@ export function CommandPalette() {
                   {t?.label ?? p.type}
                   <span className="ml-1.5 font-medium">{p.preset}</span>
                 </span>
+                {/* t753 — the keyboard's preset menu borrows the water
+                    dots: these rows name a TYPE too (the curated group's
+                    answer to "add with knobs"), so the t747 promise
+                    rides them — same dot (size-1.5 whisper, wire hex,
+                    per-dot title word), same sr-only ear line, same
+                    one-family discipline. The testid carries the row
+                    key's tail (type + preset) because one type can wear
+                    several presets here. Unknown type stays SILENT. */}
+                {t ? (
+                  <span
+                    className="flex shrink-0 items-center gap-1"
+                    data-testid={`cmd-preset-pours-${p.type}-${p.preset}`}
+                  >
+                    {pouring.map((k) => (
+                      <span
+                        key={k}
+                        aria-hidden="true"
+                        title={`pours ${k}`}
+                        className="inline-block size-1.5 rounded-full"
+                        style={{ background: PORT_COLORS[k].wire }}
+                      />
+                    ))}
+                    <span className="sr-only">pours {pouring.join(", ")}</span>
+                  </span>
+                ) : null}
                 <span className="hidden shrink-0 max-w-40 truncate text-[10px] text-muted-foreground sm:inline">
                   {p.note}
                 </span>
@@ -1620,6 +1650,9 @@ export function CommandPalette() {
             <CommandGroup heading="Add from your presets">
               {recentFirst(userPresets).map((p) => {
                 const t = jobType(p.type);
+                // t753 — the gated ask (the user group's twin: same
+                // unknown-able p.type, same component-side law).
+                const pouring = t ? pourKindsOf(p.type) : [];
                 const knobs = Object.keys(p.params).length;
                 return (
                   <CommandItem
@@ -1636,6 +1669,28 @@ export function CommandPalette() {
                       {t?.label ?? p.type}
                       <span className="ml-1.5 font-medium">{p.name}</span>
                     </span>
+                    {/* t753 — the user group's water: same dot dialect,
+                        row-unique testid tail (the snapshot's id — ids
+                        are unique, types are not), the same silence for
+                        an unknown type. The knobs·ago right slot keeps
+                        its own contract untouched. */}
+                    {t ? (
+                      <span
+                        className="flex shrink-0 items-center gap-1"
+                        data-testid={`cmd-user-pours-${p.id}`}
+                      >
+                        {pouring.map((k) => (
+                          <span
+                            key={k}
+                            aria-hidden="true"
+                            title={`pours ${k}`}
+                            className="inline-block size-1.5 rounded-full"
+                            style={{ background: PORT_COLORS[k].wire }}
+                          />
+                        ))}
+                        <span className="sr-only">pours {pouring.join(", ")}</span>
+                      </span>
+                    ) : null}
                     <span className="hidden shrink-0 items-center gap-1 text-[10px] text-muted-foreground sm:inline-flex">
                       <span>{knobs} {knobs === 1 ? "knob" : "knobs"}</span>
                       <span aria-hidden>·</span>
