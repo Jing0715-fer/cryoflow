@@ -31,8 +31,10 @@
 
 import * as React from "react";
 import { useTheme } from "next-themes";
+import { useCommandState } from "cmdk";
 import {
   Aperture,
+  CornerDownLeft,
   Command as CommandIcon,
   Activity,
   Clock3,
@@ -261,6 +263,24 @@ function parkFocusOnPaletteInput() {
   }, 0);
 }
 
+/** t781 — the promise strip's probe: a null-rendered child INSIDE the
+ *  Command tree that subscribes to cmdk's own store (useCommandState is
+ *  the store's honest ear — it fires on every selected-value change,
+ *  controlled or not, because it reads the store not the props). The
+ *  parent reads the strip's data from the DOM on each reported change:
+ *  the promise lives WITH the row (data-preview-* attrs written beside
+ *  the row's own JSX), the footer merely recites it. One signal, one
+ *  reader, zero coupling with cmdk's selection semantics — no controlled
+ *  mode, no props forwarding, no chicken-and-egg on the open-time
+ *  initial selection. */
+function PalettePreviewProbe({ onSelectedValueChange }: { onSelectedValueChange: (value: string | undefined) => void }) {
+  const selectedValue = useCommandState((s) => s.value);
+  React.useEffect(() => {
+    onSelectedValueChange(selectedValue);
+  }, [selectedValue, onSelectedValueChange]);
+  return null;
+}
+
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
   // t668 — the Saved views group is the palette's first FETCHED group: the
@@ -359,6 +379,43 @@ export function CommandPalette() {
   // exportJson/native-picker pattern: one modal at a time, no nesting).
   const [pipelineOpen, setPipelineOpen] = React.useState(false);
   const { resolvedTheme, setTheme } = useTheme();
+
+  // t781 — the promise strip: what Enter WILL do, recited under the list.
+  // The probe reports cmdk's selected value; this effect reads the
+  // highlighted row's own data-preview-* attributes (the promise is
+  // written beside the row that can act on it — one writer, one reciter)
+  // plus its inline thumbnail if the row carries one (saved views, the
+  // t663 gallery family — any <img> the row already fetched, no second
+  // fetch). An honest empty: no highlighted row (filtered to nothing,
+  // CommandEmpty's moment) → the strip shows the keys hint instead —
+  // the strip NEVER lies by promising a row that isn't there.
+  const [preview, setPreview] = React.useState<{ label: string; hint: string; thumb: string | null } | null>(null);
+  const handleSelectedValueChange = React.useCallback(() => {
+    // the probe fires per selected-value change; the read happens here so
+    // the probe stays a pure signal (no DOM knowledge up in cmdk's tree)
+    const row = document.querySelector("[cmdk-item][aria-selected='true']");
+    if (!row) {
+      setPreview(null);
+      return;
+    }
+    const label = row.getAttribute("data-preview-label");
+    const hint = row.getAttribute("data-preview-hint");
+    if (label == null && hint == null) {
+      setPreview(null);
+      return;
+    }
+    const thumb = row.querySelector("img[src^='data:']");
+    setPreview({
+      label: label ?? "",
+      hint: hint ?? "",
+      thumb: thumb instanceof HTMLImageElement ? thumb.getAttribute("src") : null,
+    });
+  }, []);
+  const onSelectedValueChange = React.useCallback(() => {
+    // a microtask defers the DOM read past cmdk's own render commit (the
+    // store updates BEFORE the aria-selected attributes land)
+    setTimeout(handleSelectedValueChange, 0);
+  }, [handleSelectedValueChange]);
 
   const jobs = useWorkflowStore((s) => s.jobs);
   const edges = useWorkflowStore((s) => s.edges);
@@ -1097,6 +1154,8 @@ export function CommandPalette() {
                     key={j.id}
                     value={`recent job ${j.name} ${j.type} ${spec?.label ?? ""} ${j.status}`}
                     data-palette-recent-row={j.id}
+                    data-preview-label={j.name}
+                    data-preview-hint="jump to this job and open its inspector"
                     onSelect={() => jumpToJob(j.id)}
                     className="gap-2.5"
                   >
@@ -1128,6 +1187,8 @@ export function CommandPalette() {
               <CommandItem
                 key={j.id}
                 value={`job ${j.name} ${j.type} ${spec?.label ?? ""} ${j.status}`}
+                data-preview-label={j.name}
+                data-preview-hint="jump to this job and open its inspector"
                 onSelect={() => jumpToJob(j.id)}
                 className="gap-2.5"
               >
@@ -1183,6 +1244,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`note-${j.id}`}
                     value={`note ${j.name} ${j.type} ${j.note ?? ""} ${fusedClassTexts}`}
+                    data-preview-label={j.name}
+                    data-preview-hint="jump to the note's job and open its inspector"
                     onSelect={() => jumpToJob(j.id)}
                     className="gap-2.5"
                   >
@@ -1230,6 +1293,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`class-note-${job.id}-${cls}`}
                     value={`class note class ${cls} ${job.name} ${job.type} ${text}`}
+                    data-preview-label={`Class ${cls} — ${job.name}`}
+                    data-preview-hint="open the host job's class gallery on this class"
                     onSelect={() => jumpToClassNote(job.id, cls)}
                     className="gap-2.5"
                   >
@@ -1270,6 +1335,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`gallery-${j.id}`}
                     value={`frame gallery micrographs wall ${j.name} ${j.type}`}
+                    data-preview-label={`Frame gallery — ${j.name}`}
+                    data-preview-hint="land on this job's micrographs wall"
                     onSelect={() => jumpToGallery(j.id)}
                     className="gap-2.5"
                   >
@@ -1305,6 +1372,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`class-avg-${j.id}`}
                     value={`class averages tiles classification ${j.name} ${j.type}`}
+                    data-preview-label={`Class averages — ${j.name}`}
+                    data-preview-hint="land on the classification's class overview"
                     onSelect={() => jumpToClassAverages(j.id)}
                     className="gap-2.5"
                   >
@@ -1339,6 +1408,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`denoise-cmp-${j.id}`}
                     value={`denoise compare before after pairs topaz ${j.name} ${j.type}`}
+                    data-preview-label={`Denoise compare — ${j.name}`}
+                    data-preview-hint="land on the before/after wall"
                     onSelect={() => jumpToDenoise(j.id)}
                     className="gap-2.5"
                   >
@@ -1379,6 +1450,8 @@ export function CommandPalette() {
                   value={`saved view 3d bookmark ${b.name} ${v.jobName} ${v.jobType}`}
                   onSelect={() => jumpToSavedView(v, b)}
                   data-palette-savedview-row={b.id}
+                  data-preview-label={b.name}
+                  data-preview-hint={`restore this camera view in ${v.jobName}'s viewer`}
                   className="group/item relative gap-2.5"
                 >
                   {/* the thumb the save captured — inline data URL, zero
@@ -1517,6 +1590,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`run-${j.id}`}
                     value={`run ${j.name} ${j.type}`}
+                    data-preview-label={j.name}
+                    data-preview-hint="queue this idle job to run"
                     onSelect={() => runJob(j.id)}
                     className="gap-2.5"
                   >
@@ -1542,6 +1617,8 @@ export function CommandPalette() {
             <CommandItem
               key={`type-${t.key}`}
               value={`add ${t.key} ${t.label} ${t.category}`}
+              data-preview-label={t.label}
+              data-preview-hint="place one job of this type on the canvas"
               onSelect={() => addType(t.key)}
               className="gap-2.5"
             >
@@ -1593,6 +1670,8 @@ export function CommandPalette() {
               <CommandItem
                 key={`preset-${p.type}-${p.preset}`}
                 value={`preset add ${p.type} ${t?.label ?? ""} ${p.preset} ${p.note}`}
+                data-preview-label={t?.label ?? p.type}
+                data-preview-hint={`place this type with the ${p.preset} preset's parameters applied`}
                 onSelect={() => addPreset(p)}
                 className="gap-2.5"
               >
@@ -1658,6 +1737,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`user-preset-${p.id}`}
                     value={`preset add your saved ${p.name} ${p.type} ${t?.label ?? ""}`}
+                    data-preview-label={p.name}
+                    data-preview-hint="place this type with your saved parameters applied"
                     onSelect={() => addUserPreset(p)}
                     className="gap-2.5"
                   >
@@ -1717,6 +1798,12 @@ export function CommandPalette() {
               <CommandItem
                 key={`proj-${p.id}`}
                 value={`project ${p.name}`}
+                data-preview-label={p.name}
+                data-preview-hint={
+                  p.id === project?.id
+                    ? "already active — Enter just closes the palette"
+                    : "switch the active project"
+                }
                 onSelect={() => {
                   if (p.id === project?.id) {
                     close(); // already there — the door closes quietly
@@ -1749,6 +1836,12 @@ export function CommandPalette() {
               <CommandItem
                 key={`ws-${w.id}`}
                 value={`workspace ${w.name}`}
+                data-preview-label={w.name}
+                data-preview-hint={
+                  w.id === activeWorkspaceId
+                    ? "already active — Enter just closes the palette"
+                    : "switch to this workspace's canvas"
+                }
                 onSelect={() => {
                   switchWorkspace(w.id);
                   setView("canvas");
@@ -1785,6 +1878,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`chart-export-${t.key}`}
                     value={`export ${t.label} csv chart data ${exportTargetJob.name}`}
+                    data-preview-label={t.label}
+                    data-preview-hint="download this chart's rows as a csv file"
                     onSelect={() => exportChartRows(t, exportTargetJob)}
                     className="gap-2.5"
                   >
@@ -1813,6 +1908,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`chart-copy-${t.key}`}
                     value={`copy ${t.label} tsv clipboard chart data ${exportTargetJob.name}`}
+                    data-preview-label={t.label}
+                    data-preview-hint="copy this chart's rows to the clipboard as tsv"
                     onSelect={() => copyChartRows(t, exportTargetJob)}
                     className="gap-2.5"
                     data-canvas-ui={`palette-chart-copy-${t.key}`}
@@ -1835,6 +1932,8 @@ export function CommandPalette() {
         <CommandGroup heading="Engine">
           <CommandItem
             value="re-detect relion environment engine probe refresh discover install scan"
+            data-preview-label="Re-detect RELION environment"
+            data-preview-hint="re-run the environment probe — no restart needed"
             onSelect={redetectEngine}
             className="gap-2.5"
           >
@@ -1850,6 +1949,8 @@ export function CommandPalette() {
         <CommandGroup heading="Canvas & app">
           <CommandItem
             value="create standard spa pipeline template prewired workflow scaffold"
+            data-preview-label="Create standard SPA pipeline"
+            data-preview-hint="place ten pre-wired jobs — import through postprocess"
             onSelect={createTemplate}
             className="gap-2.5"
           >
@@ -1864,6 +1965,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="create spa pipeline with presets symmetry classes scaffold configure"
+            data-preview-label="Create SPA pipeline with presets…"
+            data-preview-hint="configure symmetry, class counts and refine mode, then place"
             onSelect={openTemplatePresets}
             className="gap-2.5"
           >
@@ -1875,21 +1978,23 @@ export function CommandPalette() {
               </span>
             </span>
           </CommandItem>
-          <CommandItem value="zoom to fit workflow view" onSelect={zoomToFit} className="gap-2.5">
+          <CommandItem value="zoom to fit workflow view" data-preview-label="Zoom to fit workflow" data-preview-hint="fit the whole graph in view" onSelect={zoomToFit} className="gap-2.5">
             <Maximize2 className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Zoom to fit workflow</span>
           </CommandItem>
-          <CommandItem value="reset view pan zoom 100" onSelect={resetView} className="gap-2.5">
+          <CommandItem value="reset view pan zoom 100" data-preview-label="Reset view (100%)" data-preview-hint="reset pan and zoom to 100%" onSelect={resetView} className="gap-2.5">
             <RotateCcw className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Reset view (100%)</span>
             <CommandShortcut>0</CommandShortcut>
           </CommandItem>
-          <CommandItem value="tidy layout arrange auto" onSelect={tidyLayout} className="gap-2.5">
+          <CommandItem value="tidy layout arrange auto" data-preview-label="Tidy layout" data-preview-hint="arrange the cards in a clean auto layout" onSelect={tidyLayout} className="gap-2.5">
             <Wand2 className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Tidy layout</span>
           </CommandItem>
           <CommandItem
             value="find search locate ring matches lens canvas discover"
+            data-preview-label="Find on canvas"
+            data-preview-hint="open the find bar — lens every job at once"
             onSelect={() => {
               if (view !== "canvas") setView("canvas");
               openFind();
@@ -1903,6 +2008,10 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="note spotlight annotated annotations margin lens filter dim discover"
+            data-preview-label={
+              noteSpotlight ? "Show all jobs (spotlight off)" : "Spotlight noted jobs"
+            }
+            data-preview-hint="toggle the note spotlight on the canvas"
             onSelect={() => {
               toggleNoteSpotlight();
               close();
@@ -1924,6 +2033,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="help guide manual how to use cryoflow guide storage graveyard clusters assistant"
+            data-preview-label="Help — the full guide"
+            data-preview-hint="open the manual"
             onSelect={openHelpGuide}
             className="gap-2.5"
           >
@@ -1933,6 +2044,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="keyboard shortcuts keys help bindings discover"
+            data-preview-label="Keyboard shortcuts"
+            data-preview-hint="open the shortcuts sheet"
             onSelect={openShortcuts}
             className="gap-2.5"
           >
@@ -1942,6 +2055,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="export canvas png image download poster workflow"
+            data-preview-label="Export canvas as PNG"
+            data-preview-hint="download the canvas as a poster image"
             onSelect={exportPng}
             className="gap-2.5"
           >
@@ -1955,6 +2070,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="export workflow json file share graph"
+            data-preview-label="Export workflow as JSON"
+            data-preview-hint="download the graph and parameters as a portable file"
             onSelect={exportJson}
             className="gap-2.5"
           >
@@ -1968,6 +2085,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="export pipeline shell script replay relion commands dependency order download"
+            data-preview-label="Export pipeline as shell script"
+            data-preview-hint="preview the replay script, then download"
             onSelect={() => {
               close(); // the dialog is the next modal — drop the palette first
               setPipelineOpen(true);
@@ -1984,6 +2103,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="import workflow json file load graph"
+            data-preview-label="Import workflow from JSON…"
+            data-preview-hint="pick a file and recreate its graph below existing content"
             onSelect={importJson}
             className="gap-2.5"
           >
@@ -1997,6 +2118,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="toggle theme dark light appearance"
+            data-preview-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
+            data-preview-hint="toggle the light and dark appearance"
             onSelect={toggleTheme}
             className="gap-2.5"
           >
@@ -2007,6 +2130,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="session qc report map inventory amber lens csv printable document"
+            data-preview-label="Open the session QC report"
+            data-preview-hint="compose the printable report"
             onSelect={() => {
               close(); // the report is the next modal — drop the palette first
               window.dispatchEvent(new CustomEvent(SESSION_REPORT_EVENT));
@@ -2023,6 +2148,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="system diagnostics memory lanes disk build guard provenance census vitals health"
+            data-preview-label="Open system diagnostics"
+            data-preview-hint="open the vitals panel"
             onSelect={() => {
               close(); // the panel is the next modal — drop the palette first
               window.dispatchEvent(new CustomEvent(SYSTEM_DIAGNOSTICS_EVENT));
@@ -2039,6 +2166,10 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="project dashboard management page view"
+            data-preview-label={
+              view === "canvas" ? "Open project dashboard" : "Back to workflow canvas"
+            }
+            data-preview-hint="switch between canvas and dashboard"
             onSelect={() => {
               setView(view === "canvas" ? "dashboard" : "canvas");
               setOpen(false);
@@ -2057,6 +2188,8 @@ export function CommandPalette() {
               puts a row here instead of an exemption. */}
           <CommandItem
             value="github source code repository issues open external link project page"
+            data-preview-label="Open CryoFlow on GitHub"
+            data-preview-hint="open the repository in a new tab"
             onSelect={() => {
               close();
               window.open("https://github.com/Jing0715-fer/cryoflow", "_blank", "noopener,noreferrer");
@@ -2078,6 +2211,8 @@ export function CommandPalette() {
               header button's state, and the button owns its dialog. */}
           <CommandItem
             value="remote clusters ssh connections probe relion modules dispatch jobs"
+            data-preview-label="Manage remote clusters"
+            data-preview-hint="manage SSH connections and job dispatch"
             onSelect={() => {
               close();
               window.dispatchEvent(new CustomEvent(REMOTE_CLUSTERS_OPEN_EVENT));
@@ -2094,6 +2229,47 @@ export function CommandPalette() {
           </CommandItem>
         </CommandGroup>
       </CommandList>
+      {/* t781 — the promise strip: a fixed-height reciter under the list
+          (the keys hint when no row is highlighted — the strip never
+          disappears, so filtering never shifts the dialog's layout).
+          role=status so a screen reader hears the promise as the arrows
+          move; the ↵ glyph is decor, the words are the substance. The
+          strip is a RECITER, not a mouth: it owns no onSelect, no
+          onClick — Enter's contract lives in the rows above, the strip
+          only says what the highlighted row will do. */}
+      <div
+        data-palette-preview=""
+        role="status"
+        className="flex min-h-9 shrink-0 items-center gap-2 border-t bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground"
+      >
+        {preview ? (
+          <>
+            {preview.thumb ? (
+              <img
+                src={preview.thumb}
+                alt=""
+                data-palette-preview-thumb=""
+                className="size-6 shrink-0 rounded border border-border/60 object-cover"
+              />
+            ) : (
+              <CornerDownLeft className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+            )}
+            <span data-palette-preview-label="" className="min-w-0 shrink-0 max-w-[45%] truncate font-medium text-foreground/80">
+              {preview.label}
+            </span>
+            <span data-palette-preview-hint="" className="min-w-0 flex-1 truncate">
+              {preview.hint}
+            </span>
+          </>
+        ) : (
+          <span data-palette-preview-keys="" className="flex-1 truncate">
+            ↑↓ to move · ↵ to run · Esc to close
+          </span>
+        )}
+      </div>
+      {/* t781 — the signal rides INSIDE the Command tree (useCommandState
+          needs the context); null-rendered, zero visual footprint. */}
+      <PalettePreviewProbe onSelectedValueChange={onSelectedValueChange} />
     </CommandDialog>
     {/* Task 179: palette-owned export surface — the pipeline replay script.
         Mounted here so the row's close-then-open handshake keeps one modal
