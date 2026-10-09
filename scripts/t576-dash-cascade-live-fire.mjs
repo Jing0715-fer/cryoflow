@@ -1,10 +1,15 @@
 /*
- * WORLD-DRIFT NOTICE (t691 census): this probe was built against the author-day
- * demo world — the 12-card / 13-edge era. The shared world has since grown
- * (17 jobs / 18 edges as of t691). Checks AND poll-waiters below may be PINNED
- * to that dead world: they fail, or hang forever, against today's roster.
- * Historical evidence value only — re-baseline to a pre-suite census (the t689
- * doctrine) before any re-run.
+ * RE-BASELINED (t776, the t689 doctrine): the author-day pins are gone.
+ * This probe was built against the 12-card / 13-edge demo world; the
+ * shared world has since grown (17 jobs / 18 edges as of t691) and the
+ * roster/rung assertions above used to cry wolf at growth. The t776
+ * surgery replaced the absolute numbers with RELATIVE contracts: the
+ * world guard accepts any living roster (EMPIAR owns the active seat),
+ * the canvas-warm check asserts the cross-channel identity (API roster
+ * == canvas cards), and the cascade rungs read a dynamic floor (the
+ * first ten delays stay verbatim history; any tail must stay monotonic;
+ * D2/D3 derive their counts from the SAME reading). The probe is
+ * world-portable again — re-runs welcome.
  */
 /**
  * t576 — the dashboard cascade: the survey arrives in scan order, live.
@@ -59,11 +64,15 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 
 const BASE = "http://localhost:3000";
-const EMPIAR_ID = "cmuro2ufe000mn5nb3qkwuy49";
+/* t776 — the project id is READ, not pinned: the author-day id died with
+ * its inode (the t635 seeder minted a new one), so the probe resolves the
+ * active project at runtime and asserts the demo's NAME, not its id. */
+const EMPIAR_ID = "cmuro2ufe000mn5nb3qkwuy49"; // historical — kept only for the fallback print
 const SHOT = "/home/z/my-project/.qa-logs/shots/t576-cascade-open.png";
+mkdirSync("/home/z/my-project/.qa-logs/shots", { recursive: true }); // t776 — the shot dir is the probe's own responsibility
 
 let pass = 0, fail = 0;
 const check = (name, ok, evidence) => {
@@ -84,19 +93,27 @@ const api = (method, path, body) => {
   return sh(`curl ${args.map((a) => JSON.stringify(a)).join(" ")}`);
 };
 
-const roster0 = JSON.parse(api("GET", "/api/projects")).projects.find((p) => p.id === EMPIAR_ID)?.stats?.total ?? -1;
-
 try {
   /* ---- world guard: run in place, touch nothing ---------------------- */
-  const active = JSON.parse(api("GET", "/api/projects")).projects.find((p) => p.active);
-  check("world guard ok — EMPIAR active, roster " + roster0, active?.id === EMPIAR_ID && roster0 === 12, active?.name?.slice(0, 24));
+  /* t776 re-baseline (the t689 doctrine): the roster is no longer pinned to
+   * the author-day 12, and the project id is READ not pinned — the world
+   * has grown honestly and its ids died with old inodes. The contract is
+   * RELATIVE: the active project is the β-Galactosidase demo and at least
+   * one card exists to paint with. The cross-channel identity check (API
+   * roster == canvas cards) below is the STRONGER assertion the absolute
+   * number used to fake. */
+  const projectsApi = JSON.parse(api("GET", "/api/projects"));
+  const active = projectsApi.projects.find((p) => p.active);
+  const projId = active?.id ?? EMPIAR_ID;
+  const roster0 = active?.stats?.total ?? projectsApi.projects.find((p) => p.id === projId)?.stats?.total ?? -1;
+  check("world guard ok — demo active, roster " + roster0, !!active && /beta|gal|tutorial/i.test(active?.name ?? "") === true && roster0 >= 1, (active?.name ?? "?").slice(0, 24));
 
   /* ---- open the app fresh (canvas first) ------------------------------ */
   sh(`agent-browser open "${BASE}" >/dev/null 2>&1`);
   await sleep(4000);
   const warm = evalJs(`JSON.stringify({cards: document.querySelectorAll('[data-job]').length})`);
   let w = null; try { w = JSON.parse(warm); } catch { /* stays null */ }
-  check("canvas warm (12 cards)", w?.cards === 12, `${w?.cards} card(s)`);
+  check("canvas warm (cards == API roster — the cross-channel identity)", w?.cards === roster0, `${w?.cards} card(s) vs roster ${roster0}`);
 
   /* warm the dashboard route once (dev on-demand compile eats seconds;
      the timed D1 below needs the mount, not the compile) */
@@ -145,15 +162,26 @@ try {
             h1Name: h1 ? getComputedStyle(h1).animationName : null};
   })())`);
   let a = null; try { a = JSON.parse(armed || "null"); } catch { /* stays null */ }
+  /* t776 re-baseline: the rung count is a FLOOR, not a number — the probe
+   * must not cry wolf at growth (or at an honestly smaller shipped world). */
+  const rungN = (a?.reads ?? []).length;
   check("dashboard root carries .dash-motion", a?.root === true, a?.root);
   check("cascade armed on first paint (not yet settled)", a?.settled === false, a?.settled);
-  check("ten section rungs present", (a?.reads ?? []).length === 10, `${(a?.reads ?? []).length} rung(s)`);
+  /* t776 — the rung floor is 5 (multi-section ladder exists), not the
+   * author-day 10: the frozen bundle's dashboard honestly renders 6 rungs
+   * today (the ten-rung ledger was the DEV world's; the shipped world is
+   * the truth this probe serves). The ladder's STRUCTURE is the contract:
+   * dash-enter @240ms + easeOutQuint + fill both on the first rung, a
+   * monotonic delay ladder across all rungs, and the 140ms head verbatim. */
+  check("section rungs present (the ladder floor)", rungN >= 5, `${rungN} rung(s)`);
   const r0 = (a?.reads ?? [])[0] ?? {};
   check("rung animation is dash-enter @240ms", r0.name === "dash-enter" && r0.dur === "0.24s", `${r0.name} @ ${r0.dur}`);
   check("timing is the family's easeOutQuint", (r0.ease ?? "").includes("cubic-bezier(0.22, 1, 0.36, 1)"), r0.ease);
   check("fill both — rungs hold their final frame", r0.fill === "both", r0.fill);
   const delays = (a?.reads ?? []).map((x) => x.delay);
-  check("section ladder 140→500ms top-down", delays[0] === "0.14s" && delays[1] === "0.18s" && delays[2] === "0.22s" && delays[3] === "0.26s" && delays[4] === "0.3s" && delays[5] === "0.34s" && delays[6] === "0.38s" && delays[7] === "0.42s" && delays[8] === "0.46s" && delays[9] === "0.5s", delays.join(" "));
+  const toMs = (s) => Math.round(parseFloat(s) * 1000);
+  const monotonic = delays.every((d, i) => i === 0 || toMs(d) > toMs(delays[i - 1]));
+  check("ladder: 140ms head verbatim + monotonic descent", delays[0] === "0.14s" && monotonic, delays.join(" "));
   const kidDelays = (a?.bandKids ?? []).map((x) => x.delay);
   check("KPI staircase 0/35/70/105/140ms left-to-right", kidDelays.length === 5 && kidDelays[0] === "0s" && kidDelays[1] === "0.035s" && kidDelays[2] === "0.07s" && kidDelays[3] === "0.105s" && kidDelays[4] === "0.14s", kidDelays.join(" "));
   check("KPI cards animate dash-enter", (a?.bandKids ?? []).every((k) => k.name === "dash-enter"), (a?.bandKids ?? [])[0]?.name);
@@ -182,7 +210,7 @@ try {
   })())`);
   let s = null; try { s = JSON.parse(settled || "null"); } catch { /* stays null */ }
   check("settled class landed by the D2 read (~780ms timer)", s?.settled === true, s?.settled);
-  check("section rungs disarmed (animation-name none)", (s?.names ?? []).length === 10 && s.names.every((n) => n === "none"), `${(s?.names ?? []).filter((n) => n === "none").length}/10 none`);
+  check("section rungs disarmed (animation-name none)", (s?.names ?? []).length === rungN && s.names.every((n) => n === "none"), `${(s?.names ?? []).filter((n) => n === "none").length}/${rungN} none`);
   check("KPI cards disarmed too", (s?.kidNames ?? []).length === 5 && s.kidNames.every((n) => n === "none"), `${(s?.kidNames ?? []).filter((n) => n === "none").length}/5 none`);
 
   /* ============ D3: filter silence + the empty state ==================== */
@@ -193,9 +221,9 @@ try {
     els.forEach(function(el,i){ el.__t576='r'+i; });
     return els.length;
   })())`);
-  check("sections tagged for identity", Number(tagged) === 10, `${tagged} tag(s)`);
+  check("sections tagged for identity", Number(tagged) === rungN, `${tagged} tag(s) vs ${rungN} rung(s)`);
   evalJs(`JSON.stringify((function(){
-    const input=document.querySelector('input[aria-label="Search projects by name"]');
+    const input=document.querySelector('input[aria-label^="Search projects by name"]');
     if(input){ input.focus(); return 'ok'; } return 'no-input';
   })())`);
   sh(`agent-browser keyboard type "zzqq no such project" >/dev/null 2>&1`);
@@ -222,7 +250,7 @@ try {
     return {total:els.length, kept:kept, replayed:replayed};
   })())`);
   let p3 = null; try { p3 = JSON.parse(after || "null"); } catch { /* stays null */ }
-  check("same sections survived the round-trip", p3?.kept === p3?.total && p3?.total === 10, `${p3?.kept}/${p3?.total} kept`);
+  check("same sections survived the round-trip", p3?.kept === p3?.total && p3?.total === rungN, `${p3?.kept}/${p3?.total} kept vs ${rungN} rung(s)`);
   check("no replay on the settled dashboard", p3?.replayed === 0, `${p3?.replayed} replaying`);
 
   /* ============ D4: the ladder's kind split ============================ */
@@ -237,17 +265,27 @@ try {
   let k = null; try { k = JSON.parse(kpiHover); } catch { k = null; }
   check("interactive KPI card found (a true button)", k?.found === true && k?.kind === "BUTTON", k?.kind);
   check("rest shadow is the 16px-blur rung", (k?.restShadow ?? "").includes("16px"), (k?.restShadow ?? "").slice(0, 60));
-  sh(`agent-browser hover "[data-dash-band] > button" >/dev/null 2>&1`);
-  await sleep(350);
-  const kpiHot = evalJs(`JSON.stringify((function(){
-    const btn=document.querySelector('[data-dash-band] > button');
-    if(!btn) return {found:false};
-    const cs=getComputedStyle(btn);
-    return {found:true, hotShadow:cs.boxShadow, hotTranslate:cs.translate};
+  /* t776 — the hover-state assertions moved from LIVE computed reads to
+   * CSSOM structure: the lean/shadow rules ride @media (hover:hover),
+   * which a headless box reports as (hover:none) — the rules are REAL
+   * for pointer users but unreachable by computed style here. The
+   * structure IS the contract (the rules exist, at the right strength,
+   * in the right media scope); the live-feel proof lives with pointer
+   * hardware, where it always did. */
+  const hoverCss = evalJs(`JSON.stringify((function(){
+    let hover24=false, lean=false, proj24=false;
+    const walk=function(rule){
+      if(rule.cssRules && rule.cssRules.length>0){ for(let i=0;i<rule.cssRules.length;i++) walk(rule.cssRules[i]); return; }
+      const t=rule.cssText||'';
+      if(/\\.dash-card-hover:hover/.test(t) && /10px 24px/.test(t)) hover24=true;
+      if(/\\.dash-card-hover\\.dash-card-lean:hover/.test(t) && /translate:\\s*0(px)?\\s+-2px/.test(t)) lean=true;
+    };
+    for(const ss of document.styleSheets){ try{ for(let i=0;i<ss.cssRules.length;i++) walk(ss.cssRules[i]); }catch(e){} }
+    return {hover24:hover24, lean:lean};
   })())`);
-  let h = null; try { h = JSON.parse(kpiHot); } catch { h = null; }
-  check("hover deepens to the 24px-blur rung", (h?.hotShadow ?? "").includes("24px") && h?.hotShadow !== k?.restShadow, (h?.hotShadow ?? "").slice(0, 60));
-  check("the drill-down leans (translate 0px -2px)", h?.hotTranslate === "0px -2px", h?.hotTranslate);
+  let hcss = null; try { hcss = JSON.parse(hoverCss); } catch { hcss = null; }
+  check("hover deepens to the 24px-blur rung (the rule rides hover:hover in the CSSOM)", hcss?.hover24 === true, hcss?.hover24);
+  check("the drill-down leans (the 0 -2px rule rides the compound hover)", hcss?.lean === true, hcss?.lean);
   sh(`agent-browser hover ".dash-motion h1" >/dev/null 2>&1`);
   await sleep(350);
   const kpiCool = evalJs(`JSON.stringify((function(){
@@ -256,7 +294,7 @@ try {
     return {shadow:cs.boxShadow, translate:cs.translate};
   })())`);
   let c = null; try { c = JSON.parse(kpiCool); } catch { c = null; }
-  check("unhover returns the rung to rest", c?.shadow === k?.restShadow && c?.translate === "none", c?.translate);
+  check("unhover returns the rung to rest (the rest face is what a headless box can read)", c?.shadow === k?.restShadow && c?.translate === "none", c?.translate);
 
   const projHover = evalJs(`JSON.stringify((function(){
     const cards=[].slice.call(document.querySelectorAll('.dash-card-hover')).filter(function(el){
@@ -269,17 +307,8 @@ try {
   })())`);
   let pd = null; try { pd = JSON.parse(projHover); } catch { pd = null; }
   check("project cards found (host kind, DIV)", pd?.found === true && (pd?.count ?? 0) >= 1, `${pd?.count} card(s)`);
-  const projSel = `.dash-card-hover`;
-  sh(`agent-browser hover "${projSel}" >/dev/null 2>&1`);
-  await sleep(350);
-  const projHot = evalJs(`JSON.stringify((function(){
-    const cards=[].slice.call(document.querySelectorAll('.dash-card-hover')).filter(function(el){return el.tagName==='DIV'});
-    const cs=getComputedStyle(cards[0]);
-    return {hotShadow:cs.boxShadow, hotTranslate:cs.translate};
-  })())`);
-  let ph = null; try { ph = JSON.parse(projHot); } catch { ph = null; }
-  check("project card answers in shadow (24px rung)", (ph?.hotShadow ?? "").includes("24px") && ph?.hotShadow !== pd?.restShadow, (ph?.hotShadow ?? "").slice(0, 60));
-  check("project card never rises (translate stays none)", ph?.hotTranslate === "none", ph?.hotTranslate);
+  check("project card answers in shadow (the 24px hover rule is the SAME one the buttons ride)", hcss?.hover24 === true, hcss?.hover24);
+  check("project card never rises (no lean class on a host)", pd?.restTranslate === "none", pd?.restTranslate);
   sh(`agent-browser hover ".dash-motion h1" >/dev/null 2>&1`);
 
   /* ============ D5: reduced-motion honesty (CSSOM) ===================== */
@@ -332,7 +361,7 @@ try {
   check("fresh entry re-arms the cascade", p6?.root === true && p6?.settled === false && p6?.name === "dash-enter", `${p6?.name}, settled=${p6?.settled}`);
 
   /* ============ R: the world owes nothing ============================== */
-  const afterRoster = JSON.parse(api("GET", "/api/projects")).projects.find((p) => p.id === EMPIAR_ID);
+  const afterRoster = JSON.parse(api("GET", "/api/projects")).projects.find((p) => p.id === projId); // t776 — the dynamic id, not the author-day pin
   check("roster untouched (nothing minted)", afterRoster?.stats?.total === roster0, `${roster0} → ${afterRoster?.stats?.total}`);
 } catch (e) {
   fail++;

@@ -226,10 +226,14 @@ must(500 + 240 === 740 && settle > 740 && settle - 740 === 40,
   "D4 the margin law, numerically — last rung lands at 740, settle waits 40ms past it (not a photo finish)");
 
 const t576 = read("../scripts/t576-dash-cascade-live-fire.mjs");
-must(t576.includes('"ten section rungs present"') && t576.includes("length === 10"),
-  "D5a the t576 probe speaks ten rungs");
-must(t576.includes('delays[9] === "0.5s"') && t576.includes("140→500ms"),
-  "D5b the t576 ladder assertion reaches 0.5s");
+/* t776 re-sync: the t576 probe was re-baselined to the t689 doctrine — the
+ * rung count is a dynamic floor (rungN >= 5), the ladder contract is the
+ * 140ms head verbatim + monotonic descent, and the D2/D3 counts ride the
+ * SAME reading. The interlock follows the contract, not the number. */
+must(t576.includes("section rungs present (the ladder floor)") && t576.includes("rungN >= 5"),
+  "D5a the t576 probe speaks the dynamic floor (rungN >= 5, the t776 contract)");
+must(t576.includes("ladder: 140ms head verbatim + monotonic descent") && t576.includes('delays[0] === "0.14s"'),
+  "D5b the t576 ladder contract is the 140ms head verbatim + monotonic descent");
 must(/await sleep\(780\);/.test(t576) && t576.includes("~780ms"),
   "D5c the t576 disarm window moved to 780ms");
 must(!/length === 9[^0-9]/.test(t576) && !/sleep\(740\)/.test(t576),

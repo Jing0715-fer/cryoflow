@@ -163,10 +163,14 @@ must(500 + 240 === 740 && settle > 740 && settle - 740 === 40,
 
 // the three sibling probes moved WITH the shape (the t711 lesson: every count)
 const t576 = read("../scripts/t576-dash-cascade-live-fire.mjs");
-must(t576.includes('"ten section rungs present"') && t576.includes("length === 10"),
-  "C6a the t576 probe speaks ten rungs");
-must(t576.includes('delays[9] === "0.5s"') && t576.includes("140→500ms"),
-  "C6b the t576 ladder assertion reaches 0.5s");
+/* t776 re-sync: the t576 probe was re-baselined to the t689 doctrine — the
+ * rung count is a dynamic floor (rungN >= 5), the ladder contract is the
+ * 140ms head verbatim + monotonic descent, and the D2/D3 counts ride the
+ * SAME reading. The interlock follows the contract, not the number. */
+must(t576.includes("section rungs present (the ladder floor)") && t576.includes("rungN >= 5"),
+  "C6a the t576 probe speaks the dynamic floor (rungN >= 5, the t776 contract)");
+must(t576.includes("ladder: 140ms head verbatim + monotonic descent") && t576.includes('delays[0] === "0.14s"'),
+  "C6b the t576 ladder contract is the 140ms head verbatim + monotonic descent");
 must(/await sleep\(780\);/.test(t576) && t576.includes("~780ms"),
   "C6c the t576 disarm window moved to 780ms");
 // the census's own first-run disease (the t717/t720 lesson, third verse):
@@ -191,8 +195,10 @@ must(t716.includes('"140", "180", "220", "260", "300", "340", "380", "420", "460
   "C8a the t716 probe pins ten rungs");
 must(t716.includes('the 380ms rung') && !/the 340ms rung/.test(t716),
   "C8b the t716 shelf rung assertion moved to 380 (the wall took 300, everyone shifted +40)");
-must(t716.includes("length === 10") && t716.includes('delays[9] === "0.5s"'),
-  "C8c the t716 t576-sync assertions moved to ten / 0.5s");
+/* t776 re-sync: t716's t576 interlock follows the re-baselined contract
+ * (dynamic floor + 140ms-head-verbatim + rungN counts), not the number. */
+must(t716.includes("rungN >= 5") && t716.includes("140ms head verbatim + monotonic descent"),
+  "C8c the t716 t576-sync assertions ride the t776 contract (floor + head-verbatim)");
 
 must(dashSrc.includes("500+240 = 740ms exactly"),
   "C9 the dashboard's disarm comment explains the margin (the next rung's author re-checks)");

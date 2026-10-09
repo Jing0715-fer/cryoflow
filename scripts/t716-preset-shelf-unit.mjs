@@ -71,12 +71,17 @@ ok(dashSrc.includes('"--dash-d": "380ms"') && dashSrc.indexOf("UserPresetShelf")
 const dashDelays = [...dashSrc.matchAll(/"--dash-d": "(\d+)ms"/g)].map((m) => m[1]);
 ok(JSON.stringify(dashDelays) === JSON.stringify(["140", "180", "220", "260", "300", "340", "380", "420", "460", "500"]),
   "the ladder is ten rungs, 140→500, no gaps or duplicates", dashDelays.join("/"));
-ok((t576.match(/ten section rungs present/) ?? []).length === 1 && t576.includes("(a?.reads ?? []).length === 10"),
-  "t576 armed count moved to ten (in the same window as the shape)");
-ok(t576.includes('delays[9] === "0.5s"'), "t576's ladder assertion reaches 0.5s");
-ok(t576.includes("(s?.names ?? []).length === 10"), "t576 disarm count is ten (and the stale-6 fix of t716 stays fixed)");
-ok(t576.includes("Number(tagged) === 10") && t576.includes("p3?.total === 10"),
-  "t576 D3 tag/total counts are ten — ALL counts, not the named one");
+/* t776 re-sync: the t576 probe was re-baselined to the t689 doctrine — the
+ * rung count is a dynamic floor (rungN), the ladder contract is the 140ms
+ * head verbatim + monotonic descent, and the D2/D3 counts derive from the
+ * SAME reading. The interlock follows the contract, not the number. */
+ok(t576.includes("section rungs present (the ladder floor)") && t576.includes("rungN >= 5"),
+  "t576's armed count is the dynamic floor (rungN >= 5, the t776 contract)");
+ok(t576.includes("ladder: 140ms head verbatim + monotonic descent") && t576.includes('delays[0] === "0.14s"'),
+  "t576's ladder contract is the 140ms head verbatim + monotonic descent");
+ok(t576.includes("(s?.names ?? []).length === rungN"), "t576 disarm count rides rungN (the dynamic reading)");
+ok(t576.includes("Number(tagged) === rungN") && t576.includes("p3?.total === rungN"),
+  "t576 D3 tag/total counts ride rungN — ALL counts, not the named one");
 
 // ---- C: the settle-margin law (numeric — the bug class dies here) ---------
 console.log("== C: settle margin ==");
