@@ -43,7 +43,7 @@ import { timelineRunsCsv, timelineRunsCsvFilename, type TimelineCsvRow } from "@
 import { stageRuntime, stageRuntimeCsv, stageRuntimeCsvFilename, type StageRuntime } from "@/lib/stage-runtime"; // t677 — the per-stage wall-clock lens
 import { criticalPath } from "@/lib/critical-path"; // t681 — the chain that set the finish
 import type { JobDTO } from "@/lib/types";
-import { jobType } from "@/lib/workflow";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
 import { toast } from "@/hooks/use-toast";
 import { TypeIcon } from "./icons";
@@ -1026,6 +1026,11 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             <div className="flex flex-col gap-1">
               {runtime.rows.map((r) => {
                 const spec = jobType(r.type);
+                // t755 — asked once, read twice (dots + ear). The water ask
+                // rides the spec the row already holds — it does not ask
+                // twice. An unknown type keeps its honest silence: no spec,
+                // no water, the stats row stays a number-line.
+                const pouring = spec ? pourKindsOf(r.type) : [];
                 return (
                   <div
                     key={r.type}
@@ -1048,6 +1053,27 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                     <span className="w-28 shrink-0 truncate text-[10.5px] text-muted-foreground" title={r.label}>
                       {r.label}
                     </span>
+                    {spec ? (
+                      // t755 — the type's own stats row reports pours: the
+                      // median and the p90 belong to a type with a thirst.
+                      // The dots sit in the column between label and bar —
+                      // decor and ear, never inside the numbers' columns.
+                      <span
+                        className="flex shrink-0 items-center gap-1"
+                        data-testid={`runtime-pours-${r.type}`}
+                      >
+                        {pouring.map((k) => (
+                          <span
+                            key={k}
+                            aria-hidden="true"
+                            title={`pours ${k}`}
+                            className="inline-block size-1.5 rounded-full"
+                            style={{ background: PORT_COLORS[k].wire }}
+                          />
+                        ))}
+                        <span className="sr-only">pours {pouring.join(", ")}</span>
+                      </span>
+                    ) : null}
                     <div className="relative h-4 min-w-0 flex-1">
                       <span
                         className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-[3px] bg-primary/75 transition-[width] duration-500 ease-out [print-color-adjust:exact] [-webkit-print-color-adjust:exact]"
