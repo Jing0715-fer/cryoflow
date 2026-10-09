@@ -82,8 +82,8 @@ must(cp.includes('import { JOB_TYPES, jobType, pourKindsOf, PORT_COLORS, CARD_W,
 must(group.includes("const pouring = pourKindsOf(t.key);"),
   "A the row asks pourKindsOf with the DIRECT form (JOB_TYPES members always resolve — no gate)");
 
-must((cp.match(/const pouring/g) || []).length === 1,
-  "A the question is asked exactly ONCE in the file (dots + ear read the answer; sibling groups undressed)");
+must((group.match(/const pouring/g) || []).length === 1,
+  "A the question is asked exactly ONCE in the catalog group (dots + ear read the answer; scope re-grounded from file to group when t753 dressed the sibling groups — the t647/t648 verdict-delivery law)");
 
 must(group.includes("JOB_TYPES.map((t) => {") && group.includes("return ("),
   "A the ask lives in a block body (the map's arrow grew a body to host it)");
@@ -127,8 +127,8 @@ must(allNamed, "B every catalog type resolves a spec (the direct ask never blind
 /* ================================================================== */
 console.log("\nC — the keyboard row's face");
 
-must((cp.match(/data-testid=\{`cmd-pours-/g) || []).length === 1,
-  "C exactly one pours container in the file (the cmd-pours family's first address)");
+must((group.match(/data-testid=\{`cmd-pours-/g) || []).length === 1,
+  "C exactly one cmd-pours container in the catalog group (the family's first address; scope re-grounded from file to group at t753)");
 
 must((water.match(/title=\{`pours \$\{k\}`\}/g) || []).length === 1,
   "C the word per dot rides the title (verbatim t750 form: pours ${k})");
@@ -151,9 +151,8 @@ must(dialectEqualsT750(),
 must(group.includes("value={`add ${t.key} ${t.label} ${t.category}`}"),
   "C the search contract is verbatim (cmdk filters on `value` — the dots are decor and ear, never filter words)");
 
-must(!presetGroup.includes("pourKindsOf") && !presetGroup.includes("cmd-pours") &&
-     !userGroup.includes("pourKindsOf") && !userGroup.includes("cmd-pours"),
-  "C one-reader discipline: the preset groups stay UNDRESSED this window (staged — t747→t750 precedent)");
+must(presetGroup.includes("cmd-preset-pours") && userGroup.includes("cmd-user-pours"),
+  "C the staged groups are now DRESSED (t753 delivered the verdict this probe promised — the keyboard menu's three type-naming groups each carry their own pours)");
 
 function dialectEqualsT750() {
   const grab = (src, testidMark) => {
