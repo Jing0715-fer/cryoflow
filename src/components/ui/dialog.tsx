@@ -262,12 +262,32 @@ function DialogOverlay({
 type DialogFocusLayer = {
   /** The return address: last opener-like focus outside dialog surfaces. */
   pocket: HTMLElement | null
-  /** How many dialog surfaces are mounted (drives the stand-down). */
-  openCount: number
+}
+
+/** t813 — the OPEN-SURFACE truth, read from the DOM. The t792 counter
+ * (a mount/unmount balance on the DialogContent WRAPPER) was born blind:
+ * the wrapper's hooks run whenever its parent renders the element — the
+ * catalog's type cards and the canvas's job cards keep ~50 of them
+ * mounted at boot — so the count sat at 50 forever, the stand-down branch
+ * always fired, the pocket NEVER armed, and every close of the staged
+ * era landed BODY (the flip day's great audit finding, witnessed live:
+ * openCount 50 at boot with zero dialogs ever opened, 50 open, 50
+ * closed — the counter never moved). The DOM is the truth: a surface is
+ * open when its content node says data-state="open". */
+function openSurfaceExists(): boolean {
+  return (
+    document.querySelector(
+      '[data-slot="dialog-content"][data-state="open"], [data-slot="alert-dialog-content"][data-state="open"], [data-slot="sheet-content"][data-state="open"]'
+    ) != null
+  )
 }
 
 let gDialogFocusLayer: DialogFocusLayer | null = null
-
+// t813 — the eager build: the layer's listener must beat the world's
+// FIRST opener focusin, not the first dialog mount (the lazy build left
+// every session's first close without a return address). Client-only —
+// the guard inside getDialogFocusLayer keeps SSR honest.
+if (typeof document !== "undefined") getDialogFocusLayer()
 /** An element that can legitimately receive a focus hand-back: the
  * census openers are buttons, links, form fields and role=button or
  * tabindex cards (the canvas card dialect). */
@@ -297,11 +317,16 @@ function isInsideClosingDialog(el: Element): boolean {
   )
 }
 
-/** The layer singleton + its one document listener, built lazily on the
- * client (the first DialogContent mount asks for it). */
+/** The layer singleton + its one document listener, built EAGERLY on the
+ * client (the t813 flip-day lesson: the lazy build — first DialogContent
+ * mount asks for it — meant the page's FIRST opener focusin landed before
+ * any listener existed, the pocket never armed, and the first close of
+ * every session fell to BODY; witnessed live on the flip world twice).
+ * The module loads with the app shell, so the listener beats the world's
+ * first opener. */
 function getDialogFocusLayer(): DialogFocusLayer | null {
   if (gDialogFocusLayer || typeof document === "undefined") return gDialogFocusLayer
-  const layer: DialogFocusLayer = { pocket: null, openCount: 0 }
+  const layer: DialogFocusLayer = { pocket: null }
   gDialogFocusLayer = layer
   document.addEventListener(
     "focusin",
@@ -327,13 +352,21 @@ function getDialogFocusLayer(): DialogFocusLayer | null {
       // focus belongs to that surface and never arms — a dialog opened
       // from a dialog is the nested walk-back's business.
       if (target.closest(`${COMPANION_WINDOW_SELECTOR}, ${DIALOG_LIVE_SELECTOR}`)) {
-        if (layer.openCount === 0 && isOpenerLike(target)) layer.pocket = target
+        if (!openSurfaceExists() && isOpenerLike(target)) layer.pocket = target
         return
       }
       // t791 witness law: focus landing outside every dialog surface
       // while one is open is a voluntary exit — stand down, don't steal.
-      if (layer.openCount > 0) {
-        layer.pocket = null
+      // t813 — but the dying dialog's OWN blur must not stand the pocket
+      // down: Radix's exit blurs the content to BODY before
+      // onCloseAutoFocus runs, and a BODY focusin is machinery noise,
+      // not a voluntary exit — the disarm answers only an opener-like
+      // choice (a real element focused while the dialog lived). Witnessed
+      // live on the flip world: the storage dialog's Escape landed BODY —
+      // the pocket was spent by the exit's own blur before the hand-back
+      // could spend it.
+      if (openSurfaceExists()) {
+        if (isOpenerLike(target)) layer.pocket = null
         return
       }
       if (isOpenerLike(target)) layer.pocket = target
@@ -358,9 +391,16 @@ export function returnFocusToOpener(event: Event): void {
   const layer = getDialogFocusLayer()
   const pocket = layer?.pocket ?? null
   if (layer) layer.pocket = null
-  event.preventDefault()
+  // t813 — spend-or-yield: preventDefault only when the layer actually
+  // has an address to spend. An empty pocket (the arming holes this file
+  // no longer has — but a belt needs braces) previously ATE Radix's own
+  // trigger refocus and the close landed BODY. Yielding lets Radix's
+  // native trigger hand-back answer; the layer only ever ADDS addresses
+  // (the imperative openers Radix cannot see), it never removes the
+  // native one.
   if (!pocket || !pocket.isConnected || !isOpenerLike(pocket)) return
   if (isInsideClosingDialog(pocket)) return
+  event.preventDefault()
   pocket.focus({ preventScroll: true })
   // The nested walk-back: a restored address inside a LIVING dialog
   // surface remains that surface's return address for its own close.
@@ -373,14 +413,13 @@ export function returnFocusToOpener(event: Event): void {
  * exit stand-down. The t792 word-forms live here and nowhere else —
  * one brain, three consumers. */
 export function useDialogFocusSurface(): void {
-  React.useEffect(() => {
-    const layer = getDialogFocusLayer()
-    if (!layer) return
-    layer.openCount += 1
-    return () => {
-      layer.openCount = Math.max(0, layer.openCount - 1)
-    }
-  }, [])
+  // t813 — retired: the registration counted RENDERED WRAPPERS, not open
+  // surfaces (50 at boot, never moving — the layer's stand-down branch
+  // always fired and the pocket never armed). The DOM truth
+  // (openSurfaceExists) answers the stand-down at event time; the spend
+  // lives in returnFocusToOpener on Radix's own close event. The export
+  // stays for the three bridge callers (alert-dialog, sheet, dialog) —
+  // one brain, no second counter to resurrect.
 }
 
 function DialogContent({
@@ -431,21 +470,46 @@ function DialogContent({
           el.scrollHeight > el.clientHeight + 4 &&
           /(auto|scroll)/.test(getComputedStyle(el).overflowY)
       )
+    // apply returns true when the memory is fully consumed (every entry
+    // either landed or is irrelevant); false while the flip's remounted
+    // subtree is still growing — the leaf refetch re-creates the scrollable
+    // regions ASYNCHRONOUSLY (a network round trip can land many frames
+    // after the first paint), and a restore that races it loses: the
+    // t813 flip-day witness (the storage runs list deep-scrolled to 293
+    // snapped to 0 across the companion flip-in and NEVER came back —
+    // the old two-beat restore, sync + one frame, fired before the
+    // refetch's region existed). The cure is the patient ladder: apply
+    // again every frame until every remembered position reads back, or
+    // ~90 frames (~1.5s) cap the wait. Fresh opens carry no memory and
+    // never enter the ladder at all.
     const apply = () => {
       const memory = scrollMemoryRef.current
-      if (!memory) return
-      collectScrollables().forEach((el, i) => {
-        if (memory[i] !== undefined) el.scrollTop = memory[i]
+      if (!memory) return true
+      const scrollables = collectScrollables()
+      let pending = scrollables.length < memory.length
+      scrollables.forEach((el, i) => {
+        if (memory[i] !== undefined) {
+          el.scrollTop = memory[i]
+          if (el.scrollTop !== memory[i]) pending = true
+        }
       })
+      return !pending
     }
     apply()
-    const raf = requestAnimationFrame(apply)
+    let ladderRaf = 0
+    let frames = 0
+    const tick = () => {
+      frames += 1
+      if (apply() || frames > 90) return
+      ladderRaf = requestAnimationFrame(tick)
+    }
+    ladderRaf = requestAnimationFrame(tick)
     const onScroll = () => {
       scrollMemoryRef.current = collectScrollables().map((el) => el.scrollTop)
     }
     root.addEventListener("scroll", onScroll, { capture: true, passive: true })
     return () => {
-      cancelAnimationFrame(raf)
+      cancelAnimationFrame(ladderRaf)
       root.removeEventListener("scroll", onScroll, { capture: true })
     }
   }, [companionOpen])
