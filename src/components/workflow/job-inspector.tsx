@@ -66,6 +66,7 @@ import {
   Table2,
   Terminal,
   WrapText,
+  Wrench,
   X,
   XOctagon,
   StickyNote,
@@ -104,6 +105,10 @@ import { CopyButton } from "./copy-button";
 import { RemoteStayNote } from "./remote-stay-note";
 import { RemoteRunButton } from "./remote-run-button";
 import { CleanupDialog } from "./cleanup-dialog";
+// t757 — the dry-run brochure's tools-menu home (the t399 retirement
+// verdict prophesied it); the dialog mounts CONTROLLED here — the menu
+// item owns the door, the self-trigger stays unrendered.
+import { HpcSbatchDialog } from "./hpc-sbatch-dialog";
 import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
 import { jobMatchWhy, jobMatchesFind, subsequenceSpans } from "@/lib/job-match"; // t728 — the why's last mile reads the one matcher; t729 — the filter's HOW too
 import { FindMarkedText, FIND_MARK_CLASS } from "./find-mark"; // t728 — the wash's own home; t729 — the filter chip's hue const
@@ -3015,6 +3020,11 @@ function InspectorHeader({
   const [diffOpen, setDiffOpen] = React.useState(false);
   const diffTableId = React.useId();
   const [confirmRerun, setConfirmRerun] = React.useState(false);
+  // t757 — the tools-menu home: the sbatch dry-run door opens from the
+  // wrench menu, so the dialog mounts CONTROLLED (the menu item owns the
+  // door; the dialog's own trigger stays unrendered — t399's two-Server
+  // law keeps the row at exactly one Server glyph).
+  const [sbatchOpen, setSbatchOpen] = React.useState(false);
   // t447 — the rename door. The edit state LIVES HERE but is OWNED by the
   // modal (JobInspector): the modal's Escape guards must know whether an
   // edit is active, and state shared across that boundary is passed down,
@@ -3487,6 +3497,43 @@ function InspectorHeader({
               onOpenChange={setCleanupOpen}
               onCleaned={onCleaned}
             />
+            {/* t757 — the tools-menu home, prophesied by t399's retirement
+                verdict ("the dialog components ... stay in the tree,
+                dormant, should a tools-menu home ever be wanted"). The
+                wrench is ONE decision (t323's contract: door to tools),
+                the item is the tool and speaks its name in words — a
+                cryptic glyph never returns to this row. No new Server
+                BUTTON enters the row (t399's two-Server law): the item's
+                Server icon lives inside the menu list, where rows are
+                named choices, not competing buttons. One tool today —
+                the whole dormant HPC family rides behind it (the sbatch
+                dialog hosts the profiles editor and the queue sim) — and
+                the menu is the home that grows. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative size-7 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
+                  aria-label="More job tools"
+                  title="More job tools"
+                >
+                  <Wrench className="size-3.5" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel className="text-[11px]">Job tools</DropdownMenuLabel>
+                <DropdownMenuItem
+                  className="gap-2"
+                  data-testid="tools-sbatch-item"
+                  onSelect={() => setSbatchOpen(true)}
+                >
+                  <Server className="size-3.5" aria-hidden="true" />
+                  <span className="text-xs">Slurm sbatch dry-run…</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <HpcSbatchDialog jobId={job.id} open={sbatchOpen} onOpenChange={setSbatchOpen} />
             <Separator orientation="vertical" className="mx-0.5 h-5 shrink-0" decorative />
             <DialogClose asChild>
               <Button

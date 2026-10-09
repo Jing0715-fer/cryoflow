@@ -46,8 +46,34 @@ const MODE_COLOR: Record<string, string> = {
   cpu: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30",
 };
 
-export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; compact?: boolean }) {
-  const [open, setOpen] = React.useState(false);
+export function HpcSbatchDialog({
+  jobId,
+  compact = false,
+  open: openProp,
+  onOpenChange,
+}: {
+  jobId: string;
+  compact?: boolean;
+  /** t757 — the controlled form: when `open` is provided the self-trigger is
+   *  not rendered and the owner (the inspector's tools menu) owns the door —
+   *  t399's retirement verdict prophesied exactly this home ("should a
+   *  tools-menu home ever be wanted"). Uncontrolled callers keep the
+   *  self-trigger button, byte for byte. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [openState, setOpenState] = React.useState(false);
+  // The owner's `open` wins when provided; the merged setter reports outward
+  // (so the owner's state stays the single truth) while still flipping the
+  // internal state for the uncontrolled form.
+  const open = openProp ?? openState;
+  const setOpen = React.useCallback(
+    (v: boolean) => {
+      setOpenState(v);
+      onOpenChange?.(v);
+    },
+    [onOpenChange]
+  );
   const [profiles, setProfiles] = React.useState<ProfileBrief[]>([]);
   const [profileId, setProfileId] = React.useState("");
   const [data, setData] = React.useState<SbatchResponse | null>(null);
@@ -102,6 +128,7 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
+      {openProp === undefined ? (
       <DialogTrigger asChild>
         <Button
           variant={compact ? "ghost" : "outline"}
@@ -118,6 +145,7 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
           {compact ? null : <span className="ml-1.5">HPC</span>}
         </Button>
       </DialogTrigger>
+      ) : null}
       <DialogContent
         className="max-w-3xl"
         onKeyDown={onEscapeClose(() => setOpen(false))}
