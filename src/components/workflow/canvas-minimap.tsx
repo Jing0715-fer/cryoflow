@@ -719,8 +719,17 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
         data-canvas-ui="minimap-svg"
         className="block cursor-pointer rounded-sm bg-muted/50"
-        role="application"
-        aria-label={`Workflow overview — ${jobs.length} jobs. ${
+        // t786 — the honest role: this is a PICTURE you look at, not an app
+        // you operate. The old role=application told screen readers an
+        // application-mode keyboard surface lived here, while the SVG has no
+        // tabIndex, no key handlers, and pointer-only wiring — a lie that
+        // cost SR users a mode switch into silence (the t784 scouting
+        // verdict: no keyboard roaming will be built — the canvas itself,
+        // palette, find bar and grid-nav are the keyboard's doors — so the
+        // semantics must confess the pointer instrument instead of
+        // promising a keyboard that will never come).
+        role="img"
+        aria-label={`Pointer instrument — workflow overview: ${jobs.length} jobs. The canvas itself is the keyboard door; this map answers the mouse only. ${
           findLens && selFocus
             ? "Click to navigate; click an amber or selected chip to jump to that job."
             : findLens
