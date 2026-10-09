@@ -62,11 +62,14 @@ const rvRaw = readFileSync(path.join(SRC, "components/workflow/results/results-v
 ok(/import \{ gridNeighbor, type GridDir, type GridEntry \} from "@\/lib\/grid-nav";/.test(rv), "A1 grid-nav import rides the @ alias");
 eq((rv.match(/from "@\/lib\/grid-nav"/g) ?? []).length, 1, "A1 import is one-name-one-home (single import site)");
 
-// A2 — the roving state machine
+// A2 — the roving state machine (t779 contract move: the anchor is
+// DERIVED now — the re-seat effect retired because a synchronous
+// setState inside an effect is the cascading-render trap the lint rule
+// names; the derivation re-seats without the write, same law lighter)
 ok(/const tileRefs = useRef\(new Map<string, HTMLButtonElement>\(\)\);/.test(rv), "A2 tileRefs is a path->button map");
-ok(/const \[activePath, setActivePath\] = useState<string \| null>\(null\);/.test(rv), "A2 activePath state");
-ok(/activePath != null && !shown\.some\(\(f\) => f\.path === activePath\)/.test(rv), "A2 re-anchor law: vanished anchor re-seats");
-ok(/setActivePath\(shown\[0\]\?\.path \?\? null\)/.test(rv), "A2 re-anchor seats the first visible tile");
+ok(/const \[activePath, setActivePath\] = useState<string \| null>\(null\);/.test(rv), "A2 activePath state (what the user chose)");
+ok(/activePath != null && shown\.some\(\(f\) => f\.path === activePath\)/.test(rv), "A2 the anchor survives the listing (vanish test lives in the derivation)");
+ok(/: shown\[0\]\?\.path \?\? null;/.test(rv), "A2 a vanished anchor re-seats on the first visible tile (the fallback branch)");
 
 // A3 — the key map: six directions, no more
 const km = rvRaw.match(/const KEY_TO_DIR: Record<string, GridDir> = \{([^}]*)\}/);
@@ -91,7 +94,7 @@ ok(/if \(!el\) continue;/.test(rv), "A5 holes (remote tiles) simply absent — g
 ok(/entries\.push\(\{ id: f\.path, left: r\.left, top: r\.top, width: r\.width, height: r\.height \}\);/.test(rv), "A5 rects measured live (no column-count guessing)");
 
 // A6 — the tile: roving tabIndex, data anchor, focus-visible ring
-ok(/tabIndex=\{f\.path === \(activePath \?\? shown\[0\]\?\.path\) \? 0 : -1\}/.test(rvRaw), "A6 one tab stop: anchor law with first-tile fallback");
+ok(/tabIndex=\{f\.path === anchorPath \? 0 : -1\}/.test(rvRaw), "A6 one tab stop: the derived anchor law (t779)");
 ok(/data-tile-path=\{f\.path\}/.test(rvRaw), "A6 the tile's honest id anchor");
 ok(/if \(el\) tileRefs\.current\.set\(f\.path, el\);/.test(rvRaw) && /else tileRefs\.current\.delete\(f\.path\);/.test(rvRaw), "A6 ref registration cleans up on unmount");
 ok(/focus-visible:border-teal-600 focus-visible:ring-2 focus-visible:ring-teal-600\/60 focus-visible:shadow-sm/.test(rvRaw), "A6 focus-visible ring — the arrow's arrival is visible");
