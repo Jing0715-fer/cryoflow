@@ -91,7 +91,7 @@ import { useWorkflowStore } from "@/lib/store";
 import { stageWorkflowFiles } from "@/lib/import-stage";
 import { hasJudgment, parseClassNotes } from "@/lib/class-notes";
 import type { JobDTO } from "@/lib/types";
-import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
+import { JOB_TYPES, jobType, pourKindsOf, PORT_COLORS, CARD_W, CARD_H } from "@/lib/workflow";
 import { JOB_PRESETS } from "@/lib/job-presets";
 import { fmtAgo } from "@/lib/duration";
 import {
@@ -1534,7 +1534,11 @@ export function CommandPalette() {
 
         {/* ---------------- add job types ---------------- */}
         <CommandGroup heading="Add job type">
-          {JOB_TYPES.map((t) => (
+          {JOB_TYPES.map((t) => {
+            // t752 — asked once, read twice (dots + ear). JOB_TYPES
+            // members always resolve, so no gate: the ask is direct.
+            const pouring = pourKindsOf(t.key);
+            return (
             <CommandItem
               key={`type-${t.key}`}
               value={`add ${t.key} ${t.label} ${t.category}`}
@@ -1543,11 +1547,36 @@ export function CommandPalette() {
             >
               <TypeIcon name={t.icon} className={`size-4 shrink-0 ${t.color.text}`} />
               <span className="min-w-0 flex-1 truncate text-sm">{t.label}</span>
+              {/* t752 — the keyboard menu borrows the water dots: the
+                  command palette is the menu for the keyboard-first user
+                  (the mouse menu's rows spoke at t747), so the promise
+                  rides the catalog rows here too — same dot (size-1.5
+                  whisper, wire hex, per-dot title word), same sr-only
+                  ear line, same one-family discipline (pours only; the
+                  appetite's full sentence stays in the dictionary). The
+                  row's search contract (`value`) is untouched — the
+                  dots are decor and ear, never filter words. */}
+              <span
+                className="flex shrink-0 items-center gap-1"
+                data-testid={`cmd-pours-${t.key}`}
+              >
+                {pouring.map((k) => (
+                  <span
+                    key={k}
+                    aria-hidden="true"
+                    title={`pours ${k}`}
+                    className="inline-block size-1.5 rounded-full"
+                    style={{ background: PORT_COLORS[k].wire }}
+                  />
+                ))}
+                <span className="sr-only">pours {pouring.join(", ")}</span>
+              </span>
               <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
                 {t.category}
               </span>
             </CommandItem>
-          ))}
+            );
+          })}
         </CommandGroup>
 
         {/* ---------------- add with preset ---------------- */}
