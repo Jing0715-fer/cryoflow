@@ -13538,3 +13538,32 @@ Next-window entry (t808):
 3. census rotation: zero new routes / zero seeds / zero bookmark net.
 
 Ledger: fleet 81/81 (t807 probe aboard), tsc 0 eslint 0, world-guard triptych green, probe 14/0 × 3, staged three-evidence (BUILD_ID unchanged, chunks zero t807 word-forms), census triptych clean, t807-fossil-patrol.png in shots-qa, worklog this entry. Two-car commit: qa(t807 fossil audit) -> docs(worklog).
+
+## Task 808 — the house dialect's next batch: the two manager faces that still rode the old shape (t808)
+
+Window: cron 2026-10-10 05:25 (trace `cron-agent-loop-202610100525`, Job 362852, ONE ping). Bed rolls to **4/5** regular surgery, non-build day (**available 2879MB < 3280MB** — the grand flip keeps waiting), server 200 (port 3000 = the t791 frozen standalone), HEAD `082e7a0`, drift-free start (the tail read Task 807). Work focus: **the fresh-debt code review sweep** the t807 tail named — three recently-grown surfaces read with the family's eyes (remote-cluster-dialog 2112 lines, hpc-sbatch-dialog 232, storage-dialog 1753):
+
+- **the review's first verdict — no div-click debt**: all 16 `onClick` handlers in the remote manager hang on real `<button>`/`<Button>` hosts (zero role=button divs, zero pointer-faces); the connection rows carry `aria-pressed` + per-row honest names — the t806 audit's standard, already met before the sweep arrived.
+- **the review's second verdict — the OLD house disease, alive on two cards**: `remote-cluster-dialog` rode `max-h-[85vh] overflow-y-auto sm:max-w-5xl` (the DialogContent WAS the scroll surface — the t383 default overflow with the header floating unpinned; Radix pins the dialog to tabIndex=-1; everything between the header's last tabbable and the body's first is keyboard-unreachable — the t802/t804 verdict, one more face, the BIGGEST dialog on file). `hpc-sbatch-dialog` inherited the same default cap with no override at all. `storage-dialog` already wears the house (t798's cure — untouched).
+- **frozen-world wound record** (`t808-remote-frozen.png` + eval): `dialogTabindex: "-1"`, `bodyScrollSurface: "auto"` — the disease live on the t791 world, the staged evidence of exactly what this batch cures.
+
+**The cure (the t804 house dialect verbatim, two cards, one batch)**:
+- `remote-cluster-dialog`: flex col + gap-0 + overflow-hidden + p-0 (the 5xl width is the card's own) → header pinned (`shrink-0 border-b px-6 pb-4 pt-6`) → ONE inner region (`tabIndex={0}` + `role="region"` + "Remote cluster manager — the connection list and the selected editor" + `min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-4` + the inset ring) wrapping the twin-column shell; role=dialog kept (the t799 third-family law); **the two inner grounds keep their own scrolls** (the list's 54vh, the editor's 60vh — one law per window).
+- `hpc-sbatch-dialog`: the same shape (3xl width its own) + region "Slurm sbatch workspace — the profile row, the generated script, and the scheduling projection" with `space-y-4` keeping the old gap-4 rhythm; the script `<pre>` keeps its own max-h-80 ground + stop.
+- verdict comments on both cards archive the old shape (the t804 ledger convention).
+
+**The probe**: `scripts/t808-house-batch-unit.mjs` — **17/0 × 3 runs**: A the remote house (6) + B the inner grounds stand untouched (3) + C the sbatch house (5) + D the dialect's consistency — old shapes retired, the t797 escape law rides on, the padding dialect shared (3).
+
+**The ledger**: fleet **82/82** (the batch probe aboard at first ride); tsc 0 + eslint 0; world-guard triptych green (CHECK PASS / changed 空 / build SKIP); console 0 errors; staged three-evidence (BUILD_ID `xjDBTTFWsGpNmNM8SKKGj` unchanged, chunks ZERO t808 word-forms, `9e7fc087` rides on); census clean (19 api dirs / CHECK PASS / zero bookmark net). Receipts: `t808-remote-frozen.png` in shots-qa.
+
+Judge-lines:
+- **「家族的眼睛读新面，读出的是旧病」**: the fresh-debt sweep went hunting for NEW shapes of debt and found the OLDEST one still standing on the two biggest cards — the census walked the content nodes (t804) and the readers (t802) but had never walked the manager dialogs. The lesson is not that the census was wrong; it is that a census covers the faces it NAMED, and the map's blank spots are exactly where the disease keeps living.
+- **「一次一法，两屋一批」**: the twin inner grounds (54vh list, 60vh editor) are a FUTURE window's law — this batch cures the keyboard-unreachable middle and leaves the inner scrolls exactly as found. The discipline is what keeps each cure auditable: the probe asserts what changed AND what did not.
+- **「伤情先于治愈入册」**: the frozen world's `tabindex=-1` + `overflow auto` eval and the screenshot went into the record BEFORE the cure — so the flip day has a wound to erase, the same contract the t804 type card signed.
+
+Next-window entry (t809):
+1. bed **5/5** regular surgery (the t805~t809 rotation closes full — t810 = 1/5 = the ceremony's TWENTY-FIRST performance); build-day bill (if memory ≥ 3280MB) — THE GRAND FLIP (t780~t789 + t792~t808), fleet 82 as the gate, plus the flip-day verdicts (wall relay neighbour X; glance-then-Escape chain; companion peel vs dialog remount; scroll memory both directions; the six t804 houses keyboard-scrollable; the workspace row's ring; **the two t808 houses keyboard-scrollable — the manager's middle reachable, the sbatch script scannable from the region stop**).
+2. non-build-day candidates: **the remaining dialog census** (walk EVERY remaining DialogContent for the old body-scroll shape — the t808 sweep found two; a full enumeration arm like t803's would retire the question); or the storage-dialog's inner grounds dress-up (its 60vh inline cousin surfaces).
+3. census rotation: zero new routes / zero seeds / zero bookmark net.
+
+Ledger: fleet 82/82, tsc 0 eslint 0, world-guard triptych green, probe 17/0 × 3, the wound record on file (tabindex=-1 + overflow auto, frozen world), staged three-evidence, census triptych clean, t808-remote-frozen.png in shots-qa, worklog this entry. Three-car commit: feat(t808 house batch) -> qa(t808 probe) -> docs(worklog).
