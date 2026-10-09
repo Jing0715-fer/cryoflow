@@ -278,7 +278,16 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
           {data.note ? ` · ${data.note}` : ""}
         </span>
       </div>
-      <div className="max-h-96 overflow-auto rounded-md border">
+      {/* t812 — the census's GROUNDED verdict gets its keyboard door: the
+          ground scrolled for the mouse only (no stop, no name, no ring —
+          the t811 lesson, "a naked ground is not a ground"). The cap, the
+          border, and the sticky choreography stay verbatim. */}
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Star table — the file's columns and rows, the header and index sticking while the cells scroll"
+        className="max-h-96 overflow-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+      >
         <table className="w-full border-collapse">
           {/* t656 — z choreography: the header sits ABOVE the sticky index
               column (z-20 root context vs the body cells' z-10), so a

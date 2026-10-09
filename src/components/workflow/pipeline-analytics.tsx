@@ -893,7 +893,15 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 · {runs.rows.length} run{runs.rows.length === 1 ? "" : "s"} across {fmtOffset(runs.span)}
               </span>
             </p>
-            <div className="max-h-72 overflow-y-auto pr-1 print:max-h-none print:overflow-visible">
+            {/* t812 — the timeline's ground dressed (the t811 lesson): a
+                stop, an honest name, and the inset ring; the cap, the pr
+                rhythm, and the print unroll stay verbatim */}
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Session timeline — the session's runs as start-and-duration bars"
+              className="max-h-72 overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 print:max-h-none print:overflow-visible"
+            >
               <div className="relative">
                 {/* axis hairlines: behind every row, aligned to the track */}
                 <div className="pointer-events-none absolute inset-y-0 left-[164px] right-[84px]" aria-hidden="true">
