@@ -26,7 +26,7 @@
 import * as React from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
 import type { CustomTemplatePayload } from "@/lib/types";
-import { CARD_H, CARD_W, jobType, portY } from "@/lib/workflow";
+import { CARD_H, CARD_W, jobType, portY, pourKindsOf } from "@/lib/workflow";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 
@@ -234,6 +234,19 @@ function ShapeDiagram({ shaped }: { shaped: Shaped }) {
         {payload.jobs.map((j, i) => {
           const spec = jobType(j.type);
           const label = spec?.label ?? j.type;
+          // t761 — the water ask rides the spec the node already holds
+          // (the t755 fourth form: the label answer was the ask; pouring
+          // only re-reads it). The seat is the TITLE CONTRACT, not the
+          // 9px label span: at MIN_SCALE the miniature card is ~62px wide
+          // and its text zone ~46px — a dot family would crush the
+          // truncate. So this reader SPEAKS, it does not show: the pours
+          // words join the hover reveal as a suffix, the visual card
+          // stays byte-identical (the kind vocabulary's first PURE
+          // WORD-FORM reader — the water in the magnifier is heard, not
+          // seen). Unknown type: empty suffix, the bare contract stands
+          // (the t744 bare-receipt retreat, undefined law's fifth face).
+          const pouring = spec ? pourKindsOf(j.type) : [];
+          const poursSuffix = pouring.length > 0 ? ` — pours ${pouring.join(", ")}` : "";
           return (
             <div
               key={`${j.type}-${i}`}
@@ -249,7 +262,7 @@ function ShapeDiagram({ shaped }: { shaped: Shaped }) {
               }}
               data-testid="template-preview-node"
               data-node-label={label}
-              title={`${label}${j.type === label ? "" : ` (${j.type})`}`}
+              title={`${label}${j.type === label ? "" : ` (${j.type})`}${poursSuffix}`}
             >
               <span
                 className={cn(
