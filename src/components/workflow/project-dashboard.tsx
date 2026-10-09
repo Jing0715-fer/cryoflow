@@ -784,6 +784,18 @@ function SavedViewsGallery() {
   // the full flat list without leaving the dashboard — state survives
   // refetches, and a shrinking collection just renders fewer cards
   const [showAllViews, setShowAllViews] = React.useState(false);
+  // t793 — the wall's X deletes DIRECTLY (read-filter-write, no confirm),
+  // and the live world proved the cost: a patrol finger hunting an alert
+  // specimen opened NO dialog — the view was simply gone. A destructive
+  // mouth with zero friction on a wall of one-click X buttons is one
+  // mis-click from eating a named camera pose. The confirm rides the
+  // alert bridge (ui/alert-dialog.tsx), whose t793 default close
+  // hand-back returns focus to the very X that opened it — the confirm
+  // costs one keypress and pays the focus relay for free.
+  const [viewDeleteTarget, setViewDeleteTarget] = React.useState<{
+    v: GalleryEntry;
+    b: GalleryBookmark;
+  } | null>(null);
 
   // freshness triggers: mount, whenever the active project's job list
   // moves, AND (t670) whenever the OTHER mutation mouth broadcasts — a
@@ -898,6 +910,19 @@ function SavedViewsGallery() {
     } finally {
       setDeleting(null);
     }
+  };
+
+  /** t793 — the confirm's YES: close the dialog FIRST (the question is
+   * answered; the wall's own X-button spinner carries the work), then run
+   * the exact deleteView the X used to call directly. Closing before the
+   * await also lets the alert bridge hand focus back to the opener while
+   * it is still alive — the card's row only leaves the wall after the
+   * server confirms. */
+  const confirmViewDelete = async () => {
+    if (!viewDeleteTarget || deleting) return;
+    const { v, b } = viewDeleteTarget;
+    setViewDeleteTarget(null);
+    await deleteView(v, b);
   };
 
   /** t674 — rename from the wall. The delete contract's read-modify-write,
@@ -1110,7 +1135,7 @@ function SavedViewsGallery() {
               </button>
               <button
                 type="button"
-                onClick={() => void deleteView(v, b)}
+                onClick={() => setViewDeleteTarget({ v, b })}
                 disabled={busy}
                 aria-label={`Delete saved view “${b.name}”`}
                 title={`Delete “${b.name}” — removes this bookmark from ${v.jobName}'s saved views`}
@@ -1147,6 +1172,45 @@ function SavedViewsGallery() {
           {showAllViews ? "Show less" : `Show all ${flat.length} bookmarks`}
         </button>
       )}
+
+      {/* t793 — the delete confirm. The wall's X used to remove a saved
+       * view with zero friction (a live patrol finger proved it: hunting
+       * for an alert specimen deleted a view instead of opening one). The
+       * question is cheap; the pose is gone forever. The alert bridge's
+       * default close hand-back (ui/alert-dialog.tsx) returns focus to the
+       * X that opened this — no bespoke wiring needed. */}
+      <AlertDialog
+        open={viewDeleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete saved view “{viewDeleteTarget?.b.name ?? ""}”?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the named camera pose from{" "}
+              {viewDeleteTarget?.v.jobName}'s saved views. The job and all of
+              its data are untouched — only this named view goes, and the
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmViewDelete();
+              }}
+            >
+              Delete view
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

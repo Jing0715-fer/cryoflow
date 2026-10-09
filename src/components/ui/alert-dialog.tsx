@@ -65,9 +65,12 @@ function AlertDialogContent({
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
           className
         )}
-        /* t793 — the family's default close hand-back rides the alert bridge
+        /* t793 — the fifth family of the focus-relay law lands here: the
+         * family's default close hand-back rides the alert bridge
          * too: an AlertDialog IS DialogPrimitive.Content (role="alertdialog")
-         * and closes through the same DialogContentModal chain, so an
+         * and closes through the same DialogContentModal chain (the t792
+         * census proved the dialog bridge's chain; the alert primitive
+         * renders DialogPrimitive.Content, so it inherits the verdict), so an
          * untriggered alert (all of them — alerts open from confirm state,
          * not from triggers) falls to BODY on every exit exactly like the
          * dialogs did. Radix parks focus on the CANCEL button at open (the

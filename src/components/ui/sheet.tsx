@@ -76,9 +76,10 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className
         )}
-        /* t793 — the family's default close hand-back rides the sheet bridge:
+        /* t793 — the fifth family's default close hand-back rides the sheet bridge:
          * SheetPrimitive IS react-dialog (aliased), so a sheet closes through
-         * the same DialogContentModal chain and an untriggered sheet (all of
+         * the same DialogContentModal chain (the t792 verdict, inherited) and
+         * an untriggered sheet (all of
          * them — sheets open from state, not triggers) falls to BODY on every
          * exit exactly like the dialogs did. The pocket hands the keyboard
          * back to the opener (the burger that summoned a mobile sidebar, the
