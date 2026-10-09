@@ -792,6 +792,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             data-fav-lift-active={favDragType ? "true" : undefined}
           >
             {favSpecs.map((t, i) => {
+              const pouring = pourKindsOf(t.key); // t750 — asked once, read twice (dots + ear)
               const dragging = favDragType === t.key;
               // Task 163 — a touch lift is the OPPOSITE look of a mouse
               // drag: the mouse family fades the original (the caret is
@@ -862,6 +863,29 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                     <TypeIcon name={t.icon} className="size-3" />
                   </span>
                   <span className="max-w-28 truncate">{t.label}</span>
+                  {/* t750 — the favorite chip borrows the same water dots:
+                      the quick-add bar is the menu AHEAD of the menu (Task
+                      133's one-click shelf), so the t747 promise rides it
+                      too — same dot (size-1.5 whisper, wire hex, per-dot
+                      title word), same sr-only ear line, same one-family
+                      discipline (pours only; the appetite's full sentence
+                      stays in the dictionary). The chip's own title
+                      contract (Task 133) is untouched. */}
+                  <span
+                    className="flex shrink-0 items-center gap-1"
+                    data-testid={`palette-fav-pours-${t.key}`}
+                  >
+                    {pouring.map((k) => (
+                      <span
+                        key={k}
+                        aria-hidden="true"
+                        title={`pours ${k}`}
+                        className="inline-block size-1.5 rounded-full"
+                        style={{ background: PORT_COLORS[k].wire }}
+                      />
+                    ))}
+                    <span className="sr-only">pours {pouring.join(", ")}</span>
+                  </span>
                   <Star className="size-2.5 shrink-0 fill-amber-400 text-amber-500" aria-hidden="true" />
                 </button>
               );
