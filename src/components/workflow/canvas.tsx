@@ -1096,15 +1096,16 @@ export function WorkflowCanvas() {
   const findQuery = useWorkflowStore((s) => s.findQuery);
   const findStatus = useWorkflowStore((s) => s.findStatus);
   const findCategory = useWorkflowStore((s) => s.findCategory);
+  const findNoted = useWorkflowStore((s) => s.findNoted);
   const openFind = useWorkflowStore((s) => s.openFind);
   const closeFind = useWorkflowStore((s) => s.closeFind);
   const findMatchIds = React.useMemo(() => {
     const q = findQuery.trim();
-    if (!findOpen || (!q && findStatus === "all" && findCategory === "all")) return null;
+    if (!findOpen || (!q && findStatus === "all" && findCategory === "all" && !findNoted)) return null;
     const ids = new Set<string>();
-    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory)) ids.add(j.id);
+    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory, findNoted)) ids.add(j.id);
     return ids;
-  }, [findOpen, findQuery, findStatus, findCategory, jobs]);
+  }, [findOpen, findQuery, findStatus, findCategory, findNoted, jobs]);
   // t655 — the WHY map, computed from the same world the ring set is:
   // for every ringing card, which text won (name or type label) and which
   // character spans wash. Stable identity per query (one memo, one map),

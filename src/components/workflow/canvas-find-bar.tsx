@@ -61,10 +61,21 @@
  *    being answered. The badge arms from the SAME parse the matcher
  *    runs (parseParamQuery), so the marker and the meaning cannot
  *    disagree — one dialect, one parser, three consumers and a badge.
+ *  • t782 — the NOTED half: a fourth chip row (StickyNote + "Noted")
+ *    arms the judgment gate — the SAME hasJudgment the palette's Notes
+ *    group, the header's count chip and the note spotlight read (one
+ *    predicate, no second copy). Toggle semantics (not radio): judged
+ *    or not is yes/no. Alone with an empty query it rings every judged
+ *    job ("which steps did I have opinions about?"); combined it
+ *    narrows any other dimension ("motion, but only the judged ones").
+ *    The spotlight (N) is the ambient dim of the same predicate — the
+ *    chip is its queryable ring, coexisting not competing. Active hue
+ *    is the note family's amber (the color the app already speaks for
+ *    judgments — canvas badge, palette capsule, spotlight icon).
  */
 
 import * as React from "react";
-import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, StickyNote, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
@@ -112,6 +123,9 @@ const ROW_TRAVEL_MS = 220;
 const CHIP_STEP_MS = 24;
 const STATUS_CHIP_BASE_MS = 60 + ROW_TRAVEL_MS;
 const TYPE_CHIP_BASE_MS = 120 + ROW_TRAVEL_MS;
+// t782 — the noted rung stair: one rung past the type row (180ms base),
+// same step clock — a fourth row keeps the cascade's grammar intact.
+const NOTE_CHIP_BASE_MS = 180 + ROW_TRAVEL_MS;
 
 /** The FULL find predicate — status gate first, then the text gate —
  *  lives in lib/job-match.ts (t653, next to the query matcher). */
@@ -121,10 +135,13 @@ export function CanvasFindBar() {
   const findQuery = useWorkflowStore((s) => s.findQuery);
   const findStatus = useWorkflowStore((s) => s.findStatus);
   const findCategory = useWorkflowStore((s) => s.findCategory);
+  // t782 — the noted half of the lens (fourth dimension)
+  const findNoted = useWorkflowStore((s) => s.findNoted);
   const closeFind = useWorkflowStore((s) => s.closeFind);
   const setFindQuery = useWorkflowStore((s) => s.setFindQuery);
   const setFindStatus = useWorkflowStore((s) => s.setFindStatus);
   const setFindCategory = useWorkflowStore((s) => s.setFindCategory);
+  const setFindNoted = useWorkflowStore((s) => s.setFindNoted);
   const focusJob = useWorkflowStore((s) => s.focusJob);
   const pendingFrom = useWorkflowStore((s) => s.pendingFrom);
   // The SAME workspace-scoped list the canvas renders — counting matches
@@ -178,8 +195,8 @@ export function CanvasFindBar() {
 
   const matches = React.useMemo(() => {
     if (!findOpen) return [] as JobDTO[];
-    return jobs.filter((j) => jobMatchesFind(j, findQuery, findStatus, findCategory));
-  }, [findOpen, findQuery, findStatus, findCategory, jobs]);
+    return jobs.filter((j) => jobMatchesFind(j, findQuery, findStatus, findCategory, findNoted));
+  }, [findOpen, findQuery, findStatus, findCategory, findNoted, jobs]);
 
   const n = matches.length;
 
@@ -281,7 +298,7 @@ export function CanvasFindBar() {
   // so — the lens is on, the canvas has nothing that matches it.
   const countLabel =
     n === 0
-      ? findQuery.trim() || findStatus !== "all" || findCategory !== "all"
+      ? findQuery.trim() || findStatus !== "all" || findCategory !== "all" || findNoted
         ? "no matches"
         : ""
       : cur == null
@@ -520,6 +537,65 @@ export function CanvasFindBar() {
           })}
         </div>
       )}
+      {/* t782 — the NOTED half of the lens: the fourth orthogonal
+          dimension. hasJudgment is the ONE predicate the palette's Notes
+          group, the header's count chip and the note spotlight already
+          read — the chip is its QUERYABLE ring ("which steps did I have
+          opinions about?" with an empty query; "motion, but only the
+          judged ones" with text armed), while the spotlight (N) stays
+          the ambient dim of the same predicate — coexisting, not
+          competing. Toggle semantics (not radio: judged/not-judged is a
+          yes/no, the lens has no third state). Active hue is the note
+          family's own amber — the one color the app already speaks for
+          judgments (the canvas badge, the palette capsule, the spotlight
+          icon); the type row's neutral law doesn't apply here because a
+          hue CAN speak for this row without lying for anyone. */}
+      <div
+        data-testid="canvas-find-note-row"
+        data-find-rung="3"
+        style={{ "--find-d": "180ms" } as React.CSSProperties}
+        role="group"
+        aria-label="Filter matches by note"
+        className="flex items-center gap-0.5 rounded-full border bg-card/95 px-1.5 py-1 shadow-md backdrop-blur"
+      >
+        <Chip
+          size="md"
+          interactive
+          asChild
+          className={
+            findNoted
+              // the t728 whisper volume: the find stack's amber is a WASH
+              // (the 5% fill + the 40% border, the LINE_EXEMPT signature) —
+              // the text-color pair is the t647 ink residue the codemod
+              // migrated away, and the chip borrows the judged wash, never
+              // a second dialect
+              ? "border-amber-500/40 bg-amber-500/5 text-foreground"
+              : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          }
+        >
+          <button
+            type="button"
+            data-testid="canvas-find-noted"
+            data-find-chip=""
+            data-chip-set={chipSetKeys.has("note:noted") ? "" : undefined}
+            style={{ "--find-cd": `${NOTE_CHIP_BASE_MS}ms` } as React.CSSProperties}
+            aria-pressed={findNoted}
+            title={findNoted ? "Clear the noted filter" : "Only jobs that carry a note or class judgment"}
+            onClick={() => {
+              const next = !findNoted;
+              setFindNoted(next);
+              // t585 — the same voice as the status/type chips: activation
+              // answers post-arm only; the release is quiet.
+              if (!enterArmed && next) {
+                setChipSetKeys((prev) => new Set(prev).add("note:noted"));
+              }
+            }}
+          >
+            <StickyNote className="size-3" aria-hidden="true" />
+            Noted
+          </button>
+        </Chip>
+      </div>
     </div>
   );
 }

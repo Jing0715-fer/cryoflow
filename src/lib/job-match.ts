@@ -52,6 +52,7 @@
  */
 
 import { jobType } from "@/lib/workflow";
+import { hasJudgment } from "@/lib/class-notes"; // t782 — the noted gate reads the ONE predicate, no second copy
 import type { JobDTO, JobStatus } from "@/lib/types";
 
 /** t655 — WHY a job matched, as geometry: which text won (the card's own
@@ -220,18 +221,28 @@ export function jobMatchesQuery(job: JobDTO, query: string): boolean {
  * With a status chip active and an empty query every job of that
  * status matches (the chip alone is a lens); with no chip the empty
  * query matches nothing (Task 134's contract, unchanged here and
- * unchanged by the fuzzy dialect — emptiness never fuzzy-matches). */
+ * unchanged by the fuzzy dialect — emptiness never fuzzy-matches).
+ * t782 — the noted gate: when the noted chip is armed, only jobs
+ * carrying a judgment pass (the SAME hasJudgment the palette's Notes
+ * group, the header's count chip and the note spotlight read — one
+ * predicate, no second copy). The gate rides BEFORE the empty-query
+ * law, and the law itself grows the fourth rung: a chip alone is a
+ * lens in every dimension, so an armed noted chip with an empty query
+ * rings every judged job ("which steps did I have opinions about?"). */
 export function jobMatchesFind(
   job: JobDTO,
   query: string,
   status: JobStatus | "all",
-  category: string | "all" = "all"
+  category: string | "all" = "all",
+  notedOnly: boolean = false
 ): boolean {
   if (status !== "all" && job.status !== status) return false;
   // Task 138 — the type half: the match's job type must belong to the
   // armed palette category (workflow stage). An unknown type has no
   // category, so an armed stage lens honestly excludes it.
   if (category !== "all" && jobType(job.type)?.category !== category) return false;
-  if (!query.trim()) return status !== "all" || category !== "all";
+  // t782 — the noted half: an armed noted chip passes only judged jobs.
+  if (notedOnly && !hasJudgment(job)) return false;
+  if (!query.trim()) return status !== "all" || category !== "all" || notedOnly;
   return jobMatchesQuery(job, query);
 }

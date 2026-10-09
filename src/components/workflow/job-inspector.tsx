@@ -1900,12 +1900,15 @@ function ParamsGrid({ job }: { job: JobDTO }) {
   const findQuery = useWorkflowStore((s) => s.findQuery);
   const findStatus = useWorkflowStore((s) => s.findStatus);
   const findCategory = useWorkflowStore((s) => s.findCategory);
+  // t782 — the noted half rides the same lens, so the row can never
+  // claim a match the card does not ring (the full gate's law)
+  const findNoted = useWorkflowStore((s) => s.findNoted);
   const paramWhy = React.useMemo(() => {
     if (!findOpen || !findQuery.trim()) return null;
-    if (!jobMatchesFind(job, findQuery, findStatus, findCategory)) return null;
+    if (!jobMatchesFind(job, findQuery, findStatus, findCategory, findNoted)) return null;
     const why = jobMatchWhy(job, findQuery);
     return why && why.source === "param" ? why : null;
-  }, [job, findOpen, findQuery, findStatus, findCategory]);
+  }, [job, findOpen, findQuery, findStatus, findCategory, findNoted]);
   const whyKey = paramWhy?.key ?? null;
   const whyTitle = paramWhy
     ? `Matched your find query “${findQuery.trim()}” — key matches by substring, value equals exactly (the find bar's badge tells the same story)`

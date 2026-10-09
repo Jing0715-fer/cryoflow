@@ -305,13 +305,15 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   const findQuery = useWorkflowStore((st) => st.findQuery);
   const findStatus = useWorkflowStore((st) => st.findStatus);
   const findCategory = useWorkflowStore((st) => st.findCategory);
+  // t782 — the noted half rides the same lens (fourth dimension)
+  const findNoted = useWorkflowStore((st) => st.findNoted);
   const findMatchIds = React.useMemo(() => {
     const q = findQuery.trim();
-    if (!findOpen || (!q && findStatus === "all" && findCategory === "all")) return null;
+    if (!findOpen || (!q && findStatus === "all" && findCategory === "all" && !findNoted)) return null;
     const ids = new Set<string>();
-    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory)) ids.add(j.id);
+    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory, findNoted)) ids.add(j.id);
     return ids;
-  }, [findOpen, findQuery, findStatus, findCategory, jobs]);
+  }, [findOpen, findQuery, findStatus, findCategory, findNoted, jobs]);
   const findLens = findMatchIds != null && findMatchIds.size > 0;
 
   // Task 683 — the chain lens reaches the map: the SAME walk the canvas

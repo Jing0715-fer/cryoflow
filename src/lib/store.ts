@@ -1040,6 +1040,17 @@ interface WorkflowState {
    *  categories actually present in the workspace; a stage that doesn't
    *  exist can't be a filter. Same ephemerality as findStatus. */
   findCategory: string | "all";
+  /** t782 — the noted half of the find lens: when true, only jobs that
+   *  carry a judgment (the SAME hasJudgment predicate the palette's
+   *  Notes group, the header's count chip and the canvas's note
+   *  spotlight read — one predicate, no second copy) match. Fourth
+   *  orthogonal dimension — text ∧ status ∧ stage ∧ noted combine, none
+   *  overrides another: "motion, but only the judged ones, still
+   *  running" is one lens. The spotlight (N) is the ambient dim of the
+   *  same predicate; the chip is its QUERYABLE ring — coexisting, not
+   *  competing. Same ephemerality as findStatus — closing the bar
+   *  resets it, nothing enters undo or storage. */
+  findNoted: boolean;
   /** Task 144 — whether the floating pipeline-KPI bar is folded into its
    *  compact pill (completion ring + count + the live runner chip). The
    *  bar is a lawful overlay, but its width grows with the world (live
@@ -1200,6 +1211,9 @@ interface WorkflowState {
    *  "all"). Radio semantics live in the chip row; the store just holds
    *  the armed key. */
   setFindCategory: (c: string | "all") => void;
+  /** t782 — arm/disarm the noted-half lens. Toggle semantics live in
+   *  the chip; the store just holds the armed boolean. */
+  setFindNoted: (n: boolean) => void;
   /** Task 144 — fold/unfold the pipeline KPI bar (explicit chevron on
    *  the bar itself; no hover-expansion surprises). */
   setKpiCollapsed: (c: boolean) => void;
@@ -2286,6 +2300,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   findQuery: "",
   findStatus: "all",
   findCategory: "all",
+  findNoted: false,
   kpiCollapsed: hydrateKpiCollapsed(),
   importPreview: null,
   loading: true,
@@ -6071,10 +6086,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   hydrateRecentJobs: () =>
     set((s) => (s.recentJobIds.length > 0 ? s : { recentJobIds: hydrateRecentJobsFromStorage() })),
   openFind: () => set((s) => (s.findOpen ? s : { findOpen: true })),
-  closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all", findCategory: "all" }),
+  closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all", findCategory: "all", findNoted: false }),
   setFindQuery: (q) => set({ findQuery: q }),
   setFindStatus: (s) => set({ findStatus: s }),
   setFindCategory: (c) => set({ findCategory: c }),
+  setFindNoted: (n) => set({ findNoted: n }),
   // Task 153 — the explicit chevron is the ONLY write path: storage
   // echoes user intent, never render state.
   setKpiCollapsed: (c) => {
