@@ -154,7 +154,7 @@ function WorkspaceRow({
         }
       }}
       className={cn(
-        "group relative w-full cursor-pointer rounded-xl border bg-card p-3 text-left transition-all hover:shadow-sm",
+        "group relative w-full cursor-pointer rounded-xl border bg-card p-3 text-left outline-none transition-all hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring",
         isActive
           ? "border-primary/60 ring-1 ring-primary/30"
           : "border-border hover:border-foreground/20"
@@ -488,9 +488,13 @@ export function WorkspacePanel() {
           className="nice-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 pt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
         >
           {/* t803 — the workspace list's ground gains the stop (the
-              second-pass census): the rows are pointer-faces (the t784
-              family's debt, noted not cured), so the ground itself speaks
-              for the keyboard; ring-inset — the list runs edge-to-edge. */}
+              second-pass census); ring-inset — the list runs edge-to-edge.
+              The t806 audit re-walked the row debt this comment once
+              named: the rows carried their keyboard face all along
+              (role=button + Enter/Space, on the row since the workspace
+              architecture landed), so the real residue was the INVISIBLE
+              focus — tabbing to a row showed no ring anywhere. t806
+              teaches the row the card family's focus ring. */}
           {workspaces.map((w) => (
             <WorkspaceRow
               key={w.id}

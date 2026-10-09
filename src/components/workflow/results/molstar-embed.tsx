@@ -6702,9 +6702,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
 
             {/* grouped sources — file groups and job groups side by side */}
             {/* t803 — the views-found group gains the stop (the second-pass
-                census): the source toggles are buttons but the entry rows
-                are pointer-faces, so the container speaks for the keyboard
-                (the row-face debt is the t784 family's, noted not cured). */}
+                census): the container speaks for the keyboard. The t806
+                audit re-walked the row debt this comment once carried: the
+                entry rows are label+Checkbox pairs — the native form face,
+                keyboard-reachable by the checkbox itself — so there was no
+                div-click debt to cure; the old pointer-face note is
+                retired by evidence, not by edits. */}
             <div
               tabIndex={0}
               className="max-h-72 space-y-2 overflow-y-auto pr-0.5 nice-scroll focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
