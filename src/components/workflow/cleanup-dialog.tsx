@@ -628,7 +628,14 @@ function SideCard({
                     {g.consequence}
                   </span>
                   {g.files.length > 0 ? (
-                    <span className="mt-1.5 block max-h-24 overflow-y-auto rounded border bg-muted/30 px-2 py-1 font-mono text-[10px] leading-relaxed text-muted-foreground">
+                    /* t801 — the file preview is spans only (no tabbable
+                       below the fold), and eight paths overflow the 96px
+                       cap — the keyboard gains the scroll (the t798 law;
+                       focusing it does not toggle the label's checkbox). */
+                    <span
+                      tabIndex={0}
+                      className="mt-1.5 block max-h-24 overflow-y-auto rounded border bg-muted/30 px-2 py-1 font-mono text-[10px] leading-relaxed text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    >
                       {g.files.slice(0, 8).map((f) => (
                         <span key={f.path} className="block truncate" title={`${f.path} — ${fmtBytes(f.size)}`}>
                           {f.path} <span className="tabular-nums opacity-70">{fmtBytes(f.size)}</span>

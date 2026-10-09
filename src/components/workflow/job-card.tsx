@@ -2338,7 +2338,13 @@ export const JobCard = React.memo(function JobCard({
                     <p className="border-b bg-warning/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-warning-700 dark:text-warning-300">
                       Note
                     </p>
-                    <p className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-xs leading-relaxed text-foreground">
+                    {/* t801 — a long note used to be wheel-only: the hover
+                        card's content holds no tabbable, so a keyboard reader
+                        could not reach past the 160px cap (the t798 law). */}
+                    <p
+                      tabIndex={0}
+                      className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-xs leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    >
                       {job.note}
                     </p>
                     <p className="border-t bg-muted/30 px-3 py-1 text-[9.5px] text-muted-foreground">

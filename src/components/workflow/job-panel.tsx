@@ -1768,8 +1768,13 @@ function LogTab({ job }: { job: JobDTO }) {
           Refresh
         </Button>
       </div>
+      {/* t801 — the census found the log tail wheel-only: raw log text has
+          no tabbable below the fold, so the keyboard could not read past
+          384px (the t798 law — the inspector's live log already speaks it
+          at its own region; the engine tail learns the same dialect). */}
       <pre
-        className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 font-mono text-xs leading-relaxed text-foreground/90"
+        tabIndex={0}
+        className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 font-mono text-xs leading-relaxed text-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         aria-label="Engine log tail"
       >
         {loading && log === null
