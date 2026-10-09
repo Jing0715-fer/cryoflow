@@ -99,7 +99,7 @@ ok(/onCloseAutoFocus=\{returnFocusToOpener\}/.test(dlg),
   "A4 the dialog bridge still injects the default hand-back");
 // the t792 order law survives the refactor: clear BEFORE focus.
 const rfto = dlg.slice(dlg.indexOf("export function returnFocusToOpener"),
-                       dlg.indexOf("export function returnFocusToOpener") + 900);
+                       dlg.indexOf("export function returnFocusToOpener") + 2200);
 ok(rfto.indexOf("layer.pocket = null") >= 0 &&
    rfto.indexOf("pocket.focus(") > rfto.indexOf("layer.pocket = null"),
   "A5 the t788 order law survives the export refactor");

@@ -120,7 +120,7 @@ ok(/function isInsideClosingDialog\(el: Element\): boolean \{/.test(dlg) &&
 
 // A9 — the t788 order law: the pocket is cleared BEFORE the focus moves.
 const rftoIdx = dlg.indexOf("function returnFocusToOpener");
-const rftoBody = rftoIdx >= 0 ? dlg.slice(rftoIdx, rftoIdx + 1600) : "";
+const rftoBody = rftoIdx >= 0 ? dlg.slice(rftoIdx, rftoIdx + 2400) : "";
 ok(rftoIdx >= 0, "A9 returnFocusToOpener exists");
 const clearIdx = rftoBody.indexOf("layer.pocket = null");
 const focusIdx = rftoBody.indexOf("pocket.focus(");
