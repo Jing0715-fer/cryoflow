@@ -13323,3 +13323,38 @@ Next-window entry (t801):
 3. census rotation: zero new routes / zero seeds / zero bookmark net.
 
 Ledger: fleet 75/75, tsc 0 eslint 0, world-guard triptych (CHECK PASS / changed 空 / build SKIP), t704 43/0 → 54/0 → 43/0 (the growth's full arc witnessed in one window), staged three-evidence (BUILD_ID unchanged, chunks zero t800 word-forms), census triptych clean (net 0, self-paid), t800-ceremony-patrol.png + t800-wall-19th-entry.png in shots-qa, worklog this entry. Two-car commit: qa(t800 ceremony receipts) -> docs(worklog).
+
+## Task 801 — the full-app wheel-only census: the three keyboard-dead scroll regions learn the t798 law (t801)
+
+Window: cron 2026-10-10 03:40 (trace `cron-agent-loop-202610100340`, Job 362852, ONE ping). Bed rolls to **2/5 regular surgery**, non-build day (**available 2856MB < 3280MB** — the grand flip, NINE windows staged, keeps waiting), server 200 (frozen t791 standalone), HEAD `75f572d`, drift-free start (the tail was t800, written by this same session last window; the chain held).
+
+**Candidate**: the t800 tail's first non-build-day candidate — **the full-app wheel-only sweep** ("how many more scroll regions lack the tab stop?"). The census was taken TWO ways:
+- **LIVE** (agent-browser on the frozen world): every scrollable element enumerated — computed overflow, scrollHeight vs clientHeight, tabIndex, focusable descendants. Honest but shallow on a shallow page: the Dashboard shows one region, covered. The deep regions live inside dialogs and inspectors.
+- **STATIC** (the census of record): every `overflow-auto` container in src/components read WITH its children, then judged per region.
+
+**The census verdict, four buckets**:
+- **ALREADY SPEAKING (4 homes)**: the inspector's live log (tabIndex + ring + role="log", a prior window's cure), the roster's 2672 region, the storage runs region (t798), the assistant's transcript + session list (t799). The law's family map, confirmed untouched.
+- **COVERED BY CHILDREN (the bulk)**: the wire-source dropdown (options.map → button), the continue-from rounds list (buttons), the results file lists (buttons per row), the mol* job/map/bookmark/import lists (buttons per row), the workspace list, the profile list, the model list, the import queues, the presets lists — Tab walks their rows and auto-scrolls the container; the house never asked a container stop from a list of buttons.
+- **RETIRED THIN (1)**: the mol* error fallback (`overflow-auto` on a rare error face whose content rarely overflows — not a reading surface; no stop added).
+- **KEYBOARD-DEAD (3 — the knife)**: all text-only faces, all with a real cap the keyboard hit:
+  1. **the job panel's ENGINE LOG TAIL** (`<pre aria-label="Engine log tail">`, max-h-96): raw log text, zero tabbables below the fold — the keyboard could not read past 384px. Its sibling, the inspector's live log, already spoke the law ONE COMPONENT AWAY.
+  2. **the job card's NOTE hover-card** (`<p>`, max-h-40): a long note overflows 160px and a hover card holds NO tabbable at all — Tab can't even auto-scroll in; the keyboard had literally nothing to reach with.
+  3. **the cleanup dialog's FILE PREVIEW** (a span-block, max-h-24): eight file paths overflow the 96px cap, spans only.
+
+**The cure (three files, three regions, one law)**: each gains `tabIndex={0}` + the visible ring (`focus-visible:ring-2 focus-visible:ring-primary/50`), keeping its element (the pre stays a pre, the p stays a p), its label and its place. The cleanup preview's verdict records the safety: focusing it does not toggle the label's checkbox (label-click forwarding rides click events, not focus). Exactly one new stop per file — job-card's total of two is its pre-existing canvas-card button (t784's home) plus the note.
+
+**The probe** `scripts/t801-scroll-census-tabstops-unit.mjs` — **32/0 three runs stable**: A the engine log tail 5 + B the note hover-card 5 + C the file preview 5 + D the census verdicts 6 (the four buckets asserted by their source facts — the covered lists by their button rows, the speaking dialects untouched, the thin retirement on file) + E the scope honesty 4 (the law cited at every region, the ring everywhere, no roving machinery, no text-shaping disturbed) + F the history 6. First run ALL PASS — the anchor lesson paid forward: slices taken between the verdict comment and a content anchor, every channel named.
+
+**The fleet**: **76/76 green** (75 + t801 aboard). **tsc 0 + eslint 0** (src-wide double zero). **Staged three-evidence**: BUILD_ID `xjDBTTFWsGpNmNM8SKKGj` unchanged; chunks carry ZERO t801 word-forms (`t801`, `scroll-census-tabstops`); t791's `gallery-reset-filters` still rides chunk `9e7fc087`. **Census**: zero new routes (19 api dirs) / zero seeds (`qa-t531 --check` **CHECK PASS**) / zero bookmark NET (the mol-camera ledger holds the canon 3 views, 6626 bytes, the seed's own shape). Console clean; receipt: `t801-patrol.png` in shots-qa.
+
+Judge-lines:
+- **「普查先于手术， buckets 先于刀」**: the census sorted thirty-odd overflow containers into four buckets BEFORE the knife moved — three dead regions cured, the covered majority left alone, the thin one retired with its reasons on file. A blanket tabIndex would have been easier and wrong; the census is what makes the cure scoped.
+- **「兄弟姐妹之间，方言只隔一个组件」**: the engine log tail's sharpest fact — the inspector's live log, the same reader's same need, already spoke the law one component away. The wound wasn't ignorance of the grammar; it was that nobody had walked the ground floor after the upper floors were cured.
+- **「hover card 是键盘的荒地」**: the note's face was the harshest — a hover card holds no tabbable at all, so Tab couldn't even auto-scroll in. Text surfaces need their own door; lists get theirs from their buttons for free.
+
+Next-window entry (t802):
+1. bed **3/5** regular surgery; build-day bill (if memory ≥ 3280MB) — THE GRAND FLIP (t780~t789 + t792~t801, NINE windows staged), fleet 76 as the gate, plus the flip-day verdicts: the wall relay's neighbour X; the glance-then-Escape chain; the companion peel landing (solo) vs the dialog remount landing (flip world); the scroll memory through both flip directions; the transcript/list keyboard-scroll; **the engine log tail + note + file preview keyboard-scrollable for real**.
+2. non-build-day candidates: the Task 13 ledger's #7 (chart-route full synchronous reads on guinier/resolution/angdist hot paths) — a perf surgery with the frozen-world instrument (measure the route handler's read pattern, add the range/limit if the shapes allow); #8 particles BFS N+1 (same family); or a fresh recon (the diagnostics drawer's keyboard face, the help overlay's focus trap).
+3. census rotation: zero new routes / zero seeds / zero bookmark net.
+
+Ledger: fleet 76/76, tsc 0 eslint 0, world-guard CHECK PASS, census buckets (4 speaking / bulk covered / 1 retired thin / 3 cured), staged three-evidence (BUILD_ID unchanged, chunks zero t801 word-forms), census triptych clean (net 0), t801-patrol.png in shots-qa, worklog this entry. Three-car commit: feat(t801 census tab stops) -> qa(t801 probe + receipt) -> docs(worklog).
