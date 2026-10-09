@@ -32,6 +32,17 @@
  * running refinements carry a pulsing live badge and the header gains a
  * re-scan button — a refinement lands a new model checkpoint every few
  * minutes, so a comparison opened an hour ago is stale by definition.
+ *
+ * t771 — the compare rows speak the kind vocabulary: each row's {job.type}
+ * mono word gains the pour dots (the kind vocabulary's TWENTY-NINTH
+ * reader, the family's SIXTEENTH testid address fsc-compare-pours-).
+ * A curve is a run's receipt; the overlay lines receipts up — the type
+ * names the maker, the water names the maker's wires (the receipt's
+ * provenance face of the commitment-seat taxonomy: "which reconstruction
+ * is better" is a question asked per KIND, and kinds have different wire
+ * contracts — a refine3d curve hangs on particles/volume/halfmap, an
+ * import's on nothing this process owns). Unknown types keep the bare
+ * word (the gate closes on pouring).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -66,6 +77,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Chip } from "@/components/ui/chip";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { cn } from "@/lib/utils";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t771 — the kind vocabulary's TWENTY-NINTH reader joins the FSC compare overlay
 import { FscParamsDiff } from "./fsc-params-diff";
 
 /* ------------------------------------------------------------------ */
@@ -594,6 +606,13 @@ export function FscCompareDialog({
             const curve = curves.get(job.jobId);
             const isHost = job.jobId === currentJobId;
             const isRunning = job.status === "running";
+            // t771 — the pours ask rides each row's OWN type word: the
+            // overlay lines up receipts from different runs, and every
+            // receipt's maker has its own wire contract — the water
+            // previews the lineage beside the name (the dose follows the
+            // row's sentence, one ask per row source-word-form).
+            const spec = jobType(job.type);
+            const pouring = spec ? pourKindsOf(job.type) : [];
             return (
               <label
                 key={job.jobId}
@@ -672,6 +691,30 @@ export function FscCompareDialog({
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                   {job.type}
                 </span>
+                {pouring.length > 0 && (
+                  // t771 — the water rides the type word as a flex sibling:
+                  // the row is a flex host, gap-2.5 is the space (the t760
+                  // prose law's boundary clause, another staging — flex
+                  // hosts owe nothing; the row's own text-flow payments
+                  // survive untouched). The overlay's premise is "which
+                  // reconstruction is better" — the dots name each
+                  // receipt's wire lineage so the comparison reads per kind.
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1"
+                    data-testid={`fsc-compare-pours-${job.type}`}
+                  >
+                    {pouring.map((k) => (
+                      <span
+                        key={k}
+                        aria-hidden="true"
+                        title={`pours ${k}`}
+                        className="inline-block size-1.5 rounded-full"
+                        style={{ background: PORT_COLORS[k].wire }}
+                      />
+                    ))}
+                    <span className="sr-only">pours {pouring.join(", ")}</span>
+                  </span>
+                )}
                 <Chip
                   size="sm"
                   className={cn(
