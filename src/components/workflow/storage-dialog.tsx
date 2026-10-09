@@ -113,6 +113,7 @@ import {
   whaleLine,
 } from "@/lib/storage-run-lens";
 import type { JobDTO } from "@/lib/types";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t764 — the kind vocabulary's TWENTY-FIFTH reader joins the storage board
 import { CleanupDialog } from "./cleanup-dialog";
 
 /** the route's response contract, mirrored client-side (the family keeps
@@ -176,6 +177,45 @@ const CATEGORY_TEXT: Record<StorageCategoryId, string> = {
 };
 
 type JobSort = "heaviest" | "name";
+
+/**
+ * t764 — the kind vocabulary's TWENTY-FIFTH reader and the family's
+ * TWELFTH testid address: the storage board's three type-naming rows
+ * (`{dirName} · {type} · {status}`) speak the pours words in ONE window —
+ * the t762 deferred unification verdict, cashed: ONE gated ask, THREE
+ * seats, zero one-speaks-two-silent inconsistency (three separate windows
+ * would have been surgery bloat; one silent window would have been a
+ * lie by omission). The seats are truncate PROSE lines (mono, ellipsis),
+ * so the container is inline-flex (the t760 prose law — a block flex
+ * would break the sentence into anonymous blocks; the seat's physics is
+ * its witness, second staging) and the dots sit right after the type
+ * word, BEFORE the status separator: water glued to the word it
+ * describes. Unknown types keep the bare line (the undefined law's
+ * fifth face); the sr-only ear line speaks the whole pour for readers
+ * who hear instead of hover.
+ */
+function StoragePours({ type }: { type: string }) {
+  const spec = jobType(type);
+  const pouring = spec ? pourKindsOf(type) : [];
+  if (pouring.length === 0) return null;
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1"
+      data-testid={`storage-pours-${type}`}
+    >
+      {pouring.map((k) => (
+        <span
+          key={k}
+          aria-hidden="true"
+          title={`pours ${k}`}
+          className="inline-block size-1.5 rounded-full"
+          style={{ background: PORT_COLORS[k].wire }}
+        />
+      ))}
+      <span className="sr-only">pours {pouring.join(", ")}</span>
+    </span>
+  );
+}
 
 /**
  * t441 — the eraser door on a run row: opens the SAME tiered CleanupDialog
@@ -896,7 +936,8 @@ export default function StorageDialog({
                                 )}
                               </p>
                               <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                                {job.dirName} · {job.type} · {job.status}
+                                {job.dirName} · {job.type}{" "}
+                                <StoragePours type={job.type} /> · {job.status}
                               </p>
                             </div>
                             <div className="w-28 shrink-0 sm:w-36">
@@ -1027,7 +1068,8 @@ export default function StorageDialog({
                       </p>
                     </div>
                     <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                      {runLensRow.dirName} · {runLensRow.type} · {runLensRow.status}
+                      {runLensRow.dirName} · {runLensRow.type}{" "}
+                      <StoragePours type={runLensRow.type} /> · {runLensRow.status}
                     </p>
 
                     {/* the run's own stack — the same palette and order
@@ -1360,7 +1402,8 @@ export default function StorageDialog({
                                     )}
                                   </p>
                                   <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                                    {r.dirName} · {r.type} · {r.status}
+                                    {r.dirName} · {r.type}{" "}
+                                    <StoragePours type={r.type} /> · {r.status}
                                   </p>
                                 </div>
                                 <div className="w-24 shrink-0 sm:w-32">
