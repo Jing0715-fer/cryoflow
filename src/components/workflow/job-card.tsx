@@ -46,6 +46,7 @@ import {
 import { computeEdgeGeoms, setLiveDrag } from "@/lib/edge-geom";
 import { registerGroupMember, beginGroupDrag, moveGroupDrag, endGroupDrag } from "@/lib/group-drag";
 import type { MatchWhy } from "@/lib/job-match"; // t655 — the why geometry rides the same lib the predicate lives in
+import type { NavDir } from "@/lib/canvas-nav"; // t775 — arrows only MOVE, they never act: the card raises the intent, the canvas owns the geometry
 import { FindMarkedText } from "./find-mark"; // t725 — the wash moved out when the palette became its second face
 import { BULK_DELETE_EVENT, type JobDTO, type JobTypeSpec, type ParamValue } from "@/lib/types";
 import { parseClassNotes } from "@/lib/class-notes";
@@ -913,6 +914,11 @@ interface JobCardProps {
    *  carries it because the callback identity is a stable useState setter
    *  (equal forever → the hover channel never re-renders a single card). */
   onHoverChange?: (id: string | null) => void;
+  /** t775 — the arrow-key navigator: the card reports WHICH arrow was pressed
+   *  on itself, the canvas resolves the nearest neighbor in that direction and
+   *  moves the DOM focus. Optional — a card without the navigator keeps the
+   *  Enter/Space contract unchanged (arrows fall through to the browser). */
+  onCardNavigate?: (fromId: string, dir: NavDir) => void;
 }
 
 interface DragState {
@@ -1481,7 +1487,8 @@ function jobCardPropsEqual(a: JobCardProps, b: JobCardProps): boolean {
     a.onStartConnect !== b.onStartConnect ||
     a.onCancelConnect !== b.onCancelConnect ||
     a.onConnect !== b.onConnect ||
-    a.onHoverChange !== b.onHoverChange
+    a.onHoverChange !== b.onHoverChange ||
+    a.onCardNavigate !== b.onCardNavigate
   ) {
     return false;
   }
@@ -1517,6 +1524,7 @@ export const JobCard = React.memo(function JobCard({
   onCancelConnect,
   onConnect,
   onHoverChange,
+  onCardNavigate,
 }: JobCardProps) {
   // t444 — this card's staleness slice: a stable object ref while the
   // world is quiet (memo cards skip), a fresh ref only when THIS card's
@@ -2091,6 +2099,7 @@ export const JobCard = React.memo(function JobCard({
         <div
           role="button"
           tabIndex={0}
+          data-card-btn={job.id}
           aria-label={`${job.name} — ${spec?.label ?? job.type}, ${job.status}`}
           className={cn(
             "card-lift no-drag-select absolute inset-0 cursor-grab overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
@@ -2138,6 +2147,18 @@ export const JobCard = React.memo(function JobCard({
               e.preventDefault();
               if (job.status === "idle") onSelect(job.id);
               else onInspect(job.id);
+            }
+            // t775 — arrows only MOVE, they never act: the card reports the
+            // direction, the canvas resolves the geometry and moves the DOM
+            // focus. preventDefault stops the scroll containers from eating
+            // the keypress; the browser's default focus walk is not engaged
+            // for arrows anyway, so this is purely our contract.
+            else if (
+              onCardNavigate &&
+              (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")
+            ) {
+              e.preventDefault();
+              onCardNavigate(job.id, e.key === "ArrowUp" ? "up" : e.key === "ArrowDown" ? "down" : e.key === "ArrowLeft" ? "left" : "right");
             }
           }}
         >

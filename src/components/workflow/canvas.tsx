@@ -68,6 +68,7 @@ import {
 } from "@/lib/workflow-io";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom, type HistoryEntry, type HistoryEntryKind, type Viewport } from "@/lib/store";
 import { beginGroupDrag, endGroupDrag, moveGroupDrag } from "@/lib/group-drag";
+import { nearestNeighbor, type NavDir } from "@/lib/canvas-nav"; // t775 — the arrow-key navigator: the geometry brain lives in the lib, the canvas resolves and moves the DOM focus
 import type { JobDTO, PortKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -928,6 +929,23 @@ export function WorkflowCanvas() {
   // through linked copies — see store.linkJobTo)
   const jobs = useActiveWorkspaceJobs();
   const edges = useActiveWorkspaceEdges();
+  // t775 — the arrow-key navigator's brain: from the focused card, find the
+  // nearest card in the arrow's direction (the lib owns the geometry) and
+  // move the DOM focus there. Focus transfer is the WHOLE gesture — arrows
+  // never select, never inspect (the Enter/Space contract owns acting; t773's
+  // door lineage, keyboard edition). The querySelector reads the card's
+  // data-card-btn anchor — the one honest focus target a card owns. The
+  // jobs array is the SAME subscription the render loop already holds —
+  // zero extra store passes, and the callback identity follows the array
+  // the memo comparator already watches (no new re-render channel).
+  const navigateCard = React.useCallback(
+    (fromId: string, dir: NavDir) => {
+      const target = nearestNeighbor(jobs, fromId, dir);
+      if (!target) return;
+      document.querySelector<HTMLElement>(`[data-card-btn="${target}"]`)?.focus();
+    },
+    [jobs]
+  );
   // t737 — the legend's focus: the kind word currently focused from the
   // toolbar's legend (null when none). Ephemeral view state, same family
   // as the hover channel — deliberately not store material.
@@ -2728,6 +2746,7 @@ export function WorkflowCanvas() {
               onCancelConnect={cancelConnect}
               onConnect={connectProxy}
               onHoverChange={setHoveredJobId}
+              onCardNavigate={navigateCard}
             />
           ))}
         </div>
