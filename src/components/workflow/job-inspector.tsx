@@ -38,6 +38,7 @@ import {
   Database,
   Download,
   Eraser,
+  Eye,
   FileText,
   FileX,
   FolderOpen,
@@ -105,6 +106,8 @@ import { CopyButton } from "./copy-button";
 import { RemoteStayNote } from "./remote-stay-note";
 import { RemoteRunButton } from "./remote-run-button";
 import { CleanupDialog } from "./cleanup-dialog";
+import { StarTable } from "./results/star-table"; // t779 — the peek doors: the Files tab speaks the same structured law the results view speaks
+import { TextPreview } from "./results/text-preview"; // t779 — and the same tail law (one brain, now three door-sets)
 // t757 — the dry-run brochure's tools-menu home (the t399 retirement
 // verdict prophesied it); the dialog mounts CONTROLLED here — the menu
 // item owns the door, the self-trigger stays unrendered.
@@ -2700,6 +2703,13 @@ const KIND_META: Record<OutputKind, { icon: React.ElementType; color: string; la
 function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | null; reload: () => void }) {
   const [query, setQuery] = React.useState("");
   const [kindFilter, setKindFilter] = React.useState<OutputKind | "all">("all");
+  // t779 — the peek doors' state: textual rows preview IN-APP (the tail
+  // law for text, the structured law for STAR) instead of a raw-tab
+  // pilgrimage. Same doors the results view speaks; mrc/image rows keep
+  // the download as their only door — raw bytes are the honest thing
+  // there, the browser tab is where those belong.
+  const [starFile, setStarFile] = React.useState<OutputFile | null>(null);
+  const [textFile, setTextFile] = React.useState<OutputFile | null>(null);
   const files = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = data?.files ?? [];
@@ -2789,6 +2799,7 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                   <th scope="col" className="w-24 px-2 py-2">Kind</th>
                   <th scope="col" className="w-32 px-2 py-2">Details</th>
                   <th scope="col" className="w-20 px-2 py-2 text-right">Size</th>
+                  <th scope="col" className="w-12 px-2 py-2 text-right">View</th>
                   <th scope="col" className="w-16 px-2 py-2 text-right">Get</th>
                 </tr>
               </thead>
@@ -2828,6 +2839,23 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                         {formatBytes(f.size)}
                       </td>
                       <td className="px-2 py-2 text-right">
+                        {/* t779 — the peek door: textual rows preview in-app.
+                            Same reveal grammar as the Download button — the
+                            arrow key never acts, Enter/Space keep the door. */}
+                        {f.kind === "star" || f.kind === "text" ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover-none:opacity-100"
+                            aria-hidden={false}
+                            aria-label={`Preview ${f.name}`}
+                            onClick={() => (f.kind === "star" ? setStarFile(f) : setTextFile(f))}
+                          >
+                            <Eye className="size-3.5" />
+                          </Button>
+                        ) : null}
+                      </td>
+                      <td className="px-2 py-2 text-right">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -2852,6 +2880,52 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
             </table>
         )}
       </div>
+
+      {/* t779 — the peek dialogs: the Files tab speaks the same doors the
+          results view speaks (star -> the structured table, text -> the
+          64 KB tail), word forms verbatim. Radix owns the focus trap,
+          onEscapeClose owns the Escape consume, TextPreview owns the
+          keyboard face (the tail takes the focus; arrows scroll it). */}
+      <Dialog open={textFile !== null} onOpenChange={(o) => !o && setTextFile(null)}>
+        <DialogContent
+          className="max-w-3xl sm:max-w-3xl"
+          onKeyDown={onEscapeClose(() => setTextFile(null))}
+        >
+          {textFile && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-sm">
+                  <ScrollText className="h-4 w-4 text-warning-600" aria-hidden="true" />
+                  {textFile.name}
+                </DialogTitle>
+                <DialogDescription className="font-mono text-[11px]">
+                  {textFile.path} · last 64 KB
+                </DialogDescription>
+              </DialogHeader>
+              <TextPreview jobId={job.id} path={textFile.path} />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={starFile !== null} onOpenChange={(o) => !o && setStarFile(null)}>
+        <DialogContent
+          className="max-w-4xl sm:max-w-4xl"
+          onKeyDown={onEscapeClose(() => setStarFile(null))}
+        >
+          {starFile && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-sm">
+                  <Table2 className="h-4 w-4 text-violet-600" aria-hidden="true" />
+                  {starFile.label ?? starFile.name}
+                </DialogTitle>
+                <DialogDescription className="font-mono text-[11px]">{starFile.path}</DialogDescription>
+              </DialogHeader>
+              <StarTable job={job} path={starFile.path} />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* paper manifest summary — the count line lives in the screen filter
           row (.no-print), so paper earns its own closing record (Task 115) */}

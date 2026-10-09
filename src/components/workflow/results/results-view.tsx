@@ -92,6 +92,7 @@ import { MrcImage } from "./mrc-image";
 import { MolViewer, type MolViewerTarget } from "./mol-viewer";
 import { useAnchorParent } from "./anchor-parent";
 import { StarTable } from "./star-table";
+import { TextPreview } from "./text-preview"; // t779 — the tail preview's own home (the inspector Files tab is the second family)
 import { QuickHistSection } from "./density-histogram";
 
 /* ------------------------------------------------------------------ */
@@ -1834,13 +1835,17 @@ function MrcGallery({
    * the world it is given, holes and all. */
   const tileRefs = useRef(new Map<string, HTMLButtonElement>());
   const [activePath, setActivePath] = useState<string | null>(null);
-  useEffect(() => {
-    // the anchor may vanish (filter switch, listing refresh, re-fetch) —
-    // re-seat the roving anchor on the first visible tile
-    if (activePath != null && !shown.some((f) => f.path === activePath)) {
-      setActivePath(shown[0]?.path ?? null);
-    }
-  }, [shown, activePath]);
+  // t779 — the roving anchor is DERIVED, not mirrored: the state keeps
+  // what the user chose, the anchor is what SURVIVES the current listing.
+  // A vanished anchor (filter switch, listing refresh, re-fetch) needs no
+  // state write to re-seat — the derivation lands the roving tabIndex on
+  // the first visible tile in the same render, and the cascading-render
+  // trap the lint rule names (setState synchronously inside an effect)
+  // stays empty. Same law the class gallery speaks; a lighter body.
+  const anchorPath =
+    activePath != null && shown.some((f) => f.path === activePath)
+      ? activePath
+      : shown[0]?.path ?? null;
   const KEY_TO_DIR: Record<string, GridDir> = {
     ArrowRight: "right",
     ArrowLeft: "left",
@@ -2000,7 +2005,7 @@ function MrcGallery({
                 else tileRefs.current.delete(f.path);
               }}
               data-tile-path={f.path}
-              tabIndex={f.path === (activePath ?? shown[0]?.path) ? 0 : -1}
+              tabIndex={f.path === anchorPath ? 0 : -1}
               onKeyDown={onTileKeyDown}
               onClick={() => onOpen(f)}
               /* data-print-block: the tile is a stacked visual record
@@ -2485,62 +2490,6 @@ function WarningsCard({ warnings }: { warnings: string[] }) {
         </ul>
       )}
     </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Text preview                                                        */
-/* ------------------------------------------------------------------ */
-
-function TextPreview({ jobId, path }: { jobId: string; path: string }) {
-  const [text, setText] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setText(null);
-    setError(null);
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=text`
-        );
-        if (!res.ok) {
-          const body = (await res.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(body?.error ?? `HTTP ${res.status}`);
-        }
-        if (!cancelled) setText(await res.text());
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load file");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId, path]);
-
-  if (error) {
-    return (
-      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-        {error}
-      </p>
-    );
-  }
-  if (text === null) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Loading file…
-      </div>
-    );
-  }
-  return (
-    <pre
-      className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 p-3 font-mono text-[11px] leading-relaxed text-foreground/90"
-      aria-label="File content preview"
-    >
-      {text}
-    </pre>
   );
 }
 
