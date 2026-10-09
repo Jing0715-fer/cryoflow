@@ -1838,7 +1838,19 @@ export function AssistantPanel() {
                 )}
               </div>
             )}
-            <div className="max-h-56 space-y-1 overflow-y-auto" role="list" aria-label="Session history">
+            {/* t799 — the same law for the drawer's own list (the t798 runs
+                dialect: a tab stop on the scrollable, the ring so the stop
+                is visible). The role stays "list" — the rows' listitem
+                semantics hang off it; the row loop itself stays Tab-only
+                ON PURPOSE: four buttons per row is the compound-row face,
+                arrows would need a roving tabindex to have something to
+                say, and the house dialect never asked for one. */}
+            <div
+              tabIndex={0}
+              className="max-h-56 space-y-1 overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              role="list"
+              aria-label="Session history"
+            >
               {sessions.length === 0 ? (
                 <p className="px-1 py-2 text-xs text-muted-foreground/70">这个画布还没有更早的对话</p>
               ) : visibleSessions.length === 0 ? (
@@ -1886,10 +1898,19 @@ export function AssistantPanel() {
 
         {/* ---- transcript ---- */}
         <div className="relative min-h-0 flex-1">
+          {/* t799 — the transcript is the drawer's primary scrollable, and a
+              scrollable region without a tab stop answers the wheel and
+              nothing else (the t798 law — the storage runs region learned it
+              one window ago). A long text-only conversation has NO tabbable
+              below the fold, so the keyboard could not reach yesterday's
+              turns at all. Focused, the arrows and Space scroll it; the log
+              keeps its role and its aria-live — a tab stop and a log role
+              are not rivals. */}
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            className="h-full space-y-3 overflow-y-auto px-4 py-4"
+            tabIndex={0}
+            className="h-full space-y-3 overflow-y-auto px-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             role="log"
             aria-live="polite"
             aria-label="AI assistant transcript"
