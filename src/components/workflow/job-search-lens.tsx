@@ -52,7 +52,7 @@ import { TypeIcon } from "./icons";
 import { StatusBadge, isSlurmQueued } from "./job-card";
 import { useWorkflowStore } from "@/lib/store";
 import { Kbd } from "@/components/ui/kbd";
-import { jobType } from "@/lib/workflow";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t762 — the kind vocabulary's TWENTY-THIRD reader joins the row
 import { fmtAgo } from "@/lib/duration";
 import { cn } from "@/lib/utils";
 
@@ -253,6 +253,13 @@ export function JobSearchLens({
             // token the API matched ("ctffind" → "CTF Estimation") — swap
             // to the raw type so the highlighted substring is visible
             const showRawType = hit === "type" && !ci(label).includes(ci(q));
+            // t762 — the pours ask rides the spec the row already holds
+            // (the t755 fourth form): jobType(job.type) was the ask the
+            // label answer already made, pouring only re-reads it — the
+            // cheapest rung in the ladder, zero re-asking. Unknown types
+            // keep the bare row (empty pours, no water — the undefined
+            // law's fifth face, the t744 bare-receipt retreat).
+            const pouring = spec ? pourKindsOf(job.type) : [];
             return (
               <button
                 key={job.id}
@@ -290,6 +297,33 @@ export function JobSearchLens({
                     <span className="truncate">
                       {showRawType ? <Emph text={job.type} q={q} /> : <Emph text={label} q={q} />}
                     </span>
+                    {spec ? (
+                      // t762 — the row names the type in words (the label
+                      // or the raw type is the row's second line), so the
+                      // row can carry the water: the dots sit right after
+                      // the type word, before the project separator. The
+                      // seat is a flex ROW (not prose — t760's seat), so
+                      // the canonical flex container fits verbatim: ZERO
+                      // dialect drift this window, the family's eleventh
+                      // address. A search result row is a CHOICE seat —
+                      // the searcher picking a job deserves to see what
+                      // each candidate pours before committing.
+                      <span
+                        className="flex shrink-0 items-center gap-1"
+                        data-testid={`lens-pours-${job.type}`}
+                      >
+                        {pouring.map((k) => (
+                          <span
+                            key={k}
+                            aria-hidden="true"
+                            title={`pours ${k}`}
+                            className="inline-block size-1.5 rounded-full"
+                            style={{ background: PORT_COLORS[k].wire }}
+                          />
+                        ))}
+                        <span className="sr-only">pours {pouring.join(", ")}</span>
+                      </span>
+                    ) : null}
                     <span aria-hidden="true">·</span>
                     <span className="truncate font-medium">{job.projectName ?? "Unknown project"}</span>
                     <span aria-hidden="true">·</span>
