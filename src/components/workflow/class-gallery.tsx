@@ -20,6 +20,18 @@
  * feeds the same gallery (「同理 3d 分类也是」) — a real-RELION class3d
  * writes no combined classes.mrcs, so its per-class volumes render as
  * central z-planes through the outputs/file route instead.
+ *
+ * t773 — the gallery's source line speaks the kind vocabulary: the
+ * header names the run it reads (the mono type word) and the water
+ * rides beside it (the kind vocabulary's THIRTY-FIRST reader, the
+ * family's EIGHTEENTH testid address class-gallery-pours-). The
+ * gallery is the TRIAGE face of the commitment-seat taxonomy: it lays
+ * a run's water out on a grid so the user can sort kept from cut —
+ * and the water names both ends of that bargain, because the
+ * thumbnails ON the grid are one of the source's pours (a class2d's
+ * references2d averages, a class3d's per-class volumes) and the
+ * particles pour is the food the selection hands downstream. Unknown
+ * types keep the bare word (the gate closes on pouring).
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -39,6 +51,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseClassNotes } from "@/lib/class-notes";
+import { pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t773 — the kind vocabulary's THIRTY-FIRST reader joins the class gallery's source line
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { useWorkflowStore } from "@/lib/store";
 import {
@@ -167,6 +180,12 @@ export function ClassGallery({
   // the source's kind word — the copy says "2D classification" or "3D
   // classification" honestly instead of the old 2D-only phrasing
   const is3dSource = upstream?.type === "class3d";
+
+  // t773 — the pours ask rides the source's own type word: the gallery
+  // reads ONE classification run, so the ask has one source word-form
+  // (upstream.type) and one dose per gallery — the same word the mono
+  // kind word and the testid address both speak.
+  const pouring = upstream ? pourKindsOf(upstream.type) : [];
 
   const [data, setData] = useState<ClassesResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -668,6 +687,40 @@ export function ClassGallery({
           {upstream.name}
           {data?.iteration != null ? ` · iter ${data.iteration}` : ""}
         </span>
+        {/* t773 — the gallery names its source's kind: the name says WHICH
+            run, the mono word says WHAT KIND, and the water (beside it)
+            says what the kind pours — the thumbnails on this grid ARE one
+            of the pours (a class2d's references2d averages, a class3d's
+            per-class volumes), and the particles pour is the food the
+            selection hands on. The TRIAGE face of the commitment-seat
+            taxonomy: the gallery sorts a kind's water into kept and cut,
+            and the dots tell you which wires that bargain feeds. */}
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+          {upstream.type}
+        </span>
+        {pouring.length > 0 && (
+          // t773 — the water rides the kind word as a flex sibling: the
+          // header is a flex host (gap-2 is the space — the t760 prose
+          // law's boundary clause, another staging; flex hosts owe
+          // nothing), the family's canonical container verbatim, the
+          // EIGHTEENTH address. The gate closes on pouring — an unknown
+          // type keeps the bare mono word, no ghost seat.
+          <span
+            className="inline-flex shrink-0 items-center gap-1"
+            data-testid={`class-gallery-pours-${upstream.type}`}
+          >
+            {pouring.map((k) => (
+              <span
+                key={k}
+                aria-hidden="true"
+                title={`pours ${k}`}
+                className="inline-block size-1.5 rounded-full"
+                style={{ background: PORT_COLORS[k].wire }}
+              />
+            ))}
+            <span className="sr-only">pours {pouring.join(", ")}</span>
+          </span>
+        )}
         {/* t402b — the live chip: the source is running and this gallery is
             tracking its rounds (heartbeat above) */}
         {upstream.status === "running" && (
