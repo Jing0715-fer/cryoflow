@@ -743,10 +743,26 @@ export function RemoteRunButton({
         </DialogTrigger>
       )}
       <DialogContent
-        className="max-h-[calc(100vh-3rem)] gap-3 overflow-y-auto p-5 sm:max-w-2xl"
+        className="flex max-h-[calc(100vh-3rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
         onKeyDown={onEscapeClose(() => setOpen(false))}
       >
-        <DialogHeader>
+        {/* t809 — the house dialect reaches the remote-run card (the
+            census's disease-live pair): the DialogContent WAS the scroll
+            surface (an explicit max-h + overflow-y-auto rode ON TOP of
+            the t383 default, the header floated unpinned, and Radix pins
+            the dialog to tabIndex=-1 — the t802/t804 verdict, one more
+            face). The t809 walk enumerated every DialogContent on file:
+            forty-four faces, FIFTEEN already houses, nine with their own
+            inner grounds, six viewport-bounded, eleven small forms, one
+            documented middle form (fsc-compare's qa62 verdict) — and
+            exactly TWO disease-live, this card and the map/stack preview.
+            The shape: flex col + gap-0 + overflow-hidden + p-0, the header
+            pinned, ONE inner region carrying the stop + the honest name +
+            the inset ring, the Send/Cancel footer pinned (the actions stay
+            visible while the sections scroll); role=dialog kept (the t799
+            third-family law). The card's own cap (calc(100vh-3rem)) and
+            its p-5 rhythm are kept — each face keeps its own. */}
+        <DialogHeader className="shrink-0 border-b px-5 pb-4 pt-5">
           <DialogTitle className="flex items-center gap-2.5">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Server className="size-4" aria-hidden="true" />
@@ -798,7 +814,13 @@ export function RemoteRunButton({
         </DialogHeader>
 
         {connections.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-md border border-dashed px-4 py-8 text-center">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Remote run — the cluster connection state"
+            className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+          >
+            <div className="flex flex-col items-center gap-3 rounded-md border border-dashed px-4 py-8 text-center">
             <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
               <Server className="size-5" aria-hidden="true" />
             </div>
@@ -812,10 +834,16 @@ export function RemoteRunButton({
             <Button variant="outline" size="sm" className="h-9 text-sm" onClick={() => setClusterOpen(true)}>
               Manage clusters
             </Button>
+            </div>
           </div>
         ) : (
           <>
-            <div className="space-y-3">
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Remote run — connection, mode, and the submission preview"
+              className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+            >
               {/* t326 — SECTION: where it runs. Connection + module share a
                   frame; the identity (user@host · module) is not repeated
                   here — the submission preview owns it. t347 — the two
@@ -1274,7 +1302,7 @@ export function RemoteRunButton({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t px-5 pb-4 pt-3">
               <Button variant="outline" size="sm" className="h-9 text-sm" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
