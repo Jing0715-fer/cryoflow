@@ -223,6 +223,126 @@ function DialogOverlay({
   )
 }
 
+/* ------------------------------------------------------------------ */
+/* t792 — the untriggered-dialog family's shared return-address layer  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t792 — the fourth family of the focus-relay law. The census: 36 files
+ * render a controlled Radix Dialog (open={...}) and only 4 carry a
+ * DialogTrigger — the other 32 open imperatively from buttons that often
+ * live in OTHER components (header state, chart affordances, gallery
+ * cells). Radix's close chain hands the keyboard back to
+ * context.triggerRef — null for every untriggered dialog — so
+ * `triggerRef.current?.focus()` is a no-op and focus falls to BODY on
+ * EVERY exit (measured live twice on the frozen bundle: storage dialog
+ * Escape -> BODY, diagnostics dialog Escape -> BODY; the same disease
+ * the class gallery's lightbox was born with — born without a trigger —
+ * now at census scale).
+ *
+ * The cure is ONE layer, not 32 wirings. A document-level focusin capture
+ * keeps the RETURN ADDRESS — the last opener-like element focused outside
+ * every dialog surface — and DialogContent injects a default
+ * onCloseAutoFocus that spends it on close. Callers who pass their OWN
+ * onCloseAutoFocus (the cured households: canvas t789, job-card t789,
+ * class-gallery t791, mol-viewer) replace the default wholesale because
+ * {...props} spreads after the injection — bespoke chains stay verbatim.
+ *
+ * The laws the layer inherits:
+ * - the t791 witness stand-down: a focusin that lands OUTSIDE every open
+ *   dialog while one is open is a voluntary exit — the pocket is
+ *   disarmed (null), never answered with a focus steal. (Side gift: the
+ *   browser's own focus of a click-outside target survives the close.)
+ * - the t788 order law: the pocket is cleared BEFORE the focus moves.
+ * - the t774 contract: the restore passes preventScroll: true.
+ * - the nested walk-back: a restored address that lives inside a LIVING
+ *   dialog surface stays as that surface's return address, so chained
+ *   closes hand focus back through both doors.
+ */
+type DialogFocusLayer = {
+  /** The return address: last opener-like focus outside dialog surfaces. */
+  pocket: HTMLElement | null
+  /** How many dialog surfaces are mounted (drives the stand-down). */
+  openCount: number
+}
+
+let gDialogFocusLayer: DialogFocusLayer | null = null
+
+/** An element that can legitimately receive a focus hand-back: the
+ * census openers are buttons, links, form fields and role=button or
+ * tabindex cards (the canvas card dialect). */
+function isOpenerLike(el: Element): el is HTMLElement {
+  if (!(el instanceof HTMLElement)) return false
+  const tag = el.tagName
+  return (
+    tag === "BUTTON" ||
+    tag === "A" ||
+    tag === "INPUT" ||
+    tag === "SELECT" ||
+    tag === "TEXTAREA" ||
+    el.getAttribute("role") === "button" ||
+    el.hasAttribute("tabindex")
+  )
+}
+
+/** True when the element lives inside a dialog surface whose host dialog
+ * is CLOSING (data-state="closed" during exit) — restoring focus into a
+ * dying subtree is a steal, not a hand-back. Living surfaces (the nested
+ * walk-back) pass through. */
+function isInsideClosingDialog(el: Element): boolean {
+  return (
+    el.closest(
+      '[data-slot="dialog-content"][data-state="closed"], [data-slot="alert-dialog-content"][data-state="closed"], [data-slot="sheet-content"][data-state="closed"]'
+    ) != null
+  )
+}
+
+/** The layer singleton + its one document listener, built lazily on the
+ * client (the first DialogContent mount asks for it). */
+function getDialogFocusLayer(): DialogFocusLayer | null {
+  if (gDialogFocusLayer || typeof document === "undefined") return gDialogFocusLayer
+  const layer: DialogFocusLayer = { pocket: null, openCount: 0 }
+  gDialogFocusLayer = layer
+  document.addEventListener(
+    "focusin",
+    (event) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      // Focus inside a dialog surface belongs to that surface — Radix
+      // parks focus on content/buttons at open and every Tab after; none
+      // of it is an opener address.
+      if (target.closest(SIBLING_SURFACE_SELECTOR)) return
+      // t791 witness law: focus landing outside every dialog surface
+      // while one is open is a voluntary exit — stand down, don't steal.
+      if (layer.openCount > 0) {
+        layer.pocket = null
+        return
+      }
+      if (isOpenerLike(target)) layer.pocket = target
+    },
+    true
+  )
+  return layer
+}
+
+/** The default close hand-back injected by DialogContent: spend the
+ * pocket once, in the t788 order (clear BEFORE focus), guarded against
+ * dead openers and dying subtrees. Always preventDefault so Radix's own
+ * default (triggerRef?.focus() — a null no-op for untriggered dialogs)
+ * is skipped deterministically in BOTH the modal and non-modal chains. */
+function returnFocusToOpener(event: Event): void {
+  const layer = getDialogFocusLayer()
+  const pocket = layer?.pocket ?? null
+  if (layer) layer.pocket = null
+  event.preventDefault()
+  if (!pocket || !pocket.isConnected || !isOpenerLike(pocket)) return
+  if (isInsideClosingDialog(pocket)) return
+  pocket.focus({ preventScroll: true })
+  // The nested walk-back: a restored address inside a LIVING dialog
+  // surface remains that surface's return address for its own close.
+  if (layer && pocket.closest(SIBLING_SURFACE_SELECTOR)) layer.pocket = pocket
+}
+
 function DialogContent({
   className,
   children,
@@ -243,6 +363,18 @@ function DialogContent({
   // and without the exemption a keydown whose target lives inside the
   // content (Radix parks focus here on open) swallows its own Escape.
   const selfRef = React.useRef<HTMLDivElement | null>(null)
+  // t792 — register this surface with the shared return-address layer for
+  // its whole mounted life; the count drives the voluntary-exit stand-down
+  // (a focusin outside every surface while this counter is above zero is
+  // the user leaving on their own, never an opener to remember).
+  React.useEffect(() => {
+    const layer = getDialogFocusLayer()
+    if (!layer) return
+    layer.openCount += 1
+    return () => {
+      layer.openCount = Math.max(0, layer.openCount - 1)
+    }
+  }, [])
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -310,6 +442,12 @@ function DialogContent({
             document.body.appendChild(el)
           }
         }}
+        /* t792 — the family's default close hand-back: spend the shared
+         * return-address pocket. {...props} spreads AFTER this line, so a
+         * caller's own onCloseAutoFocus (the cured households: canvas
+         * t789, job-card t789, class-gallery t791, mol-viewer) replaces
+         * this wholesale — the bespoke chains stay verbatim. */
+        onCloseAutoFocus={returnFocusToOpener}
         {...props}
       >
         {children}
