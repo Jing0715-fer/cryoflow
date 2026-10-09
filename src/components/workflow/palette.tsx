@@ -12,7 +12,7 @@ import {
   Star,
   X,
 } from "lucide-react";
-import { JOB_CATEGORIES, JOB_TYPES, jobType } from "@/lib/workflow";
+import { JOB_CATEGORIES, JOB_TYPES, PORT_COLORS, jobType, pourKindsOf } from "@/lib/workflow";
 import type { JobTypeSpec } from "@/lib/types";
 import { subsequenceSpans, subsequenceMatch } from "@/lib/job-match"; // t725 — the dialect's HOW lives in lib
 import { FindMarkedText, FIND_MARK_CLASS } from "./find-mark"; // t725 — the wash's own home
@@ -1032,6 +1032,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                   <div className="space-y-0.5 py-1">
                     {items.map((t) => {
                       const w = searching ? whys.get(t.key) : undefined;
+                      const pours = pourKindsOf(t.key); // t747 — asked once, read twice (dots + ear)
                       return (
                       <Button
                         key={t.key}
@@ -1098,6 +1099,39 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                               t.description
                             )}
                           </span>
+                        </span>
+                        {/* t747 — the row borrows the water dots: the menu
+                            says what the type pours before the job exists.
+                            One dot per unique poured kind, riding the same
+                            wire hex the canvas rests in (pourKindsOf — the
+                            t746 lib question; the t735/t746 sample). The row
+                            is a scan surface, so it whispers: dots only,
+                            small is the whisper (size-1.5, no hover coupling
+                            — steady ink, the one-band law), and the word per
+                            dot rides the title. Same-shaped dots cannot tell
+                            pours from drinks, so only the PROMISE rides the
+                            row — the appetite's full sentence (drinks, with
+                            the nothing/anything honesty) stays behind the
+                            info door in the dictionary card. The category's
+                            ink sits at the row's left end, the kinds' dots
+                            at its right — the row's two vocabularies
+                            bookend it. An sr-only line names the kinds for
+                            the ear (the t746 card remains the full a11y
+                            journey: dots here, words one click away). */}
+                        <span
+                          className="flex shrink-0 items-center gap-1"
+                          data-testid={`palette-pours-${t.key}`}
+                        >
+                          {pours.map((k) => (
+                            <span
+                              key={k}
+                              aria-hidden="true"
+                              title={`pours ${k}`}
+                              className="inline-block size-1.5 rounded-full"
+                              style={{ background: PORT_COLORS[k].wire }}
+                            />
+                          ))}
+                          <span className="sr-only">pours {pours.join(", ")}</span>
                         </span>
                         {/* t730 — the dictionary door: opens the type card
                             for THIS row (same span-as-button grammar the
