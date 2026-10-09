@@ -30,6 +30,16 @@
  *     chain comes from re-running a verb.
  *   - THE DOOR GUARDS ITSELF: nothing renders unless the host is a
  *     completed job on a funnel stage AND the route returns a chain.
+ *
+ * t772 — the census line speaks the kind vocabulary: each left-behind
+ * job's mono type word gains the pour dots (the kind vocabulary's
+ * THIRTIETH reader, the family's SEVENTEENTH testid address
+ * funnel-pours-). The census is the chain's confession of what the
+ * mainline left behind — the name says WHO ran beside, the type says
+ * WHAT it was, and the water says which wires that kind feeds on (the
+ * census's beside-face: these verbs ran on the same particles, and
+ * kinds have different wire contracts). Unknown types keep the bare
+ * parens (the gate closes on spec — the t760 prose form).
  */
 
 import { useEffect, useState } from "react";
@@ -53,6 +63,7 @@ import {
   type FunnelLedger,
   type FunnelRow,
 } from "@/lib/particle-funnel";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t772 — the kind vocabulary's THIRTIETH reader joins the particle funnel's census
 
 interface FunnelPayload extends FunnelLedger {
   jobId: string;
@@ -232,13 +243,45 @@ export function ParticleFunnelDialog({
         {payload.offMainline.length > 0 ? (
           <div className="text-[11px] text-muted-foreground">
             Off this mainline, the same chain also fed:{" "}
-            {payload.offMainline.map((j, i) => (
-              <span key={j.id}>
-                {i > 0 ? " · " : ""}
-                <span className="font-medium text-foreground/80">{j.name}</span>{" "}
-                ({j.type})
-              </span>
-            ))}
+            {payload.offMainline.map((j, i) => {
+              // t772 — the pours ask rides the census's own type word: the
+              // sentence already names each left-behind job's kind in mono
+              // parens, and the water re-reads the kind's wires beside it
+              // (the riding ask — the dose follows the row's own word).
+              const spec = jobType(j.type);
+              const pouring = spec ? pourKindsOf(j.type) : [];
+              return (
+                <span key={j.id}>
+                  {i > 0 ? " · " : ""}
+                  <span className="font-medium text-foreground/80">{j.name}</span>{" "}
+                  ({j.type})
+                  {spec ? (
+                    // t772 — the census sentence names the type: a sentence
+                    // that names the type can carry the pours line (the
+                    // t760 prose law). The dots hug the parenthetical
+                    // inline — prose demands the inline-flex variant
+                    // (display:flex would break the sentence into blocks;
+                    // the seat's physics is its witness), the family's
+                    // canonical container verbatim, the SEVENTEENTH address.
+                    <span
+                      className="inline-flex shrink-0 items-center gap-1"
+                      data-testid={`funnel-pours-${j.type}`}
+                    >
+                      {pouring.map((k) => (
+                        <span
+                          key={k}
+                          aria-hidden="true"
+                          title={`pours ${k}`}
+                          className="inline-block size-1.5 rounded-full"
+                          style={{ background: PORT_COLORS[k].wire }}
+                        />
+                      ))}
+                      <span className="sr-only">pours {pouring.join(", ")}</span>
+                    </span>
+                  ) : null}
+                </span>
+              );
+            })}
             . The walk follows one line at each branch — these ran beside it.
           </div>
         ) : null}
