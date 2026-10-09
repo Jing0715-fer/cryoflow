@@ -329,8 +329,14 @@ function getDialogFocusLayer(): DialogFocusLayer | null {
  * pocket once, in the t788 order (clear BEFORE focus), guarded against
  * dead openers and dying subtrees. Always preventDefault so Radix's own
  * default (triggerRef?.focus() — a null no-op for untriggered dialogs)
- * is skipped deterministically in BOTH the modal and non-modal chains. */
-function returnFocusToOpener(event: Event): void {
+ * is skipped deterministically in BOTH the modal and non-modal chains.
+ *
+ * t793 — EXPORTED: the alert-dialog and sheet bridges ride the SAME
+ * DialogPrimitive.Content close chain (radix's react-alert-dialog renders
+ * DialogPrimitive.Content with role="alertdialog"; ui/sheet.tsx aliases
+ * react-dialog as SheetPrimitive), so the same handler is their default
+ * too — one layer, three bridges, zero second brains. */
+export function returnFocusToOpener(event: Event): void {
   const layer = getDialogFocusLayer()
   const pocket = layer?.pocket ?? null
   if (layer) layer.pocket = null
@@ -341,6 +347,22 @@ function returnFocusToOpener(event: Event): void {
   // The nested walk-back: a restored address inside a LIVING dialog
   // surface remains that surface's return address for its own close.
   if (layer && pocket.closest(SIBLING_SURFACE_SELECTOR)) layer.pocket = pocket
+}
+
+/** t793 — the surface-registration half of the layer, EXPORTED for the
+ * sibling bridges (ui/alert-dialog.tsx, ui/sheet.tsx): every mounted
+ * dialog-family surface counts itself while open, driving the voluntary-
+ * exit stand-down. The t792 word-forms live here and nowhere else —
+ * one brain, three consumers. */
+export function useDialogFocusSurface(): void {
+  React.useEffect(() => {
+    const layer = getDialogFocusLayer()
+    if (!layer) return
+    layer.openCount += 1
+    return () => {
+      layer.openCount = Math.max(0, layer.openCount - 1)
+    }
+  }, [])
 }
 
 function DialogContent({
@@ -367,14 +389,9 @@ function DialogContent({
   // its whole mounted life; the count drives the voluntary-exit stand-down
   // (a focusin outside every surface while this counter is above zero is
   // the user leaving on their own, never an opener to remember).
-  React.useEffect(() => {
-    const layer = getDialogFocusLayer()
-    if (!layer) return
-    layer.openCount += 1
-    return () => {
-      layer.openCount = Math.max(0, layer.openCount - 1)
-    }
-  }, [])
+  // t793 — the registration now lives in the exported useDialogFocusSurface
+  // (the alert and sheet bridges count themselves through the same hook).
+  useDialogFocusSurface()
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />

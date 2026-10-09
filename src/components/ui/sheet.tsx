@@ -5,6 +5,10 @@ import * as SheetPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import {
+  returnFocusToOpener,
+  useDialogFocusSurface,
+} from "@/components/ui/dialog"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -52,6 +56,9 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
 }) {
+  // t793 — the sheet bridge counts itself into the shared focus layer (the
+  // same openCount that drives the t791 stand-down in ui/dialog.tsx).
+  useDialogFocusSurface()
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -69,6 +76,15 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className
         )}
+        /* t793 — the family's default close hand-back rides the sheet bridge:
+         * SheetPrimitive IS react-dialog (aliased), so a sheet closes through
+         * the same DialogContentModal chain and an untriggered sheet (all of
+         * them — sheets open from state, not triggers) falls to BODY on every
+         * exit exactly like the dialogs did. The pocket hands the keyboard
+         * back to the opener (the burger that summoned a mobile sidebar, the
+         * row that opened a detail sheet). {...props} spreads AFTER this
+         * line, so a caller's own onCloseAutoFocus would override wholesale. */
+        onCloseAutoFocus={returnFocusToOpener}
         {...props}
       >
         {children}
