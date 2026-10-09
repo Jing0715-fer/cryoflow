@@ -38,6 +38,15 @@
  * and any future legend. The swap button flips the COLUMN ORDER while the
  * colors stay positional: whoever the user wants as baseline lands left,
  * teal, without the picker ever having to care about pick order again.
+ *
+ * Task 766 lets the dialog's description speak the kind vocabulary's
+ * words: the prose already names the pair's shared type ("the two
+ * selected {type} jobs" — the picker's guard guarantees same-type, so
+ * ONE mention speaks for both columns), and the dots sit inline right
+ * after the type word — the t760 prose law (the description is a <p>,
+ * a block flex would break the sentence; the seat's physics is its
+ * witness), the family's THIRTEENTH testid address. Unknown types keep
+ * the bare sentence (the undefined law's fifth face).
  */
 
 import { useState } from "react";
@@ -53,6 +62,7 @@ import { Button } from "@/components/ui/button";
 import { useWorkflowStore } from "@/lib/store";
 import { FscParamsDiff } from "./results/fsc-params-diff";
 import type { JobDTO } from "@/lib/types";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t766 — the kind vocabulary's TWENTY-SIXTH reader joins the diff dialog
 
 /** the two column colors, in column order (left first) */
 const COLUMN_COLORS = ["#0d9488", "#d97706"];
@@ -108,6 +118,11 @@ export function ParamsDiffDialog({
   };
 
   if (jobs.length !== 2) return null;
+  // t766 — the pours ask rides the description's own type word: the
+  // sentence already names the pair's shared type, the dots glue to the
+  // word they describe (identity words first, water after)
+  const spec = jobType(jobs[0].type);
+  const pouring = spec ? pourKindsOf(jobs[0].type) : [];
   const ordered = swapped ? [jobs[1], jobs[0]] : jobs;
   const diffJobs = ordered.map((j) => ({
     jobId: j.id,
@@ -141,7 +156,32 @@ export function ParamsDiffDialog({
             </Button>
           </DialogTitle>
           <DialogDescription>
-            Launch parameters of the two selected {jobs[0].type} jobs, side by
+            Launch parameters of the two selected {jobs[0].type}
+            {spec ? (
+              // t766 — the description names the pair's shared type in
+              // words: the prose sentence can carry the pours line, the
+              // dots sit inline right after the type word — the t760
+              // prose law (a block flex would break the sentence into
+              // blocks; the seat's physics is its witness). The picker's
+              // guard guarantees the pair is same-type, so ONE mention
+              // speaks for both columns.
+              <span
+                className="inline-flex shrink-0 items-center gap-1"
+                data-testid={`params-diff-pours-${jobs[0].type}`}
+              >
+                {pouring.map((k) => (
+                  <span
+                    key={k}
+                    aria-hidden="true"
+                    title={`pours ${k}`}
+                    className="inline-block size-1.5 rounded-full"
+                    style={{ background: PORT_COLORS[k].wire }}
+                  />
+                ))}
+                <span className="sr-only">pours {pouring.join(", ")}</span>
+              </span>
+            ) : null}{" "}
+            jobs, side by
             side — left column:{" "}
             <span className="font-medium text-foreground">{ordered[0].name}</span>.
           </DialogDescription>
