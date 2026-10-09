@@ -33,6 +33,7 @@ import {
   nextStepsFor,
   portY,
   portsCompatible,
+  pourKindsOf,
   visibleOutputs,
 } from "@/lib/workflow";
 import { useWorkflowStore, type PendingFrom } from "@/lib/store";
@@ -1211,6 +1212,20 @@ function JobCardPreview({
   elapsedText: string | null;
 }) {
   const params = previewParams(job, spec);
+  // t758 — the hover peek's type line borrows the water dots: the card
+  // face is ICON-ONLY at canvas distance (t605's canvas manners — the
+  // icon chip speaks in category color, seventeen cards stay quiet),
+  // but the peek IS the card's panel-distance face (t322/t605 already
+  // speak the queue dialect here) — the type label line is its placard,
+  // and a placard that names the type can carry the pours line too.
+  // Same dot (size-1.5 whisper, wire hex, per-dot title word), same
+  // sr-only ear line, same one-family discipline (pours only; the
+  // appetite's full sentence stays in the dictionary behind the t733
+  // door). The ask rides the spec the component already holds — the
+  // card asked jobType once at the top; the water words just re-read
+  // that answer (the undefined-law's fourth form: reuse what's in
+  // hand, stay silent about the unknown).
+  const pouring = spec ? pourKindsOf(spec.key) : [];
   return (
     <HoverCardContent
       side="top"
@@ -1220,9 +1235,31 @@ function JobCardPreview({
     >
       <div className="border-b bg-muted/40 px-3 py-2">
         <p className="truncate text-xs font-semibold">{job.name}</p>
-        <p className="truncate text-[10px] text-muted-foreground">
-          {spec?.label ?? job.type}
-        </p>
+        {/* t758 — the placard row: type label first (truncate keeps the
+            long names safe), dots after (shrink-0 keeps them un-squeezed
+            by the truncation squeeze — wrap-not-clip at text scale). */}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="truncate text-[10px] text-muted-foreground">
+            {spec?.label ?? job.type}
+          </p>
+          {spec ? (
+            <span
+              className="flex shrink-0 items-center gap-1"
+              data-testid={`peek-pours-${job.type}`}
+            >
+              {pouring.map((k) => (
+                <span
+                  key={k}
+                  aria-hidden="true"
+                  title={`pours ${k}`}
+                  className="inline-block size-1.5 rounded-full"
+                  style={{ background: PORT_COLORS[k].wire }}
+                />
+              ))}
+              <span className="sr-only">pours {pouring.join(", ")}</span>
+            </span>
+          ) : null}
+        </div>
       </div>
       <div className="space-y-2 px-3 py-2.5">
         <div className="flex items-center gap-2">
