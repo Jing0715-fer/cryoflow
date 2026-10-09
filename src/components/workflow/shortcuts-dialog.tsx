@@ -167,6 +167,18 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    // t780 — the engine log's reading face became a focusable scroll
+    // region and its legend hints the keys; a face no row names is the
+    // t641 drift again (a live key with no row is a drift).
+    id: "log-console",
+    label: "Log console",
+    hint: "Inside the job inspector's Log tab — reading has its own keys",
+    rows: [
+      { keys: "↑ ↓ PgUp PgDn", text: "Scroll the log natively once the console holds the focus (Tab reaches it)" },
+      { keys: "Home End", text: "Jump to the window's head / tail — landing at the tail re-arms follow" },
+    ],
+  },
+  {
     // t641 — the map viewer's keyboard layer was live but invisible:
     // 1–6 axis presets + 0 reset had an in-popover hint, but B (quick-save
     // bookmark) was spoken only by its own completion toast — you had to

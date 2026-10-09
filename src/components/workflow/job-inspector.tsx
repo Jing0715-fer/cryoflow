@@ -354,7 +354,9 @@ function LogLegend() {
   ];
   return (
     /* Task 176: the legend wraps below sm — the error chip measured 33px
-       past a 269px dialog (280 fold band); ≥sm never wraps. */
+       past a 269px dialog (280 fold band); ≥sm never wraps. t780: the
+       keyboard hint rides the legend's right edge on ≥md only — the fold
+       band keeps its four chips, the face lives where the width lives. */
     <div className="flex max-sm:flex-wrap shrink-0 items-center gap-2.5 border-t border-zinc-800 bg-zinc-900/60 px-3 py-1">
       <span className="text-[9px] font-medium uppercase tracking-wider text-zinc-600">legend</span>
       {items.map(([dot, label]) => (
@@ -363,6 +365,12 @@ function LogLegend() {
           <span className="text-[9.5px] text-zinc-500">{label}</span>
         </span>
       ))}
+      <span className="ml-auto hidden shrink-0 items-center gap-1 text-[9.5px] text-zinc-600 md:inline-flex">
+        <span aria-hidden="true">↑↓ scroll</span>
+        <span aria-hidden="true" className="text-zinc-700">·</span>
+        <span aria-hidden="true">Home/End head/tail</span>
+        <span className="sr-only">— the log console is a focusable scroll region; the Home and End keys jump to its head and tail</span>
+      </span>
     </div>
   );
 }
@@ -602,6 +610,27 @@ function LogConsole({
     const el = scrollRef.current;
     if (!el) return;
     atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  };
+
+  // t780 — the console's keyboard face: Home jumps to the window's head,
+  // End to its tail — the two ends a log reader actually wants. Explicit
+  // jumps, deterministic across platforms; arrows and PageUp/PageDown stay
+  // NATIVE (the platform's scroll on a focused container is the right
+  // gesture, no interception) — and both the native scrolls and these
+  // jumps feed the SAME onScroll law above: landing at the tail re-arms
+  // follow, leaving it dis-arms. No second follow system — the keyboard
+  // rides the wheel's law. The filter input lives in the toolbar outside
+  // this element, so typing never meets this handler.
+  const onLogKeyDown = (e: React.KeyboardEvent) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (e.key === "Home") {
+      e.preventDefault();
+      el.scrollTop = 0;
+    } else if (e.key === "End") {
+      e.preventDefault();
+      el.scrollTop = el.scrollHeight;
+    }
   };
 
   const lineCount = lines.length;
@@ -908,11 +937,17 @@ function LogConsole({
         </div>
       ) : null}
 
-      {/* the console */}
+      {/* the console — t780: the reading face is focusable. A scroll
+          region no key can reach is pointer-only reading (the tail
+          preview's twin lesson, t779: reachability IS the destination).
+          Ring rides INSET — the outer ring would clip against the
+          console shell's overflow-hidden and never be seen. */}
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-[1.55] text-zinc-300"
+        onKeyDown={onLogKeyDown}
+        tabIndex={0}
+        className="min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-[1.55] text-zinc-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-running-500/60"
         role="log"
         aria-label="Engine log"
       >
