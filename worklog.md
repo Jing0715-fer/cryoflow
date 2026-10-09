@@ -13142,3 +13142,31 @@ Next-window entry (t795):
 4. census rotation: zero new routes / zero seeds / zero bookmark net.
 
 Ledger: fleet 71/71 (t794 aboard 30/0 ×3 runs), tsc 0 eslint 0, staged three-evidence (BUILD_ID `xjDBTTFWsGpNmNM8SKKGj`, chunks zero t794 word-forms, t791 word-form on 9e7fc087), census triptych clean (temp grown and spent in-window, net 0), live BODY verdict on file (the hole, pre-cure), t794-patrol.png + t794-old-world-body-verdict.png in shots-qa, worklog this entry. Three-car commit follows: feat(wall-delete-relay+t670-broadcast) -> qa(t794 probe + patrol + grow script) -> docs(worklog).
+
+---
+
+## Task 795 — the qa ceremony's EIGHTEENTH performance: the regrowth loop re-proves itself end to end on the t791 production world (t795)
+
+Window: cron 2026-10-10 02:10 (trace `cron-agent-loop-202610100210`, Job 362852, ONE ping). Bed rolls to **1/5 = the ceremony's eighteenth performance** (five-window cadence: t765 十三 / t774 十四 / t780 十五 / t785 十六 / t790 十七 / **t795 十八**), non-build day (**available 2968MB < 3280MB** — the grand flip, now four windows staged, keeps waiting for memory), server 200, HEAD `896fd82`, drift-free start (the tail was t794, written by this same session last window; no summary drift this time — the chain held for one full rotation).
+
+**The choreography, followed from t790's seventeenth performance**:
+- **world-guard triptych**: `qa-t531 --check` **CHECK PASS** (3 entries, pose vec3s + radius aboard, thumbs honest data-URL rasters, one slice + one clip view); `t251-guard-sweep` **changed = 空** (13 output directories all in-place); `build-guard` **SKIP** (standalone on disk = the frozen bundle intact).
+- **seeder first** (idempotent): SEED OK → reload → rehydrate → the wall reads canon 3 verbatim in the DOM before a single finger moves.
+- **the UI-driven regrowth loop (triple confirmation, eighteenth performance)**: Workflow canvas → refine3d card (ref click, the no-drift channel) → inspector opens with Results naturally selected → **Enlarge run_it020_half2** (the 17th performance's own ref) → the half2 dialog IS the 3D viewer (a small dialect note: the "View in 3D (Mol*)" button opens the enlarged-map dialog wearing the full viewer chrome — σ gates, Slice, Clip, the bookmark door — there is no separate Mol* dialog) → **the door reads "Camera view bookmarks — 3 saved"** (the seeder reset visible in the DOM) → open door → placeholder **"Name view 4…"** (the door counts aloud) → fill "t795 ceremony 18th view" → **Save hits on the first stroke** → **the door reads "4 saved"** with the row, its Update and Delete buttons aboard → **t704 re-run 43→54 all green** (entries 3→4, +11 assertions for the one grown view) → **the dashboard wall card "t795 ceremony 18th view 2.00 σ" present** (`t795-wall-18th-entry.png`) → **Escape three-layer exit: dialogs=0, popovers=0**.
+- **the in-window self-clean (new this performance)**: the growth was spent IN the window — seeder re-run (SEED OK + CHECK PASS), t704 back at **43/0** (3 entries), the browser mirror re-hydrated to canon verbatim (three delete-button labels byte-for-byte), zero page errors. No "下窗复位" debt left on the ledger — the t793 scar taught the difference between a growth that proves a loop and a mutation that needs a restore; the ceremony now pays its own census bill before closing.
+- **the fleet**: **71/71 green** (71 units, t792/t793/t794 probes aboard and all passing on the frozen world).
+- **tsc 0 + eslint 0** (src-wide double zero).
+- **staged three-evidence**: BUILD_ID `xjDBTTFWsGpNmNM8SKKGj` unchanged; chunks carry ZERO t795 word-forms (`t795`, `18th view`); t791's `gallery-reset-filters` still rides chunk `9e7fc087` — the live world remains the t791 build, and ALL staged cures (t792's 32 dialog homes + t793's 7 alert + 4 sheet + the confirm + t794's relay and broadcast) still wait for the one build that flips them.
+- **census**: zero new routes (page.tsx constant 1) / zero seeds (the growth was the ceremony's instrument, spent in-window — the ledger reads 3, the seed's own shape) / zero bookmark NET (3 → 4 → 3, names verbatim). Receipts: `t795-ceremony-patrol.png` + `t795-wall-18th-entry.png` in shots-qa. Two-car commit follows (qa + docs; ceremony windows carry no feat car — the t774/t785/t790 precedent) — the only artifacts are the two ceremony screenshots.
+
+Judge-lines:
+- **「仪式即复活练习」**: the eighteenth performance re-proved the whole resurrection chain in miniature — seeder → rehydrate → UI regrowth → census → self-clean — the loop that carried the world through its real death (t791) now rehearsed on a healthy world, in one window, with zero debt.
+- **「门会宣数，墙会作证」**: the bookmark door counted 3 → placeholder 4 → saved 4; the dashboard wall carried the new card with its σ chip. Two independent surfaces, one truth, the census probe (t704) counting 54 assertions over 4 entries — three witnesses, no disagreement.
+- **「演出自清账」**: the seventeenth performance left its growth for the next window's seeder; the eighteenth pays the census bill before the curtain — the scar-driven dialect (t793's incident) is now ceremony law.
+
+Next-window entry (t796):
+1. bed **2/5** regular surgery; build-day bill (if memory ≥ 3280MB) — THE GRAND FLIP (t780~t789 verdicts + t792 32 dialog homes + t793 alert/sheet/confirm + t794 relay/broadcast), fleet as the gate, plus the relay's live end-to-end verdict (grow temp → confirm → YES → focus on the neighbour's X).
+2. non-build-day candidates: the t501 companion-yield × non-modal close chain (the layer's preventDefault composing with Radix's hasInteractedOutsideRef); header count chip ↔ lens bookkeeping (t782 candidate A, sixth window standing); the palette's own row-delete focus relay (the sixth family's palette sibling).
+3. census rotation: zero new routes / zero seeds / zero bookmark net.
+
+Ledger: fleet 71/71, tsc 0 eslint 0, world-guard triptych (CHECK PASS / changed 空 / build SKIP), t704 43/0 → 54/0 → 43/0 (the growth's full arc witnessed in one window), staged three-evidence (BUILD_ID unchanged, chunks zero t795 word-forms), census triptych clean (net 0, self-paid), t795-ceremony-patrol.png + t795-wall-18th-entry.png in shots-qa, worklog this entry. Two-car commit: qa(t795 ceremony receipts) -> docs(worklog).
