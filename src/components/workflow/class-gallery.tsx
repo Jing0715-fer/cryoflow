@@ -34,7 +34,7 @@
  * types keep the bare word (the gate closes on pouring).
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Bot,
@@ -452,6 +452,7 @@ export function ClassGallery({
   // clears its state (and the store field) through the consumed callback.
   useEffect(() => {
     if (focusClass == null) return;
+    trackLightboxReturn(focusClass);
     setZoom(focusClass);
     setFocusNote(true);
     onClassFocusConsumed?.();
@@ -475,13 +476,68 @@ export function ClassGallery({
    * gesture. */
   const cardRefs = useRef(new Map<number, HTMLButtonElement>());
   const [activeCls, setActiveCls] = useState<number | null>(null);
+  // t791 — the relay's third family. The grid keeps a WITNESS of where the
+  // keyboard last parked (the roving toggle's cls + its index in visible);
+  // the lightbox keeps a RETURN POCKET of the card it was opened on. When a
+  // card the keyboard holds vanishes (a kept-only discard, a shrinking
+  // iteration, a filter combination) or the lightbox closes, the pocket
+  // spends once and the card's index-neighbour inherits focus — never body.
+  const lastFocusedCellRef = useRef<{ cls: number; idx: number } | null>(null);
+  const lightboxReturnRef = useRef<{ cls: number; idx: number } | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  // the landing: the card now occupying the vanished card's index (t788's
+  // min(idx, len-1) math, grid dialect), or the inline reset button when a
+  // filter combination emptied the world.
+  const handFocusBackToGrid = useCallback(
+    (idx: number) => {
+      const tenant = visible[Math.min(idx, visible.length - 1)];
+      if (tenant) {
+        setActiveCls(tenant.cls);
+        const el = cardRefs.current.get(tenant.cls);
+        el?.focus({ preventScroll: true });
+        el?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        return;
+      }
+      gridRef.current
+        ?.querySelector<HTMLButtonElement>('[data-canvas-ui="gallery-reset-filters"]')
+        ?.focus();
+    },
+    [visible],
+  );
+  // the pocket writer — every door into the lightbox records where to come
+  // home to, and ← / → inside the lightbox move the home address with them
+  const trackLightboxReturn = (cls: number) => {
+    lightboxReturnRef.current = { cls, idx: visible.findIndex((v) => v.cls === cls) };
+  };
+  // the witness: only the roving toggles speak for the grid (the zoom/note
+  // affordances are transient doors, not addresses); a blur whose
+  // relatedTarget left the container means the keyboard left VOLUNTARILY —
+  // the witness stands down so a filter click never steals focus back
+  const onGridFocusCapture = (e: React.FocusEvent<HTMLDivElement>) => {
+    const m = ((e.target as HTMLElement).getAttribute("aria-label") ?? "").match(/^Toggle class (\d+)/);
+    if (!m) return;
+    const cls = Number(m[1]);
+    lastFocusedCellRef.current = { cls, idx: visible.findIndex((v) => v.cls === cls) };
+  };
+  const onGridBlurCapture = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) lastFocusedCellRef.current = null;
+  };
   useEffect(() => {
+    // t791 — when the card the KEYBOARD was parked on vanishes, the witness
+    // spends itself once (cleared before the hand-off) and the neighbour
+    // inherits focus; otherwise the roving anchor self-heals silently
+    const witness = lastFocusedCellRef.current;
+    if (witness != null && witness.idx >= 0 && !visible.some((v) => v.cls === witness.cls)) {
+      lastFocusedCellRef.current = null;
+      handFocusBackToGrid(witness.idx);
+      return;
+    }
     // the active card may vanish (kept-only toggle, sort switch, new data)
     // — re-anchor the roving anchor to the first visible card
     if (activeCls != null && !visible.some((v) => v.cls === activeCls)) {
       setActiveCls(visible[0]?.cls ?? null);
     }
-  }, [visible, activeCls]);
+  }, [visible, activeCls, handFocusBackToGrid]);
   const KEY_TO_DIR: Record<string, GridDir> = {
     ArrowRight: "right",
     ArrowLeft: "left",
@@ -532,6 +588,7 @@ export function ClassGallery({
   const stepZoom = (dir: 1 | -1) => {
     if (zoomIdx < 0 || visible.length === 0) return;
     const next = visible[(zoomIdx + dir + visible.length) % visible.length];
+    trackLightboxReturn(next.cls);
     setZoom(next.cls);
   };
 
@@ -965,10 +1022,13 @@ export function ClassGallery({
           aspect-square image stage + the one-line footer (loaded, failed
           or placeholder — same box, same row height). */}
       <div
+        ref={gridRef}
         data-canvas-ui="class-grid"
         role="listbox"
         aria-label="Class selection grid — arrow keys move between classes, Enter toggles"
         onKeyDown={onGridKeyDown}
+        onFocusCapture={onGridFocusCapture}
+        onBlurCapture={onGridBlurCapture}
         className={cn("grid grid-cols-2 gap-2 p-2 sm:grid-cols-3")}
         style={{ maxHeight: "26rem", overflowY: "auto" }}
       >
@@ -981,6 +1041,7 @@ export function ClassGallery({
             No classes match the current filter combination —{" "}
             <button
               type="button"
+              data-canvas-ui="gallery-reset-filters"
               onClick={() => {
                 setKeptOnly(false);
                 setNotedOnly(false);
@@ -1094,6 +1155,7 @@ export function ClassGallery({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                trackLightboxReturn(c.cls);
                 setZoom(c.cls);
               }}
               aria-label={`Zoom class ${c.cls} — inspect the average full size`}
@@ -1123,6 +1185,7 @@ export function ClassGallery({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                trackLightboxReturn(c.cls);
                 setZoom(c.cls);
                 setFocusNote(true);
               }}
@@ -1187,6 +1250,28 @@ export function ClassGallery({
           className="max-w-2xl gap-0 overflow-hidden p-0"
           onKeyDown={onLightboxKey}
           aria-describedby={undefined}
+          onCloseAutoFocus={(e) => {
+            // t791 — the lightbox was born without a trigger: Radix's close
+            // chain has nothing to hand the keyboard back to (measured BODY
+            // on every exit, Escape included). The pocket spends once —
+            // cleared before the focus moves — and the keyboard returns to
+            // the card the lightbox was inspecting, or, when that card was
+            // discarded while kept-only was on, to its index-neighbour.
+            const pocket = lightboxReturnRef.current;
+            lightboxReturnRef.current = null;
+            if (!pocket) return;
+            e.preventDefault();
+            if (visible.some((v) => v.cls === pocket.cls)) {
+              const el = cardRefs.current.get(pocket.cls);
+              if (el) {
+                setActiveCls(pocket.cls);
+                el.focus({ preventScroll: true });
+                el.scrollIntoView({ block: "nearest", inline: "nearest" });
+                return;
+              }
+            }
+            handFocusBackToGrid(pocket.idx);
+          }}
         >
           {zoomClass && (
             <>
