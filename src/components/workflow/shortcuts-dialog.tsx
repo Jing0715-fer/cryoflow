@@ -168,8 +168,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   },
   {
     // t780 — the engine log's reading face became a focusable scroll
-    // region and its legend hints the keys; a face no row names is the
-    // t641 drift again (a live key with no row is a drift).
+    // region and its legend hints the keys; a face no row names is
+    // the t641 drift again (a live key with no row is a drift).
     id: "log-console",
     label: "Log console",
     hint: "Inside the job inspector's Log tab — reading has its own keys",

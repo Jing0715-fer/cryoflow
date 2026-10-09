@@ -618,9 +618,9 @@ function LogConsole({
   // NATIVE (the platform's scroll on a focused container is the right
   // gesture, no interception) — and both the native scrolls and these
   // jumps feed the SAME onScroll law above: landing at the tail re-arms
-  // follow, leaving it dis-arms. No second follow system — the keyboard
-  // rides the wheel's law. The filter input lives in the toolbar outside
-  // this element, so typing never meets this handler.
+  // follow, leaving it dis-arms. No second follow system — the
+  // keyboard rides the wheel's law. The filter input lives in the
+  // toolbar outside this element, so typing never meets this handler.
   const onLogKeyDown = (e: React.KeyboardEvent) => {
     const el = scrollRef.current;
     if (!el) return;
