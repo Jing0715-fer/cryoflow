@@ -94,8 +94,14 @@ console.log("A — one book (the import merges, ONE ask, THREE seats)");
   );
   const helperCount = (code.match(/function StoragePours\(/g) ?? []).length;
   assert(helperCount === 1, "A7 exactly one helper (one ask, the unification's engine)", `found ${helperCount}`);
+  // t769 honest repair 3->4: the graveyard drawer's type chip is the
+  // helper's FOURTH seat — the promise seat's fifth face (the Restore
+  // door's "wires re-attach" is the sentence, the water its color-face);
+  // the helper's birth condition confirmed again (seats repeat, the ask
+  // does not). The count was counted BEFORE the seat was written; this
+  // anchor is the repair, not a guess.
   const seatCount = (code.match(/<StoragePours type=/g) ?? []).length;
-  assert(seatCount === 3, "A8 exactly three seats (every word-form speaks in one window)", `found ${seatCount}`);
+  assert(seatCount === 4, "A8 exactly four seats (t769: the graveyard chip joins — one ask, four word-forms)", `found ${seatCount}`);
 }
 
 console.log("B — live-fire (40 types, zero ghosts, real ink)");
