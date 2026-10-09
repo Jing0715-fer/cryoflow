@@ -1591,6 +1591,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const renameCancelRef = useRef(false);
+  // t788 — a deleted or renamed row hands the keyboard to its neighbor, never to body.
+  const pendingFocusRef = useRef<{ idx: number } | null>(null);
+  const bmListRef = useRef<HTMLDivElement | null>(null);
   // import preview dialog — files are parsed up front and shown as a
   // checklist (thumb / name / optics chips / pose-only badge) instead of
   // being merged sight unseen. Sources are MIXABLE: several JSON files and
@@ -1893,8 +1896,14 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
   }, [phase, jobId]);
 
-  const removeBookmark = (id: string) =>
+  const removeBookmark = (id: string) => {
+    // t788 — focus continuity: record the doomed row's index BEFORE the
+    // commit, so the handoff effect can land the keyboard on the neighbor.
+    const idx = bookmarksRef.current.findIndex((x) => x.id === id);
+    pendingFocusRef.current = { idx };
+    if (renamingId === id) setRenamingId(null); // deleting the renaming row drops its editor
     commitBookmarks(bookmarksRef.current.filter((x) => x.id !== id));
+  };
 
   /** small JPEG snapshot of the current frame for the bookmark list —
    *  a contact sheet beats names alone when you saved 8 angles. Composited
@@ -2015,6 +2024,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
    *  can never double-commit or double-toast */
   const commitRename = () => {
     const id = renamingId;
+    // t788 — every exit (commit, cancel, untouched) hands the keyboard back
+    // to the row: the editor unmounts, and without the handoff focus falls
+    // to body mid-popover.
+    if (id) pendingFocusRef.current = { idx: bookmarksRef.current.findIndex((x) => x.id === id) };
     setRenamingId(null);
     if (!id || renameCancelRef.current) {
       renameCancelRef.current = false;
@@ -2034,6 +2047,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     setRenameDraft(b.name);
     setRenamingId(b.id);
   };
+
+  // t788 — the handoff lands after the DOM commits: neighbor row first, name field when the list emptied.
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    pendingFocusRef.current = null;
+    const rows = bmListRef.current?.querySelectorAll<HTMLDivElement>(":scope > div") ?? [];
+    const row = pending.idx >= 0 ? rows[Math.min(pending.idx, rows.length - 1)] : undefined;
+    const target = (row?.querySelector("button") as HTMLButtonElement | undefined)
+      ?? bmListRef.current?.closest('[data-canvas-ui="camera-bookmarks"]')
+        ?.querySelector<HTMLInputElement>("input[maxlength]");
+    target?.focus();
+  }, [bookmarks, renamingId]);
 
   /** the optical annotation trio — shared by bookmark rows and the import
    *  preview dialog (same language in both places) */
@@ -6461,7 +6487,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   </span>
                 </p>
               )}
-              <div className="mt-1.5 max-h-44 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
+              <div ref={bmListRef} className="mt-1.5 max-h-44 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
                 {bookmarks.length === 0 ? (
                   <p className="px-1 py-2 text-center text-[10px] text-muted-foreground">
                     No bookmarks yet — set up a view, then save it (or press B to quick-save the current angle).
