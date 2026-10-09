@@ -887,6 +887,26 @@ function SavedViewsGallery() {
         body: JSON.stringify({ bookmarks: rest }),
       });
       if (!w.ok) throw new Error(`write ${w.status}`);
+      // t794 — the sixth family: the wall's DELETE RELAY (the t791 law in
+      // wall dialect). The t793 confirm's hand-back returns focus to the
+      // very X that opened the question — and then THAT X's row unmounts,
+      // and focus falls to BODY: the live world judged it (a temp view
+      // deleted under a parked keyboard, focus read on BODY). Compute the
+      // landing from the PRE-delete closure: the card now occupying the
+      // vanished card's slot (t788's min-math — the next sibling shifts
+      // into place; the LAST visible card's delete hands to the previous),
+      // on the SAME mouth — the X — so a delete spree stays a spree (an
+      // accidental Enter opens the confirm, whose Cancel is the default:
+      // the friction survives the relay).
+      const pos = wall.findIndex((x) => x.b.id === b.id);
+      const flatAfter: typeof flat = [];
+      for (const row of views) {
+        const rest = row.bookmarks.filter((x) => x.id !== b.id);
+        for (const bb of rest) flatAfter.push({ v: row, b: bb });
+      }
+      const wallAfter = showAllViews ? flatAfter : flatAfter.slice(0, WALL_CAP);
+      const landing = pos >= 0 ? (wallAfter[pos] ?? wallAfter[pos - 1] ?? null) : null;
+      const dissolved = pos >= 0 && wallAfter.length === 0;
       setViews(
         (prev) =>
           prev
@@ -897,9 +917,45 @@ function SavedViewsGallery() {
             )
             .filter((row) => row.bookmarks.length > 0) ?? null
       );
+      // t670 symmetry, completed — the wall's own delete was the ONE
+      // mutation mouth that never broadcast (the palette's row delete
+      // tells the wall, the wall's rename tells everyone — but the
+      // wall's delete stayed silent, leaving the palette's rows and the
+      // viewer's door holding a stale copy until some unrelated mutation
+      // happened to refresh them). Every mouth speaks now; the wall's
+      // own listener re-reads fresh (the read-token guards the echo).
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
       toast({
         title: `View “${b.name}” deleted`,
         description: `Removed from ${v.jobName}'s saved views.`,
+      });
+      // the relay fires after the commit that unmounts the row — the
+      // landing card is the stable-keyed neighbour (its DOM node
+      // survives the shrink), so the query below always finds it.
+      requestAnimationFrame(() => {
+        if (landing) {
+          const el = document.querySelector<HTMLButtonElement>(
+            `[data-saved-view-card="${CSS.escape(landing.b.id)}"] [data-saved-view-delete]`
+          );
+          if (el) {
+            el.focus({ preventScroll: true }); // the t774 contract
+            el.scrollIntoView({ block: "nearest", inline: "nearest" }); // reachability
+            return;
+          }
+        }
+        if (dissolved) {
+          // the wall dissolved (the last bookmark of the last job went —
+          // the section unmounts entirely); focus continues in reading
+          // order at the successor section's first live control.
+          document
+            .querySelector<HTMLElement>("[data-saved-views-successor]")
+            ?.querySelector<HTMLElement>("button:not([disabled]), a[href]")
+            ?.focus({ preventScroll: true });
+        }
+        // a pos of -1 (the deleted card was not on the visible wall —
+        // an impossible world: the X only renders on visible cards)
+        // stays inert: no relay, no steal, focus keeps whatever the
+        // bridge left it.
       });
     } catch {
       toast({
@@ -1135,6 +1191,7 @@ function SavedViewsGallery() {
               </button>
               <button
                 type="button"
+                data-saved-view-delete={b.id}
                 onClick={() => setViewDeleteTarget({ v, b })}
                 disabled={busy}
                 aria-label={`Delete saved view “${b.name}”`}
@@ -3320,6 +3377,7 @@ export function ProjectDashboard() {
             sibling: views you hunted, presets you tuned). */}
         <div
           data-dash-enter
+          data-saved-views-successor
           style={{ "--dash-d": "380ms" } as React.CSSProperties}
           className="mt-6"
         >
