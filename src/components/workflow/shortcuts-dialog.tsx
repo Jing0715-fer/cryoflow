@@ -206,12 +206,23 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    id: "path-browser",
+    label: "Path browser",
+    hint: "Inside the file/folder picker — walk a 20,000-row listing without the mouse",
+    rows: [
+      { keys: "↑ ↓", text: "Move the listing's cursor — ArrowDown lands on row 0, ArrowUp on the last row" },
+      { keys: "Home End", text: "Jump the cursor to the first / last row — the windowed list scrolls to keep it visible" },
+      { keys: "Enter Space", text: "Open the cursor folder · pick or toggle the cursor file (read-only rows stay silent)" },
+    ],
+  },
+  {
     id: "touch",
     label: "Touch & pointer",
     rows: [
       { keys: "Long-press", text: "Hold empty canvas, then drag to box-select" },
       { keys: "Pinch", text: "Two fingers to zoom · trackpad pinch / ctrl-scroll" },
       { keys: "Right-click", text: "Quick-action menu on a card (run · duplicate · delete …)" },
+      { keys: "Menu ⇧F10", text: "The keyboard's right-click — the focused card's menu, or the canvas menu when the canvas holds the focus (since t783)" },
     ],
   },
 ];

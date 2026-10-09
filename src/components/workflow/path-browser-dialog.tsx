@@ -167,6 +167,16 @@ export function PathBrowserDialog({
   const LIST_OVERSCAN = 8;
   const listScrollRef = React.useRef<HTMLDivElement | null>(null);
   const [listScrollTop, setListScrollTop] = React.useState(0);
+  // t784 — the listing's keyboard cursor: ONE integer over whichever
+  // option list is live (roots in the roots view, entries in the folder
+  // view). The listbox pattern this dialog now speaks is the canonical
+  // aria-activedescendant walk: the container holds the focus (ONE tab
+  // stop for a 20,000-row listing — Tab can never walk a virtualized
+  // window honestly, the mounted rows change under the user), the arrows
+  // move the cursor, and aria-activedescendant names the focused option
+  // to assistive tech. The cursor is NOT DOM focus — it is the listbox's
+  // own truth, painted with a persistent tone and announced by id.
+  const [cursor, setCursor] = React.useState<number | null>(null);
 
   // navigating / filtering / reloading swaps the list under the scrollbar —
   // snap both the window math and the element itself back to the top
@@ -298,6 +308,92 @@ export function PathBrowserDialog({
   const pickFiles = () => {
     const list = Array.from(selected).sort();
     if (list.length > 0) pick(list.join("\n"));
+  };
+
+  // t784 — the listbox walk. `moveTo` clamps into the live option list and
+  // scrolls the cursor row into the viewport: the folder view's rows have
+  // the EXACT 30px pitch the window math already speaks (direct scrollTop —
+  // the same channel the virtualization reads, so the window slides before
+  // React re-renders), while the roots view's short grid borrows the
+  // element's own scrollIntoView after the cursor mounts.
+  const optionCount = inRootsView ? (data?.roots ?? []).length : visibleEntries.length;
+  const cursorOptionId =
+    cursor == null
+      ? undefined
+      : inRootsView
+        ? `pb-root-${cursor}`
+        : `pb-opt-${cursor}`;
+
+  // t784 — a swapped list invalidates the cursor: navigating, filtering,
+  // switching modes, or re-entering the roots view mounts a DIFFERENT
+  // option list, and a cursor pointing into the old one would name a row
+  // that no longer exists. Honest reset: the walk starts fresh.
+  React.useEffect(() => {
+    setCursor(null);
+  }, [cwd, activeMode, needle, inRootsView, open]);
+  const moveTo = (next: number) => {
+    if (optionCount === 0) return;
+    const clamped = Math.max(0, Math.min(optionCount - 1, next));
+    setCursor(clamped);
+    const el = listScrollRef.current;
+    if (!el) return;
+    if (inRootsView) {
+      // roots are few and unvirtualized — the element scrolls itself
+      requestAnimationFrame(() => {
+        document.getElementById(`pb-root-${clamped}`)?.scrollIntoView({ block: "nearest" });
+      });
+    } else {
+      const rowTop = clamped * LIST_ROW_PX;
+      if (rowTop < el.scrollTop) el.scrollTop = rowTop;
+      else if (rowTop + LIST_ROW_PX > el.scrollTop + LIST_VIEW_PX)
+        el.scrollTop = rowTop + LIST_ROW_PX - LIST_VIEW_PX;
+    }
+  };
+
+  // Enter/Space mirrors the ROW'S OWN CLICK, never the double-click: a
+  // cursor folder enters, a cursor file picks or toggles — and a read-only
+  // row (files listed under the folders tab) answers with an honest
+  // no-op, the same silence a pointer user gets clicking it.
+  const activateCursor = () => {
+    if (cursor == null) return;
+    if (inRootsView) {
+      const r = (data?.roots ?? [])[cursor];
+      if (r) setCwd(r.path);
+      return;
+    }
+    const e = visibleEntries[cursor];
+    if (!e) return;
+    if (e.dir) {
+      setCwd(currentPath ? `${currentPath.replace(/[\\/]$/, "")}/${e.name}` : e.name);
+    } else if (activeMode === "files" && e.abs) {
+      if (singleFile) pick(e.abs);
+      else toggleFile(e.abs);
+    }
+  };
+
+  // The container's key contract: arrows walk (ArrowDown from no cursor
+  // lands on row 0; ArrowUp lands on the last row — a walk must start
+  // somewhere), Home/End jump the ends, Enter/Space activate. preventDefault
+  // keeps the scroll container from eating the arrows and Space from
+  // scrolling the page — the walk owns its own scrolling.
+  const onListKeyDown = (ev: React.KeyboardEvent<HTMLDivElement>) => {
+    if (optionCount === 0) return;
+    if (ev.key === "ArrowDown") {
+      ev.preventDefault();
+      moveTo(cursor == null ? 0 : cursor + 1);
+    } else if (ev.key === "ArrowUp") {
+      ev.preventDefault();
+      moveTo(cursor == null ? optionCount - 1 : cursor - 1);
+    } else if (ev.key === "Home") {
+      ev.preventDefault();
+      moveTo(0);
+    } else if (ev.key === "End") {
+      ev.preventDefault();
+      moveTo(optionCount - 1);
+    } else if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      activateCursor();
+    }
   };
 
   const displayedMode = activeMode;
@@ -466,9 +562,27 @@ export function PathBrowserDialog({
         <div
           ref={listScrollRef}
           onScroll={(ev) => setListScrollTop(ev.currentTarget.scrollTop)}
-          className="h-72 overflow-y-auto rounded-lg border"
+          // t784 — the listbox IS the scroll container now: one tab stop
+          // holds the focus for the whole listing (virtualization can't
+          // honor a per-row tab walk — the mounted rows change under the
+          // user), the arrows walk the cursor, and aria-activedescendant
+          // announces the focused option without moving DOM focus. The
+          // label follows the view honestly — roots, folder contents, or
+          // selectable files — never one word for three different lists.
+          role="listbox"
+          tabIndex={0}
+          aria-activedescendant={cursorOptionId}
+          aria-label={
+            inRootsView
+              ? "Filesystem roots"
+              : activeMode === "files"
+                ? "Files in this folder"
+                : "Folder contents"
+          }
+          onKeyDown={onListKeyDown}
+          className="h-72 overflow-y-auto rounded-lg border outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
         >
-          <div role="listbox" aria-label="Folders" className="p-1">
+          <div role="presentation" className="p-1">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -480,13 +594,20 @@ export function PathBrowserDialog({
             )}
             {!loading && !error && inRootsView && (
               <div className="grid-cols-[minmax(0,1fr)] grid gap-0.5">
-                {(data?.roots ?? []).map((r) => (
+                {(data?.roots ?? []).map((r, idx) => (
                   <button
                     key={r.path}
                     type="button"
                     role="option"
+                    id={`pb-root-${idx}`}
                     aria-selected={false}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60"
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60",
+                      // t784 — the cursor row's persistent tone: hover paints
+                      // the pointer's candidate, this paints the keyboard's —
+                      // same family, one shade firmer so both can coexist
+                      cursor === idx && "bg-secondary/70 hover:bg-secondary/70"
+                    )}
                     onDoubleClick={() => setCwd(r.path)}
                     onClick={() => setCwd(r.path)}
                   >
@@ -539,11 +660,15 @@ export function PathBrowserDialog({
                       key={`${e.name}-${rowIdx}`}
                       type="button"
                       role="option"
+                      id={`pb-opt-${rowIdx}`}
                       aria-selected={false}
                       aria-posinset={rowIdx + 1}
                       aria-setsize={visibleEntries.length}
                       title={e.name}
-                      className="mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60"
+                      className={cn(
+                        "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
+                        cursor === rowIdx && "bg-secondary/70 hover:bg-secondary/70"
+                      )}
                       onDoubleClick={() =>
                         setCwd(currentPath ? `${currentPath.replace(/[\\/]$/, "")}/${e.name}` : e.name)
                       }
@@ -561,6 +686,7 @@ export function PathBrowserDialog({
                       key={`${e.name}-${rowIdx}`}
                       type="button"
                       role="option"
+                      id={`pb-opt-${rowIdx}`}
                       aria-selected={singleFile ? false : selected.has(e.abs)}
                       aria-posinset={rowIdx + 1}
                       aria-setsize={visibleEntries.length}
@@ -570,7 +696,11 @@ export function PathBrowserDialog({
                         "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
                         singleFile
                           ? "hover:bg-primary/10"
-                          : selected.has(e.abs) && "bg-primary/10 hover:bg-primary/15"
+                          : selected.has(e.abs) && "bg-primary/10 hover:bg-primary/15",
+                        // t784 — the cursor tone rides UNDER the selection
+                        // wash (selected wins the face; the cursor still
+                        // announces itself via activedescendant)
+                        cursor === rowIdx && !selected.has(e.abs) && "bg-secondary/70 hover:bg-secondary/70"
                       )}
                       onClick={() =>
                         singleFile
@@ -599,13 +729,15 @@ export function PathBrowserDialog({
                     <div
                       key={`${e.name}-${rowIdx}`}
                       role="option"
+                      id={`pb-opt-${rowIdx}`}
                       aria-selected={false}
                       aria-posinset={rowIdx + 1}
                       aria-setsize={visibleEntries.length}
                       title={e.name}
                       className={cn(
                         "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-xs text-muted-foreground",
-                        e.img && "text-foreground/90"
+                        e.img && "text-foreground/90",
+                        cursor === rowIdx && "bg-secondary/70 text-foreground/80"
                       )}
                     >
                       {e.img ? (
