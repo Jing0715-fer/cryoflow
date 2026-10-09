@@ -295,11 +295,19 @@ export function HpcProfilesEditor({
           <Settings2 className="size-4" aria-hidden="true" />
         </Button>
       </DialogTrigger>
+      {/* t811 — the census's PARTIAL rider dressed (the t804 dialect, the
+          family's own cap kept): the card rode the primitive's default
+          cap-and-scroll, so on short viewports the CARD scrolled and the
+          header drifted away with it. Now the card never scrolls — the
+          header and the footer are pinned, and the two columns keep their
+          own 56vh grounds (the list's and the editor's); the editor column
+          is a named keyboard region so its ground is reachable without a
+          mouse. */}
       <DialogContent
-        className="max-w-4xl"
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 max-w-4xl"
         onKeyDown={onEscapeClose(() => setOpen(false))}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0 border-b px-5 pb-4 pt-5">
           <DialogTitle className="flex items-center gap-2">
             <SlidersHorizontal className="size-4 text-primary" aria-hidden="true" />
             Cluster profiles
@@ -321,20 +329,20 @@ export function HpcProfilesEditor({
         </DialogHeader>
 
         {loading ? (
-          <div className="flex h-64 items-center justify-center text-muted-foreground">
+          <div className="flex h-64 shrink-0 items-center justify-center px-5 text-muted-foreground">
             <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> Loading registry…
           </div>
         ) : (
-          <div className="flex min-h-0 gap-4">
+          <div className="flex min-h-0 flex-1 gap-4 px-5 py-4">
             {/* ---------------- left rail: the registry list ---------------- */}
             <div className="flex w-56 shrink-0 flex-col gap-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex shrink-0 items-center justify-between">
                 <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Registry
                 </h4>
                 <span className="text-[10px] text-muted-foreground/70">{profiles.length}</span>
               </div>
-              <div className="max-h-[56vh] space-y-1 overflow-y-auto pr-0.5" role="list" aria-label="Profile list">
+              <div className="min-h-0 max-h-[56vh] flex-1 space-y-1 overflow-y-auto pr-0.5" role="list" aria-label="Profile list">
                 {/* a11y: the LIST ITEM is the wrapper (role=listitem), the
                     BUTTON keeps its native role — aria-pressed is a button
                     attribute, and a role=listitem button both loses its own
@@ -374,7 +382,7 @@ export function HpcProfilesEditor({
                   </div>
                 ))}
               </div>
-              <div className="flex gap-1.5">
+              <div className="flex shrink-0 gap-1.5">
                 <Button
                   variant="outline"
                   size="sm"
@@ -400,7 +408,16 @@ export function HpcProfilesEditor({
 
             {/* ---------------- right: the selected profile's form ---------------- */}
             {selected ? (
-              <div className="min-w-0 flex-1 space-y-4 overflow-y-auto pr-1" style={{ maxHeight: "56vh" }}>
+              /* the census's named law: the editor column's ground keeps
+                 its 56vh cap and gains the keyboard door — a named region
+                 with the inset ring, so the form scrolls without a mouse */
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Profile editor — the selected profile's identity, connection, resources, and environment"
+                className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+                style={{ maxHeight: "56vh" }}
+              >
                 <div className="space-y-3">
                   <SectionTitle>Identity</SectionTitle>
                   <div className="grid grid-cols-5 gap-3">
@@ -620,12 +637,12 @@ export function HpcProfilesEditor({
         )}
 
         {error ? (
-          <div className="rounded-md border border-danger-500/30 bg-danger/[0.06] p-2.5 text-xs text-danger" role="alert">
+          <div className="mx-5 shrink-0 rounded-md border border-danger-500/30 bg-danger/[0.06] p-2.5 text-xs text-danger" role="alert">
             {error}
           </div>
         ) : null}
 
-        <DialogFooter className="flex items-center gap-2 sm:justify-between">
+        <DialogFooter className="flex shrink-0 items-center gap-2 border-t px-5 pb-4 pt-3 sm:justify-between">
           <Button
             variant="ghost"
             size="sm"
