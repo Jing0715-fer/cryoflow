@@ -50,6 +50,7 @@ const EXEMPT_ROW_PATTERNS = [
   { f: "src/components/workflow/find-mark.tsx", re: /FIND_MARK_CLASS = |rounded-\[2px\] bg-amber-400\/35/, note: "find-lens character wash (t655; t725: moved to find-mark.tsx when the palette joined the wash — t720's law, third execution) — the hit ring's own amber, same search identity" },
   { f: "src/components/workflow/param-dialect-badge.tsx", re: /bg-amber-400\/35/, note: "dialect chip amber (t722; t725 exemption judgment: the badge-is-the-why hue is identity, not field) — same search identity as the wash" },
   { f: "src/components/workflow/job-inspector.tsx", re: /whyHit && "rounded-md bg-amber-500\/5/, note: "param-why hit row whisper (t728) — the find lens's amber at whisper volume, the value row the t722 dialect's why points at; same search identity as the wash/ring" },
+  { f: "src/components/workflow/canvas-find-bar.tsx", re: /border-amber-500\/40 bg-amber-500\/5/, note: "the noted chip's active wash (t782) — the judgment gate as a queryable ring, the SAME search identity the t728 whisper row and the t722 badge wear; the find lens's amber, never a second dialect" },
   { f: "src/components/workflow/header.tsx", re: /=== "rose" \? "bg-rose-500"/, note: "elsewhere group dot hue ternary — group identity (t649 row-exempt precedent)" },
   { f: "src/components/workflow/engine-guidance.tsx", re: /border-teal-500 bg-teal-500/, note: "engine selector checked face — selection identity (t647 class-gallery verdict family)" },
 ];

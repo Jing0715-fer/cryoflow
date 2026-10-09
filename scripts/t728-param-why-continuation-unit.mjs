@@ -70,15 +70,18 @@ must(!/parseParamQuery|split\(":"\)|paramValueText/.test(insp),
 }
 {
   // gate order inside the memo: findOpen → full jobMatchesFind → param-only
+  // (t782 bookkeeping: the gate grew the noted rung — the anchor follows
+  // the contract's new word form, the t776 lesson)
   const memoAt = insp.indexOf("const paramWhy = React.useMemo(");
   const openAt = insp.indexOf("if (!findOpen || !findQuery.trim()) return null;", memoAt);
-  const gateAt = insp.indexOf("if (!jobMatchesFind(job, findQuery, findStatus, findCategory)) return null;", memoAt);
+  const gateAt = insp.indexOf("if (!jobMatchesFind(job, findQuery, findStatus, findCategory, findNoted)) return null;", memoAt);
   const srcAt = insp.indexOf('why && why.source === "param" ? why : null', memoAt);
   must(memoAt !== -1 && openAt !== -1 && openAt < gateAt && gateAt < srcAt,
     "A the gate order is findOpen → full gate → param-only (canvas's line-for-line mirror)",
     `open@${openAt - memoAt} gate@${gateAt - memoAt} src@${srcAt - memoAt}`);
-  // canvas's own matched-set memo uses the same full-gate call
-  must(canvas.includes("jobMatchesFind(j, findQuery, findStatus, findCategory)"),
+  // canvas's own matched-set memo uses the same full-gate call (t782: the
+  // noted rung rides in every consumer)
+  must(canvas.includes("jobMatchesFind(j, findQuery, findStatus, findCategory, findNoted)"),
     "A canvas's matched set and the grid read the same gate call");
 }
 
