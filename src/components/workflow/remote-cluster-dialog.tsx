@@ -1909,10 +1909,21 @@ export function RemoteClusterDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[85vh] overflow-y-auto sm:max-w-5xl"
+        className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
       >
-        <DialogHeader>
+        {/* t808 — the house dialect reaches the remote manager (the
+            family's next batch): the DialogContent WAS the scroll surface
+            (the t383 default overflow-y-auto rode on, Radix pins the
+            dialog to tabIndex=-1, and everything between the header's
+            last tabbable and the editor's first was keyboard-unreachable
+            — the t804 six-house verdict, one more face). The shape: flex
+            col + gap-0 + overflow-hidden + p-0, the header pinned, and
+            ONE inner region carrying the stop + the honest name + the
+            inset ring; role=dialog kept (the t799 third-family law). The
+            two inner grounds (the list's 54vh scroll, the editor's 60vh)
+            keep their own scrolls — one law per window. */}
+        <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2">
             <Network className="size-4 text-primary" aria-hidden="true" />
             Remote clusters (SSH)
@@ -1929,6 +1940,12 @@ export function RemoteClusterDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Remote cluster manager — the connection list and the selected editor"
+          className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
         <div className="flex min-h-0 flex-col gap-4 sm:flex-row">
           {/* ---------------- left rail: the connection list ---------------- */}
           <div className="flex w-full shrink-0 flex-col gap-1.5 sm:w-60">
@@ -2055,6 +2072,7 @@ export function RemoteClusterDialog({
               </div>
             )}
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>

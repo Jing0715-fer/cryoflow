@@ -147,10 +147,17 @@ export function HpcSbatchDialog({
       </DialogTrigger>
       ) : null}
       <DialogContent
-        className="max-w-3xl"
+        className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
         onKeyDown={onEscapeClose(() => setOpen(false))}
       >
-        <DialogHeader>
+        {/* t808 — the house dialect, second face of the batch: the
+            DialogContent rode the t383 default cap (max-h +
+            overflow-y-auto — the body WAS the scroll surface, the Radix
+            pin made the middle unreachable); same cure, the card keeps
+            its width (sm:max-w-3xl), the script <pre> keeps its own
+            max-h-80 ground, the Gantt keeps its own. One law per
+            window. */}
+        <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2">
             <Server className="size-4 text-primary" aria-hidden="true" />
             Slurm submission · {data?.jobName ?? "…"}
@@ -162,6 +169,12 @@ export function HpcSbatchDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Slurm sbatch workspace — the profile row, the generated script, and the scheduling projection"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
         <div className="flex flex-wrap items-center gap-2">
           <Select value={profileId} onValueChange={setProfileId}>
             <SelectTrigger className="h-8 w-64 text-xs" aria-label="Cluster profile">
@@ -226,6 +239,7 @@ export function HpcSbatchDialog({
             projection (KPI band + Gantt), prefilled from the selected
             profile's node shape. Project-wide by contract. */}
         <HpcQueueSim gpusPerNode={profiles.find((p) => p.id === profileId)?.gpusPerNode} />
+        </div>
       </DialogContent>
     </Dialog>
   );
