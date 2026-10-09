@@ -128,13 +128,28 @@ const f = slice(molstar, "t803 — the views-found group", "importGroups.map");
 ok(f.includes("tabIndex={0}") && f.includes('role="group"'), "F1 the group's stop, role kept");
 ok(f.includes('aria-label="Views found across all sources"'), "F2 the group's name kept");
 ok(f.includes("focus-visible:ring-2"), "F3 the group's ring");
-ok(f.includes("pointer-faces") && f.includes("t784"), "F4 the row-face debt named, not cured");
+/* F4 AMENDED t806 — the audit re-walked the debt: the entry rows are
+ * label+Checkbox pairs (the native form face), no div-click debt ever
+ * lived here; the old note is retired by evidence. The slice's anchor
+ * word "pointer-faces" is gone from the source, so the assert now
+ * speaks the retirement itself. */
+ok(
+  f.includes("t806") && f.includes("retired by evidence") && !f.includes("pointer-faces"),
+  "F4 the row-face note stands RETIRED BY AUDIT — the rows are label+Checkbox pairs, the native form face (t806)",
+);
 
 /* G — the workspace ground (anchor from the ternary's parens) */
 const g = slice(workspace, ") : (", "workspaces.map");
 ok(g.includes("tabIndex={0}") && g.includes('aria-label="Workspaces"'), "G1 the ground's stop + name");
 ok(g.includes("focus-visible:ring-inset"), "G2 the ground's inset ring (edge-to-edge)");
-ok(g.includes("pointer-faces") && g.includes("t784"), "G3 the row-face debt named, not cured");
+/* G3 AMENDED t806 — the audit re-walked the debt: the rows carry
+ * role=button + Enter/Space since the architecture landed; the real
+ * residue was the INVISIBLE focus, cured this window (the row now wears
+ * the card family's focus ring — asserted in the t806 probe). */
+ok(
+  g.includes("t806 audit") && !g.includes("pointer-faces"),
+  "G3 the row-face note stands RETIRED BY AUDIT — the rows had their keyboard face all along; the residue was the invisible focus, cured t806",
+);
 
 /* H — the particle stack */
 const h = slice(particle, "t803 — the groups' stack", "data.groups.map");
@@ -195,7 +210,7 @@ ok(
   !assistant.includes("aria-activedescendant") &&
     !workspace.includes("RovingFocusGroup") &&
     !particle.includes("RovingFocusGroup"),
-  "L2 no roving machinery crept in (the pointer-face rows are the t784 family's, not this law's)");
+  "L2 no roving machinery crept in (the pointer rows keep their own faces — audited t806, no roving needed)");
 ok(
   (diff.match(/role="region"/g) || []).length === 1,
   "L3 the region role granted exactly once in the batch (the diff table) — lists and groups keep their own semantics",
