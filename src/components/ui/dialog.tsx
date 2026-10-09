@@ -312,6 +312,24 @@ function getDialogFocusLayer(): DialogFocusLayer | null {
       // parks focus on content/buttons at open and every Tab after; none
       // of it is an opener address.
       if (target.closest(SIBLING_SURFACE_SELECTOR)) return
+      // t796 — the live zones are not the outside world: focus landing in
+      // a companion window (typing in the AI assistant) or on a summon
+      // door (the header's AI button) while a dialog is open is a GLANCE,
+      // not a voluntary exit — the t501 contract makes companion
+      // interactions exempt from the outside world's judgments ("focus,
+      // typing, dragging in the companion work"), and the return address
+      // must survive the glance, or Escape lands nobody: the pocket is
+      // already spent, the family's BODY disease reborn through the
+      // companion door. With no dialog open the zones keep their idle
+      // right — an opener-like zone control (the companion textarea, the
+      // AI button) arms the pocket, so a dialog opened FROM the assistant
+      // hands back to the assistant. Sibling surfaces stay above: their
+      // focus belongs to that surface and never arms — a dialog opened
+      // from a dialog is the nested walk-back's business.
+      if (target.closest(`${COMPANION_WINDOW_SELECTOR}, ${DIALOG_LIVE_SELECTOR}`)) {
+        if (layer.openCount === 0 && isOpenerLike(target)) layer.pocket = target
+        return
+      }
       // t791 witness law: focus landing outside every dialog surface
       // while one is open is a voluntary exit — stand down, don't steal.
       if (layer.openCount > 0) {
