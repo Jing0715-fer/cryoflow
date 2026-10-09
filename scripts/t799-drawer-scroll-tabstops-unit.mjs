@@ -198,8 +198,8 @@ ok(
   "E1 the wheel-only verdict is on file at the transcript"
 );
 ok(
-  (panel.match(/tabIndex=\{0\}/g) || []).length === 2,
-  "E2 exactly two tab stops — the cure is scoped to the two scrollables, no blanket tabindex"
+  (panel.match(/tabIndex=\{0\}/g) || []).length === 3,
+  "E2 exactly three tab stops — the two scrollables (t799) plus the tool-detail payload window (t803's second-pass cure joined the panel); still no blanket tabindex"
 );
 ok(
   panel.includes("are not rivals"),

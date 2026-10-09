@@ -188,8 +188,8 @@ ok(
   "D4 the storage runs region stands — t798's home"
 );
 ok(
-  (assistant.match(/tabIndex=\{0\}/g) || []).length === 2,
-  "D5 the assistant's two regions stand — t799's log and list"
+  (assistant.match(/tabIndex=\{0\}/g) || []).length === 3,
+  "D5 the assistant's regions stand and grew — t799's log + list, joined by the tool-detail window (t803's second-pass cure)"
 );
 ok(
   molstar.includes("phase === \"error\"") && molstar.includes("showing the central slice instead"),
