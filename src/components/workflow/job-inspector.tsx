@@ -97,7 +97,7 @@ import { fmtAgo, fmtClock, fmtDuration } from "@/lib/duration";
 import { readJobJournal, type JobJournalKind } from "@/lib/job-journal";
 import { JOURNAL_KIND_FACE } from "./journal-kind-face";
 import { planSubtreeRun } from "@/lib/subtree-run";
-import { jobType, tabsFor } from "@/lib/workflow";
+import { jobType, tabsFor, PORT_COLORS, drinkKindsOf, pourKindsOf } from "@/lib/workflow";
 import { RELION_OPTIONS } from "@/lib/relion/option-tables";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
 import { CopyButton } from "./copy-button";
@@ -2969,6 +2969,24 @@ function InspectorHeader({
   onEditChange: (edit: { id: string; draft: string } | null) => void;
 }) {
   const spec = jobType(job.type);
+  /* t748 — the table card's water words (the kind vocabulary's thirteenth
+   * reader). t747 taught the menu to say what it pours BEFORE the job
+   * exists; this is the seat's own placard AFTER it does: the user opens
+   * the node's door and the meta strip's first word is the type's surname
+   * — the same sentence t746's dictionary page speaks, now inline beside
+   * it. Dialect debts: dots ride PORT_COLORS[k].wire (the t735 sample);
+   * the dot is size-1.5 — the t747 SCANNING whisper, not the t746 size-2
+   * study face (the dictionary teaches the full lesson, the placard only
+   * hangs it); the words inherit the strip's muted voice. Volume belongs
+   * to distance: a calm strip whispers. undefined law: an unknown type
+   * stays SILENT (the gate renders nothing) — silence is honest, "nothing"
+   * would be a lie (nothing means a type with no input mouths). Drinks
+   * fallbacks speak the t746 contract verbatim (nothing / anything); pours
+   * need no fallback — all 40 types have outputs (the dictionary proved
+   * the roster, the placard inherits the proof). The strip's other
+   * residents (t347 count chips, timing, lineage) keep their seats. */
+  const drinkKinds = spec ? drinkKindsOf(job.type) : [];
+  const pourKinds = spec ? pourKindsOf(job.type) : [];
   const running = job.status === "running";
   const isLink = job.linkedJobId != null;
   const focusJob = useWorkflowStore((s) => s.focusJob);
@@ -3505,6 +3523,46 @@ function InspectorHeader({
        * HTML forbids div-in-p (hydration error) */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
         <span className="font-medium text-foreground/70">{spec?.label ?? job.type}</span>
+        {spec ? (
+          <span
+            className="flex flex-wrap items-center gap-x-2 gap-y-1"
+            data-testid="insp-water"
+          >
+            <span className="flex items-center gap-1">
+              <span className="font-medium text-foreground/60">drinks</span>
+              {drinkKinds.length > 0 ? (
+                drinkKinds.map((k) => (
+                  <span key={k} data-kind={k} className="flex items-center gap-0.5">
+                    <span
+                      aria-hidden="true"
+                      className="inline-block size-1.5 rounded-full"
+                      style={{ background: PORT_COLORS[k].wire }}
+                    />
+                    {k}
+                  </span>
+                ))
+              ) : spec.inputs.length === 0 ? (
+                <span data-testid="insp-water-nothing">nothing</span>
+              ) : (
+                <span data-testid="insp-water-anything">anything</span>
+              )}
+            </span>
+            <span aria-hidden="true" className="text-muted-foreground/50">·</span>
+            <span className="flex items-center gap-1">
+              <span className="font-medium text-foreground/60">pours</span>
+              {pourKinds.map((k) => (
+                <span key={k} data-kind={k} className="flex items-center gap-0.5">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block size-1.5 rounded-full"
+                    style={{ background: PORT_COLORS[k].wire }}
+                  />
+                  {k}
+                </span>
+              ))}
+            </span>
+          </span>
+        ) : null}
         {countChips.map((c) => (
           <React.Fragment key={c.key}>
             <Separator orientation="vertical" className="h-3" decorative />
