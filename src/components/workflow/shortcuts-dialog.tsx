@@ -295,7 +295,20 @@ export function ShortcutsDialog() {
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        {/* t802 — the shortcuts list gains the tab stop. A spans-only
+            region (dl/dd rows + Kbd chips, zero buttons in the file — the
+            t801 note-hover-card shape at dialog scale): below the filter
+            input the keyboard had NOTHING to reach with, and on a short
+            viewport the inventory overflows the region unread. The roster's
+            dialect verbatim (tabIndex + role=region + honest name + visible
+            ring, ring-inset edge-to-edge); the filter keeps its own stop
+            ahead of it, so Tab walks input -> list. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Keyboard shortcut inventory — grouped by context"
+          className="min-h-0 flex-1 overflow-y-auto px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
           {groups.length === 0 ? (
             <p className="py-8 text-center text-xs text-muted-foreground">
               No shortcut matches “{query}”.

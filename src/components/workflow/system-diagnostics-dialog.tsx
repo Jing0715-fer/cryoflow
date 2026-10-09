@@ -196,8 +196,8 @@ export default function SystemDiagnosticsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Activity className="size-4 text-muted-foreground" aria-hidden="true" />
             System diagnostics
@@ -208,7 +208,30 @@ export default function SystemDiagnosticsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        {/* t802 — the readings become the dialog's own keyboard region.
+            Live-witnessed on the frozen world: the content node was the
+            scroll surface (932px of report in a 488px window), Radix modal
+            parks tabIndex=-1 on it, and the whole panel held exactly TWO
+            tabbables (Refresh + Close) at opposite ends — every lane bar,
+            verdict note and census tile between them was keyboard-unreachable
+            scroll. The t801 census missed this face twice over: it bucketed
+            by the overflow-auto class, and this region (plus the shortcuts
+            list) speaks overflow-y-auto; and the content-node scroll face
+            was never judged. The cure is the help-guide house shape: the
+            header pins, an inner region owns the scroll and speaks the
+            roster's dialect (tabIndex + role=region + honest name + visible
+            ring — ring-inset because the region runs edge-to-edge, an
+            outward ring would clip against the dialog's own border). A tab
+            stop and a dialog role are not rivals: the content node KEEPS
+            role=dialog and its title; only the readings inside gain the
+            stop, and Radix's initial focus can now park there — arrows and
+            Space scroll the report from the moment it opens. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="System diagnostics readings — memory lanes, engine, disk, world census"
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
           {/* ---- memory lanes ------------------------------------ */}
           <SectionCard
             testid="diag-memory"
