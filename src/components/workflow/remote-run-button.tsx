@@ -57,6 +57,18 @@
  * (localStorage "cryoflow.remote.active"); modules from that
  * connection's last probe. No connections yet? The dialog offers the
  * manager instead of a dead select.
+ *
+ * t768 — the identity row speaks the kind vocabulary's words: the type
+ * badge names what is being dispatched, and the pours ARE what "syncs
+ * back when it lands" — the dots sit as a flex sibling right after the
+ * badge, the water previewing the harvest before the submit writes it.
+ * The row is a flex-wrap host: gap-2 is the space, no {" "} whitespace
+ * discipline — the t760 prose law's boundary clause (flex hosts owe
+ * nothing; t767's cleanup dialog staged its first face, this is the
+ * second). The kind vocabulary's TWENTY-EIGHTH reader; the family's
+ * FIFTEENTH testid address (remote-pours-). Unknown types keep the
+ * bare badge (the undefined law's seventh face). The continue variant
+ * shares the row — one seat covers both dispatch faces.
  */
 
 import * as React from "react";
@@ -83,6 +95,7 @@ import { useWorkflowStore } from "@/lib/store";
 import { ClusterUsagePanel } from "./cluster-usage-panel";
 import type { JobDTO } from "@/lib/types";
 import type { RemoteRunTarget } from "@/lib/remote/types";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t768 — the kind vocabulary's TWENTY-EIGHTH reader joins the remote run dialog
 import {
   RemoteClusterDialog,
   readActiveRemoteConnectionId,
@@ -176,6 +189,13 @@ export function RemoteRunButton({
   };
   const { connections, reload } = useRemoteConnections(open);
   const runJobRemote = useWorkflowStore((s) => s.runJobRemote);
+
+  // t768 — the pours ask rides the header's type badge: this dialog is
+  // the dispatch confirm, its own copy promises "key files sync back
+  // when it lands", and the pours ARE what lands — the water previews
+  // the harvest before the submit writes it.
+  const spec = jobType(job.type);
+  const pouring = spec ? pourKindsOf(job.type) : [];
   // t300 — a REMOTE project's bound cluster is the dialog's DEFAULT (and
   // locked) target: the project's picked input paths are absolute on THAT
   // cluster — another connection would strand the data.
@@ -742,6 +762,29 @@ export function RemoteRunButton({
               >
                 {job.type}
               </Badge>
+              {pouring.length > 0 && (
+                // t768 — the water rides the type badge as a flex sibling:
+                // the identity row is a flex-wrap host, gap-2 is the space
+                // (the t760 prose law's boundary clause, second staging —
+                // flex hosts owe nothing). The dialog's own copy promises
+                // "key files sync back when it lands"; the dots name what
+                // lands.
+                <span
+                  className="inline-flex shrink-0 items-center gap-1"
+                  data-testid={`remote-pours-${job.type}`}
+                >
+                  {pouring.map((k) => (
+                    <span
+                      key={k}
+                      aria-hidden="true"
+                      title={`pours ${k}`}
+                      className="inline-block size-1.5 rounded-full"
+                      style={{ background: PORT_COLORS[k].wire }}
+                    />
+                  ))}
+                  <span className="sr-only">pours {pouring.join(", ")}</span>
+                </span>
+              )}
             </span>
             <span
               className="block text-xs leading-snug"
