@@ -93,8 +93,8 @@ console.log("\nB — the live world's index pages name real jobs only");
 let rosterOk = false, rowsOk = false;
 let rosterDetail = "api unreachable", rowsDetail = "api unreachable";
 try {
-  const jobsRes = await fetch("http://localhost:3000/api/jobs", { signal: AbortSignal.timeout(8000) });
-  const edgesRes = await fetch("http://localhost:3000/api/edges", { signal: AbortSignal.timeout(8000) });
+  const jobsRes = await fetch("http://localhost:3000/api/jobs", { headers: { Origin: "http://localhost:3000" }, signal: AbortSignal.timeout(8000) });
+  const edgesRes = await fetch("http://localhost:3000/api/edges", { headers: { Origin: "http://localhost:3000" }, signal: AbortSignal.timeout(8000) });
   if (jobsRes.ok && edgesRes.ok) {
     const jobsPayload = await jobsRes.json();
     const worldJobs = Array.isArray(jobsPayload) ? jobsPayload : jobsPayload.jobs ?? [];
