@@ -649,6 +649,9 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
   const deleteSelected = useWorkflowStore((s) => s.deleteSelected);
   const saveSelectionTemplate = useWorkflowStore((s) => s.saveSelectionTemplate);
   const [confirmDel, setConfirmDel] = React.useState(false);
+  // t789 — the confirmed-delete flag: onCloseAutoFocus fires on BOTH exits;
+  // only the confirmed one redirects the keyboard to the canvas.
+  const deletedRef = React.useRef(false);
   const [busy, setBusy] = React.useState(false);
   // Task 127 — save-the-selection-as-template naming dialog
   const [tplOpen, setTplOpen] = React.useState(false);
@@ -891,7 +894,14 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
       {/* bulk delete confirm — mirrors the single-job guard (page.tsx /
           job-card.tsx): cascades wires, so require an explicit OK */}
       <AlertDialog open={confirmDel} onOpenChange={setConfirmDel}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            if (!deletedRef.current) return; // cancel — Radix hands back to the toolbar button
+            e.preventDefault();
+            deletedRef.current = false;
+            rootRef.current?.focus(); // t789 — the relay: the keyboard stands where the cards were
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {sel.length} jobs?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -910,6 +920,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
             <AlertDialogAction
               className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
               onClick={() => {
+                deletedRef.current = true; // t789 — the confirmed path
                 setConfirmDel(false);
                 void deleteSelected();
               }}
@@ -1183,6 +1194,15 @@ export function WorkflowCanvas() {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panRef = React.useRef<PanState | null>(null);
   const panRafRef = React.useRef(0);
+
+  // t789 — the delete relay's landing pad: a confirmed delete hands the
+  // keyboard to the canvas itself (t783's tab stop — the keyboard's
+  // landmark), so the user is standing where the card used to be,
+  // one Tab away from the next card and one Shift+F10 from the menu.
+  // Stable identity — the card memo comparator watches it.
+  const handFocusToCanvas = React.useCallback(() => {
+    rootRef.current?.focus();
+  }, []);
 
   /* ------------- fit-to-paper (print) bounds ------------------------- */
   /**
@@ -2759,6 +2779,7 @@ export function WorkflowCanvas() {
             <JobCard
               key={job.id}
               job={job}
+              onDeleteFocus={handFocusToCanvas}
               dimmed={
                 (noteSpotlight && !hasJudgment(job) && !contextIds.has(job.id)) ||
                 (findLens && !findMatchIds!.has(job.id)) ||

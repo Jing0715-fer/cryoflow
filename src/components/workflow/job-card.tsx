@@ -385,11 +385,18 @@ function JobCardMenu({
   job,
   onSelect,
   onInspect,
+  onDeleteFocus,
   children,
 }: {
   job: JobDTO;
   onSelect: (id: string) => void;
   onInspect: (id: string) => void;
+  /** t789 — where the keyboard lands after a CONFIRMED delete (the relay's
+   *  second family: the card unmounts, Radix's default hand-back targets a
+   *  dead trigger and focus falls to body). CANCEL returns the keyboard to
+   *  the card itself — the menu item died mid-flight, so Radix's default
+   *  return is dead on BOTH exits here (bulk's toolbar trigger survives). */
+  onDeleteFocus?: () => void;
   children: React.ReactNode;
 }) {
   const runJob = useWorkflowStore((s) => s.runJob);
@@ -402,6 +409,9 @@ function JobCardMenu({
   const linkJobTo = useWorkflowStore((s) => s.linkJobTo);
   const saveJob = useWorkflowStore((s) => s.saveJob);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  // t789 — the confirmed-delete flag: onCloseAutoFocus fires on BOTH exits
+  // (confirm and cancel); only the confirmed one redirects the keyboard.
+  const deletedRef = React.useRef(false);
   const [busy, setBusy] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState(false);
   // t473 — the card's continue intent (the panel's "Continue from here"
@@ -804,7 +814,26 @@ function JobCardMenu({
 
       {/* delete confirm — cascades edges, so require an explicit OK */}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            // t789 — both exits take the hand-off, because BOTH of Radix's
+            // default returns are dead here: the dialog opened from a menu
+            // item inside THIS card, and the menu unmounted the moment the
+            // dialog opened (the old world measured BODY on confirm AND
+            // cancel). Confirm → the canvas (the card is gone; the canvas
+            // is where the card was). Cancel → the card itself (still
+            // alive — the relay returns the keyboard to where it started).
+            e.preventDefault();
+            if (deletedRef.current) {
+              deletedRef.current = false;
+              onDeleteFocus?.();
+            } else {
+              document
+                .querySelector<HTMLElement>(`[data-job="${job.id}"] [role="button"][tabindex]`)
+                ?.focus();
+            }
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {job.name}?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -823,7 +852,10 @@ function JobCardMenu({
                  text-white, no ring) was the sixth face — same string as
                  every other confirm now */
               className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
-              onClick={() => void deleteJob(job.id)}
+              onClick={() => {
+                deletedRef.current = true; // t789 — the confirmed path: hand the keyboard to the canvas
+                void deleteJob(job.id);
+              }}
             >
               Delete
             </AlertDialogAction>
@@ -924,6 +956,11 @@ interface JobCardProps {
    *  moves the DOM focus. Optional — a card without the navigator keeps the
    *  Enter/Space contract unchanged (arrows fall through to the browser). */
   onCardNavigate?: (fromId: string, dir: NavDir) => void;
+  /** t789 — where the keyboard lands after a CONFIRMED delete: the canvas
+   *  (the keyboard's landmark, t783's tab stop) receives the relay. The
+   *  second family of the focus-continuity law (t788 was the first: the
+   *  bookmark panel's rows). Cancel keeps Radix's healthy default. */
+  onDeleteFocus?: () => void;
 }
 
 interface DragState {
@@ -1493,7 +1530,8 @@ function jobCardPropsEqual(a: JobCardProps, b: JobCardProps): boolean {
     a.onCancelConnect !== b.onCancelConnect ||
     a.onConnect !== b.onConnect ||
     a.onHoverChange !== b.onHoverChange ||
-    a.onCardNavigate !== b.onCardNavigate
+    a.onCardNavigate !== b.onCardNavigate ||
+    a.onDeleteFocus !== b.onDeleteFocus
   ) {
     return false;
   }
@@ -1530,6 +1568,7 @@ export const JobCard = React.memo(function JobCard({
   onConnect,
   onHoverChange,
   onCardNavigate,
+  onDeleteFocus,
 }: JobCardProps) {
   // t444 — this card's staleness slice: a stable object ref while the
   // world is quiet (memo cards skip), a fresh ref only when THIS card's
@@ -2051,7 +2090,7 @@ export const JobCard = React.memo(function JobCard({
   );
 
   return (
-    <JobCardMenu job={job} onSelect={onSelect} onInspect={onInspect}>
+    <JobCardMenu job={job} onSelect={onSelect} onInspect={onInspect} onDeleteFocus={onDeleteFocus}>
       <div
         data-job={job.id}
         data-find-match={findMatch ? "true" : undefined}
