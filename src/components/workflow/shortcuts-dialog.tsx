@@ -153,6 +153,20 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    // t777 — the results Maps & images grid joins the spatial contract
+    // (canvas cards t775, class gallery's roving). A results round can
+    // hold dozens of tiles; the arrows are how the eye moves. Same law:
+    // one tab stop, arrows move, Enter/Space keep the monopoly on acting.
+    id: "results-gallery",
+    label: "Results gallery",
+    hint: "Maps & images tiles — same roving focus as the class grid",
+    rows: [
+      { keys: "← → ↑ ↓", text: "Walk the map / image tiles geometrically" },
+      { keys: "Home End", text: "Jump to the first / last tile" },
+      { keys: "Enter Space", text: "Enlarge the focused tile" },
+    ],
+  },
+  {
     // t641 — the map viewer's keyboard layer was live but invisible:
     // 1–6 axis presets + 0 reset had an in-popover hint, but B (quick-save
     // bookmark) was spoken only by its own completion toast — you had to

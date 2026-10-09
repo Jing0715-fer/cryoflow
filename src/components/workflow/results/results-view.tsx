@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 // t350 — per-iteration class snapshots (live + picker)
 import { ClassIterationGallery } from "./class-iteration-gallery";
+import { gridNeighbor, type GridDir, type GridEntry } from "@/lib/grid-nav";
 import {
   AlertTriangle,
   Box,
@@ -1819,6 +1820,61 @@ function MrcGallery({
     return files.filter((f) => iterOfName(f.name) === filter);
   }, [files, filter, maxIter]);
 
+  /* ---------- roving tabindex for the thumbnail grid (Task 777) ----------
+   * The third sibling of the spatial contract (canvas cards t775, class
+   * gallery's own roving): a results round can hold dozens of tiles and
+   * tabbing through all of them is a graveyard walk. Exactly ONE local
+   * tile is in the tab order (tabIndex 0); the arrows move focus
+   * geometrically through src/lib/grid-nav.ts (measured rects, no
+   * column-count guessing a responsive grid would break), Home/End jump
+   * to the reading-order ends. Arrows only MOVE — Enter/Space keep the
+   * monopoly on enlarging (the door lineage). Remote tiles are not roving
+   * stops: they carry their own multi-button keyboard contract (Fetch /
+   * Download / Mol*) and stay out of the geometry; the grid's law reads
+   * the world it is given, holes and all. */
+  const tileRefs = useRef(new Map<string, HTMLButtonElement>());
+  const [activePath, setActivePath] = useState<string | null>(null);
+  useEffect(() => {
+    // the anchor may vanish (filter switch, listing refresh, re-fetch) —
+    // re-seat the roving anchor on the first visible tile
+    if (activePath != null && !shown.some((f) => f.path === activePath)) {
+      setActivePath(shown[0]?.path ?? null);
+    }
+  }, [shown, activePath]);
+  const KEY_TO_DIR: Record<string, GridDir> = {
+    ArrowRight: "right",
+    ArrowLeft: "left",
+    ArrowUp: "up",
+    ArrowDown: "down",
+    Home: "home",
+    End: "end",
+  };
+  const onTileKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const dir = KEY_TO_DIR[e.key];
+    if (!dir) return;
+    const entries: GridEntry[] = [];
+    for (const f of shown) {
+      const el = tileRefs.current.get(f.path);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      entries.push({ id: f.path, left: r.left, top: r.top, width: r.width, height: r.height });
+    }
+    if (entries.length === 0) return;
+    const fromPath = e.currentTarget.dataset.tilePath ?? null;
+    const target = gridNeighbor(entries, fromPath, dir);
+    // arrows must never scroll the panel — an edge tile simply holds focus
+    e.preventDefault();
+    if (!target || target === fromPath) return;
+    const el = tileRefs.current.get(target);
+    if (!el) return;
+    setActivePath(target);
+    el.focus({ preventScroll: true });
+    // t774's viewport lesson — focus without reachability is a dead
+    // gesture: the focused tile must be IN the viewport, and "nearest"
+    // brings it there without yanking the scroll container
+    el.scrollIntoView({ block: "nearest", inline: "nearest" });
+  };
+
   // class occupancy for classification jobs — the strip follows the
   // displayed round (?iter= selects it; "all" pins to the final round)
   const isClassify = /class2d|class3d/i.test(job.type);
@@ -1912,7 +1968,7 @@ function MrcGallery({
             </button>
           </Chip>
           <span className="ml-auto text-[10px] text-muted-foreground">
-            {shown.length} of {files.length} shown
+            {shown.length} of {files.length} shown · arrows walk the grid
           </span>
         </div>
       ) : null}
@@ -1939,12 +1995,19 @@ function MrcGallery({
             <button
               key={f.path}
               type="button"
+              ref={(el) => {
+                if (el) tileRefs.current.set(f.path, el);
+                else tileRefs.current.delete(f.path);
+              }}
+              data-tile-path={f.path}
+              tabIndex={f.path === (activePath ?? shown[0]?.path) ? 0 : -1}
+              onKeyDown={onTileKeyDown}
               onClick={() => onOpen(f)}
               /* data-print-block: the tile is a stacked visual record
                  (image + name + meta) — it prints as a block, not a flex
                  row, and never splits across a page (Task 116) */
               data-print-block=""
-              className="group relative rounded-lg border p-1.5 text-left transition-all hover:border-teal-600/50 hover:shadow-sm"
+              className="group relative rounded-lg border p-1.5 text-left transition-all outline-none hover:border-teal-600/50 hover:shadow-sm focus-visible:border-teal-600 focus-visible:ring-2 focus-visible:ring-teal-600/60 focus-visible:shadow-sm"
               aria-label={`Enlarge ${f.label ?? f.name}`}
               title={`Click to enlarge — ${f.label ?? f.name}`}
             >
