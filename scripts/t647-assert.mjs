@@ -16,8 +16,21 @@ const EXEMPT = [
   "class-distribution-chart.tsx", "canvas-minimap.tsx", "status-style.ts",
   "class-gallery.tsx", "denoise-compare-gallery.tsx", "palette.tsx",
   "lib/workflow.ts",
+  // t747 judgment-sync — the t650 verdict finally delivered to this older
+  // roster: the tier badge's emerald/amber speak TYPE TIER identity, not
+  // job status (the palette judgment's own family — "tier badges + gold
+  // star", the same language's second home; worklog 11749).
+  "tier-badge.tsx",
 ];
-const LINE_EXEMPT = [/bg-teal-500\/60 .*bg-emerald-500/];
+const LINE_EXEMPT = [
+  /bg-teal-500\/60 .*bg-emerald-500/,
+  // t747 judgment-sync — t728's find-lens amber at whisper volume (the
+  // judged borrow: the lens dialect, never a second color language).
+  // The quoting comment that carries the verdict and the whyHit row
+  // that wears it are one signature, exempted together.
+  /border-amber-500\/40 bg-amber-500\/5/,
+  /whyHit && "rounded-md bg-amber-500\/5/,
+];
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {

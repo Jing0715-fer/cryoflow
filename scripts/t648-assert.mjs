@@ -30,6 +30,10 @@ const EXEMPT = [
   "class-distribution-chart.tsx", "canvas-minimap.tsx", "status-style.ts",
   "class-gallery.tsx", "denoise-compare-gallery.tsx", "palette.tsx",
   "workflow.ts", "globals.css",
+  // t747 judgment-sync — the t650 verdict delivered to this older roster
+  // (mirrors t647-assert's entry): the tier badge's emerald/amber speak
+  // TYPE TIER identity, not job status — the palette judgment's family.
+  "tier-badge.tsx",
 ];
 
 const violations = [];
