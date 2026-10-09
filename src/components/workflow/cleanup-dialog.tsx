@@ -19,6 +19,20 @@
  *   - the bulk tier (movies / particle stacks) carries the downstream
  *     consequence line when wired jobs have not run yet;
  *   - a running/queued job refuses with its reason (the t318 respect).
+ *
+ * Task 767 lets the header's identity row speak the kind vocabulary's
+ * words: the description names the job's type in a badge, and the pours
+ * ARE the "chainable outputs" the closing sentence promises to keep —
+ * the dots sit as a flex sibling right after the badge, the water
+ * previewing the keep-set before the checkboxes name what goes. The row
+ * is a flex-wrap host: gap-1.5 is the space, no {" "} whitespace
+ * discipline — the t760 prose law's boundary clause (text-flow hosts owe
+ * the explicit space, flex hosts let the gap speak). The kind
+ * vocabulary's TWENTY-SEVENTH reader; the family's FOURTEENTH testid
+ * address (cleanup-pours-). Unknown types keep the bare badge (the
+ * undefined law's sixth face). The inner confirm dialog repeats the
+ * keep-set sentence but names no type — water rides the word, and there
+ * the word is not named.
  */
 
 import * as React from "react";
@@ -62,6 +76,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import type { CleanupHistoryEntry } from "@/lib/relion/cleanup-history";
 import type { JobDTO } from "@/lib/types";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t767 — the kind vocabulary's TWENTY-SEVENTH reader joins the cleanup dialog
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -94,6 +109,14 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
   // t522 — the shovel's own past: this job's ledger entries (either door),
   // newest first, at most three on the strip. The audit rides with the ask.
   const [history, setHistory] = React.useState<CleanupHistoryEntry[] | null>(null);
+
+  // t767 — the pours ask rides the header's type badge: this dialog is
+  // the destructive confirm, its closing sentence promises "chainable
+  // outputs ... always stay", and the pours ARE those chainable
+  // outputs — the water previews the keep-set before the checkboxes
+  // name what goes.
+  const spec = jobType(job.type);
+  const pouring = spec ? pourKindsOf(job.type) : [];
 
   const loadHistory = React.useCallback(async () => {
     try {
@@ -271,6 +294,30 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
               <Badge variant="outline" className="h-4 px-1 font-mono text-[9.5px] font-normal text-foreground/80">
                 {job.type}
               </Badge>
+              {pouring.length > 0 && (
+                // t767 — the water rides the type badge as a flex sibling:
+                // the description row is a flex-wrap host, gap-1.5 is the
+                // space — no {" "} whitespace discipline (the t760 prose
+                // law's boundary clause: text-flow hosts owe the explicit
+                // space, flex hosts let the gap speak). The sentence below
+                // promises "chainable outputs ... always stay" in words;
+                // the dots are that promise's color-face.
+                <span
+                  className="inline-flex shrink-0 items-center gap-1"
+                  data-testid={`cleanup-pours-${job.type}`}
+                >
+                  {pouring.map((k) => (
+                    <span
+                      key={k}
+                      aria-hidden="true"
+                      title={`pours ${k}`}
+                      className="inline-block size-1.5 rounded-full"
+                      style={{ background: PORT_COLORS[k].wire }}
+                    />
+                  ))}
+                  <span className="sr-only">pours {pouring.join(", ")}</span>
+                </span>
+              )}
               <span>— chainable outputs, logs, resume checkpoints and cluster twins always stay.</span>
             </DialogDescription>
           </DialogHeader>
