@@ -503,9 +503,14 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
 
               {rows.length ? (
                 <div
-                  className="max-h-64 space-y-1 overflow-y-auto rounded-md border bg-muted/20 p-3"
+                  tabIndex={0}
+                  className="max-h-64 space-y-1 overflow-y-auto rounded-md border bg-muted/20 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                   aria-label="Simulated schedule (Gantt)"
                 >
+                  {/* t803 — the schedule's scroll gains the stop (the
+                      second-pass census): the Gantt rows are bars + text,
+                      nothing tabbable below the 256px cap; the honest
+                      name stays. */}
                   <div className="flex items-center gap-2" aria-hidden="true">
                     <div className="w-28 shrink-0" />
                     <div className="relative h-3.5 flex-1 text-[8.5px] tabular-nums text-muted-foreground">

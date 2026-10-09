@@ -179,8 +179,12 @@ export function ImportWorkflowDialog() {
         {entries.length > 0 ? (
           <div className="grid gap-3">
             {/* staged queue: one summary row per file, failures inline */}
+            {/* t803 — the queue's scroll gains the stop (the second-pass
+                census): file-name rows are spans only, nothing tabbable
+                below the 176px cap; the honest name stays. */}
             <div
-              className="grid max-h-44 gap-1 overflow-y-auto nice-scroll rounded-lg border bg-muted/20 p-1.5"
+              tabIndex={0}
+              className="grid max-h-44 gap-1 overflow-y-auto nice-scroll rounded-lg border bg-muted/20 p-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               data-testid="import-queue"
               aria-label="Files staged for import"
             >

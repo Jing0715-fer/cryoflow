@@ -415,7 +415,15 @@ export function ParticleBrowser({
       </div>
 
       {/* per-micrograph stack sections */}
-      <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+      {/* t803 — the groups' stack gains the stop (the second-pass
+          census): a pointer-first browser face — expand/click live on
+          the cards, but the stack itself was wheel-only; the keyboard
+          gains the scroll the pointer already had. */}
+      <div
+        tabIndex={0}
+        aria-label="Micrograph groups"
+        className="max-h-96 space-y-2 overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      >
         {data.groups.map((g) => (
           <GroupSection key={g.name} jobId={jobId} group={g} />
         ))}

@@ -455,7 +455,15 @@ function ToolCard({ item }: { item: Extract<UiItem, { kind: "tool" }> }) {
                 <span className="font-mono text-[10px] text-muted-foreground">detail</span>
                 <CopyButton text={detail.full} label="Copy detail" />
               </div>
-              <pre className="max-h-48 overflow-auto rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
+              {/* t803 — the detail's payload window speaks the scroll law
+                  (the second-pass census): up to 4,000 characters in a
+                  192px window, text-only — the keyboard gains the stop;
+                  the Copy button above stays the copy door. */}
+              <pre
+                tabIndex={0}
+                aria-label="Tool detail payload window"
+                className="max-h-48 overflow-auto rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
                 {detail.window}
               </pre>
               {/* t510 — the window never lies about being a window: when

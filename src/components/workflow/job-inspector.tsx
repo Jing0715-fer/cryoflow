@@ -895,7 +895,14 @@ function LogConsole({
           {/* max-h + own scroll: five findings must not push the log out
               of view — the log is the ground truth and keeps its lane
               (paper unrolls the cap away, see globals Task 119 rules) */}
-          <ul className="mt-2 max-h-52 space-y-1.5 overflow-y-auto pr-0.5">
+          <ul
+            tabIndex={0}
+            aria-label="Log findings"
+            className="mt-2 max-h-52 space-y-1.5 overflow-y-auto pr-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            {/* t803 — the findings list speaks the scroll law (the
+                second-pass census): label + excerpt text rows, nothing
+                tabbable below the 208px cap; the list keeps its ul. */}
             {findings.map((f) => {
               const Icon = FINDING_ICONS[f.id] ?? AlertTriangle;
               return (

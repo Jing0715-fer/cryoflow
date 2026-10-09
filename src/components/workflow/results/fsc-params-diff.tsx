@@ -213,7 +213,15 @@ export function FscParamsDiff({
           Every shared parameter agrees — toggle “show all” to see the full table.
         </p>
       ) : (
-        <div className="max-h-40 overflow-y-auto">
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Parameter diff table"
+          className="max-h-40 overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          {/* t803 — the diff table's scroll gains the stop (the second-pass
+              census): th/td text only, nothing tabbable below the 160px cap;
+              the region speaks the roster's dialect verbatim. */}
           <table className="w-full border-collapse text-[11px]">
             <thead>
               <tr className="border-b border-border/70 text-left">

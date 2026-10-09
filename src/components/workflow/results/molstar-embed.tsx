@@ -6701,7 +6701,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             )}
 
             {/* grouped sources — file groups and job groups side by side */}
-            <div className="max-h-72 space-y-2 overflow-y-auto pr-0.5 nice-scroll" role="group" aria-label="Views found across all sources">
+            {/* t803 — the views-found group gains the stop (the second-pass
+                census): the source toggles are buttons but the entry rows
+                are pointer-faces, so the container speaks for the keyboard
+                (the row-face debt is the t784 family's, noted not cured). */}
+            <div
+              tabIndex={0}
+              className="max-h-72 space-y-2 overflow-y-auto pr-0.5 nice-scroll focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              role="group"
+              aria-label="Views found across all sources"
+            >
               {importGroups.map((g, gi) => {
                 // per-source header accounting — standard tri-state
                 // semantics: "checked" means every TICKABLE row of this

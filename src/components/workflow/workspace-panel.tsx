@@ -482,7 +482,15 @@ export function WorkspacePanel() {
           </Button>
         </div>
       ) : (
-        <div className="nice-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 pt-2">
+        <div
+          tabIndex={0}
+          aria-label="Workspaces"
+          className="nice-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3 pt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
+          {/* t803 — the workspace list's ground gains the stop (the
+              second-pass census): the rows are pointer-faces (the t784
+              family's debt, noted not cured), so the ground itself speaks
+              for the keyboard; ring-inset — the list runs edge-to-edge. */}
           {workspaces.map((w) => (
             <WorkspaceRow
               key={w.id}

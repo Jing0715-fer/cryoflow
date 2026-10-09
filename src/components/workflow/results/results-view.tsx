@@ -2478,7 +2478,13 @@ function WarningsCard({ warnings }: { warnings: string[] }) {
         />
       </button>
       {open && (
-        <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1">
+        <ul
+          tabIndex={0}
+          aria-label="Job warnings"
+          className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          {/* t803 — the warnings list speaks the scroll law (the second-pass
+              census): mono text rows, nothing tabbable below the 160px cap. */}
           {warnings.map((w, i) => (
             <li
               key={i}
