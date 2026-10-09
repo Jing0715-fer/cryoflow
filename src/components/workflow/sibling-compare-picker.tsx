@@ -24,6 +24,18 @@
  * type, not self, no linked copies), same-workspace-first ordering, the
  * cross-workspace chip, the preview chips, and the dialog anchoring the
  * picked-from job on the left (teal).
+ *
+ * Task 763 lets the trigger contracts speak the kind vocabulary's words:
+ * the icon variant's aria-label + title and the labeled variant's title
+ * all name the job type, so each contract gains the " — pours ..." suffix
+ * (the t761 word-form lineage's second staging — pure word-form, no dots,
+ * no testid address: the contract IS the seat). t762's deferred verdict
+ * stands: the picker's small door cannot fit a dot family, so the water
+ * is heard, not seen. The popover header keeps its bare type word
+ * deliberately — it labels the list AFTER the open, not at the
+ * commitment moment; a searcher choosing a sibling reads the pours on
+ * the trigger before opening, and the header's unification question
+ * belongs to the storage-dialog window, not this one.
  */
 
 import React from "react";
@@ -33,6 +45,7 @@ import { Button } from "@/components/ui/button";
 import { useWorkflowStore } from "@/lib/store";
 import type { JobDTO } from "@/lib/types";
 import { STATUS_DOT } from "@/lib/status-style"; // t647 — the dot family lives with the word law
+import { jobType, pourKindsOf } from "@/lib/workflow"; // t763 — the kind vocabulary's TWENTY-FOURTH reader joins the trigger contracts
 import { cn } from "@/lib/utils";
 import { summarizeParamDiff } from "./results/fsc-params-diff";
 import { ParamsDiffDialog } from "./params-diff-dialog";
@@ -144,6 +157,13 @@ export function SiblingComparePicker({
   // no twin run → no entry (same guard doctrine as the canvas toolbar)
   if (siblings.length === 0) return null;
 
+  // t763 — the pours ask rides the trigger's own contracts: all three
+  // name the type word, so the suffix glues to the word it describes
+  // (identity words first, water after — the t761 contract verbatim)
+  const spec = jobType(job.type);
+  const pouring = spec ? pourKindsOf(job.type) : [];
+  const poursSuffix = pouring.length > 0 ? ` — pours ${pouring.join(", ")}` : "";
+
   const crossWsCount = siblings.filter(
     (sib) => (sib.workspaceId ?? null) !== (activeWs ?? null)
   ).length;
@@ -162,8 +182,8 @@ export function SiblingComparePicker({
                 "size-6 rounded-md text-muted-foreground/70 hover:bg-muted hover:text-foreground",
                 triggerClassName
               )}
-              aria-label={`Compare parameters with another ${job.type} job (${siblings.length} sibling${siblings.length === 1 ? "" : "s"}${crossWsCount > 0 ? `, ${crossWsCount} in other workspaces` : ""})`}
-              title={`Compare launch parameters with another ${job.type} job — ${siblings.length} sibling${siblings.length === 1 ? "" : "s"} available`}
+              aria-label={`Compare parameters with another ${job.type} job${poursSuffix} (${siblings.length} sibling${siblings.length === 1 ? "" : "s"}${crossWsCount > 0 ? `, ${crossWsCount} in other workspaces` : ""})`}
+              title={`Compare launch parameters with another ${job.type} job${poursSuffix} — ${siblings.length} sibling${siblings.length === 1 ? "" : "s"} available`}
             >
               <GitCompareArrows className="size-3.5" aria-hidden="true" />
             </Button>
@@ -177,7 +197,7 @@ export function SiblingComparePicker({
                 "h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-background hover:text-foreground",
                 triggerClassName
               )}
-              title={`Compare launch parameters with another ${job.type} job`}
+              title={`Compare launch parameters with another ${job.type} job${poursSuffix}`}
             >
               <GitCompareArrows className="size-3.5" aria-hidden="true" />
               <span>Compare</span>
