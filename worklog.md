@@ -12039,3 +12039,27 @@ Stage Summary:
 - 「识字是仪式的一部分」：本窗两次词形课（门的 bookmarks≠entries、molstar 面包屑的 [m 剥离）都发生在仪式流程内而非探针里——**仪式执行者的每一手 API 解析都是一次小型读数，识字课不限于探针作者**；把「门回 0」误诊为「session 丢失」只差一步，是 storage 层直查把诊断拉回了正轨——**分层诊断（门 → 存储 → 回显）是误诊的解药**。
 - 「世界恒等律第八演」：e105/e241 与三窗前完全同 ref——seed 世界确定性重建的副产品是 ref 空间的恒等，UI 路径可以按 ref 图纸精确重演；「ref 空间世界恒等」从 t741 的观察升格为可依赖的仪式假设（连续四窗成立）。
 - 产出：shots-qa/t745-wall-8th-entry.png / t745-patrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅五项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737-t743 七张激活判决 + t744 激活判决（收据念词活体） + **t745 激活判决（仪式第八演全绿台账：census 三台 + t25 批 9/9 + world-guard 三证词 + 再生长三重）** + 验证网 ②非 build 日：自由选题（**kind 第十一读者的侦察**——类型卡描边借线墨/edge hover tooltip 升卡/inspector 标题行报词；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **1/5**（仪式重置后带内第一窗，不动） ④census 轮换：零新路由/零种子/零 bookmark 新增（t745 生长经 UI 驱动已入基线 76）；本窗零手术 → t25 批 + census 三台 + 全舰队 30/30 全跑（本窗仪式随行）；t576 live-fire 仍 world-drift pin。
+
+## Task 746 — 2026-10-09 08:10 派单窗（非 build 日 · 连续第四十六窗）· kind 词汇的第十一读者：类型卡水行——字典页的成分表
+
+Task: 08:10 cron 派单执行——开局三件套判稳（worklog 尾条核实 = **t745 收官**；server 200；available 3073MB < 3280 → 非 build 日连续第四十六窗）→ 入口③床轮换 **1/5**（仪式重置后带内第一窗，不动）→ agent-browser 巡检净 → 入口②自由选题 = t745 遗言候选立案：**Task 746 = 类型卡水行（kind 词汇第十一读者）**——字典页头部「N in · M out」只报数不报词，本窗让卡片说这型喝什么、倒什么。
+
+Work Log:
+- 开局 + 巡检：git 净、t745 三车在岸；errors/console 零行，t746-patrol.png 入档，用毕即关。
+- 侦察：type-card-dialog 已有 chip 墨（t735 课堂）与端口对词形（t735 title），但头部摘要行 `{spec.inputs.length} in · {spec.outputs.length} out` 纯计数——**字典页不报成分**；读者须逐 chip 点开才知道这型喝什么倒什么。
+- [世界先勘察] jiti 全类型水行分布预演：**40 型三支全活**——drinks nothing（import 族 3 个，零输入的前门）、drinks anything（external 1 个，外挂作业什么都喝正是其语义）、named dots（36 个）；每型 pours 至少一种——**零死分支零空行**（t739 死代码自查律前置执行：先确认三支都有活人再落码）。
+- 手术两文件：
+  1. **lib 入册**（src/lib/workflow.ts）：`pourKindsOf(typeKey)`（outputs 的 kind——水的确定性）+ `drinkKindsOf(typeKey)`（inputs 的 accepts 容量——t738 插座语义），均按 PORT_COLORS 键序去重排序；`?? []` 可选诚实；通配符不是 kind 不出词。判词注释：**卡里写的查表是正在诞生的目录，目录生在 lib 或无处**（t734 律的水行版）。
+  2. 卡读答（type-card-dialog.tsx）：头部下、描述段后插水行 `{data-testid="type-card-water"}`——「drinks ●movies ●micrographs · pours ●particles」双词族，点骑 wire hex（aria-hidden 纯装饰），词骑书名；nothing / anything 双回退 testid 在座。
+- [一红显影 → 律归位] 首版把 drinks 推导直接写在卡里——**t730 探针一红**：「卡从不直接碰 accepts 字段——口算留在 lib」。正确修法不是放宽旧探针，是**把两个水问题入 lib 成命名问题**（pourKindsOf/drinkKindsOf），卡只读答；连带卡注释里的 `accepts` 概念词也让位为 capacity（t730 对全文断言，注释也算话）。修后 t730 43/0 复绿。
+- 探针 scripts/t746-water-row-unit.mjs（21/0）：A 单源×8（lib 家在场、双命名导出、pour 骑 kind / drink 骑 capacity、键序双 Object.keys、卡零 accepts 零口算、双点族骑 wire hex、双标签、双回退）+ B live-fire×4（lib 命名答案 = 裸重算逐型一致——一本书两种读法互证；零 ghost；pours 永不空行；三支活人 3/1/36）+ C 脸×5（testid、双 aria-hidden、flex-wrap、font-medium 标签、t735 遗产注）+ D 纯度×3（零 hue 类、零 storage、census home）。
+- 探针自身一红一修：wire hex 计数把注释里的词也算进去了（2≠3）→ 收紧为 `background: PORT_COLORS[k].wire` 精确计数；B 段重构时 pourSet 引用悬空 → 补回裸重算集。**探针的词形与引用也要识字**。
+- 验证网：tsc 0 + eslint 0（两涉事文件）+ **31 件探针 31/31 绿**（t650-assert + t746 新员 + t730 43/0 复绿 + 词汇家族 9 件 + 全家，exit-code 通道）；agent-browser 复巡 errors/console 零行（水行随下个 build 上 bundle，staged 预期）。
+- 三车 commit：feat（lib 水问题 + 卡水行）→ qa（t746 探针）→ docs（worklog 本段）→ push。
+
+Stage Summary:
+- 「字典页的成分表」：菜谱说用料、字典页说笔画，类型卡说水——t735 的 chip 教「这条线流什么」，t746 的水行教「这个型过什么水」。判词：**词汇的教学面从「已发生的连接」上溯到「未发生的可能」——用户还没拖线，字典已经把水路念完**；第十一读者与前十个不同：它读的是类型空间，不是当前世界。
+- 「容量与现实的第二次分工」：t738 在一张卡上分了插座色与水色，t746 在一行里分了 drinks（accepts 容量——能收什么）与 pours（kind 确定性——一定倒什么）。判词：**pours 是承诺，drinks 是胃口；承诺用点担保，胃口用词点名**——external 的胃口是 anything（诚实 omnivore），import 的胃口是 nothing（诚实前门），三支各有活人。
+- 「律的归位」：首版卡内推导被 t730 一红拦下——旧律没有例外条款，新读者就地入 lib。判词：**红探针不是障碍是界碑：它守的律（口算留 lib）比本窗的新功能更老也更对**；正确动作是把问题命名入册，不是给旧律开口子。注释也算话——t730 的全文断言连概念词都拦。
+- 「世界先勘察」：落码前 jiti 预演发现三支全活（3 nothing / 1 anything / 36 named）——**分支活着才写分支**；如果 anything 没有活人，它就是死代码，该删不该写。世界分布决定了实现形状。
+- 产出：src/lib/workflow.ts（pourKindsOf/drinkKindsOf 双命名问题 + t746 判词注）+ src/components/workflow/type-card-dialog.tsx（import 合流 + 卡读答 + 水行 JSX 双词族双回退）+ scripts/t746-water-row-unit.mjs（21/0）+ shots-qa/t746-patrol.png / t746-repatrol.png + worklog 本段；下窗入口：①**build 日批次（账单 +1 = 卅六项）**：t692 六处 + t609 三件套 + t693/t694 门 + seed-gap 相邻容忍 + a11y 加强行 + t703 resolver rebuild + t260/t705 终验 + qa49 B 相 + t707-t711 五张激活判决 + t713/t714/t715 三张激活判决 + t716/t717/t718/t720/t721 五张激活判决 + t722/t724/t725/t727/t728/t729/t730 七张激活判决 + t732/t733/t734/t735 四张激活判决 + t737-t743 七张激活判决 + t744/t745 激活判决 + **t746 激活判决（类型卡水行活体：卡面 drinks/pours 双词族、点骑 wire hex、nothing/anything 回退、lib 命名问题在册）** + 验证网 ②非 build 日：自由选题（**kind 第十二读者的侦察**——edge hover tooltip 升卡/inspector 标题行报词/palette 行借水点；或新领土侦察——搜索面/知识面之外的第 N 类 UI 面） ③床轮换 **2/5**（带内不动） ④census 轮换：零新路由/零种子/零 bookmark；本窗 lib 手术（workflow.ts +2 命名问题）→ 31 件探针 exit-code 全绿本窗已跑（t730 43/0 复绿在册）；t576 live-fire 仍 world-drift pin。
