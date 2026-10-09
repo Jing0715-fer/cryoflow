@@ -1296,12 +1296,24 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {/* map / stack dialog */}
       <Dialog open={imageFile !== null} onOpenChange={(o) => !o && setImageFile(null)}>
         <DialogContent
-          className="max-h-[90dvh] max-w-2xl overflow-y-auto sm:max-w-2xl"
+          className="flex max-h-[90dvh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
           onKeyDown={onEscapeClose(() => setImageFile(null))}
         >
           {imageFile && (
             <>
-              <DialogHeader>
+              {/* t809 — the house dialect reaches the map/stack preview
+                  (the census's other disease-live face): the DialogContent
+                  WAS the scroll surface (an explicit 90dvh + overflow-
+                  y-auto, the header floated unpinned — a tall stack
+                  montage pushed it away; Radix pins the dialog to
+                  tabIndex=-1, the t802/t804 verdict, one more face). The
+                  walk found exactly TWO disease-live faces in forty-four
+                  and this is the second. The shape: flex col + gap-0 +
+                  overflow-hidden + p-0, the header pinned, ONE inner
+                  region carrying the stop + the honest name + the inset
+                  ring; role=dialog kept (the t799 law). The card's own
+                  90dvh cap is kept — each face keeps its own. */}
+              <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
                 <DialogTitle className="flex items-center gap-2 text-sm">
                   <Layers className="h-4 w-4 text-running-600" aria-hidden="true" />
                   {imageFile.label ?? imageFile.name}
@@ -1310,7 +1322,12 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   {imageFile.path} · {formatBytes(imageFile.size)}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-3">
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Map and stack preview — the image, its window controls, and the histogram"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+              >
                 {imageFile.name.toLowerCase().endsWith(".mrcs") ? (
                   <>
                     <MrcImage
