@@ -57,7 +57,7 @@ import * as React from "react";
 import { Download, Info, SlidersHorizontal, Upload, X } from "lucide-react";
 import { TypeIcon } from "./icons";
 import { TypeCardDialog } from "./type-card-dialog"; // t733 — the shelf's dictionary door: the palette's card, same face
-import { jobType } from "@/lib/workflow";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow";
 import { fmtAgo } from "@/lib/duration";
 import {
   loadUserParamPresets,
@@ -254,6 +254,10 @@ export function UserPresetShelf() {
       <div data-atomic-grid className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {shelf.map((p) => {
           const t = jobType(p.type);
+          // t751 — asked once, read twice (dots + ear). The component side
+          // of the undefined law: an unknown type doesn't even ask — no
+          // spec, no water, the card keeps its honest no-op posture.
+          const pouring = t ? pourKindsOf(p.type) : [];
           const knobs = Object.keys(p.params).length;
           const preview = Object.entries(p.params).slice(0, PREVIEW_CAP);
           return (
@@ -277,6 +281,34 @@ export function UserPresetShelf() {
                 <span className="truncate text-[10px] text-muted-foreground" title={p.type}>
                   {t?.label ?? p.type}
                 </span>
+                {/* t751 — the shelf card's identity line borrows the water
+                    dots: a preset is saved params FOR a type, so before
+                    applying it the card says what that type pours — same
+                    dot (size-1.5 whisper, wire hex, per-dot title word),
+                    same sr-only ear line, same one-family discipline
+                    (pours only; the appetite's full sentence stays in the
+                    dictionary behind the t733 door). The type line is the
+                    card's placard — the shelf is the overview face (t716),
+                    snapshots scanned before any door is opened. Unknown
+                    type stays SILENT (render gate): no spec, no dots —
+                    silence is a posture, nothing would be a lie. */}
+                {t ? (
+                  <span
+                    className="flex shrink-0 items-center gap-1"
+                    data-testid={`shelf-pours-${p.type}`}
+                  >
+                    {pouring.map((k) => (
+                      <span
+                        key={k}
+                        aria-hidden="true"
+                        title={`pours ${k}`}
+                        className="inline-block size-1.5 rounded-full"
+                        style={{ background: PORT_COLORS[k].wire }}
+                      />
+                    ))}
+                    <span className="sr-only">pours {pouring.join(", ")}</span>
+                  </span>
+                ) : null}
                 {/* t733 — the shelf's dictionary door: the same TypeCard the
                     palette's rows open (t730), reached from the type line
                     where the question actually lives. Same span-as-button
