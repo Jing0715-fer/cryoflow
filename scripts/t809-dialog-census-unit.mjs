@@ -85,8 +85,11 @@ console.log("C — the exemptions' honesty (one law per window)");
     "C2d pipeline-script keeps its 55vh pre ground");
   ok(readFileSync("src/components/workflow/path-browser-dialog.tsx", "utf8").includes("h-72 overflow-y-auto"),
     "C2e path-browser keeps its h-72 list ground");
-  ok(readFileSync("src/components/workflow/hpc-profiles-editor.tsx", "utf8").includes('max-h-[56vh] space-y-1 overflow-y-auto'),
-    "C2f hpc-profiles-editor's list keeps its 56vh ground (the census records the editor column's PARTIAL rider)");
+  // t811 amendment — the PARTIAL rider is dressed: the list's ground kept
+  // (56vh + overflow) and made shrink-safe (min-h-0 flex-1); the editor
+  // column wears the named region (t811-profiles-rider-unit owns that law).
+  ok(readFileSync("src/components/workflow/hpc-profiles-editor.tsx", "utf8").includes('max-h-[56vh] flex-1 space-y-1 overflow-y-auto'),
+    "C2f hpc-profiles-editor's list keeps its 56vh ground (the t811 cure made it shrink-safe; the PARTIAL rider is dressed)");
   const WP = readFileSync("src/components/workflow/workspace-panel.tsx", "utf8");
   ok(WP.includes('className="sm:max-w-sm"') && !/New workspace[\s\S]{0,200}flex-col gap-0 overflow-hidden/.test(WP),
     "C3 the small forms stay small — the census did NOT blanket-house the never-overflow faces");
