@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseClassNotes } from "@/lib/class-notes";
+import { gridNeighbor, type GridDir, type GridEntry } from "@/lib/grid-nav"; // t778 — the roving geometry's one brain (the results grid already speaks it)
 import { pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t773 — the kind vocabulary's THIRTY-FIRST reader joins the class gallery's source line
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { useWorkflowStore } from "@/lib/store";
@@ -462,7 +463,16 @@ export function ClassGallery({
    * is in the tab order (tabIndex 0), the arrows move focus between cards
    * geometrically (row/col neighbours of the responsive grid, no column
    * count guessing), Home/End jump to the ends. The zoom sibling stays
-   * tabbable so keyboard users still reach the lightbox. */
+   * tabbable so keyboard users still reach the lightbox.
+   *
+   * t778 — the inline geometry retired into src/lib/grid-nav.ts, the brain
+   * the results grid's roving already speaks (t777): the gallery raises
+   * the intent — which word was pressed, where the anchor sits — and the
+   * lib resolves the neighbour (half-tile tolerance, strict travel axis,
+   * nearest wins, an honest null at the edge of the world). Same law,
+   * one brain, two families. Focus keeps the t774 contract: preventScroll,
+   * then the nearest-block scroll — focus without reachability is a dead
+   * gesture. */
   const cardRefs = useRef(new Map<number, HTMLButtonElement>());
   const [activeCls, setActiveCls] = useState<number | null>(null);
   useEffect(() => {
@@ -472,58 +482,48 @@ export function ClassGallery({
       setActiveCls(visible[0]?.cls ?? null);
     }
   }, [visible, activeCls]);
+  const KEY_TO_DIR: Record<string, GridDir> = {
+    ArrowRight: "right",
+    ArrowLeft: "left",
+    ArrowUp: "up",
+    ArrowDown: "down",
+    Home: "home",
+    End: "end",
+  };
   const onGridKeyDown = (e: React.KeyboardEvent) => {
-    const NAV = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Home", "End"];
-    if (!NAV.includes(e.key)) return;
+    const dir = KEY_TO_DIR[e.key];
+    if (!dir) return;
     const cur = document.activeElement as HTMLButtonElement | null;
-    const entries = visible
-      .map((v) => ({ cls: v.cls, el: cardRefs.current.get(v.cls) }))
-      .filter((en): en is { cls: number; el: HTMLButtonElement } => Boolean(en.el));
-    if (entries.length === 0) return;
-    const rects = entries.map((en) => ({ ...en, r: en.el.getBoundingClientRect() }));
-    const curEntry =
-      rects.find((en) => en.el === cur) ??
-      rects.find((en) => en.cls === activeCls) ??
-      rects[0];
-    const cx = curEntry.r.left + curEntry.r.width / 2;
-    const cy = curEntry.r.top + curEntry.r.height / 2;
-    const rowTol = curEntry.r.height / 2;
-    const colTol = curEntry.r.width / 2;
-    let target: (typeof rects)[number] | undefined;
-    switch (e.key) {
-      case "ArrowRight":
-        target = rects
-          .filter((en) => en.r.left > curEntry.r.left + 1 && Math.abs(en.r.top + en.r.height / 2 - cy) < rowTol)
-          .sort((a, b) => a.r.left - b.r.left)[0];
-        break;
-      case "ArrowLeft":
-        target = rects
-          .filter((en) => en.r.left < curEntry.r.left - 1 && Math.abs(en.r.top + en.r.height / 2 - cy) < rowTol)
-          .sort((a, b) => b.r.left - a.r.left)[0];
-        break;
-      case "ArrowDown":
-        target = rects
-          .filter((en) => en.r.top > curEntry.r.top + 1 && Math.abs(en.r.left + en.r.width / 2 - cx) < colTol)
-          .sort((a, b) => a.r.top - b.r.top)[0];
-        break;
-      case "ArrowUp":
-        target = rects
-          .filter((en) => en.r.top < curEntry.r.top - 1 && Math.abs(en.r.left + en.r.width / 2 - cx) < colTol)
-          .sort((a, b) => b.r.top - a.r.top)[0];
-        break;
-      case "Home":
-        target = rects[0];
-        break;
-      case "End":
-        target = rects[rects.length - 1];
-        break;
+    const entries: (GridEntry & { cls: number; el: HTMLButtonElement })[] = [];
+    for (const v of visible) {
+      const el = cardRefs.current.get(v.cls);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      entries.push({
+        id: String(v.cls),
+        cls: v.cls,
+        el,
+        left: r.left,
+        top: r.top,
+        width: r.width,
+        height: r.height,
+      });
     }
+    if (entries.length === 0) return;
+    const curEntry =
+      entries.find((en) => en.el === cur) ??
+      entries.find((en) => en.cls === activeCls) ??
+      entries[0];
+    const nextId = gridNeighbor(entries, curEntry.id, dir);
     // arrows must never scroll the grid — an edge cell simply holds focus
     e.preventDefault();
-    if (target && target.cls !== curEntry.cls) {
-      setActiveCls(target.cls);
-      target.el.focus();
-    }
+    if (!nextId || nextId === curEntry.id) return;
+    const target = entries.find((en) => en.id === nextId);
+    if (!target) return;
+    setActiveCls(target.cls);
+    // t774's viewport lesson — focus without reachability is a dead gesture
+    target.el.focus({ preventScroll: true });
+    target.el.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
   const zoomIdx = zoom == null ? -1 : visible.findIndex((c) => c.cls === zoom);
   const zoomClass = zoomIdx >= 0 ? visible[zoomIdx] : null;
