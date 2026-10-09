@@ -202,9 +202,9 @@ export function TypeCardDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-testid="type-card"
-        className="max-h-[85vh] overflow-y-auto sm:max-w-lg"
+        className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle
             className="flex items-center gap-2.5 pr-6 text-base"
             data-testid="type-card-title"
@@ -242,6 +242,26 @@ export function TypeCardDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* t804 — the content-node census's house cure, live-witnessed on the
+            frozen world (t804-typecard-frozen.png): 1353px of dictionary page
+            in a 488px window, Radix's modal tabIndex=-1 on the content node,
+            exactly FIVE tabbables (three downstream chips + Add + Close) —
+            the description, the water row, the upstream sentence and the
+            whole PARAMETER REFERENCE (the hints are the lib's richest prose
+            and this card's reason to exist) were keyboard-unreachable scroll
+            between the chips and the footer. The house shape hands the scroll
+            to this inner region — tabIndex + role=region + its own name + the
+            family's inset ring (edge-to-edge; an outward ring would clip);
+            role=dialog stays (t799's law, third home); the footer pins with a
+            border-t so the verb never scrolls away; space-y-4 keeps the old
+            grid gap-4 rhythm. The upstream side is Import's honest front door
+            (empty and saying so) — the census judged, not touched. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Type card dictionary — description, water, upstream, downstream, parameters"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
         <p className="text-[13px] leading-relaxed text-muted-foreground">
           {spec.description}
         </p>
@@ -478,7 +498,7 @@ export function TypeCardDialog({
           </div>
         </section>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t px-6 py-4">
           <Button
             type="button"
             size="sm"
@@ -489,6 +509,7 @@ export function TypeCardDialog({
             {adding ? "Adding…" : "Add to canvas"}
           </Button>
         </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

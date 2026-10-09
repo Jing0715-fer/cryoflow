@@ -263,8 +263,8 @@ function ClassConvergenceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-4 overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+        <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2 text-base">
             <History className="size-4 text-primary" aria-hidden="true" />
             Class convergence — {lensSpec.label}
@@ -276,6 +276,25 @@ function ClassConvergenceDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* t804 — the content-node census's house cure, the t802 dialect at
+            family scale: this DialogContent WAS the scroll surface (the old
+            override spoke "flex ... flex-col gap-4 overflow-y-auto"), Radix's
+            modal parks tabIndex=-1 on the content node itself, and everything
+            between the round pickers and the continue verb was
+            keyboard-unreachable scroll. The house shape (flex col + gap-0 +
+            pinned header + overflow-hidden) hands the scroll to this inner
+            region — tabIndex + role=region + its own name + the family's
+            inset ring (the region runs edge-to-edge; an outward ring would
+            clip against the dialog's own border). role=dialog stays — a stop
+            and a role are not rivals (t799's law, third home). space-y-4
+            keeps the old gap-4 rhythm inside the region; the six faces
+            recorded in t803's J arm are all cured this window. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Class convergence reading — verdict, scatter, movers, census"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
         {/* the round pickers — the whole arc leads, both stay switchable */}
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="min-w-0">
@@ -381,6 +400,7 @@ function ClassConvergenceDialog({
             <ContinueVerbRow job={job} onDone={() => onOpenChange(false)} />
           </>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
