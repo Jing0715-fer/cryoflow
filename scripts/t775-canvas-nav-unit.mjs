@@ -89,7 +89,11 @@ console.log("A — the wiring (card raises the intent, canvas owns the geometry)
     /onCardNavigate\?: \(fromId: string, dir: NavDir\) => void;/.test(card),
     "A2 the prop is optional (a card without it keeps the old contract)",
   );
-  const destructured = (cardCode.match(/onCardNavigate,\n\}: JobCardProps\) \{/g) ?? []).length;
+  // t789 — the destructuring grew a tail (onDeleteFocus rides AFTER
+  // onCardNavigate), so the anchor follows the new shape: count the
+  // destructure LINE itself (m flag — the t787 row-anchor lesson),
+  // not its position at the end of the list.
+  const destructured = (cardCode.match(/^  onCardNavigate,$/gm) ?? []).length;
   assert(destructured === 1, "A3 the prop is destructured exactly once", `found ${destructured}`);
   assert(
     /a\.onCardNavigate !== b\.onCardNavigate/.test(card),
