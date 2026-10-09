@@ -92,8 +92,8 @@ ok(
   listener.indexOf("if (target.closest(SIBLING_SURFACE_SELECTOR)) return") <
     listener.indexOf("t796 — the live zones are not the outside world") &&
     listener.indexOf("t796 — the live zones are not the outside world") <
-      listener.indexOf("if (layer.openCount > 0)"),
-  "A1 the exemption sits BETWEEN the sibling return and the stand-down"
+      listener.indexOf("if (openSurfaceExists())"),
+  "A1 the exemption sits BETWEEN the sibling return and the stand-down (the t813 amendment: the stand-down reads the DOM truth)"
 );
 ok(
   listener.includes(
@@ -103,15 +103,15 @@ ok(
 );
 ok(
   listener.includes(
-    "if (layer.openCount === 0 && isOpenerLike(target)) layer.pocket = target"
+    "if (!openSurfaceExists() && isOpenerLike(target)) layer.pocket = target"
   ),
-  "A3 the idle right survives — an opener-like zone control still arms the pocket"
+  "A3 the idle right survives — an opener-like zone control still arms the pocket (the t813 amendment: the idle right reads the DOM truth)"
 );
 ok(
-  /if \(target\.closest\(`\$\{COMPANION_WINDOW_SELECTOR\}, \$\{DIALOG_LIVE_SELECTOR\}`\)\) \{\s*\n\s*if \(layer\.openCount === 0 && isOpenerLike\(target\)\) layer\.pocket = target\s*\n\s*return\s*\n\s*\}/.test(
+  /if \(target\.closest\(`\$\{COMPANION_WINDOW_SELECTOR\}, \$\{DIALOG_LIVE_SELECTOR\}`\)\) \{\s*\n\s*if \(!openSurfaceExists\(\) && isOpenerLike\(target\)\) layer\.pocket = target\s*\n\s*return\s*\n\s*\}/.test(
     listener
   ),
-  "A4 the branch RETURNS — a glance can never fall through to the disarm"
+  "A4 the branch RETURNS — a glance can never fall through to the disarm (the t813 amendment rides)"
 );
 ok(
   (dialog.match(/t796 — the live zones are not the outside world/g) || []).length === 1,
@@ -123,9 +123,9 @@ ok(
 /* ------------------------------------------------------------------ */
 
 ok(
-  listener.includes("if (layer.openCount > 0) {") &&
+  listener.includes("if (openSurfaceExists()) {") &&
     listener.includes("layer.pocket = null"),
-  "B1 the t791 stand-down still disarms below — a REAL page departure loses the pocket");
+  "B1 the t791 stand-down still disarms below — a REAL page departure loses the pocket (the t813 amendment: the DOM truth gates it)");
 ok(
   /export function returnFocusToOpener\(event: Event\): void \{[\s\S]*?layer\.pocket = null[\s\S]*?event\.preventDefault\(\)/.test(
     dialog
@@ -242,8 +242,9 @@ ok(
   "F2 the t792 layer's charter paragraph stands — the fourth family's home"
 );
 ok(
-  /const layer: DialogFocusLayer = \{ pocket: null, openCount: 0 \}/.test(dialog),
-  "F3 the layer singleton's shape is unchanged — pocket + openCount, nothing more"
+  /const layer: DialogFocusLayer = \{ pocket: null \}/.test(dialog) &&
+    /function openSurfaceExists\(\)/.test(dialog),
+  "F3 the layer singleton's shape is pocket-only (the t813 amendment: the counter is retired, the DOM truth answers the stand-down)"
 );
 ok(
   /\*\* True when the element lives inside a dialog surface whose host dialog\n \* is CLOSING/.test(dialog),

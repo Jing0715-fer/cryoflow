@@ -75,9 +75,13 @@ const dlg = readFileSync(dlgPath, "utf8");
 /* A — the layer's mechanics                                           */
 /* ------------------------------------------------------------------ */
 
-// A1 — the layer shape: one pocket, one counter.
-ok(/const layer: DialogFocusLayer = \{ pocket: null, openCount: 0 \}/.test(dlg),
-  "A1 the layer is born empty (pocket null, openCount 0)");
+// A1 — the layer shape: one pocket (the t813 amendment: the counter is
+// RETIRED — it counted rendered wrappers, not open surfaces; 50 at boot,
+// never moving, the stand-down always firing, the pocket never arming —
+// the DOM truth (openSurfaceExists) answers the stand-down at event time).
+ok(/const layer: DialogFocusLayer = \{ pocket: null \}/.test(dlg) &&
+   /function openSurfaceExists\(\)/.test(dlg),
+  "A1 the layer is born empty (pocket null) and the stand-down reads the DOM truth (the t813 amendment)");
 
 // A2 — exactly ONE document-level focusin capture listener, armed once.
 ok(/document\.addEventListener\(\s*"focusin",/.test(dlg),
@@ -90,8 +94,12 @@ ok(/if \(target\.closest\(SIBLING_SURFACE_SELECTOR\)\) return/.test(dlg),
   "A4 focus inside a dialog surface is never an opener address");
 
 // A5 — the t791 witness stand-down: voluntary exit disarms the pocket.
-ok(/if \(layer\.openCount > 0\) \{\s*layer\.pocket = null\s*return\s*\}/.test(dlg),
-  "A5 a focusin outside every open dialog stands the pocket down");
+// The t813 amendment: the stand-down reads the DOM truth
+// (openSurfaceExists) and the disarm is OPENER-LIKE-GATED — Radix's exit
+// blurs the content to BODY before onCloseAutoFocus runs, and a BODY
+// focusin is the exit's own machinery, not a voluntary exit.
+ok(/if \(openSurfaceExists\(\)\) \{\s*if \(isOpenerLike\(target\)\) layer\.pocket = null\s*return\s*\}/.test(dlg),
+  "A5 a focusin outside every open dialog stands the pocket down (the t813 amendment: the DOM truth gates the stand-down, an opener-like choice gates the disarm)");
 
 // A6 — the opener-like census: the seven dialects of a legitimate opener.
 ok(/tag === "BUTTON"/.test(dlg) && /tag === "A"/.test(dlg) &&
@@ -149,17 +157,17 @@ const spreadIdx = dlg.indexOf("{...props}", injectIdx);
 ok(spreadIdx > injectIdx,
   "B2 {...props} spreads after the injection — caller override wins");
 
-// B3 — the registration effect: every mounted surface counts itself.
-ok(/layer\.openCount \+= 1/.test(dlg),
-  "B3 each DialogContent mount increments the open count");
-ok(/layer\.openCount = Math\.max\(0, layer\.openCount - 1\)/.test(dlg),
-  "B4 unmount decrements with a floor at zero");
-
-// B5 — the effect is mount-once (empty deps) inside DialogContent.
-const regIdx = dlg.indexOf("layer.openCount += 1");
-const regRegion = dlg.slice(Math.max(0, regIdx - 400), regIdx + 300);
-ok(/\}, \[\]\)/.test(regRegion),
-  "B5 the registration effect runs once per mount (empty deps)");
+// B3-B5 — the t813 amendment: the registration is RETIRED (the counter
+// counted wrappers, not surfaces — the flip day's great audit finding).
+// The spend lives in returnFocusToOpener on Radix's own close event, and
+// the stand-down reads openSurfaceExists at event time. The no-op
+// registration stays only for the three bridge callers.
+ok(/export function useDialogFocusSurface\(\): void \{\s*\/\/ t813 — retired:/.test(dlg),
+  "B3 the registration is retired with its prose on file (the t813 amendment: the counter counted wrappers, never surfaces)");
+ok(/lives in returnFocusToOpener on Radix's own close event/.test(dlg),
+  "B4 the spend lives on Radix's close event (the layer never needed a counter to spend)");
+ok(/one brain, no second counter to resurrect/.test(dlg),
+  "B5 the three bridges keep one brain (no second counter to resurrect)");
 
 /* ------------------------------------------------------------------ */
 /* C — the cured households (bespoke chains stay verbatim)             */

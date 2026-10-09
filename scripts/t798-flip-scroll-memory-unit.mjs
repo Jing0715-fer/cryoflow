@@ -94,8 +94,8 @@ ok(
   "A3 the collectScrollables predicate — truly overflowing, truly scrollable"
 );
 ok(
-  /apply\(\)\s*\n\s*const raf = requestAnimationFrame\(apply\)/.test(dc),
-  "A4 the double apply — before paint, then once more for the refetch's reflow"
+  /apply\(\)\s*\n\s*let ladderRaf = 0/.test(dc) && /frames > 90/.test(dc),
+  "A4 the restore is the patient ladder (the t813 amendment: sync first, then every frame until the memory reads back or ~90 frames — the two-beat restore lost the race against the flip's leaf refetch)"
 );
 ok(
   dc.includes('root.addEventListener("scroll", onScroll, { capture: true, passive: true })'),
@@ -107,12 +107,12 @@ ok(
 /* ------------------------------------------------------------------ */
 
 ok(
-  /const apply = \(\) => \{\s*\n\s*const memory = scrollMemoryRef\.current\s*\n\s*if \(!memory\) return\s*\n/.test(dc),
-  "B1 the null-memory guard — a fresh open starts at the top, honestly"
+  /const apply = \(\) => \{\s*\n\s*const memory = scrollMemoryRef\.current\s*\n\s*if \(!memory\) return true\s*\n/.test(dc),
+  "B1 the null-memory guard — a fresh open starts at the top, honestly (and never enters the ladder)"
 );
 ok(
-  /cancelAnimationFrame\(raf\)\s*\n\s*root\.removeEventListener\("scroll", onScroll, \{ capture: true \}\)/.test(dc),
-  "B2 the cleanup retracts both the frame and the listener"
+  /cancelAnimationFrame\(ladderRaf\)\s*\n\s*root\.removeEventListener\("scroll", onScroll, \{ capture: true \}\)/.test(dc),
+  "B2 the cleanup retracts both the ladder's frame and the listener (the t813 amendment: the ladder's handle, not a single raf)"
 );
 ok(
   dc.indexOf("scrollMemoryRef = React.useRef") < dc.indexOf("return (") &&
@@ -124,8 +124,8 @@ ok(
   "B4 exactly one listener — capture-phase descent, no second brain"
 );
 ok(
-  dc.includes("if (memory[i] !== undefined) el.scrollTop = memory[i]"),
-  "B5 the restore is index-matched and length-tolerant — a refetch that changed the region count degrades, never throws"
+  dc.includes("if (memory[i] !== undefined)") && dc.includes("el.scrollTop = memory[i]"),
+  "B5 the restore is index-matched and length-tolerant — a refetch that changed the region count degrades, never throws (the t813 ladder re-applies until each set sticks)"
 );
 
 /* ------------------------------------------------------------------ */

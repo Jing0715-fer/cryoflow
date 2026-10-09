@@ -88,9 +88,13 @@ ok(/export function returnFocusToOpener\(event: Event\): void \{/.test(dlg),
   "A1 returnFocusToOpener is exported from the dialog bridge");
 ok(/export function useDialogFocusSurface\(\): void \{/.test(dlg),
   "A2 useDialogFocusSurface is exported from the dialog bridge");
-ok(/layer\.openCount \+= 1/.test(dlg) &&
-   /layer\.openCount = Math\.max\(0, layer\.openCount - 1\)/.test(dlg),
-  "A3 the t792 registration word-forms live inside the exported hook");
+// the t813 amendment: the registration is RETIRED (the counter counted
+// rendered wrappers, never open surfaces — 50 at boot, never moving);
+// the no-op export stays for the three bridges, the DOM truth answers
+// the stand-down, the spend lives on Radix's close event.
+ok(/export function useDialogFocusSurface\(\): void \{\s*\/\/ t813 — retired:/.test(dlg) &&
+   /function openSurfaceExists\(\)/.test(dlg),
+  "A3 the t792 registration is retired with prose on file (the t813 amendment: the DOM truth answers, the counter is gone)");
 ok(/onCloseAutoFocus=\{returnFocusToOpener\}/.test(dlg),
   "A4 the dialog bridge still injects the default hand-back");
 // the t792 order law survives the refactor: clear BEFORE focus.
