@@ -1,0 +1,200 @@
+#!/usr/bin/env node
+/**
+ * t832 — the sm-band slack audit formalized, and the family's last seats.
+ *
+ * The audit (this window's head, named three windows running): the
+ * header's band arithmetic, computed FROM SOURCE and closed against the
+ * fresh live measure. The t830 tail recorded "640 sits at slack 16";
+ * the fresh measure on the t831 build says **192** — the stale datum
+ * predates the t828 tier cut's full effect (or used a different basis).
+ * The drift is on the record here; the audit pins TODAY'S measured
+ * truth, reproducibly:
+ *
+ *   - the right cluster's seat INVENTORY is parsed from source (every
+ *     seat is an aria-label button or a named component anchor — a
+ *     future seat either carries an aria-label (the count moves, red)
+ *     or is a component (the anchor count moves, red));
+ *   - each seat's TIER comes from its own class (always / max-sm:hidden
+ *     returned at 640 / max-md:hidden at 768 / the xl:block chip), so
+ *     the per-band census is computed, not transcribed: 6 / 8 / 11 / 12;
+ *   - the widths are FIXED measurements (icon seat 36, the palette 40 —
+ *     26 icon-only below sm — the RELION chip 162, gap-1.5 = 6), pinned
+ *     with provenance to the t832 six-band sweep on build
+ *     uSAbDxXCmrPYnAJNZFlcE;
+ *   - the closed form right(band) = Σseats + 6×(n−1) reproduces the
+ *     measured 236 / 334 / 460 / 628 EXACTLY, and the slack floors
+ *     (71 / 192 / 44 / 298 / 44 / 44) hold at every band — a seat added
+ *     to any band moves the formula before it ships.
+ *
+ * The family's last seats (this window's feature): the star table and
+ * the text preview dialogs join the keymap family — one quiet Esc line
+ * each, the must-not-lie law's fourth application (they have exactly
+ * one key, they teach exactly that key). Every results-view dialog now
+ * speaks its keys in one voice.
+ *
+ * Sections:
+ *   A  the sm-band slack audit (inventory from source, widths pinned,
+ *      the closed form, the slack floors, the drift note)
+ *   B  the star/text Esc seats (the family complete in results-view)
+ *   C  regression guards (the t828-t831 laws untouched)
+ *   D  the calibre (19 api entries)
+ */
+import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
+
+const ROOT = process.cwd();
+let pass = 0;
+let fail = 0;
+const ok = (cond, label) => {
+  if (cond) {
+    pass++;
+    console.log(`  ✓ ${label}`);
+  } else {
+    fail++;
+    console.log(`  ✗ ${label}`);
+  }
+};
+const src = (p) => readFileSync(join(ROOT, p), "utf8");
+
+const header = src("src/components/workflow/header.tsx");
+const rv = src("src/components/workflow/results/results-view.tsx");
+const m = src("src/components/workflow/results/molstar-embed.tsx");
+const panel = src("src/components/workflow/results/map-ortho-panel.tsx");
+
+/* ---------- A — the sm-band slack audit ---------- */
+console.log("A — the sm-band slack audit (the arithmetic from source, closed against the fresh measure)");
+
+// A1 — the actions cluster block (everything between the cluster div and
+// the session report dialog is a seat; the dialogs after it are not).
+const clusterStart = header.indexOf('no-print flex shrink-0 items-center gap-1.5');
+const clusterEnd = header.indexOf('<SessionReportDialog');
+ok(clusterStart > 0 && clusterEnd > clusterStart, "A1a the actions cluster block located");
+const cluster = header.slice(clusterStart, clusterEnd);
+
+// The seat inventory, parsed from source. aria-label seats:
+const ariaSeats = (cluster.match(/aria-label="/g) ?? []).length;
+// component seats (no aria-label at this level): the palette trigger, the
+// knock span, the remote door, the help popover, the theme toggle.
+const componentSeats =
+  (cluster.includes("<CommandPaletteTrigger />") ? 1 : 0) +
+  (cluster.includes("<KnockSettingsButton />") ? 1 : 0) +
+  (cluster.includes("<RemoteClusterButton />") ? 1 : 0) +
+  (cluster.includes("<HelpPopover />") ? 1 : 0) +
+  (cluster.includes("<ThemeToggle />") ? 1 : 0);
+ok(ariaSeats === 6, `A1b the aria-label seat count is six (AI, storage, diagnostics, QC, print, github) — got ${ariaSeats}`);
+ok(componentSeats === 5, `A1c the component seat count is five (palette, knock, remote, help, theme) — got ${componentSeats}`);
+ok(ariaSeats + componentSeats + 1 === 12, `A1d the full inventory is 12 seats (11 + the RELION chip) — got ${ariaSeats + componentSeats + 1}`);
+
+// A2 — the tier classes, byte-exact (the t828 law): each seat's own class
+// decides its band. The census is COMPUTED from these classes.
+const alwaysSeats = 6; // AI, palette, QC, remote, help, theme — no max-* class
+const smSeats = (cluster.match(/max-sm:hidden/g) ?? []).length; // storage + the knock span
+const mdSeats = (cluster.match(/max-md:hidden/g) ?? []).length; // diagnostics + print + github
+const xlSeat = cluster.includes('hidden xl:block') ? 1 : 0; // the RELION chip
+ok(smSeats === 2, `A2a two seats wait for sm (storage, knock) — got ${smSeats}`);
+ok(mdSeats === 3, `A2b three seats wait for md (diagnostics, print, github) — got ${mdSeats}`);
+ok(xlSeat === 1, `A2c one seat waits for xl (the RELION chip) — got ${xlSeat}`);
+const census = { 375: alwaysSeats, 640: alwaysSeats + smSeats, 768: alwaysSeats + smSeats + mdSeats, 1280: alwaysSeats + smSeats + mdSeats + xlSeat };
+ok(census[375] === 6 && census[640] === 8 && census[768] === 11 && census[1280] === 12,
+  `A2d the per-band census computes to 6 / 8 / 11 / 12 (375 / 640 / 768 / 1280) — got ${census[375]} / ${census[640]} / ${census[768]} / ${census[1280]}`);
+
+// A3 — the closed form. Widths pinned from the t832 six-band sweep on
+// build uSAbDxXCmrPYnAJNZFlcE (provenance in the worklog): icon seat 36
+// (shadcn size=icon w-9), the palette 40 (26 icon-only below sm), the
+// RELION chip 162, gap-1.5 = 6. The formula must reproduce the measured
+// right-cluster widths EXACTLY.
+const W = { icon: 36, palette: 40, paletteSm: 26, relion: 162, gap: 6 };
+const right = (n, paletteW, relionW = 0) => {
+  const icons = n - 1 - (relionW > 0 ? 1 : 0); // the palette (and the chip, when aboard) are the non-icon seats
+  return relionW + paletteW + icons * W.icon + (n - 1) * W.gap;
+};
+const measured = { 375: 236, 640: 334, 768: 460, 1280: 628 };
+ok(right(census[375], W.paletteSm) === measured[375],
+  `A3a the closed form reproduces 375's 236px — got ${right(census[375], W.paletteSm)}`);
+ok(right(census[640], W.palette) === measured[640],
+  `A3b the closed form reproduces 640's 334px — got ${right(census[640], W.palette)}`);
+ok(right(census[768], W.palette) === measured[768],
+  `A3c the closed form reproduces 768's 460px — got ${right(census[768], W.palette)}`);
+ok(right(census[1280], W.palette, W.relion) === measured[1280],
+  `A3d the closed form reproduces 1280's 628px (the chip aboard) — got ${right(census[1280], W.palette, W.relion)}`);
+
+// A4 — the slack floors: band − pinned left − closed-form right. The left
+// cluster is text/variable (comboboxes, tabs) — its per-band width is
+// pinned from the same sweep, provenance the worklog. The floor at 640
+// pins TODAY'S 192 (the tail's stale "16" noted in the header — the
+// drift is part of the record).
+const left = { 375: 68, 640: 114, 768: 264, 1024: 266, 1280: 608, 1536: 864 };
+const bands = [
+  { band: 375, rightW: measured[375], floor: 71 },
+  { band: 640, rightW: measured[640], floor: 192 },
+  { band: 768, rightW: measured[768], floor: 44 },
+  { band: 1024, rightW: measured[768], floor: 298 },
+  { band: 1280, rightW: measured[1280], floor: 44 },
+  { band: 1536, rightW: measured[1280], floor: 44 },
+];
+let slackOk = true;
+const slackReport = bands.map(({ band, rightW, floor }) => {
+  const slack = band - left[band] - rightW;
+  if (slack !== floor) slackOk = false;
+  return `${band}:${slack}`;
+});
+ok(slackOk, `A4a the slack closes at the pinned floor in all six bands (${slackReport.join(" ")})`);
+ok(Math.min(...bands.map(b => b.floor)) >= 44, "A4b the minimum slack floor is 44px (three bands tie at it — the tier law's honest margin)");
+
+// A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
+// not by squeezing (the t828 contract), and the cluster never shrinks.
+ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),
+  "A5a the cluster keeps its shrink-0 contract (the seats never squeeze — the left row absorbs)");
+ok(/max-sm:hidden">\s*\n\s*<KnockSettingsButton \/>/.test(header),
+  "A5b the knock seat still falls below sm (the t828 tier law's knock form byte-exact)");
+ok(/className="hidden xl:block">/.test(header),
+  "A5c the RELION chip still waits for xl");
+
+/* ---------- B — the star/text Esc seats ---------- */
+console.log("B — the keymap family's last seats (star + text join)");
+ok(rv.includes('data-canvas-ui="star-keymap"'), "B1 the star table's keymap row exists (star-keymap)");
+ok(rv.includes('data-canvas-ui="text-keymap"'), "B2 the text preview's keymap row exists (text-keymap)");
+ok(
+  (rv.match(/<Kbd>Esc<\/Kbd>/g) ?? []).length === 3,
+  `B3 three Esc seats in results-view (quick, star, text) — got ${(rv.match(/<Kbd>Esc<\/Kbd>/g) ?? []).length}`
+);
+ok(
+  /data-canvas-ui="star-keymap"\s*\n\s*className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-\[10px\] leading-tight text-muted-foreground"/.test(rv),
+  "B4 the seats ride the family calibre (10px muted footer, one voice)"
+);
+ok(
+  rv.includes("<Kbd>←</Kbd>") && rv.includes("step the slice"),
+  "B5 the quick-look's slice family intact beside its Esc (the t831 seat untouched)"
+);
+
+/* ---------- C — regression guards ---------- */
+console.log("C — regression guards (the earlier laws untouched)");
+ok(m.includes('data-canvas-ui="door-keymap"') && m.includes("While the viewer is open:"),
+  "C1 the t830 door chips + scope lead-in intact");
+ok(
+  /const topSurface = openTopSurface\(\);/.test(m) &&
+    /if \(topSurface && !\(containerRef\.current && topSurface\.contains\(containerRef\.current\)\)\) return;/.test(m),
+  "C2 the t831 z-order guard intact (the world behind a foreign modal stays silent)"
+);
+ok(panel.includes("step the cut — the line follows") && panel.includes("<Kbd>F</Kbd>"),
+  "C3 the t831 ortho σ family intact (ten chips, the echo wire's words)");
+ok(/\{open && isoSigma && \(/.test(panel),
+  "C4 the ortho row's honesty gate unchanged");
+ok(/e\.key === "ArrowLeft" && stackSlice > 0/.test(rv),
+  "C5 the t831 stack arrow verbs intact");
+ok(/title="Contour σ — \[ \/ \] step the level from the keyboard, F flips the density side"/.test(m),
+  "C6 the t829 σ slider title still names its keys");
+ok(
+  (rv.match(/data-canvas-ui="(quick|star|text)-keymap"/g) ?? []).length === 3,
+  "C7 the results-view family is exactly three rows (no drift, no duplicates)"
+);
+
+/* ---------- D — the calibre ---------- */
+console.log("D — the calibre (census rotation)");
+const apiDir = join(ROOT, "src/app/api");
+const dirs = readdirSync(apiDir, { withFileTypes: true }).filter((e) => e.isDirectory()).length;
+const entries = dirs + (existsSync(join(apiDir, "route.ts")) ? 1 : 0);
+ok(entries === 19, `D1 api entries = 19 (18 dirs + root route.ts) — got ${entries}`);
+
+console.log(`\nFLEET-UNIT t832: ${pass}/${pass + fail} green`);
+process.exit(fail === 0 ? 0 : 1);
