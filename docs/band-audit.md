@@ -235,7 +235,7 @@ comparison.
 ## Instruments
 
 - `node scripts/t834-band-sweep.mjs` — the live half: six bands plus the
-  residue's 1px-step zone (64 assertions; the zone rows carry the STACK
+  residue's 1px-step zone (71 assertions; the zone rows carry the STACK
   witness and the wrapper's overflow-x fingerprint since t841; since t852
   the FAR EDGE rides too — 1366/1440/1536/1920, the band layer's first
   walk above the zone: the cross-layer identity is far-edge-proof (the
@@ -243,12 +243,23 @@ comparison.
   included), the floor sleeps (trigW == wrapW x4), the right cluster
   never moves (628.3/12 x4), the named points hold and the gap runs
   away (-12/-33.1/-110.3/-463.1), the chip is width-free above 2xl
-  (90.3), and the residue is 1280-local; receipt
+  (90.3), and the residue is 1280-local; since t853 the BELOW ZONE rides
+  too — 768/900/1024 plus the edge ride 767-772, the band layer's first
+  walk below xl: the mid row sleeps at every named tier (the twin
+  vacuously at rest — E1's 1279 point now a cross-section), the residue
+  has no below-form, the wordmark is BORN SQUEEZED at md (140 @768 —
+  the row needs 738.5 vs available 736 and the min-w-0 yielder pays the
+  whole 2.5, A4e-2's live form) in a LINEAR zone (squeeze(W) = 770.5 −
+  W, [768, 770], clear by 771, slope −1.0/px — the row's only yielder
+  below xl absorbs every pixel), the interior rides the natural
+  266.5/142.5 (768-local), and the right plateau re-anchors below xl
+  (460/11 x3, closed form); receipt
   `shots-qa/t834-band-sweep.json` with the raw subpixels,
-  per-seat anatomy, the zone table, and the farEdge block), one
+  per-seat anatomy, the zone table, and the farEdge and belowZone
+  blocks), one
   command.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (60 assertions, rides the
+  parsed, the tiers computed, the closed forms (61 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
@@ -256,7 +267,8 @@ comparison.
   closes the t845 third seat, A4e-16 closes the t846 maintenance sweep,
   A4e-17 closes the t847 fourth seat, A4e-18 closes the t848 fifth seat,
   A4e-19 closes the t849 sixth seat, A4e-20 closes the t850 seventh seat,
-  A4e-21 closes the t851 eighth seat, A4e-22 closes the t852 far edge).
+  A4e-21 closes the t851 eighth seat, A4e-22 closes the t852 far edge,
+  A4e-23 closes the t853 below zone).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -316,7 +328,7 @@ comparison.
   live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
   painted rows, the decision table's rows relate as filmed (B138 no-op at
   the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
-  and all receipts speak the standing build (48 assertions; receipt
+  and all receipts speak the standing build (51 assertions; receipt
   `shots-qa/t842-family-audit.json`). The second seat (t843) pinned the
   BOUND CHAIN across receipts — the wordmark's natural 142.46 > B138's cap
   138 > the squeezed 101.3 > B88's cap 88 — the one line that proves B138
@@ -380,7 +392,21 @@ comparison.
   (628.3/12 at every width), the named points hold (-12/-33.1 — two
   sections of the sweep agreeing) while the gap runs away (-110.3/
   -463.1), and the paint witness is trigger-local at every far width:
-  the t510 residue exists only where the floor binds. When the
+  the t510 residue exists only where the floor binds. The below zone
+  (t853) took the band layer BELOW xl for the first time as F15: the
+  sweep's `belowZone` walks 768/900/1024 plus the edge ride 767-772, and
+  the mid row SLEEPS at every named tier — the twin has no counterpart
+  below the zone (vacuously at rest; E1's 1279 point now a
+  cross-section) and the residue has no below-form. The discovery: the
+  wordmark is BORN SQUEEZED at md — at 768 the row needs 738.5
+  (266.5+460+12) vs available 736 and the min-w-0 wordmark pays the
+  whole 2.5 (A4e-2's integer law refined to 0.1px) — in a LINEAR zone:
+  squeeze(W) = 770.5 − W exactly (769 pays 1.5, 770 pays 0.5, 771
+  clear), slope −1.0/px because the wordmark is the row's ONLY yielder
+  below xl and absorbs every pixel (the 1280 zone's slope is −0.4 —
+  there the row's other yielders take 0.6); the interior (900/1024)
+  rides the natural 266.5/142.5 — the squeeze is 768-local, the below
+  mirror of the residue's 1280-locality. When the
   fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
