@@ -186,6 +186,26 @@ edges-never-move law was an AT-A-WIDTH law (across options at 1280);
 across widths the left row drifts — but clone and live drift
 TOGETHER, which is exactly what PAINT-not-geometry means.
 
+The seventh seat (t850) took the mid-row-pays law ACROSS WIDTHS on the
+option worlds: t840's (b88) slope rows (1283/1286) and the (c) world
+gained the same BAND walks, and the probe (t850-option-across-probe)
+rode the widths before any pin. Three measured laws: **(1) the edges
+ride the live rulers on every option world at every width** (610.8
+@1283, 613.8 @1286, rightW 628.3, seats 12 — width-free PAINT
+generalized from the fix world to the decision table; the 1286 row is
+cross-harness identity with t839's live ruler: two instruments, two
+worlds, one number). **(2) The wrapper kid == the option's zone wrapW
+at every width** (124.4/126.1 on (b88), 107.7/108.8 on (c)) — the
+cross-layer identity is width-indexed on the option worlds too.
+**(3) The mid row's own laws re-scope per option**: the (b88) EQUALIZE
+is an AT-A-WIDTH phenomenon — exact at 1280 (122.8 == 122.8), then
+decaying as the label trails the wrapper (124.1 vs 124.4 @1283, 125.4
+vs 126.1 @1286: the kids' slopes differ, +0.43/px vs +0.55/px) — while
+the (c) divergence is WIDTH-STABLE (the label grows at the live label's
+own rate: 122.2/123.2, the gap holding 14.7 → 14.5 → 14.4). The fifth
+seat's "equalize" was the zone's anchor coincidence; the pays law that
+survives every cross-section is the wrapper-kid one.
+
 The verdict is closed before the grind: land (a), ONE grind, the
 ratchet's post-fix form already rehearsed (D4's narration flips to the
 clipped truth, E8 gains the computed overflow-x fingerprint), and the
@@ -200,14 +220,14 @@ comparison.
   command; receipt `shots-qa/t834-band-sweep.json` with the raw subpixels,
   per-seat anatomy, and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (57 assertions, rides the
+  parsed, the tiers computed, the closed forms (58 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
   the t843 a11y re-witness, A4e-14 closes the t844 fragile pair, A4e-15
   closes the t845 third seat, A4e-16 closes the t846 maintenance sweep,
   A4e-17 closes the t847 fourth seat, A4e-18 closes the t848 fifth seat,
-  A4e-19 closes the t849 sixth seat).
+  A4e-19 closes the t849 sixth seat, A4e-20 closes the t850 seventh seat).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -241,8 +261,13 @@ comparison.
   (c) = backfires to 11.4; two bit-identical rides per option; since
   t848 each clone also carries its own BAND layer — the fifth seat: the
   edges never move on any option, the mid row pays, (b88) equalizes at
-  122.8, (c) diverges 121.3/106.6; receipt
-  `shots-qa/t840-options-rehearsal.json`, 12 assertions). The t836
+  122.8, (c) diverges 121.3/106.6; since t850 the (b88) slope rows and
+  the (c) world carry BAND walks at 1283/1286 — the seventh seat: the
+  edges ride the live rulers at every width on both option worlds, the
+  wrapper kid == the zone wrapW at all four widths, the (b88) equalize
+  is at-a-width (decays 0.3/0.7), the (c) divergence width-stable
+  (14.5/14.4); receipt
+  `shots-qa/t840-options-rehearsal.json`, 16 assertions). The t836
   arithmetic pricing is an experiment now — the build day's choice is
   closed by measurement, not by memory.
 - `node scripts/t842-family-audit.mjs` — the family audit: one arithmetic,
@@ -257,7 +282,7 @@ comparison.
   live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
   painted rows, the decision table's rows relate as filmed (B138 no-op at
   the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
-  and all receipts speak the standing build (40 assertions; receipt
+  and all receipts speak the standing build (43 assertions; receipt
   `shots-qa/t842-family-audit.json`). The second seat (t843) pinned the
   BOUND CHAIN across receipts — the wordmark's natural 142.46 > B138's cap
   138 > the squeezed 101.3 > B88's cap 88 — the one line that proves B138
@@ -294,7 +319,16 @@ comparison.
   drift is pinned and SHARED (leftW +1.0/px, the wrapper's kid +0.4/px
   == the sweep's zone wrapW per width, rightW/seats invariant) — the
   at-a-width edges law and the across-widths drift law are two
-  cross-sections of one fact: the fix is paint. When the
+  cross-sections of one fact: the fix is paint. The seventh seat (t850)
+  brought the option worlds' WIDTH walks into the same audit as F12:
+  t840's `bandAfter` now carries (b88)/(c) band walks at 1283/1286, and
+  F12 pins the pays law's width form — the edges ride the live rulers on
+  every option world at every width (610.8/613.8, rightW 628.3, seats
+  12; the 1286 row cross-harness with t839's live ruler), the wrapper
+  kid == the option's zone wrapW at all four widths (124.4/126.1,
+  107.7/108.8), the (b88) equalize is at-a-width (exact at 1280, the
+  label trailing 0.3/0.7 — the kids' slopes differ) while the (c)
+  divergence is width-stable (14.5/14.4). When the
   fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
