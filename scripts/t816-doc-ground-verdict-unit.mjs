@@ -138,15 +138,31 @@ ok(
 );
 let cssHasRule = false;
 try {
-  for (const f of readdirSync(".next/static/css")) {
-    if (readFileSync(`.next/static/css/${f}`, "utf8").includes("grid-cols-\\[minmax")) cssHasRule = true;
+  // t820 amendment — the rebuild moved the compiled CSS: the old build
+  // kept it at .next/static/css/<hash>.css; the new build (BUILD_ID
+  // QCTxzO4ceFujGgajpxZ1i) houses it under .next/static/chunks/<hash>.css.
+  // The walk now covers BOTH addresses so the instrument survives the
+  // build-layout drift; the assertion's truth ("the compiled CSS carries
+  // the rule") never moved.
+  const cssDirs = [".next/static/css", ".next/static/chunks"];
+  for (const dir of cssDirs) {
+    let entries = [];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      continue; // the address may not exist on a given build — honest skip
+    }
+    for (const f of entries) {
+      if (f.endsWith(".css") && readFileSync(`${dir}/${f}`, "utf8").includes("grid-cols-\\[minmax"))
+        cssHasRule = true;
+    }
   }
 } catch {
   cssHasRule = false;
 }
 ok(
   cssHasRule,
-  "D4 the compiled CSS carries the valid grid-cols rule (the constraint was never missing)",
+  "D4 the compiled CSS carries the valid grid-cols rule (css/ or chunks/ — the t820 dual-address walk)",
 );
 
 console.log(`t816-doc-ground-verdict-unit: ${pass} pass / ${fails.length} fail`);
