@@ -1794,6 +1794,48 @@ export default function SessionReportDialog({
           )}
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{md}</ReactMarkdown>
         </div>
+        {/* t833 — the session report joins the keymap family: the first
+            seat OUTSIDE results-view. The report answers to four keys
+            and the row teaches exactly those. ← → step the compass
+            through the sections (t235's map walk — invisible to this
+            day, which is the row's reason to live), but the walk only
+            works once a section chip has focus, so the chips carry
+            that scope in their own words instead of promising a key
+            that dies from the door row (the must-not-lie law: teach
+            the reach WITH the key). H and M are the t247 byte mouths
+            — the export doors already speak them at the point of
+            action ("or press M/H" titles + their own kbd chips); the
+            row gathers the dialog's whole inventory in one voice, the
+            family's calibre. Esc is the house close every dialog
+            obeys. The walk is gated on toc.length > 1 — a one-section
+            map has no step, and a chip for a dead key would lie (the
+            quick-look's single-image law). no-print: the row is an
+            app affordance — the portable paper takes the report, not
+            its scaffolding (the compass and the doors' own law). */}
+        <div
+          data-canvas-ui="report-keymap"
+          className="no-print flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+        >
+          {toc.length > 1 && (
+            <span className="inline-flex items-center gap-0.5">
+              <Kbd>←</Kbd>
+              <Kbd>→</Kbd>
+              <span className="ml-1">step the sections (Tab in first)</span>
+            </span>
+          )}
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>H</Kbd>
+            <span className="ml-1">HTML report</span>
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>M</Kbd>
+            <span className="ml-1">Markdown report</span>
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>Esc</Kbd>
+            <span className="ml-1">closes</span>
+          </span>
+        </div>
       </DialogContent>
     </Dialog>
   );
