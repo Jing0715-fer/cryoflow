@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t846-a11y-maintenance.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T12:17:50.347Z",
+  "date": "2026-10-10T12:39:26.302Z",
   "chain": "canvas -> dashboard -> inspector -> palette -> restore (one command)",
   "doors": {
     "dashboard": "exact-text 'Dashboard' switcher click",
