@@ -40,6 +40,12 @@
  * The audit now closes end-to-end: both halves of the header are
  * arithmetic, and a future seat on either side moves a formula, red.
  *
+ * t837 amendment — the text constants' provenance upgraded: the
+ * wordmark 142 and the tab labels 120 are DERIVED, not bare pins (the
+ * font-metrics probe's canvas advances under the elements' own computed
+ * fonts, two bit-identical rides; A4e-5..7 close the receipt against
+ * the pins). The audit's last open constant is closed.
+ *
  * The family's last seats (this window's feature): the star table and
  * the text preview dialogs join the keymap family — one quiet Esc line
  * each, the must-not-lie law's fourth application (they have exactly
@@ -204,10 +210,15 @@ ok(/hidden h-8 items-center gap-1\.5 rounded-lg border px-2\.5[^"]*2xl:flex/.tes
 
 // A4e — the closed form. Fixed parts from source (A4c/A4d): icon 36,
 // the cluster's gap-2.5 = 10, the middle tier's gap-2 = 8, the triggers'
-// width tiers. Text-dependent parts pinned with provenance (the t834
-// live sweep, receipt shots-qa/t834-band-sweep.json on build
-// KtPKuXIbtB9d7uhItOOUS): the wordmark's text natural 142, the two tab
-// labels' text 120 (Dashboard + Workflow at text-xs), the lens chip 90.
+// width tiers. Text-dependent parts: the wordmark 142 and the tab
+// labels 120 are DERIVED constants (the t837 font-metrics probe,
+// scripts/t837-wordmark-probe.mjs — canvas advances under the elements'
+// own computed fonts, two bit-identical rides, receipt
+// shots-qa/t837-wordmark-probe.json on build KtPKuXIbtB9d7uhItOOUS:
+// the wordmark = max of its two lines' advances, line 2 "Cryo-EM
+// Workflow Builder" at 11px carries it, 142.46 live vs rect 142.47;
+// the labels sum 120.2). The lens chip 90 stays a pinned variable with
+// provenance (the t834 live sweep, receipt shots-qa/t834-band-sweep.json).
 const L = {
   icon: 36, gap: 10, midGap: 8,
   wm: 142, labels: 120, chip: 90,
@@ -242,6 +253,32 @@ ok(
   "A4e-3 the 1024 band sits at its natural width (no squeeze) — the wordmark's honest 142"
 );
 ok(vsXl === 200, `A4e-4 the ViewSwitcher at its label floor derives to 200px (68 + the labels' 120 + the two gap-1.5) — got ${vsXl}`);
+
+// A4e-5..7 — the text constants' provenance, upgraded from bare pins to
+// derived constants (the t837 font-metrics probe): the receipt must be
+// aboard with two bit-identical rides, and both numbers this audit
+// uses must close against the pins. Division of honesty: the probe
+// closes the derivation against the WORLD (the live rect); this unit
+// closes the receipt against the PIN.
+const wmReceiptPath = join(ROOT, "shots-qa/t837-wordmark-probe.json");
+const wmReceipt = existsSync(wmReceiptPath)
+  ? JSON.parse(readFileSync(wmReceiptPath, "utf8"))
+  : null;
+ok(
+  wmReceipt && wmReceipt.bitIdentical === true && Array.isArray(wmReceipt.runs) && wmReceipt.runs.length === 2,
+  "A4e-5 the t837 wordmark receipt is aboard (two bit-identical rides, BUILD_ID provenance)"
+);
+if (wmReceipt && Array.isArray(wmReceipt.runs) && wmReceipt.runs[0]) {
+  const r0 = wmReceipt.runs[0];
+  ok(
+    Math.abs(Math.round(r0.derived) - L.wm) <= 0.5 && Math.abs(r0.derived - r0.rect) <= 0.5,
+    `A4e-6 the wordmark's ${L.wm} is DERIVED (probe: max-of-lines ${r0.derived} vs rect ${r0.rect}, winner "${r0.lines[1].text}")`
+  );
+  ok(
+    Math.abs(r0.labelsSum - L.labels) <= 0.5,
+    `A4e-7 the labels' ${L.labels} is DERIVED (probe sum: ${r0.labelsSum})`
+  );
+}
 
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.

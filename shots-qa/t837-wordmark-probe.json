@@ -1,0 +1,88 @@
+{
+  "provenance": {
+    "buildId": "KtPKuXIbtB9d7uhItOOUS",
+    "viewport": "1024x800 (the A4e-3 natural band)",
+    "instrument": "canvas measureText under the elements' own computed fonts, letter-spacing applied (two models), max-of-lines for the box",
+    "date": "2026-10-10T08:06:55.286Z"
+  },
+  "bitIdentical": true,
+  "runs": [
+    {
+      "rect": 142.47,
+      "cls": "min-w-0 leading-tight max-md:hidden",
+      "lsOK": true,
+      "lines": [
+        {
+          "text": "CryoFlow",
+          "font": "normal 600 14px ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "display": "block",
+          "ls": "-0.35px",
+          "raw": 72.84,
+          "wSet": 70.04,
+          "wMan": 70.04
+        },
+        {
+          "text": "Cryo-EM Workflow Builder",
+          "font": "normal 400 11px ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "display": "block",
+          "ls": "normal",
+          "raw": 142.46,
+          "wSet": 142.46,
+          "wMan": 142.46
+        }
+      ],
+      "derived": 142.46,
+      "labels": [
+        {
+          "text": "Dashboard",
+          "w": 65.1
+        },
+        {
+          "text": "Workflow",
+          "w": 55.1
+        }
+      ],
+      "labelsSum": 120.2,
+      "innerW": 1024
+    },
+    {
+      "rect": 142.47,
+      "cls": "min-w-0 leading-tight max-md:hidden",
+      "lsOK": true,
+      "lines": [
+        {
+          "text": "CryoFlow",
+          "font": "normal 600 14px ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "display": "block",
+          "ls": "-0.35px",
+          "raw": 72.84,
+          "wSet": 70.04,
+          "wMan": 70.04
+        },
+        {
+          "text": "Cryo-EM Workflow Builder",
+          "font": "normal 400 11px ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "display": "block",
+          "ls": "normal",
+          "raw": 142.46,
+          "wSet": 142.46,
+          "wMan": 142.46
+        }
+      ],
+      "derived": 142.46,
+      "labels": [
+        {
+          "text": "Dashboard",
+          "w": 65.1
+        },
+        {
+          "text": "Workflow",
+          "w": 55.1
+        }
+      ],
+      "labelsSum": 120.2,
+      "innerW": 1024
+    }
+  ],
+  "verdict": "green"
+}
