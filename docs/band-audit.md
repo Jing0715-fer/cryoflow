@@ -167,12 +167,13 @@ comparison.
   command; receipt `shots-qa/t834-band-sweep.json` with the raw subpixels,
   per-seat anatomy, and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (54 assertions, rides the
+  parsed, the tiers computed, the closed forms (55 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
   the t843 a11y re-witness, A4e-14 closes the t844 fragile pair, A4e-15
-  closes the t845 third seat, A4e-16 closes the t846 maintenance sweep).
+  closes the t845 third seat, A4e-16 closes the t846 maintenance sweep,
+  A4e-17 closes the t847 fourth seat).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -185,7 +186,10 @@ comparison.
   the t510 option (a) fix applied to a throwaway DOM clone and the zone
   re-measured (the sweep's walk + the `elementsFromPoint` STACK witness
   + the wrapper's computed overflow-x; two bit-identical rides per
-  section; receipt `shots-qa/t839-zone-rehearsal.json`). The pricing
+  section; since t847 the clone also carries its own BAND layer — the
+  fourth seat: left 607.8, right 628.3, seats 12, bit-for-bit equal to
+  the live band, PAINT-not-geometry proven on the band layer too;
+  receipt `shots-qa/t839-zone-rehearsal.json`, 11 assertions). The pricing
   "paint, not geometry" is an experiment now: on the build day the fix
   lands with its proof already aboard, and D4/E8 flip to the rehearsed
   clipped truth.
@@ -223,7 +227,13 @@ comparison.
   zone row wrap == the GEOM every receipt rides), and the shared 1280
   anchor — the only width both rulers sample — with the natural 1366 row
   (149.2/149.2/-12, TRIGGER on top) proving the squeeze is band-local.
-  When the fix lands, all three paint instruments flip
+  The fourth seat (t847) brought the fix's own CLONE into the band layer:
+  t839's BAND_MEASURE now rides the clone after the swap, and F9 pins the
+  clone's band numbers EQUAL to the live band's bit-for-bit (left 607.8,
+  right 628.3, seats 12) — PAINT-not-geometry proven on the band layer
+  too — and the mid wrap joins the three-way as the FOUR-way 115.3 (band
+  live / band clone / zone row / the GEOM every receipt rides). When the
+  fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
 - The handshake is the audit: source counts drift from rendered truth, and
