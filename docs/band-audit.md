@@ -259,7 +259,7 @@ comparison.
   blocks), one
   command.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (62 assertions, rides the
+  parsed, the tiers computed, the closed forms (63 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
@@ -269,7 +269,7 @@ comparison.
   A4e-19 closes the t849 sixth seat, A4e-20 closes the t850 seventh seat,
   A4e-21 closes the t851 eighth seat, A4e-22 closes the t852 far edge,
   A4e-23 closes the t853 below zone, A4e-24 closes the t854 ninth
-  seat).
+  seat, A4e-25 closes the t855 tenth seat).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -319,8 +319,15 @@ comparison.
   (the zone and band walks == the T0 load's rulers — T5+T10's 1280
   truth extended across the zone, the harness's own loop closed; and
   two independent fresh loads of the same build film the same world
-  bit-for-bit across widths, the cross-load identity); receipt
-  `shots-qa/t840-options-rehearsal.json`, 20 assertions). The t836
+  bit-for-bit across widths, the cross-load identity); since t855 the
+  same two loads walk OUTSIDE the zone — the tenth seat: the far edge
+  (1366/1920: edges 693.8/895, rightW 628.3, seats 12, the wrap twin
+  149.2/220 alive at the far edge, the PS clearing deeper −12 →
+  −463.1) and the below zone (768/1024: edges 264/266.5, rightW 460,
+  seats 11, the mid row ASLEEP — midKids null, the zone walk exactly
+  {mid:false}) both bit-for-bit, the restore's width map COMPLETE
+  (below, zone, far); receipt
+  `shots-qa/t840-options-rehearsal.json`, 22 assertions). The t836
   arithmetic pricing is an experiment now — the build day's choice is
   closed by measurement, not by memory.
 - `node scripts/t842-family-audit.mjs` — the family audit: one arithmetic,
@@ -335,7 +342,7 @@ comparison.
   live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
   painted rows, the decision table's rows relate as filmed (B138 no-op at
   the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
-  and all receipts speak the standing build (53 assertions; receipt
+  and all receipts speak the standing build (56 assertions; receipt
   `shots-qa/t842-family-audit.json`). The second seat (t843) pinned the
   BOUND CHAIN across receipts — the wordmark's natural 142.46 > B138's cap
   138 > the squeezed 101.3 > B88's cap 88 — the one line that proves B138
@@ -422,7 +429,23 @@ comparison.
   overlap 1.5/0.3 == the live law, wmW 102.2/103); the cross-load
   identity is a law in its own right: two independent fresh loads of
   the same build film the same world bit-for-bit across widths — the
-  table's width form now includes its own restore. When the
+  table's width form now includes its own restore. The tenth seat
+  (t855) took the identity OUTSIDE the zone as F17: t840's
+  `bandAfter.tenthSeat` carries BOTH loads' far/below walks (the T0
+  load and the restore load each walk 1366/1920/768/1024, zone +
+  band), and the cross-load identity holds bit-for-bit at the far edge
+  (edges 693.8/895, rightW 628.3, seats 12 — the wrap twin alive at
+  149.2/220, the PS clearing deeper −12 → −463.1) and the below zone
+  (edges 264/266.5, rightW 460, seats 11, the mid row asleep, the
+  zone walk exactly {mid:false} — the sleep itself reproducible);
+  F17.c adds the form nobody had pinned before: the identity SPANS
+  INSTRUMENTS — t840's live rulers == the sweep receipt's own G/H rows
+  bit-for-bit at the load level (the zone layers agree on the shared
+  6-key projection: the sweep's zone rows carry a narrower shape —
+  modeling, not drift; the t854 lesson learned twice by the t855
+  probe, which rode all seven far/below widths first with zero
+  drifts). The restore's width map is COMPLETE: two loads, one world,
+  below, in, and far beyond the zone. When the
   fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
