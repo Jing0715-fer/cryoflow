@@ -62,25 +62,46 @@ audit's purpose is that price being visible BEFORE the seat ships.
 actions cluster never shrinks (`shrink-0`); the left row is the shock
 absorber. A band that cannot fit a seat must not show it.
 
-## The residue on the books (t835)
+## The residue on the books (t835, zone formalized t836)
 
 The t510 budget arithmetic ("626 ≤ 650 at xl") predates the right cluster's
 growth — the budget at 1280 is **608** today, the natural row **746**. The
 squeeze engages, and at the exact xl boundary the project trigger holds its
 130px floor while its wrapper yields to 115.3: the overflow paints **2.7px
-into the RELION chip's box**. Zone: [1280, ~1289] — clear by 1290 (−1.3),
-clear at 1366 (−12), the floor sleeps from 2xl up (trigger 205 ≤ wrapper
-205). Pinned as the sweep's D4 assertion; the fix window lands the fix and
-moves the pin to ≤ 0 — red until then. The build day's options, priced by
-the arithmetic: (a) `overflow-hidden` on the PS wrapper — the floor stays
-name-worthy, the paint stays inside, cheapest; (b) re-cut the wordmark's xl
-width; (c) drop the project trigger's xl tier from 170 to 150.
+into the RELION chip's box**. Pinned as the sweep's D4 assertion; the fix
+window lands the fix and moves the pin — red until then.
+
+The zone, measured in 1px steps and pinned (the sweep's section E, 54/54):
+
+- **Left-anchored at xl.** Below 1280 the middle tier sleeps
+  (`hidden xl:flex`) — the zone cannot start before 1280 (1279 asleep).
+- **Linear with slope −0.4px/px.** `overlap(W) = 2.7 − 0.4×(W−1280)` — the
+  wrapper reclaims 0.4px per viewport px, the row's other yielders absorb
+  the 0.6. The law closed with max deviation 0 across 1280..1290.
+- **The edge: last paint 1286 (+0.3), first clear 1287 (−0.1).** The t835
+  "clear by ~1290" was the named point (1290 = −1.3 exact); the measured
+  edge is tighter.
+- **No re-paint.** From 1287 through 1440 the overlap stays ≤ 0
+  (1366 = −12, 1440 = −33.1 — the floor sleeps from 2xl, trigger 205 ≤
+  wrapper 205).
+- **The paint witness.** Inside the band the topmost element is the CHIP
+  (DOM-order hit-test, no z-index) whose background is transparent: the
+  trigger's edge paint shows through, and the chip owns the click. A
+  consequence the fix window must price: option (a) `overflow-hidden`
+  changes the PAINT, not the geometry — the ratchet needs this paint
+  witness (elementFromPoint + computed bg), not the raw rect delta alone.
+
+The build day's options, priced by the arithmetic: (a) `overflow-hidden` on
+the PS wrapper — the floor stays name-worthy, the paint stays inside,
+cheapest; (b) re-cut the wordmark's xl width; (c) drop the project
+trigger's xl tier from 170 to 150.
 
 ## Instruments
 
-- `node scripts/t834-band-sweep.mjs` — the live half: six bands, 46
-  assertions, one command; receipt `shots-qa/t834-band-sweep.json` with the
-  raw subpixels and per-seat anatomy.
+- `node scripts/t834-band-sweep.mjs` — the live half: six bands plus the
+  residue's 1px-step zone (54 assertions), one command; receipt
+  `shots-qa/t834-band-sweep.json` with the raw subpixels, per-seat anatomy,
+  and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
   parsed, the tiers computed, the closed forms (42 assertions, rides the
   fleet).
