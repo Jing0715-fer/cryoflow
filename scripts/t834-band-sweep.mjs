@@ -48,6 +48,19 @@
  *     NOT the geometry — its ratchet needs a paint-honest witness
  *     (this one), not the raw rect delta alone.
  *
+ * Section E grown (t841, the zone's second instrument): the measure
+ * itself gained two teeth — the STACK witness (document.elementsFromPoint
+ * at the band point: the residue's paint is real iff the TRIGGER is in
+ * the stack; hit-testing respects overflow clipping, so the fix's flip
+ * is a per-width measured delta) and the wrapper's computed overflow-x
+ * (the fix's own fingerprint, watched in reverse). New assertions:
+ *   - E9: the TRIGGER is in the stack at every PAINTED width (the paint
+ *     is real across the zone, not just at the D4 pin's 1280);
+ *   - E10: overflow-x 'visible' at every awake zone width — when the
+ *     fix lands, E10 goes red FIRST and names the ratchet to flip.
+ * The pre-fix rows ride the receipt with the stack aboard, so the
+ * post-fix world is compared per-width against filmed truth.
+ *
  * The receipt lands in shots-qa/t834-band-sweep.json (provenance: BUILD_ID
  * read from .next/BUILD_ID at run time). The assertions pin TODAY's truth:
  * left 68/114/264/266/608/864, right 236/334/460/628, seats 6/8/11/12/12/12,
@@ -218,7 +231,10 @@ console.log("\nD — the middle tier's internals (the t510 squeeze, filmed live)
 // This pin is the RESIDUE the t510 re-cut left (its "626 ≤ 650" budget
 // predated the right cluster's growth: the budget at 1280 is 608 today,
 // the natural row 746 — the squeeze engages, the sliver follows). The
-// fix window lands the fix and MOVES THIS PIN (≤ 0), red until then.
+// t839 rehearsal measured the post-fix form: the GEOMETRY stays 2.7
+// (option (a) changes the paint, not the layout), the STACK loses the
+// trigger (E9), the wrapper's overflow-x flips (E10) — the fix window's
+// ratchet is a measured flip, not a narration edit.
 if (rows[1280] && rows[1280].midKids) {
   const mkVis = rows[1280].midKids.filter((k) => k.w > 0).length;
   ok(mkVis === 2, `D1 1280 the middle tier shows two children (triggers only; counters wait for 2000px, the chip for 2xl) — got ${mkVis}`);
@@ -246,7 +262,7 @@ console.log("\nE — the t510 residue's zone, 1px steps around xl (the t836 form
 // probe's: trigger right minus chip left at 0.1px, plus the paint
 // witness (elementFromPoint in the band, the chip's computed bg).
 const ZONE_MEASURE =
-  "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'no header' }); const mid = hdr.children[0].children[3]; if (!mid || mid.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: false }); const psWrap = mid.children[1]; const psTrig = psWrap ? psWrap.querySelector('button, [role=combobox]') : null; const chip = hdr.children[1].children[0]; if (!psTrig || !chip || chip.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: true, ps: null }); const tr = psTrig.getBoundingClientRect(); const cr = chip.getBoundingClientRect(); const paint = (x) => { const el = document.elementFromPoint(x, tr.top + tr.height / 2); if (!el) return 'null'; const who = el === psTrig || psTrig.contains(el) ? 'TRIGGER' : el === chip || chip.contains(el) ? 'CHIP' : 'OTHER'; return who + '|' + (el.getAttribute('aria-label') || String(el.className).slice(0, 30)); }; const cs = getComputedStyle(chip); return JSON.stringify({ mid: true, trigW: Math.round(tr.width * 10) / 10, wrapW: Math.round(psWrap.getBoundingClientRect().width * 10) / 10, overlap: Math.round((tr.right - cr.left) * 10) / 10, chipBg: cs.backgroundColor, paintAt: paint(Math.min(tr.right - 0.5, cr.left + 0.5)) }); })()";
+  "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'no header' }); const mid = hdr.children[0].children[3]; if (!mid || mid.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: false }); const psWrap = mid.children[1]; const psTrig = psWrap ? psWrap.querySelector('button, [role=combobox]') : null; const chip = hdr.children[1].children[0]; if (!psTrig || !chip || chip.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: true, ps: null }); const tr = psTrig.getBoundingClientRect(); const cr = chip.getBoundingClientRect(); const py = tr.top + tr.height / 2; const px = Math.min(tr.right - 0.5, cr.left + 0.5); const who = (el) => (el === psTrig || psTrig.contains(el) ? 'TRIGGER' : el === chip || chip.contains(el) ? 'CHIP' : 'OTHER'); const lbl = (el) => el.getAttribute('aria-label') || String(el.className).slice(0, 30); const paintEl = document.elementFromPoint(px, py); const paint = paintEl ? who(paintEl) + '|' + lbl(paintEl) : 'null'; const stack = document.elementsFromPoint(px, py).slice(0, 8).map((el) => who(el) + '|' + lbl(el)); const cs = getComputedStyle(chip); const csW = getComputedStyle(psWrap); return JSON.stringify({ mid: true, trigW: Math.round(tr.width * 10) / 10, wrapW: Math.round(psWrap.getBoundingClientRect().width * 10) / 10, overlap: Math.round((tr.right - cr.left) * 10) / 10, chipBg: cs.backgroundColor, paintAt: paint, stack, wrapOverflowX: csW.overflowX }); })()";
 const ZW = [
   1279, 1280, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290,
   1291, 1292, 1294, 1366, 1440,
@@ -303,6 +319,34 @@ ok(
     zone[1280].paintAt.startsWith("CHIP") &&
     zone[1280].chipBg === "rgba(0, 0, 0, 0)",
   `E8 the PAINT WITNESS: in-band topmost = CHIP (${zone[1280] && zone[1280].paintAt}), bg transparent (${zone[1280] && zone[1280].chipBg}) — the edge paint shows through, the chip owns the click`
+);
+// E9 — the STACK witness, permanent (the t841 growth): at every PAINTED
+// width (overlap > 0) the trigger is IN the band's hit stack — the
+// paint is real across the whole zone, not just at the D4 pin's 1280.
+// Hit-testing respects overflow clipping, so the fix window's flip is a
+// per-width MEASURED delta: each painted row loses the trigger.
+const painted = ZW.filter((w) => zOv(w) !== null && zOv(w) > 0);
+const stackFull =
+  painted.length > 0 &&
+  painted.every(
+    (w) => zone[w].stack && zone[w].stack.some((s) => String(s).startsWith("TRIGGER"))
+  );
+ok(
+  stackFull,
+  `E9 the STACK witness at every painted width (${painted.join(",")}): the TRIGGER is in the band's hit stack — the paint is real across the zone, the fix's flip will be a per-width measured delta`
+);
+// E10 — the fix's FINGERPRINT, watched in reverse: the wrapper's
+// computed overflow-x is 'visible' at every awake zone width. The build
+// day's one-line fix flips it to 'hidden' — E10 goes red FIRST and
+// names the ratchet to flip (D4's narration to the clipped truth, E8's
+// fingerprint, E9's per-width delta), so the sweep can never be
+// silently outlived by the src.
+const midRows = ZW.filter((w) => zone[w] && zone[w].mid === true);
+const ovxVisible =
+  midRows.length > 0 && midRows.every((w) => zone[w].wrapOverflowX === "visible");
+ok(
+  ovxVisible,
+  `E10 the fix's fingerprint ABSENT: overflow-x 'visible' at all ${midRows.length} awake zone widths — when the fix lands this goes red first and names the ratchet to flip`
 );
 
 /* ---------- the receipt ---------- */

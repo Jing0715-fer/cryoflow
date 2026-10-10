@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t834-band-sweep.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T08:46:14.136Z",
+  "date": "2026-10-10T09:00:43.739Z",
   "bands": {
     "375": {
       "leftW": 68,
@@ -570,7 +570,18 @@
         "wrapW": 115.3,
         "overlap": 2.7,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found"
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1281": {
         "mid": true,
@@ -578,7 +589,18 @@
         "wrapW": 115.7,
         "overlap": 2.3,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found"
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1282": {
         "mid": true,
@@ -586,7 +608,18 @@
         "wrapW": 116.1,
         "overlap": 1.9,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found"
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1283": {
         "mid": true,
@@ -594,7 +627,18 @@
         "wrapW": 116.5,
         "overlap": 1.5,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found"
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1284": {
         "mid": true,
@@ -602,7 +646,18 @@
         "wrapW": 116.9,
         "overlap": 1.1,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found"
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1285": {
         "mid": true,
@@ -610,7 +665,18 @@
         "wrapW": 117.3,
         "overlap": 0.7,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found"
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1286": {
         "mid": true,
@@ -618,7 +684,18 @@
         "wrapW": 117.7,
         "overlap": 0.3,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found"
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1287": {
         "mid": true,
@@ -626,7 +703,18 @@
         "wrapW": 118.1,
         "overlap": -0.1,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found"
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1288": {
         "mid": true,
@@ -634,7 +722,17 @@
         "wrapW": 118.5,
         "overlap": -0.5,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|hidden xl:block"
+        "paintAt": "CHIP|hidden xl:block",
+        "stack": [
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1289": {
         "mid": true,
@@ -642,7 +740,15 @@
         "wrapW": 118.9,
         "overlap": -0.9,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "TRIGGER|Active project"
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1290": {
         "mid": true,
@@ -650,7 +756,15 @@
         "wrapW": 119.3,
         "overlap": -1.3,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "TRIGGER|Active project"
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1291": {
         "mid": true,
@@ -658,7 +772,15 @@
         "wrapW": 119.7,
         "overlap": -1.7,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "TRIGGER|Active project"
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1292": {
         "mid": true,
@@ -666,7 +788,15 @@
         "wrapW": 120.1,
         "overlap": -2.1,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "TRIGGER|Active project"
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1294": {
         "mid": true,
@@ -674,7 +804,15 @@
         "wrapW": 120.8,
         "overlap": -2.8,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "TRIGGER|Active project"
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1366": {
         "mid": true,
@@ -682,7 +820,18 @@
         "wrapW": 149.2,
         "overlap": -12,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "TRIGGER|Active project"
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       },
       "1440": {
         "mid": true,
@@ -690,7 +839,18 @@
         "wrapW": 170,
         "overlap": -33.1,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "TRIGGER|Active project"
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
       }
     },
     "law": "overlap(W) = 2.7 − 0.4×(W−1280)",
