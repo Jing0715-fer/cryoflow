@@ -1,0 +1,167 @@
+{
+  "instrument": "scripts/t842-family-audit.mjs",
+  "build": "KtPKuXIbtB9d7uhItOOUS",
+  "date": "2026-10-10T09:21:21.627Z",
+  "sources": {
+    "t839": {
+      "file": "shots-qa/t839-zone-rehearsal.json",
+      "date": "2026-10-10T09:21:00.321Z"
+    },
+    "t840": {
+      "file": "shots-qa/t840-options-rehearsal.json",
+      "date": "2026-10-10T09:21:09.717Z"
+    },
+    "sweep": {
+      "file": "shots-qa/t834-band-sweep.json",
+      "date": "2026-10-10T09:21:21.585Z"
+    }
+  },
+  "arithmetic": {
+    "geometry": "130/115.3/2.7",
+    "ratchet": {
+      "dGeom": 0,
+      "dStack": 1,
+      "filmedBy": [
+        "t839.after",
+        "t840.optionA"
+      ]
+    },
+    "law": "overlap(W) = 2.7 − 0.4×(W−1280)",
+    "painted": "1280,1281,1282,1283,1284,1285,1286",
+    "edges": {
+      "lastPaint": 1286,
+      "firstClear": 1287
+    },
+    "decisionTable": {
+      "a": "clips, geometry intact",
+      "b88": "clears -4.8, slope -0.55",
+      "c": "backfires +8.7"
+    }
+  },
+  "checks": [
+    {
+      "name": "F0.a provenance trio equal",
+      "pass": true,
+      "detail": "build=KtPKuXIbtB9d7uhItOOUS"
+    },
+    {
+      "name": "F0.b provenance is the standing build",
+      "pass": true,
+      "detail": "KtPKuXIbtB9d7uhItOOUS"
+    },
+    {
+      "name": "F1.a t839.before pair bit-identical",
+      "pass": true,
+      "detail": "130/115.3/2.7 | 130/115.3/2.7"
+    },
+    {
+      "name": "F1.b t840.before pair bit-identical",
+      "pass": true,
+      "detail": "130/115.3/2.7 | 130/115.3/2.7"
+    },
+    {
+      "name": "F1.c BEFORE trio same geometry (live == two rehearsals)",
+      "pass": true,
+      "detail": "sweep=130/115.3/2.7 t839=130/115.3/2.7 t840=130/115.3/2.7"
+    },
+    {
+      "name": "F1.d BEFORE fingerprint visible in both rehearsals",
+      "pass": true,
+      "detail": "visible/visible"
+    },
+    {
+      "name": "F1.e restorations return to the BEFORE truth",
+      "pass": true,
+      "detail": "t839=130/115.3/2.7 t840=130/115.3/2.7"
+    },
+    {
+      "name": "F2.a t839.after pair bit-identical",
+      "pass": true,
+      "detail": "130/115.3/2.7 | 130/115.3/2.7"
+    },
+    {
+      "name": "F2.b t840.optionA pair bit-identical",
+      "pass": true,
+      "detail": "130/115.3/2.7 | 130/115.3/2.7"
+    },
+    {
+      "name": "F2.c AFTER geometry == BEFORE geometry (the fix moves nothing)",
+      "pass": true,
+      "detail": "t839=130/115.3/2.7 t840=130/115.3/2.7"
+    },
+    {
+      "name": "F2.d AFTER fingerprint hidden in both rehearsals",
+      "pass": true,
+      "detail": "hidden/hidden"
+    },
+    {
+      "name": "F2.e AFTER stack loses the TRIGGER, chip keeps the click",
+      "pass": true,
+      "detail": "paintAt=CHIP|RELION …"
+    },
+    {
+      "name": "F2.f THE RATCHET: delta(geometry)=0 and flip(stack)=1, filmed twice",
+      "pass": true,
+      "detail": "[{\"dGeom\":0,\"dStack\":1},{\"dGeom\":0,\"dStack\":1}]"
+    },
+    {
+      "name": "F3.a clone 1286 == live 1286",
+      "pass": true,
+      "detail": "clone=130/117.7/0.3 live=130/117.7/0.3"
+    },
+    {
+      "name": "F3.b clone 1287 == live 1287",
+      "pass": true,
+      "detail": "clone=130/118.1/-0.1 live=130/118.1/-0.1"
+    },
+    {
+      "name": "F3.c clone edges carry the fix (hidden, TRIGGER gone)",
+      "pass": true,
+      "detail": "hidden/hidden"
+    },
+    {
+      "name": "F3.d zone.edge pins name exactly the painted set",
+      "pass": true,
+      "detail": "edge=1286/1287 painted=7 awake=16"
+    },
+    {
+      "name": "F4 t836 law: overlap(W) = 2.7 - 0.4*(W-1280) on all painted rows",
+      "pass": true,
+      "detail": "7 rows within 0.05"
+    },
+    {
+      "name": "F5.a optionB138 is a NO-OP at the squeezed 101.3",
+      "pass": true,
+      "detail": "130/115.3/2.7 wmW=101.3 cap=138px"
+    },
+    {
+      "name": "F5.b optionB88 clears: -4.8 pinned twice",
+      "pass": true,
+      "detail": "130/122.8/-4.8 wmW=88"
+    },
+    {
+      "name": "F5.c optionB88 steepened law -0.55 rides its measured pins",
+      "pass": true,
+      "detail": "1283=-6.4 1286=-8.1"
+    },
+    {
+      "name": "F5.d optionB88 paintAt flips CHIP -> TRIGGER once clear",
+      "pass": true,
+      "detail": "TRIGGER|Acti…"
+    },
+    {
+      "name": "F5.e optionC backfires +8.7 with the floor still binding",
+      "pass": true,
+      "detail": "130/106.6/11.4 ofX=visible"
+    },
+    {
+      "name": "F6 TRIGGER in the stack at all 16 awake widths (the pre-fix truth)",
+      "pass": true,
+      "detail": "awake=16 without-trigger=0"
+    }
+  ],
+  "passed": 24,
+  "failed": 0,
+  "total": 24,
+  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth) told identically by three instruments — the fix window flips all three with one grind"
+}

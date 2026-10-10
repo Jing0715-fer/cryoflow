@@ -364,6 +364,31 @@ if (optReceipt && optReceipt.before && optReceipt.before[0]) {
   );
 }
 
+// A4e-12 — the t842 FAMILY AUDIT: one arithmetic, three instruments.
+// The t839 proof, the t840 decision table, and the sweep's live rows must
+// tell the same story about the same 2.7px: the BEFORE quartet agrees, the
+// AFTER pair agrees (the ratchet — delta(geometry)=0, flip(stack)=1 — filmed
+// twice), the clone's edges equal the live edges, the law rides, and all
+// three receipts speak the standing build. The fix window flips all three
+// with one grind; this receipt is the pre-flip family portrait.
+const famPath = join(ROOT, "shots-qa/t842-family-audit.json");
+const famReceipt = existsSync(famPath)
+  ? JSON.parse(readFileSync(famPath, "utf8"))
+  : null;
+if (famReceipt && famReceipt.checks) {
+  ok(
+    famReceipt.failed === 0 && famReceipt.passed === famReceipt.total && famReceipt.total >= 24 &&
+      famReceipt.arithmetic && famReceipt.arithmetic.geometry === "130/115.3/2.7" &&
+      famReceipt.arithmetic.ratchet && famReceipt.arithmetic.ratchet.dGeom === 0 &&
+      famReceipt.arithmetic.ratchet.dStack === 1 &&
+      Array.isArray(famReceipt.arithmetic.ratchet.filmedBy) &&
+      famReceipt.arithmetic.ratchet.filmedBy.length === 2 &&
+      famReceipt.sources && famReceipt.sources.t839 && famReceipt.sources.t840 && famReceipt.sources.sweep &&
+      famReceipt.build === "KtPKuXIbtB9d7uhItOOUS",
+    `A4e-12 the t842 family audit is aboard and green (${famReceipt.passed}/${famReceipt.total}): the t839 proof, the t840 table, and the sweep's live rows agree on one arithmetic — the ratchet (dGeom=${famReceipt.arithmetic ? famReceipt.arithmetic.ratchet.dGeom : "?"}, dStack=${famReceipt.arithmetic ? famReceipt.arithmetic.ratchet.dStack : "?"}) filmed twice, all three receipts on build ${famReceipt.build} — the fix window's flip is a per-width delta across the whole family`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),
