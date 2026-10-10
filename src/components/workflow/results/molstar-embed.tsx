@@ -23,6 +23,7 @@ import {
   onEscapeClose, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
+import { Kbd } from "@/components/ui/kbd"; // t830 — the door's keymap speaks the one kbd vocabulary (t642)
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, SharePayload, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
@@ -6700,9 +6701,38 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               <p className="px-1 pb-1 text-[11px] font-semibold">View bookmarks</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Save the exact camera pose — orbit, zoom and target — and fly back to it later.
-                Keys while the viewer is open: [ ] step the contour, F flips the density side,
-                X/Y/Z cut the section plane, , . scrub it.
               </p>
+              {/* t830 — the keymap grows kbd chips: a key that renders as a
+                  key reads as a key (the t642 law). Same families as the
+                  t829 prose, now scannable at chip speed; the lead-in span
+                  keeps the SCOPE honest — these are viewer keys, not door
+                  shortcuts, and the door must not imply otherwise. */}
+              <div
+                data-canvas-ui="door-keymap"
+                className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center">While the viewer is open:</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>[</Kbd>
+                  <Kbd>]</Kbd>
+                  <span className="ml-0.5">step the contour</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>F</Kbd>
+                  <span className="ml-0.5">flips the side</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>X</Kbd>
+                  <Kbd>Y</Kbd>
+                  <Kbd>Z</Kbd>
+                  <span className="ml-0.5">cut the section</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>,</Kbd>
+                  <Kbd>.</Kbd>
+                  <span className="ml-0.5">scrub it</span>
+                </span>
+              </div>
               <div className="flex gap-1">
                 <input
                   value={bookmarkName}

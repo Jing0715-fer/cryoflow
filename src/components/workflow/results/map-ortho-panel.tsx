@@ -64,6 +64,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Download, Focus, Loader2, ScanEye, ScanLine, Scissors, Slice, TriangleAlert } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { Kbd } from "@/components/ui/kbd"; // t830 — the keymap row speaks the one kbd vocabulary (t642)
 import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
@@ -1406,6 +1407,38 @@ export function MapOrthoPanel({
           door the tiles use. */}
       {open && !isStack && dims && (
         <ObliqueSectionBlock jobId={jobId} path={path} dims={dims} onChange={(info) => { obliqueInfoRef.current = info; }} />
+      )}
+      {/* t830 — the SECTION keys' hint row: the keyboard face of the
+          bidirectional contract, taught where the 2D instruments live.
+          The keys cut the 3D section through the embed's intent path; the
+          embed echoes cryoflow:slice-state and THESE tiles follow (the
+          same wire a ⌖ click rides the other way). Gated on the σ chip's
+          own honesty signal — isoSigma is null until the embed answers
+          the pull, so the row never promises keys the embed cannot arm
+          (no 3D world yet = no keys = no row, the chip must-not-lie law
+          extended to the keymap). */}
+      {open && isoSigma && (
+        <div
+          data-canvas-ui="ortho-keymap"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2.5 text-[10px] leading-tight text-muted-foreground"
+        >
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>X</Kbd>
+            <Kbd>Y</Kbd>
+            <Kbd>Z</Kbd>
+            <span className="ml-1">cut the plane — the tiles follow</span>
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>,</Kbd>
+            <Kbd>.</Kbd>
+            <span className="ml-1">scrub</span>
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>&lt;</Kbd>
+            <Kbd>&gt;</Kbd>
+            <span className="ml-1">coarse (shift)</span>
+          </span>
+        </div>
       )}
     </section>
   );
