@@ -677,6 +677,33 @@ if (feReceipt && feReceipt.belowZone && feReceipt.belowZone.rows) {
   );
 }
 
+// A4e-24 — the t854 NINTH SEAT: the restore's WIDTH FORM (t840's
+// bandAfter.ninthSeat, T18). The restore load's zone and band walks ==
+// the T0 load's rulers bit-for-bit at 1283 AND 1286 — the world's exit
+// state == its entry state at every width and layer the table walks
+// (T5+T10 extended, the harness's own loop closed); the cross-load
+// identity: two independent fresh loads film the same world
+// bit-for-bit across widths. The wrap-twin holds on the restore load
+// too; the named points ride along (overlap 1.5/0.3, wmW 102.2/103)
+// (family F16.a-b).
+if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.ninthSeat && baReceipt.bandAfter.eighthSeat) {
+  const N9 = baReceipt.bandAfter.ninthSeat;
+  const E8r = baReceipt.bandAfter.eighthSeat;
+  ok(
+    N9.restoreAcross && N9.restoreAcross["1283"] && N9.restoreAcross["1286"] &&
+      !N9.restoreAcross["1283"].band.error && !N9.restoreAcross["1286"].band.error &&
+      JSON.stringify(N9.restoreAcross["1283"].band) === JSON.stringify(E8r.liveAcross["1283"].band) &&
+      JSON.stringify(N9.restoreAcross["1286"].band) === JSON.stringify(E8r.liveAcross["1286"].band) &&
+      JSON.stringify(N9.restoreAcross["1283"].zone) === JSON.stringify(E8r.liveAcross["1283"].zone) &&
+      JSON.stringify(N9.restoreAcross["1286"].zone) === JSON.stringify(E8r.liveAcross["1286"].zone) &&
+      N9.restoreAcross["1283"].band.midKids[1].w === N9.restoreAcross["1283"].zone.wrapW &&
+      N9.restoreAcross["1286"].band.midKids[1].w === N9.restoreAcross["1286"].zone.wrapW &&
+      N9.restoreAcross["1283"].zone.overlap === 1.5 && N9.restoreAcross["1286"].zone.overlap === 0.3 &&
+      N9.restoreAcross["1283"].zone.wmW === 102.2 && N9.restoreAcross["1286"].zone.wmW === 103,
+    `A4e-24 the t854 ninth seat is aboard and green (t840 20/20): the restore's WIDTH FORM — the world's exit state == its entry state bit-for-bit at 1283/1286 on BOTH layers (the cross-load identity: two independent fresh loads film the same world), the wrap-twin holds (116.5/117.7), the named points ride along (overlap 1.5/0.3 == the live law, wmW 102.2/103) — T5+T10's 1280 truth extended across the zone, the harness's own loop closed`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

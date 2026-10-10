@@ -366,6 +366,22 @@ ok("F15.c the below squeeze's EDGE: 767 asleep (wm 0 — the wordmark not yet bo
   BZ.rows['900'].vis[1].w === 142.5 && BZ.rows['900'].leftW === 266.5,
   `767:0 -> 769:141 -> 770:142 -> 771:142.5 -> 772:142.5 (slope -1.0/px, zone [768,770]); 900 == 1024 natural (266.5/142.5)`);
 
+// ---- F16 the ninth seat: the restore's WIDTH FORM — the loop closes --
+const NS = (R840.bandAfter || {}).ninthSeat || {};
+const nsOk = (w) => NS.restoreAcross && NS.restoreAcross[w] && NS.restoreAcross[w].band &&
+  !NS.restoreAcross[w].band.error && NS.restoreAcross[w].band.innerW === Number(w) && NS.restoreAcross[w].zone;
+ok("F16.a the ninth seat is aboard: t840's bandAfter.ninthSeat carries the RESTORE load's width walks (restoreAcross at 1283 AND 1286, zone + band each, on the load the T5/T10 pins ride)",
+  nsOk('1283') && nsOk('1286'),
+  `restore across 1283+1286 aboard, innerW ${NS.restoreAcross && NS.restoreAcross['1283'] ? NS.restoreAcross['1283'].band.innerW : '?'}/${NS.restoreAcross && NS.restoreAcross['1286'] ? NS.restoreAcross['1286'].band.innerW : '?'}`);
+ok("F16.b the world's EXIT state == its ENTRY state bit-for-bit at every width the table walks: the restore load's band == the T0 load's live band at 1283 AND 1286 AND the zone layer agrees bit-for-bit (the cross-load identity — two independent fresh loads film the same world), the wrap-twin holds on the restore load too (wrapper kid == its own zone's wrapW), and the named points ride along (overlap 1.5/0.3 == the live law, wmW 102.2/103) — T5+T10's 1280 truth extended across the zone, the harness's own loop closed",
+  eq(NS.restoreAcross['1283'].band, E8.liveAcross['1283'].band) && eq(NS.restoreAcross['1286'].band, E8.liveAcross['1286'].band) &&
+  eq(NS.restoreAcross['1283'].zone, E8.liveAcross['1283'].zone) && eq(NS.restoreAcross['1286'].zone, E8.liveAcross['1286'].zone) &&
+  NS.restoreAcross['1283'].band.midKids[1].w === NS.restoreAcross['1283'].zone.wrapW &&
+  NS.restoreAcross['1286'].band.midKids[1].w === NS.restoreAcross['1286'].zone.wrapW &&
+  NS.restoreAcross['1283'].zone.overlap === 1.5 && NS.restoreAcross['1286'].zone.overlap === 0.3 &&
+  NS.restoreAcross['1283'].zone.wmW === 102.2 && NS.restoreAcross['1286'].zone.wmW === 103,
+  `band+zone bit-for-bit vs the T0 rulers @1283+1286; twin 116.5/117.7; overlap 1.5/0.3; wmW 102.2/103`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
@@ -378,7 +394,7 @@ const receipt = {
   date: new Date().toISOString(),
   sources: {
     t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date, cloneBand: 'the fix world\'s band layer (the fourth seat, t847)', bandAcross: 'the clone\'s band at 1286/1287 vs live rulers 1280/1286/1287 — PAINT is width-free (the sixth seat, t849)' },
-    t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date, bandAfter: "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850)" },
+    t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date, bandAfter: "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850) + the width form COMPLETED (the eighth seat, t851) + the restore's width form (the ninth seat, t854)" },
     sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date, belowZone: "the band layer's first ride below xl (t853): the twin asleep (vacuously at rest), the born-squeezed wordmark (140 @768, the row's only yielder paying the whole 2.5), the edge law (squeeze(W) = 770.5 − W, zone [768, 770], clear by 771, slope −1.0/px)" },
     sweepPinned: { left: P.left, right: P.right, seats: P.seats, law: "pinned == bands within ±0.5 (the sweep's own rounding law), seats exact, across 6 widths" },
     t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined },

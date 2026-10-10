@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t840-options-rehearsal.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T11:58:33.978Z",
+  "date": "2026-10-10T12:21:35.697Z",
   "viewport": {
     "w": 1280,
     "h": 800
@@ -952,6 +952,105 @@
       },
       "law": "the eighth seat (t851): the width form COMPLETED — (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283 AND 1286 against their own loads' rulers (nothing moves anywhere at any width); the bound chain's width form: the wordmark's squeezed box loosens +0.3/px-ish (101.3 → 102.2 → 103.0) but the 138 cap never binds in the zone, and the squeeze is option-invariant (live/A/B138 wmW identical at every width)"
     },
+    "ninthSeat": {
+      "restoreAcross": {
+        "1283": {
+          "zone": {
+            "mid": true,
+            "trigW": 130,
+            "wrapW": 116.5,
+            "overlap": 1.5,
+            "wmW": 102.2,
+            "wmMax": "none",
+            "paintAt": "CHIP|RELION environment status: RELION not found",
+            "stack": [
+              "CHIP|RELION environment status: RELION not found",
+              "CHIP|hidden xl:block",
+              "OTHER|no-print flex shrink-0 ite",
+              "TRIGGER|Active project",
+              "OTHER|no-print pointer-events-au",
+              "OTHER|flex h-dvh flex-col bg-bac",
+              "OTHER|__variable_8eaea4 __variab",
+              "OTHER|light"
+            ],
+            "wrapOverflowX": "visible",
+            "innerW": 1283
+          },
+          "band": {
+            "leftW": 610.8,
+            "rightW": 628.3,
+            "seats": 12,
+            "midKids": [
+              {
+                "lbl": "Active workspace",
+                "w": 117.8
+              },
+              {
+                "lbl": "flex min-w-0 items-center gap-",
+                "w": 116.5
+              },
+              {
+                "lbl": "Workflow statistics",
+                "w": 0
+              },
+              {
+                "lbl": "Spotlight noted jobs",
+                "w": 0
+              }
+            ],
+            "innerW": 1283
+          }
+        },
+        "1286": {
+          "zone": {
+            "mid": true,
+            "trigW": 130,
+            "wrapW": 117.7,
+            "overlap": 0.3,
+            "wmW": 103,
+            "wmMax": "none",
+            "paintAt": "CHIP|RELION environment status: RELION not found",
+            "stack": [
+              "CHIP|RELION environment status: RELION not found",
+              "CHIP|hidden xl:block",
+              "OTHER|no-print flex shrink-0 ite",
+              "TRIGGER|Active project",
+              "OTHER|no-print pointer-events-au",
+              "OTHER|flex h-dvh flex-col bg-bac",
+              "OTHER|__variable_8eaea4 __variab",
+              "OTHER|light"
+            ],
+            "wrapOverflowX": "visible",
+            "innerW": 1286
+          },
+          "band": {
+            "leftW": 613.8,
+            "rightW": 628.3,
+            "seats": 12,
+            "midKids": [
+              {
+                "lbl": "Active workspace",
+                "w": 118.8
+              },
+              {
+                "lbl": "flex min-w-0 items-center gap-",
+                "w": 117.7
+              },
+              {
+                "lbl": "Workflow statistics",
+                "w": 0
+              },
+              {
+                "lbl": "Spotlight noted jobs",
+                "w": 0
+              }
+            ],
+            "innerW": 1286
+          }
+        }
+      },
+      "law": "the ninth seat (t854): the restore's WIDTH FORM — the restore load's zone and band walks == the T0 load's rulers bit-for-bit at 1283 AND 1286 (the world's exit state == its entry state at every width and layer the table walks; T5+T10 extended, the harness's own loop closed) — and two independent fresh loads of the same build film the same world bit-for-bit across widths (the cross-load identity)"
+    },
     "law": "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848). The seventh seat (t850): across widths the edges ride the live rulers on BOTH option worlds (610.8 @1283 / 613.8 @1286, 628.3, 12), the wrapper kid == the option's zone wrapW at every width, and the mid row's own laws re-scope: the (b88) equalize is AT-A-WIDTH (exact at 1280, decays to 0.3 @1283 and 0.7 @1286), the (c) divergence is width-stable (14.7 → 14.5 → 14.4)"
   },
   "restored": {
@@ -975,5 +1074,5 @@
     "wrapOverflowX": "visible",
     "innerW": 1280
   },
-  "verdict": "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The eighth seat: the width form COMPLETED — (a) and (b138) are bit-for-bit the live band at 1283/1286 against their own loads' rulers (the paint and the no-op are width-free), and the bound chain's width form holds (the squeezed box 101.3 → 103.0, the 138 cap never binding in the zone, the squeeze option-invariant). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths"
+  "verdict": "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The eighth seat: the width form COMPLETED — (a) and (b138) are bit-for-bit the live band at 1283/1286 against their own loads' rulers (the paint and the no-op are width-free), and the bound chain's width form holds (the squeezed box 101.3 → 103.0, the 138 cap never binding in the zone, the squeeze option-invariant). The ninth seat: the restore's width form — the world's exit state == its entry state at every width and layer the table walks (bit-for-bit against the T0 load's rulers), the harness's own loop closed. The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths, and the world the grind hands back is proven unharmed across the zone"
 }

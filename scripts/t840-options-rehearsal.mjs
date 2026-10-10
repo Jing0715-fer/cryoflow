@@ -280,6 +280,19 @@ ab("wait 300");
 const fontsR = freshLoad();
 const r1 = evalJson(MEASURE);
 const bandR = evalJson(BAND_MEASURE);
+/* the ninth seat (t854): the restore's WIDTH FORM — this same load walks
+ * 1283/1286 with both walks; the comparators are the T0 load's own
+ * rulers (liveAcross). Green means two things: the world's exit state ==
+ * its entry state at every width (T10 extended), and two independent
+ * fresh loads film the same world bit-for-bit across widths. */
+const restoreAcross = {};
+for (const w of [1283, 1286]) {
+  ab(`set viewport ${w} 800`);
+  ab("wait 300");
+  restoreAcross[String(w)] = { zone: evalJson(MEASURE), band: evalJson(BAND_MEASURE) };
+}
+ab(`set viewport 1280 ${HEIGHT}`);
+ab("wait 300");
 
 /* ---------- the assertions ---------- */
 console.log("");
@@ -395,6 +408,20 @@ ok(
   `T17 the BOUND CHAIN's width form: the wordmark's squeezed box loosens +0.3/px-ish across the zone (101.3 → 102.2 → 103.0) but the 138 cap NEVER binds (35+ short at the zone's edge) — and the squeeze is option-invariant: the live/A/B138 worlds' wmW identical at every sampled width; the no-op's foundation is a cross-width fact`
 );
 
+/* ---------- the ninth seat (t854): the restore's WIDTH FORM — the
+ * T5/T10 1280 truth extended across the zone. The probe
+ * (t854-restore-across-probe) rode the widths first; these pins carry
+ * the measured values. ---------- */
+ok(
+  JSON.stringify(restoreAcross["1283"].band) === JSON.stringify(liveAcross["1283"].band) &&
+    JSON.stringify(restoreAcross["1286"].band) === JSON.stringify(liveAcross["1286"].band) &&
+    JSON.stringify(restoreAcross["1283"].zone) === JSON.stringify(liveAcross["1283"].zone) &&
+    JSON.stringify(restoreAcross["1286"].zone) === JSON.stringify(liveAcross["1286"].zone) &&
+    restoreAcross["1283"].band.midKids[1].w === restoreAcross["1283"].zone.wrapW &&
+    restoreAcross["1286"].band.midKids[1].w === restoreAcross["1286"].zone.wrapW,
+  `T18 the NINTH SEAT — the restore's WIDTH FORM: the restore load's band == the T0 load's live band bit-for-bit at 1283 AND 1286 (edges 610.8/613.8, rightW 628.3, seats 12, the wrapper kid == the zone's wrapW 116.5/117.7) AND the zone layer agrees bit-for-bit (overlap 1.5/0.3 == the live law, wmW 102.2/103) — the world's EXIT state == its ENTRY state at every width and layer the table walks: T5+T10's 1280 truth extended across the zone, the harness's own loop closed; and two independent fresh loads of the same build film the same world bit-for-bit across widths (the cross-load identity)`
+);
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t840-options-rehearsal.mjs",
@@ -412,11 +439,13 @@ const receipt = {
     cZone: { "1283": cAcross["1283"].zone, "1286": cAcross["1286"].zone },
     eighthSeat: { liveAcross, aAcross, liveBL: liveBLRulers, b138Across,
       law: "the eighth seat (t851): the width form COMPLETED — (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283 AND 1286 against their own loads' rulers (nothing moves anywhere at any width); the bound chain's width form: the wordmark's squeezed box loosens +0.3/px-ish (101.3 → 102.2 → 103.0) but the 138 cap never binds in the zone, and the squeeze is option-invariant (live/A/B138 wmW identical at every width)" },
+    ninthSeat: { restoreAcross,
+      law: "the ninth seat (t854): the restore's WIDTH FORM — the restore load's zone and band walks == the T0 load's rulers bit-for-bit at 1283 AND 1286 (the world's exit state == its entry state at every width and layer the table walks; T5+T10 extended, the harness's own loop closed) — and two independent fresh loads of the same build film the same world bit-for-bit across widths (the cross-load identity)" },
     law: "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848). The seventh seat (t850): across widths the edges ride the live rulers on BOTH option worlds (610.8 @1283 / 613.8 @1286, 628.3, 12), the wrapper kid == the option's zone wrapW at every width, and the mid row's own laws re-scope: the (b88) equalize is AT-A-WIDTH (exact at 1280, decays to 0.3 @1283 and 0.7 @1286), the (c) divergence is width-stable (14.7 → 14.5 → 14.4)" },
   restored: r1,
   verdict:
     fail === 0
-      ? "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The eighth seat: the width form COMPLETED — (a) and (b138) are bit-for-bit the live band at 1283/1286 against their own loads' rulers (the paint and the no-op are width-free), and the bound chain's width form holds (the squeezed box 101.3 → 103.0, the 138 cap never binding in the zone, the squeeze option-invariant). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths"
+      ? "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The eighth seat: the width form COMPLETED — (a) and (b138) are bit-for-bit the live band at 1283/1286 against their own loads' rulers (the paint and the no-op are width-free), and the bound chain's width form holds (the squeezed box 101.3 → 103.0, the 138 cap never binding in the zone, the squeeze option-invariant). The ninth seat: the restore's width form — the world's exit state == its entry state at every width and layer the table walks (bit-for-bit against the T0 load's rulers), the harness's own loop closed. The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths, and the world the grind hands back is proven unharmed across the zone"
       : "RED — the table disagrees; re-measure before the build day",
 };
 const out = join(ROOT, "shots-qa/t840-options-rehearsal.json");
