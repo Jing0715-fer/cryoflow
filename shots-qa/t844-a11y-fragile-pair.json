@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t844-a11y-fragile-pair.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T11:15:21.042Z",
+  "date": "2026-10-10T11:30:59.575Z",
   "doors": {
     "inspector": "dashboard → saved-view card (textContent startsWith 'Centered iso view')",
     "palette": "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door"

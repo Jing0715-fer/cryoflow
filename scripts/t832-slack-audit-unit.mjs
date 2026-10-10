@@ -594,6 +594,30 @@ if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.b88_1283) {
   );
 }
 
+// A4e-21 — the t851 EIGHTH SEAT: the width form COMPLETED (t840's
+// bandAfter.eighthSeat, T15-T17). (a) the paint and (b138) the no-op
+// are bit-for-bit the live band at 1283 AND 1286 against their own
+// loads' rulers — nothing moves anywhere at any width; and the bound
+// chain's width form holds: the wordmark's squeezed box loosens
+// +0.3/px-ish (101.3 → 102.2 → 103.0) but the 138 cap never binds in
+// the zone, and the squeeze is option-invariant (the live/A/B138
+// worlds' wmW identical at every sampled width) (family F13.a-c).
+if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.eighthSeat) {
+  const E8 = baReceipt.bandAfter.eighthSeat;
+  const e8eq = (s1, s2, w) =>
+    JSON.stringify(E8[s1][w].band) === JSON.stringify(E8[s2][w].band);
+  ok(
+    ["liveAcross", "aAcross", "liveBL", "b138Across"].every((s) =>
+      E8[s] && E8[s]["1283"] && E8[s]["1286"] && !E8[s]["1283"].band.error && !E8[s]["1286"].band.error) &&
+      e8eq("aAcross", "liveAcross", "1283") && e8eq("aAcross", "liveAcross", "1286") &&
+      e8eq("b138Across", "liveBL", "1283") && e8eq("b138Across", "liveBL", "1286") &&
+      E8.liveAcross["1283"].zone.wmW === 102.2 && E8.liveAcross["1286"].zone.wmW === 103 &&
+      E8.aAcross["1283"].zone.wmW === 102.2 && E8.b138Across["1286"].zone.wmW === 103 &&
+      E8.liveAcross["1283"].zone.wmW < 138,
+    `A4e-21 the t851 eighth seat is aboard and green (t840 19/19): the width form COMPLETED — (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, the bound chain's width form holds (the squeezed box 101.3 → 102.2 → 103.0, the 138 cap never binding in the zone, the squeeze option-invariant)`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

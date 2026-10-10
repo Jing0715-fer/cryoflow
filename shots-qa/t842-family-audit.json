@@ -1,22 +1,22 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T11:25:11.882Z",
+  "date": "2026-10-10T11:38:09.155Z",
   "sources": {
     "t839": {
       "file": "shots-qa/t839-zone-rehearsal.json",
-      "date": "2026-10-10T11:14:27.703Z",
+      "date": "2026-10-10T11:30:22.809Z",
       "cloneBand": "the fix world's band layer (the fourth seat, t847)",
       "bandAcross": "the clone's band at 1286/1287 vs live rulers 1280/1286/1287 — PAINT is width-free (the sixth seat, t849)"
     },
     "t840": {
       "file": "shots-qa/t840-options-rehearsal.json",
-      "date": "2026-10-10T11:23:57.833Z",
+      "date": "2026-10-10T11:35:01.911Z",
       "bandAfter": "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850)"
     },
     "sweep": {
       "file": "shots-qa/t834-band-sweep.json",
-      "date": "2026-10-10T11:14:43.334Z"
+      "date": "2026-10-10T11:30:15.351Z"
     },
     "sweepPinned": {
       "left": {
@@ -47,7 +47,7 @@
     },
     "t837": {
       "file": "shots-qa/t837-wordmark-probe.json",
-      "date": "2026-10-10T11:14:44.805Z"
+      "date": "2026-10-10T11:30:16.846Z"
     }
   },
   "arithmetic": {
@@ -295,10 +295,25 @@
       "name": "F12.c the pays law RE-SCOPES across widths: the wrapper kid == the option's zone wrapW at all four widths (124.4/126.1 b88, 107.7/108.8 c — the cross-layer identity width-indexed on the option worlds); the (b88) EQUALIZE is at-a-width (exact at 1280, the label trails 0.3 by 1283 and 0.7 by 1286 — the kids' slopes differ), while the (c) divergence is width-stable (labels 122.2/123.2, gaps 14.5/14.4)",
       "pass": true,
       "detail": "wrap twins 124.4/126.1 (b88), 107.7/108.8 (c); equalize exact @1280 then decays (124.1 vs 124.4, 125.4 vs 126.1); c labels 122.2/123.2, gaps 14.5/14.4"
+    },
+    {
+      "name": "F13.a the eighth seat is aboard: t840's bandAfter.eighthSeat carries (a)'s and (b138)'s width walks AND each walk's own-load live rulers (liveAcross/aAcross/liveBL/b138Across at 1283 AND 1286)",
+      "pass": true,
+      "detail": "live 610.8/613.8, a 610.8/613.8, liveBL 610.8/613.8, b138 610.8/613.8 (rightW 628.3, seats 12 on all)"
+    },
+    {
+      "name": "F13.b the width-free pair: (a) the paint == its own load's live band bit-for-bit at 1283 AND 1286 (the sixth seat's law re-proven on the options harness) AND (b138) the no-op == its own load's live band bit-for-bit at 1283 AND 1286 (nothing moves anywhere at any width) — and the 1286 leftW is cross-harness identity with t839's live ruler",
+      "pass": true,
+      "detail": "a==live @1283+1286 bit-for-bit, b138==its live @1283+1286 bit-for-bit; 1286 leftW 613.8 == t839 613.8 (cross-harness)"
+    },
+    {
+      "name": "F13.c the BOUND CHAIN's width form: the wordmark's squeezed box loosens +0.3/px-ish across the zone (101.3 -> 102.2 -> 103.0) but the 138 cap never binds (35+ short at the zone's edge), and the squeeze is option-invariant — the live/A/B138 worlds' wmW identical at every sampled width (the no-op's foundation is a cross-width fact)",
+      "pass": true,
+      "detail": "wmW 101.3/102.2/103.0 on live, identical on a and b138 at every width; < 138 everywhere sampled"
     }
   ],
-  "passed": 43,
+  "passed": 46,
   "failed": 0,
-  "total": 43,
-  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
+  "total": 46,
+  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4), and the width form is COMPLETED (the eighth seat: (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, and the bound chain's width form holds — the squeezed box loosens 101.3 -> 103.0 but the 138 cap never binds in the zone, the squeeze option-invariant); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
 }
