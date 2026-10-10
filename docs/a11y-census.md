@@ -231,3 +231,56 @@ face ("Run" — a fresh job never says Re-run, never Continue). Two settled
 rides bit-identical on every face. The ledger aboard from birth (three
 faces: panel / params / worldBack — the tab persistence's world-state rides
 the arms honestly).
+
+## The shared ruler (t864) — one name computation for the whole family
+
+The t863 follow-up landed: the census's name computation now lives ONCE, in
+`scripts/shared-ruler.mjs` — the canonical chain `aria-label →
+aria-labelledby resolved → label[for] → textContent → img alt → input
+value/placeholder` (t863's grown variant is the family's canon). Seven
+instruments retired their inline copies onto it (t843/t844/t846/t857/t860/
+t862/t863 — t186's job-id Map nameOf is a different thing, not a carrier),
+each receipt now stamps the `ruler` law string beside the ledger's `law`.
+The growth is name-monotone: label[for] can only NAME a control the older
+copies fell through on, so every older receipt's zero-unnamed claim stays
+true. The self-test is BEHAVIORAL (a DOM shim exercises every branch — it
+even caught the chain's own double-space contract in multi-id labelledby)
+plus the embeddability contract (no backtick, no `${` — the source must
+live inside any quoting). The ruler grows ONCE from now on; every carrier
+rides the growth the window it lands.
+
+## The document and the compare dialogs (t864) — the report's print contract, the diff's shift door
+
+The rotation's next two seats, both reachable with zero creation-mutation:
+
+- **The session QC report (the one dialog that IS a document)** — the
+  header's named button opens it; the PRINT CONTRACT is part of the a11y
+  claim: `body[data-report-print]` flips ON while the document is up and
+  OFF after Escape (the t197 dialog-is-a-document law, asserted BOTH ways).
+  The ONE md carrier (`data-md`, t194) is aboard and non-empty; the
+  copy/download doors are named. The report taught the census's newest
+  settle lesson: the document's map-QC/curves families arrive ASYNC (the
+  md grew 3459 → 7918 bytes AFTER two "settled" agreements — a false
+  settle filmed the pre-arrival shell). The app has its own quiescence
+  door: the compass pulse (t499) speaks "— still measuring" in the toc
+  chips while the walks run. Settled now means the pulse SILENT and two
+  consecutive measures equal — the app's own silence, not a clock.
+- **The params diff (the selection toolbar's compare door)** — the card's
+  SHIFT door (pointerdown → pointerup with shiftKey, the job-card's own
+  "selection toggle, never a drag" law) joins two same-type cards; the
+  toolbar arrives speaking the selection size in its aria-label; the
+  compare button opens the dialog; the SWAP control is named and carries
+  `aria-pressed` (a real boolean state, recorded never judged); the pair's
+  shared type is MEASURED from the roster, printed as provenance, never
+  pinned (the t826 lesson). Un-mutation is the SYMMETRIC door — shift+click
+  each card again — and the canvas count returns bit-for-bit.
+
+**Numbers, first formal ride 22/22** (four rides to green: SR7's red was
+the false settle, the L wiring's red taught the faces-block convention):
+the report face 166 buttons / 2 controls, the compare face 164 / 2, zero
+unnamed everywhere on both, two settled rides bit-identical each, the
+world back at 153. The ledger aboard from birth (three faces: report /
+paramsdiff / worldBack — numeric from the third ride). The fleet unit's
+family table grew the SAME window: t863's trio joined late (the birthright
+completed — t863 rode green but never grew the table) and t864's trio
+joined at birth: nine carriers, thirty-one faces.
