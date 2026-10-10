@@ -1,0 +1,264 @@
+{
+  "instrument": "scripts/t846-a11y-maintenance.mjs",
+  "build": "KtPKuXIbtB9d7uhItOOUS",
+  "date": "2026-10-10T10:13:50.067Z",
+  "chain": "canvas -> dashboard -> inspector -> palette -> restore (one command)",
+  "doors": {
+    "dashboard": "exact-text 'Dashboard' switcher click",
+    "inspector": "saved-view card (textContent startsWith 'Centered iso view'), one retry",
+    "palette": "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door"
+  },
+  "floors": {
+    "canvas": 142,
+    "dashboard": 114,
+    "inspector": 180,
+    "palette": 150
+  },
+  "faces": {
+    "canvas": {
+      "floor": 142,
+      "live": {
+        "url": "/",
+        "pageBtns": 149,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgBtns": 0,
+        "dlgUnnamed": 0,
+        "dlgFocus": null,
+        "dlgHeading": null,
+        "ip": null,
+        "heading": "Main"
+      }
+    },
+    "dashboard": {
+      "floor": 114,
+      "live": {
+        "url": "/",
+        "pageBtns": 116,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 3,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgBtns": 0,
+        "dlgUnnamed": 0,
+        "dlgFocus": null,
+        "dlgHeading": null,
+        "ip": null,
+        "heading": "β-Galactosidase Tutorial (demo)"
+      },
+      "arrival": {
+        "clicked": true
+      }
+    },
+    "inspector": {
+      "floor": 180,
+      "live": {
+        "url": "/",
+        "pageBtns": 188,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 2,
+        "altless": 0,
+        "hasDlg": true,
+        "dlgBtns": 39,
+        "dlgUnnamed": 0,
+        "dlgFocus": true,
+        "dlgHeading": "3D auto-refine — job inspector3D auto-re",
+        "ip": null,
+        "heading": "Main"
+      },
+      "afterEscape": {
+        "url": "/",
+        "pageBtns": 149,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgBtns": 0,
+        "dlgUnnamed": 0,
+        "dlgFocus": null,
+        "dlgHeading": null,
+        "ip": null,
+        "heading": "Main"
+      }
+    },
+    "palette": {
+      "floor": 150,
+      "live": {
+        "url": "/",
+        "pageBtns": 157,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 3,
+        "altless": 0,
+        "hasDlg": true,
+        "dlgBtns": 8,
+        "dlgUnnamed": 0,
+        "dlgFocus": true,
+        "dlgHeading": "Command palette",
+        "ip": {
+          "aria": null,
+          "ph": "Jump to a job, add a type, run an action…"
+        },
+        "heading": "Main"
+      },
+      "afterEscape": {
+        "url": "/",
+        "pageBtns": 149,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgBtns": 0,
+        "dlgUnnamed": 0,
+        "dlgFocus": null,
+        "dlgHeading": null,
+        "ip": null,
+        "heading": "Main"
+      }
+    },
+    "restore": {
+      "live": {
+        "url": "/",
+        "pageBtns": 149,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgBtns": 0,
+        "dlgUnnamed": 0,
+        "dlgFocus": null,
+        "dlgHeading": null,
+        "ip": null,
+        "heading": "Main"
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "M1 canvas zero unnamed buttons",
+      "pass": true,
+      "detail": "btns=149"
+    },
+    {
+      "label": "M2 canvas zero unnamed form controls",
+      "pass": true,
+      "detail": "unCtrls=0/2"
+    },
+    {
+      "label": "M3 canvas floor holds (census 142)",
+      "pass": true,
+      "detail": "live=149 (drift +7)"
+    },
+    {
+      "label": "M4a the switcher clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M4b the dashboard arrived (own heading, own count)",
+      "pass": true,
+      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=116"
+    },
+    {
+      "label": "M5 dashboard zero unnamed buttons",
+      "pass": true,
+      "detail": "unnamed=0"
+    },
+    {
+      "label": "M6 dashboard zero alt-less imgs (hasAttribute, not falsy)",
+      "pass": true,
+      "detail": "imgs=3 altless=0"
+    },
+    {
+      "label": "M7 dashboard floor holds (census 114)",
+      "pass": true,
+      "detail": "live=116 (drift +2)"
+    },
+    {
+      "label": "M8 the saved-view card found and clicked",
+      "pass": true,
+      "detail": "the deliberate door (t844's)"
+    },
+    {
+      "label": "M9 inspector arrived: dialog + tenant heading",
+      "pass": true,
+      "detail": "heading=\"3D auto-refine — job inspector3D auto-re\""
+    },
+    {
+      "label": "M10 inspector focus trapped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M11 inspector zero unnamed (page-wide + dialog subset)",
+      "pass": true,
+      "detail": "page=188 dlg=39 unnamed=0/0"
+    },
+    {
+      "label": "M12 inspector floor holds (census 180)",
+      "pass": true,
+      "detail": "live=188 (drift +8)"
+    },
+    {
+      "label": "M13 Escape closed the inspector",
+      "pass": true,
+      "detail": "dlg=false"
+    },
+    {
+      "label": "M14 palette arrived: dialog + cmdk input",
+      "pass": true,
+      "detail": "placeholder=\"Jump to a job, add a type, run an action…\""
+    },
+    {
+      "label": "M15 palette zero unnamed (page-wide)",
+      "pass": true,
+      "detail": "unnamed=0"
+    },
+    {
+      "label": "M16 palette floor holds (census 150) + observation #2",
+      "pass": true,
+      "detail": "live=157 (drift +7) the input's name rides the placeholder"
+    },
+    {
+      "label": "M17 Escape closed the palette",
+      "pass": true,
+      "detail": "dlg=false"
+    },
+    {
+      "label": "M18 world unharmed (canvas count == the opening count)",
+      "pass": true,
+      "detail": "btns=149 dlg=false"
+    },
+    {
+      "label": "M19 four faces, four distinct button-views (no face is another face)",
+      "pass": true,
+      "detail": "149 / 116 / 188 / 157"
+    }
+  ],
+  "passed": 20,
+  "failed": 0,
+  "total": 20,
+  "verdict": "the maintenance sweep holds: 610 button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +7/+2/+8/+7), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — the standing re-witness future windows run first"
+}

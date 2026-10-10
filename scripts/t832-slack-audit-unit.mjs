@@ -466,6 +466,31 @@ if (faReceipt && faReceipt.checks) {
   );
 }
 
+// A4e-16 — the t846 MAINTENANCE SWEEP: all four census faces in ONE
+// command (the standing re-witness). Count-only, floors pinned, both
+// fragile doors first-try, both dialogs Escape-closed, the world
+// restored, and four distinct button-views proving no face is another.
+const msPath = join(ROOT, "shots-qa/t846-a11y-maintenance.json");
+const msReceipt = existsSync(msPath)
+  ? JSON.parse(readFileSync(msPath, "utf8"))
+  : null;
+if (msReceipt && msReceipt.checks) {
+  const fc = msReceipt.faces && msReceipt.faces.canvas && msReceipt.faces.canvas.live;
+  const fd = msReceipt.faces && msReceipt.faces.dashboard && msReceipt.faces.dashboard.live;
+  const fi2 = msReceipt.faces && msReceipt.faces.inspector && msReceipt.faces.inspector.live;
+  const fp2 = msReceipt.faces && msReceipt.faces.palette && msReceipt.faces.palette.live;
+  ok(
+    msReceipt.failed === 0 && msReceipt.total >= 20 &&
+      msReceipt.build === "KtPKuXIbtB9d7uhItOOUS" &&
+      fc && fd && fi2 && fp2 &&
+      fc.pageBtns >= 142 && fc.pageUnnamed === 0 &&
+      fd.pageBtns >= 114 && fd.pageUnnamed === 0 && fd.altless === 0 &&
+      fi2.pageBtns >= 180 && fi2.pageUnnamed === 0 && fi2.dlgUnnamed === 0 && fi2.dlgFocus === true &&
+      fp2.pageBtns >= 150 && fp2.pageUnnamed === 0 && fp2.ip && !!fp2.ip.ph,
+    `A4e-16 the t846 maintenance sweep is aboard and green (${msReceipt.passed}/${msReceipt.total}): four faces one chain ${fc.pageBtns}/${fd.pageBtns}/${fi2.pageBtns}/${fp2.pageBtns} zero unnamed anywhere, floors 142/114/180/150 all holding, both doors first-try, Escape closes both dialogs, the world restored`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),
