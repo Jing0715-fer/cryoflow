@@ -89,6 +89,36 @@ negative-reading law's second bite: a finding about alt attributes must
 use `hasAttribute`, because an empty alt is a name the tree already
 honors. The instrument's A8 pin now says so by name.
 
+## The re-witness, second course (t844) — the fragile pair, walked deliberately
+
+One window later the rotation completed: `scripts/t844-a11y-fragile-pair.mjs`
+(16/16 green, receipt `shots-qa/t844-a11y-fragile-pair.json`) walked the two
+faces this page's own method artifact was written about — the ones that need
+interaction chains, where the original probe clicked the first `/auto-refine/`
+match and opened the WRONG dialog:
+
+- **The job inspector**, door taken deliberately this time: the dashboard's
+  saved-view card (textContent starts with "Centered iso view"). The dialog's
+  `aria-labelledby` resolves and carries the tenant heading ("3D auto-refine —
+  job inspector"), focus is trapped inside, 39 dialog buttons and 188
+  page-wide buttons all named (the census recorded 180 — the +8 newcomers all
+  speak), two bit-identical rides, and Escape closes cleanly.
+- **The ⌘K palette**, door: the t483 contract event
+  (`cryoflow:open-palette` — the same door the help guide uses; a synthetic
+  ⌘K keydown does not reliably wake the React listener, and the contract
+  event is the in-contract path). 157 page-wide buttons, zero unnamed (the
+  census recorded 150 — +7 all named). Observation #2 was re-read and STANDS:
+  the input carries no `aria-label`, and its `aria-labelledby` points at an
+  EMPTY Radix styling `<label>` — the tree falls through to the placeholder
+  ("Jump to a job, add a type, run an action…"), so the name rides the
+  placeholder exactly as recorded. Parked in the build-day annex still, now
+  with the mechanism named.
+
+**All four faces re-witnessed this cycle**: the name layer's 100% coverage
+holds with the world grown (+7 / +2 / +8 / +7 seats since the original
+sweep, every newcomer named). The floors are pinned in the audit unit
+(A4e-13/A4e-14) — any future control that forgets its name breaks a floor.
+
 ## What this census buys
 
 The "样式越做越多" lane now has a verified foundation: every interactive

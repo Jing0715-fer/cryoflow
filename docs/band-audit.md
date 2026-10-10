@@ -167,11 +167,11 @@ comparison.
   command; receipt `shots-qa/t834-band-sweep.json` with the raw subpixels,
   per-seat anatomy, and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (51 assertions, rides the
+  parsed, the tiers computed, the closed forms (52 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
-  the t843 a11y re-witness).
+  the t843 a11y re-witness, A4e-14 closes the t844 fragile pair).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
