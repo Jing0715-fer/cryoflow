@@ -3,7 +3,7 @@
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T15:48:37.726Z",
+  "date": "2026-10-10T16:47:11.921Z",
   "chain": "canvas -> shortcuts (?) -> knock (bell) -> restored (one command)",
   "doors": {
     "shortcuts": "window keydown \"?\" — the app's own typing-guarded listener",
@@ -207,7 +207,7 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T15:14:31.509Z",
+    "prevDate": "2026-10-10T15:48:37.726Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
@@ -215,19 +215,31 @@
         "prev": 154,
         "live": 154,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       },
       "knock": {
         "prev": 153,
         "live": 153,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       },
       "restored": {
         "prev": 153,
         "live": 153,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       }
     }
   },
@@ -305,7 +317,7 @@
     {
       "label": "L1 the ledger is aboard at birth: three faces, each carrying prev/live/drift/identical",
       "pass": true,
-      "detail": "comparator 2026-10-10T15:14:31.509Z (key dev@c4c3735897dd)"
+      "detail": "comparator 2026-10-10T15:48:37.726Z (key dev@c4c3735897dd)"
     },
     {
       "label": "L2 shortcuts face ride-drift law",

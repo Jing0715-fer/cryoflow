@@ -2,7 +2,7 @@
   "instrument": "scripts/t839-zone-rehearsal.mjs",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T14:38:24.903Z",
+  "date": "2026-10-10T16:46:14.909Z",
   "viewport": {
     "w": 1280,
     "h": 800
@@ -311,7 +311,7 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T14:03:57.803Z",
+    "prevDate": "2026-10-10T14:38:24.903Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
@@ -319,19 +319,31 @@
         "prev": 2.7,
         "live": 2.7,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       },
       "after": {
         "prev": 2.7,
         "live": 2.7,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       },
       "restored": {
         "prev": 2.7,
         "live": 2.7,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       }
     }
   },

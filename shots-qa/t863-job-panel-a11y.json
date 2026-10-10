@@ -3,15 +3,15 @@
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T15:49:05.313Z",
+  "date": "2026-10-10T16:47:33.578Z",
   "chain": "canvas -> CREATE (POST /api/jobs) -> card idle -> plain-click -> PANEL -> DELETE -> worldBack (one command)",
   "doors": {
     "create": "POST /api/jobs { type: motioncorr, far-corner parked } — the t708 write door",
     "panel": "pointerdown + pointerup on [data-card-btn] — the card's plain-click selection law",
-    "unmutate": "DELETE /api/jobs/cmv2kk8c70001n89m8rrfvqas — the app's own cascade (tombstone + stop + sweep)"
+    "unmutate": "DELETE /api/jobs/cmv2mnfhh0001n8q9797ny3b6 — the app's own cascade (tombstone + stop + sweep)"
   },
   "probe": {
-    "id": "cmv2kk8c70001n89m8rrfvqas",
+    "id": "cmv2mnfhh0001n8q9797ny3b6",
     "name": "Panel A11y Probe",
     "type": "motioncorr"
   },
@@ -51,7 +51,7 @@
         "unCtrlsWho": [],
         "imgs": 0,
         "altless": 0,
-        "hasPanel": false,
+        "hasPanel": true,
         "runFace": "Run",
         "runTitle": "",
         "tabs": [
@@ -206,7 +206,7 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T15:31:49.590Z",
+    "prevDate": "2026-10-10T15:49:05.313Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
@@ -214,19 +214,31 @@
         "prev": 168,
         "live": 168,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       },
       "params": {
         "prev": 177,
         "live": 177,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       },
       "worldBack": {
         "prev": 153,
         "live": 153,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       }
     }
   },
@@ -239,7 +251,7 @@
     {
       "label": "M1 the probe job created (201, the roster's own door)",
       "pass": true,
-      "detail": "id cmv2kk8c70001n89m8rrfvqas"
+      "detail": "id cmv2mnfhh0001n8q9797ny3b6"
     },
     {
       "label": "M2 the probe card is on the canvas and speaks IDLE",
@@ -254,7 +266,7 @@
     {
       "label": "P2 the panel arrived (the Run face aboard — the opening tab is world-state, the persistence is the app's own)",
       "pass": true,
-      "detail": "opening face: run=\"Run\" io-sections=false"
+      "detail": "opening face: run=\"Run\" io-sections=true"
     },
     {
       "label": "P2b the I/O face mounted (the io + outputs sections — the walk films the tab it opens)",
@@ -334,7 +346,7 @@
     {
       "label": "L1 the ledger is aboard at birth: three faces (panel/params/worldBack), each carrying prev/live/drift/identical",
       "pass": true,
-      "detail": "comparator 2026-10-10T15:31:49.590Z (key dev@c4c3735897dd)"
+      "detail": "comparator 2026-10-10T15:49:05.313Z (key dev@c4c3735897dd)"
     },
     {
       "label": "L2 panel face ride-drift law",

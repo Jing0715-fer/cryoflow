@@ -2,7 +2,7 @@
   "instrument": "scripts/t861-kid2-sleeper-census.mjs",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T14:49:54.937Z",
+  "date": "2026-10-10T17:13:11.690Z",
   "question": "the mid row's kid[2] — 'Workflow statistics' — is 0 at every width the family walked (375→1920): dead code, or a breakpoint nobody reached?",
   "answer": "NOT dead code — a breakpoint nobody reached: the counters ride min-[2000px]:flex (the t510 tier comment's own number), the wake is a 1px POINT at 2000 (last asleep 1999, first awake 2000), 80px past the battery's farthest walk. The seat was alive the whole time.",
   "law": "the wake anatomy: the birth charges NO sibling (the row's other kids and the right cluster bit-identical across the wake) — the left row grows by EXACTLY the counters' natural width (charged to free space, the row's min-w-0 never binds); the counters are born full-size and CONSTANT above the wake (the chip's own law); the wake joins the header's measured births (the chip's 1535/1536 POINT, the below squeeze's [768, 770] zone) as the third",
@@ -909,7 +909,7 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T14:48:24.038Z",
+    "prevDate": "2026-10-10T14:49:54.937Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
@@ -917,19 +917,31 @@
         "prev": 895,
         "live": 895,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       },
       "wake2000": {
         "prev": 1235.7,
         "live": 1235.7,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       },
       "plateau2100": {
         "prev": 1235.7,
         "live": 1235.7,
         "drift": 0,
-        "identical": true
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
       }
     }
   },
@@ -1063,7 +1075,7 @@
       "pass": true
     },
     {
-      "label": "L1 the drift ledger is aboard at BIRTH: three faces, the comparator's provenance recorded — comparator 2026-10-10T14:48:24.038Z (world dev@c4c3735897dd)",
+      "label": "L1 the drift ledger is aboard at BIRTH: three faces, the comparator's provenance recorded — comparator 2026-10-10T14:49:54.937Z (world dev@c4c3735897dd)",
       "pass": true
     },
     {

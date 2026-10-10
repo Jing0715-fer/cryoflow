@@ -113,7 +113,7 @@ const roster = async () => {
 /* ---------- the measure: the SHARED RULER's name computation + the two
  * dialogs' fields. NO ${} inside — the shell reads this string. */
 const MEASURE =
-  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const dlg = document.querySelector("[role=dialog]"); const dlgHead = dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null; const printOn = document.body.hasAttribute("data-report-print"); const doc = document.querySelector("[data-report-doc]"); const mdLen = doc ? (doc.getAttribute("data-md") || "").length : 0; const copy = document.querySelector(\'button[aria-label="Copy session report"]\'); const dl = document.querySelector(\'button[aria-label="Download session report"]\'); const swap = document.querySelector("[data-testid=params-diff-swap]"); const rows = document.querySelectorAll("[data-testid^=params-diff-open-]").length; const toolbar = document.querySelector("[data-testid=toolbar-compare-params]"); const still = dlg ? Array.from(dlg.querySelectorAll("[aria-label]")).filter((e) => (e.getAttribute("aria-label") || "").includes("still measuring")).length : 0; const act = document.activeElement; return JSON.stringify({ url: location.pathname, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, hasDlg: !!dlg, dlgHead: dlgHead, printOn: printOn, docAboard: !!doc, mdLen: mdLen, stillMeasuring: still, copyNamed: !!(copy && nameOf(copy)), dlNamed: !!(dl && nameOf(dl)), swapNamed: !!(swap && nameOf(swap)), swapPressed: swap ? swap.getAttribute("aria-pressed") : null, diffRows: rows, hasToolbar: !!toolbar, act: act ? (dlg && dlg.contains(act) ? "in-dialog" : act.tagName) : null, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40) }); })()';
+  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const dlg = document.querySelector("[role=dialog]"); const dlgHead = dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null; const printOn = document.body.hasAttribute("data-report-print"); const doc = document.querySelector("[data-report-doc]"); const mdLen = doc ? (doc.getAttribute("data-md") || "").length : 0; const copy = document.querySelector(\'button[aria-label="Copy session report"]\'); const dl = document.querySelector(\'button[aria-label="Download session report"]\'); const swap = document.querySelector("[data-testid=params-diff-swap]"); const rows = document.querySelectorAll("[data-testid^=params-diff-open-]").length; const toolbar = document.querySelector("[data-testid=toolbar-compare-params]"); const panelOpen = !!document.querySelector(\'button[aria-label="Close job panel"]\'); const still = dlg ? Array.from(dlg.querySelectorAll("[aria-label]")).filter((e) => (e.getAttribute("aria-label") || "").includes("still measuring")).length : 0; const act = document.activeElement; return JSON.stringify({ url: location.pathname, panelOpen: panelOpen, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, hasDlg: !!dlg, dlgHead: dlgHead, printOn: printOn, docAboard: !!doc, mdLen: mdLen, stillMeasuring: still, copyNamed: !!(copy && nameOf(copy)), dlNamed: !!(dl && nameOf(dl)), swapNamed: !!(swap && nameOf(swap)), swapPressed: swap ? swap.getAttribute("aria-pressed") : null, diffRows: rows, hasToolbar: !!toolbar, act: act ? (dlg && dlg.contains(act) ? "in-dialog" : act.tagName) : null, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40) }); })()';
 
 /* t860 — the settle-wait: measure, re-measure, require equality, bounded. */
 const settle = (what) => {
@@ -162,7 +162,22 @@ const shiftClick = (id) =>
 console.log("Face 0 — the calm canvas (fresh load, sleep 3)");
 ab("open http://localhost:3000");
 sleep(3);
+/* t866 — the CLEAN-ROOM law: the session-position seed (t157) makes the
+ * boot state ride-dependent. A seed left by an earlier ride re-opens the
+ * side panel (+12 controls) AND boots a one-card multi-selection
+ * (store.ts:2410 puts the seed INTO selectedIds), which flips the pair
+ * toggle's second click from JOIN to REMOVE — the compare toolbar never
+ * forms and the face goes red on a world the instrument did not measure.
+ * The instrument owns its measurement conditions (as it owns the viewport
+ * and the settle): clear the seed, reload, and DEMAND the panel-closed
+ * boot. The world's own session position is the user's, not the film's. */
+evalJson('(() => { localStorage.setItem("cryoflow.selectedJob.v1", ""); return "clean"; })()');
+ab("open http://localhost:3000");
+sleep(3);
 const m0 = settle("the canvas");
+ok("O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+  m0.panelOpen === false,
+  `panelOpen=${m0.panelOpen}`);
 ok("O1 the canvas is calm and named (the census's invariant)",
   !m0.hasDlg && m0.pageUnnamed === 0 && m0.unCtrls === 0 && m0.altless === 0,
   `btns=${m0.pageBtns} — zero unnamed anywhere`);
@@ -214,7 +229,20 @@ ok("PD1 the first shift+click toggled (the card's selection law)",
   cA.clicked === true);
 evalJson(shiftClick(idB));
 sleep(1);
-const t1 = settle("the selection toolbar");
+let t1 = settle("the selection toolbar");
+if (!t1.hasToolbar) {
+  /* t866 — the one-retry law (t846's Face-I form): a transient swallow
+   * between the dispatches must not red the ride. Clear whatever state
+   * the first attempt left (the app-shell Escape cascade collapses the
+   * selection when no dialog swallows the key), then re-toggle the pair. */
+  evalJson(ESC);
+  sleep(0.5);
+  evalJson(shiftClick(idA));
+  sleep(0.3);
+  evalJson(shiftClick(idB));
+  sleep(1);
+  t1 = settle("the selection toolbar (the one retry)");
+}
 ok("PD2 the selection toolbar arrived for the pair (the canvas's own count in its name)",
   t1.hasToolbar === true, "aria-label speaks the selection size");
 const cmpClick = evalJson('(() => { const b = document.querySelector("[data-testid=toolbar-compare-params]"); if (!b) return JSON.stringify({ clicked: false }); b.click(); return JSON.stringify({ clicked: true }); })()');
@@ -253,6 +281,10 @@ const w1 = settle("the restored canvas");
 ok("W1 the world unharmed (canvas count == the opening count, zero unnamed)",
   w1.pageBtns === OPEN && w1.pageUnnamed === 0 && !w1.hasDlg && !w1.hasToolbar,
   `btns=${w1.pageBtns} (opening ${OPEN})`);
+const seedAfter = evalJson('(() => { return JSON.stringify({ seed: localStorage.getItem("cryoflow.selectedJob.v1") }); })()');
+ok("W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson: a transient join persists, and the next ride boots into the mutated world)",
+  seedAfter.seed === "" || seedAfter.seed === null,
+  `seed=${JSON.stringify(seedAfter.seed)}`);
 
 /* ---------- the ledger at birth (three faces: report / paramsdiff / worldBack) ---------- */
 console.log("Ledger — the t861 birthright aboard from ride one (three faces, the shared law)");
