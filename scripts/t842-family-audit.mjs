@@ -327,6 +327,26 @@ ok("F13.c the BOUND CHAIN's width form: the wordmark's squeezed box loosens +0.3
   E8.liveAcross['1283'].zone.wmW < 138 && E8.liveAcross['1286'].zone.wmW < 138,
   `wmW 101.3/102.2/103.0 on live, identical on a and b138 at every width; < 138 everywhere sampled`);
 
+// ---- F14 the far edge: the band layer's first ride ABOVE the zone ------
+const FE = SWEEP.farEdge || {};
+const feWs = ['1366', '1440', '1536', '1920'];
+const feWrap = (w) => FE.rows[w] && FE.rows[w].midKids &&
+  FE.rows[w].midKids.find((k) => String(k.lbl).startsWith('flex min-w-0'));
+ok("F14.a the far edge is aboard and the identity is FAR-EDGE-PROOF: the sweep walks 1366/1440/1536/1920 (the band layer's first ride above the zone's neighborhood) and the band's wrapper kid == the zone's wrapW at every one — the twin survives 2xl and the third kid (the chip aboard at 1536+; the zone rows' identity at 1280-1287 was F11.c's cross-section, this is its far form)",
+  feWs.every((w) => FE.rows[w] && !FE.rows[w].error && FE.rows[w].ps && feWrap(w) && feWrap(w).w === FE.rows[w].ps.wrapW),
+  `twin ${feWs.map((w) => (FE.rows[w] && FE.rows[w].ps ? `${w}:${FE.rows[w].ps.wrapW}` : `${w}:?`)).join(' ')}`);
+ok("F14.b the far form: the right cluster never moves (rightW 628.3, seats 12 x4), the floor sleeps (trigW == wrapW x4 — the shock absorber retired, the trigger 149.2/170/205/220), the named points exact (-12/-33.1 == the E-block's zone rows at 1366/1440 — two sections, one number; -110.3 @1536, -463.1 @1920 — the gap runs away), 1536's leftW 863.8 within the ±0.5 law of the MACRO pin 864, the chip 90.3 width-free at BOTH 2xl widths, and the paint witness trigger-local x4 (the residue is 1280-local)",
+  feWs.every((w) => FE.rows[w].rightW === 628.3 && FE.rows[w].seats === 12 &&
+    FE.rows[w].ps.trigW === FE.rows[w].ps.wrapW && FE.rows[w].leftW === { 1366: 693.8, 1440: 746.7, 1536: 863.8, 1920: 895 }[w]) &&
+  FE.rows['1366'].ps.overlap === -12 && FE.rows['1440'].ps.overlap === -33.1 &&
+  FE.zone['1536'].overlap === -110.3 && FE.zone['1920'].overlap === -463.1 &&
+  FE.rows['1366'].ps.overlap === SWEEP.zone.rows['1366'].overlap && FE.rows['1440'].ps.overlap === SWEEP.zone.rows['1440'].overlap &&
+  Math.abs(FE.rows['1536'].leftW - P.left[1536]) <= 0.5 &&
+  FE.rows['1536'].midKids.find((k) => String(k.lbl).includes('Spotlight')).w === 90.3 &&
+  FE.rows['1920'].midKids.find((k) => String(k.lbl).includes('Spotlight')).w === 90.3 &&
+  feWs.every((w) => FE.zone[w] && typeof FE.zone[w].paintAt === 'string' && FE.zone[w].paintAt.startsWith('TRIGGER')),
+  `edges ${feWs.map((w) => FE.rows[w].leftW).join('/')}, rightW 628.3 x4, seats 12 x4, trigW==wrapW x4, -12/-33.1/-110.3/-463.1, chip 90.3 x2, paint TRIGGER x4`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;

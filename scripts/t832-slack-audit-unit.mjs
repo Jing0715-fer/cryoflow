@@ -618,6 +618,37 @@ if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.eighthSeat) {
   );
 }
 
+// A4e-22 — the t852 FAR EDGE: the band layer's first ride ABOVE the
+// zone (t834's farEdge: 1366/1440/1536/1920, G1-G8). The cross-layer
+// identity (band wrapper kid == the zone's wrapW) is FAR-EDGE-PROOF —
+// it survives 2xl and the third kid (the chip aboard at 1536+); the
+// floor sleeps (trigW == wrapW x4, the shock absorber retired); the
+// right cluster never moves (rightW 628.3, seats 12 x4); the named
+// points hold (-12/-33.1 == the sweep's own E-block zone rows — two
+// sections, one number) and the gap runs away (-110.3 @1536, -463.1
+// @1920); the chip's 90.3 is width-free at both 2xl widths; the paint
+// witness is trigger-local x4 (the residue is 1280-local).
+const feReceipt = existsSync(join(ROOT, "shots-qa/t834-band-sweep.json"))
+  ? JSON.parse(readFileSync(join(ROOT, "shots-qa/t834-band-sweep.json"), "utf8"))
+  : null;
+if (feReceipt && feReceipt.farEdge && feReceipt.farEdge.rows) {
+  const FEr = feReceipt.farEdge.rows;
+  const feWs = ["1366", "1440", "1536", "1920"];
+  const feWrapKid = (w) =>
+    FEr[w] && FEr[w].midKids &&
+    FEr[w].midKids.find((k) => String(k.lbl).startsWith("flex min-w-0"));
+  ok(
+    feWs.every((w) => FEr[w] && !FEr[w].error && FEr[w].ps && feWrapKid(w) &&
+      feWrapKid(w).w === FEr[w].ps.wrapW && FEr[w].rightW === 628.3 && FEr[w].seats === 12 &&
+      FEr[w].ps.trigW === FEr[w].ps.wrapW) &&
+      FEr["1366"].ps.overlap === -12 && FEr["1440"].ps.overlap === -33.1 &&
+      feReceipt.farEdge.zone["1536"].overlap === -110.3 && feReceipt.farEdge.zone["1920"].overlap === -463.1 &&
+      FEr["1536"].midKids.find((k) => String(k.lbl).includes("Spotlight")).w === 90.3 &&
+      FEr["1920"].midKids.find((k) => String(k.lbl).includes("Spotlight")).w === 90.3,
+    `A4e-22 the t852 far edge is aboard and green (t834 64/64): the band layer's first ride above the zone — the twin survives 2xl and the third kid (wrapper kid == wrapW: 149.2/170/205/220), the floor sleeps (trigW == wrapW x4), the right cluster never moves (628.3/12 x4), the named points hold (-12/-33.1, two sections one number) and the gap runs away (-110.3/-463.1), the chip 90.3 width-free above 2xl, the residue 1280-local`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

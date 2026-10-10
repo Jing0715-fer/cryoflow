@@ -349,6 +349,68 @@ ok(
   `E10 the fix's fingerprint ABSENT: overflow-x 'visible' at all ${midRows.length} awake zone widths — when the fix lands this goes red first and names the ratchet to flip`
 );
 
+/* ---------- G — the far edge (the t852 growth): the band layer's first
+ * walk ABOVE the zone's neighborhood — 1366/1440/1536/1920, both layers
+ * (the sweep's own MEASURE + the zone-form paint/wmW walk). The probe
+ * (scripts/t852-far-edge-probe.mjs) rode the widths first; the pins
+ * carry the measured values. ---------- */
+const FAR_ZONE =
+  "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'no header' }); const mid = hdr.children[0].children[3]; if (!mid || mid.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: false }); const psWrap = mid.children[1]; const psTrig = psWrap ? psWrap.querySelector('button, [role=combobox]') : null; const chip = hdr.children[1].children[0]; if (!psTrig || !chip || chip.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: true, ps: null }); const tr = psTrig.getBoundingClientRect(); const cr = chip.getBoundingClientRect(); const px = Math.min(tr.right - 0.5, cr.left + 0.5); const py = tr.top + tr.height / 2; const who = (el) => (el === psTrig || psTrig.contains(el) ? 'TRIGGER' : el === chip || chip.contains(el) ? 'CHIP' : 'OTHER'); const paintEl = document.elementFromPoint(px, py); const wm = document.querySelector('div.min-w-0.leading-tight'); const wmW = wm ? Math.round(wm.getBoundingClientRect().width * 10) / 10 : null; return JSON.stringify({ mid: true, trigW: Math.round(tr.width * 10) / 10, wrapW: Math.round(psWrap.getBoundingClientRect().width * 10) / 10, overlap: Math.round((tr.right - cr.left) * 10) / 10, wmW, paintAt: paintEl ? who(paintEl) + '|' + (paintEl.getAttribute('aria-label') || String(paintEl.className).slice(0, 30)) : 'null' }); })()";
+console.log("\nG — the far edge (above the zone: 1366/1440/1536/1920, the t852 growth)");
+const FAR_W = [1366, 1440, 1536, 1920];
+const farRows = {};
+const farZone = {};
+for (const w of FAR_W) {
+  ab(`set viewport ${w} ${HEIGHT}`);
+  ab("wait 350");
+  farRows[w] = evalJson(MEASURE);
+  farZone[w] = evalJson(FAR_ZONE);
+}
+ab("set viewport 1280 800");
+
+const wrapKidAt = (w) => farRows[w].midKids.find((k) => String(k.lbl).startsWith("flex min-w-0"));
+const chipKidAt = (w) => farRows[w].midKids.find((k) => String(k.lbl).includes("Spotlight"));
+const lblKidAt = (w) => farRows[w].midKids.find((k) => k.lbl === "Active workspace");
+ok(
+  FAR_W.every((w) => wrapKidAt(w) && farRows[w].ps && wrapKidAt(w).w === farRows[w].ps.wrapW),
+  `G1 the cross-layer identity is FAR-EDGE-PROOF: the band's wrapper kid == the zone's wrapW at 1366/1440/1536/1920 (${FAR_W.map((w) => wrapKidAt(w).w).join(" / ")}) — the twin survives 2xl and the third kid (the chip aboard at 1536+)`
+);
+ok(
+  FAR_W.every((w) => farRows[w].rightW === 628.3 && farRows[w].seats === 12),
+  `G2 the right cluster never moves at the far edge: rightW 628.3 and seats 12 at all four widths — no new seats above xl, the chip lives in the mid row`
+);
+ok(
+  FAR_W.every((w) => farRows[w].ps && farRows[w].ps.trigW === farRows[w].ps.wrapW),
+  `G3 the floor SLEEPS at the far edge: trigW == wrapW exactly at all four widths (${FAR_W.map((w) => farRows[w].ps.trigW).join(" / ")}) — the shock absorber retired, the trigger rides its natural width (149.2 → 170 → 205 → 220)`
+);
+ok(
+  farRows[1366].ps.overlap === -12 && farRows[1440].ps.overlap === -33.1 &&
+    farZone[1536].overlap === -110.3 && farZone[1920].overlap === -463.1,
+  `G4 the named points hold and the gap runs away: 1366 = −12, 1440 = −33.1 (E7's zone rows agree — two walks, one number), then 1536 = −110.3, 1920 = −463.1 — the zone clears and never looks back`
+);
+ok(
+  farRows[1366].leftW === 693.8 && farRows[1440].leftW === 746.7 &&
+    farRows[1536].leftW === 863.8 && farRows[1920].leftW === 895 &&
+    Math.abs(farRows[1536].leftW - PINNED.left[1536]) <= 0.5,
+  `G5 the left row's far tier: 693.8 / 746.7 / 863.8 / 895 (tier-shaped, breakpoint-honest) — and 1536's 863.8 sits within the sweep's own ±0.5 rounding law of the MACRO pin 864`
+);
+ok(
+  farRows[1366].midKids.filter((k) => k.w > 0).length === 2 && farRows[1440].midKids.filter((k) => k.w > 0).length === 2 &&
+    farRows[1536].midKids.filter((k) => k.w > 0).length === 3 && farRows[1920].midKids.filter((k) => k.w > 0).length === 3 &&
+    lblKidAt(1366).w === 143.6 && lblKidAt(1440).w === 160 && lblKidAt(1536).w === 150.9 && lblKidAt(1920).w === 160 &&
+    chipKidAt(1536) && chipKidAt(1536).w === 90.3 && chipKidAt(1920) && chipKidAt(1920).w === 90.3,
+  `G6 the mid row's far anatomy: two kids awake at 1366/1440, THREE at 1536/1920 (the chip wakes at 2xl); the label 143.6 / 160 / 150.9 / 160, the chip 90.3 at BOTH 2xl widths — the chip's weight is width-free above its tier`
+);
+ok(
+  FAR_W.every((w) => farZone[w] && typeof farZone[w].paintAt === "string" && farZone[w].paintAt.startsWith("TRIGGER")),
+  `G7 the residue is 1280-LOCAL: the paint witness rides the trigger's own box at every far width (no CHIP under the point) — the t510 overlap exists only where the floor binds`
+);
+ok(
+  farZone[1366].wmW === 126.8 && farZone[1440].wmW === 142.5 &&
+    farZone[1536].wmW === 135.4 && farZone[1920].wmW === 142.5,
+  `G8 the wordmark's far form is TIER-SHAPED: 126.8 / 142.5 / 135.4 / 142.5 — the natural 142.5 recurs at 1440/1920, the squeeze never returns, no slope claim (pinned per width)`
+);
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t834-band-sweep.mjs",
@@ -356,6 +418,7 @@ const receipt = {
   date: new Date().toISOString(),
   bands: rows,
   zone: { widths: ZW, rows: zone, law: "overlap(W) = 2.7 − 0.4×(W−1280)", edge: { lastPaint: 1286, firstClear: 1287 } },
+  farEdge: { widths: FAR_W, rows: farRows, zone: farZone, law: "the far edge (t852): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor sleeps (trigW == wrapW exactly), the right cluster never moves (rightW 628.3, seats 12), the chip is width-free above 2xl (90.3), and the residue is 1280-local (the paint witness rides the trigger's own box)" },
   pinned: PINNED,
 };
 const out = join(ROOT, "shots-qa/t834-band-sweep.json");
