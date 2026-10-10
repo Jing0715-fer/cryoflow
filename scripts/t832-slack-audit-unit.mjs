@@ -511,6 +511,34 @@ if (cbReceipt && cbReceipt.cloneBand && !cbReceipt.cloneBand.error) {
   );
 }
 
+// A4e-18 — the t848 FIFTH SEAT: the decision table's clones carry the
+// band layer (t840's bandAfter, T6-T10). The build day's decision table
+// now carries band-layer AFTERs for every option: the band's EDGES never
+// move on any option (607.8 / 628.3 / 12); only the mid row's awake
+// children pay — (a)/(b138) bit-for-bit the live band (cross-harness ==
+// t839's cloneBand), (b88) the two awake kids EQUALIZE at 122.8, (c)
+// they DIVERGE 121.3 / 106.6 (family F10.a-c; the FIVE-way 115.3).
+const fa18 = join(ROOT, "shots-qa/t840-options-rehearsal.json");
+const baReceipt = existsSync(fa18)
+  ? JSON.parse(readFileSync(fa18, "utf8"))
+  : null;
+if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.live) {
+  const BA = baReceipt.bandAfter;
+  const baOk = (k) => BA[k] && !BA[k].error && BA[k].innerW === 1280 &&
+    BA[k].seats === 12 && BA[k].leftW === 607.8 && BA[k].rightW === 628.3;
+  ok(
+    ["live", "a", "b138", "b88", "c", "restored"].every(baOk) &&
+      JSON.stringify(BA.a) === JSON.stringify(BA.live) &&
+      JSON.stringify(BA.b138) === JSON.stringify(BA.live) &&
+      BA.b88.midKids[1].w === baReceipt.optionB88.rides1280[0].wrapW &&
+      BA.b88.midKids[0].w === BA.b88.midKids[1].w &&
+      BA.c.midKids[1].w === baReceipt.optionC.rides[0].wrapW &&
+      BA.c.midKids[0].w === 121.3 &&
+      JSON.stringify(BA.restored) === JSON.stringify(BA.live),
+    `A4e-18 the t848 fifth seat is aboard and green (t840 12/12): the decision table's clones carry the band layer — edges never move on any option (607.8 / 628.3 / 12), the mid row pays ((b88) equalizes at ${BA.b88.midKids[1].w}, (c) diverges ${BA.c.midKids[0].w}/${BA.c.midKids[1].w}), PAINT and no-op bit-for-bit cross-harness, the restore returns bit-for-bit, the FIVE-way 115.3`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

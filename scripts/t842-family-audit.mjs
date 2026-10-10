@@ -45,6 +45,14 @@
 //       band's bit-for-bit (left 607.8, right 628.3, seats 12), and the mid band's wrap
 //       joins the three-way as the FOUR-way 115.3 (band live / band clone / zone row /
 //       the GEOM every receipt rides).
+//   F10 the fifth seat (t848): the DECISION TABLE's clones carry the band layer —
+//       t840's bandAfter (live/a/b138/b88/c/restored) films every option's AFTER at the
+//       band layer too: the band's EDGES never move on any option (607.8 / 628.3 / 12),
+//       only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band
+//       (PAINT and no-op, proven cross-harness: t840's option-a clone == t839's
+//       cloneBand), (b88) the two awake kids EQUALIZE at 122.8, (c) they DIVERGE
+//       121.3 / 106.6 — the wrapper alone pays the deeper yield; and the 115.3 grows
+//       the FIVE-way (band live / band clone / band option-a / zone row / the GEOM).
 // Receipt: shots-qa/t842-family-audit.json.
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -220,11 +228,34 @@ ok('F9.c the FOUR-way 115.3: band live / band clone / zone row / the GEOM every 
   cbMid.w === b839a.wrapW && cbMid.w === b840a.wrapW,
   `band-live=${mid1280.w} band-clone=${cbMid.w} zone=${live['1280'].wrapW} t839=${b839a.wrapW} t840=${b840a.wrapW}`);
 
+// ---- F10 the fifth seat: the decision table's clones carry the band layer -------------
+const BA = R840.bandAfter || {};
+const baNames = ['live', 'a', 'b138', 'b88', 'c', 'restored'];
+const baAll = baNames.every((k) => BA[k] && !BA[k].error && BA[k].innerW === 1280 && BA[k].seats === 12);
+ok('F10.a the fifth seat is aboard: t840 rides the BAND walk on every option\'s clone (live/a/b138/b88/c/restored, all at 1280, seats 12)',
+  baAll,
+  baNames.map((k) => (BA[k] && !BA[k].error ? `${k}:${BA[k].leftW}/${BA[k].rightW}/${BA[k].seats}` : `${k}:MISSING`)).join(' '));
+ok("F10.b PAINT and no-op hold at the band layer, cross-harness: t840's option-a clone == t839's cloneBand == the live band (the same fix, two harnesses, one answer)",
+  baAll && eq(BA.a, BA.live) && eq(BA.b138, BA.live) &&
+  BA.a.leftW === CB.leftW && BA.a.rightW === CB.rightW && eq(BA.a.midKids, CB.midKids),
+  `a==live bit-for-bit, b138==live bit-for-bit, a.leftW ${BA.a && BA.a.leftW}==t839 ${CB.leftW}, midKids equal`);
+const b88mid = BA.b88 && BA.b88.midKids || [];
+const cmid = BA.c && BA.c.midKids || [];
+ok('F10.c the decision table\'s band layer: the EDGES never move on any option; the mid row pays — (b88) equalizes at its zone wrapW, (c) the wrapper alone pays to its zone wrapW; the restore returns bit-for-bit; the 115.3 grows the FIVE-way',
+  baAll &&
+  BA.b88.leftW === BA.live.leftW && BA.b88.rightW === BA.live.rightW && BA.b88.seats === BA.live.seats &&
+  BA.c.leftW === BA.live.leftW && BA.c.rightW === BA.live.rightW && BA.c.seats === BA.live.seats &&
+  b88mid[1] && b88mid[1].w === R840.optionB88.rides1280[0].wrapW && b88mid[0] && b88mid[0].w === b88mid[1].w &&
+  cmid[1] && cmid[1].w === R840.optionC.rides[0].wrapW && cmid[0] && cmid[0].w === 121.3 &&
+  eq(BA.restored, BA.live) &&
+  BA.live.midKids && BA.live.midKids[1] && BA.live.midKids[1].w === cbMid.w && BA.live.midKids[1].w === mid1280.w && BA.live.midKids[1].w === live['1280'].wrapW,
+  `edges 607.8/628.3/12 on all; b88 midKids ${b88mid[0] && b88mid[0].w}/${b88mid[1] && b88mid[1].w} (equalize, == zone ${R840.optionB88.rides1280[0].wrapW}); c midKids ${cmid[0] && cmid[0].w}/${cmid[1] && cmid[1].w} (diverge, wrap == zone ${R840.optionC.rides[0].wrapW}); FIVE-way 115.3: band-live=${BA.live && BA.live.midKids && BA.live.midKids[1] && BA.live.midKids[1].w} band-clone=${cbMid.w} band-opt-a=${BA.a && BA.a.midKids && BA.a.midKids[1] && BA.a.midKids[1].w} zone=${live['1280'].wrapW} GEOM`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const verdict = failed === 0
-  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, and the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
+  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), and the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
   : `the family DISAGREES in ${failed} place(s) — reconcile before the build day`;
 const receipt = {
   instrument: 'scripts/t842-family-audit.mjs',
@@ -232,7 +263,7 @@ const receipt = {
   date: new Date().toISOString(),
   sources: {
     t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date, cloneBand: 'the fix world\'s band layer (the fourth seat, t847)' },
-    t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date },
+    t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date, bandAfter: "the decision table's clones carry the band layer (the fifth seat, t848)" },
     sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date },
     sweepPinned: { left: P.left, right: P.right, seats: P.seats, law: "pinned == bands within ±0.5 (the sweep's own rounding law), seats exact, across 6 widths" },
     t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined },
@@ -243,7 +274,7 @@ const receipt = {
     law: SWEEP.zone.law,
     painted: painted.join(','),
     edges: SWEEP.zone.edge,
-    decisionTable: { a: 'clips, geometry intact', b88: 'clears -4.8, slope -0.55', c: 'backfires +8.7' },
+    decisionTable: { a: 'clips, geometry intact', b88: 'clears -4.8, slope -0.55', c: 'backfires +8.7', bandLayer: "edges never move on any option (607.8/628.3/12); the mid row pays: b88 equalizes 122.8, c diverges 121.3/106.6 (F10, the fifth seat)" },
     boundChain: { natural: 't837 derived 142.46', cap138: 'B138 unbinding', squeezed: 't840 wmW 101.3', cap88: 'B88 binding', yield: '41.2' },
   },
   checks: checks,

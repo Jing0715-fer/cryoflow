@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t840-options-rehearsal.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T10:01:12.311Z",
+  "date": "2026-10-10T10:50:18.531Z",
   "viewport": {
     "w": 1280,
     "h": 800
@@ -282,6 +282,153 @@
     ],
     "verdict": "backfires — the floor binds anyway, the wrapper yields deeper, the paint worsens to 11.4"
   },
+  "bandAfter": {
+    "live": {
+      "leftW": 607.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 116.9
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 115.3
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1280
+    },
+    "a": {
+      "leftW": 607.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 116.9
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 115.3
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1280
+    },
+    "b138": {
+      "leftW": 607.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 116.9
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 115.3
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1280
+    },
+    "b88": {
+      "leftW": 607.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 122.8
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 122.8
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1280
+    },
+    "c": {
+      "leftW": 607.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 121.3
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 106.6
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1280
+    },
+    "restored": {
+      "leftW": 607.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 116.9
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 115.3
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1280
+    },
+    "law": "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848)"
+  },
   "restored": {
     "mid": true,
     "trigW": 130,
@@ -303,5 +450,5 @@
     "wrapOverflowX": "visible",
     "innerW": 1280
   },
-  "verdict": "the decision table is measured: (a) clips with the geometry intact (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed"
+  "verdict": "the decision table is measured at BOTH layers: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers"
 }

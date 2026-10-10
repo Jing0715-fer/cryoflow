@@ -47,7 +47,19 @@
  *   T5  the restore: fresh load back to the BEFORE truth — the world
  *       unharmed
  *
- * Receipt: shots-qa/t840-options-rehearsal.json.
+ * The fifth seat (t848): every option's clone carries the BAND layer —
+ * the sweep's BAND walk (t839's BAND_MEASURE form) rides each clone right
+ * after its zone pair, so the build day's decision table carries
+ * band-layer AFTERs. The measured law: the band's EDGES never move
+ * (left 607.8 / right 628.3 / seats 12 on every option — same as the live
+ * band and t839's cloneBand); whatever the option, only the mid row's
+ * awake children pay: (a)/(b138) bit-for-bit the live band; (b88) the two
+ * awake kids EQUALIZE at 122.8; (c) they DIVERGE 121.3 / 106.6 — the
+ * wrapper alone pays the deeper yield. Measure-first discipline: the
+ * (b88)/(c) numbers were probed (t848-band-after-probe) before pinning.
+ *
+ * Receipt: shots-qa/t840-options-rehearsal.json (bandAfter key = the
+ * fifth seat: live/a/b138/b88/c/restored band walks).
  *
  *   node scripts/t840-options-rehearsal.mjs
  */
@@ -106,6 +118,12 @@ console.log(
 const MEASURE =
   "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'no header' }); const mid = hdr.children[0].children[3]; if (!mid || mid.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: false }); const psWrap = mid.children[1]; const psTrig = psWrap ? psWrap.querySelector('button, [role=combobox]') : null; const chip = hdr.children[1].children[0]; if (!psTrig || !chip || chip.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: true, ps: null }); const tr = psTrig.getBoundingClientRect(); const cr = chip.getBoundingClientRect(); const px = Math.min(tr.right - 0.5, cr.left + 0.5); const py = tr.top + tr.height / 2; const who = (el) => (el === psTrig || psTrig.contains(el) ? 'TRIGGER' : el === chip || chip.contains(el) ? 'CHIP' : el === psWrap || psWrap.contains(el) ? 'WRAP' : 'OTHER'); const lbl = (el) => el.getAttribute('aria-label') || String(el.className).slice(0, 26); const paintEl = document.elementFromPoint(px, py); const stack = document.elementsFromPoint(px, py).slice(0, 8).map((el) => who(el) + '|' + lbl(el)); const wm = document.querySelector('div.min-w-0.leading-tight'); const wmW = wm ? Math.round(wm.getBoundingClientRect().width * 10) / 10 : null; const csW = getComputedStyle(psWrap); return JSON.stringify({ mid: true, trigW: Math.round(tr.width * 10) / 10, wrapW: Math.round(psWrap.getBoundingClientRect().width * 10) / 10, overlap: Math.round((tr.right - cr.left) * 10) / 10, wmW, wmMax: wm ? getComputedStyle(wm).maxWidth : null, paintAt: paintEl ? who(paintEl) + '|' + lbl(paintEl) : 'null', stack, wrapOverflowX: csW.overflowX, innerW: window.innerWidth }); })()";
 
+/* ---------- the band measure (the fifth seat, t848): t839's BAND walk
+ * ported verbatim — the header's left/right rows, the seats, the mid
+ * band's children. Rides each option's clone right after its zone pair. */
+const BAND_MEASURE =
+  "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'no header' }); const kid = (c) => Math.round(c.getBoundingClientRect().width * 10) / 10; const left = hdr.children[0]; const right = hdr.children[1]; const mid = left.children[3]; const midKids = mid && mid.getBoundingClientRect().width > 0 ? [...mid.children].map((c) => ({ lbl: c.getAttribute('aria-label') || String(c.className).slice(0, 30), w: kid(c) })) : null; const seats = [...right.children].filter((c) => c.getBoundingClientRect().width > 0).length; return JSON.stringify({ leftW: Math.round(left.getBoundingClientRect().width * 10) / 10, rightW: Math.round(right.getBoundingClientRect().width * 10) / 10, seats: seats, midKids: midKids, innerW: window.innerWidth }); })()";
+
 /* ---------- the swaps, per option (same child walks as the sweep/t839;
  * each runs on a FRESH load so the clone is the unmutated world) ---------- */
 const SWAP_A =
@@ -139,15 +157,17 @@ const pair = () => {
   return [r1, r2, JSON.stringify(r1) === JSON.stringify(r2)];
 };
 
-/* ---------- T0: the BEFORE pair ---------- */
+/* ---------- T0: the BEFORE pair + the live band (the fifth seat's ruler) ---------- */
 const fonts0 = freshLoad();
 const [b1, b2, bitB] = pair();
+const bandLive = evalJson(BAND_MEASURE);
 
 /* ---------- T1: option (a) — the clip ---------- */
 const swapA = evalJson(SWAP_A);
 ab("wait 500");
 const fontsA = fontsWait();
 const [a1, a2, bitA] = pair();
+const bandA = evalJson(BAND_MEASURE);
 
 /* ---------- T2: option (b@138) — the literal re-cut ---------- */
 const fontsB1 = freshLoad();
@@ -155,6 +175,7 @@ const swapB138 = evalJson(SWAP_B(138));
 ab("wait 500");
 const fontsB138 = fontsWait();
 const [bl1, bl2, bitBL] = pair();
+const bandBL = evalJson(BAND_MEASURE);
 
 /* ---------- T3: option (b@88) — the binding re-cut ---------- */
 const fontsB2 = freshLoad();
@@ -162,6 +183,7 @@ const swapB88 = evalJson(SWAP_B(88));
 ab("wait 500");
 const fontsB88 = fontsWait();
 const [bb1, bb2, bitB88] = pair();
+const bandB88 = evalJson(BAND_MEASURE);
 ab("set viewport 1283 800");
 ab("wait 300");
 const bb1283 = evalJson(MEASURE);
@@ -177,10 +199,12 @@ const swapC = evalJson(SWAP_C);
 ab("wait 500");
 const fontsC2 = fontsWait();
 const [c1, c2, bitC] = pair();
+const bandC = evalJson(BAND_MEASURE);
 
 /* ---------- T5: the restore ---------- */
 const fontsR = freshLoad();
 const r1 = evalJson(MEASURE);
+const bandR = evalJson(BAND_MEASURE);
 
 /* ---------- the assertions ---------- */
 console.log("");
@@ -218,6 +242,31 @@ ok(
   `T5 the restore: fresh load back to the BEFORE truth (${r1.overlap} / ${r1.wrapOverflowX} / wmW ${r1.wmW}) — the world unharmed`
 );
 
+/* ---------- the fifth seat (t848): the band layer on every option's clone ---------- */
+const edgesHold = (band) =>
+  band && !band.error && band.innerW === 1280 && band.seats === 12 &&
+  band.leftW === 607.8 && band.rightW === 628.3 && Array.isArray(band.midKids) && band.midKids.length === 4;
+ok(
+  edgesHold(bandA) && JSON.stringify(bandA) === JSON.stringify(bandLive),
+  `T6 (a) the band layer rides the clone bit-for-bit: left ${bandA.leftW} / right ${bandA.rightW} / seats ${bandA.seats} == the live band — PAINT, not geometry, proven on the options harness too (the fifth seat)`
+);
+ok(
+  edgesHold(bandBL) && JSON.stringify(bandBL) === JSON.stringify(bandLive),
+  `T7 (b@138) the no-op is a no-op at the BAND layer too: the clone band == the live band bit-for-bit — nothing moves anywhere`
+);
+ok(
+  edgesHold(bandB88) && bandB88.midKids[1].w === bb1.wrapW && bandB88.midKids[0].w === bandB88.midKids[1].w,
+  `T8 (b@88) the band's EDGES hold (left ${bandB88.leftW} / right ${bandB88.rightW} / seats ${bandB88.seats}) while the mid row pays: the two awake children EQUALIZE at ${bandB88.midKids[1].w} (== the zone's wrapW ${bb1.wrapW}) — the freed 13.3 flows into the mid band, the edges never move`
+);
+ok(
+  edgesHold(bandC) && bandC.midKids[1].w === c1.wrapW && bandC.midKids[0].w === 121.3,
+  `T9 (c) the edges hold, the mid row DIVERGES: ${bandC.midKids[0].w} / ${bandC.midKids[1].w} (== the zone's wrapW ${c1.wrapW}) — the wrapper alone pays the deeper yield, the workspace label stays fat`
+);
+ok(
+  edgesHold(bandR) && JSON.stringify(bandR) === JSON.stringify(bandLive),
+  `T10 the restore at the BAND layer: the fresh-load band == the live band bit-for-bit — the world unharmed at every layer the table measures`
+);
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t840-options-rehearsal.mjs",
@@ -230,10 +279,11 @@ const receipt = {
   optionB138: { swap: swapB138, rides: [bl1, bl2], verdict: "no-op — the cap sits above the wordmark's squeezed 101.3" },
   optionB88: { swap: swapB88, rides1280: [bb1, bb2], at1283: bb1283, at1286: bb1286, verdict: "binds and clears (−4.8); the slope steepens −0.4 → −0.55" },
   optionC: { swap: swapC, rides: [c1, c2], verdict: "backfires — the floor binds anyway, the wrapper yields deeper, the paint worsens to 11.4" },
+  bandAfter: { live: bandLive, a: bandA, b138: bandBL, b88: bandB88, c: bandC, restored: bandR, law: "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848)" },
   restored: r1,
   verdict:
     fail === 0
-      ? "the decision table is measured: (a) clips with the geometry intact (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed"
+      ? "the decision table is measured at BOTH layers: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers"
       : "RED — the table disagrees; re-measure before the build day",
 };
 const out = join(ROOT, "shots-qa/t840-options-rehearsal.json");

@@ -1,20 +1,21 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T10:29:37.337Z",
+  "date": "2026-10-10T10:51:09.190Z",
   "sources": {
     "t839": {
       "file": "shots-qa/t839-zone-rehearsal.json",
-      "date": "2026-10-10T10:28:49.619Z",
+      "date": "2026-10-10T10:43:56.599Z",
       "cloneBand": "the fix world's band layer (the fourth seat, t847)"
     },
     "t840": {
       "file": "shots-qa/t840-options-rehearsal.json",
-      "date": "2026-10-10T10:01:12.311Z"
+      "date": "2026-10-10T10:50:18.531Z",
+      "bandAfter": "the decision table's clones carry the band layer (the fifth seat, t848)"
     },
     "sweep": {
       "file": "shots-qa/t834-band-sweep.json",
-      "date": "2026-10-10T10:00:57.549Z"
+      "date": "2026-10-10T10:43:50.793Z"
     },
     "sweepPinned": {
       "left": {
@@ -45,7 +46,7 @@
     },
     "t837": {
       "file": "shots-qa/t837-wordmark-probe.json",
-      "date": "2026-10-10T10:00:59.061Z"
+      "date": "2026-10-10T10:43:52.338Z"
     }
   },
   "arithmetic": {
@@ -67,7 +68,8 @@
     "decisionTable": {
       "a": "clips, geometry intact",
       "b88": "clears -4.8, slope -0.55",
-      "c": "backfires +8.7"
+      "c": "backfires +8.7",
+      "bandLayer": "edges never move on any option (607.8/628.3/12); the mid row pays: b88 equalizes 122.8, c diverges 121.3/106.6 (F10, the fifth seat)"
     },
     "boundChain": {
       "natural": "t837 derived 142.46",
@@ -247,10 +249,25 @@
       "name": "F9.c the FOUR-way 115.3: band live / band clone / zone row / the GEOM every receipt rides",
       "pass": true,
       "detail": "band-live=115.3 band-clone=115.3 zone=115.3 t839=115.3 t840=115.3"
+    },
+    {
+      "name": "F10.a the fifth seat is aboard: t840 rides the BAND walk on every option's clone (live/a/b138/b88/c/restored, all at 1280, seats 12)",
+      "pass": true,
+      "detail": "live:607.8/628.3/12 a:607.8/628.3/12 b138:607.8/628.3/12 b88:607.8/628.3/12 c:607.8/628.3/12 restored:607.8/628.3/12"
+    },
+    {
+      "name": "F10.b PAINT and no-op hold at the band layer, cross-harness: t840's option-a clone == t839's cloneBand == the live band (the same fix, two harnesses, one answer)",
+      "pass": true,
+      "detail": "a==live bit-for-bit, b138==live bit-for-bit, a.leftW 607.8==t839 607.8, midKids equal"
+    },
+    {
+      "name": "F10.c the decision table's band layer: the EDGES never move on any option; the mid row pays — (b88) equalizes at its zone wrapW, (c) the wrapper alone pays to its zone wrapW; the restore returns bit-for-bit; the 115.3 grows the FIVE-way",
+      "pass": true,
+      "detail": "edges 607.8/628.3/12 on all; b88 midKids 122.8/122.8 (equalize, == zone 122.8); c midKids 121.3/106.6 (diverge, wrap == zone 106.6); FIVE-way 115.3: band-live=115.3 band-clone=115.3 band-opt-a=115.3 zone=115.3 GEOM"
     }
   ],
-  "passed": 34,
+  "passed": 37,
   "failed": 0,
-  "total": 34,
-  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, and the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
+  "total": 37,
+  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), and the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
 }
