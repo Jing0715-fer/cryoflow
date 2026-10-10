@@ -443,6 +443,29 @@ if (fpReceipt && fpReceipt.checks) {
   );
 }
 
+// A4e-15 — the t845 FAMILY'S THIRD SEAT: the sweep's pinned trio (the BAND
+// layer) joins the family audit. The macro pins (left/right/seats across six
+// widths) now cross-check the zone rows the same way F7 cross-checks the
+// wordmark: the ±0.5 rounding law (the sweep's own, seats exact), the
+// breakpoint plateaus, the seat arithmetic (seats == rightKids.length,
+// rightW = Σkids + 6px gap each), the three-way 115.3, and the shared 1280
+// anchor with the natural 1366 row proving the squeeze is band-local.
+const faPath = join(ROOT, "shots-qa/t842-family-audit.json");
+const faReceipt = existsSync(faPath)
+  ? JSON.parse(readFileSync(faPath, "utf8"))
+  : null;
+if (faReceipt && faReceipt.checks) {
+  const f8 = faReceipt.checks.filter((c) => String(c.name).startsWith("F8."));
+  const f8Pass = f8.filter((c) => c.pass).length;
+  ok(
+    faReceipt.failed === 0 && faReceipt.total >= 31 &&
+      faReceipt.build === "KtPKuXIbtB9d7uhItOOUS" &&
+      f8.length === 5 && f8Pass === 5 &&
+      faReceipt.sources && !!faReceipt.sources.sweepPinned,
+    `A4e-15 the t845 third seat is aboard and green (${faReceipt.passed}/${faReceipt.total}): the sweep's pinned trio joined the family (F8 ${f8Pass}/5) — pinned==bands within ±0.5 seats exact, the plateaus on xl/2xl, rightW = Σkids + 6px×11 = 628.3, the three-way 115.3, two rulers one anchor at 1280 with 1366 proving the squeeze band-local`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

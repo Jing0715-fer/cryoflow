@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// t842-family-audit — ONE ARITHMETIC, FOUR INSTRUMENTS.
+// t842-family-audit — ONE ARITHMETIC, FIVE INSTRUMENTS.
 //
 // The three rehearsal-family receipts must tell the same story about the same
 // 2.7px of paint:
@@ -9,6 +9,9 @@
 // and since the second seat (t843), the derivation that prices the wordmark
 // joins the family:
 //   4. scripts/t837-wordmark-probe.mjs    — the NATURAL width the cap must beat
+// and since the third seat (t845), the sweep's own MACRO pins join the family:
+//   5. the sweep's `pinned` trio (left/right/seats across six widths) — the band-layer
+//      counterpart of the zone-layer rows, crossed at the shared 1280 anchor
 //
 // The audit is a pure file pass (no browser): the receipts it reads are refreshed
 // each window by their own one-command re-witnesses, so "live" means "the sweep
@@ -29,6 +32,13 @@
 //       142.46 > B138's cap 138 > the squeezed 101.3 > B88's cap 88 — the one line that PROVES
 //       B138 is a no-op and B88 binds, with the yield (142.46 - 101.3 = 41.2) riding both
 //       receipts' numbers. The number the no-op verdict stands on is now receipt-to-receipt.
+//   F8  the third seat (t845): the sweep's pinned trio (left/right/seats × 6 widths) — the
+//       BAND layer's own pins, checked the way F7 checks the wordmark: pinned == the bands'
+//       measured widths under the sweep's own ±0.5 rounding law (seats exact); the plateau on
+//       the breakpoints; the seat arithmetic (seats == rightKids.length, rightW = Σkids + 6px gap each);
+//       the three-way 115.3 (band midKids == zone row wrap == the GEOM every receipt rides);
+//       and the shared 1280 anchor — the only width both rulers sample, where band and zone
+//       agree, with the natural 1366 row proving the squeeze is a band-local phenomenon.
 // Receipt: shots-qa/t842-family-audit.json.
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -154,11 +164,45 @@ ok('F7.b THE BOUND CHAIN: natural > cap138 > squeezed > cap88, the yield rides b
   R840.before[0].wmMax === 'none' && near(natural - squeezed, 41.2, 0.05),
   `${natural} > ${cap138} > ${squeezed} > ${cap88}  (yield ${(natural - squeezed).toFixed(2)})`);
 
+// ---- F8 the third seat: the sweep's pinned trio (the BAND layer joins) -------------------
+const P = SWEEP.pinned, BANDS = SWEEP.bands;
+const widths6 = ['375', '640', '768', '1024', '1280', '1536'];
+ok('F8.a pinned == the bands under the sweep\'s own ±0.5 law (left/right/seats × 6 widths)',
+  widths6.every((w) =>
+    Math.abs(P.left[w] - BANDS[w].leftW) <= 0.5 &&
+    Math.abs(P.right[w] - BANDS[w].rightW) <= 0.5 &&
+    P.seats[w] === BANDS[w].seats),
+  `1280: |${P.left['1280']}−${BANDS['1280'].leftW}|≤.5 |${P.right['1280']}−${BANDS['1280'].rightW}|≤.5 seats ${P.seats['1280']}`);
+const seatsSeq = widths6.map((w) => P.seats[w]), rightSeq = widths6.map((w) => P.right[w]), leftSeq = widths6.map((w) => P.left[w]);
+const nondec = (arr) => arr.every((v, i) => i === 0 || v >= arr[i - 1]);
+ok('F8.b the breakpoint shape: monotone, and the plateaus land on xl/2xl',
+  nondec(seatsSeq) && nondec(leftSeq) && nondec(rightSeq) &&
+  seatsSeq.join(',') === '6,8,11,11,12,12' &&
+  rightSeq[2] === rightSeq[3] && rightSeq[4] === rightSeq[5] &&
+  seatsSeq[2] === seatsSeq[3] && seatsSeq[4] === seatsSeq[5],
+  `seats=${seatsSeq.join(',')} right=${rightSeq.join(',')} left=${leftSeq.join(',')}`);
+const kids1280 = BANDS['1280'].rightKids || [];
+ok('F8.c the seat arithmetic: seats == rightKids.length and rightW = Σkids + 6px gap each',
+  P.seats['1280'] === kids1280.length && kids1280.length === 12 &&
+  near(BANDS['1280'].rightW, kids1280.reduce((s, k) => s + k.w, 0) + 6 * (kids1280.length - 1), 0.05),
+  `seats=${P.seats['1280']} rightW=${BANDS['1280'].rightW} Σkids=${(kids1280.reduce((s, k) => s + k.w, 0)).toFixed(1)}+66`);
+const mid1280 = (BANDS['1280'].midKids || [])[1] || {};
+ok('F8.d the three-way 115.3: band midKids == zone row wrap == the GEOM every receipt rides',
+  near(mid1280.w, 115.3) && near(live['1280'].wrapW, 115.3) &&
+  live['1280'].trigW === 130 && mid1280.w === b839a.wrapW && mid1280.w === b840a.wrapW,
+  `band=${mid1280.w} zone=${live['1280'].wrapW} t839=${b839a.wrapW} t840=${b840a.wrapW}`);
+ok('F8.e two rulers, one anchor: 1280 is the only width both sample, and 1366 proves the squeeze is band-local',
+  widths6.filter((w) => live[w] !== undefined).join(',') === '1280' &&
+  G(live['1280']) === GEOM && P.seats['1280'] === 12 &&
+  Number(live['1366'].overlap) < 0 && String(live['1366'].paintAt).startsWith('TRIGGER') &&
+  near(live['1366'].trigW, live['1366'].wrapW),
+  `both@1280: seats ${P.seats['1280']} + ${G(live['1280'])} | 1366 natural: ${G(live['1366'])}`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const verdict = failed === 0
-  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by four instruments — the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
+  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins now cross-check the zone rows at the shared 1280 anchor, the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
   : `the family DISAGREES in ${failed} place(s) — reconcile before the build day`;
 const receipt = {
   instrument: 'scripts/t842-family-audit.mjs',
@@ -168,6 +212,7 @@ const receipt = {
     t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date },
     t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date },
     sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date },
+    sweepPinned: { left: P.left, right: P.right, seats: P.seats, law: "pinned == bands within ±0.5 (the sweep's own rounding law), seats exact, across 6 widths" },
     t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined },
   },
   arithmetic: {
