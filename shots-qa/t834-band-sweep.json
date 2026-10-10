@@ -1,0 +1,263 @@
+{
+  "instrument": "scripts/t834-band-sweep.mjs",
+  "build": "KtPKuXIbtB9d7uhItOOUS",
+  "date": "2026-10-10T07:23:08.920Z",
+  "bands": {
+    "375": {
+      "leftW": 68,
+      "rightW": 236,
+      "seats": 6,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 0
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 0
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 0
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        }
+      ],
+      "innerW": 375,
+      "scrollW": 375
+    },
+    "640": {
+      "leftW": 114,
+      "rightW": 334,
+      "seats": 8,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 0
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 0
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        }
+      ],
+      "innerW": 640,
+      "scrollW": 640
+    },
+    "768": {
+      "leftW": 264,
+      "rightW": 460,
+      "seats": 11,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 140
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 0
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 140
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        }
+      ],
+      "innerW": 768,
+      "scrollW": 768
+    },
+    "1024": {
+      "leftW": 266.5,
+      "rightW": 460,
+      "seats": 11,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 142.5
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 0
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 142.5
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        }
+      ],
+      "innerW": 1024,
+      "scrollW": 1024
+    },
+    "1280": {
+      "leftW": 607.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 101.3
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 200.2
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 240.3
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 101.3
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 200.2
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 240.3
+        }
+      ],
+      "innerW": 1280,
+      "scrollW": 1280
+    },
+    "1536": {
+      "leftW": 863.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 135.4
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 200.2
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 462.1
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 135.4
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 200.2
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 462.1
+        }
+      ],
+      "innerW": 1536,
+      "scrollW": 1536
+    }
+  },
+  "pinned": {
+    "left": {
+      "375": 68,
+      "640": 114,
+      "768": 264,
+      "1024": 266,
+      "1280": 608,
+      "1536": 864
+    },
+    "right": {
+      "375": 236,
+      "640": 334,
+      "768": 460,
+      "1024": 460,
+      "1280": 628,
+      "1536": 628
+    },
+    "seats": {
+      "375": 6,
+      "640": 8,
+      "768": 11,
+      "1024": 11,
+      "1280": 12,
+      "1536": 12
+    }
+  }
+}

@@ -26,6 +26,20 @@
  *     (71 / 192 / 44 / 298 / 44 / 44) hold at every band — a seat added
  *     to any band moves the formula before it ships.
  *
+ * t834 amendment — the left cluster closes too (the twice-carried debt,
+ * paid): the left half is no longer pinned constants. The ViewSwitcher's
+ * box arithmetic derives from its own classes (68 below xl), the seat
+ * inventory and tiers parse from source (icon / wordmark / middle tier /
+ * the two select triggers' w-[] ladders / the 2xl lens chip), the
+ * text-dependent widths are pinned variables with provenance (the t834
+ * live sweep, receipt shots-qa/t834-band-sweep.json), and the per-band
+ * width closes through the row's own squeeze law —
+ * left(band) = min(natural, band − chrome − right) — which reproduces
+ * 68 / 114 / 264 / 266 / 608 / 864 EXACTLY and explains the 2px between
+ * 768's 264 and 1024's 266 (the wordmark yields to the available row).
+ * The audit now closes end-to-end: both halves of the header are
+ * arithmetic, and a future seat on either side moves a formula, red.
+ *
  * The family's last seats (this window's feature): the star table and
  * the text preview dialogs join the keymap family — one quiet Esc line
  * each, the must-not-lie law's fourth application (they have exactly
@@ -118,11 +132,19 @@ ok(right(census[768], W.palette) === measured[768],
 ok(right(census[1280], W.palette, W.relion) === measured[1280],
   `A3d the closed form reproduces 1280's 628px (the chip aboard) — got ${right(census[1280], W.palette, W.relion)}`);
 
-// A4 — the slack floors: band − pinned left − closed-form right. The left
-// cluster is text/variable (comboboxes, tabs) — its per-band width is
-// pinned from the same sweep, provenance the worklog. The floor at 640
-// pins TODAY'S 192 (the tail's stale "16" noted in the header — the
-// drift is part of the record).
+// A4 — the slack floors: band − left − closed-form right. The left
+// cluster is NO LONGER pinned constants (the t834 amendment — carried
+// twice, paid here): the fixed parts are DERIVED from source (the
+// ViewSwitcher's box arithmetic, the brand icon's size-9, the gaps, the
+// select triggers' w-[] tiers), the text-dependent parts are pinned
+// variables with provenance (the wordmark's and lens chip's text), and
+// the per-band width closes through the row's own squeeze law —
+// left(band) = min(natural, band − chrome − right) — the law the source
+// itself declares (min-w-0 + "the row itself compresses", t510). The
+// 2px between 768's 264 and 1024's 266 is the LAW, not noise: at 768
+// the natural 266 does not fit the 264 available and the wordmark
+// yields 2px. The floor at 640 pins TODAY'S 192 (the tail's stale "16"
+// noted in the header — the drift is part of the record).
 const left = { 375: 68, 640: 114, 768: 264, 1024: 266, 1280: 608, 1536: 864 };
 const bands = [
   { band: 375, rightW: measured[375], floor: 71 },
@@ -140,6 +162,86 @@ const slackReport = bands.map(({ band, rightW, floor }) => {
 });
 ok(slackOk, `A4a the slack closes at the pinned floor in all six bands (${slackReport.join(" ")})`);
 ok(Math.min(...bands.map(b => b.floor)) >= 44, "A4b the minimum slack floor is 44px (three bands tie at it — the tier law's honest margin)");
+
+// A4c — the ViewSwitcher's box arithmetic, DERIVED from its own source
+// (the family's doctrine: inventory from source, widths from the ruler,
+// the formula agrees with both ends). The tablist container carries the
+// border, p-0.5 and gap-0.5; each tab carries px-2 and the size-3.5
+// icon; below xl the labels are hidden so the in-tab gap-1.5 sleeps.
+//   VS = 2×border(1) + 2×p(2) + gap(2) + 2×(2×px(8) + icon(14)) = 68
+const vsBlock = header.slice(header.indexOf("function ViewSwitcher"), header.indexOf("Note spotlight chip (Task 75)"));
+const vsP = vsBlock.includes("p-0.5") ? 2 : 0;
+const vsGap = vsBlock.includes("gap-0.5") ? 2 : 0;
+const vsPx = vsBlock.includes("px-2") ? 8 : 0;
+const vsIcon = vsBlock.includes("size-3.5") ? 14 : 0;
+const vsBorder = /rounded-lg border/.test(vsBlock) ? 1 : 0;
+const vsClosed = 2 * vsBorder + 2 * vsP + vsGap + 2 * (2 * vsPx + vsIcon);
+ok(vsP === 2 && vsGap === 2 && vsPx === 8 && vsIcon === 14 && vsBorder === 1,
+  "A4c-1 the ViewSwitcher's box classes parse from source (border, p-0.5, gap-0.5, px-2, size-3.5)");
+ok(vsClosed === 68, `A4c-2 the ViewSwitcher below xl derives to 68px from source — got ${vsClosed}`);
+
+// A4d — the left cluster's seats and tiers, parsed from source: the
+// brand icon (size-9 = 36, max-sm:hidden), the wordmark (max-md:hidden),
+// the ViewSwitcher, the middle tier (hidden xl:flex) with the workspace
+// (w-[128px] sm:w-[160px]) and project (w-[150px] xl:w-[170px]
+// 2xl:w-[220px]) triggers, and the lens chip (hidden ... 2xl:flex).
+// The cluster div hosts the first three as DOM children; the selects and
+// the chip ride as COMPONENT anchors whose definitions live elsewhere in
+// this file — a future seat added to the cluster moves A4e's arithmetic.
+const leftCluster = header.slice(
+  header.indexOf('<div className="flex min-w-0 items-center gap-2.5">'),
+  header.indexOf("no-print flex shrink-0")
+);
+ok(/size-9 shrink-0[^"]*max-sm:hidden/.test(leftCluster), "A4d-1 the brand icon seat parses (size-9, max-sm:hidden)");
+ok(/min-w-0 leading-tight max-md:hidden/.test(leftCluster), "A4d-2 the wordmark seat parses (max-md:hidden)");
+ok(/hidden min-w-0 items-center gap-2 xl:flex/.test(leftCluster), "A4d-3 the middle tier parses (hidden xl:flex)");
+// The triggers' width tiers live in the components' own definitions
+// (WorkspaceSelect / ProjectSwitcher, earlier in this file) — the seats
+// ARE the components, so the components' source is the seat's source.
+ok(/w-\[128px\] min-w-0[^"]*sm:w-\[160px\]/.test(header), "A4d-4 the workspace trigger's width tiers parse (128 / 160 from sm)");
+ok(/w-\[150px\] min-w-\[130px\][^"]*xl:w-\[170px\] 2xl:w-\[220px\]/.test(header), "A4d-5 the project trigger's width tiers parse (150 / 170 at xl / 220 at 2xl)");
+ok(/hidden h-8 items-center gap-1\.5 rounded-lg border px-2\.5[^"]*2xl:flex/.test(header), "A4d-6 the lens chip waits for 2xl (the t510 yield-first law)");
+
+// A4e — the closed form. Fixed parts from source (A4c/A4d): icon 36,
+// the cluster's gap-2.5 = 10, the middle tier's gap-2 = 8, the triggers'
+// width tiers. Text-dependent parts pinned with provenance (the t834
+// live sweep, receipt shots-qa/t834-band-sweep.json on build
+// KtPKuXIbtB9d7uhItOOUS): the wordmark's text natural 142, the two tab
+// labels' text 120 (Dashboard + Workflow at text-xs), the lens chip 90.
+const L = {
+  icon: 36, gap: 10, midGap: 8,
+  wm: 142, labels: 120, chip: 90,
+  ws: 160, ps: { base: 150, xl: 170, xxl: 220 },
+};
+const vsXl = vsClosed + 12 + L.labels; // the two gap-1.5 wake with the labels
+const natural = (band) => {
+  if (band < 640) return vsClosed; // the ViewSwitcher alone (the t828 tier law)
+  if (band < 768) return L.icon + L.gap + vsClosed;
+  if (band < 1280) return L.icon + L.gap + L.wm + L.gap + vsClosed;
+  if (band < 1536) return L.icon + L.gap + L.wm + L.gap + vsXl + L.gap + L.ws + L.midGap + L.ps.xl;
+  return L.icon + L.gap + L.wm + L.gap + vsXl + L.gap + L.ws + L.midGap + L.ps.xxl + L.midGap + L.chip;
+};
+const chrome = (band) => (band < 640 ? 24 : 32) + 12; // px-3 / sm:px-4, + the justify-between gap-3
+const rightClosed = (band) =>
+  band < 640 ? right(census[375], W.paletteSm)
+  : band < 768 ? right(census[640], W.palette)
+  : band < 1280 ? right(census[768], W.palette)
+  : right(census[1280], W.palette, W.relion);
+const leftClosed = (band) => Math.min(natural(band), band - chrome(band) - rightClosed(band));
+const leftReport = bands.map(({ band }) => `${band}:${leftClosed(band)}`);
+ok(
+  bands.every(({ band }) => leftClosed(band) === left[band]),
+  `A4e-1 the closed form reproduces the left cluster in all six bands (${leftReport.join(" ")})`
+);
+ok(
+  natural(768) > 768 - chrome(768) - measured[768],
+  "A4e-2 the 768 band SQUEEZES (natural 266 > available 264) — the 2px the law explains, the old pin could not"
+);
+ok(
+  natural(1024) < 1024 - chrome(1024) - measured[768],
+  "A4e-3 the 1024 band sits at its natural width (no squeeze) — the wordmark's honest 142"
+);
+ok(vsXl === 200, `A4e-4 the ViewSwitcher at its label floor derives to 200px (68 + the labels' 120 + the two gap-1.5) — got ${vsXl}`);
 
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
