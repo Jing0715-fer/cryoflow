@@ -1,0 +1,1113 @@
+{
+  "instrument": "scripts/t867-quicklook-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-10T17:49:03.209Z",
+  "chain": "clean room -> canvas -> postprocess card (plain door) -> Results tab (mousedown) -> maps gallery -> Enlarge door -> quick-look dialog (topmost) -> histogram walk -> View-in-3D (text door) -> Mol* ortho panel -> oblique block -> Escape home -> extract card -> stack dialog -> slice + arrow + toggle walks -> worldBack + seed hygiene (one command)",
+  "doors": {
+    "inspector": "plain pointerdown+pointerup on the card — the submitted law",
+    "resultsTab": "mousedown on the Results tab — the t863 Radix law",
+    "quicklook": "click the tile's Enlarge door — the text IS the name",
+    "molStar": "click the View-in-3D TEXT door — no aria-label, the ruler's textContent branch",
+    "close": "Escape — the keymap seats' own teaching"
+  },
+  "host": {
+    "map": {
+      "name": "Post-process (tutorial)",
+      "id": "cmv2fdgrc000yn852p2ps05fl"
+    },
+    "stack": {
+      "name": "Extract (tutorial)",
+      "id": "cmv2fdgob000en852rllij2qo"
+    },
+    "measured": true
+  },
+  "openingCanvas": 153,
+  "faces": {
+    "mapsGallery": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 185,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 2,
+        "altless": 0,
+        "imgPending": 2,
+        "hasDlg": true,
+        "dlgHeadTop": "Post-process (tutorial) — job inspectorPost-proc",
+        "dlgCount": 1,
+        "actTab": "Results",
+        "shimmer": 2,
+        "mapsSection": true,
+        "tiles": 2,
+        "tileNamed": true,
+        "tilePaths": [
+          "postprocess_mask.mrc",
+          "postprocess.mrc"
+        ],
+        "regionNamed": false,
+        "regionLabel": null,
+        "regionTabindex": null,
+        "keymap": false,
+        "view3d": false,
+        "histToggle": null,
+        "histImgNamed": false,
+        "pressed": [],
+        "sliders": [],
+        "orthoPresent": false,
+        "orthoRoot": null,
+        "orthoExpanded": null,
+        "orthoSteps": 0,
+        "orthoStepsNamed": true,
+        "orthoShows": 0,
+        "orthoSliders": [],
+        "orthoKeymap": false,
+        "obliqueExpanded": null,
+        "readout": null,
+        "rangeVal": null,
+        "followWin": null,
+        "montageAlt": "postprocess_mask"
+      },
+      "secondRide": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 191,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 2,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Post-process (tutorial) — job inspectorPost-proc",
+        "dlgCount": 1,
+        "actTab": "Results",
+        "shimmer": 0,
+        "mapsSection": true,
+        "tiles": 2,
+        "tileNamed": true,
+        "tilePaths": [
+          "postprocess_mask.mrc",
+          "postprocess.mrc"
+        ],
+        "regionNamed": false,
+        "regionLabel": null,
+        "regionTabindex": null,
+        "keymap": false,
+        "view3d": false,
+        "histToggle": null,
+        "histImgNamed": false,
+        "pressed": [
+          {
+            "n": "masked (raw)",
+            "p": false
+          }
+        ],
+        "sliders": [],
+        "orthoPresent": false,
+        "orthoRoot": null,
+        "orthoExpanded": null,
+        "orthoSteps": 0,
+        "orthoStepsNamed": true,
+        "orthoShows": 0,
+        "orthoSliders": [],
+        "orthoKeymap": false,
+        "obliqueExpanded": null,
+        "readout": null,
+        "rangeVal": null,
+        "followWin": null,
+        "montageAlt": "postprocess_mask"
+      }
+    },
+    "quicklook": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 194,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 3,
+        "altless": 0,
+        "imgPending": 1,
+        "hasDlg": true,
+        "dlgHeadTop": "Sharpened map",
+        "dlgCount": 2,
+        "actTab": null,
+        "shimmer": 0,
+        "mapsSection": true,
+        "tiles": 2,
+        "tileNamed": true,
+        "tilePaths": [
+          "postprocess_mask.mrc",
+          "postprocess.mrc"
+        ],
+        "regionNamed": true,
+        "regionLabel": "Map and stack preview — the image, its window cont",
+        "regionTabindex": "0",
+        "keymap": true,
+        "view3d": true,
+        "histToggle": "false",
+        "histImgNamed": false,
+        "pressed": [
+          {
+            "n": "Histogram",
+            "p": false
+          }
+        ],
+        "sliders": [],
+        "orthoPresent": false,
+        "orthoRoot": null,
+        "orthoExpanded": null,
+        "orthoSteps": 0,
+        "orthoStepsNamed": true,
+        "orthoShows": 0,
+        "orthoSliders": [],
+        "orthoKeymap": false,
+        "obliqueExpanded": null,
+        "readout": null,
+        "rangeVal": null,
+        "followWin": null,
+        "montageAlt": "postprocess.mrc central slice"
+      },
+      "secondRide": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 194,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 3,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Sharpened map",
+        "dlgCount": 2,
+        "actTab": null,
+        "shimmer": 0,
+        "mapsSection": true,
+        "tiles": 2,
+        "tileNamed": true,
+        "tilePaths": [
+          "postprocess_mask.mrc",
+          "postprocess.mrc"
+        ],
+        "regionNamed": true,
+        "regionLabel": "Map and stack preview — the image, its window cont",
+        "regionTabindex": "0",
+        "keymap": true,
+        "view3d": true,
+        "histToggle": "false",
+        "histImgNamed": false,
+        "pressed": [
+          {
+            "n": "Histogram",
+            "p": false
+          }
+        ],
+        "sliders": [],
+        "orthoPresent": false,
+        "orthoRoot": null,
+        "orthoExpanded": null,
+        "orthoSteps": 0,
+        "orthoStepsNamed": true,
+        "orthoShows": 0,
+        "orthoSliders": [],
+        "orthoKeymap": false,
+        "obliqueExpanded": null,
+        "readout": null,
+        "rangeVal": null,
+        "followWin": null,
+        "montageAlt": "postprocess.mrc central slice"
+      }
+    },
+    "histogram": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 199,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 4,
+        "unCtrls": 0,
+        "imgs": 3,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Sharpened map",
+        "dlgCount": 2,
+        "actTab": null,
+        "shimmer": 0,
+        "mapsSection": true,
+        "tiles": 2,
+        "tileNamed": true,
+        "tilePaths": [
+          "postprocess_mask.mrc",
+          "postprocess.mrc"
+        ],
+        "regionNamed": true,
+        "regionLabel": "Map and stack preview — the image, its window cont",
+        "regionTabindex": "0",
+        "keymap": true,
+        "view3d": true,
+        "histToggle": "true",
+        "histImgNamed": true,
+        "pressed": [
+          {
+            "n": "Histogram",
+            "p": true
+          },
+          {
+            "n": "auto",
+            "p": true
+          },
+          {
+            "n": "±1σ",
+            "p": false
+          },
+          {
+            "n": "±2σ",
+            "p": false
+          },
+          {
+            "n": "±3σ",
+            "p": false
+          },
+          {
+            "n": "±5σ",
+            "p": false
+          }
+        ],
+        "sliders": [],
+        "orthoPresent": false,
+        "orthoRoot": null,
+        "orthoExpanded": null,
+        "orthoSteps": 0,
+        "orthoStepsNamed": true,
+        "orthoShows": 0,
+        "orthoSliders": [],
+        "orthoKeymap": false,
+        "obliqueExpanded": null,
+        "readout": null,
+        "rangeVal": null,
+        "followWin": null,
+        "montageAlt": "postprocess.mrc central slice"
+      },
+      "walk": {
+        "before": [
+          {
+            "n": "Histogram",
+            "p": false
+          }
+        ],
+        "target": 0,
+        "after": [
+          {
+            "n": "Histogram",
+            "p": true
+          },
+          {
+            "n": "auto",
+            "p": true
+          },
+          {
+            "n": "±1σ",
+            "p": false
+          },
+          {
+            "n": "±2σ",
+            "p": false
+          },
+          {
+            "n": "±3σ",
+            "p": false
+          },
+          {
+            "n": "±5σ",
+            "p": false
+          }
+        ]
+      }
+    },
+    "molOrtho": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 219,
+        "pageUnnamed": 9,
+        "unWho": [
+          "msp-btn msp-btn-icon msp-btn-link-toggle-off msp-t",
+          "msp-btn msp-btn-icon msp-btn-link-toggle-on",
+          "msp-btn msp-btn-icon msp-btn-link-toggle-off",
+          "msp-btn msp-btn-icon msp-btn-link-toggle-off",
+          "msp-btn msp-btn-icon msp-btn-link-toggle-off"
+        ],
+        "ctrls": 3,
+        "unCtrls": 1,
+        "imgs": 5,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Sharpened mappostprocess.mrc",
+        "dlgCount": 2,
+        "actTab": null,
+        "shimmer": 0,
+        "mapsSection": true,
+        "tiles": 2,
+        "tileNamed": true,
+        "tilePaths": [
+          "postprocess_mask.mrc",
+          "postprocess.mrc"
+        ],
+        "regionNamed": false,
+        "regionLabel": null,
+        "regionTabindex": null,
+        "keymap": false,
+        "view3d": false,
+        "histToggle": null,
+        "histImgNamed": false,
+        "pressed": [
+          {
+            "n": "Toggle the tri-planar cr",
+            "p": true
+          },
+          {
+            "n": "Toggle the density histo",
+            "p": false
+          }
+        ],
+        "sliders": [
+          {
+            "n": "XY plane position along Z",
+            "v": "0.5"
+          },
+          {
+            "n": "XZ plane position along Y",
+            "v": "0.5"
+          },
+          {
+            "n": "YZ plane position along X",
+            "v": "0.5"
+          }
+        ],
+        "orthoPresent": true,
+        "orthoRoot": "Orthogonal slice browser",
+        "orthoExpanded": "true",
+        "orthoSteps": 6,
+        "orthoStepsNamed": true,
+        "orthoShows": 3,
+        "orthoSliders": [
+          {
+            "n": "XY plane position along Z",
+            "v": "0.5"
+          },
+          {
+            "n": "XZ plane position along Y",
+            "v": "0.5"
+          },
+          {
+            "n": "YZ plane position along X",
+            "v": "0.5"
+          }
+        ],
+        "orthoKeymap": true,
+        "obliqueExpanded": "false",
+        "readout": null,
+        "rangeVal": null,
+        "followWin": null,
+        "montageAlt": "XY plane at z 33/64"
+      },
+      "sliderWalk": {
+        "before": "0.5",
+        "stepped": "0.48412698412698413",
+        "back": "0.5"
+      }
+    },
+    "oblique": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 238,
+        "pageUnnamed": 9,
+        "unWho": [
+          "msp-btn msp-btn-icon msp-btn-link-toggle-off msp-t",
+          "msp-btn msp-btn-icon msp-btn-link-toggle-on",
+          "msp-btn msp-btn-icon msp-btn-link-toggle-off",
+          "msp-btn msp-btn-icon msp-btn-link-toggle-off",
+          "msp-btn msp-btn-icon msp-btn-link-toggle-off"
+        ],
+        "ctrls": 3,
+        "unCtrls": 1,
+        "imgs": 6,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Sharpened mappostprocess.mrc",
+        "dlgCount": 2,
+        "actTab": null,
+        "shimmer": 0,
+        "mapsSection": true,
+        "tiles": 2,
+        "tileNamed": true,
+        "tilePaths": [
+          "postprocess_mask.mrc",
+          "postprocess.mrc"
+        ],
+        "regionNamed": false,
+        "regionLabel": null,
+        "regionTabindex": null,
+        "keymap": false,
+        "view3d": false,
+        "histToggle": null,
+        "histImgNamed": false,
+        "pressed": [
+          {
+            "n": "Flip contour to the nega",
+            "p": true
+          },
+          {
+            "n": "Toggle cross-section pla",
+            "p": false
+          },
+          {
+            "n": "Toggle box clipping",
+            "p": false
+          },
+          {
+            "n": "Toggle the tri-planar cr",
+            "p": true
+          },
+          {
+            "n": "Toggle the density histo",
+            "p": false
+          },
+          {
+            "n": "Cut the 3D isosurface op",
+            "p": false
+          }
+        ],
+        "sliders": [
+          {
+            "n": "Isosurface contour level in sigma",
+            "v": "2"
+          },
+          {
+            "n": "XY plane position along Z",
+            "v": "0.5"
+          },
+          {
+            "n": "XZ plane position along Y",
+            "v": "0.5"
+          },
+          {
+            "n": "YZ plane position along X",
+            "v": "0.5"
+          },
+          {
+            "n": "Polar angle of the plane normal",
+            "v": "45"
+          },
+          {
+            "n": "Azimuth angle of the plane normal",
+            "v": "30"
+          },
+          {
+            "n": "Signed offset of the plane along its normal",
+            "v": "0"
+          }
+        ],
+        "orthoPresent": true,
+        "orthoRoot": "Orthogonal slice browser",
+        "orthoExpanded": "true",
+        "orthoSteps": 6,
+        "orthoStepsNamed": true,
+        "orthoShows": 3,
+        "orthoSliders": [
+          {
+            "n": "XY plane position along Z",
+            "v": "0.5"
+          },
+          {
+            "n": "XZ plane position along Y",
+            "v": "0.5"
+          },
+          {
+            "n": "YZ plane position along X",
+            "v": "0.5"
+          },
+          {
+            "n": "Polar angle of the plane normal",
+            "v": "45"
+          },
+          {
+            "n": "Azimuth angle of the plane normal",
+            "v": "30"
+          },
+          {
+            "n": "Signed offset of the plane along its normal",
+            "v": "0"
+          }
+        ],
+        "orthoKeymap": true,
+        "obliqueExpanded": "true",
+        "readout": null,
+        "rangeVal": null,
+        "followWin": null,
+        "montageAlt": "XY plane at z 33/64"
+      },
+      "cutWalk": {
+        "was": "false",
+        "now": "true"
+      }
+    },
+    "stack": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 189,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 2,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Stack particles.mrcs",
+        "dlgCount": 2,
+        "actTab": null,
+        "shimmer": 0,
+        "mapsSection": true,
+        "tiles": 1,
+        "tileNamed": true,
+        "tilePaths": [
+          "particles.mrcs"
+        ],
+        "regionNamed": true,
+        "regionLabel": "Map and stack preview — the image, its window cont",
+        "regionTabindex": "0",
+        "keymap": true,
+        "view3d": false,
+        "histToggle": "false",
+        "histImgNamed": false,
+        "pressed": [
+          {
+            "n": "follow window",
+            "p": false
+          },
+          {
+            "n": "Histogram",
+            "p": false
+          }
+        ],
+        "sliders": [],
+        "orthoPresent": false,
+        "orthoRoot": null,
+        "orthoExpanded": null,
+        "orthoSteps": 0,
+        "orthoStepsNamed": true,
+        "orthoShows": 0,
+        "orthoSliders": [],
+        "orthoKeymap": false,
+        "obliqueExpanded": null,
+        "readout": "slice 1 of 240",
+        "rangeVal": null,
+        "followWin": "false",
+        "montageAlt": "particles.mrcs montage"
+      },
+      "sliceWalk": [
+        "slice 1 of 240",
+        "slice 2 of 240",
+        "slice 1 of 240",
+        "slice 2 of 240",
+        "slice 1 of 240"
+      ],
+      "followWin": [
+        "false",
+        "false"
+      ]
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgHeadTop": null,
+        "dlgCount": 0,
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "mapsSection": false,
+        "tiles": 0,
+        "tileNamed": true,
+        "tilePaths": [],
+        "regionNamed": false,
+        "regionLabel": null,
+        "regionTabindex": null,
+        "keymap": false,
+        "view3d": false,
+        "histToggle": null,
+        "histImgNamed": false,
+        "pressed": [],
+        "sliders": [],
+        "orthoPresent": false,
+        "orthoRoot": null,
+        "orthoExpanded": null,
+        "orthoSteps": 0,
+        "orthoStepsNamed": true,
+        "orthoShows": 0,
+        "orthoSliders": [],
+        "orthoKeymap": false,
+        "obliqueExpanded": null,
+        "readout": null,
+        "rangeVal": null,
+        "followWin": null,
+        "montageAlt": null
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen=false"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "M1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M2 the inspector arrived (a dialog aboard)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "M3 the Results tab switched through the MOUSEDOWN door (the t863 Radix law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M4 the active tab speaks Results",
+      "pass": true,
+      "detail": "actTab=Results"
+    },
+    {
+      "label": "M5 the Maps-and-images section is present and named",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M6 the gallery hosts Enlarge doors, each named (the text IS the name)",
+      "pass": true,
+      "detail": "tiles=2 paths=[\"postprocess_mask.mrc\",\"postprocess.mrc\"]"
+    },
+    {
+      "label": "M7 zero unnamed page-wide WITH the inspector up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=185 ctrls=2"
+    },
+    {
+      "label": "M8 two settled rides bit-identical (the t836 law, the t860 settle)",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "label": "Q1 the map's Enlarge door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "Q2 the dialog arrived as the TOPMOST layer (the t865 nested-portal lesson)",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "Q3 the dialog's heading is the file's own label (label ?? name — read from the data, the TOPMOST layer)",
+      "pass": true,
+      "detail": "head=\"Sharpened map\" == data \"Sharpened map\""
+    },
+    {
+      "label": "Q4 the region is named (the house dialect's own label)",
+      "pass": true,
+      "detail": "label=\"Map and stack preview — the image, its window cont\""
+    },
+    {
+      "label": "Q5 the region keeps its keyboard door (tabIndex 0 — the t812 law)",
+      "pass": true,
+      "detail": "tabindex=0"
+    },
+    {
+      "label": "Q6 the t831 keymap seat is aboard (quick-keymap)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "Q7 the View-in-3D door is aboard",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "Q8 zero unnamed page-wide WITH the quick-look up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=194 ctrls=2"
+    },
+    {
+      "label": "Q9 two settled rides bit-identical (the t836 law)",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "label": "H1 the histogram toggle is aboard with a pressed state",
+      "pass": true,
+      "detail": "aria-pressed=false"
+    },
+    {
+      "label": "H2 the histogram speaks as an image (role=img, labeled)",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "label": "H3 the dialog hosts pressed-state controls, each named",
+      "pass": true,
+      "detail": "pressed=[{\"n\":\"Histogram\",\"p\":false}]"
+    },
+    {
+      "label": "H4 the sigma walk MOVED the active preset (the state machine, read live)",
+      "pass": true,
+      "detail": "before=-1 target=0 (Histogram)"
+    },
+    {
+      "label": "H5 the walk home restored the preset (bit-for-bit back)",
+      "pass": true,
+      "detail": "active now=0 (was -1)"
+    },
+    {
+      "label": "H6 the lo/hi bounds ride the dialog's named inputs (the census's invariant)",
+      "pass": true,
+      "detail": "ctrls=4 unCtrls=0"
+    },
+    {
+      "label": "V1 the View-in-3D door clicked (the name rides TEXT — no aria-label, the ruler's branch)",
+      "pass": true,
+      "detail": "text=\"View in 3D (Mol*)\" ariaLabel=null"
+    },
+    {
+      "label": "V2 the Mol* dialog arrived and the ortho panel rode in (the map handoff)",
+      "pass": true,
+      "detail": "dlgCount=3"
+    },
+    {
+      "label": "V3 the ortho root is named (Orthogonal slice browser)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "V4 the ortho disclosure starts COLLAPSED (the panel's own shape, measured)",
+      "pass": true,
+      "detail": "aria-expanded=false"
+    },
+    {
+      "label": "V5 the disclosure walked open (collapsed -> expanded)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "V6 the step doors are aboard, each named (three axes, dec + inc)",
+      "pass": true,
+      "detail": "steps=6"
+    },
+    {
+      "label": "V7 the show-at doors are aboard (one per axis)",
+      "pass": true,
+      "detail": "shows=3"
+    },
+    {
+      "label": "V8 the three plane sliders are named with a valuenow",
+      "pass": true,
+      "detail": "sliders=[{\"n\":\"XY plane position along Z\",\"v\":\"0.5\"},{\"n\":\"XZ plane position along Y\",\"v\":\"0.5\"},{\"n\":\"YZ plane position along X\",\"v\":\"0.5\"}]"
+    },
+    {
+      "label": "V9 the ortho keymap is aboard (the t830 seat)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "V10 the app's own step button MOVED the XY plane (the state machine, read live)",
+      "pass": true,
+      "detail": "valuenow 0.5 -> 0.48412698412698413"
+    },
+    {
+      "label": "V11 the step home restored the plane (bit-for-bit back)",
+      "pass": true,
+      "detail": "valuenow 0.48412698412698413 -> 0.5"
+    },
+    {
+      "label": "V12 zero unnamed page-wide WITH the Mol* stack up (the census's invariant)",
+      "pass": false,
+      "detail": "btns=219 ctrls=3"
+    },
+    {
+      "label": "B1 the oblique disclosure walked open",
+      "pass": true,
+      "detail": "was=false"
+    },
+    {
+      "label": "B2 the oblique sliders joined the panel (polar / azimuth / offset)",
+      "pass": true,
+      "detail": "sliders=6 names=[\"Polar angle of the plane normal\",\"Azimuth angle of the plane normal\",\"Signed offset of the plane along its normal\"]"
+    },
+    {
+      "label": "B3 the oblique disclosure is named (the Oblique section header)",
+      "pass": true,
+      "detail": "label=\"Oblique sectionθ polar · φ azimuth — the\""
+    },
+    {
+      "label": "B4 the oblique mouths are aboard (adopt + jump + the cut-3D toggle)",
+      "pass": false,
+      "detail": "adopt=true jump=false cut3d=1"
+    },
+    {
+      "label": "B5 the cut-3D toggle's state flipped (read live)",
+      "pass": true,
+      "detail": "aria-pressed false -> true"
+    },
+    {
+      "label": "B6 the toggle walked home (the world's own state restored)",
+      "pass": true,
+      "detail": "aria-pressed true -> false (was false)"
+    },
+    {
+      "label": "B7 zero unnamed page-wide WITH the oblique block up (the census's invariant)",
+      "pass": false,
+      "detail": "btns=238 ctrls=3"
+    },
+    {
+      "label": "S0 the Mol* world closed honestly (all dialogs dismissed)",
+      "pass": true,
+      "detail": "escapes=2"
+    },
+    {
+      "label": "S1 the extract card's plain door opened the inspector",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S2 the extract gallery hosts the stack tile",
+      "pass": true,
+      "detail": "tiles=1 paths=[\"particles.mrcs\"]"
+    },
+    {
+      "label": "S3 the stack's Enlarge door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S4 the stack dialog arrived as the TOPMOST layer, heading = the stack's own label (from the data)",
+      "pass": true,
+      "detail": "head=\"Stack particles.mrcs\" == data \"Stack particles.mrcs\""
+    },
+    {
+      "label": "S5 the region is named with its keyboard door (the house dialect)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S6 the montage img speaks an alt (the sixteen-distribution sheet)",
+      "pass": true,
+      "detail": "alt=\"particles.mrcs montage\""
+    },
+    {
+      "label": "S7 the t831 keymap seat is aboard (quick-keymap)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S8 the NEXT door advanced the slice (the readout speaks slice N of M)",
+      "pass": true,
+      "detail": "readout \"slice 1 of 240\" -> \"slice 2 of 240\""
+    },
+    {
+      "label": "S9 the PREV door returned the slice (bit-for-bit back)",
+      "pass": true,
+      "detail": "readout \"slice 1 of 240\""
+    },
+    {
+      "label": "S10 the range slider follows the slice cursor",
+      "pass": false,
+      "detail": "aria-valuenow=null"
+    },
+    {
+      "label": "S11 the ARROW-KEY door advanced the slice (the keymap's teaching, delivered)",
+      "pass": true,
+      "detail": "readout \"slice 2 of 240\""
+    },
+    {
+      "label": "S12 the LEFT arrow returned the slice",
+      "pass": true,
+      "detail": "readout \"slice 1 of 240\""
+    },
+    {
+      "label": "S13 the follow-window toggle's state flipped (read live)",
+      "pass": false,
+      "detail": "aria-pressed false -> false"
+    },
+    {
+      "label": "S14 zero unnamed page-wide WITH the stack dialog up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=189 ctrls=3"
+    },
+    {
+      "label": "S15 the walks left NO residue (the settled pair bit-identical: arrival == after all walks home)",
+      "pass": false,
+      "detail": "moved: pageBtns, imgs, imgPending"
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "L mapsGallery face ride-drift law",
+      "pass": true,
+      "detail": "arm 1 — first ride, no predecessor"
+    },
+    {
+      "label": "L quicklook face ride-drift law",
+      "pass": true,
+      "detail": "arm 1 — first ride, no predecessor"
+    },
+    {
+      "label": "L histogram face ride-drift law",
+      "pass": true,
+      "detail": "arm 1 — first ride, no predecessor"
+    },
+    {
+      "label": "L molOrtho face ride-drift law",
+      "pass": true,
+      "detail": "arm 1 — first ride, no predecessor"
+    },
+    {
+      "label": "L oblique face ride-drift law",
+      "pass": true,
+      "detail": "arm 1 — first ride, no predecessor"
+    },
+    {
+      "label": "L stack face ride-drift law",
+      "pass": true,
+      "detail": "arm 1 — first ride, no predecessor"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 1 — first ride, no predecessor"
+    }
+  ],
+  "passed": 60,
+  "failed": 9,
+  "total": 69,
+  "verdict": "9 red — the quick-look layer moved; call the census's own instruments before any UI work",
+  "driftLedger": {
+    "prevFound": false,
+    "prevBuild": null,
+    "prevDate": null,
+    "sameBuild": null,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "mapsGallery": {
+        "prev": null,
+        "live": 185,
+        "drift": null,
+        "identical": null,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "quicklook": {
+        "prev": null,
+        "live": 194,
+        "drift": null,
+        "identical": null,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "histogram": {
+        "prev": null,
+        "live": 199,
+        "drift": null,
+        "identical": null,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "molOrtho": {
+        "prev": null,
+        "live": 219,
+        "drift": null,
+        "identical": null,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "oblique": {
+        "prev": null,
+        "live": 238,
+        "drift": null,
+        "identical": null,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "stack": {
+        "prev": null,
+        "live": 189,
+        "drift": null,
+        "identical": null,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": null,
+        "live": 153,
+        "drift": null,
+        "identical": null,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}
