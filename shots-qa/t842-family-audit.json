@@ -1,12 +1,13 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T10:51:09.190Z",
+  "date": "2026-10-10T11:04:27.234Z",
   "sources": {
     "t839": {
       "file": "shots-qa/t839-zone-rehearsal.json",
-      "date": "2026-10-10T10:43:56.599Z",
-      "cloneBand": "the fix world's band layer (the fourth seat, t847)"
+      "date": "2026-10-10T11:03:40.704Z",
+      "cloneBand": "the fix world's band layer (the fourth seat, t847)",
+      "bandAcross": "the clone's band at 1286/1287 vs live rulers 1280/1286/1287 — PAINT is width-free (the sixth seat, t849)"
     },
     "t840": {
       "file": "shots-qa/t840-options-rehearsal.json",
@@ -264,10 +265,25 @@
       "name": "F10.c the decision table's band layer: the EDGES never move on any option; the mid row pays — (b88) equalizes at its zone wrapW, (c) the wrapper alone pays to its zone wrapW; the restore returns bit-for-bit; the 115.3 grows the FIVE-way",
       "pass": true,
       "detail": "edges 607.8/628.3/12 on all; b88 midKids 122.8/122.8 (equalize, == zone 122.8); c midKids 121.3/106.6 (diverge, wrap == zone 106.6); FIVE-way 115.3: band-live=115.3 band-clone=115.3 band-opt-a=115.3 zone=115.3 GEOM"
+    },
+    {
+      "name": "F11.a the sixth seat is aboard: t839 walks the fix clone's band at 1286/1287 against live rulers at 1280/1286/1287",
+      "pass": true,
+      "detail": "clone@1286 613.8/628.3/12, clone@1287 614.8/628.3/12, live@1280/1286/1287 607.8/613.8/614.8"
+    },
+    {
+      "name": "F11.b PAINT is WIDTH-FREE: the clone's band == the live band bit-for-bit at 1286 AND 1287 (the fourth seat's law generalized from one width to three — 1280 already holds as F9.b)",
+      "pass": true,
+      "detail": "1286: 613.8==613.8 bit-for-bit; 1287: 614.8==614.8 bit-for-bit"
+    },
+    {
+      "name": "F11.c the cross-layer identity is WIDTH-INDEXED and the drift is pinned: band midKids[1] == the sweep's zone wrapW at 1286 AND 1287 (two instruments, two layers, one number per width); the LEFT row grows +1.0/px (607.8 -> 613.8 -> 614.8), the wrapper's kid +0.4/px (115.3 -> 117.7 -> 118.1), rightW 628.3 and seats 12 never move",
+      "pass": true,
+      "detail": "wrap twin: 1286 117.7==117.7, 1287 118.1==118.1; leftW 607.8/613.8/614.8 (+1.0/px); rightW 628.3 x3; seats 12 x3"
     }
   ],
-  "passed": 37,
+  "passed": 40,
   "failed": 0,
-  "total": 37,
-  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), and the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
+  "total": 40,
+  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
 }

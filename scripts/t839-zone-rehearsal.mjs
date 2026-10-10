@@ -53,6 +53,20 @@
  * Receipt: shots-qa/t839-zone-rehearsal.json (provenance: BUILD_ID read
  * from .next/BUILD_ID at run time).
  *
+ * The sixth seat (t849): the cloneZone rows gain BAND walks — the fix's
+ * clone is band-walked at 1286/1287 (the zone's edge widths) and the LIVE
+ * world is band-walked at 1280/1286/1287 on the restore load. The measured
+ * laws: (1) PAINT is WIDTH-FREE — the clone's band equals the live band
+ * bit-for-bit at every width in the zone (1280: R10/F9; 1286: R11; 1287:
+ * R12); (2) the live band's own drift across the zone: the LEFT row grows
+ * +1.0/px (607.8 → 610.8 → 613.8 → 614.8), the wrapper's kid grows
+ * +0.4/px (115.3 → 118.1 — the twin of the zone rows' wrapW, and equal to
+ * it at every sampled width: two instruments, two layers, one number),
+ * the workspace label +0.3/px-ish (0.1-rounding wobble — pinned per
+ * width, no slope claim), while the RIGHT row (628.3) and the seats (12)
+ * NEVER move. Measure-first: t849-band-across-probe learned the numbers
+ * before the pins.
+ *
  *   node scripts/t839-zone-rehearsal.mjs
  */
 
@@ -134,9 +148,15 @@ const fontsWait = () => {
 const BAND_MEASURE =
   "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'no header' }); const kid = (c) => Math.round(c.getBoundingClientRect().width * 10) / 10; const left = hdr.children[0]; const right = hdr.children[1]; const mid = left.children[3]; const midKids = mid && mid.getBoundingClientRect().width > 0 ? [...mid.children].map((c) => ({ lbl: c.getAttribute('aria-label') || String(c.className).slice(0, 30), w: kid(c) })) : null; const seats = [...right.children].filter((c) => c.getBoundingClientRect().width > 0).length; return JSON.stringify({ leftW: Math.round(left.getBoundingClientRect().width * 10) / 10, rightW: Math.round(right.getBoundingClientRect().width * 10) / 10, seats: seats, midKids: midKids, innerW: window.innerWidth }); })()";
 
-/* ---------- boot at the zone's left edge ---------- */
+/* ---------- boot at the zone's left edge — OPEN first: the browser is
+ * shared state across a battery's instruments, and an instrument that
+ * only sets the viewport inherits the previous rider's DOM mutations
+ * (the t849 lesson: a probe that ends on a swapped clone turns the next
+ * instrument's BEFORE rows red — the reds were true, the label was
+ * wrong; open your own page, own your world) ---------- */
+ab("open http://localhost:3000/");
 ab(`set viewport 1280 ${HEIGHT}`);
-ab("wait 350");
+ab("wait 500");
 const fonts1 = fontsWait();
 
 /* ---------- BEFORE: two rides ---------- */
@@ -162,9 +182,11 @@ const cloneBand = evalJson(BAND_MEASURE);
 ab("set viewport 1286 800");
 ab("wait 300");
 const cz1286 = evalJson(MEASURE);
+const cloneBand1286 = evalJson(BAND_MEASURE);
 ab("set viewport 1287 800");
 ab("wait 300");
 const cz1287 = evalJson(MEASURE);
+const cloneBand1287 = evalJson(BAND_MEASURE);
 ab(`set viewport 1280 800`);
 ab("wait 300");
 
@@ -173,6 +195,18 @@ ab("open http://localhost:3000/");
 ab("wait 800");
 const fonts3 = fontsWait();
 const r1 = evalJson(MEASURE);
+
+/* ---------- the sixth seat: the LIVE band across the zone (the ruler
+ * the clone's 1286/1287 walks are judged against) ---------- */
+const liveBand1280 = evalJson(BAND_MEASURE);
+ab("set viewport 1286 800");
+ab("wait 350");
+const liveBand1286 = evalJson(BAND_MEASURE);
+ab("set viewport 1287 800");
+ab("wait 350");
+const liveBand1287 = evalJson(BAND_MEASURE);
+ab(`set viewport 1280 800`);
+ab("wait 300");
 
 /* ---------- the assertions ---------- */
 console.log("");
@@ -237,6 +271,24 @@ ok(
     Array.isArray(cloneBand.midKids) && cloneBand.midKids.length === 4,
   `R10 the clone's BAND layer is aboard (the fourth seat): left ${cloneBand.leftW} / right ${cloneBand.rightW} / seats ${cloneBand.seats} at innerW ${cloneBand.innerW}, the mid band's ${cloneBand.midKids ? cloneBand.midKids.length : 0} children measured on the fix world — PAINT, not geometry, now proven on the band layer too`
 );
+ok(
+  !cloneBand1286.error && !liveBand1286.error && cloneBand1286.innerW === 1286 && liveBand1286.innerW === 1286 &&
+    JSON.stringify(cloneBand1286) === JSON.stringify(liveBand1286),
+  `R11 the PAINT law is WIDTH-FREE at 1286 (the sixth seat): the clone's band == the live band bit-for-bit (left ${cloneBand1286.leftW} / right ${cloneBand1286.rightW} / seats ${cloneBand1286.seats}) — the fix never moves the band layer at the zone's edge widths either`
+);
+ok(
+  !cloneBand1287.error && !liveBand1287.error && cloneBand1287.innerW === 1287 && liveBand1287.innerW === 1287 &&
+    JSON.stringify(cloneBand1287) === JSON.stringify(liveBand1287),
+  `R12 ... and WIDTH-FREE at 1287: the clone's band == the live band bit-for-bit (left ${cloneBand1287.leftW} / right ${cloneBand1287.rightW} / seats ${cloneBand1287.seats}) — three widths, one law`
+);
+ok(
+  liveBand1280.leftW === 607.8 && liveBand1286.leftW === 613.8 && liveBand1287.leftW === 614.8 &&
+    liveBand1280.rightW === 628.3 && liveBand1286.rightW === 628.3 && liveBand1287.rightW === 628.3 &&
+    liveBand1280.seats === 12 && liveBand1286.seats === 12 && liveBand1287.seats === 12 &&
+    liveBand1280.midKids[1].w === 115.3 && liveBand1286.midKids[1].w === 117.7 && liveBand1287.midKids[1].w === 118.1 &&
+    liveBand1286.midKids[0].w === 118.8 && liveBand1287.midKids[0].w === 119.1,
+  `R13 the LIVE band's own drift across the zone (the sixth seat's ruler): the left row grows +1.0/px (607.8 → ${liveBand1286.leftW} → ${liveBand1287.leftW}), the wrapper's kid +0.4/px (115.3 → ${liveBand1286.midKids[1].w} → ${liveBand1287.midKids[1].w} — == the sweep's zone rows' wrapW at every sampled width), the workspace label +0.3/px-ish (${liveBand1286.midKids[0].w} / ${liveBand1287.midKids[0].w}, 0.1-rounding wobble — pinned per width), while the RIGHT row (628.3) and the seats (12) NEVER move`
+);
 
 /* ---------- the receipt ---------- */
 const receipt = {
@@ -251,6 +303,11 @@ const receipt = {
   after: [a1, a2],
   cloneBand: cloneBand,
   cloneZone: { "1286": cz1286, "1287": cz1287 },
+  bandAcross: {
+    clone: { "1286": cloneBand1286, "1287": cloneBand1287 },
+    live: { "1280": liveBand1280, "1286": liveBand1286, "1287": liveBand1287 },
+    law: "PAINT is width-free: the clone's band == the live band bit-for-bit at every width in the zone (1280 R10, 1286 R11, 1287 R12); the live band's own drift: leftW +1.0/px (607.8 -> 614.8), the wrapper's kid +0.4/px (== the sweep's zone rows' wrapW at every width), rightW 628.3 and seats 12 invariant (the sixth seat, t849)",
+  },
   restored: r1,
   verdict:
     fail === 0

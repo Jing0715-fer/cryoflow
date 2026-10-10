@@ -539,6 +539,32 @@ if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.live) {
   );
 }
 
+// A4e-19 — the t849 SIXTH SEAT: PAINT is WIDTH-FREE (t839's bandAcross,
+// R11-R13). The fix clone's band == the live band bit-for-bit at the
+// zone's edge widths too (1286/1287; 1280 was the fourth seat), and the
+// live band's own drift is pinned: leftW +1.0/px (607.8 -> 613.8 ->
+// 614.8), the wrapper's kid +0.4/px (== the sweep's zone rows' wrapW at
+// every sampled width), rightW 628.3 and seats 12 invariant (family
+// F11.a-c).
+const fa19 = join(ROOT, "shots-qa/t839-zone-rehearsal.json");
+const bacReceipt = existsSync(fa19)
+  ? JSON.parse(readFileSync(fa19, "utf8"))
+  : null;
+if (bacReceipt && bacReceipt.bandAcross && bacReceipt.bandAcross.live) {
+  const BC = bacReceipt.bandAcross.clone || {};
+  const BL = bacReceipt.bandAcross.live || {};
+  ok(
+    BC["1286"] && BC["1287"] && BL["1280"] && BL["1286"] && BL["1287"] &&
+      JSON.stringify(BC["1286"]) === JSON.stringify(BL["1286"]) &&
+      JSON.stringify(BC["1287"]) === JSON.stringify(BL["1287"]) &&
+      BL["1280"].leftW === 607.8 && BL["1286"].leftW === 613.8 && BL["1287"].leftW === 614.8 &&
+      BL["1286"].midKids[1].w === 117.7 && BL["1287"].midKids[1].w === 118.1 &&
+      BL["1286"].rightW === 628.3 && BL["1287"].rightW === 628.3 &&
+      BL["1286"].seats === 12 && BL["1287"].seats === 12,
+    `A4e-19 the t849 sixth seat is aboard and green (t839 14/14): PAINT is width-free — the clone's band == the live band bit-for-bit at 1286 AND 1287; the live band's own drift pinned (leftW +1.0/px: 607.8/613.8/614.8; the wrapper's kid +0.4/px: 115.3/117.7/118.1 == the sweep's zone wrapW; rightW 628.3 and seats 12 invariant)`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),
