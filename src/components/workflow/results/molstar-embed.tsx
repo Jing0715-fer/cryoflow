@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CopyPlus, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -2017,6 +2017,38 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       ),
     );
     toast({ title: "View updated", description: `“${b.name}” now points at the current pose & optics.` });
+  };
+
+  /** t821 — save-as-copy: variant exploration without the delete-recreate
+   *  cycle. The copy freezes the SAVED pose & optics (b.snapshot / b.view —
+   *  NOT the current canvas: the copy IS the view it copies, so jumping to
+   *  it lands where the original stood; the nudge — slice, σ, clip —
+   *  happens from there). The name takes the first free "(copy)" suffix
+   *  (case-insensitive taken-set — never a silent same-name twin), and the
+   *  door's cap of 8 refuses HONESTLY: the save path slices the oldest row
+   *  silently, but a duplicate that promised a row and then ate someone
+   *  else's would be a lie. Rides commitBookmarks — the t671 single mouth
+   *  — so the wall and the palette hear it like every other mutation. */
+  const duplicateBookmark = (b: CamBookmark) => {
+    if (bookmarksRef.current.length >= 8) {
+      toast({
+        title: "The shelf is full",
+        description: "The bookmark door holds 8 views — delete one to make room for a copy.",
+      });
+      return;
+    }
+    const base = b.name.trim().slice(0, 30); // headroom: " (copy 99)" fits the 40 cap
+    const taken = new Set(bookmarksRef.current.map((x) => x.name.trim().toLowerCase()));
+    let nm = `${base} (copy)`;
+    for (let n = 2; taken.has(nm.toLowerCase()); n += 1) nm = `${base} (copy ${n})`;
+    commitBookmarks([
+      ...bookmarksRef.current,
+      { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), thumb: b.thumb, snapshot: b.snapshot, view: b.view },
+    ]);
+    toast({
+      title: "Copy saved",
+      description: `“${b.name}” → “${nm}” — the copy points at the same pose & optics.`,
+    });
   };
 
   /** single commit path for the inline rename — runs from the input's blur
@@ -6584,6 +6616,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
                         >
                           <Pencil className="size-3" />
+                        </button>
+                        {/* t821 — save-as-copy: the grid's fourth face. The
+                            copy freezes the SAVED pose (not the canvas) and
+                            takes the first free "(copy)" name — variant
+                            exploration without the delete-recreate dance. */}
+                        <button
+                          type="button"
+                          onClick={() => duplicateBookmark(b)}
+                          aria-label={`Duplicate bookmark ${b.name}`}
+                          title="Save as copy — freezes this view's saved pose & optics into a new bookmark"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                        >
+                          <CopyPlus className="size-3" />
                         </button>
                       </span>
                     </div>
