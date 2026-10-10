@@ -129,3 +129,31 @@ cheaply — any new control that forgets its name will now be the FIRST unnamed
 button in a census that has never seen one, which is exactly the kind of
 anomaly a repeat of this census (one eval per face, ~a minute) catches for
 free.
+
+## The maintenance sweep (t846) — all four faces in ONE command
+
+The rotation's deep instruments (t843's two rides per face, t844's method
+artifact) film; this window added the other half of the census's promise —
+a SWEEP. `scripts/t846-a11y-maintenance.mjs` chains all four faces in one
+command, one measurement per state (count-only), the doors the two deep
+instruments own, by name:
+
+- **C → D → I → P → restore**: the canvas (fresh load, sleep 3), the
+  dashboard (the exact-text 'Dashboard' switcher click), the inspector
+  (the saved-view card, one retry — the flicker lesson), the palette
+  (the t483 contract event) — each face riding the previous one's state,
+  both dialogs closed by Escape, a fresh load restoring the canvas.
+
+**Numbers, first formal ride 20/20**: canvas 149 (floor 142), dashboard 116
+(floor 114), inspector 188 (floor 180, dialog subset 39, tenant heading,
+focus trapped), palette 157 (floor 150, the placeholder-named input) —
+identical to the deep instruments' counts, so the sweep's single ride and
+the deep pair's bit-identical double rides cross-certify each other. The
+sweep's own check M19 pins the four counts distinct (149/116/188/157) —
+no face is another face.
+
+**What this buys**: the standing re-witness. Future windows run ONE command
+first; if the name layer moved anywhere in the app, a floor breaks and the
+deep instruments get called before any UI work. The census's own closing
+paragraph promised "one eval per face, ~a minute" — the sweep now delivers
+all four faces in one command, cheaper than the promise's own price.
