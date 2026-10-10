@@ -168,6 +168,24 @@ fat at 121.3 while the wrapper alone pays the deeper yield to 106.6
 the receipt's `bandAfter` key, so the build day's comparison is filmed
 at both layers before the first line of src moves.
 
+The sixth seat (t849) carried the band layer ACROSS WIDTHS: t839's
+cloneZone rows (1286/1287) now ride the BAND walk too, against fresh
+LIVE rulers at 1280/1286/1287 taken on the restore load. Two laws:
+**(1) PAINT is width-free** — the fix clone's band equals the live
+band bit-for-bit at every width in the zone (1280: the fourth seat;
+1286 and 1287: R11/R12). The fix never moves the band layer, at any
+width the zone touches. **(2) The live band's own drift across the
+zone is real and pinned**: the LEFT row grows +1.0/px (607.8 → 610.8
+→ 613.8 → 614.8), the wrapper's kid +0.4/px (115.3 → 118.1 — equal
+to the sweep's zone rows' wrapW at every sampled width: two
+instruments, two layers, one number per width; the four-way 115.3
+becomes a width-indexed family), the workspace label +0.3/px-ish
+(0.1-rounding wobble — pinned per width, no slope claim), while the
+RIGHT row (628.3) and the seats (12) NEVER move. So the fifth seat's
+edges-never-move law was an AT-A-WIDTH law (across options at 1280);
+across widths the left row drifts — but clone and live drift
+TOGETHER, which is exactly what PAINT-not-geometry means.
+
 The verdict is closed before the grind: land (a), ONE grind, the
 ratchet's post-fix form already rehearsed (D4's narration flips to the
 clipped truth, E8 gains the computed overflow-x fingerprint), and the
@@ -182,13 +200,14 @@ comparison.
   command; receipt `shots-qa/t834-band-sweep.json` with the raw subpixels,
   per-seat anatomy, and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (56 assertions, rides the
+  parsed, the tiers computed, the closed forms (57 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
   the t843 a11y re-witness, A4e-14 closes the t844 fragile pair, A4e-15
   closes the t845 third seat, A4e-16 closes the t846 maintenance sweep,
-  A4e-17 closes the t847 fourth seat, A4e-18 closes the t848 fifth seat).
+  A4e-17 closes the t847 fourth seat, A4e-18 closes the t848 fifth seat,
+  A4e-19 closes the t849 sixth seat).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -204,10 +223,18 @@ comparison.
   section; since t847 the clone also carries its own BAND layer — the
   fourth seat: left 607.8, right 628.3, seats 12, bit-for-bit equal to
   the live band, PAINT-not-geometry proven on the band layer too;
-  receipt `shots-qa/t839-zone-rehearsal.json`, 11 assertions). The pricing
+  receipt `shots-qa/t839-zone-rehearsal.json`, 14 assertions). The pricing
   "paint, not geometry" is an experiment now: on the build day the fix
   lands with its proof already aboard, and D4/E8 flip to the rehearsed
-  clipped truth.
+  clipped truth. Since t849 the cloneZone rows carry BAND walks too (the
+  sixth seat: PAINT is width-free — the clone's band == the live band
+  bit-for-bit at 1286/1287 against live rulers at 1280/1286/1287, and the
+  live band's own drift pinned: leftW +1.0/px, the wrapper's kid +0.4/px
+  == the zone rows' wrapW, rightW/seats invariant; the receipt's
+  `bandAcross` key). One harness law learned en route: the instrument
+  OPENS its own page at boot — a battery rider that only sets the
+  viewport inherits the previous rider's DOM mutations (the t849 first
+  ride's two reds were true readings of a mislabeled world).
 - `node scripts/t840-options-rehearsal.mjs` — the decision table: every
   build-day option's AFTER pre-filmed on its own throwaway clone ((a)
   the clip, (b) at 138 = no-op and 88 = clears with a steepened slope,
@@ -230,7 +257,7 @@ comparison.
   live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
   painted rows, the decision table's rows relate as filmed (B138 no-op at
   the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
-  and all receipts speak the standing build (37 assertions; receipt
+  and all receipts speak the standing build (40 assertions; receipt
   `shots-qa/t842-family-audit.json`). The second seat (t843) pinned the
   BOUND CHAIN across receipts — the wordmark's natural 142.46 > B138's cap
   138 > the squeezed 101.3 > B88's cap 88 — the one line that proves B138
@@ -260,7 +287,14 @@ comparison.
   hold cross-harness (t840's option-a clone == t839's cloneBand == the
   live band, bit-for-bit), the restore returns bit-for-bit, and the
   115.3 grows the FIVE-way (band live / band clone / band option-a /
-  zone row / the GEOM). When the
+  zone row / the GEOM). The sixth seat (t849) generalized the PAINT law
+  across widths as F11: t839's `bandAcross` walks the clone's band at
+  1286/1287 against live rulers at 1280/1286/1287, and the clone == the
+  live band bit-for-bit at every width in the zone; the live band's own
+  drift is pinned and SHARED (leftW +1.0/px, the wrapper's kid +0.4/px
+  == the sweep's zone wrapW per width, rightW/seats invariant) — the
+  at-a-width edges law and the across-widths drift law are two
+  cross-sections of one fact: the fix is paint. When the
   fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
