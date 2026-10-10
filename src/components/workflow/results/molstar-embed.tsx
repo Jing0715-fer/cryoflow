@@ -6015,7 +6015,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-72 p-2"
+              className="w-72 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="layers-popover"
               onKeyDown={onEscapeClose(() => setLayersOpen(false))}
             >
@@ -6243,7 +6243,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-60 p-2"
+              className="w-60 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="export-scale-popover"
               onKeyDown={onEscapeClose(() => setExportOpen(false))}
             >
@@ -6405,10 +6405,17 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-60 p-2"
+              className="w-60 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="turntable-popover"
               onKeyDown={onEscapeClose(() => setTurntableOpen(false))}
             >
+              {/* t828 — the door's law crosses the family: measured at a
+                  1280×560 window this popover ran 28px past the fold (h 440
+                  > the 411.6 Radix published), export-scale 18px at 470 —
+                  the four toolbar siblings now wear the same cap the
+                  bookmarks door got in t827. Dormant at desktop (all four
+                  fit the 565 available); the last-resort pane on short
+                  screens. */}
               <p className="px-1 pb-1 text-[11px] font-semibold">Turntable video</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Records one full 360° rotation around the current view as a .webm clip —
@@ -6569,7 +6576,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-52 p-2"
+              className="w-52 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="view-presets"
               onKeyDown={onEscapeClose(() => setPresetsOpen(false))}
             >

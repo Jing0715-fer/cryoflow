@@ -576,7 +576,12 @@ function ViewSwitcher() {
         )}
       >
         <LayoutDashboard className="size-3.5" aria-hidden="true" />
-        <span className="hidden sm:inline">Dashboard</span>
+        {/* t828 — the labels wait for xl: measured at 768-1023 the tabs
+            (200px with labels) painted INTO the right cluster's first
+            148px (the t510 interpenetration, alive at the md band); the
+            icons alone fit beside the full seat row and the wordmark
+            gets its room back. */}
+        <span className="hidden xl:inline">Dashboard</span>
       </button>
       <button
         type="button"
@@ -592,7 +597,7 @@ function ViewSwitcher() {
         )}
       >
         <Workflow className="size-3.5" aria-hidden="true" />
-        <span className="hidden sm:inline">Workflow</span>
+        <span className="hidden xl:inline">Workflow</span>
       </button>
     </div>
   );
@@ -710,11 +715,26 @@ export function Header() {
       className="no-print pointer-events-auto sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4"
     >
       {/* Brand */}
+      {/* t828 — the narrow-band tier law, measured like t301/t510 before it:
+          the RIGHT cluster is ~404px of icon seats that flex cannot shrink
+          (min-width:auto floors), so at 375/640 justify-between crushed the
+          brand row to ZERO (the wordmark vanished silently) and the tail
+          seats painted 53px/16px past the viewport — the theme toggle and
+          help were unreachable and the shell scrollWidth lied (428 > 375).
+          Tiers, measured: max-sm the brand is the ViewSwitcher alone (the
+          tabs are the identity that navigates), and the four ops seats
+          (storage map / diagnostics / print / knock settings) fall away;
+          sm..md the wordmark and Relion chip / diagnostics / print / GitHub
+          wait — and the re-measure caught the t510 interpenetration alive
+          at md..xl (the labeled tabs painted 148px INTO the seat row at
+          768), so the Relion chip and the tab labels wait for xl, and the
+          wordmark lives again from md up. Every band re-measured after
+          the cut — see the t828 probe. */}
       <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary max-sm:hidden">
           <Snowflake className="size-5" aria-hidden="true" />
         </div>
-        <div className="min-w-0 leading-tight">
+        <div className="min-w-0 leading-tight max-md:hidden">
           <p className="truncate text-sm font-semibold tracking-tight">CryoFlow</p>
           <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
             Cryo-EM Workflow Builder
@@ -791,8 +811,15 @@ export function Header() {
 
       {/* Actions — interactive chrome has no paper meaning; .no-print hides
           the whole cluster when printing, the paper masthead takes over */}
-      <div className="no-print flex items-center gap-1.5">
-        <div className="hidden sm:block">
+      <div className="no-print flex shrink-0 items-center gap-1.5">
+        {/* t828 — the cluster's seats never shrink: the t510 contract makes
+            the LEFT row the shock absorber (min-w-0, triggers truncate),
+            and a min-w-0 here let the greedy left row steal space back at
+            1280 (left 671 vs right 565 — the seats overflowed INSIDE the
+            cluster and the theme toggle painted past the viewport again).
+            The narrow bands are yielded by the TIER LAW above — seats fall
+            away measured — not by squeezing the seats that remain. */}
+        <div className="hidden xl:block">
           <RelionStatusChip />
         </div>
         {/* Task 179: the palette (and with it the whole export family —
@@ -830,7 +857,7 @@ export function Header() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-foreground"
+          className="max-sm:hidden text-muted-foreground hover:text-foreground"
           onClick={() => setStorageOpen(true)}
           aria-label="Project storage overview"
           title="Project storage — what this project keeps on disk, the heaviest runs first"
@@ -842,7 +869,7 @@ export function Header() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-foreground"
+          className="max-md:hidden text-muted-foreground hover:text-foreground"
           onClick={() => setDiagOpen(true)}
           aria-label="System diagnostics"
           title="System diagnostics — memory lanes against the build guard's lines, disk, engine build progress and the running build's provenance"
@@ -862,11 +889,13 @@ export function Header() {
         {/* t438 — the finish knock: the out-of-page channels (chime +
             OS notification) ride an explicit opt-in behind this bell;
             the title flicker needs no door, it is chrome. */}
-        <KnockSettingsButton />
+        <span className="max-sm:hidden">
+          <KnockSettingsButton />
+        </span>
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-foreground"
+          className="max-md:hidden text-muted-foreground hover:text-foreground"
           onClick={() => window.print()}
           aria-label="Print this view"
           title="Print / save as PDF — the paper stylesheet forces a light palette and hides interactive chrome"
@@ -882,7 +911,7 @@ export function Header() {
           variant="ghost"
           size="icon"
           asChild
-          className="max-sm:hidden text-muted-foreground hover:text-foreground"
+          className="max-md:hidden text-muted-foreground hover:text-foreground"
         >
           <a
             href="https://github.com/Jing0715-fer/cryoflow"
