@@ -259,7 +259,7 @@ comparison.
   blocks), one
   command.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (61 assertions, rides the
+  parsed, the tiers computed, the closed forms (62 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
@@ -268,7 +268,8 @@ comparison.
   A4e-17 closes the t847 fourth seat, A4e-18 closes the t848 fifth seat,
   A4e-19 closes the t849 sixth seat, A4e-20 closes the t850 seventh seat,
   A4e-21 closes the t851 eighth seat, A4e-22 closes the t852 far edge,
-  A4e-23 closes the t853 below zone).
+  A4e-23 closes the t853 below zone, A4e-24 closes the t854 ninth
+  seat).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -312,8 +313,14 @@ comparison.
   paint and the no-op are bit-for-bit the live band at 1283/1286
   (nothing moves anywhere at any width), and the bound chain's width
   form holds (the squeezed box 101.3 → 103.0, the 138 cap never
-  binding in the zone, the squeeze option-invariant); receipt
-  `shots-qa/t840-options-rehearsal.json`, 19 assertions). The t836
+  binding in the zone, the squeeze option-invariant); since t854 the
+  RESTORE load walks the widths too — the ninth seat: the world's exit
+  state == its entry state bit-for-bit at 1283/1286 on BOTH layers
+  (the zone and band walks == the T0 load's rulers — T5+T10's 1280
+  truth extended across the zone, the harness's own loop closed; and
+  two independent fresh loads of the same build film the same world
+  bit-for-bit across widths, the cross-load identity); receipt
+  `shots-qa/t840-options-rehearsal.json`, 20 assertions). The t836
   arithmetic pricing is an experiment now — the build day's choice is
   closed by measurement, not by memory.
 - `node scripts/t842-family-audit.mjs` — the family audit: one arithmetic,
@@ -328,7 +335,7 @@ comparison.
   live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
   painted rows, the decision table's rows relate as filmed (B138 no-op at
   the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
-  and all receipts speak the standing build (51 assertions; receipt
+  and all receipts speak the standing build (53 assertions; receipt
   `shots-qa/t842-family-audit.json`). The second seat (t843) pinned the
   BOUND CHAIN across receipts — the wordmark's natural 142.46 > B138's cap
   138 > the squeezed 101.3 > B88's cap 88 — the one line that proves B138
@@ -406,7 +413,16 @@ comparison.
   below xl and absorbs every pixel (the 1280 zone's slope is −0.4 —
   there the row's other yielders take 0.6); the interior (900/1024)
   rides the natural 266.5/142.5 — the squeeze is 768-local, the below
-  mirror of the residue's 1280-locality. When the
+  mirror of the residue's 1280-locality. The ninth seat (t854) closed
+  the harness's own loop as F16: t840's `bandAfter.ninthSeat` walks the
+  RESTORE load across 1283/1286 with both layers, and the world's exit
+  state == its entry state bit-for-bit at every width and layer the
+  table walks (the zone and band walks == the T0 load's rulers; the
+  wrap-twin holds on the restore load, the named points ride along —
+  overlap 1.5/0.3 == the live law, wmW 102.2/103); the cross-load
+  identity is a law in its own right: two independent fresh loads of
+  the same build film the same world bit-for-bit across widths — the
+  table's width form now includes its own restore. When the
   fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
