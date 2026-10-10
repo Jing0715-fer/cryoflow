@@ -152,6 +152,26 @@ the deep pair's bit-identical double rides cross-certify each other. The
 sweep's own check M19 pins the four counts distinct (149/116/188/157) —
 no face is another face.
 
+**The drift ledger (t857, M20-M24 — 25/25)**: the sweep now diffs its counts
+against its OWN previous receipt — the receipt itself is the natural
+comparator. The floors measure the census's AGE (+7/+2/+8/+7, stable since
+the census was pinned); the ledger measures the world's STABILITY: on a
+frozen build the ride-to-ride drift must be ZERO, face for face, key for
+key — and it is (canvas 149→149, dashboard 116→116, inspector 188→188,
+palette 157→157, restore 149→149; the FULL live object identical x5, every
+key the measure films, not just the count). Three arms, recorded honestly
+per face: no predecessor (first ride — vacuous), build moved (drift
+informational — a build may change counts), same build (bit-for-bit or
+red). The ledger block rides the receipt (`driftLedger`: prevFound /
+prevBuild / prevDate / sameBuild / law / five faces), the comparator's own
+date + build recorded as provenance. A fourth reproducibility axis for the
+family: every prior identity compared worlds WITHIN one window's rides
+(cross-load A4e-24, cross-instrument A4e-25, cross-receipt A4e-26) — this
+one compares RIDES ACROSS WINDOWS: the previous window's receipt is the
+comparator (measured first by the probe `scripts/t857-drift-ledger-probe.mjs`,
+kept as provenance; the family audit carries it as F19, the audit unit as
+A4e-27).
+
 **What this buys**: the standing re-witness. Future windows run ONE command
 first; if the name layer moved anywhere in the app, a floor breaks and the
 deep instruments get called before any UI work. The census's own closing

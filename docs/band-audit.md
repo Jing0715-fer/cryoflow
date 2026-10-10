@@ -271,7 +271,7 @@ comparison.
   blocks), one
   command.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (64 assertions, rides the
+  parsed, the tiers computed, the closed forms (65 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
@@ -282,7 +282,7 @@ comparison.
   A4e-21 closes the t851 eighth seat, A4e-22 closes the t852 far edge,
   A4e-23 closes the t853 below zone, A4e-24 closes the t854 ninth
   seat, A4e-25 closes the t855 tenth seat, A4e-26 closes the t856
-  eleventh seat).
+  eleventh seat, A4e-27 closes the t857 drift ledger).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -355,7 +355,7 @@ comparison.
   live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
   painted rows, the decision table's rows relate as filmed (B138 no-op at
   the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
-  and all receipts speak the standing build (59 assertions; receipt
+  and all receipts speak the standing build (62 assertions; receipt
   `shots-qa/t842-family-audit.json`). The second seat (t843) pinned the
   BOUND CHAIN across receipts — the wordmark's natural 142.46 > B138's cap
   138 > the squeezed 101.3 > B88's cap 88 — the one line that proves B138
@@ -473,7 +473,18 @@ comparison.
   holds to 1920 with the gap's two segments (−110.3 constant through
   the ramp, then −1.0/px); F18.c also pins the J-ride's own identity —
   the wake's 1536 row == the G block's 1536 row bit-for-bit, one
-  world, two walks of the same receipt. When the
+  world, two walks of the same receipt. The twelfth seat (t857) grew the
+  census family's own reproducibility axis as F19: t846's receipt now
+  carries a `driftLedger` — the sweep diffs its counts against its OWN
+  previous receipt, ride to ride — and every face is bit-for-bit (drift
+  0 x5, the full live object identical x5: canvas 149→149, dashboard
+  116→116, inspector 188→188, palette 157→157, restore 149→149). The
+  two drift numbers do different jobs in one receipt: the FLOOR drift
+  (+7/+2/+8/+7 vs the census) measures the census's age; the LEDGER
+  drift (0/0/0/0/0) measures the world's stability. A fourth
+  reproducibility axis, after cross-load (A4e-24), cross-instrument
+  (A4e-25), and cross-receipt (A4e-26): cross-RIDE — the previous
+  window's receipt is the comparator. When the
   fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
