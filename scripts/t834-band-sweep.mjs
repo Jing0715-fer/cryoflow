@@ -478,6 +478,62 @@ ok(
   `H7 the interior is at rest: 900 rides the SAME natural form as 1024 (266.5 / 142.5) — the squeeze is 768-LOCAL, the below mirror of G7's 1280-locality`
 );
 
+/* ---------- J — the wake edge (the t856 growth): the far edge's SECOND
+ * threshold — the stats chip's WAKE at 2xl. The probe
+ * (scripts/t856-xl-chip-wake-probe.mjs) bracketed and binary-searched
+ * the wake first (last asleep 1535, first awake 1536 — a POINT, not a
+ * zone, vs the below squeeze's [768, 770]); the pins carry the measured
+ * values. The discovery: the wake is a STEP — one pixel delivers the
+ * chip (born 90.3, constant forever) and the trigger's 2xl tier (+35:
+ * 170 → 205) while the label PAYS (−9.1: 160 → 150.9) and the wordmark
+ * DIPS (−7.1: 142.5 → 135.4); then TWO CAPPED RAMPS (1536 → 1570)
+ * restore the yielders — the wrap +0.44/px to its cap 220, the label
+ * +0.27/px back to 160, the wordmark +0.21/px back to 142.5 — and
+ * above the caps the plateau: everything constant to 1920 but the gap
+ * (overlap −1.0/px). ---------- */
+console.log("\nJ — the wake edge (the far edge's second threshold: the chip wakes at 2xl, the t856 growth)");
+const WAKE_W = [1535, 1536, 1537, 1540, 1550, 1560, 1570, 1600];
+const wakeRows = {};
+const wakeZone = {};
+for (const w of WAKE_W) {
+  ab(`set viewport ${w} ${HEIGHT}`);
+  ab("wait 350");
+  wakeRows[w] = evalJson(MEASURE);
+  wakeZone[w] = evalJson(FAR_ZONE);
+}
+ab("set viewport 1280 800");
+
+ok(
+  wakeRows["1535"].midKids[3].w === 0 && wakeRows["1536"].midKids[3].w === 90.3 &&
+    wakeZone["1535"].wrapW === 170 && wakeZone["1536"].wrapW === 205,
+  `J1 the chip WAKES AT 2xl — a POINT, not a zone: last asleep 1535 (kids [160, 170, 0, 0], wrap 170), first awake 1536 (the chip born 90.3, the wrap tier-steps 170 → 205) — the far mirror of the below squeeze's zone [768, 770]: the below world yields through a 3px ZONE, the far world crosses a 1px THRESHOLD (a breakpoint, not a shortage)`
+);
+ok(
+  wakeRows["1535"].midKids[0].w === 160 && wakeRows["1536"].midKids[0].w === 150.9 &&
+    wakeZone["1535"].wmW === 142.5 && wakeZone["1536"].wmW === 135.4 &&
+    wakeRows["1535"].leftW === 746.7 && wakeRows["1536"].leftW === 863.8,
+  `J2 the wake's STEP anatomy: +1px of viewport delivers the chip +90.3 and the wrap +35 (the trigger's 2xl tier) while the label PAYS 9.1 (160 → 150.9) and the wordmark DIPS 7.1 (142.5 → 135.4); the left row jumps +117.1 — the wake moment is funded by the row's own yielders, not by the viewport's new pixel`
+);
+ok(
+  wakeZone["1540"].wrapW === 206.9 && wakeZone["1550"].wrapW === 211.7 &&
+    wakeZone["1560"].wrapW === 216.5 && wakeZone["1570"].wrapW === 220 &&
+    wakeZone["1600"].wrapW === 220,
+  `J3 the wrap's CAPPED RAMP: 205 @1536 → 206.9 @1540 → 211.7 @1550 → 216.5 @1560 → the cap 220 @1570 (+0.44/px) — the trigger's 2xl tier is a FLOOR, not a fixed width: the wrap grows until its cap, then sleeps at 220 forever (1600: 220)`
+);
+ok(
+  wakeRows["1540"].midKids[0].w === 152 && wakeRows["1550"].midKids[0].w === 155 &&
+    wakeRows["1570"].midKids[0].w === 160 && wakeRows["1600"].midKids[0].w === 160 &&
+    wakeZone["1570"].wmW === 142.5 && wakeZone["1600"].wmW === 142.5,
+  `J4 the label's recovery and the wordmark's: the label rides its own ramp back to the cap 160 (152 @1540, 155 @1550, 160 @1570) and the wordmark to the natural 142.5 — both capped by 1570; the wake's transient squeeze is fully repaid within 34px of the threshold`
+);
+ok(
+  WAKE_W.every((w) => wakeRows[w].midKids[3].w === (w === 1535 ? 0 : 90.3)) &&
+    wakeRows["1536"].rightW === 628.3 && wakeRows["1600"].rightW === 628.3 &&
+    wakeZone["1536"].overlap === -110.3 && wakeZone["1560"].overlap === -110.3 &&
+    wakeZone["1570"].overlap === -113.1 && wakeZone["1600"].overlap === -143.1,
+  `J5 the plateau: the chip is CONSTANT 90.3 above the wake (born full-size, never grows), the right cluster 628.3, and the gap's law has TWO segments — constant −110.3 THROUGH the ramp (the wrap grows into the gap, the chip holds still) then −1.0/px above the caps (−113.1 @1570 → −143.1 @1600, the t836 law's far form: the PS clears deeper as the viewport grows)`
+);
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t834-band-sweep.mjs",
@@ -485,7 +541,9 @@ const receipt = {
   date: new Date().toISOString(),
   bands: rows,
   zone: { widths: ZW, rows: zone, law: "overlap(W) = 2.7 − 0.4×(W−1280)", edge: { lastPaint: 1286, firstClear: 1287 } },
-  farEdge: { widths: FAR_W, rows: farRows, zone: farZone, law: "the far edge (t852): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor sleeps (trigW == wrapW exactly), the right cluster never moves (rightW 628.3, seats 12), the chip is width-free above 2xl (90.3), and the residue is 1280-local (the paint witness rides the trigger's own box)" },
+  farEdge: { widths: FAR_W, rows: farRows, zone: farZone,
+    wake: { widths: WAKE_W, rows: wakeRows, zone: wakeZone, law: "the wake edge (t856): the chip WAKES AT 2xl — a POINT (last asleep 1535, first awake 1536), not a zone (the below squeeze's [768, 770] mirror: the below world yields through a 3px shortage-zone, the far world crosses a 1px breakpoint); the wake is a STEP — +1px delivers the chip (born 90.3, constant forever) and the trigger's 2xl tier (+35: 170 → 205) while the label pays 9.1 (160 → 150.9) and the wordmark dips 7.1 (142.5 → 135.4); then two CAPPED RAMPS restore the yielders by 1570 (the wrap +0.44/px to 220, the label +0.27/px to 160, the wordmark +0.21/px to 142.5) and above the caps the plateau holds to 1920 — everything constant but the gap (−1.0/px)" },
+    law: "the far edge (t852): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor sleeps (trigW == wrapW exactly), the right cluster never moves (rightW 628.3, seats 12), the chip is width-free above 2xl (90.3), and the residue is 1280-local (the paint witness rides the trigger's own box). The wake edge (t856): the chip's birth is a 1px POINT at 2xl (1535/1536) with a step anatomy (chip +90.3, wrap tier 170 → 205, label −9.1, wordmark −7.1), two capped ramps (by 1570: wrap 220, label 160, wordmark 142.5), and a plateau to 1920 whose only moving part is the gap (−1.0/px)" },
   belowZone: { widths: BELOW_W, rows: belowRows, zone: belowZone, edge, law: "the below zone (t853): the mid row sleeps below xl at every named tier (the twin vacuously at rest, E1's 1279 point now a cross-section) and the residue has no below-form; the wordmark is BORN SQUEEZED at md — the row needs 738.5 vs available 736 at 768 and the min-w-0 wordmark pays the whole 2.5 (A4e-2's live form) — in a LINEAR zone: squeeze(W) = 770.5 − W, slope −1.0/px (the row's only yielder absorbs every pixel), [768, 770], clear by 771; the interior (900/1024) rides the natural 266.5/142.5 — the squeeze is 768-local" },
   pinned: PINNED,
 };

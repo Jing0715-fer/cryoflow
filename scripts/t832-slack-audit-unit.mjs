@@ -746,6 +746,37 @@ if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.tenthSeat && feRecei
   );
 }
 
+// A4e-26 — the t856 ELEVENTH SEAT: the WAKE EDGE (the sweep's
+// farEdge.wake, family F18.a-c). The chip wakes AT 2xl — a 1px POINT
+// (last asleep 1535, first awake 1536), not a zone — and the wake is a
+// STEP: +1px delivers the chip (born 90.3, constant forever) and the
+// trigger's 2xl tier (+35: 170 → 205) while the label pays 9.1
+// (160 → 150.9) and the wordmark dips 7.1 (142.5 → 135.4); two capped
+// ramps repay the transient by 1570 (wrap → 220, label → 160, wm →
+// 142.5) and above the caps the plateau holds to 1920 — everything
+// constant but the gap (−1.0/px). Cross-receipt: the plateau continues
+// into t840's tenthSeat liveFarBelow @1920 (label 160, wrap 220, chip
+// 90.3) — the wake's far form spans instruments.
+if (feReceipt && feReceipt.farEdge && feReceipt.farEdge.wake && baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.tenthSeat) {
+  const WK = feReceipt.farEdge.wake;
+  const T10b = baReceipt.bandAfter.tenthSeat.liveFarBelow;
+  ok(
+    WK.widths && WK.widths.length === 8 && WK.rows && WK.zone &&
+      WK.rows["1535"].midKids[3].w === 0 && WK.rows["1536"].midKids[3].w === 90.3 &&
+      WK.zone["1535"].wrapW === 170 && WK.zone["1536"].wrapW === 205 &&
+      WK.rows["1535"].midKids[0].w === 160 && WK.rows["1536"].midKids[0].w === 150.9 &&
+      WK.zone["1535"].wmW === 142.5 && WK.zone["1536"].wmW === 135.4 &&
+      WK.zone["1570"].wrapW === 220 && WK.rows["1570"].midKids[0].w === 160 &&
+      WK.zone["1570"].wmW === 142.5 && WK.zone["1600"].wrapW === 220 &&
+      ["1536", "1537", "1540", "1550", "1560", "1570", "1600"].every((w) => WK.rows[w].midKids[3].w === 90.3) &&
+      WK.zone["1536"].overlap === -110.3 && WK.zone["1570"].overlap === -113.1 &&
+      WK.zone["1600"].overlap === -143.1 &&
+      T10b && T10b["1920"] && T10b["1920"].band.midKids[0].w === 160 &&
+      T10b["1920"].band.midKids[1].w === 220 && T10b["1920"].band.midKids[3].w === 90.3,
+    `A4e-26 the t856 eleventh seat is aboard and green (t834 76/76): the WAKE EDGE — the chip wakes AT 2xl, a 1px POINT (1535 asleep / 1536 awake) with a step anatomy that charges the row's own yielders for the birth (chip +90.3 constant forever, wrap tier 170 → 205; label −9.1, wordmark −7.1), two capped ramps repaying the transient by 1570 (wrap 220, label 160, wm 142.5), the gap two-segment (−110.3 through the ramp, −1.0/px above the caps to −143.1 @1600) — and the plateau SPANS INSTRUMENTS: the sweep's wake block @1600 (160/220/90.3) continues into t840's tenthSeat @1920 bit-for-value (160/220/90.3)`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),
