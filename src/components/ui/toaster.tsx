@@ -40,6 +40,32 @@ export function Toaster() {
   const { toasts } = useToast()
   const swipeDirection = useToastSwipeDirection()
 
+  // t826 — the hourglass's clock authority. The vendor (radix-toast-
+  // vendor.mjs) dispatches toast.viewportPause / toast.viewportResume
+  // CustomEvents on the viewport itself: wrapper pointermove/focusin and
+  // window blur pause EVERY close timer; pointerleave, focusout moving
+  // outside, and window focus resume them. This mirror paints the
+  // vendor's OWN pause state as data-timers-paused on the viewport —
+  // the CSS hourglass (globals.css) freezes its animation under that
+  // attribute, so the bar follows the very clock it draws. No second
+  // timer exists anywhere; the attribute is a reflection, not a clock.
+  // A toast born while paused inherits the attribute before its
+  // animation can start and stays full until resume — matching the
+  // vendor's startTimer-on-resume for paused-mount toasts exactly.
+  const viewportRef = React.useRef<HTMLOListElement | null>(null)
+  React.useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const pause = () => viewport.setAttribute("data-timers-paused", "")
+    const resume = () => viewport.removeAttribute("data-timers-paused")
+    viewport.addEventListener("toast.viewportPause", pause)
+    viewport.addEventListener("toast.viewportResume", resume)
+    return () => {
+      viewport.removeEventListener("toast.viewportPause", pause)
+      viewport.removeEventListener("toast.viewportResume", resume)
+    }
+  }, [])
+
   return (
     <ToastProvider swipeDirection={swipeDirection}>
       {toasts.map(function ({ id, title, description, action, ...props }) {
@@ -56,7 +82,7 @@ export function Toaster() {
           </Toast>
         )
       })}
-      <ToastViewport />
+      <ToastViewport ref={viewportRef} />
     </ToastProvider>
   )
 }

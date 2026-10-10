@@ -2869,6 +2869,35 @@ li[data-swipe="end"] {
   transform: translate3d(var(--radix-toast-swipe-end-x, 0px), var(--radix-toast-swipe-end-y, 0px), 0);
 }
 
+/* t826 — the toast's hourglass: the card's remaining life, drawn.
+   Radix's close timer is the ONLY authority on a toast's lifespan, but
+   it is invisible — the t825 patrol watched toasts die exactly on
+   schedule and could only take the vendor's word for WHEN. The bar
+   (ui/toast.tsx ToastHourglass) draws the timer's own arc: scaleX 1→0
+   across --toast-life, which ui/toaster's Toast feeds from the toast's
+   OWN duration prop (the vendor's 5e3 default when none is passed).
+   The freeze is the law's real face: the vendor pauses EVERY close
+   timer on wrapper pointermove/focusin and window blur, and resumes on
+   pointerleave / focusout-outside / window focus — the mirror in
+   ui/toaster.tsx listens to the vendor's OWN dispatched events
+   (toast.viewportPause / toast.viewportResume) and paints
+   data-timers-paused on the viewport, so the bar's play-state follows
+   the very clock it draws. No second timer, no drift by construction.
+   A toast born while paused inherits the attribute before its animation
+   can start and stays full until resume — matching the vendor's
+   startTimer-on-resume for paused-mount toasts exactly. Scoped to
+   .toast-hourglass — a class only ToastHourglass ever paints. */
+@keyframes toast-hourglass {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+.toast-hourglass {
+  animation: toast-hourglass var(--toast-life, 5000ms) linear forwards;
+}
+[data-timers-paused] .toast-hourglass {
+  animation-play-state: paused;
+}
+
 /* ============================================================
    Session QC report (Task 197) — the one dialog that IS a document.
    ============================================================ */

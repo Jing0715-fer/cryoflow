@@ -60,14 +60,31 @@ const Toast = React.forwardRef<
   Omit<React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root>, "action"> &
   VariantProps<typeof toastVariants> &
   { action?: React.ReactNode }
->(({ className, variant, action: _action, ...props }, ref) => {
+>(({ className, variant, action: _action, duration, children, ...props }, ref) => {
   void _action; // rendered by the Toaster, not by the Root
+  // t826 — the hourglass feeds on the toast's OWN duration. duration is
+  // destructured out only to size the bar (and handed back to the Root
+  // explicitly — the vendor's ToastImpl reads durationProp first,
+  // falling back to the Provider's 5e3 default); the var stays honest
+  // per-card if a caller ever passes a custom duration. The vendor's
+  // startTimer skips 0 and Infinity — an immortal card gets NO bar: a
+  // clock that never runs must not be drawn running.
+  const effectiveDuration = duration ?? 5000
+  const hasTimer = effectiveDuration !== 0 && effectiveDuration !== Infinity
   return (
     <ToastPrimitives.Root
       ref={ref}
+      duration={duration}
       className={cn(toastVariants({ variant }), className)}
       {...props}
-    />
+    >
+      {hasTimer && (
+        <ToastHourglass
+          style={{ "--toast-life": `${effectiveDuration}ms` } as React.CSSProperties}
+        />
+      )}
+      {children}
+    </ToastPrimitives.Root>
   )
 })
 Toast.displayName = ToastPrimitives.Root.displayName
@@ -86,6 +103,38 @@ const ToastAction = React.forwardRef<
   />
 ))
 ToastAction.displayName = ToastPrimitives.Action.displayName
+
+// t826 — the hourglass: the card's remaining life, drawn as a hairline
+// along the card's bottom edge. Radix's close timer is the ONLY authority
+// on a toast's lifespan, but it is invisible — the t825 patrol watched
+// toasts die exactly on schedule and could only take the vendor's word
+// for WHEN. The bar draws the timer's own arc (scaleX 1→0 across
+// --toast-life), and its freeze rides the vendor's own pause state: the
+// mirror in ui/toaster.tsx paints data-timers-paused on the viewport
+// from the vendor's OWN toast.viewportPause/Resume events, and the CSS
+// rule in globals.css pauses the animation under that attribute — no
+// second timer, no drift by construction. The drain flows toward the
+// exit corner (origin-right — the slide-out-to-right-full direction),
+// so the remaining sliver points at where the card will leave.
+// motion-reduce hides the bar: an affordance whose only channel is
+// motion should not pretend under reduced motion (the vendor's close
+// timer itself is NOT motion — the card still dies on schedule; only
+// the drawing goes).
+const ToastHourglass = React.forwardRef<
+  React.ElementRef<"div">,
+  React.ComponentPropsWithoutRef<"div">
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "toast-hourglass pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-right motion-reduce:hidden",
+      "bg-foreground/20 group-[.destructive]:bg-white/40",
+      className
+    )}
+    {...props}
+  />
+))
+ToastHourglass.displayName = "ToastHourglass"
 
 const ToastClose = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Close>,
@@ -167,4 +216,5 @@ export {
   ToastDescription,
   ToastClose,
   ToastAction,
+  ToastHourglass,
 }
