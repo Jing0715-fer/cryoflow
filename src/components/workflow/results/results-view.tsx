@@ -1588,6 +1588,19 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                 <DialogDescription className="font-mono text-[11px]">{starFile.path}</DialogDescription>
               </DialogHeader>
               <StarTable job={job} path={starFile.path} />
+              {/* t832 — the star table joins the keymap family: one quiet
+                  line teaching the one key it has (the house dialog close).
+                  A seat that teaches nothing but what works — the family's
+                  must-not-lie law, fourth application. */}
+              <div
+                data-canvas-ui="star-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>
@@ -1611,6 +1624,18 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                 </DialogDescription>
               </DialogHeader>
               <TextPreview jobId={job.id} path={textFile.path} />
+              {/* t832 — the text preview joins the family too: the same
+                  Esc seat, the same calibre. Every results-view dialog
+                  now speaks its keys in one voice. */}
+              <div
+                data-canvas-ui="text-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>
