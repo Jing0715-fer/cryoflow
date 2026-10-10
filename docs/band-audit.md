@@ -153,6 +153,21 @@ The build day's options — priced by arithmetic (t836), then MEASURED
   freed width stays in the mid tier; the experiment shows the row sends
   it upstream.
 
+The fifth seat (t848) carried the decision table to the BAND layer:
+every option's clone now rides the sweep's BAND walk right after its
+zone pair, and the measured law is simple — **the band's EDGES never
+move on any option** (left 607.8, right 628.3, seats 12 on live, (a),
+(b138), (b88), (c), and the restore alike); whatever the build day
+picks, only the mid row's awake children pay. (a) and (b138) are
+bit-for-bit the live band (PAINT and no-op, proven cross-harness: the
+same answer t839's cloneBand gives). (b88) EQUALIZES the two awake
+children at 122.8 (== the zone's wrapW — the freed 13.3 of wordmark
+flows into the mid band). (c) DIVERGES them: the workspace label stays
+fat at 121.3 while the wrapper alone pays the deeper yield to 106.6
+(== the zone's wrapW). The decision table's band-layer AFTERs ride in
+the receipt's `bandAfter` key, so the build day's comparison is filmed
+at both layers before the first line of src moves.
+
 The verdict is closed before the grind: land (a), ONE grind, the
 ratchet's post-fix form already rehearsed (D4's narration flips to the
 clipped truth, E8 gains the computed overflow-x fingerprint), and the
@@ -167,13 +182,13 @@ comparison.
   command; receipt `shots-qa/t834-band-sweep.json` with the raw subpixels,
   per-seat anatomy, and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (55 assertions, rides the
+  parsed, the tiers computed, the closed forms (56 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
   the t843 a11y re-witness, A4e-14 closes the t844 fragile pair, A4e-15
   closes the t845 third seat, A4e-16 closes the t846 maintenance sweep,
-  A4e-17 closes the t847 fourth seat).
+  A4e-17 closes the t847 fourth seat, A4e-18 closes the t848 fifth seat).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -196,10 +211,13 @@ comparison.
 - `node scripts/t840-options-rehearsal.mjs` — the decision table: every
   build-day option's AFTER pre-filmed on its own throwaway clone ((a)
   the clip, (b) at 138 = no-op and 88 = clears with a steepened slope,
-  (c) = backfires to 11.4; two bit-identical rides per option; receipt
-  `shots-qa/t840-options-rehearsal.json`). The t836 arithmetic pricing
-  is an experiment now — the build day's choice is closed by
-  measurement, not by memory.
+  (c) = backfires to 11.4; two bit-identical rides per option; since
+  t848 each clone also carries its own BAND layer — the fifth seat: the
+  edges never move on any option, the mid row pays, (b88) equalizes at
+  122.8, (c) diverges 121.3/106.6; receipt
+  `shots-qa/t840-options-rehearsal.json`, 12 assertions). The t836
+  arithmetic pricing is an experiment now — the build day's choice is
+  closed by measurement, not by memory.
 - `node scripts/t842-family-audit.mjs` — the family audit: one arithmetic,
   five instruments. A pure file pass over the five instrument receipts
   (t839's proof, t840's decision table, the sweep's live rows, and since
@@ -212,7 +230,7 @@ comparison.
   live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
   painted rows, the decision table's rows relate as filmed (B138 no-op at
   the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
-  and all receipts speak the standing build (31 assertions; receipt
+  and all receipts speak the standing build (37 assertions; receipt
   `shots-qa/t842-family-audit.json`). The second seat (t843) pinned the
   BOUND CHAIN across receipts — the wordmark's natural 142.46 > B138's cap
   138 > the squeezed 101.3 > B88's cap 88 — the one line that proves B138
@@ -232,7 +250,17 @@ comparison.
   clone's band numbers EQUAL to the live band's bit-for-bit (left 607.8,
   right 628.3, seats 12) — PAINT-not-geometry proven on the band layer
   too — and the mid wrap joins the three-way as the FOUR-way 115.3 (band
-  live / band clone / zone row / the GEOM every receipt rides). When the
+  live / band clone / zone row / the GEOM every receipt rides). The fifth
+  seat (t848) brought the DECISION TABLE's clones into the band layer as
+  F10: t840's `bandAfter` (live/a/b138/b88/c/restored) films every
+  option's AFTER at the band layer, and the law is the edges-never-move
+  one — the EDGES hold at 607.8 / 628.3 / 12 on every option while only
+  the mid row's awake children pay, (b88) equalizing at its zone wrapW
+  and (c) the wrapper alone paying to its zone wrapW; PAINT and no-op
+  hold cross-harness (t840's option-a clone == t839's cloneBand == the
+  live band, bit-for-bit), the restore returns bit-for-bit, and the
+  115.3 grows the FIVE-way (band live / band clone / band option-a /
+  zone row / the GEOM). When the
   fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
