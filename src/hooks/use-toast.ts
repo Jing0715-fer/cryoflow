@@ -179,6 +179,18 @@ function useToast() {
 
   React.useEffect(() => {
     listeners.push(setState)
+    // t824 — close the boot gap: a toast dispatched between THIS
+    // component's render (useState snapshot taken) and this effect
+    // (subscription attached) updated memoryState but notified an EMPTY
+    // listener set, and useState never re-reads — the toast was silently
+    // lost. The live victim: the shared-view landing's malformed-bounce
+    // toast, whose effect fires in the hydration commit BEFORE this
+    // sibling subscription (page subtree first, layout sibling after) —
+    // the link was consumed, the address bar cleaned, and the user got
+    // nothing. The resync pulls any commit-window dispatch in at
+    // subscribe time; when nothing moved, setState receives the same
+    // reference and React bails out — the resync is free.
+    setState(memoryState)
     return () => {
       const index = listeners.indexOf(setState)
       if (index > -1) {
