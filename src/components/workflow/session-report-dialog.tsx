@@ -1732,7 +1732,26 @@ export default function SessionReportDialog({
         {/* the document itself — the families' bytes, rendered. The
             compass rides on top (sticky): the md's second surface, a
             map for a 62vh scroller, and a screen organ — paper keeps
-            its own page order, so the map carries .no-print. */}
+            its own page order, so the map carries .no-print.
+
+            t816's VERDICT — the doc body keeps its rows-only law. The
+            ground carries NO stop of its own (no tabIndex, no role,
+            no name) because its content IS the stops: the compass
+            chips come first (Tab from the door row lands inside the
+            scroller), then the curve doors and owner doors — 27 stops
+            lived here when the verdict was walked. Focus inside makes
+            the ground keyboard-obedient through the browser's native
+            chain: ArrowDown under a chip's focus scrolled this ground
+            0→183px live while the chip kept focus (t816's receipt).
+            The naked-ground wound is keyboard-INVISIBLE scroll — a
+            scroller whose content offers no stop at all (the star
+            table's cells, the timeline's bars); this ground never
+            had it. A stop on the ground would be a toll paid before
+            the compass, not a new reach, and it would double-speak
+            under two named organs ("Report sections", "Session QC
+            report"). The t812 probe pinned the family's dressed
+            grounds; this comment pins the fifth member's exemption —
+            the verdict, not a bulldoze. */}
         <div className="report-doc max-h-[62vh] overflow-y-auto pr-1" data-report-body ref={bodyRef}>
           {toc.length > 0 && (
             <nav
