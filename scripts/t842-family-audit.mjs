@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-// t842-family-audit — ONE ARITHMETIC, THREE INSTRUMENTS.
+// t842-family-audit — ONE ARITHMETIC, FOUR INSTRUMENTS.
 //
 // The three rehearsal-family receipts must tell the same story about the same
 // 2.7px of paint:
 //   1. scripts/t839-zone-rehearsal.mjs   — the fix's PROOF (before/after/cloneZone/restored)
 //   2. scripts/t840-options-rehearsal.mjs — the fix's DECISION TABLE (optionA/B138/B88/C rows)
 //   3. scripts/t834-band-sweep.mjs        — the LIVE world (zone.rows, 17 widths)
+// and since the second seat (t843), the derivation that prices the wordmark
+// joins the family:
+//   4. scripts/t837-wordmark-probe.mjs    — the NATURAL width the cap must beat
 //
 // The audit is a pure file pass (no browser): the receipts it reads are refreshed
 // each window by their own one-command re-witnesses, so "live" means "the sweep
@@ -22,12 +25,17 @@
 //       floor still binding at 130)
 //   F6  the live residue is real across the whole measured zone (TRIGGER in the stack at all
 //       16 awake widths) — the pre-fix truth the fix window will flip per width
+//   F7  the fourth instrument (t837): the bound chain ACROSS receipts — the wordmark's natural
+//       142.46 > B138's cap 138 > the squeezed 101.3 > B88's cap 88 — the one line that PROVES
+//       B138 is a no-op and B88 binds, with the yield (142.46 - 101.3 = 41.2) riding both
+//       receipts' numbers. The number the no-op verdict stands on is now receipt-to-receipt.
 // Receipt: shots-qa/t842-family-audit.json.
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const R839 = JSON.parse(readFileSync('shots-qa/t839-zone-rehearsal.json', 'utf8'));
 const R840 = JSON.parse(readFileSync('shots-qa/t840-options-rehearsal.json', 'utf8'));
 const SWEEP = JSON.parse(readFileSync('shots-qa/t834-band-sweep.json', 'utf8'));
+const R837 = JSON.parse(readFileSync('shots-qa/t837-wordmark-probe.json', 'utf8'));
 
 const checks = [];
 const ok = (name, pass, detail) => { checks.push({ name, pass, detail }); };
@@ -132,11 +140,25 @@ ok('F6 TRIGGER in the stack at all 16 awake widths (the pre-fix truth)',
   awake.every((w) => hasTrig(live[w])),
   `awake=${awake.length} without-trigger=0`);
 
+// ---- F7 the fourth instrument: the bound chain across receipts -------------------------
+const wmRun = R837.runs && R837.runs[0];
+ok('F7.a t837 aboard: provenance + bit-identity + the natural pins',
+  R837.provenance && R837.provenance.buildId === R839.build &&
+  R837.bitIdentical === true && R837.chip && R837.chip.bitIdentical === true &&
+  wmRun && wmRun.derived === 142.46 && R837.chip.runs[0].rect === 90.3,
+  `derived=${wmRun ? wmRun.derived : '?'} chip=${R837.chip ? R837.chip.runs[0].rect : '?'} build=${R837.provenance ? R837.provenance.buildId : '?'}`);
+const cap138 = 138, cap88 = 88;
+const squeezed = R840.before[0].wmW, natural = wmRun.derived;
+ok('F7.b THE BOUND CHAIN: natural > cap138 > squeezed > cap88, the yield rides both receipts',
+  natural > cap138 && cap138 > squeezed && squeezed > cap88 &&
+  R840.before[0].wmMax === 'none' && near(natural - squeezed, 41.2, 0.05),
+  `${natural} > ${cap138} > ${squeezed} > ${cap88}  (yield ${(natural - squeezed).toFixed(2)})`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const verdict = failed === 0
-  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth) told identically by three instruments — the fix window flips all three with one grind`
+  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by four instruments — the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
   : `the family DISAGREES in ${failed} place(s) — reconcile before the build day`;
 const receipt = {
   instrument: 'scripts/t842-family-audit.mjs',
@@ -146,6 +168,7 @@ const receipt = {
     t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date },
     t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date },
     sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date },
+    t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined },
   },
   arithmetic: {
     geometry: GEOM,
@@ -154,6 +177,7 @@ const receipt = {
     painted: painted.join(','),
     edges: SWEEP.zone.edge,
     decisionTable: { a: 'clips, geometry intact', b88: 'clears -4.8, slope -0.55', c: 'backfires +8.7' },
+    boundChain: { natural: 't837 derived 142.46', cap138: 'B138 unbinding', squeezed: 't840 wmW 101.3', cap88: 'B88 binding', yield: '41.2' },
   },
   checks: checks,
   passed, failed, total: checks.length,

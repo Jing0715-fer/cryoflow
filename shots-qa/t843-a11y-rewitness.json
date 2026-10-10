@@ -1,0 +1,145 @@
+{
+  "instrument": "scripts/t843-a11y-rewitness.mjs",
+  "build": "KtPKuXIbtB9d7uhItOOUS",
+  "date": "2026-10-10T09:34:28.582Z",
+  "viewport": {
+    "w": 1280,
+    "h": 800
+  },
+  "faces": {
+    "canvas": {
+      "census": {
+        "btns": 142,
+        "unnamed": 0
+      },
+      "live": [
+        {
+          "url": "/",
+          "btns": 149,
+          "unBtns": 0,
+          "unBtnsWho": [],
+          "imgs": 0,
+          "altless": 0,
+          "ctrls": 2,
+          "unCtrls": 0,
+          "heading": "Main",
+          "innerW": 1280,
+          "innerH": 800
+        },
+        {
+          "url": "/",
+          "btns": 149,
+          "unBtns": 0,
+          "unBtnsWho": [],
+          "imgs": 0,
+          "altless": 0,
+          "ctrls": 2,
+          "unCtrls": 0,
+          "heading": "Main",
+          "innerW": 1280,
+          "innerH": 800
+        }
+      ]
+    },
+    "dashboard": {
+      "census": {
+        "btns": 114,
+        "unnamed": 0,
+        "imgs": 3,
+        "altless": 0
+      },
+      "live": [
+        {
+          "url": "/",
+          "btns": 116,
+          "unBtns": 0,
+          "unBtnsWho": [],
+          "imgs": 3,
+          "altless": 0,
+          "ctrls": 2,
+          "unCtrls": 0,
+          "heading": "β-Galactosidase Tutorial (demo)",
+          "innerW": 1280,
+          "innerH": 800
+        },
+        {
+          "url": "/",
+          "btns": 116,
+          "unBtns": 0,
+          "unBtnsWho": [],
+          "imgs": 3,
+          "altless": 0,
+          "ctrls": 2,
+          "unCtrls": 0,
+          "heading": "β-Galactosidase Tutorial (demo)",
+          "innerW": 1280,
+          "innerH": 800
+        }
+      ],
+      "arrival": {
+        "clicked": true
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "A1 canvas rides bit-identical",
+      "pass": true,
+      "detail": "btns=149 imgs=0 ctrls=2"
+    },
+    {
+      "label": "A2 canvas zero unnamed buttons",
+      "pass": true,
+      "detail": "unBtns=0"
+    },
+    {
+      "label": "A3 canvas zero unnamed form controls",
+      "pass": true,
+      "detail": "unCtrls=0/2"
+    },
+    {
+      "label": "A4 canvas seat floor holds (census 142)",
+      "pass": true,
+      "detail": "live=149 (census 142, drift +7)"
+    },
+    {
+      "label": "A5a the switcher clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "A5b the dashboard face arrived",
+      "pass": true,
+      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=116"
+    },
+    {
+      "label": "A6 dashboard rides bit-identical",
+      "pass": true,
+      "detail": "btns=116 imgs=3"
+    },
+    {
+      "label": "A7 dashboard zero unnamed buttons",
+      "pass": true,
+      "detail": "unBtns=0"
+    },
+    {
+      "label": "A8 dashboard zero alt-less imgs (hasAttribute, not falsy)",
+      "pass": true,
+      "detail": "imgs=3 altless=0"
+    },
+    {
+      "label": "A9 dashboard seat floor holds (census 114)",
+      "pass": true,
+      "detail": "live=116 (census 114, drift +2)"
+    },
+    {
+      "label": "A10 world unharmed (canvas back, switcher aboard)",
+      "pass": true,
+      "detail": "btns=149 heading=\"Main\""
+    }
+  ],
+  "passed": 11,
+  "failed": 0,
+  "total": 11,
+  "verdict": "the census's zero-unnamed invariant holds on the cheap honesty pair: 265 button-views across two faces, none without a name; the seats grew +7/+2 since the census and every newcomer still speaks; the decorative alt=\"\" trap caught the probe once (the t695 law's second bite) and the UI walked clean"
+}

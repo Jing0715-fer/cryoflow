@@ -389,6 +389,31 @@ if (famReceipt && famReceipt.checks) {
   );
 }
 
+// A4e-13 — the t843 A11Y RE-WITNESS: the census's cheap honesty pair walked
+// live again. docs/a11y-census.md promised the re-witness would be free;
+// this receipt is the payment: canvas + dashboard, two bit-identical rides
+// per face, ZERO unnamed buttons / form controls / alt-less imgs (by
+// hasAttribute — the decorative alt="" trap caught the probe once and the
+// t695 law held), and the seat drift recorded honestly (census floors 142
+// and 114 must hold; every newcomer still speaks its name).
+const a11yPath = join(ROOT, "shots-qa/t843-a11y-rewitness.json");
+const a11yReceipt = existsSync(a11yPath)
+  ? JSON.parse(readFileSync(a11yPath, "utf8"))
+  : null;
+if (a11yReceipt && a11yReceipt.checks) {
+  const cf = a11yReceipt.faces && a11yReceipt.faces.canvas;
+  const df = a11yReceipt.faces && a11yReceipt.faces.dashboard;
+  const cl = cf && cf.live ? cf.live[0] : null;
+  const dl = df && df.live ? df.live[0] : null;
+  ok(
+    a11yReceipt.failed === 0 && a11yReceipt.total >= 11 &&
+      a11yReceipt.build === "KtPKuXIbtB9d7uhItOOUS" &&
+      cl && dl && cl.unBtns === 0 && cl.unCtrls === 0 && cl.btns >= 142 &&
+      dl.unBtns === 0 && dl.altless === 0 && dl.btns >= 114,
+    `A4e-13 the t843 a11y re-witness is aboard and green (${a11yReceipt.passed}/${a11yReceipt.total}): ${cl ? cl.btns : "?"} + ${dl ? dl.btns : "?"} button-views across the cheap honesty pair, ZERO unnamed (the census's invariant holds with the seats grown +${cl ? cl.btns - 142 : "?"}/+${dl ? dl.btns - 114 : "?"}), alt="" read by hasAttribute (the t695 law's second bite) — the name layer's foundation re-witnessed for free`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

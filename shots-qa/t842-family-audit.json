@@ -1,19 +1,23 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T09:21:21.627Z",
+  "date": "2026-10-10T09:34:19.798Z",
   "sources": {
     "t839": {
       "file": "shots-qa/t839-zone-rehearsal.json",
-      "date": "2026-10-10T09:21:00.321Z"
+      "date": "2026-10-10T09:28:04.446Z"
     },
     "t840": {
       "file": "shots-qa/t840-options-rehearsal.json",
-      "date": "2026-10-10T09:21:09.717Z"
+      "date": "2026-10-10T09:28:13.535Z"
     },
     "sweep": {
       "file": "shots-qa/t834-band-sweep.json",
-      "date": "2026-10-10T09:21:21.585Z"
+      "date": "2026-10-10T09:27:59.201Z"
+    },
+    "t837": {
+      "file": "shots-qa/t837-wordmark-probe.json",
+      "date": "2026-10-10T09:28:00.571Z"
     }
   },
   "arithmetic": {
@@ -36,6 +40,13 @@
       "a": "clips, geometry intact",
       "b88": "clears -4.8, slope -0.55",
       "c": "backfires +8.7"
+    },
+    "boundChain": {
+      "natural": "t837 derived 142.46",
+      "cap138": "B138 unbinding",
+      "squeezed": "t840 wmW 101.3",
+      "cap88": "B88 binding",
+      "yield": "41.2"
     }
   },
   "checks": [
@@ -158,10 +169,20 @@
       "name": "F6 TRIGGER in the stack at all 16 awake widths (the pre-fix truth)",
       "pass": true,
       "detail": "awake=16 without-trigger=0"
+    },
+    {
+      "name": "F7.a t837 aboard: provenance + bit-identity + the natural pins",
+      "pass": true,
+      "detail": "derived=142.46 chip=90.3 build=KtPKuXIbtB9d7uhItOOUS"
+    },
+    {
+      "name": "F7.b THE BOUND CHAIN: natural > cap138 > squeezed > cap88, the yield rides both receipts",
+      "pass": true,
+      "detail": "142.46 > 138 > 101.3 > 88  (yield 41.16)"
     }
   ],
-  "passed": 24,
+  "passed": 26,
   "failed": 0,
-  "total": 24,
-  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth) told identically by three instruments — the fix window flips all three with one grind"
+  "total": 26,
+  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by four instruments — the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
 }
