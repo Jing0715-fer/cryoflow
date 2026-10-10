@@ -1,23 +1,23 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T09:34:19.798Z",
+  "date": "2026-10-10T09:42:20.445Z",
   "sources": {
     "t839": {
       "file": "shots-qa/t839-zone-rehearsal.json",
-      "date": "2026-10-10T09:28:04.446Z"
+      "date": "2026-10-10T09:42:11.598Z"
     },
     "t840": {
       "file": "shots-qa/t840-options-rehearsal.json",
-      "date": "2026-10-10T09:28:13.535Z"
+      "date": "2026-10-10T09:42:20.411Z"
     },
     "sweep": {
       "file": "shots-qa/t834-band-sweep.json",
-      "date": "2026-10-10T09:27:59.201Z"
+      "date": "2026-10-10T09:42:06.112Z"
     },
     "t837": {
       "file": "shots-qa/t837-wordmark-probe.json",
-      "date": "2026-10-10T09:28:00.571Z"
+      "date": "2026-10-10T09:42:07.541Z"
     }
   },
   "arithmetic": {

@@ -1,0 +1,205 @@
+{
+  "instrument": "scripts/t844-a11y-fragile-pair.mjs",
+  "build": "KtPKuXIbtB9d7uhItOOUS",
+  "date": "2026-10-10T09:49:38.854Z",
+  "doors": {
+    "inspector": "dashboard → saved-view card (textContent startsWith 'Centered iso view')",
+    "palette": "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door"
+  },
+  "faces": {
+    "inspector": {
+      "census": {
+        "pageBtns": 180,
+        "unnamed": 0
+      },
+      "live": [
+        {
+          "pageBtns": 188,
+          "pageUnnamed": 0,
+          "unWho": [],
+          "hasDlg": true,
+          "dlgBtns": 39,
+          "dlgUnnamed": 0,
+          "dlgFocus": true,
+          "dlgHeading": "3D auto-refine — job inspector3D auto-re",
+          "ip": null
+        },
+        {
+          "pageBtns": 188,
+          "pageUnnamed": 0,
+          "unWho": [],
+          "hasDlg": true,
+          "dlgBtns": 39,
+          "dlgUnnamed": 0,
+          "dlgFocus": true,
+          "dlgHeading": "3D auto-refine — job inspector3D auto-re",
+          "ip": null
+        }
+      ],
+      "afterEscape": {
+        "pageBtns": 149,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "hasDlg": false,
+        "dlgBtns": 0,
+        "dlgUnnamed": 0,
+        "dlgFocus": null,
+        "dlgHeading": null,
+        "ip": null
+      }
+    },
+    "palette": {
+      "census": {
+        "pageBtns": 150,
+        "unnamed": 0,
+        "input": 1
+      },
+      "live": [
+        {
+          "pageBtns": 157,
+          "pageUnnamed": 0,
+          "unWho": [],
+          "hasDlg": true,
+          "dlgBtns": 8,
+          "dlgUnnamed": 0,
+          "dlgFocus": true,
+          "dlgHeading": "Command palette",
+          "ip": {
+            "aria": null,
+            "ph": "Jump to a job, add a type, run an action…"
+          }
+        },
+        {
+          "pageBtns": 157,
+          "pageUnnamed": 0,
+          "unWho": [],
+          "hasDlg": true,
+          "dlgBtns": 8,
+          "dlgUnnamed": 0,
+          "dlgFocus": true,
+          "dlgHeading": "Command palette",
+          "ip": {
+            "aria": null,
+            "ph": "Jump to a job, add a type, run an action…"
+          }
+        }
+      ]
+    },
+    "baseline": {
+      "census": {
+        "pageBtns": 142,
+        "unnamed": 0
+      },
+      "live": [
+        {
+          "pageBtns": 149,
+          "pageUnnamed": 0,
+          "unWho": [],
+          "hasDlg": false,
+          "dlgBtns": 0,
+          "dlgUnnamed": 0,
+          "dlgFocus": null,
+          "dlgHeading": null,
+          "ip": null
+        },
+        {
+          "pageBtns": 149,
+          "pageUnnamed": 0,
+          "unWho": [],
+          "hasDlg": false,
+          "dlgBtns": 0,
+          "dlgUnnamed": 0,
+          "dlgFocus": null,
+          "dlgHeading": null,
+          "ip": null
+        }
+      ]
+    }
+  },
+  "checks": [
+    {
+      "label": "A1 canvas rides bit-identical",
+      "pass": true,
+      "detail": "btns=149"
+    },
+    {
+      "label": "A2 canvas floor holds (census 142)",
+      "pass": true,
+      "detail": "live=149 unnamed=0"
+    },
+    {
+      "label": "A3 the saved-view card found and clicked",
+      "pass": true,
+      "detail": "the door the census reached by accident, taken deliberately"
+    },
+    {
+      "label": "A4 the inspector arrived: dialog + labelledby + tenant heading",
+      "pass": true,
+      "detail": "heading=\"3D auto-refine — job inspector3D auto-re\""
+    },
+    {
+      "label": "A5 the inspector's focus is trapped in the dialog",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "A6 inspector rides bit-identical",
+      "pass": true,
+      "detail": "page=188 dlg=39"
+    },
+    {
+      "label": "A7 inspector zero unnamed (page-wide)",
+      "pass": true,
+      "detail": "unnamed=0"
+    },
+    {
+      "label": "A8 inspector dialog subset clean",
+      "pass": true,
+      "detail": "dlg=39 unnamed=0"
+    },
+    {
+      "label": "A9 inspector floor holds (census 180)",
+      "pass": true,
+      "detail": "live=188 (census 180, drift +8)"
+    },
+    {
+      "label": "A10 Escape closed the inspector",
+      "pass": true,
+      "detail": "dlg=false"
+    },
+    {
+      "label": "A11 the palette arrived: dialog + cmdk input",
+      "pass": true,
+      "detail": "placeholder=\"Jump to a job, add a type, run an action…\""
+    },
+    {
+      "label": "A12 palette rides bit-identical",
+      "pass": true,
+      "detail": "page=157"
+    },
+    {
+      "label": "A13 palette zero unnamed (page-wide)",
+      "pass": true,
+      "detail": "unnamed=0"
+    },
+    {
+      "label": "A14 the input's name rides the placeholder (observation #2 holds)",
+      "pass": true,
+      "detail": "aria=null (the labelledby target is an empty Radix styling label — recorded, not fixed)"
+    },
+    {
+      "label": "A15 palette floor holds (census 150)",
+      "pass": true,
+      "detail": "live=157 (census 150, drift +7)"
+    },
+    {
+      "label": "A16 world unharmed (canvas back, no dialog, floors hold)",
+      "pass": true,
+      "detail": "btns=149 dlg=false"
+    }
+  ],
+  "passed": 16,
+  "failed": 0,
+  "total": 16,
+  "verdict": "the fragile pair walked clean with the method artifact's discipline: the inspector's tenant heading, trapped focus, 188 page-wide buttons zero unnamed (census 180, +8 newcomers all named), the palette's contract door, 157 zero unnamed (census 150, +7), the input's placeholder name recorded as the census's observation #2 — the census's four faces are now ALL re-witnessed this cycle"
+}

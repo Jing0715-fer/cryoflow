@@ -414,6 +414,35 @@ if (a11yReceipt && a11yReceipt.checks) {
   );
 }
 
+// A4e-14 — the t844 FRAGILE PAIR: the a11y rotation's second course. The
+// inspector (dashboard → saved-view card — the door the census reached by
+// ACCIDENT, now taken deliberately) and the ⌘K palette (the t483 contract
+// event, the in-contract door synthetic ⌘K cannot replace). The census's
+// four faces are now ALL re-witnessed this cycle; the floors (180/150)
+// must hold, every newcomer named, the tenant heading + trapped focus
+// verified, and the palette input's placeholder name recorded (the
+// census's observation #2 — the labelledby target is an empty Radix
+// styling label; the tree falls through to the placeholder).
+const fpPath = join(ROOT, "shots-qa/t844-a11y-fragile-pair.json");
+const fpReceipt = existsSync(fpPath)
+  ? JSON.parse(readFileSync(fpPath, "utf8"))
+  : null;
+if (fpReceipt && fpReceipt.checks) {
+  const fi = fpReceipt.faces && fpReceipt.faces.inspector;
+  const fp = fpReceipt.faces && fpReceipt.faces.palette;
+  const il = fi && fi.live ? fi.live[0] : null;
+  const pl = fp && fp.live ? fp.live[0] : null;
+  ok(
+    fpReceipt.failed === 0 && fpReceipt.total >= 16 &&
+      fpReceipt.build === "KtPKuXIbtB9d7uhItOOUS" &&
+      il && pl && il.pageBtns >= 180 && il.pageUnnamed === 0 &&
+      il.dlgUnnamed === 0 && il.dlgFocus === true &&
+      il.dlgHeading && String(il.dlgHeading).startsWith("3D auto-refine — job inspector") &&
+      pl.pageBtns >= 150 && pl.pageUnnamed === 0 && pl.ip && !pl.ip.aria && !!pl.ip.ph,
+    `A4e-14 the t844 fragile pair is aboard and green (${fpReceipt.passed}/${fpReceipt.total}): the inspector ${il ? il.pageBtns : "?"} page-wide zero unnamed (dlg ${il ? il.dlgBtns : "?"}, tenant heading + trapped focus), the palette ${pl ? pl.pageBtns : "?"} zero unnamed with the placeholder-named input — the census's four faces ALL re-witnessed this cycle, floors +${il ? il.pageBtns - 180 : "?"}/+${pl ? pl.pageBtns - 150 : "?"} all named`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),
