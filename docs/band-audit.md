@@ -102,6 +102,13 @@ The zone, measured in 1px steps and pinned (the sweep's section E, 54/54):
   consequence the fix window must price: option (a) `overflow-hidden`
   changes the PAINT, not the geometry — the ratchet needs this paint
   witness (elementFromPoint + computed bg), not the raw rect delta alone.
+  **The sweep carries it permanently now (t841, the zone's second
+  instrument)**: the zone measure grew the STACK witness
+  (`elementsFromPoint` — the trigger is IN the hit stack at every
+  painted width, E9) and the wrapper's computed overflow-x (the fix's
+  fingerprint, watched in reverse, E10) — the fix window's flip is a
+  per-width measured delta, and E10 goes red first if the src outlives
+  the sweep.
 
 **The fix's proof, pre-flighted (t839, still zero src).** Option (a) was
 rehearsed on a throwaway documentElement clone — `overflowX = 'hidden'`
@@ -155,9 +162,10 @@ comparison.
 ## Instruments
 
 - `node scripts/t834-band-sweep.mjs` — the live half: six bands plus the
-  residue's 1px-step zone (54 assertions), one command; receipt
-  `shots-qa/t834-band-sweep.json` with the raw subpixels, per-seat anatomy,
-  and the zone table.
+  residue's 1px-step zone (56 assertions; the zone rows carry the STACK
+  witness and the wrapper's overflow-x fingerprint since t841), one
+  command; receipt `shots-qa/t834-band-sweep.json` with the raw subpixels,
+  per-seat anatomy, and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
   parsed, the tiers computed, the closed forms (49 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
