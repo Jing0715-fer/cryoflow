@@ -76,6 +76,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { worldIdentity } from "./world-identity.mjs";
 
 const ROOT = process.cwd();
 
@@ -119,8 +120,9 @@ const evalJson = (js) => {
 };
 
 /* ---------- provenance: the world this probe witnesses ---------- */
-const buildId = readFileSync(join(ROOT, ".next/BUILD_ID"), "utf8").trim();
-console.log(`t837 wordmark probe — build ${buildId}, band 1024 (natural, no squeeze)\n`);
+const world = worldIdentity(ROOT); // t859 — the world key: build id on build days, dev@src-hash otherwise (t858's dev-only world must not strand the battery)
+const buildId = world.id;
+console.log(`t837 wordmark probe — world ${world.mode}:${buildId}, band 1024 (natural, no squeeze)\n`);
 
 /* viewport 1024: the audit's A4e-3 band — the wordmark sits at its
  * natural width here, the honest ruler for a natural-width constant */
@@ -216,6 +218,7 @@ const writeReceipt = () => {
   const receipt = {
     provenance: {
       buildId,
+      worldMode: world.mode,
       viewport: "1024x800 (the A4e-3 natural band); the chip at 1536x800 (2xl)",
       instrument: "canvas measureText under the elements' own computed fonts, letter-spacing applied (two models), max-of-lines for the wordmark box, chrome+icon+advances for the chip box; the tabular count's advance from its own live rect",
       date: new Date().toISOString(),

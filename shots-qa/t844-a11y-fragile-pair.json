@@ -1,7 +1,8 @@
 {
   "instrument": "scripts/t844-a11y-fragile-pair.mjs",
-  "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T12:59:13.493Z",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-10T14:10:19.603Z",
   "doors": {
     "inspector": "dashboard → saved-view card (textContent startsWith 'Centered iso view')",
     "palette": "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door"
@@ -14,30 +15,30 @@
       },
       "live": [
         {
-          "pageBtns": 188,
+          "pageBtns": 272,
           "pageUnnamed": 0,
           "unWho": [],
           "hasDlg": true,
-          "dlgBtns": 39,
+          "dlgBtns": 119,
           "dlgUnnamed": 0,
           "dlgFocus": true,
-          "dlgHeading": "3D auto-refine — job inspector3D auto-re",
+          "dlgHeading": "3D Refine (tutorial) — job inspector3D R",
           "ip": null
         },
         {
-          "pageBtns": 188,
+          "pageBtns": 272,
           "pageUnnamed": 0,
           "unWho": [],
           "hasDlg": true,
-          "dlgBtns": 39,
+          "dlgBtns": 119,
           "dlgUnnamed": 0,
           "dlgFocus": true,
-          "dlgHeading": "3D auto-refine — job inspector3D auto-re",
+          "dlgHeading": "3D Refine (tutorial) — job inspector3D R",
           "ip": null
         }
       ],
       "afterEscape": {
-        "pageBtns": 149,
+        "pageBtns": 153,
         "pageUnnamed": 0,
         "unWho": [],
         "hasDlg": false,
@@ -56,7 +57,7 @@
       },
       "live": [
         {
-          "pageBtns": 157,
+          "pageBtns": 161,
           "pageUnnamed": 0,
           "unWho": [],
           "hasDlg": true,
@@ -70,7 +71,7 @@
           }
         },
         {
-          "pageBtns": 157,
+          "pageBtns": 161,
           "pageUnnamed": 0,
           "unWho": [],
           "hasDlg": true,
@@ -92,7 +93,7 @@
       },
       "live": [
         {
-          "pageBtns": 149,
+          "pageBtns": 153,
           "pageUnnamed": 0,
           "unWho": [],
           "hasDlg": false,
@@ -103,7 +104,7 @@
           "ip": null
         },
         {
-          "pageBtns": 149,
+          "pageBtns": 153,
           "pageUnnamed": 0,
           "unWho": [],
           "hasDlg": false,
@@ -120,12 +121,12 @@
     {
       "label": "A1 canvas rides bit-identical",
       "pass": true,
-      "detail": "btns=149"
+      "detail": "btns=153"
     },
     {
       "label": "A2 canvas floor holds (census 142)",
       "pass": true,
-      "detail": "live=149 unnamed=0"
+      "detail": "live=153 unnamed=0"
     },
     {
       "label": "A3 the saved-view card found and clicked",
@@ -135,7 +136,7 @@
     {
       "label": "A4 the inspector arrived: dialog + labelledby + tenant heading",
       "pass": true,
-      "detail": "heading=\"3D auto-refine — job inspector3D auto-re\""
+      "detail": "heading=\"3D Refine (tutorial) — job inspector3D R\""
     },
     {
       "label": "A5 the inspector's focus is trapped in the dialog",
@@ -145,7 +146,7 @@
     {
       "label": "A6 inspector rides bit-identical",
       "pass": true,
-      "detail": "page=188 dlg=39"
+      "detail": "page=272 dlg=119"
     },
     {
       "label": "A7 inspector zero unnamed (page-wide)",
@@ -155,12 +156,12 @@
     {
       "label": "A8 inspector dialog subset clean",
       "pass": true,
-      "detail": "dlg=39 unnamed=0"
+      "detail": "dlg=119 unnamed=0"
     },
     {
-      "label": "A9 inspector floor holds (census 180)",
+      "label": "A9 inspector floor holds (restored world 172)",
       "pass": true,
-      "detail": "live=188 (census 180, drift +8)"
+      "detail": "live=272 (restored 172, drift +100)"
     },
     {
       "label": "A10 Escape closed the inspector",
@@ -175,7 +176,7 @@
     {
       "label": "A12 palette rides bit-identical",
       "pass": true,
-      "detail": "page=157"
+      "detail": "page=161"
     },
     {
       "label": "A13 palette zero unnamed (page-wide)",
@@ -190,16 +191,16 @@
     {
       "label": "A15 palette floor holds (census 150)",
       "pass": true,
-      "detail": "live=157 (census 150, drift +7)"
+      "detail": "live=161 (census 150, drift +11)"
     },
     {
       "label": "A16 world unharmed (canvas back, no dialog, floors hold)",
       "pass": true,
-      "detail": "btns=149 dlg=false"
+      "detail": "btns=153 dlg=false"
     }
   ],
   "passed": 16,
   "failed": 0,
   "total": 16,
-  "verdict": "the fragile pair walked clean with the method artifact's discipline: the inspector's tenant heading, trapped focus, 188 page-wide buttons zero unnamed (census 180, +8 newcomers all named), the palette's contract door, 157 zero unnamed (census 150, +7), the input's placeholder name recorded as the census's observation #2 — the census's four faces are now ALL re-witnessed this cycle"
+  "verdict": "the fragile pair walked clean with the method artifact's discipline: the inspector's tenant heading, trapped focus, 272 page-wide buttons zero unnamed (census 180, +92 newcomers all named), the palette's contract door, 161 zero unnamed (census 150, +11), the input's placeholder name recorded as the census's observation #2 — the census's four faces are now ALL re-witnessed this cycle"
 }

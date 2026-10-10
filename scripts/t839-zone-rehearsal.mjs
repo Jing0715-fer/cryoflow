@@ -73,6 +73,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { worldIdentity } from "./world-identity.mjs";
 
 const ROOT = process.cwd();
 const HEIGHT = 800;
@@ -115,9 +116,10 @@ const evalJson = (js) => {
 };
 
 /* ---------- provenance ---------- */
-const buildId = readFileSync(join(ROOT, ".next/BUILD_ID"), "utf8").trim();
+const world = worldIdentity(ROOT); // t859 — the world key: build id on build days, dev@src-hash otherwise (t858's dev-only world must not strand the battery)
+const buildId = world.id;
 console.log(
-  `t839 zone rehearsal — build ${buildId}, band 1280 (the zone's left edge), the fix rehearsed on a throwaway clone\n`
+  `t839 zone rehearsal — world ${world.mode}:${buildId}, band 1280 (the zone's left edge), the fix rehearsed on a throwaway clone\n`
 );
 
 /* ---------- the measure: the sweep's ZONE_MEASURE walk + the stack
@@ -294,6 +296,7 @@ ok(
 const receipt = {
   instrument: "scripts/t839-zone-rehearsal.mjs",
   build: buildId,
+  worldMode: world.mode,
   date: new Date().toISOString(),
   viewport: { w: 1280, h: HEIGHT },
   fix: "option (a): overflowX = 'hidden' on the PS wrapper of a throwaway documentElement clone (document.replaceChild swap; React's root stays on the detached original)",

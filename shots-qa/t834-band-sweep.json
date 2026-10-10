@@ -1,7 +1,8 @@
 {
   "instrument": "scripts/t834-band-sweep.mjs",
-  "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T12:58:14.281Z",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-10T14:03:40.458Z",
   "bands": {
     "375": {
       "leftW": 68,
@@ -578,7 +579,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -597,7 +598,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -616,7 +617,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -635,7 +636,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -654,7 +655,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -673,7 +674,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -692,7 +693,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -711,7 +712,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -729,7 +730,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -745,7 +746,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -761,7 +762,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -777,7 +778,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -793,7 +794,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -809,7 +810,7 @@
           "TRIGGER|Active project",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -828,7 +829,7 @@
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -847,7 +848,7 @@
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|geist_a71539c9-module__T19VSG_",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"

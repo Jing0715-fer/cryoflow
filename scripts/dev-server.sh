@@ -49,6 +49,13 @@ if curl -H "Origin: http://localhost:3000" -sf -o /dev/null --max-time 3 http://
   exit 0
 fi
 # stale lock/socket cleanup: kill leftovers from a crashed run
+# t859 — the stale-pattern lesson: this pkill grepped for "next dev -p 3000",
+# a spelling the spawn below never used (it was flagless), so a crashed
+# flagless instance survived its own cleanup — the next boot then found
+# :3000 busy and Next SILENTLY BUMPED to :3001 ("Port 3000 is in use, trying
+# 3001"), while every consumer (this script's own health check, the QA
+# battery, the census) kept knocking on :3000. Match both spellings now.
+pkill -f "next dev" 2>/dev/null
 pkill -f "next dev -p 3000" 2>/dev/null
 pkill -f "next-server" 2>/dev/null
 sleep 1
@@ -86,6 +93,12 @@ export CRYOFLOW_TRUST_GATEWAY=1
 # storms were this, unnamed). /tmp is outside the watcher's world.
 QA_LOG_DIR="${CRYOFLOW_QA_LOG_DIR:-/tmp/cryoflow-qa}"
 mkdir -p "$QA_LOG_DIR"
-setsid node node_modules/next/dist/bin/next dev ${DEV_NEXT_ARGS:-} > "$QA_LOG_DIR/dev-server.log" 2>&1 < /dev/null &
+# t859 — pin the port: an occupied :3000 at boot made Next drift to :3001
+# SILENTLY (the message scrolls past in a log nobody reads mid-incident);
+# the whole lane speaks :3000, so a silent drift strands every consumer.
+# Pinned, the busy case fails LOUD instead (Next exits EADDRINUSE, the
+# watchdog's boot-fail streak handles it) — and the cleanup pkill above
+# now matches the spawn it was written for.
+setsid node node_modules/next/dist/bin/next dev -p 3000 ${DEV_NEXT_ARGS:-} > "$QA_LOG_DIR/dev-server.log" 2>&1 < /dev/null &
 # this script exits immediately → server re-parents to init → survives
 ensure_watchdog

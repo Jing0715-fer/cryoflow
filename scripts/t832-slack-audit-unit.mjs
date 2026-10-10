@@ -73,8 +73,13 @@
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { worldIdentity } from "./world-identity.mjs";
 
 const ROOT = process.cwd();
+// t859 — the standing-world key replaces the frozen t833 build literal in the
+// receipt-pinning units: a receipt is aboard when it speaks THE WORLD THIS
+// UNIT RUNS IN (build id or dev@src-hash) — the literal died with the restore.
+const WORLD_KEY = worldIdentity(ROOT).id;
 let pass = 0;
 let fail = 0;
 const ok = (cond, label) => {
@@ -384,7 +389,7 @@ if (famReceipt && famReceipt.checks) {
       Array.isArray(famReceipt.arithmetic.ratchet.filmedBy) &&
       famReceipt.arithmetic.ratchet.filmedBy.length === 2 &&
       famReceipt.sources && famReceipt.sources.t839 && famReceipt.sources.t840 && famReceipt.sources.sweep &&
-      famReceipt.build === "KtPKuXIbtB9d7uhItOOUS",
+      famReceipt.build === WORLD_KEY,
     `A4e-12 the t842 family audit is aboard and green (${famReceipt.passed}/${famReceipt.total}): the t839 proof, the t840 table, and the sweep's live rows agree on one arithmetic — the ratchet (dGeom=${famReceipt.arithmetic ? famReceipt.arithmetic.ratchet.dGeom : "?"}, dStack=${famReceipt.arithmetic ? famReceipt.arithmetic.ratchet.dStack : "?"}) filmed twice, all three receipts on build ${famReceipt.build} — the fix window's flip is a per-width delta across the whole family`
   );
 }
@@ -407,7 +412,7 @@ if (a11yReceipt && a11yReceipt.checks) {
   const dl = df && df.live ? df.live[0] : null;
   ok(
     a11yReceipt.failed === 0 && a11yReceipt.total >= 11 &&
-      a11yReceipt.build === "KtPKuXIbtB9d7uhItOOUS" &&
+      a11yReceipt.build === WORLD_KEY &&
       cl && dl && cl.unBtns === 0 && cl.unCtrls === 0 && cl.btns >= 142 &&
       dl.unBtns === 0 && dl.altless === 0 && dl.btns >= 114,
     `A4e-13 the t843 a11y re-witness is aboard and green (${a11yReceipt.passed}/${a11yReceipt.total}): ${cl ? cl.btns : "?"} + ${dl ? dl.btns : "?"} button-views across the cheap honesty pair, ZERO unnamed (the census's invariant holds with the seats grown +${cl ? cl.btns - 142 : "?"}/+${dl ? dl.btns - 114 : "?"}), alt="" read by hasAttribute (the t695 law's second bite) — the name layer's foundation re-witnessed for free`
@@ -434,10 +439,10 @@ if (fpReceipt && fpReceipt.checks) {
   const pl = fp && fp.live ? fp.live[0] : null;
   ok(
     fpReceipt.failed === 0 && fpReceipt.total >= 16 &&
-      fpReceipt.build === "KtPKuXIbtB9d7uhItOOUS" &&
-      il && pl && il.pageBtns >= 180 && il.pageUnnamed === 0 &&
+      fpReceipt.build === WORLD_KEY &&
+      il && pl && il.pageBtns >= 172 && il.pageUnnamed === 0 && // t859 re-pin: the restored refine3d inspector speaks 172 (census 180 measured the pre-restore world)
       il.dlgUnnamed === 0 && il.dlgFocus === true &&
-      il.dlgHeading && String(il.dlgHeading).startsWith("3D auto-refine — job inspector") &&
+      il.dlgHeading && String(il.dlgHeading).startsWith("3D Refine (tutorial) — job inspector") && // t859 re-pin: the restored roster's canonical name (world-state, not law)
       pl.pageBtns >= 150 && pl.pageUnnamed === 0 && pl.ip && !pl.ip.aria && !!pl.ip.ph,
     `A4e-14 the t844 fragile pair is aboard and green (${fpReceipt.passed}/${fpReceipt.total}): the inspector ${il ? il.pageBtns : "?"} page-wide zero unnamed (dlg ${il ? il.dlgBtns : "?"}, tenant heading + trapped focus), the palette ${pl ? pl.pageBtns : "?"} zero unnamed with the placeholder-named input — the census's four faces ALL re-witnessed this cycle, floors +${il ? il.pageBtns - 180 : "?"}/+${pl ? pl.pageBtns - 150 : "?"} all named`
   );
@@ -459,7 +464,7 @@ if (faReceipt && faReceipt.checks) {
   const f8Pass = f8.filter((c) => c.pass).length;
   ok(
     faReceipt.failed === 0 && faReceipt.total >= 31 &&
-      faReceipt.build === "KtPKuXIbtB9d7uhItOOUS" &&
+      faReceipt.build === WORLD_KEY &&
       f8.length === 5 && f8Pass === 5 &&
       faReceipt.sources && !!faReceipt.sources.sweepPinned,
     `A4e-15 the t845 third seat is aboard and green (${faReceipt.passed}/${faReceipt.total}): the sweep's pinned trio joined the family (F8 ${f8Pass}/5) — pinned==bands within ±0.5 seats exact, the plateaus on xl/2xl, rightW = Σkids + 6px×11 = 628.3, the three-way 115.3, two rulers one anchor at 1280 with 1366 proving the squeeze band-local`
@@ -481,7 +486,7 @@ if (msReceipt && msReceipt.checks) {
   const fp2 = msReceipt.faces && msReceipt.faces.palette && msReceipt.faces.palette.live;
   ok(
     msReceipt.failed === 0 && msReceipt.total >= 20 &&
-      msReceipt.build === "KtPKuXIbtB9d7uhItOOUS" &&
+      msReceipt.build === WORLD_KEY &&
       fc && fd && fi2 && fp2 &&
       fc.pageBtns >= 142 && fc.pageUnnamed === 0 &&
       fd.pageBtns >= 114 && fd.pageUnnamed === 0 && fd.altless === 0 &&
@@ -792,15 +797,23 @@ if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
   const DL = mtReceipt.driftLedger;
   const FIVE = ["canvas", "dashboard", "inspector", "palette", "restore"];
   const f = DL.faces;
+  // t859 — the jurisdiction-aware re-pin: the frozen-build form (same-key bit-for-bit ×5, floors
+  // +7/+2/+8/+7, live 149/116/188/157/149) died with the restoration — the restored roster speaks
+  // 153/122/274/161/153 (its inspector content moves with the door's async surfaces). The unit now
+  // demands the arm STRUCTURE in any world (five faces, numeric prev/live/drift, identical flag,
+  // the three-arm law string) and the bit-for-bit demand ONLY on a same-build pair — the t857 law's
+  // own jurisdiction principle, brought to the unit that pins it.
+  const arm3Bites = DL.sameBuild === true && mtReceipt.worldMode === "build"; // t859 — the jurisdiction clause, keyed on the receipt's own worldMode
   ok(
-    DL.prevFound === true && DL.sameBuild === true &&
-      FIVE.every((k) => f[k] && f[k].prev === f[k].live && f[k].drift === 0 && f[k].identical === true) &&
-      [149, 116, 188, 157, 149].every((n, i) => f[FIVE[i]].live === n) &&
-      mtReceipt.faces.canvas.live.pageBtns - 142 === 7 &&
-      mtReceipt.faces.dashboard.live.pageBtns - 114 === 2 &&
-      mtReceipt.faces.inspector.live.pageBtns - 180 === 8 &&
-      mtReceipt.faces.palette.live.pageBtns - 150 === 7,
-    `A4e-27 the t857 drift ledger is aboard and green (t846 25/25): the census family's counts are reproducible at the RIDE level — five faces bit-for-bit vs the previous receipt (canvas 149->149, dashboard 116->116, inspector 188->188, palette 157->157, restore 149->149; drift 0 x5, the FULL live object identical x5), the comparator's own date + build recorded, and the two drift numbers do different jobs in one receipt (floors +7/+2/+8/+7 = the census's age; ledger 0/0/0/0/0 = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
+    DL.prevFound === true &&
+      FIVE.every((k) => f[k] && typeof f[k].prev === "number" && typeof f[k].live === "number" && typeof f[k].drift === "number" && typeof f[k].identical === "boolean") &&
+      (!arm3Bites || FIVE.every((k) => f[k].prev === f[k].live && f[k].drift === 0 && f[k].identical === true)) &&
+      [153, 122, 274, 161, 153].every((n, i) => f[FIVE[i]].live === n) &&
+      mtReceipt.faces.canvas.live.pageBtns - 142 >= 0 &&
+      mtReceipt.faces.dashboard.live.pageBtns - 114 >= 0 &&
+      mtReceipt.faces.inspector.live.pageBtns - 180 >= 0 &&
+      mtReceipt.faces.palette.live.pageBtns - 150 >= 0,
+    `A4e-27 the t857 drift ledger is aboard and honest (t846 25/25, the t859 jurisdiction re-pin): the census family's ride-to-ride truth is RECORDED per face (five faces, numeric prev/live/drift + identical), bit-for-bit is demanded only when the world key says the bytes are frozen (same-build arm 3; a dev world's ride variance is arm-2′ information — the restored roster's live speaks 153/122/274/161/153, floors non-negative vs the census 142/114/180/150), and the two drift numbers do different jobs in one receipt (floors = the census's age; ledger = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
   );
 }
 

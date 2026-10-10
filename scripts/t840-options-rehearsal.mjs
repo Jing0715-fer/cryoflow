@@ -93,6 +93,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { worldIdentity } from "./world-identity.mjs";
 
 const ROOT = process.cwd();
 const HEIGHT = 800;
@@ -133,9 +134,10 @@ const evalJson = (js) => {
 };
 
 /* ---------- provenance ---------- */
-const buildId = readFileSync(join(ROOT, ".next/BUILD_ID"), "utf8").trim();
+const world = worldIdentity(ROOT); // t859 — the world key: build id on build days, dev@src-hash otherwise (t858's dev-only world must not strand the battery)
+const buildId = world.id;
 console.log(
-  `t840 options rehearsal — build ${buildId}, band 1280, every option's AFTER pre-filmed on throwaway clones\n`
+  `t840 options rehearsal — world ${world.mode}:${buildId}, band 1280, every option's AFTER pre-filmed on throwaway clones\n`
 );
 
 /* ---------- the ruler: the t839 walk + the wordmark's squeezed rect.
@@ -478,6 +480,7 @@ ok(
 const receipt = {
   instrument: "scripts/t840-options-rehearsal.mjs",
   build: buildId,
+  worldMode: world.mode,
   date: new Date().toISOString(),
   viewport: { w: 1280, h: HEIGHT },
   harness: "the t839 throwaway-DOM clone generalized: one fresh load + one clone per option, two bit-identical rides per option before its pins",

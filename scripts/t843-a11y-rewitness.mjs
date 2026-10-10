@@ -39,6 +39,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { worldIdentity } from "./world-identity.mjs";
 
 const ROOT = process.cwd();
 
@@ -81,9 +82,10 @@ const evalJson = (js) => {
 };
 
 /* ---------- provenance ---------- */
-const buildId = readFileSync(join(ROOT, ".next/BUILD_ID"), "utf8").trim();
+const world = worldIdentity(ROOT); // t859 — the world key: build id on build days, dev@src-hash otherwise (t858's dev-only world must not strand the battery)
+const buildId = world.id;
 console.log(
-  `t843 a11y re-witness — build ${buildId}, the cheap honesty pair (canvas + dashboard), the census's zero-unnamed invariant re-walked live\n`
+  `t843 a11y re-witness — world ${world.mode}:${buildId}, the cheap honesty pair (canvas + dashboard), the census's zero-unnamed invariant re-walked live\n`
 );
 
 /* ---------- the measure: the census's name computation, one line sync IIFE */
@@ -130,6 +132,7 @@ const verdict = fail === 0
 const receipt = {
   instrument: "scripts/t843-a11y-rewitness.mjs",
   build: buildId,
+  worldMode: world.mode,
   date: new Date().toISOString(),
   viewport: { w: c1.innerW, h: c1.innerH },
   faces: {

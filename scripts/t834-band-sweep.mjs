@@ -73,6 +73,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { worldIdentity } from "./world-identity.mjs";
 
 const ROOT = process.cwd();
 const BANDS = [375, 640, 768, 1024, 1280, 1536];
@@ -107,8 +108,9 @@ const evalJson = (js) => {
 };
 
 /* ---------- provenance: the world this sweep witnesses ---------- */
-const buildId = readFileSync(join(ROOT, ".next/BUILD_ID"), "utf8").trim();
-console.log(`t834 band sweep — build ${buildId}, six bands, one command\n`);
+const world = worldIdentity(ROOT); // t859 — the world key: build id on build days, dev@src-hash otherwise (t858's dev-only world must not strand the battery)
+const buildId = world.id;
+console.log(`t834 band sweep — world ${world.mode}:${buildId}, six bands, one command\n`);
 
 /* the measure: child-level truth, one eval per band — single line, the
  * shell hands it to agent-browser verbatim (multi-line evals break) */
@@ -538,6 +540,7 @@ ok(
 const receipt = {
   instrument: "scripts/t834-band-sweep.mjs",
   build: buildId,
+  worldMode: world.mode,
   date: new Date().toISOString(),
   bands: rows,
   zone: { widths: ZW, rows: zone, law: "overlap(W) = 2.7 − 0.4×(W−1280)", edge: { lastPaint: 1286, firstClear: 1287 } },

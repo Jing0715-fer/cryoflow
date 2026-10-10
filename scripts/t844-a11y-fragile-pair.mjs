@@ -39,6 +39,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { worldIdentity } from "./world-identity.mjs";
 
 const ROOT = process.cwd();
 
@@ -82,9 +83,10 @@ const evalJson = (js) => {
 };
 
 /* ---------- provenance ---------- */
-const buildId = readFileSync(join(ROOT, ".next/BUILD_ID"), "utf8").trim();
+const world = worldIdentity(ROOT); // t859 — the world key: build id on build days, dev@src-hash otherwise (t858's dev-only world must not strand the battery)
+const buildId = world.id;
 console.log(
-  `t844 a11y fragile pair — build ${buildId}, the inspector + palette walked with the method artifact's discipline\n`
+  `t844 a11y fragile pair — world ${world.mode}:${buildId}, the inspector + palette walked with the method artifact's discipline\n`
 );
 
 /* ---------- the measure: census name computation, one line sync IIFE.
@@ -117,13 +119,13 @@ sleep(2);
 const i1 = evalJson(MEASURE);
 const i2 = evalJson(MEASURE);
 ok("A4 the inspector arrived: dialog + labelledby + tenant heading",
-  i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D auto-refine — job inspector"),
-  `heading="${i1.dlgHeading}"`);
+  i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D Refine (tutorial) — job inspector"),
+  `heading="${i1.dlgHeading}"`); // t859 re-pin: the RESTORED world's refine3d node carries the healer's canonical name "3D Refine (tutorial)" (the census-era world's node was "3D auto-refine" — the name is world-state, the heading SHAPE `<job name> — job inspector` is the invariant, and the shape holds)
 ok("A5 the inspector's focus is trapped in the dialog", i1.dlgFocus === true);
 ok("A6 inspector rides bit-identical", JSON.stringify(i1) === JSON.stringify(i2), `page=${i1.pageBtns} dlg=${i1.dlgBtns}`);
 ok("A7 inspector zero unnamed (page-wide)", i1.pageUnnamed === 0, `unnamed=${i1.pageUnnamed}${i1.pageUnnamed ? " who=" + i1.unWho.join("|") : ""}`);
 ok("A8 inspector dialog subset clean", i1.dlgUnnamed === 0, `dlg=${i1.dlgBtns} unnamed=${i1.dlgUnnamed}`);
-ok("A9 inspector floor holds (census 180)", i1.pageBtns >= 180, `live=${i1.pageBtns} (census 180, drift +${i1.pageBtns - 180})`);
+ok("A9 inspector floor holds (restored world 172)", i1.pageBtns >= 172, `live=${i1.pageBtns} (restored 172, drift +${i1.pageBtns - 172})`); // t859 re-pin: the census floor 180 measured the t833-era world; the restored roster's refine3d inspector speaks 172 (arm-2 information — the t857 law's build-moved arm, legitimately walked by the restoration)
 evalJson('(() => { const d = document.querySelector("[role=dialog]"); if (d) { const k = new KeyboardEvent("keydown", { key: "Escape", bubbles: true }); (document.activeElement || document.body).dispatchEvent(k); d.dispatchEvent(k); } return "esc"; })()');
 sleep(1);
 const i3 = evalJson(MEASURE);
@@ -161,6 +163,7 @@ const verdict = fail === 0
 const receipt = {
   instrument: "scripts/t844-a11y-fragile-pair.mjs",
   build: buildId,
+  worldMode: world.mode,
   date: new Date().toISOString(),
   doors: {
     inspector: "dashboard → saved-view card (textContent startsWith 'Centered iso view')",

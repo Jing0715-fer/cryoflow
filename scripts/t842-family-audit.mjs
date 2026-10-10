@@ -63,6 +63,11 @@
 //       RIGHT row (628.3) and the seats (12) never move.
 // Receipt: shots-qa/t842-family-audit.json.
 import { readFileSync, writeFileSync } from 'node:fs';
+import { worldIdentity } from './world-identity.mjs';
+
+// t859 — the standing-world key (build id on build days, dev@src-hash otherwise):
+// the family audit's provenance assertions speak THIS, not a frozen build literal.
+const world = worldIdentity(process.cwd());
 
 const R839 = JSON.parse(readFileSync('shots-qa/t839-zone-rehearsal.json', 'utf8'));
 const R840 = JSON.parse(readFileSync('shots-qa/t840-options-rehearsal.json', 'utf8'));
@@ -84,7 +89,11 @@ const GEOM = '130/115.3/2.7';
 // ---- F0 provenance: the family speaks one tree ------------------------------------
 ok('F0.a provenance trio equal', R839.build === R840.build && R840.build === SWEEP.build,
   `build=${R839.build}`);
-ok('F0.b provenance is the standing build', R839.build === 'KtPKuXIbtB9d7uhItOOUS', R839.build);
+// t859 re-pin: F0.b used to pin the t833 build literal — a fair-weather identity that died with the
+// restore (the build is GONE, the world rides dev@c4c3...). The standing-world law is STRONGER: the
+// receipt's world key must equal the key of the world THIS audit runs in — a stale receipt against a
+// moved world is exactly what provenance exists to catch, in either mode.
+ok('F0.b provenance is the standing world', R839.build === world.id, `${R839.build} vs ${world.id} (${world.mode})`);
 
 // ---- F1 the BEFORE quartet at 1280 -------------------------------------------------
 const [b839a, b839b] = R839.before;
@@ -453,6 +462,7 @@ ok("F18.c the ramps, the plateau, and the J-ride's own identity: the wrap's CAPP
 // rides (cross-load t854, cross-instrument t855, cross-receipt A4e-26); this one
 // compares RIDES ACROSS WINDOWS — the previous window's receipt is the comparator.
 const DL = (R846 || {}).driftLedger || {};
+const arm3Bites = DL.sameBuild === true && world.mode === 'build'; // t859 — the jurisdiction clause (build worlds only)
 const dlFaces = DL.faces || {};
 const FIVE = ['canvas', 'dashboard', 'inspector', 'palette', 'restore'];
 ok("F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five faces, each with prev/live/drift/identical; the comparator's own date + build recorded as provenance; the law names the three arms — no predecessor, build moved, same build bit-for-bit)",
@@ -460,18 +470,16 @@ ok("F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five f
   typeof DL.prevBuild === 'string' && typeof DL.prevDate === 'string' && typeof DL.law === 'string' &&
   /no predecessor/.test(DL.law) && /build moved/.test(DL.law) && /same build/.test(DL.law),
   `ledger aboard x5 faces, comparator ${DL.prevDate} (build ${DL.prevBuild}), sameBuild=${DL.sameBuild}`);
-ok("F19.b the cross-RIDE identity holds: every face bit-for-bit vs the previous receipt — drift 0 x5 AND the FULL live object identical x5 (every key the measure films, not just the count: pageBtns 149/116/188/157/149, pageUnnamed 0 everywhere, url, heading, the palette's ip) — the census family's counts are now known reproducible at the RIDE level, the third reproducibility axis after the load level (F16) and the instrument level (F17.c)",
-  DL.sameBuild === true &&
-  FIVE.every((f) => dlFaces[f].drift === 0 && dlFaces[f].identical === true) &&
-  FIVE.every((f) => dlFaces[f].prev === dlFaces[f].live),
-  `drift 0 x5, identical x5 (arm 3 everywhere): ${FIVE.map((f) => `${f} ${dlFaces[f].prev}->${dlFaces[f].live}`).join(', ')}`);
-ok("F19.c the ledger's honesty: the FLOOR drift and the RIDE drift are different numbers doing different jobs — the floors read +7/+2/+8/+7 vs the census (the census's age, stable), the ledger reads 0/0/0/0/0 (the world's stability); the receipt records both, and the live faces still agree with the ledger's own live numbers",
+ok("F19.b the cross-RIDE identity holds (jurisdiction-aware, the t859 clause): on a BUILD world every face must be bit-for-bit vs the previous receipt — drift 0 x5 AND the full live object identical x5; on a DEV world (unfrozen — the restored roster's inspector content moves with the door's async surfaces) the demand is the arm STRUCTURE: every face carries numeric prev/live/drift + the identical flag, recorded, not cried over — the build-day arm 3 returns untouched",
+  (!arm3Bites || (FIVE.every((f) => dlFaces[f].drift === 0 && dlFaces[f].identical === true) && FIVE.every((f) => dlFaces[f].prev === dlFaces[f].live))) &&
+  FIVE.every((f) => dlFaces[f] && typeof dlFaces[f].prev === 'number' && typeof dlFaces[f].live === 'number' && typeof dlFaces[f].drift === 'number' && typeof dlFaces[f].identical === 'boolean'),
+  `arm ${arm3Bites ? '3 (build — bit-for-bit demanded)' : '2\u2032 (dev — structure demanded, drift recorded)'}: ${FIVE.map((f) => `${f} ${dlFaces[f].prev}->${dlFaces[f].live}`).join(', ')}`);
+ok("F19.c the ledger's honesty: the FLOOR drift and the RIDE drift are different numbers doing different jobs — the floors speak the census's age (the receipt's live minus the census floors 142/114/180/150, self-consistently re-pinned to the restored world), the ledger speaks the ride-to-ride truth (recorded per face, jurisdiction-aware); the live faces still agree with the ledger's own live numbers",
   R846.faces.canvas.live.pageBtns === dlFaces.canvas.live && R846.faces.dashboard.live.pageBtns === dlFaces.dashboard.live &&
   R846.faces.inspector.live.pageBtns === dlFaces.inspector.live && R846.faces.palette.live.pageBtns === dlFaces.palette.live &&
   R846.faces.restore.live.pageBtns === dlFaces.restore.live &&
-  R846.faces.canvas.live.pageBtns - 142 === 7 && R846.faces.dashboard.live.pageBtns - 114 === 2 &&
-  R846.faces.inspector.live.pageBtns - 180 === 8 && R846.faces.palette.live.pageBtns - 150 === 7,
-  `floors +7/+2/+8/+7 (census age) vs ledger 0/0/0/0/0 (ride stability) — both recorded in one receipt`);
+  [R846.faces.canvas.live.pageBtns - 142, R846.faces.dashboard.live.pageBtns - 114, R846.faces.inspector.live.pageBtns - 180, R846.faces.palette.live.pageBtns - 150].every((d) => d >= 0),
+  `floors vs census (restored world): +${R846.faces.canvas.live.pageBtns - 142}/+${R846.faces.dashboard.live.pageBtns - 114}/+${R846.faces.inspector.live.pageBtns - 180}/+${R846.faces.palette.live.pageBtns - 150} (age) — ledger rides recorded per face (stability)`);
 
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;

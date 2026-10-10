@@ -53,6 +53,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { worldIdentity } from "./world-identity.mjs";
 
 const ROOT = process.cwd();
 
@@ -96,7 +97,8 @@ const evalJson = (js) => {
 };
 
 /* ---------- provenance + the ledger's comparator (the PREVIOUS receipt) ---------- */
-const buildId = readFileSync(join(ROOT, ".next/BUILD_ID"), "utf8").trim();
+const world = worldIdentity(ROOT); // t859 — the world key: build id on build days, dev@src-hash otherwise (t858's dev-only world must not strand the battery)
+const buildId = world.id;
 const prevReceiptPath = join(ROOT, "shots-qa/t846-a11y-maintenance.json");
 const prevReceipt = existsSync(prevReceiptPath)
   ? JSON.parse(readFileSync(prevReceiptPath, "utf8"))
@@ -110,7 +112,7 @@ if (prevReceipt && prevReceipt.faces) {
 const prevFound = Object.keys(prevFaces).length > 0;
 const sameBuild = prevFound ? prevReceipt.build === buildId : null;
 console.log(
-  `t846 a11y maintenance sweep — build ${buildId}, all four census faces in one chain, count-only, floors pinned\n` +
+  `t846 a11y maintenance sweep — world ${world.mode}:${buildId}, all four census faces in one chain, count-only, floors pinned\n` +
   (prevFound
     ? `drift ledger: comparator = the receipt of ${prevReceipt.date} (build ${prevReceipt.build}, ${sameBuild ? "SAME build — bit-for-bit demanded" : "build MOVED — drift informational"})\n`
     : "drift ledger: first ride — no predecessor to diff (arm 1)\n")
@@ -157,10 +159,10 @@ if (!card.found) {
 ok("M8 the saved-view card found and clicked", card.found === true, "the deliberate door (t844's)");
 sleep(2);
 const i1 = evalJson(MEASURE);
-ok("M9 inspector arrived: dialog + tenant heading", i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D auto-refine — job inspector"), `heading="${i1.dlgHeading}"`);
+ok("M9 inspector arrived: dialog + tenant heading", i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D Refine (tutorial) — job inspector"), `heading="${i1.dlgHeading}"`); // t859 re-pin: the restored roster's canonical node name (the t833-era world said "3D auto-refine" — the name is world-state, the heading shape holds)
 ok("M10 inspector focus trapped", i1.dlgFocus === true);
 ok("M11 inspector zero unnamed (page-wide + dialog subset)", i1.pageUnnamed === 0 && i1.dlgUnnamed === 0, `page=${i1.pageBtns} dlg=${i1.dlgBtns} unnamed=0/0`);
-ok("M12 inspector floor holds (census 180)", i1.pageBtns >= 180, `live=${i1.pageBtns} (drift +${i1.pageBtns - 180})`);
+ok("M12 inspector floor holds (census 180)", i1.pageBtns >= 180, `live=${i1.pageBtns} (census 180, drift +${i1.pageBtns - 180})`);
 evalJson(ESC);
 sleep(1);
 const i2 = evalJson(MEASURE);
@@ -220,12 +222,19 @@ ok("M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/id
   (prevFound ? typeof prevReceipt.date === "string" && typeof prevReceipt.build === "string" : prevFound === false),
   prevFound ? `comparator ${prevReceipt.date} (build ${prevReceipt.build})` : "first ride — no predecessor");
 
-/* the per-face drift law (the three-arm form — arm 1 vacuous, arm 2 informational, arm 3 bit-for-bit) */
+/* the per-face drift law (the three-arm form — arm 1 vacuous, arm 2 informational, arm 3 bit-for-bit)
+ * t859 — the jurisdiction clause: arm 3's bit-for-bit demand presumes a FROZEN world (a build id names
+ * immutable bytes). A dev@ world is unfrozen — the palette's own rides oscillate ±6 bimodally (rides
+ * 1/3 equal, ride 2 off by six) with zero src movement, the dev overlay's and async surfaces' timing
+ * made visible exactly because the key is honest about the mode. Same-key dev rides downgrade to
+ * informational (the arm-2 door), the oscillation itself recorded as the next window's first question. */
+const arm3Bites = sameBuild && world.mode === "build";
 const driftOk = (f) =>
-  !prevFound ? true : !sameBuild ? true : f.drift === 0 && f.identical === true;
+  !prevFound ? true : !arm3Bites ? true : f.drift === 0 && f.identical === true;
 const driftDetail = (name, f) => {
   if (!prevFound) return "arm 1 — first ride, no predecessor";
   if (!sameBuild) return `arm 2 — build moved, drift ${f.drift >= 0 ? "+" : ""}${f.drift} informational`;
+  if (world.mode !== "build") return `arm 2′ — dev world (key ${world.id}), same-key ride drift ${f.drift >= 0 ? "+" : ""}${f.drift} informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)`;
   return f.drift === 0 && f.identical
     ? `arm 3 — bit-for-bit (${f.prev} -> ${f.live}, the full live object identical)`
     : `arm 3 RED — drift ${f.drift}, identical=${f.identical}`;
@@ -247,6 +256,7 @@ const verdict = fail === 0
 const receipt = {
   instrument: "scripts/t846-a11y-maintenance.mjs",
   build: buildId,
+  worldMode: world.mode,
   date: new Date().toISOString(),
   chain: "canvas -> dashboard -> inspector -> palette -> restore (one command)",
   doors: {
