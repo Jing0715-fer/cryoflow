@@ -51,8 +51,9 @@ console.log("A — the two disease-live faces cured (the t804 dialect verbatim)"
   ok(!RR.includes('role="dialog"') && !RV.includes('role="dialog"'),
     "A8 role=dialog untouched — Radix owns the dialog face (the t799 third-family law; nobody hardcodes it in source)");
   ok(RR.includes("onKeyDown={onEscapeClose(() => setOpen(false))}") &&
-     RV.includes("onKeyDown={onEscapeClose(() => setImageFile(null))}"),
-    "A9 the escape laws ride on verbatim (one press peels one layer)");
+     RV.includes("onEscapeClose(() => setImageFile(null))(e)") &&
+     RV.includes('e.key === "ArrowLeft"') && RV.includes('e.key === "ArrowRight"'),
+    "A9 the escape laws ride on verbatim (one press peels one layer) — t831 re-cut on the record: the map/stack dialog's escape handler grew the slice keys' composition (arrows consumed first, the house escape law still the tail)");
 }
 
 console.log("B — the census's arithmetic, gated (the retirement record)");
