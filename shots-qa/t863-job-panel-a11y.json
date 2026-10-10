@@ -1,0 +1,358 @@
+{
+  "instrument": "scripts/t863-job-panel-a11y.mjs",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-10T15:31:49.590Z",
+  "chain": "canvas -> CREATE (POST /api/jobs) -> card idle -> plain-click -> PANEL -> DELETE -> worldBack (one command)",
+  "doors": {
+    "create": "POST /api/jobs { type: motioncorr, far-corner parked } — the t708 write door",
+    "panel": "pointerdown + pointerup on [data-card-btn] — the card's plain-click selection law",
+    "unmutate": "DELETE /api/jobs/cmv2jy0z4000fn8srindr6c46 — the app's own cascade (tombstone + stop + sweep)"
+  },
+  "probe": {
+    "id": "cmv2jy0z4000fn8srindr6c46",
+    "name": "Panel A11y Probe",
+    "type": "motioncorr"
+  },
+  "faces": {
+    "canvas": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "unCtrlsWho": [],
+        "imgs": 0,
+        "altless": 0,
+        "hasPanel": false,
+        "runFace": null,
+        "runTitle": null,
+        "tabs": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "heading": "Main",
+        "act": "BODY"
+      }
+    },
+    "panelOpening": {
+      "live": {
+        "url": "/",
+        "pageBtns": 177,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 9,
+        "unCtrls": 0,
+        "unCtrlsWho": [],
+        "imgs": 0,
+        "altless": 0,
+        "hasPanel": false,
+        "runFace": "Run",
+        "runTitle": "",
+        "tabs": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "heading": "Main",
+        "act": "BODY"
+      }
+    },
+    "panel": {
+      "live": {
+        "url": "/",
+        "pageBtns": 168,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "unCtrlsWho": [],
+        "imgs": 0,
+        "altless": 0,
+        "hasPanel": true,
+        "runFace": "Run",
+        "runTitle": "",
+        "tabs": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "heading": "Main",
+        "act": "BODY"
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 168,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "unCtrlsWho": [],
+        "imgs": 0,
+        "altless": 0,
+        "hasPanel": true,
+        "runFace": "Run",
+        "runTitle": "",
+        "tabs": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "heading": "Main",
+        "act": "BODY"
+      }
+    },
+    "params": {
+      "live": {
+        "url": "/",
+        "pageBtns": 177,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 9,
+        "unCtrls": 0,
+        "unCtrlsWho": [],
+        "imgs": 0,
+        "altless": 0,
+        "hasPanel": false,
+        "runFace": "Run",
+        "runTitle": "",
+        "tabs": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "heading": "Main",
+        "act": "BODY"
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 177,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 9,
+        "unCtrls": 0,
+        "unCtrlsWho": [],
+        "imgs": 0,
+        "altless": 0,
+        "hasPanel": false,
+        "runFace": "Run",
+        "runTitle": "",
+        "tabs": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "heading": "Main",
+        "act": "BODY"
+      },
+      "log": {
+        "url": "/",
+        "pageBtns": 168,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "unCtrlsWho": [],
+        "imgs": 0,
+        "altless": 0,
+        "hasPanel": false,
+        "runFace": "Run",
+        "runTitle": "",
+        "tabs": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "heading": "Main",
+        "act": "BODY"
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "unCtrlsWho": [],
+        "imgs": 0,
+        "altless": 0,
+        "hasPanel": false,
+        "runFace": null,
+        "runTitle": null,
+        "tabs": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "heading": "Main",
+        "act": "BODY"
+      }
+    }
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-10T15:28:13.052Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "panel": {
+        "prev": 177,
+        "live": 168,
+        "drift": -9,
+        "identical": false
+      },
+      "params": {
+        "prev": 177,
+        "live": 177,
+        "drift": 0,
+        "identical": false
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 ctrls=2 — zero unnamed anywhere"
+    },
+    {
+      "label": "M1 the probe job created (201, the roster's own door)",
+      "pass": true,
+      "detail": "id cmv2jy0z4000fn8srindr6c46"
+    },
+    {
+      "label": "M2 the probe card is on the canvas and speaks IDLE",
+      "pass": true,
+      "detail": "label=\"Panel A11y Probe — Motion Correction, idle\""
+    },
+    {
+      "label": "P1 the plain-click fired (down + up, no move)",
+      "pass": true,
+      "detail": "the card's own selection law"
+    },
+    {
+      "label": "P2 the panel arrived (the Run face aboard — the opening tab is world-state, the persistence is the app's own)",
+      "pass": true,
+      "detail": "opening face: run=\"Run\" io-sections=false"
+    },
+    {
+      "label": "P2b the I/O face mounted (the io + outputs sections — the walk films the tab it opens)",
+      "pass": true,
+      "detail": "section[aria-label=Inputs] + Outputs"
+    },
+    {
+      "label": "P3 the Run button speaks the MODE (the t397 label law: a fresh job says Run — never Re-run, never Continue)",
+      "pass": true,
+      "detail": "face=\"Run\" title=\"\""
+    },
+    {
+      "label": "P4 zero unnamed buttons page-wide WITH the panel up (the census's invariant holds on the run form)",
+      "pass": true,
+      "detail": "btns=168 (opening 153) unnamed=0"
+    },
+    {
+      "label": "P5 zero unnamed CONTROLS on the I/O face",
+      "pass": true,
+      "detail": "ctrls=3 unnamed=0"
+    },
+    {
+      "label": "P6 zero alt-less imgs",
+      "pass": true,
+      "detail": "imgs=0"
+    },
+    {
+      "label": "P7 the four-tab bar is aboard and every tab named (I/O / Params / Results / Log — the display case, the icons aria-hidden)",
+      "pass": true,
+      "detail": "tabs=[true,true,true,true]"
+    },
+    {
+      "label": "P8 two settled rides bit-identical (the t836 law, the t860 settle)",
+      "pass": true,
+      "detail": "the panel world is stable once settled"
+    },
+    {
+      "label": "P9 the Params tab clicked (the mousedown door — Radix's own switch)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P10 the param form's labels cover EVERY control (label-for named — the HTML spec's own mechanism, the ruler now follows it)",
+      "pass": true,
+      "detail": "ctrls=9 (io face had 3) unnamed=0"
+    },
+    {
+      "label": "P11 zero unnamed buttons on the params tab too",
+      "pass": true,
+      "detail": "btns=177 unnamed=0"
+    },
+    {
+      "label": "P12 the params tab rides bit-identical",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P13 the log tab holds the name layer (zero unnamed, the tail region aboard)",
+      "pass": true,
+      "detail": "btns=168 ctrls=3 unnamed=0/0"
+    },
+    {
+      "label": "U1 the probe job deleted (200 ok)",
+      "pass": true,
+      "detail": "status 200"
+    },
+    {
+      "label": "U2 the world is BACK — canvas count bit-for-bit the opening count",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "U3 the probe card is gone and the name layer holds (zero unnamed everywhere)",
+      "pass": true,
+      "detail": "no card, no unnamed — the roster == the canvas again"
+    },
+    {
+      "label": "L1 the ledger is aboard at birth: three faces (panel/params/worldBack), each carrying prev/live/drift/identical",
+      "pass": true,
+      "detail": "comparator 2026-10-10T15:28:13.052Z (key dev@c4c3735897dd)"
+    },
+    {
+      "label": "L2 panel face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift -9 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L3 params face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L4 worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 24,
+  "failed": 0,
+  "total": 24,
+  "verdict": "the run form holds: the probe job rode the app's own doors (POST 201 -> the card idle -> the plain-click -> the panel), the panel arrived fully named (zero unnamed buttons/controls/imgs with the form up — the param form's labels cover every input), the Run button spoke the t397 MODE face (\"Run\"), the four-tab bar named, two settled rides bit-identical — and the un-mutation returned the world bit-for-bit (the canvas count, the card gone, the name layer intact; the tombstone file is the app's own undo ledger, by design) — the ledger family aboard from birth (three faces, the shared law)"
+}

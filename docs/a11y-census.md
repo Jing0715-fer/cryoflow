@@ -177,3 +177,57 @@ first; if the name layer moved anywhere in the app, a floor breaks and the
 deep instruments get called before any UI work. The census's own closing
 paragraph promised "one eval per face, ~a minute" — the sweep now delivers
 all four faces in one command, cheaper than the promise's own price.
+
+## The overlay tier (t862) — the shortcuts dialog and the knock dropdown
+
+The rotation's next page: the two doors reachable from the calm canvas with
+zero mutation. The SHORTCUTS DIALOG (the app's own `?` key, the
+typing-guarded window listener) arrives titled and focused, the inventory
+region speaks its name ("Keyboard shortcut inventory — grouped by context",
+99 Kbd chips), the filter input is named by aria-label — and the filter is
+ALIVE: typing "canvas" shrinks the inventory 99 → 41, clearing restores it
+bit-for-bit (a named input that did nothing would be a name over a corpse).
+The KNOCK DROPDOWN (the header's bell seat) opens a role=menu whose three
+items are all named, the chime checkbox carries aria-checked (recorded,
+never gated — browser state), and Escape returns focus to the trigger (the
+Radix contract). Zero unnamed buttons/controls/imgs on every face; two
+settled rides bit-identical. The instrument was BORN with the drift ledger
+aboard (three faces through the shared helper) and joined the fleet unit's
+family table in the same window — the propagation is now the birthright.
+
+## The job panel (t863) — the run form through the sanctioned mutation ride
+
+The panel was named unreachable: the edit form mounts for IDLE jobs only and
+the world speaks only completed (19/19). The ride the census finally paid:
+CREATE one idle probe job through the app's own write door (POST /api/jobs,
+the same-origin metadata), far-corner parked; walk the panel (the card's
+plain-click law: pointerdown → pointerup); DELETE through the same door;
+demand the world BACK bit-for-bit (the canvas count, the card gone, the
+name layer intact — the tombstone file is the app's own undo ledger, by
+design). The walk rides the panel's OWN tab doors — I/O, Params, Log (the
+opening tab is localStorage world-state; the persistence is the app's own,
+so the instrument opens the tab it films) — and two facts came home:
+
+- **The Radix Tabs trigger switches on MOUSEDOWN, not click.** A `.click()`
+  dispatch is silently ignored by the tab bar; the mousedown door is the
+  contract. Recorded here because every future live walk needs it.
+- **The census's ruler grew the label-for mechanism.** The param form's
+  inputs are named the most semantic way the HTML spec offers —
+  `<Label htmlFor>` — which the name computation (aria-label →
+  aria-labelledby → textContent → value/placeholder) did not follow. One
+  control was slandered "unnamed" until the ruler learned the spec's own
+  step (label[for=id] resolved after aria-labelledby, before the value
+  fallbacks). The fix is in the ruler, not the UI: the UI was right, the
+  measurement was incomplete. The family's older receipts stay true (the
+  old ruler was the stricter one — zero unnamed under it survives the
+  growth); the shared-ruler module is the standing follow-up.
+
+**Numbers, first formal ride 24/24**: the opening canvas 153 (ctrls 2), the
+panel's I/O face 168 buttons / 3 controls (zero unnamed anywhere), the
+Params face 177 / 9 (the param form's labels cover every input — the
+strongest claim on this page, measured on its own tab), the Log face 168 /
+3, the world back at 153 bit-for-bit. The Run button speaks the t397 MODE
+face ("Run" — a fresh job never says Re-run, never Continue). Two settled
+rides bit-identical on every face. The ledger aboard from birth (three
+faces: panel / params / worldBack — the tab persistence's world-state rides
+the arms honestly).
