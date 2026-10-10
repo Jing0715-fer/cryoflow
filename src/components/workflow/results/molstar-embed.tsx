@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CopyPlus, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CopyPlus, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Link2, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -25,7 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
+import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, SharePayload, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
 import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
@@ -1767,9 +1767,25 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               snapshot: share.snapshot,
               view: share.view as BookmarkView | undefined,
             });
+            // t823 — the toast's words grow a hand: "Save here" is now a
+            // BUTTON on the toast itself. The action rides saveSharedRef
+            // (the restoreBookmarkRef handle pattern — the consume block
+            // stays row-free: the guest law's negative pin holds even
+            // with the shortcut present; the link still births no row —
+            // the recipient's explicit click does).
             toast({
               title: "Shared view restored",
               description: `“${share.name}” arrived inside the link — jump away, or Save here to keep it.`,
+              action: (
+                <button
+                  type="button"
+                  onClick={() => saveSharedRef.current?.(share)}
+                  className="mt-1 inline-flex h-7 shrink-0 self-center items-center gap-1 whitespace-nowrap rounded-md border border-primary/40 bg-primary/10 px-2 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                >
+                  <Bookmark className="size-3" />
+                  Save this view
+                </button>
+              ),
             });
           } catch {
             toast({
@@ -2094,21 +2110,21 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     });
   };
 
-  /** t822 — share what the canvas shows RIGHT NOW: the current pose +
-   *  optics travel INSIDE the URL (self-contained — the recipient needs
-   *  no account, no bookmark row, no sync; the landing stages the payload
-   *  and the viewer applies it as a guest). The door refuses past the
-   *  URL budget BEFORE the clipboard is touched, and a denied clipboard
-   *  speaks honestly (the t669 doctrine reaches every door). */
-  const copyViewLink = async () => {
-    const cam = pluginRef.current?.canvas3d?.camera;
-    if (!cam) return;
-    const snapshot = cam.getSnapshot() as unknown as Record<string, unknown>;
-    const view = captureBookmarkView() as unknown as Record<string, unknown> | undefined;
+  /** t823 — ONE mouth for every "copy view link" gesture (the t671
+   *  doctrine applied to the share family): the door's current-pose
+   *  share and the row's saved-pose share both ride this path, so the
+   *  URL budget is checked before the clipboard is touched, the
+   *  oversized refusal and the clipboard-deny speak, and the toast
+   *  always NAMES what travels — one law, one wording, no drift. */
+  const copyLinkFor = async (
+    name: string,
+    snapshot: Record<string, unknown>,
+    view: Record<string, unknown> | undefined,
+  ) => {
     const payload = encodeSharePayload({
       jobId,
       projectId: activeProjectId ?? null,
-      name: "Shared view",
+      name,
       snapshot,
       view,
     });
@@ -2124,7 +2140,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       await navigator.clipboard.writeText(url);
       toast({
         title: "View link copied",
-        description: "Anyone opening this URL lands on this exact pose & optics — no account, no setup.",
+        description: `“${name}” travels inside the URL — anyone opening it lands on this exact pose & optics — no account, no setup.`,
       });
     } catch {
       toast({
@@ -2133,6 +2149,74 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       });
     }
   };
+
+  /** t823 — the row's share: a link that carries THIS row's SAVED pose
+   *  & optics (b.snapshot / b.view — the t821 freeze law reaching the
+   *  URL: the link IS the view it shares, not wherever the canvas has
+   *  drifted since), with the row's own name riding the payload — the
+   *  recipient's restore toast and saved row both speak it. */
+  const copyRowViewLink = (b: CamBookmark) => {
+    void copyLinkFor(b.name, b.snapshot, b.view as unknown as Record<string, unknown> | undefined);
+  };
+
+  /** t822 — share what the canvas shows RIGHT NOW: the current pose +
+   *  optics travel INSIDE the URL (self-contained — the recipient needs
+   *  no account, no bookmark row, no sync; the landing stages the payload
+   *  and the viewer applies it as a guest). t823 — the capture is all
+   *  that remains here; the encode, the budget and the clipboard ride
+   *  copyLinkFor, the one mouth. */
+  const copyViewLink = async () => {
+    const cam = pluginRef.current?.canvas3d?.camera;
+    if (!cam) return;
+    const snapshot = cam.getSnapshot() as unknown as Record<string, unknown>;
+    const view = captureBookmarkView() as unknown as Record<string, unknown> | undefined;
+    await copyLinkFor("Shared view", snapshot, view);
+  };
+
+  /** t823 — the share's save shortcut: the restore toast's action adopts
+   *  the guest pose as a row. The bytes frozen are the SHARE's own (what
+   *  arrived — not a re-capture of a canvas the recipient may have
+   *  nudged), the cap of 8 refuses HONESTLY (the t821 law — a promise
+   *  that would eat a neighbour's row is a lie), and a name collision
+   *  speaks the door's amber honesty. Explicit consent is what makes
+   *  this lawful: the guest law stands — the LINK itself never births a
+   *  row; the recipient's click does. The thumb is captured at click
+   *  time (a preview raster only — the row's jump target stays the
+   *  arrived bytes). */
+  const saveSharedView = (share: SharePayload) => {
+    if (bookmarksRef.current.length >= 8) {
+      toast({
+        title: "The shelf is full",
+        description: "The bookmark door holds 8 views — delete one to keep this shared view.",
+      });
+      return;
+    }
+    const nm = (share.name.trim() || "Shared view").slice(0, 40);
+    const dupe = bookmarksRef.current.some((x) => x.name.trim().toLowerCase() === nm.toLowerCase());
+    commitBookmarks([
+      ...bookmarksRef.current,
+      {
+        id: `bm-${Date.now()}`,
+        name: nm,
+        ts: Date.now(),
+        thumb: captureBookmarkThumb(),
+        snapshot: share.snapshot,
+        view: share.view as BookmarkView | undefined,
+      },
+    ]);
+    if (dupe) duplicateNameToast(nm);
+    else
+      toast({
+        title: "Shared view kept",
+        description: `“${nm}” joined the shelf — jump back from the bookmark menu any time.`,
+      });
+  };
+  // stable handle for the consume block above (the restore toast's action
+  // fires long after the effect ran — the restoreBookmarkRef pattern)
+  const saveSharedRef = useRef<(s: SharePayload) => void>(() => {});
+  useEffect(() => {
+    saveSharedRef.current = saveSharedView;
+  });
 
   /** single commit path for the inline rename — runs from the input's blur
    *  (Enter blurs, Esc raises the cancel flag first), so rapid Enter+unmount
@@ -6713,6 +6797,20 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         >
                           <CopyPlus className="size-3" />
                         </button>
+                        {/* t823 — the row's share: a link that carries THIS
+                            row's SAVED pose & optics (the t821 freeze law
+                            reaching the URL) with its own name riding the
+                            payload — sharing a view no longer requires it
+                            to be on the canvas right now. */}
+                        <button
+                          type="button"
+                          onClick={() => copyRowViewLink(b)}
+                          aria-label={`Copy view link for ${b.name}`}
+                          title="Copy view link — anyone opening this URL lands on this saved pose & optics"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                        >
+                          <Link2 className="size-3" />
+                        </button>
                       </span>
                     </div>
                     );
@@ -6756,6 +6854,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   <FolderOpen className="size-3" />
                   From job
                 </button>
+                {/* t823 — the footer's glance detail: the file-ops group
+                    (Export / Import / From job) and the share gesture are
+                    different KINDS of mouth — a hairline divider lets the
+                    eye sort them before the hand does. */}
+                <span aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-border/70" />
                 {/* t822 — the share door: the current pose rides inside the
                     URL itself, so a colleague opens the exact view with one
                     paste — no account, no bookmark row, no file to pass */}
