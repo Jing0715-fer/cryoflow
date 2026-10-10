@@ -195,6 +195,15 @@ for (const w of [1283, 1286]) {
   ab("wait 300");
   liveAcross[String(w)] = { zone: evalJson(MEASURE), band: evalJson(BAND_MEASURE) };
 }
+/* the tenth seat (t855): the T0 load also walks OUTSIDE the zone — the
+ * far edge and the below zone bookends (the probe rode all seven
+ * widths; these four are the pins' comparators) */
+const liveFarBelow = {};
+for (const w of [1366, 1920, 768, 1024]) {
+  ab(`set viewport ${w} ${HEIGHT}`);
+  ab("wait 300");
+  liveFarBelow[String(w)] = { zone: evalJson(MEASURE), band: evalJson(BAND_MEASURE) };
+}
 ab(`set viewport 1280 ${HEIGHT}`);
 ab("wait 300");
 
@@ -290,6 +299,15 @@ for (const w of [1283, 1286]) {
   ab(`set viewport ${w} 800`);
   ab("wait 300");
   restoreAcross[String(w)] = { zone: evalJson(MEASURE), band: evalJson(BAND_MEASURE) };
+}
+/* the tenth seat (t855): the restore load walks the same far/below
+ * bookends — the ninth seat's law OUTSIDE the zone, the restore's
+ * width map completed below, in, and far beyond the zone */
+const restoreFarBelow = {};
+for (const w of [1366, 1920, 768, 1024]) {
+  ab(`set viewport ${w} ${HEIGHT}`);
+  ab("wait 300");
+  restoreFarBelow[String(w)] = { zone: evalJson(MEASURE), band: evalJson(BAND_MEASURE) };
 }
 ab(`set viewport 1280 ${HEIGHT}`);
 ab("wait 300");
@@ -422,6 +440,40 @@ ok(
   `T18 the NINTH SEAT — the restore's WIDTH FORM: the restore load's band == the T0 load's live band bit-for-bit at 1283 AND 1286 (edges 610.8/613.8, rightW 628.3, seats 12, the wrapper kid == the zone's wrapW 116.5/117.7) AND the zone layer agrees bit-for-bit (overlap 1.5/0.3 == the live law, wmW 102.2/103) — the world's EXIT state == its ENTRY state at every width and layer the table walks: T5+T10's 1280 truth extended across the zone, the harness's own loop closed; and two independent fresh loads of the same build film the same world bit-for-bit across widths (the cross-load identity)`
 );
 
+/* ---------- the tenth seat (t855): the cross-load identity's FAR+BELOW
+ * form — the ninth seat's law OUTSIDE the zone. The probe
+ * (t855-restore-far-below-probe) rode all seven widths first (and
+ * learned the projection lesson: the sweep's zone rows carry a 6-key
+ * shape — modeling, not drift); these pins carry the bookends against
+ * the T0 load's own far/below rulers, same walk, same shape. ---------- */
+const farBandAt = (w, leftW) =>
+  liveFarBelow[String(w)].band.seats === 12 && liveFarBelow[String(w)].band.rightW === 628.3 &&
+  liveFarBelow[String(w)].band.leftW === leftW && Array.isArray(liveFarBelow[String(w)].band.midKids) &&
+  liveFarBelow[String(w)].band.midKids.length === 4;
+ok(
+  farBandAt(1366, 693.8) && farBandAt(1920, 895) &&
+    JSON.stringify(restoreFarBelow["1366"].band) === JSON.stringify(liveFarBelow["1366"].band) &&
+    JSON.stringify(restoreFarBelow["1920"].band) === JSON.stringify(liveFarBelow["1920"].band) &&
+    JSON.stringify(restoreFarBelow["1366"].zone) === JSON.stringify(liveFarBelow["1366"].zone) &&
+    JSON.stringify(restoreFarBelow["1920"].zone) === JSON.stringify(liveFarBelow["1920"].zone) &&
+    liveFarBelow["1366"].band.midKids[1].w === liveFarBelow["1366"].zone.wrapW &&
+    liveFarBelow["1920"].band.midKids[1].w === liveFarBelow["1920"].zone.wrapW &&
+    liveFarBelow["1366"].zone.overlap === -12 && liveFarBelow["1920"].zone.overlap === -463.1,
+  `T19 the TENTH SEAT — the cross-load identity's FAR+BELOW form, far edge: the restore load's band == the T0 load's live band bit-for-bit at 1366 AND 1920 (edges 693.8/895, rightW 628.3, seats 12 — the wrapper kid == the zone's wrapW 149.2/220, the pays law's twin alive at the far edge; the PS clears DEEPER as the viewport grows — overlap −12 @1366 → −463.1 @1920), the zone layer agrees bit-for-bit — the ninth seat's law holds OUTSIDE the zone on the far side`
+);
+const belowBandAt = (w, leftW) =>
+  liveFarBelow[String(w)].band.seats === 11 && liveFarBelow[String(w)].band.rightW === 460 &&
+  liveFarBelow[String(w)].band.leftW === leftW && liveFarBelow[String(w)].band.midKids === null;
+ok(
+  belowBandAt(768, 264) && belowBandAt(1024, 266.5) &&
+    JSON.stringify(restoreFarBelow["768"].band) === JSON.stringify(liveFarBelow["768"].band) &&
+    JSON.stringify(restoreFarBelow["1024"].band) === JSON.stringify(liveFarBelow["1024"].band) &&
+    JSON.stringify(restoreFarBelow["768"].zone) === JSON.stringify(liveFarBelow["768"].zone) &&
+    JSON.stringify(restoreFarBelow["1024"].zone) === JSON.stringify(liveFarBelow["1024"].zone) &&
+    liveFarBelow["768"].zone.mid === false && liveFarBelow["1024"].zone.mid === false,
+  `T19 the TENTH SEAT — below zone: the restore load's band == the live band bit-for-bit at 768 AND 1024 (edges 264/266.5, rightW 460, seats 11, the mid row ASLEEP — midKids null, the zone walk exactly {mid:false} on both loads) — the sleep itself is bit-for-bit reproducible; the restore's width map is COMPLETE: two independent fresh loads film the same world bit-for-bit below, in, and far beyond the zone`
+);
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t840-options-rehearsal.mjs",
@@ -441,11 +493,13 @@ const receipt = {
       law: "the eighth seat (t851): the width form COMPLETED — (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283 AND 1286 against their own loads' rulers (nothing moves anywhere at any width); the bound chain's width form: the wordmark's squeezed box loosens +0.3/px-ish (101.3 → 102.2 → 103.0) but the 138 cap never binds in the zone, and the squeeze is option-invariant (live/A/B138 wmW identical at every width)" },
     ninthSeat: { restoreAcross,
       law: "the ninth seat (t854): the restore's WIDTH FORM — the restore load's zone and band walks == the T0 load's rulers bit-for-bit at 1283 AND 1286 (the world's exit state == its entry state at every width and layer the table walks; T5+T10 extended, the harness's own loop closed) — and two independent fresh loads of the same build film the same world bit-for-bit across widths (the cross-load identity)" },
+    tenthSeat: { liveFarBelow, restoreFarBelow,
+      law: "the tenth seat (t855): the cross-load identity's FAR+BELOW form — the restore load's zone and band walks == the T0 load's bit-for-bit OUTSIDE the zone: the far edge (1366/1920: edges 693.8/895, rightW 628.3, seats 12, the wrapper kid == the zone's wrapW 149.2/220, the PS clearing −12 → −463.1) and the below zone (768/1024: edges 264/266.5, rightW 460, seats 11, the mid row asleep, the zone walk exactly {mid:false}) — the restore's width map is COMPLETE (below, zone, far); the probe (t855-restore-far-below-probe) rode all seven far/below widths first, zero drifts, kept as provenance" },
     law: "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848). The seventh seat (t850): across widths the edges ride the live rulers on BOTH option worlds (610.8 @1283 / 613.8 @1286, 628.3, 12), the wrapper kid == the option's zone wrapW at every width, and the mid row's own laws re-scope: the (b88) equalize is AT-A-WIDTH (exact at 1280, decays to 0.3 @1283 and 0.7 @1286), the (c) divergence is width-stable (14.7 → 14.5 → 14.4)" },
   restored: r1,
   verdict:
     fail === 0
-      ? "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The eighth seat: the width form COMPLETED — (a) and (b138) are bit-for-bit the live band at 1283/1286 against their own loads' rulers (the paint and the no-op are width-free), and the bound chain's width form holds (the squeezed box 101.3 → 103.0, the 138 cap never binding in the zone, the squeeze option-invariant). The ninth seat: the restore's width form — the world's exit state == its entry state at every width and layer the table walks (bit-for-bit against the T0 load's rulers), the harness's own loop closed. The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths, and the world the grind hands back is proven unharmed across the zone"
+      ? "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The eighth seat: the width form COMPLETED — (a) and (b138) are bit-for-bit the live band at 1283/1286 against their own loads' rulers (the paint and the no-op are width-free), and the bound chain's width form holds (the squeezed box 101.3 → 103.0, the 138 cap never binding in the zone, the squeeze option-invariant). The ninth seat: the restore's width form — the world's exit state == its entry state at every width and layer the table walks (bit-for-bit against the T0 load's rulers), the harness's own loop closed. The tenth seat: the cross-load identity extends OUTSIDE the zone — the far edge and the below zone both bit-for-bit, the restore's width map COMPLETE (two loads, one world, below/zone/far). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths, and the world the grind hands back is proven unharmed across the zone"
       : "RED — the table disagrees; re-measure before the build day",
 };
 const out = join(ROOT, "shots-qa/t840-options-rehearsal.json");

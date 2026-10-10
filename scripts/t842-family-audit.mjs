@@ -382,11 +382,45 @@ ok("F16.b the world's EXIT state == its ENTRY state bit-for-bit at every width t
   NS.restoreAcross['1283'].zone.wmW === 102.2 && NS.restoreAcross['1286'].zone.wmW === 103,
   `band+zone bit-for-bit vs the T0 rulers @1283+1286; twin 116.5/117.7; overlap 1.5/0.3; wmW 102.2/103`);
 
+// ---- F17 the tenth seat: the cross-load identity's FAR+BELOW form ------
+const TS = (R840.bandAfter || {}).tenthSeat || {};
+const tsOk = (w) => TS.restoreFarBelow && TS.restoreFarBelow[w] && TS.restoreFarBelow[w].band &&
+  !TS.restoreFarBelow[w].band.error && TS.restoreFarBelow[w].band.innerW === Number(w) && TS.restoreFarBelow[w].zone &&
+  TS.liveFarBelow && TS.liveFarBelow[w] && TS.liveFarBelow[w].band;
+ok("F17.a the tenth seat is aboard: t840's bandAfter.tenthSeat carries BOTH loads' far/below walks (liveFarBelow + restoreFarBelow at 1366/1920/768/1024, zone + band each, on the T0 load and the restore load respectively)",
+  tsOk('1366') && tsOk('1920') && tsOk('768') && tsOk('1024'),
+  `far/below bookends aboard x2 loads, innerW ${TS.restoreFarBelow ? ['1366','1920','768','1024'].map((w) => TS.restoreFarBelow[w].band.innerW).join('/') : '?'}`);
+ok("F17.b the cross-load identity holds OUTSIDE the zone bit-for-bit: the restore load's band == the T0 load's live band AND the zone layer agrees at the far edge (1366/1920: edges 693.8/895, rightW 628.3, seats 12, the wrapper kid == the zone's wrapW 149.2/220 — the pays law's twin alive at the far edge, the PS clearing deeper −12 → −463.1) and the below zone (768/1024: edges 264/266.5, rightW 460, seats 11, the mid row ASLEEP — midKids null, the zone walk exactly {mid:false}) — the restore's width map is COMPLETE: two independent fresh loads film the same world bit-for-bit below, in, and far beyond the zone",
+  eq(TS.restoreFarBelow['1366'].band, TS.liveFarBelow['1366'].band) && eq(TS.restoreFarBelow['1920'].band, TS.liveFarBelow['1920'].band) &&
+  eq(TS.restoreFarBelow['768'].band, TS.liveFarBelow['768'].band) && eq(TS.restoreFarBelow['1024'].band, TS.liveFarBelow['1024'].band) &&
+  eq(TS.restoreFarBelow['1366'].zone, TS.liveFarBelow['1366'].zone) && eq(TS.restoreFarBelow['1920'].zone, TS.liveFarBelow['1920'].zone) &&
+  eq(TS.restoreFarBelow['768'].zone, TS.liveFarBelow['768'].zone) && eq(TS.restoreFarBelow['1024'].zone, TS.liveFarBelow['1024'].zone) &&
+  TS.liveFarBelow['1366'].band.midKids[1].w === TS.liveFarBelow['1366'].zone.wrapW &&
+  TS.liveFarBelow['1920'].band.midKids[1].w === TS.liveFarBelow['1920'].zone.wrapW &&
+  TS.liveFarBelow['1366'].zone.overlap === -12 && TS.liveFarBelow['1920'].zone.overlap === -463.1,
+  `band+zone bit-for-bit @1366/1920/768/1024; twin 149.2/220; overlap -12/-463.1; below asleep (11 seats, 460, midKids null, {mid:false})`);
+ok("F17.c the identity now SPANS INSTRUMENTS: t840's liveFarBelow band rows == the sweep receipt's own far/below rows bit-for-bit at all four bookends (leftW/rightW/seats/midKids/innerW — the T0 load of the decision table and the sweep's load film the same far/below world), and the zone layers agree on the shared 6-key projection (mid/trigW/wrapW/overlap/wmW/paintAt — the sweep's zone rows carry a narrower shape: modeling, not drift; the t854 lesson learned twice by the t855 probe)",
+  ['1366', '1920', '768', '1024'].every((w) => {
+    const fb = TS.liveFarBelow[w].band;
+    const sw = (SWEEP.farEdge.rows[w] || SWEEP.belowZone.rows[w]);
+    return sw && fb.innerW === Number(w) &&
+      eq({ leftW: fb.leftW, rightW: fb.rightW, seats: fb.seats, midKids: fb.midKids, innerW: fb.innerW },
+         { leftW: sw.leftW, rightW: sw.rightW, seats: sw.seats, midKids: sw.midKids, innerW: sw.innerW });
+  }) &&
+  ['1366', '1920', '768', '1024'].every((w) => {
+    const fz = TS.liveFarBelow[w].zone;
+    const sz = (SWEEP.farEdge.zone[w] || SWEEP.belowZone.zone[w]);
+    if (!sz) return false;
+    const proj = (z) => JSON.stringify(Object.fromEntries(['mid', 'trigW', 'wrapW', 'overlap', 'wmW', 'paintAt'].map((k) => [k, z[k]])));
+    return proj(fz) === proj(sz);
+  }),
+  `band bit-for-bit vs the sweep's G/H rows x4; zone agrees on the 6-key projection x4 — two instruments, one world, at the load level`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const verdict = failed === 0
-  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4), and the width form is COMPLETED (the eighth seat: (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, and the bound chain's width form holds — the squeezed box loosens 101.3 -> 103.0 but the 138 cap never binds in the zone, the squeeze option-invariant); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
+  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4), and the width form is COMPLETED (the eighth seat: (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, and the bound chain's width form holds — the squeezed box loosens 101.3 -> 103.0 but the 138 cap never binds in the zone, the squeeze option-invariant), and the cross-load identity now spans the WHOLE width axis AND both instruments (the ninth + tenth seats: the restore load films the T0 world bit-for-bit across the zone AND outside it — far edge 693.8/895, below 264/266.5, the sleep itself reproducible — and t840's live rulers == the sweep's own G/H rows at the load level); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
   : `the family DISAGREES in ${failed} place(s) — reconcile before the build day`;
 const receipt = {
   instrument: 'scripts/t842-family-audit.mjs',
@@ -394,7 +428,7 @@ const receipt = {
   date: new Date().toISOString(),
   sources: {
     t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date, cloneBand: 'the fix world\'s band layer (the fourth seat, t847)', bandAcross: 'the clone\'s band at 1286/1287 vs live rulers 1280/1286/1287 — PAINT is width-free (the sixth seat, t849)' },
-    t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date, bandAfter: "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850) + the width form COMPLETED (the eighth seat, t851) + the restore's width form (the ninth seat, t854)" },
+    t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date, bandAfter: "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850) + the width form COMPLETED (the eighth seat, t851) + the restore's width form (the ninth seat, t854) + the cross-load identity's far+below form (the tenth seat, t855)" },
     sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date, belowZone: "the band layer's first ride below xl (t853): the twin asleep (vacuously at rest), the born-squeezed wordmark (140 @768, the row's only yielder paying the whole 2.5), the edge law (squeeze(W) = 770.5 − W, zone [768, 770], clear by 771, slope −1.0/px)" },
     sweepPinned: { left: P.left, right: P.right, seats: P.seats, law: "pinned == bands within ±0.5 (the sweep's own rounding law), seats exact, across 6 widths" },
     t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined },

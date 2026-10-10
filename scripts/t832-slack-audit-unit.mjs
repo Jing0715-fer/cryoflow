@@ -704,6 +704,48 @@ if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.ninthSeat && baRecei
   );
 }
 
+// A4e-25 — the t855 TENTH SEAT: the cross-load identity's FAR+BELOW form
+// (t840's bandAfter.tenthSeat, T19; family F17.a-c). The restore load's
+// zone and band walks == the T0 load's bit-for-bit OUTSIDE the zone —
+// the far edge (1366/1920: edges 693.8/895, rightW 628.3, seats 12, the
+// wrap twin 149.2/220, the PS clearing −12 → −463.1) and the below zone
+// (768/1024: edges 264/266.5, rightW 460, seats 11, the mid row asleep,
+// the zone walk exactly {mid:false}) — the restore's width map COMPLETE
+// (below, zone, far). And the identity spans instruments: t840's
+// liveFarBelow band rows == the sweep receipt's own G/H rows
+// bit-for-bit (the 6-key projection for the zone layers — modeling,
+// not drift).
+if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.tenthSeat && feReceipt) {
+  const T10 = baReceipt.bandAfter.tenthSeat;
+  const proj = (z) => JSON.stringify(Object.fromEntries(["mid", "trigW", "wrapW", "overlap", "wmW", "paintAt"].map((k) => [k, z[k]])));
+  const sweepRow = (w) => (feReceipt.farEdge.rows[w] || feReceipt.belowZone.rows[w]);
+  const sweepZone = (w) => (feReceipt.farEdge.zone[w] || feReceipt.belowZone.zone[w]);
+  ok(
+    T10.liveFarBelow && T10.restoreFarBelow &&
+      ["1366", "1920", "768", "1024"].every((w) =>
+        T10.restoreFarBelow[w] && T10.restoreFarBelow[w].band && !T10.restoreFarBelow[w].band.error &&
+        JSON.stringify(T10.restoreFarBelow[w].band) === JSON.stringify(T10.liveFarBelow[w].band) &&
+        JSON.stringify(T10.restoreFarBelow[w].zone) === JSON.stringify(T10.liveFarBelow[w].zone)) &&
+      T10.liveFarBelow["1366"].band.seats === 12 && T10.liveFarBelow["1366"].band.rightW === 628.3 &&
+      T10.liveFarBelow["1366"].band.leftW === 693.8 && T10.liveFarBelow["1920"].band.leftW === 895 &&
+      T10.liveFarBelow["1366"].band.midKids[1].w === T10.liveFarBelow["1366"].zone.wrapW &&
+      T10.liveFarBelow["1920"].band.midKids[1].w === T10.liveFarBelow["1920"].zone.wrapW &&
+      T10.liveFarBelow["1366"].zone.overlap === -12 && T10.liveFarBelow["1920"].zone.overlap === -463.1 &&
+      T10.liveFarBelow["768"].band.seats === 11 && T10.liveFarBelow["768"].band.rightW === 460 &&
+      T10.liveFarBelow["768"].band.leftW === 264 && T10.liveFarBelow["1024"].band.leftW === 266.5 &&
+      T10.liveFarBelow["768"].band.midKids === null && T10.liveFarBelow["768"].zone.mid === false &&
+      sweepRow("1366") && sweepRow("1920") && sweepRow("768") && sweepRow("1024") &&
+      ["1366", "1920", "768", "1024"].every((w) => {
+        const fb = T10.liveFarBelow[w].band;
+        const sw = sweepRow(w);
+        return JSON.stringify({ leftW: fb.leftW, rightW: fb.rightW, seats: fb.seats, midKids: fb.midKids, innerW: fb.innerW }) ===
+          JSON.stringify({ leftW: sw.leftW, rightW: sw.rightW, seats: sw.seats, midKids: sw.midKids, innerW: sw.innerW });
+      }) &&
+      ["1366", "1920", "768", "1024"].every((w) => sweepZone(w) && proj(T10.liveFarBelow[w].zone) === proj(sweepZone(w))),
+    `A4e-25 the t855 tenth seat is aboard and green (t840 22/22): the cross-load identity's FAR+BELOW form — the restore load == the T0 load bit-for-bit OUTSIDE the zone on BOTH layers (far edge 1366/1920: edges 693.8/895, rightW 628.3, seats 12, the wrap twin 149.2/220, the PS clearing −12 → −463.1; below zone 768/1024: edges 264/266.5, rightW 460, seats 11, the mid row asleep, the zone walk exactly {mid:false}) — the restore's width map COMPLETE (below, zone, far), and the identity SPANS INSTRUMENTS: t840's live rulers == the sweep receipt's own G/H rows bit-for-bit (the 6-key zone projection — modeling, not drift)`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),
