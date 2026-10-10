@@ -808,12 +808,13 @@ if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
     DL.prevFound === true &&
       FIVE.every((k) => f[k] && typeof f[k].prev === "number" && typeof f[k].live === "number" && typeof f[k].drift === "number" && typeof f[k].identical === "boolean") &&
       (!arm3Bites || FIVE.every((k) => f[k].prev === f[k].live && f[k].drift === 0 && f[k].identical === true)) &&
-      [153, 122, 274, 161, 153].every((n, i) => f[FIVE[i]].live === n) &&
+      // t860 re-pin: the SETTLED inspector speaks 297 — the settle-wait lets the funnel/arc/class-sheet surfaces finish mounting (the old 2s sleep filmed mid-flight at 274)
+      [153, 122, 297, 161, 153].every((n, i) => f[FIVE[i]].live === n) &&
       mtReceipt.faces.canvas.live.pageBtns - 142 >= 0 &&
       mtReceipt.faces.dashboard.live.pageBtns - 114 >= 0 &&
       mtReceipt.faces.inspector.live.pageBtns - 180 >= 0 &&
       mtReceipt.faces.palette.live.pageBtns - 150 >= 0,
-    `A4e-27 the t857 drift ledger is aboard and honest (t846 25/25, the t859 jurisdiction re-pin): the census family's ride-to-ride truth is RECORDED per face (five faces, numeric prev/live/drift + identical), bit-for-bit is demanded only when the world key says the bytes are frozen (same-build arm 3; a dev world's ride variance is arm-2′ information — the restored roster's live speaks 153/122/274/161/153, floors non-negative vs the census 142/114/180/150), and the two drift numbers do different jobs in one receipt (floors = the census's age; ledger = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
+    `A4e-27 the t857 drift ledger is aboard and honest (t846 25/25, the t859 jurisdiction re-pin): the census family's ride-to-ride truth is RECORDED per face (five faces, numeric prev/live/drift + identical), bit-for-bit is demanded only when the world key says the bytes are frozen (same-build arm 3; a dev world's ride variance is arm-2′ information — the restored roster's SETTLED live speaks 153/122/297/161/153 (t860's settle-wait), floors non-negative vs the census 142/114/180/150), and the two drift numbers do different jobs in one receipt (floors = the census's age; ledger = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
   );
 }
 

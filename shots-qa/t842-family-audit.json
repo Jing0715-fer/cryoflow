@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
   "build": "dev@c4c3735897dd",
-  "date": "2026-10-10T14:16:15.206Z",
+  "date": "2026-10-10T14:26:15.533Z",
   "sources": {
     "t839": {
       "file": "shots-qa/t839-zone-rehearsal.json",
@@ -53,7 +53,7 @@
     },
     "t846": {
       "file": "shots-qa/t846-a11y-maintenance.json",
-      "date": "2026-10-10T14:13:53.888Z",
+      "date": "2026-10-10T14:26:00.688Z",
       "driftLedger": "the ride-to-ride diff vs the previous receipt (the twelfth seat, t857): drift 0 x5, identical x5 on the frozen build — the census family's reproducibility axis (floors = the census's age, ledger = the world's stability)"
     }
   },
@@ -412,17 +412,17 @@
     {
       "name": "F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five faces, each with prev/live/drift/identical; the comparator's own date + build recorded as provenance; the law names the three arms — no predecessor, build moved, same build bit-for-bit)",
       "pass": true,
-      "detail": "ledger aboard x5 faces, comparator 2026-10-10T14:12:50.103Z (build dev@c4c3735897dd), sameBuild=true"
+      "detail": "ledger aboard x5 faces, comparator 2026-10-10T14:13:53.888Z (build dev@c4c3735897dd), sameBuild=true"
     },
     {
       "name": "F19.b the cross-RIDE identity holds (jurisdiction-aware, the t859 clause): on a BUILD world every face must be bit-for-bit vs the previous receipt — drift 0 x5 AND the full live object identical x5; on a DEV world (unfrozen — the restored roster's inspector content moves with the door's async surfaces) the demand is the arm STRUCTURE: every face carries numeric prev/live/drift + the identical flag, recorded, not cried over — the build-day arm 3 returns untouched",
       "pass": true,
-      "detail": "arm 2′ (dev — structure demanded, drift recorded): canvas 153->153, dashboard 122->122, inspector 172->274, palette 161->161, restore 153->153"
+      "detail": "arm 2′ (dev — structure demanded, drift recorded): canvas 153->153, dashboard 122->122, inspector 274->297, palette 161->161, restore 153->153"
     },
     {
       "name": "F19.c the ledger's honesty: the FLOOR drift and the RIDE drift are different numbers doing different jobs — the floors speak the census's age (the receipt's live minus the census floors 142/114/180/150, self-consistently re-pinned to the restored world), the ledger speaks the ride-to-ride truth (recorded per face, jurisdiction-aware); the live faces still agree with the ledger's own live numbers",
       "pass": true,
-      "detail": "floors vs census (restored world): +11/+8/+94/+11 (age) — ledger rides recorded per face (stability)"
+      "detail": "floors vs census (restored world): +11/+8/+117/+11 (age) — ledger rides recorded per face (stability)"
     }
   ],
   "passed": 62,

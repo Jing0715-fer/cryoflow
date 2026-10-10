@@ -2,7 +2,7 @@
   "instrument": "scripts/t844-a11y-fragile-pair.mjs",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T14:10:19.603Z",
+  "date": "2026-10-10T14:25:36.657Z",
   "doors": {
     "inspector": "dashboard → saved-view card (textContent startsWith 'Centered iso view')",
     "palette": "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door"
@@ -15,22 +15,22 @@
       },
       "live": [
         {
-          "pageBtns": 272,
+          "pageBtns": 297,
           "pageUnnamed": 0,
           "unWho": [],
           "hasDlg": true,
-          "dlgBtns": 119,
+          "dlgBtns": 144,
           "dlgUnnamed": 0,
           "dlgFocus": true,
           "dlgHeading": "3D Refine (tutorial) — job inspector3D R",
           "ip": null
         },
         {
-          "pageBtns": 272,
+          "pageBtns": 297,
           "pageUnnamed": 0,
           "unWho": [],
           "hasDlg": true,
-          "dlgBtns": 119,
+          "dlgBtns": 144,
           "dlgUnnamed": 0,
           "dlgFocus": true,
           "dlgHeading": "3D Refine (tutorial) — job inspector3D R",
@@ -146,7 +146,7 @@
     {
       "label": "A6 inspector rides bit-identical",
       "pass": true,
-      "detail": "page=272 dlg=119"
+      "detail": "page=297 dlg=144"
     },
     {
       "label": "A7 inspector zero unnamed (page-wide)",
@@ -156,12 +156,12 @@
     {
       "label": "A8 inspector dialog subset clean",
       "pass": true,
-      "detail": "dlg=119 unnamed=0"
+      "detail": "dlg=144 unnamed=0"
     },
     {
       "label": "A9 inspector floor holds (restored world 172)",
       "pass": true,
-      "detail": "live=272 (restored 172, drift +100)"
+      "detail": "live=297 (restored 172, drift +125)"
     },
     {
       "label": "A10 Escape closed the inspector",
@@ -202,5 +202,5 @@
   "passed": 16,
   "failed": 0,
   "total": 16,
-  "verdict": "the fragile pair walked clean with the method artifact's discipline: the inspector's tenant heading, trapped focus, 272 page-wide buttons zero unnamed (census 180, +92 newcomers all named), the palette's contract door, 161 zero unnamed (census 150, +11), the input's placeholder name recorded as the census's observation #2 — the census's four faces are now ALL re-witnessed this cycle"
+  "verdict": "the fragile pair walked clean with the method artifact's discipline: the inspector's tenant heading, trapped focus, 297 page-wide buttons zero unnamed (census 180, +117 newcomers all named), the palette's contract door, 161 zero unnamed (census 150, +11), the input's placeholder name recorded as the census's observation #2 — the census's four faces are now ALL re-witnessed this cycle"
 }

@@ -127,6 +127,26 @@ const MEASURE =
 const ESC =
   '(() => { const d = document.querySelector("[role=dialog]"); if (d) { const k = new KeyboardEvent("keydown", { key: "Escape", bubbles: true }); (document.activeElement || document.body).dispatchEvent(k); d.dispatchEvent(k); } return "esc"; })()';
 
+/* t860 — the settle-wait (the probe's teaching): the inspector's heavy
+ * analytics surfaces (the particle funnel, the resolution arc, the class
+ * sheets) mount on their own schedule — the t860 probe filmed +2/−18 buttons
+ * moving BETWEEN rides and bit-stability two rides in. A fixed sleep films
+ * the world MID-MOUNT; settling films the world when it has STOPPED moving:
+ * measure, re-measure, require equality, bounded. The receipt's world is the
+ * settled one — same-key rides can be bit-for-bit again without lying. */
+const settle = (what) => {
+  let m = evalJson(MEASURE);
+  for (let i = 0; i < 6; i++) {
+    sleep(0.8);
+    const next = evalJson(MEASURE);
+    const same = JSON.stringify(next) === JSON.stringify(m);
+    m = next;
+    if (same) break;
+  }
+  console.log(`  settled ${what}`);
+  return m;
+};
+
 /* ---------- Face C: the canvas (the chain's root) ---------- */
 console.log("Face C — the workflow canvas (fresh load, sleep 3)");
 ab("open http://localhost:3000");
@@ -158,7 +178,7 @@ if (!card.found) {
 }
 ok("M8 the saved-view card found and clicked", card.found === true, "the deliberate door (t844's)");
 sleep(2);
-const i1 = evalJson(MEASURE);
+const i1 = settle("the inspector (the analytics surfaces mount late — t860's probe)");
 ok("M9 inspector arrived: dialog + tenant heading", i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D Refine (tutorial) — job inspector"), `heading="${i1.dlgHeading}"`); // t859 re-pin: the restored roster's canonical node name (the t833-era world said "3D auto-refine" — the name is world-state, the heading shape holds)
 ok("M10 inspector focus trapped", i1.dlgFocus === true);
 ok("M11 inspector zero unnamed (page-wide + dialog subset)", i1.pageUnnamed === 0 && i1.dlgUnnamed === 0, `page=${i1.pageBtns} dlg=${i1.dlgBtns} unnamed=0/0`);
@@ -172,7 +192,7 @@ ok("M13 Escape closed the inspector", i2.hasDlg === false, `dlg=${i2.hasDlg}`);
 console.log("Face P — the palette (the t483 contract door)");
 evalJson('(() => { window.dispatchEvent(new Event("cryoflow:open-palette")); return "door"; })()');
 sleep(1);
-const p1 = evalJson(MEASURE);
+const p1 = settle("the palette");
 ok("M14 palette arrived: dialog + cmdk input", p1.hasDlg && p1.ip && !!p1.ip.ph, `placeholder="${p1.ip ? p1.ip.ph : "?"}"`);
 ok("M15 palette zero unnamed (page-wide)", p1.pageUnnamed === 0, `unnamed=${p1.pageUnnamed}`);
 ok("M16 palette floor holds (census 150) + observation #2", p1.pageBtns >= 150 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 150}) the input's name rides the placeholder`);

@@ -94,6 +94,23 @@ console.log(
 const MEASURE =
   '(() => { const nameOf = (el) => { const al = el.getAttribute("aria-label"); if (al && al.trim()) return al.trim(); const lb = el.getAttribute("aria-labelledby"); if (lb) { const t = lb.split(/\\s+/).map((id) => { const d = document.getElementById(id); return d ? (d.textContent || "").trim() : ""; }).join(" ").trim(); if (t) return t; } const tc = (el.textContent || "").trim(); if (tc) return tc; if (el.tagName === "IMG") { const a = el.getAttribute("alt"); if (a !== null && a.trim()) return a.trim(); } if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { const v = (el.value || "").trim(); if (v) return v; const p = (el.getAttribute("placeholder") || "").trim(); if (p) return p; } return ""; }; const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const dlg = document.querySelector("[role=dialog]"); const dlgBtns = dlg ? Array.from(dlg.querySelectorAll("button")) : []; const dlgUn = dlgBtns.filter((b) => !nameOf(b)); const ip = document.querySelector("[cmdk-input]"); return JSON.stringify({ pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), hasDlg: !!dlg, dlgBtns: dlgBtns.length, dlgUnnamed: dlgUn.length, dlgFocus: dlg ? dlg.contains(document.activeElement) : null, dlgHeading: dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null, ip: ip ? { aria: ip.getAttribute("aria-label"), ph: ip.getAttribute("placeholder") } : null }); })()';
 
+/* t860 — the settle-wait (the probe's teaching, shared with t846): the
+ * inspector's analytics surfaces mount late (the t860 probe filmed +2/−18
+ * moving between rides, bit-stable two rides in). Measure until the world
+ * stops moving (bounded), then film — the receipt speaks the settled world. */
+const settle = (what) => {
+  let m = evalJson(MEASURE);
+  for (let i = 0; i < 6; i++) {
+    sleep(0.8);
+    const next = evalJson(MEASURE);
+    const same = JSON.stringify(next) === JSON.stringify(m);
+    m = next;
+    if (same) break;
+  }
+  console.log(`  settled ${what}`);
+  return m;
+};
+
 /* ---------- baseline: the canvas ---------- */
 console.log("Baseline — the canvas (the t843 floors still hold)");
 ab("open http://localhost:3000");
@@ -116,7 +133,7 @@ if (!card.found) {
 }
 ok("A3 the saved-view card found and clicked", card.found === true, "the door the census reached by accident, taken deliberately");
 sleep(2);
-const i1 = evalJson(MEASURE);
+const i1 = settle("the inspector (t860: the funnel/arc/class-sheet surfaces mount late)");
 const i2 = evalJson(MEASURE);
 ok("A4 the inspector arrived: dialog + labelledby + tenant heading",
   i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D Refine (tutorial) — job inspector"),
@@ -135,7 +152,7 @@ ok("A10 Escape closed the inspector", i3.hasDlg === false, `dlg=${i3.hasDlg}`);
 console.log("Face P — the ⌘K palette (the t483 contract door)");
 evalJson('(() => { window.dispatchEvent(new Event("cryoflow:open-palette")); return "door"; })()');
 sleep(1);
-const p1 = evalJson(MEASURE);
+const p1 = settle("the palette");
 const p2 = evalJson(MEASURE);
 ok("A11 the palette arrived: dialog + cmdk input", p1.hasDlg && p1.ip && !!p1.ip.ph, `placeholder="${p1.ip ? p1.ip.ph : "?"}"`);
 ok("A12 palette rides bit-identical", JSON.stringify(p1) === JSON.stringify(p2), `page=${p1.pageBtns}`);
