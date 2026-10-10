@@ -122,10 +122,35 @@ stack loses the trigger), E8 gains the wrapper's computed `overflow-x`
 fingerprint, and the fix lands as ONE grind with its proof already
 aboard.
 
-The build day's options, priced by the arithmetic: (a) `overflow-hidden` on
-the PS wrapper — the floor stays name-worthy, the paint stays inside,
-cheapest; (b) re-cut the wordmark's xl width; (c) drop the project
-trigger's xl tier from 170 to 150.
+The build day's options — priced by arithmetic (t836), then MEASURED
+(t840, every AFTER pre-filmed on throwaway clones; receipt
+`shots-qa/t840-options-rehearsal.json`):
+
+- **(a) `overflow-hidden` on the PS wrapper — THE fix.** The geometry
+  stays exactly as measured (2.7 / 130 / 115.3), the paint clips (the
+  stack witness loses the trigger), the chip keeps the click, one line
+  of src. The t839/t840 rows agree.
+- **(b) re-cut the wordmark's xl width — refuted AS WRITTEN, viable
+  bound.** The wordmark is ALREADY squeezed to 101.3 at 1280 (its
+  natural 142.46 minus the row's squeeze — the number (b)'s pricing
+  lacked): a cap at 138 does not bind and nothing moves. A cap at 88
+  binds and CLEARS the zone (overlap −4.8; the reclaim rate steepens,
+  the t836 slope −0.4 becomes ≈ −0.55: 1283 = −6.4, 1286 = −8.1) — at
+  the cost of truncating the brand text harder. More src churn, worse
+  brand, same visual result as (a).
+- **(c) drop the project trigger's xl tier from 170 to 150 — REFUTED.**
+  The trigger still hits its 130 floor (the squeeze binds regardless of
+  tier), the freed demand is eaten UPSTREAM (the tier law's shock
+  absorber recovers), the wrapper yields DEEPER (115.3 → 106.6) and the
+  paint WORSENS to 11.4 (+8.7). The arithmetic pricing assumed the
+  freed width stays in the mid tier; the experiment shows the row sends
+  it upstream.
+
+The verdict is closed before the grind: land (a), ONE grind, the
+ratchet's post-fix form already rehearsed (D4's narration flips to the
+clipped truth, E8 gains the computed overflow-x fingerprint), and the
+decision table rides in the receipt should the build day ever want the
+comparison.
 
 ## Instruments
 
@@ -134,9 +159,10 @@ trigger's xl tier from 170 to 150.
   `shots-qa/t834-band-sweep.json` with the raw subpixels, per-seat anatomy,
   and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (48 assertions, rides the
+  parsed, the tiers computed, the closed forms (49 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
-  close the t839 rehearsal receipt against the pricing).
+  close the t839 rehearsal receipt against the pricing, A4e-11 closes the
+  t840 decision table).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -153,6 +179,13 @@ trigger's xl tier from 170 to 150.
   "paint, not geometry" is an experiment now: on the build day the fix
   lands with its proof already aboard, and D4/E8 flip to the rehearsed
   clipped truth.
+- `node scripts/t840-options-rehearsal.mjs` — the decision table: every
+  build-day option's AFTER pre-filmed on its own throwaway clone ((a)
+  the clip, (b) at 138 = no-op and 88 = clears with a steepened slope,
+  (c) = backfires to 11.4; two bit-identical rides per option; receipt
+  `shots-qa/t840-options-rehearsal.json`). The t836 arithmetic pricing
+  is an experiment now — the build day's choice is closed by
+  measurement, not by memory.
 - The handshake is the audit: source counts drift from rendered truth, and
   measured widths rot without a contract — neither half alone is honest.
   When the two instruments produce the same numbers, the header's band
