@@ -27,6 +27,27 @@
  *     ratchet: land the fix, move the pin);
  *   - horizontal overflow (scrollWidth vs innerWidth).
  *
+ * Section E (t836): the t510 residue's ZONE FORMALIZATION — the t835
+ * characterization ("zone [1280, ~1289], clear by 1290") measured in
+ * 1px steps and pinned as assertions, so the fix window starts at the
+ * verified zone, not at the rediscovery. The zone's laws, live-pinned:
+ *   - LEFT-ANCHORED at xl: below 1280 the middle tier sleeps (hidden
+ *     xl:flex) — the zone cannot start below 1280;
+ *   - LINEAR with slope −0.4px/px: overlap(W) = 2.7 − 0.4×(W−1280)
+ *     (the wrapper reclaims 0.4px per viewport px, the row's other
+ *     yielders absorb 0.6);
+ *   - the edge: last paint 1286 (+0.3), first clear 1287 (−0.1) — the
+ *     t835 "clear by ~1290" was the named point (1290 = −1.3 exact),
+ *     the measured edge is tighter;
+ *   - NO RE-PAINT: from 1287 through 1440 the overlap stays ≤ 0
+ *     (1366 = −12, 1440 = −33.1, the t835 named points);
+ *   - the PAINT WITNESS: inside the band the topmost element is the
+ *     CHIP (DOM-order hit-test) whose background is transparent — the
+ *     trigger's edge paint shows through, and the chip owns the click.
+ *     The fix window's option (a) (overflow-hidden) changes the paint,
+ *     NOT the geometry — its ratchet needs a paint-honest witness
+ *     (this one), not the raw rect delta alone.
+ *
  * The receipt lands in shots-qa/t834-band-sweep.json (provenance: BUILD_ID
  * read from .next/BUILD_ID at run time). The assertions pin TODAY's truth:
  * left 68/114/264/266/608/864, right 236/334/460/628, seats 6/8/11/12/12/12,
@@ -218,12 +239,79 @@ if (rows[1536] && rows[1536].midKids) {
   ok(ps && ps.trigW <= ps.wrapW + 0.5, `D7 1536 no trigger overflow (trigger ${ps && ps.trigW} ≤ wrapper ${ps && ps.wrapW} — the floor sleeps above 2xl)`);
 }
 
+/* ---------- E — the zone formalization (the t836 stepwise pin) ---------- */
+console.log("\nE — the t510 residue's zone, 1px steps around xl (the t836 formalization)");
+// The probe (scripts/t836-zone-probe.mjs) measured the zone twice with
+// bit-identical tables; these pins are its laws. The measure is the
+// probe's: trigger right minus chip left at 0.1px, plus the paint
+// witness (elementFromPoint in the band, the chip's computed bg).
+const ZONE_MEASURE =
+  "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'no header' }); const mid = hdr.children[0].children[3]; if (!mid || mid.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: false }); const psWrap = mid.children[1]; const psTrig = psWrap ? psWrap.querySelector('button, [role=combobox]') : null; const chip = hdr.children[1].children[0]; if (!psTrig || !chip || chip.getBoundingClientRect().width <= 0) return JSON.stringify({ mid: true, ps: null }); const tr = psTrig.getBoundingClientRect(); const cr = chip.getBoundingClientRect(); const paint = (x) => { const el = document.elementFromPoint(x, tr.top + tr.height / 2); if (!el) return 'null'; const who = el === psTrig || psTrig.contains(el) ? 'TRIGGER' : el === chip || chip.contains(el) ? 'CHIP' : 'OTHER'; return who + '|' + (el.getAttribute('aria-label') || String(el.className).slice(0, 30)); }; const cs = getComputedStyle(chip); return JSON.stringify({ mid: true, trigW: Math.round(tr.width * 10) / 10, wrapW: Math.round(psWrap.getBoundingClientRect().width * 10) / 10, overlap: Math.round((tr.right - cr.left) * 10) / 10, chipBg: cs.backgroundColor, paintAt: paint(Math.min(tr.right - 0.5, cr.left + 0.5)) }); })()";
+const ZW = [
+  1279, 1280, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290,
+  1291, 1292, 1294, 1366, 1440,
+];
+const zone = {};
+for (const w of ZW) {
+  ab(`set viewport ${w} ${HEIGHT}`);
+  ab("wait 250");
+  zone[w] = evalJson(ZONE_MEASURE);
+}
+ab("set viewport 1280 800");
+const zOv = (w) => (zone[w] && zone[w].overlap !== undefined ? zone[w].overlap : null);
+
+ok(
+  zone[1279] && zone[1279].mid === false,
+  `E1 1279 the middle tier is ASLEEP (hidden xl:flex) — the zone is left-anchored at 1280`
+);
+ok(zOv(1280) === 2.7, `E2 1280 the zone's left edge = the D4 pin (2.7) — got ${zOv(1280)}`);
+// The slope law: overlap(W) = 2.7 − 0.4×(W−1280). The wrapper reclaims
+// 0.4px per viewport px (the row's other yielders absorb the 0.6). The
+// law closes within ±0.15 across the whole named range.
+let maxDev = 0;
+let law = "";
+for (let w = 1280; w <= 1290; w++) {
+  const ov = zOv(w);
+  if (ov === null) continue;
+  const dev = Math.abs(ov - (2.7 - 0.4 * (w - 1280)));
+  if (dev > maxDev) maxDev = dev;
+  law += `${w}:${ov} `;
+}
+ok(
+  maxDev <= 0.15,
+  `E3 the slope law overlap(W) = 2.7 − 0.4×(W−1280) closes ±0.15 over 1280..1290 (max dev ${Math.round(maxDev * 100) / 100}) [${law.trim()}]`
+);
+const lastPaint = [1286, 1285, 1284, 1283, 1282, 1281, 1280].find((w) => zOv(w) > 0);
+const firstClear = [1287, 1288, 1289, 1290, 1291, 1292].find((w) => zOv(w) !== null && zOv(w) <= 0);
+ok(
+  lastPaint === 1286 && firstClear === 1287,
+  `E4 the edge: last paint 1286 (+0.3), first clear 1287 (−0.1) — got last ${lastPaint} / first ${firstClear}`
+);
+ok(zOv(1290) === -1.3, `E5 1290 the t835 named point is exact (−1.3) — got ${zOv(1290)}`);
+const repaint = ZW.filter((w) => w >= 1287 && zOv(w) !== null && zOv(w) > 0);
+ok(
+  repaint.length === 0,
+  `E6 NO RE-PAINT above the edge (1287→1440 all ≤ 0)${repaint.length ? ` — RE-PAINT at ${repaint.join(",")}` : ""}`
+);
+ok(
+  zOv(1366) === -12 && zOv(1440) === -33.1,
+  `E7 the wide named points exact: 1366 = −12 (got ${zOv(1366)}), 1440 = −33.1 (got ${zOv(1440)})`
+);
+ok(
+  zone[1280] &&
+    typeof zone[1280].paintAt === "string" &&
+    zone[1280].paintAt.startsWith("CHIP") &&
+    zone[1280].chipBg === "rgba(0, 0, 0, 0)",
+  `E8 the PAINT WITNESS: in-band topmost = CHIP (${zone[1280] && zone[1280].paintAt}), bg transparent (${zone[1280] && zone[1280].chipBg}) — the edge paint shows through, the chip owns the click`
+);
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t834-band-sweep.mjs",
   build: buildId,
   date: new Date().toISOString(),
   bands: rows,
+  zone: { widths: ZW, rows: zone, law: "overlap(W) = 2.7 − 0.4×(W−1280)", edge: { lastPaint: 1286, firstClear: 1287 } },
   pinned: PINNED,
 };
 const out = join(ROOT, "shots-qa/t834-band-sweep.json");

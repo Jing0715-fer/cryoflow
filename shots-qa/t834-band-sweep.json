@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t834-band-sweep.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T07:40:05.910Z",
+  "date": "2026-10-10T07:51:52.350Z",
   "bands": {
     "375": {
       "leftW": 68,
@@ -538,6 +538,165 @@
       },
       "innerW": 1536,
       "scrollW": 1536
+    }
+  },
+  "zone": {
+    "widths": [
+      1279,
+      1280,
+      1281,
+      1282,
+      1283,
+      1284,
+      1285,
+      1286,
+      1287,
+      1288,
+      1289,
+      1290,
+      1291,
+      1292,
+      1294,
+      1366,
+      1440
+    ],
+    "rows": {
+      "1279": {
+        "mid": false
+      },
+      "1280": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 115.3,
+        "overlap": 2.7,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found"
+      },
+      "1281": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 115.7,
+        "overlap": 2.3,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found"
+      },
+      "1282": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 116.1,
+        "overlap": 1.9,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found"
+      },
+      "1283": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 116.5,
+        "overlap": 1.5,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found"
+      },
+      "1284": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 116.9,
+        "overlap": 1.1,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found"
+      },
+      "1285": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 117.3,
+        "overlap": 0.7,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found"
+      },
+      "1286": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 117.7,
+        "overlap": 0.3,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found"
+      },
+      "1287": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 118.1,
+        "overlap": -0.1,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found"
+      },
+      "1288": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 118.5,
+        "overlap": -0.5,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|hidden xl:block"
+      },
+      "1289": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 118.9,
+        "overlap": -0.9,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project"
+      },
+      "1290": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 119.3,
+        "overlap": -1.3,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project"
+      },
+      "1291": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 119.7,
+        "overlap": -1.7,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project"
+      },
+      "1292": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 120.1,
+        "overlap": -2.1,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project"
+      },
+      "1294": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 120.8,
+        "overlap": -2.8,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project"
+      },
+      "1366": {
+        "mid": true,
+        "trigW": 149.2,
+        "wrapW": 149.2,
+        "overlap": -12,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project"
+      },
+      "1440": {
+        "mid": true,
+        "trigW": 170,
+        "wrapW": 170,
+        "overlap": -33.1,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project"
+      }
+    },
+    "law": "overlap(W) = 2.7 − 0.4×(W−1280)",
+    "edge": {
+      "lastPaint": 1286,
+      "firstClear": 1287
     }
   },
   "pinned": {
