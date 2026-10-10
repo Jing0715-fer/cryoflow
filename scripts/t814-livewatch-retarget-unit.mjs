@@ -95,9 +95,9 @@ ok(
   "D1 the spend discriminates a real close from the yield's remount (an open surface means the dialog lives — the pocket waits)",
 );
 ok(
-  dialog.includes("layer && (layer.pocket = null)") &&
-    !dialog.includes("if (layer) layer.pocket = null"),
-  "D2 the pocket is cleared at the spend, not at the entry (the t788 order law governs the spend)",
+  dialog.includes("if (layer) layer.pocket = null") &&
+    !dialog.includes("layer && (layer.pocket = null)"),
+  "D2 the pocket is cleared at the spend, not at the entry (the t788 order law governs the spend; the t815 ceremony's lint pass rewrote the expression form as the statement form — same short-circuit, same law, the assertion follows the body)",
 );
 ok(
   dialog.includes("the Escape after a yield landed BODY"),
