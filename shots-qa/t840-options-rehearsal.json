@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t840-options-rehearsal.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T11:05:12.855Z",
+  "date": "2026-10-10T11:23:57.833Z",
   "viewport": {
     "w": 1280,
     "h": 800
@@ -427,7 +427,147 @@
       ],
       "innerW": 1280
     },
-    "law": "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848)"
+    "b88_1283": {
+      "leftW": 610.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 124.1
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 124.4
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1283
+    },
+    "b88_1286": {
+      "leftW": 613.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 125.4
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 126.1
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1286
+    },
+    "c_1283": {
+      "leftW": 610.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 122.2
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 107.7
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1283
+    },
+    "c_1286": {
+      "leftW": 613.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 123.2
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 108.8
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "innerW": 1286
+    },
+    "cZone": {
+      "1283": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 107.7,
+        "overlap": 10.3,
+        "wmW": 106.6,
+        "wmMax": "none",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 ite",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible",
+        "innerW": 1283
+      },
+      "1286": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 108.8,
+        "overlap": 9.2,
+        "wmW": 107.5,
+        "wmMax": "none",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 ite",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible",
+        "innerW": 1286
+      }
+    },
+    "law": "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848). The seventh seat (t850): across widths the edges ride the live rulers on BOTH option worlds (610.8 @1283 / 613.8 @1286, 628.3, 12), the wrapper kid == the option's zone wrapW at every width, and the mid row's own laws re-scope: the (b88) equalize is AT-A-WIDTH (exact at 1280, decays to 0.3 @1283 and 0.7 @1286), the (c) divergence is width-stable (14.7 → 14.5 → 14.4)"
   },
   "restored": {
     "mid": true,
@@ -450,5 +590,5 @@
     "wrapOverflowX": "visible",
     "innerW": 1280
   },
-  "verdict": "the decision table is measured at BOTH layers: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers"
+  "verdict": "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths"
 }

@@ -565,6 +565,35 @@ if (bacReceipt && bacReceipt.bandAcross && bacReceipt.bandAcross.live) {
   );
 }
 
+// A4e-20 — the t850 SEVENTH SEAT: the pays law across widths on the
+// OPTION worlds (t840's bandAfter grows b88_1283/b88_1286/c_1283/c_1286,
+// T11-T14). The edges ride the live rulers at every width on both option
+// worlds (610.8 @1283 / 613.8 @1286, rightW 628.3, seats 12 — width-free
+// PAINT generalized from the fix world to the decision table); the
+// wrapper kid == the option's zone wrapW at all four widths (124.4/126.1,
+// 107.7/108.8); and the mid row re-scopes: the (b88) EQUALIZE is
+// at-a-width (exact at 1280, the label trails 0.3 by 1283 and 0.7 by
+// 1286 — the kids' slopes differ), the (c) divergence width-stable
+// (labels 122.2/123.2, gaps 14.5/14.4) (family F12.a-c).
+if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.b88_1283) {
+  const B7 = baReceipt.bandAfter;
+  const eAt = (b, w, lft) => b && !b.error && b.innerW === w && b.leftW === lft &&
+    b.rightW === 628.3 && b.seats === 12;
+  ok(
+    eAt(B7.b88_1283, 1283, 610.8) && eAt(B7.b88_1286, 1286, 613.8) &&
+      eAt(B7.c_1283, 1283, 610.8) && eAt(B7.c_1286, 1286, 613.8) &&
+      B7.b88_1283.midKids[1].w === baReceipt.optionB88.at1283.wrapW &&
+      B7.b88_1286.midKids[1].w === baReceipt.optionB88.at1286.wrapW &&
+      B7.c_1283.midKids[1].w === B7.cZone["1283"].wrapW &&
+      B7.c_1286.midKids[1].w === B7.cZone["1286"].wrapW &&
+      B7.b88.midKids[0].w === B7.b88.midKids[1].w &&
+      B7.b88_1283.midKids[0].w === 124.1 && B7.b88_1283.midKids[0].w !== B7.b88_1283.midKids[1].w &&
+      B7.b88_1286.midKids[0].w === 125.4 && B7.b88_1286.midKids[0].w !== B7.b88_1286.midKids[1].w &&
+      B7.c_1283.midKids[0].w === 122.2 && B7.c_1286.midKids[0].w === 123.2,
+    `A4e-20 the t850 seventh seat is aboard and green (t840 16/16): the pays law across widths on the option worlds — edges ride the live rulers (610.8/613.8, 628.3, 12 on both), the wrapper kid == the zone wrapW at all four widths (124.4/126.1, 107.7/108.8), the (b88) equalize is at-a-width (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.5/14.4)`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

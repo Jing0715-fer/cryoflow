@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t834-band-sweep.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T11:05:01.503Z",
+  "date": "2026-10-10T11:14:43.334Z",
   "bands": {
     "375": {
       "leftW": 68,

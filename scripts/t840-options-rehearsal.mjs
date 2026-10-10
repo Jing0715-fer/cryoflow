@@ -58,8 +58,21 @@
  * wrapper alone pays the deeper yield. Measure-first discipline: the
  * (b88)/(c) numbers were probed (t848-band-after-probe) before pinning.
  *
+ * The seventh seat (t850): the (b88) slope rows (1283/1286) and the (c)
+ * world gain BAND walks — the mid-row-pays law tested ACROSS WIDTHS on
+ * the option worlds. Measured laws: the EDGES ride the live rulers at
+ * every width on both option worlds (610.8 / 613.8, 628.3, 12 — width-free
+ * PAINT generalized from the fix world to the decision table); the
+ * wrapper kid == the option's zone wrapW at every width (the cross-layer
+ * identity, width-indexed); and the surprise — the (b88) EQUALIZE is an
+ * AT-A-WIDTH phenomenon (exact at 1280, the label then trails the
+ * wrapper 0.3 by 1283 and 0.7 by 1286: their slopes differ), while the
+ * (c) divergence is width-stable (14.7 → 14.5 → 14.4). Measure-first:
+ * t850-option-across-probe rode the widths before any pin.
+ *
  * Receipt: shots-qa/t840-options-rehearsal.json (bandAfter key = the
- * fifth seat: live/a/b138/b88/c/restored band walks).
+ * fifth seat: live/a/b138/b88/c/restored band walks, plus the seventh
+ * seat's width walks b88_1283/b88_1286/c_1283/c_1286).
  *
  *   node scripts/t840-options-rehearsal.mjs
  */
@@ -187,9 +200,11 @@ const bandB88 = evalJson(BAND_MEASURE);
 ab("set viewport 1283 800");
 ab("wait 300");
 const bb1283 = evalJson(MEASURE);
+const bandB88_1283 = evalJson(BAND_MEASURE);
 ab("set viewport 1286 800");
 ab("wait 300");
 const bb1286 = evalJson(MEASURE);
+const bandB88_1286 = evalJson(BAND_MEASURE);
 ab(`set viewport 1280 ${HEIGHT}`);
 ab("wait 300");
 
@@ -200,6 +215,15 @@ ab("wait 500");
 const fontsC2 = fontsWait();
 const [c1, c2, bitC] = pair();
 const bandC = evalJson(BAND_MEASURE);
+/* the seventh seat: (c) gains the same width walks the (b88) slope rows ride */
+const cAcross = {};
+for (const w of [1283, 1286]) {
+  ab(`set viewport ${w} 800`);
+  ab("wait 300");
+  cAcross[String(w)] = { zone: evalJson(MEASURE), band: evalJson(BAND_MEASURE) };
+}
+ab(`set viewport 1280 ${HEIGHT}`);
+ab("wait 300");
 
 /* ---------- T5: the restore ---------- */
 const fontsR = freshLoad();
@@ -267,6 +291,35 @@ ok(
   `T10 the restore at the BAND layer: the fresh-load band == the live band bit-for-bit — the world unharmed at every layer the table measures`
 );
 
+/* ---------- the seventh seat (t850): the pays law across widths, on the
+ * option worlds. The probe (t850-option-across-probe) rode the widths
+ * first; these pins carry the measured values. ---------- */
+const edgeAt = (band, w, leftW) =>
+  band && !band.error && band.innerW === w && band.leftW === leftW &&
+  band.rightW === 628.3 && band.seats === 12 && Array.isArray(band.midKids) && band.midKids.length === 4;
+ok(
+  edgeAt(bandB88_1283, 1283, 610.8) && bandB88_1283.midKids[1].w === bb1283.wrapW,
+  `T11 (b@88) the pays law is WIDTH-INDEXED at 1283: the edges ride the live rulers (left ${bandB88_1283.leftW} / right ${bandB88_1283.rightW} / seats ${bandB88_1283.seats} — width-free PAINT generalized to the option world), the wrapper kid ${bandB88_1283.midKids[1].w} == the zone's wrapW ${bb1283.wrapW}`
+);
+ok(
+  edgeAt(bandB88_1286, 1286, 613.8) && bandB88_1286.midKids[1].w === bb1286.wrapW,
+  `T12 (b@88) at 1286 likewise: edges ${bandB88_1286.leftW} / ${bandB88_1286.rightW} / ${bandB88_1286.seats}, the wrapper kid ${bandB88_1286.midKids[1].w} == the zone's wrapW ${bb1286.wrapW} — two widths, one law`
+);
+ok(
+  bandB88.midKids[0].w === bandB88.midKids[1].w &&
+    bandB88_1283.midKids[0].w === 124.1 && bandB88_1283.midKids[0].w !== bandB88_1283.midKids[1].w &&
+    bandB88_1286.midKids[0].w === 125.4 && bandB88_1286.midKids[0].w !== bandB88_1286.midKids[1].w,
+  `T13 the (b88) EQUALIZE is AT-A-WIDTH: exact at 1280 (${bandB88.midKids[0].w} == ${bandB88.midKids[1].w}), then DECAYS — the label trails the wrapper by ${(bandB88_1283.midKids[1].w - bandB88_1283.midKids[0].w).toFixed(1)} @1283 (${bandB88_1283.midKids[0].w} vs ${bandB88_1283.midKids[1].w}) and ${(bandB88_1286.midKids[1].w - bandB88_1286.midKids[0].w).toFixed(1)} @1286 (${bandB88_1286.midKids[0].w} vs ${bandB88_1286.midKids[1].w}): the two kids' slopes differ (+0.43/px vs +0.55/px), the equalize was the zone's anchor coincidence`
+);
+ok(
+  edgeAt(cAcross["1283"].band, 1283, 610.8) && cAcross["1283"].band.midKids[1].w === cAcross["1283"].zone.wrapW &&
+    edgeAt(cAcross["1286"].band, 1286, 613.8) && cAcross["1286"].band.midKids[1].w === cAcross["1286"].zone.wrapW &&
+    cAcross["1283"].band.midKids[0].w === 122.2 && cAcross["1286"].band.midKids[0].w === 123.2 &&
+    Math.round((cAcross["1283"].band.midKids[0].w - cAcross["1283"].band.midKids[1].w) * 10) / 10 === 14.5 &&
+    Math.round((cAcross["1286"].band.midKids[0].w - cAcross["1286"].band.midKids[1].w) * 10) / 10 === 14.4,
+  `T14 (c) across widths — the DIVERGENCE is width-stable: edges ride the rulers (610.8 / 613.8, 628.3, 12), the wrapper kid == the zone's wrapW (${cAcross["1283"].zone.wrapW} / ${cAcross["1286"].zone.wrapW}), the label grows at the live label's own rate (${cAcross["1283"].band.midKids[0].w} / ${cAcross["1286"].band.midKids[0].w}) — the gap holds 14.7 → 14.5 → 14.4 while (b88)'s decayed: two options, two width forms`
+);
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t840-options-rehearsal.mjs",
@@ -279,11 +332,14 @@ const receipt = {
   optionB138: { swap: swapB138, rides: [bl1, bl2], verdict: "no-op — the cap sits above the wordmark's squeezed 101.3" },
   optionB88: { swap: swapB88, rides1280: [bb1, bb2], at1283: bb1283, at1286: bb1286, verdict: "binds and clears (−4.8); the slope steepens −0.4 → −0.55" },
   optionC: { swap: swapC, rides: [c1, c2], verdict: "backfires — the floor binds anyway, the wrapper yields deeper, the paint worsens to 11.4" },
-  bandAfter: { live: bandLive, a: bandA, b138: bandBL, b88: bandB88, c: bandC, restored: bandR, law: "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848)" },
+  bandAfter: { live: bandLive, a: bandA, b138: bandBL, b88: bandB88, c: bandC, restored: bandR,
+    b88_1283: bandB88_1283, b88_1286: bandB88_1286, c_1283: cAcross["1283"].band, c_1286: cAcross["1286"].band,
+    cZone: { "1283": cAcross["1283"].zone, "1286": cAcross["1286"].zone },
+    law: "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848). The seventh seat (t850): across widths the edges ride the live rulers on BOTH option worlds (610.8 @1283 / 613.8 @1286, 628.3, 12), the wrapper kid == the option's zone wrapW at every width, and the mid row's own laws re-scope: the (b88) equalize is AT-A-WIDTH (exact at 1280, decays to 0.3 @1283 and 0.7 @1286), the (c) divergence is width-stable (14.7 → 14.5 → 14.4)" },
   restored: r1,
   verdict:
     fail === 0
-      ? "the decision table is measured at BOTH layers: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers"
+      ? "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths"
       : "RED — the table disagrees; re-measure before the build day",
 };
 const out = join(ROOT, "shots-qa/t840-options-rehearsal.json");

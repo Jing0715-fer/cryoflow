@@ -281,11 +281,37 @@ ok('F11.c the cross-layer identity is WIDTH-INDEXED and the drift is pinned: ban
   bacLive['1280'].seats === 12 && bacLive['1286'].seats === 12 && bacLive['1287'].seats === 12,
   `wrap twin: 1286 ${bacLive['1286'].midKids[1].w}==${SWEEP.zone.rows['1286'].wrapW}, 1287 ${bacLive['1287'].midKids[1].w}==${SWEEP.zone.rows['1287'].wrapW}; leftW 607.8/613.8/614.8 (+1.0/px); rightW 628.3 x3; seats 12 x3`);
 
+// ---- F12 the seventh seat: the pays law across widths, on the option worlds -----------
+const BA7 = R840.bandAfter || {};
+ok("F12.a the seventh seat is aboard: t840's bandAfter carries the option worlds' width walks — (b88) and (c) each walked at 1283 AND 1286 against the right innerW (the (b88) slope rows gained BAND walks; (c) gained the same rows)",
+  BA7.b88_1283 && !BA7.b88_1283.error && BA7.b88_1283.innerW === 1283 &&
+  BA7.b88_1286 && !BA7.b88_1286.error && BA7.b88_1286.innerW === 1286 &&
+  BA7.c_1283 && !BA7.c_1283.error && BA7.c_1283.innerW === 1283 &&
+  BA7.c_1286 && !BA7.c_1286.error && BA7.c_1286.innerW === 1286,
+  `b88@1283/1286 ${BA7.b88_1283 && BA7.b88_1283.leftW}/${BA7.b88_1286 && BA7.b88_1286.leftW}, c@1283/1286 ${BA7.c_1283 && BA7.c_1283.leftW}/${BA7.c_1286 && BA7.c_1286.leftW}`);
+ok("F12.b width-free PAINT on the OPTION worlds: all four edges == the live rulers (610.8 @1283 / 613.8 @1286, rightW 628.3, seats 12) — and the 1286 row is cross-harness identity with t839's live ruler (two instruments, two worlds, one number)",
+  BA7.b88_1283.leftW === 610.8 && BA7.b88_1283.rightW === 628.3 && BA7.b88_1283.seats === 12 &&
+  BA7.b88_1286.leftW === 613.8 && BA7.b88_1286.rightW === 628.3 && BA7.b88_1286.seats === 12 &&
+  BA7.c_1283.leftW === 610.8 && BA7.c_1283.rightW === 628.3 && BA7.c_1283.seats === 12 &&
+  BA7.c_1286.leftW === 613.8 && BA7.c_1286.rightW === 628.3 && BA7.c_1286.seats === 12 &&
+  BA7.b88_1286.leftW === bacLive['1286'].leftW,
+  `b88 610.8/613.8, c 610.8/613.8, rightW 628.3 x4, seats 12 x4; 1286 == t839 live ${bacLive['1286'].leftW} (cross-harness)`);
+ok('F12.c the pays law RE-SCOPES across widths: the wrapper kid == the option\'s zone wrapW at all four widths (124.4/126.1 b88, 107.7/108.8 c — the cross-layer identity width-indexed on the option worlds); the (b88) EQUALIZE is at-a-width (exact at 1280, the label trails 0.3 by 1283 and 0.7 by 1286 — the kids\' slopes differ), while the (c) divergence is width-stable (labels 122.2/123.2, gaps 14.5/14.4)',
+  BA7.b88_1283.midKids[1].w === R840.optionB88.at1283.wrapW &&
+  BA7.b88_1286.midKids[1].w === R840.optionB88.at1286.wrapW &&
+  BA7.c_1283.midKids[1].w === BA7.cZone['1283'].wrapW &&
+  BA7.c_1286.midKids[1].w === BA7.cZone['1286'].wrapW &&
+  BA7.b88.midKids[0].w === BA7.b88.midKids[1].w &&
+  BA7.b88_1283.midKids[0].w === 124.1 && BA7.b88_1283.midKids[0].w !== BA7.b88_1283.midKids[1].w &&
+  BA7.b88_1286.midKids[0].w === 125.4 && BA7.b88_1286.midKids[0].w !== BA7.b88_1286.midKids[1].w &&
+  BA7.c_1283.midKids[0].w === 122.2 && BA7.c_1286.midKids[0].w === 123.2,
+  `wrap twins 124.4/126.1 (b88), 107.7/108.8 (c); equalize exact @1280 then decays (124.1 vs 124.4, 125.4 vs 126.1); c labels 122.2/123.2, gaps 14.5/14.4`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const verdict = failed === 0
-  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
+  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
   : `the family DISAGREES in ${failed} place(s) — reconcile before the build day`;
 const receipt = {
   instrument: 'scripts/t842-family-audit.mjs',
@@ -293,7 +319,7 @@ const receipt = {
   date: new Date().toISOString(),
   sources: {
     t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date, cloneBand: 'the fix world\'s band layer (the fourth seat, t847)', bandAcross: 'the clone\'s band at 1286/1287 vs live rulers 1280/1286/1287 — PAINT is width-free (the sixth seat, t849)' },
-    t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date, bandAfter: "the decision table's clones carry the band layer (the fifth seat, t848)" },
+    t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date, bandAfter: "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850)" },
     sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date },
     sweepPinned: { left: P.left, right: P.right, seats: P.seats, law: "pinned == bands within ±0.5 (the sweep's own rounding law), seats exact, across 6 widths" },
     t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined },
@@ -304,7 +330,7 @@ const receipt = {
     law: SWEEP.zone.law,
     painted: painted.join(','),
     edges: SWEEP.zone.edge,
-    decisionTable: { a: 'clips, geometry intact', b88: 'clears -4.8, slope -0.55', c: 'backfires +8.7', bandLayer: "edges never move on any option (607.8/628.3/12); the mid row pays: b88 equalizes 122.8, c diverges 121.3/106.6 (F10, the fifth seat)" },
+    decisionTable: { a: 'clips, geometry intact', b88: 'clears -4.8, slope -0.55', c: 'backfires +8.7', bandLayer: "edges never move on any option (607.8/628.3/12); the mid row pays: b88 equalizes 122.8, c diverges 121.3/106.6 (F10, the fifth seat); across widths the edges ride the live rulers on the option worlds and the equalize decays 0 -> 0.3 -> 0.7 while the c divergence holds 14.5/14.4 (F12, the seventh seat)" },
     boundChain: { natural: 't837 derived 142.46', cap138: 'B138 unbinding', squeezed: 't840 wmW 101.3', cap88: 'B88 binding', yield: '41.2' },
   },
   checks: checks,
