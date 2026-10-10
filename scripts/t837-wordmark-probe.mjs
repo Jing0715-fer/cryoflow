@@ -34,7 +34,10 @@
  *
  * The t836 law applies: two rides, bit-identical, before any pin is
  * judged. The receipt lands in shots-qa/t837-wordmark-probe.json
- * (provenance: BUILD_ID read from .next/BUILD_ID at run time).
+ * (provenance: the world key — build id on build days, dev@src-hash
+ * otherwise, t859). t861 — the drift ledger aboard: two faces
+ * (wordmark / chip) diffed against the PREVIOUS receipt, the family's
+ * shared law (scripts/drift-ledger.mjs).
  *
  *   node scripts/t837-wordmark-probe.mjs
  *
@@ -77,6 +80,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
+import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 
 const ROOT = process.cwd();
 
@@ -212,6 +216,33 @@ const cr1 = evalJson(CHIP_MEASURE);
 const cr2 = evalJson(CHIP_MEASURE);
 const chipBit = JSON.stringify(cr1) === JSON.stringify(cr2);
 
+/* ---------- the DRIFT LEDGER (t861): the family's propagation — the
+ * wordmark and the chip join t846's five faces. The comparator is THIS
+ * instrument's previous receipt (shape note: t837 rides its world key
+ * inside provenance.buildId — loadComparator takes the accessor). Two
+ * faces, scalar = rect (each face's own box), identity = the FULL
+ * measurement object (lines, labels, chrome, advances). Three arms +
+ * the t859 jurisdiction clause — bit-for-bit demanded only on a frozen
+ * build-mode key; a dev@ same-key ride records arm-2′ information. */
+const cmp = loadComparator(
+  ROOT,
+  "shots-qa/t837-wordmark-probe.json",
+  buildId,
+  (r) => (r.provenance ? r.provenance.buildId : r.build)
+);
+const ledgerFaces = {
+  wordmark: ledgerFace(
+    cmp.prev && Array.isArray(cmp.prev.runs) ? cmp.prev.runs[0] : null,
+    r,
+    (m) => (m ? m.rect : null)
+  ),
+  chip: ledgerFace(
+    cmp.prev && cmp.prev.chip && Array.isArray(cmp.prev.chip.runs) ? cmp.prev.chip.runs[0] : null,
+    cr1,
+    (m) => (m ? m.rect : null)
+  ),
+};
+
 /* ---------- the receipt (defined before the assertions so the error
  * path can persist what it saw before exiting) ---------- */
 const writeReceipt = () => {
@@ -226,6 +257,14 @@ const writeReceipt = () => {
     bitIdentical: bit,
     runs: [run1, run2],
     chip: { bitIdentical: chipBit, runs: [cr1, cr2] },
+    driftLedger: {
+      prevFound: cmp.prevFound,
+      prevBuild: cmp.prevFound ? cmp.prevBuild : null,
+      prevDate: cmp.prevFound ? (cmp.prev.provenance ? cmp.prev.provenance.date : cmp.prev.date) : null,
+      sameBuild: cmp.sameBuild,
+      law: LEDGER_LAW,
+      faces: ledgerFaces,
+    },
     verdict: fail === 0 ? "green" : "red",
   };
   writeFileSync(
@@ -274,6 +313,21 @@ ok(
 
 /* ---------- restore the working band ---------- */
 ab("set viewport 1280 800");
+
+/* ---------- the drift ledger's own verdict (t861) ---------- */
+console.log("\nL — the drift ledger (t861: the family's propagation — two faces vs the previous receipt)");
+ok(
+  ledgerFaces.wordmark && ledgerFaces.chip &&
+    Object.values(ledgerFaces).every((f) => "prev" in f && "live" in f && "drift" in f && "identical" in f) &&
+    (cmp.prevFound
+      ? typeof (cmp.prev.provenance ? cmp.prev.provenance.date : cmp.prev.date) === "string" && typeof cmp.prevBuild === "string"
+      : cmp.prevFound === false),
+  `L1 the drift ledger is aboard: two faces, each carrying prev/live/drift/identical, the comparator's provenance recorded — ${cmp.prevFound ? `comparator ${cmp.prev.provenance ? cmp.prev.provenance.date : cmp.prev.date} (world ${cmp.prevBuild})` : "first ride — no predecessor"}`
+);
+for (const [name, f] of Object.entries(ledgerFaces)) {
+  const v = armVerdict(cmp, world, f);
+  ok(v.ok, `L face ${name} ride-drift law (same key: bit-for-bit vs the previous receipt) — ${v.detail}`);
+}
 
 writeReceipt();
 console.log(`\nFLEET-SWEEP t837: ${pass}/${pass + fail} green`);

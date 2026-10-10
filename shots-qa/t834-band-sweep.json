@@ -2,7 +2,7 @@
   "instrument": "scripts/t834-band-sweep.mjs",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T14:03:40.458Z",
+  "date": "2026-10-10T14:38:09.724Z",
   "bands": {
     "375": {
       "leftW": 68,
@@ -2706,6 +2706,51 @@
       "1024": 11,
       "1280": 12,
       "1536": 12
+    }
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-10T14:03:40.458Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "375": {
+        "prev": 68,
+        "live": 68,
+        "drift": 0,
+        "identical": true
+      },
+      "640": {
+        "prev": 114,
+        "live": 114,
+        "drift": 0,
+        "identical": true
+      },
+      "768": {
+        "prev": 264,
+        "live": 264,
+        "drift": 0,
+        "identical": true
+      },
+      "1024": {
+        "prev": 266.5,
+        "live": 266.5,
+        "drift": 0,
+        "identical": true
+      },
+      "1280": {
+        "prev": 607.8,
+        "live": 607.8,
+        "drift": 0,
+        "identical": true
+      },
+      "1536": {
+        "prev": 863.8,
+        "live": 863.8,
+        "drift": 0,
+        "identical": true
+      }
     }
   }
 }

@@ -1,0 +1,1085 @@
+{
+  "instrument": "scripts/t861-kid2-sleeper-census.mjs",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-10T14:49:54.937Z",
+  "question": "the mid row's kid[2] — 'Workflow statistics' — is 0 at every width the family walked (375→1920): dead code, or a breakpoint nobody reached?",
+  "answer": "NOT dead code — a breakpoint nobody reached: the counters ride min-[2000px]:flex (the t510 tier comment's own number), the wake is a 1px POINT at 2000 (last asleep 1999, first awake 2000), 80px past the battery's farthest walk. The seat was alive the whole time.",
+  "law": "the wake anatomy: the birth charges NO sibling (the row's other kids and the right cluster bit-identical across the wake) — the left row grows by EXACTLY the counters' natural width (charged to free space, the row's min-w-0 never binds); the counters are born full-size and CONSTANT above the wake (the chip's own law); the wake joins the header's measured births (the chip's 1535/1536 POINT, the below squeeze's [768, 770] zone) as the third",
+  "sleep": {
+    "widths": [
+      375,
+      640,
+      768,
+      1024,
+      1280,
+      1536,
+      1920
+    ],
+    "rows": {
+      "375": {
+        "row": false,
+        "innerW": 375
+      },
+      "640": {
+        "row": false,
+        "innerW": 640
+      },
+      "768": {
+        "row": false,
+        "innerW": 768
+      },
+      "1024": {
+        "row": false,
+        "innerW": 1024
+      },
+      "1280": {
+        "row": true,
+        "innerW": 1280,
+        "leftW": 607.8,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 240.3,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 116.9
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 115.3
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 0
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 116.9
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 115.3
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      },
+      "1536": {
+        "row": true,
+        "innerW": 1536,
+        "leftW": 863.8,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 462.1,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 150.9
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 205
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 150.9
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 205
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "1920": {
+        "row": true,
+        "innerW": 1920,
+        "leftW": 895,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 486.3,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      }
+    }
+  },
+  "wake": {
+    "widths": [
+      1994,
+      1995,
+      1996,
+      1997,
+      1998,
+      1999,
+      2000,
+      2001,
+      2002,
+      2003,
+      2004,
+      2005,
+      2006
+    ],
+    "rows": {
+      "1994": {
+        "row": true,
+        "innerW": 1994,
+        "leftW": 895,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 486.3,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "1995": {
+        "row": true,
+        "innerW": 1995,
+        "leftW": 895,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 486.3,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "1996": {
+        "row": true,
+        "innerW": 1996,
+        "leftW": 895,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 486.3,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "1997": {
+        "row": true,
+        "innerW": 1997,
+        "leftW": 895,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 486.3,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "1998": {
+        "row": true,
+        "innerW": 1998,
+        "leftW": 895,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 486.3,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "1999": {
+        "row": true,
+        "innerW": 1999,
+        "leftW": 895,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 486.3,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "2000": {
+        "row": true,
+        "innerW": 2000,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "2001": {
+        "row": true,
+        "innerW": 2001,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "2002": {
+        "row": true,
+        "innerW": 2002,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "2003": {
+        "row": true,
+        "innerW": 2003,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "2004": {
+        "row": true,
+        "innerW": 2004,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "2005": {
+        "row": true,
+        "innerW": 2005,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "2006": {
+        "row": true,
+        "innerW": 2006,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      }
+    },
+    "lastAsleep": 1999,
+    "firstAwake": 2000
+  },
+  "plateau": {
+    "widths": [
+      2010,
+      2048,
+      2100
+    ],
+    "rows": {
+      "2010": {
+        "row": true,
+        "innerW": 2010,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "2048": {
+        "row": true,
+        "innerW": 2048,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      },
+      "2100": {
+        "row": true,
+        "innerW": 2100,
+        "leftW": 1235.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "midW": 827,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 332.7
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "k2": {
+          "lbl": "Workflow statistics",
+          "w": 332.7
+        },
+        "k0": {
+          "lbl": "Active workspace",
+          "w": 160
+        },
+        "k1": {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 220
+        },
+        "k3": {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      }
+    },
+    "born": 332.7
+  },
+  "restore": {
+    "row": true,
+    "innerW": 1280,
+    "leftW": 607.8,
+    "rightW": 628.3,
+    "seats": 12,
+    "midW": 240.3,
+    "midKids": [
+      {
+        "lbl": "Active workspace",
+        "w": 116.9
+      },
+      {
+        "lbl": "flex min-w-0 items-center gap-",
+        "w": 115.3
+      },
+      {
+        "lbl": "Workflow statistics",
+        "w": 0
+      },
+      {
+        "lbl": "Spotlight noted jobs",
+        "w": 0
+      }
+    ],
+    "k2": {
+      "lbl": "Workflow statistics",
+      "w": 0
+    },
+    "k0": {
+      "lbl": "Active workspace",
+      "w": 116.9
+    },
+    "k1": {
+      "lbl": "flex min-w-0 items-center gap-",
+      "w": 115.3
+    },
+    "k3": {
+      "lbl": "Spotlight noted jobs",
+      "w": 0
+    }
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-10T14:48:24.038Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "sleep1920": {
+        "prev": 895,
+        "live": 895,
+        "drift": 0,
+        "identical": true
+      },
+      "wake2000": {
+        "prev": 1235.7,
+        "live": 1235.7,
+        "drift": 0,
+        "identical": true
+      },
+      "plateau2100": {
+        "prev": 1235.7,
+        "live": 1235.7,
+        "drift": 0,
+        "identical": true
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "S1 375: the mid row itself asleep (the twin-at-rest form)",
+      "pass": true
+    },
+    {
+      "label": "S1 640: the mid row itself asleep (the twin-at-rest form)",
+      "pass": true
+    },
+    {
+      "label": "S1 768: the mid row itself asleep (the twin-at-rest form)",
+      "pass": true
+    },
+    {
+      "label": "S1 1024: the mid row itself asleep (the twin-at-rest form)",
+      "pass": true
+    },
+    {
+      "label": "S1 1280: kid[2] \"Workflow statistics\" asleep (w=0) — the total sleeper holds",
+      "pass": true
+    },
+    {
+      "label": "S1 1536: kid[2] \"Workflow statistics\" asleep (w=0) — the total sleeper holds",
+      "pass": true
+    },
+    {
+      "label": "S1 1920: kid[2] \"Workflow statistics\" asleep (w=0) — the total sleeper holds",
+      "pass": true
+    },
+    {
+      "label": "S1 1920: the family's FARTHEST walk still films the sleeper — the horizon's own edge (row 486.3 wide, awake since xl)",
+      "pass": true
+    },
+    {
+      "label": "S2 1994: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 1995: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 1996: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 1997: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 1998: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 1999: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 2000: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 2001: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 2002: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 2003: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 2004: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 2005: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 2006: two rides bit-identical (the t836 law)",
+      "pass": true
+    },
+    {
+      "label": "S2 the wake is a POINT: last asleep 1999, first awake 2000 — 1px, the chip's 1535/1536 mirror (t856's form, at the T510 tier's own number)",
+      "pass": true
+    },
+    {
+      "label": "S2 the waker is the named group: \"Workflow statistics\" (aria-label, the counters' own name)",
+      "pass": true
+    },
+    {
+      "label": "S3 the pre/post pair rides filmed (1999 asleep / 2000 awake)",
+      "pass": true
+    },
+    {
+      "label": "S3 the row's other kids NEVER move at the wake: workspace 160 → 160, PS wrapper 220 → 220, lens chip 90.3 → 90.3 — the birth charges no sibling",
+      "pass": true
+    },
+    {
+      "label": "S3 the right cluster never moves (the family's standing law): 628.3 → 628.3, seats 12 → 12",
+      "pass": true
+    },
+    {
+      "label": "S3 the left row grows by EXACTLY the birth + its seam: 895 → 1235.7 (+340.7) == kid[2] 332.7 + one new gap-2 row seam 8 — the group's natural size charged to free space, plus the flex item's own arrival (the row's min-w-0 never binds here)",
+      "pass": true
+    },
+    {
+      "label": "S3 the row's own anatomy: mid 486.3 → 827 (+340.7) — the birth's whole cost = three StatChips + their two INTERNAL gap-2 seams (inside the group's 332.7) + ONE new row-level gap-2 seam (the group joining the row's flex) — the t510 comment's \"natural width\" measured at last, seam and all",
+      "pass": true
+    },
+    {
+      "label": "S4 the counters are CONSTANT 332.7 above the wake (born full-size, the chip's own law — never grows), the right cluster 628.3 / seats 12 to 2100",
+      "pass": true
+    },
+    {
+      "label": "S4 the row's other kids hold the wake's form to 2100 (160 / 220 / 90.3) — the wake's step is the LAST anatomy event on the row",
+      "pass": true
+    },
+    {
+      "label": "S5 THE CENSUS'S ANSWER: not dead code — a BREAKPOINT NOBODY REACHED. The counters' tier is min-[2000px] (the t510 comment's own number, now measured): the seat has been alive the whole time, waiting 80px past the battery's farthest walk (1920, the t852 far edge). The family's far horizon extends to 2100; the wake joins the wake-family (the chip's 1535/1536 POINT, the below squeeze's [768, 770] zone) as the third measured birth in the header's anatomy",
+      "pass": true
+    },
+    {
+      "label": "S5 the world restored: back at 1280, the sleeper asleep, the family's numbers holding",
+      "pass": true
+    },
+    {
+      "label": "L1 the drift ledger is aboard at BIRTH: three faces, the comparator's provenance recorded — comparator 2026-10-10T14:48:24.038Z (world dev@c4c3735897dd)",
+      "pass": true
+    },
+    {
+      "label": "L face sleep1920 ride-drift law — arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)",
+      "pass": true
+    },
+    {
+      "label": "L face wake2000 ride-drift law — arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)",
+      "pass": true
+    },
+    {
+      "label": "L face plateau2100 ride-drift law — arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)",
+      "pass": true
+    }
+  ],
+  "passed": 36,
+  "failed": 0,
+  "total": 36
+}

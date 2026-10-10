@@ -61,8 +61,13 @@
  * The pre-fix rows ride the receipt with the stack aboard, so the
  * post-fix world is compared per-width against filmed truth.
  *
- * The receipt lands in shots-qa/t834-band-sweep.json (provenance: BUILD_ID
- * read from .next/BUILD_ID at run time). The assertions pin TODAY's truth:
+ * The receipt lands in shots-qa/t834-band-sweep.json (provenance: the
+ * world key — build id on build days, dev@src-hash otherwise, t859).
+ * t861 — THE DRIFT LEDGER ABOARD (section L): the six bands ride
+ * prev/live/drift/identical against the PREVIOUS receipt — the family's
+ * shared law (scripts/drift-ledger.mjs), the standing regression net:
+ * the pins measure the world's truth, the ledger its stability.
+ * The assertions pin TODAY's truth:
  * left 68/114/264/266/608/864, right 236/334/460/628, seats 6/8/11/12/12/12,
  * hOv false everywhere — the same numbers the t832 probe (A3/A4) closes
  * against, now re-witnessable in one command.
@@ -74,6 +79,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
+import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 
 const ROOT = process.cwd();
 const BANDS = [375, 640, 768, 1024, 1280, 1536];
@@ -111,6 +117,18 @@ const evalJson = (js) => {
 const world = worldIdentity(ROOT); // t859 — the world key: build id on build days, dev@src-hash otherwise (t858's dev-only world must not strand the battery)
 const buildId = world.id;
 console.log(`t834 band sweep — world ${world.mode}:${buildId}, six bands, one command\n`);
+
+/* t861 — the drift ledger's comparator: the PREVIOUS receipt of THIS
+ * instrument. The receipt is the natural comparator (t857's teaching,
+ * t846's form, now the family's shared law in scripts/drift-ledger.mjs):
+ * the pins measure the world's TRUTH, the ledger measures the world's
+ * STABILITY — ride to ride, window to window. */
+const cmp = loadComparator(ROOT, "shots-qa/t834-band-sweep.json", buildId);
+console.log(
+  cmp.prevFound
+    ? `drift ledger: comparator = the receipt of ${cmp.prev.date} (world ${cmp.prevBuild}, ${cmp.sameBuild ? "SAME key" : "world MOVED — drift informational"})\n`
+    : "drift ledger: first ride — no predecessor to diff (arm 1)\n"
+);
 
 /* the measure: child-level truth, one eval per band — single line, the
  * shell hands it to agent-browser verbatim (multi-line evals break) */
@@ -536,6 +554,37 @@ ok(
   `J5 the plateau: the chip is CONSTANT 90.3 above the wake (born full-size, never grows), the right cluster 628.3, and the gap's law has TWO segments — constant −110.3 THROUGH the ramp (the wrap grows into the gap, the chip holds still) then −1.0/px above the caps (−113.1 @1570 → −143.1 @1600, the t836 law's far form: the PS clears deeper as the viewport grows)`
 );
 
+/* ---------- the DRIFT LEDGER (t861): the family's propagation — the six
+ * bands join t846's five faces. Per band: prev receipt's row vs this
+ * ride's row, scalar = leftW (the row's primary ruler), identity = the
+ * FULL row object (kids anatomy, seats, midKids, ps, overflow — the
+ * whole band's truth). Three arms + the t859 jurisdiction clause:
+ * bit-for-bit is demanded only on a frozen build-mode key; a dev@ same-key
+ * ride records its stability as arm-2′ information. */
+console.log("\nL — the drift ledger (t861: the family's propagation — six bands vs the previous receipt)");
+const bandFaces = {};
+for (const band of BANDS) {
+  bandFaces[String(band)] = ledgerFace(
+    cmp.prev && cmp.prev.bands ? cmp.prev.bands[String(band)] : null,
+    rows[band],
+    (m) => (m ? m.leftW : null)
+  );
+}
+ok(
+  Object.keys(bandFaces).length === BANDS.length &&
+    Object.values(bandFaces).every((f) => "prev" in f && "live" in f && "drift" in f && "identical" in f) &&
+    (cmp.prevFound ? typeof cmp.prev.date === "string" && typeof cmp.prevBuild === "string" : cmp.prevFound === false),
+  `L1 the drift ledger is aboard: six bands, each carrying prev/live/drift/identical, the comparator's provenance recorded — ${cmp.prevFound ? `comparator ${cmp.prev.date} (world ${cmp.prevBuild})` : "first ride — no predecessor"}`
+);
+for (const band of BANDS) {
+  const f = bandFaces[String(band)];
+  const v = armVerdict(cmp, world, f);
+  ok(
+    v.ok,
+    `L band ${band} ride-drift law (same key: bit-for-bit vs the previous receipt) — ${v.detail}`
+  );
+}
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t834-band-sweep.mjs",
@@ -549,6 +598,14 @@ const receipt = {
     law: "the far edge (t852): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor sleeps (trigW == wrapW exactly), the right cluster never moves (rightW 628.3, seats 12), the chip is width-free above 2xl (90.3), and the residue is 1280-local (the paint witness rides the trigger's own box). The wake edge (t856): the chip's birth is a 1px POINT at 2xl (1535/1536) with a step anatomy (chip +90.3, wrap tier 170 → 205, label −9.1, wordmark −7.1), two capped ramps (by 1570: wrap 220, label 160, wordmark 142.5), and a plateau to 1920 whose only moving part is the gap (−1.0/px)" },
   belowZone: { widths: BELOW_W, rows: belowRows, zone: belowZone, edge, law: "the below zone (t853): the mid row sleeps below xl at every named tier (the twin vacuously at rest, E1's 1279 point now a cross-section) and the residue has no below-form; the wordmark is BORN SQUEEZED at md — the row needs 738.5 vs available 736 at 768 and the min-w-0 wordmark pays the whole 2.5 (A4e-2's live form) — in a LINEAR zone: squeeze(W) = 770.5 − W, slope −1.0/px (the row's only yielder absorbs every pixel), [768, 770], clear by 771; the interior (900/1024) rides the natural 266.5/142.5 — the squeeze is 768-local" },
   pinned: PINNED,
+  driftLedger: {
+    prevFound: cmp.prevFound,
+    prevBuild: cmp.prevFound ? cmp.prevBuild : null,
+    prevDate: cmp.prevFound ? cmp.prev.date : null,
+    sameBuild: cmp.sameBuild,
+    law: LEDGER_LAW,
+    faces: bandFaces,
+  },
 };
 const out = join(ROOT, "shots-qa/t834-band-sweep.json");
 writeFileSync(out, JSON.stringify(receipt, null, 2) + "\n");

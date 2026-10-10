@@ -86,6 +86,9 @@
  * fifth seat: live/a/b138/b88/c/restored band walks, plus the seventh
  * seat's width walks b88_1283/b88_1286/c_1283/c_1286, plus the eighth
  * seat's eighthSeat block: liveAcross/aAcross/liveBL/b138Across).
+ * t861 — the drift ledger aboard: three load-worlds (live / optionA /
+ * restored) diffed against the PREVIOUS receipt, the family's shared
+ * law (scripts/drift-ledger.mjs).
  *
  *   node scripts/t840-options-rehearsal.mjs
  */
@@ -94,6 +97,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
+import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 
 const ROOT = process.cwd();
 const HEIGHT = 800;
@@ -138,6 +142,17 @@ const world = worldIdentity(ROOT); // t859 — the world key: build id on build 
 const buildId = world.id;
 console.log(
   `t840 options rehearsal — world ${world.mode}:${buildId}, band 1280, every option's AFTER pre-filmed on throwaway clones\n`
+);
+
+/* t861 — the drift ledger's comparator: the PREVIOUS receipt of THIS
+ * instrument (the family's shared law, scripts/drift-ledger.mjs). The
+ * table films the decision options; the ledger films the WORLD the
+ * options ran in — three arms + the t859 jurisdiction clause. */
+const cmp = loadComparator(ROOT, "shots-qa/t840-options-rehearsal.json", buildId);
+console.log(
+  cmp.prevFound
+    ? `drift ledger: comparator = the receipt of ${cmp.prev.date} (world ${cmp.prevBuild}, ${cmp.sameBuild ? "SAME key" : "world MOVED — drift informational"})\n`
+    : "drift ledger: first ride — no predecessor to diff (arm 1)\n"
 );
 
 /* ---------- the ruler: the t839 walk + the wordmark's squeezed rect.
@@ -476,6 +491,34 @@ ok(
   `T19 the TENTH SEAT — below zone: the restore load's band == the live band bit-for-bit at 768 AND 1024 (edges 264/266.5, rightW 460, seats 11, the mid row ASLEEP — midKids null, the zone walk exactly {mid:false} on both loads) — the sleep itself is bit-for-bit reproducible; the restore's width map is COMPLETE: two independent fresh loads film the same world bit-for-bit below, in, and far beyond the zone`
 );
 
+/* ---------- the DRIFT LEDGER (t861): the family's propagation — the
+ * table's three load-worlds join t846's five faces: LIVE (the T0 load's
+ * band), A (the option-(a) clone's band — THE fix), RESTORED (the exit
+ * load's band). Scalar = leftW (the band's primary ruler), identity =
+ * the FULL band object (edges, seats, midKids — the whole row's
+ * truth). The ride-to-ride comparator is the PREVIOUS receipt: the
+ * table proves the options' shapes; the ledger proves the world those
+ * shapes ran in is the same one the NEXT ride will see. */
+console.log("\nL — the drift ledger (t861: the family's propagation — three load-worlds vs the previous receipt)");
+const ledgerFaces = {
+  live: ledgerFace(cmp.prev && cmp.prev.bandAfter ? cmp.prev.bandAfter.live : null, bandLive, (m) => (m ? m.leftW : null)),
+  optionA: ledgerFace(cmp.prev && cmp.prev.bandAfter ? cmp.prev.bandAfter.a : null, bandA, (m) => (m ? m.leftW : null)),
+  restored: ledgerFace(cmp.prev && cmp.prev.bandAfter ? cmp.prev.bandAfter.restored : null, bandR, (m) => (m ? m.leftW : null)),
+};
+ok(
+  Object.keys(ledgerFaces).length === 3 &&
+    Object.values(ledgerFaces).every((f) => "prev" in f && "live" in f && "drift" in f && "identical" in f) &&
+    (cmp.prevFound ? typeof cmp.prev.date === "string" && typeof cmp.prevBuild === "string" : cmp.prevFound === false),
+  `L1 the drift ledger is aboard: three load-worlds, each carrying prev/live/drift/identical, the comparator's provenance recorded — ${cmp.prevFound ? `comparator ${cmp.prev.date} (world ${cmp.prevBuild})` : "first ride — no predecessor"}`
+);
+for (const [name, f] of Object.entries(ledgerFaces)) {
+  const v = armVerdict(cmp, world, f);
+  ok(
+    v.ok,
+    `L load-world ${name} drift law (same key: bit-for-bit vs the previous receipt) — ${v.detail}`
+  );
+}
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t840-options-rehearsal.mjs",
@@ -500,6 +543,14 @@ const receipt = {
       law: "the tenth seat (t855): the cross-load identity's FAR+BELOW form — the restore load's zone and band walks == the T0 load's bit-for-bit OUTSIDE the zone: the far edge (1366/1920: edges 693.8/895, rightW 628.3, seats 12, the wrapper kid == the zone's wrapW 149.2/220, the PS clearing −12 → −463.1) and the below zone (768/1024: edges 264/266.5, rightW 460, seats 11, the mid row asleep, the zone walk exactly {mid:false}) — the restore's width map is COMPLETE (below, zone, far); the probe (t855-restore-far-below-probe) rode all seven far/below widths first, zero drifts, kept as provenance" },
     law: "the band's EDGES never move (607.8 / 628.3 / 12 on every option); only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band, (b88) equalize at 122.8, (c) diverge 121.3/106.6 (the fifth seat, t848). The seventh seat (t850): across widths the edges ride the live rulers on BOTH option worlds (610.8 @1283 / 613.8 @1286, 628.3, 12), the wrapper kid == the option's zone wrapW at every width, and the mid row's own laws re-scope: the (b88) equalize is AT-A-WIDTH (exact at 1280, decays to 0.3 @1283 and 0.7 @1286), the (c) divergence is width-stable (14.7 → 14.5 → 14.4)" },
   restored: r1,
+  driftLedger: {
+    prevFound: cmp.prevFound,
+    prevBuild: cmp.prevFound ? cmp.prevBuild : null,
+    prevDate: cmp.prevFound ? cmp.prev.date : null,
+    sameBuild: cmp.sameBuild,
+    law: LEDGER_LAW,
+    faces: ledgerFaces,
+  },
   verdict:
     fail === 0
       ? "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The eighth seat: the width form COMPLETED — (a) and (b138) are bit-for-bit the live band at 1283/1286 against their own loads' rulers (the paint and the no-op are width-free), and the bound chain's width form holds (the squeezed box 101.3 → 103.0, the 138 cap never binding in the zone, the squeeze option-invariant). The ninth seat: the restore's width form — the world's exit state == its entry state at every width and layer the table walks (bit-for-bit against the T0 load's rulers), the harness's own loop closed. The tenth seat: the cross-load identity extends OUTSIDE the zone — the far edge and the below zone both bit-for-bit, the restore's width map COMPLETE (two loads, one world, below/zone/far). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths, and the world the grind hands back is proven unharmed across the zone"

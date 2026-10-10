@@ -2,7 +2,7 @@
   "instrument": "scripts/t840-options-rehearsal.mjs",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T14:04:31.215Z",
+  "date": "2026-10-10T14:38:59.849Z",
   "viewport": {
     "w": 1280,
     "h": 800
@@ -1317,6 +1317,33 @@
     ],
     "wrapOverflowX": "visible",
     "innerW": 1280
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-10T14:04:31.215Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "live": {
+        "prev": 607.8,
+        "live": 607.8,
+        "drift": 0,
+        "identical": true
+      },
+      "optionA": {
+        "prev": 607.8,
+        "live": 607.8,
+        "drift": 0,
+        "identical": true
+      },
+      "restored": {
+        "prev": 607.8,
+        "live": 607.8,
+        "drift": 0,
+        "identical": true
+      }
+    }
   },
   "verdict": "the decision table is measured at BOTH layers and ACROSS WIDTHS: (a) clips with the geometry intact and the band bit-for-bit (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The band layer's verdict (the fifth seat): the EDGES never move on any option — left 607.8 / right 628.3 / seats 12 — only the mid row pays ((b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6). The seventh seat: the edges law generalizes to every width on the option worlds (610.8 @1283 / 613.8 @1286 on both), the wrapper kid == the zone wrapW at every width, and the mid row re-scopes — the (b88) equalize is AT-A-WIDTH (decays 0 → 0.3 → 0.7), the (c) divergence width-stable (14.7 → 14.5 → 14.4). The eighth seat: the width form COMPLETED — (a) and (b138) are bit-for-bit the live band at 1283/1286 against their own loads' rulers (the paint and the no-op are width-free), and the bound chain's width form holds (the squeezed box 101.3 → 103.0, the 138 cap never binding in the zone, the squeeze option-invariant). The ninth seat: the restore's width form — the world's exit state == its entry state at every width and layer the table walks (bit-for-bit against the T0 load's rulers), the harness's own loop closed. The tenth seat: the cross-load identity extends OUTSIDE the zone — the far edge and the below zone both bit-for-bit, the restore's width map COMPLETE (two loads, one world, below/zone/far). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed at both layers and three widths, and the world the grind hands back is proven unharmed across the zone"
 }

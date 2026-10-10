@@ -50,8 +50,11 @@
  *   R9  the restore: fresh load back to the BEFORE truth — the world
  *       unharmed
  *
- * Receipt: shots-qa/t839-zone-rehearsal.json (provenance: BUILD_ID read
- * from .next/BUILD_ID at run time).
+ * Receipt: shots-qa/t839-zone-rehearsal.json (provenance: the world
+ * key — build id on build days, dev@src-hash otherwise, t859).
+ * t861 — the drift ledger aboard: three rides (before / after /
+ * restored) diffed against the PREVIOUS receipt, the family's shared
+ * law (scripts/drift-ledger.mjs).
  *
  * The sixth seat (t849): the cloneZone rows gain BAND walks — the fix's
  * clone is band-walked at 1286/1287 (the zone's edge widths) and the LIVE
@@ -74,6 +77,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
+import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 
 const ROOT = process.cwd();
 const HEIGHT = 800;
@@ -120,6 +124,17 @@ const world = worldIdentity(ROOT); // t859 — the world key: build id on build 
 const buildId = world.id;
 console.log(
   `t839 zone rehearsal — world ${world.mode}:${buildId}, band 1280 (the zone's left edge), the fix rehearsed on a throwaway clone\n`
+);
+
+/* t861 — the drift ledger's comparator: the PREVIOUS receipt of THIS
+ * instrument (the family's shared law, scripts/drift-ledger.mjs). The
+ * rehearsal films a throwaway-clone world; the ledger films THIS world's
+ * stability across rides — three arms + the t859 jurisdiction clause. */
+const cmp = loadComparator(ROOT, "shots-qa/t839-zone-rehearsal.json", buildId);
+console.log(
+  cmp.prevFound
+    ? `drift ledger: comparator = the receipt of ${cmp.prev.date} (world ${cmp.prevBuild}, ${cmp.sameBuild ? "SAME key" : "world MOVED — drift informational"})\n`
+    : "drift ledger: first ride — no predecessor to diff (arm 1)\n"
 );
 
 /* ---------- the measure: the sweep's ZONE_MEASURE walk + the stack
@@ -292,6 +307,34 @@ ok(
   `R13 the LIVE band's own drift across the zone (the sixth seat's ruler): the left row grows +1.0/px (607.8 → ${liveBand1286.leftW} → ${liveBand1287.leftW}), the wrapper's kid +0.4/px (115.3 → ${liveBand1286.midKids[1].w} → ${liveBand1287.midKids[1].w} — == the sweep's zone rows' wrapW at every sampled width), the workspace label +0.3/px-ish (${liveBand1286.midKids[0].w} / ${liveBand1287.midKids[0].w}, 0.1-rounding wobble — pinned per width), while the RIGHT row (628.3) and the seats (12) NEVER move`
 );
 
+/* ---------- the DRIFT LEDGER (t861): the family's propagation — the
+ * rehearsal's three rides join t846's five faces: BEFORE (the live
+ * world), AFTER (the clone's fixed form), RESTORED (the fresh load's
+ * exit state). Scalar = overlap (the residue's own number), identity =
+ * the FULL measurement object (geometry, stack witness, overflow-x).
+ * The ride-to-ride comparator is the PREVIOUS receipt — the rehearsal
+ * proves the fix's shape; the ledger proves the world it runs in is the
+ * SAME world that shape was proven in. */
+console.log("\nL — the drift ledger (t861: the family's propagation — three rides vs the previous receipt)");
+const ledgerFaces = {
+  before: ledgerFace(cmp.prev && Array.isArray(cmp.prev.before) ? cmp.prev.before[0] : null, b1, (m) => (m ? m.overlap : null)),
+  after: ledgerFace(cmp.prev && Array.isArray(cmp.prev.after) ? cmp.prev.after[0] : null, a1, (m) => (m ? m.overlap : null)),
+  restored: ledgerFace(cmp.prev ? cmp.prev.restored : null, r1, (m) => (m ? m.overlap : null)),
+};
+ok(
+  Object.keys(ledgerFaces).length === 3 &&
+    Object.values(ledgerFaces).every((f) => "prev" in f && "live" in f && "drift" in f && "identical" in f) &&
+    (cmp.prevFound ? typeof cmp.prev.date === "string" && typeof cmp.prevBuild === "string" : cmp.prevFound === false),
+  `L1 the drift ledger is aboard: three rides, each carrying prev/live/drift/identical, the comparator's provenance recorded — ${cmp.prevFound ? `comparator ${cmp.prev.date} (world ${cmp.prevBuild})` : "first ride — no predecessor"}`
+);
+for (const [name, f] of Object.entries(ledgerFaces)) {
+  const v = armVerdict(cmp, world, f);
+  ok(
+    v.ok,
+    `L ride ${name} drift law (same key: bit-for-bit vs the previous receipt) — ${v.detail}`
+  );
+}
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t839-zone-rehearsal.mjs",
@@ -312,6 +355,14 @@ const receipt = {
     law: "PAINT is width-free: the clone's band == the live band bit-for-bit at every width in the zone (1280 R10, 1286 R11, 1287 R12); the live band's own drift: leftW +1.0/px (607.8 -> 614.8), the wrapper's kid +0.4/px (== the sweep's zone rows' wrapW at every width), rightW 628.3 and seats 12 invariant (the sixth seat, t849)",
   },
   restored: r1,
+  driftLedger: {
+    prevFound: cmp.prevFound,
+    prevBuild: cmp.prevFound ? cmp.prevBuild : null,
+    prevDate: cmp.prevFound ? cmp.prev.date : null,
+    sameBuild: cmp.sameBuild,
+    law: LEDGER_LAW,
+    faces: ledgerFaces,
+  },
   verdict:
     fail === 0
       ? "the fix's proof is rehearsed: the geometry held (2.7 / 130 / 115.3), the paint clipped (the trigger left the stack), the chip kept the click, the edge moved not — the build day lands option (a) with its ratchet's post-fix form already measured"

@@ -2,7 +2,7 @@
   "instrument": "scripts/t839-zone-rehearsal.mjs",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T14:03:57.803Z",
+  "date": "2026-10-10T14:38:24.903Z",
   "viewport": {
     "w": 1280,
     "h": 800
@@ -307,6 +307,33 @@
     ],
     "wrapOverflowX": "visible",
     "innerW": 1280
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-10T14:03:57.803Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "before": {
+        "prev": 2.7,
+        "live": 2.7,
+        "drift": 0,
+        "identical": true
+      },
+      "after": {
+        "prev": 2.7,
+        "live": 2.7,
+        "drift": 0,
+        "identical": true
+      },
+      "restored": {
+        "prev": 2.7,
+        "live": 2.7,
+        "drift": 0,
+        "identical": true
+      }
+    }
   },
   "verdict": "the fix's proof is rehearsed: the geometry held (2.7 / 130 / 115.3), the paint clipped (the trigger left the stack), the chip kept the click, the edge moved not — the build day lands option (a) with its ratchet's post-fix form already measured"
 }
