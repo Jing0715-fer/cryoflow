@@ -19,10 +19,12 @@
  *      permission item (browser-state — named, never gated on label),
  *      "Try the knock"
  *
- * The ruler is the census's own name computation (aria-label ->
- * aria-labelledby resolved -> textContent, img alt, input
- * value/placeholder fallbacks). The t860 settle-wait films each face
- * only after it has STOPPED moving. The filter's functionality is part
+ * The ruler is the SHARED RULER (scripts/shared-ruler.mjs, the t864
+ * propagation — the t861 pattern): ONE name computation, the canonical
+ * chain aria-label -> aria-labelledby resolved -> label[for] ->
+ * textContent, img alt, input value/placeholder fallbacks; the ruler
+ * grows once, every carrier rides the growth. The t860 settle-wait films
+ * each face only after it has STOPPED moving. The filter's functionality is part
  * of the a11y claim: a named input that does nothing would be a name
  * over a corpse — type "canvas", the chips shrink; clear, they return.
  *
@@ -41,6 +43,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
 import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
+import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
 
 const ROOT = process.cwd();
 
@@ -96,7 +99,7 @@ console.log(
 /* ---------- the measure: the census's name computation + overlay fields.
  * NO ${} inside — the shell reads this string. */
 const MEASURE =
-  '(() => { const nameOf = (el) => { const al = el.getAttribute("aria-label"); if (al && al.trim()) return al.trim(); const lb = el.getAttribute("aria-labelledby"); if (lb) { const t = lb.split(/\\s+/).map((id) => { const d = document.getElementById(id); return d ? (d.textContent || "").trim() : ""; }).join(" ").trim(); if (t) return t; } const tc = (el.textContent || "").trim(); if (tc) return tc; if (el.tagName === "IMG") { const a = el.getAttribute("alt"); if (a !== null && a.trim()) return a.trim(); } if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { const v = (el.value || "").trim(); if (v) return v; const p = (el.getAttribute("placeholder") || "").trim(); if (p) return p; } return ""; }; const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const dlg = document.querySelector("[role=dialog]"); const menu = document.querySelector("[role=menu]"); const items = menu ? Array.from(menu.querySelectorAll("[role=menuitem],[role=menuitemcheckbox]")) : []; const unItems = items.filter((i) => !nameOf(i)); const region = dlg ? dlg.querySelector("[role=region][aria-label]") : null; const ipS = dlg ? dlg.querySelector("input[aria-label=\\"Filter shortcuts\\"]") : null; const act = document.activeElement; return JSON.stringify({ url: location.pathname, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, hasDlg: !!dlg, dlgHeading: dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null, dlgFocus: dlg ? dlg.contains(act) : null, region: region ? { label: region.getAttribute("aria-label"), kbd: region.querySelectorAll("kbd").length } : null, ipS: ipS ? { named: !!nameOf(ipS), value: ipS.value } : null, hasMenu: !!menu, menuItems: items.length, menuUnnamed: unItems.length, menuWho: unItems.slice(0, 4).map((i) => String(i.className).slice(0, 40)), menuChecks: items.filter((i) => i.getAttribute("role") === "menuitemcheckbox").map((i) => i.getAttribute("aria-checked")), menuNames: items.map((i) => nameOf(i).slice(0, 40)), active: act ? (act.getAttribute && act.getAttribute("aria-label")) || act.tagName : null, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40) }); })()';
+  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const dlg = document.querySelector("[role=dialog]"); const menu = document.querySelector("[role=menu]"); const items = menu ? Array.from(menu.querySelectorAll("[role=menuitem],[role=menuitemcheckbox]")) : []; const unItems = items.filter((i) => !nameOf(i)); const region = dlg ? dlg.querySelector("[role=region][aria-label]") : null; const ipS = dlg ? dlg.querySelector("input[aria-label=\\"Filter shortcuts\\"]") : null; const act = document.activeElement; return JSON.stringify({ url: location.pathname, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, hasDlg: !!dlg, dlgHeading: dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null, dlgFocus: dlg ? dlg.contains(act) : null, region: region ? { label: region.getAttribute("aria-label"), kbd: region.querySelectorAll("kbd").length } : null, ipS: ipS ? { named: !!nameOf(ipS), value: ipS.value } : null, hasMenu: !!menu, menuItems: items.length, menuUnnamed: unItems.length, menuWho: unItems.slice(0, 4).map((i) => String(i.className).slice(0, 40)), menuChecks: items.filter((i) => i.getAttribute("role") === "menuitemcheckbox").map((i) => i.getAttribute("aria-checked")), menuNames: items.map((i) => nameOf(i).slice(0, 40)), active: act ? (act.getAttribute && act.getAttribute("aria-label")) || act.tagName : null, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40) }); })()';
 
 /* t860 — the settle-wait: measure, re-measure, require equality, bounded. */
 const settle = (what) => {
@@ -221,6 +224,7 @@ const verdict = fail === 0
 
 const receipt = {
   instrument: "scripts/t862-overlay-a11y.mjs",
+  ruler: NAMEOF_LAW,
   build: buildId,
   worldMode: world.mode,
   date: new Date().toISOString(),

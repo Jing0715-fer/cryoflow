@@ -1,0 +1,291 @@
+{
+  "instrument": "scripts/t864-report-diff-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-10T16:06:17.014Z",
+  "chain": "canvas -> report (header door) -> print contract both ways -> shift+click pair -> toolbar compare -> diff dialog -> symmetric un-mutation -> worldBack (one command)",
+  "doors": {
+    "report": "click button[aria-label=\"Session QC report\"] — the header's named seat",
+    "compare": "shift+click two same-type cards (the card's own toggle law) -> click [data-testid=toolbar-compare-params] — the selection toolbar's door",
+    "unmutate": "shift+click each selected card again — the symmetric toggle, no residue"
+  },
+  "pair": {
+    "type": "initialmodel",
+    "a": "cmv2fdgpo000mn852448c7aua",
+    "b": "cmututold000initialmodel",
+    "measured": true
+  },
+  "openingCanvas": 153,
+  "faces": {
+    "report": {
+      "live": {
+        "url": "/",
+        "pageBtns": 171,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": true,
+        "dlgHead": "Session QC report",
+        "printOn": true,
+        "docAboard": true,
+        "mdLen": 7918,
+        "stillMeasuring": 0,
+        "copyNamed": true,
+        "dlNamed": true,
+        "swapNamed": false,
+        "swapPressed": null,
+        "diffRows": 0,
+        "hasToolbar": false,
+        "act": "in-dialog",
+        "heading": "Main"
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 171,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": true,
+        "dlgHead": "Session QC report",
+        "printOn": true,
+        "docAboard": true,
+        "mdLen": 7918,
+        "stillMeasuring": 0,
+        "copyNamed": true,
+        "dlNamed": true,
+        "swapNamed": false,
+        "swapPressed": null,
+        "diffRows": 0,
+        "hasToolbar": false,
+        "act": "in-dialog",
+        "heading": "Main"
+      }
+    },
+    "paramsdiff": {
+      "live": {
+        "url": "/",
+        "pageBtns": 164,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": true,
+        "dlgHead": "Compare parameters",
+        "printOn": false,
+        "docAboard": false,
+        "mdLen": 0,
+        "stillMeasuring": 0,
+        "copyNamed": false,
+        "dlNamed": false,
+        "swapNamed": true,
+        "swapPressed": "false",
+        "diffRows": 2,
+        "hasToolbar": true,
+        "act": "in-dialog",
+        "heading": "Main"
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 164,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": true,
+        "dlgHead": "Compare parameters",
+        "printOn": false,
+        "docAboard": false,
+        "mdLen": 0,
+        "stillMeasuring": 0,
+        "copyNamed": false,
+        "dlNamed": false,
+        "swapNamed": true,
+        "swapPressed": "false",
+        "diffRows": 2,
+        "hasToolbar": true,
+        "act": "in-dialog",
+        "heading": "Main"
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgHead": null,
+        "printOn": false,
+        "docAboard": false,
+        "mdLen": 0,
+        "stillMeasuring": 0,
+        "copyNamed": false,
+        "dlNamed": false,
+        "swapNamed": false,
+        "swapPressed": null,
+        "diffRows": 0,
+        "hasToolbar": false,
+        "act": "BODY",
+        "heading": "Main"
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "SR1 the report door clicked (the header's named button)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "SR2 the document dialog arrived, focus inside (Radix's own contract)",
+      "pass": true,
+      "detail": "heading=\"Session QC report\" focus=in-dialog"
+    },
+    {
+      "label": "SR3 the print contract ON: body[data-report-print] while the document is up (the t197 dialog-is-a-document law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "SR4 the ONE md carrier aboard and non-empty (data-md, the t194 no-parse-of-parse law)",
+      "pass": true,
+      "detail": "md bytes=7918"
+    },
+    {
+      "label": "SR5 the doors are named: copy + download (the report speaks Markdown both ways)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "SR6 zero unnamed page-wide WITH the document up (the census's invariant on the report)",
+      "pass": true,
+      "detail": "btns=171 ctrls=2"
+    },
+    {
+      "label": "SR7 two settled rides bit-identical (the t836 law, the t860 settle — the pulse's silence, not a clock)",
+      "pass": true,
+      "detail": "md bytes=7918, stillMeasuring=0"
+    },
+    {
+      "label": "SR8 Escape closed the report AND the print contract flipped back OFF (the contract's other half)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PD1 the first shift+click toggled (the card's selection law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PD2 the selection toolbar arrived for the pair (the canvas's own count in its name)",
+      "pass": true,
+      "detail": "aria-label speaks the selection size"
+    },
+    {
+      "label": "PD3 the compare button clicked (the toolbar's own door)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PD4 the compare dialog arrived with its heading (Compare parameters)",
+      "pass": true,
+      "detail": "heading=\"Compare parameters\""
+    },
+    {
+      "label": "PD5 the swap control is named and carries aria-pressed (a real boolean state, recorded never judged)",
+      "pass": true,
+      "detail": "aria-pressed=false"
+    },
+    {
+      "label": "PD6 the diff rows are aboard (the two columns' open doors)",
+      "pass": true,
+      "detail": "rows=2"
+    },
+    {
+      "label": "PD7 zero unnamed page-wide WITH the compare dialog up (the census's invariant on the diff)",
+      "pass": true,
+      "detail": "btns=164 ctrls=2"
+    },
+    {
+      "label": "PD8 two settled rides bit-identical (the t836 law, the t860 settle)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PD9 un-mutation through the symmetric door: toolbar gone, canvas count back bit-for-bit",
+      "pass": true,
+      "detail": "btns 153 == opening 153"
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "L report face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L paramsdiff face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 22,
+  "failed": 0,
+  "total": 22,
+  "verdict": "the document and the compare dialogs hold: the report arrived as a DOCUMENT (the print contract ON while up and OFF after Escape, the one md carrier aboard, the copy/download doors named), the compare dialog rode the card's own shift door (two same-type cards toggled, the toolbar's compare button, the swap control's aria-pressed recorded, the measured pair type \"initialmodel\" printed as provenance never pinned), zero unnamed everywhere on both, two settled rides bit-identical each, the un-mutation the SYMMETRIC door and the world back bit-for-bit (153 == 153) — the ledger aboard from birth (three faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-10T16:05:15.184Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "report": {
+        "prev": 171,
+        "live": 171,
+        "drift": 0,
+        "identical": true
+      },
+      "paramsdiff": {
+        "prev": 164,
+        "live": 164,
+        "drift": 0,
+        "identical": true
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true
+      }
+    }
+  }
+}

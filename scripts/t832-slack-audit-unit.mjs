@@ -808,26 +808,31 @@ if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
     DL.prevFound === true &&
       FIVE.every((k) => f[k] && typeof f[k].prev === "number" && typeof f[k].live === "number" && typeof f[k].drift === "number" && typeof f[k].identical === "boolean") &&
       (!arm3Bites || FIVE.every((k) => f[k].prev === f[k].live && f[k].drift === 0 && f[k].identical === true)) &&
-      // t860 re-pin: the SETTLED inspector speaks 297 — the settle-wait lets the funnel/arc/class-sheet surfaces finish mounting (the old 2s sleep filmed mid-flight at 274)
-      [153, 122, 297, 161, 153].every((n, i) => f[FIVE[i]].live === n) &&
+      // t860 re-pin: the SETTLED inspector speaks 297 — the settle-wait lets the funnel/arc/class-sheet surfaces finish mounting (the old 2s sleep filmed mid-flight at 274).
+      // t864 amendment: the settled truth is a RANGE, not a point — this window's settled rides spoke 290/291/292 across t846/t857/t860 (the class-sheet's snapshot surfaces arrive with the data's own timing; the dev world is unfrozen, the t859 clause's exact jurisdiction). The stable faces keep their point-pins (153/122/161/153, reproduced exactly); the inspector — the one face whose async content varies ride-to-ride — rides a FLOOR (285, below every observed settled value, above any real loss) with the ledger's arm-2′ recording the variance honestly.
+      [153, 122, 161, 153].every((n, i) => f[["canvas", "dashboard", "palette", "restore"][i]].live === n) &&
+      f.inspector.live >= 285 &&
       mtReceipt.faces.canvas.live.pageBtns - 142 >= 0 &&
       mtReceipt.faces.dashboard.live.pageBtns - 114 >= 0 &&
       mtReceipt.faces.inspector.live.pageBtns - 180 >= 0 &&
       mtReceipt.faces.palette.live.pageBtns - 150 >= 0,
-    `A4e-27 the t857 drift ledger is aboard and honest (t846 25/25, the t859 jurisdiction re-pin): the census family's ride-to-ride truth is RECORDED per face (five faces, numeric prev/live/drift + identical), bit-for-bit is demanded only when the world key says the bytes are frozen (same-build arm 3; a dev world's ride variance is arm-2′ information — the restored roster's SETTLED live speaks 153/122/297/161/153 (t860's settle-wait), floors non-negative vs the census 142/114/180/150), and the two drift numbers do different jobs in one receipt (floors = the census's age; ledger = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
+    `A4e-27 the t857 drift ledger is aboard and honest (t846 25/25, the t859 jurisdiction re-pin): the census family's ride-to-ride truth is RECORDED per face (five faces, numeric prev/live/drift + identical), bit-for-bit is demanded only when the world key says the bytes are frozen (same-build arm 3; a dev world's ride variance is arm-2′ information — the restored roster's SETTLED live speaks 153/122/161/153 point-pins + the inspector as a 285 floor (t864: the settled truth is a range — 290/291/292/297 observed — the class-sheet arrives with the data's own timing), floors non-negative vs the census 142/114/180/150), and the two drift numbers do different jobs in one receipt (floors = the census's age; ledger = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
   );
 }
 
 // A4e-28 — the t862 LEDGER-FAMILY AMENDMENT (the thirteenth seat): the
-// fleet unit now reads EVERY carrier's driftLedger block — one law, SEVEN
-// instruments, twenty-five faces — and demands the arm STRUCTURE on each,
+// fleet unit now reads EVERY carrier's driftLedger block — one law, NINE
+// instruments, thirty-one faces — and demands the arm STRUCTURE on each,
 // jurisdiction-aware. A4e-27 witnesses t846's five faces; this seat
 // witnesses the whole propagation (t861 + t862's birth): t834's six bands,
 // t837's wordmark + chip (the receipt rides its key inside
 // provenance.buildId — the loadComparator buildKeyOf tolerance, mirrored
 // here), t839's before/after/restored, t840's live/optionA/restored,
 // t861's census trio (born with the ledger aboard), t862's overlay trio
-// (also born with it — the propagation is now the family's birthright).
+// (also born with it — the propagation is now the family's birthright),
+// t863's panel trio (the birthright COMPLETED in t864 — t863's window rode
+// 66/66 but never grew the table), and t864's report+diff trio (born into
+// the table the window it was born).
 // The demand is STRUCTURE, not numbers: prevFound/sameBuild recorded, the
 // law string aboard, every face carrying prev/live/drift/identical
 // (numeric when a predecessor spoke, the null arm-1 shape when it
@@ -842,6 +847,8 @@ const LEDGER_FAMILY = [
   ["t846 a11y-maintenance", "shots-qa/t846-a11y-maintenance.json", (r) => r.build, ["canvas", "dashboard", "inspector", "palette", "restore"]],
   ["t861 kid2-census", "shots-qa/t861-kid2-sleeper-census.json", (r) => r.build, ["sleep1920", "wake2000", "plateau2100"]],
   ["t862 overlay-a11y", "shots-qa/t862-overlay-a11y.json", (r) => r.build, ["shortcuts", "knock", "restored"]],
+  ["t863 job-panel-a11y", "shots-qa/t863-job-panel-a11y.json", (r) => r.build, ["panel", "params", "worldBack"]],
+  ["t864 report-diff-a11y", "shots-qa/t864-report-diff-a11y.json", (r) => r.build, ["report", "paramsdiff", "worldBack"]],
 ];
 const faceShape = (f, prevFound) =>
   f && typeof f === "object" && "prev" in f && "live" in f && "drift" in f && "identical" in f &&
@@ -870,8 +877,8 @@ const familyGreen = LEDGER_FAMILY.every(([label, rel, keyOf, names]) => {
   return !!(DL && facesOk && lawOk && keyOk && (!arm3Bites || allBit));
 });
 ok(
-  familyGreen && familyFaces === 25,
-  `A4e-28 the t862 ledger-family amendment is aboard (one law, seven carriers, ${familyFaces}/25 faces, structure + jurisdiction demanded everywhere): ${familyDetail.join("; ")} — A4e-27's single-instrument witness grew into the family's standing regression net, the arm structure the unit's own demand, the receipts the comparators`
+  familyGreen && familyFaces === 31,
+  `A4e-28 the ledger-family amendment is aboard (one law, nine carriers, ${familyFaces}/31 faces, structure + jurisdiction demanded everywhere): ${familyDetail.join("; ")} — A4e-27's single-instrument witness grew into the family's standing regression net, the arm structure the unit's own demand, the receipts the comparators; t863's trio joined late (the birthright completed) and t864's trio joined at birth`
 );
 
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,

@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
  * t863 — the a11y rotation's heaviest page: the JOB PANEL (the run form,
- * the app's core action surface), walked live with the census's own ruler
- * — through the world's FIRST sanctioned mutation ride (zero src).
+ * the app's core action surface), walked live with the SHARED RULER
+ * (scripts/shared-ruler.mjs, the t864 propagation — the label[for] growth
+ * this instrument taught the family) — through the world's FIRST sanctioned
+ * mutation ride (zero src).
  *
  * The rotation: census (t698) -> cheap pair (t843) -> fragile pair (t844)
  * -> maintenance sweep (t846) -> overlay tier (t862: shortcuts + knock).
@@ -40,6 +42,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
 import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
+import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
 
 const ROOT = process.cwd();
 const BASE = "http://localhost:3000";
@@ -117,10 +120,10 @@ const api = async (method, url, body) => {
   return { status: r.status, body: b };
 };
 
-/* ---------- the measure: the census's name computation + panel fields.
+/* ---------- the measure: the SHARED RULER's name computation + panel fields.
  * NO ${} inside — the shell reads this string. */
 const MEASURE =
-  '(() => { const nameOf = (el) => { const al = el.getAttribute("aria-label"); if (al && al.trim()) return al.trim(); const lb = el.getAttribute("aria-labelledby"); if (lb) { const t = lb.split(/\\s+/).map((id) => { const d = document.getElementById(id); return d ? (d.textContent || "").trim() : ""; }).join(" ").trim(); if (t) return t; } if (el.id) { const lf = document.querySelector(\'label[for="\' + CSS.escape(el.id) + \'"]\'); if (lf && (lf.textContent || "").trim()) return lf.textContent.trim(); } const tc = (el.textContent || "").trim(); if (tc) return tc; if (el.tagName === "IMG") { const a = el.getAttribute("alt"); if (a !== null && a.trim()) return a.trim(); } if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { const v = (el.value || "").trim(); if (v) return v; const p = (el.getAttribute("placeholder") || "").trim(); if (p) return p; } return ""; }; const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const io = document.querySelector(\'section[aria-label="Inputs"]\'); const oo = document.querySelector(\'section[aria-label="Outputs"]\'); const TABS = ["I/O", "Params", "Results", "Log"]; const tabNames = TABS.map((t) => btns.some((b) => (b.textContent || "").trim() === t)); const runBtn = btns.find((b) => ["Run", "Re-run", "Continue", "Run on cluster", "Re-run on cluster", "Continue on cluster"].includes((b.textContent || "").trim())); const act = document.activeElement; return JSON.stringify({ url: location.pathname, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, unCtrlsWho: unCtrls.slice(0, 5).map((c) => String(c.className).slice(0, 50)), imgs: imgs.length, altless: altless.length, hasPanel: !!(io && oo), runFace: runBtn ? (runBtn.textContent || "").trim() : null, runTitle: runBtn ? (runBtn.getAttribute("title") || "").slice(0, 60) : null, tabs: tabNames, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40), act: act ? (act.getAttribute && act.getAttribute("aria-label")) || act.tagName : null }); })()';
+  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const io = document.querySelector(\'section[aria-label="Inputs"]\'); const oo = document.querySelector(\'section[aria-label="Outputs"]\'); const TABS = ["I/O", "Params", "Results", "Log"]; const tabNames = TABS.map((t) => btns.some((b) => (b.textContent || "").trim() === t)); const runBtn = btns.find((b) => ["Run", "Re-run", "Continue", "Run on cluster", "Re-run on cluster", "Continue on cluster"].includes((b.textContent || "").trim())); const act = document.activeElement; return JSON.stringify({ url: location.pathname, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, unCtrlsWho: unCtrls.slice(0, 5).map((c) => String(c.className).slice(0, 50)), imgs: imgs.length, altless: altless.length, hasPanel: !!(io && oo), runFace: runBtn ? (runBtn.textContent || "").trim() : null, runTitle: runBtn ? (runBtn.getAttribute("title") || "").slice(0, 60) : null, tabs: tabNames, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40), act: act ? (act.getAttribute && act.getAttribute("aria-label")) || act.tagName : null }); })()';
 
 /* t860 — the settle-wait: measure, re-measure, require equality, bounded. */
 const settle = (what) => {
@@ -273,6 +276,7 @@ const verdict = fail === 0
 
 const receipt = {
   instrument: "scripts/t863-job-panel-a11y.mjs",
+  ruler: NAMEOF_LAW,
   build: buildId,
   worldMode: world.mode,
   date: new Date().toISOString(),

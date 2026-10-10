@@ -17,6 +17,7 @@
 
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
 
 const ab = (cmd) => execSync(`agent-browser ${cmd}`, { encoding: "utf8", timeout: 60000 }).trim();
 const evalJson = (expr) => {
@@ -40,7 +41,7 @@ const sleep = (ms) => execSync(`sleep ${ms / 1000}`);
 // the full-name measure — every button's honest name (aria-label > labelledby >
 // text > alt > value > placeholder), sorted, plus the dialog heading + palette ip
 const FILM =
-  '(() => { const nameOf = (el) => { const al = el.getAttribute("aria-label"); if (al && al.trim()) return al.trim(); const lb = el.getAttribute("aria-labelledby"); if (lb) { const t = lb.split(/\\s+/).map((id) => { const d = document.getElementById(id); return d ? (d.textContent || "").trim() : ""; }).join(" ").trim(); if (t) return t; } const tc = (el.textContent || "").trim(); if (tc) return tc; if (el.tagName === "IMG") { const a = el.getAttribute("alt"); if (a !== null && a.trim()) return a.trim(); } if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { const v = (el.value || "").trim(); if (v) return v; const p = (el.getAttribute("placeholder") || "").trim(); if (p) return p; } return ""; }; const btns = Array.from(document.querySelectorAll("button")); const dlg = document.querySelector("[role=dialog]"); const ip = document.querySelector("[cmdk-input]"); const portal = document.querySelector("nextjs-portal"); return JSON.stringify({ url: location.pathname, pageBtns: btns.length, names: btns.map((b) => nameOf(b)).sort(), dlgHeading: dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 60) : null, dlgBtns: dlg ? dlg.querySelectorAll("button").length : 0, hasPortal: !!portal, portalBtns: portal ? portal.querySelectorAll("button").length : 0, ip: ip ? "aboard" : null }); })()';
+  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const dlg = document.querySelector("[role=dialog]"); const ip = document.querySelector("[cmdk-input]"); const portal = document.querySelector("nextjs-portal"); return JSON.stringify({ url: location.pathname, pageBtns: btns.length, names: btns.map((b) => nameOf(b)).sort(), dlgHeading: dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 60) : null, dlgBtns: dlg ? dlg.querySelectorAll("button").length : 0, hasPortal: !!portal, portalBtns: portal ? portal.querySelectorAll("button").length : 0, ip: ip ? "aboard" : null }); })()';
 
 const diffNames = (a, b) => {
   const A = new Map();
@@ -111,5 +112,5 @@ for (let i = 1; i < ir.length; i++) {
   for (const g of d.gone.slice(0, 5)) console.log(`    - ${g.slice(0, 90)}`);
 }
 
-writeFileSync("shots-qa/t860-ride-variance-probe.json", JSON.stringify({ at: new Date().toISOString(), rides }, null, 2));
+writeFileSync("shots-qa/t860-ride-variance-probe.json", JSON.stringify({ at: new Date().toISOString(), ruler: NAMEOF_LAW, rides }, null, 2));
 console.log("receipt: shots-qa/t860-ride-variance-probe.json");

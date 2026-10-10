@@ -28,11 +28,16 @@
  * after this probe proves the law holds.
  *
  *   node scripts/t857-drift-ledger-probe.mjs
- */
+ *
+ * t864: the probe's MEASURE rides the SHARED RULER (scripts/shared-ruler.mjs)
+ * — the inline name computation retired onto the one implementation. */
 
 import { execSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
+import { worldIdentity } from "./world-identity.mjs";
+import { armVerdict } from "./drift-ledger.mjs";
 
 const ROOT = process.cwd();
 const RECEIPT = join(ROOT, "shots-qa/t846-a11y-maintenance.json");
@@ -52,7 +57,7 @@ for (const [name, face] of Object.entries(prev.faces ?? {})) {
 const prevNames = Object.keys(prevFaces);
 console.log(`comparator: the receipt of ${prevDate} (build ${prevBuild}), faces: ${prevNames.join(", ")}\n`);
 
-const sameBuild = prevBuild === readFileSync(join(ROOT, ".next/BUILD_ID"), "utf8").trim();
+const sameBuild = prevBuild === worldIdentity(ROOT).id;
 
 const ab = (args) => execSync(`agent-browser ${args}`, { encoding: "utf8", cwd: ROOT });
 const sleep = (s) => execSync(`sleep ${s}`);
@@ -77,7 +82,7 @@ const evalJson = (js) => {
 
 /* the same MEASURE the sweep rides (verbatim shape — t846's own line) */
 const MEASURE =
-  '(() => { const nameOf = (el) => { const al = el.getAttribute("aria-label"); if (al && al.trim()) return al.trim(); const lb = el.getAttribute("aria-labelledby"); if (lb) { const t = lb.split(/\\s+/).map((id) => { const d = document.getElementById(id); return d ? (d.textContent || "").trim() : ""; }).join(" ").trim(); if (t) return t; } const tc = (el.textContent || "").trim(); if (tc) return tc; if (el.tagName === "IMG") { const a = el.getAttribute("alt"); if (a !== null && a.trim()) return a.trim(); } if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { const v = (el.value || "").trim(); if (v) return v; const p = (el.getAttribute("placeholder") || "").trim(); if (p) return p; } return ""; }; const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const dlg = document.querySelector("[role=dialog]"); const dlgBtns = dlg ? Array.from(dlg.querySelectorAll("button")) : []; const dlgUn = dlgBtns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const ip = document.querySelector("[cmdk-input]"); return JSON.stringify({ url: location.pathname, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, hasDlg: !!dlg, dlgBtns: dlgBtns.length, dlgUnnamed: dlgUn.length, dlgFocus: dlg ? dlg.contains(document.activeElement) : null, dlgHeading: dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null, ip: ip ? { aria: ip.getAttribute("aria-label"), ph: ip.getAttribute("placeholder") } : null, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40) }); })()';
+  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const dlg = document.querySelector("[role=dialog]"); const dlgBtns = dlg ? Array.from(dlg.querySelectorAll("button")) : []; const dlgUn = dlgBtns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const ip = document.querySelector("[cmdk-input]"); return JSON.stringify({ url: location.pathname, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, hasDlg: !!dlg, dlgBtns: dlgBtns.length, dlgUnnamed: dlgUn.length, dlgFocus: dlg ? dlg.contains(document.activeElement) : null, dlgHeading: dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null, ip: ip ? { aria: ip.getAttribute("aria-label"), ph: ip.getAttribute("placeholder") } : null, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40) }); })()';
 
 const ESC =
   '(() => { const d = document.querySelector("[role=dialog]"); if (d) { const k = new KeyboardEvent("keydown", { key: "Escape", bubbles: true }); (document.activeElement || document.body).dispatchEvent(k); d.dispatchEvent(k); } return "esc"; })()';
@@ -120,10 +125,18 @@ ab("open http://localhost:3000");
 sleep(3);
 const r1 = evalJson(MEASURE);
 
-/* ---------- the diff: per face, count + full identity ---------- */
+/* ---------- the diff: per face, count + full identity ----------
+ * t864: the verdict is the FAMILY's shared law (drift-ledger.mjs armVerdict,
+ * the t859 jurisdiction clause): bit-for-bit demanded ONLY from a frozen
+ * build-mode key — a same dev@ key rides arm 2′ informational (the world is
+ * unfrozen; the inspector's class-snapshot imgs arrive with data, the t860
+ * probe's own filmed mechanism). The pre-clause inline arm-3-on-dev verdict
+ * is retired here, the last of its generation (t862 retired t846's). */
 const ride = { canvas: c1, dashboard: d1, inspector: i1, palette: p1, restore: r1 };
+const world = worldIdentity(ROOT);
+const cmp = { prevFound: true, sameBuild, prevBuild };
 let red = 0;
-console.log(`\nsameBuild: ${sameBuild} (disk ${sameBuild ? "==" : "!="} comparator)`);
+console.log(`\nsameBuild: ${sameBuild} (disk ${sameBuild ? "==" : "!="} comparator), world mode ${world.mode}`);
 for (const [name, live] of Object.entries(ride)) {
   const p = prevFaces[name];
   if (!p) {
@@ -132,14 +145,10 @@ for (const [name, live] of Object.entries(ride)) {
   }
   const drift = live.pageBtns - p.pageBtns;
   const identical = sorted(live) === sorted(p);
-  const verdictArm = !sameBuild
-    ? "arm 2 — build moved, drift informational"
-    : drift === 0 && identical
-      ? "arm 3 — bit-for-bit"
-      : "arm 3 RED";
-  if (sameBuild && (drift !== 0 || !identical)) red++;
+  const verdict = armVerdict(cmp, world, { drift, identical });
+  if (verdict.bites && !verdict.ok) red++;
   const firstDiff = identical ? "" : "  firstDiff: " + firstKeyDiff(p, live);
-  console.log(`  ${name}: pageBtns ${p.pageBtns} -> ${live.pageBtns} (drift ${drift >= 0 ? "+" : ""}${drift}), identical=${identical}  [${verdictArm}]${firstDiff}`);
+  console.log(`  ${name}: pageBtns ${p.pageBtns} -> ${live.pageBtns} (drift ${drift >= 0 ? "+" : ""}${drift}), identical=${identical}  [${verdict.detail}]${firstDiff}`);
 }
 
 function firstKeyDiff(a, b) {
@@ -150,5 +159,5 @@ function firstKeyDiff(a, b) {
   return "(none)";
 }
 
-console.log(`\nDRIFT-PROBE t857: ${red === 0 ? "the cross-RIDE identity holds on the frozen build" : red + " face(s) moved ride-to-ride"}`);
+console.log(`\nDRIFT-PROBE t857: ${red === 0 ? "the cross-RIDE identity holds (the family's shared law — arm 3 bites on frozen keys only)" : red + " face(s) violated the shared drift law"}`);
 process.exit(red ? 1 : 0);

@@ -1,8 +1,9 @@
 {
   "instrument": "scripts/t846-a11y-maintenance.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T15:02:05.652Z",
+  "date": "2026-10-10T15:48:13.896Z",
   "chain": "canvas -> dashboard -> inspector -> palette -> restore (one command)",
   "doors": {
     "dashboard": "exact-text 'Dashboard' switcher click",
@@ -18,7 +19,7 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T14:42:58.401Z",
+    "prevDate": "2026-10-10T15:02:05.652Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
@@ -36,9 +37,9 @@
       },
       "inspector": {
         "prev": 297,
-        "live": 297,
-        "drift": 0,
-        "identical": true
+        "live": 290,
+        "drift": -7,
+        "identical": false
       },
       "palette": {
         "prev": 161,
@@ -102,15 +103,15 @@
       "floor": 180,
       "live": {
         "url": "/",
-        "pageBtns": 297,
+        "pageBtns": 290,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
         "unCtrls": 0,
-        "imgs": 10,
+        "imgs": 9,
         "altless": 0,
         "hasDlg": true,
-        "dlgBtns": 144,
+        "dlgBtns": 137,
         "dlgUnnamed": 0,
         "dlgFocus": true,
         "dlgHeading": "3D Refine (tutorial) — job inspector3D R",
@@ -254,12 +255,12 @@
     {
       "label": "M11 inspector zero unnamed (page-wide + dialog subset)",
       "pass": true,
-      "detail": "page=297 dlg=144 unnamed=0/0"
+      "detail": "page=290 dlg=137 unnamed=0/0"
     },
     {
       "label": "M12 inspector floor holds (census 180)",
       "pass": true,
-      "detail": "live=297 (census 180, drift +117)"
+      "detail": "live=290 (census 180, drift +110)"
     },
     {
       "label": "M13 Escape closed the inspector",
@@ -294,12 +295,12 @@
     {
       "label": "M19 four faces, four distinct button-views (no face is another face)",
       "pass": true,
-      "detail": "153 / 122 / 297 / 161"
+      "detail": "153 / 122 / 290 / 161"
     },
     {
       "label": "M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/identical, the comparator's provenance recorded",
       "pass": true,
-      "detail": "comparator 2026-10-10T14:42:58.401Z (build dev@c4c3735897dd)"
+      "detail": "comparator 2026-10-10T15:02:05.652Z (build dev@c4c3735897dd)"
     },
     {
       "label": "M21 canvas ride-drift law (same build: bit-for-bit vs the previous receipt)",
@@ -314,7 +315,7 @@
     {
       "label": "M23 inspector ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift -7 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "M24 palette ride-drift law",
@@ -325,5 +326,5 @@
   "passed": 25,
   "failed": 0,
   "total": 25,
-  "verdict": "the maintenance sweep holds: 733 button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +11/+8/+117/+11), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (same build: five faces bit-for-bit vs the previous receipt, drift 0) — the standing re-witness future windows run first"
+  "verdict": "the maintenance sweep holds: 726 button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +11/+8/+110/+11), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (same build: five faces bit-for-bit vs the previous receipt, drift 0) — the standing re-witness future windows run first"
 }

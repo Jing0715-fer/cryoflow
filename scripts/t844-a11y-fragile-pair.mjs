@@ -26,10 +26,11 @@
  *      Radix styling label, so the tree falls through to the placeholder
  *      text; recorded, not fixed — same verdict as the census's).
  *
- * The name computation is the census's (aria-label → labelledby resolved
- * → textContent, img alt / input value / placeholder as the tree's own
- * fallbacks), two rides per state, bit-identical before the pins (the
- * t836 law).
+ * The name computation is the SHARED RULER (scripts/shared-ruler.mjs, the
+ * t864 propagation): aria-label → labelledby resolved → label[for] →
+ * textContent, img alt / input value / placeholder as the tree's own
+ * fallbacks — one implementation, the ruler grows once. Two rides per
+ * state, bit-identical before the pins (the t836 law).
  *
  * Receipt: shots-qa/t844-a11y-fragile-pair.json.
  *
@@ -40,6 +41,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
+import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
 
 const ROOT = process.cwd();
 
@@ -92,7 +94,7 @@ console.log(
 /* ---------- the measure: census name computation, one line sync IIFE.
  * NO ${} inside — the shell reads this string (the t844 lesson). */
 const MEASURE =
-  '(() => { const nameOf = (el) => { const al = el.getAttribute("aria-label"); if (al && al.trim()) return al.trim(); const lb = el.getAttribute("aria-labelledby"); if (lb) { const t = lb.split(/\\s+/).map((id) => { const d = document.getElementById(id); return d ? (d.textContent || "").trim() : ""; }).join(" ").trim(); if (t) return t; } const tc = (el.textContent || "").trim(); if (tc) return tc; if (el.tagName === "IMG") { const a = el.getAttribute("alt"); if (a !== null && a.trim()) return a.trim(); } if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { const v = (el.value || "").trim(); if (v) return v; const p = (el.getAttribute("placeholder") || "").trim(); if (p) return p; } return ""; }; const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const dlg = document.querySelector("[role=dialog]"); const dlgBtns = dlg ? Array.from(dlg.querySelectorAll("button")) : []; const dlgUn = dlgBtns.filter((b) => !nameOf(b)); const ip = document.querySelector("[cmdk-input]"); return JSON.stringify({ pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), hasDlg: !!dlg, dlgBtns: dlgBtns.length, dlgUnnamed: dlgUn.length, dlgFocus: dlg ? dlg.contains(document.activeElement) : null, dlgHeading: dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null, ip: ip ? { aria: ip.getAttribute("aria-label"), ph: ip.getAttribute("placeholder") } : null }); })()';
+  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const dlg = document.querySelector("[role=dialog]"); const dlgBtns = dlg ? Array.from(dlg.querySelectorAll("button")) : []; const dlgUn = dlgBtns.filter((b) => !nameOf(b)); const ip = document.querySelector("[cmdk-input]"); return JSON.stringify({ pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), hasDlg: !!dlg, dlgBtns: dlgBtns.length, dlgUnnamed: dlgUn.length, dlgFocus: dlg ? dlg.contains(document.activeElement) : null, dlgHeading: dlg ? ((document.getElementById(dlg.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null, ip: ip ? { aria: ip.getAttribute("aria-label"), ph: ip.getAttribute("placeholder") } : null }); })()';
 
 /* t860 — the settle-wait (the probe's teaching, shared with t846): the
  * inspector's analytics surfaces mount late (the t860 probe filmed +2/−18
@@ -179,6 +181,7 @@ const verdict = fail === 0
   : `${fail} red — reconcile the a11y layer before any further UI work`;
 const receipt = {
   instrument: "scripts/t844-a11y-fragile-pair.mjs",
+  ruler: NAMEOF_LAW,
   build: buildId,
   worldMode: world.mode,
   date: new Date().toISOString(),

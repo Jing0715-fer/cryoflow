@@ -11,9 +11,11 @@
  *   C  the workflow canvas (:3000/, the app's root face)
  *   D  the dashboard (the exact-text 'Dashboard' switcher button, one click)
  *
- * The measure computes names the way the tree does (the census's method):
- * aria-label -> aria-labelledby (resolved) -> textContent, with img alt and
- * input value/placeholder as the tree's own fallbacks. Two rides per face,
+ * The measure computes names with the SHARED RULER (scripts/shared-ruler.mjs,
+ * the t864 propagation — the t861 pattern): ONE implementation, the canonical
+ * chain aria-label -> aria-labelledby resolved -> label[for] -> textContent
+ * -> img alt -> input value/placeholder; the ruler grows once, every carrier
+ * rides the growth. Two rides per face,
  * bit-identical before the pins (the t836 law). Pins:
  *   A1  canvas rides bit-identical
  *   A2  canvas: zero unnamed buttons (the census's never-broken invariant)
@@ -40,6 +42,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
+import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
 
 const ROOT = process.cwd();
 
@@ -88,9 +91,10 @@ console.log(
   `t843 a11y re-witness — world ${world.mode}:${buildId}, the cheap honesty pair (canvas + dashboard), the census's zero-unnamed invariant re-walked live\n`
 );
 
-/* ---------- the measure: the census's name computation, one line sync IIFE */
+/* ---------- the measure: the SHARED RULER's name computation (NAMEOF),
+ * one line sync IIFE — the inline copy retired in t864 */
 const MEASURE =
-  '(() => { const nameOf = (el) => { const al = el.getAttribute("aria-label"); if (al && al.trim()) return al.trim(); const lb = el.getAttribute("aria-labelledby"); if (lb) { const t = lb.split(/\\s+/).map((id) => { const d = document.getElementById(id); return d ? (d.textContent || "").trim() : ""; }).join(" ").trim(); if (t) return t; } const tc = (el.textContent || "").trim(); if (tc) return tc; if (el.tagName === "IMG") { const a = el.getAttribute("alt"); if (a !== null && a.trim()) return a.trim(); } if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { const v = (el.value || "").trim(); if (v) return v; const p = (el.getAttribute("placeholder") || "").trim(); if (p) return p; } return ""; }; const btns = Array.from(document.querySelectorAll("button")); const unBtns = btns.filter((b) => !nameOf(b)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); return JSON.stringify({ url: location.pathname, btns: btns.length, unBtns: unBtns.length, unBtnsWho: unBtns.slice(0, 5).map((b) => String(b.className).slice(0, 60)), imgs: imgs.length, altless: altless.length, ctrls: ctrls.length, unCtrls: unCtrls.length, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40), innerW: window.innerWidth, innerH: window.innerHeight }); })()';
+  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const unBtns = btns.filter((b) => !nameOf(b)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); return JSON.stringify({ url: location.pathname, btns: btns.length, unBtns: unBtns.length, unBtnsWho: unBtns.slice(0, 5).map((b) => String(b.className).slice(0, 60)), imgs: imgs.length, altless: altless.length, ctrls: ctrls.length, unCtrls: unCtrls.length, heading: ((document.querySelector("h1,h2") || {}).textContent || "").trim().slice(0, 40), innerW: window.innerWidth, innerH: window.innerHeight }); })()';
 
 /* ---------- Face C: the workflow canvas ---------- */
 console.log("Face C — the workflow canvas (:3000/)");
@@ -131,6 +135,7 @@ const verdict = fail === 0
   : `${fail} red — reconcile the a11y layer before any further UI work`;
 const receipt = {
   instrument: "scripts/t843-a11y-rewitness.mjs",
+  ruler: NAMEOF_LAW,
   build: buildId,
   worldMode: world.mode,
   date: new Date().toISOString(),
