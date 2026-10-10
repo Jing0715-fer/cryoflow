@@ -925,9 +925,18 @@ function SavedViewsGallery() {
       // happened to refresh them). Every mouth speaks now; the wall's
       // own listener re-reads fresh (the read-token guards the echo).
       window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+      // t817 — the toast teaches the wall's after-state. The screen-reader
+      // hears the toast but not the heading's silent re-render, so the
+      // count rides where the ears are (flatAfter is the post-delete
+      // total — computed after the server confirmed). Zero remaining
+      // names the dissolve: the honest empty doctrine — a state change
+      // that explains itself.
       toast({
         title: `View “${b.name}” deleted`,
-        description: `Removed from ${v.jobName}'s saved views.`,
+        description:
+          flatAfter.length === 0
+            ? `Removed from ${v.jobName}'s saved views — the wall is empty and the section dissolves.`
+            : `Removed from ${v.jobName}'s saved views — ${flatAfter.length} more bookmark${flatAfter.length === 1 ? "" : "s"} remain${flatAfter.length === 1 ? "s" : ""} on the wall.`,
       });
       // the relay fires after the commit that unmounts the row — the
       // landing card is the stable-keyed neighbour (its DOM node
