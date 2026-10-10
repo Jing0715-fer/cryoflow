@@ -1479,8 +1479,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     cam.setState(snap, 320);
   };
   // keyboard: 1-6 swing to the matching axis view, 0 returns to the default
-  // ¾ view — same muscle memory as the canvas (0 = reset). Scoped to the
-  // viewer being ready; form fields and open menus keep their keys.
+  // ¾ view — same muscle memory as the canvas (0 = reset). B quick-saves the
+  // pose. t829 adds the SCRUB keys — the two most-visited instruments get a
+  // keyboard face: [ / ] step the contour σ (relative ×1.05, so the same
+  // tap means fine tuning at 0.6σ and coarser moves at 8σ), F flips the
+  // density sign, X/Y/Z cut the section plane at that axis (turning it on
+  // if it slept), and , / . (with shift: < / >) scrub the plane along its
+  // axis once it is on — the panel is closed when the plane sleeps, so the
+  // scrub keys deliberately do nothing then: no spooky action on an
+  // invisible plane. Scoped to the viewer being ready; form fields and
+  // open menus keep their keys.
   useEffect(() => {
     if (phase !== "ready") return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -1513,6 +1521,35 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), thumb: captureBookmarkThumb(), snapshot, view: captureBookmarkView() },
         ].slice(-8));
         toast({ title: "View saved", description: `“${nm}” (B key) — jump back from the bookmark menu any time.` });
+      } else if (e.key === "]" || e.key === "[") {
+        // t829 — contour scrub: relative steps so the tap scales with the
+        // level (×1.05 per press; at 0.6σ that is 0.03, at 8σ it is 0.4).
+        // Two decimals keeps the readout and the slider in exact agreement.
+        e.preventDefault();
+        const next = e.key === "]"
+          ? Math.min(SIGMA_MAX, sigmaRef.current * 1.05)
+          : Math.max(SIGMA_MIN, sigmaRef.current / 1.05);
+        setSigma(Math.round(next * 100) / 100);
+      } else if (e.key === "f" || e.key === "F") {
+        // t829 — polarity flip: the flip button's exact verb, on the keys
+        e.preventDefault();
+        setSign((s) => (s > 0 ? -1 : 1));
+      } else if (e.key === "x" || e.key === "y" || e.key === "z" || e.key === "X" || e.key === "Y" || e.key === "Z") {
+        // t829 — the section verbs: X/Y/Z cut the plane at that axis,
+        // turning it on when it slept (the same intent path the panel's
+        // own axis buttons ride, so sliders/landscape/chips all follow)
+        e.preventDefault();
+        const ax = e.key.toUpperCase() as SliceAxis;
+        applySliceIntent({ on: true, axis: ax });
+      } else if (e.key === "," || e.key === "." || e.key === "<" || e.key === ">") {
+        // t829 — the scrub verbs: nudge the plane along its axis. They
+        // demand the plane ON — an invisible plane must not move.
+        if (!sliceStateRef.current.on) return;
+        e.preventDefault();
+        const step = e.key === "<" || e.key === ">" ? 0.1 : 0.02;
+        const dir = e.key === "," || e.key === "<" ? -1 : 1;
+        const next = Math.min(1, Math.max(0, sliceStateRef.current.pos + dir * step));
+        applySliceIntent({ pos: Math.round(next * 100) / 100 });
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -4911,8 +4948,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   aria-label="Flip contour to the negative density side"
                   title={
                     sign > 0
-                      ? "Contour on positive density — flip if the map is inverted (signal below the mean)"
-                      : "Contour on NEGATIVE density — flip back to positive"
+                      ? "Contour on positive density — flip if the map is inverted (signal below the mean). F key does the same."
+                      : "Contour on NEGATIVE density — flip back to positive (F key does the same)"
                   }
                   className={
                     "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors " +
@@ -4974,6 +5011,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               step={0.05}
               onValueChange={(v) => setSigma(v[0] ?? 2)}
               aria-label="Isosurface contour level in sigma"
+              title="Contour σ — [ / ] step the level from the keyboard, F flips the density side"
               className="mt-2.5"
             />
             {/* cross-section panel — controls row + density landscape (t189) */}
@@ -4988,7 +5026,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       type="button"
                       onClick={() => applySliceIntent({ axis: ax })}
                       aria-pressed={sliceAxis === ax}
-                      title={`Slice perpendicular to the ${ax} axis`}
+                      title={`Slice perpendicular to the ${ax} axis (${ax} key)`}
                       className={
                         "rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors " +
                         (sliceAxis === ax
@@ -6662,6 +6700,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               <p className="px-1 pb-1 text-[11px] font-semibold">View bookmarks</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Save the exact camera pose — orbit, zoom and target — and fly back to it later.
+                Keys while the viewer is open: [ ] step the contour, F flips the density side,
+                X/Y/Z cut the section plane, , . scrub it.
               </p>
               <div className="flex gap-1">
                 <input
