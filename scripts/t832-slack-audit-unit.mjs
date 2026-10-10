@@ -337,6 +337,33 @@ if (
   );
 }
 
+// A4e-11 — the build day's DECISION TABLE, measured (the t840 options
+// rehearsal): every option's AFTER pre-filmed on throwaway clones —
+// (a) the clip (the t839 continuity row), (b) refuted as written (the
+// wordmark is already squeezed to 101.3; a cap must bind below it) but
+// clearing at 88, (c) REFUTED (the tier law eats the freed demand, the
+// paint worsens to 11.4). The audit's arithmetic pricing is now an
+// experiment; the build day lands (a) with the whole table aboard.
+const optPath = join(ROOT, "shots-qa/t840-options-rehearsal.json");
+const optReceipt = existsSync(optPath)
+  ? JSON.parse(readFileSync(optPath, "utf8"))
+  : null;
+if (optReceipt && optReceipt.before && optReceipt.before[0]) {
+  const oa = optReceipt.optionA && optReceipt.optionA.rides ? optReceipt.optionA.rides[0] : null;
+  const oc = optReceipt.optionC && optReceipt.optionC.rides ? optReceipt.optionC.rides[0] : null;
+  const ob88 = optReceipt.optionB88 && optReceipt.optionB88.rides1280 ? optReceipt.optionB88.rides1280[0] : null;
+  const stackHas = (row, who) =>
+    row && Array.isArray(row.stack) && row.stack.some((s) => String(s).startsWith(who));
+  ok(
+    optReceipt.before[0].overlap === 2.7 &&
+      oa && oa.overlap === 2.7 && oa.wrapOverflowX === "hidden" && !stackHas(oa, "TRIGGER") &&
+      ob88 && ob88.overlap === -4.8 &&
+      oc && oc.overlap === 11.4 && oc.wrapW === 106.6 &&
+      optReceipt.restored && optReceipt.restored.overlap === 2.7,
+    `A4e-11 the t840 decision table is aboard and closes: (a) clips with the geometry intact (${oa ? oa.overlap : "n/a"}, stack clean), (b@88) clears (${ob88 ? ob88.overlap : "n/a"}), (c) backfires (${oc ? oc.overlap : "n/a"}, wrapper ${oc ? oc.wrapW : "n/a"}), the world restored (${optReceipt.restored.overlap}) — the build day lands (a), the whole table filmed`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

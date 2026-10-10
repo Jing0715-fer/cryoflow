@@ -1,0 +1,307 @@
+{
+  "instrument": "scripts/t840-options-rehearsal.mjs",
+  "build": "KtPKuXIbtB9d7uhItOOUS",
+  "date": "2026-10-10T08:54:28.027Z",
+  "viewport": {
+    "w": 1280,
+    "h": 800
+  },
+  "harness": "the t839 throwaway-DOM clone generalized: one fresh load + one clone per option, two bit-identical rides per option before its pins",
+  "before": [
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "wmW": 101.3,
+      "wmMax": "none",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "TRIGGER|Active project",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "visible",
+      "innerW": 1280
+    },
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "wmW": 101.3,
+      "wmMax": "none",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "TRIGGER|Active project",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "visible",
+      "innerW": 1280
+    }
+  ],
+  "optionA": {
+    "swap": {
+      "swapped": true,
+      "fix": "hidden"
+    },
+    "rides": [
+      {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 115.3,
+        "overlap": 2.7,
+        "wmW": 101.3,
+        "wmMax": "none",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 ite",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "hidden",
+        "innerW": 1280
+      },
+      {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 115.3,
+        "overlap": 2.7,
+        "wmW": 101.3,
+        "wmMax": "none",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 ite",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "hidden",
+        "innerW": 1280
+      }
+    ]
+  },
+  "optionB138": {
+    "swap": {
+      "swapped": true,
+      "fix": "138px"
+    },
+    "rides": [
+      {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 115.3,
+        "overlap": 2.7,
+        "wmW": 101.3,
+        "wmMax": "138px",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 ite",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible",
+        "innerW": 1280
+      },
+      {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 115.3,
+        "overlap": 2.7,
+        "wmW": 101.3,
+        "wmMax": "138px",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 ite",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible",
+        "innerW": 1280
+      }
+    ],
+    "verdict": "no-op — the cap sits above the wordmark's squeezed 101.3"
+  },
+  "optionB88": {
+    "swap": {
+      "swapped": true,
+      "fix": "88px"
+    },
+    "rides1280": [
+      {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 122.8,
+        "overlap": -4.8,
+        "wmW": 88,
+        "wmMax": "88px",
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible",
+        "innerW": 1280
+      },
+      {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 122.8,
+        "overlap": -4.8,
+        "wmW": 88,
+        "wmMax": "88px",
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible",
+        "innerW": 1280
+      }
+    ],
+    "at1283": {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 124.4,
+      "overlap": -6.4,
+      "wmW": 88,
+      "wmMax": "88px",
+      "paintAt": "TRIGGER|Active project",
+      "stack": [
+        "TRIGGER|Active project",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "visible",
+      "innerW": 1283
+    },
+    "at1286": {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 126.1,
+      "overlap": -8.1,
+      "wmW": 88,
+      "wmMax": "88px",
+      "paintAt": "TRIGGER|Active project",
+      "stack": [
+        "TRIGGER|Active project",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "visible",
+      "innerW": 1286
+    },
+    "verdict": "binds and clears (−4.8); the slope steepens −0.4 → −0.55"
+  },
+  "optionC": {
+    "swap": {
+      "swapped": true,
+      "fix": "150px"
+    },
+    "rides": [
+      {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 106.6,
+        "overlap": 11.4,
+        "wmW": 105.7,
+        "wmMax": "none",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 ite",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible",
+        "innerW": 1280
+      },
+      {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 106.6,
+        "overlap": 11.4,
+        "wmW": 105.7,
+        "wmMax": "none",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 ite",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-au",
+          "OTHER|flex h-dvh flex-col bg-bac",
+          "OTHER|__variable_8eaea4 __variab",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible",
+        "innerW": 1280
+      }
+    ],
+    "verdict": "backfires — the floor binds anyway, the wrapper yields deeper, the paint worsens to 11.4"
+  },
+  "restored": {
+    "mid": true,
+    "trigW": 130,
+    "wrapW": 115.3,
+    "overlap": 2.7,
+    "wmW": 101.3,
+    "wmMax": "none",
+    "paintAt": "CHIP|RELION environment status: RELION not found",
+    "stack": [
+      "CHIP|RELION environment status: RELION not found",
+      "CHIP|hidden xl:block",
+      "OTHER|no-print flex shrink-0 ite",
+      "TRIGGER|Active project",
+      "OTHER|no-print pointer-events-au",
+      "OTHER|flex h-dvh flex-col bg-bac",
+      "OTHER|__variable_8eaea4 __variab",
+      "OTHER|light"
+    ],
+    "wrapOverflowX": "visible",
+    "innerW": 1280
+  },
+  "verdict": "the decision table is measured: (a) clips with the geometry intact (THE fix, per the t839 ratchet); (b) needs a cap at ~88 to matter (brand cost: the wordmark truncates harder) and steepens the reclaim law; (c) backfires (+8.7). The build day lands (a) as ONE grind — every alternative's AFTER is already filmed"
+}
