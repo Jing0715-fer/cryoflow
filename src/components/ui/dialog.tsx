@@ -425,7 +425,10 @@ export function returnFocusToOpener(event: Event): void {
   // first cut cleared at entry and the remount's own event emptied the
   // pocket before its discrimination could speak).
   if (openSurfaceExists()) return
-  layer && (layer.pocket = null)
+  // the t814 spend-owns-the-clear, written as a statement (the logical-and
+  // expression form tripped no-unused-expressions — same short-circuit,
+  // zero behaviour change, the lint's own honest shape)
+  if (layer) layer.pocket = null
   event.preventDefault()
   pocket.focus({ preventScroll: true })
   // The nested walk-back: a restored address inside a LIVING dialog
