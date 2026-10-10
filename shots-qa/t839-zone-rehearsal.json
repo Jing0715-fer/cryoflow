@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t839-zone-rehearsal.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T10:01:03.102Z",
+  "date": "2026-10-10T10:28:49.619Z",
   "viewport": {
     "w": 1280,
     "h": 800
@@ -96,6 +96,30 @@
       "innerW": 1280
     }
   ],
+  "cloneBand": {
+    "leftW": 607.8,
+    "rightW": 628.3,
+    "seats": 12,
+    "midKids": [
+      {
+        "lbl": "Active workspace",
+        "w": 116.9
+      },
+      {
+        "lbl": "flex min-w-0 items-center gap-",
+        "w": 115.3
+      },
+      {
+        "lbl": "Workflow statistics",
+        "w": 0
+      },
+      {
+        "lbl": "Spotlight noted jobs",
+        "w": 0
+      }
+    ],
+    "innerW": 1280
+  },
   "cloneZone": {
     "1286": {
       "mid": true,

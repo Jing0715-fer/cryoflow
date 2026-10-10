@@ -491,6 +491,26 @@ if (msReceipt && msReceipt.checks) {
   );
 }
 
+// A4e-17 — the t847 FOURTH SEAT: the fix's clone carries its own band
+// layer (t839's BAND_MEASURE, R10). PAINT-not-geometry is now proven on
+// the band layer too: the clone's band numbers equal the live band's
+// bit-for-bit (607.8 / 628.3 / 12), and the mid wrap joins the three-way
+// as the FOUR-way 115.3 (family F9.a-c).
+const fa17 = join(ROOT, "shots-qa/t839-zone-rehearsal.json");
+const cbReceipt = existsSync(fa17)
+  ? JSON.parse(readFileSync(fa17, "utf8"))
+  : null;
+if (cbReceipt && cbReceipt.cloneBand && !cbReceipt.cloneBand.error) {
+  const cb = cbReceipt.cloneBand;
+  ok(
+    cb.innerW === 1280 && cb.seats === 12 &&
+      cb.leftW === 607.8 && cb.rightW === 628.3 &&
+      Array.isArray(cb.midKids) && cb.midKids.length === 4 &&
+      Math.abs((cb.midKids[1] || {}).w - 115.3) <= 0.05,
+    `A4e-17 the t847 fourth seat is aboard and green (t839 11/11): the fix world's band layer measured — left ${cb.leftW} == live 607.8, right ${cb.rightW} == live 628.3, seats ${cb.seats} == 12, bit-for-bit; the four-way 115.3 (band live / band clone / zone row / GEOM) — PAINT, not geometry, proven on the band layer too`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

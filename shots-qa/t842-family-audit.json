@@ -1,11 +1,12 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T10:04:23.690Z",
+  "date": "2026-10-10T10:29:37.337Z",
   "sources": {
     "t839": {
       "file": "shots-qa/t839-zone-rehearsal.json",
-      "date": "2026-10-10T10:01:03.102Z"
+      "date": "2026-10-10T10:28:49.619Z",
+      "cloneBand": "the fix world's band layer (the fourth seat, t847)"
     },
     "t840": {
       "file": "shots-qa/t840-options-rehearsal.json",
@@ -231,10 +232,25 @@
       "name": "F8.e two rulers, one anchor: 1280 is the only width both sample, and 1366 proves the squeeze is band-local",
       "pass": true,
       "detail": "both@1280: seats 12 + 130/115.3/2.7 | 1366 natural: 149.2/149.2/-12"
+    },
+    {
+      "name": "F9.a the clone band is aboard: t839 rides the BAND walk on the fix world",
+      "pass": true,
+      "detail": "clone left=607.8 right=628.3 seats=12 innerW=1280"
+    },
+    {
+      "name": "F9.b PAINT, not geometry, on the BAND layer: the clone's band equals the live band bit-for-bit",
+      "pass": true,
+      "detail": "left 607.8==607.8 right 628.3==628.3 seats 12==12"
+    },
+    {
+      "name": "F9.c the FOUR-way 115.3: band live / band clone / zone row / the GEOM every receipt rides",
+      "pass": true,
+      "detail": "band-live=115.3 band-clone=115.3 zone=115.3 t839=115.3 t840=115.3"
     }
   ],
-  "passed": 31,
+  "passed": 34,
   "failed": 0,
-  "total": 31,
-  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins now cross-check the zone rows at the shared 1280 anchor, the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
+  "total": 34,
+  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, and the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
 }

@@ -39,6 +39,12 @@
 //       the three-way 115.3 (band midKids == zone row wrap == the GEOM every receipt rides);
 //       and the shared 1280 anchor — the only width both rulers sample, where band and zone
 //       agree, with the natural 1366 row proving the squeeze is a band-local phenomenon.
+//   F9  the fourth seat (t847): the fix's CLONE carries its own band layer — t839's
+//       BAND_MEASURE rides the clone after the swap, and the fix's PAINT-not-geometry
+//       pricing is proven on the band layer too: the clone's band numbers equal the live
+//       band's bit-for-bit (left 607.8, right 628.3, seats 12), and the mid band's wrap
+//       joins the three-way as the FOUR-way 115.3 (band live / band clone / zone row /
+//       the GEOM every receipt rides).
 // Receipt: shots-qa/t842-family-audit.json.
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -198,18 +204,34 @@ ok('F8.e two rulers, one anchor: 1280 is the only width both sample, and 1366 pr
   near(live['1366'].trigW, live['1366'].wrapW),
   `both@1280: seats ${P.seats['1280']} + ${G(live['1280'])} | 1366 natural: ${G(live['1366'])}`);
 
+// ---- F9 the fourth seat: the clone's band layer (PAINT proven on the band too) --------
+const CB = R839.cloneBand;
+const lb = BANDS['1280'];
+ok('F9.a the clone band is aboard: t839 rides the BAND walk on the fix world',
+  CB && !CB.error && CB.innerW === 1280 && CB.seats === 12 &&
+  Array.isArray(CB.midKids) && CB.midKids.length === 4,
+  `clone left=${CB.leftW} right=${CB.rightW} seats=${CB.seats} innerW=${CB.innerW}`);
+ok("F9.b PAINT, not geometry, on the BAND layer: the clone's band equals the live band bit-for-bit",
+  CB.leftW === lb.leftW && CB.rightW === lb.rightW && CB.seats === lb.seats,
+  `left ${CB.leftW}==${lb.leftW} right ${CB.rightW}==${lb.rightW} seats ${CB.seats}==${lb.seats}`);
+const cbMid = (CB.midKids || [])[1] || {};
+ok('F9.c the FOUR-way 115.3: band live / band clone / zone row / the GEOM every receipt rides',
+  near(cbMid.w, 115.3) && near(live['1280'].wrapW, 115.3) &&
+  cbMid.w === b839a.wrapW && cbMid.w === b840a.wrapW,
+  `band-live=${mid1280.w} band-clone=${cbMid.w} zone=${live['1280'].wrapW} t839=${b839a.wrapW} t840=${b840a.wrapW}`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const verdict = failed === 0
-  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins now cross-check the zone rows at the shared 1280 anchor, the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
+  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, and the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
   : `the family DISAGREES in ${failed} place(s) — reconcile before the build day`;
 const receipt = {
   instrument: 'scripts/t842-family-audit.mjs',
   build: R839.build,
   date: new Date().toISOString(),
   sources: {
-    t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date },
+    t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date, cloneBand: 'the fix world\'s band layer (the fourth seat, t847)' },
     t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date },
     sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date },
     sweepPinned: { left: P.left, right: P.right, seats: P.seats, law: "pinned == bands within ±0.5 (the sweep's own rounding law), seats exact, across 6 widths" },

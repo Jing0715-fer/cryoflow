@@ -127,6 +127,13 @@ const fontsWait = () => {
   return false;
 };
 
+/* ---------- the band measure (the fourth seat, t847): the sweep's BAND
+ * walk on the clone — the header's left/right rows, the seats, the mid
+ * band. The fix is PAINT, not geometry, so the clone's band layer must
+ * equal the live band layer (the sweep's pinned numbers, ±0.5). ---------- */
+const BAND_MEASURE =
+  "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'no header' }); const kid = (c) => Math.round(c.getBoundingClientRect().width * 10) / 10; const left = hdr.children[0]; const right = hdr.children[1]; const mid = left.children[3]; const midKids = mid && mid.getBoundingClientRect().width > 0 ? [...mid.children].map((c) => ({ lbl: c.getAttribute('aria-label') || String(c.className).slice(0, 30), w: kid(c) })) : null; const seats = [...right.children].filter((c) => c.getBoundingClientRect().width > 0).length; return JSON.stringify({ leftW: Math.round(left.getBoundingClientRect().width * 10) / 10, rightW: Math.round(right.getBoundingClientRect().width * 10) / 10, seats: seats, midKids: midKids, innerW: window.innerWidth }); })()";
+
 /* ---------- boot at the zone's left edge ---------- */
 ab(`set viewport 1280 ${HEIGHT}`);
 ab("wait 350");
@@ -146,6 +153,10 @@ const fonts2 = fontsWait();
 const a1 = evalJson(MEASURE);
 const a2 = evalJson(MEASURE);
 const bitA = JSON.stringify(a1) === JSON.stringify(a2);
+
+/* ---------- the clone's band layer (the fourth seat): the fix is PAINT,
+ * so the clone's band numbers must equal the live band (±0.5, seats exact) */
+const cloneBand = evalJson(BAND_MEASURE);
 
 /* ---------- the clone-zone: the edge must move not ---------- */
 ab("set viewport 1286 800");
@@ -221,6 +232,11 @@ ok(
     r1.stack.some((s) => s.startsWith("TRIGGER")),
   `R9 the restore: fresh load back to the BEFORE truth (${r1.overlap} / ${r1.wrapOverflowX} / trigger aboard) — the world unharmed`
 );
+ok(
+  !cloneBand.error && cloneBand.innerW === 1280 && cloneBand.seats === 12 &&
+    Array.isArray(cloneBand.midKids) && cloneBand.midKids.length === 4,
+  `R10 the clone's BAND layer is aboard (the fourth seat): left ${cloneBand.leftW} / right ${cloneBand.rightW} / seats ${cloneBand.seats} at innerW ${cloneBand.innerW}, the mid band's ${cloneBand.midKids ? cloneBand.midKids.length : 0} children measured on the fix world — PAINT, not geometry, now proven on the band layer too`
+);
 
 /* ---------- the receipt ---------- */
 const receipt = {
@@ -233,6 +249,7 @@ const receipt = {
   before: [b1, b2],
   swap,
   after: [a1, a2],
+  cloneBand: cloneBand,
   cloneZone: { "1286": cz1286, "1287": cz1287 },
   restored: r1,
   verdict:
