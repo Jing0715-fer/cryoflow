@@ -25,7 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT } from "@/lib/view-link";
+import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
 import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
@@ -1610,6 +1610,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // counts are fetched lazily when the section opens — 8 tiny JSON GETs
   // only ever happen on explicit click, never on popover hover)
   const allJobs = useWorkflowStore((s) => s.jobs);
+  // t822 — the share link carries the job's home project as the jump hint
+  // (the wall's cross-project dialect needs it to switch before it lands)
+  const activeProjectId = useWorkflowStore((s) => s.project?.id);
   const [fromJobOpen, setFromJobOpen] = useState(false);
   const [fromJobState, setFromJobState] = useState<"idle" | "loading">("idle");
   const [fromJobList, setFromJobList] = useState<
@@ -1739,6 +1742,46 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             });
           }
         }
+      }
+      // t822 — the shareable link's landing: a pose that traveled inside
+      // the URL. One-shot on the MATCHING job (a mismatched viewer leaves
+      // the payload staged — the share survives until the right viewer
+      // opens; malformed payloads never reach here, the boot consumer
+      // bounced them). The pose applies as a GUEST — no bookmark row is
+      // created; this door's Save keeps it like any other view.
+      let shareRaw: string | null = null;
+      try {
+        shareRaw = sessionStorage.getItem(PENDING_SHARE_KEY);
+      } catch {
+        shareRaw = null;
+      }
+      if (shareRaw && shareRaw !== "null") {
+        const share = decodeSharePayload(shareRaw);
+        if (share && share.jobId === jobId) {
+          sessionStorage.removeItem(PENDING_SHARE_KEY);
+          try {
+            restoreBookmarkRef.current({
+              id: "shared-view",
+              name: share.name,
+              ts: Date.now(),
+              snapshot: share.snapshot,
+              view: share.view as BookmarkView | undefined,
+            });
+            toast({
+              title: "Shared view restored",
+              description: `“${share.name}” arrived inside the link — jump away, or Save here to keep it.`,
+            });
+          } catch {
+            toast({
+              title: "Shared view could not be restored",
+              description: "The link's payload read fine, but the viewer could not fly to it just now.",
+            });
+          }
+        }
+        // a mismatched or undecodable share stays staged — it may belong
+        // to a viewer this session has not opened yet (the boot consumer
+        // already bounced malformed payloads; an undecodable stale entry
+        // simply waits and harms nothing)
       }
     })();
   }, [phase, jobId]);
@@ -2049,6 +2092,46 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       title: "Copy saved",
       description: `“${b.name}” → “${nm}” — the copy points at the same pose & optics.`,
     });
+  };
+
+  /** t822 — share what the canvas shows RIGHT NOW: the current pose +
+   *  optics travel INSIDE the URL (self-contained — the recipient needs
+   *  no account, no bookmark row, no sync; the landing stages the payload
+   *  and the viewer applies it as a guest). The door refuses past the
+   *  URL budget BEFORE the clipboard is touched, and a denied clipboard
+   *  speaks honestly (the t669 doctrine reaches every door). */
+  const copyViewLink = async () => {
+    const cam = pluginRef.current?.canvas3d?.camera;
+    if (!cam) return;
+    const snapshot = cam.getSnapshot() as unknown as Record<string, unknown>;
+    const view = captureBookmarkView() as unknown as Record<string, unknown> | undefined;
+    const payload = encodeSharePayload({
+      jobId,
+      projectId: activeProjectId ?? null,
+      name: "Shared view",
+      snapshot,
+      view,
+    });
+    if (payload.length > SHARE_PAYLOAD_MAX) {
+      toast({
+        title: "This view is too large to share as a link",
+        description: "The pose payload exceeds the URL budget — export the views to a file instead.",
+      });
+      return;
+    }
+    const url = `${window.location.origin}/?view=${payload}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "View link copied",
+        description: "Anyone opening this URL lands on this exact pose & optics — no account, no setup.",
+      });
+    } catch {
+      toast({
+        title: "Could not reach the clipboard",
+        description: "The browser denied clipboard access — the share needs a manual copy this time.",
+      });
+    }
   };
 
   /** single commit path for the inline rename — runs from the input's blur
@@ -6672,6 +6755,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 >
                   <FolderOpen className="size-3" />
                   From job
+                </button>
+                {/* t822 — the share door: the current pose rides inside the
+                    URL itself, so a colleague opens the exact view with one
+                    paste — no account, no bookmark row, no file to pass */}
+                <button
+                  type="button"
+                  onClick={() => void copyViewLink()}
+                  aria-label="Copy view link — share the current pose as a URL"
+                  title="Copy view link — anyone opening this URL lands on this exact pose & optics"
+                  className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <ClipboardCopy className="size-3" />
+                  Copy view link
                 </button>
                 <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground/60" aria-hidden="true">
                   {bookmarks.length}/8

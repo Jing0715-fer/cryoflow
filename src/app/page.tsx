@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { SharedViewLanding } from "@/components/workflow/shared-view-landing";
 
 /**
  * CryoFlow — the home route.
@@ -130,5 +131,12 @@ function BootSkeleton() {
 }
 
 export default function Home() {
-  return <AppShell />;
+  return (
+    <>
+      {/* t822 — the shared view's landing pad: reads ?view= once, cleans
+          the address bar, and drives the wall-jump dialect; renders null */}
+      <SharedViewLanding />
+      <AppShell />
+    </>
+  );
 }
