@@ -4,9 +4,10 @@
 audit formalized the right cluster's arithmetic from source; the t834 sweep
 persisted the live instrument and derived the left cluster through the
 squeeze law; the t835 completion weighed the right cluster seat by seat and
-filmed the middle tier's squeeze live. This page is what all of them now
-agree on — the numbers, the laws that produce them, and the one residue
-still on the books.*
+filmed the middle tier's squeeze live; the t837 font-metrics probe derived
+the last text constants (the wordmark's 142, the tab labels' 120). This page
+is what all of them now agree on — the numbers, the laws that produce them,
+and the one residue still on the books.*
 
 ## The six bands and their truth
 
@@ -42,8 +43,12 @@ chrome = the header's padding (24 below sm, 32 from sm) + the
 justify-between gap (12). The natural width is assembled from the parsed
 seats: the brand icon 36 (`size-9`), the ViewSwitcher 68 below xl — derived
 from its own box classes (`border` 1 + `p-0.5` 2 + `gap-0.5` 2 + two tabs
-of `px-2` 8 + `size-3.5` 14) — plus the wordmark and the tab labels (pinned
-text variables: 142 / 120) and the middle tier's triggers (128→160 /
+of `px-2` 8 + `size-3.5` 14) — plus the wordmark and the tab labels
+(derived text constants: 142 / 120 — the t837 font-metrics probe: the
+wordmark is the max of its two lines' canvas advances under the elements'
+own computed fonts, "Cryo-EM Workflow Builder" at 11px carrying it at
+142.46 live vs rect 142.47; the labels sum 120.2; receipt
+`shots-qa/t837-wordmark-probe.json`) and the middle tier's triggers (128→160 /
 150→170→220, the `w-[]` ladders).
 
 **3. The squeeze law.** When the natural row misses the band, flexbox
@@ -103,8 +108,14 @@ trigger's xl tier from 170 to 150.
   `shots-qa/t834-band-sweep.json` with the raw subpixels, per-seat anatomy,
   and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (42 assertions, rides the
-  fleet).
+  parsed, the tiers computed, the closed forms (45 assertions, rides the
+  fleet; A4e-5..7 close the t837 receipt against the pins).
+- `node scripts/t837-wordmark-probe.mjs` — the text constants' derivation:
+  canvas advances under the elements' own computed fonts (two rides,
+  bit-identical before the pins; receipt `shots-qa/t837-wordmark-probe.json`).
+  The wordmark's 142 was the audit's load-bearing unknown — the 768 squeeze
+  law hinges on it — and is now arithmetic: if the brand text changes, the
+  probe moves first, the law follows.
 - The handshake is the audit: source counts drift from rendered truth, and
   measured widths rot without a contract — neither half alone is honest.
   When the two instruments produce the same numbers, the header's band
