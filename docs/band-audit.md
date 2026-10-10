@@ -167,11 +167,12 @@ comparison.
   command; receipt `shots-qa/t834-band-sweep.json` with the raw subpixels,
   per-seat anatomy, and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (52 assertions, rides the
+  parsed, the tiers computed, the closed forms (53 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
-  the t843 a11y re-witness, A4e-14 closes the t844 fragile pair).
+  the t843 a11y re-witness, A4e-14 closes the t844 fragile pair, A4e-15
+  closes the t845 third seat).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -196,9 +197,10 @@ comparison.
   is an experiment now — the build day's choice is closed by
   measurement, not by memory.
 - `node scripts/t842-family-audit.mjs` — the family audit: one arithmetic,
-  four instruments. A pure file pass over the four instrument receipts
+  five instruments. A pure file pass over the five instrument receipts
   (t839's proof, t840's decision table, the sweep's live rows, and since
-  t843 the t837 wordmark derivation) asserting they tell the same story
+  t843 the t837 wordmark derivation, and since t845 the sweep's own
+  pinned trio) asserting they tell the same story
   about the same 2.7px: the BEFORE
   quartet agrees at 1280, the AFTER pair agrees with the geometry unmoved
   and the TRIGGER gone (the ratchet — delta(geometry)=0, flip(stack)=1 —
@@ -206,12 +208,22 @@ comparison.
   live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
   painted rows, the decision table's rows relate as filmed (B138 no-op at
   the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
-  and all receipts speak the standing build (26 assertions; receipt
+  and all receipts speak the standing build (31 assertions; receipt
   `shots-qa/t842-family-audit.json`). The second seat (t843) pinned the
   BOUND CHAIN across receipts — the wordmark's natural 142.46 > B138's cap
   138 > the squeezed 101.3 > B88's cap 88 — the one line that proves B138
   is a no-op and B88 binds, so the number the no-op verdict stands on is
-  receipt-to-receipt. When the fix lands, all three paint instruments flip
+  receipt-to-receipt. The third seat (t845) brought the sweep's own MACRO
+  pins (left/right/seats across six widths) into the same audit as F8 —
+  the BAND layer cross-checking the zone rows the way F7 checks the
+  wordmark: pinned == bands within the sweep's own ±0.5 rounding law
+  (seats exact), the plateaus land on the breakpoints (6,8,11,11,12,12),
+  the seat arithmetic closes (seats 12 == rightKids.length, rightW
+  628.3 = Σkids 562.3 + 6px × 11), the three-way 115.3 (band midKids ==
+  zone row wrap == the GEOM every receipt rides), and the shared 1280
+  anchor — the only width both rulers sample — with the natural 1366 row
+  (149.2/149.2/-12, TRIGGER on top) proving the squeeze is band-local.
+  When the fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
 - The handshake is the audit: source counts drift from rendered truth, and
