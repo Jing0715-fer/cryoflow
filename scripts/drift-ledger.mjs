@@ -64,17 +64,36 @@ export function loadComparator(ROOT, receiptPath, buildId, buildKeyOf = (r) => r
  * identity. drift rounded to 0.1 (the instruments' own precision);
  * null-safe on either side (a face the predecessor lacks rides
  * prev=null, drift=null, identical=null — the arm-1 shape for one face
- * inside an otherwise-ledgered ride). */
+ * inside an otherwise-ledgered ride).
+ *
+ * t865 — the IDENTITY-VS-LENS vocabulary: when the full object is not
+ * identical, the face now names WHICH top-level fields moved, split by
+ * what the move IS: `lens` = the measure's own name/name-string fields
+ * (string or string-array values — the ruler grew richer, the world
+ * never moved) vs `world` = the page's content fields (numeric/boolean —
+ * the world itself moved). The identical flag's false then speaks one
+ * word per field instead of two. identical true -> both lists empty. */
 export function ledgerFace(prevObj, liveObj, scalarOf) {
   const p = prevObj ?? null;
   const pv = p && scalarOf ? scalarOf(p) : null;
   const lv = liveObj && scalarOf ? scalarOf(liveObj) : null;
   const has = p && pv !== null && pv !== undefined && lv !== null && lv !== undefined;
+  const moved = { lens: [], world: [] };
+  if (p) {
+    const keys = new Set([...Object.keys(p), ...Object.keys(liveObj ?? {})]);
+    for (const k of Array.from(keys).sort()) {
+      if (JSON.stringify(p[k]) === JSON.stringify((liveObj ?? {})[k])) continue;
+      const val = (liveObj ?? {})[k] ?? p[k];
+      const isLens = typeof val === "string" || (Array.isArray(val) && val.every((x) => typeof x === "string"));
+      moved[isLens ? "lens" : "world"].push(k);
+    }
+  }
   return {
     prev: pv ?? null,
     live: lv ?? null,
     drift: has ? Math.round((lv - pv) * 10) / 10 : null,
     identical: p ? sortedJson(p) === sortedJson(liveObj) : null,
+    moved,
   };
 }
 
@@ -89,11 +108,15 @@ export function armVerdict(cmp, world, f) {
       bites: false, ok: true,
       detail: `arm 2 — world key moved (${cmp.prevBuild ?? "?"} -> ${world.id}), drift ${f.drift >= 0 ? "+" : ""}${f.drift} informational`,
     };
-  if (world.mode !== "build")
+  if (world.mode !== "build") {
+    const mv = f.moved && (f.moved.lens.length || f.moved.world.length)
+      ? ` — the moved fields named: ${f.moved.lens.length ? `lens [${f.moved.lens.join(", ")}]` : ""}${f.moved.lens.length && f.moved.world.length ? "; " : ""}${f.moved.world.length ? `world [${f.moved.world.join(", ")}]` : ""}`
+      : "";
     return {
       bites: false, ok: true,
-      detail: `arm 2′ — dev world (key ${world.id}), same-key ride drift ${f.drift >= 0 ? "+" : ""}${f.drift} informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)`,
+      detail: `arm 2′ — dev world (key ${world.id}), same-key ride drift ${f.drift >= 0 ? "+" : ""}${f.drift} informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)${mv}`,
     };
+  }
   const good = f.drift === 0 && f.identical === true;
   return {
     bites: true, ok: good,
@@ -139,6 +162,24 @@ if (process.argv[1] && process.argv[1].endsWith("drift-ledger.mjs")) {
   const f4 = ledgerFace(null, { leftW: 1 }, (m) => m.leftW);
   expect("missing predecessor face -> prev/drift/identical null",
     f4.prev === null && f4.drift === null && f4.identical === null && f4.live === 1);
+  expect("missing predecessor face -> moved empty (both lists)",
+    Array.isArray(f4.moved.lens) && f4.moved.lens.length === 0 && f4.moved.world.length === 0);
+  // t865 — the identity-vs-lens vocabulary: the flag's false speaks one word per field
+  const f5 = ledgerFace({ pageBtns: 153, unWho: ["old-name"] }, { pageBtns: 153, unWho: ["new-name"] }, (m) => m.pageBtns);
+  expect("lens-only move: identical false, moved = lens [unWho], world []",
+    f5.identical === false && f5.moved.lens.length === 1 && f5.moved.lens[0] === "unWho" && f5.moved.world.length === 0 && f5.drift === 0);
+  const f6 = ledgerFace({ pageBtns: 153, imgs: 9 }, { pageBtns: 154, imgs: 10 }, (m) => m.pageBtns);
+  expect("world move: moved.world carries both numeric fields sorted",
+    f6.identical === false && f6.moved.world.join(",") === "imgs,pageBtns" && f6.moved.lens.length === 0);
+  const f7 = ledgerFace({ pageBtns: 153, unWho: ["a"] }, { pageBtns: 154, unWho: ["b"] }, (m) => m.pageBtns);
+  expect("mixed move: both lists named, lens and world",
+    f7.moved.lens[0] === "unWho" && f7.moved.world[0] === "pageBtns");
+  const f8 = ledgerFace({ pageBtns: 153, hasDlg: false }, { pageBtns: 153, hasDlg: false }, (m) => m.pageBtns);
+  expect("identical face -> moved both empty",
+    f8.identical === true && f8.moved.lens.length === 0 && f8.moved.world.length === 0);
+  const f9 = ledgerFace({ pageBtns: 1, born: undefined }, { pageBtns: 1, born: 3 }, (m) => m.pageBtns);
+  expect("field born between rides -> world move (a boolean/number arriving)",
+    f9.identical === false && f9.moved.world[0] === "born");
   // armVerdict: the four arms
   const world = { mode: "build", id: "KtP" };
   const cmp = { prevFound: true, sameBuild: true, prevBuild: "KtP" };

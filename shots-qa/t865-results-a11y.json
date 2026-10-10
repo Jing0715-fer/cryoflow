@@ -1,0 +1,1018 @@
+{
+  "instrument": "scripts/t865-results-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-10T16:38:15.257Z",
+  "chain": "canvas -> postprocess inspector (card plain door) -> doors porch -> results tab (mousedown) -> FSC compare chip -> overlay -> verdict dialog -> funnel dialog -> refine3d arc -> class2d convergence -> ctffind honest absence -> worldBack (one command)",
+  "doors": {
+    "inspector": "plain click [data-card-btn=<id>] — the card's own law: submitted opens the inspector",
+    "resultsTab": "mousedown [role=tab]=Results — the t863 Radix law",
+    "fscCompare": "click [data-testid=fsc-compare-open] — the FSC chart header's chip",
+    "porchDoors": "click the button whose aria-label starts with the question's words (\"Final verdict —\", \"Particle funnel —\", \"Resolution arc —\", \"Class convergence —\")",
+    "unmutate": "Escape per dialog, Escape per inspector — the world demanded back bit-for-bit"
+  },
+  "hosts": {
+    "postprocess": "cmv2fdgrc000yn852p2ps05fl",
+    "refine3d": "cmv2fdgqs000un852z4dopelj",
+    "class2d": "cmv2fdgol000gn852lj0gogur",
+    "ctffind": "cmv2faoyh0006n85242l7xfpu",
+    "measured": true
+  },
+  "openingCanvas": 153,
+  "faces": {
+    "doors": {
+      "live": {
+        "url": "/",
+        "pageBtns": 191,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 2,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "Post-process (tutorial) — job inspectorP",
+        "dlgHeadTop": "Post-process (tutorial) — job inspectorP",
+        "dlgCount": 1,
+        "act": "in-dialog",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": true,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": true,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      }
+    },
+    "fscCompare": {
+      "live": {
+        "url": "/",
+        "pageBtns": 203,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 2,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "Post-process (tutorial) — job inspectorP",
+        "dlgHeadTop": "Compare FSC curves1/6",
+        "dlgCount": 2,
+        "act": "BUTTON",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": true,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": true,
+        "fscRows": 5,
+        "fscRescan": true,
+        "fscSelect": true,
+        "fscToggle": true,
+        "fscChart": true,
+        "fscLegend": 1,
+        "fscFresh": true,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 203,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 2,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "Post-process (tutorial) — job inspectorP",
+        "dlgHeadTop": "Compare FSC curves1/6",
+        "dlgCount": 2,
+        "act": "BUTTON",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": true,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": true,
+        "fscRows": 5,
+        "fscRescan": true,
+        "fscSelect": true,
+        "fscToggle": true,
+        "fscChart": true,
+        "fscLegend": 1,
+        "fscFresh": true,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      }
+    },
+    "verdict": {
+      "live": {
+        "url": "/",
+        "pageBtns": 192,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 2,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "Post-process (tutorial) — job inspectorP",
+        "dlgHeadTop": "Final verdict — Post-process (tutorial)",
+        "dlgCount": 2,
+        "act": "DIV",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": true,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": true,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": true,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 192,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 2,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "Post-process (tutorial) — job inspectorP",
+        "dlgHeadTop": "Final verdict — Post-process (tutorial)",
+        "dlgCount": 2,
+        "act": "DIV",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": true,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": true,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": true,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      }
+    },
+    "funnel": {
+      "live": {
+        "url": "/",
+        "pageBtns": 156,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "Particle funnel — Post-process (tutorial",
+        "dlgHeadTop": "Particle funnel — Post-process (tutorial",
+        "dlgCount": 1,
+        "act": "in-dialog",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": false,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": false,
+        "fscChip": false,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": true,
+        "pfCsvNamed": true,
+        "pfCopyNamed": true,
+        "pfPours": 2,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 156,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "Particle funnel — Post-process (tutorial",
+        "dlgHeadTop": "Particle funnel — Post-process (tutorial",
+        "dlgCount": 1,
+        "act": "in-dialog",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": false,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": false,
+        "fscChip": false,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": true,
+        "pfCsvNamed": true,
+        "pfCopyNamed": true,
+        "pfPours": 2,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      }
+    },
+    "arc": {
+      "live": {
+        "url": "/",
+        "pageBtns": 298,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 10,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "3D Refine (tutorial) — job inspector3D R",
+        "dlgHeadTop": "Resolution arc — 3D Refine (tutorial)",
+        "dlgCount": 2,
+        "act": "DIV",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": false,
+        "funnelDoor": true,
+        "arcDoor": true,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": true,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": true,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 298,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 10,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "3D Refine (tutorial) — job inspector3D R",
+        "dlgHeadTop": "Resolution arc — 3D Refine (tutorial)",
+        "dlgCount": 2,
+        "act": "DIV",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": false,
+        "funnelDoor": true,
+        "arcDoor": true,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": true,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": true,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      }
+    },
+    "convergence": {
+      "live": {
+        "url": "/",
+        "pageBtns": 541,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 25,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "2D Classification (tutorial) — job inspe",
+        "dlgHeadTop": "Class convergence — Occupancy share",
+        "dlgCount": 2,
+        "act": "DIV",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": false,
+        "funnelDoor": true,
+        "arcDoor": true,
+        "convDoor": true,
+        "abDoors": 1,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": true,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": true,
+        "cvRoundA": true,
+        "cvRoundB": true
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 541,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 25,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "2D Classification (tutorial) — job inspe",
+        "dlgHeadTop": "Class convergence — Occupancy share",
+        "dlgCount": 2,
+        "act": "DIV",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": false,
+        "funnelDoor": true,
+        "arcDoor": true,
+        "convDoor": true,
+        "abDoors": 1,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": true,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": true,
+        "cvRoundA": true,
+        "cvRoundB": true
+      }
+    },
+    "abGuard": {
+      "live": {
+        "url": "/",
+        "pageBtns": 170,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "CTF Estimation 1 — job inspectorCTF Esti",
+        "dlgHeadTop": "CTF Estimation 1 — job inspectorCTF Esti",
+        "dlgCount": 1,
+        "act": "BODY",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": false,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": false,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 179,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHead": "CTF Estimation 1 — job inspectorCTF Esti",
+        "dlgHeadTop": "CTF Estimation 1 — job inspectorCTF Esti",
+        "dlgCount": 1,
+        "act": "in-dialog",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": false,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": true,
+        "fscChip": false,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgHead": null,
+        "dlgHeadTop": null,
+        "dlgCount": 0,
+        "act": "BODY",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "verdictDoor": false,
+        "funnelDoor": true,
+        "arcDoor": false,
+        "convDoor": false,
+        "abDoors": 0,
+        "sibPicker": 0,
+        "dup": false,
+        "fscChip": false,
+        "fscRows": 0,
+        "fscRescan": false,
+        "fscSelect": false,
+        "fscToggle": false,
+        "fscChart": false,
+        "fscLegend": 0,
+        "fscFresh": false,
+        "pvReading": false,
+        "pfReading": false,
+        "pfCsvNamed": false,
+        "pfCopyNamed": false,
+        "pfPours": 0,
+        "raReading": false,
+        "cvReading": false,
+        "cvRoundA": false,
+        "cvRoundB": false
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "DR1 the inspector arrived through the card's own plain door (pointerdown→pointerup, no move)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "DR2 the inspector is up with focus inside (Radix's own contract)",
+      "pass": true,
+      "detail": "actTab=Catalog"
+    },
+    {
+      "label": "DR3 the two single-run doors aboard on the postprocess face, both named",
+      "pass": true,
+      "detail": "Final verdict + Particle funnel"
+    },
+    {
+      "label": "DR4 the A/B doors honestly absent on the postprocess face (the guard law: none of the A/B domains)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "DR5 the Duplicate door present (the A/B loop's front door: copy → tweak → run → compare)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "DR6 zero unnamed page-wide in the inspector (the census's invariant on the porch)",
+      "pass": true,
+      "detail": "btns=191 ctrls=2"
+    },
+    {
+      "label": "FC1 the Results tab answered its mousedown door (the t863 Radix law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "FC2 the compare chip arrived (the chart's header earns it when the data landed)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "FC3 the chip clicked (the FSC chart's own overlay door)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "FC4 the overlay dialog arrived as the TOP layer with its heading (Compare FSC curves)",
+      "pass": true,
+      "detail": "top=\"Compare FSC curves1/6\" layers=2"
+    },
+    {
+      "label": "FC5 the candidate rows aboard (the project's FSC-bearing jobs — measured, printed)",
+      "pass": true,
+      "detail": "rows=5"
+    },
+    {
+      "label": "FC6 the doors named: re-scan + select list + toggle curves",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "FC7 the chart aboard (the overlay's own axis)",
+      "pass": true,
+      "detail": "legend chips=1"
+    },
+    {
+      "label": "FC8 zero unnamed page-wide WITH the overlay up (the census's invariant on the FSC family)",
+      "pass": true,
+      "detail": "btns=203 ctrls=2"
+    },
+    {
+      "label": "FC9 two settled rides bit-identical (the t836 law, the shimmer-silence settle)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "FC10 Escape closed the overlay, the inspector remains (the porch stays)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PV1 the verdict door clicked (the porch's own seat)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PV2 the dialog arrived as the TOP layer with its heading (Final verdict — …)",
+      "pass": true,
+      "detail": "top=\"Final verdict — Post-process (tutorial)\" layers=2"
+    },
+    {
+      "label": "PV3 the reading region named (three curves, three crossings, one box edge)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PV4 zero unnamed page-wide WITH the verdict up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=192"
+    },
+    {
+      "label": "PV5 two settled rides bit-identical",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PF1 the funnel door clicked (the porch's chain seat)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PF2 the dialog arrived as the TOP layer with its heading (Particle funnel — …)",
+      "pass": true,
+      "detail": "top=\"Particle funnel — Post-process (tutorial\" layers=1"
+    },
+    {
+      "label": "PF3 the reading region named (what each stage kept, shed, multiplied)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PF4 the export doors named: CSV ledger + plain-text ledger",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "PF5 the pours aboard (the stages' own pour icons — the chain's flow, measured)",
+      "pass": true,
+      "detail": "pours=2"
+    },
+    {
+      "label": "PF6 zero unnamed page-wide WITH the funnel up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=156"
+    },
+    {
+      "label": "PF7 two settled rides bit-identical",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "RA1 the refine3d inspector arrived through the card's plain door",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "RA2 the arc door present on the refinement face (the guard's positive form)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "RA3 the arc door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "RA4 the dialog arrived as the TOP layer with its heading (Resolution arc — …)",
+      "pass": true,
+      "detail": "top=\"Resolution arc — 3D Refine (tutorial)\" layers=2"
+    },
+    {
+      "label": "RA5 the reading region named (the estimate curve and the plateau law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "RA6 zero unnamed page-wide WITH the arc up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=298"
+    },
+    {
+      "label": "RA7 two settled rides bit-identical",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "CV1 the class2d inspector arrived through the card's plain door",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "CV2 the convergence door present on the classification face (the round ladder holds)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "CV3 the convergence door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "CV4 the dialog arrived as the TOP layer with its heading (Class convergence — …)",
+      "pass": true,
+      "detail": "top=\"Class convergence — Occupancy share\" layers=2"
+    },
+    {
+      "label": "CV5 the reading region named (verdict, scatter, movers, census)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "CV6 the round selects named (Round A / Round B — the run's own ladder)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "CV7 zero unnamed page-wide WITH the convergence up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=541"
+    },
+    {
+      "label": "CV8 two settled rides bit-identical",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "AB1 the ctffind inspector arrived through the card's plain door",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "AB2 the guard law's positive absence: ZERO A/B doors (one completed ctffind, no twin — no door)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "AB3 the sibling picker equally absent (the params guard agrees with the A/B guard)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "AB4 the Duplicate door present (the A/B loop's front door stands even where the doors wait)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "AB5 zero unnamed page-wide on the ctffind porch (the census's invariant)",
+      "pass": true,
+      "detail": "btns=170"
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed, no dialog)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "L doors face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L fscCompare face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L verdict face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L funnel face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L arc face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L convergence face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L abGuard face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift -9 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [act]; world [pageBtns]"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 58,
+  "failed": 0,
+  "total": 58,
+  "verdict": "the results family holds: the porch's question row named on the postprocess face (the final verdict + the particle funnel doors aboard, the A/B doors honestly absent, the Duplicate front door present), the FSC overlay rode its chip door (5 candidate rows measured, the rescan/select/toggle doors named, the chart aboard), the verdict and the funnel dialogs spoke their readings with the export doors named (2 pours), the arc and the convergence dialogs rode their single-run doors with the round selects named, the ctffind porch proved the guard's POSITIVE absence (zero A/B doors, zero sibling pickers, the guards agreeing) — zero unnamed everywhere on every face, every dialog's two settled rides bit-identical, and the world back bit-for-bit (153 == 153) — the ledger aboard from birth (eight faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-10T16:33:46.595Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "doors": {
+        "prev": 191,
+        "live": 191,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "fscCompare": {
+        "prev": 203,
+        "live": 203,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "verdict": {
+        "prev": 192,
+        "live": 192,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "funnel": {
+        "prev": 156,
+        "live": 156,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "arc": {
+        "prev": 298,
+        "live": 298,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "convergence": {
+        "prev": 541,
+        "live": 541,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "abGuard": {
+        "prev": 179,
+        "live": 170,
+        "drift": -9,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "act"
+          ],
+          "world": [
+            "pageBtns"
+          ]
+        }
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}
