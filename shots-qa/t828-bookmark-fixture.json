@@ -1,0 +1,149 @@
+{
+  "format": "cryoflow-view-bookmarks",
+  "version": 1,
+  "exportedAt": "2026-10-10T04:51:47.136Z",
+  "jobId": "cmuwipe635000refine3d",
+  "bookmarks": [
+    {
+      "id": "seedview1",
+      "name": "Centered iso view",
+      "ts": 1791594170235,
+      "snapshot": {
+        "mode": "camera",
+        "fov": 0.876,
+        "position": [
+          12.3,
+          -4.5,
+          30.1
+        ],
+        "up": [
+          0,
+          1,
+          0
+        ],
+        "target": [
+          0.1,
+          0.2,
+          0.3
+        ],
+        "radius": 52.4,
+        "radiusMax": 120,
+        "fog": 0,
+        "clipFar": 0,
+        "minNear": 0,
+        "minFar": 0
+      },
+      "thumb": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAAAAACPAi4CAAAFGElEQVR42rWXT0gifRjH3fct87+OrmP+mcwZy2GULKcStQzLMjcSmaDIDYOSwPKlDoUUCAUFWYcIKjwJBRLUJSIPXWQpOkSHkD10kA6xRNAhukQsxPIy/hlzd9vDO73PSZDvZ57v88z8fs/DYJTEh3z89Zso/Md4O0rUf5dECePP+oK4rCQKkD8QSuRlZWXlZDCZTGb2R47xJwSlz6uZTGYFFVlMlvEm4bWcVFdUsFhsKlgsEkIyiog39eXlpJrN5nC4XF42uFwOh80mGeXlbxDy+uzjs3IOl8fnCwTCbAgEfD6Py8khckn8RCjqyceTcr5AKAIAsSQbYgAQCQX8LKKQRAnhlb4gFwFiiRQEZbLKSpkMBKUSMSCiEL8QSvVcnkAESKRgpVypUkEQBKlUSnklKJUAIgGPW0r4jZ7D4wsBiVQmV0LqahhGEASB4Wo1pJTLpBJAyOdxfiG81rM5PIFILJUpVGoNUqNDMUyvxzBUV4No1CqFTCoWCXgc9k+EPKCgBySgXKWGtTrMYKw34TiOm+qNBkynhdUqOSgBKEIB8ErPIvUfZQpIo0X1RlOT2WJraW1tsVnMTSajHtVqIIXsI0lgvSZQBgp6ZRVcixlxs9Xu6Ojscrm6OjscdqsZN2K1cJWyQKBMMKgEWOycXo2ghoZmW5uzu8fjJQiC8Hp6up1ttuYGA4qocwQ2i0qBUSwAly+SZPV1uMXudHuIft+Qf3jYP+TrJzxup92C12UJEhGfWyxDAUAaEIpBRRWC1jVaHa7evkH/6FhwIhSaCI6N+gf7el0Oa2MdilQpQLEwbyIHoBIQAFI5BKN1jbZ2t3fAHxifnA7Pzs3NhqcnxwP+Aa+73dZYh8KQXAoIiikwqARIAypNrQG3tn8ifCPBqXBkYWk5Gl1eWoiEp4IjPuJTuxU31GpUpAkqBcYHsgX5BBRqLdZgcbiJz4HQTGRxZW1jKxbb2lhbWYzMhAKfCbfD0oBp1Yp8CmQjPjDyLcglAKPGZrvL6wv8E56PrsfiO4nd3cROPLYenQ//E/B5XfZmIwrnU8h5yAHyFVBr9bjN2TswEgovrG7GE/sHR8nk0cF+Ir65uhAOjQz0Om24XqvOV6EIYFawyRYoNTqjuc3d5w/OzK9ube8dHqdOTk9PUseHe9tbq/MzQX+fu81s1GmUZCOyHkgA5aASQjCT1ekZDExFopvb+8nU2cVlOn15cZZK7m9vRiNTgUGP02rCEKiy6IECkA5qDE32bsI/Hl5cj+8lv5ynrzLX15mr9PmX5F58fTE87ie67U2GGtJDCSBbAlBZrTOaHT39o5ORlVjiMHX+NXNze3d3e5P5ep46TMRWIpOj/T0Os1FXrQSpIlAAMaiC0XpLh8c3Nr2wFt8/Pktnvt0/PD4+3H/LpM+O9+NrC9NjPk+HpR6FVaD4JwBPSDYRM9k6vUPB8NLGzkHq4urm/vHp+fnp8f7m6iJ1sLOxFA4OeTttJoxsJFnFAoCZA0AIhrd0Ef6J2eWtxNHJZeb24en7y8v3p4fbzOXJUWJreXbCT3S14BgC5QDMEkAlhOjxVhcxHJqLxnaTp+nru8fnlx8/Xp4f767Tp8ndWHQuNEy4WnE92Yb/AUDDAu0ivkcbab5ItF9leh8T7c/5PQ4UWkca7UP1HY51uhcL7auN/uVK+3qnP2DQG3FoD1n0xzzagyb9UZf+sE173Ke/cNBfeegvXfTXPvqLJ/3V9x2W7/+0/v8LjWyYJ16nPxwAAAAASUVORK5CYII=",
+      "view": {
+        "sigma": 3,
+        "sign": 1,
+        "slice": {
+          "on": false,
+          "axis": "Z",
+          "pos": 0.5
+        },
+        "clip": {
+          "on": false,
+          "x": 1,
+          "y": 1,
+          "z": 1,
+          "invert": false
+        }
+      }
+    },
+    {
+      "id": "seedview2",
+      "name": "Top-down slice",
+      "ts": 1791594171235,
+      "snapshot": {
+        "mode": "camera",
+        "fov": 0.876,
+        "position": [
+          2,
+          28,
+          6
+        ],
+        "up": [
+          0,
+          1,
+          0
+        ],
+        "target": [
+          0.1,
+          0.2,
+          0.3
+        ],
+        "radius": 60,
+        "radiusMax": 120,
+        "fog": 0,
+        "clipFar": 0,
+        "minNear": 0,
+        "minFar": 0
+      },
+      "thumb": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAAAAACPAi4CAAAFGElEQVR42rWXT0gifRjH3fct87+OrmP+mcwZy2GULKcStQzLMjcSmaDIDYOSwPKlDoUUCAUFWYcIKjwJBRLUJSIPXWQpOkSHkD10kA6xRNAhukQsxPIy/hlzd9vDO73PSZDvZ57v88z8fs/DYJTEh3z89Zso/Md4O0rUf5dECePP+oK4rCQKkD8QSuRlZWXlZDCZTGb2R47xJwSlz6uZTGYFFVlMlvEm4bWcVFdUsFhsKlgsEkIyiog39eXlpJrN5nC4XF42uFwOh80mGeXlbxDy+uzjs3IOl8fnCwTCbAgEfD6Py8khckn8RCjqyceTcr5AKAIAsSQbYgAQCQX8LKKQRAnhlb4gFwFiiRQEZbLKSpkMBKUSMSCiEL8QSvVcnkAESKRgpVypUkEQBKlUSnklKJUAIgGPW0r4jZ7D4wsBiVQmV0LqahhGEASB4Wo1pJTLpBJAyOdxfiG81rM5PIFILJUpVGoNUqNDMUyvxzBUV4No1CqFTCoWCXgc9k+EPKCgBySgXKWGtTrMYKw34TiOm+qNBkynhdUqOSgBKEIB8ErPIvUfZQpIo0X1RlOT2WJraW1tsVnMTSajHtVqIIXsI0lgvSZQBgp6ZRVcixlxs9Xu6Ojscrm6OjscdqsZN2K1cJWyQKBMMKgEWOycXo2ghoZmW5uzu8fjJQiC8Hp6up1ttuYGA4qocwQ2i0qBUSwAly+SZPV1uMXudHuIft+Qf3jYP+TrJzxup92C12UJEhGfWyxDAUAaEIpBRRWC1jVaHa7evkH/6FhwIhSaCI6N+gf7el0Oa2MdilQpQLEwbyIHoBIQAFI5BKN1jbZ2t3fAHxifnA7Pzs3NhqcnxwP+Aa+73dZYh8KQXAoIiikwqARIAypNrQG3tn8ifCPBqXBkYWk5Gl1eWoiEp4IjPuJTuxU31GpUpAkqBcYHsgX5BBRqLdZgcbiJz4HQTGRxZW1jKxbb2lhbWYzMhAKfCbfD0oBp1Yp8CmQjPjDyLcglAKPGZrvL6wv8E56PrsfiO4nd3cROPLYenQ//E/B5XfZmIwrnU8h5yAHyFVBr9bjN2TswEgovrG7GE/sHR8nk0cF+Ir65uhAOjQz0Om24XqvOV6EIYFawyRYoNTqjuc3d5w/OzK9ube8dHqdOTk9PUseHe9tbq/MzQX+fu81s1GmUZCOyHkgA5aASQjCT1ekZDExFopvb+8nU2cVlOn15cZZK7m9vRiNTgUGP02rCEKiy6IECkA5qDE32bsI/Hl5cj+8lv5ynrzLX15mr9PmX5F58fTE87ie67U2GGtJDCSBbAlBZrTOaHT39o5ORlVjiMHX+NXNze3d3e5P5ep46TMRWIpOj/T0Os1FXrQSpIlAAMaiC0XpLh8c3Nr2wFt8/Pktnvt0/PD4+3H/LpM+O9+NrC9NjPk+HpR6FVaD4JwBPSDYRM9k6vUPB8NLGzkHq4urm/vHp+fnp8f7m6iJ1sLOxFA4OeTttJoxsJFnFAoCZA0AIhrd0Ef6J2eWtxNHJZeb24en7y8v3p4fbzOXJUWJreXbCT3S14BgC5QDMEkAlhOjxVhcxHJqLxnaTp+nru8fnlx8/Xp4f767Tp8ndWHQuNEy4WnE92Yb/AUDDAu0ivkcbab5ItF9leh8T7c/5PQ4UWkca7UP1HY51uhcL7auN/uVK+3qnP2DQG3FoD1n0xzzagyb9UZf+sE173Ke/cNBfeegvXfTXPvqLJ/3V9x2W7/+0/v8LjWyYJ16nPxwAAAAASUVORK5CYII=",
+      "view": {
+        "sigma": 2,
+        "sign": 1,
+        "slice": {
+          "on": true,
+          "axis": "Z",
+          "pos": 0.5
+        },
+        "clip": {
+          "on": false,
+          "x": 1,
+          "y": 1,
+          "z": 1,
+          "invert": false
+        }
+      }
+    },
+    {
+      "id": "seedview3",
+      "name": "Front half clipped",
+      "ts": 1791594172235,
+      "snapshot": {
+        "mode": "camera",
+        "fov": 0.876,
+        "position": [
+          30,
+          2,
+          4
+        ],
+        "up": [
+          0,
+          1,
+          0
+        ],
+        "target": [
+          0.1,
+          0.2,
+          0.3
+        ],
+        "radius": 55,
+        "radiusMax": 120,
+        "fog": 0,
+        "clipFar": 0,
+        "minNear": 0,
+        "minFar": 0
+      },
+      "thumb": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAAAAACPAi4CAAAFGElEQVR42rWXT0gifRjH3fct87+OrmP+mcwZy2GULKcStQzLMjcSmaDIDYOSwPKlDoUUCAUFWYcIKjwJBRLUJSIPXWQpOkSHkD10kA6xRNAhukQsxPIy/hlzd9vDO73PSZDvZ57v88z8fs/DYJTEh3z89Zso/Md4O0rUf5dECePP+oK4rCQKkD8QSuRlZWXlZDCZTGb2R47xJwSlz6uZTGYFFVlMlvEm4bWcVFdUsFhsKlgsEkIyiog39eXlpJrN5nC4XF42uFwOh80mGeXlbxDy+uzjs3IOl8fnCwTCbAgEfD6Py8khckn8RCjqyceTcr5AKAIAsSQbYgAQCQX8LKKQRAnhlb4gFwFiiRQEZbLKSpkMBKUSMSCiEL8QSvVcnkAESKRgpVypUkEQBKlUSnklKJUAIgGPW0r4jZ7D4wsBiVQmV0LqahhGEASB4Wo1pJTLpBJAyOdxfiG81rM5PIFILJUpVGoNUqNDMUyvxzBUV4No1CqFTCoWCXgc9k+EPKCgBySgXKWGtTrMYKw34TiOm+qNBkynhdUqOSgBKEIB8ErPIvUfZQpIo0X1RlOT2WJraW1tsVnMTSajHtVqIIXsI0lgvSZQBgp6ZRVcixlxs9Xu6Ojscrm6OjscdqsZN2K1cJWyQKBMMKgEWOycXo2ghoZmW5uzu8fjJQiC8Hp6up1ttuYGA4qocwQ2i0qBUSwAly+SZPV1uMXudHuIft+Qf3jYP+TrJzxup92C12UJEhGfWyxDAUAaEIpBRRWC1jVaHa7evkH/6FhwIhSaCI6N+gf7el0Oa2MdilQpQLEwbyIHoBIQAFI5BKN1jbZ2t3fAHxifnA7Pzs3NhqcnxwP+Aa+73dZYh8KQXAoIiikwqARIAypNrQG3tn8ifCPBqXBkYWk5Gl1eWoiEp4IjPuJTuxU31GpUpAkqBcYHsgX5BBRqLdZgcbiJz4HQTGRxZW1jKxbb2lhbWYzMhAKfCbfD0oBp1Yp8CmQjPjDyLcglAKPGZrvL6wv8E56PrsfiO4nd3cROPLYenQ//E/B5XfZmIwrnU8h5yAHyFVBr9bjN2TswEgovrG7GE/sHR8nk0cF+Ir65uhAOjQz0Om24XqvOV6EIYFawyRYoNTqjuc3d5w/OzK9ube8dHqdOTk9PUseHe9tbq/MzQX+fu81s1GmUZCOyHkgA5aASQjCT1ekZDExFopvb+8nU2cVlOn15cZZK7m9vRiNTgUGP02rCEKiy6IECkA5qDE32bsI/Hl5cj+8lv5ynrzLX15mr9PmX5F58fTE87ie67U2GGtJDCSBbAlBZrTOaHT39o5ORlVjiMHX+NXNze3d3e5P5ep46TMRWIpOj/T0Os1FXrQSpIlAAMaiC0XpLh8c3Nr2wFt8/Pktnvt0/PD4+3H/LpM+O9+NrC9NjPk+HpR6FVaD4JwBPSDYRM9k6vUPB8NLGzkHq4urm/vHp+fnp8f7m6iJ1sLOxFA4OeTttJoxsJFnFAoCZA0AIhrd0Ef6J2eWtxNHJZeb24en7y8v3p4fbzOXJUWJreXbCT3S14BgC5QDMEkAlhOjxVhcxHJqLxnaTp+nru8fnlx8/Xp4f767Tp8ndWHQuNEy4WnE92Yb/AUDDAu0ivkcbab5ItF9leh8T7c/5PQ4UWkca7UP1HY51uhcL7auN/uVK+3qnP2DQG3FoD1n0xzzagyb9UZf+sE173Ke/cNBfeegvXfTXPvqLJ/3V9x2W7/+0/v8LjWyYJ16nPxwAAAAASUVORK5CYII=",
+      "view": {
+        "sigma": 1.8,
+        "sign": 1,
+        "slice": {
+          "on": false,
+          "axis": "Z",
+          "pos": 0.5
+        },
+        "clip": {
+          "on": true,
+          "x": 0.5,
+          "y": 1,
+          "z": 1,
+          "invert": false
+        }
+      }
+    }
+  ]
+}
