@@ -69,6 +69,26 @@ negative-reading law, restated for the accessible tree: a name the probe
 cannot see is first evidence about the probe, only second evidence about the
 UI.
 
+## The re-witness (t843) — the cheap honesty pair, walked again
+
+The census's own promise ("one eval per face, ~a minute") was paid on
+2026-10-10 by `scripts/t843-a11y-rewitness.mjs` (11/11 green, receipt
+`shots-qa/t843-a11y-rewitness.json`): the two faces reachable without
+fragile interaction chains — the workflow canvas and the dashboard, two
+bit-identical rides per face, names computed exactly as in the table
+above. **The invariant holds with the world grown**: 149 + 116 = 265
+button-views across the pair (the census recorded 142 + 114 — the seats
+added since all speak their names), zero unnamed buttons, zero unnamed
+form controls, zero alt-less images.
+
+The re-witness also paid the census's own method artifact forward: the
+first exploratory pass read the dashboard's three images as "alt-less"
+by a falsy check on `getAttribute('alt')` — but all three carry the
+decorative `alt=""`, present and empty and CORRECT. The t695
+negative-reading law's second bite: a finding about alt attributes must
+use `hasAttribute`, because an empty alt is a name the tree already
+honors. The instrument's A8 pin now says so by name.
+
 ## What this census buys
 
 The "样式越做越多" lane now has a verified foundation: every interactive
