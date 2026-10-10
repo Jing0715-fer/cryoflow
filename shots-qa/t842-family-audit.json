@@ -1,22 +1,22 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T12:53:46.789Z",
+  "date": "2026-10-10T13:04:58.280Z",
   "sources": {
     "t839": {
       "file": "shots-qa/t839-zone-rehearsal.json",
-      "date": "2026-10-10T12:52:22.408Z",
+      "date": "2026-10-10T12:58:21.557Z",
       "cloneBand": "the fix world's band layer (the fourth seat, t847)",
       "bandAcross": "the clone's band at 1286/1287 vs live rulers 1280/1286/1287 — PAINT is width-free (the sixth seat, t849)"
     },
     "t840": {
       "file": "shots-qa/t840-options-rehearsal.json",
-      "date": "2026-10-10T12:53:46.748Z",
+      "date": "2026-10-10T12:58:44.191Z",
       "bandAfter": "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850) + the width form COMPLETED (the eighth seat, t851) + the restore's width form (the ninth seat, t854) + the cross-load identity's far+below form (the tenth seat, t855)"
     },
     "sweep": {
       "file": "shots-qa/t834-band-sweep.json",
-      "date": "2026-10-10T12:53:24.872Z",
+      "date": "2026-10-10T12:58:14.281Z",
       "belowZone": "the band layer's first ride below xl (t853): the twin asleep (vacuously at rest), the born-squeezed wordmark (140 @768, the row's only yielder paying the whole 2.5), the edge law (squeeze(W) = 770.5 − W, zone [768, 770], clear by 771, slope −1.0/px)",
       "wake": "the far edge's second threshold (t856): the chip wakes AT 2xl — a 1px POINT (1535 asleep / 1536 awake) — step anatomy (chip +90.3, wrap tier 170 → 205, label −9.1, wordmark −7.1), capped ramps repaid by 1570, plateau to 1920 (gap −1.0/px)"
     },
@@ -49,7 +49,12 @@
     },
     "t837": {
       "file": "shots-qa/t837-wordmark-probe.json",
-      "date": "2026-10-10T12:52:16.146Z"
+      "date": "2026-10-10T12:58:15.714Z"
+    },
+    "t846": {
+      "file": "shots-qa/t846-a11y-maintenance.json",
+      "date": "2026-10-10T13:04:10.494Z",
+      "driftLedger": "the ride-to-ride diff vs the previous receipt (the twelfth seat, t857): drift 0 x5, identical x5 on the frozen build — the census family's reproducibility axis (floors = the census's age, ledger = the world's stability)"
     }
   },
   "arithmetic": {
@@ -403,10 +408,25 @@
       "name": "F18.c the ramps, the plateau, and the J-ride's own identity: the wrap's CAPPED RAMP (205 → 206.9 @1540 → 211.7 @1550 → 216.5 @1560 → the cap 220 @1570, +0.44/px — the 2xl tier is a FLOOR), the label's recovery to 160 and the wordmark's to 142.5 by 1570 (the wake's transient fully repaid within 34px), the chip CONSTANT 90.3 at every width above the wake (born full-size, never grows), the gap two-segment (−110.3 constant through the ramp, then −1.0/px: −113.1 @1570 → −143.1 @1600), and the wake ride's 1536 row == the G block's own 1536 row bit-for-bit — one world, two walks of the same receipt",
       "pass": true,
       "detail": "wrap cap 220 @1570; label 160 + wm 142.5 by 1570; chip 90.3 x7; gap -110.3 -> -113.1 -> -143.1; the wake's 1536 row == the G row bit-for-bit"
+    },
+    {
+      "name": "F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five faces, each with prev/live/drift/identical; the comparator's own date + build recorded as provenance; the law names the three arms — no predecessor, build moved, same build bit-for-bit)",
+      "pass": true,
+      "detail": "ledger aboard x5 faces, comparator 2026-10-10T12:59:27.836Z (build KtPKuXIbtB9d7uhItOOUS), sameBuild=true"
+    },
+    {
+      "name": "F19.b the cross-RIDE identity holds: every face bit-for-bit vs the previous receipt — drift 0 x5 AND the FULL live object identical x5 (every key the measure films, not just the count: pageBtns 149/116/188/157/149, pageUnnamed 0 everywhere, url, heading, the palette's ip) — the census family's counts are now known reproducible at the RIDE level, the third reproducibility axis after the load level (F16) and the instrument level (F17.c)",
+      "pass": true,
+      "detail": "drift 0 x5, identical x5 (arm 3 everywhere): canvas 149->149, dashboard 116->116, inspector 188->188, palette 157->157, restore 149->149"
+    },
+    {
+      "name": "F19.c the ledger's honesty: the FLOOR drift and the RIDE drift are different numbers doing different jobs — the floors read +7/+2/+8/+7 vs the census (the census's age, stable), the ledger reads 0/0/0/0/0 (the world's stability); the receipt records both, and the live faces still agree with the ledger's own live numbers",
+      "pass": true,
+      "detail": "floors +7/+2/+8/+7 (census age) vs ledger 0/0/0/0/0 (ride stability) — both recorded in one receipt"
     }
   ],
-  "passed": 59,
+  "passed": 62,
   "failed": 0,
-  "total": 59,
-  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4), and the width form is COMPLETED (the eighth seat: (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, and the bound chain's width form holds — the squeezed box loosens 101.3 -> 103.0 but the 138 cap never binds in the zone, the squeeze option-invariant), and the cross-load identity now spans the WHOLE width axis AND both instruments (the ninth + tenth seats: the restore load films the T0 world bit-for-bit across the zone AND outside it — far edge 693.8/895, below 264/266.5, the sleep itself reproducible — and t840's live rulers == the sweep's own G/H rows at the load level), and the far edge's SECOND threshold is pinned (the eleventh seat: the chip wakes AT 2xl — a 1px POINT, 1535 asleep / 1536 awake — with a step anatomy that charges the row's own yielders (label −9.1, wordmark −7.1) for the chip's +90.3 and the wrap's tier +35, two capped ramps repaying the transient by 1570, and a plateau to 1920 whose only moving part is the gap); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
+  "total": 62,
+  "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4), and the width form is COMPLETED (the eighth seat: (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, and the bound chain's width form holds — the squeezed box loosens 101.3 -> 103.0 but the 138 cap never binds in the zone, the squeeze option-invariant), and the cross-load identity now spans the WHOLE width axis AND both instruments (the ninth + tenth seats: the restore load films the T0 world bit-for-bit across the zone AND outside it — far edge 693.8/895, below 264/266.5, the sleep itself reproducible — and t840's live rulers == the sweep's own G/H rows at the load level), and the far edge's SECOND threshold is pinned (the eleventh seat: the chip wakes AT 2xl — a 1px POINT, 1535 asleep / 1536 awake — with a step anatomy that charges the row's own yielders (label −9.1, wordmark −7.1) for the chip's +90.3 and the wrap's tier +35, two capped ramps repaying the transient by 1570, and a plateau to 1920 whose only moving part is the gap); and the census family's counts are now reproducible at the RIDE level (the twelfth seat: t846's drift ledger — five faces bit-for-bit vs the previous receipt, drift 0 x5, the floors' age-drift and the ledger's stability both recorded in one receipt); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
 }

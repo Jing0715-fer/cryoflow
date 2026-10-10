@@ -522,6 +522,9 @@ const fa18 = join(ROOT, "shots-qa/t840-options-rehearsal.json");
 const baReceipt = existsSync(fa18)
   ? JSON.parse(readFileSync(fa18, "utf8"))
   : null;
+const mtReceipt = existsSync(join(ROOT, "shots-qa/t846-a11y-maintenance.json"))
+  ? JSON.parse(readFileSync(join(ROOT, "shots-qa/t846-a11y-maintenance.json"), "utf8"))
+  : null;
 if (baReceipt && baReceipt.bandAfter && baReceipt.bandAfter.live) {
   const BA = baReceipt.bandAfter;
   const baOk = (k) => BA[k] && !BA[k].error && BA[k].innerW === 1280 &&
@@ -774,6 +777,30 @@ if (feReceipt && feReceipt.farEdge && feReceipt.farEdge.wake && baReceipt && baR
       T10b && T10b["1920"] && T10b["1920"].band.midKids[0].w === 160 &&
       T10b["1920"].band.midKids[1].w === 220 && T10b["1920"].band.midKids[3].w === 90.3,
     `A4e-26 the t856 eleventh seat is aboard and green (t834 76/76): the WAKE EDGE — the chip wakes AT 2xl, a 1px POINT (1535 asleep / 1536 awake) with a step anatomy that charges the row's own yielders for the birth (chip +90.3 constant forever, wrap tier 170 → 205; label −9.1, wordmark −7.1), two capped ramps repaying the transient by 1570 (wrap 220, label 160, wm 142.5), the gap two-segment (−110.3 through the ramp, −1.0/px above the caps to −143.1 @1600) — and the plateau SPANS INSTRUMENTS: the sweep's wake block @1600 (160/220/90.3) continues into t840's tenthSeat @1920 bit-for-value (160/220/90.3)`
+  );
+}
+
+// A4e-27 — the t857 DRIFT LEDGER (the twelfth seat, the census family's
+// ride-to-ride axis). t846 now diffs its counts against its OWN previous
+// receipt: the floors measure the census's AGE (+7/+2/+8/+7, stable);
+// the ledger measures the world's STABILITY — on a frozen build the
+// ride-to-ride drift must be ZERO, face for face, key for key. A new
+// reproducibility axis: cross-load (A4e-24), cross-instrument (A4e-25),
+// cross-receipt (A4e-26), and now cross-RIDE — the previous window's
+// receipt is the comparator.
+if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
+  const DL = mtReceipt.driftLedger;
+  const FIVE = ["canvas", "dashboard", "inspector", "palette", "restore"];
+  const f = DL.faces;
+  ok(
+    DL.prevFound === true && DL.sameBuild === true &&
+      FIVE.every((k) => f[k] && f[k].prev === f[k].live && f[k].drift === 0 && f[k].identical === true) &&
+      [149, 116, 188, 157, 149].every((n, i) => f[FIVE[i]].live === n) &&
+      mtReceipt.faces.canvas.live.pageBtns - 142 === 7 &&
+      mtReceipt.faces.dashboard.live.pageBtns - 114 === 2 &&
+      mtReceipt.faces.inspector.live.pageBtns - 180 === 8 &&
+      mtReceipt.faces.palette.live.pageBtns - 150 === 7,
+    `A4e-27 the t857 drift ledger is aboard and green (t846 25/25): the census family's counts are reproducible at the RIDE level — five faces bit-for-bit vs the previous receipt (canvas 149->149, dashboard 116->116, inspector 188->188, palette 157->157, restore 149->149; drift 0 x5, the FULL live object identical x5), the comparator's own date + build recorded, and the two drift numbers do different jobs in one receipt (floors +7/+2/+8/+7 = the census's age; ledger 0/0/0/0/0 = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
   );
 }
 

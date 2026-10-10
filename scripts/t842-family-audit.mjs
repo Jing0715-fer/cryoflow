@@ -68,6 +68,10 @@ const R839 = JSON.parse(readFileSync('shots-qa/t839-zone-rehearsal.json', 'utf8'
 const R840 = JSON.parse(readFileSync('shots-qa/t840-options-rehearsal.json', 'utf8'));
 const SWEEP = JSON.parse(readFileSync('shots-qa/t834-band-sweep.json', 'utf8'));
 const R837 = JSON.parse(readFileSync('shots-qa/t837-wordmark-probe.json', 'utf8'));
+// t857 — the sixth instrument joins: the maintenance sweep's DRIFT LEDGER
+// (t846's ride-to-ride diff vs its own previous receipt — the census
+// family's reproducibility axis).
+const R846 = JSON.parse(readFileSync('shots-qa/t846-a11y-maintenance.json', 'utf8'));
 
 const checks = [];
 const ok = (name, pass, detail) => { checks.push({ name, pass, detail }); };
@@ -440,11 +444,40 @@ ok("F18.c the ramps, the plateau, and the J-ride's own identity: the wrap's CAPP
      { leftW: SWEEP.farEdge.rows['1536'].leftW, rightW: SWEEP.farEdge.rows['1536'].rightW, seats: SWEEP.farEdge.rows['1536'].seats, midKids: SWEEP.farEdge.rows['1536'].midKids, innerW: SWEEP.farEdge.rows['1536'].innerW }),
   `wrap cap 220 @1570; label 160 + wm 142.5 by 1570; chip 90.3 x7; gap -110.3 -> -113.1 -> -143.1; the wake's 1536 row == the G row bit-for-bit`);
 
+// ---- F19 the twelfth seat: the drift ledger — the census family's ride-to-ride axis
+// t846 now diffs its counts against its OWN previous receipt (the t857 candidate):
+// the floors measure the census's age (+7/+2/+8/+7, stable since the census was
+// pinned); the ledger measures the world's STABILITY — on a frozen build the
+// ride-to-ride drift must be ZERO, face for face, key for key. A new axis of
+// reproducibility: every prior identity compared worlds WITHIN one window's
+// rides (cross-load t854, cross-instrument t855, cross-receipt A4e-26); this one
+// compares RIDES ACROSS WINDOWS — the previous window's receipt is the comparator.
+const DL = (R846 || {}).driftLedger || {};
+const dlFaces = DL.faces || {};
+const FIVE = ['canvas', 'dashboard', 'inspector', 'palette', 'restore'];
+ok("F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five faces, each with prev/live/drift/identical; the comparator's own date + build recorded as provenance; the law names the three arms — no predecessor, build moved, same build bit-for-bit)",
+  FIVE.every((f) => dlFaces[f] && 'prev' in dlFaces[f] && 'live' in dlFaces[f] && 'drift' in dlFaces[f] && 'identical' in dlFaces[f]) &&
+  typeof DL.prevBuild === 'string' && typeof DL.prevDate === 'string' && typeof DL.law === 'string' &&
+  /no predecessor/.test(DL.law) && /build moved/.test(DL.law) && /same build/.test(DL.law),
+  `ledger aboard x5 faces, comparator ${DL.prevDate} (build ${DL.prevBuild}), sameBuild=${DL.sameBuild}`);
+ok("F19.b the cross-RIDE identity holds: every face bit-for-bit vs the previous receipt — drift 0 x5 AND the FULL live object identical x5 (every key the measure films, not just the count: pageBtns 149/116/188/157/149, pageUnnamed 0 everywhere, url, heading, the palette's ip) — the census family's counts are now known reproducible at the RIDE level, the third reproducibility axis after the load level (F16) and the instrument level (F17.c)",
+  DL.sameBuild === true &&
+  FIVE.every((f) => dlFaces[f].drift === 0 && dlFaces[f].identical === true) &&
+  FIVE.every((f) => dlFaces[f].prev === dlFaces[f].live),
+  `drift 0 x5, identical x5 (arm 3 everywhere): ${FIVE.map((f) => `${f} ${dlFaces[f].prev}->${dlFaces[f].live}`).join(', ')}`);
+ok("F19.c the ledger's honesty: the FLOOR drift and the RIDE drift are different numbers doing different jobs — the floors read +7/+2/+8/+7 vs the census (the census's age, stable), the ledger reads 0/0/0/0/0 (the world's stability); the receipt records both, and the live faces still agree with the ledger's own live numbers",
+  R846.faces.canvas.live.pageBtns === dlFaces.canvas.live && R846.faces.dashboard.live.pageBtns === dlFaces.dashboard.live &&
+  R846.faces.inspector.live.pageBtns === dlFaces.inspector.live && R846.faces.palette.live.pageBtns === dlFaces.palette.live &&
+  R846.faces.restore.live.pageBtns === dlFaces.restore.live &&
+  R846.faces.canvas.live.pageBtns - 142 === 7 && R846.faces.dashboard.live.pageBtns - 114 === 2 &&
+  R846.faces.inspector.live.pageBtns - 180 === 8 && R846.faces.palette.live.pageBtns - 150 === 7,
+  `floors +7/+2/+8/+7 (census age) vs ledger 0/0/0/0/0 (ride stability) — both recorded in one receipt`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const verdict = failed === 0
-  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4), and the width form is COMPLETED (the eighth seat: (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, and the bound chain's width form holds — the squeezed box loosens 101.3 -> 103.0 but the 138 cap never binds in the zone, the squeeze option-invariant), and the cross-load identity now spans the WHOLE width axis AND both instruments (the ninth + tenth seats: the restore load films the T0 world bit-for-bit across the zone AND outside it — far edge 693.8/895, below 264/266.5, the sleep itself reproducible — and t840's live rulers == the sweep's own G/H rows at the load level), and the far edge's SECOND threshold is pinned (the eleventh seat: the chip wakes AT 2xl — a 1px POINT, 1535 asleep / 1536 awake — with a step anatomy that charges the row's own yielders (label −9.1, wordmark −7.1) for the chip's +90.3 and the wrap's tier +35, two capped ramps repaying the transient by 1570, and a plateau to 1920 whose only moving part is the gap); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
+  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4), and the width form is COMPLETED (the eighth seat: (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, and the bound chain's width form holds — the squeezed box loosens 101.3 -> 103.0 but the 138 cap never binds in the zone, the squeeze option-invariant), and the cross-load identity now spans the WHOLE width axis AND both instruments (the ninth + tenth seats: the restore load films the T0 world bit-for-bit across the zone AND outside it — far edge 693.8/895, below 264/266.5, the sleep itself reproducible — and t840's live rulers == the sweep's own G/H rows at the load level), and the far edge's SECOND threshold is pinned (the eleventh seat: the chip wakes AT 2xl — a 1px POINT, 1535 asleep / 1536 awake — with a step anatomy that charges the row's own yielders (label −9.1, wordmark −7.1) for the chip's +90.3 and the wrap's tier +35, two capped ramps repaying the transient by 1570, and a plateau to 1920 whose only moving part is the gap); and the census family's counts are now reproducible at the RIDE level (the twelfth seat: t846's drift ledger — five faces bit-for-bit vs the previous receipt, drift 0 x5, the floors' age-drift and the ledger's stability both recorded in one receipt); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
   : `the family DISAGREES in ${failed} place(s) — reconcile before the build day`;
 const receipt = {
   instrument: 'scripts/t842-family-audit.mjs',
@@ -456,6 +489,7 @@ const receipt = {
     sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date, belowZone: "the band layer's first ride below xl (t853): the twin asleep (vacuously at rest), the born-squeezed wordmark (140 @768, the row's only yielder paying the whole 2.5), the edge law (squeeze(W) = 770.5 − W, zone [768, 770], clear by 771, slope −1.0/px)", wake: "the far edge's second threshold (t856): the chip wakes AT 2xl — a 1px POINT (1535 asleep / 1536 awake) — step anatomy (chip +90.3, wrap tier 170 → 205, label −9.1, wordmark −7.1), capped ramps repaid by 1570, plateau to 1920 (gap −1.0/px)" },
     sweepPinned: { left: P.left, right: P.right, seats: P.seats, law: "pinned == bands within ±0.5 (the sweep's own rounding law), seats exact, across 6 widths" },
     t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined },
+    t846: { file: 'shots-qa/t846-a11y-maintenance.json', date: R846.date, driftLedger: "the ride-to-ride diff vs the previous receipt (the twelfth seat, t857): drift 0 x5, identical x5 on the frozen build — the census family's reproducibility axis (floors = the census's age, ledger = the world's stability)" },
   },
   arithmetic: {
     geometry: GEOM,

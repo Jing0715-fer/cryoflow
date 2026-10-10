@@ -29,13 +29,29 @@
  *           observation #2 (the placeholder name), Escape closes
  *   M18     restore: the world unharmed (canvas count == the opening count)
  *
+ * t857 amendment — THE DRIFT LEDGER (M20-M24): the sweep learns to diff
+ * its counts against the PREVIOUS receipt — the receipt itself is the
+ * natural comparator, and on a frozen build the ride-to-ride drift must
+ * be ZERO, face for face, key for key. The floors measure the census's
+ * AGE (+7/+2/+8/+7, stable); the ledger measures the world's STABILITY
+ * (0/0/0/0/0 on the frozen build — the t857 probe proved it first,
+ * scripts/t857-drift-ledger-probe.mjs kept as provenance). A new axis
+ * of reproducibility: every prior identity compared worlds WITHIN one
+ * window; this one compares RIDES ACROSS WINDOWS. Three arms, recorded
+ * honestly per face: no predecessor (first ride — vacuous), build moved
+ * (drift informational — a build may change counts), same build
+ * (bit-for-bit or red). The ledger block rides the receipt:
+ *   driftLedger: { prevFound, prevBuild, prevDate, sameBuild, law,
+ *                  faces: { canvas | dashboard | inspector | palette |
+ *                           restore: { prev, live, drift, identical } } }
+ *
  * Receipt: shots-qa/t846-a11y-maintenance.json.
  *
  *   node scripts/t846-a11y-maintenance.mjs
  */
 
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -79,10 +95,25 @@ const evalJson = (js) => {
   return out;
 };
 
-/* ---------- provenance ---------- */
+/* ---------- provenance + the ledger's comparator (the PREVIOUS receipt) ---------- */
 const buildId = readFileSync(join(ROOT, ".next/BUILD_ID"), "utf8").trim();
+const prevReceiptPath = join(ROOT, "shots-qa/t846-a11y-maintenance.json");
+const prevReceipt = existsSync(prevReceiptPath)
+  ? JSON.parse(readFileSync(prevReceiptPath, "utf8"))
+  : null;
+const prevFaces = {};
+if (prevReceipt && prevReceipt.faces) {
+  for (const [name, face] of Object.entries(prevReceipt.faces)) {
+    if (face && face.live) prevFaces[name] = face.live;
+  }
+}
+const prevFound = Object.keys(prevFaces).length > 0;
+const sameBuild = prevFound ? prevReceipt.build === buildId : null;
 console.log(
-  `t846 a11y maintenance sweep — build ${buildId}, all four census faces in one chain, count-only, floors pinned\n`
+  `t846 a11y maintenance sweep — build ${buildId}, all four census faces in one chain, count-only, floors pinned\n` +
+  (prevFound
+    ? `drift ledger: comparator = the receipt of ${prevReceipt.date} (build ${prevReceipt.build}, ${sameBuild ? "SAME build — bit-for-bit demanded" : "build MOVED — drift informational"})\n`
+    : "drift ledger: first ride — no predecessor to diff (arm 1)\n")
 );
 
 /* ---------- the measure: both instruments' fields in ONE line sync IIFE.
@@ -160,10 +191,58 @@ const counts = [c1.pageBtns, d1.pageBtns, i1.pageBtns, p1.pageBtns];
 const distinct = new Set(counts).size === 4;
 ok("M19 four faces, four distinct button-views (no face is another face)", distinct, counts.join(" / "));
 
+/* ---------- the DRIFT LEDGER (t857): this ride vs the PREVIOUS receipt ---------- */
+const sortedJson = (o) => JSON.stringify(o, Object.keys(o ?? {}).sort());
+const ledgerFace = (name, live) => {
+  const p = prevFaces[name] ?? null;
+  return {
+    prev: p ? p.pageBtns : null,
+    live: live.pageBtns,
+    drift: p ? live.pageBtns - p.pageBtns : null,
+    identical: p ? sortedJson(p) === sortedJson(live) : null,
+  };
+};
+const ledgerFaces = {
+  canvas: ledgerFace("canvas", c1),
+  dashboard: ledgerFace("dashboard", d1),
+  inspector: ledgerFace("inspector", i1),
+  palette: ledgerFace("palette", p1),
+  restore: ledgerFace("restore", r1),
+};
+const LEDGER_LAW =
+  "the ride-to-ride drift: prev receipt == this ride, per face, count and full live object — " +
+  "three arms recorded honestly: no predecessor (first ride, vacuous), build moved (drift informational), " +
+  "same build (drift 0 AND identical, bit-for-bit, or red); floors measure the census's age, the ledger measures the world's stability";
+
+ok("M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/identical, the comparator's provenance recorded",
+  ledgerFaces.canvas && ledgerFaces.dashboard && ledgerFaces.inspector && ledgerFaces.palette && ledgerFaces.restore &&
+  Object.values(ledgerFaces).every((f) => "prev" in f && "live" in f && "drift" in f && "identical" in f) &&
+  (prevFound ? typeof prevReceipt.date === "string" && typeof prevReceipt.build === "string" : prevFound === false),
+  prevFound ? `comparator ${prevReceipt.date} (build ${prevReceipt.build})` : "first ride — no predecessor");
+
+/* the per-face drift law (the three-arm form — arm 1 vacuous, arm 2 informational, arm 3 bit-for-bit) */
+const driftOk = (f) =>
+  !prevFound ? true : !sameBuild ? true : f.drift === 0 && f.identical === true;
+const driftDetail = (name, f) => {
+  if (!prevFound) return "arm 1 — first ride, no predecessor";
+  if (!sameBuild) return `arm 2 — build moved, drift ${f.drift >= 0 ? "+" : ""}${f.drift} informational`;
+  return f.drift === 0 && f.identical
+    ? `arm 3 — bit-for-bit (${f.prev} -> ${f.live}, the full live object identical)`
+    : `arm 3 RED — drift ${f.drift}, identical=${f.identical}`;
+};
+ok("M21 canvas ride-drift law (same build: bit-for-bit vs the previous receipt)",
+  driftOk(ledgerFaces.canvas), driftDetail("canvas", ledgerFaces.canvas));
+ok("M22 dashboard ride-drift law",
+  driftOk(ledgerFaces.dashboard), driftDetail("dashboard", ledgerFaces.dashboard));
+ok("M23 inspector ride-drift law",
+  driftOk(ledgerFaces.inspector), driftDetail("inspector", ledgerFaces.inspector));
+ok("M24 palette ride-drift law",
+  driftOk(ledgerFaces.palette), driftDetail("palette", ledgerFaces.palette));
+
 /* ---------- verdict + receipt ---------- */
 const totalViews = counts.reduce((s, n) => s + n, 0);
 const verdict = fail === 0
-  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +${c1.pageBtns - 142}/+${d1.pageBtns - 114}/+${i1.pageBtns - 180}/+${p1.pageBtns - 150}), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — the standing re-witness future windows run first`
+  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +${c1.pageBtns - 142}/+${d1.pageBtns - 114}/+${i1.pageBtns - 180}/+${p1.pageBtns - 150}), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (${prevFound ? sameBuild ? "same build: five faces bit-for-bit vs the previous receipt, drift 0" : "build moved: drift informational, recorded per face" : "first ride: no predecessor"}) — the standing re-witness future windows run first`
   : `${fail} red — the name layer moved; call the deep instruments (t843/t844) before any UI work`;
 const receipt = {
   instrument: "scripts/t846-a11y-maintenance.mjs",
@@ -176,6 +255,14 @@ const receipt = {
     palette: "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door",
   },
   floors: { canvas: 142, dashboard: 114, inspector: 180, palette: 150 },
+  driftLedger: {
+    prevFound,
+    prevBuild: prevFound ? prevReceipt.build : null,
+    prevDate: prevFound ? prevReceipt.date : null,
+    sameBuild,
+    law: LEDGER_LAW,
+    faces: ledgerFaces,
+  },
   faces: {
     canvas: { floor: 142, live: c1 },
     dashboard: { floor: 114, live: d1, arrival: clickR },

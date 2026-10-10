@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t846-a11y-maintenance.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T12:53:03.262Z",
+  "date": "2026-10-10T13:04:10.494Z",
   "chain": "canvas -> dashboard -> inspector -> palette -> restore (one command)",
   "doors": {
     "dashboard": "exact-text 'Dashboard' switcher click",
@@ -13,6 +13,45 @@
     "dashboard": 114,
     "inspector": 180,
     "palette": 150
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "KtPKuXIbtB9d7uhItOOUS",
+    "prevDate": "2026-10-10T12:59:27.836Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, count and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), build moved (drift informational), same build (drift 0 AND identical, bit-for-bit, or red); floors measure the census's age, the ledger measures the world's stability",
+    "faces": {
+      "canvas": {
+        "prev": 149,
+        "live": 149,
+        "drift": 0,
+        "identical": true
+      },
+      "dashboard": {
+        "prev": 116,
+        "live": 116,
+        "drift": 0,
+        "identical": true
+      },
+      "inspector": {
+        "prev": 188,
+        "live": 188,
+        "drift": 0,
+        "identical": true
+      },
+      "palette": {
+        "prev": 157,
+        "live": 157,
+        "drift": 0,
+        "identical": true
+      },
+      "restore": {
+        "prev": 149,
+        "live": 149,
+        "drift": 0,
+        "identical": true
+      }
+    }
   },
   "faces": {
     "canvas": {
@@ -255,10 +294,35 @@
       "label": "M19 four faces, four distinct button-views (no face is another face)",
       "pass": true,
       "detail": "149 / 116 / 188 / 157"
+    },
+    {
+      "label": "M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/identical, the comparator's provenance recorded",
+      "pass": true,
+      "detail": "comparator 2026-10-10T12:59:27.836Z (build KtPKuXIbtB9d7uhItOOUS)"
+    },
+    {
+      "label": "M21 canvas ride-drift law (same build: bit-for-bit vs the previous receipt)",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (149 -> 149, the full live object identical)"
+    },
+    {
+      "label": "M22 dashboard ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (116 -> 116, the full live object identical)"
+    },
+    {
+      "label": "M23 inspector ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (188 -> 188, the full live object identical)"
+    },
+    {
+      "label": "M24 palette ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (157 -> 157, the full live object identical)"
     }
   ],
-  "passed": 20,
+  "passed": 25,
   "failed": 0,
-  "total": 20,
-  "verdict": "the maintenance sweep holds: 610 button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +7/+2/+8/+7), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — the standing re-witness future windows run first"
+  "total": 25,
+  "verdict": "the maintenance sweep holds: 610 button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +7/+2/+8/+7), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (same build: five faces bit-for-bit vs the previous receipt, drift 0) — the standing re-witness future windows run first"
 }
