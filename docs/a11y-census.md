@@ -284,3 +284,47 @@ paramsdiff / worldBack — numeric from the third ride). The fleet unit's
 family table grew the SAME window: t863's trio joined late (the birthright
 completed — t863 rode green but never grew the table) and t864's trio
 joined at birth: nine carriers, thirty-one faces.
+
+## The results family (t865) — the question-doors porch, five dialogs, and the honest absence
+
+The rotation's next surface: the inspector header hosts the whole question
+row — one porch, six questions — and every door behind it is a lazy chunk
+(the t391 barrel) whose own "Loading…" shimmer is the quiescence door the
+settle law waits on. The walk (`scripts/t865-results-a11y.mjs`, 58/58 after
+five rides): the postprocess inspector's porch names the final-verdict and
+particle-funnel doors with the A/B doors HONESTLY ABSENT (the guard law:
+none of the A/B domains on this face) and the Duplicate door present (the
+A/B loop's front door); the FSC overlay rides its chip door (`fsc-compare-open`,
+the candidate rows measured — 5 in the restored roster — the re-scan /
+select / toggle doors named, the chart aboard); the verdict and funnel
+dialogs speak their reading regions with the export doors named; the arc
+and convergence dialogs ride their single-run doors with the Round A/B
+selects named; and the ctffind porch proves the guard's POSITIVE absence —
+zero A/B doors, zero sibling pickers, the two guards agreeing — an absent
+door that was GUARDED into absence is a claim, not a gap. Zero unnamed on
+every face; every dialog's two settled rides bit-identical; the world back
+bit-for-bit (153 == 153). The birth's lessons, all measurement-side: the
+sub-dialog's heading must be read from the TOPMOST dialog layer (nested
+portals put the inspector's title first in DOM order), the toggle group is
+a `role=group` aria-label not a button, and one async thumbnail arriving
+between two rides (imgs 9→10, the t857/t860 mechanism) grew the settle law
+its third silence door: `img.complete` — the image element's own contract.
+The first ride also filmed an OOM corpse (next-server killed at 2.59GB mid-
+walk; the watchdog booted clean; the re-ride reproduced the settled truth).
+
+## The identity-vs-lens vocabulary (t865) — the identical flag's false speaks one word per field
+
+The ledger's honest `identical: false` used to speak TWO words at once
+("something changed") where one word was meant. The shared helper grew the
+vocabulary at the one place the raws are in hand: `ledgerFace` now returns
+`moved: { lens, world }` — `lens` = moved fields whose values are strings
+or string-arrays (the name computation's own outputs — the ruler grew
+richer, the world never moved), `world` = numeric/boolean moves (the page's
+content itself moved). `armVerdict`'s arm-2′ detail NAMES the moved fields,
+so a dev-key ride's receipt says what moved, not merely that it did. The
+contract is pinned by the fleet's 103rd piece (`scripts/t865-identity-lens-
+unit.mjs`, 18/18: the known pairs, the arm-2′ wording, and the family's
+LIVE receipts — where the vocabulary's first real sentence was spoken: the
+ctffind porch's face rode `identical false — lens [act] world [pageBtns]`,
+one word per field). The drift-ledger self-test grew 10 → 16 with the
+vocabulary's own branches.
