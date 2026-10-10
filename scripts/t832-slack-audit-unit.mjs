@@ -52,6 +52,12 @@
  * COMPLETE: every width in the closed form is now source arithmetic,
  * source-parsed chrome, or a derived text constant.
  *
+ * t839 amendment — the t510 residue fix's proof PRE-FLIGHTED (A4e-9..10):
+ * the build day will land option (a) overflow-hidden on the PS wrapper,
+ * and the ratchet's post-fix form is now measured on a throwaway clone
+ * (the rehearsal probe), not guessed — the geometry held while the
+ * paint clipped, the t836 pricing verified by experiment.
+ *
  * The family's last seats (this window's feature): the star table and
  * the text preview dialogs join the keymap family — one quiet Esc line
  * each, the must-not-lie law's fourth application (they have exactly
@@ -292,6 +298,42 @@ if (wmReceipt && Array.isArray(wmReceipt.runs) && wmReceipt.runs[0]) {
   ok(
     !!c0 && wmReceipt.chip.bitIdentical === true && Math.abs(Math.round(c0.derived) - L.chip) <= 0.5 && Math.abs(c0.derived - c0.rect) <= 0.5,
     `A4e-8 the lens chip's ${L.chip} is DERIVED (probe section C: box ${c0 ? c0.derived : "n/a"} vs rect ${c0 ? c0.rect : "n/a"} — chrome ${c0 ? c0.chrome : "n/a"} + icon ${c0 ? c0.iconW : "n/a"} + count "${c0 ? c0.count : "n/a"}" ${c0 ? c0.numRect : "n/a"} + noted ${c0 ? c0.notedCanvas : "n/a"} — the family complete)`
+  );
+}
+
+// A4e-9..10 — the t510 residue fix's proof, PRE-FLIGHTED (the t839
+// rehearsal probe): the build day lands option (a) overflow-hidden on
+// the PS wrapper; the ratchet's post-fix form is measured on a
+// throwaway clone, not guessed. Division of honesty, again: the probe
+// closes the fix's behavior against the WORLD (the live band + the
+// clone); this unit closes the receipt against the PRICING (paint
+// moves, geometry does not).
+const reReceiptPath = join(ROOT, "shots-qa/t839-zone-rehearsal.json");
+const reReceipt = existsSync(reReceiptPath)
+  ? JSON.parse(readFileSync(reReceiptPath, "utf8"))
+  : null;
+ok(
+  reReceipt &&
+    Array.isArray(reReceipt.before) && reReceipt.before.length === 2 &&
+    Array.isArray(reReceipt.after) && reReceipt.after.length === 2 &&
+    reReceipt.swap && reReceipt.swap.swapped === true &&
+    reReceipt.before[0].wrapOverflowX === "visible" &&
+    reReceipt.after[0].wrapOverflowX === "hidden" &&
+    reReceipt.restored && reReceipt.restored.wrapOverflowX === "visible",
+  "A4e-9 the t839 rehearsal receipt is aboard (before/after pairs, the swap, the restore — the fix on the clone, the world unharmed)"
+);
+if (
+  reReceipt && Array.isArray(reReceipt.before) && reReceipt.before[0] &&
+  Array.isArray(reReceipt.after) && reReceipt.after[0]
+) {
+  const bb = reReceipt.before[0];
+  const aa = reReceipt.after[0];
+  const stackHas = (row, who) =>
+    Array.isArray(row.stack) && row.stack.some((s) => String(s).startsWith(who));
+  ok(
+    bb.overlap === 2.7 && aa.overlap === 2.7 && bb.trigW === aa.trigW && bb.wrapW === aa.wrapW &&
+      stackHas(bb, "TRIGGER") && !stackHas(aa, "TRIGGER") && stackHas(aa, "CHIP"),
+    `A4e-10 the pricing VERIFIED by experiment: geometry held (${bb.overlap} → ${aa.overlap}, ${bb.trigW}/${bb.wrapW} → ${aa.trigW}/${aa.wrapW}) while the paint clipped (TRIGGER ${stackHas(bb, "TRIGGER") ? "in" : "absent"} → ${stackHas(aa, "TRIGGER") ? "in" : "absent"}, the chip keeps the click) — the build day's ratchet is measured, not guessed`
   );
 }
 

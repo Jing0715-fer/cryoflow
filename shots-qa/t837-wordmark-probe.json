@@ -3,7 +3,7 @@
     "buildId": "KtPKuXIbtB9d7uhItOOUS",
     "viewport": "1024x800 (the A4e-3 natural band); the chip at 1536x800 (2xl)",
     "instrument": "canvas measureText under the elements' own computed fonts, letter-spacing applied (two models), max-of-lines for the wordmark box, chrome+icon+advances for the chip box; the tabular count's advance from its own live rect",
-    "date": "2026-10-10T08:17:10.889Z"
+    "date": "2026-10-10T08:36:31.587Z"
   },
   "bitIdentical": true,
   "runs": [

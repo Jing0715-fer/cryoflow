@@ -1,0 +1,160 @@
+{
+  "instrument": "scripts/t839-zone-rehearsal.mjs",
+  "build": "KtPKuXIbtB9d7uhItOOUS",
+  "date": "2026-10-10T08:39:28.721Z",
+  "viewport": {
+    "w": 1280,
+    "h": 800
+  },
+  "fix": "option (a): overflowX = 'hidden' on the PS wrapper of a throwaway documentElement clone (document.replaceChild swap; React's root stays on the detached original)",
+  "ruler": "the sweep's ZONE_MEASURE walk + the elementsFromPoint STACK witness + the wrapper's computed overflow-x",
+  "before": [
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "TRIGGER|Active project",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "visible",
+      "innerW": 1280
+    },
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "TRIGGER|Active project",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "visible",
+      "innerW": 1280
+    }
+  ],
+  "swap": {
+    "swapped": true,
+    "before": "visible",
+    "fix": "hidden",
+    "headerAboard": true
+  },
+  "after": [
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "hidden",
+      "innerW": 1280
+    },
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "hidden",
+      "innerW": 1280
+    }
+  ],
+  "cloneZone": {
+    "1286": {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 117.7,
+      "overlap": 0.3,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "hidden",
+      "innerW": 1286
+    },
+    "1287": {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 118.1,
+      "overlap": -0.1,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "hidden",
+      "innerW": 1287
+    }
+  },
+  "restored": {
+    "mid": true,
+    "trigW": 130,
+    "wrapW": 115.3,
+    "overlap": 2.7,
+    "chipBg": "rgba(0, 0, 0, 0)",
+    "paintAt": "CHIP|RELION environment status: RELION not found",
+    "stack": [
+      "CHIP|RELION environment status: RELION not found",
+      "CHIP|hidden xl:block",
+      "OTHER|no-print flex shrink-0 ite",
+      "TRIGGER|Active project",
+      "OTHER|no-print pointer-events-au",
+      "OTHER|flex h-dvh flex-col bg-bac",
+      "OTHER|__variable_8eaea4 __variab",
+      "OTHER|light"
+    ],
+    "wrapOverflowX": "visible",
+    "innerW": 1280
+  },
+  "verdict": "the fix's proof is rehearsed: the geometry held (2.7 / 130 / 115.3), the paint clipped (the trigger left the stack), the chip kept the click, the edge moved not — the build day lands option (a) with its ratchet's post-fix form already measured"
+}
