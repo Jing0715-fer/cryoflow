@@ -1,0 +1,329 @@
+{
+  "instrument": "scripts/t862-overlay-a11y.mjs",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-10T15:14:31.509Z",
+  "chain": "canvas -> shortcuts (?) -> knock (bell) -> restored (one command)",
+  "doors": {
+    "shortcuts": "window keydown \"?\" — the app's own typing-guarded listener",
+    "knock": "click button[aria-label=\"Finish knock settings\"] — the header's knock seat"
+  },
+  "faces": {
+    "canvas": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgHeading": null,
+        "dlgFocus": null,
+        "region": null,
+        "ipS": null,
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuUnnamed": 0,
+        "menuWho": [],
+        "menuChecks": [],
+        "menuNames": [],
+        "active": "BODY",
+        "heading": "Main"
+      }
+    },
+    "shortcuts": {
+      "live": {
+        "url": "/",
+        "pageBtns": 154,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": true,
+        "dlgHeading": "Keyboard shortcuts",
+        "dlgFocus": true,
+        "region": {
+          "label": "Keyboard shortcut inventory — grouped by context",
+          "kbd": 99
+        },
+        "ipS": {
+          "named": true,
+          "value": ""
+        },
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuUnnamed": 0,
+        "menuWho": [],
+        "menuChecks": [],
+        "menuNames": [],
+        "active": "Filter shortcuts",
+        "heading": "Main"
+      },
+      "secondRide": {
+        "url": "/",
+        "pageBtns": 154,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": true,
+        "dlgHeading": "Keyboard shortcuts",
+        "dlgFocus": true,
+        "region": {
+          "label": "Keyboard shortcut inventory — grouped by context",
+          "kbd": 99
+        },
+        "ipS": {
+          "named": true,
+          "value": ""
+        },
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuUnnamed": 0,
+        "menuWho": [],
+        "menuChecks": [],
+        "menuNames": [],
+        "active": "Filter shortcuts",
+        "heading": "Main"
+      },
+      "filter": {
+        "found": true,
+        "before": 99,
+        "during": 41,
+        "after": 99
+      },
+      "afterEscape": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgHeading": null,
+        "dlgFocus": null,
+        "region": null,
+        "ipS": null,
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuUnnamed": 0,
+        "menuWho": [],
+        "menuChecks": [],
+        "menuNames": [],
+        "active": "BODY",
+        "heading": "Main"
+      }
+    },
+    "knock": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgHeading": null,
+        "dlgFocus": null,
+        "region": null,
+        "ipS": null,
+        "hasMenu": true,
+        "menuItems": 3,
+        "menuUnnamed": 0,
+        "menuWho": [],
+        "menuChecks": [
+          "false"
+        ],
+        "menuNames": [
+          "Chime when hidden",
+          "Browser notifications — off",
+          "Try the knock"
+        ],
+        "active": "DIV",
+        "heading": "Main"
+      },
+      "afterEscape": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgHeading": null,
+        "dlgFocus": null,
+        "region": null,
+        "ipS": null,
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuUnnamed": 0,
+        "menuWho": [],
+        "menuChecks": [],
+        "menuNames": [],
+        "active": "Finish knock settings",
+        "heading": "Main"
+      }
+    },
+    "restored": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgHeading": null,
+        "dlgFocus": null,
+        "region": null,
+        "ipS": null,
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuUnnamed": 0,
+        "menuWho": [],
+        "menuChecks": [],
+        "menuNames": [],
+        "active": "BODY",
+        "heading": "Main"
+      }
+    }
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-10T15:11:06.209Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "shortcuts": {
+        "prev": 154,
+        "live": 154,
+        "drift": 0,
+        "identical": true
+      },
+      "knock": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": false
+      },
+      "restored": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": false
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 ctrls=2 imgs=0 — zero unnamed anywhere"
+    },
+    {
+      "label": "S1 the dialog arrived: title + focus inside",
+      "pass": true,
+      "detail": "heading=\"Keyboard shortcuts\" focus=Filter shortcuts"
+    },
+    {
+      "label": "S2 the inventory region is named and carries chips",
+      "pass": true,
+      "detail": "label=\"Keyboard shortcut inventory — grouped by context\" kbd=99"
+    },
+    {
+      "label": "S3 zero unnamed page-wide with the dialog up (the census's invariant holds on the overlay tier)",
+      "pass": true,
+      "detail": "btns=154 ctrls=3 unnamed=0/0/0"
+    },
+    {
+      "label": "S4 the filter input is named (aria-label, not the placeholder's crutch)",
+      "pass": true,
+      "detail": "filter value=\"\""
+    },
+    {
+      "label": "S5 the filter is ALIVE: 'canvas' shrinks the inventory, clearing restores it bit-for-bit",
+      "pass": true,
+      "detail": "kbd 99 -> 41 (filtered) -> 99 (restored)"
+    },
+    {
+      "label": "S6 two settled rides bit-identical (the t836 law, the t860 settle)",
+      "pass": true,
+      "detail": "the overlay world is stable once settled"
+    },
+    {
+      "label": "S7 Escape closes the shortcuts dialog",
+      "pass": true,
+      "detail": "dlg=false btns back to 153"
+    },
+    {
+      "label": "K1 the menu arrived (role=menu, the Radix portal)",
+      "pass": true,
+      "detail": "items=3 checks=[\"false\"]"
+    },
+    {
+      "label": "K2 every menu item is named (label/checkbox/text — zero unnamed)",
+      "pass": true,
+      "detail": "Chime when hidden | Browser notifications — off | Try the knock"
+    },
+    {
+      "label": "K3 the chime checkbox carries a valid aria-checked state (recorded, never gated — browser/world-state)",
+      "pass": true,
+      "detail": "aria-checked=[\"false\"]"
+    },
+    {
+      "label": "K4 zero unnamed page-wide with the menu up",
+      "pass": true,
+      "detail": "btns=153"
+    },
+    {
+      "label": "K5 Escape closes the menu and focus returns to the bell trigger (the Radix contract)",
+      "pass": true,
+      "detail": "menu=false focus=Finish knock settings"
+    },
+    {
+      "label": "R1 the world unharmed (canvas count == the opening count, no overlay)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "L1 the ledger is aboard at birth: three faces, each carrying prev/live/drift/identical",
+      "pass": true,
+      "detail": "comparator 2026-10-10T15:11:06.209Z (key dev@c4c3735897dd)"
+    },
+    {
+      "label": "L2 shortcuts face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L3 knock face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L4 restored face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 18,
+  "failed": 0,
+  "total": 18,
+  "verdict": "the overlay tier holds: the shortcuts dialog (the \"?\" door) arrives named and focused, the inventory region speaks its name, the filter is ALIVE (shrinks and restores the chips), two settled rides bit-identical; the knock menu (the bell door) opens fully named, the chime checkbox carries its aria-checked state, Escape returns focus to the trigger; zero unnamed buttons/controls/imgs on every face; the world restored — and the ledger aboard from birth (three faces, the shared law)"
+}

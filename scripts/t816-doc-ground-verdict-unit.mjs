@@ -144,7 +144,13 @@ try {
   // The walk now covers BOTH addresses so the instrument survives the
   // build-layout drift; the assertion's truth ("the compiled CSS carries
   // the rule") never moved.
-  const cssDirs = [".next/static/css", ".next/static/chunks"];
+  // t862 amendment — the THIRD address: the dev-only world (the t858
+  // restoration annihilated the production build; the zero-build lane
+  // serves CSS from the dev compiler) compiles the rule under
+  // .next/dev/static/chunks/*.css. The walk covers all three; on a build
+  // day the production addresses answer first, in the dev world the dev
+  // chunks do — the jurisdiction never had to reach the source.
+  const cssDirs = [".next/static/css", ".next/static/chunks", ".next/dev/static/chunks"];
   for (const dir of cssDirs) {
     let entries = [];
     try {

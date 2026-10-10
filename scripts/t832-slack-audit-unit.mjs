@@ -818,6 +818,62 @@ if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
   );
 }
 
+// A4e-28 — the t862 LEDGER-FAMILY AMENDMENT (the thirteenth seat): the
+// fleet unit now reads EVERY carrier's driftLedger block — one law, SEVEN
+// instruments, twenty-five faces — and demands the arm STRUCTURE on each,
+// jurisdiction-aware. A4e-27 witnesses t846's five faces; this seat
+// witnesses the whole propagation (t861 + t862's birth): t834's six bands,
+// t837's wordmark + chip (the receipt rides its key inside
+// provenance.buildId — the loadComparator buildKeyOf tolerance, mirrored
+// here), t839's before/after/restored, t840's live/optionA/restored,
+// t861's census trio (born with the ledger aboard), t862's overlay trio
+// (also born with it — the propagation is now the family's birthright).
+// The demand is STRUCTURE, not numbers: prevFound/sameBuild recorded, the
+// law string aboard, every face carrying prev/live/drift/identical
+// (numeric when a predecessor spoke, the null arm-1 shape when it
+// didn't), the world key the family actually rides == THIS window's
+// WORLD_KEY, and bit-for-bit demanded ONLY from a frozen same-key pair
+// (the t859/t861 jurisdiction clause).
+const LEDGER_FAMILY = [
+  ["t834 band-sweep", "shots-qa/t834-band-sweep.json", (r) => r.build, ["375", "640", "768", "1024", "1280", "1536"]],
+  ["t837 wordmark-probe", "shots-qa/t837-wordmark-probe.json", (r) => r.provenance && r.provenance.buildId, ["wordmark", "chip"]],
+  ["t839 zone-rehearsal", "shots-qa/t839-zone-rehearsal.json", (r) => r.build, ["before", "after", "restored"]],
+  ["t840 options-rehearsal", "shots-qa/t840-options-rehearsal.json", (r) => r.build, ["live", "optionA", "restored"]],
+  ["t846 a11y-maintenance", "shots-qa/t846-a11y-maintenance.json", (r) => r.build, ["canvas", "dashboard", "inspector", "palette", "restore"]],
+  ["t861 kid2-census", "shots-qa/t861-kid2-sleeper-census.json", (r) => r.build, ["sleep1920", "wake2000", "plateau2100"]],
+  ["t862 overlay-a11y", "shots-qa/t862-overlay-a11y.json", (r) => r.build, ["shortcuts", "knock", "restored"]],
+];
+const faceShape = (f, prevFound) =>
+  f && typeof f === "object" && "prev" in f && "live" in f && "drift" in f && "identical" in f &&
+  (prevFound
+    ? typeof f.prev === "number" && typeof f.live === "number" && typeof f.drift === "number" && typeof f.identical === "boolean"
+    : f.prev === null && f.drift === null && f.identical === null); // the arm-1 null shape
+const familyDetail = [];
+let familyFaces = 0;
+const familyGreen = LEDGER_FAMILY.every(([label, rel, keyOf, names]) => {
+  const p = join(ROOT, rel);
+  const r = existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null;
+  const DL = r && r.driftLedger;
+  const prevFound = !!(DL && DL.prevFound === true);
+  const sameBuild = !!(DL && DL.sameBuild === true);
+  const mode = r ? (r.worldMode ?? (r.provenance && r.provenance.worldMode) ?? null) : null;
+  const arm3Bites = sameBuild && mode === "build"; // the jurisdiction clause, keyed on the receipt's own worldMode
+  const facesOk = !!(DL && DL.faces && names.every((k) => faceShape(DL.faces[k], prevFound)));
+  const lawOk = !!(DL && typeof DL.law === "string" && DL.law.includes("three arms"));
+  const keyOk = !!(r && keyOf(r) === WORLD_KEY);
+  const allBit = prevFound && names.every((k) => DL.faces[k].drift === 0 && DL.faces[k].identical === true);
+  familyFaces += facesOk ? names.length : 0;
+  familyDetail.push(
+    `${label} ${facesOk ? `${names.length}/${names.length}` : "STRUCTURE RED"}` +
+      (arm3Bites ? (allBit ? " arm3 bit-for-bit" : " arm3 RED") : prevFound ? (sameBuild ? " arm2′ informational (dev key)" : " arm2 informational (key moved)") : " arm1 first-ride")
+  );
+  return !!(DL && facesOk && lawOk && keyOk && (!arm3Bites || allBit));
+});
+ok(
+  familyGreen && familyFaces === 25,
+  `A4e-28 the t862 ledger-family amendment is aboard (one law, seven carriers, ${familyFaces}/25 faces, structure + jurisdiction demanded everywhere): ${familyDetail.join("; ")} — A4e-27's single-instrument witness grew into the family's standing regression net, the arm structure the unit's own demand, the receipts the comparators`
+);
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

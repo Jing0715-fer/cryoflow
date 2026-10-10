@@ -2,7 +2,7 @@
   "instrument": "scripts/t846-a11y-maintenance.mjs",
   "build": "dev@c4c3735897dd",
   "worldMode": "dev",
-  "date": "2026-10-10T14:42:58.401Z",
+  "date": "2026-10-10T15:02:05.652Z",
   "chain": "canvas -> dashboard -> inspector -> palette -> restore (one command)",
   "doors": {
     "dashboard": "exact-text 'Dashboard' switcher click",
@@ -18,9 +18,9 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T14:27:03.182Z",
+    "prevDate": "2026-10-10T14:42:58.401Z",
     "sameBuild": true,
-    "law": "the ride-to-ride drift: prev receipt == this ride, per face, count and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), build moved (drift informational), same build (drift 0 AND identical, bit-for-bit, or red); floors measure the census's age, the ledger measures the world's stability",
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "canvas": {
         "prev": 153,
@@ -299,7 +299,7 @@
     {
       "label": "M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/identical, the comparator's provenance recorded",
       "pass": true,
-      "detail": "comparator 2026-10-10T14:27:03.182Z (build dev@c4c3735897dd)"
+      "detail": "comparator 2026-10-10T14:42:58.401Z (build dev@c4c3735897dd)"
     },
     {
       "label": "M21 canvas ride-drift law (same build: bit-for-bit vs the previous receipt)",

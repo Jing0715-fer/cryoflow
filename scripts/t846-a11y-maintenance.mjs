@@ -45,15 +45,23 @@
  *                  faces: { canvas | dashboard | inspector | palette |
  *                           restore: { prev, live, drift, identical } } }
  *
+ * t862 amendment — the INLINE ledger retired: the comparator loads through
+ * the family's shared helper (scripts/drift-ledger.mjs — loadComparator /
+ * ledgerFace / armVerdict / LEDGER_LAW), so the drift law has literally one
+ * implementation fleet-wide. The reference inline form (this file's t857
+ * original) was the last carrier not speaking the shared module; now every
+ * ledger in the family speaks one jurisprudence.
+ *
  * Receipt: shots-qa/t846-a11y-maintenance.json.
  *
  *   node scripts/t846-a11y-maintenance.mjs
  */
 
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
+import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 
 const ROOT = process.cwd();
 
@@ -99,18 +107,18 @@ const evalJson = (js) => {
 /* ---------- provenance + the ledger's comparator (the PREVIOUS receipt) ---------- */
 const world = worldIdentity(ROOT); // t859 — the world key: build id on build days, dev@src-hash otherwise (t858's dev-only world must not strand the battery)
 const buildId = world.id;
-const prevReceiptPath = join(ROOT, "shots-qa/t846-a11y-maintenance.json");
-const prevReceipt = existsSync(prevReceiptPath)
-  ? JSON.parse(readFileSync(prevReceiptPath, "utf8"))
-  : null;
+// t862 — the comparator through the family's shared law: a corrupt or
+// missing predecessor is a MISSING predecessor (arm 1), recorded never thrown.
+const cmp = loadComparator(ROOT, "shots-qa/t846-a11y-maintenance.json", buildId);
+const prevReceipt = cmp.prev;
+const prevFound = cmp.prevFound;
+const sameBuild = cmp.sameBuild;
 const prevFaces = {};
 if (prevReceipt && prevReceipt.faces) {
   for (const [name, face] of Object.entries(prevReceipt.faces)) {
     if (face && face.live) prevFaces[name] = face.live;
   }
 }
-const prevFound = Object.keys(prevFaces).length > 0;
-const sameBuild = prevFound ? prevReceipt.build === buildId : null;
 console.log(
   `t846 a11y maintenance sweep — world ${world.mode}:${buildId}, all four census faces in one chain, count-only, floors pinned\n` +
   (prevFound
@@ -213,28 +221,15 @@ const counts = [c1.pageBtns, d1.pageBtns, i1.pageBtns, p1.pageBtns];
 const distinct = new Set(counts).size === 4;
 ok("M19 four faces, four distinct button-views (no face is another face)", distinct, counts.join(" / "));
 
-/* ---------- the DRIFT LEDGER (t857): this ride vs the PREVIOUS receipt ---------- */
-const sortedJson = (o) => JSON.stringify(o, Object.keys(o ?? {}).sort());
-const ledgerFace = (name, live) => {
-  const p = prevFaces[name] ?? null;
-  return {
-    prev: p ? p.pageBtns : null,
-    live: live.pageBtns,
-    drift: p ? live.pageBtns - p.pageBtns : null,
-    identical: p ? sortedJson(p) === sortedJson(live) : null,
-  };
-};
+/* ---------- the DRIFT LEDGER (t857, the family's SHARED law — t862 migration): this ride vs the PREVIOUS receipt ---------- */
+const scalarOf = (m) => m.pageBtns; // each face's own scalar ruler
 const ledgerFaces = {
-  canvas: ledgerFace("canvas", c1),
-  dashboard: ledgerFace("dashboard", d1),
-  inspector: ledgerFace("inspector", i1),
-  palette: ledgerFace("palette", p1),
-  restore: ledgerFace("restore", r1),
+  canvas: ledgerFace(prevFaces.canvas, c1, scalarOf),
+  dashboard: ledgerFace(prevFaces.dashboard, d1, scalarOf),
+  inspector: ledgerFace(prevFaces.inspector, i1, scalarOf),
+  palette: ledgerFace(prevFaces.palette, p1, scalarOf),
+  restore: ledgerFace(prevFaces.restore, r1, scalarOf),
 };
-const LEDGER_LAW =
-  "the ride-to-ride drift: prev receipt == this ride, per face, count and full live object — " +
-  "three arms recorded honestly: no predecessor (first ride, vacuous), build moved (drift informational), " +
-  "same build (drift 0 AND identical, bit-for-bit, or red); floors measure the census's age, the ledger measures the world's stability";
 
 ok("M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/identical, the comparator's provenance recorded",
   ledgerFaces.canvas && ledgerFaces.dashboard && ledgerFaces.inspector && ledgerFaces.palette && ledgerFaces.restore &&
@@ -248,25 +243,17 @@ ok("M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/id
  * 1/3 equal, ride 2 off by six) with zero src movement, the dev overlay's and async surfaces' timing
  * made visible exactly because the key is honest about the mode. Same-key dev rides downgrade to
  * informational (the arm-2 door), the oscillation itself recorded as the next window's first question. */
-const arm3Bites = sameBuild && world.mode === "build";
-const driftOk = (f) =>
-  !prevFound ? true : !arm3Bites ? true : f.drift === 0 && f.identical === true;
-const driftDetail = (name, f) => {
-  if (!prevFound) return "arm 1 — first ride, no predecessor";
-  if (!sameBuild) return `arm 2 — build moved, drift ${f.drift >= 0 ? "+" : ""}${f.drift} informational`;
-  if (world.mode !== "build") return `arm 2′ — dev world (key ${world.id}), same-key ride drift ${f.drift >= 0 ? "+" : ""}${f.drift} informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)`;
-  return f.drift === 0 && f.identical
-    ? `arm 3 — bit-for-bit (${f.prev} -> ${f.live}, the full live object identical)`
-    : `arm 3 RED — drift ${f.drift}, identical=${f.identical}`;
-};
+// t862 — the three-arm verdict through the shared armVerdict (the
+// jurisdiction clause rides in the module; one wording fleet-wide).
+const verdictOf = (f) => armVerdict(cmp, world, f);
 ok("M21 canvas ride-drift law (same build: bit-for-bit vs the previous receipt)",
-  driftOk(ledgerFaces.canvas), driftDetail("canvas", ledgerFaces.canvas));
+  verdictOf(ledgerFaces.canvas).ok, verdictOf(ledgerFaces.canvas).detail);
 ok("M22 dashboard ride-drift law",
-  driftOk(ledgerFaces.dashboard), driftDetail("dashboard", ledgerFaces.dashboard));
+  verdictOf(ledgerFaces.dashboard).ok, verdictOf(ledgerFaces.dashboard).detail);
 ok("M23 inspector ride-drift law",
-  driftOk(ledgerFaces.inspector), driftDetail("inspector", ledgerFaces.inspector));
+  verdictOf(ledgerFaces.inspector).ok, verdictOf(ledgerFaces.inspector).detail);
 ok("M24 palette ride-drift law",
-  driftOk(ledgerFaces.palette), driftDetail("palette", ledgerFaces.palette));
+  verdictOf(ledgerFaces.palette).ok, verdictOf(ledgerFaces.palette).detail);
 
 /* ---------- verdict + receipt ---------- */
 const totalViews = counts.reduce((s, n) => s + n, 0);
