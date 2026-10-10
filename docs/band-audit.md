@@ -103,6 +103,25 @@ The zone, measured in 1px steps and pinned (the sweep's section E, 54/54):
   changes the PAINT, not the geometry — the ratchet needs this paint
   witness (elementFromPoint + computed bg), not the raw rect delta alone.
 
+**The fix's proof, pre-flighted (t839, still zero src).** Option (a) was
+rehearsed on a throwaway documentElement clone — `overflowX = 'hidden'`
+applied to the clone's PS wrapper, the live tree swapped out (React's
+root stays on the detached original), the zone re-measured on the clone
+(two rides bit-identical per section; receipt
+`shots-qa/t839-zone-rehearsal.json`). The pricing is now an experiment,
+not arithmetic alone: the geometry held exactly (2.7 / 130 / 115.3
+before = after), the paint clipped (the trigger LEFT the band's
+`elementsFromPoint` stack — hit-testing respects overflow clipping, the
+sharper witness the pricing asked for), the click owner unchanged
+(topmost still CHIP), the edge moved not on the clone (1286 = 0.3,
+1287 = −0.1, both overflow hidden — the clip is total beyond the
+wrapper's edge), and the fresh-load restore came back to the BEFORE
+truth. The build day's ratchet is therefore measured, not guessed: D4's
+narration flips to the clipped truth (the geometric 2.7 stays, the
+stack loses the trigger), E8 gains the wrapper's computed `overflow-x`
+fingerprint, and the fix lands as ONE grind with its proof already
+aboard.
+
 The build day's options, priced by the arithmetic: (a) `overflow-hidden` on
 the PS wrapper — the floor stays name-worthy, the paint stays inside,
 cheapest; (b) re-cut the wordmark's xl width; (c) drop the project
@@ -115,8 +134,9 @@ trigger's xl tier from 170 to 150.
   `shots-qa/t834-band-sweep.json` with the raw subpixels, per-seat anatomy,
   and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (46 assertions, rides the
-  fleet; A4e-5..8 close the t837/t838 receipt against the pins).
+  parsed, the tiers computed, the closed forms (48 assertions, rides the
+  fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
+  close the t839 rehearsal receipt against the pricing).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -125,6 +145,14 @@ trigger's xl tier from 170 to 150.
   audit's load-bearing unknown — the 768 squeeze law hinges on it — and
   is now arithmetic; the chip's 90 closes the family: if the brand text
   or the chip's anatomy changes, the probe moves first, the law follows.
+- `node scripts/t839-zone-rehearsal.mjs` — the residue fix's rehearsal:
+  the t510 option (a) fix applied to a throwaway DOM clone and the zone
+  re-measured (the sweep's walk + the `elementsFromPoint` STACK witness
+  + the wrapper's computed overflow-x; two bit-identical rides per
+  section; receipt `shots-qa/t839-zone-rehearsal.json`). The pricing
+  "paint, not geometry" is an experiment now: on the build day the fix
+  lands with its proof already aboard, and D4/E8 flip to the rehearsed
+  clipped truth.
 - The handshake is the audit: source counts drift from rendered truth, and
   measured widths rot without a contract — neither half alone is honest.
   When the two instruments produce the same numbers, the header's band
