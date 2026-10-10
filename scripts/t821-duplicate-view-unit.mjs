@@ -47,11 +47,18 @@ let pass = 0;
 const fails = [];
 const ok = (cond, label) => (cond ? pass++ : fails.push(label));
 
-// ---- extract the duplicateBookmark function body (up to the next
-// `const ` at statement level after it) ----
+// ---- extract the duplicateBookmark function body — bounded by the NEXT
+// function declaration, not a char count: the t822 window inserted
+// copyViewLink right after this function, and a fixed-width slice
+// (1800 chars) reached into ITS body and read ITS getSnapshot as a
+// false positive (the fleet caught it at 90/91 — the amendment is the
+// t811/t815/t820 precedent's fifth performance: the assertion's truth
+// never moved; the instrument's window did).
 const fnStart = embed.indexOf("const duplicateBookmark");
+const fnEnd = embed.indexOf("const copyViewLink");
 ok(fnStart > 0, "A0 duplicateBookmark exists in the viewer");
-const fnBody = fnStart > 0 ? embed.slice(fnStart, fnStart + 1800) : "";
+ok(fnEnd > fnStart, "A0b the function boundary resolves (copyViewLink follows)");
+const fnBody = fnStart > 0 && fnEnd > fnStart ? embed.slice(fnStart, fnEnd) : "";
 
 // ---- A. the copy's law ----
 ok(
