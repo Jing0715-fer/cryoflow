@@ -235,7 +235,7 @@ comparison.
 ## Instruments
 
 - `node scripts/t834-band-sweep.mjs` — the live half: six bands plus the
-  residue's 1px-step zone (71 assertions; the zone rows carry the STACK
+  residue's 1px-step zone (76 assertions; the zone rows carry the STACK
   witness and the wrapper's overflow-x fingerprint since t841; since t852
   the FAR EDGE rides too — 1366/1440/1536/1920, the band layer's first
   walk above the zone: the cross-layer identity is far-edge-proof (the
@@ -253,13 +253,25 @@ comparison.
   W, [768, 770], clear by 771, slope −1.0/px — the row's only yielder
   below xl absorbs every pixel), the interior rides the natural
   266.5/142.5 (768-local), and the right plateau re-anchors below xl
-  (460/11 x3, closed form); receipt
+  (460/11 x3, closed form); since t856 the WAKE EDGE rides too — the
+  far edge's SECOND threshold (J1-J5): the stats chip WAKES AT 2xl, a
+  1px POINT (last asleep 1535, first awake 1536 — a breakpoint, not a
+  shortage; the far mirror of the below squeeze's 3px zone) whose STEP
+  charges the row's own yielders for the birth (chip born 90.3 —
+  constant forever — and the wrap tier-steps 170 → 205, while the label
+  PAYS 9.1 (160 → 150.9) and the wordmark DIPS 7.1 (142.5 → 135.4)),
+  then TWO CAPPED RAMPS repay the transient by 1570 (the wrap +0.44/px
+  to its cap 220, the label +0.27/px back to 160, the wordmark
+  +0.21/px back to 142.5), and above the caps the plateau holds to
+  1920 — everything constant but the gap (−1.0/px, the t836 law's far
+  form); receipt
   `shots-qa/t834-band-sweep.json` with the raw subpixels,
-  per-seat anatomy, the zone table, and the farEdge and belowZone
+  per-seat anatomy, the zone table, and the farEdge (with the wake)
+  and belowZone
   blocks), one
   command.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (63 assertions, rides the
+  parsed, the tiers computed, the closed forms (64 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
   t840 decision table, A4e-12 closes the t842 family audit, A4e-13 closes
@@ -269,7 +281,8 @@ comparison.
   A4e-19 closes the t849 sixth seat, A4e-20 closes the t850 seventh seat,
   A4e-21 closes the t851 eighth seat, A4e-22 closes the t852 far edge,
   A4e-23 closes the t853 below zone, A4e-24 closes the t854 ninth
-  seat, A4e-25 closes the t855 tenth seat).
+  seat, A4e-25 closes the t855 tenth seat, A4e-26 closes the t856
+  eleventh seat).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -342,7 +355,7 @@ comparison.
   live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
   painted rows, the decision table's rows relate as filmed (B138 no-op at
   the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
-  and all receipts speak the standing build (56 assertions; receipt
+  and all receipts speak the standing build (59 assertions; receipt
   `shots-qa/t842-family-audit.json`). The second seat (t843) pinned the
   BOUND CHAIN across receipts — the wordmark's natural 142.46 > B138's cap
   138 > the squeezed 101.3 > B88's cap 88 — the one line that proves B138
@@ -445,7 +458,22 @@ comparison.
   modeling, not drift; the t854 lesson learned twice by the t855
   probe, which rode all seven far/below widths first with zero
   drifts). The restore's width map is COMPLETE: two loads, one world,
-  below, in, and far beyond the zone. When the
+  below, in, and far beyond the zone. The eleventh seat (t856) pinned
+  the far edge's SECOND threshold as F18: the sweep's `farEdge.wake`
+  walks 1535-1600 (rows + zone), and the chip WAKES AT 2xl — a 1px
+  POINT (last asleep 1535, first awake 1536; a breakpoint, not a
+  shortage — the far mirror of the below squeeze's 3px zone) — whose
+  STEP charges the row's own yielders for the birth: one pixel delivers
+  the chip (born 90.3, CONSTANT forever) and the trigger's 2xl tier
+  (+35: 170 → 205) while the label pays 9.1 (160 → 150.9) and the
+  wordmark dips 7.1 (142.5 → 135.4); two CAPPED RAMPS repay the
+  transient by 1570 (the wrap +0.44/px to 220 — the 2xl tier is a
+  floor, not a fixed width — the label +0.27/px back to 160, the
+  wordmark +0.21/px back to 142.5), and above the caps the plateau
+  holds to 1920 with the gap's two segments (−110.3 constant through
+  the ramp, then −1.0/px); F18.c also pins the J-ride's own identity —
+  the wake's 1536 row == the G block's 1536 row bit-for-bit, one
+  world, two walks of the same receipt. When the
   fix lands, all three paint instruments flip
   together — this receipt is the pre-flip family portrait the post-fix
   world is compared against.
