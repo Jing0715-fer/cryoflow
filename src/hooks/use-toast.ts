@@ -8,8 +8,27 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+// t825 — the stack: the mouth holds THREE, not one. The t822 tuition was
+// this constant's live pain: the share flight toast ("Shared view
+// restored…") kept dying early because ANY toast fired during its five
+// seconds evicted it (LIMIT=1 — every ADD is an eviction). A depth-3
+// stack makes that eviction structurally impossible at the depths the
+// app actually speaks in bursts (the door's rename/duplicate/share
+// chorus, the store's news flow) — a verdict now outlives the chatter
+// and a poller sees its full lifetime.
+const TOAST_LIMIT = 3
+// t825 — the queue learns to bury. The shadcn fossil kept a dismissed
+// toast in state for 1e6 ms (~16.7 minutes) so the exit animation could
+// finish — harmless under LIMIT=1 (the next ADD evicted the invisible
+// dead slot) but SILT under a stack: three deaths would leave three dead
+// slots, and the next verdict would surface into a stack that renders
+// one. 250 ms is the honest burial: the exit animation's own length
+// (animate-out ≈150ms — fade-out-80 + slide-out-to-right-full,
+// ui/toast.tsx) plus margin. Radix closes the toast (onOpenChange(false)
+// → DISMISS → open:false), the exit animation plays, THEN the element
+// leaves state — the burial is synced to the animation, not to a clock
+// nobody watches.
+const TOAST_REMOVE_DELAY = 250
 
 type ToasterToast = ToastProps & {
   id: string
