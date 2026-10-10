@@ -6636,10 +6636,22 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-64 p-2"
+              className="w-64 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="camera-bookmarks"
               onKeyDown={onEscapeClose(() => setBookmarksOpen(false))}
             >
+              {/* t827 — the door respects the screen it opens on: Radix
+                  publishes the collision-settled space as
+                  --radix-popover-content-available-height, and the door
+                  caps itself to it. At desktop the natural height (~535px
+                  worst case) fits and nothing scrolls; on a short or
+                  mobile viewport the door becomes its own scroll pane —
+                  the t824 mobile glance caught the worst case running
+                  69px past the fold (bottom 736 > 667) with the help text
+                  and the counter's band unreachable, even after the
+                  footer's two-band cure and the pull-list's cap. The
+                  inner lists keep their own caps; this is the last-resort
+                  pane for the screen that cannot host the whole door. */}
               <p className="px-1 pb-1 text-[11px] font-semibold">View bookmarks</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Save the exact camera pose — orbit, zoom and target — and fly back to it later.
@@ -6818,66 +6830,89 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 )}
               </div>
               {/* export / import — saved views are work product; move the
-                  whole setup between jobs, browsers or machines */}
-              <div className="mt-1.5 flex items-center gap-1 border-t pt-1.5">
-                <button
-                  type="button"
-                  onClick={exportBookmarks}
-                  aria-label="Export view bookmarks to a JSON file"
-                  title="Export — download these views as a JSON file"
-                  className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <Download className="size-3" />
-                  Export
-                </button>
-                <button
-                  type="button"
-                  onClick={() => importInputRef.current?.click()}
-                  aria-label="Import view bookmarks from JSON files"
-                  title="Import — merge views from one or more JSON files into this job"
-                  className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <Upload className="size-3" />
-                  Import
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleFromJob}
-                  aria-expanded={fromJobOpen}
-                  aria-label="Import view bookmarks from another job"
-                  title="From job — pull saved views straight from another job in this project"
-                  className={cn(
-                    "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                    fromJobOpen && "bg-muted text-foreground",
-                  )}
-                >
-                  <FolderOpen className="size-3" />
-                  From job
-                </button>
-                {/* t823 — the footer's glance detail: the file-ops group
-                    (Export / Import / From job) and the share gesture are
-                    different KINDS of mouth — a hairline divider lets the
-                    eye sort them before the hand does. */}
-                <span aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-border/70" />
+                  whole setup between jobs, browsers or machines. t827 — the
+                  footer is a TWO-BAND footer by construction: the file-ops
+                  trio (+ the t823 divider) form band one, the share mouth
+                  and the counter form band two; at the door's fixed w-64
+                  the two bands wrap (the seats' nowrap keeps every label
+                  whole — t824's worst-case read caught the counter clipped
+                  and "Copy view link" folded into three lines), and if the
+                  door ever grows the bands ride one row again. */}
+              <div className="mt-1.5 flex flex-wrap items-center gap-y-1 border-t pt-1.5">
+                <span className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={exportBookmarks}
+                    aria-label="Export view bookmarks to a JSON file"
+                    title="Export — download these views as a JSON file"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Download className="size-3" />
+                    Export
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => importInputRef.current?.click()}
+                    aria-label="Import view bookmarks from JSON files"
+                    title="Import — merge views from one or more JSON files into this job"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Upload className="size-3" />
+                    Import
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleFromJob}
+                    aria-expanded={fromJobOpen}
+                    aria-label="Import view bookmarks from another job"
+                    title="From job — pull saved views straight from another job in this project"
+                    className={cn(
+                      "flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                      fromJobOpen && "bg-muted text-foreground",
+                    )}
+                  >
+                    <FolderOpen className="size-3" />
+                    From job
+                  </button>
+                  {/* t823 — the footer's glance detail: the file-ops group
+                      (Export / Import / From job) and the share gesture are
+                      different KINDS of mouth — a hairline divider lets the
+                      eye sort them before the hand does. It rides band
+                      one's tail: at the wrap point it marks where the
+                      file-ops band ends, not where the share begins. */}
+                  <span aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-border/70" />
+                </span>
                 {/* t822 — the share door: the current pose rides inside the
                     URL itself, so a colleague opens the exact view with one
                     paste — no account, no bookmark row, no file to pass */}
-                <button
-                  type="button"
-                  onClick={() => void copyViewLink()}
-                  aria-label="Copy view link — share the current pose as a URL"
-                  title="Copy view link — anyone opening this URL lands on this exact pose & optics"
-                  className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <ClipboardCopy className="size-3" />
-                  Copy view link
-                </button>
-                <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground/60" aria-hidden="true">
-                  {bookmarks.length}/8
+                <span className="ml-auto flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => void copyViewLink()}
+                    aria-label="Copy view link — share the current pose as a URL"
+                    title="Copy view link — anyone opening this URL lands on this exact pose & optics"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <ClipboardCopy className="size-3" />
+                    Copy view link
+                  </button>
+                  <span className="font-mono text-[9px] tabular-nums text-muted-foreground/60" aria-hidden="true">
+                    {bookmarks.length}/8
+                  </span>
                 </span>
               </div>
               {fromJobOpen && (
-                <div className="mt-1 rounded-md border bg-muted/30 p-1" data-canvas-ui="from-job-list">
+                <div
+                  className="mt-1 max-h-40 overflow-y-auto rounded-md border bg-muted/30 p-1 pr-1.5 nice-scroll"
+                  data-canvas-ui="from-job-list"
+                >
+                  {/* t827 — the shelf's sibling gets the shelf's own cap:
+                      the main list scrolls at max-h-44, but this list grew
+                      rows uncapped — an 8-job project pushed the whole
+                      door past the viewport bottom (the help text and the
+                      counter's band were unreachable at BOTH widths). A
+                      capped, scrollable pull-list keeps the worst-case
+                      door inside the screen it opens on. */}
                   <p className="px-1 pb-1 text-[9px] font-medium leading-tight text-muted-foreground">
                     Pull views from another job in this project
                   </p>
