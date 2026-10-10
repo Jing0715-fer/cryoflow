@@ -1,0 +1,366 @@
+{
+  "instrument": "scripts/t866-star-table-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@c4c3735897dd",
+  "worldMode": "dev",
+  "date": "2026-10-10T17:21:38.093Z",
+  "chain": "clean room -> canvas -> extract card (plain door) -> Results tab (mousedown) -> STAR tables section -> star door -> star dialog (topmost) -> sort cycle -> Escape -> worldBack + seed hygiene (one command)",
+  "doors": {
+    "inspector": "plain pointerdown+pointerup on the extract card — the submitted law",
+    "resultsTab": "mousedown on the Results tab — the t863 Radix law",
+    "starDialog": "click the section's file door — the text IS the name",
+    "close": "Escape — the keymap seat's own teaching"
+  },
+  "host": {
+    "name": "Extract (tutorial)",
+    "id": "cmv2fdgob000en852rllij2qo",
+    "measured": true
+  },
+  "openingCanvas": 153,
+  "faces": {
+    "starDoor": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 182,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 1,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "Extract (tutorial) — job inspectorExtrac",
+        "dlgCount": 1,
+        "act": "in-dialog",
+        "actTab": "Results",
+        "shimmer": 0,
+        "starSection": true,
+        "starDoors": 2,
+        "starDoorNamed": true,
+        "starDoorRows": [
+          240,
+          96
+        ],
+        "starDesc": "5s",
+        "regionNamed": false,
+        "regionLabel": null,
+        "regionTabindex": null,
+        "sortCols": [],
+        "keymap": false
+      }
+    },
+    "starDialog": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 185,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 1,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "extract.star",
+        "dlgCount": 2,
+        "act": "in-dialog",
+        "actTab": null,
+        "shimmer": 0,
+        "starSection": true,
+        "starDoors": 2,
+        "starDoorNamed": true,
+        "starDoorRows": [
+          240,
+          96
+        ],
+        "starDesc": "extract.star",
+        "regionNamed": true,
+        "regionLabel": "Star table — the file's columns and rows, the head",
+        "regionTabindex": "0",
+        "sortCols": [
+          {
+            "n": "Image Name",
+            "s": null
+          },
+          {
+            "n": "Optics Group",
+            "s": null
+          }
+        ],
+        "keymap": true
+      },
+      "secondRide": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 185,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 1,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgHeadTop": "extract.star",
+        "dlgCount": 2,
+        "act": "in-dialog",
+        "actTab": null,
+        "shimmer": 0,
+        "starSection": true,
+        "starDoors": 2,
+        "starDoorNamed": true,
+        "starDoorRows": [
+          240,
+          96
+        ],
+        "starDesc": "extract.star",
+        "regionNamed": true,
+        "regionLabel": "Star table — the file's columns and rows, the head",
+        "regionTabindex": "0",
+        "sortCols": [
+          {
+            "n": "Image Name",
+            "s": null
+          },
+          {
+            "n": "Optics Group",
+            "s": null
+          }
+        ],
+        "keymap": true
+      },
+      "sortCycle": [
+        "ascending",
+        "descending",
+        null
+      ]
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgHeadTop": null,
+        "dlgCount": 0,
+        "act": "BODY",
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "starSection": false,
+        "starDoors": 0,
+        "starDoorNamed": true,
+        "starDoorRows": [],
+        "starDesc": null,
+        "regionNamed": false,
+        "regionLabel": null,
+        "regionTabindex": null,
+        "sortCols": [],
+        "keymap": false
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen=false"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "E1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E2 the inspector arrived (a dialog aboard)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "E3 the Results tab switched through the MOUSEDOWN door (the t863 Radix law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E4 the active tab speaks Results",
+      "pass": true,
+      "detail": "actTab=Results"
+    },
+    {
+      "label": "E5 the STAR tables section is present and named",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E6 the section hosts file doors, each named (the text IS the name: file + rows + size)",
+      "pass": true,
+      "detail": "doors=2 rows=[240,96]"
+    },
+    {
+      "label": "E7 zero unnamed page-wide WITH the inspector up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=182 ctrls=2"
+    },
+    {
+      "label": "S1 the first star door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S2 the dialog arrived as the TOPMOST layer (the t865 nested-portal lesson)",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "S3 the dialog's heading is the file label, read from the TOPMOST layer",
+      "pass": true,
+      "detail": "head=\"extract.star\""
+    },
+    {
+      "label": "S4 the region is named (the t812 grounded-verdict law's own label)",
+      "pass": true,
+      "detail": "label=\"Star table — the file's columns and rows, the head\""
+    },
+    {
+      "label": "S5 the region keeps its keyboard door (tabIndex 0 — the ground is focusable)",
+      "pass": true,
+      "detail": "tabindex=0"
+    },
+    {
+      "label": "S6 the sortable columns are aboard, each with a name",
+      "pass": true,
+      "detail": "cols=[\"Image Name\",\"Optics Group\"]"
+    },
+    {
+      "label": "S7 the t832 keymap seat is aboard (star-keymap — the family's one-key teaching)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S8 zero unnamed page-wide WITH the star dialog up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=185 ctrls=2"
+    },
+    {
+      "label": "S9 two settled rides bit-identical (the t836 law, the t860 settle)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C1 the first click sorts ascending",
+      "pass": true,
+      "detail": "aria-sort=ascending"
+    },
+    {
+      "label": "C2 the second click sorts descending",
+      "pass": true,
+      "detail": "aria-sort=descending"
+    },
+    {
+      "label": "C3 the third click returns to the file's native order (aria-sort undefined)",
+      "pass": true,
+      "detail": "aria-sort=null"
+    },
+    {
+      "label": "C4 the cycle left zero unnamed behind (the census's invariant on the sorted table)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S10 Escape closed the star dialog (the keymap seat's own teaching, delivered)",
+      "pass": true,
+      "detail": "dlgCount 2 -> 1"
+    },
+    {
+      "label": "S11 the inspector remains, zero unnamed (the census's invariant after the close)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "L starDoor face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [actTab]"
+    },
+    {
+      "label": "L starDialog face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [actTab]"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 29,
+  "failed": 0,
+  "total": 29,
+  "verdict": "the STAR table's page holds: the clean room held (the panel-closed boot — the t866 law), the extract inspector's Results tab hosts the STAR tables section with 2 named file doors, the dialog arrived as the TOPMOST layer with the file's label, the region named with its keyboard door (tabIndex 0), 2 sortable columns rode the aria-sort machine ascending -> descending -> native, the t832 keymap seat taught its one key, zero unnamed on every face, two settled rides bit-identical, the world back bit-for-bit (153 == 153), and the ride left no session seed — the ledger aboard from birth (three faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@c4c3735897dd",
+    "prevDate": "2026-10-10T17:20:48.471Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "starDoor": {
+        "prev": 182,
+        "live": 182,
+        "drift": 0,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "actTab"
+          ],
+          "world": []
+        }
+      },
+      "starDialog": {
+        "prev": 185,
+        "live": 185,
+        "drift": 0,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "actTab"
+          ],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

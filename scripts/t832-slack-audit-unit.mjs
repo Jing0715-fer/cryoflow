@@ -822,8 +822,8 @@ if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
 }
 
 // A4e-28 — the t862 LEDGER-FAMILY AMENDMENT (the thirteenth seat): the
-// fleet unit now reads EVERY carrier's driftLedger block — one law, TEN
-// instruments, thirty-nine faces — and demands the arm STRUCTURE on each,
+// fleet unit now reads EVERY carrier's driftLedger block — one law, ELEVEN
+// instruments, forty-two faces — and demands the arm STRUCTURE on each,
 // jurisdiction-aware. A4e-27 witnesses t846's five faces; this seat
 // witnesses the whole propagation (t861 + t862's birth): t834's six bands,
 // t837's wordmark + chip (the receipt rides its key inside
@@ -832,8 +832,10 @@ if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
 // t861's census trio (born with the ledger aboard), t862's overlay trio
 // (also born with it — the propagation is now the family's birthright),
 // t863's panel trio (the birthright COMPLETED in t864 — t863's window rode
-// 66/66 but never grew the table), and t864's report+diff trio (born into
-// the table the window it was born).
+// 66/66 but never grew the table), t864's report+diff trio (born into
+// the table the window it was born), t865's eight faces (the results
+// family's birth window), and t866's star-table trio (born t866 — the
+// birthright now simply the family's shape).
 // The demand is STRUCTURE, not numbers: prevFound/sameBuild recorded, the
 // law string aboard, every face carrying prev/live/drift/identical
 // (numeric when a predecessor spoke, the null arm-1 shape when it
@@ -851,6 +853,7 @@ const LEDGER_FAMILY = [
   ["t863 job-panel-a11y", "shots-qa/t863-job-panel-a11y.json", (r) => r.build, ["panel", "params", "worldBack"]],
   ["t864 report-diff-a11y", "shots-qa/t864-report-diff-a11y.json", (r) => r.build, ["report", "paramsdiff", "worldBack"]],
   ["t865 results-a11y", "shots-qa/t865-results-a11y.json", (r) => r.build, ["doors", "fscCompare", "verdict", "funnel", "arc", "convergence", "abGuard", "worldBack"]],
+  ["t866 star-table-a11y", "shots-qa/t866-star-table-a11y.json", (r) => r.build, ["starDoor", "starDialog", "worldBack"]],
 ];
 const faceShape = (f, prevFound) =>
   f && typeof f === "object" && "prev" in f && "live" in f && "drift" in f && "identical" in f &&
@@ -879,8 +882,8 @@ const familyGreen = LEDGER_FAMILY.every(([label, rel, keyOf, names]) => {
   return !!(DL && facesOk && lawOk && keyOk && (!arm3Bites || allBit));
 });
 ok(
-  familyGreen && familyFaces === 39,
-  `A4e-28 the ledger-family amendment is aboard (one law, ten carriers, ${familyFaces}/39 faces, structure + jurisdiction demanded everywhere): ${familyDetail.join("; ")} — A4e-27's single-instrument witness grew into the family's standing regression net, the arm structure the unit's own demand, the receipts the comparators; t863's trio joined late (the birthright completed) and t864's trio joined at birth; t865's EIGHT faces joined the window the results family was born (the birthright practiced at the widest table yet)`
+  familyGreen && familyFaces === 42,
+  `A4e-28 the ledger-family amendment is aboard (one law, eleven carriers, ${familyFaces}/42 faces, structure + jurisdiction demanded everywhere): ${familyDetail.join("; ")} — A4e-27's single-instrument witness grew into the family's standing regression net, the arm structure the unit's own demand, the receipts the comparators; t863's trio joined late (the birthright completed) and t864's trio joined at birth; t865's EIGHT faces joined the window the results family was born (the birthright practiced at the widest table yet); t866's trio joined the window the star table's page was born — the birthright now simply the family's shape`
 );
 
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,

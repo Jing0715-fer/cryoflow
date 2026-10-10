@@ -328,3 +328,62 @@ LIVE receipts — where the vocabulary's first real sentence was spoken: the
 ctffind porch's face rode `identical false — lens [act] world [pageBtns]`,
 one word per field). The drift-ledger self-test grew 10 → 16 with the
 vocabulary's own branches.
+
+## The star table's page (t866) — the clean room, the sort machine, and the lens-only sentence
+
+The rotation's next un-walked room: the results family's own STAR tables —
+the section (one door per `.star` output, the door's text IS its name:
+file + rows + size) and the dialog behind it (a nested portal above the
+inspector, so the t865 topmost-layer lesson applies at birth). The walk
+(`scripts/t866-star-table-a11y.mjs`, 29/29 after three rides): the clean
+room (below), the extract inspector through the plain door, the Results
+tab through the MOUSEDOWN door, the section present and named (2 doors,
+240 + 96 rows, measured never pinned), the dialog's heading read from the
+TOPMOST layer, the region named with its keyboard door (tabIndex 0 — the
+t812 grounded-verdict law), the sortable columns aboard with names, the
+t832 keymap seat (`star-keymap`) teaching its one key, and the aria-sort
+STATE MACHINE walked live: ascending -> descending -> the file's native
+order (three clicks, the sort never pinned). Zero unnamed on every face;
+two settled rides bit-identical; the world back bit-for-bit; the seed
+hygiene (W2) rides every page now. The birth's reds, all the
+instrument's own lens plus the world's own weight: the first ride filmed
+an OOM corpse (next-server killed at 2.2GB mid-walk — the fifth ride of
+that pattern; the watchdog booted clean; the re-ride reproduced the
+settled truth), one selector spoke a syntax error through the shell's
+quote-nesting (the measure grew the escaped-single-quote form), and the
+tab probe read the CANVAS's active tab through the nested portal until
+the query learned to scope to the topmost dialog.
+
+## The clean-room law (t866) — the session seed made the boot state ride-dependent
+
+The window's bug, born red and taught: t864's pair-toggle face went red
+TWO rides in a row on a world whose src was bit-identical (the same dev
+key). The root cause: Task 157's session-position seed
+(`cryoflow.selectedJob.v1`) is echoed on EVERY selection transition — and
+the load hydration puts the seeded job INTO the multi-selection
+(`store.ts:2410` sets `selectedIds: [seedJob.id]`). A seed left by an
+earlier ride therefore (a) re-opens the side panel at boot (+12 controls
+— the canvas count 153 becomes 165) and (b) boots a one-card selection,
+which flips the pair toggle's SECOND click from JOIN to REMOVE — the
+compare toolbar never forms. The rides themselves were the seed-writers:
+a red ride's un-mutation toggles acted as first-time JOINS, and the
+join's echo persisted the seed. The fix, instrument-side (the world's
+own design is defensible — the restored ring is visible, the shift-click
+joins it consistently): Face 0 of every page CLEARS the seed, reloads,
+and demands the panel-closed boot (O0); the pair face gained the
+one-retry law; the world-back gained W2 — the ride leaves NO session
+seed behind. The t864 instrument grew 22 -> 24 checks; the t866 page was
+born with the law aboard. The family's lesson: the instrument owns its
+measurement conditions (as it owns the viewport and the settle) — the
+world's session position is the user's, not the film's.
+
+## The lens-only sentence (t866) — the vocabulary's quietest form
+
+The star table's second ride spoke the vocabulary's first LENS-ONLY
+sentence on a live receipt: `identical false — lens [actTab] world []`
+— the actTab probe's scope moved (page-wide tab query -> topmost-dialog
+query), so the measured STRING changed while the world's drift stayed
++0. The ruler grew richer; the world never moved; the receipt says
+exactly that, one word per field. The fleet's regression net (A4e-28)
+grew to ELEVEN carriers / 42 faces the window the page was born — the
+birthright now simply the family's shape.
