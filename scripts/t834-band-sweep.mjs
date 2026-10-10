@@ -15,7 +15,16 @@
  *   - the left cluster (header child 0): its width AND each child's
  *     width (brand icon / wordmark / ViewSwitcher / middle tier) —
  *     the child-level truth the left-cluster closed form closes against;
- *   - the actions cluster (header child 1): width + visible seat count;
+ *   - the actions cluster (header child 1): width, visible seat count,
+ *     AND each seat's own width (the t835 symmetric completion — the
+ *     left got per-child anatomy, the right rides the same ruler);
+ *   - the middle tier's internals at xl/2xl (midKids: the two triggers,
+ *     the 2000px counters, the 2xl lens chip) and the PROJECT TRIGGER'S
+ *     FLOOR BEHAVIOR — at the exact xl boundary the trigger rides its
+ *     130px min-width floor while its wrapper yields below it, and the
+ *     overflow PAINTS 2.7px into the RELION chip's box (the t510
+ *     residue, filmed and pinned in section D — the fix window's
+ *     ratchet: land the fix, move the pin);
  *   - horizontal overflow (scrollWidth vs innerWidth).
  *
  * The receipt lands in shots-qa/t834-band-sweep.json (provenance: BUILD_ID
@@ -70,7 +79,7 @@ console.log(`t834 band sweep — build ${buildId}, six bands, one command\n`);
 /* the measure: child-level truth, one eval per band — single line, the
  * shell hands it to agent-browser verbatim (multi-line evals break) */
 const MEASURE =
-  "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'header not found' }); const left = hdr.children[0]; const right = hdr.children[1]; const kid = (c) => Math.round(c.getBoundingClientRect().width * 10) / 10; const kids = [...left.children].map((c) => ({ cls: (c.className || '').slice(0, 60), w: kid(c) })); const vis = kids.filter((k) => k.w > 0); const seats = [...right.children].filter((c) => c.getBoundingClientRect().width > 0).length; return JSON.stringify({ leftW: Math.round(left.getBoundingClientRect().width * 10) / 10, rightW: Math.round(right.getBoundingClientRect().width * 10) / 10, seats, kids, vis, innerW: window.innerWidth, scrollW: document.documentElement.scrollWidth }); })()";
+  "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'header not found' }); const left = hdr.children[0]; const right = hdr.children[1]; const kid = (c) => Math.round(c.getBoundingClientRect().width * 10) / 10; const kids = [...left.children].map((c) => ({ cls: (c.className || '').slice(0, 60), w: kid(c) })); const vis = kids.filter((k) => k.w > 0); const rk = [...right.children].map((c) => ({ lbl: c.getAttribute('aria-label') || (c.className || '').slice(0, 30), w: kid(c) })); const rVis = rk.filter((k) => k.w > 0); const mid = left.children[3]; let midKids = null; let ps = null; if (mid && mid.getBoundingClientRect().width > 0) { midKids = [...mid.children].map((c) => ({ lbl: c.getAttribute('aria-label') || (c.className || '').slice(0, 30), w: kid(c) })); const psWrap = mid.children[1]; const psTrig = psWrap ? psWrap.querySelector('button, [role=combobox]') : null; const chip = right.children[0]; if (psTrig && chip && chip.getBoundingClientRect().width > 0) { const tr = psTrig.getBoundingClientRect(); const cr = chip.getBoundingClientRect(); ps = { trigW: Math.round(tr.width * 10) / 10, wrapW: Math.round(psWrap.getBoundingClientRect().width * 10) / 10, overlap: Math.round((tr.right - cr.left) * 10) / 10 }; } } const seats = rVis.length; return JSON.stringify({ leftW: Math.round(left.getBoundingClientRect().width * 10) / 10, rightW: Math.round(right.getBoundingClientRect().width * 10) / 10, seats, kids, vis, rightKids: rVis, midKids, ps, innerW: window.innerWidth, scrollW: document.documentElement.scrollWidth }); })()";
 
 const rows = {};
 for (const band of BANDS) {
@@ -144,6 +153,69 @@ if (rows[1280] && rows[1280].vis[2]) {
     rows[1280].vis[2].w === 200.2,
     `1280 the ViewSwitcher at its label floor (min-content, no min-w-0) is 200.2px — got ${rows[1280].vis[2].w}`
   );
+}
+
+/* ---------- C — the right cluster's anatomy (the t835 symmetric completion) ---------- */
+console.log("\nC — the right cluster's child-level anatomy (the same ruler the left got)");
+// The cluster's own closed form, live at the CHILD level: the visible
+// seats' widths + one gap-1.5 (6px) per seam must reassemble the
+// cluster's measured width at EVERY band — the inventory that A1 of the
+// t832 probe parses from source, here weighed seat by seat.
+let selfCloseOk = true;
+const selfCloseReport = [];
+for (const band of BANDS) {
+  const m = rows[band];
+  if (!m || !m.rightKids) continue;
+  const sum = m.rightKids.reduce((a, k) => a + k.w, 0) + 6 * (m.rightKids.length - 1);
+  const delta = Math.round((sum - m.rightW) * 10) / 10;
+  if (Math.abs(delta) > 0.5) selfCloseOk = false;
+  selfCloseReport.push(`${band}:Σ${Math.round(sum * 10) / 10}`);
+}
+ok(selfCloseOk, `C1 the seats + gaps reassemble the cluster at every band (${selfCloseReport.join(" ")})`);
+if (rows[375]) {
+  ok(rows[375].seats === 6, `C2 375 shows six seats (the t828 tier law's narrow band) — got ${rows[375].seats}`);
+  const palette = rows[375].rightKids.find((k) => k.lbl.includes("palette"));
+  ok(palette && palette.w === 26, `C3 375 the palette rides its icon-only 26px — got ${palette && palette.w}`);
+}
+if (rows[1280]) {
+  ok(rows[1280].seats === 12, `C4 1280 shows the full dozen — got ${rows[1280].seats}`);
+  const chip = rows[1280].rightKids.find((k) => k.lbl.includes("xl:block"));
+  ok(chip && close(chip.w, 162.3), `C5 1280 the RELION chip weighs 162.3px — got ${chip && chip.w}`);
+  const palette = rows[1280].rightKids.find((k) => k.lbl.includes("palette"));
+  ok(palette && palette.w === 40, `C6 1280 the palette rides its labeled 40px — got ${palette && palette.w}`);
+  const icons = rows[1280].rightKids.filter((k) => k.w === 36).length;
+  ok(icons === 10, `C7 1280 the ten icon seats weigh 36px each — got ${icons}`);
+}
+
+/* ---------- D — the middle tier's internals and the t510 residue ---------- */
+console.log("\nD — the middle tier's internals (the t510 squeeze, filmed live)");
+// The middle tier (hidden xl:flex) hosts the two triggers, the 2000px
+// counters and the 2xl lens chip. At the exact xl boundary the row's
+// squeeze reaches the project trigger's min-width floor: the trigger
+// holds 130px while its wrapper yields below it, and the overflow
+// PAINTS into the RELION chip's box — 2.7px at 1280, clear by ~1290.
+// This pin is the RESIDUE the t510 re-cut left (its "626 ≤ 650" budget
+// predated the right cluster's growth: the budget at 1280 is 608 today,
+// the natural row 746 — the squeeze engages, the sliver follows). The
+// fix window lands the fix and MOVES THIS PIN (≤ 0), red until then.
+if (rows[1280] && rows[1280].midKids) {
+  const mkVis = rows[1280].midKids.filter((k) => k.w > 0).length;
+  ok(mkVis === 2, `D1 1280 the middle tier shows two children (triggers only; counters wait for 2000px, the chip for 2xl) — got ${mkVis}`);
+  const ps = rows[1280].ps;
+  ok(ps && ps.trigW === 130, `D2 1280 the project trigger rides its 130px name-worthy floor — got ${ps && ps.trigW}`);
+  ok(ps && ps.wrapW < 130, `D3 1280 its wrapper yields below the floor (${ps && ps.wrapW}px, the min-w-0 shock absorber)`);
+  ok(ps && ps.overlap === 2.7, `D4 1280 THE T510 RESIDUE: the trigger paints ${ps && ps.overlap}px into the RELION chip's box (pinned; the fix window moves this to ≤ 0)`);
+} else {
+  fail++;
+  console.log("  ✗ D* 1280 the middle tier witness is missing (midKids null) — the instrument cannot see the squeeze");
+}
+if (rows[1536] && rows[1536].midKids) {
+  const mkVis = rows[1536].midKids.filter((k) => k.w > 0).length;
+  ok(mkVis === 3, `D5 1536 the lens chip is aboard (hidden 2xl:flex, the t510 yield-first law live) — got ${mkVis}`);
+  const chipKid = rows[1536].midKids.find((k) => k.lbl.includes("Spotlight"));
+  ok(chipKid && close(chipKid.w, 90.3), `D6 1536 the chip weighs 90.3px — got ${chipKid && chipKid.w}`);
+  const ps = rows[1536].ps;
+  ok(ps && ps.trigW <= ps.wrapW + 0.5, `D7 1536 no trigger overflow (trigger ${ps && ps.trigW} ≤ wrapper ${ps && ps.wrapW} — the floor sleeps above 2xl)`);
 }
 
 /* ---------- the receipt ---------- */

@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t834-band-sweep.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T07:23:08.920Z",
+  "date": "2026-10-10T07:40:05.910Z",
   "bands": {
     "375": {
       "leftW": 68,
@@ -31,6 +31,34 @@
           "w": 68
         }
       ],
+      "rightKids": [
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 26
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        }
+      ],
+      "midKids": null,
+      "ps": null,
       "innerW": 375,
       "scrollW": 375
     },
@@ -66,6 +94,42 @@
           "w": 68
         }
       ],
+      "rightKids": [
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        }
+      ],
+      "midKids": null,
+      "ps": null,
       "innerW": 640,
       "scrollW": 640
     },
@@ -105,6 +169,54 @@
           "w": 68
         }
       ],
+      "rightKids": [
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "System diagnostics",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Print this view",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        },
+        {
+          "lbl": "CryoFlow on GitHub (opens in a new tab)",
+          "w": 36
+        }
+      ],
+      "midKids": null,
+      "ps": null,
       "innerW": 768,
       "scrollW": 768
     },
@@ -144,6 +256,54 @@
           "w": 68
         }
       ],
+      "rightKids": [
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "System diagnostics",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Print this view",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        },
+        {
+          "lbl": "CryoFlow on GitHub (opens in a new tab)",
+          "w": 36
+        }
+      ],
+      "midKids": null,
+      "ps": null,
       "innerW": 1024,
       "scrollW": 1024
     },
@@ -187,6 +347,79 @@
           "w": 240.3
         }
       ],
+      "rightKids": [
+        {
+          "lbl": "hidden xl:block",
+          "w": 162.3
+        },
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "System diagnostics",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Print this view",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        },
+        {
+          "lbl": "CryoFlow on GitHub (opens in a new tab)",
+          "w": 36
+        }
+      ],
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 116.9
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 115.3
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "ps": {
+        "trigW": 130,
+        "wrapW": 115.3,
+        "overlap": 2.7
+      },
       "innerW": 1280,
       "scrollW": 1280
     },
@@ -230,6 +463,79 @@
           "w": 462.1
         }
       ],
+      "rightKids": [
+        {
+          "lbl": "hidden xl:block",
+          "w": 162.3
+        },
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "System diagnostics",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Print this view",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        },
+        {
+          "lbl": "CryoFlow on GitHub (opens in a new tab)",
+          "w": 36
+        }
+      ],
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 150.9
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 205
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      ],
+      "ps": {
+        "trigW": 205,
+        "wrapW": 205,
+        "overlap": -110.3
+      },
       "innerW": 1536,
       "scrollW": 1536
     }
