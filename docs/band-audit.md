@@ -167,10 +167,10 @@ comparison.
   command; receipt `shots-qa/t834-band-sweep.json` with the raw subpixels,
   per-seat anatomy, and the zone table.
 - `node scripts/t832-slack-audit-unit.mjs` — the source half: the inventory
-  parsed, the tiers computed, the closed forms (49 assertions, rides the
+  parsed, the tiers computed, the closed forms (50 assertions, rides the
   fleet; A4e-5..8 close the t837/t838 receipt against the pins, A4e-9..10
   close the t839 rehearsal receipt against the pricing, A4e-11 closes the
-  t840 decision table).
+  t840 decision table, A4e-12 closes the t842 family audit).
 - `node scripts/t837-wordmark-probe.mjs` — the constants' derivation:
   canvas advances under the elements' own computed fonts (two rides per
   section, bit-identical before the pins; sections W = the wordmark and
@@ -194,6 +194,20 @@ comparison.
   `shots-qa/t840-options-rehearsal.json`). The t836 arithmetic pricing
   is an experiment now — the build day's choice is closed by
   measurement, not by memory.
+- `node scripts/t842-family-audit.mjs` — the family audit: one arithmetic,
+  three instruments. A pure file pass over the three rehearsal-family
+  receipts (t839's proof, t840's decision table, the sweep's live rows)
+  asserting they tell the same story about the same 2.7px: the BEFORE
+  quartet agrees at 1280, the AFTER pair agrees with the geometry unmoved
+  and the TRIGGER gone (the ratchet — delta(geometry)=0, flip(stack)=1 —
+  filmed twice by two independent harnesses), the clone's edges equal the
+  live edges (1286 = 0.3, 1287 = -0.1), the t836 law rides all seven
+  painted rows, the decision table's rows relate as filmed (B138 no-op at
+  the squeezed 101.3, B88 clears and steepens to -0.55, C backfires +8.7),
+  and all three receipts speak the standing build (24 assertions; receipt
+  `shots-qa/t842-family-audit.json`). When the fix lands, all three
+  instruments flip together — this receipt is the pre-flip family portrait
+  the post-fix world is compared against.
 - The handshake is the audit: source counts drift from rendered truth, and
   measured widths rot without a contract — neither half alone is honest.
   When the two instruments produce the same numbers, the header's band
