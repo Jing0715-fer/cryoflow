@@ -123,8 +123,9 @@ ok(
   "C3 the axis buttons name their keys"
 );
 ok(
-  /Keys while the viewer is open: \[ \] step the contour, F flips the density side,/.test(m),
-  "C4 the bookmark door's help line carries the keymap"
+  /data-canvas-ui="door-keymap"/.test(m) && /<Kbd>\[\]<\/Kbd>|<Kbd>\[<\/Kbd>/.test(m) &&
+    /While the viewer is open:/.test(m),
+  "C4 the bookmark door's keymap carries the family (t830 re-cut: prose grew kbd chips — the scope lead-in kept)"
 );
 
 console.log("D — the max-w classes canonical (the t828 erratum, byte-exact)");
