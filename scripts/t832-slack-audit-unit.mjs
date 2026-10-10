@@ -46,6 +46,12 @@
  * fonts, two bit-identical rides; A4e-5..7 close the receipt against
  * the pins). The audit's last open constant is closed.
  *
+ * t838 amendment — the lens chip's 90 joins (A4e-8): the BOX derivation
+ * (chrome 34 + icon 14 + the tabular count's advance + "noted"'s
+ * advance) at the chip's own 2xl band — the pinned-width family is
+ * COMPLETE: every width in the closed form is now source arithmetic,
+ * source-parsed chrome, or a derived text constant.
+ *
  * The family's last seats (this window's feature): the star table and
  * the text preview dialogs join the keymap family — one quiet Esc line
  * each, the must-not-lie law's fourth application (they have exactly
@@ -217,8 +223,12 @@ ok(/hidden h-8 items-center gap-1\.5 rounded-lg border px-2\.5[^"]*2xl:flex/.tes
 // shots-qa/t837-wordmark-probe.json on build KtPKuXIbtB9d7uhItOOUS:
 // the wordmark = max of its two lines' advances, line 2 "Cryo-EM
 // Workflow Builder" at 11px carries it, 142.46 live vs rect 142.47;
-// the labels sum 120.2). The lens chip 90 stays a pinned variable with
-// provenance (the t834 live sweep, receipt shots-qa/t834-band-sweep.json).
+// the labels sum 120.2). The lens chip 90 joins them (the t838 box
+// derivation, the probe's section C at 1536: chrome 34 — border 2 +
+// px-2.5 20 + gap-1.5 6×2 — + icon 14 + the tabular count's advance
+// (its own live rect, variant-honest) + "noted"'s canvas advance;
+// the fresh-load count is recorded so a future count explains its own
+// drift). The pinned-width family is COMPLETE.
 const L = {
   icon: 36, gap: 10, midGap: 8,
   wm: 142, labels: 120, chip: 90,
@@ -277,6 +287,11 @@ if (wmReceipt && Array.isArray(wmReceipt.runs) && wmReceipt.runs[0]) {
   ok(
     Math.abs(r0.labelsSum - L.labels) <= 0.5,
     `A4e-7 the labels' ${L.labels} is DERIVED (probe sum: ${r0.labelsSum})`
+  );
+  const c0 = wmReceipt.chip && Array.isArray(wmReceipt.chip.runs) ? wmReceipt.chip.runs[0] : null;
+  ok(
+    !!c0 && wmReceipt.chip.bitIdentical === true && Math.abs(Math.round(c0.derived) - L.chip) <= 0.5 && Math.abs(c0.derived - c0.rect) <= 0.5,
+    `A4e-8 the lens chip's ${L.chip} is DERIVED (probe section C: box ${c0 ? c0.derived : "n/a"} vs rect ${c0 ? c0.rect : "n/a"} — chrome ${c0 ? c0.chrome : "n/a"} + icon ${c0 ? c0.iconW : "n/a"} + count "${c0 ? c0.count : "n/a"}" ${c0 ? c0.numRect : "n/a"} + noted ${c0 ? c0.notedCanvas : "n/a"} — the family complete)`
   );
 }
 

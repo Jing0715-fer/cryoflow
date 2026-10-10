@@ -1,9 +1,9 @@
 {
   "provenance": {
     "buildId": "KtPKuXIbtB9d7uhItOOUS",
-    "viewport": "1024x800 (the A4e-3 natural band)",
-    "instrument": "canvas measureText under the elements' own computed fonts, letter-spacing applied (two models), max-of-lines for the box",
-    "date": "2026-10-10T08:06:55.286Z"
+    "viewport": "1024x800 (the A4e-3 natural band); the chip at 1536x800 (2xl)",
+    "instrument": "canvas measureText under the elements' own computed fonts, letter-spacing applied (two models), max-of-lines for the wordmark box, chrome+icon+advances for the chip box; the tabular count's advance from its own live rect",
+    "date": "2026-10-10T08:17:10.889Z"
   },
   "bitIdentical": true,
   "runs": [
@@ -84,5 +84,44 @@
       "innerW": 1024
     }
   ],
+  "chip": {
+    "bitIdentical": true,
+    "runs": [
+      {
+        "rect": 90.3,
+        "cls": "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex border-border bg-card hover:bg-secondary/60 op",
+        "visible": true,
+        "bw": "1px",
+        "pl": "10px",
+        "gap": "6px",
+        "kidCount": 3,
+        "iconW": 14,
+        "count": "0",
+        "numRect": 7.64,
+        "numCanvas": 7.63,
+        "notedRect": 34.66,
+        "notedCanvas": 34.65,
+        "chrome": 34,
+        "derived": 90.29
+      },
+      {
+        "rect": 90.3,
+        "cls": "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex border-border bg-card hover:bg-secondary/60 op",
+        "visible": true,
+        "bw": "1px",
+        "pl": "10px",
+        "gap": "6px",
+        "kidCount": 3,
+        "iconW": 14,
+        "count": "0",
+        "numRect": 7.64,
+        "numCanvas": 7.63,
+        "notedRect": 34.66,
+        "notedCanvas": 34.65,
+        "chrome": 34,
+        "derived": 90.29
+      }
+    ]
+  },
   "verdict": "green"
 }
