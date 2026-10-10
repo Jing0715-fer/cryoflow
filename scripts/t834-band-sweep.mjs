@@ -411,6 +411,73 @@ ok(
   `G8 the wordmark's far form is TIER-SHAPED: 126.8 / 142.5 / 135.4 / 142.5 — the natural 142.5 recurs at 1440/1920, the squeeze never returns, no slope claim (pinned per width)`
 );
 
+/* ---------- H — the below zone (the t853 growth): the band layer's first
+ * walk BELOW xl — 768/900/1024, both layers (the sweep's own MEASURE +
+ * the zone-form walk), plus the below squeeze's EDGE ride (767-772).
+ * The probe (scripts/t853-below-zone-probe.mjs) rode the widths first;
+ * the pins carry the measured values. The discovery: the wordmark is
+ * BORN SQUEEZED at md — the row needs 738.5 vs available 736 at 768 and
+ * the min-w-0 wordmark pays the whole 2.5 (A4e-2's live form), and the
+ * squeeze is a ZONE: linear at slope −1.0/px, [768, 770], clear by 771. ---------- */
+const WM_BOX =
+  "(() => { const hdr = document.querySelector('header'); const left = hdr.children[0]; const wm = left.querySelector('div.min-w-0.leading-tight'); if (!wm) return JSON.stringify({ wm: null, leftW: Math.round(left.getBoundingClientRect().width * 10) / 10 }); return JSON.stringify({ wm: Math.round(wm.getBoundingClientRect().width * 10) / 10, leftW: Math.round(left.getBoundingClientRect().width * 10) / 10 }); })()";
+console.log("\nH — the below zone (below xl: 768/900/1024 + the edge ride, the t853 growth)");
+const BELOW_W = [768, 900, 1024];
+const belowRows = {};
+const belowZone = {};
+for (const w of BELOW_W) {
+  ab(`set viewport ${w} ${HEIGHT}`);
+  ab("wait 350");
+  belowRows[w] = evalJson(MEASURE);
+  belowZone[w] = evalJson(FAR_ZONE);
+}
+const EDGE_W = [767, 769, 770, 771, 772];
+const edge = {};
+for (const w of EDGE_W) {
+  ab(`set viewport ${w} ${HEIGHT}`);
+  ab("wait 300");
+  edge[w] = evalJson(WM_BOX);
+}
+ab("set viewport 1280 800");
+
+ok(
+  BELOW_W.every((w) => belowRows[w].midKids === null && belowRows[w].ps === null) &&
+    BELOW_W.every((w) => belowZone[w] && belowZone[w].mid === false),
+  `H1 the mid row SLEEPS below xl at every named tier (768/900/1024): midKids null, ps null, the zone-form walk short-circuits (mid:false x3) — the twin has no counterpart below the zone, the identity vacuously at rest (E1's 1279 point now a cross-section)`
+);
+ok(
+  BELOW_W.every((w) => belowZone[w].overlap === undefined && belowZone[w].trigW === undefined),
+  `H2 the t510 residue has NO below-form: the zone walk returns no trigW/wrapW/overlap/paint below xl — the paint exists only where the floor binds (G7's below mirror)`
+);
+ok(
+  belowRows[1024].vis.length === 3 && belowRows[1024].vis[0].w === 36 &&
+    belowRows[1024].vis[1].w === 142.5 && belowRows[1024].vis[2].w === 68 &&
+    belowRows[1024].leftW === 266.5,
+  `H3 the below trio's child anatomy at 1024: icon 36 + wordmark 142.5 + switcher 68 = 266.5 natural (the B block's counts gain their weights; A4e-3's honest 142 re-proven live at 0.1px)`
+);
+ok(
+  BELOW_W.every((w) => belowRows[w].rightW === 460 && belowRows[w].seats === 11) &&
+    BELOW_W.every((w) => {
+      const sum = belowRows[w].rightKids.reduce((a, k) => a + k.w, 0) + 6 * (belowRows[w].rightKids.length - 1);
+      return Math.abs(sum - 460) <= 0.5;
+    }),
+  `H4 the right cluster's below plateau: rightW 460 and seats 11 at ALL THREE tiers, the closed form re-anchored below xl (36+40+36x9 + 10 gaps x6 = 460) — the plateau the C block knew per-band, now a cross-band fact`
+);
+ok(
+  belowRows[768].vis[1].w === 140 && belowRows[768].leftW === 264,
+  `H5 the wordmark is BORN SQUEEZED at md: the box is 140 (not the natural 142.5) and the row is 264 — needs 266.5+460+12 = 738.5 vs available 736, the 2.5 falls ENTIRELY on the min-w-0 wordmark (A4e-2's live form: the unit's integer 266>264 refined to 0.1px); the natural is not hypothetical — 900/1024 ride it live`
+);
+ok(
+  edge[767].wm === 0 && edge[769].wm === 141 && edge[770].wm === 142 &&
+    edge[771].wm === 142.5 && edge[772].wm === 142.5,
+  `H6 the below squeeze's EDGE: 767 asleep (wm 0, the wordmark not yet born), 769 pays 1.5 (141), 770 pays 0.5 (142), 771 CLEAR (142.5) — squeeze(W) = 770.5 − W exactly, zone [768, 770], clear by 771, slope −1.0/px: the wordmark is the row's ONLY yielder below xl and absorbs every pixel (vs the 1280 zone's −0.4, where the row's other yielders take 0.6)`
+);
+ok(
+  belowRows[900].vis[1].w === 142.5 && belowRows[900].leftW === 266.5 &&
+    belowRows[1024].vis[1].w === 142.5 && belowRows[1024].leftW === 266.5,
+  `H7 the interior is at rest: 900 rides the SAME natural form as 1024 (266.5 / 142.5) — the squeeze is 768-LOCAL, the below mirror of G7's 1280-locality`
+);
+
 /* ---------- the receipt ---------- */
 const receipt = {
   instrument: "scripts/t834-band-sweep.mjs",
@@ -419,6 +486,7 @@ const receipt = {
   bands: rows,
   zone: { widths: ZW, rows: zone, law: "overlap(W) = 2.7 − 0.4×(W−1280)", edge: { lastPaint: 1286, firstClear: 1287 } },
   farEdge: { widths: FAR_W, rows: farRows, zone: farZone, law: "the far edge (t852): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor sleeps (trigW == wrapW exactly), the right cluster never moves (rightW 628.3, seats 12), the chip is width-free above 2xl (90.3), and the residue is 1280-local (the paint witness rides the trigger's own box)" },
+  belowZone: { widths: BELOW_W, rows: belowRows, zone: belowZone, edge, law: "the below zone (t853): the mid row sleeps below xl at every named tier (the twin vacuously at rest, E1's 1279 point now a cross-section) and the residue has no below-form; the wordmark is BORN SQUEEZED at md — the row needs 738.5 vs available 736 at 768 and the min-w-0 wordmark pays the whole 2.5 (A4e-2's live form) — in a LINEAR zone: squeeze(W) = 770.5 − W, slope −1.0/px (the row's only yielder absorbs every pixel), [768, 770], clear by 771; the interior (900/1024) rides the natural 266.5/142.5 — the squeeze is 768-local" },
   pinned: PINNED,
 };
 const out = join(ROOT, "shots-qa/t834-band-sweep.json");

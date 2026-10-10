@@ -649,6 +649,34 @@ if (feReceipt && feReceipt.farEdge && feReceipt.farEdge.rows) {
   );
 }
 
+// A4e-23 — the t853 BELOW ZONE: the band layer's first ride BELOW xl
+// (t834's belowZone: 768/900/1024 + the edge ride 767-772, H1-H7). The
+// mid row sleeps at every below tier (the twin vacuously at rest —
+// E1's 1279 point now a cross-section) and the residue has no
+// below-form; the wordmark is BORN SQUEEZED at md — the row needs
+// 738.5 vs available 736 at 768 and the min-w-0 wordmark pays the
+// whole 2.5 (A4e-2's live form, refined to 0.1px) — in a LINEAR zone:
+// squeeze(W) = 770.5 − W, slope −1.0/px (the row's only yielder below
+// xl absorbs every pixel), [768, 770], clear by 771; the interior
+// (900/1024) rides the natural 266.5/142.5 — the squeeze is 768-local.
+if (feReceipt && feReceipt.belowZone && feReceipt.belowZone.rows) {
+  const BZr = feReceipt.belowZone.rows;
+  const BZz = feReceipt.belowZone.zone;
+  const BZe = feReceipt.belowZone.edge;
+  const bzWs = ["768", "900", "1024"];
+  ok(
+    bzWs.every((w) => BZr[w] && !BZr[w].error && BZr[w].midKids === null && BZr[w].ps === null) &&
+      bzWs.every((w) => BZz[w] && BZz[w].mid === false && BZz[w].overlap === undefined) &&
+      BZr["768"].vis[1].w === 140 && BZr["768"].leftW === 264 &&
+      BZr["1024"].vis[0].w === 36 && BZr["1024"].vis[1].w === 142.5 && BZr["1024"].vis[2].w === 68 && BZr["1024"].leftW === 266.5 &&
+      BZr["900"].vis[1].w === 142.5 && BZr["900"].leftW === 266.5 &&
+      bzWs.every((w) => BZr[w].rightW === 460 && BZr[w].seats === 11) &&
+      BZe["767"].wm === 0 && BZe["769"].wm === 141 && BZe["770"].wm === 142 &&
+      BZe["771"].wm === 142.5 && BZe["772"].wm === 142.5,
+    `A4e-23 the t853 below zone is aboard and green (t834 71/71): the band layer's first ride below xl — the mid row sleeps at every named tier (the twin vacuously at rest, the residue below-formless), the wordmark is BORN SQUEEZED at md (140 @768: needs 738.5 vs available 736, the min-w-0 yielder pays the whole 2.5 — A4e-2's live form) in a linear zone (769 pays 1.5, 770 pays 0.5, 771 clear — squeeze(W) = 770.5 − W, slope −1.0/px), the interior rides the natural 266.5/142.5 (768-local), the right plateau 460/11 x3 with the closed form re-anchored`
+  );
+}
+
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
 // not by squeezing (the t828 contract), and the cluster never shrinks.
 ok(/<div className="no-print flex shrink-0 items-center gap-1\.5">/.test(header),

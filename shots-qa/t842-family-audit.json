@@ -1,22 +1,23 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T11:50:02.125Z",
+  "date": "2026-10-10T12:11:36.293Z",
   "sources": {
     "t839": {
       "file": "shots-qa/t839-zone-rehearsal.json",
-      "date": "2026-10-10T11:30:22.809Z",
+      "date": "2026-10-10T11:58:18.035Z",
       "cloneBand": "the fix world's band layer (the fourth seat, t847)",
       "bandAcross": "the clone's band at 1286/1287 vs live rulers 1280/1286/1287 — PAINT is width-free (the sixth seat, t849)"
     },
     "t840": {
       "file": "shots-qa/t840-options-rehearsal.json",
-      "date": "2026-10-10T11:35:01.911Z",
+      "date": "2026-10-10T11:58:33.978Z",
       "bandAfter": "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850)"
     },
     "sweep": {
       "file": "shots-qa/t834-band-sweep.json",
-      "date": "2026-10-10T11:49:18.021Z"
+      "date": "2026-10-10T12:10:26.807Z",
+      "belowZone": "the band layer's first ride below xl (t853): the twin asleep (vacuously at rest), the born-squeezed wordmark (140 @768, the row's only yielder paying the whole 2.5), the edge law (squeeze(W) = 770.5 − W, zone [768, 770], clear by 771, slope −1.0/px)"
     },
     "sweepPinned": {
       "left": {
@@ -47,7 +48,7 @@
     },
     "t837": {
       "file": "shots-qa/t837-wordmark-probe.json",
-      "date": "2026-10-10T11:30:16.846Z"
+      "date": "2026-10-10T11:58:12.036Z"
     }
   },
   "arithmetic": {
@@ -320,10 +321,25 @@
       "name": "F14.b the far form: the right cluster never moves (rightW 628.3, seats 12 x4), the floor sleeps (trigW == wrapW x4 — the shock absorber retired, the trigger 149.2/170/205/220), the named points exact (-12/-33.1 == the E-block's zone rows at 1366/1440 — two sections, one number; -110.3 @1536, -463.1 @1920 — the gap runs away), 1536's leftW 863.8 within the ±0.5 law of the MACRO pin 864, the chip 90.3 width-free at BOTH 2xl widths, and the paint witness trigger-local x4 (the residue is 1280-local)",
       "pass": true,
       "detail": "edges 693.8/746.7/863.8/895, rightW 628.3 x4, seats 12 x4, trigW==wrapW x4, -12/-33.1/-110.3/-463.1, chip 90.3 x2, paint TRIGGER x4"
+    },
+    {
+      "name": "F15.a the below zone is aboard and the twin is VACUOUSLY AT REST: the sweep walks 768/900/1024 (the band layer's first ride below xl) and the mid row SLEEPS at every tier — midKids null, ps null, the zone-form walk short-circuits (mid:false x3); the residue has no below-form (no trigW/wrapW/overlap keys — G7's below mirror)",
+      "pass": true,
+      "detail": "mid asleep x3 (band: midKids/ps null; zone: mid:false, no overlap/trigW keys)"
+    },
+    {
+      "name": "F15.b the wordmark is BORN SQUEEZED at md and the below rides the natural: the box is 140 at 768 (the row needs 266.5+460+12 = 738.5 vs available 736 — the 2.5 falls ENTIRELY on the min-w-0 wordmark, A4e-2's live form refined to 0.1px) while 1024 rides the natural trio 36/142.5/68 = 266.5 (A4e-3 re-proven live) and the right plateau holds 460/11 at ALL THREE tiers with the closed form re-anchored below xl (36+40+36x9 + 10 gaps x6 = 460)",
+      "pass": true,
+      "detail": "wm 140@768 (born squeezed) / 142.5@900+1024 (natural); trio 36/142.5/68 @1024; right 460 + seats 11 x3, closed form x3"
+    },
+    {
+      "name": "F15.c the below squeeze's EDGE: 767 asleep (wm 0 — the wordmark not yet born), 769 pays 1.5 (141), 770 pays 0.5 (142), 771 CLEAR (142.5), 772 clear — squeeze(W) = 770.5 − W exactly, zone [768, 770], clear by 771, slope −1.0/px (the row's ONLY yielder below xl absorbs every pixel — vs the 1280 zone's −0.4); the interior at rest (900 rides 1024's natural form) — the squeeze is 768-local (the below mirror of G7's 1280-locality)",
+      "pass": true,
+      "detail": "767:0 -> 769:141 -> 770:142 -> 771:142.5 -> 772:142.5 (slope -1.0/px, zone [768,770]); 900 == 1024 natural (266.5/142.5)"
     }
   ],
-  "passed": 48,
+  "passed": 51,
   "failed": 0,
-  "total": 48,
+  "total": 51,
   "verdict": "the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4), and the width form is COMPLETED (the eighth seat: (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, and the bound chain's width form holds — the squeezed box loosens 101.3 -> 103.0 but the 138 cap never binds in the zone, the squeeze option-invariant); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt"
 }

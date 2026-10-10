@@ -347,6 +347,25 @@ ok("F14.b the far form: the right cluster never moves (rightW 628.3, seats 12 x4
   feWs.every((w) => FE.zone[w] && typeof FE.zone[w].paintAt === 'string' && FE.zone[w].paintAt.startsWith('TRIGGER')),
   `edges ${feWs.map((w) => FE.rows[w].leftW).join('/')}, rightW 628.3 x4, seats 12 x4, trigW==wrapW x4, -12/-33.1/-110.3/-463.1, chip 90.3 x2, paint TRIGGER x4`);
 
+// ---- F15 the below zone: the band layer's first ride BELOW xl ---------
+const BZ = SWEEP.belowZone || {};
+const bzWs = ['768', '900', '1024'];
+ok("F15.a the below zone is aboard and the twin is VACUOUSLY AT REST: the sweep walks 768/900/1024 (the band layer's first ride below xl) and the mid row SLEEPS at every tier — midKids null, ps null, the zone-form walk short-circuits (mid:false x3); the residue has no below-form (no trigW/wrapW/overlap keys — G7's below mirror)",
+  bzWs.every((w) => BZ.rows[w] && !BZ.rows[w].error && BZ.rows[w].midKids === null && BZ.rows[w].ps === null) &&
+  bzWs.every((w) => BZ.zone[w] && BZ.zone[w].mid === false && BZ.zone[w].overlap === undefined && BZ.zone[w].trigW === undefined),
+  `mid asleep x3 (band: midKids/ps null; zone: mid:false, no overlap/trigW keys)`);
+ok("F15.b the wordmark is BORN SQUEEZED at md and the below rides the natural: the box is 140 at 768 (the row needs 266.5+460+12 = 738.5 vs available 736 — the 2.5 falls ENTIRELY on the min-w-0 wordmark, A4e-2's live form refined to 0.1px) while 1024 rides the natural trio 36/142.5/68 = 266.5 (A4e-3 re-proven live) and the right plateau holds 460/11 at ALL THREE tiers with the closed form re-anchored below xl (36+40+36x9 + 10 gaps x6 = 460)",
+  BZ.rows['768'].vis[1].w === 140 && BZ.rows['768'].leftW === 264 &&
+  BZ.rows['1024'].vis[0].w === 36 && BZ.rows['1024'].vis[1].w === 142.5 && BZ.rows['1024'].vis[2].w === 68 && BZ.rows['1024'].leftW === 266.5 &&
+  bzWs.every((w) => BZ.rows[w].rightW === 460 && BZ.rows[w].seats === 11 &&
+    Math.abs(BZ.rows[w].rightKids.reduce((a, k) => a + k.w, 0) + 6 * (BZ.rows[w].rightKids.length - 1) - 460) <= 0.5),
+  `wm 140@768 (born squeezed) / 142.5@900+1024 (natural); trio 36/142.5/68 @1024; right 460 + seats 11 x3, closed form x3`);
+ok("F15.c the below squeeze's EDGE: 767 asleep (wm 0 — the wordmark not yet born), 769 pays 1.5 (141), 770 pays 0.5 (142), 771 CLEAR (142.5), 772 clear — squeeze(W) = 770.5 − W exactly, zone [768, 770], clear by 771, slope −1.0/px (the row's ONLY yielder below xl absorbs every pixel — vs the 1280 zone's −0.4); the interior at rest (900 rides 1024's natural form) — the squeeze is 768-local (the below mirror of G7's 1280-locality)",
+  BZ.edge['767'].wm === 0 && BZ.edge['769'].wm === 141 && BZ.edge['770'].wm === 142 &&
+  BZ.edge['771'].wm === 142.5 && BZ.edge['772'].wm === 142.5 &&
+  BZ.rows['900'].vis[1].w === 142.5 && BZ.rows['900'].leftW === 266.5,
+  `767:0 -> 769:141 -> 770:142 -> 771:142.5 -> 772:142.5 (slope -1.0/px, zone [768,770]); 900 == 1024 natural (266.5/142.5)`);
+
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
@@ -360,7 +379,7 @@ const receipt = {
   sources: {
     t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date, cloneBand: 'the fix world\'s band layer (the fourth seat, t847)', bandAcross: 'the clone\'s band at 1286/1287 vs live rulers 1280/1286/1287 — PAINT is width-free (the sixth seat, t849)' },
     t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date, bandAfter: "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850)" },
-    sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date },
+    sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date, belowZone: "the band layer's first ride below xl (t853): the twin asleep (vacuously at rest), the born-squeezed wordmark (140 @768, the row's only yielder paying the whole 2.5), the edge law (squeeze(W) = 770.5 − W, zone [768, 770], clear by 771, slope −1.0/px)" },
     sweepPinned: { left: P.left, right: P.right, seats: P.seats, law: "pinned == bands within ±0.5 (the sweep's own rounding law), seats exact, across 6 widths" },
     t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined },
   },

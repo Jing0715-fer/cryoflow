@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t834-band-sweep.mjs",
   "build": "KtPKuXIbtB9d7uhItOOUS",
-  "date": "2026-10-10T11:49:18.021Z",
+  "date": "2026-10-10T12:10:26.807Z",
   "bands": {
     "375": {
       "leftW": 68,
@@ -1367,6 +1367,310 @@
       }
     },
     "law": "the far edge (t852): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor sleeps (trigW == wrapW exactly), the right cluster never moves (rightW 628.3, seats 12), the chip is width-free above 2xl (90.3), and the residue is 1280-local (the paint witness rides the trigger's own box)"
+  },
+  "belowZone": {
+    "widths": [
+      768,
+      900,
+      1024
+    ],
+    "rows": {
+      "768": {
+        "leftW": 264,
+        "rightW": 460,
+        "seats": 11,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 140
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 0
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 140
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": null,
+        "ps": null,
+        "innerW": 768,
+        "scrollW": 768
+      },
+      "900": {
+        "leftW": 266.5,
+        "rightW": 460,
+        "seats": 11,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 0
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": null,
+        "ps": null,
+        "innerW": 900,
+        "scrollW": 900
+      },
+      "1024": {
+        "leftW": 266.5,
+        "rightW": 460,
+        "seats": 11,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 0
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": null,
+        "ps": null,
+        "innerW": 1024,
+        "scrollW": 1024
+      }
+    },
+    "zone": {
+      "768": {
+        "mid": false
+      },
+      "900": {
+        "mid": false
+      },
+      "1024": {
+        "mid": false
+      }
+    },
+    "edge": {
+      "767": {
+        "wm": 0,
+        "leftW": 114
+      },
+      "769": {
+        "wm": 141,
+        "leftW": 265
+      },
+      "770": {
+        "wm": 142,
+        "leftW": 266
+      },
+      "771": {
+        "wm": 142.5,
+        "leftW": 266.5
+      },
+      "772": {
+        "wm": 142.5,
+        "leftW": 266.5
+      }
+    },
+    "law": "the below zone (t853): the mid row sleeps below xl at every named tier (the twin vacuously at rest, E1's 1279 point now a cross-section) and the residue has no below-form; the wordmark is BORN SQUEEZED at md — the row needs 738.5 vs available 736 at 768 and the min-w-0 wordmark pays the whole 2.5 (A4e-2's live form) — in a LINEAR zone: squeeze(W) = 770.5 − W, slope −1.0/px (the row's only yielder absorbs every pixel), [768, 770], clear by 771; the interior (900/1024) rides the natural 266.5/142.5 — the squeeze is 768-local"
   },
   "pinned": {
     "left": {
