@@ -1438,6 +1438,21 @@ export function MapOrthoPanel({
             <Kbd>&gt;</Kbd>
             <span className="ml-1">coarse (shift)</span>
           </span>
+          {/* t831 — the σ family completes the row: the contour keys
+              belong here too, because the histogram's cyan cut line is
+              drawn from the SAME isoSigma the embed echoes — [ ] moves
+              the cut and the line follows the echo wire (the same
+              3D→2D direction the tiles ride), F flips the side. Gated
+              by the row's own signal: no isoSigma, no chips. */}
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>[</Kbd>
+            <Kbd>]</Kbd>
+            <span className="ml-1">step the cut — the line follows</span>
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>F</Kbd>
+            <span className="ml-1">flips the side</span>
+          </span>
         </div>
       )}
     </section>

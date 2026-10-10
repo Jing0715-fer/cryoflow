@@ -20,7 +20,7 @@ import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Co
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  onEscapeClose, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+  onEscapeClose, openTopSurface, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Kbd } from "@/components/ui/kbd"; // t830 — the door's keymap speaks the one kbd vocabulary (t642)
@@ -1501,6 +1501,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       )
         return;
       if (document.querySelector('[role="menu"][data-state="open"]')) return;
+      // t831 — the world behind a FOREIGN modal falls silent: keys firing
+      // under a mask drive an invisible 3D world — the same spooky action
+      // the scrub verbs' ON-guard refused. The house's open-surface truth
+      // is the witness, read at the TOP of the portal stack (the last
+      // open surface is the one painted on top): when the topmost modal
+      // is THIS viewer's own dialog, the keys are its keyboard face (the
+      // t829 contract — the standard drive-in stacks the viewer over the
+      // job report, and the keys stayed live there); when a foreign modal
+      // tops the stack (quick-look, star, the embed's own export door),
+      // the world holds its breath. Popovers are non-modal and never
+      // count (the door keeps reading its own keymap).
+      const topSurface = openTopSurface();
+      if (topSurface && !(containerRef.current && topSurface.contains(containerRef.current))) return;
       const cam = pluginRef.current?.canvas3d?.camera;
       if (!cam) return;
       const idx = "123456".indexOf(e.key);

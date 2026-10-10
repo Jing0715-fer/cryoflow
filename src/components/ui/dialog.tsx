@@ -278,7 +278,10 @@ type DialogFocusLayer = {
   pocket: HTMLElement | null
 }
 
-/** t813 — the OPEN-SURFACE truth, read from the DOM. The t792 counter
+/** t813 — the OPEN-SURFACE truth, read from the DOM. Exported for t831:
+ * the embed's key listener borrows this as its modal guard — one dialect
+ * for "a modal surface is open", never a second hand-rolled selector.
+ * The t792 counter
  * (a mount/unmount balance on the DialogContent WRAPPER) was born blind:
  * the wrapper's hooks run whenever its parent renders the element — the
  * catalog's type cards and the canvas's job cards keep ~50 of them
@@ -288,12 +291,27 @@ type DialogFocusLayer = {
  * openCount 50 at boot with zero dialogs ever opened, 50 open, 50
  * closed — the counter never moved). The DOM is the truth: a surface is
  * open when its content node says data-state="open". */
-function openSurfaceExists(): boolean {
+export function openSurfaceExists(): boolean {
   return (
     document.querySelector(
       '[data-slot="dialog-content"][data-state="open"], [data-slot="alert-dialog-content"][data-state="open"], [data-slot="sheet-content"][data-state="open"]'
     ) != null
   )
+}
+
+/** t831 — the TOPMOST open modal surface, or null when no modal is open.
+ * Radix portals mount in open order, so the LAST open surface in document
+ * order is the one painted on top (equal z-index, DOM order decides).
+ * The embed's key guard reads this: keys live when the topmost modal is
+ * the viewer's own dialog (the drive-in stacks the viewer over the job
+ * report and the t829 keyboard face stayed live there); a FOREIGN modal
+ * on top (quick-look, star, the embed's own export door) silences the
+ * world beneath it — no keys behind a mask. */
+export function openTopSurface(): Element | null {
+  const open = document.querySelectorAll(
+    '[data-slot="dialog-content"][data-state="open"], [data-slot="alert-dialog-content"][data-state="open"], [data-slot="sheet-content"][data-state="open"]'
+  )
+  return open.length ? open[open.length - 1] : null
 }
 
 let gDialogFocusLayer: DialogFocusLayer | null = null

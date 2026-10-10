@@ -52,6 +52,7 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Kbd } from "@/components/ui/kbd"; // t831 — the quick-look's keymap speaks the one kbd vocabulary (t642)
 import { Chip } from "@/components/ui/chip";
 import { toast } from "@/hooks/use-toast";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped attach + revoked same-tick)
@@ -1297,7 +1298,39 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       <Dialog open={imageFile !== null} onOpenChange={(o) => !o && setImageFile(null)}>
         <DialogContent
           className="flex max-h-[90dvh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
-          onKeyDown={onEscapeClose(() => setImageFile(null))}
+          onKeyDown={(e) => {
+            // t831 — the quick-look's own keyboard face: ← / → step the
+            // stack's slice cursor through the SAME state setter the
+            // prev/next buttons drive, so the t287 window-reset effect
+            // (a different image is a different distribution) follows
+            // for free. The t829 gate law rides along: form fields keep
+            // their keys (the lo/hi fields and the slice range input
+            // keep their native arrows — the same step either way), the
+            // event is consumed only when the cursor actually moves
+            // (at the edges the scroll region keeps its arrow-scroll).
+            // Escape still closes through the house handler.
+            const t = e.target;
+            const inField =
+              t instanceof HTMLElement &&
+              (t.closest("input, textarea, select, [contenteditable='true']") != null ||
+                t.isContentEditable);
+            if (!inField && imageFile && imageFile.name.toLowerCase().endsWith(".mrcs")) {
+              const max = Math.max(0, (imageFile.slices ?? 1) - 1);
+              if (e.key === "ArrowLeft" && stackSlice > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                setStackSlice((s) => Math.max(0, s - 1));
+                return;
+              }
+              if (e.key === "ArrowRight" && stackSlice < max) {
+                e.preventDefault();
+                e.stopPropagation();
+                setStackSlice((s) => Math.min((imageFile.slices ?? 1) - 1, s + 1));
+                return;
+              }
+            }
+            onEscapeClose(() => setImageFile(null))(e);
+          }}
         >
           {imageFile && (
             <>
@@ -1508,6 +1541,31 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     />
                   </>
                 )}
+                {/* t831 — the quick-look's keymap glance: the keymap
+                    family's third seat. The chips teach ONLY keys that
+                    work HERE, mode-gated by the same must-not-lie law
+                    the ortho row rides: the slice family renders only
+                    for a multi-image stack (a single image has no step
+                    — chips for a dead key would lie), Esc is the house
+                    dialog close (the layered-escape contract every
+                    dialog already obeys). One kbd vocabulary (t642),
+                    a quiet footer line like the ortho row's. */}
+                <div
+                  data-canvas-ui="quick-keymap"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+                >
+                  {imageFile.name.toLowerCase().endsWith(".mrcs") && (imageFile.slices ?? 1) > 1 && (
+                    <span className="inline-flex items-center gap-0.5">
+                      <Kbd>←</Kbd>
+                      <Kbd>→</Kbd>
+                      <span className="ml-1">step the slice</span>
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-0.5">
+                    <Kbd>Esc</Kbd>
+                    <span className="ml-1">closes</span>
+                  </span>
+                </div>
               </div>
             </>
           )}
