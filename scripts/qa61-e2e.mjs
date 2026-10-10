@@ -23,6 +23,8 @@
 //      SHEET alive (the pre-fix behavior closed both)
 //   C  CONSOLE: 0 page errors
 // Usage: QA_PHASES=A node scripts/qa61-e2e.mjs
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { appendFileSync } from "node:fs";
@@ -98,7 +100,7 @@ const seedHost = () => {
   // mechanism qa58-seed-gallery.py uses ("the row is the source of truth
   // for status, the workdir for output"). VERIFY the flip: a silently
   // no-op'd status write turns the whole suite into a dead-key walk.
-  sh(`node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:'${hostJobId}'},data:{status:'completed',progress:100}}).then(()=>p.\\$disconnect())"`);
+  sh(`DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:'${hostJobId}'},data:{status:'completed',progress:100}}).then(()=>p.\\$disconnect())"`);
   const st = (JSON.parse(sh(`curl -s ${B}/api/jobs`))?.jobs ?? []).find((x) => x.id === hostJobId)?.status;
   if (st !== "completed") FATAL(`host status flip failed (got ${st})`);
   // Results-tab volume enlarge needs a Sharpened map on disk AND an

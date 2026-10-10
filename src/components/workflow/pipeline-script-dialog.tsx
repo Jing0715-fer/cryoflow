@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Check, Copy, Download, FileTerminal, Loader2 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { downloadBlob } from "@/lib/download"; // t646 — one blob sink for every export surface
 
 interface PipelineStepBrief {
   jobId: string;
@@ -57,11 +58,11 @@ interface PipelineScriptResponse {
 }
 
 const MARKER_TONE: Record<string, string> = {
-  done: "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30",
-  idle: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-  run: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  done: "bg-running/10 text-running-700 dark:text-running-300 border-running/30",
+  idle: "bg-success/10 text-success-700 dark:text-success-300 border-success/30",
+  run: "bg-warning/10 text-warning-700 dark:text-warning-300 border-warning/30",
   wait: "bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/30",
-  fail: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30",
+  fail: "bg-danger-500/10 text-danger border-danger-500/30",
   native: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
 };
 
@@ -131,14 +132,7 @@ export function PipelineScriptDialog({
   const download = () => {
     if (!data?.script) return;
     const blob = new Blob([data.script], { type: "text/x-shellscript" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = scriptFileName(data.projectName || "project");
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    downloadBlob(blob, scriptFileName(data.projectName || "project"));
   };
 
   const stats = data?.stats;
@@ -166,7 +160,7 @@ export function PipelineScriptDialog({
         </DialogHeader>
 
         {data?.relion.found === false ? (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/[0.06] p-2.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+          <div className="rounded-md border border-warning/30 bg-warning/[0.06] p-2.5 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300">
             RELION is not detected on this host — CLI lines are exported as the
             canonical templates (commented out). Re-export after detection to
             get executable paths.
@@ -237,7 +231,7 @@ export function PipelineScriptDialog({
             Assembling the pipeline…
           </div>
         ) : data?.error ? (
-          <div className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] p-3 text-xs text-rose-700 dark:text-rose-300">
+          <div className="rounded-md border border-danger-500/30 bg-danger/[0.06] p-3 text-xs text-danger">
             {data.error}
           </div>
         ) : (

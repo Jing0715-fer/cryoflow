@@ -83,8 +83,8 @@ const MAX_ENV_LINES = 12;
 export const MODEL_BADGE: Record<string, string> = {
   A100: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
   H100: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
-  V100: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
-  RTX4090: "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30",
+  V100: "bg-warning/10 text-warning-700 dark:text-warning-300 border-warning/30",
+  RTX4090: "bg-running/10 text-running-700 dark:text-running-300 border-running/30",
 };
 
 /* ---------------------------------------------------------------- */
@@ -295,11 +295,19 @@ export function HpcProfilesEditor({
           <Settings2 className="size-4" aria-hidden="true" />
         </Button>
       </DialogTrigger>
+      {/* t811 — the census's PARTIAL rider dressed (the t804 dialect, the
+          family's own cap kept): the card rode the primitive's default
+          cap-and-scroll, so on short viewports the CARD scrolled and the
+          header drifted away with it. Now the card never scrolls — the
+          header and the footer are pinned, and the two columns keep their
+          own 56vh grounds (the list's and the editor's); the editor column
+          is a named keyboard region so its ground is reachable without a
+          mouse. */}
       <DialogContent
-        className="max-w-4xl"
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 max-w-4xl"
         onKeyDown={onEscapeClose(() => setOpen(false))}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0 border-b px-5 pb-4 pt-5">
           <DialogTitle className="flex items-center gap-2">
             <SlidersHorizontal className="size-4 text-primary" aria-hidden="true" />
             Cluster profiles
@@ -321,25 +329,28 @@ export function HpcProfilesEditor({
         </DialogHeader>
 
         {loading ? (
-          <div className="flex h-64 items-center justify-center text-muted-foreground">
+          <div className="flex h-64 shrink-0 items-center justify-center px-5 text-muted-foreground">
             <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> Loading registry…
           </div>
         ) : (
-          <div className="flex min-h-0 gap-4">
+          <div className="flex min-h-0 flex-1 gap-4 px-5 py-4">
             {/* ---------------- left rail: the registry list ---------------- */}
             <div className="flex w-56 shrink-0 flex-col gap-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex shrink-0 items-center justify-between">
                 <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Registry
                 </h4>
                 <span className="text-[10px] text-muted-foreground/70">{profiles.length}</span>
               </div>
-              <div className="max-h-[56vh] space-y-1 overflow-y-auto pr-0.5" role="list" aria-label="Profile list">
+              <div className="min-h-0 max-h-[56vh] flex-1 space-y-1 overflow-y-auto pr-0.5" role="list" aria-label="Profile list">
+                {/* a11y: the LIST ITEM is the wrapper (role=listitem), the
+                    BUTTON keeps its native role — aria-pressed is a button
+                    attribute, and a role=listitem button both loses its own
+                    semantics and carries an attribute its role forbids */}
                 {profiles.map((p) => (
+                  <div key={p.id} role="listitem">
                   <button
-                    key={p.id}
                     type="button"
-                    role="listitem"
                     onClick={() => {
                       setSelectedId(p.id);
                       setConfirmDelete(false);
@@ -368,9 +379,10 @@ export function HpcProfilesEditor({
                       </span>
                     </span>
                   </button>
+                  </div>
                 ))}
               </div>
-              <div className="flex gap-1.5">
+              <div className="flex shrink-0 gap-1.5">
                 <Button
                   variant="outline"
                   size="sm"
@@ -396,7 +408,16 @@ export function HpcProfilesEditor({
 
             {/* ---------------- right: the selected profile's form ---------------- */}
             {selected ? (
-              <div className="min-w-0 flex-1 space-y-4 overflow-y-auto pr-1" style={{ maxHeight: "56vh" }}>
+              /* the census's named law: the editor column's ground keeps
+                 its 56vh cap and gains the keyboard door — a named region
+                 with the inset ring, so the form scrolls without a mouse */
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Profile editor — the selected profile's identity, connection, resources, and environment"
+                className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+                style={{ maxHeight: "56vh" }}
+              >
                 <div className="space-y-3">
                   <SectionTitle>Identity</SectionTitle>
                   <div className="grid grid-cols-5 gap-3">
@@ -616,18 +637,18 @@ export function HpcProfilesEditor({
         )}
 
         {error ? (
-          <div className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] p-2.5 text-xs text-rose-700 dark:text-rose-300" role="alert">
+          <div className="mx-5 shrink-0 rounded-md border border-danger-500/30 bg-danger/[0.06] p-2.5 text-xs text-danger" role="alert">
             {error}
           </div>
         ) : null}
 
-        <DialogFooter className="flex items-center gap-2 sm:justify-between">
+        <DialogFooter className="flex shrink-0 items-center gap-2 border-t px-5 pb-4 pt-3 sm:justify-between">
           <Button
             variant="ghost"
             size="sm"
             className={cn(
-              "h-8 text-xs text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400",
-              confirmDelete && "bg-rose-500/10"
+              "h-8 text-xs text-danger-600 hover:bg-danger-500/10 hover:text-danger-700 dark:text-danger-400",
+              confirmDelete && "bg-danger-500/10"
             )}
             onClick={() => (confirmDelete ? deleteProfile() : setConfirmDelete(true))}
             disabled={!selected || profiles.length <= 1}
@@ -638,12 +659,12 @@ export function HpcProfilesEditor({
           </Button>
           <div className="flex items-center gap-2">
             {savedFlash ? (
-              <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400" role="status">
+              <span className="flex items-center gap-1 text-[11px] text-success" role="status">
                 <Check className="size-3.5" aria-hidden="true" /> Saved — server view shown
               </span>
             ) : dirty ? (
               <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground" role="status">
-                <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" /> unsaved edits
+                <span className="size-1.5 rounded-full bg-warning-500" aria-hidden="true" /> unsaved edits
               </span>
             ) : null}
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOpen(false)}>

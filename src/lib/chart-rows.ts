@@ -19,6 +19,40 @@
 
 import type { CsvRow } from "@/lib/chart-export";
 
+/* ---------------- shared formatters (t490) ---------------- */
+
+/**
+ * The Å / µm ROUNDING RULE, born in the shared surface so every reader
+ * speaks the same digits: the agent's get_job_curves (tools.ts's fmtAng
+ * / fmtUm now alias these), the Session QC report's curve-verdict
+ * family (qc-report's curveVerdictOf) and any future reader quote the
+ * same 1-decimal Å and 3-decimal µm by construction — a number that
+ * appears on two faces must be ROUNDED in one place, or the faces will
+ * drift apart one decimal at a time.
+ */
+export const fmtAngstrom = (v: number | null | undefined): string =>
+  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 10) / 10} Å`;
+
+/** defocus/astigmatism live in µm in the star grammar (compare-rows). */
+export const fmtMicron = (v: number | null | undefined): string =>
+  v == null || !Number.isFinite(v) ? "?" : `${Math.round(v * 1000) / 1000} µm`;
+
+/**
+ * t493 — the reported number's passport, compressed in ONE place. The
+ * loader's reportedLabel ("RELION final resolution (masked, sharpened)"
+ * / "RELION auto-refine estimate (smoothed FSC)") is written for
+ * tooltips; the paper's verdict row and the agent tool's spoken line
+ * both sit inside sentences that already say "RELION", so the passport
+ * they quote must be the label minus that prefix — and both faces must
+ * compress it the SAME way, or the two sentences drift apart one
+ * adjective at a time. Null in, null out (no label, no passport).
+ */
+export const reportedPassport = (label: string | null | undefined): string | null => {
+  if (!label) return null;
+  const stripped = label.replace(/^RELION\s*/, "").trim();
+  return stripped.length > 0 ? stripped : null;
+};
+
 /* ---------------- FSC curve ---------------- */
 
 export interface FscShell {
@@ -31,6 +65,17 @@ export interface FscShell {
   maskedFsc?: number;
 }
 
+/** t489 — the FSC's panel-side judgment: whether RELION's reported
+ *  resolution sits at the box Nyquist limit (the corrected curve never
+ *  crosses 0.143 because the box caps it), and whether it materially
+ *  disagrees with the raw 0.143 crossing (smoothed estimate vs curve).
+ *  Facts from pure comparison — built once in the well (chart-data's
+ *  interpretFsc); the panel's badges read it instead of re-judging. */
+export interface FscInterpretation {
+  atNyquist: boolean;
+  reportedDiffers: boolean;
+}
+
 export interface FscResponse {
   source: "postprocess" | "model" | null;
   sourceFile: string | null;
@@ -40,6 +85,7 @@ export interface FscResponse {
   /** RELION's own estimate (_rlnFinalResolution / _rlnCurrentResolution) */
   reportedResolution: number | null;
   reportedLabel: string | null;
+  interpretation?: FscInterpretation | null;
 }
 
 /** Shells the FSC chart actually draws — clip 999-sentinel / non-finite
@@ -83,11 +129,22 @@ export interface GuinierPoint {
   lnAmpSharpened: number | null;
 }
 
+/** t489 — the Guinier's judgment: whether the sharpened curve exists
+ *  (the B-weighted line the chart draws dashed) and the resolution range
+ *  the table actually covers (x = 1/d² converted to Å, 1 dp — the same
+ *  conversion the panel's tooltip speaks). Built once in the well
+ *  (chart-data's interpretGuinier). */
+export interface GuinierInterpretation {
+  hasSharpened: boolean;
+  rangeAngstrom: { from: number; to: number } | null;
+}
+
 export interface GuinierResponse {
   jobId: string;
   sourceFile: string | null;
   points: GuinierPoint[];
   bfactor: number | null;
+  interpretation?: GuinierInterpretation | null;
 }
 
 /** Points the Guinier chart plots — non-finite amplitudes become null, then
@@ -168,9 +225,26 @@ export interface CtfSummary {
   worstResolution: number;
 }
 
+/** t488 — the judgment layer, computed once in the well (chart-data's
+ *  interpretCtf) and quoted verbatim by BOTH the agent's get_job_curves
+ *  ("worst fit resolution 4.4 Å") and the panel's interpretation strip:
+ *  the worst-fitting micrographs, fit resolution largest first. */
+export interface CtfWorstFit {
+  name: string;
+  defocusUm: number;
+  astigmatismUm: number;
+  fom: number;
+  maxResolutionA: number | null;
+}
+
+export interface CtfInterpretation {
+  worstMicrographs: CtfWorstFit[];
+}
+
 export interface CtfResponse {
   micrographs: CtfMicrograph[];
   summary: CtfSummary | null;
+  interpretation?: CtfInterpretation | null;
 }
 
 export function ctfRenderable(micrographCount: number): boolean {
@@ -213,11 +287,29 @@ export interface MotionSummary {
   meanLate: number;
 }
 
+export interface MotionWorstDrift {
+  name: string;
+  totalA: number;
+  earlyA: number;
+  lateA: number;
+}
+
+/** t488 — the drift triage (which half of the movie the drift
+ *  accumulates in — facts from pure comparison, no invented threshold)
+ *  plus the worst-drifting micrographs: the tool's exact grammar, built
+ *  once in the well (chart-data's interpretMotion) and rendered by the
+ *  panel's interpretation strip. */
+export interface MotionInterpretation {
+  driftTriage: string;
+  worstMicrographs: MotionWorstDrift[];
+}
+
 export interface MotionResponse {
   jobId?: string;
   sourceFile: string | null;
   micrographs: MotionMicrograph[];
   summary: MotionSummary | null;
+  interpretation?: MotionInterpretation | null;
 }
 
 export function motionRenderable(micrographCount: number): boolean {
@@ -247,9 +339,31 @@ export interface TopazEpochDTO {
   testRecall: number | null;
 }
 
+/** t488 — the tool's first/last-epoch grammar (exact same shape
+ *  get_job_curves carries) plus the train-loss direction — a fact from
+ *  pure comparison, present only when both ends carry a train loss. */
+export interface TopazInterpretation {
+  firstEpoch: {
+    it: number;
+    trainLoss: number | null;
+    testLoss: number | null;
+    precision: number | null;
+    recall: number | null;
+  };
+  lastEpoch: {
+    it: number;
+    trainLoss: number | null;
+    testLoss: number | null;
+    precision: number | null;
+    recall: number | null;
+  };
+  lossDirection?: "falling" | "rising" | "flat";
+}
+
 export interface TopazTrainingResponse {
   epochs: TopazEpochDTO[];
   source: string | null;
+  interpretation?: TopazInterpretation | null;
 }
 
 /** The per-epoch series the chart draws — one row per epoch with every
@@ -286,17 +400,45 @@ export function topazRows(data: TopazTrainingResponse | null | undefined): CsvRo
 
 /* ---------------- Orientation distribution ---------------- */
 
+/** t489 — the orientation coverage's judgment: the concentration verdict
+ *  (> 6 ⇒ anisotropic — the ONE threshold, living here, not re-computed
+ *  per face), the rounded concentration the tool speaks, and the three
+ *  hottest direction bins the tool names — the polar heatmap shows them
+ *  but never spoke them until the panel's strip drank this well
+ *  (chart-data's interpretAngDist). */
+export interface AngDistHottestBin {
+  rotBin: number;
+  tiltBin: number;
+  count: number;
+}
+
+export interface AngDistInterpretation {
+  verdict: "anisotropic" | "fairly even";
+  concentration: number;
+  hottestBins: AngDistHottestBin[];
+}
+
 export interface AngDistResponse {
+  /** iteration of the data star used (null for the final run_data.star) */
   iteration: number | null;
+  /** total particles whose angles were binned */
   total: number;
+  /** number of azimuth (rot) bins — 24 → 15° each */
   rotBins: number;
+  /** number of polar (tilt) bins — 12 → 15° each */
   tiltBins: number;
+  /** row-major counts: cells[rotIdx * tiltBins + tiltIdx] */
   cells: number[];
+  /** hottest cell count */
   max: number;
+  /** cells with at least one particle */
   occupied: number;
+  /** concentration factor = max / mean over occupied cells (>6 ⇒ anisotropic) */
   anisotropy: number;
+  /** point-group symmetry of the job, e.g. "D2" */
   symmetry: string | null;
   starFile: string | null;
+  interpretation?: AngDistInterpretation | null;
 }
 
 export function angDistRenderable(data: AngDistResponse | null | undefined): boolean {

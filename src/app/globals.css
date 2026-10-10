@@ -1,6 +1,37 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* t273 — the box's environment layer drops LARGE data trees into the repo
+   root (relion-projects/ 2.9G, persist/ 370M, tool-results/ — none of them
+   product code). Tailwind v4's automatic content detection scans the whole
+   project tree as candidate class sources; on a 4GB box that scan alone
+   OOM-kills the PostCSS loader mid-build ("evaluate_webpack_loader failed:
+   unexpected end of file" — three identical panics on 2026-09-17). Excluded
+   by name: the product's class sources live in src/ and that is where the
+   detector should look. */
+/* t274 — the early-era trees were quarantined into the single
+   _legacy-archive/ root (README inside carries the ownership verdict), so
+   ONE exclusion replaces the three per-tree lines; tool-results/ stays —
+   it is OUR runtime scratch, alive in the repo root by design. The qa68
+   detector fails the suite if a legacy name reappears in the root. */
+@source not "../../_legacy-archive";
+@source not "../../tool-results";
+/* t340 — the RUNTIME data trees. The field report: 「运行job过程中，页面
+ * 一直出现热加载编译」 — every engine write (engine-state.json on
+ * each progress tick, job workdirs, the cs→star downloads, the SQLite
+ * db file) lands under <repo>/data and <repo>/db, and Tailwind v4's
+ * automatic content detection treats the whole unignored project tree as
+ * candidate class sources — watching them. A running job re-wrote those
+ * files every few seconds, so the CSS scan rebuilt continuously and the
+ * dev overlay showed "compiling" for the whole run. Excluded by name:
+ * neither tree holds class sources; both are pure runtime state. */
+@source not "../../data";
+@source not "../../db";
+/* t349 — the download tree (QA screenshots, fetched-home artifacts): same
+ * watcher exemption as data/db — a text artifact with class-like tokens
+ * would rebuild the CSS while a fetch is in flight. */
+@source not "../../download";
+
 @custom-variant dark (&:is(.dark *));
 
 /**
@@ -38,7 +69,121 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  /* t646 — the STATUS SEMANTIC vocabulary. rose (401 sites) / red (54) /
+     destructive (shadcn contract) all speak DANGER in three hues; success
+     (emerald), warning (amber), running (teal) follow the minimap's
+     canonical hex map. Four tokens, one voice: text-danger / bg-danger/10 /
+     border-danger … resolve at use-site, so the .dark flip below re-inks
+     every consumer at once — the ~470 hand-paired dark: variants retire
+     into the token. Values are the Tailwind v4 palette verbatim
+     (node_modules/tailwindcss/theme.css), NOT hand-picked: the field's
+     mode shades (600 light ink / 400 dark ink), documented canonicalization
+     for the dialects that sat one rung off (700/300 pairs, 500-based
+     washes). Alpha modifiers ride color-mix, so bg-danger/10 keeps its
+     wash law in both themes. */
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-running: var(--running);
   --color-destructive: var(--destructive);
+  /* t648 — the DEEP INK rung vocabulary: semantic RUNG tokens for the
+     700/300-family ink pairs that t647's three-rung law kept as literals.
+     Why these are NOT folded into --success/&c above (the t646 collapse):
+     (1) contrast law — emerald/amber/teal 600 misses 4.5:1, so the light
+     theme needs the 700 rung, not the 600 the semantic token carries;
+     (2) the dark side splits across 300 AND 400 in the field, and α
+     variants (/80 /90) ride some of them — a single semantic token would
+     re-ink pixels. So the pairs keep their dark: twins, and the hue NAME
+     retires instead: text-emerald-700 dark:text-emerald-300 becomes
+     text-success-700 dark:text-success-300 — a pure rename (zero-pixel),
+     decided by t648's census (456 text-prop sites / 9 shades across the
+     non-exempt files). These are THEME-INDEPENDENT constants — unlike
+     the semantic tokens above, no :root/.dark flip; the pair's theme
+     switch is owned explicitly by the dark: prefix at the use-site.
+     Rung coverage = the census's observed shades (100–900; no 50/950 in
+     the field). Values are the Tailwind v4 palette verbatim
+     (node_modules/tailwindcss/theme.css) — the t646 lesson: the
+     palette's oklch is the law, not the remembered hex. */
+  --color-success-100: oklch(95% 0.052 163.051);
+  --color-success-200: oklch(90.5% 0.093 164.15);
+  --color-success-300: oklch(84.5% 0.143 164.978);
+  --color-success-400: oklch(76.5% 0.177 163.223);
+  --color-success-500: oklch(69.6% 0.17 162.48);
+  --color-success-600: oklch(59.6% 0.145 163.225);
+  --color-success-700: oklch(50.8% 0.118 165.612);
+  --color-success-800: oklch(43.2% 0.095 166.913);
+  --color-success-900: oklch(37.8% 0.077 168.94);
+  --color-warning-100: oklch(96.2% 0.059 95.617);
+  --color-warning-200: oklch(92.4% 0.12 95.746);
+  --color-warning-300: oklch(87.9% 0.169 91.605);
+  --color-warning-400: oklch(82.8% 0.189 84.429);
+  --color-warning-500: oklch(76.9% 0.188 70.08);
+  --color-warning-600: oklch(66.6% 0.179 58.318);
+  --color-warning-700: oklch(55.5% 0.163 48.998);
+  --color-warning-800: oklch(47.3% 0.137 46.201);
+  --color-warning-900: oklch(41.4% 0.112 45.904);
+  --color-running-100: oklch(95.3% 0.051 180.801);
+  --color-running-200: oklch(91% 0.096 180.426);
+  --color-running-300: oklch(85.5% 0.138 181.071);
+  --color-running-400: oklch(77.7% 0.152 181.912);
+  --color-running-500: oklch(70.4% 0.14 182.503);
+  --color-running-600: oklch(60% 0.118 184.704);
+  --color-running-700: oklch(51.1% 0.096 186.391);
+  --color-running-800: oklch(43.7% 0.078 188.216);
+  --color-running-900: oklch(38.6% 0.063 188.416);
+  /* t650 — the 50/950 extension: the t648 census read the field as
+     "no 50/950", because its bucketing only saw the TEXT-PROP domain.
+     The t650 solid-domain census found the wash/solid domain riding
+     amber-50/95 and amber-950/80 (molstar warning banner) — the same
+     lesson t649 learned when rose-950 surfaced from job-inspector's
+     hover floor: partial coverage = a whitelist that grows. Six rungs
+     complete the three families to 50–950 FULL, matching the danger
+     scale's coverage. Pure extension, zero renames by itself; values
+     verbatim from the Tailwind v4 palette (theme.css). */
+  --color-success-50: oklch(97.9% 0.021 166.113);
+  --color-success-950: oklch(26.2% 0.051 172.552);
+  --color-warning-50: oklch(98.7% 0.022 95.277);
+  --color-warning-950: oklch(27.9% 0.077 45.635);
+  --color-running-50: oklch(98.4% 0.014 180.72);
+  --color-running-950: oklch(27.7% 0.046 192.524);
+  /* t649 — the DANGER rung vocabulary: rose and red hue names retire
+     into semantic rungs, the same pure-rename move t648 made for
+     emerald/amber/teal. Two dialects spoke danger by shade ladder:
+     rose (the --danger/--destructive base, 401+ sites at t646) and red
+     (the minority dialect, ~12 class sites). t646 already pinned BOTH
+     semantic tokens (--danger, --destructive) to rose-600's oklch —
+     hue unification with a documented verdict — so red sites renaming
+     to danger rungs is a DOCUMENTED pixel change (red-500's oklch
+     differs from rose-500's), the tail of the canonicalization t646
+     started, not a new law. Rose sites are pure renames (zero-pixel):
+     text-rose-700 dark:text-rose-300 becomes text-danger-700
+     dark:text-danger-300 — the pair structure and the dark: twins are
+     the world's promise (t648 verdict: the naming layer moves, the
+     pixel layer does not). Theme-independent constants, like their
+     success/warning/running siblings: no :root/.dark flip; the pair's
+     theme switch is owned explicitly by the dark: prefix at the
+     use-site. Rung coverage 50–950 FULL: the field also carries rose-950
+     (job-inspector's dark hover floor) — the t648 lesson extended, low-
+     frequency rungs are exactly what buys the assert its no-exception
+     law; a partial coverage would need a whitelist that grows. Values
+     are the Tailwind v4 palette verbatim
+     (node_modules/tailwindcss/theme.css rose scale) — the t646 lesson:
+     the palette's oklch is the law, not the remembered hex. Identity
+     exemptions survive on purpose: workflow.ts's references2d category
+     dot (a palette member, not danger), fsc-chart's legend swatch
+     gradient line, molstar-embed's turntable REC badge (media-industry
+     recording red, not danger). */
+  --color-danger-50: oklch(96.9% 0.015 12.422);
+  --color-danger-100: oklch(94.1% 0.03 12.58);
+  --color-danger-200: oklch(89.2% 0.058 10.001);
+  --color-danger-300: oklch(81% 0.117 11.638);
+  --color-danger-400: oklch(71.2% 0.194 13.428);
+  --color-danger-500: oklch(64.5% 0.246 16.439);
+  --color-danger-600: oklch(58.6% 0.253 17.585);
+  --color-danger-700: oklch(51.4% 0.222 16.935);
+  --color-danger-800: oklch(45.5% 0.188 13.697);
+  --color-danger-900: oklch(41% 0.159 10.272);
+  --color-danger-950: oklch(27.1% 0.105 12.094);
   /* Task 175 — this mapping was MISSING since the shadcn v4 migration:
      `text-destructive-foreground` generated NO rule (the class existed,
      the theme token did not — the same silent-generation family as the
@@ -87,8 +232,19 @@
   --muted-foreground: oklch(0.523 0.024 232);
   --accent: oklch(0.935 0.031 188);
   --accent-foreground: oklch(0.36 0.075 192);
-  --destructive: oklch(0.577 0.245 27.325);
+  /* t646 — hue unification: the danger family is ROSE in this app (401
+     sites vs red's 54); destructive now wears the same oklch as rose-600.
+     Lightness is UNCHANGED from Task 175's verdict (600-territory in both
+     themes — dark once rode red-400 and white ink collapsed to ~2.7:1),
+     only the hue wheel moved 27.3° → 17.6°. Contrast law intact. */
+  --destructive: oklch(58.6% 0.253 17.585);
   --destructive-foreground: oklch(0.985 0.005 200);
+  /* t646 — status semantics: the minimap's canonical hex map, tokenized.
+     Light ink rungs (600s); the .dark block below carries the 400s. */
+  --danger: oklch(58.6% 0.253 17.585);   /* rose-600 */
+  --success: oklch(59.6% 0.145 163.225); /* emerald-600 */
+  --warning: oklch(66.6% 0.179 58.318);  /* amber-600 */
+  --running: oklch(60% 0.118 184.704);   /* teal-600 */
   --border: oklch(0.902 0.009 220);
   --input: oklch(0.894 0.01 220);
   --ring: oklch(0.615 0.108 186);
@@ -128,10 +284,18 @@
   /* Task 175 — dark used a BRIGHTER red (red-400, oklch 0.704), which
      collapsed every destructive label once text-destructive-foreground
      actually applied: near-white on red-400 = ~2.7:1. Unified with the
-     light token (red-600 territory): white ink = ~4.5:1, the X's
-     red-200 = ~3.3:1, and the family reads as ONE red in both themes. */
-  --destructive: oklch(0.577 0.245 27.325);
+     light token (600-territory): white ink = ~4.5:1, the X's 200-rung
+     = ~3.3:1, and the family reads as ONE red in both themes.
+     t646 — the token follows the family hue (rose-600) at the SAME
+     lightness; the Task 175 contrast verdict is untouched. */
+  --destructive: oklch(58.6% 0.253 17.585);
   --destructive-foreground: oklch(0.985 0.005 200);
+  /* t646 — dark ink rungs (400s): the field's own pair pattern (rose-600
+     ink with a dark:rose-400 partner, 33 sites) pinned these shades. */
+  --danger: oklch(71.2% 0.194 13.428);   /* rose-400 */
+  --success: oklch(76.5% 0.177 163.223); /* emerald-400 */
+  --warning: oklch(82.8% 0.189 84.429);  /* amber-400 */
+  --running: oklch(77.7% 0.152 181.912); /* teal-400 */
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.74 0.118 184);
@@ -150,6 +314,170 @@
   --sidebar-ring: oklch(0.74 0.118 184);
 }
 
+/* ============================================================
+   t581 — the ink ladder: the shadow system's true vocabulary.
+   Every card answer since t571 (lean → dash → whisper → the
+   run-glow's ambient floor) mixed its ink inline: color-mix(in
+   oklch, var(--foreground) N%, transparent) handwritten straight
+   into each box-shadow. t580's cascade forensics caught the bill:
+   the build pipeline (Tailwind v4 / Lightning CSS) rewrites every
+   INLINE color-mix() into a dual form — a fallback declaration
+   with the bare opaque var(--foreground) for old browsers, plus
+   the real value behind @supports. Evergreen browsers win the
+   truth branch, but the ladder's declarations lived at the
+   pipeline's mercy: every edit re-rolls the split, and the
+   fallback branch is a fully-opaque ink blob (ugly, not broken).
+   The tokens end that: a declaration that says var(--ink-14) is
+   OPAQUE to the minifier — it cannot be statically evaluated, so
+   the served rule survives verbatim and the pipeline has nothing
+   to rewrite. color-mix() now lives only at these definition
+   sites, fourteen lines per theme.
+
+   Naming: the register IS the percentage of foreground ink. One
+   scale reads the whole ladder:
+     rest    --ink-06 / --ink-10   (.card-lift, run-glow floor)
+     ask     --ink-06 / --ink-14   (hover answer, canvas + dash)
+     commit  --ink-06 / --ink-18   (.card-lift-lg dialogs)
+     whisper --ink-04 / --ink-09   (t580, panels inside modals)
+   t582 — the vocabulary went TOTAL: the hairline and chrome inks
+   joined the same scale, so EVERY foreground mix in the sheet
+   rides a token (no inline foreground color-mix survives):
+     hairline --ink-16 / --ink-12 / --ink-05   (canvas grid dots,
+                 fine grid, header grid-pattern lines)
+     chrome   --ink-28 / --ink-24 / --ink-40   (scrollbar-color
+                 rest, webkit thumb, thumb hover) and --ink-22 /
+                 --ink-20 (.nice-scroll dense-list variant)
+
+   Scope: var() inside a custom property resolves at the element
+   where THAT property is declared, then the resolved value
+   inherits. Declaring only at :root would bake the light ink for
+   any dark scope below <html>, so the tokens ride :root AND .dark
+   — the --teal-glow precedent (below, t-era job-running). Print
+   overrides --foreground on both scopes too, so the ladder prints
+   with paper ink automatically.
+
+   Old browsers without color-mix (pre-2023 evergreens): the
+   pipeline dual-forms the DEFINITIONS themselves — a top-level
+   `--ink-06: var(--foreground)` fallback plus the color-mix truth
+   behind @supports — so an old browser resolves the token to
+   OPAQUE ink and the ladder degrades to exactly the blob the
+   inline form always produced (unchanged story; it now lives in
+   fourteen lines per theme instead of twenty-one declarations).
+   Evergreens
+   read the exact mix, and the declarations are IMMUNE: single
+   verbatim rules, no per-declaration re-roll of the fallback
+   split, and --ink-XX is a REAL runtime API — an override on any
+   element flows into its shadow.
+   ============================================================ */
+:root {
+  --ink-04: color-mix(in oklch, var(--foreground) 4%, transparent);
+  --ink-05: color-mix(in oklch, var(--foreground) 5%, transparent);
+  --ink-06: color-mix(in oklch, var(--foreground) 6%, transparent);
+  --ink-09: color-mix(in oklch, var(--foreground) 9%, transparent);
+  --ink-10: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --ink-12: color-mix(in oklch, var(--foreground) 12%, transparent);
+  --ink-14: color-mix(in oklch, var(--foreground) 14%, transparent);
+  --ink-16: color-mix(in oklch, var(--foreground) 16%, transparent);
+  --ink-18: color-mix(in oklch, var(--foreground) 18%, transparent);
+  --ink-20: color-mix(in oklch, var(--foreground) 20%, transparent);
+  --ink-22: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --ink-24: color-mix(in oklch, var(--foreground) 24%, transparent);
+  --ink-28: color-mix(in oklch, var(--foreground) 28%, transparent);
+  --ink-40: color-mix(in oklch, var(--foreground) 40%, transparent);
+}
+.dark {
+  --ink-04: color-mix(in oklch, var(--foreground) 4%, transparent);
+  --ink-05: color-mix(in oklch, var(--foreground) 5%, transparent);
+  --ink-06: color-mix(in oklch, var(--foreground) 6%, transparent);
+  --ink-09: color-mix(in oklch, var(--foreground) 9%, transparent);
+  --ink-10: color-mix(in oklch, var(--foreground) 10%, transparent);
+  --ink-12: color-mix(in oklch, var(--foreground) 12%, transparent);
+  --ink-14: color-mix(in oklch, var(--foreground) 14%, transparent);
+  --ink-16: color-mix(in oklch, var(--foreground) 16%, transparent);
+  --ink-18: color-mix(in oklch, var(--foreground) 18%, transparent);
+  --ink-20: color-mix(in oklch, var(--foreground) 20%, transparent);
+  --ink-22: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --ink-24: color-mix(in oklch, var(--foreground) 24%, transparent);
+  --ink-28: color-mix(in oklch, var(--foreground) 28%, transparent);
+  --ink-40: color-mix(in oklch, var(--foreground) 40%, transparent);
+}
+
+/* ============================================================
+   Accent vocabulary — the color sources join the scale (t583)
+
+   The ink ladder (above) tokenizes transparency of the FOREGROUND.
+   The accent sources play the same game with three hue families,
+   and the color space is part of the name:
+
+   --glow-XX   teal (oklch) — the breathing family: run-glow's
+               ring/halo on RUNNING cards and its run-breathe chip
+               twin below. Every frame cites a rung, so the
+               animation's shape (rest 42/38 -> peak 78/62) lives
+               in the token set instead of scattered inline math,
+               and a reduced-motion freeze cites the same
+               vocabulary (60/48). The 0% rung (--glow-00) keeps
+               run-breathe's from-nothing start explicit.
+   --pulse-XX  primary in SRGB — the reveal family: reveal-flash's
+               bloom ring. srgb interpolates channels linearly,
+               oklch interpolates in a perceptual space — the SAME
+               number mixed in the two spaces lands on different
+               colors, so --pulse-45 and --tint-45 are deliberately
+               distinct rungs, not a typo.
+   --tint-XX   primary in oklch — the wash family: ::selection and
+               the progress-shimmer peak.
+
+   Dual-domain co-location, same reason as the ink ladder: the
+   sources themselves (--teal-glow, --primary) are theme-scoped,
+   so a :root-only definition would bake LIGHT mixes for every
+   dark-scope consumer (resolution happens on the declaring
+   element; descendants inherit the baked value). The pipeline
+   dual-forms these definitions exactly like the ink ones — old
+   browsers resolve to the OPAQUE source color (the blob the
+   inline form always produced), evergreens read the exact mix,
+   and the citing declarations stay verbatim-immune.
+
+   With this block the sheet carries ZERO inline color-mix
+   declarations outside definition lines: one vocabulary for
+   every transparency, foreground and accent alike. The witness
+   (t581 forensics) asserts coverage, not spot checks.
+   ============================================================ */
+:root {
+  --glow-00: color-mix(in oklch, var(--teal-glow) 0%, transparent);
+  --glow-10: color-mix(in oklch, var(--teal-glow) 10%, transparent);
+  --glow-14: color-mix(in oklch, var(--teal-glow) 14%, transparent);
+  --glow-22: color-mix(in oklch, var(--teal-glow) 22%, transparent);
+  --glow-38: color-mix(in oklch, var(--teal-glow) 38%, transparent);
+  --glow-42: color-mix(in oklch, var(--teal-glow) 42%, transparent);
+  --glow-48: color-mix(in oklch, var(--teal-glow) 48%, transparent);
+  --glow-60: color-mix(in oklch, var(--teal-glow) 60%, transparent);
+  --glow-62: color-mix(in oklch, var(--teal-glow) 62%, transparent);
+  --glow-78: color-mix(in oklch, var(--teal-glow) 78%, transparent);
+  --pulse-12: color-mix(in srgb, var(--primary) 12%, transparent);
+  --pulse-38: color-mix(in srgb, var(--primary) 38%, transparent);
+  --pulse-45: color-mix(in srgb, var(--primary) 45%, transparent);
+  --pulse-55: color-mix(in srgb, var(--primary) 55%, transparent);
+  --tint-26: color-mix(in oklch, var(--primary) 26%, transparent);
+  --tint-45: color-mix(in oklch, var(--primary) 45%, transparent);
+}
+.dark {
+  --glow-00: color-mix(in oklch, var(--teal-glow) 0%, transparent);
+  --glow-10: color-mix(in oklch, var(--teal-glow) 10%, transparent);
+  --glow-14: color-mix(in oklch, var(--teal-glow) 14%, transparent);
+  --glow-22: color-mix(in oklch, var(--teal-glow) 22%, transparent);
+  --glow-38: color-mix(in oklch, var(--teal-glow) 38%, transparent);
+  --glow-42: color-mix(in oklch, var(--teal-glow) 42%, transparent);
+  --glow-48: color-mix(in oklch, var(--teal-glow) 48%, transparent);
+  --glow-60: color-mix(in oklch, var(--teal-glow) 60%, transparent);
+  --glow-62: color-mix(in oklch, var(--teal-glow) 62%, transparent);
+  --glow-78: color-mix(in oklch, var(--teal-glow) 78%, transparent);
+  --pulse-12: color-mix(in srgb, var(--primary) 12%, transparent);
+  --pulse-38: color-mix(in srgb, var(--primary) 38%, transparent);
+  --pulse-45: color-mix(in srgb, var(--primary) 45%, transparent);
+  --pulse-55: color-mix(in srgb, var(--primary) 55%, transparent);
+  --tint-26: color-mix(in oklch, var(--primary) 26%, transparent);
+  --tint-45: color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -159,7 +487,7 @@
     font-feature-settings: "cv11", "ss01";
   }
   ::selection {
-    background: color-mix(in oklch, var(--primary) 26%, transparent);
+    background: var(--tint-26);
   }
 }
 
@@ -168,7 +496,7 @@
    ============================================================ */
 .canvas-grid {
   background-image: radial-gradient(
-    color-mix(in oklch, var(--foreground) 16%, transparent) 1px,
+    var(--ink-16) 1px,
     transparent 1px
   );
   background-size: 22px 22px;
@@ -176,7 +504,7 @@
 
 .canvas-grid-fine {
   background-image: radial-gradient(
-    color-mix(in oklch, var(--foreground) 12%, transparent) 1px,
+    var(--ink-12) 1px,
     transparent 1px
   );
   background-size: 11px 11px;
@@ -185,22 +513,441 @@
 /* Soft layered card shadow (light theme signature) */
 .card-lift {
   box-shadow:
-    0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
-    0 6px 16px -4px color-mix(in oklch, var(--foreground) 10%, transparent);
+    0 1px 2px var(--ink-06),
+    0 6px 16px -4px var(--ink-10);
 }
 
 .card-lift-lg {
   box-shadow:
-    0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
-    0 16px 40px -12px color-mix(in oklch, var(--foreground) 18%, transparent);
+    0 1px 2px var(--ink-06),
+    0 16px 40px -12px var(--ink-18);
+}
+
+/* t571 — the hover lean. Canvas cards are cursor-grab: on hover the card
+   leans INTO your hand — it rises 2px and lets its shadow answer (the
+   shadow transition is paint, unguarded by the house's motion doctrine;
+   the rise is movement, so it lives behind prefers-reduced-motion). The
+   lean rides the CSS `translate` property, NOT `transform`: the drag
+   loop patches style.transform on the transform HOST one level up, and
+   translate composes independently — a hovering card mid-drag can never
+   fight the drag offset. Timing is the door family's easeOutQuint
+   (t569/t570) — the canvas speaks the same motion dialect as the
+   inspector it opens. */
+.card-hover-lean {
+  transition: box-shadow 200ms ease;
+}
+/* the shadow ANSWERS the rise — pure paint (colour mixing, no geometry),
+   so it is deliberately NOT gated by prefers-reduced-motion; the house
+   doctrine silences movement, never ink. Hover-capable pointers only:
+   a touch tap must not leave a card floating on its shadow (house idiom
+   since Task 174/176). One rung deeper than .card-lift's 10% rest —
+   still visibly below .card-lift-lg's 18% commitment. */
+@media (hover: hover) {
+  .card-hover-lean:hover {
+    box-shadow:
+      0 1px 2px var(--ink-06),
+      0 10px 24px -6px var(--ink-14);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card-hover-lean {
+    transition:
+      box-shadow 200ms ease,
+      translate 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* the rise itself is movement — this hover rule rides motion-safe; the
+     shadow above already answers for users who opted out of motion */
+  @media (hover: hover) {
+    .card-hover-lean:hover {
+      translate: 0 -2px;
+    }
+  }
+}
+
+/* t576 — the shadow ladder's next rung. t571 gave canvas cards the hover
+   lean (shadow answer + 2px rise). But hover targets split in two kinds:
+   cards you can DRAG as a whole (the lean follows your hand — honest) and
+   cards that merely HOST buttons (a rise would promise a click the card
+   itself doesn't own). The shadow ANSWER belongs to both; only the rise
+   belongs to drag-kind cards. The ladder, one ink scale:
+     .card-lift        rest — 10%      (static cards)
+     .card-shadow-answer / .card-hover-lean:hover
+                       ask  — 14%      (hovered)
+     .card-lift-lg     commit — 18%    (dialogs, pinned surfaces)
+   This rung speaks from the dashboard: .dash-card-hover carries the
+   shadow answer plus the card's colour transitions in ONE unlayered rule
+   — unlayered custom classes beat Tailwind's layered utilities, so there
+   is exactly one owner of the transition channel and no cascade fight
+   (the shell drops its transition-[...] utility accordingly). The KPI
+   drill-downs are true buttons — they add .dash-card-lean and get the
+   2px rise too; project-grid cards host their actions in a footer row,
+   so they answer in shadow only. Movement rides motion-safe; paint and
+   hover ride (hover: hover) — a touch tap never leaves ink floating
+   (house idiom since Task 174/176). */
+.dash-card-hover {
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+@media (hover: hover) {
+  .dash-card-hover:hover {
+    box-shadow:
+      0 1px 2px var(--ink-06),
+      0 10px 24px -6px var(--ink-14);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* compound selector outranks .dash-card-hover deterministically (0,2,0
+     vs 0,1,0) — the lean adds the translate channel without re-stating
+     the paint channels it must keep */
+  .dash-card-hover.dash-card-lean {
+    transition:
+      box-shadow 200ms ease,
+      border-color 200ms ease,
+      background-color 200ms ease,
+      translate 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (hover: hover) {
+    .dash-card-hover.dash-card-lean:hover {
+      translate: 0 -2px;
+    }
+  }
+}
+
+/* t580 — the shadow ladder's third rung: the modal whisper. The inspector
+   is a .card-lift-lg world (18% committed elevation); a full 14% answer
+   from the cards INSIDE it would fight the dialog's own height and read
+   as a second spotlight. So the modal's quiet panels whisper — 4%/9%,
+   one register below the canvas/dashboard answer — a depth cue within
+   the dialog's plane, not a competing elevation. The other half of the
+   grammar: nothing inside a modal ever leans. The dialog's own arrival
+   WAS the motion event; contents rising to the hand would promise clicks
+   these informational panels don't own (the ladder's kind-split, t576,
+   taken one surface deeper — display cards answer shadow only, and here
+   they don't even host buttons). The Note editor keeps its own focus
+   language and never joins the whisper. One ink scale, one clock: 200ms,
+   the house timing. Paint-only, hover-capable pointers only — the house
+   doctrine silences movement, never ink, and a touch tap never leaves
+   ink floating (idiom since Task 174/176). */
+.insp-card-whisper {
+  transition: box-shadow 200ms ease;
+}
+@media (hover: hover) {
+  .insp-card-whisper:hover {
+    box-shadow:
+      0 1px 2px var(--ink-04),
+      0 6px 14px -5px var(--ink-09);
+  }
+}
+
+/* t572 — the palette cascade. The command palette is the store's read
+   window ("the palette never misses" — t571), and its groups are the
+   table of contents: on open they arrive TOP TO BOTTOM in the order
+   you'll scan them — the cascade IS the index. Group-level only, never
+   items: filtering re-displays groups (display:none → block restarts
+   CSS animations), so the entrance must disarm once it has played —
+   the dialog gains .palette-motion-settled ~520ms after open (after
+   the last rung lands: 210ms delay + 240ms duration) and re-arms on
+   every fresh open (the flip resets on close). First paint plays,
+   filtering stays silent — the same doctrine as the inspector chip's
+   entrance (t570). The INPUT never moves: it is the anchor the list
+   arrives to. Movement rides motion-safe; reduced-motion users keep
+   the dialog's own fade. */
+@keyframes palette-group-enter {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes palette-empty-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .palette-motion:not(.palette-motion-settled) [cmdk-group] {
+    animation: palette-group-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* the staircase — index among group siblings (nth-child `of S` syntax:
+     separators are siblings too, so plain nth-of-type would miscount) */
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(2 of [cmdk-group]) { animation-delay: 35ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(3 of [cmdk-group]) { animation-delay: 70ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(4 of [cmdk-group]) { animation-delay: 105ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(5 of [cmdk-group]) { animation-delay: 140ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(6 of [cmdk-group]) { animation-delay: 175ms; }
+  .palette-motion:not(.palette-motion-settled) [cmdk-group]:nth-child(n+7 of [cmdk-group]) { animation-delay: 210ms; }
+  /* the empty state mounts fresh on every appearance — its replay IS
+     the message ("the answer changed"), so it never disarms */
+  .palette-motion [cmdk-empty] {
+    animation: palette-empty-enter 200ms ease both;
+  }
+}
+
+/* t576 — the dashboard cascade (t572's sister page). The palette's groups
+   are the table of contents and arrive top-to-bottom; the dashboard is
+   the same doctrine at page scale: the survey arrives in SCAN ORDER —
+   the five KPI cards left-to-right, then the bands top-down (attention
+   strip, activity, saved views, spotlight, project grid, footnote). The
+   page header is the INPUT's sister: it never moves — content arrives
+   beneath it. The structural arms:
+     [data-dash-band] > *   the KPI cards (nth-child staircase, 35ms —
+                            membership is static, the band never filters)
+     [data-dash-enter]      section bands; each rung carries its own
+                            --dash-d (the ladder spans nesting levels, so
+                            nth-child would lie about the order it can't
+                            see — the variable is honest per element)
+     [data-dash-empty]      empty states — they mount fresh on every
+                            appearance, so like [cmdk-empty] their replay
+                            IS the message and they never disarm
+   The root .dash-motion gains .dash-motion-settled ~660ms after mount
+   (last rung: 340ms delay + 240ms duration + margin) — the same "first
+   paint plays, filtering stays silent" disarm as the palette: search,
+   sort and the presence filters re-render but never re-mount a band, so
+   a settled dashboard never replays. The shell swaps Dashboard ⇄ Canvas
+   by unmounting, so EVERY entry is a fresh mount and a first performance
+   — no close-flip machinery needed. Grid project cards never animate
+   individually (they re-filter on every keystroke — the band-level
+   entrance is the only voice they get). Movement rides motion-safe;
+   reduced-motion users get the instant dashboard. */
+@keyframes dash-enter {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes dash-empty-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dash-motion:not(.dash-motion-settled) [data-dash-enter] {
+    animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--dash-d, 0ms);
+  }
+  /* the KPI staircase — left-to-right among static band members */
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(1) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 0ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(2) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 35ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(3) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 70ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(4) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 105ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(5) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 140ms; }
+  .dash-motion:not(.dash-motion-settled) [data-dash-band] > *:nth-child(n+6) { animation: dash-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 140ms; }
+  /* empty states mount fresh — replay IS the message (never disarms) */
+  .dash-motion [data-dash-empty] {
+    animation: dash-empty-enter 200ms ease both;
+  }
+}
+
+/* ============================================================
+   Task 578 — the find bar's lens language (the cascade, the tick).
+   t572 gave the palette a cascade; t576 gave the dashboard the same
+   grammar; the find bar is the third floating surface and now speaks
+   it. The bar hangs from the top edge, so it LOWERS into place
+   (−6px settling to 0 — the drop reads as "the lens comes down over
+   the work") in three rungs: the input pill first (the anchor of the
+   lens), then the status row, then the type row, 60ms apart. The
+   travel rides prefers-reduced-motion: no-preference (t571's layered
+   doctrine); `both` fill keeps un-rung rows invisible during their
+   delay. Disarm is code-side: the root's data-find-enter is removed
+   after the settle window, so the cascade is a one-shot per OPEN —
+   typing, chip clicks and wire-drag returns never replay it, and a
+   re-open remounts the bar (replay = re-entrance, the t572 law).
+   ============================================================ */
+@keyframes find-drop {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-find-enter] [data-find-rung] {
+    animation: find-drop 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--find-d, 0ms);
+  }
+  /* t584 — the chip cascade: the sentence lands, then its words are
+     spoken. The rows are the lens coming down; the chips are its
+     filter wheels clicking into place, one by one, in reading order —
+     the same index-as-arrival doctrine as t572's groups and t579's
+     ripple. Each chip carries an inline --find-cd computed component-
+     side (row landing + index × 24ms: status base 280ms, type base
+     340ms) — a per-element variable, not nth-child, because the two
+     rows have different bases and the type row's width flexes with
+     the world. The travel is −3px (half the row's −6px: a chip is a
+     PASSENGER of the landed row, its own motion is a settle, not a
+     drop) and 160ms (small things land faster). `both` fill keeps
+     un-lit chips invisible inside the fading-in row — the row arrives
+     as an empty shell and the words light up after it lands. Rung 0
+     never cascades: the input pill is the ANCHOR (t572's law — the
+     input is what everything else arrives to), its count/arrows/close
+     appear with it. Same one-shot per open as the rungs: the whole
+     block dies with data-find-enter, so typing and drag returns never
+     replay it. */
+  @keyframes find-chip-enter {
+    from {
+      opacity: 0;
+      translate: 0 -3px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+  [data-find-enter] [data-find-chip] {
+    animation: find-chip-enter 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--find-cd, 0ms);
+  }
+  /* t585 — the third voice: the toggle answer. t584 gave the chips their
+     entrance (the wheels arrive); this gives the ACTIVATION its own
+     syllable — a filter clicking into place: scale snaps from 0.94 and
+     the back-out bezier (0.34, 1.56, 0.64, 1) springs it past 1 and
+     lands it. The trigger is an explicit transient key the component
+     sets on a POST-ARM activating click ([data-chip-set]) — NOT a bare
+     aria-pressed rule, and here is why: a rule keyed only on
+     [aria-pressed="true"] would newly-match at the DISARM too (when
+     data-find-enter leaves the root, every still-active chip starts
+     matching) and ghost-pop them with no click at all — the disarm must
+     never become an event (the t578 law). The component gates the key
+     on !enterArmed (a click inside the entrance window is answered by
+     color alone — the cascade owns the chips' animation channel) and
+     clears the set on EVERY open (the arming edge), so a fresh lens
+     never inherits last session's voice. Deactivation adds no key and
+     flips aria-pressed back — the release is quiet, no exit ceremony.
+     The :not([data-find-enter]) scope stays as the structural HANDSHAKE
+     with the entrance: while armed, the cascade owns the channel, full
+     stop. Both chip families speak it — status chips and the dot-less
+     type chips get the same body language, one grammar per surface.
+     Movement rides prefers-reduced-motion: no-preference like every
+     other travel in this file; the color answer (transition-colors)
+     stays with all users. */
+  @keyframes chip-set {
+    from {
+      scale: 0.94;
+    }
+  }
+  [data-canvas-find-bar]:not([data-find-enter]) [data-find-chip][data-chip-set][aria-pressed="true"] {
+    animation: chip-set 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  /* the count answers: when the number changes (N matches → 1 of N),
+     the tick span flashes the find dialect's amber — the same hue the
+     matched cards ring with (job-card's findMatch border) — so the
+     trigger and its consequence speak one color. Paint-only; the span
+     is remounted by React key per change, making the flash a one-shot. */
+  @keyframes find-tick {
+    0% {
+      color: oklch(0.769 0.188 70.08); /* amber-500, the find ring's hue */
+    }
+  }
+  [data-find-tick] {
+    animation: find-tick 480ms ease-out;
+  }
+  /* Task 579 — the ripple: the count answers, then the matches answer in
+     reading order. Each newly-matched card gets a halo overlay (::after on
+     the [data-job] host) that ignites at its wave slot — index × 24ms,
+     capped at 12 steps (a wide match set is a snap, not a slow parade).
+     fill-mode stays `none` so the halo is INVISIBLE during its delay and
+     at rest: an ignite wave (dark → lit → settled), not a decay wave —
+     the settled amber ring underneath is the truth the flash hands off
+     to, the same hue the count chip ticks in and the ring rides. The
+     flash fires only when data-find-ring-flash APPEARS (newly matched;
+     persisting matches never re-strobe) and disappears without an exit
+     ritual ("return is not an arrival", the t578 law). Whole block rides
+     prefers-reduced-motion: no-preference like the cascade above — a
+     reduced-motion lens gets instant static rings, no overlay at all. */
+  [data-find-ring-flash]::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 16px;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow:
+      0 0 0 3px oklch(0.769 0.188 70.08 / 0.55),
+      0 0 22px 6px oklch(0.769 0.188 70.08 / 0.35);
+  }
+  @keyframes find-ring-flash {
+    0% {
+      opacity: 0;
+    }
+    25% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  [data-find-ring-flash]::after {
+    animation: find-ring-flash 620ms ease-out;
+    animation-delay: var(--find-ring-d, 0ms);
+  }
+}
+
+/* ------------------------------------------------------------
+   t587 — the odometer tick: the zoom gauge's voice
+   ------------------------------------------------------------ */
+/* The toolbar's zoom % readout is a live gauge, and it speaks when the
+   world rescales under a discrete COMMAND (step buttons, reset — both
+   context-menu and toolbar routes). The motion is a mechanical-odometer
+   roll: the value growing spins the drum UP (the new digit enters from
+   BELOW, +2px), the value shrinking drops it in from ABOVE (−2px) — the
+   direction lives in --zoom-tick-y, set inline per tick (variables are
+   honest to elements: two directions, one keyframe). The span is
+   remounted by React key per tick (the find-tick idiom), making the roll
+   a one-shot that never re-fires while the value rests.
+   Family grammar: a digit is smaller than a chip (−3px) which is smaller
+   than a row (−6px), so its travel shrinks to 2px and its settle to
+   140ms (~8 frames at 60fps — long enough to read as motion, short
+   enough to stay a tick, not a paragraph; the chip settles in 160ms). Birth
+   silence: the initial mount carries no [data-zoom-tick], the readout's
+   first value is its birth, not an event. Continuous gestures (wheel,
+   pinch) never tick — the digits changing ARE their voice, and the
+   pinch's own body is the between-fingers bubble. Rides
+   prefers-reduced-motion: no-preference like every motion in this sheet. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes zoom-tick {
+    from {
+      opacity: 0.35;
+      translate: 0 var(--zoom-tick-y, 0px);
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+  [data-zoom-tick] {
+    animation: zoom-tick 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }
 
 /* ============================================================
    Edge animations
    ============================================================ */
+/* t349 — the marching offset MUST be an exact multiple of the dash
+   period (6+5 = 11), or every loop restart teleports the pattern by the
+   remainder (-16 ≡ -5 mod 11) and the dashes visibly jump backwards
+   once per 0.7s — most jarring on a straight horizontal wire, where the
+   eye tracks a uniform dash grid. -11 = exactly one period → seamless. */
 @keyframes edge-dash-flow {
   to {
-    stroke-dashoffset: -16;
+    stroke-dashoffset: -11;
   }
 }
 
@@ -298,7 +1045,7 @@
   background-image: linear-gradient(
     110deg,
     transparent 25%,
-    color-mix(in oklch, var(--primary) 45%, transparent) 50%,
+    var(--tint-45) 50%,
     transparent 75%
   );
   background-size: 200% 100%;
@@ -333,6 +1080,406 @@
   }
 }
 
+/* t607 — the stamp lands. The AI verdict stamp is the Results tab's only
+   mute card: every chart card rises (rise-in above), but the stamp is not
+   a measurement — it is a JUDGMENT, and a stamp does not rise, it lands.
+   Direction IS the semantic: the numbers rise, the verdict drops. Same
+   entrance family (replays on tab switches — Radix unmounts inactive
+   panels, and each mount IS a fresh fetch arriving) and the family
+   bezier, but 240ms — a stamp lands faster than data rises. Mount =
+   arrival: the card mounts the moment its fetch lands (honest absence
+   until then), so a static data attribute on the section is the whole
+   story; -4px is the chip travel's older sibling (chips -3px, rows -6px).
+   Same transform dialect as rise-in (translateY), no scale luggage. */
+@keyframes verdict-stamp-arrival {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-verdict-arrival] {
+  animation: verdict-stamp-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-verdict-arrival] {
+    animation: none;
+  }
+}
+
+/* t608 — the receipt surfaces. The evidence row pairs two answers about
+   one selection: the judge's verdict (above, lands -4px — imposed by
+   authority) and the engine's receipt (the machine's answer). Direction
+   IS the semantic's mirror: facts come UP out of the machine, like a
+   receipt printing out of its slot (+4px), and in the paired row the two
+   answers converge on the reading line. Same 240ms as the stamp — the
+   receipt was decided at run time, the wire merely delivers it; answers
+   are equally prompt. Mount = arrival (honest absence until the fetch
+   lands), same family bezier, same transform dialect (translateY), no
+   scale luggage. */
+@keyframes receipt-arrival {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-receipt-arrival] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-receipt-arrival] {
+    animation: none;
+  }
+}
+
+/* t609 — the tally walks the row. The key-numbers strip is the counted
+   face that leads the Results view (t330) and the inspector's Overview
+   (t347), with the run-receipt fallback strip as its third host — one
+   grammar, all three surfaces. The counts were taken from the star at
+   count time; the wire merely delivers them — so the geometry is the
+   receipt's own word (receipt-arrival above: +4px surfacing, 240ms, the
+   family bezier). t606's doctrine: same direction, same speed, no new
+   keyframe. What IS new is the chorus — the cards surface in READING
+   ORDER, each 24ms after the one before (t584's chip step), a tally
+   being taken left to right; the amber coverage footnote joins the row
+   as the next line of the tally (--kd = card count × step). No count-up
+   on the digits: the number is already counted, and a rolling digit
+   would pretend computation the engine already did. Mount = arrival —
+   the strip mounts when the summary fetch lands (the Results view and
+   the Overview lead), the receipt strip mounts with its tab panel (the
+   tab switch is the event); Radix's round-trip replays both honestly.
+   The cards whisper via box-shadow only, so fill-both holding transform
+   at 0 never fights the hover ink. */
+[data-key-arrival] [data-stat],
+[data-key-arrival] [data-coverage-note] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--kd, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-key-arrival] [data-stat],
+  [data-key-arrival] [data-coverage-note] {
+    animation: none;
+  }
+}
+
+/* t611 — the funnel pours. PipelineAnalytics (the dashboard's
+   at-a-glance section) rises as furniture (rise-in, 350ms), and its
+   innards hold the second layer of the family's two-layer honesty —
+   furniture arrives, then the quantities take their places:
+
+   • flow rows surface in reading order (receipt-arrival's own word —
+     the pipeline's stages are the engine's answers, facts coming up
+     out of the machine), 24ms step;
+   • each bar POURS along the flow's own axis — scaleX from its left
+     edge, where the particles enter the stage. A horizontal word for
+     a horizontal semantic: the only genuinely new direction in the
+     section, so it is the only new keyframe (t607: new semantics
+     deserve new words, but only the direction is new — bezier and
+     transform dialect inherited);
+   • ladder steps surface with the receipt's word, reading order
+     (oldest → newest), the arrow connector riding its step.
+
+   The counts and deltas NEVER move (no count-up — t609's law: a
+   rolling digit would pretend computation the engine already did).
+   Timing: innards start at 350ms (the section's rise-in has landed —
+   furniture first, then the quantities), 24ms steps. Widest real
+   funnel is 7 stages: 350 + 6×24 + 480 = 974ms pour tail. CSS
+   animations run ONCE per mount: re-renders that preserve keys (the
+   status filter chips re-composing the same rows) cannot restart
+   them — re-composition is not re-arrival; a REMOUNT (dashboard
+   re-entry) is, and replays the whole grammar honestly. The session
+   timeline keeps its own words: its bars speak through left/width
+   transitions when data moves, and the running row's soft-pulse is a
+   living word an entrance shorthand would kill — its arrival rides
+   the section. */
+[data-analytics-arrival] [data-flow-row],
+[data-analytics-arrival] [data-ladder-step] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--ad, 0ms);
+}
+
+@keyframes flow-pour {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+[data-analytics-arrival] [data-flow-bar] {
+  animation: flow-pour 0.48s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--ad, 0ms);
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-analytics-arrival] [data-flow-row],
+  [data-analytics-arrival] [data-ladder-step],
+  [data-analytics-arrival] [data-flow-bar] {
+    animation: none;
+  }
+}
+
+/* t612 — the timeline walks in. The session timeline (the analytics
+   section's full-width third view) joins the SAME wave its siblings
+   started: its REVEAL rows surface in reading order with the receipt's
+   own word (zero new keyframes — the definition stays exactly once),
+   continuing the count past the flow and the ladder so the page reads
+   as one surfacing top-down. The never-ran footnote rides as the rows'
+   next line (--td = the row after the last row).
+
+   The ROW FACE ONLY, per the t611 decision: the bars inside keep their
+   own words — transition-[left,width] speaks when data moves, and the
+   running row's soft-pulse is a living word an entrance shorthand
+   would kill. An entrance on the row must not leak onto the bar:
+   the selectors below name the row and the footnote, never the bar.
+
+   Timing: the wave continues the count past the FLOW ONLY (the faces
+   that spoke synchronously before the timeline) — row i starts at
+   350 + (flow + i)×24. The ladder is NEVER folded in: it is async and
+   mounts when its milestones land — folding a late fetch into these
+   delays would SHIFT them and replay the rows (re-render becoming
+   re-arrival). Canonical world: 4 flow rows + 11 runs → the last row
+   lands at 350 + 14×24 + 240 = 926ms, the footnote at 710ms — the
+   same ~1s envelope the funnel's pour tail keeps. CSS animations run
+   once per mount: re-composition is not re-arrival (t611's law); a
+   dashboard re-entry remounts and replays honestly. */
+[data-tl-arrival] [data-tl-row],
+[data-tl-arrival] [data-tl-never] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--td, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tl-arrival] [data-tl-row],
+  [data-tl-arrival] [data-tl-never] {
+    animation: none;
+  }
+}
+
+/* t613 — the spotlight's own wave. The active-project spotlight's
+   remaining faces join the arrival grammar their analytics siblings
+   started (t611/t612): the banner, the stage label row, the StageChips
+   (each chevron riding the chip it introduces), the jobs label, the
+   homecoming sweep and the roster rows surface in reading order with
+   the receipt's own word — ZERO new keyframes (the family's vocabulary
+   is already complete for "a fact surfaces"; the definition stays
+   exactly once).
+
+   The wave counts only its own synchronous faces. The tail's base
+   freezes the head's face count at the spotlight's first mount, and
+   the rows' tickets come from a MOUNT LEDGER (assigned once, in DOM
+   encounter order; a later face joins the tail) — the roster is
+   newest-first, so a positional index would shift every delay when a
+   job prepends, and a shifted delay on a finished animation replays it
+   (re-render becoming re-arrival). Chrome never rides: the search box
+   and the status filter chips are lenses, not faces (t611's
+   precedent). The banner's Progress meter keeps its own width
+   transition (the row-face-only law, banner edition).
+
+   Canonical: 12 chips + 12 rows → the last row starts at
+   350 + (2 + 12 + 1 + 12)×24 = 998ms; the card settles at 1238ms — the
+   dominant card reads a beat past the funnel's ~1s envelope beneath
+   it. CSS animations run once per mount: re-composition is not
+   re-arrival; a dashboard re-entry remounts and replays honestly. */
+[data-spot-arrival] [data-spot-banner],
+[data-spot-arrival] [data-spot-stagelabel],
+[data-spot-arrival] [data-spot-chip],
+[data-spot-arrival] [data-spot-link],
+[data-spot-arrival] [data-spot-jobslabel],
+[data-spot-arrival] [data-spot-sweep],
+[data-spot-arrival] [data-spot-row] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--sd, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-spot-arrival] [data-spot-banner],
+  [data-spot-arrival] [data-spot-stagelabel],
+  [data-spot-arrival] [data-spot-chip],
+  [data-spot-arrival] [data-spot-link],
+  [data-spot-arrival] [data-spot-jobslabel],
+  [data-spot-arrival] [data-spot-sweep],
+  [data-spot-arrival] [data-spot-row] {
+    animation: none;
+  }
+}
+
+/* t614 — the workspaces tab surfaces. The sidebar's last silent family
+   joins the arrival grammar its dashboard siblings started (t611/t612/
+   t613): the panel's header, the hint, the workspace cards and each
+   card's stats row surface in reading order with the receipt's own word
+   — ZERO new keyframes (the definition stays exactly once).
+
+   The beat is a USER-GESTURE beat, not a page-load beat: the panel
+   mounts on the user's own tab click (Radix TabsContent unmounts on
+   leave — every entry is a fresh surfacing), so the base is 90ms —
+   between the find bar's status row (60ms) and type row (120ms), the
+   family's gesture echoes; the dashboard's 350ms card beat would read
+   as lag on a click the user just made.
+
+   The cards' tickets come from a MOUNT LEDGER (t613's law, second
+   consumer): a ticket belongs to a face, not a seat. Creation APPENDS
+   (append-safe), but a DELETION shifts every later row's index — and a
+   shifted delay on a finished animation replays it. The ledger keys by
+   workspace id, fills on miss at render time, and is never rewritten;
+   the ref dies with the tab unmount, so each entry re-issues fresh.
+
+   The ROW FACE ONLY, stats edition: the stats row itemizes one step
+   after its card, but the selectors name the row as ONE unit — never
+   the chips inside it. The running chip's animate-spin is a living
+   word (the ws-running pulse of the canvas, transplanted here); a
+   chip-level entrance would kill it. The New button is chrome (an
+   action verb, always available — a lens, not a face) and the inline
+   rename input is a tool, not content: neither ever rides.
+
+   Canonical (single workspace "Main"): header 90, hint 114, card 138,
+   stats 162 — settled at 402ms. Each extra card adds 24ms to the tail;
+   card i and card i-1's stats share a beat — the wave interleaves. */
+[data-ws-arrival] [data-ws-header],
+[data-ws-arrival] [data-ws-hint],
+[data-ws-arrival] [data-ws-card],
+[data-ws-arrival] [data-ws-stats],
+[data-ws-arrival] [data-ws-empty] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--wd, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ws-arrival] [data-ws-header],
+  [data-ws-arrival] [data-ws-hint],
+  [data-ws-arrival] [data-ws-card],
+  [data-ws-arrival] [data-ws-stats],
+  [data-ws-arrival] [data-ws-empty] {
+    animation: none;
+  }
+}
+
+/* t616 — the palette's own wave. The Catalog tab — the sidebar's default
+   face, present from the server HTML at boot — joins the arrival grammar
+   its rail sibling (t614) and dashboard siblings (t611/t612/t613)
+   started: the header row, the favorites/recents label rows, their
+   chips, the 14 category headers, the open category's rows and the tier
+   legend surface in reading order with the receipt's own word — ZERO new
+   keyframes (the definition stays exactly once; the family's vocabulary
+   for "a fact surfaces" is already complete).
+
+   The beat is the RAIL'S PULSE: 90ms, the same USER-GESTURE beat the
+   Workspaces tab sings (t614) — one rail, one pulse. The palette's boot
+   mount is server-rendered (its wave begins at first paint, before the
+   canvas cards at 260ms — furniture before content), and its gesture
+   remounts (tab switch, mobile Sheet) answer the click without the
+   dashboard's 350ms lag.
+
+   The tickets come from a MOUNT LEDGER (t613's law, THIRD consumer —
+   and its stress test: the palette hosts all four index-shift shapes —
+   favorites REORDER, recents PREPEND, categories FOLD/UNFOLD, search
+   RE-FILTERS): a ticket belongs to a face, not a seat; filled on miss
+   at render time in reading order, never rewritten; the ledger dies
+   with the tab unmount / Sheet close, so every fresh entry re-issues.
+
+   THE FOLD LAW: a row nominates only while its category is open. A
+   folded row is not part of the visible composition (its wrapper holds
+   it at a 0px grid track and 0 opacity), so it holds no ticket;
+   unfolding nominates it at the ladder's tail (mount is arrival,
+   t613's ladder semantics) — the attribute appearing is the animation's
+   cue, because CSS starts an animation the moment an element begins
+   matching its rule. The category headers and the footer ARE standing
+   faces — always mounted, always nominated.
+
+   Chrome never rides: the search box is a lens (t611/t613), the
+   fav-filter star an action verb, the "/" kbd hint decoration, the
+   clear/rename verbs ride their label rows (the banner/Progress
+   precedent), and the drag ghost PORTALS outside this subtree — past
+   the arrival scope by topology. The selectors name rows and label
+   rows, never the buttons' inner stars/spinners (the row-face-only
+   law): the fav chip's amber lift and the row's hover translate-x keep
+   speaking the `translate` PROPERTY while fill-both pins `transform`
+   — different dialects, no fight (t609's note, property-split edition).
+
+   Canonical fresh boot (no favorites/recents — both are client-only,
+   arriving post-hydration at the ledger's tail): 19 faces, header 90 →
+   footer 522, settled at 762ms; the personal faces (favorites, recents)
+   join at 546+ once the localStorage read lands. */
+[data-pal-arrival] [data-pal-face] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--pd, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-pal-arrival] [data-pal-face] {
+    animation: none;
+  }
+}
+
+/* t617 — the inspector's own wave. The job inspector — the modal a card
+   click opens over the canvas — joins the arrival grammar its siblings
+   started (t611/t612/t613/t614/t616): the status accent, the header, the
+   tab bar, the ACTIVE tab's panel and the workdir footer surface in
+   reading order with the receipt's own word — ZERO new keyframes (the
+   definition stays exactly once; the eighth family consumer).
+
+   The beat is the USER-GESTURE beat: 90ms, the rail's pulse (t614/t616),
+   between the find bar's gesture echoes (60/120) — the modal mounts on
+   the user's own card pointerup, and the dashboard's 350 page beat would
+   read as lag on a click the user just made. Canonical open composition
+   (accent, header, tabs, panel): 90 / 114 / 138 / 162 — settled at
+   162 + 240 = 402ms. The workdir footer is DATA-GATED (it mounts only
+   when the outputs fetch lands, usually a beat after the wave began),
+   and its face attribute APPEARING is the animation's cue — the late
+   arrival fills the ledger's tail (186) at its own mount, never the
+   seat (the t616 favorites precedent).
+
+   THE MOUNT LEDGER, fourth consumer (t613's law): the modal body mounts
+   with the dialog — Radix unmounts DialogContent on close — so the
+   ledger dies with it and every open re-issues fresh; tickets fill on
+   miss at JSX evaluation order = reading order, never rewritten.
+
+   THE FOLD LAW, second consumer (t616's law, new mechanism): Radix
+   TabsContent never unmounts its panels — it hides the inactive ones
+   (the hidden attribute) and strips their children, so "hanging in the
+   DOM but not in the composition" is the panels' PERMANENT condition.
+   The law answers with nomination instead of mount: only the ACTIVE
+   panel carries the face attribute; switching tabs de-nominates the old
+   panel (the rule stops matching — the element snaps home) and
+   nominates the new one, so a first visit pays the ledger's tail (210)
+   and a RETURN replays its frozen ticket (162). A ticket belongs to a
+   face, not a seat — and not to a mount, either.
+
+   Chrome never rides: the wave rule names only the five face ids — the
+   header's verbs, the tab triggers, the live dot, the files-count chip
+   and the footer's copy verb ride their faces' coattails (the
+   banner/Progress precedent) — and the rule itself never names a
+   button, input or spinner (the row-face-only law). The dialect note
+   (t616): the card-lift lean and hover lifts speak the `translate`
+   property while fill-both pins `transform` — different dialects, no
+   fight. Radix's one-frame mount guard (animationDuration: 0s on the
+   panel's first mount) expires at the first rAF, long before the
+   wave's 90ms+ tickets — the wave outruns the guard by construction. */
+[data-insp-arrival] [data-insp-face] {
+  animation: receipt-arrival 0.24s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: var(--insp-d, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-insp-arrival] [data-insp-face] {
+    animation: none;
+  }
+}
+
 /* Breathing teal halo for RUNNING job cards — the card is the
    heartbeat of the canvas, it should be findable in a glance even at
    33% zoom across 13 cards. Layered box-shadow pulse, no repaint-heavy
@@ -341,15 +1488,15 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--teal-glow) 42%, transparent),
-      0 0 14px -2px color-mix(in oklch, var(--teal-glow) 38%, transparent),
-      0 6px 16px -4px color-mix(in oklch, var(--foreground) 10%, transparent);
+      0 0 0 1px var(--glow-42),
+      0 0 14px -2px var(--glow-38),
+      0 6px 16px -4px var(--ink-10);
   }
   50% {
     box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--teal-glow) 78%, transparent),
-      0 0 24px -2px color-mix(in oklch, var(--teal-glow) 62%, transparent),
-      0 6px 16px -4px color-mix(in oklch, var(--foreground) 10%, transparent);
+      0 0 0 1px var(--glow-78),
+      0 0 24px -2px var(--glow-62),
+      0 6px 16px -4px var(--ink-10);
   }
 }
 
@@ -371,8 +1518,8 @@
   .job-running {
     animation: none;
     box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--teal-glow) 60%, transparent),
-      0 0 18px -2px color-mix(in oklch, var(--teal-glow) 48%, transparent);
+      0 0 0 1px var(--glow-60),
+      0 0 18px -2px var(--glow-48);
   }
 }
 
@@ -383,21 +1530,22 @@
    from the sidebar without reading a single number — motion is the
    headline, the count is the detail. Background + a soft ring pulse
    (at h-5 a full halo would smear into the row), the SAME 2.1s cadence
-   as the card glow so both layers pulse in step; color-mix against the
-   shared --teal-glow var keeps both themes' hue/intensity coherent.
+   as the card glow so both layers pulse in step; both frames cite the
+   shared --glow-XX vocabulary (t583), so the chip and the card breathe
+   from the same rungs and the themes' hue/intensity stay coherent.
    prefers-reduced-motion: the chip freezes at its resting tint (the
-   class's own static bg-teal-500/10 reads through) and the Loader2
+   class's own static bg-running/10 reads through) and the Loader2
    inside is silenced by motion-reduce:animate-none in the component —
    the count number alone still informs. */
 @keyframes run-breathe {
   0%,
   100% {
-    background-color: color-mix(in oklch, var(--teal-glow) 10%, transparent);
-    box-shadow: 0 0 0 0 color-mix(in oklch, var(--teal-glow) 0%, transparent);
+    background-color: var(--glow-10);
+    box-shadow: 0 0 0 0 var(--glow-00);
   }
   50% {
-    background-color: color-mix(in oklch, var(--teal-glow) 22%, transparent);
-    box-shadow: 0 0 0 3px color-mix(in oklch, var(--teal-glow) 14%, transparent);
+    background-color: var(--glow-22);
+    box-shadow: 0 0 0 3px var(--glow-14);
   }
 }
 
@@ -411,13 +1559,43 @@
   }
 }
 
+/* Door-family wayfinding entrance (t570) — the inspector return chip
+   doesn't just pop into the identity row after a door landing: it walks
+   in FROM where you came (a 6px slide from the left, the exact direction
+   its own ArrowLeft points). Motion as wayfinding, not decoration: the
+   entrance restates the chip's answer to "刚从哪来" before you read a
+   word. 220ms easeOutQuint — enough to be seen, never enough to stall
+   the header it lands in. The fill mode is `both` so a mid-swap paint
+   never flashes the unpositioned chip. prefers-reduced-motion: the chip
+   appears at rest (presence alone still informs — the same honesty the
+   ws-running chip practices above). */
+@keyframes inspector-chip-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.inspector-chip-enter {
+  animation: inspector-chip-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inspector-chip-enter {
+    animation: none;
+  }
+}
+
 /* ============================================================
    Custom scrollbars
    ============================================================ */
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--foreground) 28%, transparent)
-    transparent;
+  scrollbar-color: var(--ink-28) transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
@@ -427,26 +1605,26 @@
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--foreground) 24%, transparent);
+  background: var(--ink-24);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklch, var(--foreground) 40%, transparent);
+  background: var(--ink-40);
   background-clip: content-box;
 }
 /* slimmer variant for dense lists (dashboard rows, stage rails) */
 .nice-scroll {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
+  scrollbar-color: var(--ink-22) transparent;
 }
 .nice-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 .nice-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--foreground) 20%, transparent);
+  background: var(--ink-20);
   background-clip: content-box;
 }
 
@@ -495,12 +1673,12 @@
 
 .grid-pattern-header {
   background-image: linear-gradient(
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
+      var(--ink-05) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      color-mix(in oklch, var(--foreground) 5%, transparent) 1px,
+      var(--ink-05) 1px,
       transparent 1px
     );
   background-size: 28px 28px;
@@ -608,6 +1786,62 @@
 
 .mm-edge-dim {
   opacity: var(--dim-ghost);
+}
+
+/* Roster chain lens (t686): the survey surface joins the walk family. A
+   row the finish didn't wait on recedes with the SAME ladder rung the
+   canvas cards dim by (recede + deep grayscale — one voice for "not on
+   the chain" across every face; the map's whisper was a scale law for
+   chips, a row of text keeps the card-grade rung). The print reset is
+   the filter chips' own .no-print law, row edition: the paper roster is
+   a plain roster — a dimmed row with no lens in sight would be
+   unexplained ink, exactly the confusion the chips' no-print comment
+   already ruled out. */
+.roster-chain-dim {
+  opacity: var(--dim-recede);
+  filter: grayscale(var(--dim-gray-deep));
+  transition:
+    opacity 200ms ease,
+    filter 200ms ease;
+}
+
+@media print {
+  .roster-chain-dim {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+/* t591 — the segmented control's settled voice. t586 gave buttons the
+   press answer (the hand is held); t585 gave the find chips the toggle
+   answer (a filter clicking into place). The minimap's framing-mode
+   control is the same gesture family — a mode click — and until now its
+   bg-card thumb appeared instantly, a silent surface change. The settle
+   is the chip-set syllable in its smallest body: scale snaps from 0.94
+   and the same back-out bezier springs it past 1 and lands it. The
+   family size law (t587: the smaller the element, the faster the voice)
+   budgets the duration between the odometer digit (140ms) and the find
+   chip's toggle (260ms): this pill is smaller than a chip (9px type),
+   so 200ms. The trigger is the transient [data-mm-set] key the component
+   sets on an activating click — NOT a bare [aria-pressed="true"] rule:
+   the t585 disarm law applies double here, because this control has a
+   SYSTEMIC coercion (sel → fit when the selection empties) that would
+   ghost-pop the fit button with no click at all; the component clears
+   the key at that edge so a later re-click can re-arm. Deactivation
+   adds no key and flips aria-pressed back — the release is quiet, no
+   exit ceremony; a re-click on the live mode changes nothing and says
+   nothing (no change, no sound). Rides prefers-reduced-motion:
+   no-preference like every other travel in this file; the color answer
+   (transition-all, shared with the press dip) stays with all users. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mm-set {
+    from {
+      scale: 0.94;
+    }
+  }
+  [data-mm-btn][data-mm-set][aria-pressed="true"] {
+    animation: mm-set 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
 }
 
 /* ============================================================
@@ -719,7 +1953,6 @@
      would stamp transient screen state onto archival paper; .no-print
      marks app-specific chrome */
   [data-slot="tooltip-content"],
-  [data-sonner-toaster],
   .no-print {
     display: none !important;
   }
@@ -1253,11 +2486,11 @@
 @keyframes reveal-flash {
   0% {
     opacity: 0.95;
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 38%, transparent);
+    box-shadow: 0 0 0 0 var(--pulse-38);
   }
   70% {
     opacity: 0.5;
-    box-shadow: 0 0 0 14px color-mix(in srgb, var(--primary) 12%, transparent);
+    box-shadow: 0 0 0 14px var(--pulse-12);
   }
   100% {
     opacity: 0;
@@ -1266,14 +2499,16 @@
 }
 .reveal-flash {
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent);
+    0 0 0 2px var(--pulse-55),
+    0 0 0 1px var(--pulse-45);
   animation: reveal-flash 1.15s ease-out 1 both;
 }
 
-/* Programmatic viewport arrivals GLIDE (store.revealJob / focus): the
-   canvas adds this class only around the focus-driven setViewport —
-   wheel and pan never touch it, so gestures stay raw. */
+/* Programmatic viewport arrivals GLIDE (store.revealJob / focus / bookmark
+   jumps, t588): the canvas adds this class around any focus- or
+   bookmark-driven setViewport — wheel and pan never touch it, so gestures
+   stay raw. The readout rides the same arrival (the held zoom + the coda
+   tick live in the canvas's beginGlideArrival). */
 .viewport-glide {
   transition:
     transform 0.48s cubic-bezier(0.22, 0.61, 0.36, 1),
@@ -1286,8 +2521,287 @@
   .reveal-flash {
     display: none !important;
   }
-  .viewport-glide {
+  /* t594 — one merged print group (the paper has no arrivals): the flash
+     never prints (the span also carries print:hidden), a mid-glide print
+     must not smear the transform, the flip never flies mid-paper, and the
+     map's marker has no journey on paper. NOTE: the minifier DROPPED this
+     rule when it was a separate selector it had to merge itself (served
+     sheet carried only the first two) — merging by hand keeps all four
+     honest in the product. */
+  .viewport-glide,
+  [data-flip-play] [data-job],
+  [data-canvas-ui="minimap-vp"] {
     transition: none !important;
+  }
+}
+
+/* t593 — the tidy rebuild answers. While the canvas holds data-flip-play
+   on the workspace, every moved card's transform channel plays its FLIP:
+   inverted at the pre-tidy seat (pinned by a reflow in the same tick),
+   then released to fly home onto the re-formed wire skeleton. Curve and
+   duration are the viewport glide's EXACTLY (0.48s, cubic-bezier(0.22,
+   0.61, 0.36, 1)) — the camera and the cards are one arrival, one
+   rhythm. The transform channel is otherwise drag-owned (JobCard's
+   group-follower writes it imperatively); the attribute lives only for
+   the 520ms retract window and is removed by the same timer that serves
+   the camera, so a drag never meets a transition on its own channel.
+   Belt-and-braces media gate: the JS side checks the same query before
+   arming (the viewport-glide trust model), but a future armer that
+   forgets the check gets silence, not a seizure. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-flip-play] [data-job] {
+    transition: transform 0.48s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+}
+
+/* t594 — the map's marker rides the journey. beginGlideArrival writes the
+   destination into the store ONCE and lets the workspace's CSS transition
+   carry the camera (t588); the minimap's viewport window rect reads the
+   same store — without a transition it TELEPORTS to the destination on
+   the first painted frame while the camera is still mid-flight: for
+   0.48s every arrival, the "you are here" marker lies about where you
+   are. x/y/width/height are SVG geometry properties (transitionable in
+   every modern engine), and the arming signal is the SAME viewport-glide
+   class the camera rides, reached from the section through :has() — the
+   map is a sibling of the workspace, not its descendant. Curve and
+   duration are the camera's and the cards' EXACTLY (t593's one-journey-
+   one-rhythm law, now three organs: skeleton first, cards fly, camera
+   glides, and the map's marker rides its own projection of the same
+   journey). Wheel and pan never arm the class, so live tracking stays
+   1:1 instant; zoom commands tick but don't glide (t590) and stay
+   instant too. rx and stroke-width follow the world box, not the
+   viewport — furniture of the frame, left to re-frame instantly. In fit
+   mode the map's projection (the viewBox) re-frames once at arrival
+   start — that reframe is furniture moving with the frame; the ride is
+   the journey. Belt-and-braces media gate mirrors the flip stanza (the
+   JS armer already checks the same query; a future armer that forgets
+   gets silence, not a seizure). */
+@media (prefers-reduced-motion: no-preference) {
+  [data-canvas="viewport"]:has([data-canvas="workspace"].viewport-glide)
+    [data-canvas-ui="minimap-vp"] {
+    transition:
+      x 0.48s cubic-bezier(0.22, 0.61, 0.36, 1),
+      y 0.48s cubic-bezier(0.22, 0.61, 0.36, 1),
+      width 0.48s cubic-bezier(0.22, 0.61, 0.36, 1),
+      height 0.48s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+}
+
+/* t598 — the card birth. Every surface in the app has an entrance voice
+   (palette-group-enter, dash-enter, find-drop, inspector-chip-enter,
+   mm-set) — the canvas card, the protagonist, popped into existence
+   silently. Birth VERBS arm ids in the store (mint, linked step/copy,
+   pipeline template, import per file, duplicate, the adopt family); the
+   canvas marks mounted cards data-born under data-birth-play BEFORE
+   first paint (useLayoutEffect — the t593 from-frame doctrine) and
+   retires the attributes when the entrance window closes. The figure is
+   the family's: an 8px rise (the dashboard-tile figure — the biggest
+   member; `translate` property, so it composes with the drag-owned
+   transform channel instead of colliding), the family curve, 240ms, a
+   24ms staircase in store order — for an import the pipeline assembles
+   in execution order. A birth is not a displacement: no FLIP (the cards
+   never stood anywhere else), and the camera stays silent (a frame-set
+   is framing, not a journey — the tidy's arrival dialogue answers a
+   gesture's displacement; a birth answers with its own voice). History
+   restores (undoDelete / restoreFromGraveyard), poll replaces and
+   adoption loads never arm — silence by construction, t590's law. */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-birth-play] [data-born] {
+    animation: card-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--card-d, 0ms);
+  }
+}
+
+/* t599 — the wire's half of the birth voice. A batch merge (import,
+   pipeline template, duplicate) creates wires NO gesture ever drew —
+   they popped into existence while their cards rose in. Now they walk
+   the SAME staircase (one rhythm: the world materializes and connects
+   in a single breath), each wire drawing itself between the newborn
+   cards. The draw-in rides the path's OWN channel: stroke-dashoffset
+   on a pathLength="1" stroke (dasharray 2, offset 2.02 → 1 — the .02
+   overshoot hides the round linecap's dot before the tip starts, and
+   the period-4 pattern keeps the repeating dash's second copy outside
+   the visible unit for the whole sweep). A MANUAL connect never arms:
+   its pending LiveWire followed the finger (t359), so the completed
+   wire was never absent — redrawing it would be a glitch, not a voice.
+   The transparent hit corridor and the glow underlay are untouched
+   (data-e-main marks only the visible stroke). Retire sweeps the
+   attribute with the cards' window (one window, one budget). */
+@keyframes edge-draw-in {
+  from {
+    stroke-dashoffset: 2.02;
+  }
+  to {
+    stroke-dashoffset: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-birth-play] [data-edge-born] path[data-e-main] {
+    stroke-dasharray: 2;
+    animation: edge-draw-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--card-d, 0ms);
+  }
+}
+
+/* t603 — the summoned voice. Birth has a voice (t598/t599/t600), death
+   has one (t601/t602) — but the THIRD way a thing appears was still
+   silent: hover asks a question and the answer pops into existence.
+   Three summoned faces on a wire now surface on the family staircase
+   (24ms): the halo ring is the answer's PLACE (0ms — its keyframe only
+   declares `from`; the final 0.4 lives on the element's own opacity, a
+   single source of truth), the X button is the answer's TOOL (24ms,
+   rise 0.6 → 1 — an inner g carries it so the outer translate attr is
+   untouched, and a local frame keeps the scale's magnitude constant),
+   the tooltip is the answer's NAME (48ms, opacity-only — it rides the
+   scale(1/zoom) system, and a rise there would inherit the zoom's
+   magnitude: a summoning must not carry the zoom's luggage). Budget:
+   48 + 140 = 188ms < 200ms — a summoning is immediate feedback, faster
+   than a birth. The exit is instant BY DESIGN: the answer follows the
+   question — the finger left, the answer leaves with it; lingering
+   would be the glitch, not the manners. */
+@keyframes summon-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes summon-rise-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-edges-layer] [data-summon] {
+    animation: summon-fade-in 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--summon-cd, 0ms);
+  }
+  [data-edges-layer] [data-summon="rise"] {
+    animation-name: summon-rise-in;
+  }
+}
+
+/* t605 — the news face. Birth answers a hand (place/tool/name), death
+   answers a hand, the summon answers a question — but a status can
+   change with NO finger anywhere near the card: the sweep completes a
+   running job, the poll merges the new state a tick later, and the
+   world changed behind the page's back. The surface that already shows
+   the state acknowledges the news quietly: ONE bloom in its own new
+   color, then settle — an acknowledgment, not a ceremony. The color is
+   never named here: currentColor IS the new status's color (the color
+   class swapped in the same commit as the word — the element's own
+   truth, not a lookup table). The pill blooms a ring + wash at panel
+   distance; the floor pulses its brightness at canvas distance (t350's
+   two distances, one manner). 360ms — news is slower than a summon's
+   reply (188ms) and faster than a birth's settle; there is no exit
+   animation because nothing left: the state the surface shows is still
+   the state the world is in. The ring CONTRACTS rather than fades —
+   both endpoints carry the same color-mix (only the spread 4px → 0px
+   animates): a shadow endpoint pair of {color-mix-with-currentColor →
+   transparent} is not smoothly interpolable, and Chrome's discrete
+   fallback would make the ring pop off mid-breath (the witness caught
+   exactly that) — the news doesn't flee the surface, it is ABSORBED
+   into it. Mounts carry no bloom (news=0 → no data attribute → no
+   animation): the state a surface was BORN showing is not news — the
+   no-flicker law at both distances. */
+@keyframes status-news-bloom {
+  from {
+    box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 28%, transparent);
+    background-color: color-mix(in srgb, currentColor 14%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0px color-mix(in srgb, currentColor 28%, transparent);
+    background-color: transparent;
+  }
+}
+@keyframes status-news-floor {
+  from {
+    filter: brightness(1.75) saturate(1.3);
+  }
+  to {
+    filter: brightness(1) saturate(1);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-news="true"] {
+    animation: status-news-bloom 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  [data-news-floor="true"] {
+    animation: status-news-floor 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/* t601 — the card's last breath. Birth has a voice (t598/t599); death
+   had none — a deleted card vanished in the same commit that moved the
+   truth, an event with no figure. Now the DELETE verbs (single confirm,
+   bulk confirm) arm frozen memories in the store, the canvas renders
+   them BELOW the living cards, and each ghost mounts ALREADY dying: the
+   animation runs on mount with `both` fill, so the from-frame (the card
+   as it was) is pinned with no attribute dance. The figure is the
+   entrance's mirror — literally: cubic-bezier(.64,0,.78,0) is the exact
+   point-reflection of the family's (.22,1,.36,1), a breath that starts
+   calm and accelerates into nothing; 400ms (leaving is more deliberate
+   than arriving); a 5px sink (the exhale's gravity — the card rose 8px
+   INTO place, it settles 5px OUT of it); 0.985 scale. The 24ms
+   staircase is the SAME one the births walk — one rhythm for the
+   world's arrivals AND its departures. The wires are the body's organs:
+   each fades on its card's step, geometry frozen at arm time (a memory
+   of the wire as it was, not a live channel). Silence by construction:
+   redo and undoImport's self-deletes are history replay (the cards
+   already died once in the user's memory), the AI tool's delete reaches
+   the canvas via poll (found dead, not killed before your eyes). A
+   resurrection during the breath (Ctrl+Z mid-fade) prunes the ghost at
+   once — the death was revoked, the memory must not outlive it. Under
+   reduced motion the whole layer is display:none (no frozen corpse).
+   t602 — the wire killed ALONE (the hover X on the wire itself, the
+   I/O tab's remove chip) breathes in the same layer and the same air:
+   [data-ghost-wire] is shared, the loner only carries data-ghost-loner
+   as a DOM contract marker (no CSS of its own). A lone wire has no
+   gravity to sink with — it only fades, no staircase (each click is
+   its own command; the staircases serve ONE command taking multiple
+   bodies). */
+@keyframes card-exit {
+  from {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    translate: 0 5px;
+    scale: 0.985;
+  }
+}
+@keyframes ghost-wire-exit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-dying] {
+    animation: card-exit 400ms cubic-bezier(0.64, 0, 0.78, 0) both;
+    animation-delay: var(--death-cd, 0ms);
+  }
+  [data-ghost-wire] {
+    animation: ghost-wire-exit 400ms cubic-bezier(0.64, 0, 0.78, 0) both;
+    animation-delay: var(--death-cd, 0ms);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-death-ghost-layer] {
+    display: none;
   }
 }
 
@@ -1353,6 +2867,35 @@ li[data-swipe="cancel"] {
 }
 li[data-swipe="end"] {
   transform: translate3d(var(--radix-toast-swipe-end-x, 0px), var(--radix-toast-swipe-end-y, 0px), 0);
+}
+
+/* t826 — the toast's hourglass: the card's remaining life, drawn.
+   Radix's close timer is the ONLY authority on a toast's lifespan, but
+   it is invisible — the t825 patrol watched toasts die exactly on
+   schedule and could only take the vendor's word for WHEN. The bar
+   (ui/toast.tsx ToastHourglass) draws the timer's own arc: scaleX 1→0
+   across --toast-life, which ui/toaster's Toast feeds from the toast's
+   OWN duration prop (the vendor's 5e3 default when none is passed).
+   The freeze is the law's real face: the vendor pauses EVERY close
+   timer on wrapper pointermove/focusin and window blur, and resumes on
+   pointerleave / focusout-outside / window focus — the mirror in
+   ui/toaster.tsx listens to the vendor's OWN dispatched events
+   (toast.viewportPause / toast.viewportResume) and paints
+   data-timers-paused on the viewport, so the bar's play-state follows
+   the very clock it draws. No second timer, no drift by construction.
+   A toast born while paused inherits the attribute before its animation
+   can start and stays full until resume — matching the vendor's
+   startTimer-on-resume for paused-mount toasts exactly. Scoped to
+   .toast-hourglass — a class only ToastHourglass ever paints. */
+@keyframes toast-hourglass {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+.toast-hourglass {
+  animation: toast-hourglass var(--toast-life, 5000ms) linear forwards;
+}
+[data-timers-paused] .toast-hourglass {
+  animation-play-state: paused;
 }
 
 /* ============================================================
@@ -1444,6 +2987,49 @@ li[data-swipe="end"] {
   font-size: 10px;
   padding: 4px 8px;
   opacity: 0.85;
+}
+/* t499: the pulse — a live face on the two chips whose sections are
+   MEASURED (Map QC, Curve verdicts). Three states: pending (violet,
+   breathing — the walk is out), error (amber, solid — the walk came
+   back deaf, the wound family's ink), settled (emerald, solid — the
+   walk landed; the honest-empty answer is settled truth too). Only
+   those chips carry a dot: the dot MEANS a live measurement, and a
+   constant dot means nothing. */
+.report-doc .report-compass-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  margin-right: 5px;
+  vertical-align: 1px;
+}
+.report-doc .report-compass-dot[data-compass-pulse="pending"] {
+  background: #7c3aed;
+  animation: compass-pulse 1.2s ease-in-out infinite;
+}
+.report-doc .report-compass-dot[data-compass-pulse="error"] {
+  background: rgb(245 158 11);
+}
+.report-doc .report-compass-dot[data-compass-pulse="settled"] {
+  background: rgb(16 185 129 / 0.75);
+}
+@keyframes compass-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+/* the pulse is information, not decoration — a reader who asked for
+   stillness gets the same news without the motion */
+@media (prefers-reduced-motion: reduce) {
+  .report-doc .report-compass-dot[data-compass-pulse="pending"] {
+    animation: none;
+  }
 }
 /* the needle: where the reader IS. The violet family is the report's
    own accent (the doors wear it), and the underline is the strip's
@@ -2058,4 +3644,31 @@ li[data-swipe="end"] {
 .dark .msp-plugin .msp-viewport-controls-buttons button[class]:focus-visible {
   outline: 2px solid var(--msp-accent) !important;
   outline-offset: 2px;
+}
+
+/* ============================================================
+   t635 — the dashboard search lens's entrance. The find bar's lens
+   (t578) LOWERS into place; this one RISES from under its anchor
+   (the search input is above the panel, so +6px settling to 0 reads
+   as "the lens slides out from under the box it serves"). Mount =
+   open, unmount = closed — every open is a fresh mount and a first
+   performance (the t572 law: replay = re-entrance), so there is no
+   disarm machinery and no settle timer. Movement rides
+   prefers-reduced-motion: no-preference; `both` fill keeps the
+   panel invisible during its single 180ms.
+   ============================================================ */
+@keyframes lens-rise {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-job-lens] {
+    animation: lens-rise 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }

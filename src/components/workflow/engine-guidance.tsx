@@ -5,7 +5,7 @@ import { Check, Loader2, RefreshCw, Server, Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
-import type { RelionInstallClient } from "@/lib/types";
+import type { RelionBuildProgressClient, RelionInstallClient } from "@/lib/types";
 
 /* ------------------------------------------------------------------ */
 /* Engine guidance — one well, many mouths                              */
@@ -35,11 +35,21 @@ import type { RelionInstallClient } from "@/lib/types";
  * share. A/B remedy lines keep the composer's column alignment alive
  * (whitespace-pre font-mono); wide lines borrow scroll from their own
  * band (t238 law, inside the popover too).
+ *
+ * t530 — the mirror law caught its own renderer: t529's composer grew
+ * an indented command line ("  grind / resume / check: …") and the
+ * muted branch dropped its leading spaces (no whitespace-pre), so the
+ * rendered non-empty lines were NOT byte-identical to the well's — the
+ * exact drift the mirror law exists to forbid. The line class is
+ * compositional now: commands (A/B remedies and indented continuations)
+ * render mono + whitespace-pre, prose renders whitespace-pre-wrap (its
+ * bytes carry no leading spaces today, and the wrap it keeps is
+ * presentation — the SEQUENCE of non-empty lines stays the well's).
  */
 export function EngineHintBlock({ hint }: { hint: string }) {
   return (
     <div
-      className="space-y-0.5 overflow-x-auto rounded-md bg-amber-500/10 px-2 py-1.5"
+      className="space-y-0.5 overflow-x-auto rounded-md bg-warning/10 px-2 py-1.5"
       data-engine-hint
       aria-label="RELION discovery guidance"
     >
@@ -48,14 +58,111 @@ export function EngineHintBlock({ hint }: { hint: string }) {
           key={i}
           className={cn(
             "text-[10px] leading-relaxed",
-            /^[AB]\)/.test(line.trim())
+            /^[AB]\)/.test(line.trim()) || /^\s/.test(line)
               ? "whitespace-pre font-mono text-foreground/80"
-              : "text-muted-foreground"
+              : "whitespace-pre-wrap text-muted-foreground"
           )}
         >
           {line}
         </p>
       ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* EngineBuildRail — the grinder's mouth (t529)                         */
+/* ------------------------------------------------------------------ */
+/* While the t528 recipe grinds the REAL RELION 5.0.0 in its tree-       */
+/* external prefix, the not-found world is not silent anymore: the       */
+/* status carries the build progress (read from stamp files + the        */
+/* installed binary, never from process sniffing) and this rail renders  */
+/* it stage by stage. Both mouths render it wherever the guidance        */
+/* speaks — the rebuild is part of the environment's truth.              */
+/* States are honest by construction: done = the evidence exists on      */
+/* disk; current = the stage the recipe would resume; queued = not       */
+/* started. When relion_refine lands, found outranks the birth           */
+/* certificate and the rail retires itself.                             */
+export function EngineBuildRail({ build }: { build: RelionBuildProgressClient }) {
+  const done = build.stages.filter((s) => s.state === "done").length;
+  const current = build.stages.find((s) => s.state === "current");
+  return (
+    <div
+      className="space-y-1.5 rounded-md border border-running/30 bg-running/5 px-2 py-1.5"
+      data-engine-build-rail
+      aria-label="RELION rebuild progress"
+    >
+      <p className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span>Rebuild in progress</span>
+        <span
+          className="font-normal normal-case tracking-normal tabular-nums text-muted-foreground/70"
+          title={`${done} of ${build.stages.length} recipe stages done — the current stage is where an interrupted grind resumes`}
+        >
+          {done}/{build.stages.length} stages
+        </span>
+      </p>
+      <ol className="space-y-1">
+        {build.stages.map((s, i) => (
+          <li
+            key={s.key}
+            className="flex items-center gap-1.5 text-[10px] leading-relaxed"
+            title={
+              s.state === "done"
+                ? `${s.label} — completed (evidence on disk)`
+                : s.state === "current"
+                  ? `${s.label} — current: the recipe resumes here`
+                  : `${s.label} — queued: not started`
+            }
+          >
+            <span
+              className={cn(
+                "flex size-3.5 shrink-0 items-center justify-center rounded-full border",
+                s.state === "done"
+                  ? "border-teal-500 bg-teal-500"
+                  : s.state === "current"
+                    ? "border-warning-500 bg-warning/15"
+                    : "border-muted-foreground/30 bg-transparent"
+              )}
+              aria-hidden="true"
+            >
+              {s.state === "done" ? (
+                <Check className="size-2.5 text-white" />
+              ) : s.state === "current" ? (
+                <Loader2 className="size-2.5 animate-spin text-warning" />
+              ) : null}
+            </span>
+            <span
+              className={cn(
+                "min-w-0 truncate",
+                s.state === "done" && "text-muted-foreground",
+                s.state === "current" && "font-medium text-foreground",
+                s.state === "queued" && "text-muted-foreground/60"
+              )}
+            >
+              {i + 1}. {s.label}
+            </span>
+            {s.state === "current" && (
+              <Badge
+                variant="outline"
+                className="ml-auto h-4 shrink-0 border-warning/40 bg-warning/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-warning"
+              >
+                current
+              </Badge>
+            )}
+          </li>
+        ))}
+      </ol>
+      <p
+        className="truncate font-mono text-[9px] text-muted-foreground/70"
+        title={`grind / resume / check: ${build.recipe}`}
+      >
+        resume: {build.recipe}
+      </p>
+      {current === undefined && (
+        <p className="text-[9px] text-running-700 dark:text-running-300">
+          All stages done — the next Re-detect promotes the fresh install to the found world.
+        </p>
+      )}
     </div>
   );
 }
@@ -134,7 +241,7 @@ function InstallRow({
       className={cn(
         "group flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors",
         selected
-          ? "border-teal-500/50 bg-teal-500/10"
+          ? "border-running-500/50 bg-running/10"
           : "border-border bg-card hover:bg-secondary/60",
         pending && "opacity-70"
       )}
@@ -148,7 +255,7 @@ function InstallRow({
         aria-hidden="true"
       >
         {pending ? (
-          <Loader2 className="size-3 animate-spin text-teal-600 dark:text-teal-400" />
+          <Loader2 className="size-3 animate-spin text-running" />
         ) : (
           selected && <Check className="size-3 text-white" />
         )}
@@ -165,7 +272,7 @@ function InstallRow({
               "h-4 shrink-0 px-1 text-[9px] font-semibold uppercase tracking-wide",
               isWsl
                 ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
-                : "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+                : "border-running/40 bg-running/10 text-running"
             )}
           >
             {isWsl ? `WSL · ${install.distro ?? "default"}` : "native"}
@@ -182,7 +289,7 @@ function InstallRow({
           {install.cached && (
             <Badge
               variant="outline"
-              className="h-4 shrink-0 border-amber-500/40 bg-amber-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+              className="h-4 shrink-0 border-warning/40 bg-warning/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-warning"
               title="Restored from the saved last detection — it could not be re-verified this round (e.g. WSL was cold). Re-detect re-verifies it."
             >
               saved
@@ -200,7 +307,7 @@ function InstallRow({
       {isWsl ? (
         <Terminal className="size-3.5 shrink-0 text-cyan-600/70 dark:text-cyan-400/70" aria-hidden="true" />
       ) : (
-        <Server className="size-3.5 shrink-0 text-teal-600/70 dark:text-teal-400/70" aria-hidden="true" />
+        <Server className="size-3.5 shrink-0 text-running/70/70" aria-hidden="true" />
       )}
     </button>
   );

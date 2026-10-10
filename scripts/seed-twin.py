@@ -68,7 +68,7 @@ Promise.all(spec.map(([id, result]) =>
 """
     spec = json.dumps([[job_id, result]])
     r = subprocess.run(["node", "-e", node, spec],
-                       cwd="/home/z/my-project", capture_output=True, text=True)
+                       cwd="/home/z/my-project", capture_output=True, text=True, env=dict(os.environ, DATABASE_URL="file:/home/z/my-project/db/cryoflow.db"))
     if "flipped" not in r.stdout:
         sys.exit(f"flip failed: {r.stderr.strip()[:300]}")
 
@@ -103,6 +103,19 @@ def main():
     #    re-derive (one shape, two owners: a re-derived shape is a SECOND
     #    father, and the tie must be EXACT for the crown to be contested)
     outlier = find_by_name(OUTLIER_HOST, jobs)
+    if not outlier:
+        # t532 — the fossil name was one world's spelling (t407 law); when
+        # the name is absent, the old-world manifest's class2d link is the
+        # same promise by type.
+        outlier = None
+        try:
+            with open("/home/z/my-project/data/old-world.json") as f:
+                cid = (json.load(f).get("chain") or {}).get("class2d")
+            if cid:
+                outlier = {"id": cid, "type": "class2d"}
+                print(f"note: '{OUTLIER_HOST}' by name absent — manifest class2d {cid}")
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
     if not outlier:
         sys.exit(f"outlier host '{OUTLIER_HOST}' missing — run seed-outlier first")
     src = os.path.join(job_workdir(project, outlier), VOL_NAME)

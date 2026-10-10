@@ -9,7 +9,7 @@
  * the curve climbing = refinement improving — the intuitive direction.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Crosshair, TrendingUp } from "lucide-react";
 import {
   Area,
@@ -22,13 +22,14 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   resolutionRenderable,
   resolutionRows,
   type ResolutionResponse,
 } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartErrorStrip } from "./chart-error-strip";
 
 const TEAL = "#14b8a6";
 
@@ -42,30 +43,12 @@ export function ResolutionChart({
   running?: boolean;
   className?: string;
 }) {
-  const [data, setData] = useState<ResolutionResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<ResolutionResponse>(`/api/jobs/${jobId}/resolution`);
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
-      }
-    };
-    void load();
-    if (!running) return () => { cancelled = true; };
-    const t = setInterval(() => void load(), 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
+  // t491 — shared fetch state machine; live jobs poll every 30 s so the
+  // curve extends itself, and a poll blip keeps the last good points
+  const { status, data, error, retry } = useChartResource<ResolutionResponse>(
+    `/api/jobs/${jobId}/resolution`,
+    { pollMs: running ? 30_000 : null }
+  );
 
   const { points, yDomain } = useMemo(() => {
     const pts = data?.points ?? [];
@@ -84,7 +67,16 @@ export function ResolutionChart({
     return { points: pts, yDomain: [max, min] as [number, number] }; // reversed axis
   }, [data]);
 
-  if (error && !data) return null; // silent — the chart is an enhancement
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Resolution evolution"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   // gate single-sourced in lib/chart-rows (t110: the palette exports the
   // same points through the same predicate)
   if (!resolutionRenderable(points)) return null;
@@ -98,32 +90,32 @@ export function ResolutionChart({
       aria-label="Resolution evolution"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-running-600/5 to-transparent p-3",
         className
       )}
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <TrendingUp className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <TrendingUp className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           Resolution evolution
           <span className="font-normal text-muted-foreground/70">({points.length} iterations)</span>
         </span>
         {current != null && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-running-700 dark:text-running-300">
             <Crosshair className="h-3 w-3" aria-hidden="true" />
             now {current.toFixed(2)} Å
           </span>
         )}
         {best != null && Math.abs(best - (current ?? best)) > 0.005 && (
-          <span className="rounded-full border border-emerald-600/30 bg-emerald-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-success-700 dark:text-success-300">
             best {best.toFixed(2)} Å
           </span>
         )}
         {running && (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-running">
             <span className="relative flex size-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-teal-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-running-400 opacity-75" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-running-500" />
             </span>
             live
           </span>
@@ -201,7 +193,7 @@ export function ResolutionChart({
               fill="url(#resFill)"
               dot={{ r: 1.5, fill: TEAL, strokeWidth: 0 }}
               activeDot={{ r: 4, fill: TEAL }}
-              isAnimationActive={false}
+              isAnimationActive={false /* the curve doesn't dance — the t610 mute law (fsc-chart.tsx header) */}
             />
           </AreaChart>
         </ResponsiveContainer>

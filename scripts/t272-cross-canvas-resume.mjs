@@ -23,7 +23,7 @@
  *     guess — and names the canvas the job actually lives on.
  *
  * Phases:
- *   A  demo truth (roster 21, mock cluster, rig stubs)
+ *   A  demo truth (roster 15, mock cluster, rig stubs)
  *   B  the ledger (source assertions: cascade sweep + ordering, DTO fields,
  *      the async résumé, three await'd routes, the three-state UI)
  *   C  the live loop:
@@ -44,11 +44,14 @@
  *      shots: the cross-canvas history row, the post-delete empty dialog
  *   D  console clean
  */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
@@ -140,14 +143,35 @@ page.on("pageerror", (e) => consoleErrors.push(`pageerror: ${e.message}`));
 const createdJobs = [];
 const connIds = [];
 let secondProjectId = null;
+let injectedStateSnapshot = null; // C8 — the state file before the gone-record injection (finally restores it)
+let jobIdForInjection = null; // C8 — the deleted job the injected record points at
 
 try {
   // ---- Phase A: demo truth -----------------------------------------------
   console.log("== PHASE A: demo truth ==");
+  // t410 self-heal: a prior run that died before its finally left its
+  // "t272 Cross Canvas" project behind (three such wrecks were found in the
+  // wild — each a suite killed mid-flight, its finally never reached). The
+  // suite sweeps its own name from the ledger BEFORE asserting the demo
+  // truth, so one interrupted run can never poison the next one's world.
+  {
+    const stale = (await (await fetch(`${BASE}/api/projects`, { headers: SH })).json()).projects
+      ?? [];
+    for (const p of stale.filter((p) => p.name === SECOND_NAME)) {
+      const r = await fetch(`${BASE}/api/projects/${p.id}`, { method: "DELETE", headers: SH });
+      console.log(`  (self-heal) removed stale "${SECOND_NAME}" ${p.id} (HTTP ${r.status})`);
+    }
+  }
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+    // t617 — the identity floor follows the canonical world, not an era: the
+  // sole-workspace EMPIAR world holds 12 jobs (the canvas truth every
+  // recent witness asserts). The old floor of 15 counted three
+  // store-orphan residue jobs that the t617 window's cold dev-server boots
+  // re-scanned and pruned (t408's own doctrine: the floor is the contract,
+  // and the contract is the world the canvas speaks now).
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
   must(
     ["motioncor2", "relion_run_motioncorr"].every((b) => existsSync(path.join(RIG_BIN, b))),
@@ -158,10 +182,16 @@ try {
   console.log("== PHASE B: the ledger ==");
   const src = (p) => readFileSync(`/home/z/my-project/${p}`, "utf8");
   const projRoute = src("src/app/api/projects/[id]/route.ts");
+  // t422: the import block grew legs (t418's remote-stop branch, t421's
+  // staging stand-down added getRun/readRuns/normalizeClusterHost) — the
+  // single-line literal no longer matches a MULTI-LINE import. Assert the
+  // SEMANTICS (this route imports clearRunRecord from the engine module)
+  // whitespace-tolerantly, not one world's spelling of the line.
+  const flatRoute = projRoute.replace(/\s+/g, " ");
 
   must(
-    projRoute.includes('import { clearRunRecord, isRunAlive, stopRun } from "@/lib/relion/engine";'),
-    "the project DELETE route imports clearRunRecord"
+    flatRoute.includes("import { clearRunRecord") && projRoute.includes('from "@/lib/relion/engine";'),
+    "the project DELETE route imports clearRunRecord (whitespace-tolerant)"
   );
   must(
     projRoute.includes("for (const { id: jobId } of projectJobs) clearRunRecord(jobId);"),
@@ -190,7 +220,11 @@ try {
     "the résumé aggregate is async (the existence check queries the DB)"
   );
   must(
-    rr.includes('select: { id: true, project: { select: { name: true } } }'),
+    // t411 — semantic shape, not byte lock: t409 added projectId to this
+    // select (the jump door's cross-project hint) and the byte match broke.
+    // What the law actually needs: one query fetching existence AND the
+    // owning project's name.
+    /select:\s*\{[^}]*id:\s*true,[^}]*project:\s*\{\s*select:\s*\{\s*name:\s*true/.test(rr),
     "the existence check fetches the owning project's NAME in the same query"
   );
   must(
@@ -230,10 +264,14 @@ try {
   // ---- Phase C: the live loop ---------------------------------------------
   console.log("== PHASE C: the live loop (second canvas → dispatch → cross-canvas row → cascade) ==");
 
-  // C0 — the demo project's id (to switch back to). The registry has a
+  // C0 — the STARTING canvas's id (to switch back to). The registry has a
   // cross-site guard — the same-origin SH headers are load-bearing here.
+  // t618 — "the first project in the registry" was a fossil: it named the
+  // canvas this suite was born on, and the registry has since grown other
+  // worlds (the β-Gal demo sorts first today). The honest target is the
+  // canvas that was ACTIVE when the suite started — the one roster0 read.
   const projects0 = await (await fetch(`${BASE}/api/projects`, { headers: SH })).json();
-  const demoProject = (projects0.projects ?? [])[0];
+  const demoProject = (projects0.projects ?? []).find((p) => p.active) ?? (projects0.projects ?? [])[0];
   must(!!demoProject?.id, `the demo project exists (${demoProject?.name ?? "?"})`);
   const demoId = demoProject?.id ?? null;
   if (!demoId) throw new Error("no demo project — the cross-canvas loop cannot proceed");
@@ -261,23 +299,28 @@ try {
     `creation flipped the active pointer — the second canvas starts EMPTY (${(activeJobs.jobs ?? []).length} jobs)`
   );
 
-  // C2 — six tiny but valid MRC micrographs + a REAL local import job,
+  // C2 — six tiny but valid MRC movies + a REAL local import job,
   //      dispatched on the SECOND canvas
+  // t536 — the real-binary era: MotionCorr consumes MOVIES (frame stacks);
+  // 4-frame 64x64 float32 stacks, the t268/t269 recipe (nz=4, per-frame signal).
   mkdirSync(MICS_DIR, { recursive: true });
+  const N_FRAMES = 4;
   const names = ["mic_01.mrc", "mic_02.mrc", "mic_03.mrc", "mic_04.mrc", "mic_05.mrc", "mic_06.mrc"];
   for (const n of names) {
     const W = 64, H = 64;
-    const buf = Buffer.alloc(1024 + W * H * 4);
-    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
+    const buf = Buffer.alloc(1024 + W * H * 4 * N_FRAMES);
+    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(N_FRAMES, 8);
     buf.writeInt32LE(2, 12); // mode 2 = float32
-    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
-    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(N_FRAMES, 36);
+    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * N_FRAMES, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-    for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+    for (let s = 0; s < N_FRAMES; s++) {
+      for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7 + s) * 0.1, 1024 + (s * W * H + i) * 4);
+    }
     writeFileSync(path.join(MICS_DIR, n), buf);
   }
-  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (64x64 float32)");
+  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), `six mock movies fabricated (64x64 float32, ${N_FRAMES} frames)`);
 
   const mkJob = async (body) => {
     const r = await fetch(`${BASE}/api/jobs`, {
@@ -309,7 +352,9 @@ try {
   const importJob = await mkJob({
     type: "import",
     name: "t272 Import (second canvas)",
-    params: { micrographsPath: MICS_DIR, pixelSize: 1.77 },
+    // t536 — nodeType movies: the star must speak data_movies +
+    // rlnMicrographMovieName, the only dialect the real relion_run_motioncorr reads
+    params: { micrographsPath: MICS_DIR, pixelSize: 1.77, nodeType: "movies" },
   });
   must(!!importJob?.id, "the import job exists on the SECOND canvas");
   await fetch(`${BASE}/api/jobs/${importJob.id}/run`, {
@@ -342,8 +387,11 @@ try {
   });
   must(mk.status === 201, `the probeless connection is created (got ${mk.status})`);
 
-  const jobM = await mkJob({ type: "motioncorr", name: "t272 MotionCorr (second canvas)" });
-  const eM = await mkEdge(importJob.id, jobM.id, "micrographs", "movies");
+  // t536 — do_own_motioncor: RELION's own CPU lane, the honest rig-less
+  // choice (t372 P8 / t268 precedent); with nodeType=movies the import's
+  // output port is "movies" (the micrographs port hides).
+  const jobM = await mkJob({ type: "motioncorr", name: "t272 MotionCorr (second canvas)", params: { do_own_motioncor: true } });
+  const eM = await mkEdge(importJob.id, jobM.id, "movies", "movies");
   must(eM === 200 || eM === 201, `import → probeless-remote motioncorr wired (${eM})`);
   const dispatchM = await fetch(`${BASE}/api/jobs/${jobM.id}/run`, {
     method: "POST",
@@ -368,12 +416,16 @@ try {
     body: JSON.stringify({ id: demoId }),
   });
   must(sw.status === 200 || sw.status === 201, `switched back to the demo canvas (${sw.status})`);
+  // t411 — wire conservation, not a byte census: the demo canvas must show
+  // the SAME job count the suite found on arrival (roster0), whatever the
+  // world's total is now — 21 was the census of the era this suite was
+  // written in, and the two-world ledger moved it forever.
   const demoJobs = await pollUntil(async () => {
     const d = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (d.jobs ?? []).length;
-    return n === 21 ? d : null;
+    return n === roster0 ? d : null;
   }, 15_000);
-  must(!!demoJobs, "the demo canvas shows its 21 jobs again");
+  must(!!demoJobs, `the demo canvas shows its arrival census again (${roster0})`);
   const demoIds = new Set((demoJobs?.jobs ?? []).map((j) => j.id));
   must(
     !demoIds.has(jobM.id) && !demoIds.has(importJob.id),
@@ -400,25 +452,39 @@ try {
     `the entry names the canvas the job lives on ("${entry?.projectName ?? "absent"}")`
   );
 
-  // C6 — the dialog on the demo canvas: the entry is a DUMB HISTORY ROW
-  //      whose tooltip names the other canvas
+  // t411 — the dialog seeds its selection to connections[0]: with other
+  // live connections in the world the résumé card first() belongs to
+  // someone else and the suite's rows are invisible in it. Select the
+  // suite's own connection row before reading its card.
+  const selectOwnConnection = async () => {
+    const row = page.locator('button[aria-label^="QA t272 CrossCanvas"]');
+    await row.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+    await row.click({ force: true }).catch(() => {});
+    await sleep(700);
+  };
+
+  // C6 — the dialog on the demo canvas: the entry is a JUMP BUTTON whose
+  //      tooltip names the other canvas (t411 — t409 opened the cross-
+  //      canvas jump door: jumpable = job on this canvas OR a home project
+  //      the server named; the old "dumb history row" law predates it)
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await sleep(2500);
   await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
   await sleep(1500);
+  await selectOwnConnection();
   const card = page.locator("[data-run-resume]").first();
   must(await card.isVisible().catch(() => false), "the résumé card renders inside the cluster dialog");
   const jumpBtn = page.locator(`[data-resume-jump][data-resume-entry="${jobM.id}"]`).first();
   must(
-    !(await jumpBtn.isVisible().catch(() => false)),
-    "the cross-canvas entry is NOT a jump button (this store cannot open that door)"
+    await jumpBtn.isVisible().catch(() => false),
+    "the cross-canvas entry IS a jump button (t409 opened the door; the hint switches projects)"
   );
   const rowEl = page.locator(`[data-resume-entry="${jobM.id}"]`).first();
   must(await rowEl.isVisible().catch(() => false), "the cross-canvas entry still renders (history, not a void)");
   const rowTitle = ((await rowEl.getAttribute("title").catch(() => "")) ?? "").replace(/\s+/g, " ");
   must(
-    rowTitle.includes("project's canvas") && rowTitle.includes(SECOND_NAME) && rowTitle.includes("switch to that project"),
-    `the history row's tooltip NAMES the other canvas ("${rowTitle.slice(0, 110)}")`
+    rowTitle.includes("project's canvas") && rowTitle.includes(SECOND_NAME) && rowTitle.includes("switches projects"),
+    `the jump row's tooltip NAMES the canvas it lands on ("${rowTitle.slice(0, 110)}")`
   );
   must(
     !rowTitle.includes("gone (deleted)"),
@@ -458,6 +524,80 @@ try {
   must(cardAfter === 0, `the résumé card stood down with its last record (${cardAfter} cards)`);
   await page.screenshot({ path: `${SHOTS}/t272-post-delete-empty-dialog.png` });
 
+  // C8 — t277: the THIRD state gets its live witness. Normal flow can no
+  //      longer produce a gone row (the cascade sweeps records with their
+  //      project — that IS the fix), so the witness needs a hand-injected
+  //      record whose job is REALLY deleted (jobM died with the second
+  //      canvas in C7). The résumé is global; the record points at the
+  //      probeless connection; the server's DB check must grade the entry
+  //      exists=false; the UI must render the gone dumb-row — tooltip says
+  //      "gone (deleted)", names NO canvas, offers NO jump.
+  console.log("== PHASE C8: the gone state, witnessed alive ==");
+  const stateBefore = readFileSync(STATE_FILE, "utf8");
+  injectedStateSnapshot = stateBefore; // the finally restores this after the witness
+  jobIdForInjection = jobM.id;
+  const injectedRec = {
+    jobId: jobM.id,
+    projectId: secondProjectId ?? "cmu5t272gone", // the canvas that no longer exists
+    type: jobM.type ?? "motioncorr",
+    pid: null,
+    cmd: "t272-injected: the job is gone, the record remains",
+    workdir: `/home/z/my-project/data/relion/gone/${jobM.id}`,
+    logFile: `/home/z/my-project/data/relion/gone/${jobM.id}/run.out`,
+    errFile: `/home/z/my-project/data/relion/gone/${jobM.id}/run.err`,
+    startedAt: new Date().toISOString(),
+    done: true,
+    exitCode: 0,
+    remote: { connectionId: connId, module: "relion/5.0.1", mode: "direct", stagedMs: 1200, syncMs: 3400, syncedFiles: 3, syncedBytes: 4096 },
+  };
+  const stateObj = JSON.parse(stateBefore);
+  stateObj[jobM.id] = injectedRec;
+  writeFileSync(STATE_FILE, JSON.stringify(stateObj, null, 2));
+  must(!!stateRuns()[jobM.id], "the gone-job record is injected into the GLOBAL state file");
+
+  const goneResume = await pollUntil(async () => {
+    const list = await readConns();
+    return (Array.isArray(list) ? list : []).find((c) => c.id === connId)?.resume ?? null;
+  }, 10_000);
+  must(!!goneResume && goneResume.total === 1, `the résumé counts the injected record (total ${goneResume?.total ?? 0})`);
+  const goneEntry = goneResume?.recent?.[0];
+  must(
+    goneEntry?.jobId === jobM.id && goneEntry?.exists === false,
+    `the server GRADES the dead entry exists=false (exists ${goneEntry?.exists})`
+  );
+  must(goneEntry?.projectName === undefined, "no canvas is named for a job that exists nowhere");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await sleep(2500);
+  await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
+  await sleep(1500);
+  await selectOwnConnection();
+  const goneCard = page.locator("[data-run-resume]").first();
+  must(await goneCard.isVisible().catch(() => false), "the résumé card returns with the injected history");
+  const goneRow = page.locator(`[data-resume-entry="${jobM.id}"]`).first();
+  must(await goneRow.isVisible().catch(() => false), "the gone entry still renders (history, not a void)");
+  must(
+    (await goneRow.getAttribute("data-resume-gone").catch(() => null)) === "gone",
+    "the row carries data-resume-gone=gone (the third state's CSS/test seam)"
+  );
+  const goneJump = page.locator(`[data-resume-jump][data-resume-entry="${jobM.id}"]`).first();
+  must(
+    !(await goneJump.isVisible().catch(() => false)),
+    "the gone entry is NOT a jump button (there is no door left to open)"
+  );
+  const goneTitle = ((await goneRow.getAttribute("title").catch(() => "")) ?? "").replace(/\s+/g, " ");
+  must(
+    goneTitle.includes("the job is gone (deleted)") && goneTitle.includes("the résumé keeps it as history"),
+    `the tooltip speaks the gone state ("${goneTitle.slice(0, 90)}")`
+  );
+  must(
+    !goneTitle.includes("project's canvas") && !goneTitle.includes("another"),
+    "the gone tooltip names NO canvas (three states, zero lies)"
+  );
+  await goneRow.scrollIntoViewIfNeeded().catch(() => {});
+  await sleep(400);
+  await page.screenshot({ path: `${SHOTS}/t272-resume-gone-row.png` });
+
   // ---- Phase D: console clean ---------------------------------------------
   console.log("== PHASE D: console ==");
   must(consoleErrors.length === 0, `no real console errors (got ${consoleErrors.length}${consoleErrors.length ? ": " + consoleErrors[0].slice(0, 140) : ""})`);
@@ -481,7 +621,11 @@ try {
   }
   try {
     const projectsNow = await (await fetch(`${BASE}/api/projects`, { headers: SH })).json();
-    const demo = (projectsNow.projects ?? []).find((p) => p.name !== SECOND_NAME);
+    // t618 — restore the canvas the suite STARTED on (the active marker),
+    // not "any project that isn't ours" — the same fossil as C0's target.
+    const demo = (projectsNow.projects ?? []).find((p) => p.id === demoId)
+      ?? (projectsNow.projects ?? []).find((p) => p.active)
+      ?? (projectsNow.projects ?? []).find((p) => p.name !== SECOND_NAME);
     if (demo) {
       await fetch(`${BASE}/api/projects/switch`, {
         method: "POST",
@@ -491,6 +635,17 @@ try {
     }
   } catch { /* best effort */ }
   try { rmSync(MICS_DIR, { recursive: true, force: true }); } catch { /* gone */ }
+  // C8 — the injected gone-record must leave with the witness (the suite
+  //      manufactures its own scenario; it digs its own grave shut)
+  if (injectedStateSnapshot) {
+    try {
+      const now = JSON.parse(readFileSync(STATE_FILE, "utf8"));
+      if (now[jobIdForInjection]) {
+        writeFileSync(STATE_FILE, injectedStateSnapshot);
+        console.log("  (cleanup) un-injected the gone-record (state file restored)");
+      }
+    } catch { /* best effort */ }
+  }
   try {
     const fs = await import("node:fs");
     const ids = createdJobs.map((id) => id.slice(-8));
@@ -511,8 +666,27 @@ try {
     }
   } catch { /* best effort */ }
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate the
+
+    // demo chain's ancestral workdirs (t313's guard caught it live). Protect
+
+    // every workdir the world still speaks, then glob.
+
+    let worldProtect = [];
+
+    try {
+
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+
+    console.log(worldGuardLine(worldProtect.length));
+
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/motioncorr_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs'`,
+
+      `node services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/motioncorr_*","/projects/cryoflow/*/import_*","/projects/cryoflow/*/micrographs"], worldProtect)}'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }
@@ -526,7 +700,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n >= roster0, `roster restored (got ${n}, pre-test ${roster0})`);
   } catch (e) {
     must(false, `roster check failed (${e.message})`);
   }

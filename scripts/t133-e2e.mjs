@@ -31,6 +31,8 @@ import { chromium } from "playwright";
 import { mkdtempSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const OUT = "/home/z/my-project/.next/t133-shot";

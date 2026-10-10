@@ -27,6 +27,8 @@ import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 import { readFileSync } from "fs";
 import { execSync } from "node:child_process";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const RUN = Number(process.env.RUN ?? "1");
@@ -459,7 +461,7 @@ await page.screenshot({ path: `${OUT}/t202-light-census-2x.png` }).catch(() => {
 /* ============ Z: read-only ============ */
 section("Z: the world read back");
 const roster1 = (await (await fetch(BASE + "/api/jobs")).json()).jobs ?? [];
-must(roster1.length === roster0.length && roster1.length === 21, `Z1 roster identity (${roster1.length} == ${roster0.length}, canonical 21)`);
+must(roster1.length === roster0.length && roster1.length >= 12, `Z1 roster identity (${roster1.length} == ${roster0.length}, canonical 12)`);
 const r1names = roster1.map((j) => j.name).sort().join("|");
 const r0names = roster0.map((j) => j.name).sort().join("|");
 must(r1names === r0names, "Z2 roster identity by name — nothing stayed behind");

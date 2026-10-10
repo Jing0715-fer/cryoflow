@@ -3,7 +3,7 @@
   "version": "0.2.1",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000 2>&1 | tee dev.log",
+    "dev": "next dev 2>&1 | tee dev.log",
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
@@ -75,7 +75,7 @@
     "recharts": "^2.15.4",
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.3",
-    "sonner": "^2.0.6",
+    "socket.io-client": "^4.8.3",
     "ssh2": "^1.17.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",

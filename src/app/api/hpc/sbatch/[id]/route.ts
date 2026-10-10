@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { lineageFor } from "@/lib/relion/dispatch";
 import { readRuns } from "@/lib/relion/engine";
 import { buildSbatchForJob, loadProfiles, type EngineJobLike } from "@/lib/hpc/slurm";
+import { isLocalRequest } from "@/lib/http-guard";
 // Task 184: workdir paths resolve through the data-dir contract (paths.ts),
 // not the server cwd — the sbatch script must name the same workdir the
 // engine uses, wherever CRYOFLOW_DATA_DIR points it.
@@ -20,8 +21,17 @@ type RouteContext = { params: Promise<{ id: string }> };
  * engine's REAL argv (identical builder to the local runner) with paths
  * translated onto the cluster profile, plus the GPU strategy
  * (array / multi-GPU / single / CPU) for this job type.
+ *
+ * t709 — the reader door: the dry-run builds the FULL sbatch text
+ * (profile translation + lineage walk) before answering, so a blind
+ * probe would get a free render oracle behind an opaque response. The
+ * door closes the probe and keeps the surface uniform (doctrine in
+ * http-guard.ts; the nine-readers ledger in the t707 census addendum).
  */
 export async function GET(request: NextRequest, context: RouteContext) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site sbatch reads are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const job = await db.job.findUnique({ where: { id } });

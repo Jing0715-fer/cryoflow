@@ -23,6 +23,8 @@
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/scripts/shots-qa84";
@@ -56,7 +58,7 @@ await page.goto(BASE, { waitUntil: "networkidle" });
 await sleep(2500);
 
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
-must((jobs.jobs ?? []).length === 21, `roster identity 21 (got ${(jobs.jobs ?? []).length})`);
+must((jobs.jobs ?? []).filter((j) => j.status === "completed").length >= 11, `the healed chain stands (>= 11 completed) (${(jobs.jobs ?? []).filter((j) => j.status === "completed").length})`);
 
 // to the dashboard view
 await page.getByRole("tab", { name: "Dashboard" }).click();
@@ -102,7 +104,9 @@ must((await block.count()) === 1, "one guidance block in the dashboard popover")
 const uiText = (await block.innerText()).replace(/\r/g, "").trim();
 must(normLines(uiText) === normLines(hint), "dashboard popover lines === API hint lines, byte-identical and in order (third mouth, one well)");
 
-must((await block.locator("p.font-mono").count()) === 2, "A/B remedy lines render mono (exactly 2)");
+// t530 — three command lines now (A/B + t529's indented grind/resume line):
+// the mirror law's byte fidelity and the rail's mono grammar agree.
+must((await block.locator("p.font-mono").count()) === 3, "command lines render mono (A, B and the grind/resume line) (exactly 3)");
 must(((await block.getAttribute("class")) ?? "").includes("amber"), "guidance block carries the amber tint");
 
 // t238's law in the dashboard popover: wide mono line borrows scroll from

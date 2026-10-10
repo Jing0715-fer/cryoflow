@@ -26,16 +26,28 @@
  *      - C6 the dialog renders the résumé card (badges + 3 entries)
  *   D  console clean
  */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
 const MOCK_PORT = 3022;
 const MICS_DIR = "/home/z/my-project/data/relion/t270-mics";
+// t618 — run 3's stop window needs a run that STAYS running: the real
+// RELION binary eats the tiny C1 input in well under a second, so the
+// running window was narrower than the poll step and the stop died at 409
+// (the whole C5 premise). The heavy input is the same recipe at 256x256
+// and 16 frames — 64x the pixel-frames, a multi-second exec leg with room
+// for the kill to land (16x was calibrated and still raced: the exec
+// finished under the stop's round trip and the ledger honestly counted a
+// completion — the crime scene lives in t618-diag2.mjs).
+const HEAVY_DIR = "/home/z/my-project/data/relion/t270-mics-heavy";
 const STATE_FILE = "/home/z/my-project/data/engine-state.json";
 
 let fail = 0;
@@ -126,7 +138,13 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  // t617 — the identity floor follows the canonical world, not an era: the
+  // sole-workspace EMPIAR world holds 12 jobs (the canvas truth every
+  // recent witness asserts, 12c/13e). The old floor of 15 counted three
+  // store-orphan residue jobs that the t617 window's cold dev-server boots
+  // re-scanned and pruned — the static baseline finally caught up with
+  // reality, so the floor follows the world now.
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 
   // ---- Phase B: the résumé's ledger ---------------------------------------
@@ -149,8 +167,8 @@ try {
     rr.includes("export async function connectionRunResume") &&
       rr.includes("rec.remote?.connectionId !== connectionId") &&
       rr.includes("if (rec.exitCode === 0) resume.completed += 1;") &&
-      rr.includes("resume.recent.slice(0, 3)"),
-    "connectionRunResume filters by connectionId, buckets by exitCode, keeps ≤3 newest"
+      rr.includes("resume.recent.slice(0, opts?.all ? undefined : 3)"),
+    "connectionRunResume filters by connectionId, buckets by exitCode, keeps ≤3 newest (t295: the aperture is opts.all-wide, default unchanged)"
   );
   must(
     rr.includes("export async function withRunResume") &&
@@ -180,22 +198,27 @@ try {
   // ---- Phase C: the live loop ---------------------------------------------
   console.log("== PHASE C: the live loop (a résumé that grows) ==");
 
-  // C1 — six tiny but valid MRC micrographs + a REAL local import
+  // C1 — six tiny but valid MRC movies + a REAL local import
+  // t536 — the real-binary era: MotionCorr consumes MOVIES (frame stacks);
+  // 4-frame 64x64 float32 stacks, the t268/t269 recipe (nz=4, per-frame signal).
   mkdirSync(MICS_DIR, { recursive: true });
+  const N_FRAMES = 4;
   const names = ["mic_01.mrc", "mic_02.mrc", "mic_03.mrc", "mic_04.mrc", "mic_05.mrc", "mic_06.mrc"];
   for (const n of names) {
     const W = 64, H = 64;
-    const buf = Buffer.alloc(1024 + W * H * 4);
-    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
+    const buf = Buffer.alloc(1024 + W * H * 4 * N_FRAMES);
+    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(N_FRAMES, 8);
     buf.writeInt32LE(2, 12); // mode 2 = float32
-    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
-    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(N_FRAMES, 36);
+    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * N_FRAMES, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-    for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+    for (let s = 0; s < N_FRAMES; s++) {
+      for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7 + s) * 0.1, 1024 + (s * W * H + i) * 4);
+    }
     writeFileSync(path.join(MICS_DIR, n), buf);
   }
-  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (64x64 float32)");
+  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), `six mock movies fabricated (64x64 float32, ${N_FRAMES} frames)`);
 
   const mkJob = async (body) => {
     const r = await fetch(`${BASE}/api/jobs`, {
@@ -213,6 +236,10 @@ try {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fromJobId, toJobId, fromPort, toPort }),
     });
+    if (r.status !== 200 && r.status !== 201) {
+      const b = await r.json().catch(() => ({}));
+      console.error(`  (edge ${r.status}: ${JSON.stringify(b).slice(0, 180)} | sent: ${JSON.stringify({ fromJobId, toJobId, fromPort, toPort }).slice(0, 180)})`);
+    }
     return r.status;
   };
   const readJob = async (id) => {
@@ -223,7 +250,9 @@ try {
   const importJob = await mkJob({
     type: "import",
     name: "t270 Import",
-    params: { micrographsPath: MICS_DIR, pixelSize: 1.77 },
+    // t536 — nodeType movies: the star must speak data_movies +
+    // rlnMicrographMovieName, the only dialect the real relion_run_motioncorr reads
+    params: { micrographsPath: MICS_DIR, pixelSize: 1.77, nodeType: "movies" },
   });
   must(!!importJob?.id, "the import job exists");
   await fetch(`${BASE}/api/jobs/${importJob.id}/run`, {
@@ -238,6 +267,17 @@ try {
   must(!!importDone, "the local import completed (engine-native)");
 
   // C2 — a probeless connection; the POST response must carry NO résumé
+  // t409 — the qa-* SCRUB (the t262/t271 law): a leftover same-name corpse
+  // connection sorts first in the dialog and its résumé is dead history.
+  // Sweep BEFORE creating ours.
+  try {
+    const raw = JSON.parse(readFileSync("/home/z/my-project/data/remote-connections.json", "utf8"));
+    for (const sc of (Array.isArray(raw) ? raw : [])) {
+      if (String(sc?.id ?? "").startsWith("qa-")) {
+        await fetch(`${BASE}/api/remote/connections/${sc.id}`, { method: "DELETE", headers: SH }).catch(() => {});
+      }
+    }
+  } catch { /* no connections file — nothing to sweep */ }
   const connId = `qa-t270-${Date.now().toString(36)}`;
   connIds.push(connId);
   const mk = await fetch(`${BASE}/api/remote/connections`, {
@@ -261,9 +301,16 @@ try {
     "the zero-run POST response omits the resume field (no résumé is the honest state)"
   );
 
-  const dispatchMotioncorr = async (label) => {
-    const job = await mkJob({ type: "motioncorr", name: label });
-    const e = await mkEdge(importJob.id, job.id, "micrographs", "movies");
+  const dispatchMotioncorr = async (label, fromImportId = null) => {
+    // t536 — do_own_motioncor: RELION's own CPU lane, the honest rig-less
+    // choice (t372 P8 / t268 precedent); with nodeType=movies the import's
+    // output port is "movies" (the micrographs port hides).
+    // t618 — an optional fromImportId lets run 3 wire to the HEAVY import.
+    // (The parameter is the ID STRING — the first draft wrote
+    // (fromImport ?? importJob).id, which read `.id` off a string and
+    // dispatched a fromJobId-less edge.)
+    const job = await mkJob({ type: "motioncorr", name: label, params: { do_own_motioncor: true } });
+    const e = await mkEdge(fromImportId ?? importJob.id, job.id, "movies", "movies");
     must(e === 200 || e === 201, `${label}: import → remote motioncorr wired (${e})`);
     const d = await fetch(`${BASE}/api/jobs/${job.id}/run`, {
       method: "POST",
@@ -316,23 +363,89 @@ try {
     "run 2's résumé grows to total 2 with the newest run FIRST (the reading line sorts)"
   );
 
-  // C5 — run 3 is dispatched then STOPPED: the 137 record joins the failed bucket
-  const job3 = await dispatchMotioncorr("t270 MotionCorr #3 (stopped)");
+  // C5 — run 3 is dispatched then STOPPED: the 137 record joins the failed
+  // bucket. t618 — the input is the HEAVY recipe (128x the pixel-frames:
+  // 256x256x32) via its own import, so the exec leg runs for many seconds
+  // and the stop window is a place, not a race.
+  mkdirSync(HEAVY_DIR, { recursive: true });
+  const HW = 256, HH = 256, HNF = 32;
+  for (const n of names) {
+    const W = HW, H = HH, NF = HNF;
+    const buf = Buffer.alloc(1024 + W * H * 4 * NF);
+    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(NF, 8);
+    buf.writeInt32LE(2, 12); // mode 2 = float32
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(NF, 36);
+    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * NF, 48);
+    buf.write("MAP ", 208, "ascii");
+    buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
+    for (let s = 0; s < NF; s++) {
+      for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7 + s) * 0.1, 1024 + (s * W * H + i) * 4);
+    }
+    writeFileSync(path.join(HEAVY_DIR, n), buf);
+  }
+  must(names.every((n) => existsSync(path.join(HEAVY_DIR, n))), `six heavy movies fabricated (${HW}x${HH} float32, ${HNF} frames — the stop window's running surface)`);
+  const heavyImport = await mkJob({
+    type: "import",
+    name: "t270 Import Heavy",
+    params: { micrographsPath: HEAVY_DIR, pixelSize: 1.77, nodeType: "movies" },
+  });
+  await fetch(`${BASE}/api/jobs/${heavyImport.id}/run`, { method: "POST", headers: { "Content-Type": "application/json", ...SH }, body: "{}" });
+  const heavyDone = await pollUntil(async () => {
+    const j = await readJob(heavyImport.id);
+    return j?.status === "completed" ? j : null;
+  }, 25_000);
+  must(!!heavyDone, "the heavy local import completed (engine-native)");
+  const job3 = await dispatchMotioncorr("t270 MotionCorr #3 (stopped)", heavyImport.id);
   const running3 = await pollUntil(async () => {
     const j = await readJob(job3.id);
     return j?.status === "running" ? j : null;
-  }, 60_000, 500);
+  }, 60_000, 250);
   must(!!running3, "run 3 reaches running (the stop window is open)");
+  // t618 — "running" spans TWO legs: the staging upload and the cluster
+  // exec. A stop during STAGING cancels the run before it ever executes —
+  // the ledger honestly records done/exit-0 with no staged leg and counts
+  // it completed (witnessed: the pre-fix runs' "3 completed" aggregate).
+  // The suite wants the EXEC kill (exit 137), so wait for the staged leg
+  // to surface on the record, then stop — the kill lands mid-exec.
+  const staged3 = await pollUntil(async () => {
+    const r = await readResume();
+    const e = (r?.recent ?? []).find((x) => x.jobId === job3.id);
+    return e && e.stagedMs != null && e.done === false ? e : null;
+  }, 60_000);
+  must(
+    !!staged3,
+    `run 3's staging leg completed (the exec is now the running surface — staged ${staged3?.stagedMs ?? "?"}ms)`
+  );
+  // t618 — the stop must land inside the EXEC leg: the cluster-side pid
+  // file (.cf-pid) exists only once the exec starts, and a stop inside the
+  // staging→exec gap reads NOPID (no kill) — the remote wrapper then
+  // finishes and the reconciler heals the record from the cluster's own
+  // exit-0 ledger (witnessed live; t618-diag2.mjs). The record's PHASE is
+  // the exec-start word the DTO already speaks: poll runRemote.phase
+  // until it flips from "staging" to "running", then stop immediately.
+  // The stop BODY's `stopped` flag is asserted so a missed kill fails
+  // loudly here, not downstream.
+  const execPhase = await pollUntil(async () => {
+    const j = await readJob(job3.id);
+    return j?.runRemote?.phase === "running" ? j.runRemote : null;
+  }, 60_000, 250);
+  must(!!execPhase, "run 3's record speaks phase=running (the exec leg is live)");
   const stopRes = await fetch(`${BASE}/api/jobs/${job3.id}/stop`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...SH },
     body: "{}",
   });
+  const stopBody = await stopRes.json().catch(() => ({}));
   must(stopRes.status === 200 || stopRes.status === 201, `run 3 is stopped by user (${stopRes.status})`);
+  must(stopBody?.stopped === true, `the cluster-side kill confirmed (stopped=${stopBody?.stopped}: ${String(stopBody?.message ?? "").slice(0, 60)})`);
+  // t618 — the stop's record FINALIZATION (exit 137 + the staged leg) races
+  // the SSH teardown's sweep; under load it can take tens of seconds. The
+  // suite's contract is the FINAL honest ledger, not a latency bound — poll
+  // until the stopped run's record is terminal.
   const resume3 = await pollUntil(async () => {
     const r = await readResume();
     return r && r.total >= 3 && r.failed >= 1 ? r : null;
-  }, 15_000);
+  }, 60_000);
   must(
     !!resume3 && resume3.total === 3 && resume3.completed === 2 && resume3.failed === 1 &&
       resume3.recent[0]?.jobId === job3.id && resume3.recent[0]?.exitCode === 137,
@@ -344,11 +457,29 @@ try {
   await sleep(2000);
   await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
   await sleep(1500);
+  // t409 — SELECT OUR CONNECTION (the t271 law): the healed world's standing
+  // "Mock Cluster" wins the dialog's default selection, so the résumé under
+  // the default was the DEMO's history, not ours. Wait for our row, click it.
+  const ourRow = page
+    .locator('button[aria-pressed]', { hasText: "QA t270 Résumé" })
+    .first();
+  await ourRow.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+  await ourRow.click({ force: true }).catch(() => {});
+  await sleep(800);
   const card = page.locator("[data-run-resume]").first();
   must(await card.isVisible().catch(() => false), "the résumé card renders inside the cluster dialog");
-  const totalTxt = ((await page.locator("[data-resume-total]").first().innerText().catch(() => "")) ?? "").trim();
-  const okTxt = ((await page.locator("[data-resume-completed]").first().innerText().catch(() => "")) ?? "").trim();
-  const badTxt = ((await page.locator("[data-resume-failed]").first().innerText().catch(() => "")) ?? "").trim();
+  // t618 — the badges read POLL-UNTIL-FINAL: the dialog's connections fetch
+  // (and the record finalize behind it) is a live-mutating surface, so a
+  // single fixed-sleep read caught mid-write shapes ("3 completed" — the
+  // stopped run counted before its exit landed). The final shape is the
+  // contract; the poll waits for it.
+  let totalTxt = "", okTxt = "", badTxt = "";
+  await pollUntil(async () => {
+    totalTxt = ((await page.locator("[data-resume-total]").first().innerText().catch(() => "")) ?? "").trim();
+    okTxt = ((await page.locator("[data-resume-completed]").first().innerText().catch(() => "")) ?? "").trim();
+    badTxt = ((await page.locator("[data-resume-failed]").first().innerText().catch(() => "")) ?? "").trim();
+    return totalTxt === "3 runs" && okTxt === "2 completed" && badTxt === "1 stopped/failed" ? "final" : null;
+  }, 30_000, 500);
   must(
     totalTxt === "3 runs" && okTxt === "2 completed" && badTxt === "1 stopped/failed",
     `the badges speak the aggregate ("${totalTxt}" · "${okTxt}" · "${badTxt}")`
@@ -357,8 +488,14 @@ try {
   must(entryCount === 3, `the résumé lists the ≤3 newest runs (got ${entryCount})`);
   // the NEWEST entry is the STOPPED run: its ledger honestly has only the
   // staging leg — the sync never happened, so speaking it would be a lie
-  // (t268's lesson: verify the world matches the assertion's assumption)
-  const firstEntry = ((await page.locator("[data-resume-entry]").first().innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
+  // (t268's lesson: verify the world matches the assertion's assumption).
+  // t618 — poll-until-final like the badges: a single read caught the row
+  // mid-finalize (name + type, no ledger words).
+  let firstEntry = "";
+  await pollUntil(async () => {
+    firstEntry = ((await page.locator("[data-resume-entry]").first().innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
+    return firstEntry.includes("motioncorr") && /staged /.test(firstEntry) && !/synced /.test(firstEntry) ? "final" : null;
+  }, 30_000, 500);
   must(
     firstEntry.includes("motioncorr") && /staged /.test(firstEntry) && !/synced /.test(firstEntry),
     `the stopped entry speaks only its staged leg (no sync, no lie — "${firstEntry.slice(0, 40)}")`
@@ -393,6 +530,7 @@ try {
     } catch { /* best effort */ }
   }
   try { rmSync(MICS_DIR, { recursive: true, force: true }); } catch { /* gone */ }
+  try { rmSync(HEAVY_DIR, { recursive: true, force: true }); } catch { /* gone */ }
   try {
     const fs = await import("node:fs");
     const ids = createdJobs.map((id) => id.slice(-8));
@@ -413,8 +551,19 @@ try {
     }
   } catch { /* best effort */ }
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate
+    // the demo chain's ancestral workdirs (t313's guard caught it live).
+    // Protect every workdir the world still speaks, then glob.
+    let worldProtect = [];
+    try {
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+    console.log(worldGuardLine(worldProtect.length));
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/motioncorr_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs'`,
+      // + t270-mics — the staged input mirror (the t309 lesson: the workdir
+      // globs never matched it, and it compounded on every family run)
+      `node services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/motioncorr_*", "/projects/cryoflow/*/import_*", "/projects/cryoflow/*/micrographs", "/projects/cryoflow/t270-mics"], worldProtect)}'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }
@@ -428,7 +577,10 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    // t617 — the restore is judged against the PRE-TEST roster (dynamic,
+    // not an era): the phases' own scratch jobs are deleted above, so the
+    // roster must return to at least where it started.
+    must(n >= roster0, `roster restored (got ${n}, pre-test ${roster0})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

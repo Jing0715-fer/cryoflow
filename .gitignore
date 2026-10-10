@@ -32,9 +32,20 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# runtime data (t340) — engine state, RELION job workdirs, cs->star outputs;
+# also keeps Tailwind v4's content auto-detection from watching these trees
+# (the dev-server "compiling" storm during job runs)
+data/
+db/*.db
+!db/.gitkeep
+# t349 — QA screenshots + anything fetched home lands here; same watcher
+# exemption as data/ (text files with class-like tokens would rebuild CSS)
+download/
 
 
 # typescript
@@ -59,10 +70,18 @@ server.log
 # runtime data
 /db/*.db
 /db/*.db-journal
+# t447 — stray empty prisma/dev.db got auto-committed once (platform cron);
+# the real database lives in db/cryoflow.db — prisma/*.db is always an orphan
+/prisma/*.db
+/prisma/*.db-journal
 /agent-ctx
 # RELION engine outputs + runtime state (large real data files)
 /data/
 /tool-results/
+# t274 — early-era legacy data trees, quarantined (see _legacy-archive/README.md);
+# the README itself is tracked — the ownership verdict must travel with the repo
+/_legacy-archive/*
+!/_legacy-archive/README.md
 3001
 3001.*
 qa44-*.png
@@ -70,3 +89,38 @@ qa44-*.png
 
 # local demo micrographs (dev fixtures)
 /demo-mics/
+.family-report.json
+
+# t341 — E2E review suite: scripts are tracked; binary fixtures + PNG
+# evidence stay local (fixtures are re-fetched/re-copied by the suites
+# themselves — see e2e-review/README.md)
+/e2e-review/fixtures/
+/e2e-review/*.png
+# real EMPIAR-10017 micrographs for the mock cluster (513 MB — fetch per
+# services/mock-cluster/README.md; never ship in git)
+/services/mock-cluster/fs/data2/empiar-10017/
+/services/mock-cluster/fs/data2/t397/
+# t341 — the t340 diag suite's runtime fixtures (recreated on each run)
+/services/mock-cluster/fs/data2/csproj-t340/
+/services/mock-cluster/fs/data2/t340-bare/
+/services/mock-cluster/fs/data2/t340-particles/
+/services/mock-cluster/fs/data2/t363-particles/
+
+# t372 — mock-cluster runtime data (real EMPIAR test data lives on the
+# host, jobs land in the mock fs at run time — neither belongs in the repo)
+services/mock-cluster/fs/data2/empiar10017/
+services/mock-cluster/fs/home/cryo/.cache/
+services/mock-cluster/fs/projects/cryoflow/
+
+# t387 — the E2E's runtime fixtures (a synthetic particle stack, regenerated
+# by scripts/t387-gpu-mrcs-integrity.mjs on each run) + the mock cluster's
+# runtime home/journal trees (remote projects, ~/.slurm) — none of it ships
+/services/mock-cluster/fs/data2/t387/
+services/mock-cluster/fs/home/cryo/cryoflow/
+services/mock-cluster/fs/home/cryo/.slurm/
+/services/mock-cluster/fs/data2/t391/
+.shadow-archive/
+
+# t406 — the watchdog v2.1 cache-hygiene quarantines: a dirty .next gets
+# mv-ed aside, not rm-ed (diagnostic asset) — but it must never ride git.
+.next.*

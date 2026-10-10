@@ -24,6 +24,8 @@
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const FXDIR = "/home/z/my-project/.qa-t87";

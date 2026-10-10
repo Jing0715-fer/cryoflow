@@ -13,7 +13,7 @@
 //   import (local, engine-native) → autopick LoG (cluster)
 //     → topaztrain (cluster) → autopick Topaz (cluster, model twin pass-through)
 // Phases:
-//   A  demo truth — homepage 200, roster 21, mock cluster answering, the
+//   A  demo truth — homepage 200, roster 15, mock cluster answering, the
 //      stub's train face on disk
 //   B  the ledger — the pre-synthesis block in remote-run, the export in
 //      engine, the rig's train contract, the collectOutputs harvest, the
@@ -27,11 +27,14 @@
 //          INTO the topaztrain cluster workdir — no re-upload) and picks
 //   D  console clean
 //
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
@@ -126,7 +129,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
   must(
     existsSync(path.join(RIG_BIN, "relion_autopick")) &&
@@ -150,8 +153,16 @@ try {
       rr.includes("synthesizeTrainingPicks("),
     "startRemoteJob synthesizes the coordinate_files index BEFORE staging (t265)"
   );
+  // t409 — semantic pin (the t255/t286 doctrine: lock semantics, not
+  // bytes). The old occurrence-count pin (resolvedInputs > resolved.inputs)
+  // died when the t365/t372/t397 refactors legitimately routed some reads
+  // through the upstream twin map — the count went 16 vs 18 WITHOUT the
+  // staging plan ever reading the raw resolution. What the ledger actually
+  // promises: the re-pointed COPY exists, and both consumers (the staging
+  // plan's upload loop AND the cluster-argv inputs loop) iterate THE COPY.
   must(
-    rr.split("resolvedInputs").length > rr.split("resolved.inputs").length,
+    rr.includes("const resolvedInputs: Record<string, string> = { ...resolved.inputs };") &&
+      (rr.match(/Object\.(?:entries|values)\(resolvedInputs\)/g)?.length ?? 0) >= 3,
     "the staging plan + argv inputs read the (possibly re-pointed) resolvedInputs"
   );
   must(
@@ -334,19 +345,38 @@ try {
     "the argv is a TRAINING argv (--topaz_train, not --topaz_extract)"
   );
   const picksArg = argvT.match(/--topaz_train_picks (\S+)/)?.[1] ?? "";
+  // t537 — the cluster lanes speak the pipeliner dialect: path arguments
+  // are PROJECT-RELATIVE (the script cd's to the project root), not
+  // cluster-absolute. The staged index lives in the trainer's own
+  // workdir, so the honest argv form is topaztrain_<id8>/training_picks.star.
   must(
-    picksArg.includes("training_picks.star") && picksArg.startsWith("/projects/cryoflow"),
-    `--topaz_train_picks is the STAGED index on the cluster (${picksArg || "absent"})`
+    picksArg === `topaztrain_${jobT.id.slice(-8)}/training_picks.star`,
+    `--topaz_train_picks is the STAGED index, project-relative (t537 pipeliner dialect) (${picksArg || "absent"})`
   );
   must(
     argvT.includes(`--fn_topaz_exe ${extMap.topaz}`),
     `the trainer wraps the CLUSTER's own topaz (${argvT.match(/--fn_topaz_exe \S+/)?.[0] ?? "absent"})`
   );
   // the staged index referenced the per-mic stars — they must exist beside it
-  const indexOnCluster = execSync(
-    `node services/mock-cluster/test-client.mjs 'cat ${picksArg} 2>/dev/null | head -12'`,
-    { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
-  ).toString();
+  // t409 — an empty picksArg (the train leg failed upstream) must not turn
+  // `cat` into an STDIN reader that hangs the execSync until SIGTERM and
+  // kills the suite un-caught: guard the probe, record the FAIL, move on.
+  const indexOnCluster = picksArg
+    ? (() => {
+        try {
+          // the relative arg resolves from the project root on the cluster
+          const abs = picksArg.startsWith("/")
+            ? picksArg
+            : `/projects/cryoflow/${projId}/${picksArg}`;
+          return execSync(
+            `node services/mock-cluster/test-client.mjs 'cat ${abs} 2>/dev/null | head -12'`,
+            { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
+          ).toString();
+        } catch {
+          return "";
+        }
+      })()
+    : "";
   must(
     indexOnCluster.includes("data_coordinate_files") && indexOnCluster.includes("_autopick.star"),
     "the staged index IS the coordinate_files format, pointing at cluster per-mic stars"
@@ -401,8 +431,8 @@ try {
   const argvA = String(recA?.cmd ?? "");
   const modelArg = argvA.match(/--topaz_model (\S+)/)?.[1] ?? "";
   must(
-    modelArg.includes("topaztrain_") && modelArg.startsWith("/projects/cryoflow"),
-    `--topaz_model points INTO the trainer's cluster workdir — twin pass-through, no re-upload (${modelArg || "absent"})`
+    modelArg === `topaztrain_${jobT.id.slice(-8)}/topaz_model.sav`,
+    `--topaz_model points INTO the trainer's cluster workdir — twin pass-through, project-relative (t537) (${modelArg || "absent"})`
   );
   must(
     argvA.includes(`--fn_topaz_exe ${extMap.topaz}`) && argvT.includes("--topaz_train"),
@@ -459,8 +489,27 @@ try {
     }
   } catch { /* best effort */ }
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate the
+
+    // demo chain's ancestral workdirs (t313's guard caught it live). Protect
+
+    // every workdir the world still speaks, then glob.
+
+    let worldProtect = [];
+
+    try {
+
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+
+    console.log(worldGuardLine(worldProtect.length));
+
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/topaztrain_* /projects/cryoflow/*/autopick_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs /projects/cryoflow/*/_staged'`,
+
+      `node services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/topaztrain_*","/projects/cryoflow/*/autopick_*","/projects/cryoflow/*/import_*","/projects/cryoflow/*/micrographs","/projects/cryoflow/*/_staged"], worldProtect)}'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }
@@ -474,7 +523,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

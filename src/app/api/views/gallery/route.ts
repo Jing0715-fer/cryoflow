@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,15 @@ interface GalleryBookmark {
 
 const MAX_JOBS = 8; // newest-updated rows only — the wall stays a glance
 
-export async function GET() {
+export async function GET(request: Request) {
+  // t709 — the reader door: the aggregate scans the bookmark shelf with
+  // a full job/project include before shaping the wall — a read a blind
+  // probe would get for free behind an opaque response. The saved-state
+  // pair it aggregates already carries the t707 door; this closes the
+  // aggregate's own mouth (doctrine in http-guard.ts).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site gallery reads are not allowed" }, { status: 403 });
+  }
   try {
     const rows = await db.bookmarkSession.findMany({
       orderBy: { updatedAt: "desc" },

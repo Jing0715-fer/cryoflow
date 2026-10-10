@@ -27,6 +27,8 @@
 // Run: node scripts/t162-e2e.mjs   (server on :3000, world with ≥1 card)
 import { execSync } from "node:child_process";
 import * as fs from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const KEY = "cryoflow.panelTab.v1";

@@ -24,6 +24,7 @@ import {
   Check,
   CheckSquare,
   ChevronRight,
+  FileText,
   Filter,
   Folder,
   FolderOpen,
@@ -50,8 +51,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Chip } from "@/components/ui/chip";
 import { cn } from "@/lib/utils";
+import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
+import { parseBrowserSeed, type BrowserMode } from "@/lib/browser-seed";
 
 interface BrowseEntry {
   name: string;
@@ -74,12 +77,19 @@ interface BrowseResponse {
   /** true when this listing is a wildcard-pattern expansion */
   pattern?: boolean;
   baseDir?: string;
-  /** total files matched before the 400-entry preview cap */
+  /** total files matched before the preview cap (t312: the cap is the
+   * shared browser ceiling — 20,000 by default — so this now fires only
+   * for genuinely enormous folders) */
   totalMatched?: number;
+  /** t311/t312 — the REAL entry count of the listed directory (both local
+   * and remote routes compute it before the cap): for a normal session
+   * folder the listing arrives WHOLE (every image visible, every image
+   * selectable); beyond the browser ceiling the truncated notice still
+   * names the real total and steers the user to import the folder itself
+   * (whose import enumerates EVERY image). */
+  totalEntries?: number;
   error?: string;
 }
-
-export type BrowserMode = "folder" | "files";
 
 function humanSize(n?: number): string {
   if (n == null) return "";
@@ -94,25 +104,6 @@ function shortenPath(p: string, max = 46): string {
   return p.slice(0, Math.ceil(max / 2) - 6) + "…" + p.slice(-Math.floor(max / 2));
 }
 
-/** Split a picked value into mode + selection seed + initial cwd. */
-function parseInitial(
-  value: string
-): { mode: BrowserMode; selected: string[]; cwd: string | null } {
-  const v = value.trim();
-  if (!v) return { mode: "folder", selected: [], cwd: null };
-  const lines = v.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-  if (lines.length > 1) {
-    // previous multi-file selection — restore it, start at the first file's folder
-    const first = lines.find((l) => l.includes("/")) ?? lines[0];
-    const dir = first.includes("/") ? first.slice(0, first.lastIndexOf("/")) : null;
-    return { mode: "files", selected: lines, cwd: dir && dir.trim() ? dir : null };
-  }
-  const single = lines[0];
-  if (/[*?]/.test(single)) return { mode: "files", selected: [], cwd: single };
-  const dir = single.includes("/") ? single.slice(0, single.lastIndexOf("/")) : null;
-  return { mode: "folder", selected: [], cwd: dir && dir.trim() ? dir : null };
-}
-
 export function PathBrowserDialog({
   open,
   onOpenChange,
@@ -121,6 +112,8 @@ export function PathBrowserDialog({
   description,
   initialPath,
   initialMode = "folder",
+  remote = null,
+  singleFile = false,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -130,6 +123,26 @@ export function PathBrowserDialog({
   description?: string;
   initialPath?: string;
   initialMode?: BrowserMode;
+  /**
+   * t300 — browse a CLUSTER's filesystem instead of this machine's: the
+   * saved SSH connection whose `/api/remote/connections/[id]/browse` route
+   * answers the listing. Remote projects pass their bound connection; the
+   * picked paths are CLUSTER-absolute and ride the import's zero-upload
+   * staging contract. Absent = the classic local browser, unchanged.
+   */
+  remote?: { connectionId: string; label?: string } | null;
+  /**
+   * t396 — ONE file, picked by ONE click (the "Continue from here:"
+   * optimiser.star door). The multi-select micrograph world stays the
+   * default: file rows gain checkboxes, the selection accumulates, the
+   * footer imports N files. singleFile instead renders every file row as
+   * click-to-pick (no checkboxes, no accumulation), hides the import
+   * affordances, and adds a "Use this path" footer button that picks the
+   * TYPED path verbatim — the value's mode can never flip to folders
+   * behind a caller's back (the t395 field report: a single-path value
+   * forced folder mode and files became unpickable).
+   */
+  singleFile?: boolean;
 }) {
   const [mode, setMode] = React.useState<BrowserMode>(initialMode);
   const [cwd, setCwd] = React.useState<string | null>(null);
@@ -142,10 +155,40 @@ export function PathBrowserDialog({
    * "Select all images" becomes "select everything that matched" */
   const [filter, setFilter] = React.useState("");
 
+  // ---- t312: windowed rendering ------------------------------------------
+  // The listing may now hold EVERY entry in a session folder (the 400-row
+  // preview cap is retired — BROWSER_LIST_MAX, 20,000 by default), so the
+  // DOM only ever materializes the visible window: a fixed 30px row pitch
+  // (28px h-7 row + 2px breathing gap) with ±8 rows of overscan. Scrolling
+  // just moves the translateY window — 2,054 or 20,000 entries cost the
+  // same dozen row nodes.
+  const LIST_ROW_PX = 30; // h-7 row + mb-0.5 gap
+  const LIST_VIEW_PX = 288; // h-72 viewport
+  const LIST_OVERSCAN = 8;
+  const listScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const [listScrollTop, setListScrollTop] = React.useState(0);
+  // t784 — the listing's keyboard cursor: ONE integer over whichever
+  // option list is live (roots in the roots view, entries in the folder
+  // view). The listbox pattern this dialog now speaks is the canonical
+  // aria-activedescendant walk: the container holds the focus (ONE tab
+  // stop for a 20,000-row listing — Tab can never walk a virtualized
+  // window honestly, the mounted rows change under the user), the arrows
+  // move the cursor, and aria-activedescendant names the focused option
+  // to assistive tech. The cursor is NOT DOM focus — it is the listbox's
+  // own truth, painted with a persistent tone and announced by id.
+  const [cursor, setCursor] = React.useState<number | null>(null);
+
+  // navigating / filtering / reloading swaps the list under the scrollbar —
+  // snap both the window math and the element itself back to the top
+  React.useEffect(() => {
+    setListScrollTop(0);
+    if (listScrollRef.current) listScrollRef.current.scrollTop = 0;
+  }, [data, filter]);
+
   // reset when re-opened — restore a previous multi-file selection
   React.useEffect(() => {
     if (open) {
-      const seed = parseInitial(initialPath ?? "");
+      const seed = parseBrowserSeed(initialPath ?? "", singleFile);
       setMode(seed.mode === "files" ? "files" : initialMode);
       setCwd(seed.cwd);
       setManual("");
@@ -153,7 +196,7 @@ export function PathBrowserDialog({
       setFilter("");
       setSelected(new Set(seed.selected));
     }
-  }, [open, initialPath, initialMode]);
+  }, [open, initialPath, initialMode, singleFile]);
 
   // the filter is folder-scoped — navigating anywhere resets it
   React.useEffect(() => {
@@ -165,9 +208,14 @@ export function PathBrowserDialog({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const url = cwd
-      ? `/api/fs/browse?path=${encodeURIComponent(cwd)}`
+    // t300 — one dialog, two worlds: the remote variant speaks the SAME
+    // response dialect over the connection's SSH browse route.
+    const base = remote
+      ? `/api/remote/connections/${encodeURIComponent(remote.connectionId)}/browse`
       : "/api/fs/browse";
+    const url = cwd
+      ? `${base}?path=${encodeURIComponent(cwd)}`
+      : base;
     fetch(url)
       .then((r) => r.json() as Promise<BrowseResponse>)
       .then((d) => {
@@ -189,7 +237,7 @@ export function PathBrowserDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, cwd]);
+  }, [open, cwd, remote]);
 
   // a wildcard pattern listing is always a file listing — force files mode
   const patternView = data?.ok && data.pattern === true;
@@ -262,26 +310,132 @@ export function PathBrowserDialog({
     if (list.length > 0) pick(list.join("\n"));
   };
 
+  // t784 — the listbox walk. `moveTo` clamps into the live option list and
+  // scrolls the cursor row into the viewport: the folder view's rows have
+  // the EXACT 30px pitch the window math already speaks (direct scrollTop —
+  // the same channel the virtualization reads, so the window slides before
+  // React re-renders), while the roots view's short grid borrows the
+  // element's own scrollIntoView after the cursor mounts.
+  const optionCount = inRootsView ? (data?.roots ?? []).length : visibleEntries.length;
+  const cursorOptionId =
+    cursor == null
+      ? undefined
+      : inRootsView
+        ? `pb-root-${cursor}`
+        : `pb-opt-${cursor}`;
+
+  // t784 — a swapped list invalidates the cursor: navigating, filtering,
+  // switching modes, or re-entering the roots view mounts a DIFFERENT
+  // option list, and a cursor pointing into the old one would name a row
+  // that no longer exists. Honest reset: the walk starts fresh.
+  React.useEffect(() => {
+    setCursor(null);
+  }, [cwd, activeMode, needle, inRootsView, open]);
+  const moveTo = (next: number) => {
+    if (optionCount === 0) return;
+    const clamped = Math.max(0, Math.min(optionCount - 1, next));
+    setCursor(clamped);
+    const el = listScrollRef.current;
+    if (!el) return;
+    if (inRootsView) {
+      // roots are few and unvirtualized — the element scrolls itself
+      requestAnimationFrame(() => {
+        document.getElementById(`pb-root-${clamped}`)?.scrollIntoView({ block: "nearest" });
+      });
+    } else {
+      const rowTop = clamped * LIST_ROW_PX;
+      if (rowTop < el.scrollTop) el.scrollTop = rowTop;
+      else if (rowTop + LIST_ROW_PX > el.scrollTop + LIST_VIEW_PX)
+        el.scrollTop = rowTop + LIST_ROW_PX - LIST_VIEW_PX;
+    }
+  };
+
+  // Enter/Space mirrors the ROW'S OWN CLICK, never the double-click: a
+  // cursor folder enters, a cursor file picks or toggles — and a read-only
+  // row (files listed under the folders tab) answers with an honest
+  // no-op, the same silence a pointer user gets clicking it.
+  const activateCursor = () => {
+    if (cursor == null) return;
+    if (inRootsView) {
+      const r = (data?.roots ?? [])[cursor];
+      if (r) setCwd(r.path);
+      return;
+    }
+    const e = visibleEntries[cursor];
+    if (!e) return;
+    if (e.dir) {
+      setCwd(currentPath ? `${currentPath.replace(/[\\/]$/, "")}/${e.name}` : e.name);
+    } else if (activeMode === "files" && e.abs) {
+      if (singleFile) pick(e.abs);
+      else toggleFile(e.abs);
+    }
+  };
+
+  // The container's key contract: arrows walk (ArrowDown from no cursor
+  // lands on row 0; ArrowUp lands on the last row — a walk must start
+  // somewhere), Home/End jump the ends, Enter/Space activate. preventDefault
+  // keeps the scroll container from eating the arrows and Space from
+  // scrolling the page — the walk owns its own scrolling.
+  const onListKeyDown = (ev: React.KeyboardEvent<HTMLDivElement>) => {
+    if (optionCount === 0) return;
+    if (ev.key === "ArrowDown") {
+      ev.preventDefault();
+      moveTo(cursor == null ? 0 : cursor + 1);
+    } else if (ev.key === "ArrowUp") {
+      ev.preventDefault();
+      moveTo(cursor == null ? optionCount - 1 : cursor - 1);
+    } else if (ev.key === "Home") {
+      ev.preventDefault();
+      moveTo(0);
+    } else if (ev.key === "End") {
+      ev.preventDefault();
+      moveTo(optionCount - 1);
+    } else if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      activateCursor();
+    }
+  };
+
   const displayedMode = activeMode;
   const resolvedTitle =
-    title ?? (displayedMode === "files" ? "Select micrograph files" : "Choose a folder");
+    title ??
+    (remote
+      ? `Select files on ${remote.label ?? "the cluster"}`
+      : displayedMode === "files"
+        ? singleFile
+          ? "Select a file"
+          : "Select micrograph files"
+        : "Choose a folder");
   const resolvedDescription =
     description ??
-    (displayedMode === "files"
-      ? "Multi-select files across folders (selection accumulates), or paste a wildcard pattern like /data/movies/*.tiff."
-      : "Navigate to your micrographs folder — local drives and WSL distros are both browsable.");
+    (remote
+      ? `Browse ${remote.label ?? "the cluster"}'s filesystem over SSH — every path you pick stays on the cluster (zero upload); downstream jobs run there.`
+      : displayedMode === "files"
+        ? singleFile
+          ? "Navigate to the folder and click the file to pick it — or type the path below."
+          : "Multi-select files across folders (selection accumulates), or paste a wildcard pattern like /data/movies/*.tiff."
+        : "Navigate to your micrographs folder — local drives and WSL distros are both browsable.");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* narrow viewports host the job panel in a Radix Sheet — without the
           React-level Escape consume, Esc here would close the Sheet too */}
+      {/* t396 — flex-col (not the default grid): it lets the footer ride
+          `sticky bottom-0`, so the pick/Use-this-path button is ONSCREEN at
+          every viewport height. The t383 scroll cap already kept the dialog
+          inside a short window, but its action row sat BELOW THE FOLD —
+          "the button for selecting the file path is off the screen" (the
+          field report, verbatim). A pinned bar is the honest shape: the
+          files scroll, the action never leaves. */}
       <DialogContent
-        className="sm:max-w-2xl"
+        className="flex flex-col gap-3.5 sm:max-w-2xl"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
-            {displayedMode === "files" ? (
+            {remote ? (
+              <Server className="h-4 w-4 text-violet-500" aria-hidden="true" />
+            ) : displayedMode === "files" ? (
               <Images className="h-4 w-4 text-primary" aria-hidden="true" />
             ) : (
               <FolderOpen className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -291,8 +445,9 @@ export function PathBrowserDialog({
           <DialogDescription className="text-xs">{resolvedDescription}</DialogDescription>
         </DialogHeader>
 
-        {/* mode switcher — Folders | Files (RELION "Select files by") */}
-        {!inRootsView && !patternView && (
+        {/* mode switcher — Folders | Files (RELION "Select files by"). Hidden
+            in singleFile mode: there is exactly ONE thing to pick. */}
+        {!inRootsView && !patternView && !singleFile && (
           <div className="flex items-center gap-1 rounded-lg border bg-secondary/40 p-0.5" role="tablist" aria-label="Selection mode">
             <button
               type="button"
@@ -334,10 +489,14 @@ export function PathBrowserDialog({
             size="sm"
             className="h-6 px-1.5 text-xs"
             onClick={() => setCwd(null)}
-            title="Back to drives / roots"
+            title={remote ? "Back to the cluster's roots (/, home, cryoflow root)" : "Back to drives / roots"}
             aria-label="Back to roots"
           >
-            <HardDrive className="h-3.5 w-3.5" aria-hidden="true" />
+            {remote ? (
+              <Server className="h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              <HardDrive className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
           </Button>
           {data?.ok && data.parent != null && (
             <Button
@@ -356,9 +515,9 @@ export function PathBrowserDialog({
               "min-w-0 flex-1 truncate font-mono text-[11px] text-foreground/80",
               patternView && "text-primary"
             )}
-            title={currentPath || "Roots"}
+            title={currentPath || (remote ? "Cluster roots" : "Roots")}
           >
-            {inRootsView ? "Drives & locations" : shortenPath(currentPath, 58)}
+            {inRootsView ? (remote ? "Cluster locations" : "Drives & locations") : shortenPath(currentPath, 58)}
           </span>
           <Button
             variant="ghost"
@@ -394,11 +553,36 @@ export function PathBrowserDialog({
           </div>
         )}
 
-        {/* listing — the [&>…div]:!block override undoes Radix's display:table
-            wrapper, which otherwise sizes rows to their max-content (a long
-            single-word filename then pushes rows ~180px past the viewport) */}
-        <ScrollArea className="h-72 rounded-lg border [&>[data-radix-scroll-area-viewport]>div]:!block">
-          <div role="listbox" aria-label="Folders" className="p-1">
+        {/* t312 — plain overflow container + WINDOWED rows: the Radix
+            ScrollArea's display:table wrapper sized rows to max-content; a
+            virtualized 20,000-row listing needs direct scrollTop access
+            anyway, and globals.css already themes every scrollbar thin.
+            Rows are pinned h-7 (30px pitch incl. the 2px gap) so the
+            translateY window math is exact at any scroll offset. */}
+        <div
+          ref={listScrollRef}
+          onScroll={(ev) => setListScrollTop(ev.currentTarget.scrollTop)}
+          // t784 — the listbox IS the scroll container now: one tab stop
+          // holds the focus for the whole listing (virtualization can't
+          // honor a per-row tab walk — the mounted rows change under the
+          // user), the arrows walk the cursor, and aria-activedescendant
+          // announces the focused option without moving DOM focus. The
+          // label follows the view honestly — roots, folder contents, or
+          // selectable files — never one word for three different lists.
+          role="listbox"
+          tabIndex={0}
+          aria-activedescendant={cursorOptionId}
+          aria-label={
+            inRootsView
+              ? "Filesystem roots"
+              : activeMode === "files"
+                ? "Files in this folder"
+                : "Folder contents"
+          }
+          onKeyDown={onListKeyDown}
+          className="h-72 overflow-y-auto rounded-lg border outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
+        >
+          <div role="presentation" className="p-1">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -410,17 +594,28 @@ export function PathBrowserDialog({
             )}
             {!loading && !error && inRootsView && (
               <div className="grid-cols-[minmax(0,1fr)] grid gap-0.5">
-                {(data?.roots ?? []).map((r) => (
+                {(data?.roots ?? []).map((r, idx) => (
                   <button
                     key={r.path}
                     type="button"
                     role="option"
+                    id={`pb-root-${idx}`}
                     aria-selected={false}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60"
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60",
+                      // t784 — the cursor row's persistent tone: hover paints
+                      // the pointer's candidate, this paints the keyboard's —
+                      // same family, one shade firmer so both can coexist
+                      cursor === idx && "bg-secondary/70 hover:bg-secondary/70"
+                    )}
                     onDoubleClick={() => setCwd(r.path)}
                     onClick={() => setCwd(r.path)}
                   >
-                    <HardDrive className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden="true" />
+                    {remote ? (
+                      <Server className="h-3.5 w-3.5 shrink-0 text-violet-500/80" aria-hidden="true" />
+                    ) : (
+                      <HardDrive className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden="true" />
+                    )}
                     <span className="min-w-0 flex-1 truncate font-mono">{r.label}</span>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
                   </button>
@@ -428,16 +623,52 @@ export function PathBrowserDialog({
               </div>
             )}
             {!loading && !error && !inRootsView && (
-              <div className="grid-cols-[minmax(0,1fr)] grid gap-0.5">
-                {visibleEntries.map((e, i) =>
-                  e.dir ? (
+              <>
+                {/* the virtualized window: a spacer of the FULL list height
+                    (n × 30px) keeps the scrollbar honest; the materialized
+                    slice rides translateY — a 2,054-image folder scrolls
+                    exactly like a 40-row one, at the same DOM cost */}
+                {visibleEntries.length > 0 && (
+                  <div
+                    role="presentation"
+                    style={{ height: visibleEntries.length * LIST_ROW_PX }}
+                    className="relative"
+                  >
+                    <div
+                      role="presentation"
+                      className="absolute inset-x-0 top-0"
+                      style={{
+                        transform: `translateY(${Math.max(
+                          0,
+                          Math.floor(listScrollTop / LIST_ROW_PX) - LIST_OVERSCAN
+                        ) * LIST_ROW_PX}px)`,
+                      }}
+                    >
+                      {visibleEntries
+                        .slice(
+                          Math.max(0, Math.floor(listScrollTop / LIST_ROW_PX) - LIST_OVERSCAN),
+                          Math.min(
+                            visibleEntries.length,
+                            Math.ceil((listScrollTop + LIST_VIEW_PX) / LIST_ROW_PX) + LIST_OVERSCAN
+                          )
+                        )
+                        .map((e, i) => {
+                          const rowIdx =
+                            Math.max(0, Math.floor(listScrollTop / LIST_ROW_PX) - LIST_OVERSCAN) + i;
+                          return e.dir ? (
                     <button
-                      key={`${e.name}-${i}`}
+                      key={`${e.name}-${rowIdx}`}
                       type="button"
                       role="option"
+                      id={`pb-opt-${rowIdx}`}
                       aria-selected={false}
+                      aria-posinset={rowIdx + 1}
+                      aria-setsize={visibleEntries.length}
                       title={e.name}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60"
+                      className={cn(
+                        "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
+                        cursor === rowIdx && "bg-secondary/70 hover:bg-secondary/70"
+                      )}
                       onDoubleClick={() =>
                         setCwd(currentPath ? `${currentPath.replace(/[\\/]$/, "")}/${e.name}` : e.name)
                       }
@@ -446,45 +677,71 @@ export function PathBrowserDialog({
                         setCwd(currentPath ? `${currentPath.replace(/[\\/]$/, "")}/${e.name}` : e.name);
                       }}
                     >
-                      <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500/80" aria-hidden="true" />
+                      <Folder className="h-3.5 w-3.5 shrink-0 text-warning-500/80" aria-hidden="true" />
                       <span className="min-w-0 flex-1 truncate">{e.name}</span>
                       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
                     </button>
                   ) : activeMode === "files" && e.abs ? (
                     <button
-                      key={`${e.name}-${i}`}
+                      key={`${e.name}-${rowIdx}`}
                       type="button"
                       role="option"
-                      aria-selected={selected.has(e.abs)}
-                      aria-label={`Select file ${e.name}`}
-                      title={e.name}
+                      id={`pb-opt-${rowIdx}`}
+                      aria-selected={singleFile ? false : selected.has(e.abs)}
+                      aria-posinset={rowIdx + 1}
+                      aria-setsize={visibleEntries.length}
+                      aria-label={singleFile ? `Pick file ${e.name}` : `Select file ${e.name}`}
+                      title={singleFile ? e.abs : e.name}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-secondary/60",
-                        selected.has(e.abs) && "bg-primary/10 hover:bg-primary/15"
+                        "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-secondary/60",
+                        singleFile
+                          ? "hover:bg-primary/10"
+                          : selected.has(e.abs) && "bg-primary/10 hover:bg-primary/15",
+                        // t784 — the cursor tone rides UNDER the selection
+                        // wash (selected wins the face; the cursor still
+                        // announces itself via activedescendant)
+                        cursor === rowIdx && !selected.has(e.abs) && "bg-secondary/70 hover:bg-secondary/70"
                       )}
-                      onClick={() => toggleFile(e.abs!)}
+                      onClick={() =>
+                        singleFile
+                          ? pick(e.abs!)
+                          : toggleFile(e.abs!)
+                      }
                     >
-                      {selected.has(e.abs) ? (
+                      {singleFile ? (
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden="true" />
+                      ) : selected.has(e.abs) ? (
                         <CheckSquare className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
                       ) : (
                         <Square className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
                       )}
                       <span className={cn("min-w-0 flex-1 truncate", e.img && "font-medium")}>{e.name}</span>
+                      {singleFile && (
+                        <span className="shrink-0 rounded-sm bg-primary/10 px-1 py-0.5 text-[9px] font-medium text-primary/90">
+                          pick
+                        </span>
+                      )}
                       <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                         {humanSize(e.size)}
                       </span>
                     </button>
                   ) : (
                     <div
-                      key={`${e.name}-${i}`}
+                      key={`${e.name}-${rowIdx}`}
+                      role="option"
+                      id={`pb-opt-${rowIdx}`}
+                      aria-selected={false}
+                      aria-posinset={rowIdx + 1}
+                      aria-setsize={visibleEntries.length}
                       title={e.name}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground",
-                        e.img && "text-foreground/90"
+                        "mb-0.5 flex h-7 w-full items-center gap-2 rounded-md px-2 text-xs text-muted-foreground",
+                        e.img && "text-foreground/90",
+                        cursor === rowIdx && "bg-secondary/70 text-foreground/80"
                       )}
                     >
                       {e.img ? (
-                        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500/80" aria-hidden="true" />
+                        <Check className="h-3.5 w-3.5 shrink-0 text-success-500/80" aria-hidden="true" />
                       ) : (
                         <span className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       )}
@@ -493,14 +750,31 @@ export function PathBrowserDialog({
                         {humanSize(e.size)}
                       </span>
                     </div>
-                  )
+                  );
+                        })}
+                    </div>
+                  </div>
                 )}
                 {data?.truncated && (
-                  <p className="px-2 py-1.5 text-[10px] text-muted-foreground">
-                    {patternView
-                      ? `Preview capped at 400 matches — ${data.totalMatched ?? "?"} files match in total (import takes them all).`
-                      : "Listing truncated at 400 entries — enter a subfolder for more."}
-                  </p>
+                  <div className="px-2 pb-1 pt-2">
+                    <p className="text-[10px] leading-relaxed text-muted-foreground">
+                      {patternView
+                        ? `Preview capped at ${(data.entries?.length ?? BROWSER_LIST_MAX).toLocaleString()} matches — ${data.totalMatched?.toLocaleString() ?? "?"} files match in total (import takes them all).`
+                        : `Listing shows the first ${(data.entries?.length ?? BROWSER_LIST_MAX).toLocaleString()} of ${data.totalEntries?.toLocaleString() ?? "many"} entries.`}
+                    </p>
+                    {!patternView && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1 h-6 gap-1 px-2 text-[11px]"
+                        onClick={() => currentPath && pick(currentPath)}
+                        title="Import the folder itself — the engine enumerates every image in it (any count)"
+                      >
+                        <FolderOpen className="h-3 w-3" aria-hidden="true" />
+                        Import this whole folder — every image
+                      </Button>
+                    )}
+                  </div>
                 )}
                 {visibleEntries.length === 0 && (
                   <p className="px-3 py-6 text-center text-xs text-muted-foreground">
@@ -511,12 +785,15 @@ export function PathBrowserDialog({
                         : "Empty folder"}
                   </p>
                 )}
-              </div>
+              </>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
-        {/* quick filter + one-click pattern chips (files mode, directory listing) */}
+        {/* quick filter (files mode, directory listing) — narrows the
+            listing so "optimiser" finds run_it025_optimiser.star in a
+            2,000-round workdir. The multi-select affordances (select-N,
+            the DW.mrc chip) are the micrograph import's world. */}
         {activeMode === "files" && !inRootsView && !patternView && (
           <div className="flex flex-wrap items-center gap-1.5">
             <div className="relative min-w-[150px] flex-1">
@@ -542,7 +819,7 @@ export function PathBrowserDialog({
                 </button>
               )}
             </div>
-            {filter.trim() && visibleImages.length > 0 && (
+            {!singleFile && filter.trim() && visibleImages.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
@@ -555,26 +832,40 @@ export function PathBrowserDialog({
               </Button>
             )}
             {/* one-click quick select: dose-weighted motioncor2 outputs */}
-            <button
-              type="button"
-              onClick={() => quickSelect("DW.mrc")}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                needle && needle === "dw.mrc"
-                  ? "border-primary/60 bg-primary/10 text-primary"
-                  : "border-primary/30 bg-primary/5 text-primary/90 hover:border-primary/50 hover:bg-primary/10"
-              )}
-              title="Select every file containing DW.mrc (dose-weighted) in this listing"
-            >
-              <Zap className="h-3 w-3" aria-hidden="true" />
-              DW.mrc
-              <span className="font-mono text-[10px] opacity-70">({countByNeedle("DW.mrc")})</span>
-            </button>
+            {!singleFile && (
+              <Chip
+                size="lg"
+                interactive
+                asChild
+                className={
+                  needle && needle === "dw.mrc"
+                    ? "border-primary/60 bg-primary/10 text-primary"
+                    : "border-primary/30 bg-primary/5 text-primary/90 hover:border-primary/50 hover:bg-primary/10"
+                }
+              >
+                <button
+                  type="button"
+                  onClick={() => quickSelect("DW.mrc")}
+                  title="Select every file containing DW.mrc (dose-weighted) in this listing"
+                >
+                  <Zap aria-hidden="true" />
+                  DW.mrc
+                  <span className="font-mono text-[10px] opacity-70">({countByNeedle("DW.mrc")})</span>
+                </button>
+              </Chip>
+            )}
           </div>
         )}
 
-        {/* counters / actions row */}
-        {activeMode === "files" && !inRootsView && (
+        {/* counters / actions row — the multi-select world's tally; the
+            single-file world gets its one-line instruction instead */}
+        {activeMode === "files" && !inRootsView && singleFile && (
+          <p className="text-[11px] text-muted-foreground" role="status">
+            <FileText className="mr-1 inline h-3 w-3 text-primary/70" aria-hidden="true" />
+            Click a file to pick it — folders only navigate.
+          </p>
+        )}
+        {activeMode === "files" && !inRootsView && !singleFile && (
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-[11px] text-muted-foreground" role="status">
               {selected.size > 0 ? (
@@ -640,9 +931,14 @@ export function PathBrowserDialog({
           <p className="text-[11px] text-muted-foreground" role="status">
             {microCount > 0 ? (
               <>
-                <Check className="mr-1 inline h-3 w-3 text-emerald-600" aria-hidden="true" />
-                {microCount} micrograph{microCount === 1 ? "" : "s"} (.mrc/.mrcs/.tif/.eer) in this folder —
-                switch to the Files tab to pick individual files
+                <Check className="mr-1 inline h-3 w-3 text-success-600" aria-hidden="true" />
+                {microCount} micrograph{microCount === 1 ? "" : "s"} (.mrc/.mrcs/.tif/.eer)
+                {data?.truncated && data.totalEntries != null
+                  ? ` shown of ~${data.totalEntries} entries — `
+                  : " in this folder — "}
+                {data?.truncated
+                  ? "Select this folder imports EVERY image in it (the import enumerates the whole folder)"
+                  : "switch to the Files tab to pick individual files"}
               </>
             ) : (
               "No micrograph files directly in this folder — they may be in a subfolder"
@@ -650,8 +946,12 @@ export function PathBrowserDialog({
           </p>
         )}
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex flex-1 items-center gap-1.5">
+        {/* t396 — the pinned action bar: sticky inside the (flex-col,
+            scrollable) dialog content, full-bleed through the content
+            padding (-mx-6/-mb-6/-mt-3.5) so it reads as the dialog's own
+            bottom bar. On tall viewports nothing changes visually. */}
+        <DialogFooter className="sticky bottom-0 z-10 -mx-6 -mb-6 -mt-3.5 flex-col gap-2 border-t bg-background/95 px-6 py-3 backdrop-blur sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <Terminal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
             <Input
               value={manual}
@@ -663,7 +963,11 @@ export function PathBrowserDialog({
                   setCwd(manual.trim());
                 }
               }}
-              placeholder="Paste a path or pattern (C:\… / /home/… / /data/*.tiff)"
+              placeholder={
+                remote
+                  ? "Cluster path or pattern (/data2/home/… / /projects/movies/*.mrc)"
+                  : "Paste a path or pattern (C:\… / /home/… / /data/*.tiff)"
+              }
               className="h-8 text-xs font-mono"
               aria-label="Manual path or wildcard pattern"
             />
@@ -680,7 +984,21 @@ export function PathBrowserDialog({
               Go
             </Button>
           </div>
-          {activeMode === "files" ? (
+          {singleFile ? (
+            /* t396 — the typed path IS the pick: one text box, one button,
+               no detour through a listing that may not even resolve (a
+               file path does not list) */
+            <Button
+              size="sm"
+              className="shrink-0"
+              disabled={!manual.trim()}
+              onClick={() => manual.trim() && pick(manual.trim())}
+              title="Pick the typed path exactly as written"
+            >
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              Use this path
+            </Button>
+          ) : activeMode === "files" ? (
             <Button
               size="sm"
               className="shrink-0"

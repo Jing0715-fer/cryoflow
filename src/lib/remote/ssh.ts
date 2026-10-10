@@ -12,13 +12,20 @@
  * No SFTP subsystem is required — some hardened clusters disable it, and the
  * exec path works everywhere a shell does.
  *
+ * t291 — auth is diagnosed, not just attempted: preflightAuthProblem fails
+ * fast on user-fixable config errors, a custom authHandler records the
+ * negotiation (methods tried + what the server offered), and the
+ * keyboard-interactive round counts its prompts — so a rejected login says
+ * WHICH failure it was instead of ssh2's one-size-fits-all
+ * "All configured authentication methods failed".
+ *
  * Every connection has a serialized command queue (clusters hate concurrent
  * exec storms); fire-and-forget callers can use tryExec() which declines
  * politely while a command is in flight (the poll sweep just keeps its
  * previous state — the next tick re-polls).
  */
 
-import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync } from "fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync, writeSync } from "fs";
 import path from "path";
 import { Client } from "ssh2";
 import type { RemoteConnection } from "./types";
@@ -46,6 +53,17 @@ interface PooledClient {
   queued: number;
   /** Bumped on hard failure so callers can report honest errors. */
   lastError: string | null;
+  /**
+   * t346 — consecutive exec TIMEOUTS on this wire. keepalive needs its
+   * whole 30s window to notice a dead peer, and until it does every
+   * queued exec burns its full budget against the corpse (serialized —
+   * the sweep, the log fetches, staging, all of them). Two timeouts in
+   * a row is the wire saying the connection is gone: drop it so the
+   * next exec re-dials a fresh TCP+auth channel instead of queuing onto
+   * the body. A single timeout (a slow-but-alive login node) changes
+   * nothing.
+   */
+  timeoutStreak: number;
 }
 
 const pool = new Map<string, PooledClient>();
@@ -87,6 +105,113 @@ function authConfig(c: RemoteConnection): {
   return { type: "password", ...base, password: c.password ?? "", tryKeyboard: true };
 }
 
+/* ------------------------------------------------------------------ */
+/* Auth pre-flight + negotiation recorder (t291)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * User-fixable auth config problems, caught BEFORE any network round-trip.
+ * t291's user report made the cost of skipping this concrete: a connection
+ * with no stored password (an edit that never re-typed it), a missing key
+ * file, or a missing agent socket all degrade into ssh2's single cryptic
+ * line — "All configured authentication methods failed" — which tells the
+ * user nothing about WHICH of these very different problems they have.
+ * Each message says what is wrong and what to do about it.
+ */
+export function preflightAuthProblem(c: RemoteConnection): string | null {
+  if (c.authMethod === "password") {
+    if (typeof c.password !== "string" || c.password.length === 0) {
+      return (
+        "this connection has NO password stored — open it in the cluster dialog, " +
+        "type the password, Save, then test again (an edit that skips the password " +
+        "field keeps it empty; MobaXterm working proves the credential, not the stored copy)"
+      );
+    }
+  }
+  if (c.authMethod === "key") {
+    if (!c.privateKeyPath) {
+      return "auth method is Private key but no key file path is set — choose the key file first";
+    }
+    try {
+      readFileSync(c.privateKeyPath);
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      return `cannot read the private key file "${c.privateKeyPath}" on this machine (${reason}) — check the path`;
+    }
+  }
+  if (c.authMethod === "agent") {
+    if (!process.env.SSH_AUTH_SOCK && process.platform !== "win32") {
+      return (
+        "no SSH agent is running (SSH_AUTH_SOCK is unset on this machine) — start " +
+        "ssh-agent with your key loaded, or switch the connection's auth method to Password / Private key"
+      );
+    }
+  }
+  return null;
+}
+
+/** What the auth negotiation saw — the recorder ssh2 never gives you. */
+interface AuthNegotiation {
+  /** Methods we sent, in order (ssh2's linear fallback chain). */
+  tried: string[];
+  /** The server's last "methods that can continue" list. */
+  serverOffers: string[];
+  /** Prompts in the keyboard-interactive round (0 = never reached / banner only). */
+  kbdPrompts: number;
+}
+
+/**
+ * Rewrite ssh2's auth-exhaustion error into a diagnosis. The base line stays
+ * recognizable, then we append the two facts only the negotiation knows
+ * (what we tried, what the server accepts) and ONE targeted hint — so "wrong
+ * password", "cluster wants keys only", and "multi-prompt 2FA" stop sharing
+ * a single indistinguishable sentence.
+ */
+function authFailureMessage(err: Error, n: AuthNegotiation): string {
+  const base = err.message || "SSH authentication failed";
+  const leveled = (err as Error & { level?: string }).level;
+  if (leveled !== "client-authentication" && !/All configured authentication methods/i.test(base)) {
+    return base; // not the exhaustion case — ssh2's own message is already specific
+  }
+  const tried = n.tried.filter((m) => m !== "none");
+  const parts: string[] = [base];
+  if (tried.length > 0) parts.push(`tried ${tried.join(" + ")}`);
+  if (n.serverOffers.length > 0) parts.push(`the server accepts ${n.serverOffers.join(" + ")}`);
+  parts.push(authHint(n));
+  return parts.join(" — ");
+}
+
+function authHint(n: AuthNegotiation): string {
+  const offers = new Set(n.serverOffers);
+  const triedKbd = n.tried.includes("keyboard-interactive");
+  if (triedKbd && n.kbdPrompts > 1) {
+    return (
+      `the cluster asked ${n.kbdPrompts} questions at login (multi-prompt / 2FA) — ` +
+      "only single-prompt password login is supported"
+    );
+  }
+  if (offers.size > 0 && !offers.has("password") && !offers.has("keyboard-interactive")) {
+    return (
+      "this cluster does not accept password logins at all — switch the " +
+      "connection's auth method to Private key"
+    );
+  }
+  if (triedKbd && offers.has("keyboard-interactive")) {
+    return (
+      "the username or password was refused — re-check the username, retype the " +
+      "password in the cluster dialog and Save (a login that works in MobaXterm proves " +
+      "the credential, not the stored copy)"
+    );
+  }
+  if (offers.size === 0) {
+    return (
+      "the server rejected the login without listing what it accepts — check the " +
+      "username, and whether this account is allowed password logins"
+    );
+  }
+  return "re-check the username and password, then Save and test again";
+}
+
 /** Reset any pooled client whose saved config changed (or on demand). */
 export function dropConnection(connectionId: string): void {
   const pooled = pool.get(connectionId);
@@ -122,8 +247,30 @@ function getPooled(c: RemoteConnection): PooledClient {
     queueTail: Promise.resolve(),
     queued: 0,
     lastError: null,
+    timeoutStreak: 0,
   };
+
+  // t291 pre-flight: config problems the user can fix get their OWN honest
+  // error before any network round-trip — they used to collapse into ssh2's
+  // "All configured authentication methods failed" together with genuinely
+  // wrong credentials, which made the user's report unactionable.
+  const preflight = preflightAuthProblem(c);
+  if (preflight) {
+    pooled.lastError = preflight;
+    const err = new Error(preflight);
+    failReady(err);
+    ready.catch(() => {}); // idle rejection must not trip unhandledRejection
+    pool.set(c.id, pooled);
+    return pooled;
+  }
+
   const auth = authConfig(c);
+  // t291 negotiation recorder: ssh2's default auth handler throws away the
+  // server's "methods that can continue" list, so a failed login can't say
+  // which dialect the cluster speaks. This custom handler mirrors ssh2's
+  // linear chain exactly (same methods, same order — validated against
+  // ssh2's own authsAllowed on every step) while recording the exchange.
+  const negotiation: AuthNegotiation = { tried: [], serverOffers: [], kbdPrompts: 0 };
   {
     const timeout = setTimeout(() => {
       pooled.lastError = "connect timeout";
@@ -140,21 +287,41 @@ function getPooled(c: RemoteConnection): PooledClient {
       host: c.host,
       port: c.port,
       readyTimeout: 15_000,
-      keepaliveInterval: 15_000,
-      keepaliveCountMax: 4,
+      // t346 — 10s×3 = a dead peer is noticed in ≤30s (was 15×4 = 60s:
+      // a half-dead wire burned full exec budgets for a whole minute
+      // while every queued command timed out against the corpse)
+      keepaliveInterval: 10_000,
+      keepaliveCountMax: 3,
     };
+    // mirrors ssh2's own authsAllowed construction order exactly: none →
+    // password → publickey → agent → keyboard-interactive (client.js builds
+    // this same list from the config; our strings must all be members of it)
+    const authMethods: string[] = ["none"];
     if (auth.type === "agent" && auth.agent) {
       cfg.agent = auth.agent;
       cfg.username = auth.username;
+      authMethods.push("agent");
     } else if (auth.type === "publickey" && auth.privateKey) {
       cfg.username = auth.username;
       cfg.privateKey = auth.privateKey;
       if (auth.passphrase) cfg.passphrase = auth.passphrase;
+      authMethods.push("publickey");
     } else {
       cfg.username = auth.username;
       cfg.password = auth.password ?? "";
       cfg.tryKeyboard = true;
+      authMethods.push("password", "keyboard-interactive");
     }
+    cfg.authHandler = (authsLeft: unknown) => {
+      if (Array.isArray(authsLeft) && authsLeft.length > 0) {
+        negotiation.serverOffers = Array.from(new Set(authsLeft.map((m) => String(m))));
+      }
+      const next = negotiation.tried.length;
+      if (next >= authMethods.length) return false;
+      const method = authMethods[next];
+      negotiation.tried.push(method);
+      return method;
+    };
     client
       .on("ready", () => {
         clearTimeout(timeout);
@@ -162,24 +329,32 @@ function getPooled(c: RemoteConnection): PooledClient {
       })
       .on("error", (err: Error) => {
         clearTimeout(timeout);
-        pooled.lastError = err.message;
+        const msg = authFailureMessage(err, negotiation);
+        pooled.lastError = msg;
         pool.delete(c.id);
-        failReady(err);
+        failReady(new Error(msg));
       })
       .on("close", () => {
         pool.delete(c.id);
-      })
-      .connect(cfg as Parameters<Client["connect"]>[0]);
-    // keyboard-interactive continuation (very common on HPC one-time codes).
+      });
+    // keyboard-interactive continuation (very common on HPC clusters whose
+    // sshd has PasswordAuthentication no + KbdInteractiveAuthentication yes —
+    // the dialect MobaXterm speaks transparently; t291 also counts prompts,
+    // because a multi-prompt round means 2FA, which we must name honestly).
     // Not in @types/ssh2's event union — attached through a string-typed shim.
     type AnyEmitter = { on(evt: string, fn: (...args: never[]) => void): void };
     (client as unknown as AnyEmitter).on("keyboard-interactive", (...args: never[]) => {
-      const prompts = args[3] as { text: string }[];
+      const prompts = args[3] as unknown[] | undefined;
       const finish = args[4] as (answers: string[]) => void;
+      const list = Array.isArray(prompts) ? prompts : [];
+      negotiation.kbdPrompts = Math.max(negotiation.kbdPrompts, list.length);
       // answer every prompt with the configured password — MFA beyond that
-      // is out of scope and fails honestly
-      finish(prompts.map(() => authConfig(c).password ?? ""));
+      // is out of scope and fails honestly (with the prompt count in the
+      // error, so the reason is legible)
+      const pw = authConfig(c).password ?? "";
+      finish(list.map(() => pw));
     });
+    client.connect(cfg as Parameters<Client["connect"]>[0]);
   }
   pool.set(c.id, pooled);
   return pooled;
@@ -317,6 +492,23 @@ export async function exec(
         timeoutMs: opts.timeoutMs ?? 20_000,
         stdin: opts.stdin ?? null,
       });
+      // t346 — the timeout-streak ladder: ONE timeout is a slow login
+      // node (forgiven); TWO in a row is a dead wire pretending to be
+      // alive — drop the pooled client so the next exec re-dials. Only
+      // the timeout word counts: exit codes and channel errors have
+      // their own honest meanings.
+      if (typeof r.error === "string" && /timeout after/.test(r.error)) {
+        pooled.timeoutStreak += 1;
+        if (pooled.timeoutStreak >= 2) {
+          console.log(
+            `ssh: ${c.id} timed out ${pooled.timeoutStreak}x in a row — dropping the pooled connection for a fresh re-dial (t346)`
+          );
+          pooled.timeoutStreak = 0;
+          dropConnection(c.id);
+        }
+      } else if (!r.error) {
+        pooled.timeoutStreak = 0;
+      }
       return {
         code: r.code,
         stdout: r.stdout.toString("utf8"),
@@ -354,6 +546,46 @@ export async function tryExec(
   return exec(c, command, opts);
 }
 
+/**
+ * t384 — the quick-read lane: an exec that does NOT join the connection's
+ * serialized queue. The usage panel's `scontrol show nodes -o` must answer
+ * while the queue is deep in a poll sweep, a log fetch or a sync-back —
+ * the serialized exec's 12s budget expires BEFORE the turn ever comes,
+ * which the field met as 「查询node使用情况一直失败」. Channels
+ * multiplex over the one pooled SSH connection, so this runs concurrently
+ * without disturbing the queue's ordering (and never delays the queue
+ * either). Contract: short, read-only, idempotent commands only — never
+ * anything that could race a queued writer on the same files.
+ */
+export async function execUnqueued(
+  c: RemoteConnection,
+  command: string,
+  opts: { timeoutMs?: number } = {}
+): Promise<ExecResult> {
+  const pooled = getPooled(c);
+  try {
+    await pooled.ready;
+  } catch (e) {
+    dropConnection(c.id);
+    return {
+      code: null,
+      stdout: "",
+      stderr: "",
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+  const r = await rawExec(pooled, command, {
+    timeoutMs: opts.timeoutMs ?? 20_000,
+    stdin: null,
+  });
+  return {
+    code: r.code,
+    stdout: r.stdout.toString("utf8"),
+    stderr: r.stderr,
+    ...(r.error ? { error: r.error } : {}),
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* File helpers (exec-based — no SFTP dependency)                      */
 /* ------------------------------------------------------------------ */
@@ -363,19 +595,79 @@ export async function remoteMkdir(c: RemoteConnection, dir: string): Promise<voi
   await exec(c, `mkdir -p ${shellSingleQuote(dir)}`, { timeoutMs: 15_000 });
 }
 
-/** Remote file existence + size (null = absent). */
+/** Remote file existence + size (null = absent OR the stat itself failed).
+ *
+ * t355 — this rides a DIRECT pooled channel, NOT the serialized exec queue:
+ * a stat is the opening move of every file transfer (remoteDownload's own
+ * pre-pull check, the t289 lazy fetch, the t354 iteration pulls), and on a
+ * real cluster the queue is busy exactly when a transfer is asked for — the
+ * sweep's heartbeat, the /iterations poll and the log fetches all serialize
+ * ahead of it, and the old 10s queued budget expired BEFORE the stat ever
+ * started (the sheet route then 404'd with "may not exist on this run" while
+ * the stack sat healthy on the cluster). Downloads already bypass the queue
+ * (their `cat` runs on a direct channel); the stat now speaks the same
+ * transport, with a 20s budget for a login node under load.
+ */
 export async function remoteStat(
   c: RemoteConnection,
   file: string
 ): Promise<{ size: number; mtimeMs: number } | null> {
-  const r = await exec(
-    c,
+  const r = await remoteStatEx(c, file);
+  return r.kind === "ok" ? { size: r.size, mtimeMs: r.mtimeMs } : null;
+}
+
+/** t358 — the stat that says WHICH miss it was. The plain remoteStat folds
+ * three very different worlds into one null ("the file is not there", "the
+ * wire could not answer", "the login node timed out"), and the t357 field
+ * report showed the cost: every one of them rendered as the same
+ * "the stack may not exist on the cluster" 404 while the real reason stayed
+ * invisible. The chunked puller (and through it the sheet/image routes)
+ * speaks THIS dialect so the UI can say what actually broke. */
+export type RemoteStatResult =
+  | { kind: "ok"; size: number; mtimeMs: number }
+  | { kind: "absent" }
+  | { kind: "error"; message: string };
+
+export async function remoteStatEx(
+  c: RemoteConnection,
+  file: string
+): Promise<RemoteStatResult> {
+  const pooled = getPooled(c);
+  try {
+    await pooled.ready;
+  } catch (e) {
+    return { kind: "error", message: e instanceof Error ? e.message : String(e) };
+  }
+  const r = await rawExec(
+    pooled,
     `stat -c '%s %Y' ${shellSingleQuote(file)} 2>/dev/null || echo MISSING`,
-    { timeoutMs: 10_000 }
+    { timeoutMs: 20_000, stdin: null }
   );
-  if (r.error || r.code !== 0) return null;
-  const m = /^(\d+) (\d+)\s*$/.exec(r.stdout.trim());
-  return m ? { size: Number(m[1]), mtimeMs: Number(m[2]) * 1000 } : null;
+  if (r.error) return { kind: "error", message: r.error };
+  if (r.code !== 0) return { kind: "error", message: `stat exited ${r.code}` };
+  const m = /^(\d+) (\d+)\s*$/.exec(r.stdout.toString("utf8").trim());
+  if (!m) {
+    // the stat answered MISSING — the cluster's own verdict that the file
+    // is not there (an HONEST miss, never retried into existence)
+    if (/^MISSING\s*$/.test(r.stdout.toString("utf8").trim())) return { kind: "absent" };
+    return { kind: "error", message: "stat output unparseable" };
+  }
+  return { kind: "ok", size: Number(m[1]), mtimeMs: Number(m[2]) * 1000 };
+}
+
+/** t358 — partial-write-safe synchronous write AT AN EXPLICIT POSITION.
+ * Node/Bun's writeSync MAY short-write (signal interruption, internal
+ * buffer edges); the t357 download loop ignored its return value, so a
+ * short write would silently drop the tail of a chunk. Explicit positions
+ * also make chunk RETRIES rewind-proof: a failed attempt that landed a
+ * partial 3 MB does not move the next attempt's write point. */
+function writeAllSyncAt(fd: number, buf: Buffer, position: number): void {
+  let off = 0;
+  while (off < buf.length) {
+    const n = writeSync(fd, buf, off, buf.length - off, position + off);
+    if (n <= 0) throw new Error(`writeSync returned ${n}`);
+    off += n;
+  }
 }
 
 /**
@@ -402,18 +694,23 @@ export async function remoteDownload(
   }
   return new Promise<number | null>((resolve) => {
     let settled = false;
+    let fd: number | null = null;
     const finish = (v: number | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try {
-        ws.close();
-      } catch {
-        /* ignore */
+      if (fd != null) {
+        try { closeSync(fd); } catch { /* ignore */ }
+        fd = null;
       }
       resolve(v);
     };
-    const ws = createWriteStream(localPath);
+    // t298 — SYNCHRONOUS writes, not a WriteStream: bun's stream buffering
+    // silently dropped chunks under concurrent load (the bare-ssh2 probe in
+    // Node was byte-exact 10/10 while the app's streamed writes lost 1.6–48
+    // MB per 64 MB transfer). writeSync has no buffer to drop from — each
+    // chunk lands in the page cache the moment the SSH stream emits it, and
+    // the SSH socket's own TCP backpressure paces the transfer.
     let written = 0;
     const timer = setTimeout(() => {
       try {
@@ -430,6 +727,12 @@ export async function remoteDownload(
         return;
       }
       streamRef = stream;
+      try {
+        fd = openSync(localPath, "w");
+      } catch {
+        finish(null);
+        return;
+      }
       stream.on("data", (chunk: Buffer) => {
         written += chunk.length;
         if (written > maxBytes) {
@@ -441,16 +744,316 @@ export async function remoteDownload(
           finish(-1);
           return;
         }
-        ws.write(chunk);
+        if (fd != null) {
+          try {
+            writeSync(fd, chunk);
+          } catch {
+            finish(null);
+          }
+        }
       });
-      stream.on("exit", () => {
-        ws.end(() => finish(written));
-      });
+      // t298 — end the file ONLY on 'close': data may legally arrive between
+      // 'exit' and 'close'. 'close' is the point where no further data is
+      // possible.
+      // t299 — the verdict is the BYTE ACCOUNT against the pre-pull
+      // remoteStat, not "some bytes arrived": a clean ctffind run's run.err
+      // is legitimately ZERO bytes, and `written > 0` sentenced every empty
+      // file to "download failed" (the sync-back skipped it, the ledger
+      // under-counted, t262's ≥3 assertion caught it). 0 === 0 is a PASS;
+      // a truncated non-empty read (written < st.size) still fails honest.
       stream.on("close", () => {
-        ws.end(() => finish(written > 0 ? written : null));
+        finish(written === st.size ? written : null);
       });
     });
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* t358 — the CHUNKED transfer (big, lossy-wire-proof downloads)        */
+/* ------------------------------------------------------------------ */
+
+export interface ChunkedDownloadOpts {
+  /** hard byte cap for the whole file (refused, not truncated) */
+  maxBytes: number;
+  /** per-chunk transfer size (default 8 MiB — half the 16 MiB envelope the
+   * sync-back's key-files traffic has always crossed reliably; the t298
+   * probe lost 1.6–48 MB per 64 MB transfer, so chunks stay well under) */
+  chunkBytes?: number;
+  /** attempts per CHUNK (default 3 — a failed chunk re-pays itself, not
+   * the whole file) */
+  chunkAttempts?: number;
+}
+
+export type ChunkedDownloadResult =
+  | { ok: true; bytes: number }
+  | {
+      ok: false;
+      /** machine reason — the routes surface it verbatim */
+      reason: "absent" | "over-cap" | "stat-failed" | "transfer" | "truncated";
+      /** human sentence, safe for the UI */
+      message: string;
+      /** the cluster-side size when known (over-cap names it) */
+      size?: number;
+    };
+
+/**
+ * t358 — download a (potentially large) remote file in VERIFIED CHUNKS.
+ *
+ * The t357 field report: a finished real-cluster 2D classification whose
+ * every class-average pull failed with the same "the stack may not exist on
+ * the cluster" 404. A real 20-round run writes 25–100 MB stacks, and the
+ * whole-file `cat` of that size is exactly the t298 loss shape (the receive
+ * side silently drops megabytes while reporting success) — a loss that is
+ * size-dependent, which means whole-file RETRIES just re-roll the same
+ * losing dice. The proven-safe envelope is the sync-back's ≤16 MB key-file
+ * traffic; this puller never puts more than 8 MB on the wire at once:
+ *
+ *   stat → (absent | over-cap answered BEFORE any transfer)
+ *   for each chunk: `tail -c +OFF 'path' | head -c N` on a direct pooled
+ *   channel, every byte writeSync'd (partial-write-safe), the chunk's byte
+ *   account checked against N, up to `chunkAttempts` tries per chunk — a
+ *   mid-stream drop costs ONE chunk's re-transfer, not the file's.
+ *
+ * Chunks run SERIALLY (no parallel channel storms — concurrent load is the
+ * documented trigger of the loss). The local file is written progressively;
+ * on failure the partial is the CALLER's to destroy (the iteration pipeline
+ * already deletes its transient).
+ */
+export async function remoteChunkedDownload(
+  c: RemoteConnection,
+  remotePath: string,
+  localPath: string,
+  opts: ChunkedDownloadOpts
+): Promise<ChunkedDownloadResult> {
+  const chunkBytes = opts.chunkBytes ?? 8 * 1024 * 1024;
+  const attempts = opts.chunkAttempts ?? 3;
+
+  const st = await remoteStatEx(c, remotePath);
+  if (st.kind === "absent") {
+    return { ok: false, reason: "absent", message: `${remotePath} does not exist on the cluster` };
+  }
+  if (st.kind === "error") {
+    // one breath and a second stat — a pooled client mid-redial answers
+    // "error" once; the file may be perfectly there
+    await new Promise((r) => setTimeout(r, 400));
+    const st2 = await remoteStatEx(c, remotePath);
+    if (st2.kind === "absent") {
+      return { ok: false, reason: "absent", message: `${remotePath} does not exist on the cluster` };
+    }
+    if (st2.kind === "ok") {
+      return pullChunks(c, remotePath, localPath, st2.size, chunkBytes, attempts, opts.maxBytes);
+    }
+    // two refusals in a row — the pooled connection may be a zombie (the
+    // socket died without ssh2's error/close ever firing; keepalive needs
+    // up to 30s to notice). Force a fresh dial and ask ONE more time
+    // before sentencing the file.
+    dropConnection(c.id);
+    const st3 = await remoteStatEx(c, remotePath);
+    if (st3.kind === "ok") {
+      return pullChunks(c, remotePath, localPath, st3.size, chunkBytes, attempts, opts.maxBytes);
+    }
+    if (st3.kind === "absent") {
+      return { ok: false, reason: "absent", message: `${remotePath} does not exist on the cluster` };
+    }
+    return {
+      ok: false,
+      reason: "stat-failed",
+      message: `could not stat ${remotePath} on the cluster (${st3.kind === "error" ? st3.message : "stat unavailable"}) — the connection was re-dialed and still refused`,
+    };
+  }
+  return pullChunks(c, remotePath, localPath, st.size, chunkBytes, attempts, opts.maxBytes);
+}
+
+async function pullChunks(
+  c: RemoteConnection,
+  remotePath: string,
+  localPath: string,
+  size: number,
+  chunkBytes: number,
+  attempts: number,
+  maxBytes?: number
+): Promise<ChunkedDownloadResult> {
+  const cap = maxBytes ?? Number.MAX_SAFE_INTEGER;
+  if (size > cap) {
+    return {
+      ok: false,
+      reason: "over-cap",
+      size,
+      message: `${remotePath} is ${fmtMb(size)} — above the ${fmtMb(cap)} on-demand transfer cap`,
+    };
+  }
+  mkdirSync(path.dirname(localPath), { recursive: true });
+  let pooled = getPooled(c);
+  try {
+    await pooled.ready;
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "transfer",
+      message: `the cluster connection is down (${e instanceof Error ? e.message : String(e)})`,
+    };
+  }
+
+  let fd: number | null = null;
+  // one forced re-dial per FILE: a chunk that died with a channel-level
+  // error (timeout / channel closed / connection reset) often means the
+  // pooled connection is a zombie — the next attempt deserves a fresh
+  // socket, not the same corpse (the t346 timeout-streak ladder's doctrine
+  // for the direct-channel world)
+  let reDialUsed = false;
+  try {
+    fd = openSync(localPath, "w");
+    let done = 0;
+    let chunkIndex = 0;
+    while (done < size) {
+      const want = Math.min(chunkBytes, size - done);
+      let landed = -1;
+      let lastErr = "";
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 350));
+        const r = await pumpChunk(
+          pooled,
+          remotePath,
+          done, // byte offset the chunk starts at
+          want,
+          (buf, filePos) => writeAllSyncAt(fd!, buf, filePos)
+        );
+        if (r.ok) {
+          landed = want;
+          break;
+        }
+        lastErr = r.message;
+        if (
+          !reDialUsed &&
+          /timed out|channel|connection|reset|ECONN|writeSync/i.test(r.message)
+        ) {
+          reDialUsed = true;
+          dropConnection(c.id);
+          // the pooled handle this loop captured is gone — re-fetch so the
+          // next attempt rides the fresh connection
+          const fresh = getPooled(c);
+          try {
+            await fresh.ready;
+            pooled = fresh;
+          } catch {
+            /* the fresh dial itself failed — the loop's verdict says so */
+          }
+        }
+      }
+      if (landed !== want) {
+        return {
+          ok: false,
+          reason: "truncated",
+          size,
+          message: `the transfer of ${remotePath} was truncated ${attempts}× in a row (chunk ${chunkIndex + 1}, bytes ${done}–${done + want}${lastErr ? `; ${lastErr}` : ""}) — the cluster wire is dropping data`,
+        };
+      }
+      done += want;
+      chunkIndex++;
+    }
+    return { ok: true, bytes: done };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "transfer",
+      message: `the transfer of ${remotePath} failed (${e instanceof Error ? e.message : String(e)})`,
+    };
+  } finally {
+    if (fd != null) {
+      try {
+        closeSync(fd);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+/** One verified chunk: `tail -c +OFF path | head -c N` on a direct pooled
+ * channel. The verdict is the BYTE ACCOUNT (written === N) plus the remote
+ * pipeline's exit code — head exits 0 only after serving exactly N bytes. */
+function pumpChunk(
+  pooled: PooledClient,
+  remotePath: string,
+  offset: number,
+  want: number,
+  write: (buf: Buffer, filePos: number) => void
+): Promise<{ ok: true; written: number } | { ok: false; message: string }> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let written = 0;
+    let exited: number | null = null;
+    let streamRef: import("ssh2").ClientChannel | null = null;
+    // a chunk is ≤8 MB; 50 KB/s floor → ≤170 s, capped at 180 s
+    const timeoutMs = Math.max(30_000, Math.min(180_000, want / 25));
+    const finish = (r: { ok: true; written: number } | { ok: false; message: string }) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(r);
+    };
+    const timer = setTimeout(() => {
+      try {
+        streamRef?.close();
+      } catch {
+        /* ignore */
+      }
+      finish({ ok: false, message: `chunk timed out after ${Math.round(timeoutMs / 1000)}s` });
+    }, timeoutMs);
+    const command = `tail -c +${offset + 1} ${shellSingleQuote(remotePath)} | head -c ${want}`;
+    pooled.client.exec(command, (err, stream) => {
+      if (err) {
+        finish({ ok: false, message: err.message });
+        return;
+      }
+      streamRef = stream;
+      const errParts: Buffer[] = [];
+      stream.stderr?.on("data", (chunk: Buffer) => errParts.push(chunk));
+      stream.on("data", (chunk: Buffer) => {
+        const at = offset + written; // absolute file position of this chunk byte
+        written += chunk.length;
+        if (written > want) {
+          // more bytes than asked — a corrupted stream (head should cap it)
+          try {
+            stream.close();
+          } catch {
+            /* ignore */
+          }
+          finish({ ok: false, message: "chunk over-ran its byte count" });
+          return;
+        }
+        try {
+          write(chunk, at);
+        } catch (e) {
+          finish({ ok: false, message: `local write failed (${e instanceof Error ? e.message : String(e)})` });
+        }
+      });
+      // 'exit' carries the pipeline's code; 'close' is when no more data
+      // can arrive (the t298 discipline) — the verdict waits for close
+      stream.on("exit", (code: number | null) => {
+        exited = code;
+      });
+      stream.on("close", () => {
+        const stderr = Buffer.concat(errParts).toString("utf8").trim();
+        if (written === want && (exited === 0 || exited === null)) {
+          finish({ ok: true, written });
+        } else {
+          finish({
+            ok: false,
+            message: `chunk read ${written}/${want} bytes${exited != null && exited !== 0 ? `, exit ${exited}` : ""}${
+              stderr ? `: ${stderr.slice(0, 160)}` : ""
+            }`,
+          });
+        }
+      });
+      stream.end();
+    });
+  });
+}
+
+function fmtMb(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return mb >= 10 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
 }
 
 /** Upload bytes (buffer or local file) to a remote path (parents created).

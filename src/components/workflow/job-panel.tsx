@@ -7,8 +7,8 @@
  *  - Header: identity (icon / name / close), status + engine badges,
  *    description, action row (Run / Reset / Log / Delete), live progress.
  *  - Body tabs: I/O (port-by-port connections) · Params (RELION GUI tabs
- *    with expert collapsibles) · Results (JobResults viewer) · Log (inline
- *    engine log tail).
+ *    with group frames — t382: every parameter visible, no folds) ·
+ *    Results (JobResults viewer) · Log (inline engine log tail).
  *
  * The panel body remounts per job (key={job.id}) so every form resets when
  * switching selection.
@@ -18,13 +18,16 @@ import * as React from "react";
 import {
   ArrowLeftRight,
   ArrowRight,
+  Archive,
   BarChart3,
+  ChevronDown,
+  Server,
   Check,
-  ChevronsDownUp,
   CircleAlert,
   CloudUpload,
   Database,
   FolderOpen,
+  History,
   Link2,
   Loader2,
   MousePointerClick,
@@ -32,17 +35,17 @@ import {
   Plus,
   RotateCcw,
   RefreshCw,
-  Server,
   SlidersHorizontal,
   Terminal,
   Trash2,
   X,
 } from "lucide-react";
-import { PORT_COLORS, coerceParam, jobType, portsCompatible, tabsFor } from "@/lib/workflow";
+import { PORT_COLORS, coerceParam, jobType, outputKindOf, portsCompatible, tabsFor, visibleOutputs } from "@/lib/workflow";
 import { registerParamFlusher, useWorkflowStore } from "@/lib/store";
 import { COMMAND_TEMPLATES } from "@/lib/relion/command-templates";
 import { ClassGallery } from "./class-gallery";
 import { CopyButton } from "./copy-button";
+import { RemoteStayNote } from "./remote-stay-note";
 import type {
   EdgeDTO,
   JobDTO,
@@ -53,7 +56,7 @@ import type {
   PortSpec,
 } from "@/lib/types";
 import { TypeIcon } from "./icons";
-import { MiniProgress, StatusBadge } from "./job-card";
+import { MiniProgress, StatusBadge, isSlurmQueued } from "./job-card";
 import { PathBrowserDialog } from "./path-browser-dialog";
 import { JobResults } from "./results/results-view";
 import {
@@ -68,14 +71,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { HpcSbatchDialog } from "./hpc-sbatch-dialog";
 import { RemoteRunButton } from "./remote-run-button";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckSquare, ListFilter, Folder } from "lucide-react";
+import { CheckSquare, ChevronUp, ListFilter, Folder } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -169,7 +170,7 @@ function EngineBadge() {
   return (
     <Badge
       variant="outline"
-      className="h-5 border-teal-500/40 bg-teal-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400"
+      className="h-5 border-running/40 bg-running/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-running"
       title="Runs on the REAL RELION engine (real binaries, real data)"
     >
       RELION
@@ -196,20 +197,41 @@ function formatStagedBytes(bytes?: number): string {
 function EdgeChip({
   label,
   direction,
+  kind,
   onRemove,
 }: {
   label: string;
   direction: "in" | "out";
+  /** t738 — the WATER color: the kind the wire itself carries (derived
+   *  from the SOURCE job's output port — the same book every other
+   *  reader asks). Undefined for legacy port-less edges — a chip with
+   *  no word stays colorless: the sample never lies. */
+  kind?: PortKind | undefined;
   onRemove: () => void;
 }) {
+  const ink = kind ? PORT_COLORS[kind].wire : null;
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-secondary/60 py-1 pl-2 pr-1 text-xs">
+    <span
+      className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-secondary/60 py-1 pl-2 pr-1 text-xs"
+      title={kind ? `${label} — ${kind} data` : label}
+    >
       {direction === "in" ? (
         <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : null}
-      <span className="truncate" title={label}>
-        {label}
-      </span>
+      {/* t738 — the color sample rides the chip (t735's dialect): the
+          wire's resting hex, drawn as a dot, so the I/O face teaches
+          what the WIRE says — the port row's dot is the SOCKET's color
+          (what it can accept), the chip's dot is the WATER's color
+          (what actually flows). aria-hidden: the chip's title speaks,
+          the dot paints. */}
+      {ink ? (
+        <span
+          aria-hidden="true"
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: ink }}
+        />
+      ) : null}
+      <span className="truncate">{label}</span>
       {direction === "out" ? (
         <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
       ) : null}
@@ -256,7 +278,11 @@ function compatibleSources(job: JobDTO, port: PortSpec, jobs: JobDTO[]): SourceO
     if (j.id === job.id) continue;
     const jSpec = jobType(j.type);
     if (!jSpec) continue;
-    jSpec.outputs.forEach((p, order) => {
+    // t315 — a port hidden by its `when` (the import job's one-of-three
+    // output by Node type) is not a wiring source either: the drawer lists
+    // exactly the ports the canvas shows.
+    const visible = visibleOutputs(jSpec, j.params);
+    visible.forEach((p, order) => {
       if (portsCompatible(j.type, p.name, job.type, port.name)) {
         out.push({
           jobId: j.id,
@@ -355,6 +381,7 @@ function PortRow({
   port,
   direction,
   edges,
+  edgeKinds,
   jobNameById,
   onRemove,
   footer,
@@ -362,6 +389,8 @@ function PortRow({
   port: PortSpec;
   direction: "in" | "out";
   edges: EdgeDTO[];
+  /** t738 — edge id → the kind its wire carries (undefined = legacy). */
+  edgeKinds: Map<string, PortKind | undefined>;
   jobNameById: Map<string, string>;
   onRemove: (id: string) => void;
   /** Extra control under the chips row (e.g. "Link source…" picker). */
@@ -396,6 +425,7 @@ function PortRow({
                 jobNameById.get(direction === "in" ? e.fromJobId : e.toJobId) ?? "Unknown job"
               }
               direction={direction}
+              kind={edgeKinds.get(e.id)}
               onRemove={() => onRemove(e.id)}
             />
           ))
@@ -411,13 +441,31 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
   const jobs = useWorkflowStore((s) => s.jobs);
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
 
+  const incoming = edges.filter((e) => e.toJobId === job.id);
+  const outgoing = edges.filter((e) => e.fromJobId === job.id);
+
   const jobNameById = React.useMemo(
     () => new Map(jobs.map((j) => [j.id, j.name])),
     [jobs]
   );
 
-  const incoming = edges.filter((e) => e.toJobId === job.id);
-  const outgoing = edges.filter((e) => e.fromJobId === job.id);
+  // t738 — the WATER ledger: edge id → the kind the wire carries. The
+  // derivation is the same single lookup the wires themselves drink
+  // (outputKindOf on the SOURCE job's type + fromPort) — the I/O face
+  // asks the book, never re-derives. Legacy port-less edges land as
+  // undefined and their chips stay colorless (honest no-word).
+  const edgeKinds = React.useMemo(() => {
+    const jobTypeById = new Map(jobs.map((j) => [j.id, j.type]));
+    const m = new Map<string, PortKind | undefined>();
+    for (const e of [...incoming, ...outgoing]) {
+      const fromType = e.fromJobId ? jobTypeById.get(e.fromJobId) : undefined;
+      // a legacy edge without a fromPort speaks no word — undefined is
+      // its honest kind (the chip stays colorless)
+      m.set(e.id, fromType && e.fromPort ? outputKindOf(fromType, e.fromPort) : undefined);
+    }
+    return m;
+  }, [incoming, outgoing, jobs]);
+
   const inputs = spec?.inputs ?? [];
   const outputs = spec?.outputs ?? [];
 
@@ -430,10 +478,10 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
     );
 
   return (
-    <div className="space-y-4 p-3">
+    <div className="space-y-5 p-4">
       {/* Inputs */}
       <section aria-label="Inputs">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Inputs
         </p>
         {inputs.length === 0 ? (
@@ -456,6 +504,7 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
                   port={port}
                   direction="in"
                   edges={portEdges}
+                  edgeKinds={edgeKinds}
                   jobNameById={jobNameById}
                   onRemove={(id) => void removeEdge(id)}
                   footer={
@@ -489,6 +538,7 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
                 port={port}
                 direction="out"
                 edges={edgesFor(port, i, "out")}
+                edgeKinds={edgeKinds}
                 jobNameById={jobNameById}
                 onRemove={(id) => void removeEdge(id)}
               />
@@ -504,44 +554,91 @@ function IOTab({ job, spec }: { job: JobDTO; spec: JobTypeSpec | undefined }) {
 /* Params tab (RELION GUI simulation)                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * t382 — the RELION job-window ROW: one label + one control per row —
+ * the label column fixed-width and right-aligned, the control filling
+ * the rest — the exact geometry of RELION's gui_jobwindow.cpp (every
+ * option packs as a label-left / entry-right row inside a group frame).
+ * The old two-column card grid mixed col-span-2 items into ragged rows
+ * and hid the expert options behind a collapsed toggle; the row layout
+ * shows EVERY parameter directly (the user's 取消折叠、所有参数直接显示).
+ * Hints ride the title tooltip (RELION's own affordance) so 20+ rows stay
+ * scannable; advanced labels tone down one notch to keep the groups
+ * readable at a glance.
+ */
 function ParamField({
   p,
   value,
   onChange,
   idPrefix,
+  jobId,
 }: {
   p: ParamSchema;
   value: ParamValue;
   onChange: (v: ParamValue) => void;
   idPrefix: string;
+  /** t394 — the round picker needs the row's job id (fn_cont only). */
+  jobId?: string;
 }) {
   const inputId = `${idPrefix}-${p.key}`;
-  const wide = p.type === "select" || p.type === "bool" || p.type === "path" || p.type === "text";
+
+  // t398 — fn_cont is the panel's one COMPOUND widget (path input + round
+  // dropdown + file browser + attribution chips). In the RELION row grid
+  // it lived in a ~153px value sliver where the two action buttons wrapped
+  // to two lines and the summary to three (the 「太难看了」 receipt) — it
+  // gets the FULL row instead: label above, content spanning both columns.
+  // The picker's input alone is then wider than the entire old value
+  // column, and the whole control reads as one designed group.
+  if (p.key === "fn_cont" && jobId) {
+    return (
+      <div className="space-y-1.5">
+        <Label
+          htmlFor={inputId}
+          title={p.hint}
+          className={cn(
+            "text-xs font-normal leading-snug",
+            p.advanced ? "text-muted-foreground" : "text-foreground/90"
+          )}
+        >
+          {p.label}
+        </Label>
+        <ContinueField
+          jobId={jobId}
+          inputId={inputId}
+          value={value}
+          onChange={onChange}
+          hint={p.hint}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className={cn("space-y-1.5", wide && "col-span-2")}>
-      {p.type === "bool" ? (
-        <div
-          className="flex items-center justify-between gap-3 rounded-lg border bg-secondary/40 px-3 py-2"
-          title={p.hint}
-        >
-          <Label htmlFor={inputId} className="text-xs font-normal leading-snug">
-            {p.label}
-          </Label>
-          <Switch
-            id={inputId}
-            checked={value === true}
-            onCheckedChange={(c) => onChange(c)}
-            aria-label={p.label}
-          />
-        </div>
-      ) : p.type === "path" ? (
-        <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} />
-      ) : p.type === "text" ? (
-        <>
-          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
-            {p.label}
-          </Label>
+    <div className="grid grid-cols-[118px_minmax(0,1fr)] items-start gap-x-3 sm:grid-cols-[152px_minmax(0,1fr)]">
+      <Label
+        htmlFor={inputId}
+        title={p.hint}
+        className={cn(
+          "text-xs font-normal leading-snug",
+          p.advanced ? "text-muted-foreground" : "text-foreground/90",
+          p.type === "bool" ? "pt-2.5" : "pt-1.5"
+        )}
+      >
+        {p.label}
+      </Label>
+      <div className="min-w-0">
+        {p.type === "bool" ? (
+          <div className="flex h-8 items-center justify-end">
+            <Switch
+              id={inputId}
+              checked={value === true}
+              onCheckedChange={(c) => onChange(c)}
+              aria-label={p.label}
+            />
+          </div>
+        ) : p.type === "path" ? (
+          <PathParamField p={p} value={value} onChange={onChange} idPrefix={idPrefix} />
+        ) : p.type === "text" ? (
           <Input
             id={inputId}
             type="text"
@@ -551,15 +648,7 @@ function ParamField({
             onChange={(e) => onChange(e.target.value)}
             className="h-8 font-mono text-xs"
           />
-          {p.hint && (
-            <p className="text-[10px] leading-snug text-muted-foreground">{p.hint}</p>
-          )}
-        </>
-      ) : p.type === "number" ? (
-        <>
-          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
-            {p.label}
-          </Label>
+        ) : p.type === "number" ? (
           <div className="relative">
             <Input
               id={inputId}
@@ -578,12 +667,7 @@ function ParamField({
               </span>
             )}
           </div>
-        </>
-      ) : (
-        <>
-          <Label htmlFor={inputId} className="text-xs" title={p.hint}>
-            {p.label}
-          </Label>
+        ) : (
           <Select value={String(value)} onValueChange={(v) => onChange(v)}>
             <SelectTrigger id={inputId} className="h-8 text-xs" title={p.hint}>
               <SelectValue />
@@ -596,11 +680,23 @@ function ParamField({
               ))}
             </SelectContent>
           </Select>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
+
+/**
+ * t300 — engine-native (local bookkeeping) job types, mirrored client-side
+ * from the engine's NATIVE_TYPES: they run locally even in a REMOTE project
+ * (the import writes micrographs.star with cluster paths; select/symexpand/
+ * rebalance are table surgery — nothing to dispatch). Everything else in a
+ * remote project dispatches to the cluster by default.
+ */
+const REMOTE_BOOKKEEPING_TYPES = new Set([
+  "import", "mapimport", "manualpick", "select", "select2d", "symexpand", "rebalance",
+  "cs2star", // t336 — the conversion runs in-process (SSH for the cluster lane)
+]);
 
 /**
  * Path-type param — one field, three RELION-import forms (like RELION's
@@ -624,34 +720,115 @@ function PathParamField({
 }) {
   const inputId = `${idPrefix}-${p.key}`;
   const [browsing, setBrowsing] = React.useState(false);
+  // t311 — long file lists collapse to a SUMMARY by default. A 400-file pick
+  // used to land in the textarea as 400 newline-separated absolute paths —
+  // even capped at 4 visible rows it dominated the params tab (the user's
+  // report: "不要显示所有照片的路径…会占用太多空间"). The summary keeps the
+  // count + folders + first two paths on ~4 lines; "show all" restores the
+  // editable textarea (editing stays possible, and re-browsing re-seeds the
+  // multi-select from the full value — nothing is lost).
+  const [expanded, setExpanded] = React.useState(false);
+  // t300 — a REMOTE project browses the CLUSTER's filesystem for every path
+  // param (movies folder, star files, reference maps…): the bound connection
+  // switches the browser's backend; picked paths are cluster-absolute.
+  const projectRemote = useWorkflowStore((s) => s.project?.remote ?? null);
+  const remoteBrowser = projectRemote
+    ? { connectionId: projectRemote.connectionId, label: projectRemote.name }
+    : null;
   const raw = value === undefined || value === null ? "" : String(value);
   const trimmed = raw.trim();
   const lines = trimmed ? trimmed.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : [];
   const isPattern = lines.length === 1 && /[*?]/.test(lines[0]);
   const isFileList = lines.length > 1;
+  const manyFiles = isFileList && lines.length > 8;
+  const collapsed = manyFiles && !expanded;
+  const folderCount = new Set(
+    lines.map((l) => (l.includes("/") ? l.slice(0, l.lastIndexOf("/")) : l))
+  ).size;
 
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={inputId} className="text-xs" title={p.hint}>
-        {p.label}
-      </Label>
+    // t382 — the row's Label lives in ParamField's label column now; this
+    // control owns only the entry side (textarea + browse button, or the
+    // t311 multi-file summary that keeps a 400-file pick off the panel)
+    <div className="w-full space-y-1.5">
       <div className="flex items-start gap-1.5">
-        {isFileList ? (
-          <Textarea
-            id={inputId}
-            value={raw}
-            title={p.hint}
-            onChange={(e) => onChange(e.target.value)}
-            rows={Math.min(4, Math.max(2, lines.length))}
-            placeholder={"One file path per line…"}
-            className="min-h-8 resize-y font-mono text-xs"
-            aria-label={`${p.label} — ${lines.length} files`}
-          />
+      {collapsed ? (
+          <div
+            className="flex-1 rounded-md border bg-secondary/30 px-2.5 py-2"
+            role="group"
+            aria-label={`${p.label}: ${lines.length} files selected (collapsed summary — show all for the full list)`}
+          >
+            <div className="flex items-center gap-1.5">
+              <CheckSquare className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+              <span className="text-xs font-medium text-primary">{lines.length} files</span>
+              <span className="text-[10px] text-muted-foreground">
+                · {folderCount} folder{folderCount === 1 ? "" : "s"} · imported exactly as listed
+              </span>
+              <button
+                type="button"
+                className="ml-auto inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setExpanded(true)}
+                aria-label={`Show all ${lines.length} file paths`}
+                title="Expand to the full editable path list"
+              >
+                <ChevronDown className="h-3 w-3" aria-hidden="true" />
+                show all
+              </button>
+            </div>
+            <p
+              className="mt-1 truncate font-mono text-[10px] leading-relaxed text-muted-foreground"
+              title={lines[0]}
+            >
+              {lines[0]}
+            </p>
+            {lines.length > 1 && (
+              <p
+                className="truncate font-mono text-[10px] leading-relaxed text-muted-foreground"
+                title={lines[1]}
+              >
+                {lines[1]}
+              </p>
+            )}
+            {lines.length > 2 && (
+              <p className="text-[10px] leading-relaxed text-muted-foreground/70">
+                +{lines.length - 2} more — paths are kept, only the display is collapsed
+              </p>
+            )}
+          </div>
+        ) : isFileList ? (
+          <>
+            <Textarea
+              id={inputId}
+              value={raw}
+              title={p.hint}
+              onChange={(e) => onChange(e.target.value)}
+              rows={expanded ? Math.min(8, Math.max(4, lines.length)) : Math.min(4, Math.max(2, lines.length))}
+              placeholder={"One file path per line…"}
+              className="min-h-8 resize-y font-mono text-xs"
+              aria-label={`${p.label} — ${lines.length} files`}
+            />
+            {manyFiles && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 shrink-0 px-1.5"
+                onClick={() => setExpanded(false)}
+                aria-label="Collapse the file list back to a summary"
+                title="Collapse back to the summary"
+              >
+                <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            )}
+          </>
         ) : (
           <Input
             id={inputId}
             value={raw}
-            placeholder="Folder, wildcard (…/*.tiff), or paste file paths"
+            placeholder={
+              remoteBrowser
+                ? "Cluster folder, wildcard (…/*.mrc), or paste cluster paths"
+                : "Folder, wildcard (…/*.tiff), or paste file paths"
+            }
             title={p.hint}
             onChange={(e) => onChange(e.target.value)}
             className="h-8 font-mono text-xs"
@@ -660,12 +837,20 @@ function PathParamField({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 shrink-0 gap-1 px-2"
+          className={cn("h-8 shrink-0 gap-1 px-2", remoteBrowser && "border-violet-500/40 text-violet-600 hover:bg-violet-500/10 dark:text-violet-400")}
           onClick={() => setBrowsing(true)}
-          aria-label={`Browse for ${p.label}`}
-          title="Browse folders, multi-select files, or preview a wildcard pattern"
+          aria-label={`Browse for ${p.label}${remoteBrowser ? " on the cluster" : ""}`}
+          title={
+            remoteBrowser
+              ? `Browse ${projectRemote?.name ?? "the cluster"}'s filesystem over SSH — paths stay on the cluster`
+              : "Browse folders, multi-select files, or preview a wildcard pattern"
+          }
         >
-          <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+          {remoteBrowser ? (
+            <Server className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
           Browse
         </Button>
       </div>
@@ -676,6 +861,7 @@ function PathParamField({
           onPick={(picked) => onChange(picked)}
           initialPath={raw}
           initialMode={p.filePick ? "files" : "folder"}
+          remote={remoteBrowser}
         />
       )}
       {trimmed && (
@@ -688,16 +874,24 @@ function PathParamField({
               <span>expanded at import — every matched .mrc/.mrcs/.tif/.eer</span>
             </>
           ) : isFileList ? (
-            <>
-              <CheckSquare className="h-3 w-3 text-primary" aria-hidden="true" />
-              <span className="font-medium text-primary">{lines.length} files selected</span>
-              <span aria-hidden="true">·</span>
-              <span>imported exactly as listed</span>
-            </>
+            collapsed ? (
+              <span>list collapsed above — the full paths ride the import untouched</span>
+            ) : (
+              <>
+                <CheckSquare className="h-3 w-3 text-primary" aria-hidden="true" />
+                <span className="font-medium text-primary">{lines.length} files selected</span>
+                <span aria-hidden="true">·</span>
+                <span>imported exactly as listed</span>
+              </>
+            )
           ) : (
             <>
-              <Folder className="h-3 w-3 text-amber-500/80" aria-hidden="true" />
-              <span>Folder — imports every image inside</span>
+              <Folder className="h-3 w-3 text-warning-500/80" aria-hidden="true" />
+              <span>
+                {remoteBrowser
+                  ? "Folder on the cluster — every image inside (stays there, zero upload)"
+                  : "Folder — imports every image inside"}
+              </span>
             </>
           )}
           <button
@@ -706,6 +900,461 @@ function PathParamField({
             onClick={() => onChange("")}
             aria-label={`Clear ${p.label}`}
           >
+            clear
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* t394 — ContinueField: the "Continue from here:" round picker         */
+/* ------------------------------------------------------------------ */
+
+/** Client-safe mirror of /api/jobs/[id]/continue-sources' payload. */
+interface ContinueRoundEntryDTO {
+  iteration: number;
+  name: string;
+  path: string;
+  size: number;
+  complete: boolean;
+  missing: string[];
+  newest: boolean;
+  mtimeMs?: number;
+}
+
+interface ContinueSourceDTO {
+  jobId: string;
+  jobName: string;
+  jobType: string;
+  relation: "self" | "upstream";
+  lane: "local" | "remote";
+  workdir: string;
+  entries: ContinueRoundEntryDTO[];
+  truncated?: boolean;
+  error?: string;
+  /** t395 — the newest .cryoflow_prev generation (the previous run's
+   * rounds, moved aside by a re-dispatch and still on the cluster). */
+  archived?: boolean;
+}
+
+function continueRoundSize(size: number): string {
+  if (!Number.isFinite(size) || size <= 0) return "";
+  if (size >= 1024 ** 2) return `${(size / 1024 ** 2).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+/**
+ * t394 — RELION's "Continue from here:" (fn_cont → --continue) as a real
+ * picker: a dropdown of the rounds that actually exist — THIS job's own
+ * previous run first, then its refine-family upstream runs — plus the
+ * two manual doors RELION's own GUI has (type any path, or Browse the
+ * filesystem). Every round is judged by the engine's own --continue
+ * legality law server-side: an incomplete checkpoint (a flush that died
+ * mid-write, optimiser.star without its data/model/sampling siblings) is
+ * shown but disabled, with the missing names — picking it would abort
+ * inside RELION ("HealpixSampling::readStar"), so the picker says so
+ * instead of letting the run find out an hour in.
+ *
+ * Paths are lane-honest: a round written by a CLUSTER run speaks its
+ * cluster-absolute path (the badge says so); a local run speaks host
+ * paths. The value itself is whatever the user last chose or typed —
+ * empty means "start from iteration 0" (RELION's own default).
+ */
+function ContinueField({
+  jobId,
+  inputId,
+  value,
+  onChange,
+  hint,
+}: {
+  jobId: string;
+  inputId: string;
+  value: ParamValue;
+  onChange: (v: ParamValue) => void;
+  hint?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [browsing, setBrowsing] = React.useState(false);
+  const [phase, setPhase] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [sources, setSources] = React.useState<ContinueSourceDTO[]>([]);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const fetchedAtRef = React.useRef(0);
+  // t300 — the same door every path param speaks: a REMOTE project browses
+  // the CLUSTER's filesystem for the optimiser.star pick.
+  const projectRemote = useWorkflowStore((s) => s.project?.remote ?? null);
+  const remoteBrowser = projectRemote
+    ? { connectionId: projectRemote.connectionId, label: projectRemote.name }
+    : null;
+
+  const load = React.useCallback(
+    async (refresh: boolean) => {
+      if (!refresh && Date.now() - fetchedAtRef.current < 8000) return;
+      fetchedAtRef.current = Date.now();
+      setPhase("loading");
+      try {
+        const res = await fetch(
+          `/api/jobs/${encodeURIComponent(jobId)}/continue-sources${refresh ? "?refresh=1" : ""}`
+        );
+        const data = (await res.json()) as { sources?: ContinueSourceDTO[]; error?: string };
+        if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
+        setSources(Array.isArray(data.sources) ? data.sources : []);
+        setFetchError(null);
+        setPhase("ready");
+      } catch (e) {
+        setFetchError(e instanceof Error ? e.message : String(e));
+        setPhase("error");
+      }
+    },
+    [jobId]
+  );
+
+  const raw = value === undefined || value === null ? "" : String(value);
+  const trimmed = raw.trim();
+
+  // what the current value MEANS (the summary line): a round the picker
+  // knows (job + iteration + lane), or a custom path riding --continue as-is
+  const match = React.useMemo(() => {
+    if (!trimmed) return null;
+    for (const s of sources) {
+      const e = s.entries.find((x) => x.path === trimmed);
+      if (e) return { source: s, entry: e };
+    }
+    return null;
+  }, [sources, trimmed]);
+
+  // t398 — a persisted value should meet its attribution on first render,
+  // not only after the popover has been opened once (the sources drive the
+  // match memo; without them a round the user picked in an earlier session
+  // reads as an anonymous "custom path" on reload). One fetch when a value
+  // is present; the empty field keeps the lazy popover-open fetch. The 8s
+  // TTL guard inside load() absorbs the StrictMode double-mount.
+  const hasContinueValue = String(value ?? "").trim() !== "";
+  React.useEffect(() => {
+    if (hasContinueValue) void load(false);
+  }, [hasContinueValue, load]);
+
+  const pickableRounds = sources.reduce((n, s) => n + s.entries.length, 0);
+
+  return (
+    <div className="w-full space-y-1.5">
+      {/* t398 — ONE visual line: the path input with the round picker and
+          the file browser ATTACHED to its right (an input group). The old
+          stack — input, then two buttons wrapping to their own lines, then
+          a three-line summary — was a layout built for a 153px value
+          column; at full width the trio reads as a single designed
+          control, the input is wider than the whole old value column, and
+          the attribution rides below as compact chips. */}
+      <div className="flex w-full">
+        <Input
+          id={inputId}
+          type="text"
+          value={raw}
+          title={hint}
+          placeholder="empty — starts from iteration 0"
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 min-w-0 flex-1 rounded-r-none border-r-0 font-mono text-xs"
+        />
+        <Popover
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o);
+            if (o) void load(false);
+          }}
+        >
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 min-w-0 shrink-0 rounded-none gap-1 px-2"
+              aria-label="Pick which previous round to continue from"
+              title="Pick which previous round to continue from — this job's own previous run, and its upstream refine-family runs"
+            >
+              <History className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="truncate">Rounds</span>
+              <ChevronDown className="h-3 w-3.5 shrink-0" aria-hidden="true" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-88 p-0"
+            aria-label="Rounds you can continue from"
+          >
+            <div className="max-h-80 overflow-y-auto">
+              {phase === "loading" && (
+                <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  Reading checkpoints…
+                </div>
+              )}
+              {phase === "error" && (
+                <div className="space-y-2 px-3 py-3">
+                  <p className="flex items-start gap-1.5 text-xs text-destructive">
+                    <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>{fetchError ?? "could not read the rounds"}</span>
+                  </p>
+                  <button
+                    type="button"
+                    className="text-[11px] font-medium text-primary hover:underline"
+                    onClick={() => void load(true)}
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+              {phase === "ready" && (
+                <>
+                  {trimmed && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChange("");
+                        setOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 border-b px-3 py-2 text-left text-xs transition-colors hover:bg-accent focus-visible:bg-accent"
+                    >
+                      <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span className="font-medium">Start fresh</span>
+                      <span className="text-muted-foreground">— clear the field, run from iteration 0</span>
+                    </button>
+                  )}
+                  {pickableRounds === 0 && sources.every((s) => !s.error) && (
+                    <div className="px-3 py-4 text-[11px] leading-relaxed text-muted-foreground">
+                      No checkpoints yet. Rounds appear here once this job (or a refine-family
+                      upstream job) has run — RELION writes one{" "}
+                      <span className="font-mono">run_it###_optimiser.star</span> per iteration.
+                    </div>
+                  )}
+                  {sources.map((s) => (
+                    <div key={`${s.jobId}:${s.archived ? "archived" : "live"}`} className={s.entries.length > 0 || s.error ? "border-b last:border-b-0" : ""}>
+                      {(s.entries.length > 0 || s.error) && (
+                        <div className="flex items-center gap-1.5 bg-secondary/40 px-3 py-1.5">
+                          {s.archived ? (
+                            <Archive className="h-3 w-3 shrink-0 text-warning" aria-hidden="true" />
+                          ) : s.relation === "self" ? (
+                            <History className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                          ) : (
+                            <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          )}
+                          <span className="min-w-0 truncate text-[11px] font-medium" title={s.jobName}>
+                            {s.archived
+                              ? "This job · previous run"
+                              : s.relation === "self"
+                                ? "This job"
+                                : `Upstream · ${s.jobName}`}
+                          </span>
+                          {s.lane === "remote" ? (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+                              <Server className="h-2.5 w-2.5" aria-hidden="true" />
+                              cluster
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">local</span>
+                          )}
+                          {s.archived && (
+                            <span className="shrink-0 rounded-sm bg-warning/15 px-1 text-[9px] font-medium text-warning-700 dark:text-warning-400">
+                              archived
+                            </span>
+                          )}
+                          {s.entries.length > 0 && (
+                            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                              {s.entries.length} round{s.entries.length === 1 ? "" : "s"}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {s.archived && !s.error && (
+                        <p className="px-3 pt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                          moved aside by a re-dispatch — RELION reads these paths fine; the
+                          archive is kept for the next two re-dispatches
+                        </p>
+                      )}
+                      {s.error ? (
+                        <p className="px-3 py-2 text-[11px] italic text-muted-foreground">{s.error}</p>
+                      ) : (
+                        s.entries.map((e) => {
+                          const size = continueRoundSize(e.size);
+                          return (
+                            <button
+                              key={`${s.jobId}:${e.name}`}
+                              type="button"
+                              disabled={!e.complete}
+                              onClick={() => {
+                                onChange(e.path);
+                                setOpen(false);
+                              }}
+                              title={
+                                e.complete
+                                  ? `${e.path}${size ? ` · ${size}` : ""}`
+                                  : `incomplete checkpoint — missing ${e.missing.slice(0, 3).join(", ")}${e.missing.length > 3 ? "…" : ""}: a --continue from this round would abort inside RELION`
+                              }
+                              aria-label={
+                                e.complete
+                                  ? `Continue from iteration ${e.iteration} of ${s.jobName}: ${e.path}`
+                                  : `Iteration ${e.iteration} of ${s.jobName} is incomplete and cannot be continued from`
+                              }
+                              className={cn(
+                                "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs outline-none transition-colors",
+                                e.complete
+                                  ? "hover:bg-accent focus-visible:bg-accent"
+                                  : "cursor-not-allowed opacity-55"
+                              )}
+                            >
+                              <span className="w-12 shrink-0 font-mono text-[11px] font-semibold">
+                                it {String(e.iteration).padStart(3, "0")}
+                              </span>
+                              {e.newest && (
+                                <Badge className="h-4 rounded-sm bg-success/15 px-1 text-[9px] font-medium text-success-700 hover:bg-success/15 dark:text-success-400">
+                                  newest
+                                </Badge>
+                              )}
+                              {e.complete ? (
+                                <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
+                                  {e.name}
+                                  {size ? ` · ${size}` : ""}
+                                </span>
+                              ) : (
+                                <span className="min-w-0 flex-1 truncate text-[10px] italic text-muted-foreground">
+                                  incomplete — missing {e.missing[0]}
+                                  {e.missing.length > 1 ? ` +${e.missing.length - 1}` : ""}
+                                </span>
+                              )}
+                              {e.path === trimmed && (
+                                <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                      {s.truncated && s.entries.length > 0 && (
+                        <p className="px-3 pb-1.5 text-[10px] italic text-muted-foreground">
+                          listing capped — older rounds may exist on the cluster
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t px-3 py-1.5">
+              <p className="text-[10px] text-muted-foreground">
+                typed paths ride <span className="font-mono">--continue</span> as-is
+              </p>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => void load(true)}
+                aria-label="Re-read the rounds from the engine and the cluster"
+              >
+                <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                refresh
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+        {/* t398 — the file browser joins the group as an icon-only button:
+            the folder glyph is the universal file-picker affordance, the
+            title teaches the lane, and the saved width keeps the INPUT
+            usable at the panel's full row (a labelled Browse would take
+            the input back to sliver width). */}
+        <Button
+          variant="outline"
+          size="icon"
+          className={cn(
+            "h-8 w-8 shrink-0 rounded-l-none border-l-0",
+            remoteBrowser && "text-violet-600 hover:bg-violet-500/10 dark:text-violet-400"
+          )}
+          onClick={() => setBrowsing(true)}
+          aria-label={`Browse for an optimiser.star${remoteBrowser ? " on the cluster" : ""}`}
+          title={
+            remoteBrowser
+              ? `Browse ${projectRemote?.name ?? "the cluster"}'s filesystem over SSH for a run_it###_optimiser.star — the path stays cluster-absolute`
+              : "Browse the filesystem for a run_it###_optimiser.star"
+          }
+        >
+          {remoteBrowser ? (
+            <Server className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+        </Button>
+      </div>
+      {browsing && (
+        <PathBrowserDialog
+          open={browsing}
+          onOpenChange={setBrowsing}
+          onPick={(picked) => {
+            // the browser speaks one path per pick in singleFile mode; a
+            // stray multi-line pick keeps its first line (one continue target)
+            const first = picked.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] ?? "";
+            onChange(first);
+          }}
+          initialPath={raw}
+          singleFile
+          title={
+            remoteBrowser
+              ? `Select an optimiser.star on ${projectRemote?.name ?? "the cluster"}`
+              : "Select an optimiser.star"
+          }
+          description={
+            remoteBrowser
+              ? `Navigate to the run's output directory on ${projectRemote?.name ?? "the cluster"} and click a run_it###_optimiser.star — the picked path stays cluster-absolute and rides RELION's --continue as-is.`
+              : "Navigate to the run's output directory and click a run_it###_optimiser.star — or type the path below and press Use this path. The value rides RELION's --continue as-is."
+          }
+          remote={remoteBrowser}
+        />
+      )}
+      {/* t398 — the attribution as compact CHIPS under the input group:
+          the picked round (emerald, echoing the Continue mode the Run
+          button speaks), its source job, the lane the path lives in —
+          each chip truncates where it must (a long upstream job name can
+          never push the row past the panel edge) and a clear affordance
+          rides at the end in BOTH states. */}
+      {trimmed && (
+        <div className="flex min-w-0 flex-wrap items-center gap-1 text-[10px]">
+          {match ? (
+            <>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-success/10 px-1.5 py-0.5 font-medium text-success-700 dark:text-success-400">
+                <Check className="h-3 w-3" aria-hidden="true" />
+                it {String(match.entry.iteration).padStart(3, "0")}
+              </span>
+              <span
+                className="min-w-0 max-w-40 truncate rounded bg-secondary px-1.5 py-0.5 text-muted-foreground"
+                title={match.source.jobName}
+              >
+                {match.source.archived
+                  ? "archived run"
+                  : match.source.relation === "self"
+                    ? "this job"
+                    : match.source.jobName}
+              </span>
+              <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-muted-foreground">
+                {match.source.lane === "remote" ? "cluster path" : "local path"}
+              </span>
+              {match.entry.newest && (
+                <span
+                  className="shrink-0 rounded bg-success/10 px-1.5 py-0.5 font-medium text-success-700 dark:text-success-400"
+                  title="the newest complete checkpoint in this group"
+                >
+                  newest
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
+              <Terminal className="h-3 w-3 shrink-0 text-muted-foreground/80" aria-hidden="true" />
+              <span className="truncate">custom path — passed to RELION&apos;s --continue as typed</span>
+            </span>
+          )}
+          <button
+            type="button"
+            className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => onChange("")}
+            aria-label="Clear the continue-from path"
+            title="Clear — start fresh from iteration 0"
+          >
+            <X className="h-3 w-3" aria-hidden="true" />
             clear
           </button>
         </div>
@@ -754,6 +1403,26 @@ function ParamsTab({
   const baseline = React.useCallback(
     (p: ParamSchema) => coerceParam(p, job.params[p.key]),
     [job.params]
+  );
+
+  // t381 — the RELION GUI's TOGGLE_DEACTIVATE groups as data (showIf): a
+  // gated parameter only renders while its gate param equals the expected
+  // value. The gate's OWN gate propagates (nested groups), values survive
+  // hiding (RELION keeps deactivated options' values too), and the engine's
+  // own if-chains keep hidden values off the argv.
+  const gateVisible = React.useCallback(
+    (p: ParamSchema): boolean => {
+      const visible = (q: ParamSchema, depth: number): boolean => {
+        if (!q.showIf || depth > 3) return true;
+        const gate = params.find((g) => g.key === q.showIf!.param);
+        if (gate && !visible(gate, depth + 1)) return false;
+        const raw = form[q.showIf.param];
+        const val = gate ? coerceParam(gate, raw) : raw;
+        return val === q.showIf.equals;
+      };
+      return visible(p, 0);
+    },
+    [form, params]
   );
 
   const dirty = params.some((p) => coerceParam(p, form[p.key]) !== baseline(p));
@@ -831,7 +1500,7 @@ function ParamsTab({
   return (
     <Tabs defaultValue={allTabs[0] ?? "params"} className="flex min-h-0 flex-1 flex-col gap-0">
       {/* Inner RELION-style tab bar */}
-      <div className="shrink-0 overflow-x-auto border-b px-3 py-2">
+      <div className="shrink-0 overflow-x-auto border-b px-4 py-2">
         <TabsList className="h-7 w-max">
           {allTabs.map((t) => (
             <TabsTrigger key={t} value={t} className="h-6 px-2.5 text-[11px] whitespace-nowrap">
@@ -842,12 +1511,12 @@ function ParamsTab({
       </div>
 
       {allTabs.map((t) => {
-        const inTab = params.filter((p) => (p.tab ?? "Additional") === t);
+        const inTab = params.filter((p) => (p.tab ?? "Additional") === t && gateVisible(p));
         const basic = inTab.filter((p) => !p.advanced);
         const advanced = inTab.filter((p) => p.advanced);
         return (
           <TabsContent key={t} value={t} className="mt-0 min-h-0 flex-1 overflow-y-auto">
-            <div className="p-3">
+            <div className="space-y-4 p-4">
               {/* 2D class selection: the gallery IS the parameter — clicks
                   rewrite selectedClasses through the same debounced save */}
               {spec?.key === "select2d" && t === allTabs[0] && (
@@ -862,48 +1531,49 @@ function ParamsTab({
                   onClassFocusConsumed={onClassFocusConsumed}
                 />
               )}
-              <div className="grid grid-cols-2 gap-3">
-                {basic.map((p) => (
-                  <ParamField
-                    key={p.key}
-                    p={p}
-                    value={form[p.key] ?? p.default}
-                    onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
-                    idPrefix={`param-${job.id}`}
-                  />
-                ))}
-              </div>
-              {basic.length === 0 && advanced.length > 0 && (
-                <p className="text-[11px] italic text-muted-foreground/70">
-                  All parameters in this tab are expert options.
+              {inTab.length === 0 && (
+                <p className="px-1 py-6 text-center text-[11px] text-muted-foreground">
+                  No visible parameters in this tab — the group switches (e.g. the Helix
+                  toggle) gate the family on.
                 </p>
               )}
+              {basic.length > 0 && (
+                <fieldset className="rounded-md border px-3.5 pb-3 pt-1.5">
+                  <legend className="px-1.5 text-[11px] font-medium text-muted-foreground">
+                    Basic options{basic.length > 0 ? ` · ${basic.length}` : ""}
+                  </legend>
+                  <div className="space-y-2.5">
+                    {basic.map((p) => (
+                      <ParamField
+                        key={p.key}
+                        p={p}
+                        value={form[p.key] ?? p.default}
+                        onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
+                        idPrefix={`param-${job.id}`}
+                        jobId={job.id}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
+              )}
               {advanced.length > 0 && (
-                <Collapsible className="mt-3">
-                  <CollapsibleTrigger className="group/collapsible relative flex w-full items-center gap-1.5 rounded-md px-1 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']">
-                    <ChevronsDownUp
-                      className="size-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180"
-                      aria-hidden="true"
-                    />
-                    Expert options
-                    <span className="ml-auto tabular-nums text-muted-foreground/70">
-                      {advanced.length}
-                    </span>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    <div className="grid grid-cols-2 gap-3">
-                      {advanced.map((p) => (
-                        <ParamField
-                          key={p.key}
-                          p={p}
-                          value={form[p.key] ?? p.default}
-                          onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
-                          idPrefix={`param-${job.id}`}
-                        />
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                <fieldset className="rounded-md border border-border/70 px-3.5 pb-3 pt-1.5">
+                  <legend className="px-1.5 text-[11px] font-medium italic text-muted-foreground">
+                    Expert options · {advanced.length}
+                  </legend>
+                  <div className="space-y-2.5">
+                    {advanced.map((p) => (
+                      <ParamField
+                        key={p.key}
+                        p={p}
+                        value={form[p.key] ?? p.default}
+                        onChange={(v) => setForm((f) => ({ ...f, [p.key]: v }))}
+                        idPrefix={`param-${job.id}`}
+                        jobId={job.id}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
               )}
             </div>
           </TabsContent>
@@ -917,7 +1587,7 @@ function ParamsTab({
       {/* Auto-save status bar (parameters persist themselves — no manual
           Save button to forget; Reset reverts to the last saved values) */}
       <div className="shrink-0 border-t bg-card">
-        <div className="flex items-center justify-between gap-2 px-3 pt-2">
+        <div className="flex items-center justify-between gap-2 px-4 pt-2.5">
           <p className="text-[10px] text-muted-foreground">
             {params.length} parameters · RELION 5 defaults
           </p>
@@ -928,7 +1598,7 @@ function ParamsTab({
               autoSave.phase === "error"
                 ? "text-destructive"
                 : autoSave.phase === "saved" && !dirty
-                  ? "text-emerald-600 dark:text-emerald-400"
+                  ? "text-success"
                   : dirty
                     ? "text-primary"
                     : "text-muted-foreground"
@@ -1012,8 +1682,8 @@ function ResultsTab({ job }: { job: JobDTO }) {
               job.status === "failed"
                 ? "border-destructive/30 bg-destructive/10 text-destructive"
                 : pending
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                  ? "border-warning/30 bg-warning/10 text-warning-700 dark:text-warning-400"
+                  : "border-success/30 bg-success/10 text-success-700 dark:text-success-400"
             )}
             title={job.result}
           >
@@ -1031,7 +1701,7 @@ function ResultsTab({ job }: { job: JobDTO }) {
         </div>
       )}
       {pending && (
-        <p className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+        <p className="rounded-md border border-dashed border-warning/40 bg-warning/5 px-2.5 py-2 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300">
           The job did not fail — it is waiting for an upstream job. Fix and re-run
           the upstream job: this one then starts automatically once its inputs are
           ready.
@@ -1052,14 +1722,19 @@ function LogTab({ job }: { job: JobDTO }) {
   const [loading, setLoading] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
-    setLoading(true);
+    // t391 — the spinner only owns the FIRST load (log === null): a
+    // background re-fetch every 4s must not flash the toolbar twice per
+    // tick, and an unchanged tail must not re-render the console at all
+    // (the setState function form returns `prev` on identity → React bails).
+    const first = log === null;
+    if (first) setLoading(true);
     try {
       const tail = await fetchLog(job.id);
-      setLog(tail);
+      setLog((prev) => (prev === tail ? prev : tail));
     } finally {
-      setLoading(false);
+      if (first) setLoading(false);
     }
-  }, [fetchLog, job.id]);
+  }, [fetchLog, job.id, log]);
 
   // Fetch the tail whenever the tab mounts
   React.useEffect(() => {
@@ -1093,8 +1768,13 @@ function LogTab({ job }: { job: JobDTO }) {
           Refresh
         </Button>
       </div>
+      {/* t801 — the census found the log tail wheel-only: raw log text has
+          no tabbable below the fold, so the keyboard could not read past
+          384px (the t798 law — the inspector's live log already speaks it
+          at its own region; the engine tail learns the same dialect). */}
       <pre
-        className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 font-mono text-xs leading-relaxed text-foreground/90"
+        tabIndex={0}
+        className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/60 p-3 font-mono text-xs leading-relaxed text-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         aria-label="Engine log tail"
       >
         {loading && log === null
@@ -1169,42 +1849,142 @@ function PanelBody({ job }: { job: JobDTO }) {
   const handleRun = async () => {
     setRunPending(true);
     try {
-      await runJob(job.id);
+      // t317 — { local: true }: this is the panel's LOCAL door (the main Run
+      // button for local projects, the ▾ "Run on this machine" for remote
+      // ones). It must stay honestly local even in a remote-bound project —
+      // a bare POST would ride the route's project-binding fallback to the
+      // cluster; the explicit flag meets the engine's cluster-resident
+      // refusal instead (which names the cluster door).
+      await runJob(job.id, { local: true });
     } finally {
       setRunPending(false);
     }
   };
 
+  // t397 — the explicit continue state (the "Continue from here:" picker or
+  // a typed path → fn_cont). The BUTTON'S FACE follows the mode: a job with
+  // a chosen checkpoint says Continue (the user's receipt: after picking a
+  // round the button above must not keep saying Re-run — a re-run is the
+  // wipe-shaped world and must never fire by accident when a continue was
+  // meant: 「需要避免continue时误操作成re-run，从而导致文件被清」).
+  // The params auto-save is debounced ~700ms and the run flusher commits
+  // pending edits before dispatching, so the label lags at most a second
+  // while the ENGINE never races the choice.
+  const continueFrom =
+    typeof job.params?.fn_cont === "string" ? (job.params.fn_cont as string).trim() : "";
+  const hasContinueTarget = continueFrom !== "";
+  const ranBefore = job.status === "completed" || job.status === "failed";
+
+  // t397 — the fresh re-run needs a confirm when the job has run before
+  // (the wipe is real: the local lane clears the previous run's products,
+  // the cluster moves them into .cryoflow_prev). A CONTINUE (or a first
+  // run) goes straight through — the engine keeps the run_it* family then.
+  const [confirmRerun, setConfirmRerun] = React.useState(false);
+
+  // t289 — the run-mode door. t323 — the ▾ menu is RETIRED (the user's
+  // receipt: the button row felt crowded, the arrow could go): the primary
+  // Run button speaks the project's own lane and the action row's server
+  // icon opens the SAME dialog — one dialog, two doors, no hidden modes,
+  // and no third control that repeats both. The mode is a per-run choice,
+  // not a global toggle.
+  const [clusterRunOpen, setClusterRunOpen] = React.useState(false);
+  // t300 — a REMOTE project's primary Run IS the cluster dispatch: its
+  // inputs are cluster paths (a local spawn would only fail on files this
+  // machine does not have). The engine-native bookkeeping types still run
+  // locally — they ARE the local half of a remote project (the import
+  // writes micrographs.star with cluster paths; select/symexpand/… are
+  // table surgery). A local project's primary Run stays local; the server
+  // icon is the cluster door in both worlds.
+  const projectRemote = useWorkflowStore((s) => s.project?.remote ?? null);
+  const remotePrimaryRun =
+    projectRemote != null && !REMOTE_BOOKKEEPING_TYPES.has(job.type) && job.linkedJobId == null;
+  const clusterModeBlocked = job.status === "running" || job.linkedJobId != null;
+
   const runButton = (
     <Button
-      className="w-full"
+      className={cn(
+        "w-full",
+        remotePrimaryRun && "border-violet-500/40",
+        hasContinueTarget && "border-success-500/50 hover:bg-success/10"
+      )}
       size="sm"
-      disabled={job.status === "running" || runPending || relionBlocked || job.linkedJobId != null}
-      onClick={() => void handleRun()}
-      aria-describedby={relionBlocked ? "job-relion-blocked-hint" : relionBridged ? "job-relion-bridge-hint" : undefined}
+      disabled={
+        job.status === "running" ||
+        job.linkedJobId != null ||
+        (remotePrimaryRun ? false : runPending || relionBlocked)
+      }
+      onClick={() => {
+        // t397 — mode-honest routing: a CONTINUE never asks (the engine
+        // keeps the run_it* checkpoint family); a fresh RE-RUN of a job
+        // that already ran confirms first (its products are wiped /
+        // archived); a first Run goes straight through.
+        if (remotePrimaryRun) {
+          setClusterRunOpen(true);
+        } else if (hasContinueTarget || !ranBefore) {
+          void handleRun();
+        } else {
+          setConfirmRerun(true);
+        }
+      }}
+      aria-describedby={relionBlocked && !remotePrimaryRun ? "job-relion-blocked-hint" : relionBridged ? "job-relion-bridge-hint" : undefined}
       title={
         job.linkedJobId != null
           ? "Linked copies mirror their original — run the original job instead"
-          : undefined
+          : hasContinueTarget
+            ? `Continue — RELION --continue from the checkpoint set in "Continue from here" (${continueFrom}). The run_it* iteration family in this job's run directory is PRESERVED and the run resumes from it. Clear the field to start fresh.`
+            : remotePrimaryRun
+              ? ranBefore
+                ? `Re-run from scratch on ${projectRemote?.name ?? projectRemote?.host ?? "the cluster"} — the previous run's products are moved aside (two generations kept); set "Continue from here" to resume instead`
+                : `Remote project — dispatch to ${projectRemote?.name ?? projectRemote?.host ?? "the cluster"} (pick the node/partition + GPU count)`
+              : job.status === "pending"
+                ? "Run — inputs will be re-checked before the run starts"
+                : ranBefore
+                  ? "Re-run from scratch — files the previous run generated are cleared first; set \"Continue from here\" to resume from a checkpoint instead"
+                  : undefined
       }
     >
       {runPending ? (
         <Loader2 className="animate-spin" aria-hidden="true" />
+      ) : hasContinueTarget ? (
+        <History aria-hidden="true" />
+      ) : remotePrimaryRun ? (
+        <Server aria-hidden="true" />
       ) : (
         <Play aria-hidden="true" />
       )}
+      {/* t323 — the ▾ mode menu is RETIRED: the primary button speaks the
+          project's own lane (local / cluster-primary) and the Server icon
+          right of it is the cluster door; a third control that repeated
+          both only crowded the row (the user's receipt). Labels stay
+          one-word — the title carries the detail.
+          t397 — the label speaks the MODE: Continue when a checkpoint is
+          set (the engine resumes and keeps the iteration family), Run /
+          Re-run otherwise. */}
       {job.linkedJobId != null
-        ? "Linked copy — run the original"
-        : job.status === "completed" || job.status === "failed"
-          ? "Re-run"
-          : job.status === "pending"
-            ? "Run (re-check inputs)"
-            : "Run Job"}
+        ? "Linked copy"
+        : hasContinueTarget
+          ? remotePrimaryRun
+            ? "Continue on cluster"
+            : "Continue"
+          : remotePrimaryRun
+            ? ranBefore
+              ? "Re-run on cluster"
+              : "Run on cluster"
+            : ranBefore
+              ? "Re-run"
+              : "Run"}
     </Button>
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
+    // t382 — the panel COLUMN scrolls as a whole when the viewport is
+    // short: the header and the command preview stay shrink-0, the body
+    // tabs carry a min-h floor (the t372 starvation fix, restored — it
+    // was lost in a later round and the params area collapsed to ~59px
+    // at 1280×577 with the preview eating the panel) and the tab bar
+    // sticks to the top of the scroll so switching tabs never needs a
+    // scroll-up first.
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto">
       {job.linkedJobId != null && (
         <div
           role="note"
@@ -1266,7 +2046,7 @@ function PanelBody({ job }: { job: JobDTO }) {
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <StatusBadge status={job.status} />
+            <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
             <EngineBadge />
           </div>
           <span className="text-[11px] text-muted-foreground">
@@ -1280,24 +2060,86 @@ function PanelBody({ job }: { job: JobDTO }) {
 
         {/* Action row */}
         <div className="flex items-center gap-1.5">
-          {relionBlocked ? (
-            <TooltipProvider delayDuration={150}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex-1 inline-flex" title={relionHint}>
-                    {runButton}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-64 text-[11px]">
-                  {relionHint} — jobs will fail to start honestly.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <span className="flex-1 inline-flex">{runButton}</span>
-          )}
-          <HpcSbatchDialog jobId={job.id} compact />
-          <RemoteRunButton job={job} />
+          {/* t289 — Run + mode door. t323 — the ▾ split button is RETIRED
+              (the user's receipt: the row felt crowded, the arrow could go):
+              the primary Run button speaks the project's own lane and the
+              Server icon button beside it is the cluster door — one dialog,
+              two doors, no third control repeating both. */}
+          <div className="flex min-w-0 flex-1 items-stretch">
+            {relionBlocked ? (
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex min-w-0 flex-1 inline-flex">{runButton}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-64 text-[11px]">
+                    {relionHint} — jobs will fail to start honestly.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <span className="flex min-w-0 flex-1 inline-flex">{runButton}</span>
+            )}
+          </div>
+          {/* t399 — the HPC/Slurm dry-run button is RETIRED from this row.
+              It never dispatched anything: it GENERATED a copy-paste
+              sbatch script (a brochure, not a run), while the Server icon
+              right of it actually executes on the cluster over SSH —
+              Slurm included (real sbatch submission, live queue state,
+              sync-back). Two Server glyphs in one row only taught
+              confusion, and its 38px was the difference between the
+              primary button's longest face — "Continue on cluster" —
+              fitting (195px ≥ 185px needed) and clipping (157px, the
+              user's receipt). The dialog components and /api/hpc routes
+              stay in the tree, dormant, should a tools-menu home for the
+              dry-run generator ever be wanted. */}
+          {/* t289/t323 — the server icon opens the SAME dialog the primary
+              Run button opens in remote-primary projects (one RemoteRunButton
+              instance, dialogOnly + controlled). */}
+          <Button
+            variant="outline"
+            size="icon"
+            className="relative size-8 shrink-0 text-muted-foreground hover:text-foreground before:absolute before:-inset-1.5 before:rounded-md before:content-['']"
+            disabled={clusterModeBlocked}
+            onClick={() => setClusterRunOpen(true)}
+            aria-label="Run on cluster (SSH)"
+            title={
+              job.linkedJobId != null
+                ? "Linked copies mirror their original — run the original job instead"
+                : "Run on cluster (SSH)"
+            }
+          >
+            <Server className="size-4" aria-hidden="true" />
+          </Button>
+          <RemoteRunButton job={job} dialogOnly open={clusterRunOpen} onOpenChange={setClusterRunOpen} />
+          {/* t397 — the fresh re-run confirm (the inspector's own, brought to
+              the panel): the previous run's products are cleared (local lane)
+              or archived (.cryoflow_prev, two generations — cluster lane)
+              before the new run starts. A CONTINUE skips this dialog by
+              design — the engine keeps the run_it* family then, and asking
+              would only teach that resuming is as destructive as restarting. */}
+          <AlertDialog open={confirmRerun} onOpenChange={setConfirmRerun}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Re-run {job.name} from scratch?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  The engine restarts from iteration 0: files the previous run generated in this
+                  job&apos;s run directory — on this machine and on the cluster — are cleared
+                  first (the cluster keeps two archived generations), then the job runs with the
+                  current parameters and upstream inputs. To resume from a checkpoint instead,
+                  cancel and set{" "}
+                  <span className="font-medium text-foreground">Continue from here</span> — the
+                  run then picks up from that round and the iteration files are kept.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void handleRun()}>
+                  Start again
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button
             variant="ghost"
             size="icon"
@@ -1305,7 +2147,7 @@ function PanelBody({ job }: { job: JobDTO }) {
             onClick={() => void resetJob(job.id)}
             disabled={job.status === "running"}
             aria-label={`Reset ${job.name} to idle`}
-            title="Reset job to idle"
+            title="Reset job to idle — clears the run state; the run directory stays until the next Run rebuilds it"
           >
             <RotateCcw className="size-4" />
           </Button>
@@ -1364,9 +2206,9 @@ function PanelBody({ job }: { job: JobDTO }) {
           <div
             role="note"
             title={`${job.runRemote.remoteWorkdir} — cluster workdir`}
-            className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-teal-500/25 bg-teal-500/[0.06] px-2 py-1.5 text-[11px] text-muted-foreground"
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-running/25 bg-running/[0.06] px-2 py-1.5 text-[11px] text-muted-foreground"
           >
-            <Server className="size-3.5 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+            <Server className="size-3.5 shrink-0 text-running" aria-hidden="true" />
             <span className="font-medium text-foreground/90">
               {job.runRemote.user}@{job.runRemote.host}
             </span>
@@ -1386,18 +2228,15 @@ function PanelBody({ job }: { job: JobDTO }) {
           </div>
         ) : null}
         {job.runRemote?.note ? (
-          <p
-            role="note"
-            className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
-          >
-            {job.runRemote.note}
-          </p>
+          // t429 — bring-home awareness: the panel has no listing of its
+          // own, so the note self-probes the remote-remaining endpoint
+          <RemoteStayNote note={job.runRemote.note} jobId={job.id} />
         ) : null}
 
         {relionBlocked && (
           <p
             id="job-relion-blocked-hint"
-            className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400"
+            className="text-[11px] leading-relaxed text-warning"
           >
             {relionHint} — jobs will fail to start honestly.
           </p>
@@ -1413,7 +2252,20 @@ function PanelBody({ job }: { job: JobDTO }) {
           </p>
         )}
 
-        {job.status === "running" && (
+        {job.status === "running" && isSlurmQueued(job) ? (
+          // t322 — queued on slurm: the panel says what the scheduler says
+          // (held in the queue), not "RELION process running" — no process
+          // has started yet
+          <p
+            role="note"
+            className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300"
+          >
+            {job.runRemote?.slurmDependsOn?.length
+              ? `Queued on the cluster — Slurm holds it until ${job.runRemote.slurmDependsOn.join(", ")} lands.`
+              : "Queued on the cluster — the scheduler starts it when resources free up."}{" "}
+            <span className="text-muted-foreground">The bar and log wake up when it starts.</span>
+          </p>
+        ) : job.status === "running" && (
           <div className="space-y-1">
             <MiniProgress value={job.progress} running label={`${job.name} progress`} />
             <p className="text-right text-xs tabular-nums text-muted-foreground">
@@ -1425,7 +2277,7 @@ function PanelBody({ job }: { job: JobDTO }) {
         {job.status === "pending" && (
           <p
             role="note"
-            className="rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300"
+            className="rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300"
           >
             {job.result ?? "Waiting for an upstream job to produce its outputs."}{" "}
             <span className="text-muted-foreground">
@@ -1435,7 +2287,10 @@ function PanelBody({ job }: { job: JobDTO }) {
         )}
       </div>
 
-      {/* Body tabs: I/O | Params | Results | Log */}
+      {/* Body tabs: I/O | Params | Results | Log — min-h-[340px] floor
+          (t372/t382): without it a short viewport squeezes the flex-1
+          tabs to crumbs between the header and the command preview,
+          starving the params area (the fieldsets below need room). */}
       <Tabs
         value={tab}
         onValueChange={(t) => {
@@ -1448,9 +2303,9 @@ function PanelBody({ job }: { job: JobDTO }) {
           persistPanelTab(t);
           setTab(t as PanelTab);
         }}
-        className="flex min-h-0 flex-1 flex-col gap-0"
+        className="flex min-h-[340px] flex-1 flex-col gap-0"
       >
-        <div className="shrink-0 border-b px-2 py-1.5">
+        <div className="sticky top-0 z-20 shrink-0 border-b bg-card px-2 py-1.5">
           <TabsList className="h-8 w-full">
             <TabsTrigger value="io" className="h-6 gap-1 px-2 text-[11px]">
               <ArrowLeftRight className="size-3.5" aria-hidden="true" />
@@ -1582,7 +2437,7 @@ function CommandPreviewCompact({ job }: { job: JobDTO }) {
   return (
     <div
       data-canvas-ui="command-preview-panel"
-      className="shrink-0 space-y-1.5 border-t bg-muted/30 px-3 py-2.5"
+      className="shrink-0 space-y-1.5 border-t bg-muted/30 px-4 py-3"
     >
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1595,7 +2450,7 @@ function CommandPreviewCompact({ job }: { job: JobDTO }) {
       {blocker ? (
         <p
           data-canvas-ui="command-blocker"
-          className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
+          className="rounded-md border border-warning/30 bg-warning/10 px-2 py-1.5 text-[10.5px] leading-relaxed text-warning-700 dark:text-warning-300"
         >
           {blocker}
         </p>

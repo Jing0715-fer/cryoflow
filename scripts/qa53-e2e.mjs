@@ -13,6 +13,8 @@
 // Usage: QA_PHASES=A,B,C node scripts/qa53-e2e.mjs
 import { execSync } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const AB = "agent-browser";
 const LOGF = new URL("../.qa-logs/qa53-trace.log", import.meta.url).pathname;

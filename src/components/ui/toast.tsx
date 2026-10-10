@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import * as ToastPrimitives from "@radix-ui/react-toast"
+import * as ToastPrimitives from "@/lib/radix-toast-vendor.mjs"
 import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
 
@@ -9,6 +9,10 @@ import { cn } from "@/lib/utils"
 
 const ToastProvider = ToastPrimitives.Provider
 
+// t825 — the stack's breathing room: gap-2 joins the viewport. Under
+// TOAST_LIMIT=1 the viewport never held two cards, so the class was
+// dead weight; with a depth-3 stack, flush cards read as one broken
+// block — the gap is what lets the eye count the stack.
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>
@@ -16,7 +20,7 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+      "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
       className
     )}
     {...props}
@@ -56,14 +60,31 @@ const Toast = React.forwardRef<
   Omit<React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root>, "action"> &
   VariantProps<typeof toastVariants> &
   { action?: React.ReactNode }
->(({ className, variant, action: _action, ...props }, ref) => {
+>(({ className, variant, action: _action, duration, children, ...props }, ref) => {
   void _action; // rendered by the Toaster, not by the Root
+  // t826 — the hourglass feeds on the toast's OWN duration. duration is
+  // destructured out only to size the bar (and handed back to the Root
+  // explicitly — the vendor's ToastImpl reads durationProp first,
+  // falling back to the Provider's 5e3 default); the var stays honest
+  // per-card if a caller ever passes a custom duration. The vendor's
+  // startTimer skips 0 and Infinity — an immortal card gets NO bar: a
+  // clock that never runs must not be drawn running.
+  const effectiveDuration = duration ?? 5000
+  const hasTimer = effectiveDuration !== 0 && effectiveDuration !== Infinity
   return (
     <ToastPrimitives.Root
       ref={ref}
+      duration={duration}
       className={cn(toastVariants({ variant }), className)}
       {...props}
-    />
+    >
+      {hasTimer && (
+        <ToastHourglass
+          style={{ "--toast-life": `${effectiveDuration}ms` } as React.CSSProperties}
+        />
+      )}
+      {children}
+    </ToastPrimitives.Root>
   )
 })
 Toast.displayName = ToastPrimitives.Root.displayName
@@ -82,6 +103,38 @@ const ToastAction = React.forwardRef<
   />
 ))
 ToastAction.displayName = ToastPrimitives.Action.displayName
+
+// t826 — the hourglass: the card's remaining life, drawn as a hairline
+// along the card's bottom edge. Radix's close timer is the ONLY authority
+// on a toast's lifespan, but it is invisible — the t825 patrol watched
+// toasts die exactly on schedule and could only take the vendor's word
+// for WHEN. The bar draws the timer's own arc (scaleX 1→0 across
+// --toast-life), and its freeze rides the vendor's own pause state: the
+// mirror in ui/toaster.tsx paints data-timers-paused on the viewport
+// from the vendor's OWN toast.viewportPause/Resume events, and the CSS
+// rule in globals.css pauses the animation under that attribute — no
+// second timer, no drift by construction. The drain flows toward the
+// exit corner (origin-right — the slide-out-to-right-full direction),
+// so the remaining sliver points at where the card will leave.
+// motion-reduce hides the bar: an affordance whose only channel is
+// motion should not pretend under reduced motion (the vendor's close
+// timer itself is NOT motion — the card still dies on schedule; only
+// the drawing goes).
+const ToastHourglass = React.forwardRef<
+  React.ElementRef<"div">,
+  React.ComponentPropsWithoutRef<"div">
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "toast-hourglass pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-right motion-reduce:hidden",
+      "bg-foreground/20 group-[.destructive]:bg-white/40",
+      className
+    )}
+    {...props}
+  />
+))
+ToastHourglass.displayName = "ToastHourglass"
 
 const ToastClose = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Close>,
@@ -106,7 +159,11 @@ const ToastClose = React.forwardRef<
       //    was a BRIGHTER red — red ink on brighter red). red-200 keeps
       //    the tint language and clears the 3:1 UI bar in both themes
       //    (~3.3:1) now that the surface is one red in both themes.
-      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 hover-none:opacity-100 before:absolute before:-inset-2.5 before:content-[''] group-[.destructive]:text-red-200 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
+      //    t646 — the surface's hue moved to rose (--destructive now
+      //    rides rose-600), so the on-surface accent rungs follow the
+      //    family: rose-200/rose-50/rose-400 at the SAME lightness rungs
+      //    — contrast verdicts unchanged, hue wheel unified.
+      "absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100 hover-none:opacity-100 before:absolute before:-inset-2.5 before:content-[''] group-[.destructive]:text-danger-200 group-[.destructive]:hover:text-danger-50 group-[.destructive]:focus:ring-danger-400 group-[.destructive]:focus:ring-offset-danger-600",
       className
     )}
     toast-close=""
@@ -159,4 +216,5 @@ export {
   ToastDescription,
   ToastClose,
   ToastAction,
+  ToastHourglass,
 }

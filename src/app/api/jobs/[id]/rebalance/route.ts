@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
+import { isLocalRequest } from "@/lib/http-guard";
 import { getRun } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 
@@ -62,7 +63,15 @@ export interface RebalanceReportResponse {
  * GET /api/jobs/[id]/rebalance — the Orientation Rebalancer's run report
  * (rebalance_report.json written by the engine-native rebalance job).
  */
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  // t709 — the reader door: the report read walks the engine run table
+  // and the statcache for the before/after histogram — work a blind
+  // probe would get for free behind an opaque response. The door closes
+  // the probe and keeps the job surface uniform (doctrine in
+  // http-guard.ts).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site rebalance reads are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const job = await findEffectiveJob(id); // resolves soft links to the original

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,13 @@ export const dynamic = "force-dynamic";
  * live mini-badges. The first workspace (lowest order) is the project's
  * default: new jobs land there and deleted workspaces' jobs fall back to it.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  // t710 — the read-half door lands (the t709 deferral's mass Origin shim
+  // covered the lane first; census: scripts/t710-collection-touchers.py).
+  // Doctrine in http-guard.ts.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site workspace reads are not allowed" }, { status: 403 });
+  }
   try {
     const active = await ensureActiveProject();
     if (!active) {
@@ -63,8 +70,14 @@ export async function GET() {
 /**
  * POST /api/workspaces — body: { name } → new workspace in the ACTIVE
  * project, appended after the last one.
+ *
+ * t708 — the write door (no-cors JSON-body hole; doctrine http-guard.ts +
+ * t252 Phase B2). The GET above stays open this batch — readers round next.
  */
 export async function POST(request: NextRequest) {
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site workspace edits are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as { name?: unknown };
     const name = typeof body.name === "string" ? body.name.trim() : "";

@@ -5,7 +5,23 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  /* t586 — the press answer. Every button in the world answers the hand
+     the same way: hold it and it dips to 0.96 (taken up), release and it
+     springs home. The dip is transform-only (scale, the individual
+     transform property — zero layout shift, the neighbors never move)
+     and rides motion-safe: movement travels behind
+     prefers-reduced-motion: no-preference (the t571 layered doctrine —
+     Tailwind's motion-safe variant IS that gate in utility form), while
+     the color answers (hover/active backgrounds) stay with all users.
+     Disabled buttons never dip: pointer-events-none keeps :active from
+     ever firing, so the dead control reads as dead. The boundary of
+     this class of truth: the Button component and the few raw buttons
+     that opt in (the find bar's doors and chips) — Radix menu/listbox
+     items have their own selection languages and stay out. The base
+     already carries transition-all, so the dip eases in 150ms both
+     ways; the find bar's click-settle (t585) hands off cleanly on top
+     of it — hold is the dip, release is the wheel clicking home. */
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 motion-safe:active:scale-[0.96] [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {

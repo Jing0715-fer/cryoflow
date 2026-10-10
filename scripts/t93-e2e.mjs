@@ -33,6 +33,8 @@
 // Run: node scripts/t93-e2e.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim();
@@ -96,7 +98,7 @@ await p.addInitScript(() => {
     fullPath,
     file: (cb, err) => {
       try { cb(new File([content], name, { type: "application/json" })); }
-      catch (e) { err && err(e); }
+      catch (e) { if (err) err(e); }
     },
   });
   const mkBig = (name, fullPath, bytes) => ({

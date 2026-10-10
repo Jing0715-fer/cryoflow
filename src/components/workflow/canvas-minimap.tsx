@@ -32,6 +32,18 @@
  * jobMatchesFind predicate — the count, the card rings, and these dots
  * can never disagree about what a match is.
  *
+ * Task 683 — the chain lens reaches the map too: with the canvas's
+ * critical-path lens on (P), chain chips keep their status fill and
+ * everything the finish didn't wait on dims with the SAME whisper rung,
+ * and the map's wires split along the walked path — a wire the walk
+ * stood on keeps its ink, every unwalked wire (chords between chain
+ * chips included) recedes. The dim law reads EDGE IDS, not endpoints —
+ * the same law the canvas's edge layer obeys: endpoints on the chain
+ * do not mean the wire is in the story; walked = story. The chain is
+ * never stored — the map re-derives it from the same lib on every
+ * render (the third mouth of one walk: the face, the canvas lens, and
+ * this map can never disagree because none of them remembers).
+ *
  * Task 137 — the map leads: an amber match chip is a DOOR. A clean
  * press+release (≤6 px of travel) on one jumps the canvas to that job
  * (focusJob: center + legibility zoom + arrival flash — the same go()
@@ -49,14 +61,30 @@
  * it frames brightly is "one of the ones you care about". Outside sel
  * mode a selected chip still pans: selection alone doesn't arm doors,
  * the FRAMING does — same discipline that keeps find doors lens-gated.
+ *
+ * Task 743 — the map's wires borrow the canvas's ink: every edge line
+ * asks the same kind question the edge layer asks (outputKindOf →
+ * PORT_COLORS wire hex) and paints the answer, so the bird's-eye and
+ * the canvas tell one color story — a map that mutes what the canvas
+ * inks is lying at altitude. A wire without a word keeps the muted
+ * bare face (t738's wordless law, fourth face). The ink rides the
+ * stroke, the loudness does not change: one register, opacity
+ * untouched, the dim rungs (t166 sel focus, t683 chain) stay put.
  */
 
 import * as React from "react";
 import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges } from "@/lib/store";
-import { CARD_W, CARD_H } from "@/lib/workflow";
+import { Kbd } from "@/components/ui/kbd";
+import { CARD_W, CARD_H, PORT_COLORS, outputKindOf } from "@/lib/workflow"; // t743 — one well: the map's wires drink where the canvas drinks
 import { capturePointer } from "@/lib/pointer";
 import { cn } from "@/lib/utils";
-import { jobMatchesFind } from "./canvas-find-bar";
+import { STATUS_HEX, statusWord } from "@/lib/status-style";
+import { compactStayReceipt } from "@/lib/remote/stay-receipt";
+import { jobMatchesFind } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home
+import { useStatusNews } from "@/lib/use-status-news";
+import { walkTimeline } from "@/lib/timeline-walk"; // t683 — the chain drinks the same honest-window well on the map
+import { criticalPath } from "@/lib/critical-path"; // t683 — the walk the fifth face speaks, now at bird's-eye
+import type { JobDTO } from "@/lib/types";
 
 const MM_W = 192;
 const MM_MIN_H = 88;
@@ -74,25 +102,125 @@ const MM_MODES: { id: MmMode; label: string; title: string }[] = [
   { id: "sel", label: "sel", title: "Frame the selection only — everything else dims" },
 ];
 
-/** status → minimap fill (hex: SVG attrs don't take Tailwind classes) */
-const STATUS_FILL: Record<string, string> = {
-  idle: "#a1a1aa",
-  pending: "#f59e0b",
-  running: "#14b8a6",
-  completed: "#10b981",
-  failed: "#f43f5e",
-};
+/** status → minimap fill — t646: the hex map lives in lib/status-style
+ * (single source; this SVG context is why the twin exists, see its head
+ * note). */
+
+/**
+ * t606 — one dot, the news face's THIRD distance. The badge speaks at
+ * panel distance, the card's floor at canvas distance (t605), and the
+ * map's dot at the farthest zoom of all — the bird's-eye where a status
+ * change arrives with NO finger anywhere near (the poll merges, the fill
+ * swaps) — and until now the swap was silent. The dot is a surface that
+ * already shows the state, so it owes the same manners: it blooms ONCE
+ * in its own new color and settles.
+ *
+ * The vocabulary is the FLOOR's (brightness pulse on [data-news-floor]) —
+ * the map is canvas distance too, one semantic one value; the hook is
+ * the shared lib one (use-status-news), keyed on the DISPLAY word —
+ * what the eye sees: a queued remote run paints pending amber here as
+ * well (t322's dialect, the same at every distance). key={news} remounts
+ * the rect on a real transition — a one-shot bloom — and restarts the
+ * running SMIL pulse honestly (the pulse belongs to the new state's
+ * life). Quiet re-renders (a progress tick, a position write, a
+ * neighbor's poll) keep the key and the DOM node — nothing replays.
+ * Mounts carry no bloom (news=0): a born state is not news.
+ */
+function MinimapDot({
+  job, selected, inMulti, dimmed, findHit, findDim, chainHit, chainDim, selDoor, s,
+}: {
+  job: JobDTO;
+  selected: boolean;
+  inMulti: boolean;
+  dimmed: boolean;
+  findHit: boolean;
+  findDim: boolean;
+  chainHit: boolean;
+  chainDim: boolean;
+  selDoor: boolean;
+  s: number;
+}) {
+  const word = statusWord(job);
+  const news = useStatusNews(word);
+  return (
+    <rect
+      key={news}
+      data-canvas-ui="minimap-dot"
+      data-job-id={job.id}
+      data-mm-dim={dimmed || findDim || chainDim ? "1" : undefined}
+      data-mm-find={findHit ? "1" : undefined}
+      data-mm-chain={chainHit ? "1" : undefined}
+      data-mm-door={findHit || selDoor ? "1" : undefined}
+      data-news-floor={news > 0 ? "true" : undefined}
+      x={job.x}
+      y={job.y}
+      width={CARD_W}
+      height={CARD_H}
+      rx={26}
+      fill={STATUS_HEX[word] ?? STATUS_HEX.idle}
+      // Task 166 — status ink stays attribute-borne (idle 0.55 /
+      // active 0.9); the recession moved to the .mm-chip-dim class
+      // consuming the ladder's --dim-whisper rung (the map's old
+      // ad-hoc chip depth and the compare curves' whisper differed
+      // by a hair — drift, not design; one semantic, one value).
+      // Presentation attributes rank below every CSS rule, so the
+      // class overrides the attribute without !important, and door
+      // chips never co-occur with the dim.
+      opacity={job.status === "idle" ? 0.55 : 0.9}
+      className={cn(
+        "transition-opacity duration-300",
+        (dimmed || findDim || chainDim) && "mm-chip-dim",
+        // Task 137/139 — a door chip brightens on hover to say so
+        // (stroke stays primary/amber, fill stays the world's —
+        // the lens never repaints the world's colors)
+        (findHit || selDoor) && "cursor-pointer hover:opacity-100",
+      )}
+      stroke={
+        selected || inMulti
+          ? "var(--primary)"
+          : findHit
+            ? "#f59e0b"
+            : "none"
+      }
+      strokeOpacity={inMulti ? 0.45 : 1}
+      strokeWidth={s}
+    >
+      <title>{`${job.name} — ${job.status}${job.status === "running" ? ` (${Math.round(job.progress)}%)` : job.result ? ` · ${compactStayReceipt(job.result, job.remoteRemaining?.remaining)}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
+      {job.status === "running" && !dimmed && !findDim && !chainDim && (
+        <animate
+          attributeName="opacity"
+          values="0.55;0.95;0.55"
+          dur="1.8s"
+          repeatCount="indefinite"
+        />
+      )}
+    </rect>
+  );
+}
 
 interface CanvasMinimapProps {
   /** the canvas viewport element — measured for the viewport window rect */
   rootRef: React.RefObject<HTMLDivElement | null>;
 }
 
+/** t595 — the reframe flow's rhythm: 200ms, the thumb settle's own
+ *  duration (t591) — one gesture, one rhythm; the map's projection flows
+ *  beneath the settling thumb. Ease-out cubic, no overshoot: a back-out
+ *  would bounce the whole projection — the box is a frame, not a button.
+ *  (The projection has no CSS handle — viewBox is an attribute, not a
+ *  property — so this voice lives in JS, unlike its CSS siblings in the
+ *  arrival family.) */
+const MM_REFLOW_MS = 200;
+
 export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   const jobs = useActiveWorkspaceJobs();
   const edges = useActiveWorkspaceEdges();
   const selectedId = useWorkflowStore((s) => s.selectedId);
   const selectedIds = useWorkflowStore((s) => s.selectedIds);
+  // t596 — the selection-jump counter: bumps on a real change made by
+  // the five selection verbs; the box-record effect compares it with a
+  // seen-ref and rides the reframe flow when sel framing is live
+  const selReframeSeq = useWorkflowStore((s) => s.selReframeSeq);
   const viewport = useWorkflowStore((s) => s.viewport);
   const setViewport = useWorkflowStore((s) => s.setViewport);
   const focusJob = useWorkflowStore((s) => s.focusJob);
@@ -147,7 +275,7 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
    *  through the viewBox. */
   const toWorld = (e: React.PointerEvent): { x: number; y: number } | null => {
     const rect = svgRef.current?.getBoundingClientRect();
-    const vb = worldBox;
+    const vb = world;
     if (!rect || !vb) return null;
     const scale = Math.min(rect.width / vb.w, rect.height / vb.h);
     const offX = (rect.width - vb.w * scale) / 2;
@@ -177,16 +305,112 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   const findQuery = useWorkflowStore((st) => st.findQuery);
   const findStatus = useWorkflowStore((st) => st.findStatus);
   const findCategory = useWorkflowStore((st) => st.findCategory);
+  // t782 — the noted half rides the same lens (fourth dimension)
+  const findNoted = useWorkflowStore((st) => st.findNoted);
   const findMatchIds = React.useMemo(() => {
     const q = findQuery.trim();
-    if (!findOpen || (!q && findStatus === "all" && findCategory === "all")) return null;
+    if (!findOpen || (!q && findStatus === "all" && findCategory === "all" && !findNoted)) return null;
     const ids = new Set<string>();
-    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory)) ids.add(j.id);
+    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory, findNoted)) ids.add(j.id);
     return ids;
-  }, [findOpen, findQuery, findStatus, findCategory, jobs]);
+  }, [findOpen, findQuery, findStatus, findCategory, findNoted, jobs]);
   const findLens = findMatchIds != null && findMatchIds.size > 0;
 
-  if (jobs.length === 0) return null;
+  // Task 683 — the chain lens reaches the map: the SAME walk the canvas
+  // lens and the dashboard face speak, re-derived here from the whole
+  // graph (the chain is the whole graph's story — a workspace-scoped
+  // walk would let a cross-workspace dependency silently drop out of
+  // the chain and the map would dim a chip the canvas keeps at full
+  // ink). Null when the lens is off or nothing has finished yet — the
+  // honest dead lens, same as the canvas's disabled lens button. Hooks
+  // live ABOVE the empty-jobs early return — rules-of-hooks has no
+  // exceptions for "map not drawn" (the discipline the find hooks obey).
+  const criticalLens = useWorkflowStore((st) => st.criticalLens);
+  const graphJobs = useWorkflowStore((st) => st.jobs);
+  const graphEdges = useWorkflowStore((st) => st.edges);
+  const chainWalk = React.useMemo(() => {
+    if (!criticalLens) return null;
+    const w = walkTimeline(graphJobs, Date.now());
+    return criticalPath(
+      w.rows.filter((r) => r.job.status !== "running"),
+      graphEdges
+    );
+  }, [criticalLens, graphJobs, graphEdges]);
+  const chainJobIds = React.useMemo(
+    () =>
+      chainWalk
+        ? new Set(chainWalk.chain.map((step) => step.job.id))
+        : null,
+    [chainWalk]
+  );
+  const chainEdgeIds = React.useMemo(
+    () =>
+      chainWalk
+        ? new Set(
+            chainWalk.chain
+              .map((step) => step.viaEdgeId)
+              .filter((x): x is string => x != null)
+          )
+        : null,
+    [chainWalk]
+  );
+
+  // sel with an empty selection is fit (the button disables itself, but
+  // an active sel must also survive the selection clearing mid-session)
+  // — hoisted above the empty-jobs early return: the t591 honesty effect
+  // below needs the live mode, and rules-of-hooks has no exceptions for
+  // "map not drawn" (the same discipline the find hooks obey).
+  const effMode: MmMode = mode === "sel" && selIds.size === 0 ? "fit" : mode;
+
+  // t591 — the transient click-activation key (t585's data-chip-set
+  // idiom, segmented-control dialect): set on an activating click, and a
+  // CSS rule keyed on [data-mm-set][aria-pressed="true"] speaks the
+  // settle. A bare aria-pressed rule would ghost-pop the fit button the
+  // moment sel coerces home (selection emptied → effMode falls back with
+  // NO click — the disarm-never-becomes-an-event law in its coercion
+  // costume) and would newly-match at remounts too.
+  const [mmSet, setMmSet] = React.useState<MmMode | null>(null);
+
+  // the key's honesty edge: when the click-activated mode stops being
+  // the live mode, the key names a state the world no longer shows —
+  // clear it so a later re-click of that mode can re-arm the animation
+  // (React restarts a CSS animation only on a NEW attribute match; an
+  // attribute that never leaves never re-fires).
+  React.useEffect(() => {
+    if (mmSet && mmSet !== effMode) setMmSet(null);
+  }, [mmSet, effMode]);
+
+  // t595 — the reframe flows. A mode click changes the world box (fit
+  // unions the viewport window in, nodes/sel frame content only) —
+  // measured live at Δw=151/Δh=378 world units and a 13% jump in the
+  // map's pixel height: a visible event, not furniture. The projection
+  // has no CSS handle (viewBox is an attribute, not a property), so the
+  // flow is a rAF lerp of the rendered box over MM_REFLOW_MS — the
+  // thumb's own settle rhythm (t591): one gesture, two organs. The arm
+  // flag lives in the click handler (the finger), NOT in an effMode
+  // effect: the coercion edge (selection emptied → sel falls back to fit
+  // with no click) never arms — t591's disarm-never-becomes-an-event
+  // law. The snapshot is taken in the handler too — by the time the
+  // target render's body runs, `world` already IS the target, so the
+  // on-screen box must be caught before that render overwrites the ref.
+  const reframeFromRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const reframeArmRef = React.useRef(false);
+  const reframeRafRef = React.useRef<number | null>(null);
+  const [animBox, setAnimBox] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  // the box on screen as of the last render — the mode-click handler
+  // snapshots it (BEFORE the click's own render recomputes it) so the
+  // flow rides from what the user actually sees
+  const lastRenderedBoxRef = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  // t596 — the selection-jump watcher's side of the store contract:
+  // `selReframeSeq` bumps ONLY on a real selection change made by the
+  // five selection verbs (delete cleanup, workspace switch, load,
+  // inspect and the server poll write the fields directly and never
+  // bump — those reframes snap). The ref holds the last seq this
+  // component has ANSWERED; initializing it from the value at mount
+  // keeps the birth quiet (a reload with a live selection must not
+  // flow on first paint — t590's systemic silence, F3 face).
+  const seenSelSeqRef = React.useRef<number | null>(null);
 
   // viewport window in WORLD coordinates:
   // screen = vx + wx·zoom  →  wx = (screen − vx) / zoom
@@ -198,9 +422,6 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     h: size.h / zoom,
   };
 
-  // sel with an empty selection is fit (the button disables itself, but
-  // an active sel must also survive the selection clearing mid-session)
-  const effMode: MmMode = mode === "sel" && selIds.size === 0 ? "fit" : mode;
   const selFocus = effMode === "sel";
   // find-dim never stacks on sel focus — selection is the stronger intent
   const findDimActive = findLens && !selFocus;
@@ -229,8 +450,102 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
     ...frameJobs.map((j) => j.y + CARD_H),
     withVp ? view.y + view.h : -Infinity
   ) + MM_PAD;
-  const world = { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 };
-  const worldBox = world;
+  const worldBox = { x: vx0, y: vy0, w: vx1 - vx0, h: vy1 - vy0 };
+  // during a reframe the rendered box is the lerp's current frame; every
+  // derivation (viewBox, mmH, stroke widths, the vp rect's clamps, and
+  // toWorld's click mapping) reads this ONE box so the projection flows
+  // as a whole
+  const world = animBox ?? worldBox;
+
+  // t596 — one reframe voice, two arms. Extracted from the t595 effect
+  // body so the selection-jump observer (the box-record effect below)
+  // can share the exact same flow: reduced-motion snaps, a same-box
+  // "change" answers with silence, the first painted frame is the pin
+  // (no snapped frame), the lerp is the thumb settle's rhythm (t591:
+  // one gesture, one rhythm), and the transient retires bit-exactly.
+  const startReframe = (
+    from: { x: number; y: number; w: number; h: number },
+    to: { x: number; y: number; w: number; h: number }
+  ) => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    if (
+      Math.abs(from.x - to.x) < 0.5 &&
+      Math.abs(from.y - to.y) < 0.5 &&
+      Math.abs(from.w - to.w) < 0.5 &&
+      Math.abs(from.h - to.h) < 0.5
+    ) {
+      return; // same box — a re-click of the live mode answers with silence
+    }
+    if (reframeRafRef.current != null) cancelAnimationFrame(reframeRafRef.current);
+    const t0 = performance.now();
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+    setAnimBox({ ...from }); // pin BEFORE paint — no snapped frame
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / MM_REFLOW_MS);
+      const k = easeOut(t);
+      setAnimBox({
+        x: from.x + (to.x - from.x) * k,
+        y: from.y + (to.y - from.y) * k,
+        w: from.w + (to.w - from.w) * k,
+        h: from.h + (to.h - from.h) * k,
+      });
+      if (t < 1) {
+        reframeRafRef.current = requestAnimationFrame(step);
+      } else {
+        reframeRafRef.current = null;
+        setAnimBox(null); // retire — the computed box takes over
+      }
+    };
+    reframeRafRef.current = requestAnimationFrame(step);
+  };
+
+  // the box on screen, recorded after every commit — a mode click
+  // snapshots it (in the handler, BEFORE the click's own render runs)
+  // so the flow rides from what the user actually sees. t596 — this
+  // effect also OBSERVES selection jumps: it reads the previous box
+  // BEFORE overwriting it, which is exactly the snapshot the sel-frame
+  // flow needs (arm-in-each-caller would scatter five components for
+  // no gain, and only the store's seq knows which changes are the
+  // finger's). Runs before the thumb relay below: if both arms ever
+  // landed in one commit, this one's honest snapshot wins and the
+  // thumb relay's own same-box check silently declines.
+  React.useLayoutEffect(() => {
+    const prev = lastRenderedBoxRef.current;
+    lastRenderedBoxRef.current = world;
+    if (seenSelSeqRef.current !== selReframeSeq) {
+      seenSelSeqRef.current = selReframeSeq;
+      // the coercion edge (selection emptied → effMode falls back to
+      // fit) bumps the seq too, but its box change is the SYSTEM's
+      // work (t591's disarm-never-becomes-an-event law) — only a jump
+      // inside a live sel framing (Escape collapse, Ctrl+A growth, a
+      // dot/card re-anchor, the band's commit) rides the flow.
+      if (effMode === "sel" && prev) startReframe(prev, worldBox);
+    }
+  });
+
+  // the arm flag → the flow. Runs after the target render computed the
+  // new box, before paint: the first painted frame is still the
+  // on-screen box (the pin), and the lerp rides from there. The final
+  // frame is the computed box; setAnimBox(null) hands the channels back
+  // — a transient that retires (t591's honesty law). t596 — the body
+  // moved into startReframe; the thumb channel remains handler-armed
+  // (the finger), this effect only relays it.
+  React.useLayoutEffect(() => {
+    if (!reframeArmRef.current) return;
+    reframeArmRef.current = false;
+    const from = reframeFromRef.current;
+    if (from) startReframe(from, worldBox);
+  });
+
+  // unmount: never leave a reframe rAF firing into a dead DOM
+  React.useEffect(
+    () => () => {
+      if (reframeRafRef.current != null) cancelAnimationFrame(reframeRafRef.current);
+    },
+    [],
+  );
+
+  if (jobs.length === 0) return null;
 
   const mmH = Math.round(
     Math.min(MM_MAX_H, Math.max(MM_MIN_H, (MM_W * world.h) / world.w))
@@ -327,13 +642,29 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         draggingRef.current = false;
       }}
     >
-      {/* header: caption + framing-mode segmented control — buttons stop
-          propagation so the container's navigate-on-pointerdown never
-          hijacks a mode click */}
+      {/* header: caption + dismiss hint + framing-mode segmented control —
+          buttons stop propagation so the container's navigate-on-pointerdown
+          never hijacks a mode click */}
       <div className="flex items-center justify-between gap-1 px-0.5 pb-0.5">
-        <p className="pointer-events-none text-[9px] font-medium uppercase tracking-widest text-muted-foreground/70">
-          map
-        </p>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="pointer-events-none text-[9px] font-medium uppercase tracking-widest text-muted-foreground/70">
+            map
+          </p>
+          {/* t638 — the dismiss door, in place: the map occludes whatever
+              canvas region it floats over, and M (or the zoom dock's map
+              button) is the way out — but a door you can't see from the
+              room it serves is barely a door. The kbd chip is the lens
+              hints' vocabulary (t637 加场: a keyboard contract made
+              visible), one voice at every distance. pointer-events-none:
+              inside the drag surface, the chip must never eat a press. */}
+          <span
+            data-mm-hint=""
+            title="Press M to hide the map — the zoom dock's map button brings it back"
+            className="pointer-events-none flex items-center text-muted-foreground/50"
+          >
+            <Kbd className="bg-background" aria-hidden="true">M</Kbd>
+          </span>
+        </div>
         <div
           role="group"
           aria-label="Minimap framing mode"
@@ -346,13 +677,29 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 key={m.id}
                 type="button"
                 data-mm-btn={m.id}
+                data-mm-set={mmSet === m.id ? "" : undefined}
                 title={m.title}
                 aria-pressed={effMode === m.id}
                 disabled={disabled}
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => setMode(m.id)}
+                onClick={() => {
+                  // t595 — the finger arms the reframe: snapshot the
+                  // on-screen box BEFORE this click's render computes the
+                  // target, then flag; the layout effect rides from the
+                  // snapshot. The coercion edge never passes here — it
+                  // has no click (t591's law).
+                  reframeFromRef.current = lastRenderedBoxRef.current;
+                  reframeArmRef.current = true;
+                  setMode(m.id);
+                  setMmSet(m.id); // the click's own voice (t591) — see mmSet
+                }}
                 className={cn(
-                  "rounded px-1 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide transition-colors",
+                  // t586's press recipe: transition-all + the motion-safe
+                  // dip — the segment answers the hand (held = 0.96) and
+                  // the mode change (the mm-set settle) on one channel;
+                  // the animation owns scale while it runs, the transition
+                  // owns it at rest (the CSS cascade is the handoff).
+                  "rounded px-1 py-0.5 text-[9px] font-semibold uppercase leading-none tracking-wide transition-all motion-safe:active:scale-[0.96]",
                   effMode === m.id
                     ? "bg-card text-primary shadow-sm"
                     : "text-muted-foreground/60 hover:text-foreground",
@@ -372,8 +719,17 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         viewBox={`${world.x} ${world.y} ${world.w} ${world.h}`}
         data-canvas-ui="minimap-svg"
         className="block cursor-pointer rounded-sm bg-muted/50"
-        role="application"
-        aria-label={`Workflow overview — ${jobs.length} jobs. ${
+        // t786 — the honest role: this is a PICTURE you look at, not an app
+        // you operate. The old role=application told screen readers an
+        // application-mode keyboard surface lived here, while the SVG has no
+        // tabIndex, no key handlers, and pointer-only wiring — a lie that
+        // cost SR users a mode switch into silence (the t784 scouting
+        // verdict: no keyboard roaming will be built — the canvas itself,
+        // palette, find bar and grid-nav are the keyboard's doors — so the
+        // semantics must confess the pointer instrument instead of
+        // promising a keyboard that will never come).
+        role="img"
+        aria-label={`Pointer instrument — workflow overview: ${jobs.length} jobs. The canvas itself is the keyboard door; this map answers the mouse only. ${
           findLens && selFocus
             ? "Click to navigate; click an amber or selected chip to jump to that job."
             : findLens
@@ -383,28 +739,63 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
                 : "Click to navigate."
         }`}
       >
-        {/* edges (thin, muted) — cheap straight port-to-port lines;
-            in sel focus, edges with no selected endpoint dim further */}
+        {/* edges (thin, kind-inked) — cheap straight port-to-port lines;
+            in sel focus, edges with no selected endpoint dim further.
+            t743 — the borrowed ink: the map asks the edge layer's own
+            question (outputKindOf at the from port) and paints the same
+            wire hex the canvas paints, so altitude cannot change the
+            story's colors. A wire without a word keeps the muted bare
+            face — the map never invents a color the book does not have. */}
         {edges.length <= 160 &&
           edges.map((e) => {
             const a = jobById.get(e.fromJobId);
             const b = jobById.get(e.toJobId);
             if (!a || !b) return null;
-            const dim = selFocus && !selIds.has(e.fromJobId) && !selIds.has(e.toJobId);
+            // Task 683 — the chain's edge law reads EDGE IDS, not endpoints
+            // (the canvas edge layer's t682 law, now on the map): a wire the
+            // walk stood on keeps its ink, every unwalked wire recedes —
+            // chords between chain chips included (endpoints on the chain
+            // do not mean the wire is in the story). Sel focus keeps its
+            // endpoint law — the selection is a neighborhood, the chain is
+            // a path; two lenses, two geometries, each honest in its own.
+            const dim =
+              (selFocus && !selIds.has(e.fromJobId) && !selIds.has(e.toJobId)) ||
+              (chainEdgeIds != null && !chainEdgeIds.has(e.id));
+            // t743 — the map's wires borrow the canvas's ink before the
+            // question of dim or chain: the from port names the water, the
+            // book names the hex. A wordless wire (legacy port, unknown
+            // kind) keeps the bare currentColor — the fourth face of the
+            // t738 wordless law (chip bare, roster unadmitted, in-start
+            // waiting, map wire bare).
+            const edgeKind = e.fromPort ? outputKindOf(a.type, e.fromPort) : undefined;
+            const kindInk = edgeKind ? PORT_COLORS[edgeKind].wire : undefined;
             return (
               <line
                 key={e.id}
+                // t683 — the probe's honest anchor: the map's wires tell the
+                // chain's story too (walked keeps ink, unwalked recedes), and
+                // an assertion needs to ask each wire by name. t743 extends
+                // the anchor with the kind: an assertion can now ask each
+                // wire what water it carries without reading its stroke.
+                data-mm-edge-id={e.id}
+                data-mm-edge-kind={edgeKind ?? ""}
                 x1={a.x + CARD_W}
                 y1={a.y + CARD_H / 2}
                 x2={b.x}
                 y2={b.y + CARD_H / 2}
-                stroke="currentColor"
+                stroke={kindInk ?? "currentColor"}
                 strokeWidth={Math.max(6, Math.min(18, world.w / 120))}
                 // Task 166 — the dim rides the ladder's --dim-ghost rung via
                 // the .mm-edge-dim class (an SVG presentation attribute
                 // cannot consume var()); the base ink stays attribute-borne.
+                // t743 — one register: the ink rides, the loudness does not
+                // change. Worded and wordless wires share the 0.25 whisper;
+                // a two-tier brightness would smuggle a new semantic ("has
+                // a word = louder") into a decoration layer. The muted
+                // color class only rides wordless wires — an inked wire
+                // carrying a class whose color it ignores is dead weight.
                 opacity={0.25}
-                className={cn("text-muted-foreground", dim && "mm-edge-dim")}
+                className={cn(!kindInk && "text-muted-foreground", dim && "mm-edge-dim")}
                 // Task 139 — the map's wires are pure decoration (the canvas
                 // wires carry the click-to-delete affordance, these don't):
                 // a wire crossing a chip's projected center must never steal
@@ -417,7 +808,10 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
         {/* job chips colored by status (hover → name tooltip via <title>)
             — stroke widths scale with the world box so chips stay visible
             when the minimap zooms out on the infinite canvas; in sel focus
-            unselected chips dim (and their running pulse rests) */}
+            unselected chips dim (and their running pulse rests). t606 —
+            each dot is a MinimapDot: the news face's third distance, the
+            map acknowledges a poll-merged status with one brightness
+            bloom in its own new color */}
         {(() => {
           const s = Math.max(4, Math.min(26, world.w / 80));
           return jobs.map((j) => {
@@ -426,62 +820,32 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             const dimmed = selFocus && !selIds.has(j.id);
             const findHit = findLens && findMatchIds!.has(j.id);
             const findDim = findDimActive && !findHit;
+            // Task 683 — the chain lens dims independently (the canvas
+            // dim union's third disjunct, same law): chain chips keep
+            // full ink, everything off the chain recedes. Running chips
+            // are never on the chain (the walk filters them — a live run
+            // has no end yet), so a lens-on map rests their pulse too.
+            const chainHit = chainJobIds != null && chainJobIds.has(j.id);
+            const chainDim = chainJobIds != null && !chainHit;
             // Task 139 — the sel-mode door affordance: framed-bright chips
             // promise the jump the mode armed (cursor + hover brighten +
             // title tail), and never outside sel mode — an affordance that
             // outlives its gesture is a lie
             const selDoor = selFocus && selIds.has(j.id);
             return (
-              <rect
+              <MinimapDot
                 key={j.id}
-                data-canvas-ui="minimap-dot"
-                data-job-id={j.id}
-                data-mm-dim={dimmed || findDim ? "1" : undefined}
-                data-mm-find={findHit ? "1" : undefined}
-                data-mm-door={findHit || selDoor ? "1" : undefined}
-                x={j.x}
-                y={j.y}
-                width={CARD_W}
-                height={CARD_H}
-                rx={26}
-                fill={STATUS_FILL[j.status] ?? STATUS_FILL.idle}
-                // Task 166 — status ink stays attribute-borne (idle 0.55 /
-                // active 0.9); the recession moved to the .mm-chip-dim class
-                // consuming the ladder's --dim-whisper rung (the map's old
-                // ad-hoc chip depth and the compare curves' whisper differed
-                // by a hair — drift, not design; one semantic, one value).
-                // Presentation attributes rank below every CSS rule, so the
-                // class overrides the attribute without !important, and door
-                // chips never co-occur with the dim.
-                opacity={j.status === "idle" ? 0.55 : 0.9}
-                className={cn(
-                  "transition-opacity duration-300",
-                  (dimmed || findDim) && "mm-chip-dim",
-                  // Task 137/139 — a door chip brightens on hover to say so
-                  // (stroke stays primary/amber, fill stays the world's —
-                  // the lens never repaints the world's colors)
-                  (findHit || selDoor) && "cursor-pointer hover:opacity-100",
-                )}
-                stroke={
-                  selected || inMulti
-                    ? "var(--primary)"
-                    : findHit
-                      ? "#f59e0b"
-                      : "none"
-                }
-                strokeOpacity={inMulti ? 0.45 : 1}
-                strokeWidth={s}
-              >
-                <title>{`${j.name} — ${j.status}${j.status === "running" ? ` (${Math.round(j.progress)}%)` : j.result ? ` · ${j.result}` : ""}${findHit || selDoor ? " · click to jump" : ""}`}</title>
-                {j.status === "running" && !dimmed && !findDim && (
-                  <animate
-                    attributeName="opacity"
-                    values="0.55;0.95;0.55"
-                    dur="1.8s"
-                    repeatCount="indefinite"
-                  />
-                )}
-              </rect>
+                job={j}
+                selected={selected}
+                inMulti={inMulti}
+                dimmed={dimmed}
+                findHit={findHit}
+                findDim={findDim}
+                chainHit={chainHit}
+                chainDim={chainDim}
+                selDoor={selDoor}
+                s={s}
+              />
             );
           });
         })()}

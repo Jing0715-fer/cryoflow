@@ -1,0 +1,330 @@
+#!/usr/bin/env bash
+# mock sbatch for the CryoFlow mock cluster (t297)
+#
+# Implements just enough of Slurm's sbatch for the app's remote-Slurm path:
+#   - parses #SBATCH --output/--error/--job-name directives from the script
+#   - runs the script (the directives are bash comments — harmless) with
+#     setsid in the background, stdout/stderr redirected per the directives
+#   - allocates a job id, records `id pid starttime` in ~/.slurm/jobs
+#   - prints "Submitted batch job <id>" on stdout
+# A tiny backoff before launch models PENDING→RUNNING so the poll sweep can
+# watch a state transition (squeue says PENDING until the script starts).
+set -u
+SLURM_DIR="$HOME/.slurm"
+mkdir -p "$SLURM_DIR"
+# t367 — every submission's argv rides a log line (the diag asserts the
+# app's #SBATCH --time directive landed in the SCRIPT; the argv log proves
+# nothing snuck in only on the command line)
+printf '%s\n' "sbatch $*" >> "$SLURM_DIR/sbatch-argv.log"
+
+script=""
+extra_out=""
+extra_err=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --output=*) extra_out="${1#--output=}" ;;
+    --error=*) extra_err="${1#--error=}" ;;
+    -*) ;; # swallow other options
+    *) script="$1" ;;
+  esac
+  shift
+done
+if [ -z "$script" ] || [ ! -f "$script" ]; then
+  echo "sbatch: error: Batch script not found or invalid: $script" >&2
+  exit 1
+fi
+
+# directives out of the script body (first #SBATCH block)
+out="$(grep -m1 -oP '(?<=#SBATCH --output=).*' "$script" || true)"
+err="$(grep -m1 -oP '(?<=#SBATCH --error=).*' "$script" || true)"
+name="$(grep -m1 -oP '(?<=#SBATCH --job-name=).*' "$script" || true)"
+# t304 — the pipeline handoff: --dependency=afterok:<id>[:<id>…] holds the
+# job in PENDING until every upstream lands (or cancels it the moment one
+# fails — the scheduler's own kill-on-invalid-dep contract)
+deps="$(grep -m1 -oP '(?<=#SBATCH --dependency=afterok:)[0-9:]+' "$script" || true)"
+# t306 — the array split: --array=1-N%M runs the script N times as
+# independent tasks (SLURM_ARRAY_TASK_ID 1..N, at most M at once), each
+# task's rc captured launcher-side; per-task rows land in the ledger as
+# <id>_<t> (real sacct's array grammar) and the MASTER row's verdict is
+# COMPLETED only when every task's rc was 0 (the first failing rc rides
+# the master's exit code — the app's exit contract reads one row).
+arr="$(grep -m1 -oP '#SBATCH --array=1-\K[0-9]+' "$script" || true)"
+conc="$(grep -m1 -oP '#SBATCH --array=1-[0-9]+%\K[0-9]+' "$script" || true)"
+[ -n "$extra_out" ] && out="$extra_out"
+[ -n "$extra_err" ] && err="$extra_err"
+[ -z "$out" ] && out="slurm-%j.out"
+[ -z "$err" ] && err="$out"
+
+# t311 — the submission gate the USER'S controller enforces (their live
+# report): an explicit #SBATCH --mem larger than the node's schedulable
+# RealMemory is REFUSED at submit time, and the exec channel's login shell
+# prints their ~/.bashrc noise first (a broken line 35 sourcing another
+# user's relion.sh). The refusal is byte-shaped like the real one so the
+# app's error-splitting (slurm lines vs login-shell noise) rehearses
+# against the exact world the user saw:
+#
+#   /data2/home/<user>/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory
+#   sbatch: error: Memory specification can not be satisfied
+#   sbatch: error: Batch job submission failed: Requested node configuration is not available
+#
+# Node model (mirrors sinfo's inventory): the brain family carries 64 GB
+# schedulable — the old app script's --mem=16+12×gpus formula (88G @ 6 GPU,
+# 112G @ 8) crossed it, exactly like the real cluster. --gres beyond the
+# node's GPU count gets the sibling refusal (same "node configuration"
+# verdict, no memory line).
+# t337 — the node-keyed gate: an explicit --nodelist speaks for itself
+# (the app suppresses --partition under a pin), so the NODE'S OWN row
+# decides — the partition table below only speaks when no pin rides:
+#   · a node scontrol does not know        → Invalid node name (real
+#     Slurm's own dialect for a bad --nodelist)
+#   · a node forced DOWN/DRAIN via the
+#     ~/.slurm/node-override lever ("name STATE" lines — the same file
+#     the mock scontrol honors, so the app's pre-flight, the usage panel
+#     and THIS gate all see one world)     → the user's exact receipt:
+#     bashrc noise + "Requested node configuration is not available"
+#   · --gres beyond the NODE'S own GPUs    → the same refusal (the shape
+#     the user hit pinning a 5-GPU node at a 6-wide width)
+# t340 — the PARTITION-MEMBERSHIP gate, the real controller's own verdict
+# that the old mock never modeled (why every pin passed E2E here while the
+# user's real cluster refused them): a --nodelist node that does not live
+# in the partition the job names — or, with no --partition, in the
+# cluster's DEFAULT partition ("gpu" here, the mirror of the user's world
+# where the default does not contain the GPU nodes they pin) — is refused
+# AT SUBMIT TIME with exactly the user's receipt. The fix it proves: the
+# app now resolves the pinned node's OWN partition (scontrol's Partitions=)
+# and writes --partition=<that> + --nodelist=<node>, the same composition
+# a group-dropdown pick writes — the membership check passes and the job
+# lands. A pin whose partition matches (brain2 in brain2, node03 in gpu)
+# rides through untouched; a node that IS in the default (node01-04 bare)
+# still works with no partition named — every honest shape stays honest.
+partition="$(grep -m1 -oP '(?<=#SBATCH --partition=).*' "$script" || true)"
+# t332 — the explicit node pin (the run dialog's usage-list pick): rides
+# the journal's 5th field so scontrol accounts the job on THAT node,
+# wherever the partition mapping would have put it
+node_req="$(grep -m1 -oP '(?<=#SBATCH --nodelist=).*' "$script" || true)"
+mem_req="$(grep -m1 -oP '(?<=#SBATCH --mem=)\d+' "$script" || true)"
+gres_req="$(grep -m1 -oP '(?<=#SBATCH --gres=gpu:)\d+' "$script" || true)"
+
+node_mem=0; node_gpus=0
+if [ -n "$node_req" ]; then
+  # the node table mirrors scontrol's own (name → GPUs; all 64 GB)
+  case "$node_req" in
+    normal)   node_gpus=5 ;;
+    brain)    node_gpus=6 ;;
+    brain2)   node_gpus=8 ;;
+    brain3)   node_gpus=6 ;;
+    brain4)   node_gpus=8 ;;
+    normal02) node_gpus=8 ;;
+    node01|node02|node03|node04) node_gpus=6 ;;
+    node05|node06|node07|node08) node_gpus=0 ;;
+    *)        node_gpus=-1 ;;
+  esac
+  node_mem=64
+  if [ "$node_gpus" -lt 0 ]; then
+    echo "sbatch: error: Invalid node name $node_req" >&2
+    exit 1
+  fi
+  # t340 — the node's own partition (the same table scontrol emits as
+  # Partitions=), then the MEMBERSHIP verdict: the pinned node must live
+  # in the partition the job names, or — with none named — in the
+  # cluster's DEFAULT partition (the user's world: the default does not
+  # hold their GPU nodes, so the bare pin was refused at submit time).
+  node_part() {
+    case "$1" in
+      normal|brain|brain2|brain3|brain4|normal02) echo "$1" ;;
+      node01|node02|node03|node04) echo "gpu" ;;
+      node05|node06|node07|node08) echo "long" ;;
+      *) echo "" ;;
+    esac
+  }
+  np="$(node_part "$node_req")"
+  eff_part="${partition:-gpu}"
+  if [ -n "$np" ] && [ "$np" != "$eff_part" ]; then
+    echo "/data2/home/$USER/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory" >&2
+    echo "sbatch: error: Batch job submission failed: Requested node configuration is not available" >&2
+    exit 1
+  fi
+  # the drained-node lever: the override file forces a state word the
+  # pre-flight, the panel and this gate all read the same way
+  node_state=""
+  if [ -f "$HOME/.slurm/node-override" ]; then
+    node_state="$(awk -v n="$node_req" '$1==n{print $2; exit}' "$HOME/.slurm/node-override" 2>/dev/null)"
+  fi
+  case "$node_state" in
+    DOWN|DRAIN|DRAINING|FAIL)
+      echo "/data2/home/$USER/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory" >&2
+      echo "sbatch: error: Batch job submission failed: Requested node configuration is not available" >&2
+      exit 1
+      ;;
+  esac
+else
+  case "$partition" in
+    brain)    node_mem=64; node_gpus=6 ;;
+    brain2)   node_mem=64; node_gpus=8 ;;
+    brain3)   node_mem=64; node_gpus=6 ;;
+    brain4)   node_mem=64; node_gpus=8 ;;
+    normal)   node_mem=64; node_gpus=5 ;;
+    normal02) node_mem=64; node_gpus=8 ;;
+    gpu)      node_mem=64; node_gpus=6 ;;
+    # t337 — the RESIDUAL-PATH lever: a 4-GPU partition the mock sinfo
+    # never lists (so the app's probe inventory cannot clamp it). A
+    # submission naming it rides --partition=debugx --gres=gpu:6 straight
+    # into the refusal below — the drift window (stale inventory / a
+    # group the app never saw) the app's sbatch-error TRANSLATION exists
+    # for. No real cluster has this partition; no suite should ever
+    # submit onto it except to prove that translation.
+    debugx)   node_mem=64; node_gpus=4 ;;
+    *)        node_mem=64; node_gpus=8 ;;
+  esac
+fi
+# t327 — the request journal for scontrol's LIVE usage accounting: what
+# this job holds while it runs (ntasks CPUs · gres GPUs · the array's
+# effective concurrency). scontrol adds RUNNING jobs onto their
+# partition's node — the show_free_gpu.sh the dialog renders.
+# t332 — the journal grew a 5th field, the explicit --nodelist pick
+# (empty = the partition's own node, the t327 shape); scontrol prefers
+# it when present.
+ntasks_req="$(grep -m1 -oP '(?<=#SBATCH --ntasks=)\d+' "$script" || true)"
+conc_eff=1
+if [ -n "$arr" ]; then
+  if [ -n "$conc" ] && [ "$conc" -lt "$arr" ]; then conc_eff="$conc"; else conc_eff="$arr"; fi
+fi
+
+if [ -n "$mem_req" ] && [ "$mem_req" -gt "$node_mem" ]; then
+  echo "/data2/home/$USER/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory" >&2
+  echo "sbatch: error: Memory specification can not be satisfied" >&2
+  echo "sbatch: error: Batch job submission failed: Requested node configuration is not available" >&2
+  exit 1
+fi
+if [ -n "$gres_req" ] && [ "$gres_req" -gt "$node_gpus" ]; then
+  echo "/data2/home/$USER/.bashrc: line 35: /home/guozhenqian/app/relion/relion.sh: No such file or directory" >&2
+  echo "sbatch: error: Batch job submission failed: Requested node configuration is not available" >&2
+  exit 1
+fi
+
+# job id: monotonically increasing
+id=1
+if [ -f "$SLURM_DIR/next-id" ]; then
+  id=$(( $(cat "$SLURM_DIR/next-id") + 1 ))
+fi
+echo "$id" > "$SLURM_DIR/next-id"
+
+# the output dir must exist before the redirection (Slurm creates it)
+mkdir -p "$(dirname "$out")" "$(dirname "$err")" 2>/dev/null || true
+
+# PENDING marker: squeue reports PENDING until the launcher flips it
+touch "$SLURM_DIR/job-$id.state"
+echo "PENDING" > "$SLURM_DIR/job-$id.state"
+# t327 — the request journal (partition|gres|ntasks|concurrency|node — the
+# 5th is t332's explicit --nodelist pick) scontrol reads while this job
+# RUNS; dead jobs go silent with their .state file
+printf '%s|%s|%s|%s|%s\n' "${partition:-}" "${gres_req:-0}" "${ntasks_req:-1}" "$conc_eff" "${node_req:-}" > "$SLURM_DIR/job-$id.req"
+
+launcher="$SLURM_DIR/.launch-$id.sh"
+cat > "$launcher" <<EOF
+#!/usr/bin/env bash
+sleep 1
+# t304 — the dependency wait: the job stays PENDING (the state file is not
+# touched) until every upstream id journals COMPLETED. Any upstream terminal
+# failure — or a 600s wait cap — cancels THIS job with its own CANCELLED
+# journal row (the kill-on-invalid-dep contract): a stranded PENDING child
+# is exactly the lie the sweep must never have to guess about.
+__deps="$deps"
+__total="$arr"
+__conc="$conc"
+[ -n "\$__total" ] && [ -z "\$__conc" ] && __conc="\$__total"
+__failed=0
+if [ -n "\$__deps" ]; then
+  __waited=0
+  while :; do
+    __ok=1; __failed=0
+    IFS=':' read -ra __arr <<< "\$__deps"
+    for __d in "\${__arr[@]}"; do
+      [ -n "\$__d" ] || continue
+      __st="\$(sacct -j "\$__d" -n -o State 2>/dev/null | head -1 | awk '{print \$1}')"
+      case "\$__st" in
+        COMPLETED*) ;;
+        ''|PENDING*|RUNNING*|COMPLETING*) __ok=0 ;;
+        *) __failed=1 ;;
+      esac
+    done
+    [ "\$__failed" = "1" ] && break
+    [ "\$__ok" = "1" ] && break
+    [ "\$__waited" -ge 600 ] && __failed=2 && break
+    sleep 2
+    __waited=\$((__waited + 2))
+  done
+  if [ "\$__failed" != "0" ]; then
+    printf '%s|%s|%s|%s|%s|\n' "$id" "CANCELLED" "0:0" "\$(date +%s)" "" >> "$SLURM_DIR/accounting"
+    rm -f "$SLURM_DIR/job-$id.state"
+    exit 143
+  fi
+fi
+echo "RUNNING" > "$SLURM_DIR/job-$id.state"
+# t303 — the ledger's stopwatch needs a start: pinned when the script begins
+# (and mirrored to job-\$id.start so scancel's CANCELLED row can speak it too)
+# — AFTER the dependency wait, the way real Slurm's Elapsed excludes pending
+__t0=\$(date +%s)
+echo "\$__t0" > "$SLURM_DIR/job-$id.start"
+# t306 — the array fan-out: N tasks, at most M running concurrently (the
+# %M cap — wait -n releases a slot each time a task exits). Each task's rc
+# is captured launcher-side (job-$id.taskrcs); after the last one lands,
+# per-task rows (<id>_<t>) journal first, then the MASTER row speaks the
+# aggregate verdict (first failing rc, else 0). A scancel'd array stands
+# down (scancel owns the CANCELLED row, as with single jobs).
+if [ -n "\$__total" ]; then
+  __rcs="$SLURM_DIR/job-$id.taskrcs"
+  : > "\$__rcs"
+  __active=0
+  for __t in \$(seq 1 "\$__total"); do
+    ( SLURM_ARRAY_JOB_ID="$id" SLURM_ARRAY_TASK_ID="\$__t" bash "$script"; echo "\$__t \$?" >> "\$__rcs" ) &
+    __active=\$((\$__active + 1))
+    if [ "\$__active" -ge "\$__conc" ]; then
+      wait -n
+      __active=\$((\$__active - 1))
+    fi
+  done
+  wait
+  __firstbad="\$(awk '\$2!=0{print \$2; exit}' "\$__rcs" 2>/dev/null || true)"
+  __firstbad="\${__firstbad:-0}"
+  __end=\$(date +%s)
+  while read -r __t __trc; do
+    [ -n "\$__t" ] || continue
+    __tst=COMPLETED
+    [ "\$__trc" -ne 0 ] && __tst=FAILED
+    printf '%s_%s|%s|%s:0|%s|%s|\n' "$id" "\$__t" "\$__tst" "\$__trc" "\$__end" "\$__t0" >> "$SLURM_DIR/accounting"
+  done < "\$__rcs"
+  rm -f "\$__rcs"
+  if [ ! -f "$SLURM_DIR/job-$id.cancelled" ]; then
+    __mstate=COMPLETED
+    [ "\$__firstbad" -ne 0 ] && __mstate=FAILED
+    printf '%s|%s|%s:0|%s|%s|\n' "$id" "\$__mstate" "\$__firstbad" "\$__end" "\$__t0" >> "$SLURM_DIR/accounting"
+  fi
+  rm -f "$SLURM_DIR/job-$id.state"
+  exit "\$__firstbad"
+fi
+# t299 — the launcher must outlive the script by one breath: with exec the
+# process REPLACED itself and died mute, and sacct's accounting (the only
+# witness that survives the squeue purge) never learned the verdict
+bash "$script"
+__rc=\$?
+if [ -f "$SLURM_DIR/job-$id.cancelled" ]; then
+  # scancel owns this job's accounting — its CANCELLED entry already stands
+  exit \$__rc
+fi
+__state=COMPLETED
+[ "\$__rc" -ne 0 ] && __state=FAILED
+# t303 — journal rows grew a start epoch (5th) and a MaxRSS slot (6th,
+# empty — the mock does not meter its scripts' memory; honest absence)
+printf '%s|%s|%s:%s|%s|%s|\n' "$id" "\$__state" "\$__rc" "0" "\$(date +%s)" "\$__t0" >> "$SLURM_DIR/accounting"
+exit \$__rc
+EOF
+chmod +x "$launcher"
+
+setsid bash "$launcher" > "$out" 2> "$err" < /dev/null &
+pid=$!
+echo "$id $pid $(awk '{print $22}' /proc/$pid/stat 2>/dev/null)" > "$SLURM_DIR/job-$id.pid"
+echo "$name" > "$SLURM_DIR/job-$id.name" 2>/dev/null || true
+
+echo "Submitted batch job $id"
+exit 0

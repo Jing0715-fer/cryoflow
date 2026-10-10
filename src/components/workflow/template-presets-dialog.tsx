@@ -45,6 +45,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { TemplateShapeHoverCard } from "@/components/workflow/template-shape-preview";
+import { subsequenceSpans } from "@/lib/job-match"; // t727 — the dialect's HOW lives in lib
+import { FindMarkedText } from "@/components/workflow/find-mark"; // t727 — the wash's own home (t720's law, fourth execution)
 import { cn } from "@/lib/utils";
 
 /** The symmetry selects' option list (mirrors workflow.ts / template route). */
@@ -239,9 +241,49 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
   }, [renameId, searchFocused, onEditingChange]);
 
   const q = searchQ.trim().toLowerCase();
+  // t727 — Shelf Dialect: the fourth search face joins the matcher
+  // family (canvas cards t653 → find bar t722 → roster t724 → palette
+  // t725 → shelf). HOW is lib's subsequenceSpans, single-source; WHAT
+  // is this surface's only operator-given domain — the template's
+  // name. The row's meta line (jobs · wires · date) is infrastructure
+  // vocabulary and stays unread (t724's ws/status law: operators never
+  // abbreviate infra, and a mis-typed digit lighting the whole shelf
+  // is noise, not search). Census verdicts recorded the same window:
+  // the log console keeps substring-only because log lines are PROSE
+  // (t725's exemption law — sentences are read, not abbreviated); the
+  // FilesTab path filter keeps substring-only because paths are
+  // infrastructure words whose enumerable dimension (kind) is already
+  // a chip (t722's chip-is-for-enumerable argument). No why-chip on
+  // this face: the name is ON the row, so the wash IS the why.
+  // Two-rung ladder mirrors palMatchWhy: whole substring first (byte
+  // compatible with the t132-era includes), then in-order
+  // abbreviation at q.length >= 2 — over a name, which is never
+  // prose. The spans Map is per-render (no state, no ref — it lives
+  // exactly as long as this render, t616's non-persistent ledger).
+  // Coordinates inherit subsequenceSpans' documented lowercase-length
+  // -stable assumption; FindMarkedText's guard still falls back to
+  // plain text should a span ever escape (inherit, don't invent).
+  const shelfSpans = new Map<
+    string,
+    ReadonlyArray<readonly [number, number]>
+  >();
   const visible =
     q.length > 0
-      ? templates.filter((t) => t.name.toLowerCase().includes(q))
+      ? templates.filter((t) => {
+          const at = t.name.toLowerCase().indexOf(q);
+          if (at !== -1) {
+            shelfSpans.set(t.id, [[at, at + q.length]]);
+            return true;
+          }
+          if (q.length >= 2) {
+            const spans = subsequenceSpans(q, t.name);
+            if (spans) {
+              shelfSpans.set(t.id, spans);
+              return true;
+            }
+          }
+          return false;
+        })
       : templates;
 
   const apply = (t: CustomTemplateSummary) => {
@@ -381,7 +423,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 px-1.5 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+            className="h-6 px-1.5 text-[11px] text-danger-600 hover:bg-danger-500/10 hover:text-danger-700"
             onClick={() => setArmClear(true)}
             aria-label={`Clear all ${templates.length} templates`}
             title="Remove every saved template from this shelf"
@@ -393,7 +435,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
         {hasBatch && armClear && (
           <>
             <span
-              className="text-[10px] font-medium normal-case text-rose-600"
+              className="text-[10px] font-medium normal-case text-danger-600"
               data-testid="custom-template-clear-arm"
             >
               Delete all {templates.length}?
@@ -401,7 +443,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 gap-1 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+              className="h-6 gap-1 px-2 text-[11px] text-danger-600 hover:bg-danger-500/10 hover:text-danger-700"
               onClick={clearAll}
               data-testid="custom-template-clear-confirm"
             >
@@ -461,6 +503,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
             onBlur={() => setSearchFocused(false)}
             placeholder="Filter templates by name…"
             aria-label="Filter templates by name"
+            title="Substring first, then in-order abbreviations — matched characters highlight"
             className="h-7 pl-7 pr-16 text-[11px]"
             data-testid="custom-template-search"
           />
@@ -489,6 +532,9 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
           data-canvas-ui="custom-templates-no-match"
         >
           No templates match “{searchQ.trim()}” — press Escape or click the × to clear the filter.
+          {" "}
+          Abbreviations work too — any in-order characters match, e.g.
+          “cls2” finds a template named “2D Classification pass 2”.
         </p>
       ) : (
         <ul className="grid max-h-44 gap-1.5 overflow-y-auto pr-0.5" data-canvas-ui="custom-templates-list">
@@ -502,7 +548,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
               key={t.id}
               className={cn(
                 "group flex items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 transition-colors",
-                armed ? "border-rose-300 bg-rose-500/5" : "hover:border-primary/40"
+                armed ? "border-danger-300 bg-danger/5" : "hover:border-primary/40"
               )}
               data-canvas-ui="custom-template-row"
               data-template-id={t.id}
@@ -513,7 +559,14 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
               ) : (
                 <TemplateShapeHoverCard id={t.id} name={t.name}>
                   <p className="truncate text-xs font-medium" title={t.name}>
-                    {t.name}
+                    {/* t727 — the wash IS the why: matched characters
+                        glow amber (same FIND_MARK_CLASS hue the canvas
+                        cards ring with), plain ink between. No chip —
+                        nothing hidden on this row. */}
+                    <FindMarkedText
+                      text={t.name}
+                      spans={shelfSpans.get(t.id) ?? []}
+                    />
                   </p>
                   <p className="text-[10px] tabular-nums text-muted-foreground">
                     {t.jobCount} jobs · {t.edgeCount} wire{t.edgeCount === 1 ? "" : "s"} · {t.createdAt.slice(0, 10)}
@@ -525,7 +578,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 gap-1 px-2 text-[11px] text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+                    className="h-6 gap-1 px-2 text-[11px] text-danger-600 hover:bg-danger-500/10 hover:text-danger-700"
                     onClick={() => {
                       setArmDeleteId(null);
                       void deleteCustomTemplate(t.id);
@@ -579,7 +632,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 px-2 text-[11px] text-rose-600 opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-700 focus-visible:opacity-100 group-hover:opacity-100"
+                    className="h-6 px-2 text-[11px] text-danger-600 opacity-0 transition-opacity hover:bg-danger-500/10 hover:text-danger-700 focus-visible:opacity-100 group-hover:opacity-100"
                     onClick={() => setArmDeleteId(t.id)}
                     aria-label={`Delete template ${t.name}`}
                     title="Forget this template"
@@ -740,7 +793,7 @@ export function TemplatePresetsDialog() {
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Wand2 className="size-4 text-teal-600" aria-hidden="true" />
+            <Wand2 className="size-4 text-running-600" aria-hidden="true" />
             Scaffold standard SPA pipeline
           </DialogTitle>
           <DialogDescription>
@@ -863,7 +916,15 @@ export function TemplatePresetsDialog() {
             (Export all / Clear) arms in the header once there are ≥ 2. */}
         <CustomTemplatesSection onEditingChange={setShelfEditing} />
 
-        <DialogFooter className="items-center gap-2 sm:justify-between">
+        {/* t383 — sticky footer: the dialog's content (presets + knobs +
+            shelf) outgrows short viewports; with the base DialogContent now
+            scrolling internally (ui/dialog.tsx), the action row pins to the
+            bottom so Create/Cancel stay visible without scrolling. The
+            negative margins bleed the strip across the content's p-6 and
+            the border-t draws the fold; on tall viewports sticky never
+            engages (the footer's natural position is already the last
+            element) so the dialog looks exactly as before. */}
+        <DialogFooter className="sticky bottom-0 z-10 -mx-6 -mb-6 items-center gap-2 border-t bg-background px-6 py-3 sm:justify-between">
           <p className="text-[10px] text-muted-foreground">
             {restored && (
               <span className="mr-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">

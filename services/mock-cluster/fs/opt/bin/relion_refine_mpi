@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Mock relion_refine_mpi for the Cryoflow mock cluster (t365).
+#
+# t360's dispatch swaps the serial relion_refine for relion_refine_mpi on
+# modules that carry mpirun (one MPI universe, one writer); the script
+# preflight demands the binary exists after module load. This stub is the
+# SAME star-aware fake as relion_refine — the MPI-ness is a costume (the
+# mock's mpirun execs rank 0 as a plain process anyway), so behavior and
+# receipts stay identical on both lanes.
+exec "$(dirname "$0")/relion_refine" "$@"

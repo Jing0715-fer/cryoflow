@@ -41,13 +41,39 @@ interface SbatchResponse {
 
 const MODE_COLOR: Record<string, string> = {
   "multi-gpu": "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
-  array: "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30",
+  array: "bg-running/10 text-running-700 dark:text-running-300 border-running/30",
   single: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
   cpu: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30",
 };
 
-export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; compact?: boolean }) {
-  const [open, setOpen] = React.useState(false);
+export function HpcSbatchDialog({
+  jobId,
+  compact = false,
+  open: openProp,
+  onOpenChange,
+}: {
+  jobId: string;
+  compact?: boolean;
+  /** t757 — the controlled form: when `open` is provided the self-trigger is
+   *  not rendered and the owner (the inspector's tools menu) owns the door —
+   *  t399's retirement verdict prophesied exactly this home ("should a
+   *  tools-menu home ever be wanted"). Uncontrolled callers keep the
+   *  self-trigger button, byte for byte. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [openState, setOpenState] = React.useState(false);
+  // The owner's `open` wins when provided; the merged setter reports outward
+  // (so the owner's state stays the single truth) while still flipping the
+  // internal state for the uncontrolled form.
+  const open = openProp ?? openState;
+  const setOpen = React.useCallback(
+    (v: boolean) => {
+      setOpenState(v);
+      onOpenChange?.(v);
+    },
+    [onOpenChange]
+  );
   const [profiles, setProfiles] = React.useState<ProfileBrief[]>([]);
   const [profileId, setProfileId] = React.useState("");
   const [data, setData] = React.useState<SbatchResponse | null>(null);
@@ -102,6 +128,7 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
+      {openProp === undefined ? (
       <DialogTrigger asChild>
         <Button
           variant={compact ? "ghost" : "outline"}
@@ -118,11 +145,19 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
           {compact ? null : <span className="ml-1.5">HPC</span>}
         </Button>
       </DialogTrigger>
+      ) : null}
       <DialogContent
-        className="max-w-3xl"
+        className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
         onKeyDown={onEscapeClose(() => setOpen(false))}
       >
-        <DialogHeader>
+        {/* t808 — the house dialect, second face of the batch: the
+            DialogContent rode the t383 default cap (max-h +
+            overflow-y-auto — the body WAS the scroll surface, the Radix
+            pin made the middle unreachable); same cure, the card keeps
+            its width (sm:max-w-3xl), the script <pre> keeps its own
+            max-h-80 ground, the Gantt keeps its own. One law per
+            window. */}
+        <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2">
             <Server className="size-4 text-primary" aria-hidden="true" />
             Slurm submission · {data?.jobName ?? "…"}
@@ -134,6 +169,12 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
           </DialogDescription>
         </DialogHeader>
 
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Slurm sbatch workspace — the profile row, the generated script, and the scheduling projection"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
         <div className="flex flex-wrap items-center gap-2">
           <Select value={profileId} onValueChange={setProfileId}>
             <SelectTrigger className="h-8 w-64 text-xs" aria-label="Cluster profile">
@@ -174,7 +215,7 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
             <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" /> Generating…
           </div>
         ) : data?.error ? (
-          <div className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] p-3 text-xs text-rose-700 dark:text-rose-300">
+          <div className="rounded-md border border-danger-500/30 bg-danger/[0.06] p-3 text-xs text-danger">
             {data.error}
           </div>
         ) : (
@@ -198,6 +239,7 @@ export function HpcSbatchDialog({ jobId, compact = false }: { jobId: string; com
             projection (KPI band + Gantt), prefilled from the selected
             profile's node shape. Project-wide by contract. */}
         <HpcQueueSim gpusPerNode={profiles.find((p) => p.id === profileId)?.gpusPerNode} />
+        </div>
       </DialogContent>
     </Dialog>
   );

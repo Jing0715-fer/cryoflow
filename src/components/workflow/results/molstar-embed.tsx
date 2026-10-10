@@ -16,21 +16,23 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CopyPlus, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Link2, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  onEscapeClose, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+  onEscapeClose, openTopSurface, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
+import { Kbd } from "@/components/ui/kbd"; // t830 — the door's keymap speaks the one kbd vocabulary (t642)
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { PENDING_VIEW_KEY } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT } from "./map-ortho-panel";
+import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, SharePayload, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
-import { canCopyImageToClipboard, copyViewerPng, downloadViewerBlob, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
+import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
+import { downloadBlob } from "@/lib/download";
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -50,6 +52,7 @@ import {
   type ReportOverlay,
 } from "@/lib/qc-report";
 import { MrcImage } from "./mrc-image";
+import { STATUS_HEX } from "@/lib/status-style";
 import { Color } from "molstar/lib/mol-util/color";
 import "molstar/build/viewer/molstar.css";
 
@@ -262,6 +265,272 @@ const buildProfileCsv = (bins: number[], axis: string): string =>
 
 const profileCsvFilename = (axis: string): string =>
   `map-profile-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+
+/* ------------------------------------------------------------------ */
+/* The oblique 3D cut (t661) — grid math → Mol*'s clip-plane language  */
+/* ------------------------------------------------------------------ */
+
+const OBLIQUE_DEG = Math.PI / 180;
+const CLIP_PLANE_IDENTITY_16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] as number[];
+
+/** the volume geometry buildObliqueClipPlane needs — the same shape
+ *  clipBox() reports for the loaded volume (origin/extents/dims) */
+export interface ObliqueClipGeometry {
+  origin: [number, number, number];
+  extents: [number, number, number];
+  dims: number[];
+}
+
+/**
+ * ONE builder for the oblique cut plane in Mol*'s pixel-clip language —
+ * the same plane family the 2D oblique tile samples (readMrcObliqueSlice /
+ * obliqueFrame: normal from (θ,φ), support over the 8 grid corners, anchor
+ * = center + frac·support·n). Grid == cartesian is the documented isotropic
+ * law (t556); the anchor converts through the grid-to-cartesian origin and
+ * per-axis voxel sizes so non-cubic boxes still land the plane where the
+ * tile cuts it.
+ *
+ * Mol* planes take their normal from rotating the default +Y by axis-angle
+ * (the same recipe the t253 PLANE_ROTATION table drives for the axes), so
+ * the rotation here is exactly +Y swung onto n: axis = ŷ×n normalized
+ * (degenerate at ±ŷ → the canonical fallbacks, identity and x̂·180°).
+ *
+ * invert=false keeps the −n half-space — the side the ⌖ camera rides, so
+ * the face-on view looks AT the cut. Returns null when the geometry is
+ * unusable: an honest no-cut beats a guessed plane.
+ */
+export function buildObliqueClipPlane(
+  ob: { theta: number; phi: number; offset: number },
+  invert: boolean,
+  geo: ObliqueClipGeometry
+):
+  | {
+      type: "plane";
+      invert: boolean;
+      position: [number, number, number];
+      rotation: { axis: [number, number, number]; angle: number };
+      scale: [number, number, number];
+      transform: number[];
+    }
+  | null {
+  const dims = geo.dims;
+  if (!Array.isArray(dims) || dims.length !== 3 || dims.some((d) => !(d >= 1))) return null;
+  const t = Math.min(180, Math.max(0, ob.theta)) * OBLIQUE_DEG;
+  const p = Math.min(360, Math.max(0, ob.phi)) * OBLIQUE_DEG;
+  const n: [number, number, number] = [
+    Math.sin(t) * Math.cos(p),
+    Math.sin(t) * Math.sin(p),
+    Math.cos(t),
+  ];
+  const c: [number, number, number] = [(dims[0] - 1) / 2, (dims[1] - 1) / 2, (dims[2] - 1) / 2];
+  // support along the normal — max over the box's 8 corners (voxel units),
+  // the corner walk the server and the panel both mirror
+  let supportN = 0;
+  for (let i = 0; i < 2; i++)
+    for (let j = 0; j < 2; j++)
+      for (let k = 0; k < 2; k++) {
+        const d: [number, number, number] = [
+          (i ? dims[0] - 1 : 0) - c[0],
+          (j ? dims[1] - 1 : 0) - c[1],
+          (k ? dims[2] - 1 : 0) - c[2],
+        ];
+        supportN = Math.max(supportN, Math.abs(d[0] * n[0] + d[1] * n[1] + d[2] * n[2]));
+      }
+  const frac = Number.isFinite(ob.offset) ? Math.min(1, Math.max(-1, ob.offset)) : 0;
+  const anchorVox: [number, number, number] = [
+    c[0] + frac * supportN * n[0],
+    c[1] + frac * supportN * n[1],
+    c[2] + frac * supportN * n[2],
+  ];
+  const pos: [number, number, number] = [
+    geo.origin[0] + anchorVox[0] * (geo.extents[0] / dims[0]),
+    geo.origin[1] + anchorVox[1] * (geo.extents[1] / dims[1]),
+    geo.origin[2] + anchorVox[2] * (geo.extents[2] / dims[2]),
+  ];
+  // +Y → n: axis = ŷ×n (unit), angle = acos(n·ŷ); poles get the honest
+  // canonical forms instead of a zero-axis NaN
+  const cosA = Math.min(1, Math.max(-1, n[1]));
+  let axis: [number, number, number];
+  if (cosA > 1 - 1e-6) axis = [0, 1, 0];
+  else if (cosA < -1 + 1e-6) axis = [1, 0, 0];
+  else {
+    const len = Math.hypot(n[2], n[0]);
+    axis = [n[2] / len, 0, -n[0] / len];
+  }
+  return {
+    type: "plane",
+    invert,
+    position: pos,
+    rotation: { axis, angle: (Math.acos(cosA) / OBLIQUE_DEG) },
+    scale: [1, 1, 1],
+    transform: CLIP_PLANE_IDENTITY_16,
+  };
+}
+
+/** The cut's 3D guide (t662) — WHERE the oblique plane crosses the volume.
+ *  A pixel-clip plane has no pixels of its own, so the surface opening along
+ *  it gives the eye no anchor; the guide computes the plane's trace polygon
+ *  against the volume's world-space box (the same [0, dims] box the clip
+ *  wireframe walks) plus a kept-side tick from the anchor — the direction
+ *  the flip promises survives (−N unless inverted, the mirror of the cut's
+ *  "invert=false keeps −n" contract).
+ *
+ *  The anchor IS the cut's anchor (buildObliqueClipPlane's position,
+ *  verbatim) so the guide can never drift from what the surface obeys. The
+ *  world normal comes from the voxel-space normal through the grid's basis
+ *  columns (Vᵀ·N = n — the plane equation transforms covariantly), which on
+ *  the documented isotropic law (t556) reduces to the cut's own direction
+ *  and keeps anisotropic or rotated grids honest too. Returns null when the
+ *  geometry is unusable (mirrors the clip builder's honest no-cut). */
+export interface ObliqueGuideGeometry {
+  /** plane ∩ box trace, wound consistently around N; fewer than 3 points
+   *  when the plane only grazes the box (the tick still draws) */
+  polygon: [number, number, number][];
+  /** the cut's own anchor (world) — the tick grows from here */
+  anchor: [number, number, number];
+  /** unit direction the KEPT half-space faces (−N unless flipped) */
+  keptDir: [number, number, number];
+  /** support of the box along the normal from the anchor (world units) —
+   *  the tick's scale reference */
+  support: number;
+}
+
+export function buildObliqueGuidePlane(
+  ob: { theta: number; phi: number; offset: number },
+  invert: boolean,
+  geo: ObliqueClipGeometry,
+  cols: [[number, number, number], [number, number, number], [number, number, number]]
+): ObliqueGuideGeometry | null {
+  const clip = buildObliqueClipPlane(ob, invert, geo);
+  if (!clip) return null;
+  const anchor = clip.position;
+  const dims = geo.dims;
+  // the voxel-space normal — the same recipe the clip builder swings +Y by
+  const t = Math.min(180, Math.max(0, ob.theta)) * OBLIQUE_DEG;
+  const p = Math.min(360, Math.max(0, ob.phi)) * OBLIQUE_DEG;
+  const n: [number, number, number] = [
+    Math.sin(t) * Math.cos(p),
+    Math.sin(t) * Math.sin(p),
+    Math.cos(t),
+  ];
+  // Vᵀ·N = n (row i: cols[i]·N = n[i]) via Cramer's rule with column
+  // replacement; a degenerate basis (zero or parallel columns) is a broken
+  // volume, not a guessable plane
+  const M = [
+    [cols[0][0], cols[0][1], cols[0][2]],
+    [cols[1][0], cols[1][1], cols[1][2]],
+    [cols[2][0], cols[2][1], cols[2][2]],
+  ];
+  const det3 = (a: number[]): number =>
+    a[0] * (a[4] * a[8] - a[5] * a[7]) -
+    a[1] * (a[3] * a[8] - a[5] * a[6]) +
+    a[2] * (a[3] * a[7] - a[4] * a[6]);
+  const flat = [M[0][0], M[0][1], M[0][2], M[1][0], M[1][1], M[1][2], M[2][0], M[2][1], M[2][2]];
+  const det = det3(flat);
+  if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return null;
+  const replaced = (k: number): number[] =>
+    flat.map((v, idx) => (idx % 3 === k ? n[idx % 3] : v));
+  let N: [number, number, number] = [
+    det3(replaced(0)) / det,
+    det3(replaced(1)) / det,
+    det3(replaced(2)) / det,
+  ];
+  const nLen = Math.hypot(N[0], N[1], N[2]);
+  if (!Number.isFinite(nLen) || nLen < 1e-12) return null;
+  N = [N[0] / nLen, N[1] / nLen, N[2] / nLen];
+
+  // the volume's world box — the full [0, dims] walk (extents = |col|·dims,
+  // the same convention the clip wireframe's corners use)
+  const corner = (a: number, b: number, c: number): [number, number, number] => [
+    geo.origin[0] + a * cols[0][0] + b * cols[1][0] + c * cols[2][0],
+    geo.origin[1] + a * cols[0][1] + b * cols[1][1] + c * cols[2][1],
+    geo.origin[2] + a * cols[0][2] + b * cols[1][2] + c * cols[2][2],
+  ];
+  const corners = [
+    corner(0, 0, 0), corner(dims[0], 0, 0),
+    corner(dims[0], dims[1], 0), corner(0, dims[1], 0),
+    corner(0, 0, dims[2]), corner(dims[0], 0, dims[2]),
+    corner(dims[0], dims[1], dims[2]), corner(0, dims[1], dims[2]),
+  ];
+  const edges: [number, number][] = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ];
+  const side = (q: [number, number, number]): number =>
+    N[0] * (q[0] - anchor[0]) + N[1] * (q[1] - anchor[1]) + N[2] * (q[2] - anchor[2]);
+  // plane ∩ box: every edge that straddles the plane yields one crossing;
+  // corners exactly ON the plane join too (deduped below)
+  const dedupeTol2 = 1e-8 * (geo.extents[0] ** 2 + geo.extents[1] ** 2 + geo.extents[2] ** 2);
+  const pts: [number, number, number][] = [];
+  const push = (q: [number, number, number]) => {
+    if (!pts.some((r) => (r[0] - q[0]) ** 2 + (r[1] - q[1]) ** 2 + (r[2] - q[2]) ** 2 < dedupeTol2))
+      pts.push(q);
+  };
+  for (const [a, b] of edges) {
+    const da = side(corners[a]);
+    const db = side(corners[b]);
+    if (da === 0) push(corners[a]);
+    if (db === 0 && b !== a) push(corners[b]);
+    if (da * db < 0) {
+      const f = da / (da - db);
+      push([
+        corners[a][0] + f * (corners[b][0] - corners[a][0]),
+        corners[a][1] + f * (corners[b][1] - corners[a][1]),
+        corners[a][2] + f * (corners[b][2] - corners[a][2]),
+      ]);
+    }
+  }
+  // wind the crossings consistently around the normal — in-plane basis from
+  // the farthest crossing, angles ascending → CCW as seen from +N
+  if (pts.length >= 3) {
+    const c: [number, number, number] = [0, 0, 0];
+    for (const q of pts) {
+      c[0] += q[0] / pts.length;
+      c[1] += q[1] / pts.length;
+      c[2] += q[2] / pts.length;
+    }
+    let far = pts[0];
+    let farD2 = -1;
+    for (const q of pts) {
+      const d2 = (q[0] - c[0]) ** 2 + (q[1] - c[1]) ** 2 + (q[2] - c[2]) ** 2;
+      if (d2 > farD2) {
+        farD2 = d2;
+        far = q;
+      }
+    }
+    let u: [number, number, number] = [
+      far[0] - c[0] - ((far[0] - c[0]) * N[0] + (far[1] - c[1]) * N[1] + (far[2] - c[2]) * N[2]) * N[0],
+      far[1] - c[1] - ((far[0] - c[0]) * N[0] + (far[1] - c[1]) * N[1] + (far[2] - c[2]) * N[2]) * N[1],
+      far[2] - c[2] - ((far[0] - c[0]) * N[0] + (far[1] - c[1]) * N[1] + (far[2] - c[2]) * N[2]) * N[2],
+    ];
+    const uLen = Math.hypot(u[0], u[1], u[2]);
+    if (uLen < 1e-9) return { polygon: [], anchor, keptDir: invert ? N : [-N[0], -N[1], -N[2]], support: 0 };
+    u[0] /= uLen;
+    u[1] /= uLen;
+    u[2] /= uLen;
+    const v: [number, number, number] = [
+      N[1] * u[2] - N[2] * u[1],
+      N[2] * u[0] - N[0] * u[2],
+      N[0] * u[1] - N[1] * u[0],
+    ];
+    const angle = (q: [number, number, number]): number => {
+      const r0 = q[0] - c[0];
+      const r1 = q[1] - c[1];
+      const r2 = q[2] - c[2];
+      return Math.atan2(r0 * v[0] + r1 * v[1] + r2 * v[2], r0 * u[0] + r1 * u[1] + r2 * u[2]);
+    };
+    pts.sort((qa, qb) => angle(qa) - angle(qb));
+  }
+  let support = 0;
+  for (const q of corners) support = Math.max(support, Math.abs(side(q)));
+  return {
+    polygon: pts,
+    anchor,
+    keptDir: invert ? N : [-N[0], -N[1], -N[2]],
+    support,
+  };
+}
 
 /** The viewport is a guest: it follows the room's theme. The Mol* canvas
  *  paints ITSELF — no computed-style audit can ever see its background, and
@@ -638,8 +907,48 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   useEffect(() => {
     sigmaRef.current = sigma;
     signRef.current = sign;
+    // t280 — the ortho panel's header chip and export footer speak the
+    // contour: every σ change (slider, preset, restored bookmark — this
+    // effect runs on mount too) echoes to the 2D side. Late listeners are
+    // covered by the ORTHO_SIGMA_REQUEST pull below.
+    window.dispatchEvent(new CustomEvent(ORTHO_SIGMA_STATE_EVENT, { detail: { sigma, sign } }));
     void pumpContour();
   }, [sigma, sign]);
+
+  // t280 — the pull channel: a mounting (or re-mounting) ortho panel asks
+  // for the CURRENT contour; answer from the ref, not the state — the
+  // ref is the same "what the screen shows right now" source the bookmark
+  // capture reads, so chip and bookmarks can never disagree.
+  useEffect(() => {
+    const onSigmaRequest = () => {
+      window.dispatchEvent(
+        new CustomEvent(ORTHO_SIGMA_STATE_EVENT, {
+          detail: { sigma: sigmaRef.current, sign: signRef.current },
+        })
+      );
+    };
+    window.addEventListener(ORTHO_SIGMA_REQUEST_EVENT, onSigmaRequest);
+    return () => window.removeEventListener(ORTHO_SIGMA_REQUEST_EVENT, onSigmaRequest);
+  }, []);
+
+  // t283 — the SET channel completes the σ family: STATE echoes (3D→2D),
+  // REQUEST pulls (2D→3D), SET commands (2D→3D). The histogram strip is a
+  // contour PICKER — clicking a density sends it here; the clamp is the
+  // slider's own restore bounds ([0.05, 10]), the sign follows the clicked
+  // side of the mean, and the existing [sigma, sign] effect does the rest
+  // (pump + STATE echo) — the chip and the cut line converge on their own.
+  useEffect(() => {
+    const onSigmaSet = (e: Event) => {
+      const d = (e as CustomEvent<Partial<{ sigma: number; sign: number }>>).detail;
+      if (!d || typeof d.sigma !== "number" || !Number.isFinite(d.sigma)) return;
+      const s = Math.min(10, Math.max(0.05, d.sigma));
+      const sg: 1 | -1 = d.sign === -1 ? -1 : 1;
+      if (Math.abs(sigmaRef.current - s) > 1e-6) setSigma(s);
+      if (signRef.current !== sg) setSign(sg);
+    };
+    window.addEventListener(ORTHO_SIGMA_SET_EVENT, onSigmaSet);
+    return () => window.removeEventListener(ORTHO_SIGMA_SET_EVENT, onSigmaSet);
+  }, []);
 
   const commitContour = async (value: number, dir: 1 | -1) => {
     const plugin = pluginRef.current;
@@ -1134,11 +1443,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   /* ---------------- standard view orientations ------------------------- */
   // Axis-aligned presets are the daily bread of cryo-EM inspection — look
   // straight down X/Y/Z to judge anisotropy, check the top/bottom of the
-  // box, or return to the default ¾ view. Camera.focus(target, radius,
-  // durationMs, up, dir) keeps the current target + zoom radius and only
-  // swings the view direction (dir = camera→target, up = screen north),
-  // eased over 320 ms — verified against molstar/lib/mol-canvas3d/camera.js
-  // (getFocus matches deltaDirection to `dir`, position = target − dir·d).
+  // box, or return to the default ¾ view. The swing keeps the current
+  // target + zoom radius and only changes the view line (dir = camera→
+  // target, up = screen north), eased over 320 ms.
+  //
+  // t557 — getInvariantFocus, NOT focus(). Camera.focus() runs dir AND up
+  // through Vec3.matchDirection(requested, CURRENT), which keeps the SIGN
+  // that agrees with the camera's current side of the target (dot > 0 ?
+  // copy : negate) — a "Front" press from the back half of the orbit
+  // silently lands you on the BACK, and the ⌖ jump could face the cut
+  // from the wrong side (tile chirality then mirrors). Found live while
+  // proving the adopt→⌖ round trip: the probed camera sat at exactly −n
+  // after a ⌖ that asked for +n. The invariant variant copies dir/up
+  // verbatim; the same eased setState(durationMs) does the animating.
   const VIEW_PRESETS: Array<{ key: string; label: string; dir: [number, number, number]; up: [number, number, number] }> = [
     { key: "front", label: "Front", dir: [0, 0, -1], up: [0, 1, 0] },
     { key: "back", label: "Back", dir: [0, 0, 1], up: [0, 1, 0] },
@@ -1153,12 +1470,26 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     const st = cam.state;
     const target = Array.from(st.target ?? [0, 0, 0]) as [number, number, number];
     const radius = Number(st.radius) || 0;
-    if (!(radius > 0)) return; // focus() ignores radius ≤ 0 — nothing framed yet
-    cam.focus(target, radius, 320, up as unknown as Parameters<typeof cam.focus>[3], dir as unknown as Parameters<typeof cam.focus>[4]);
+    if (!(radius > 0)) return; // nothing framed yet — both focus variants ignore it
+    const snap = cam.getInvariantFocus(
+      target as unknown as Parameters<typeof cam.getInvariantFocus>[0],
+      radius,
+      up as unknown as Parameters<typeof cam.getInvariantFocus>[2],
+      dir as unknown as Parameters<typeof cam.getInvariantFocus>[3],
+    );
+    cam.setState(snap, 320);
   };
   // keyboard: 1-6 swing to the matching axis view, 0 returns to the default
-  // ¾ view — same muscle memory as the canvas (0 = reset). Scoped to the
-  // viewer being ready; form fields and open menus keep their keys.
+  // ¾ view — same muscle memory as the canvas (0 = reset). B quick-saves the
+  // pose. t829 adds the SCRUB keys — the two most-visited instruments get a
+  // keyboard face: [ / ] step the contour σ (relative ×1.05, so the same
+  // tap means fine tuning at 0.6σ and coarser moves at 8σ), F flips the
+  // density sign, X/Y/Z cut the section plane at that axis (turning it on
+  // if it slept), and , / . (with shift: < / >) scrub the plane along its
+  // axis once it is on — the panel is closed when the plane sleeps, so the
+  // scrub keys deliberately do nothing then: no spooky action on an
+  // invisible plane. Scoped to the viewer being ready; form fields and
+  // open menus keep their keys.
   useEffect(() => {
     if (phase !== "ready") return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -1170,6 +1501,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       )
         return;
       if (document.querySelector('[role="menu"][data-state="open"]')) return;
+      // t831 — the world behind a FOREIGN modal falls silent: keys firing
+      // under a mask drive an invisible 3D world — the same spooky action
+      // the scrub verbs' ON-guard refused. The house's open-surface truth
+      // is the witness, read at the TOP of the portal stack (the last
+      // open surface is the one painted on top): when the topmost modal
+      // is THIS viewer's own dialog, the keys are its keyboard face (the
+      // t829 contract — the standard drive-in stacks the viewer over the
+      // job report, and the keys stayed live there); when a foreign modal
+      // tops the stack (quick-look, star, the embed's own export door),
+      // the world holds its breath. Popovers are non-modal and never
+      // count (the door keeps reading its own keymap).
+      const topSurface = openTopSurface();
+      if (topSurface && !(containerRef.current && topSurface.contains(containerRef.current))) return;
       const cam = pluginRef.current?.canvas3d?.camera;
       if (!cam) return;
       const idx = "123456".indexOf(e.key);
@@ -1191,6 +1535,35 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), thumb: captureBookmarkThumb(), snapshot, view: captureBookmarkView() },
         ].slice(-8));
         toast({ title: "View saved", description: `“${nm}” (B key) — jump back from the bookmark menu any time.` });
+      } else if (e.key === "]" || e.key === "[") {
+        // t829 — contour scrub: relative steps so the tap scales with the
+        // level (×1.05 per press; at 0.6σ that is 0.03, at 8σ it is 0.4).
+        // Two decimals keeps the readout and the slider in exact agreement.
+        e.preventDefault();
+        const next = e.key === "]"
+          ? Math.min(SIGMA_MAX, sigmaRef.current * 1.05)
+          : Math.max(SIGMA_MIN, sigmaRef.current / 1.05);
+        setSigma(Math.round(next * 100) / 100);
+      } else if (e.key === "f" || e.key === "F") {
+        // t829 — polarity flip: the flip button's exact verb, on the keys
+        e.preventDefault();
+        setSign((s) => (s > 0 ? -1 : 1));
+      } else if (e.key === "x" || e.key === "y" || e.key === "z" || e.key === "X" || e.key === "Y" || e.key === "Z") {
+        // t829 — the section verbs: X/Y/Z cut the plane at that axis,
+        // turning it on when it slept (the same intent path the panel's
+        // own axis buttons ride, so sliders/landscape/chips all follow)
+        e.preventDefault();
+        const ax = e.key.toUpperCase() as SliceAxis;
+        applySliceIntent({ on: true, axis: ax });
+      } else if (e.key === "," || e.key === "." || e.key === "<" || e.key === ">") {
+        // t829 — the scrub verbs: nudge the plane along its axis. They
+        // demand the plane ON — an invisible plane must not move.
+        if (!sliceStateRef.current.on) return;
+        e.preventDefault();
+        const step = e.key === "<" || e.key === ">" ? 0.1 : 0.02;
+        const dir = e.key === "," || e.key === "<" ? -1 : 1;
+        const next = Math.min(1, Math.max(0, sliceStateRef.current.pos + dir * step));
+        applySliceIntent({ pos: Math.round(next * 100) / 100 });
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -1229,8 +1602,38 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
        *  box mode; absent (old bookmarks) restores in slider language */
       box?: { lo: [number, number, number]; hi: [number, number, number] } | null;
     };
+    /** t279 — the tri-planar focus point (the ortho browser's three plane
+     *  positions at save time); absent (old bookmarks, or no ortho world
+     *  open when the view was saved) restores the tiles untouched */
+    focus?: { x: number; y: number; z: number };
+    /** t661 — the oblique 3D cut (the ortho block's ✂ mirror); present
+     *  only when the cut was ON at save time. Absent restores the live
+     *  cut untouched — a view saved before the cut existed never promised
+     *  one, and switching nothing is the honest fly-back for it */
+    oblique?: { on: boolean; theta: number; phi: number; offset: number; invert: boolean };
   };
   type CamBookmark = { id: string; name: string; ts: number; thumb?: string; snapshot: Record<string, unknown>; view?: BookmarkView };
+  // t279 — the ortho browser's tri-planar focus point, as last reported
+  // over ORTHO_FOCUS_EVENT. A ref, not state: the bookmark capture reads
+  // "what the screen shows right now" and the embed must not re-render
+  // every time the 2D panel scrubs. Absent = no ortho world yet (no map
+  // open, or a .mrcs stack) — the saved view simply carries no focus.
+  const orthoFocusRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  useEffect(() => {
+    const onOrthoFocus = (e: Event) => {
+      const d = (e as CustomEvent<Partial<{ x: number; y: number; z: number }>>).detail;
+      if (!d || typeof d !== "object") return;
+      const n = (v: unknown) =>
+        typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
+      const x = n(d.x);
+      const y = n(d.y);
+      const z = n(d.z);
+      if (x === undefined || y === undefined || z === undefined) return;
+      orthoFocusRef.current = { x, y, z };
+    };
+    window.addEventListener(ORTHO_FOCUS_EVENT, onOrthoFocus);
+    return () => window.removeEventListener(ORTHO_FOCUS_EVENT, onOrthoFocus);
+  }, []);
   const [bookmarks, setBookmarks] = useState<CamBookmark[]>([]);
   const [bookmarkName, setBookmarkName] = useState("");
   // inline rename — the pencil swaps the row's name span for an input;
@@ -1239,6 +1642,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const renameCancelRef = useRef(false);
+  // t788 — a deleted or renamed row hands the keyboard to its neighbor, never to body.
+  const pendingFocusRef = useRef<{ idx: number } | null>(null);
+  const bmListRef = useRef<HTMLDivElement | null>(null);
   // import preview dialog — files are parsed up front and shown as a
   // checklist (thumb / name / optics chips / pose-only badge) instead of
   // being merged sight unseen. Sources are MIXABLE: several JSON files and
@@ -1255,6 +1661,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // counts are fetched lazily when the section opens — 8 tiny JSON GETs
   // only ever happen on explicit click, never on popover hover)
   const allJobs = useWorkflowStore((s) => s.jobs);
+  // t822 — the share link carries the job's home project as the jump hint
+  // (the wall's cross-project dialect needs it to switch before it lands)
+  const activeProjectId = useWorkflowStore((s) => s.project?.id);
   const [fromJobOpen, setFromJobOpen] = useState(false);
   const [fromJobState, setFromJobState] = useState<"idle" | "loading">("idle");
   const [fromJobList, setFromJobList] = useState<
@@ -1270,6 +1679,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // render frame) read stale closure state otherwise, and the last PUT
   // would resurrect the entry the first click deleted
   const bookmarksRef = useRef<CamBookmark[]>([]);
+  // t675 — the writer's side of the fourth ear (the listener below). Every
+  // local commit bumps the mutation counter, and every queued PUT holds the
+  // busy gate up until its fetch settles (the broadcast rides the chain
+  // tail, so a listener event arriving while the gate is up means our own
+  // chain is mid-flight). putFailed remembers the offline posture: when a
+  // PUT fails, the LOCAL copy holds the truth (putBookmarkSession's
+  // contract) and a fresh server read must not clobber it.
+  const bookmarkMutRef = useRef(0);
+  const putBusyRef = useRef(0);
+  const putFailedRef = useRef(false);
 
   const cleanBookmarks = (parsed: unknown): CamBookmark[] =>
     Array.isArray(parsed)
@@ -1290,7 +1709,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     if (phase !== "ready") return;
     let local: CamBookmark[] = [];
     try {
-      local = cleanBookmarks(JSON.parse(localStorage.getItem(camBookmarkKey(jobId)) ?? "[]"));
+      local = cleanBookmarkList(JSON.parse(localStorage.getItem(camBookmarkKey(jobId)) ?? "[]"));
     } catch {
       local = []; // private mode / corrupt entry — start empty
     }
@@ -1306,7 +1725,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         window.clearTimeout(timer);
         if (r.ok) {
           const j = await r.json();
-          server = cleanBookmarks(j?.bookmarks);
+          server = cleanBookmarkList(j?.bookmarks);
         }
       } catch {
         /* offline / timeout — the local copy restores the views */
@@ -1335,30 +1754,101 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       // dashboard gallery deep-link: a saved view clicked on the dashboard
       // lands here — the viewer is up and the list has loaded, so fly to
       // that view once and clear the request (one-shot by design; a view
-      // deleted in the meantime reports honestly instead of no-op'ing)
+      // deleted in the meantime reports honestly instead of no-op'ing).
+      // t669 — the door must ALWAYS speak: only the PARSE gets the wide
+      // catch (a malformed entry is ignorable noise). Once the request is
+      // consumed, every exit owes a verdict — restore, honest not-found,
+      // or an honest could-not-restore. Silence after consumption is the
+      // one dishonest exit this door exists to prevent (observed live:
+      // a dead fetch made the local mirror answer, a molstar internal
+      // threw mid-restore, and the pending vanished without a word).
+      let pending: { jobId?: string; bookmarkId?: string } | null = null;
       try {
-        const pending = JSON.parse(
+        pending = JSON.parse(
           sessionStorage.getItem(PENDING_VIEW_KEY) ?? "null"
         ) as { jobId?: string; bookmarkId?: string } | null;
-        if (pending && pending.jobId === jobId && typeof pending.bookmarkId === "string") {
-          sessionStorage.removeItem(PENDING_VIEW_KEY);
-          const target = applied.find((b) => b.id === pending.bookmarkId);
-          if (!target) {
-            toast({
-              title: "Saved view not found",
-              description:
-                "It may have been deleted, or its server copy could not be read just now.",
-            });
-          } else {
+      } catch {
+        pending = null; // malformed pending entry — ignore, the wall stays usable
+      }
+      if (pending && pending.jobId === jobId && typeof pending.bookmarkId === "string") {
+        sessionStorage.removeItem(PENDING_VIEW_KEY);
+        const target = applied.find((b) => b.id === pending.bookmarkId);
+        if (!target) {
+          toast({
+            title: "Saved view not found",
+            description:
+              "It may have been deleted, or its server copy could not be read just now.",
+          });
+        } else {
+          try {
             restoreBookmarkRef.current(target);
             toast({
               title: `View “${target.name}” restored`,
               description: "Jumped here from the dashboard gallery.",
             });
+          } catch {
+            toast({
+              title: "Saved view could not be restored",
+              description: `“${target.name}” is on the shelf, but the viewer could not fly to it just now.`,
+            });
           }
         }
+      }
+      // t822 — the shareable link's landing: a pose that traveled inside
+      // the URL. One-shot on the MATCHING job (a mismatched viewer leaves
+      // the payload staged — the share survives until the right viewer
+      // opens; malformed payloads never reach here, the boot consumer
+      // bounced them). The pose applies as a GUEST — no bookmark row is
+      // created; this door's Save keeps it like any other view.
+      let shareRaw: string | null = null;
+      try {
+        shareRaw = sessionStorage.getItem(PENDING_SHARE_KEY);
       } catch {
-        /* malformed pending entry — ignore, the wall stays usable */
+        shareRaw = null;
+      }
+      if (shareRaw && shareRaw !== "null") {
+        const share = decodeSharePayload(shareRaw);
+        if (share && share.jobId === jobId) {
+          sessionStorage.removeItem(PENDING_SHARE_KEY);
+          try {
+            restoreBookmarkRef.current({
+              id: "shared-view",
+              name: share.name,
+              ts: Date.now(),
+              snapshot: share.snapshot,
+              view: share.view as BookmarkView | undefined,
+            });
+            // t823 — the toast's words grow a hand: "Save here" is now a
+            // BUTTON on the toast itself. The action rides saveSharedRef
+            // (the restoreBookmarkRef handle pattern — the consume block
+            // stays row-free: the guest law's negative pin holds even
+            // with the shortcut present; the link still births no row —
+            // the recipient's explicit click does).
+            toast({
+              title: "Shared view restored",
+              description: `“${share.name}” arrived inside the link — jump away, or Save here to keep it.`,
+              action: (
+                <button
+                  type="button"
+                  onClick={() => saveSharedRef.current?.(share)}
+                  className="mt-1 inline-flex h-7 shrink-0 self-center items-center gap-1 whitespace-nowrap rounded-md border border-primary/40 bg-primary/10 px-2 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                >
+                  <Bookmark className="size-3" />
+                  Save this view
+                </button>
+              ),
+            });
+          } catch {
+            toast({
+              title: "Shared view could not be restored",
+              description: "The link's payload read fine, but the viewer could not fly to it just now.",
+            });
+          }
+        }
+        // a mismatched or undecodable share stays staged — it may belong
+        // to a viewer this session has not opened yet (the boot consumer
+        // already bounced malformed payloads; an undecodable stale entry
+        // simply waits and harms nothing)
       }
     })();
   }, [phase, jobId]);
@@ -1373,6 +1863,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const putChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const putBookmarkSession = (list: CamBookmark[]) => {
     const go = async () => {
+      // t675 — the busy gate rises at queue time (go's body runs
+      // synchronously up to the first await) and falls only after THIS
+      // fetch settles, so a broadcast fired on the chain's tail always
+      // observes the gate already down for its own write — the listener
+      // reads only when no queued write is still in flight.
+      putBusyRef.current += 1;
       try {
         await putChainRef.current;
         await fetch(`/api/jobs/${jobId}/camera-bookmarks`, {
@@ -1383,17 +1879,30 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           }),
           keepalive: true,
         });
+        putFailedRef.current = false;
       } catch {
-        /* offline / dev server restarting — the local copy still holds it */
+        // offline / dev server restarting — the local copy still holds it
+        putFailedRef.current = true;
+      } finally {
+        putBusyRef.current -= 1;
       }
     };
+    // t671 — the chain is now a RETURNED promise: the broadcast rides its
+    // tail (a dispatch fired mid-flight races the write and pins a stale
+    // snapshot under a fresh fetchedAt). The chain still swallows network
+    // errors (the local copy holds the truth offline) — the broadcast on
+    // its tail says "the browser's bookmark state moved", and every
+    // listener answers with its own fresh read of whatever the server
+    // holds at that moment.
     putChainRef.current = go();
+    return putChainRef.current;
   };
 
   /** single mutation path — state, synchronous mirror, localStorage and
    *  the server row all move together, so N rapid clicks can never disagree */
   const commitBookmarks = (next: CamBookmark[]) => {
     bookmarkDirtyRef.current = true;
+    bookmarkMutRef.current += 1;
     bookmarksRef.current = next;
     setBookmarks(next);
     try {
@@ -1401,11 +1910,110 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     } catch {
       /* private mode — the session-local list still works */
     }
-    void putBookmarkSession(next);
+    // t671 — the THIRD mouth speaks. save/update/remove all ride this one
+    // path, so every bookmark mutation broadcasts: the dashboard wall (whose
+    // jobCount trigger never fires for bookmarks) re-reads the route, and
+    // the palette's cache re-reads via its own listener — the next open
+    // shows the truth even inside its 30s TTL window. The event carries no
+    // payload on purpose: each surface trusts only its own fresh read (the
+    // t670 two-mouth symmetry, now three). AND the broadcast rides the PUT
+    // chain's tail, not this synchronous moment — a dispatch fired while
+    // the PUT is still in flight lets the listeners' fresh reads RACE the
+    // write and pin a stale snapshot under a fresh fetchedAt (the second
+    // flight paid for this: the palette opened to three rows the viewer
+    // had just outgrown, and to four it had just deleted). The wall's own
+    // poll-until-N hid the race; the palette's single read exposed it.
+    void putBookmarkSession(next).then(() => {
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+    });
   };
 
-  const removeBookmark = (id: string) =>
+  // t675 — the FOURTH EAR. The embed is the managing mouth (its commits PUT
+  // the full list), but t674 made the aggregate mouths full managers too:
+  // the wall's pencil and the palette's trio slot can now rename or delete
+  // a view of the job THIS viewer is showing. Until now the embed never
+  // heard the family broadcast — its list (and bookmarksRef, the source
+  // every commit PUTs wholesale) went stale, and the stale copy had teeth:
+  // the next quick-save would PUT the foreign-deleted row right back
+  // (resurrection by full-list upsert). So the writer learns to listen —
+  // with a writer's guards, because a fresh read landing on a writer must
+  // respect the writes it lands on:
+  //  • the busy gate — while our own PUT chain has a write in flight, an
+  //    intermediate read would clobber state that already reflects the
+  //    queued commits; each commit broadcasts on the chain's tail, so the
+  //    LAST one re-reads the truth (the chain serializes, the ear waits);
+  //  • the offline posture — while the last local PUT failed, the LOCAL
+  //    copy holds the truth (putBookmarkSession's contract); reading the
+  //    server now could resurrect nothing but would bury a live local
+  //    mutation. The next successful PUT re-opens the door;
+  //  • the mid-read commit guard — a local commit landing while the read
+  //    is in flight discards the read (its own broadcast re-reads);
+  //  • the trailing re-read — an event arriving mid-read arms exactly one
+  //    more read (the deduplicated read may have started before the second
+  //    write committed).
+  // The event carries no payload on purpose: the embed reads its OWN route,
+  // the same doctrine as the wall and the palette reading theirs.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    let alive = true;
+    let reading = false;
+    let trailing = false;
+    const readFresh = () => {
+      reading = true;
+      const mutsAtStart = bookmarkMutRef.current;
+      void (async () => {
+        try {
+          const r = await fetch(`/api/jobs/${jobId}/camera-bookmarks`);
+          if (r.ok) {
+            const j = await r.json();
+            const server = cleanBookmarkList(j?.bookmarks);
+            // a local commit landed mid-read — the list it read is already
+            // behind the mirror; that commit's broadcast re-reads the truth
+            if (alive && bookmarkMutRef.current === mutsAtStart) {
+              bookmarksRef.current = server;
+              setBookmarks(server);
+              try {
+                localStorage.setItem(camBookmarkKey(jobId), JSON.stringify(server));
+              } catch {
+                /* private mode — session-local list still works */
+              }
+            }
+          }
+        } catch {
+          /* offline / restarting — the local copy holds the truth */
+        } finally {
+          reading = false;
+          if (trailing && alive) {
+            trailing = false;
+            if (putBusyRef.current === 0 && !putFailedRef.current) readFresh();
+          }
+        }
+      })();
+    };
+    const onSavedViewsChanged = () => {
+      if (putBusyRef.current > 0) return; // our own chain is mid-flight — its last tail re-reads
+      if (putFailedRef.current) return; // offline posture: the local copy holds the truth
+      if (reading) {
+        trailing = true;
+        return;
+      }
+      readFresh();
+    };
+    window.addEventListener(SAVED_VIEWS_CHANGED_EVENT, onSavedViewsChanged);
+    return () => {
+      alive = false;
+      window.removeEventListener(SAVED_VIEWS_CHANGED_EVENT, onSavedViewsChanged);
+    };
+  }, [phase, jobId]);
+
+  const removeBookmark = (id: string) => {
+    // t788 — focus continuity: record the doomed row's index BEFORE the
+    // commit, so the handoff effect can land the keyboard on the neighbor.
+    const idx = bookmarksRef.current.findIndex((x) => x.id === id);
+    pendingFocusRef.current = { idx };
+    if (renamingId === id) setRenamingId(null); // deleting the renaming row drops its editor
     commitBookmarks(bookmarksRef.current.filter((x) => x.id !== id));
+  };
 
   /** small JPEG snapshot of the current frame for the bookmark list —
    *  a contact sheet beats names alone when you saved 8 angles. Composited
@@ -1451,6 +2059,24 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       invert: clipStateRef.current.invert,
       box: clipStateRef.current.box,
     },
+    // t279 — the ortho focus point rides along when the 2D browser has
+    // reported one: a bookmark that flies the camera back to the right
+    // angle and the right threshold should also land the three section
+    // planes where the inspection was happening
+    ...(orthoFocusRef.current ? { focus: { ...orthoFocusRef.current } } : {}),
+    // t661 — the oblique 3D cut rides along when it was on: the saved
+    // picture IS the cut surface, so fly-back means the plane too
+    ...(obliqueClipRef.current.on
+      ? {
+          oblique: {
+            on: true,
+            theta: obliqueClipRef.current.theta,
+            phi: obliqueClipRef.current.phi,
+            offset: obliqueClipRef.current.offset,
+            invert: obliqueClipRef.current.invert,
+          },
+        }
+      : {}),
   });
 
   /** gentle duplicate-name guard — saving/renaming to a name another view
@@ -1461,7 +2087,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     toast({
       title: `A view named “${nm}” already exists`,
       description: "Saved anyway — consider a distinct name so the menu stays tell-apart.",
-      className: "border-amber-500/40 bg-amber-50/95 text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/80 dark:text-amber-100",
+      className: "border-warning/40 bg-warning-50/95 text-warning-900 dark:border-warning/30 dark:bg-warning-950/80 dark:text-warning-100",
     });
 
   /** live duplicate check for the name field — amber ring + hint while
@@ -1503,11 +2129,155 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     toast({ title: "View updated", description: `“${b.name}” now points at the current pose & optics.` });
   };
 
+  /** t821 — save-as-copy: variant exploration without the delete-recreate
+   *  cycle. The copy freezes the SAVED pose & optics (b.snapshot / b.view —
+   *  NOT the current canvas: the copy IS the view it copies, so jumping to
+   *  it lands where the original stood; the nudge — slice, σ, clip —
+   *  happens from there). The name takes the first free "(copy)" suffix
+   *  (case-insensitive taken-set — never a silent same-name twin), and the
+   *  door's cap of 8 refuses HONESTLY: the save path slices the oldest row
+   *  silently, but a duplicate that promised a row and then ate someone
+   *  else's would be a lie. Rides commitBookmarks — the t671 single mouth
+   *  — so the wall and the palette hear it like every other mutation. */
+  const duplicateBookmark = (b: CamBookmark) => {
+    if (bookmarksRef.current.length >= 8) {
+      toast({
+        title: "The shelf is full",
+        description: "The bookmark door holds 8 views — delete one to make room for a copy.",
+      });
+      return;
+    }
+    const base = b.name.trim().slice(0, 30); // headroom: " (copy 99)" fits the 40 cap
+    const taken = new Set(bookmarksRef.current.map((x) => x.name.trim().toLowerCase()));
+    let nm = `${base} (copy)`;
+    for (let n = 2; taken.has(nm.toLowerCase()); n += 1) nm = `${base} (copy ${n})`;
+    commitBookmarks([
+      ...bookmarksRef.current,
+      { id: `bm-${Date.now()}`, name: nm, ts: Date.now(), thumb: b.thumb, snapshot: b.snapshot, view: b.view },
+    ]);
+    toast({
+      title: "Copy saved",
+      description: `“${b.name}” → “${nm}” — the copy points at the same pose & optics.`,
+    });
+  };
+
+  /** t823 — ONE mouth for every "copy view link" gesture (the t671
+   *  doctrine applied to the share family): the door's current-pose
+   *  share and the row's saved-pose share both ride this path, so the
+   *  URL budget is checked before the clipboard is touched, the
+   *  oversized refusal and the clipboard-deny speak, and the toast
+   *  always NAMES what travels — one law, one wording, no drift. */
+  const copyLinkFor = async (
+    name: string,
+    snapshot: Record<string, unknown>,
+    view: Record<string, unknown> | undefined,
+  ) => {
+    const payload = encodeSharePayload({
+      jobId,
+      projectId: activeProjectId ?? null,
+      name,
+      snapshot,
+      view,
+    });
+    if (payload.length > SHARE_PAYLOAD_MAX) {
+      toast({
+        title: "This view is too large to share as a link",
+        description: "The pose payload exceeds the URL budget — export the views to a file instead.",
+      });
+      return;
+    }
+    const url = `${window.location.origin}/?view=${payload}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "View link copied",
+        description: `“${name}” travels inside the URL — anyone opening it lands on this exact pose & optics — no account, no setup.`,
+      });
+    } catch {
+      toast({
+        title: "Could not reach the clipboard",
+        description: "The browser denied clipboard access — the share needs a manual copy this time.",
+      });
+    }
+  };
+
+  /** t823 — the row's share: a link that carries THIS row's SAVED pose
+   *  & optics (b.snapshot / b.view — the t821 freeze law reaching the
+   *  URL: the link IS the view it shares, not wherever the canvas has
+   *  drifted since), with the row's own name riding the payload — the
+   *  recipient's restore toast and saved row both speak it. */
+  const copyRowViewLink = (b: CamBookmark) => {
+    void copyLinkFor(b.name, b.snapshot, b.view as unknown as Record<string, unknown> | undefined);
+  };
+
+  /** t822 — share what the canvas shows RIGHT NOW: the current pose +
+   *  optics travel INSIDE the URL (self-contained — the recipient needs
+   *  no account, no bookmark row, no sync; the landing stages the payload
+   *  and the viewer applies it as a guest). t823 — the capture is all
+   *  that remains here; the encode, the budget and the clipboard ride
+   *  copyLinkFor, the one mouth. */
+  const copyViewLink = async () => {
+    const cam = pluginRef.current?.canvas3d?.camera;
+    if (!cam) return;
+    const snapshot = cam.getSnapshot() as unknown as Record<string, unknown>;
+    const view = captureBookmarkView() as unknown as Record<string, unknown> | undefined;
+    await copyLinkFor("Shared view", snapshot, view);
+  };
+
+  /** t823 — the share's save shortcut: the restore toast's action adopts
+   *  the guest pose as a row. The bytes frozen are the SHARE's own (what
+   *  arrived — not a re-capture of a canvas the recipient may have
+   *  nudged), the cap of 8 refuses HONESTLY (the t821 law — a promise
+   *  that would eat a neighbour's row is a lie), and a name collision
+   *  speaks the door's amber honesty. Explicit consent is what makes
+   *  this lawful: the guest law stands — the LINK itself never births a
+   *  row; the recipient's click does. The thumb is captured at click
+   *  time (a preview raster only — the row's jump target stays the
+   *  arrived bytes). */
+  const saveSharedView = (share: SharePayload) => {
+    if (bookmarksRef.current.length >= 8) {
+      toast({
+        title: "The shelf is full",
+        description: "The bookmark door holds 8 views — delete one to keep this shared view.",
+      });
+      return;
+    }
+    const nm = (share.name.trim() || "Shared view").slice(0, 40);
+    const dupe = bookmarksRef.current.some((x) => x.name.trim().toLowerCase() === nm.toLowerCase());
+    commitBookmarks([
+      ...bookmarksRef.current,
+      {
+        id: `bm-${Date.now()}`,
+        name: nm,
+        ts: Date.now(),
+        thumb: captureBookmarkThumb(),
+        snapshot: share.snapshot,
+        view: share.view as BookmarkView | undefined,
+      },
+    ]);
+    if (dupe) duplicateNameToast(nm);
+    else
+      toast({
+        title: "Shared view kept",
+        description: `“${nm}” joined the shelf — jump back from the bookmark menu any time.`,
+      });
+  };
+  // stable handle for the consume block above (the restore toast's action
+  // fires long after the effect ran — the restoreBookmarkRef pattern)
+  const saveSharedRef = useRef<(s: SharePayload) => void>(() => {});
+  useEffect(() => {
+    saveSharedRef.current = saveSharedView;
+  });
+
   /** single commit path for the inline rename — runs from the input's blur
    *  (Enter blurs, Esc raises the cancel flag first), so rapid Enter+unmount
    *  can never double-commit or double-toast */
   const commitRename = () => {
     const id = renamingId;
+    // t788 — every exit (commit, cancel, untouched) hands the keyboard back
+    // to the row: the editor unmounts, and without the handoff focus falls
+    // to body mid-popover.
+    if (id) pendingFocusRef.current = { idx: bookmarksRef.current.findIndex((x) => x.id === id) };
     setRenamingId(null);
     if (!id || renameCancelRef.current) {
       renameCancelRef.current = false;
@@ -1528,28 +2298,64 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     setRenamingId(b.id);
   };
 
+  // t788 — the handoff lands after the DOM commits: neighbor row first, name field when the list emptied.
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    pendingFocusRef.current = null;
+    const rows = bmListRef.current?.querySelectorAll<HTMLDivElement>(":scope > div") ?? [];
+    const row = pending.idx >= 0 ? rows[Math.min(pending.idx, rows.length - 1)] : undefined;
+    const target = (row?.querySelector("button") as HTMLButtonElement | undefined)
+      ?? bmListRef.current?.closest('[data-canvas-ui="camera-bookmarks"]')
+        ?.querySelector<HTMLInputElement>("input[maxlength]");
+    target?.focus();
+  }, [bookmarks, renamingId]);
+
   /** the optical annotation trio — shared by bookmark rows and the import
    *  preview dialog (same language in both places) */
   const renderViewChips = (v: BookmarkView) => (
+    // t679 — defensive reads: this renders whatever the read lane passed
+    // (the lanes all sane-ify now, but the renderer is the last line —
+    // a chip degrades, the tree does not)
     <span className="mt-0.5 flex flex-wrap items-center gap-1" aria-hidden="true">
-      <span className="rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-muted-foreground">
-        {v.sigma.toFixed(2)} σ
-      </span>
-      {v.slice.on && (
-        <span className="rounded bg-teal-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-teal-700 dark:text-teal-400">
+      {typeof v.sigma === "number" && (
+        <span className="rounded bg-muted/80 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-muted-foreground">
+          {v.sigma.toFixed(2)} σ
+        </span>
+      )}
+      {v.slice && v.slice.on && (
+        <span className="rounded bg-running/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-running-700 dark:text-running-400">
           slice {v.slice.axis} {Math.round(v.slice.pos * 100)}%
         </span>
       )}
-      {v.clip.on && (
-        <span className="rounded bg-amber-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-amber-700 dark:text-amber-400">
+      {v.clip && v.clip.on && (
+        <span className="rounded bg-warning/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-warning-700 dark:text-warning-400">
           {v.clip.box
             ? // t260 — an anchored box isn't slider-speakable; the chip says
               // "box" and lets the restored panel's readout carry the numbers
               "clip box"
             : `clip${(["x", "y", "z"] as const)
-                .filter((ax) => v.clip[ax] < 0.999)
-                .map((ax) => ` ${ax.toUpperCase()} ${Math.round(v.clip[ax] * 100)}%`)
+                .filter((ax) => v.clip![ax] < 0.999)
+                .map((ax) => ` ${ax.toUpperCase()} ${Math.round(v.clip![ax] * 100)}%`)
                 .join("")}${v.clip.invert ? " · flip" : ""}`}
+        </span>
+      )}
+      {v.focus && (
+        // t280 — the tri-planar focus point joins the trio: a saved view
+        // now shows WHERE the inspection happened, not only how the map
+        // was cut. Cyan (the ortho panel's own hue) — the three plane
+        // accents are taken. Legacy rows without focus stay chipless:
+        // absent is honest, a guessed "50/50/50" is a lie.
+        <span className="rounded bg-cyan-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-cyan-700 dark:text-cyan-400">
+          focus {Math.round(v.focus.x * 100)}/{Math.round(v.focus.y * 100)}/{Math.round(v.focus.z * 100)}%
+        </span>
+      )}
+      {v.oblique?.on && (
+        // t661 — the oblique 3D cut joins the chips: the saved view shows
+        // the surface was opened and at what plane. Violet, the oblique
+        // family's own hue since t556.
+        <span className="rounded bg-violet-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-violet-700 dark:text-violet-400">
+          cut {v.oblique.theta}°·{v.oblique.phi}°{v.oblique.invert ? " · flip" : ""}
         </span>
       )}
     </span>
@@ -1570,6 +2376,24 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       if (signRef.current !== v.sign) setSign(v.sign);
       applySliceIntent({ on: v.slice.on, axis: v.slice.axis, pos: v.slice.pos });
       applyClipIntent({ on: v.clip.on, x: v.clip.x, y: v.clip.y, z: v.clip.z, invert: v.clip.invert, box: v.clip.box ?? null });
+      // t279 — the focus point flies back too: the three ortho tiles adopt
+      // the saved intersection through their own navigation channel (the
+      // restore is a no-op whisper when no ortho panel is mounted)
+      if (v.focus) {
+        window.dispatchEvent(new CustomEvent(ORTHO_FOCUS_RESTORE_EVENT, { detail: { ...v.focus } }));
+      }
+      // t661 — the oblique cut flies back too (present-yet-off restores
+      // off; absent leaves the live cut untouched — legacy views never
+      // promised a cut)
+      if (v.oblique) {
+        applyObliqueClipIntent({
+          on: v.oblique.on,
+          theta: v.oblique.theta,
+          phi: v.oblique.phi,
+          offset: v.oblique.offset,
+          invert: v.oblique.invert,
+        });
+      }
     }
   };
 
@@ -1600,8 +2424,38 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     if (o.slice.axis !== "X" && o.slice.axis !== "Y" && o.slice.axis !== "Z") return undefined;
     if (!num(o.slice.pos) || !o.clip || typeof o.clip.on !== "boolean") return undefined;
     if (!num(o.clip.x) || !num(o.clip.y) || !num(o.clip.z) || typeof o.clip.invert !== "boolean") return undefined;
+    // t279 — focus stays optional (legacy files never carry it), but a
+    // present-yet-malformed one must not poison restoreBookmark either
+    if (o.focus !== undefined) {
+      const f = o.focus as { x?: unknown; y?: unknown; z?: unknown } | null;
+      if (!f || !num(f.x) || !num(f.y) || !num(f.z)) return undefined;
+    }
+    // t661 — oblique stays optional, but a present-yet-malformed one is
+    // poison to restoreBookmark just the same (the focus precedent)
+    if (o.oblique !== undefined) {
+      const ob = o.oblique as {
+        on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown; invert?: unknown;
+      } | null;
+      if (
+        !ob || typeof ob.on !== "boolean" || typeof ob.invert !== "boolean" ||
+        !num(ob.theta) || !num(ob.phi) || !num(ob.offset)
+      )
+        return undefined;
+    }
     return o;
   };
+
+  /** t679 — the import lane's shape law, extended to EVERY read: a list
+   *  that enters this component (localStorage mirror, server route, import
+   *  file) is only as old as its oldest writer. An older build's mirror
+   *  entry can carry a view shape this build's renderer and restorer both
+   *  assume (v.slice.on crashed the whole tree, observed live by the t679
+   *  probe). cleanBookmarks checks the entry's own shape; this pass makes
+   *  the VIEW shape-current — anything unrecognizable degrades to a
+   *  pose-only bookmark (the legacy state), the same verdict the import
+   *  lane has always handed down. */
+  const cleanBookmarkList = (parsed: unknown): CamBookmark[] =>
+    cleanBookmarks(parsed).map((b) => ({ ...b, view: saneImportedView(b.view) }));
 
   const exportBookmarks = () => {
     if (bookmarksRef.current.length === 0) {
@@ -1617,12 +2471,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         bookmarks: bookmarksRef.current,
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `cryoflow-views-${jobId.slice(-6)}-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, `cryoflow-views-${jobId.slice(-6)}-${new Date().toISOString().slice(0, 10)}.json`);
       toast({ title: `Exported ${bookmarksRef.current.length} view${bookmarksRef.current.length > 1 ? "s" : ""}`, description: "JSON file — import it on any job to reuse the setup." });
     } catch {
       toast({ title: "Export failed", variant: "destructive" });
@@ -1897,9 +2746,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 aria-hidden="true"
                 className={cn(
                   "size-1.5 shrink-0 rounded-full",
-                  j.status === "completed" && "bg-emerald-500",
-                  j.status === "running" && "animate-pulse bg-amber-500",
-                  j.status === "failed" && "bg-red-500",
+                  j.status === "completed" && "bg-success-500",
+                  j.status === "running" && "animate-pulse bg-warning-500",
+                  j.status === "failed" && "bg-danger",
                   j.status !== "completed" && j.status !== "running" && j.status !== "failed" && "bg-muted-foreground/40",
                 )}
               />
@@ -2051,6 +2900,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         // Clip axes still at 1 are uncropped and silently omitted.
         const st = sliceStateRef.current;
         const cp = clipStateRef.current;
+        const ob = obliqueClipRef.current;
         const annotations: string[] = [];
         if (supersampled) annotations.push(`${mult}× supersampled`);
         if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
@@ -2060,6 +2910,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
           if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
         }
+        // t661 — a figure cut open by the oblique plane says so: the same
+        // θ/φ the 2D block's provenance chip and the 3D chip speak
+        if (ob.on) annotations.push(`oblique cut ${ob.theta}°·${ob.phi}°${ob.invert ? " · flip" : ""}`);
         if (overlays.length) {
           annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
         }
@@ -2272,6 +3125,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       // overlay legend the PNG figure pipeline would burn in.
       const st = sliceStateRef.current;
       const cp = clipStateRef.current;
+      const ob = obliqueClipRef.current;
       const annotations: string[] = [];
       if (supersampled) annotations.push(`${mult}× supersampled`);
       if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
@@ -2281,6 +3135,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
         if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
       }
+      if (ob.on) annotations.push(`oblique cut ${ob.theta}°·${ob.phi}°${ob.invert ? " · flip" : ""}`);
       if (overlays.length) {
         annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
       }
@@ -2435,7 +3290,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         // together in Downloads
         const clipBase = `cryoflow-turntable-${viewerFileSlug(name)}-${viewerFileTimestamp()}`;
         const fileName = `${clipBase}.webm`;
-        downloadViewerBlob(blob, fileName);
+        downloadBlob(blob, fileName);
         const sizeNote = supersampled ? ` · ${mult}× supersampled` : "";
         const footerNote = figureLegend.length
           ? `figure footer + ${figureLegend.length}-map legend burned in · `
@@ -2464,7 +3319,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               },
             });
             if (viewerAliveRef.current && pluginRef.current === plugin) {
-              downloadViewerBlob(gifBlob, `${clipBase}.gif`);
+              downloadBlob(gifBlob, `${clipBase}.gif`);
               toast({
                 title: "Turntable GIF exported",
                 description: `${clipBase}.gif · ${gifFrames.length} frames × ${Math.round(gifDelay)} ms — replays the turn at true pace · ${fmtBytes(gifBlob.size)}`,
@@ -3036,6 +3891,54 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     return () => window.removeEventListener(ORTHO_SLICE_EVENT, onOrtho);
   }, []);
 
+  // t556 — the oblique block's ⌖: swing the camera to look straight down
+  // the cut's normal. The plane itself cannot ride Mol*'s axis-aligned
+  // slice, but the camera CAN agree with it — the face-on view that makes
+  // the 2D cut and the 3D scene describe the same geometry. Same easing
+  // and focus law as the axis presets (dir/up swing, target + radius
+  // kept); the ortho panel owns the chirality math (dir = +n, up = −v).
+  useEffect(() => {
+    const onObliqueView = (e: Event) => {
+      const d = (e as CustomEvent<{ normal?: number[]; up?: number[] }>).detail;
+      const n = d?.normal;
+      const up = d?.up;
+      if (!Array.isArray(n) || n.length !== 3 || n.some((c) => !Number.isFinite(c))) return;
+      if (!Array.isArray(up) || up.length !== 3 || up.some((c) => !Number.isFinite(c))) return;
+      applyViewPreset([n[0], n[1], n[2]], [up[0], up[1], up[2]]);
+    };
+    window.addEventListener(OBLIQUE_VIEW_EVENT, onObliqueView);
+    return () => window.removeEventListener(OBLIQUE_VIEW_EVENT, onObliqueView);
+  }, []);
+
+  // t557 — the ⌖'s return ticket: the oblique block pulls (synchronous
+  // window event), the embed answers with the live view direction. dir =
+  // unit (target − position) — exactly the law applyViewPreset drives in
+  // reverse (focus(): position = target − dir·d), so adopt → ⌖ lands the
+  // camera back on the same face-on line. Only the direction crosses the
+  // wire: the block's u/v roll is canonical (⌖ re-snaps it) and offset
+  // stays the user's dial (the preset family keeps target at box center,
+  // where offset 0 already cuts).
+  useEffect(() => {
+    const onCameraRequest = () => {
+      const cam = pluginRef.current?.canvas3d?.camera;
+      if (!cam) return;
+      const st = cam.state;
+      const t = st.target;
+      const p = st.position;
+      if (!t || !p) return;
+      const dx = t[0] - p[0];
+      const dy = t[1] - p[1];
+      const dz = t[2] - p[2];
+      const len = Math.hypot(dx, dy, dz);
+      if (!(len > 1e-9)) return;
+      window.dispatchEvent(new CustomEvent<OrthoCameraStateDetail>(ORTHO_CAMERA_STATE_EVENT, {
+        detail: { dir: [dx / len, dy / len, dz / len] },
+      }));
+    };
+    window.addEventListener(ORTHO_CAMERA_REQUEST_EVENT, onCameraRequest);
+    return () => window.removeEventListener(ORTHO_CAMERA_REQUEST_EVENT, onCameraRequest);
+  }, []);
+
   // σ / sign changes flow into the live slice too (it shares the threshold)
   useEffect(() => {
     if (!sliceStateRef.current.on) return;
@@ -3075,7 +3978,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     z: number;
     invert: boolean;
     box: ClipBoxState | null;
-  }>({ on: false, x: 1, y: 1, z: 1, invert: false, box: null });
+    /** t661 — bumped on EVERY clip-affecting intent (axis sliders AND the
+     *  oblique mirror), so the pump's settle check can't miss a change that
+     *  arrived mid-commit while the slider fields stood still */
+    rev: number;
+  }>({ on: false, x: 1, y: 1, z: 1, invert: false, box: null, rev: 0 });
   const clipPending = useRef(false);
 
   /** cartesian box origin + extents (+ basis columns & grid dims) of the
@@ -3126,8 +4033,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     const VolumeRepresentation3D = VolumeReprRef.current;
     if (!plugin || !VolumeRepresentation3D || !reprRef.current) throw new Error("not ready");
     const st = clipStateRef.current;
+    const ob = obliqueClipRef.current;
 
-    const box = st.on ? clipBox() : null;
+    // t661 — the oblique cut needs the volume geometry even when the box
+    // language is off; one clipBox() walk serves both
+    const geoBox = clipBox();
+    const box = st.on ? geoBox : null;
     // Mol* planes take their normal from the rotation applied to the
     // geometry's default +Y — an angle-0 rotation leaves EVERY plane
     // Y-normal, which (probe-clip-side verdict, Task 260) turns the whole
@@ -3194,6 +4105,18 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           .filter(([, f]) => f < 0.999)
           .map(([axisIdx, f]) => plane(axisIdx as 0 | 1 | 2, f, st.invert));
 
+    // t661 — the oblique cut rides ALONGSIDE the box/slider planes (clip
+    // objects intersect: crop + section compose). No geometry → no plane:
+    // an honest uncut surface beats a guessed half-space.
+    if (ob.on && geoBox) {
+      const obliquePlane = buildObliqueClipPlane(
+        { theta: ob.theta, phi: ob.phi, offset: ob.offset },
+        ob.invert,
+        geoBox
+      );
+      if (obliquePlane) (objects as unknown[]).push(obliquePlane);
+    }
+
     await plugin
       .build()
       .to(reprRef.current)
@@ -3222,7 +4145,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         if (
           now.on === seen.on && now.invert === seen.invert &&
           now.x === seen.x && now.y === seen.y && now.z === seen.z &&
-          now.box === seen.box
+          now.box === seen.box && now.rev === seen.rev
         ) break;
       }
     } catch (err) {
@@ -3251,6 +4174,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       ...clipStateRef.current,
       ...patch,
       box: patch.box !== undefined ? patch.box : null,
+      rev: clipStateRef.current.rev + 1,
     };
     if (patch.on !== undefined) setClipOn(patch.on);
     if (patch.invert !== undefined) setClipInvert(patch.invert);
@@ -3315,8 +4239,71 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     }
     // clipBox/applyClipBoxIntent are stable component closures; the guard
     // refs make the effect idempotent regardless of render churn
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, initialClipBox]);
+
+  /* ---------------- the oblique 3D cut (t661) ---------------- */
+
+  // The ortho block's ✂ mirrors its settled plane here and the ISOSURFACE
+  // opens along it (commitClip appends the plane object). One state source
+  // (obliqueClipRef) feeds the commit, the chip and the bookmark capture;
+  // the React mirror is only the chip's face. invert lives on THIS side:
+  // which half of the surface survives is a 3D viewing choice, not part
+  // of the 2D plane's geometry.
+  const [obliqueClip, setObliqueClip] = useState({
+    on: false,
+    theta: 45,
+    phi: 30,
+    offset: 0,
+    invert: false,
+  });
+  const obliqueClipRef = useRef({ ...obliqueClip });
+
+  const applyObliqueClipIntent = (
+    patch: Partial<{ on: boolean; theta: number; phi: number; offset: number; invert: boolean }>
+  ) => {
+    obliqueClipRef.current = { ...obliqueClipRef.current, ...patch };
+    setObliqueClip({ ...obliqueClipRef.current });
+    clipStateRef.current = { ...clipStateRef.current, rev: clipStateRef.current.rev + 1 };
+    void pumpClip();
+    // 3D → 2D ACK (t661): the block's ✂ follows the scene — chip clear and
+    // bookmark restores retire/revive the cut outside its sliders, and the
+    // toggle must not lie about which of those states is live
+    window.dispatchEvent(
+      new CustomEvent(OBLIQUE_CLIP_STATE_EVENT, {
+        detail: { ...obliqueClipRef.current },
+      })
+    );
+  };
+
+  useEffect(() => {
+    const onObliqueClip = (e: Event) => {
+      const d = (e as CustomEvent<{ on?: unknown; theta?: unknown; phi?: unknown; offset?: unknown }>)
+        .detail;
+      if (!d || typeof d !== "object") return;
+      if (d.on !== true) {
+        // the block's off-heartbeats retire the plane only when one is
+        // actually out (a fresh embed never pumps for a cut it never had)
+        if (obliqueClipRef.current.on) applyObliqueClipIntent({ on: false });
+        return;
+      }
+      const theta =
+        typeof d.theta === "number" && Number.isFinite(d.theta)
+          ? Math.min(180, Math.max(0, d.theta))
+          : null;
+      const phi =
+        typeof d.phi === "number" && Number.isFinite(d.phi)
+          ? Math.min(360, Math.max(0, d.phi))
+          : null;
+      const offset =
+        typeof d.offset === "number" && Number.isFinite(d.offset)
+          ? Math.min(1, Math.max(-1, d.offset))
+          : null;
+      if (theta === null || phi === null || offset === null) return;
+      applyObliqueClipIntent({ on: true, theta, phi, offset });
+    };
+    window.addEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
+    return () => window.removeEventListener(OBLIQUE_CLIP_EVENT, onObliqueClip);
+  }, []);
 
   /* ---------------- sub-volume export (t254) ---------------- */
 
@@ -3577,6 +4564,128 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       : null;
   };
 
+  /* -------- the oblique cut's guide (t662) -------- */
+
+  // The cut plane itself is invisible — the guide draws its trace (plane ∩
+  // box, from buildObliqueGuidePlane) plus a kept-side tick from the anchor,
+  // projected through the LIVE camera exactly like drawClipGuide. Reads the
+  // obliqueClipRef (live) so the camera-changed subscription can call it
+  // without re-subscribing; the intent effect below covers UI immediacy.
+  const obliqueGuideRef = useRef<SVGSVGElement | null>(null);
+  const obliquePolyRef = useRef<SVGPathElement | null>(null);
+  const obliqueTickRef = useRef<SVGLineElement | null>(null);
+  const obliqueTipRef = useRef<SVGCircleElement | null>(null);
+
+  const clearObliqueGuide = () => {
+    const poly = obliquePolyRef.current;
+    const tick = obliqueTickRef.current;
+    const tip = obliqueTipRef.current;
+    if (poly) poly.setAttribute("d", "");
+    if (tick) {
+      tick.setAttribute("x1", "0");
+      tick.setAttribute("y1", "0");
+      tick.setAttribute("x2", "0");
+      tick.setAttribute("y2", "0");
+    }
+    if (tip) tip.setAttribute("r", "0");
+  };
+
+  const drawObliqueGuide = () => {
+    const svg = obliqueGuideRef.current;
+    if (!svg) return;
+    if (!obliqueClipRef.current.on) {
+      clearObliqueGuide();
+      return;
+    }
+    const camera = pluginRef.current?.canvas3d?.camera;
+    const box = clipBox();
+    const pv = camera?.projectionView as number[] | undefined;
+    const w = containerRef.current?.clientWidth ?? 0;
+    const h = containerRef.current?.clientHeight ?? 0;
+    if (!camera || !box || !Array.isArray(pv) || pv.length < 16 || w < 2 || h < 2) {
+      clearObliqueGuide();
+      return;
+    }
+    const ob = obliqueClipRef.current;
+    const g = buildObliqueGuidePlane(
+      { theta: ob.theta, phi: ob.phi, offset: ob.offset },
+      ob.invert,
+      box,
+      box.cols
+    );
+    if (!g) {
+      clearObliqueGuide();
+      return;
+    }
+    // project (same GL pipeline as drawClipGuide); a point behind the camera
+    // would mirror the whole trace — the honest absence beats a mirrored one
+    const project = (p: [number, number, number]): [number, number] | null => {
+      const cx = pv[0] * p[0] + pv[4] * p[1] + pv[8] * p[2] + pv[12];
+      const cy = pv[1] * p[0] + pv[5] * p[1] + pv[9] * p[2] + pv[13];
+      const cw = pv[3] * p[0] + pv[7] * p[1] + pv[11] * p[2] + pv[15];
+      if (!Number.isFinite(cw) || cw <= 0.001) return null;
+      return [((cx / cw) + 1) / 2 * w, (1 - (cy / cw)) / 2 * h];
+    };
+    const poly = obliquePolyRef.current;
+    const tick = obliqueTickRef.current;
+    const tip = obliqueTipRef.current;
+    // the trace — every vertex must survive the projection (the polygon is
+    // dropped as a whole, per-edge dropping would draw a chimeric shape)
+    let d = "";
+    if (g.polygon.length >= 3) {
+      const s: [number, number][] = [];
+      let okAll = true;
+      for (const q of g.polygon) {
+        const p2 = project(q);
+        if (!p2) {
+          okAll = false;
+          break;
+        }
+        s.push(p2);
+      }
+      if (okAll) {
+        for (let i = 0; i < s.length; i++) {
+          const a = s[i];
+          const b = s[(i + 1) % s.length];
+          d += `M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+        }
+      }
+    }
+    if (poly) poly.setAttribute("d", d);
+    // the kept-side tick — a short normal stroke promising which half the
+    // surface keeps (the flip chip's promise, drawn where the eye is)
+    const len = 0.22 * g.support;
+    const tipW: [number, number, number] = [
+      g.anchor[0] + g.keptDir[0] * len,
+      g.anchor[1] + g.keptDir[1] * len,
+      g.anchor[2] + g.keptDir[2] * len,
+    ];
+    const a2 = project(g.anchor);
+    const b2 = project(tipW);
+    if (tick) {
+      if (a2 && b2) {
+        tick.setAttribute("x1", a2[0].toFixed(1));
+        tick.setAttribute("y1", a2[1].toFixed(1));
+        tick.setAttribute("x2", b2[0].toFixed(1));
+        tick.setAttribute("y2", b2[1].toFixed(1));
+      } else {
+        tick.setAttribute("x1", "0");
+        tick.setAttribute("y1", "0");
+        tick.setAttribute("x2", "0");
+        tick.setAttribute("y2", "0");
+      }
+    }
+    if (tip) {
+      if (a2 && b2) {
+        tip.setAttribute("cx", b2[0].toFixed(1));
+        tip.setAttribute("cy", b2[1].toFixed(1));
+        tip.setAttribute("r", "2.5");
+      } else {
+        tip.setAttribute("r", "0");
+      }
+    }
+  };
+
   /* -------- direct manipulation: drag a wireframe face = drag slider ----- */
 
   const onFacePointerDown = (axis: 0 | 1 | 2, e: React.PointerEvent<SVGPathElement>) => {
@@ -3626,12 +4735,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   };
 
   // orbit/zoom/pan → reproject (camera.changed covers every mutation,
-  // including drags from mol*'s own controls)
+  // including drags from mol*'s own controls) — both guides ride the same
+  // subscription (the box outline and the oblique trace share the camera)
   useEffect(() => {
     if (phase !== "ready") return;
     const camera = pluginRef.current?.canvas3d?.camera;
     if (!camera?.changed) return;
-    const sub = camera.changed.subscribe(() => drawClipGuide());
+    const sub = camera.changed.subscribe(() => {
+      drawClipGuide();
+      drawObliqueGuide();
+    });
     return () => {
       try {
         sub.unsubscribe();
@@ -3641,12 +4754,34 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     };
   }, [phase]);
 
+  // t662 — a layout resize re-projects both guides (the camera didn't move,
+  // but the viewport did; ResizeObserver catches what camera.changed misses —
+  // e.g. the ortho panel growing and re-sharing the dialog's height)
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      drawClipGuide();
+      drawObliqueGuide();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [phase]);
+
   // slider/toggle intent → immediate guide update (the shader clip itself
   // lands asynchronously through pumpClip; the frame previews the intent)
   useEffect(() => {
     if (phase !== "ready" || !clipOn) return;
     drawClipGuide();
   }, [phase, clipOn, clipX, clipY, clipZ, clipInvert]);
+
+  // t662 — the oblique guide follows its own intents the same way (✂,
+  // sliders, flip); the mirror state is the dep list, the ref is the truth
+  useEffect(() => {
+    if (phase !== "ready" || !obliqueClip.on) return;
+    drawObliqueGuide();
+  }, [phase, obliqueClip.on, obliqueClip.theta, obliqueClip.phi, obliqueClip.offset, obliqueClip.invert]);
 
   const absolute = stats ? stats.mean + sign * stats.sigma * sigma : null;
 
@@ -3737,12 +4872,45 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         </svg>
       )}
 
+      {/* t662 — the oblique cut's guide: the plane's trace (plane ∩ box)
+          plus a kept-side tick, projected live like the box outline above.
+          Pure visual — pointer-events-none everywhere (the cut is steered
+          from the 2D block and the chip; no drag targets here). */}
+      {obliqueClip.on && phase === "ready" && (
+        <svg
+          ref={obliqueGuideRef}
+          className="pointer-events-none absolute inset-0 z-[5] h-full w-full"
+          aria-hidden="true"
+          data-oblique-guide="true"
+        >
+          <path
+            ref={obliquePolyRef}
+            fill="none"
+            stroke="#8b5cf6"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.9}
+            vectorEffect="non-scaling-stroke"
+          />
+          <line
+            ref={obliqueTickRef}
+            stroke="#8b5cf6"
+            strokeWidth={2}
+            strokeLinecap="round"
+            opacity={0.95}
+            vectorEffect="non-scaling-stroke"
+          />
+          <circle ref={obliqueTipRef} fill="#8b5cf6" opacity={0.95} stroke="white" strokeWidth={1} />
+        </svg>
+      )}
+
       {/* contour control bar */}
       {phase === "ready" && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center p-3">
           <div className="pointer-events-auto max-h-[calc(100%-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl border bg-card/90 px-4 py-3 shadow-lg backdrop-blur-md">
             <div className="flex flex-wrap items-center gap-2">
-              <Mountain className="size-3.5 shrink-0 text-teal-600" aria-hidden="true" />
+              <Mountain className="size-3.5 shrink-0 text-running-600" aria-hidden="true" />
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Contour
               </span>
@@ -3750,8 +4918,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 className={cn(
                   "whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-xs font-bold tabular-nums",
                   sign > 0
-                    ? "bg-teal-600/10 text-teal-700 dark:text-teal-300"
-                    : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    ? "bg-running/10 text-running-700 dark:text-running-300"
+                    : "bg-warning/15 text-warning-700 dark:text-warning-300"
                 )}
                 title={
                   absolute != null
@@ -3779,8 +4947,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     className={
                       "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors " +
                       (Math.abs(sigma - p) < 0.001
-                        ? "bg-teal-600 text-white"
-                        : "bg-muted text-muted-foreground hover:bg-teal-600/15 hover:text-teal-700 dark:hover:text-teal-300")
+                        ? "bg-running-600 text-white"
+                        : "bg-muted text-muted-foreground hover:bg-running/15 hover:text-running-700 dark:hover:text-running-300")
                     }
                   >
                     {p}σ
@@ -3794,14 +4962,14 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   aria-label="Flip contour to the negative density side"
                   title={
                     sign > 0
-                      ? "Contour on positive density — flip if the map is inverted (signal below the mean)"
-                      : "Contour on NEGATIVE density — flip back to positive"
+                      ? "Contour on positive density — flip if the map is inverted (signal below the mean). F key does the same."
+                      : "Contour on NEGATIVE density — flip back to positive (F key does the same)"
                   }
                   className={
                     "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors " +
                     (sign < 0
-                      ? "bg-amber-500 text-white"
-                      : "bg-muted text-muted-foreground hover:bg-amber-500/20 hover:text-amber-700 dark:hover:text-amber-300")
+                      ? "bg-warning-500 text-white"
+                      : "bg-muted text-muted-foreground hover:bg-warning/20 hover:text-warning-700 dark:hover:text-warning-300")
                   }
                 >
                   −ρ / +ρ
@@ -3857,6 +5025,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               step={0.05}
               onValueChange={(v) => setSigma(v[0] ?? 2)}
               aria-label="Isosurface contour level in sigma"
+              title="Contour σ — [ / ] step the level from the keyboard, F flips the density side"
               className="mt-2.5"
             />
             {/* cross-section panel — controls row + density landscape (t189) */}
@@ -3871,7 +5040,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       type="button"
                       onClick={() => applySliceIntent({ axis: ax })}
                       aria-pressed={sliceAxis === ax}
-                      title={`Slice perpendicular to the ${ax} axis`}
+                      title={`Slice perpendicular to the ${ax} axis (${ax} key)`}
                       className={
                         "rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors " +
                         (sliceAxis === ax
@@ -4239,7 +5408,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                                         y={5}
                                         width={stepW}
                                         height={-r * 4.5}
-                                        fill="#f43f5e"
+                                        fill={STATUS_HEX.failed}
                                         opacity="0.3"
                                       />
                                     ) : null
@@ -4352,9 +5521,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       <div
                         id="profile-legend"
                         data-profile-legend="1"
-                        className="rounded-md border border-amber-600/25 bg-amber-500/[0.06] px-2 py-1.5 text-[9px] font-mono leading-relaxed text-muted-foreground"
+                        className="rounded-md border border-warning/25 bg-warning/[0.06] px-2 py-1.5 text-[9px] font-mono leading-relaxed text-muted-foreground"
                       >
-                        <div className="mb-1 flex items-center gap-1 text-[8.5px] font-bold tracking-wide text-amber-700 dark:text-amber-300">
+                        <div className="mb-1 flex items-center gap-1 text-[8.5px] font-bold tracking-wide text-warning-700 dark:text-warning-300">
                           <BookOpen className="size-2.5" aria-hidden="true" />
                           HOW TO READ THE ADDRESSES
                         </div>
@@ -4499,8 +5668,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           className={
                             "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide transition-colors " +
                             (legendOpen
-                              ? "bg-amber-600 text-white"
-                              : "bg-muted text-muted-foreground hover:bg-amber-600/15 hover:text-amber-700 dark:hover:text-amber-300")
+                              ? "bg-warning-600 text-white"
+                              : "bg-muted text-muted-foreground hover:bg-warning/15 hover:text-warning-700 dark:hover:text-warning-300")
                           }
                         >
                           <BookOpen className="size-2.5" aria-hidden="true" />
@@ -4579,7 +5748,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       <div
                         role="status"
                         aria-label="Profile export status"
-                        className="pt-0.5 font-mono text-[9.5px] tabular-nums text-emerald-600 dark:text-emerald-400"
+                        className="pt-0.5 font-mono text-[9.5px] tabular-nums text-success"
                       >
                         {profileExportNote}
                       </div>
@@ -4721,8 +5890,8 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     className={
                       "rounded-md px-2 py-1 text-[10px] leading-snug " +
                       (clipSendNote.ok
-                        ? "border border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300"
-                        : "border border-red-600/30 bg-red-600/10 text-red-700 dark:text-red-300")
+                        ? "border border-success/30 bg-success/10 text-success-700 dark:text-success-300"
+                        : "border border-danger-600/30 bg-danger-600/10 text-danger")
                     }
                   >
                     {clipSendNote.text}
@@ -4759,6 +5928,58 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   </button>
                 </div>
                 )}
+              </div>
+            )}
+            {/* t661 — the oblique cut's 3D chip: the mirror is LIVE here —
+                the readout speaks exactly what commitClip obeys, so the
+                viewer and the 2D block never disagree about the plane.
+                flip retints which half-space survives; × retires the cut. */}
+            {obliqueClip.on && phase === "ready" && (
+              <div
+                data-testid="clip-oblique-chip"
+                data-clip-oblique="on"
+                className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-violet-600/25 bg-violet-600/5 px-2.5 py-2"
+              >
+                <Scissors className="size-3.5 shrink-0 text-violet-600" aria-hidden="true" />
+                <span className="text-[10px] font-semibold text-violet-700 dark:text-violet-300">3D cut</span>
+                <span
+                  data-testid="clip-oblique-readout"
+                  className="truncate font-mono text-[10px] tabular-nums text-muted-foreground"
+                  title="The plane the isosurface opens along — mirrored live from the oblique section block (θ polar · φ azimuth · offset)"
+                >
+                  θ {obliqueClip.theta}° · φ {obliqueClip.phi}° · {obliqueClip.offset >= 0 ? "+" : ""}{Math.round(obliqueClip.offset * 100)}%
+                </span>
+                <span className="ml-auto flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    data-testid="clip-oblique-flip"
+                    onClick={() => applyObliqueClipIntent({ invert: !obliqueClipRef.current.invert })}
+                    aria-pressed={obliqueClip.invert}
+                    title={
+                      obliqueClip.invert
+                        ? "The surface keeps the +n side — flip back to keep the camera-facing half"
+                        : "The surface keeps the −n (camera-facing) half — flip to keep the other side"
+                    }
+                    className={
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
+                      (obliqueClip.invert
+                        ? "bg-violet-600 text-white"
+                        : "bg-muted text-muted-foreground hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300")
+                    }
+                  >
+                    flip
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="clip-oblique-clear"
+                    onClick={() => applyObliqueClipIntent({ on: false })}
+                    aria-label="Remove the oblique cut"
+                    title="Remove the oblique cut — the full isosurface returns (the 2D block's ✂ goes dark with it)"
+                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300"
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </span>
               </div>
             )}
             <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
@@ -4846,7 +6067,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-72 p-2"
+              className="w-72 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="layers-popover"
               onKeyDown={onEscapeClose(() => setLayersOpen(false))}
             >
@@ -5027,7 +6248,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                             <Plus
                               className={cn(
                                 "size-3.5 shrink-0",
-                                active ? "text-emerald-500" : "text-muted-foreground"
+                                active ? "text-success-500" : "text-muted-foreground"
                               )}
                             />
                           )}
@@ -5039,7 +6260,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                               {c.name} · {fmtBytes(c.size)}
                             </span>
                           </span>
-                          {active && <Check className="size-3.5 shrink-0 text-emerald-500" />}
+                          {active && <Check className="size-3.5 shrink-0 text-success-500" />}
                         </button>
                       );
                     })}
@@ -5074,7 +6295,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-60 p-2"
+              className="w-60 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="export-scale-popover"
               onKeyDown={onEscapeClose(() => setExportOpen(false))}
             >
@@ -5175,7 +6396,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             className={cn(
               "size-8 rounded-lg shadow-sm transition-colors",
               shot === "done" &&
-                "border-emerald-500/40 text-emerald-600 hover:text-emerald-600 dark:text-emerald-400"
+                "border-success/40 text-success hover:text-success-600"
             )}
             onClick={() => runCapture("copy")}
             disabled={shot === "busy"}
@@ -5196,7 +6417,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             className={cn(
               "size-8 rounded-lg shadow-sm transition-colors",
               shot === "done" &&
-                "border-emerald-500/40 text-emerald-600 hover:text-emerald-600 dark:text-emerald-400"
+                "border-success/40 text-success hover:text-success-600"
             )}
             onClick={captureView}
             disabled={shot === "busy"}
@@ -5221,7 +6442,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 className={cn(
                   "size-8 rounded-lg shadow-sm transition-colors",
                   spin === "recording" &&
-                    "border-red-500/40 text-red-600 hover:text-red-600 dark:text-red-400"
+                    "border-danger-500/40 text-danger-600 hover:text-danger-600 dark:text-danger-400"
                 )}
                 disabled={spin === "recording"}
                 aria-label="Record a turntable video of the current view"
@@ -5236,10 +6457,17 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-60 p-2"
+              className="w-60 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="turntable-popover"
               onKeyDown={onEscapeClose(() => setTurntableOpen(false))}
             >
+              {/* t828 — the door's law crosses the family: measured at a
+                  1280×560 window this popover ran 28px past the fold (h 440
+                  > the 411.6 Radix published), export-scale 18px at 470 —
+                  the four toolbar siblings now wear the same cap the
+                  bookmarks door got in t827. Dormant at desktop (all four
+                  fit the 565 available); the last-resort pane on short
+                  screens. */}
               <p className="px-1 pb-1 text-[11px] font-semibold">Turntable video</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Records one full 360° rotation around the current view as a .webm clip —
@@ -5400,7 +6628,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-52 p-2"
+              className="w-52 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="view-presets"
               onKeyDown={onEscapeClose(() => setPresetsOpen(false))}
             >
@@ -5437,7 +6665,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 </span>
               </button>
               <p className="border-t px-1 pb-0.5 pt-1.5 text-[10px] leading-tight text-muted-foreground">
-                Keys 1–6 / 0 work too. Swing the camera to an axis — zoom stays put.
+                Keys 1–6 / 0 work too — swing to an axis, zoom stays put. Press B to quick-save the current angle.
               </p>
             </PopoverContent>
           </Popover>
@@ -5467,14 +6695,57 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-64 p-2"
+              className="w-64 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto nice-scroll p-2"
               data-canvas-ui="camera-bookmarks"
               onKeyDown={onEscapeClose(() => setBookmarksOpen(false))}
             >
+              {/* t827 — the door respects the screen it opens on: Radix
+                  publishes the collision-settled space as
+                  --radix-popover-content-available-height, and the door
+                  caps itself to it. At desktop the natural height (~535px
+                  worst case) fits and nothing scrolls; on a short or
+                  mobile viewport the door becomes its own scroll pane —
+                  the t824 mobile glance caught the worst case running
+                  69px past the fold (bottom 736 > 667) with the help text
+                  and the counter's band unreachable, even after the
+                  footer's two-band cure and the pull-list's cap. The
+                  inner lists keep their own caps; this is the last-resort
+                  pane for the screen that cannot host the whole door. */}
               <p className="px-1 pb-1 text-[11px] font-semibold">View bookmarks</p>
               <p className="px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground">
                 Save the exact camera pose — orbit, zoom and target — and fly back to it later.
               </p>
+              {/* t830 — the keymap grows kbd chips: a key that renders as a
+                  key reads as a key (the t642 law). Same families as the
+                  t829 prose, now scannable at chip speed; the lead-in span
+                  keeps the SCOPE honest — these are viewer keys, not door
+                  shortcuts, and the door must not imply otherwise. */}
+              <div
+                data-canvas-ui="door-keymap"
+                className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-1 pb-1.5 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center">While the viewer is open:</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>[</Kbd>
+                  <Kbd>]</Kbd>
+                  <span className="ml-0.5">step the contour</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>F</Kbd>
+                  <span className="ml-0.5">flips the side</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>X</Kbd>
+                  <Kbd>Y</Kbd>
+                  <Kbd>Z</Kbd>
+                  <span className="ml-0.5">cut the section</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>,</Kbd>
+                  <Kbd>.</Kbd>
+                  <span className="ml-0.5">scrub it</span>
+                </span>
+              </div>
               <div className="flex gap-1">
                 <input
                   value={bookmarkName}
@@ -5492,7 +6763,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   className={cn(
                     "h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2",
                     nameDupe
-                      ? "border-amber-500/70 focus-visible:border-amber-500 focus-visible:ring-amber-500/25"
+                      ? "border-warning-500/70 focus-visible:border-warning-500 focus-visible:ring-warning/25"
                       : "focus-visible:border-ring focus-visible:ring-ring/30",
                   )}
                 />
@@ -5509,7 +6780,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
               {nameDupe && (
                 <p
                   id="bm-name-dupe-hint"
-                  className="mt-1 flex items-start gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-1 text-[10px] leading-tight text-amber-700 dark:text-amber-400"
+                  className="mt-1 flex items-start gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-1 text-[10px] leading-tight text-warning-700 dark:text-warning-400"
                 >
                   <TriangleAlert className="mt-px size-3 shrink-0" />
                   <span>
@@ -5517,10 +6788,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   </span>
                 </p>
               )}
-              <div className="mt-1.5 max-h-44 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
+              <div ref={bmListRef} className="mt-1.5 max-h-44 space-y-0.5 overflow-y-auto pr-0.5 nice-scroll">
                 {bookmarks.length === 0 ? (
                   <p className="px-1 py-2 text-center text-[10px] text-muted-foreground">
-                    No bookmarks yet — set up a view, then save it.
+                    No bookmarks yet — set up a view, then save it (or press B to quick-save the current angle).
                   </p>
                 ) : (
                   bookmarks.map((b) => {
@@ -5615,6 +6886,33 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         >
                           <Pencil className="size-3" />
                         </button>
+                        {/* t821 — save-as-copy: the grid's fourth face. The
+                            copy freezes the SAVED pose (not the canvas) and
+                            takes the first free "(copy)" name — variant
+                            exploration without the delete-recreate dance. */}
+                        <button
+                          type="button"
+                          onClick={() => duplicateBookmark(b)}
+                          aria-label={`Duplicate bookmark ${b.name}`}
+                          title="Save as copy — freezes this view's saved pose & optics into a new bookmark"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                        >
+                          <CopyPlus className="size-3" />
+                        </button>
+                        {/* t823 — the row's share: a link that carries THIS
+                            row's SAVED pose & optics (the t821 freeze law
+                            reaching the URL) with its own name riding the
+                            payload — sharing a view no longer requires it
+                            to be on the canvas right now. */}
+                        <button
+                          type="button"
+                          onClick={() => copyRowViewLink(b)}
+                          aria-label={`Copy view link for ${b.name}`}
+                          title="Copy view link — anyone opening this URL lands on this saved pose & optics"
+                          className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-primary"
+                        >
+                          <Link2 className="size-3" />
+                        </button>
                       </span>
                     </div>
                     );
@@ -5622,48 +6920,89 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 )}
               </div>
               {/* export / import — saved views are work product; move the
-                  whole setup between jobs, browsers or machines */}
-              <div className="mt-1.5 flex items-center gap-1 border-t pt-1.5">
-                <button
-                  type="button"
-                  onClick={exportBookmarks}
-                  aria-label="Export view bookmarks to a JSON file"
-                  title="Export — download these views as a JSON file"
-                  className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <Download className="size-3" />
-                  Export
-                </button>
-                <button
-                  type="button"
-                  onClick={() => importInputRef.current?.click()}
-                  aria-label="Import view bookmarks from JSON files"
-                  title="Import — merge views from one or more JSON files into this job"
-                  className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <Upload className="size-3" />
-                  Import
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleFromJob}
-                  aria-expanded={fromJobOpen}
-                  aria-label="Import view bookmarks from another job"
-                  title="From job — pull saved views straight from another job in this project"
-                  className={cn(
-                    "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                    fromJobOpen && "bg-muted text-foreground",
-                  )}
-                >
-                  <FolderOpen className="size-3" />
-                  From job
-                </button>
-                <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground/60" aria-hidden="true">
-                  {bookmarks.length}/8
+                  whole setup between jobs, browsers or machines. t827 — the
+                  footer is a TWO-BAND footer by construction: the file-ops
+                  trio (+ the t823 divider) form band one, the share mouth
+                  and the counter form band two; at the door's fixed w-64
+                  the two bands wrap (the seats' nowrap keeps every label
+                  whole — t824's worst-case read caught the counter clipped
+                  and "Copy view link" folded into three lines), and if the
+                  door ever grows the bands ride one row again. */}
+              <div className="mt-1.5 flex flex-wrap items-center gap-y-1 border-t pt-1.5">
+                <span className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={exportBookmarks}
+                    aria-label="Export view bookmarks to a JSON file"
+                    title="Export — download these views as a JSON file"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Download className="size-3" />
+                    Export
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => importInputRef.current?.click()}
+                    aria-label="Import view bookmarks from JSON files"
+                    title="Import — merge views from one or more JSON files into this job"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Upload className="size-3" />
+                    Import
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleFromJob}
+                    aria-expanded={fromJobOpen}
+                    aria-label="Import view bookmarks from another job"
+                    title="From job — pull saved views straight from another job in this project"
+                    className={cn(
+                      "flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                      fromJobOpen && "bg-muted text-foreground",
+                    )}
+                  >
+                    <FolderOpen className="size-3" />
+                    From job
+                  </button>
+                  {/* t823 — the footer's glance detail: the file-ops group
+                      (Export / Import / From job) and the share gesture are
+                      different KINDS of mouth — a hairline divider lets the
+                      eye sort them before the hand does. It rides band
+                      one's tail: at the wrap point it marks where the
+                      file-ops band ends, not where the share begins. */}
+                  <span aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-border/70" />
+                </span>
+                {/* t822 — the share door: the current pose rides inside the
+                    URL itself, so a colleague opens the exact view with one
+                    paste — no account, no bookmark row, no file to pass */}
+                <span className="ml-auto flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => void copyViewLink()}
+                    aria-label="Copy view link — share the current pose as a URL"
+                    title="Copy view link — anyone opening this URL lands on this exact pose & optics"
+                    className="flex items-center gap-1 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <ClipboardCopy className="size-3" />
+                    Copy view link
+                  </button>
+                  <span className="font-mono text-[9px] tabular-nums text-muted-foreground/60" aria-hidden="true">
+                    {bookmarks.length}/8
+                  </span>
                 </span>
               </div>
               {fromJobOpen && (
-                <div className="mt-1 rounded-md border bg-muted/30 p-1" data-canvas-ui="from-job-list">
+                <div
+                  className="mt-1 max-h-40 overflow-y-auto rounded-md border bg-muted/30 p-1 pr-1.5 nice-scroll"
+                  data-canvas-ui="from-job-list"
+                >
+                  {/* t827 — the shelf's sibling gets the shelf's own cap:
+                      the main list scrolls at max-h-44, but this list grew
+                      rows uncapped — an 8-job project pushed the whole
+                      door past the viewport bottom (the help text and the
+                      counter's band were unreachable at BOTH widths). A
+                      capped, scrollable pull-list keeps the worst-case
+                      door inside the screen it opens on. */}
                   <p className="px-1 pb-1 text-[9px] font-medium leading-tight text-muted-foreground">
                     Pull views from another job in this project
                   </p>
@@ -5721,7 +7060,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
 
             {importRoom === 0 && (
               <p
-                className="flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[10px] leading-snug text-amber-800 dark:text-amber-200"
+                className="flex items-center gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-[10px] leading-snug text-warning-800 dark:text-warning-200"
                 role="status"
                 data-canvas-ui="import-full-hint"
               >
@@ -5731,7 +7070,19 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             )}
 
             {/* grouped sources — file groups and job groups side by side */}
-            <div className="max-h-72 space-y-2 overflow-y-auto pr-0.5 nice-scroll" role="group" aria-label="Views found across all sources">
+            {/* t803 — the views-found group gains the stop (the second-pass
+                census): the container speaks for the keyboard. The t806
+                audit re-walked the row debt this comment once carried: the
+                entry rows are label+Checkbox pairs — the native form face,
+                keyboard-reachable by the checkbox itself — so there was no
+                div-click debt to cure; the old pointer-face note is
+                retired by evidence, not by edits. */}
+            <div
+              tabIndex={0}
+              className="max-h-72 space-y-2 overflow-y-auto pr-0.5 nice-scroll focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              role="group"
+              aria-label="Views found across all sources"
+            >
               {importGroups.map((g, gi) => {
                 // per-source header accounting — standard tri-state
                 // semantics: "checked" means every TICKABLE row of this
@@ -5769,9 +7120,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       data-canvas-ui="import-source-toggle"
                     />
                     {g.kind === "file" ? (
-                      <FileJson className="size-3 shrink-0 text-teal-600" aria-hidden="true" />
+                      <FileJson className="size-3 shrink-0 text-running-600" aria-hidden="true" />
                     ) : (
-                      <FolderOpen className="size-3 shrink-0 text-amber-600" aria-hidden="true" />
+                      <FolderOpen className="size-3 shrink-0 text-warning-600" aria-hidden="true" />
                     )}
                     <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-foreground/80" title={g.label}>
                       {g.label}
@@ -5906,7 +7257,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-[2px]">
           <div className="flex flex-col items-center gap-2.5 rounded-2xl border bg-background px-5 py-4 text-xs text-muted-foreground shadow-sm">
             <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-teal-600" aria-hidden="true" />
+              <Loader2 className="h-4 w-4 animate-spin text-running-600" aria-hidden="true" />
               <span aria-live="polite">{STAGE_LABEL[stage]}</span>
             </div>
             {/* thin stage progress: 4 dots, filled as stages complete */}
@@ -5916,7 +7267,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   key={s}
                   className={
                     "h-1 w-6 rounded-full transition-colors duration-300 " +
-                    (s === stage ? "bg-teal-600 animate-pulse" : sorder(s, stage) ? "bg-teal-600/60" : "bg-border")
+                    (s === stage ? "bg-running-600 animate-pulse" : sorder(s, stage) ? "bg-running-600/60" : "bg-border")
                   }
                 />
               ))}

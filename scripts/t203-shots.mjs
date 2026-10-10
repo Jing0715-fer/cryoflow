@@ -5,6 +5,8 @@
  * its own territory, half2's resting) and a strip close-up. Then Home
  * (0%) — the OTHER frame: half2's violet bracket bright, half1's resting.
  * World restitution: the staged tenancy is emptied server-side. */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707 — saved-state routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 import { execSync } from "node:child_process";

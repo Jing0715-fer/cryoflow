@@ -12,12 +12,15 @@
  * Data: /api/jobs/[id]/angdist (latest run_itXXX_data.star, live while running).
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Compass, RadioTower, TriangleAlert } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CheckCircle2, Compass, Flame, RadioTower, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { Chip } from "@/components/ui/chip";
+import { useChartResource } from "@/lib/use-chart-resource";
 import { angDistRenderable, angDistRows, type AngDistResponse } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartErrorStrip } from "./chart-error-strip";
+import { ChartInterpretation } from "./interpretation-strip";
 
 const SIZE = 236;
 const CX = SIZE / 2;
@@ -60,31 +63,14 @@ export function AngularDistributionChart({
   running?: boolean;
   className?: string;
 }) {
-  const [data, setData] = useState<AngDistResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // t491 — shared fetch state machine; the error state used to be captured
+  // and then thrown away visually ("error && !data → null") — a wound read
+  // exactly like honest absence
+  const { status, data, error, retry } = useChartResource<AngDistResponse>(
+    `/api/jobs/${jobId}/angdist`,
+    { pollMs: running ? 30_000 : null }
+  );
   const [hovered, setHovered] = useState<Hovered | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<AngDistResponse>(`/api/jobs/${jobId}/angdist`);
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
-      }
-    };
-    void load();
-    if (!running) return () => { cancelled = true; };
-    const t = setInterval(() => void load(), 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
 
   const rings = useMemo(() => {
     // dashed rings at tilt 30/60/90/120/150 + labels along the +x axis
@@ -95,13 +81,25 @@ export function AngularDistributionChart({
     return out;
   }, []);
 
-  if (error && !data) return null; // enhancement — stays silent on failure
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Angular distribution"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   // gate single-sourced in lib/chart-rows (t110: the palette exports the
   // same grid through the same predicate); !data first so TS narrows below
   if (!data || !angDistRenderable(data)) return null;
 
   const { cells, max, rotBins, tiltBins, total } = data;
-  const anisotropic = data.anisotropy > 6;
+  // t489 — the verdict is the WELL's judgment (interpretAngDist): the >6
+  // concentration threshold lives there, not re-computed per face
+  const interp = data.interpretation ?? null;
+  const anisotropic = interp?.verdict === "anisotropic";
   const iterLabel = data.iteration != null ? `it ${data.iteration}` : "final";
 
   const rotDeg = (hovered?.rotIdx ?? 0) * (360 / rotBins);
@@ -112,29 +110,29 @@ export function AngularDistributionChart({
       aria-label="Orientation distribution"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-running-600/5 to-transparent p-3",
         className
       )}
     >
       {/* header row */}
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <Compass className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <Compass className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           Orientation distribution
         </span>
         {running ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-teal-600/30 bg-teal-600/10 px-1.5 py-px text-[10px] font-medium text-teal-700 dark:text-teal-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-1.5 py-px text-[10px] font-medium text-running-700 dark:text-running-300">
             <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-running-500 opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-running-500" />
             </span>
             live
           </span>
         ) : null}
-        <span className="inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground">
-          <RadioTower className="h-3 w-3" aria-hidden="true" />
+        <Chip size="sm" tone="muted">
+          <RadioTower aria-hidden="true" />
           {total.toLocaleString()} particles · {iterLabel}
-        </span>
+        </Chip>
         <ChartExportButtons
           name="Orientation distribution"
           getRows={() => angDistRows(data)}
@@ -246,7 +244,7 @@ export function AngularDistributionChart({
               className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 rounded-md border bg-popover px-2 py-1 text-[10px] font-medium tabular-nums text-popover-foreground shadow-md"
             >
               rot {rotDeg}–{rotDeg + 360 / rotBins}° · tilt {tiltDeg}–{tiltDeg + 180 / tiltBins}°
-              <span className="ml-1.5 text-teal-600 dark:text-teal-400">
+              <span className="ml-1.5 text-running">
                 {hovered.count} ({((hovered.count / total) * 100).toFixed(1)}%)
               </span>
             </div>
@@ -274,33 +272,43 @@ export function AngularDistributionChart({
             </p>
           </div>
 
-          <div
-            className={cn(
-              "flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-[10.5px] leading-tight",
-              anisotropic
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"
-                : "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
-            )}
-          >
-            {anisotropic ? (
-              <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            ) : (
-              <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            )}
-            <span>
-              {anisotropic ? (
-                <>
-                  anisotropic views — concentration ×{data.anisotropy.toFixed(1)}. Preferred
-                  orientation can bias the map along missing directions.
-                </>
-              ) : (
-                <>
-                  isotropic coverage — concentration ×{data.anisotropy.toFixed(1)},{" "}
-                  {data.occupied}/{rotBins * tiltBins} bins populated
-                </>
-              )}
-            </span>
-          </div>
+          {/* t489 — the coverage strip speaks the tool's exact grammar
+              (interpretAngDist): the verdict word, the rounded
+              concentration, the bins populated — the same judgment the
+              agent quotes when asked whether orientations are even. The
+              loader attaches the interpretation whenever the panel
+              renders (total > 0), so no fallback re-judges here. */}
+          {interp && (
+            <ChartInterpretation
+              icon={anisotropic ? TriangleAlert : CheckCircle2}
+              tone={anisotropic ? "amber" : "emerald"}
+              label="Coverage"
+            >
+              {interp.verdict} — concentration ×{interp.concentration},{" "}
+              {data.occupied}/{rotBins * tiltBins} bins populated
+            </ChartInterpretation>
+          )}
+
+          {/* t489 — the three hottest direction bins: the heatmap shows
+              them, the tool names them, and now the strip names them too
+              — one grammar, the panel = model can quote. */}
+          {interp && interp.hottestBins.length > 0 && (
+            <ChartInterpretation icon={Flame} tone="fuchsia" label="Hottest bins">
+              {interp.hottestBins.map((b, i) => (
+                <span key={`${b.rotBin}-${b.tiltBin}`}>
+                  {i > 0 && <span className="opacity-50"> · </span>}
+                  rot {b.rotBin} · tilt {b.tiltBin}
+                  <span className="opacity-70"> ×{b.count.toLocaleString()}</span>
+                </span>
+              ))}
+            </ChartInterpretation>
+          )}
+
+          {interp && anisotropic ? (
+            <p className="text-[9.5px] leading-tight text-muted-foreground/80">
+              Preferred orientation can bias the map along the missing directions.
+            </p>
+          ) : null}
 
           {data.symmetry ? (
             <p className="text-[10px] text-muted-foreground">

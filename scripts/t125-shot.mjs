@@ -2,6 +2,8 @@
 import { chromium } from "playwright";
 import { setTimeout as sleep } from "timers/promises";
 import { mkdirSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 mkdirSync(".next/t125-shots", { recursive: true });

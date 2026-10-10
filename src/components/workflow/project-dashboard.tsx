@@ -30,7 +30,9 @@ import {
   Minus,
   Pencil,
   Plus,
+  Route,
   Search,
+  Server,
   Snowflake,
   StickyNote,
   Trash2,
@@ -44,19 +46,31 @@ import {
   X,
 } from "lucide-react";
 import { useWorkflowStore } from "@/lib/store";
+import { STATUS_DOT } from "@/lib/status-style"; // t647 — the dot family lives with the word law
 import { parseClassNotes, hasJudgment } from "@/lib/class-notes";
+import { jobMatchesQuery, parseParamQuery } from "@/lib/job-match"; // t724 — the roster speaks THE matcher's dialect (t653 subsequence + t722 params), not a private includes
 import { withLiveStats } from "@/lib/live-stats";
-import { PENDING_VIEW_KEY } from "@/lib/view-link";
+import { PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT } from "@/lib/view-link";
+import { compactStayReceipt } from "@/lib/remote/stay-receipt";
+import { HomecomingSweepBar } from "./homecoming-sweep";
 import { KpiSparkline } from "./kpi-sparkline";
-import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
+import { ActivityHeatmap } from "./activity-heatmap"; // Task 711 — the shape-of-time face (sparkline = trend, feed = latest, calendar = bursts & quiet)
+import { UserPresetShelf } from "./user-preset-shelf"; // Task 716 — the preset family's overview face (snapshots across every type, manageable in one place)
+import { JournalDigest } from "./journal-digest"; // Task 720 — the activity family's fourth face (the fingers' past tense, cross-job)
+import { NotesWall } from "./notes-wall"; // Task 721 — the notebook face (the mind's conclusions, this project, read in one place)
+import { ParamDialectBadge } from "./param-dialect-badge"; // t724 — one dialect marker for both search surfaces
+import { EngineBuildRail, EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { JobDTO, ProjectSummaryDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { TypeIcon } from "./icons";
 import { PipelineAnalytics } from "./pipeline-analytics";
-import { StatusBadge, estimateEta, formatEta, trackEtaBaseline } from "./job-card";
+import { StatusBadge, estimateEta, formatEta, isSlurmQueued, trackEtaBaseline } from "./job-card";
+import { JobSearchLens } from "./job-search-lens";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
+import { walkTimeline } from "@/lib/timeline-walk"; // t686 — the roster drinks the same honest-window well
+import { criticalPath } from "@/lib/critical-path"; // t686 — the walk the lens family speaks, now on the survey face
 // diff entry No.4 (Task 89): the roster is the SURVEY surface — "compare
 // run 1 vs run 2" is asked here more than anywhere, across every workspace
 // at once. Same shared picker as the inspector (one sibling list, one
@@ -81,6 +95,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -181,13 +196,9 @@ function sortProjects(list: ProjectCard[], key: ProjectSortKey): ProjectCard[] {
   return out;
 }
 
-const STATUS_DOT: Record<string, string> = {
-  idle: "bg-muted-foreground/40",
-  pending: "bg-amber-500",
-  running: "bg-teal-500 animate-pulse",
-  completed: "bg-emerald-500",
-  failed: "bg-rose-500",
-};
+/* t647 — STATUS_DOT moved to lib/status-style (the map family lives
+ * with the word law); imported at the top. Motion stays at the call
+ * site: the running row adds its own pulse next to the lib dot. */
 
 /* ------------------------------------------------------------------ */
 /* KPI band                                                             */
@@ -242,58 +253,67 @@ const KpiCard = React.forwardRef<
   const interactive = typeof onClick === "function";
   const body = (
     <>
-      <span
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
-          tone
-        )}
-        aria-hidden="true"
-      >
-        {icon}
-      </span>
-      <div className="min-w-0 leading-tight">
-        <p className="text-xl font-semibold tabular-nums tracking-tight">{value}</p>
-        {/* truncate is a SCREEN economy — on paper the card has room and no
-            hover to recover hidden text, so labels/subs unwrap to full
-            width (Task 85: the paper contract expands what the screen
-            clips); title keeps screen hover recovery honest */}
-        <p
-          title={label}
-          className="truncate print:whitespace-normal print:overflow-visible text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+      {/* t301 — two-zone card. The old single row pinned the spark as an
+          absolute bottom-right WATERMARK over the text column: at
+          lg:grid-cols-5 each card narrowed to ~210px, the truncated sub text
+          ran the full content width and the 84px spark landed right on top of
+          it. Now the spark owns its own row below the text — overlap is
+          structurally impossible at every card width. */}
+      <div className="flex w-full min-w-0 items-center gap-3">
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
+            tone
+          )}
+          aria-hidden="true"
         >
-          {label}
-        </p>
-        {sub ? (
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="text-xl font-semibold tabular-nums tracking-tight">{value}</p>
+          {/* truncate is a SCREEN economy — on paper the card has room and no
+              hover to recover hidden text, so labels/subs unwrap to full
+              width (Task 85: the paper contract expands what the screen
+              clips); title keeps screen hover recovery honest */}
           <p
-            title={sub}
-            className="truncate print:whitespace-normal print:overflow-visible text-[10px] text-muted-foreground/70"
+            title={label}
+            className="truncate print:whitespace-normal print:overflow-visible text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
           >
-            {sub}
+            {label}
           </p>
-        ) : null}
+          {sub ? (
+            <p
+              title={sub}
+              className="truncate print:whitespace-normal print:overflow-visible text-[10px] text-muted-foreground/70"
+            >
+              {sub}
+            </p>
+          ) : null}
+        </div>
       </div>
-      {/* sparkline as a bottom-right watermark: decorative trend that never
-          squeezes the text column (in-flow placement truncated "TOTAL JOBS"
-          to "TO…" at lg width) — pointer-events-none so it can't block */}
+      {/* trend strip — the sparkline's own row: never squeezes the text
+          column, never sits under a label (the in-flow placement that
+          truncated "TOTAL JOBS" to "TO…" is what birthed the watermark,
+          which then overlapped at 5-up; the row has room for both) */}
       {spark ? (
-        <div className="pointer-events-none absolute bottom-1.5 right-2.5 opacity-80">
+        <div className="mt-1.5 flex w-full items-center justify-end">
           {spark}
         </div>
       ) : null}
       {/* drill-down affordances: a corner chevron whispers "clickable", the
-          pressed dot states "this card IS the active filter" — both sit
-          above the spark watermark so they never fight for attention */}
+          pressed dot states "this card IS the active filter" — both pin to
+          the card's top-right corner, clear of the text and trend rows */}
       {interactive && !pressed ? (
         kbd ? (
           // shortcut badge: faintly visible at rest (discoverability — the
           // chevron was hover-only), brightens on hover; inherits border
           // color from currentColor so it reads on every card tone
-          <kbd
-            className="no-print pointer-events-none absolute right-1.5 top-1.5 rounded border px-1 text-[9px] font-semibold leading-[14px] text-muted-foreground/40 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/80"
+          <Kbd
+            className="no-print pointer-events-none absolute right-1.5 top-1.5 bg-transparent text-muted-foreground/40 transition-colors motion-reduce:transition-none group-hover/kpi:text-muted-foreground/80"
             aria-hidden="true"
           >
             {kbd}
-          </kbd>
+          </Kbd>
         ) : corner ? (
           // corner override (t243): same whisper dynamics as the chevron
           // (hover-only brightening), different verb — the icon decides
@@ -326,11 +346,18 @@ const KpiCard = React.forwardRef<
   );
 
   const shell = cn(
-    "card-lift group/kpi relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card p-4 text-left transition-[box-shadow,border-color,background-color]",
+    // t576 — the shell drops its Tailwind transition utility so the
+    // unlayered .dash-card-hover owns the whole transition channel
+    // (shadow answer + colour tint, one rule, no cascade fight); the
+    // drill-downs are true buttons, so they lean (t571's rise) as well
+    "card-lift group/kpi relative flex flex-col justify-center gap-0 overflow-hidden rounded-xl border bg-card p-4 text-left",
+    interactive
+      ? "dash-card-hover dash-card-lean"
+      : "",
     interactive
       ? pressed
         ? "cursor-pointer border-primary/50 ring-1 ring-primary/30"
-        : "cursor-pointer hover:border-primary/40 hover:shadow-md"
+        : "cursor-pointer hover:border-primary/40"
       : "border-border"
   );
 
@@ -428,7 +455,7 @@ function DashboardProjectCard({
             unit="jobs"
             width={72}
             height={20}
-            className={allDone ? "text-emerald-500" : "text-muted-foreground/60"}
+            className={allDone ? "text-success-500" : "text-muted-foreground/60"}
           />
         );
       })
@@ -457,19 +484,22 @@ function DashboardProjectCard({
   return (
     <div
       className={cn(
-        "card-lift group relative flex flex-col overflow-hidden rounded-xl border bg-card p-4 transition-shadow hover:shadow-md",
+        // t576 — shadow answer, no rise: the card hosts its actions in a
+        // footer row, the body itself is not a click target — a lean would
+        // promise a click it doesn't own (the ladder's kind split)
+        "card-lift dash-card-hover group relative flex flex-col overflow-hidden rounded-xl border bg-card p-4",
         isActive ? "border-primary/50 ring-1 ring-primary/25" : "border-border"
       )}
     >
       {/* engine accent strip */}
       <div
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600"
+        className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-running-600 via-running-400 to-running-600"
       />
 
       <div className="flex items-start gap-2">
         <span
-          className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 ring-1 ring-inset ring-teal-500/30 dark:text-teal-400"
+          className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-running/10 text-running ring-1 ring-inset ring-running/30"
           aria-hidden="true"
         >
           {isPending ? (
@@ -519,7 +549,7 @@ function DashboardProjectCard({
       {/* rename-collision nudge — compact so the card only grows a few px
           while editing, and only when the typed name actually collides */}
       {renameDup && (
-        <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] leading-snug text-amber-700 dark:text-amber-400">
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] leading-snug text-warning-700 dark:text-warning-400">
           <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden="true" />
           <span>
             Another project is already named “{name.trim()}” — Enter still
@@ -532,7 +562,7 @@ function DashboardProjectCard({
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <Badge
           variant="outline"
-          className="h-5 border-teal-500/40 bg-teal-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400"
+          className="h-5 border-running/40 bg-running/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-running"
         >
           RELION
         </Badge>
@@ -542,23 +572,38 @@ function DashboardProjectCard({
             "h-5 px-1.5 text-[9px] font-semibold uppercase tracking-wider",
             tomo
               ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
-              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              : "border-success/40 bg-success/10 text-success"
           )}
         >
           {tomo ? "TOMO" : "SPA"}
         </Badge>
+        {/* t301 — remote binding badge: the grid never showed WHERE a
+            project's data lives, so a cluster project was indistinguishable
+            from a local one until you opened it. The API already carries
+            `remote` (ProjectRemoteRef) — surface it with the same violet
+            accent the remote browser uses. */}
+        {project.remote ? (
+          <Badge
+            variant="outline"
+            title={`Remote project — data lives on ${project.remote.name} (${project.remote.username}@${project.remote.host})`}
+            className="h-5 max-w-[9rem] border-violet-500/40 bg-violet-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400"
+          >
+            <Server className="mr-1 size-2.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{project.remote.name}</span>
+          </Badge>
+        ) : null}
         <span className="ml-auto flex items-center gap-1.5 text-[11px] tabular-nums text-muted-foreground">
           <Boxes className="size-3" aria-hidden="true" />
           {total} jobs
           {(stats?.running ?? 0) > 0 && (
-            <span className="flex items-center gap-0.5 text-teal-600 dark:text-teal-400">
+            <span className="flex items-center gap-0.5 text-running">
               <Loader2 className="size-3 animate-spin" aria-hidden="true" />
               {stats?.running}
             </span>
           )}
           {(stats?.pending ?? 0) > 0 && (
             <span
-              className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400"
+              className="flex items-center gap-0.5 text-warning"
               title={`${stats?.pending} pending — waiting for an upstream job`}
             >
               <Clock className="size-3" aria-hidden="true" />
@@ -566,7 +611,7 @@ function DashboardProjectCard({
             </span>
           )}
           {(stats?.failed ?? 0) > 0 && (
-            <span className="flex items-center gap-0.5 text-rose-600 dark:text-rose-400">
+            <span className="flex items-center gap-0.5 text-danger">
               <CircleAlert className="size-3" aria-hidden="true" />
               {stats?.failed}
             </span>
@@ -699,12 +744,12 @@ function GalleryViewChips({ b }: { b: GalleryBookmark }) {
         {v.sigma.toFixed(2)} σ
       </span>
       {v.slice?.on && (
-        <span className="rounded bg-teal-600/10 px-1 py-px font-mono text-[8px] font-medium text-teal-700 dark:text-teal-400">
+        <span className="rounded bg-running/10 px-1 py-px font-mono text-[8px] font-medium text-running-700 dark:text-running-400">
           slice {(v.slice.axis ?? "Z").toUpperCase()}
         </span>
       )}
       {v.clip?.on && (
-        <span className="rounded bg-amber-600/10 px-1 py-px font-mono text-[8px] font-medium text-amber-700 dark:text-amber-400">
+        <span className="rounded bg-warning/10 px-1 py-px font-mono text-[8px] font-medium text-warning-700 dark:text-warning-400">
           clip
         </span>
       )}
@@ -721,30 +766,71 @@ function SavedViewsGallery() {
   const openJob = useWorkflowStore((s) => s.openJob);
   const jobCount = useWorkflowStore((s) => s.jobs.length);
   const [views, setViews] = React.useState<GalleryEntry[] | null>(null);
+  // t669 — the wall gets a delete face. One in-flight key at a time: two
+  // rapid deletes would race their read-filter-write cycles (the viewer's
+  // putChain doctrine, wall-sized) — the second X waits, honestly.
+  const [deleting, setDeleting] = React.useState<string | null>(null);
+  // t674 — the wall gets a rename face. The card now carries three mouths:
+  // the body jumps, the X deletes, the pencil renames — and ALL of them
+  // serialize through one busy gate (a rename and a delete racing their
+  // read-modify-write cycles would lose one of the writes; the second
+  // mouth waits, whoever it is). While a card is being edited, the jump
+  // mouth dissolves into the edit shell — a button cannot host an input,
+  // and a click that both edits and jumps is a gesture nobody asked for.
+  const [renaming, setRenaming] = React.useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = React.useState("");
+  const renameCancelRef = React.useRef(false);
   // the wall is a glance by default (12 cards); "Show all" expands it to
   // the full flat list without leaving the dashboard — state survives
   // refetches, and a shrinking collection just renders fewer cards
   const [showAllViews, setShowAllViews] = React.useState(false);
+  // t793 — the wall's X deletes DIRECTLY (read-filter-write, no confirm),
+  // and the live world proved the cost: a patrol finger hunting an alert
+  // specimen opened NO dialog — the view was simply gone. A destructive
+  // mouth with zero friction on a wall of one-click X buttons is one
+  // mis-click from eating a named camera pose. The confirm rides the
+  // alert bridge (ui/alert-dialog.tsx), whose t793 default close
+  // hand-back returns focus to the very X that opened it — the confirm
+  // costs one keypress and pays the focus relay for free.
+  const [viewDeleteTarget, setViewDeleteTarget] = React.useState<{
+    v: GalleryEntry;
+    b: GalleryBookmark;
+  } | null>(null);
 
-  // same freshness trigger as the recent feed: mount + whenever the
-  // active project's job list moves (a saved view appearing/disappearing
-  // rides the same commit path as a job mutation)
+  // freshness triggers: mount, whenever the active project's job list
+  // moves, AND (t670) whenever the OTHER mutation mouth broadcasts — a
+  // palette-row delete must not leave the wall holding its stale copy
+  // until some unrelated job mutation happens to refresh it. The event
+  // carries no payload on purpose: the wall trusts only its own fresh
+  // read (the same doctrine as its own delete — read fresh at the moment
+  // of truth, never a possibly stale copy, whoever owns it).
   React.useEffect(() => {
     let alive = true;
-    fetch("/api/views/gallery")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d: { views?: GalleryEntry[] }) => {
-        if (alive)
-          setViews(
-            Array.isArray(d.views) ? d.views.filter((v) => v.bookmarks.length > 0) : []
-          );
-      })
-      .catch(() => {
-        /* the wall is a convenience, not a dependency — hide on failure */
-        if (alive) setViews(null);
-      });
+    // t675 — a read token: two rapid broadcasts issue two concurrent GETs,
+    // and fetches can RESOLVE out of order — an older response landing
+    // after a newer one would pin the stale list under a fresh render.
+    // Only the latest issued read may apply; its elders go stale in peace.
+    let readToken = 0;
+    const load = () => {
+      const token = ++readToken;
+      fetch("/api/views/gallery")
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((d: { views?: GalleryEntry[] }) => {
+          if (alive && token === readToken)
+            setViews(
+              Array.isArray(d.views) ? d.views.filter((v) => v.bookmarks.length > 0) : []
+            );
+        })
+        .catch(() => {
+          /* the wall is a convenience, not a dependency — hide on failure */
+          if (alive && token === readToken) setViews(null);
+        });
+    };
+    load();
+    window.addEventListener(SAVED_VIEWS_CHANGED_EVENT, load);
     return () => {
       alive = false;
+      window.removeEventListener(SAVED_VIEWS_CHANGED_EVENT, load);
     };
   }, [jobCount]);
 
@@ -776,6 +862,203 @@ function SavedViewsGallery() {
     void openJob(v.jobId, { projectId: v.projectId });
   };
 
+  /** t669 — delete from the wall. The gallery route is read-only by
+   *  design: mutations stay on the per-job camera-bookmarks route, so the
+   *  wall READS FRESH AT CLICK TIME and PUTs the remaining list — never
+   *  its own possibly stale gallery copy (a view saved in the viewer
+   *  since this fetch must survive the delete). The route re-sanitizes
+   *  and drops the row entirely when the list runs empty. After the
+   *  server confirms, the wall shrinks locally (no refetch needed) and
+   *  reports honestly; a failed round trip keeps the card and says so.
+   *  The palette's own 30s clock covers its staleness (a jump at a stale
+   *  row gets the viewer's honest "not found" toast — the contract this
+   *  delete rides, not fights). */
+  const deleteView = async (v: GalleryEntry, b: GalleryBookmark) => {
+    const cardKey = `${v.jobId}:${b.id}`;
+    setDeleting(cardKey);
+    try {
+      const r = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`);
+      if (!r.ok) throw new Error(`read ${r.status}`);
+      const j = (await r.json()) as { bookmarks?: Array<{ id: string }> };
+      const rest = (j.bookmarks ?? []).filter((x) => x && x.id !== b.id);
+      const w = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookmarks: rest }),
+      });
+      if (!w.ok) throw new Error(`write ${w.status}`);
+      // t794 — the sixth family: the wall's DELETE RELAY (the t791 law in
+      // wall dialect). The t793 confirm's hand-back returns focus to the
+      // very X that opened the question — and then THAT X's row unmounts,
+      // and focus falls to BODY: the live world judged it (a temp view
+      // deleted under a parked keyboard, focus read on BODY). Compute the
+      // landing from the PRE-delete closure: the card now occupying the
+      // vanished card's slot (t788's min-math — the next sibling shifts
+      // into place; the LAST visible card's delete hands to the previous),
+      // on the SAME mouth — the X — so a delete spree stays a spree (an
+      // accidental Enter opens the confirm, whose Cancel is the default:
+      // the friction survives the relay).
+      const pos = wall.findIndex((x) => x.b.id === b.id);
+      const flatAfter: typeof flat = [];
+      for (const row of views) {
+        const rest = row.bookmarks.filter((x) => x.id !== b.id);
+        for (const bb of rest) flatAfter.push({ v: row, b: bb });
+      }
+      const wallAfter = showAllViews ? flatAfter : flatAfter.slice(0, WALL_CAP);
+      const landing = pos >= 0 ? (wallAfter[pos] ?? wallAfter[pos - 1] ?? null) : null;
+      const dissolved = pos >= 0 && wallAfter.length === 0;
+      setViews(
+        (prev) =>
+          prev
+            ?.map((row) =>
+              row.jobId === v.jobId
+                ? { ...row, bookmarks: row.bookmarks.filter((x) => x.id !== b.id) }
+                : row
+            )
+            .filter((row) => row.bookmarks.length > 0) ?? null
+      );
+      // t670 symmetry, completed — the wall's own delete was the ONE
+      // mutation mouth that never broadcast (the palette's row delete
+      // tells the wall, the wall's rename tells everyone — but the
+      // wall's delete stayed silent, leaving the palette's rows and the
+      // viewer's door holding a stale copy until some unrelated mutation
+      // happened to refresh them). Every mouth speaks now; the wall's
+      // own listener re-reads fresh (the read-token guards the echo).
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+      // t817 — the toast teaches the wall's after-state. The screen-reader
+      // hears the toast but not the heading's silent re-render, so the
+      // count rides where the ears are (flatAfter is the post-delete
+      // total — computed after the server confirmed). Zero remaining
+      // names the dissolve: the honest empty doctrine — a state change
+      // that explains itself.
+      toast({
+        title: `View “${b.name}” deleted`,
+        description:
+          flatAfter.length === 0
+            ? `Removed from ${v.jobName}'s saved views — the wall is empty and the section dissolves.`
+            : `Removed from ${v.jobName}'s saved views — ${flatAfter.length} more bookmark${flatAfter.length === 1 ? "" : "s"} remain${flatAfter.length === 1 ? "s" : ""} on the wall.`,
+      });
+      // the relay fires after the commit that unmounts the row — the
+      // landing card is the stable-keyed neighbour (its DOM node
+      // survives the shrink), so the query below always finds it.
+      requestAnimationFrame(() => {
+        if (landing) {
+          const el = document.querySelector<HTMLButtonElement>(
+            `[data-saved-view-card="${CSS.escape(landing.b.id)}"] [data-saved-view-delete]`
+          );
+          if (el) {
+            el.focus({ preventScroll: true }); // the t774 contract
+            el.scrollIntoView({ block: "nearest", inline: "nearest" }); // reachability
+            return;
+          }
+        }
+        if (dissolved) {
+          // the wall dissolved (the last bookmark of the last job went —
+          // the section unmounts entirely); focus continues in reading
+          // order at the successor section's first live control.
+          document
+            .querySelector<HTMLElement>("[data-saved-views-successor]")
+            ?.querySelector<HTMLElement>("button:not([disabled]), a[href]")
+            ?.focus({ preventScroll: true });
+        }
+        // a pos of -1 (the deleted card was not on the visible wall —
+        // an impossible world: the X only renders on visible cards)
+        // stays inert: no relay, no steal, focus keeps whatever the
+        // bridge left it.
+      });
+    } catch {
+      toast({
+        title: "Could not delete the view",
+        description:
+          "The server did not confirm the removal — the card stays on the wall.",
+      });
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  /** t793 — the confirm's YES: close the dialog FIRST (the question is
+   * answered; the wall's own X-button spinner carries the work), then run
+   * the exact deleteView the X used to call directly. Closing before the
+   * await also lets the alert bridge hand focus back to the opener while
+   * it is still alive — the card's row only leaves the wall after the
+   * server confirms. */
+  const confirmViewDelete = async () => {
+    if (!viewDeleteTarget || deleting) return;
+    const { v, b } = viewDeleteTarget;
+    setViewDeleteTarget(null);
+    await deleteView(v, b);
+  };
+
+  /** t674 — rename from the wall. The delete contract's read-modify-write,
+   *  tuned for a name: READ FRESH AT CLICK TIME (the wall's gallery copy
+  *   may be stale — a view renamed in the viewer since this fetch keeps
+   *  its newer name), dupe-check against the SERVER list (the same law),
+   *  map-rename, PUT, then update the local copy in place and broadcast —
+   *  the palette and every other face re-read fresh. Three honest exits,
+   *  the viewer's rename menu speaks them all: renamed / dupe-warning
+   *  (still commits — a duplicate is a nudge, not a veto) / could-not.
+   *  Empty or untouched drafts return silently — an edit that never
+   *  happened is not a fact worth announcing. */
+  const renameView = async (v: GalleryEntry, b: GalleryBookmark, draft: string) => {
+    const nm = draft.trim().slice(0, 40);
+    if (!nm || nm === b.name) return; // empty or untouched — silent
+    try {
+      const r = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`);
+      if (!r.ok) throw new Error(`read ${r.status}`);
+      const j = (await r.json()) as { bookmarks?: Array<{ id: string; name?: string }> };
+      const list = j.bookmarks ?? [];
+      const dupe = list.some(
+        (x) => x && x.id !== b.id && (x.name ?? "").trim().toLowerCase() === nm.toLowerCase()
+      );
+      const w = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookmarks: list.map((x) => (x && x.id === b.id ? { ...x, name: nm } : x)),
+        }),
+      });
+      if (!w.ok) throw new Error(`write ${w.status}`);
+      setViews(
+        (prev) =>
+          prev?.map((row) =>
+            row.jobId === v.jobId
+              ? {
+                  ...row,
+                  bookmarks: row.bookmarks.map((x) =>
+                    x.id === b.id ? { ...x, name: nm } : x
+                  ),
+                }
+              : row
+          ) ?? null
+      );
+      // the OTHER mouths hear it too: a payload-less broadcast, every
+      // aggregate face re-reads the route (the t670/t671 symmetry)
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+      if (dupe)
+        toast({
+          title: `A view named “${nm}” already exists`,
+          description: "Renamed anyway — consider a distinct name so the menu stays tell-apart.",
+          className:
+            "border-warning/40 bg-warning-50/95 text-warning-900 dark:border-warning/30 dark:bg-warning-950/80 dark:text-warning-100",
+        });
+      else
+        toast({
+          title: "View renamed",
+          description: `“${b.name}” is now “${nm}” on ${v.jobName}.`,
+        });
+    } catch {
+      toast({
+        title: "Could not rename the view",
+        description:
+          "The server did not confirm the new name — the card keeps its old one.",
+      });
+    }
+  };
+
+  // one gate for every mutation mouth (see the rename state's comment)
+  const busy = deleting !== null || renaming !== null;
+
   return (
     <section
       aria-label="Saved 3D views across all projects"
@@ -785,20 +1068,82 @@ function SavedViewsGallery() {
         <Mountain className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <h2 className="text-sm font-semibold tracking-tight">Saved views</h2>
         <span className="text-[11px] text-muted-foreground">
-          {total} bookmark{total === 1 ? "" : "s"} · {views.length} job{views.length === 1 ? "" : "s"} · click to jump
+          {total} bookmark{total === 1 ? "" : "s"} · {views.length} job{views.length === 1 ? "" : "s"} · click to jump, hover to rename or delete
         </span>
       </div>
       <div id="saved-views-wall" data-atomic-grid className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {wall.map(({ v, b }) => {
           const spec = jobType(v.jobType);
+          // t669 — the card is a shell with two mouths: the body jumps,
+          // the X deletes. The X shares the chevron's slot (hover swaps
+          // one for the other — no layout shift, nothing occluded) and
+          // reveals itself to keyboards (focus-visible) and to
+          // focus-within, so tabbing reaches a visible control.
+          // t674 — a third mouth: the pencil renames. It sits left of the
+          // X in the same floating-chip grammar, and while a card is being
+          // edited the jump mouth DISSOLVES (a button cannot host an
+          // input) — the card becomes its edit shell until blur settles.
+          const cardKey = `${v.jobId}:${b.id}`;
+          const isRenaming = renaming === cardKey;
           return (
-            <button
-              key={`${v.jobId}:${b.id}`}
-              type="button"
-              onClick={() => void jump(v, b)}
-              title={`Open “${b.name}” — jumps to ${v.jobName}${v.projectName ? ` in ${v.projectName}` : ""} and restores the view in the 3D viewer`}
-              className="group/card flex min-w-0 items-center gap-2.5 rounded-lg border bg-card p-2 text-left transition-all motion-reduce:transition-none hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            <div
+              key={cardKey}
+              data-saved-view-card={b.id}
+              className="group/card relative flex min-w-0 items-center rounded-lg border bg-card transition-all motion-reduce:transition-none hover:border-primary/40 hover:shadow-sm"
             >
+              {isRenaming ? (
+                <div className="flex min-w-0 flex-1 items-center gap-2.5 p-2">
+                  <span
+                    className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md border bg-muted"
+                    aria-hidden="true"
+                  >
+                    {b.thumb ? (
+                      <img src={b.thumb} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Mountain className="absolute inset-0 m-auto size-4 text-muted-foreground/40" />
+                    )}
+                  </span>
+                  <input
+                    data-saved-view-rename-input={b.id}
+                    value={renameDraft}
+                    maxLength={40}
+                    autoFocus
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onBlur={() => {
+                      if (renaming !== cardKey) return;
+                      const d = renameDraft;
+                      setRenaming(null);
+                      if (renameCancelRef.current) {
+                        renameCancelRef.current = false;
+                        return;
+                      }
+                      void renameView(v, b, d);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        renameCancelRef.current = true;
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    aria-label={`Rename saved view “${b.name}”`}
+                    className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  />
+                  <span className="shrink-0 pr-1 text-[9px] leading-tight text-muted-foreground/70">
+                    Enter saves · Esc cancels
+                  </span>
+                </div>
+              ) : (
+              <button
+                type="button"
+                onClick={() => void jump(v, b)}
+                title={`Open “${b.name}” — jumps to ${v.jobName}${v.projectName ? ` in ${v.projectName}` : ""} and restores the view in the 3D viewer`}
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-2 text-left transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
               <span
                 className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md border bg-muted"
                 aria-hidden="true"
@@ -834,10 +1179,41 @@ function SavedViewsGallery() {
                 </span>
               </span>
               <ChevronRight
-                className="size-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover/card:translate-x-0.5"
+                className="size-3.5 shrink-0 text-muted-foreground/40 transition-transform group-hover/card:translate-x-0.5 group-hover/card:opacity-0 group-focus-within/card:opacity-0"
                 aria-hidden="true"
               />
-            </button>
+              </button>
+              )}
+              <button
+                type="button"
+                data-saved-view-rename={b.id}
+                onClick={() => {
+                  setRenaming(cardKey);
+                  setRenameDraft(b.name);
+                }}
+                disabled={busy}
+                aria-label={`Rename saved view “${b.name}”`}
+                title={`Rename “${b.name}” — gives this bookmark a new name (Enter saves, Esc cancels)`}
+                className="absolute right-9 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-md border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none hover:border-primary/40 hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 group-hover/card:opacity-100 group-focus-within/card:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Pencil className="size-2.5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                data-saved-view-delete={b.id}
+                onClick={() => setViewDeleteTarget({ v, b })}
+                disabled={busy}
+                aria-label={`Delete saved view “${b.name}”`}
+                title={`Delete “${b.name}” — removes this bookmark from ${v.jobName}'s saved views`}
+                className="absolute right-2 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-md border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none hover:border-destructive/40 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 group-hover/card:opacity-100 group-focus-within/card:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deleting === `${v.jobId}:${b.id}` ? (
+                  <Loader2 className="size-2.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <X className="size-2.5" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           );
         })}
       </div>
@@ -862,6 +1238,45 @@ function SavedViewsGallery() {
           {showAllViews ? "Show less" : `Show all ${flat.length} bookmarks`}
         </button>
       )}
+
+      {/* t793 — the delete confirm. The wall's X used to remove a saved
+       * view with zero friction (a live patrol finger proved it: hunting
+       * for an alert specimen deleted a view instead of opening one). The
+       * question is cheap; the pose is gone forever. The alert bridge's
+       * default close hand-back (ui/alert-dialog.tsx) returns focus to the
+       * X that opened this — no bespoke wiring needed. */}
+      <AlertDialog
+        open={viewDeleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete saved view “{viewDeleteTarget?.b.name ?? ""}”?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the named camera pose from{" "}
+              {viewDeleteTarget?.v.jobName}'s saved views. The job and all of
+              its data are untouched — only this named view goes, and the
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmViewDelete();
+              }}
+            >
+              Delete view
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -870,7 +1285,61 @@ function SavedViewsGallery() {
 /* Active project spotlight                                             */
 /* ------------------------------------------------------------------ */
 
-function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
+/* t613 — the spotlight's own wave (the innards beyond the analytics).
+ * The card rises as furniture (dash-enter, the 420ms rung); the
+ * analytics section speaks for itself since t611 (its INNER_BASE owns
+ * its own beat); the REMAINING faces take their places in reading
+ * order with the receipt's own word — ZERO new keyframes, the family's
+ * vocabulary is already complete for "a fact surfaces":
+ *
+ *   banner (the project's identity face) → stage label row → the
+ *   StageChips in pipeline order (each chevron riding the chip it
+ *   introduces) → the jobs label → the homecoming sweep → the roster
+ *   rows, top = newest, reading order = display order.
+ *
+ * SPOT_BASE_MS is the card's inner landing beat — harmonized with the
+ * analytics' INNER_BASE so one card has ONE beat (the card's dash-enter
+ * is still ramping until 420+240=660ms; the faces' early frames ride
+ * under that ramp, the same multiplication the analytics innards have
+ * lived since t611). STEP_MS is the family's 24ms reading step.
+ *
+ * The wave counts ONLY its own synchronous faces — never the
+ * analytics' (its flow length is data-dependent and the ladder is
+ * async; folding them in would shift these delays on every refetch —
+ * t612's law). And the TAIL's base freezes the head's face count at
+ * the spotlight's FIRST MOUNT: the roster is newest-first, so a newly
+ * submitted job would PREPEND — a positional index would shift every
+ * row's delay, and a shifted delay on a finished animation replays it
+ * (re-render becoming re-arrival, the exact fraud the grammar forbids).
+ * So the tail keeps a MOUNT LEDGER: each face's ticket is assigned
+ * once, in DOM encounter order of its first appearance; a later face
+ * joins the TAIL of the wave (mount = arrival — the ladder's own
+ * semantics); re-renders find their ticket and keep it (re-composition
+ * is not re-arrival). The ledger resets when the active project
+ * changes — the wave belongs to one project's first surfacing.
+ * Chrome never rides: the search box and the status filter chips are
+ * lenses, not faces (t611's own precedent); the banner's Progress
+ * meter keeps its own width-transition word (the row-face-only law,
+ * banner edition).
+ * Canonical world: 12 chips + 12 rows → banner 350, stage label 374,
+ * chips 398..662, jobs label 686, sweep 710, rows 734..998 — a 1238ms
+ * settle, the page's dominant card reading a beat past the funnel's
+ * ~1s envelope beneath it. */
+const SPOT_BASE_MS = 350;
+const SPOT_STEP_MS = 24;
+
+function StageChip({
+  job,
+  onClick,
+  arrivalDelay,
+}: {
+  job: JobDTO;
+  onClick: () => void;
+  /** t613 — the wave ticket: when present the chip is a face of the
+   *  spotlight's arrival grammar (data-spot-chip + --sd); when absent
+   *  the chip mounts as it always did (other call sites, if any). */
+  arrivalDelay?: string;
+}) {
   const spec = jobType(job.type);
   const running = job.status === "running" && job.startedAt != null;
   const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
@@ -883,19 +1352,32 @@ function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      title={`${job.name} — ${job.status}${job.result ? ` · ${job.result}` : ""}`}
+      title={`${job.name} — ${job.status}${job.result ? ` · ${compactStayReceipt(job.result, job.remoteRemaining?.remaining)}` : ""}`}
+      data-spot-chip={arrivalDelay === undefined ? undefined : ""}
+      style={
+        arrivalDelay === undefined
+          ? undefined
+          : ({ "--sd": arrivalDelay } as React.CSSProperties)
+      }
       className={cn(
         "group/stage flex shrink-0 items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition-all hover:shadow-sm",
         job.status === "running"
-          ? "border-teal-500/50 ring-1 ring-teal-500/25"
+          ? "border-running-500/50 ring-1 ring-running/25"
           : job.status === "completed"
-            ? "border-emerald-500/40"
+            ? "border-success/40"
             : job.status === "failed"
-              ? "border-rose-500/40"
+              ? "border-danger-500/40"
               : "border-border"
       )}
     >
-      <span className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[job.status] ?? "bg-muted-foreground/40")} aria-hidden="true" />
+      <span
+        className={cn(
+          "size-2 shrink-0 rounded-full",
+          STATUS_DOT[job.status] ?? "bg-muted-foreground/40",
+          job.status === "running" && "animate-soft-pulse" // t647 — motion at the call site (was animate-pulse, the soft rung is the canon)
+        )}
+        aria-hidden="true"
+      />
       <span
         className={cn(
           "flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset",
@@ -912,7 +1394,7 @@ function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
           {job.status === "running"
             ? `${Math.round(job.progress)}%${eta != null ? ` · ${formatEta(eta)}` : ""}`
             : job.status === "completed"
-              ? job.result?.slice(0, 26) ?? "done"
+              ? compactStayReceipt(job.result ?? "", job.remoteRemaining?.remaining).slice(0, 26) || "done"
               : job.status}
         </span>
       </span>
@@ -932,7 +1414,26 @@ function StageChip({ job, onClick }: { job: JobDTO; onClick: () => void }) {
  * source, so the dashboard and the canvas cannot drift apart.)
  */
 
-function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
+function JobRow({
+  job,
+  onOpen,
+  chainRank,
+  chainTotal,
+  chainDim,
+}: {
+  job: JobDTO;
+  onOpen: () => void;
+  /** t686 — 1-based position on the critical chain, null when the lens is
+   *  off or this row is not on the chain. The roster is a LIST: rank is
+   *  its native language, the one thing the dim/contrast cannot carry —
+   *  the map's no-new-ink law was a SCALE law (a dot has no room), not a
+   *  universe law. */
+  chainRank: number | null;
+  /** the chain's full length — the rank chip's denominator */
+  chainTotal: number | null;
+  /** lens on, this row off the chain — the world recedes, one ladder rung */
+  chainDim: boolean;
+}) {
   const spec = jobType(job.type);
   const running = job.status === "running" && job.startedAt != null;
   const eta = running ? estimateEta(job.id, job.startedAt, job.progress) : null;
@@ -1000,7 +1501,14 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
     // "direct children" fragile, so suites anchor here instead
     <div
       data-roster-row=""
-      className="group/row flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/60"
+      data-job-id={job.id}
+      data-roster-chain={chainRank != null ? "" : undefined}
+      data-roster-chain-rank={chainRank ?? undefined}
+      data-roster-dim={chainDim ? "1" : undefined}
+      className={cn(
+        "group/row flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-secondary/60",
+        chainDim && "roster-chain-dim"
+      )}
     >
       <button
         type="button"
@@ -1021,7 +1529,24 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className="truncate text-xs font-semibold">{job.name}</span>
-            <StatusBadge status={job.status} />
+            <StatusBadge status={job.status} queued={isSlurmQueued(job)} />
+            {chainRank != null && chainTotal != null ? (
+              // t686 — the rank chip: WHERE on the chain this run stands.
+              // The canvas lens lights the walked wires, the map keeps its
+              // chain dots at status fill — neither can say "third". The
+              // roster can, in the pill dialect this row already speaks
+              // (workspace chip, note badges): primary-tinted like the
+              // canvas chip's own finisher pill, .no-print because paper
+              // has no lens state to explain the number.
+              <span
+                data-roster-chain-chip=""
+                title={`Step ${chainRank} of ${chainTotal} on the critical path — the chain that decided when the pipeline could finish`}
+                className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-primary/30 bg-primary/10 px-1.5 text-[9px] font-semibold tabular-nums text-primary"
+              >
+                <Route className="size-2.5" aria-hidden="true" />
+                {chainRank}/{chainTotal}
+              </span>
+            ) : null}
             {job.note ? (
               // the row-level twin of the canvas badge (Task 73): amber
               // StickyNote, full text on hover, .no-print — the dashboard's
@@ -1032,7 +1557,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
                 role="img"
                 aria-label="Job has a note"
                 title={job.note}
-                className="no-print shrink-0 text-amber-500 dark:text-amber-400"
+                className="no-print shrink-0 text-warning-500 dark:text-warning-400"
               >
                 <StickyNote className="size-3" aria-hidden="true" />
               </span>
@@ -1047,7 +1572,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
                 role="img"
                 aria-label={`${classNotes.length} class${classNotes.length === 1 ? "" : "es"} noted`}
                 title={`Class notes on ${classNotes.map(([k]) => `Class ${k}`).join(", ")}`}
-                className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold tabular-nums text-amber-600 dark:text-amber-400"
+                className="no-print flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold tabular-nums text-warning"
               >
                 <StickyNote className="size-2.5" aria-hidden="true" />
                 {classNotes.length}
@@ -1074,17 +1599,28 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
                 role="img"
                 aria-label="Job not assigned to any workspace"
                 title={`Not on any canvas — adopt it into ${defaultWs?.name ?? "a workspace"} to make it visible`}
-                className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-dashed border-amber-500/50 bg-amber-500/5 px-1.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
+                className="flex h-4 shrink-0 items-center gap-0.5 rounded-full border border-dashed border-warning-500/50 bg-warning/5 px-1.5 text-[9px] font-semibold text-warning"
               >
                 <TriangleAlert className="size-2.5" aria-hidden="true" />
                 Unassigned
               </span>
             ) : null}
           </span>
-          {job.status === "running" ? (
+          {job.status === "running" && isSlurmQueued(job) ? (
+            // t322 — queued on slurm: no progress bar (0% would claim
+            // compute that has not started), the queue wait speaks instead
+            <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-warning-700 dark:text-warning-300">
+              <span className="inline-block size-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true" />
+              <span className="truncate">
+                {job.runRemote?.slurmDependsOn?.length
+                  ? `queued · waits on ${job.runRemote.slurmDependsOn.join(", ")}`
+                  : "queued · waiting for the scheduler"}
+              </span>
+            </span>
+          ) : job.status === "running" ? (
             <span className="mt-1 flex items-center gap-2">
               <Progress value={job.progress} className="h-1 flex-1 overflow-hidden" />
-              <span className="shrink-0 text-[10px] font-semibold tabular-nums text-teal-600 dark:text-teal-400">
+              <span className="shrink-0 text-[10px] font-semibold tabular-nums text-running">
                 {Math.round(job.progress)}%
                 {rowElapsed > 0 ? (
                   <span data-testid="row-elapsed"> · {formatElapsed(rowElapsed)}</span>
@@ -1094,7 +1630,11 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
             </span>
           ) : (
             <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-              {job.result ?? (job.status === "idle" ? "not started" : "—")}
+              {job.result
+                ? compactStayReceipt(job.result, job.remoteRemaining?.remaining)
+                : job.status === "idle"
+                  ? "not started"
+                  : "—"}
             </span>
           )}
         </span>
@@ -1112,7 +1652,7 @@ function JobRow({ job, onOpen }: { job: JobDTO; onOpen: () => void }) {
           title={`Move to ${defaultWs.name} — makes the job visible on that canvas`}
           onClick={adopt}
           disabled={adopting}
-          className="no-print flex h-5 shrink-0 items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-amber-600 transition-colors hover:bg-amber-500/20 disabled:opacity-50 dark:text-amber-400"
+          className="no-print flex h-5 shrink-0 items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-warning transition-colors hover:bg-warning/20 disabled:opacity-50"
         >
           {adopting ? (
             <Loader2 className="size-2.5 animate-spin" aria-hidden="true" />
@@ -1168,6 +1708,10 @@ interface RecentJob {
   updatedAt: string;
   projectId: string | null;
   projectName: string | null;
+  /** t322 — the queue dialect's minimal signal (mode + slurmState + the
+   * upstream ids): a slurm-queued run wears "Queued" here too, never a
+   * teal "Running" over a 0% bar that claims compute. */
+  runRemote?: { mode?: string; slurmState?: string; slurmDependsOn?: string[] } | null;
 }
 
 /** One wire→internal translation point: divide the 0–100 wire scale down
@@ -1231,7 +1775,7 @@ function ProgressSparkline({ values, samples }: { values: number[]; samples: num
       : `${samples} sample${samples === 1 ? "" : "s"} so far`;
   return (
     <span
-      className="relative inline-flex shrink-0 text-teal-600 dark:text-teal-400"
+      className="relative inline-flex shrink-0 text-running"
       title={`Progress history — last ${samples} sample${samples === 1 ? "" : "s"}, oldest → newest`}
       role="img"
       aria-label={`Progress history, ${tipText}`}
@@ -1272,8 +1816,8 @@ function ProgressSparkline({ values, samples }: { values: number[]; samples: num
             <span
               className={cn(
                 "inline-flex items-center gap-px",
-                delta > 0 && "text-emerald-500 dark:text-emerald-400",
-                delta < 0 && "text-red-500 dark:text-red-400",
+                delta > 0 && "text-success-500 dark:text-success-400",
+                delta < 0 && "text-danger",
                 Math.abs(delta) < 0.005 && "opacity-60",
               )}
             >
@@ -1397,6 +1941,11 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                 key={j.id}
                 type="button"
                 onClick={() => void open(j)}
+                // t686 — the row's identity anchor (the t677/t681/t683 law:
+                // when a probe can't reach a fact, hand it an anchor) —
+                // suites can now pick a row BY its job, not by its position
+                // in a feed whose tie order isn't the probe's to assume
+                data-activity-job={j.id}
                 className="group/row flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-secondary/60"
                 title={`Open ${j.name}${!isLocal && j.projectName ? ` in ${j.projectName}` : ""}`}
               >
@@ -1413,20 +1962,32 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
                     <span className="truncate text-[11px] font-semibold">{j.name}</span>
-                    <StatusBadge status={j.status} />
+                    <StatusBadge status={j.status} queued={isSlurmQueued(j)} />
                   </span>
                   <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
                     {!isLocal && j.projectName ? `${j.projectName} · ` : ""}
                     {formatDistanceToNow(new Date(j.updatedAt), { addSuffix: true })}
                   </span>
-                  {j.status === "running" && (
+                  {j.status === "running" && isSlurmQueued(j) ? (
+                    // t322 — the feed's queue dialect: no shimmer bar (0%
+                    // would claim compute that has not started), the wait
+                    // speaks instead — same word the roster row speaks
+                    <span className="mt-1 flex items-center gap-1 truncate text-[10px] font-medium text-warning-700 dark:text-warning-300">
+                      <span className="inline-block size-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true" />
+                      <span className="truncate">
+                        {j.runRemote?.slurmDependsOn?.length
+                          ? `queued · waits on ${j.runRemote.slurmDependsOn.join(", ")}`
+                          : "queued · waiting for the scheduler"}
+                      </span>
+                    </span>
+                  ) : j.status === "running" && (
                     <span
                       className="mt-1 flex items-center gap-1.5"
                       aria-label={`Progress ${Math.round(j.progress * 100)}%`}
                     >
                       <span className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
                         <span
-                          className="progress-shimmer relative block h-full rounded-full bg-teal-600 transition-[width] duration-700 ease-out"
+                          className="progress-shimmer relative block h-full rounded-full bg-running-600 transition-[width] duration-700 ease-out"
                           style={{ width: `${Math.min(100, Math.max(2, j.progress * 100))}%` }}
                         />
                       </span>
@@ -1450,9 +2011,111 @@ function RecentActivityFeed({ activeProjectId }: { activeProjectId: string | nul
   );
 }
 
+/** Needs-attention strip (t415) — failed jobs across ALL projects, one
+ *  glance, zero noise. The footer bar has counted failures for a long time
+ *  ("1 failed") but the count is a dead end: the KPI grid drill-down works
+ *  in PRESENCE (projects), so the actual failed job in a non-active
+ *  project was invisible — this world's t265 Topaz Train heritage sat red
+ *  in the footer while the dashboard showed nothing clickable. The strip
+ *  renders ONLY when the world speaks a failure (green world = nothing —
+ *  the same honesty as the activity feed's empty state), names each job on
+ *  a chip with its home project and recency, and jumps straight to the
+ *  job's canvas + inspector through the store's shared deep-link action
+ *  (the gallery/activity landing law: cross-project rows carry the
+ *  projectId hint; the switch happens inside openJob). */
+function FailedJobsStrip() {
+  const openJob = useWorkflowStore((s) => s.openJob);
+  const jobCount = useWorkflowStore((s) => s.jobs.length);
+  const activeProjectId = useWorkflowStore((s) => s.project?.id ?? null);
+  const [failed, setFailed] = React.useState<RecentJob[] | null>(null);
+  const [showAll, setShowAll] = React.useState(false);
+  // 4 chips keep the strip a band, not a wall; the overflow button expands
+  // in place and says honestly how many more (the SavedViewsGallery law)
+  const CAP = 4;
+
+  // same freshness trigger as the KPI band / activity feed: refetch when
+  // the active project's job list moves (a run finishing flips statuses)
+  React.useEffect(() => {
+    let alive = true;
+    fetch("/api/activity/recent?limit=20&status=failed")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d: { jobs?: RecentJob[] }) => {
+        if (alive) setFailed(Array.isArray(d.jobs) ? d.jobs : []);
+      })
+      .catch(() => {
+        /* the strip is a convenience, not a dependency — silence on failure */
+        if (alive) setFailed(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [jobCount]);
+
+  if (failed == null || failed.length === 0) return null;
+  const shown = showAll ? failed : failed.slice(0, CAP);
+  const hidden = failed.length - shown.length;
+
+  return (
+    <section
+      aria-label="Needs attention — failed jobs across all projects"
+      data-testid="needs-attention"
+      className="card-lift rounded-xl border border-danger-500/25 bg-danger/[0.04] px-4 py-3.5 sm:px-5"
+    >
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <TriangleAlert className="size-4 shrink-0 text-danger-500" aria-hidden="true" />
+        <h2 className="text-sm font-semibold tracking-tight">Needs attention</h2>
+        <span className="rounded-full bg-danger-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-danger">
+          {failed.length} failed
+        </span>
+        <span className="text-xs text-muted-foreground">
+          failed jobs across all projects — click one to jump to its canvas
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {shown.map((j) => (
+          <button
+            key={j.id}
+            data-testid="needs-attention-chip"
+            onClick={() => void openJob(j.id, { projectId: j.projectId })}
+            title={`Open “${j.name}” — failed ${fmtAgo(j.updatedAt)}${
+              j.projectName && j.projectId !== activeProjectId ? ` in ${j.projectName}` : ""
+            } · jumps to its canvas and opens the inspector`}
+            className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-danger-500/30 bg-card px-2.5 py-1 text-xs transition-colors hover:bg-danger-500/10"
+          >
+            <span className="size-1.5 shrink-0 rounded-full bg-danger" aria-hidden="true" />
+            <span className="max-w-52 truncate font-medium">{j.name}</span>
+            {j.projectName && j.projectId !== activeProjectId ? (
+              <span className="max-w-36 truncate text-muted-foreground">{j.projectName}</span>
+            ) : null}
+            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
+              {fmtAgo(j.updatedAt)}
+            </span>
+            <ChevronRight
+              className="size-3 shrink-0 text-danger-500/60 transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          </button>
+        ))}
+        {hidden > 0 ? (
+          <button
+            onClick={() => setShowAll(true)}
+            className="rounded-full border border-dashed border-danger-500/40 px-2.5 py-1 text-xs text-danger-600 transition-colors hover:bg-danger-500/10 dark:text-danger-400"
+          >
+            +{hidden} more failed
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 /** status filter chip for the spotlight Jobs list — single-select, the
  *  count rides along so the chips double as a mini status bar; active chip
- *  fills with the status tone, inactive stays a ghost outline */
+ *  fills with the status tone, inactive stays a ghost outline. t627 — the
+ *  cascade dialect: while a search lens is open upstream, `dimmed` marks a
+ *  chip whose slice has zero survivors — it dims IN PLACE (stability:
+ *  chips never pop in/out while typing) and the count reads 0 honestly;
+ *  hover restores full opacity so the chip stays discoverable. */
 function StatusFilterChip({
   label,
   n,
@@ -1462,6 +2125,7 @@ function StatusFilterChip({
   kbd,
   icon,
   dataFilter,
+  dimmed,
 }: {
   label: string;
   n: number;
@@ -1475,16 +2139,19 @@ function StatusFilterChip({
   icon?: React.ReactNode;
   /** e2e hook — stable identity for a chip regardless of label copy */
   dataFilter?: string;
+  /** t627 — an upstream search leaves this slice empty: honest 0, dimmed
+   *  in place, full opacity on hover */
+  dimmed?: boolean;
 }) {
   const toneCls =
     tone === "teal"
-      ? "border-teal-500/40 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+      ? "border-running/40 bg-running/10 text-running"
       : tone === "amber"
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        ? "border-warning/40 bg-warning/10 text-warning"
         : tone === "emerald"
-          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          ? "border-success/40 bg-success/10 text-success"
           : tone === "rose"
-            ? "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            ? "border-danger-500/40 bg-danger-500/10 text-danger"
             : "border-foreground/25 bg-foreground text-background";
   return (
     <button
@@ -1493,10 +2160,11 @@ function StatusFilterChip({
       aria-keyshortcuts={kbd}
       data-filter={dataFilter}
       onClick={onClick}
-      title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only${kbd ? ` — or press ${kbd}` : ""}`}
+      title={`Show ${label.toLowerCase()} job${n === 1 ? "" : "s"} only${kbd ? ` — or press ${kbd}` : ""}${dimmed ? " — none match the search" : ""}`}
       className={cn(
         "h-5 rounded-full border px-1.5 text-[9px] font-semibold uppercase tracking-wider transition-colors",
         active ? toneCls : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+        dimmed && "opacity-40 hover:opacity-100",
       )}
     >
       {icon}
@@ -1505,12 +2173,12 @@ function StatusFilterChip({
         // currentColor border keeps the badge legible in both the active
         // tone and the muted rest state; hidden on the smallest screens
         // where the tap targets are thumb-reachable anyway
-        <kbd
-          className="ml-0.5 hidden rounded-[3px] border px-[3px] text-[8px] font-bold normal-case leading-[11px] sm:inline-block"
+        <Kbd
+          className="ml-0.5 hidden rounded-[3px] bg-transparent px-[3px] text-[8px] font-bold normal-case leading-[11px] sm:inline-block"
           aria-hidden="true"
         >
           {kbd}
-        </kbd>
+        </Kbd>
       ) : null}
     </button>
   );
@@ -1525,6 +2193,16 @@ function ActiveProjectSpotlight({
 }) {
   const project = useWorkflowStore((s) => s.project);
   const jobs = useWorkflowStore((s) => s.jobs);
+  // t368 — the spotlight rides a DEFERRED copy of the jobs list (the
+  // canvas's own t364 doctrine, one surface over): while a job runs,
+  // pollTick lands a new jobs array every 1.2s (progress moves) and the
+  // old shape re-rendered this whole dashboard section synchronously on
+  // the UI thread — stage chips, the chart-heavy analytics, the roster —
+  // the recurring 「经常会出现卡顿」. With the deferred value those
+  // updates render at transition priority: the shell paints, pointer
+  // and typing win, the sections catch up a frame later. The canvas's
+  // own deferral layer keeps its un-deferred copy for urgent chrome.
+  const deferredJobs = React.useDeferredValue(jobs);
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const setView = useWorkflowStore((s) => s.setView);
   // Task 126: the shared deep-link action owns the landing (ghost guard +
@@ -1538,6 +2216,43 @@ function ActiveProjectSpotlight({
   // silently filters project B's first paint.
   const [rosterQuery, setRosterQuery] = React.useState("");
   const [prevProjectId, setPrevProjectId] = React.useState<string | null>(project?.id ?? null);
+  // t620 — the roster viewport's honesty: max-h-80 shows ~5 of 12 rows and,
+  // until now, said NOTHING about the rows sitting below the fold (the
+  // SavedViewsGallery law — "says honestly how many more" — had covered the
+  // card wall, the chip strip and the failed strip, but not the roster).
+  // hiddenBelow is the LIVE count of rows under the fold: recomputed on
+  // every scroll event and on any resize/filter change, so the badge's
+  // number is always the truth of this exact scroll position, and it
+  // disappears the moment the last row is on screen.
+  const rosterScrollRef = React.useRef<HTMLDivElement>(null);
+  const [hiddenBelow, setHiddenBelow] = React.useState(0);
+  const syncHiddenBelow = React.useCallback(() => {
+    const el = rosterScrollRef.current;
+    if (!el) return;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (remaining <= 4) {
+      setHiddenBelow(0);
+      return;
+    }
+    const firstRow = el.querySelector("tbody tr");
+    const rowH = firstRow ? firstRow.getBoundingClientRect().height : 56;
+    setHiddenBelow(Math.ceil(remaining / rowH));
+  }, []);
+  // hooks stay above the `if (!project)` early return — the recount rides
+  // slice lengths (rows added/removed/filtered change the overflow) plus a
+  // ResizeObserver for container resizes the slices can't see.
+  React.useEffect(() => {
+    syncHiddenBelow();
+    const el = rosterScrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => syncHiddenBelow());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [syncHiddenBelow, deferredJobs.length, jobFilter, rosterQuery]);
+  // t613 — the wave's mount ledger (the law lives in the docblock above
+  // SPOT_BASE_MS): the head's face count frozen at first mount + one
+  // ticket per tail face, assigned once and never rewritten.
+  const spotWave = React.useRef<{ chips: number; tail: Map<string, number> } | null>(null);
   // status filter for the Jobs list — chips double as a mini status bar;
   // "all" is the default so the section reads exactly as before until used.
   // "noted" (Task 76) is the property filter: it answers "which jobs carry
@@ -1547,22 +2262,59 @@ function ActiveProjectSpotlight({
   // cleanup queue for orphans. State lives in ProjectDashboard (Task 78)
   // so keys 5/6 can drive it.
 
+  // t686 — the chain lens reaches the survey surface. t681 spoke the walk
+  // on the analytics block, t682 painted it on the canvas, t683 carried it
+  // to the map — but the roster, the face that lists EVERY job of the
+  // project across EVERY workspace, still told no story. With the lens on,
+  // this face re-derives the SAME walk from the SAME lib (never stored —
+  // the fourth mouth of one walk, none of the mouths remembers) and splits
+  // the rows along it: chain rows wear their rank (the roster is a LIST —
+  // order is its native language, the one thing the dim/contrast cannot
+  // carry), everything the finish didn't wait on recedes with the same
+  // ladder rung the canvas cards dim by. The walk drinks the deferred set
+  // — the same list the rows render from — so the lens can never disagree
+  // with what this face is showing. The whole-graph law rides straight
+  // through: the roster spans every workspace, so it is the ONE face where
+  // a cross-workspace hop stays visible on the chain.
+  const criticalLens = useWorkflowStore((s) => s.criticalLens);
+  const allEdges = useWorkflowStore((s) => s.edges);
+  const toggleCriticalLens = useWorkflowStore((s) => s.toggleCriticalLens);
+  const chainWalk = React.useMemo(() => {
+    if (!criticalLens) return null;
+    const w = walkTimeline(deferredJobs, Date.now());
+    return criticalPath(
+      w.rows.filter((r) => r.job.status !== "running"),
+      allEdges
+    );
+  }, [criticalLens, deferredJobs, allEdges]);
+  const chainRank = React.useMemo(() => {
+    if (!chainWalk) return null;
+    const m = new Map<string, number>();
+    chainWalk.chain.forEach((s, i) => m.set(s.job.id, i + 1));
+    return m;
+  }, [chainWalk]);
+
   if (!project) return null;
 
   // Render-time adjustment (Task 88 pattern — no extra frame, no effect):
   // project switched → the stale query would filter rows the user never
   // searched for, so drop it in the same render that adopts the new id.
+  // t613 — the wave resets with it: the ledger's tickets belong to one
+  // project's first surfacing; project B's roster is a NEW surfacing
+  // (re-frozen head count, re-issued tickets, fresh reading order).
   if (project.id !== prevProjectId) {
     setPrevProjectId(project.id);
     setRosterQuery("");
+    spotWave.current = null;
   }
 
-  const sorted = [...jobs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const sorted = [...deferredJobs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const running = sorted.filter((j) => j.status === "running");
   const completed = sorted.filter((j) => j.status === "completed");
   const failed = sorted.filter((j) => j.status === "failed");
   const pending = sorted.filter((j) => j.status === "pending");
-  const idleCount = sorted.filter((j) => j.status === "idle").length;
+  const idleSlice = sorted.filter((j) => j.status === "idle");
+  const idleCount = idleSlice.length;
   const noted = sorted.filter(hasJudgment);
   // orphans only exist as a PROBLEM once the project has workspaces (before
   // that the canvas renders every job, so nothing is invisible) — same
@@ -1571,8 +2323,32 @@ function ActiveProjectSpotlight({
   // Task 94 — the visible slice is (status filter) ∩ (text match). The
   // haystack spans name + type + workspace name + status so one box answers
   // "which motioncorr runs are still idle" without leaving the dashboard.
+  // t724 — the name/type half now speaks THE matcher (lib/job-match):
+  // the t653 abbreviation dialect ("cls2" finds Class2D) and the t722
+  // param dialect ("mask:20" finds the jobs that ran it) both work here,
+  // because one matcher for every search surface is the law — a private
+  // includes() in the dashboard would be a second matcher, and second
+  // matchers drift. The workspace/status words stay raw includes(): they
+  // are infrastructure vocabulary (never abbreviated by operators), and
+  // a subsequence over short status words would light the whole roster
+  // for one stray letter. Param queries are EXCLUSIVE (t722's law): the
+  // user declared the question type, so ws/status do not co-answer it.
   const q = rosterQuery.trim().toLowerCase();
+  const rosterParamDialect = parseParamQuery(rosterQuery);
   const wsNameById = new Map(workspaces.map((w) => [w.id, w.name]));
+  // the haystack predicate, hoisted so the chips can share it — the cascade
+  // (t627) must ask the SAME question the click will ask, or the numbers
+  // would drift from the rows they promise
+  const inHaystack = (j: (typeof sorted)[number]) => {
+    if (jobMatchesQuery(j, rosterQuery)) return true;
+    if (rosterParamDialect) return false; // dialect runs are param-only
+    if (
+      j.workspaceId &&
+      (wsNameById.get(j.workspaceId) ?? "").toLowerCase().includes(q)
+    )
+      return true;
+    return q !== "" && j.status.includes(q);
+  };
   const statusSlice =
     jobFilter === "all"
       ? sorted
@@ -1581,22 +2357,59 @@ function ActiveProjectSpotlight({
         : jobFilter === "unassigned"
           ? unassigned
           : sorted.filter((j) => j.status === jobFilter);
-  const visibleJobs = q
-    ? statusSlice.filter((j) =>
-        `${j.name} ${j.type} ${j.workspaceId ? (wsNameById.get(j.workspaceId) ?? "") : ""} ${j.status}`
-          .toLowerCase()
-          .includes(q),
-      )
-    : statusSlice;
+  const visibleJobs = q ? statusSlice.filter(inHaystack) : statusSlice;
+  // t627 — search-mode cascade honesty: while the search lens is open, every
+  // status chip speaks the slice its click would ACTUALLY produce —
+  // n = haystack ∩ filter — instead of restating a rest-world count the
+  // click cannot honor. A chip whose cascade hits zero dims IN PLACE
+  // (chrome that pops in and out while typing is noise; a dimmed 0 is
+  // information — the eye can scan the row and see WHERE the survivors
+  // live). Visibility stays keyed on the rest counts, so chips never
+  // appear or vanish mid-word; rest state (no query) is byte-identical to
+  // the pre-cascade contract. The All chip cascades too: it answers "how
+  // many rows survive the search at all", which is the count chip's X.
+  const cascaded = (slice: typeof sorted) => (q ? slice.filter(inHaystack).length : slice.length);
   const pct = sorted.length > 0 ? Math.round((completed.length / sorted.length) * 100) : 0;
+
+  // t613 — the roster's display order, hoisted from the JSX so the
+  // ledger's fill reads the SAME order the faces render in (top of the
+  // table = index 0 of the wave's tail).
+  const rosterDisplay = [...visibleJobs].reverse();
+  // t613 — the wave ledger, filled on miss every render (the Task 88
+  // pattern again: render-time, no extra frame, no effect). Existing
+  // tickets are never rewritten — that is the whole law: a rewritten
+  // delay on a finished animation replays it. The encounter order is
+  // the DOM's: jobs label → sweep → rows (display order).
+  const wave = spotWave.current ?? (spotWave.current = { chips: sorted.length, tail: new Map() });
+  let waveTicket = wave.tail.size;
+  const waveTicketOf = (key: string): string => {
+    let t = wave.tail.get(key);
+    if (t === undefined) {
+      t = SPOT_BASE_MS + (2 + wave.chips) * SPOT_STEP_MS + waveTicket++ * SPOT_STEP_MS;
+      wave.tail.set(key, t);
+    }
+    return `${t}ms`;
+  };
+  const jobsLabelDelay = waveTicketOf("jobslabel");
+  const sweepDelay = waveTicketOf("sweep");
+  const spotRowDelays = new Map(rosterDisplay.map((j) => [j.id, waveTicketOf(`row:${j.id}`)]));
+  // the head's faces are positional — the stage rail is createdAt-ascending,
+  // so a new job APPENDS and existing chips keep their indices (no freeze
+  // needed on this side; only the tail, newest-first, needed the ledger)
+  const spotChipDelay = (i: number) => `${SPOT_BASE_MS + (2 + i) * SPOT_STEP_MS}ms`;
 
   return (
     <section
       aria-label="Active project spotlight"
+      data-spot-arrival=""
       className="card-lift overflow-hidden rounded-xl border bg-card"
     >
       {/* gradient banner */}
-      <div className="relative overflow-hidden border-b bg-gradient-to-r from-teal-500/10 via-primary/5 to-transparent px-4 py-3.5 sm:px-5">
+      <div
+        data-spot-banner=""
+        style={{ "--sd": `${SPOT_BASE_MS}ms` } as React.CSSProperties}
+        className="relative overflow-hidden border-b bg-gradient-to-r from-running-500/10 via-primary/5 to-transparent px-4 py-3.5 sm:px-5"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Snowflake className="size-4 shrink-0 text-primary" aria-hidden="true" />
           <h2 className="text-sm font-semibold tracking-tight">{project.name}</h2>
@@ -1617,7 +2430,11 @@ function ActiveProjectSpotlight({
 
       <div className="p-4 sm:p-5">
         {/* stage rail */}
-        <div className="mb-2 flex items-center gap-1.5">
+        <div
+          data-spot-stagelabel=""
+          style={{ "--sd": `${SPOT_BASE_MS + SPOT_STEP_MS}ms` } as React.CSSProperties}
+          className="mb-2 flex items-center gap-1.5"
+        >
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Pipeline stages
           </p>
@@ -1627,7 +2444,7 @@ function ActiveProjectSpotlight({
           {running.length > 0 && (
             <Badge
               variant="outline"
-              className="ml-auto h-4.5 gap-1 border-teal-500/40 bg-teal-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400"
+              className="ml-auto h-4.5 gap-1 border-running/40 bg-running/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-running"
             >
               <Loader2 className="size-2.5 animate-spin" aria-hidden="true" />
               {running.length} running
@@ -1637,7 +2454,7 @@ function ActiveProjectSpotlight({
             <Badge
               variant="outline"
               className={cn(
-                "h-4.5 gap-1 border-amber-500/40 bg-amber-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400",
+                "h-4.5 gap-1 border-warning/40 bg-warning/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-warning",
                 running.length === 0 && "ml-auto"
               )}
             >
@@ -1649,7 +2466,7 @@ function ActiveProjectSpotlight({
             <Badge
               variant="outline"
               className={cn(
-                "h-4.5 gap-1 border-rose-500/40 bg-rose-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400",
+                "h-4.5 gap-1 border-danger-500/40 bg-danger-500/10 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-danger",
                 running.length === 0 && pending.length === 0 && "ml-auto"
               )}
             >
@@ -1669,13 +2486,15 @@ function ActiveProjectSpotlight({
               <React.Fragment key={j.id}>
                 {i > 0 && (
                   <span
+                    data-spot-link=""
+                    style={{ "--sd": spotChipDelay(i) } as React.CSSProperties}
                     className="flex items-center text-muted-foreground/40"
                     aria-hidden="true"
                   >
                     <ChevronRight className="size-3.5" />
                   </span>
                 )}
-                <StageChip job={j} onClick={() => openJob(j.id)} />
+                <StageChip job={j} onClick={() => openJob(j.id)} arrivalDelay={spotChipDelay(i)} />
               </React.Fragment>
             ))}
           </div>
@@ -1695,13 +2514,46 @@ function ActiveProjectSpotlight({
             roster's identity (Jobs · N · newest first) is carried by the
             REAL <thead> band inside the table below, which repeats on every
             printed page. Printing both would say "Jobs" twice on page 1. */}
-        <div className="no-print mb-2 flex items-center gap-1.5">
+        <div
+          data-spot-jobslabel=""
+          style={{ "--sd": jobsLabelDelay } as React.CSSProperties}
+          className="no-print mb-2 flex items-center gap-1.5"
+        >
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Jobs
           </p>
+          {/* t620 — the screen label now speaks the count the printed thead
+              always carried: "Jobs · 12 · newest first". The All chip's n is
+              the filter's count; this one is the roster's identity. */}
+          <span className="text-[10px] tabular-nums text-muted-foreground/70">
+            {visibleJobs.length} ·
+          </span>
           <span className="text-[10px] tabular-nums text-muted-foreground/70">
             newest first
           </span>
+          {/* t686 — the lens's confession (the canvas chip's roster dialect):
+              while the lens is on, the label row says WHY rows recede and
+              how many rows the finish actually waited on. The chip is also
+              this face's dismissal verb — the toggle lives on the canvas
+              toolbar, but a reader standing on the dashboard should not
+              have to walk back to turn a lens off. Renders only while the
+              walk exists (lens on, at least one finished run): an empty
+              walk is silence, here as on every other mouth. */}
+          {chainWalk ? (
+            <button
+              type="button"
+              data-roster-lens-chip=""
+              data-roster-lens-steps={chainWalk.chain.length}
+              onClick={toggleCriticalLens}
+              aria-pressed={true}
+              title="The critical path lens is on — rows the finish didn't wait on recede. Click to turn it off (or press P)."
+              className="flex h-4 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 text-[9px] font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              <Route className="size-2.5" aria-hidden="true" />
+              Critical path · {chainWalk.chain.length} step
+              {chainWalk.chain.length === 1 ? "" : "s"}
+            </button>
+          ) : null}
           <Button
             size="sm"
             variant="outline"
@@ -1715,11 +2567,18 @@ function ActiveProjectSpotlight({
             <ArrowRight className="size-3" aria-hidden="true" />
           </Button>
         </div>
+        {/* t549 — the project-level homecoming sweep: one bar aggregating
+            every owing receipt in the roster (self-effacing — renders
+            nothing while no annotation says files are still out). */}
+        <HomecomingSweepBar arrivalDelay={sweepDelay} />
         {sorted.length > 0 && (
           // Task 94 — roster text search. Composes with the status chips
           // below (AND); role=search + the count chip are live screen
           // chrome, so the whole row is no-print (paper prints the same
           // slice the band header counts, but never the lens itself).
+          // t724 — the input speaks THE matcher's dialect now (t653
+          // abbreviations + t722 key:value params), and the shared badge
+          // tells the user when the param dialect is the lens.
           <div
             className="no-print mb-1.5 flex items-center gap-2"
             role="search"
@@ -1734,7 +2593,7 @@ function ActiveProjectSpotlight({
                 data-testid="roster-search-input"
                 value={rosterQuery}
                 onChange={(e) => setRosterQuery(e.target.value)}
-                placeholder="Search name, type, workspace…"
+                placeholder="Search name, type, workspace, key:value…"
                 aria-label="Search the job roster"
                 spellCheck={false}
                 className="h-7 w-52 rounded-md border bg-background pl-7 pr-7 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-primary/30"
@@ -1751,6 +2610,7 @@ function ActiveProjectSpotlight({
                 </button>
               )}
             </div>
+            <ParamDialectBadge query={rosterQuery} testid="roster-param-badge" />
             {q !== "" && (
               <span
                 data-testid="roster-count-chip"
@@ -1766,56 +2626,70 @@ function ActiveProjectSpotlight({
           // job list reads as a plain roster, not a filtered slice (a print
           //out that says "Noted 2" without the lens would be confusing)
           <div className="no-print mb-1.5 flex flex-wrap items-center gap-1" role="group" aria-label="Filter jobs by status">
-            <StatusFilterChip label="All" n={sorted.length} active={jobFilter === "all"} onClick={() => setJobFilter("all")} />
+            <StatusFilterChip label="All" n={cascaded(sorted)} active={jobFilter === "all"} onClick={() => setJobFilter("all")} />
             {running.length > 0 && (
-              <StatusFilterChip label="Running" n={running.length} tone="teal" active={jobFilter === "running"} onClick={() => setJobFilter("running")} />
+              <StatusFilterChip label="Running" n={cascaded(running)} tone="teal" active={jobFilter === "running"} onClick={() => setJobFilter("running")} dimmed={q !== "" && cascaded(running) === 0} />
             )}
             {pending.length > 0 && (
-              <StatusFilterChip label="Pending" n={pending.length} tone="amber" active={jobFilter === "pending"} onClick={() => setJobFilter("pending")} />
+              <StatusFilterChip label="Pending" n={cascaded(pending)} tone="amber" active={jobFilter === "pending"} onClick={() => setJobFilter("pending")} dimmed={q !== "" && cascaded(pending) === 0} />
             )}
             {completed.length > 0 && (
-              <StatusFilterChip label="Completed" n={completed.length} tone="emerald" active={jobFilter === "completed"} onClick={() => setJobFilter("completed")} />
+              <StatusFilterChip label="Completed" n={cascaded(completed)} tone="emerald" active={jobFilter === "completed"} onClick={() => setJobFilter("completed")} dimmed={q !== "" && cascaded(completed) === 0} />
             )}
             {failed.length > 0 && (
-              <StatusFilterChip label="Failed" n={failed.length} tone="rose" active={jobFilter === "failed"} onClick={() => setJobFilter("failed")} />
+              <StatusFilterChip label="Failed" n={cascaded(failed)} tone="rose" active={jobFilter === "failed"} onClick={() => setJobFilter("failed")} dimmed={q !== "" && cascaded(failed) === 0} />
             )}
             {idleCount > 0 && (
-              <StatusFilterChip label="Idle" n={idleCount} active={jobFilter === "idle"} onClick={() => setJobFilter("idle")} />
+              <StatusFilterChip label="Idle" n={cascaded(idleSlice)} active={jobFilter === "idle"} onClick={() => setJobFilter("idle")} dimmed={q !== "" && cascaded(idleSlice) === 0} />
             )}
             {noted.length > 0 && (
               <StatusFilterChip
                 label="Noted"
-                n={noted.length}
+                n={cascaded(noted)}
                 tone="amber"
                 active={jobFilter === "noted"}
                 onClick={() => setJobFilter(jobFilter === "noted" ? "all" : "noted")}
                 dataFilter="noted"
                 kbd="5"
+                dimmed={q !== "" && cascaded(noted) === 0}
                 icon={<StickyNote className="size-2.5" aria-hidden="true" />}
               />
             )}
             {unassigned.length > 0 && (
               <StatusFilterChip
                 label="Unassigned"
-                n={unassigned.length}
+                n={cascaded(unassigned)}
                 tone="amber"
                 active={jobFilter === "unassigned"}
                 onClick={() => setJobFilter(jobFilter === "unassigned" ? "all" : "unassigned")}
                 dataFilter="unassigned"
                 kbd="6"
+                dimmed={q !== "" && cascaded(unassigned) === 0}
                 icon={<TriangleAlert className="size-2.5" aria-hidden="true" />}
               />
             )}
           </div>
         )}
-        <div className="max-h-80 overflow-y-auto pr-1 nice-scroll">
+        {/* t620 — the viewport wrapper: the scroll box gains keyboard reach
+            (tabIndex + region naming — Tab in, arrows scroll) and the
+            relative shell hosts the "+N more below" honesty badge, which
+            counts the rows under the fold LIVE and vanishes at the bottom. */}
+        <div className="relative">
+          <div
+            ref={rosterScrollRef}
+            onScroll={syncHiddenBelow}
+            tabIndex={0}
+            role="region"
+            aria-label={`Jobs roster — ${visibleJobs.length} rows, newest first`}
+            className="max-h-80 overflow-y-auto rounded-lg pr-1 nice-scroll focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
           {visibleJobs.length === 0 ? (
             q ? (
               <p
                 data-testid="roster-empty-search"
                 className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground"
               >
-                No jobs match “{rosterQuery.trim()}” — clear the search or pick another status chip.
+                No {jobFilter !== "all" ? `${jobFilter} ` : ""}jobs match “{rosterQuery.trim()}” — clear the search or pick another status chip.
               </p>
             ) : (
               <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
@@ -1845,16 +2719,41 @@ function ActiveProjectSpotlight({
                 </tr>
               </thead>
               <tbody>
-                {[...visibleJobs].reverse().map((j) => (
-                  <tr key={j.id}>
+                {rosterDisplay.map((j) => (
+                  <tr
+                    key={j.id}
+                    data-spot-row=""
+                    style={{ "--sd": spotRowDelays.get(j.id) } as React.CSSProperties}
+                  >
                     <td>
-                      <JobRow job={j} onOpen={() => openJob(j.id)} />
+                      <JobRow
+                        job={j}
+                        onOpen={() => openJob(j.id)}
+                        chainRank={chainRank?.get(j.id) ?? null}
+                        chainTotal={chainWalk ? chainWalk.chain.length : null}
+                        chainDim={chainRank != null && !chainRank.has(j.id)}
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          </div>
+          {/* the honesty badge — pointer-events-none (scroll gestures pass
+              through) and aria-hidden (screen readers already have the row
+              count in the region's aria-label); the dashed-border pill is
+              the FailedJobsStrip "+N more" dialect, neutral-toned here. */}
+          {hiddenBelow > 0 ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-lg bg-gradient-to-t from-card via-card/85 to-transparent"
+            >
+              <span className="absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full border border-dashed border-border bg-card/95 px-2.5 py-0.5 text-[10px] tabular-nums text-muted-foreground shadow-sm">
+                +{hiddenBelow} more below
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
@@ -1897,6 +2796,8 @@ export function ProjectDashboard() {
   const [deleting, setDeleting] = React.useState(false);
   const [pendingSwitch, setPendingSwitch] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
+  // t635 — the job lens rides under this input (Escape blurs through it)
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
   const [activity, setActivity] = React.useState<ActivityFeed | null>(null);
   // KPI drill-down: which presence filter the project grid is narrowed by.
   // Clicking the Running/Completed KPI card toggles it AND scrolls the grid
@@ -1917,13 +2818,39 @@ export function ProjectDashboard() {
   // during SSR so the effect below re-syncs on the client)
   const [sortKey, setSortKey] = React.useState<ProjectSortKey>("oldest");
 
+  // t576 — the dashboard cascade (t572's sister page): the survey arrives
+  // in scan order — KPI cards left-to-right, then the bands top-down.
+  // Armed on mount, settled at ~780ms (last rung: 500ms delay + 240ms
+  // duration + margin — the settle timer must always EXCEED the last
+  // rung's landing with real margin, not meet it exactly; t711, t716,
+  // t720 and t721 each added or moved a rung and pushed the ladder
+  // deeper, so this timer was re-checked rather than left to memory). The
+  // shell unmounts this view on every Canvas ⇄
+  // Dashboard swap, so every entry is a fresh mount and a first
+  // performance — no close-flip machinery, a single one-shot timer. The
+  // timer runs regardless of motion preference: under reduced motion the
+  // class lands on a root whose cascade rules never existed (CSS-side
+  // gate), which costs nothing and keeps this hook motion-blind.
+
   // spotlight Jobs-list filter — hoisted from ActiveProjectSpotlight so the
   // 5/6 keys below drive the SAME state the chips render (keyboard and
   // pointer share one source of truth)
   const [jobFilter, setJobFilter] = React.useState<JobFilter>("all");
 
+  // t576 — cascade armed until the one-shot effect below settles it
+  const [dashSettled, setDashSettled] = React.useState(false);
+
   React.useEffect(() => {
     setSortKey(loadSortKey());
+  }, []);
+
+  // t576 — the cascade's one-shot disarm (see the state above). 780ms:
+  // the last rung lands at 500+240 = 740ms exactly, and a disarm that
+  // lands ON the final frame can clip it (timer vs rAF jitter) — the
+  // settle needs 40ms of margin over the ladder's end, not a photo finish.
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setDashSettled(true), 780);
+    return () => window.clearTimeout(t);
   }, []);
 
   const changeSort = (key: ProjectSortKey) => {
@@ -2010,6 +2937,24 @@ export function ProjectDashboard() {
     }),
     [projects]
   );
+  // t627 — search-mode cascade, the grid's face: while the projects search
+  // box holds a query, each presence chip speaks the slice its click would
+  // actually produce (query ∩ presence), not a rest-world count the click
+  // cannot honor. Same law the roster chips obey; zero-survivor chips dim
+  // in place via the shared StatusFilterChip dialect. Visibility stays
+  // keyed on the rest counts (presence.*) so chips never pop in/out while
+  // typing, and the header's "N / M" line stays the whole truth it was.
+  const cascadedPresence = React.useMemo(() => {
+    const cq = query.trim().toLowerCase();
+    const base = cq ? projects.filter((p) => p.name.toLowerCase().includes(cq)) : projects;
+    return {
+      all: base.length,
+      running: base.filter((p) => (p.stats?.running ?? 0) > 0).length,
+      completed: base.filter((p) => (p.stats?.completed ?? 0) > 0).length,
+      failed: base.filter((p) => (p.stats?.failed ?? 0) > 0).length,
+    };
+  }, [projects, query]);
+  const gridQueryOpen = query.trim() !== "";
 
   /** KPI → grid drill-down: apply the filter, then bring the grid into view
    *  with a one-shot highlight ring so the eye lands where the effect is. */
@@ -2107,8 +3052,14 @@ export function ProjectDashboard() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto nice-scroll">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* page header */}
+      <div
+        className={cn(
+          "mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 xl:max-w-7xl",
+          "dash-motion",
+          dashSettled && "dash-motion-settled"
+        )}
+      >
+        {/* page header — the anchor: it never moves (the input's sister, t572) */}
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
@@ -2130,12 +3081,22 @@ export function ProjectDashboard() {
                 aria-hidden="true"
               />
               <Input
+                ref={searchInputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search projects…"
-                aria-label="Search projects by name"
+                aria-label="Search projects by name, jobs across all projects"
                 className="h-9 w-44 pl-8 text-xs sm:w-56"
+                aria-expanded={query.trim() !== ""}
+                aria-controls="dashboard-job-lens"
+                autoComplete="off"
               />
+              {/* t635 — the lens: while the query is non-empty this panel
+                  lists JOB matches from every project (the grid below keeps
+                  filtering projects by name — the two surfaces divide the
+                  question honestly). Mount = open, unmount = closed; no
+                  third state. */}
+              <JobSearchLens query={query} inputRef={searchInputRef} />
             </div>
             <Select value={sortKey} onValueChange={(v) => changeSort(v as ProjectSortKey)}>
               <SelectTrigger
@@ -2163,8 +3124,14 @@ export function ProjectDashboard() {
         {/* KPI band — Running / Completed cards are live drill-downs into the
             grid below (pressed = that filter is on); Projects reals the grid
             and clears; Total jobs & engine stay informational (no project
-            dimension to reveal) */}
-        <div data-atomic-grid className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            dimension to reveal). t301: five-up only from xl — under the
+            max-w-6xl cap an lg viewport squeezed each card to ~180px; lg
+            now falls back to a roomy 3+2 while xl+ keeps the single row. */}
+        <div
+          data-atomic-grid
+          data-dash-band
+          className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+        >
           <KpiCard
             icon={<FolderGit2 className="size-5" />}
             value={projects.length}
@@ -2223,7 +3190,7 @@ export function ProjectDashboard() {
                   ? "live engines active"
                   : "nothing in flight"
             }
-            tone="bg-teal-500/10 text-teal-600 ring-teal-500/30 dark:text-teal-400"
+            tone="bg-running/10 text-running ring-running/30"
             onClick={() => toggleGridFilter("running")}
             pressed={gridFilter === "running"}
             kbd="2"
@@ -2244,14 +3211,14 @@ export function ProjectDashboard() {
                   ? `${totals.failed} failed`
                   : "zero failures"
             }
-            tone="bg-emerald-500/10 text-emerald-600 ring-emerald-500/30 dark:text-emerald-400"
+            tone="bg-success/10 text-success ring-success/30"
             spark={
               activity ? (
                 <KpiSparkline
                   values={activity.completed}
                   days={activity.days}
                   unit="completed"
-                  className="text-emerald-500"
+                  className="text-success-500"
                 />
               ) : undefined
             }
@@ -2284,11 +3251,14 @@ export function ProjectDashboard() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <CircleAlert
-                        className="size-4 text-amber-600 dark:text-amber-400"
+                        className="size-4 text-warning"
                         aria-hidden="true"
                       />
                       <p className="text-sm font-semibold">RELION not detected</p>
                     </div>
+                    {/* t529 — the second mouth: the rebuild rail rides wherever
+                        the guidance speaks (mirror law, one well many mouths). */}
+                    {system.build && <EngineBuildRail build={system.build} />}
                     <EngineHintBlock hint={system.hint} />
                     <EngineReDetectRow />
                   </div>
@@ -2318,7 +3288,7 @@ export function ProjectDashboard() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle2
-                      className="size-4 text-emerald-600 dark:text-emerald-400"
+                      className="size-4 text-success"
                       aria-hidden="true"
                     />
                     <p className="text-sm font-semibold">
@@ -2340,24 +3310,103 @@ export function ProjectDashboard() {
           )}
         </div>
 
+        {/* needs attention — failed jobs across all projects (t415); renders
+            nothing on a green world, so the rhythm below is untouched */}
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "140ms" } as React.CSSProperties}
+          className="mt-6"
+        >
+          <FailedJobsStrip />
+        </div>
+
+        {/* Task 711 — the activity calendar: the shape of time itself
+            (bursts, quiet stretches), speaking the same wire the feed's
+            touch philosophy speaks. Sits between the exception strip and
+            the detail feed — bird's-eye before the latest-eight. */}
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "180ms" } as React.CSSProperties}
+          className="mt-6"
+        >
+          <ActivityHeatmap />
+        </div>
+
         {/* cross-project recent activity — the "where did I leave off" strip */}
-        <div className="mt-6">
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "220ms" } as React.CSSProperties}
+          className="mt-6"
+        >
           <RecentActivityFeed activeProjectId={activeId} />
         </div>
 
+        {/* Task 720 — the journal digest: the activity family's fourth face.
+            The feed speaks the jobs' present tense (a job absorbs twenty
+            touches and stays one row); the digest unrolls those touches —
+            the renames, knob-turns, notes, dispatches, landings — into the
+            fingers' past tense, cross-job, reading the same browser-local
+            journal the inspector's Timeline spine reads. */}
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "260ms" } as React.CSSProperties}
+          className="mt-6"
+        >
+          <JournalDigest />
+        </div>
+
+        {/* Task 721 — the notes wall: the notebook face. The digest speaks
+            the fingers' past (what HAPPENED); the wall speaks the mind's
+            conclusions (what was DECIDED) — every margin note and class
+            note in THIS project quoted in one reading surface. Rides the
+            store's jobs slice (notes are server facts on the row): zero
+            fetch, zero effects, zero new storage. */}
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "300ms" } as React.CSSProperties}
+          className="mt-6"
+        >
+          <NotesWall />
+        </div>
+
         {/* cross-project saved views — the "my inspection work" shelf */}
-        <div className="mt-6">
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "340ms" } as React.CSSProperties}
+          className="mt-6"
+        >
           <SavedViewsGallery />
         </div>
 
+        {/* Task 716 — your parameter presets: the preset family's overview
+            face. The inspector wears them on ONE open job, the palette
+            starts a job from them, but delete/manage required opening a
+            job of that very type — this shelf is where tuned params are
+            work product across every type at once (the saved-views wall's
+            sibling: views you hunted, presets you tuned). */}
+        <div
+          data-dash-enter
+          data-saved-views-successor
+          style={{ "--dash-d": "380ms" } as React.CSSProperties}
+          className="mt-6"
+        >
+          <UserPresetShelf />
+        </div>
+
         {/* active project spotlight */}
-        <div className="mt-6">
+        <div
+          data-dash-enter
+          style={{ "--dash-d": "420ms" } as React.CSSProperties}
+          className="mt-6"
+        >
           <ActiveProjectSpotlight jobFilter={jobFilter} setJobFilter={setJobFilter} />
         </div>
 
         {/* projects grid */}
         <div
           ref={gridRef}
+          data-dash-enter
+          style={{ "--dash-d": "460ms" } as React.CSSProperties}
           className={cn(
             "mt-6 scroll-mt-4 rounded-xl transition-shadow duration-700 motion-reduce:transition-none",
             gridFlash && "ring-2 ring-primary/40 ring-offset-4 ring-offset-background"
@@ -2371,12 +3420,15 @@ export function ProjectDashboard() {
             </span>
             {/* presence chips — same visual language as the spotlight's job
                 filters, but the unit is the project; counts show how many
-                projects carry each kind of work */}
+                projects carry each kind of work. t627 — while the projects
+                search holds a query the counts cascade to the slice the
+                click would actually produce; zero-survivor chips dim in
+                place (shared StatusFilterChip dialect). */}
             {projects.length > 0 && (
               <div className="ml-auto flex items-center gap-1" role="group" aria-label="Filter projects by job presence">
                 <StatusFilterChip
                   label="All"
-                  n={projects.length}
+                  n={gridQueryOpen ? cascadedPresence.all : projects.length}
                   active={gridFilter === "all"}
                   onClick={() => setGridFilter("all")}
                   kbd="1"
@@ -2384,31 +3436,34 @@ export function ProjectDashboard() {
                 {presence.running > 0 && (
                   <StatusFilterChip
                     label="Running"
-                    n={presence.running}
+                    n={gridQueryOpen ? cascadedPresence.running : presence.running}
                     tone="teal"
                     active={gridFilter === "running"}
                     onClick={() => toggleGridFilter("running")}
                     kbd="2"
+                    dimmed={gridQueryOpen && cascadedPresence.running === 0}
                   />
                 )}
                 {presence.completed > 0 && (
                   <StatusFilterChip
                     label="Completed"
-                    n={presence.completed}
+                    n={gridQueryOpen ? cascadedPresence.completed : presence.completed}
                     tone="emerald"
                     active={gridFilter === "completed"}
                     onClick={() => toggleGridFilter("completed")}
                     kbd="3"
+                    dimmed={gridQueryOpen && cascadedPresence.completed === 0}
                   />
                 )}
                 {presence.failed > 0 && (
                   <StatusFilterChip
                     label="Failed"
-                    n={presence.failed}
+                    n={gridQueryOpen ? cascadedPresence.failed : presence.failed}
                     tone="rose"
                     active={gridFilter === "failed"}
                     onClick={() => toggleGridFilter("failed")}
                     kbd="4"
+                    dimmed={gridQueryOpen && cascadedPresence.failed === 0}
                   />
                 )}
               </div>
@@ -2416,7 +3471,10 @@ export function ProjectDashboard() {
           </div>
 
           {projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-14 text-center">
+            <div
+              data-dash-empty
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-14 text-center"
+            >
               <div className="flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                 <FolderGit2 className="size-5" aria-hidden="true" />
               </div>
@@ -2431,11 +3489,17 @@ export function ProjectDashboard() {
             </div>
           ) : filtered.length === 0 ? (
             query.trim() ? (
-              <p className="rounded-xl border border-dashed py-10 text-center text-xs text-muted-foreground">
+              <p
+                data-dash-empty
+                className="rounded-xl border border-dashed py-10 text-center text-xs text-muted-foreground"
+              >
                 No project matches “{query.trim()}”.
               </p>
             ) : (
-              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-10 text-center">
+              <div
+                data-dash-empty
+                className="flex flex-col items-center gap-2 rounded-xl border border-dashed py-10 text-center"
+              >
                 <p className="text-xs text-muted-foreground">
                   No project with {gridFilter} jobs right now.
                 </p>
@@ -2464,8 +3528,12 @@ export function ProjectDashboard() {
           )}
         </div>
 
-        {/* footnote */}
-        <p className="mt-8 text-center text-[10px] text-muted-foreground/60">
+        {/* footnote — the cascade's last rung */}
+        <p
+          data-dash-enter
+          style={{ "--dash-d": "500ms" } as React.CSSProperties}
+          className="mt-8 text-center text-[10px] text-muted-foreground/60"
+        >
           Project dashboards persist per browser session — switching here never interrupts
           running jobs.
         </p>
@@ -2483,8 +3551,10 @@ export function ProjectDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete “{deleteTarget?.name ?? ""}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the project with all of its jobs, connections and saved
-              parameters. This action cannot be undone.
+              This removes the project with all of its jobs, connections and
+              saved parameters — including every job workdir on this machine
+              and its mirrors on any cluster the project ran against. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

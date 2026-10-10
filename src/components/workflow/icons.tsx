@@ -10,6 +10,7 @@
 
 import {
   Aperture,
+  ArrowLeftRight,
   Box,
   Boxes,
   Brain,
@@ -30,6 +31,7 @@ import {
   LayoutGrid,
   Layers,
   ListFilter,
+  ListX,
   Merge,
   Move3d,
   Network,
@@ -54,6 +56,8 @@ export function TypeIcon({
   switch (name) {
     case "FolderInput":
       return <FolderInput className={className} aria-hidden="true" />;
+    case "ArrowLeftRight":
+      return <ArrowLeftRight className={className} aria-hidden="true" />;
     case "Wind":
       return <Wind className={className} aria-hidden="true" />;
     case "Aperture":
@@ -66,6 +70,8 @@ export function TypeIcon({
       return <Crop className={className} aria-hidden="true" />;
     case "ListFilter":
       return <ListFilter className={className} aria-hidden="true" />;
+    case "ListX":
+      return <ListX className={className} aria-hidden="true" />;
     case "LayoutGrid":
       return <LayoutGrid className={className} aria-hidden="true" />;
     case "Layers":

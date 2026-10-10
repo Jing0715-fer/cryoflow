@@ -128,6 +128,24 @@ export interface WrappedCommand {
 }
 
 /**
+ * t427 — the tracked-run file contract (the immortality quartet).
+ *
+ * `out`/`err` are the log files as before. `exit` is the SENTINEL the
+ * distro-side wrapper writes when the command finishes (`run.exit`), and
+ * `pid` is the wrapper's distro-side pid (`run.pid`) — together they let a
+ * RESTARTED server learn the truth about a run whose host-side wsl.exe
+ * relay died with the old server instance (see wrapWslCommand).
+ */
+export interface WslRunFiles {
+  out: string;
+  err: string;
+  /** Sentinel file receiving the command's final exit code. */
+  exit: string;
+  /** File receiving the distro-side wrapper pid (for kill -0 probes). */
+  pid: string;
+}
+
+/**
  * Wrap a Linux argv into one wsl.exe invocation. Windows-style path ARGUMENTS
  * (drive letters — workdir/input/output paths built on the host) are
  * translated to /mnt/<drive>/…; arguments that are already POSIX (binaries,
@@ -142,12 +160,34 @@ export interface WrappedCommand {
  * + windowsHide mode (observed live: run.out/run.err stuck at 0 bytes while
  * the job happily wrote its outputs). Linux-side `>>` opens the file through
  * drvfs, so every write lands on the Windows filesystem immediately.
+ *
+ * t427 — THE IMMORTAL WRAPPER (the service-restart death fix). The old
+ * script was the distro command ITSELF, tied to the wsl.exe session: when
+ * the host-side service died (dev-server restart, Ctrl-C on the console,
+ * crash), WSL tore the session down and took the RELION tree with it —
+ * the user's field report: 「服务重启或死掉后，relion中运行的任务也会
+ * 一起死掉」. The new shape separates the RELAY from the RUN:
+ *
+ *   outer bash  (session-bound, dies with wsl.exe — fine, it is only a
+ *                poll loop that relays the true exit code while it lives)
+ *   inner bash  (setsid → its OWN session inside the distro; survives the
+ *                death of wsl.exe, the outer bash and the whole host-side
+ *                service; writes run.pid at birth and run.exit at death
+ *                through an EXIT trap, so every ending — success, crash,
+ *                cd failure — leaves the sentinel behind)
+ *
+ * A restarted server reads run.exit (finalized) or probes run.pid inside
+ * the distro (still running → keep showing progress) — see
+ * reconcileRealJobs' bridged branch. `setsid` lives in util-linux (every
+ * mainstream WSL distro ships it); when absent the wrapper degrades to
+ * the old session-bound behavior — the exit-code relay still works, only
+ * the immortality is lost.
  */
 export function wrapWslCommand(
   argv: string[],
   hostCwd: string,
   bridge: WslBridge,
-  logFiles?: { out: string; err: string }
+  logFiles?: WslRunFiles
 ): WrappedCommand {
   const wslCwd = hostToWsl(hostCwd);
   const translate = (a: string) => {
@@ -176,14 +216,60 @@ export function wrapWslCommand(
   if (bridge.ctffind) {
     exports.push(`export RELION_CTFFIND_EXECUTABLE=${shq(bridge.ctffind)}`);
   }
-  let script = [...exports, `exec ${argv.map((a) => shq(translate(a))).join(" ")}`].join("; ");
+  const cmdline = argv.map((a) => shq(translate(a))).join(" ");
+
+  let script: string;
   if (logFiles) {
-    // block-level redirect: bash's own diagnostics (cd failure, exec "No
-    // such file or directory") AND the command's output both land in the
-    // log files; `exec` inherits the block's descriptors.
     const out = shq(hostToWsl(logFiles.out));
     const err = shq(hostToWsl(logFiles.err));
-    script = `{ ${script}; } >> ${out} 2>> ${err}`;
+    const exit = shq(hostToWsl(logFiles.exit));
+    const pidf = shq(hostToWsl(logFiles.pid));
+    // INNER: own session (via setsid), pid + sentinel always recorded.
+    // The EXIT trap makes the sentinel universal — the natural end (cmd's
+    // own code), a cd failure (111) and any explicit exit all leave
+    // run.exit behind; only SIGKILL can skip it (the outer death-watch
+    // and the reconcile interrupt path cover that).
+    const inner = [
+      `echo $$ > ${pidf}`,
+      `trap 'c=$?; echo $c > ${exit}.tmp && mv ${exit}.tmp ${exit}' EXIT`,
+      `{ ${exports.join("; ")}; ${cmdline}; } >> ${out} 2>> ${err}`,
+    ].join("\n");
+    // OUTER: session-bound relay — spawn the inner, then poll the
+    // sentinel (never the inner's pid from the child table: setsid orphans
+    // it, but run.pid + kill -0 works across sessions). While wsl.exe
+    // lives, the true exit code still reaches the host exit handler
+    // exactly as before; when it dies, the inner carries on and a
+    // restarted server takes over from the sentinel.
+    //
+    // The waits counter bounds the pathological case: a workdir so broken
+    // that the inner could write NEITHER its pid NOR the sentinel (both
+    // files live there). Without it the poll loop would spin forever —
+    // instead the relay exits 125 after ~15s and the job fails honestly.
+    script = [
+      `rm -f ${exit} ${exit}.tmp ${pidf}`,
+      `waits=0`,
+      `if command -v setsid >/dev/null 2>&1; then`,
+      `  setsid bash -c ${shq(inner)} </dev/null >/dev/null 2>&1 &`,
+      `else`,
+      `  bash -c ${shq(inner)} </dev/null >/dev/null 2>&1 &`,
+      `fi`,
+      `while [ ! -f ${exit} ]; do`,
+      `  if [ -f ${pidf} ]; then`,
+      `    p=$(cat ${pidf} 2>/dev/null)`,
+      `    if [ -n "$p" ] && ! kill -0 "$p" 2>/dev/null; then`,
+      `      sleep 1`,
+      `      [ -f ${exit} ] || exit 137`,
+      `    fi`,
+      `  elif [ "$waits" -ge 15 ]; then`,
+      `    exit 125`,
+      `  fi`,
+      `  waits=$((waits+1))`,
+      `  sleep 1`,
+      `done`,
+      `exit $(cat ${exit})`,
+    ].join("\n");
+  } else {
+    script = [...exports, `exec ${cmdline}`].join("; ");
   }
 
   const args: string[] = [];

@@ -11,11 +11,23 @@
  * are lifted verbatim from gui_jobwindow.cpp.
  */
 
-import type { JobTier, JobTypeSpec, ParamSchema, ParamValue, PortKind, PortSpec } from "./types";
+import type { JobTier, JobTypeSpec, ParamSchema, ParamType, ParamValue, PortKind, PortSpec } from "./types";
 
-/** Fixed job card geometry (px, in workspace coordinates). */
-export const CARD_W = 220;
-export const CARD_H = 96;
+/**
+ * Fixed job card geometry (px, in workspace coordinates).
+ *
+ * t349 — 240×112 (was 220×96): the card grew one comfortable line of
+ * height so the result/error line can wrap (a truncated single line hid
+ * the failure reason — the one fact the user needs when a card turns
+ * rose) and 20px of width for the name and the status band. Saved
+ * layouts stay readable: auto-arrange pitch is CARD_W+GAP_X (100) /
+ * CARD_H+GAP_Y (48), so grown cards still leave 80px/32px corridors.
+ * Every consumer (ports, wires, minimap, print fit, spotlight cone,
+ * band select, focus math) derives from these constants — nothing else
+ * hardcodes the size.
+ */
+export const CARD_W = 240;
+export const CARD_H = 112;
 
 /**
  * INFINITE CANVAS — the workspace is unbounded: job coordinates may be
@@ -75,7 +87,156 @@ const pth = (
 ): ParamSchema => ({ key, label, type: "path", default: "", ...extra });
 
 const symmetryOptions = ["C1", "C2", "C4", "D2", "T", "I"];
-const psiOptions = ["30", "15", "7.5", "3.75", "1.875"];
+// t386 — "6" joins the list: RELION's own psi_sampling GUI default is the
+// free-form 6° (pipeline_jobs.cpp:3240), so the curated select offers it and
+// defaults to it.
+const psiOptions = ["30", "15", "7.5", "6", "3.75", "1.875"];
+
+/** t352 — healpix angular-sampling options exactly as RELION's own GUI lists
+ * them (pipeline_jobs.h job_sampling_options): the value is the DEGREE step,
+ * the order RELION wants on the command line is the list index + 1. */
+const healpixOptions = ["30", "15", "7.5", "3.7", "1.8", "0.9", "0.5"];
+const samplingSel = (key: string, label: string, def: string, extra?: Partial<ParamSchema>): ParamSchema =>
+  sel(key, label, def, ["auto", ...healpixOptions], extra);
+
+/** t352 — the GUI-parity compute-tab trio + scratch companion, shared verbatim
+ * by every refine-family spec (labels mirror RELION's Compute tab; the flags
+ * each one toggles are noted in the label so the preview stays honest). */
+const computeParity = (tab = "Compute"): ParamSchema[] => [
+  num("keepFreeScratch", "Keep free on scratch (GB, --keep_free_scratch)", 0, {
+    step: 1, min: 0, max: 200, tab, advanced: true,
+    hint: "only with a scratch dir set — RELION refuses to fill the scratch volume beyond this free floor (RELION's own default is 10 GB)",
+  }),
+  bool("parallelDiscIo", "Parallel disc I/O", true, {
+    tab, advanced: true,
+    hint: "off = --no_parallel_disc_io — all ranks read the particle stacks through one stream (sometimes kinder to a strangled NFS server)",
+  }),
+  bool("prereadImages", "Pre-read particles into RAM (--preread_images)", false, {
+    tab, advanced: true,
+    hint: "all particle images are read into RAM once — a big win on slow NFS, needs roughly the size of the data set free RAM",
+  }),
+  bool("combineThruDisc", "Combine weights via disc", false, {
+    tab, advanced: true,
+    hint: "RELION's own GUI default is OFF (it emits --dont_combine_weights_via_disc) — weights are combined through memory, saving disc round-trips on shared filesystems",
+  }),
+  txt("extraArgs", "Additional RELION arguments", "", {
+    tab, advanced: true,
+    hint: "space-separated --flag value tokens appended verbatim (e.g. --verb 1) — anything the RELION GUI exposes that this panel doesn't name. Validated against RELION 5.0's verified relion_refine option set: a typo fails the run before it burns GPU hours",
+  }),
+];
+const scratchHint =
+  "empty = off. A compute-node-local path — e.g. /ssd_cache (a node-local SSD) or /tmp — RELION copies the particle stacks there once, sparing every iteration the NFS re-read. Often the largest I/O lever on NFS-backed clusters. Needs ~10 GB free (RELION's own --keep_free_scratch floor)";
+
+/**
+ * t381 — the 3D Helix tab, RELION 5 master's own dialect (gui_jobwindow.cpp
+ * initialiseClass3DWindow / initialiseAutorefineWindow, pipeline_jobs.cpp
+ * lines 3741-3802 + the argv construction at 4031-4110): the do_helix gate,
+ * the tube/angular family, the nested do_apply_helical_symmetry group with
+ * its twist/rise/z-percentage trio, and the doubly-nested local-symmetry
+ * search ranges. Defaults are RELION's verbatim (-1 diameters, "15"/"10"
+ * angular ranges, z 30%, search bounds "0").
+ */
+const helicalParams = (): ParamSchema[] => [
+  bool("doHelical", "Do helical reconstruction?", false, {
+    tab: "Helix",
+    hint: "RELION GUI's Helix tab (--helix) — 3D helical reconstruction: the reference is a helical segment and symmetry is applied along Z",
+  }),
+  num("helicalTubeInnerDiameter", "Tube diameter — inner (Å)", -1, {
+    step: 1, tab: "Helix",
+    showIf: { param: "doHelical", equals: true },
+    hint: "inner diameter of the reconstructed helix across Z (--helical_inner_diameter); -1 = RELION's default (a full box)",
+  }),
+  num("helicalTubeOuterDiameter", "Tube diameter — outer (Å)", -1, {
+    step: 1, tab: "Helix",
+    showIf: { param: "doHelical", equals: true },
+    hint: "outer diameter of the reconstructed helix across Z (--helical_outer_diameter)",
+  }),
+  num("rangeRotHelical", "Angular search range — rot (°)", -1, {
+    step: 1, tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "local rot searches within ± this (--sigma_rot = value/3); -1 = RELION's default",
+  }),
+  num("rangeTiltHelical", "Angular search range — tilt (°)", 15, {
+    step: 1, tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "local tilt searches within ± this (--sigma_tilt = value/3) — helical segments arrive with strong tilt priors",
+  }),
+  num("rangePsiHelical3d", "Angular search range — psi (°)", 10, {
+    step: 1, tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "local psi searches within ± this (--sigma_psi = value/3)",
+  }),
+  num("helicalRangeDistance", "Range factor of local averaging", -1, {
+    step: 0.1, min: 1, max: 5, tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "local averaging of orientations/translations within ± this × box size; segments from the same tube also share polarity (--helical_sigma_distance = value/3); -1 = off",
+  }),
+  bool("keepTiltPriorFixed", "Keep tilt-prior fixed", true, {
+    tab: "Helix", advanced: true,
+    showIf: { param: "doHelical", equals: true },
+    hint: "the tilt prior never moves during optimisation (--helical_keep_tilt_prior_fixed); No lets it follow each segment's optimal tilt",
+  }),
+  bool("doApplyHelicalSymmetry", "Apply helical symmetry?", true, {
+    tab: "Helix",
+    showIf: { param: "doHelical", equals: true },
+    hint: "apply helical symmetry every iteration; No = --ignore_helical_symmetry (a project just started, symmetry unknown)",
+  }),
+  num("helicalNrAsu", "Number of unique asymmetrical units", 1, {
+    step: 1, min: 1, max: 100, tab: "Helix",
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "helical ASUs per segment box (--helical_nr_asu); the inter-box distance from picking should equal rise × ASUs / pixel size",
+  }),
+  num("helicalTwistInitial", "Initial helical twist (°)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "positive = right-handed (--helical_twist_initial)",
+  }),
+  num("helicalRiseInitial", "Initial helical rise (Å)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "positive value in Angstroms (--helical_rise_initial)",
+  }),
+  num("helicalZPercentage", "Central Z length (%)", 30, {
+    step: 1, min: 5, max: 80, tab: "Helix", advanced: true,
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "the central Z slice of the box that carries real signal (--helical_z_percentage); orientation-search inaccuracies degrade the rest",
+  }),
+  bool("doLocalSearchHelicalSymmetry", "Do local searches of symmetry?", false, {
+    tab: "Helix",
+    showIf: { param: "doApplyHelicalSymmetry", equals: true },
+    hint: "search twist and rise locally within the ranges below (--helical_symmetry_search) instead of fixing them at the initial values",
+  }),
+  num("helicalTwistMin", "Helical twist search — Min (°)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "--helical_twist_min",
+  }),
+  num("helicalTwistMax", "Helical twist search — Max (°)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "--helical_twist_max",
+  }),
+  num("helicalTwistInistep", "Helical twist search — Step (°)", 0, {
+    step: 0.01, tab: "Helix", advanced: true,
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "initial search step (--helical_twist_inistep); 0 = RELION's default",
+  }),
+  num("helicalRiseMin", "Helical rise search — Min (Å)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "--helical_rise_min",
+  }),
+  num("helicalRiseMax", "Helical rise search — Max (Å)", 0, {
+    step: 0.01, tab: "Helix",
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "--helical_rise_max",
+  }),
+  num("helicalRiseInistep", "Helical rise search — Step (Å)", 0, {
+    step: 0.01, tab: "Helix", advanced: true,
+    showIf: { param: "doLocalSearchHelicalSymmetry", equals: true },
+    hint: "initial search step (--helical_rise_inistep); 0 = RELION's default",
+  }),
+];
 
 /* ------------------------------------------------------------------ */
 /* Palette categories (RELION job-browser tree)                        */
@@ -108,20 +269,69 @@ export const JOB_CATEGORIES: JobCategory[] = [
 /* Port colors by data kind (no blue/indigo anywhere)                  */
 /* ------------------------------------------------------------------ */
 
-export const PORT_COLORS: Record<PortKind, { dot: string; label: string; text: string }> = {
-  movies: { dot: "bg-cyan-500", label: "text-cyan-700 dark:text-cyan-300", text: "Cyan" },
-  micrographs: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal" },
-  coords: { dot: "bg-amber-500", label: "text-amber-700 dark:text-amber-300", text: "Amber" },
-  particles: { dot: "bg-violet-500", label: "text-violet-700 dark:text-violet-300", text: "Violet" },
-  references2d: { dot: "bg-rose-500", label: "text-rose-700 dark:text-rose-300", text: "Rose" },
-  volume: { dot: "bg-orange-500", label: "text-orange-700 dark:text-orange-300", text: "Orange" },
-  halfmap: { dot: "bg-pink-500", label: "text-pink-700 dark:text-pink-300", text: "Pink" },
-  mask: { dot: "bg-emerald-500", label: "text-emerald-700 dark:text-emerald-300", text: "Emerald" },
-  model: { dot: "bg-fuchsia-500", label: "text-fuchsia-700 dark:text-fuchsia-300", text: "Fuchsia" },
-  star: { dot: "bg-slate-500", label: "text-slate-700 dark:text-slate-300", text: "Slate" },
-  tiltseries: { dot: "bg-cyan-500", label: "text-cyan-700 dark:text-cyan-300", text: "Cyan" },
-  tomograms: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal" },
+/**
+ * t734 — each kind's vocabulary now speaks a fourth form: `wire`, the
+ * SVG stroke color the canvas paints a data wire with (the from port's
+ * kind is the wire's identity). It must be a hex VALUE, not a tailwind
+ * class: the JIT content globs scan components/app but not src/lib, so
+ * a class literal living here never compiles into the bundle. Same
+ * row, same edit point — changing a kind's color means touching the
+ * one line that carries all its forms.
+ */
+export const PORT_COLORS: Record<PortKind, { dot: string; label: string; text: string; wire: string }> = {
+  movies: { dot: "bg-cyan-500", label: "text-cyan-700 dark:text-cyan-300", text: "Cyan", wire: "#06b6d4" },
+  micrographs: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal", wire: "#14b8a6" },
+  coords: { dot: "bg-amber-500", label: "text-amber-700 dark:text-amber-300", text: "Amber", wire: "#f59e0b" },
+  particles: { dot: "bg-violet-500", label: "text-violet-700 dark:text-violet-300", text: "Violet", wire: "#8b5cf6" },
+  references2d: { dot: "bg-rose-500", label: "text-rose-700 dark:text-rose-300", text: "Rose", wire: "#f43f5e" },
+  volume: { dot: "bg-orange-500", label: "text-orange-700 dark:text-orange-300", text: "Orange", wire: "#f97316" },
+  halfmap: { dot: "bg-pink-500", label: "text-pink-700 dark:text-pink-300", text: "Pink", wire: "#ec4899" },
+  mask: { dot: "bg-emerald-500", label: "text-emerald-700 dark:text-emerald-300", text: "Emerald", wire: "#10b981" },
+  model: { dot: "bg-fuchsia-500", label: "text-fuchsia-700 dark:text-fuchsia-300", text: "Fuchsia", wire: "#d946ef" },
+  star: { dot: "bg-slate-500", label: "text-slate-700 dark:text-slate-300", text: "Slate", wire: "#64748b" },
+  tiltseries: { dot: "bg-cyan-500", label: "text-cyan-700 dark:text-cyan-300", text: "Cyan", wire: "#06b6d4" },
+  tomograms: { dot: "bg-teal-500", label: "text-teal-700 dark:text-teal-300", text: "Teal", wire: "#14b8a6" },
 };
+
+/**
+ * t735 — the one way to ask the book "what data does THIS output port
+ * of THIS type carry?". The wire layer's ink, the type card's chip
+ * dots, and any future kind reader all resolve through here: a lookup
+ * written three times is a directory being born, and directories live
+ * in lib or nowhere. Unknown type or port → undefined (the caller
+ * keeps its honest fallback ink).
+ */
+export function outputKindOf(typeKey: string, portName: string): PortKind | undefined {
+  return jobType(typeKey)?.outputs?.find((p) => p.name === portName)?.kind;
+}
+
+/**
+ * t746 — the dictionary page's water row: the two radii of a type's
+ * water, both deduped and ordered by the book's own key order
+ * (PORT_COLORS — the roster's walk order since t737). pours = the output
+ * ports' kind (the water's certainty — what the type actually emits);
+ * drinks = the input sockets' accepts (the socket's capacity — t738's
+ * socket semantics: what the type can take). The wildcard is not a kind
+ * and contributes no word. One home in lib: the type card reads these
+ * named questions, it does not do port arithmetic (the t730 law — a
+ * lookup written in a component is a directory being born, and
+ * directories live in lib or nowhere).
+ */
+export function pourKindsOf(typeKey: string): PortKind[] {
+  const spec = jobType(typeKey);
+  if (!spec) return [];
+  return (Object.keys(PORT_COLORS) as PortKind[]).filter((k) =>
+    spec.outputs.some((o) => o.kind === k)
+  );
+}
+
+export function drinkKindsOf(typeKey: string): PortKind[] {
+  const spec = jobType(typeKey);
+  if (!spec) return [];
+  return (Object.keys(PORT_COLORS) as PortKind[]).filter((k) =>
+    spec.inputs.some((i) => (i.accepts ?? []).includes(k))
+  );
+}
 
 /** Port shorthands. */
 const inp = (name: string, label: string, accepts: (PortKind | "*")[], multiple = false): PortSpec => ({
@@ -131,7 +341,12 @@ const inp = (name: string, label: string, accepts: (PortKind | "*")[], multiple 
   multiple,
 });
 
-const outp = (name: string, label: string, kind: PortKind): PortSpec => ({ name, label, kind });
+const outp = (
+  name: string,
+  label: string,
+  kind: PortKind,
+  when?: (params: Record<string, ParamValue>) => boolean
+): PortSpec => ({ name, label, kind, ...(when ? { when } : {}) });
 
 /** Standard port labels (RELION wording). */
 const L = {
@@ -267,14 +482,18 @@ export const JOB_TYPES: JobTypeSpec[] = [
   /* ---------------- Import ------------------------------------------ */
   spec(
     "import",
-    "Import Movies / Micrographs",
+    "Import Movies / Micrographs / Particles",
     "FolderInput",
     "teal",
-    "Ingest movies or micrograph metadata into the project as a RELION 5 optics-group STAR file.",
+    "Ingest movies, micrographs or a particles STAR into the project as a RELION 5 optics-group STAR file.",
     2000,
     [
-      pth("micrographsPath", "Micrographs — folder, pattern or files", {
-        hint: "RELION-style: pick a folder (imports every image), a wildcard pattern (/data/movies/*.tiff — * and ? allowed), or Browse → Files to multi-select individual files. Local drives and WSL paths both work (/mnt/c/… or C:\\…).",
+      sel("nodeType", "Node type", "micrographs", ["micrographs", "movies", "particles"], {
+        hint: "RELION-style: what are these files? Micrographs (motion-corrected, CTF-ready) feed CTF directly; Movies (raw frame stacks) need MotionCorr first; Particles imports an existing particles .star.",
+        tab: "Movies/mics",
+      }),
+      pth("micrographsPath", "Files — folder, pattern or file list", {
+        hint: "RELION-style: pick a folder (imports every image inside), a wildcard pattern (/data/movies/*.tiff — * and ? allowed), Browse → Files to multi-select, or — with Node type Particles — a particles .star. Local drives and WSL paths both work (/mnt/c/… or C:\\…).",
         tab: "Movies/mics",
         filePick: true,
       }),
@@ -283,6 +502,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
       num("cs", "Spherical aberration", 2.7, { unit: "mm", step: 0.1, tab: "Movies/mics" }),
       num("ampContrast", "Amplitude contrast", 0.1, { step: 0.01, min: 0.01, max: 0.3, tab: "Movies/mics" }),
       num("totalDose", "Total exposure dose", 25, { unit: "e⁻/Å²", step: 0.5, advanced: true, tab: "Movies/mics" }),
+      bool("negativeStain", "Negative-stain images (particles appear white)", false, {
+        tab: "Movies/mics",
+        hint: "Cryo (default): protein is denser than ice — particles are DARK in micrographs and below-mean in class averages, so displays AUTO-INVERT them to the familiar white-on-black (RELION convention). Negative stain: heavy metal darkens the background and particles stay BRIGHT — checking this pins every downstream gallery, particle and map render to the no-flip polarity.",
+      }),
     ],
     "{n} micrographs imported",
     "core",
@@ -290,7 +513,21 @@ export const JOB_TYPES: JobTypeSpec[] = [
       category: "import",
       tabs: ["Movies/mics"],
       inputs: [],
-      outputs: [outp("micrographs", "Micrographs STAR file (.star)", "micrographs")],
+      // t315 — one visible output port per Node type (RELION's import
+      // semantics): Micrographs → CTF can consume directly; Movies → only
+      // MotionCorr accepts (CTF's port refuses the movies kind, exactly as
+      // RELION's pipeline typing does); Particles → the classification and
+      // selection family consumes it.
+      outputs: [
+        outp(
+          "micrographs",
+          "Micrographs STAR (motion-corrected)",
+          "micrographs",
+          (p) => p.nodeType !== "movies" && p.nodeType !== "particles"
+        ),
+        outp("movies", "Movies STAR (raw frame stacks)", "movies", (p) => p.nodeType === "movies"),
+        outp("particles", "Particles STAR", "particles", (p) => p.nodeType === "particles"),
+      ],
     }
   ),
 
@@ -319,6 +556,39 @@ export const JOB_TYPES: JobTypeSpec[] = [
       // mapPath param, engine-native, no resolveInputs gate in the way
       inputs: [inp("map", L.mapIn, ["volume"])],
       outputs: [outp("model_mrc", "Reference map (.mrc)", "volume")],
+    }
+  ),
+
+  /* ---------------- CryoSPARC → RELION (t336) ----------------------- */
+  spec(
+    "cs2star",
+    "CryoSPARC → RELION",
+    "ArrowLeftRight",
+    "teal",
+    "Convert a CryoSPARC job's .cs particle dataset into a RELION 5 particles.star — alignments (Rodrigues → Euler), CTF, optics — and link ONLY the referenced particle stacks (.mrc → .mrcs names) on the cluster, so every downstream job consumes them directly. On a cluster connection the conversion runs ON the cluster itself: the parameters are set here, a self-contained converter script (the same pyem-verified field mapping, needs only python3+numpy) runs there, and the star is written straight to its cluster home — the .cs datasets and the star never cross the wire. Clusters without python3+numpy fall back to the engine-native lane (download → convert locally → upload).",
+    3000,
+    [
+      pth("csPath", "CryoSPARC job folder (J###) or particles.cs", {
+        hint: "On a cluster project: the CryoSPARC job folder (the J### directory holding extracted_particles.cs / cryosparc_*_particles.cs — its newest particles.cs + first passthrough are used) or a .cs file directly. The referenced stacks are linked under this project's micrographs/ tree — only the ones the star actually references, not every .mrc in the extract dir.",
+        tab: "Source",
+        filePick: true,
+      }),
+      bool("invertY", "Invert particle Y coordinates", false, {
+        tab: "Source",
+        hint: "CryoSPARC's coordinate origin is bottom-left, RELION's top-left. OFF matches the reference script's --inverty behavior (particles imported INTO cryoSPARC from RELION coordinates already speak RELION's convention); turn ON for sets picked inside cryoSPARC whose coordinates look mirrored.",
+      }),
+      num("pixelSize", "Pixel size fallback", 1, { unit: "Å", min: 0.1, step: 0.01, advanced: true, tab: "Source", hint: "Used only when the .cs carries no blob/psize_A field" }),
+      num("voltage", "Voltage fallback", 300, { unit: "kV", advanced: true, tab: "Source", hint: "Used only when the .cs carries no ctf/accel_kv" }),
+      num("cs", "Spherical aberration fallback", 2.7, { unit: "mm", step: 0.1, advanced: true, tab: "Source" }),
+      num("ampContrast", "Amplitude contrast fallback", 0.1, { step: 0.01, min: 0.01, max: 0.3, advanced: true, tab: "Source" }),
+    ],
+    "{n} particles converted",
+    "core",
+    {
+      category: "import",
+      tabs: ["Source"],
+      inputs: [],
+      outputs: [outp("particles", "Particles STAR (converted)", "particles")],
     }
   ),
 
@@ -406,19 +676,19 @@ export const JOB_TYPES: JobTypeSpec[] = [
     [
       sel("pickingMethod", "Picking method", "Laplacian of Gaussian", ["Laplacian of Gaussian", "References", "Topaz"], {
         tab: "autopicking",
-        hint: "LoG needs no references — pick straight after CTF. References needs Class2D averages. Topaz is a CNN picker (needs the topaz python module in RELION's env).",
+        hint: "LoG needs no references — pick straight after CTF; it is CPU-only (RELION refuses --gpu on it, so the cluster dispatch requests no GPUs). References needs Class2D averages and runs on GPU. Topaz is a CNN picker (needs the topaz python module in RELION's env).",
       }),
-      num("logDiamMin", "LoG min particle diameter", 120, { unit: "Å", step: 5, tab: "Laplacian", hint: "smallest blob the DoG filter responds to" }),
-      num("logDiamMax", "LoG max particle diameter", 180, { unit: "Å", step: 5, tab: "Laplacian", hint: "largest blob the DoG filter responds to" }),
+      num("logDiamMin", "LoG min particle diameter", 150, { unit: "Å", step: 5, tab: "Laplacian", hint: "smallest blob the DoG filter responds to — the tutorial's 150 Å" }),
+      num("logDiamMax", "LoG max particle diameter", 180, { unit: "Å", step: 5, tab: "Laplacian", hint: "largest blob the DoG filter responds to — the tutorial's 180 Å" }),
       num("logAdjustThreshold", "LoG adjust threshold", 0, { step: 0.05, tab: "Laplacian", hint: "positive picks fewer, negative picks more" }),
-      num("logUpperThreshold", "LoG upper threshold limit", 99999, { step: 1, tab: "Laplacian", advanced: true }),
+      num("logUpperThreshold", "LoG upper threshold limit", 999, { step: 1, min: 999, tab: "Laplacian", advanced: true, hint: "RELION's own default 999 = effectively disabled (discards picks whose LoG response is this many σ above the mean)" }),
       bool("logInvert", "Particles are white (not black)", false, { tab: "Laplacian", advanced: true }),
       num("particleDiameter", "Particle diameter (pick mask)", 180, { unit: "Å", step: 5, tab: "References" }),
       num("lowpass", "Lowpass filter for references", 20, { unit: "Å", step: 5, tab: "References" }),
-      num("threshold", "Picking threshold (References mode)", 0.4, { step: 0.05, min: 0, max: 1, tab: "autopicking" }),
+      num("threshold", "Picking threshold (References mode)", 0.05, { step: 0.01, min: 0, max: 1, tab: "autopicking", hint: "RELION's own default — lower picks more (and more junk)" }),
       num("minDistance", "Minimum inter-particle distance", 100, { unit: "Å", step: 10, min: 0, tab: "autopicking", advanced: true }),
-      num("maxStddevNoise", "Maximum stddev of noise", 0, { step: 0.05, min: 0, tab: "autopicking", advanced: true }),
-      num("topazNrParticles", "Topaz: expected particles per micrograph", 200, { step: 10, min: 1, tab: "Topaz", hint: "steers the CNN's recall — the general model picks roughly this many per image" }),
+      num("maxStddevNoise", "Maximum stddev of noise", 1.1, { step: 0.02, min: 0.9, max: 1.5, tab: "autopicking", advanced: true, hint: "RELION's own default — rejects picks in carbon / noisy areas" }),
+      num("topazNrParticles", "Topaz: expected particles per micrograph", 300, { step: 10, min: 1, tab: "Topaz", hint: "the tutorial's recall target — steers the CNN's threshold calibration" }),
       num("topazThreshold", "Topaz: picking threshold", -6, { step: 0.5, tab: "Topaz", hint: "lower (more negative) picks more candidates" }),
       num("topazDiameter", "Topaz: particle diameter", 180, { unit: "Å", step: 5, min: 0, tab: "Topaz", hint: "sets the extract radius together with the pixel size" }),
       num("topazDownscale", "Topaz: downscale factor", -1, { step: 1, min: -1, tab: "Topaz", advanced: true, hint: "-1 = automatic (from particle size)" }),
@@ -464,6 +734,27 @@ export const JOB_TYPES: JobTypeSpec[] = [
         inp("coords", "Training picks (hand-picked coordinates)", ["coords"]),
       ],
       outputs: [outp("model", "Trained Topaz model (.sav)", "model")],
+    }
+  ),
+  spec(
+    "topazdenoise",
+    "Topaz Denoise",
+    "Sparkles",
+    "rose",
+    "Denoise micrographs with Topaz's pretrained denoising network before picking — cleaner pixels make hand-picking faster and the CNN's training windows less noisy (the official topaz flow runs denoise → pick/train on the denoised images). The output star keeps the micrograph schema, so Picking and Training consume it unchanged. RELION has no denoise UI of its own — this job speaks topaz's CLI through the RELION wrapper.",
+    8000,
+    [
+      num("topazDownscale", "Topaz: downscale factor", -1, { step: 1, min: -1, tab: "Denoise", hint: "-1 = automatic — topaz works at the scale its network was trained for and upscales back" }),
+      num("topazWorkers", "Topaz: workers", 1, { step: 1, min: 1, tab: "Advanced", advanced: true, hint: "parallel denoising workers" }),
+      txt("topazArgs", "Topaz: extra arguments", "", { tab: "Advanced", advanced: true, hint: "raw extras passed to topaz denoise, e.g. --device cpu (a --model here overrides the built-in general denoiser)" }),
+    ],
+    "{n} micrographs denoised",
+    "external",
+    {
+      category: "picking",
+      tabs: ["Denoise", "Advanced"],
+      inputs: [inp("micrographs", L.micIn, ["micrographs"])],
+      outputs: [outp("micrographs", "Denoised micrographs (denoised_micrographs.star)", "micrographs")],
     }
   ),
 
@@ -565,8 +856,42 @@ export const JOB_TYPES: JobTypeSpec[] = [
       outputs: [outp("output", "Joined STAR file", "star")],
     }
   ),
+  // t452 — the verdict's consumer face: the A/B compare dialog bakes the
+  // regressed micrographs' names into this filter (「把输家微图喂给
+  // exclude 清单」, the t439 leftover that waited four windows). Engine-
+  // native like select: a name-law filter, not an estimate.
+  spec(
+    "excludemg",
+    "Exclude Micrographs",
+    "ListX",
+    "orange",
+    "Drop named micrographs from a micrographs STAR (the A/B verdict's exclude list baked in — a filter, not a re-estimate).",
+    600,
+    [
+      txt("excludeNames", "Excluded micrographs", "", {
+        tab: "Exclusions",
+        hint: "one name per line or comma-separated — rows whose _rlnMicrographName matches are dropped (bare filenames match too); the A/B compare dialog bakes this list from the verdict's biggest regressions",
+      }),
+    ],
+    "{n} micrographs kept",
+    "core",
+    {
+      category: "select",
+      tabs: ["Exclusions"],
+      inputs: [inp("micrographs", "Input micrographs STAR", ["micrographs", "star"])],
+      outputs: [outp("micrographs", "Filtered micrographs STAR", "micrographs")],
+    }
+  ),
 
   /* ---------------- 2D classification ------------------------------- */
+  // t386 — the whole spec's initial defaults are RELION's own (RELION 5
+  // pipeline_jobs.cpp initialiseClass2DJob) with the tutorial's pedagogical
+  // overrides where the GUI's placeholder is useless: K=50 is the tutorial's
+  // first-pass class count (the GUI's own default of 1 class is nobody's
+  // classification), VDAM is RELION 5's default algorithm (do_grad=true),
+  // T=2 / mask 200 Å / psi 6° / offsets 5+1 px / pool 3 are the GUI's own
+  // pre-fills, and 25 EM iterations is nr_iter_em's default for the dialect
+  // switch back to EM.
   spec(
     "class2d",
     "2D Classification",
@@ -575,23 +900,110 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Multi-reference 2D class averaging (relion_refine) to separate good particles from junk.",
     12000,
     [
-      num("numClasses", "Number of classes (K)", 10, { step: 1, min: 1, max: 200, tab: "Optimisation" }),
-      num("iterations", "Number of iterations", 12, { step: 1, min: 1, max: 50, tab: "Optimisation" }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Optimisation" }),
-      num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
-      bool("doZeroMask", "Zero the mask", true, { tab: "Optimisation", advanced: true }),
-      sel("psiSampling", "In-plane sampling step", "7.5", psiOptions, { tab: "Sampling", advanced: true }),
-      num("highresLimit", "High-res limit (Å)", 0, { step: 0.5, min: 0, tab: "Optimisation", advanced: true, hint: "0 = no limit" }),
+      num("numClasses", "Number of classes (K)", 50, { step: 1, min: 1, max: 200, tab: "Optimisation", hint: "the RELION tutorial's first-pass count — more classes separate views more finely at linear cost" }),
+      sel("algorithm", "Algorithm", "vdam", ["em", "vdam"], {
+        tab: "Optimisation",
+        hint: "RELION 5's two 2D-classification algorithms (the GUI's \"Use EM algorithm?\" / \"Use VDAM algorithm?\" pair, one knob): EM — the classic expectation-maximization, the default before relion-4.0; VDAM — variable-metric gradient descent with adaptive moments, RELION 5's own default and much faster on large data sets.",
+      }),
+      num("iterations", "Number of EM iterations", 25, {
+        step: 1, min: 1, max: 50, tab: "Optimisation",
+        showIf: { param: "algorithm", equals: "em" },
+        hint: "number of EM iterations (--iter) — RELION's own nr_iter_em default",
+      }),
+      num("miniBatches", "Number of VDAM mini-batches", 200, {
+        step: 10, min: 50, max: 500, tab: "Optimisation",
+        showIf: { param: "algorithm", equals: "vdam" },
+        hint: "number of mini-batches for the VDAM algorithm (--iter) — RELION's own GUI default 200: good results on many data sets; the tutorial uses 100 to run faster at some quality cost",
+      }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Optimisation", hint: "RELION's own default and the tutorial's value — larger than the particle's longest dimension, not smaller" }),
+      bool("doCtf", "Do CTF-correction (--ctf)", true, {
+        tab: "CTF",
+        hint: "CTF correction inside the refinement — needs CTF info in the particles STAR (CryoFlow imports carry it)",
+      }),
+      bool("ctfIntactFirstPeak", "Ignore CTFs until first peak (--ctf_intact_first_peak)", false, {
+        tab: "CTF", advanced: true,
+        hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
+      }),
+      num("tau2Fudge", "Regularisation factor T", 2, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true, hint: "RELION's own 2D default (T=2-3 typical for cryo-EM 2D, lower for negative stain)" }),
+      bool("doZeroMask", "Mask individual particles with zeros (--zero_mask)", true, { tab: "Optimisation", advanced: true }),
+      bool("doCenter", "Centre class averages (--center_classes)", true, {
+        tab: "Optimisation",
+        hint: "every iteration the class averages are centred on their centre-of-mass — RELION's own GUI default; only makes sense for positive (white) signals",
+      }),
+      bool("skipAlign", "Skip alignment (--skip_align)", false, {
+        tab: "Optimisation", advanced: true,
+        hint: "skip the in-plane alignment search — orientations must already be in the STAR (e.g. re-classifying refined particles)",
+      }),
+      sel("psiSampling", "In-plane sampling step", "6", psiOptions, { tab: "Sampling", advanced: true, hint: "RELION's own default (6°); finer steps sharpen class averages at compute cost" }),
+      num("offsetRange", "Offset search range (px)", 5, {
+        step: 1, min: 1, max: 30, tab: "Sampling", advanced: true,
+        hint: "translation circle radius in pixels — RELION's own GUI default 5",
+      }),
+      num("offsetStep", "Offset search step (px)", 1, {
+        step: 0.5, min: 0.5, max: 5, tab: "Sampling", advanced: true,
+        hint: "translation sampling step — RELION's own GUI default 1",
+      }),
+      bool("allowCoarser", "Allow coarser sampling (--allow_coarser_sampling)", false, {
+        tab: "Sampling", advanced: true,
+        hint: "use coarser angular/translational sampling in early iterations while assignment accuracies are still low — faster",
+      }),
+      num("oversampling", "Adaptive oversampling (--oversampling)", 1, {
+        step: 1, min: 0, max: 2, tab: "Sampling", advanced: true,
+        hint: "1 = RELION default (oversampled adaptive grid); 0 = off; 2 = two levels",
+      }),
+      num("highresLimit", "E-step resolution limit (Å)", 0, {
+        step: 0.5, min: 0, tab: "Optimisation", advanced: true,
+        hint: "RELION --strict_highres_exp — caps the alignment search resolution; 0 = unlimited. A real speed lever for early classifications (e.g. 15–20 Å)",
+      }),
+      num("batchSize", "Pooled particles (--pool)", 3, {
+        step: 1, min: 1, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — RELION 5's own GUI default (3; GUI range 1–16). Batches of pool × threads are read together: fewer disc round-trips, more VRAM — lower it if the GPU reports out-of-memory",
+      }),
+      txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
+        tab: "Compute", advanced: true,
+        hint: scratchHint,
+      }),
+      ...computeParity(),
       num("threads", "Threads (--j)", 4, {
         step: 1, min: 1, max: 32, tab: "Compute",
         hint: "relion_refine runs single-rank (MPI stacks under WSL are fragile) — this is the parallelism knob",
+      }),
+      // ---- Helix tab (t381) — RELION 5's own 2D-helix dialect, verbatim ----
+      bool("doHelical2d", "Classify 2D helical segments?", false, {
+        tab: "Helix",
+        hint: "RELION GUI's Helix tab for 2D classification: set to Yes to classify 2D helical segments — the segments should come with priors on their psi angles (a helical picking run).",
+      }),
+      num("helicalTubeOuterDiameter2d", "Tube diameter (Å)", 200, {
+        step: 10, min: 100, max: 1000, tab: "Helix",
+        showIf: { param: "doHelical2d", equals: true },
+        hint: "outer diameter of the helical tubes (--helical_outer_diameter)",
+      }),
+      bool("doBimodalPsi", "Do bimodal angular searches?", true, {
+        tab: "Helix",
+        showIf: { param: "doHelical2d", equals: true },
+        hint: "bimodal search for psi angles (--bimodal_psi) — the up/down ambiguity of a helical segment",
+      }),
+      num("rangePsiHelical", "Angular search range — psi (°)", 6, {
+        step: 1, min: 3, max: 30, tab: "Helix",
+        showIf: { param: "doHelical2d", equals: true },
+        hint: "local psi searches within ± this many degrees (--sigma_psi = value/3)",
+      }),
+      bool("doRestrictXoff", "Restrict helical offsets to rise", true, {
+        tab: "Helix",
+        showIf: { param: "doHelical2d", equals: true },
+        hint: "restrict translational offsets ALONG the helix to the rise below — No allows free conventional offsets",
+      }),
+      num("helicalRise2d", "Helical rise (Å)", 1, {
+        step: 0.01, min: 0, max: 100, tab: "Helix",
+        showIf: { param: "doRestrictXoff", equals: true },
+        hint: "the rise restricting the x-offsets (--helix --helical_rise_initial)",
       }),
     ],
     "{n} class averages",
     "core",
     {
       category: "class2d",
-      tabs: ["CTF", "Optimisation", "Sampling", "Compute"],
+      tabs: ["CTF", "Optimisation", "Sampling", "Helix", "Compute"],
       inputs: [inp("particles", L.particlesIn, ["particles"])],
       outputs: [
         outp("classAverages", L.classAveragesOut, "references2d"),
@@ -604,7 +1016,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "2D Class Selection",
     "Grid2x2Check",
     "orange",
-    "Subset-selection on a 2D classification run: pick good classes from the gallery (or auto-select by occupancy) — only particles in the kept classes continue downstream.",
+    "Subset-selection on a classification run: pick good classes from the gallery (or auto-select by occupancy) — only particles in the kept classes continue downstream. Takes 2D and 3D classifications alike, and the source doesn't have to be finished — a running or interrupted run answers from its latest settled round.",
     900,
     [
       txt("selectedClasses", "Selected classes", "auto", {
@@ -627,8 +1039,13 @@ export const JOB_TYPES: JobTypeSpec[] = [
       category: "class2d",
       tabs: ["Classes"],
       inputs: [
-        inp("particles", "Classified particles STAR (run 2D Classification first)", ["particles"]),
-        inp("classes", "2D class averages (gallery)", ["references2d"]),
+        // t356 — classes sits at the TOP (port 0): its canonical source is
+        // class2d's FIRST output (classAverages, also port 0/top), so the
+        // two wires class2d→select2d run parallel instead of crossing.
+        // Edges reference ports BY NAME, so this is a pure geometry fix —
+        // existing wiring is untouched.
+        inp("classes", "Class averages / volumes (gallery)", ["references2d"]),
+        inp("particles", "Classified particles STAR (run 2D/3D Classification first)", ["particles"]),
       ],
       outputs: [outp("particles", "Selected particles STAR file (.star)", "particles")],
     }
@@ -643,17 +1060,37 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Generate ab-initio 3D references with the gradient-driven VDAM de-novo algorithm.",
     14000,
     [
-      num("numClasses", "Number of classes (K)", 4, { min: 1, max: 20, tab: "Optimisation" }),
+      // t386 — RELION 5's inimodel GUI defaults: K=1, T=4, 200 mini-batches,
+      // mask 200 Å; the tutorial's D2 stays (the tutorial sample AND the
+      // user's are the same β-gal dataset)
+      num("numClasses", "Number of classes (K)", 1, { min: 1, max: 20, tab: "Optimisation", hint: "RELION's own and the tutorial's default — one de-novo reference" }),
       sel("symmetry", "Symmetry", "D2", symmetryOptions, { tab: "Optimisation" }),
-      num("iterations", "Number of VDAM iterations", 50, { step: 5, min: 5, max: 300, tab: "Optimisation" }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
-      num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      num("iterations", "Number of VDAM mini-batches", 200, { step: 10, min: 50, max: 500, tab: "Optimisation", hint: "RELION's own nr_iter default (the tutorial uses 100 to run faster)" }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Sampling", hint: "RELION's own default and the tutorial's value" }),
+      num("tau2Fudge", "Regularisation factor T", 4, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true, hint: "RELION's own inimodel default (T=4, like 3D work)" }),
+      bool("doCtf", "Do CTF-correction (--ctf)", true, {
+        tab: "CTF",
+        hint: "CTF correction inside the de-novo refinement — needs CTF info in the particles STAR",
+      }),
+      bool("ctfIntactFirstPeak", "Ignore CTFs until first peak (--ctf_intact_first_peak)", false, {
+        tab: "CTF", advanced: true,
+        hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
+      }),
+      num("batchSize", "Pooled particles (--pool)", 3, {
+        step: 1, min: 1, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — RELION 5's own GUI default (3)",
+      }),
+      txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
+        tab: "Compute", advanced: true,
+        hint: scratchHint,
+      }),
+      ...computeParity(),
     ],
     "{n} initial models",
     "core",
     {
       category: "class3d",
-      tabs: ["Optimisation", "Sampling", "Compute"],
+      tabs: ["CTF", "Optimisation", "Sampling", "Compute"],
       inputs: [inp("particles", L.particlesIn, ["particles"])],
       outputs: [outp("model", "Initial model(s) (.mrc)", "volume")],
     }
@@ -666,21 +1103,82 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Sort particles into 3D conformational classes against a reference map.",
     14000,
     [
-      num("numClasses", "Number of classes (K)", 4, { min: 1, max: 20, tab: "Optimisation" }),
-      sel("symmetry", "Symmetry", "C1", symmetryOptions, { tab: "Reference" }),
+      num("numClasses", "Number of classes (K)", 4, { min: 1, max: 20, tab: "Optimisation", hint: "the tutorial's heterogeneity screen — the GUI's own default is 1" }),
+      sel("symmetry", "Symmetry", "C1", symmetryOptions, { tab: "Reference", hint: "the tutorial classifies in C1 first — bad particles break symmetry, and the point group can be verified on the classes" }),
       num("iterations", "Number of iterations", 25, { step: 5, min: 5, max: 100, tab: "Optimisation" }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
-      num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Sampling", hint: "RELION's own default and the tutorial's value" }),
+      bool("doCtf", "Do CTF-correction (--ctf)", true, {
+        tab: "CTF",
+        hint: "CTF correction inside the refinement — needs CTF info in the particles STAR",
+      }),
+      bool("ctfIntactFirstPeak", "Ignore CTFs until first peak (--ctf_intact_first_peak)", false, {
+        tab: "CTF", advanced: true,
+        hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
+      }),
+      num("tau2Fudge", "Regularisation factor T", 4, {
+        step: 0.5, min: 0.5, tab: "Optimisation", advanced: true,
+        hint: "RELION's own Class3D GUI default is 4 — higher T = sharper classes; this value now actually rides the command line (it was hardcoded 4 before t352)",
+      }),
+      bool("doBlush", "Blush regularisation (--blush)", false, {
+        tab: "Optimisation",
+        hint: "RELION 5's neural-network regulariser — regularisation by denoising at every iteration instead of the smoothness prior. Often converges to better maps from fewer particles. Off = the standard Tikhonov/smoothness prior (the T above)",
+      }),
+      bool("doZeroMask", "Mask individual particles with zeros (--zero_mask)", true, {
+        tab: "Optimisation", advanced: true,
+        hint: "RELION's own GUI default — the solvent region outside the particle is zeroed",
+      }),
+      bool("doFastSubsets", "Use fast subsets (--fast_subsets)", false, {
+        tab: "Optimisation", advanced: true,
+        hint: "the first iterations run on K×1500-particle random subsets, then K×4500, 30%, and finally all — for very large data sets",
+      }),
+      samplingSel("sampling", "Angular sampling step (healpix)", "7.5", {
+        tab: "Sampling", advanced: true,
+        hint: "RELION's own GUI default (7.5° — the tutorial keeps it for all but high-symmetry particles); the number passed to relion_refine is the healpix order",
+      }),
+      num("offsetRange", "Offset search range (px)", 5, {
+        step: 1, min: 1, max: 30, tab: "Sampling", advanced: true,
+        hint: "translation circle radius in pixels — RELION's own GUI default 5",
+      }),
+      num("offsetStep", "Offset search step (px)", 1, {
+        step: 0.5, min: 0.5, max: 5, tab: "Sampling", advanced: true,
+        hint: "translation sampling step — RELION's own GUI default 1",
+      }),
+      bool("allowCoarser", "Allow coarser sampling (--allow_coarser_sampling)", false, {
+        tab: "Sampling", advanced: true,
+        hint: "use coarser angular/translational sampling in early iterations while assignment accuracies are still low — faster",
+      }),
+      num("localSigmaAng", "Local angular search range (°, 0 = global)", 0, {
+        step: 0.5, min: 0, max: 30, tab: "Sampling", advanced: true,
+        hint: ">0 restricts angular searches to a cone around the input orientations — RELION --sigma_ang receives value/3, exactly like the RELION GUI",
+      }),
+      num("relaxSym", "Relax symmetry (--relax_sym)", 0, {
+        step: 1, min: 0, max: 24, tab: "Sampling", advanced: true,
+        hint: "0 = off — allow the point-group symmetry to be broken by this many degrees",
+      }),
+      num("padding", "Padding factor (--pad)", 2, {
+        step: 1, min: 1, max: 2, tab: "Compute", advanced: true,
+        hint: "FFT padding 2 = accurate interpolation (RELION default), 1 = 4× faster but corners may fold back signal",
+      }),
+      num("batchSize", "Pooled particles (--pool)", 0, {
+        step: 1, min: 0, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — 0 = RELION 5's own GUI default (3; GUI range 1–16). Large boxes may need 1–2 to fit VRAM",
+      }),
+      txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
+        tab: "Compute", advanced: true,
+        hint: scratchHint,
+      }),
+      ...computeParity(),
+      ...helicalParams(),
       num("threads", "Threads (--j)", 4, {
         step: 1, min: 1, max: 32, tab: "Compute",
-        hint: "applies to sequential (WSL-bridged) runs — native runs use MPI ranks instead",
+        hint: "per-rank CPU threads (the RELION GUI's own --j)",
       }),
     ],
     "{n} 3D classes",
     "cmd",
     {
       category: "class3d",
-      tabs: ["Reference", "CTF", "Optimisation", "Sampling", "Compute"],
+      tabs: ["Reference", "CTF", "Optimisation", "Sampling", "Helix", "Compute"],
       inputs: [
         inp("particles", L.particlesIn, ["particles"]),
         inp("reference", L.mapIn, ["volume", "halfmap"]),
@@ -702,25 +1200,85 @@ export const JOB_TYPES: JobTypeSpec[] = [
     16000,
     [
       sel("symmetry", "Symmetry", "D2", symmetryOptions, { tab: "Reference" }),
-      num("iniHigh", "Initial low-pass on reference", 30, {
+      num("iniHigh", "Initial low-pass on reference", 50, {
         unit: "Å", step: 1, min: 5, max: 60, tab: "Reference",
-        hint: "reference is filtered to this resolution before the first iteration",
+        hint: "the tutorial's value — a class3d/inimodel reference is low-res, so filter it hard before the first iteration",
       }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
-      bool("autoRefine", "Perform auto-refinement", false, { tab: "Auto-sampling" }),
+      bool("doCtf", "Do CTF-correction (--ctf)", true, {
+        tab: "CTF",
+        hint: "CTF correction inside the refinement — needs CTF info in the particles STAR",
+      }),
+      bool("ctfIntactFirstPeak", "Ignore CTFs until first peak (--ctf_intact_first_peak)", false, {
+        tab: "CTF", advanced: true,
+        hint: "don't boost the lowest spatial frequencies — less low-res contrast, better high-res detail",
+      }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Sampling", hint: "RELION's own default and the tutorial's value" }),
+      bool("autoRefine", "Perform auto-refinement", true, { tab: "Auto-sampling", hint: "RELION's own Refine3D always auto-refines (gold-standard FSC stop — the tutorial's whole point for this job); off keeps a fixed iteration count" }),
       num("iterations", "Number of iterations", 15, { step: 1, min: 1, max: 50, tab: "Optimisation", hint: "used when auto-refine is off" }),
-      num("samplingStep", "Angular sampling step", 7.5, { step: 0.5, unit: "°", min: 0.5, max: 30, tab: "Auto-sampling", advanced: true }),
-      num("tau2Fudge", "Regularisation factor T", 1, { step: 0.5, min: 0.5, tab: "Optimisation", advanced: true }),
+      num("tau2Fudge", "Regularisation factor T", 1, {
+        step: 0.5, min: 0.5, tab: "Optimisation", advanced: true,
+        hint: "used when auto-refine is off (auto-refine derives its regularisation from the gold-standard FSC)",
+      }),
+      bool("doBlush", "Blush regularisation (--blush)", false, {
+        tab: "Optimisation",
+        hint: "RELION 5's neural-network regulariser — regularisation by denoising at every iteration instead of the smoothness prior. Often converges to better maps from fewer particles. Off = the standard prior",
+      }),
+      bool("doZeroMask", "Mask individual particles with zeros (--zero_mask)", true, {
+        tab: "Optimisation", advanced: true,
+        hint: "RELION's own GUI default — the solvent region outside the particle is zeroed",
+      }),
+      bool("doSolventFsc", "Solvent-flattened FSCs (--solvent_correct_fsc)", false, {
+        tab: "Optimisation", advanced: true,
+        hint: "use the solvent-corrected FSC in the gold-standard resolution estimate",
+      }),
+      samplingSel("samplingStep", "Initial angular sampling (healpix)", "7.5", {
+        tab: "Auto-sampling", advanced: true,
+        hint: "RELION's own GUI default — the tutorial: 7.5° for everything short of octahedral/icosahedral symmetry; the number passed to relion_refine is the healpix order",
+      }),
+      samplingSel("autoLocalSampling", "Local searches from auto-sampling", "1.8", {
+        tab: "Auto-sampling", advanced: true,
+        hint: "the sampling auto-refine switches down to for the local searches (RELION --auto_local_healpix_order) — RELION's own GUI default 1.8°",
+      }),
+      bool("autoFaster", "Use finer angular sampling faster", false, {
+        tab: "Auto-sampling", advanced: true,
+        hint: "RELION's own expert option — adds --auto_ignore_angles --auto_resol_angles, letting auto-refine proceed to finer sampling sooner",
+      }),
+      num("offsetRange", "Initial offset range (px)", 5, {
+        step: 1, min: 1, max: 30, tab: "Auto-sampling", advanced: true,
+        hint: "translation circle radius in pixels — RELION's own GUI default 5",
+      }),
+      num("offsetStep", "Initial offset step (px)", 1, {
+        step: 0.5, min: 0.5, max: 5, tab: "Auto-sampling", advanced: true,
+        hint: "translation sampling step — RELION's own GUI default 1",
+      }),
+      num("relaxSym", "Relax symmetry (--relax_sym)", 0, {
+        step: 1, min: 0, max: 24, tab: "Auto-sampling", advanced: true,
+        hint: "0 = off — allow the point-group symmetry to be broken by this many degrees",
+      }),
       num("padding", "Padding factor", 2, {
         step: 1, min: 1, max: 2, tab: "Compute", advanced: true,
         hint: "FFT padding 2 = accurate interpolation, 1 = 4× faster (large boxes)",
+      }),
+      num("batchSize", "Pooled particles (--pool)", 0, {
+        step: 1, min: 0, max: 16, tab: "Compute", advanced: true,
+        hint: "images pooled per thread task — 0 = RELION 5's own GUI default (3; GUI range 1–16). Large boxes may need 1–2 to fit VRAM",
+      }),
+      txt("scratchDir", "Node-local scratch dir (--scratch_dir)", "", {
+        tab: "Compute", advanced: true,
+        hint: scratchHint,
+      }),
+      ...computeParity(),
+      ...helicalParams(),
+      num("threads", "Threads (--j)", 4, {
+        step: 1, min: 1, max: 32, tab: "Compute",
+        hint: "per-rank CPU threads (the RELION GUI's own --j)",
       }),
     ],
     "Refined to {n} Å",
     "core",
     {
       category: "refine",
-      tabs: ["Reference", "Optimisation", "Sampling", "Auto-sampling", "Compute"],
+      tabs: ["Reference", "CTF", "Optimisation", "Sampling", "Auto-sampling", "Helix", "Compute"],
       inputs: [
         inp("particles", L.particlesIn, ["particles"]),
         inp("reference", L.mapIn, ["volume", "halfmap"]),
@@ -742,9 +1300,17 @@ export const JOB_TYPES: JobTypeSpec[] = [
     18000,
     [
       num("numBodies", "Number of bodies", 2, { min: 1, max: 20, tab: "Optimisation" }),
+      // t388 — RELION's own MultiBody GUI carries the same Blush
+      // regularisation as the rest of the refine family
+      // (pipeline_jobs.cpp:4772): the knob was table-dead weight here —
+      // the option-table twin had no flag and no builder read it.
+      bool("doBlush", "Blush regularisation (--blush)", false, {
+        tab: "Optimisation",
+        hint: "RELION 5's neural-network regulariser — regularisation by denoising at every iteration instead of the smoothness prior. Off = the standard Tikhonov/smoothness prior inherited from the consensus refinement.",
+      }),
       sel("symmetry", "Symmetry", "C1", symmetryOptions, { tab: "Reference" }),
-      num("particleDiameter", "Circular mask diameter", 180, { unit: "Å", step: 5, tab: "Sampling" }),
-      num("offsetStep", "Offset search step", 2, { unit: "px", step: 1, min: 1, max: 10, tab: "Sampling", advanced: true }),
+      num("particleDiameter", "Circular mask diameter", 200, { unit: "Å", step: 5, tab: "Sampling", hint: "RELION's own default" }),
+      num("offsetStep", "Offset search step", 0.75, { unit: "px", step: 0.05, min: 0.1, max: 10, tab: "Sampling", advanced: true, hint: "RELION's own multibody GUI default (0.75 px)" }),
     ],
     "{n} bodies refined",
     "cmd",
@@ -845,10 +1411,10 @@ export const JOB_TYPES: JobTypeSpec[] = [
     "Build a soft-edged 3D mask around the density (relion_mask_create) for FSC and validation.",
     2500,
     [
-      num("threshold", "Initial binarisation threshold", 0.02, { step: 0.01, min: 0.001, tab: "Mask" }),
-      num("softEdge", "Soft edge width", 6, { unit: "px", min: 1, tab: "Mask" }),
+      num("threshold", "Initial binarisation threshold", 0.02, { step: 0.01, min: 0.001, tab: "Mask", hint: "the tutorial's spot-check guidance: 0.002–0.02 — the threshold where the low-passed map shows no noisy spots outside the protein" }),
+      num("softEdge", "Soft edge width", 8, { unit: "px", min: 1, tab: "Mask", hint: "the tutorial's 8-px soft edge — gradual falloff keeps FSCs honest at the mask rim" }),
       num("lowpass", "Lowpass filter", 15, { unit: "Å", step: 5, tab: "Mask", advanced: true }),
-      num("extend", "Extend initial mask", 3, { unit: "px", min: 0, tab: "Mask" }),
+      num("extend", "Extend initial mask", 3, { unit: "px", min: 0, tab: "Mask", hint: "RELION's own default (the tutorial keeps it)" }),
     ],
     "Mask created",
     "core",
@@ -869,7 +1435,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     [
       bool("autoBfac", "Estimate B-factor automatically", true, { tab: "Sharpening" }),
       num("autobLowres", "Auto-B low-res limit", 10, { unit: "Å", step: 1, tab: "Sharpening" }),
-      num("adhocBfac", "Ad-hoc B-factor", -100, { step: 25, unit: "Å²", tab: "Sharpening", advanced: true, hint: "used when auto-B is off" }),
+      num("adhocBfac", "Ad-hoc B-factor", -1000, { step: 50, unit: "Å²", tab: "Sharpening", advanced: true, hint: "used when auto-B is off — RELION's own default (-1000 Ų; stronger sharpening than -100)" }),
       num("randomizeFrom", "Randomize phases from", 10, { unit: "Å", step: 1, tab: "Sharpening", advanced: true }),
     ],
     "Sharpened map, {n} Å",
@@ -922,7 +1488,7 @@ export const JOB_TYPES: JobTypeSpec[] = [
     [
       num("evalFrac", "Fourier-eval fraction", 0.5, { step: 0.05, min: 0.1, max: 0.9, tab: "Polish" }),
       num("firstFrame", "First frame", 1, { min: 1, tab: "Polish", advanced: true }),
-      num("lastFrame", "Last frame", 24, { min: 1, tab: "Polish", advanced: true }),
+      num("lastFrame", "Last frame", -1, { min: -1, tab: "Polish", advanced: true, hint: "RELION's own default: -1 = all frames" }),
     ],
     "Polished to {n} Å",
     "cmd",
@@ -1270,6 +1836,152 @@ export const JOB_TYPES: JobTypeSpec[] = [
   ),
 ];
 
+/* ------------------------------------------------------------------ */
+/* t374 — RELION 5.0 GUI parity: the full option-table merge            */
+/*                                                                      */
+/* Every JOB_TYPES spec gains the COMPLETE set of RELION's own GUI      */
+/* options for its type: the label/tab/default/min/max/radio/help are  */
+/* lifted verbatim from RELION 5.0.0's pipeline_jobs.cpp (option        */
+/* definitions) and gui_jobwindow.cpp (tab layout + expert toggles) —  */
+/* so a RELION user reads the same knobs in the same tabs in the same  */
+/* order with the same defaults.                                        */
+/*                                                                      */
+/* Merge rules (safety first):                                          */
+/*  1. existing curated keys are NEVER replaced — they stay the wired   */
+/*     controls (engine's builders + presets + stored DB params)        */
+/*  2. a RELION key that is a DECLARED ALIAS of a curated key (same     */
+/*     flag, different key name) is skipped — one control per knob      */
+/*  3. a RELION option whose label matches an existing curated label    */
+/*     (modulo ':'/'?') is treated as the same knob (skipped)          */
+/*  4. RELION "node" options (input STAR files wired via edges) are    */
+/*     skipped — cryoflow wires inputs through ports, not pickers      */
+/*  5. SPA specs skip tomo-only placements and vice versa (RELION's     */
+/*     if (is_tomo) branches in the window)                             */
+/*  6. C++ placeholder defaults (std::string(""), LABEL_*) sanitize    */
+/*     to ""                                                            */
+/* ------------------------------------------------------------------ */
+
+import { RELION_OPTIONS, RELION_ALIASES, RELION_DROP, GPU_DIALOG_KEYS } from "./relion/option-tables";
+
+function relionLabelKey(s: string): string {
+  return s.toLowerCase().replace(/[?:*]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** First ~2 sentences of a RELION helptext, capped for tooltip use. */
+function relionHint(help: string): string | undefined {
+  const clean = help.replace(/\s+/g, " ").trim();
+  if (!clean) return undefined;
+  const sentences = clean.match(/[^.!?]+[.!?]+/g) ?? [clean];
+  let out = "";
+  for (const s of sentences) {
+    if (out && (out + s).length > 260) break;
+    out += s + " ";
+    if (out.length > 260) break;
+  }
+  out = out.trim() || clean.slice(0, 260);
+  return out.length > 300 ? out.slice(0, 297) + "…" : out;
+}
+
+function applyRelionParamTable(): void {
+  for (const spec of JOB_TYPES) {
+    const table = RELION_OPTIONS[spec.key];
+    if (!table) continue;
+    const isTomo = spec.group === "Tomography";
+    const skipWorld = isTomo ? "spa" : "tomo";
+    // t386 — alias values may be ARRAYS (one curated composite knob owning
+    // several raw options, e.g. class2d's algorithm → do_em + do_grad), so
+    // the skip-set flattens before use
+    const aliased = new Set(
+      Object.values(RELION_ALIASES[spec.key] ?? {}).flatMap((v) =>
+        Array.isArray(v) ? v : [v]
+      )
+    );
+    // t387 — the audit-verified inert controls (RELION_DROP: no builder
+    // reads them, no CLI flag to ride, no dispatch gate consults them) and
+    // the GPU dialog keys (the submit dialog owns the GPU decision — the
+    // form's use_gpu/gpu_ids were dead twins of the run dialog's stepper)
+    const dropped = new Set([
+      ...(RELION_DROP[spec.key] ?? []),
+      ...GPU_DIALOG_KEYS,
+    ]);
+    const have = new Set(spec.params.map((p) => p.key));
+    const labelTwin = new Set(spec.params.map((p) => relionLabelKey(p.label)));
+
+    const relionTabOrder: string[] = [];
+    for (const tab of table.tabs) {
+      let populated = spec.params.some((p) => p.tab === tab.label);
+      for (const o of tab.options) {
+        if (o.world === skipWorld) continue;
+        if (have.has(o.key) || aliased.has(o.key) || dropped.has(o.key)) continue;
+        const def = table.options[o.key];
+        if (!def) continue;
+        // rule 3: same label under a curated name — one knob, one control
+        if (labelTwin.has(relionLabelKey(def.label))) continue;
+        // rule 4: RELION "node" options (the pipeline input STAR pickers —
+        // fn_img/fn_mic/fn_*_star …) are the EDGE-wired inputs in cryoflow;
+        // fn_cont belongs to cryoflow's own resume system. Everything else
+        // named fn_* is a real user-picked file (MTF curve, gain ref …) and
+        // stays as a path param.
+        if (
+          def.type === "path" &&
+          def.key.startsWith("fn_") &&
+          (def.key.endsWith("_star") ||
+            ["fn_img", "fn_mic", "fn_mics", "fn_movies", "fn_ref", "fn_cont", "fn_mask", "fn_half1", "fn_half2"].includes(def.key) ||
+            /^fn_(part|mic|mov)\d$/.test(def.key))
+        ) {
+          continue;
+        }
+        let dv: ParamValue;
+        if (typeof def.default === "string") {
+          // C++ placeholder defaults → ""
+          dv = /^(std::|LABEL_|CURRENT_|NODE_)/.test(def.default) ? "" : def.default;
+        } else {
+          dv = def.default;
+        }
+        const radioOptions =
+          def.type === "select" && def.radio && def.radio.length > 0 ? def.radio : undefined;
+        const schemaType: ParamType =
+          def.type === "select" && radioOptions
+            ? "select"
+            : def.type === "bool"
+              ? "bool"
+              : def.type === "number"
+                ? "number"
+                : def.type === "path"
+                  ? "path"
+                  : "text";
+        if (schemaType === "select" && !radioOptions) continue;
+        spec.params.push({
+          key: def.key,
+          label: def.label,
+          type: schemaType,
+          default: dv,
+          min: def.min,
+          max: def.max,
+          step: def.step,
+          options: radioOptions,
+          tab: tab.label,
+          advanced: o.expert,
+          hint: relionHint(def.help),
+        });
+        have.add(def.key);
+        populated = true;
+      }
+      if (populated && !relionTabOrder.includes(tab.label)) relionTabOrder.push(tab.label);
+    }
+    // tab order = RELION's own window order, with any curated-only tabs
+    // appended where they already were (relative order preserved)
+    const merged = [
+      ...relionTabOrder,
+      ...spec.tabs.filter((t) => !relionTabOrder.includes(t)),
+    ];
+    spec.tabs.length = 0;
+    spec.tabs.push(...merged);
+  }
+}
+
+applyRelionParamTable();
+
 /** Ordered group labels for stats. */
 export const JOB_GROUPS: string[] = ["SPA", "Tomography"];
 
@@ -1308,6 +2020,22 @@ export function portY(i: number, count: number): number {
   return (CARD_H * (i + 1)) / (count + 1);
 }
 
+/**
+ * t315 — the output ports a SPECIFIC job renders: the spec's outputs minus
+ * any port whose `when` predicate (evaluated against the job's own params)
+ * says otherwise. The Import job's port is one-of-three by Node type; every
+ * port-listing surface (card, wiring drawer) goes through here so the
+ * visible truth and the compatible truth stay the same truth.
+ */
+export function visibleOutputs(
+  spec: JobTypeSpec | undefined,
+  params: Record<string, ParamValue> | undefined
+): PortSpec[] {
+  const outputs = spec?.outputs ?? [];
+  if (params == null) return outputs;
+  return outputs.filter((p) => !p.when || p.when(params));
+}
+
 /** Can the output port of one job type feed the input port of another? */
 export function portsCompatible(
   fromType: string,
@@ -1322,6 +2050,246 @@ export function portsCompatible(
   if (!o || !i) return false;
   const accepts = i.accepts ?? ["*"];
   return accepts.includes("*") || (o.kind != null && accepts.includes(o.kind));
+}
+
+/* ------------------------------------------------------------------ */
+/* Quick next-step suggestions (t383; curated in t384)                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One candidate "continue this pipeline" step: the target job type plus
+ * the port pair the auto-wire will use.
+ */
+export interface NextStep {
+  /** Target job type key (JOB_TYPES entry). */
+  type: string;
+  /** Human label (same string the palette shows). */
+  label: string;
+  /** Lucide icon NAME (resolved through <TypeIcon>). */
+  icon: string;
+  /** Source output port name (evaluated against the live params). */
+  fromPort: string;
+  /** Target input port name. */
+  toPort: string;
+  /** Short port-pair caption for the menu row (e.g. "micrographs → CTF"). */
+  caption: string;
+}
+
+/**
+ * t384 — the CURATED next-step universe. t383 derived the menu by scanning
+ * every job type's `accepts` against the source's outputs, which produced
+ * port-legal but pipeline-absurd candidates (CTF → MotionCorr backwards,
+ * SPA → Tomography crossings, Import Map after a classification, the
+ * External/JoinSTAR utilities…). The user's rule: 「job类型要符合下一步
+ * 可用的job，如果是下一步不会出现的不要放进去」— the menu must offer
+ * exactly what a RELION user would reach for next, in RELION's own
+ * pipeline order.
+ *
+ * The lists below are that canon (SPA tutorial order; the tomo chain runs
+ * its own universe — SPA sources never suggest tomo steps and vice versa).
+ * Every entry STILL goes through the live port-pair matcher in
+ * nextStepsFor, so: (a) an entry whose ports cannot pair is skipped
+ * defensively, (b) the caption names the actual wire, and (c) Import's
+ * node-type split happens by which of its live output ports exists — no
+ * separate branching needed for the wiring itself.
+ */
+const NEXT_STEPS: Record<string, string[]> = {
+  // import is special-cased in nextStepsFor (its successors depend on the
+  // live Node type — see IMPORT_NEXT_STEPS below)
+  import: [],
+  mapimport: ["class3d", "refine3d", "maskcreate"],
+  cs2star: ["class2d", "select", "initialmodel", "class3d", "refine3d"],
+  motioncorr: ["ctffind", "excludemg", "topazdenoise", "manualpick", "autopick"],
+  ctffind: ["excludemg", "topazdenoise", "manualpick", "autopick"],
+  manualpick: ["extract"],
+  autopick: ["extract"],
+  topaztrain: ["autopick"],
+  // the official topaz flow: denoise → pick/train on the denoised images —
+  // the output star keeps the micrograph schema, so all three consumers pair
+  topazdenoise: ["autopick", "manualpick", "topaztrain"],
+  extract: ["class2d", "select", "initialmodel", "class3d", "refine3d"],
+  subtract: ["class2d", "select", "class3d", "refine3d"],
+  select: ["class2d", "initialmodel", "class3d", "refine3d"],
+  joinstar: [],
+  // t452 — the filtered star keeps the micrograph schema, so the same
+  // consumers as motioncorr pair on the other side of the filter
+  excludemg: ["topazdenoise", "manualpick", "autopick"],
+  class2d: ["select2d", "initialmodel", "class3d", "refine3d"],
+  select2d: ["initialmodel", "class3d", "refine3d"],
+  initialmodel: ["class3d", "refine3d"],
+  // same-type chaining stays: re-classification / progressive refinement
+  // are standard RELION moves (the source can consume its own output)
+  // t402b — select2d joins the menu: a 3D classification's data star carries
+  // _rlnClassNumber exactly like a 2D run's, so subset selection applies
+  // (the live port-pair matcher wires it through the particles port)
+  class3d: ["select2d", "select", "class3d", "refine3d"],
+  refine3d: [
+    "maskcreate", "postprocess", "localres", "ctfrefine", "polish",
+    "multibody", "class3d", "refine3d",
+  ],
+  multibody: ["maskcreate", "class3d", "refine3d"],
+  symexpand: ["select", "class3d", "refine3d"],
+  rebalance: ["class3d", "refine3d"],
+  maskcreate: ["postprocess", "localres"],
+  postprocess: [], // terminal — nothing canonical consumes a sharpened map
+  localres: [], // terminal
+  polish: ["class3d", "refine3d"],
+  ctfrefine: ["polish", "class3d", "refine3d"],
+  dynamight: ["class3d", "refine3d"],
+  modelangelo: [], // terminal (mmCIF models out)
+  // the tomography chain — one universe, never crossing into SPA
+  tomo_import: ["tomo_aligntiltseries"],
+  tomo_aligntiltseries: ["tomo_ctfrefine", "tomo_polish", "tomo_tomograms"],
+  tomo_ctfrefine: ["tomo_tomograms"],
+  tomo_exclude: ["tomo_tomograms"],
+  tomo_polish: ["tomo_tomograms"],
+  tomo_tomograms: ["tomo_denoise", "tomo_picks"],
+  tomo_denoise: ["tomo_picks"],
+  tomo_picks: ["tomo_extract"],
+  tomo_extract: ["tomo_reconstruct"],
+  tomo_reconstruct: [],
+  external: [],
+};
+
+/**
+ * Import's successors split by the live Node type — the three data
+ * universes an import can land in (the port matcher enforces the same
+ * truth for hand-drawn wires; this list just keeps the MENU honest, e.g.
+ * Particle Selection never appears under a Movies import even though the
+ * select port technically accepts the movies kind).
+ */
+const IMPORT_NEXT_STEPS: Record<string, string[]> = {
+  movies: ["motioncorr"],
+  micrographs: ["ctffind", "manualpick", "autopick"],
+  particles: ["class2d", "select", "initialmodel", "class3d", "refine3d"],
+};
+
+/**
+ * Every job type that can legally consume this job type's (current)
+ * outputs — the card context menu's "Add next step…" list. The source's
+ * `when` predicates run against the LIVE params, so an Import set to
+ * "Movies" only offers MotionCorr, exactly like dragging a wire out of
+ * the port by hand. Candidates come from the curated NEXT_STEPS canon
+ * (t384) — list order = RELION pipeline order = menu order.
+ */
+export function nextStepsFor(
+  fromType: string,
+  params?: Record<string, ParamValue>
+): NextStep[] {
+  const from = jobType(fromType);
+  if (!from) return [];
+  const outs = visibleOutputs(from, params);
+  if (outs.length === 0) return [];
+  // the curated successor list: Import picks its lane by the live Node
+  // type (default micrographs — the spec's own default), everything else
+  // reads the canon; unknown sources get nothing (honest emptiness)
+  const successors =
+    fromType === "import"
+      ? IMPORT_NEXT_STEPS[
+          typeof params?.nodeType === "string" && params.nodeType in IMPORT_NEXT_STEPS
+            ? params.nodeType
+            : "micrographs"
+        ] ?? []
+      : NEXT_STEPS[fromType] ?? [];
+  const steps: NextStep[] = [];
+  for (const type of successors) {
+    const candidate = jobType(type);
+    if (!candidate) continue;
+    let hit: { fromPort: string; toPort: string; caption: string } | null = null;
+    for (const o of outs) {
+      for (const i of candidate.inputs) {
+        const accepts = i.accepts ?? ["*"];
+        if (accepts.includes("*") || (o.kind != null && accepts.includes(o.kind))) {
+          hit = { fromPort: o.name, toPort: i.name, caption: `${o.name} → ${i.name}` };
+          break;
+        }
+      }
+      if (hit) break;
+    }
+    if (hit) {
+      steps.push({
+        type: candidate.key,
+        label: candidate.label,
+        icon: candidate.icon,
+        fromPort: hit.fromPort,
+        toPort: hit.toPort,
+        caption: hit.caption,
+      });
+    }
+  }
+  return steps;
+}
+
+/* ------------------------------------------------------------------ */
+/* Upstream directory (t730 — the type card's "who feeds me" question) */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One "who can feed this type" entry: the feeder type plus the port pair
+ * the auto-wire would use. Same shape idea as NextStep but aimed
+ * backwards — no caption, and no curated table behind it.
+ */
+export interface UpstreamStep {
+  /** Feeder job type key (JOB_TYPES entry). */
+  type: string;
+  /** Human label (same string the palette shows). */
+  label: string;
+  /** Lucide icon NAME (resolved through <TypeIcon>). */
+  icon: string;
+  /** Feeder's output port name that accepts the hand-off. */
+  fromPort: string;
+  /** This type's input port name that accepts it. */
+  toPort: string;
+}
+
+/**
+ * t730 — the type card's upstream question, answered by LIVE port
+ * arithmetic instead of a curated table: for every type in JOB_TYPES,
+ * can any of its (spec-visible) outputs feed any input of `key`? The
+ * symmetry with nextStepsFor is deliberate but the two radii are NOT the
+ * same kind of truth and must stay labelled as such wherever they render:
+ *
+ *   • nextStepsFor   — "what should I do next", CURATED canon (t384), in
+ *     RELION pipeline order, and the canon deliberately omits types the
+ *     ports would accept;
+ *   • upstreamOf     — "what COULD feed me", the full compatibility
+ *     directory derived at call time from portsCompatible itself. There
+ *     is no upstream canon anywhere in the codebase and inventing one
+ *     would be a second source for a question the ports already answer.
+ *
+ * Self-loops are kept on purpose: same-type chaining is a standard RELION
+ * move (re-classification, progressive refinement — see the NEXT_STEPS
+ * canon's own comment), so when a type's output genuinely feeds its own
+ * input, the directory must say so rather than hide the honest loop.
+ *
+ * One port pair per feeder (the FIRST compatible pair in spec order) —
+ * the same hit-and-break discipline nextStepsFor uses, so the directory
+ * stays a reading of types, not a port-pair atlas.
+ */
+export function upstreamOf(key: string): UpstreamStep[] {
+  const to = jobType(key);
+  if (!to || to.inputs.length === 0) return [];
+  const steps: UpstreamStep[] = [];
+  for (const candidate of JOB_TYPES) {
+    let hit: UpstreamStep | null = null;
+    for (const o of visibleOutputs(candidate, undefined)) {
+      for (const i of to.inputs) {
+        if (portsCompatible(candidate.key, o.name, key, i.name)) {
+          hit = {
+            type: candidate.key,
+            label: candidate.label,
+            icon: candidate.icon,
+            fromPort: o.name,
+            toPort: i.name,
+          };
+          break;
+        }
+      }
+      if (hit) break;
+    }
+    if (hit) steps.push(hit);
+  }
+  return steps;
 }
 
 /**

@@ -10,7 +10,9 @@
  *      data-parallel ARRAY splitting (motioncorr/ctffind per-micrograph),
  *      single-job MULTI-GPU (RELION class2d/class3d/refine3d split
  *      particles across `mpirun -n N` ranks pinned to GPUs), or
- *      single-GPU (topaz train, autopick), or CPU-only.
+ *      single-GPU (topaz train, autopick — EXCEPT the LoG picker, which
+ *      is CPU-only: autopicker.cpp refuses --gpu outright, t320), or
+ *      CPU-only.
  *   3. Monitoring & lifecycle: sbatch returns a cluster JobID; the
  *      RunRecord is extended with scheduler fields (slurmId, state,
  *      array progress) polled via squeue/sacct; scancel wires into the
@@ -28,6 +30,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import type { EngineJobRef, UpstreamRef } from "../relion/engine";
 import { buildArgv, resolveInputs } from "../relion/engine";
+import { isLogAutopick } from "../relion/log-autopick";
 // Task 184: the data-dir contract is paths.ts's to own — this module once
 // re-derived DATA_DIR (and every default localRoot) from process.cwd(),
 // ignoring the CRYOFLOW_DATA_DIR override the run engine honors. One
@@ -172,13 +175,22 @@ export interface GpuStrategy {
   reason: string;
 }
 
-const MULTI_GPU_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel", "multibody"]);
-const SINGLE_GPU_TYPES = new Set(["topaztrain", "dynamight", "modelangelo", "tomo_ctfrefine", "tomo_polish"]);
 const CPU_TYPES = new Set([
   "import", "manualpick", "select", "select2d", "joinstar", "symexpand",
   "rebalance", "maskcreate", "postprocess", "localres", "polish", "ctfrefine",
   "subtract", "external", "tomo_import", "tomo_exclude", "tomo_picks",
 ]);
+
+// t326 — the WIDTH truth (which types honor the submission width, which
+// size themselves) lives in the CLIENT-SAFE pure module gpu-width.ts: the
+// run dialog renders the same table the dispatch consults (a stepper that
+// promises a width the sbatch would not write is a trap, not a knob —
+// t320's doctrine applied to the width). The strategy below derives its
+// MODE from that table; only its planning floor (never plan < 2 GPUs for a
+// multi-GPU type) stays here — a simulator choice, not a dispatch
+// constraint (the dispatch honors the raw width).
+export { MULTI_GPU_TYPES, SINGLE_GPU_TYPES } from "./gpu-width";
+import { slurmWidthFor } from "./gpu-width";
 
 /**
  * Strategy for a job type. `micrographCount`/`particleCount` drive array
@@ -186,24 +198,28 @@ const CPU_TYPES = new Set([
  */
 export function gpuStrategyFor(
   type: string,
-  opts: { micrographs?: number; particles?: number; gpus?: number } = {}
+  opts: { micrographs?: number; particles?: number; gpus?: number; logAutopick?: boolean } = {}
 ): GpuStrategy {
   const mics = Math.max(1, opts.micrographs ?? 10);
   const parts = Math.max(1, opts.particles ?? 5000);
-  const gpus = Math.max(1, opts.gpus ?? 2);
-  if (MULTI_GPU_TYPES.has(type)) {
+  // t326 — the mode + script width come from the SHARED truth table (the
+  // run dialog renders the same one); the strategy's own gpus for
+  // multi-gpu keeps its planning floor (never plan < 2).
+  const w = slurmWidthFor(type, opts);
+  if (w.mode === "multi-gpu") {
     return {
-      mode: "multi-gpu", gpus: Math.max(2, gpus), shards: 0,
+      mode: w.mode, gpus: Math.max(2, w.gpus), shards: 0,
       minutes: type === "refine3d" ? 45 + parts / 2000 : type === "class3d" ? 30 : 20,
       reason:
-        "RELION splits particles across MPI ranks pinned to GPUs — ONE job, N GPUs " +
-        "(`mpirun -n N relion_refine … --gpu 0:1:…`). Splitting the dataset instead " +
-        "would break global alignment statistics (FSC halves, class occupancies).",
+        "RELION splits particles across MPI workers pinned to GPUs — ONE job, " +
+        "1 CPU master + one worker per GPU (np = nGPU + 1, t349: `mpirun -n N+1 " +
+        "relion_refine …`). Splitting the dataset instead would break global " +
+        "alignment statistics (FSC halves, class occupancies).",
     };
   }
-  if (SINGLE_GPU_TYPES.has(type)) {
+  if (w.mode === "single") {
     return {
-      mode: "single", gpus: 1, shards: 0,
+      mode: w.mode, gpus: 1, shards: 0,
       minutes: type === "topaztrain" ? 30 : 20,
       reason:
         type === "topaztrain"
@@ -213,14 +229,32 @@ export function gpuStrategyFor(
     };
   }
   const isAutoPick = type === "autopick";
-  if (type === "motioncorr" || type === "ctffind" || type === "extract" || isAutoPick ||
-      type.startsWith("tomo_aligntiltseries") || type === "tomo_tomograms" ||
-      type === "tomo_reconstruct" || type === "tomo_extract" || type === "tomo_denoise") {
+  if (w.mode === "array") {
     const shards = Math.min(mics, 64);
     const perShard = type === "motioncorr" ? 4 : type === "ctffind" ? 1 : 0.5;
+    // t320 — the LoG picker is CPU-only, FULL STOP: RELION's autopicker.cpp
+    // read() hard-errors on the flag pair (`do_gpu && do_LoG →
+    // REPORT_ERROR("The Laplacian-of-Gaussian picker does not support GPU
+    // acceleration. Please remove --gpu option.")` — the user's real-cluster
+    // receipt, re-verified against master). The strategy is type-driven and
+    // cannot see the pick method, so callers that KNOW it pass logAutopick
+    // and get the honest strategy: no GPU at all (no --gres, no --gpu — a
+    // CPU job that would request GPUs starves the GPU queue AND dies at
+    // argv-parse time). References/Topaz picking keep the single GPU.
+    if (isAutoPick && opts.logAutopick) {
+      return {
+        mode: w.mode, gpus: w.gpus, shards,
+        minutes: Math.max(1, Math.round((mics / shards) * perShard * 2)),
+        reason:
+          "LoG picking is CPU-only — RELION's autopicker.cpp refuses --gpu on the " +
+          "Laplacian-of-Gaussian picker outright (do_gpu && do_LoG is a hard error); " +
+          "the dispatch requests no GPUs. Switch Picking method to References or Topaz " +
+          "to use GPUs for picking.",
+      };
+    }
     return {
-      mode: "array",
-      gpus: type === "motioncorr" || isAutoPick ? 1 : 0,
+      mode: w.mode,
+      gpus: w.gpus,
       shards,
       minutes: Math.max(1, Math.round((mics / shards) * perShard * 2)),
       reason:
@@ -232,7 +266,7 @@ export function gpuStrategyFor(
   }
   const heavy = type === "polish" || type === "ctfrefine" || type === "localres" || type === "postprocess";
   return {
-    mode: "cpu", gpus: 0, shards: 0,
+    mode: w.mode, gpus: w.gpus, shards: 0,
     minutes: heavy ? 10 : 1,
     reason:
       "CPU-bound bookkeeping / postprocessing — runs on the batch partition; " +
@@ -266,6 +300,15 @@ export interface SbatchResult {
   error?: string;
 }
 
+/** t367 — minutes → Slurm's [[DD-]HH:]MM:SS form (exported for the remote
+ * dispatch's --time leg: a visible #SBATCH --time directive in the script
+ * beats a command-line flag nobody can grep after the fact). */
+export function slurmHms(minutes: number): string {
+  const m = Math.max(1, Math.round(minutes));
+  const h = Math.floor(m / 60);
+  return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
+}
+
 function hms(minutes: number): string {
   const m = Math.max(1, Math.round(minutes));
   const h = Math.floor(m / 60);
@@ -292,9 +335,13 @@ export async function buildSbatchForJob(args: {
   particles?: number;
 }): Promise<SbatchResult> {
   const { job, upstream, profile, clusterWorkdir } = args;
+  // t320 — the pick METHOD decides GPUs for Auto-picking: LoG is CPU-only
+  // (autopicker.cpp refuses --gpu), References/Topaz keep theirs.
+  const logAutopick = isLogAutopick(job.type, job.params);
   const strategy = gpuStrategyFor(job.type, {
     micrographs: args.micrographs,
     particles: args.particles,
+    logAutopick,
   });
 
   const r = resolveInputs(job.type, upstream, job.params as Record<string, unknown>);
@@ -343,7 +390,9 @@ export async function buildSbatchForJob(args: {
   if (profile.account) L.push(`#SBATCH --account=${profile.account}`);
   if (profile.qos) L.push(`#SBATCH --qos=${profile.qos}`);
   L.push(`#SBATCH --nodes=1`);
-  L.push(`#SBATCH --ntasks=1`);
+  // t349 — the multi-GPU types carry the dedicated-master layout too:
+  // N workers + 1 CPU master (the mpirun line below matches).
+  L.push(`#SBATCH --ntasks=${strategy.mode === "multi-gpu" ? strategy.gpus + 1 : 1}`);
   L.push(`#SBATCH --cpus-per-task=${threads}`);
   L.push(`#SBATCH --mem=${strategy.mode === "array" && strategy.gpus === 0 ? 16 : 64}G`);
   if (profile.timeLimitMin > 0) L.push(`#SBATCH --time=${hms(profile.timeLimitMin)}`);
@@ -383,8 +432,13 @@ export async function buildSbatchForJob(args: {
   L.push("");
   if (strategy.mode === "multi-gpu") {
     const gpuList = Array.from({ length: strategy.gpus }, (_, i) => i).join(":");
-    L.push("# RELION multi-GPU: one MPI rank per GPU (rank r pinned to GPU r)");
-    L.push(`mpirun -n ${strategy.gpus} \\`);
+    // t349 — RELION's dedicated-master layout (np = nGPU + 1): rank 0 is
+    // the CPU master, one worker per GPU — every card computes. The REAL
+    // dispatch (remote-run.ts) pins each worker to its own card via the
+    // t345 per-rank launcher; this local-profile preview keeps RELION's
+    // own colon grammar, which round-robins the same assignment.
+    L.push("# RELION multi-GPU: 1 CPU master + one worker per GPU (np = nGPU + 1, t349)");
+    L.push(`mpirun -n ${strategy.gpus + 1} \\`);
     L.push("  " + argv.map(shellQuote).join(" \\\n  "));
     L.push(`  --gpu ${gpuList}`);
   } else if (strategy.gpus >= 1) {
@@ -403,7 +457,7 @@ export async function buildSbatchForJob(args: {
     strategy.mode === "array"
       ? `Array mode: ${strategy.shards} independent shards, concurrency capped at ${profile.arrayConcurrency} (Slurm backfills the rest).`
       : strategy.mode === "multi-gpu"
-        ? `Multi-GPU mode: ${strategy.gpus} × ${profile.gpuModel} in ONE job (RELION splits particles across MPI ranks).`
+        ? `Multi-GPU mode: ${strategy.gpus} × ${profile.gpuModel} in ONE job (1 CPU master + ${strategy.gpus} workers, one worker per GPU — RELION splits particles across the workers).`
         : strategy.mode === "single"
           ? "Single-GPU mode: one exclusive GPU for the deep-learning step."
           : "CPU mode: batch partition, GPUs stay free for classification work.",

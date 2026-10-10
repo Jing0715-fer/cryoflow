@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
-import { getRun } from "@/lib/relion/engine";
+import { getRun, latestIterationDataStar } from "@/lib/relion/engine";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { readMrcHeader } from "@/lib/mrc";
 import { RELION_DIR } from "@/lib/paths";
 import { isLocalRequest } from "@/lib/http-guard";
+import { remoteLiveIterations, remoteLiveIterationsFor, cachedStackState, lastStackFailure } from "@/lib/remote/iteration-live";
+import { derivedRemoteTargetForJob } from "@/lib/remote/derived-target";
+import { readRemoteManifest } from "@/lib/remote/remote-files";
 
 export const dynamic = "force-dynamic";
 
@@ -67,11 +70,52 @@ function labelLineIndex(lines: string[], label: string): number {
   return -1;
 }
 
+/** the class-average stack name dialect this route accepts (mirror,
+ * cluster listing or the finalize manifest all speak it) — the unmasked
+ * variant outranks the plain one, the highest iteration wins the rest. */
+const STACK_NAME_PATTERNS = [
+  /^(?:run_it|_it)\d+_classes\.mrcs?$/i, // per-iteration masked
+  /^(?:run_it|_it)\d+_unmasked_classes\.mrcs?$/i, // per-iteration unmasked
+  /^run_unmasked_classes\.mrcs?$/i, // RELION 5 final unmasked
+];
+
+/** Pick the gallery's class-averages stack from a list of file names:
+ * RELION 5's final unmasked stack wins, else the newest per-iteration
+ * stack (the same preference the mirror leg always spoke). */
+function pickStackName(names: string[]): string | null {
+  const stacks = names.filter((n) => STACK_NAME_PATTERNS.some((re) => re.test(n)));
+  const unmasked = stacks.find((n) =>
+    /^(?:run_it|_it)\d+_unmasked_classes\.mrcs?$|^run_unmasked_classes\.mrcs?$/i.test(n)
+  );
+  if (unmasked) return unmasked;
+  let bestIter = -1;
+  let best: string | null = null;
+  for (const n of stacks) {
+    const m = n.match(/(?:run_it|_it)(\d+)_classes/i);
+    if (m && Number(m[1]) > bestIter) {
+      bestIter = Number(m[1]);
+      best = n;
+    }
+  }
+  return best;
+}
+
 /**
  * GET /api/jobs/[id]/classes — class occupancy of a 2D/3D classification
  * job from the run_itXXX_data.star (particle→class assignment).
  * Default: highest iteration; ?iter=N selects a specific round.
  * Percentages sum to 1.
+ *
+ * t355 — a CLUSTER-RUN classification answers here too: the key-files
+ * policy keeps the class-average stacks ON the cluster (a real 100-class
+ * 2D run writes 25–100 MB stacks, over the 16 MB default cap), so the
+ * mirror-only lookup answered classesFile: null and the selection gallery
+ * rendered “no image” on every card. The stack name (and, when the mirror
+ * is cold, the occupancy itself) now comes from ONE 12s-TTL'd SSH round
+ * against the run's own cluster workdir — the thumbnails then lazy-fetch
+ * through the outputs/file route as they always did. When even the wire
+ * is down (connection deleted), the finalize manifest still names the
+ * stacks with zero SSH.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -123,31 +167,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
         run?.workdir ??
         path.join(RELION_DIR, job.projectId, `${job.type}_${job.id.slice(-8)}`);
     }
-    if (!existsSync(workdir)) {
-      return NextResponse.json({ classes: [], total: 0, iteration: null });
-    }
+    // t355 — a missing mirror is no longer a hard stop: a remote run's
+    // gallery can still be answered from the cluster (and its finalize
+    // manifest). Everything below guards on mirrorOk.
+    const mirrorOk = existsSync(workdir);
 
-    // highest iteration data star = final particle→class assignment
+    // highest SETTLED iteration data star = the round the selection rides
+    // (t402b — the engine's intermediateClassSource picks through the
+    // SAME helper, so the gallery's counts and the run's selected rows can
+    // never disagree; the witness guard skips rounds that died mid-write)
     let best: { iteration: number; file: string } | null = null;
-    for (const name of readdirSync(workdir)) {
-      // Match both RELION standard "run_itNNN_data.star" and SGD "_itNNN_data.star"
-      const m = name.match(/^(?:run_it|_it)(\d+)_data\.star$/i);
-      if (!m) continue;
-      const iteration = Number(m[1]);
-      if (!best || iteration > best.iteration) {
-        best = { iteration, file: name };
+    if (mirrorOk) {
+      best = latestIterationDataStar(workdir);
+      // explicit ?iter= overrides (round-filtered galleries)
+      const wantIter = parseInt(new URL(request.url).searchParams.get("iter") ?? "", 10);
+      if (Number.isFinite(wantIter)) {
+        const exact = readdirSync(workdir).find(
+          (name) => name.match(new RegExp(`^(?:run_it|_it)${String(wantIter).padStart(3, "0")}_data\\.star$`, "i"))
+        );
+        if (exact) best = { iteration: wantIter, file: exact };
       }
-    }
-    // explicit ?iter= overrides (round-filtered galleries)
-    const wantIter = parseInt(new URL(request.url).searchParams.get("iter") ?? "", 10);
-    if (Number.isFinite(wantIter)) {
-      const exact = readdirSync(workdir).find(
-        (name) => name.match(new RegExp(`^(?:run_it|_it)${String(wantIter).padStart(3, "0")}_data\\.star$`, "i"))
-      );
-      if (exact) best = { iteration: wantIter, file: exact };
-    }
-    if (!best) {
-      return NextResponse.json({ classes: [], total: 0, iteration: null });
     }
 
     // class-averages stack for the selection gallery: RELION 5 writes the
@@ -158,24 +197,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // it into candidates and the gallery rendered "no image" everywhere)
     let classesFile: string | null = null;
     let classesSlices: number | null = null;
-    const stackNames = readdirSync(workdir).filter(
-      (n) =>
-        /^(?:run_it|_it)\d+_classes\.mrcs?$/i.test(n) || // per-iteration masked
-        /^(?:run_it|_it)\d+_unmasked_classes\.mrcs?$/i.test(n) || // per-iteration unmasked
-        /^run_unmasked_classes\.mrcs?$/i.test(n) // RELION 5 final unmasked
-    );
-    const unmasked = stackNames.find((n) => /^(?:run_it|_it)\d+_unmasked_classes\.mrcs?$|^run_unmasked_classes\.mrcs?$/i.test(n));
-    let stackName = unmasked ?? null;
-    if (!stackName) {
-      let bestIter = -1;
-      for (const n of stackNames) {
-        const m = n.match(/(?:run_it|_it)(\d+)_classes/i);
-        if (m && Number(m[1]) > bestIter) {
-          bestIter = Number(m[1]);
-          stackName = n;
-        }
-      }
-    }
+    const stackName = mirrorOk ? pickStackName(readdirSync(workdir)) : null;
     if (stackName) {
       const stackAbs = path.join(workdir, stackName);
       const hdr = readMrcHeader(stackAbs);
@@ -185,53 +207,185 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // t402b — 3D classes speak PER-CLASS VOLUMES in real RELION
+    // (run_itNNN_class00K.mrc — there is no combined classes.mrcs stack
+    // for a real Class3D run): the selection gallery then renders each
+    // class's central z-plane through the outputs/file route (axis=z
+    // pos=0.5). The combined-stack dialect (real class2d, the mock's
+    // class3d) keeps priority — volumes are the FALLBACK lane, taken
+    // only when no stack answered. Newest iteration only, class order.
+    let volumeFiles: string[] | null = null;
+    if (mirrorOk && !stackName) {
+      const vols: { iter: number; cls: number; name: string }[] = [];
+      for (const name of readdirSync(workdir)) {
+        const m = name.match(/^(?:run_it|_it)(\d+)_class(\d+)\.mrc$/i);
+        if (m) vols.push({ iter: Number(m[1]), cls: Number(m[2]), name });
+      }
+      if (vols.length > 0) {
+        const newest = Math.max(...vols.map((v) => v.iter));
+        volumeFiles = vols
+          .filter((v) => v.iter === newest)
+          .sort((a, b) => a.cls - b.cls)
+          .map((v) => v.name);
+      }
+    }
+
     // mtime-cached occupancy count — data stars are MB-scale and re-scanned
     // per request before; the computed map only changes when the file does
-    const counted = cachedFileCompute(
-      path.join(workdir, best.file),
-      "classes:occupancy",
-      (text) => {
-        const lines = text.split("\n");
-        const classCol = labelColumn(lines, "_rlnClassNumber");
-        if (classCol < 0) return { classCol, counts: [] as [number, number][], total: 0 };
-        const counts = new Map<number, number>();
-        let total = 0;
-        // count rows ONLY inside the loop that owns _rlnClassNumber — the
-        // optics row above the particles loop must never inflate a class
-        const headerEnd = labelLineIndex(lines, "_rlnClassNumber");
-        for (let r = headerEnd + 1; r < lines.length; r++) {
-          const t = lines[r].trim();
-          if (t === "loop_" || t.startsWith("data_")) break; // loop region over
-          if (!t || t.startsWith("#") || t.startsWith("_")) continue;
-          const cells = t.split(/\s+/);
-          if (cells.length <= classCol) continue;
-          const cls = parseInt(cells[classCol], 10);
-          if (Number.isFinite(cls) && cls > 0) {
-            counts.set(cls, (counts.get(cls) ?? 0) + 1);
-            total++;
+    let classes: ClassOccupancy[] = [];
+    let total = 0;
+    if (best) {
+      const counted = cachedFileCompute(
+        path.join(workdir, best.file),
+        "classes:occupancy",
+        (text) => {
+          const lines = text.split("\n");
+          const classCol = labelColumn(lines, "_rlnClassNumber");
+          if (classCol < 0) return { classCol, counts: [] as [number, number][], total: 0 };
+          const counts = new Map<number, number>();
+          let totalCount = 0;
+          // count rows ONLY inside the loop that owns _rlnClassNumber — the
+          // optics row above the particles loop must never inflate a class
+          const headerEnd = labelLineIndex(lines, "_rlnClassNumber");
+          for (let r = headerEnd + 1; r < lines.length; r++) {
+            const t = lines[r].trim();
+            if (t === "loop_" || t.startsWith("data_")) break; // loop region over
+            if (!t || t.startsWith("#") || t.startsWith("_")) continue;
+            const cells = t.split(/\s+/);
+            if (cells.length <= classCol) continue;
+            const cls = parseInt(cells[classCol], 10);
+            if (Number.isFinite(cls) && cls > 0) {
+              counts.set(cls, (counts.get(cls) ?? 0) + 1);
+              totalCount++;
+            }
           }
+          return { classCol, counts: [...counts.entries()], total: totalCount };
         }
-        return { classCol, counts: [...counts.entries()], total };
+      );
+      if (counted) {
+        total = counted.total;
+        classes = counted.counts
+          .map(([cls, count]) => ({ cls, count, fraction: total > 0 ? count / total : 0 }))
+          .sort((a, b) => a.cls - b.cls);
       }
-    );
-    if (!counted) {
-      return NextResponse.json({ classes: [], total: 0, iteration: best.iteration, classesFile, classesSlices });
     }
-    const { classCol, counts: countEntries, total } = counted;
 
-    const classes: ClassOccupancy[] = countEntries
-      .map(([cls, count]) => ({ cls, count, fraction: total > 0 ? count / total : 0 }))
-      .sort((a, b) => a.cls - b.cls);
+    let iteration: number | null = best?.iteration ?? null;
+
+    // t356 — the RENDER-CACHE answer: the finalize pipeline (or a previous
+    // view) already downloaded this run's class-average stacks and converted
+    // them to local PNGs — the selection gallery then names its stack with
+    // ZERO SSH, even on a cold mirror whose stacks stayed on the cluster.
+    // This is the「下载 mrcs 到本地，再转成图片」half of the architecture:
+    // after the pipeline the images ARE local, and the thumbnails answer
+    // from the preview cache through the iterations/image route.
+    if (classesFile == null) {
+      const cached = cachedStackState(job.id);
+      if (cached) {
+        classesFile = cached.classesFile;
+        if (classesSlices == null) classesSlices = cached.classesSlices;
+      }
+    }
+
+    // t355 — the REMOTE FILL: a cluster-run classification whose mirror is
+    // stackless (the key-files caps kept the .mrcs on the cluster) or cold
+    // (the data stars stayed too) still answers the full gallery shape.
+    // ONE 12s-TTL'd SSH round names the stack and — only where the mirror
+    // had nothing — the occupancy itself; the thumbnails then lazy-fetch
+    // through /outputs/file exactly as they always did. When the wire is
+    // down (connection deleted), the finalize manifest still names the
+    // stacks with zero SSH.
+    //
+    // t474 — THE FILL NO LONGER DIES WITH THE RUN RECORD: a record-bearing
+    // run aims at its own target; a record-less job (Reset-to-idle — the
+    // standard "failed, now re-configure" flow) aims at the DERIVED one
+    // (the project binding + the dispatcher's deterministic workdir), so
+    // the stacks are just as reachable after a reset as before. And a
+    // fill that was NEEDED but refused now leaves its sentence in
+    // renderError — the dark grid explains itself (the t358 doctrine,
+    // extended from the pull layer to the fill layer) instead of bare
+    // "no image" cards with no banner and no retry.
+    let fillRefusalNote: string | undefined;
+    if (classesFile == null || classes.length === 0) {
+      let remote: Awaited<ReturnType<typeof remoteLiveIterations>> | null = null;
+      if (run?.remote) {
+        remote = await remoteLiveIterations(job.id, {});
+      } else {
+        const derived = await derivedRemoteTargetForJob(job);
+        if (derived) {
+          remote = await remoteLiveIterationsFor(job.id, derived, {});
+        }
+      }
+      if (remote && !remote.error) {
+        if (classesFile == null) {
+          classesFile = remote.classesFile;
+          if (classesSlices == null) classesSlices = remote.classesSlices;
+        }
+        if (classes.length === 0 && remote.classes.length > 0) {
+          classes = remote.classes.map((c) => ({ cls: c.cls, count: c.count, fraction: c.fraction }));
+          total = remote.total;
+          if (iteration == null) iteration = remote.latest;
+        }
+      }
+      if (classesFile == null) {
+        // the manifest leg — names only (sizes ride along but slices do
+        // not; the gallery falls back to the class count for that)
+        const manifest = readRemoteManifest(workdir);
+        if (manifest) {
+          const fromManifest = pickStackName(manifest.files.map((f) => f.path));
+          if (fromManifest) classesFile = fromManifest;
+        }
+      }
+      // t474 — the honest dark-grid note: the fill was needed, and either
+      // the wire refused (its own sentence, verbatim) or it answered and
+      // the cluster workdir genuinely holds no class-average stack. Both
+      // worlds previously rendered as a silent dead grid — the banner now
+      // names the world and the gallery's Retry re-asks.
+      // t660 — the note is a DARK-GRID note, and the volume lane is a lit
+      // grid: when the per-class volumes answered (the real-RELION class3d
+      // dialect, t402b's own lane), there is no dark grid to explain — a
+      // stack-centric refusal here would override live tiles with an
+      // error paragraph (witnessed: the demo class3d teaser rendered the
+      // note instead of its three volumes). Refuse only when BOTH lanes
+      // came up empty.
+      if (classesFile == null && classes.length > 0 && (volumeFiles ?? []).length === 0) {
+        fillRefusalNote = remote?.error
+          ? `${remote.error} — the class-average stack could not be named from the cluster either`
+          : "no class-average stack (run_itNNN_classes.mrcs) was found — neither in the local mirror nor in the cluster workdir this run dispatches into";
+      }
+    }
+
+    // t358 — the honest refusal note: when the named stack was last
+    // REFUSED by the wire (and the mirror does not hold it), the selection
+    // gallery reads this to explain a dark grid (which link of the pull
+    // broke) instead of showing bare “no image” cards. t474 — the fill
+    // layer's own refusal note (a stack that could not even be NAMED)
+    // speaks first; the pull layer's note only when a stack was named.
+    let renderError: string | undefined;
+    if (
+      run?.remote &&
+      classesFile &&
+      !(mirrorOk && existsSync(path.join(workdir, classesFile)))
+    ) {
+      const refusal = lastStackFailure(job.id, classesFile);
+      if (refusal) renderError = refusal.message;
+    }
+    if (renderError == null && fillRefusalNote != null) renderError = fillRefusalNote;
 
     return NextResponse.json({
       jobId: id,
       classes,
       total,
-      iteration: best.iteration,
+      iteration,
       // workdir-relative class-averages stack (.mrcs) — one slice per class,
       // renderable via /outputs/file?path=<classesFile>&format=png&slice=N-1
       classesFile,
       classesSlices,
+      // t402b — per-class volume files (real-RELION class3d dialect),
+      // workdir-relative, newest iteration, class order — renderable via
+      // /outputs/file?path=<file>&format=png&axis=z&pos=0.5
+      volumeFiles,
+      ...(renderError ? { renderError } : {}),
     });
   } catch (error) {
     console.error("GET /api/jobs/[id]/classes failed:", error);

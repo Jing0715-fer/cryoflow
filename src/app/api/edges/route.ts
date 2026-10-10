@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { getActiveProject } from "@/lib/projects";
 import {
   allAdjacency,
@@ -13,7 +14,13 @@ import { defaultPorts } from "@/lib/workflow";
 export const dynamic = "force-dynamic";
 
 /** GET /api/edges — all port-aware edges of the active project. */
-export async function GET() {
+export async function GET(request: Request) {
+  // t710 — the read-half door lands (the t709 deferral's mass Origin shim
+  // covered the lane first; census: scripts/t710-collection-touchers.py).
+  // Doctrine in http-guard.ts.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site edge reads are not allowed" }, { status: 403 });
+  }
   try {
     const active = await getActiveProject();
     if (!active) {
@@ -48,13 +55,22 @@ async function createsCycle(from: string, to: string): Promise<boolean> {
 }
 
 /**
- * POST /api/edges — body: { fromJobId, toJobId, fromPort?, toPort? }.
+ * POST /api/edges — body: { fromJobId, toJobId, fromPort?, toPort?, id? }.
  * Ports are validated against the job-type port specs; when omitted the
- * first compatible pair is chosen automatically.
+ * first compatible pair is chosen automatically. The optional `id` (t359)
+ * lets an optimistic client pin the row to the wire it already drew —
+ * UUID-shaped, collision-checked, otherwise minted here.
  */
 export async function POST(request: NextRequest) {
+  // t708 — the write door: an edge IS the dispatch plan (resolveInputs walks
+  // these wires), so a blind wire from a no-cors JSON body would silently
+  // re-route real pipelines (doctrine http-guard.ts + t252 Phase B2).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site graph edits are not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
+      id?: unknown;
       fromJobId?: unknown;
       toJobId?: unknown;
       fromPort?: unknown;
@@ -65,6 +81,16 @@ export async function POST(request: NextRequest) {
     const toJobId = typeof body.toJobId === "string" ? body.toJobId : "";
     const fromPort = typeof body.fromPort === "string" ? body.fromPort : undefined;
     const toPort = typeof body.toPort === "string" ? body.toPort : undefined;
+    // t359 — optimistic wires: the client mints the edge id so the wire it
+    // already drew keeps pointing at the row this POST creates (a delete
+    // racing the creation hits the right id, no reconciliation swap).
+    // UUID-shape-checked — anything else (legacy callers, garbage) is
+    // ignored and minted here exactly as before.
+    const clientId =
+      typeof body.id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.id)
+        ? body.id
+        : null;
     if (!fromJobId || !toJobId) {
       return NextResponse.json(
         { error: "fromJobId and toJobId are required" },
@@ -133,7 +159,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const id = crypto.randomUUID();
+    // a client id colliding with a LIVE row (replayed request, buggy
+    // caller) must never overwrite the survivor — upsertFileEdge keys by
+    // id; mint fresh instead, the response carries the truth and the
+    // optimistic caller swaps its wire onto it
+    const id =
+      clientId && !existing.some((e) => e.id === clientId)
+        ? clientId
+        : crypto.randomUUID();
     await persistPortEdge({
       id,
       projectId: fromJob.projectId,

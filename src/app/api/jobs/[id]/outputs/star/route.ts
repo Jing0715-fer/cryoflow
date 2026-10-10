@@ -6,6 +6,7 @@ import { getRun } from "@/lib/relion/engine";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { biggestLoop, extractFsc, findPair, parseStar } from "@/lib/starfile";
 import { isLocalRequest } from "@/lib/http-guard";
+import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,24 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 const HUGE_FILE = 20 * 1024 * 1024; // above this only the first 5 MB is parsed
 const PREVIEW_BYTES = 5 * 1024 * 1024;
+
+/** t651 — sanitize the download filename the same way the file route
+ * does: basename only, quotes and control chars out, so a weird STAR
+ * name can't break out of the Content-Disposition header. */
+function safeExportName(rel: string): string {
+  const base = path.basename(rel).replace(/\.[^.]+$/, "") || "table";
+  return `${base.replace(/["\\\x00-\x1f]/g, "_")}.tsv`;
+}
+
+/** t651 — serialize the loop block as TSV: the STAR vocabulary's native
+ * dialect is tab-separated columns, so TSV (not CSV) keeps every name
+ * and value byte-faithful — pandas/Excel read it back without quoting
+ * gymnastics. The header carries the ORIGINAL _rln names (the UI's
+ * shortColumn is a view convenience, not the data's identity). */
+function toTsv(columns: string[], rows: string[][]): string {
+  const esc = (v: string) => v.replace(/[\t\r\n]/g, " ");
+  return [columns.join("\t"), ...rows.map((r) => r.map(esc).join("\t"))].join("\n") + "\n";
+}
 
 /* ------------------------------------------------------------------ */
 /* Path safety (same unified rules as the file route)                  */
@@ -70,7 +89,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const rel = url.searchParams.get("path") ?? "";
     const rowsParam = Math.max(1, Math.min(1000, Number.parseInt(url.searchParams.get("rows") ?? "100", 10) || 100));
 
-    const resolved = resolveInsideJobWorkdir(run.workdir, rel);
+    let resolved = resolveInsideJobWorkdir(run.workdir, rel);
+    // t289 — the same lazy leg as the file route: a remote-only STAR
+    // (key-files policy edge, or a sync that died mid-way) is pulled over
+    // SSH on the user's explicit click, then parsed from the local mirror.
+    if ("error" in resolved && resolved.error === "File not found" && run.remote) {
+      const fetched = await fetchRemoteFileIntoWorkdir(
+        { workdir: run.workdir, remote: run.remote },
+        rel
+      );
+      if (fetched.ok) {
+        resolved = resolveInsideJobWorkdir(run.workdir, rel);
+      } else if (fetched.status !== 404) {
+        return NextResponse.json({ error: fetched.error }, { status: fetched.status });
+      }
+    }
     if ("error" in resolved) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }
@@ -93,6 +126,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const rowCount = loop.rows.length;
+
+    // t651 — the export lane: the loop block AS DATA, serialized where
+    // it lives. ?export=tsv returns the FULL parsed row set (the UI's
+    // 100-row preview is a view budget, not the file's truth); direct
+    // navigation keeps it inside the guard's 'none' lane, same as the
+    // file route's attachment downloads.
+    if (url.searchParams.get("export") === "tsv") {
+      return new NextResponse(toTsv(loop.columns, loop.rows), {
+        headers: {
+          "Content-Type": "text/tab-separated-values; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${safeExportName(rel)}"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
     const limited = loop.rows.slice(0, rowsParam);
     const truncated = limited.length < rowCount;
 

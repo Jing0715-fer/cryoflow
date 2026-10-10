@@ -16,8 +16,8 @@
  */
 
 import {
-  Mat3,
-  Vec3,
+  type Mat3,
+  type Vec3,
   matIdentity,
   matMul,
   matVec,

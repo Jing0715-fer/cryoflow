@@ -8,8 +8,8 @@
  * Data: /api/jobs/[id]/ctf parses micrographs_ctf.star.
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Focus, Grid3x3, Radar } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, Focus, Grid3x3, Radar, ScanSearch } from "lucide-react";
 import {
   CartesianGrid,
   ReferenceLine,
@@ -24,7 +24,9 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, onEscapeClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MrcImage } from "./mrc-image";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartInterpretation } from "./interpretation-strip";
+import { ChartErrorStrip } from "./chart-error-strip";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   ctfRenderable,
   ctfRows,
@@ -38,37 +40,22 @@ const AMBER = "#d97706";
 
 /** FOM health buckets (ctffind figure of merit 0–1). */
 function fomTone(fom: number): string {
-  if (fom >= 0.1) return "text-emerald-700 dark:text-emerald-300";
-  if (fom >= 0.05) return "text-amber-700 dark:text-amber-300";
-  return "text-rose-700 dark:text-rose-300";
+  if (fom >= 0.1) return "text-success-700 dark:text-success-300";
+  if (fom >= 0.05) return "text-warning-700 dark:text-warning-300";
+  return "text-danger";
 }
 
 export function CtfQualityChart({ jobId, className }: { jobId: string; className?: string }) {
-  const [data, setData] = useState<CtfResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // t491 — shared fetch state machine (no poll: a completed job's CTF table
+  // doesn't change); the captured-then-discarded error face is now visible
+  const { status, data, error, retry } = useChartResource<CtfResponse>(
+    `/api/jobs/${jobId}/ctf`
+  );
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [selected, setSelected] = useState<CtfMicrograph | null>(null);
 
   const fileUrl = (relPath: string, extra = "") =>
     `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(relPath)}&format=png${extra}`;
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const body = await fetchJsonRetry<CtfResponse>(`/api/jobs/${jobId}/ctf`);
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId]);
 
   const { micrographs, summary, domain } = useMemo(() => {
     const m = data?.micrographs ?? [];
@@ -80,7 +67,21 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
     return { micrographs: m, summary: data?.summary ?? null, domain: [min - pad, max + pad] as [number, number] };
   }, [data]);
 
-  if (error && !data) return null; // enhancement, stay silent
+  // t488 — the judgment strip drinks the same well the agent's
+  // get_job_curves quotes (interpretCtf): the three worst-fitting
+  // micrographs, fit resolution largest first
+  const worstFits = data?.interpretation?.worstMicrographs ?? [];
+
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="CTF fit quality"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   // gate single-sourced in lib/chart-rows (t110: the palette exports the
   // same micrographs through the same predicate)
   if (!ctfRenderable(micrographs.length)) return null;
@@ -90,13 +91,13 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
       aria-label="CTF fit quality"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-running/25 bg-gradient-to-b from-running-600/5 to-transparent p-3",
         className
       )}
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <Radar className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <Radar className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           CTF fit quality
           <span className="font-normal text-muted-foreground/70">
             ({summary?.count ?? micrographs.length} micrographs)
@@ -104,10 +105,10 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
         </span>
         {summary && (
           <>
-            <span className="rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+            <span className="rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-running-700 dark:text-running-300">
               defocus {summary.meanDefocus.toFixed(2)} µm
             </span>
-            <span className="rounded-full border border-amber-600/30 bg-amber-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+            <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-warning-700 dark:text-warning-300">
               astig ≤ {summary.maxAstigmatism.toFixed(2)} µm
             </span>
             {summary.worstResolution > 0 && (
@@ -123,6 +124,21 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
           className="ml-auto"
         />
       </div>
+
+      {/* t488 — the interpretation strip: the three worst fits named, the
+          same rows get_job_curves speaks when asked "CTF 拟合怎么样". */}
+      {worstFits.length > 0 && (
+        <ChartInterpretation icon={ScanSearch} tone="amber" label="Worst fits">
+          {worstFits.map((w, i) => (
+            <span key={w.name}>
+              {i > 0 && " · "}
+              <span className="font-mono text-[10px]">{w.name.split("/").pop()}</span>{" "}
+              {w.maxResolutionA != null ? `${w.maxResolutionA.toFixed(1)} Å` : "fit —"}
+              <span className="opacity-70"> (astig {w.astigmatismUm.toFixed(2)} µm)</span>
+            </span>
+          ))}
+        </ChartInterpretation>
+      )}
 
       {/* Defocus U vs V scatter — on-diagonal = no astigmatism. */}
       <div className="h-40">
@@ -176,7 +192,7 @@ export function CtfQualityChart({ jobId, className }: { jobId: string; className
               fillOpacity={0.75}
               stroke={TEAL}
               strokeWidth={1}
-              isAnimationActive={false}
+              isAnimationActive={false /* the curve doesn't dance — the t610 mute law (fsc-chart.tsx header) */}
             />
           </ScatterChart>
         </ResponsiveContainer>

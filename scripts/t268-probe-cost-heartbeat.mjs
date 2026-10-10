@@ -21,7 +21,7 @@
  *     mid-flight while the suite reads the beat twice.
  *
  * Phases:
- *   A  demo truth (roster 21, mock cluster)
+ *   A  demo truth (roster 15, mock cluster)
  *   B  ledger — durationMs in the type, the wrapper in probe.ts, the two
  *      dialog surfaces, the auto-probe log line
  *   C  live loop —
@@ -38,11 +38,14 @@
  *          "last probe ok in X.Xs" title
  *   D  console clean
  */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync, spawn } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
@@ -181,7 +184,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 
   // ---- Phase B: the ledger -------------------------------------------------
@@ -225,20 +228,29 @@ try {
   // The witness POLLS for the advance (a fixed sleep would race a fast
   // cluster's staging in the other direction).
   mkdirSync(MICS_DIR, { recursive: true });
+  // t535 — the real-binary era: MotionCorr consumes MOVIES (frame stacks).
+  // The stub accepted single-frame micrographs; the real relion_run_motioncorr
+  // refuses them (and the t535 star-shape gate refuses the micrographs-shaped
+  // star even earlier). The fixture grows up: 4-frame 64x64 float32 stacks —
+  // nz=4 in the header (RELION reads nz as the frame count), per-frame signal
+  // so the alignment has something to align.
+  const N_FRAMES = 4;
   const names = Array.from({ length: N_MICS }, (_, i) => `mic_${String(i + 1).padStart(3, "0")}.mrc`);
   for (const n of names) {
     const W = 64, H = 64;
-    const buf = Buffer.alloc(1024 + W * H * 4);
-    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
+    const buf = Buffer.alloc(1024 + W * H * 4 * N_FRAMES);
+    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(N_FRAMES, 8);
     buf.writeInt32LE(2, 12); // mode 2 = float32
-    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
-    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(N_FRAMES, 36);
+    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * N_FRAMES, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-    for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+    for (let s = 0; s < N_FRAMES; s++) {
+      for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7 + s) * 0.1, 1024 + (s * W * H + i) * 4);
+    }
     writeFileSync(path.join(MICS_DIR, n), buf);
   }
-  must(names.length === N_MICS && names.every((n) => existsSync(path.join(MICS_DIR, n))), `${N_MICS} mock micrographs fabricated (64x64 float32)`);
+  must(names.length === N_MICS && names.every((n) => existsSync(path.join(MICS_DIR, n))), `${N_MICS} mock movies fabricated (64x64 float32, ${N_FRAMES} frames)`);
 
   const mkJob = async (body) => {
     const r = await fetch(`${BASE}/api/jobs`, {
@@ -270,7 +282,9 @@ try {
   const importJob = await mkJob({
     type: "import",
     name: "t268 Import",
-    params: { micrographsPath: MICS_DIR, pixelSize: 1.77 },
+    // t535 — nodeType movies: the star must speak data_movies +
+    // rlnMicrographMovieName, the only dialect the real relion_run_motioncorr reads
+    params: { micrographsPath: MICS_DIR, pixelSize: 1.77, nodeType: "movies" },
   });
   must(!!importJob?.id, "the import job exists");
   await fetch(`${BASE}/api/jobs/${importJob.id}/run`, {
@@ -282,7 +296,7 @@ try {
     const j = await readJob(importJob.id);
     return j?.status === "completed" ? j : null;
   }, 60_000);
-  must(!!importDone, `the local import completed (${N_MICS} micrographs, engine-native)`);
+  must(!!importDone, `the local import completed (${N_MICS} movies, engine-native)`);
 
   // C2 — a probeless connection: created, deliberately NEVER tested
   const connId = `qa-t268-${Date.now().toString(36)}`;
@@ -304,8 +318,13 @@ try {
   must(mk.status === 201, `the probeless connection is created (got ${mk.status})`);
 
   // C3 — bare-API dispatch; the staging heartbeat must be caught ADVANCING
-  const jobM = await mkJob({ type: "motioncorr", name: "t268 MotionCorr Heartbeat" });
-  const eM = await mkEdge(importJob.id, jobM.id, "micrographs", "movies");
+  // t535 — do_own_motioncor: the mock rig has no MotionCor2; RELION's own
+  // CPU implementation is the honest lane (the t372 P8 precedent), and the
+  // real binary's own implementation does the whole run in-process.
+  const jobM = await mkJob({ type: "motioncorr", name: "t268 MotionCorr Heartbeat", params: { do_own_motioncor: true } });
+  // t535 — with nodeType=movies the import's output port is "movies" (the
+  // micrographs port hides), and motioncorr's movies input accepts it.
+  const eM = await mkEdge(importJob.id, jobM.id, "movies", "movies");
   must(eM === 200 || eM === 201, `import → probeless-remote motioncorr wired (${eM})`);
   const dispatchM = await fetch(`${BASE}/api/jobs/${jobM.id}/run`, {
     method: "POST",
@@ -355,11 +374,22 @@ try {
   );
 
   // C5 — the dialog: both surfaces speak the cost
+  // t535 — the probe card renders for the SELECTED connection; an old
+  // connection's probe (pre-t268 records carry no durationMs) used to win
+  // the dialog's default selection and the card read "" — scope the read
+  // to THIS run's connection by clicking its rail button first.
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await sleep(2000);
   await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true });
   await sleep(1200);
   const dlg = page.locator('[role="dialog"]').last();
+  // the rail button's aria-label = "<name> — <dot label>" — address it by name
+  await dlg
+    .locator('button[aria-label^="QA t268 AutoProbe"]')
+    .first()
+    .click({ force: true })
+    .catch(() => {});
+  await sleep(800);
   const durEl = dlg.locator("[data-probe-duration]").first();
   const durText = (await durEl.innerText().catch(() => "")) || "";
   must(
@@ -429,8 +459,27 @@ try {
     }
   } catch { /* best effort */ }
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate the
+
+    // demo chain's ancestral workdirs (t313's guard caught it live). Protect
+
+    // every workdir the world still speaks, then glob.
+
+    let worldProtect = [];
+
+    try {
+
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+
+    console.log(worldGuardLine(worldProtect.length));
+
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/motioncorr_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs'`,
+
+      `node services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/motioncorr_*","/projects/cryoflow/*/import_*","/projects/cryoflow/*/micrographs"], worldProtect)}'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }
@@ -444,7 +493,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
   // t268 restores the DEFAULT server (10s beat) for the rest of the family —

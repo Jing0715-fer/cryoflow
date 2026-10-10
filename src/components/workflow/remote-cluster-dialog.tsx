@@ -39,9 +39,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { ArrowUpRight, Check, Loader2, Network, Plus, Server, Trash2 } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Check, HardDrive, Loader2, Network, Plus, Server, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/lib/store";
+import { toast } from "@/hooks/use-toast";
 import type {
   ConnectionRunResume,
   ConnectionRunResumeEntry,
@@ -137,9 +138,9 @@ function Field({
 }) {
   return (
     <div className={cn("space-y-1", className)}>
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
-      {hint ? <p className="text-[10px] leading-snug text-muted-foreground/80">{hint}</p> : null}
+      {hint ? <p className="text-[11px] leading-snug text-muted-foreground/80">{hint}</p> : null}
     </div>
   );
 }
@@ -158,8 +159,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
  *  reachability is a quality of the connection worth seeing at a glance. */
 function probeDot(c: RemoteConnectionDTO): { className: string; label: string } {
   const secs = c.lastProbe?.durationMs != null ? ` in ${(c.lastProbe.durationMs / 1000).toFixed(1)}s` : "";
-  if (c.lastProbe?.ok) return { className: "bg-emerald-500", label: `reachable — last probe ok${secs}` };
-  if (c.lastProbe) return { className: "bg-rose-500", label: `last probe failed${secs}${c.lastProbe.error ? `: ${c.lastProbe.error}` : ""}` };
+  if (c.lastProbe?.ok) return { className: "bg-success-500", label: `reachable — last probe ok${secs}` };
+  if (c.lastProbe) return { className: "bg-danger", label: `last probe failed${secs}${c.lastProbe.error ? `: ${c.lastProbe.error}` : ""}` };
   return { className: "bg-slate-400 dark:bg-slate-500", label: "never tested" };
 }
 
@@ -186,8 +187,8 @@ function ProbeCard({
           className={cn(
             "text-[10px]",
             probe.ok
-              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-              : "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+              ? "border-success/40 bg-success/10 text-success-700 dark:text-success-300"
+              : "border-danger-500/40 bg-danger-500/10 text-danger"
           )}
         >
           {probe.ok ? "reachable" : "unreachable"}
@@ -206,7 +207,7 @@ function ProbeCard({
         {probe.gpus.length > 0 ? (
           <Badge
             variant="outline"
-            className="border-teal-500/30 bg-teal-500/10 text-[10px] font-normal text-teal-700 dark:text-teal-300"
+            className="border-running/30 bg-running/10 text-[10px] font-normal text-running-700 dark:text-running-300"
           >
             {probe.gpus.length} GPU{probe.gpus.length === 1 ? "" : "s"}
           </Badge>
@@ -233,7 +234,7 @@ function ProbeCard({
       ) : null}
 
       {probe.error ? (
-        <p className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-2 py-1.5 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300" role="alert">
+        <p className="rounded-md border border-danger-500/30 bg-danger/[0.06] px-2 py-1.5 text-[11px] leading-relaxed text-danger" role="alert">
           {probe.error}
         </p>
       ) : null}
@@ -280,7 +281,7 @@ function ProbeCard({
                 title={`${m}${probe.relionHomes[m] ? ` · home ${probe.relionHomes[m]}` : ""}${probe.relionMpi[m] ? " · mpirun available" : ""}${probe.relionCtffind[m] ? ` · ctffind ${probe.relionCtffind[m]}` : ""}`}
               >
                 {m} · home {probe.relionHomes[m] ?? "—"}
-                {probe.relionMpi[m] ? " · mpirun ✓" : ""}
+                {probe.relionMpi[m] ? ` · mpirun ✓${probe.relionMpirunPath?.[m] ? ` (${probe.relionMpirunPath[m]})` : ""}` : ""}
                 {probe.relionCtffind[m] ? ` · ctffind ${probe.relionCtffind[m]}` : ""}
               </p>
             ))}
@@ -297,6 +298,24 @@ function ProbeCard({
         <p className="truncate text-[10px] text-muted-foreground" title={probe.gpus.join(", ")}>
           GPUs: {probe.gpus.join(", ")}
         </p>
+      ) : probe.slurmGpus && probe.slurmGpus.length > 0 ? (
+        <div className="space-y-0.5">
+          <p className="text-[10px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground/80">Compute-node GPUs (via Slurm sinfo):</span>{" "}
+            {probe.slurmGpus
+              .map(
+                (g) =>
+                  `${g.partition}: ${g.gpusPerNode} GPU/node × ${g.nodes} node${g.nodes === 1 ? "" : "s"}${
+                    g.hosts && g.hosts.length > 0 ? ` (${g.hosts.slice(0, 4).join(", ")}${g.hosts.length > 4 ? ` +${g.hosts.length - 4}` : ""})` : ""
+                  }${g.model ? ` · ${g.model}` : ""}`
+              )
+              .join(" · ")}
+          </p>
+          <p className="text-[10px] leading-relaxed text-muted-foreground/70">
+            The login node has no GPUs (normal — nvidia-smi is quiet here); sbatch runs land on the compute nodes above
+            — the run dialog offers each detected group (and its node) as the submit target.
+          </p>
+        </div>
       ) : (
         <p className="text-[10px] text-muted-foreground/70">
           No GPUs visible on the login node (compute nodes may still have them).
@@ -313,9 +332,9 @@ function ProbeCard({
 /** Status dot for one résumé entry: the exit code IS the color (the stop
  *  route writes 137 for user-stopped runs, so rose covers both flavors). */
 function resumeDot(e: ConnectionRunResumeEntry): { className: string; label: string } {
-  if (!e.done) return { className: "bg-amber-500", label: "still running" };
-  if (e.exitCode === 0) return { className: "bg-emerald-500", label: "completed" };
-  return { className: "bg-rose-500", label: `failed (exit ${e.exitCode})` };
+  if (!e.done) return { className: "bg-warning-500", label: "still running" };
+  if (e.exitCode === 0) return { className: "bg-success-500", label: "completed" };
+  return { className: "bg-danger", label: `failed (exit ${e.exitCode})` };
 }
 
 /** The cluster's résumé: an aggregate line + the ≤3 newest runs, each
@@ -332,27 +351,135 @@ function resumeDot(e: ConnectionRunResumeEntry): { className: string; label: str
  *  per-project): "lives on the “X” project's canvas" / "gone (deleted)" /
  *  the pre-t272 merged guess when the server did not say. The résumé
  *  remembers what the canvas forgot, and says WHERE it lives instead of
- *  pretending the jump works. */
+ *  pretending the jump works.
+ *  t294 — the gone rows grow a forget door: history the user cannot act
+ *  on is a ledger that only grows. A row whose job is gone EVERYWHERE gets
+ *  a quiet X (hover-revealed, like the live row's arrow) that deletes the
+ *  dead record; a row whose job lives on ANOTHER canvas keeps no such
+ *  door — that record is live history for the canvas that can open it.
+ *  t295 — the card grows TWO doors for its own depth: the expand toggle
+ *  (the list route shows ≤3 rows; the panorama route returns EVERY entry
+ *  under the same shape — the card swaps it in wholesale, and any reload
+ *  re-fetches, so the panorama tracks the ledger rather than a snapshot)
+ *  and the bulk forget (one click retires every DEAD entry — the server
+ *  keeps live records and counts both). The bulk door renders only over
+ *  the FULL picture (every row on screen): a count computed from a
+ *  three-row fold would understate what the click destroys — a door that
+ *  cannot state its blast radius is never drawn. */
 function RunResumeCard({
   resume,
+  connectionId,
   onOpenJob,
+  onForgetRun,
+  onForgetAllDead,
 }: {
   resume: ConnectionRunResume;
+  connectionId: string;
   onOpenJob?: (jobId: string) => void;
+  onForgetRun?: (jobId: string) => Promise<void>;
+  onForgetAllDead?: () => Promise<{ forgotten: number; kept: number }>;
 }) {
   // the store is the truth the inspector can actually open — an entry
   // whose job is not in it renders as history, not as a doorway
   const jobs = useWorkflowStore((s) => s.jobs);
+  const openJob = useWorkflowStore((s) => s.openJob);
+  // t409 — the jump door FINALLY has a default: onOpenJob was optional and
+  // NO caller ever passed it, so every résumé row rendered as history and
+  // the jump feature was dead in all three dialog mounts (witnessed live by
+  // t271). The store's openJob is the one deep-link landing (cross-project
+  // hint included — t272's "another canvas" rows now really switch), so the
+  // card jumps by itself unless a caller overrides.
+  // t278 — the card-level helper adapts to the record shape the rows
+  // actually show: "click one to open" is a lie over a wall of gone rows.
+  // Pre-t272 DTO rows (exists undefined) are still openable doors on the
+  // canvas that owns them, so they count as live here.
+  // t294 — forget-door state: which row is mid-forget (spinner), and the
+  // last refusal's honest wording (role=alert, under the rows).
+  const [forgetting, setForgetting] = React.useState<string | null>(null);
+  const [forgetError, setForgetError] = React.useState<string | null>(null);
+  // t295 — the panorama: expanded swaps in the server's full aggregate;
+  // bulk = the armed two-step ("Forget n gone" → "Sure?"), its result and
+  // refusal lines land under the rows like the single door's do.
+  const [expanded, setExpanded] = React.useState(false);
+  const [full, setFull] = React.useState<ConnectionRunResume | null>(null);
+  const [bulkArmed, setBulkArmed] = React.useState(false);
+  const [bulkBusy, setBulkBusy] = React.useState(false);
+  const [bulkError, setBulkError] = React.useState<string | null>(null);
+  const [bulkOk, setBulkOk] = React.useState<{ forgotten: number; kept: number } | null>(null);
+  // t295 — the panorama's data path: expanding fetches the full aggregate
+  // from the server (one truth — the card never assembles history
+  // locally), and any change to the underlying connection (a reload
+  // swapped the object) re-fetches. The card is the same renderer at both
+  // apertures; only the rows it is handed differ.
+  React.useEffect(() => {
+    if (!expanded) {
+      setFull(null);
+      setBulkArmed(false);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/remote/records?connectionId=${encodeURIComponent(connectionId)}`)
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; resume?: ConnectionRunResume } | null) => {
+        if (alive && d?.ok && d.resume) setFull(d.resume);
+      })
+      .catch(() => {
+        /* honest absence: the collapsed rows remain on show */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [expanded, connectionId, resume]);
+  const shown = full ?? resume;
+  const toggleExpand = () => {
+    setBulkArmed(false);
+    setExpanded((v) => !v);
+  };
+  const bulkForget = async () => {
+    if (!bulkArmed) {
+      setBulkArmed(true);
+      return;
+    }
+    setBulkError(null);
+    setBulkOk(null);
+    setBulkBusy(true);
+    try {
+      setBulkOk((await onForgetAllDead?.()) ?? null);
+      setBulkArmed(false);
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : "bulk forget failed");
+      setBulkArmed(false);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+  const goneCount = shown.recent.filter((e) => e.exists === false).length;
+  const openCount = shown.recent.length - goneCount;
+  const helperVariant = goneCount === 0 ? "live" : openCount > 0 ? "mixed" : "history";
+  const helperText =
+    helperVariant === "live"
+      ? "Runs dispatched through this connection — click one to open its job's inspector; staging and sync-back times come from each run's time ledger."
+      : helperVariant === "mixed"
+        ? "Runs dispatched through this connection — click a live one to open its job's inspector; entries marked gone are deleted jobs the résumé keeps as history. Staging and sync-back times come from each run's time ledger."
+        : "Runs this connection once dispatched, kept as history — the jobs behind these entries are gone (deleted), so there is nothing left to open.";
+  // t295 — the two apertures: overflow decides whether the expand door
+  // exists at all; fullPicture decides whether the bulk door may state a
+  // count (only when every row is on screen); deadShown is the count that
+  // count would state.
+  const overflow = shown.total > resume.recent.length;
+  const fullPicture = shown.recent.length >= shown.total;
+  const deadShown = goneCount;
+  const showBulk = deadShown > 0 && fullPicture && onForgetAllDead != null;
   return (
     <div className="space-y-2 rounded-md border bg-muted/30 p-3" data-run-resume="">
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge variant="outline" className="text-[10px]" data-resume-total="">
-          {resume.total} run{resume.total === 1 ? "" : "s"}
+          {shown.total} run{shown.total === 1 ? "" : "s"}
         </Badge>
         {resume.completed > 0 ? (
           <Badge
             variant="outline"
-            className="border-emerald-500/40 bg-emerald-500/10 text-[10px] text-emerald-700 dark:text-emerald-300"
+            className="border-success/40 bg-success/10 text-[10px] text-success-700 dark:text-success-300"
             data-resume-completed=""
           >
             {resume.completed} completed
@@ -361,7 +488,7 @@ function RunResumeCard({
         {resume.failed > 0 ? (
           <Badge
             variant="outline"
-            className="border-rose-500/40 bg-rose-500/10 text-[10px] text-rose-700 dark:text-rose-300"
+            className="border-danger-500/40 bg-danger-500/10 text-[10px] text-danger"
             data-resume-failed=""
           >
             {resume.failed} stopped/failed
@@ -373,7 +500,7 @@ function RunResumeCard({
           </span>
         ) : null}
       </div>
-      {resume.recent.map((e) => {
+      {shown.recent.map((e) => {
         const dot = resumeDot(e);
         const ledger = [
           e.stagedMs != null ? `staged ${formatLedgerMs(e.stagedMs)}` : "",
@@ -392,7 +519,22 @@ function RunResumeCard({
           .filter(Boolean)
           .join(" · ");
         const job = jobs.find((j) => j.id === e.jobId) ?? null;
-        const jumpable = job != null && onOpenJob != null;
+        const jumpJob = (id: string) => {
+          if (onOpenJob) {
+            onOpenJob(id);
+            return;
+          }
+          void openJob(id, { projectId: e.projectId ?? null });
+        };
+        // t409 — jumpable with the in-card default: THIS canvas's job, or
+        // any row whose home project the server named (the hint does the
+        // switch). A gone row stays history.
+        const jumpable = job != null || !!e.projectId;
+        // t294 — the forget door lives ONLY on exists===false rows: the
+        // server route refuses a live job anyway, but the UI already knows
+        // which rows are dead — showing a door only where it can open is
+        // the same honesty the row's tooltip speaks.
+        const forgettable = e.exists === false && onForgetRun != null;
         const startedShort = new Date(e.startedAt).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -421,16 +563,39 @@ function RunResumeCard({
             ) : null}
           </>
         );
+        const forget = async (jobId: string) => {
+          setForgetError(null);
+          setForgetting(jobId);
+          try {
+            await onForgetRun?.(jobId);
+          } catch (err) {
+            setForgetError(err instanceof Error ? err.message : "forget failed");
+          } finally {
+            setForgetting(null);
+          }
+        };
         return jumpable ? (
           <button
             key={e.jobId}
             type="button"
             data-resume-entry={e.jobId}
             data-resume-jump=""
-            onClick={() => onOpenJob?.(e.jobId)}
+            onClick={() => jumpJob(e.jobId)}
             className="group -mx-1 flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-[10px] transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            title={`Open the inspector for “${job?.name}” — ${e.jobType} started ${new Date(e.startedAt).toLocaleString()}`}
-            aria-label={`Open the inspector for ${job?.name ?? e.jobType}`}
+            // t411 — a cross-canvas row has no job on THIS canvas, so the
+            // old template spoke "Open the inspector for “undefined”".
+            // The tooltip must name the canvas the jump actually lands on
+            // (the same honesty the dumb-history row's tooltip speaks).
+            title={
+              job != null
+                ? `Open the inspector for “${job?.name}” — ${e.jobType} started ${new Date(e.startedAt).toLocaleString()}`
+                : `Open the inspector on the “${e.projectName ?? "another"}” project's canvas — this jump switches projects for you; ${e.jobType} started ${new Date(e.startedAt).toLocaleString()}`
+            }
+            aria-label={
+              job != null
+                ? `Open the inspector for ${job?.name ?? e.jobType}`
+                : `Open on the ${e.projectName ?? "another"} project's canvas (${e.jobType})`
+            }
           >
             {row}
             <ArrowUpRight
@@ -443,7 +608,7 @@ function RunResumeCard({
             key={e.jobId}
             data-resume-entry={e.jobId}
             data-resume-gone={e.exists === false ? "gone" : undefined}
-            className="flex items-center gap-1.5 text-[10px] text-muted-foreground/80"
+            className="group flex items-center gap-1.5 text-[10px] text-muted-foreground/80"
             title={
               // t272 — the server knows whether the job still exists ANYWHERE
               // (the résumé is global, the canvas is per-project), so the
@@ -458,12 +623,103 @@ function RunResumeCard({
             }
           >
             {row}
+            {forgettable ? (
+              <button
+                type="button"
+                data-resume-forget={e.jobId}
+                disabled={forgetting != null}
+                onClick={() => void forget(e.jobId)}
+                className="ml-0.5 shrink-0 rounded-sm p-0.5 text-muted-foreground/40 opacity-0 transition-opacity hover:bg-accent/60 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label={`Forget the history entry for the ${e.jobType} run started ${new Date(e.startedAt).toLocaleString()}`}
+                title="Forget this history entry — the job is gone everywhere; the résumé keeps it only until you let it go"
+              >
+                {forgetting === e.jobId ? (
+                  <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                ) : (
+                  <X className="size-3" aria-hidden="true" />
+                )}
+              </button>
+            ) : null}
           </div>
         );
       })}
-      <p className="text-[10px] leading-relaxed text-muted-foreground/80">
-        Runs dispatched through this connection — click one to open its job&apos;s inspector;
-        staging and sync-back times come from each run&apos;s time ledger.
+      {/* t295 — the card's own depth doors. Expand: the panorama toggle
+          (exists on overflow, or while expanded to come back down). Bulk:
+          the armed two-step, ONLY over the full picture — the label always
+          states the exact blast radius (deadShown). */}
+      {(overflow || expanded) ? (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-resume-expand=""
+            aria-expanded={expanded}
+            onClick={toggleExpand}
+            className="rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            title={
+              expanded
+                ? "Back to the three newest runs"
+                : `The list view keeps the three newest rows — this card remembers ${shown.total} runs; open the whole ledger`
+            }
+          >
+            {expanded ? "Show recent only" : `Show all ${shown.total} runs`}
+          </button>
+          {showBulk ? (
+            <button
+              type="button"
+              data-resume-forget-dead=""
+              disabled={bulkBusy || forgetting != null}
+              onClick={() => void bulkForget()}
+              aria-label={
+                bulkArmed
+                  ? `Confirm forgetting the ${deadShown} dead history entries`
+                  : `Forget the ${deadShown} dead history entries`
+              }
+              className={cn(
+                "ml-auto flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40",
+                bulkArmed
+                  ? "bg-danger-500/10 text-danger-700 hover:text-danger-800 dark:text-danger-300"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title={
+                bulkArmed
+                  ? `Click again — ${deadShown} dead records leave the résumé; live ones stay`
+                  : "Every entry whose job is gone everywhere, retired in one click — live history stays (its canvas can still open it)"
+              }
+            >
+              {bulkBusy ? (
+                <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+              ) : (
+                <X className="size-3" aria-hidden="true" />
+              )}
+              {bulkArmed ? `Sure? Forget ${deadShown}` : `Forget ${deadShown} gone`}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {bulkOk ? (
+        <p role="status" data-resume-forget-dead-ok="" className="text-[10px] text-success-700 dark:text-success-300">
+          Forgot {bulkOk.forgotten} dead entr{bulkOk.forgotten === 1 ? "y" : "ies"} · kept {bulkOk.kept} live
+        </p>
+      ) : null}
+      {bulkError ? (
+        <p role="alert" data-resume-forget-dead-error="" className="text-[10px] leading-relaxed text-danger">
+          {bulkError}
+        </p>
+      ) : null}
+      {forgetError ? (
+        <p
+          role="alert"
+          data-resume-forget-error=""
+          className="text-[10px] leading-relaxed text-danger"
+        >
+          {forgetError}
+        </p>
+      ) : null}
+      <p
+        className="text-[10px] leading-relaxed text-muted-foreground/80"
+        data-resume-helper={helperVariant}
+      >
+        {helperText}
       </p>
     </div>
   );
@@ -488,6 +744,16 @@ interface Draft {
   remoteRoot: string;
   envLines: string;
   useSlurm: boolean;
+  /** t297 — Slurm partition for sbatch submissions (empty = cluster default). */
+  slurmPartition: string;
+  /** t367 — explicit sbatch walltime in minutes ("" = auto: refinement jobs
+   * ask the partition's own MaxTime at submit time, everything else rides
+   * the partition default). */
+  slurmTimeMin: string;
+  /** t289 — what finalize syncs back: key files only (default) or everything. */
+  syncPolicy: "key-files" | "everything";
+  /** t289 — binary cap (MB) for the key-files policy. */
+  keyFileMb: number;
   maxFileMb: number;
   maxTotalMb: number;
 }
@@ -498,7 +764,7 @@ function toDraft(c: RemoteConnectionDTO | null): Draft {
     host: c?.host ?? "",
     port: c?.port ?? 22,
     username: c?.username ?? "",
-    authMethod: c?.authMethod ?? "agent",
+    authMethod: c?.authMethod ?? "password",
     privateKeyPath: c?.privateKeyPath ?? "",
     password: "",
     clearPassword: false,
@@ -507,6 +773,10 @@ function toDraft(c: RemoteConnectionDTO | null): Draft {
     remoteRoot: c?.remoteRoot ?? "~/cryoflow",
     envLines: (c?.envLines ?? []).join("\n"),
     useSlurm: c?.useSlurm ?? false,
+    slurmPartition: c?.slurmPartition ?? "",
+    slurmTimeMin: c?.slurmTimeMin != null ? String(c.slurmTimeMin) : "",
+    syncPolicy: c?.syncPolicy ?? "key-files",
+    keyFileMb: c?.keyFileMb ?? 16,
     maxFileMb: c?.maxFileMb ?? 512,
     maxTotalMb: c?.maxTotalMb ?? 2048,
   };
@@ -520,6 +790,8 @@ function ConnectionEditor({
   onPatched,
   onCancelCreate,
   onOpenJob,
+  onForgetRun,
+  onForgetAllDead,
 }: {
   /** null = creating a new connection. */
   connection: RemoteConnectionDTO | null;
@@ -531,6 +803,14 @@ function ConnectionEditor({
   /** t271 — the résumé as an index: called when a résumé entry whose job
    *  still exists is clicked (the dialog closes itself, the inspector opens). */
   onOpenJob?: (jobId: string) => void;
+  /** t294 — the résumé's forget door: deletes ONE dead record (the server
+   *  refuses live jobs); the caller refreshes the list on success and the
+   *  refusal's error propagates back to the row. */
+  onForgetRun?: (jobId: string) => Promise<void>;
+  /** t295 — the bulk door: retires every DEAD record of the editor's
+   *  connection (live ones are kept and counted); the dialog owns the
+   *  fetch + reload, the card owns the arm/confirm two-step. */
+  onForgetAllDead?: () => Promise<{ forgotten: number; kept: number }>;
 }) {
   const creating = connection === null;
   const [draft, setDraft] = React.useState<Draft>(() => toDraft(connection));
@@ -545,6 +825,43 @@ function ConnectionEditor({
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [pickingModule, setPickingModule] = React.useState<string | null>(null);
+  /**
+   * t297 — the beta/hidden module door: `module avail` never lists hidden
+   * modules (Lmod hides beta installs), so a name the user KNOWS loads
+   * (`module load relion/beta_5.0_gpu_ompi5_cuda118` in their env lines)
+   * needs its own proof. The verify door loads it over SSH, requires
+   * relion_refine on PATH, and merges the module into the probe's list —
+   * the chips above then offer it like any probed module.
+   */
+  const [verifyInput, setVerifyInput] = React.useState("");
+  const [verifying, setVerifying] = React.useState(false);
+  const [verifyResult, setVerifyResult] = React.useState<
+    | { ok: true; module: string; relionHome: string; mpi: boolean }
+    | { ok: false; error: string }
+    | null
+  >(null);
+  /** t289 — the create flow's pre-pinned default module: the by-value probe
+   *  shows module chips BEFORE anything is saved; a click stores the pick
+   *  here and Create sends it with the connection (saved connections keep
+   *  using the PATCH route via pickModule). */
+  const [draftDefaultModule, setDraftDefaultModule] = React.useState<string | null>(null);
+  /**
+   * t370 — the storage write-path diagnostic. The corruption evidence
+   * the gallery now badges (zero headers, all-zero classes) convicts a
+   * cluster whose COMPUTE nodes write bytes the login node never sees —
+   * and the conviction test is a manual, ~3-minute SSH marathon (write
+   * 2 MB of urandom on a compute node, md5 it back from the login
+   * node). It has NO place in any automatic poll; it runs ONLY when the
+   * user presses the button, next to Test & probe (reachability vs
+   * durability — the two different questions a cluster must answer).
+   * The toast is the arrival notice; the inline line below the actions
+   * row is the persistent verdict (the verifyResult dialect), and the
+   * full transcript (lines[]) goes to the console for the deep read.
+   */
+  const [storageChecking, setStorageChecking] = React.useState(false);
+  const [storageResult, setStorageResult] = React.useState<
+    { ok: true; verdict: string } | { ok: false; error: string } | null
+  >(null);
 
   const patch = (fields: Partial<Draft>) => {
     setDirty(true);
@@ -578,9 +895,31 @@ function ConnectionEditor({
         .map((l) => l.trim())
         .filter((l) => l.length > 0),
       useSlurm: draft.useSlurm,
+      slurmPartition: draft.slurmPartition.trim(),
+      // t367 — the walltime override: a number > 0 rides the payload;
+      // empty/garbage = auto (absent from the payload — the stored value
+      // is cleared only by an explicit 0 or empty… the three-state dialect
+      // of the secrets, applied to a number)
+      ...(draft.slurmTimeMin.trim() && Number(draft.slurmTimeMin) > 0
+        ? { slurmTimeMin: Math.round(Number(draft.slurmTimeMin)) }
+        : { slurmTimeMin: 0 }),
+      syncPolicy: draft.syncPolicy,
+      keyFileMb: cap(draft.keyFileMb, 16),
       maxFileMb: cap(draft.maxFileMb, 512),
       maxTotalMb: cap(draft.maxTotalMb, 2048),
     };
+    // t289 — the create flow can pre-pin the default module: the by-value
+    // probe shows the chips BEFORE anything is saved, a click stores the
+    // choice here, and Create sends it along with the connection
+    if (creating && draftDefaultModule) payload.defaultModule = draftDefaultModule;
+    // t384 — the TESTED draft saves AS TESTED: the probe the user just ran
+    // (probeOverride — "PROBE (NOT SAVED YET)") rides the Create/Save
+    // payload, so the run dialog's Slurm section and live usage panel work
+    // on the first open instead of "never tested" (an unprobed connection
+    // hides the node-usage panel entirely — the 「查询node使用情况一直
+    // 失败」 family). sanitizeConnection accepts a lastProbe object; the
+    // server patch lane (saved connections) keeps its own fresher truth.
+    if (probeOverride) payload.lastProbe = probeOverride;
     if (connection) payload.id = connection.id;
     // three-state secrets: typed = store, explicit clear = "", untouched = absent
     if (draft.authMethod === "password") {
@@ -646,6 +985,83 @@ function ConnectionEditor({
     }
   };
 
+  /**
+   * t370 — the manual storage write-path check: POST
+   * /api/remote/diagnostics/storage { connectionId } → { ok, verdict,
+   * lines }. The verdict line is the news (toasted + kept inline); the
+   * lines[] transcript is the evidence (console.debug — the deep read,
+   * not the glance). Honest degradation everywhere: a 404 (the backend
+   * half of t370 not landed yet) says the route is missing instead of a
+   * silent no-op, a failed request names the wire, and a diagnostic that
+   * RAN and found the problem (ok:false) still shows its verdict — a
+   * negative result is a RESULT, not an error.
+   */
+  const storageCheck = async () => {
+    if (!connection || storageChecking) return;
+    setStorageChecking(true);
+    setStorageResult(null);
+    try {
+      const res = await fetch("/api/remote/diagnostics/storage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId: connection.id }),
+      });
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; verdict?: string; lines?: string[]; error?: string }
+        | null;
+      if (!res.ok || !body?.verdict) {
+        const error =
+          body?.error ??
+          (res.status === 404
+            ? "Storage check is not available on this app server yet (the route answered 404) — update and retry."
+            : `Storage check failed (HTTP ${res.status})`);
+        setStorageResult({ ok: false, error });
+        toast({ title: "Storage check failed", description: error, variant: "destructive" });
+        return;
+      }
+      setStorageResult({ ok: true, verdict: body.verdict });
+      if (body.lines && body.lines.length > 0) console.debug("[storage-check]", body.lines);
+      toast({
+        title: body.ok === false ? "Storage check: problem found" : "Storage check done",
+        description: body.verdict,
+        variant: body.ok === false ? "destructive" : undefined,
+      });
+    } catch {
+      const error = "Storage check request failed — is the app server reachable?";
+      setStorageResult({ ok: false, error });
+      toast({ title: "Storage check failed", description: error, variant: "destructive" });
+    } finally {
+      setStorageChecking(false);
+    }
+  };
+
+  // t289 — the create form's Test & probe: same probe, BY VALUE — the draft
+  // above is sent as-is, nothing lands in the registry until Create. A
+  // login that works is knowable BEFORE it is committed.
+  const testDraft = async () => {
+    if (!valid || testing) return;
+    setTesting(true);
+    setTestError(null);
+    try {
+      const res = await fetch("/api/remote/connections/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+      });
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; probe?: RemoteProbe; error?: string }
+        | null;
+      if (body?.probe) setProbeOverride(body.probe);
+      if (!body?.ok) {
+        setTestError(body?.error ?? body?.probe?.error ?? "Connection test failed.");
+      }
+    } catch {
+      setTestError("Test request failed — is the app server reachable?");
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const remove = async () => {
     if (!connection || deleting) return;
     setDeleting(true);
@@ -692,8 +1108,87 @@ function ConnectionEditor({
     }
   };
 
+  /**
+   * t297 — verify a module name the listing never showed (beta / hidden):
+   * the server loads it in a login shell and requires relion_refine on
+   * PATH. Success merges the module into the connection's probe (the chips
+   * above re-render with it) AND pins it as the default — the exact
+   * "confirm this command can call relion 5" the user asked for. A refusal
+   * carries the module tool's own words (Lmod's "Unknown module").
+   *
+   * t310 — the door speaks BY VALUE on the create form too: the draft is
+   * sent as-is (nothing persisted until Create), the server merges the
+   * verified module into the probe the client already has, and the pin
+   * lives in draftDefaultModule (t289's chip idiom — defaultModule rides
+   * the Create payload). Saved connections keep the [id] route: the server
+   * patches lastProbe + defaultModule and the response DTO is the truth.
+   */
+  const verifyModule = async () => {
+    const name = verifyInput.trim();
+    if (!name || verifying || (creating ? !valid : !connection)) return;
+    setVerifying(true);
+    setVerifyResult(null);
+    setError(null);
+    try {
+      const res = creating
+        ? await fetch("/api/remote/connections/verify-module", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...buildPayload(), module: name, probe: probeOverride }),
+          })
+        : await fetch(`/api/remote/connections/${connection!.id}/verify-module`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ module: name, pin: true }),
+          });
+      const body = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            module?: string;
+            relionHome?: string;
+            mpi?: boolean;
+            error?: string;
+            probe?: RemoteProbe;
+            connection?: RemoteConnectionDTO;
+          }
+        | null;
+      const verified = res.ok && body?.ok && (creating ? body.probe : body.connection);
+      if (verified) {
+        setVerifyResult({
+          ok: true,
+          module: body?.module ?? name,
+          relionHome: body?.relionHome ?? "",
+          mpi: body?.mpi === true,
+        });
+        // the server's truth replaces both the row and the probe card's
+        // source — the verified module appears among the chips immediately
+        if (creating) {
+          setProbeOverride(body!.probe ?? null);
+          setDraftDefaultModule(body?.module ?? name);
+        } else {
+          onPatched(body!.connection!);
+          setProbeOverride(body!.connection!.lastProbe ?? null);
+        }
+        setVerifyInput("");
+      } else {
+        setVerifyResult({ ok: false, error: body?.error ?? `Verification failed (HTTP ${res.status}).` });
+      }
+    } catch {
+      setVerifyResult({ ok: false, error: "Verify request failed — is the app server reachable?" });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   // probe card reads the freshest source: this session's test, else the registry
   const probe = probeOverride ?? connection?.lastProbe ?? null;
+  // t289 — the remote root, EXPANDED: once any probe brought back the
+  // cluster's $HOME, a ~-root can show its absolute form. No probe yet →
+  // nothing to expand (the hint already teaches the semantics).
+  const resolvedRemoteRoot =
+    probe?.homeDir && draft.remoteRoot.trim().startsWith("~")
+      ? probe.homeDir.replace(/\/+$/, "") + draft.remoteRoot.trim().slice(1)
+      : null;
   const secretRow = (
     label: string,
     value: string,
@@ -722,7 +1217,7 @@ function ConnectionEditor({
             if (e.target.value) onClearFlag(false);
           }}
           placeholder={hasStored ? placeholder : undefined}
-          className="h-8 text-xs"
+          className="h-9 text-sm"
           autoComplete="new-password"
           aria-label={label}
         />
@@ -732,8 +1227,8 @@ function ConnectionEditor({
             variant="ghost"
             size="sm"
             className={cn(
-              "h-8 shrink-0 px-2 text-[10px] text-muted-foreground hover:text-foreground",
-              clearFlag && "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+              "h-9 shrink-0 px-2.5 text-[11px] text-muted-foreground hover:text-foreground",
+              clearFlag && "bg-warning/10 text-warning-700 dark:text-warning-300"
             )}
             onClick={() => onClearFlag(!clearFlag)}
             aria-pressed={clearFlag}
@@ -751,25 +1246,25 @@ function ConnectionEditor({
     <div className="space-y-4">
       <div className="space-y-3">
         <SectionTitle>{creating ? "New connection" : "Login"}</SectionTitle>
-        <div className="grid grid-cols-4 gap-3">
-          <Field label="Display name" className="col-span-2">
-            <Input
-              value={draft.name}
-              onChange={(e) => patch({ name: e.target.value.slice(0, 120) })}
-              placeholder={creating ? "e.g. Lab cluster" : undefined}
-              className="h-8 text-xs"
-              maxLength={120}
-              aria-label="Connection display name"
-            />
-          </Field>
-          <Field label="Host" hint={valid ? undefined : "required"}>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <Field label="Host" hint={valid ? undefined : "required"} className="col-span-2">
             <Input
               value={draft.host}
               onChange={(e) => patch({ host: e.target.value.trim().slice(0, 200) })}
               placeholder="login.cluster.example.org"
-              className="h-8 text-xs"
+              className="h-9 text-sm"
               maxLength={200}
               aria-label="SSH host (required)"
+            />
+          </Field>
+          <Field label="Username" hint={valid ? undefined : "required"}>
+            <Input
+              value={draft.username}
+              onChange={(e) => patch({ username: e.target.value.trim().slice(0, 60) })}
+              placeholder="your.cluster.user"
+              className="h-9 text-sm"
+              maxLength={60}
+              aria-label="SSH username (required)"
             />
           </Field>
           <Field label="Port">
@@ -779,36 +1274,36 @@ function ConnectionEditor({
               max={65535}
               value={draft.port}
               onChange={(e) => patch({ port: Number(e.target.value) })}
-              className="h-8 text-xs"
+              className="h-9 text-sm"
               aria-label="SSH port"
             />
           </Field>
-          <Field label="Username" hint={valid ? undefined : "required"}>
+          <Field label="Display name">
             <Input
-              value={draft.username}
-              onChange={(e) => patch({ username: e.target.value.trim().slice(0, 60) })}
-              placeholder="cryo"
-              className="h-8 text-xs"
-              maxLength={60}
-              aria-label="SSH username (required)"
+              value={draft.name}
+              onChange={(e) => patch({ name: e.target.value.slice(0, 120) })}
+              placeholder={creating ? "e.g. Lab cluster" : undefined}
+              className="h-9 text-sm"
+              maxLength={120}
+              aria-label="Connection display name"
             />
           </Field>
-          <Field label="Auth method" className="col-span-2">
+          <Field label="Auth method">
             <Select
               value={draft.authMethod}
               onValueChange={(v) => patch({ authMethod: v as RemoteAuthMethod })}
             >
-              <SelectTrigger className="h-8 text-xs" aria-label="Authentication method">
+              <SelectTrigger className="h-9 text-sm" aria-label="Authentication method">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="agent" className="text-xs">SSH agent</SelectItem>
-                <SelectItem value="key" className="text-xs">Private key</SelectItem>
-                <SelectItem value="password" className="text-xs">Password</SelectItem>
+                <SelectItem value="password" className="text-sm">Password</SelectItem>
+                <SelectItem value="key" className="text-sm">Private key</SelectItem>
+                <SelectItem value="agent" className="text-sm">SSH agent</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <div className="col-span-4">
+          <div className="col-span-2">
             <Badge variant="outline" className="h-4 px-1 text-[9px] font-normal text-muted-foreground">
               {AUTH_LABEL[draft.authMethod]}
             </Badge>
@@ -835,7 +1330,7 @@ function ConnectionEditor({
                 value={draft.privateKeyPath}
                 onChange={(e) => patch({ privateKeyPath: e.target.value.slice(0, 300) })}
                 placeholder="~/.ssh/id_ed25519"
-                className="h-8 font-mono text-[11px]"
+                className="h-9 font-mono text-[13px]"
                 maxLength={300}
                 aria-label="Private key path on this machine"
               />
@@ -866,25 +1361,40 @@ function ConnectionEditor({
                 "••• stored"
               )}
             </div>
+            <p className="col-span-2 text-[11px] leading-relaxed text-muted-foreground" data-auth-dialect-hint="">
+              Sent over both SSH password and keyboard-interactive prompts — the dialect university
+              clusters usually speak (the same login MobaXterm uses).
+            </p>
           </div>
         ) : null}
       </div>
 
       <div className="space-y-3">
         <SectionTitle>Cluster layout</SectionTitle>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <Field
             label="Remote root"
-            hint="Cluster directory that mirrors the local data/relion workdir."
+            hint="Where this app's local data/relion workdir is mirrored on the cluster — job workdirs live under it and it is created on first run. ~ means your cluster home. Examples: ~/cryoflow · /scratch/$USER/cryoflow"
+            className="col-span-2"
           >
             <Input
               value={draft.remoteRoot}
               onChange={(e) => patch({ remoteRoot: e.target.value.slice(0, 300) })}
               placeholder="~/cryoflow"
-              className="h-8 font-mono text-[11px]"
+              className="h-9 font-mono text-[13px]"
               maxLength={300}
               aria-label="Cluster-side remote root directory"
             />
+            {/* t289 — a root the user can SEE: once a probe brought back the
+                cluster's $HOME, a ~-root shows its absolute expansion */}
+            {resolvedRemoteRoot && resolvedRemoteRoot !== draft.remoteRoot.trim() ? (
+              <p
+                className="pt-0.5 font-mono text-[10.5px] leading-snug text-muted-foreground"
+                data-remote-root-resolved=""
+              >
+                resolves to {resolvedRemoteRoot}
+              </p>
+            ) : null}
           </Field>
           <div className="flex items-end gap-2 pb-4">
             <Switch
@@ -894,9 +1404,35 @@ function ConnectionEditor({
               aria-label="Prefer Slurm submission"
             />
             <Label htmlFor="remote-use-slurm" className="text-[11px] leading-snug text-muted-foreground">
-              Prefer Slurm submission <span className="text-muted-foreground/70">(not wired yet — runs direct)</span>
+              Prefer Slurm (sbatch) submission <span className="text-muted-foreground/70">— the run dialog defaults to sbatch; direct nohup stays one click away</span>
             </Label>
           </div>
+          <Field
+            label="Slurm partition"
+            hint="Used for #SBATCH --partition when submitting via sbatch (the probe's sinfo inventory lists what your cluster offers). Leave empty for the cluster default."
+          >
+            <Input
+              value={draft.slurmPartition}
+              onChange={(e) => patch({ slurmPartition: e.target.value.trim().slice(0, 80) })}
+              placeholder="(cluster default) — e.g. gpu"
+              className="h-9 font-mono text-[13px]"
+              maxLength={80}
+              aria-label="Slurm partition for sbatch submissions"
+            />
+          </Field>
+          <Field
+            label="Slurm time limit (minutes)"
+            hint="t367 — the walltime sbatch asks for. Leave empty for auto: multi-hour refinement jobs (2D/3D classification, refinement, initial model) ask the partition's own maximum at submit time; everything else uses the partition default. A partition default of 2h once killed a 20-round 2D classification exactly at its final write phase — set a number you trust for your runs."
+          >
+            <Input
+              value={draft.slurmTimeMin}
+              onChange={(e) => patch({ slurmTimeMin: e.target.value.replace(/[^0-9]/g, "").slice(0, 5) })}
+              placeholder="(auto) — e.g. 720 for 12h"
+              className="h-9 font-mono text-[13px]"
+              inputMode="numeric"
+              aria-label="Slurm time limit in minutes for sbatch submissions"
+            />
+          </Field>
           <Field
             label="Environment lines"
             hint="module load cuda/12.2 · export FOO=bar — one line each, sourced before runs."
@@ -906,17 +1442,54 @@ function ConnectionEditor({
               value={draft.envLines}
               onChange={(e) => patch({ envLines: e.target.value })}
               placeholder={"module load cuda/12.2\nexport RELION_MPI_MAX=8"}
-              className="min-h-[64px] font-mono text-[11px] leading-relaxed"
+              className="min-h-[72px] font-mono text-xs leading-relaxed"
               aria-label="Environment preparation lines"
             />
           </Field>
+          <Field
+            label="Results sync-back"
+            hint="What finalize copies back to this machine. Extraction-style jobs (extract, motioncorr, polish) sync metadata only — their image stacks stay on the cluster whatever their size. Anything that stays is still listed in Results — preview or download it there on demand."
+            className="col-span-2"
+          >
+            <Select
+              value={draft.syncPolicy}
+              onValueChange={(v) => patch({ syncPolicy: v as Draft["syncPolicy"] })}
+            >
+              <SelectTrigger className="h-9 text-sm" aria-label="Results sync-back policy">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="key-files" className="text-sm">
+                  Key files only — STAR &amp; logs sync, image stacks stay on the cluster
+                </SelectItem>
+                <SelectItem value="everything" className="text-sm">
+                  Everything under the caps
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          {draft.syncPolicy === "key-files" ? (
+            <Field
+              label="Key-file cap (MB)"
+              hint="Binary results above this stay remote (text, STAR and logs always sync). Extraction-style jobs keep ALL image files remote — this cap only shapes other job types (e.g. class averages, small maps)."
+            >
+              <Input
+                type="number"
+                min={1}
+                value={draft.keyFileMb}
+                onChange={(e) => patch({ keyFileMb: Number(e.target.value) })}
+                className="h-9 text-sm"
+                aria-label="Key-file size cap in MB"
+              />
+            </Field>
+          ) : null}
           <Field label="Max file size (MB)" hint="Sync-back cap for a single file.">
             <Input
               type="number"
               min={1}
               value={draft.maxFileMb}
               onChange={(e) => patch({ maxFileMb: Number(e.target.value) })}
-              className="h-8 text-xs"
+              className="h-9 text-sm"
               aria-label="Maximum single file size in MB for sync-back"
             />
           </Field>
@@ -926,39 +1499,129 @@ function ConnectionEditor({
               min={1}
               value={draft.maxTotalMb}
               onChange={(e) => patch({ maxTotalMb: Number(e.target.value) })}
-              className="h-8 text-xs"
+              className="h-9 text-sm"
               aria-label="Maximum total sync-back size in MB"
             />
           </Field>
         </div>
       </div>
 
-      {/* Probe — the payoff card (test results / last registry probe) */}
-      {creating ? (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Save the connection first, then{" "}
-          <span className="font-medium text-foreground/80">Test &amp; probe</span> discovers its relion modules.
-        </p>
-      ) : probe ? (
+      {/* Probe — the payoff card (test results / last registry probe).
+          t289: the CREATE form speaks too — the by-value test fills
+          probeOverride without a saved connection, chips pre-pin the
+          default module (draftDefaultModule rides the Create payload).
+          t297: below it, the verify door for modules no listing shows. */}
+      {probe ? (
         <div className="space-y-2">
-          <SectionTitle>Last probe</SectionTitle>
+          <SectionTitle>{creating ? "Probe (not saved yet)" : "Last probe"}</SectionTitle>
           <ProbeCard
             probe={probe}
-            defaultModule={connection?.defaultModule ?? null}
-            onPickModule={(m) => void pickModule(m)}
-            picking={pickingModule}
+            defaultModule={creating ? draftDefaultModule : (connection?.defaultModule ?? null)}
+            onPickModule={
+              creating
+                ? (m) => setDraftDefaultModule(m === draftDefaultModule ? null : m)
+                : (m) => void pickModule(m)
+            }
+            picking={creating ? null : pickingModule}
           />
         </div>
       ) : (
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Never tested — run <span className="font-medium text-foreground/80">Test &amp; probe</span> to log in and
-          discover the node&apos;s relion modules.
+          {creating ? (
+            <>
+              Not tested yet — <span className="font-medium text-foreground/80">Test &amp; probe</span> logs in
+              with the values above (nothing is saved) and discovers the node&apos;s relion modules.
+            </>
+          ) : (
+            <>
+              Never tested — run <span className="font-medium text-foreground/80">Test &amp; probe</span> to log
+              in and discover the node&apos;s relion modules.
+            </>
+          )}
         </p>
       )}
 
+      {/* t297 — the beta/hidden module door. t310: the CREATE form speaks
+          too — the by-value route proves the name against the draft (nothing
+          persisted until Create), so "does this beta module load HERE" is
+          answerable BEFORE the connection exists. The Verify button waits
+          for a valid host+username, exactly like Test & probe. */}
+      <div
+        className="space-y-1.5 rounded-md border border-dashed px-3 py-2.5"
+        data-verify-module-row=""
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Module not listed? Verify by name
+        </p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Hidden and beta modules (Lmod hides them from <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">module avail</code>)
+          still load by full name — type the exact name and verify it.{" "}
+          {creating
+            ? "It joins the list above and rides with Create as the default (nothing is saved until then)."
+            : "It joins the list above and becomes the default."}
+        </p>
+        <div className="flex items-center gap-1.5">
+          <Input
+            value={verifyInput}
+            onChange={(e) => setVerifyInput(e.target.value.trim())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void verifyModule();
+              }
+            }}
+            placeholder="relion/beta_5.0_gpu_ompi5_cuda118"
+            className="h-9 font-mono text-[13px]"
+            maxLength={200}
+            aria-label="Module name to verify"
+            data-verify-module-input=""
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0 gap-1.5 text-xs"
+            onClick={() => void verifyModule()}
+            disabled={verifying || !verifyInput.trim() || (creating && !valid)}
+            data-verify-module-button=""
+          >
+            {verifying ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <BadgeCheck className="size-3.5" aria-hidden="true" />
+            )}
+            {verifying ? "Verifying…" : creating ? "Verify" : "Verify & pin"}
+          </Button>
+        </div>
+        {verifyResult ? (
+          verifyResult.ok ? (
+            <p
+              role="status"
+              className="text-[11px] leading-relaxed text-success-700 dark:text-success-300"
+              data-verify-module-ok=""
+            >
+              <span className="font-mono">{verifyResult.module}</span> loads — relion_refine at{" "}
+              <span className="font-mono">{verifyResult.relionHome || "(module PATH)"}</span>
+              {verifyResult.mpi ? " · mpirun ✓" : " · no mpirun (sequential fallback)"}.{" "}
+              {creating
+                ? "It is in the list above and will become the default when you create the connection."
+                : "It is now in the list above and pinned as the default."}
+            </p>
+          ) : (
+            <p
+              role="alert"
+              className="text-[11px] leading-relaxed text-danger"
+              data-verify-module-error=""
+            >
+              {verifyResult.error}
+            </p>
+          )
+        ) : null}
+      </div>
+
       {testError ? (
         <p
-          className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
+          className="rounded-md border border-danger-500/30 bg-danger/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-danger"
           role="alert"
         >
           {testError}
@@ -972,13 +1635,19 @@ function ConnectionEditor({
       {!creating && connection?.resume ? (
         <div className="space-y-2">
           <SectionTitle>Run résumé</SectionTitle>
-          <RunResumeCard resume={connection.resume} onOpenJob={onOpenJob} />
+          <RunResumeCard
+            resume={connection.resume}
+            connectionId={connection.id}
+            onOpenJob={onOpenJob}
+            onForgetRun={onForgetRun}
+            onForgetAllDead={onForgetAllDead}
+          />
         </div>
       ) : null}
 
       {error ? (
         <p
-          className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300"
+          className="rounded-md border border-danger-500/30 bg-danger/[0.06] px-2.5 py-2 text-[11px] leading-relaxed text-danger"
           role="alert"
         >
           {error}
@@ -988,7 +1657,7 @@ function ConnectionEditor({
       {/* Editor actions */}
       <div className="flex flex-wrap items-center gap-2 border-t pt-3">
         {creating ? (
-          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={onCancelCreate}>
+          <Button variant="ghost" size="sm" className="h-9 text-sm" onClick={onCancelCreate}>
             Cancel
           </Button>
         ) : (
@@ -996,8 +1665,8 @@ function ConnectionEditor({
             variant="ghost"
             size="sm"
             className={cn(
-              "h-8 text-xs text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400",
-              confirmDelete && "bg-rose-500/10"
+              "h-9 text-sm text-danger-600 hover:bg-danger-500/10 hover:text-danger-700 dark:text-danger-400",
+              confirmDelete && "bg-danger-500/10"
             )}
             onClick={() => (confirmDelete ? void remove() : setConfirmDelete(true))}
             disabled={deleting}
@@ -1013,34 +1682,64 @@ function ConnectionEditor({
         )}
         <div className="flex-1" />
         {savedFlash ? (
-          <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400" role="status">
+          <span className="flex items-center gap-1 text-[11px] text-success" role="status">
             <Check className="size-3.5" aria-hidden="true" /> Saved
           </span>
         ) : dirty ? (
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground" role="status">
-            <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" /> unsaved edits
+            <span className="size-1.5 rounded-full bg-warning-500" aria-hidden="true" /> unsaved edits
           </span>
         ) : null}
-        {!creating ? (
+        {/* t289 — Test & probe lives on the CREATE form too: the by-value
+            probe answers "does this login work" before anything is saved. */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5 text-sm"
+          onClick={() => void (creating ? testDraft() : test())}
+          disabled={testing || saving || (creating && !valid)}
+          title={
+            creating
+              ? "Log in over SSH with the values above (nothing is saved) and probe the node — can take ~30s"
+              : "Log in over SSH and probe the node (can take ~30s)"
+          }
+        >
+          {testing ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Server className="size-3.5" aria-hidden="true" />
+          )}
+          {testing ? "Probing…" : "Test & probe"}
+        </Button>
+        {/* t370 — the storage write-path check, beside Test & probe:
+            reachability ("can I log in?") vs durability ("do a compute
+            node's writes survive to the login node?") are the two
+            different questions a cluster must answer, and the corruption
+            evidence in the galleries (zero headers, all-zero classes) is
+            what a NO on the second one looks like. Saved connections
+            only — the create form has no id to diagnose yet. */}
+        {!creating && (
           <Button
+            type="button"
             variant="outline"
             size="sm"
-            className="h-8 gap-1.5 text-xs"
-            onClick={() => void test()}
-            disabled={testing || saving}
-            title="Log in over SSH and probe the node (can take ~30s)"
+            className="h-9 gap-1.5 text-sm"
+            onClick={() => void storageCheck()}
+            disabled={storageChecking || testing || saving}
+            title="Write 2 MB of random bytes ON A COMPUTE NODE and read them back from the login node — the storage conviction test. Can take up to ~3 minutes (a compute node has to be allocated first)."
+            data-storage-check-button=""
           >
-            {testing ? (
+            {storageChecking ? (
               <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
             ) : (
-              <Server className="size-3.5" aria-hidden="true" />
+              <HardDrive className="size-3.5" aria-hidden="true" />
             )}
-            {testing ? "Probing…" : "Test & probe"}
+            {storageChecking ? "Checking write path on a compute node…" : "Storage check"}
           </Button>
-        ) : null}
+        )}
         <Button
           size="sm"
-          className="h-8 text-xs"
+          className="h-9 text-sm"
           onClick={() => void save()}
           disabled={saving || !valid}
           title={valid ? undefined : "Host and username are required"}
@@ -1049,6 +1748,39 @@ function ConnectionEditor({
           {creating ? "Create connection" : "Save"}
         </Button>
       </div>
+      {/* t370 — the storage check's persistent line: the toast is the
+          arrival notice, this stays while the editor is open (the
+          verifyResult dialect — pending sets expectations, the verdict
+          outlives the ~3-minute wait) */}
+      {!creating && storageChecking ? (
+        <p
+          className="mt-2 text-[11px] leading-relaxed text-muted-foreground"
+          role="status"
+          data-storage-check-pending=""
+        >
+          Checking write path on a compute node — writing 2 MB of random bytes there and reading
+          them back from the login node. This can take up to ~3 minutes (a compute node has to be
+          allocated); the verdict lands here and in a toast.
+        </p>
+      ) : !creating && storageResult ? (
+        storageResult.ok ? (
+          <p
+            className="mt-2 text-[11px] leading-relaxed text-success-700 dark:text-success-300"
+            role="status"
+            data-storage-check-verdict=""
+          >
+            {storageResult.verdict}
+          </p>
+        ) : (
+          <p
+            className="mt-2 text-[11px] leading-relaxed text-danger"
+            role="alert"
+            data-storage-check-error=""
+          >
+            {storageResult.error}
+          </p>
+        )
+      ) : null}
     </div>
   );
 }
@@ -1075,6 +1807,39 @@ export function RemoteClusterDialog({
       inspect(jobId);
     },
     [onOpenChange, inspect]
+  );
+  // t294 — the forget door's caller: DELETE the dead record, then reload
+  // the list — the server re-aggregates the résumé (one truth, no local
+  // surgery on a cached card). A refusal (live job / not remote / missing)
+  // propagates its honest error text back to the row's role=alert line.
+  const handleForgetRun = React.useCallback(
+    async (jobId: string) => {
+      const res = await fetch(`/api/remote/records/${encodeURIComponent(jobId)}`, {
+        method: "DELETE",
+      });
+      const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok) throw new Error(body?.error || `forget failed (${res.status})`);
+      reload();
+    },
+    [reload]
+  );
+  // t295 — the bulk door's caller: one DELETE retires every DEAD record of
+  // the connection (the server keeps live records and counts both), then
+  // reload — the server re-aggregates (one truth, no local surgery). The
+  // counts come back so the card can state what actually happened.
+  const handleForgetAllDead = React.useCallback(
+    async (connectionId: string): Promise<{ forgotten: number; kept: number }> => {
+      const res = await fetch(`/api/remote/records?connectionId=${encodeURIComponent(connectionId)}`, {
+        method: "DELETE",
+      });
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; forgotten?: number; kept?: number }
+        | null;
+      if (!res.ok || !body?.ok) throw new Error(body?.error || `bulk forget failed (${res.status})`);
+      reload();
+      return { forgotten: body.forgotten ?? 0, kept: body.kept ?? 0 };
+    },
+    [reload]
   );
   // selection IS activation (see file doc): the highlighted row is the
   // active connection, persisted on every click.
@@ -1144,10 +1909,21 @@ export function RemoteClusterDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-3xl"
+        className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
       >
-        <DialogHeader>
+        {/* t808 — the house dialect reaches the remote manager (the
+            family's next batch): the DialogContent WAS the scroll surface
+            (the t383 default overflow-y-auto rode on, Radix pins the
+            dialog to tabIndex=-1, and everything between the header's
+            last tabbable and the editor's first was keyboard-unreachable
+            — the t804 six-house verdict, one more face). The shape: flex
+            col + gap-0 + overflow-hidden + p-0, the header pinned, and
+            ONE inner region carrying the stop + the honest name + the
+            inset ring; role=dialog kept (the t799 third-family law). The
+            two inner grounds (the list's 54vh scroll, the editor's 60vh)
+            keep their own scrolls — one law per window. */}
+        <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2">
             <Network className="size-4 text-primary" aria-hidden="true" />
             Remote clusters (SSH)
@@ -1164,9 +1940,15 @@ export function RemoteClusterDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 gap-4">
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Remote cluster manager — the connection list and the selected editor"
+          className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
+        <div className="flex min-h-0 flex-col gap-4 sm:flex-row">
           {/* ---------------- left rail: the connection list ---------------- */}
-          <div className="flex w-60 shrink-0 flex-col gap-1.5">
+          <div className="flex w-full shrink-0 flex-col gap-1.5 sm:w-60">
             <div
               className="max-h-[54vh] space-y-1 overflow-y-auto pr-0.5"
               role="list"
@@ -1260,6 +2042,7 @@ export function RemoteClusterDialog({
                 onPatched={handlePatched}
                 onCancelCreate={() => setCreating(false)}
                 onOpenJob={handleOpenJob}
+                onForgetRun={handleForgetRun}
               />
             ) : selected ? (
               <ConnectionEditor
@@ -1270,6 +2053,8 @@ export function RemoteClusterDialog({
                 onProbed={handleProbed}
                 onPatched={handlePatched}
                 onOpenJob={handleOpenJob}
+                onForgetRun={handleForgetRun}
+                onForgetAllDead={() => handleForgetAllDead(selected.id)}
               />
             ) : (
               <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center">
@@ -1287,6 +2072,7 @@ export function RemoteClusterDialog({
               </div>
             )}
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -1333,7 +2119,7 @@ export function RemoteClusterButton() {
         <Network className="size-4" aria-hidden="true" />
         {healthy ? (
           <span
-            className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-emerald-500 ring-2 ring-background"
+            className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-success-500 ring-2 ring-background"
             aria-hidden="true"
           />
         ) : null}

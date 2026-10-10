@@ -23,6 +23,10 @@
  * on dpr-1 displays — the footer scales itself off the same ratio.
  */
 
+// t646 — the blob sink lives in lib/download (this file's twin skipped
+// the attach-before-click Firefox law; its consumers move to the father).
+import { downloadBlob } from "@/lib/download";
+
 export interface ViewerExportOptions {
   /** the onscreen WebGL canvas (plugin.canvas3d.canvas) */
   canvas: HTMLCanvasElement;
@@ -288,20 +292,9 @@ export async function exportViewerPng(opts: ViewerExportOptions): Promise<Viewer
   const { blob, width, height } = await composeViewerFigure(opts);
 
   const fileName = `cryoflow-map-${slug(opts.mapName)}-${timestamp()}.png`;
-  downloadViewerBlob(blob, fileName);
+  downloadBlob(blob, fileName);
 
   return { fileName, width, height, bytes: blob.size };
-}
-
-/** download any produced blob (PNG figure, WebM turntable clip, …) via a
- *  transient anchor — the one sink every capture path shares */
-export function downloadViewerBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 /** file-name slug + timestamp helpers shared by viewer export sinks

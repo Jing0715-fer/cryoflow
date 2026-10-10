@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /** diag280c.mjs — the sheet Close over=15px mystery, empirically. */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

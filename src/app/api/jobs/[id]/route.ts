@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { toJobDTO } from "@/lib/seed";
 import { getRun } from "@/lib/relion/engine";
 import { remoteStopRun } from "@/lib/remote/remote-run";
 import { jobType } from "@/lib/workflow";
 import { clearRunRecord, stopRun, isRunAlive } from "@/lib/relion/engine";
 import { removeFileEdgesTouching } from "@/lib/edge-ports";
+import { writeJobTombstone } from "@/lib/job-tombstone";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,13 @@ type RouteContext = { params: Promise<{ id: string }> };
  *    are visible; downstream consumers keep working through links)
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  // t708 — the write door: params here merge INTO the stored job (the same
+  // surface the interpreter-injection review locked to schema keys), so a
+  // blind write is a param mutation, not a cosmetic one (doctrine
+  // http-guard.ts + t252 Phase B2). One door, every write handler.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site job edits are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const body = (await request.json().catch(() => ({}))) as {
@@ -132,6 +141,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       data.progress = 0;
       data.result = null;
       data.startedAt = null;
+      // t445 — evidence hygiene: the reset erases the run the snapshot
+      // describes. An idle job has no result for a recipe to answer for;
+      // carrying the stale snapshot would let the NEXT completion's
+      // drift verdict silently compare against a run that no longer
+      // exists in the row's own history.
+      data.ranParams = null;
       // If a live process is still attached to this job (running refine,
       // restart orphan…), kill its tree FIRST — previously the record was
       // simply cleared, leaving an untracked mpirun writing to the workdir
@@ -156,7 +171,46 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const job = await db.job.update({ where: { id }, data });
+    // t282 — no-op suppression: a PATCH that would write the SAME values
+    // (drag jitter landing back on the same spot, a repeated save, an
+    // empty body) must not touch @updatedAt — Prisma's @updatedAt fires
+    // on every update() CALL, not on every actual change, so today the
+    // dashboard's "updated X ago" answers "the last REQUEST", not "the
+    // last REAL edit". The idle-reset branch above is an explicit intent
+    // (its kill + record-clear side effects already ran) and always
+    // executes. Params compare SEMANTICALLY (parse both sides) — a
+    // stringify diff could disagree on key order even when the map is
+    // identical; an unparseable stored string is never "equal" (writing
+    // the sanitized merge is the honest fix).
+    const resetIntent = body.status === "idle";
+    const patchIsNoOp = (() => {
+      const keys = Object.keys(data);
+      if (keys.length === 0) return true;
+      let storedParams: Record<string, unknown> | null = null;
+      try {
+        const p = JSON.parse(existing.params || "{}");
+        if (p && typeof p === "object" && !Array.isArray(p)) storedParams = p;
+      } catch {
+        /* unparseable stored params — never treated as equal */
+      }
+      return keys.every((k) => {
+        const v = data[k];
+        if (k === "params") {
+          if (storedParams === null) return false;
+          try {
+            return JSON.stringify(JSON.parse(v as string)) === JSON.stringify(storedParams);
+          } catch {
+            return false;
+          }
+        }
+        return (existing as unknown as Record<string, unknown>)[k] === v;
+      });
+    })();
+
+    const job =
+      !resetIntent && patchIsNoOp
+        ? existing
+        : await db.job.update({ where: { id }, data });
     return NextResponse.json({ job: toJobDTO(job) });
   } catch (error) {
     console.error("PATCH /api/jobs/[id] failed:", error);
@@ -175,7 +229,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  * /api/jobs/restore) restores the row under the same id and re-attaches
  * every output.
  */
-export async function DELETE(_request: NextRequest, context: RouteContext) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  // t708 — the write door for uniformity (method-immune class — DELETE
+  // cannot be fired by forms or no-cors fetches; the door keeps the write
+  // surface one-shaped). Tombstone + cascade make this the heaviest
+  // single-row write in the app — door it like its PATCH sibling.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site job edits are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const existing = await db.job.findUnique({
@@ -192,6 +253,18 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
         },
         { status: 409 }
       );
+    }
+    // t341 — snapshot the run record + every touching edge BEFORE the
+    // stop/clear/cascade below erases them: the restore route re-applies
+    // this tombstone, so an undo re-attaches the job's outputs AND its
+    // wires even after a page reload lost the client snapshot (review C3
+    // — a restored row with no record starved downstream consumers, and
+    // the API-level restore never rebuilt edges). Best-effort: a
+    // tombstone failure never blocks the delete.
+    try {
+      await writeJobTombstone(id);
+    } catch {
+      /* advisory — the delete itself must proceed */
     }
     try {
       if (isRunAlive(id)) {

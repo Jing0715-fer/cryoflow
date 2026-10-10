@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { mkdirSync, writeFileSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject, toJobDTO } from "@/lib/seed";
 import { defaultParams, defaultPorts, jobType } from "@/lib/workflow";
 import { portsValid, persistPortEdge } from "@/lib/edge-ports";
@@ -25,21 +26,26 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Map (mapimport) job pointed at it and wire the edge parent→import — the
  * RELION box-subregion workflow in one action (crop → focused processing).
  *
- * Threat-model ledger (t252 doctrine, applied to this write): the handler
- * REQUIRES a parseable JSON body — fractions and the map path live in it —
- * so a cross-site HTML form (urlencoded only) and a no-cors fetch cannot
- * reach state: request.json() throws and the route 400s before anything is
- * written. Cross-site JS with a JSON body is spec-blocked too (CORS-mode
- * POST needs a preflight; the app answers zero OPTIONS handlers). Same
- * class as restore/layout/switch — self-defending, honestly absent door.
- *
- * The geometry contract is the GET sibling's own (fractions 0…1, lo < hi,
- * floor/ceil → voxels) and the map is resolved through the SAME shared
- * containment policy (resolveInsideJobWorkdir + the pathref escape hatch),
- * so anything the viewer can show, the pipeline can consume — and nothing
- * the viewer cannot reach can be materialized.
+ * Threat-model ledger (t252 doctrine, RETIRED by t708): the old comment
+ * claimed a strict JSON parse made this route self-defending — "a no-cors
+ * fetch cannot reach state". That was HALF true: no-cors cannot send
+ * application/json, but text/plain IS safelisted and a string body may
+ * contain valid JSON — request.json() reads bodies, not content types, so
+ * the blind POST could carry the whole geometry contract. The t708 door is
+ * the real closure; the strict parse below stays (it still kills the
+ * urlencoded form shape before the body is even parsed) and the geometry
+ * contract is unchanged: fractions 0…1, lo < hi, floor/ceil → voxels, the
+ * map resolved through the SAME shared containment policy
+ * (resolveInsideJobWorkdir + the pathref escape hatch) — nothing the
+ * viewer cannot reach can be materialized.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
+  // t708 — the write door: this route WRITES A FILE to the workdir AND mints
+  // a pipeline job AND wires an edge — three state changes one blind POST
+  // used to reach with a text/plain JSON string.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site sub-volume sends are not allowed" }, { status: 403 });
+  }
   try {
     const { id } = await context.params;
     const parent = await findEffectiveJob(id); // resolves soft links to the original

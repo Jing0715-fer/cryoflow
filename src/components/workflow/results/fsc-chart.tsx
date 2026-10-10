@@ -13,9 +13,29 @@
  *
  * X axis: resolution in Å, REVERSED so the high-resolution end (right) is
  * "further along" — the conventional cryo-EM orientation.
+ *
+ * t610 — THE CURVE DOESN'T DANCE (the chart family's mute law; this file is
+ * its eldest host — guinier, resolution, ctf-quality, topaz-training, the
+ * resolution arc dialog and the FSC compare dialog all inherit it).
+ *
+ * Every Recharts line/area/bar in this family carries
+ * `isAnimationActive={false}`, and that is a DECISION, not an omission:
+ * recharts re-runs its line-draw animation whenever the data prop's array
+ * identity changes, and these charts' parents refetch (JobResults' Refresh,
+ * the 30s live poll while a job runs) — every refetch hands the curve a
+ * fresh array even when the numbers are identical. An animated curve would
+ * re-perform its own drawing on each of those moments: motion without
+ * change, noise wearing the costume of news. The measurements are already
+ * measured; the wire merely delivers them.
+ *
+ * The two-layer honesty that replaces it: the CARD rises once (animate-rise
+ * on the section below — the furniture arriving when its data first lands)
+ * and the CURVE stays still inside it (the measurement itself). Refresh,
+ * poll ticks and re-mounts are all silent by the same law. Do not "fix"
+ * these flags back to animated.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Award, Crosshair, GitCompareArrows, Layers, Waves } from "lucide-react";
 import {
   CartesianGrid,
@@ -29,16 +49,20 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { Chip } from "@/components/ui/chip";
+import { useChartResource } from "@/lib/use-chart-resource";
 import { fscShells, fscRenderable, fscRows, type FscResponse } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartErrorStrip } from "./chart-error-strip";
 import { FscCompareDialog } from "./fsc-compare-dialog";
+import { STATUS_HEX } from "@/lib/status-style";
 
-const TEAL = "#14b8a6";
-const AMBER = "#f59e0b";
+// t650: SVG-series hex values flow from the STATUS_HEX single source.
+const TEAL = STATUS_HEX.running;
+const AMBER = STATUS_HEX.pending;
 const NOISE = "#71717a";
 const VIOLET = "#8b5cf6";
-const ROSE = "#f43f5e";
+const ROSE = STATUS_HEX.failed;
 
 export function FscChart({
   jobId,
@@ -54,31 +78,18 @@ export function FscChart({
    *  wide FSC overlay (other jobs' curves plotted on the same axis) */
   projectId?: string;
 }) {
-  const [data, setData] = useState<FscResponse | null>(null);
+  // t491 — the fetch state machine is shared (use-chart-resource): the
+  // hand-rolled effect + silent catch used to render this panel invisible
+  // forever after one transient blip, indistinguishable from "no data".
+  const { status, data, error, retry } = useChartResource<FscResponse>(
+    `/api/jobs/${jobId}/fsc`,
+    { pollMs: running ? 30_000 : null }
+  );
   const [compareOpen, setCompareOpen] = useState(false);
   // the raw masked-maps FSC (pre-correction) is an expert diagnostic — the
   // gap between it and the corrected curve IS the mask-induced correlation
   // boost. Hidden by default so the headline chart stays readable.
   const [showMasked, setShowMasked] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<FscResponse>(`/api/jobs/${jobId}/fsc`);
-        if (!cancelled) setData(body);
-      } catch {
-        /* silent — enhancement only */
-      }
-    };
-    void load();
-    if (!running) return () => { cancelled = true; };
-    const t = setInterval(() => void load(), 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
 
   // clip 999-sentinel / non-finite rows, keep resolution ascending;
   // jobs whose FSC column is all zeros (e.g. VDAM initialmodel) stay hidden
@@ -86,6 +97,16 @@ export function FscChart({
   // the same shells through the same function)
   const shells = useMemo(() => fscShells(data), [data]);
 
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="FSC curve"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   if (!data || !fscRenderable(shells)) return null;
 
   const isPost = data.source === "postprocess";
@@ -93,19 +114,11 @@ export function FscChart({
   const res143 = data.resolutionAt143;
   const res05 = data.resolutionAt05;
   const reported = data.reportedResolution;
-  // the reported value can land exactly on the last sampled shell when the
-  // box Nyquist limit (2 × pixel size) caps the reconstruction — detect so
-  // the badge explains WHY the corrected curve never crosses 0.143.
-  // shells are sorted ascending by Å, so the HIGH-frequency end — where a
-  // Nyquist cap would bite — is shells[0] (smallest Å), not the low-res tail.
-  const atNyquist =
-    reported != null &&
-    shells.length > 0 &&
-    Math.abs(shells[0].res - reported) / reported < 0.02;
-  // show both numbers when they materially disagree (raw crossing vs the
-  // smoothed estimate RELION prints in its log / star metadata)
-  const reportedDiffers =
-    reported != null && (res143 == null || Math.abs(reported - res143) > 0.5);
+  // t489 — the Nyquist-cap detection and the reported-vs-crossing
+  // disagreement are the WELL's judgment (interpretFsc, built beside the
+  // crossings it reads): the badges below read it instead of re-judging.
+  const atNyquist = data.interpretation?.atNyquist ?? false;
+  const reportedDiffers = data.interpretation?.reportedDiffers ?? false;
 
   return (
     <section
@@ -158,25 +171,30 @@ export function FscChart({
           </button>
         )}
         {hasMasked && (
-          <button
-            type="button"
-            onClick={() => setShowMasked((v) => !v)}
-            aria-pressed={showMasked}
-            title={
-              showMasked
-                ? "Hide the raw masked-maps FSC (before phase-randomization correction)"
-                : "Show the raw masked-maps FSC — its gap to the corrected curve is the mask-induced correlation boost"
-            }
+          <Chip
+            size="md"
+            interactive
+            asChild
             className={
-              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors " +
-              (showMasked
-                ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
-                : "border-muted-foreground/25 bg-muted text-muted-foreground hover:border-rose-500/40 hover:text-rose-700 dark:hover:text-rose-300")
+              showMasked
+                ? "border-danger-500/40 bg-danger-500/10 text-danger"
+                : "border-muted-foreground/25 bg-muted text-muted-foreground hover:border-danger-500/40 hover:text-danger-700 dark:hover:text-danger-300"
             }
           >
-            <Layers className="h-3 w-3" aria-hidden="true" />
-            masked (raw)
-          </button>
+            <button
+              type="button"
+              onClick={() => setShowMasked((v) => !v)}
+              aria-pressed={showMasked}
+              title={
+                showMasked
+                  ? "Hide the raw masked-maps FSC (before phase-randomization correction)"
+                  : "Show the raw masked-maps FSC — its gap to the corrected curve is the mask-induced correlation boost"
+              }
+            >
+              <Layers aria-hidden="true" />
+              masked (raw)
+            </button>
+          </Chip>
         )}
         {running && (
           <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">

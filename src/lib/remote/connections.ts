@@ -44,6 +44,25 @@ export function sanitizeConnection(raw: Record<string, unknown>, prev?: RemoteCo
   const portRaw = Number(raw.port);
   const fileMb = Number(raw.maxFileMb);
   const totalMb = Number(raw.maxTotalMb);
+  // t289 — sync-back policy + the key-files binary cap. Absent fields keep
+  // the stored value; a brand-new connection defaults to key-files/16MB
+  // (bulky maps stay on the cluster, fetchable on demand).
+  const policy: RemoteConnection["syncPolicy"] =
+    raw.syncPolicy === "everything" || raw.syncPolicy === "key-files"
+      ? raw.syncPolicy
+      : (prev?.syncPolicy ?? "key-files");
+  const keyMbRaw = Number(raw.keyFileMb);
+  const keyFileMb = Number.isFinite(keyMbRaw)
+    ? Math.max(1, Math.min(2048, Math.round(keyMbRaw)))
+    : (prev?.keyFileMb ?? 16);
+  // t367 — explicit sbatch walltime (minutes). Absent keeps the stored
+  // value (the edit form's three-state dialect); 0/null = auto (the
+  // refinement family asks the partition's own MaxTime at submit time).
+  const timeMinRaw = Number(raw.slurmTimeMin);
+  const slurmTimeMin =
+    Number.isFinite(timeMinRaw) && timeMinRaw > 0
+      ? Math.min(20160, Math.round(timeMinRaw)) // 2 weeks — Slurm's sane ceiling
+      : null;
   const envLines = Array.isArray(raw.envLines)
     ? raw.envLines
         .filter((l): l is string => typeof l === "string")
@@ -68,6 +87,21 @@ export function sanitizeConnection(raw: Record<string, unknown>, prev?: RemoteCo
     defaultModule: str(raw.defaultModule, 200) ?? prev?.defaultModule ?? null,
     envLines,
     useSlurm: typeof raw.useSlurm === "boolean" ? raw.useSlurm : (prev?.useSlurm ?? false),
+    // t297 — the sbatch partition (null = cluster default). An explicitly
+    // empty string MEANS "use the default" (clearing the field), absent
+    // keeps the stored value — the same three-state dialect as strings above.
+    slurmPartition:
+      typeof raw.slurmPartition === "string"
+        ? raw.slurmPartition.trim()
+          ? raw.slurmPartition.trim().slice(0, 80)
+          : null
+        : (prev?.slurmPartition ?? null),
+    slurmTimeMin:
+      raw.slurmTimeMin === undefined
+        ? (prev?.slurmTimeMin ?? null)
+        : slurmTimeMin,
+    syncPolicy: policy,
+    keyFileMb,
     maxFileMb: Number.isFinite(fileMb) ? Math.max(1, Math.min(8192, Math.round(fileMb))) : (prev?.maxFileMb ?? 512),
     maxTotalMb: Number.isFinite(totalMb) ? Math.max(16, Math.min(65536, Math.round(totalMb))) : (prev?.maxTotalMb ?? 2048),
     lastProbe: probe,

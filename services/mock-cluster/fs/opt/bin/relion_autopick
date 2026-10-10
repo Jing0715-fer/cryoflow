@@ -7,6 +7,15 @@ coordinate stars at <odir>micrographs/<mic>_autopick.star (the app's
 collectOutputs counts picks across them). Topaz mode logs the --fn_topaz_exe
 path it was handed (the t264 e2e asserts it is the CLUSTER's own topaz).
 
+t320 — the REAL refusal, faithfully: RELION's autopicker.cpp read() hard-errors
+when --gpu rides --LoG (`do_gpu && do_LoG -> REPORT_ERROR("The
+Laplacian-of-Gaussian picker does not support GPU acceleration. Please
+remove --gpu option.")`). The user's real-cluster receipt is this exact text
+with a backtrace into build/bin/relion_autopick. A mock that ACCEPTED the
+pair would hide the very bug the dispatch just fixed — the mock must die
+exactly where the real binary dies, so any regression that re-adds --gpu
+to a LoG dispatch fails the e2e loudly instead of silently completing.
+
 t265 adds the TRAINING face (--topaz_train): relion_autopick trained on a
 coordinate_files index (--topaz_train_picks) writes the CNN model into the
 job dir (topaz_model.sav) plus a training-curve PNG, logging per-epoch
@@ -44,6 +53,18 @@ pickname = opts.get("pickname", "autopick")
 topaz_exe = opts.get("fn_topaz_exe")
 train_mode = bool(opts.get("topaz_train", "")) or "topaz_train" in opts
 topaz_mode = "topaz_extract" in opts or bool(topaz_exe)
+
+# t320 — the LoG + --gpu pair is a hard argv-parse error in real RELION
+# (read()-time, before any micrograph is touched). Die exactly there.
+if "gpu" in opts and "LoG" in opts:
+    print("in: src/autopicker.cpp, line 146", file=sys.stderr)
+    print("ERROR:", file=sys.stderr)
+    print(
+        "The Laplacian-of-Gaussian picker does not support GPU acceleration. "
+        "Please remove --gpu option.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 if not star_in or not os.path.exists(star_in):
     print(f"ERROR: cannot read input star: {star_in}", file=sys.stderr)
@@ -134,12 +155,110 @@ if topaz_exe:
     method += f" via {topaz_exe}"
 print(f"cryoflow-mock autopick: {method} — {len(mics)} micrograph(s)")
 
+# t323 — the optimise-scale warning dialect, faithful: real RELION's
+# getGoodFourierDims (autopicker.cpp) prints this exact chorus whenever the
+# prime-factor rescale fires and --skip_optimise_scale is ABSENT — the
+# user's 4096-px receipt carried all four lines verbatim. t323-a (review):
+# the chorus is gated on the LoG METHOD, not merely "not topaz" — the
+# References lane's work size is lowpass-driven (small, friendly primes),
+# real RELION does not print the rescale chorus there, and the app's
+# References dispatch deliberately carries no flag (unsilenceable noise).
+# The dispatch always sends the flag for LoG picking, so a HEALTHY LoG
+# run.out stays silent; a regression that drops the flag makes the chorus
+# reappear and the e2e fails loudly instead of silently completing.
+if "LoG" in opts and "skip_optimise_scale" not in opts:
+    print(" + Will use following diameters for Laplacian-of-Gaussian filter: ")
+    print("   * 120 (ok)")
+    print("   * 180 (ok)")
+    print("   * 240 (ok)")
+    print(" + WARNING: Requested rescale of micrographs is 4096 pixels. The largest prime factor in FFTs is 683")
+    print(" + WARNING: Will change rescaling of micrographs to 4048 pixels, because the prime factor then becomes 23")
+    print(" + WARNING: add --skip_optimise_scale to your autopick command to prevent rescaling")
+    print(" + WARNING: The calculations will be done at a lower resolution than requested.")
+
+# t323 — the SILENT DEATH trigger, faithful to the user's real-cluster
+# receipt: a micrograph whose basename carries "silent-death" makes the
+# picker run a while (progress bars on stdout), then exit 1 with ZERO
+# stderr — the exact shape of an externally-killed run (login-node CPU
+# reaper / OOM / walltime). Every in-code RELION death PRINTS, so a silent
+# exit-1 is the one death the app must diagnose WITHOUT error text; the
+# fixture gives the e2e that scenario live.
+if "silent-death" in " ".join(os.path.basename(m) for m in mics):
+    print("Autopicking ...")
+    print("0.06/3.40 hrs ~~(,_,\">  [oo]")
+    sys.stdout.flush()
+    time.sleep(2)
+    print("0.12/3.68 hrs .~~(,_,\">  [oo]")
+    print("0.19/3.82 hrs ..~~(,_,\">  [oo]")
+    sys.stdout.flush()
+    time.sleep(2)
+    print("0.31/3.82 hrs ....~~(,_,\"> [oo]")
+    sys.stdout.flush()
+    # exit 1, nothing on stderr — the silent external kill
+    sys.exit(1)
+
 os.makedirs(os.path.join(odir, "micrographs"), exist_ok=True)
 total = 0
+# t311 — TOTAL sleep capped at 60s (motioncorr's t268 doctrine, ctffind's
+# t311 twin): the 0.8s/mic cadence served small suites; a 450-micrograph
+# import tree made the run a 6-minute wall.
+pace = min(0.8, 60.0 / max(1, len(mics)))
+
+# t380 — REAL dark-blob picking: a readable micrograph gets LoG-style
+# detection on its ACTUAL pixels (difference of box-means at the two pick
+# scales, local maxima whose core sits clearly below the ice plane) — the
+# picks land on the real β-galactosidase blobs, so Extract's REAL crops
+# carry the true cryo polarity. Unreadable mic / no detection → legacy
+# synthetic picks (suite fixtures keep their dialect).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import cf_cryo
+except Exception:
+    cf_cryo = None
+
+_diam_min = float(opts.get("LoG_diam_min", "120") or 120)
+_diam_max = float(opts.get("LoG_diam_max", "180") or 180)
+_log_thresh = float(opts.get("LoG_adjust_threshold", "0") or 0)
+
+
+def _resolve_mic_autopick(mic):
+    cands = [mic]
+    if not os.path.isabs(mic):
+        _sd = os.path.dirname(os.path.abspath(star_in))
+        cands = [
+            os.path.join(_sd, mic),
+            os.path.join(os.getcwd(), mic),
+            os.path.join(os.path.dirname(_sd), mic),
+        ]
+    for cand in cands:
+        if os.path.exists(cand):
+            return cand
+    return None
+
+
 for n, mic in enumerate(mics, 1):
-    time.sleep(0.8)
+    time.sleep(pace)
     picks = 14 + (n * 3) % 9
-    total += picks
+    real_picks = None
+    if cf_cryo is not None:
+        mic_path = _resolve_mic_autopick(mic)
+        if mic_path:
+            opened = cf_cryo.read_mrc(mic_path)
+            if opened:
+                _nx, _ny, _nz, _vals = opened
+                detected = None
+                try:
+                    detected = cf_cryo.dark_blob_picks(
+                        _vals, _nx, _ny, _diam_min, _diam_max, _log_thresh, max_picks=300
+                    )
+                except Exception:
+                    # the stub's own contract: "Unreadable mic / no detection →
+                    # legacy synthetic picks". A frame stack an nz=1 picker
+                    # cannot hold (motioncorr rows that still point at movies)
+                    # is exactly that shape — fall back, never die (t703).
+                    detected = None
+                if detected is not None and len(detected) >= 3:
+                    real_picks = detected
     base = os.path.basename(mic)
     if base.endswith(".mrc"):
         star_name = base[: -len(".mrc")] + f"_{pickname}.star"
@@ -152,12 +271,23 @@ for n, mic in enumerate(mics, 1):
         fh.write("_rlnCoordinateY #2\n")
         fh.write("_rlnAutopickFigureOfMerit #3\n")
         fh.write("_rlnClassNumber #4\n")
-        for k in range(picks):
-            x = 120 + (k * 61) % 1800
-            y = 140 + (k * 97) % 1700
-            fom = 0.32 + 0.05 * (k % 5)
-            fh.write(f"{x}.0\t{y}.0\t{fom:.3f}\t1\n")
-    print(f"Micrograph {n}/{len(mics)}: {base} — {picks} particles picked")
+        if real_picks is not None:
+            picks = len(real_picks)
+            for k, (x, y) in enumerate(real_picks):
+                fom = 0.32 + 0.05 * (k % 5)
+                fh.write(f"{x:.1f}\t{y:.1f}\t{fom:.3f}\t1\n")
+            print(
+                f"Micrograph {n}/{len(mics)}: {base} — {picks} REAL dark-blob picks "
+                f"(LoG { _diam_min:.0f}–{_diam_max:.0f} Å, cryo polarity)"
+            )
+        else:
+            for k in range(picks):
+                x = 120 + (k * 61) % 1800
+                y = 140 + (k * 97) % 1700
+                fom = 0.32 + 0.05 * (k % 5)
+                fh.write(f"{x}.0\t{y}.0\t{fom:.3f}\t1\n")
+            print(f"Micrograph {n}/{len(mics)}: {base} — {picks} particles picked")
+    total += picks
     sys.stdout.flush()
 
 print(f"autopick done: {total} particles across {len(mics)} micrographs")

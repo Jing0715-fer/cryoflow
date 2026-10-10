@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,15 @@ interface ActivityPayload {
 }
 
 export async function GET(request: NextRequest) {
+  // t709 — the reader door (the nine pure-read routes' ledger, the t251
+  // family closure's honest completion): a drive-by page cannot READ an
+  // opaque no-cors response, but the aggregate queries would still RUN
+  // for it — a free database-work oracle. The door closes the blind
+  // probe and keeps the surface uniform: one door, every handler
+  // (doctrine in http-guard.ts).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site activity reads are not allowed" }, { status: 403 });
+  }
   try {
     const url = new URL(request.url);
     const days = Math.max(7, Math.min(30, Number.parseInt(url.searchParams.get("days") ?? "14", 10) || 14));

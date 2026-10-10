@@ -7,7 +7,10 @@
  * the pack's mean as the reference line and a per-micrograph detail table.
  *
  * Data: /api/jobs/[id]/motion parses corrected_micrographs.star
- * (_rlnAccumulatedMotionTotal / Early / Late, Å).
+ * (_rlnAccumMotion* — RELION's real columns; the documented
+ * _rlnAccumulatedMotion* variant is accepted as fallback, t440 — the
+ * parser had picked the variant RELION never writes and read zero rows
+ * from every real file). Values are px.
  *
  * Why stacked early/late and not just the total: the two halves have
  * different remedies. A big EARLY component means the stage settled late
@@ -17,8 +20,8 @@
  * before the user opens any table.
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { Activity, ChevronDown, TriangleAlert } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Activity, ChevronDown, Scale, TriangleAlert } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -33,7 +36,10 @@ import {
 import {
   cn,
 } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartInterpretation } from "./interpretation-strip";
+import { STATUS_HEX } from "@/lib/status-style";
+import { ChartErrorStrip } from "./chart-error-strip";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   motionRenderable,
   motionRows,
@@ -41,36 +47,26 @@ import {
 } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
 
-const TEAL = "#14b8a6";
-const AMBER = "#f59e0b";
+// t650: SVG-series hex values flow from the STATUS_HEX single source.
+const TEAL = STATUS_HEX.running;
+const AMBER = STATUS_HEX.pending;
 
 /** drift tone: the app's health buckets against the pack's own scale —
  *  a micrograph is an offender when it drifts ≥ mean + 2σ of ITS run. */
 function driftTone(total: number, mean: number, sd: number): string {
-  if (total >= mean + 2 * sd) return "text-rose-700 dark:text-rose-300";
-  if (total >= mean + 1 * sd) return "text-amber-700 dark:text-amber-300";
-  return "text-emerald-700 dark:text-emerald-300";
+  if (total >= mean + 2 * sd) return "text-danger";
+  if (total >= mean + 1 * sd) return "text-warning-700 dark:text-warning-300";
+  return "text-success-700 dark:text-success-300";
 }
 
 export function MotionDriftChart({ jobId, className }: { jobId: string; className?: string }) {
-  const [data, setData] = useState<MotionResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // t491 — shared fetch state machine (no poll: drift history doesn't
+  // change); the old `error` state was never even SET (the catch was
+  // silent) yet guarded the render — the wound never had a face
+  const { status, data, error, retry } = useChartResource<MotionResponse>(
+    `/api/jobs/${jobId}/motion`
+  );
   const [tableOpen, setTableOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const body = await fetchJsonRetry<MotionResponse>(`/api/jobs/${jobId}/motion`);
-        if (!cancelled && motionRenderable(body.micrographs?.length ?? 0)) setData(body);
-      } catch {
-        /* silent — self-hiding panel */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId]);
 
   const stats = useMemo(() => {
     const ms = data?.micrographs ?? [];
@@ -98,10 +94,25 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
 
   const rows = useMemo(() => motionRows(data), [data]);
 
-  if (error) return null;
-  if (!data) return null;
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Motion drift"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
+  if (!data || !motionRenderable(data.micrographs?.length ?? 0)) return null;
 
   const summary = data.summary;
+  // t488 — the drift triage + worst three, built in the well
+  // (interpretMotion): the same grammar get_job_curves speaks when asked
+  // "漂移大吗" — even split reads healthy, a dominated half is the
+  // panel's caution tone
+  const interp = data.interpretation ?? null;
+  const evenSplit = interp?.driftTriage === "even split";
 
   return (
     <div
@@ -109,12 +120,12 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
       className={cn("rounded-xl border bg-card print:break-inside-avoid", className)}
     >
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-        <Activity className="size-4 text-teal-600 dark:text-teal-400" aria-hidden />
+        <Activity className="size-4 text-running" aria-hidden />
         <h3 className="text-sm font-semibold">Accumulated motion</h3>
         {stats && stats.offenders > 0 ? (
           <span
             data-motion-offender-badge=""
-            className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+            className="inline-flex items-center gap-1 rounded-full bg-danger-100 px-2 py-0.5 text-[11px] font-medium text-danger-700 dark:bg-danger-500/15 dark:text-danger-300"
           >
             <TriangleAlert className="size-3" aria-hidden />
             {stats.offenders} outlier{stats.offenders > 1 ? "s" : ""} ≥ {stats.threshold.toFixed(1)} Å
@@ -139,6 +150,29 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
           </button>
         </div>
       </div>
+
+      {/* t488 — the interpretation strip: which half of the movie the drift
+          accumulates in (the tool's exact triage wording) + the worst
+          offender by name — the judgment before the evidence. */}
+      {interp && interp.worstMicrographs.length > 0 && (
+        <div className="px-4">
+          <ChartInterpretation
+            icon={Scale}
+            tone={evenSplit ? "emerald" : "amber"}
+            label="Drift triage"
+          >
+            {interp.driftTriage}
+            <span className="opacity-70">
+              {" "}· worst {" "}
+              <span className="font-mono text-[10px]">
+                {interp.worstMicrographs[0].name.split("/").pop()}
+              </span>{" "}
+              at {interp.worstMicrographs[0].totalA.toFixed(1)} Å
+              {summary ? ` (pack mean ${summary.meanTotal.toFixed(1)} Å)` : ""}
+            </span>
+          </ChartInterpretation>
+        </div>
+      )}
 
       <div className="px-2 pb-2 pt-3" data-motion-chart="">
         <ResponsiveContainer width="100%" height={Math.max(180, chartData.length * 22 + 40)}>
@@ -182,7 +216,7 @@ export function MotionDriftChart({ jobId, className }: { jobId: string; classNam
             <Bar dataKey="early" stackId="drift" fill={TEAL} radius={[0, 0, 0, 0]} />
             <Bar dataKey="late" stackId="drift" fill={AMBER} radius={[0, 3, 3, 0]}>
               {chartData.map((entry) => (
-                <Cell key={entry.name} fill={entry.offender ? "#f43f5e" : AMBER} fillOpacity={entry.offender ? 0.95 : 0.85} />
+                <Cell key={entry.name} fill={entry.offender ? STATUS_HEX.failed : AMBER} fillOpacity={entry.offender ? 0.95 : 0.85} />
               ))}
             </Bar>
           </BarChart>

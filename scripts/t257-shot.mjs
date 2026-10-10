@@ -4,6 +4,8 @@ import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const OUT = "/home/z/my-project/download/shots-qa/t257-reference-card-2x.png";
@@ -43,7 +45,7 @@ st[probe.id] = { jobId: probe.id, projectId: probe.projectId, type: "refine3d", 
   startedAt: new Date().toISOString(), outputs: {}, done: true, exitCode: 0 };
 writeFileSync("data/engine-state.json", JSON.stringify(st, null, 2));
 execSync(
-  `node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:process.argv[1]},data:{status:'completed',progress:100}}).then(()=>{console.log('flipped');return p.\\$disconnect();}).catch(e=>{console.error(e.message);process.exit(1);});" ${probe.id}`,
+  `DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:process.argv[1]},data:{status:'completed',progress:100}}).then(()=>{console.log('flipped');return p.\\$disconnect();}).catch(e=>{console.error(e.message);process.exit(1);});" ${probe.id}`,
   { cwd: "/home/z/my-project", encoding: "utf8" });
 await fetch(`${BASE}/api/edges`, { method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ fromJobId: importJob.id, toJobId: probe.id, fromPort: "model_mrc", toPort: "reference" }) });

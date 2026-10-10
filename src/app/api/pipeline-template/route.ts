@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { persistPortEdge, portsValid } from "@/lib/edge-ports";
@@ -151,6 +152,12 @@ const TEMPLATE_EDGES: [string, string, string, string][] = [
 ];
 
 export async function POST(request: NextRequest) {
+  // t708 — the write door: the scaffold mints a whole 10-job chain, exactly
+  // the shape a blind write should never reach (same no-cors JSON-body hole
+  // as the rest of the batch — doctrine in http-guard.ts + t252 Phase B2).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site template scaffolding is not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
       workspaceId?: unknown;

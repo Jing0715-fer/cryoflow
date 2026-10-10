@@ -13,6 +13,21 @@
  * (completed → unfinished) use a soft primary tint; hover thickens and
  * reveals a delete button at the path midpoint.
  *
+ * t349 — GRADIENTS ARE userSpaceOnUse, NEVER objectBoundingBox: a
+ * perfectly horizontal wire (both ports at the same y) has a ZERO-HEIGHT
+ * bounding box, and the SVG spec makes user agents IGNORE gradients on
+ * degenerate geometry — the stroke resolved to nothing and the wire
+ * literally vanished (the "broken line" report: it struck exactly when a
+ * task failed, because that is when its upstream wire turns primed, and
+ * horizontal same-row wires are the auto-arranged norm). The gradient
+ * now spans the wire's own endpoints in user space, which also points
+ * the ramp along the true source→target flow (bbox units pointed
+ * left-to-right even for wrap-around routes that run right-to-left).
+ * The gradient lives INSIDE the edge group (a paint server renders
+ * nothing directly wherever it sits) so the drag patch loop can reach
+ * it through the same group-scoped [data-e] contract as everything
+ * else.
+ *
  * PERFORMANCE — drag with zero React work per frame:
  * while a card is dragged, JobCard's rAF loop recomputes the touching
  * edge geometry with the same shared math and patches the SVG DOM
@@ -28,10 +43,10 @@
  */
 
 import * as React from "react";
-import { CARD_H, CARD_W } from "@/lib/workflow";
+import { CARD_H, CARD_W, PORT_COLORS, outputKindOf } from "@/lib/workflow";
 import { computeEdgeGeoms, getLiveDrag, type EdgeGeom } from "@/lib/edge-geom";
 import { useWorkflowStore } from "@/lib/store";
-import type { EdgeDTO, JobDTO } from "@/lib/types";
+import type { EdgeDTO, JobDTO, PortKind } from "@/lib/types";
 
 const STROKE_BASE = "color-mix(in oklch, var(--foreground) 32%, transparent)";
 const STROKE_ACTIVE = "color-mix(in oklch, var(--foreground) 52%, transparent)";
@@ -71,6 +86,10 @@ export const EdgesLayer = React.memo(function EdgesLayer({
   edges,
   jobs,
   judgedIds,
+  hoveredJobId,
+  chainIds,
+  chainEdgeIds,
+  legendKind,
 }: {
   edges: EdgeDTO[];
   jobs: JobDTO[];
@@ -83,6 +102,35 @@ export const EdgesLayer = React.memo(function EdgesLayer({
    *  this the lens dimmed 24 cards and left every wire between them
    *  at full strength — loud threads through a darkened world. */
   judgedIds?: Set<string> | null;
+  /** t571 — the hover channel: the id of the canvas card the pointer is
+   *  currently over (null when over empty canvas / gaps). Wires that
+   *  touch the hovered card LIGHT UP — a question the canvas answers
+   *  with ink ("what feeds this job?"). The grammar is deliberately
+   *  NOT selection's: hover lights the touched wires and leaves the
+   *  world alone; selection additionally dims every unrelated wire.
+   *  Hover ASKS, selection ANSWERS. Ephemeral view state owned by the
+   *  canvas render tree — deliberately not store material. */
+  hoveredJobId?: string | null;
+  /** t682 — the critical path lens, for wires. null when the lens is
+   *  OFF; a Set of the chain's job ids when ON. A wire the walk STOOD
+   *  ON carries the chain ink; every other wire recedes — including
+   *  chords between two chain cards the walk didn't use (the story is
+   *  the walked path, not the neighborhood) and side branches off a
+   *  chain card (the card is the story, that branch isn't). The same
+   *  union the selection and spotlight dims join: lenses dim
+   *  independently, ink multiplies. */
+  chainIds?: Set<string> | null;
+  /** The edge ids the chain walk actually used (the walked hops, in
+   *  chain order upstream of the finisher). null with the lens OFF. */
+  chainEdgeIds?: Set<string> | null;
+  /** t737 — the legend's focus: the kind word currently focused from
+   *  the toolbar's legend (null when none). A wire carrying ANOTHER
+   *  kind recedes on the --dim-wire rung — the question is "where does
+   *  THIS data flow", and a wire that speaks no word (unmapped/legacy,
+   *  edgeKind undefined) recedes with the rest: it is no word's story.
+   *  The same dim grammar selection and the lenses use; dims union,
+   *  ink multiplies. */
+  legendKind?: PortKind | null;
 }) {
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
@@ -113,39 +161,6 @@ export const EdgesLayer = React.memo(function EdgesLayer({
       style={{ left: box.x, top: box.y, overflow: "visible" }}
       aria-hidden="true"
     >
-      <defs>
-        {/* gradient defs for live / primed wires — created lazily below */}
-        {geoms.map((g) => {
-          const from = jobMap.get(g.fromId);
-          const to = jobMap.get(g.toId);
-          const running = from?.status === "running";
-          const primed = from?.status === "completed" && to?.status !== "completed";
-          if (!running && !primed) return null;
-          return (
-            <linearGradient
-              key={g.edge.id}
-              id={`edge-grad-${g.edge.id}`}
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="0%"
-            >
-              {running ? (
-                <>
-                  <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.55" />
-                  <stop offset="45%" stopColor="var(--primary)" stopOpacity="1" />
-                  <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.85" />
-                </>
-              ) : (
-                <>
-                  <stop offset="0%" stopColor={STROKE_BASE} />
-                  <stop offset="100%" stopColor={STROKE_READY} />
-                </>
-              )}
-            </linearGradient>
-          );
-        })}
-      </defs>
       {geoms.map((g) => {
         const { edge } = g;
         const from = jobMap.get(g.fromId);
@@ -155,6 +170,14 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         const running = from.status === "running";
         // a completed source feeding an unfinished target — the wire is "primed"
         const primed = from.status === "completed" && to.status !== "completed";
+        // t734 — the wire's knowledge color: the FROM port's data kind is
+        // what the wire CARRIES, so its kind paints the wire's resting
+        // voice. t735 — the lookup lives in the book itself
+        // (outputKindOf): three readers of the same question is a
+        // directory, and directories live in lib. An unmapped/legacy
+        // edge keeps the neutral ink.
+        const edgeKind = edge.fromPort ? outputKindOf(from.type, edge.fromPort) : undefined;
+        const kindInk = edgeKind ? PORT_COLORS[edgeKind].wire : null;
         const touchesSelected =
           selectedId != null && (from.id === selectedId || to.id === selectedId);
         const hovered = hoveredId === edge.id;
@@ -167,25 +190,57 @@ export const EdgesLayer = React.memo(function EdgesLayer({
         // (a 2px stroke dies at the cards' 0.28 on the dark canvas —
         // wires keep one notch more ink than the cards they connect).
         const touchesJudged = judgedIds != null && (judgedIds.has(from.id) || judgedIds.has(to.id));
+        // t682 — the chain lens's wire law: only the walked hops keep their
+        // ink; every other wire recedes, whatever its endpoints are.
+        const isChainEdge = chainEdgeIds != null && chainEdgeIds.has(edge.id);
         const dimmed =
-          (selectedId != null && !touchesSelected) || (judgedIds != null && !touchesJudged);
+          (selectedId != null && !touchesSelected) ||
+          (judgedIds != null && !touchesJudged) ||
+          (chainEdgeIds != null && !isChainEdge) ||
+          // t737 — the legend's focus: wires of OTHER kinds recede so the
+          // focused word's flow stands alone. A kindless (legacy/unmapped)
+          // wire is honest about having no word — it recedes too.
+          (legendKind != null && edgeKind !== legendKind);
+        // t571 — the hover answer: this wire touches the card under the
+        // pointer. It lights (STROKE_ACTIVE ink, a mid width) but does
+        // NOT dim its neighbors and does NOT get the halo/glow — those
+        // are selection's and edge-hover's privileges. A hovered wire
+        // under the selection dim still peeks through (ink × dim).
+        const touchesHoveredCard =
+          hoveredJobId != null && (from.id === hoveredJobId || to.id === hoveredJobId);
 
         const gradId = running || primed ? `url(#edge-grad-${edge.id})` : null;
+        // t682 — the chain lens's ink: the walked wire carries the primary
+        // at one notch under a live wire's full commitment (a lens speaks,
+        // a running engine SHOUTS). A running chain edge keeps its live
+        // voice entirely — data flowing downstream outranks the story.
+        const chainInk = "color-mix(in oklch, var(--primary) 72%, transparent)";
         const stroke = running
           ? gradId ?? "var(--primary)"
-          : hovered || touchesSelected
-            ? STROKE_ACTIVE
-            : primed
-              ? gradId ?? STROKE_READY
-              : STROKE_BASE;
+          : isChainEdge
+            ? chainInk
+            : hovered || touchesSelected
+              ? STROKE_ACTIVE
+              : touchesHoveredCard
+                ? STROKE_ACTIVE
+                : primed
+                  ? gradId ?? STROKE_READY
+                  : kindInk ?? STROKE_BASE;
         const dotFill = running
           ? "var(--primary)"
-          : hovered || touchesSelected
-            ? STROKE_ACTIVE
-            : primed
-              ? STROKE_READY
-              : DOT_BASE;
-        const width = hovered || touchesSelected ? 3.2 : running ? 2.75 : 2.25;
+          : isChainEdge
+            ? chainInk
+            : hovered || touchesSelected
+              ? STROKE_ACTIVE
+              : touchesHoveredCard
+                ? STROKE_ACTIVE
+                : primed
+                  ? STROKE_READY
+                  : kindInk ?? DOT_BASE;
+        // width ladder: corridor/selection/chain 3.2 · card-hover 2.9 ·
+        // running 2.75 · base 2.25 — the chain's wires read at the
+        // selection's commitment (the lens answers, hover asks).
+        const width = hovered || touchesSelected || isChainEdge ? 3.2 : touchesHoveredCard ? 2.9 : running ? 2.75 : 2.25;
 
         return (
           <g
@@ -196,6 +251,37 @@ export const EdgesLayer = React.memo(function EdgesLayer({
               transition: "opacity 220ms ease",
             }}
           >
+            {/* t349 — the wire's paint ramp, in USER SPACE spanning the
+                wire's own endpoints. The per-edge [data-e="grad"] node
+                lets the drag patch loop slide the ramp along with the
+                card (it sits inside this group, a paint server renders
+                nothing directly wherever it lives). Degenerate-bbox
+                gradients (the vanished horizontal wires) are structurally
+                impossible now: userSpaceOnUse never looks at the bbox. */}
+            {(running || primed) && (
+              <linearGradient
+                id={`edge-grad-${edge.id}`}
+                data-e="grad"
+                gradientUnits="userSpaceOnUse"
+                x1={g.srcDot.x}
+                y1={g.srcDot.y}
+                x2={g.tgtDot.x}
+                y2={g.tgtDot.y}
+              >
+                {running ? (
+                  <>
+                    <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.55" />
+                    <stop offset="45%" stopColor="var(--primary)" stopOpacity="1" />
+                    <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.85" />
+                  </>
+                ) : (
+                  <>
+                    <stop offset="0%" stopColor={STROKE_BASE} />
+                    <stop offset="100%" stopColor={STROKE_READY} />
+                  </>
+                )}
+              </linearGradient>
+            )}
             {/* invisible hit area for hover. Task 176: mouse-ONLY — the
                 16px corridor crossing a card face STOLE that card's tap on
                 touch (the wire paints over the card at the fold band's 25%
@@ -216,13 +302,15 @@ export const EdgesLayer = React.memo(function EdgesLayer({
               onPointerEnter={() => setHoveredId(edge.id)}
               onPointerLeave={() => setHoveredId((cur) => (cur === edge.id ? null : cur))}
             />
-            {/* soft glow under live wires (wide translucent stroke) */}
-            {(running || hovered) && (
+            {/* soft glow under live wires and the chain's walked wires
+                (wide translucent stroke) — the lens borrows the live
+                wire's halo grammar at a calmer opacity */}
+            {(running || hovered || isChainEdge) && (
               <path
                 d={g.d}
                 data-e="d"
                 fill="none"
-                stroke={running ? "var(--primary)" : STROKE_ACTIVE}
+                stroke={running || isChainEdge ? "var(--primary)" : STROKE_ACTIVE}
                 strokeWidth={running ? 8 : 9}
                 strokeLinecap="round"
                 opacity={running ? 0.14 : 0.1}
@@ -232,6 +320,12 @@ export const EdgesLayer = React.memo(function EdgesLayer({
             <path
               d={g.d}
               data-e="d"
+              /* t599 — the draw-in's handles: pathLength normalizes the
+                 dash math to one unit (no measuring), data-e-main marks
+                 the VISIBLE stroke so the birth voice doesn't touch the
+                 transparent hit corridor or the glow underlay. */
+              pathLength={1}
+              data-e-main=""
               fill="none"
               stroke={stroke}
               strokeWidth={width}
@@ -275,7 +369,8 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                 stroke={running ? "var(--primary)" : STROKE_ACTIVE}
                 strokeWidth={1}
                 opacity={0.4}
-                style={{ pointerEvents: "none" }}
+                data-summon=""
+                style={{ pointerEvents: "none", "--summon-cd": "0ms" } as React.CSSProperties}
               />
             )}
             <circle
@@ -301,16 +396,22 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                   void removeEdge(edge.id);
                 }}
               >
-                <title>Remove connection</title>
-                <circle r={16} fill="transparent" />
-                <circle r={9} className="fill-card stroke-border" strokeWidth={1} />
-                <path
-                  d="M -3.2 -3.2 L 3.2 3.2 M 3.2 -3.2 L -3.2 3.2"
-                  className="stroke-foreground"
-                  strokeWidth={1.75}
-                  strokeLinecap="round"
-                  fill="none"
-                />
+                {/* t603 — the summoned voice: the X is the answer's TOOL.
+                    An inner g carries the entrance (scale+fade) so the
+                    outer translate stays untouched. It mounts 24ms after
+                    the halo (family staircase). */}
+                <g data-summon="rise" style={{ "--summon-cd": "24ms" } as React.CSSProperties}>
+                  <title>Remove connection</title>
+                  <circle r={16} fill="transparent" />
+                  <circle r={9} className="fill-card stroke-border" strokeWidth={1} />
+                  <path
+                    d="M -3.2 -3.2 L 3.2 3.2 M 3.2 -3.2 L -3.2 3.2"
+                    className="stroke-foreground"
+                    strokeWidth={1.75}
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                </g>
               </g>
             )}
             {/* hover tooltip with caret — patched position lives in data-e
@@ -325,24 +426,37 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                   const title = `${from.name} → ${to.name}`;
                   const sub = `${g.fromPortLabel} → ${g.toPortLabel}`;
                   const w = Math.max(title.length * 6.6, sub.length * 5.3) + 26;
+                  // t734 — the card grows a third line when the book knows
+                  // the wire's data kind; the caret rides the bottom edge.
+                  const caretY = edgeKind ? 23 : 12;
                   return (
-                    <g transform="translate(0, -36)">
+                    /* t603 — the summoned voice: the tooltip is the answer's
+                       NAME. It rides the outer g's scale(1/zoom) system, so
+                       its entrance is opacity-only (a rise or scale here
+                       would inherit the zoom's magnitude — a summoning must
+                       not carry the zoom's luggage). It mounts 48ms in. */
+                    <g
+                      data-summon=""
+                      transform="translate(0, -36)"
+                      style={{ "--summon-cd": "48ms" } as React.CSSProperties}
+                    >
                       <rect
                         x={-w / 2}
                         y={-22}
                         width={w}
-                        height={34}
+                        height={edgeKind ? 45 : 34}
                         rx={8}
                         className="fill-popover stroke-border"
                         strokeWidth={1}
                       />
-                      {/* caret anchoring the card to the wire */}
+                      {/* caret anchoring the card to the wire — drops with
+                          the card's third line when the kind speaks */}
                       <path
-                        d="M -4.5 12 L 4.5 12 L 0 18.5 Z"
+                        d={`M -4.5 ${caretY} L 4.5 ${caretY} L 0 ${caretY + 6.5} Z`}
                         className="fill-popover"
                       />
                       <path
-                        d="M -4.5 12 L -4.5 12.4 M 4.5 12 L 4.5 12.4"
+                        d={`M -4.5 ${caretY} L -4.5 ${caretY + 0.4} M 4.5 ${caretY} L 4.5 ${caretY + 0.4}`}
                         className="stroke-border"
                         strokeWidth={1}
                         fill="none"
@@ -363,6 +477,24 @@ export const EdgesLayer = React.memo(function EdgesLayer({
                       >
                         {sub}
                       </text>
+                      {/* t734 — the third line: the wire's data KIND, the
+                          word the wire's resting ink paints with. Only
+                          when the book knows the port (legacy edges keep
+                          the two-line voice). */}
+                      {edgeKind ? (
+                        <text
+                          y={14.5}
+                          textAnchor="middle"
+                          className="fill-muted-foreground"
+                          style={{ fontSize: 8.5, fontStyle: "italic" }}
+                        >
+                          {/* t735 — the color sample rides the word: the
+                              same hex the wire rests in, drawn as a small
+                              dot so the card teaches what the wire says */}
+                          <tspan fill={PORT_COLORS[edgeKind].wire} style={{ fontStyle: "normal" }}>● </tspan>
+                          <tspan>{String(edgeKind)} data</tspan>
+                        </text>
+                      ) : null}
                     </g>
                   );
                 })()}

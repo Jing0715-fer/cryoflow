@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { existsSync, statSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
+import { polarityFromParams } from "@/lib/render-polarity";
 import { getRun } from "@/lib/relion/engine";
+import { getProjectMeta } from "@/lib/projects";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { resolveMicrographEntry } from "@/lib/relion/pathref";
 import { readMrcHeader } from "@/lib/mrc";
 import { isLocalRequest } from "@/lib/http-guard";
+import { remoteClusterSample, remotePreviewPng } from "@/lib/remote/preview";
+import type { ClusterSample } from "@/lib/remote/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +36,10 @@ export interface MicrographsResponse {
   sphericalAberration: number | null;
   amplitudeContrast: number | null;
   micrographs: MicrographEntry[];
+  /** t315 — present when the star's rows are CLUSTER-absolute (a remote
+   *  project's zero-upload import): the gallery shows a random sample of
+   *  five with SSH-fetched thumbnails instead of a blank grid. */
+  cluster?: ClusterSample;
 }
 
 /**
@@ -120,9 +128,45 @@ function parseNames(lines: string[]): string[] {
     if (t.startsWith("_rln")) continue;
     if (!inLoop || !t || t.startsWith("#")) continue;
     const first = t.split(/\s+/)[0];
-    if (first) names.push(first.replace(/^\.?\//, ""));
+    // t315 — ABSOLUTE rows keep their leading slash (a remote import's
+    // cluster-absolute /data2/… rows are detected BY it); only the "./"
+    // relative prefix is normalized away.
+    if (first) names.push(first.replace(/^\.\//, ""));
   }
   return names;
+}
+
+/** t322 — FNV-1a: a stable 32-bit seed from the job id + reroll counter.
+ * The gallery's five samples must be THE SAME FIVE on every visit (the
+ * old Math.random re-rolled per request, so the preview PNG cache never
+ * hit — five fresh cluster paths, five whole-file pulls, every single
+ * time — the user's “不用每次重新读取”). */
+function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** mulberry32 — tiny deterministic PRNG; the sample is reproducible across
+ * requests, restarts and machines (same job + same reroll ⇒ same five). */
+function seededPick<T>(pool: T[], seed: number, n: number): T[] {
+  let s = seed >>> 0;
+  const rand = () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const idx = pool.map((_, i) => i);
+  const out: T[] = [];
+  while (out.length < n && idx.length > 0) {
+    const i = Math.floor(rand() * idx.length);
+    out.push(pool[idx.splice(i, 1)[0]]);
+  }
+  return out;
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -144,6 +188,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
     const run = getRun(job.id);
+    // t658 — the gallery door serves a job's own frame catalogue. Import
+    // speaks micrographs.star; MotionCorr speaks corrected_micrographs.star
+    // (RELION 5's own name for the motion-corrected wall). A WHITELIST,
+    // not a free-form path: the route stays workdir-scoped, so a crafted
+    // catalogue value can only pick between the two legal names — it can
+    // never climb out of the workdir. Omitted → the import default, so
+    // every existing consumer (t651/t654/t657) reads the same bytes.
+    const CATALOGUES = ["micrographs.star", "corrected_micrographs.star"] as const;
+    const catalogueParam = new URL(request.url).searchParams.get("catalogue") ?? "";
+    const catalogue = (CATALOGUES as readonly string[]).includes(catalogueParam)
+      ? catalogueParam
+      : "micrographs.star";
     const empty: MicrographsResponse = {
       jobId: id,
       total: 0,
@@ -157,7 +213,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json(empty);
     }
 
-    const starPath = path.join(run.workdir, "micrographs.star");
+    const starPath = path.join(run.workdir, catalogue);
     if (!existsSync(starPath)) {
       return NextResponse.json(empty);
     }
@@ -172,6 +228,94 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     const { pixelSize, voltage, sphericalAberration, amplitudeContrast } = parsed.optics;
     const names = parsed.names;
+
+    // ---- t315 — cluster-resident rows (a remote project's zero-upload
+    // import): the star's paths are CLUSTER-absolute and nothing is on this
+    // machine. The preview door serves SSH-fetched thumbnails for a random
+    // sample of five; the manifest carries the sample + the full count.
+    const connId = getProjectMeta(job.projectId)?.remote?.connectionId ?? null;
+    {
+      const url = new URL(request.url);
+      const preview = url.searchParams.get("preview");
+      if (preview != null && preview !== "") {
+        // the thumbnail door: ONLY rows of this job's own star (never an
+        // arbitrary cluster path), and only with a live project binding
+        if (!connId) {
+          return NextResponse.json({ error: "Project is not bound to a cluster" }, { status: 400 });
+        }
+        if (!names.includes(preview)) {
+          return NextResponse.json({ error: "Not a micrograph of this job" }, { status: 404 });
+        }
+        // t317 — only CLUSTER-ABSOLUTE rows can ride this door: a relative
+        // row would `cat` against the SSH login shell's HOME (a pointless
+        // cluster fetch that can only 404) — refuse it honestly instead.
+        if (!preview.startsWith("/")) {
+          return NextResponse.json(
+            { error: "Only cluster-absolute rows can be previewed from the cluster — this row is relative to the project" },
+            { status: 400 }
+          );
+        }
+        const full = url.searchParams.get("full") === "1";
+        // t380 — display polarity pinned by THIS import job's negative-stain
+        // checkbox (the micrographs door is import-owned: job.type is import)
+        const polarity = polarityFromParams(job.params);
+        const r = await remotePreviewPng(connId, preview, full ? "large" : "thumb", polarity);
+        if (!r.ok) {
+          return NextResponse.json({ error: r.error }, { status: r.status });
+        }
+        // t322 — the browser stops re-asking too: a previewed path's PNG is
+        // content-stable (micrographs do not mutate), so a day of local
+        // caching is honest — and with the deterministic sample the URL is
+        // stable, so the cache actually engages. The tier headers speak
+        // the wire bill (python/dd/full = a fresh decimated/full pull,
+        // cache = the persisted PNG) for anyone asking "why is this slow?".
+        return new NextResponse(new Uint8Array(r.png), {
+          status: 200,
+          headers: {
+            "Content-Type": "image/png",
+            "Cache-Control": "public, max-age=86400",
+            "X-CF-Preview-Tier": r.tier,
+            ...(r.fetchedBytes != null ? { "X-CF-Preview-Bytes": String(r.fetchedBytes) } : {}),
+          },
+        });
+      }
+    }
+
+    const clusterRows =
+      connId != null
+        ? names.filter((n) => n.startsWith("/") && !existsSync(n))
+        : [];
+    const clusterResident =
+      clusterRows.length > 0 && clusterRows.length / Math.max(1, names.length) >= 0.5;
+    if (clusterResident && connId != null) {
+      // t322 — five DETERMINISTIC rows (seeded by job id + the client's
+      // reroll counter): the same five on every visit until the user
+      // presses re-sample, so the preview cache + the browser cache
+      // actually engage. One batched SSH round for their stats + headers.
+      const url = new URL(request.url);
+      const rerollRaw = Number.parseInt(url.searchParams.get("reroll") ?? "0", 10);
+      const reroll = Number.isFinite(rerollRaw) ? Math.max(0, Math.min(9_999, rerollRaw)) : 0;
+      const samplePaths = seededPick(clusterRows, fnv1a(`${job.id}:${reroll}`), 5);
+      const sample = await remoteClusterSample(connId, samplePaths, names.length);
+      const micrographs: MicrographEntry[] = (sample?.sample ?? samplePaths.map((p) => ({
+        path: p,
+        name: path.basename(p),
+        size: 0,
+        nx: 0,
+        ny: 0,
+        kind: "unknown",
+      }))).map((e) => ({ path: e.path, name: e.name, size: e.size, nx: e.nx, ny: e.ny }));
+      return NextResponse.json({
+        jobId: id,
+        total: names.length,
+        pixelSize,
+        voltage,
+        sphericalAberration,
+        amplitudeContrast,
+        micrographs,
+        ...(sample ? { cluster: sample } : {}),
+      });
+    }
 
     const micDir = path.join(run.workdir, "micrographs");
     const micrographs: MicrographEntry[] = [];

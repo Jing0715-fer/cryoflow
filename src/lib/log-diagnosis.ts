@@ -95,12 +95,127 @@ export const LOG_PATTERNS: LogPattern[] = [
     hint: "An MPI rank called MPI_ABORT: the root cause is usually printed earlier in the log — switch to Full mode and read upward from the first error.",
   },
   {
+    // t387 — RELION 5's Blush regularisation delegates every per-class
+    // reconstruction to the `relion_python_blush` wrapper via popen
+    // (backprojector.cpp externalReconstruct: the star is written, the
+    // wrapper runs, and anything other than the literal "success" makes
+    // RELION print "Something went wrong in the external Python call..." +
+    // the wrapper's own output, then exit(1) — SILENTLY, with no
+    // RELION-format error). The wrapper needs RELION's python extras
+    // (environment.yml: git+https://github.com/3dem/relion-blush + torch)
+    // which many cluster modules never install — the wrapper then dies
+    // with a Python traceback (one per class: K=4 → ×4), the job exits 1
+    // mid-run, and run.out's visible tail is just the traceback. The
+    // *_external_reconstruct.star files in the workdir are the same
+    // feature's breadcrumbs (they are written for --blush OR
+    // --external_reconstruct).
+    id: "blush-python-failure",
+    re: /Something went wrong in the external Python call|relion_python_blush/i,
+    label: "Blush regularisation's python wrapper failed",
+    hint:
+      "This job ran with Blush regularisation ON (--blush): RELION hands every per-class reconstruction to the relion_python_blush python wrapper, and that wrapper failed — the Python traceback right below this line names the reason (usually a missing module: the cluster's RELION python environment lacks the relion-blush package and its torch dependency, which RELION's environment.yml ships but many cluster modules never install). Remedy, either side: (1) turn OFF Blush regularisation in this job's Optimisation tab and re-run — the RELION tutorial's 3D classification does not need it, the classic regularisation is the default for a reason; or (2) install RELION's python extras into the module's environment (conda env update with RELION's own environment.yml, which pulls git+https://github.com/3dem/relion-blush + torch) if you specifically want Blush's learned regularisation. The run_itNNN_classMMM_external_reconstruct.star files in the workdir belong to this same feature — the wrapper's inputs, not the run's results. If running the SAME job by hand works — especially if a by-hand run needs nothing but 'module load <module>' — that module already carries the extras: name it in this connection's Module field (every job script re-plays that module load), and the lane snapshots your interactive shell's environment (bash -lic env) and merges its PATH/LD_LIBRARY_PATH on top of the module's (t388/t389), inheriting exactly what a manual sbatch would; re-run once after updating.",
+  },
+  {
     id: "python-traceback",
     // CPython's own traceback header — the interpreter, not a loose word;
     // Topaz/cryolo and other wrappers die here
     re: /Traceback \(most recent call last\)/,
     label: "Python traceback (script failure)",
-    hint: "A Python wrapper crashed — the traceback's last line names the exception; check the wrapper's environment (module versions, CUDA_VISIBLE_DEVICES) before re-running.",
+    hint: "A Python wrapper crashed — the traceback's last line names the exception; check the wrapper's environment (module versions, CUDA_VISIBLE_DEVICES) before re-running. If the lines just above name relion_python_blush, this is the Blush-regularisation wrapper: turn Blush off in the job's Optimisation tab (the tutorial's Class3D does not need it) or install RELION's python extras (relion-blush + torch) on the cluster.",
+  },
+  {
+    // t320 — relion_autopick's own hard refusal (autopicker.cpp read():
+    // do_gpu && do_LoG → REPORT_ERROR, argv-parse time, before the first
+    // micrograph). The dispatch now omits --gpu for LoG picking; this
+    // pattern heals the residual surfaces — a re-run of an OLD saved
+    // script, a hand-edited sbatch, or a future regression — by naming
+    // the flag pair itself.
+    id: "autopick-log-gpu",
+    re: /Laplacian-of-Gaussian picker does not support GPU acceleration/i,
+    label: "LoG picker + --gpu — RELION refuses the flag pair outright",
+    hint: "The Laplacian-of-Gaussian picker is CPU-only: relion_autopick hard-errors when --gpu rides --LoG (its own message: \"does not support GPU acceleration. Please remove --gpu option.\"). CryoFlow's dispatch already sends no GPUs for LoG picking — if this is an old or hand-edited script, remove the --gpu line, or switch Picking method to References or Topaz to pick on GPUs.",
+  },
+  {
+    // t334 — relion_preprocess's own size-check refusal (image.h's Image::
+    // write, REPORT_ERROR("write: target and source objects have different
+    // size") — line 1534 in the 5.0 betas). The write is the per-micrograph
+    // particle stack: the FIRST particle replaces the .mrcs blindly, every
+    // later particle APPENDS — and the append reads the file already on disk
+    // and refuses when its dimensions differ from the particle being written.
+    // A single fresh run has one box size, so a mismatch always means the
+    // stack path was occupied by ANOTHER generation (a re-run before the
+    // t333 fresh-start wipe, with a changed Box size / Downsample) or by a
+    // concurrent writer (two processes extracting the same micrograph —
+    // duplicate rows in the micrographs STAR). The Beijing field report:
+    // a copied extraction job died 83% in, 865 stacks written, on exactly
+    // this line.
+    id: "extract-stack-size-clash",
+    re: /write: target and source objects have different size/i,
+    label: "Particle stack write refused — the target .mrcs already has a different box size",
+    hint:
+      "RELION writes one .mrcs stack per micrograph (--part_dir + the micrograph's name) and appends each particle after the first; the append checks the file already on disk (image.h \"target and source objects have different size\") and refuses on a dimension mismatch. Within one run the box never changes — so that stack path was already occupied by an earlier generation with a DIFFERENT Box size / Downsample (a re-run before the fresh-start wipe), or two processes wrote the same micrograph at once (duplicate micrograph rows in the input STAR). Remedy: re-run the job (the dispatch now clears the previous generation's stacks on the cluster before submitting) or make a fresh extraction job — with the box size you want, the clean run completes. The micrograph that died is the one in progress where the log stops; its half-written stack stayed on the cluster (this job's Results/Files lists it).",
+  },
+  {
+    // t338 — rwMRC.h's own bounds refusal, the READ-side twin of the t334
+    // write clash above. The field report: a 2D classification died ~1
+    // minute in at
+    //   readMRC: Image number 341 exceeds stack size 340 of image
+    //   00000341@…/extract_…/micrographs/…_Fractions_DW.mrcs
+    // while the upstream extraction had COMPLETED (exit 0) — its
+    // particles.star simply numbers more images than the stack holds.
+    // That is the t334 collision's SILENT variant: two same-stem rows in
+    // the extraction's input STAR ("X.mrc" + "X.mrcs" — both compose the
+    // SAME stack path) made two writers share one .mrcs; the later
+    // writer's first particle blindly truncated the earlier writer's
+    // images, and the merged star kept BOTH writers' rows. The
+    // consumer-side gate (t338) now refuses such stars at dispatch with
+    // the same numbers; this pattern heals the logs that already died.
+    id: "readmrc-exceeds-stack",
+    re: /readMRC: Image number \d+ exceeds stack size \d+/i,
+    label: "Particles STAR outruns its stack — an image number points past the .mrcs end",
+    hint:
+      "relion_refine tried to read the image the STAR names (image 341 of a stack holding 340) and rwMRC refused. The upstream extraction COMPLETED, but its output is internally inconsistent: same-stem rows in ITS input STAR (e.g. \"X.mrc\" and \"X.mrcs\" of the same micrograph — both compose the SAME .mrcs stack path) made two writers share one stack; the later writer's first particle blindly truncated the earlier writer's, while the merged STAR kept both writers' rows. Remedy: re-run the UPSTREAM extraction job — its dispatch now refuses colliding inputs with the offending rows named (de-duplicate the import or rename the colliding files first) — then run this job again. The dispatch's consumer-side check now also refuses a star that outruns its stacks before any GPU time is spent.",
+  },
+  {
+    // t312 — relion_run_ctffind's own terminal words (ctffind_runner.cpp):
+    // the per-micrograph skip warning and the all-failed exit line.
+    // t314 — the hint was REWRITTEN: the first cut blamed raw movie stacks
+    // first, and the Beijing follow-up proved those inputs were
+    // motion-corrected *_Fractions_DW.mrc micrographs. An every-micrograph
+    // refusal that takes seconds (not minutes) means ctffind rejected the
+    // INPUTS or the FILE FORMAT outright — no fit was ever attempted — so
+    // the suspects are ordered by that physics, with the header-checking
+    // command the user can run themselves on the cluster.
+    id: "ctffind-no-fit",
+    re: /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i,
+    label: "CTF estimation failed on every micrograph",
+    hint: "ctffind rejected every micrograph at once — the input itself is the suspect, not the fitting. Check in order: (1) single-section MRCs? NZ>1 means raw frame stacks (run MotionCorr first: Import → MotionCorr → CTF; .eer is always raw) — an MRC's own header settles it, on the cluster run: head -c 16 <file>.mrc | od -An -td4 (NX NY NZ MODE); (2) does this ctffind build read the file mode — float16 / MRC mode 12 needs a recent ctffind, and a bundled 4.1 may predate it; (3) the Import pixel size must match the real data (Falcon 4i: ~0.5 Å unbinned, ~1.0 Å binned ×2); (4) widen ResMin/ResMax if the fit RUNS but finds nothing. The per-micrograph .ctf files and ctffind logs inside the job directory carry the literal error.",
+  },
+  {
+    // t342 — RELION's own starvation warning (cuda_mem_utils's free-memory
+    // check): "Ignoring required free GPU memory amount of 800 MB, due to
+    // space insufficiency." RELION PROCEEDS past this line (the warning
+    // literally says "Ignoring") and then thrashes or deadlocks in the
+    // first Expectation sweep — the field report: a 50-class 2D
+    // classification frozen at "Expectation iteration 1 of 20" with TWO
+    // rank banners both pinned to device 0. The card was below RELION's
+    // own 800 MB floor BEFORE the run started: a stale process still
+    // holding it (the earlier OOM'd attempt) and/or more MPI ranks than
+    // the node has cards.
+    id: "gpu-free-memory-warning",
+    re: /Ignoring required free GPU memory amount of \d+ MB/i,
+    label: "GPU memory starvation — the card was below RELION's free-memory floor",
+    hint:
+      "RELION printed this when the card had less free memory than its own 800 MB floor, then went ahead anyway and stalled in the first Expectation step. Two usual causes: (1) a stale run still holds the card — on the node, nvidia-smi --query-compute-apps=pid,process_name,used_memory names the holders; scancel them (squeue -u <user>) or kill the PIDs; (2) more MPI ranks than the node has cards (every rank banner saying \"mapped to device 0\") — run at a GPU width the node can actually back. The dispatch now clamps the rank count to the node's own card count and refuses to launch onto a starved card (exit 98, the holders named in the log) — clear the card, then re-run.",
+  },
+  {
+    // t342 — CryoFlow's own refusal line (the sbatch pre-flight writes it
+    // into run.out and exits 98): the job never reached RELION.
+    id: "gpu-starved-refusal",
+    re: /CRYOFLOW_ERR: only \d+ MB free on the GPU/i,
+    label: "CryoFlow refused to launch — the GPU was already starved",
+    hint:
+      "The pre-flight found less than 1000 MB free on the card(s) this job would use, and refused instead of hanging RELION in its first Expectation step. The lines right below this one list the holder PIDs (nvidia-smi --query-compute-apps) — scancel them (squeue -u <user>) or kill them on the node, then re-run the job.",
   },
 ];
 
@@ -156,4 +271,94 @@ export function diagnoseLines(lines: string[]): LogFinding[] {
 export function diagnoseLog(text: string | null | undefined): LogFinding[] {
   if (!text) return [];
   return diagnoseLines(text.split("\n"));
+}
+
+/* ------------------------------------------------------------------ */
+/* t323 — the silent mid-run death                                      */
+/* ------------------------------------------------------------------ */
+
+/** A RELION progress-bar frame: the worm mascot, the owl eyes, or the
+ *  elapsed/total time bar ("0.31/3.82 hrs") — the dialects time.cpp
+ *  prints while a run is ALIVE. If the log's last visible line is one of
+ *  these, the process died between two heartbeats. */
+const PROGRESS_FRAME_RE = /~~\(,_,">|\[oo\]|\/\d+(?:\.\d+)?\/(?:\d+(?:\.\d+)?|\?\?\?)\s*(?:sec|min|hrs)\b/;
+
+/** t323-a (review) — a COMPLETED bar is not a live frame: time.cpp marks
+ *  the end of a run with the same worm/bar dialect plus " yum!" — a run
+ *  that finished its bar and then failed at the wrapper/merge layer must
+ *  not get the external-kill story over its own completion line. */
+const isLiveFrame = (line: string): boolean =>
+  PROGRESS_FRAME_RE.test(line) && !/yum!/.test(line);
+
+/**
+ * t323 — the silent-death autopsy: a FAILED run whose log ends on a live
+ * progress frame and matches no known signature. Verified against RELION
+ * master: every in-code death PRINTS (RelionError → "ERROR: …" + "in: …
+ * .cpp, line N" + backtrace on stderr; the pipeline_control exit wrapper →
+ * "exiting with an error/abort" on stdout), so a log that simply STOPS
+ * means the process was killed from outside — the login node's CPU-job
+ * reaper, the OOM killer, or a scheduler walltime — or crashed so hard the
+ * harness never narrated it. The user's 576-micrograph LoG autopick (ETA
+ * 3.82 hrs, dead at 0.31, both streams error-free) was exactly this shape
+ * and the strip used to answer "0 findings".
+ *
+ * Only consulted when the signature table found NOTHING (a real error
+ * outranks the autopsy — an error-then-death log also ends without a bar
+ * frame, so the ordering is doubly safe). Returns null when the tail is
+ * not a live frame (empty log, clean completion line, error text).
+ */
+export function silentRunDeathFinding(lines: string[]): LogFinding | null {
+  const display = lines.map((l) => {
+    const idx = l.lastIndexOf("\r");
+    return (idx >= 0 ? l.slice(idx + 1) : l).replace(/\s+$/, "");
+  });
+  // the stderr section separator (remote log view) is structural, not a
+  // log line — skip past it when it trails
+  const tail: string[] = [];
+  let lastFrameIdx = -1;
+  for (let i = display.length - 1; i >= 0 && tail.length < 3; i--) {
+    const t = display[i].trim();
+    if (!t) continue;
+    if (t === "----- stderr -----") break;
+    // the FIRST hit walking down is the deepest (newest) line — the death
+    // spot the excerpt and the line chip both point at
+    if (tail.length === 0) lastFrameIdx = i;
+    tail.unshift(t);
+  }
+  if (tail.length === 0) return null;
+  // t323-a — only LIVE frames count: a " yum!" completion frame wears the
+  // same worm dialect but means the run FINISHED its bar — the failure (if
+  // any) happened after it and the autopsy has no story for that.
+  if (!tail.some((l) => isLiveFrame(l))) return null;
+  const last = tail[tail.length - 1];
+  return {
+    id: "silent-run-death",
+    label: "The log stops mid-run — the process died without an error signature",
+    hint: "RELION printed no error (no ERROR line, no backtrace, no 'exiting with'): every in-code RELION death narrates itself, so a log that just stops means an external kill — the usual suspects are the login node's CPU-job reaper (multi-hour runs must go through Slurm/sbatch, not direct mode), the OOM killer, or a walltime limit. Re-run via Slurm mode (the run dialog), consider the array shard split for embarrassingly-parallel types, and check the cluster's own record: sacct -j <jobid> and the job directory.",
+    count: 1,
+    // t323-a — the last frame's 1-based display line (the deepest line the
+    // downward walk found; a trailing "" from split("\n") used to report
+    // one past the end)
+    firstLine: lastFrameIdx + 1,
+    excerpt: last.length > EXCERPT_CAP ? `${last.slice(0, EXCERPT_CAP)}…` : last,
+  };
+}
+
+/**
+ * t323 — the failure-scanner entry point the UI calls: the signature
+ * table first (an OS/runtime-narrated death outranks the autopsy), the
+ * silent-death autopsy as the fallback when nothing matched and the log
+ * ends on a live progress frame.
+ */
+export function diagnoseFailureLines(lines: string[]): LogFinding[] {
+  const base = diagnoseLines(lines);
+  if (base.length > 0) return base;
+  const silent = silentRunDeathFinding(lines);
+  return silent ? [silent] : [];
+}
+
+/** Text-form twin of diagnoseFailureLines (the Overview teaser's diet). */
+export function diagnoseFailureLog(text: string | null | undefined): LogFinding[] {
+  if (!text) return [];
+  return diagnoseFailureLines(text.split("\n"));
 }

@@ -25,6 +25,8 @@
 //
 // Run: node scripts/t94-e2e.mjs   (server on :3000)
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -77,9 +79,14 @@ const consoleErrors = [];
 p.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 p.on("pageerror", (e) => consoleErrors.push(String(e)));
 
-await p.goto(BASE, { waitUntil: "networkidle" });
+// t523 law: networkidle is a PSEUDO-wait on an app that polls /api/jobs —
+// a 1.2s poll cadence only sometimes leaves the 500ms silence networkidle
+// demands, so the wait is a timing lottery (tonight's green run was luck,
+// qa82 lost the same lottery twice in a row). domcontentloaded + the
+// explicit waits below is the honest arrival.
+await p.goto(BASE, { waitUntil: "domcontentloaded" });
 await p.waitForSelector('[data-view]');
-await sleep(600);
+await sleep(1200);
 const curView = () =>
   p.evaluate(() => document.querySelector("[data-view]")?.getAttribute("data-view") ?? null);
 for (let i = 0; i < 4 && (await curView()) !== "dashboard"; i++) {

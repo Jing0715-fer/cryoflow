@@ -162,9 +162,23 @@ def resolve_refine_host(project_id):
     name = os.environ.get("QA_REFINE", "QA Refine3D")
     job = find_by_name(name)
     if job is None:
-        raise SystemExit(
-            f"qa_lib: refine3d host '{name}' missing — run scripts/restore-gallery.py first"
-        )
+        # t532 — /api/jobs is ACTIVE-POINTER-scoped: when another world is
+        # active (the t531/t532 exam grind), the type-matching host is
+        # invisible. The old-world manifest (qa-t531-old-world-seed.mjs)
+        # is the cross-project contract — the chain's refine3d id + the
+        # canonical workdir law (data/relion/<project>/<type>_<id8>).
+        manifest = "/home/z/my-project/data/old-world.json"
+        host_id = None
+        if os.path.exists(manifest):
+            with open(manifest) as f:
+                host_id = (json.load(f).get("chain") or {}).get("refine3d")
+        if not host_id:
+            raise SystemExit(
+                f"qa_lib: refine3d host '{name}' missing — run scripts/qa-t531-old-world-seed.mjs "
+                f"(no manifest fallback either)"
+            )
+        print(f"qa_lib: no host in the active world — manifest fallback: old-world refine3d {host_id}")
+        job = {"id": host_id, "type": "refine3d", "name": name}
     if job.get("type") != "refine3d":
         raise SystemExit(f"qa_lib: job '{name}' has type '{job['type']}', expected refine3d")
     return job, job_workdir(project_id, job)

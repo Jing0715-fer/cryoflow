@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /** diag280k.mjs — open the inspector via command palette (⌘K) at 280, then measure the bar. */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();

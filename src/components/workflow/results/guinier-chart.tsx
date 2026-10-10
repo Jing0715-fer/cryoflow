@@ -13,8 +13,8 @@
  * pipeline reaches its final step).
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { TrendingDown } from "lucide-react";
+import { useMemo } from "react";
+import { Ruler, TrendingDown } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -25,7 +25,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   guinierPoints,
   guinierRenderable,
@@ -33,6 +33,8 @@ import {
   type GuinierResponse,
 } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { ChartErrorStrip } from "./chart-error-strip";
+import { ChartInterpretation } from "./interpretation-strip";
 
 const TEAL = "#14b8a6";
 const AMBER = "#f59e0b";
@@ -46,36 +48,34 @@ export function GuinierChart({
   running?: boolean;
   className?: string;
 }) {
-  const [data, setData] = useState<GuinierResponse | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<GuinierResponse>(`/api/jobs/${jobId}/guinier`);
-        if (!cancelled) setData(body);
-      } catch {
-        /* silent — enhancement only */
-      }
-    };
-    void load();
-    if (!running) return () => {
-      cancelled = true;
-    };
-    const t = setInterval(() => void load(), 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
+  // t491 — shared fetch state machine; the silent catch used to leave this
+  // panel permanently invisible after one transient blip
+  const { status, data, error, retry } = useChartResource<GuinierResponse>(
+    `/api/jobs/${jobId}/guinier`,
+    { pollMs: running ? 30_000 : null }
+  );
 
   // derivation single-sourced in lib/chart-rows (t110: palette + chart +
   // export buttons all read the same points)
   const points = useMemo(() => guinierPoints(data), [data]);
 
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Guinier plot"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   if (!data || !guinierRenderable(points)) return null; // silent until postprocess runs
 
-  const hasSharpened = points.some((p) => p.lnAmpSharpened != null);
+  // t489 — hasSharpened is the WELL's judgment (interpretGuinier), and the
+  // fit-range strip speaks the resolution range the table covers — the
+  // same x → Å conversion the tooltip speaks, built once in the well
+  const interp = data.interpretation ?? null;
+  const hasSharpened = interp?.hasSharpened ?? points.some((p) => p.lnAmpSharpened != null);
   const bf = data.bfactor;
 
   return (
@@ -83,28 +83,28 @@ export function GuinierChart({
       aria-label="Guinier plot"
       data-chart-export-root
       className={cn(
-        "animate-rise rounded-lg border border-amber-500/25 bg-gradient-to-b from-amber-500/5 to-transparent p-3",
+        "animate-rise rounded-lg border border-warning/25 bg-gradient-to-b from-warning-500/5 to-transparent p-3",
         className
       )}
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <TrendingDown className="h-3.5 w-3.5 text-amber-600" aria-hidden="true" />
+          <TrendingDown className="h-3.5 w-3.5 text-warning-600" aria-hidden="true" />
           Guinier plot
           <span className="font-normal text-muted-foreground/70">
             ({points.length} shells)
           </span>
         </span>
         {bf != null ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-warning-700 dark:text-warning-300">
             B-factor {bf.toFixed(1)} Å²
           </span>
         ) : null}
         {running ? (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-running">
             <span className="relative flex size-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-teal-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-running-400 opacity-75" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-running-500" />
             </span>
             live
           </span>
@@ -115,6 +115,17 @@ export function GuinierChart({
           className="ml-auto"
         />
       </div>
+      {interp?.rangeAngstrom && (
+        <ChartInterpretation
+          icon={Ruler}
+          tone="amber"
+          label="Fit range"
+          className="mb-1.5"
+        >
+          {interp.rangeAngstrom.from.toFixed(1)} – {interp.rangeAngstrom.to.toFixed(1)} Å
+          <span className="opacity-70"> · {points.length} pts</span>
+        </ChartInterpretation>
+      )}
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points} margin={{ top: 6, right: 14, bottom: 2, left: -14 }}>
@@ -169,7 +180,7 @@ export function GuinierChart({
               stroke={TEAL}
               strokeWidth={1.8}
               dot={false}
-              isAnimationActive={false}
+              isAnimationActive={false /* the curve doesn't dance — the t610 mute law (fsc-chart.tsx header): a refetch hands the line a new array and an animated curve would re-draw itself on every poll */}
               name="lnAmp"
             />
             {hasSharpened ? (

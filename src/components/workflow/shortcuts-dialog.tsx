@@ -39,13 +39,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Kbd } from "@/components/ui/kbd";
 import { useWorkflowStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import exemptions from "@/lib/palette-exemptions.json";
 
 interface ShortcutRow {
-  /** key chips — split on spaces into individual <kbd>s */
-  keys: string;
+  /** key chips — split on spaces into individual <kbd>s. Optional: the
+   *  exemption rows may carry NO keyboard path by design (t532 — the
+   *  AI/storage/knock doors); the row then renders the honest
+   *  "no keyboard path" marker instead of chips. */
+  keys?: string;
   text: string;
 }
 
@@ -104,7 +108,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       // duplicate).
       { keys: "/", text: "Focus the palette search — type to filter the job catalog" },
       { keys: "← → ↑ ↓", text: "Walk the graph — hop the anchor to the nearest card in that direction (⇧ extends)" },
-      { keys: "0", text: "Reset pan & zoom (100 %)" },
+      { keys: "0", text: "Return to the origin view (100 %, glides)" },
       { keys: "1–9", text: "Jump to a bookmarked view — seats shown in the bookmarks panel" },
       { keys: "+ / −", text: "Zoom in / out around the viewport center" },
       { keys: "M", text: "Toggle the world-overview map (bottom-right)" },
@@ -114,6 +118,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "⌘/Ctrl Z", text: "Undo the last canvas change — move, align, tidy or delete" },
       { keys: "⇧ ⌘/Ctrl Z · ⌘/Ctrl Y", text: "Redo an undone change" },
       { keys: "N", text: "Note spotlight — dim jobs without a note" },
+      // t682 — the chain lens rides beside its semantic sibling: N and P
+      // are both "dim lenses" (recede the world, keep the story at ink),
+      // so the dialog seats them together.
+      { keys: "P", text: "Critical path lens — dim everything the finish didn't wait on" },
       { keys: "Delete", text: "Delete the selection (asks first)" },
       { keys: "⇧ Click", text: "Toggle a card in the selection" },
       { keys: "⇧ Drag", text: "Box-select on empty canvas" },
@@ -127,6 +135,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "1–4", text: "Grid filter — all · running · completed · failed" },
       { keys: "5", text: "Jobs filter — noted (annotated) jobs only" },
       { keys: "6", text: "Jobs filter — unassigned orphans only" },
+      // t641: the search lens footer (t637) hints these contextually, but
+      // the dialog is the single discoverable surface — a live key with
+      // no row is a drift (t248's law).
+      { keys: "↑↓ ↵ Esc", text: "Search lens — walk the results, open the highlighted job, dismiss" },
     ],
   },
   {
@@ -137,6 +149,48 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "← → ↑ ↓", text: "Move focus across the class grid" },
       { keys: "Enter Space", text: "Toggle keep on the focused class" },
       { keys: "Home End", text: "Jump to the first / last class" },
+      { keys: "← →", text: "Step rounds inside the enlarged class sheet" },
+    ],
+  },
+  {
+    // t777 — the results Maps & images grid joins the spatial contract
+    // (canvas cards t775, class gallery's roving). A results round can
+    // hold dozens of tiles; the arrows are how the eye moves. Same law:
+    // one tab stop, arrows move, Enter/Space keep the monopoly on acting.
+    id: "results-gallery",
+    label: "Results gallery",
+    hint: "Maps & images tiles — same roving focus as the class grid",
+    rows: [
+      { keys: "← → ↑ ↓", text: "Walk the map / image tiles geometrically" },
+      { keys: "Home End", text: "Jump to the first / last tile" },
+      { keys: "Enter Space", text: "Enlarge the focused tile" },
+    ],
+  },
+  {
+    // t780 — the engine log's reading face became a focusable scroll
+    // region and its legend hints the keys; a face no row names is
+    // the t641 drift again (a live key with no row is a drift).
+    id: "log-console",
+    label: "Log console",
+    hint: "Inside the job inspector's Log tab — reading has its own keys",
+    rows: [
+      { keys: "↑ ↓ PgUp PgDn", text: "Scroll the log natively once the console holds the focus (Tab reaches it)" },
+      { keys: "Home End", text: "Jump to the window's head / tail — landing at the tail re-arms follow" },
+    ],
+  },
+  {
+    // t641 — the map viewer's keyboard layer was live but invisible:
+    // 1–6 axis presets + 0 reset had an in-popover hint, but B (quick-save
+    // bookmark) was spoken only by its own completion toast — you had to
+    // press it once by accident to learn it existed. Same law as t248:
+    // a live key with no row is a drift.
+    id: "viewer3d",
+    label: "3D map viewer",
+    hint: "While the map viewer is open — the camera has its own keys",
+    rows: [
+      { keys: "1–6", text: "Snap to a standard axis view — zoom stays put" },
+      { keys: "0", text: "Reset to the default ¾ view" },
+      { keys: "B", text: "Quick-save the current camera as a bookmark" },
     ],
   },
   {
@@ -152,18 +206,34 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    id: "path-browser",
+    label: "Path browser",
+    hint: "Inside the file/folder picker — walk a 20,000-row listing without the mouse",
+    rows: [
+      { keys: "↑ ↓", text: "Move the listing's cursor — ArrowDown lands on row 0, ArrowUp on the last row" },
+      { keys: "Home End", text: "Jump the cursor to the first / last row — the windowed list scrolls to keep it visible" },
+      { keys: "Enter Space", text: "Open the cursor folder · pick or toggle the cursor file (read-only rows stay silent)" },
+    ],
+  },
+  {
     id: "touch",
     label: "Touch & pointer",
     rows: [
       { keys: "Long-press", text: "Hold empty canvas, then drag to box-select" },
       { keys: "Pinch", text: "Two fingers to zoom · trackpad pinch / ctrl-scroll" },
       { keys: "Right-click", text: "Quick-action menu on a card (run · duplicate · delete …)" },
+      { keys: "Menu ⇧F10", text: "The keyboard's right-click — the focused card's menu, or the canvas menu when the canvas holds the focus (since t783)" },
     ],
   },
 ];
 
-/** split "⌘/Ctrl K" into ["⌘/Ctrl", "K"] chips (combo atoms are space-free) */
-const toChips = (keys: string) => keys.split(" ").filter(Boolean);
+/** split "⌘/Ctrl K" into ["⌘/Ctrl", "K"] chips (combo atoms are space-free).
+ *  t532 — exemption rows may have NO keys field by design (the AI/storage/
+ *  knock doors are exempt precisely because no keyboard path reaches them);
+ *  a missing keys used to crash the WHOLE app shell here (undefined.split —
+ *  the client-side exception t532's dance #4 live-caught via t246's honest
+ *  FAIL). Empty chips now render the honest "no keyboard path" marker. */
+const toChips = (keys?: string) => (keys ?? "").split(" ").filter(Boolean);
 
 export function ShortcutsDialog() {
   const open = useWorkflowStore((s) => s.shortcutsOpen);
@@ -186,7 +256,7 @@ export function ShortcutsDialog() {
           ? g.rows.filter(
               (r) =>
                 r.text.toLowerCase().includes(q) ||
-                r.keys.toLowerCase().includes(q) ||
+                (r.keys ?? "").toLowerCase().includes(q) ||
                 g.label.toLowerCase().includes(q),
             )
           : g.rows,
@@ -225,7 +295,20 @@ export function ShortcutsDialog() {
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        {/* t802 — the shortcuts list gains the tab stop. A spans-only
+            region (dl/dd rows + Kbd chips, zero buttons in the file — the
+            t801 note-hover-card shape at dialog scale): below the filter
+            input the keyboard had NOTHING to reach with, and on a short
+            viewport the inventory overflows the region unread. The roster's
+            dialect verbatim (tabIndex + role=region + honest name + visible
+            ring, ring-inset edge-to-edge); the filter keeps its own stop
+            ahead of it, so Tab walks input -> list. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Keyboard shortcut inventory — grouped by context"
+          className="min-h-0 flex-1 overflow-y-auto px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+        >
           {groups.length === 0 ? (
             <p className="py-8 text-center text-xs text-muted-foreground">
               No shortcut matches “{query}”.
@@ -272,26 +355,30 @@ export function ShortcutsDialog() {
                     <dl className="mt-2 space-y-1.5">
                       {g.rows.map((r) => (
                         <div
-                          key={r.keys}
+                          key={r.keys ?? r.text}
                           className="flex items-center justify-between gap-4 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/50"
                         >
                           <dd className="text-xs leading-relaxed text-muted-foreground">
                             {r.text}
                           </dd>
                           <dt className="flex shrink-0 items-center gap-1">
-                            {toChips(r.keys).map((chip, i) => (
-                              <kbd
-                                key={i}
-                                className={cn(
-                                  "rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold",
-                                  current
-                                    ? "border-primary/40 bg-primary/10 text-primary"
-                                    : "bg-muted text-foreground/80"
-                                )}
-                              >
-                                {chip}
-                              </kbd>
-                            ))}
+                            {toChips(r.keys).length > 0 ? (
+                              toChips(r.keys).map((chip, i) => (
+                                <Kbd
+                                  key={i}
+                                  className={cn(
+                                    "px-1.5 py-0.5 text-[10px]",
+                                    current
+                                      ? "border-primary/40 bg-primary/10 text-primary"
+                                      : "bg-muted text-foreground/80"
+                                  )}
+                                >
+                                  {chip}
+                                </Kbd>
+                              ))
+                            ) : (
+                              <span className="text-[10px] italic text-muted-foreground/70">no keyboard path</span>
+                            )}
                           </dt>
                         </div>
                       ))}
@@ -304,7 +391,7 @@ export function ShortcutsDialog() {
         </div>
 
         <p className="shrink-0 border-t px-5 py-2.5 text-[10px] text-muted-foreground/80">
-          Press <kbd className="rounded border bg-muted px-1 font-mono text-[9px]">?</kbd>{" "}
+          Press <Kbd>?</Kbd>{" "}
           anywhere to reopen · Escape closes one layer
         </p>
       </DialogContent>

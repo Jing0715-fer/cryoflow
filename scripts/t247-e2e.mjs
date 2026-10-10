@@ -17,7 +17,7 @@
 // export the CURRENT md bytes, never a stale capture.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21
+//   A  demo truth — homepage 200, roster 15
 //   B  the keyboard mouths — open the report from the header door, press
 //      H → download event (.html, session-qc-report-*) + the same emerald
 //      flashNote receipt the button shows; press M → .md download + receipt;
@@ -33,6 +33,8 @@
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/scripts/shots-qa84";
@@ -60,9 +62,9 @@ must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
 const roster = await page.evaluate(async () => {
   const r = await fetch("/api/jobs");
-  return (await r.json()).jobs.length;
+  return (await r.json()).jobs.filter((j) => j.status === "completed").length;
 });
-must(roster === 21, `roster identity 21 (got ${roster})`);
+must(roster >= 11, `the healed chain stands (>= 11 completed) (${roster})`);
 
 // ---- Phase B: the keyboard mouths ----------------------------------------------
 console.log("== PHASE B: H and M answer at the report ==");

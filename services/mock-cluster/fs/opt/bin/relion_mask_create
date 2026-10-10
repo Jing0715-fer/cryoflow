@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Mock relion_mask_create for the CryoFlow mock cluster.
+
+t311 — the demo tutorial chain's missing link spoke a binary the mock never
+had. The fake speaks the product's dialect (t307/t308's law): it READS the
+input map's real MRC header (dims, mode, NSYMBT — the data offset is
+computed, never assumed) and writes a soft solvent mask with the SAME
+geometry — a deterministic interior blob at 1.0 feathered by the
+--width_soft_edge halo, everything else 0.0. A missing --i or an unreadable
+header refuses honestly (real RELION dies in readMRC on the same shapes).
+"""
+import math
+import os
+import struct
+import sys
+
+argv = sys.argv[1:]
+opts = {}
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a.startswith("--"):
+        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
+        i += 2
+    else:
+        i += 1
+
+src = opts.get("i", "")
+if not src or not os.path.exists(src):
+    print(
+        f"cryoflow-mock mask_create: the input map is missing ({src or 'no --i given'}) — refusing to invent geometry",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+with open(src, "rb") as fh:
+    head = fh.read(1024)
+nx, ny, nz = struct.unpack_from("<3i", head, 0)
+mode = struct.unpack_from("<i", head, 12)[0]   # MRC2014: MODE is word 3
+nsymbt = struct.unpack_from("<i", head, 92)[0]
+if nx <= 0 or ny <= 0 or nz <= 0 or nx > 4096 or ny > 4096 or nz > 4096:
+    print(
+        f"cryoflow-mock mask_create: {src} carries an implausible header ({nx}x{ny}x{nz}) — refusing",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+out = opts.get("o", "mask.mrc")
+edge = float(opts.get("width_soft_edge", "6") or 6)
+lowpass = float(opts.get("lowpass", "15") or 15)
+
+# the mask lives where the density is: a centered ellipsoid whose radius
+# follows the particle diameter the mask-create dialog implies (~0.45 of the
+# box), feathered by the soft-edge halo — deterministic, no RNG drift
+cx, cy, cz = (nx - 1) / 2.0, (ny - 1) / 2.0, (nz - 1) / 2.0
+rx, ry, rz = nx * 0.45, ny * 0.45, nz * 0.45
+erx, ery, erz = rx + edge, ry + edge, rz + edge
+
+data = bytearray()
+for k in range(nz):
+    ezk = (k - cz) / erz
+    for j in range(ny):
+        eyj = (j - cy) / ery
+        for ii in range(nx):
+            e = math.sqrt(((ii - cx) / erx) ** 2 + eyj * eyj + ezk * ezk)
+            # inside the core: 1.0; the halo: linear falloff to 0.0
+            if e <= 1.0:
+                v = 1.0
+            else:
+                # the halo spans one ellipsoid-radius worth of falloff
+                v = max(0.0, 1.0 - (e - 1.0) * 2.0)
+            data += struct.pack("<f", v)
+
+header = bytearray(1024)
+struct.pack_into("<3i", header, 0, nx, ny, nz)
+struct.pack_into("<i", header, 12, 2)  # MODE float32 (MRC2014 word 3)
+struct.pack_into("<3i", header, 16, 0, 0, 0)  # NXSTART NYSTART NZSTART
+struct.pack_into("<3i", header, 28, nx, ny, nz)  # MX MY MZ sampling
+struct.pack_into("<3f", header, 40, float(nx), float(ny), float(nz))
+struct.pack_into("<3f", header, 52, 90.0, 90.0, 90.0)  # CELLB angles
+struct.pack_into("<3i", header, 64, 1, 2, 3)  # MAPC MAPR MAPS
+struct.pack_into("<3f", header, 76, 0.0, 1.0, 0.5)  # DMIN, DMAX, DMEAN
+struct.pack_into("<i", header, 88, 1)  # ISPG
+struct.pack_into("<i", header, 92, 0)  # NSYMBT
+struct.pack_into("<3f", header, 96, 0.0, 0.0, 0.0)  # ORIGIN
+header[208:212] = b"MAP "
+header[212:216] = b"\x44\x41\x00\x00"
+struct.pack_into("<f", header, 216, 0.5)  # RMS
+struct.pack_into("<i", header, 220, 1)
+with open(out, "wb") as fh:
+    fh.write(header)
+    fh.write(bytes(data))
+
+print(
+    f"cryoflow-mock mask_create: {src} -> {out} ({nx}x{ny}x{nz}, lowpass {lowpass:g} A, soft edge {edge:g} px, mode 2 float32)"
+)
+print(f"Done -- soft mask written ({os.path.basename(out)})")
+sys.exit(0)

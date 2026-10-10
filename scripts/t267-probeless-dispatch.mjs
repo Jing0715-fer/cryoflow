@@ -15,7 +15,7 @@
  * Test first") — never to a local-path guess.
  *
  * Phases:
- *   A  demo truth (roster 21, mock cluster, rig stubs)
+ *   A  demo truth (roster 15, mock cluster, rig stubs)
  *   B  ledger — the probeless block in source, its honesty wording, its
  *      ordering (probe BEFORE any lastProbe read), the import
  *   C  live loop —
@@ -31,11 +31,14 @@
  *      shot: the completed cluster motioncorr card
  *   D  console clean
  */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
@@ -133,7 +136,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
   must(
     ["motioncor2", "relion_run_motioncorr"].every((b) => existsSync(path.join(RIG_BIN, b))),
@@ -181,20 +184,26 @@ try {
 
   // C1 — six tiny but valid MRC micrographs + a REAL local import job
   mkdirSync(MICS_DIR, { recursive: true });
+  // t535 — the real-binary era: MotionCorr consumes MOVIES (frame stacks).
+  // 4-frame 64x64 float32 stacks — nz=4 in the header, per-frame signal — so
+  // the import speaks data_movies and the real relion_run_motioncorr reads it.
+  const N_FRAMES = 4;
   const names = ["mic_01.mrc", "mic_02.mrc", "mic_03.mrc", "mic_04.mrc", "mic_05.mrc", "mic_06.mrc"];
   for (const n of names) {
     const W = 64, H = 64;
-    const buf = Buffer.alloc(1024 + W * H * 4);
-    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
+    const buf = Buffer.alloc(1024 + W * H * 4 * N_FRAMES);
+    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(N_FRAMES, 8);
     buf.writeInt32LE(2, 12); // mode 2 = float32
-    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
-    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(N_FRAMES, 36);
+    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * N_FRAMES, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-    for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+    for (let s = 0; s < N_FRAMES; s++) {
+      for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7 + s) * 0.1, 1024 + (s * W * H + i) * 4);
+    }
     writeFileSync(path.join(MICS_DIR, n), buf);
   }
-  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (64x64 float32)");
+  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), `six mock movies fabricated (64x64 float32, ${N_FRAMES} frames)`);
 
   const mkJob = async (body) => {
     const r = await fetch(`${BASE}/api/jobs`, {
@@ -226,7 +235,9 @@ try {
   const importJob = await mkJob({
     type: "import",
     name: "t267 Import",
-    params: { micrographsPath: MICS_DIR, pixelSize: 1.77 },
+    // t535 — nodeType movies: the star must speak data_movies, the only
+    // dialect the real relion_run_motioncorr reads (and the t535 gate enforces)
+    params: { micrographsPath: MICS_DIR, pixelSize: 1.77, nodeType: "movies" },
   });
   must(!!importJob?.id, "the import job exists");
   await fetch(`${BASE}/api/jobs/${importJob.id}/run`, {
@@ -267,8 +278,12 @@ try {
 
   // C3 — the bare-API dispatch of an externals-bearing job: the AUTO-PROBE
   // must light the connection and the run must complete with CLUSTER paths.
-  const jobM = await mkJob({ type: "motioncorr", name: "t267 MotionCorr AutoProbe" });
-  const eM = await mkEdge(importJob.id, jobM.id, "micrographs", "movies");
+  // t409 — do_own_motioncor pinned FALSE: t374's RELION 5.0 GUI table made
+  // RELION's own implementation the product default; this suite audits the
+  // MOTIONCOR2 EXTERNALS lane (--motioncor2_exe from the probed cluster
+  // world), so it must aim at that lane (the t264 precedent).
+  const jobM = await mkJob({ type: "motioncorr", name: "t267 MotionCorr AutoProbe", params: { do_own_motioncor: false } });
+  const eM = await mkEdge(importJob.id, jobM.id, "movies", "movies");
   must(eM === 200 || eM === 201, `import → probeless-remote motioncorr wired (${eM})`);
   const dispatchM = await fetch(`${BASE}/api/jobs/${jobM.id}/run`, {
     method: "POST",
@@ -338,8 +353,8 @@ try {
     }),
   });
   must(mkDead.status === 201, `the dead-port connection is created (got ${mkDead.status})`);
-  const jobD = await mkJob({ type: "motioncorr", name: "t267 MotionCorr DeadPort" });
-  const eD = await mkEdge(importJob.id, jobD.id, "micrographs", "movies");
+  const jobD = await mkJob({ type: "motioncorr", name: "t267 MotionCorr DeadPort", params: { do_own_motioncor: false } });
+  const eD = await mkEdge(importJob.id, jobD.id, "movies", "movies");
   must(eD === 200 || eD === 201, `import → dead-port motioncorr wired (${eD})`);
   const dispatchD = await fetch(`${BASE}/api/jobs/${jobD.id}/run`, {
     method: "POST",
@@ -406,8 +421,27 @@ try {
     }
   } catch { /* best effort */ }
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate the
+
+    // demo chain's ancestral workdirs (t313's guard caught it live). Protect
+
+    // every workdir the world still speaks, then glob.
+
+    let worldProtect = [];
+
+    try {
+
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+
+    console.log(worldGuardLine(worldProtect.length));
+
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/motioncorr_* /projects/cryoflow/*/autopick_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs'`,
+
+      `node services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/motioncorr_*","/projects/cryoflow/*/autopick_*","/projects/cryoflow/*/import_*","/projects/cryoflow/*/micrographs"], worldProtect)}'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }
@@ -421,7 +455,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

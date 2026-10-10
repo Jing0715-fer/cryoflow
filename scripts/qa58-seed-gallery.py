@@ -17,12 +17,25 @@ Select"), wired classAverages→classes, and flipped to completed directly
 in the DB (PATCH only allows status:"idle" — same approach the engine
 uses: the row is the source of truth for status, the workdir for output).
 
-Usage: python3 scripts/qa58-seed-gallery.py [--clean]
-  --clean removes the seeded workdir files (jobs/edge stay — harmless) and
-  pops the engine-state entry ONLY when the workdir holds no tenant files
-  (Task 161 cleanup-radius protocol — see qa_lib.py; qa67-seed-volume.py
-  drops orthovol.mrc into this workdir, and the /outputs route resolves
-  the workdir THROUGH the entry, so a popped entry orphans every tenant).
+Usage: python3 scripts/qa58-seed-gallery.py [--clean] [--take-home]
+  --clean removes the seeded workdir files and pops the engine-state entry
+  ONLY when the workdir holds no tenant files (Task 161 cleanup-radius
+  protocol — see qa_lib.py; qa67-seed-volume.py drops orthovol.mrc into
+  this workdir, and the /outputs route resolves the workdir THROUGH the
+  entry, so a popped entry orphans every tenant).
+
+  --take-home is the FULL specimen lifecycle (t628/t630 doctrine): radius
+  clean first (the order is iron law — the radius needs the job ids to
+  find the workdir; deleting rows first would make a re-seed resurrect
+  them), then the two job rows go home through the product DELETE door
+  (edges cascade; the linked-copies guard is respected). The old
+  "jobs/edge stay — harmless" premise is DEAD: t628 convicted it — the
+  jobs POST route assigns EVERY create to the ACTIVE project, so this
+  pair lands in whatever world is canonical that night and stays as a
+  resident. A specimen is not a resident. Refuses to delete (exit 2)
+  when tenants still hold the workdir: a deleted row with a kept entry
+  is a dangling registration — worse than a living resident. Order for
+  tenant suites (qa67/qa68): tenant --clean FIRST, then this --take-home.
 """
 import json
 import os
@@ -40,6 +53,31 @@ PROJECT = resolve_project()
 WORKSPACE = resolve_workspace(PROJECT)
 SRC_NAME = "QA Class2D Source"
 SEL_NAME = "QA Class Select"
+
+# t631 — the crash-window marker: the seeder POSTs a row (the app assigns
+# an auto-name like "2D Class Selection 1") and only LATER PATCHes the QA
+# name onto it. A crash inside that window leaves a row the name-based
+# take-home cannot recognize — tonight that was a live leak (run11 died
+# between POST and PATCH; "2D Class Selection 1" outlived its suite).
+# The marker records the ids IMMEDIATELY after POST, so take-home can
+# claim its specimens by id even when the rename never happened.
+IDS_PATH = "/home/z/my-project/.qa-logs/qa58-seed-ids.json"
+
+def record_ids(src_id=None, sel_id=None):
+    try:
+        os.makedirs(os.path.dirname(IDS_PATH), exist_ok=True)
+        st = {}
+        if os.path.exists(IDS_PATH):
+            with open(IDS_PATH) as f:
+                st = json.load(f)
+        if src_id:
+            st["src"] = src_id
+        if sel_id:
+            st["sel"] = sel_id
+        with open(IDS_PATH, "w") as f:
+            json.dump(st, f, indent=2)
+    except Exception as e:
+        print(f"ids: record failed ({e})")
 
 # occupancy ladder — 8 classes, 1455 particles, occupancy DECOUPLED from
 # class number so the gallery's occupancy sort genuinely reorders (and the
@@ -80,6 +118,7 @@ if src:
 else:
     r = api("/api/jobs", "POST", {"type": "class2d", "x": 1050, "y": 780, "workspaceId": WORKSPACE})
     src = r.get("job") or r
+    record_ids(src_id=src["id"])  # marker BEFORE the rename — the crash window
     api("/api/jobs/" + src["id"], "PATCH", {"name": SRC_NAME})
     print(f"class2d (created):  {src['id']}")
 
@@ -89,6 +128,7 @@ if sel:
 else:
     r = api("/api/jobs", "POST", {"type": "select2d", "x": 1310, "y": 780, "workspaceId": WORKSPACE})
     sel = r.get("job") or r
+    record_ids(sel_id=sel["id"])  # marker BEFORE the rename — the crash window
     api("/api/jobs/" + sel["id"], "PATCH", {"name": SEL_NAME})
     print(f"select2d (created):  {sel['id']}")
 
@@ -125,9 +165,16 @@ Promise.all([
   .catch((e) => { console.error(e.message); process.exit(1); });
 """
 import subprocess
+# t407 — the flip must land in the world the SERVER is serving. The env's
+# DATABASE_URL is .env's custom.db (the TEMPLATE library, per the t402
+# doctrine); the dev lane pins cryoflow.db in dev-server.sh:43 and the
+# production lane pins it in start-prod.sh (the t407 same-world law). The
+# bare node -e inherited .env and flipped a record in a library nobody
+# serves — "required but not found" against the live world.
+env = dict(os.environ, DATABASE_URL="file:/home/z/my-project/db/cryoflow.db")
 r = subprocess.run(
     ["node", "-e", mark, src["id"], sel["id"]],
-    cwd="/home/z/my-project", capture_output=True, text=True,
+    cwd="/home/z/my-project", capture_output=True, text=True, env=env,
 )
 if "completed" not in r.stdout:
     sys.exit(f"DB status flip failed: {r.stderr.strip()[:200]}")
@@ -176,9 +223,17 @@ with open(state_path, "w") as f:
     json.dump(state, f, indent=2)
 print(f"run record: registered for {src['id']} → {workdir}")
 
-if "--clean" in sys.argv:
+TAKE_HOME = "--take-home" in sys.argv
+if "--clean" in sys.argv or TAKE_HOME:
     removed = []
-    for p in (star_path, mrcs_path):
+    # the radius is THREE files: the data star, the mrcs stack, AND the
+    # optimiser witness (run_it012_optimiser.star, written further down
+    # in the seed flow). The witness was missing from this radius forever
+    # — harmless while the rows stayed (the old fiction), but the
+    # t630 take-home guard refused on it on day one: a real radius leak,
+    # caught in vivo.
+    witness_path = os.path.join(workdir, f"run_it{ITER:03d}_optimiser.star")
+    for p in (star_path, mrcs_path, witness_path):
         if os.path.exists(p):
             os.remove(p)
             removed.append(os.path.basename(p))
@@ -194,7 +249,7 @@ if "--clean" in sys.argv:
     # this chain). A living job keeps its registration — outputs then
     # lists what is REALLY on disk (the route readdirSyncs the workdir);
     # a tenant-free workdir gets the honest pop, radius = seed radius.
-    own = {os.path.basename(star_path), os.path.basename(mrcs_path)}
+    own = {os.path.basename(star_path), os.path.basename(mrcs_path), os.path.basename(witness_path)}
     tenants = []
     try:
         tenants = sorted(f for f in os.listdir(workdir) if f not in own)
@@ -202,6 +257,14 @@ if "--clean" in sys.argv:
         pass  # no workdir at all — nothing to protect, pop below is honest
     if tenants:
         print(f"clean: engine-state entry KEPT — tenant files present: {tenants}")
+        if TAKE_HOME:
+            # t630 take-home guard: a deleted row with a kept entry is a
+            # dangling registration (t629's Z7 fail class) — worse than a
+            # living resident. The caller must clean the tenants FIRST
+            # (qa67/qa68 order: qa67-seed-volume --clean, then here).
+            print("take-home: REFUSED — tenants still hold the workdir "
+                  f"({', '.join(tenants)}); run the tenant's --clean first")
+            sys.exit(2)
     else:
         try:
             with open(state_path) as f:
@@ -215,6 +278,57 @@ if "--clean" in sys.argv:
     # the classes route 404s-by-empty when the workdir vanishes entirely —
     # keep the directory itself so a stale job never turns into a 500
     print(f"clean: removed {removed or 'nothing'}")
+    if TAKE_HOME:
+        # t630 — the rows go home through the product DELETE door (edges
+        # cascade via Prisma; the linked-copies guard is respected — the
+        # pair carries none). Idempotent: absent rows count as done.
+        # t631 — resolution is id-first (the crash-window marker),
+        # name-second: a specimen that died mid-rename is still ours.
+        try:
+            with open(IDS_PATH) as f:
+                ids_state = json.load(f)
+        except Exception:
+            ids_state = {}
+        gone = 0
+        for kind, name in (("src", SRC_NAME), ("sel", SEL_NAME)):
+            try:
+                jobs = api("/api/jobs")
+                # /api/jobs answers {"jobs":[…]} (dict) or […] depending on
+                # the route's envelope — unwrap before find
+                if isinstance(jobs, dict):
+                    jobs = jobs.get("jobs", [])
+                row = None
+                marked_id = ids_state.get(kind)
+                if marked_id:
+                    row = next((j for j in jobs if j.get("id") == marked_id), None)
+                if row is None:
+                    row = next((j for j in jobs if j.get("name") == name), None)
+            except Exception as e:
+                print(f"take-home: job lookup failed for {name} ({e})")
+                sys.exit(2)
+            if row is None:
+                gone += 1  # already home — idempotent re-run counts it
+                continue
+            api(f"/api/jobs/{row['id']}", "DELETE")
+            gone += 1
+            via = "marker id" if row.get("name") != name else "name"
+            print(f"take-home: deleted {name} ({row['id'][:10]}…, via {via}) via the product door")
+        try:
+            if os.path.exists(IDS_PATH):
+                os.remove(IDS_PATH)  # specimens home — the marker retires
+        except Exception as e:
+            print(f"take-home: marker cleanup failed ({e})")
+        print(f"take-home: {gone}/{2} rows home")
+        # the WHOLE specimen goes home: DELETE never sweeps disk (t97), so
+        # the per-job workdir would fossilize — one empty dir per cycle.
+        # os.rmdir only succeeds when EMPTY (the radius already removed
+        # everything we own; any tenant still present keeps the dir alive
+        # — the refusal guard above already exited by then).
+        try:
+            os.rmdir(workdir)
+            print(f"take-home: workdir removed (empty): {workdir}")
+        except OSError as e:
+            print(f"take-home: workdir kept ({e})")
     sys.exit(0)
 
 # ---- run_it012_data.star — particle→class assignment (1455 rows) ----
@@ -233,6 +347,22 @@ for cls, n in enumerate(COUNTS, start=1):
 with open(star_path, "w") as f:
     f.write("\n".join(lines) + "\n")
 print(f"star: {star_path} ({row - 1} rows)")
+
+# t520 — the witness star: engine.ts's latestIterationDataStar only accepts
+# a data star that has a sibling optimiser/model/half1_model star (a REAL
+# RELION run always writes them together — a lone data star is a torn round).
+# This fixture seeded the data star alone, so the /classes route's stats read
+# iter=None → 0 classes → the gallery verify failed on every fresh world.
+# One honest witness makes the fixture a round RELION would recognize.
+witness_path = os.path.join(workdir, f"run_it{ITER:03d}_optimiser.star")
+with open(witness_path, "w") as f:
+    f.write(
+        "data_optimiser\n\n"
+        f"loop_\n_rlnCurrentIteration {ITER}\n"
+        "_rlnNumberOfClasses 8\n"
+        "_rlnHasFSCMarks 1\n"
+    )
+print(f"witness: {witness_path}")
 
 # ---- run_it012_unmasked_classes.mrcs — 64×64×8 float32 stack ----
 N = 64

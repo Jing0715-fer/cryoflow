@@ -29,6 +29,7 @@ import {
   Link2,
   Loader2,
   RotateCcw,
+  Route,
   Search,
   Trash2,
   Map as MapIcon,
@@ -43,34 +44,45 @@ import {
 import {
   CARD_H,
   CARD_W,
+  PORT_COLORS,
   ZOOM_MAX,
   ZOOM_MIN,
   ZOOM_STEP,
   jobType,
+  outputKindOf,
   portY,
 } from "@/lib/workflow";
 import { hasJudgment } from "@/lib/class-notes";
+import { walkTimeline } from "@/lib/timeline-walk"; // t682 — the chain drinks the same honest-window well
+import { criticalPath } from "@/lib/critical-path"; // t682 — the walk the fifth face speaks
+import { fmtDuration } from "@/lib/duration";
 import { pendingWirePath } from "@/lib/edge-geom";
-import { CanvasFindBar, jobMatchesFind } from "./canvas-find-bar";
+import { CanvasFindBar } from "./canvas-find-bar";
+import { jobMatchWhy, jobMatchesFind, type MatchWhy } from "@/lib/job-match"; // t653 — one matcher, three consumers, one home; t655 — the why rides the same lib
+import { CanvasFunnelDoor } from "./canvas-funnel-door";
 import { copyCanvasPng, exportCanvasPng, fmtBytes } from "@/lib/canvas-export";
 import {
   buildWorkflowFile,
   downloadWorkflowJson,
   workflowFileName,
 } from "@/lib/workflow-io";
-import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom, type HistoryEntry, type HistoryEntryKind } from "@/lib/store";
+import { useWorkflowStore, useActiveWorkspaceJobs, useActiveWorkspaceEdges, type PendingFrom, type HistoryEntry, type HistoryEntryKind, type Viewport } from "@/lib/store";
 import { beginGroupDrag, endGroupDrag, moveGroupDrag } from "@/lib/group-drag";
-import type { JobDTO } from "@/lib/types";
+import { nearestNeighbor, type NavDir } from "@/lib/canvas-nav"; // t775 — the arrow-key navigator: the geometry brain lives in the lib, the canvas resolves and moves the DOM focus
+import type { JobDTO, PortKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { EdgesLayer } from "./edges-layer";
 import { PipelineKpi } from "./pipeline-kpi";
 import { CanvasMinimap } from "./canvas-minimap";
 import { JobCard } from "./job-card";
+import { STATUS_FLOOR, type StatusWord } from "@/lib/status-style"; // t647 — the floor map lives with the word law
+import { TypeIcon } from "./icons";
 import { ParamsDiffDialog } from "./params-diff-dialog";
 import { useDropImport, DropImportOverlay } from "./drop-import";
 import { stageWorkflowFiles } from "@/lib/import-stage";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ContextMenu,
@@ -121,6 +133,12 @@ function CanvasSkeleton() {
   );
 }
 
+/** t364 — how many cards one reveal frame mounts (see WorkflowCanvas): a
+ *  landing canvas streams in ~20 cards per frame instead of one giant
+ *  commit, and a list that grows by ≤ this many renders immediately (one
+ *  added card must never stagger). */
+const REVEAL_CHUNK = 20;
+
 interface PanState {
   pointerId: number;
   lastX: number;
@@ -137,6 +155,12 @@ interface PanState {
 /** padding around the live-wire's anchor+cursor box — generous so the
  *  rubber band keeps drawing while the cursor roams the infinite canvas */
 const WIRE_PAD = 900;
+
+/** t588 — when the glide class retracts after a programmatic arrival: the
+ *  transition runs 0.48s, the extra 40ms is slack so the class never
+ *  peels off mid-bezier (t124's original 520 margin, now named — both
+ *  the focus effect and the bookmark arrivals share the one number). */
+const GLIDE_RETRACT_MS = 520;
 
 /**
  * Temporary "live wire" following the cursor while a connection is pending
@@ -178,6 +202,15 @@ const LiveWire = React.memo(function LiveWire({
   if (!job) return null;
   const spec = jobType(job.type);
 
+  // t742 — the live wire wears its ink BEFORE it exists: the pending port
+  // already knows what data will flow (outputKindOf asks the same book the
+  // committed wires read), so the preview line paints the kind's resting
+  // wire hex while it is still being dragged. Wiring is the moment the
+  // user declares what flows — the color should answer immediately, not
+  // after the commit. A port without a word (no kind) stays bare primary:
+  // the wire-ink law's bare face — honest colorlessness, not a borrowed
+  // hue (t738's wordless chip, met again at the wire's birthplace).
+
   // "out" wires anchor at an output port (right edge); "in" wires anchor
   // at an input port (left edge) and are dragged backwards to an output
   let sx: number;
@@ -198,6 +231,8 @@ const LiveWire = React.memo(function LiveWire({
   const by = Math.min(sy, cursor.y) - WIRE_PAD;
   const bw = Math.abs(cursor.x - sx) + 2 * WIRE_PAD;
   const bh = Math.abs(cursor.y - sy) + 2 * WIRE_PAD;
+  const liveKind = outputKindOf(job.type, pendingFrom.port);
+  const ink = liveKind ? PORT_COLORS[liveKind].wire : undefined;
 
   return (
     <svg
@@ -208,19 +243,18 @@ const LiveWire = React.memo(function LiveWire({
       style={{ left: bx, top: by, overflow: "visible" }}
       aria-hidden="true"
     >
-      <circle cx={sx} cy={sy} r={4} fill="var(--primary)" opacity={0.9} />
+      <circle cx={sx} cy={sy} r={4} fill={ink ?? "var(--primary)"} opacity={0.9} />
       <path
         d={pendingWirePath(sx, sy, cursor.x, cursor.y, pendingFrom.dir === "in" ? "in" : "out")}
-        stroke="var(--primary)"
+        stroke={ink ?? "var(--primary)"}
         strokeWidth={2.5}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray="7 5"
         opacity={0.8}
         fill="none"
         className="edge-flow"
       />
-      <circle cx={cursor.x} cy={cursor.y} r={3} fill="var(--primary)" opacity={0.55} />
+      <circle cx={cursor.x} cy={cursor.y} r={3} fill={ink ?? "var(--primary)"} opacity={0.55} />
     </svg>
   );
 });
@@ -234,7 +268,7 @@ type HistoryRowKind = HistoryEntryKind | "other";
 const HISTORY_KIND_META: Record<HistoryRowKind, { icon: typeof Move; noun: string; className: string }> = {
   move: { icon: Move, noun: "move", className: "text-muted-foreground" },
   tidy: { icon: Wand2, noun: "auto-arrange", className: "text-muted-foreground" },
-  delete: { icon: Trash2, noun: "delete", className: "text-rose-500/90" },
+  delete: { icon: Trash2, noun: "delete", className: "text-danger-500/90" },
   other: { icon: CircleDashed, noun: "edit", className: "text-muted-foreground" },
 };
 
@@ -615,6 +649,9 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
   const deleteSelected = useWorkflowStore((s) => s.deleteSelected);
   const saveSelectionTemplate = useWorkflowStore((s) => s.saveSelectionTemplate);
   const [confirmDel, setConfirmDel] = React.useState(false);
+  // t789 — the confirmed-delete flag: onCloseAutoFocus fires on BOTH exits;
+  // only the confirmed one redirects the keyboard to the canvas.
+  const deletedRef = React.useRef(false);
   const [busy, setBusy] = React.useState(false);
   // Task 127 — save-the-selection-as-template naming dialog
   const [tplOpen, setTplOpen] = React.useState(false);
@@ -782,7 +819,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
         <Button
           variant="ghost"
           size="icon"
-          className="size-7 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+          className="size-7 text-danger-600 hover:bg-danger-500/10 hover:text-danger-700 dark:text-danger-400 dark:hover:text-danger-300"
           onClick={() => setConfirmDel(true)}
           aria-label="Delete selection"
           title="Delete the selection (with every wire attached)"
@@ -857,7 +894,14 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
       {/* bulk delete confirm — mirrors the single-job guard (page.tsx /
           job-card.tsx): cascades wires, so require an explicit OK */}
       <AlertDialog open={confirmDel} onOpenChange={setConfirmDel}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            if (!deletedRef.current) return; // cancel — Radix hands back to the toolbar button
+            e.preventDefault();
+            deletedRef.current = false;
+            rootRef.current?.focus(); // t789 — the relay: the keyboard stands where the cards were
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {sel.length} jobs?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -876,6 +920,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
             <AlertDialogAction
               className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
               onClick={() => {
+                deletedRef.current = true; // t789 — the confirmed path
                 setConfirmDel(false);
                 void deleteSelected();
               }}
@@ -895,6 +940,136 @@ export function WorkflowCanvas() {
   // through linked copies — see store.linkJobTo)
   const jobs = useActiveWorkspaceJobs();
   const edges = useActiveWorkspaceEdges();
+  // t775 — the arrow-key navigator's brain: from the focused card, find the
+  // nearest card in the arrow's direction (the lib owns the geometry) and
+  // move the DOM focus there. Focus transfer is the WHOLE gesture — arrows
+  // never select, never inspect (the Enter/Space contract owns acting; t773's
+  // door lineage, keyboard edition). The querySelector reads the card's
+  // data-card-btn anchor — the one honest focus target a card owns. The
+  // jobs array is the SAME subscription the render loop already holds —
+  // zero extra store passes, and the callback identity follows the array
+  // the memo comparator already watches (no new re-render channel).
+  const navigateCard = React.useCallback(
+    (fromId: string, dir: NavDir) => {
+      const target = nearestNeighbor(jobs, fromId, dir);
+      if (!target) return;
+      document.querySelector<HTMLElement>(`[data-card-btn="${target}"]`)?.focus();
+    },
+    [jobs]
+  );
+  // t737 — the legend's focus: the kind word currently focused from the
+  // toolbar's legend (null when none). Ephemeral view state, same family
+  // as the hover channel — deliberately not store material.
+  const [legendKind, setLegendKind] = React.useState<PortKind | null>(null);
+  // t739 — the legend's hover card: which word's index card is open (null
+  // when none). Same ephemeral family as legendKind, and the two answer
+  // different questions: hover READS the list, click FOCUSES the wires —
+  // the card is the TOC's index page, the focus is the reading lamp.
+  const [legendHover, setLegendHover] = React.useState<PortKind | null>(null);
+  // t737 — the legend face's roster: the kinds the CURRENT world's wires
+  // actually wear, derived from the same book the wires themselves read
+  // (outputKindOf + PORT_COLORS), in the book's own order. A legend of
+  // colors this canvas never paints would be a lie; the roster is the
+  // world's own chromatography. Each entry carries its wire count — the
+  // title teaches how MANY wires speak that word. t739 — each entry also
+  // carries its wire ROWS (from-name → to-name), the index page the hover
+  // card prints; and the roster speaks the CANVAS's caliber: a wire
+  // belongs only when BOTH endpoints are visible jobs — the same law
+  // edges-layer paints by (cross-workspace flows leave the roster with
+  // their missing target). The legend indexes the drawn canvas, not the
+  // ledger: what isn't painted has no entry to teach from.
+  const legend = React.useMemo(() => {
+    const counts = new Map<PortKind, number>();
+    const rows = new Map<PortKind, { from: string; to: string }[]>();
+    const byId = new Map(jobs.map((j) => [j.id, j] as const));
+    for (const e of edges) {
+      if (!e.fromPort) continue;
+      const from = byId.get(e.fromJobId);
+      if (!from) continue;
+      const to = e.toJobId ? byId.get(e.toJobId) : undefined;
+      if (!to) continue;
+      const k = outputKindOf(from.type, e.fromPort);
+      if (!k) continue;
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+      const list = rows.get(k) ?? [];
+      list.push({ from: from.name, to: to.name });
+      rows.set(k, list);
+    }
+    return (Object.keys(PORT_COLORS) as PortKind[])
+      .filter((k) => counts.has(k))
+      .map((k) => ({
+        kind: k,
+        wires: counts.get(k) ?? 0,
+        rows: rows.get(k) ?? [],
+      }));
+  }, [edges, jobs]);
+  // t737 — Escape lets the focus go: the legend's question is a view
+  // state, and one keypress retreats. Mounted only while a focus is live.
+  React.useEffect(() => {
+    if (legendKind == null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLegendKind(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [legendKind]);
+  // t364 — the LANDING commit stays interruptible + progressive. When the
+  // initial data load (or a workspace switch / workflow import) lands a big
+  // canvas, mounting every card in ONE synchronous render pass blocked the
+  // main thread exactly while the user was trying to look at the app — the
+  // "opening the page stutters" report. Two levers, composed:
+  //   · useDeferredValue — the card layer re-renders at transition priority:
+  //     the shell paints first and pan/zoom/keys stay responsive while the
+  //     concurrent pass renders (steady-state polls stay free — the deferred
+  //     value only lags on real change, and memoized cards skip unchanged
+  //     rows anyway);
+  //   · chunked reveal — a landing that GROWS the list by more than a chunk
+  //     mounts cards ~20 per frame instead of one giant pop, so early cards
+  //     are visible while the rest stream in.
+  // Everything interactive (fit, print, export, find, LiveWire) keeps the
+  // FRESH lists; only the workspace render layer consumes these.
+  const deferredJobs = React.useDeferredValue(jobs);
+  const deferredEdges = React.useDeferredValue(edges);
+  // t571 — the hover channel: which canvas card the pointer is over, so
+  // the edges layer can light the wires that touch it ("what feeds this
+  // job?"). Ephemeral VIEW state — lives here, not in the store: it has
+  // no meaning outside the canvas render tree, dies with it, and would
+  // only add a store tick to every pointer crossing. The setter identity
+  // is stable, so the memoized JobCards never re-render from hover; only
+  // the edges layer (the consumer) re-renders, and its geometry memo
+  // doesn't (deps are edges/jobs — only the stroke choices recompute).
+  const [hoveredJobId, setHoveredJobId] = React.useState<string | null>(null);
+  const [revealCount, setRevealCount] = React.useState<number | null>(null);
+  const [seenCount, setSeenCount] = React.useState(0);
+  if (deferredJobs.length !== seenCount) {
+    // t364 — adjust state DURING render (React's sanctioned prev-state
+    // pattern): a landing FROM EMPTY arms the progressive reveal BEFORE the
+    // big list ever commits, so the first visible frame already shows the
+    // first chunk — arming from an effect would be one commit too late (all
+    // N cards mount, then 80 of them unmount and stream back in). Growth of
+    // a NON-empty canvas mounts immediately instead: a slice would blink
+    // cards the user already has (an import's +30 must never unmount the
+    // existing 40).
+    if (seenCount === 0 && deferredJobs.length > REVEAL_CHUNK) {
+      setRevealCount(REVEAL_CHUNK);
+    }
+    setSeenCount(deferredJobs.length);
+  }
+  React.useEffect(() => {
+    if (revealCount === null) return;
+    if (revealCount >= deferredJobs.length) {
+      setRevealCount(null); // caught up (or the list shrank past us) — all in
+      return;
+    }
+    const t = window.setTimeout(() => {
+      setRevealCount((r) =>
+        r === null ? deferredJobs.length : Math.min(r + REVEAL_CHUNK, deferredJobs.length)
+      );
+    }, 16);
+    return () => window.clearTimeout(t);
+  }, [revealCount, deferredJobs.length]);
+  const renderJobs =
+    revealCount === null ? deferredJobs : deferredJobs.slice(0, revealCount);
   const selectedId = useWorkflowStore((s) => s.selectedId);
   // Task 115 — the injected @page size is the CANVAS sheet's contract; when
   // the job inspector is open the paper is the job REPORT and the report
@@ -932,19 +1107,69 @@ export function WorkflowCanvas() {
   const findQuery = useWorkflowStore((s) => s.findQuery);
   const findStatus = useWorkflowStore((s) => s.findStatus);
   const findCategory = useWorkflowStore((s) => s.findCategory);
+  const findNoted = useWorkflowStore((s) => s.findNoted);
   const openFind = useWorkflowStore((s) => s.openFind);
   const closeFind = useWorkflowStore((s) => s.closeFind);
   const findMatchIds = React.useMemo(() => {
     const q = findQuery.trim();
-    if (!findOpen || (!q && findStatus === "all" && findCategory === "all")) return null;
+    if (!findOpen || (!q && findStatus === "all" && findCategory === "all" && !findNoted)) return null;
     const ids = new Set<string>();
-    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory)) ids.add(j.id);
+    for (const j of jobs) if (jobMatchesFind(j, findQuery, findStatus, findCategory, findNoted)) ids.add(j.id);
     return ids;
-  }, [findOpen, findQuery, findStatus, findCategory, jobs]);
+  }, [findOpen, findQuery, findStatus, findCategory, findNoted, jobs]);
+  // t655 — the WHY map, computed from the same world the ring set is:
+  // for every ringing card, which text won (name or type label) and which
+  // character spans wash. Stable identity per query (one memo, one map),
+  // so the card memo comparator sees a new prop only when the lens
+  // actually moves. Empty-query chip lenses and textless gates yield no
+  // why — a card can ring without any character claiming credit, and
+  // that honesty is the feature (the chip is the why, t653).
+  const findWhyMap = React.useMemo(() => {
+    if (findMatchIds == null || findMatchIds.size === 0) return null;
+    const m = new Map<string, MatchWhy>();
+    for (const j of jobs) {
+      if (!findMatchIds.has(j.id)) continue;
+      const why = jobMatchWhy(j, findQuery);
+      if (why) m.set(j.id, why);
+    }
+    return m;
+  }, [findMatchIds, jobs, findQuery]);
   // The lens only engages with a live query AND at least one match — a
   // zero-match search must not blank the canvas (the count chip carries
   // the "no matches" honestly instead).
   const findLens = findMatchIds != null && findMatchIds.size > 0;
+
+  // Task 579 — the ripple: matches answer in READING ORDER. The lens
+  // counts over the same workspace-ordered list the canvas renders (the
+  // memo above); the halo wave takes its beat from that same order —
+  // index × 24ms, capped at 12 steps so a wide match set is a snap, not
+  // a slow parade. Only NEWLY-matched cards ignite (persisting matches
+  // keep their settled ring — refining the query must not re-strobe the
+  // whole lens); a null prev means the lens just OPENED, and the full
+  // set replays — re-entrance is re-arrival, the t572 law. useEffect +
+  // ref (not a render-time memo) so Strict Mode's double render can't
+  // consume the diff twice.
+  const prevFindMatchRef = React.useRef<Set<string> | null>(null);
+  const [findFlash, setFindFlash] = React.useState<Map<string, number> | null>(null);
+  React.useEffect(() => {
+    if (findMatchIds == null || findMatchIds.size === 0) {
+      prevFindMatchRef.current = findMatchIds ?? null;
+      setFindFlash((f) => (f == null ? f : null));
+      return;
+    }
+    const prev = prevFindMatchRef.current;
+    prevFindMatchRef.current = findMatchIds;
+    const flash = new Map<string, number>();
+    let step = 0;
+    for (const j of jobs) {
+      if (!findMatchIds.has(j.id)) continue;
+      if ((prev == null || !prev.has(j.id)) && step <= 12) {
+        flash.set(j.id, Math.min(step, 12) * 24);
+      }
+      step++;
+    }
+    setFindFlash((f) => (flash.size === 0 ? (f == null ? f : null) : flash));
+  }, [findMatchIds, jobs]);
 
   // history panel (local open state — the panel is a transient surface,
   // not a persisted preference)
@@ -969,6 +1194,15 @@ export function WorkflowCanvas() {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const panRef = React.useRef<PanState | null>(null);
   const panRafRef = React.useRef(0);
+
+  // t789 — the delete relay's landing pad: a confirmed delete hands the
+  // keyboard to the canvas itself (t783's tab stop — the keyboard's
+  // landmark), so the user is standing where the card used to be,
+  // one Tab away from the next card and one Shift+F10 from the menu.
+  // Stable identity — the card memo comparator watches it.
+  const handFocusToCanvas = React.useCallback(() => {
+    rootRef.current?.focus();
+  }, []);
 
   /* ------------- fit-to-paper (print) bounds ------------------------- */
   /**
@@ -1201,9 +1435,12 @@ export function WorkflowCanvas() {
     panBy(pendX, pendY);
   }, [panBy]);
 
-  /** Frame a workflow bounding box in the viewport (shared by auto-arrange,
-   *  the initial-load fit and the focus button). */
-  const frameBounds = useCallback(
+  /** Pure fit geometry — WHERE the camera must sit so the bounds are
+   *  framed. No voice, no write: the computation is shared by the instant
+   *  (systemic) fits and the tidy arrival (t593), because the answer's
+   *  MOUTH is the caller's, never the geometry's (t590's boundary, now
+   *  with two mouths). */
+  const computeFrame = useCallback(
     (viewW: number, viewH: number, minX: number, minY: number, maxX: number, maxY: number) => {
       const bw = maxX - minX;
       const bh = maxY - minY;
@@ -1222,13 +1459,29 @@ export function WorkflowCanvas() {
       // content fits, centering still wins (its pad ≥ 48 by definition);
       // when the floor hides the far sides, the near corner stays
       // reachable — panning can always get to what the floor cropped.
-      setViewport({
+      return {
         x: Math.max(48, (viewW - bw * zoom) / 2) - minX * zoom,
         y: Math.max(48, (viewH - bh * zoom) / 2) - minY * zoom,
         zoom: +zoom.toFixed(3),
-      });
+      };
     },
-    [setViewport]
+    []
+  );
+
+  /** Frame a workflow bounding box in the viewport (shared by auto-arrange,
+   *  the initial-load fit, the memory restore and the fit COMMAND). The
+   *  voice boundary lives at the callers, not here (t590): the fit command
+   *  ticks (it is a scale command like ± and reset), while the systemic
+   *  callers stay silent — a birth, a remembered restore or a systemic
+   *  world rebuild is not an event (t585's arming-edge law, t587's
+   *  surface definition). The tidy rebuild is the exception that proves
+   *  the boundary: it IS the user's finger, so it answers — through the
+   *  arrival dialogue, never through this helper (t593). */
+  const frameBounds = useCallback(
+    (viewW: number, viewH: number, minX: number, minY: number, maxX: number, maxY: number) => {
+      setViewport(computeFrame(viewW, viewH, minX, minY, maxX, maxY));
+    },
+    [setViewport, computeFrame]
   );
 
   // inspector "Focus" button: center the requested job in the viewport
@@ -1241,19 +1494,15 @@ export function WorkflowCanvas() {
     if (!job || !rect) return;
     // a readable zoom: bump very low zooms up so the card is legible
     const zoom = clamp(Math.max(useWorkflowStore.getState().viewport.zoom, 0.7), ZOOM_MIN, 1);
-    // Task 124 — arrivals GLIDE, gestures stay instant: the transition class
-    // lives only for this programmatic jump (wheel/pan never add it, so the
-    // transform stays raw under the user's hand); the timer retracts it
-    // right after the cubic-bezier lands
-    const ws = rootRef.current?.querySelector("[data-canvas='workspace']");
-    ws?.classList.add("viewport-glide");
-    const retract = setTimeout(() => ws?.classList.remove("viewport-glide"), 520);
-    setViewport({
+    // Task 124 — arrivals GLIDE, gestures stay instant. t588 — the jump
+    // rides the shared arrival dialogue (hold + glide + coda tick) so the
+    // readout lands WITH the world; the glide class and its retract timer
+    // live in beginGlideArrival, wheel/pan never touch any of it.
+    beginGlideArrival({
       x: rect.width / 2 - (job.x + CARD_W / 2) * zoom,
       y: rect.height / 2 - (job.y + CARD_H / 2) * zoom,
       zoom,
     });
-    return () => clearTimeout(retract);
   }, [focusEpoch]);
 
   // The viewport is a pure CSS transform on the workspace — the section must
@@ -1294,7 +1543,7 @@ export function WorkflowCanvas() {
   // every mount fit-again even when a remembered view existed (Task 99 bug).
   const fittedEpochRef = React.useRef<number | null>(null);
   if (fittedEpochRef.current === null) fittedEpochRef.current = layoutEpoch;
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (loading || jobs.length === 0) return;
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -1311,6 +1560,66 @@ export function WorkflowCanvas() {
       frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
     };
     if (epochChanged) {
+      // t593 — the rebuild's answer is drawn by WHO bumped the epoch, not
+      // by the epoch itself. The tidy is the user's finger: the world
+      // answers — the wire skeleton re-forms at the destination (edges
+      // read the store and are correct immediately), and every moved card
+      // FLIPs home onto it while the camera rides the arrival dialogue.
+      // Import landings and template applies (layoutKind null) stay
+      // systemic: a world arriving from a file is a birth, not a gesture.
+      // useLayoutEffect, not useEffect — the FLIP's inverted frame must
+      // be pinned before the first paint, or the new seats flash for a
+      // frame before the flight begins.
+      const st = useWorkflowStore.getState();
+      if (st.layoutKind === "command") {
+        const flipFrom = st.layoutFlipFrom;
+        st.consumeLayoutCommand(); // consume-once (the t588 relay law)
+        beginGlideArrival(
+          computeFrame(
+            rect.width,
+            rect.height,
+            Math.min(...jobs.map((j) => j.x)),
+            Math.min(...jobs.map((j) => j.y)),
+            Math.max(...jobs.map((j) => j.x + CARD_W)),
+            Math.max(...jobs.map((j) => j.y + CARD_H))
+          )
+        );
+        // Per-frame wire-following EXISTS for drags (the [data-e] patch
+        // loop), but duplicating that machinery for a 12-card
+        // choreography is a different window. Cards converging onto the
+        // skeleton read as intentional: detach, fly, meet.
+        const ws = rootRef.current?.querySelector<HTMLElement>("[data-canvas='workspace']");
+        if (
+          ws &&
+          flipFrom.length > 0 &&
+          !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        ) {
+          const flying: HTMLElement[] = [];
+          for (const f of flipFrom) {
+            const el = ws.querySelector<HTMLElement>(`[data-job="${f.id}"]`);
+            if (!el) continue;
+            const j = jobs.find((jd) => jd.id === f.id);
+            if (!j) continue;
+            const dx = f.x - j.x;
+            const dy = f.y - j.y;
+            if (!dx && !dy) continue;
+            el.style.transform = `translate(${dx}px, ${dy}px)`;
+            flying.push(el);
+          }
+          if (flying.length > 0) {
+            void ws.offsetWidth; // pin the inverted frame before playing
+            ws.setAttribute("data-flip-play", "");
+            for (const el of flying) el.style.transform = "";
+            if (flipRetractRef.current) clearTimeout(flipRetractRef.current);
+            flipRetractRef.current = setTimeout(() => {
+              flipRetractRef.current = null;
+              ws.removeAttribute("data-flip-play");
+              for (const el of flying) el.style.transform = ""; // drag channel clean
+            }, GLIDE_RETRACT_MS);
+          }
+        }
+        return;
+      }
       // import/arrange wins over memory — and the fit lands in memory via
       // the store's write-through, so "where I left it" becomes the fit
       frameAll();
@@ -1322,11 +1631,166 @@ export function WorkflowCanvas() {
       return;
     }
     frameAll();
-  }, [loading, jobs, frameBounds, fitKey, layoutEpoch, setViewport]);
+    // computeFrame is a stable [] callback; beginGlideArrival is omitted
+    // to match the focus effect's local convention (it reads getState()).
+  }, [loading, jobs, frameBounds, fitKey, layoutEpoch, setViewport, computeFrame]);
+
+  /* ---------------- t598 — the card birth ---------------- */
+
+  // The birth's timing words. The family's entrance figure: a 240ms rise
+  // (palette/dash), a 24ms staircase (t579 ripple, t584 chips) walked in
+  // store order — for an import the pipeline assembles in execution
+  // order — capped at 12 steps so a 50-card import reads as "the world
+  // materializes" instead of a roll call. Retire budget: 12×24 + 240 +
+  // 120 slack = 648ms — the attributes must outlive the last card's
+  // landing, exactly the t584 settle-budget discipline.
+  const CARD_BIRTH_STEP_MS = 24;
+  const CARD_BIRTH_MAX_STEPS = 12;
+  const CARD_BIRTH_RETIRE_MS =
+    CARD_BIRTH_MAX_STEPS * CARD_BIRTH_STEP_MS + 240 + 120;
+  const birthSeq = useWorkflowStore((s) => s.birthSeq);
+  const birthIds = useWorkflowStore((s) => s.birthIds);
+  const birthEdgeIds = useWorkflowStore((s) => s.birthEdgeIds);
+  const birthRetractRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (birthRetractRef.current) clearTimeout(birthRetractRef.current);
+    },
+    []
+  );
+  // Marks mounted born-cards BEFORE their first paint (useLayoutEffect —
+  // the entrance's from-frame must be pinned, the t593 FLIP doctrine: the
+  // world's answer starts honest on frame one or it lies). The card layer
+  // renders at TRANSITION priority (useDeferredValue + the reveal
+  // staircase, t571-era machinery): the newborn mounts one commit AFTER
+  // the urgent store pass — so the effect rides renderJobs (the layer's
+  // OWN channel, t595's mechanism-follows-channel law), re-running on
+  // every deferred commit until the cards are actually in the DOM, and
+  // pins them before THAT paint. t599 — the wires ride the same cascade:
+  // edges mount on the deferredEdges pass, and cards and wires walk ONE
+  // staircase (payload order, one rhythm — the world materializes and
+  // connects in a single breath). Per-id consume: a switched-workspace
+  // import's newborns mount on the LATER commit (the switch), so
+  // unmarked ids survive in the payload until found or the window
+  // retires. History restores, poll replaces and adoption loads never
+  // arm — their silence is by construction, not by filtering here.
+  React.useLayoutEffect(() => {
+    if (birthIds.length === 0 && birthEdgeIds.length === 0) return;
+    const ws = rootRef.current?.querySelector<HTMLElement>("[data-canvas='workspace']");
+    if (!ws) return;
+    const found: string[] = [];
+    const foundEdges: string[] = [];
+    let step = 0;
+    for (const id of birthIds) {
+      const el = ws.querySelector<HTMLElement>(`[data-job="${id}"]`);
+      if (!el || el.hasAttribute("data-born")) continue;
+      el.setAttribute("data-born", "");
+      el.style.setProperty(
+        "--card-d",
+        `${Math.min(step, CARD_BIRTH_MAX_STEPS) * CARD_BIRTH_STEP_MS}ms`
+      );
+      found.push(id);
+      step += 1;
+    }
+    for (const id of birthEdgeIds) {
+      const el = ws.querySelector<HTMLElement>(`[data-edge-id="${id}"]`);
+      if (!el || el.hasAttribute("data-edge-born")) continue;
+      el.setAttribute("data-edge-born", "");
+      el.style.setProperty(
+        "--card-d",
+        `${Math.min(step, CARD_BIRTH_MAX_STEPS) * CARD_BIRTH_STEP_MS}ms`
+      );
+      foundEdges.push(id);
+      step += 1;
+    }
+    if (found.length === 0 && foundEdges.length === 0) return;
+    void ws.offsetWidth; // pin the entrance's from-frame before playing
+    ws.setAttribute("data-birth-play", "");
+    useWorkflowStore.getState().consumeBirths(found, foundEdges);
+    if (birthRetractRef.current) clearTimeout(birthRetractRef.current);
+    birthRetractRef.current = setTimeout(() => {
+      birthRetractRef.current = null;
+      ws.removeAttribute("data-birth-play");
+      for (const el of Array.from(ws.querySelectorAll<HTMLElement>("[data-born]"))) {
+        el.removeAttribute("data-born");
+        el.style.removeProperty("--card-d");
+      }
+      for (const el of Array.from(ws.querySelectorAll<HTMLElement>("[data-edge-born]"))) {
+        el.removeAttribute("data-edge-born");
+        el.style.removeProperty("--card-d");
+      }
+    }, CARD_BIRTH_RETIRE_MS);
+  }, [birthSeq, birthIds, birthEdgeIds, renderJobs, deferredEdges, activeWorkspaceId]);
 
   // "Ready" hint: idle job whose upstream (any incoming edge, possibly in
   // ANOTHER workspace — links included) is completed.
   const allJobs = useWorkflowStore((s) => s.jobs);
+
+  /* ---------------- t601 — the card's last breath ---------------- */
+
+  // The exit's timing words mirror the entrance's (the 24ms staircase,
+  // a slower 400ms fade — leaving is more deliberate than arriving);
+  // the constants live in the store next to the ghost builder they
+  // parameterize (DEATH_STEP_MS / DEATH_FADE_MS). Retire budget:
+  // 12×24 + 400 + 120 = 808ms — the attributes must outlive the last
+  // ghost's exhale, the t584 settle-budget discipline.
+  const CARD_DEATH_RETIRE_MS = 12 * 24 + 400 + 120;
+  const deathSeq = useWorkflowStore((s) => s.deathSeq);
+  const deathGhosts = useWorkflowStore((s) => s.deathGhosts);
+  // The RENDER face rides the card layer's own deferral (the t595
+  // mechanism-follows-channel law, death edition): the cards mount on
+  // the deferred pass (useDeferredValue, t571 machinery), so a dead
+  // card also UNMOUNTS one deferred commit after the urgent truth — a
+  // ghost mounted on the urgent pass would overlap its own corpse for
+  // a frame or two. Deferred, the ghost mounts in the SAME commit the
+  // card actually leaves: one commit, one body. The effects below keep
+  // the urgent subscription — supersede and retire timing are about
+  // truth, not paint.
+  const renderDeathGhosts = React.useDeferredValue(deathGhosts);
+  const deathSweepRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (deathSweepRef.current) clearTimeout(deathSweepRef.current);
+    },
+    []
+  );
+  // The render face of resurrection: a ghost whose card is live again is
+  // skipped THE SAME COMMIT the card returns (the effect below prunes
+  // the store data a beat later) — no frame of haunting, not even one.
+  const breathingGhosts = renderDeathGhosts.filter(
+    (g) => !allJobs.some((j) => j.id === g.id)
+  );
+  // Two duties, both OUTSIDE the paint path (the ghost elements carry
+  // their own mount-time animation with `both` fill — the from-frame is
+  // pinned by CSS, no attribute dance needed): ① resurrection
+  // supersedes the breath — a ghost whose card is live again (Ctrl+Z
+  // mid-fade) is pruned at once, TWO memories of one seat would be a
+  // haunting; ② the window closes — the sweep is bornAt-based, so a
+  // poll tick re-running this effect recomputes the remaining window
+  // instead of pushing it (a timer re-armed on every jobs change would
+  // never close under a 1.2s run-cadence poll).
+  React.useEffect(() => {
+    if (deathGhosts.length === 0) return;
+    const aliveIds = deathGhosts
+      .map((g) => g.id)
+      .filter((id) => allJobs.some((j) => j.id === id));
+    if (aliveIds.length > 0) {
+      useWorkflowStore.getState().pruneDeathGhosts(aliveIds);
+      return; // the prune re-triggers this effect via deathGhosts
+    }
+    const now = Date.now();
+    const youngest = Math.max(...deathGhosts.map((g) => g.bornAt));
+    const remaining = CARD_DEATH_RETIRE_MS - (now - youngest);
+    if (remaining <= 0) {
+      useWorkflowStore.getState().retireDeathGhosts();
+      return;
+    }
+    if (deathSweepRef.current) clearTimeout(deathSweepRef.current);
+    deathSweepRef.current = setTimeout(() => {
+      deathSweepRef.current = null;
+      useWorkflowStore.getState().retireDeathGhosts();
+    }, remaining);
+  }, [deathSeq, deathGhosts, allJobs]);
   // Note spotlight lens (Task 75, predicate upgraded in Task 83): cards
   // without human judgment dim as one unit — the class lives on the
   // positioned [data-job] root so body, badge and ports recede together
@@ -1336,6 +1800,68 @@ export function WorkflowCanvas() {
   // the lens claims to spotlight "noted" work.
   const noteSpotlight = useWorkflowStore((s) => s.noteSpotlight);
   const allEdges = useWorkflowStore((s) => s.edges);
+
+  /* ---------------- t602 — the wire's own last breath ---------------- */
+
+  // The loner's exit rides the organ's air (ghost-wire-exit is shared):
+  // a lone wire has no gravity to sink with, it only fades — 400ms on
+  // the same mirror bezier, no staircase (each click is its own command;
+  // the t601 staircases serve ONE command taking multiple bodies).
+  // Retire budget: 0 delay + 400 + 120 = 520ms — the attributes must
+  // outlive the exhale, the t584 settle-budget discipline.
+  const EDGE_DEATH_RETIRE_MS = 400 + 120;
+  const deathEdgeSeq = useWorkflowStore((s) => s.deathEdgeSeq);
+  const deathEdgeGhosts = useWorkflowStore((s) => s.deathEdgeGhosts);
+  // The render face rides the WIRES' own deferral: the edges layer mounts
+  // on the deferred pass (deferredEdges — the t595 mechanism-follows-channel
+  // law), so the wire also UNMOUNTS one deferred commit after the urgent
+  // truth — a loner mounted urgent would overlap its own corpse for a
+  // frame or two. Deferred, the ghost mounts in the SAME commit the wire
+  // actually leaves: one commit, one body (the t601 law, loner edition).
+  const renderDeathEdgeGhosts = React.useDeferredValue(deathEdgeGhosts);
+  const deathEdgeSweepRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(
+    () => () => {
+      if (deathEdgeSweepRef.current) clearTimeout(deathEdgeSweepRef.current);
+    },
+    []
+  );
+  // The render face of revival: a loner whose wire is live again (a
+  // failed DELETE's restore) is skipped THE SAME COMMIT the wire returns
+  // (the effect below prunes the store data a beat later) — no frame of
+  // haunting, not even one. The urgent truth decides (t601): revival and
+  // retire are about truth, not paint.
+  const breathingEdgeGhosts = renderDeathEdgeGhosts.filter(
+    (g) => !allEdges.some((e) => e.id === g.id)
+  );
+  // Two duties, both OUTSIDE the paint path (the ghost elements carry
+  // their own mount-time animation with `both` fill): ① a revival
+  // supersedes the breath at once; ② the window closes bornAt-based, so
+  // a poll tick re-running this effect recomputes the remaining window
+  // instead of pushing it (a timer re-armed on every edges change would
+  // never close under the 1.2s run-cadence poll).
+  React.useEffect(() => {
+    if (deathEdgeGhosts.length === 0) return;
+    const aliveIds = deathEdgeGhosts
+      .map((g) => g.id)
+      .filter((id) => allEdges.some((e) => e.id === id));
+    if (aliveIds.length > 0) {
+      useWorkflowStore.getState().pruneDeathEdgeGhosts(aliveIds);
+      return; // the prune re-triggers this effect via deathEdgeGhosts
+    }
+    const now = Date.now();
+    const youngest = Math.max(...deathEdgeGhosts.map((g) => g.bornAt));
+    const remaining = EDGE_DEATH_RETIRE_MS - (now - youngest);
+    if (remaining <= 0) {
+      useWorkflowStore.getState().retireDeathEdgeGhosts();
+      return;
+    }
+    if (deathEdgeSweepRef.current) clearTimeout(deathEdgeSweepRef.current);
+    deathEdgeSweepRef.current = setTimeout(() => {
+      deathEdgeSweepRef.current = null;
+      useWorkflowStore.getState().retireDeathEdgeGhosts();
+    }, remaining);
+  }, [deathEdgeSeq, deathEdgeGhosts, allEdges]);
   // Task 164 — the context radius. The lens used to be a binary flood:
   // every unjudged card sank to the same deep dim, which kept the judged
   // islands but erased WHERE they sit in the pipeline. Now the unjudged
@@ -1374,6 +1900,44 @@ export function WorkflowCanvas() {
     return ready;
   }, [allEdges, completedIds]);
 
+  /* t682 — the critical path lens: the same walk the analytics panel's
+   * fifth face speaks, computed over the WHOLE project graph (allJobs +
+   * allEdges — the spotlight's radius rides the same whole-graph law),
+   * so the lens can never disagree with the face about which cards are
+   * the story. Running rows wait outside the chain (a live run has no
+   * end yet — the face's own filter); `now` is the memo's reading of
+   * the instant, and its only consumer (a running row's stretched end)
+   * is discarded by that filter, so the reading stays honest for
+   * everything the chain keeps. The lens flag lives in the store (the
+   * spotlight's law — a viewing lens, not a document property); the
+   * chain itself is derived, never stored. */
+  const criticalLens = useWorkflowStore((s) => s.criticalLens);
+  const criticalWalk = React.useMemo(() => {
+    const w = walkTimeline(allJobs, Date.now());
+    return criticalPath(
+      w.rows.filter((r) => r.job.status !== "running"),
+      allEdges
+    );
+  }, [allJobs, allEdges]);
+  const chainIds = React.useMemo(
+    () =>
+      criticalLens && criticalWalk
+        ? new Set(criticalWalk.chain.map((s) => s.job.id))
+        : null,
+    [criticalLens, criticalWalk]
+  );
+  const chainEdgeIds = React.useMemo(
+    () =>
+      criticalLens && criticalWalk
+        ? new Set(
+            criticalWalk.chain
+              .map((s) => s.viaEdgeId)
+              .filter((x): x is string => x != null)
+          )
+        : null,
+    [criticalLens, criticalWalk]
+  );
+
   const pendingFromType = React.useMemo(
     () => (pendingFrom ? (jobs.find((j) => j.id === pendingFrom.jobId)?.type ?? null) : null),
     [pendingFrom, jobs]
@@ -1399,6 +1963,7 @@ export function WorkflowCanvas() {
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault(); // React onWheel is passive — hence the raw listener
+      releaseArrivalHold(); // t588 — the hand owns the number again
       const rect = el.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
@@ -1425,18 +1990,132 @@ export function WorkflowCanvas() {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  /* t587 — the readout's voice: the odometer tick. The zoom % span is the
+   *  toolbar's live gauge, and a gauge should speak when the world rescales
+   *  under a COMMAND — the two step buttons, reset and fit-to-content
+   *  (every entry surface routes through these three fns: toolbar ±/reset,
+   *  context menu reset + fit; t590 wired the third throat).
+   *  What never ticks, by design:
+   *  - wheel / pinch: continuous gestures — the digits themselves changing
+   *    ARE the continuous voice; re-firing an entrance per frame is the
+   *    "disarm became an event" anti-pattern (t585's ghost, zoom edition).
+   *  - the SYSTEMIC fits (frameBounds callers): the initial-load fit is
+   *    the readout's birth, the memory restore is where it left off, the
+   *    auto-arrange fit is a world rebuild — none is an event (t585's
+   *    arming-edge law, generalized in t590).
+   *  - bookmark / focus arrivals ride the DIALOGUE (t588): the world
+   *    glides (Task 124), the readout holds the value the world is at,
+   *    and the drum rolls ONCE when the world lands — see the arrival
+   *    block below. t587 called a glide and a tick different sentences;
+   *    the dialogue is how they answer each other.
+   *  The tick rides a React key remount (the find-tick idiom): nonce up →
+   *  new span → the one-shot animation plays once and the element rests.
+   *  Direction is the mechanical-odometer metaphor: the value growing
+   *  rolls the drum UP (the new digit enters from below, +2px), the value
+   *  shrinking drops it in from above (−2px). Comparison runs on the
+   *  ROUNDED percent — the readout only speaks when its own text changes
+   *  ("no change, no sound" also swallows clamped no-ops for free). */
+  const [zoomTick, setZoomTick] = React.useState<{ n: number; dy: number } | null>(null);
+  const tickZoomReadout = React.useCallback((fromZoom: number, toZoom: number) => {
+    const from = Math.round(fromZoom * 100);
+    const to = Math.round(toZoom * 100);
+    if (to === from) return;
+    setZoomTick((t) => ({ n: (t?.n ?? 0) + 1, dy: to > from ? 2 : -2 }));
+  }, []);
+
+  /* t588 — the arrival dialogue. Bookmark and focus arrivals GLIDE
+   *  (Task 124), and this block teaches the readout to answer: while the
+   *  transition travels, the gauge HOLDS the value the world is at — the
+   *  state jumped at launch, but the number must not arrive before the
+   *  world does ("the number arrives when the world does"). At the
+   *  retract moment the drum rolls once (the t587 odometer), from the
+   *  held value to the landed value — silent when the rounded percent
+   *  did not change (a pan-only arrival keeps "no change, no sound").
+   *  - Commands (± / reset) keep the t587 voice: instant world, tick at
+   *    launch. A zoom command mid-glide releases the hold first — the
+   *    newest voice wins, and the landing goes silent (it already
+   *    spoke). The wheel releases too: the hand owns the number.
+   *  - prefers-reduced-motion: the world teleports (the glide class is
+   *    CSS-gated off), so the number travels with it — no hold, no coda
+   *    (the tick is a motion-family voice; JS reads the same media query
+   *    the CSS gate uses).
+   *  - Rapid re-arrival mid-flight: the hold keeps the FIRST value (the
+   *    displayed number never changed), one retract timer serves the
+   *    whole chain, and the coda speaks once for the whole journey. */
+  const [heldZoom, setHeldZoom] = React.useState<number | null>(null);
+  const heldZoomRef = React.useRef<number | null>(null);
+  const glideRetractRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // t593 — the card FLIP's retract timer, serving the SAME window as the
+  // camera's glideRetractRef: one journey, one rhythm (GLIDE_RETRACT_MS).
+  const flipRetractRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const releaseArrivalHold = React.useCallback(() => {
+    if (heldZoomRef.current == null) return;
+    heldZoomRef.current = null;
+    setHeldZoom(null);
+  }, []);
+  const beginGlideArrival = React.useCallback(
+    (target: Partial<Viewport>) => {
+      const s = useWorkflowStore.getState();
+      const ws = rootRef.current?.querySelector("[data-canvas='workspace']");
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        // motion off: the world teleports, the number travels with it —
+        // no hold, no coda (the tick is a motion-family voice)
+        setViewport(target);
+        return;
+      }
+      const displayed = heldZoomRef.current ?? s.viewport.zoom;
+      heldZoomRef.current = displayed;
+      setHeldZoom(displayed);
+      ws?.classList.add("viewport-glide");
+      if (glideRetractRef.current) clearTimeout(glideRetractRef.current);
+      setViewport(target);
+      glideRetractRef.current = setTimeout(() => {
+        glideRetractRef.current = null;
+        ws?.classList.remove("viewport-glide");
+        const from = heldZoomRef.current ?? useWorkflowStore.getState().viewport.zoom;
+        heldZoomRef.current = null;
+        setHeldZoom(null);
+        tickZoomReadout(from, useWorkflowStore.getState().viewport.zoom);
+      }, GLIDE_RETRACT_MS);
+    },
+    [setViewport, tickZoomReadout],
+  );
+  // unmount: never leave a retract timer firing into a dead DOM
+  React.useEffect(
+    () => () => {
+      if (glideRetractRef.current) clearTimeout(glideRetractRef.current);
+      if (flipRetractRef.current) clearTimeout(flipRetractRef.current);
+    },
+    [],
+  );
+
+  // t588 — the keyboard slot relay (1–9): the store hands over the
+  // target, the canvas performs the arrival (consume-once — a canvas
+  // remount must not re-glide to a stale target)
+  const arrivalEpoch = useWorkflowStore((s) => s.arrivalEpoch);
+  React.useEffect(() => {
+    if (!arrivalEpoch) return;
+    const { arrivalTarget, consumeViewportArrival } = useWorkflowStore.getState();
+    if (!arrivalTarget) return;
+    consumeViewportArrival();
+    beginGlideArrival(arrivalTarget);
+  }, [arrivalEpoch, beginGlideArrival]);
+
   const zoomAroundCenter = (targetZoom: number) => {
+    releaseArrivalHold(); // t588 — a command mid-glide reclaims the number
     const rect = rootRef.current?.getBoundingClientRect();
+    const s = useWorkflowStore.getState();
     if (!rect) {
+      tickZoomReadout(s.viewport.zoom, targetZoom);
       setViewport({ zoom: targetZoom });
       return;
     }
-    const s = useWorkflowStore.getState();
     const cx = rect.width / 2;
     const cy = rect.height / 2;
     const nz = clamp(targetZoom, ZOOM_MIN, ZOOM_MAX);
     const px = (cx - s.viewport.x) / s.viewport.zoom;
     const py = (cy - s.viewport.y) / s.viewport.zoom;
+    tickZoomReadout(s.viewport.zoom, nz);
     setViewport({ x: cx - px * nz, y: cy - py * nz, zoom: nz });
   };
 
@@ -1670,6 +2349,9 @@ export function WorkflowCanvas() {
     const s = useWorkflowStore.getState();
     if (s.pendingFrom) s.cancelConnect();
     else s.select(null);
+    // t737 — a background click also releases the legend's focus: asking
+    // the world a new question lets the old answer go.
+    setLegendKind(null);
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
@@ -1726,18 +2408,32 @@ export function WorkflowCanvas() {
   const zoomToFit = () => {
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect || jobs.length === 0) return;
+    // t590 — the third scale command finds its voice. "Zoom to fit" is a
+    // rescale of the view (t589's "places glide, scales command"), so it
+    // joins ± and reset in the t587 family: instant world, tick at
+    // launch, and "no change, no sound" swallows an already-fitted zoom
+    // for free. Mid-glide the command reclaims the number first (the
+    // newest voice wins); the pending arrival coda goes silent on its
+    // own — after the fit, from == to, so the retract reads no change.
+    releaseArrivalHold();
+    const from = useWorkflowStore.getState().viewport.zoom;
     const minX = Math.min(...jobs.map((j) => j.x));
     const maxX = Math.max(...jobs.map((j) => j.x + CARD_W));
     const minY = Math.min(...jobs.map((j) => j.y));
     const maxY = Math.max(...jobs.map((j) => j.y + CARD_H));
     frameBounds(rect.width, rect.height, minX, minY, maxX, maxY);
+    tickZoomReadout(from, useWorkflowStore.getState().viewport.zoom);
   };
 
   const resetView = () => {
     // infinite canvas: "100%" also recenters on the content bbox (the
     // origin (0,0) is just an arbitrary point once coordinates can go
     // negative — centering avoids resetting into empty space)
+    releaseArrivalHold(); // t588 — a command mid-glide reclaims the number
     const rect = rootRef.current?.getBoundingClientRect();
+    // the gauge speaks only when its number changes: a second reset at
+    // 100% re-centers silently (t587 — "no change, no sound")
+    tickZoomReadout(useWorkflowStore.getState().viewport.zoom, 1);
     if (!rect || jobs.length === 0) {
       setViewport({ x: 0, y: 0, zoom: 1 });
       return;
@@ -1858,6 +2554,43 @@ export function WorkflowCanvas() {
   // events), so card dragging and panning are untouched.
   const { dropProps, active: dropActive, fileCount: dropFileCount, folderDrag: dropFolder } = useDropImport(stageWorkflowFiles);
 
+  // t783 — the background menu's keyboard face. The canvas menu answered
+  // right-click only: a keyboard user Tabbing to a card and pressing the
+  // Menu key / Shift+F10 reached the CARD's menu (when the browser
+  // synthesized the contextmenu at all), but the canvas's own menu — zoom
+  // to fit, reset, tidy, export, import — had no keyboard path because the
+  // section was unreachable (no tabIndex) and no handler translated the
+  // keys. Two moves, one mechanism:
+  //   · tabIndex={0} on the section — the canvas becomes a real tab stop
+  //     (a named landmark keyboard users can reach) and the natural focus
+  //     target after any click on empty canvas, which is where a pointer
+  //     user's right-click already lands;
+  //   · this handler — the Menu key / Shift+F10 pressed ON the section
+  //     preventDefaults the browser's own synthesis (whose coordinates are
+  //     unpredictable) and dispatches a synthetic contextmenu at the
+  //     section's center — the SAME event type a physical right-click
+  //     produces, so Radix opens the SAME menu through the SAME path. One
+  //     mechanism, two inputs; no second menu implementation to drift.
+  // The target guard keeps bubbling honest: when a CARD holds the focus
+  // its keydown bubbles up to this section, but the card's menu is the
+  // card's to open — the background menu only answers for itself.
+  const onCanvasKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key !== "ContextMenu" && !(e.key === "F10" && e.shiftKey)) return;
+    e.preventDefault();
+    const r = rootRef.current?.getBoundingClientRect();
+    if (!r) return;
+    rootRef.current?.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: r.left + r.width / 2,
+        clientY: r.top + r.height / 2,
+        button: 2,
+      }),
+    );
+  };
+
   return (
     <ContextMenu>
       {/* Pipeline paper is wide, not tall: the canvas view prints to a
@@ -1873,12 +2606,14 @@ export function WorkflowCanvas() {
           ref={rootRef}
           data-canvas="viewport"
           aria-label="Workflow canvas"
-          className="no-drag-select canvas-grid relative min-w-0 flex-1 touch-none overflow-hidden bg-background active:cursor-grabbing cursor-grab"
+          tabIndex={0}
+          className="no-drag-select canvas-grid relative min-w-0 flex-1 touch-none overflow-hidden bg-background active:cursor-grabbing cursor-grab outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
           {...dropProps}
+          onKeyDown={onCanvasKeyDown}
           style={{
             // infinite dot grid — painted on the viewport itself so it
             // covers the whole screen wherever the (unbounded) workspace
@@ -1915,22 +2650,148 @@ export function WorkflowCanvas() {
             // properties inherit downward to this div's print rules)
           }}
         >
-          <EdgesLayer edges={edges} jobs={jobs} judgedIds={noteSpotlight ? judgedIds : null} />
+          <EdgesLayer
+            edges={deferredEdges}
+            jobs={renderJobs}
+            judgedIds={noteSpotlight ? judgedIds : null}
+            hoveredJobId={hoveredJobId}
+            chainIds={chainIds}
+            chainEdgeIds={chainEdgeIds}
+            legendKind={legendKind}
+          />
           <LiveWire rootRef={rootRef} jobs={jobs} />
-          {jobs.map((job) => (
+          {/* t601 — the death breath's ghost layer: frozen memories of the
+              cards a finger's delete is taking, rendered BELOW the living
+              cards (a ghost never covers the living) and above the wires.
+              Each ghost mounts ALREADY dying — the CSS animation runs on
+              mount with `both` fill, so the from-frame (the card as it
+              was) is pinned with no attribute dance, and the mirror
+              bezier carries it out. Wires are the body's organs: each
+              fades on its card's step (the frozen d — geometry captured
+              in the same commit the store lost the endpoints). The whole
+              layer is pointer-events-none and aria-hidden: the dead
+              cannot be interacted with, and screen readers already saw
+              the removal announced via the store truth. t602 — the layer
+              also hosts the LONERS: wires killed alone (the hover X on
+              the wire itself, the I/O tab's remove chip) breathe in the
+              same svg and the same air, marked data-ghost-loner. */}
+          {(breathingGhosts.length > 0 || breathingEdgeGhosts.length > 0) && (
+            <div
+              data-death-ghost-layer=""
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-0"
+            >
+              <svg
+                width={1}
+                height={1}
+                className="absolute left-0 top-0"
+                style={{ overflow: "visible" }}
+              >
+                {/* t602 — the loners breathe FIRST (below the organs): the
+                    body's death is the louder memory. Same ghost gray,
+                    same air; the staircase does not apply — each click is
+                    its own command, so the breath starts at once. */}
+                {breathingEdgeGhosts.map((g) => (
+                  <path
+                    key={g.id}
+                    data-ghost-wire={g.id}
+                    data-ghost-loner=""
+                    d={g.d}
+                    fill="none"
+                    stroke="color-mix(in oklch, var(--foreground) 32%, transparent)"
+                    strokeWidth={2.25}
+                    strokeLinecap="round"
+                    style={{ "--death-cd": "0ms" } as React.CSSProperties}
+                  />
+                ))}
+                {breathingGhosts.flatMap((g) =>
+                  g.wires.map((w) => (
+                    <path
+                      key={w.id}
+                      data-ghost-wire={w.id}
+                      d={w.d}
+                      fill="none"
+                      stroke="color-mix(in oklch, var(--foreground) 32%, transparent)"
+                      strokeWidth={2.25}
+                      strokeLinecap="round"
+                      style={
+                        { "--death-cd": `${w.step * 24}ms` } as React.CSSProperties
+                      }
+                    />
+                  ))
+                )}
+              </svg>
+              {breathingGhosts.map((g) => {
+                const spec = jobType(g.type);
+                return (
+                  <div
+                    key={g.id}
+                    data-dying={g.id}
+                    className="absolute overflow-hidden rounded-xl border bg-card"
+                    style={
+                      {
+                        left: g.x,
+                        top: g.y,
+                        width: CARD_W,
+                        height: CARD_H,
+                        zIndex: 5,
+                        "--death-cd": `${g.step * 24}ms`,
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div
+                      className={cn(
+                        "absolute inset-y-0 left-0 w-1 opacity-80",
+                        spec?.color.bg
+                      )}
+                    />
+                    <div className="flex h-full flex-col justify-center gap-1 py-2.5 pl-4 pr-3.5">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset",
+                            spec?.color.soft,
+                            spec?.color.border
+                          )}
+                        >
+                          <TypeIcon
+                            name={spec?.icon ?? "Boxes"}
+                            className={cn("size-3.5", spec?.color.text)}
+                          />
+                        </span>
+                        <p className="truncate text-sm font-semibold tracking-tight leading-none opacity-90">
+                          {g.name}
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        "absolute inset-x-0 bottom-0 h-[3px]",
+                        STATUS_FLOOR[g.status as StatusWord] ?? STATUS_FLOOR.idle
+                      )}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {renderJobs.map((job) => (
             <JobCard
               key={job.id}
               job={job}
+              onDeleteFocus={handFocusToCanvas}
               dimmed={
                 (noteSpotlight && !hasJudgment(job) && !contextIds.has(job.id)) ||
-                (findLens && !findMatchIds!.has(job.id))
+                (findLens && !findMatchIds!.has(job.id)) ||
+                (chainIds != null && !chainIds.has(job.id))
               }
               spotlightContext={noteSpotlight && !hasJudgment(job) && contextIds.has(job.id)}
               findMatch={findLens && findMatchIds!.has(job.id)}
+              findWhy={findWhyMap?.get(job.id)}
+              findFlashDelay={findFlash?.get(job.id)}
               selected={selectedIds.includes(job.id)}
               primary={selectedId === job.id}
               bandMatch={bandIds?.has(job.id) ?? false}
-              zoom={zoom}
               pendingFrom={pendingFrom}
               pendingFromType={pendingFromType}
               isReady={
@@ -1945,6 +2806,8 @@ export function WorkflowCanvas() {
               onStartConnect={setPendingFromProxy}
               onCancelConnect={cancelConnect}
               onConnect={connectProxy}
+              onHoverChange={setHoveredJobId}
+              onCardNavigate={navigateCard}
             />
           ))}
         </div>
@@ -2061,9 +2924,20 @@ export function WorkflowCanvas() {
       )}
 
       {/* Empty state */}
+      {/* data-canvas-ui on the card: handlePointerDown captures every
+          pointerdown that isn't inside [data-job]/[data-canvas-ui] — an
+          un-marked empty-state card had its Scaffold button's clicks
+          hijacked by the canvas's pointer capture (the click event fired
+          on the SECTION, never on the button — "clicking does nothing").
+          The portaled-overlay guard in handlePointerDown documents this
+          exact failure mode for menus; the in-canvas empty state is the
+          same bug in a non-portaled costume. */}
       {!loading && jobs.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="max-w-md rounded-xl border border-dashed bg-card/60 px-6 py-5 text-center backdrop-blur-sm animate-rise">
+          <div
+            data-canvas-ui="empty-state"
+            className="max-w-md rounded-xl border border-dashed bg-card/60 px-6 py-5 text-center backdrop-blur-sm animate-rise"
+          >
             <p className="text-sm font-medium">
               {allJobs.length > 0
                 ? `“${activeWorkspaceName ?? "This workspace"}” is empty`
@@ -2089,6 +2963,33 @@ export function WorkflowCanvas() {
         </div>
       )}
 
+      {/* t682 — the critical path lens's reading, in plain sight: the same
+          numbers the fifth face speaks (steps · span · finisher), riding
+          above the toolbar while the lens is ON. pointer-events-none —
+          the chip informs, it never steals a canvas gesture; the toggle
+          (button or P) is the only hand that moves it. */}
+      {criticalLens && criticalWalk && (
+        <div
+          data-canvas-ui="critical-chip"
+          data-critical-steps={criticalWalk.chain.length}
+          data-critical-span={criticalWalk.spanMs}
+          className="no-print animate-rise pointer-events-none absolute bottom-14 left-3 z-30 flex items-center gap-1.5 rounded-lg border bg-card/95 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur"
+        >
+          <Route className="size-3.5 text-primary" aria-hidden="true" />
+          <span className="font-semibold">Critical path</span>
+          <span className="text-muted-foreground">
+            · {criticalWalk.chain.length} step{criticalWalk.chain.length === 1 ? "" : "s"} ·{" "}
+            {fmtDuration(criticalWalk.spanMs)} span
+          </span>
+          <span
+            className="ml-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px text-[9.5px] font-semibold text-primary"
+            data-critical-finisher={criticalWalk.chain[criticalWalk.chain.length - 1].job.id}
+          >
+            ends with: {criticalWalk.chain[criticalWalk.chain.length - 1].job.name}
+          </span>
+        </div>
+      )}
+
       {/* Zoom controls + auto-arrange */}
       <div
         data-canvas-ui="zoom-controls"
@@ -2104,8 +3005,20 @@ export function WorkflowCanvas() {
         >
           <ZoomOut className="size-4" />
         </Button>
-        <span className="w-11 text-center text-xs font-medium tabular-nums text-muted-foreground">
-          {Math.round(zoom * 100)}%
+        <span
+          key={zoomTick?.n ?? 0}
+          data-zoom-tick={zoomTick ? "" : undefined}
+          style={
+            zoomTick
+              ? ({ "--zoom-tick-y": `${zoomTick.dy}px` } as React.CSSProperties)
+              : undefined
+          }
+          className="w-11 text-center text-xs font-medium tabular-nums text-muted-foreground"
+        >
+          {/* t588 — during an arrival glide the gauge shows the HELD value
+              (where the world IS), not the state's target: the number
+              arrives when the world does. Commands bypass the hold. */}
+          {Math.round((heldZoom ?? zoom) * 100)}%
         </span>
         <Button
           variant="ghost"
@@ -2146,7 +3059,7 @@ export function WorkflowCanvas() {
         </Button>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         {/* Task 134 — find lens toggle, same dialect as the minimap
-            toggle: one keypress (Ctrl+F) and this button agree on one
+            toggle: one keypress (⌘/Ctrl+F) and this button agree on one
             source of truth; active state reads the store. */}
         <Button
           variant="ghost"
@@ -2155,10 +3068,36 @@ export function WorkflowCanvas() {
           onClick={() => (findOpen ? closeFind() : openFind())}
           aria-pressed={findOpen}
           aria-label="Find jobs on canvas"
-          title="Find jobs by name or type (Ctrl+F)"
+          title="Find jobs by name or type (⌘/Ctrl+F)"
           data-canvas-ui="find-toggle"
         >
           <Search className="size-4" />
+        </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* Task 462 — the funnel's plain-sight door: the chain question
+            ("where did my particles go?") leaves the inspector-only
+            world — one Filter button beside the map and find toggles,
+            its decision (selection-first, crown fallback, honest
+            blocks) owned by the pure brain in particle-funnel.ts. */}
+        <CanvasFunnelDoor />
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* t682 — the critical path lens toggle, the toolbar's fourth lens
+            (map · find · funnel · chain): one keypress (P) and this button
+            agree on one store flag, the minimap/find dialect. Disabled
+            when no chain exists (no finished runs — a lens with nothing
+            to show is an honest dead button, the undo family's law). */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`size-7 ${criticalLens ? "text-primary" : ""}`}
+          onClick={() => useWorkflowStore.getState().toggleCriticalLens()}
+          disabled={criticalWalk == null}
+          aria-pressed={criticalLens}
+          aria-label="Toggle critical path lens"
+          title="Toggle the critical path lens (P) — keep the chain that set the finish at full ink, dim everything else"
+          data-canvas-ui="critical-toggle"
+        >
+          <Route className="size-4" />
         </Button>
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         {/* Task 104 — undo/redo live next to the tools they reverse: the
@@ -2324,19 +3263,22 @@ export function WorkflowCanvas() {
                     data-canvas-ui="viewport-bookmark-row"
                   >
                     {bm.slot != null && (
-                      <kbd
-                        className="shrink-0 rounded border bg-muted px-1 font-mono text-[10px] leading-4 text-muted-foreground"
+                      <Kbd
+                        className="shrink-0 bg-muted text-[10px] leading-4 text-muted-foreground"
                         title={`Press ${bm.slot} on the canvas to jump here`}
                         data-canvas-ui="viewport-bookmark-slot"
                       >
                         {bm.slot}
-                      </kbd>
+                      </Kbd>
                     )}
                     <button
                       type="button"
                       className="flex min-w-0 flex-1 items-center justify-between rounded px-1.5 py-1 text-left text-xs hover:bg-accent"
                       onClick={() => {
-                        setViewport(bm.viewport);
+                        // t588 — the row click is an ARRIVAL, not a
+                        // teleport: same dialogue as the slot keys (hold,
+                        // glide, coda tick) via the one shared helper
+                        beginGlideArrival(bm.viewport);
                         setBookmarksOpen(false);
                       }}
                       title={`Jump to "${name}"`}
@@ -2403,6 +3345,103 @@ export function WorkflowCanvas() {
             <ImageUp className="size-4" />
           )}
         </Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        {/* t737 — the legend face: the kind vocabulary's table of contents,
+            living in the toolbar's tail. The words shown are the ones the
+            CURRENT world's wires actually wear (the same book —
+            outputKindOf + PORT_COLORS — the wires themselves read), in the
+            book's own order. Clicking a word FOCUSES its wires: every
+            other kind recedes on the --dim-wire rung (selection's dim
+            grammar, borrowed by a question instead of a job), and a second
+            click / Escape / a background click let it go. The dot is the
+            wire's resting hex (t734's dialect — inline style, since the
+            color table lives in lib where tailwind's JIT never looks);
+            the word rides from 2xl up (the two-size law: compact face =
+            dot only, full face = dot + word).
+            t739 — the TOC grows an index page: hovering (or keyboard-
+            focusing) a word opens ITS card — that word's wires listed as
+            "from → to" rows (the hover card's own name law, borrowed from
+            the wire card's title), the click/Escape hint riding the card's
+            footer instead of the native title (the card and the tooltip
+            should never say the same thing twice). The card is a view —
+            pointer-events-none so it can't catch its own mouse, condition-
+            rendered so the DOM stays quiet until asked, and anchored
+            bottom-full (the toolbar lives on the canvas floor; the card
+            floats up into the world it describes). */}
+        <div
+          data-canvas-ui="kind-legend"
+          className="hidden items-center gap-1 pl-0.5 lg:flex"
+          role="group"
+          aria-label="Data kinds flowing on the canvas wires"
+        >
+          {legend.map(({ kind: k, wires, rows }) => {
+            const active = legendKind === k;
+            const open = legendHover === k;
+            return (
+              <div key={k} className="relative flex">
+                <button
+                  type="button"
+                  onClick={() => setLegendKind(active ? null : k)}
+                  onMouseEnter={() => setLegendHover(k)}
+                  onMouseLeave={() =>
+                    setLegendHover((cur) => (cur === k ? null : cur))
+                  }
+                  onFocus={() => setLegendHover(k)}
+                  onBlur={() =>
+                    setLegendHover((cur) => (cur === k ? null : cur))
+                  }
+                  aria-pressed={active}
+                  aria-describedby={open ? `kind-legend-card-${k}` : undefined}
+                  title={`${k} data on ${wires} wire${wires === 1 ? "" : "s"}`}
+                  data-canvas-ui="kind-legend-item"
+                  data-kind={k}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                    active && "bg-accent text-foreground"
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: PORT_COLORS[k].wire }}
+                  />
+                  <span className="hidden 2xl:inline">{k}</span>
+                </button>
+                {open && (
+                  <div
+                    id={`kind-legend-card-${k}`}
+                    role="tooltip"
+                    data-canvas-ui="kind-legend-card"
+                    data-kind={k}
+                    className="pointer-events-none absolute bottom-full left-0 z-40 mb-1.5 w-max max-w-64 rounded-md border bg-popover p-2 text-xs shadow-md"
+                  >
+                    <div className="flex items-center gap-1.5 font-medium text-foreground">
+                      <span
+                        aria-hidden="true"
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: PORT_COLORS[k].wire }}
+                      />
+                      <span>{k}</span>
+                      <span className="font-normal text-muted-foreground">
+                        · {wires} wire{wires === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="mt-1 space-y-0.5">
+                      {rows.map((r, i) => (
+                        <div key={i} className="truncate text-muted-foreground">
+                          {r.from} <span aria-hidden="true" className="text-border">→</span> {r.to}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-1.5 border-t pt-1.5 text-[10px] text-muted-foreground">
+                      click to focus · Esc to clear
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* workflow JSON import — hidden picker opened from the context menu;

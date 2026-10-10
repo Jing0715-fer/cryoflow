@@ -5,6 +5,8 @@
 // signature (crash safety net) — this owner deletes them BY ID at exit.
 import { execSync } from "node:child_process";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 60_000 }).trim();
@@ -31,7 +33,7 @@ async function main() {
   for (const [name, type, status, ago, dur, y] of seeds) {
     const j = (await (await api("/api/jobs", "POST", { type, name, workspaceId: wsId, x: 240, y })).json());
     const job = j?.job ?? j;
-    sh(`node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();` +
+    sh(`DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();` +
       `p.job.update({where:{id:'${job.id}'},data:{status:'${status}',progress:100,` +
       `startedAt:new Date('${new Date(nowMs - ago * 1000).toISOString()}'),duration:${dur}}}).then(()=>p.\\$disconnect())"`);
     ids.push(job.id);

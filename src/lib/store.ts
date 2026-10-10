@@ -8,7 +8,53 @@ import * as React from "react";
 import { create } from "zustand";
 import { toast, type ToastActionElement } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible } from "./workflow";
+import { CARD_W, CARD_H, WORLD_MIN, WORLD_MAX, ZOOM_MAX, ZOOM_MIN, jobType, portsCompatible, nextStepsFor, PORT_COLORS, outputKindOf } from "./workflow";
+import { computeEdgeGeoms } from "./edge-geom";
+import {
+  upstreamEdgesOf,
+  faithfulWires,
+  withoutAutoEdge,
+  extractClassSelection,
+  twinSpot,
+} from "./duplicate-run";
+import { describeAdoption, planAdoption } from "./adopt-branch";
+import { recordJobEvent } from "./job-journal"; // t718 — the event spine between the lifecycle dots
+
+/** t659 — the Frame galleries deep link's freshness window (ms). The
+ *  request is a GESTURE: it should fire while the user is still looking
+ *  at the arrival, not hours later. Host and consumer both clear stale
+ *  requests on sight (the class-note law: a stale request can never
+ *  re-open later) — the TTL is what makes "on sight" decidable for a
+ *  consumer that mounts behind two gates (inspector open + tab). */
+export const GALLERY_FOCUS_TTL_MS = 15_000;
+import { findStaleJobs, type StaleReport } from "./staleness";
+import { findDriftedJobs, type DriftReport } from "./params-drift";
+import { twinName, twinNamesFor } from "./twin-name";
+import {
+  INHERITED_PREFIX,
+  describeSubtreeRun,
+  handoffReceiptSentence,
+  orchGuardSentence,
+  planSubtreeRun,
+  resumeFrontierReason,
+  resumeScan,
+  resumeToastDescription,
+  resumeToastTitle,
+  stopReceiptSentence,
+  type SubtreeNode,
+  type SubtreeOrchState,
+} from "./subtree-run";
+import {
+  ORCH_HB_MS,
+  claimSubtreeOrch,
+  clearSubtreeOrch,
+  heartbeatSubtreeOrch,
+  importLegacySubtreeOrch,
+  readSubtreeOrch,
+  saveSubtreeOrch,
+  saveSubtreeOrchIfOwner,
+} from "./subtree-orch-session";
+import { getTabId } from "./tab-identity";
 import { autoLayout } from "./layout";
 import { formatElapsed } from "./elapsed";
 import type {
@@ -17,6 +63,7 @@ import type {
   EdgeDTO,
   JobDTO,
   JobStatus,
+  ParamValue,
   ProjectDTO,
   ProjectSummaryDTO,
   SystemStatusClient,
@@ -187,6 +234,50 @@ function persistKpiCollapsed(collapsed: boolean) {
 
 const SELECTED_JOB_KEY = "cryoflow.selectedJob.v1";
 
+/** t685 — localStorage key for the SESSION VIEWING TRAIL (Task 684's
+ *  recentJobIds, now cross-reload). The trail records the jobs you
+ *  opened, so losing it to a plain F5 was the most common way to lose
+ *  it — the storage echo makes the trail survive the reload while the
+ *  READ-TIME JOIN (the palette re-joins against the live jobs array)
+ *  stays the trust gate: a stored id that resolves to no job — deleted
+ *  overnight, hand-edited, another project — renders nowhere, so the
+ *  persisted trail needs no freshness police. Writes only happen on
+ *  real trail mutations (note/clear) — never on render (#13's law). */
+const RECENT_JOBS_KEY = "cryoflow.recentJobs.v1";
+
+/** Read the trail seed. Format whitelist: a JSON array of strings, capped
+ *  at the same CAP the writer obeys — a corrupt or oversized payload is
+ *  not policed, it is DROPPED (the honest unknown is "no trail", never
+ *  a crash). */
+function hydrateRecentJobsFromStorage(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_JOBS_KEY);
+    if (raw == null) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((x): x is string => typeof x === "string")
+      .slice(0, 6);
+  } catch {
+    return [];
+  }
+}
+
+/** Echo a committed trail transition to storage. A CLEARED trail writes
+ *  "[]" rather than deleting the key — "explicitly cleared" is a fact
+ *  about the user's session, and absence must not be misread by a future
+ *  hydration as "never existed" (Task 157's two-way-door law). Private
+ *  mode / quota: the trail stays in-RAM for this session. */
+function persistRecentJobs(ids: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RECENT_JOBS_KEY, JSON.stringify(ids));
+  } catch {
+    // the trail stays in-RAM for this session
+  }
+}
+
 /** Read the session-position seed (Task 157). Reads only — no format
  *  whitelist can name a job id, so the seed stays a BARE string and the
  *  real trust gate is the apply step in load(): a seed that does not
@@ -274,6 +365,30 @@ function lowestFreeSlot(named: Record<string, ViewportBookmark>): number | null 
     if (!taken.has(s)) return s;
   }
   return null;
+}
+
+/**
+ * t452 — the free-slot walk to the RIGHT of a source card (the
+ * addLinkedStep pitch, extracted so the compare dialog's exclude verb can
+ * mint its filter in the same visual grammar): first column to the right,
+ * walk down, then the next column over; a dense neighborhood falls back
+ * below-right and lets the user drag. World-bounded on every axis.
+ */
+function placeRightOf(src: { x: number; y: number }, jobs: { x: number; y: number }[]): { x: number; y: number } {
+  const occupied = (px: number, py: number) =>
+    jobs.some((j) => px < j.x + CARD_W && px + CARD_W > j.x && py < j.y + CARD_H && py + CARD_H > j.y);
+  const strideX = CARD_W + 100; // layout.ts pitch (GAP_X)
+  const strideY = CARD_H + 48; // layout.ts pitch (GAP_Y)
+  const clampW = (v: number) => Math.min(Math.max(v, WORLD_MIN), WORLD_MAX - CARD_W);
+  const clampH = (v: number) => Math.min(Math.max(v, WORLD_MIN), WORLD_MAX - CARD_H);
+  for (let col = 0; col < 3; col++) {
+    for (let row = 0; row < 8; row++) {
+      const px = clampW(src.x + (col + 1) * strideX);
+      const py = clampH(src.y + row * strideY);
+      if (!occupied(px, py)) return { x: px, y: py };
+    }
+  }
+  return { x: clampW(src.x + strideX), y: clampH(src.y + 8 * strideY) };
 }
 
 /** Validate one stored bookmark (v2 shape). Every viewport must be
@@ -410,8 +525,174 @@ export interface HistoryEntry {
  *  grow it unbounded. */
 const HISTORY_CAP = 50;
 
+/** t596 — selection-set signature: the primary + the sorted multi ids.
+ *  The five selection verbs compare the next selection against the live
+ *  one through this and bump `selReframeSeq` ONLY on a real change — a
+ *  re-anchor on an already-selected card (stepArrowFocus revisit, a
+ *  re-click of the primary) is a no-op for the map's sel frame, and a
+ *  no-op must not arm a flow. */
+const selSig = (id: string | null, ids: string[]) =>
+  `${id ?? ""}|${[...ids].sort().join(",")}`;
+const selReframeBump = (
+  s: { selReframeSeq: number; selectedId: string | null; selectedIds: string[] },
+  nextId: string | null,
+  nextIds: string[]
+) =>
+  selSig(nextId, nextIds) === selSig(s.selectedId, s.selectedIds)
+    ? {}
+    : { selReframeSeq: s.selReframeSeq + 1 };
+
+/** t598 — the birth-arm payload for one verb's set(): bumps the seq and
+ *  accumulates the fresh ids (per-id consume keeps rapid successive
+ *  verbs honest — a multi-file import arms once per file merge).
+ *  Spread into the SAME set() as the new jobs — one commit, so the
+ *  canvas's layout effect pins the entrance's from-frame before the
+ *  cards' first paint. Birth verbs only — the silent faces (undo
+ *  restore, poll replace, adoption loads) are documented at birthSeq
+ *  and never call this. t599 — batch edge merges pass wire ids too:
+ *  the wires draw in on the SAME staircase (one rhythm), while a
+ *  manual connect never arms (the LiveWire followed the finger). */
+const birthArm = (
+  s: { birthSeq: number; birthIds: string[]; birthEdgeIds: string[] },
+  ids: string[],
+  edgeIds: string[] = []
+): { birthSeq: number; birthIds: string[]; birthEdgeIds: string[] } => ({
+  birthSeq: s.birthSeq + 1,
+  birthIds: [...s.birthIds, ...ids],
+  birthEdgeIds: [...s.birthEdgeIds, ...edgeIds],
+});
+
+/* ------------------------------------------------------------------ */
+/* t601 — the card's last breath (the death voice)                     */
+/* ------------------------------------------------------------------ */
+
+/** t601 — the death breath's timing words, the birth family's mirror.
+ *  The SAME 24ms staircase (t579 ripple → t584 chips → t598 cards →
+ *  t599 wires) walks the leaving world; the fade itself is slower than
+ *  the entrance (400ms vs 240ms — leaving is more deliberate than
+ *  arriving). Retire budget: 12×24 + 400 + 120 = 808ms, the t584
+ *  settle-budget discipline applied to the exit window. */
+const DEATH_STEP_MS = 24;
+const DEATH_MAX_STEPS = 12;
+const DEATH_FADE_MS = 400;
+
+/** A dying card's frozen memory. The store truth (jobs/edges) loses the
+ *  card in the SAME commit that arms the ghost — the ghost is pure
+ *  rendering furniture: the seat, the identity chrome, and the wires
+ *  frozen as path strings (computeEdgeGeoms at arm time — after the
+ *  commit the endpoints are gone and no geometry could be computed).
+ *  A frozen wire does not follow a live endpoint dragged mid-breath:
+ *  the ghost remembers the wire as it WAS — 400ms of memory, not a
+ *  live channel. */
+export interface DeathGhostWire {
+  id: string;
+  d: string;
+  step: number;
+}
+
+export interface DeathGhost {
+  id: string;
+  x: number;
+  y: number;
+  type: string;
+  name: string;
+  status: string;
+  /** staircase index — payload order, capped (one command, one exhale
+   *  that reads as a breath, not a roll call) */
+  step: number;
+  bornAt: number;
+  /** wires attached to this dying card, geometry frozen at arm time.
+   *  Each wire is remembered by exactly ONE ghost (the smaller-step
+   *  endpoint) so a wire between two dying cards fades once. */
+  wires: DeathGhostWire[];
+}
+
+/** t602 — a wire killed ALONE (the hover X on the wire itself, the I/O
+ *  tab's remove chip — every removeEdge call site in the app is a
+ *  finger) leaves a frozen memory of its own. Wires that die WITH their
+ *  body are organs of the card's ghost (t601) and never enter this
+ *  family: whichever verb removes the edge first is the only one that
+ *  ever saw it, so the two ghost families are disjoint by construction.
+ *  Geometry frozen at arm time (a memory of the wire as it was, not a
+ *  live channel — the t601 organ law, loner edition). */
+export interface DeathEdgeGhost {
+  id: string;
+  d: string;
+  bornAt: number;
+}
+
+/** t601 — build the ghosts for one finger-commanded delete. Called from
+ *  removeJobsRaw BEFORE the removal set() — the dying jobs and their
+ *  edges are passed in while still in state, which is the whole point:
+ *  the wire geometry is frozen from the living world's own math. */
+function buildDeathGhosts(
+  deletedIds: string[],
+  jobs: JobDTO[],
+  edges: EdgeDTO[]
+): DeathGhost[] {
+  const dyingSet = new Set(deletedIds);
+  const stepOf = new Map<string, number>();
+  deletedIds.forEach((id, i) => stepOf.set(id, Math.min(i, DEATH_MAX_STEPS)));
+  const touching = edges.filter((e) => dyingSet.has(e.fromJobId) || dyingSet.has(e.toJobId));
+  // each wire is remembered by ONE ghost — the smaller-step endpoint
+  const wireHome = new Map<string, string>();
+  for (const e of touching) {
+    const fs = stepOf.get(e.fromJobId);
+    const ts = stepOf.get(e.toJobId);
+    if (fs != null && ts != null) wireHome.set(e.id, fs <= ts ? e.fromJobId : e.toJobId);
+    else wireHome.set(e.id, fs != null ? e.fromJobId : e.toJobId);
+  }
+  // freeze the geometry from the LIVING world (endpoints all present) —
+  // t602 — from the FULL edge list, not the touching subset: the
+  // fan-apart offsets among a shared endpoint's wires are part of what
+  // the eye saw, and a subset-computed memory would remember a wire
+  // that never rendered
+  const geoms = edges.length > 0 ? computeEdgeGeoms(edges, jobs, null) : [];
+  const geomById = new Map(geoms.map((g) => [g.edge.id, g]));
+  const now = Date.now();
+  return deletedIds.map((id, i) => {
+    const j = jobs.find((x) => x.id === id);
+    const step = Math.min(i, DEATH_MAX_STEPS);
+    return {
+      id,
+      x: j?.x ?? 0,
+      y: j?.y ?? 0,
+      type: j?.type ?? "",
+      name: j?.name ?? "",
+      status: j?.status ?? "idle",
+      step,
+      bornAt: now,
+      wires: touching
+        .filter((e) => wireHome.get(e.id) === id)
+        .map((e) => {
+          const other = e.fromJobId === id ? e.toJobId : e.fromJobId;
+          const otherStep = stepOf.get(other);
+          const g = geomById.get(e.id);
+          return {
+            id: e.id,
+            d: g?.d ?? "",
+            // a wire between two dying cards shares the earlier breath
+            step: otherStep != null ? Math.min(step, otherStep) : step,
+          };
+        })
+        .filter((w) => w.d !== ""),
+    };
+  });
+}
+
 interface WorkflowState {
   jobs: JobDTO[];
+  /** t393 — the last-seen /api/jobs version token. pollTick sends it as
+   *  ?v= and an unmoved canvas answers {unchanged:true} (~40 bytes) — the
+   *  no-op heartbeats (idle 8s, hidden tab 15s, the gaps between progress
+   *  steps at 1.2s) stop re-paying the serialization/wire/parse/merge
+   *  chain for an array that did not move. Maintained by load() and
+   *  pollTick (the two full-list ingests); optimistic flows leave it
+   *  stale ON PURPOSE — their server write flips the version, so the
+   *  very next tick goes full and re-syncs. Hashed per project id
+   *  server-side, so a project switch can never alias another project's
+   *  token. */
+  jobsVersion: string | null;
   edges: EdgeDTO[];
   project: ProjectDTO | null;
   /** All projects (for the project management panel). */
@@ -442,6 +723,14 @@ interface WorkflowState {
   selectedIds: string[];
   /** Job opened in the large inspector modal (submitted jobs only). */
   inspectId: string | null;
+  /** t569 — the inspector's return chip: when openJob SWAPS an open
+   *  inspector for another job (a footer door inside the dialog), the job
+   *  that was showing rides here so the header can offer the way back.
+   *  One level deep — the chip's own click is openJob, which re-captures
+   *  (ping-pong), never a history stack. Direct navigation (a canvas
+   *  click) and a dialog close both clear it: the context only means
+   *  something while the swap it came from is still on screen. */
+  cameFromJob: { id: string; name: string; projectId: string } | null;
   pendingFrom: PendingFrom | null;
   /** Pan + zoom of the free canvas viewport. */
   viewport: Viewport;
@@ -460,16 +749,130 @@ interface WorkflowState {
   paletteDrag: string | null;
   /** Increments on every one-click auto-arrange (canvas fit-views on change). */
   layoutEpoch: number;
+  /** t593 — WHO bumped the epoch last. "command" = the user's tidy: the
+   *  world answers (the canvas consumes into the card FLIP + the camera
+   *  arrival dialogue). null = systemic — import landings and template
+   *  applies rebuild the world silently (a world arriving from a file is
+   *  a birth, not a gesture; t590's law with the finger as the boundary).
+   *  t598 — the question this vocabulary left open ("does the new
+   *  world's entrance already have its own voice?") is now answered: the
+   *  CARDS carry the birth voice (birthSeq/birthIds below — every other
+   *  surface in the app had an entrance; the card, the protagonist,
+   *  popped). The camera stays silent on births: the frame-set is
+   *  framing, not a journey — the tidy's camera ride answers a
+   *  displacement, and a birth displaces nothing. */
+  layoutKind: "command" | null;
+  /** t598 — the card-birth voice, armed by birth VERBS only. Every
+   *  surface in the app has an entrance (palette-group-enter,
+   *  dash-enter, find-drop, inspector-chip-enter); the canvas card had
+   *  none. Armed: mint (addJobAt), linked step, linked copy, pipeline
+   *  template, import batch (per file), duplicate/twin, and the adopt
+   *  family (exclude/select/pick/train). NEVER armed — the silent faces,
+   *  by construction: undoDelete's backJobs and restoreFromGraveyard
+   *  (history restore is not an event, t590), pollTick (server replace,
+   *  bookkeeping), adoption/legacy loads (a world loading, not cards
+   *  being born), cross-tab poll arrivals. The canvas marks mounted
+   *  cards before first paint, consumes per id (a switched-workspace
+   *  import marks on the commit that actually mounts the cards), and
+   *  retires the attributes when the entrance window closes. seq lets
+   *  the consumer tell successive arms apart without diffing id arrays. */
+  birthSeq: number;
+  /** t598 — ids awaiting their entrance; accumulated across rapid
+   *  successive verbs (a multi-file import arms once per file merge). */
+  birthIds: string[];
+  /** t599 — edge ids awaiting their draw-in, armed by the BATCH merges
+   *  that create wires without any gesture ever drawing them (import,
+   *  pipeline template, duplicate). A MANUAL connect keeps its instant
+   *  receipt: the pending LiveWire followed the finger (t359), so the
+   *  completed wire was never absent — redrawing it would be a glitch,
+   *  not a voice. Same staircase as the cards (one rhythm), retired by
+   *  the same window. Silent faces unchanged: restore/poll/adoption
+   *  never arm. */
+  birthEdgeIds: string[];
+  /** t601 — the death voice, armed by DELETE VERBS only (the mirror of
+   *  the birth law). Armed: deleteJob (the confirm dialog's Delete) and
+   *  deleteSelected (the bulk confirm) — the two fingers that kill.
+   *  NEVER armed — the silent faces, by construction: redo's
+   *  removeJobsRaw (history replay — the cards already died once in the
+   *  user's memory), undoImport's self-deletes (walking history back),
+   *  the AI tool's direct db delete (the canvas learns of it via poll —
+   *  found dead, not killed before your eyes), poll itself, adoption
+   *  loads. The ghost is pure rendering furniture: truth moves in the
+   *  SAME commit (minimap, counts, selection stay honest), the canvas
+   *  renders the frozen memory while the breath plays, and retires it
+   *  when the window closes. A resurrection during the breath (Ctrl+Z
+   *  mid-fade) prunes the ghost immediately — the death was revoked. */
+  deathSeq: number;
+  /** t601 — the frozen memories currently breathing out. Appended per
+   *  arm, pruned on resurrection, retired wholesale when the window
+   *  closes. Rendered below the living cards (a ghost never covers the
+   *  living); pointer-events none throughout. */
+  deathGhosts: DeathGhost[];
+  /** t602 — the loner wire's death epoch (bumped per arm, the render face
+   *  reads it to re-run revival/retire duties). */
+  deathEdgeSeq: number;
+  /** t602 — the frozen memories of wires killed ALONE (the hover X on the
+   *  wire itself, the I/O tab's remove chip — every removeEdge call site
+   *  is a finger, so the arm lives in the verb by construction). Wires
+   *  that die WITH their body are organs of the card's ghost (t601) and
+   *  never enter this family: whichever verb removes the edge first is
+   *  the only one that ever saw it. Same breathing protocol as the cards:
+   *  pruned on revival, retired wholesale when the window closes. */
+  deathEdgeGhosts: DeathEdgeGhost[];
+  /** t593 — the pre-tidy seats of every moved card, captured at the bump
+   *  so the canvas can FLIP (invert from the old seat, play to the new)
+   *  without racing the commit. Read together with layoutKind and
+   *  retired by consumeLayoutCommand (consume-once, the t588 relay law). */
+  layoutFlipFrom: Array<{ id: string; x: number; y: number }>;
   /** Job to center the canvas on (inspector "Focus" button). */
   focusJobId: string | null;
   /** Increments per focus request so the canvas effect re-fires. */
   focusEpoch: number;
+  /** t588 — viewport-shaped arrival relay (bookmark slot keys 1–9): the
+   *  store cannot touch the workspace DOM class, so the jump validates the
+   *  seat and hands over the target; the canvas performs the
+   *  hold-glide-coda arrival. The focusJob idiom (Task 124) applied to a
+   *  Viewport instead of a job. */
+  arrivalEpoch: number;
+  arrivalTarget: Viewport | null;
   /** One-shot deep link from the command palette's Class notes group
    *  (Task 81): "open THIS class's note editor". The job panel consumes it
    *  (switches to the params tab, the gallery opens the lightbox on the
    *  class) and clears it — never observed twice. */
   pendingClassFocus: { jobId: string; cls: number } | null;
   requestClassFocus: (jobId: string, cls: number) => void;
+  /** One-shot deep link from the command palette's Frame galleries group
+   *  (t659, the Task 81 handshake's second heir): "open THIS job's frame
+   *  wall in the lightbox". The inspector is the HOST (it switches to the
+   *  overview tab, where the gallery mounts); the gallery itself CONSUMES
+   *  the request once its data is on screen — fresh requests open, stale
+   *  ones (TTL) are cleared on sight so a lingering link can never
+   *  re-open later. */
+  pendingGalleryFocus: { jobId: string; at: number } | null;
+  requestGalleryFocus: (jobId: string) => void;
+  consumeGalleryFocus: () => void;
+  /** One-shot deep link from the command palette's Denoise compare group
+   *  (t665, the third image-surface family): "show me THIS denoise run's
+   *  before/after wall". The t659 two-gate shape again, because the wall
+   *  is not the arrival itself: the inspector HOST clears the way (results
+   *  tab, where the gallery mounts — no consume), the gallery CONSUMES on
+   *  arrival (scroll into view + flash — the wipe divider is the browse
+   *  surface, and a link that promises a wall must put the wall in view).
+   *  TTL + clear-on-sight as in t659: the gallery's self-hide contract
+   *  means the consumer may never mount, and a lingering link can never
+   *  re-open later. */
+  pendingDenoiseFocus: { jobId: string; at: number } | null;
+  requestDenoiseFocus: (jobId: string) => void;
+  consumeDenoiseFocus: () => void;
+  /** One-shot deep link from the command palette's Class averages group
+   *  (t660): "show me THIS classification's class images". The arrival is
+   *  the overview TAB itself — the class-averages teaser carries no
+   *  lightbox, so there is no second consumer: the inspector consumes
+   *  the request the moment it clears the way (the Task 81 handshake's
+   *  shape — sync consumer, no TTL — not the t659 wall's two-gate one). */
+  pendingClassAveragesFocus: { jobId: string } | null;
+  requestClassAveragesFocus: (jobId: string) => void;
+  consumeClassAveragesFocus: () => void;
   /** The session's LAST HPC sweep (t197): the session QC report binds it
    *  verbatim. One slot — a finished race replaces the previous one
    *  wholesale; a race that never started writes nothing. In-memory by
@@ -529,6 +932,38 @@ interface WorkflowState {
    *  command palette) — single source of truth so all three entries stay
    *  in sync. */
   shortcutsOpen: boolean;
+  /** t482 — the full help guide dialog: the popover stays the canvas
+   *  quick start, the guide carries the whole manual (one source, two
+   *  doors: the popover CTA and the command palette). */
+  helpGuideOpen: boolean;
+  /** t419 — the AI assistant panel (right Sheet): open state + the
+   *  one-shot pending prompt (the class gallery's "AI 分析" button opens
+   *  the panel WITH a question — consumed once by the panel, never
+   *  observed twice; same contract as pendingClassFocus). In-memory by
+   *  design: a chat panel is a session surface, not a document property. */
+  aiAssistantOpen: boolean;
+  setAiAssistantOpen: (open: boolean) => void;
+  aiPendingPrompt: string | null;
+  /** t503 — the summon sequence. Every openAiAssistant() call bumps it,
+  *  even when the window is ALREADY open: the header door must always
+  *  visibly answer. The panel re-raises itself (moves its portal to the
+  *  front of body) on every bump — the user's bug was the buried
+  *  assistant (a dialog that opened later stacked above it) where the
+  *  button's set({open: true}) was a no-op and nothing surfaced. */
+  aiSummonSeq: number;
+  /** Open the assistant, optionally carrying a question to send immediately. */
+  openAiAssistant: (prompt?: string) => void;
+  /** One-shot: returns the pending prompt and clears it. */
+  consumeAiPendingPrompt: () => string | null;
+  /** t419 — pull the server's edge truth into the store. The assistant
+   *  creates wires SERVER-SIDE (its tools run in the API route), and the
+   *  poll only refreshes jobs — without this the canvas would not show
+   *  AI-drawn wires until a reload. */
+  refreshEdges: () => Promise<void>;
+  /** t419 — the AI provider settings dialog (gear inside the assistant,
+   *  or the panel's needs-setup banner). */
+  aiSettingsOpen: boolean;
+  setAiSettingsOpen: (open: boolean) => void;
   /** Task 105 — world-overview minimap visibility (bottom-right corner).
    *  Session-local by design: a collapsed tool is a UI mood, not a user
    *  asset — default open on every fresh session keeps the map discover-
@@ -550,6 +985,36 @@ interface WorkflowState {
    *  were dimmed last session" to survive a reload. Toggled from the
    *  header chip, the command palette, or the N key. */
   noteSpotlight: boolean;
+  /** t682 — the critical path lens: the analytics panel's fifth face
+   *  walked the chain that set the finish; this lens paints that same
+   *  walk back onto the canvas — chain cards keep full ink, everything
+   *  the finish didn't wait on recedes, the walked wires carry the
+   *  chain stroke. Same lens law as the note spotlight: in-memory only,
+   *  a viewing lens, not a document property. Toggled from the canvas
+   *  toolbar's Route button or the P key. The chain itself is NOT
+   *  stored — it's derived (canvas useMemo over walkTimeline +
+   *  criticalPath) so the lens can never disagree with the face about
+   *  which cards are the story. */
+  criticalLens: boolean;
+  toggleCriticalLens: () => void;
+  /** t684 — the session's viewing trail: the jobs you opened most
+   *  recently, newest first, capped. Recorded at openJob's success end
+   *  (the mouth EVERY jump speaks — palette, dashboard, footer, verdict
+   *  stamps — one write point, no reader can drift from any writer).
+   *  t685 — the trail ECHOES to localStorage and survives a reload (the
+   *  seed hydrates post-mount); the read-time join against the live
+   *  jobs array is the trust gate — a deleted job's id stays in the
+   *  trail but renders nowhere (the convergence point that keeps a
+   *  stale trail honest). */
+  recentJobIds: string[];
+  noteRecentJob: (id: string) => void;
+  clearRecentJobs: () => void;
+  /** t685 — one-shot hydrate of the persisted trail, called from the
+   *  app shell's mount effect (after hydration — the SSR-safe window:
+   *  initial state is [], the storage seed lands post-mount, and the
+   *  readers' read-time join needs no seed gate — it IS the trust
+   *  gate). */
+  hydrateRecentJobs: () => void;
   /** Task 134 — canvas find bar (Ctrl/⌘+F). Two ephemeral fields:
    *  whether the floating find bar is open, and the live query typed
    *  into it. Matching cards ring amber; everything else recedes with
@@ -575,6 +1040,17 @@ interface WorkflowState {
    *  categories actually present in the workspace; a stage that doesn't
    *  exist can't be a filter. Same ephemerality as findStatus. */
   findCategory: string | "all";
+  /** t782 — the noted half of the find lens: when true, only jobs that
+   *  carry a judgment (the SAME hasJudgment predicate the palette's
+   *  Notes group, the header's count chip and the canvas's note
+   *  spotlight read — one predicate, no second copy) match. Fourth
+   *  orthogonal dimension — text ∧ status ∧ stage ∧ noted combine, none
+   *  overrides another: "motion, but only the judged ones, still
+   *  running" is one lens. The spotlight (N) is the ambient dim of the
+   *  same predicate; the chip is its QUERYABLE ring — coexisting, not
+   *  competing. Same ephemerality as findStatus — closing the bar
+   *  resets it, nothing enters undo or storage. */
+  findNoted: boolean;
   /** Task 144 — whether the floating pipeline-KPI bar is folded into its
    *  compact pill (completion ring + count + the live runner chip). The
    *  bar is a lawful overlay, but its width grows with the world (live
@@ -587,6 +1063,18 @@ interface WorkflowState {
    *  reclaimed. Never enters undo; the find lens stays ephemeral — its
    *  contract is to close clean, the fold's contract is to stay put. */
   kpiCollapsed: boolean;
+  /** t444 — the staleness wavefront, derived in the STORE (not the
+   *  canvas render): one findStaleJobs per jobs/edges commit, via the
+   *  post-commit subscription at the module tail. Cards subscribe to
+   *  their own slice (stable object refs between commits) — the update
+   *  reaches each card through zustand's useSyncExternalStore channel,
+   *  immune to the canvas render path's memo/deferral bailouts. */
+  staleMap: StaleReport;
+  /** t445 — the recipe drift verdict, same channel as the wavefront:
+   *  one findDriftedJobs per jobs commit, post-commit at the module
+   *  tail; cards read their own slice through the subscription (the
+   *  canvas render path's memo/deferral bailouts never see it). */
+  driftMap: DriftReport;
   /** Parsed workflow files awaiting confirmation in the import dialog —
    *  the dialog shows a QUEUE (one summary row per file, plus per-file
    *  parse failures) + one shared target-workspace picker before any
@@ -608,7 +1096,7 @@ interface WorkflowState {
   /** Switch the active RELION install (multi-version switcher). */
   selectRelionInstall: (installId: string) => Promise<boolean>;
   switchProject: (id: string) => Promise<void>;
-  createProject: (input: { name: string; mode: string }) => Promise<boolean>;
+  createProject: (input: { name: string; mode: string; remoteConnectionId?: string | null }) => Promise<boolean>;
   renameProject: (id: string, name: string) => Promise<boolean>;
   deleteProject: (id: string) => Promise<boolean>;
   /** POST /api/projects/[id]/duplicate — clone as a RERUN-READY TEMPLATE:
@@ -637,6 +1125,12 @@ interface WorkflowState {
     y: number,
     params?: Record<string, number | string | boolean>
   ) => Promise<void>;
+  /** t383 — the card context menu's "Add next step…" quick action: create
+   *  a job of `type` placed in the free slot to the RIGHT of `sourceId`
+   *  (same workspace), auto-wired through the first compatible port pair.
+   *  One toast tells the whole story; the new card lands selected and
+   *  focused so the "quick" in quick action is literal. */
+  addLinkedStep: (sourceId: string, type: string) => Promise<void>;
   /** One-click standard SPA pipeline: 10 pre-wired jobs into the ACTIVE
    *  workspace (below existing content), optional parameter overrides,
    *  nothing run. */
@@ -663,6 +1157,12 @@ interface WorkflowState {
    *  then wires are re-POSTed one by one (the sidecar file is a
    *  read-modify-write store — parallel restores could lose edges). */
   undoDelete: (snapshot: DeleteSnapshot) => Promise<void>;
+  /** t478 — the storage drawer's restore door: the grave's OWN server-side
+   *  row snapshot feeds the restore (job_id in, no client-built body), the
+   *  restored ids leave the client tombstone filter (the t370 law), and a
+   *  full load() re-draws the canvas. Returns a user-facing line either
+   *  way — the drawer renders it, never invents one. */
+  restoreFromGraveyard: (jobId: string) => Promise<{ ok: boolean; message: string }>;
   /** Task 104 — linear history. In-memory only: a reload starts a fresh
    *  history by design (the same honesty as the per-tab viewport memory —
    *  an undo stack that survives reload would resurrect state the user
@@ -690,10 +1190,11 @@ interface WorkflowState {
    *  (Task 104). Returns the ids whose DELETE round-tripped. */
   removeJobsRaw: (
     ids: string[],
-    opts?: { keepSelection?: boolean }
+    opts?: { keepSelection?: boolean; deathArm?: boolean }
   ) => Promise<{ deleted: string[]; error: string | null }>;
   setTemplatePresetsOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
+  setHelpGuideOpen: (open: boolean) => void;
   toggleNoteSpotlight: () => void;
   /** Task 134 — open the find bar (Ctrl/⌘+F, command palette, or the
    *  toolbar button). Opening focuses the input (the bar owns that
@@ -710,6 +1211,9 @@ interface WorkflowState {
    *  "all"). Radio semantics live in the chip row; the store just holds
    *  the armed key. */
   setFindCategory: (c: string | "all") => void;
+  /** t782 — arm/disarm the noted-half lens. Toggle semantics live in
+   *  the chip; the store just holds the armed boolean. */
+  setFindNoted: (n: boolean) => void;
   /** Task 144 — fold/unfold the pipeline KPI bar (explicit chevron on
    *  the bar itself; no hover-expansion surprises). */
   setKpiCollapsed: (c: boolean) => void;
@@ -729,22 +1233,156 @@ interface WorkflowState {
     },
     opts?: { silent?: boolean }
   ) => Promise<{ ok: boolean; error?: string }>;
-  runJob: (id: string) => Promise<boolean>;
+  /**
+   * POST /run — start (or restart) a job. A BARE call (no opts) rides the
+   * route's t317 project-binding fallback: in a remote-bound project the
+   * job dispatches to the cluster (the toast says so via the response's
+   * runRemote). opts.local === true is the EXPLICIT local door (the panel's
+   * ▾ "Run on this machine") — it meets the engine's honest cluster-resident
+   * refusal instead of spawning through the WSL bridge.
+   */
+  runJob: (id: string, opts?: { local?: boolean; quiet?: boolean }) => Promise<boolean>;
   /** POST /run with { remote } — dispatch the job to an SSH cluster
    *  connection (module load relion/x, direct nohup run). Same response
    *  dialect as runJob (409 busy kinds, waiting/staging, honest engine
    *  errors) with cluster-flavored toasts. */
-  runJobRemote: (id: string, target: RemoteRunTarget) => Promise<boolean>;
+  runJobRemote: (id: string, target: RemoteRunTarget, opts?: { quiet?: boolean }) => Promise<boolean>;
+  /** t448 — the wavefront's verb: re-run this job and every DOWNSTREAM
+   *  node in topological order, one node at a time — each dispatch lands
+   *  (terminal status) before the next fires, so a child never starts
+   *  inside its parent's churn. `target` null = local lane. Stops at the
+   *  first refusal; the receipt names the frontier. */
+  runSubtree: (rootId: string, target: RemoteRunTarget | null) => Promise<boolean>;
+  /** t449 — the verb's face: the live walk the strip renders (run order,
+   *  progress counter, stop request). Exactly one at a time; null when
+   *  idle. The loop mirrors its progress into this state so the face
+   *  renders from truth, not from closure memory. */
+  subtreeOrch: SubtreeOrchState | null;
+  /** t449 — the stop verb: request the walk to halt BEFORE the next
+   *  dispatch. The job now running finishes on its own; the receipt
+   *  counts what re-ran. A request on an idle world is a no-op. */
+  stopSubtreeRun: () => void;
+  /** t450 — the walk's second breath: re-enter a walk whose record
+   *  survived the reload. Consumes the record once, scans the live world
+   *  against the persisted order (completed nodes count, missing nodes
+   *  are named and skipped, a failed node is the frontier, an armed stop
+   *  dispatches nothing) and continues the walk with the SAME cluster
+   *  target. Silent when no record exists.
+   *  t451 — the record lives in the workspace's shared memory now: the
+   *  claim law (one walk, one heir) arbitrates — this tab's own record
+   *  resumes instantly; a dead owner's walk is ADOPTED (claimed, then
+   *  resurrected by the same world-truth scan); a LIVE owner's walk is
+   *  left alone (silent — the walk is on another tab's face). */
+  resumeSubtreeOrch: () => Promise<void>;
   /** POST /stop — SIGTERM→SIGKILL the job's process tree; re-run resumes
    *  refine-family jobs from their checkpoint via RELION --continue. */
   stopJob: (id: string) => Promise<void>;
   resetJob: (id: string) => Promise<void>;
+  /** t447 — rename a job (PATCH name); cosmetic, history-free, optimistic
+   *  with a surgical rollback (only this job's name reverts — a poll that
+   *  landed mid-flight keeps its updates). Returns false when refused. */
+  renameJob: (id: string, name: string) => Promise<boolean>;
+  /** Task 713 — wear a parameter preset (PATCH params). The server merges
+   *  incoming over current (spec-key scalar filter), so a full snapshot
+   *  lands as "spec keys replaced, legacy keys untouched" in one call.
+   *  Optimistic with the rename's surgical rollback; returns false when
+   *  refused (unknown job / network error — the toast names the cause). */
+  updateJobParams: (id: string, params: Record<string, number | string | boolean>) => Promise<boolean>;
   deleteJob: (id: string) => Promise<void>;
-  /** Clone a job (params + position offset) as a fresh idle draft. */
-  duplicateJob: (id: string) => Promise<void>;
-  connect: (from: string, to: string, fromPort?: string, toPort?: string) => Promise<void>;
+  /** Clone a run as a fresh idle draft — t442: the twin inherits the
+   *  params AND the upstream wiring (a parallel branch, not a bare
+   *  template), sits in the free slot of the column to the right, and
+   *  waits unstarted for the user's edits (the POST never dispatches).
+   *  opts.openInspector lands the user in the twin's own editor — the
+   *  A/B loop's first stop. */
+  duplicateJob: (id: string, opts?: { openInspector?: boolean }) => Promise<void>;
+  /** t443 — branch adoption: the A/B verdict's verb. Re-wires every
+   *  downstream wire of `fromRunId` to start at `toRunId` instead — the
+   *  children stop consuming the loser and start consuming the winner
+   *  in ONE gesture (one optimistic set, one receipt toast; statuses
+   *  stay — the receipt carries the re-run duty). Refusals (cycles,
+   *  port mismatches) and already-wired children are reported, never
+   *  silently folded. */
+  adoptDownstream: (fromRunId: string, toRunId: string) => Promise<void>;
+  /** t452 — the verdict's consumer face (「把输家微图喂给 exclude 清单」,
+   *  the t439 leftover): mints an Exclude Micrographs job consuming
+   * `toRunId` with `names` baked into its param, then re-wires
+   * `fromRunId`'s downstream onto the FILTER (adoption with an
+   * intermediate stop). One gesture, one receipt — the graph shows the
+   * verdict as wiring, not as a memory. */
+  adoptWithExclude: (fromRunId: string, toRunId: string, names: string[]) => Promise<void>;
+  /** t453 — the class verdict's consumer verb: mints a 2D Class
+   *  Selection consuming `toRunId` with the gained class numbers baked
+   *  into `selectedClasses` (the list the dialog spoke IS the selection
+   *  the engine makes), wires BOTH of the selection's mouths (class
+   *  averages + classified particles) from `toRunId`'s outputs, then
+   *  re-wires `fromRunId`'s downstream onto the SELECTION. Port pairs
+   *  are found by kind, never assumed: a host missing a mouth refuses
+   *  honestly before anything is minted. */
+  adoptWithSelect: (fromRunId: string, toRunId: string, classNumbers: number[]) => Promise<void>;
+  /** t558 — the Topaz train→pick handoff: mint an Auto-picking job in
+   *  Topaz mode with the training's own dials carried over, wire the
+   *  trained model into it, and inherit the training job's micrographs
+   *  source. The engine's "connect into Auto-picking (Topaz mode)"
+   *  receipt becomes a button instead of a manual wiring chore. */
+  pickWithTopazModel: (fromJobId: string) => Promise<void>;
+  /** t559 — the denoise→pick handoff (the gesture family's second cut):
+   *  mint an Auto-picking job in Topaz mode wired to the denoised stack
+   *  itself — the official topaz flow runs denoise → pick on the SAME
+   *  images, and the denoised star keeps the micrograph schema so the
+   *  pick consumes it unchanged. The general Topaz model picks it until
+   *  a trained one exists. */
+  pickWithDenoisedStack: (fromJobId: string) => Promise<void>;
+  /** t563 — the denoise→train handoff (the gesture family's third cut):
+   *  mint a Topaz Training job wired to the denoised stack (the spec's
+   *  own words: the official flow runs denoise → pick/train on the
+   *  denoised images). Training's SECOND mouth — hand-picked
+   *  coordinates — is information the denoise stage doesn't have, so
+   *  the gesture hunts a completed Manual Picking on the canvas and
+   *  wires its coords in; none found → honest refusal BEFORE anything
+   *  is minted (a half-wired training job is the canvas lie the
+   *  adoptWithSelect law forbids). */
+  trainWithDenoisedStack: (fromJobId: string) => Promise<void>;
+  connect: (
+    from: string,
+    to: string,
+    fromPort?: string,
+    toPort?: string,
+    /** t442 — quiet mode: duplication wires N edges in one gesture and
+     *  the receipt belongs to the DUPLICATION toast (t146's aggregate
+     *  law), not to N per-wire announcements. Errors still speak.
+     *  t600 — drawIn: the verb's wire draws itself in on the cards'
+     *  staircase (the third face of t599's "who ever drew the line"
+     *  boundary). Three faces: (1) the finger-dragged LiveWire never
+     *  arms — its pending stroke occupied the wire's place, the
+     *  completed line is CONTINUITY (t359); (2) the panel's port-pair
+     *  click never arms — the user named THAT wire, item by item; (3)
+     *  the VERB's wires arm — a next-step / twin / adoption wire is
+     *  payload the world grew alongside a newborn card (the user
+     *  clicked "add a step" or "filter" or "train", never "draw this
+     *  wire"), and nobody ever drew it. Rollback direction is safe:
+     *  a failed POST leaves the id unconsumed in the payload, and the
+     *  birth window's retire sweeps it (per-id consume, t598). */
+    opts?: { quiet?: boolean; drawIn?: boolean }
+  ) => Promise<void>;
   removeEdge: (id: string) => Promise<void>;
   pollTick: () => Promise<void>;
+
+  /** t596 — the selection-jump counter the minimap's sel frame reads to
+   *  tell FLOWS from SNAPS. The five selection verbs (select /
+   *  stepArrowFocus / toggleSelect / selectMany / selectAll) bump it ONLY
+   *  when the selection set actually changes; every other writer of the
+   *  selection fields (delete cleanup, workspace switch, load, inspect,
+   *  the server-poll merges) writes them directly and NEVER bumps — those
+   *  reframes are the world's own work (t590's systemic silence), not a
+   *  finger. The consumer (canvas-minimap) compares this against a
+   *  seen-ref inside its box-record effect and rides a reframe flow when
+   *  the live framing mode is sel; the coercion edge (selection emptied →
+   *  effMode falls back to fit) bumps too but the consumer's effMode gate
+   *  keeps that edge snap-silent (t591's disarm-never-becomes-an-event
+   *  law). Undo never touches the selection, so it is immune by
+   *  construction. */
+  selReframeSeq: number;
 
   select: (id: string | null) => void;
   /** Shift-click toggle: add/remove a card from the multi-selection (the
@@ -781,6 +1419,10 @@ interface WorkflowState {
   distributeSelected: (axis: "h" | "v") => void;
   /** Open the big job inspector (submitted jobs); null closes it. */
   inspect: (id: string | null) => void;
+  /** t569 — the return chip's way back: the openJob dialect itself (the
+   *  hint carries the captured project so a cross-project swap still
+   *  returns home). One level — back is a door, not a stack. */
+  goBackFromInspector: () => Promise<void>;
   /** Switch the top-level view (canvas ⇄ project dashboard). */
   setView: (view: "canvas" | "dashboard") => void;
   setPendingFrom: (pending: PendingFrom | null) => void;
@@ -794,10 +1436,37 @@ interface WorkflowState {
   saveViewportBookmark: (name: string) => boolean;
   deleteViewportBookmark: (name: string) => void;
   /** Jump straight to the saved view holding hotkey `slot` (1–9) for THIS
-   *  (project:workspace) — Task 101. Routes through setViewport (zoom clamp
-   *  gate); false when no bookmark holds the seat — an honest dead key, no
+   *  (project:workspace) — Task 101. t588: hands the target to the canvas
+   *  arrival relay (the canvas lands it via setViewport, zoom clamps there);
+   *  false when no bookmark holds the seat — an honest dead key, no
    *  phantom jump (mirrors the dashboard's empty-slice dead filters). */
   jumpToViewportBookmark: (slot: number) => boolean;
+  /** t589 — return to the origin view (the "0" seat): the origin is a
+   *  PLACE like any bookmarked view, so the jump rides the same arrival
+   *  relay (glide + held readout + coda) as keys 1–9 — the whole number
+   *  row speaks one dialect. */
+  jumpToOrigin: () => void;
+  /** t588 — consume-once for the arrival relay: the canvas nulls the
+   *  target when it picks it up, so a canvas remount (view switch away
+   *  and back) never re-glides to a stale target. */
+  consumeViewportArrival: () => void;
+  /** t593 — the canvas retires the tidy's answer payload after reading it
+   *  (consume-once: a canvas remount must never replay an old rebuild). */
+  consumeLayoutCommand: () => void;
+  /** t598 — the canvas retires ids it has played (per-id consume: unplayed
+   *  ids survive for a later commit that actually mounts them). */
+  consumeBirths: (played: string[], playedEdges: string[]) => void;
+  /** t601 — prune ghosts whose card is live again (undo during the
+   *  breath): the death was revoked, the memory must not outlive it. */
+  pruneDeathGhosts: (aliveIds: string[]) => void;
+  /** t601 — the breath window closed: retire every ghost wholesale. */
+  retireDeathGhosts: () => void;
+  /** t602 — prune loners whose wire is live again (a failed DELETE's
+   *  restore mid-breath): the death was revoked, the memory must not
+   *  outlive it. */
+  pruneDeathEdgeGhosts: (aliveIds: string[]) => void;
+  /** t602 — the loner's breath window closed: retire wholesale. */
+  retireDeathEdgeGhosts: () => void;
   setDragActive: (active: boolean) => void;
   setPaletteDrag: (type: string | null) => void;
   /** Center the canvas on a job ("Focus" from the inspector). */
@@ -838,10 +1507,61 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) {
-    throw new Error(data?.error ?? `Request failed (${res.status})`);
+    // t359 — carry the HTTP status ON the thrown error (the message
+    // contract is unchanged). The optimistic wire flows below need to tell
+    // "already persisted by an earlier attempt" (409) and "already gone
+    // server-side" (404) apart from real failures.
+    const err = new Error(data?.error ?? `Request failed (${res.status})`) as Error & {
+      status?: number;
+    };
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
+
+// t407 — the boot race, witnessed live: on a box where the dev server can
+// die mid-compile (the 4GB OOM regime — t405/t406), a first-visit route can
+// answer with a KILLED CONNECTION instead of a status code, and load()'s
+// bare `.catch` fallbacks then boot the app with an EMPTY projects or
+// workspaces list — the palette's Projects group silently vanishes, the
+// project panel shows nothing, and NOTHING retries (pollTick only polls
+// /api/jobs), so the state persists until the user manually reloads. The
+// suite-side doctrine (t310's fetchSteady, the healer's connection-layer
+// retries) now lands in the product: apiSteady retries ONLY the connection
+// layer — fetch's own voice for "never reached the server / the server died
+// mid-flight" is a TypeError; an HTTP error status (carried on Error.status
+// by api) is an honest answer from a live server and is NEVER retried.
+async function apiSteady<T>(url: string, attempts = 3): Promise<T> {
+  let lastErr: unknown = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await api<T>(url);
+    } catch (err) {
+      if (err instanceof TypeError) {
+        lastErr = err;
+        await new Promise((r) => setTimeout(r, 1200 * (i + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr ?? new Error("apiSteady: unreachable");
+}
+
+/**
+ * t359 — optimistic wire bookkeeping (see connect/removeEdge).
+ *
+ * `unconfirmedEdges` — client-minted edge ids whose POST /api/edges is
+ * still in the air. A removeEdge() on one of them must NOT fire a DELETE
+ * (the row does not exist yet — the 404 would look like success while the
+ * in-flight POST is about to resurrect the wire as a ghost the UI no
+ * longer shows); instead the id is marked doomed and the POST's landing
+ * path fires the DELETE itself, when the row is real.
+ * `doomedCreates` — exactly those marked ids.
+ */
+const unconfirmedEdges = new Set<string>();
+const doomedCreates = new Set<string>();
 
 /**
  * Workspace membership EXACTLY as the canvas visibility rule computes it
@@ -889,8 +1609,11 @@ function wouldCreateCycle(edges: EdgeDTO[], from: string, to: string): boolean {
 
 /** Reference-stable job comparison for pollTick: when nothing changed we
  *  keep the OLD object references so every React.memo'd card (and the
- *  memo'd edge layer) skips re-rendering — polls become zero-cost. */
-function jobEquals(a: JobDTO, b: JobDTO): boolean {
+ *  memo'd edge layer) skips re-rendering — polls become zero-cost.
+ *  Exported for the t432 bench — the predicate IS the contract (a field
+ *  missing here is a stale-UI bug, so the bench pins the real function,
+ *  never a copy). */
+export function jobEquals(a: JobDTO, b: JobDTO): boolean {
   return (
     a.id === b.id &&
     a.type === b.type &&
@@ -906,16 +1629,127 @@ function jobEquals(a: JobDTO, b: JobDTO): boolean {
     a.note === b.note && // Task 164: judged-ness flows from this field — the header count, the lens tiers and the dashboard chip all read it; a poll that swallowed a note change would freeze all three (updatedAt happens to bump on every PATCH today, but the equality predicate must not DEPEND on that courtesy)
     a.engine === b.engine &&
     a.hasLog === b.hasLog &&
+    // t574 — the verdict badge is COMPUTED per sweep from the stamps file
+    // (like hasLog from disk, like remoteRemaining): a worker stamp lands
+    // WITHOUT touching the row (updatedAt never moves), so the equality
+    // predicate must compare it explicitly or the reference-stability
+    // merge swallows the badge's first appearance forever.
+    (a.hasVerdict ?? false) === (b.hasVerdict ?? false) &&
     (a.workspaceId ?? null) === (b.workspaceId ?? null) &&
     (a.linkedJobId ?? null) === (b.linkedJobId ?? null) &&
     (a.linkedName ?? null) === (b.linkedName ?? null) &&
     (a.linkCount ?? 0) === (b.linkCount ?? 0) &&
-    JSON.stringify(a.params) === JSON.stringify(b.params)
+    JSON.stringify(a.params) === JSON.stringify(b.params) &&
+    // t431 — the homecoming annotation is COMPUTED per response, not
+    // stored: a bring-home flips it WITHOUT touching the row (updatedAt
+    // never moves), so the equality predicate must compare it explicitly
+    // or the reference-stability merge swallows the flip and the canvas
+    // keeps the stale "home" chip forever.
+    JSON.stringify(a.remoteRemaining ?? null) ===
+      JSON.stringify(b.remoteRemaining ?? null) &&
+    // t432 — runRemote rides the same contract class: it is projected from
+    // the runs LEDGER per response (remoteInfoFor), not from the DB row,
+    // and three of its mutations land with NO compared-field movement:
+    // ① staging grows stagedBytes per file while the row sits at running/0
+    //   (the panel host line would freeze its "Staging inputs… X MB" meter),
+    // ② slurmState flips PENDING→RUNNING before the first RELION log write
+    //   PATCHes progress (the inspector's "Queued on the cluster" banner
+    //   would stay long after sbatch actually started),
+    // ③ a bring-home rewrites ledger note/syncedFiles/syncMs without
+    //   touching the row at all (t429 proved updatedAt never moves) — the
+    //   panel's stay note would keep the stale receipt forever.
+    // Every projected field is UI-consumed (host line, slurm strip, stay
+    // note) and none is a per-poll heartbeat (outputProbeAt never rides the
+    // DTO), so a whole-object compare costs nothing in render churn.
+    JSON.stringify(a.runRemote ?? null) === JSON.stringify(b.runRemote ?? null)
   );
 }
 
 function errToast(msg: string) {
   toast({ title: "Something went wrong", description: msg, variant: "destructive" });
+}
+
+/* ------------------------------------------------------------------ */
+/* Position-write in-flight guard (t383)                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The delayed-drag race, convicted: moveJobCommit/applyLayout set the
+ * optimistic position locally and PATCH in the background, but a poll GET
+ * that STARTED before the PATCH lands AFTER the optimistic set — its
+ * response still carries the OLD x/y, the reference-stability merge takes
+ * the server object wholesale, and the card snaps BACK to its pre-drag
+ * spot until the NEXT poll finally shows the persisted position. Drag a
+ * card, watch it rubber-band; auto-arrange, watch the tidy layout flicker
+ * apart then reassemble. On a dev server (route compiles stretch the GET
+ * window to seconds) this reads as "拖动/排版延时生效".
+ *
+ * Two windows, two guards (an in-flight hold alone has a hole: a poll that
+ * outlives the PATCH's confirmation still carries stale coordinates):
+ *
+ *  1. IN-FLIGHT — from the optimistic set until the request settles, the
+ *     job id is refcount-held in `posWritesInFlight`; a response landing
+ *     while the hold is live can never be fresher than the local truth.
+ *  2. GENERATION — every CONFIRMED write bumps `posWriteGen` for its ids.
+ *     A poll snapshots the generation when it STARTS; when its response
+ *     lands, any job whose generation has advanced since the snapshot
+ *     predates the latest confirmed write → local x/y wins. Protection
+ *     ends exactly when a poll that started AFTER the confirmation lands
+ *     (its snapshot equals the current generation — its data is fresh).
+ *
+ * A FAILED write bumps nothing and releases its hold, so the next poll
+ * re-syncs to the server truth — the pre-t383 behavior, with the error
+ * toast already speaking for it.
+ */
+const posWritesInFlight = new Map<string, number>(); // id → refcount
+const posWriteGen = new Map<string, number>(); // id → gen of last CONFIRMED write
+
+/** Hold the local position of `ids` while their write is in the air. */
+function holdPositions(ids: string[]): () => void {
+  for (const id of ids) posWritesInFlight.set(id, (posWritesInFlight.get(id) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return; // idempotent — a double release must not steal a sibling write's hold
+    released = true;
+    for (const id of ids) {
+      const n = (posWritesInFlight.get(id) ?? 1) - 1;
+      if (n <= 0) posWritesInFlight.delete(id);
+      else posWritesInFlight.set(id, n);
+    }
+  };
+}
+
+/** Mark `ids`' positions as freshly persisted — stale polls now yield. */
+function confirmPositions(ids: string[]): void {
+  for (const id of ids) posWriteGen.set(id, (posWriteGen.get(id) ?? 0) + 1);
+}
+
+/** Snapshot the generation BEFORE a fetch — the response's freshness seal. */
+function snapshotPosGen(): Map<string, number> {
+  return new Map(posWriteGen);
+}
+
+/**
+ * Stamp the newest local positions over a fetched job list wherever the
+ * response cannot be trusted to know them yet: the write is still in the
+ * air, or it confirmed after `genStart` was taken (this response started
+ * before the confirmation). Reads the LIVE store — a re-drag during the
+ * fetch window is the truth, not the first drag's optimistic value.
+ */
+function preserveHeldPositions<T extends { id: string; x: number; y: number }>(
+  fetched: T[],
+  genStart: Map<string, number>
+): T[] {
+  if (posWritesInFlight.size === 0 && posWriteGen.size === 0) return fetched;
+  const live = useWorkflowStore.getState().jobs;
+  const byId = new Map(live.map((j) => [j.id, j] as const));
+  return fetched.map((j) => {
+    const genMoved = (posWriteGen.get(j.id) ?? 0) > (genStart.get(j.id) ?? 0);
+    if (!posWritesInFlight.has(j.id) && !genMoved) return j;
+    const local = byId.get(j.id);
+    if (!local || (local.x === j.x && local.y === j.y)) return j;
+    return { ...j, x: local.x, y: local.y };
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -937,6 +1771,176 @@ export function registerParamFlusher(
     // mount for the same job may have replaced it)
     if (paramFlushers.get(jobId) === flush) paramFlushers.delete(jobId);
   };
+}
+
+/**
+ * t448 — the subtree orchestration's landing wait. The world's own 1.2s
+ * pollTick keeps the store's jobs fresh; this helper rides that channel
+ * (zero extra fetches) and resolves the moment the node reaches ANY
+ * non-churn status — completed, failed, idle (a stop is a landing too:
+ * the user intervened, the orchestration must not fight them). The
+ * per-node budget is generous (real cluster jobs legitimately run long);
+ * the timeout's status reads as still-churning so the frontier receipt
+ * says the truth: the node never landed, the rest did not re-run.
+ */
+const SUBTREE_POLL_MS = 1200;
+const SUBTREE_NODE_BUDGET_MS = 20 * 60 * 1000;
+
+async function awaitSubtreeTerminal(id: string): Promise<{ status: string; timedOut: boolean }> {
+  const deadline = Date.now() + SUBTREE_NODE_BUDGET_MS;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, SUBTREE_POLL_MS));
+    const j = useWorkflowStore.getState().jobs.find((x) => x.id === id);
+    const status = j?.status ?? "unknown";
+    if (status !== "pending" && status !== "running") {
+      return { status, timedOut: false };
+    }
+  }
+  return { status: "running", timedOut: true };
+}
+
+/**
+ * t450 — the walk executor, shared by both entrances. runSubtree enters
+ * it with a fresh plan (startIndex 0); resumeSubtreeOrch enters it with
+ * the persisted plan from the world's own scan (startIndex = the first
+ * live non-completed node). The loop itself is entrance-agnostic:
+ * dispatch → wait terminal → next, the stop checkpoint lands BETWEEN
+ * nodes, every index bump mirrors into the state AND the session record
+ * (the record is what a reload resurrects), and the try/finally retires
+ * the face and the record on every exit — whatever the ending.
+ *
+ * t451 — the walk's inheritance. While this tab walks, it owns the
+ * shared record and pings it every ORCH_HB_MS (the heartbeat is what
+ * tells a sibling tab this owner is alive). Three inheritance laws
+ * join the loop:
+ *   - the abdication checkpoint: BETWEEN nodes, before any dispatch —
+ *     if the record's owner moved (a sibling claimed while this tab
+ *     slept), the walker stands down with a hand-off receipt; the walk
+ *     itself continues on the heir's face;
+ *   - the mirror save is owner-conditional — a dispossessed walker's
+ *     older progress must never overwrite the heir's record;
+ *   - the exit's clear is owner-conditional (inside clearSubtreeOrch)
+ *     — a dead walk retires its own record, never the heir's claim.
+ */
+async function walkSubtreeNodes(
+  order: readonly SubtreeNode[],
+  startIndex: number,
+  initialDone: number,
+  target: RemoteRunTarget | null,
+  opts?: { firstNodeAwaitOnly?: boolean }
+): Promise<{
+  done: number;
+  total: number;
+  userStopped: boolean;
+  handedOff: boolean;
+  frontier: { name: string; reason: string } | null;
+}> {
+  const total = order.length;
+  let done = initialDone;
+  let userStopped = false;
+  let handedOff = false;
+  let frontier: { name: string; reason: string } | null = null;
+  // the owner's pulse: while this tab walks it pings the shared record
+  // every ORCH_HB_MS — silence past ORCH_STALE_MS is exactly what lets
+  // a sibling tab know the owner died
+  const hb = setInterval(() => {
+    heartbeatSubtreeOrch();
+  }, ORCH_HB_MS);
+  try {
+    for (let i = startIndex; i < order.length; i++) {
+      const node = order[i];
+      // the stop verb's checkpoint: the request lands BETWEEN nodes —
+      // the job now running finishes on its own; the next never fires.
+      // A stop asked during a run that then FAILS never reaches here —
+      // the frontier receipt speaks for the failure instead.
+      if (useWorkflowStore.getState().subtreeOrch?.stopRequested) {
+        userStopped = true;
+        break;
+      }
+      // t451 — the abdication checkpoint: the record's owner moved
+      // while this tab waited (a sibling claimed after the heartbeat
+      // went stale — background throttling, a dead closure the tab
+      // never noticed). Standing down IS the graceful branch: the
+      // heir's walk continues; this tab's receipt says so. Without it
+      // two walkers would race the next dispatch and the loser would
+      // die on the per-job 409 door with a lying frontier line.
+      const rec = readSubtreeOrch();
+      if (rec && rec.owner !== getTabId()) {
+        handedOff = true;
+        break;
+      }
+      // t450 — a resumed walk whose resume node is mid-flight (the
+      // in-flight dispatch SURVIVED the reload on the cluster side)
+      // must AWAIT it, never re-dispatch it: a second dispatch under a
+      // live run is refused by the 409 already-live door — caught live
+      // in the first resurrection fire. Await-only goes straight to the
+      // landing wait; the stop checkpoint above still applies first.
+      const firstNodeAwaitOnly = i === startIndex && opts?.firstNodeAwaitOnly === true;
+      let accepted = firstNodeAwaitOnly;
+      if (!firstNodeAwaitOnly) {
+        // quiet lanes: the per-node send doors stay silent (no toast, no
+        // camera steering) — the orchestration's ONE receipt speaks for the
+        // whole gesture (t146 aggregation law)
+        try {
+          accepted = target
+            ? await useWorkflowStore.getState().runJobRemote(node.id, target, { quiet: true })
+            : await useWorkflowStore.getState().runJob(node.id, { local: true, quiet: true });
+        } catch (err) {
+          frontier = {
+            name: node.name,
+            reason: err instanceof Error ? err.message : "its lane refused the dispatch",
+          };
+          break;
+        }
+        if (!accepted) {
+          const j = useWorkflowStore.getState().jobs.find((x) => x.id === node.id);
+          frontier = {
+            name: node.name,
+            reason: j?.result?.slice(0, 140) || "its lane refused the dispatch",
+          };
+          break;
+        }
+      }
+      // the landing law: a child never starts inside its parent's churn —
+      // wait for THIS node's terminal state before the next dispatch
+      const landed = await awaitSubtreeTerminal(node.id);
+      if (landed.status !== "completed") {
+        frontier = {
+          name: node.name,
+          reason: landed.timedOut
+            ? "still running after 20 min — the subtree stopped waiting; its downstream did not re-run"
+            : landed.status === "failed"
+              ? "the run failed"
+              : `stopped while ${landed.status}`,
+        };
+        break;
+      }
+      done += 1;
+      // the face renders from state, not closure memory — mirror the
+      // counter into the store AND the session record (the record is
+      // what a reload resurrects; a stale index would re-dispatch landed
+      // nodes — harmless under the scan, but the face would lie).
+      // t451 — the mirror save is owner-conditional: if a sibling tab
+      // claimed the walk while this tab awaited the landing, this
+      // walker's older progress must never overwrite the heir's record;
+      // the abdication checkpoint above retires the walker next loop.
+      const orch = useWorkflowStore.getState().subtreeOrch;
+      if (orch) {
+        const next = { ...orch, index: done };
+        useWorkflowStore.setState({ subtreeOrch: next });
+        saveSubtreeOrchIfOwner(next, target);
+      }
+    }
+  } finally {
+    clearInterval(hb);
+    // every exit retires the face AND the record — the walk is over,
+    // whatever its ending; a dead walk must never resurrect.
+    // clearSubtreeOrch is owner-conditional (t451): a dispossessed
+    // walker's exit must never erase the heir's fresh claim.
+    useWorkflowStore.setState({ subtreeOrch: null });
+    clearSubtreeOrch();
+  }
+  return { done, total, userStopped, handedOff, frontier };
 }
 
 async function flushJobParams(jobId: string): Promise<void> {
@@ -966,12 +1970,145 @@ async function pollSystemUntilFresh(): Promise<void> {
   }
 }
 
+/** t622 — the empty-registry backfill. load()'s low-frequency routes ride
+ *  apiSteady (t407) so a mid-compile hiccup retries, but a FULL server
+ *  respawn (the OOM regime's watchdog reaping next-server, t622's live
+ *  witness) outlives those three attempts, the `.catch` fallbacks then
+ *  boot the app with EMPTY projects or workspaces, and nothing ever
+ *  retries (pollTick only polls /api/jobs) — the palette loses its
+ *  Projects group, the project panel shows nothing, until a manual
+ *  reload. t622's crime-scene diag caught the suite-side face of this:
+ *  t241's palette row failed three attempts in a row because the boot
+ *  that opened the palette raced exactly such a respawn. This backfill
+ *  is the missing retry: patient across a restart-sized window (~2min),
+ *  it re-pulls the routes that landed empty and heals the store.
+ *  The honesty rules:
+ *  - reference-identity guard — only the EXACT arrays this load() landed
+ *    (the fallback empties themselves) may be healed; a newer ingest
+ *    that replaced them owns the truth and the backfill stands down;
+ *  - an honest empty (a world with genuinely zero registries) heals
+ *    nothing and stops after one confirming pull — the backfill exists
+ *  for the fallback fingerprint, not to argue with the wire;
+ *  - the workspace heals only when the state has nowhere to stand
+ *    (null or a stale id): the same trust gate as the boot seed. */
+let registryBackfillInFlight = false;
+async function backfillRegistries(
+  projectsFingerprint: ProjectSummaryDTO[],
+  workspacesFingerprint: WorkspaceDTO[],
+): Promise<void> {
+  if (registryBackfillInFlight) return;
+  registryBackfillInFlight = true;
+  try {
+    for (let round = 0; round < 12; round++) {
+      await new Promise((resolve) => setTimeout(resolve, round === 0 ? 5000 : 10000));
+      const s = useWorkflowStore.getState();
+      const projectsStillMine =
+        s.projects === projectsFingerprint && s.projects.length === 0;
+      const workspacesStillMine =
+        s.workspaces === workspacesFingerprint && s.workspaces.length === 0;
+      if (!projectsStillMine && !workspacesStillMine) return;
+      let freshProjects: ProjectSummaryDTO[] | null = null;
+      let freshWorkspaces: WorkspaceDTO[] | null = null;
+      try {
+        if (projectsStillMine) {
+          freshProjects = (
+            await apiSteady<{ projects: ProjectSummaryDTO[] }>("/api/projects", 2)
+          ).projects;
+        }
+        if (workspacesStillMine) {
+          freshWorkspaces = (
+            await apiSteady<{ workspaces: WorkspaceDTO[] }>("/api/workspaces", 2)
+          ).workspaces;
+        }
+      } catch {
+        continue; // the server is still coming back — keep the window open
+      }
+      const landedProjects = !!freshProjects?.length;
+      const landedWorkspaces = !!freshWorkspaces?.length;
+      if (landedProjects || landedWorkspaces) {
+        useWorkflowStore.setState((prev) => {
+          const patch: Partial<WorkflowState> = {};
+          if (landedProjects && prev.projects === projectsFingerprint) {
+            patch.projects = freshProjects!;
+          }
+          if (landedWorkspaces && prev.workspaces === workspacesFingerprint) {
+            patch.workspaces = freshWorkspaces!;
+            const cur = prev.activeWorkspaceId;
+            if (cur === null || !freshWorkspaces!.some((w) => w.id === cur)) {
+              patch.activeWorkspaceId = freshWorkspaces![0]?.id ?? null;
+            }
+          }
+          return patch;
+        });
+        return;
+      }
+      if (freshProjects && freshWorkspaces) return; // both answered honestly empty
+    }
+  } finally {
+    registryBackfillInFlight = false;
+  }
+}
+
 function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
 }
 
 /** One pollTick at a time (see the guard inside pollTick). */
 let pollInFlight = false;
+
+/**
+ * t370 — client-side TOMBSTONES for freshly deleted jobs. The field
+ * report: delete a job while a same-type job is being created and the
+ * deleted card vanishes → REAPPEARS → vanishes again. pollInFlight above
+ * only stops OVERLAPPING client fetches; it cannot stop a GET /api/jobs
+ * that STARTED before the DELETE committed from landing AFTER it — that
+ * response still lists the deleted job, the reference-stability merge
+ * re-adds it (the card reappears), and the NEXT poll removes it again
+ * (the card vanishes: the flicker). Every id that leaves the canvas
+ * through a server-confirmed DELETE (removeJobsRaw — single, bulk, redo
+ * — plus the import-undo lane) is recorded here for TOMBSTONE_TTL_MS and
+ * filtered out of EVERY full server-list ingest (pollTick's merge,
+ * load()'s replacement). The TTL is the honesty valve: a poll response
+ * older than 15s can no longer have been in flight when the delete
+ * committed, so a server that STILL returns the id after that is telling
+ * the truth (a delete that failed server-side despite the 200) and the
+ * tombstone must not become a censor. undoDelete clears the ids it
+ * restores, so an intentional comeback is never filtered.
+ */
+const recentlyDeletedJobs = new Map<string, number>();
+const TOMBSTONE_TTL_MS = 15_000;
+
+/** t370 — record ids whose DELETE just succeeded. Refreshes the
+ *  timestamp on a repeat: a redo re-deletes, and the new delete deserves
+ *  a fresh window of its own. */
+function tombstoneJobIds(ids: Iterable<string>): void {
+  const now = Date.now();
+  for (const id of ids) recentlyDeletedJobs.set(id, now);
+}
+
+/** t370 — the restore path's half of the contract: ids coming back on
+ *  PURPOSE (undoDelete → /api/jobs/restore) leave the tombstone
+ *  immediately, or the next poll's filter would eat the cards the
+ *  restore just put back on the canvas. */
+function reviveJobIds(ids: Iterable<string>): void {
+  for (const id of ids) recentlyDeletedJobs.delete(id);
+}
+
+/** t370 — the ingest filter: drop tombstoned ids from a FULL server
+ *  jobs list before it replaces or merges into the store. Expired
+ *  entries are pruned here so the TTL check rides every ingest (a
+ *  tombstone can never outlive its truth window, even when pollTick is
+ *  on the hidden-tab 15s cadence). The array is returned AS-IS when
+ *  nothing is tombstoned — the common path stays zero-cost. */
+function withoutResurrectedJobs<T extends { id: string }>(jobs: T[]): T[] {
+  if (recentlyDeletedJobs.size === 0) return jobs;
+  const now = Date.now();
+  for (const [id, at] of recentlyDeletedJobs) {
+    if (now - at > TOMBSTONE_TTL_MS) recentlyDeletedJobs.delete(id);
+  }
+  if (recentlyDeletedJobs.size === 0) return jobs;
+  return jobs.filter((j) => !recentlyDeletedJobs.has(j.id));
+}
 
 /** Task 145 — the fact suffix for completion announcements: how long the
  *  job ran before it finished (or died). The announcement is the moment
@@ -1105,6 +2242,8 @@ const kickoffUpstream = (
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   jobs: [],
   edges: [],
+  staleMap: new Map(),
+  driftMap: new Map(),
   project: null,
   projects: [],
   workspaces: [],
@@ -1112,9 +2251,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   view: "canvas",
   system: null,
   systemRefreshing: false,
+  subtreeOrch: null,
   selectedId: null,
   selectedIds: [],
+  selReframeSeq: 0,
   inspectId: null,
+  cameFromJob: null,
   historyPast: [],
   historyFuture: [],
   pendingFrom: null,
@@ -1123,36 +2265,69 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   viewportBookmarks: hydrateViewportBookmarks(),
   paletteDrag: null,
   layoutEpoch: 0,
+  layoutKind: null,
+  layoutFlipFrom: [],
+  birthSeq: 0,
+  deathSeq: 0,
+  deathGhosts: [],
+  deathEdgeSeq: 0,
+  deathEdgeGhosts: [],
+  birthIds: [],
+  birthEdgeIds: [],
   focusJobId: null,
   pendingClassFocus: null,
+  pendingGalleryFocus: null,
+  pendingDenoiseFocus: null,
+  pendingClassAveragesFocus: null,
   lastSweep: null,
   focusEpoch: 0,
+  arrivalEpoch: 0,
+  arrivalTarget: null,
   templatePresetsOpen: false,
   templateSuggestions: null,
   customTemplates: [],
   shortcutsOpen: false,
+  helpGuideOpen: false,
+  aiAssistantOpen: false,
+  aiPendingPrompt: null,
+  aiSummonSeq: 0,
+  aiSettingsOpen: false,
   minimapOpen: true,
   noteSpotlight: false,
+  criticalLens: false,
+  recentJobIds: [],
   findOpen: false,
   findQuery: "",
   findStatus: "all",
   findCategory: "all",
+  findNoted: false,
   kpiCollapsed: hydrateKpiCollapsed(),
   importPreview: null,
   loading: true,
   error: null,
   dragActive: false,
+  jobsVersion: null,
 
   load: async () => {
     set({ loading: true, error: null });
+    // t383 — the load's freshness seal, taken before the fetches: a
+    // position write that confirms while these GETs are in the air must
+    // not be clobbered by this load's (older) snapshot
+    const loadGenStart = snapshotPosGen();
     try {
       const [p, j, e, sys, projs, ws] = await Promise.all([
         api<{ project: ProjectDTO | null }>("/api/project"),
-        api<{ jobs: JobDTO[] }>("/api/jobs"),
+        // t393 — the version token lands with the boot's full pull (load
+        // never sends ?v= — the first poll after boot rides this token)
+        api<{ jobs: JobDTO[]; version?: string }>("/api/jobs"),
         api<{ edges: EdgeDTO[] }>("/api/edges"),
-        api<SystemStatusClient>("/api/system").catch(() => null),
-        api<{ projects: ProjectSummaryDTO[] }>("/api/projects").catch(() => ({ projects: [] })),
-        api<{ workspaces: WorkspaceDTO[] }>("/api/workspaces").catch(() => ({ workspaces: [] })),
+        apiSteady<SystemStatusClient>("/api/system").catch(() => null),
+        // t407 — the boot-race branches: these low-frequency routes carry the
+        // coldest first compiles, so on the OOM regime their first boot is the
+        // one most likely to meet a server that dies mid-compile. apiSteady
+        // retries the connection layer before the catch fallback may speak.
+        apiSteady<{ projects: ProjectSummaryDTO[] }>("/api/projects").catch(() => ({ projects: [] })),
+        apiSteady<{ workspaces: WorkspaceDTO[] }>("/api/workspaces").catch(() => ({ workspaces: [] })),
       ]);
       // keep the current workspace when it still exists (e.g. project-level
       // reloads), otherwise land on the project's first workspace
@@ -1178,9 +2353,26 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const seedWs = wsSeed ? wsList.find((w) => w.id === wsSeed) : null;
         if (seedWs) activeWs = seedWs.id;
       }
+      // t370 — the second full-list ingest (besides pollTick): load()
+      // replaces the whole jobs array, and it runs at moments that can
+      // sit INSIDE a delete's tombstone window (boot, the manual reload
+      // button, project switch/create/duplicate). The same filter keeps
+      // a stale response (or a server that lost the delete) from
+      // resurrecting a card the user just removed; the seed lookup below
+      // reads the filtered list so a tombstoned id cannot win the
+      // selection either.
+      const landedJobs = preserveHeldPositions(
+        withoutResurrectedJobs(j.jobs),
+        loadGenStart
+      );
       set({
         project: p.project ?? null,
-        jobs: j.jobs,
+        jobs: landedJobs,
+        // t393 — adopt the boot pull's token (a project switch's load is
+        // the one ingest that can move the canvas to a DIFFERENT project's
+        // data — the token must turn over here so the next pollTick
+        // compares against the right project's version)
+        jobsVersion: j.version ?? null,
         edges: e.edges,
         system: sys,
         projects: projs.projects,
@@ -1188,6 +2380,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         activeWorkspaceId: activeWs,
         loading: false,
       });
+      // t622 — the empty-registry backfill: these two lists are the only
+      // ingests whose failure lands SILENTLY (the `.catch` fallbacks).
+      // When a boot raced a full server respawn, they landed empty and
+      // nothing would ever retry — hand the fallback's own arrays to the
+      // backfill, whose reference-identity guard makes it a no-op the
+      // moment any newer ingest replaces them.
+      if (projs.projects.length === 0 || wsList.length === 0) {
+        void backfillRegistries(projs.projects, wsList);
+      }
       // Task 157 — session position: the FIRST data landing may restore
       // the selection the user closed the tab with. The seed is a bare
       // string, so the trust gate is reality itself: it applies only if
@@ -1200,8 +2401,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       if (!selectionSeedApplied) {
         selectionSeedApplied = true;
         const seed = hydrateSelectedJob();
+        // t370 — the seed resolves against the FILTERED list (see
+        // landedJobs): a just-deleted id the stale response still carries
+        // must not steal the selection
         const seedJob = seed
-          ? j.jobs.find((x) => x.id === seed && jobInWorkspace(x, activeWs))
+          ? landedJobs.find((x) => x.id === seed && jobInWorkspace(x, activeWs))
           : null;
         if (seedJob) set({ selectedId: seedJob.id, selectedIds: [seedJob.id] });
       }
@@ -1209,6 +2413,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // re-verifying in the background; poll until the fresh probe lands so
       // the chip upgrades automatically (no re-detect click needed).
       if (sys?.fromCache) void pollSystemUntilFresh();
+      // t450 — the walk's second breath: the world's truth is in the store,
+      // the session record (if any) may now resurrect its walk. Fire and
+      // forget — the walk manages its own receipts from here.
+      void get().resumeSubtreeOrch();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load project";
       set({ loading: false, error: msg });
@@ -1375,6 +2583,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         jobs: [...get().jobs, job].map((j) =>
           j.id === id ? { ...j, linkCount: (j.linkCount ?? 0) + 1 } : j
         ),
+        // t598 — the linked copy is a fresh card in the destination world
+        ...birthArm(get(), [job.id]),
         activeWorkspaceId: workspaceId,
         selectedId: job.id,
         selectedIds: [job.id],
@@ -1460,8 +2670,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       await api<{ ok: boolean }>("/api/projects", {
         method: "POST",
         headers: JSON_HEADERS,
-        // engine is always the real RELION one — no field needed anymore
-        body: JSON.stringify({ name: input.name, mode: input.mode }),
+        // engine is always the real RELION one — no field needed anymore;
+        // t300 — remoteConnectionId binds the project's DATA to a saved
+        // cluster (remote project: browse + run on that cluster)
+        body: JSON.stringify({
+          name: input.name,
+          mode: input.mode,
+          ...(input.remoteConnectionId ? { remoteConnectionId: input.remoteConnectionId } : {}),
+        }),
       });
       await get().load();
       toast({ title: "Project created", description: input.name });
@@ -1559,7 +2775,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           ...(params && Object.keys(params).length > 0 ? { params } : {}),
         }),
       });
-      set({ jobs: [...get().jobs, job], selectedId: job.id, selectedIds: [job.id] });
+      set({
+        jobs: [...get().jobs, job],
+        ...birthArm(get(), [job.id]), // t598 — a mint is a birth
+        selectedId: job.id,
+        selectedIds: [job.id],
+      });
       // a fresh card has no faithful inverse (recreating it would mint a
       // new id) — the redo branch dies here (Task 104)
       get().invalidateRedo();
@@ -1569,6 +2790,91 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to add job");
+    }
+  },
+
+  addLinkedStep: async (sourceId, type) => {
+    const s = get();
+    const src = s.jobs.find((j) => j.id === sourceId);
+    const specT = jobType(type);
+    if (!src || !specT) {
+      errToast("That job is gone — refresh and try again");
+      return;
+    }
+    // the wire: first compatible port pair (evaluated against the source's
+    // LIVE params, so an Import set to Movies wires movies → MotionCorr,
+    // never a micrographs port that isn't there)
+    const step = nextStepsFor(src.type, src.params).find((x) => x.type === type);
+    if (!step) {
+      errToast(`${specT.label} cannot consume this job's outputs`);
+      return;
+    }
+    // placement: the column to the RIGHT of the source card (RELION's
+    // visual grammar — pipelines flow left→right), first free slot walking
+    // DOWN, then the next column over; same pitch as auto-arrange so the
+    // result looks tidied, and world-bounded on every axis
+    const occupied = (px: number, py: number) =>
+      get().jobs.some(
+        (j) =>
+          px < j.x + CARD_W && px + CARD_W > j.x && py < j.y + CARD_H && py + CARD_H > j.y
+      );
+    const strideX = CARD_W + 100; // layout.ts pitch (GAP_X)
+    const strideY = CARD_H + 48; // layout.ts pitch (GAP_Y)
+    const clampW = (v: number) => Math.min(Math.max(v, WORLD_MIN), WORLD_MAX - CARD_W);
+    const clampH = (v: number) => Math.min(Math.max(v, WORLD_MIN), WORLD_MAX - CARD_H);
+    let x = 0;
+    let y = 0;
+    let found = false;
+    for (let col = 0; col < 3 && !found; col++) {
+      for (let row = 0; row < 8 && !found; row++) {
+        const px = clampW(src.x + (col + 1) * strideX);
+        const py = clampH(src.y + row * strideY);
+        if (!occupied(px, py)) {
+          x = px;
+          y = py;
+          found = true;
+        }
+      }
+    }
+    if (!found) {
+      // dense neighborhood — fall back to below-right and let the user drag
+      x = clampW(src.x + strideX);
+      y = clampH(src.y + 8 * strideY);
+    }
+    try {
+      const { job } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type,
+          x,
+          y,
+          // the card's OWN workspace — a link copy in another workspace
+          // grows its continuation THERE (that is what links are for)
+          workspaceId: src.workspaceId ?? undefined,
+        }),
+      });
+      set({
+        jobs: [...get().jobs, job],
+        ...birthArm(get(), [job.id]), // t598 — the linked step is born here
+        selectedId: job.id,
+        selectedIds: [job.id],
+      });
+      get().invalidateRedo();
+      // the wire — connect() validates ports, guards cycles, draws the
+      // optimistic edge immediately (t359) and persists in the background.
+      // t600 — the next step's wire is the verb's payload, not a drawn
+      // line: it draws in alongside the newborn card (one breath).
+      await get().connect(src.id, job.id, step.fromPort, step.toPort, { drawIn: true });
+      // arrival: focus frames the new card (the source may live far from
+      // the viewport center) without stealing the params panel's context
+      get().focusJob(job.id);
+      toast({
+        title: `${specT.label} added`,
+        description: `Wired ${src.name} → ${job.name} (${step.caption})`,
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to add the next step");
     }
   },
 
@@ -1588,9 +2894,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       const have = new Set(get().jobs.map((j) => j.id));
       const haveEdges = new Set(get().edges.map((e) => e.id));
+      const freshJobs = data.jobs.filter((j) => !have.has(j.id));
+      const freshEdges = data.edges.filter((e) => !haveEdges.has(e.id));
       set({
-        jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
-        edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+        jobs: [...get().jobs, ...freshJobs],
+        edges: [...get().edges, ...freshEdges],
+        // t599 — the wires draw in after the cards, same staircase
+        ...birthArm(get(), freshJobs.map((j) => j.id), freshEdges.map((e) => e.id)),
+        // t593 — explicitly NOT a command: an import landing rebuilds the
+        // world silently (the finger dropped a file, but the world's
+        // refit is birth-framing, not an answer to a tidy request).
+        layoutKind: null,
+        layoutFlipFrom: [],
         layoutEpoch: get().layoutEpoch + 1, // canvas fit-views the new content
       });
       get().invalidateRedo();
@@ -1634,9 +2949,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         });
         const have = new Set(get().jobs.map((j) => j.id));
         const haveEdges = new Set(get().edges.map((e) => e.id));
+        const freshJobs = data.jobs.filter((j) => !have.has(j.id));
+        const freshEdges = data.edges.filter((e) => !haveEdges.has(e.id));
         set({
-          jobs: [...get().jobs, ...data.jobs.filter((j) => !have.has(j.id))],
-          edges: [...get().edges, ...data.edges.filter((e) => !haveEdges.has(e.id))],
+          jobs: [...get().jobs, ...freshJobs],
+          edges: [...get().edges, ...freshEdges],
+          // t598 — the new world materializes: per-file cascade, honest to
+          // the sequential merges (each file's cards enter on their own
+          // commit, in the file's own order). t599 — the file's wires
+          // draw in on the same staircase.
+          ...birthArm(get(), freshJobs.map((j) => j.id), freshEdges.map((e) => e.id)),
+          // t593 — systemic (see the sibling import bump): silent rebuild.
+          layoutKind: null,
+          layoutFlipFrom: [],
           layoutEpoch: get().layoutEpoch + 1, // fit-view the imported graph
         });
         createdIds.push(...data.jobs.map((j) => j.id));
@@ -1730,6 +3055,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       errToast("Undo failed — none of the imported jobs could be deleted");
       return;
     }
+    // t370 — the import-undo lane deletes by itself (not via
+    // removeJobsRaw), so it records its own tombstones: an in-flight poll
+    // that started before these DELETEs committed would resurrect the
+    // just-imported cards the same way it resurrects a plain delete
+    tombstoneJobIds(ok);
     const okSet = new Set(ok);
     const selectedId = get().selectedId;
     // Task 159: stepping the canvas back is the undo gesture's motion —
@@ -1779,6 +3109,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       };
     }
     const delSet = new Set(deleted);
+    // t370 — tombstone every id that actually left: a GET /api/jobs that
+    // started before these DELETEs committed can still land carrying
+    // them, and without the tombstone the poll's merge would resurrect
+    // the cards (the delete-flicker field report). Every caller — single
+    // delete, bulk delete, the redo of an undone delete — flows through
+    // here, so one recording point covers the whole delete family.
+    tombstoneJobIds(deleted);
+    // t601 — the death breath arms IN THE SAME set() as the removal (the
+    // t600 same-commit law, applied to the exit): the geometry freeze
+    // reads the LIVING world above, and one commit both moves the truth
+    // and hands the canvas its ghosts — no frame shows the card gone
+    // with no memory in its seat. opts.deathArm is the finger's flag:
+    // deleteJob/deleteSelected pass it; redo calls bare (history replay
+    // is silent, the mirror of t598's restore law).
+    const ghosts = opts?.deathArm
+      ? buildDeathGhosts(deleted, get().jobs, get().edges)
+      : [];
     // keepSelection: when the PRIMARY card goes away, promote the first
     // remaining selected card (the single-delete behavior since Task 97)
     const restIds = get().selectedIds.filter((x) => !delSet.has(x));
@@ -1792,6 +3139,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({
       jobs: get().jobs.filter((j) => !delSet.has(j.id)),
       edges: get().edges.filter((e) => !delSet.has(e.fromJobId) && !delSet.has(e.toJobId)),
+      ...(ghosts.length > 0
+        ? {
+            deathSeq: get().deathSeq + 1,
+            deathGhosts: [...get().deathGhosts, ...ghosts],
+          }
+        : {}),
       selectedId: opts?.keepSelection ? primary : null,
       selectedIds: opts?.keepSelection ? restIds : [],
       inspectId: prevInspect != null && delSet.has(prevInspect) ? null : prevInspect,
@@ -1897,7 +3250,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       return;
     }
-    let res: { restored: { id: string; coerced: boolean }[]; failed: { id: string; error: string }[] };
+    let res: {
+      restored: { id: string; coerced: boolean }[];
+      failed: { id: string; error: string }[];
+      /** t341 — the server tombstone's own work: ids whose run record came
+       *  back, and the wires the SERVER re-attached (the client skips
+       *  re-posting those) */
+      recordRestored?: string[];
+      edges?: { fromJobId: string; toJobId: string; fromPort?: string; toPort?: string }[];
+    };
     try {
       res = await api("/api/jobs/restore", {
         method: "POST",
@@ -1916,16 +3277,32 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       return;
     }
+    // t370 — the restored ids leave the client tombstone NOW: they are
+    // coming back on purpose, and the next poll's ingest filter must not
+    // eat the cards this restore is about to put on the canvas. Refused
+    // ids (res.failed) stay tombstoned — they never came back.
+    reviveJobIds(restoredIds);
     // re-wire sequentially: the sidecar edge file is a read-modify-write
     // store, parallel POSTs could drop edges; wires to survivors restore
     // too (one endpoint restored, the other never left)
     const alive = (id: string) => restoredIds.has(id) || get().jobs.some((j) => j.id === id);
+    // t341 — the server's tombstone already re-attached its wires; the
+    // client snapshot only posts what the SERVER did not (a re-post would
+    // collide on the unique pair and used to count as a failure)
+    const serverWired = new Set((res.edges ?? []).map((e) => `${e.fromJobId}->${e.toJobId}`));
     let edgeOk = 0;
     let edgeFail = 0;
     const restoredEdges: EdgeDTO[] = [];
     for (const e of snapshot.edges) {
       if (!alive(e.fromJobId) || !alive(e.toJobId)) {
         edgeFail += 1;
+        continue;
+      }
+      if (serverWired.has(`${e.fromJobId}->${e.toJobId}`)) {
+        // the server already re-attached this wire (ports and all) —
+        // count it and render it, no POST needed
+        restoredEdges.push(e);
+        edgeOk += 1;
         continue;
       }
       try {
@@ -1941,8 +3318,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         });
         restoredEdges.push(e);
         edgeOk += 1;
-      } catch {
-        edgeFail += 1;
+      } catch (err) {
+        // t341 — "already exists" is a SUCCESS wearing a 409: the wire is
+        // on the canvas (the server restored it between the response and
+        // this post, or another undo raced us) — count it, render it
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/already exists/i.test(msg)) {
+          restoredEdges.push(e);
+          edgeOk += 1;
+        } else {
+          edgeFail += 1;
+        }
       }
     }
     // optimistic append — status coercion (running→idle) mirrors the server
@@ -1956,11 +3342,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
     const refused = res.failed.length;
     const coercedCount = coercedIds.size;
+    const recordCount = res.recordRestored?.length ?? 0;
     const bits: string[] = [
       `${restoredIds.size} of ${jobs.length} job${jobs.length === 1 ? "" : "s"} back on the canvas`,
     ];
     if (edgeOk > 0) bits.push(`${edgeOk} wire${edgeOk === 1 ? "" : "s"} reconnected`);
     if (edgeFail > 0) bits.push(`${edgeFail} wire${edgeFail === 1 ? "" : "s"} could not be reconnected`);
+    if (recordCount > 0)
+      bits.push(`${recordCount} run record${recordCount === 1 ? "" : "s"} re-attached — downstream jobs can see their inputs again`);
     if (coercedCount > 0)
       bits.push("the interrupted run came back as idle — start it again when ready");
     if (refused > 0) bits.push(`${refused} could not be restored`);
@@ -1975,18 +3364,64 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     void get().refreshWorkspaces();
   },
 
+  restoreFromGraveyard: async (jobId) => {
+    // the grave's OWN snapshot restores server-side (POST takes a job_id,
+    // never a client-built job); this side only has to observe the t370
+    // law — ids coming back on PURPOSE leave the tombstone filter before
+    // the next poll — and re-draw from the server, never optimistically:
+    // the restore core's coercion and tombstone re-apply are the truth.
+    let res: {
+      restored?: { id: string; coerced: boolean }[];
+      failed?: { id: string; error: string }[];
+      recordRestored?: string[];
+      edges?: unknown[];
+    };
+    try {
+      res = await api("/api/jobs/deleted/restore", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ job_id: jobId }),
+      });
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : "The restore failed — is the server reachable?",
+      };
+    }
+    const restoredIds = (res.restored ?? []).map((r) => r.id);
+    if (restoredIds.length === 0) {
+      const why = res.failed?.[0]?.error ?? "the restore was refused";
+      return { ok: false, message: why };
+    }
+    reviveJobIds(restoredIds);
+    await get().load();
+    const name = get().jobs.find((j) => j.id === restoredIds[0])?.name ?? restoredIds[0];
+    const bits: string[] = [`"${name}" is back on the canvas under its original id`];
+    if ((res.recordRestored?.length ?? 0) > 0) bits.push("its run record re-attached");
+    if ((res.edges?.length ?? 0) > 0) bits.push(`${res.edges!.length} wire${res.edges!.length === 1 ? "" : "s"} re-attached`);
+    if (res.restored?.[0]?.coerced) bits.push("it was running when deleted, so it came back idle");
+    return { ok: true, message: bits.join(" — ") };
+  },
+
   moveJobCommit: async (id, x, y) => {
     const j0 = get().jobs.find((j) => j.id === id);
     // optimistic
     set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, x, y } : j)) });
+    // t383 — while this PATCH is in the air, polls must not clobber the
+    // optimistic position; on success the generation bump keeps covering
+    // polls that started BEFORE the confirmation (see the guard block)
+    const release = holdPositions([id]);
     try {
       await api(`/api/jobs/${id}`, {
         method: "PATCH",
         headers: JSON_HEADERS,
         body: JSON.stringify({ x, y }),
       });
+      confirmPositions([id]);
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save position");
+    } finally {
+      release();
     }
     // Task 104 — the entry is pushed after the PATCH attempt so even a
     // failed save leaves an exit: undo restores the local card, and once
@@ -2027,16 +3462,30 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({
       jobs: get().jobs.map((j) => ({ ...j, ...(positions.get(j.id) ?? {}) })),
       layoutEpoch: get().layoutEpoch + 1,
+      // t593 — the tidy is a COMMAND (the user's finger): the canvas
+      // consumes these two into the world's answer — the cards FLIP home
+      // from their pre-tidy seats (`before` is the FLIP's First) while
+      // the camera rides the arrival dialogue. Import bumps below stay
+      // explicitly null: a world landing from a file is systemic.
+      layoutKind: "command",
+      layoutFlipFrom: before,
     });
+    // t383 — the tidy write is a batch of every moved job; hold them all
+    // so an in-flight poll cannot un-tidy the canvas mid-flight, and bump
+    // the generation on success for polls that started before it
+    const releaseTidy = holdPositions(updates.map((u) => u.id));
     try {
       await api("/api/jobs/layout", {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ updates }),
       });
+      confirmPositions(updates.map((u) => u.id));
       toast({ title: "Workflow tidied", description: `${updates.length} jobs auto-arranged` });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save layout");
+    } finally {
+      releaseTidy();
     }
     // Task 104 — undo the tidy: every pre-layout position comes back, but
     // WITHOUT a layoutEpoch bump. The epoch would yank the viewport into a
@@ -2062,6 +3511,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   saveJob: async (id, patch, opts) => {
     const silent = opts?.silent === true;
+    // t718 — the journal reads the patch's INTENT before the write: which
+    // human kind of fact is this patch? (Movement patches {x,y} journal
+    // nothing — a drag is not story.) Captured before the optimistic set
+    // so the params diff compares against the pre-write truth.
+    const prevJob = get().jobs.find((j) => j.id === id);
     try {
       const { job } = await api<{ job: JobDTO }>(`/api/jobs/${id}`, {
         method: "PATCH",
@@ -2069,6 +3523,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         body: JSON.stringify(patch),
       });
       set({ jobs: get().jobs.map((j) => (j.id === id ? job : j)) });
+      // t718 — journal the fact the patch carried (first match wins: the
+      // panel's patches carry one semantic key each by construction)
+      if (prevJob && !("x" in patch || "y" in patch)) {
+        if ("params" in patch && patch.params && typeof patch.params === "object") {
+          const before = (prevJob.params ?? {}) as Record<string, unknown>;
+          const after = patch.params as Record<string, unknown>;
+          const moved = Object.keys(after).filter((k) => String(before[k]) !== String(after[k])).length;
+          recordJobEvent(id, "params", `${moved} knob${moved === 1 ? "" : "s"}`);
+        } else if ("note" in patch) {
+          const n = typeof patch.note === "string" ? patch.note.trim() : "";
+          recordJobEvent(id, "note", n ? n.slice(0, 60) : "cleared");
+        } else if (typeof patch.name === "string") {
+          recordJobEvent(id, "renamed", patch.name);
+        }
+      }
       if (!silent) toast({ title: "Saved", description: `${job.name} updated` });
       return { ok: true };
     } catch (err) {
@@ -2078,7 +3547,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  runJob: async (id) => {
+  runJob: async (id, opts) => {
     // flush any pending (debounced) parameter edits FIRST so the run starts
     // with exactly what the user sees in the form
     try {
@@ -2090,7 +3559,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // local fetch instead of api(): the 409 body carries busyKind, which
       // api() would flatten into a bare Error message — and the whole point
       // is that the two busy cases must NOT share one face.
-      const res = await fetch(`/api/jobs/${id}/run`, { method: "POST" });
+      // t317 — opts.local is the EXPLICIT local choice (the panel's ▾ "Run
+      // on this machine"): it opts OUT of the route's project-binding
+      // fallback, meeting the engine's honest cluster-resident refusal
+      // instead of silently spawning through the WSL bridge. A BARE POST
+      // (every other door: card menu / palette / toast Retry / inspector)
+      // inherits the project's cluster binding server-side.
+      const res = await fetch(`/api/jobs/${id}/run`, {
+        method: "POST",
+        ...(opts?.local === true
+          ? { headers: JSON_HEADERS, body: JSON.stringify({ local: true }) }
+          : {}),
+      });
       const data = (await res.json().catch(() => ({}))) as {
         job?: JobDTO;
         error?: string;
@@ -2113,12 +3593,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         if (res.status === 409 && data.busyKind === "live") {
           // a live process is a HEALTHY state — inform, don't alarm. (The
           // old destructive face punished the user for a job that was
-          // running perfectly well.)
-          toast({
-            title: "Already running",
-            description:
-              data.error ?? "A process for this job is alive — nothing was started again.",
-          });
+          // running perfectly well.) Quiet lanes (the subtree orchestration)
+          // stay silent — the frontier receipt speaks once for the gesture.
+          if (!opts?.quiet)
+            toast({
+              title: "Already running",
+              description:
+                data.error ?? "A process for this job is alive — nothing was started again.",
+            });
           return false;
         }
         // every other refusal (400 linked copy, 404, 500) is a REAL one —
@@ -2126,32 +3608,50 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         throw new Error(data?.error ?? `Request failed (${res.status})`);
       }
       const started = data.job;
+      // t718 — the dispatch is a fact even when the engine holds the job
+      // as pending (waiting): the finger happened. A later pending→running
+      // poll lands as its own honest "kicked" (beyond the lib's 30s
+      // dedup window for long waits, deduped for fast local runs).
+      recordJobEvent(id, "run");
       if (data.waiting) {
         // job went PENDING — an upstream job failed or is still running;
         // not an error, the result line explains what to fix/re-run. It
         // auto-starts the moment the upstream inputs land — no re-click.
-        toast({
-          title: "Job waiting as pending",
-          description:
-            (started?.result ?? "Waiting for its upstream job to produce outputs.") +
-            " It starts automatically once ready.",
-        });
-        // show the waiting reason where the user is looking
-        set({ inspectId: id, selectedId: null, selectedIds: [] });
+        if (!opts?.quiet)
+          toast({
+            title: "Job waiting as pending",
+            description:
+              (started?.result ?? "Waiting for its upstream job to produce outputs.") +
+              " It starts automatically once ready.",
+          });
+        // show the waiting reason where the user is looking (the quiet
+        // orchestration never steers the camera — its receipt speaks)
+        if (!opts?.quiet) set({ inspectId: id, selectedId: null, selectedIds: [] });
         return false;
       }
       if (data.error) {
         // honest real-engine failure — surfaced via the job result too
-        toast({
-          title: "Real engine refused to start",
-          description: data.error,
-          variant: "destructive",
-        });
+        if (!opts?.quiet)
+          toast({
+            title: "Real engine refused to start",
+            description: data.error,
+            variant: "destructive",
+          });
         return false;
       }
-      toast({ title: "Job started", description: `${started?.name ?? "Job"} is now running` });
-      // CryoSPARC-style: submitting a job opens its inspector page
-      set({ inspectId: id, selectedId: null, selectedIds: [] });
+      if (!opts?.quiet)
+        toast(
+          started?.runRemote
+            ? {
+                title: "Job sent to cluster",
+                description: `${started?.name ?? "Job"} → ${started.runRemote.user}@${started.runRemote.host}`,
+              }
+            : { title: "Job started", description: `${started?.name ?? "Job"} is now running` }
+        );
+      // CryoSPARC-style: submitting a job opens its inspector page (the
+      // quiet orchestration does NOT steer — the user is already looking
+      // at the subtree's root)
+      if (!opts?.quiet) set({ inspectId: id, selectedId: null, selectedIds: [] });
       return true;
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to run job");
@@ -2159,7 +3659,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  runJobRemote: async (id, target) => {
+  runJobRemote: async (id, target, opts) => {
     // flush any pending (debounced) parameter edits FIRST — identical
     // rationale to runJob: the cluster run must start with exactly what
     // the user sees in the form
@@ -2193,68 +3693,357 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           return false;
         }
         if (res.status === 409 && data.busyKind === "live") {
-          // a live process is a HEALTHY state — inform, don't alarm
-          toast({
-            title: "Already running",
-            description:
-              data.error ?? "A process for this job is alive — nothing was started again.",
-          });
+          // a live process is a HEALTHY state — inform, don't alarm. Quiet
+          // lanes (the subtree orchestration) stay silent — the frontier
+          // receipt speaks once for the gesture.
+          if (!opts?.quiet)
+            toast({
+              title: "Already running",
+              description:
+                data.error ?? "A process for this job is alive — nothing was started again.",
+            });
           return false;
         }
         throw new Error(data?.error ?? `Request failed (${res.status})`);
       }
       const started = data.job;
       const info = started?.runRemote ?? null;
+      // t718 — a cluster dispatch is a run whose venue matters
+      recordJobEvent(id, "run", "to cluster");
       if (data.waiting) {
         // job went PENDING on the cluster path — upstream inputs are being
         // staged / an upstream job has not landed yet; it auto-starts the
         // moment the inputs are in place, no re-click
-        toast({
-          title: "Sent to cluster",
-          description:
-            (started?.result ?? "Waiting for its upstream job to produce outputs.") +
-            " It starts automatically once inputs are staged.",
-        });
-        set({ inspectId: id, selectedId: null, selectedIds: [] });
-        return false;
+        if (!opts?.quiet)
+          toast({
+            title: "Sent to cluster",
+            description:
+              (started?.result ?? "Waiting for its upstream job to produce outputs.") +
+              " It starts automatically once inputs are staged.",
+          });
+        if (!opts?.quiet) set({ inspectId: id, selectedId: null, selectedIds: [] });
+        // t445 — the return value's contract is "the dispatch was
+        // ACCEPTED", not "the process is running". Staging IS acceptance:
+        // the cluster has the job and the pipeliner owns it now. The
+        // dialog closes on acceptance — its contract is a SEND door
+        // (t289), not a start watcher; live QA (t445) caught a completed
+        // cluster run shining THROUGH an open dialog, because the staging
+        // beat's honest `waiting` verdict read as a refusal here.
+        return true;
       }
       if (data.error) {
         // honest remote-engine refusal — surfaced via the job result too
-        toast({
-          title: "Cluster refused to start the job",
-          description: data.error,
-          variant: "destructive",
-        });
+        if (!opts?.quiet)
+          toast({
+            title: "Cluster refused to start the job",
+            description: data.error,
+            variant: "destructive",
+          });
         return false;
       }
-      toast({
-        title: "Job sent to cluster",
-        description: info
-          ? `${started?.name ?? "Job"} → ${info.user}@${info.host}`
-          : `${started?.name ?? "Job"} sent to the cluster`,
-      });
-      // same landing as runJob: the inspector follows the job
-      set({ inspectId: id, selectedId: null, selectedIds: [] });
+      if (!opts?.quiet)
+        toast({
+          title: "Job sent to cluster",
+          description: info
+            ? `${started?.name ?? "Job"} → ${info.user}@${info.host}`
+            : `${started?.name ?? "Job"} sent to the cluster`,
+        });
+      // same landing as runJob: the inspector follows the job (the quiet
+      // orchestration does NOT steer — its receipt speaks once)
+      if (!opts?.quiet) set({ inspectId: id, selectedId: null, selectedIds: [] });
       return true;
     } catch (err) {
-      toast({
-        title: "Cluster refused to start the job",
-        description: err instanceof Error ? err.message : "Failed to run job on cluster",
-        variant: "destructive",
-      });
+      // the quiet lane's refusals surface through the frontier receipt —
+      // the loop reads the job's own result line, which carries the same
+      // honest message the server set here
+      if (!opts?.quiet)
+        toast({
+          title: "Cluster refused to start the job",
+          description: err instanceof Error ? err.message : "Failed to run job on cluster",
+          variant: "destructive",
+        });
       return false;
     }
   },
 
+  runSubtree: async (rootId, target) => {
+    // the brain plans from the live world — the dialog's checkbox showed a
+    // plan, but the world may have drifted (a node started churning) since
+    // it rendered; THIS plan is the authoritative one
+    const plan = planSubtreeRun(get().jobs, get().edges, rootId);
+    if (plan.order.length === 0) {
+      errToast("Nothing to re-run — this job is not on the canvas");
+      return false;
+    }
+    if (plan.blocked.length > 0) {
+      // the refusal sentence names the churning node(s) — t441 walk law
+      errToast(describeSubtreeRun(plan));
+      return false;
+    }
+    // t449 — one walk at a time: two orchestrations would fight over the
+    // same landing law; the second is refused by naming both roots
+    const active = get().subtreeOrch;
+    if (active) {
+      errToast(orchGuardSentence(active.rootName));
+      return false;
+    }
+    const total = plan.order.length;
+    const orchState: SubtreeOrchState = {
+      rootId,
+      rootName: plan.order[0].name,
+      order: plan.order,
+      index: 0,
+      stopRequested: false,
+    };
+    set({ subtreeOrch: orchState });
+    // t450 — the record rides from the first breath: plan + target survive
+    // the reload; the executor mirrors every index bump into it
+    saveSubtreeOrch(orchState, target);
+    const res = await walkSubtreeNodes(plan.order, 0, 0, target);
+    if (res.userStopped) {
+      // the user's stop is intent, not failure — a neutral receipt, never
+      // the destructive frontier dialect
+      toast({
+        title: `Subtree re-run stopped — ${res.done} of ${total} re-ran`,
+        description: stopReceiptSentence(res.done, total),
+        duration: 20_000,
+      });
+      return false;
+    }
+    if (res.handedOff) {
+      // t451 — a sibling tab claimed the walk while this one waited.
+      // The walker stands down; the walk itself continues on the heir's
+      // face. Intent, not failure — the neutral hand-off dialect.
+      toast({
+        title: `Subtree re-run handed off — ${res.done} of ${total} re-ran here`,
+        description: handoffReceiptSentence(),
+        duration: 20_000,
+      });
+      return false;
+    }
+    if (res.frontier) {
+      toast({
+        title: `Subtree stopped at ${res.frontier.name} — ${res.done} of ${total} re-ran`,
+        description: res.frontier.reason,
+        variant: "destructive",
+        duration: 20_000,
+      });
+      return false;
+    }
+    toast({
+      title: `Subtree re-ran — ${total} job${total === 1 ? "" : "s"} refreshed`,
+      description:
+        plan.order.length === 1
+          ? `${plan.order[0].name} is up to date again`
+          : `Run order: ${plan.order
+              .slice(0, 4)
+              .map((n) => n.name)
+              .join(" → ")}${total > 4 ? ` … and ${total - 4} more` : ""}`,
+      duration: 20_000,
+    });
+    return true;
+  },
+
+  stopSubtreeRun: () => {
+    const orch = get().subtreeOrch;
+    if (!orch || orch.stopRequested) return;
+    const next = { ...orch, stopRequested: true };
+    set({ subtreeOrch: next });
+    // t450 — the armed stop rides the record too: a reload before the
+    // checkpoint must still honor the user's intent (dispatch nothing).
+    // t451 — the mirror is owner-conditional: a dispossessed tab's stop
+    // request must never steal the heir's record back.
+    const saved = readSubtreeOrch();
+    if (saved && saved.owner === getTabId()) saveSubtreeOrch(next, saved.target);
+  },
+
+  resumeSubtreeOrch: async () => {
+    // a live walk owns the face — belt and braces at boot AND at live
+    // adoption (the heir's pulse fires this on a tab that is already
+    // walking its own lane)
+    if (get().subtreeOrch) return;
+    // t451 one-shot legacy upgrade: a v1 session record (the
+    // pre-inheritance build) imports as this tab's own walk before the
+    // claim reads — the reload it was saved for lands as a plain own-resume
+    importLegacySubtreeOrch();
+    // t451 — the claim law (one walk, one heir) replaces the t450
+    // consume-once read: the record lives in the workspace's shared
+    // memory now, so "read" became "arbitrate". Own → resume instantly
+    // (a reload reclaims itself); stale owner → ADOPT (claim, then the
+    // same world-truth scan resurrects); live owner → silent (the walk
+    // is on another tab's face — two walkers would fight the landing
+    // law); no record → nothing to inherit.
+    const claim = claimSubtreeOrch();
+    if (claim.mode === "none" || claim.mode === "elsewhere" || !claim.saved) return;
+    const saved = claim.saved;
+    const { orch: rec, target } = saved;
+    const jobs = get().jobs;
+    const root = jobs.find((j) => j.id === rec.rootId);
+    if (!root) {
+      // the walk's root is gone from this world — its owner deleted it;
+      // no noise. The record is ours (claimed or owned) and terminal:
+      // retire it — a dead plan must never retry-loop on every load.
+      clearSubtreeOrch();
+      return;
+    }
+    const scan = resumeScan(rec.order, jobs, {
+      // t451 — a completion counts as this walk's landing only when it
+      // postdates the walk's own first breath: a result that predates
+      // the walk (a previous run's output) must be re-run, not counted.
+      // Caught live — a re-run over an already-completed subtree read
+      // the old completions as fresh landings and short-circuited.
+      walkStart: saved.walkStart,
+    });
+    // the face's order is the persisted plan minus nodes the world lost —
+    // the count the receipts speak is THIS filtered total
+    const order = rec.order.filter((n) => !scan.missing.some((m) => m.id === n.id));
+    const total = order.length;
+    if (total === 0) {
+      // degenerate record — everything gone, nothing to speak about;
+      // terminal, retire it (we own it)
+      clearSubtreeOrch();
+      return;
+    }
+    // an armed stop is honored without dispatching anything
+    if (rec.stopRequested) {
+      clearSubtreeOrch(); // terminal — the walk ends here, own or adopted
+      toast({
+        title: `Subtree re-run stopped — ${scan.done} of ${total} re-ran`,
+        description: stopReceiptSentence(scan.done, total),
+        duration: 20_000,
+      });
+      return;
+    }
+    // the whole walk landed while the tab was away — the success receipt
+    // arrives late, but it arrives
+    if (scan.allLanded) {
+      clearSubtreeOrch(); // terminal — the walk finished on its own
+      toast({
+        title: `Subtree re-ran — ${total} job${total === 1 ? "" : "s"} refreshed`,
+        description: resumeToastDescription(null, scan.missing),
+        duration: 20_000,
+      });
+      return;
+    }
+    // the frontier found the walk dead: the resume node failed while away
+    if (scan.failedFrontier) {
+      clearSubtreeOrch(); // terminal — the frontier speaks, the plan retires
+      toast({
+        title: `Subtree stopped at ${scan.failedFrontier.name} — ${scan.done} of ${total} re-ran`,
+        description: resumeFrontierReason(scan.failedFrontier),
+        variant: "destructive",
+        duration: 20_000,
+      });
+      return;
+    }
+    if (!scan.resumeNode) {
+      clearSubtreeOrch(); // nothing left to dispatch — retire the plan
+      return;
+    }
+    // re-enter the walk: the face wears the resumed flag (and the
+    // inherited one when the resurrection crossed a tab's death); the
+    // loop continues with the SAME cluster target the original gesture
+    // chose
+    const inherited = claim.mode === "adopted";
+    set({
+      subtreeOrch: {
+        rootId: rec.rootId,
+        rootName: root.name,
+        order,
+        index: scan.done,
+        stopRequested: false,
+        resumed: true,
+        inherited,
+      },
+    });
+    toast({
+      title: resumeToastTitle(scan.done, total),
+      description: `${inherited ? INHERITED_PREFIX : ""}${resumeToastDescription(
+        scan.resumeNode.name,
+        scan.missing
+      )}`,
+      duration: 20_000,
+    });
+    const res = await walkSubtreeNodes(order, scan.done, scan.done, target, {
+      // the resume node mid-flight (it survived the reload — or the
+      // previous owner's death — on the cluster side) is awaited, never
+      // re-dispatched: the 409 door would refuse it and kill the
+      // resumed walk at its first breath
+      firstNodeAwaitOnly: scan.resumeInflight,
+    });
+    // post-walk receipts speak the same dialect as a fresh walk — the
+    // resume point onward is THIS tab's doing
+    if (res.userStopped) {
+      toast({
+        title: `Subtree re-run stopped — ${res.done} of ${total} re-ran`,
+        description: stopReceiptSentence(res.done, total),
+        duration: 20_000,
+      });
+      return;
+    }
+    if (res.handedOff) {
+      // t451 — a sibling tab claimed the walk while this resumed walker
+      // waited. Stand down gracefully; the walk continues on the heir.
+      toast({
+        title: `Subtree re-run handed off — ${res.done} of ${total} re-ran here`,
+        description: handoffReceiptSentence(),
+        duration: 20_000,
+      });
+      return;
+    }
+    if (res.frontier) {
+      toast({
+        title: `Subtree stopped at ${res.frontier.name} — ${res.done} of ${total} re-ran`,
+        description: res.frontier.reason,
+        variant: "destructive",
+        duration: 20_000,
+      });
+      return;
+    }
+    toast({
+      title: `Subtree re-ran — ${total} job${total === 1 ? "" : "s"} refreshed`,
+      description:
+        total === 1
+          ? `${order[0]?.name ?? "The job"} is up to date again`
+          : `Run order: ${order
+              .slice(0, 4)
+              .map((n) => n.name)
+              .join(" → ")}${total > 4 ? ` … and ${total - 4} more` : ""}`,
+      duration: 20_000,
+    });
+  },
+
   stopJob: async (id) => {
     try {
-      const data = await api<{ job: JobDTO; stopped: boolean; message: string }>(
-        `/api/jobs/${id}/stop`,
-        { method: "POST" }
-      );
+      const data = await api<{
+        job: JobDTO;
+        stopped: boolean;
+        message: string;
+        outcome?: "killed" | "missed" | "already-ended";
+        settled?: boolean | null;
+      }>(`/api/jobs/${id}/stop`, { method: "POST" });
       set({ jobs: get().jobs.map((j) => (j.id === id ? data.job : j)) });
+      // t618's feat docket — the toast speaks the RECEIPT, not a guess.
+      // "Job already idle" used to cover every stopped:false — including a
+      // missed kill whose run may still be finishing on the cluster. Three
+      // classes, three titles; the legacy fallback keeps old shapers honest.
+      // t624 — the slurm receipt gained a verdict: a kill whose teardown was
+      // NOT confirmed inside the window is "accepted", not "stopped" — the
+      // scheduler took the cancellation but the tree was still leaving.
+      const title =
+        data.outcome === "killed"
+          ? data.settled === false
+            ? "Stop accepted — the cluster is tearing it down"
+            : "Job stopped"
+          : data.outcome === "missed"
+            ? "Stop missed — nothing to kill"
+            : data.outcome === "already-ended"
+              ? "Job already ended"
+              : data.stopped
+                ? "Job stopped"
+                : "Job already ended";
       toast({
-        title: data.stopped ? "Job stopped" : "Job already idle",
+        title,
         description: data.message,
       });
     } catch (err) {
@@ -2276,6 +4065,66 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
+  renameJob: async (id, name) => {
+    // the server's own law (1–60 after trim) mirrored client-side so honest
+    // typing never sees the 400 — same contract as the note textarea
+    const trimmed = name.trim();
+    if (trimmed.length < 1 || trimmed.length > 60) {
+      errToast("Job name must be 1–60 characters");
+      return false;
+    }
+    const prev = get().jobs.find((j) => j.id === id);
+    if (!prev) return false;
+    if (prev.name === trimmed) return true; // a no-op rename is not an error
+    // optimistic — the canvas says the new name the moment Enter lands;
+    // a refusal rolls back surgically (only THIS job's name — a poll that
+    // landed mid-flight keeps every update it delivered)
+    set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, name: trimmed } : j)) });
+    try {
+      const { job } = await api<{ job: JobDTO }>(`/api/jobs/${id}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ name: trimmed }),
+      });
+      set({ jobs: get().jobs.map((j) => (j.id === id ? job : j)) });
+      return true;
+    } catch (err) {
+      set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, name: prev.name } : j)) });
+      errToast(err instanceof Error ? err.message : "Failed to rename job");
+      return false;
+    }
+  },
+
+  // Task 713 — the preset wear-through: one PATCH, server merges (spec-key
+  // scalar filter over the merge), optimistic map update with the rename's
+  // surgical rollback shape. The caller (inspector's presets row) already
+  // computed the snapshot; this action only owns the WIRE semantics.
+  updateJobParams: async (id, params) => {
+    const prev = get().jobs.find((j) => j.id === id);
+    if (!prev) return false;
+    const prevParams = prev.params;
+    set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, params } : j)) });
+    try {
+      const { job } = await api<{ job: JobDTO }>(`/api/jobs/${id}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ params }),
+      });
+      set({ jobs: get().jobs.map((j) => (j.id === id ? job : j)) });
+      // t718 — a worn preset is a params fact: the count of knobs it moved
+      const before = (prevParams ?? {}) as Record<string, unknown>;
+      const moved = Object.keys(params)
+        .filter((k) => String(before[k]) !== String((params as Record<string, unknown>)[k]))
+        .length;
+      recordJobEvent(id, "params", `${moved} knob${moved === 1 ? "" : "s"}`);
+      return true;
+    } catch (err) {
+      set({ jobs: get().jobs.map((j) => (j.id === id ? { ...j, params: prevParams } : j)) });
+      errToast(err instanceof Error ? err.message : "Failed to apply preset");
+      return false;
+    }
+  },
+
   deleteJob: async (id) => {
     // snapshot BEFORE the delete — the undo stack entry carries the full
     // pre-delete world (job DTO + attached wires) for /api/jobs/restore
@@ -2286,7 +4135,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           edges: get().edges.filter((e) => e.fromJobId === id || e.toJobId === id),
         }
       : null;
-    const { deleted, error } = await get().removeJobsRaw([id], { keepSelection: true });
+    const { deleted, error } = await get().removeJobsRaw([id], {
+      keepSelection: true,
+      deathArm: true, // t601 — the finger's delete earns its last breath
+    });
     if (deleted.length === 0) {
       errToast(error ?? "Failed to delete job");
       return;
@@ -2333,40 +4185,559 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
   },
 
-  duplicateJob: async (id) => {
+  duplicateJob: async (id, opts) => {
     const src = get().jobs.find((j) => j.id === id);
     if (!src) return;
-    const x = clamp(src.x + 48, WORLD_MIN, WORLD_MAX - CARD_W);
-    const y = clamp(src.y + 40, WORLD_MIN, WORLD_MAX - CARD_H);
+    // t442 — the twin's seat: the free slot of the column to the RIGHT
+    // (a parallel branch at the original's height, not a card stacked on it)
+    const spot = twinSpot(
+      get().jobs.map((j) => ({ x: j.x, y: j.y })),
+      { x: src.x, y: src.y },
+      { w: CARD_W, h: CARD_H, strideX: CARD_W + 100, strideY: CARD_H + 48 },
+      { min: WORLD_MIN, max: WORLD_MAX }
+    );
+    // t442 — the recipe comes with its feeding wires. Only the pairs the
+    // canvas could draw TODAY; a source whose params moved on strands its
+    // old wires and the receipt says so.
+    const jobsById = new Map(get().jobs.map((j) => [j.id, j] as const));
+    const { wires, stranded } = faithfulWires(upstreamEdgesOf(get().edges, id), (e) => {
+      if (!e.fromPort || !e.toPort) return true; // portless legacy wires — the tool draws them
+      const fromType = jobsById.get(e.fromJobId)?.type;
+      return fromType ? portsCompatible(fromType, e.fromPort, src.type, e.toPort) : false;
+    });
+    // the gallery selection rides INSIDE params (an object the server's
+    // scalar filter would drop) — lifted top-level, the server re-validates it
+    const classSelection = extractClassSelection(src.params);
     try {
-      const { job } = await api<{ job: JobDTO }>("/api/jobs", {
+      const { job, edge: autoEdge } = await api<{
+        job: JobDTO;
+        edge?: EdgeDTO;
+      }>("/api/jobs", {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({
           type: src.type,
-          x,
-          y,
-          name: `${src.name} (copy)`,
+          x: spot.x,
+          y: spot.y,
+          // t447 — the twin's name is the family's lowest free slot, not a
+          // fresh "(copy)" stamp: duplicating a copy yields a SIBLING
+          // ("X (copy) 2"), and a name the world already holds is skipped
+          name: twinName(src.name, get().jobs.map((j) => j.name)),
           params: src.params,
+          ...(classSelection ? { classStarSelection: classSelection } : {}),
         }),
       });
       set({
         jobs: [...get().jobs, job],
+        ...birthArm(get(), [job.id]), // t598 — the twin is born
         selectedId: job.id,
         selectedIds: [job.id],
+        // the old default stands: without openInspector the inspector steps
+        // aside (canvas view); the twin's door lands the user in its editor
         inspectId: null,
       });
+      if (opts?.openInspector) get().inspect(job.id);
       get().invalidateRedo(); // duplicate mints a new id — no faithful redo
+      // the manual wiring list drops the gallery wire the server already drew
+      const manual = withoutAutoEdge(wires, autoEdge);
+      for (const w of manual) {
+        await get().connect(w.fromJobId, job.id, w.fromPort ?? undefined, w.toPort ?? undefined, {
+          quiet: true,
+          drawIn: true, // t600 — the twin's re-wires are payload too
+        });
+      }
+      const wired = manual.length + (autoEdge ? 1 : 0);
       toast({
-        title: "Job duplicated",
-        description: `${job.name} placed beside the original — edit & connect it, then run`,
+        title: "Run duplicated",
+        description:
+          `${job.name} — params copied, ${wired} upstream wire${wired === 1 ? "" : "s"} drawn, twin waiting unstarted` +
+          (stranded > 0
+            ? ` — ${stranded} stranded wire${stranded === 1 ? "" : "s"} skipped (its ports no longer match)`
+            : ""),
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to duplicate job");
     }
   },
 
-  connect: async (from, to, fromPort, toPort) => {
+  adoptDownstream: async (fromRunId, toRunId) => {
+    const { edges, jobs } = get();
+    // the brain plans from the live world; the store only applies
+    const plan = planAdoption({
+      edges,
+      jobs: jobs.map((j) => ({ id: j.id, type: j.type, name: j.name })),
+      fromRunId,
+      toRunId,
+      outputPortsOf: (type) => (jobType(type)?.outputs ?? []).map((p) => p.name),
+    });
+    if (plan.moves.length === 0) {
+      // nothing to apply — still speak (the dialog guards, but the
+      // action is callable from anywhere and silence would lie)
+      const { title, detail } = describeAdoption(plan, "run A", "run B");
+      toast({ title, description: detail });
+      return;
+    }
+    const nameA = jobs.find((j) => j.id === fromRunId)?.name ?? "run A";
+    const nameB = jobs.find((j) => j.id === toRunId)?.name ?? "run B";
+
+    // ONE optimistic set: the loser's wires leave and the winner's
+    // arrive in the same frame — a half-adopted graph is a lie the
+    // canvas would draw (t359's wire-draws-now law, batch shape)
+    const moveIds = new Set(plan.moves.map((m) => m.edge.id));
+    const newEdges: EdgeDTO[] = plan.moves.map((m) => ({
+      id: crypto.randomUUID(),
+      fromJobId: toRunId,
+      toJobId: m.edge.toJobId,
+      fromPort: m.edge.fromPort ?? undefined,
+      toPort: m.edge.toPort ?? undefined,
+    }));
+    set({
+      edges: [...edges.filter((e) => !moveIds.has(e.id)), ...newEdges],
+    });
+    get().invalidateRedo(); // wire edits have no id-stable inverse
+
+    // persistence: each move is POST-new-then-DELETE-old. POST first:
+    // if the server refuses (cycle/port drift since planning), the old
+    // wire is still real — rollback is honest. DELETE after: a failure
+    // leaves BOTH wires live server-side, so the old edge is restored
+    // to the store (UI truth = server truth) and the receipt names it.
+    const failures: string[] = [];
+    for (const [i, m] of plan.moves.entries()) {
+      const ne = newEdges[i];
+      try {
+        const { edge } = await api<{ edge: EdgeDTO }>("/api/edges", {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({
+            id: ne.id,
+            fromJobId: ne.fromJobId,
+            toJobId: ne.toJobId,
+            fromPort: ne.fromPort,
+            toPort: ne.toPort,
+          }),
+        });
+        // the server stays the truth for ports/id (same swap rule as connect)
+        if (
+          edge.id !== ne.id ||
+          edge.fromPort !== ne.fromPort ||
+          edge.toPort !== ne.toPort
+        ) {
+          set({ edges: get().edges.map((e) => (e.id === ne.id ? edge : e)) });
+        }
+        try {
+          await api(`/api/edges/${m.edge.id}`, { method: "DELETE" });
+        } catch {
+          // the old wire refuses to die — show it again, name the residue
+          set({ edges: [...get().edges, m.edge as EdgeDTO] });
+          failures.push(m.child.name);
+        }
+      } catch {
+        set({ edges: get().edges.filter((e) => e.id !== ne.id) });
+        failures.push(m.child.name);
+      }
+    }
+
+    // t444 — THE REFETCH CLOSES THE RACE: the optimistic set + per-move
+    // POST/DELETE round trips leave a window where a concurrent poll or a
+    // failed DELETE's restore can leave the store disagreeing with the
+    // server (the live QA caught exactly that: edges moved server-side,
+    // the canvas kept the old wiring until reload). One GET afterwards
+    // re-pins UI truth to server truth — the same move connect()'s 409
+    // branch makes. Failure stays silent: the optimistic state is already
+    // near-correct, and the next poll converges anyway.
+    try {
+      const fresh = await api<{ edges: EdgeDTO[] }>("/api/edges");
+      console.log("[adopt] refetch edges:", fresh.edges.length, "moves:", plan.moves.length, "failures:", failures.length);
+      set({ edges: fresh.edges });
+    } catch {
+      /* the optimistic state stands; the next poll converges */
+    }
+
+    const { title, detail } = describeAdoption(plan, nameA, nameB, failures);
+    toast({
+      title,
+      description: detail,
+      variant: failures.length > 0 ? "destructive" : undefined,
+    });
+  },
+
+  adoptWithExclude: async (fromRunId, toRunId, names) => {
+    const { jobs } = get();
+    const runB = jobs.find((j) => j.id === toRunId);
+    if (!runB || !jobs.some((j) => j.id === fromRunId)) {
+      errToast("That run is gone — refresh and try again");
+      return;
+    }
+    if (names.length === 0) {
+      errToast("No micrographs to exclude — the verdict's regression list is empty");
+      return;
+    }
+    // the wire: the first port pair where run B's output kind fits the
+    // filter's micrographs mouth (the compare domains only ever offer
+    // completed motioncorr/ctffind runs, but the law is ports, not trust)
+    const exSpec = jobType("excludemg");
+    let fromPort: string | undefined;
+    let toPort: string | undefined;
+    for (const o of jobType(runB.type)?.outputs ?? []) {
+      for (const i of exSpec?.inputs ?? []) {
+        if (o.kind && i.accepts?.includes(o.kind)) {
+          fromPort = o.name;
+          toPort = i.name;
+          break;
+        }
+      }
+      if (fromPort) break;
+    }
+    if (!fromPort || !toPort) {
+      errToast(`${runB.name} has no micrographs output for an exclude filter`);
+      return;
+    }
+    try {
+      // mint the filter: the names are baked at birth — the list the
+      // dialog spoke IS the list the engine will filter by (one law,
+      // exclude-list.ts), and the param stays editable for hand tuning
+      const place = placeRightOf(runB, jobs);
+      const { job: excludeJob } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "excludemg",
+          x: place.x,
+          y: place.y,
+          workspaceId: runB.workspaceId ?? undefined,
+          params: { excludeNames: names.join(", ") },
+        }),
+      });
+      set({
+        jobs: [...get().jobs, excludeJob],
+        ...birthArm(get(), [excludeJob.id]), // t598 — the filter is born
+        selectedId: excludeJob.id,
+        selectedIds: [excludeJob.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(excludeJob.id);
+      // the wire run B → filter (connect validates, draws optimistically,
+      // persists — the t359 law the duplication already rides)
+      await get().connect(runB.id, excludeJob.id, fromPort, toPort, {
+        drawIn: true, // t600 — the filter's feed is grown, not drawn
+      });
+      // the adoption: run A's downstream re-parents onto the FILTER —
+      // its own receipt names the filter as the new provider (the graph
+      // shows the verdict as wiring, not as a memory)
+      await get().adoptDownstream(fromRunId, excludeJob.id);
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the exclude job");
+    }
+  },
+
+  adoptWithSelect: async (fromRunId, toRunId, classNumbers) => {
+    const { jobs } = get();
+    const runB = jobs.find((j) => j.id === toRunId);
+    if (!runB || !jobs.some((j) => j.id === fromRunId)) {
+      errToast("That run is gone — refresh and try again");
+      return;
+    }
+    if (classNumbers.length === 0) {
+      errToast("No classes to select — the verdict's gains list is empty");
+      return;
+    }
+    // the wires: EVERY select2d mouth must find a source among run B's
+    // outputs — the scan is by kind, never assumed (class2d answers
+    // both mouths: classAverages → classes, particles → particles). A
+    // host missing a mouth refuses honestly BEFORE anything is minted:
+    // a half-wired selection on the canvas is a lie the graph would
+    // keep telling.
+    const selSpec = jobType("select2d");
+    const runBOuts = jobType(runB.type)?.outputs ?? [];
+    const wirePairs: { fromPort: string; toPort: string }[] = [];
+    for (const input of selSpec?.inputs ?? []) {
+      const accepts = input.accepts ?? [];
+      const out = runBOuts.find((o) => o.kind && accepts.includes(o.kind));
+      if (!out) {
+        errToast(
+          `${runB.name} has no output feeding the selection's ${input.name} input`,
+        );
+        return;
+      }
+      wirePairs.push({ fromPort: out.name, toPort: input.name });
+    }
+    try {
+      // mint the selection: the gained classes are baked at birth — the
+      // list the dialog spoke IS the list the engine selects by (one
+      // law), and the param stays editable for hand tuning
+      const place = placeRightOf(runB, jobs);
+      const { job: selectJob } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "select2d",
+          x: place.x,
+          y: place.y,
+          workspaceId: runB.workspaceId ?? undefined,
+          params: { selectedClasses: classNumbers.join(", ") },
+        }),
+      });
+      set({
+        jobs: [...get().jobs, selectJob],
+        ...birthArm(get(), [selectJob.id]), // t598 — the selection is born
+        selectedId: selectJob.id,
+        selectedIds: [selectJob.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(selectJob.id);
+      // the wires run B → selection (both mouths; quiet — the adoption's
+      // receipt is the gesture's voice, per-wire toasts would be noise)
+      for (const pair of wirePairs) {
+        await get().connect(runB.id, selectJob.id, pair.fromPort, pair.toPort, {
+          quiet: true,
+          drawIn: true, // t600 — the adoption's feeds are grown, not drawn
+        });
+      }
+      // the adoption: run A's downstream re-parents onto the SELECTION —
+      // its own receipt names the selection as the new provider (the
+      // graph shows the verdict as wiring, not as a memory)
+      await get().adoptDownstream(fromRunId, selectJob.id);
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the class selection");
+    }
+  },
+
+  pickWithTopazModel: async (fromJobId) => {
+    const { jobs, edges } = get();
+    const train = jobs.find((j) => j.id === fromJobId);
+    if (!train || train.type !== "topaztrain") {
+      errToast("That job is gone — refresh and try again");
+      return;
+    }
+    if (train.status !== "completed") {
+      errToast("The model isn't trained yet — wait for the run to complete");
+      return;
+    }
+    // the micrographs mouth must be feedable BEFORE anything is minted:
+    // the pick consumes the SAME stream the training did (the denoised
+    // stack, in the official flow) — a half-wired pick on the canvas is
+    // a lie the graph would keep telling (the adoptWithSelect law).
+    const feed = edges.find((e) => e.toJobId === train.id && e.toPort === "micrographs");
+    const source = feed ? jobs.find((j) => j.id === feed.fromJobId) : undefined;
+    if (!feed || !source) {
+      errToast("The training job has no micrographs source to inherit — wire one in first");
+      return;
+    }
+    try {
+      const place = placeRightOf(train, jobs);
+      // the recipe carries over: Topaz mode + the training's own dials —
+      // the pick starts where the training ended, every knob editable
+      const params: Record<string, ParamValue> = {
+        pickingMethod: "Topaz",
+        topazNrParticles: train.params.topazNrParticles ?? 200,
+        topazThreshold: train.params.topazThreshold ?? -6,
+        topazDiameter: train.params.topazDiameter ?? 180,
+        topazDownscale: train.params.topazDownscale ?? -1,
+        topazWorkers: train.params.topazWorkers ?? 1,
+        topazArgs: train.params.topazArgs ?? "",
+      };
+      const { job: pick } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "autopick",
+          x: place.x,
+          y: place.y,
+          workspaceId: train.workspaceId ?? undefined,
+          params,
+        }),
+      });
+      set({
+        jobs: [...get().jobs, pick],
+        ...birthArm(get(), [pick.id]), // t598 — the picker is born
+        selectedId: pick.id,
+        selectedIds: [pick.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(pick.id);
+      // the wires, quiet — the card's toast is the gesture's voice:
+      // model → Topaz mode, micrographs follow the training input
+      await get().connect(train.id, pick.id, "model", "topazModel", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
+      await get().connect(source.id, pick.id, feed.fromPort, "micrographs", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
+      toast({
+        title: "Topaz Pick minted",
+        description:
+          "Auto-picking (Topaz mode) wired to the trained model, micrographs inherited from the training input — review the params and run.",
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the Topaz pick");
+    }
+  },
+
+  /** t559 — the denoise→pick handoff. Same family form as
+   *  pickWithTopazModel, one wire fewer: the denoised stack IS the
+   *  micrographs source (the output star keeps the micrograph schema),
+   *  so the minted pick needs no inheritance — its one mouth feeds
+   *  straight from the denoise output, and the topazModel mouth stays
+   *  honestly empty (the general model picks until a trained one
+   *  exists — that's the train→pick card's job, t558). */
+  pickWithDenoisedStack: async (fromJobId) => {
+    const { jobs } = get();
+    const denoise = jobs.find((j) => j.id === fromJobId);
+    if (!denoise || denoise.type !== "topazdenoise") {
+      errToast("That job is gone — refresh and try again");
+      return;
+    }
+    if (denoise.status !== "completed") {
+      errToast("The denoised stack isn't ready yet — wait for the run to complete");
+      return;
+    }
+    try {
+      const place = placeRightOf(denoise, jobs);
+      // the pick starts where the denoise ended for the knobs the two
+      // stages share (downscale, workers); the pick's own dials keep
+      // their spec defaults — nothing here is inherited on faith
+      const params: Record<string, ParamValue> = {
+        pickingMethod: "Topaz",
+        topazNrParticles: 300,
+        topazThreshold: -6,
+        topazDiameter: 180,
+        topazDownscale: denoise.params.topazDownscale ?? -1,
+        topazWorkers: denoise.params.topazWorkers ?? 1,
+        topazArgs: "",
+      };
+      const { job: pick } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "autopick",
+          x: place.x,
+          y: place.y,
+          workspaceId: denoise.workspaceId ?? undefined,
+          params,
+        }),
+      });
+      set({
+        jobs: [...get().jobs, pick],
+        ...birthArm(get(), [pick.id]), // t598 — the picker is born
+        selectedId: pick.id,
+        selectedIds: [pick.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(pick.id);
+      // one quiet wire — the card's toast is the gesture's voice
+      await get().connect(denoise.id, pick.id, "micrographs", "micrographs", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
+      toast({
+        title: "Topaz Pick minted",
+        description:
+          "Auto-picking (Topaz mode) wired to the denoised stack — the general model picks it until you train one. Review the params and run.",
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the Topaz pick");
+    }
+  },
+
+  /** t563 — the denoise→train handoff. Same family form as the two
+   *  pick gestures, one mouth harder: training consumes micrographs
+   *  AND hand-picked coordinates. The micrographs mouth feeds straight
+   *  from the denoise output (one clean wire); the coords mouth is
+   *  genuinely NEW information — the human's labels — so the gesture
+   *  hunts the canvas for a completed Manual Picking (the spec's own
+   *  "hand-picked coordinates") and wires its coords in. Refuses
+   *  honestly when none exists: the mint would hang half-wired on the
+   *  canvas, the adoptWithSelect law. Training's own dials keep their
+   *  spec defaults — only the shared-stack knobs (downscale, workers)
+   *  inherit from the denoise; Args never cross stages (t559 law). */
+  trainWithDenoisedStack: async (fromJobId) => {
+    const { jobs } = get();
+    const denoise = jobs.find((j) => j.id === fromJobId);
+    if (!denoise || denoise.type !== "topazdenoise") {
+      errToast("That job is gone — refresh and try again");
+      return;
+    }
+    if (denoise.status !== "completed") {
+      errToast("The denoised stack isn't ready yet — wait for the run to complete");
+      return;
+    }
+    // the coords mouth must be feedable BEFORE anything is minted:
+    // training without hand-picked coordinates has nothing to learn
+    // from — the same pre-flight the train→pick gesture runs on its
+    // micrographs mouth (t558). Same-workspace picks only: the card
+    // lives in THIS workspace's results view, and a pick the user
+    // can't see on this canvas is not a source the gesture may quote.
+    const pick = [...jobs]
+      .reverse()
+      .find(
+        (j) =>
+          j.type === "manualpick" &&
+          j.status === "completed" &&
+          (j.workspaceId ?? null) === (denoise.workspaceId ?? null)
+      );
+    if (!pick) {
+      errToast(
+        "Training needs hand-picked coordinates — add a Manual Picking job on this stack, pick some particles, then try again"
+      );
+      return;
+    }
+    try {
+      const place = placeRightOf(denoise, jobs);
+      // training starts where the denoise ended for the knobs the two
+      // stages share (downscale, workers — same stack, same scale);
+      // the training's own dials keep their spec defaults and Args
+      // don't cross stages (t559 law — different semantics per stage)
+      const params: Record<string, ParamValue> = {
+        topazNrParticles: 200,
+        topazThreshold: -6,
+        topazDiameter: 180,
+        topazTestRatio: 0.2,
+        topazDownscale: denoise.params.topazDownscale ?? -1,
+        topazWorkers: denoise.params.topazWorkers ?? 1,
+        topazArgs: "",
+      };
+      const { job: train } = await api<{ job: JobDTO }>("/api/jobs", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          type: "topaztrain",
+          x: place.x,
+          y: place.y,
+          workspaceId: denoise.workspaceId ?? undefined,
+          params,
+        }),
+      });
+      set({
+        jobs: [...get().jobs, train],
+        ...birthArm(get(), [train.id]), // t598 — the trainer is born
+        selectedId: train.id,
+        selectedIds: [train.id],
+      });
+      get().invalidateRedo();
+      get().focusJob(train.id);
+      // two quiet wires — the card's toast is the gesture's voice:
+      // the denoised stack feeds the training images, the manual picks
+      // (named in the toast — honesty through naming) feed the labels
+      await get().connect(denoise.id, train.id, "micrographs", "micrographs", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
+      await get().connect(pick.id, train.id, "coords", "coords", {
+        quiet: true,
+        drawIn: true, // t600 — grown, not drawn
+      });
+      toast({
+        title: "Topaz Training minted",
+        description: `Wired to the denoised stack and coordinates from "${pick.name}" — review the params and run.`,
+      });
+    } catch (err) {
+      errToast(err instanceof Error ? err.message : "Failed to mint the Topaz training");
+    }
+  },
+
+  connect: async (from, to, fromPort, toPort, opts) => {
     const { edges, jobs } = get();
     if (from === to) return;
     const fromJob = jobs.find((j) => j.id === from);
@@ -2397,33 +4768,189 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
       return;
     }
+    const fromName = fromJob?.name ?? "Job";
+    const toName = toJob?.name ?? "job";
+    // t359 — THE WIRE DRAWS NOW. The old flow awaited the full API round
+    // trip before set(); on a dev server that round trip can sit behind a
+    // cold route compile or a watcher rebuild for seconds, so the line the
+    // user just drew only appeared after an HMR remount — the field
+    // receipt「连线卡一会，hmr 热加载之后线才连上」. The edge id is minted
+    // CLIENT-side and sent along, so the optimistic wire and the persisted
+    // row share one id (a delete racing this creation hits the right row);
+    // persistence runs in the background and a rejection rolls the wire
+    // back with a toast.
+    const optimisticId = crypto.randomUUID();
+    unconfirmedEdges.add(optimisticId);
+    // t600 — the draw-in arm rides the SAME set() as the optimistic
+    // edge (one commit, so the layout effect pins the from-frame before
+    // the wire's first paint — the t599 batch law, now for verbs).
+    set({
+      edges: [
+        ...get().edges,
+        { id: optimisticId, fromJobId: from, toJobId: to, fromPort, toPort },
+      ],
+      ...(opts?.drawIn
+        ? { birthEdgeIds: [...get().birthEdgeIds, optimisticId] }
+        : null),
+      pendingFrom: null,
+    });
+    // wire edits have no id-stable inverse (re-creating mints a new edge
+    // row) — they live outside the history stack and kill the redo branch
+    get().invalidateRedo();
+    // t442 — quiet mode: the duplication receipt speaks for the batch;
+    // per-wire announcements would bury it under N toasts
+    if (!opts?.quiet) {
+      // t744 — the receipt speaks the word (the vocabulary's tenth reader).
+      // The preview wore the ink before the wire existed (t742), the line
+      // wears it resting (t734) — and now the receipt NAMES what flows at
+      // the exact moment the world accepts the wire: the user just asked
+      // for this connection by hand, so this is the cleanest teaching slot
+      // the vocabulary ever gets. The dot rides the kind's wire hex (the
+      // same resting ink the canvas paints); the word rides the t735/t738
+      // dialect ("{kind} data"). A wordless wire (legacy port, no port,
+      // unknown kind) keeps the bare receipt — the undefined law's fifth
+      // face: an honest silence, never a fabricated word.
+      const wireKind = fromJob && fromPort ? outputKindOf(fromJob.type, fromPort) : undefined;
+      toast({
+        title: "Connected",
+        // .ts file — no JSX (the announce* actions above are this file's
+        // createElement dialect); the receipt's word row builds the same way
+        description: wireKind
+          ? React.createElement(
+              "span",
+              { className: "flex flex-wrap items-center gap-x-1.5 gap-y-0.5" },
+              React.createElement("span", { key: "names" }, `${fromName} → ${toName}`),
+              React.createElement("span", { key: "dash", className: "text-muted-foreground" }, "—"),
+              React.createElement("span", {
+                key: "dot",
+                "aria-hidden": true,
+                className: "inline-block size-2 shrink-0 rounded-full",
+                style: { background: PORT_COLORS[wireKind].wire },
+              }),
+              React.createElement("span", { key: "word" }, `${wireKind} data`),
+            )
+          : `${fromName} → ${toName}`,
+      });
+    }
     try {
       const { edge } = await api<{ edge: EdgeDTO }>("/api/edges", {
         method: "POST",
         headers: JSON_HEADERS,
-        body: JSON.stringify({ fromJobId: from, toJobId: to, fromPort, toPort }),
+        body: JSON.stringify({
+          id: optimisticId,
+          fromJobId: from,
+          toJobId: to,
+          fromPort,
+          toPort,
+        }),
       });
-      set({ edges: [...get().edges, edge], pendingFrom: null });
-      // wire edits have no id-stable inverse (re-creating mints a new edge
-      // row) — they live outside the history stack and kill the redo branch
-      get().invalidateRedo();
-      const fromName = fromJob?.name ?? "Job";
-      const toName = toJob?.name ?? "job";
-      toast({ title: "Connected", description: `${fromName} → ${toName}` });
+      // deleted while the POST was in flight — the user already saw the
+      // wire go; finish the job now that the row is real
+      if (doomedCreates.delete(optimisticId)) {
+        void api(`/api/edges/${edge.id}`, { method: "DELETE" }).catch(() => {});
+        return;
+      }
+      // the server stays the truth for auto-wired ports, and for the id
+      // when a legacy caller skipped ours — swap only on a real difference
+      if (
+        edge.id !== optimisticId ||
+        edge.fromPort !== fromPort ||
+        edge.toPort !== toPort
+      ) {
+        set({
+          edges: get().edges.map((e) => (e.id === optimisticId ? edge : e)),
+        });
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to connect";
-      toast({ title: "Connection refused", description: msg, variant: "destructive" });
+      const doomed = doomedCreates.delete(optimisticId);
+      if (doomed) {
+        // the wire was deleted while its POST was in flight — the delete
+        // already stood optimistically; never resurrect it
+      } else if ((err as Error & { status?: number }).status === 409) {
+        // the row IS there — an earlier attempt persisted it but its
+        // response never made it back (dev-server compile window, reload).
+        // Adopt the server's truth instead of rolling back into a store
+        // that would keep hiding a live wire.
+        try {
+          const fresh = await api<{ edges: EdgeDTO[] }>("/api/edges");
+          set({ edges: fresh.edges });
+        } catch {
+          set({ edges: get().edges.filter((e) => e.id !== optimisticId) });
+          toast({
+            title: "Connection refused",
+            description: err instanceof Error ? err.message : "Failed to connect",
+            variant: "destructive",
+          });
+        }
+      } else {
+        set({ edges: get().edges.filter((e) => e.id !== optimisticId) });
+        const msg = err instanceof Error ? err.message : "Failed to connect";
+        toast({ title: "Connection refused", description: msg, variant: "destructive" });
+      }
+    } finally {
+      unconfirmedEdges.delete(optimisticId);
     }
   },
 
   removeEdge: async (id) => {
+    const victim = get().edges.find((e) => e.id === id);
+    if (!victim) return; // already gone (a second click on a dying chip)
+    // The X on the wire itself and the I/O chip's remove are FINGERS
+    // (the only removeEdge call sites in the app), so every removeEdge
+    // death is a kill before the user's eyes and earns its breath by
+    // construction — no opt needed, the arm lives in the verb (the
+    // mirror of t601's "arm in the finger verbs").
+    // t602 — freeze the loner's memory BEFORE the arm (after the commit
+    // the endpoints are gone and no geometry could be computed — the
+    // t601 builder law). The geometry comes from the FULL living list:
+    // the fan-apart offsets (computeEdgeGeoms spreads wires that share
+    // an endpoint) are part of what the eye saw — a memory computed
+    // from the victim alone would remember a wire that never rendered.
+    const geom = computeEdgeGeoms(get().edges, get().jobs, null).find(
+      (g) => g.edge.id === victim.id
+    );
+    const ghost: DeathEdgeGhost | null = geom
+      ? { id: victim.id, d: geom.d, bornAt: Date.now() }
+      : null;
+    // t359 — THE WIRE VANISHES NOW (same receipt as connect: never make
+    // the visible canvas wait on an API round trip); persistence runs in
+    // the background and a real failure restores it with a toast.
+    // t602 — the arm rides the SAME set() (the t600 same-commit law,
+    // death edition): one commit moves the truth and hands the canvas
+    // its memory.
+    set({
+      edges: get().edges.filter((e) => e.id !== id),
+      ...(ghost
+        ? {
+            deathEdgeGhosts: [...get().deathEdgeGhosts, ghost],
+            deathEdgeSeq: get().deathEdgeSeq + 1,
+          }
+        : {}),
+    });
+    get().invalidateRedo();
+    toast({ title: "Edge removed" });
+    if (unconfirmedEdges.has(id)) {
+      // its POST is still in the air — a DELETE now would 404 against a row
+      // that does not exist yet and the landing POST would resurrect the
+      // wire as a ghost; mark it doomed and let connect()'s landing path
+      // fire the delete when the row is real
+      doomedCreates.add(id);
+      return;
+    }
     try {
       await api(`/api/edges/${id}`, { method: "DELETE" });
-      set({ edges: get().edges.filter((e) => e.id !== id) });
-      get().invalidateRedo();
-      toast({ title: "Edge removed" });
+      // 404 = the row was already gone server-side — the wire IS removed,
+      // exactly what was asked; anything else restores it
     } catch (err) {
-      errToast(err instanceof Error ? err.message : "Failed to remove edge");
+      if ((err as Error & { status?: number }).status !== 404) {
+        // t602 — the death was revoked; the loner's memory must not
+        // outlive it (one seat, one memory — the revival supersede).
+        set({
+          edges: [...get().edges, victim],
+          deathEdgeGhosts: get().deathEdgeGhosts.filter((g) => g.id !== victim.id),
+        });
+        errToast(err instanceof Error ? err.message : "Failed to remove edge");
+      }
     }
   },
 
@@ -2438,21 +4965,62 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (pollInFlight) return;
     pollInFlight = true;
     const prev = get().jobs;
+    // t383 — the freshness seal: this poll may only apply positions for
+    // writes that were already CONFIRMED when it started (see the guard
+    // block at the top of the file)
+    const genStart = snapshotPosGen();
     try {
-      const { jobs } = await api<{ jobs: JobDTO[] }>("/api/jobs");
+      // t393 — the version token rides the poll: an unmoved canvas answers
+      // ~40 bytes and this tick is over before the merge chain ever runs
+      // (no parse of a full array, no tombstone/held-position passes, no
+      // reference-stability compare — the server already proved the exact
+      // body identical). The first tick after boot sends null → full body
+      // → the token lands. A token from ANOTHER project can never alias
+      // (the hash mixes the project id server-side).
+      const token = get().jobsVersion;
+      const data = await api<{
+        jobs?: JobDTO[];
+        version?: string;
+        unchanged?: boolean;
+      }>(token ? `/api/jobs?v=${encodeURIComponent(token)}` : "/api/jobs");
+      if (data.unchanged) return; // identical tick on the wire — zero work downstream
+      const fetched = data.jobs ?? [];
+      const version = data.version ?? null;
+      // t370 — the tombstone filter runs BEFORE the reference-stability
+      // merge: this GET may have STARTED before a delete committed (the
+      // pollInFlight guard only stops overlaps, not stale responses), and
+      // the merge below would happily re-add the deleted id — the
+      // vanish → reappear → vanish flicker of the field report. Filtering
+      // first also keeps the identical-tick fast path honest: prev (the
+      // post-delete store) and the filtered list agree, so the tick stays
+      // a zero-render no-op instead of resurrecting and re-deleting.
+      const jobs = withoutResurrectedJobs(fetched);
+      // t383 — a poll that started before a drag/tidy write (or while it
+      // was in the air) carries PRE-write positions; stamping the newest
+      // local x/y back over them turns the stale response into a no-op
+      // instead of the snapback-rubber-band (the delayed-drag race)
+      const jobsHeld = preserveHeldPositions(jobs, genStart);
       // reference stability: reuse the previous object for every job whose
       // fields did not change (JSON.parse gives brand-new refs each time)
-      let changed = prev.length !== jobs.length;
-      const merged = prev.length === jobs.length
-        ? jobs.map((j, i) => {
+      let changed = prev.length !== jobsHeld.length;
+      const merged = prev.length === jobsHeld.length
+        ? jobsHeld.map((j, i) => {
             const old = prev[i];
             if (old && old.id === j.id && jobEquals(old, j)) return old;
             changed = true;
             return j;
           })
-        : jobs;
-      if (!changed) return; // identical tick — zero re-renders
-      set({ jobs: merged });
+        : jobsHeld;
+      if (!changed) {
+        // the body DID move (the token flipped) but nothing the UI renders
+        // did — adopt the fresh token so the next no-op heartbeat is a
+        // 40-byte round trip instead of another full pull (e.g. an internal
+        // ledger field that never rides the DTO, like outputProbeAt,
+        // changed; jobEquals correctly ignored it)
+        if (version !== get().jobsVersion) set({ jobsVersion: version });
+        return; // identical tick — zero re-renders
+      }
+      set({ jobs: merged, jobsVersion: version });
       // announce transitions running → completed / failed, and pending →
       // running (the AUTO-START engine kicked a downstream job once its
       // upstream inputs landed — nobody clicked Run for this)
@@ -2488,6 +5056,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           finished.push({ job, kind: job.status });
         }
       }
+      // t718 — the engine's own starts and landings join the journal.
+      // Kicks within 30s of a recorded run dedup inside the lib (the
+      // dispatch's record wins — it knows the finger, the poll only knows
+      // the state); these are the starts NOBODY dispatched and the
+      // landings nobody has to catch live to remember.
+      for (const j of kicked) recordJobEvent(j.id, "kicked");
+      for (const f of finished) recordJobEvent(f.job.id, f.kind);
       // Task 147 — the light half of the sweep now obeys the same
       // aggregation law as the heavy half: two kickoffs in one tick used
       // to swallow the first auto-started notice exactly the way two
@@ -2584,52 +5159,76 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  select: (id) => set({ selectedId: id, selectedIds: id ? [id] : [] }),
+  select: (id) =>
+    set((s) => ({
+      selectedId: id,
+      selectedIds: id ? [id] : [],
+      ...selReframeBump(s, id, id ? [id] : []),
+    })),
   stepArrowFocus: (id, extend) =>
-    set((s) =>
-      extend
-        ? {
-            selectedId: id,
-            selectedIds: s.selectedIds.includes(id)
-              ? s.selectedIds
-              : [...s.selectedIds, id],
-          }
-        : { selectedId: id, selectedIds: [id] }
-    ),
+    set((s) => {
+      const nextIds = extend
+        ? s.selectedIds.includes(id)
+          ? s.selectedIds
+          : [...s.selectedIds, id]
+        : [id];
+      return {
+        selectedId: id,
+        selectedIds: nextIds,
+        ...selReframeBump(s, id, nextIds),
+      };
+    }),
 
-  toggleSelect: (id) => {
-    const ids = get().selectedIds;
-    if (ids.includes(id)) {
-      const rest = ids.filter((x) => x !== id);
-      const nextPrimary =
-        get().selectedId === id ? (rest[rest.length - 1] ?? null) : get().selectedId;
-      set({ selectedIds: rest, selectedId: nextPrimary });
-    } else {
-      set({ selectedIds: [...ids, id], selectedId: id });
-    }
-  },
+  toggleSelect: (id) =>
+    set((s) => {
+      const ids = s.selectedIds;
+      if (ids.includes(id)) {
+        const rest = ids.filter((x) => x !== id);
+        const nextPrimary =
+          s.selectedId === id ? (rest[rest.length - 1] ?? null) : s.selectedId;
+        return {
+          selectedIds: rest,
+          selectedId: nextPrimary,
+          ...selReframeBump(s, nextPrimary, rest),
+        };
+      }
+      const joined = [...ids, id];
+      return {
+        selectedIds: joined,
+        selectedId: id,
+        ...selReframeBump(s, id, joined),
+      };
+    }),
 
-  selectMany: (ids) => {
-    const unique = [...new Set(ids)];
-    if (unique.length === 0) {
-      set({ selectedId: null, selectedIds: [] });
-      return;
-    }
-    const prev = get().selectedId;
-    set({
-      selectedIds: unique,
-      selectedId: prev && unique.includes(prev) ? prev : unique[unique.length - 1],
-    });
-  },
+  selectMany: (ids) =>
+    set((s) => {
+      const unique = [...new Set(ids)];
+      if (unique.length === 0) {
+        return {
+          selectedId: null,
+          selectedIds: [],
+          ...selReframeBump(s, null, []),
+        };
+      }
+      const prev = s.selectedId;
+      const nextPrimary = prev && unique.includes(prev) ? prev : unique[unique.length - 1];
+      return {
+        selectedIds: unique,
+        selectedId: nextPrimary,
+        ...selReframeBump(s, nextPrimary, unique),
+      };
+    }),
 
   selectAll: () => {
-    const ws = get().activeWorkspaceId;
-    const ids = get().jobs.filter((j) => jobInWorkspace(j, ws)).map((j) => j.id);
+    const s = get();
+    const ids = s.jobs.filter((j) => jobInWorkspace(j, s.activeWorkspaceId)).map((j) => j.id);
     if (ids.length === 0) return;
-    const prev = get().selectedId;
+    const prev = s.selectedId;
+    const nextPrimary = prev && ids.includes(prev) ? prev : ids[0];
     set({
       selectedIds: ids,
-      selectedId: prev && ids.includes(prev) ? prev : ids[0],
+      selectedId: nextPrimary,
+      ...selReframeBump(s, nextPrimary, ids),
     });
   },
 
@@ -2646,7 +5245,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       jobs: get().jobs.filter((j) => idSet.has(j.id)),
       edges: get().edges.filter((e) => idSet.has(e.fromJobId) || idSet.has(e.toJobId)),
     };
-    const { deleted } = await get().removeJobsRaw(ids);
+    const { deleted } = await get().removeJobsRaw(ids, {
+      deathArm: true, // t601 — a bulk delete exhales in payload order
+    });
     const failed = ids.length - deleted.length;
     const deletedSet = new Set(deleted);
     // the undo payload covers the FULFILLED deletions only
@@ -2710,10 +5311,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const skippedLinks = get().selectedIds.length - sel.length;
     const idSet = new Set(sel.map((j) => j.id));
     try {
+      // t447 — batch names are reserved up front: every twin's claim blocks
+      // the next one, so two same-type sources become (copy) and (copy) 2
+      // instead of two identical (copy)s
+      const twinNames = twinNamesFor(sel, get().jobs.map((j) => j.name));
       // phase 1 — copy the jobs in parallel (each POST scalar-filters its
       // params against the type schema server-side, same as single add)
       const copies = await Promise.all(
-        sel.map((src) =>
+        sel.map((src, i) =>
           api<{ job: JobDTO }>("/api/jobs", {
             method: "POST",
             headers: JSON_HEADERS,
@@ -2721,7 +5326,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
               type: src.type,
               x: clamp(src.x + 48, WORLD_MIN, WORLD_MAX - CARD_W),
               y: clamp(src.y + 40, WORLD_MIN, WORLD_MAX - CARD_H),
-              name: `${src.name} (copy)`,
+              name: twinNames[i],
               params: src.params,
               // copies live where their source lives — the API defaults to
               // the project's first workspace otherwise, which could teleport
@@ -2762,6 +5367,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({
         jobs: [...get().jobs, ...newJobs],
         edges: [...get().edges, ...rewired],
+        // t599 — the copies' internal wires draw in with the copies
+        ...birthArm(get(), newJobs.map((j) => j.id), rewired.map((e) => e.id)),
         selectedIds: newJobs.map((j) => j.id),
         selectedId: newJobs[newJobs.length - 1]?.id ?? null,
         inspectId: null,
@@ -2810,14 +5417,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         return m ? { ...j, x: m.x, y: m.y } : j;
       }),
     });
+    // t383 — batch write in flight: same anti-snapback hold, refcounted;
+    // success bumps the generation for every id in the batch
+    const releaseMoves = holdPositions(moves.map((m) => m.id));
     try {
       await api("/api/jobs/layout", {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ updates: moves }),
       });
+      confirmPositions(moves.map((m) => m.id));
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to save positions");
+    } finally {
+      releaseMoves();
     }
     if (beforeMoves && beforeMoves.length > 0) {
       const entry: HistoryEntry = {
@@ -2927,11 +5540,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   inspect: (id) => {
     if (id !== null) {
-      // inspector replaces the right-side editing panel
-      set({ inspectId: id, selectedId: null });
+      // inspector replaces the right-side editing panel; a direct canvas
+      // navigation is not a door — the return context dies here (t569)
+      set({ inspectId: id, selectedId: null, cameFromJob: null });
     } else {
-      set({ inspectId: null });
+      set({ inspectId: null, cameFromJob: null });
     }
+  },
+
+  // t569 — the return chip's click: the openJob dialect with the captured
+  // project as the hint, so the way back is exactly the way it came.
+  goBackFromInspector: async () => {
+    const from = get().cameFromJob;
+    if (!from) return;
+    await get().openJob(from.id, { projectId: from.projectId });
   },
   setView: (view) => set({ view }),
   setPendingFrom: (pending) => set({ pendingFrom: pending }),
@@ -2998,20 +5620,69 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }),
   jumpToViewportBookmark: (slot) => {
     // key derivation mirrors save/delete EXACTLY — one rule, four sites.
-    // The jump lands via setViewport, so the jump is also written through
-    // to the session memory ("where I am now") and zoom clamps to range.
+    // t588 — the jump rides the arrival relay: setViewport happens in the
+    // canvas, which owns the glide class, the held readout and the coda
+    // tick (the store cannot reach the workspace DOM). The boolean stays
+    // synchronous — the caller's preventDefault decision needs it now;
+    // the world lands one commit later, imperceptibly. Session memory
+    // ("where I am now") is written when the canvas lands the jump.
     const s = get();
     const key = `${s.project?.id ?? "-"}:${s.activeWorkspaceId ?? "-"}`;
     const named = s.viewportBookmarks[key];
     if (!named) return false;
     const hit = Object.values(named).find((b) => b.slot === slot);
     if (!hit) return false;
-    s.setViewport(hit.viewport);
+    set({ arrivalTarget: hit.viewport, arrivalEpoch: get().arrivalEpoch + 1 });
     return true;
+  },
+  consumeViewportArrival: () => set({ arrivalTarget: null }),
+  /** t593 — the tidy's answer payload is read once and retired. */
+  consumeLayoutCommand: () => set({ layoutKind: null, layoutFlipFrom: [] }),
+  consumeBirths: (played, playedEdges) =>
+    set((s) => ({
+      birthIds: s.birthIds.filter((id) => !played.includes(id)),
+      birthEdgeIds: s.birthEdgeIds.filter((id) => !playedEdges.includes(id)),
+    })),
+  // t601 — resurrection supersedes the breath: a ghost whose card is
+  // live again leaves immediately (the undo's restore mounts silently —
+  // t598's law — and TWO memories of one seat would be a haunting)
+  pruneDeathGhosts: (aliveIds) => {
+    if (aliveIds.length === 0) return;
+    const alive = new Set(aliveIds);
+    set((s) => ({
+      deathGhosts: s.deathGhosts.filter((g) => !alive.has(g.id)),
+    }));
+  },
+  retireDeathGhosts: () => set({ deathGhosts: [] }),
+  // t602 — the loner's revival and retire: the exact t601 verbs on the
+  // wire's own family (one seat, one memory; the sweep stays bornAt-based
+  // so a poll tick recomputes the window instead of pushing it)
+  pruneDeathEdgeGhosts: (aliveIds) => {
+    if (aliveIds.length === 0) return;
+    const alive = new Set(aliveIds);
+    set((s) => ({
+      deathEdgeGhosts: s.deathEdgeGhosts.filter((g) => !alive.has(g.id)),
+    }));
+  },
+  retireDeathEdgeGhosts: () => set({ deathEdgeGhosts: [] }),
+  jumpToOrigin: () => {
+    // t589 — "0" is the origin's seat. The number row 0–9 is ONE family
+    // of places (saved views + the origin), so the jump rides the same
+    // arrival relay as 1–9: the canvas performs the hold-glide-coda and
+    // the readout lands with the world. A silent re-jump (already at the
+    // origin) churns the glide but the coda stays quiet — "no change,
+    // no sound" holds here too.
+    set({ arrivalTarget: { x: 0, y: 0, zoom: 1 }, arrivalEpoch: get().arrivalEpoch + 1 });
   },
   setDragActive: (active) => set({ dragActive: active }),
   setPaletteDrag: (type) => set({ paletteDrag: type }),
   requestClassFocus: (jobId, cls) => set({ pendingClassFocus: { jobId, cls } }),
+  requestGalleryFocus: (jobId) => set({ pendingGalleryFocus: { jobId, at: Date.now() } }),
+  consumeGalleryFocus: () => set({ pendingGalleryFocus: null }),
+  requestDenoiseFocus: (jobId) => set({ pendingDenoiseFocus: { jobId, at: Date.now() } }),
+  consumeDenoiseFocus: () => set({ pendingDenoiseFocus: null }),
+  requestClassAveragesFocus: (jobId) => set({ pendingClassAveragesFocus: { jobId } }),
+  consumeClassAveragesFocus: () => set({ pendingClassAveragesFocus: null }),
   setLastSweep: (s) => set({ lastSweep: s }),
   consumeClassFocus: () => set({ pendingClassFocus: null }),
   setTemplatePresetsOpen: (open) => set({ templatePresetsOpen: open }),
@@ -3107,6 +5778,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({
         jobs: allJobs,
         edges: allEdges,
+        // t593 — systemic (template apply): silent rebuild.
+        layoutKind: null,
+        layoutFlipFrom: [],
         layoutEpoch: get().layoutEpoch + 1, // canvas fit-views the new content
       });
       // Task 129 — the applied body is an island: propose wires from its
@@ -3370,13 +6044,53 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
+  setHelpGuideOpen: (open) => set({ helpGuideOpen: open }),
+  setAiAssistantOpen: (open) => set({ aiAssistantOpen: open }),
+  openAiAssistant: (prompt) =>
+    set((s) => ({
+      aiAssistantOpen: true,
+      aiSummonSeq: s.aiSummonSeq + 1,
+      ...(prompt ? { aiPendingPrompt: prompt } : {}),
+    })),
+  consumeAiPendingPrompt: () => {
+    const p = get().aiPendingPrompt;
+    if (p) set({ aiPendingPrompt: null });
+    return p;
+  },
+  refreshEdges: async () => {
+    try {
+      const fresh = await api<{ edges: EdgeDTO[] }>("/api/edges");
+      set({ edges: fresh.edges });
+    } catch {
+      /* the next poll round retries the canvas truth */
+    }
+  },
+  setAiSettingsOpen: (open) => set({ aiSettingsOpen: open }),
   setMinimapOpen: (open) => set({ minimapOpen: open }),
   toggleNoteSpotlight: () => set((s) => ({ noteSpotlight: !s.noteSpotlight })),
+  toggleCriticalLens: () => set((s) => ({ criticalLens: !s.criticalLens })),
+  // t684 — newest first, deduped (a re-visited job floats back to the
+  // head), capped: a trail longer than a glance is a log, not a trail.
+  // t685 — every committed transition echoes to storage (the write path
+  // is the ACTION, never a render — #13's law).
+  noteRecentJob: (id) =>
+    set((s) => {
+      const next = [id, ...s.recentJobIds.filter((x) => x !== id)].slice(0, 6);
+      persistRecentJobs(next);
+      return { recentJobIds: next };
+    }),
+  clearRecentJobs: () => {
+    persistRecentJobs([]);
+    set({ recentJobIds: [] });
+  },
+  hydrateRecentJobs: () =>
+    set((s) => (s.recentJobIds.length > 0 ? s : { recentJobIds: hydrateRecentJobsFromStorage() })),
   openFind: () => set((s) => (s.findOpen ? s : { findOpen: true })),
-  closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all", findCategory: "all" }),
+  closeFind: () => set({ findOpen: false, findQuery: "", findStatus: "all", findCategory: "all", findNoted: false }),
   setFindQuery: (q) => set({ findQuery: q }),
   setFindStatus: (s) => set({ findStatus: s }),
   setFindCategory: (c) => set({ findCategory: c }),
+  setFindNoted: (n) => set({ findNoted: n }),
   // Task 153 — the explicit chevron is the ONLY write path: storage
   // echoes user intent, never render state.
   setKpiCollapsed: (c) => {
@@ -3394,6 +6108,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       focusEpoch: s.focusEpoch + 1,
       // the modal would cover the canvas — close it so the user sees the focus
       inspectId: null,
+      cameFromJob: null,
     })),
 
   revealJob: (id) => {
@@ -3416,6 +6131,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   openJob: async (id, hint) => {
     const findJob = () => get().jobs.find((j) => j.id === id);
     const homeWs = (j) => j?.workspaceId ?? "";
+    // t569 — capture the inspector's current tenant BEFORE any hop moves
+    // the jobs array: the name and its home project travel WITH the chip,
+    // so a cross-project return still has a label and a door home.
+    const prevInspectId = get().inspectId;
+    const prevCameFrom = {
+      name: prevInspectId
+        ? get().jobs.find((j) => j.id === prevInspectId)?.name ?? ""
+        : "",
+      projectId: get().project?.id ?? "",
+    };
     // 1. landing repair. jobs in the store belong to the ACTIVE project —
     // a hit here can only need a workspace hop; a miss is either a ghost
     // or a cross-project row (the hint decides which).
@@ -3447,11 +6172,24 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // re-read after any load: a switch can replace the jobs array
     job = findJob();
     if (!job) return;
+    // t684 — the trail records HERE: past every landing repair and
+    // ghost return, on the single path both success dialects (idle
+    // select+focus / submitted inspect) share. A jump that never
+    // arrived records nothing — the trail is where you WENT, not
+    // where you pointed.
+    get().noteRecentJob(id);
     if (job.status === "idle") {
       get().select(id);
       get().focusJob(id);
     } else {
       get().inspect(id);
+      // t569 — a door swap while a dialog was already showing: the way
+      // back rides on the header. inspect() just cleared the field; the
+      // capture restores it for THIS swap only. (The idle branch took
+      // select+focus — the dialog is gone, no chip to feed.)
+      if (prevInspectId && prevInspectId !== id) {
+        set({ cameFromJob: { id: prevInspectId, ...prevCameFrom } });
+      }
     }
   },
 }));
@@ -3534,4 +6272,37 @@ if (typeof window !== "undefined") {
       persistSelectedJob(s.selectedId);
     }
   });
+}
+
+/* t444 — the staleness echo, same grammar as the selectedId echo above:
+ * jobs/edges commits re-derive the wavefront ONCE, post-commit, between
+ * renders; cards then read their slice through the store subscription.
+ * The write only fires on a real jobs/edges change (staleMap changes
+ * never re-enter this branch), so there is no loop. t445 — the same
+ * commit also re-derives the drift verdict (one more pure pass over the
+ * jobs it already holds); the two laws share the channel, not the
+ * verdict. */
+if (typeof window !== "undefined") {
+  let prevJobs = useWorkflowStore.getState().jobs;
+  let prevEdges = useWorkflowStore.getState().edges;
+  useWorkflowStore.subscribe((s) => {
+    if (s.jobs !== prevJobs || s.edges !== prevEdges) {
+      prevJobs = s.jobs;
+      prevEdges = s.edges;
+      useWorkflowStore.setState({
+        staleMap: findStaleJobs(s.jobs, s.edges),
+        driftMap: findDriftedJobs(s.jobs),
+      });
+    }
+  });
+  // boot derivation: the initial load's commits pass through the same
+  // subscription, but a hydrated store arriving pre-populated still
+  // gets its wavefront here
+  const boot = useWorkflowStore.getState();
+  if (boot.jobs.length > 0) {
+    useWorkflowStore.setState({
+      staleMap: findStaleJobs(boot.jobs, boot.edges),
+      driftMap: findDriftedJobs(boot.jobs),
+    });
+  }
 }

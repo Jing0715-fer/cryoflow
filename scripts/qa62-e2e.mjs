@@ -25,6 +25,8 @@
 // Usage: QA_PHASES=A node scripts/qa62-e2e.mjs
 import { execSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const AB = "agent-browser";
 const LOGF = "/home/z/my-project/.qa-logs/qa62-trace.log";

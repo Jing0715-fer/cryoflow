@@ -1,3 +1,34 @@
 keys/
 fs/projects/cryoflow/
 fs/home/cryo/.lmod/
+fs/home/cryo/.slurm/
+
+# t300 — the E2E rehearsal movie fixtures (runtime, not fixtures-in-git)
+fs/data2/movies-t298/
+
+# t311 — the 450-file import-cap rehearsal fixture (runtime, not fixtures-in-git)
+fs/data2/movies-t311/
+
+# t312 — the 2,054-file no-cap browser rehearsal fixture (runtime, not fixtures-in-git)
+fs/data2/movies-t312/
+
+# t312 — the 12-file control fixture for the movie-stack guard (runtime)
+fs/data2/mics-t312/
+
+# t314 — the byte-verified gate E2E fixtures (runtime, not fixtures-in-git)
+fs/data2/corrected-t314/
+fs/data2/rawmovies-t314/
+fs/data2/mics-t314/
+fs/data2/eer-t314/
+
+# t315 — the remote-dispatch / node-type / random-5 gallery E2E fixtures
+# (runtime, not fixtures-in-git)
+fs/data2/qa-t315-mics/
+fs/data2/qa-t315-movies/
+fs/data2/qa-t315-particles/
+fs/data2/qa-t315-micstar.star
+
+# t317 — the review-fix E2E fixtures (runtime, not fixtures-in-git)
+fs/data2/qa-t317-mics/
+fs/data2/qa-t317-particles/
+fs/data2/qa-t317-big/

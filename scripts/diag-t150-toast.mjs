@@ -1,5 +1,7 @@
 import { chromium } from "playwright";
 import { execSync } from "child_process";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const stampEx = (id, data) => execSync(`node -e 'const {PrismaClient}=require("@prisma/client");const p=new PrismaClient();p.job.update({where:{id:"${id}"},data:${JSON.stringify(data)}}).then(()=>p.$disconnect())'`, { cwd: "/home/z/my-project", stdio: "pipe" });

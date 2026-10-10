@@ -1,27 +1,369 @@
 #!/usr/bin/env python3
-"""Mock relion_preprocess (extract) — writes particles.star."""
-import os, sys
+"""Mock relion_preprocess (extract) — star-aware since t307, stacks RENDERABLE since t308.
+
+The old fake ignored its input and always wrote a fixed 150-particle star —
+good enough for single runs, a LIE for the array split: the merge's ../ strip
+(t307's rows dialect) exists precisely because real RELION writes ImageName
+paths RELATIVE TO THE STAR'S OWN DIR, so a shard star one level down says
+../extra/<mic>_extract.mrcs. This fake speaks that dialect:
+
+  - reads the input STAR (the shard's round-robin slice) and iterates the
+    _rlnMicrographName column — a shard extracts only ITS micrographs;
+  - writes one REAL (renderable) MRC stack per micrograph into
+    <part_dir>/extra/<micbase>_extract.mrcs — mode-2 float32, box×box×per,
+    a valid 1024-byte header (t308: the old text placeholder was honest
+    about existing but the results view's montage renderer rightly refused
+    it — a stack that exists but cannot be READ is a lie the inspector
+    pays for in console errors; the fake must speak the product's dialect
+    all the way to the pixels);
+  - writes <part_star> with rows referencing those stacks by a path computed
+    RELATIVE TO THE STAR'S DIR (os.path.relpath — the same convention real
+    RELION uses), so the unsplit run says extra/… and each shard says
+    ../extra/…; the merge's awk strips the ../ and the merged rows resolve
+    from the workdir root;
+  - a missing/unreadable --i is an honest stderr error + exit 1 (the same
+    shape the t307 suite expects a shard failure to speak).
+
+Flag parsing is flag-aware like the autopick fake: a flag whose next token is
+another --flag (or end-of-argv) is BOOLEAN and consumes nothing — --extract
+and --norm used to swallow --extract_size and --bg_radius as values.
+"""
+import os, struct, sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import cf_cryo
+except Exception:
+    cf_cryo = None
+
 argv = sys.argv[1:]
 opts = {}
 i = 0
 while i < len(argv):
     a = argv[i]
     if a.startswith("--"):
-        opts[a[2:]] = argv[i+1] if i+1 < len(argv) else ""
-        i += 2
+        key = a[2:]
+        nxt = argv[i + 1] if i + 1 < len(argv) else None
+        if nxt is None or nxt.startswith("--"):
+            opts[key] = ""  # boolean flag (--extract, --norm, …)
+            i += 1
+        else:
+            opts[key] = nxt
+            i += 2
     else:
         i += 1
-outdir = opts.get("part_dir", "./").rstrip("/")
-os.makedirs(outdir, exist_ok=True)
-n = 150
-print(f"cryoflow-mock extract: {n} particles extracted (box={opts.get('extract_size','128')})")
-out = os.path.join(outdir, "particles.star")
-with open(out, "w") as fh:
-    fh.write("\ndata_\n\nloop_\n")
+
+star_in = opts.get("i")
+part_star = opts.get("part_star", "particles.star")
+part_dir = opts.get("part_dir", "./").rstrip("/")
+box = opts.get("extract_size", "128") or "128"
+scale = opts.get("scale", "") or ""
+coord_dir = opts.get("coord_dir", "") or ""
+coord_suffix = opts.get("coord_suffix", "") or ""
+bg_radius = opts.get("bg_radius", "") or ""
+do_norm = "norm" in opts  # boolean flag
+
+if not star_in or not os.path.exists(star_in):
+    print(f"ERROR: cannot read input star: {star_in}", file=sys.stderr)
+    sys.exit(1)
+
+# ---- parse the micrograph names (loop-aware: optics block rows are skipped,
+# the MicrographName column is looked up per loop) ---------------------------
+mics = []
+with open(star_in) as fh:
+    in_loop = False
+    name_col = None
+    ncols = 0
+    for line in fh:
+        t = line.strip()
+        if t == "loop_":
+            in_loop = True
+            name_col = None
+            ncols = 0
+            continue
+        if t.startswith("data_"):
+            in_loop = False
+            name_col = None
+            continue
+        if t.startswith("_"):
+            if in_loop:
+                parts = t.split()
+                # STAR column defs carry their own index: "_rlnName #N".
+                # Real RELION always writes it; a bare def falls back to its
+                # positional order (the autopick fake's own convention).
+                name = parts[0]
+                col = None
+                if len(parts) >= 2 and parts[1].startswith("#"):
+                    try:
+                        col = int(parts[1].lstrip("#")) - 1
+                    except ValueError:
+                        col = None
+                if col is None:
+                    col = ncols
+                    ncols += 1
+                if col >= 0:
+                    ncols = max(ncols, col + 1)
+                    if "MicrographName" in name:
+                        name_col = col
+            continue
+        if in_loop and t and not t.startswith("#") and name_col is not None:
+            cols = t.split()
+            if len(cols) > name_col:
+                mics.append(cols[name_col])
+
+if not mics:
+    print(f"ERROR: no micrographs in input star: {star_in}", file=sys.stderr)
+    sys.exit(1)
+
+# ---- the per-micrograph stacks (shared part_dir, disjoint names) -----------
+def write_mrc_stack(path, box, nslices, seed=1):
+    """A real, renderable MRC stack: mode 2 (float32), box×box×nslices.
+
+    t308 — the results view's montage renderer reads the header and the
+    bytes; a text placeholder answers "exists" but not "readable", and the
+    inspector pays for that lie in console errors. Values are a
+    deterministic LCG so every run (and every shard) writes identical
+    bytes for identical inputs.
+    """
+    data = bytearray()
+    n = box * box
+    for s in range(nslices):
+        base = (seed * 1103515245 + s * 7919) & 0x7FFFFFFF
+        for k in range(n):
+            v = ((base + k * 12345) % 2000) / 2000.0 - 0.5
+            data += struct.pack("<f", v)
+    header = bytearray(1024)
+    # t311 — REAL MRC2014 offsets: MODE is word 3 (byte 12) — the old byte-4
+    # write overwrote NY with 2; sampling belongs at words 7-9 (28), ISPG at
+    # word 22 (88), NSYMBT at word 23 (92), ORIGIN at words 24-26 (96)
+    struct.pack_into("<3i", header, 0, box, box, nslices)   # NX, NY, NZ
+    struct.pack_into("<i", header, 12, 2)                   # MODE float32
+    struct.pack_into("<3i", header, 16, 0, 0, 0)            # NXSTART etc.
+    struct.pack_into("<3i", header, 28, box, box, nslices)  # MX, MY, MZ
+    struct.pack_into("<3f", header, 40, float(box), float(box), float(nslices))  # CELLA
+    struct.pack_into("<3f", header, 52, 90.0, 90.0, 90.0)   # CELLB
+    struct.pack_into("<3i", header, 64, 1, 2, 3)            # MAPC, MAPR, MAPS
+    struct.pack_into("<3f", header, 76, -0.5, 0.5, 0.0)     # DMIN, DMAX, DMEAN
+    struct.pack_into("<i", header, 88, 1)                   # ISPG (stack = 1)
+    struct.pack_into("<i", header, 92, 0)                   # NSYMBT
+    struct.pack_into("<3f", header, 96, 0.0, 0.0, 0.0)      # ORIGIN
+    header[208:212] = b"MAP "
+    header[212:216] = b"\x44\x41\x00\x00"                   # MACHST little-endian
+    struct.pack_into("<f", header, 216, 0.1)                # RMS
+    struct.pack_into("<i", header, 220, 1)                  # NLABL
+    with open(path, "wb") as fh:
+        fh.write(header)
+        fh.write(bytes(data))
+
+
+extra = os.path.join(part_dir, "extra")
+os.makedirs(extra, exist_ok=True)
+
+star_dir = os.path.dirname(os.path.abspath(part_star))
+
+
+# ---- t380 — REAL crops from REAL micrographs at REAL picked coords ------
+# The EMPIAR-10017 full-chain ask: extracted .mrcs must carry the actual
+# pixels under the picked boxes (--norm → solvent ≈ 0 σ ≈ 1, the DARK cryo
+# particle lands NEGATIVE — the polarity class2d then averages and the app
+# flips to bright-on-black). Resolution mirrors the refine fake's audit:
+# absolute rows as-is, relative rows against star dir / cwd / star parent.
+# The engine's wiring is --coord_dir <picker jobdir> --coord_suffix
+# (_autopick.star | .coord) with per-mic stars under micrographs/ — the same
+# compositions real RELION's preprocess makes. Any unreadable mic or missing
+# coords keeps the LEGACY synthetic stack for that micrograph.
+def _resolve_mic(mic):
+    cands = [mic]
+    if not os.path.isabs(mic):
+        cands = [
+            os.path.join(star_dir, mic),
+            os.path.join(os.getcwd(), mic),
+            os.path.join(os.path.dirname(star_dir), mic),
+        ]
+    for cand in cands:
+        if os.path.exists(cand):
+            return cand
+    return None
+
+
+def _find_coord_file(mic):
+    if not coord_dir:
+        return None
+    stem = os.path.basename(mic)
+    for ext in (".mrc", ".mrcs", ".tif", ".tiff"):
+        if stem.endswith(ext):
+            stem = stem[: -len(ext)]
+            break
+    cands = [
+        os.path.join(coord_dir, stem + coord_suffix),
+        os.path.join(coord_dir, "micrographs", stem + coord_suffix),
+    ]
+    for cand in cands:
+        if os.path.exists(cand):
+            return cand
+    return None
+
+
+def _parse_coords(path):
+    """X/Y pairs from a per-mic autopick star OR a Henderson .coord file."""
+    pairs = []
+    try:
+        with open(path) as fh:
+            in_loop = False
+            xi = yi = None
+            ncols = 0
+            for line in fh:
+                t = line.strip()
+                if not t:
+                    continue
+                if t == "loop_":
+                    in_loop = True
+                    xi = yi = None
+                    ncols = 0
+                    continue
+                if t.startswith("data_"):
+                    in_loop = False
+                    continue
+                if t.startswith("_"):
+                    if in_loop:
+                        parts = t.split()
+                        name = parts[0]
+                        col = None
+                        if len(parts) >= 2 and parts[1].startswith("#"):
+                            try:
+                                col = int(parts[1].lstrip("#")) - 1
+                            except ValueError:
+                                col = None
+                        if col is None:
+                            col = ncols
+                            ncols += 1
+                        if name == "_rlnCoordinateX":
+                            xi = col
+                        elif name == "_rlnCoordinateY":
+                            yi = col
+                        ncols = max(ncols, col + 1)
+                    continue
+                if in_loop and xi is not None and yi is not None:
+                    cols = t.split()
+                    if len(cols) > max(xi, yi):
+                        try:
+                            pairs.append((float(cols[xi]), float(cols[yi])))
+                        except ValueError:
+                            pass
+                elif not in_loop and ".coord" in os.path.basename(path) and not t.startswith("#"):
+                    # Henderson .coord: bare "x y" lines
+                    cols = t.split()
+                    if len(cols) >= 2:
+                        try:
+                            pairs.append((float(cols[0]), float(cols[1])))
+                        except ValueError:
+                            pass
+    except Exception:
+        return []
+    return pairs
+
+
+rows = []
+total = 0
+for n, mic in enumerate(mics, 1):
+    per = 8 + (n * 2) % 5  # 8..12 particles per micrograph, deterministic
+    base = os.path.basename(mic)
+    for ext in (".mrc", ".mrcs"):
+        if base.endswith(ext):
+            base = base[: -len(ext)]
+            break
+    stack = os.path.join(extra, f"{base}_extract.mrcs")
+    rel = os.path.relpath(stack, star_dir)
+    # t380 — the REAL path goes FIRST (the legacy writer below creates the
+    # stack unconditionally, so its existence must not gate the real crops)
+    kept = []
+    real_stack_written = False
+    if cf_cryo is not None and not os.path.exists(stack):
+        mic_path = _resolve_mic(mic)
+        coord_file = _find_coord_file(mic)
+        if mic_path and coord_file:
+            opened = cf_cryo.read_mrc(mic_path)
+            coord_pairs = _parse_coords(coord_file)
+            if opened and coord_pairs:
+                nx, ny, _nz, vals = opened
+                box_i = int(box or 128)
+                scale_i = int(scale) if scale else 0
+                slices = []
+                for (x, y) in coord_pairs:
+                    cropv = cf_cryo.crop_box(vals, nx, ny, x, y, box_i)
+                    if cropv is None:
+                        continue  # RELION refuses edge-crossing picks too
+                    if scale_i and scale_i < box_i:
+                        cropv = cf_cryo.downsample_box(cropv, scale_i)
+                    if do_norm:
+                        cropv = cf_cryo.normalize_box(cropv, int(bg_radius) if bg_radius else 0)
+                    slices.append(cropv)
+                    kept.append((x, y))
+                if slices:
+                    try:
+                        import numpy as _np_real
+                        eff = slices[0].shape[0]
+                        cf_cryo.write_mrc(stack, eff, eff, len(slices), _np_real.stack(slices))
+                        real_stack_written = True
+                        per = len(slices)
+                        print(
+                            f"Micrograph {n}/{len(mics)}: {base} — {per} REAL crops "
+                            f"(box={box_i}{'→' + str(scale_i) if scale_i and scale_i < box_i else ''}, "
+                            f"norm={'on' if do_norm else 'off'}, cryo polarity)"
+                        )
+                        sys.stdout.flush()
+                    except Exception:
+                        real_stack_written = False
+                        kept = []
+    if not real_stack_written and not os.path.exists(stack):
+        write_mrc_stack(stack, max(32, int(box or 128)), per, seed=n)
+    if real_stack_written:
+        for k, (x, y) in enumerate(kept):
+            total += 1
+            rows.append(f"{k + 1:06d}@{rel}\t{x:.1f}\t{y:.1f}")
+    else:
+        # t338 — PER-STACK numbering, real RELION's dialect (preprocess.cpp:
+        # rlnImageName counts images inside EACH micrograph's own .mrcs, 1..per
+        # — the count a stack-reading consumer like relion_refine bounds-checks
+        # against the file's NZ). The old fake ran one GLOBAL counter across
+        # all micrographs, so every stack after the first carried image numbers
+        # far past its own slice count — a dialect no real RELION produces and
+        # the app's consumer-side consistency gate (t338) rightly refuses.
+        for k in range(per):
+            total += 1
+            x = 100 + (n * 31 + k * 7) % 900
+            y = 120 + (n * 17 + k * 11) % 900
+            rows.append(f"{k + 1:06d}@{rel}\t{x}.0\t{y}.0")
+        print(f"Micrograph {n}/{len(mics)}: {base} — {per} particles (box={box})")
+        sys.stdout.flush()
+
+_pdir = os.path.dirname(part_star)
+if _pdir:
+    os.makedirs(_pdir, exist_ok=True)
+# Real RELION writes TWO blocks — data_optics (one loop row) then
+# data_particles. The rows-merge awk is designed for that shape (appended
+# donors contribute only block>=2 rows so the optics block never
+# duplicates); a single-block star would silently bypass the rewrite.
+with open(part_star, "w") as fh:
+    fh.write("\ndata_optics\n\nloop_\n")
+    fh.write("_rlnOpticsGroup #1\n")
+    fh.write("_rlnVoltage #2\n")
+    fh.write("_rlnSphericalAberration #3\n")
+    fh.write("1\t300.0\t2.7\n")
+    fh.write("\ndata_particles\n\nloop_\n")
     fh.write("_rlnImageName #1\n")
     fh.write("_rlnCoordinateX #2\n")
     fh.write("_rlnCoordinateY #3\n")
-    for k in range(n):
-        fh.write(f"{k+1:06d}@particles.mrcs\t{100 + (k*7)%400}\t{120 + (k*13)%380}\n")
-print(f"wrote {out}")
+    for r in rows:
+        fh.write(r + "\n")
+    # t324 lever — optional star padding: comment lines are legal STAR
+    # syntax (every parser in the family skips them: the app's
+    # parseStarBlocks/countStarRows and the mock refine all ignore '#'),
+    # so the file stays VALID while crossing whatever per-file sync cap an
+    # e2e wants to force. The marker lives in the mock HOME and is inert
+    # without it (~/.cf-mock-star-pad — echo anything into it to arm).
+    if os.path.exists(os.path.join(os.path.expanduser("~"), ".cf-mock-star-pad")):
+        fh.write("# cryoflow-mock star padding (t324 sync-cap lever)\n" * 30000)
+
+print(f"cryoflow-mock extract: {total} particles across {len(mics)} micrographs -> {part_star}")
 sys.exit(0)

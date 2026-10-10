@@ -4,6 +4,9 @@
  * CryoFlow — ⌘K / Ctrl+K command palette (Linear/n8n-style).
  *
  * Command families, all fuzzy-searchable:
+ *   • Recent jobs — the session's viewing trail (t684): the jobs you
+ *     opened most recently, newest first; recorded at openJob's mouth
+ *     (every jump feeds it), cleared by the heading's X
  *   • Jobs      — jump: idle → edit panel, submitted → results inspector
  *   • Run       — one-shot launch for idle jobs
  *   • Job types — add any catalog type onto the canvas
@@ -28,8 +31,13 @@
 
 import * as React from "react";
 import { useTheme } from "next-themes";
+import { useCommandState } from "cmdk";
 import {
+  Aperture,
+  CornerDownLeft,
   Command as CommandIcon,
+  Activity,
+  Clock3,
   Copy,
   Download,
   FileJson,
@@ -37,12 +45,16 @@ import {
   FileText,
   FileUp,
   GraduationCap,
+  Mountain,
   Keyboard,
+  BookOpen,
   Layers,
   LayoutDashboard,
+  Loader2,
   Maximize2,
   Moon,
   Network,
+  Pencil,
   Play,
   Radar,
   RadioTower,
@@ -55,6 +67,7 @@ import {
   Wand2,
   Waves,
   Workflow,
+  X,
   FileTerminal,
   RefreshCcw,
   FolderOpen,
@@ -72,13 +85,24 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT } from "@/lib/view-link";
+import { cn } from "@/lib/utils";
 import { REMOTE_CLUSTERS_OPEN_EVENT } from "./remote-cluster-dialog";
+import { PaletteGalleryThumb } from "./palette-gallery-thumb";
 import { useWorkflowStore } from "@/lib/store";
 import { stageWorkflowFiles } from "@/lib/import-stage";
 import { hasJudgment, parseClassNotes } from "@/lib/class-notes";
 import type { JobDTO } from "@/lib/types";
-import { JOB_TYPES, jobType, CARD_W, CARD_H } from "@/lib/workflow";
+import { JOB_TYPES, jobType, pourKindsOf, PORT_COLORS, CARD_W, CARD_H } from "@/lib/workflow";
 import { JOB_PRESETS } from "@/lib/job-presets";
+import { fmtAgo } from "@/lib/duration";
+import {
+  loadUserParamPresets,
+  recentFirst,
+  reconcileUserParamPresets,
+  USER_PARAM_PRESETS_EVENT,
+  type UserParamPreset,
+} from "@/lib/user-param-presets";
 import { exportCanvasPng } from "@/lib/canvas-export";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { downloadCsv, fileSlug, copyTextToClipboard, rowsToTsv, type CsvRow } from "@/lib/chart-export";
@@ -91,7 +115,11 @@ import {
 import { TypeIcon } from "./icons";
 import { PipelineScriptDialog } from "./pipeline-script-dialog";
 
-const OPEN_EVENT = "cryoflow:open-palette";
+/** t483: exported — the help guide's finding chapter names the palette,
+ *  and a named door must open: the guide dispatches this, the palette's
+ *  own listener answers (the same owner-listens law, one more reverse
+ *  hop). */
+export const OPEN_EVENT = "cryoflow:open-palette";
 
 /** t221: the palette's report door — the palette dispatches, the header
  *  (which owns the SessionReportDialog and its reportOpen state) listens.
@@ -100,6 +128,11 @@ const OPEN_EVENT = "cryoflow:open-palette";
  *  exists only on the header strip is a door the keyboard cannot reach
  *  (the t210 doctrine, palette edition). */
 export const SESSION_REPORT_EVENT = "cryoflow:open-session-report";
+
+/** t530: the palette's diagnostics door — same handshake, same
+ *  owner-listens law: the header owns the panel, the palette only rings
+ *  the bell. A box's vitals are facts the keyboard should reach too. */
+export const SYSTEM_DIAGNOSTICS_EVENT = "cryoflow:open-system-diagnostics";
 
 /** Per-chart icon + accent for the Export group — the SAME icon the chart's
  *  own header carries, so a palette row is recognizably "that chart" before
@@ -116,16 +149,287 @@ const CHART_ICONS: Record<
   angdist: { Icon: RadioTower, tone: "text-teal-600" },
 };
 
+/* ---------------- t668 — the Saved views group's data half ---------------- */
+
+/** Shape of GET /api/views/gallery — the SAME interfaces the dashboard's
+ *  Saved views wall speaks (project-dashboard.tsx). One truth on the wire,
+ *  two readers; the palette needs only the jump-relevant slice of it. */
+interface SavedViewBookmark {
+  id: string;
+  name: string;
+  ts: number;
+  thumb?: string;
+}
+
+interface SavedViewEntry {
+  projectId: string | null;
+  projectName: string | null;
+  jobId: string;
+  jobName: string;
+  jobType: string;
+  jobStatus: string;
+  updatedAt: string;
+  bookmarks: SavedViewBookmark[];
+}
+
+type SavedViewsState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ready"; views: SavedViewEntry[]; fetchedAt: number }
+  | { kind: "absent"; fetchedAt: number };
+
+/** Module-level cache — session-lived, keyed by nothing (there is exactly
+ *  one gallery). Ready AND absent share the TTL: a dead wall answers once
+ *  per clock window, a fresh save surfaces within it. In-flight dedup so
+ *  two rapid opens share one round trip (the t663 doctrine, list-sized). */
+const SAVED_VIEWS_TTL_MS = 30_000;
+const SAVED_VIEWS_CAP = 8;
+let savedViewsCache: SavedViewsState = { kind: "idle" };
+let savedViewsInflight: Promise<SavedViewEntry[]> | null = null;
+
+async function fetchSavedViews(): Promise<SavedViewEntry[]> {
+  if (savedViewsInflight) return savedViewsInflight;
+  savedViewsInflight = (async () => {
+    const res = await fetch("/api/views/gallery", { cache: "no-store" });
+    if (!res.ok) throw new Error(`views gallery ${res.status}`);
+    const body = (await res.json()) as { views?: SavedViewEntry[] };
+    return body.views ?? [];
+  })().finally(() => {
+    savedViewsInflight = null;
+  });
+  return savedViewsInflight;
+}
+
+/** t671 — the fresh-read verb the broadcast listener rides. The embed's
+ *  bookmark mutations (save/update/remove all share commitBookmarks, the
+ *  THIRD mouth) broadcast SAVED_VIEWS_CHANGED_EVENT; the palette — even
+ *  closed, so no state to update — re-reads the route into the module
+ *  cache, and the next open shows the truth even inside the 30s TTL
+ *  window (a view saved or deleted in the viewer is never haunted by the
+ *  clock). In-flight dedup (fetchSavedViews) keeps concurrent
+ *  listener+open to one wire round trip; the LAST read wins the cache.
+ *  t675 — and when an event arrives WHILE a read is on the wire, the
+ *  dedup would silently swallow it into a round trip that started before
+ *  that event's write committed (the stale-under-fresh-fetchedAt disease,
+ *  dedup-sized). So the trailing event arms exactly one more read after
+ *  the wire clears — a burst of N events costs at most two round trips,
+ *  and the last write is always the one that gets read. */
+let savedViewsReadOnWire = false;
+let savedViewsTrailingRead = false;
+function refreshSavedViewsCache() {
+  if (savedViewsReadOnWire) {
+    savedViewsTrailingRead = true;
+    return;
+  }
+  savedViewsReadOnWire = true;
+  void fetchSavedViews()
+    .then((views) => {
+      savedViewsCache =
+        views.length > 0
+          ? { kind: "ready", views, fetchedAt: Date.now() }
+          : { kind: "absent", fetchedAt: Date.now() };
+    })
+    .catch(() => {
+      savedViewsCache = { kind: "absent", fetchedAt: Date.now() };
+    })
+    .finally(() => {
+      savedViewsReadOnWire = false;
+      if (savedViewsTrailingRead) {
+        savedViewsTrailingRead = false;
+        refreshSavedViewsCache();
+      }
+    });
+}
+
+/** t675 — after a ROW mutation the clicked X (or the rename input that
+ *  blur-commits and unmounts) takes the row — and the browser's focus —
+ *  with it: FocusScope parks the stray focus on the dialog shell (the
+ *  DialogContent div). From that parking spot the palette's Escape-dismiss
+ *  NEVER fires even with no other layer in the way — diag-t675-escape2
+ *  pinned the split empirically: a keydown targeting the shell runs the
+ *  layer's escape path with NO dismissal (bubble-final defaultPrevented
+ *  stays false), while the same keydown targeting the search input
+ *  dismisses cleanly. (The OTHER Escape cost, separate and by design: a
+ *  fresh toast is radix's TOPMOST DismissableLayer — react-toast wraps
+ *  every toast in one — and one Escape per layer means the first press
+ *  dismisses the toast, the second dismisses the palette. Stacked-dialog
+ *  grammar, toast-sized.) The palette's keyboard grammar lives in the
+ *  input — type to search, Escape to close — so every row mutation parks
+ *  focus back where that grammar lives (after React's commit: the
+ *  setTimeout lands the focus call once the row is actually gone). */
+function parkFocusOnPaletteInput() {
+  window.setTimeout(() => {
+    (document.querySelector("[cmdk-input]") as HTMLElement | null)?.focus();
+  }, 0);
+}
+
+/** t781 — the promise strip's probe: a null-rendered child INSIDE the
+ *  Command tree that subscribes to cmdk's own store (useCommandState is
+ *  the store's honest ear — it fires on every selected-value change,
+ *  controlled or not, because it reads the store not the props). The
+ *  parent reads the strip's data from the DOM on each reported change:
+ *  the promise lives WITH the row (data-preview-* attrs written beside
+ *  the row's own JSX), the footer merely recites it. One signal, one
+ *  reader, zero coupling with cmdk's selection semantics — no controlled
+ *  mode, no props forwarding, no chicken-and-egg on the open-time
+ *  initial selection. */
+function PalettePreviewProbe({ onSelectedValueChange }: { onSelectedValueChange: (value: string | undefined) => void }) {
+  const selectedValue = useCommandState((s) => s.value);
+  React.useEffect(() => {
+    onSelectedValueChange(selectedValue);
+  }, [selectedValue, onSelectedValueChange]);
+  return null;
+}
+
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
+  // t668 — the Saved views group is the palette's first FETCHED group: the
+  // camera bookmarks live server-side (BookmarkSession), so the list rides
+  // /api/views/gallery — the SAME route the dashboard's Saved views wall
+  // reads (one environment one truth). Module-level cache with a short TTL:
+  // the palette opens often, the route serves ≤8 jobs with inline thumbs,
+  // and ABSENCE is cached by the same clock — a dead wall answers once, a
+  // fresh save shows up within half a minute (the t663 cache doctrine,
+  // tuned for a list instead of a tile).
+  const [savedViews, setSavedViews] = React.useState<SavedViewsState>(savedViewsCache);
+  // t714 — the user face of the preset family joins the palette: the
+  // inspector's "Wear preset" rows and this group are the two ends of one
+  // vocabulary (the t713 doctrine), so a snapshot the user saved can now
+  // START a job, not just dress an existing one. localStorage reads are
+  // sync and cheap — no TTL cache (the saved-views cache exists because
+  // its list rides a wire; this one rides the user's own browser), re-read
+  // on every open and on the module's own changed event (multi-window or
+  // a future third mouth keeps the group honest the same way the
+  // inspector's row does).
+  const [userPresets, setUserPresets] = React.useState<UserParamPreset[]>([]);
+  React.useEffect(() => {
+    if (!open) return;
+    setUserPresets(loadUserParamPresets());
+    // t715 — the shelf may have grown on another browser since this one
+    // last looked; the reconcile announces through the changed event and
+    // the listener below re-reads. Fire-and-forget: the palette paints
+    // from the local list immediately, the sync lands whenever it lands.
+    void reconcileUserParamPresets();
+  }, [open]);
+  React.useEffect(() => {
+    const onPresetsChanged = () => setUserPresets(loadUserParamPresets());
+    window.addEventListener(USER_PARAM_PRESETS_EVENT, onPresetsChanged);
+    return () => window.removeEventListener(USER_PARAM_PRESETS_EVENT, onPresetsChanged);
+  }, []);
+  React.useEffect(() => {
+    if (!open) return;
+    const hit = savedViewsCache;
+    if (hit.kind === "ready" && Date.now() - hit.fetchedAt < SAVED_VIEWS_TTL_MS) {
+      setSavedViews(hit);
+      return;
+    }
+    if (hit.kind === "absent" && Date.now() - hit.fetchedAt < SAVED_VIEWS_TTL_MS) {
+      setSavedViews(hit);
+      return;
+    }
+    setSavedViews({ kind: "loading" });
+    let alive = true;
+    void fetchSavedViews()
+      .then((views) => {
+        const next: SavedViewsState =
+          views.length > 0
+            ? { kind: "ready", views, fetchedAt: Date.now() }
+            : { kind: "absent", fetchedAt: Date.now() };
+        savedViewsCache = next;
+        if (alive) setSavedViews(next);
+      })
+      .catch(() => {
+        savedViewsCache = { kind: "absent", fetchedAt: Date.now() };
+        if (alive) setSavedViews(savedViewsCache);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+  // t671 — the third mouth's broadcast lands here: the palette listens
+  // even while closed (the listener lives on the always-mounted component,
+  // not the dialog) and re-reads the route into the module cache, so the
+  // TTL window never haunts a view the viewer just saved, updated, or
+  // deleted. Palette-open mutations ride the SAME listener (the delete X
+  // already shrinks in place; the embed cannot mutate while the palette
+  // is open — modal) — one wire shape for every mouth.
+  React.useEffect(() => {
+    const onSavedViewsChanged = () => refreshSavedViewsCache();
+    window.addEventListener(SAVED_VIEWS_CHANGED_EVENT, onSavedViewsChanged);
+    return () => window.removeEventListener(SAVED_VIEWS_CHANGED_EVENT, onSavedViewsChanged);
+  }, []);
+  // t572 — the cascade's disarm flip: the group entrance plays on OPEN,
+  // then ~520ms later (after the last rung lands: 210ms delay + 240ms
+  // duration) the settled class disarms the animation — because hiding a
+  // group while filtering sets display:none, and un-hiding it later would
+  // REPLAY the entrance (CSS animations restart on display toggles). The
+  // flip resets on close, so every fresh open gets its cascade again:
+  // first paint plays, filtering stays silent.
+  const [cascadeSettled, setCascadeSettled] = React.useState(false);
+  React.useEffect(() => {
+    if (!open) {
+      setCascadeSettled(false);
+      return;
+    }
+    const t = setTimeout(() => setCascadeSettled(true), 520);
+    return () => clearTimeout(t);
+  }, [open]);
   // Task 179: the replay-script dialog is a palette-owned export surface —
   // selecting the row closes the palette first, then opens the dialog (the
   // exportJson/native-picker pattern: one modal at a time, no nesting).
   const [pipelineOpen, setPipelineOpen] = React.useState(false);
   const { resolvedTheme, setTheme } = useTheme();
 
+  // t781 — the promise strip: what Enter WILL do, recited under the list.
+  // The probe reports cmdk's selected value; this effect reads the
+  // highlighted row's own data-preview-* attributes (the promise is
+  // written beside the row that can act on it — one writer, one reciter)
+  // plus its inline thumbnail if the row carries one (saved views, the
+  // t663 gallery family — any <img> the row already fetched, no second
+  // fetch). An honest empty: no highlighted row (filtered to nothing,
+  // CommandEmpty's moment) → the strip shows the keys hint instead —
+  // the strip NEVER lies by promising a row that isn't there.
+  const [preview, setPreview] = React.useState<{ label: string; hint: string; thumb: string | null } | null>(null);
+  const handleSelectedValueChange = React.useCallback(() => {
+    // the probe fires per selected-value change; the read happens here so
+    // the probe stays a pure signal (no DOM knowledge up in cmdk's tree)
+    const row = document.querySelector("[cmdk-item][aria-selected='true']");
+    if (!row) {
+      setPreview(null);
+      return;
+    }
+    const label = row.getAttribute("data-preview-label");
+    const hint = row.getAttribute("data-preview-hint");
+    if (label == null && hint == null) {
+      setPreview(null);
+      return;
+    }
+    const thumb = row.querySelector("img[src^='data:']");
+    setPreview({
+      label: label ?? "",
+      hint: hint ?? "",
+      thumb: thumb instanceof HTMLImageElement ? thumb.getAttribute("src") : null,
+    });
+  }, []);
+  const onSelectedValueChange = React.useCallback(() => {
+    // a microtask defers the DOM read past cmdk's own render commit (the
+    // store updates BEFORE the aria-selected attributes land)
+    setTimeout(handleSelectedValueChange, 0);
+  }, [handleSelectedValueChange]);
+
   const jobs = useWorkflowStore((s) => s.jobs);
   const edges = useWorkflowStore((s) => s.edges);
+  // t684 — the session's viewing trail, re-joined against the live jobs
+  // array AT READ TIME (the convergence point that keeps a stale trail
+  // honest): a deleted job's id may linger in the trail, but it renders
+  // nowhere — every reader joins, no writer promises the world.
+  const recentJobIds = useWorkflowStore((s) => s.recentJobIds);
+  const recentRows = React.useMemo(() => {
+    const byId = new Map(jobs.map((j) => [j.id, j]));
+    return recentJobIds
+      .map((id) => byId.get(id))
+      .filter((j): j is NonNullable<typeof j> => j != null);
+  }, [jobs, recentJobIds]);
   const view = useWorkflowStore((s) => s.view);
   const setView = useWorkflowStore((s) => s.setView);
   const workspaces = useWorkflowStore((s) => s.workspaces);
@@ -197,6 +501,79 @@ export function CommandPalette() {
   const CLASS_NOTE_CAP = 12;
   const notedClassRows = notedClasses.slice(0, CLASS_NOTE_CAP);
 
+  // Frame galleries group (t659) — the frame WALLS become palette
+  // citizens: one row per gallery-capable job, the jump lands INSIDE the
+  // lightbox (the Task 81 handshake's second heir rides in the store).
+  // Capability = the same contract the inspector mounts the gallery by:
+  // import jobs (micrographs node type — a particles import speaks a
+  // STAR, not frames) and MotionCorr jobs, both completed — an idle or
+  // running job has no wall yet, a promise the entry must not make.
+  // Whether the workdir's frames physically exist is a WORLD question
+  // the palette does not prefetch: the consumer clears the request
+  // honestly when the wall turns out empty (the jump still lands on the
+  // job — the arrival is real, only the lightbox is absent).
+  const galleryJobs = jobs
+    .filter(wsScope)
+    .filter((j) => {
+      if (j.status !== "completed") return false;
+      if (/^motioncorr$/i.test(j.type)) return true;
+      return /^import$/i.test(j.type) && String(j.params?.nodeType ?? "micrographs") !== "particles";
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const GALLERY_CAP = 12;
+  const galleryRows = galleryJobs.slice(0, GALLERY_CAP);
+
+  // Class averages group (t660) — the OTHER image surface: completed
+  // classifications speak class tiles through the inspector's overview
+  // teaser (class2d slices of the combined stack; class3d/initialmodel
+  // per-class volumes — the exact mount gate the teaser itself uses, so
+  // a row never promises a face the inspector would not mount). The
+  // arrival is the overview tab: no lightbox, the teaser's grid IS the
+  // browse surface. Whether the workdir's stacks physically exist is a
+  // world question the palette does not prefetch — the teaser's own
+  // self-hide contract answers absence honestly at arrival.
+  const classAveragesJobs = jobs
+    .filter(wsScope)
+    .filter((j) => /^(class2d|class3d|initialmodel)$/i.test(j.type) && j.status === "completed")
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const CLASS_AVERAGES_CAP = 12;
+  const classAveragesRows = classAveragesJobs.slice(0, CLASS_AVERAGES_CAP);
+
+  // Denoise compare group (t665) — the third image-surface family: a
+  // completed Topaz denoise run speaks its before/after wall (every
+  // denoised micrograph paired with its original under the provider job's
+  // workdir — the exact fetch the gallery itself rides). Capability = the
+  // gallery's own mount gate (topazdenoise + completed — a running run's
+  // index is still growing, an idle one has no wall yet). The arrival is
+  // the t659 two-gate shape: the inspector clears the way to the results
+  // tab, the WALL consumes (scroll + flash) — a link that promises a
+  // before/after comparison must put the comparison in view.
+  const denoiseJobs = jobs
+    .filter(wsScope)
+    .filter((j) => /^topazdenoise$/i.test(j.type) && j.status === "completed")
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const DENOISE_CAP = 12;
+  const denoiseRows = denoiseJobs.slice(0, DENOISE_CAP);
+
+  // Saved views group (t668) — the FOURTH gallery family, and the first one
+  // the palette does not derive from the store: saved 3D camera views live
+  // in the BookmarkSession table, and the aggregate that spans projects is
+  // the SAME /api/views/gallery the dashboard wall reads. One row per
+  // bookmark (the jump surface mirrors the wall's flat cards, capped);
+  // NO status gate here beyond what the route already serves — the
+  // dashboard wall shows exactly these rows, and the jump's arrival is
+  // the embed's own honest toast when a view turns out unreadable.
+  const savedViewRows =
+    savedViews.kind === "ready"
+      ? savedViews.views
+          .flatMap((v) => v.bookmarks.map((b) => ({ v, b })))
+          .slice(0, SAVED_VIEWS_CAP)
+      : [];
+  const savedViewTotal =
+    savedViews.kind === "ready"
+      ? savedViews.views.reduce((n, v) => n + v.bookmarks.length, 0)
+      : 0;
+
   // Ctrl+K / ⌘K from anywhere + the header chip's custom event.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -239,6 +616,226 @@ export function CommandPalette() {
     close();
   };
 
+  /** t659 — the Frame galleries deep link: land ON the wall. openJob
+   *  carries the view switch + the completed→inspect contract; the
+   *  one-shot pendingGalleryFocus handshake rides in the store — the
+   *  inspector host switches to the overview tab, the gallery opens the
+   *  lightbox at the first frame and consumes the request. Compare mode
+   *  deliberately has NO deep link: a tray with zero picks is the t654
+   *  lie — the wall is the honest direct destination. */
+  const jumpToGallery = (jobId: string) => {
+    const s = useWorkflowStore.getState();
+    void s.openJob(jobId);
+    s.requestGalleryFocus(jobId);
+    close();
+  };
+
+  /** t660 — the Class averages deep link: land on the classification's
+   *  overview tab, where the teaser tiles the classes. No lightbox — the
+   *  grid IS the browse surface — so the handshake has ONE consumer (the
+   *  inspector host) and no TTL dance (Task 81's sync shape). */
+  const jumpToClassAverages = (jobId: string) => {
+    const s = useWorkflowStore.getState();
+    void s.openJob(jobId);
+    s.requestClassAveragesFocus(jobId);
+    close();
+  };
+
+  /** Denoise-compare deep link (t665): land on the results tab and let the
+   *  wall itself finish the arrival (scroll into view + flash) — the two-
+   *  gate handshake the frame galleries use, tuned for a wall that lives
+   *  below the fold rather than a lightbox. */
+  const jumpToDenoise = (jobId: string) => {
+    const s = useWorkflowStore.getState();
+    void s.openJob(jobId);
+    s.requestDenoiseFocus(jobId);
+    close();
+  };
+
+  /** Saved-views deep link (t668): the dashboard wall's own recipe, VERBATIM
+   *  — the one-shot PENDING_VIEW_KEY handshake in sessionStorage (the 3D
+   *  embed consumes it once its bookmark list has loaded and flies to the
+   *  view; a view deleted in the meantime gets the embed's honest "not
+   *  found" toast instead of a silent no-op), then openJob with the
+   *  CROSS-PROJECT hint (the gallery spans projects; a row's home project
+   *  may not be the active one — the id will not resolve until the switch
+   *  lands). No store relay needed: the embed already speaks this door. */
+  const jumpToSavedView = (v: SavedViewEntry, b: SavedViewBookmark) => {
+    try {
+      sessionStorage.setItem(
+        PENDING_VIEW_KEY,
+        JSON.stringify({ jobId: v.jobId, bookmarkId: b.id })
+      );
+    } catch {
+      /* private mode — the jump still lands on the job */
+    }
+    void useWorkflowStore.getState().openJob(v.jobId, { projectId: v.projectId });
+    close();
+  };
+
+  // t670 — the palette row gets the wall's delete face (t669), palette-sized.
+  // The contract is the wall's VERBATIM, two palette-owning differences:
+  //  • the mutation stays on the per-job camera-bookmarks route — the row
+  //    READS FRESH AT CLICK TIME and PUTs the remaining list, never its own
+  //    possibly stale TTL cache copy (a view saved in the viewer since this
+  //    fetch must survive the delete);
+  //  • the palette's OWN clock shrinks with the server's: the module-level
+  //    TTL cache drops the bookmark here, so a reopen inside the 30s window
+  //    shows the post-delete truth at zero wire cost — the deleted row does
+  //    not haunt the list until the TTL expires (the t669 "double clock"
+  //    anchor, now owning both halves). The wall's single-flight key
+  //    (two rapid deletes would race their read-filter-write cycles),
+  //    the honest toasts, and the keep-the-row-on-failure ending all ride
+  //    along unchanged.
+  const [deletingView, setDeletingView] = React.useState<string | null>(null);
+  // t674 — the palette row gets the wall's rename face (t674 wall edition),
+  // palette-sized. Same contract, same single gate: the row's X and pencil
+  // BOTH wait while any mutation is in flight (a rename and a delete
+  // racing their read-modify-write cycles would lose one write), and the
+  // row's own TTL cache updates IN PLACE on success — a reopen inside the
+  // 30s window shows the new name at zero wire cost (the t670 double-clock
+  // law, rename edition). The slot becomes a trio: Mountain (idle) fades
+  // on hover, pencil and X sit side by side beneath it — one slot wider
+  // than the delete-only era, still zero layout shift on the hover swap.
+  const [renamingView, setRenamingView] = React.useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = React.useState("");
+  const renameCancelRef = React.useRef(false);
+  const deleteSavedView = async (v: SavedViewEntry, b: SavedViewBookmark) => {
+    const rowKey = `${v.jobId}:${b.id}`;
+    if (deletingView) return; // one in-flight delete at a time — the second X waits
+    setDeletingView(rowKey);
+    try {
+      const r = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`);
+      if (!r.ok) throw new Error(`read ${r.status}`);
+      const j = (await r.json()) as { bookmarks?: Array<{ id: string }> };
+      const rest = (j.bookmarks ?? []).filter((x) => x && x.id !== b.id);
+      const w = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookmarks: rest }),
+      });
+      if (!w.ok) throw new Error(`write ${w.status}`);
+      const shrink = (prev: SavedViewsState): SavedViewsState => {
+        if (prev.kind !== "ready") return prev;
+        const views = prev.views
+          .map((row) =>
+            row.jobId === v.jobId
+              ? { ...row, bookmarks: row.bookmarks.filter((x) => x.id !== b.id) }
+              : row
+          )
+          .filter((row) => row.bookmarks.length > 0);
+        return views.length > 0
+          ? { ...prev, views }
+          : { kind: "absent", fetchedAt: prev.fetchedAt };
+      };
+      savedViewsCache = shrink(savedViewsCache);
+      setSavedViews(savedViewsCache);
+      // the OTHER mouth hears it too: the dashboard wall re-reads the route
+      // (payload-less broadcast — the wall trusts only its own fresh fetch)
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+      toast({
+        title: `View “${b.name}” deleted`,
+        description: `Removed from ${v.jobName}'s saved views.`,
+      });
+    } catch {
+      toast({
+        title: "Could not delete the view",
+        description:
+          "The server did not confirm the removal — the row stays on the palette.",
+      });
+    } finally {
+      setDeletingView(null);
+      parkFocusOnPaletteInput();
+    }
+  };
+
+  /** t674 — rename from the palette. The wall's rename contract (same
+   *  window) with two palette-owning differences, both inherited from the
+   *  delete's t670 edition:
+   *   • the row READS FRESH AT COMMIT TIME and PUTs the renamed list —
+   *     never its own possibly stale TTL cache copy;
+   *   • the palette's OWN clock renames with the server's: the module
+   *     cache maps the new name in place, so a reopen inside the 30s
+   *     window shows the truth at zero wire cost.
+   *  Three honest exits ride along (renamed / dupe-warning-still-commits /
+   *  could-not-rename), plus two silent ones (empty draft, untouched
+   *  draft) — an edit that never happened is not a fact worth announcing.
+   *  The keyboard laws live on the input itself: every keydown stops
+   *  propagation (cmdk's Command root would otherwise turn Enter into
+   *  the jump gesture and the search field never sees a stranger's
+   *  keystrokes), Enter blurs into the commit, Escape raises the cancel
+   *  flag first — the embed's rename grammar, row-sized. */
+  const renameSavedView = async (v: SavedViewEntry, b: SavedViewBookmark, draft: string) => {
+    const nm = draft.trim().slice(0, 40);
+    if (!nm || nm === b.name) {
+      parkFocusOnPaletteInput(); // the draft was nothing — still unmount the editor's focus
+      return; // empty or untouched — silent
+    }
+    try {
+      const r = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`);
+      if (!r.ok) throw new Error(`read ${r.status}`);
+      const j = (await r.json()) as { bookmarks?: Array<{ id: string; name?: string }> };
+      const list = j.bookmarks ?? [];
+      const dupe = list.some(
+        (x) => x && x.id !== b.id && (x.name ?? "").trim().toLowerCase() === nm.toLowerCase()
+      );
+      const w = await fetch(`/api/jobs/${v.jobId}/camera-bookmarks`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookmarks: list.map((x) => (x && x.id === b.id ? { ...x, name: nm } : x)),
+        }),
+      });
+      if (!w.ok) throw new Error(`write ${w.status}`);
+      const renamer = (prev: SavedViewsState): SavedViewsState => {
+        if (prev.kind !== "ready") return prev;
+        return {
+          ...prev,
+          views: prev.views.map((row) =>
+            row.jobId === v.jobId
+              ? {
+                  ...row,
+                  bookmarks: row.bookmarks.map((x) =>
+                    x.id === b.id ? { ...x, name: nm } : x
+                  ),
+                }
+              : row
+          ),
+        };
+      };
+      savedViewsCache = renamer(savedViewsCache);
+      setSavedViews(savedViewsCache);
+      // the OTHER mouths hear it too: a payload-less broadcast, every
+      // aggregate face re-reads the route (the t670/t671 symmetry)
+      window.dispatchEvent(new CustomEvent(SAVED_VIEWS_CHANGED_EVENT));
+      if (dupe)
+        toast({
+          title: `A view named “${nm}” already exists`,
+          description: "Renamed anyway — consider a distinct name so the menu stays tell-apart.",
+          className:
+            "border-warning/40 bg-warning-50/95 text-warning-900 dark:border-warning/30 dark:bg-warning-950/80 dark:text-warning-100",
+        });
+      else
+        toast({
+          title: "View renamed",
+          description: `“${b.name}” is now “${nm}” on ${v.jobName}.`,
+        });
+    } catch {
+      toast({
+        title: "Could not rename the view",
+        description:
+          "The server did not confirm the new name — the row keeps its old name.",
+      });
+    } finally {
+      // the rename input unmounted at commit — its focus is parked on the
+      // shell (see parkFocusOnPaletteInput); hand it back to the grammar
+      parkFocusOnPaletteInput();
+    }
+  };
+
+  // one gate for every mutation mouth on the row (see the rename state's comment)
+  const busyView = deletingView !== null || renamingView !== null;
+
   const runJob = (id: string) => {
     void useWorkflowStore.getState().runJob(id);
     close();
@@ -253,6 +850,17 @@ export function CommandPalette() {
    *  The new card lands selected, so the inspector shows exactly which
    *  knobs the preset moved off their defaults. */
   const addPreset = (p: (typeof JOB_PRESETS)[number]) => {
+    void useWorkflowStore.getState().addJob(p.type, p.params);
+    close();
+  };
+
+  /** t714 — the user-preset twin of addPreset: same one-shot contract
+   *  (place the type AND wear the params), same write well (store.addJob,
+   *  never a second param path), but the params are the user's own FULL
+   *  spec-key snapshot instead of the curated starting table. The store's
+   *  add path merges params the same way for both — one dialect, two
+   *  mouths, zero new semantics. */
+  const addUserPreset = (p: UserParamPreset) => {
     void useWorkflowStore.getState().addJob(p.type, p.params);
     close();
   };
@@ -305,6 +913,13 @@ export function CommandPalette() {
     // same dance: the palette must yield focus before the dialog opens
     close();
     useWorkflowStore.getState().setShortcutsOpen(true);
+  };
+
+  // t482 — the full help guide joins the palette (t245's law: every
+  // header door is indexed; the guide is the "?" door's manual)
+  const openHelpGuide = () => {
+    close();
+    useWorkflowStore.getState().setHelpGuideOpen(true);
   };
 
   // ---- Export chart data (Task 110) + Copy chart data (Task 113) --------
@@ -479,13 +1094,90 @@ export function CommandPalette() {
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
+      // t674 — while a row is being renamed, Escape belongs to the EDIT
+      // (cancel the draft), not to the dialog. Radix listens for Escape on
+      // the document's CAPTURE phase (use-escape-keydown) — before any
+      // bubble-phase handler, so the rename input's stopPropagation can
+      // never reach it — but the layer honors defaultPrevented: the
+      // official extension point is onEscapeKeyDown. An editing row eats
+      // the first Escape (the input cancels the draft); a second Escape —
+      // the input gone, the flag cleared — closes the dialog normally.
+      onEscapeKeyDown={(e) => {
+        if (renamingView) e.preventDefault();
+      }}
       title="Command palette"
       description="Search jobs, job types and canvas actions"
-      className="sm:max-w-lg"
+      className={cn(
+        "sm:max-w-lg",
+        // t572 — the cascade rides this class; settled disarms the
+        // entrance so filter re-displays stay silent (see the state above)
+        "palette-motion",
+        cascadeSettled && "palette-motion-settled"
+      )}
     >
       <CommandInput placeholder="Jump to a job, add a type, run an action…" />
       <CommandList className="max-h-[60vh]">
         <CommandEmpty>No results — try a job name or a type like “refine”.</CommandEmpty>
+
+        {/* ---------------- recent jobs (t684) ---------------- */}
+        {recentRows.length > 0 && (
+          <>
+            <CommandGroup
+              heading={
+                <span className="flex items-center gap-1.5">
+                  <Clock3 className="size-3" aria-hidden="true" />
+                  <span>Recent jobs</span>
+                  <button
+                    type="button"
+                    data-palette-recent-clear
+                    aria-label="Clear recent jobs"
+                    title="Clear recent jobs"
+                    onClick={(e) => {
+                      // the clear's click never speaks the jump's gesture
+                      // (the t670 law, one layer up: the heading hosts no
+                      // cmdk item, so there is nothing to bubble into —
+                      // the stop is habit, honesty is the placement)
+                      e.stopPropagation();
+                      useWorkflowStore.getState().clearRecentJobs();
+                    }}
+                    className="ml-1 rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <X className="size-3" aria-hidden="true" />
+                  </button>
+                </span>
+              }
+            >
+              {recentRows.map((j) => {
+                const spec = jobType(j.type);
+                return (
+                  <CommandItem
+                    key={j.id}
+                    value={`recent job ${j.name} ${j.type} ${spec?.label ?? ""} ${j.status}`}
+                    data-palette-recent-row={j.id}
+                    data-preview-label={j.name}
+                    data-preview-hint="jump to this job and open its inspector"
+                    onSelect={() => jumpToJob(j.id)}
+                    className="gap-2.5"
+                  >
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-4 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm">{j.name}</span>
+                    <Badge
+                      variant="outline"
+                      className="ml-auto h-5 shrink-0 rounded-full px-1.5 text-[9px] font-medium capitalize"
+                    >
+                      {j.status}
+                    </Badge>
+                    <CommandShortcut>↵</CommandShortcut>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
 
         {/* ---------------- jobs ---------------- */}
         <CommandGroup heading="Jobs">
@@ -495,6 +1187,8 @@ export function CommandPalette() {
               <CommandItem
                 key={j.id}
                 value={`job ${j.name} ${j.type} ${spec?.label ?? ""} ${j.status}`}
+                data-preview-label={j.name}
+                data-preview-hint="jump to this job and open its inspector"
                 onSelect={() => jumpToJob(j.id)}
                 className="gap-2.5"
               >
@@ -550,6 +1244,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`note-${j.id}`}
                     value={`note ${j.name} ${j.type} ${j.note ?? ""} ${fusedClassTexts}`}
+                    data-preview-label={j.name}
+                    data-preview-hint="jump to the note's job and open its inspector"
                     onSelect={() => jumpToJob(j.id)}
                     className="gap-2.5"
                   >
@@ -597,6 +1293,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`class-note-${job.id}-${cls}`}
                     value={`class note class ${cls} ${job.name} ${job.type} ${text}`}
+                    data-preview-label={`Class ${cls} — ${job.name}`}
+                    data-preview-hint="open the host job's class gallery on this class"
                     onSelect={() => jumpToClassNote(job.id, cls)}
                     className="gap-2.5"
                   >
@@ -624,6 +1322,263 @@ export function CommandPalette() {
           </>
         )}
 
+        {/* ---------------- frame galleries (t659 deep link) ---------------- */}
+        {galleryRows.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Frame galleries · ${galleryJobs.length} wall${galleryJobs.length === 1 ? "" : "s"}${galleryJobs.length > galleryRows.length ? ` — first ${galleryRows.length}` : ""}`}
+            >
+              {galleryRows.map((j) => {
+                const spec = jobType(j.type);
+                return (
+                  <CommandItem
+                    key={`gallery-${j.id}`}
+                    value={`frame gallery micrographs wall ${j.name} ${j.type}`}
+                    data-preview-label={`Frame gallery — ${j.name}`}
+                    data-preview-hint="land on this job's micrographs wall"
+                    onSelect={() => jumpToGallery(j.id)}
+                    className="gap-2.5"
+                  >
+                    <Aperture className="size-4 shrink-0 text-running-600 dark:text-running-400" />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      Frame gallery — <span className="font-medium">{j.name}</span>
+                    </span>
+                    {/* t663 — the first frame's tile, fetched when the row is
+                        active (hover or arrows) and cached module-level; the
+                        honest ladder keeps wall-less rows icon-only */}
+                    <PaletteGalleryThumb kind="frames" jobId={j.id} label={`First frame of ${j.name}'s wall`} />
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* ---------------- class averages (t660 deep link) ---------------- */}
+        {classAveragesRows.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Class averages · ${classAveragesJobs.length} classification${classAveragesJobs.length === 1 ? "" : "s"}${classAveragesJobs.length > classAveragesRows.length ? ` — first ${classAveragesRows.length}` : ""}`}
+            >
+              {classAveragesRows.map((j) => {
+                const spec = jobType(j.type);
+                return (
+                  <CommandItem
+                    key={`class-avg-${j.id}`}
+                    value={`class averages tiles classification ${j.name} ${j.type}`}
+                    data-preview-label={`Class averages — ${j.name}`}
+                    data-preview-hint="land on the classification's class overview"
+                    onSelect={() => jumpToClassAverages(j.id)}
+                    className="gap-2.5"
+                  >
+                    <Layers className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      Class averages — <span className="font-medium">{j.name}</span>
+                    </span>
+                    {/* t663 — the first class tile, same lane rule the teaser
+                        obeys (volumes win, the combined stack covers 2D) */}
+                    <PaletteGalleryThumb kind="classes" jobId={j.id} label={`First class of ${j.name}`} />
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* ---------------- denoise compare (t665) ---------------- */}
+        {denoiseRows.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Denoise compare · ${denoiseJobs.length} run${denoiseJobs.length === 1 ? "" : "s"}${denoiseJobs.length > denoiseRows.length ? ` — first ${denoiseRows.length}` : ""}`}
+            >
+              {denoiseRows.map((j) => {
+                const spec = jobType(j.type);
+                return (
+                  <CommandItem
+                    key={`denoise-cmp-${j.id}`}
+                    value={`denoise compare before after pairs topaz ${j.name} ${j.type}`}
+                    data-preview-label={`Denoise compare — ${j.name}`}
+                    data-preview-hint="land on the before/after wall"
+                    onSelect={() => jumpToDenoise(j.id)}
+                    className="gap-2.5"
+                  >
+                    {/* t666 — the first pair's tile, the wall's own gate
+                        (fully-paired row) and its own base layer (the
+                        denoised leg) — the t663 family's third kind */}
+                    <PaletteGalleryThumb kind="denoise" jobId={j.id} label={`First pair of ${j.name}'s wall`} />
+                    <Wand2 className="size-4 shrink-0 text-fuchsia-600 dark:text-fuchsia-400" />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      Denoise compare — <span className="font-medium">{j.name}</span>
+                    </span>
+                    <TypeIcon
+                      name={spec?.icon ?? "boxes"}
+                      className={`size-3.5 shrink-0 ${spec?.color.text ?? "text-muted-foreground"}`}
+                    />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* ---------------- saved 3D views (t668) ---------------- */}
+        {savedViewRows.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup
+              heading={`Saved views · ${savedViewTotal} bookmark${savedViewTotal === 1 ? "" : "s"}${savedViewTotal > savedViewRows.length ? ` — first ${savedViewRows.length}` : ""}`}
+            >
+              {savedViewRows.map(({ v, b }) => {
+                // t674 — the row is now THREE mouths: jump (the row body),
+                // delete (X), rename (pencil) — the wall's trio, palette-sized.
+                const rowKey = `${v.jobId}:${b.id}`;
+                const isRenaming = renamingView === rowKey;
+                return (
+                <CommandItem
+                  key={`saved-view-${v.jobId}:${b.id}`}
+                  value={`saved view 3d bookmark ${b.name} ${v.jobName} ${v.jobType}`}
+                  onSelect={() => jumpToSavedView(v, b)}
+                  data-palette-savedview-row={b.id}
+                  data-preview-label={b.name}
+                  data-preview-hint={`restore this camera view in ${v.jobName}'s viewer`}
+                  className="group/item relative gap-2.5"
+                >
+                  {/* the thumb the save captured — inline data URL, zero
+                      extra fetches (the dashboard card's picture, row-);
+                      a thumb-less bookmark keeps the wall's own fallback */}
+                  {b.thumb ? (
+                    <img
+                      src={b.thumb}
+                      alt=""
+                      data-palette-savedview-thumb=""
+                      className="size-10 shrink-0 rounded-md border border-border/60 object-cover"
+                    />
+                  ) : (
+                    <Mountain className="size-4 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+                  )}
+                  {/* while a row is being renamed, the name becomes the
+                      input — the "Saved view —" prefix dissolves with it
+                      (you are editing the name itself, not a labelled
+                      field). Every keydown stops propagation: cmdk's
+                      Command root would otherwise read Enter as the jump
+                      gesture and the arrows as list navigation, and the
+                      dialog's Escape-close rides document-level listeners
+                      the input must not feed. */}
+                  {isRenaming ? (
+                    <input
+                      data-palette-savedview-rename-input={b.id}
+                      value={renameDraft}
+                      maxLength={40}
+                      autoFocus
+                      onFocus={(e) => e.currentTarget.select()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          renameCancelRef.current = true;
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onBlur={() => {
+                        if (renamingView !== rowKey) return;
+                        const d = renameDraft;
+                        setRenamingView(null);
+                        if (renameCancelRef.current) {
+                          renameCancelRef.current = false;
+                          return;
+                        }
+                        void renameSavedView(v, b, d);
+                      }}
+                      aria-label={`Rename saved view “${b.name}”`}
+                      className="h-6 min-w-0 flex-1 rounded-md border bg-background px-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    />
+                  ) : (
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      Saved view — <span className="font-medium">{b.name}</span>
+                    </span>
+                  )}
+                  <span className="max-w-32 shrink-0 truncate text-[11px] text-muted-foreground/70">
+                    {v.jobName}
+                  </span>
+                  {/* t670 — the slot-swap grammar, grown into a TRIO (t674):
+                      the Mountain tail (the jump mouth's affordance) fades
+                      on hover and the pencil + X pair sits beneath it —
+                      the slot is one size wider than the delete-only era,
+                      still zero layout shift on the hover swap. The X
+                      keeps its t670 anchor name; the pencil takes the
+                      wall's floating-chip tones (primary, not destructive
+                      — rename builds, delete tears down). stopPropagation
+                      keeps cmdk's own onSelect (the jump) out of both
+                      mutation clicks; Tab still reaches visible controls
+                      (focus-visible + group-focus-within), and
+                      motion-reduce keeps the swap from animating. */}
+                  <span className="relative flex h-5 w-10 shrink-0 items-center justify-center">
+                    <Mountain
+                      className="absolute inset-0 m-auto size-3.5 text-teal-600/70 transition-opacity group-hover/item:opacity-0 group-focus-within/item:opacity-0 motion-reduce:transition-none"
+                      aria-hidden="true"
+                    />
+                    <button
+                      type="button"
+                      data-palette-savedview-rename={b.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setRenamingView(rowKey);
+                        setRenameDraft(b.name);
+                      }}
+                      disabled={busyView}
+                      aria-label={`Rename saved view “${b.name}”`}
+                      title={`Rename “${b.name}” — gives this bookmark a new name (Enter saves, Esc cancels)`}
+                      className="absolute left-0 top-0 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity motion-reduce:transition-none hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 group-hover/item:opacity-100 group-focus-within/item:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Pencil className="size-3" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      data-palette-savedview-delete={b.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        void deleteSavedView(v, b);
+                      }}
+                      disabled={busyView}
+                      aria-label={`Delete saved view “${b.name}”`}
+                      title={`Delete “${b.name}” — removes this bookmark from ${v.jobName}'s saved views`}
+                      className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity motion-reduce:transition-none hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 group-hover/item:opacity-100 group-focus-within/item:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {deletingView === rowKey ? (
+                        <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <X className="size-3" aria-hidden="true" />
+                      )}
+                    </button>
+                  </span>
+                </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
+
         {/* ---------------- run (idle jobs) ---------------- */}
         {jobs.some((j) => j.status === "idle") && (
           <>
@@ -635,6 +1590,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`run-${j.id}`}
                     value={`run ${j.name} ${j.type}`}
+                    data-preview-label={j.name}
+                    data-preview-hint="queue this idle job to run"
                     onSelect={() => runJob(j.id)}
                     className="gap-2.5"
                   >
@@ -652,20 +1609,51 @@ export function CommandPalette() {
 
         {/* ---------------- add job types ---------------- */}
         <CommandGroup heading="Add job type">
-          {JOB_TYPES.map((t) => (
+          {JOB_TYPES.map((t) => {
+            // t752 — asked once, read twice (dots + ear). JOB_TYPES
+            // members always resolve, so no gate: the ask is direct.
+            const pouring = pourKindsOf(t.key);
+            return (
             <CommandItem
               key={`type-${t.key}`}
               value={`add ${t.key} ${t.label} ${t.category}`}
+              data-preview-label={t.label}
+              data-preview-hint="place one job of this type on the canvas"
               onSelect={() => addType(t.key)}
               className="gap-2.5"
             >
               <TypeIcon name={t.icon} className={`size-4 shrink-0 ${t.color.text}`} />
               <span className="min-w-0 flex-1 truncate text-sm">{t.label}</span>
+              {/* t752 — the keyboard menu borrows the water dots: the
+                  command palette is the menu for the keyboard-first user
+                  (the mouse menu's rows spoke at t747), so the promise
+                  rides the catalog rows here too — same dot (size-1.5
+                  whisper, wire hex, per-dot title word), same sr-only
+                  ear line, same one-family discipline (pours only; the
+                  appetite's full sentence stays in the dictionary). The
+                  row's search contract (`value`) is untouched — the
+                  dots are decor and ear, never filter words. */}
+              <span
+                className="flex shrink-0 items-center gap-1"
+                data-testid={`cmd-pours-${t.key}`}
+              >
+                {pouring.map((k) => (
+                  <span
+                    key={k}
+                    aria-hidden="true"
+                    title={`pours ${k}`}
+                    className="inline-block size-1.5 rounded-full"
+                    style={{ background: PORT_COLORS[k].wire }}
+                  />
+                ))}
+                <span className="sr-only">pours {pouring.join(", ")}</span>
+              </span>
               <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
                 {t.category}
               </span>
             </CommandItem>
-          ))}
+            );
+          })}
         </CommandGroup>
 
         {/* ---------------- add with preset ---------------- */}
@@ -673,10 +1661,17 @@ export function CommandPalette() {
         <CommandGroup heading="Add with preset">
           {JOB_PRESETS.map((p) => {
             const t = jobType(p.type);
+            // t753 — asked once, read twice (dots + ear). The gated ask:
+            // a preset's type can be unknown, so the component side of
+            // the undefined law holds here (t751's dialect — t752's
+            // direct ask is a right only JOB_TYPES members earn).
+            const pouring = t ? pourKindsOf(p.type) : [];
             return (
               <CommandItem
                 key={`preset-${p.type}-${p.preset}`}
                 value={`preset add ${p.type} ${t?.label ?? ""} ${p.preset} ${p.note}`}
+                data-preview-label={t?.label ?? p.type}
+                data-preview-hint={`place this type with the ${p.preset} preset's parameters applied`}
                 onSelect={() => addPreset(p)}
                 className="gap-2.5"
               >
@@ -688,6 +1683,31 @@ export function CommandPalette() {
                   {t?.label ?? p.type}
                   <span className="ml-1.5 font-medium">{p.preset}</span>
                 </span>
+                {/* t753 — the keyboard's preset menu borrows the water
+                    dots: these rows name a TYPE too (the curated group's
+                    answer to "add with knobs"), so the t747 promise
+                    rides them — same dot (size-1.5 whisper, wire hex,
+                    per-dot title word), same sr-only ear line, same
+                    one-family discipline. The testid carries the row
+                    key's tail (type + preset) because one type can wear
+                    several presets here. Unknown type stays SILENT. */}
+                {t ? (
+                  <span
+                    className="flex shrink-0 items-center gap-1"
+                    data-testid={`cmd-preset-pours-${p.type}-${p.preset}`}
+                  >
+                    {pouring.map((k) => (
+                      <span
+                        key={k}
+                        aria-hidden="true"
+                        title={`pours ${k}`}
+                        className="inline-block size-1.5 rounded-full"
+                        style={{ background: PORT_COLORS[k].wire }}
+                      />
+                    ))}
+                    <span className="sr-only">pours {pouring.join(", ")}</span>
+                  </span>
+                ) : null}
                 <span className="hidden shrink-0 max-w-40 truncate text-[10px] text-muted-foreground sm:inline">
                   {p.note}
                 </span>
@@ -695,6 +1715,74 @@ export function CommandPalette() {
             );
           })}
         </CommandGroup>
+
+        {/* ---------------- add from your presets (t714) ----------------
+            The user face of the preset family: snapshots the user saved
+            in the inspector can now START a job. Same row dialect as the
+            curated group (type icon, label, medium-weight preset name),
+            but the right slot speaks the user's units — knob count and
+            the save's age — instead of a developer's note. Empty law: no
+            snapshots, no group, no heading orphan. */}
+        {userPresets.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Add from your presets">
+              {recentFirst(userPresets).map((p) => {
+                const t = jobType(p.type);
+                // t753 — the gated ask (the user group's twin: same
+                // unknown-able p.type, same component-side law).
+                const pouring = t ? pourKindsOf(p.type) : [];
+                const knobs = Object.keys(p.params).length;
+                return (
+                  <CommandItem
+                    key={`user-preset-${p.id}`}
+                    value={`preset add your saved ${p.name} ${p.type} ${t?.label ?? ""}`}
+                    data-preview-label={p.name}
+                    data-preview-hint="place this type with your saved parameters applied"
+                    onSelect={() => addUserPreset(p)}
+                    className="gap-2.5"
+                  >
+                    <TypeIcon
+                      name={t?.icon ?? "boxes"}
+                      className={`size-4 shrink-0 ${t?.color.text ?? "text-muted-foreground"}`}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {t?.label ?? p.type}
+                      <span className="ml-1.5 font-medium">{p.name}</span>
+                    </span>
+                    {/* t753 — the user group's water: same dot dialect,
+                        row-unique testid tail (the snapshot's id — ids
+                        are unique, types are not), the same silence for
+                        an unknown type. The knobs·ago right slot keeps
+                        its own contract untouched. */}
+                    {t ? (
+                      <span
+                        className="flex shrink-0 items-center gap-1"
+                        data-testid={`cmd-user-pours-${p.id}`}
+                      >
+                        {pouring.map((k) => (
+                          <span
+                            key={k}
+                            aria-hidden="true"
+                            title={`pours ${k}`}
+                            className="inline-block size-1.5 rounded-full"
+                            style={{ background: PORT_COLORS[k].wire }}
+                          />
+                        ))}
+                        <span className="sr-only">pours {pouring.join(", ")}</span>
+                      </span>
+                    ) : null}
+                    <span className="hidden shrink-0 items-center gap-1 text-[10px] text-muted-foreground sm:inline-flex">
+                      <span>{knobs} {knobs === 1 ? "knob" : "knobs"}</span>
+                      <span aria-hidden>·</span>
+                      <span>{fmtAgo(p.createdAt)}</span>
+                    </span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </>
+        )}
 
         <CommandSeparator />
 
@@ -710,6 +1798,12 @@ export function CommandPalette() {
               <CommandItem
                 key={`proj-${p.id}`}
                 value={`project ${p.name}`}
+                data-preview-label={p.name}
+                data-preview-hint={
+                  p.id === project?.id
+                    ? "already active — Enter just closes the palette"
+                    : "switch the active project"
+                }
                 onSelect={() => {
                   if (p.id === project?.id) {
                     close(); // already there — the door closes quietly
@@ -742,6 +1836,12 @@ export function CommandPalette() {
               <CommandItem
                 key={`ws-${w.id}`}
                 value={`workspace ${w.name}`}
+                data-preview-label={w.name}
+                data-preview-hint={
+                  w.id === activeWorkspaceId
+                    ? "already active — Enter just closes the palette"
+                    : "switch to this workspace's canvas"
+                }
                 onSelect={() => {
                   switchWorkspace(w.id);
                   setView("canvas");
@@ -778,6 +1878,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`chart-export-${t.key}`}
                     value={`export ${t.label} csv chart data ${exportTargetJob.name}`}
+                    data-preview-label={t.label}
+                    data-preview-hint="download this chart's rows as a csv file"
                     onSelect={() => exportChartRows(t, exportTargetJob)}
                     className="gap-2.5"
                   >
@@ -806,6 +1908,8 @@ export function CommandPalette() {
                   <CommandItem
                     key={`chart-copy-${t.key}`}
                     value={`copy ${t.label} tsv clipboard chart data ${exportTargetJob.name}`}
+                    data-preview-label={t.label}
+                    data-preview-hint="copy this chart's rows to the clipboard as tsv"
                     onSelect={() => copyChartRows(t, exportTargetJob)}
                     className="gap-2.5"
                     data-canvas-ui={`palette-chart-copy-${t.key}`}
@@ -828,6 +1932,8 @@ export function CommandPalette() {
         <CommandGroup heading="Engine">
           <CommandItem
             value="re-detect relion environment engine probe refresh discover install scan"
+            data-preview-label="Re-detect RELION environment"
+            data-preview-hint="re-run the environment probe — no restart needed"
             onSelect={redetectEngine}
             className="gap-2.5"
           >
@@ -843,6 +1949,8 @@ export function CommandPalette() {
         <CommandGroup heading="Canvas & app">
           <CommandItem
             value="create standard spa pipeline template prewired workflow scaffold"
+            data-preview-label="Create standard SPA pipeline"
+            data-preview-hint="place ten pre-wired jobs — import through postprocess"
             onSelect={createTemplate}
             className="gap-2.5"
           >
@@ -857,6 +1965,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="create spa pipeline with presets symmetry classes scaffold configure"
+            data-preview-label="Create SPA pipeline with presets…"
+            data-preview-hint="configure symmetry, class counts and refine mode, then place"
             onSelect={openTemplatePresets}
             className="gap-2.5"
           >
@@ -868,21 +1978,23 @@ export function CommandPalette() {
               </span>
             </span>
           </CommandItem>
-          <CommandItem value="zoom to fit workflow view" onSelect={zoomToFit} className="gap-2.5">
+          <CommandItem value="zoom to fit workflow view" data-preview-label="Zoom to fit workflow" data-preview-hint="fit the whole graph in view" onSelect={zoomToFit} className="gap-2.5">
             <Maximize2 className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Zoom to fit workflow</span>
           </CommandItem>
-          <CommandItem value="reset view pan zoom 100" onSelect={resetView} className="gap-2.5">
+          <CommandItem value="reset view pan zoom 100" data-preview-label="Reset view (100%)" data-preview-hint="reset pan and zoom to 100%" onSelect={resetView} className="gap-2.5">
             <RotateCcw className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Reset view (100%)</span>
             <CommandShortcut>0</CommandShortcut>
           </CommandItem>
-          <CommandItem value="tidy layout arrange auto" onSelect={tidyLayout} className="gap-2.5">
+          <CommandItem value="tidy layout arrange auto" data-preview-label="Tidy layout" data-preview-hint="arrange the cards in a clean auto layout" onSelect={tidyLayout} className="gap-2.5">
             <Wand2 className="size-4 shrink-0" />
             <span className="flex-1 text-sm">Tidy layout</span>
           </CommandItem>
           <CommandItem
             value="find search locate ring matches lens canvas discover"
+            data-preview-label="Find on canvas"
+            data-preview-hint="open the find bar — lens every job at once"
             onSelect={() => {
               if (view !== "canvas") setView("canvas");
               openFind();
@@ -896,6 +2008,10 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="note spotlight annotated annotations margin lens filter dim discover"
+            data-preview-label={
+              noteSpotlight ? "Show all jobs (spotlight off)" : "Spotlight noted jobs"
+            }
+            data-preview-hint="toggle the note spotlight on the canvas"
             onSelect={() => {
               toggleNoteSpotlight();
               close();
@@ -916,7 +2032,20 @@ export function CommandPalette() {
             <CommandShortcut>N</CommandShortcut>
           </CommandItem>
           <CommandItem
+            value="help guide manual how to use cryoflow guide storage graveyard clusters assistant"
+            data-preview-label="Help — the full guide"
+            data-preview-hint="open the manual"
+            onSelect={openHelpGuide}
+            className="gap-2.5"
+          >
+            <BookOpen className="size-4 shrink-0" />
+            <span className="flex-1 text-sm">Help — the full guide</span>
+            <span className="text-[10px] text-muted-foreground">manual</span>
+          </CommandItem>
+          <CommandItem
             value="keyboard shortcuts keys help bindings discover"
+            data-preview-label="Keyboard shortcuts"
+            data-preview-hint="open the shortcuts sheet"
             onSelect={openShortcuts}
             className="gap-2.5"
           >
@@ -926,6 +2055,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="export canvas png image download poster workflow"
+            data-preview-label="Export canvas as PNG"
+            data-preview-hint="download the canvas as a poster image"
             onSelect={exportPng}
             className="gap-2.5"
           >
@@ -939,6 +2070,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="export workflow json file share graph"
+            data-preview-label="Export workflow as JSON"
+            data-preview-hint="download the graph and parameters as a portable file"
             onSelect={exportJson}
             className="gap-2.5"
           >
@@ -952,6 +2085,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="export pipeline shell script replay relion commands dependency order download"
+            data-preview-label="Export pipeline as shell script"
+            data-preview-hint="preview the replay script, then download"
             onSelect={() => {
               close(); // the dialog is the next modal — drop the palette first
               setPipelineOpen(true);
@@ -968,6 +2103,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="import workflow json file load graph"
+            data-preview-label="Import workflow from JSON…"
+            data-preview-hint="pick a file and recreate its graph below existing content"
             onSelect={importJson}
             className="gap-2.5"
           >
@@ -981,6 +2118,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="toggle theme dark light appearance"
+            data-preview-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
+            data-preview-hint="toggle the light and dark appearance"
             onSelect={toggleTheme}
             className="gap-2.5"
           >
@@ -991,6 +2130,8 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             value="session qc report map inventory amber lens csv printable document"
+            data-preview-label="Open the session QC report"
+            data-preview-hint="compose the printable report"
             onSelect={() => {
               close(); // the report is the next modal — drop the palette first
               window.dispatchEvent(new CustomEvent(SESSION_REPORT_EVENT));
@@ -1006,7 +2147,29 @@ export function CommandPalette() {
             </span>
           </CommandItem>
           <CommandItem
+            value="system diagnostics memory lanes disk build guard provenance census vitals health"
+            data-preview-label="Open system diagnostics"
+            data-preview-hint="open the vitals panel"
+            onSelect={() => {
+              close(); // the panel is the next modal — drop the palette first
+              window.dispatchEvent(new CustomEvent(SYSTEM_DIAGNOSTICS_EVENT));
+            }}
+            className="gap-2.5"
+          >
+            <Activity className="size-4 shrink-0 text-teal-600" />
+            <span className="flex-1 text-sm">
+              Open system diagnostics
+              <span className="ml-1.5 text-[10px] text-muted-foreground">
+                memory lanes · disk · engine build progress · the running build's provenance
+              </span>
+            </span>
+          </CommandItem>
+          <CommandItem
             value="project dashboard management page view"
+            data-preview-label={
+              view === "canvas" ? "Open project dashboard" : "Back to workflow canvas"
+            }
+            data-preview-hint="switch between canvas and dashboard"
             onSelect={() => {
               setView(view === "canvas" ? "dashboard" : "canvas");
               setOpen(false);
@@ -1025,6 +2188,8 @@ export function CommandPalette() {
               puts a row here instead of an exemption. */}
           <CommandItem
             value="github source code repository issues open external link project page"
+            data-preview-label="Open CryoFlow on GitHub"
+            data-preview-hint="open the repository in a new tab"
             onSelect={() => {
               close();
               window.open("https://github.com/Jing0715-fer/cryoflow", "_blank", "noopener,noreferrer");
@@ -1046,6 +2211,8 @@ export function CommandPalette() {
               header button's state, and the button owns its dialog. */}
           <CommandItem
             value="remote clusters ssh connections probe relion modules dispatch jobs"
+            data-preview-label="Manage remote clusters"
+            data-preview-hint="manage SSH connections and job dispatch"
             onSelect={() => {
               close();
               window.dispatchEvent(new CustomEvent(REMOTE_CLUSTERS_OPEN_EVENT));
@@ -1062,6 +2229,47 @@ export function CommandPalette() {
           </CommandItem>
         </CommandGroup>
       </CommandList>
+      {/* t781 — the promise strip: a fixed-height reciter under the list
+          (the keys hint when no row is highlighted — the strip never
+          disappears, so filtering never shifts the dialog's layout).
+          role=status so a screen reader hears the promise as the arrows
+          move; the ↵ glyph is decor, the words are the substance. The
+          strip is a RECITER, not a mouth: it owns no onSelect, no
+          onClick — Enter's contract lives in the rows above, the strip
+          only says what the highlighted row will do. */}
+      <div
+        data-palette-preview=""
+        role="status"
+        className="flex min-h-9 shrink-0 items-center gap-2 border-t bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground"
+      >
+        {preview ? (
+          <>
+            {preview.thumb ? (
+              <img
+                src={preview.thumb}
+                alt=""
+                data-palette-preview-thumb=""
+                className="size-6 shrink-0 rounded border border-border/60 object-cover"
+              />
+            ) : (
+              <CornerDownLeft className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+            )}
+            <span data-palette-preview-label="" className="min-w-0 shrink-0 max-w-[45%] truncate font-medium text-foreground/80">
+              {preview.label}
+            </span>
+            <span data-palette-preview-hint="" className="min-w-0 flex-1 truncate">
+              {preview.hint}
+            </span>
+          </>
+        ) : (
+          <span data-palette-preview-keys="" className="flex-1 truncate">
+            ↑↓ to move · ↵ to run · Esc to close
+          </span>
+        )}
+      </div>
+      {/* t781 — the signal rides INSIDE the Command tree (useCommandState
+          needs the context); null-rendered, zero visual footprint. */}
+      <PalettePreviewProbe onSelectedValueChange={onSelectedValueChange} />
     </CommandDialog>
     {/* Task 179: palette-owned export surface — the pipeline replay script.
         Mounted here so the row's close-then-open handshake keeps one modal

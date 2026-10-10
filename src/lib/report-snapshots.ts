@@ -482,6 +482,9 @@ export function buildCtfScatterSvg(input: {
       counts[b]++;
     }
     const cMax = Math.max(...counts, 1);
+    // FOM tone rungs = palette 600s verbatim (emerald/amber/rose-600). This
+    // SVG is SERIALIZED (downloaded/embedded outside the DOM) where var()
+    // has no definition source — hex is mandatory here (t650 verdict).
     const fomTone = (center: number) =>
       center >= 0.1 ? "#059669" : center >= 0.05 ? "#d97706" : "#e11d48";
     for (const v of [0, Math.round(cMax / 2), cMax]) {

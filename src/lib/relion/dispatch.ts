@@ -8,6 +8,7 @@ import type { Job } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
   getRun,
+  liveConnectionForHost,
   parseJobParams,
   runRealJob,
   isRunAlive,
@@ -16,6 +17,7 @@ import {
   type WaitKind,
 } from "./engine";
 import { getConnection } from "@/lib/remote/connections";
+import { getProjectMeta, projectRemoteTarget } from "@/lib/projects";
 import { remoteEligible, startRemoteJob } from "@/lib/remote/remote-run";
 import type { RemoteRunTarget } from "@/lib/remote/types";
 
@@ -203,6 +205,11 @@ export async function startJob(
       data: {
         status: "running",
         startedAt: new Date(startedAtMs),
+        // t445 — the recipe snapshot rides the SAME instant startedAt is
+        // written (only a real run refreshes the evidence). The drift face
+        // reads it against the CURRENT params: a later edit that was never
+        // re-run shows as "recipe changed since this run".
+        ranParams: job.params,
         progress: 0,
         result: null,
         duration: REAL_DURATION_HINT,
@@ -310,25 +317,112 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
     // records outlive connections (old sessions, deleted clusters) — without
     // this re-verification a stale record routes fresh children to a ghost
     // cluster (dispatching someone's compute to the wrong machine).
+    // t317 — the guard is now a hard fork, not an OR-ed hint: the trigger's
+    // own record wins ONLY while ITS connection is alive; the moment it is a
+    // ghost, the PROJECT binding takes over (the old shape let a live
+    // project-fallback connection resurrect the dead trigger branch — the
+    // ternary went true and dispatched to the deleted connectionId anyway,
+    // and every sweep retried the same ghost).
     const triggerRec = getRun(triggerJobId);
-    const passthroughConn = triggerRec?.remote
-      ? getConnection(triggerRec.remote.connectionId)
-      : null;
+    const triggerConn = triggerRec?.remote ? getConnection(triggerRec.remote.connectionId) : null;
+    // t328 — same-host passthrough recovery: the t325 doctrine ("the
+    // cluster is a HOST, not a connection id") applied to the TARGET door
+    // itself. Connection drift (delete + re-add the same cluster) used to
+    // strand the whole chain HERE: the record's connection id was dead,
+    // the passthrough dropped, and — with a stale project binding — every
+    // ~20s heartbeat dispatched downstream LOCALLY over inputs that only
+    // exist on the cluster, rewriting the registry-stale waiting message
+    // forever with zero probes fired (the field receipt: "waiting as
+    // pending", no clicks, no progress, no new information). A LIVE
+    // profile for the record's host:port keeps the wire alive — the files
+    // sit on that very host, so the consumer dispatches there and chains
+    // off them in place. Ranking stays: the trigger's own connection
+    // first, the same-host recovery second (the record's cluster identity
+    // beats the project's preference — the twins and workdirs live
+    // THERE), the project binding third, local only when nothing speaks.
+    const hostConn =
+      triggerRec?.remote && !triggerConn
+        ? liveConnectionForHost(triggerRec.remote.host)
+        : null;
+    const passthroughConn = triggerConn ?? hostConn;
+    if (triggerRec?.remote && !triggerConn && hostConn) {
+      console.log(
+        `dispatch: remote passthrough recovered a live same-host connection ("${hostConn.name}") for "${trigger.name}" — its recorded profile "${triggerRec.remote.connectionName}" is gone, the cluster itself is not (t328)`
+      );
+    }
     if (triggerRec?.remote && !passthroughConn) {
       console.warn(
-        `dispatch: remote passthrough dropped for "${trigger.name}" — connection ${triggerRec.remote.connectionName} no longer exists (downstream runs locally or fails honestly)`
+        `dispatch: remote passthrough dropped for "${trigger.name}" — connection ${triggerRec.remote.connectionName} no longer exists and no live profile matches its host (the project's binding takes over, or downstream runs locally)`
       );
+    }
+    // t315 — the PROJECT binding is the SECOND source of remote-ness. The
+    // Beijing ticket: a remote project's IMPORT is engine-native → it runs
+    // LOCALLY by design → its run record carries no `remote` → the old
+    // passthrough handed {} to the auto-started ctffind → the job ran on
+    // THIS machine through the WSL bridge with a micrographs.star full of
+    // cluster-absolute /data06 paths — "cannot get CTF values" for every
+    // file, and the inspector's recorded command line read
+    // `wsl -d Debian -- bash -c {…}` (the user's exact complaint: remote
+    // tasks must never be submitted to WSL). The project's binding is the
+    // truth that survives the local half: when the trigger ran locally (or
+    // on a now-deleted cluster) but its PROJECT is bound to a live cluster,
+    // the consumers inherit the cluster (module + mode from the
+    // connection's own saved defaults — t317: shared shape with the manual
+    // bare-POST run door, first-probed-module fallback included).
+    // Priority stays: the trigger's own remote record FIRST (a pipeline
+    // that ran at a chosen GPU width keeps that width), the project
+    // binding second, local only when neither speaks.
+    let projectFallback: RemoteRunTarget | null = null;
+    if (!triggerRec?.remote || !passthroughConn) {
+      projectFallback = projectRemoteTarget(trigger.projectId);
+      if (projectFallback) {
+        const fallbackConn = getConnection(projectFallback.connectionId);
+        console.log(
+          `dispatch: remote passthrough falls back to project binding for "${trigger.name}" (ran locally or its cluster is gone) — downstream dispatches to ${fallbackConn?.host ?? projectFallback.connectionId}`
+        );
+      } else {
+        const ghost = getProjectMeta(trigger.projectId)?.remote?.connectionId ?? null;
+        if (ghost) {
+          console.warn(
+            `dispatch: project remote binding dropped for "${trigger.name}" — connection ${ghost} no longer exists (downstream runs locally or fails honestly)`
+          );
+        }
+      }
     }
     const remoteOpts: { remote?: RemoteRunTarget } =
       triggerRec?.remote && passthroughConn
         ? {
             remote: {
-              connectionId: triggerRec.remote.connectionId,
-              module: triggerRec.remote.module || null,
+              // t328 — the LIVE connection's id (the record's own, or the
+              // same-host recovery's): never the dead id, so the dispatch's
+              // getConnection never lands on a ghost. Module: the record's
+              // own choice first (same cluster, same modules), then the
+              // recovered connection's defaults — startRemoteJob applies the
+              // same fallback internally, so this is one spelling, not two.
+              connectionId: passthroughConn.id,
+              module:
+                triggerRec.remote.module ||
+                passthroughConn.defaultModule ||
+                passthroughConn.lastProbe?.relionModules?.[0] ||
+                null,
               mode: triggerRec.remote.mode,
+              // t297 — the sbatch GPU width rides the passthrough too: a
+              // remote pipeline stays remote at the width the user chose.
+              // t321 — a 0 width (a LoG autopick trigger, t320's CPU
+              // contract) is OMITTED, not forwarded: startRemoteJob's
+              // `Number(target.gpus ?? 6) || 6` would silently re-coerce a
+              // literal 0 to the default 6 — shape-wrong noise for a width
+              // the downstream job's own strategy decides anyway.
+              ...(triggerRec.remote.mode === "slurm" &&
+                triggerRec.remote.gpusRequested != null &&
+                triggerRec.remote.gpusRequested > 0
+                ? { gpus: triggerRec.remote.gpusRequested }
+                : {}),
             },
           }
-        : {};
+        : projectFallback
+          ? { remote: projectFallback }
+          : {};
 
     let started = 0;
     for (const id of order) {
@@ -337,7 +431,22 @@ export async function autoStartPendingDownstream(triggerJobId: string): Promise<
       if (row.linkedJobId) continue; // links are read-only mirrors — never run
       if (row.status !== "pending") continue; // only jobs the user opted into
       if (liveRunCount() >= AUTO_START_MAX_LIVE) break; // stampede guard
-      const outcome = await startJob(row, remoteOpts);
+      // t325 — per-id isolation: one throwing consumer (an SSH layer that
+      // escaped its error envelope, a malformed record) used to abort the
+      // WHOLE round — every sibling behind it in `order` stayed pending
+      // until the next heartbeat re-ran the same gauntlet. The round now
+      // survives its worst member; the throw is logged with the job's name
+      // so the field diagnosis has a thread to pull.
+      let outcome: StartOutcome | null = null;
+      try {
+        outcome = await startJob(row, remoteOpts);
+      } catch (err) {
+        console.error(
+          `dispatch: auto-start of "${row.name}" threw (the round continues):`,
+          err instanceof Error ? err.message : err
+        );
+        continue;
+      }
       if (!outcome.error && !outcome.waiting && !outcome.busy) started += 1;
     }
     if (started > 0) {

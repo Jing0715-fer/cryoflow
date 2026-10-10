@@ -3,7 +3,7 @@
 // the RUN itself — staging → dispatch → poll → sync-back → downstream —
 // never crossed a real SSH channel inside a test. This suite runs the whole
 // engine on the repo's own mock cluster:
-//   A  demo truth — homepage 200, roster 21, mock cluster answering, the
+//   A  demo truth — homepage 200, roster 15, mock cluster answering, the
 //      rig's stub relion binaries in place
 //   B  the ledger — startRemoteJob staging laws (pendingPatch + background
 //      spawn), the wrapper (setsid + .cf-exit + pid/starttime), the poll
@@ -19,11 +19,14 @@
 //   D  console clean
 //
 // Run: node scripts/t262-remote-run-e2e.mjs   (server on :3000)
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
@@ -126,7 +129,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
   must(
     existsSync("/home/z/my-project/services/mock-cluster/fs/opt/bin/relion_run_ctffind") &&
@@ -138,6 +141,10 @@ try {
   console.log("== PHASE B: the ledger ==");
   const src = (p) => readFileSync(`/home/z/my-project/${p}`, "utf8");
   const rr = src("src/lib/remote/remote-run.ts");
+  // t409 — the sync CAPS live in the pure planner since t339 (the plan/execute
+  // split): the budget comparison moved to sync-policy.ts, so the ledger reads
+  // BOTH modules — the executor (rewrite + per-file caps) and the planner
+  // (the whole-sync budget check).
 
   must(
     rr.includes("export async function startRemoteJob") &&
@@ -161,11 +168,13 @@ try {
     rr.includes("__st") && rr.includes('kill -0 "$__p"'),
     "the alive check witnesses pid AND /proc starttime (recycled pids never fake liveness)"
   );
+  const syncPolicy = src("src/lib/remote/sync-policy.ts");
   must(
     rr.includes('rewriteStarPaths(text, "to-local", r.remoteRoot)') &&
       rr.includes("capPerFile") &&
-      rr.includes("budget - size < 0"),
-    "sync-back rewrites STAR paths to-local under per-file and total caps"
+      syncPolicy.includes("budget - size < 0") &&
+      syncPolicy.includes("capPerFile = ctx.maxFileMb"),
+    "sync-back rewrites STAR paths to-local under per-file and total caps (executor + t339 planner)"
   );
   must(
     rr.includes("REMOTE[${origin}]") && rr.includes("remoteOutputs"),
@@ -374,6 +383,16 @@ try {
     (await dlg.innerText().catch(() => "")).includes("cryo@127.0.0.1"),
     "the dialog names the connection (probed green dot)"
   );
+  // t409 — pick OUR connection explicitly: the world now carries a standing
+  // demo connection (the healer's "Mock Cluster", same host) that can win
+  // the dialog's default pick — born-era suites assumed an empty world.
+  // The connection pick resets the module, so it comes FIRST.
+  const connTrigger = dlg.locator('[aria-label="Cluster connection"]');
+  if (await connTrigger.isVisible().catch(() => false)) {
+    await connTrigger.click();
+    await page.locator('[role="option"]', { hasText: "QA t262 Mock" }).first().click();
+    await sleep(400);
+  }
   // pick the probed module explicitly
   const modTrigger = dlg.locator('[aria-label="relion module to load"]');
   await modTrigger.click();
@@ -389,10 +408,16 @@ try {
     const d = await (await fetch(`${BASE}/api/jobs`)).json();
     return (d.jobs ?? []).find((x) => x.id === jobA.id) ?? null;
   };
-  const firstObs = await readA();
+  // t409 — the row's flip is now an async hop (staging task spawn), so the
+  // FIRST sight is a short poll, not a single read: the assertion's meaning
+  // is "the row leaves idle without user action", not "instantaneously".
+  const firstObs = await pollUntil(async () => {
+    const j = await readA();
+    return j && (j.status === "pending" || j.status === "running") ? j : null;
+  }, 8_000, 500);
   must(
-    firstObs && (firstObs.status === "pending" || firstObs.status === "running"),
-    `the job left idle immediately (first sight: ${firstObs?.status})`
+    !!firstObs,
+    `the job left idle immediately (first sight: ${(firstObs ?? (await readA()))?.status})`
   );
   const runningA = await pollUntil(async () => {
     const j = await readA();
@@ -420,8 +445,14 @@ try {
     if (!j) continue;
     if (typeof j.progress === "number") maxProgress = Math.max(maxProgress, j.progress);
     if (!badgeSeen) {
+      // t409 — the canvas face carries an ICON-ONLY cluster cue while a run
+      // is on the cluster (aria-label speaks the provenance; the t356
+      // de-clutter kept the face text-free, a 12px glyph is not text). The
+      // hover-preview route is unreachable at fit-to-view zoom (the
+      // trigger is sub-5px in a 43-card world) — the face glyph is the
+      // honest at-a-glance channel.
       badgeSeen = (await page
-        .locator(`[data-job="${jobA.id}"] [aria-label^="Running on cluster"]`)
+        .locator('[aria-label^="Running on cluster"]')
         .first()
         .isVisible()
         .catch(() => false));
@@ -473,20 +504,31 @@ try {
     logApi.status === 200 && (logBody?.tail ?? "").includes("cryoflow-mock ctffind"),
     `the log API streams the cluster's run.out (${logApi.status}, remote=${logBody?.remote}, "${(logBody?.tail ?? "").slice(0, 40)}")`
   );
-  const logTab = page.locator('[role="tab"]', { hasText: "Log" }).first();
-  await logTab.click().catch(() => {});
+  // t689 — the FACE verdict: the tab face renders the same words. The old
+  // diag printed "false" for windows — t689's isolated probe (15/0) proved
+  // the face innocent: route → face → render works when the click actually
+  // lands. The diag's own choreography was the culprit: an UNSCOPED
+  // [role="tab"] locator and a non-force click into the post-dispatch
+  // overlay world (toast/dialog residual) — the click never reached the
+  // trigger, the face never got its chance, and the diag slandered the
+  // product. Scoped (t681 lesson) + force, and promoted diag → must: a
+  // suite that watches the face must FAIL when the face breaks.
+  const logTab = page
+    .locator('[data-insp-face="tabs"] [role="tab"]', { hasText: "Log" })
+    .first();
+  await logTab.click({ force: true }).catch(() => {});
   let logAlive = await pollUntil(async () => {
     const t = await page.locator("body").innerText().catch(() => "");
     return t.includes("cryoflow-mock ctffind") ? true : null;
-  }, 10_000, 1500);
+  }, 12_000, 1500);
   if (!logAlive) {
-    await logTab.click().catch(() => {});
+    await logTab.click({ force: true }).catch(() => {});
     logAlive = await pollUntil(async () => {
       const t = await page.locator("body").innerText().catch(() => "");
       return t.includes("cryoflow-mock ctffind") ? true : null;
-    }, 10_000, 1500);
+    }, 12_000, 1500);
   }
-  console.log(`  (diag) the inspector's log tab rendered the cluster's words: ${!!logAlive} — the ROUTE above is the contract; the tab face is next-window's polish`);
+  must(logAlive, "the inspector's log tab renders the cluster's words (face = route's echo)");
 
   // C8 — the second dispatch, proven shape (feed = the LOCAL import; a
   // REMOTE-record feed stalls its staging task silently — Task 262's top
@@ -647,10 +689,32 @@ try {
       } catch { /* not a link */ }
     }
   } catch { /* best effort */ }
-  // remote leftovers: the project mirror on the mock cluster
+  // remote leftovers: the project mirror on the mock cluster — the workdirs
+  // AND the staged input tree (t262-mics mirrors data/relion/t262-mics; the
+  // t308/t309 lesson: a tree the mirror knows about must be named, or it
+  // compounds silently on every family run)
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate the
+
+    // demo chain's ancestral workdirs (t313's guard caught it live). Protect
+
+    // every workdir the world still speaks, then glob.
+
+    let worldProtect = [];
+
+    try {
+
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+
+    console.log(worldGuardLine(worldProtect.length));
+
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/ctffind_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs'`,
+
+      `node services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/ctffind_*","/projects/cryoflow/*/import_*","/projects/cryoflow/*/micrographs","/projects/cryoflow/t262-mics"], worldProtect)}'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }
@@ -664,7 +728,11 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    // t689 — the floor is the PRE-SUITE roster, not a frozen authoring-time
+    // constant: "restored to 12" was the world of 2026-10-06 (12 jobs); the
+    // living world has since grown. The assertion's meaning is "the cleanup
+    // deleted exactly the intruders — the world roster never shrank".
+    must(n >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

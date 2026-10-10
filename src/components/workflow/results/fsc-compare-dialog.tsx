@@ -32,6 +32,17 @@
  * running refinements carry a pulsing live badge and the header gains a
  * re-scan button — a refinement lands a new model checkpoint every few
  * minutes, so a comparison opened an hour ago is stale by definition.
+ *
+ * t771 — the compare rows speak the kind vocabulary: each row's {job.type}
+ * mono word gains the pour dots (the kind vocabulary's TWENTY-NINTH
+ * reader, the family's SIXTEENTH testid address fsc-compare-pours-).
+ * A curve is a run's receipt; the overlay lines receipts up — the type
+ * names the maker, the water names the maker's wires (the receipt's
+ * provenance face of the commitment-seat taxonomy: "which reconstruction
+ * is better" is a question asked per KIND, and kinds have different wire
+ * contracts — a refine3d curve hangs on particles/volume/halfmap, an
+ * import's on nothing this process owns). Unknown types keep the bare
+ * word (the gate closes on pouring).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -63,8 +74,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Chip } from "@/components/ui/chip";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { cn } from "@/lib/utils";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t771 — the kind vocabulary's TWENTY-NINTH reader joins the FSC compare overlay
 import { FscParamsDiff } from "./fsc-params-diff";
 
 /* ------------------------------------------------------------------ */
@@ -593,6 +606,13 @@ export function FscCompareDialog({
             const curve = curves.get(job.jobId);
             const isHost = job.jobId === currentJobId;
             const isRunning = job.status === "running";
+            // t771 — the pours ask rides each row's OWN type word: the
+            // overlay lines up receipts from different runs, and every
+            // receipt's maker has its own wire contract — the water
+            // previews the lineage beside the name (the dose follows the
+            // row's sentence, one ask per row source-word-form).
+            const spec = jobType(job.type);
+            const pouring = spec ? pourKindsOf(job.type) : [];
             return (
               <label
                 key={job.jobId}
@@ -671,16 +691,41 @@ export function FscCompareDialog({
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
                   {job.type}
                 </span>
-                <span
+                {pouring.length > 0 && (
+                  // t771 — the water rides the type word as a flex sibling:
+                  // the row is a flex host, gap-2.5 is the space (the t760
+                  // prose law's boundary clause, another staging — flex
+                  // hosts owe nothing; the row's own text-flow payments
+                  // survive untouched). The overlay's premise is "which
+                  // reconstruction is better" — the dots name each
+                  // receipt's wire lineage so the comparison reads per kind.
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1"
+                    data-testid={`fsc-compare-pours-${job.type}`}
+                  >
+                    {pouring.map((k) => (
+                      <span
+                        key={k}
+                        aria-hidden="true"
+                        title={`pours ${k}`}
+                        className="inline-block size-1.5 rounded-full"
+                        style={{ background: PORT_COLORS[k].wire }}
+                      />
+                    ))}
+                    <span className="sr-only">pours {pouring.join(", ")}</span>
+                  </span>
+                )}
+                <Chip
+                  size="sm"
                   className={cn(
-                    "shrink-0 rounded-full border px-1.5 py-px text-[10px] font-semibold",
+                    "shrink-0 font-semibold",
                     job.source === "postprocess"
                       ? "border-amber-600/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
                       : "border-teal-600/30 bg-teal-500/10 text-teal-700 dark:text-teal-300"
                   )}
                 >
                   {job.source === "postprocess" ? "postprocess" : "half-maps"}
-                </span>
+                </Chip>
                 <span
                   className="inline-block h-0.5 w-4 shrink-0 rounded"
                   style={{ backgroundColor: pal.stroke }}
@@ -818,7 +863,7 @@ export function FscCompareDialog({
                           dot={false}
                           activeDot={{ r: 4, fill: pal.stroke }}
                           connectNulls
-                          isAnimationActive={false}
+                          isAnimationActive={false /* the curves don't dance — the t610 mute law (fsc-chart.tsx header) */}
                         />
                       );
                     })}
@@ -839,50 +884,56 @@ export function FscCompareDialog({
                 const isHidden = hidden.has(id);
                 const c = curves.get(id);
                 return (
-                  <button
+                  <Chip
                     key={id}
-                    type="button"
-                    data-testid={`fsc-compare-legend-${id}`}
-                    aria-pressed={!isHidden}
-                    onClick={() =>
-                      setHidden((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(id)) next.delete(id);
-                        else next.add(id);
-                        return next;
-                      })
-                    }
-                    onMouseEnter={() => setHoverId(id)}
-                    onMouseLeave={() => setHoverId((h) => (h === id ? null : h))}
-                    onFocus={() => setHoverId(id)}
-                    onBlur={() => setHoverId((h) => (h === id ? null : h))}
-                    title={
-                      c?.sourceFile
-                        ? `${c.sourceFile} — click to ${isHidden ? "show" : "hide"} this curve`
-                        : `click to ${isHidden ? "show" : "hide"} this curve`
-                    }
-                    className={cn(
-                      "inline-flex max-w-56 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                      isHidden
-                        ? "border-muted-foreground/25 bg-muted text-muted-foreground/60 line-through"
-                        : "border-border bg-background hover:border-primary/40",
-                      highlightId === id &&
-                        !isHidden &&
-                        "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
-                    )}
+                    size="md"
+                    interactive
+                    asChild
+                    className="max-w-56 gap-1.5"
                   >
-                    <span
-                      className="inline-block h-0.5 w-3.5 shrink-0 rounded"
-                      style={{ backgroundColor: isHidden ? undefined : pal.stroke }}
-                      aria-hidden="true"
-                    />
-                    <span className="truncate">{job.name}</span>
-                    {c?.resolutionAt143 != null && (
-                      <span className="shrink-0 font-mono tabular-nums text-[10px] text-muted-foreground">
-                        {c.resolutionAt143.toFixed(2)} Å
-                      </span>
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      data-testid={`fsc-compare-legend-${id}`}
+                      aria-pressed={!isHidden}
+                      onClick={() =>
+                        setHidden((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                          return next;
+                        })
+                      }
+                      onMouseEnter={() => setHoverId(id)}
+                      onMouseLeave={() => setHoverId((h) => (h === id ? null : h))}
+                      onFocus={() => setHoverId(id)}
+                      onBlur={() => setHoverId((h) => (h === id ? null : h))}
+                      title={
+                        c?.sourceFile
+                          ? `${c.sourceFile} — click to ${isHidden ? "show" : "hide"} this curve`
+                          : `click to ${isHidden ? "show" : "hide"} this curve`
+                      }
+                      className={cn(
+                        isHidden
+                          ? "border-muted-foreground/25 bg-muted text-muted-foreground/60 line-through"
+                          : "border-border bg-background hover:border-primary/40",
+                        highlightId === id &&
+                          !isHidden &&
+                          "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+                      )}
+                    >
+                      <span
+                        className="inline-block h-0.5 w-3.5 shrink-0 rounded"
+                        style={{ backgroundColor: isHidden ? undefined : pal.stroke }}
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{job.name}</span>
+                      {c?.resolutionAt143 != null && (
+                        <span className="shrink-0 font-mono tabular-nums text-[10px] text-muted-foreground">
+                          {c.resolutionAt143.toFixed(2)} Å
+                        </span>
+                      )}
+                    </button>
+                  </Chip>
                 );
               })}
             </div>

@@ -14,7 +14,7 @@
 // Maps gallery section, the card's own dialog returns to the card.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21, the orthovol host on disk
+//   A  demo truth — homepage 200, roster 15, the orthovol host on disk
 //   B  the ledger — both buttons, both wiring strategies, the mount-time
 //      pre-warm comment, the focus-park targets — asserted at source
 //   C  the live loop — REAL crop → Import Map runs natively → the t256
@@ -25,10 +25,18 @@
 //   D  console clean
 //
 // Run: node scripts/t258-view-in-3d.mjs   (server on :3000)
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+
+// t706 — the host resolves through the manifest contract (qa-refine-host.mjs,
+// the qa-batch lesson): the name is the world's own spelling, never a pin.
+const HOST = resolveRefineHost();
+const JOB = HOST.name;
 
 const BASE = "http://localhost:3000";
 const TMP = "/home/z/my-project/scripts/tmp-t258";
@@ -53,7 +61,7 @@ for (const j of preJobs.filter((x) => x.type === "mapimport" || x.name.startsWit
   console.log(`  (self-heal) removed leftover probe "${j.name}"`);
 }
 {
-  const hostPre = preJobs.find((j) => j.name === "QA Refine3D");
+  const hostPre = preJobs.find((j) => j.id === HOST.id);
   const stPre = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
   const hostWd = hostPre ? stPre[hostPre.id]?.workdir : undefined;
   if (hostWd) {
@@ -69,7 +77,7 @@ for (const j of preJobs.filter((x) => x.type === "mapimport" || x.name.startsWit
 
 const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster0 = (jobs0.jobs ?? []).length;
-const host = (jobs0.jobs ?? []).find((j) => j.name === "QA Refine3D");
+const host = HOST;
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
 const hostWd = host ? state[host.id]?.workdir : undefined;
 const parentMap = hostWd ? path.join(hostWd, "orthovol.mrc") : undefined;
@@ -83,6 +91,10 @@ const page = await context.newPage();
 const consoleErrors = [];
 page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
 page.on("pageerror", (e) => consoleErrors.push(String(e)));
+// t533 — the URL witness: a console "404" without its URL is a rumor, not
+// evidence. Every 4xx/5xx response is recorded so the verdict can name it.
+const httpFails = [];
+page.on("response", (r) => { if (r.status() >= 400) httpFails.push(`${r.status()} ${r.url()}`); });
 
 const created = []; // probe job ids for cleanup (order: import, refine)
 
@@ -92,8 +104,8 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
-  must(!!host && !!hostWd, "QA Refine3D in roster with an on-disk workdir");
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
+  must(!!host && !!hostWd, `${JOB} in roster with an on-disk workdir`);
   must(existsSync(parentMap), "the parent map (orthovol.mrc) is on disk");
 
   // ---- Phase B: the ledger -------------------------------------------------
@@ -166,6 +178,7 @@ try {
   const sent = await sendRes.json();
   const importJob = sent.job;
   created.push(importJob.id);
+  console.log(`  (ids) import=${importJob.id}`);
   must(!!importJob?.id && importJob.type === "mapimport", "the Import Map citizen was created");
 
   // C2 — the import runs natively (page-level fetch: the same-origin door)
@@ -255,6 +268,7 @@ try {
   const probeBody = await mkRes.json();
   const probe = probeBody.job ?? probeBody;
   created.push(probe.id);
+  console.log(`  (ids) probe=${probe.id}`);
 
   const probeWd = `/home/z/my-project/data/relion/${probe.projectId}/refine3d_t258probe`;
   mkdirSync(probeWd, { recursive: true });
@@ -277,7 +291,7 @@ try {
     writeFileSync("data/engine-state.json", JSON.stringify(st, null, 2));
   }
   execSync(
-    `node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:process.argv[1]},data:{status:'completed',progress:100}}).then(()=>{console.log('flipped');return p.\\$disconnect();}).catch(e=>{console.error(e.message);process.exit(1);});" ${probe.id}`,
+    `DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:process.argv[1]},data:{status:'completed',progress:100}}).then(()=>{console.log('flipped');return p.\\$disconnect();}).catch(e=>{console.error(e.message);process.exit(1);});" ${probe.id}`,
     { cwd: "/home/z/my-project", stdio: "pipe" }
   );
   const edgeRes = await fetch(`${BASE}/api/edges`, {
@@ -342,11 +356,14 @@ try {
     `focus parks on the reference card (got "${parked2}")`
   );
 } finally {
-  // ---- cleanup: probes die, crops sweep, roster returns to 21 -------------
+  // ---- cleanup: probes die, crops sweep, roster returns to 15 -------------
   console.log("== cleanup ==");
+  console.log(`  (phase) httpFails BEFORE deletes: ${JSON.stringify(httpFails)}`);
   for (const id of created.reverse()) {
     await fetch(`${BASE}/api/jobs/${id}`, { method: "DELETE" });
   }
+  await sleep(2500); // t533 — let the open page's poll cycle observe the deletions
+  console.log(`  (phase) httpFails AFTER deletes: ${JSON.stringify(httpFails)}`);
   if (hostWd) {
     const sub = path.join(hostWd, "SubVolumes");
     try {
@@ -359,11 +376,12 @@ try {
   }
   rmSync(TMP, { recursive: true, force: true });
   const after = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(after.length === 21, `roster restored to 21 (got ${after.length})`);
+  must(after.length >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${after.length})`);
 }
 
 // ---- Phase D: console clean ----------------------------------------------
 console.log("== PHASE D: console ==");
+if (httpFails.length > 0) console.log("  http witnesses:", httpFails.slice(0, 6).join(" · "));
 must(consoleErrors.length === 0, `no real console errors (got ${consoleErrors.length}: ${consoleErrors[0] ?? ""})`);
 
 await browser.close();

@@ -16,10 +16,27 @@
  * second derivation waiting to drift). It adds only the pipeline glance
  * and honest empty states. Like every builder in this family it carries
  * NO timestamp — the same session state always yields the same bytes;
- * the filename carries the export stamp.
+ * the filename carries the stamp. (t505's ONE deliberate edge: the
+ * glance's TIME lines are a snapshot reading — stamped by the act of
+ * opening the report, a live run's window stretched to that instant
+ * exactly as the bars and the agent's read stretch theirs. A session
+ * with nothing running still yields the same bytes for the same state.)
  */
 
 import { mdCell } from "@/lib/md";
+import { fmtDuration } from "@/lib/duration";
+import { timelineSharePct } from "@/lib/timeline-walk";
+import {
+  fmtAngstrom,
+  fmtMicron,
+  reportedPassport,
+  type AngDistResponse,
+  type CtfResponse,
+  type FscResponse,
+  type GuinierResponse,
+  type MotionResponse,
+  type TopazTrainingResponse,
+} from "@/lib/chart-rows";
 
 /* ------------------------------------------------------------------ */
 /* Sweep family — moved verbatim from hpc-queue-sim.tsx (t194).        */
@@ -380,12 +397,22 @@ export const sparklinePath = (
 ): string | null => {
   if (!bins || bins.length === 0) return null;
   const pts = resampleByFraction(bins, Math.max(2, stations));
+  // t407 — normalize by SPAN, not by max. The old `v / max` assumed the
+  // landscape crosses zero somewhere above it; the healed world's mock
+  // z-profiles come back ALL-NEGATIVE (density deviations against a
+  // reference plane), so max < 0, `!(max > 0)` fired, and every sparkline
+  // and the Map QC hero silently drew NOTHING — no error, no figure, a
+  // whole evidence family invisible while every wire probe stayed green.
+  // The fraction doctrine ("the shape is the signal, not absolute ρ")
+  // means exactly this: rescale [min, max] → [h, 0]; a flat line (max ===
+  // min) still has no shape to draw and honestly draws nothing.
   const max = Math.max(...pts);
-  if (!(max > 0)) return null;
+  const min = Math.min(...pts);
+  if (!(max > min)) return null;
   return pts
     .map((v, i) => {
       const x = (i / (pts.length - 1)) * w;
-      const y = h - (v / max) * h;
+      const y = h - ((v - min) / (max - min)) * h;
       return `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");
@@ -658,6 +685,209 @@ export const profileReportFilename = (axis: string): string =>
   `map-qc-report-${axis}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`;
 
 /* ------------------------------------------------------------------ */
+/* Curve-verdict family (t490) — the session report quotes the well.   */
+/* ------------------------------------------------------------------ */
+
+/** The six curve kinds — the SAME vocabulary get_job_curves' schema
+ *  speaks (tools.ts's CURVE_KINDS), so a kind named on the paper is a
+ *  kind the agent could have been asked about. "topaz" here (the tool's
+ *  kind name) maps to the topaz-training route on the wire. */
+export type CurveKind = "fsc" | "guinier" | "angdist" | "ctf" | "motion" | "topaz";
+
+/** The paper's human word for each kind — a table column that says
+ *  "fsc" makes the reader do the decoding; the report does it once. */
+export const CURVE_KIND_LABELS: Record<CurveKind, string> = {
+  fsc: "FSC",
+  guinier: "Guinier",
+  angdist: "Angular distribution",
+  ctf: "CTF fit",
+  motion: "Motion drift",
+  topaz: "Picker training",
+};
+
+/** One verdict row the dialog measured — the father renders the table,
+ *  the dialog does the walking, and the VERDICT STRING is built here
+ *  (curveVerdictOf) so the paper's curve voice has one birthplace. */
+export interface CurveVerdictRow {
+  jobId: string;
+  jobName: string;
+  kind: CurveKind;
+  verdict: string;
+}
+
+/** t498 — the fourth family speaks CSV: the verdict table as a machine
+ *  grid for spreadsheets and scripts. Same father as the paper: the
+ *  rows ARE the walk's own CurveVerdictRow[] (the md table drinks the
+ *  same array — one well, two faces), the curve column speaks the
+ *  paper's own word (CURVE_KIND_LABELS — never retyped, never a raw
+ *  token twin), and the verdict cell is the verdict string VERBATIM —
+ *  passport phrases included (t493's answer to "does the grid follow
+ *  the paper or the grid": the paper IS the well; a re-worded machine
+ *  copy would be a second father). The job_id column is the machine
+ *  face of the door stamp: the paper keeps its three visible columns,
+ *  the grid carries the identity a script needs to address the job.
+ *  Cells are quoted only when they must be (RFC 4180 — verdicts carry
+ *  commas and names carry quotes). An empty roster returns null: the
+ *  caller refuses honestly (a silent empty file would be a lying
+ *  door). */
+export const curveVerdictsCsv = (rows: CurveVerdictRow[] | null): string | null => {
+  if (!rows || rows.length === 0) return null;
+  const quote = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const line = (parts: string[]) => parts.map(quote).join(",");
+  const body = rows.map((r) => line([r.jobId, r.jobName, CURVE_KIND_LABELS[r.kind], r.verdict]));
+  return [line(["job_id", "job", "curve", "verdict"]), ...body].join("\n");
+};
+
+/** The timeline window's machine face (t506) — the honest windows the
+ *  bars draw, the tool quotes, and the report's glance summarizes, now
+ *  leaving as a grid a spreadsheet can drink. The row shape mirrors the
+ *  agent's per-run roster (get_session_timeline): same windows, same ISO
+ *  stamps, same share of the span — CSV and tool are TWO MACHINE
+ *  READERS of the same walk, and a number that differs between them is
+ *  a number someone re-derived (twins fork, imports don't: share comes
+ *  from the well's timelineSharePct, the human words from fmtDuration).
+ *  A live run's ended_at speaks an empty cell — "still open" in CSV
+ *  grammar is blank, never a guess. No invented rows: jobs the engine
+ *  never started have no window, so they are not here (the caller's
+ *  roster counts them instead). Cells are quoted only when they must
+ *  be (RFC 4180 — names may carry commas). An empty roster returns
+ *  null: the caller refuses honestly (a silent empty file would be a
+ *  lying door). */
+export interface TimelineCsvRow {
+  jobId: string;
+  jobName: string;
+  jobType: string;
+  workspace: string;
+  status: string;
+  /** epoch ms — the window's open */
+  startMs: number;
+  /** epoch ms — null while the window is open (a live run) */
+  endMs: number | null;
+  durationMs: number;
+  /** the session span the shares are read against (from the same walk) */
+  spanMs: number;
+}
+export const timelineRunsCsv = (rows: TimelineCsvRow[] | null): string | null => {
+  if (!rows || rows.length === 0) return null;
+  const quote = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const line = (parts: string[]) => parts.map(quote).join(",");
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const body = rows.map((r) =>
+    line([
+      r.jobId,
+      r.jobName,
+      r.jobType,
+      r.workspace,
+      r.status,
+      iso(r.startMs),
+      r.endMs != null ? iso(r.endMs) : "",
+      String(r.durationMs),
+      fmtDuration(r.durationMs),
+      timelineSharePct(r.durationMs, r.spanMs).toFixed(1),
+    ]),
+  );
+  return [
+    line(["job_id", "job", "type", "workspace", "status", "started_at", "ended_at", "duration_ms", "duration_human", "share_pct"]),
+    ...body,
+  ].join("\n");
+};
+
+/**
+ * The curve family's voice: each kind's verdict line quotes the SAME
+ * well the panels' interpretation strips render and the agent tool
+ * quotes — the numbers come from the chart routes' response (loader +
+ * interpretation fields), and this builder only words them. Judgments
+ * are NEVER recomputed here (no 0.143 math, no >6 threshold, no early/
+ * late re-derivation — the well owns them; the paper quotes): the
+ * interpretation fields ride in and their words go out. Null when the
+ * response has nothing to say (the honest skip — the route returned an
+ * empty body for a job whose workdir holds no such curve).
+ */
+export const curveVerdictOf = (
+  kind: CurveKind,
+  data: FscResponse | GuinierResponse | AngDistResponse | CtfResponse | MotionResponse | TopazTrainingResponse | null | undefined,
+): string | null => {
+  if (!data) return null;
+  switch (kind) {
+    case "fsc": {
+      const d = data as FscResponse;
+      if (!d.shells || d.shells.length === 0) return null;
+      let v = `FSC 0.143 at ${d.resolutionAt143 != null ? fmtAngstrom(d.resolutionAt143) : "?"}`;
+      if (d.resolutionAt05 != null) v += ` (0.5 at ${fmtAngstrom(d.resolutionAt05)})`;
+      if (d.reportedResolution != null) {
+        v += ` · reported ${fmtAngstrom(d.reportedResolution)}`;
+        // t493 — the number's passport: WHICH estimate RELION published
+        // (masked final vs auto-refine smoothed) changes how the reader
+        // may compare it; the two job families' labels come from the
+        // loader, the paper only quotes them (well-word-wins, again).
+        const passport = reportedPassport(d.reportedLabel);
+        if (passport) v += ` — ${passport}`;
+      }
+      const interp = d.interpretation;
+      if (interp?.atNyquist) v += " — at the Nyquist cap, the curve cannot cross";
+      if (interp?.reportedDiffers) v += " — the reported estimate differs from the crossing";
+      return v;
+    }
+    case "guinier": {
+      const d = data as GuinierResponse;
+      if (!d.points || d.points.length === 0) return null;
+      let v = `Guinier ${d.points.length} pts`;
+      if (d.bfactor != null) v += ` · B-factor ${d.bfactor.toFixed(1)} Å² (used for sharpening)`;
+      const interp = d.interpretation;
+      if (interp?.rangeAngstrom) v += ` · covers ${interp.rangeAngstrom.from.toFixed(1)}–${interp.rangeAngstrom.to.toFixed(1)} Å`;
+      if (interp?.hasSharpened) v += " · sharpened curve in plot";
+      return v;
+    }
+    case "angdist": {
+      const d = data as AngDistResponse;
+      if (!d.total) return null;
+      const interp = d.interpretation;
+      const verdict = interp?.verdict ?? "fairly even";
+      const concentration = interp?.concentration ?? (Number.isFinite(d.anisotropy) ? Math.round(d.anisotropy * 10) / 10 : null);
+      let v = `${d.total} particles · ${d.occupied}/${d.rotBins * d.tiltBins} bins`;
+      if (concentration != null) v += ` · ×${concentration} — ${verdict}`;
+      else v += ` — ${verdict}`;
+      const hot = interp?.hottestBins?.[0];
+      if (hot) v += ` · hottest r${hot.rotBin}/t${hot.tiltBin}`;
+      return v;
+    }
+    case "ctf": {
+      const d = data as CtfResponse;
+      if (!d.micrographs || d.micrographs.length === 0) return null;
+      let v = `${d.micrographs.length} micrographs`;
+      const s = d.summary;
+      if (s) v += ` · mean defocus ${fmtMicron(s.meanDefocus)} · worst fit ${fmtAngstrom(s.worstResolution)}`;
+      const worst = d.interpretation?.worstMicrographs?.[0];
+      if (worst) v += ` (${worst.name})`;
+      return v;
+    }
+    case "motion": {
+      const d = data as MotionResponse;
+      if (!d.micrographs || d.micrographs.length === 0) return null;
+      const s = d.summary;
+      const interp = d.interpretation;
+      let v = `${d.micrographs.length} micrographs`;
+      if (s) v += ` · mean drift ${fmtAngstrom(s.meanTotal)} · worst ${fmtAngstrom(s.maxTotal)}${s.worstName ? ` (${s.worstName})` : ""}`;
+      if (interp?.driftTriage) v += ` — ${interp.driftTriage}`;
+      return v;
+    }
+    case "topaz": {
+      const d = data as TopazTrainingResponse;
+      if (!d.epochs || d.epochs.length === 0) return null;
+      const interp = d.interpretation;
+      if (!interp) return null;
+      const first = interp.firstEpoch;
+      const last = interp.lastEpoch;
+      let v = `loss ${first?.trainLoss?.toFixed(4) ?? "?"}→${last?.trainLoss?.toFixed(4) ?? "?"}`;
+      if (interp.lossDirection) v += ` (${interp.lossDirection})`;
+      if (last?.precision != null || last?.recall != null)
+        v += ` · epoch ${last.it}: P ${last.precision != null ? `${Math.round(last.precision * 100)}%` : "?"} · R ${last.recall != null ? `${Math.round(last.recall * 100)}%` : "?"}`;
+      return v;
+    }
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /* The session binding (t197) — the families meet in one document.     */
 /* ------------------------------------------------------------------ */
 
@@ -668,6 +898,70 @@ export interface SessionSweepState {
   bestId: string | null;
 }
 
+/** The sweep snapshot's roster cap (t508) — a real race is a handful of
+ *  profiles; a body carrying more is not a race and is refused rather
+ *  than truncated (dropping contestants changes the verdict). A named
+ *  constant, so the cap has one birthplace. */
+export const SWEEP_ROSTER_CAP = 64;
+
+/** t508 — the sweep snapshot's boundary guard. The agent's sweep tool
+ *  quotes what the CLIENT hands it (a race is client session memory —
+ *  in-memory by design, a reload is a new session), so the chat body's
+ *  sweep field is validated before it can become a verdict. Anything
+ *  off-shape is null: honest absence, never a half-validated winner.
+ *  A bestId that names no contestant is malformed by definition (the
+ *  winner must be a contestant — a dangling id would flip the md into
+ *  its "none finished" branch and lie about a finished race); a roster
+ *  beyond the cap is not a real race and is REFUSED rather than
+ *  truncated (dropping contestants changes the verdict — the same law
+ *  that keeps the failures list visible). Unknown fields are stripped:
+ *  the ctx rides the clean snapshot, never the wire's junk. */
+export const parseSweepSnapshot = (input: unknown): SessionSweepState | null => {
+  if (typeof input !== "object" || input == null) return null;
+  const raw = input as { rows?: unknown; bestId?: unknown };
+  if (!Array.isArray(raw.rows) || raw.rows.length === 0 || raw.rows.length > SWEEP_ROSTER_CAP) return null;
+  const rows: SweepRow[] = [];
+  for (const item of raw.rows) {
+    if (typeof item !== "object" || item == null) return null;
+    const r = item as { p?: unknown; r?: unknown; err?: unknown };
+    if (typeof r.p !== "object" || r.p == null) return null;
+    const p = r.p as SweepProfile;
+    if (
+      typeof p.id !== "string" || p.id === "" ||
+      typeof p.name !== "string" || p.name === "" ||
+      typeof p.gpuModel !== "string" ||
+      !Number.isFinite(p.gpusPerNode) || !Number.isFinite(p.nodes) ||
+      !Number.isFinite(p.arrayConcurrency) || !Number.isFinite(p.gpuSpeedup)
+    ) return null;
+    let res: SweepRow["r"];
+    if (r.r != null) {
+      if (typeof r.r !== "object") return null;
+      const x = r.r as { makespanMin?: unknown; gpuUtilization?: unknown; avgWaitMin?: unknown; totalGpuHours?: unknown };
+      if (
+        !Number.isFinite(x.makespanMin as number) ||
+        !Number.isFinite(x.gpuUtilization as number) ||
+        !Number.isFinite(x.avgWaitMin as number) ||
+        !Number.isFinite(x.totalGpuHours as number)
+      ) return null;
+      res = {
+        makespanMin: x.makespanMin as number,
+        gpuUtilization: x.gpuUtilization as number,
+        avgWaitMin: x.avgWaitMin as number,
+        totalGpuHours: x.totalGpuHours as number,
+      };
+    }
+    if (r.err != null && typeof r.err !== "string") return null;
+    rows.push({
+      p,
+      ...(res ? { r: res } : {}),
+      ...(typeof r.err === "string" ? { err: r.err } : {}),
+    });
+  }
+  const bestId = raw.bestId == null ? null : raw.bestId;
+  if (bestId !== null && (typeof bestId !== "string" || !rows.some((row) => row.p.id === bestId))) return null;
+  return { rows, bestId };
+};
+
 /** Job-status counts for the prologue's pipeline glance. */
 export interface PipelineGlance {
   total: number;
@@ -676,6 +970,24 @@ export interface PipelineGlance {
   failed: number;
   /** idle + submitted + anything the canvas can host — waiting for work */
   waiting: number;
+}
+
+/** The time family's READING for the glance (t505) — the caller walked
+ *  the SAME well the bars and the agent drink (walkTimeline +
+ *  timelineLedger) and passes the numbers, not the rows: the builder
+ *  speaks, it never re-walks. The durations are already the walk's own
+ *  honest windows ([startedAt → +duration], a live run stretched to the
+ *  caller's reading of "now"). */
+export interface SessionTimelineGlance {
+  /** runs with a real window (completed / failed / running) */
+  runCount: number;
+  /** wall-clock span: first start → last end */
+  spanMs: number;
+  /** every window summed — parallel runs double-count (the line says so) */
+  busyMs: number;
+  /** the heaviest single step's name, or null when nobody ran */
+  longestName: string | null;
+  longestMs: number;
 }
 
 /**
@@ -705,8 +1017,26 @@ export const buildSessionReport = (opts: {
    *  the dialog computes it where the bins live; the paper cell says —). */
   mapInventory: { jobId: string; jobName: string; mainName: string; volumeCount: number; peak: string | null; peakPct: number | null; shapeR?: number | null; weakest?: { label: string; r: number; from: number } | null }[] | null;
   sweep: string | null;
+  /** t490 — the curve-verdict family: one row per (job, kind) whose
+   *  chart route answered with a curve. The dialog walks the completed
+   *  roster and fetches the SAME chart routes the panels drink from;
+   *  the verdict strings were built by curveVerdictOf (the paper's own
+   *  voice over the well's fields) before they arrived. Null while the
+   *  walk is still measuring; the section honest-absents to a pending
+   *  line until the walk settles, and to an honest empty state when
+   *  no completed job carries any curve. */
+  curves: CurveVerdictRow[] | null;
+  curvesPending: boolean;
+  curvesError: boolean;
+  /** t505 — the time family joins the glance: the caller's READING of
+   *  the timeline well (span / busy / heaviest step — the same windows
+   *  the bars draw and get_session_timeline quotes). Null when nothing
+   *  ran: the time lines honest-absent, one word fewer, nothing
+   *  invented. The numbers arrive pre-walked; the builder never
+   *  re-derives them from any other section's bytes. */
+  timeline: SessionTimelineGlance | null;
 }): string => {
-  const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep } = opts;
+  const { projectName, pipeline, mapQc, mapPending, mapError, mapInventory, sweep, curves, curvesPending, curvesError, timeline } = opts;
   const lines: string[] = [];
   lines.push("# CryoFlow session QC report");
   lines.push("");
@@ -724,7 +1054,18 @@ export const buildSessionReport = (opts: {
   if (pipeline && pipeline.total > 0) {
     lines.push(`- **${pipeline.succeeded}** succeeded job${pipeline.succeeded === 1 ? "" : "s"} feed this report's QC sections;`);
     lines.push(`- **${pipeline.running}** running · **${pipeline.failed}** failed — failures stay counted here, never dropped;`);
-    lines.push(`- **${pipeline.waiting}** waiting (idle or submitted) — no verdict exists for work that has not run.`);
+    lines.push(`- **${pipeline.waiting}** waiting (idle or submitted) — no verdict exists for work that has not run;`);
+    // t505 — the time family's three lines: the same walk the bars draw
+    // and the agent's read quotes, in the report's own dialect. The
+    // waiting line above already says who never started; the time lines
+    // never repeat that count — a number said twice is a number doubted.
+    if (timeline && timeline.runCount > 0) {
+      lines.push(`- **${fmtDuration(timeline.spanMs)}** wall-clock span across **${timeline.runCount}** run${timeline.runCount === 1 ? "" : "s"} (first start → last end);`);
+      if (timeline.longestName) {
+        lines.push(`- heaviest step: **${mdCell(timeline.longestName)}** at **${fmtDuration(timeline.longestMs)}**;`);
+      }
+      lines.push(`- **${fmtDuration(timeline.busyMs)}** of measured compute (windows summed — parallel runs double-count).`);
+    }
   } else {
     lines.push("No jobs on the canvas yet — add nodes, run them, and their verdicts will gather here.");
   }
@@ -808,6 +1149,30 @@ export const buildSessionReport = (opts: {
       lines.push("");
     }
   }
+  lines.push("## Curve verdicts");
+  lines.push("");
+  // t490 — the fourth family: the session's curves speak on the paper.
+  // The rows were measured by the dialog through the SAME chart routes
+  // the inspector panels and the agent tool drink from, and each
+  // verdict string was worded by curveVerdictOf over the well's own
+  // interpretation fields — the report re-judges nothing. A — in the
+  // prologue's spirit: a family with nothing to say says so honestly.
+  if (curvesPending) {
+    lines.push("_Still reading this session's curves — the verdicts arrive with the measurement, never before it._");
+  } else if (curvesError) {
+    lines.push("_The curve routes refused (a chart API call failed) — this summary does not guess the verdicts._");
+  } else if (curves && curves.length > 0) {
+    lines.push("Every completed job whose workdir carries a curve the charts can draw, newest first. The verdict column is worded over the same interpretation the inspector panels render and the agent's curve tool quotes — one well, three readers; the paper never re-judges what the panels already said.");
+    lines.push("");
+    lines.push("| Job | Curve | Verdict |");
+    lines.push("|-----|-------|---------|");
+    for (const row of curves) {
+      lines.push(`| ${mdCell(row.jobName)} | ${CURVE_KIND_LABELS[row.kind]} | ${mdCell(row.verdict)} |`);
+    }
+  } else {
+    lines.push("None of this session's completed jobs carries curve data yet — run Post-process (FSC, Guinier), a 3D classification (angular distribution), CTF Estimation or Motion Correction and their verdicts will be quoted here.");
+  }
+  lines.push("");
   lines.push("## Scheduling sweep");
   lines.push("");
   if (sweep) {
@@ -828,6 +1193,21 @@ export const sessionReportFilename = (): string =>
  *  own name, not the report's). */
 export const inventoryCsvFilename = (): string =>
   `session-map-inventory-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+
+/** t498: the verdicts' own CSV filename — the same timestamp grammar as
+ *  its siblings (report md, inventory grid, portable HTML), its own
+ *  name: the fourth family's machine grid travels under its own flag,
+ *  never masquerading as the inventory's. */
+export const curveVerdictsCsvFilename = (): string =>
+  `session-curve-verdicts-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
+
+/** t506: the timeline windows' own CSV filename — the same timestamp
+ *  grammar as its siblings, its own name: the windows' machine grid
+ *  travels under the timeline's flag, never masquerading as the job
+ *  inventory's (which speaks archive fields — created/updated; t507
+ *  lent it the window's stamp and length, the WHOLE window lives here). */
+export const timelineRunsCsvFilename = (): string =>
+  `session-timeline-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.csv`;
 
 /** t237: the portable-HTML sibling of the report filename — the echo
  *  (buildSessionReportHtml) travels under the report's own name with a

@@ -45,6 +45,8 @@
 // Run: node scripts/t156-e2e.mjs   (server on :3000, fresh build REQUIRED)
 import { chromium } from "playwright";
 import { execSync } from "child_process";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const OUT = "/home/z/my-project/.next/t156-shot";
@@ -75,8 +77,10 @@ const roster = async () =>
 
 const must = (cond, label) => {
   if (!cond) {
-    console.log(`FAIL: ${label}`);
-    void cleanup().then(() => process.exit(1));
+    // pure throw — the unified main().catch runs cleanup (t632 fix: the old
+    // `void cleanup().then(exit)` raced main().catch's synchronous exit(1),
+    // killing the take-home execSyncs mid-flight and leaking the seeded
+    // chain — witnessed live when Phase B died in the narrow runway)
     throw new Error(`FAIL: ${label}`);
   }
   PASS++;
@@ -89,6 +93,12 @@ process.on("SIGTERM", () => { console.log("SIGTERM"); process.exit(1); });
 async function cleanup() {
   try { if (p) await p.close(); } catch {}
   try { if (b) await b.close(); } catch {}
+  // t630 rollout — the gallery chain this suite seeded (qa58 seeder,
+  // idempotent by name) goes home: tenant sweep, radius, product-door
+  // DELETE. The rows used to linger as residents of the active world.
+  const run = (cmd) => execSync(cmd, { cwd: "/home/z/my-project", encoding: "utf8", timeout: 120_000 });
+  try { run("python3 scripts/qa67-seed-volume.py --clean"); } catch { /* tenant absent — fine */ }
+  try { run("python3 scripts/qa58-seed-gallery.py --take-home"); } catch (e) { console.log(`  take-home warn: ${String(e).slice(0, 120)}`); }
 }
 
 /** the gallery's grid order — class numbers in DOCUMENT order (the
@@ -172,6 +182,15 @@ async function main() {
   await p.goto(BASE, { waitUntil: "networkidle" });
   await p.waitForSelector('[data-view="canvas"]', { timeout: 30000 });
   await sleep(900);
+  // t638 — the minimap floats bottom-right and the world grew (t632's
+  // archaeology reshaped the demo bbox): the boot fit can land the seeded
+  // select2d card UNDER the map, where a trusted click dies against the
+  // map's own drag surface (overlay probe: the framing-mode button was
+  // the top element at the card's center). The product's documented door
+  // is one keypress — M, the shortcuts dialog's Canvas group — so the
+  // suite now takes it, like the user it stands in for.
+  await p.keyboard.press("M");
+  await sleep(300);
 
   /* ---------- Phase X — source oracles ----------------------------------- */
   step("--- Phase X: source oracle — arrangement vs occlusion ---");
@@ -263,6 +282,7 @@ async function main() {
   );
   await p.goto(BASE, { waitUntil: "networkidle" });
   await p.waitForSelector('[data-view="canvas"]', { timeout: 30000 });
+  await p.keyboard.press("M"); // t638 — same door as Phase B (see above)
   await sleep(900);
   must(await openGallery("E"), "gallery opens over a corrupt seed");
   vb = await viewbar();
@@ -307,7 +327,24 @@ async function main() {
   await p.close(); p = null;
   await b.close(); b = null;
 
+  // t638 — the success path owes the same honesty as the failure path:
+  // cleanup() used to live ONLY in main().catch, so a GREEN run walked
+  // out the door leaving the freshly seeded gallery chain behind as a
+  // resident (the t628 doctrine: a specimen is not a resident — and the
+  // t637-ui-probe roster was quietly 17 rows for exactly this reason).
+  // The Phase Z roster assertion above compares against the post-seed
+  // baseline, so the take-home belongs HERE, after the assertion that
+  // pins the world's in-suite shape and before the verdict is printed.
+  await cleanup();
+
   console.log(`\nT156 ALL PASS (${PASS} assertions)`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch(async (e) => {
+  console.error(e);
+  // t630 doctrine — a FAIL takes its specimens home too (t157 pattern):
+  // the seeded gallery chain must not linger as a resident because the
+  // run died mid-phase.
+  try { await cleanup(); } catch {}
+  process.exit(1);
+});

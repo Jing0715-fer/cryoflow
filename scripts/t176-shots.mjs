@@ -2,6 +2,8 @@
 /** t176-shots.mjs — final beauty shots: palette badge clearance + the
  *  resurrected sheet X (card placed clear of the KPI overlay). */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();

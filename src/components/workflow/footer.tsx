@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { formatElapsed } from "@/lib/elapsed";
 import { useNow } from "@/lib/use-now";
 import React from "react";
-import { FIND_STATUSES, STATUS_CHIP } from "./canvas-find-bar";
+import { FIND_STATUSES } from "./canvas-find-bar";
+import { STATUS_CHIP } from "@/lib/status-style"; // t647 — straight from the map family, no re-export relays
 
 export function Footer() {
   // The census counts the SAME workspace-scoped list the canvas renders —
@@ -117,7 +118,18 @@ export function Footer() {
                     title={
                       armed
                         ? `Clear the ${label.toLowerCase()} filter`
-                        : `Highlight ${count} ${label.toLowerCase()} job${count === 1 ? "" : "s"} on the canvas${value === "running" && runningAge ? ` — longest running for ${runningAge}` : ""}`
+                        : `Highlight ${count} ${label.toLowerCase()} job${count === 1 ? "" : "s"} on the canvas${
+                            // t465 遗留⑤ — the age speaks its口径: the readout
+                            // counts from DISPATCH (staging, rounds and
+                            // sync-back all sit inside), not from round one —
+                            // without the sentence "7m 04s" reads as compute
+                            // time and the inspector's split ledger looks
+                            // like it contradicts the footer. One hover away,
+                            // zero visual noise.
+                            value === "running" && runningAge
+                              ? ` — longest running for ${runningAge} (counted from dispatch — staging, rounds and sync-back all sit inside; the inspector's time ledger splits them)`
+                              : ""
+                          }`
                     }
                     onClick={() => onCensusClick(value)}
                     className={cn(
@@ -143,7 +155,7 @@ export function Footer() {
                     {value === "running" && runningAge ? (
                       <span
                         data-testid="footer-running-elapsed"
-                        className="hidden font-semibold tabular-nums text-teal-600 dark:text-teal-400 lg:inline"
+                        className="hidden font-semibold tabular-nums text-running lg:inline"
                       >
                         · {runningAge}
                       </span>
@@ -157,7 +169,23 @@ export function Footer() {
         <span aria-hidden="true" className="text-border">
           |
         </span>
-        <span>Next.js 16 · Tailwind 4 · shadcn/ui</span>
+        {/* t401 — the served-build stamp: the git commit this app process
+            was fed. Dev shows the commit the server STARTED from (a pull
+            while it runs hot-reloads code past the stamp — restart to
+            refresh both); production shows the commit it was BUILT from
+            (a pull without `next build` keeps serving the old code, stamp
+            included). Compare against `git rev-parse --short HEAD`. */}
+        <span
+          title="Served build — the git commit this app is actually running. After git pull: restart the dev server, or rebuild (npm run build) for production, or the old code keeps serving."
+          className="inline-flex items-center gap-1"
+        >
+          Next.js 16 · Tailwind 4 · shadcn/ui
+          <span aria-hidden="true" className="text-border">
+            |
+          </span>
+          build{" "}
+          <span className="font-mono">{process.env.NEXT_PUBLIC_BUILD_SHA ?? "?"}</span>
+        </span>
       </div>
     </footer>
   );

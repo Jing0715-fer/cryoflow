@@ -16,6 +16,7 @@
 // Usage: QA_PHASES=A,B,C node scripts/qa55-e2e.mjs
 import { execSync } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 
 const AB = "agent-browser";
 const LOGF = new URL("../.qa-logs/qa55-trace.log", import.meta.url).pathname;
@@ -41,7 +42,9 @@ const PHASES = (process.env.QA_PHASES || "A,B,C").split(",").map((s) => s.trim()
 
 const SEED = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py";
 const SEED_CLEAN = "python3 /home/z/my-project/scripts/qa53-seed-topaz.py --clean";
-const JOB = "QA Refine3D";
+// t705 — the name is the world's own spelling, never a pin (qa-refine-host.mjs:
+// the JS twin of qa_lib.resolve_refine_host — manifest contract + type fallback)
+const JOB = resolveRefineHost().name;
 const B = "http://localhost:3000";
 
 const openDashboard = async () => {
@@ -416,14 +419,27 @@ const phaseB = async () => {
   if (gs.cards !== allN) throw new Error(`key 1 did not restore grid: ${gs.cards} vs ${allN}`);
   if (band.Running.pressed !== "false") throw new Error("key 1 did not clear running");
 
-  // key 3 — completed filter (sandbox has exactly one completed project)
+  // key 3 — completed filter (t525: presence-aware, mirroring the key-2
+  // block above — the old "sandbox has exactly one completed project"
+  // assumption died when t521's tutorial seeder, t522's cleanup-ledger
+  // entries and t474's gallery all landed completed jobs across 3 projects;
+  // the chip's own card count is the truth, not a remembered world)
   if (pressKey("3") !== "dispatched") throw new Error("dispatch failed");
   await sleep(600);
   gs = gridState();
   band = kpiBand();
   step(`  after key 3: cards=${gs.cards} completedPressed=${band.Completed.pressed}`);
   if (band.Completed.pressed !== "true") throw new Error("key 3 did not engage completed filter");
-  if (gs.cards !== 1) throw new Error(`completed presence filter expected 1 card, got ${gs.cards}`);
+  const completedPresence = (() => {
+    const chip = gs.chipRow && gs.chipRow.find((c) => c.t.startsWith("Completed "));
+    return chip ? (chip.n ?? parseInt(chip.t.replace(/[^\d]/g, ""), 10)) : 0;
+  })();
+  if (completedPresence > 0) {
+    if (gs.cards !== completedPresence)
+      throw new Error(`completed filter should show ${completedPresence} card(s), got ${gs.cards}`);
+  } else if (gs.cards !== 0) {
+    throw new Error("completed filter with zero completed projects should empty the grid");
+  }
 
   // Ctrl+2 — browser territory (tab switching), the app must not react
   if (pressKey("2", { ctrl: true }) !== "dispatched") throw new Error("dispatch failed");
@@ -458,16 +474,36 @@ const phaseB = async () => {
 const phaseC = async () => {
   console.log("== PHASE C: honest gap + console ==");
   sh(SEED_CLEAN);
-  // always re-bootstrap: phase B may have navigated to the dashboard (and
-  // standalone batches start with no page at all) — land on Results first
-  await openJobResults();
-  const rf = unq(evalJs(`(() => {
-    const b = [...document.querySelectorAll('button')].find(x => x.getAttribute('aria-label') === 'Refresh outputs');
-    if (!b) return 'NO-REFRESH';
-    b.click(); return 'refreshed';
-  })()`));
-  step(`  refresh: ${rf}`);
-  if (rf !== "refreshed") throw new Error(rf);
+  // t313 — the demo tutorial chain is HEALED (real FSC/angular data in its
+  // records and workdirs), so the honest-gap report can no longer be read
+  // off the demo itself. The gap now lives in its OWN world: a fresh EMPTY
+  // project (create + set active in one POST), report rendered there, then
+  // deleted — the active pointer falls back to the demo automatically.
+  const mk = JSON.parse(sh(`curl -s -X POST ${B}/api/projects -H "Content-Type: application/json" -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin" -d '{"name":"QA t55 Honest Gap"}'`));
+  const gapProjectId = mk?.project?.id ?? mk?.id;
+  if (!gapProjectId) throw new Error("fresh gap project did not create");
+  try {
+  // the Export Run Report door lives on a JOB's Results view — give the gap
+  // world one dataless import (the "no source configured" dialect, t282-era)
+  const mkJob = JSON.parse(sh(`curl -s -X POST ${B}/api/jobs -H "Content-Type: application/json" -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin" -d '{"projectId":"${gapProjectId}","type":"import","name":"QA Gap Import","x":80,"y":120}'`));
+  const gapJobId = mkJob?.job?.id;
+  if (!gapJobId) throw new Error("fresh gap job did not create");
+  sh(`curl -s -X POST ${B}/api/jobs/${gapJobId}/run -H "Content-Type: application/json" -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin" -d '{}' >/dev/null`);
+  await sleep(2000);
+  sh(`${AB} open ${B} >/dev/null 2>&1`);
+  await sleep(4000);
+  // open the gap job's Results (same card-click seam as openJobResults)
+  let opened = "";
+  for (let i = 0; i < 10 && !opened.includes("clicked@"); i++) {
+    const coords = evalJs(`(() => { const el = [...document.querySelectorAll('[role=button]')].find(x => (x.textContent||'').includes('QA Gap Import') && (x.textContent||'').includes('completed')); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`);
+    if (!coords || coords === "null") { opened = "NO-ELEMENT"; await sleep(2000); continue; }
+    const c = JSON.parse(coords);
+    sh(`${AB} mouse move ${c.x} ${c.y}`);
+    sh(`${AB} mouse down`);
+    sh(`${AB} mouse up`);
+    opened = `clicked@${c.x},${c.y}`;
+  }
+  if (!opened.includes("clicked@")) throw new Error("gap job card never appeared");
   await sleep(2500);
   const { toasts } = await hookAndClickReport();
   if (!/Run report downloaded/i.test(toasts)) throw new Error(`toast missing: ${toasts}`);
@@ -488,6 +524,14 @@ const phaseC = async () => {
   if (!md.includes("## Resolution") || !md.includes("## Outputs on disk"))
     throw new Error("base sections missing");
   step(`  honest-gap markdown OK (${md.length}B, no Contents, plain toast)`);
+  } finally {
+    // the gap world is disposable on EVERY path — a failure must still
+    // delete it or the active pointer strands the next window's readers on
+    // an empty project (observed live: /api/jobs answered 0 jobs)
+    sh(`curl -s -X DELETE ${B}/api/projects/${gapProjectId} -H "Origin: http://localhost:3000" -H "Sec-Fetch-Site: same-origin"`).trim();
+    sh(`${AB} open ${B} >/dev/null 2>&1`);
+    await sleep(2000);
+  }
   const errs = sh(`${AB} errors`) || "(none)";
   step(`  console errors: ${errs}`);
   if (errs !== "(none)") throw new Error("console errors present");

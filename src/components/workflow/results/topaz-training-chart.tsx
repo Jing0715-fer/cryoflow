@@ -10,8 +10,13 @@
  * topaz version whose output shape the parser cannot read).
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { GraduationCap, TrendingDown } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  GraduationCap,
+  MoveHorizontal,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -23,7 +28,9 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { fetchJsonRetry } from "@/lib/retry-fetch";
+import { ChartInterpretation } from "./interpretation-strip";
+import { ChartErrorStrip } from "./chart-error-strip";
+import { useChartResource } from "@/lib/use-chart-resource";
 import {
   topazRenderable,
   topazRows,
@@ -31,11 +38,15 @@ import {
   type TopazTrainingResponse,
 } from "@/lib/chart-rows";
 import { ChartExportButtons } from "./chart-export-buttons";
+import { STATUS_HEX } from "@/lib/status-style";
 
-const TEAL = "#14b8a6";
-const AMBER = "#f59e0b";
-const EMERALD = "#10b981";
-const ROSE = "#f43f5e";
+// SVG-series hex is the SVG domain's native vocabulary (token utility
+// classes do not exist for fill/stroke); the VALUES flow from the
+// STATUS_HEX single source since t650 — three verbatim copies retired.
+const TEAL = STATUS_HEX.running;
+const AMBER = STATUS_HEX.pending;
+const EMERALD = STATUS_HEX.completed;
+const ROSE = STATUS_HEX.failed;
 
 export function TopazTrainingChart({
   jobId,
@@ -47,36 +58,16 @@ export function TopazTrainingChart({
   running?: boolean;
   className?: string;
 }) {
-  const [data, setData] = useState<TopazTrainingResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // t491 — shared fetch state machine; live jobs poll every 20 s (a training
+  // run grows epochs), and a poll blip keeps the last good epochs on screen
+  const { status, data, error, retry } = useChartResource<TopazTrainingResponse>(
+    `/api/jobs/${jobId}/topaz-training`,
+    { pollMs: running ? 20_000 : null }
+  );
   // two chart views: loss curves (default) and precision/recall on a 0–1
   // axis. The P/R switch only appears when the log actually carries
   // picking metrics — older topaz versions log loss only.
   const [mode, setMode] = useState<"loss" | "pr">("loss");
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const body = await fetchJsonRetry<TopazTrainingResponse>(
-          `/api/jobs/${jobId}/topaz-training`
-        );
-        if (!cancelled) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
-      }
-    };
-    void load();
-    if (!running) return () => { cancelled = true; };
-    const t = setInterval(() => void load(), 20_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [jobId, running]);
 
   // chart rows carry both curve families; recharts skips nulls with
   // connectNulls, so each view just reads its own keys
@@ -115,7 +106,16 @@ export function TopazTrainingChart({
     return best;
   }, [data]);
 
-  if (error && !data) return null; // silent — the chart is an enhancement
+  if (status === "wounded") {
+    return (
+      <ChartErrorStrip
+        label="Picker training"
+        detail={error ?? undefined}
+        onRetry={retry}
+        className={className}
+      />
+    );
+  }
   // gate single-sourced in lib/chart-rows (a single epoch is not a curve)
   if (!topazRenderable(rows)) return null;
 
@@ -126,6 +126,24 @@ export function TopazTrainingChart({
   // latest picking metrics — surfaced as badges only in P/R view
   const finalPR: [number | null, number | null] =
     mode === "pr" ? [last.precision ?? last.testPrecision, last.recall ?? last.testRecall] : [null, null];
+
+  // t488 — the judgment strip drinks the same well the agent's
+  // get_job_curves quotes (interpretTopaz): the first→last train-loss
+  // pair, its direction (a fact from pure comparison, never a
+  // threshold), and the last epoch's picking metrics. Direction sets the
+  // strip's icon AND its tone: falling reads healthy (emerald), rising
+  // is the alarm (rose), flat/unknown is neutral (amber).
+  const interp = data?.interpretation ?? null;
+  const dir = interp?.lossDirection ?? null;
+  const DirIcon = dir === "falling" ? TrendingDown : dir === "rising" ? TrendingUp : MoveHorizontal;
+  const dirTone = dir === "falling" ? "emerald" : dir === "rising" ? "rose" : "amber";
+  const fmtLoss = (v: number | null): string =>
+    v == null || !Number.isFinite(v) ? "?" : v.toFixed(4);
+  const lastPR = interp?.lastEpoch ?? null;
+  const stripLoss: [number | null, number | null] = [
+    interp?.firstEpoch.trainLoss ?? firstLoss,
+    interp?.lastEpoch.trainLoss ?? finalLoss,
+  ];
 
   return (
     <section
@@ -149,22 +167,22 @@ export function TopazTrainingChart({
           </span>
         )}
         {firstLoss != null && finalLoss != null && firstLoss > 0 && (
-          <span className="rounded-full border border-emerald-600/30 bg-emerald-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-success-700 dark:text-success-300">
             ↓{Math.max(0, (1 - finalLoss / firstLoss) * 100).toFixed(0)}%
           </span>
         )}
         {bestTest != null && (
-          <span className="rounded-full border border-amber-600/30 bg-amber-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+          <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-warning-700 dark:text-warning-300">
             best test {bestTest.toFixed(3)}
           </span>
         )}
         {finalPR[0] != null && (
-          <span className="rounded-full border border-emerald-600/30 bg-emerald-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-success-700 dark:text-success-300">
             P {(finalPR[0] * 100).toFixed(0)}%
           </span>
         )}
         {finalPR[1] != null && (
-          <span className="rounded-full border border-rose-600/30 bg-rose-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-rose-700 dark:text-rose-300">
+          <span className="rounded-full border border-danger-600/30 bg-danger-600/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-danger">
             R {(finalPR[1] * 100).toFixed(0)}%
           </span>
         )}
@@ -191,6 +209,25 @@ export function TopazTrainingChart({
           className="ml-auto"
         />
       </div>
+
+      {/* t488 — the interpretation strip: the tool's exact pair (first →
+          last train loss) with its direction named, plus the last epoch's
+          picking metrics when the log carries them. */}
+      {interp && stripLoss[0] != null && stripLoss[1] != null && (
+        <ChartInterpretation icon={DirIcon} tone={dirTone} label="Train loss">
+          {fmtLoss(stripLoss[0])} → {fmtLoss(stripLoss[1])}
+          {dir ? ` ${dir}` : ""}
+          {lastPR?.precision != null || lastPR?.recall != null ? (
+            <span className="opacity-70">
+              {" "}· last epoch{" "}
+              {lastPR.precision != null ? `P ${(lastPR.precision * 100).toFixed(0)}%` : ""}
+              {lastPR.precision != null && lastPR.recall != null ? " / " : ""}
+              {lastPR.recall != null ? `R ${(lastPR.recall * 100).toFixed(0)}%` : ""}
+            </span>
+          ) : null}
+        </ChartInterpretation>
+      )}
+
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 6, right: 12, bottom: 2, left: -14 }}>
@@ -292,7 +329,7 @@ export function TopazTrainingChart({
               dot={{ r: 1.5, fill: TEAL, strokeWidth: 0 }}
               activeDot={{ r: 4, fill: TEAL }}
               connectNulls
-              isAnimationActive={false}
+              isAnimationActive={false /* the curves don't dance — the t610 mute law (fsc-chart.tsx header): the live poll re-hands every training curve its data and an animated line would re-draw itself each tick */}
               name="trainLoss"
             />
             <Line

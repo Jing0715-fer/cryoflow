@@ -17,7 +17,7 @@
  * (backs up data/engine-state.json and restores it afterwards)
  */
 
-import { readFileSync, writeFileSync, existsSync, renameSync, copyFileSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, renameSync, copyFileSync, unlinkSync } from "fs";
 import path from "path";
 import { DATA_DIR } from "../src/lib/paths";
 import {
@@ -173,7 +173,8 @@ try {
       renameSync(BACKUP, STATE_FILE);
       console.log("(real engine-state.json restored)");
     } else if (existsSync(STATE_FILE)) {
-      const { unlinkSync } = require("fs") as typeof import("fs");
+      // (t520 lint pass — unlinkSync rides the top import; the inline require()
+      // was the eslint offender, not the logic)
       unlinkSync(STATE_FILE);
       console.log("(test state file removed — none existed before)");
     }

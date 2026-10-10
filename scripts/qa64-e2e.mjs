@@ -15,6 +15,8 @@
 // iterations 12/15, sampling 5.0/7.5); teardown restores them.
 //
 // Run:  QA_PHASES=A node scripts/qa64-e2e.mjs   (server on :3000)
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { execSync } from "node:child_process";
 import { writeFileSync, unlinkSync, existsSync } from "node:fs";
 

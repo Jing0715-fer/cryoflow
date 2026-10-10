@@ -8,6 +8,22 @@
  * shape contract between the /api/remote/* routes, the run engine and the UI.
  */
 
+/**
+ * t300 — a project's cluster binding, projected for the UI (secret-free):
+ * the connection a REMOTE project's data lives on. Resolved fresh from the
+ * connections registry whenever a project DTO/summary is served, so a
+ * renamed connection re-labels its projects on the next fetch. Absent on
+ * local projects (and on rows saved before t300).
+ */
+export interface ProjectRemoteRef {
+  connectionId: string;
+  /** Display name (falls back to user@host when the connection is unnamed). */
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+}
+
 /** How to authenticate against the SSH server. */
 export type RemoteAuthMethod = "agent" | "key" | "password";
 
@@ -41,6 +57,33 @@ export interface RemoteConnection {
   envLines: string[];
   /** Submit through Slurm (sbatch) instead of a direct nohup process. */
   useSlurm: boolean;
+  /**
+   * t297 — Slurm partition for sbatch submissions (null = the cluster's
+   * default). Sourced from the probe's sinfo inventory or typed by hand.
+   */
+  slurmPartition?: string | null;
+  /**
+   * t367 — explicit walltime (minutes) for sbatch submissions. Absent/null
+   * = auto: the refinement family asks the partition's own MaxTime at
+   * submit time (sinfo -o '%l', clamped to 24h); everything else omits
+   * --time and the partition default applies. The field report: a 20-round
+   * 2D classification (~2h04) was cut by the partition's default walltime
+   * EXACTLY at iteration 20's write phase — exit-invisible in run.out (a
+   * kill prints nothing), the final classes stack never written.
+   */
+  slurmTimeMin?: number | null;
+  /**
+   * t289 — what finalize syncs back into the LOCAL mirror:
+   *   "key-files"  text outputs (.star/.log/…) always; binary outputs only
+   *                up to keyFileMb (class averages yes, maps & stacks stay
+   *                on the cluster — listed + fetchable on demand)
+   *   "everything" the previous behavior: every file under the caps below
+   * Absent (pre-t289 records) reads as "key-files" — bulky maps stopped
+   * silently landing on the laptop by default.
+   */
+  syncPolicy?: "key-files" | "everything";
+  /** t289 — per-file cap (MB) for the key-files policy's binary leg. */
+  keyFileMb?: number;
   /** File sync caps (MB) — per single file and per whole workdir sync-back. */
   maxFileMb: number;
   maxTotalMb: number;
@@ -86,6 +129,10 @@ export interface ConnectionRunResumeEntry {
   exists?: boolean;
   /** t272 — the owning project's name, when the job still exists. */
   projectName?: string;
+  /** t409 — the owning project's id, when the job still exists: the jump
+   *  door's cross-project hint (openJob switches projects first, then
+   *  lands on the job's inspector — the t272 tooltip's promise, now wired). */
+  projectId?: string;
 }
 
 /** Aggregate of every remote run dispatched through one connection. */
@@ -95,7 +142,11 @@ export interface ConnectionRunResume {
   failed: number;
   /** ISO time of the most recent run (any terminal state counts). */
   lastRunAt: string | null;
-  /** ≤3 newest runs, newest first — the résumé's reading line. */
+  /**
+   * The résumé's rows, newest first. The list route keeps ≤3 (the reading
+   * line); t295's panorama route returns EVERY entry under the same shape —
+   * the card's expand swaps the full aggregate in wholesale.
+   */
   recent: ConnectionRunResumeEntry[];
 }
 
@@ -113,6 +164,15 @@ export interface RemoteProbe {
   relionHomes: Record<string, string>;
   /** mpirun availability per module (module → true/false). */
   relionMpi: Record<string, boolean>;
+  /**
+   * t391 — mpirun's absolute path per module (module → path), as the
+   * probe's `module load` + `command -v mpirun` ceremony resolved it on the
+   * login node. The boolean above gates the MPI lane; this map is what the
+   * script's PATH fallback and the 127 receipt quote when the compute
+   * node's own environment did not carry the launcher. Absent on pre-t391
+   * probes (the fallback simply stays quiet).
+   */
+  relionMpirunPath?: Record<string, string>;
   /** ctffind executable per module (module → path), when found. */
   relionCtffind: Record<string, string>;
   /**
@@ -128,6 +188,38 @@ export interface RemoteProbe {
   slurm: boolean;
   /** GPU names from nvidia-smi (empty = no GPUs visible on login node). */
   gpus: string[];
+  /**
+   * t297 — GPU inventory from Slurm (`sinfo -o %P|%G|%D`), the honest
+   * answer when the login node has no GPUs (the usual case — the batch
+   * nodes own them). Absent on pre-t297 probes and CPU-only machines.
+   */
+  slurmGpus?: Array<{
+    /** Partition name (default-partition marker stripped). */
+    partition: string;
+    /** Nodes reporting GPUs in this partition. */
+    nodes: number;
+    /** GPUs per node (max seen across the partition's lines). */
+    gpusPerNode: number;
+    /** nodes × gpusPerNode — what the whole partition offers. */
+    gpuTotal: number;
+    /** GPU model when sinfo's GRES spells it (gpu:A100:6). */
+    model?: string;
+    /**
+     * t300 — the partition's node HOSTNAMES (sinfo %N hostlist expanded:
+     * "brain[2-4]" → brain2, brain3, brain4). The run dialog offers these
+     * as the "detected nodes" to submit onto. Absent on pre-t300 probes
+     * and clusters whose sinfo predates %N — the partition aggregate still
+     * stands on its own.
+     */
+    hosts?: string[];
+  }>;
+  /**
+   * t289 — the login node's $HOME (absolute, no ~). The dialog uses it to
+   * show the remote root RESOLVED ("~/cryoflow → /home/cryo/cryoflow") —
+   * a root the user can see is a root the user can trust. Optional: probes
+   * recorded before t289 lack it.
+   */
+  homeDir?: string | null;
   /** First error line when the probe could not complete. */
   error?: string;
   /**
@@ -147,6 +239,44 @@ export interface RemoteRunTarget {
   module: string | null;
   /** "direct" = nohup process, "slurm" = sbatch submission. */
   mode: "direct" | "slurm";
+  /**
+   * t297 — GPUs to request when mode=slurm: `#SBATCH --gres=gpu:N` with one
+   * MPI rank per GPU (`mpirun -n N … --gpu 0:1:…:N-1`), the sbatch6gpu.sh
+   * pattern at a user-chosen width. 1..8, clamped server-side; ignored in
+   * direct mode.
+   */
+  gpus?: number;
+  /**
+   * t300 — the Slurm partition (≈ the detected node group: "brain2", 8
+   * GPU/node) this sbatch should land on. null/absent = the connection's
+   * default (conn.slurmPartition) or the scheduler's own choice. Only
+   * meaningful in slurm mode; sanitized server-side ([A-Za-z0-9_.-]).
+   */
+  partition?: string | null;
+  /**
+   * t332 — the exact NODE this sbatch pins (`--nodelist`), picked straight
+   * from the live usage list (the run dialog's ClusterUsagePanel rows).
+   * Unlike the t300 derivation (single-host partitions pin themselves),
+   * this is the USER's own node choice and rides even when the node sits
+   * in a multi-host group — "node03" out of gpu's eight, which a partition
+   * pick could never express. null/absent = the t300 derivation applies.
+   * Only meaningful in slurm mode; sanitized server-side like partition
+   * (a hostname is the same charset, [A-Za-z0-9_.-], ≤64).
+   */
+  nodelist?: string | null;
+  /**
+   * t306/t307 — the array split for data-parallel types: ONE sbatch carrying
+   * `--array=1-N%M`, each task slicing the input STAR by
+   * SLURM_ARRAY_TASK_ID, the last task home merging the shards back into the
+   * canonical shape the engine's collectOutputs expects (per the flavor's
+   * dialect: concatenated output stars for motioncorr/ctffind, concatenated
+   * + path-rewritten particle rows for extract, a collected per-micrograph
+   * coords dir for autopick). 2..64, clamped server-side; only meaningful in
+   * slurm mode AND only for the types the engine's argv actually shards
+   * (ARRAY_FLAVORS); anything else is an honest refusal, never a silently
+   * un-split run.
+   */
+  shards?: number;
 }
 
 /** Per-job remote execution info (attached to JobDTO while relevant). */
@@ -161,6 +291,20 @@ export interface RemoteRunInfo {
   remoteWorkdir: string;
   /** Slurm job id (mode=slurm). */
   slurmId?: string;
+  /** t297 — scheduler state word as last witnessed (PENDING/RUNNING/…). */
+  slurmState?: string;
+  /** t297 — GPUs this submission requested (mode=slurm). */
+  gpusRequested?: number;
+  /** t300 — the partition this sbatch pinned (mode=slurm, user-chosen). */
+  partition?: string;
+  /** t303 — the scheduler's own wall-clock (sacct Elapsed → ms), when the ledger served it. */
+  slurmElapsedMs?: number;
+  /** t303 — the scheduler's own peak memory (sacct MaxRSS → bytes), when the ledger served it. */
+  slurmMaxRssBytes?: number;
+  /** t304 — slurm ids this submission waits on (--dependency=afterok), when it was dispatched with live upstream. */
+  slurmDependsOn?: string[];
+  /** t306 — the array split this submission rode (--array=1-N%M). Present only when dispatched with shards ≥ 2 on an array-eligible type. */
+  slurmArray?: { total: number; concurrency: number };
   /** Cluster-side pid (mode=direct). */
   pid?: number;
   /** Lifecycle phase (staging = uploading inputs to the cluster). */
@@ -198,10 +342,46 @@ export interface RemoteRunState {
   pid: number | null;
   /** slurm mode: scheduler job id. */
   slurmId: string | null;
+  /** t297 — slurm mode: the scheduler's own state word (PENDING/RUNNING/…) as last seen by the poll. */
+  slurmState?: string;
+  /** t297 — slurm mode: GPUs this submission requested (–gres=gpu:N). */
+  gpusRequested?: number;
+  /** t300 — slurm mode: the partition this sbatch pinned (user-chosen node group). */
+  partition?: string;
+  /** t303 — slurm mode: the scheduler's own wall-clock (sacct Elapsed → ms). Absent when the ledger did not serve it (accounting off, wrapper's exit won the race). */
+  slurmElapsedMs?: number;
+  /** t303 — slurm mode: the scheduler's own peak resident memory (sacct MaxRSS → bytes). Same honesty: served or absent, never guessed. */
+  slurmMaxRssBytes?: number;
+  /** t304 — slurm ids this submission waits on (--dependency=afterok). Present only when the dispatch saw live upstream on the same connection. */
+  slurmDependsOn?: string[];
+  /** t306 — the array split this submission rode (--array=1-N%M): total shards + the %M concurrency cap. Present only when dispatched with shards ≥ 2 on an array-eligible type. */
+  slurmArray?: { total: number; concurrency: number };
   /** Lifecycle: staging inputs → running → (done flips on RunRecord). */
   phase: "staging" | "running";
   /** Cluster-side outputs (filled at finalize) — key → remote path. */
   remoteOutputs?: Record<string, string>;
+  /**
+   * t324 — epoch ms of the last CLUSTER-side output probe (the finalize
+   * leg or the dispatch's lazy heal). Rate-limits re-probing records whose
+   * chainable outputs are still missing BOTH locally and remotely: the
+   * pending-retry sweep re-attempts pending consumers every ~20s, and a
+   * probe that found nothing must not become a per-round SSH tax. Absent
+   * on pre-t324 records (always probeable) and on records whose outputs
+   * are all accounted for (never probed — the worklist is empty).
+   */
+  outputProbeAt?: number;
+  /**
+   * t328 — output keys the last SUCCESSFUL probe verified ABSENT on the
+   * cluster (the workdir was entered, the candidate names/globs were
+   * checked, the files are not there). outputProbeAt alone cannot say this:
+   * its silence covers both "probed, nothing there" and "probed, found" —
+   * so the pending dialect kept re-promising "the dispatch probes the
+   * upstream's workdir" over a probe that had ALREADY run and come back
+   * empty (the field receipt: days of "waiting as pending" with zero new
+   * information per heartbeat). Per-key cleared when a later probe finds
+   * the file. Absent on records that were never probed.
+   */
+  outputProbeAbsent?: string[];
   /** Bytes + count pulled back to the local mirror at finalize. */
   syncedFiles?: number;
   syncedBytes?: number;
@@ -225,4 +405,135 @@ export interface RemoteRunState {
    * back to the age window.
    */
   stagingBeat?: number;
+  /**
+   * t404 — the server incarnation that owns this staging run (randomUUID
+   * at module load, stamped into every fresh remoteState). The staging
+   * task is void-spawned IN-PROCESS: a server restart kills it by
+   * definition, so a record whose bootId differs from the current
+   * incarnation is a GHOST — the boot sweep finalizes it honestly on the
+   * first poll tick (previously: a restart before the first heartbeat
+   * left the row pending for the 30min no-beat fallback, and on a box
+   * that flaps every few minutes staging could never make progress).
+   * Absent on pre-t404 ledgers — those keep the age-window fallback.
+   */
+  bootId?: string;
+  /**
+   * t391 — the CLUSTER's own clock (epoch seconds, `date +%s`) read once
+   * at dispatch, BEFORE any staging bytes land (the same clock domain that
+   * writes the run's mtimes). The t367 generation gate compares this — not
+   * the app host's Date.now(), which can sit minutes ahead of a lab
+   * network without NTP — so this run's own freshly-written outputs (the
+   * field report: run.out/run.err refused as "left behind by an EARLIER
+   * run") are never convicted by cross-clock skew. Absent (the read
+   * failed, or a pre-t391 record) → the finalize falls back to the app
+   * host's startedAt, the pre-t391 contract.
+   */
+  dispatchClusterSec?: number;
+  /**
+   * t318 — the dispatch fence: the CLUSTER's own clock (epoch seconds,
+   * `date +%s`) captured in the same exec that clears the previous run's
+   * verdict artifacts right before submission. The poll's aliveCheck
+   * refuses any .cf-exit whose mtime is older than this (−2s grace) — a
+   * re-run's workdir is stable (<root>/<type>_<jobid8>) and the previous
+   * run's exit file survives until the NEW script's own `rm` runs on the
+   * compute node (seconds of profile+module preamble, or a whole queue
+   * wait), so without the fence the first poll would forge the OLD
+   * verdict onto the fresh dispatch (the t318 ticket: a re-run after a
+   * failed CTF finalized "exit 1" while the new job was still loading
+   * modules). Absent (pre-t318 records) → the poll trusts any .cf-exit,
+   * the old contract.
+   */
+  dispatchedAtEpoch?: number;
+  /**
+   * t346 — the last poll sweep's run.out tail (≤4KB), carried home on the
+   * heartbeat so the log tab NEVER pays its own SSH round trip. Absent on
+   * records whose sweep has not landed yet (the log route then fetches on
+   * demand, rate-limited, and caches the result here).
+   */
+  logTailOut?: string;
+  /** t346 — the same sweep's run.err tail (≤2KB). */
+  logTailErr?: string;
+  /** t346 — epoch ms of the sweep that produced logTailOut/logTailErr. */
+  logTailAt?: number;
+  /** t346 — run.out's line count at the last sweep (the log tab's counter). */
+  logTotalLines?: number;
+  /**
+   * t346 — consecutive VANISHED ladder verdicts. A single empty
+   * squeue+sacct snapshot used to flip a running row to "interrupted
+   * remotely" (the field: the job was alive; the WIRE blinked). The flip
+   * now needs a STREAK (default 3) of consecutive verdicts — ALIVE, EXIT,
+   * SACCT or any real progress resets it to 0.
+   */
+  vanishedStreak?: number;
+  /**
+   * t370 — class-round file names (run_itNNN_classes.mrcs) whose LIVE MRC
+   * header the sweep read as nx/ny/nz 0 while the run was still going —
+   * the t369 zero-header disease caught in the act (the sweep now carries
+   * `od -An -tu4 -j0 -N12` lines beside the per-round stat lines, so the
+   * evidence costs zero extra SSH round trips). Capped at 8 names (the
+   * receipt names the shape, not every round). Rounds listed here are
+   * never scheduled for a live render pull — the bytes are garbage and a
+   * pull would only flash a false "unreadable" verdict.
+   */
+  zeroHeaderRounds?: string[];
+  /**
+   * t370 — epoch ms the automatic storage diagnostic was fired for this
+   * run (the once-per-run guard: the first zero-header round triggers it,
+   * later rounds never re-pay the 8 MB probe). Absent = not fired.
+   */
+  storageDiagAt?: number;
+  /**
+   * t370 — the storage diagnostic's one-line verdict, persisted on the
+   * record so the finalize receipt can speak it even when the diagnostic
+   * landed while finalize was still assembling (and so the log tab keeps
+   * the sentence after the sweep's tail cache rolls over).
+   */
+  storageDiagVerdict?: string;
+  /**
+   * t625 — the stop receipt's OPEN QUESTION: the record was finalized at
+   * stop time with its stop-time best knowledge (the 137 user-stop stamp,
+   * or the missed receipt's "the ledger decides" promise), while the
+   * cluster's accounting ledger holds the FINAL word — a scancel accepted
+   * around an already-finishing run means sacct may answer COMPLETED (the
+   * landing), CANCELLED (the stamp confirmed), or FAILED with the run's
+   * own exit (the ledger's verdict). The sweep consults sacct for the
+   * slurmId, lands the ledger's terminal word on record and row, and
+   * clears the flag; a ledger that stays silent past the patience window
+   * has the receipt's stamp stand. Set for slurm-mode stops only (killed
+   * AND missed — both promise the ledger decides); absent on direct
+   * pid-group kills (no ledger to consult) and on re-runs (a fresh record
+   * never inherits the question). `missed` rides along so the landing can
+   * name WHICH promise it fulfills (the missed receipt's row promised the
+   * ledger's word; the killed receipt's row named the user).
+   */
+  accountingPending?: { at: number; missed: boolean };
+  /**
+   * t626 — the OUTPUTS LEDGER's open question, opened by the accounting
+   * landing itself (the fourth level's first slice): a landed run's row may
+   * say completed/100, but the sync-back never ran for it — no local mirror
+   * and, crucially, NO REMOTE MANIFEST, which is the exact-entry
+   * authorization source the Files tab, the t424 batch bring-home, and the
+   * t289 lazy fetch all read. The on-demand policy exists but is DEAD for a
+   * landed job: the route "cannot be talked into fetching anything the
+   * ledger does not already name", and the ledger names nothing. The sweep's
+   * outputs-ledger leg answers this question with ONE manifest-only SSH
+   * round (the same find grammar the sync-back opens with — t289's own
+   * "ledger first" doctrine): no downloads, no per-class split, no
+   * dispatch. Cleared when the manifest lands (`outputsLedgerAt` stamps it)
+   * or the question closes unasked / after three silent rounds.
+   */
+  outputsLedgerPending?: boolean;
+  /**
+   * t626 — how many manifest rounds failed for this question. Three
+   * strikes close it: a login node that cannot answer `find` three ticks
+   * running will not answer the fetch doors either, and the honest state is
+   * the CLOSED question, not a per-tick SSH tax.
+   */
+  outputsLedgerTries?: number;
+  /**
+   * t626 — epoch ms the manifest leg landed (the outputs view now knows
+   * what the cluster holds). Absent = the question closed without a
+   * manifest (workdir gone, or the tries budget spent).
+   */
+  outputsLedgerAt?: number;
 }

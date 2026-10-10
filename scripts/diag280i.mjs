@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /** diag280i.mjs — mouse-click vs touch-tap on the completed card, both viewports. */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();

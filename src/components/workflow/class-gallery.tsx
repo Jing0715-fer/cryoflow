@@ -12,22 +12,47 @@
  *   - "auto" mode: classes with occupancy ≥ cutoff × best are pre-kept
  *   - manual mode: every click rewrites selectedClasses ("1,2,5") which
  *     auto-saves through the params debounce and feeds the engine run
+ *
+ * t402b — the source no longer has to be FINISHED: a running or torn
+ * classification answers from its newest settled iteration (amber
+ * banner + a live heartbeat while it runs — 「select 2d 增加支持从 2d
+ * 的中间结果选取颗粒，不一定非得是完全跑完」), and a 3D classification
+ * feeds the same gallery (「同理 3d 分类也是」) — a real-RELION class3d
+ * writes no combined classes.mrcs, so its per-class volumes render as
+ * central z-planes through the outputs/file route instead.
+ *
+ * t773 — the gallery's source line speaks the kind vocabulary: the
+ * header names the run it reads (the mono type word) and the water
+ * rides beside it (the kind vocabulary's THIRTY-FIRST reader, the
+ * family's EIGHTEENTH testid address class-gallery-pours-). The
+ * gallery is the TRIAGE face of the commitment-seat taxonomy: it lays
+ * a run's water out on a grid so the user can sort kept from cut —
+ * and the water names both ends of that bargain, because the
+ * thumbnails ON the grid are one of the source's pours (a class2d's
+ * references2d averages, a class3d's per-class volumes) and the
+ * particles pour is the food the selection hands downstream. Unknown
+ * types keep the bare word (the gate closes on pouring).
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
+  Bot,
   Check,
   ChevronLeft,
   ChevronRight,
   Grid2x2Check,
   Loader2,
   Maximize2,
+  RefreshCw,
   Sparkles,
   StickyNote,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseClassNotes } from "@/lib/class-notes";
+import { gridNeighbor, type GridDir, type GridEntry } from "@/lib/grid-nav"; // t778 — the roving geometry's one brain (the results grid already speaks it)
+import { pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t773 — the kind vocabulary's THIRTY-FIRST reader joins the class gallery's source line
 import type { EdgeDTO, JobDTO } from "@/lib/types";
 import { useWorkflowStore } from "@/lib/store";
 import {
@@ -49,6 +74,14 @@ interface ClassesResponse {
   iteration: number | null;
   classesFile?: string | null;
   classesSlices?: number | null;
+  /** t402b — real-RELION class3d's per-class volume files (workdir-relative,
+   * newest iteration, class order) — the thumbnail lane when the run speaks
+   * the volume dialect instead of the combined classes.mrcs stack. */
+  volumeFiles?: string[] | null;
+  /** t358 — the last honest refusal recorded for this run's class-average
+   * stack (which link of the cluster pull broke) — the banner explains a
+   * dark grid instead of bare "no image" cards */
+  renderError?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -125,19 +158,74 @@ export function ClassGallery({
   const jobs = useWorkflowStore((s) => s.jobs);
   const edges = useWorkflowStore((s) => s.edges);
 
-  // upstream Class2D job: any incoming edge whose source is a 2D
-  // classification run — prefer a completed one when several exist
+  // upstream classification job: any incoming edge whose source is a 2D
+  // (or, since t402b, 3D) classification run — prefer a completed one
+  // when several exist, then a running one (its settled rounds already
+  // answer), then whatever is wired
   const upstream = useMemo(() => {
     const sources = edges
       .filter((e: EdgeDTO) => e.toJobId === job.id)
       .map((e: EdgeDTO) => jobs.find((j) => j.id === e.fromJobId))
-      .filter((j): j is JobDTO => j != null && (j.type === "class2d" || j.type === "select2d"));
-    return sources.find((j) => j.status === "completed") ?? sources[0] ?? null;
+      .filter(
+        (j): j is JobDTO =>
+          j != null && (j.type === "class2d" || j.type === "select2d" || j.type === "class3d")
+      );
+    return (
+      sources.find((j) => j.status === "completed") ??
+      sources.find((j) => j.status === "running") ??
+      sources[0] ??
+      null
+    );
   }, [edges, jobs, job.id]);
+
+  // the source's kind word — the copy says "2D classification" or "3D
+  // classification" honestly instead of the old 2D-only phrasing
+  const is3dSource = upstream?.type === "class3d";
+
+  // t773 — the pours ask rides the source's own type word: the gallery
+  // reads ONE classification run, so the ask has one source word-form
+  // (upstream.type) and one dose per gallery — the same word the mono
+  // kind word and the testid address both speak.
+  const pouring = upstream ? pourKindsOf(upstream.type) : [];
 
   const [data, setData] = useState<ClassesResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* t356 — the per-class thumbnail LANE: the class2d run's preview cache
+   * answers first (the finalize pipeline / view trigger already downloaded
+   * the stacks and converted them to local PNGs — instant, zero SSH);
+   * /outputs/file stays as the FALLBACK lane (it lands the whole stack at
+   * its real mirror path — the t289 doctrine — and covers exotic stack
+   * names the iteration route's whitelist refuses). A slice that fails on
+   * the first lane retries once on the second; only then the honest
+   * "no image" placeholder. */
+  const [fallbackImgs, setFallbackImgs] = useState<Set<number>>(new Set());
+
+  /* t355 — per-class thumbnail lifecycle: `failedImgs` swaps the card to
+   * its honest "no image" placeholder (the old onError hid the <img>,
+   * leaving a white square with no explanation), `loadedImgs` stops the
+   * loading pulse. A remote-run stack's first thumbnail lazy-fetches the
+   * whole .mrcs (the t289 doctrine), so the pulse is the "it is coming
+   * over the wire" cue. */
+  const [failedImgs, setFailedImgs] = useState<Set<number>>(new Set());
+  const [loadedImgs, setLoadedImgs] = useState<Set<number>>(new Set());
+  const markImg =
+    (kind: "failed" | "loaded") =>
+    (cls: number): void =>
+      (kind === "failed" ? setFailedImgs : setLoadedImgs)((prev) => {
+        if (prev.has(cls)) return prev;
+        const next = new Set(prev);
+        next.add(cls);
+        return next;
+      });
+  const onImgError = markImg("failed");
+  const onImgLoad = markImg("loaded");
+
+  /* t358 — retry nonce for the /classes fetch: the banner's Retry re-asks
+   * the server (which re-attempts the cluster pull with its per-chunk
+   * budget) and wipes the per-card failure sets so the grid reloads. */
+  const [dataNonce, setDataNonce] = useState(0);
 
   useEffect(() => {
     if (!upstream) {
@@ -154,6 +242,9 @@ export function ClassGallery({
         if (!cancelled) {
           setData(body);
           setError(null);
+          setFailedImgs(new Set());
+          setLoadedImgs(new Set());
+          setFallbackImgs(new Set());
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "failed");
@@ -164,6 +255,17 @@ export function ClassGallery({
     return () => {
       cancelled = true;
     };
+  }, [upstream?.id, upstream?.status, dataNonce]);
+
+  /* t402b — while the source classification RUNS, the gallery keeps a slow
+   * heartbeat: each settled iteration's data star + class stack lands on
+   * disk and the counts the user selects against must track the newest
+   * round (the remote lane answers from the 12s-TTL'd SSH cache, the local
+   * lane from the mtime cache — a poll, never a storm). */
+  useEffect(() => {
+    if (upstream?.status !== "running") return;
+    const t = setInterval(() => setDataNonce((n) => n + 1), 12_000);
+    return () => clearInterval(t);
   }, [upstream?.id, upstream?.status]);
 
   const classes = data?.classes ?? [];
@@ -210,6 +312,59 @@ export function ClassGallery({
   const keptCount = classes.filter((c) => kept.has(c.cls)).reduce((a, c) => a + c.count, 0);
   const total = data?.total ?? 0;
   const classesFile = data?.classesFile ?? null;
+
+  // t356 — the lane pair: `sliceUrl` prefers the iteration-image route
+  // (preview-cache hit → instant; miss → byte-verified cluster pull that
+  // renders EVERY slice of the stack at once, so the first card lights
+  // the whole grid); `legacySliceUrl` is the t289 whole-stack-into-mirror
+  // lane, kept as the one-retry fallback.
+  //
+  // t402b — the 3D volume lane sits in FRONT of both: a real-RELION
+  // class3d run has no combined classes.mrcs, its classes are per-class
+  // volumes (run_itNNN_class00K.mrc), and each renders its central z-plane
+  // through the outputs/file route (axis=z pos=0.5). A volume card has no
+  // fallback lane (the stack lanes have nothing to offer it).
+  const volumeFiles = data?.volumeFiles ?? null;
+  const volumeOf = (cls: number): string | null =>
+    volumeFiles != null && volumeFiles[cls - 1] ? volumeFiles[cls - 1] : null;
+  const iterLaneOk =
+    classesFile != null &&
+    /^(?:(?:run_it|_it)\d+_(?:unmasked_)?classes|run_unmasked_classes)\.mrcs?$/i.test(classesFile);
+  const sliceUrl = (cls: number) => {
+    const vf = volumeOf(cls);
+    if (vf != null) {
+      return `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(vf)}&format=png&axis=z&pos=0.5`;
+    }
+    return classesFile == null
+      ? ""
+      : iterLaneOk
+        ? `/api/jobs/${upstream.id}/iterations/image?file=${encodeURIComponent(classesFile)}&slice=${cls - 1}`
+        : `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${cls - 1}`;
+  };
+  const legacySliceUrl = (cls: number) =>
+    classesFile == null
+      ? ""
+      : `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${cls - 1}`;
+  // first failure retries on the legacy lane (once); a failure there (or
+  // when the legacy lane IS the primary) marks the honest placeholder —
+  // t402b: a VOLUME card is single-lane by construction, its one failure
+  // goes straight to the placeholder
+  const handleImgError = (cls: number): void => {
+    if (volumeOf(cls) != null) {
+      onImgError(cls);
+      return;
+    }
+    if (iterLaneOk && !fallbackImgs.has(cls)) {
+      setFallbackImgs((prev) => {
+        if (prev.has(cls)) return prev;
+        const next = new Set(prev);
+        next.add(cls);
+        return next;
+      });
+      return;
+    }
+    onImgError(cls);
+  };
 
   const toggle = (cls: number) => {
     // first click in auto mode starts manual editing FROM the auto set —
@@ -297,6 +452,7 @@ export function ClassGallery({
   // clears its state (and the store field) through the consumed callback.
   useEffect(() => {
     if (focusClass == null) return;
+    trackLightboxReturn(focusClass);
     setZoom(focusClass);
     setFocusNote(true);
     onClassFocusConsumed?.();
@@ -308,68 +464,122 @@ export function ClassGallery({
    * is in the tab order (tabIndex 0), the arrows move focus between cards
    * geometrically (row/col neighbours of the responsive grid, no column
    * count guessing), Home/End jump to the ends. The zoom sibling stays
-   * tabbable so keyboard users still reach the lightbox. */
+   * tabbable so keyboard users still reach the lightbox.
+   *
+   * t778 — the inline geometry retired into src/lib/grid-nav.ts, the brain
+   * the results grid's roving already speaks (t777): the gallery raises
+   * the intent — which word was pressed, where the anchor sits — and the
+   * lib resolves the neighbour (half-tile tolerance, strict travel axis,
+   * nearest wins, an honest null at the edge of the world). Same law,
+   * one brain, two families. Focus keeps the t774 contract: preventScroll,
+   * then the nearest-block scroll — focus without reachability is a dead
+   * gesture. */
   const cardRefs = useRef(new Map<number, HTMLButtonElement>());
   const [activeCls, setActiveCls] = useState<number | null>(null);
+  // t791 — the relay's third family. The grid keeps a WITNESS of where the
+  // keyboard last parked (the roving toggle's cls + its index in visible);
+  // the lightbox keeps a RETURN POCKET of the card it was opened on. When a
+  // card the keyboard holds vanishes (a kept-only discard, a shrinking
+  // iteration, a filter combination) or the lightbox closes, the pocket
+  // spends once and the card's index-neighbour inherits focus — never body.
+  const lastFocusedCellRef = useRef<{ cls: number; idx: number } | null>(null);
+  const lightboxReturnRef = useRef<{ cls: number; idx: number } | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  // the landing: the card now occupying the vanished card's index (t788's
+  // min(idx, len-1) math, grid dialect), or the inline reset button when a
+  // filter combination emptied the world.
+  const handFocusBackToGrid = useCallback(
+    (idx: number) => {
+      const tenant = visible[Math.min(idx, visible.length - 1)];
+      if (tenant) {
+        setActiveCls(tenant.cls);
+        const el = cardRefs.current.get(tenant.cls);
+        el?.focus({ preventScroll: true });
+        el?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        return;
+      }
+      gridRef.current
+        ?.querySelector<HTMLButtonElement>('[data-canvas-ui="gallery-reset-filters"]')
+        ?.focus();
+    },
+    [visible],
+  );
+  // the pocket writer — every door into the lightbox records where to come
+  // home to, and ← / → inside the lightbox move the home address with them
+  const trackLightboxReturn = (cls: number) => {
+    lightboxReturnRef.current = { cls, idx: visible.findIndex((v) => v.cls === cls) };
+  };
+  // the witness: only the roving toggles speak for the grid (the zoom/note
+  // affordances are transient doors, not addresses); a blur whose
+  // relatedTarget left the container means the keyboard left VOLUNTARILY —
+  // the witness stands down so a filter click never steals focus back
+  const onGridFocusCapture = (e: React.FocusEvent<HTMLDivElement>) => {
+    const m = ((e.target as HTMLElement).getAttribute("aria-label") ?? "").match(/^Toggle class (\d+)/);
+    if (!m) return;
+    const cls = Number(m[1]);
+    lastFocusedCellRef.current = { cls, idx: visible.findIndex((v) => v.cls === cls) };
+  };
+  const onGridBlurCapture = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) lastFocusedCellRef.current = null;
+  };
   useEffect(() => {
+    // t791 — when the card the KEYBOARD was parked on vanishes, the witness
+    // spends itself once (cleared before the hand-off) and the neighbour
+    // inherits focus; otherwise the roving anchor self-heals silently
+    const witness = lastFocusedCellRef.current;
+    if (witness != null && witness.idx >= 0 && !visible.some((v) => v.cls === witness.cls)) {
+      lastFocusedCellRef.current = null;
+      handFocusBackToGrid(witness.idx);
+      return;
+    }
     // the active card may vanish (kept-only toggle, sort switch, new data)
     // — re-anchor the roving anchor to the first visible card
     if (activeCls != null && !visible.some((v) => v.cls === activeCls)) {
       setActiveCls(visible[0]?.cls ?? null);
     }
-  }, [visible, activeCls]);
+  }, [visible, activeCls, handFocusBackToGrid]);
+  const KEY_TO_DIR: Record<string, GridDir> = {
+    ArrowRight: "right",
+    ArrowLeft: "left",
+    ArrowUp: "up",
+    ArrowDown: "down",
+    Home: "home",
+    End: "end",
+  };
   const onGridKeyDown = (e: React.KeyboardEvent) => {
-    const NAV = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Home", "End"];
-    if (!NAV.includes(e.key)) return;
+    const dir = KEY_TO_DIR[e.key];
+    if (!dir) return;
     const cur = document.activeElement as HTMLButtonElement | null;
-    const entries = visible
-      .map((v) => ({ cls: v.cls, el: cardRefs.current.get(v.cls) }))
-      .filter((en): en is { cls: number; el: HTMLButtonElement } => Boolean(en.el));
-    if (entries.length === 0) return;
-    const rects = entries.map((en) => ({ ...en, r: en.el.getBoundingClientRect() }));
-    const curEntry =
-      rects.find((en) => en.el === cur) ??
-      rects.find((en) => en.cls === activeCls) ??
-      rects[0];
-    const cx = curEntry.r.left + curEntry.r.width / 2;
-    const cy = curEntry.r.top + curEntry.r.height / 2;
-    const rowTol = curEntry.r.height / 2;
-    const colTol = curEntry.r.width / 2;
-    let target: (typeof rects)[number] | undefined;
-    switch (e.key) {
-      case "ArrowRight":
-        target = rects
-          .filter((en) => en.r.left > curEntry.r.left + 1 && Math.abs(en.r.top + en.r.height / 2 - cy) < rowTol)
-          .sort((a, b) => a.r.left - b.r.left)[0];
-        break;
-      case "ArrowLeft":
-        target = rects
-          .filter((en) => en.r.left < curEntry.r.left - 1 && Math.abs(en.r.top + en.r.height / 2 - cy) < rowTol)
-          .sort((a, b) => b.r.left - a.r.left)[0];
-        break;
-      case "ArrowDown":
-        target = rects
-          .filter((en) => en.r.top > curEntry.r.top + 1 && Math.abs(en.r.left + en.r.width / 2 - cx) < colTol)
-          .sort((a, b) => a.r.top - b.r.top)[0];
-        break;
-      case "ArrowUp":
-        target = rects
-          .filter((en) => en.r.top < curEntry.r.top - 1 && Math.abs(en.r.left + en.r.width / 2 - cx) < colTol)
-          .sort((a, b) => b.r.top - a.r.top)[0];
-        break;
-      case "Home":
-        target = rects[0];
-        break;
-      case "End":
-        target = rects[rects.length - 1];
-        break;
+    const entries: (GridEntry & { cls: number; el: HTMLButtonElement })[] = [];
+    for (const v of visible) {
+      const el = cardRefs.current.get(v.cls);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      entries.push({
+        id: String(v.cls),
+        cls: v.cls,
+        el,
+        left: r.left,
+        top: r.top,
+        width: r.width,
+        height: r.height,
+      });
     }
+    if (entries.length === 0) return;
+    const curEntry =
+      entries.find((en) => en.el === cur) ??
+      entries.find((en) => en.cls === activeCls) ??
+      entries[0];
+    const nextId = gridNeighbor(entries, curEntry.id, dir);
     // arrows must never scroll the grid — an edge cell simply holds focus
     e.preventDefault();
-    if (target && target.cls !== curEntry.cls) {
-      setActiveCls(target.cls);
-      target.el.focus();
-    }
+    if (!nextId || nextId === curEntry.id) return;
+    const target = entries.find((en) => en.id === nextId);
+    if (!target) return;
+    setActiveCls(target.cls);
+    // t774's viewport lesson — focus without reachability is a dead gesture
+    target.el.focus({ preventScroll: true });
+    target.el.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
   const zoomIdx = zoom == null ? -1 : visible.findIndex((c) => c.cls === zoom);
   const zoomClass = zoomIdx >= 0 ? visible[zoomIdx] : null;
@@ -378,18 +588,20 @@ export function ClassGallery({
   const stepZoom = (dir: 1 | -1) => {
     if (zoomIdx < 0 || visible.length === 0) return;
     const next = visible[(zoomIdx + dir + visible.length) % visible.length];
+    trackLightboxReturn(next.cls);
     setZoom(next.cls);
   };
 
   // preload the two neighbours so ← / → feels instant — class stacks are
-  // small (a few dozen KB per slice), prefetching is effectively free
+  // small (a few dozen KB per slice), prefetching is effectively free.
+  // t356 — rides the same lane pair as the visible cards.
   useEffect(() => {
     if (zoomIdx < 0 || !classesFile) return;
     for (const d of [1, -1] as const) {
       const n = visible[(zoomIdx + d + visible.length) % visible.length];
       if (!n) continue;
       const img = new Image();
-      img.src = `/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${n.cls - 1}`;
+      img.src = fallbackImgs.has(n.cls) ? legacySliceUrl(n.cls) : sliceUrl(n.cls);
     }
   }, [zoomIdx, classesFile, visible]);
 
@@ -432,31 +644,11 @@ export function ClassGallery({
         className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center"
       >
         <Grid2x2Check className="mx-auto mb-1.5 size-5 text-muted-foreground" aria-hidden="true" />
-        <p className="text-xs font-medium">No 2D classification connected</p>
+        <p className="text-xs font-medium">No classification connected</p>
         <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-          Wire a 2D Classification job&apos;s outputs into this job&apos;s input ports —
+          Wire a 2D/3D Classification job&apos;s outputs into this job&apos;s input ports —
           the class gallery appears here once results exist.
         </p>
-      </section>
-    );
-  }
-
-  if (upstream.status !== "completed") {
-    return (
-      <section
-        aria-label="Class selection gallery"
-        className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center"
-      >
-        <Grid2x2Check className="mx-auto mb-1.5 size-5 text-muted-foreground" aria-hidden="true" />
-        <p className="text-xs font-medium">
-          {upstream.status === "running" ? "2D classification is running…" : "Classification not finished yet"}
-        </p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-          Source: {upstream.name} — the gallery opens automatically when its class averages land.
-        </p>
-        {loading && (
-          <Loader2 className="mx-auto mt-2 size-4 animate-spin text-teal-600" aria-hidden="true" />
-        )}
       </section>
     );
   }
@@ -490,12 +682,51 @@ export function ClassGallery({
   }
 
   if (classes.length === 0) {
+    // t402b — the status says WHY there is nothing yet: a running run
+    // simply hasn't settled its first round (the gallery opens the moment
+    // one lands — see the heartbeat above); a finished one genuinely has
+    // no assignments; anything else (failed/torn/idle/pending) explains
+    // itself instead of the old blanket "not finished yet" that hid
+    // usable intermediate data behind a status word
+    if (upstream.status === "running") {
+      return (
+        <section
+          aria-label="Class selection gallery"
+          className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center"
+        >
+          <Grid2x2Check className="mx-auto mb-1.5 size-5 text-muted-foreground" aria-hidden="true" />
+          <p className="text-xs font-medium">
+            {is3dSource ? "3D" : "2D"} classification is running…
+          </p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+            Source: {upstream.name} — the gallery opens on the first settled iteration, then tracks the latest round as it lands.
+          </p>
+          {loading && (
+            <Loader2 className="mx-auto mt-2 size-4 animate-spin text-teal-600" aria-hidden="true" />
+          )}
+        </section>
+      );
+    }
+    if (upstream.status === "completed") {
+      return (
+        <section
+          aria-label="Class selection gallery"
+          className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center text-xs text-muted-foreground"
+        >
+          No class assignments found in {upstream.name}.
+        </section>
+      );
+    }
     return (
       <section
         aria-label="Class selection gallery"
-        className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center text-xs text-muted-foreground"
+        className="mb-3 rounded-lg border border-dashed bg-secondary/30 p-4 text-center"
       >
-        No class assignments found in {upstream.name}.
+        <Grid2x2Check className="mx-auto mb-1.5 size-5 text-muted-foreground" aria-hidden="true" />
+        <p className="text-xs font-medium">No settled round on disk yet</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+          Source: {upstream.name} ({upstream.status ?? "idle"}) — the gallery opens when its first complete iteration lands; a re-run of the source can also bring one.
+        </p>
       </section>
     );
   }
@@ -513,7 +744,74 @@ export function ClassGallery({
           {upstream.name}
           {data?.iteration != null ? ` · iter ${data.iteration}` : ""}
         </span>
+        {/* t773 — the gallery names its source's kind: the name says WHICH
+            run, the mono word says WHAT KIND, and the water (beside it)
+            says what the kind pours — the thumbnails on this grid ARE one
+            of the pours (a class2d's references2d averages, a class3d's
+            per-class volumes), and the particles pour is the food the
+            selection hands on. The TRIAGE face of the commitment-seat
+            taxonomy: the gallery sorts a kind's water into kept and cut,
+            and the dots tell you which wires that bargain feeds. */}
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+          {upstream.type}
+        </span>
+        {pouring.length > 0 && (
+          // t773 — the water rides the kind word as a flex sibling: the
+          // header is a flex host (gap-2 is the space — the t760 prose
+          // law's boundary clause, another staging; flex hosts owe
+          // nothing), the family's canonical container verbatim, the
+          // EIGHTEENTH address. The gate closes on pouring — an unknown
+          // type keeps the bare mono word, no ghost seat.
+          <span
+            className="inline-flex shrink-0 items-center gap-1"
+            data-testid={`class-gallery-pours-${upstream.type}`}
+          >
+            {pouring.map((k) => (
+              <span
+                key={k}
+                aria-hidden="true"
+                title={`pours ${k}`}
+                className="inline-block size-1.5 rounded-full"
+                style={{ background: PORT_COLORS[k].wire }}
+              />
+            ))}
+            <span className="sr-only">pours {pouring.join(", ")}</span>
+          </span>
+        )}
+        {/* t402b — the live chip: the source is running and this gallery is
+            tracking its rounds (heartbeat above) */}
+        {upstream.status === "running" && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300"
+            data-canvas-ui="class-gallery-live"
+          >
+            <span className="relative flex size-1.5">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400/80" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-amber-500" />
+            </span>
+            live
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-1">
+          {/* t419 — the AI judge door: opens the assistant with the question
+            * pre-armed (one-shot pending prompt). The VLM looks at the class
+            * sheet + occupancy + resolution and recommends what to keep. */}
+          <button
+            type="button"
+            onClick={() =>
+              useWorkflowStore
+                .getState()
+                .openAiAssistant(
+                  `请分析 2D 分类任务「${upstream.name}」(id: ${upstream.id}) 的结果：用视觉模型看 class 平均图，结合每类占比和分辨率，推荐应该保留哪些 class，并说明理由。`
+                )
+            }
+            title="AI 分析 — 视觉模型判 class，结合占比与分辨率推荐"
+            data-canvas-ui="class-gallery-ai"
+            className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-700 transition-colors hover:bg-amber-500/25 dark:text-amber-300"
+          >
+            <Bot className="mr-1 inline size-2.5" aria-hidden="true" />
+            AI 分析
+          </button>
           <button
             type="button"
             onClick={() => onChange("auto")}
@@ -542,12 +840,37 @@ export function ClassGallery({
             type="button"
             onClick={() => onChange("1")}
             title="Clear manual selection (keep only class 1 as a starting point)"
-            className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-rose-500/15 hover:text-rose-600 dark:hover:text-rose-300"
+            className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-danger-500/15 hover:text-danger-600 dark:hover:text-danger-300"
           >
             None
           </button>
         </div>
       </div>
+
+      {/* t402b — the intermediate-source banner: this gallery is answering
+          from a round of a classification that has NOT finished (running
+          or torn). The counts the user selects against ARE this round's; the
+          engine's select run rides the same round (the shared
+          latestIterationDataStar truth) — the banner says so plainly
+          instead of a stale "not finished" gate hiding usable data. */}
+      {upstream.status !== "completed" && (
+        <div
+          className="flex items-start gap-2 border-b bg-amber-500/10 px-3 py-1.5 text-[10.5px] leading-relaxed text-amber-700 dark:text-amber-300"
+          data-canvas-ui="class-intermediate-banner"
+          role="status"
+        >
+          {upstream.status === "running" ? (
+            <Loader2 className="mt-0.5 size-3 shrink-0 animate-spin" aria-hidden="true" />
+          ) : (
+            <AlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+          )}
+          <p>
+            {upstream.status === "running"
+              ? `Still running — showing iteration ${data?.iteration ?? "?"}, the latest settled round. Selecting now uses THIS round's particle→class assignment; the gallery refreshes as new rounds land.`
+              : `Run didn't finish — showing iteration ${data?.iteration ?? "?"}, the last settled round. Selecting now uses its particle→class assignment.`}
+          </p>
+        </div>
+      )}
 
       {/* view bar: sort + kept-only — triage tools for large K runs */}
       <div
@@ -623,16 +946,90 @@ export function ClassGallery({
         )}
       </div>
 
-      {/* the grid */}
+      {/* t358 — the honest refusal banner: cards that failed BOTH lanes
+          (the preview-cache lane and the legacy mirror lane) mean the
+          cluster pull itself was refused — the payload's renderError says
+          which link broke (missing / truncated mid-wire / over the transfer
+          cap / unreadable bytes), replacing the old silent "no image"
+          tiles the field reports carried. */}
+      {failedImgs.size > 0 && data?.renderError != null && (
+        <div
+          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-danger-500/30 bg-danger/5 px-3 py-2"
+          data-render-error=""
+        >
+          <span className="min-w-0 flex-1 text-[10px] leading-relaxed text-danger">
+            class images unavailable — {data.renderError}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFailedImgs(new Set());
+              setFallbackImgs(new Set());
+              setDataNonce((n) => n + 1);
+            }}
+            className="flex shrink-0 items-center gap-1 rounded-md border border-danger-500/40 px-2 py-1 text-[10px] font-medium text-danger-700 transition-colors hover:bg-danger-500/10 dark:text-danger-300"
+          >
+            <RefreshCw className="size-3" aria-hidden="true" />
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* t474 — THE NO-STACK BANNER: occupancy answered but NO renderable
+          source could be named (classesFile null, no per-class volumes) —
+          the old world rendered every card as a bare "no image"
+          placeholder with no explanation and no way forward. The route now
+          sends renderError for exactly this shape (a refused wire, or a
+          cluster workdir that holds no stack); the banner names the world
+          and Retry re-asks both. */}
+      {classesFile == null && volumeFiles == null && classes.length > 0 && (
+        <div
+          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2"
+          data-no-stack-banner=""
+        >
+          <AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+          <span className="min-w-0 flex-1 text-[10px] leading-relaxed text-amber-700 dark:text-amber-300">
+            class images unavailable —{" "}
+            {data?.renderError ??
+              "no class-average stack was found for this run (neither in the local mirror nor reachable on the cluster)"}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFailedImgs(new Set());
+              setFallbackImgs(new Set());
+              setDataNonce((n) => n + 1);
+            }}
+            className="flex shrink-0 items-center gap-1 rounded-md border border-amber-500/40 px-2 py-1 text-[10px] font-medium text-amber-800 transition-colors hover:bg-amber-500/10 dark:text-amber-300"
+          >
+            <RefreshCw className="size-3" aria-hidden="true" />
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* the grid
+          t355 — the column count is sized for the CONTAINER this gallery
+          actually lives in (the job panel aside, 380px, or the mobile sheet
+          ≤448px), not the viewport: the old viewport breakpoints put FIVE
+          columns inside a 380px panel — 66px cards whose occupancy footer
+          (“325,549” + “100%”) wrapped to a second line on the big classes
+          only, so cards in ONE grid came out different heights (the user's
+          「分类的框大小不一」). Two-to-three columns keeps every card wide
+          enough for a one-line footer; the footer itself is nowrap-hardened
+          so any future squeeze truncates instead of wrapping. t474 — every
+          cell is geometrically identical BY CONSTRUCTION: a square
+          aspect-square image stage + the one-line footer (loaded, failed
+          or placeholder — same box, same row height). */}
       <div
+        ref={gridRef}
         data-canvas-ui="class-grid"
         role="listbox"
         aria-label="Class selection grid — arrow keys move between classes, Enter toggles"
         onKeyDown={onGridKeyDown}
-        className={cn(
-          "grid gap-2 p-2",
-          "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-        )}
+        onFocusCapture={onGridFocusCapture}
+        onBlurCapture={onGridBlurCapture}
+        className={cn("grid grid-cols-2 gap-2 p-2 sm:grid-cols-3")}
         style={{ maxHeight: "26rem", overflowY: "auto" }}
       >
         {/* visible is normally never empty (an emptied selection aliases
@@ -644,6 +1041,7 @@ export function ClassGallery({
             No classes match the current filter combination —{" "}
             <button
               type="button"
+              data-canvas-ui="gallery-reset-filters"
               onClick={() => {
                 setKeptOnly(false);
                 setNotedOnly(false);
@@ -677,19 +1075,33 @@ export function ClassGallery({
                   : "border-border opacity-80 hover:opacity-100 hover:border-teal-500/40"
               )}
             >
-              {/* thumbnail — class k is slice k-1 of the averages stack */}
-              {classesFile ? (
+              {/* thumbnail — class k is slice k-1 of the averages stack
+                  (or, t402b, class k's own volume file when the source is
+                  a real-RELION class3d — the central z-plane lane).
+                  t355: a FAILED load swaps to the honest placeholder (the
+                  old visibility:hidden left a silent white square); a
+                  loading one pulses dark (a remote stack lazy-fetches on
+                  its first thumbnail — the wire takes a beat).
+                  t474: the placeholder carries the WHY as its tooltip —
+                  a dark grid explains itself even card-by-card. */}
+              {(classesFile != null || volumeOf(c.cls) != null) && !failedImgs.has(c.cls) ? (
                 <img
-                  src={`/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${c.cls - 1}`}
+                  key={fallbackImgs.has(c.cls) ? `legacy-${c.cls}` : `iter-${c.cls}`}
+                  src={fallbackImgs.has(c.cls) ? legacySliceUrl(c.cls) : sliceUrl(c.cls)}
                   alt={`Class ${c.cls} average`}
                   loading="lazy"
-                  className="aspect-square w-full bg-zinc-950 object-contain"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
-                  }}
+                  onLoad={() => onImgLoad(c.cls)}
+                  onError={() => handleImgError(c.cls)}
+                  className={cn(
+                    "aspect-square w-full bg-zinc-950 object-contain",
+                    !loadedImgs.has(c.cls) && "animate-pulse"
+                  )}
                 />
               ) : (
-                <div className="flex aspect-square w-full items-center justify-center bg-zinc-950 text-[10px] text-zinc-500">
+                <div
+                  title={data?.renderError ?? "no class-average stack available for this run"}
+                  className="flex aspect-square w-full items-center justify-center bg-zinc-950 text-[10px] text-zinc-500"
+                >
                   no image
                 </div>
               )}
@@ -705,14 +1117,17 @@ export function ClassGallery({
                 {c.cls}
               </span>
 
-              {/* occupancy footer */}
+              {/* occupancy footer — t355: one line, ALWAYS. The count may
+                  truncate on a squeezed card, never wrap (a wrapped footer
+                  makes big-count cards taller than their neighbours — the
+                  uneven boxes the field report carried). */}
               <div className="space-y-1 bg-background/95 px-2 py-1.5">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="flex items-center gap-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-                    <Users className="size-2.5" aria-hidden="true" />
-                    {c.count.toLocaleString()}
+                <div className="flex min-w-0 items-center justify-between gap-1 overflow-hidden whitespace-nowrap">
+                  <span className="flex min-w-0 items-center gap-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+                    <Users className="size-2.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{c.count.toLocaleString()}</span>
                   </span>
-                  <span className="font-mono text-[10px] font-semibold tabular-nums">
+                  <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums">
                     {Math.round(c.fraction * 100)}%
                   </span>
                 </div>
@@ -740,6 +1155,7 @@ export function ClassGallery({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                trackLightboxReturn(c.cls);
                 setZoom(c.cls);
               }}
               aria-label={`Zoom class ${c.cls} — inspect the average full size`}
@@ -769,6 +1185,7 @@ export function ClassGallery({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                trackLightboxReturn(c.cls);
                 setZoom(c.cls);
                 setFocusNote(true);
               }}
@@ -833,6 +1250,28 @@ export function ClassGallery({
           className="max-w-2xl gap-0 overflow-hidden p-0"
           onKeyDown={onLightboxKey}
           aria-describedby={undefined}
+          onCloseAutoFocus={(e) => {
+            // t791 — the lightbox was born without a trigger: Radix's close
+            // chain has nothing to hand the keyboard back to (measured BODY
+            // on every exit, Escape included). The pocket spends once —
+            // cleared before the focus moves — and the keyboard returns to
+            // the card the lightbox was inspecting, or, when that card was
+            // discarded while kept-only was on, to its index-neighbour.
+            const pocket = lightboxReturnRef.current;
+            lightboxReturnRef.current = null;
+            if (!pocket) return;
+            e.preventDefault();
+            if (visible.some((v) => v.cls === pocket.cls)) {
+              const el = cardRefs.current.get(pocket.cls);
+              if (el) {
+                setActiveCls(pocket.cls);
+                el.focus({ preventScroll: true });
+                el.scrollIntoView({ block: "nearest", inline: "nearest" });
+                return;
+              }
+            }
+            handFocusBackToGrid(pocket.idx);
+          }}
         >
           {zoomClass && (
             <>
@@ -871,19 +1310,41 @@ export function ClassGallery({
                 keys to browse classes, Enter or Space to toggle keeping it.
               </DialogDescription>
 
-              {/* the average — same slice URL as the grid thumbnail, just
-                  given room to breathe (render is ≤384 px wide server-side) */}
+              {/* the average — same URL as the grid thumbnail, just given
+                  room to breathe (render is ≤384 px wide server-side).
+                  t355: a failed load says so instead of a broken glyph.
+                  t402b: the volume lane serves a class3d source here too.
+                  t474 — THE STAGE IS ALWAYS THE SAME SQUARE: the old
+                  `w-auto` sized the box by the PNG's own natural width
+                  (a 64px mock rendered tiny, a 360px real class rendered
+                  big, a capped one letterboxed tall) — every class now
+                  gets the same square stage, the average letterboxed
+                  inside it (the 「框大小不是完全一致」 half of the field
+                  report — the inspection view is where sizes were seen
+                  to differ). */}
               <div className="bg-zinc-950 p-4">
-                {classesFile ? (
+                {(classesFile != null || volumeOf(zoomClass.cls) != null) && !failedImgs.has(zoomClass.cls) ? (
                   <img
-                    key={zoomClass.cls}
-                    src={`/api/jobs/${upstream.id}/outputs/file?path=${encodeURIComponent(classesFile)}&format=png&montage=0&slice=${zoomClass.cls - 1}`}
+                    key={fallbackImgs.has(zoomClass.cls) ? `legacy-${zoomClass.cls}` : `iter-${zoomClass.cls}`}
+                    src={
+                      fallbackImgs.has(zoomClass.cls)
+                        ? legacySliceUrl(zoomClass.cls)
+                        : sliceUrl(zoomClass.cls)
+                    }
                     alt={`Class ${zoomClass.cls} average, full size`}
-                    className="mx-auto aspect-square max-h-[26rem] w-auto max-w-full rounded-md object-contain"
+                    onLoad={() => onImgLoad(zoomClass.cls)}
+                    onError={() => handleImgError(zoomClass.cls)}
+                    className="mx-auto aspect-square w-full max-w-[26rem] rounded-md object-contain"
                   />
                 ) : (
-                  <div className="grid aspect-square max-h-64 place-items-center text-xs text-zinc-500">
+                  <div
+                    title={data?.renderError ?? undefined}
+                    className="mx-auto grid aspect-square h-64 max-w-full place-items-center rounded-md bg-zinc-900/60 px-8 text-center text-xs text-zinc-500"
+                  >
                     no image available
+                    {classesFile != null || volumeOf(zoomClass.cls) != null
+                      ? " — the image could not be fetched"
+                      : " — no class-average stack was found for this run"}
                   </div>
                 )}
               </div>

@@ -51,6 +51,11 @@ async function cleanup() {
   try { if (existsSync(PDF_OUT)) sh(`rm -f ${PDF_OUT}`); } catch {}
   try { rmSync(PDF_DARK, { force: true }); } catch {}
   try { rmSync(PPM_DIR, { recursive: true, force: true }); } catch {}
+  // t630 rollout — the self-seeded pair goes home (radius + product-door
+  // DELETE). Tenant sweep first: a crashed qa67 leaves orthovol.mrc in
+  // the pair's workdir and the take-home would honestly refuse.
+  try { sh("python3 /home/z/my-project/scripts/qa67-seed-volume.py --clean"); } catch { /* tenant absent — fine */ }
+  try { sh("python3 /home/z/my-project/scripts/qa58-seed-gallery.py --take-home"); } catch (e) { console.log(`  take-home warn: ${String(e.message || e).slice(0, 120)}`); }
 }
 
 try { execSync("pkill -f agent-browser"); } catch { /* none running */ }

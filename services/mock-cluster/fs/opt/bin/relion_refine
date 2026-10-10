@@ -1,66 +1,601 @@
 #!/usr/bin/env python3
 """Mock relion_refine for the CryoFlow mock cluster.
 
-Simulates a 2D/3D classification or refinement: prints RELION-style
-iteration lines (it [003] — feeds the progress parser), writes per-iteration
-run_it<NNN>_data.star + class averages, and the final run_classes.mrcs +
-run_model.star collectOutputs harvests.
+Star-aware since t308 (the way t307 taught relion_preprocess): a 2D/3D
+classification CONSUMES the input particles star — the fake reads --i,
+counts the LAST data block's rows (RELION convention: particles last, so
+the data_optics row is never counted), audits that every referenced stack
+resolves relative to the STAR'S OWN DIR (a torn array merge or a star
+moved away from its tree refuses with a legible count instead of
+silently classifying ghosts), and echoes the input rows' ImageName into
+run_data.star with a class column appended (provenance: the classes
+describe exactly the particles the merged star listed, in the same
+order). A missing --i refuses to invent particles.
 """
+import math
 import os
 import struct
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import cf_cryo
+except Exception:
+    cf_cryo = None
 
 argv = sys.argv[1:]
 opts = {}
 i = 0
 while i < len(argv):
     a = argv[i]
-    if a.startswith("--"):
-        opts[a[2:]] = argv[i + 1] if i + 1 < len(argv) else ""
-        i += 2
+    if a.startswith("--") and len(a) > 2:
+        # t402 — RELION's own convention: a flag's value is the next token
+        # UNLESS that token is itself a flag (BOOLS RIDE ALONE — --ctf,
+        # --zero_mask, --flatten_solvent …). The old naive parser consumed
+        # the next token unconditionally, so a bool followed by a flag+value
+        # pair ate the flag ("--flatten_solvent --j 4" lost --j entirely);
+        # invisible until now because the stub never read those keys.
+        nxt = argv[i + 1] if i + 1 < len(argv) else None
+        if nxt is not None and not (nxt.startswith("--") and len(nxt) > 2):
+            opts[a[2:]] = nxt
+            i += 2
+        else:
+            opts[a[2:]] = True
+            i += 1
     else:
         i += 1
 
-outdir = opts.get("o", "./").rstrip("/").rstrip("/")
+outdir = opts.get("o", "./") if isinstance(opts.get("o"), str) else "./"
+outdir = outdir.rstrip("/").rstrip("/")
 if outdir.endswith("/run"):
     outdir = outdir[: -len("/run")]
 os.makedirs(outdir, exist_ok=True)
-iters = int(opts.get("iter", opts.get("maxiter", "12")))
-ncls = int(opts.get("K", "3"))
-npart = int(opts.get("nt", "1500"))
-mode = opts.get("mode", "classify2d")
 
-print(f"cryoflow-mock refine: mode={mode} K={ncls} particles={npart} iters={iters}")
+# t456 — the resolution arc's own law: a deterministic, monotonically
+# improving FSC estimate per iteration. A real relion_refine writes
+# _rlnCurrentResolution into every run_itNNN_model.star's
+# data_model_general block (MlModel::write), and the gold-standard half1
+# star carries the round's FSC table whose 0.143 crossing IS that
+# estimate. The mock never wrote either — the fsc chart starved and no
+# per-round resolution arc could exist.
+def arc_resolution(it):
+    # 28.0 Å at it000 → 4.2 Å at it015 → 3.4 Å at it025 — auto-refine's
+    # own diminishing-returns shape, deterministic across reruns.
+    return 3.2 + 24.8 * math.exp(-it / 6.5)
 
+def fsc_table_rows(res_ang):
+    # fsc(f) = 1/(1 + (1.3478·res·f)^6): the 0.143 crossing lands exactly
+    # at f = 1/res (1.3478^6 = 5.993 = 1/0.143 − 1) — the table and the
+    # estimate never contradict each other.
+    rows = []
+    f = 0.006
+    while f < 1.0 / 2.6:
+        fscv = 1.0 / (1.0 + (1.3478 * res_ang * f) ** 6)
+        rows.append((f, 1.0 / f, fscv))
+        f *= 1.18
+    return rows
 
-def write_mrc(path, nx, ny, nz, seed):
-    """Minimal valid MRC (mode 2, float32) — enough for header readers."""
+def fsc_loop_text(res_ang):
+    rows = fsc_table_rows(res_ang)
+    # NO blank line between the column headers and the first row — a real
+    # RELION loop block is contiguous, and the app's loop parser breaks a
+    # table at the first blank line after its headers
+    out = "\n\ndata_model_half1\n\nloop_\n_rlnResolution #1\n_rlnAngstromResolution #2\n_rlnGoldStandardFsc #3\n"
+    for f, ang, fscv in rows:
+        out += f"{f:.6f} {ang:.2f} {fscv:.4f}\n"
+    return out
+
+def model_general_text(res_ang, with_fsc):
+    # the general block every reader shares; with_fsc appends the round's
+    # gold FSC loop (the fsc route's candidate ladder parses one loop
+    # table per file — half1 in the gold dialect, the plain model star
+    # in the serial dialect)
+    t = (
+        "\ndata_model_general\n\n_rlnReferenceImage run_classes.mrcs\n"
+        f"_rlnCurrentResolution {res_ang:.2f}\n"
+    )
+    if with_fsc:
+        t += fsc_loop_text(res_ang)
+    return t
+
+def write_mrc(path, nx, ny, nz, seed, kind="volume"):  # noqa: F811 — legacy writer (kept for byte-compat; t377-merge keeps the t373 kind= polarity hint)
+    """Minimal valid MRC (mode 2, float32) — enough for header readers.
+
+    t311: the header offsets now follow the REAL MRC2014 layout — MODE is
+    word 3 (byte 12), NXSTART/NYSTART/NZSTART words 4-6 (16), MX/MY/MZ words
+    7-9 (28), DMIN/DMAX/DMEAN words 19-21 (76), ISPG word 22 (88), NSYMBT
+    word 23 (92), ORIGIN words 24-26 (96), RMS word 54 (216). The old writer
+    put MODE at byte 4 — overwriting NY with 2 — and packed the sampling
+    into the NXSTART slot; the app's lenient montage path still drew tiles,
+    but every honest header reader (readMrcHeader's own dims, Mol*, real
+    RELION) read a 64x2x64 sliver. The fake's dialect now reaches the header.
+
+    t373: 2D CLASS AVERAGES (kind="classes") now carry the RELION display
+    convention — a BRIGHT (positive) particle blob on a darker background,
+    exactly what a real relion_refine class2d produces after its fitted
+    per-particle contrast sigma flips cryo's dark-protein signal into the
+    reference's positive convention. The old uniform noise made every class
+    tile look "wrong" next to real output (the user's black-particle
+    report's mock-lane cousin). Each class keeps its own seed so two
+    classes never render identical (zeroData stays honestly absent), and
+    the blob's size/shape varies per class like real averages do.
+    """
+    import math
+
     data = bytearray()
-    for k in range(nx * ny * nz):
-        v = ((seed * 1103515245 + k * 12345) % 1000) / 1000.0 - 0.5
-        data += struct.pack("<f", v)
+    dmin, dmax, dsum = 1e30, -1e30, 0.0
+    if kind == "classes":
+        # per-class blob: radius + wobble derive from the seed
+        rad = 0.22 + ((seed * 7919) % 100) / 1000.0     # 0.22–0.32 of the box
+        wob = ((seed * 104729) % 100) / 100.0           # shape wobble 0–1
+        cx = nx / 2.0 + (((seed * 31) % 100) - 50) / 400.0
+        cy = ny / 2.0 + (((seed * 47) % 100) - 50) / 400.0
+        for z in range(nz):
+            # every slice its own sub-seed (class index lives in the seed)
+            sub = seed * 613 + z * 977
+            for y in range(ny):
+                for x in range(nx):
+                    dx = (x - cx) / (nx * rad)
+                    dy = (y - cy) / (ny * rad)
+                    r2 = dx * dx + dy * dy
+                    blob = math.exp(-3.0 * r2) * (1.0 + 0.15 * math.sin(6.0 * dx + sub % 7))
+                    ring = 0.25 * math.exp(-14.0 * (r2 - 0.55) ** 2) * wob
+                    noise = ((sub * 1103515245 + (z * nx * ny + y * nx + x) * 12345) % 1000) / 1000.0 - 0.5
+                    v = 0.35 * blob + 0.12 * ring + 0.08 * noise - 0.04
+                    data += struct.pack("<f", v)
+                    if v < dmin: dmin = v
+                    if v > dmax: dmax = v
+                    dsum += v
+    else:
+        for k in range(nx * ny * nz):
+            v = ((seed * 1103515245 + k * 12345) % 1000) / 1000.0 - 0.5
+            data += struct.pack("<f", v)
+            if v < dmin: dmin = v
+            if v > dmax: dmax = v
+            dsum += v
+    n = nx * ny * nz
+    dmean = dsum / n if n else 0.0
     header = bytearray(1024)
     struct.pack_into("<3i", header, 0, nx, ny, nz)          # NX,NY,NZ
-    struct.pack_into("<i", header, 4, 2)                    # MODE float32
-    struct.pack_into("<3i", header, 12, 0, 0, 0)            # NXSTART, NYSTART, NZSTART
-    struct.pack_into("<3i", header, 20, nx, ny, nz)         # MX,MY,MZ sampling
+    struct.pack_into("<i", header, 12, 2)                   # MODE float32 (word 3)
+    struct.pack_into("<3i", header, 16, 0, 0, 0)            # NXSTART, NYSTART, NZSTART
+    struct.pack_into("<3i", header, 28, nx, ny, nz)         # MX,MY,MZ sampling
     struct.pack_into("<3f", header, 40, float(nx), float(ny), float(nz))  # CELLA
-    struct.pack_into("<3f", header, 56, 90.0, 90.0, 90.0)   # CELLB angles
-    struct.pack_into("<3i", header, 64, 1, 2, 3)            # AXISIDX (crystal)
-    struct.pack_into("<3f", header, 76, -0.5, 0.5, 0.0)     # DMIN, DMAX, DMEAN
-    struct.pack_into("<i", header, 88, nx * ny * nz)        # NXYZSTART? (unused) — actually ISPG below
-    struct.pack_into("<i", header, 92, 1)                   # ISPG
-    struct.pack_into("<i", header, 96, 0)                   # NSYMBT (no extended header)
-    struct.pack_into("<3i", header, 104, 0, 0, 0)           # ORIGIN (pixels)
-    struct.pack_into("<3f", header, 196, 0.0, 0.0, 0.0)     # ORIGIN (coords)
+    struct.pack_into("<3f", header, 52, 90.0, 90.0, 90.0)   # CELLB angles
+    struct.pack_into("<3i", header, 64, 1, 2, 3)            # MAPC, MAPR, MAPS
+    struct.pack_into("<3f", header, 76, dmin, dmax, dmean)   # DMIN, DMAX, DMEAN (t373: real stats)
+    struct.pack_into("<i", header, 88, 1)                   # ISPG
+    struct.pack_into("<i", header, 92, 0)                   # NSYMBT (no extended header)
+    struct.pack_into("<3f", header, 96, 0.0, 0.0, 0.0)      # ORIGIN
     header[208:212] = b"MAP "                               # MAP magic
     header[212:216] = b"\x44\x41\x00\x00"                   # MACHST little-endian
-    struct.pack_into("<f", header, 216, 1.0)                # RMS
+    struct.pack_into("<f", header, 216, 0.29)               # RMS
     struct.pack_into("<i", header, 220, 1)                  # NLABL
     with open(path, "wb") as fh:
         fh.write(header)
         fh.write(bytes(data))
+
+# ---- t402 — CONTINUE mode (RELION's --continue dialect) ------------------
+# Real relion_refine --continue reads its run SHAPE from the optimiser
+# checkpoint: --i never rides the command (parseContinue does not even
+# REGISTER it), the iteration count continues from the checkpoint's own
+# rlnCurrentIteration, and each round is REWRITTEN as the run reaches it.
+# The app's t402 argv diet sends exactly that dialect — this stub mirrors
+# the interface so the cluster lane's continue E2E can run end-to-end.
+_cont = opts.get("continue", "")
+if isinstance(_cont, str) and _cont.strip():
+    import re as _re
+
+    _cont = _cont.strip()
+    _m = _re.search(r"run_it(\d+)_optimiser\.star$", _cont)
+    if not _m:
+        print(
+            "cryoflow-mock refine: --continue wants a run_itNNN_optimiser.star (the GUI's own validation)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if not os.path.exists(_cont):
+        print(f"cryoflow-mock refine: checkpoint {_cont} does not exist", file=sys.stderr)
+        sys.exit(1)
+    with open(_cont) as _fh:
+        _opt_txt = _fh.read()
+    _mit = _re.search(r"_rlnCurrentIteration\s+(\d+)", _opt_txt)
+    _mk = _re.search(r"_rlnNumberOfClasses\s+(\d+)", _opt_txt)
+    _start_it = int(_mit.group(1)) if _mit else int(_m.group(1))
+    _ncls = int(_mk.group(1)) if _mk else 3
+    # the checkpoint's data.star is what the continued run reloads
+    _data_star = os.path.join(
+        os.path.dirname(os.path.abspath(_cont)), f"run_it{_start_it:03d}_data.star"
+    )
+    if not os.path.exists(_data_star):
+        print(
+            f"cryoflow-mock refine: checkpoint's sibling run_it{_start_it:03d}_data.star is missing — the round is torn",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    _rows = [
+        l.rstrip("\n")
+        for l in open(_data_star)
+        if l.strip() and not l.startswith(("_", "#", "data_", "loop_"))
+    ]
+    _npart = len(_rows)
+    # t485 — the continue branch writes the gold-standard family too, so it
+    # needs the same half-split truth the main flow computes at line ~314;
+    # it used to read that LATER variable and die with a NameError after
+    # computing it006 (the round burned, the ledger honest). Define it here.
+    _split_halves = bool(opts.get("split_random_halves"))
+    # t575 — the class3d lane rides the same argv dialect here: the
+    # continue branch runs BEFORE the main flow's own inference, so it
+    # carries its own copy (--ref && no --split_random_halves && no
+    # --grad --denovo_3dref). A continued class3d then keeps writing 3D
+    # per-class volumes instead of regressing to the 2D stub dialect.
+    _is_class3d = "ref" in opts and not _split_halves and not (
+        "grad" in opts and "denovo_3dref" in opts
+    )
+    # --iter on a continue is RELION's TOTAL (the option table's help
+    # verbatim: "if 10 iterations have been performed previously and one
+    # restarts to perform an additional 5 … the number given here should
+    # be 10+5=15") — the t455 verb writes current + more, so the target
+    # is the NUMBER ITSELF, not an increment. Absent --iter keeps the
+    # old "12 more" default shape.
+    _target = int(opts.get("iter", str(_start_it + 12))) if isinstance(opts.get("iter"), str) else _start_it + 12
+    _n_more = max(1, _target - _start_it)
+    print(
+        f"cryoflow-mock refine: CONTINUE from {os.path.basename(_cont)} "
+        f"(it {_start_it:03d}, K={_ncls}) +{_n_more} more, particles={_npart}"
+    )
+    sys.stdout.flush()
+    for _it in range(_start_it + 1, _start_it + _n_more + 1):
+        time.sleep(0.9)
+        print(
+            f" it [{_it:03d}]  :   R1=0.4{_it % 9} R2=0.3{_it % 8} "
+            f"fsc=0.{8 - (_it % 4)} ll={-120 + _it * 3}.{_it % 10} avgmax=0.0{_it % 30}"
+        )
+        sys.stdout.flush()
+        _its = f"{_it:03d}"
+        with open(os.path.join(outdir, f"run_it{_its}_data.star"), "w") as _fh:
+            _fh.write("\ndata_particles\n\nloop_\n")
+            _fh.write("_rlnImageName #1\n")
+            _fh.write("_rlnClassNumber #2\n")
+            for _p, _r in enumerate(_rows):
+                _f = _r.split()
+                _fh.write(f"{_f[0]}\t{(_p * 7 + _it) % _ncls + 1}\n")
+        write_mrc(os.path.join(outdir, f"run_it{_its}_classes.mrcs"), 64, 64, _ncls, 4096 + _it)
+        # t485 — the fresh-run flow writes per-class mrcs (line ~590) and
+        # the picker's completeness law reads them by name; the continue
+        # branch used to skip them, so every continued round scored
+        # incomplete (missing run_itXXX_class001.mrc) and the checkpoint
+        # gate kept serving the pre-continue head. Mirror the family.
+        for _c in range(1, _ncls + 1):
+            # t575 — class3d continues speak the 3D volume dialect (64³);
+            # every other lane keeps its legacy bytes untouched.
+            write_mrc(
+                os.path.join(outdir, f"run_it{_its}_class{_c:03d}.mrc"),
+                64, 64, 64 if _is_class3d else 1, _c * 31 + _it, kind="volume",
+            )
+        write_mrc(os.path.join(outdir, f"run_it{_its}_half1_class001.mrc"), 64, 64, 64, 101 + _it)
+        write_mrc(os.path.join(outdir, f"run_it{_its}_half2_class001.mrc"), 64, 64, 64, 202 + _it)
+        # the gold-standard family the picker's companion law reads by NAME
+        # (half{1,2}_model + sampling — a real gold round writes them all)
+        _c_res = arc_resolution(_it)
+        if _split_halves:
+            with open(os.path.join(outdir, f"run_it{_its}_half1_model.star"), "w") as _fh:
+                _fh.write(model_general_text(_c_res, with_fsc=True))
+            with open(os.path.join(outdir, f"run_it{_its}_half2_model.star"), "w") as _fh:
+                _fh.write(model_general_text(_c_res, with_fsc=False))
+        else:
+            with open(os.path.join(outdir, f"run_it{_its}_model.star"), "w") as _fh:
+                _fh.write(model_general_text(_c_res, with_fsc=True))
+        with open(os.path.join(outdir, f"run_it{_its}_sampling.star"), "w") as _fh:
+            _fh.write("\ndata_sampling_general\n\n_rlnSamplingHealpixOrder 2\n")
+        with open(os.path.join(outdir, f"run_it{_its}_optimiser.star"), "w") as _fh:
+            _fh.write(
+                f"\ndata_optimiser\n\n_rlnCurrentIteration {_it}\n_rlnNumberOfClasses {_ncls}\n"
+            )
+    # final aliases ride the LAST written round (the family rewriter's
+    # own convention)
+    with open(os.path.join(outdir, f"run_it{_start_it + _n_more:03d}_data.star"), "rb") as _a:
+        with open(os.path.join(outdir, "run_data.star"), "wb") as _b:
+            _b.write(_a.read())
+    copyfile = lambda s, d: open(d, "wb").write(open(s, "rb").read())  # noqa: E731
+    copyfile(
+        os.path.join(outdir, f"run_it{_start_it + _n_more:03d}_classes.mrcs"),
+        os.path.join(outdir, "run_classes.mrcs"),
+    )
+    copyfile(
+        os.path.join(outdir, f"run_it{_start_it + _n_more:03d}_optimiser.star"),
+        os.path.join(outdir, "run_optimiser.star"),
+    )
+    # the refine3d finals the sync-back/collectOutputs candidates resolve by
+    # (the fresh stub's own closing move, mirrored here)
+    write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, 9901)
+    write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, 9902)
+    write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, 9903)
+    if _is_class3d:
+        # t575 — the class3d closing move mirrored in continue mode: final
+        # no-tag copies PER CLASS, each byte-identical to the last round's
+        # volume (the fresh lane's own contract, continued).
+        _last_it = _start_it + _n_more
+        for _c in range(1, _ncls + 1):
+            copyfile(
+                os.path.join(outdir, f"run_it{_last_it:03d}_class{_c:03d}.mrc"),
+                os.path.join(outdir, f"run_class{_c:03d}.mrc"),
+            )
+    # t456 — the finals speak the model dialect the fsc route reads:
+    # run_half1_model.star (candidate #1: the final gold FSC table) and
+    # run_model.star's data_model_general._rlnCurrentResolution (the
+    # "RELION auto-refine estimate" reported line)
+    _f_res = arc_resolution(_start_it + _n_more)
+    if _split_halves:
+        with open(os.path.join(outdir, "run_half1_model.star"), "w") as _fh:
+            _fh.write(model_general_text(_f_res, with_fsc=True))
+    with open(os.path.join(outdir, "run_model.star"), "w") as _fh:
+        _fh.write(model_general_text(_f_res, with_fsc=False))
+    print(
+        f"wrote run_classes.mrcs + run_data.star after continuing from it{_start_it:03d} (+{_n_more})"
+    )
+    sys.exit(0)
+
+iters = int(opts.get("iter", opts.get("maxiter", "12"))) if isinstance(opts.get("iter"), str) or isinstance(opts.get("maxiter"), str) else 12
+ncls = int(opts.get("K", "3")) if isinstance(opts.get("K"), str) else 3
+mode = opts.get("mode", "classify2d") if isinstance(opts.get("mode"), str) else "classify2d"
+# t456 — the DIALECT from the argv's own truth, not the absent --mode:
+# --split_random_halves rides exactly the gold-standard dispatches
+# (refine3d's builder; the serial class3d/class2d lanes never split — the
+# serial binary hard-errors on it). Gold → half1/half2 model stars; the
+# serial dialect → the plain model star. Both carry the FSC loop so the
+# fsc chart lights for every refine shape.
+_split_halves = bool(opts.get("split_random_halves"))
+# t575 — the 3D CLASSIFICATION lane rides the argv's own truth too: --ref
+# present, NO --split_random_halves (that's refine3d's gold dialect) and
+# no --grad --denovo_3dref (that's initialmodel's de-novo dialect) is
+# exactly the serial Class3D dispatch (engine.ts case "class3d"). The
+# engine never passes --mode, so the old default lumped class3d in with
+# classify2d and its per-class files came out 2D (64×64×1) — the 3D
+# judge's faces sheet (t573) then read degenerate one-pixel XZ/YZ cuts.
+# A real relion_refine class3d writes one 3D VOLUME per class per
+# iteration; the fake now speaks that dialect on both lanes (cf_cryo
+# class_volume when the stacks are readable, kind="volume" noise else).
+_is_initialmodel = "grad" in opts and "denovo_3dref" in opts
+_is_class3d = "ref" in opts and not _split_halves and not _is_initialmodel
+
+# ---- the input star is the contract (t308) ------------------------------
+star_in = opts.get("i", "")
+if not star_in or not os.path.exists(star_in):
+    print(
+        f"cryoflow-mock refine: the input star is missing ({star_in or 'no --i given'}) — refusing to invent particles",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+# parse data_ blocks; the LAST block owns the particles (data_optics comes
+# first and its single row must never be counted as a particle)
+blocks = []
+cur = None
+with open(star_in) as fh:
+    for line in fh:
+        s = line.strip()
+        if s.startswith("data_"):
+            cur = []
+            blocks.append(cur)
+        elif cur is not None:
+            if s and not s.startswith("loop_") and not s.startswith("_") and not s.startswith("#"):
+                cur.append(s)
+rows = blocks[-1] if blocks else []
+if not rows:
+    print(
+        f"cryoflow-mock refine: {star_in} carries no particle rows (a torn merge lands headerless) — refusing",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+npart = len(rows)
+
+star_dir = os.path.dirname(os.path.abspath(star_in))
+
+# t311 — the echo RELOCATES the rows (they land in THIS job's run_data.star,
+# not the upstream's dir), so every ref re-points at the stacks from their
+# new home: resolve against the star's dir OR the cwd (the project root —
+# the wrapper cds there, the real RELION convention) and re-emit
+# project-relative. A verbatim echo left rows like extra/x.mrcs meaning
+# "the upstream's extra/" inside a directory that has no extra/ — the same
+# relocation disease the engine's own natives caught this window.
+def rebase_ref(ref):
+    if os.path.isabs(ref):
+        return ref
+    for base in (star_dir, os.getcwd()):
+        p = os.path.join(base, ref)
+        if os.path.exists(p):
+            return os.path.relpath(p, os.getcwd())
+    return ref
+
+# merge-integrity audit: every ImageName after the @ resolves relative to
+# the STAR'S OWN DIR (absolute paths pass as-is). One missing stack means
+# the canonical star is torn or drifted from its extra/ tree — real RELION
+# dies inside HealpixSampling::readStar on exactly this shape.
+# t311 — real RELION resolves star rows against the process CWD (the
+# PROJECT ROOT — the pipeliner writes project-relative paths). On this mock
+# the launcher runs each job from ITS OWN workdir, so a project-relative
+# row resolves from the star's PARENT (dirname(star_dir) == the project
+# root by layout law). The audit accepts star-dir, cwd, or project root.
+star_dir = os.path.dirname(os.path.abspath(star_in))
+# t315 — cluster-absolute rows name the MOCK's mounts, which live under the
+# mock's fs root on the host (the mock server exports it). Every absolute
+# candidate also gets its fs-root translation tried.
+MOCK_ROOT = os.environ.get("CRYOFLOW_MOCK_FS_ROOT", "")
+missing = 0
+for r in rows:
+    # real RELION loop rows are WHITESPACE-separated (t311: the engine's own
+    # natives emit space-joined rows) — a hard tab split swallowed the whole
+    # line into the stack name and refused every row
+    img = r.split()[0]
+    if "@" not in img:
+        continue
+    stack = img.split("@", 1)[1]
+    if os.path.isabs(stack):
+        candidates = [stack]
+        if MOCK_ROOT:
+            candidates.append(os.path.join(MOCK_ROOT, stack.lstrip("/")))
+    else:
+        candidates = [
+            os.path.join(star_dir, stack),
+            os.path.join(os.getcwd(), stack),
+            os.path.join(os.path.dirname(star_dir), stack),
+        ]
+    if not any(os.path.exists(c) for c in candidates):
+        missing += 1
+if missing:
+    print(
+        f"cryoflow-mock refine: {missing} of {npart} particle stacks are missing relative to the star's dir — the merge is torn or the tree moved — refusing",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+print(f"cryoflow-mock refine: mode={mode} K={ncls} particles={npart} iters={iters} (from {os.path.basename(star_in)})")
+
+# ---- t380 — REAL-particle class averages ---------------------------------
+# When every input row's stack is a readable MRC (the EMPIAR-10017 chain's
+# real extracted crops), the class averages become the MEAN of their
+# assigned member boxes — real cryo polarity rides the whole way in:
+# particles are NEGATIVE density after --norm, so the app's display flips
+# them bright-on-black. A deterministic subset of classes (c % 4 == 3)
+# carries the weak-contrast amplitude — the dead-zone shape (negative
+# dominance ~1.05–1.15) that the OLD 1.2× polarity gate refused to flip
+# (the "2D 颗粒是黑色的" field report) and the t380 1.0× gate now flips.
+# Any unreadable stack keeps the legacy LCG-noise classes byte-for-byte.
+real_boxes = []
+real_mode = cf_cryo is not None
+if real_mode:
+    _stack_cache = {}
+    for r in rows:
+        img = r.split()[0]
+        if "@" not in img:
+            continue
+        n_img, stack_ref = img.split("@", 1)
+        stack_path = None
+        if os.path.isabs(stack_ref):
+            cands = [stack_ref]
+            if MOCK_ROOT:
+                cands.append(os.path.join(MOCK_ROOT, stack_ref.lstrip("/")))
+        else:
+            cands = [
+                os.path.join(star_dir, stack_ref),
+                os.path.join(os.getcwd(), stack_ref),
+                os.path.join(os.path.dirname(star_dir), stack_ref),
+            ]
+        for cand in cands:
+            if os.path.exists(cand):
+                stack_path = cand
+                break
+        if stack_path is None:
+            real_mode = False
+            break
+        if stack_path not in _stack_cache:
+            opened = cf_cryo.read_mrc(stack_path)
+            if opened is None:
+                real_mode = False
+                break
+            _stack_cache[stack_path] = opened
+        _sx, _sy, _sz, _vals = _stack_cache[stack_path]
+        try:
+            slice_idx = int(n_img) - 1
+        except ValueError:
+            real_mode = False
+            break
+        if not (0 <= slice_idx < _sz):
+            real_mode = False
+            break
+        real_boxes.append((_vals, slice_idx))
+if real_mode and not real_boxes:
+    real_mode = False
+if real_mode:
+    try:
+        import numpy as _real_np  # the averaging path needs numpy
+        _box_dim = _real_np.asarray(real_boxes[0][0]).shape[-1]
+        for _v, _si in real_boxes:
+            if _real_np.asarray(_v).shape[-1] != _box_dim:
+                real_mode = False  # mixed box sizes — legacy is the honest fallback
+                break
+    except Exception:
+        real_mode = False
+print(
+    f"cryoflow-mock refine: {'REAL particle class averages (t380 cryo polarity)' if real_mode else 'legacy synthetic classes'}"
+)
+
+
+# ---- t382 — the SEED ROUND (it000) ----------------------------------------
+# Real RELION writes run_it000_* at startup — the INITIAL RANDOM CLASS
+# AVERAGES before any EM step. This is the exact file whose zero-header
+# copy on the user's cluster triggered t369/t370 (byte size RIGHT, header
+# words ALL ZERO). The mock never wrote it — an honesty gap that made the
+# sandbox unable to speak to the field report at all. Now BOTH lanes write
+# it, byte-layout identical to every other round, so the header verifier
+# (diag-t382) can assert what the field needs to hear: a healthy cluster
+# lane NEVER produces a zero header — it000 included.
+print(" it [000]  :   initial random class averages (seed round, t382)")
+sys.stdout.flush()
+with open(os.path.join(outdir, "run_it000_data.star"), "w") as fh:
+    fh.write("\ndata_particles\n\nloop_\n")
+    fh.write("_rlnImageName #1\n")
+    fh.write("_rlnClassNumber #2\n")
+    for p, r in enumerate(rows):
+        img = r.split()[0]
+        if "@" in img:
+            n, stack = img.split("@", 1)
+            img = f"{n}@{rebase_ref(stack)}"
+        cls = (p * 7 + 0) % ncls + 1
+        fh.write(f"{img}\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
+if real_mode and cf_cryo:
+    import numpy as _seed_np
+    _seed_imgs = []
+    for c in range(1, ncls + 1):
+        members = [
+            _v[_si]
+            for p, (_v, _si) in enumerate(real_boxes)
+            if (p * 7 + 0) % ncls + 1 == c
+        ]
+        _seed_imgs.append(cf_cryo.class_image(_box_dim, members, amp=1.0, seed=c * 31))
+    cf_cryo.write_mrc(
+        os.path.join(outdir, "run_it000_classes.mrcs"),
+        _box_dim,
+        _box_dim,
+        ncls,
+        _seed_np.stack(_seed_imgs),
+    )
+else:
+    write_mrc(os.path.join(outdir, "run_it000_classes.mrcs"), 64, 64, ncls, 4096)
+# t575 — the seed round's per-class VOLUMES for the class3d lane: a real
+# relion_refine class3d writes run_it000_classNNN.mrc from the random
+# start up (discovery reads the LATEST iteration only, but the workdir
+# should speak the real dialect from the first round).
+if _is_class3d:
+    if real_mode and cf_cryo:
+        for c in range(1, ncls + 1):
+            cf_cryo.write_mrc(
+                os.path.join(outdir, f"run_it000_class{c:03d}.mrc"),
+                64, 64, 64,
+                cf_cryo.class_volume(64, seed=c * 31),
+            )
+    else:
+        for c in range(1, ncls + 1):
+            write_mrc(os.path.join(outdir, f"run_it000_class{c:03d}.mrc"), 64, 64, 64, c * 31, kind="volume")
+with open(os.path.join(outdir, "run_it000_optimiser.star"), "w") as fh:
+    fh.write(f"\ndata_optimiser\n\n_rlnCurrentIteration 0\n_rlnNumberOfClasses {ncls}\n")
+
+# t455 — the seed round's model+sampling family: the completeness law
+# (continueCompanions) judges it000 like any other round, and a real
+# relion_refine writes the checkpoint set from the random start up.
+_seed_res = arc_resolution(0)
+if _split_halves:
+    with open(os.path.join(outdir, "run_it000_half1_model.star"), "w") as fh:
+        fh.write(model_general_text(_seed_res, with_fsc=True))
+    with open(os.path.join(outdir, "run_it000_half2_model.star"), "w") as fh:
+        fh.write(model_general_text(_seed_res, with_fsc=False))
+else:
+    with open(os.path.join(outdir, "run_it000_model.star"), "w") as fh:
+        fh.write(model_general_text(_seed_res, with_fsc=True))
+with open(os.path.join(outdir, "run_it000_sampling.star"), "w") as fh:
+    fh.write("\ndata_sampling_general\n\n_rlnSamplingHealpixOrder 2\n")
 
 
 for it in range(1, iters + 1):
@@ -71,24 +606,176 @@ for it in range(1, iters + 1):
     its = f"{it:03d}"
     data_star = os.path.join(outdir, f"run_it{its}_data.star")
     with open(data_star, "w") as fh:
-        fh.write("\ndata_\n\nloop_\n")
+        fh.write("\ndata_particles\n\nloop_\n")
         fh.write("_rlnImageName #1\n")
         fh.write("_rlnClassNumber #2\n")
         fh.write("_rlnAngleRot #3\n")
         fh.write("_rlnAngleTilt #4\n")
         fh.write("_rlnAnglePsi #5\n")
-        for p in range(min(npart, 40)):
+        # provenance: echo the INPUT rows' ImageName (first tab field) —
+        # the classes describe exactly the particles the star listed, with
+        # every ref RE-BASED to this star's own home (t311)
+        for p, r in enumerate(rows):
+            img = r.split()[0]
+            if "@" in img:
+                n, stack = img.split("@", 1)
+                img = f"{n}@{rebase_ref(stack)}"
             cls = (p * 7 + it) % ncls + 1
-            fh.write(f"{p + 1:06d}@particles.mrcs\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
+            fh.write(f"{img}\t{cls}\t{p * 13.0:.1f}\t{90.0 - p}.2\t{p * 3.0:.1f}\n")
+    is2d = mode in ("classify2d",)
+    # t380 — REAL class averages: mean of this iteration's member crops
+    # (assignment formula unchanged, so data.star and class membership stay
+    # in lockstep), flattened solvent + the dead-zone amplitude preset.
+    # Legacy LCG classes stay byte-identical when real_mode is off
+    # (t377-merge: the legacy lane keeps the t373 kind= polarity hint).
+    _weak = cf_cryo.weak_class_preset(ncls) if (real_mode and cf_cryo) else set()
+    _class_imgs = []
     for c in range(1, ncls + 1):
-        write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it)
+        if _is_class3d:
+            # t575 — the class3d lane writes a 3D VOLUME per class (the
+            # real binary's dialect): cf_cryo.class_volume when the input
+            # stacks were readable (per-class shape variance + the weak
+            # preset carried into 3D — the judge's discriminative spectrum),
+            # the legacy noise volume (now honestly 64³) otherwise. The 2D
+            # class-average machinery below stays untouched for class2d.
+            if real_mode and cf_cryo:
+                amp = 0.15 if c in _weak else 1.0
+                vol = cf_cryo.class_volume(64, seed=c * 31 + it, amp=amp)
+                cf_cryo.write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 64, vol)
+            else:
+                write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 64, c * 31 + it, kind="volume")
+            continue
+        if real_mode and cf_cryo:
+            # membership follows the SAME (p, it) formula as the data star:
+            # enumerate particles in row order (p = row index among @-rows)
+            members = [
+                _v[_si]
+                for p, (_v, _si) in enumerate(real_boxes)
+                if (p * 7 + it) % ncls + 1 == c
+            ]
+            amp = 0.09 if c in _weak else 1.0
+            img = cf_cryo.class_image(_box_dim, members, amp=amp, seed=c * 31 + it)
+            cf_cryo.write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), _box_dim, _box_dim, 1, img)
+            _class_imgs.append(img)
+        else:
+            write_mrc(os.path.join(outdir, f"run_it{its}_class{c:03d}.mrc"), 64, 64, 1, c * 31 + it, kind="classes" if is2d else "volume")
+    # t350 — per-iteration 2D class-average STACK (run_it###_classes.mrcs):
+    # what a REAL relion_refine class2d writes every iteration and what the
+    # live class gallery renders slice-by-slice. One file, nz = ncls, each
+    # slice its own deterministic gray field (class c ≈ c*31+it, so two
+    # classes never render identical). Additive only — the final-artifact
+    # rename below and every collector's expectations are untouched.
+    if real_mode and cf_cryo and _class_imgs:
+        import numpy as _real_np
+        cf_cryo.write_mrc(
+            os.path.join(outdir, f"run_it{its}_classes.mrcs"),
+            _box_dim,
+            _box_dim,
+            ncls,
+            _real_np.stack(_class_imgs),
+        )
+    else:
+        write_mrc(os.path.join(outdir, f"run_it{its}_classes.mrcs"), 64, 64, ncls, 4096 + it, kind="classes" if is2d else "volume")
+    # E2E extension (2026-09 review): REAL relion_refine in 3D mode also
+    # writes per-iteration half-maps + an optimiser.star. The app's
+    # REFINE_FAMILY_CANDIDATES (engine.ts) expect run_it###_half1_class###.mrc
+    # / run_it###_optimiser.star for class3d & refine3d — without them the
+    # half1/half2/map/optimiser ports never resolve and the chain (mask
+    # create, postprocess, multibody) stalls at "waiting". Volumes are 3D
+    # (64³) like a real map; class2d jobs are unaffected (their candidates
+    # only look at run_data.star / run_classes.mrcs).
+    # t380 — real mode writes NEGATIVE-density cores (protein over zero-mean
+    # solvent): the app's ortho planes flip them to the bright-blob maps a
+    # real RELION project shows.
+    if real_mode and cf_cryo:
+        cf_cryo.write_mrc(os.path.join(outdir, f"run_it{its}_half1_class001.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 101 + it))
+        cf_cryo.write_mrc(os.path.join(outdir, f"run_it{its}_half2_class001.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 202 + it))
+    else:
+        write_mrc(os.path.join(outdir, f"run_it{its}_half1_class001.mrc"), 64, 64, 64, 101 + it)
+        write_mrc(os.path.join(outdir, f"run_it{its}_half2_class001.mrc"), 64, 64, 64, 202 + it)
+    with open(os.path.join(outdir, f"run_it{its}_optimiser.star"), "w") as fh:
+        fh.write(f"\ndata_optimiser\n\n_rlnCurrentIteration {it}\n_rlnNumberOfClasses {ncls}\n")
+    # t455 — the model+sampling family the completeness law reads: a real
+    # relion_refine writes run_itNNN_{model,sampling}.star every iteration
+    # (MlOptimiser::write — the checkpoint set --continue reloads). 3D gold
+    # halves speak half1/half2 model (the continue branch's own dialect);
+    # 2D speaks the plain model star. Without them every fresh-written
+    # round died the completeness law (missing model.star + sampling.star)
+    # and the picker's rounds were ALL disabled — the field report the
+    # t394 law answered, reproduced by the mock's own laziness.
+    # t456 — the model stars now carry the round's FSC estimate (and the
+    # gold half1 star the round's FSC table) — the resolution arc's data.
+    _res_ang = arc_resolution(it)
+    if _split_halves:
+        with open(os.path.join(outdir, f"run_it{its}_half1_model.star"), "w") as fh:
+            fh.write(model_general_text(_res_ang, with_fsc=True))
+        with open(os.path.join(outdir, f"run_it{its}_half2_model.star"), "w") as fh:
+            fh.write(model_general_text(_res_ang, with_fsc=False))
+    else:
+        with open(os.path.join(outdir, f"run_it{its}_model.star"), "w") as fh:
+            fh.write(model_general_text(_res_ang, with_fsc=True))
+    with open(os.path.join(outdir, f"run_it{its}_sampling.star"), "w") as fh:
+        fh.write("\ndata_sampling_general\n\n_rlnSamplingHealpixOrder 2\n")
 
 # final artifacts collectOutputs looks for
+# t354 — COPY, not rename: real relion_refine leaves EVERY per-iteration
+# file on disk (run_it004_data.star etc.) and writes the final aliases
+# ALONGSIDE them; the old os.replace here ate the last round's data.star,
+# so a finished class2d's iteration list came up one round short (the
+# chips bar could never offer the final round). Additive change: the
+# aliases are byte-identical, the per-iteration originals now survive.
+def copy_final(src, dst):
+    with open(src, "rb") as a, open(dst, "wb") as b:
+        b.write(a.read())
+
+
 final_classes = os.path.join(outdir, "run_classes.mrcs")
-os.replace(os.path.join(outdir, f"run_it{iters:03d}_class001.mrc"), final_classes)
+if real_mode and cf_cryo:
+    # t382 — real RELION's final alias is the FULL K-slice stack (the last
+    # round's run_it###_classes.mrcs, byte-identical copy). The old class001
+    # single-slice dialect (a mock invention) made a K=10 project's final
+    # "classes" file carry ONE class — an abnormal artifact the field would
+    # rightly flag. Legacy synthetic lanes keep the old bytes untouched.
+    copy_final(os.path.join(outdir, f"run_it{iters:03d}_classes.mrcs"), final_classes)
+else:
+    copy_final(os.path.join(outdir, f"run_it{iters:03d}_class001.mrc"), final_classes)
 final_data = os.path.join(outdir, "run_data.star")
-os.replace(os.path.join(outdir, f"run_it{iters:03d}_data.star"), final_data)
+copy_final(os.path.join(outdir, f"run_it{iters:03d}_data.star"), final_data)
+# t456 — the finals speak the model dialect the fsc route reads (mirror of
+# the continue branch's closing move)
+_f_res = arc_resolution(iters)
+if _split_halves:
+    with open(os.path.join(outdir, "run_half1_model.star"), "w") as fh:
+        fh.write(model_general_text(_f_res, with_fsc=True))
 with open(os.path.join(outdir, "run_model.star"), "w") as fh:
-    fh.write("\ndata_\n\n_rlnReferenceImage run_classes.mrcs\n_rlnEstimatedResolution 4.2\n")
-print(f"wrote {final_classes} + {final_data} after {iters} iterations")
+    fh.write(model_general_text(_f_res, with_fsc=False))
+# E2E extension (cont.): the final UNFILTERED half-maps + the final class
+# volume — real relion_refine's closing move (run_half1_class001_unfil.mrc,
+# run_half2_class001_unfil.mrc, run_class001.mrc) and the exact names
+# REMOTE_OUTPUT_CANDIDATES resolves half1_mrc/half2_mrc/model_mrc by.
+# t380 — real mode: negative-density cores (the app's ortho viewer flips
+# them to bright blobs, like a real RELION map).
+if real_mode and cf_cryo:
+    cf_cryo.write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 9901))
+    cf_cryo.write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 9902))
+    cf_cryo.write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, cf_cryo.negative_volume(64, 9903))
+else:
+    write_mrc(os.path.join(outdir, "run_half1_class001_unfil.mrc"), 64, 64, 64, 9901)
+    write_mrc(os.path.join(outdir, "run_half2_class001_unfil.mrc"), 64, 64, 64, 9902)
+    write_mrc(os.path.join(outdir, "run_class001.mrc"), 64, 64, 64, 9903)
+# t575 — the class3d closing move: a real relion_refine class3d leaves a
+# final no-tag copy PER CLASS (run_class001.mrc … run_class00K.mrc), each
+# byte-identical to the last round's volume. The class001 write above
+# (a 9903-seeded synthetic) gets overwritten by the honest alias — the
+# no-tag finals and the it-last volumes then agree, which is the contract
+# discoverClassVolumes deliberately relies on (it reads _it-tagged files
+# only; the no-tag copies are the humans' convenience).
+if _is_class3d:
+    for c in range(1, ncls + 1):
+        copy_final(
+            os.path.join(outdir, f"run_it{iters:03d}_class{c:03d}.mrc"),
+            os.path.join(outdir, f"run_class{c:03d}.mrc"),
+        )
+copy_final(os.path.join(outdir, f"run_it{iters:03d}_optimiser.star"), os.path.join(outdir, "run_optimiser.star"))
+print(f"wrote {final_classes} + {final_data} after {iters} iterations ({npart} particles classified)")
 sys.exit(0)

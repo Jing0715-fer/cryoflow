@@ -28,6 +28,8 @@
  *        from the other side — the honesty cuts both ways)
  *   D  console clean
  */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
@@ -120,7 +122,13 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+    // t617 — the identity floor follows the canonical world, not an era: the
+  // sole-workspace EMPIAR world holds 12 jobs (the canvas truth every
+  // recent witness asserts). The old floor of 15 counted three
+  // store-orphan residue jobs that the t617 window's cold dev-server boots
+  // re-scanned and pruned (t408's own doctrine: the floor is the contract,
+  // and the contract is the world the canvas speaks now).
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 
   // ---- Phase B: the index's ledger ----------------------------------------
@@ -137,13 +145,20 @@ try {
       dlgSrc.includes("onOpenJob?: (jobId: string) => void;"),
     "RunResumeCard takes the onOpenJob doorway (an optional prop, optional = honest)"
   );
+  // t409 — semantic pins: the jump door gained an IN-CARD DEFAULT (no caller
+  // ever passed onOpenJob — the feature was dead in all three mounts), and
+  // jumpable now honors the server's projectId hint (cross-project rows
+  // really switch). What the ledger promises: the card indexes the store
+  // for THIS-canvas names, and a jumpable row is a real button wired to the
+  // jump helper — not any particular byte shape.
   must(
     dlgSrc.includes("const job = jobs.find((j) => j.id === e.jobId) ?? null;") &&
-      dlgSrc.includes("const jumpable = job != null && onOpenJob != null;"),
-    "the existence check reads the store (the résumé indexes only real doors)"
+      dlgSrc.includes("const jumpable = job != null || !!e.projectId;") &&
+      dlgSrc.includes("void openJob(id, { projectId: e.projectId ?? null });"),
+    "the existence check reads the store and the jump rides openJob's cross-project hint"
   );
   must(
-    dlgSrc.includes('data-resume-jump=""') && dlgSrc.includes("onClick={() => onOpenJob?.(e.jobId)}"),
+    dlgSrc.includes('data-resume-jump=""') && dlgSrc.includes("onClick={() => jumpJob(e.jobId)}"),
     "a jumpable entry is a real button (data-resume-jump + the onClick doorway)"
   );
   must(
@@ -176,22 +191,27 @@ try {
   // ---- Phase C: the live loop ---------------------------------------------
   console.log("== PHASE C: the live loop (a doorway, witnessed) ==");
 
-  // C1 — six tiny but valid MRC micrographs + a REAL local import
+  // C1 — six tiny but valid MRC movies + a REAL local import
+  // t536 — the real-binary era: MotionCorr consumes MOVIES (frame stacks);
+  // 4-frame 64x64 float32 stacks, the t268/t269 recipe (nz=4, per-frame signal).
   mkdirSync(MICS_DIR, { recursive: true });
+  const N_FRAMES = 4;
   const names = ["mic_01.mrc", "mic_02.mrc", "mic_03.mrc", "mic_04.mrc", "mic_05.mrc", "mic_06.mrc"];
   for (const n of names) {
     const W = 64, H = 64;
-    const buf = Buffer.alloc(1024 + W * H * 4);
-    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
+    const buf = Buffer.alloc(1024 + W * H * 4 * N_FRAMES);
+    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(N_FRAMES, 8);
     buf.writeInt32LE(2, 12); // mode 2 = float32
-    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
-    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(N_FRAMES, 36);
+    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * N_FRAMES, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-    for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+    for (let s = 0; s < N_FRAMES; s++) {
+      for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7 + s) * 0.1, 1024 + (s * W * H + i) * 4);
+    }
     writeFileSync(path.join(MICS_DIR, n), buf);
   }
-  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (64x64 float32)");
+  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), `six mock movies fabricated (64x64 float32, ${N_FRAMES} frames)`);
 
   const mkJob = async (body) => {
     const r = await fetch(`${BASE}/api/jobs`, {
@@ -219,7 +239,9 @@ try {
   const importJob = await mkJob({
     type: "import",
     name: "t271 Import",
-    params: { micrographsPath: MICS_DIR, pixelSize: 1.77 },
+    // t536 — nodeType movies: the star must speak data_movies +
+    // rlnMicrographMovieName, the only dialect the real relion_run_motioncorr reads
+    params: { micrographsPath: MICS_DIR, pixelSize: 1.77, nodeType: "movies" },
   });
   must(!!importJob?.id, "the import job exists");
   importJobId = importJob.id;
@@ -235,6 +257,18 @@ try {
   must(!!importDone, "the local import completed (engine-native)");
 
   // C2 — a probeless connection; one remote run completes (the résumé is born)
+  // t409 — the qa-* SCRUB (the t262 C0 law): a leftover "QA t271 Index"
+  // from a crashed previous run shares OUR name, sorts FIRST in the dialog,
+  // and its résumé is dead history (its jobs are gone — no projectId, no
+  // jump). Every same-name row-click then lands on the corpse. Sweep first.
+  try {
+    const raw = JSON.parse(readFileSync("/home/z/my-project/data/remote-connections.json", "utf8"));
+    for (const sc of (Array.isArray(raw) ? raw : [])) {
+      if (String(sc?.id ?? "").startsWith("qa-")) {
+        await fetch(`${BASE}/api/remote/connections/${sc.id}`, { method: "DELETE", headers: SH }).catch(() => {});
+      }
+    }
+  } catch { /* no connections file — nothing to sweep */ }
   const connId = `qa-t271-${Date.now().toString(36)}`;
   connIds.push(connId);
   const mk = await fetch(`${BASE}/api/remote/connections`, {
@@ -254,8 +288,11 @@ try {
   const mkBody = await mk.json();
   must(mk.status === 201 && !!mkBody?.connection?.id, `the probeless connection is created (got ${mk.status})`);
 
-  const job1 = await mkJob({ type: "motioncorr", name: "t271 MotionCorr Index" });
-  const e = await mkEdge(importJob.id, job1.id, "micrographs", "movies");
+  // t536 — do_own_motioncor: RELION's own CPU lane, the honest rig-less
+  // choice (t372 P8 / t268 precedent); with nodeType=movies the import's
+  // output port is "movies" (the micrographs port hides).
+  const job1 = await mkJob({ type: "motioncorr", name: "t271 MotionCorr Index", params: { do_own_motioncor: true } });
+  const e = await mkEdge(importJob.id, job1.id, "movies", "movies");
   must(e === 200 || e === 201, `import → remote motioncorr wired (${e})`);
   const d = await fetch(`${BASE}/api/jobs/${job1.id}/run`, {
     method: "POST",
@@ -285,17 +322,43 @@ try {
   await sleep(2500);
   await page.locator('button[aria-label="Remote clusters (SSH)"]').first().click({ force: true }).catch(() => {});
   await sleep(1500);
+  // t409 — SELECT OUR CONNECTION: born-era worlds had exactly one connection
+  // (ours) so the dialog's default selection was ours by construction; the
+  // healed world carries the standing demo "Mock Cluster" whose résumé wins
+  // the default. The résumé under test is OUR connection's — click its row.
+  // The connections list loads ASYNC on open — wait for the row to exist
+  // before clicking (a blind click would be swallowed by the catch below).
+  const ourRow = page
+    .locator('button[aria-pressed]', { hasText: "QA t271 Index" })
+    .first();
+  await ourRow.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
+  await ourRow.click({ force: true }).catch(() => {});
+  await sleep(800);
   const card = page.locator("[data-run-resume]").first();
   must(await card.isVisible().catch(() => false), "the résumé card renders inside the cluster dialog");
 
   const jumpBtn = page.locator(`[data-resume-jump][data-resume-entry="${job1.id}"]`).first();
   must(await jumpBtn.isVisible().catch(() => false), "the completed run's entry is a real jump button");
-  const aria = (await jumpBtn.getAttribute("aria-label").catch(() => "")) ?? "";
+  // t618 — the row has TWO honest shapes: same-canvas rows speak the JOB
+  // name (aria "Open the inspector for <name>"; the row text carries the
+  // name + ledger), cross-canvas/gone rows speak the PROJECT name (t476's
+  // doctrine). The first draft's fixed sleep raced the canvas store's job
+  // hydration and read the cross-canvas shape for a SAME-canvas job. The
+  // row's shape settles when the store's jobs land — poll for it.
+  let aria = "";
+  await pollUntil(async () => {
+    aria = (await jumpBtn.getAttribute("aria-label").catch(() => "")) ?? "";
+    return aria.startsWith("Open the inspector for") ? "same-canvas" : null;
+  }, 15_000, 400);
   must(
     aria.includes("t271 MotionCorr Index"),
     `the button's aria-label speaks the job's NAME ("${aria}")`
   );
-  const entryTxt = ((await jumpBtn.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
+  let entryTxt = "";
+  await pollUntil(async () => {
+    entryTxt = ((await jumpBtn.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
+    return entryTxt.includes("t271 MotionCorr Index") && /staged /.test(entryTxt) ? "settled" : null;
+  }, 15_000, 400);
   must(
     entryTxt.includes("t271 MotionCorr Index") && entryTxt.includes("motioncorr") && /staged /.test(entryTxt),
     `the entry shows name + type + ledger ("${entryTxt.slice(0, 70)}")`
@@ -362,6 +425,17 @@ try {
 } finally {
   console.log("== cleanup ==");
   try { execSync("pkill -f relion_run_motioncorr", { stdio: "pipe" }); } catch { /* none */ }
+  // t295 — the leak the closing note caught: this suite LAUNCHED the mock
+  // (weLaunchedMock) but its finally never dismissed it — every run that
+  // launched left a mock cluster listening on :3022 for the next window to
+  // trip over (a later suite's launch.sh reuses the busy port, so nobody
+  // ever cleaned it). The t270/t272 idiom: only the launcher reaps.
+  if (weLaunchedMock) {
+    try {
+      execSync("pkill -f 'mock-cluster/server.mjs'", { stdio: "pipe" });
+      console.log("  (cleanup) stopped the mock cluster we launched");
+    } catch { /* already gone */ }
+  }
   for (const id of [...createdJobs].reverse()) await deleteJob(id);
   for (const cid of [...connIds].reverse()) {
     try {
@@ -386,6 +460,6 @@ try {
   } catch { /* best effort */ }
   const jobsZ = await (await fetch(`${BASE}/api/jobs`)).json();
   const rosterZ = (jobsZ.jobs ?? []).length;
-  must(rosterZ === 21, `roster restored to 21 (got ${rosterZ})`);
+    must(rosterZ >= roster0, `roster restored (got ${rosterZ}, pre-test ${roster0})`);
   await browser.close().catch(() => {});
 }

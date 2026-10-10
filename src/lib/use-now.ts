@@ -27,3 +27,35 @@ export function useNow(active: boolean): number {
   }, [active]);
   return now;
 }
+
+/* ------------------------------------------------------------------------- */
+
+/**
+ * The print doc's clock — a CLIENT-ONLY value, hydration-safe by
+ * construction (the t232 doctrine, recast in the canonical shape).
+ *
+ * The print header/footer stamp the print date. A date computed during
+ * the first render would freeze the SERVER's clock into the prerendered
+ * HTML and hydrate to a different client value (the mismatch React
+ * refuses); the old cure filled it from an effect (first frame empty,
+ * setState on mount) — correct, but a whole extra render pass the
+ * set-state-in-effect rule rightly complains about. The canonical cure
+ * is a store the client owns: subscribe is a no-op (the clock never
+ * pushes — the value refreshes only when something else re-renders the
+ * doc, which for a print stamp is never), getSnapshot reads the client
+ * clock (stable within a day — Object.is compares strings by value), and
+ * the SERVER snapshot is the empty string, so hydration starts matched
+ * and React swaps in the client clock right after mount. Byte-for-byte
+ * the observable behavior of the effect version, with zero effects.
+ */
+const subscribeNoop = () => () => {};
+const formatPrintedDate = () =>
+  new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+export function usePrintedDate(): string {
+  return React.useSyncExternalStore(
+    subscribeNoop,
+    formatPrintedDate,
+    () => "",
+  );
+}

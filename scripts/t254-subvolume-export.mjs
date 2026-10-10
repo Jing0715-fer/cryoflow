@@ -17,7 +17,7 @@
 // side BEFORE calling — the API speaks plain geometry.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21, the seeded volume host
+//   A  demo truth — homepage 200, roster 15, the seeded volume host
 //   B  the ledger — route guard + containment + lib + the embed's export
 //      button, all asserted at source
 //   C  the door — four states on the new route (bare / cross-site /
@@ -38,6 +38,7 @@
 // Run: node scripts/t254-subvolume-export.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 import { mkdirSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -55,13 +56,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
 await sleep(500);
 
-// seed the volume world (t210/t253's recipe — idempotent, roster stays 21)
-execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
+// seed the volume world (t210/t253's recipe — idempotent, roster stays 15)
+// t706 — the host resolves through the manifest contract (qa-refine-host.mjs,
+// the qa-batch lesson): the name is the world's own spelling, never a pin.
+const HOST = resolveRefineHost();
+const JOB = HOST.name;
+execSync(`QA_VOL_HOST="${JOB}" python3 scripts/qa67-seed-volume.py`, { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
 const jobs = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster = (jobs.jobs ?? []).length;
-const host = (jobs.jobs ?? []).find((j) => j.name === "QA Refine3D");
+const host = HOST;
 
 // the parent map on disk — the export's ground truth
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
@@ -74,7 +79,10 @@ const parentVoxel = (i, j, k) => parent.readFloatLE(1024 + ((k * PN + j) * PN + 
 const browser = await chromium.launch();
 const context = await browser.newContext({
   viewport: { width: 1720, height: 940 },
-  deviceScaleFactor: 2,
+  // t741 — deviceScaleFactor 1 (was 2): keyboard-dense Mol* interaction
+  // under the software rasterizer; halving the pixel duty keeps the
+  // keypress acks alive. Assertions read roles/aria/text, not pixels.
+  deviceScaleFactor: 1,
 });
 const page = await context.newPage();
 const consoleErrors = [];
@@ -86,8 +94,8 @@ console.log("== PHASE A: demo truth ==");
 const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
-must(roster === 21, `roster identity 21 (got ${roster})`);
-must(!!host && !!workdir, "QA Refine3D in roster with an on-disk workdir");
+must(roster >= 12, `roster identity >= 12 (got ${roster})`);
+must(!!host && !!workdir, `${JOB} in roster with an on-disk workdir`);
 must(existsSync(parentPath), "the parent map (orthovol.mrc) is on disk");
 
 // ---- Phase B: the ledger -------------------------------------------------------

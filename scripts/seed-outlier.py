@@ -58,9 +58,27 @@ def find_workdir() -> tuple[str, str]:
     jobs = jobs["jobs"] if isinstance(jobs, dict) else jobs
     src = next((j for j in jobs if j.get("name") == SRC_NAME), None)
     if not src:
-        raise SystemExit(
-            f"FATAL: seed job '{SRC_NAME}' missing — restore the sandbox with scripts/restore-gallery.py first"
-        )
+        # t532 — the active-pointer law: /api/jobs only sees the ACTIVE
+        # world. The old-world manifest (qa-t531-old-world-seed.mjs) is the
+        # cross-project contract; its class2d link is this seeder's host.
+        host_id = None
+        try:
+            with open("data/old-world.json", "r", encoding="utf-8") as f:
+                host_id = (json.load(f).get("chain") or {}).get("class2d")
+        except FileNotFoundError:
+            pass
+        if not host_id:
+            raise SystemExit(
+                f"FATAL: seed job '{SRC_NAME}' missing — run scripts/qa-t531-old-world-seed.mjs "
+                f"(no manifest fallback either)"
+            )
+        print(f"note: no host in the active world — manifest fallback: old-world class2d {host_id}")
+        with open("data/engine-state.json", "r", encoding="utf-8") as f:
+            state = json.load(f)
+        wd = (state.get(host_id) or {}).get("workdir")
+        if not wd:
+            raise SystemExit(f"FATAL: no workdir registered for the manifest class2d ({host_id})")
+        return host_id, wd
     with open("data/engine-state.json", "r", encoding="utf-8") as f:
         state = json.load(f)
     rec = state.get(src["id"]) or {}

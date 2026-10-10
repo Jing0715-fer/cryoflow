@@ -25,5 +25,16 @@ if ss -ltn 2>/dev/null | grep -q ":$PORT "; then
   sleep 1
 fi
 
-setsid bun run "$MODE" > "$LOG" 2>&1 < /dev/null &
+# t295 — exec the entrypoint by ABSOLUTE path: the surviving process's
+# cmdline must carry "services/mock-cluster/server.mjs" so the suites'
+# pattern-based cleanup (pkill -f 'mock-cluster/server.mjs') can find it.
+# A bare relative path ("bun server.mjs") is invisible to that pattern —
+# the root cause of mock residue surviving across windows. Side win: the
+# cmdline no longer contains "run start", so `pkill -f "bun run start"`
+# (the app's own start pattern) can never kill the mock by accident again.
+# fuser -k by port stays the fallback reaper (cmdline-agnostic).
+case "$MODE" in
+  dev) setsid bun --hot "$PWD/server.mjs" > "$LOG" 2>&1 < /dev/null & ;;
+  *)   setsid bun "$PWD/server.mjs"      > "$LOG" 2>&1 < /dev/null & ;;
+esac
 # this script exits immediately → server re-parents to init → survives

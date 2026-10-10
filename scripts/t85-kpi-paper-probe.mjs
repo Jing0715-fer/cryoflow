@@ -12,6 +12,8 @@
 //      ~2:1 on white paper, the contrast worry that motivated the check)
 // Run: node scripts/t85-kpi-paper-probe.mjs   (server on :3000)
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const SEL = "QA Class Select";

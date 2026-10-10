@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /** diag280l.mjs — transient hunt: mouse-pan then TOUCH tap, sample dialog at ms grid. */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();

@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# mock sinfo for the CryoFlow mock cluster (t297, hosts t300)
+#
+# Answers the app's probe grammar: sinfo -h -o '%P|%G|%D|%T|%N' — the t300
+# 5-field form carries the hostlist tail (%N) so the probe can expand node
+# names ("brain[2-4]" → brain2,brain3,brain4) for the run dialog's node
+# picker; the 4-field form still answers identically (hosts simply absent).
+#
+# The inventory mirrors the USER'S real cluster (their sinfo, relayed in the
+# t300 work order): six GPU node groups, one node each —
+#   brain 6 GPU/node · brain2 8 · brain3 6 · brain4 8 · normal 5 · normal02 8
+# plus the t297-era shared partitions (gpu: 6 GPU/node across 4 nodes in
+# two states; long: CPU) so older suites' shapes keep answering.
+fmt="%P %a %l %D %T %N"
+header=1
+partition=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--noheader) header=0 ;;
+    -o)
+      shift
+      fmt="${1:-$fmt}"
+      ;;
+    --format=*) fmt="${1#--format=}" ;;
+    # t367 — the walltime resolver asks the partition's MaxTime:
+    # sinfo -h -o '%l' -p <partition>. Parse -p / --partition= both.
+    -p)
+      shift
+      partition="${1:-}"
+      ;;
+    --partition=*) partition="${1#--partition=}" ;;
+  esac
+  shift
+done
+
+# t367 — the single-field MaxTime grammar: per-partition ceilings that
+# mirror a real shared GPU cluster (the brain family 8h, normal 4h, the
+# legacy shared partitions generous). The refinement family's sbatch
+# asks exactly this before submitting.
+# t369 — '%l %L' carries BOTH columns (MaxTime DefaultTime) in one line:
+# the walltime resolver asks this when no explicit limit applies, so the
+# no-limit banner can NAME the default clock. The defaults mirror the
+# field report: a partition whose MaxTime is 8h but whose DEFAULT is 2h
+# silently kills multi-hour refinements submitted without --time.
+if [ "$fmt" = "%l" ] || [ "$fmt" = "%l %L" ]; then
+  case "$partition" in
+    brain|brain2|brain3|brain4)
+      [ "$fmt" = "%l %L" ] && echo "8:00:00 2:00:00" || echo "8:00:00"
+      ;;
+    normal|normal02)
+      [ "$fmt" = "%l %L" ] && echo "4:00:00 1:00:00" || echo "4:00:00"
+      ;;
+    gpu)
+      [ "$fmt" = "%l %L" ] && echo "12:00:00 4:00:00" || echo "12:00:00"
+      ;;
+    long)
+      [ "$fmt" = "%l %L" ] && echo "1-00:00:00 12:00:00" || echo "1-00:00:00"
+      ;;
+    "")
+      [ "$fmt" = "%l %L" ] && echo "infinite 2:00:00" || echo "infinite"
+      ;;
+    *)
+      [ "$fmt" = "%l %L" ] && echo "infinite 2:00:00" || echo "infinite"
+      ;;
+  esac
+  exit 0
+fi
+
+emit() {
+  # $1 partition  $2 gres  $3 nodes  $4 state  $5 hostlist
+  local p="$1" g="$2" n="$3" s="$4" hl="${5:-}"
+  case "$fmt" in
+    *%P*|*)
+      # honor the pipe forms the app uses (4- and 5-field) plus a classic
+      # default listing — anything else degrades to the default shape
+      if [ "$fmt" = "%P|%G|%D|%T|%N" ]; then
+        echo "$p|$g|$n|$s|$hl"
+      elif [ "$fmt" = "%P|%G|%D|%T" ]; then
+        echo "$p|$g|$n|$s"
+      else
+        printf "%-10s %-6s %-30s %s   %s\n" "$p*" "up" "infinite" "$n $s" "${hl:-node[01-0$((n))]}"
+      fi
+      ;;
+  esac
+}
+
+[ "$header" = "1" ] && echo "PARTITION AVAIL  TIMELIMIT  NODES  STATE NODELIST"
+# the user's cluster: one partition per compute node (brain/brain2/…),
+# each exactly 1 node — the world the node picker rehearses against
+emit "brain"    "gpu:6" 1 "idle" "brain"
+emit "brain2"   "gpu:8" 1 "idle" "brain2"
+emit "brain3"   "gpu:6" 1 "mix"   "brain3"
+emit "brain4"   "gpu:8" 1 "idle"  "brain4"
+emit "normal"   "gpu:5" 1 "mix"   "normal"
+emit "normal02" "gpu:8" 1 "idle"  "normal02"
+# the t297-era shared partitions (kept for the older suites' shapes)
+emit "gpu"   "gpu:6" 2 "idle" "node[01-02]"
+emit "gpu"   "gpu:6" 2 "mix"   "node[03-04]"
+emit "long"  "(null)" 4 "idle" "node[05-08]"
+exit 0

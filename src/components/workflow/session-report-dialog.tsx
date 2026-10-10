@@ -37,6 +37,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import {
   Dialog,
   DialogContent,
@@ -48,12 +49,18 @@ import { Copy, Download, FileDown, FileSpreadsheet, Globe, Printer } from "lucid
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { copyOrFallback, downloadText } from "@/lib/download";
-import { buildSessionReportHtml, reportTocOf } from "@/lib/report-html";
+import { probesForType } from "@/lib/curve-walk"; // t503 — one probe map, two walkers
+import { walkTimeline, timelineLedger } from "@/lib/timeline-walk"; // t505 — the report drinks the time well too
+import { buildSessionReportHtml, reportTocOf, type ReportTocItem } from "@/lib/report-html";
 import type { JobDTO } from "@/lib/types";
 import {
   buildProfileReport,
   buildSessionReport,
   buildSweepReport,
+  curveVerdictsCsv,
+  curveVerdictsCsvFilename,
+  CURVE_KIND_LABELS,
+  curveVerdictOf,
   deltaVsWinner,
   inventoryCsv,
   inventoryCsvFilename,
@@ -68,9 +75,23 @@ import {
   sparklinePath,
   weakestBand,
   weakestCellOf,
+  type CurveKind,
+  type CurveVerdictRow,
   type LocalBand,
   type ReportOverlay,
 } from "@/lib/qc-report";
+import type {
+  AngDistResponse,
+  CtfResponse,
+  FscResponse,
+  GuinierResponse,
+  MotionResponse,
+  TopazTrainingResponse,
+} from "@/lib/chart-rows";
+// t501 — the walk's own constants moved to ONE well: the agent's landscape
+// read (get_map_landscape) walks the same roster with the same cap and the
+// same main-map law. Twins fork, imports don't.
+import { MAP_BRIEF_CAP, MAIN_MAP_RE, VOLUME_CAPABLE_RE } from "@/lib/map-walk";
 import { useWorkflowStore } from "@/lib/store";
 
 /** one candidate's 3D-map set (paths relative to the job's workdir) */
@@ -98,8 +119,16 @@ interface ProfileResponse {
   error?: string;
 }
 
-/** Full-map variants lead the report; halves and masked maps compare. */
-const MAIN_MAP_RE = /half0|postprocess\.mrc$/i;
+/** The kind's name on the wire — the tool's "topaz" rides the
+ *  topaz-training route (the one kind whose route segment differs). */
+const CURVE_ROUTE_SEGMENT: Record<CurveKind, string> = {
+  fsc: "fsc",
+  guinier: "guinier",
+  angdist: "angdist",
+  ctf: "ctf",
+  motion: "motion",
+  topaz: "topaz-training",
+};
 
 /** Types that can ever own a true 3D volume (t211). The walk probes these
  *  FIRST — an import/motioncorr/ctffind/extract candidate has never held a
@@ -109,14 +138,12 @@ const MAIN_MAP_RE = /half0|postprocess\.mrc$/i;
  *  four volumes — and the report declared a world WITH maps to have none.
  *  A lying instrument is the gravest sin; the walk now spends its budget
  *  on plausible owners before it touches the never-volume tail. */
-const VOLUME_CAPABLE_RE = /refine3d|class3d|postprocess|multibody/i;
-
 /** The walk's probe budget. Volume-capable candidates ride the front of
- *  the queue (see VOLUME_CAPABLE_RE), so the budget lands on real map
- *  owners; 24 covers the demo world's whole roster well past three
- *  times — the honest failure mode is "scanned them all, none speaks",
- *  never "never asked". */
-const MAP_BRIEF_CAP = 24;
+ *  the queue (see VOLUME_CAPABLE_RE, now in lib/map-walk — the agent's
+ *  landscape read obeys the same budget AND the same queue), so the
+ *  budget lands on real map owners; 24 covers the demo world's whole
+ *  roster well past three times — the honest failure mode is "scanned
+ *  them all, none speaks", never "never asked". */
 
 /** Newest first — as a real three-way comparator. The old one-liner
  *  `(a.updatedAt < b.updatedAt ? 1 : -1)` answers -1 on EQUAL stamps,
@@ -149,6 +176,7 @@ const byRecency = (a: JobDTO, b: JobDTO) =>
 const InventoryTableContext = React.createContext(false);
 const ComparisonTableContext = React.createContext(false);
 const LocalTableContext = React.createContext(false);
+const CurveTableContext = React.createContext(false);
 
 /** The inventory table's exact head sextet — the only door-carrying
  *  table on the paper. Matched against the RENDERED head (hast), so
@@ -183,12 +211,28 @@ const COMPARISON_HEAD = ["Map", "Bins", "Peak at", "Agreement r", "Verdict"];
 const LOCAL_HEAD = ["Map", ...QUARTER_LABELS, "Weakest", "Depth (fraction)"];
 const BANDS_HEAD = "Bands";
 
+/** t494: the curve verdicts table's head — the fourth family joins the
+ *  wire. The exact-words bouncer like its three siblings: matched EVERY
+ *  cell at once (a partial head cannot mint a door). The word "Job"
+ *  also opens the inventory's septet, but the FULL-head match is the
+ *  identity — three cells vs seven, no collision (the same law that
+ *  keeps Map-admitting heads apart). */
+const CURVE_HEAD = ["Job", "Curve", "Verdict"];
+
 /** t228: the Map QC section's own head word — the hero's admission
  *  signature. EXACT match only: the deep report speaks
  *  "Map QC summary — <map>" and must never mint a second hero (a
  *  partial name cannot mint a figure — the t223 head-matching law at
  *  heading scale). */
 const MAP_QC_HEAD = "Map QC";
+
+/** t499 — the compass pulse's second customer: the curve section's own
+ *  head, the same exact-words law (the deep report's "Map QC summary —
+ *  <map>" neighbor proves why partial matching would lie — a pulse
+ *  must land on the ONE section whose walk is measuring, not on every
+ *  head that starts with the same words). The bench pins this byte to
+ *  the builder's own section head. */
+const CURVES_HEAD = "Curve verdicts";
 
 /** t223: the portrait column's wire grammar — the head word the wire
  *  adds (never the markdown), the box the paths draw in, and the
@@ -538,34 +582,48 @@ const hastTag = (n: unknown): string | undefined => asHastEl(n)?.tagName;
 /** Walk the candidates and return EVERY volume owner, in walk order —
  *  owners[0] is the deep-report winner (the newest capable candidate
  *  that speaks), the rest ride the inventory. Unreadable candidates are
- *  skipped (the next one may speak); the walk returns what it heard. */
+ *  skipped (the walk returns what it heard).
+ *  t497 — the walk learned to run: the candidates' probes fire in
+ *  PARALLEL (the same homework t496 did for the verdict probes — a
+ *  sequential walk held the inventory hostage over up to MAP_BRIEF_CAP
+ *  round trips while the reader stared at "still reading"; the slowest
+ *  candidate now sets the bill, not the sum). Order survives the
+ *  fan-out for free: Promise.all's contract returns answers indexed by
+ *  their probes — the merge reads them in the walk's own order
+ *  (newest-first, t211), never the network's completion order. Abort
+ *  keeps its contract: every fetch rides the signal, an aborted probe
+ *  is no answer, and the caller checks the signal before setState. */
 async function walkVolumeOwners(jobIds: string[], signal: AbortSignal): Promise<MapOwner[]> {
-  const owners: MapOwner[] = [];
-  for (const jobId of jobIds.slice(0, MAP_BRIEF_CAP)) {
-    if (signal.aborted) return owners;
-    try {
-      const d = (await fetch(`/api/jobs/${jobId}/outputs`, { signal }).then((r) => r.json())) as OutputsResponse;
-      const volumes = (d.files ?? []).filter(
-        (f) => f.kind === "mrc" && Array.isArray(f.dims) && f.dims.length === 3,
-      );
-      if (volumes.length === 0) continue;
-      const sorted = [...volumes].sort(
-        (a, b) => Number(MAIN_MAP_RE.test(b.name)) - Number(MAIN_MAP_RE.test(a.name)),
-      );
-      const jobName = useWorkflowStore.getState().jobs.find((j) => j.id === jobId)?.name ?? jobId;
-      owners.push({
-        jobId,
-        jobName,
-        main: { path: sorted[0].path, name: sorted[0].label ?? sorted[0].name },
-        overlays: sorted.slice(1, 3).map((f) => ({ path: f.path, name: f.label ?? f.name })),
-        volumeCount: volumes.length,
-      });
-    } catch {
-      if (signal.aborted) return owners;
-      // this candidate's outputs are unreadable — the next one may speak
-    }
-  }
-  return owners;
+  const answers = await Promise.all(
+    jobIds.slice(0, MAP_BRIEF_CAP).map(async (jobId) => {
+      if (signal.aborted) return null;
+      try {
+        const d = (await fetch(`/api/jobs/${jobId}/outputs`, { signal }).then((r) => r.json())) as OutputsResponse;
+        const volumes = (d.files ?? []).filter(
+          (f) => f.kind === "mrc" && Array.isArray(f.dims) && f.dims.length === 3,
+        );
+        if (volumes.length === 0) return null; // this candidate owns no volume
+        const sorted = [...volumes].sort(
+          (a, b) => Number(MAIN_MAP_RE.test(b.name)) - Number(MAIN_MAP_RE.test(a.name)),
+        );
+        const jobName = useWorkflowStore.getState().jobs.find((j) => j.id === jobId)?.name ?? jobId;
+        const owner: MapOwner = {
+          jobId,
+          jobName,
+          main: { path: sorted[0].path, name: sorted[0].label ?? sorted[0].name },
+          overlays: sorted.slice(1, 3).map((f) => ({ path: f.path, name: f.label ?? f.name })),
+          volumeCount: volumes.length,
+        };
+        return owner;
+      } catch {
+        // this candidate's outputs are unreadable — the walk goes on
+        return null;
+      }
+    }),
+  );
+  // the merge reads the answers in Promise.all's own order — the walk's
+  // order (a fake re-sort or an index field would be baggage, not law)
+  return answers.filter((a): a is MapOwner => a !== null);
 }
 
 /** Profile the brief's maps on the shared Z axis and hand the family
@@ -639,6 +697,64 @@ async function measureOwnerPeaks(
   return heard;
 }
 
+/** t490 — measure the session's curve verdicts: walk the completed
+ *  roster (newest first, the same cap the map walk obeys), probe the
+ *  chart routes the probe map predicts, and word each answer through
+ *  curveVerdictOf BEFORE it travels to the father. A probe whose body
+ *  carries no curve (empty shells/points/micrographs…) is an honest
+ *  skip — the walk records only what spoke; a probe whose ROUTE failed
+ *  (non-ok response or a refused fetch) marks the walk wounded — the
+ *  caller renders the error line only when NOTHING was heard (partial
+ *  truth over silence, the t211 doctrine).
+ *  t496 — the walk learned to run: the probes fire in PARALLEL (the
+ *  landscape walk above — measureOwnerPeaks — has always done exactly
+ *  this; one open window's
+ *  live stopwatch caught the sequential walk holding the paper's
+ *  verdicts hostage for 19.5s over ~20 round trips; the slowest probe
+ *  now sets the bill, not the sum). Order survives the fan-out for
+ *  free: Promise.all's contract returns answers indexed by their
+ *  probes — the merge reads them in the walk's own order, never the
+ *  network's completion order. Abort keeps its contract: every fetch
+ *  rides the signal and the caller checks it before setState. */
+async function measureCurveVerdicts(
+  candidates: { id: string; name: string; type: string }[],
+  signal: AbortSignal,
+): Promise<{ rows: CurveVerdictRow[]; wounded: boolean }> {
+  const probes: { job: { id: string; name: string; type: string }; kind: CurveKind }[] = [];
+  for (const job of candidates.slice(0, MAP_BRIEF_CAP)) {
+    const kinds = probesForType(job.type);
+    for (const kind of kinds) probes.push({ job, kind });
+  }
+  if (probes.length === 0) return { rows: [], wounded: false };
+  const answers = await Promise.all(
+    probes.map(async ({ job, kind }) => {
+      try {
+        const res = await fetch(`/api/jobs/${job.id}/${CURVE_ROUTE_SEGMENT[kind]}`, { signal });
+        if (!res.ok) throw new Error(`chart route answered ${res.status}`);
+        const d = await res.json();
+        const verdict = curveVerdictOf(kind, d);
+        return { jobId: job.id, jobName: job.name, kind, verdict, failed: false };
+      } catch (err) {
+        if (signal.aborted) return null;
+        // this probe's route refused — the walk goes on, wounded
+        console.error(`[curve-verdicts] ${job.name} ${kind} probe failed:`, err);
+        return { jobId: "", jobName: "", kind, verdict: null, failed: true };
+      }
+    }),
+  );
+  const rows: CurveVerdictRow[] = [];
+  let wounded = false;
+  for (const a of answers) {
+    if (!a) continue; // aborted — the caller checks the signal and discards
+    if (a.failed) {
+      wounded = true;
+      continue;
+    }
+    if (a.verdict) rows.push({ jobId: a.jobId, jobName: a.jobName, kind: a.kind, verdict: a.verdict });
+  }
+  return { rows, wounded };
+}
+
 export default function SessionReportDialog({
   open,
   onOpenChange,
@@ -675,6 +791,14 @@ export default function SessionReportDialog({
   >(null);
   const [note, setNote] = React.useState<string | null>(null);
   const noteTimer = React.useRef<number | null>(null);
+
+  /** t490 — the curve-verdict family's measurement state. Rows null
+   *  while the walk runs (the section says "still reading"), a list
+   *  (possibly empty) once it settles; curvesError only when the walk
+   *  ended wounded AND nothing was heard. */
+  const [curves, setCurves] = React.useState<CurveVerdictRow[] | null>(null);
+  const [curvesPending, setCurvesPending] = React.useState(false);
+  const [curvesError, setCurvesError] = React.useState(false);
 
   const flashNote = (text: string) => {
     setNote(text);
@@ -733,8 +857,13 @@ export default function SessionReportDialog({
         if (ctrl.signal.aborted) return;
         setMapQc(qc);
         setMapPending(false);
-      } catch {
+      } catch (err) {
         if (ctrl.signal.aborted) return;
+        // t407 — the silent catch cost a window of blind diagnosis: every
+        // wire probe was green (map-profile 200s, walk complete, the H2 in
+        // its exact bytes) while the hero never mounted, and the swallowed
+        // error was the ONLY witness nobody could hear. Say the failure.
+        console.error("[map-qc] deep measurement failed:", err);
         setMapError(true);
         setMapPending(false);
       }
@@ -774,11 +903,56 @@ export default function SessionReportDialog({
     return () => ctrl.abort();
   }, [open]);
 
+  // t490 — the curve verdicts are measured ONCE per open, in their own
+  // walk (the map walk's budget is volume business; this one probes the
+  // chart routes for every completed job the probe map predicts). The
+  // same pending doctrine: the section says "still reading" until the
+  // walk settles, then rows — or the honest empty/error line.
+  React.useEffect(() => {
+    if (!open) return;
+    const ctrl = new AbortController();
+    setCurves(null);
+    setCurvesError(false);
+    setCurvesPending(true);
+    (async () => {
+      const done = useWorkflowStore
+        .getState()
+        .jobs.filter((j) => j.status === "completed")
+        .sort(byRecency)
+        .map((j) => ({ id: j.id, name: j.name, type: j.type }));
+      const { rows, wounded } = await measureCurveVerdicts(done, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      setCurves(rows);
+      setCurvesError(wounded && rows.length === 0);
+      setCurvesPending(false);
+    })();
+    return () => ctrl.abort();
+  }, [open]);
+
   const pipeline = React.useMemo(() => {
     const succeeded = jobs.filter((j) => j.status === "completed").length;
     const running = jobs.filter((j) => j.status === "running").length;
     const failed = jobs.filter((j) => j.status === "failed").length;
     return { total: jobs.length, succeeded, running, failed, waiting: jobs.length - succeeded - running - failed };
+  }, [jobs]);
+
+  // t505 — the time family's reading for the glance: the SAME well the
+  // bars and the agent's read drink, walked once at report-open (the
+  // now is this memo's reading of the current instant — a live run's
+  // window stretches there, and the builder says the lines are a
+  // snapshot). Numbers, not rows: the ledger's busy sum and heaviest
+  // step travel, the windows themselves stay in the well.
+  const timelineGlance = React.useMemo(() => {
+    const walk = walkTimeline(jobs, Date.now());
+    if (walk.rows.length === 0) return null;
+    const { busyMs, leaders } = timelineLedger(walk.rows);
+    return {
+      runCount: walk.rows.length,
+      spanMs: walk.span,
+      busyMs,
+      longestName: leaders[0]?.job.name ?? null,
+      longestMs: leaders[0]?.ms ?? 0,
+    };
   }, [jobs]);
 
   const md = React.useMemo(
@@ -791,8 +965,12 @@ export default function SessionReportDialog({
         mapError,
         mapInventory,
         sweep: lastSweep ? buildSweepReport(lastSweep.rows, lastSweep.bestId) : null,
+        curves,
+        curvesPending,
+        curvesError,
+        timeline: timelineGlance,
       }),
-    [project?.name, pipeline, mapQc, mapPending, mapError, mapInventory, lastSweep],
+    [project?.name, pipeline, mapQc, mapPending, mapError, mapInventory, lastSweep, curves, curvesPending, curvesError, timelineGlance],
   );
 
   // t234: the compass and its needle. `toc` is the md's second surface
@@ -804,6 +982,31 @@ export default function SessionReportDialog({
   // speed, never twice per frame. The effect re-pairs whenever the
   // document opens or its bytes change — the compass follows the well.
   const toc = React.useMemo(() => reportTocOf(md), [md]);
+  // t499 — the compass shows its pulse: the two sections whose answers
+  // are MEASURED (the map walk, the curve walk) carry a live face on
+  // their chips, so the reader opening the report knows what is still
+  // cooking without scrolling into the prose to find the italic line.
+  // Three states, one priority: pending (the walk is out) > error (the
+  // walk came back deaf — the wound family's amber) > settled (the
+  // walk landed — including the honest-empty answer, which is settled
+  // truth, not absence of one). The face lands ONLY on the exact-words
+  // heads (MAP_QC_HEAD / CURVES_HEAD): the deep report's "Map QC
+  // summary — <map>" chip is a different destination and never borrows
+  // the pulse. Chips for sections with no measuring walk (Pipeline,
+  // Scheduling sweep) carry no dot at all — the dot MEANS a live
+  // measurement, and a constant dot means nothing.
+  const compassPulseOf = (t: ReportTocItem): "pending" | "error" | "settled" | null => {
+    if (t.level !== 2) return null;
+    if (t.text === MAP_QC_HEAD) return mapPending ? "pending" : mapError ? "error" : "settled";
+    if (t.text === CURVES_HEAD) return curvesPending ? "pending" : curvesError ? "error" : "settled";
+    return null;
+  };
+  const compassPulseAria = (t: ReportTocItem): string | undefined => {
+    const pulse = compassPulseOf(t);
+    if (pulse === "pending") return `${t.text} — still measuring`;
+    if (pulse === "error") return `${t.text} — the measurement refused`;
+    return undefined; // settled is the resting truth — the visible text already speaks it
+  };
   const bodyRef = React.useRef<HTMLDivElement | null>(null);
   const [activeToc, setActiveToc] = React.useState(0);
   React.useEffect(() => {
@@ -957,7 +1160,17 @@ export default function SessionReportDialog({
       // and the heading keeps its exact paper bytes (the figure is
       // rendered around the words, never written into them).
       h2: ({ node, children, ...rest }: H2Props) => {
-        const text = hastKids(node).map(hastText).join("");
+        // t407 — match on the CHILDREN's words, not the hast node. The
+        // `node` extra-prop is an OPTIONAL contract in react-markdown 10;
+        // riding on it made the match fail SILENTLY (text computed to ""
+        // against a perfectly rendered "Map QC" heading — the hero never
+        // mounted while every wire probe stayed green and the console
+        // stayed clean). The children are the rendered truth; a heading
+        // this simple is pure text, so toArray+strings is exact.
+        const text = React.Children.toArray(children)
+          .map((c) => (typeof c === "string" ? c : ""))
+          .join("")
+          .trim();
         if (text !== MAP_QC_HEAD || !mapQc?.mainBins) return <h2 {...rest}>{children}</h2>;
         return (
           <>
@@ -1003,6 +1216,18 @@ export default function SessionReportDialog({
               <table {...rest}>{children}</table>
             </LocalTableContext.Provider>
           );
+        // t494: the curve verdicts table earns the wire grammar — its
+        // head speaks CURVE_HEAD exactly, and its body rows point at
+        // the jobs whose curves they judge. The fourth family stops
+        // sitting flat: the words named a job; now they open it.
+        const isCurve =
+          headTexts.length === CURVE_HEAD.length && CURVE_HEAD.every((h, i) => headTexts[i] === h);
+        if (isCurve)
+          return (
+            <CurveTableContext.Provider value={true}>
+              <table {...rest}>{children}</table>
+            </CurveTableContext.Provider>
+          );
         if (!isInventory) return <table {...rest}>{children}</table>;
         return (
           <InventoryTableContext.Provider value={true}>
@@ -1014,15 +1239,22 @@ export default function SessionReportDialog({
         <InventoryTableContext.Provider value={false}>
           <ComparisonTableContext.Provider value={false}>
             <LocalTableContext.Provider value={false}>
-              <thead {...rest}>{children}</thead>
+              <CurveTableContext.Provider value={false}>
+                <thead {...rest}>{children}</thead>
+              </CurveTableContext.Provider>
             </LocalTableContext.Provider>
           </ComparisonTableContext.Provider>
         </InventoryTableContext.Provider>
       ),
-      tr: ({ node, children, ...rest }: TrProps) => {
+      // a NAMED function expression (uppercase) — react-markdown mounts
+      // this as a real component (useContext is legal here); the bare
+      // arrow form was byte-identical at runtime but read as "some
+      // function" by the hooks linter
+      tr: function ReportTr({ node, children, ...rest }: TrProps) {
         const inInventory = React.useContext(InventoryTableContext);
         const inComparison = React.useContext(ComparisonTableContext);
         const inLocal = React.useContext(LocalTableContext);
+        const inCurve = React.useContext(CurveTableContext);
         const cells = hastKids(node)
           .filter((c) => hastTag(c) === "td" || hastTag(c) === "th")
           .map(hastText);
@@ -1125,6 +1357,44 @@ export default function SessionReportDialog({
             </tr>
           );
         }
+        // t494: the curve body row — the fourth family learns to point.
+        // The match is on ALL THREE rendered cells (job, kind label,
+        // verdict — the house grammar that refuses partial matches; the
+        // kind word is IMPORTED from the logic layer, never retyped).
+        // The door reuses pressOwner, the SAME engine t213 gave the
+        // inventory rows (openJob: landing repair, workspace hops, the
+        // inspector; the paper closes — the results live on the canvas,
+        // not under the dialog). An unmatched row stays plain: a door
+        // must promise what the paper says. The doors live ONLY on the
+        // screen — the exported bytes keep their three-column facts
+        // (t483's door law, at paper scale).
+        if (inCurve && cells.length === CURVE_HEAD.length) {
+          const curveRow = curves?.find(
+            (c) =>
+              cells[0] === c.jobName &&
+              cells[1] === CURVE_KIND_LABELS[c.kind] &&
+              cells[2] === c.verdict,
+          );
+          if (!curveRow) return <tr {...rest}>{children}</tr>;
+          return (
+            <tr
+              {...rest}
+              data-curve-door={curveRow.jobId}
+              tabIndex={0}
+              aria-label={`Open ${curveRow.jobName}'s results — the ${CURVE_KIND_LABELS[curveRow.kind].toLowerCase()} curve's verdict`}
+              className="cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none"
+              onClick={() => pressOwner(curveRow)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  pressOwner(curveRow);
+                }
+              }}
+            >
+              {children}
+            </tr>
+          );
+        }
         const owner = mapInventory?.find(
           (o) => cells[0] === o.jobName && cells[1] === o.mainName && cells[2] === String(o.volumeCount),
         );
@@ -1164,7 +1434,7 @@ export default function SessionReportDialog({
             data-outlier={isOutlier ? "1" : undefined}
             tabIndex={0}
             aria-label={`Open ${owner.jobName}'s results — ${owner.mainName}, ${owner.volumeCount} ${owner.volumeCount === 1 ? "volume" : "volumes"}${owner.peak ? `, peak ${owner.peak}` : ""}${delta ? `, Δ ${delta} vs winner` : ""}${rQuote}${wQuote}${pQuote}`}
-            className={`cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none${isOutlier ? " bg-amber-500/[0.04]" : ""}`}
+            className={`cursor-pointer transition-colors hover:bg-violet-500/10 focus-visible:bg-violet-500/15 focus-visible:outline-none${isOutlier ? " bg-warning/[0.04]" : ""}`}
             style={isOutlier ? { boxShadow: "inset 3px 0 0 0 rgb(245 158 11)" } : undefined}
             onClick={() => pressOwner(owner)}
             onKeyDown={(e) => {
@@ -1190,7 +1460,10 @@ export default function SessionReportDialog({
         );
       },
     };
-  }, [mapInventory, mapQc, pressOwner]);
+    // t494: curves joins the deps — the tr's curve branch reads the
+    // settled walk; a stale closure would point doors at yesterday's
+    // rows (the honest-closure law the other three deps already obey).
+  }, [mapInventory, mapQc, pressOwner, curves]);
 
   /* t232: the CSV's second mouth. The markdown speaks two doors (copy,
      download) — the machine grid spoke only one. Copy is NOT a second
@@ -1222,6 +1495,39 @@ export default function SessionReportDialog({
     }
     downloadText(inventoryCsvFilename(), csv, "text/csv;charset=utf-8");
     flashNote("Downloaded session-map-inventory-….csv");
+  };
+
+  /* t498: the verdicts' CSV mouth — the fourth family's machine grid
+     leaves through the same two-mouth contract the inventory taught
+     (t232): ONE builder (curveVerdictsCsv), one empty-state refusal
+     per truth (still reading vs nothing to say — a silent no-op is a
+     lying door), the same receipt grammar and the same ladder. The
+     rows are the table's OWN array — the grid can never disagree with
+     the paper it mirrors. */
+  const exportCurveCsv = async (mode: "copy" | "download") => {
+    if (curvesPending) {
+      flashNote("The curve verdicts are still reading — no CSV yet");
+      return;
+    }
+    const csv = curveVerdictsCsv(curves ?? null);
+    if (!csv) {
+      flashNote("No curve verdicts to export yet — run a curve-bearing job first");
+      return;
+    }
+    if (mode === "copy") {
+      flashNote(
+        await copyOrFallback(
+          csv,
+          curveVerdictsCsvFilename(),
+          "text/csv;charset=utf-8",
+          "Copied the curve verdicts grid to the clipboard",
+          "Downloaded session-curve-verdicts-….csv (clipboard unavailable)",
+        ),
+      );
+      return;
+    }
+    downloadText(curveVerdictsCsvFilename(), csv, "text/csv;charset=utf-8");
+    flashNote("Downloaded session-curve-verdicts-….csv");
   };
 
   const exportMd = async (mode: "copy" | "download") => {
@@ -1333,12 +1639,12 @@ export default function SessionReportDialog({
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             Download report
-            <kbd
-              className="no-print ml-0.5 rounded border bg-muted px-1 font-mono text-[9px] font-semibold text-muted-foreground"
+            <Kbd
+              className="no-print ml-0.5 text-muted-foreground"
               aria-hidden="true"
             >
               M
-            </kbd>
+            </Kbd>
           </Button>
           <Button
             variant="ghost"
@@ -1350,17 +1656,17 @@ export default function SessionReportDialog({
           >
             <Globe className="h-3.5 w-3.5" aria-hidden="true" />
             Download HTML
-            <kbd
-              className="no-print ml-0.5 rounded border bg-muted px-1 font-mono text-[9px] font-semibold text-muted-foreground"
+            <Kbd
+              className="no-print ml-0.5 text-muted-foreground"
               aria-hidden="true"
             >
               H
-            </kbd>
+            </Kbd>
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 text-emerald-600 hover:bg-emerald-600/15 hover:text-emerald-600"
+            className="h-7 gap-1.5 text-success-600 hover:bg-success/15 hover:text-success-600"
             aria-label="Copy map inventory CSV"
             title="The same machine grid, straight to the clipboard — the download door's twin, one well, two mouths"
             onClick={() => exportCsv("copy")}
@@ -1371,13 +1677,35 @@ export default function SessionReportDialog({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 text-emerald-600 hover:bg-emerald-600/15 hover:text-emerald-600"
+            className="h-7 gap-1.5 text-success-600 hover:bg-success/15 hover:text-success-600"
             aria-label="Download map inventory CSV"
             title="The map inventory as a machine grid — job, main map, volumes, peak %, Δ winner (one row per owner, pending peaks blank)"
             onClick={() => exportCsv("download")}
           >
             <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />
             Download CSV
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-success-600 hover:bg-success/15 hover:text-success-600"
+            aria-label="Copy curve verdicts CSV"
+            title="The curve verdict table as a machine grid — job id, job, curve, verdict (one row per spoken curve)"
+            onClick={() => exportCurveCsv("copy")}
+          >
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            Copy verdicts CSV
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-success-600 hover:bg-success/15 hover:text-success-600"
+            aria-label="Download curve verdicts CSV"
+            title="The curve verdicts as a machine grid — job id, job, curve, verdict; the same rows the paper's table speaks, one well, two faces"
+            onClick={() => exportCurveCsv("download")}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />
+            Download verdicts CSV
           </Button>
           <Button
             variant="ghost"
@@ -1394,7 +1722,7 @@ export default function SessionReportDialog({
 
         {note && (
           <p
-            className="no-print rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300"
+            className="no-print rounded-md border border-success/30 bg-success/10 px-2 py-1 text-[11px] text-success-700 dark:text-success-300"
             role="status"
           >
             {note}
@@ -1404,7 +1732,26 @@ export default function SessionReportDialog({
         {/* the document itself — the families' bytes, rendered. The
             compass rides on top (sticky): the md's second surface, a
             map for a 62vh scroller, and a screen organ — paper keeps
-            its own page order, so the map carries .no-print. */}
+            its own page order, so the map carries .no-print.
+
+            t816's VERDICT — the doc body keeps its rows-only law. The
+            ground carries NO stop of its own (no tabIndex, no role,
+            no name) because its content IS the stops: the compass
+            chips come first (Tab from the door row lands inside the
+            scroller), then the curve doors and owner doors — 27 stops
+            lived here when the verdict was walked. Focus inside makes
+            the ground keyboard-obedient through the browser's native
+            chain: ArrowDown under a chip's focus scrolled this ground
+            0→183px live while the chip kept focus (t816's receipt).
+            The naked-ground wound is keyboard-INVISIBLE scroll — a
+            scroller whose content offers no stop at all (the star
+            table's cells, the timeline's bars); this ground never
+            had it. A stop on the ground would be a toll paid before
+            the compass, not a new reach, and it would double-speak
+            under two named organs ("Report sections", "Session QC
+            report"). The t812 probe pinned the family's dressed
+            grounds; this comment pins the fifth member's exemption —
+            the verdict, not a bulldoze. */}
         <div className="report-doc max-h-[62vh] overflow-y-auto pr-1" data-report-body ref={bodyRef}>
           {toc.length > 0 && (
             <nav
@@ -1414,24 +1761,80 @@ export default function SessionReportDialog({
               ref={navRef}
               onKeyDown={onCompassKeyDown}
             >
-              {toc.map((t, i) => (
-                <button
-                  key={`${t.level}·${t.text}`}
-                  type="button"
-                  className={
-                    "report-compass-chip" +
-                    (t.level === 3 ? " report-compass-sub" : "") +
-                    (i === activeToc ? " report-compass-here" : "")
-                  }
-                  aria-current={i === activeToc ? "true" : undefined}
-                  onClick={() => jumpToToc(i)}
-                >
-                  {t.text}
-                </button>
-              ))}
+              {toc.map((t, i) => {
+                const pulse = compassPulseOf(t);
+                return (
+                  <button
+                    key={`${t.level}·${t.text}`}
+                    type="button"
+                    className={
+                      "report-compass-chip" +
+                      (t.level === 3 ? " report-compass-sub" : "") +
+                      (i === activeToc ? " report-compass-here" : "")
+                    }
+                    aria-current={i === activeToc ? "true" : undefined}
+                    aria-label={compassPulseAria(t)}
+                    onClick={() => jumpToToc(i)}
+                  >
+                    {pulse && (
+                      // decorative to the eye (the aria-label speaks the
+                      // state); the dot MEANS "this section is measured
+                      // live" — no walk, no dot
+                      <span
+                        data-compass-pulse={pulse}
+                        className="report-compass-dot"
+                        aria-hidden="true"
+                      />
+                    )}
+                    {t.text}
+                  </button>
+                );
+              })}
             </nav>
           )}
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{md}</ReactMarkdown>
+        </div>
+        {/* t833 — the session report joins the keymap family: the first
+            seat OUTSIDE results-view. The report answers to four keys
+            and the row teaches exactly those. ← → step the compass
+            through the sections (t235's map walk — invisible to this
+            day, which is the row's reason to live), but the walk only
+            works once a section chip has focus, so the chips carry
+            that scope in their own words instead of promising a key
+            that dies from the door row (the must-not-lie law: teach
+            the reach WITH the key). H and M are the t247 byte mouths
+            — the export doors already speak them at the point of
+            action ("or press M/H" titles + their own kbd chips); the
+            row gathers the dialog's whole inventory in one voice, the
+            family's calibre. Esc is the house close every dialog
+            obeys. The walk is gated on toc.length > 1 — a one-section
+            map has no step, and a chip for a dead key would lie (the
+            quick-look's single-image law). no-print: the row is an
+            app affordance — the portable paper takes the report, not
+            its scaffolding (the compass and the doors' own law). */}
+        <div
+          data-canvas-ui="report-keymap"
+          className="no-print flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+        >
+          {toc.length > 1 && (
+            <span className="inline-flex items-center gap-0.5">
+              <Kbd>←</Kbd>
+              <Kbd>→</Kbd>
+              <span className="ml-1">step the sections (Tab in first)</span>
+            </span>
+          )}
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>H</Kbd>
+            <span className="ml-1">HTML report</span>
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>M</Kbd>
+            <span className="ml-1">Markdown report</span>
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Kbd>Esc</Kbd>
+            <span className="ml-1">closes</span>
+          </span>
         </div>
       </DialogContent>
     </Dialog>

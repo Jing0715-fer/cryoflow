@@ -6,6 +6,8 @@
  * Suspects written to /tmp/t192-dark-suspects.json for adjudication. */
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const OUT = "scripts/shots-t192";

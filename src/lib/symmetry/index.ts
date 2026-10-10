@@ -54,7 +54,7 @@ export {
   type IcoSubset,
 } from "./pointgroups";
 
-import { Mat3, matVec } from "./matrix";
+import { type Mat3, matVec } from "./matrix";
 import { Rotation } from "./rotation";
 import { generatePointGroup, type PointGroupSpec } from "./pointgroups";
 

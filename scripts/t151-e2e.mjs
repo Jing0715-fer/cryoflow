@@ -32,6 +32,8 @@
 // Run: node scripts/t151-e2e.mjs   (server on :3000, fresh build REQUIRED)
 import { chromium } from "playwright";
 import { execSync } from "child_process";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const OUT = "/home/z/my-project/.next/t151-shot";
@@ -83,8 +85,10 @@ async function cleanup() {
 
 const must = (cond, label) => {
   if (!cond) {
+    // pure throw - the unified main().catch runs cleanup (t632: the old
+    // void cleanup().then(exit) raced the catch's synchronous exit(1) and
+    // left chrome orphans behind on every FAIL)
     console.log(`FAIL: ${label}`);
-    void cleanup().then(() => process.exit(1));
     throw new Error(`FAIL: ${label}`);
   }
   PASS++;
@@ -258,4 +262,8 @@ async function main() {
   console.log(`\nT151 ALL PASS (${PASS} assertions)`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch(async (e) => {
+  console.error(e);
+  try { await cleanup(); } catch {}
+  process.exit(1);
+});

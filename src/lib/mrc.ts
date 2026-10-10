@@ -15,6 +15,28 @@ import { closeSync, openSync, readSync, statSync } from "fs";
 import sharp from "sharp";
 
 /* ------------------------------------------------------------------ */
+/* t391 — the libvips resource clamp                                   */
+/* ------------------------------------------------------------------ */
+/* sharp is this module's only native dependency, and every render is a
+ * TINY grayscale PNG (≤384px, 1 channel). The defaults are tuned for
+ * photographic workloads: a libvips cache (operations + mapped memory)
+ * and a concurrency-wide thread pool, each holding native buffers OUTSIDE
+ * the V8 heap — under the live-gallery's render cadence (a running
+ * classification renders each new round's stacks within seconds, for
+ * hours on a long refinement) the native side quietly outgrew small
+ * boxes until the kernel reaped the server (observed: anon-rss 3.2GB with
+ * an 896MB heap cap — the growth was NOT JavaScript). One clamp at module
+ * load: no operation cache, single-threaded encode (the render pipeline
+ * is already serial per job), and a hard floor on the libvips leak
+ * canary. Tiny PNGs lose nothing measurable; long runs stop ballooning. */
+try {
+  sharp.cache(false);
+  sharp.concurrency(1);
+} catch {
+  /* a sharp build without the tunables still renders — never fatal */
+}
+
+/* ------------------------------------------------------------------ */
 /* Header                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -46,6 +68,54 @@ export interface MrcHeader {
   rms: number;
 }
 
+/**
+ * t360 — parse + validate a 1024-byte MRC2014 header that is already in
+ * memory. `size` is the WHOLE file's byte count (the voxel-count sanity
+ * check needs it). The remote map-import lane reads the header over SSH
+ * (`head -c 1024 | base64`) and never holds the file locally — this pure
+ * parser is the same field layout readMrcHeader reads off the disk.
+ */
+export function parseMrcHeaderBytes(buf: Buffer, size: number): MrcHeader | null {
+  if (!buf || buf.length < 1024) return null;
+  const nx = buf.readInt32LE(0);
+  const ny = buf.readInt32LE(4);
+  const nz = buf.readInt32LE(8);
+  const mode = buf.readInt32LE(12);
+  const nsymbt = buf.readInt32LE(92);
+  const bpp = MODE_BYTES[mode];
+  if (
+    !Number.isFinite(nx) || nx <= 0 || ny <= 0 || nz <= 0 ||
+    nx > 65536 || ny > 65536 || nz > 1_000_000 ||
+    nsymbt < 0 || nsymbt > 16_000_000 || bpp === undefined
+  ) {
+    return null;
+  }
+  if (!Number.isFinite(size) || 1024 + nsymbt + nx * ny * nz * bpp > size + bpp) return null;
+  return {
+    nx, ny, nz, mode, nsymbt,
+    bytesPerVoxel: bpp,
+    cella: [buf.readFloatLE(40), buf.readFloatLE(44), buf.readFloatLE(48)],
+    start: [buf.readInt32LE(16), buf.readInt32LE(20), buf.readInt32LE(24)],
+    dmin: buf.readFloatLE(76),
+    dmax: buf.readFloatLE(80),
+    dmean: buf.readFloatLE(84),
+    rms: buf.readFloatLE(216),
+  };
+}
+
+/**
+ * t387 — the EXACT byte count a complete file for this header must carry:
+ * 1024 header + nsymbt extended + nx·ny·nz·bytesPerVoxel data. The remote
+ * pull paths compare the landed byte account against this number, because a
+ * mid-write file can stat FULL-SIZE while its data pages are still in
+ * flight (and a torn pull that matches the pre-pull stat can still be
+ * shorter than the header's own geometry — the parser's tolerance would
+ * only refuse it later, with a message that names the wrong world).
+ */
+export function mrcExpectedBytes(h: MrcHeader): number {
+  return 1024 + h.nsymbt + h.nx * h.ny * h.nz * h.bytesPerVoxel;
+}
+
 /** Read + validate the 1024-byte MRC2014 header. Returns null when not a map we can read. */
 export function readMrcHeader(file: string): MrcHeader | null {
   let fd: number;
@@ -58,31 +128,7 @@ export function readMrcHeader(file: string): MrcHeader | null {
     const buf = Buffer.alloc(1024);
     const got = readSync(fd, buf, 0, 1024, 0);
     if (got < 1024) return null;
-    const nx = buf.readInt32LE(0);
-    const ny = buf.readInt32LE(4);
-    const nz = buf.readInt32LE(8);
-    const mode = buf.readInt32LE(12);
-    const nsymbt = buf.readInt32LE(92);
-    const bpp = MODE_BYTES[mode];
-    if (
-      !Number.isFinite(nx) || nx <= 0 || ny <= 0 || nz <= 0 ||
-      nx > 65536 || ny > 65536 || nz > 1_000_000 ||
-      nsymbt < 0 || nsymbt > 16_000_000 || bpp === undefined
-    ) {
-      return null;
-    }
-    const size = statSync(file).size;
-    if (1024 + nsymbt + nx * ny * nz * bpp > size + bpp) return null;
-    return {
-      nx, ny, nz, mode, nsymbt,
-      bytesPerVoxel: bpp,
-      cella: [buf.readFloatLE(40), buf.readFloatLE(44), buf.readFloatLE(48)],
-      start: [buf.readInt32LE(16), buf.readInt32LE(20), buf.readInt32LE(24)],
-      dmin: buf.readFloatLE(76),
-      dmax: buf.readFloatLE(80),
-      dmean: buf.readFloatLE(84),
-      rms: buf.readFloatLE(216),
-    };
+    return parseMrcHeaderBytes(buf, statSync(file).size);
   } catch {
     return null;
   } finally {
@@ -279,32 +325,92 @@ function downsample(
 }
 
 /**
+ * An explicit display window — t286 lets the histogram COMMAND the
+ * display: lo renders black, hi renders white, everything outside is
+ * clipped. Validated by the caller (finite, hi > lo) before it gets
+ * here; the stretch trusts it.
+ */
+export interface MrcWindow {
+  lo: number;
+  hi: number;
+}
+
+/**
+ * Display polarity for the auto-inversion heuristic (t380).
+ *
+ * - "auto" (default): cryo-EM convention — when the negative side of the
+ *   distribution dominates, flip so the particle renders bright-on-black.
+ *   Covers cryo class averages AND normalized particle stacks.
+ * - "negativeStain": NEVER flip — stained particles are positive density
+ *   (bright voids in a dark metal sea); the direct stretch already shows
+ *   them bright. Pinned by the import job's "negative stain" checkbox so
+ *   every downstream render of that dataset follows it.
+ */
+export type MrcPolarity = "auto" | "negativeStain";
+
+/**
  * 2–98 percentile contrast stretch → 8-bit grayscale buffer.
  *
  * RELION cryo-EM convention: the particle signal is NEGATIVE density —
  * both in class averages (particle as negative density over flattened
  * solvent) and in extracted particle stacks. When the negative side of
- * the distribution carries clearly more swing than the positive side
- * (≥1.2×), the signal lives below the mean: flip and renormalize so the
+ * the distribution carries more swing than the positive side
+ * (> 1.0×), the signal lives below the mean: flip and renormalize so the
  * particle renders BRIGHT ON BLACK (what RELION's own display does).
  *
  * All-positive images (raw micrographs, CTF power spectra, soft masks)
  * never satisfy `lo < 0` and are never flipped. Measured on the EMPIAR
  * beta-gal dataset: class averages flip at ratio 2.7–3.0, particle stacks
  * at 1.24, micrographs are all-positive, CTF .ctf diagnostics sit at 0.56.
+ *
+ * t380 — the gate's threshold was 1.2×, which left a DEAD ZONE: unmasked
+ * class averages and barely-normalised stacks measure 1.0–1.1 — clearly
+ * negative-dominant, but the old gate refused to flip and the particles
+ * rendered BLACK. The gate now fires at any strict negative dominance
+ * (> 1.0×). A pinned `polarity: "negativeStain"` (import-time flag)
+ * disables the flip entirely: negative-stain particles are POSITIVE
+ * density (bright metal-surrounded voids) and must render as-is.
+ *
+ * t286 — an explicit `window` overrides the percentile entirely: lo maps
+ * to black, hi maps to white, LITERAL mapping (no auto-inversion — the
+ * heuristic second-guesses an auto range, but a range the user typed or
+ * dragged is an explicit command, and silently flipping it would betray
+ * the drag). The percentile + inversion path is the AUTO default and is
+ * untouched when no window is given.
  */
-function stretchToGray(data: Float32Array): Buffer {
+function stretchToGray(data: Float32Array, window?: MrcWindow, polarity?: MrcPolarity): Buffer {
   const n = data.length;
+  const gray = Buffer.alloc(n);
+
+  if (window) {
+    const span = window.hi - window.lo;
+    if (!(span > 0)) {
+      gray.fill(128);
+      return gray;
+    }
+    for (let i = 0; i < n; i++) {
+      const v = (data[i] - window.lo) / span;
+      gray[i] = Math.max(0, Math.min(255, Math.round(v * 255)));
+    }
+    return gray;
+  }
+
   const sorted = Float32Array.from(data).sort();
   const lo = sorted[Math.floor(0.02 * (n - 1))];
   const hi = sorted[Math.ceil(0.98 * (n - 1))];
-  const gray = Buffer.alloc(n);
 
   // inverted reference: the negative side carries the particle signal
   // (median-zero check from v1 was dropped — real class averages settle
   // at med −0.1…−1.0 after solvent flattening, never exactly 0, which
   // silently disabled the flip and rendered particles BLACK)
-  const inverted = lo < 0 && -lo > 1.2 * Math.max(hi, Number.EPSILON);
+  // t380: 1.2 → 1.0 — the dead zone left unmasked classes (ratio ~1.0–1.1)
+  // unflipped and BLACK; a strict > 1.0 dominance flips them. A pinned
+  // negativeStain polarity keeps the direct mapping (particles are
+  // naturally bright in stained data).
+  const inverted =
+    polarity !== "negativeStain" &&
+    lo < 0 &&
+    -lo > 1.0 * Math.max(hi, Number.EPSILON);
   if (inverted) {
     const loSig = sorted[Math.floor(0.005 * (n - 1))]; // robust signal floor
     const span = -loSig;
@@ -344,15 +450,21 @@ async function grayToPng(gray: Buffer, width: number, height: number): Promise<B
 /**
  * Render one slice as a grayscale PNG (≤384 px wide).
  * `slice` defaults to the middle section for volumes, 0 for stacks.
+ * `window` (t286) overrides the 2–98 percentile stretch.
  */
-export async function renderMrcSlicePng(file: string, slice?: number): Promise<Buffer | null> {
+export async function renderMrcSlicePng(
+  file: string,
+  slice?: number,
+  window?: MrcWindow,
+  polarity?: MrcPolarity
+): Promise<Buffer | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
   const z = slice !== undefined && Number.isFinite(slice) ? Math.trunc(slice) : Math.floor(h.nz / 2);
   const data = readMrcSlice(file, z, h);
   if (!data) return null;
   const small = downsample(data, h.nx, h.ny, MAX_W);
-  const gray = stretchToGray(small.values);
+  const gray = stretchToGray(small.values, window, polarity);
   return grayToPng(gray, small.width, small.height);
 }
 
@@ -360,7 +472,12 @@ export async function renderMrcSlicePng(file: string, slice?: number): Promise<B
  * Render the first `count` (≤16) images of a .mrcs stack as a 4-column
  * montage PNG: white background, 2 px gaps, each cell ≤128 px.
  */
-export async function renderMrcMontagePng(file: string, count = 8): Promise<Buffer | null> {
+export async function renderMrcMontagePng(
+  file: string,
+  count = 8,
+  window?: MrcWindow,
+  polarity?: MrcPolarity
+): Promise<Buffer | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
   const n = Math.max(1, Math.min(16, Math.trunc(count) || 8, h.nz));
@@ -376,7 +493,7 @@ export async function renderMrcMontagePng(file: string, count = 8): Promise<Buff
     const data = readMrcSlice(file, i, h);
     if (!data) continue;
     const small = downsample(data, h.nx, h.ny, MONTAGE_CELL);
-    const cell = stretchToGray(small.values);
+    const cell = stretchToGray(small.values, window, polarity);
     const cx = gap + (i % MONTAGE_COLS) * (cellW + gap);
     const cy = gap + Math.floor(i / MONTAGE_COLS) * (cellH + gap);
     for (let y = 0; y < small.height && y < cellH; y++) {
@@ -388,15 +505,247 @@ export async function renderMrcMontagePng(file: string, count = 8): Promise<Buff
   return grayToPng(grid, gw, gh);
 }
 
+/* ------------------------------------------------------------------ */
+/* Per-iteration class SHEET (t354) — one image per iteration round     */
+/* ------------------------------------------------------------------ */
+
+/** the sheet's cell edge — big enough to judge class quality at a glance */
+const SHEET_CELL = 160;
+/** defensive ceiling: a class2d with >200 classes renders its first 200 */
+const SHEET_MAX_SLICES = 200;
+/** a sheet never exceeds this on its long side (keeps the PNG KB-scale) */
+const SHEET_MAX_LONG = 1400;
+
+/**
+ * t354 — render EVERY slice of a per-iteration class-average stack as ONE
+ * grid image — the user's 「每一轮的 2D 结果生成一张图片」: RELION writes
+ * `run_itNNN_classes.mrcs` once per Expectation round, and this is that
+ * stack rendered the way `relion_display` would show it — all class
+ * averages side by side, bright on black, per-class percentile contrast.
+ *
+ * Columns adapt to the class count (4…8, near-square layout), gaps and the
+ * background follow the cryo-EM convention (2 px, black). If the naive
+ * grid would exceed SHEET_MAX_SLICES slices or SHEET_MAX_LONG px on its
+ * long side, the sheet keeps the FIRST classes and says so via `rendered`.
+ */
+export async function renderClassSheetPng(
+  file: string,
+  window?: MrcWindow,
+  polarity?: MrcPolarity
+): Promise<{ png: Buffer; rendered: number; total: number } | null> {
+  const h = readMrcHeader(file);
+  if (!h) return null;
+  const total = h.nz;
+  const n = Math.max(1, Math.min(SHEET_MAX_SLICES, total));
+  const gap = MONTAGE_GAP;
+  let cols = Math.min(8, Math.max(4, Math.ceil(Math.sqrt(n))));
+  let cell = Math.min(SHEET_CELL, h.nx, h.ny);
+  const dims = () => {
+    const r = Math.ceil(n / cols);
+    return { rows: r, w: cols * cell + (cols + 1) * gap, h: r * cell + (r + 1) * gap };
+  };
+  // fit BOTH sides inside SHEET_MAX_LONG: height overflow spends the width
+  // budget on more columns first, then shrinks cells (width overflow can
+  // only shrink cells — more columns would make it worse)
+  let d = dims();
+  while ((d.w > SHEET_MAX_LONG || d.h > SHEET_MAX_LONG) && (cols < 8 || cell > 48)) {
+    if (cols < 8 && d.h > SHEET_MAX_LONG) cols++;
+    else if (cell > 48) cell -= 16;
+    else break;
+    d = dims();
+  }
+  const rows = d.rows;
+  const gw = d.w;
+  const gh = d.h;
+  const grid = Buffer.alloc(gw * gh, 0); // black background — cryo-EM convention
+
+  for (let i = 0; i < n; i++) {
+    const data = readMrcSlice(file, i, h);
+    if (!data) continue;
+    const small = downsample(data, h.nx, h.ny, cell);
+    const cellGray = stretchToGray(small.values, window, polarity);
+    const cx = gap + (i % cols) * (cell + gap);
+    const cy = gap + Math.floor(i / cols) * (cell + gap);
+    for (let y = 0; y < small.height && y < cell; y++) {
+      for (let x = 0; x < small.width && x < cell; x++) {
+        grid[(cy + y) * gw + (cx + x)] = cellGray[y * small.width + x];
+      }
+    }
+  }
+  const png = await grayToPng(grid, gw, gh);
+  return { png, rendered: n, total };
+}
+
+/* ------------------------------------------------------------------ */
+/* 3D class FACES sheet (t573) — one row per 3D class, three faces     */
+/* ------------------------------------------------------------------ */
+
+/** the faces-sheet cell edge — three faces per row still read at 128 px */
+const FACES_CELL = 128;
+/** defensive ceiling: a class3d with >16 classes renders its first 16 */
+const FACES_MAX_CLASSES = 16;
+
+/**
+ * t573 — render EVERY 3D class of a classification as ONE image: each row
+ * is one class volume, its three orthogonal center faces side by side
+ * (XY / XZ / YZ — the plane and its two perpendicular cuts), bright on
+ * black, per-face percentile contrast. The 3D judge's feed: where the 2D
+ * judge reads a class-average sheet, this judge reads what a VOLUME
+ * actually looks like from three directions — a coherent macromolecule
+ * agrees with itself across faces; noise never does.
+ *
+ * Rows follow the caller's order (the discovery's class order); columns
+ * are always the same three faces. Per-face stretch (not one global
+ * window) — classes differ wildly in density scale, and a global stretch
+ * would flatten the weak ones into blackness.
+ */
+export async function renderClass3dFacesSheet(
+  entries: { cls: number; file: string }[]
+): Promise<{ png: Buffer; rendered: number; total: number } | null> {
+  const list = entries.slice(0, FACES_MAX_CLASSES);
+  if (list.length === 0) return null;
+  const h0 = readMrcHeader(list[0].file);
+  if (!h0) return null;
+  const cols = 3;
+  const gap = MONTAGE_GAP;
+  const cell = Math.min(FACES_CELL, h0.nx, h0.ny);
+  const rows = list.length;
+  const gw = cols * cell + (cols + 1) * gap;
+  const gh = rows * cell + (rows + 1) * gap;
+  const grid = Buffer.alloc(gw * gh, 0); // black background — cryo-EM convention
+  // column order = the plane's normal axis: XY (normal z), XZ (normal y), YZ (normal x);
+  // z faces read via readMrcSlice, x/y faces via readMrcOrthoSlice (OrthoAxis covers the
+  // reconstructed planes only — the z normal is the volume's native stacking axis)
+  const axes: Array<"x" | "y" | "z"> = ["z", "y", "x"];
+  let rendered = 0;
+  for (let r = 0; r < list.length; r++) {
+    const file = list[r].file;
+    const h = readMrcHeader(file);
+    if (!h) continue;
+    let anyFace = false;
+    for (let c = 0; c < cols; c++) {
+      const axis = axes[c];
+      const idx =
+        axis === "z"
+          ? Math.floor(h.nz / 2)
+          : axis === "y"
+            ? Math.floor(h.ny / 2)
+            : Math.floor(h.nx / 2);
+      const plane =
+        axis === "z"
+          ? (() => {
+              const values = readMrcSlice(file, idx, h);
+              return values ? { values, width: h.nx, height: h.ny } : null;
+            })()
+          : readMrcOrthoSlice(file, axis, idx, h);
+      if (!plane) continue;
+      const small = downsample(plane.values, plane.width, plane.height, cell);
+      const gray = stretchToGray(small.values, undefined, undefined);
+      const cx = gap + c * (cell + gap);
+      const cy = gap + r * (cell + gap);
+      for (let y = 0; y < small.height && y < cell; y++) {
+        for (let x = 0; x < small.width && x < cell; x++) {
+          grid[(cy + y) * gw + (cx + x)] = gray[y * small.width + x];
+        }
+      }
+      anyFace = true;
+    }
+    if (anyFace) rendered++;
+  }
+  if (rendered === 0) return null;
+  const png = await grayToPng(grid, gw, gh);
+  return { png, rendered, total: entries.length };
+}
+
 /** Render one slice of a stack enlarged for the dialog view (≤ 768 px). */
-export async function renderMrcLargePng(file: string, slice: number): Promise<Buffer | null> {
+export async function renderMrcLargePng(
+  file: string,
+  slice: number,
+  window?: MrcWindow,
+  polarity?: MrcPolarity
+): Promise<Buffer | null> {
   const h = readMrcHeader(file);
   if (!h) return null;
   const data = readMrcSlice(file, slice, h);
   if (!data) return null;
   const small = downsample(data, h.nx, h.ny, 768);
-  const gray = stretchToGray(small.values);
+  const gray = stretchToGray(small.values, window, polarity);
   return grayToPng(gray, small.width, small.height);
+}
+
+/* ------------------------------------------------------------------ */
+/* Decimated previews (t322) — the pixels arrive pre-thinned           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Decode a run of raw little-endian MRC voxels (mode-dispatched) into
+ * Float32 values. The decimation ladder's cluster-side scripts emit RAW
+ * strided bytes — decoding happens here, on the app side, so the remote
+ * leg needs nothing beyond POSIX shell (t322).
+ */
+export function decodeRawVoxels(raw: Buffer, mode: number, count: number): Float32Array {
+  const out = new Float32Array(count);
+  switch (mode) {
+    case 0:
+      for (let i = 0; i < count; i++) out[i] = raw.readInt8(i);
+      break;
+    case 1:
+      for (let i = 0; i < count; i++) out[i] = raw.readInt16LE(i * 2);
+      break;
+    case 6:
+      for (let i = 0; i < count; i++) out[i] = raw.readUInt16LE(i * 2);
+      break;
+    default: // 2 — float32
+      for (let i = 0; i < count; i++) out[i] = raw.readFloatLE(i * 4);
+  }
+  return out;
+}
+
+/**
+ * Column decimation for row-thinned payloads — the dd tier of the ladder
+ * sends FULL-width rows (strided row reads only), so the columns are
+ * thinned here. The step math is downsample()'s own (step from nx vs
+ * maxW, nearest neighbour, no clamping needed — (ceil(nx/step)-1)*step
+ * < nx always), which is why ALL THREE tiers of the preview ladder pick
+ * the SAME pixels and render byte-identical PNGs (t322).
+ */
+function decimateColumns(
+  data: Float32Array,
+  nx: number,
+  ny: number,
+  maxW: number
+): { values: Float32Array; width: number; height: number } {
+  const step = Math.max(1, Math.ceil(nx / maxW));
+  const w = Math.ceil(nx / step);
+  const out = new Float32Array(w * ny);
+  for (let y = 0; y < ny; y++) {
+    for (let x = 0; x < w; x++) {
+      out[y * w + x] = data[y * nx + x * step];
+    }
+  }
+  return { values: out, width: w, height: ny };
+}
+
+/**
+ * Render an ALREADY-thinned pixel grid (t322's decimated preview ladder):
+ * `data` is row-major `nx × ny` (the python tier sends both axes thinned,
+ * the dd tier sends full-width strided rows — this render thins the
+ * columns only when nx still exceeds maxW). Contrast stretch and PNG
+ * encoding are the SAME pipeline as every other thumbnail, so a
+ * decimated preview is pixel-identical to a full-file render.
+ */
+export async function renderDecimatedPng(
+  data: Float32Array,
+  nx: number,
+  ny: number,
+  maxW: number,
+  window?: MrcWindow,
+  polarity?: MrcPolarity
+): Promise<Buffer | null> {
+  if (!(nx > 0) || !(ny > 0) || data.length < nx * ny) return null;
+  const grid = nx > maxW ? decimateColumns(data, nx, ny, maxW) : { values: data, width: nx, height: ny };
+  const gray = stretchToGray(grid.values, window, polarity);
+  return grayToPng(gray, grid.width, grid.height);
 }
 
 /* ------------------------------------------------------------------ */
@@ -495,6 +844,224 @@ export function readMrcOrthoSlice(
 }
 
 /**
+ * Read ONE voxel's density value (t281 — the density probe's backend).
+ *
+ * Fractional coordinates (0…1, the tiles' own pick/probe frame) resolve
+ * to the nearest voxel with the SAME rounding the plane renderer uses
+ * (round(p * (dim-1))), so the number shown under the cursor is the
+ * density of what the cursor is actually on. The read is a single
+ * `bytesPerVoxel` pread at the computed offset — no plane buffer, no
+ * section scan; hover-frequency polling stays free.
+ *
+ * MRC native layout: x fastest, then y, z slowest —
+ *   offset = 1024 + nsymbt + ((iz·ny + iy)·nx + ix) · bytesPerVoxel
+ * (the same layout every other reader in this file walks section-wise).
+ * Returns null for unreadable files / non-finite fractions — the probe
+ * chip just stays silent rather than showing a lie.
+ */
+export function readMrcVoxel(
+  file: string,
+  fx: number,
+  fy: number,
+  fz: number,
+  header?: MrcHeader
+): { value: number; ix: number; iy: number; iz: number } | null {
+  const h = header ?? readMrcHeader(file);
+  if (!h) return null;
+  if (h.nz < 1 || h.ny < 1 || h.nx < 1) return null;
+  if (![fx, fy, fz].every((v) => Number.isFinite(v))) return null;
+  const clamp = (v: number, dim: number) =>
+    Math.max(0, Math.min(Math.round(v * (dim - 1)), dim - 1));
+  const ix = clamp(fx, h.nx);
+  const iy = clamp(fy, h.ny);
+  const iz = clamp(fz, h.nz);
+  const offset =
+    1024 + h.nsymbt + ((iz * h.ny + iy) * h.nx + ix) * h.bytesPerVoxel;
+  const raw = Buffer.alloc(h.bytesPerVoxel);
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return null;
+  }
+  try {
+    const got = readSync(fd, raw, 0, h.bytesPerVoxel, offset);
+    if (got < h.bytesPerVoxel) return null;
+    return { value: decodeVoxel(raw, 0, h.mode), ix, iy, iz };
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Volume histogram (t283)                                             */
+/* ------------------------------------------------------------------ */
+
+export interface MrcHistogram {
+  /** every voxel in the grid, finite or not */
+  nTotal: number;
+  /** voxels that entered the stats and the bins (NaN/Inf excluded) */
+  nFinite: number;
+  min: number;
+  max: number;
+  /** mean density over the finite voxels */
+  mean: number;
+  /** population std over the finite voxels — the σ the contour slider
+   *  speaks (mol*'s IsoValue.relative resolves against the same stats) */
+  std: number;
+  lo: number;
+  hi: number;
+  bins: number[];
+}
+
+const HIST_BINS = 256;
+/** 262,144 voxels = 1 MB of float32 per chunk — memory stays flat no
+ *  matter the map size (the OOM doctrine at histogram scale). */
+const HIST_CHUNK_VOXELS = 1 << 18;
+const HIST_CACHE_MAX = 8;
+/** key: realpath + mtime + size — a re-rendered map is a new histogram */
+const histCache = new Map<string, MrcHistogram>();
+
+/**
+ * The whole volume's density distribution in one payload (t283 — the
+ * histogram instrument's backend). "Where should the contour cut?" is
+ * answered by SEEING the distribution: the noise peak, the particle
+ * shoulder, and where Nσ lands inside it.
+ *
+ * t287 — an optional `slice` narrows the read to ONE section along z:
+ * for a .mrcs stack that is one particle IMAGE (nz = the image count),
+ * and "is this particle even usable?" is answered by THAT image's
+ * distribution, not the stack-wide blur of thousands of them. A volume
+ * with a slice speaks that z-plane's distribution (same read shape).
+ *
+ * I/O shape: the histogram NEEDS every voxel in its scope — that is the
+ * semantic floor — so this walks the file in chunks, TWICE (pass 1:
+ * min/max/mean/σ accumulators, pass 2: binning over the now-known
+ * [min,max] range) with O(1) memory; a 700³ float32 map costs ~2.8 GB
+ * of sequential read but never 2.8 GB of RAM. The result is cached per
+ * (path, mtime, size, slice) and LRU-capped: hover-frequency it is not,
+ * panel-open frequency it absolutely is — the second look is free.
+ */
+export function readMrcHistogram(file: string, slice?: number): MrcHistogram | null {
+  const h = readMrcHeader(file);
+  if (!h) return null;
+  // t287 — resolve the slice: undefined = the whole grid (the t283
+  // semantics, every caller's default); a finite integer = one z section
+  // (nx×ny voxels starting at slice*nx*ny). Out of range → null (the
+  // route turns that into an actionable 400 with the header's real nz).
+  let sliceOffset = 0;
+  let count = h.nx * h.ny * h.nz;
+  if (slice !== undefined) {
+    if (!Number.isFinite(slice)) return null;
+    const s = Math.trunc(slice);
+    if (s < 0 || s >= h.nz) return null;
+    sliceOffset = s * h.nx * h.ny;
+    count = h.nx * h.ny;
+  }
+  if (count < 1) return null;
+  let cacheKey: string | null = null;
+  try {
+    const st = statSync(file);
+    cacheKey = `${file}|${st.mtimeMs}|${st.size}|s${slice === undefined ? "all" : Math.trunc(slice)}`;
+    const hit = histCache.get(cacheKey);
+    if (hit) {
+      // Map-as-LRU: re-insert to mark the entry freshly used
+      histCache.delete(cacheKey);
+      histCache.set(cacheKey, hit);
+      return hit;
+    }
+  } catch {
+    /* unreadable stat — proceed uncached */
+  }
+
+  const dataStart = 1024 + h.nsymbt + sliceOffset * h.bytesPerVoxel;
+  const bpp = h.bytesPerVoxel;
+  const chunkVox = Math.max(1, Math.min(HIST_CHUNK_VOXELS, count));
+  const raw = Buffer.alloc(chunkVox * bpp);
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return null;
+  }
+  try {
+    // pass 1 — accumulators (float64; finite voxels only)
+    let nFinite = 0;
+    let min = Infinity;
+    let max = -Infinity;
+    let sum = 0;
+    let sumsq = 0;
+    for (let done = 0; done < count; ) {
+      const take = Math.min(chunkVox, count - done);
+      const want = take * bpp;
+      const got = readSync(fd, raw, 0, want, dataStart + done * bpp);
+      if (got < want) return null;
+      for (let i = 0; i < take; i++) {
+        const v = decodeVoxel(raw, i * bpp, h.mode);
+        if (!Number.isFinite(v)) continue;
+        nFinite++;
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+        sumsq += v * v;
+      }
+      done += take;
+    }
+    if (nFinite === 0) return null;
+    const mean = sum / nFinite;
+    const variance = Math.max(0, sumsq / nFinite - mean * mean);
+    const std = Math.sqrt(variance);
+
+    // pass 2 — bin the finite values over the known [min, max]
+    const bins = new Array<number>(HIST_BINS).fill(0);
+    const span = max - min;
+    const scale = span > 0 ? HIST_BINS / span : 0;
+    for (let done = 0; done < count; ) {
+      const take = Math.min(chunkVox, count - done);
+      const want = take * bpp;
+      const got = readSync(fd, raw, 0, want, dataStart + done * bpp);
+      if (got < want) return null;
+      for (let i = 0; i < take; i++) {
+        const v = decodeVoxel(raw, i * bpp, h.mode);
+        if (!Number.isFinite(v)) continue;
+        let b = span > 0 ? Math.trunc((v - min) * scale) : 0;
+        if (b >= HIST_BINS) b = HIST_BINS - 1; // v === max lands in the last bin
+        if (b < 0) b = 0;
+        bins[b]++;
+      }
+      done += take;
+    }
+
+    const out: MrcHistogram = {
+      nTotal: count,
+      nFinite,
+      min,
+      max,
+      mean,
+      std,
+      lo: min,
+      hi: max,
+      bins,
+    };
+    if (cacheKey) {
+      histCache.delete(cacheKey);
+      histCache.set(cacheKey, out);
+      if (histCache.size > HIST_CACHE_MAX) {
+        const oldest = histCache.keys().next().value;
+        if (oldest !== undefined) histCache.delete(oldest);
+      }
+    }
+    return out;
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
  * Render one plane through a map as a grayscale PNG (≤384 px wide).
  * `axis` is the plane's NORMAL (movement) axis: "z" → native sections,
  * "x"/"y" → orthogonal reconstruction planes. `pos` ∈ 0…1 positions the
@@ -504,7 +1071,9 @@ export async function renderMrcOrthoPng(
   file: string,
   axis: "x" | "y" | "z",
   pos: number,
-  header?: MrcHeader
+  header?: MrcHeader,
+  window?: MrcWindow,
+  polarity?: MrcPolarity
 ): Promise<Buffer | null> {
   const h = header ?? readMrcHeader(file);
   if (!h) return null;
@@ -515,7 +1084,7 @@ export async function renderMrcOrthoPng(
     const data = readMrcSlice(file, z, h);
     if (!data) return null;
     const small = downsample(data, h.nx, h.ny, MAX_W);
-    return grayToPng(stretchToGray(small.values), small.width, small.height);
+    return grayToPng(stretchToGray(small.values, window, polarity), small.width, small.height);
   }
 
   const idx =
@@ -523,7 +1092,263 @@ export async function renderMrcOrthoPng(
   const plane = readMrcOrthoSlice(file, axis, idx, h);
   if (!plane) return null;
   const small = downsample(plane.values, plane.width, plane.height, MAX_W);
-  return grayToPng(stretchToGray(small.values), small.width, small.height);
+  return grayToPng(stretchToGray(small.values, window, polarity), small.width, small.height);
+}
+
+/* ------------------------------------------------------------------ */
+/* Oblique sections (t555 — the plane picks its own orientation)       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The orthogonal browser answers "what's inside along X/Y/Z"; a real
+ * reconstruction also wants the plane NOBODY aligned an axis to — the
+ * helical axis, the preferred-orientation plane, the cut that separates
+ * two lobes. An oblique section is an arbitrary plane through the box,
+ * named by a normal (θ polar from +Z, φ azimuth) and a signed offset
+ * along that normal. The server samples it by trilinear interpolation
+ * and renders it through the SAME window/polarity/PNG pipeline as every
+ * other thumbnail — one display truth, one more plane family.
+ *
+ * The whole volume is decoded once and cached per (size, mtime) — the
+ * same invalidation law statcache obeys (RELION writes in discrete
+ * steps), with a tiny 2-entry LRU because a decoded volume is tens of
+ * MB, not KB.
+ */
+
+/** hard cap on the volume a single oblique session may keep decoded —
+ *  256³ float32 (the largest map this product realistically serves) is
+ *  64 MB; the cap is what turns a "the box is 1024³" request into a
+ *  clean refusal instead of an OOM */
+const MAX_VOLUME_DATA_BYTES = 256 * 1024 * 1024;
+
+const VOLUME_CACHE_MAX = 2;
+
+const volumeCache = new Map<string, { key: string; vol: Float32Array }>();
+
+/**
+ * Decode the FULL voxel volume (z-major sections, row-major inside) —
+ * cached across calls while the file's (size, mtime) stands. Returns
+ * null for headers that lie, oversized data blocks or short reads.
+ */
+function readMrcVolumeCached(file: string, h: MrcHeader): Float32Array | null {
+  const count = h.nx * h.ny * h.nz;
+  const dataBytes = count * h.bytesPerVoxel;
+  if (count <= 0 || dataBytes > MAX_VOLUME_DATA_BYTES) return null;
+  let st: { size: number; mtimeMs: number };
+  try {
+    const s = statSync(file);
+    st = { size: s.size, mtimeMs: s.mtimeMs };
+  } catch {
+    return null;
+  }
+  const slot = `${file}\u0000oblique-volume`;
+  const key = `${st.size}:${st.mtimeMs}`;
+  const hit = volumeCache.get(slot);
+  if (hit && hit.key === key) {
+    volumeCache.delete(slot);
+    volumeCache.set(slot, hit); // LRU refresh
+    return hit.vol;
+  }
+  const offset = 1024 + h.nsymbt;
+  let fd: number;
+  try {
+    fd = openSync(file, "r");
+  } catch {
+    return null;
+  }
+  try {
+    const raw = Buffer.alloc(dataBytes);
+    let got = 0;
+    while (got < dataBytes) {
+      const n = readSync(fd, raw, got, dataBytes - got, offset + got);
+      if (n <= 0) return null;
+      got += n;
+    }
+    const vol = decodeRawVoxels(raw, h.mode, count);
+    if (volumeCache.size >= VOLUME_CACHE_MAX && !volumeCache.has(slot)) {
+      const oldest = volumeCache.keys().next().value;
+      if (oldest !== undefined) volumeCache.delete(oldest);
+    }
+    volumeCache.set(slot, { key, vol });
+    return vol;
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+export interface MrcObliqueSlice {
+  values: Float32Array;
+  width: number;
+  height: number;
+  /** unit plane normal in grid coords (x, y, z) */
+  normal: [number, number, number];
+  /** unit in-plane axes: image x runs along u, image y along v */
+  uAxis: [number, number, number];
+  vAxis: [number, number, number];
+  /** the plane's anchor point (center + offset·normal), voxel coords */
+  anchor: [number, number, number];
+  /** the applied signed offset in voxels (−support … +support) */
+  offsetVoxels: number;
+  /** in-plane extent in voxels (the pre-downsample grid) */
+  extentVoxels: [number, number];
+}
+
+/** upper bound on the sampled in-plane grid per axis — a diagonal cut of
+ *  a huge box is decimated by step (readouts report the TRUE extent) */
+const OBLIQUE_MAX_SAMPLES = 768;
+
+const DEG = Math.PI / 180;
+
+/**
+ * Sample one oblique plane through the volume: trilinear interpolation,
+ * edge-clamped; samples outside the box land as non-finite and are then
+ * filled with the plane's finite mean — mid-gray after the stretch, so
+ * "outside the volume" never reads as "zero density" (the percentile
+ * window also stays finite; NaN would poison its sort).
+ */
+export function readMrcObliqueSlice(
+  file: string,
+  thetaDeg: number,
+  phiDeg: number,
+  offsetFrac: number,
+  header?: MrcHeader
+): MrcObliqueSlice | null {
+  const h = header ?? readMrcHeader(file);
+  if (!h || h.nz < 1) return null;
+  const vol = readMrcVolumeCached(file, h);
+  if (!vol) return null;
+  const { nx, ny, nz } = h;
+
+  const t = Number.isFinite(thetaDeg) ? Math.min(180, Math.max(0, thetaDeg)) * DEG : 0;
+  const p = Number.isFinite(phiDeg) ? Math.min(360, Math.max(0, phiDeg)) * DEG : 0;
+  const normal: [number, number, number] = [
+    Math.sin(t) * Math.cos(p),
+    Math.sin(t) * Math.sin(p),
+    Math.cos(t),
+  ];
+  // in-plane horizontal: n × ẑ (degenerate at the poles → the x axis)
+  let u: [number, number, number];
+  if (Math.abs(normal[2]) > 0.999) {
+    u = [1, 0, 0];
+  } else {
+    const len = Math.hypot(normal[0], normal[1]);
+    u = [normal[1] / len, -normal[0] / len, 0];
+  }
+  // v = n × u — unit, in-plane, perpendicular to both
+  const v: [number, number, number] = [
+    normal[1] * u[2] - normal[2] * u[1],
+    normal[2] * u[0] - normal[0] * u[2],
+    normal[0] * u[1] - normal[1] * u[0],
+  ];
+
+  const c: [number, number, number] = [(nx - 1) / 2, (ny - 1) / 2, (nz - 1) / 2];
+  // the box's support along each axis of the plane frame (voxel units)
+  const corner = (i: number, j: number, k: number): [number, number, number] => [
+    i ? nx - 1 : 0,
+    j ? ny - 1 : 0,
+    k ? nz - 1 : 0,
+  ];
+  let supportN = 0;
+  let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+    const co = corner(i, j, k);
+    const d: [number, number, number] = [co[0] - c[0], co[1] - c[1], co[2] - c[2]];
+    supportN = Math.max(supportN, Math.abs(d[0] * normal[0] + d[1] * normal[1] + d[2] * normal[2]));
+    const pu = d[0] * u[0] + d[1] * u[1] + d[2] * u[2];
+    const pv = d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
+    uMin = Math.min(uMin, pu); uMax = Math.max(uMax, pu);
+    vMin = Math.min(vMin, pv); vMax = Math.max(vMax, pv);
+  }
+  const frac = Number.isFinite(offsetFrac) ? Math.min(1, Math.max(-1, offsetFrac)) : 0;
+  const offsetVoxels = frac * supportN;
+  const anchor: [number, number, number] = [
+    c[0] + offsetVoxels * normal[0],
+    c[1] + offsetVoxels * normal[1],
+    c[2] + offsetVoxels * normal[2],
+  ];
+
+  // sampling step keeps the grid inside the cap (true extent reported)
+  const stepU = Math.max(1, Math.ceil((uMax - uMin) / OBLIQUE_MAX_SAMPLES));
+  const stepV = Math.max(1, Math.ceil((vMax - vMin) / OBLIQUE_MAX_SAMPLES));
+  const width = Math.max(1, Math.floor((uMax - uMin) / stepU) + 1);
+  const height = Math.max(1, Math.floor((vMax - vMin) / stepV) + 1);
+  const values = new Float32Array(width * height);
+
+  const sampleAt = (px: number, py: number, pz: number): number => {
+    const x0 = Math.floor(px), y0 = Math.floor(py), z0 = Math.floor(pz);
+    const fx = px - x0, fy = py - y0, fz = pz - z0;
+    let acc = 0, wsum = 0;
+    for (let dz = 0; dz <= 1; dz++) {
+      const z = z0 + dz;
+      if (z < 0 || z >= nz) continue;
+      const wz = dz ? fz : 1 - fz;
+      if (wz === 0) continue;
+      for (let dy = 0; dy <= 1; dy++) {
+        const y = y0 + dy;
+        if (y < 0 || y >= ny) continue;
+        const wy = dy ? fy : 1 - fy;
+        if (wy === 0) continue;
+        for (let dx = 0; dx <= 1; dx++) {
+          const x = x0 + dx;
+          if (x < 0 || x >= nx) continue;
+          const wx = dx ? fx : 1 - fx;
+          if (wx === 0) continue;
+          acc += vol[(z * ny + y) * nx + x] * wx * wy * wz;
+          wsum += wx * wy * wz;
+        }
+      }
+    }
+    return wsum > 0 ? acc / wsum : NaN;
+  };
+
+  for (let j = 0; j < height; j++) {
+    const alongV = vMin + j * stepV;
+    for (let i = 0; i < width; i++) {
+      const alongU = uMin + i * stepU;
+      values[j * width + i] = sampleAt(
+        anchor[0] + alongU * u[0] + alongV * v[0],
+        anchor[1] + alongU * u[1] + alongV * v[1],
+        anchor[2] + alongU * u[2] + alongV * v[2]
+      );
+    }
+  }
+  // non-finite (outside the box) ← the plane's finite mean: mid-tone in
+  // the render, and the percentile window keeps its sort finite
+  let sum = 0, n = 0;
+  for (let i = 0; i < values.length; i++) {
+    if (Number.isFinite(values[i])) { sum += values[i]; n++; }
+  }
+  if (n > 0 && n < values.length) {
+    const mean = sum / n;
+    for (let i = 0; i < values.length; i++) {
+      if (!Number.isFinite(values[i])) values[i] = mean;
+    }
+  }
+
+  return {
+    values, width, height, normal, uAxis: u, vAxis: v,
+    anchor, offsetVoxels,
+    extentVoxels: [Math.round(uMax - uMin) + 1, Math.round(vMax - vMin) + 1],
+  };
+}
+
+/** Render an oblique plane through the SAME gray pipeline as the rest of
+ *  the display family (downsample → stretch → PNG). */
+export async function renderMrcObliquePng(
+  file: string,
+  thetaDeg: number,
+  phiDeg: number,
+  offsetFrac: number,
+  header?: MrcHeader,
+  window?: MrcWindow,
+  polarity?: MrcPolarity
+): Promise<Buffer | null> {
+  const slice = readMrcObliqueSlice(file, thetaDeg, phiDeg, offsetFrac, header);
+  if (!slice) return null;
+  const small = downsample(slice.values, slice.width, slice.height, MAX_W);
+  return grayToPng(stretchToGray(small.values, window, polarity), small.width, small.height);
 }
 
 /* ------------------------------------------------------------------ */

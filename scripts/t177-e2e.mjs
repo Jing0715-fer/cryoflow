@@ -44,6 +44,8 @@ const must = (cond, label) => {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 import { readFileSync } from "node:fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const src = (p) => readFileSync(`/home/z/my-project/${p}`, "utf8");
 
 const consoleErrors = [], failedUrls = [];

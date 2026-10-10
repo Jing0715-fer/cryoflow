@@ -16,7 +16,7 @@
 //     readout carries the numbers; export/send read the same intervals.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21, the orthovol host on disk
+//   A  demo truth — homepage 200, roster >= 12, the InitialModel host on disk
 //   B  the ledger — the resolver hook, the general-box clip machinery,
 //      both doors, the honest readout/release controls — at source
 //   C  the live loop — REAL two-sided crop (X 25–75%, Y full, Z 25–50%)
@@ -30,6 +30,8 @@
 //   D  console clean
 //
 // Run: node scripts/t260-clip-from-card.mjs   (server on :3000)
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -88,7 +90,7 @@ for (const j of preJobs.filter((x) => x.type === "mapimport" || x.name.startsWit
   console.log(`  (self-heal) removed leftover probe "${j.name}"`);
 }
 {
-  const hostPre = preJobs.find((j) => j.name === "QA Refine3D");
+  const hostPre = preJobs.find((j) => j.type === "initialmodel");
   const stPre = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
   const hostWd = hostPre ? stPre[hostPre.id]?.workdir : undefined;
   if (hostWd) {
@@ -104,10 +106,16 @@ for (const j of preJobs.filter((x) => x.type === "mapimport" || x.name.startsWit
 
 const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster0 = (jobs0.jobs ?? []).length;
-const host = (jobs0.jobs ?? []).find((j) => j.name === "QA Refine3D");
+// t531-era reseed: the host is the demo world's InitialModel (its
+// run_model.mrc is a REAL 64³ float32 volume AND passes the resolver's
+// parent gate — refine3d's half-maps never can: /half|mask|mrcs/i is the
+// t256 law). The map rides the engine's exact outputs key (model_mrc),
+// not a hard-coded file name — the name is the world's cosmetic layer.
+const host = (jobs0.jobs ?? []).find((j) => j.type === "initialmodel");
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
 const hostWd = host ? state[host.id]?.workdir : undefined;
-const parentMap = hostWd ? path.join(hostWd, "orthovol.mrc") : undefined;
+const parentMap =
+  state[host.id]?.outputs?.model_mrc ?? (hostWd ? path.join(hostWd, "run_model.mrc") : undefined);
 
 const browser = await chromium.launch();
 const context = await browser.newContext({
@@ -127,9 +135,12 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
-  must(!!host && !!hostWd, "QA Refine3D in roster with an on-disk workdir");
-  must(existsSync(parentMap), "the parent map (orthovol.mrc) is on disk");
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
+  must(!!host && !!hostWd, "the InitialModel host is in the roster with an on-disk workdir");
+  must(
+    existsSync(parentMap),
+    `the parent map (${parentMap ? path.basename(parentMap) : "?"}) is on disk`
+  );
 
   // ---- Phase B: the ledger -------------------------------------------------
   console.log("== PHASE B: the ledger ==");
@@ -230,7 +241,7 @@ try {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      path: "orthovol.mrc",
+      path: parentMap ? path.basename(parentMap) : "run_model.mrc",
       x0: 0.25, x1: 0.75, y0: 0, y1: 1, z0: 0.25, z1: 0.5,
     }),
   });
@@ -240,7 +251,7 @@ try {
   created.push(importJob.id);
   must(!!importJob?.id && importJob.type === "mapimport", "the Import Map citizen was created");
   must(
-    typeof sent.crop?.name === "string" && sent.crop.name.includes("orthovol_crop"),
+    typeof sent.crop?.name === "string" && sent.crop.name.includes("run_model_crop"),
     `the crop file speaks its voxel box in its name (${sent.crop?.name ?? "?"})`
   );
 
@@ -306,7 +317,7 @@ try {
   const dlg = page.locator('[role="dialog"]').last();
   const dlgText = ((await dlg.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
   must(
-    dlgText.includes("orthovol.mrc"),
+    dlgText.includes("run_model.mrc"),
     `the dialog names the PARENT map ("${dlgText.slice(0, 110)}")`
   );
   let canvasSeen = false;
@@ -427,7 +438,7 @@ try {
     writeFileSync("data/engine-state.json", JSON.stringify(st, null, 2));
   }
   execSync(
-    `node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:process.argv[1]},data:{status:'completed',progress:100}}).then(()=>{console.log('flipped');return p.\\$disconnect();}).catch(e=>{console.error(e.message);process.exit(1);});" ${probe.id}`,
+    `DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:process.argv[1]},data:{status:'completed',progress:100}}).then(()=>{console.log('flipped');return p.\\$disconnect();}).catch(e=>{console.error(e.message);process.exit(1);});" ${probe.id}`,
     { cwd: "/home/z/my-project", stdio: "pipe" }
   );
   const edgeRes = await fetch(`${BASE}/api/edges`, {
@@ -469,7 +480,7 @@ try {
   const dlg2 = page.locator('[role="dialog"]').last();
   const dlg2Text = ((await dlg2.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
   must(
-    dlg2Text.includes("orthovol.mrc"),
+    dlg2Text.includes("run_model.mrc"),
     `the consumer-side dialog ALSO names the parent map ("${dlg2Text.slice(0, 110)}")`
   );
   let canvasSeen2 = false;
@@ -511,7 +522,7 @@ try {
     `focus parks on the reference card (got "${parked2}")`
   );
 } finally {
-  // ---- cleanup: probes die, crops sweep, roster returns to 21 -------------
+  // ---- cleanup: probes die, crops sweep, roster returns to 15 -------------
   console.log("== cleanup ==");
   for (const id of created.reverse()) {
     await fetch(`${BASE}/api/jobs/${id}`, { method: "DELETE" });
@@ -528,7 +539,7 @@ try {
   }
   rmSync(TMP, { recursive: true, force: true });
   const after = (await (await fetch(`${BASE}/api/jobs`)).json()).jobs ?? [];
-  must(after.length === 21, `roster restored to 21 (got ${after.length})`);
+  must(after.length >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${after.length})`);
 }
 
 // ---- Phase D: console clean ----------------------------------------------

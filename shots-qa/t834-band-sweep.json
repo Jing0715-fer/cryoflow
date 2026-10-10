@@ -1,0 +1,2710 @@
+{
+  "instrument": "scripts/t834-band-sweep.mjs",
+  "build": "KtPKuXIbtB9d7uhItOOUS",
+  "date": "2026-10-10T12:58:14.281Z",
+  "bands": {
+    "375": {
+      "leftW": 68,
+      "rightW": 236,
+      "seats": 6,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 0
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 0
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 0
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        }
+      ],
+      "rightKids": [
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 26
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        }
+      ],
+      "midKids": null,
+      "ps": null,
+      "innerW": 375,
+      "scrollW": 375
+    },
+    "640": {
+      "leftW": 114,
+      "rightW": 334,
+      "seats": 8,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 0
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 0
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        }
+      ],
+      "rightKids": [
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        }
+      ],
+      "midKids": null,
+      "ps": null,
+      "innerW": 640,
+      "scrollW": 640
+    },
+    "768": {
+      "leftW": 264,
+      "rightW": 460,
+      "seats": 11,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 140
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 0
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 140
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        }
+      ],
+      "rightKids": [
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "System diagnostics",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Print this view",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        },
+        {
+          "lbl": "CryoFlow on GitHub (opens in a new tab)",
+          "w": 36
+        }
+      ],
+      "midKids": null,
+      "ps": null,
+      "innerW": 768,
+      "scrollW": 768
+    },
+    "1024": {
+      "leftW": 266.5,
+      "rightW": 460,
+      "seats": 11,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 142.5
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 0
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 142.5
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 68
+        }
+      ],
+      "rightKids": [
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "System diagnostics",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Print this view",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        },
+        {
+          "lbl": "CryoFlow on GitHub (opens in a new tab)",
+          "w": 36
+        }
+      ],
+      "midKids": null,
+      "ps": null,
+      "innerW": 1024,
+      "scrollW": 1024
+    },
+    "1280": {
+      "leftW": 607.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 101.3
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 200.2
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 240.3
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 101.3
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 200.2
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 240.3
+        }
+      ],
+      "rightKids": [
+        {
+          "lbl": "hidden xl:block",
+          "w": 162.3
+        },
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "System diagnostics",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Print this view",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        },
+        {
+          "lbl": "CryoFlow on GitHub (opens in a new tab)",
+          "w": 36
+        }
+      ],
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 116.9
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 115.3
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 0
+        }
+      ],
+      "ps": {
+        "trigW": 130,
+        "wrapW": 115.3,
+        "overlap": 2.7
+      },
+      "innerW": 1280,
+      "scrollW": 1280
+    },
+    "1536": {
+      "leftW": 863.8,
+      "rightW": 628.3,
+      "seats": 12,
+      "kids": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 135.4
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 200.2
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 462.1
+        }
+      ],
+      "vis": [
+        {
+          "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+          "w": 36
+        },
+        {
+          "cls": "min-w-0 leading-tight max-md:hidden",
+          "w": 135.4
+        },
+        {
+          "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+          "w": 200.2
+        },
+        {
+          "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+          "w": 462.1
+        }
+      ],
+      "rightKids": [
+        {
+          "lbl": "hidden xl:block",
+          "w": 162.3
+        },
+        {
+          "lbl": "AI assistant",
+          "w": 36
+        },
+        {
+          "lbl": "Open command palette (Ctrl+K)",
+          "w": 40
+        },
+        {
+          "lbl": "Project storage overview",
+          "w": 36
+        },
+        {
+          "lbl": "System diagnostics",
+          "w": 36
+        },
+        {
+          "lbl": "Session QC report",
+          "w": 36
+        },
+        {
+          "lbl": "max-sm:hidden",
+          "w": 36
+        },
+        {
+          "lbl": "Print this view",
+          "w": 36
+        },
+        {
+          "lbl": "Remote clusters (SSH)",
+          "w": 36
+        },
+        {
+          "lbl": "Help — how to use the workflow canvas",
+          "w": 36
+        },
+        {
+          "lbl": "Switch to dark theme",
+          "w": 36
+        },
+        {
+          "lbl": "CryoFlow on GitHub (opens in a new tab)",
+          "w": 36
+        }
+      ],
+      "midKids": [
+        {
+          "lbl": "Active workspace",
+          "w": 150.9
+        },
+        {
+          "lbl": "flex min-w-0 items-center gap-",
+          "w": 205
+        },
+        {
+          "lbl": "Workflow statistics",
+          "w": 0
+        },
+        {
+          "lbl": "Spotlight noted jobs",
+          "w": 90.3
+        }
+      ],
+      "ps": {
+        "trigW": 205,
+        "wrapW": 205,
+        "overlap": -110.3
+      },
+      "innerW": 1536,
+      "scrollW": 1536
+    }
+  },
+  "zone": {
+    "widths": [
+      1279,
+      1280,
+      1281,
+      1282,
+      1283,
+      1284,
+      1285,
+      1286,
+      1287,
+      1288,
+      1289,
+      1290,
+      1291,
+      1292,
+      1294,
+      1366,
+      1440
+    ],
+    "rows": {
+      "1279": {
+        "mid": false
+      },
+      "1280": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 115.3,
+        "overlap": 2.7,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1281": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 115.7,
+        "overlap": 2.3,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1282": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 116.1,
+        "overlap": 1.9,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1283": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 116.5,
+        "overlap": 1.5,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1284": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 116.9,
+        "overlap": 1.1,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1285": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 117.3,
+        "overlap": 0.7,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1286": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 117.7,
+        "overlap": 0.3,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1287": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 118.1,
+        "overlap": -0.1,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "stack": [
+          "CHIP|RELION environment status: RELION not found",
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1288": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 118.5,
+        "overlap": -0.5,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "CHIP|hidden xl:block",
+        "stack": [
+          "CHIP|hidden xl:block",
+          "OTHER|no-print flex shrink-0 items-c",
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1289": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 118.9,
+        "overlap": -0.9,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1290": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 119.3,
+        "overlap": -1.3,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1291": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 119.7,
+        "overlap": -1.7,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1292": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 120.1,
+        "overlap": -2.1,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1294": {
+        "mid": true,
+        "trigW": 130,
+        "wrapW": 120.8,
+        "overlap": -2.8,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1366": {
+        "mid": true,
+        "trigW": 149.2,
+        "wrapW": 149.2,
+        "overlap": -12,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      },
+      "1440": {
+        "mid": true,
+        "trigW": 170,
+        "wrapW": 170,
+        "overlap": -33.1,
+        "chipBg": "rgba(0, 0, 0, 0)",
+        "paintAt": "TRIGGER|Active project",
+        "stack": [
+          "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|no-print pointer-events-auto s",
+          "OTHER|flex h-dvh flex-col bg-backgro",
+          "OTHER|__variable_8eaea4 __variable_8",
+          "OTHER|light"
+        ],
+        "wrapOverflowX": "visible"
+      }
+    },
+    "law": "overlap(W) = 2.7 − 0.4×(W−1280)",
+    "edge": {
+      "lastPaint": 1286,
+      "firstClear": 1287
+    }
+  },
+  "farEdge": {
+    "widths": [
+      1366,
+      1440,
+      1536,
+      1920
+    ],
+    "rows": {
+      "1366": {
+        "leftW": 693.8,
+        "rightW": 628.3,
+        "seats": 12,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 126.8
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 200.2
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 300.8
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 126.8
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 200.2
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 300.8
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "hidden xl:block",
+            "w": 162.3
+          },
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 143.6
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 149.2
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 0
+          }
+        ],
+        "ps": {
+          "trigW": 149.2,
+          "wrapW": 149.2,
+          "overlap": -12
+        },
+        "innerW": 1366,
+        "scrollW": 1366
+      },
+      "1440": {
+        "leftW": 746.7,
+        "rightW": 628.3,
+        "seats": 12,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 200.2
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 338
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 200.2
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 338
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "hidden xl:block",
+            "w": 162.3
+          },
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 170
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 0
+          }
+        ],
+        "ps": {
+          "trigW": 170,
+          "wrapW": 170,
+          "overlap": -33.1
+        },
+        "innerW": 1440,
+        "scrollW": 1440
+      },
+      "1536": {
+        "leftW": 863.8,
+        "rightW": 628.3,
+        "seats": 12,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 135.4
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 200.2
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 462.1
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 135.4
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 200.2
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 462.1
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "hidden xl:block",
+            "w": 162.3
+          },
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 150.9
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 205
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "ps": {
+          "trigW": 205,
+          "wrapW": 205,
+          "overlap": -110.3
+        },
+        "innerW": 1536,
+        "scrollW": 1536
+      },
+      "1920": {
+        "leftW": 895,
+        "rightW": 628.3,
+        "seats": 12,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 200.2
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 486.3
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 200.2
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 486.3
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "hidden xl:block",
+            "w": 162.3
+          },
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 160
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 220
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 90.3
+          }
+        ],
+        "ps": {
+          "trigW": 220,
+          "wrapW": 220,
+          "overlap": -463.1
+        },
+        "innerW": 1920,
+        "scrollW": 1920
+      }
+    },
+    "zone": {
+      "1366": {
+        "mid": true,
+        "trigW": 149.2,
+        "wrapW": 149.2,
+        "overlap": -12,
+        "wmW": 126.8,
+        "paintAt": "TRIGGER|Active project"
+      },
+      "1440": {
+        "mid": true,
+        "trigW": 170,
+        "wrapW": 170,
+        "overlap": -33.1,
+        "wmW": 142.5,
+        "paintAt": "TRIGGER|Active project"
+      },
+      "1536": {
+        "mid": true,
+        "trigW": 205,
+        "wrapW": 205,
+        "overlap": -110.3,
+        "wmW": 135.4,
+        "paintAt": "TRIGGER|Active project"
+      },
+      "1920": {
+        "mid": true,
+        "trigW": 220,
+        "wrapW": 220,
+        "overlap": -463.1,
+        "wmW": 142.5,
+        "paintAt": "TRIGGER|Active project"
+      }
+    },
+    "wake": {
+      "widths": [
+        1535,
+        1536,
+        1537,
+        1540,
+        1550,
+        1560,
+        1570,
+        1600
+      ],
+      "rows": {
+        "1535": {
+          "leftW": 746.7,
+          "rightW": 628.3,
+          "seats": 12,
+          "kids": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 142.5
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 338
+            }
+          ],
+          "vis": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 142.5
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 338
+            }
+          ],
+          "rightKids": [
+            {
+              "lbl": "hidden xl:block",
+              "w": 162.3
+            },
+            {
+              "lbl": "AI assistant",
+              "w": 36
+            },
+            {
+              "lbl": "Open command palette (Ctrl+K)",
+              "w": 40
+            },
+            {
+              "lbl": "Project storage overview",
+              "w": 36
+            },
+            {
+              "lbl": "System diagnostics",
+              "w": 36
+            },
+            {
+              "lbl": "Session QC report",
+              "w": 36
+            },
+            {
+              "lbl": "max-sm:hidden",
+              "w": 36
+            },
+            {
+              "lbl": "Print this view",
+              "w": 36
+            },
+            {
+              "lbl": "Remote clusters (SSH)",
+              "w": 36
+            },
+            {
+              "lbl": "Help — how to use the workflow canvas",
+              "w": 36
+            },
+            {
+              "lbl": "Switch to dark theme",
+              "w": 36
+            },
+            {
+              "lbl": "CryoFlow on GitHub (opens in a new tab)",
+              "w": 36
+            }
+          ],
+          "midKids": [
+            {
+              "lbl": "Active workspace",
+              "w": 160
+            },
+            {
+              "lbl": "flex min-w-0 items-center gap-",
+              "w": 170
+            },
+            {
+              "lbl": "Workflow statistics",
+              "w": 0
+            },
+            {
+              "lbl": "Spotlight noted jobs",
+              "w": 0
+            }
+          ],
+          "ps": {
+            "trigW": 170,
+            "wrapW": 170,
+            "overlap": -128.1
+          },
+          "innerW": 1535,
+          "scrollW": 1535
+        },
+        "1536": {
+          "leftW": 863.8,
+          "rightW": 628.3,
+          "seats": 12,
+          "kids": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 135.4
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 462.1
+            }
+          ],
+          "vis": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 135.4
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 462.1
+            }
+          ],
+          "rightKids": [
+            {
+              "lbl": "hidden xl:block",
+              "w": 162.3
+            },
+            {
+              "lbl": "AI assistant",
+              "w": 36
+            },
+            {
+              "lbl": "Open command palette (Ctrl+K)",
+              "w": 40
+            },
+            {
+              "lbl": "Project storage overview",
+              "w": 36
+            },
+            {
+              "lbl": "System diagnostics",
+              "w": 36
+            },
+            {
+              "lbl": "Session QC report",
+              "w": 36
+            },
+            {
+              "lbl": "max-sm:hidden",
+              "w": 36
+            },
+            {
+              "lbl": "Print this view",
+              "w": 36
+            },
+            {
+              "lbl": "Remote clusters (SSH)",
+              "w": 36
+            },
+            {
+              "lbl": "Help — how to use the workflow canvas",
+              "w": 36
+            },
+            {
+              "lbl": "Switch to dark theme",
+              "w": 36
+            },
+            {
+              "lbl": "CryoFlow on GitHub (opens in a new tab)",
+              "w": 36
+            }
+          ],
+          "midKids": [
+            {
+              "lbl": "Active workspace",
+              "w": 150.9
+            },
+            {
+              "lbl": "flex min-w-0 items-center gap-",
+              "w": 205
+            },
+            {
+              "lbl": "Workflow statistics",
+              "w": 0
+            },
+            {
+              "lbl": "Spotlight noted jobs",
+              "w": 90.3
+            }
+          ],
+          "ps": {
+            "trigW": 205,
+            "wrapW": 205,
+            "overlap": -110.3
+          },
+          "innerW": 1536,
+          "scrollW": 1536
+        },
+        "1537": {
+          "leftW": 864.8,
+          "rightW": 628.3,
+          "seats": 12,
+          "kids": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 135.6
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 462.9
+            }
+          ],
+          "vis": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 135.6
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 462.9
+            }
+          ],
+          "rightKids": [
+            {
+              "lbl": "hidden xl:block",
+              "w": 162.3
+            },
+            {
+              "lbl": "AI assistant",
+              "w": 36
+            },
+            {
+              "lbl": "Open command palette (Ctrl+K)",
+              "w": 40
+            },
+            {
+              "lbl": "Project storage overview",
+              "w": 36
+            },
+            {
+              "lbl": "System diagnostics",
+              "w": 36
+            },
+            {
+              "lbl": "Session QC report",
+              "w": 36
+            },
+            {
+              "lbl": "max-sm:hidden",
+              "w": 36
+            },
+            {
+              "lbl": "Print this view",
+              "w": 36
+            },
+            {
+              "lbl": "Remote clusters (SSH)",
+              "w": 36
+            },
+            {
+              "lbl": "Help — how to use the workflow canvas",
+              "w": 36
+            },
+            {
+              "lbl": "Switch to dark theme",
+              "w": 36
+            },
+            {
+              "lbl": "CryoFlow on GitHub (opens in a new tab)",
+              "w": 36
+            }
+          ],
+          "midKids": [
+            {
+              "lbl": "Active workspace",
+              "w": 151.1
+            },
+            {
+              "lbl": "flex min-w-0 items-center gap-",
+              "w": 205.5
+            },
+            {
+              "lbl": "Workflow statistics",
+              "w": 0
+            },
+            {
+              "lbl": "Spotlight noted jobs",
+              "w": 90.3
+            }
+          ],
+          "ps": {
+            "trigW": 205.5,
+            "wrapW": 205.5,
+            "overlap": -110.3
+          },
+          "innerW": 1537,
+          "scrollW": 1537
+        },
+        "1540": {
+          "leftW": 867.8,
+          "rightW": 628.3,
+          "seats": 12,
+          "kids": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 136.3
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 465.2
+            }
+          ],
+          "vis": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 136.3
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 465.2
+            }
+          ],
+          "rightKids": [
+            {
+              "lbl": "hidden xl:block",
+              "w": 162.3
+            },
+            {
+              "lbl": "AI assistant",
+              "w": 36
+            },
+            {
+              "lbl": "Open command palette (Ctrl+K)",
+              "w": 40
+            },
+            {
+              "lbl": "Project storage overview",
+              "w": 36
+            },
+            {
+              "lbl": "System diagnostics",
+              "w": 36
+            },
+            {
+              "lbl": "Session QC report",
+              "w": 36
+            },
+            {
+              "lbl": "max-sm:hidden",
+              "w": 36
+            },
+            {
+              "lbl": "Print this view",
+              "w": 36
+            },
+            {
+              "lbl": "Remote clusters (SSH)",
+              "w": 36
+            },
+            {
+              "lbl": "Help — how to use the workflow canvas",
+              "w": 36
+            },
+            {
+              "lbl": "Switch to dark theme",
+              "w": 36
+            },
+            {
+              "lbl": "CryoFlow on GitHub (opens in a new tab)",
+              "w": 36
+            }
+          ],
+          "midKids": [
+            {
+              "lbl": "Active workspace",
+              "w": 152
+            },
+            {
+              "lbl": "flex min-w-0 items-center gap-",
+              "w": 206.9
+            },
+            {
+              "lbl": "Workflow statistics",
+              "w": 0
+            },
+            {
+              "lbl": "Spotlight noted jobs",
+              "w": 90.3
+            }
+          ],
+          "ps": {
+            "trigW": 206.9,
+            "wrapW": 206.9,
+            "overlap": -110.3
+          },
+          "innerW": 1540,
+          "scrollW": 1540
+        },
+        "1550": {
+          "leftW": 877.8,
+          "rightW": 628.3,
+          "seats": 12,
+          "kids": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 138.6
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 473
+            }
+          ],
+          "vis": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 138.6
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 473
+            }
+          ],
+          "rightKids": [
+            {
+              "lbl": "hidden xl:block",
+              "w": 162.3
+            },
+            {
+              "lbl": "AI assistant",
+              "w": 36
+            },
+            {
+              "lbl": "Open command palette (Ctrl+K)",
+              "w": 40
+            },
+            {
+              "lbl": "Project storage overview",
+              "w": 36
+            },
+            {
+              "lbl": "System diagnostics",
+              "w": 36
+            },
+            {
+              "lbl": "Session QC report",
+              "w": 36
+            },
+            {
+              "lbl": "max-sm:hidden",
+              "w": 36
+            },
+            {
+              "lbl": "Print this view",
+              "w": 36
+            },
+            {
+              "lbl": "Remote clusters (SSH)",
+              "w": 36
+            },
+            {
+              "lbl": "Help — how to use the workflow canvas",
+              "w": 36
+            },
+            {
+              "lbl": "Switch to dark theme",
+              "w": 36
+            },
+            {
+              "lbl": "CryoFlow on GitHub (opens in a new tab)",
+              "w": 36
+            }
+          ],
+          "midKids": [
+            {
+              "lbl": "Active workspace",
+              "w": 155
+            },
+            {
+              "lbl": "flex min-w-0 items-center gap-",
+              "w": 211.7
+            },
+            {
+              "lbl": "Workflow statistics",
+              "w": 0
+            },
+            {
+              "lbl": "Spotlight noted jobs",
+              "w": 90.3
+            }
+          ],
+          "ps": {
+            "trigW": 211.7,
+            "wrapW": 211.7,
+            "overlap": -110.3
+          },
+          "innerW": 1550,
+          "scrollW": 1550
+        },
+        "1560": {
+          "leftW": 887.8,
+          "rightW": 628.3,
+          "seats": 12,
+          "kids": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 140.8
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 480.7
+            }
+          ],
+          "vis": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 140.8
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 480.7
+            }
+          ],
+          "rightKids": [
+            {
+              "lbl": "hidden xl:block",
+              "w": 162.3
+            },
+            {
+              "lbl": "AI assistant",
+              "w": 36
+            },
+            {
+              "lbl": "Open command palette (Ctrl+K)",
+              "w": 40
+            },
+            {
+              "lbl": "Project storage overview",
+              "w": 36
+            },
+            {
+              "lbl": "System diagnostics",
+              "w": 36
+            },
+            {
+              "lbl": "Session QC report",
+              "w": 36
+            },
+            {
+              "lbl": "max-sm:hidden",
+              "w": 36
+            },
+            {
+              "lbl": "Print this view",
+              "w": 36
+            },
+            {
+              "lbl": "Remote clusters (SSH)",
+              "w": 36
+            },
+            {
+              "lbl": "Help — how to use the workflow canvas",
+              "w": 36
+            },
+            {
+              "lbl": "Switch to dark theme",
+              "w": 36
+            },
+            {
+              "lbl": "CryoFlow on GitHub (opens in a new tab)",
+              "w": 36
+            }
+          ],
+          "midKids": [
+            {
+              "lbl": "Active workspace",
+              "w": 157.9
+            },
+            {
+              "lbl": "flex min-w-0 items-center gap-",
+              "w": 216.5
+            },
+            {
+              "lbl": "Workflow statistics",
+              "w": 0
+            },
+            {
+              "lbl": "Spotlight noted jobs",
+              "w": 90.3
+            }
+          ],
+          "ps": {
+            "trigW": 216.5,
+            "wrapW": 216.5,
+            "overlap": -110.3
+          },
+          "innerW": 1560,
+          "scrollW": 1560
+        },
+        "1570": {
+          "leftW": 895,
+          "rightW": 628.3,
+          "seats": 12,
+          "kids": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 142.5
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 486.3
+            }
+          ],
+          "vis": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 142.5
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 486.3
+            }
+          ],
+          "rightKids": [
+            {
+              "lbl": "hidden xl:block",
+              "w": 162.3
+            },
+            {
+              "lbl": "AI assistant",
+              "w": 36
+            },
+            {
+              "lbl": "Open command palette (Ctrl+K)",
+              "w": 40
+            },
+            {
+              "lbl": "Project storage overview",
+              "w": 36
+            },
+            {
+              "lbl": "System diagnostics",
+              "w": 36
+            },
+            {
+              "lbl": "Session QC report",
+              "w": 36
+            },
+            {
+              "lbl": "max-sm:hidden",
+              "w": 36
+            },
+            {
+              "lbl": "Print this view",
+              "w": 36
+            },
+            {
+              "lbl": "Remote clusters (SSH)",
+              "w": 36
+            },
+            {
+              "lbl": "Help — how to use the workflow canvas",
+              "w": 36
+            },
+            {
+              "lbl": "Switch to dark theme",
+              "w": 36
+            },
+            {
+              "lbl": "CryoFlow on GitHub (opens in a new tab)",
+              "w": 36
+            }
+          ],
+          "midKids": [
+            {
+              "lbl": "Active workspace",
+              "w": 160
+            },
+            {
+              "lbl": "flex min-w-0 items-center gap-",
+              "w": 220
+            },
+            {
+              "lbl": "Workflow statistics",
+              "w": 0
+            },
+            {
+              "lbl": "Spotlight noted jobs",
+              "w": 90.3
+            }
+          ],
+          "ps": {
+            "trigW": 220,
+            "wrapW": 220,
+            "overlap": -113.1
+          },
+          "innerW": 1570,
+          "scrollW": 1570
+        },
+        "1600": {
+          "leftW": 895,
+          "rightW": 628.3,
+          "seats": 12,
+          "kids": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 142.5
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 486.3
+            }
+          ],
+          "vis": [
+            {
+              "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+              "w": 36
+            },
+            {
+              "cls": "min-w-0 leading-tight max-md:hidden",
+              "w": 142.5
+            },
+            {
+              "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+              "w": 200.2
+            },
+            {
+              "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+              "w": 486.3
+            }
+          ],
+          "rightKids": [
+            {
+              "lbl": "hidden xl:block",
+              "w": 162.3
+            },
+            {
+              "lbl": "AI assistant",
+              "w": 36
+            },
+            {
+              "lbl": "Open command palette (Ctrl+K)",
+              "w": 40
+            },
+            {
+              "lbl": "Project storage overview",
+              "w": 36
+            },
+            {
+              "lbl": "System diagnostics",
+              "w": 36
+            },
+            {
+              "lbl": "Session QC report",
+              "w": 36
+            },
+            {
+              "lbl": "max-sm:hidden",
+              "w": 36
+            },
+            {
+              "lbl": "Print this view",
+              "w": 36
+            },
+            {
+              "lbl": "Remote clusters (SSH)",
+              "w": 36
+            },
+            {
+              "lbl": "Help — how to use the workflow canvas",
+              "w": 36
+            },
+            {
+              "lbl": "Switch to dark theme",
+              "w": 36
+            },
+            {
+              "lbl": "CryoFlow on GitHub (opens in a new tab)",
+              "w": 36
+            }
+          ],
+          "midKids": [
+            {
+              "lbl": "Active workspace",
+              "w": 160
+            },
+            {
+              "lbl": "flex min-w-0 items-center gap-",
+              "w": 220
+            },
+            {
+              "lbl": "Workflow statistics",
+              "w": 0
+            },
+            {
+              "lbl": "Spotlight noted jobs",
+              "w": 90.3
+            }
+          ],
+          "ps": {
+            "trigW": 220,
+            "wrapW": 220,
+            "overlap": -143.1
+          },
+          "innerW": 1600,
+          "scrollW": 1600
+        }
+      },
+      "zone": {
+        "1535": {
+          "mid": true,
+          "trigW": 170,
+          "wrapW": 170,
+          "overlap": -128.1,
+          "wmW": 142.5,
+          "paintAt": "TRIGGER|Active project"
+        },
+        "1536": {
+          "mid": true,
+          "trigW": 205,
+          "wrapW": 205,
+          "overlap": -110.3,
+          "wmW": 135.4,
+          "paintAt": "TRIGGER|Active project"
+        },
+        "1537": {
+          "mid": true,
+          "trigW": 205.5,
+          "wrapW": 205.5,
+          "overlap": -110.3,
+          "wmW": 135.6,
+          "paintAt": "TRIGGER|Active project"
+        },
+        "1540": {
+          "mid": true,
+          "trigW": 206.9,
+          "wrapW": 206.9,
+          "overlap": -110.3,
+          "wmW": 136.3,
+          "paintAt": "TRIGGER|Active project"
+        },
+        "1550": {
+          "mid": true,
+          "trigW": 211.7,
+          "wrapW": 211.7,
+          "overlap": -110.3,
+          "wmW": 138.6,
+          "paintAt": "TRIGGER|Active project"
+        },
+        "1560": {
+          "mid": true,
+          "trigW": 216.5,
+          "wrapW": 216.5,
+          "overlap": -110.3,
+          "wmW": 140.8,
+          "paintAt": "TRIGGER|Active project"
+        },
+        "1570": {
+          "mid": true,
+          "trigW": 220,
+          "wrapW": 220,
+          "overlap": -113.1,
+          "wmW": 142.5,
+          "paintAt": "TRIGGER|Active project"
+        },
+        "1600": {
+          "mid": true,
+          "trigW": 220,
+          "wrapW": 220,
+          "overlap": -143.1,
+          "wmW": 142.5,
+          "paintAt": "TRIGGER|Active project"
+        }
+      },
+      "law": "the wake edge (t856): the chip WAKES AT 2xl — a POINT (last asleep 1535, first awake 1536), not a zone (the below squeeze's [768, 770] mirror: the below world yields through a 3px shortage-zone, the far world crosses a 1px breakpoint); the wake is a STEP — +1px delivers the chip (born 90.3, constant forever) and the trigger's 2xl tier (+35: 170 → 205) while the label pays 9.1 (160 → 150.9) and the wordmark dips 7.1 (142.5 → 135.4); then two CAPPED RAMPS restore the yielders by 1570 (the wrap +0.44/px to 220, the label +0.27/px to 160, the wordmark +0.21/px to 142.5) and above the caps the plateau holds to 1920 — everything constant but the gap (−1.0/px)"
+    },
+    "law": "the far edge (t852): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor sleeps (trigW == wrapW exactly), the right cluster never moves (rightW 628.3, seats 12), the chip is width-free above 2xl (90.3), and the residue is 1280-local (the paint witness rides the trigger's own box). The wake edge (t856): the chip's birth is a 1px POINT at 2xl (1535/1536) with a step anatomy (chip +90.3, wrap tier 170 → 205, label −9.1, wordmark −7.1), two capped ramps (by 1570: wrap 220, label 160, wordmark 142.5), and a plateau to 1920 whose only moving part is the gap (−1.0/px)"
+  },
+  "belowZone": {
+    "widths": [
+      768,
+      900,
+      1024
+    ],
+    "rows": {
+      "768": {
+        "leftW": 264,
+        "rightW": 460,
+        "seats": 11,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 140
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 0
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 140
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": null,
+        "ps": null,
+        "innerW": 768,
+        "scrollW": 768
+      },
+      "900": {
+        "leftW": 266.5,
+        "rightW": 460,
+        "seats": 11,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 0
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": null,
+        "ps": null,
+        "innerW": 900,
+        "scrollW": 900
+      },
+      "1024": {
+        "leftW": 266.5,
+        "rightW": 460,
+        "seats": 11,
+        "kids": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          },
+          {
+            "cls": "hidden min-w-0 items-center gap-2 xl:flex",
+            "w": 0
+          }
+        ],
+        "vis": [
+          {
+            "cls": "flex size-9 shrink-0 items-center justify-center rounded-xl ",
+            "w": 36
+          },
+          {
+            "cls": "min-w-0 leading-tight max-md:hidden",
+            "w": 142.5
+          },
+          {
+            "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
+            "w": 68
+          }
+        ],
+        "rightKids": [
+          {
+            "lbl": "AI assistant",
+            "w": 36
+          },
+          {
+            "lbl": "Open command palette (Ctrl+K)",
+            "w": 40
+          },
+          {
+            "lbl": "Project storage overview",
+            "w": 36
+          },
+          {
+            "lbl": "System diagnostics",
+            "w": 36
+          },
+          {
+            "lbl": "Session QC report",
+            "w": 36
+          },
+          {
+            "lbl": "max-sm:hidden",
+            "w": 36
+          },
+          {
+            "lbl": "Print this view",
+            "w": 36
+          },
+          {
+            "lbl": "Remote clusters (SSH)",
+            "w": 36
+          },
+          {
+            "lbl": "Help — how to use the workflow canvas",
+            "w": 36
+          },
+          {
+            "lbl": "Switch to dark theme",
+            "w": 36
+          },
+          {
+            "lbl": "CryoFlow on GitHub (opens in a new tab)",
+            "w": 36
+          }
+        ],
+        "midKids": null,
+        "ps": null,
+        "innerW": 1024,
+        "scrollW": 1024
+      }
+    },
+    "zone": {
+      "768": {
+        "mid": false
+      },
+      "900": {
+        "mid": false
+      },
+      "1024": {
+        "mid": false
+      }
+    },
+    "edge": {
+      "767": {
+        "wm": 0,
+        "leftW": 114
+      },
+      "769": {
+        "wm": 141,
+        "leftW": 265
+      },
+      "770": {
+        "wm": 142,
+        "leftW": 266
+      },
+      "771": {
+        "wm": 142.5,
+        "leftW": 266.5
+      },
+      "772": {
+        "wm": 142.5,
+        "leftW": 266.5
+      }
+    },
+    "law": "the below zone (t853): the mid row sleeps below xl at every named tier (the twin vacuously at rest, E1's 1279 point now a cross-section) and the residue has no below-form; the wordmark is BORN SQUEEZED at md — the row needs 738.5 vs available 736 at 768 and the min-w-0 wordmark pays the whole 2.5 (A4e-2's live form) — in a LINEAR zone: squeeze(W) = 770.5 − W, slope −1.0/px (the row's only yielder absorbs every pixel), [768, 770], clear by 771; the interior (900/1024) rides the natural 266.5/142.5 — the squeeze is 768-local"
+  },
+  "pinned": {
+    "left": {
+      "375": 68,
+      "640": 114,
+      "768": 264,
+      "1024": 266,
+      "1280": 608,
+      "1536": 864
+    },
+    "right": {
+      "375": 236,
+      "640": 334,
+      "768": 460,
+      "1024": 460,
+      "1280": 628,
+      "1536": 628
+    },
+    "seats": {
+      "375": 6,
+      "640": 8,
+      "768": 11,
+      "1024": 11,
+      "1280": 12,
+      "1536": 12
+    }
+  }
+}

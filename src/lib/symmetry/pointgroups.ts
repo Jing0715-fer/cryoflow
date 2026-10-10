@@ -13,8 +13,8 @@
  * Pure math — safe on client and server.
  */
 
-import { Mat3, Vec3, matIdentity, matMul, rotationMatrix, normalize, deduplicateRotations } from "./matrix";
-import { generateRotationsByType, RotationType } from "./icosahedron";
+import { type Mat3, type Vec3, matIdentity, matMul, rotationMatrix, normalize, deduplicateRotations } from "./matrix";
+import { type RotationType, generateRotationsByType } from "./icosahedron";
 
 /** Generate the n rotations of the cyclic group Cn (about +z): {C(z, 2πk/n)}. */
 export function generateCyclic(n: number): Mat3[] {

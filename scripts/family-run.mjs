@@ -12,7 +12,9 @@
 //        solo FAIL  → REAL-FAIL (a verdict, needs a human)
 //   3. EXIT CODE — 0 iff zero REAL-FAILs (SOLO-RECOVERY is honest but not a blocker).
 //
-// The FAMILY roster is an audited membership list (34 suites as of Task 256) —
+// The FAMILY roster is an audited membership list (83 suites as of Task 548 —
+// the t548 D-class enrollment added t542/t544; the old "77 as of Task 313"
+// count had drifted, and comment counts are pins too, the t546 lesson) —
 // it is written here EXPLICITLY, not discovered by glob: diag-*/probe scripts and
 // one-off hearings are not family. When a new suite joins the family, add it here.
 //
@@ -33,6 +35,16 @@
 // overwritten — after the seven foreground batches the file IS the family
 // truth, and --summary speaks it so the worklog never hand-copies numbers
 // again.
+//
+// t302 — the runner dies with its children. A SIGTERM from the tool ceiling
+// (or Ctrl-C) used to kill the runner while the in-flight suite — detached,
+// its own process group — survived as an ORPHAN that kept rewriting the world
+// (the t299 window's biggest heist: orphans that look more like parallel
+// windows than parallel windows do). On SIGTERM/SIGINT/SIGHUP the runner now
+// kills the in-flight suite's WHOLE group, writes an HONEST interrupted
+// report entry (a killed batch leaves testimony, not silence — and never
+// leaves a stale prior entry standing in for a batch that did not finish),
+// and exits 143/130. The orphan root moves from discipline to code.
 //
 // Self-test hook (the runner testing its own retry law):
 //   FAMILY_DRILL=t249 node scripts/family-run.mjs --filter t249
@@ -65,6 +77,7 @@ const FAMILY = [
   "qa57-e2e.mjs",
   "qa58-e2e.mjs",
   "qa84-e2e.mjs",
+  "qa68-legacy-archive.mjs", // the quarantine sentinel: the root stays free of the era trees, the archive stays complete, and a staged intrusion flips the detector 0->2->0 (Task 274)
   "t210-e2e.mjs", // 151 assertions — the heaviest
   "t212-e2e.mjs",
   "t213-e2e.mjs",
@@ -106,6 +119,38 @@ const FAMILY = [
   "t271-resume-jump.mjs", // the résumé becomes an index: a jumpable entry is a real button (name + ledger + hover arrow) that closes the dialog and opens that job's inspector; a deleted job's record leaves with it (Task 271)
   "t272-cross-canvas-resume.mjs", // the cross-canvas loop closes: a second project's run renders as a history row that NAMES the canvas it lives on (per-entry existence), and deleting that project sweeps its records with it — no orphans (Task 272)
   "t273-family-report.mjs", // the runner tests itself: first-class batches (decade boundary), the merged JSON report, --summary/--reset, and the 600s-ceiling health guard (Task 273)
+  "t276-empiar-fidelity.mjs", // real data speaks: EMPIAR-10017's real RELION 5.0.1 artifacts through our parsers (optics truth, FSC self-consistency, honest-zero cella) and the real bundle riding the product's import + manualpick VERBATIM (Task 276)
+  "t278-ortho-crosshair.mjs", // the tri-planar focus point: crosshair lines mark where sibling planes cut, clicking an image picks the point, sliders step one voxel — and the résumé helper stops lying over gone rows (Task 278)
+  "t279-ortho-export-focus.mjs", // the triptych leaves the app: one publishing-grid PNG of the three sections (crosshair + focus footer), and the focus point rides in every saved view — capture, restore, import check, server clamp (Task 279)
+  "t280-ortho-sigma-chips.mjs", // σ walks over to the 2D side: the ortho panel's header chip + export footer carry the isosurface contour (pull on mount, push on change), and bookmark rows show WHERE the inspection happened (Task 280)
+  "t281-density-probe.mjs", // the density probe: hovering an ortho tile reads the voxel under the cursor (format=value, a single-voxel pread) — solid sky cursor lines, a corner chip speaking value @ x,y,z, three-axes-one-voxel mapping proof (Task 281)
+  "t282-updated-at-honesty.mjs", // updatedAt honesty: a same-value/empty PATCH no longer touches @updatedAt (Prisma's @updatedAt fires per update CALL) — the dashboard's 'updated X ago' answers the last REAL edit, not the last request; the idle-reset intent stays exempt (Task 282)
+  "t283-histogram-sigma-pick.mjs", // the histogram speaks: the volume's density distribution as a strip (format=histogram, chunked two-pass + cache) with a σ ruler and the current contour as a cut line — CLICKING it sets the contour (ORTHO_SIGMA_SET completes the σ family), sign follows the clicked side of the mean (Task 283)
+  "t284-quick-histogram.mjs", // the quick look speaks distributions: the strip lifted into density-histogram.tsx (ONE drawing truth, two consumers) and the quick-look dialog renders it read-only (default OFF, per-file reset) — plus the dialog learns to scroll (max-h/overflow: tall content was clipped, pre-existing) (Task 284)
+  "t286-display-window.mjs", // the histogram COMMANDS the display: an explicit lo/hi window overrides the 2–98 percentile stretch (literal mapping, no auto-inversion), σ preset chips + draggable lo/hi handles on the dialog's strip, bars outside the window dim — the render and the strip read ONE window state (Task 286)
+  "t287-stack-histogram.mjs", // the stack speaks: a .mrcs histogram is PER SLICE (&slice=N required — an unnamed stack histogram is a blur with no subject; a volume+slice is refused), the dialog grows a slice cursor (prev/next/range/readout) driving ONE slice view + the SAME instrument, and stepping the slice resets the display window (a different image is a different distribution) (Task 287)
+  "t289-window-input.mjs", // the window takes orders in every dialect: the strip's readout became lo/hi TYPEABLE fields (Enter/blur commits, tab lo→hi doesn't commit early, an invalid pair restores the live window) and the stack montage follows the window ONLY through an explicit toggle (default off — sixteen images are sixteen distributions; the toggle survives slice steps, the window does not) (Task 289)
+  "t291-ortho-hist-footer.mjs", // the footer carries the distribution: the triptych export fetches the map's histogram (8s timeout, honest absence) and draws it as a log-scaled thumbnail between name and stats — σ ruler + cyan cut line, measure-first layout that never collides, the raster grows 616→638; the suite decodes the PNG pixel-by-pixel (Node zlib) to prove the bars and the cut are ON the canvas (Task 291)
+  "t293-remote-borrow.mjs", // the borrow gets its guard: t290's five-part cluster-borrow feature (by-value probe, Run ▾ mode switch, root hint, key-files policy + manifest, on-demand lazy fetch at the outputs/file 404 branch) rode no suite — this one guards the shared door: probe persists nothing (ok + bad-password honest), the cap skips a planted 2 MB map into the manifest, the listing shows it REMOTE (size+label, no dims), the png door pulls it byte-identical (sha256) and the tile graduates to local WITH dims (Task 292)
+  "t294-resume-forget.mjs", // the résumé's forget door: a gone row grows a hover-revealed X that deletes ONE dead record — three honest refusals (404 no record / 409 not-remote / 409 job still alive, checked BEFORE the delete), the door renders only on exists===false rows, a refusal lands in a role=alert line, a success reloads the list (Task 294)
+  "t295-resume-panorama.mjs", // the résumé's panorama and the bulk forget: the expand toggle serves the SAME aggregate at the wide aperture ({ all: true } — same shape, t272 grades ride along) so history past the three-row fold is visible; DELETE /api/remote/records retires every DEAD record of one connection — the whole batch's existence is settled BEFORE anything dies, live records are kept and counted, the UI door is armed two-step and renders ONLY over the full picture (a count computed from a fold would understate the blast radius); the ledger also pins launch.sh's absolute-path exec (the cleanup pattern can finally find the cmdline) (Task 295)
+  "t296-big-map-viewer.mjs", // the big map's verdict: a REAL reconstruction-scale volume (256³ float32 = 64 MB, 64× the demo's voxel count) walks mapimport → identity card → Mol* — the raw route streams 67 MB flat, ParseCcp4 + isosurface commit inside the 120 s gate (~15 s live), 5σ contour recomputes on 16.7M voxels, the histogram's cold full-grid scan (~1 s) collapses to an LRU hit on the second look; the suite FOUND the out-of-tree symlink lockout (mapimport symlinked its source — the containment policy honest 400'd every png/raw/histogram fetch while the identity card spoke stats) and pins the hardlink-first materialization (Task 296)
+  "t298-remote-big-map.mjs", // the borrowed big map: the two legs that never crossed (t293's borrow chain only ever handed over a 2 MB png door; t296's reconstruction-scale map was always LOCAL) — a 256³ float32 map is planted on the mock cluster, left there by the key-files policy, and opened through the REMOTE tile's View in 3D: the raw door lazy-fetches over SSH (timed), the in-flight dedup survives a two-concurrent-fetch race byte-identically, Mol* commits the isosurface inside the 120 s gate, the tile graduates WITH dims, and the histogram's cold→LRU doctrine lands on a fetched file; the suite FOUND the mock's exec cat losing 1.6–48 MB per 64 MB transfer (pipe 'end' ≠ channel flushed) and pins the write-callback pump + the close-only file end (Task 298)
+  "t299-slurm-sacct.mjs", // the accounting fallback: squeue purges finished jobs, so a lost .cf-exit used to age into a false 'interrupted remotely' — the alive-check's THIRD witness asks sacct for the controller's own terminal verdict and maps it onto the wrapper's exit contract (COMPLETED→0, FAILED→exit, CANCELLED→143, TIMEOUT→124, signal→128+sig), VANISHED means 'no testimony anywhere'; the mock journals its verdicts (launcher COMPLETED/FAILED, scancel CANCELLED + marker), the strip speaks the terminal word, and planted witnesses ride the REAL sweep — FIRST persisted slurm-mode regression (t297 shipped without one) (Task 299)
+  "t302-family-suicide.mjs", // the runner dies with its children: a death signal kills the in-flight suite's whole group and writes an interrupted report entry — the orphan root, discipline → code (Task 302)
+  "t304-sbatch-dependency.mjs", // the pipeline handoff, scheduler-side: a live remote parent turns the child's sbatch into --dependency=afterok + kill-on-invalid-dep, the mock holds/cancels by the same contract, the strip says 'waits on' (Task 304)
+  "t306-sbatch-array.mjs", // the array split joins the dispatch: --array=1-N%M shards the input STAR round-robin, the last task home merges the shard stars and speaks the verdict, the mock fans out with %M and journals <id>_<t> rows (Task 306)
+  "t307-sbatch-array-extract-pick.mjs", // the array split learns extract+autopick: ARRAY_FLAVORS (outArg/outStar/merge dialect — star concat, rows concat with the ../ strip, per-mic coords collection), the mock's extract fake turns star-aware (relpath ImageName = the contract the strip is built on), one live pipeline picks in 3 shards and extracts in 2 (Task 307)
+  "t308-array-downstream.mjs", // the array pipeline's DOWNSTREAM: class2d eats the merged particle star on the cluster — twin pass-through by cluster path (zero re-upload), the refine fake turns star-aware (reads --i, audits merge integrity, echoes ImageName provenance), the extract fake's stacks become RENDERABLE MRCs (Task 308)
+  "t310-verify-module-by-value.mjs", // the verify door speaks BY VALUE: the CREATE form proves a hidden beta module name before anything is saved (transient connection, dropped SSH pool slot, byte-identical registry), execError speaks FIRST (a dead host is a different answer than a missing module), one mergeVerifiedModule serves both doors, and the SAVED door gets its first family coverage (t297's debt) (Task 310)
+  "t313-demo-chain-resurrect.mjs", // the demo tutorial chain STAYS resurrected: 13 links healed through the product's own run door via the mock (EMPIAR stand-in bundle, the missing InitialModel/MaskCreate links, the FSC route speaking 40 shells), the relocation disease fixed at every star writer (natives re-base refs project-relative; the fake's echo re-bases; the audit reads star-dir + cwd + project root; whitespace-tolerant rows), honest remote twins (stat-verified — locally synthesized half-maps never claim cluster seats), and two new fakes (mask_create reading real headers, postprocess speaking the RELION 5 dialect) (Task 313)
+  "diag-t380-empiar-pipeline.mjs", // the EMPIAR-10017 FULL-CHAIN regression (32 windows deferred, now a citizen): 12 jobs on the cluster lane (import→motioncorr→ctffind→autopick LoG→extract→class2d→initialmodel→class3d→refine3d→maskcreate→postprocess), every mrc/mrcs byte-validated, the five POLARITY verdicts (cryo dark-on-grey ice / crops flip bright / dead-zone class average / 3D negative cores bright / negativeStain re-pin) — self-heals its gitignored half-gig fixture stage via the deterministic generator, prunes its own stale projects on entry (Task 380)
+  "t415-dashboard-needs-attention.mjs", // the dashboard's failed jobs become a click: the status lens (?status=failed, bogus ignored — the DB's own vocabulary), the strip rendering ONLY when the world speaks a failure, the Task-126 deep-link landing from a chip, the honest fail fixture (a motioncorr stopped mid-run speaks failed), and zero-noise cleanup (the strip mirrors the world's failed set, nothing lingers) (Task 415)
+  "t416-topaz-denoise.mjs", // the Topaz Denoise wrapper, a NEW job type: the wrapper contract (--i star in, the WRAPPER expands it where the files live — local/cluster lanes run the SAME argv, zero mirror special-casing), the denoised index keeps the micrograph schema (denoise → pick/train is the official topaz flow, the curated next-steps universe carries it), the mock wrapper's denoise face resolves mic rows the way the autopick fake does (star dir → cwd → star's parent), and the downstream autopick picks real particles OFF the denoised index (Task 415)
+  "t417-project-delete-reclaim.mjs", // project deletion reclaims BOTH file planes: the dialog's promise ("removes the project with all of its jobs… cannot be undone") finally covers the local workdir root <RELION_DIR>/<projectId> and the cluster mirror <remoteRoot>/<projectId> (witnessed: 21 cluster husks + 36 local roots, 1.4GB, from earlier deletes) — the mirror witnesses are the run records (read before clearRunRecord erases them) plus the bound connection as the records-dead fallback, the judgment is a pure module (reclaim-targets.ts, unit-tested by t417-unit-reclaim-bench.ts via bun: traversal guards, dedup, tilde refusal), the ledger lands in the delete response's reclaimed block, and a mirrorless project deletes honestly with null/empty (Task 417)
+  "t542-denoise-gallery.mjs", // the Topaz Denoise compare gallery's READ side (t548 D-class enrollment — cost 14s solo): fixture project, a REAL import, the mock cluster's denoise dispatched REMOTE and COMPLETED, the pairs route walking the same lineage resolveInputs rides (provider named, stem map, both serving paths), the wipe card scrubbing and the side-by-side flip in the world, console clean
+  "t544-class-teaser.mjs", // the Overview tab's class-averages teaser (t548 D-class enrollment — cost 78s solo): fixture project + real import + three classify jobs landing PENDING (the resolver's waiting verdict), seeded workdirs speaking the refine dialect, the doors answering classesFile/slices/occupancy through the record-backed import, four tiles (2 bright + 2 ghosts) with the "2 of 4 populated" chip, console clean of unexpected errors
+  "t549-homecoming-sweep.mjs", // the project-level homecoming sweep (t549): source pins on the self-effacing/no-flicker/wire-death contracts, the REAL homecoming over the real SSH wire (one file re-enters debt, the bar wakes, Bring home all fetches it home, the ledger answers 0, the bar self-hides after the verdict's linger), the connection-deleted refusal surfacing verbatim with the honest "and 2 more", and Stop aborting a hung chunk NOW — cost ~30s solo
 ];
 
 // ---- batches are first-class (t273) ----------------------------------------
@@ -119,14 +164,39 @@ const BATCHES = [
   { name: "t22", match: /^t22/ },
   { name: "t24", match: /^t24/ },
   { name: "t25", match: /^t25/ },
-  { name: "t26", match: /^t26/ },
+  // t299 — t26 outgrew the 600s tool ceiling (10 suites, the t268 heartbeat
+  // reboot alone eats minutes; two windows watched it get cut mid-run and
+  // the report kept a stale 10-real-fail verdict). t273's law: the ceiling
+  // IS the batch boundary — so the decade splits: t26 = t260–t265, t26b =
+  // t266–t269 (the heartbeat ledger half).
+  { name: "t26", match: /^t26[0-5]/ },
+  { name: "t26b", match: /^t26[6-9]/ },
   { name: "t27", match: /^t27/ },
+  { name: "t28", match: /^t28/ },
+  { name: "t29", match: /^t29/ },
+  { name: "t30", match: /^t30/ }, // t302 — the t30 decade registers itself on arrival
+  { name: "t31", match: /^t31/ }, // t310 — the t31 decade registers itself on arrival
+  { name: "t41", match: /^t41/ }, // t415 — the t41 decade registers itself on arrival
+  { name: "t54", match: /^t54/ }, // t542/t544 — the t54 decade registers itself on arrival (t548: the D-class world e2e enrollment, t547 handoff ①)
+  // empiar — the full-chain regression rides LAST: it is the heaviest single
+  // citizen (a live 12-job pipeline through mock Slurm, plus a rare
+  // half-gig fixture regen after a harvest), and it prunes its own stale
+  // projects on entry — the world it inherits from earlier batches never
+  // leaks into it, and its one deliberate leftover (the fresh EMPIAR
+  // project, kept for UI QA) never bleeds backwards.
+  { name: "empiar", match: /^diag-t380/ },
 ];
 const batchOf = (file) => BATCHES.find((b) => b.match.test(file))?.name ?? null;
 
 // The accumulated report (one JSON file, one entry per batch key, MERGED per
 // run). scripts/.family-report.json — a dotfile: scratch data, not a deliverable.
-const REPORT_FILE = path.join(SCRIPTS, ".family-report.json");
+// FAMILY_REPORT (t273's isolation law): the report path is overridable per
+// process. The runner tests itself — t273 spawns REAL family-run children —
+// and without an override the nested runs would read, merge into, and
+// --reset the OUTER run's accumulating report (observed live: the t27
+// family batch's report was wiped to a single entry by its own member's
+// reset). A nested world writes its own file; the outer truth stays whole.
+const REPORT_FILE = process.env.FAMILY_REPORT || path.join(SCRIPTS, ".family-report.json");
 const readReport = () => {
   try {
     const parsed = JSON.parse(readFileSync(REPORT_FILE, "utf8"));
@@ -136,6 +206,24 @@ const readReport = () => {
   }
 };
 const writeReport = (report) => writeFileSync(REPORT_FILE, `${JSON.stringify(report, null, 2)}\n`);
+
+// The reborn-world provenance (t422): a batch whose evidence was gathered in
+// a world the recovery script REBUILT says so — the same doctrine as the
+// build provenance stamp, applied to test evidence. reboot-recover.sh writes
+// data/.world-reborn only when it had to actually resurrect something (tree
+// jump, prod start) — a green-world no-op pass never touches it. Batches
+// whose lastRun postdates the rebirth are marked ⟳ in --summary: their
+// fixtures, DB and cluster state were assembled by the recovery, not born
+// continuously, and a reader comparing numbers across eras deserves to know.
+const REBORN_FILE = path.join(ROOT, "data", ".world-reborn");
+const readReborn = () => {
+  try {
+    const parsed = JSON.parse(readFileSync(REBORN_FILE, "utf8"));
+    return parsed && typeof parsed === "object" && parsed.at ? parsed : null;
+  } catch {
+    return null; // no rebirth on record — the continuous-world default
+  }
+};
 
 // ---- paint (defined BEFORE the CLI reads it — the --batches/--summary
 // branches above the old location would have hit the temporal dead zone)
@@ -158,11 +246,13 @@ const flagOf = (name) => {
 if (args.includes("--help") || args.includes("-h")) {
   console.log(
     "usage: node scripts/family-run.mjs [--filter <substring>] [--batch <name>] [--batches] [--list] [--summary] [--reset]\n" +
-      "  --batch <name>   run one first-class batch (qa / t21 / t22 / t24 / t25 / t26 / t27)\n" +
+      "  --batch <name>   run one first-class batch (the decades — --batches lists them)\n" +
       "  --batches        list the batches and their members (coverage-checked), run nothing\n" +
       "  --summary        print the family summary from scripts/.family-report.json, run nothing\n" +
       "  --reset          delete the accumulated report file, run nothing\n" +
-      "  FAMILY_DRILL=<suite>  drill the solo-retry path (first attempt of <suite> fails)",
+      "  FAMILY_DRILL=<suite>  drill the solo-retry path (first attempt of <suite> fails)\n" +
+      "  signals          SIGTERM/SIGINT/SIGHUP kill the in-flight suite's whole group and write an\n" +
+      "                   interrupted report entry — the runner dies with its children (exit 143/130)",
   );
   process.exit(0);
 }
@@ -200,14 +290,30 @@ if (args.includes("--summary")) {
   const line = paint.dim("─".repeat(72));
   console.log(`FAMILY REPORT — ${keys.length} batch${keys.length === 1 ? "" : "es"} on file (${REPORT_FILE.replace(ROOT + "/", "")}):`);
   console.log(line);
-  let totPass = 0, totSolo = 0, totFail = 0, totWall = 0;
+  const reborn = readReborn();
+  if (reborn) {
+    console.log(
+      paint.bold(`  ⟳ world reborn ${reborn.at}`) +
+        paint.dim(` (${reborn.causes ?? "rebuilt"}${reborn.by ? ` · ${reborn.by}` : ""}) — batches run after this speak from a resurrected world`),
+    );
+  }
+  let totPass = 0, totSolo = 0, totFail = 0, totWall = 0, totReborn = 0;
   for (const k of keys) {
     const b = report.batches[k];
     totPass += b.pass; totSolo += b.soloRecovery; totFail += b.realFail; totWall += b.wallMs;
-    const flag = b.realFail > 0 ? paint.red("✗") : b.soloRecovery > 0 ? paint.yellow("↻") : paint.green("✓");
+    const inRebornWorld = reborn?.at && b.lastRun && new Date(b.lastRun) >= new Date(reborn.at);
+    if (inRebornWorld) totReborn += 1;
+    const flag = b.interrupted ? paint.bold("⚡") : b.realFail > 0 ? paint.red("✗") : b.soloRecovery > 0 ? paint.yellow("↻") : paint.green("✓");
     console.log(
       `  ${flag} ${k.padEnd(12)} pass ${String(b.pass).padStart(2)}  solo ${b.soloRecovery}  real-fail ${b.realFail}` +
-        paint.dim(`  wall ${(b.wallMs / 1000).toFixed(1)}s  ${b.lastRun}`),
+        paint.dim(`  wall ${(b.wallMs / 1000).toFixed(1)}s  ${b.lastRun}`) +
+        (inRebornWorld ? paint.bold("  ⟳ reborn-world") : "") +
+        (b.interrupted
+          ? paint.bold(
+              `  ⚡ INTERRUPTED by ${b.interruptedBy ?? "a signal"} at ${b.interruptedAt ?? "the first breath"}` +
+                ` — re-run the key to overwrite the testimony`,
+            )
+          : ""),
     );
   }
   console.log(line);
@@ -215,6 +321,9 @@ if (args.includes("--summary")) {
     `  ${paint.bold("TOTAL")}          pass ${String(totPass).padStart(2)}  solo ${totSolo}  real-fail ${totFail}` +
       paint.dim(`  wall ${(totWall / 1000).toFixed(1)}s`),
   );
+  if (reborn && totReborn > 0) {
+    console.log(paint.dim(`  ⟳ ${totReborn} batch${totReborn === 1 ? "" : "es"} gathered their evidence in the world reborn at ${reborn.at}`));
+  }
   process.exit(totFail > 0 ? 1 : 0);
 }
 
@@ -237,6 +346,11 @@ const SOLO_BREATH_MS = 4_000;
 const TAIL = 8; // failure transcript lines shown per attempt
 
 const drill = process.env.FAMILY_DRILL || null;
+
+// t302 — the suite currently in flight (file + pid + pipes), or null. The
+// death signal needs the pid to take the whole group; the pipes need
+// destroying so nothing hangs on a dying handle.
+let inFlight = null;
 
 const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -303,6 +417,7 @@ async function runSuite(file) {
     detached: true, // its own process group — the group kill depends on this
     stdio: ["ignore", "pipe", "pipe"],
   });
+  inFlight = { file, pid: child.pid, stdout: child.stdout, stderr: child.stderr, startedAt: Date.now() };
   const chunks = [];
   child.stdout.on("data", (d) => chunks.push(d));
   child.stderr.on("data", (d) => chunks.push(d));
@@ -322,6 +437,7 @@ async function runSuite(file) {
     child.on("error", () => resolve(1));
   });
   clearTimeout(timer);
+  inFlight = null; // the suite is done — death has nothing left to reap
   // drill: the named suite's FIRST attempt is forced to fail (the simulated transient)
   if (drill && file.startsWith(drill) && !runSuite.drilled) {
     runSuite.drilled = true;
@@ -376,6 +492,30 @@ if (priorBatch?.wallMs > 550_000) {
   );
 }
 
+// t548 — the old world's health, announced BEFORE the family rides it. The
+// t531 seeder guarantees the canonical demo chain (and t431 W1 now resolves
+// its real-world section through that contract), so the seeder's own
+// read-only --check runs here as a preflight: a sweep is announced at the
+// top of the run — with the cure named — instead of being discovered
+// suite-by-suite as a pile of REAL-FAILs. Non-fatal by law: the runner
+// reports verdicts, it does not repair worlds.
+if (existsSync(path.join(ROOT, "data", "old-world.json"))) {
+  const pre = spawnSync("node", [path.join(SCRIPTS, "qa-t531-old-world-seed.mjs"), "--check"], {
+    encoding: "utf8",
+    timeout: 120_000,
+  });
+  const lastLine = (pre.stdout ?? "").trim().split("\n").filter(Boolean).slice(-1)[0] ?? "";
+  if (pre.status === 0) {
+    console.log(paint.dim(`  preflight: old world healthy (${lastLine || "CHECK PASS"})`));
+  } else {
+    console.log(
+      paint.yellow(
+        `  ⚠ preflight: OLD WORLD SICK (${lastLine || `exit ${pre.status}`}) — world-riding suites may fail; repair with: node scripts/qa-t531-old-world-seed.mjs`,
+      ),
+    );
+  }
+}
+
 console.log(
   paint.bold(`\nFAMILY RUN — ${roster.length} suite${roster.length === 1 ? "" : "s"}`) +
     paint.dim(` · batch "${reportKey}" · serial by law · solo-retry for the transient · timeout ${SUITE_TIMEOUT / 1000}s`) +
@@ -386,6 +526,88 @@ console.log(
 const verdicts = { PASS: [], "SOLO-RECOVERY": [], "REAL-FAIL": [], "SKIPPED(SERVER)": [] };
 const runSuiteMs = new Map(); // the deciding attempt's wall time, per suite (the report's ledger)
 const t0 = Date.now();
+
+// t302 — THE RUNNER DIES WITH ITS CHILDREN. runSuite's timeout kill reaps a
+// hung SUITE's group, but nothing reaped the runner itself: a SIGTERM from
+// the 600s tool ceiling (or Ctrl-C) killed the parent while the in-flight
+// suite — detached, its own group — survived as an ORPHAN that kept rewriting
+// the world (jobs created, records deleted, servers restarted — the t299
+// window's biggest heist; orphans look more like parallel windows than
+// parallel windows do). The orphan root moves from discipline to code:
+//   1. GROUP KILL — the in-flight suite's whole tree dies with the runner;
+//   2. HONEST TESTIMONY — the batch key gets an `interrupted` report entry
+//      (suites finished so far + the in-flight one as `interrupted`), never
+//      silence and never a stale prior entry standing in for a batch that
+//      did not finish;
+//   3. SIGNAL CODES — 143 for SIGTERM/SIGHUP, 130 for SIGINT.
+let dying = false;
+const interruptedSuites = (flightFile, flightMs) =>
+  roster
+    .filter(
+      (f) =>
+        f === flightFile ||
+        verdicts.PASS.includes(f) ||
+        verdicts["SOLO-RECOVERY"].includes(f) ||
+        verdicts["REAL-FAIL"].includes(f) ||
+        verdicts["SKIPPED(SERVER)"].includes(f),
+    )
+    .map((file) => {
+      if (file === flightFile) return { name: file, verdict: "interrupted", ms: flightMs, attempts: 1 };
+      const verdict =
+        (verdicts.PASS.includes(file) && "pass") ||
+        (verdicts["SOLO-RECOVERY"].includes(file) && "solo-recovery") ||
+        (verdicts["REAL-FAIL"].includes(file) && "real-fail") ||
+        "skipped-server";
+      const attempts = verdict === "pass" ? 1 : verdict === "skipped-server" ? 0 : 2;
+      return { name: file, verdict, ms: runSuiteMs.get(file) ?? 0, attempts };
+    });
+const signalDeath = (sig) => {
+  if (dying) return; // a second signal adds nothing — the first is already landing
+  dying = true;
+  const flight = inFlight;
+  console.log(`\n  ⚡ ${sig} — the runner dies with its children (the orphan root, discipline → code)`);
+  if (flight) {
+    console.log(`  ⚡ killing the in-flight suite's whole group: ${flight.file} (pid -${flight.pid})`);
+    try {
+      process.kill(-flight.pid, "SIGKILL"); // the whole tree — the timeout kill's own law
+    } catch {
+      /* the group is already gone */
+    }
+    try {
+      flight.stdout.destroy(); // release the pipes so nothing hangs on a dying handle
+      flight.stderr.destroy();
+    } catch {
+      /* pipes already closed */
+    }
+  }
+  try {
+    const report = readReport();
+    report.batches[reportKey] = {
+      lastRun: new Date().toISOString(),
+      interrupted: true,
+      interruptedBy: sig,
+      interruptedAt: flight ? flight.file : null, // null = death came before the first suite spawned
+      suites: interruptedSuites(flight?.file ?? null, flight ? Date.now() - flight.startedAt : 0),
+      pass: verdicts.PASS.length,
+      soloRecovery: verdicts["SOLO-RECOVERY"].length,
+      realFail: verdicts["REAL-FAIL"].length,
+      skippedServer: verdicts["SKIPPED(SERVER)"].length,
+      wallMs: Date.now() - t0,
+    };
+    writeReport(report);
+    console.log(
+      `  ⚡ report → ${REPORT_FILE.replace(ROOT + "/", "")} · key "${reportKey}" marked interrupted` +
+        ` (testimony, not silence — re-run the key to overwrite it)`,
+    );
+  } catch (e) {
+    console.log(`  report write failed on the way out (${e.message})`);
+  }
+  const code = sig === "SIGINT" ? 130 : 143;
+  setTimeout(() => process.exit(code), 150); // give the pipe a beat to flush — exit truncates pending writes
+};
+process.on("SIGTERM", () => signalDeath("SIGTERM"));
+process.on("SIGINT", () => signalDeath("SIGINT"));
+process.on("SIGHUP", () => signalDeath("SIGHUP"));
 
 for (const file of roster) {
   if (!existsSync(path.join(SCRIPTS, file))) {

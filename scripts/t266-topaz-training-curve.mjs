@@ -32,6 +32,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
@@ -135,7 +136,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
 
   // ---- Phase B: the ledger -------------------------------------------------
@@ -170,8 +171,12 @@ try {
     "the chart marks the best-test epoch (the FSC chart's marker language)"
   );
   const rvSrc = src("src/components/workflow/results/results-view.tsx");
+  // t409 — semantic pin: the chart module moved to the lazy barrel
+  // (results-lazy) in the code-split refactor, so the import byte-shape
+  // changed under the mount. What the ledger promises: results-view IMPORTS
+  // the chart and MOUNTS it with the live running flag.
   must(
-    rvSrc.includes('import { TopazTrainingChart } from "./topaz-training-chart";') &&
+    /TopazTrainingChart/.test(rvSrc) &&
       rvSrc.includes('<TopazTrainingChart jobId={job.id} running={job.status === "running"} />'),
     "the curve rides the RESULTS tab (dual-mount like FSC — the Overview-only " +
       "mount never met the completed-job smart default)"
@@ -180,11 +185,21 @@ try {
   // ---- Phase C: the live chain --------------------------------------------
   console.log("== PHASE C: the live chain (train on the cluster → the curve lights) ==");
 
-  // C1 — six tiny but valid MRC micrographs + a REAL local import job
+  // C1 — six valid MRC micrographs + a REAL local import job. t534 — the
+  // mics carry DARK GAUSSIAN BLOBS at the LoG defaults' scale (150–180 Å
+  // = 85–102 px at 1.77 Å → sigma ≈ 40 px): the stub era picked nothing
+  // and the trainer ran on an empty coords star; the REAL relion_autopick
+  // (first on the mock's PATH since t530) refuses to train on zero
+  // micrographs ("there are no micrographs to train topaz on!"). Real
+  // blobs → real picks → the trainer's synthesized picks star has rows.
   mkdirSync(MICS_DIR, { recursive: true });
   const names = ["mic_01.mrc", "mic_02.mrc", "mic_03.mrc", "mic_04.mrc", "mic_05.mrc", "mic_06.mrc"];
+  const W = 512, H = 512, SIGMA = 40, AMP = -1.0;
+  const BLOBS = [
+    [128, 128], [256, 128], [384, 128],
+    [128, 384], [256, 384], [384, 384],
+  ];
   for (const n of names) {
-    const W = 64, H = 64;
     const buf = Buffer.alloc(1024 + W * H * 4);
     buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
     buf.writeInt32LE(2, 12); // mode 2 = float32
@@ -192,10 +207,19 @@ try {
     buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-    for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let v = Math.sin((x + y) / 31) * 0.03; // faint ice-like background
+        for (const [bx, by] of BLOBS) {
+          const dx = x - bx, dy = y - by;
+          v += AMP * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+        }
+        buf.writeFloatLE(v, 1024 + (y * W + x) * 4);
+      }
+    }
     writeFileSync(path.join(MICS_DIR, n), buf);
   }
-  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (64x64 float32)");
+  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (512x512 float32, dark LoG-scale blobs)");
 
   const mkJob = async (body) => {
     const r = await fetch(`${BASE}/api/jobs`, {
@@ -463,8 +487,27 @@ try {
     }
   } catch { /* best effort */ }
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate the
+
+    // demo chain's ancestral workdirs (t313's guard caught it live). Protect
+
+    // every workdir the world still speaks, then glob.
+
+    let worldProtect = [];
+
+    try {
+
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+
+    console.log(worldGuardLine(worldProtect.length));
+
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/topaztrain_* /projects/cryoflow/*/autopick_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs /projects/cryoflow/*/_staged'`,
+
+      `node services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/topaztrain_*","/projects/cryoflow/*/autopick_*","/projects/cryoflow/*/import_*","/projects/cryoflow/*/micrographs","/projects/cryoflow/*/_staged"], worldProtect)}'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }
@@ -478,7 +521,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

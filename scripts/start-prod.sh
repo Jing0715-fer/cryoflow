@@ -52,6 +52,12 @@ fi
 sleep 1
 # Task 183: absolute DATA_DIR — builds delete .next/standalone (the cwd)
 export CRYOFLOW_DATA_DIR=/home/z/my-project/data
+# t407 — the two lanes must see the SAME world: dev-server.sh:43 exports
+# DATABASE_URL=file:$REPO_ROOT/db/cryoflow.db because .env's custom.db is
+# the TEMPLATE library (witnessed live: the standalone lane booted on the
+# 3-job seed while the healed 20-job world lived in cryoflow.db). The prod
+# lane rode whatever ambient env the sandbox had; pin it to the same file.
+export DATABASE_URL="file:/home/z/my-project/db/cryoflow.db"
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=896"
 setsid bun run start >/dev/null 2>&1 < /dev/null &
 exit 0

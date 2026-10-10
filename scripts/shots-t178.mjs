@@ -7,6 +7,8 @@ await p.goto(BASE, { waitUntil: "networkidle" });
 await sleep(2200);
 // seed the mock motion catalogue
 import { readFileSync, writeFileSync, unlinkSync, existsSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
 const jobs = await (await fetch(BASE + "/api/jobs")).json();
 const list = jobs.jobs ?? jobs;

@@ -6,6 +6,8 @@
  * the chip row itself (the contour detail: dashed r=0, red negative
  * shading, and half2's honest gap where its head is flat). World
  * restitution: the staged tenancy is emptied server-side. */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707 — saved-state routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 import { execSync } from "node:child_process";

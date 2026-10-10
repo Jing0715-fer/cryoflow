@@ -15,6 +15,13 @@ export interface JobDTO {
   progress: number;
   /** Parsed from the JSON string stored in the DB ({} fallback). */
   params: Record<string, ParamValue>;
+  /** t445 — the recipe THIS result was cooked with: the params snapshot
+   *  taken at dispatch time (parsed from the DB's ranParams JSON string).
+   *  null = no evidence (never ran since the snapshot law landed — a null
+   *  verdict is an honest verdict; lib/params-drift.ts reads it against
+   *  the CURRENT params to answer the self-edit half of "is this result
+   *  current?"). */
+  ranParams?: Record<string, ParamValue> | null;
   result: string | null;
   /** User annotation (free text, ≤500 chars) — the scientist's margin note.
    *  null = no note (renders no badge anywhere); empty string never occurs
@@ -28,9 +35,19 @@ export interface JobDTO {
   engine?: "relion";
   /** True when a real-run log file exists on disk (computed, not stored). */
   hasLog?: boolean;
+  /** t574 — the job carries an AI verdict stamp (computed per sweep from
+   *  the stamps file). The card's badge and the Results tab's stamp card
+   *  read it; absent = "not a judged classification". */
+  hasVerdict?: boolean;
   /** Present while the job's latest run executes on a REMOTE SSH cluster
    *  (connection, module, cluster workdir, phase …) — see lib/remote/types. */
   runRemote?: import("./remote/types").RemoteRunInfo | null;
+  /** Homecoming truth for the run's sync receipt (t431, computed per
+   *  response — never stored): how many manifest entries are still
+   *  absent from the local workdir. Only remote runs with a local
+   *  workdir carry it; absent = "truth not loaded" and every receipt
+   *  surface renders the historical text untouched (no-flicker law). */
+  remoteRemaining?: import("./remote/remote-remaining").RemoteRemaining | null;
   /** Owning workspace id (server always assigns one; null = pre-migration). */
   workspaceId?: string | null;
   /** Soft link: non-null when this job MIRRORS another job's outputs.
@@ -142,6 +159,14 @@ export interface ProjectDTO {
   mode?: string;
   /** Always "relion" — the real RELION engine is the only engine (legacy meta healed on read). */
   engine?: string;
+  /**
+   * t300 — the cluster this project's DATA lives on (remote project), or
+   * null/absent for a local project. Set at creation (New project → Data
+   * location → cluster); the import browser and the run dialog read it to
+   * browse/submit on the bound cluster. Resolved from the live connection
+   * registry server-side — secrets never leave the server.
+   */
+  remote?: import("./remote/types").ProjectRemoteRef | null;
   /** Job statistics (computed on the server for the project panel). */
   stats?: { total: number; running: number; pending?: number; completed: number; failed: number };
 }
@@ -151,6 +176,8 @@ export interface ProjectSummaryDTO {
   name: string;
   mode: string;
   engine: string;
+  /** t300 — the bound cluster when this is a remote project. */
+  remote?: import("./remote/types").ProjectRemoteRef | null;
 }
 
 /** Parameters are numbers, enum strings, booleans or filesystem paths. */
@@ -185,6 +212,15 @@ export interface ParamSchema {
    * folder tab — RELION Import style.
    */
   filePick?: boolean;
+  /**
+   * t381 — conditional visibility, the RELION GUI's grouped options in
+   * data form: this parameter only renders (and only rides the argv) when
+   * the sibling param named `param` currently equals `equals`. One level
+   * of nesting is supported (a gated param may itself gate others) — the
+   * panel resolves the chain against the job's live values with
+   * default-fallback, exactly like RELION's TOGGLE_DEACTIVATE groups.
+   */
+  showIf?: { param: string; equals: ParamValue };
 }
 
 /* ------------------------------------------------------------------ */
@@ -221,6 +257,14 @@ export interface PortSpec {
   accepts?: (PortKind | "*")[];
   /** Input may receive several edges (select, joinstar, external…). */
   multiple?: boolean;
+  /**
+   * t315 — render this port only when the predicate passes (evaluated
+   * against the JOB's own params, not the type default). The Import job's
+   * output port is one-of-three by Node type: micrographs / movies /
+   * particles — RELION's own import dialog semantics, expressed as a
+   * per-job visible port instead of three separate job types.
+   */
+  when?: (params: Record<string, ParamValue>) => boolean;
 }
 
 /** Tailwind fragments used to tint ports by data kind. */
@@ -323,6 +367,80 @@ export interface RelionInstallClient {
   cached?: boolean;
 }
 
+/**
+ * One stage of the rebuild-from-recipe pipeline (the t528 recipe tree).
+ * The reader derives states purely from on-disk evidence (stamp files and
+ * the installed binary) — no process sniffing, no drift from what exists.
+ */
+export interface RelionBuildStageClient {
+  /** Stable stage key ("cmake" | "libtiff" | "mpich" | "relion"). */
+  key: string;
+  /** Human label shown in the rail. */
+  label: string;
+  /** done: its stamp/binary exists. current: first not-done stage (where the
+   *  recipe would resume). queued: not started. */
+  state: "done" | "current" | "queued";
+}
+
+/** Rebuild-in-progress facts for the t528 recipe tree (/home/z/relion-build).
+ *  Present on the status ONLY while no usable install was found — a born
+ *  RELION outranks its own birth certificate. */
+export interface RelionBuildProgressClient {
+  /** The recipe tree root. */
+  root: string;
+  /** The one command that grinds/resumes/checks the pipeline. */
+  recipe: string;
+  stages: RelionBuildStageClient[];
+}
+
+/* ------------------------------------------------------------------ */
+/* System diagnostics (t530) — mirrors of src/lib/diagnostics.ts       */
+/* ------------------------------------------------------------------ */
+
+/** The canonical memory lines (MB): build guard GO + cache collapse + dev recycle. */
+export const MEMORY_LINES_CLIENT = {
+  guardAvailable: 2600,
+  guardBuffCache: 1450,
+  recycle: 2600,
+} as const;
+
+export interface MemoryLanesClient {
+  memTotalMb: number;
+  memAvailableMb: number;
+  buffCacheMb: number;
+  swapTotalMb: number;
+  availableLane: "go" | "nogo";
+  cacheLane: "warm" | "collapsed";
+  verdict: "danger" | "watch" | "healthy";
+  verdictReason: string;
+}
+
+export interface DiskVitalsClient {
+  totalMb: number;
+  freeMb: number;
+  usedPct: number;
+}
+
+export interface BuildProvenanceClient {
+  commit: string | null;
+  standalone: boolean;
+}
+
+export interface WorldCensusClient {
+  projects: number;
+  jobs: number;
+  runningJobs: number;
+}
+
+/** GET /api/diagnostics payload — the box's vitals in one read. */
+export interface DiagnosticsClient {
+  memory: MemoryLanesClient | null;
+  disk: DiskVitalsClient | null;
+  provenance: BuildProvenanceClient;
+  world: WorldCensusClient | null;
+  generatedAt: string;
+}
+
 /** Light-weight mirror of RelionStatus (server module) for the client store. */
 export interface SystemStatusClient {
   found: boolean;
@@ -363,6 +481,13 @@ export interface SystemStatusClient {
    * Rendered in the engine popover under the status fields.
    */
   hint?: string | null;
+  /**
+   * Rebuild-from-recipe progress (t529) — the grinder made visible. Present
+   * only when the search found NO usable install AND the host carries the
+   * recipe's build tree (/home/z/relion-build) with stage evidence on disk.
+   * The chip learns "· build 2/4" and the popovers render the stage rail.
+   */
+  build?: RelionBuildProgressClient | null;
 }
 
 /**

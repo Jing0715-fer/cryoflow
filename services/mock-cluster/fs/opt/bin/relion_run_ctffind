@@ -47,15 +47,69 @@ with open(star_in) as fh:
                 mics.append(cols[0])
 
 print(f"cryoflow-mock ctffind: {len(mics)} micrograph(s) from {star_in}")
+# t315 QA affordance — a flag file NEXT TO THE INPUT STAR makes this stub
+# replay the user's Beijing-shaped failure verbatim (per-micrograph
+# "cannot get CTF values" warnings + the final all-failed ERROR + exit 6),
+# so the finalize diagnosis (login-node readability probe) is exercisable
+# against both verdicts: files readable (compute-node mount story) and
+# files gone (re-import story).
+if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(star_in)), ".qa-ctf-allfail")):
+    for mic in mics:
+        print(f" WARNING: skipping, since cannot get CTF values for {mic}", file=sys.stderr)
+    print("in: ctffind_runner.cpp, line 467", file=sys.stderr)
+    print("ERROR:", file=sys.stderr)
+    print("failed to estimate CTF parameters for any micrograph, exiting...", file=sys.stderr)
+    sys.exit(6)
+# t311 — TOTAL sleep capped at 60s (motioncorr's own t268 doctrine): the
+# 1.6s/mic cadence was tuned for small suites; a 450-micrograph import tree
+# turned the run into a 12-minute wall. Small jobs (≤37 mics) keep the full
+# cadence the progress parser was tuned against.
+pace = min(1.6, 60.0 / max(1, len(mics)))
+# t319 — speak RELION's REAL progress dialect (src/time.cpp progress_bar):
+# the runner prints ONE GLOBAL bar over all micrographs, rewritten in place
+# with \r ("elapsed/total min ~~(,_,\"> [oo]", " yum!\n" at the end). The
+# platform's parser reads this line as ground truth on real clusters, so
+# the mock must speak it too (t313 doctrine: the fake's dialect reaches the
+# header fields). The "Micrograph n/N" lines stay for the countable dialect
+# (and the t318 suite's mid-flight witness).
+import time as _time
+_t0 = _time.time()
+print(" Estimating CTF parameters using Alexis Rohou's and Niko Grigorieff's CTFFIND4.1 ...")
+sys.stdout.flush()
 for n, mic in enumerate(mics, 1):
-    time.sleep(1.6)
-    print(f"Micrograph {n}/{len(mics)}: {os.path.basename(mic)} — CTF estimated (dF=12500, astig=180)")
+    _time.sleep(pace)
+    elapsed = _time.time() - _t0
+    # relion's own extrapolation: total = elapsed * N / done
+    est_total = elapsed * len(mics) / n if n > 0 else elapsed
+    if est_total > 90:
+        _el, _tot, _unit = elapsed / 60.0, est_total / 60.0, "min"
+    else:
+        _el, _tot, _unit = elapsed, est_total, "sec"
+    _done_dots = int(60 * n / len(mics))
+    _bar = f"\r{_el:3.2f}/{_tot:3.2f} {_unit} " + "." * _done_dots + '~~(,_,">'
+    if n >= len(mics):
+        _bar += " yum!\n"
+    else:
+        _bar += " " * max(0, 60 - _done_dots - 3) + "[oo]"
+    sys.stdout.write(_bar)
+    sys.stdout.flush()
+    print(f"\nMicrograph {n}/{len(mics)}: {os.path.basename(mic)} — CTF estimated (dF=12500, astig=180)")
     sys.stdout.flush()
 
 os.makedirs(outdir, exist_ok=True)
 out = os.path.join(outdir, "micrographs_ctf.star")
 with open(out, "w") as fh:
-    fh.write("\ndata_\n\nloop_\n")
+    # E2E extension (2026-09 review): REAL relion_run_ctffind (RELION 5)
+    # writes the optics dialect — data_optics FIRST, then data_micrographs.
+    # The old single data_ block made extract's t334 array-split guard
+    # (correctly!) refuse the split ("single data block — every row to every
+    # shard"). Real ctffind output carries the optics group; this now does
+    # too, so the star stays splittable exactly like the real binary's.
+    fh.write("\ndata_optics\n\nloop_\n")
+    fh.write("_rlnOpticsGroup #1\n")
+    fh.write("_rlnOpticsMicrographPixelSize #2\n")
+    fh.write("1 1.77\n")
+    fh.write("\ndata_micrographs\n\nloop_\n")
     fh.write("_rlnMicrographName #1\n")
     fh.write("_rlnDefocusU #2\n")
     fh.write("_rlnDefocusV #3\n")

@@ -12,8 +12,10 @@ CryoFlow lets you design cryo-EM processing pipelines the way you think about th
 
 - **Workflow canvas** — drag job cards anywhere, connect output ports to input ports with animated bezier edges, zoom 60–150 %, reset view
 - **10 RELION-style job types** across 7 groups: Import · Motion Correction · CTF Estimation · Particle Picking · Extraction · 2D/3D Classification · 3D Refinement · Post-Processing · Mask Creation
-- **Remote RELION over SSH** — run the UI locally, execute on your cluster: save SSH logins, probe `module avail` for relion versions, dispatch any job with a chosen `module load relion/<version>`, watch live progress + streaming logs, outputs sync back automatically ([docs](./docs/remote-relion.md))
-- **HPC / Slurm script generation** — per-job sbatch scripts (GPU strategies: array / multi-GPU / single / CPU) plus a queue simulator, submission-ready on a login node
+- **Remote RELION over SSH** — run the UI locally, execute on your cluster: save SSH logins, probe `module avail` (incl. hidden/beta modules) for relion versions, dispatch any job with a chosen `module load relion/<version>` — or verify a name by hand (`relion/beta_5.0_gpu_ompi5_cuda118` works even when no listing shows it), watch live progress + streaming logs, outputs sync back automatically ([docs](./docs/remote-relion.md))
+- **Slurm sbatch submission** — pick *Slurm* in the run dialog, a **detected node / partition** (the probe's `sinfo` inventory — e.g. `brain2 · 8 GPU/node`, pinned via `--partition` + `--nodelist` for single-node groups) and a GPU count (1–8, the `sbatch6gpu.sh` pattern: one MPI rank per GPU, `--gres=gpu:N`): the sbatch script is generated, submitted over SSH, polled via `squeue` (queued/running honestly surfaced) and stopped with `scancel`; direct nohup mode stays one click away
+- **Remote projects (data stays on the cluster)** — a project's Data location binds it to a saved SSH login: the import/STAR-file browser walks the CLUSTER's filesystem over SSH (roots, listings, wildcard patterns), imports write cluster-absolute paths (zero upload — not one movie byte moves), and the primary Run button dispatches straight to the bound cluster — auto-started downstream jobs inherit the binding too, so a remote pipeline NEVER falls back to the local lane. Import picks a **Node type** (micrographs / movies / particles — the card's output port follows it), and the import gallery previews **five random cluster micrographs** through an SSH thumbnail door ([docs](./docs/remote-relion.md#4c-local-vs-remote-projects))
+- **HPC / Slurm script generation** — per-job sbatch scripts (GPU strategies: array / multi-GPU / single / CPU) plus a queue simulator, submission-ready on a login node; the probe reads the cluster's GPU inventory from `sinfo` (login nodes have no GPUs — the compute nodes' devices are the truth)
 - **Parameter inspector** — per-type parameter schemas (numbers with units, enum selects), inline rename, save/reset, and a connections manager
 - **Live run simulation** — server-authoritative time-based progress (polling), status badges (`idle → running → completed`), shimmer progress bars, "Ready" hints for downstream jobs, deterministic pseudo-results
 - **Graph safety** — duplicate-edge (409) and cycle detection (DFS) on both client and server; cascade deletes
@@ -26,6 +28,10 @@ CryoFlow lets you design cryo-EM processing pipelines the way you think about th
 ```bash
 # 1. Install dependencies
 bun install        # or npm install / pnpm install
+#                   re-run this after every git pull — the remote-RELION
+#                   feature added `ssh2`, and a stale node_modules fails
+#                   /api/remote/* with "Can't resolve 'ssh2'" (the server
+#                   prints this hint at boot too)
 
 # 2. Configure the database (SQLite, file-based)
 cp .env.example .env
@@ -38,6 +44,14 @@ bun run dev        # http://localhost:3000
 ```
 
 A demo project — **β-Galactosidase Tutorial** (Import → Motion Correction → CTF) — is seeded automatically on first API call.
+
+### Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `Module not found: Can't resolve 'ssh2'` | your `node_modules` predates the remote feature — re-run `bun install` (or `npm install`) and restart; the server prints the same hint at boot |
+| port 3000 busy (stuck old process) | kill the stale listener, or pick another port — `PORT=3004 bun run dev` (PowerShell: `$env:PORT=3004; bun run dev`). `next dev` reads `PORT` natively; extra CLI args after `bun run dev` are swallowed by the log pipe |
+| local edits broke the tree | `git fetch origin && git reset --hard origin/main` — `db/` and `data/` are gitignored, so projects, run records and in-flight RELION jobs survive the reset |
 
 ### Run jobs on your cluster (SSH + module load)
 

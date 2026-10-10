@@ -6,12 +6,17 @@ import {
   ChevronDown,
   Clock3,
   GripVertical,
+  Info,
   Search,
   Shapes,
   Star,
   X,
 } from "lucide-react";
-import { JOB_CATEGORIES, JOB_TYPES, jobType } from "@/lib/workflow";
+import { JOB_CATEGORIES, JOB_TYPES, PORT_COLORS, jobType, pourKindsOf } from "@/lib/workflow";
+import type { JobTypeSpec } from "@/lib/types";
+import { subsequenceSpans, subsequenceMatch } from "@/lib/job-match"; // t725 — the dialect's HOW lives in lib
+import { FindMarkedText, FIND_MARK_CLASS } from "./find-mark"; // t725 — the wash's own home
+import { Kbd } from "@/components/ui/kbd";
 import { useWorkflowStore } from "@/lib/store";
 import { TypeIcon } from "./icons";
 
@@ -19,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { capturePointer } from "@/lib/pointer";
+import { TypeCardDialog } from "./type-card-dialog"; // t730 — the dictionary door lives next to the shelf's own mouth
+import { TierBadge, TIER_NAMES } from "./tier-badge"; // t732 — the tier language's own home (fifth t720 execution)
 
 interface PaletteDragState {
   type: string;
@@ -87,6 +94,54 @@ const FAV_TOUCH_SLOP_PX = 10;
  * localStorage with the same sanitize-or-default contract as recents. */
 const FAV_KEY = "cryoflow-fav-types";
 
+/* ------------------------------------------------------------------ */
+/* t616 — arrival timing (the palette's own wave)                      */
+/* ------------------------------------------------------------------ */
+
+/* t616 — the wave's timing words, the single source of truth. The base
+ * is the RAIL'S PULSE: 90ms, the same beat the sibling Workspaces tab
+ * sings (t614's USER-GESTURE beat) — one rail, one pulse. The Catalog
+ * tab is the sidebar's default face and mounts from the SERVER HTML at
+ * boot, so its wave starts at first paint, before the canvas cards
+ * (260ms) have even begun — furniture speaks first, content lands
+ * after; and when the user returns via tab switch or opens the mobile
+ * Sheet, the same 90 answers their click instead of the dashboard's
+ * lag-prone 350 (t614's rationale verbatim).
+ *
+ * The wave reads the palette's DOM encounter order at each face's first
+ * render, 24ms per face. Canonical fresh-boot composition (no favorites,
+ * no recents — both are client-only and arrive after hydration): header
+ * 90 → cat:import 114 → its 3 rows 138/162/186 → the 13 remaining
+ * category headers 210..474 → footer 522 — 19 faces, settled at 762ms.
+ * Each visible face's ticket is its honest seat in that first reading.
+ *
+ * THE MOUNT LEDGER (t613's law, third consumer — and its stress test:
+ * the palette hosts ALL FOUR index-shift shapes the family knows):
+ *   • favorites REORDER (Task 155 drag / Alt+arrows splice),
+ *   • recents PREPEND (pushRecent unshifts the newest to the head),
+ *   • categories FOLD/UNFOLD (rows nominate only while their category
+ *     is open — a folded row is not part of the visible composition,
+ *     so it holds no ticket; unfolding nominates it at the ladder's
+ *     tail: mount is arrival, t613's ladder semantics),
+ *   • search RE-FILTERS (forced-open categories nominate their matching
+ *     rows in encounter order; clearing de-nominates; re-searching
+ *     replays the frozen tickets).
+ * A positional index would shift under all four and replay finished
+ * animations. So every face keeps a tail ledger keyed by face id:
+ * filled on miss at render time (the Task 88 pattern — no extra frame,
+ * no effect), never rewritten. The ledger dies with the Radix tab
+ * unmount (and with the mobile Sheet close), so every fresh entry
+ * re-issues it — "project switch resets the ledger", for free.
+ *
+ * Chrome never rides: the search box is a lens (t611/t613 precedent),
+ * the fav-filter star is an action verb, the "/" kbd hint is
+ * decoration, the drag ghost portals OUTSIDE this subtree (and past
+ * the arrival scope by topology). The header's star filter and the
+ * recents' clear verb ride their label rows as part of the row face —
+ * the banner/Progress precedent (the wave names rows, not verbs). */
+const PAL_BASE_MS = 90;
+const PAL_STEP_MS = 24;
+
 function readFavs(): string[] {
   try {
     const raw = localStorage.getItem(FAV_KEY);
@@ -129,7 +184,7 @@ function pushRecent(type: string): void {
 }
 
 /**
- * Job type palette (RELION 5 catalog: 13 collapsible categories) —
+ * Job type palette (RELION 5 catalog: 14 collapsible categories) —
  * drag-to-create onto the canvas. Keyboard fallback: Enter / Space adds the
  * job at the viewport center (legacy placement). Used in the desktop
  * sidebar and inside the mobile Sheet.
@@ -151,6 +206,50 @@ function pushRecent(type: string): void {
  * pan through a native non-passive touchmove. One gesture grammar per
  * pointer family, one shared drop machinery underneath both.
  */
+/** t725 — the palette's why: which field won the row its place, and
+ *  (for the fields the row actually shows) the character spans to wash.
+ *  The dialect's HOW lives in lib (substring first, then the t653
+ *  abbreviation subsequence guarded to q.length >= 2); the palette owns
+ *  the WHAT — the four words a type can be found by, read in the
+ *  palette's own reading order: label, description, then the two
+ *  invisible fields (key, category). The winner is the FIRST field in
+ *  that order — one answer, deterministic (t722's lexicographic law,
+ *  adapted: a row's reading order is the palette's determinism). The
+ *  invisible fields win as BARE facts — their text is not on the row's
+ *  surface, so there is nothing to wash; a chip names the field
+ *  instead (the badge-is-the-why tradition, t722). */
+type PalWhy =
+  | {
+      field: "label" | "description";
+      spans: ReadonlyArray<readonly [number, number]>;
+    }
+  | { field: "key" | "category" };
+
+function palMatchWhy(t: JobTypeSpec, query: string): PalWhy | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  const labelAt = t.label.toLowerCase().indexOf(q);
+  if (labelAt !== -1) return { field: "label", spans: [[labelAt, labelAt + q.length]] };
+  const descAt = t.description.toLowerCase().indexOf(q);
+  if (descAt !== -1) return { field: "description", spans: [[descAt, descAt + q.length]] };
+  if (t.key.toLowerCase().includes(q)) return { field: "key" };
+  if (t.category.toLowerCase().includes(q)) return { field: "category" };
+  // single characters are substring questions, not patterns — the same
+  // guard the matcher has always taken (fuzzying over one stray letter
+  // turns a narrow list into noise). The subsequence rungs read the
+  // palette's SHORT identity words only (label, key, category): a
+  // description is prose, and prose subsequence is noise — "class"
+  // as a subsequence lights up half the catalog's sentences (the probe
+  // caught exactly that on first run). Prose keeps its substring rung.
+  if (q.length >= 2) {
+    const labelSeq = subsequenceSpans(q, t.label);
+    if (labelSeq) return { field: "label", spans: labelSeq };
+    if (subsequenceMatch(q, t.key)) return { field: "key" };
+    if (subsequenceMatch(q, t.category)) return { field: "category" };
+  }
+  return null;
+}
+
 export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const addJob = useWorkflowStore((s) => s.addJob);
 
@@ -164,6 +263,10 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   // Task 133 — favorites: star order, client-only until mount (hydration)
   const [favs, setFavs] = React.useState<string[]>([]);
   const [favOnly, setFavOnly] = React.useState(false);
+  // t730 — the type card's subject: the key whose dictionary page is
+  // open (null = closed). One gate for the card, chips navigate by
+  // re-assigning the key — the dialog stays mounted, the page swaps.
+  const [cardKey, setCardKey] = React.useState<string | null>(null);
 
   const dragRef = React.useRef<PaletteDragState | null>(null);
   // Task 155 — the reorder drag's OWN ref (never the drag-to-create one)
@@ -295,15 +398,34 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
   const searching = q.length > 0;
   // favorites-only gate applies FIRST, then search narrows within it
   const baseTypes = favOnly ? JOB_TYPES.filter((t) => favSet.has(t.key)) : JOB_TYPES;
+  // t725 — the dialect filter. Each row's why is computed ONCE here and
+  // read back at render — a plain per-render Map (no state, no refs; it
+  // lives exactly as long as the render that built it).
+  const whys = new Map<string, PalWhy>();
   const filtered = searching
-    ? baseTypes.filter(
-        (t) =>
-          t.label.toLowerCase().includes(q) ||
-          t.key.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q) ||
-          t.category.toLowerCase().includes(q)
-      )
+    ? baseTypes.filter((t) => {
+        const w = palMatchWhy(t, query);
+        if (w) whys.set(t.key, w);
+        return w !== null;
+      })
     : baseTypes;
+
+  // t616 — the wave's mount ledger: one ticket per face, keyed by face
+  // id, filled on miss at render time in JSX evaluation order (which IS
+  // the palette's reading order), never rewritten. A lazy useState holds
+  // the Map (the react-compiler lint forbids render-phase ref reads —
+  // and the lifecycle is identical anyway): it dies with the Radix
+  // unmount on tab leave / Sheet close, so every fresh entry re-issues
+  // the ledger (a new surfacing) — no explicit reset exists or is needed.
+  const [palWave] = React.useState<Map<string, number>>(() => new Map());
+  const waveTicketOf = (id: string): number => {
+    let t = palWave.get(id);
+    if (t === undefined) {
+      t = PAL_BASE_MS + palWave.size * PAL_STEP_MS;
+      palWave.set(id, t);
+    }
+    return t;
+  };
 
   /* ---------------- drag-to-create --------------------------------- */
 
@@ -551,10 +673,14 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
     .filter((t): t is NonNullable<typeof t> => t != null);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col" data-pal-arrival="">
       {/* ---- header: title + search ---- */}
       <div className="shrink-0 space-y-2.5 p-3 pb-2">
-        <div className="flex items-center gap-2 px-1 max-lg:pr-9">
+        <div
+          className="flex items-center gap-2 px-1 max-lg:pr-9"
+          data-pal-face="hdr"
+          style={{ "--pd": `${waveTicketOf("hdr")}ms` } as React.CSSProperties}
+        >
           {/* Task 176: below lg the palette is the SHEET, and the sheet's
               built-in Close (absolute right-4) lands exactly on the count
               badge once the viewport hits the fold band — the row reserves
@@ -610,15 +736,16 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             }}
             placeholder="Search job types…"
             aria-label="Search job types"
+            title="Substring first, then in-order abbreviations — matched characters highlight"
             className="h-8 rounded-lg pl-8 pr-12 text-xs shadow-none transition-[box-shadow] focus-visible:ring-primary/40"
           />
           {!query && (
-            <kbd
-              className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border bg-muted/60 px-1 py-px font-mono text-[9px] leading-none text-muted-foreground/70 transition-opacity group-focus-within/search:opacity-0 sm:block"
+            <Kbd
+              className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 bg-muted/60 py-px leading-none text-muted-foreground/70 transition-opacity group-focus-within/search:opacity-0 sm:block"
               aria-hidden="true"
             >
               /
-            </kbd>
+            </Kbd>
           )}
           {query && (
             <button
@@ -636,7 +763,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       {/* ---- favorites quick-add chips (Task 133) ---- */}
       {!searching && favSpecs.length > 0 && (
         <div className="shrink-0 border-b bg-muted/25 px-3 py-2">
-          <div className="mb-1.5 flex items-center gap-1.5">
+          <div className="mb-1.5 flex items-center gap-1.5" data-pal-face="fav-label" style={{ "--pd": `${waveTicketOf("fav-label")}ms` } as React.CSSProperties}>
             <Star className="size-3 fill-amber-400 text-amber-500" aria-hidden="true" />
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
               Favorites
@@ -665,6 +792,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             data-fav-lift-active={favDragType ? "true" : undefined}
           >
             {favSpecs.map((t, i) => {
+              const pouring = pourKindsOf(t.key); // t750 — asked once, read twice (dots + ear)
               const dragging = favDragType === t.key;
               // Task 163 — a touch lift is the OPPOSITE look of a mouse
               // drag: the mouse family fades the original (the caret is
@@ -703,6 +831,8 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                   }}
                   data-fav-chip=""
                   data-fav-chip-index={i}
+                  data-pal-face="fav"
+                  style={{ "--pd": `${waveTicketOf(`fav:${t.key}`)}ms` } as React.CSSProperties}
                   data-fav-dragging={dragging && !favDragViaTouch ? "true" : undefined}
                   data-fav-lifted={lifting ? "true" : undefined}
                   data-fav-arming={arming ? "true" : undefined}
@@ -733,6 +863,29 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                     <TypeIcon name={t.icon} className="size-3" />
                   </span>
                   <span className="max-w-28 truncate">{t.label}</span>
+                  {/* t750 — the favorite chip borrows the same water dots:
+                      the quick-add bar is the menu AHEAD of the menu (Task
+                      133's one-click shelf), so the t747 promise rides it
+                      too — same dot (size-1.5 whisper, wire hex, per-dot
+                      title word), same sr-only ear line, same one-family
+                      discipline (pours only; the appetite's full sentence
+                      stays in the dictionary). The chip's own title
+                      contract (Task 133) is untouched. */}
+                  <span
+                    className="flex shrink-0 items-center gap-1"
+                    data-testid={`palette-fav-pours-${t.key}`}
+                  >
+                    {pouring.map((k) => (
+                      <span
+                        key={k}
+                        aria-hidden="true"
+                        title={`pours ${k}`}
+                        className="inline-block size-1.5 rounded-full"
+                        style={{ background: PORT_COLORS[k].wire }}
+                      />
+                    ))}
+                    <span className="sr-only">pours {pouring.join(", ")}</span>
+                  </span>
                   <Star className="size-2.5 shrink-0 fill-amber-400 text-amber-500" aria-hidden="true" />
                 </button>
               );
@@ -744,7 +897,11 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       {/* ---- recently used quick-add chips ---- */}
       {!searching && recentSpecs.length > 0 && (
         <div className="shrink-0 border-b bg-muted/25 px-3 py-2">
-          <div className="mb-1.5 flex items-center gap-1.5">
+          <div
+            className="mb-1.5 flex items-center gap-1.5"
+            data-pal-face="recent-label"
+            style={{ "--pd": `${waveTicketOf("recent-label")}ms` } as React.CSSProperties}
+          >
             <Clock3 className="size-3 text-muted-foreground/80" aria-hidden="true" />
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
               Recently used
@@ -773,6 +930,8 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                 type="button"
                 onClick={() => void recordAndAdd(t.key)}
                 title={`Add ${t.label} at the viewport center`}
+                data-pal-face="recent"
+                style={{ "--pd": `${waveTicketOf(`recent:${t.key}`)}ms` } as React.CSSProperties}
                 className={cn(
                   "flex items-center gap-1.5 rounded-full border bg-card py-1 pl-1.5 pr-2.5 text-[11px] font-medium shadow-sm transition-all hover:-translate-y-px hover:shadow active:translate-y-0",
                   "hover:border-primary/40 hover:ring-1 hover:ring-primary/25"
@@ -801,7 +960,12 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
         className="nice-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-1"
       >
         {favOnly && favSpecs.length === 0 && (
-          <div className="px-3 py-8 text-center" data-testid="palette-favs-empty">
+          <div
+            className="px-3 py-8 text-center"
+            data-testid="palette-favs-empty"
+            data-pal-face="empty"
+            style={{ "--pd": `${waveTicketOf("empty")}ms` } as React.CSSProperties}
+          >
             <Star className="mx-auto size-5 text-muted-foreground/40" aria-hidden="true" />
             <p className="mt-2 text-xs font-medium text-muted-foreground">
               No starred job types yet
@@ -820,10 +984,23 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
           </div>
         )}
         {filtered.length === 0 && !(favOnly && favSpecs.length === 0) && (
-          <div className="px-3 py-8 text-center">
+          <div
+            className="px-3 py-8 text-center"
+            data-pal-face="empty"
+            style={{ "--pd": `${waveTicketOf("empty")}ms` } as React.CSSProperties}
+          >
             <Search className="mx-auto size-5 text-muted-foreground/40" aria-hidden="true" />
             <p className="mt-2 text-xs font-medium text-muted-foreground">
               No job types match &ldquo;{query}&rdquo;
+            </p>
+            {/* t725 — the dialect teaches at the moment of need: an empty
+                result is exactly when the abbreviation vocabulary is
+                worth naming. */}
+            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground/70">
+              Abbreviations work too — try{" "}
+              <span className="font-mono">cls2</span>,{" "}
+              <span className="font-mono">ref3d</span> or{" "}
+              <span className="font-mono">ctffnd</span>.
             </p>
             <button
               type="button"
@@ -846,6 +1023,8 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                 onClick={() => toggleCategory(cat.key)}
                 aria-expanded={isOpen}
                 title={cat.hint}
+                data-pal-face="cat"
+                style={{ "--pd": `${waveTicketOf(`cat:${cat.key}`)}ms` } as React.CSSProperties}
                 className="group/cat sticky top-0 z-10 flex w-full items-center gap-1.5 rounded-md bg-sidebar/80 px-2 py-1.5 text-left backdrop-blur-sm transition-colors hover:bg-accent/60"
               >
                 <ChevronDown
@@ -875,11 +1054,28 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
               >
                 <div className="overflow-hidden">
                   <div className="space-y-0.5 py-1">
-                    {items.map((t) => (
+                    {items.map((t) => {
+                      const w = searching ? whys.get(t.key) : undefined;
+                      const pours = pourKindsOf(t.key); // t747 — asked once, read twice (dots + ear)
+                      return (
                       <Button
                         key={t.key}
                         variant="ghost"
                         className="group/item no-drag-select relative h-auto w-full justify-start gap-2.5 rounded-lg px-2.5 py-2 pl-3 text-left transition-all hover:translate-x-0.5 hover:rounded-md hover:bg-gradient-to-r hover:from-accent/80 hover:to-transparent"
+                        /* t616 — a row nominates ONLY while its category is
+                         * open: a folded row is not part of the visible
+                         * composition (the wrapper holds it at 0px track /
+                         * 0 opacity), so it takes no ticket; unfolding
+                         * nominates it at the ladder's tail. The attribute
+                         * appearing is the animation's cue — CSS starts an
+                         * animation the moment the element begins matching
+                         * its rule. */
+                        data-pal-face={isOpen ? "row" : undefined}
+                        style={
+                          isOpen
+                            ? ({ "--pd": `${waveTicketOf(`row:${t.key}`)}ms` } as React.CSSProperties)
+                            : undefined
+                        }
                         onPointerDown={(e) => handleItemPointerDown(e, t.key)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
@@ -888,7 +1084,7 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                           }
                         }}
                         aria-label={`Drag to canvas to add ${t.label} (or press Enter)`}
-                        title={`${t.tier === "core" ? "Core (real engine)" : t.tier === "cmd" ? "Runs real RELION CLI" : "Needs external binary"} — drag onto the canvas`}
+                        title={`${TIER_NAMES[t.tier]} — drag onto the canvas`}
                       >
                         {/* left accent bar — grows on hover */}
                         <span
@@ -914,11 +1110,83 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium leading-tight">
-                            {t.label}
+                            {w && w.field === "label" ? (
+                              <FindMarkedText text={t.label} spans={w.spans} />
+                            ) : (
+                              t.label
+                            )}
                           </span>
                           <span className="block truncate text-[11px] leading-tight text-muted-foreground">
-                            {t.description}
+                            {w && w.field === "description" ? (
+                              <FindMarkedText text={t.description} spans={w.spans} />
+                            ) : (
+                              t.description
+                            )}
                           </span>
+                        </span>
+                        {/* t747 — the row borrows the water dots: the menu
+                            says what the type pours before the job exists.
+                            One dot per unique poured kind, riding the same
+                            wire hex the canvas rests in (pourKindsOf — the
+                            t746 lib question; the t735/t746 sample). The row
+                            is a scan surface, so it whispers: dots only,
+                            small is the whisper (size-1.5, no hover coupling
+                            — steady ink, the one-band law), and the word per
+                            dot rides the title. Same-shaped dots cannot tell
+                            pours from drinks, so only the PROMISE rides the
+                            row — the appetite's full sentence (drinks, with
+                            the nothing/anything honesty) stays behind the
+                            info door in the dictionary card. The category's
+                            ink sits at the row's left end, the kinds' dots
+                            at its right — the row's two vocabularies
+                            bookend it. An sr-only line names the kinds for
+                            the ear (the t746 card remains the full a11y
+                            journey: dots here, words one click away). */}
+                        <span
+                          className="flex shrink-0 items-center gap-1"
+                          data-testid={`palette-pours-${t.key}`}
+                        >
+                          {pours.map((k) => (
+                            <span
+                              key={k}
+                              aria-hidden="true"
+                              title={`pours ${k}`}
+                              className="inline-block size-1.5 rounded-full"
+                              style={{ background: PORT_COLORS[k].wire }}
+                            />
+                          ))}
+                          <span className="sr-only">pours {pours.join(", ")}</span>
+                        </span>
+                        {/* t730 — the dictionary door: opens the type card
+                            for THIS row (same span-as-button grammar the
+                            Task 133 star runs on — pointerdown swallowed so
+                            opening the card never starts a drag or adds).
+                            Sits left of the star: about-the-type precedes
+                            keep-the-type, the reading order the row's other
+                            faces already follow. */}
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`About ${t.label} — params, ports, neighbours`}
+                          title={`About ${t.label} — params, ports, neighbours`}
+                          data-testid={`palette-info-${t.key}`}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCardKey(t.key);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setCardKey(t.key);
+                            }
+                          }}
+                          className={cn(
+                            "flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition-all hover:text-muted-foreground group-hover/item:text-muted-foreground/60 focus-visible:text-muted-foreground hover:bg-accent"
+                          )}
+                        >
+                          <Info className="size-3" aria-hidden="true" />
                         </span>
                         {/* Task 133 — star toggle: reserved width so the tier
                             badge never shifts; a span (not a nested button —
@@ -956,29 +1224,35 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
                             aria-hidden="true"
                           />
                         </span>
-                        <span
-                          className={cn(
-                            "flex shrink-0 items-center gap-1 rounded px-1 py-px font-mono text-[8px] uppercase tracking-wide",
-                            t.tier === "core" &&
-                              "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                            t.tier === "cmd" && "bg-muted text-muted-foreground",
-                            t.tier === "external" &&
-                              "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                          )}
-                          aria-hidden="true"
-                        >
+                        {/* t725 — the invisible fields' why: a key or
+                            category match has no character on the row's
+                            surface, so a chip names the field instead (the
+                            badge-is-the-why tradition, t722). Same amber
+                            via FIND_MARK_CLASS — one hue word for the
+                            whole lens. */}
+                        {w && (w.field === "key" || w.field === "category") && (
                           <span
+                            data-pal-why={w.field}
+                            title={
+                              w.field === "key"
+                                ? `Matched the type key “${t.key}”`
+                                : `Matched the category “${t.category}”`
+                            }
                             className={cn(
-                              "inline-block size-1 rounded-full",
-                              t.tier === "core" && "bg-emerald-500",
-                              t.tier === "cmd" && "bg-muted-foreground/60",
-                              t.tier === "external" && "bg-amber-500"
+                              "shrink-0 rounded px-1 py-px font-mono text-[8px] uppercase tracking-wide leading-4",
+                              FIND_MARK_CLASS
                             )}
-                          />
-                          {t.tier === "core" ? "core" : t.tier === "cmd" ? "cli" : "ext"}
-                        </span>
+                          >
+                            {w.field === "key" ? "key" : "cat"}
+                          </span>
+                        )}
+                        {/* t732 — the tier badge moved to its own home
+                            (tier-badge.tsx): same hue words, same dot, same
+                            short words, one place to edit them. */}
+                        <TierBadge tier={t.tier} compact />
                       </Button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -988,7 +1262,11 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
       </nav>
 
       {/* ---- footer: tier legend ---- */}
-      <div className="shrink-0 border-t bg-sidebar/60 px-3 py-2 backdrop-blur-sm">
+      <div
+        className="shrink-0 border-t bg-sidebar/60 px-3 py-2 backdrop-blur-sm"
+        data-pal-face="ftr"
+        style={{ "--pd": `${waveTicketOf("ftr")}ms` } as React.CSSProperties}
+      >
         <div className="flex items-center justify-between gap-2 text-[9.5px] text-muted-foreground">
           <span className="flex items-center gap-1" title="Runs on the real RELION engine">
             <span className="inline-block size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
@@ -1003,10 +1281,10 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
             ext
           </span>
           <span className="ml-auto hidden items-center gap-1 text-muted-foreground/70 lg:flex">
-            <kbd className="rounded border bg-muted/60 px-1 py-px font-mono text-[8.5px] leading-none">/</kbd>
+            <Kbd className="bg-muted/60 py-px leading-none">/</Kbd>
             search
             <span className="mx-0.5 text-muted-foreground/40">·</span>
-            <kbd className="rounded border bg-muted/60 px-1 py-px font-mono text-[8.5px] leading-none">⏎</kbd>
+            <Kbd className="bg-muted/60 py-px leading-none">⏎</Kbd>
             add
           </span>
         </div>
@@ -1038,6 +1316,19 @@ export function JobPalette({ onAdded }: { onAdded?: () => void }) {
           </div>,
           document.body
         )}
+
+      {/* t730 — the type card: the palette's dictionary door. Chips inside
+          the card navigate by re-assigning cardKey; a successful add
+          rides the same onAdded mouth the rows use, then closes. */}
+      <TypeCardDialog
+        typeKey={cardKey}
+        open={cardKey !== null}
+        onOpenChange={(o) => {
+          if (!o) setCardKey(null);
+        }}
+        onNavigate={(key) => setCardKey(key)}
+        onAdded={onAdded}
+      />
     </div>
   );
 }

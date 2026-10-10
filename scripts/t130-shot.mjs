@@ -2,6 +2,8 @@
 // ("Delete all N?" + Clear/Keep, Task 130's two-step confirm).
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const OUT = "/home/z/my-project/.next/t130-shot";

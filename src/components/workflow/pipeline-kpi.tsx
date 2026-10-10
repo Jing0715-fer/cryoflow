@@ -97,7 +97,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
           fill="none"
           strokeWidth="3"
           strokeLinecap="round"
-          className="stroke-emerald-500 transition-[stroke-dashoffset] duration-500"
+          className="stroke-success-500 transition-[stroke-dashoffset] duration-500"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - pct)}
         />
@@ -208,7 +208,7 @@ export function PipelineKpi() {
       className="-mx-1 px-1 text-xs font-semibold tabular-nums"
     >
       <ProgressRing done={stats.completed} total={stats.total} />
-      <span className={stats.failed > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"}>
+      <span className={stats.failed > 0 ? "text-danger" : "text-foreground"}>
         {stats.completed}
         <span className="text-muted-foreground">/{stats.total}</span>
       </span>
@@ -224,7 +224,7 @@ export function PipelineKpi() {
           title="Particles fed into 2D/3D classification"
           className="text-xs tabular-nums"
         >
-          <Snowflake className="size-3.5 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+          <Snowflake className="size-3.5 shrink-0 text-running" aria-hidden="true" />
           <span className="font-medium">{fmtNum(stats.particles)}</span>
           <span className="hidden text-muted-foreground sm:inline">particles</span>
         </KpiItem>
@@ -242,14 +242,14 @@ export function PipelineKpi() {
               : "Current reconstruction resolution — click to open the refinement results"
           }
           onClick={resSource ? () => inspect(resSource.id) : undefined}
-          className="rounded-full border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300"
+          className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-warning-700 dark:text-warning-300"
         >
           <Crosshair className="size-3 shrink-0" aria-hidden="true" />
           {resValue.toFixed(2)} Å
           {isLive && (
             <span className="relative ml-0.5 flex size-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-amber-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning-400 opacity-75" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-warning-500" />
             </span>
           )}
         </KpiItem>
@@ -262,8 +262,8 @@ export function PipelineKpi() {
             title={`EMPIAR-10017 published: 4.2 Å (EMD-2824) — this map: ${resValue.toFixed(2)} Å`}
             className={
               resValue <= TARGET_ANGSTROM
-                ? "rounded-full border border-emerald-600/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
-                : "rounded-full border border-rose-600/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300"
+                ? "rounded-full border border-success/40 bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success-700 dark:text-success-300"
+                : "rounded-full border border-danger-600/30 bg-danger-500/10 px-2 py-0.5 text-[11px] font-semibold text-danger"
             }
           >
             {resValue <= TARGET_ANGSTROM ? (
@@ -292,7 +292,7 @@ export function PipelineKpi() {
         key="running"
         title={`${rj.name} — running · click to open its results`}
         onClick={() => inspect(rj.id)}
-        className="rounded-full border border-teal-600/30 bg-teal-600/10 px-2 py-0.5 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
+        className="rounded-full border border-running/30 bg-running/10 px-2 py-0.5 text-[11px] font-semibold text-running-700 dark:text-running-300"
       >
         <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />
         <Activity className="hidden size-3 shrink-0 sm:block" aria-hidden="true" />

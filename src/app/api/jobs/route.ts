@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "fs";
 import { db } from "@/lib/db";
-import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO } from "@/lib/seed";
+import { isLocalRequest } from "@/lib/http-guard";
+import { ensureActiveProject, ensureDefaultWorkspace, toJobDTO, toEdgeDTO } from "@/lib/seed";
 import { defaultParams, jobType } from "@/lib/workflow";
 import { readRuns, reconcileRealJobs } from "@/lib/relion/engine";
 import { autoStartPendingDownstream } from "@/lib/relion/dispatch";
 import { reconcileRemoteJobs, remoteInfoFor } from "@/lib/remote/remote-run";
-import type { JobDTO } from "@/lib/types";
+import { ensureGlobalReconciler } from "@/lib/relion/global-reconcile";
+import { remainingForRun } from "@/lib/remote/remote-remaining";
+import { listStampIds } from "@/lib/ai/verdict-stamps";
+import type { JobDTO, EdgeDTO } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +23,21 @@ export const dynamic = "force-dynamic";
  * deleted jobs don't accumulate.
  */
 const prevStatuses = new Map<string, string>();
+
+/**
+ * t324 — the pending RETRY cadence: "runs automatically once ready" is a
+ * promise, and the one-shot triggers (the finalize leg, the engine's exit
+ * handler, startJob's native branch) can miss a consumer — an SSH blip at
+ * the exact moment the upstream landed, a pre-t324 record whose cluster
+ * twins only the lazy heal can recover, a sync that brought a file home
+ * after the first attempt already flipped the row to pending. Every ~20s
+ * (while any pending job exists) each pending consumer re-attempts through
+ * its COMPLETED upstreams; startJob's busy/liveness guards and the
+ * stampede cap make repeat rounds free — a job whose inputs are still
+ * incomplete just flips back to pending with a refreshed message.
+ */
+let lastPendingRetryAt = 0;
+const PENDING_RETRY_MS = 20_000;
 
 /**
  * Project a LINKED job onto its ORIGINAL: status/progress/result/startedAt
@@ -43,6 +62,7 @@ function projectLinks(jobs: JobDTO[], workspaces: Map<string, string>): void {
       job.engine = root.engine;
       job.hasLog = root.hasLog;
       job.runRemote = root.runRemote;
+      job.remoteRemaining = root.remoteRemaining;
       job.linkedName = root.name;
       job.linkedWorkspaceName =
         (root.workspaceId ? workspaces.get(root.workspaceId) : undefined) ?? "Main";
@@ -55,9 +75,51 @@ function projectLinks(jobs: JobDTO[], workspaces: Map<string, string>): void {
   }
 }
 
-/** GET /api/jobs — jobs of the ACTIVE project, reconciled against the REAL RELION engine records. */
-export async function GET() {
+/** GET /api/jobs — jobs of the ACTIVE project, reconciled against the REAL RELION engine records.
+ *
+ * t393 — the version token (`?v=`): poll ticks where nothing moved answer a
+ * ~40-byte {unchanged:true} instead of the full array. A real project's
+ * canvas (dozens of jobs, params JSON + runRemote ledgers per job) can
+ * weigh hundreds of KB, and the 1.2s live / 8s idle / 15s hidden-tab
+ * heartbeats re-paid the serialization, the wire and the client-side
+ * parse+merge chain on every no-op tick. The token hashes the EXACT body
+ * this tick would return (plus the project id, so two projects with
+ * coincidentally equal job lists can never alias each other's version) —
+ * a false "unchanged" would need a 64-bit hash collision, not a missed
+ * field: every reconcile/sweep/DB write that changes the response flips
+ * it. The token NEVER short-circuits the route's side effects (reconcile,
+ * the transition sweep, the pending retry) — correctness work runs first,
+ * the token only decides how the verdict travels. */
+function jobsVersionOf(projectId: string, body: string): string {
+  // two independent djb2-family lanes + the length + the project tail: a
+  // 64-bit signature over the full body (no stride — a log may append-only
+  // at its tail, but a job's status can flip anywhere in the array)
+  let h1 = 5381;
+  let h2 = 52711;
+  for (let i = 0; i < body.length; i++) {
+    const c = body.charCodeAt(i);
+    h1 = (h1 * 33 + c) | 0;
+    h2 = (h2 * 31 + c) | 0;
+  }
+  return `${h1.toString(36)}.${h2.toString(36)}.${body.length}.${projectId.slice(-6)}`;
+}
+
+export async function GET(request: NextRequest) {
+  // t710 — the read-half door lands. The t709 deferral's preparation is
+  // done: the mass Origin shim covered the lane's hot path (the census's
+  // active bare count hit zero across 482 touching files before this
+  // gate was written — scripts/t710-collection-touchers.py), so the
+  // roster's hottest readers speak the door's language. Doctrine in
+  // http-guard.ts.
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site job roster reads are not allowed" }, { status: 403 });
+  }
   try {
+    // t533 — defensive reaper mount: the route already owns the heavy graph,
+    // so this is a free static mount (instrumentation's dynamic import is the
+    // primary one). After the first request ever, every world's remote
+    // finalize heals on the background beat even with no browser polling.
+    ensureGlobalReconciler();
     const active = await ensureActiveProject();
     if (!active) {
       return NextResponse.json({ jobs: [] });
@@ -77,7 +139,20 @@ export async function GET() {
     // them: their pids are cluster-side, and polling happens over SSH in
     // one batched round trip per connection).
     const localFinal = await reconcileRealJobs(jobs);
-    const final = await reconcileRemoteJobs(localFinal);
+    // t346 — the GET never WAITS on a slow sweep: on a lagging login node
+    // the sweep's SSH round trip can take tens of seconds (the t345 field
+    // ticket proved a plain `cat` can outlive 15s), and awaiting it made
+    // this route — and with it the whole UI's 4s cadence — feel stuck.
+    // The sweep still RUNS (in-flight guard, one per connection); its
+    // verdicts, progress and log tails simply land on the NEXT tick.
+    // Anything the local reconcile + DB already know serves immediately.
+    const sweep = reconcileRemoteJobs(localFinal).catch(() => localFinal);
+    const final = await Promise.race([
+      sweep,
+      new Promise<typeof localFinal>((resolve) => {
+        setTimeout(() => resolve(localFinal), 1_500);
+      }),
+    ]);
 
     // ---- transition sweep: completed → auto-start pending downstream -----
     // Fire-and-forget (never blocks the response); autoStartPendingDownstream
@@ -103,6 +178,31 @@ export async function GET() {
           void autoStartPendingDownstream(id);
         }
       }
+      // t324 — the retry leg of the same promise: pending jobs whose
+      // one-shot trigger already fired (or missed) re-attempt through their
+      // completed upstreams, rate-limited so a long-lived server does not
+      // turn every poll into a dispatch storm. autoStartPendingDownstream
+      // is idempotent (in-flight + liveness + stampede guards), so a round
+      // that finds nothing ready is just a refreshed waiting message.
+      if (pendingCount > 0 && Date.now() - lastPendingRetryAt > PENDING_RETRY_MS) {
+        lastPendingRetryAt = Date.now();
+        const pendingIds = final
+          .filter((j) => j.status === "pending" && !j.linkedJobId)
+          .map((j) => j.id);
+        if (pendingIds.length > 0) {
+          const edges = await db.edge.findMany({
+            where: { toJobId: { in: pendingIds } },
+            select: { fromJobId: true },
+          });
+          const doneIds = new Set(final.filter((j) => j.status === "completed").map((j) => j.id));
+          const retryTriggers = [...new Set(edges.map((e) => e.fromJobId))].filter((id) =>
+            doneIds.has(id)
+          );
+          for (const id of retryTriggers) {
+            void autoStartPendingDownstream(id);
+          }
+        }
+      }
     }
 
     const runs = readRuns();
@@ -113,10 +213,39 @@ export async function GET() {
       // remote runs stream their logs over SSH — the log tab is always live
       dto.hasLog = state ? state.remote != null || existsSync(state.logFile) : false;
       dto.runRemote = remoteInfoFor(j.id);
+      // t431 — homecoming truth rides the list once per poll: the canvas
+      // card / minimap / dashboard re-judge their stay receipts with zero
+      // extra requests (the same arithmetic the t429 probe GET uses).
+      dto.remoteRemaining = remainingForRun(state);
       return dto;
     });
     projectLinks(jobsOut, workspaceNames);
-    return NextResponse.json({ jobs: jobsOut });
+    // t574 — the judge worker's face on the canvas: one wholesale stamps
+    // read per sweep (listStampIds — the same cost class as readRuns)
+    // and every classification that carries an opinion wears hasVerdict.
+    // The card's badge, the version token and the stamp file move
+    // together: a fresh auto-verdict lands on the next sweep beat (1.2s
+    // live), no extra request anywhere.
+    const stampIds = listStampIds();
+    if (stampIds.size > 0) {
+      for (const dto of jobsOut) {
+        if (stampIds.has(dto.id)) dto.hasVerdict = true;
+      }
+    }
+    // t393 — version token: hash the exact body (see jobsVersionOf above).
+    // The stringify is paid once and REUSED as the response body — the
+    // unchanged lane skips NextResponse.json's own re-serialization, and
+    // the changed lane returns the same string verbatim.
+    const body = JSON.stringify({ jobs: jobsOut });
+    const version = jobsVersionOf(active.project.id, body);
+    const since = request.nextUrl.searchParams.get("v");
+    if (since && since === version) {
+      return NextResponse.json({ unchanged: true, version });
+    }
+    return new NextResponse(
+      JSON.stringify({ jobs: jobsOut, version }),
+      { headers: { "content-type": "application/json" } }
+    );
   } catch (error) {
     console.error("GET /api/jobs failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -133,6 +262,12 @@ export async function GET() {
  *   mirrors the original and downstream jobs consume the original's outputs.
  */
 export async function POST(request: NextRequest) {
+  // t708 — the write door: job creation is the app's most generic write (a
+  // no-cors JSON body can name any type — doctrine http-guard.ts + t252
+  // Phase B2). The GET above stays open this batch (readers round next).
+  if (!isLocalRequest(request)) {
+    return NextResponse.json({ error: "Cross-site job creation is not allowed" }, { status: 403 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
       type?: unknown;
@@ -142,6 +277,12 @@ export async function POST(request: NextRequest) {
       name?: unknown;
       workspaceId?: unknown;
       linkedJobId?: unknown;
+      /** t350 — the class-gallery flow: pick classes of a finished
+       * upstream classification; the new job consumes their per-class
+       * stars (auto-joinstar on dispatch). A top-level field because the
+       * scalar-filtered `params` cannot carry the object — the server
+       * validates it HERE and injects it into the stored params JSON. */
+      classStarSelection?: unknown;
     };
 
     const type = typeof body.type === "string" ? body.type : "";
@@ -276,6 +417,47 @@ export async function POST(request: NextRequest) {
         ? body.y
         : 200 + Math.random() * 60;
 
+    // t350 — validate + normalize the class selection before it enters the
+    // stored params: the SOURCE must be a finished classification of THIS
+    // project (its per-class stars live on the cluster that ran it), and
+    // the classes must be positive integers.
+    let classSelection: { jobId: string; classes: number[] } | null = null;
+    if (body.classStarSelection != null) {
+      const sel = body.classStarSelection as { jobId?: unknown; classes?: unknown };
+      const sourceId = typeof sel.jobId === "string" ? sel.jobId : "";
+      const classes = Array.isArray(sel.classes)
+        ? sel.classes.map((c) => Number(c)).filter((c) => Number.isInteger(c) && c > 0 && c <= 10000)
+        : [];
+      if (classes.length === 0) {
+        return NextResponse.json({ error: "classStarSelection.classes must be a non-empty list of class numbers" }, { status: 400 });
+      }
+      const source = sourceId
+        ? await db.job.findFirst({ where: { id: sourceId, projectId: active.project.id } })
+        : null;
+      if (!source || !(source.type === "class2d" || source.type === "class3d")) {
+        return NextResponse.json(
+          { error: "classStarSelection.jobId must be a 2D/3D classification job of this project" },
+          { status: 400 }
+        );
+      }
+      // a LINK resolves to its original (links are aliases; the run record,
+      // the per-class stars and the canvas edge all belong to the original)
+      let sourceRoot = source;
+      while (sourceRoot.linkedJobId) {
+        const root = await db.job.findFirst({
+          where: { id: sourceRoot.linkedJobId, projectId: active.project.id },
+        });
+        if (!root) break;
+        sourceRoot = root;
+      }
+      classSelection = { jobId: sourceRoot.id, classes: [...new Set(classes)].sort((a, b) => a - b) };
+    }
+
+    const storedParams: Record<string, unknown> = customParams
+      ? { ...customParams }
+      : { ...defaultParams(type) };
+    if (classSelection) storedParams.classStarSelection = classSelection;
+
     const job = await db.job.create({
       data: {
         projectId: active.project.id,
@@ -284,14 +466,29 @@ export async function POST(request: NextRequest) {
         name: customName ?? `${spec.label} ${count + 1}`,
         x,
         y,
-        params: customParams ? JSON.stringify(customParams) : JSON.stringify(defaultParams(type)),
+        params: JSON.stringify(storedParams),
         duration: spec.duration,
       },
     });
 
+    // the gallery flow wires the source classification to the new consumer
+    // automatically — the canvas shows the lineage the dispatch will use
+    // (resolveInputs scans the upstream chain through this edge)
+    let createdEdge: EdgeDTO | null = null;
+    if (classSelection) {
+      const edge = await db.edge.create({
+        data: {
+          projectId: active.project.id,
+          fromJobId: classSelection.jobId,
+          toJobId: job.id,
+        },
+      });
+      createdEdge = toEdgeDTO(edge);
+    }
+
     const dto = toJobDTO(job);
     dto.engine = "relion";
-    return NextResponse.json({ job: dto }, { status: 201 });
+    return NextResponse.json({ job: dto, ...(createdEdge ? { edge: createdEdge } : {}) }, { status: 201 });
   } catch (error) {
     console.error("POST /api/jobs failed:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

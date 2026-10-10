@@ -45,7 +45,7 @@ import { Copy, Download, GanttChart, Layers, Loader2, Play, Trophy } from "lucid
 import { cn } from "@/lib/utils";
 import { downloadText } from "@/lib/download";
 import { mdCell } from "@/lib/md";
-import { jobType } from "@/lib/workflow";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
 // t197: the sweep report family moved to @/lib/qc-report — the session QC
 // report is its second consumer, and the lib is the one honest home
@@ -145,13 +145,13 @@ const sweepCsvFilename = (): string =>
 const TYPE_COLOR: Record<string, string> = {
   import: "bg-sky-500/25 border-sky-500/40 text-sky-700 dark:text-sky-300",
   motioncorr: "bg-cyan-500/25 border-cyan-500/40 text-cyan-700 dark:text-cyan-300",
-  ctf: "bg-teal-500/25 border-teal-500/40 text-teal-700 dark:text-teal-300",
+  ctf: "bg-running/25 border-running/40 text-running-700 dark:text-running-300",
   extract: "bg-violet-500/25 border-violet-500/40 text-violet-700 dark:text-violet-300",
-  select: "bg-amber-500/25 border-amber-500/40 text-amber-700 dark:text-amber-300",
+  select: "bg-warning/25 border-warning/40 text-warning-700 dark:text-warning-300",
   class2d: "bg-fuchsia-500/25 border-fuchsia-500/40 text-fuchsia-700 dark:text-fuchsia-300",
   class3d: "bg-indigo-500/25 border-indigo-500/40 text-indigo-700 dark:text-indigo-300",
-  refine3d: "bg-rose-500/25 border-rose-500/40 text-rose-700 dark:text-rose-300",
-  postprocess: "bg-emerald-500/25 border-emerald-500/40 text-emerald-700 dark:text-emerald-300",
+  refine3d: "bg-danger-500/25 border-danger-500/40 text-danger",
+  postprocess: "bg-success/25 border-success/40 text-success-700 dark:text-success-300",
   maskcreate: "bg-green-500/25 border-green-500/40 text-green-700 dark:text-green-300",
 };
 const FALLBACK_COLOR = "bg-slate-500/25 border-slate-500/40 text-slate-700 dark:text-slate-300";
@@ -462,14 +462,14 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
               onChange={(v) => setParams((p) => ({ ...p, gpuSpeedup: v }))}
             />
             {clamped ? (
-              <span className="pb-1 text-[10px] italic text-amber-600 dark:text-amber-400" role="status">
+              <span className="pb-1 text-[10px] italic text-warning" role="status">
                 clamped to the server&apos;s contract ranges
               </span>
             ) : null}
           </div>
 
           {error ? (
-            <div className="rounded-md border border-rose-500/30 bg-rose-500/[0.06] p-3 text-xs text-rose-700 dark:text-rose-300">
+            <div className="rounded-md border border-danger-500/30 bg-danger/[0.06] p-3 text-xs text-danger">
               {error}
             </div>
           ) : sim ? (
@@ -495,7 +495,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                 <span>{sim.project.jobs} jobs · {sim.project.edges} deps</span>
                 <span>{sim.data.micrographs} micrographs · {sim.data.particles.toLocaleString()} particles</span>
                 {pendingEpisodes > 0 ? (
-                  <span className="text-amber-600 dark:text-amber-400">
+                  <span className="text-warning">
                     {pendingEpisodes} pending episode{pendingEpisodes === 1 ? "" : "s"} (Resources)
                   </span>
                 ) : null}
@@ -503,9 +503,14 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
 
               {rows.length ? (
                 <div
-                  className="max-h-64 space-y-1 overflow-y-auto rounded-md border bg-muted/20 p-3"
+                  tabIndex={0}
+                  className="max-h-64 space-y-1 overflow-y-auto rounded-md border bg-muted/20 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                   aria-label="Simulated schedule (Gantt)"
                 >
+                  {/* t803 — the schedule's scroll gains the stop (the
+                      second-pass census): the Gantt rows are bars + text,
+                      nothing tabbable below the 256px cap; the honest
+                      name stays. */}
                   <div className="flex items-center gap-2" aria-hidden="true">
                     <div className="w-28 shrink-0" />
                     <div className="relative h-3.5 flex-1 text-[8.5px] tabular-nums text-muted-foreground">
@@ -528,6 +533,12 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   </div>
                   {rows.map((row) => {
                     const spec = jobType(row.type);
+                    // t756 — asked once, read twice (dots + ear). The water
+                    // ask rides the spec the row already holds — it does
+                    // not ask twice. An unknown type keeps its honest
+                    // silence: no spec, no water, the queue row stays a
+                    // schedule line.
+                    const pouring = spec ? pourKindsOf(row.type) : [];
                     const label = spec?.label ?? row.type;
                     const color = TYPE_COLOR[row.type] ?? FALLBACK_COLOR;
                     return (
@@ -538,6 +549,28 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                         >
                           {label}
                         </div>
+                        {spec ? (
+                          // t756 — the schedule's type-named row reports
+                          // pours: a slot in the queue belongs to a type
+                          // with a thirst. The dots sit in the column
+                          // between label and gantt — decor and ear, never
+                          // inside the segments' time math.
+                          <span
+                            className="flex shrink-0 items-center gap-1"
+                            data-testid={`queue-pours-${row.key}`}
+                          >
+                            {pouring.map((k) => (
+                              <span
+                                key={k}
+                                aria-hidden="true"
+                                title={`pours ${k}`}
+                                className="inline-block size-1.5 rounded-full"
+                                style={{ background: PORT_COLORS[k].wire }}
+                              />
+                            ))}
+                            <span className="sr-only">pours {pouring.join(", ")}</span>
+                          </span>
+                        ) : null}
                         <div className="relative h-[18px] flex-1 overflow-hidden rounded bg-background/60">
                           {[0.25, 0.5, 0.75].map((f) => (
                             <div
@@ -670,7 +703,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                       className={cn(
                         "block w-full rounded-md border px-2.5 py-2 text-left transition-colors",
                         row.r ? "cursor-pointer hover:bg-muted/50" : "cursor-not-allowed opacity-60",
-                        isBest ? "border-emerald-500/40 bg-emerald-500/[0.06]" : "border-border/60",
+                        isBest ? "border-success/40 bg-success/[0.06]" : "border-border/60",
                       )}
                       title={
                         row.r
@@ -691,13 +724,13 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                           {gpus} GPUs · ×{row.p.gpuSpeedup} · %{row.p.arrayConcurrency}
                         </span>
                         {isBest ? (
-                          <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                          <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-success">
                             <Trophy className="size-3" aria-hidden="true" />
                             fastest
                           </span>
                         ) : null}
                         {row.err ? (
-                          <span className="shrink-0 text-[9.5px] italic text-rose-600 dark:text-rose-400">{row.err}</span>
+                          <span className="shrink-0 text-[9.5px] italic text-danger">{row.err}</span>
                         ) : null}
                         {row.r ? (
                           <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
@@ -721,7 +754,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                           <div
                             className={cn(
                               "absolute inset-y-0 left-0 rounded",
-                              isBest ? "bg-emerald-500/70" : "bg-slate-400/50",
+                              isBest ? "bg-success-500/70" : "bg-slate-400/50",
                             )}
                             style={{ width: `${worstMakespan > 0 ? Math.max(2, (row.r.makespanMin / worstMakespan) * 100) : 2}%` }}
                             aria-hidden="true"
@@ -738,7 +771,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
               </p>
               {exportNote ? (
                 <p
-                  className="text-[9.5px] font-medium text-emerald-600 dark:text-emerald-400"
+                  className="text-[9.5px] font-medium text-success"
                   role="status"
                   aria-label="Export status"
                   data-csv={lastCsv ?? undefined}

@@ -17,6 +17,9 @@
 
 import type { EdgeDTO, JobDTO, ParamValue } from "./types";
 import { findCycle, formatCyclePath } from "./graph-cycle";
+// t646 — the blob sink lives in lib/download (this dance skipped the
+// attach-before-click Firefox law)
+import { downloadBlob } from "@/lib/download";
 import { JOB_TYPES, jobType } from "./workflow";
 
 export const WORKFLOW_FORMAT = "cryoflow-workflow";
@@ -344,10 +347,5 @@ export function workflowFileName(workspace: string): string {
 /** Serialize + trigger the browser download. */
 export function downloadWorkflowJson(file: WorkflowFile, fileName: string): void {
   const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  downloadBlob(blob, fileName);
 }

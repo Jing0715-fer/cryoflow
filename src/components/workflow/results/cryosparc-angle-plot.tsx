@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Compass, Globe2, RadioTower, Orbit, TriangleAlert, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Chip } from "@/components/ui/chip";
 import { Mat3, matVec, plotSymmetryMatrices } from "@/lib/symmetry";
 
 export interface FibBin {
@@ -444,7 +445,7 @@ export function CryoSparcAnglePlot({
           className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 rounded-md border bg-popover px-2 py-1 text-[10px] font-medium tabular-nums text-popover-foreground shadow-md"
         >
           rot {hovered.rot.toFixed(0)}° · tilt {hovered.tilt.toFixed(0)}°
-          <span className="ml-1.5 text-teal-600 dark:text-teal-400">
+          <span className="ml-1.5 text-running">
             {hovered.count} ({((hovered.count / Math.max(1, total)) * 100).toFixed(1)}%)
           </span>
         </div>
@@ -459,43 +460,48 @@ export function CryoSparcAnglePlot({
   return (
     <section
       aria-label="Orientation distribution (cryoSPARC style)"
-      className="rounded-lg border border-teal-600/25 bg-gradient-to-b from-teal-600/5 to-transparent p-3"
+      className="rounded-lg border border-running/25 bg-gradient-to-b from-running-600/5 to-transparent p-3"
     >
       {/* header row */}
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-          <Globe2 className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+          <Globe2 className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
           Orientation distribution · Mollweide
         </span>
         {running ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-teal-600/30 bg-teal-600/10 px-1.5 py-px text-[10px] font-medium text-teal-700 dark:text-teal-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-running/30 bg-running/10 px-1.5 py-px text-[10px] font-medium text-running-700 dark:text-running-300">
             <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-running-500 opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-running-500" />
             </span>
             live
           </span>
         ) : null}
         {symMats ? (
-          <button
-            type="button"
-            onClick={() => setExpandSym((v) => !v)}
-            aria-pressed={expandSym}
+          <Chip
+            size="sm"
+            interactive
+            asChild
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-medium transition-colors",
               expandSym
-                ? "border-teal-600/60 bg-teal-600/15 text-teal-700 dark:text-teal-300"
-                : "border-border/60 bg-muted/40 text-muted-foreground hover:border-teal-600/40 hover:text-teal-700 dark:hover:text-teal-300"
+                ? "border-running-600/60 bg-running/15 text-running-700 dark:text-running-300"
+                : "border-border/60 bg-muted/40 text-muted-foreground hover:border-running/40 hover:text-running-700 dark:hover:text-running-300"
             )}
           >
-            <Orbit className="h-3 w-3" aria-hidden="true" />
-            {expandSym ? `${symmetry} orbit on` : `apply ${symmetry}`}
-          </button>
+            <button
+              type="button"
+              onClick={() => setExpandSym((v) => !v)}
+              aria-pressed={expandSym}
+            >
+              <Orbit aria-hidden="true" />
+              {expandSym ? `${symmetry} orbit on` : `apply ${symmetry}`}
+            </button>
+          </Chip>
         ) : null}
-        <span className="ml-auto inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground">
-          <RadioTower className="h-3 w-3" aria-hidden="true" />
+        <Chip size="sm" tone="muted" className="ml-auto">
+          <RadioTower aria-hidden="true" />
           {total.toLocaleString()} particles{iterLabel ? ` · ${iterLabel}` : ""}
-        </span>
+        </Chip>
       </div>
 
       {body}
@@ -512,7 +518,7 @@ export function CryoSparcAnglePlot({
         <span
           className={cn(
             "inline-flex items-center gap-1 font-medium",
-            anisotropic ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"
+            anisotropic ? "text-warning-700 dark:text-warning-300" : "text-success-700 dark:text-success-300"
           )}
         >
           {anisotropic ? (

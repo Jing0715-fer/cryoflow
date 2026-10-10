@@ -24,6 +24,8 @@
  *      the empty set leaves nothing
  *   Z  read-only — roster identity, console clean
  * x3 runs required by house rules. */
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t707 — saved-state routes reject headerless clients (the door's language)
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 import { readFileSync } from "fs";

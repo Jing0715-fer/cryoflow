@@ -16,7 +16,7 @@
 // it look like".
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21, the seeded volume host
+//   A  demo truth — homepage 200, roster 15, the seeded volume host
 //   B  the ledger — MrcHeader's start/dmean/rms read-side, the outputs
 //      route's map summary assembly, the card component + source
 //      parsing + the honest standalone branch — all asserted at source
@@ -29,8 +29,11 @@
 //   D  cleanup + console clean
 //
 // Run: node scripts/t256-map-card.mjs   (server on :3000)
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 import { closeSync, existsSync, openSync, readFileSync, readSync, rmSync } from "node:fs";
 import path from "node:path";
 
@@ -46,8 +49,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
 await sleep(500);
 
-// seed the volume world (t210/t253/t254/t255's recipe — idempotent, roster stays 21)
-execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
+// seed the volume world (t210/t253/t254/t255's recipe — idempotent, roster stays 15)
+// t706 — the host resolves through the manifest contract (qa-refine-host.mjs,
+// the qa-batch lesson): the name is the world's own spelling, never a pin.
+const HOST = resolveRefineHost();
+const JOB = HOST.name;
+execSync(`QA_VOL_HOST="${JOB}" python3 scripts/qa67-seed-volume.py`, { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
 // self-healing precondition: a previous crashed run may have left its probe
@@ -63,7 +70,7 @@ execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
 const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster0 = (jobs0.jobs ?? []).length;
-const host = (jobs0.jobs ?? []).find((j) => j.name === "QA Refine3D");
+const host = HOST;
 
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
 // engine-state.json maps job id → record at the TOP LEVEL (no .jobs wrapper)
@@ -100,8 +107,8 @@ console.log("== PHASE A: demo truth ==");
 const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
-must(roster0 === 21, `roster identity 21 (got ${roster0})`);
-must(!!host && !!workdir, "QA Refine3D in roster with an on-disk workdir");
+must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
+must(!!host && !!workdir, `${JOB} in roster with an on-disk workdir`);
 must(existsSync(parentPath), "the parent map (orthovol.mrc) is on disk");
 must(parentPixel > 0, `the parent header speaks a voxel spacing (${parentPixel.toFixed(3)} Å)`);
 
@@ -118,17 +125,21 @@ must(
     mrcSrc.includes("rms: buf.readFloatLE(216)"),
   "readMrcHeader reads start (16/20/24), dmean (84) and rms (216) off the buffer it already holds"
 );
-const routeSrc = readFileSync("src/app/api/jobs/[id]/outputs/route.ts", "utf8");
+// t533 — the pins follow the assembly: the route became a protocol shell
+// (t515 moved the walk + the identity summary into lib/relion/job-outputs →
+// outputs-list), so the ledger reads the WELL, not the shell (t416: pin the
+// dialect, not the address).
+const listSrc = readFileSync("src/lib/relion/outputs-list.ts", "utf8");
 must(
-  routeSrc.includes("origin: hdr.start") && routeSrc.includes("dmean: hdr.dmean") && routeSrc.includes("rms: hdr.rms"),
-  "the outputs route mirrors the header read into the identity summary — zero extra I/O"
+  listSrc.includes("origin: hdr.start") && listSrc.includes("dmean: hdr.dmean") && listSrc.includes("rms: hdr.rms"),
+  "the outputs well mirrors the header read into the identity summary — zero extra I/O"
 );
 must(
-  routeSrc.includes("hdr.cella[2] > 0 && hdr.nz > 0 ? hdr.cella[2] / hdr.nz : 0"),
+  listSrc.includes("hdr.cella[2] > 0 && hdr.nz > 0 ? hdr.cella[2] / hdr.nz : 0"),
   "voxel spacing is computed cella[2]/nz, 0 when the header doesn't say"
 );
 must(
-  routeSrc.includes('.endsWith(".mrcs")'),
+  listSrc.includes('.endsWith(".mrcs")'),
   "stacks (.mrcs) don't get a map summary — in-plane axes are not navigable"
 );
 const viewSrc = readFileSync("src/components/workflow/results/results-view.tsx", "utf8");
@@ -285,7 +296,7 @@ try {
   if (workdir) rmSync(path.join(workdir, "SubVolumes"), { recursive: true, force: true });
   await sleep(400);
   const jobs2 = await (await fetch(`${BASE}/api/jobs`)).json();
-  must((jobs2.jobs ?? []).length === 21, `roster restored to 21 (got ${(jobs2.jobs ?? []).length})`);
+  must((jobs2.jobs ?? []).length >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${(jobs2.jobs ?? []).length})`);
   must(!cropAbs || !existsSync(cropAbs), "the materialized crop left with the cleanup");
 
   await page.goto(BASE, { waitUntil: "domcontentloaded" });

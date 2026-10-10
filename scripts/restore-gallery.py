@@ -173,7 +173,7 @@ Promise.all(spec.map(([id, result]) =>
 """
     spec = [[v["id"], v["_result"]] for v in created.values() if v["id"] and "_result" in v]
     r = subprocess.run(["node", "-e", flip, json.dumps(spec)],
-                       cwd="/home/z/my-project", capture_output=True, text=True)
+                       cwd="/home/z/my-project", capture_output=True, text=True, env=dict(os.environ, DATABASE_URL="file:/home/z/my-project/db/cryoflow.db"))
     if "flipped" not in r.stdout:
         sys.exit(f"DB flip failed: {r.stderr.strip()[:300]}")
     print(f"status: {r.stdout.strip()} (+ qa58's class2d; select2d stays idle by design)")

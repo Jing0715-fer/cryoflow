@@ -28,6 +28,8 @@
 // Run: node scripts/t100-e2e.mjs   (server on :3000)
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 // v2 since Task 101 (each entry now carries a stable hotkey slot);

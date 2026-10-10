@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isLocalRequest } from "@/lib/http-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,15 @@ type RouteContext = { params: Promise<{ id: string }> };
 // to the job workdir) and re-validated against the job's live outputs on
 // restore — a stale entry can never reach the viewer, so the stored list
 // self-heals on the next visit.
+//
+// t707 — the saved-state door: both handlers carry the same
+// isLocalRequest gate as the workdir-byte routes (t251's sibling
+// closure). The row enumerates job workdir paths and IS the user's
+// saved Layers setup. Cross-origin PUT already needs a CORS preflight
+// a drive-by page cannot pass — the door's added value is closing
+// no-cors GET blind probing (the route would still EXECUTE behind an
+// opaque response) and keeping the job surface's policy uniform:
+// one door, every handler.
 
 interface OverlayEntry {
   path: string;
@@ -52,7 +62,13 @@ function sanitize(raw: unknown): OverlayEntry[] {
   return out;
 }
 
-export async function GET(_req: NextRequest, ctx: RouteContext) {
+export async function GET(req: NextRequest, ctx: RouteContext) {
+  if (!isLocalRequest(req)) {
+    return NextResponse.json(
+      { error: "Cross-site access to saved viewer state is not allowed" },
+      { status: 403 },
+    );
+  }
   const { id } = await ctx.params;
   try {
     const row = await db.overlaySession.findUnique({ where: { jobId: id } });
@@ -70,6 +86,12 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 }
 
 export async function PUT(req: NextRequest, ctx: RouteContext) {
+  if (!isLocalRequest(req)) {
+    return NextResponse.json(
+      { error: "Cross-site access to saved viewer state is not allowed" },
+      { status: 403 },
+    );
+  }
   const { id } = await ctx.params;
   let body: {
     entries?: unknown;

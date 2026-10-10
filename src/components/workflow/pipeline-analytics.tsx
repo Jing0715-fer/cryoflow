@@ -21,33 +21,94 @@
  * ≥ 1 resolution milestone) so empty/draft projects stay clean.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   Award,
   ChartGantt,
   Check,
   ClipboardCopy,
+  Clock,
+  CornerDownRight,
   Crosshair,
   Download,
   Filter,
+  Route,
+  Timer,
   Waves,
 } from "lucide-react";
 import { fmtClock, fmtDuration } from "@/lib/duration";
+import { walkTimeline } from "@/lib/timeline-walk";
+import { timelineRunsCsv, timelineRunsCsvFilename, type TimelineCsvRow } from "@/lib/qc-report"; // t506 — the windows' machine face
+import { stageRuntime, stageRuntimeCsv, stageRuntimeCsvFilename, type StageRuntime } from "@/lib/stage-runtime"; // t677 — the per-stage wall-clock lens
+import { criticalPath } from "@/lib/critical-path"; // t681 — the chain that set the finish
 import type { JobDTO } from "@/lib/types";
-import { jobType } from "@/lib/workflow";
+import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow";
 import { useWorkflowStore } from "@/lib/store";
 import { toast } from "@/hooks/use-toast";
 import { TypeIcon } from "./icons";
 import { cn } from "@/lib/utils";
 import { downloadText } from "@/lib/download";
 
+/* t611 — the innards' arrival grammar (the funnel pours). The section
+ * rises as furniture (rise-in, 350ms); the innards hold the SECOND layer
+ * of the family's two-layer honesty (t610: furniture arrives, the
+ * measurement stays) — here the measurement stays STILL (no count-up,
+ * t609's law: a rolling digit would pretend computation the engine
+ * already did) and it is the FACES that arrive:
+ *
+ *   • flow rows surface in reading order (receipt-arrival's word — the
+ *     pipeline's stages are the engine's answers), 24ms step;
+ *   • each bar POURS along the flow's own axis — scaleX from its left
+ *     edge, where the particles enter the stage (the section's only
+ *     genuinely new direction, so the family's only new keyframe);
+ *   • ladder steps surface with the receipt's word, oldest → newest.
+ *
+ * INNER_BASE_MS is the section's own rise-in landing beat — furniture
+ * first, then the quantities take their places. CSS animations run once
+ * per MOUNT: re-renders that preserve keys (the status filter chips
+ * re-composing the same rows) cannot restart them — re-composition is
+ * not re-arrival; a remount (dashboard re-entry) is, and replays the
+ * grammar honestly. Timing constants live here as the single source of
+ * truth: widest real funnel is 7 stages → 350 + 6×24 + 480 = 974ms pour
+ * tail.
+ *
+ * t612 — the session timeline joins the same wave: its REVEAL rows
+ * surface in reading order with the receipt's word, continuing the
+ * count past the FLOW (the faces that spoke synchronously before it)
+ * so the page reads as one surfacing top-down. The never-ran footnote
+ * rides as the rows' next line. The ROW FACE ONLY, per the t611
+ * decision: the bars keep their own words (left/width transitions for
+ * data moves; the running row's soft-pulse is a living word an
+ * entrance shorthand would kill) — an entrance on the bar would both
+ * fight the transition and silence the pulse.
+ *
+ * The wave counts the FLOW ONLY — never the ladder. The ladder is
+ * ASYNC: it mounts when its milestones land (three fetches after the
+ * section mounts), so folding milestones.length into the timeline's
+ * delays would let a late fetch SHIFT every row's animation-delay —
+ * and a shifted delay on a finished animation replays it: re-render
+ * would become re-arrival, the exact dishonesty the grammar forbids.
+ * The ladder speaks on its own mount with the section's own base; the
+ * timeline's wave is built from synchronous faces alone. Canonical
+ * world: 4 flow rows + 11 runs → the last row lands at
+ * 350 + 14×24 + 240 = 926ms, the footnote at 710ms. */
+const INNER_BASE_MS = 350;
+const STEP_MS = 24;
+
 /* ------------------------------------------------------------------ */
 /* Particle-flow parsing                                               */
 /* ------------------------------------------------------------------ */
 
 interface FlowRow {
+  /** the STAGE this row represents ("micrographs", "extracted", …) — a
+   * label domain, NOT a React key: a re-run extract/classify makes two
+   * completed jobs answer the SAME stage, and the old key={row.key}
+   * rendered two siblings with one key (the "Encountered two children
+   * with the same key `extracted`" console error). The job's id keys the
+   * row; the stage stays as semantics. */
   key: string;
+  jobId: string;
   label: string;
   count: number;
   /** optional annotation ("×4 D2", "kept 92%") */
@@ -74,7 +135,7 @@ function flowRowOf(job: JobDTO): FlowRow | null {
   if (job.status !== "completed" || !job.result) return null;
   const r = job.result;
   const row = (key: string, label: string, count: number, note?: string): FlowRow | null =>
-    Number.isFinite(count) && count > 0 ? { key, label, count, note, type: job.type } : null;
+    Number.isFinite(count) && count > 0 ? { key, jobId: job.id, label, count, note, type: job.type } : null;
 
   if (/^import$/i.test(job.type)) {
     const m = r.match(/(\d[\d,]*)\s+micrographs? imported/i);
@@ -235,6 +296,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   const workspaces = useWorkflowStore((s) => s.workspaces);
   const projectName = useWorkflowStore((s) => s.project?.name);
   const revealJob = useWorkflowStore((s) => s.revealJob);
+  const edges = useWorkflowStore((s) => s.edges); // t681 — the chain reads the canvas's own connections
   /** null = all workspaces; otherwise a workspace id ("" = legacy unassigned). */
   const [wsFilter, setWsFilter] = useState<string | null>(null);
   /** brief ✓ state on the copy-summary button */
@@ -273,14 +335,12 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
 
   /* Task 123 — session timeline: the run window each job actually occupied.
    *
-   * The axis is REAL run data: the engine stamps startedAt when a job flips
-   * to running and writes the measured elapsed into duration on completion,
-   * so [startedAt, startedAt + duration] is the honest window (updatedAt is
-   * NOT — every poll merge touches it, all rows would share one instant).
-   * Jobs the engine never started (seeded / idle) have no window and stay
-   * off the bars; the footer counts them instead of pretending. A live run
-   * stretches to "now" — a 5s ticker only exists while one is running,
-   * otherwise the axis is frozen data and costs no timers. */
+   * t504: the arithmetic (which window is honest, who is counted, the
+   * sort) moved to lib/timeline-walk — ONE well, the bars and the
+   * agent's get_session_timeline drink it, so the model can never
+   * disagree with this Gantt about when anything ran. What stays here
+   * is the display dialect: the 5s ticker that exists only while a
+   * run is live, and the ticks the axis draws. */
   const anyRunning = scoped.some((j) => j.status === "running");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -289,32 +349,66 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
     return () => clearInterval(t);
   }, [anyRunning]);
 
-  const runs = useMemo(() => {
-    const rows = scoped
-      .filter(
-        (j) =>
-          j.startedAt &&
-          (j.status === "completed" || j.status === "failed" || j.status === "running")
-      )
-      .map((j) => {
-        const start = new Date(j.startedAt as string).getTime();
-        const end =
-          j.status === "running" ? Math.max(now, start + 1000) : start + Math.max(1000, j.duration);
-        return { job: j, start, end, ms: Math.max(1000, end - start) };
-      })
-      .filter((r) => Number.isFinite(r.start) && r.end > r.start)
-      .sort((a, b) => a.start - b.start || a.job.name.localeCompare(b.job.name));
-    if (rows.length === 0) return { rows, t0: 0, span: 0, ticks: [] as number[] };
-    const t0 = rows[0].start;
-    const span = Math.max(rows[rows.length - 1].end - t0, 1000);
-    const step = niceStepMs(span);
-    const ticks: number[] = [];
-    for (let t = 0; t <= span + 1; t += step) ticks.push(t);
-    return { rows, t0, span, ticks };
-  }, [scoped, now]);
+  const walk = useMemo(() => walkTimeline(scoped, now), [scoped, now]);
+  const ticks = useMemo(() => {
+    if (walk.rows.length === 0) return [] as number[];
+    const step = niceStepMs(walk.span);
+    const out: number[] = [];
+    for (let t = 0; t <= walk.span + 1; t += step) out.push(t);
+    return out;
+  }, [walk]);
+  const runs = useMemo(() => ({ ...walk, ticks }), [walk, ticks]);
 
-  /** jobs the engine never started — the timeline's honest absentees */
-  const neverRan = scoped.filter((j) => !j.startedAt).length;
+  /* t677 — Runtime by stage: the per-TYPE wall-clock lens. One type, one
+   * row — the timeline's bars aggregated into the answer to "which stage
+   * eats my clock?". Drinks the SAME walk (runs.rows — the floored,
+   * live-stretched measurement), completed runs only: a live run's window
+   * has no end yet, so counting it would mix a partial measurement into a
+   * sum of finished ones. */
+  const runtime: StageRuntime = useMemo(
+    () =>
+      stageRuntime(
+        runs.rows
+          .filter((r) => r.job.status === "completed")
+          .map((r) => ({
+            type: r.job.type,
+            label: jobType(r.job.type)?.label ?? r.job.type,
+            ms: r.ms,
+          }))
+      ),
+    [runs.rows]
+  );
+
+  /* t681 — Critical path: the chain that set the finish. The timeline's
+   * windows + the canvas's own edges, walked backwards from the run that
+   * finished last through each step's latest-finishing upstream. A live
+   * run has no end yet, so it waits outside the chain (the same honesty
+   * the runtime table speaks); failed runs keep their windows — time
+   * spent failing is real time, and a failed step can be the finisher. */
+  const critical = useMemo(
+    () =>
+      criticalPath(
+        runs.rows.filter((r) => r.job.status !== "running"),
+        edges,
+      ),
+    [runs.rows, edges]
+  );
+
+  /** The runtime table's machine face: heaviest-first, machine columns
+   *  (ms) beside the human words the row prints. */
+  const exportRuntimeCsv = () => {
+    const csv = stageRuntimeCsv(runtime);
+    if (!csv) return; // nothing completed — a silent empty file would be a lying door
+    downloadText(stageRuntimeCsvFilename(), csv, "text/csv;charset=utf-8");
+    toast({
+      title: "Runtime CSV exported",
+      description: `${runtime.rows.length} stage type${runtime.rows.length === 1 ? "" : "s"} · ${runtime.runs} completed run${runtime.runs === 1 ? "" : "s"} · scope: ${scopeLabel}`,
+    });
+  };
+
+  /** jobs the engine never started — the timeline's honest absentees
+   *  (t504: the count drinks the well too, never a private twin) */
+  const neverRan = walk.neverStarted;
 
   // clear the copied-✓ timer on unmount (never setState after unmount)
   useEffect(
@@ -370,6 +464,39 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
         );
       }
     }
+    if (runtime.rows.length > 0) {
+      lines.push("");
+      lines.push(
+        `Runtime by stage (${runtime.runs} completed run${runtime.runs === 1 ? "" : "s"}, ${fmtDuration(runtime.totalMs)} summed):`
+      );
+      for (const r of runtime.rows) {
+        lines.push(
+          `  ${r.label}: ${r.n} run${r.n === 1 ? "" : "s"} · median ${fmtDuration(r.medianMs)} · p90 ${fmtDuration(r.p90Ms)} · total ${fmtDuration(r.totalMs)} (${r.sharePct}%)`
+        );
+      }
+      if (runtime.bottleneck) {
+        lines.push(
+          `  heaviest stage: ${runtime.bottleneck.label} (${runtime.bottleneck.sharePct}% of summed runtime)`
+        );
+      }
+    }
+    if (critical && critical.chain.length > 0) {
+      lines.push("");
+      lines.push(
+        `Critical path (${critical.chain.length} step${critical.chain.length === 1 ? "" : "s"}, ${fmtDuration(critical.spanMs)} span):`
+      );
+      for (const s of critical.chain) {
+        const gap =
+          s.gapBeforeMs == null
+            ? ""
+            : s.gapBeforeMs > 0
+              ? `, waited ${fmtDuration(s.gapBeforeMs)} after upstream finished`
+              : s.gapBeforeMs < 0
+                ? `, overlapped ${fmtDuration(-s.gapBeforeMs)} with upstream`
+                : ", started as upstream finished";
+        lines.push(`  ${s.job.name}: ran ${fmtDuration(s.ms)}${gap}`);
+      }
+    }
     lines.push("");
     lines.push(`Generated ${new Date().toLocaleString()}`);
     return lines.join("\n");
@@ -394,13 +521,28 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
     }
   };
 
-  /** Full job inventory of the current scope → timestamped CSV download. */
+  // null/"" both mean the legacy "Unassigned" bucket (same as the chips) —
+  // lifted to component scope (t506): the windows' CSV speaks the same
+  // workspace names the inventory's does, so one resolver serves both
+  const wsName = (id: string | null | undefined) =>
+    id == null || id === ""
+      ? "Unassigned"
+      : (workspaces.find((w) => w.id === id)?.name ?? id);
+
+  /** Full job inventory of the current scope → timestamped CSV download.
+   *  t507 — the archive grid learns the honest window: started_at speaks
+   *  the engine's own stamp (the DTO field verbatim, the way created and
+   *  updated speak theirs) and duration_ms drinks the SAME walk the bars
+   *  and the timeline CSV pour from — the floor and the running-stretch
+   *  live in the well, so a spreadsheet can never catch the two grids
+   *  disagreeing about how long a step took. A job the engine never
+   *  started has no window: both cells stay blank (CSV grammar for
+   *  "never started" is blank, never a guess). */
   const exportCsv = () => {
-    const wsName = (id: string | null | undefined) =>
-      // null/"" both mean the legacy "Unassigned" bucket (same as the chips)
-      id == null || id === ""
-        ? "Unassigned"
-        : (workspaces.find((w) => w.id === id)?.name ?? id);
+    // one lookup over the walk's rows — duration is a MEASUREMENT (the
+    // well's ms: floored, a live run stretched to now), never the raw
+    // j.duration (0/stale while a run is still going)
+    const windowMsByJob = new Map(runs.rows.map((r) => [r.job.id, r.ms]));
     const header = [
       "name",
       "type",
@@ -411,6 +553,10 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
       "result",
       "created_at",
       "updated_at",
+      // t507 — the window's two columns ride at the END: existing column
+      // positions stay stable for the scripts already reading this grid
+      "started_at",
+      "duration_ms",
     ];
     const rows = scoped.map((j) => [
       j.name,
@@ -422,6 +568,8 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
       j.result ?? "",
       j.createdAt,
       j.updatedAt,
+      j.startedAt ?? "", // the engine's own stamp, verbatim (null = never started)
+      windowMsByJob.get(j.id)?.toString() ?? "", // the walk's ms, blank when no window exists
     ]);
     const csv = [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
     const stamp = new Date().toISOString().slice(0, 10);
@@ -433,6 +581,34 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
     toast({
       title: "CSV exported",
       description: `${rows.length} jobs · scope: ${scopeLabel}`,
+    });
+  };
+
+  /** The windows' machine face (t506): the SAME walk the bars draw, as
+   *  a spreadsheet-ready grid — the job inventory speaks archive fields
+   *  (created/updated) and, since t507, carries the window's stamp and
+   *  length from this same well (started_at/duration_ms); THIS grid
+   *  remains the whole-window face (start, end, measured duration, share
+   *  of the span). A live run's ended_at is the CSV builder's business
+   *  (blank, never a guess). */
+  const exportTimelineCsv = () => {
+    const rows: TimelineCsvRow[] = runs.rows.map((r) => ({
+      jobId: r.job.id,
+      jobName: r.job.name,
+      jobType: r.job.type,
+      workspace: wsName(r.job.workspaceId),
+      status: r.job.status,
+      startMs: r.start,
+      endMs: r.job.status === "running" ? null : r.end,
+      durationMs: r.ms,
+      spanMs: runs.span,
+    }));
+    const csv = timelineRunsCsv(rows);
+    if (!csv) return; // nobody ran — a silent empty file would be a lying door
+    downloadText(timelineRunsCsvFilename(), csv, "text/csv;charset=utf-8");
+    toast({
+      title: "Timeline CSV exported",
+      description: `${rows.length} run${rows.length === 1 ? "" : "s"} · scope: ${scopeLabel}`,
     });
   };
 
@@ -449,6 +625,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
   return (
     <section
       aria-label="Pipeline analytics"
+      data-analytics-arrival=""
       className="animate-rise rounded-xl border bg-gradient-to-b from-muted/40 to-transparent p-4"
     >
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -472,7 +649,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {copied ? (
-                <Check className="size-3.5 text-emerald-600" aria-hidden="true" />
+                <Check className="size-3.5 text-success-600" aria-hidden="true" />
               ) : (
                 <ClipboardCopy className="size-3.5" aria-hidden="true" />
               )}
@@ -486,16 +663,35 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             >
               <Download className="size-3.5" aria-hidden="true" />
             </button>
+            <button
+              type="button"
+              onClick={exportTimelineCsv}
+              title="Download the session timeline (honest windows: start, end, duration, share) as CSV"
+              aria-label="Export timeline as CSV"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Clock className="size-3.5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={exportRuntimeCsv}
+              title="Download runtime by stage (per-type median, p90, total and share of wall clock) as CSV"
+              aria-label="Export runtime by stage as CSV"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Timer className="size-3.5" aria-hidden="true" />
+            </button>
           </div>
           {wsOptions.length > 1 && (
             // .no-print (Task 80 follow-up): interactive slice toggles —
             // on paper they read as "Unassigned · 1" junk and collide with
             // the dashboard roster's own Unassigned badge text
-            <div className="no-print flex flex-wrap items-center gap-1" role="group" aria-label="Filter analytics by workspace">
+            <div className="no-print flex flex-wrap items-center gap-1" role="group" aria-label="Filter analytics by workspace" data-analytics-scope-group="">
             <button
               type="button"
               onClick={() => setWsFilter(null)}
               aria-pressed={wsFilter == null}
+              data-analytics-scope-chip="all"
               className={cn(
                 "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
                 wsFilter == null
@@ -514,6 +710,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 // into the "all" filter
                 onClick={() => setWsFilter(w.id)}
                 aria-pressed={wsFilter === w.id}
+                data-analytics-scope-chip={w.id || "unassigned"}
                 title={`Scope the analytics to the “${w.name}” workspace`}
                 className={cn(
                   "rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
@@ -543,7 +740,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
         {flow.length >= 2 && (
           <div>
             <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
-              <Filter className="size-3 text-teal-600" aria-hidden="true" />
+              <Filter className="size-3 text-running-600" aria-hidden="true" />
               Particle flow
             </p>
             <div className="space-y-1.5">
@@ -553,7 +750,12 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                 const delta = prev != null ? row.count - prev : null;
                 const w = Math.max(8, Math.round((row.count / maxCount) * 100));
                 return (
-                  <div key={row.key} className="group/flow flex items-center gap-2">
+                  <div
+                    key={row.jobId}
+                    className="group/flow flex items-center gap-2"
+                    data-flow-row=""
+                    style={{ "--ad": `${INNER_BASE_MS + i * STEP_MS}ms` } as CSSProperties}
+                  >
                     <span
                       className={cn(
                         "flex size-5 shrink-0 items-center justify-center rounded ring-1 ring-inset",
@@ -570,8 +772,9 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                     </span>
                     <div className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-muted/70">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-teal-600/70 to-teal-500/45 transition-[width] duration-700 ease-out group-hover/flow:from-teal-600 group-hover/flow:to-teal-500/70"
-                        style={{ width: `${w}%` }}
+                        className="h-full rounded-full bg-gradient-to-r from-running-600/70 to-running-500/45 transition-[width] duration-700 ease-out group-hover/flow:from-running-600 group-hover/flow:to-running-500/70"
+                        style={{ width: `${w}%`, "--ad": `${INNER_BASE_MS + i * STEP_MS}ms` } as CSSProperties}
+                        data-flow-bar=""
                       />
                     </div>
                     <span className="w-16 shrink-0 text-right text-[11px] font-semibold tabular-nums">
@@ -581,7 +784,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                       <span
                         className={cn(
                           "w-14 shrink-0 text-right text-[10px] font-semibold tabular-nums",
-                          delta > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                          delta > 0 ? "text-success" : "text-warning"
                         )}
                         title={
                           delta > 0
@@ -616,7 +819,12 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                     ? m.reported
                     : (m.at143 ?? m.reported);
                 return (
-                  <div key={m.jobId} className="flex items-center gap-1">
+                  <div
+                    key={m.jobId}
+                    className="flex items-center gap-1"
+                    data-ladder-step=""
+                    style={{ "--ad": `${INNER_BASE_MS + i * STEP_MS}ms` } as CSSProperties}
+                  >
                     {i > 0 && <ArrowRight className="size-3 text-muted-foreground/40" aria-hidden="true" />}
                     <button
                       type="button"
@@ -625,7 +833,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                         "cursor-pointer rounded-lg border bg-card px-2.5 py-1.5 text-left shadow-sm transition-colors hover:border-violet-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                         m.reported != null && m.reported === best
                           ? "border-violet-500/40 ring-1 ring-violet-500/15"
-                          : "border-amber-500/30"
+                          : "border-warning/30"
                       )}
                       title={`${m.name}${m.label ? ` · ${m.label}` : ""} — click to reveal on the canvas`}
                     >
@@ -638,7 +846,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                             "text-sm font-bold tabular-nums",
                             m.reported != null && m.reported === best
                               ? "text-violet-700 dark:text-violet-300"
-                              : "text-amber-700 dark:text-amber-300"
+                              : "text-warning-700 dark:text-warning-300"
                           )}
                         >
                           {best?.toFixed(2)} Å
@@ -657,7 +865,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
             <p className="mt-1.5 flex items-center gap-1 text-[10px] leading-relaxed text-muted-foreground/70">
               <Award className="size-3 shrink-0 text-violet-500/70" aria-hidden="true" />
               violet = RELION-reported · amber = 0.143 gold-standard crossing
-              <Crosshair className="ml-1 size-3 shrink-0 text-amber-500/70" aria-hidden="true" />
+              <Crosshair className="ml-1 size-3 shrink-0 text-warning-500/70" aria-hidden="true" />
               lower is better
             </p>
           </div>
@@ -675,16 +883,25 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
           <div
             className="mt-5 border-t pt-4"
             data-canvas-ui="analytics-timeline"
+            data-tl-arrival=""
             data-tl-count={runs.rows.length}
           >
             <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
-              <ChartGantt className="size-3 text-amber-600" aria-hidden="true" />
+              <ChartGantt className="size-3 text-warning-600" aria-hidden="true" />
               Session timeline
               <span className="font-normal text-muted-foreground">
                 · {runs.rows.length} run{runs.rows.length === 1 ? "" : "s"} across {fmtOffset(runs.span)}
               </span>
             </p>
-            <div className="max-h-72 overflow-y-auto pr-1 print:max-h-none print:overflow-visible">
+            {/* t812 — the timeline's ground dressed (the t811 lesson): a
+                stop, an honest name, and the inset ring; the cap, the pr
+                rhythm, and the print unroll stay verbatim */}
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Session timeline — the session's runs as start-and-duration bars"
+              className="max-h-72 overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 print:max-h-none print:overflow-visible"
+            >
               <div className="relative">
                 {/* axis hairlines: behind every row, aligned to the track */}
                 <div className="pointer-events-none absolute inset-y-0 left-[164px] right-[84px]" aria-hidden="true">
@@ -696,7 +913,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                     />
                   ))}
                 </div>
-                {runs.rows.map((r) => {
+                {runs.rows.map((r, ti) => {
                   const x = ((r.start - runs.t0) / runs.span) * 100;
                   const w = Math.max((r.ms / runs.span) * 100, 0.75);
                   const spec = jobType(r.job.type);
@@ -707,6 +924,7 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                       className="group relative flex w-full cursor-pointer items-center gap-2 rounded py-[3px] text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                       data-tl-row=""
                       data-status={r.job.status}
+                      style={{ "--td": `${INNER_BASE_MS + (flow.length + ti) * STEP_MS}ms` } as CSSProperties}
                       onClick={() => revealJob(r.job.id)}
                       title={`Reveal ${r.job.name} on the canvas — ${r.job.status}, ran ${fmtDuration(r.ms)}`}
                     >
@@ -734,10 +952,10 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
                           className={cn(
                             "absolute top-1/2 h-2.5 -translate-y-1/2 rounded-[3px] transition-[left,width] duration-500 ease-out [print-color-adjust:exact] [-webkit-print-color-adjust:exact]",
                             r.job.status === "running"
-                              ? "animate-soft-pulse bg-amber-500"
+                              ? "animate-soft-pulse bg-warning-500"
                               : r.job.status === "failed"
-                                ? "bg-rose-500/85"
-                                : "bg-emerald-500/80"
+                                ? "bg-danger-500/85"
+                                : "bg-success-500/80"
                           )}
                           style={{ left: `${x}%`, width: `${w}%` }}
                           data-tl-bar=""
@@ -771,11 +989,286 @@ export function PipelineAnalytics({ jobs }: { jobs: JobDTO[] }) {
               </div>
             </div>
             {neverRan > 0 && (
-              <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground/70" data-tl-never="">
+              <p
+                className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground/70"
+                data-tl-never=""
+                style={{ "--td": `${INNER_BASE_MS + (flow.length + runs.rows.length) * STEP_MS}ms` } as CSSProperties}
+              >
                 {neverRan} of {scoped.length} job{scoped.length === 1 ? "" : "s"} in scope never
                 started — bars cover engine runs only (startedAt → measured wall time)
               </p>
             )}
+          </div>
+        )}
+
+        {/* runtime by stage -----------------------------------------------
+            The timeline's bars aggregated per TYPE: which stage eats the
+            wall clock. One row per stage type — icon, label, run count,
+            a share bar (the row's slice of summed runtime), then the
+            median/p90/total triple. Heaviest first; the bottleneck chip
+            rides the header line only when two or more types ran (with
+            one type "bottleneck" is a tautology, not an insight). */}
+        {runtime.rows.length > 0 && (
+          <div
+            className="mt-5 border-t pt-4"
+            data-canvas-ui="analytics-runtime"
+            data-runtime-types={runtime.rows.length}
+            data-runtime-runs={runtime.runs}
+          >
+            <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
+              <Timer className="size-3 text-primary" aria-hidden="true" />
+              Runtime by stage
+              <span className="font-normal text-muted-foreground">
+                · {runtime.runs} completed run{runtime.runs === 1 ? "" : "s"} · {fmtDuration(runtime.totalMs)} summed
+              </span>
+              {runtime.bottleneck && (
+                <span
+                  className="ml-auto rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[9.5px] font-semibold text-warning-700 dark:text-warning-300"
+                  data-runtime-bottleneck={runtime.bottleneck.type}
+                  title={`${runtime.bottleneck.label} holds ${runtime.bottleneck.sharePct}% of the summed wall clock (${runtime.bottleneck.n} run${runtime.bottleneck.n === 1 ? "" : "s"}, median ${fmtDuration(runtime.bottleneck.medianMs)})`}
+                >
+                  heaviest: {runtime.bottleneck.label} · {runtime.bottleneck.sharePct}%
+                </span>
+              )}
+            </p>
+            <div className="flex flex-col gap-1">
+              {runtime.rows.map((r) => {
+                const spec = jobType(r.type);
+                // t755 — asked once, read twice (dots + ear). The water ask
+                // rides the spec the row already holds — it does not ask
+                // twice. An unknown type keeps its honest silence: no spec,
+                // no water, the stats row stays a number-line.
+                const pouring = spec ? pourKindsOf(r.type) : [];
+                return (
+                  <div
+                    key={r.type}
+                    className="group flex items-center gap-2 rounded py-[3px] text-left transition-colors hover:bg-accent/50"
+                    data-runtime-row={r.type}
+                    title={`${r.label} — ${r.n} run${r.n === 1 ? "" : "s"} · median ${fmtDuration(r.medianMs)} · p90 ${fmtDuration(r.p90Ms)} · total ${fmtDuration(r.totalMs)}`}
+                  >
+                    <span className="flex w-9 shrink-0 justify-end">
+                      <span
+                        className={cn(
+                          "flex size-4.5 items-center justify-center rounded ring-1 ring-inset",
+                          spec?.color.soft,
+                          spec?.color.border
+                        )}
+                        aria-hidden="true"
+                      >
+                        <TypeIcon name={spec?.icon ?? "Boxes"} className="size-2.5" />
+                      </span>
+                    </span>
+                    <span className="w-28 shrink-0 truncate text-[10.5px] text-muted-foreground" title={r.label}>
+                      {r.label}
+                    </span>
+                    {spec ? (
+                      // t755 — the type's own stats row reports pours: the
+                      // median and the p90 belong to a type with a thirst.
+                      // The dots sit in the column between label and bar —
+                      // decor and ear, never inside the numbers' columns.
+                      <span
+                        className="flex shrink-0 items-center gap-1"
+                        data-testid={`runtime-pours-${r.type}`}
+                      >
+                        {pouring.map((k) => (
+                          <span
+                            key={k}
+                            aria-hidden="true"
+                            title={`pours ${k}`}
+                            className="inline-block size-1.5 rounded-full"
+                            style={{ background: PORT_COLORS[k].wire }}
+                          />
+                        ))}
+                        <span className="sr-only">pours {pouring.join(", ")}</span>
+                      </span>
+                    ) : null}
+                    <div className="relative h-4 min-w-0 flex-1">
+                      <span
+                        className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-[3px] bg-primary/75 transition-[width] duration-500 ease-out [print-color-adjust:exact] [-webkit-print-color-adjust:exact]"
+                        style={{ width: `${Math.max(r.sharePct, 0.75)}%` }}
+                        data-runtime-bar=""
+                        aria-hidden="true"
+                      />
+                      <span
+                        className="absolute inset-y-0 right-1 flex items-center font-mono text-[9px] tabular-nums text-muted-foreground/80"
+                        data-runtime-share=""
+                      >
+                        {r.sharePct}%
+                      </span>
+                    </div>
+                    <span className="w-11 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-muted-foreground">
+                      ×{r.n}
+                    </span>
+                    <span className="w-12 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-muted-foreground" title={`p90 ${fmtDuration(r.p90Ms)}`}>
+                      ~{fmtDuration(r.medianMs)}
+                    </span>
+                    <span className="w-14 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-foreground/80">
+                      {fmtDuration(r.totalMs)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 flex items-center gap-1 text-[10px] leading-relaxed text-muted-foreground/70">
+              <Clock className="size-3 shrink-0 text-primary/70" aria-hidden="true" />
+              share of summed wall clock · ~median · total — bars cover completed runs (a live run has no end yet)
+            </p>
+          </div>
+        )}
+
+        {/* critical path -------------------------------------------------
+            The DAG-level lens the other faces don't carry: WHICH CHAIN of
+            dependencies decided when the pipeline could finish. Walked
+            backwards from the run that finished last, each step following
+            its latest-finishing upstream. Gap rows between steps speak the
+            idle honestly — "waited" when the pipeline (or its human) held
+            the door, "overlapped" when a step launched before its driver
+            finished. Bars show each step's slice of the chain's span, in
+            the timeline's own status colors (a failed step is real time).
+            t687 — the block now wears its step numbers in ink (the roster's
+            rank chips across the dashboard read the same walk) and, when
+            the scope chips carve the world, confesses "within <scope>" —
+            a scoped chain is a chain within the scope, not "the" one. */}
+        {critical && critical.chain.length > 0 && (
+          <div
+            className="mt-5 border-t pt-4"
+            data-canvas-ui="analytics-critical"
+            data-critical-steps={critical.chain.length}
+            data-critical-span={critical.spanMs}
+            data-critical-busy={critical.busyMs}
+          >
+            <p className="mb-2 flex items-center gap-1 text-[11px] font-medium text-foreground/80">
+              <Route className="size-3 text-primary" aria-hidden="true" />
+              Critical path
+              <span className="font-normal text-muted-foreground">
+                · {critical.chain.length} step{critical.chain.length === 1 ? "" : "s"} · {fmtDuration(critical.spanMs)} span
+              </span>
+              {/* t687 — the block confesses its world: a workspace-scoped
+                  chain is the chain WITHIN the scope (the walk drinks the
+                  scoped rows), which can legitimately differ from the
+                  project-wide chain the roster's rank chips speak. Silence
+                  here would let a reader read "the" critical path when
+                  this block is speaking "a" one. */}
+              {wsFilter != null && (
+                <span
+                  className="font-normal text-muted-foreground"
+                  data-critical-scope=""
+                >
+                  {' '}· within {scopeLabel}
+                </span>
+              )}
+              <span
+                className="ml-auto rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9.5px] font-semibold text-primary"
+                data-critical-finisher={critical.chain[critical.chain.length - 1].job.id}
+                title={`The pipeline's finish was set by ${critical.chain[critical.chain.length - 1].job.name} — every step here is a dependency it (transitively) waited on`}
+              >
+                ends with: {critical.chain[critical.chain.length - 1].job.name}
+              </span>
+            </p>
+            <div className="flex flex-col">
+              {critical.chain.map((s, i) => {
+                const spec = jobType(s.job.type);
+                return (
+                  <Fragment key={s.job.id}>
+                    {i > 0 && s.gapBeforeMs != null && (
+                      <p
+                        className="ml-[60px] flex items-center gap-1 py-[1px] pl-0.5 text-[9.5px] text-muted-foreground/70"
+                        data-critical-gap={i}
+                        title={
+                          s.gapBeforeMs > 0
+                            ? `The pipeline waited ${fmtDuration(s.gapBeforeMs)} between the previous step finishing and this one starting`
+                            : s.gapBeforeMs < 0
+                              ? `This step launched ${fmtDuration(-s.gapBeforeMs)} before its upstream finished`
+                              : "This step started as its upstream finished"
+                        }
+                      >
+                        <CornerDownRight className="size-2.5 shrink-0" aria-hidden="true" />
+                        {s.gapBeforeMs > 0
+                          ? `waited ${fmtDuration(s.gapBeforeMs)} after upstream finished`
+                          : s.gapBeforeMs < 0
+                            ? `overlapped ${fmtDuration(-s.gapBeforeMs)} with upstream`
+                            : "started as upstream finished"}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      className="group flex cursor-pointer items-center gap-2 rounded py-[3px] text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      data-critical-row={s.job.id}
+                      data-critical-index={i}
+                      data-critical-step-num={i + 1}
+                      onClick={() => revealJob(s.job.id)}
+                      title={`Reveal ${s.job.name} on the canvas — ${s.job.status}, ran ${fmtDuration(s.ms)}`}
+                    >
+                      {/* t687 — the step's number in ink: the bar's title
+                          always said "step i+1 of N" but only on hover; the
+                          roster's rank chips made the order visible from
+                          across the dashboard, and this block — the chain's
+                          own report — should not be the one face where the
+                          sequence needs a tooltip. A report's row number is
+                          its native tongue (the roster's law, at home). */}
+                      <span
+                        className="w-4 shrink-0 text-right font-mono text-[9px] tabular-nums text-muted-foreground/60"
+                        aria-hidden="true"
+                      >
+                        {i + 1}
+                      </span>
+                      <span className="flex w-9 shrink-0 justify-end">
+                        <span
+                          className={cn(
+                            "flex size-4.5 items-center justify-center rounded ring-1 ring-inset",
+                            spec?.color.soft,
+                            spec?.color.border
+                          )}
+                          title={s.job.name}
+                          aria-hidden="true"
+                        >
+                          <TypeIcon name={spec?.icon ?? "Boxes"} className="size-2.5" />
+                        </span>
+                      </span>
+                      <span
+                        className="w-28 shrink-0 truncate text-[10.5px] text-muted-foreground"
+                        title={s.job.name}
+                        data-critical-name=""
+                      >
+                        {s.job.name}
+                      </span>
+                      <div className="relative h-4 min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            "absolute top-1/2 h-2.5 -translate-y-1/2 rounded-[3px] transition-[left,width] duration-500 ease-out [print-color-adjust:exact] [-webkit-print-color-adjust:exact]",
+                            s.job.status === "failed" ? "bg-danger-500/85" : "bg-success-500/80"
+                          )}
+                          style={{
+                            left: `${((s.start - critical.chain[0].start) / Math.max(critical.spanMs, 1)) * 100}%`,
+                            width: `${Math.max((s.ms / Math.max(critical.spanMs, 1)) * 100, 0.75)}%`,
+                          }}
+                          data-critical-bar=""
+                          title={`${s.job.name} — ran ${fmtDuration(s.ms)}, step ${i + 1} of ${critical.chain.length}`}
+                        />
+                      </div>
+                      <span className="w-14 shrink-0 text-right font-mono text-[9.5px] tabular-nums text-muted-foreground">
+                        {fmtDuration(s.ms)}
+                      </span>
+                      <Crosshair
+                        className="size-3 shrink-0 text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 print:hidden"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </Fragment>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 flex items-center gap-1 text-[10px] leading-relaxed text-muted-foreground/70">
+              <Route className="size-3 shrink-0 text-primary/70" aria-hidden="true" />
+              the chain the pipeline's finish actually waited on · ran {fmtDuration(critical.busyMs)}
+              {critical.gapMs > 0
+                ? ` + waited ${fmtDuration(critical.gapMs)}`
+                : critical.gapMs < 0
+                  ? ` − overlapped ${fmtDuration(-critical.gapMs)}`
+                  : " + waited 0s"}
+              {" = "}
+              {fmtDuration(critical.spanMs)} span — a live run has no end yet, so it waits outside the chain
+            </p>
           </div>
         )}
     </section>

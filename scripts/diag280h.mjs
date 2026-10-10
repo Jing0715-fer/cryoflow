@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /** diag280h.mjs — instrument the card's event flow during touchscreen.tap. */
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();

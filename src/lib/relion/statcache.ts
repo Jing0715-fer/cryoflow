@@ -12,14 +12,16 @@
  * calls between writes are a single statSync (~µs) instead of a full
  * parse (~ms–tens of ms on the 13k-particle stars). The cache is capped
  * with insertion-order eviction — chart sources are a handful of files
- * per job; 24 entries covers every chart of the inspected job plus a full
- * refine's per-iteration model files riding in the same budget (entries
- * are KB-scale at most).
+ * per job; t665 — the PNG lane rides the same store (the file route's
+ * rendered tiles: a denoise/import wall re-mounts re-request the same
+ * tiles, and each miss re-reads a 64 MB frame + re-encodes), so the cap
+ * covers a full wall plus the chart set: 48 entries, KB-to-hundreds-of-KB
+ * each — a few MB worst case.
  */
 
 import { existsSync, readFileSync, statSync } from "fs";
 
-const MAX_ENTRIES = 24;
+const MAX_ENTRIES = 48;
 
 interface CacheSlot {
   key: string;
@@ -77,4 +79,35 @@ export function cachedFileCompute<T>(
   compute: (text: string) => T
 ): T | null {
   return cachedCompute(file, computeId, () => compute(readFileSync(file, "utf8")));
+}
+
+/**
+ * Async twin of cachedCompute — same store, same (size, mtime) slot key,
+ * same LRU. For call sites whose compute awaits (the file route's PNG
+ * cascade awaits the render helpers). A thrown compute is NOT cached —
+ * a transient OOM-flushed render retries on the next request, a success
+ * (its PNG bytes) rides the stat check until the file changes.
+ */
+export async function cachedComputeAsync<T>(
+  file: string,
+  computeId: string,
+  compute: () => Promise<T>
+): Promise<T | null> {
+  if (!existsSync(file)) return null;
+  const st = statSync(file);
+  const key = `${st.size}:${st.mtimeMs}`;
+  const slot = `${file}\u0000${computeId}`;
+  const hit = store.get(slot);
+  if (hit && hit.key === key) {
+    store.delete(slot);
+    store.set(slot, hit);
+    return hit.value as T;
+  }
+  const value = await compute();
+  if (store.size >= MAX_ENTRIES && !store.has(slot)) {
+    const oldest = store.keys().next().value;
+    if (oldest !== undefined) store.delete(oldest);
+  }
+  store.set(slot, { key, value });
+  return value;
 }

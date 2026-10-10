@@ -1,7 +1,16 @@
 // t241 sanity — the run-report echo's dialect, checked BEFORE any wire
 // (lamps before wires, t237's law): a synthetic dossier carrying EVERY
 // construct the profile builder can emit, plus the traps.
-import { buildProfileReportHtml } from "../src/lib/report-html.ts";
+// t733 jiti codemod — Node ≥24 ESM no longer resolves extensionless
+// imports; jiti (in-tree) loads the REAL lib for live-fire, with the
+// project's @/ alias wired so lib-internal @/ imports resolve too.
+// In-place (not hoisted): the probe's own execution order is law.
+import { createJiti } from "jiti";
+import * as __path from "node:path";
+const __jiti = createJiti(import.meta.url, {
+  alias: { "@": __path.resolve(import.meta.dirname, "..", "src") },
+});
+const { buildProfileReportHtml } = await __jiti.import("../src/lib/report-html.ts");
 
 const IMG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";

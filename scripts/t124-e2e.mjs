@@ -29,6 +29,8 @@
 import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { chromium } from "playwright";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -72,7 +74,7 @@ const api = async (path, method = "GET", body) =>
   });
 const engineStamp = (id, status, startedIso, durationMs) =>
   sh(
-    `node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();` +
+    `DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();` +
     `p.job.update({where:{id:'${id}'},data:{status:'${status}',progress:100,` +
     `startedAt:new Date('${startedIso}'),duration:${durationMs}}}).then(()=>p.\\$disconnect())"`
   );

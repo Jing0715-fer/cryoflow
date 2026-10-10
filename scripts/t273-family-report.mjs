@@ -26,13 +26,18 @@
  * Phases (no UI, no server rebuild — this is the runner testing itself):
  *   B  the ledger (source assertions on family-run.mjs)
  *   C  the live loop:
- *      C1  --batches: seven batches, full coverage, zero orphans
+ *      C1  --batches: eight batches, full coverage, zero orphans
  *      C2  --batch nosuch: exit 2, names the available batches
  *      C3  --reset: the report file is gone
  *      C4  --summary on an empty report: honest "no family report yet"
- *      C5  --batch t22 for REAL: verdict 0, report entry t22 (pass 2, two
- *          suites, attempts 1, wallMs > 0, ISO lastRun)
- *      C6  --summary now speaks t22 + a TOTAL row
+ *      C5  --batch t31 for REAL: verdict 0, report entry t31 (pass 2, two
+ *          suites, attempts 1, wallMs > 0, ISO lastRun) — t410: the probe's
+ *          specimen batch moved from t22 (whose t223 portrait family awaits
+ *          its own repair) to t31, the stablest green batch with the
+ *          smallest wall (2 suites, ~37s); a self-check must not depend on
+ *          a sick sibling, and its own batch cannot afford a heavy one
+ *          (t27 carries 7 suites against the 580s tool ceiling)
+ *      C6  --summary now speaks t31 + a TOTAL row
  *      C7  --filter qa00: the report carries BOTH keys (merged, not overwritten)
  *      C8  the health guard, witnessed live: a fake 580s wall on a key,
  *          re-run the key, the ⚠ names the ceiling — and the real run's
@@ -44,7 +49,13 @@ import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 
 const ROOT = "/home/z/my-project";
 const FAMILY_RUN = `${ROOT}/scripts/family-run.mjs`;
-const REPORT_FILE = `${ROOT}/scripts/.family-report.json`;
+// The ISOLATED report path (t273's own lesson, learned live): this suite
+// spawns REAL family-run children, and without an override every nested run
+// reads, merges into, and --resets the OUTER family batch's accumulating
+// report — the t27 family batch's file was wiped to a single entry by its
+// own member. The FAMILY_REPORT env var gives every nested world its own
+// file; the outer truth stays whole.
+const REPORT_FILE = "/tmp/t273-family-report.json";
 
 let fail = 0;
 const must = (cond, label) => {
@@ -52,7 +63,12 @@ const must = (cond, label) => {
   if (!cond) fail++;
 };
 const run = (args) =>
-  spawnSync("node", [FAMILY_RUN, ...args], { cwd: ROOT, encoding: "utf8", timeout: 300_000 });
+  spawnSync("node", [FAMILY_RUN, ...args], {
+    cwd: ROOT,
+    encoding: "utf8",
+    timeout: 300_000,
+    env: { ...process.env, FAMILY_REPORT: REPORT_FILE }, // the isolation law: nested worlds write their own file
+  });
 
 // ---- Phase B: the ledger ----------------------------------------------------
 console.log("== PHASE B: the ledger ==");
@@ -77,10 +93,10 @@ must(
   "--batches coverage-checks the roster: a suite matching NO batch is a loud ORPHAN"
 );
 must(
-  src.includes("const REPORT_FILE = path.join(SCRIPTS, \".family-report.json\");") &&
+  src.includes('process.env.FAMILY_REPORT || path.join(SCRIPTS, ".family-report.json")') &&
     src.includes("const readReport = ") &&
     src.includes("const writeReport = "),
-  "the report is one JSON file (dotfile scratch), read + written by the runner"
+  "the report path is FAMILY_REPORT-overridable (nested worlds stay isolated)"
 );
 must(
   src.includes("report.batches[reportKey] = {") && src.includes("const report = readReport();"),
@@ -112,25 +128,40 @@ must(
 // ---- Phase C: the live loop -------------------------------------------------
 console.log("== PHASE C: the live loop ==");
 
-// C1 — the registry, witnessed: seven batches, full coverage, no orphans
+// C1 — the registry, witnessed: eight batches (t280 opened the t28 decade),
+// full coverage, no orphans
 const c1 = run(["--batches"]);
 must(c1.status === 0, `--batches exits 0 (got ${c1.status})`);
 must(
-  ["qa", "t21", "t22", "t24", "t25", "t26", "t27"].every((b) => c1.stdout.includes(b)),
-  "all seven batches are listed with their members"
+  ["qa", "t21", "t22", "t24", "t25", "t26", "t27", "t28"].every((b) => c1.stdout.includes(b)),
+  "all eight batches are listed with their members"
 );
+// the roster GROWS (t273 itself just joined) — the coverage line must be
+// asserted against the roster's CURRENT size, parsed from the same output,
+// never a literal (the "50 suites" literal FAILED the moment t273 joined,
+// taking the whole suite down with it)
+const declared = Number(c1.stdout.match(/over (\d+) suites/)?.[1] ?? NaN);
+const covered = Number(c1.stdout.match(/every one of the (\d+) suites belongs/)?.[1] ?? NaN);
 must(
-  c1.stdout.includes("coverage: every one of the 50 suites belongs to exactly one batch"),
-  "the coverage line certifies the roster (50 suites, one batch each)"
+  Number.isInteger(declared) && declared === covered,
+  `the coverage line certifies the roster (declared ${declared}, covered ${covered})`
 );
 must(!c1.stdout.includes("ORPHANS"), "zero orphans (the decade registry is complete)");
 
-// C2 — an unknown batch is refused, loudly and helpfully
+// C2 — an unknown batch is refused, loudly and helpfully. The batch list is
+// asserted SELF-MAINTAINING (the t302 lesson, born as a t273 real-fail): the
+// joined literal "qa, t21, …, t26, t27" broke the moment t26b registered
+// between t26 and t27 (the refusal prints "t26, t26b, t27" — the contiguous
+// substring is gone), a volatile literal in a list that grows at every
+// decade. Parse the names out of the runner's source instead; the refusal
+// must name every batch that EXISTS, whatever that is.
 const c2 = run(["--batch", "nosuch"]);
 must(c2.status === 2, `--batch nosuch exits 2 (got ${c2.status})`);
+const batchNames = [...src.matchAll(/name: "([^"]+)"/g)].map((m) => m[1]);
+must(batchNames.length >= 10, `the runner's source declares ${batchNames.length} first-class batches`);
 must(
-  c2.stdout.includes('no batch named "nosuch"') && c2.stdout.includes("qa, t21, t22, t24, t25, t26, t27"),
-  "the refusal names the batches that DO exist"
+  c2.stdout.includes('no batch named "nosuch"') && batchNames.every((n) => c2.stdout.includes(n)),
+  `the refusal names every batch that DOES exist (${batchNames.join(", ")})`,
 );
 
 // C3 — reset: the report is scratch data, scratched
@@ -143,33 +174,36 @@ must(c4.status === 0, `--summary on an empty report exits 0 (got ${c4.status})`)
 must(c4.stdout.includes("no family report yet"), 'the empty report says "no family report yet"');
 
 // C5 — a REAL batch run: the report lands with the law's own vocabulary
-const c5 = run(["--batch", "t22"]);
-must(c5.status === 0, `--batch t22 exits 0 (got ${c5.status}: ${(c5.stderr ?? "").slice(0, 80)})`);
+//      (t410 — the specimen is t31: the stablest green batch AND the
+//      lightest — a runner self-check must not depend on a sibling's open
+//      wound, and inside its own 7-suite batch it cannot afford a heavy one)
+const c5 = run(["--batch", "t31"]);
+must(c5.status === 0, `--batch t31 exits 0 (got ${c5.status}: ${(c5.stderr ?? "").slice(0, 80)})`);
 must(
-  c5.stdout.includes('batch "t22"'),
-  'the run banner names its batch key ("t22")'
+  c5.stdout.includes('batch "t31"'),
+  'the run banner names its batch key ("t31")'
 );
 const rep5 = JSON.parse(readFileSync(REPORT_FILE, "utf8"));
-const t22 = rep5.batches?.t22 ?? null;
+const t31 = rep5.batches?.t31 ?? null;
 must(
-  !!t22 && t22.pass === 2 && t22.soloRecovery === 0 && t22.realFail === 0,
-  `the report entry t22 speaks the verdict (pass ${t22?.pass}, solo ${t22?.soloRecovery}, fail ${t22?.realFail})`
+  !!t31 && t31.pass === 2 && t31.soloRecovery === 0 && t31.realFail === 0,
+  `the report entry t31 speaks the verdict (pass ${t31?.pass}, solo ${t31?.soloRecovery}, fail ${t31?.realFail})`
 );
 must(
-  Array.isArray(t22?.suites) && t22.suites.length === 2 &&
-    t22.suites.every((s) => s.verdict === "pass" && s.attempts === 1 && s.ms > 0),
-  `the per-suite ledger carries verdict/attempts/ms (${t22?.suites?.map((s) => s.name).join(", ")})`
+  Array.isArray(t31?.suites) && t31.suites.length === 2 &&
+    t31.suites.every((s) => s.verdict === "pass" && s.attempts === 1 && s.ms > 0),
+  `the per-suite ledger carries verdict/attempts/ms (${t31?.suites?.map((s) => s.name).join(", ")})`
 );
 must(
-  typeof t22?.wallMs === "number" && t22.wallMs > 0 && !Number.isNaN(Date.parse(t22?.lastRun ?? "")),
-  `the batch entry timestamps itself (wallMs ${t22?.wallMs}, lastRun ${t22?.lastRun})`
+  typeof t31?.wallMs === "number" && t31.wallMs > 0 && !Number.isNaN(Date.parse(t31?.lastRun ?? "")),
+  `the batch entry timestamps itself (wallMs ${t31?.wallMs}, lastRun ${t31?.lastRun})`
 );
 
 // C6 — the summary speaks the accumulated truth
 const c6 = run(["--summary"]);
 must(
-  c6.status === 0 && c6.stdout.includes("t22") && c6.stdout.includes("TOTAL"),
-  "--summary lists the t22 batch row and a TOTAL row"
+  c6.status === 0 && c6.stdout.includes("t31") && c6.stdout.includes("TOTAL"),
+  "--summary lists the t31 batch row and a TOTAL row"
 );
 
 // C7 — the merge: an adhoc run joins the report, the batch entry survives
@@ -177,11 +211,11 @@ const c7 = run(["--filter", "qa00"]);
 must(c7.status === 0, `--filter qa00 exits 0 (got ${c7.status})`);
 const rep7 = JSON.parse(readFileSync(REPORT_FILE, "utf8"));
 must(
-  Object.keys(rep7.batches).includes("t22") && Object.keys(rep7.batches).includes("adhoc:qa00"),
+  Object.keys(rep7.batches).includes("t31") && Object.keys(rep7.batches).includes("adhoc:qa00"),
   `the report carries BOTH keys after the adhoc run (${Object.keys(rep7.batches).join(", ")})`
 );
 must(
-  rep7.batches.t22.pass === 2 && rep7.batches["adhoc:qa00"].pass === 1,
+  rep7.batches.t31.pass === 2 && rep7.batches["adhoc:qa00"].pass === 1,
   "the batch entry was NOT overwritten by the adhoc entry (merge, not clobber)"
 );
 

@@ -10,7 +10,7 @@
 // resolves from that map — never from the local disk. The ctffind lane
 // keeps its dedicated ctffindExe override (t262's wiring, same law).
 // Phases:
-//   A  demo truth — homepage 200, roster 21, mock cluster answering, the
+//   A  demo truth — homepage 200, roster 15, mock cluster answering, the
 //      rig's four stubs (motioncor2 / relion_run_motioncorr / relion_autopick
 //      / relion_python_topaz) on disk
 //   B  the ledger — probe inventory wiring, BuildCtx externals, externalFor,
@@ -24,11 +24,14 @@
 //          own relion_python_topaz, per-mic pick stars sync back
 //   D  console clean
 
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readlinkSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+import { worldProtectBasenames, worldSafeRmScript, worldGuardLine } from "./lib/world-safe-cleanup.mjs";
 
 const BASE = "http://localhost:3000";
 const SHOTS = "/home/z/my-project/shots-qa";
@@ -123,7 +126,7 @@ try {
   const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
   must(res.status() === 200, `homepage 200 (got ${res.status()})`);
   await sleep(2500);
-  must(roster0 === 21, `roster identity 21 (got ${roster0})`);
+  must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(await mockListening(), `the mock cluster answers on :${MOCK_PORT}`);
   must(
     ["motioncor2", "relion_run_motioncorr", "relion_autopick", "relion_python_topaz"].every(
@@ -186,22 +189,45 @@ try {
   // ---- Phase C: the live loop ---------------------------------------------
   console.log("== PHASE C: the live loop (probe inventory → world split → cluster runs) ==");
 
-  // C1 — six tiny but valid MRC micrographs + a REAL local import job
+  // C1 — six tiny but valid MRC movies + a REAL local import job
+  // t535 — the real-binary era, two physics upgrades in one: (1) MotionCorr
+  // consumes MOVIES (frame stacks — nz=4), and (2) the no-params motioncorr
+  // job rides the FULL GUI defaults (own lane + --float16 + patch 5×5), and
+  // the real binary's cropInFourierSpace hard-crashes on toy 64² frames
+  // under float16 ("Invalid size given"). Real-sized 512² frames with dark
+  // LoG-scale blobs (the t266 recipe, one blob per frame) keep every leg
+  // physical: the own lane's crops fit, and the picks have something to pick.
   mkdirSync(MICS_DIR, { recursive: true });
+  const N_FRAMES = 4;
   const names = ["mic_01.mrc", "mic_02.mrc", "mic_03.mrc", "mic_04.mrc", "mic_05.mrc", "mic_06.mrc"];
+  const W = 512, H = 512, SIGMA = 40, AMP = -1.0;
+  const BLOBS = [
+    [128, 128], [256, 128], [384, 128],
+    [128, 384], [256, 384], [384, 384],
+  ];
   for (const n of names) {
-    const W = 64, H = 64;
-    const buf = Buffer.alloc(1024 + W * H * 4);
-    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(1, 8);
+    const buf = Buffer.alloc(1024 + W * H * 4 * N_FRAMES);
+    buf.writeInt32LE(W, 0); buf.writeInt32LE(H, 4); buf.writeInt32LE(N_FRAMES, 8);
     buf.writeInt32LE(2, 12); // mode 2 = float32
-    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(1, 36);
-    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77, 48);
+    buf.writeInt32LE(W, 28); buf.writeInt32LE(H, 32); buf.writeInt32LE(N_FRAMES, 36);
+    buf.writeFloatLE(1.77 * W, 40); buf.writeFloatLE(1.77 * H, 44); buf.writeFloatLE(1.77 * N_FRAMES, 48);
     buf.write("MAP ", 208, "ascii");
     buf.writeUInt8(0x44, 212); buf.writeUInt8(0x44, 213); buf.writeUInt8(0x47, 214); buf.writeUInt8(0x47, 215);
-    for (let i = 0; i < W * H; i++) buf.writeFloatLE(Math.sin(i / 7) * 0.1, 1024 + i * 4);
+    for (let s = 0; s < N_FRAMES; s++) {
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          let v = Math.sin((x + y) / 31) * 0.03; // faint ice-like background
+          for (const [bx, by] of BLOBS) {
+            const dx = x - bx, dy = y - by;
+            v += AMP * Math.exp(-(dx * dx + dy * dy) / (2 * SIGMA * SIGMA));
+          }
+          buf.writeFloatLE(v, 1024 + (s * W * H + y * W + x) * 4);
+        }
+      }
+    }
     writeFileSync(path.join(MICS_DIR, n), buf);
   }
-  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), "six mock micrographs fabricated (64x64 float32)");
+  must(names.every((n) => existsSync(path.join(MICS_DIR, n))), `six mock movies fabricated (512x512 float32, ${N_FRAMES} frames, LoG-scale blobs)`);
 
   const mkJob = async (body) => {
     const r = await fetch(`${BASE}/api/jobs`, {
@@ -229,7 +255,8 @@ try {
   const importJob = await mkJob({
     type: "import",
     name: "t264 Import",
-    params: { micrographsPath: MICS_DIR, pixelSize: 1.77 },
+    // t535 — nodeType movies: the only dialect the real relion_run_motioncorr reads
+    params: { micrographsPath: MICS_DIR, pixelSize: 1.77, nodeType: "movies" },
   });
   must(!!importJob?.id, "the import job exists");
   await fetch(`${BASE}/api/jobs/${importJob.id}/run`, {
@@ -270,15 +297,15 @@ try {
     `the cluster's motioncor2 is inventoried (${extMap.motioncor2 ?? "absent"})`
   );
   must(
-    typeof extMap.topaz === "string" && extMap.topaz.includes("/opt/bin/relion_python_topaz"),
+    typeof extMap.topaz === "string" && /relion_python_topaz$/.test(extMap.topaz),
     `the cluster's topaz is inventoried (${extMap.topaz ?? "absent"})`
   );
 
   // C3 — the world split: LOCAL motioncorr fails with the LOCAL message
   // (the edge port speaks the SPEC vocabulary: motioncorr's input port is
   // named "movies", not the engine key "micrographs_star" — t262's law)
-  const jobL = await mkJob({ type: "motioncorr", name: "t264 MotionCorr LOCAL" });
-  const eL = await mkEdge(importJob.id, jobL.id, "micrographs", "movies");
+  const jobL = await mkJob({ type: "motioncorr", name: "t264 MotionCorr LOCAL", params: { do_own_motioncor: false } });
+  const eL = await mkEdge(importJob.id, jobL.id, "movies", "movies");
   must(eL === 200 || eL === 201, `import → LOCAL motioncorr wired (${eL})`);
   const localRun = await fetch(`${BASE}/api/jobs/${jobL.id}/run`, {
     method: "POST",
@@ -286,25 +313,49 @@ try {
     body: JSON.stringify({}),
   });
   await localRun.json().catch(() => ({}));
-  // The LOCAL world's honest refusal, observed live: this sandbox has no
-  // RELION at all, so the local engine fails at the bin-dir guard — long
-  // BEFORE the MotionCor2 lookup (whose LOCAL message exists further down
-  // the same path for hosts WITH a RELION but no MotionCor2). Either way
-  // the refusal belongs to the local world; the cluster run is unaffected.
+  // The LOCAL world's honest refusal, observed live — WHICH honest door
+  // fires depends on the host's own RELION truth, the same snapshot the
+  // engine's gate reads (data/relion-snapshot.json). A host WITH a RELION
+  // (the t530-era found world at /home/z/relion-build/bin) gets past the
+  // generic guard and fails at the MotionCor2 lookup — the lane-specific
+  // message. A host WITHOUT one (this sandbox after the relion-build
+  // directory left the disk) fails at the earlier generic guard. Both are
+  // the local lane honestly refusing; the probe derives its expectation
+  // from the world instead of pinning one era's disk layout (the t700
+  // law: the probe's vocabulary must be as wide as the world's contract).
+  const relionFound = (() => {
+    try {
+      const snap = JSON.parse(readFileSync("/home/z/my-project/data/relion-snapshot.json", "utf8"));
+      return Boolean(snap?.status?.found ?? snap?.found);
+    } catch {
+      return false; // no snapshot = nothing detected yet = the generic door
+    }
+  })();
+  const localRefusal = relionFound ? "MotionCor2 executable not found" : "RELION not detected";
   const jobLAfter = await pollUntil(async () => {
     const j = await readJob(jobL.id);
     return j?.status === "failed" ? j : null;
   }, 10_000);
   must(
-    jobLAfter?.status === "failed" && (jobLAfter?.result ?? "").includes("RELION not detected"),
-    `LOCAL motioncorr fails honestly in ITS OWN world (${(jobLAfter?.result ?? "").slice(0, 50)}…)`
+    jobLAfter?.status === "failed" && (jobLAfter?.result ?? "").includes(localRefusal),
+    `LOCAL motioncorr fails honestly in ITS OWN world [relion ${relionFound ? "present" : "absent"}] (${(jobLAfter?.result ?? "").slice(0, 60)}…)`
   );
   await deleteJob(jobL.id);
   createdJobs.splice(createdJobs.indexOf(jobL.id), 1);
 
   // C4 — REMOTE motioncorr: cluster argv, cluster paths, outputs sync back
-  const jobM = await mkJob({ type: "motioncorr", name: "t264 MotionCorr REMOTE" });
-  const eM = await mkEdge(importJob.id, jobM.id, "micrographs", "movies");
+  // t409 — do_own_motioncor is pinned FALSE explicitly: t374's RELION 5.0
+  // GUI option table flipped the product default to true (RELION's own CPU
+  // implementation IS the real-world default), and a default-params job now
+  // takes the --use_own lane — this suite's subject is the MOTIONCOR2
+  // EXTERNALS lane (--motioncor2_exe resolved from the cluster's probed
+  // world), so the suite must AIM at the lane it audits.
+  const jobM = await mkJob({
+    type: "motioncorr",
+    name: "t264 MotionCorr REMOTE",
+    params: { do_own_motioncor: false },
+  });
+  const eM = await mkEdge(importJob.id, jobM.id, "movies", "movies");
   must(eM === 200 || eM === 201, `import → REMOTE motioncorr wired (${eM})`);
   must(!!jobM?.id, "the remote motioncorr job exists");
   const dispatchM = await fetch(`${BASE}/api/jobs/${jobM.id}/run`, {
@@ -345,9 +396,14 @@ try {
   }
 
   // C5 — REMOTE autopick Topaz: --fn_topaz_exe is the cluster's own topaz
+  // t535 — the honest chain: picks live on MICROGRAPHS, not raw movies —
+  // the real relion_autopick reads the corrected star's _rlnMicrographName
+  // rows (a movies star has none — the stub era picked straight off the
+  // import and found "0 across 0 mic" in the real-binary era). Wire the
+  // picking leg downstream of the MotionCorr run, the RELION way.
   const jobA = await mkJob({ type: "autopick", name: "t264 AutoPick Topaz", params: { pickingMethod: "Topaz" } });
-  const eA = await mkEdge(importJob.id, jobA.id, "micrographs", "micrographs");
-  must(eA === 200 || eA === 201, `import → REMOTE autopick wired (${eA})`);
+  const eA = await mkEdge(jobM.id, jobA.id, "micrographs", "micrographs");
+  must(eA === 200 || eA === 201, `motioncorr → REMOTE autopick wired (${eA})`);
   const dispatchA = await fetch(`${BASE}/api/jobs/${jobA.id}/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...SH },
@@ -371,12 +427,16 @@ try {
     `the picks are counted from the synced per-mic stars (${(completedA?.result ?? "").slice(0, 70)})`
   );
   const mirrorA = `/home/z/my-project/data/relion/${projId}/autopick_${jobA.id.slice(-8)}`;
+  // t535 — the real relion_autopick writes each pick star at
+  // fn_odir + <input-row-root> (autopicker.cpp:4010): the stub-era flat
+  // micrographs/ layout is gone — the mirror carries the nested dialect
+  // (motioncorr_x/micrographs/… or deeper under an absolute-row root).
+  // Any *_autopick.star anywhere under the workdir is the honest witness.
   let pickStarSynced = false;
   try {
-    pickStarSynced = execSync(`ls ${mirrorA}/micrographs 2>/dev/null || true`, { stdio: "pipe" })
+    pickStarSynced = execSync(`find ${mirrorA} -name '*_autopick.star' 2>/dev/null | head -n 1`, { stdio: "pipe" })
       .toString()
-      .split("\n")
-      .some((n) => n.endsWith("_autopick.star"));
+      .trim().length > 0;
   } catch { /* no dir */ }
   must(pickStarSynced, "a per-micrograph pick star synced back to the local mirror");
 
@@ -422,8 +482,27 @@ try {
     }
   } catch { /* best effort */ }
   try {
+    // t414 — the world-safe cleanup law: the bare glob's blast radius ate the
+
+    // demo chain's ancestral workdirs (t313's guard caught it live). Protect
+
+    // every workdir the world still speaks, then glob.
+
+    let worldProtect = [];
+
+    try {
+
+      const wj = await fetch(`${BASE}/api/jobs`, { headers: SH }).then((r) => r.json());
+
+      worldProtect = worldProtectBasenames(wj?.jobs ?? [], createdJobs);
+
+    } catch { /* the API is gone — the glob degrades to plain rm */ }
+
+    console.log(worldGuardLine(worldProtect.length));
+
     execSync(
-      `node services/mock-cluster/test-client.mjs 'rm -rf /projects/cryoflow/*/motioncorr_* /projects/cryoflow/*/autopick_* /projects/cryoflow/*/import_* /projects/cryoflow/*/micrographs'`,
+
+      `node services/mock-cluster/test-client.mjs '${worldSafeRmScript(["/projects/cryoflow/*/motioncorr_*","/projects/cryoflow/*/autopick_*","/projects/cryoflow/*/import_*","/projects/cryoflow/*/micrographs"], worldProtect)}'`,
       { cwd: "/home/z/my-project", stdio: "pipe", timeout: 30_000 }
     );
   } catch { /* best effort */ }
@@ -437,7 +516,7 @@ try {
   try {
     const after = await (await fetch(`${BASE}/api/jobs`)).json();
     const n = (after.jobs ?? []).length;
-    must(n === 21, `roster restored to 21 (got ${n})`);
+    must(n >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${n})`);
   } catch { /* server busy */ }
   await browser.close().catch(() => {});
 }

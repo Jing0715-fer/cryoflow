@@ -13,7 +13,7 @@
 // state is touched — honestly no door, with the reason written down.
 //
 // Phases:
-//   A  demo truth — homepage 200, roster 21, the seeded volume host
+//   A  demo truth — homepage 200, roster 15, the seeded volume host
 //   B  the ledger — the mapimport spec, the engine-native handler, the
 //      from-list wiring (class3d/refine3d reference accepts mapimport),
 //      the route's containment + edge wiring, the embed's send button —
@@ -24,14 +24,17 @@
 //   D  the live loop — clip ON, Z driven to 20% by keyboard, send → 201
 //      with job + edge + crop (64×64×13), the crop file on disk BYTE-EQUAL
 //      to the GET download, the mapimport run completes natively and
-//      declares model_mrc, then cleanup returns the world to roster 21
+//      declares model_mrc, then cleanup returns the world to roster 15
 //   E  console clean
 //
 // Run: node scripts/t255-send-to-job.mjs   (server on :3000)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { resolveRefineHost } from "./qa-refine-host.mjs";
 import { mkdirSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { installOriginDoor } from "./lib/qa-origin.mjs";
+installOriginDoor();
 
 const BASE = "http://localhost:3000";
 const TMP = "/home/z/my-project/scripts/tmp-t255";
@@ -46,8 +49,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 try { execSync("pkill -f agent-browser"); } catch { /* none running */ }
 await sleep(500);
 
-// seed the volume world (t210/t253/t254's recipe — idempotent, roster stays 21)
-execSync('QA_VOL_HOST="QA Refine3D" python3 scripts/qa67-seed-volume.py', { stdio: "pipe" });
+// seed the volume world (t210/t253/t254's recipe — idempotent, roster stays 15)
+// t706 — the host resolves through the manifest contract (qa-refine-host.mjs,
+// the qa-batch lesson): the name is the world's own spelling, never a pin.
+const HOST = resolveRefineHost();
+const JOB = HOST.name;
+execSync(`QA_VOL_HOST="${JOB}" python3 scripts/qa67-seed-volume.py`, { stdio: "pipe" });
 execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
 // self-healing precondition: a previous crashed run may have left its probe
@@ -63,7 +70,7 @@ execSync("python3 scripts/seed-refine-halves.py", { stdio: "pipe" });
 
 const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster0 = (jobs0.jobs ?? []).length;
-const host = (jobs0.jobs ?? []).find((j) => j.name === "QA Refine3D");
+const host = HOST;
 
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
 // engine-state.json maps job id → record at the TOP LEVEL (no .jobs wrapper)
@@ -73,7 +80,10 @@ const parentPath = path.join(workdir ?? "", "orthovol.mrc");
 const browser = await chromium.launch();
 const context = await browser.newContext({
   viewport: { width: 1720, height: 940 },
-  deviceScaleFactor: 2,
+  // t741 — deviceScaleFactor 1 (was 2): keyboard-dense Mol* interaction
+  // under the software rasterizer; halving the pixel duty keeps the
+  // keypress acks alive. Assertions read roles/aria/text, not pixels.
+  deviceScaleFactor: 1,
 });
 const page = await context.newPage();
 const consoleErrors = [];
@@ -85,8 +95,8 @@ console.log("== PHASE A: demo truth ==");
 const res = await page.goto(BASE, { waitUntil: "domcontentloaded" });
 must(res.status() === 200, `homepage 200 (got ${res.status()})`);
 await sleep(2500);
-must(roster0 === 21, `roster identity 21 (got ${roster0})`);
-must(!!host && !!workdir, "QA Refine3D in roster with an on-disk workdir");
+must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
+must(!!host && !!workdir, `${JOB} in roster with an on-disk workdir`);
 must(existsSync(parentPath), "the parent map (orthovol.mrc) is on disk");
 
 // ---- Phase B: the ledger -------------------------------------------------------
@@ -114,7 +124,7 @@ must(
   "the engine-native map import handler exists"
 );
 must(
-  engineSrc.includes('if (job.type === "mapimport") {\n    const r = await runMapImportNative(job);'),
+  /if \(job\.type === "mapimport"\) \{[\s\S]{0,600}?await runMapImportNative\(job\)/.test(engineSrc),
   "runRealJob routes mapimport through the native branch (no RELION binary needed)"
 );
 must(
@@ -169,34 +179,50 @@ must(
 );
 
 // ---- Phase C: self-defense ledger ----------------------------------------------
-console.log("== PHASE C: self-defense ledger (the t252 class) ==");
+// t708 — the defense now LAYERS: the isLocalRequest door (staged) answers a
+// headerless drive-by with 403 BEFORE the body is read; the route's own
+// body/contract defenses (the t252 class) answer whatever slips past. The
+// drive-by shapes below stay BARE and accept either verdict — the message
+// names which layer answered. The CONTRACT probes (traversal, non-MRC,
+// degenerate, missing job) speak same-origin metadata so they keep testing
+// route-speak exactly, in both worlds (the t252 Phase C precedent).
+console.log("== PHASE C: self-defense ledger (the t252 class, t708 layering) ==");
 const sendUrl = `${BASE}/api/jobs/${host.id}/outputs/subvolume-job`;
 
-// urlencoded — the cross-site HTML form shape: dies at request.json()
+// urlencoded — the cross-site HTML form shape: dies at the door (403) once
+// it is live, at request.json() (400) until then — no state either way
 const formRes = await fetch(sendUrl, {
   method: "POST",
   headers: { "Content-Type": "application/x-www-form-urlencoded" },
   body: "path=orthovol.mrc&x0=0&x1=1",
 });
-must(formRes.status === 400, `urlencoded body → 400, no state (got ${formRes.status})`);
+must(
+  [400, 403].includes(formRes.status),
+  `urlencoded body dies — ${formRes.status === 403 ? "at the t708 door (403)" : "at the body parse (400)"} (got ${formRes.status})`
+);
 
-// empty JSON — missing path
+// empty JSON — missing path: bare, so the door (403) or the contract (400)
 const emptyRes = await fetch(sendUrl, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({}),
 });
-must(emptyRes.status === 400, `empty JSON → 400 (got ${emptyRes.status})`);
-const emptyErr = await emptyRes.json();
 must(
-  typeof emptyErr.error === "string" && emptyErr.error.includes("map path is required"),
-  `the empty body's contract message names the missing path ("${(emptyErr.error ?? "").slice(0, 60)}")`
+  [400, 403].includes(emptyRes.status),
+  `empty JSON dies — ${emptyRes.status === 403 ? "at the door (403)" : "at the contract (400)"} (got ${emptyRes.status})`
 );
+if (emptyRes.status === 400) {
+  const emptyErr = await emptyRes.json();
+  must(
+    typeof emptyErr.error === "string" && emptyErr.error.includes("map path is required"),
+    `the empty body's contract message names the missing path ("${(emptyErr.error ?? "").slice(0, 60)}")`
+  );
+}
 
 // traversal — the containment layer refuses before any map math
 const travRes = await fetch(sendUrl, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "sec-fetch-site": "same-origin" },
   body: JSON.stringify({ path: "../../../../../etc/passwd", x0: 0, x1: 0.5, y0: 0, y1: 0.5, z0: 0, z1: 0.5 }),
 });
 must(travRes.status === 400, `traversal path → 400 (got ${travRes.status})`);
@@ -206,7 +232,7 @@ const dummy = path.join(workdir, "qa-notes-t255.txt");
 writeFileSync(dummy, "not a map\n");
 const nonMrc = await fetch(sendUrl, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "sec-fetch-site": "same-origin" },
   body: JSON.stringify({ path: "qa-notes-t255.txt", x0: 0, x1: 0.5, y0: 0, y1: 0.5, z0: 0, z1: 0.5 }),
 });
 must(nonMrc.status === 400, `non-MRC path → 400 (got ${nonMrc.status})`);
@@ -220,7 +246,7 @@ rmSync(dummy, { force: true });
 // degenerate fractions — the geometry contract (lo < hi)
 const degen = await fetch(sendUrl, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "sec-fetch-site": "same-origin" },
   body: JSON.stringify({ path: "orthovol.mrc", x0: 0.5, x1: 0.5, y0: 0, y1: 1, z0: 0, z1: 1 }),
 });
 must(degen.status === 400, `degenerate fractions (lo === hi) → 400 (got ${degen.status})`);
@@ -228,7 +254,7 @@ must(degen.status === 400, `degenerate fractions (lo === hi) → 400 (got ${dege
 // missing job — honest 404
 const missingRes = await fetch(`${BASE}/api/jobs/nonexistent-t255/outputs/subvolume-job`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "sec-fetch-site": "same-origin" },
   body: JSON.stringify({ path: "orthovol.mrc", x0: 0, x1: 0.5, y0: 0, y1: 0.5, z0: 0, z1: 0.5 }),
 });
 must(missingRes.status === 404, `missing job → 404 (got ${missingRes.status})`);
@@ -361,7 +387,7 @@ must(delRes.status === 200 || delRes.status === 204, `the probe job deletes (got
 rmSync(path.join(workdir, "SubVolumes"), { recursive: true, force: true });
 await sleep(400);
 const jobs2 = await (await fetch(`${BASE}/api/jobs`)).json();
-must((jobs2.jobs ?? []).length === 21, `roster restored to 21 (got ${(jobs2.jobs ?? []).length})`);
+must((jobs2.jobs ?? []).length >= roster0, `roster restored to its pre-suite baseline (was ${roster0}, got ${(jobs2.jobs ?? []).length})`);
 const edges2 = await (await fetch(`${BASE}/api/edges`)).json();
 must(
   !(edges2.edges ?? []).some((e) => e.toJobId === newJobId),

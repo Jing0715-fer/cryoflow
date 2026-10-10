@@ -43,25 +43,53 @@
  *    text ∧ status ∧ stage — combine in one exported predicate; a stage
  *    that doesn't exist can't be a filter, and a single-category
  *    workspace hides the row entirely.
+ *  • Task 578 — the lens language. The bar now ENTERS like a lens
+ *    lowering over the work (the t572 palette / t576 dashboard cascade
+ *    grammar, third floating surface): input pill first, chip rows
+ *    60/120ms behind, settle disarms, re-open remounts and replays.
+ *    Two motion-semantics debts come due with it: (a) a wire drag used
+ *    to UNMOUNT the bar — the stand-down is now opacity/pointer-events
+ *    only, so a return is visibly NOT an arrival and the cascade never
+ *    replays on a drag end; (b) the count is a polite live region and
+ *    flashes the find dialect's amber when the cycle advances — the
+ *    same hue the matched cards ring with.
+ *  • t722 — the PARAM dialect. An explicit `key:value` query turns the
+ *    lens into a parameter lookup ("which jobs ever ran mask = 20?"):
+ *    the ring set is the matcher's param rung, cards ring WITHOUT any
+ *    character wash (a value in the params grid has no surface text to
+ *    claim), and an amber `params` badge says what kind of question is
+ *    being answered. The badge arms from the SAME parse the matcher
+ *    runs (parseParamQuery), so the marker and the meaning cannot
+ *    disagree — one dialect, one parser, three consumers and a badge.
+ *  • t782 — the NOTED half: a fourth chip row (StickyNote + "Noted")
+ *    arms the judgment gate — the SAME hasJudgment the palette's Notes
+ *    group, the header's count chip and the note spotlight read (one
+ *    predicate, no second copy). Toggle semantics (not radio): judged
+ *    or not is yes/no. Alone with an empty query it rings every judged
+ *    job ("which steps did I have opinions about?"); combined it
+ *    narrows any other dimension ("motion, but only the judged ones").
+ *    The spotlight (N) is the ambient dim of the same predicate — the
+ *    chip is its queryable ring, coexisting not competing. Active hue
+ *    is the note family's amber (the color the app already speaks for
+ *    judgments — canvas badge, palette capsule, spotlight icon).
  */
 
 import * as React from "react";
-import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, StickyNote, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
+import { jobMatchesFind } from "@/lib/job-match"; // t653 — the meaning lives in lib; t722 — the param rung rides the same lib
+import { ParamDialectBadge } from "./param-dialect-badge"; // t724 — the dialect marker is one face for both search surfaces
 import { JOB_CATEGORIES, jobType } from "@/lib/workflow";
 import type { JobDTO, JobStatus } from "@/lib/types";
+import { STATUS_CHIP } from "@/lib/status-style"; // t647 — the chip family lives with the word law
 import { cn } from "@/lib/utils";
 
-/** Case-insensitive substring match against the job's own name and its
- *  type label. Exported so canvas.tsx dims/rings with the same
- *  predicate this bar counts with — one matcher, two consumers. */
-export function jobMatchesQuery(job: JobDTO, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return false;
-  if (job.name.toLowerCase().includes(q)) return true;
-  return (jobType(job.type)?.label ?? job.type).toLowerCase().includes(q);
-}
+// t653 — the matcher itself (jobMatchesQuery, jobMatchesFind) moved to
+// lib/job-match.ts: three consumers share it and lib is where shared
+// meaning lives. This file keeps the UI — the bar, its chips, its
+// parade — and imports the meaning from its new home.
 
 /** The status chips the lens can filter by, in the order a working
  *  scientist asks for them: what's moving now, what just landed, what
@@ -74,64 +102,46 @@ export const FIND_STATUSES: { value: JobStatus; label: string }[] = [
   { value: "pending", label: "Pending" },
 ];
 
-/** Chip dialect — the SAME hue family the status badges and minimap
- *  fills already use for each state (teal/emerald/rose/slate/amber); a
- *  filter chip that recolored "running" purple would be a lie. Exported
- *  so the footer's status census borrows the exact same hues — every
- *  surface that speaks "status" must use the world's own vocabulary. */
-export const STATUS_CHIP: Record<string, { dot: string; active: string }> = {
-  running: {
-    dot: "bg-teal-500",
-    active:
-      "border-teal-400/70 bg-teal-500/10 text-teal-700 dark:border-teal-500/60 dark:text-teal-300",
-  },
-  completed: {
-    dot: "bg-emerald-500",
-    active:
-      "border-emerald-400/70 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/60 dark:text-emerald-300",
-  },
-  failed: {
-    dot: "bg-rose-500",
-    active:
-      "border-rose-400/70 bg-rose-500/10 text-rose-700 dark:border-rose-500/60 dark:text-rose-300",
-  },
-  idle: {
-    dot: "bg-slate-400",
-    active:
-      "border-slate-400/70 bg-slate-500/10 text-slate-600 dark:border-slate-500/60 dark:text-slate-300",
-  },
-  pending: {
-    dot: "bg-amber-500",
-    active:
-      "border-amber-400/70 bg-amber-500/10 text-amber-700 dark:border-amber-500/60 dark:text-amber-300",
-  },
-};
+/** Chip dialect — t647 moved it to lib/status-style (STATUS_CHIP),
+ *  where the {dot, active} pair is composed from the same STATUS_TEXT
+ *  ink the badges speak; the footer's status census borrows it from
+ *  there directly. */
 
-/** The FULL find predicate — status gate first, then the text gate.
- *  With a status chip active and an empty query every job of that
- *  status matches (the chip alone is a lens); with no chip the empty
- *  query matches nothing (Task 134's contract, unchanged). Exported
- *  next to jobMatchesQuery so the bar and the canvas share ONE
- *  definition of "is a match". */
-export function jobMatchesFind(job: JobDTO, query: string, status: JobStatus | "all", category: string | "all" = "all"): boolean {
-  if (status !== "all" && job.status !== status) return false;
-  // Task 138 — the type half: the match's job type must belong to the
-  // armed palette category (workflow stage). An unknown type has no
-  // category, so an armed stage lens honestly excludes it.
-  if (category !== "all" && jobType(job.type)?.category !== category) return false;
-  if (!query.trim()) return status !== "all" || category !== "all";
-  return jobMatchesQuery(job, query);
-}
+/** t584 — the chip cascade's timing words. The rows land first
+ *  (find-drop: --find-d 0/60/120ms over a 220ms travel); then each chip
+ *  lights at its row's LANDING + index × step — "the sentence lands,
+ *  then its words are spoken in reading order". The step is 24ms
+ *  (t579's ripple step): chips are small, their parade must stay
+ *  snappy. The settle window (720ms in the arming effect below) is
+ *  budgeted from these numbers: the type row lands at 340ms and the
+ *  widest real-world chip row (~8 categories) finishes at
+ *  340 + 7×24 + 160 = 668ms < 720ms — the disarm never cuts a chip
+ *  mid-flight. Rung 0 (input pill, count, arrows, close) is the ANCHOR
+ *  and never cascades — t572's law: the input is what everything else
+ *  arrives to. If you retune the rows, retune these. */
+const ROW_TRAVEL_MS = 220;
+const CHIP_STEP_MS = 24;
+const STATUS_CHIP_BASE_MS = 60 + ROW_TRAVEL_MS;
+const TYPE_CHIP_BASE_MS = 120 + ROW_TRAVEL_MS;
+// t782 — the noted rung stair: one rung past the type row (180ms base),
+// same step clock — a fourth row keeps the cascade's grammar intact.
+const NOTE_CHIP_BASE_MS = 180 + ROW_TRAVEL_MS;
+
+/** The FULL find predicate — status gate first, then the text gate —
+ *  lives in lib/job-match.ts (t653, next to the query matcher). */
 
 export function CanvasFindBar() {
   const findOpen = useWorkflowStore((s) => s.findOpen);
   const findQuery = useWorkflowStore((s) => s.findQuery);
   const findStatus = useWorkflowStore((s) => s.findStatus);
   const findCategory = useWorkflowStore((s) => s.findCategory);
+  // t782 — the noted half of the lens (fourth dimension)
+  const findNoted = useWorkflowStore((s) => s.findNoted);
   const closeFind = useWorkflowStore((s) => s.closeFind);
   const setFindQuery = useWorkflowStore((s) => s.setFindQuery);
   const setFindStatus = useWorkflowStore((s) => s.setFindStatus);
   const setFindCategory = useWorkflowStore((s) => s.setFindCategory);
+  const setFindNoted = useWorkflowStore((s) => s.setFindNoted);
   const focusJob = useWorkflowStore((s) => s.focusJob);
   const pendingFrom = useWorkflowStore((s) => s.pendingFrom);
   // The SAME workspace-scoped list the canvas renders — counting matches
@@ -144,10 +154,49 @@ export function CanvasFindBar() {
  *  → "1 of N" only once something is actually centered). */
   const [cur, setCur] = React.useState<number | null>(null);
 
+  // Task 578 — the entrance cascade is a ONE-SHOT per open. TRAP: this
+  // component does NOT mount on open — the early return sits after the
+  // hooks, so the instance exists from page load (rendering null). An
+  // arming state initialized at mount would be disarmed by its own settle
+  // timer before the FIRST Ctrl+F ever landed (the live-fire caught this
+  // dead on arrival). So arming follows the findOpen TRANSITION instead:
+  // false → true arms the cascade and starts the settle window (the
+  // budget is now two-phase: the type row lands at 120 + 220 = 340ms,
+  // then its chips stair in — the widest row finishes ~668ms, so 720ms
+  // is the first round number that never cuts a chip mid-flight);
+  // true → false (a close) resets the edge so the next open replays. A
+  // wire-drag stand-down never touches findOpen — the attribute stays
+  // disarmed through it, so a drag return cannot replay the entrance
+  // (a return is not an arrival).
+  const [enterArmed, setEnterArmed] = React.useState(false);
+  // t585 — the toggle answer's key set: which chips have earned a
+  // click-settle THIS session. Populated only by post-arm activating
+  // clicks (a click inside the entrance window is answered by color
+  // alone — the cascade owns the chips' animation channel while armed),
+  // and cleared on every open below: a fresh lens owns a fresh voice,
+  // and a stale key from last session would ghost-pop at THIS
+  // session's disarm (the CSS rule newly-matches the moment
+  // data-find-enter leaves the root — the disarm must never become an
+  // event). The set never shrinks while the lens is open: a
+  // deactivation's silence comes from aria-pressed flipping back, not
+  // from revoking the key — so a quick off→on replays the settle.
+  const [chipSetKeys, setChipSetKeys] = React.useState<ReadonlySet<string>>(new Set());
+  const findOpenEdge = React.useRef(false);
+  React.useEffect(() => {
+    if (findOpen && !findOpenEdge.current) {
+      findOpenEdge.current = true;
+      setEnterArmed(true);
+      setChipSetKeys(new Set());
+      const id = setTimeout(() => setEnterArmed(false), 720);
+      return () => clearTimeout(id);
+    }
+    if (!findOpen) findOpenEdge.current = false;
+  }, [findOpen]);
+
   const matches = React.useMemo(() => {
     if (!findOpen) return [] as JobDTO[];
-    return jobs.filter((j) => jobMatchesFind(j, findQuery, findStatus, findCategory));
-  }, [findOpen, findQuery, findStatus, findCategory, jobs]);
+    return jobs.filter((j) => jobMatchesFind(j, findQuery, findStatus, findCategory, findNoted));
+  }, [findOpen, findQuery, findStatus, findCategory, findNoted, jobs]);
 
   const n = matches.length;
 
@@ -181,14 +230,19 @@ export function CanvasFindBar() {
   const go = React.useCallback(
     (dir: 1 | -1) => {
       if (n === 0) return;
-      setCur((prev) => {
-        const base = prev != null && prev < n ? prev : dir === 1 ? -1 : 0;
-        const next = (base + dir + n) % n;
-        focusJob(matches[next].id);
-        return next;
-      });
+      // t653 — the side effect leaves the updater. An updater must be a
+      // pure computation: React runs it during the render phase (and
+      // Strict Mode runs it TWICE), so the focusJob that used to live
+      // inside was a hidden double-dispatch of the focus epoch AND the
+      // source of React's setState-in-render warning. Compute from the
+      // closure (every go() call is a discrete user event — no same-tick
+      // re-entry), set, then focus: one dispatch, one arrival.
+      const base = cur != null && cur < n ? cur : dir === 1 ? -1 : 0;
+      const next = (base + dir + n) % n;
+      focusJob(matches[next].id);
+      setCur(next);
     },
-    [n, matches, focusJob],
+    [cur, n, matches, focusJob],
   );
 
   const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -231,30 +285,50 @@ export function CanvasFindBar() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (!findOpen || pendingFrom) return null;
+  // The stand-down: a wire drag (pendingFrom) used to unmount the bar
+  // entirely — which would have made any entrance choreography replay
+  // on every drag end. Now the bar lowers its voice instead of leaving:
+  // opacity 0, pointer-events none, aria-hidden — still mounted, still
+  // disarmed, invisible to the drag and to assistive tech alike. A
+  // return is not an arrival; the cascade agrees.
+  if (!findOpen) return null;
 
   // Honest zero: with no query AND no chip the bar simply isn't looking
   // for anything (no count); but an armed lens with zero hits must say
   // so — the lens is on, the canvas has nothing that matches it.
   const countLabel =
     n === 0
-      ? findQuery.trim() || findStatus !== "all" || findCategory !== "all"
+      ? findQuery.trim() || findStatus !== "all" || findCategory !== "all" || findNoted
         ? "no matches"
         : ""
       : cur == null
         ? `${n} ${n === 1 ? "match" : "matches"}`
         : `${cur + 1} of ${n}`;
 
+  // t724 — the dialect badge moved into its own component (the roster
+  // search speaks the same dialect and imports the same marker); the
+  // arming parse lives inside ParamDialectBadge, still the SAME parser
+  // the matcher runs — the marker and the meaning cannot disagree.
+
   return (
     <div
       data-canvas-ui="find-bar"
       data-canvas-find-bar=""
       data-testid="canvas-find-bar"
-      className="no-print card-lift absolute left-1/2 top-3 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5"
+      data-find-enter={enterArmed ? "true" : undefined}
+      className={cn(
+        "no-print card-lift absolute left-1/2 top-3 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5 transition-opacity duration-150",
+        pendingFrom && "pointer-events-none opacity-0",
+      )}
       role="search"
       aria-label="Find jobs on canvas"
+      aria-hidden={pendingFrom ? true : undefined}
     >
-      <div className="flex items-center gap-1 rounded-full border bg-card/95 py-1 pl-2.5 pr-1 shadow-md backdrop-blur">
+      <div
+        data-find-rung="0"
+        style={{ "--find-d": "0ms" } as React.CSSProperties}
+        className="flex items-center gap-1 rounded-full border bg-card/95 py-1 pl-2.5 pr-1 shadow-md backdrop-blur"
+      >
       <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <input
         ref={inputRef}
@@ -262,12 +336,16 @@ export function CanvasFindBar() {
         value={findQuery}
         onChange={(e) => setFindQuery(e.target.value)}
         onKeyDown={onInputKeyDown}
-        placeholder="Find by name or type…"
-        aria-label="Find jobs by name or type"
+        placeholder="Find by name, type, or key:value…"
+        aria-label="Find jobs by name, type, or key:value parameter query"
         autoComplete="off"
         spellCheck={false}
         className="w-48 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/60 sm:w-60"
       />
+      {/* t722/t724 — the dialect badge: one shared face (same parser as
+          the matcher, find amber, full law on hover) for both search
+          surfaces. Rendered only while the dialect is armed. */}
+      <ParamDialectBadge query={findQuery} testid="canvas-find-param-badge" />
       {/* Task 137 — the count is a DOOR: with matches on hand, clicking it
           advances the cycle (same go(1) as Enter/next — one cursor, three
           triggers). Rendered as a span only in the honest-zero state where
@@ -276,6 +354,7 @@ export function CanvasFindBar() {
         <button
           type="button"
           data-testid="canvas-find-count"
+          aria-live="polite"
           onClick={() => {
             go(1);
             // keyboard continuity: focus returns to the input so typing
@@ -284,18 +363,21 @@ export function CanvasFindBar() {
             requestAnimationFrame(() => inputRef.current?.focus());
           }}
           title="Jump to next match"
-          className="shrink-0 cursor-pointer whitespace-nowrap rounded px-0.5 text-[11px] font-medium tabular-nums text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          className="shrink-0 cursor-pointer whitespace-nowrap rounded px-0.5 text-[11px] font-medium tabular-nums text-muted-foreground transition-all motion-safe:active:scale-[0.96] hover:bg-muted/60 hover:text-foreground"
         >
-          {countLabel}
+          {/* keyed remount per label: the amber tick is a one-shot per
+              change (t578), not a blinking ornament */}
+          <span key={countLabel} data-find-tick="">{countLabel}</span>
         </button>
       ) : (
         <span
           data-testid="canvas-find-count"
+          aria-live="polite"
           className={`shrink-0 whitespace-nowrap px-0.5 text-[11px] font-medium tabular-nums ${
             findQuery.trim() ? "text-destructive" : "text-muted-foreground"
           }`}
         >
-          {countLabel}
+          <span key={countLabel} data-find-tick="">{countLabel}</span>
         </span>
       )}
       <Button
@@ -340,38 +422,63 @@ export function CanvasFindBar() {
           and the chips ARE the discovery surface (no funnel detour). */}
       <div
         data-testid="canvas-find-status-row"
+        data-find-rung="1"
+        style={{ "--find-d": "60ms" } as React.CSSProperties}
         role="group"
         aria-label="Filter matches by status"
         className="flex items-center gap-0.5 rounded-full border bg-card/95 px-1.5 py-1 shadow-md backdrop-blur"
       >
-        {FIND_STATUSES.map(({ value, label }) => {
+        {FIND_STATUSES.map(({ value, label }, chipIdx) => {
           const active = findStatus === value;
           const chip = STATUS_CHIP[value];
           return (
-            <button
+            <Chip
               key={value}
-              type="button"
-              data-testid={`canvas-find-status-${value}`}
-              aria-pressed={active}
-              title={active ? `Clear the ${label.toLowerCase()} filter` : `Only ${label.toLowerCase()} jobs`}
-              onClick={() => setFindStatus(active ? "all" : value)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
-                active
-                  ? chip.active
-                  : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
+              size="md"
+              interactive
+              asChild
+              className="flex gap-1.5"
             >
-              <span
-                aria-hidden="true"
+              <button
+                type="button"
+                data-testid={`canvas-find-status-${value}`}
+                data-find-chip=""
+                data-chip-set={chipSetKeys.has(`status:${value}`) ? "" : undefined}
+                style={{ "--find-cd": `${STATUS_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
+                aria-pressed={active}
+                title={active ? `Clear the ${label.toLowerCase()} filter` : `Only ${label.toLowerCase()} jobs`}
+                onClick={() => {
+                  const next = active ? "all" : value;
+                  setFindStatus(next);
+                  // t585 — the settle is an ACTIVATION answer and a POST-ARM
+                  // one: a click inside the entrance window is answered by
+                  // color alone, and the disarm itself never plays anything
+                  // (a rule keyed only on aria-pressed would ghost-pop every
+                  // still-active chip when data-find-enter is removed — the
+                  // rule cannot tell the disarm from a click). The key set
+                  // starts empty every open, so only genuine post-arm
+                  // activations carry a voice.
+                  if (!enterArmed && next !== "all") {
+                    setChipSetKeys((prev) => new Set(prev).add(`status:${value}`));
+                  }
+                }}
                 className={cn(
-                  "size-1.5 rounded-full",
-                  chip.dot,
-                  value === "running" && active && "animate-soft-pulse",
+                  active
+                    ? chip.active
+                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                 )}
-              />
-              {label}
-            </button>
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    chip.dot,
+                    value === "running" && active && "animate-soft-pulse",
+                  )}
+                />
+                {label}
+              </button>
+            </Chip>
           );
         })}
       </div>
@@ -384,33 +491,111 @@ export function CanvasFindBar() {
       {presentCategories.length > 1 && (
         <div
           data-testid="canvas-find-type-row"
+          data-find-rung="2"
+          style={{ "--find-d": "120ms" } as React.CSSProperties}
           role="group"
           aria-label="Filter matches by type"
           className="flex max-w-[min(92vw,560px)] flex-wrap items-center justify-center gap-0.5 rounded-full border bg-card/95 px-1.5 py-1 shadow-md backdrop-blur"
         >
-          {presentCategories.map(({ key, label, hint }) => {
+          {presentCategories.map(({ key, label, hint }, chipIdx) => {
             const active = findCategory === key;
             return (
-              <button
+              <Chip
                 key={key}
-                type="button"
-                data-testid={`canvas-find-type-${key}`}
-                aria-pressed={active}
-                title={active ? `Clear the ${label} filter` : `Only ${hint.toLowerCase()}`}
-                onClick={() => setFindCategory(active ? "all" : key)}
-                className={cn(
-                  "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
+                size="md"
+                interactive
+                asChild
+                className={
                   active
                     ? "border-primary/60 bg-primary/10 text-foreground"
-                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                )}
+                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                }
               >
-                {label}
-              </button>
+                <button
+                  type="button"
+                  data-testid={`canvas-find-type-${key}`}
+                  data-find-chip=""
+                  data-chip-set={chipSetKeys.has(`type:${key}`) ? "" : undefined}
+                  style={{ "--find-cd": `${TYPE_CHIP_BASE_MS + chipIdx * CHIP_STEP_MS}ms` } as React.CSSProperties}
+                  aria-pressed={active}
+                  title={active ? `Clear the ${label} filter` : `Only ${hint.toLowerCase()}`}
+                  onClick={() => {
+                    const next = active ? "all" : key;
+                    setFindCategory(next);
+                    // t585 — same voice as the status chips: activation
+                    // answers post-arm only; the release (next === "all")
+                    // is quiet (dismissive actions get no ceremony).
+                    if (!enterArmed && next !== "all") {
+                      setChipSetKeys((prev) => new Set(prev).add(`type:${key}`));
+                    }
+                  }}
+                >
+                  {label}
+                </button>
+              </Chip>
             );
           })}
         </div>
       )}
+      {/* t782 — the NOTED half of the lens: the fourth orthogonal
+          dimension. hasJudgment is the ONE predicate the palette's Notes
+          group, the header's count chip and the note spotlight already
+          read — the chip is its QUERYABLE ring ("which steps did I have
+          opinions about?" with an empty query; "motion, but only the
+          judged ones" with text armed), while the spotlight (N) stays
+          the ambient dim of the same predicate — coexisting, not
+          competing. Toggle semantics (not radio: judged/not-judged is a
+          yes/no, the lens has no third state). Active hue is the note
+          family's own amber — the one color the app already speaks for
+          judgments (the canvas badge, the palette capsule, the spotlight
+          icon); the type row's neutral law doesn't apply here because a
+          hue CAN speak for this row without lying for anyone. */}
+      <div
+        data-testid="canvas-find-note-row"
+        data-find-rung="3"
+        style={{ "--find-d": "180ms" } as React.CSSProperties}
+        role="group"
+        aria-label="Filter matches by note"
+        className="flex items-center gap-0.5 rounded-full border bg-card/95 px-1.5 py-1 shadow-md backdrop-blur"
+      >
+        <Chip
+          size="md"
+          interactive
+          asChild
+          className={
+            findNoted
+              // the t728 whisper volume: the find stack's amber is a WASH
+              // (the 5% fill + the 40% border, the LINE_EXEMPT signature) —
+              // the text-color pair is the t647 ink residue the codemod
+              // migrated away, and the chip borrows the judged wash, never
+              // a second dialect
+              ? "border-amber-500/40 bg-amber-500/5 text-foreground"
+              : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          }
+        >
+          <button
+            type="button"
+            data-testid="canvas-find-noted"
+            data-find-chip=""
+            data-chip-set={chipSetKeys.has("note:noted") ? "" : undefined}
+            style={{ "--find-cd": `${NOTE_CHIP_BASE_MS}ms` } as React.CSSProperties}
+            aria-pressed={findNoted}
+            title={findNoted ? "Clear the noted filter" : "Only jobs that carry a note or class judgment"}
+            onClick={() => {
+              const next = !findNoted;
+              setFindNoted(next);
+              // t585 — the same voice as the status/type chips: activation
+              // answers post-arm only; the release is quiet.
+              if (!enterArmed && next) {
+                setChipSetKeys((prev) => new Set(prev).add("note:noted"));
+              }
+            }}
+          >
+            <StickyNote className="size-3" aria-hidden="true" />
+            Noted
+          </button>
+        </Chip>
+      </div>
     </div>
   );
 }

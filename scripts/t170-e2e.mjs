@@ -54,7 +54,9 @@ function must(cond, label) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function api(path) {
-  const { stdout } = await pexec("curl", ["-s", "-w", "\n%{http_code}", `${BASE}${path}`]);
+  // t709 — the reader-door routes (jobs/[id]/command preview) reject
+  // headerless curl-style clients by design; speak the door's language.
+  const { stdout } = await pexec("curl", ["-s", "-H", `Origin: ${BASE}`, "-w", "\n%{http_code}", `${BASE}${path}`]);
   const idx = stdout.lastIndexOf("\n");
   return { status: Number(stdout.slice(idx + 1)), body: JSON.parse(stdout.slice(0, idx)) };
 }

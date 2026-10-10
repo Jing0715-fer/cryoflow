@@ -10,26 +10,39 @@
  * reports → workdir footer.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+// t350 — per-iteration class snapshots (live + picker)
+import { ClassIterationGallery } from "./class-iteration-gallery";
+import { gridNeighbor, type GridDir, type GridEntry } from "@/lib/grid-nav";
 import {
   AlertTriangle,
   Box,
   Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Cloud,
+  CloudDownload,
   Copy,
   Crop,
+  Crosshair,
   ExternalLink,
   FileDown,
   FileText,
   FolderOpen,
   Globe,
+  GraduationCap,
   Layers,
   Loader2,
   RefreshCw,
   ScrollText,
+  Sparkles,
+  Square,
   Table2,
   ZoomIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useWorkflowStore } from "@/lib/store";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +52,10 @@ import {
   onEscapeClose,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Kbd } from "@/components/ui/kbd"; // t831 — the quick-look's keymap speaks the one kbd vocabulary (t642)
+import { Chip } from "@/components/ui/chip";
 import { toast } from "@/hooks/use-toast";
+import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped attach + revoked same-tick)
 import { buildFscSvg, fscMilestones, fscNyquist, fscTableMarkdown } from "@/lib/fsc-snapshot";
 import { buildProfileReportHtml } from "@/lib/report-html";
 import {
@@ -62,13 +78,23 @@ import {
   type TopazSnapshotEpoch,
 } from "@/lib/report-snapshots";
 import type { JobDTO } from "@/lib/types";
+import type { OutputSummary, SummaryStat } from "@/lib/relion/output-summary";
 import { cn } from "@/lib/utils";
-import { FscChart } from "./fsc-chart";
-import { TopazTrainingChart } from "./topaz-training-chart";
+// t391 — the two recharts carriers ride the lazy barrel (see
+// results-lazy.tsx): recharts stays out of the eager home compile
+import {
+  FscChart,
+  TopazTrainingChart,
+  DenoiseCompareGallery,
+  SelectionEvidenceRow,
+  AiVerdictStamp,
+} from "./results-lazy";
 import { MrcImage } from "./mrc-image";
 import { MolViewer, type MolViewerTarget } from "./mol-viewer";
 import { useAnchorParent } from "./anchor-parent";
 import { StarTable } from "./star-table";
+import { TextPreview } from "./text-preview"; // t779 — the tail preview's own home (the inspector Files tab is the second family)
+import { QuickHistSection } from "./density-histogram";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -81,6 +107,10 @@ interface OutputFile {
   name: string;
   kind: OutputKind;
   size: number;
+  /** t289 — the file lives on the cluster (key-files sync policy): the
+   *  tile renders a fetch-gated card; every viewer door (preview,
+   *  download, Mol*) pulls it over SSH on the explicit click. */
+  remote?: boolean;
   slices?: number;
   /** volume grid [nx, ny, nz] — 3D maps only */
   dims?: [number, number, number];
@@ -103,7 +133,22 @@ interface OutputsResponse {
   workdir: string | null;
   engine: "relion";
   files: OutputFile[];
+  /** t330 — per-type key numbers (particles above all); null when this
+   *  listing yields no honest count */
+  summary?: OutputSummary | null;
+  /** t330 — WARNING lines from run.out (deduped, capped) */
+  warnings?: string[];
   note?: string;
+}
+
+/** t330 — the load failure carries its own diagnosis: which LAYER failed
+ *  (record gone / server error / route unreachable / network), so the card
+ *  can say what to do instead of a bare "HTTP 404" the user reads as a
+ *  broken cluster. The raw detail rides along as the secondary line. */
+interface LoadError {
+  friendly: string;
+  raw: string;
+  kind: "gone" | "server" | "route" | "network";
 }
 
 /* ------------------------------------------------------------------ */
@@ -152,12 +197,39 @@ export function mapSourceNote(mapPath: string): { kind: "crop" | "standalone"; l
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
 
+/** t363 — the job types whose Results tab is anchored by the LIVE
+ *  iteration gallery (the same set the gallery itself renders for). While
+ *  one of these runs REMOTELY the local mirror stays empty until the
+ *  sync-back lands at finalize — the outputs listing carries no files, and
+ *  the old "no on-disk outputs" early return kept the gallery unmounted
+ *  for the WHOLE run: the exact "intermediate results only arrive when
+ *  everything finishes" field report. For these types the gallery mounts
+ *  above the (still empty) file sections and streams rounds live from the
+ *  cluster. */
+const ITERATION_GALLERY_TYPES = new Set(["class2d", "class3d", "refine3d", "initialmodel"]);
+
 export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: number }) {
   const [data, setData] = useState<OutputsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadError | null>(null);
 
   const [imageFile, setImageFile] = useState<OutputFile | null>(null);
+  /** t286 — the quick-look dialog's display window: the histogram strip
+   *  (or its σ presets) commands the PNG render (lo → black, hi → white);
+   *  null = AUTO, the 2–98 percentile answers. Reset per file. */
+  const [imgWindow, setImgWindow] = useState<{ lo: number; hi: number } | null>(null);
+  // t287 — the stack dialog's slice cursor (0-based). The montage stays
+  // the overview; the slice cursor picks WHICH particle image the single
+  // view and the histogram speak.
+  const [stackSlice, setStackSlice] = useState(0);
+  // t288 — the montage overview follows the display window ONLY when the
+  // user asks: sixteen images are sixteen distributions, so by default
+  // every cell speaks its own auto stretch. The toggle is the explicit
+  // command over all of them (and survives slice steps — it's the
+  // reader's intent, not a command over any one image's pixels; the
+  // window itself still resets per image, so the montage silently
+  // returns to auto with it). Reset per file, like the window.
+  const [montageWin, setMontageWin] = useState(false);
   const [starFile, setStarFile] = useState<OutputFile | null>(null);
   const [textFile, setTextFile] = useState<OutputFile | null>(null);
   /** t260 — the shared Mol* dialog opens on a TARGET (job + file + optional
@@ -167,23 +239,76 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   const [molTarget, setMolTarget] = useState<MolViewerTarget | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  /** one automatic retry per failure run — a dev-server HMR blip or a
+   *  mid-restart 404 recovers without the user ever seeing the card; a
+   * "record gone" verdict never retries (it would say the same thing) */
+  const retriedRef = useRef(false);
+
+  const loadOnce = useCallback(async (): Promise<"ok" | LoadError> => {
     try {
       const res = await fetch(`/api/jobs/${job.id}/outputs`, { cache: "no-store" });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? `HTTP ${res.status}`);
+        const raw = body?.error ?? `HTTP ${res.status}`;
+        if (body?.error === "Job not found") {
+          return {
+            kind: "gone",
+            raw,
+            friendly:
+              "This job's record is no longer in the app's database — the canvas may be showing a stale view. Close this inspector and reload the page.",
+          };
+        }
+        if (res.status >= 500) {
+          return {
+            kind: "server",
+            raw,
+            friendly:
+              "The app server hit an internal error while listing outputs — check the server console; a retry may succeed.",
+          };
+        }
+        if (res.status === 404) {
+          return {
+            kind: "route",
+            raw,
+            friendly:
+              "The app server answered 404 for the outputs route — it may be mid-restart or running a stale build. Retry, then reload the page (and after a git pull: install + rebuild before starting).",
+          };
+        }
+        return {
+          kind: "route",
+          raw,
+          friendly: "The outputs listing failed to load.",
+        };
       }
       setData((await res.json()) as OutputsResponse);
+      return "ok";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load outputs");
-      setData(null);
-    } finally {
-      setLoading(false);
+      return {
+        kind: "network",
+        raw: err instanceof Error ? err.message : String(err),
+        friendly:
+          "The app server did not answer — is it still running? (This listing reads the job's local workdir; the cluster connection is not involved.)",
+      };
     }
   }, [job.id]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    let r = await loadOnce();
+    if (r !== "ok" && r.kind !== "gone" && !retriedRef.current) {
+      retriedRef.current = true;
+      // brief pause — an HMR/restart blip needs a beat to come back
+      await new Promise((res) => setTimeout(res, 1200));
+      r = await loadOnce();
+    }
+    if (r === "ok") {
+      retriedRef.current = false; // success re-arms the one-shot retry
+    } else {
+      setError(r);
+    }
+    setLoading(false);
+  }, [loadOnce]);
 
   useEffect(() => {
     void load();
@@ -199,6 +324,29 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   useEffect(() => {
     if (refreshKey !== firstKey.current) void load();
   }, [refreshKey, load]);
+
+  // t286 — a display window belongs to the file it was drawn on: opening
+  // another file resets to AUTO (the strip's key={path} resets its toggle
+  // the same way — two resets, one honest per-file world).
+  // t287 — and to the IMAGE it was drawn on inside a stack: a different
+  // slice is a different distribution with its own μ/σ, so the old
+  // lo/hi pair would be a stale command over new pixels — stepping the
+  // slice resets the window too (the slice view and the histogram both
+  // snap back to AUTO together).
+  const imgPath = imageFile?.path ?? null;
+  useEffect(() => {
+    setImgWindow(null);
+  }, [imgPath, stackSlice]);
+  // opening another FILE restarts the stack at its first image
+  useEffect(() => {
+    setStackSlice(0);
+  }, [imgPath]);
+  // t288 — and resets the montage's follow-window toggle (the toggle is
+  // the reader's intent across SLICES, but across FILES a fresh dialog
+  // starts honest: overview auto, window auto)
+  useEffect(() => {
+    setMontageWin(false);
+  }, [imgPath]);
 
   // latest-iteration first: for finished jobs the FINAL classes/maps are what
   // users come to see (run_it025_classes beats run_it000_classes)
@@ -220,6 +368,10 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
     () => data?.files.filter((f) => f.kind === "text" || f.kind === "image") ?? [],
     [data]
   );
+  // t424 — the batch bring-home ledger: every listing entry the cluster
+  // still holds (key-files policy). One bar above the sections answers
+  // them all; the per-tile "Fetch & preview" doors stay as they are.
+  const remoteFiles = useMemo(() => data?.files.filter((f) => f.remote) ?? [], [data]);
 
   const copyWorkdir = useCallback(async () => {
     if (!data?.workdir) return;
@@ -595,6 +747,28 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
         "",
         job.result ?? "No summary line recorded.",
         "",
+        // t330 — the key numbers and warnings from the on-screen listing
+        // ride the report: a reader of the paper trail sees the particle
+        // count and the amber warnings without opening the app.
+        ...(data?.summary && data.summary.stats.length > 0
+          ? [
+              "**Key numbers**",
+              "",
+              ...data.summary.stats.map((s) => `- ${s.label}: **${s.value}**`),
+              ...(data.summary.coverage?.note
+                ? [`- ⚠ ${data.summary.coverage.note}`]
+                : []),
+              "",
+            ]
+          : []),
+        ...(data?.warnings && data.warnings.length > 0
+          ? [
+              "**Run warnings**",
+              "",
+              ...data.warnings.map((w) => `- ⚠ \`${w}\``),
+              "",
+            ]
+          : []),
         "## Resolution",
         "",
         resLines.length > 0 ? resLines.map((l) => `- ${l}`).join("\n") : "_No resolution data available for this job._",
@@ -657,13 +831,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   // per-job family). One busy state guards both: while either medium is
   // being collected, both doors rest.
   const downloadBytes = (content: string, name: string, mime: string) => {
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([content], { type: mime }), name);
   };
 
   const exportReport = useCallback(async () => {
@@ -733,18 +901,59 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
   }
 
   if (error) {
-    return (
-      <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <div>
-          <p className="font-medium">Could not load outputs</p>
-          <p className="text-destructive/80">{error}</p>
+    const errorCard = (
+      <div
+        data-outputs-error={error.kind}
+        className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs"
+      >
+        <div className="flex items-start gap-2 text-destructive">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Could not load outputs</p>
+            <p className="mt-0.5 leading-relaxed text-destructive/90">{error.friendly}</p>
+            <p className="mt-1 font-mono text-[10px] text-destructive/70">{error.raw}</p>
+            {error.kind !== "gone" && error.kind !== "network" && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                This listing reads the job's local workdir — the cluster connection is not involved.
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="mt-2 pl-5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void load()}
+            aria-busy={loading}
+            className="h-7 gap-1.5 px-2 text-[11px]"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} aria-hidden="true" />
+            Retry
+          </Button>
         </div>
       </div>
     );
+    // t363 — a classification job's LIVE GALLERY outranks a failed OUTPUTS
+    // listing: the gallery feeds from /iterations (its own wire, its own
+    // honest error card), while the listing only enriches the tab below it.
+    // A transient listing failure (dev-server restart, a busy poll) must
+    // not hide the rounds the user is watching — the card stays, with the
+    // listing's own Retry beneath.
+    if (ITERATION_GALLERY_TYPES.has(job.type)) {
+      return (
+        <div className="space-y-4">
+          <ClassIterationGallery job={job} refreshKey={refreshKey} />
+          {errorCard}
+        </div>
+      );
+    }
+    return errorCard;
   }
 
-  if (!data || data.files.length === 0) {
+  // t363 — see ITERATION_GALLERY_TYPES above: a classification run keeps
+  // its Results tab alive (the gallery + an honest empty-note) instead of
+  // the early "no on-disk outputs" panel
+  if (!data || (data.files.length === 0 && !ITERATION_GALLERY_TYPES.has(job.type))) {
     return (
       <div className="flex flex-col items-center gap-2 rounded-md border border-dashed px-4 py-8 text-center">
         <FolderOpen className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
@@ -770,7 +979,35 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
 
   return (
     <div className="space-y-4">
+      {/* t350 — class snapshots per iteration: live while a remote
+          classification runs (cluster-side counts, rendered averages),
+          a class picker once it finished (per-class stars → next job) */}
+      <ClassIterationGallery job={job} refreshKey={refreshKey} />
+
+      {/* t363 — an empty listing on a gallery type = the run is remote and
+          the mirror has not landed yet (or the job wrote nothing browsable):
+          say so instead of a bare "0 output files" header */}
+      {data.files.length === 0 && (
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed px-4 py-6 text-center">
+          <p className="text-sm font-medium text-foreground/80">No on-disk outputs yet</p>
+          <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
+            {job.status === "running" || job.status === "pending"
+              ? "The cluster is writing this run — class snapshots above update live; the full file listing lands here when the run finishes."
+              : (data.note ?? "This job produced no browsable files.")}
+          </p>
+          {job.result && (
+            <p
+              className="max-w-full truncate rounded-full bg-muted px-3 py-1 text-[11px] text-muted-foreground"
+              title={job.result}
+            >
+              {job.result}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* header row */}
+      {data.files.length > 0 && (
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground">
           {data.files.length} output file{data.files.length === 1 ? "" : "s"}
@@ -815,6 +1052,46 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           </Button>
         </div>
       </div>
+      )}
+
+      {/* t424 — the batch bring-home bar leads the remote story: one glance
+          says how much the cluster still holds and one click walks it all
+          home, chunk by chunk, with honest per-file verdicts. */}
+      {remoteFiles.length > 0 && (
+        <RemoteBatchBar jobId={job.id} files={remoteFiles} onSettled={() => void load()} />
+      )}
+
+      {/* t330 — the key numbers lead the Results view: particles above all
+          (the user's "这个信息很关键"), micrographs coverage beside them, the
+          amber completeness note when output didn't cover every micrograph. */}
+      {data.summary && <KeyNumbersStrip summary={data.summary} />}
+
+      {/* t330 — run.out warnings surfaced: the user saw "some warnings" in
+          Extract and had to read raw logs to know what they were. */}
+      {data.warnings && data.warnings.length > 0 && <WarningsCard warnings={data.warnings} />}
+
+      {/* t566 — the selection evidence row: the receipt says what the
+          engine kept (per-class occupancy, the deciding mode, the birth
+          provenance); when that provenance is a birth from a class2d run
+          that carries an AI verdict stamp, the parent's opinion joins it
+          side by side — the numbers lead, the reasons follow. Type-gated
+          to selection verbs (the receipt route reads a native select
+          run's log); the pairing degrades honestly to the plain receipt
+          when there is no birth parent or no verdict to borrow. */}
+      {(job.type === "select2d" || job.type === "select") && (
+        <SelectionEvidenceRow jobId={job.id} refreshKey={refreshKey} />
+      )}
+
+      {/* t565 — the AI verdict stamp: a judge's verdict is evidence about
+          this run, stamped onto the job's record at judge time — it lives
+          on the Results tab long after the chat session that asked is
+          gone. Type-gated to class2d (the judge's only mouth); honest
+          absence when no judge has ever spoken about this job. The stamp
+          is a notebook entry — the footer names the model and the pass
+          summary, and it never touches the particle counts. */}
+      {job.type === "class2d" && (
+        <AiVerdictStamp jobId={job.id} refreshKey={refreshKey} />
+      )}
 
       {/* Import Map identity card — the map's own story (t256): size and
           spacing from the header, the density statistics the header
@@ -840,20 +1117,69 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
           the component self-hides when the log has no epoch progress. */}
       <TopazTrainingChart jobId={job.id} running={job.status === "running"} />
 
+      {/* t558 — the train→pick handoff: the chart above says how good the
+          model is, this card says what to DO with it. One gesture mints
+          the Auto-picking job (Topaz mode, the training's own dials),
+          wires the model in, and inherits the micrographs source — the
+          engine receipt "connect into Auto-picking (Topaz mode)" becomes
+          a button instead of a manual wiring chore. */}
+      {job.type === "topaztrain" && job.status === "completed" && (
+        <TopazPickHandoff jobId={job.id} />
+      )}
+
+      {/* t542 — the denoise compare gallery: every denoised micrograph
+          paired with its original (wipe / side-by-side). Type-gated — the
+          pairs route is denoise-owned and the fetch would be a lie for any
+          other job. */}
+      {job.type === "topazdenoise" && (
+        <DenoiseCompareGallery jobId={job.id} running={job.status === "running"} />
+      )}
+
+      {/* t559 — the denoise→pick handoff (the gesture family's second
+          cut): the gallery above says how much cleaner the pixels got,
+          this card says what to DO with them — the official topaz flow
+          runs denoise → pick on the same images, and the pick consumes
+          the denoised star unchanged. */}
+      {job.type === "topazdenoise" && job.status === "completed" && (
+        <DenoisePickHandoff jobId={job.id} />
+      )}
+
+      {/* t563 — the denoise→train handoff (the gesture family's third
+          cut): the pick card above says what to do with the clean stack
+          TODAY (general model); this card says how to GET a trained one
+          — the official flow trains on the denoised images too, and the
+          coords mouth is fed from the workspace's completed Manual
+          Picking (honest refusal when none exists). */}
+      {job.type === "topazdenoise" && job.status === "completed" && (
+        <DenoiseTrainHandoff jobId={job.id} />
+      )}
+
       {/* Maps & images gallery */}
       {mrcFiles.length > 0 && (
         <section aria-label="Maps and images" data-canvas-ui="maps-gallery" tabIndex={-1} ref={molFocusRef} className="outline-none">
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-            <Layers className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
+            <Layers className="h-3.5 w-3.5 text-running-600" aria-hidden="true" />
             Maps &amp; images
             <span className="font-normal text-muted-foreground">({mrcFiles.length})</span>
           </h4>
           {mrcFiles.length > 9 ? (
             <div className="max-h-80 overflow-y-auto pr-1">
-              <MrcGallery job={job} files={mrcFiles} onOpen={setImageFile} />
+              <MrcGallery
+                job={job}
+                files={mrcFiles}
+                onOpen={setImageFile}
+                onFetched={() => void load()}
+                onView3D={(f) => setMolTarget({ job, path: f.path, name: f.label ?? f.name })}
+              />
             </div>
           ) : (
-            <MrcGallery job={job} files={mrcFiles} onOpen={setImageFile} />
+            <MrcGallery
+              job={job}
+              files={mrcFiles}
+              onOpen={setImageFile}
+              onFetched={() => void load()}
+              onView3D={(f) => setMolTarget({ job, path: f.path, name: f.label ?? f.name })}
+            />
           )}
         </section>
       )}
@@ -899,7 +1225,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {logFiles.length > 0 && (
         <section aria-label="Logs and reports">
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-            <ScrollText className="h-3.5 w-3.5 text-amber-600" aria-hidden="true" />
+            <ScrollText className="h-3.5 w-3.5 text-warning-600" aria-hidden="true" />
             Logs &amp; reports
             <span className="font-normal text-muted-foreground">({logFiles.length})</span>
           </h4>
@@ -910,9 +1236,9 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   <a
                     href={fileUrl(job.id, f, "&format=raw")}
                     download={f.name}
-                    className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors hover:border-amber-600/40 hover:bg-amber-600/5"
+                    className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
                   >
-                    <FileDown className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+                    <FileDown className="h-3.5 w-3.5 shrink-0 text-warning-600" aria-hidden="true" />
                     <span className="truncate">{f.label ?? f.name}</span>
                     <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <span className="shrink-0 text-[10px] text-muted-foreground">
@@ -928,9 +1254,9 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     /* data-print-keep: same paper contract as the STAR rows
                        above — the wrapped name/size record must print */
                     data-print-keep=""
-                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-amber-600/40 hover:bg-amber-600/5"
+                    className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
                   >
-                    <ScrollText className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+                    <ScrollText className="h-3.5 w-3.5 shrink-0 text-warning-600" aria-hidden="true" />
                     <span className="truncate font-mono text-[11px]">{f.name}</span>
                     <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
                       {formatBytes(f.size)}
@@ -958,7 +1284,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             aria-label="Copy workdir path"
           >
             {copied ? (
-              <Check className="h-3 w-3 text-emerald-600" aria-hidden="true" />
+              <Check className="h-3 w-3 text-success-600" aria-hidden="true" />
             ) : (
               <Copy className="h-3 w-3" aria-hidden="true" />
             )}
@@ -971,37 +1297,209 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
       {/* map / stack dialog */}
       <Dialog open={imageFile !== null} onOpenChange={(o) => !o && setImageFile(null)}>
         <DialogContent
-          className="max-w-2xl sm:max-w-2xl"
-          onKeyDown={onEscapeClose(() => setImageFile(null))}
+          className="flex max-h-[90dvh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+          onKeyDown={(e) => {
+            // t831 — the quick-look's own keyboard face: ← / → step the
+            // stack's slice cursor through the SAME state setter the
+            // prev/next buttons drive, so the t287 window-reset effect
+            // (a different image is a different distribution) follows
+            // for free. The t829 gate law rides along: form fields keep
+            // their keys (the lo/hi fields and the slice range input
+            // keep their native arrows — the same step either way), the
+            // event is consumed only when the cursor actually moves
+            // (at the edges the scroll region keeps its arrow-scroll).
+            // Escape still closes through the house handler.
+            const t = e.target;
+            const inField =
+              t instanceof HTMLElement &&
+              (t.closest("input, textarea, select, [contenteditable='true']") != null ||
+                t.isContentEditable);
+            if (!inField && imageFile && imageFile.name.toLowerCase().endsWith(".mrcs")) {
+              const max = Math.max(0, (imageFile.slices ?? 1) - 1);
+              if (e.key === "ArrowLeft" && stackSlice > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                setStackSlice((s) => Math.max(0, s - 1));
+                return;
+              }
+              if (e.key === "ArrowRight" && stackSlice < max) {
+                e.preventDefault();
+                e.stopPropagation();
+                setStackSlice((s) => Math.min((imageFile.slices ?? 1) - 1, s + 1));
+                return;
+              }
+            }
+            onEscapeClose(() => setImageFile(null))(e);
+          }}
         >
           {imageFile && (
             <>
-              <DialogHeader>
+              {/* t809 — the house dialect reaches the map/stack preview
+                  (the census's other disease-live face): the DialogContent
+                  WAS the scroll surface (an explicit 90dvh + overflow-
+                  y-auto, the header floated unpinned — a tall stack
+                  montage pushed it away; Radix pins the dialog to
+                  tabIndex=-1, the t802/t804 verdict, one more face). The
+                  walk found exactly TWO disease-live faces in forty-four
+                  and this is the second. The shape: flex col + gap-0 +
+                  overflow-hidden + p-0, the header pinned, ONE inner
+                  region carrying the stop + the honest name + the inset
+                  ring; role=dialog kept (the t799 law). The card's own
+                  90dvh cap is kept — each face keeps its own. */}
+              <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <Layers className="h-4 w-4 text-teal-600" aria-hidden="true" />
+                  <Layers className="h-4 w-4 text-running-600" aria-hidden="true" />
                   {imageFile.label ?? imageFile.name}
                 </DialogTitle>
                 <DialogDescription className="font-mono text-[11px]">
                   {imageFile.path} · {formatBytes(imageFile.size)}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-3">
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Map and stack preview — the image, its window controls, and the histogram"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+              >
                 {imageFile.name.toLowerCase().endsWith(".mrcs") ? (
                   <>
                     <MrcImage
-                      src={fileUrl(job.id, imageFile, "&format=png&montage=16")}
+                      src={
+                        fileUrl(job.id, imageFile, "&format=png&montage=16") +
+                        (montageWin && imgWindow ? `&lo=${imgWindow.lo}&hi=${imgWindow.hi}` : "")
+                      }
                       alt={`${imageFile.name} montage`}
                       className="bg-zinc-950 p-2"
                     />
-                    <p className="text-center text-[11px] text-muted-foreground">
-                      Stack of {imageFile.slices ?? "?"} particle images — showing the first{" "}
-                      {Math.min(16, imageFile.slices ?? 16)}
-                    </p>
+                    {/* t288 — the overview takes commands, but only by
+                        name: sixteen images are sixteen distributions, so
+                        the toggle (default OFF) is the explicit act of
+                        commanding all of them with one window. With no
+                        window set there is nothing to follow — the toggle
+                        is disabled and says so. */}
+                    <div
+                      className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground"
+                      data-canvas-ui="stack-montage-meta"
+                      /* the hook reads the montage's ACTUAL behavior (is
+                         it windowed right now?), not the toggle's intent:
+                         aria-pressed owns the intent, disabled owns the
+                         interactivity, this owns the deed */
+                      data-montage-window={montageWin && imgWindow ? "on" : "off"}
+                    >
+                      <span>
+                        Stack of {imageFile.slices ?? "?"} particle images — showing the first{" "}
+                        {Math.min(16, imageFile.slices ?? 16)} ·{" "}
+                        {montageWin && imgWindow ? "windowed" : "auto contrast"}
+                      </span>
+                      <button
+                        type="button"
+                        aria-pressed={montageWin}
+                        disabled={!imgWindow}
+                        data-canvas-ui="stack-montage-window"
+                        onClick={() => setMontageWin((w) => !w)}
+                        title={
+                          !imgWindow
+                            ? "Set a display window first (σ presets or the lo/hi fields below) — then the montage can follow it"
+                            : montageWin
+                              ? "The montage follows the display window — every cell renders lo → black, hi → white"
+                              : "Command the montage with the display window — sixteen images are sixteen distributions; by default each cell speaks its own auto stretch"
+                        }
+                        className={
+                          "rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors " +
+                          (montageWin && imgWindow
+                            ? "border-violet-700/60 bg-violet-950/30 text-violet-700 dark:border-violet-400/50 dark:bg-violet-950/40 dark:text-violet-300"
+                            : "border-border/60 bg-background/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50")
+                        }
+                      >
+                        follow window
+                      </button>
+                    </div>
+                    {(
+                      /* t287 — THE STACK SPEAKS: a slice cursor (prev/next +
+                         a range slider) drives ONE slice view and the
+                         histogram below — "is this particle even usable?"
+                         is answered by THAT image's distribution, not the
+                         stack-wide blur of thousands. Stepping the slice
+                         resets the display window (a different image is a
+                         different distribution — the old lo/hi pair would
+                         be a stale command over new pixels). */
+                      <>
+                        <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2 py-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 w-7 shrink-0 p-0"
+                            disabled={stackSlice <= 0}
+                            aria-label="Previous particle image"
+                            data-canvas-ui="stack-slice-prev"
+                            onClick={() => setStackSlice((s) => Math.max(0, s - 1))}
+                          >
+                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <input
+                            type="range"
+                            min={0}
+                            max={Math.max(0, (imageFile.slices ?? 1) - 1)}
+                            value={stackSlice}
+                            onChange={(e) => setStackSlice(Math.trunc(Number(e.target.value)) || 0)}
+                            className="h-1.5 flex-1 accent-teal-600"
+                            aria-label="Particle image index"
+                            data-canvas-ui="stack-slice-range"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 w-7 shrink-0 p-0"
+                            disabled={stackSlice >= (imageFile.slices ?? 1) - 1}
+                            aria-label="Next particle image"
+                            data-canvas-ui="stack-slice-next"
+                            onClick={() =>
+                              setStackSlice((s) => Math.min((imageFile.slices ?? 1) - 1, s + 1))
+                            }
+                          >
+                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <span
+                            className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground"
+                            data-canvas-ui="stack-slice-readout"
+                          >
+                            slice {stackSlice + 1} of {imageFile.slices ?? "?"}
+                          </span>
+                        </div>
+                        <MrcImage
+                          src={
+                            fileUrl(
+                              job.id,
+                              imageFile,
+                              `&format=png&montage=0&scale=large&slice=${stackSlice}`
+                            ) + (imgWindow ? `&lo=${imgWindow.lo}&hi=${imgWindow.hi}` : "")
+                          }
+                          alt={`${imageFile.name} particle image ${stackSlice + 1}`}
+                          className="bg-zinc-950 p-2"
+                        />
+                        <p className="text-center text-[11px] text-muted-foreground">
+                          Particle image {stackSlice + 1} · {(imageFile.slices ?? 1)} in the stack
+                          {imgWindow ? " · windowed" : " · auto contrast"}
+                        </p>
+                        <QuickHistSection key={imageFile.path}
+                          jobId={job.id}
+                          path={imageFile.path}
+                          slice={stackSlice}
+                          window={imgWindow}
+                          onWindowChange={setImgWindow}
+                        />
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
                     <MrcImage
-                      src={fileUrl(job.id, imageFile, "&format=png&scale=large")}
+                      src={
+                        fileUrl(job.id, imageFile, "&format=png&scale=large") +
+                        (imgWindow
+                          ? `&lo=${imgWindow.lo}&hi=${imgWindow.hi}`
+                          : "")
+                      }
                       alt={`${imageFile.name} central slice`}
                       className="bg-zinc-950 p-2"
                     />
@@ -1024,8 +1522,50 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                         View in 3D (Mol*)
                       </Button>
                     </div>
+                    {/* t284 — the quick look speaks distributions: the SAME
+                        histogram instrument the ortho panel carries, here
+                        read-only (a dialog has no contour context to cut).
+                        Default OFF — the first look walks the whole file on
+                        the server; the toggle makes that an explicit ask and
+                        the (path, mtime, size) cache makes the rest free.
+                        key={path} resets the toggle when another file opens.
+                        t286 — the same strip now also COMMANDS the display:
+                        the σ presets / draggable handles lift their window
+                        into imgWindow, and the <MrcImage> above re-renders
+                        with &lo=&hi= (one state, two consumers). */}
+                    <QuickHistSection key={imageFile.path}
+                      jobId={job.id}
+                      path={imageFile.path}
+                      window={imgWindow}
+                      onWindowChange={setImgWindow}
+                    />
                   </>
                 )}
+                {/* t831 — the quick-look's keymap glance: the keymap
+                    family's third seat. The chips teach ONLY keys that
+                    work HERE, mode-gated by the same must-not-lie law
+                    the ortho row rides: the slice family renders only
+                    for a multi-image stack (a single image has no step
+                    — chips for a dead key would lie), Esc is the house
+                    dialog close (the layered-escape contract every
+                    dialog already obeys). One kbd vocabulary (t642),
+                    a quiet footer line like the ortho row's. */}
+                <div
+                  data-canvas-ui="quick-keymap"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+                >
+                  {imageFile.name.toLowerCase().endsWith(".mrcs") && (imageFile.slices ?? 1) > 1 && (
+                    <span className="inline-flex items-center gap-0.5">
+                      <Kbd>←</Kbd>
+                      <Kbd>→</Kbd>
+                      <span className="ml-1">step the slice</span>
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-0.5">
+                    <Kbd>Esc</Kbd>
+                    <span className="ml-1">closes</span>
+                  </span>
+                </div>
               </div>
             </>
           )}
@@ -1048,6 +1588,19 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                 <DialogDescription className="font-mono text-[11px]">{starFile.path}</DialogDescription>
               </DialogHeader>
               <StarTable job={job} path={starFile.path} />
+              {/* t832 — the star table joins the keymap family: one quiet
+                  line teaching the one key it has (the house dialog close).
+                  A seat that teaches nothing but what works — the family's
+                  must-not-lie law, fourth application. */}
+              <div
+                data-canvas-ui="star-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>
@@ -1063,7 +1616,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <ScrollText className="h-4 w-4 text-amber-600" aria-hidden="true" />
+                  <ScrollText className="h-4 w-4 text-warning-600" aria-hidden="true" />
                   {textFile.name}
                 </DialogTitle>
                 <DialogDescription className="font-mono text-[11px]">
@@ -1071,6 +1624,18 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                 </DialogDescription>
               </DialogHeader>
               <TextPreview jobId={job.id} path={textFile.path} />
+              {/* t832 — the text preview joins the family too: the same
+                  Esc seat, the same calibre. Every results-view dialog
+                  now speaks its keys in one voice. */}
+              <div
+                data-canvas-ui="text-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>
@@ -1148,11 +1713,11 @@ function MapIdentityCard({
     <section
       aria-label="Imported map"
       data-canvas-ui="map-identity"
-      className="rounded-lg border border-teal-600/30 bg-teal-600/[0.04] p-3"
+      className="rounded-lg border border-running/30 bg-running/[0.04] p-3"
     >
       <div className="flex items-center justify-between gap-2">
         <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
-          <Box className="h-3.5 w-3.5 shrink-0 text-teal-600" aria-hidden="true" />
+          <Box className="h-3.5 w-3.5 shrink-0 text-running-600" aria-hidden="true" />
           Imported map
         </h4>
         <span className="truncate font-mono text-[11px] text-muted-foreground" title={file.name}>
@@ -1161,11 +1726,11 @@ function MapIdentityCard({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span className="rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+        <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-running-700 dark:text-running-300">
           {dims.join(" × ")} vox
         </span>
         {map.pixel > 0 && (
-          <span className="rounded-full border border-teal-600/25 bg-teal-600/10 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+          <span className="rounded-full border border-running/25 bg-running/10 px-2 py-0.5 text-[10px] font-semibold text-running-700 dark:text-running-300">
             {map.pixel.toFixed(2)} Å / voxel
           </span>
         )}
@@ -1223,7 +1788,7 @@ function MapIdentityCard({
               size="sm"
               variant="outline"
               data-testid="map-card-view-3d"
-              className="h-7 gap-1.5 border-teal-600/40 px-2.5 text-[11px] text-teal-700 hover:bg-teal-600/10 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+              className="h-7 gap-1.5 border-running/40 px-2.5 text-[11px] text-running-700 hover:bg-running/10 hover:text-running-800 dark:text-running-300 dark:hover:text-running-200"
               onClick={() => onView3D({ job, path: file.path, name: file.name })}
             >
               <Box className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1317,10 +1882,18 @@ function MrcGallery({
   job,
   files,
   onOpen,
+  onFetched,
+  onView3D,
 }: {
   job: JobDTO;
   files: OutputFile[];
   onOpen: (file: OutputFile) => void;
+  /** t289 — a remote file finished fetching over SSH: the listing refreshes
+   *  so the tile graduates to a fully local one. */
+  onFetched: () => void;
+  /** t289 — the remote tile's 3D door (Mol* fetches the raw bytes over
+   *  SSH through the same lazy route). */
+  onView3D: (file: OutputFile) => void;
 }) {
   // iterations present on disk, newest first
   const iters = useMemo(() => {
@@ -1347,6 +1920,65 @@ function MrcGallery({
     }
     return files.filter((f) => iterOfName(f.name) === filter);
   }, [files, filter, maxIter]);
+
+  /* ---------- roving tabindex for the thumbnail grid (Task 777) ----------
+   * The third sibling of the spatial contract (canvas cards t775, class
+   * gallery's own roving): a results round can hold dozens of tiles and
+   * tabbing through all of them is a graveyard walk. Exactly ONE local
+   * tile is in the tab order (tabIndex 0); the arrows move focus
+   * geometrically through src/lib/grid-nav.ts (measured rects, no
+   * column-count guessing a responsive grid would break), Home/End jump
+   * to the reading-order ends. Arrows only MOVE — Enter/Space keep the
+   * monopoly on enlarging (the door lineage). Remote tiles are not roving
+   * stops: they carry their own multi-button keyboard contract (Fetch /
+   * Download / Mol*) and stay out of the geometry; the grid's law reads
+   * the world it is given, holes and all. */
+  const tileRefs = useRef(new Map<string, HTMLButtonElement>());
+  const [activePath, setActivePath] = useState<string | null>(null);
+  // t779 — the roving anchor is DERIVED, not mirrored: the state keeps
+  // what the user chose, the anchor is what SURVIVES the current listing.
+  // A vanished anchor (filter switch, listing refresh, re-fetch) needs no
+  // state write to re-seat — the derivation lands the roving tabIndex on
+  // the first visible tile in the same render, and the cascading-render
+  // trap the lint rule names (setState synchronously inside an effect)
+  // stays empty. Same law the class gallery speaks; a lighter body.
+  const anchorPath =
+    activePath != null && shown.some((f) => f.path === activePath)
+      ? activePath
+      : shown[0]?.path ?? null;
+  const KEY_TO_DIR: Record<string, GridDir> = {
+    ArrowRight: "right",
+    ArrowLeft: "left",
+    ArrowUp: "up",
+    ArrowDown: "down",
+    Home: "home",
+    End: "end",
+  };
+  const onTileKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const dir = KEY_TO_DIR[e.key];
+    if (!dir) return;
+    const entries: GridEntry[] = [];
+    for (const f of shown) {
+      const el = tileRefs.current.get(f.path);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      entries.push({ id: f.path, left: r.left, top: r.top, width: r.width, height: r.height });
+    }
+    if (entries.length === 0) return;
+    const fromPath = e.currentTarget.dataset.tilePath ?? null;
+    const target = gridNeighbor(entries, fromPath, dir);
+    // arrows must never scroll the panel — an edge tile simply holds focus
+    e.preventDefault();
+    if (!target || target === fromPath) return;
+    const el = tileRefs.current.get(target);
+    if (!el) return;
+    setActivePath(target);
+    el.focus({ preventScroll: true });
+    // t774's viewport lesson — focus without reachability is a dead
+    // gesture: the focused tile must be IN the viewport, and "nearest"
+    // brings it there without yanking the scroll container
+    el.scrollIntoView({ block: "nearest", inline: "nearest" });
+  };
 
   // class occupancy for classification jobs — the strip follows the
   // displayed round (?iter= selects it; "all" pins to the final round)
@@ -1382,50 +2014,66 @@ function MrcGallery({
           <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Round
           </span>
-          <button
-            type="button"
-            aria-pressed={filter === "final"}
-            onClick={() => setFilter("final")}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums transition-colors",
+          <Chip
+            size="lg"
+            interactive
+            asChild
+            className={
               filter === "final"
                 ? "border-teal-600 bg-teal-600 text-white shadow-sm"
-                : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
-            )}
+                : "border-border bg-background text-muted-foreground hover:border-running/40 hover:text-foreground"
+            }
           >
-            final{maxIter >= 0 ? ` · it${String(maxIter).padStart(3, "0")}` : ""}
-          </button>
-          {iters.map((it) => (
             <button
-              key={it}
               type="button"
-              aria-pressed={filter === it}
-              onClick={() => setFilter(it)}
-              className={cn(
-                "rounded-full border px-2.5 py-1 font-mono text-[11px] font-semibold tabular-nums transition-colors",
+              aria-pressed={filter === "final"}
+              onClick={() => setFilter("final")}
+            >
+              final{maxIter >= 0 ? ` · it${String(maxIter).padStart(3, "0")}` : ""}
+            </button>
+          </Chip>
+          {iters.map((it) => (
+            <Chip
+              key={it}
+              size="lg"
+              interactive
+              asChild
+              className={
                 filter === it
                   ? "border-teal-600 bg-teal-600 text-white shadow-sm"
-                  : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
-              )}
+                  : "border-border bg-background text-muted-foreground hover:border-running/40 hover:text-foreground"
+              }
             >
-              it{String(it).padStart(3, "0")}
-            </button>
+              <button
+                type="button"
+                aria-pressed={filter === it}
+                onClick={() => setFilter(it)}
+                className="font-mono"
+              >
+                it{String(it).padStart(3, "0")}
+              </button>
+            </Chip>
           ))}
-          <button
-            type="button"
-            aria-pressed={filter === "all"}
-            onClick={() => setFilter("all")}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors",
+          <Chip
+            size="lg"
+            interactive
+            asChild
+            className={
               filter === "all"
                 ? "border-teal-600 bg-teal-600 text-white shadow-sm"
-                : "border-border bg-background text-muted-foreground hover:border-teal-600/40 hover:text-foreground"
-            )}
+                : "border-border bg-background text-muted-foreground hover:border-running/40 hover:text-foreground"
+            }
           >
-            all {files.length}
-          </button>
+            <button
+              type="button"
+              aria-pressed={filter === "all"}
+              onClick={() => setFilter("all")}
+            >
+              all {files.length}
+            </button>
+          </Chip>
           <span className="ml-auto text-[10px] text-muted-foreground">
-            {shown.length} of {files.length} shown
+            {shown.length} of {files.length} shown · arrows walk the grid
           </span>
         </div>
       ) : null}
@@ -1435,16 +2083,36 @@ function MrcGallery({
         {shown.map((f) => {
           const it = iterOfName(f.name);
           const isFinal = it != null && it === maxIter;
+          // t289 — cluster-resident files never auto-load: the fetch is the
+          // user's explicit click, never a render side effect
+          if (f.remote) {
+            return (
+              <RemoteFileTile
+                key={f.path}
+                job={job}
+                file={f}
+                onFetched={onFetched}
+                onView3D={onView3D}
+              />
+            );
+          }
           return (
             <button
               key={f.path}
               type="button"
+              ref={(el) => {
+                if (el) tileRefs.current.set(f.path, el);
+                else tileRefs.current.delete(f.path);
+              }}
+              data-tile-path={f.path}
+              tabIndex={f.path === anchorPath ? 0 : -1}
+              onKeyDown={onTileKeyDown}
               onClick={() => onOpen(f)}
               /* data-print-block: the tile is a stacked visual record
                  (image + name + meta) — it prints as a block, not a flex
                  row, and never splits across a page (Task 116) */
               data-print-block=""
-              className="group relative rounded-lg border p-1.5 text-left transition-all hover:border-teal-600/50 hover:shadow-sm"
+              className="group relative rounded-lg border p-1.5 text-left transition-all outline-none hover:border-teal-600/50 hover:shadow-sm focus-visible:border-teal-600 focus-visible:ring-2 focus-visible:ring-teal-600/60 focus-visible:shadow-sm"
               aria-label={`Enlarge ${f.label ?? f.name}`}
               title={`Click to enlarge — ${f.label ?? f.name}`}
             >
@@ -1490,57 +2158,642 @@ function MrcGallery({
 }
 
 /* ------------------------------------------------------------------ */
-/* Text preview                                                        */
+/* t289 — cluster-resident file tile                                    */
 /* ------------------------------------------------------------------ */
 
-function TextPreview({ jobId, path }: { jobId: string; path: string }) {
-  const [text, setText] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setText(null);
-    setError(null);
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/jobs/${jobId}/outputs/file?path=${encodeURIComponent(path)}&format=text`
-        );
-        if (!res.ok) {
-          const body = (await res.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(body?.error ?? `HTTP ${res.status}`);
-        }
-        if (!cancelled) setText(await res.text());
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load file");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId, path]);
-
-  if (error) {
-    return (
-      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-        {error}
-      </p>
-    );
-  }
-  if (text === null) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Loading file…
-      </div>
-    );
-  }
+/**
+ * A map/stack that finalize LEFT ON THE CLUSTER (key-files policy). It
+ * never auto-loads — a render must not cost an SSH transfer — every door
+ * is an explicit click:
+ *   Fetch & preview  mounts MrcImage; the png request lazy-fetches the
+ *                    file over SSH server-side, then renders; onLoaded
+ *                    refreshes the listing so the tile graduates to a
+ *                    fully local one.
+ *   ⤓ Download       the raw route streams the fetched bytes to disk.
+ *   Mol* 3D          opens the shared viewer; Mol* pulls the raw bytes
+ *                    through the same lazy route — "preview the file ON
+ *                    the cluster" in one click, cached forever after.
+ */
+function RemoteFileTile({
+  job,
+  file,
+  onFetched,
+  onView3D,
+}: {
+  job: JobDTO;
+  file: OutputFile;
+  onFetched: () => void;
+  onView3D: (file: OutputFile) => void;
+}) {
+  const [fetching, setFetching] = useState(false);
+  const isStack = file.name.toLowerCase().endsWith(".mrcs");
+  const src = fileUrl(job.id, file, isStack ? "&format=png&montage=16" : "&format=png");
   return (
-    <pre
-      className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 p-3 font-mono text-[11px] leading-relaxed text-foreground/90"
-      aria-label="File content preview"
+    <div
+      className="group relative flex flex-col rounded-lg border border-dashed p-1.5 transition-colors hover:border-teal-600/50"
+      data-remote-file=""
+      data-remote-path={file.path}
     >
-      {text}
-    </pre>
+      <span className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-running/40 bg-background/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-running-700 shadow-sm dark:text-running-300">
+        <Cloud className="size-2.5" aria-hidden="true" />
+        on cluster
+      </span>
+      <div className="relative">
+        {fetching ? (
+          <MrcImage
+            src={src}
+            alt={`${file.label ?? file.name} (fetched from the cluster)`}
+            className="aspect-square"
+            onLoaded={onFetched}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setFetching(true)}
+            className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-md border border-border/50 bg-muted/40 text-muted-foreground transition-colors hover:border-running/40 hover:text-foreground"
+            aria-label={`Fetch ${file.label ?? file.name} from the cluster and preview it`}
+            title={`Fetch & preview — pulls ${formatBytes(file.size)} from the cluster over SSH, then renders it (stays on this machine afterwards)`}
+            data-canvas-ui="remote-fetch-preview"
+          >
+            <CloudDownload className="size-5" aria-hidden="true" />
+            <span className="text-[10px] font-semibold tabular-nums">{formatBytes(file.size)}</span>
+            <span className="px-1.5 text-center text-[9px] leading-tight text-muted-foreground/80">
+              not synced — click to fetch over SSH
+            </span>
+          </button>
+        )}
+      </div>
+      <p className="mt-1 truncate text-[10px] font-medium text-foreground/85" title={file.label ?? file.name}>
+        {file.label ?? file.name}
+      </p>
+      <div className="mt-0.5 flex items-center gap-1">
+        {fetching ? (
+          <span className="flex flex-1 items-center gap-1 text-[9px] text-muted-foreground" role="status">
+            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+            fetching over SSH…
+          </span>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 flex-1 gap-1 px-1 text-[10px]"
+            onClick={() => setFetching(true)}
+            data-canvas-ui="remote-fetch-btn"
+          >
+            <CloudDownload className="size-3" aria-hidden="true" />
+            Fetch &amp; preview
+          </Button>
+        )}
+        {!isStack ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-running-600"
+            onClick={() => onView3D(file)}
+            aria-label={`View ${file.label ?? file.name} in 3D (Mol*)`}
+            title="View in 3D — Mol* pulls this map from the cluster over SSH"
+            data-canvas-ui="remote-view-3d"
+          >
+            <Box className="size-3.5" aria-hidden="true" />
+          </Button>
+        ) : null}
+        <a
+          href={fileUrl(job.id, file, "&format=raw")}
+          download={file.name}
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={`Download ${file.label ?? file.name} from the cluster`}
+          title="Download — pulls the file from the cluster, then saves it"
+          data-canvas-ui="remote-download"
+        >
+          <FileDown className="size-3.5" aria-hidden="true" />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* t558 — the Topaz train→pick handoff card                            */
+/* ------------------------------------------------------------------ */
+
+/** The trained model's next step, as a gesture instead of a chore: one
+ *  click mints the Auto-picking job (Topaz mode) with the training's own
+ *  dials carried over, wires model → topazModel, and inherits this job's
+ *  micrographs source — so the pick consumes the same stream the training
+ *  did (the denoised stack, in the official topaz flow). The store action
+ *  refuses honestly before minting when the micrographs mouth has no
+ *  source to inherit (a half-wired pick on the canvas is a lie). */
+function TopazPickHandoff({ jobId }: { jobId: string }) {
+  const pickWithTopazModel = useWorkflowStore((s) => s.pickWithTopazModel);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await pickWithTopazModel(jobId);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section
+      aria-label="Put the model to work"
+      data-canvas-ui="topaz-pick-handoff"
+      className="rounded-lg border border-danger-600/25 bg-danger/[0.04] p-3"
+    >
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
+            <Crosshair className="h-3.5 w-3.5 shrink-0 text-danger-600" aria-hidden="true" />
+            Put the model to work
+          </h4>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            Mints an Auto-picking job in Topaz mode with this training's own dials carried
+            over, wires the trained model in, and inherits the micrographs source — review
+            the params, then run.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={run}
+          disabled={busy}
+          className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          Pick with this model
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** t559 — the denoise→pick handoff: the gesture family's second cut.
+ *  The compare gallery above says how much cleaner the pixels got; this
+ *  card says what to DO with them — mint an Auto-picking job in Topaz
+ *  mode wired to the denoised stack itself (the official topaz flow runs
+ *  denoise → pick on the same images; the pick's topazModel mouth stays
+ *  honestly empty — the general model picks until a trained one exists,
+ *  which is the train card's gesture). Rose: the denoise spec's own hue. */
+function DenoisePickHandoff({ jobId }: { jobId: string }) {
+  const pickWithDenoisedStack = useWorkflowStore((s) => s.pickWithDenoisedStack);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await pickWithDenoisedStack(jobId);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section
+      aria-label="Put the clean stack to work"
+      data-canvas-ui="denoise-pick-handoff"
+      className="rounded-lg border border-danger-600/25 bg-danger/[0.04] p-3"
+    >
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-danger-600" aria-hidden="true" />
+            Put the clean stack to work
+          </h4>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            Mints an Auto-picking job in Topaz mode wired to this denoised stack — the official
+            topaz flow picks the denoised images. The general model picks until you train one;
+            review the params, then run.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={run}
+          disabled={busy}
+          className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          Pick this stack
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** t563 — the denoise→train handoff: the gesture family's third cut.
+ *  The pick card above spends the clean stack on TODAY's picking
+ *  (general model); this card grows tomorrow's — the official topaz
+ *  flow trains on the denoised images too. One mouth harder than the
+ *  pick gestures: training consumes hand-picked coordinates, which is
+ *  information the denoise stage doesn't have, so this card TELLS THE
+ *  TRUTH BEFORE THE CLICK — the coords source is named while it
+ *  exists, and its absence is announced in amber instead of leaving
+ *  the honesty to a refusal toast after the fact. GraduationCap: the
+ *  training spec's own icon; rose: the family hue. */
+function DenoiseTrainHandoff({ jobId }: { jobId: string }) {
+  const trainWithDenoisedStack = useWorkflowStore((s) => s.trainWithDenoisedStack);
+  const jobs = useWorkflowStore((s) => s.jobs);
+  const denoise = jobs.find((j) => j.id === jobId);
+  // the coords source, computed live — a Manual Picking that completes
+  // later flips this card's note from amber to named, no reload needed
+  const coordsSource = useMemo(() => {
+    if (!denoise) return undefined;
+    return [...jobs]
+      .reverse()
+      .find(
+        (j) =>
+          j.type === "manualpick" &&
+          j.status === "completed" &&
+          (j.workspaceId ?? null) === (denoise.workspaceId ?? null)
+      );
+  }, [jobs, denoise]);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await trainWithDenoisedStack(jobId);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section
+      aria-label="Grow a trained model"
+      data-canvas-ui="denoise-train-handoff"
+      className="rounded-lg border border-danger-600/25 bg-danger/[0.04] p-3"
+    >
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
+            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-danger-600" aria-hidden="true" />
+            Grow a trained model
+          </h4>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            Mints a Topaz Training job wired to this denoised stack — the official flow
+            trains on the denoised images too. Training&apos;s second mouth is hand-picked
+            coordinates; review the params, then run.
+          </p>
+          <p
+            className={
+              coordsSource
+                ? "mt-1.5 text-[11px] font-medium text-success-600 dark:text-success-300"
+                : "mt-1.5 text-[11px] font-medium text-warning-600 dark:text-warning-300"
+            }
+            data-testid="denoise-train-coords-note"
+          >
+            {coordsSource
+              ? `Coordinates will come from "${coordsSource.name}"`
+              : "Needs a completed Manual Picking on this canvas — pick some particles first"}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={run}
+          disabled={busy}
+          className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          Train on this stack
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* t330 — key numbers strip + run warnings card                        */
+/* ------------------------------------------------------------------ */
+
+/** tone → value color: particles get the teal the maps speak, classes the
+ *  violet of STAR tables, incomplete coverage the amber of warnings */
+const STAT_TONE_CLASS: Record<string, string> = {
+  particle: "text-running-600 dark:text-running-300",
+  micrograph: "text-foreground",
+  class: "text-violet-600 dark:text-violet-300",
+  warn: "text-warning-600 dark:text-warning-300",
+};
+
+/**
+ * t347 — exported: the inspector's Overview tab now leads with the same
+ * key-numbers strip the Results view opens with (one grammar, both
+ * surfaces — the user's 「颗粒数需要显示得醒目些，不仅在任务窗口中」).
+ *
+ * t609 — the tally walks the row: the strip mounts the moment the summary
+ * fetch lands (mount = arrival), and the count surfaces in READING ORDER —
+ * each card 24ms after the one before (t584's chip step), the coverage
+ * footnote joining as the next line of the tally. The geometry is the
+ * receipt's word (receipt-arrival, +4px, 240ms — the counts were taken
+ * from the star at count time; the wire merely delivers). No count-up on
+ * the digits: the number is already counted, and a rolling digit would
+ * pretend computation the engine already did.
+ */
+/** the tally's step: each count surfaces 24ms after the one before it —
+ * the reading-order cadence the find bar's chips proved (t584). */
+const TALLY_STEP_MS = 24;
+
+export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
+  if (summary.stats.length === 0) return null;
+  return (
+    <section
+      aria-label="Key numbers"
+      data-key-numbers=""
+      data-key-arrival=""
+      data-print-keep=""
+      className="flex flex-wrap gap-2"
+    >
+      {summary.stats.map((s: SummaryStat, i) => (
+        <div
+          key={s.key}
+          data-stat={s.key}
+          style={{ "--kd": `${i * TALLY_STEP_MS}ms` } as CSSProperties}
+          className="insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5"
+          title={s.hint}
+        >
+          <p
+            className={cn(
+              "text-xl font-bold leading-tight tabular-nums",
+              STAT_TONE_CLASS[s.tone ?? "micrograph"]
+            )}
+          >
+            {s.value}
+          </p>
+          <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {s.label}
+          </p>
+        </div>
+      ))}
+      {summary.coverage?.note && (
+        <p
+          data-coverage-note=""
+          style={{ "--kd": `${summary.stats.length * TALLY_STEP_MS}ms` } as CSSProperties}
+          className="flex w-full items-start gap-1.5 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300"
+        >
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+          {summary.coverage.note}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function WarningsCard({ warnings }: { warnings: string[] }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <section
+      aria-label="Run warnings"
+      data-warnings-card=""
+      data-print-keep=""
+      className="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs"
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+        <span className="font-medium text-warning-700 dark:text-warning-300">
+          {warnings.length} warning{warnings.length === 1 ? "" : "s"} in run.out
+        </span>
+        <ChevronDown
+          className={cn(
+            "ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-180"
+          )}
+          aria-hidden="true"
+        />
+      </button>
+      {open && (
+        <ul
+          tabIndex={0}
+          aria-label="Job warnings"
+          className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          {/* t803 — the warnings list speaks the scroll law (the second-pass
+              census): mono text rows, nothing tabbable below the 160px cap. */}
+          {warnings.map((w, i) => (
+            <li
+              key={i}
+              className="break-words rounded bg-warning/10 px-2 py-1 font-mono text-[10px] leading-relaxed text-warning-800 dark:text-warning-200"
+            >
+              {w}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+interface SyncResult {
+  path: string;
+  ok: boolean;
+  bytes?: number;
+  error?: string;
+}
+
+/**
+ * t424 — the batch bring-home bar. The key-files sync policy leaves the
+ * bulky outputs on the cluster; the per-tile doors fetch one file per
+ * click, which is torture at real-session scale (hundreds of stacks).
+ * This bar walks ALL of them home in small client-driven chunks — the
+ * app's polling doctrine, no SSE — with honest per-file verdicts:
+ * progress is the files that actually landed, errors stay named, and
+ * Stop halts after the in-flight chunk without pretending otherwise.
+ */
+function RemoteBatchBar({
+  jobId,
+  files,
+  onSettled,
+}: {
+  jobId: string;
+  files: OutputFile[];
+  onSettled: () => void;
+}) {
+  const CHUNK = 3;
+  const [running, setRunning] = useState(false);
+  const [doneCount, setDoneCount] = useState(0);
+  const [failCount, setFailCount] = useState(0);
+  const [failures, setFailures] = useState<SyncResult[]>([]);
+  const stopRef = useRef(false);
+
+  const total = files.length;
+  const totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
+  const settled = doneCount + failCount;
+  const pct = total > 0 ? Math.round((settled / total) * 100) : 0;
+
+  const bringHome = async () => {
+    setRunning(true);
+    setDoneCount(0);
+    setFailCount(0);
+    setFailures([]);
+    stopRef.current = false;
+    let done = 0;
+    let failed = 0;
+    const failedRows: SyncResult[] = [];
+    try {
+      for (let i = 0; i < files.length; i += CHUNK) {
+        if (stopRef.current) break;
+        const chunk = files.slice(i, i + CHUNK).map((f) => f.path);
+        let rows: SyncResult[] | null = null;
+        try {
+          const res = await fetch(`/api/jobs/${jobId}/outputs/sync`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paths: chunk }),
+          });
+          if (res.ok) {
+            const body = await res.json();
+            rows = Array.isArray(body?.results) ? body.results : null;
+          }
+        } catch {
+          /* network death — fall through with rows null */
+        }
+        if (rows === null) {
+          // the chunk itself died — count its files as failed and halt:
+          // an unreachable wire is not a per-file verdict, stop walking
+          failed += chunk.length;
+          failedRows.push({ path: chunk[0], ok: false, error: "Sync request failed — connection or server error" });
+          setFailCount(failed);
+          setFailures([...failedRows]);
+          break;
+        }
+        for (const row of rows) {
+          if (row.ok) done += 1;
+          else {
+            failed += 1;
+            failedRows.push(row);
+          }
+        }
+        setDoneCount(done);
+        setFailCount(failed);
+        setFailures([...failedRows]);
+      }
+    } finally {
+      setRunning(false);
+      // the listing is the truth — refresh even after a stop so fetched
+      // tiles graduate to their local selves and the bar re-derives
+      onSettled();
+    }
+  };
+
+  // everything the parent's refreshed listing still calls remote has
+  // genuinely not landed — the bar's story always comes from the ledger
+  if (total === 0) return null;
+
+  return (
+    <div
+      className="rounded-lg border border-running/30 bg-running/[0.04] px-3 py-2.5"
+      data-canvas-ui="remote-batch-bar"
+      role="status"
+      aria-busy={running}
+      aria-label={`Batch bring home: ${total} files on cluster`}
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-running-700 dark:text-running-300">
+          <Cloud className="size-3.5" aria-hidden="true" />
+          {total} file{total === 1 ? "" : "s"} still on cluster
+        </span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {formatBytes(totalBytes)} total — fetched files stay on this machine
+        </span>
+        <span className="ml-auto flex items-center gap-1.5">
+          {running ? (
+            <>
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
+                <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                {doneCount}/{total} home
+                {failCount > 0 ? ` · ${failCount} failed` : ""}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2 text-[11px] text-destructive hover:text-destructive"
+                onClick={() => {
+                  stopRef.current = true;
+                }}
+                aria-label="Stop fetching the remaining files"
+                data-canvas-ui="remote-batch-stop"
+              >
+                <Square className="size-3" aria-hidden="true" />
+                Stop
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 border-running/40 px-2.5 text-[11px] text-running-700 hover:bg-running/10 hover:text-running-800 dark:text-running-300 dark:hover:text-running-200"
+                onClick={() => void bringHome()}
+                aria-label={`Fetch all ${total} cluster files to this machine`}
+                title="Bring them all home — small chunks over SSH, per-file verdicts, stoppable at any moment"
+                data-canvas-ui="remote-batch-start"
+              >
+                <CloudDownload className="size-3.5" aria-hidden="true" />
+                {settled > 0 ? "Resume" : "Bring home all"}
+              </Button>
+              {failCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-[11px] text-destructive"
+                  onClick={() => void bringHome()}
+                  title="Retry the failed files (successful ones are already local and will be skipped)"
+                >
+                  <RefreshCw className="size-3" aria-hidden="true" />
+                  Retry {failCount} failed
+                </Button>
+              )}
+            </>
+          )}
+        </span>
+      </div>
+      {(running || settled > 0) && (
+        <div
+          className="mt-2 h-1 overflow-hidden rounded-full bg-running/15"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-valuenow={settled}
+        >
+          <div
+            className="h-full rounded-full bg-teal-600 transition-[width] duration-300 motion-reduce:transition-none"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+      {failures.length > 0 && !running && (
+        <details className="mt-1.5">
+          <summary className="cursor-pointer text-[10px] font-medium text-destructive/90">
+            {failures.length} file{failures.length === 1 ? "" : "s"} failed — show why
+          </summary>
+          <ul className="mt-1 space-y-0.5">
+            {failures.map((f) => (
+              <li key={f.path} className="flex items-baseline gap-1.5 text-[10px]">
+                <code className="truncate font-mono text-foreground/70">{f.path}</code>
+                <span className="shrink-0 text-destructive/80">{f.error}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
   );
 }

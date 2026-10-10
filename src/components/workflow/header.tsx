@@ -3,6 +3,7 @@
 import * as React from "react";
 import nextDynamic from "next/dynamic";
 import {
+  Activity,
   Boxes,
   Check,
   CheckCircle2,
@@ -12,10 +13,13 @@ import {
   Github,
   Layers,
   LayoutDashboard,
+  HardDrive,
   Loader2,
   Printer,
   RefreshCw,
+  Server,
   Snowflake,
+  Sparkles,
   StickyNote,
   Workflow,
   X,
@@ -25,12 +29,17 @@ import { hasJudgment } from "@/lib/class-notes";
 import { ThemeToggle } from "./theme-toggle";
 import { HelpPopover } from "./help-popover";
 import { RemoteClusterButton } from "./remote-cluster-dialog";
-import { CommandPaletteTrigger, SESSION_REPORT_EVENT } from "./command-palette";
-import { EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
+import { KnockSettingsButton } from "./finish-knock-button";
+import { CommandPaletteTrigger, SESSION_REPORT_EVENT, SYSTEM_DIAGNOSTICS_EVENT } from "./command-palette";
+import { EngineBuildRail, EngineHintBlock, EngineReDetectRow, InstallSwitcher } from "./engine-guidance";
 // t197: the session QC report is code-split (react-markdown + remark-gfm
 // ride their own chunk) — the app shell never pays for the document
 // renderer until the report is opened for the first time.
 const SessionReportDialog = nextDynamic(() => import("./session-report-dialog"), { ssr: false });
+const StorageDialog = nextDynamic(() => import("./storage-dialog"), { ssr: false });
+// t530: the diagnostics panel is code-split too — its rail + bars only
+// ride a chunk when someone actually asks how the box is doing.
+const SystemDiagnosticsDialog = nextDynamic(() => import("./system-diagnostics-dialog"), { ssr: false });
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,6 +55,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+
+/** t483: the guide's storage door — the manual dispatches, the header
+ *  (which owns the StorageDialog and its storageOpen state) listens.
+ *  Same handshake as SESSION_REPORT_EVENT and REMOTE_CLUSTERS_OPEN_EVENT:
+ *  the surface that names the door never mounts a second dialog, it only
+ *  rings the owner's bell. The storage map had no cross-open route before
+ *  — a manual row that says "open me" while wired to nothing is a lying
+ *  door, so the route now exists. */
+export const STORAGE_OPEN_EVENT = "cryoflow:open-storage";
 
 function StatChip({
   icon,
@@ -86,15 +104,39 @@ function ProjectSwitcher() {
     void switchProject(id).finally(() => setPending(false));
   };
 
+  // t300 — a remote project's trigger shows WHERE its data lives (the
+  // bound cluster), so the top bar names the world the canvas is editing.
+  const activeRemote = project?.remote ?? null;
+
   return (
-    <div className="flex items-center gap-1.5">
+    // t510 — min-w-0 on the wrapper AND the trigger: flexbox floors rule
+    // (a nowrap trigger's min-content is its FULL name — the fixed w-[]
+    // is only a preference). Without the chain the trigger refuses below
+    // 275px and paints over the actions cluster; with it the value
+    // ellipsises and the row degrades gracefully.
+    <div className="flex min-w-0 items-center gap-1.5">
       <Select value={project?.id ?? ""} onValueChange={onChange}>
         <SelectTrigger
-          className="h-8 w-[150px] rounded-lg border bg-card text-xs font-medium xl:w-[220px]"
+          // t510 — tiered width: 170 at xl (1280–1535, where the row's
+          // budget measured 650px: brand 266 + workspace 160 + this 170
+          // + gaps 30 = 626 ≤ 650), the roomy 220 back from 2xl. The
+          // name truncates a touch harder in the tight band; the full
+          // name lives in the title and the dropdown. min-w-[130px] = a
+          // name-worthy floor (an ellipsis with no name teaches nothing);
+          // the binding badge's truncating text yields below it.
+          className="h-8 w-[150px] min-w-[130px] rounded-lg border bg-card text-xs font-medium xl:w-[170px] 2xl:w-[220px]"
           aria-label="Active project"
           title={project?.name}
         >
-          <SelectValue placeholder={pending ? "Switching…" : "Select project"} />
+          {/* t510 — the trigger speaks the NAME, nothing else (the same law
+              WorkspaceSelect's trigger already obeys). Radix renders the
+              selected item's whole content here — its shrink-0 RELION
+              badge used to eat ~60px of every width and the whole name
+              below 190px; the badge still lives on every dropdown row,
+              and remote-ness has the outer violet binding badge. */}
+          <SelectValue placeholder={pending ? "Switching…" : "Select project"}>
+            <span className="truncate">{project?.name ?? ""}</span>
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {projects.map((p) => (
@@ -103,15 +145,40 @@ function ProjectSwitcher() {
                 <span className="max-w-[170px] truncate">{p.name}</span>
                 <Badge
                   variant="outline"
-                  className="h-4 shrink-0 border-teal-500/40 bg-teal-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-teal-600 dark:text-teal-400"
+                  className="h-4 shrink-0 border-running/40 bg-running/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-running"
                 >
                   RELION
                 </Badge>
+                {p.remote ? (
+                  <Badge
+                    variant="outline"
+                    className="h-4 max-w-[140px] shrink-0 gap-1 border-violet-500/40 bg-violet-500/10 px-1 text-[9px] font-medium normal-case tracking-normal text-violet-600 dark:text-violet-400"
+                    title={`Remote project — data on ${p.remote.username}@${p.remote.host}`}
+                  >
+                    <Server className="size-2.5" aria-hidden="true" />
+                    <span className="truncate">{p.remote.host}</span>
+                  </Badge>
+                ) : null}
               </span>
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+      {activeRemote ? (
+        // t510 — the binding badge joins the shrink chain (it used to be
+        // shrink-0: a hard 105px floor that ate the row's budget and left
+        // the project trigger an ellipsis with no name — the ORIGINAL SIN
+        // of the 1280 overflow, visible only in a remote-bound world).
+        // Now it truncates with the trigger; the full host lives in title.
+        <Badge
+          variant="outline"
+          className="h-8 max-w-[170px] min-w-0 gap-1 rounded-lg border-violet-500/40 bg-violet-500/10 px-2 text-[10px] font-medium normal-case tracking-normal text-violet-600 dark:text-violet-400"
+          title={`Remote project — data lives on ${activeRemote.username}@${activeRemote.host}:${activeRemote.port}; the import browser and the run dialog target this cluster`}
+        >
+          <Server className="size-3 shrink-0" aria-hidden="true" />
+          <span className="truncate">{activeRemote.name || activeRemote.host}</span>
+        </Badge>
+      ) : null}
     </div>
   );
 }
@@ -124,7 +191,7 @@ function BinaryRow({ name, present }: { name: string; present: boolean }) {
   return (
     <span className="flex items-center gap-1.5 rounded-md border bg-secondary/50 px-1.5 py-0.5">
       {present ? (
-        <Check className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        <Check className="size-3 shrink-0 text-success" aria-hidden="true" />
       ) : (
         <X className="size-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
       )}
@@ -140,12 +207,18 @@ function RelionStatusChip() {
   const viaWsl = (system?.source ?? "").startsWith("WSL");
   const fromCache = system?.fromCache === true;
   const extraInstalls = Math.max(0, (system?.installs.length ?? 0) - 1);
+  // t529 — while the recipe grinds a REAL RELION in its build tree, the
+  // not-found chip says how far along it is instead of a bare "not found".
+  const build = system?.build ?? null;
+  const buildDone = build ? build.stages.filter((s) => s.state === "done").length : 0;
   const label = found
     ? `RELION ${system?.version ?? ""}${viaWsl ? " · WSL" : ""}${extraInstalls > 0 ? ` · +${extraInstalls}` : ""}`.trim()
-    : "RELION not found";
+    : `RELION not found${build ? ` · build ${buildDone}/${build.stages.length}` : ""}`;
   const title = found
     ? `RELION ${system?.version ?? "?"} · ${system?.path ?? ""}${viaWsl ? " (inside WSL)" : ""}${extraInstalls > 0 ? ` — ${extraInstalls} more install(s) detected, click to switch` : ""}${fromCache ? " · status from the saved last detection, re-verifying in the background" : ""}`
-    : "RELION not detected on this host — click for guidance";
+    : build
+      ? `RELION not detected yet — a rebuild from the recipe is in progress (${buildDone}/${build.stages.length} stages done) in ${build.root}. Click for the stage rail + guidance.`
+      : "RELION not detected on this host — click for guidance";
 
   // WSL three-state: RELION found inside WSL / WSL ok but RELION not on PATH /
   // WSL itself unavailable — never collapse the last two into one message.
@@ -163,32 +236,40 @@ function RelionStatusChip() {
           type="button"
           title={title}
           aria-label={`RELION environment status: ${label}`}
-          className="flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 card-lift transition-colors hover:bg-secondary/60"
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-card px-2.5 card-lift transition-colors hover:bg-secondary/60"
         >
           <span className="relative flex size-2">
             <span
               className={cn(
                 "absolute inline-flex h-full w-full rounded-full opacity-60",
-                found ? "animate-ping bg-emerald-500" : "bg-amber-500"
+                found ? "animate-ping bg-success-500" : "bg-warning-500"
               )}
             />
             <span
               className={cn(
                 "relative inline-flex size-2 rounded-full",
-                found ? "bg-emerald-500" : "bg-amber-500"
+                found ? "bg-success-500" : "bg-warning-500"
               )}
             />
           </span>
           {found ? (
-            <CircleCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <CircleCheck className="size-3.5 text-success" aria-hidden="true" />
           ) : (
-            <CircleAlert className="size-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <CircleAlert className="size-3.5 text-warning" aria-hidden="true" />
           )}
-          <span className="text-xs font-medium">{label}</span>
+          {/* t301 — a status chip is ONE line, full stop. Under header
+              crowding (2xl stat chips + a remote project badge + a long
+              "not found"/WSL label) the flex row squeezed this button to
+              ~52px of label room and the multi-word label WRAPPED to three
+              lines, blowing vertically out of the h-8 chrome onto its
+              neighbors. shrink-0 lets the truncating LEFT cluster absorb
+              the squeeze; nowrap+truncate keeps the chip itself honest
+              (title carries the full text). */}
+          <span className="max-w-[220px] truncate whitespace-nowrap text-xs font-medium">{label}</span>
           {fromCache && (
             <Badge
               variant="outline"
-              className="h-4 shrink-0 border-amber-500/40 bg-amber-500/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+              className="h-4 shrink-0 border-warning/40 bg-warning/10 px-1 text-[9px] font-semibold uppercase tracking-wide text-warning"
               title="This status was restored from the saved last detection — the server is re-verifying in the background and updates automatically"
             >
               saved
@@ -200,9 +281,9 @@ function RelionStatusChip() {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             {found ? (
-              <CircleCheck className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              <CircleCheck className="size-4 text-success" aria-hidden="true" />
             ) : (
-              <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+              <CircleAlert className="size-4 text-warning" aria-hidden="true" />
             )}
             <p className="text-sm font-semibold">
               {found
@@ -213,7 +294,7 @@ function RelionStatusChip() {
             </p>
             {fromCache && (
               <span
-                className="ml-auto flex shrink-0 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                className="ml-auto flex shrink-0 items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-warning"
                 title="data/relion-snapshot.json answered instantly; a fresh probe is running in the background"
               >
                 <RefreshCw className="size-2.5 animate-spin" aria-hidden="true" />
@@ -254,9 +335,9 @@ function RelionStatusChip() {
                   className={cn(
                     "size-1.5 rounded-full",
                     wslState === "relion"
-                      ? "bg-emerald-500"
+                      ? "bg-success-500"
                       : wslState === "no-relion"
-                        ? "bg-amber-500"
+                        ? "bg-warning-500"
                         : "bg-muted-foreground/40"
                   )}
                   aria-hidden="true"
@@ -299,6 +380,7 @@ function RelionStatusChip() {
               </p>
             )}
           </div>
+          {!found && build && <EngineBuildRail build={build} />}
           {!found && system?.hint && <EngineHintBlock hint={system.hint} />}
           <InstallSwitcher />
           <div>
@@ -405,7 +487,7 @@ function WorkspaceSelect() {
           (active ? `Workspace: ${active.name}` : "Workspaces load with the project") +
           (elsewhereHue !== "none" ? ` · Elsewhere: ${elsewhere.names.join(", ")}` : "")
         }
-        className="h-8 w-[128px] rounded-lg border bg-card text-xs font-medium sm:w-[160px]"
+        className="h-8 w-[128px] min-w-0 rounded-lg border bg-card text-xs font-medium sm:w-[160px]"
       >
         <span className="flex min-w-0 items-center gap-1.5">
           <Layers className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
@@ -494,7 +576,12 @@ function ViewSwitcher() {
         )}
       >
         <LayoutDashboard className="size-3.5" aria-hidden="true" />
-        <span className="hidden sm:inline">Dashboard</span>
+        {/* t828 — the labels wait for xl: measured at 768-1023 the tabs
+            (200px with labels) painted INTO the right cluster's first
+            148px (the t510 interpenetration, alive at the md band); the
+            icons alone fit beside the full seat row and the wordmark
+            gets its room back. */}
+        <span className="hidden xl:inline">Dashboard</span>
       </button>
       <button
         type="button"
@@ -510,7 +597,7 @@ function ViewSwitcher() {
         )}
       >
         <Workflow className="size-3.5" aria-hidden="true" />
-        <span className="hidden sm:inline">Workflow</span>
+        <span className="hidden xl:inline">Workflow</span>
       </button>
     </div>
   );
@@ -549,9 +636,15 @@ function NoteSpotlightChip() {
           : `${noted} job${noted === 1 ? "" : "s"} carry annotations — ${on ? "showing" : "click to spotlight"} them`
       }
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors",
+        // t510 — the chip joins the wide tier (2xl): at 1280 the middle
+        // row's three controls painted 207px past their container INTO
+        // the actions cluster (measured: RELION badge x=678 w=162 vs
+        // this chip x=783 — 57px interpenetration, "not found" over
+        // "note"). The lens is the row's least-essential control (the
+        // dashboard Noted chip is its second entry) — it yields first.
+        "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex",
         on
-          ? "border-amber-500/60 bg-amber-500/10"
+          ? "border-warning-500/60 bg-warning/10"
           : "border-border bg-card hover:bg-secondary/60",
         noted === 0 && "opacity-50"
       )}
@@ -559,7 +652,7 @@ function NoteSpotlightChip() {
       <StickyNote
         className={cn(
           "size-3.5",
-          on ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+          on ? "text-warning" : "text-muted-foreground"
         )}
       />
       <span className="text-xs font-medium tabular-nums">{noted}</span>
@@ -578,6 +671,14 @@ export function Header() {
   // both are document-level actions on the session, so both live in the
   // document-level corner of the chrome.
   const [reportOpen, setReportOpen] = React.useState(false);
+  // t436 — the storage overview rides the same document-level corner: a
+  // per-project fact ("how much disk am I using") that belongs next to
+  // the session report, not inside any one job's inspector.
+  const [storageOpen, setStorageOpen] = React.useState(false);
+  // t530 — the system diagnostics door: the box-level facts (memory
+  // lanes, disk, provenance, census) sit one level above the storage
+  // map, so the button sits one slot beside it.
+  const [diagOpen, setDiagOpen] = React.useState(false);
   // t221: the palette's report door — the palette dispatches, the owner
   // listens (the OPEN_EVENT handshake, the reverse hop). The header owns
   // the dialog; the palette only names the door, it never mounts a
@@ -586,6 +687,19 @@ export function Header() {
     const open = () => setReportOpen(true);
     window.addEventListener(SESSION_REPORT_EVENT, open);
     return () => window.removeEventListener(SESSION_REPORT_EVENT, open);
+  }, []);
+  // t483: the storage door's ear — same handshake, same owner-listens law.
+  React.useEffect(() => {
+    const open = () => setStorageOpen(true);
+    window.addEventListener(STORAGE_OPEN_EVENT, open);
+    return () => window.removeEventListener(STORAGE_OPEN_EVENT, open);
+  }, []);
+  // t530: the diagnostics door's ear — the palette names the door, the
+  // header owns the panel (same reverse-hop handshake).
+  React.useEffect(() => {
+    const open = () => setDiagOpen(true);
+    window.addEventListener(SYSTEM_DIAGNOSTICS_EVENT, open);
+    return () => window.removeEventListener(SYSTEM_DIAGNOSTICS_EVENT, open);
   }, []);
 
   const total = jobs.length;
@@ -597,13 +711,30 @@ export function Header() {
     // its controls (project picker, search, menus) are dead weight, and a
     // sticky header would repeat on every printed page of a multi-page
     // dashboard roster. PrintDocHeader is the official paper masthead.
-    <header className="no-print sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4">
+    <header
+      className="no-print pointer-events-auto sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4"
+    >
       {/* Brand */}
+      {/* t828 — the narrow-band tier law, measured like t301/t510 before it:
+          the RIGHT cluster is ~404px of icon seats that flex cannot shrink
+          (min-width:auto floors), so at 375/640 justify-between crushed the
+          brand row to ZERO (the wordmark vanished silently) and the tail
+          seats painted 53px/16px past the viewport — the theme toggle and
+          help were unreachable and the shell scrollWidth lied (428 > 375).
+          Tiers, measured: max-sm the brand is the ViewSwitcher alone (the
+          tabs are the identity that navigates), and the four ops seats
+          (storage map / diagnostics / print / knock settings) fall away;
+          sm..md the wordmark and Relion chip / diagnostics / print / GitHub
+          wait — and the re-measure caught the t510 interpenetration alive
+          at md..xl (the labeled tabs painted 148px INTO the seat row at
+          768), so the Relion chip and the tab labels wait for xl, and the
+          wordmark lives again from md up. Every band re-measured after
+          the cut — see the t828 probe. */}
       <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary max-sm:hidden">
           <Snowflake className="size-5" aria-hidden="true" />
         </div>
-        <div className="min-w-0 leading-tight">
+        <div className="min-w-0 leading-tight max-md:hidden">
           <p className="truncate text-sm font-semibold tracking-tight">CryoFlow</p>
           <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
             Cryo-EM Workflow Builder
@@ -618,11 +749,40 @@ export function Header() {
             tier has room (measured at 1280/1366/1440/1536: the middle zone
             used to overflow INTO the actions cluster below ~1470px, the
             last stat chip silently hidden under it). xl = workspace +
-            project + lens chip; 2xl = the three counters join. */}
-        <div className="hidden items-center gap-2 xl:flex">
+            project + lens chip; the three counters join from 1700px up
+            (t301 re-measure — see below). */}
+        {/* t301 — re-measured, the tiers had drifted: the right cluster
+            grew (remote-clusters door, session report) and a remote
+            project adds a violet binding badge to the project switcher,
+            so at 1600px the 2xl counters made the LEFT cluster overflow
+            INTO the right one (measured: "noted" chip ended at x=1215
+            while the RELION chip already started at x=1169 — 46px of
+            interpenetration). The counters need ~270px of row that only
+            exists from ~1700px up; 2xl (1536) was a lie since t300. */}
+        {/* t510 — re-measured, the RIGHT cluster grew again (t419 AI door,
+            t436 storage, t438 knock bell, the remote-clusters door): at
+            1280 the middle tier overflowed INTO it a second time (RELION
+            badge x=678 vs spotlight chip x=783 — 57px of interpenetration;
+            the row's children painted 207px past their 650px container).
+            The tier re-cut, same law: xl = workspace + project only (the
+            project trigger gives 50px back: 170 in the tight band), the
+            lens chip — the row's least-essential control — rises to 2xl
+            beside the roomy 220px trigger. Measured at 1280/1366/1440:
+            626 ≤ 650, 626 ≤ 736, 626 ≤ 810 — slack in every band. */}
+        {/* t510 — min-w-0 rides the row: when a future tier miscalculates,
+            the row itself compresses (triggers truncate) instead of the
+            whole row painting over the actions cluster unclipped. */}
+        <div className="hidden min-w-0 items-center gap-2 xl:flex">
           <WorkspaceSelect />
           <ProjectSwitcher />
-          <div className="hidden items-center gap-2 2xl:flex" aria-label="Workflow statistics">
+          {/* t510 — the counters' tier re-measured (t301 said 1700; that
+              measurement predates the right cluster's t419/t436/t438
+              growth): the row's natural width with all four controls is
+              ~1311px, which exists from ~2000 up (at 1700 the project
+              trigger crushed to 54px — an ellipsis with no name). Below
+              2000 the footer census speaks the same three numbers — the
+              counters are the most redundant chrome, they wait longest. */}
+          <div className="hidden items-center gap-2 min-[2000px]:flex" aria-label="Workflow statistics">
             <StatChip
               icon={<Boxes className="size-3.5" />}
               label="jobs"
@@ -633,13 +793,13 @@ export function Header() {
               icon={<Loader2 className="size-3.5 animate-spin" />}
               label="running"
               value={running}
-              tone="text-teal-600 dark:text-teal-400"
+              tone="text-running"
             />
             <StatChip
               icon={<CheckCircle2 className="size-3.5" />}
               label="completed"
               value={completed}
-              tone="text-emerald-600 dark:text-emerald-400"
+              tone="text-success"
             />
           </div>
           {/* lens control, not a stat — sits beside the counters but outside
@@ -651,8 +811,15 @@ export function Header() {
 
       {/* Actions — interactive chrome has no paper meaning; .no-print hides
           the whole cluster when printing, the paper masthead takes over */}
-      <div className="no-print flex items-center gap-1.5">
-        <div className="hidden sm:block">
+      <div className="no-print flex shrink-0 items-center gap-1.5">
+        {/* t828 — the cluster's seats never shrink: the t510 contract makes
+            the LEFT row the shock absorber (min-w-0, triggers truncate),
+            and a min-w-0 here let the greedy left row steal space back at
+            1280 (left 671 vs right 565 — the seats overflowed INSIDE the
+            cluster and the theme toggle painted past the viewport again).
+            The narrow bands are yielded by the TIER LAW above — seats fall
+            away measured — not by squeezing the seats that remain. */}
+        <div className="hidden xl:block">
           <RelionStatusChip />
         </div>
         {/* Task 179: the palette (and with it the whole export family —
@@ -664,7 +831,51 @@ export function Header() {
             out of the lowest-value chrome on the strip: the GitHub link
             button, which is decoration next to a command surface. The
             280 fold still fits — measured, not guessed. */}
+        {/* t419 — the AI assistant door: always visible (icon-only under sm,
+          * the same mobile law the palette trigger follows — a headline
+          * feature hides from nobody). t427 — teal: the assistant's brand
+          * follows the app's cryo-teal identity (the panel was reworked
+          * to match in the same round).
+          * t501 — data-dialog-live + the mask's z-[39] (below this z-40
+          * strip): the door KEEPS WORKING while a modal dialog is open.
+          * That was the user's bug — clicking this button with the job
+          * params page open dismissed the page (the click landed on the
+          * mask); now the click opens the assistant, the companion
+          * registration strips the dialog's modality, and both live. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          data-dialog-live=""
+          className="max-sm:px-2 text-primary hover:text-primary/80"
+          onClick={() => useWorkflowStore.getState().openAiAssistant()}
+          aria-label="AI assistant"
+          title="AI 助手 — 自然语言建流程 / 判 class"
+        >
+          <Sparkles className="size-4.5" aria-hidden="true" />
+        </Button>
         <CommandPaletteTrigger />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="max-sm:hidden text-muted-foreground hover:text-foreground"
+          onClick={() => setStorageOpen(true)}
+          aria-label="Project storage overview"
+          title="Project storage — what this project keeps on disk, the heaviest runs first"
+        >
+          <HardDrive className="size-4" aria-hidden="true" />
+        </Button>
+        {/* t530 — the box's vitals: one slot beside the storage map, one
+            level up in scope (project bytes → host health). */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="max-md:hidden text-muted-foreground hover:text-foreground"
+          onClick={() => setDiagOpen(true)}
+          aria-label="System diagnostics"
+          title="System diagnostics — memory lanes against the build guard's lines, disk, engine build progress and the running build's provenance"
+        >
+          <Activity className="size-4" aria-hidden="true" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -675,10 +886,16 @@ export function Header() {
         >
           <FileText className="size-4" aria-hidden="true" />
         </Button>
+        {/* t438 — the finish knock: the out-of-page channels (chime +
+            OS notification) ride an explicit opt-in behind this bell;
+            the title flicker needs no door, it is chrome. */}
+        <span className="max-sm:hidden">
+          <KnockSettingsButton />
+        </span>
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-foreground"
+          className="max-md:hidden text-muted-foreground hover:text-foreground"
           onClick={() => window.print()}
           aria-label="Print this view"
           title="Print / save as PDF — the paper stylesheet forces a light palette and hides interactive chrome"
@@ -694,7 +911,7 @@ export function Header() {
           variant="ghost"
           size="icon"
           asChild
-          className="max-sm:hidden text-muted-foreground hover:text-foreground"
+          className="max-md:hidden text-muted-foreground hover:text-foreground"
         >
           <a
             href="https://github.com/Jing0715-fer/cryoflow"
@@ -707,6 +924,8 @@ export function Header() {
         </Button>
       </div>
       <SessionReportDialog open={reportOpen} onOpenChange={setReportOpen} />
+      <SystemDiagnosticsDialog open={diagOpen} onOpenChange={setDiagOpen} />
+      <StorageDialog open={storageOpen} onOpenChange={setStorageOpen} />
     </header>
   );
 }

@@ -1,0 +1,311 @@
+{
+  "instrument": "scripts/t839-zone-rehearsal.mjs",
+  "build": "KtPKuXIbtB9d7uhItOOUS",
+  "date": "2026-10-10T12:58:21.557Z",
+  "viewport": {
+    "w": 1280,
+    "h": 800
+  },
+  "fix": "option (a): overflowX = 'hidden' on the PS wrapper of a throwaway documentElement clone (document.replaceChild swap; React's root stays on the detached original)",
+  "ruler": "the sweep's ZONE_MEASURE walk + the elementsFromPoint STACK witness + the wrapper's computed overflow-x",
+  "before": [
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "TRIGGER|Active project",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "visible",
+      "innerW": 1280
+    },
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "TRIGGER|Active project",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "visible",
+      "innerW": 1280
+    }
+  ],
+  "swap": {
+    "swapped": true,
+    "before": "visible",
+    "fix": "hidden",
+    "headerAboard": true
+  },
+  "after": [
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "hidden",
+      "innerW": 1280
+    },
+    {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 115.3,
+      "overlap": 2.7,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "hidden",
+      "innerW": 1280
+    }
+  ],
+  "cloneBand": {
+    "leftW": 607.8,
+    "rightW": 628.3,
+    "seats": 12,
+    "midKids": [
+      {
+        "lbl": "Active workspace",
+        "w": 116.9
+      },
+      {
+        "lbl": "flex min-w-0 items-center gap-",
+        "w": 115.3
+      },
+      {
+        "lbl": "Workflow statistics",
+        "w": 0
+      },
+      {
+        "lbl": "Spotlight noted jobs",
+        "w": 0
+      }
+    ],
+    "innerW": 1280
+  },
+  "cloneZone": {
+    "1286": {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 117.7,
+      "overlap": 0.3,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "hidden",
+      "innerW": 1286
+    },
+    "1287": {
+      "mid": true,
+      "trigW": 130,
+      "wrapW": 118.1,
+      "overlap": -0.1,
+      "chipBg": "rgba(0, 0, 0, 0)",
+      "paintAt": "CHIP|RELION environment status: RELION not found",
+      "stack": [
+        "CHIP|RELION environment status: RELION not found",
+        "CHIP|hidden xl:block",
+        "OTHER|no-print flex shrink-0 ite",
+        "OTHER|no-print pointer-events-au",
+        "OTHER|flex h-dvh flex-col bg-bac",
+        "OTHER|__variable_8eaea4 __variab",
+        "OTHER|light"
+      ],
+      "wrapOverflowX": "hidden",
+      "innerW": 1287
+    }
+  },
+  "bandAcross": {
+    "clone": {
+      "1286": {
+        "leftW": 613.8,
+        "rightW": 628.3,
+        "seats": 12,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 118.8
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 117.7
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 0
+          }
+        ],
+        "innerW": 1286
+      },
+      "1287": {
+        "leftW": 614.8,
+        "rightW": 628.3,
+        "seats": 12,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 119.1
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 118.1
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 0
+          }
+        ],
+        "innerW": 1287
+      }
+    },
+    "live": {
+      "1280": {
+        "leftW": 607.8,
+        "rightW": 628.3,
+        "seats": 12,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 116.9
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 115.3
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 0
+          }
+        ],
+        "innerW": 1280
+      },
+      "1286": {
+        "leftW": 613.8,
+        "rightW": 628.3,
+        "seats": 12,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 118.8
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 117.7
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 0
+          }
+        ],
+        "innerW": 1286
+      },
+      "1287": {
+        "leftW": 614.8,
+        "rightW": 628.3,
+        "seats": 12,
+        "midKids": [
+          {
+            "lbl": "Active workspace",
+            "w": 119.1
+          },
+          {
+            "lbl": "flex min-w-0 items-center gap-",
+            "w": 118.1
+          },
+          {
+            "lbl": "Workflow statistics",
+            "w": 0
+          },
+          {
+            "lbl": "Spotlight noted jobs",
+            "w": 0
+          }
+        ],
+        "innerW": 1287
+      }
+    },
+    "law": "PAINT is width-free: the clone's band == the live band bit-for-bit at every width in the zone (1280 R10, 1286 R11, 1287 R12); the live band's own drift: leftW +1.0/px (607.8 -> 614.8), the wrapper's kid +0.4/px (== the sweep's zone rows' wrapW at every width), rightW 628.3 and seats 12 invariant (the sixth seat, t849)"
+  },
+  "restored": {
+    "mid": true,
+    "trigW": 130,
+    "wrapW": 115.3,
+    "overlap": 2.7,
+    "chipBg": "rgba(0, 0, 0, 0)",
+    "paintAt": "CHIP|RELION environment status: RELION not found",
+    "stack": [
+      "CHIP|RELION environment status: RELION not found",
+      "CHIP|hidden xl:block",
+      "OTHER|no-print flex shrink-0 ite",
+      "TRIGGER|Active project",
+      "OTHER|no-print pointer-events-au",
+      "OTHER|flex h-dvh flex-col bg-bac",
+      "OTHER|__variable_8eaea4 __variab",
+      "OTHER|light"
+    ],
+    "wrapOverflowX": "visible",
+    "innerW": 1280
+  },
+  "verdict": "the fix's proof is rehearsed: the geometry held (2.7 / 130 / 115.3), the paint clipped (the trigger left the stack), the chip kept the click, the edge moved not — the build day lands option (a) with its ratchet's post-fix form already measured"
+}
