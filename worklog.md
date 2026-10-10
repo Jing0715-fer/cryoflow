@@ -15190,3 +15190,5 @@ Next-window entry (t864):
 3. census rotation: zero new routes (**19 entries**) / zero orphans / zero bookmark net; re-witnesses one command each (all current this window).
 
 Ledger: fleet **102/102 WHOLE**, fleet unit t832 **66/66**, job-panel a11y **24/24 NEW** (the sanctioned mutation ride, the ledger at birth), world-hygiene **0 orphans** (the mutation left nothing), bookmark net **NET ZERO**, drift-ledger self-test 10/10 (untouched), tsc/eslint n/a (zero src), exit honest, receipts: `shots-qa/t863-job-panel-a11y.json` (the ride's own three faces + the probe's world-back) + the amended `docs/a11y-census.md` (the overlay tier + the job panel sections), worklog this entry. Commit: qa(t863 the job panel's a11y page through the sanctioned mutation ride + the label-for ruler growth) -> docs(worklog + the census doc).
+
+Shape note (t859's law, recorded honestly): the two-car intent collapsed again — `git add -A` swept the worklog append AND the census doc into the qa car `ae19cd7` before the split could happen. HEAD `ae19cd7` = the t863 worklog car (the car identity holds).
