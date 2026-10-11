@@ -28,9 +28,17 @@ export function pathrefFor(base: string): string {
   return `.${base}.pathref`;
 }
 
-/** True when `rel` (a workdir-relative path) points at a pathref marker. */
+/**
+ * True when `rel` (a workdir-relative path) points at a pathref marker —
+ * the CANONICAL shape, not just the suffix (t903, the #6/#14 verdict):
+ * the engine writes markers ONLY into a job's `micrographs/` directory
+ * (importFileSet's tail), ONLY as hidden dotfiles (`."<name>".pathref`).
+ * A file named `data/evil.pathref` or `micrographs/planted.pathref` does
+ * NOT speak for the engine — the escape hatch must not follow it.
+ */
 export function isPathrefPath(rel: string): boolean {
-  return path.basename(rel).endsWith(".pathref");
+  const base = path.basename(rel);
+  return path.dirname(rel) === "micrographs" && base.startsWith(".") && base.endsWith(".pathref");
 }
 
 /**

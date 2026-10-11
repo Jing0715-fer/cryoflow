@@ -4,7 +4,7 @@ import { Readable } from "stream";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
-import { readPathrefTarget } from "@/lib/relion/pathref";
+import { isPathrefPath, readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
@@ -153,10 +153,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // pathref marker: the engine records UNLINKABLE import sources (Windows
     // cross-drive / \\wsl.localhost UNC — no hardlink, no symlink rights) as
     // micrographs/.<name>.pathref files whose content is the source path.
-    // Follow the marker to serve the real file; markers are engine-written
-    // only (no API writes into workdirs) and readPathrefTarget validates the
-    // target is an existing regular file.
-    if (name.endsWith(".pathref")) {
+    // Follow the marker to serve the real file. The GATE is the canonical
+    // marker shape (t903, the #6/#14 verdict — isPathrefPath, not a bare
+    // suffix check): a planted file whose NAME merely ends in .pathref but
+    // which lives outside micrographs/ (or carries no hidden-dot name) does
+    // not speak for the engine and is served as the plain bytes it is.
+    // Markers are engine-written only (no API writes into workdirs) and
+    // readPathrefTarget validates the target is an existing regular file.
+    if (isPathrefPath(rel) && name.endsWith(".pathref")) {
       const target = readPathrefTarget(abs);
       if (!target) {
         return NextResponse.json({ error: "Broken path reference (source moved or deleted)" }, { status: 404 });
