@@ -33,6 +33,7 @@ import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
+import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -4211,8 +4212,27 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       y: 1,
       z: 1,
       invert: false,
-      box: { lo: [...lo], hi: [...hi] },
+      box: { lo: [...lo] as [number, number, number], hi: [...hi] as [number, number, number] },
     });
+  };
+
+  // t905 — the slab seat: dragging either face of an axis' two-thumb slider
+  // mints/updates the LIVE box. The other axes keep their CURRENT kept
+  // intervals (keptIntervalOf reads whichever language speaks for them), so
+  // a slab on one axis composes with planes/slabs on the others — the same
+  // intersection the box planes build in commitClip. The invert flag
+  // dissolves into the minted box (the kept REGION is preserved exactly;
+  // which side was kept stops mattering once both faces are in hand).
+  const applyClipAxisInterval = (axis: 0 | 1 | 2, rawLo: number, rawHi: number) => {
+    const st = clipStateRef.current;
+    const [lo, hi] = normalizeInterval(rawLo, rawHi);
+    const next = ([0, 1, 2] as const).map((i) =>
+      i === axis ? ([lo, hi] as [number, number]) : keptIntervalOf(st, i)
+    );
+    applyClipBoxIntent(
+      [next[0][0], next[1][0], next[2][0]],
+      [next[0][1], next[1][1], next[2][1]]
+    );
   };
 
   // t260 — the "show in parent" door's opening statement: once the volume
@@ -5004,7 +5024,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   title={
                     clipOn
                       ? "Disable box clipping — show the full isosurface again"
-                      : "Clip the isosurface — drag the X/Y/Z sliders to crop into the box (ChimeraX-style clip planes)"
+                      : "Clip the isosurface — each axis has two faces; drag either to crop or keep a slab (ChimeraX-style clip planes)"
                   }
                   className={
                     "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors " +
@@ -5761,78 +5781,72 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 )}
               </div>
             )}
-            {/* clip rows — one slider per axis + side flip (only when on).
-                t260 — when an anchored box owns the geometry the sliders
-                stand down: a readout carries the numbers (the slider
-                language cannot hold a two-sided cut) and a release button
-                hands the geometry back honestly. */}
+            {/* clip rows — one two-face slider per axis (only when on).
+                t260 anchored the crop's box; t905 gave it HANDS: both
+                languages answer to one interval editor — the rows read
+                keptIntervalOf (whichever language speaks) and any drag
+                mints/updates the live box; the old read-only readout
+                retired, the numbers live in the rows. */}
             {clipOn && (
               <div className="mt-2.5 space-y-1.5 rounded-lg border border-violet-600/25 bg-violet-600/5 px-2.5 py-2">
                 {clipStateRef.current.box ? (
-                  <div data-testid="clip-box-readout" className="space-y-1">
-                    <p className="flex items-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
-                      <BoxSelect className="h-3 w-3 shrink-0" aria-hidden="true" />
-                      anchored to the crop&apos;s box
-                    </p>
-                    {(
-                      [
-                        ["X", clipStateRef.current.box.lo[0], clipStateRef.current.box.hi[0]],
-                        ["Y", clipStateRef.current.box.lo[1], clipStateRef.current.box.hi[1]],
-                        ["Z", clipStateRef.current.box.lo[2], clipStateRef.current.box.hi[2]],
-                      ] as const
-                    ).map(([ax, lo, hi]) => (
-                      <div key={ax} className="flex items-center justify-between gap-2">
-                        <span className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 text-center font-mono text-[10px] font-bold text-white">
-                          {ax}
-                        </span>
-                        <span className="flex-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-                          {lo <= 0.001 && hi >= 0.999
-                            ? "full extent"
-                            : `${Math.round(lo * 100)}–${Math.round(hi * 100)}% kept`}
-                        </span>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      data-testid="clip-box-release"
-                      onClick={() => applyClipIntent({ on: false })}
-                      title="Release the anchored box — the clip planes come off and the full map returns"
-                      className="w-full rounded-md border border-violet-600/30 bg-background/60 px-2 py-1 text-[10px] font-medium text-violet-700 transition-colors hover:bg-violet-600/15 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
-                    >
-                      release the anchored box
-                    </button>
-                  </div>
+                  <p className="flex items-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-300" data-testid="clip-box-readout">
+                    <BoxSelect className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    kept box — drag any face to reshape
+                  </p>
                 ) : (
-                ([
-                  ["X", clipX, (v: number) => applyClipIntent({ x: v })] as const,
-                  ["Y", clipY, (v: number) => applyClipIntent({ y: v })] as const,
-                  ["Z", clipZ, (v: number) => applyClipIntent({ z: v })] as const,
-                ] as const
-                ).map(([ax, val, set]) => (
-                  <div key={ax} className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applyClipIntent({ [ax.toLowerCase()]: 1 } as Partial<{ x: number; y: number; z: number }> )}
-                      title={`Reset the ${ax} clip plane (1 = unclipped)`}
-                      aria-label={`Reset ${ax} clip`}
-                      className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 font-mono text-[10px] font-bold text-white transition-opacity hover:opacity-80"
-                    >
-                      {ax}
-                    </button>
-                    <Slider
-                      value={[val]}
-                      min={0.02}
-                      max={1}
-                      step={0.01}
-                      onValueChange={(v) => set(v[0] ?? 1)}
-                      aria-label={`Clip position along the ${ax} axis`}
-                      className="flex-1"
-                    />
-                    <span className="w-9 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-                      {val >= 0.999 ? "—" : `${Math.round(val * 100)}%`}
-                    </span>
-                  </div>
-                ))
+                  <p className="text-[10px] font-medium text-violet-700/80 dark:text-violet-300/80" data-testid="clip-slab-hint">
+                    two faces per axis — drag either to keep a slab
+                  </p>
+                )}
+                {(
+                  [
+                    ["X", 0],
+                    ["Y", 1],
+                    ["Z", 2],
+                  ] as const
+                ).map(([ax, axisIdx]) => {
+                  const [lo, hi] = keptIntervalOf(clipStateRef.current, axisIdx);
+                  const full = lo <= 0.001 && hi >= 0.999;
+                  return (
+                    <div key={ax} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applyClipAxisInterval(axisIdx, 0, 1)}
+                        title={`Reset the ${ax} clip — both faces come off (full extent kept)`}
+                        aria-label={`Reset ${ax} clip`}
+                        className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 font-mono text-[10px] font-bold text-white transition-opacity hover:opacity-80"
+                      >
+                        {ax}
+                      </button>
+                      <Slider
+                        value={[lo, hi]}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onValueChange={(v) => applyClipAxisInterval(axisIdx, v[0] ?? 0, v[1] ?? 1)}
+                        aria-label={`Kept interval along the ${ax} axis — two faces; drag either to crop or slab the map`}
+                        className="flex-1"
+                      />
+                      <span
+                        className="w-14 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground"
+                        data-testid={`clip-interval-${ax.toLowerCase()}`}
+                      >
+                        {full ? "—" : `${Math.round(lo * 100)}–${Math.round(hi * 100)}%`}
+                      </span>
+                    </div>
+                  );
+                })}
+                {clipStateRef.current.box && (
+                  <button
+                    type="button"
+                    data-testid="clip-box-release"
+                    onClick={() => applyClipIntent({ on: false })}
+                    title="Release the kept box — the clip planes come off and the full map returns"
+                    className="w-full rounded-md border border-violet-600/30 bg-background/60 px-2 py-1 text-[10px] font-medium text-violet-700 transition-colors hover:bg-violet-600/15 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
+                  >
+                    release the kept box
+                  </button>
                 )}
                 {/* t254 — the crop, written out: the kept box downloads as a
                     standalone .mrc (the RELION box-subregion workflow). The
