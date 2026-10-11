@@ -34,7 +34,11 @@ export interface TopazEpoch {
 }
 
 const NUM = String.raw`([\d.]+(?:[eE][+-]?\d+)?)`;
-const EPOCH_WORD = String.raw`(?:epoch|it|iteration)`;
+// t897 — alternation order is load-bearing: regex alternation is
+// first-match, so "it" shadowed "iteration" (the shared prefix) and the
+// docblock's third epoch word could never match ("iteration 7: loss …"
+// degraded to a positional epoch). Longest-first restores the promise.
+const EPOCH_WORD = String.raw`(?:epoch|iteration|it)`;
 const HEADER_SPLIT = /[,;\t|]+/;
 
 function numOf(label: string, line: string): number | null {

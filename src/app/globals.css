@@ -3672,3 +3672,47 @@ li[data-swipe="end"] {
     animation: lens-rise 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }
+
+/* ------------------------------------------------------------
+   t897 — the wipe nudge: the divider's keyboard voice
+   ------------------------------------------------------------ */
+/* The wipe card's arrows scrub the divider ±1% per press — a motion too
+   small for the eye to confirm on a big card, and the aria-valuetext
+   (the honest announcement) is silent to sighted keyboard users. The
+   nudge chip is the keystroke's echo: the divider's current percentage,
+   in the house mono chip form, riding the fuchsia the wipe already
+   speaks. Remounted by React key per keystroke (the find-tick idiom —
+   a one-shot that never re-fires while the value rests), cleared by the
+   component's 700ms settle timer; the grip's own focus halo stays the
+   WHERE feedback, the chip is the WHAT feedback. aria-hidden: the range
+   input's aria-valuetext already announces the value — the chip would
+   be double speech. Birth silence: the chip renders only after a
+   keyboard nudge (pointer drags have the divider itself as their
+   voice); under reduced motion the chip appears and settles without
+   animation — the value, not the motion, is the message. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes wipe-nudge {
+    0% {
+      opacity: 0;
+      translate: -50% 3px;
+    }
+    18% {
+      opacity: 1;
+      translate: -50% 0;
+    }
+    70% {
+      opacity: 1;
+      translate: -50% 0;
+    }
+    100% {
+      opacity: 0;
+      translate: -50% -2px;
+    }
+  }
+  [data-wipe-nudge] {
+    animation: wipe-nudge 700ms ease-out both;
+  }
+}
+[data-wipe-nudge] {
+  pointer-events: none;
+}

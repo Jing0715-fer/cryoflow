@@ -90,6 +90,21 @@ function readWipeBucket(jobId: string): Record<string, number> {
  *  exactly where the hand left it. A measurement taken at 72% is a
  *  finding; a component that forgets findings makes the user re-take
  *  them (the position memory's own law). */
+/** the keyboard nudge's echo window (ms) — the chip's settle time, the
+ *  same duration the CSS animation speaks (globals.css, t897). */
+const NUDGE_SETTLE_MS = 700;
+/** the keys whose press IS a nudge (the range input's scrub vocabulary) */
+const NUDGE_KEYS = new Set([
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+]);
+
 function WipeCard({
   denoisedSrc,
   originalSrc,
@@ -104,6 +119,17 @@ function WipeCard({
   pos: number;
   onPos: (n: number) => void;
 }) {
+  // t897 — the keyboard nudge's echo: arrows scrub ±1%, a motion too small
+  // for the eye to confirm, and the value the drag shows geometrically the
+  // keyboard has no other voice for. Each scrub keystroke bumps the seq;
+  // the chip remounts (the find-tick idiom) and the settle timer clears it.
+  // Pointer drags never speak it — the moving divider IS their voice.
+  const [nudge, setNudge] = useState<{ seq: number } | null>(null);
+  useEffect(() => {
+    if (!nudge) return;
+    const t = setTimeout(() => setNudge(null), NUDGE_SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [nudge]);
   return (
     <div className="group relative aspect-square overflow-hidden rounded-md border border-border bg-zinc-950">
       {/* base: the denoised render fills the square */}
@@ -140,6 +166,21 @@ function WipeCard({
       >
         denoised
       </span>
+      {/* the keyboard nudge's echo: the divider's percentage, in the house
+          mono chip form, riding the fuchsia — remounted per keystroke so
+          the one-shot animation never re-fires while the value rests;
+          aria-hidden (the range's aria-valuetext already announces). */}
+      {nudge && (
+        <span
+          key={nudge.seq}
+          data-wipe-nudge=""
+          aria-hidden="true"
+          className="absolute -translate-x-1/2 rounded-sm bg-fuchsia-950/85 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-fuchsia-100 shadow-sm backdrop-blur-sm"
+          style={{ left: `${pos}%`, top: "calc(50% + 16px)" }}
+        >
+          {pos}%
+        </span>
+      )}
       {/* the real control: a transparent range input riding the whole card.
           The drag handle is the div above — this input is what keeps the
           wipe keyboard-accessible (focus ring + arrows scrub). */}
@@ -152,6 +193,9 @@ function WipeCard({
         aria-label={`Wipe original / denoised for ${alt}`}
         aria-valuetext={`${pos}% original · ${100 - pos}% denoised`}
         onChange={(e) => onPos(Number(e.target.value))}
+        onKeyDown={(e) => {
+          if (NUDGE_KEYS.has(e.key)) setNudge((p) => ({ seq: (p?.seq ?? 0) + 1 }));
+        }}
         className="absolute inset-0 h-full w-full cursor-ew-resize appearance-none bg-transparent opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-fuchsia-400"
       />
     </div>

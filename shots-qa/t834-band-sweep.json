@@ -1,8 +1,8 @@
 {
   "instrument": "scripts/t834-band-sweep.mjs",
-  "build": "dev@0210229236e5",
+  "build": "dev@429f8f8481bb",
   "worldMode": "dev",
-  "date": "2026-10-11T16:13:57.740Z",
+  "date": "2026-10-11T16:29:38.992Z",
   "bands": {
     "375": {
       "leftW": 68,
@@ -578,8 +578,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -597,8 +596,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -616,8 +614,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -635,8 +632,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -654,8 +650,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -673,8 +668,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -692,8 +686,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -711,8 +704,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -730,8 +722,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -749,8 +740,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -768,8 +758,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -787,8 +776,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -806,8 +794,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -825,8 +812,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -844,8 +830,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -863,8 +848,7 @@
           "OTHER|hidden min-w-0 items-center ga",
           "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
-          "OTHER|flex h-dvh flex-col bg-backgro",
-          "OTHER|geist_a71539c9-module__T19VSG_",
+          "OTHER|data-[state=open]:animate-in d",
           "OTHER|light"
         ],
         "wrapOverflowX": "visible"
@@ -3226,8 +3210,8 @@
     }
   },
   "pins": {
-    "provenanceWorld": "dev@0210229236e5",
-    "date": "2026-10-11T15:49:18.764Z",
+    "provenanceWorld": "dev@429f8f8481bb",
+    "date": "2026-10-11T16:29:09.408Z",
     "tables": {
       "left": {
         "375": 68,
@@ -3259,8 +3243,8 @@
   "baseline": false,
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@0210229236e5",
-    "prevDate": "2026-10-11T16:00:29.357Z",
+    "prevBuild": "dev@429f8f8481bb",
+    "prevDate": "2026-10-11T16:29:09.407Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
