@@ -566,6 +566,70 @@ export function summarizeOutputs(
       };
     }
 
+    case "topazdenoise": {
+      // t892 — the denoised-count chip. The index star is the run's OWN
+      // census (the denoiser writes denoised_micrographs.star alongside the
+      // copies, and the index-sync law rides it home), so the index's row
+      // count is the primary source; the run record's receipt sentence
+      // ("N micrographs denoised") is the fallback — the t353 sentence
+      // doctrine — and the honest null sits between them (an index whose
+      // rows the walk could not count yields NO stat, never a guess).
+      // The chip's hint carries the schema-keeping law: the index keeps the
+      // micrograph schema, so downstream pick/train consume the clean stack
+      // like any micrograph star (the t563 pairing law's own product).
+      // t893 — the coverage leg (the extract case's own doctrine extended):
+      // the index's rows are the run's TOTAL, the locally-present
+      // *_denoised.mrc are what THIS machine can render (the inspector
+      // gallery's tiles); covered < total is the honest partial — a remote
+      // run syncs the index home while the pixels stay on the cluster — and
+      // the amber note names it. The receipt-line fallback carries NO
+      // coverage: a sentence cannot know what renders locally here (the
+      // honest absence).
+      const idx = fileByName(files, "denoised_micrographs.star");
+      if (idx) {
+        const total = rowsOf(idx);
+        if (total != null) {
+          const covered = files.filter((f) => !f.remote && /_denoised\.mrc$/i.test(f.name)).length;
+          const stats: SummaryStat[] = [
+            {
+              key: "micrographs",
+              value: nfmt(total),
+              label: "micrographs denoised",
+              tone: "micrograph",
+              hint: "denoised_micrographs.star keeps the micrograph schema — downstream pick/train consume the clean stack like any micrograph star",
+            },
+          ];
+          if (covered > 0)
+            stats.push(micStat(covered, total, "denoised images on this machine"));
+          return {
+            stats,
+            coverage: {
+              covered,
+              total,
+              note:
+                total != null && covered < total
+                  ? `${covered} of ${total} denoised images synced home — ${total - covered} live on the cluster only`
+                  : undefined,
+            },
+          };
+        }
+      }
+      const rd = /([\d,]+)\s+micrographs denoised\b/.exec(deps.result ?? "");
+      if (rd) {
+        return {
+          stats: [
+            {
+              key: "micrographs",
+              value: nfmt(Number(rd[1].replace(/,/g, ""))),
+              label: "micrographs denoised",
+              tone: "micrograph",
+            },
+          ],
+        };
+      }
+      return null;
+    }
+
     default:
       // postprocess (FSC chart speaks), mapimport (identity card), topaztrain
       // (training curve), maskcreate/localres (single map) — no key numbers

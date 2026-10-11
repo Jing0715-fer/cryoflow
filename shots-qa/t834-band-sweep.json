@@ -1,8 +1,8 @@
 {
   "instrument": "scripts/t834-band-sweep.mjs",
-  "build": "dev@c4c3735897dd",
+  "build": "dev@02d75e346574",
   "worldMode": "dev",
-  "date": "2026-10-10T17:13:36.239Z",
+  "date": "2026-10-11T15:07:06.954Z",
   "bands": {
     "375": {
       "leftW": 68,
@@ -319,7 +319,7 @@
         },
         {
           "cls": "min-w-0 leading-tight max-md:hidden",
-          "w": 101.3
+          "w": 83.2
         },
         {
           "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -327,7 +327,7 @@
         },
         {
           "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-          "w": 240.3
+          "w": 258.4
         }
       ],
       "vis": [
@@ -337,7 +337,7 @@
         },
         {
           "cls": "min-w-0 leading-tight max-md:hidden",
-          "w": 101.3
+          "w": 83.2
         },
         {
           "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -345,7 +345,7 @@
         },
         {
           "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-          "w": 240.3
+          "w": 258.4
         }
       ],
       "rightKids": [
@@ -401,11 +401,11 @@
       "midKids": [
         {
           "lbl": "Active workspace",
-          "w": 116.9
+          "w": 99.6
         },
         {
           "lbl": "flex min-w-0 items-center gap-",
-          "w": 115.3
+          "w": 150.8
         },
         {
           "lbl": "Workflow statistics",
@@ -418,8 +418,8 @@
       ],
       "ps": {
         "trigW": 130,
-        "wrapW": 115.3,
-        "overlap": 2.7
+        "wrapW": 150.8,
+        "overlap": -32.8
       },
       "innerW": 1280,
       "scrollW": 1280
@@ -435,7 +435,7 @@
         },
         {
           "cls": "min-w-0 leading-tight max-md:hidden",
-          "w": 135.4
+          "w": 116.1
         },
         {
           "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -443,7 +443,7 @@
         },
         {
           "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-          "w": 462.1
+          "w": 481.5
         }
       ],
       "vis": [
@@ -453,7 +453,7 @@
         },
         {
           "cls": "min-w-0 leading-tight max-md:hidden",
-          "w": 135.4
+          "w": 116.1
         },
         {
           "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -461,7 +461,7 @@
         },
         {
           "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-          "w": 462.1
+          "w": 481.5
         }
       ],
       "rightKids": [
@@ -517,11 +517,11 @@
       "midKids": [
         {
           "lbl": "Active workspace",
-          "w": 150.9
+          "w": 128
         },
         {
           "lbl": "flex min-w-0 items-center gap-",
-          "w": 205
+          "w": 247.2
         },
         {
           "lbl": "Workflow statistics",
@@ -533,9 +533,9 @@
         }
       ],
       "ps": {
-        "trigW": 205,
-        "wrapW": 205,
-        "overlap": -110.3
+        "trigW": 142.5,
+        "wrapW": 247.2,
+        "overlap": -215
       },
       "innerW": 1536,
       "scrollW": 1536
@@ -568,15 +568,15 @@
       "1280": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 115.3,
-        "overlap": 2.7,
+        "wrapW": 150.8,
+        "overlap": -32.8,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "paintAt": "TRIGGER|Active project",
         "stack": [
-          "CHIP|RELION environment status: RELION not found",
-          "CHIP|hidden xl:block",
-          "OTHER|no-print flex shrink-0 items-c",
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -587,15 +587,15 @@
       "1281": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 115.7,
-        "overlap": 2.3,
+        "wrapW": 151.3,
+        "overlap": -33.3,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "paintAt": "TRIGGER|Active project",
         "stack": [
-          "CHIP|RELION environment status: RELION not found",
-          "CHIP|hidden xl:block",
-          "OTHER|no-print flex shrink-0 items-c",
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -606,15 +606,15 @@
       "1282": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 116.1,
-        "overlap": 1.9,
+        "wrapW": 151.8,
+        "overlap": -33.8,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "paintAt": "TRIGGER|Active project",
         "stack": [
-          "CHIP|RELION environment status: RELION not found",
-          "CHIP|hidden xl:block",
-          "OTHER|no-print flex shrink-0 items-c",
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -625,15 +625,15 @@
       "1283": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 116.5,
-        "overlap": 1.5,
+        "wrapW": 152.3,
+        "overlap": -34.3,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "paintAt": "TRIGGER|Active project",
         "stack": [
-          "CHIP|RELION environment status: RELION not found",
-          "CHIP|hidden xl:block",
-          "OTHER|no-print flex shrink-0 items-c",
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -644,15 +644,15 @@
       "1284": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 116.9,
-        "overlap": 1.1,
+        "wrapW": 152.8,
+        "overlap": -34.8,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "paintAt": "TRIGGER|Active project",
         "stack": [
-          "CHIP|RELION environment status: RELION not found",
-          "CHIP|hidden xl:block",
-          "OTHER|no-print flex shrink-0 items-c",
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -663,15 +663,15 @@
       "1285": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 117.3,
-        "overlap": 0.7,
+        "wrapW": 153.4,
+        "overlap": -35.4,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "paintAt": "TRIGGER|Active project",
         "stack": [
-          "CHIP|RELION environment status: RELION not found",
-          "CHIP|hidden xl:block",
-          "OTHER|no-print flex shrink-0 items-c",
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -682,15 +682,15 @@
       "1286": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 117.7,
-        "overlap": 0.3,
+        "wrapW": 153.9,
+        "overlap": -35.9,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "paintAt": "TRIGGER|Active project",
         "stack": [
-          "CHIP|RELION environment status: RELION not found",
-          "CHIP|hidden xl:block",
-          "OTHER|no-print flex shrink-0 items-c",
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -701,15 +701,15 @@
       "1287": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 118.1,
-        "overlap": -0.1,
+        "wrapW": 154.4,
+        "overlap": -36.4,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|RELION environment status: RELION not found",
+        "paintAt": "TRIGGER|Active project",
         "stack": [
-          "CHIP|RELION environment status: RELION not found",
-          "CHIP|hidden xl:block",
-          "OTHER|no-print flex shrink-0 items-c",
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -720,14 +720,15 @@
       "1288": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 118.5,
-        "overlap": -0.5,
+        "wrapW": 154.9,
+        "overlap": -36.9,
         "chipBg": "rgba(0, 0, 0, 0)",
-        "paintAt": "CHIP|hidden xl:block",
+        "paintAt": "TRIGGER|Active project",
         "stack": [
-          "CHIP|hidden xl:block",
-          "OTHER|no-print flex shrink-0 items-c",
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -738,12 +739,15 @@
       "1289": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 118.9,
-        "overlap": -0.9,
+        "wrapW": 155.4,
+        "overlap": -37.4,
         "chipBg": "rgba(0, 0, 0, 0)",
         "paintAt": "TRIGGER|Active project",
         "stack": [
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -754,12 +758,15 @@
       "1290": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 119.3,
-        "overlap": -1.3,
+        "wrapW": 155.9,
+        "overlap": -37.9,
         "chipBg": "rgba(0, 0, 0, 0)",
         "paintAt": "TRIGGER|Active project",
         "stack": [
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -770,12 +777,15 @@
       "1291": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 119.7,
-        "overlap": -1.7,
+        "wrapW": 156.4,
+        "overlap": -38.4,
         "chipBg": "rgba(0, 0, 0, 0)",
         "paintAt": "TRIGGER|Active project",
         "stack": [
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -786,12 +796,15 @@
       "1292": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 120.1,
-        "overlap": -2.1,
+        "wrapW": 156.9,
+        "overlap": -38.9,
         "chipBg": "rgba(0, 0, 0, 0)",
         "paintAt": "TRIGGER|Active project",
         "stack": [
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -802,12 +815,15 @@
       "1294": {
         "mid": true,
         "trigW": 130,
-        "wrapW": 120.8,
-        "overlap": -2.8,
+        "wrapW": 157.9,
+        "overlap": -39.9,
         "chipBg": "rgba(0, 0, 0, 0)",
         "paintAt": "TRIGGER|Active project",
         "stack": [
           "TRIGGER|Active project",
+          "OTHER|flex min-w-0 items-center gap-",
+          "OTHER|hidden min-w-0 items-center ga",
+          "OTHER|flex min-w-0 items-center gap-",
           "OTHER|no-print pointer-events-auto s",
           "OTHER|flex h-dvh flex-col bg-backgro",
           "OTHER|geist_a71539c9-module__T19VSG_",
@@ -817,9 +833,9 @@
       },
       "1366": {
         "mid": true,
-        "trigW": 149.2,
-        "wrapW": 149.2,
-        "overlap": -12,
+        "trigW": 130,
+        "wrapW": 194.5,
+        "overlap": -76.5,
         "chipBg": "rgba(0, 0, 0, 0)",
         "paintAt": "TRIGGER|Active project",
         "stack": [
@@ -836,9 +852,9 @@
       },
       "1440": {
         "mid": true,
-        "trigW": 170,
-        "wrapW": 170,
-        "overlap": -33.1,
+        "trigW": 130,
+        "wrapW": 232.2,
+        "overlap": -114.2,
         "chipBg": "rgba(0, 0, 0, 0)",
         "paintAt": "TRIGGER|Active project",
         "stack": [
@@ -879,7 +895,7 @@
           },
           {
             "cls": "min-w-0 leading-tight max-md:hidden",
-            "w": 126.8
+            "w": 104.1
           },
           {
             "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -887,7 +903,7 @@
           },
           {
             "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-            "w": 300.8
+            "w": 323.4
           }
         ],
         "vis": [
@@ -897,7 +913,7 @@
           },
           {
             "cls": "min-w-0 leading-tight max-md:hidden",
-            "w": 126.8
+            "w": 104.1
           },
           {
             "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -905,7 +921,7 @@
           },
           {
             "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-            "w": 300.8
+            "w": 323.4
           }
         ],
         "rightKids": [
@@ -961,11 +977,11 @@
         "midKids": [
           {
             "lbl": "Active workspace",
-            "w": 143.6
+            "w": 120.9
           },
           {
             "lbl": "flex min-w-0 items-center gap-",
-            "w": 149.2
+            "w": 194.5
           },
           {
             "lbl": "Workflow statistics",
@@ -977,15 +993,15 @@
           }
         ],
         "ps": {
-          "trigW": 149.2,
-          "wrapW": 149.2,
-          "overlap": -12
+          "trigW": 130,
+          "wrapW": 194.5,
+          "overlap": -76.5
         },
         "innerW": 1366,
         "scrollW": 1366
       },
       "1440": {
-        "leftW": 746.7,
+        "leftW": 767.8,
         "rightW": 628.3,
         "seats": 12,
         "kids": [
@@ -995,7 +1011,7 @@
           },
           {
             "cls": "min-w-0 leading-tight max-md:hidden",
-            "w": 142.5
+            "w": 122.1
           },
           {
             "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1003,7 +1019,7 @@
           },
           {
             "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-            "w": 338
+            "w": 379.4
           }
         ],
         "vis": [
@@ -1013,7 +1029,7 @@
           },
           {
             "cls": "min-w-0 leading-tight max-md:hidden",
-            "w": 142.5
+            "w": 122.1
           },
           {
             "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1021,7 +1037,7 @@
           },
           {
             "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-            "w": 338
+            "w": 379.4
           }
         ],
         "rightKids": [
@@ -1077,11 +1093,11 @@
         "midKids": [
           {
             "lbl": "Active workspace",
-            "w": 160
+            "w": 139.3
           },
           {
             "lbl": "flex min-w-0 items-center gap-",
-            "w": 170
+            "w": 232.2
           },
           {
             "lbl": "Workflow statistics",
@@ -1093,9 +1109,9 @@
           }
         ],
         "ps": {
-          "trigW": 170,
-          "wrapW": 170,
-          "overlap": -33.1
+          "trigW": 130,
+          "wrapW": 232.2,
+          "overlap": -114.2
         },
         "innerW": 1440,
         "scrollW": 1440
@@ -1111,7 +1127,7 @@
           },
           {
             "cls": "min-w-0 leading-tight max-md:hidden",
-            "w": 135.4
+            "w": 116.1
           },
           {
             "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1119,7 +1135,7 @@
           },
           {
             "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-            "w": 462.1
+            "w": 481.5
           }
         ],
         "vis": [
@@ -1129,7 +1145,7 @@
           },
           {
             "cls": "min-w-0 leading-tight max-md:hidden",
-            "w": 135.4
+            "w": 116.1
           },
           {
             "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1137,7 +1153,7 @@
           },
           {
             "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-            "w": 462.1
+            "w": 481.5
           }
         ],
         "rightKids": [
@@ -1193,11 +1209,11 @@
         "midKids": [
           {
             "lbl": "Active workspace",
-            "w": 150.9
+            "w": 128
           },
           {
             "lbl": "flex min-w-0 items-center gap-",
-            "w": 205
+            "w": 247.2
           },
           {
             "lbl": "Workflow statistics",
@@ -1209,15 +1225,15 @@
           }
         ],
         "ps": {
-          "trigW": 205,
-          "wrapW": 205,
-          "overlap": -110.3
+          "trigW": 142.5,
+          "wrapW": 247.2,
+          "overlap": -215
         },
         "innerW": 1536,
         "scrollW": 1536
       },
       "1920": {
-        "leftW": 895,
+        "leftW": 999.7,
         "rightW": 628.3,
         "seats": 12,
         "kids": [
@@ -1235,7 +1251,7 @@
           },
           {
             "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-            "w": 486.3
+            "w": 591
           }
         ],
         "vis": [
@@ -1253,7 +1269,7 @@
           },
           {
             "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-            "w": 486.3
+            "w": 591
           }
         ],
         "rightKids": [
@@ -1313,7 +1329,7 @@
           },
           {
             "lbl": "flex min-w-0 items-center gap-",
-            "w": 220
+            "w": 324.7
           },
           {
             "lbl": "Workflow statistics",
@@ -1326,7 +1342,7 @@
         ],
         "ps": {
           "trigW": 220,
-          "wrapW": 220,
+          "wrapW": 324.7,
           "overlap": -463.1
         },
         "innerW": 1920,
@@ -1336,32 +1352,32 @@
     "zone": {
       "1366": {
         "mid": true,
-        "trigW": 149.2,
-        "wrapW": 149.2,
-        "overlap": -12,
-        "wmW": 126.8,
+        "trigW": 130,
+        "wrapW": 194.5,
+        "overlap": -76.5,
+        "wmW": 104.1,
         "paintAt": "TRIGGER|Active project"
       },
       "1440": {
         "mid": true,
-        "trigW": 170,
-        "wrapW": 170,
-        "overlap": -33.1,
-        "wmW": 142.5,
+        "trigW": 130,
+        "wrapW": 232.2,
+        "overlap": -114.2,
+        "wmW": 122.1,
         "paintAt": "TRIGGER|Active project"
       },
       "1536": {
         "mid": true,
-        "trigW": 205,
-        "wrapW": 205,
-        "overlap": -110.3,
-        "wmW": 135.4,
+        "trigW": 142.5,
+        "wrapW": 247.2,
+        "overlap": -215,
+        "wmW": 116.1,
         "paintAt": "TRIGGER|Active project"
       },
       "1920": {
         "mid": true,
         "trigW": 220,
-        "wrapW": 220,
+        "wrapW": 324.7,
         "overlap": -463.1,
         "wmW": 142.5,
         "paintAt": "TRIGGER|Active project"
@@ -1380,7 +1396,7 @@
       ],
       "rows": {
         "1535": {
-          "leftW": 746.7,
+          "leftW": 851.4,
           "rightW": 628.3,
           "seats": 12,
           "kids": [
@@ -1398,7 +1414,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 338
+              "w": 442.7
             }
           ],
           "vis": [
@@ -1416,7 +1432,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 338
+              "w": 442.7
             }
           ],
           "rightKids": [
@@ -1476,7 +1492,7 @@
             },
             {
               "lbl": "flex min-w-0 items-center gap-",
-              "w": 170
+              "w": 274.7
             },
             {
               "lbl": "Workflow statistics",
@@ -1489,7 +1505,7 @@
           ],
           "ps": {
             "trigW": 170,
-            "wrapW": 170,
+            "wrapW": 274.7,
             "overlap": -128.1
           },
           "innerW": 1535,
@@ -1506,7 +1522,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 135.4
+              "w": 116.1
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1514,7 +1530,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 462.1
+              "w": 481.5
             }
           ],
           "vis": [
@@ -1524,7 +1540,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 135.4
+              "w": 116.1
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1532,7 +1548,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 462.1
+              "w": 481.5
             }
           ],
           "rightKids": [
@@ -1588,11 +1604,11 @@
           "midKids": [
             {
               "lbl": "Active workspace",
-              "w": 150.9
+              "w": 128
             },
             {
               "lbl": "flex min-w-0 items-center gap-",
-              "w": 205
+              "w": 247.2
             },
             {
               "lbl": "Workflow statistics",
@@ -1604,9 +1620,9 @@
             }
           ],
           "ps": {
-            "trigW": 205,
-            "wrapW": 205,
-            "overlap": -110.3
+            "trigW": 142.5,
+            "wrapW": 247.2,
+            "overlap": -215
           },
           "innerW": 1536,
           "scrollW": 1536
@@ -1622,7 +1638,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 135.6
+              "w": 116.3
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1630,7 +1646,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 462.9
+              "w": 482.3
             }
           ],
           "vis": [
@@ -1640,7 +1656,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 135.6
+              "w": 116.3
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1648,7 +1664,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 462.9
+              "w": 482.3
             }
           ],
           "rightKids": [
@@ -1704,11 +1720,11 @@
           "midKids": [
             {
               "lbl": "Active workspace",
-              "w": 151.1
+              "w": 128.2
             },
             {
               "lbl": "flex min-w-0 items-center gap-",
-              "w": 205.5
+              "w": 247.8
             },
             {
               "lbl": "Workflow statistics",
@@ -1720,9 +1736,9 @@
             }
           ],
           "ps": {
-            "trigW": 205.5,
-            "wrapW": 205.5,
-            "overlap": -110.3
+            "trigW": 143,
+            "wrapW": 247.8,
+            "overlap": -215
           },
           "innerW": 1537,
           "scrollW": 1537
@@ -1738,7 +1754,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 136.3
+              "w": 116.8
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1746,7 +1762,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 465.2
+              "w": 484.7
             }
           ],
           "vis": [
@@ -1756,7 +1772,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 136.3
+              "w": 116.8
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1764,7 +1780,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 465.2
+              "w": 484.7
             }
           ],
           "rightKids": [
@@ -1820,11 +1836,11 @@
           "midKids": [
             {
               "lbl": "Active workspace",
-              "w": 152
+              "w": 128.9
             },
             {
               "lbl": "flex min-w-0 items-center gap-",
-              "w": 206.9
+              "w": 249.5
             },
             {
               "lbl": "Workflow statistics",
@@ -1836,9 +1852,9 @@
             }
           ],
           "ps": {
-            "trigW": 206.9,
-            "wrapW": 206.9,
-            "overlap": -110.3
+            "trigW": 144.7,
+            "wrapW": 249.5,
+            "overlap": -215
           },
           "innerW": 1540,
           "scrollW": 1540
@@ -1854,7 +1870,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 138.6
+              "w": 118.8
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1862,7 +1878,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 473
+              "w": 492.8
             }
           ],
           "vis": [
@@ -1872,7 +1888,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 138.6
+              "w": 118.8
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1880,7 +1896,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 473
+              "w": 492.8
             }
           ],
           "rightKids": [
@@ -1936,11 +1952,11 @@
           "midKids": [
             {
               "lbl": "Active workspace",
-              "w": 155
+              "w": 131.3
             },
             {
               "lbl": "flex min-w-0 items-center gap-",
-              "w": 211.7
+              "w": 255.2
             },
             {
               "lbl": "Workflow statistics",
@@ -1952,9 +1968,9 @@
             }
           ],
           "ps": {
-            "trigW": 211.7,
-            "wrapW": 211.7,
-            "overlap": -110.3
+            "trigW": 150.4,
+            "wrapW": 255.2,
+            "overlap": -215
           },
           "innerW": 1550,
           "scrollW": 1550
@@ -1970,7 +1986,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 140.8
+              "w": 120.7
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1978,7 +1994,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 480.7
+              "w": 500.8
             }
           ],
           "vis": [
@@ -1988,7 +2004,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 140.8
+              "w": 120.7
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -1996,7 +2012,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 480.7
+              "w": 500.8
             }
           ],
           "rightKids": [
@@ -2052,11 +2068,11 @@
           "midKids": [
             {
               "lbl": "Active workspace",
-              "w": 157.9
+              "w": 133.7
             },
             {
               "lbl": "flex min-w-0 items-center gap-",
-              "w": 216.5
+              "w": 260.9
             },
             {
               "lbl": "Workflow statistics",
@@ -2068,15 +2084,15 @@
             }
           ],
           "ps": {
-            "trigW": 216.5,
-            "wrapW": 216.5,
-            "overlap": -110.3
+            "trigW": 156.1,
+            "wrapW": 260.9,
+            "overlap": -215
           },
           "innerW": 1560,
           "scrollW": 1560
         },
         "1570": {
-          "leftW": 895,
+          "leftW": 897.8,
           "rightW": 628.3,
           "seats": 12,
           "kids": [
@@ -2086,7 +2102,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 142.5
+              "w": 122.7
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -2094,7 +2110,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 486.3
+              "w": 508.9
             }
           ],
           "vis": [
@@ -2104,7 +2120,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 142.5
+              "w": 122.7
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -2112,7 +2128,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 486.3
+              "w": 508.9
             }
           ],
           "rightKids": [
@@ -2168,11 +2184,11 @@
           "midKids": [
             {
               "lbl": "Active workspace",
-              "w": 160
+              "w": 136
             },
             {
               "lbl": "flex min-w-0 items-center gap-",
-              "w": 220
+              "w": 266.6
             },
             {
               "lbl": "Workflow statistics",
@@ -2184,15 +2200,15 @@
             }
           ],
           "ps": {
-            "trigW": 220,
-            "wrapW": 220,
-            "overlap": -113.1
+            "trigW": 161.8,
+            "wrapW": 266.6,
+            "overlap": -215
           },
           "innerW": 1570,
           "scrollW": 1570
         },
         "1600": {
-          "leftW": 895,
+          "leftW": 927.8,
           "rightW": 628.3,
           "seats": 12,
           "kids": [
@@ -2202,7 +2218,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 142.5
+              "w": 128.5
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -2210,7 +2226,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 486.3
+              "w": 533
             }
           ],
           "vis": [
@@ -2220,7 +2236,7 @@
             },
             {
               "cls": "min-w-0 leading-tight max-md:hidden",
-              "w": 142.5
+              "w": 128.5
             },
             {
               "cls": "flex h-8 items-center gap-0.5 rounded-lg border bg-card p-0.",
@@ -2228,7 +2244,7 @@
             },
             {
               "cls": "hidden min-w-0 items-center gap-2 xl:flex",
-              "w": 486.3
+              "w": 533
             }
           ],
           "rightKids": [
@@ -2284,11 +2300,11 @@
           "midKids": [
             {
               "lbl": "Active workspace",
-              "w": 160
+              "w": 143.1
             },
             {
               "lbl": "flex min-w-0 items-center gap-",
-              "w": 220
+              "w": 283.7
             },
             {
               "lbl": "Workflow statistics",
@@ -2300,9 +2316,9 @@
             }
           ],
           "ps": {
-            "trigW": 220,
-            "wrapW": 220,
-            "overlap": -143.1
+            "trigW": 179,
+            "wrapW": 283.7,
+            "overlap": -215
           },
           "innerW": 1600,
           "scrollW": 1600
@@ -2312,65 +2328,65 @@
         "1535": {
           "mid": true,
           "trigW": 170,
-          "wrapW": 170,
+          "wrapW": 274.7,
           "overlap": -128.1,
           "wmW": 142.5,
           "paintAt": "TRIGGER|Active project"
         },
         "1536": {
           "mid": true,
-          "trigW": 205,
-          "wrapW": 205,
-          "overlap": -110.3,
-          "wmW": 135.4,
+          "trigW": 142.5,
+          "wrapW": 247.2,
+          "overlap": -215,
+          "wmW": 116.1,
           "paintAt": "TRIGGER|Active project"
         },
         "1537": {
           "mid": true,
-          "trigW": 205.5,
-          "wrapW": 205.5,
-          "overlap": -110.3,
-          "wmW": 135.6,
+          "trigW": 143,
+          "wrapW": 247.8,
+          "overlap": -215,
+          "wmW": 116.3,
           "paintAt": "TRIGGER|Active project"
         },
         "1540": {
           "mid": true,
-          "trigW": 206.9,
-          "wrapW": 206.9,
-          "overlap": -110.3,
-          "wmW": 136.3,
+          "trigW": 144.7,
+          "wrapW": 249.5,
+          "overlap": -215,
+          "wmW": 116.8,
           "paintAt": "TRIGGER|Active project"
         },
         "1550": {
           "mid": true,
-          "trigW": 211.7,
-          "wrapW": 211.7,
-          "overlap": -110.3,
-          "wmW": 138.6,
+          "trigW": 150.4,
+          "wrapW": 255.2,
+          "overlap": -215,
+          "wmW": 118.8,
           "paintAt": "TRIGGER|Active project"
         },
         "1560": {
           "mid": true,
-          "trigW": 216.5,
-          "wrapW": 216.5,
-          "overlap": -110.3,
-          "wmW": 140.8,
+          "trigW": 156.1,
+          "wrapW": 260.9,
+          "overlap": -215,
+          "wmW": 120.7,
           "paintAt": "TRIGGER|Active project"
         },
         "1570": {
           "mid": true,
-          "trigW": 220,
-          "wrapW": 220,
-          "overlap": -113.1,
-          "wmW": 142.5,
+          "trigW": 161.8,
+          "wrapW": 266.6,
+          "overlap": -215,
+          "wmW": 122.7,
           "paintAt": "TRIGGER|Active project"
         },
         "1600": {
           "mid": true,
-          "trigW": 220,
-          "wrapW": 220,
-          "overlap": -143.1,
-          "wmW": 142.5,
+          "trigW": 179,
+          "wrapW": 283.7,
+          "overlap": -215,
+          "wmW": 128.5,
           "paintAt": "TRIGGER|Active project"
         }
       },
@@ -2710,8 +2726,8 @@
   },
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T14:38:09.724Z",
+    "prevBuild": "dev@02d75e346574",
+    "prevDate": "2026-10-11T15:05:55.408Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
