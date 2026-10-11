@@ -74,6 +74,30 @@
  *
  * The instrument is also the audit's teacher: a FUTURE seat or tier cut
  * moves these numbers, and this script is where the drift surfaces first.
+ *
+ * t897 — THE COEFFICIENT FAMILIES' RE-CUT (the Geist world's laws): the
+ * t895 font law moved every text metric and the t857-era coefficients
+ * died with the fallback family. The re-cut, measure-first (the ride
+ * plus the t897-far-plateau-probe cap hunt), pins the NEW laws:
+ *   - THE T510 RESIDUE IS DEAD (D3/D4, E2–E9): at 1280 the trigger
+ *     holds its 130 floor but the wrapper has SLACK (158.9 ≥ 130 — the
+ *     shock absorber retired) and the chip's box begins 40.9px beyond
+ *     the trigger's edge — a GAP, no paint, no zone edge (the old
+ *     +2.7 / −0.4 slope / 1286-edge laws were the fallback's truth);
+ *   - the GAP law: overlap(W) = −40.9 − 0.52×(W−1280) through 1290
+ *     (the wrapper reclaims 0.52/px), named points 1290 = −46.1,
+ *     1366 = −85.2, 1440 = −114.8;
+ *   - the md birth-squeeze is DEAD (H5/H6): the wordmark wakes whole
+ *     at 769 (133.2, the natural — no [768,770] zone below xl);
+ *   - the wake survives as a POINT (J1/J2) with new anatomy: +1px
+ *     delivers the chip +87 and the row +35 while the label pays 26.3,
+ *     the wrapper 13.4, the wordmark dips 20.4;
+ *   - the ramps cap at ~1646 (bracketed [1640, 1660] by the probe):
+ *     wrap 322.8, label 160, trig 220, wordmark 133.2 — then the
+ *     plateau: the gap constant −209.7 through the ramps, −1.0/px
+ *     EXACT above the caps (−223.7 @1660 → −483.7 @1920, 260/260).
+ * The E10 ratchet stays as a standing guard, but the fix window's
+ * premise (a paint to clip) no longer exists in this world.
  */
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -239,8 +263,8 @@ if (rows[640] && rows[640].vis[1]) {
 }
 if (rows[1280] && rows[1280].vis[2]) {
   ok(
-    rows[1280].vis[2].w === 200.2,
-    `1280 the ViewSwitcher at its label floor (min-content, no min-w-0) is 200.2px — got ${rows[1280].vis[2].w}`
+    rows[1280].vis[2].w === 194.8,
+    `1280 the ViewSwitcher at its label floor (min-content, no min-w-0) is 194.8px (the Geist world's label floor) — got ${rows[1280].vis[2].w}`
   );
 }
 
@@ -269,34 +293,31 @@ if (rows[375]) {
 if (rows[1280]) {
   ok(rows[1280].seats === 12, `C4 1280 shows the full dozen — got ${rows[1280].seats}`);
   const chip = rows[1280].rightKids.find((k) => k.lbl.includes("xl:block"));
-  ok(chip && close(chip.w, 162.3), `C5 1280 the RELION chip weighs 162.3px — got ${chip && chip.w}`);
+  ok(chip && close(chip.w, 156.3), `C5 1280 the RELION chip weighs 156.3px (the Geist world's weight) — got ${chip && chip.w}`);
   const palette = rows[1280].rightKids.find((k) => k.lbl.includes("palette"));
   ok(palette && palette.w === 40, `C6 1280 the palette rides its labeled 40px — got ${palette && palette.w}`);
   const icons = rows[1280].rightKids.filter((k) => k.w === 36).length;
   ok(icons === 10, `C7 1280 the ten icon seats weigh 36px each — got ${icons}`);
 }
 
-/* ---------- D — the middle tier's internals and the t510 residue ---------- */
+/* ---------- D — the middle tier's internals and the residue's tombstone ---------- */
 console.log("\nD — the middle tier's internals (the t510 squeeze, filmed live)");
 // The middle tier (hidden xl:flex) hosts the two triggers, the 2000px
-// counters and the 2xl lens chip. At the exact xl boundary the row's
-// squeeze reaches the project trigger's min-width floor: the trigger
-// holds 130px while its wrapper yields below it, and the overflow
-// PAINTS into the RELION chip's box — 2.7px at 1280, clear by ~1290.
-// This pin is the RESIDUE the t510 re-cut left (its "626 ≤ 650" budget
-// predated the right cluster's growth: the budget at 1280 is 608 today,
-// the natural row 746 — the squeeze engages, the sliver follows). The
-// t839 rehearsal measured the post-fix form: the GEOMETRY stays 2.7
-// (option (a) changes the paint, not the layout), the STACK loses the
-// trigger (E9), the wrapper's overflow-x flips (E10) — the fix window's
-// ratchet is a measured flip, not a narration edit.
+// counters and the 2xl lens chip. The t857-era world squeezed the row
+// until the trigger's overflow PAINTED 2.7px into the RELION chip's box
+// (the t510 residue — the fix window's ratchet). The Geist world's row
+// budget fits: the floor still BINDS at 1280 (the trigger holds 130)
+// but the wrapper has SLACK (158.9 ≥ 130) and the chip's box begins
+// 40.9px beyond the trigger's edge — THE RESIDUE IS DEAD (the t895
+// retirement, pinned here at instrument level). The fix window's
+// ratchet retires with it: there is no paint to clip in this world.
 if (rows[1280] && rows[1280].midKids) {
   const mkVis = rows[1280].midKids.filter((k) => k.w > 0).length;
   ok(mkVis === 2, `D1 1280 the middle tier shows two children (triggers only; counters wait for 2000px, the chip for 2xl) — got ${mkVis}`);
   const ps = rows[1280].ps;
   ok(ps && ps.trigW === 130, `D2 1280 the project trigger rides its 130px name-worthy floor — got ${ps && ps.trigW}`);
-  ok(ps && ps.wrapW < 130, `D3 1280 its wrapper yields below the floor (${ps && ps.wrapW}px, the min-w-0 shock absorber)`);
-  ok(ps && ps.overlap === 2.7, `D4 1280 THE T510 RESIDUE: the trigger paints ${ps && ps.overlap}px into the RELION chip's box (pinned; the fix window moves this to ≤ 0)`);
+  ok(ps && ps.wrapW >= 130, `D3 1280 the wrapper has SLACK over the floor-bound trigger (${ps && ps.wrapW}px ≥ 130 — the min-w-0 shock absorber retired: the squeeze no longer reaches past the trigger)`);
+  ok(ps && ps.overlap <= 0, `D4 1280 THE RESIDUE IS DEAD: the trigger's edge sits ${ps && ps.overlap}px CLEAR of the RELION chip's box (a gap, no paint — the t895 retirement pinned; the old +2.7 was the fallback metrics' truth)`);
 } else {
   fail++;
   console.log("  ✗ D* 1280 the middle tier witness is missing (midKids null) — the instrument cannot see the squeeze");
@@ -305,7 +326,7 @@ if (rows[1536] && rows[1536].midKids) {
   const mkVis = rows[1536].midKids.filter((k) => k.w > 0).length;
   ok(mkVis === 3, `D5 1536 the lens chip is aboard (hidden 2xl:flex, the t510 yield-first law live) — got ${mkVis}`);
   const chipKid = rows[1536].midKids.find((k) => k.lbl.includes("Spotlight"));
-  ok(chipKid && close(chipKid.w, 90.3), `D6 1536 the chip weighs 90.3px — got ${chipKid && chipKid.w}`);
+  ok(chipKid && close(chipKid.w, 87), `D6 1536 the lens chip weighs 87px (the Geist world's weight) — got ${chipKid && chipKid.w}`);
   const ps = rows[1536].ps;
   ok(ps && ps.trigW <= ps.wrapW + 0.5, `D7 1536 no trigger overflow (trigger ${ps && ps.trigW} ≤ wrapper ${ps && ps.wrapW} — the floor sleeps above 2xl)`);
 }
@@ -335,60 +356,59 @@ ok(
   zone[1279] && zone[1279].mid === false,
   `E1 1279 the middle tier is ASLEEP (hidden xl:flex) — the zone is left-anchored at 1280`
 );
-ok(zOv(1280) === 2.7, `E2 1280 the zone's left edge = the D4 pin (2.7) — got ${zOv(1280)}`);
-// The slope law: overlap(W) = 2.7 − 0.4×(W−1280). The wrapper reclaims
-// 0.4px per viewport px (the row's other yielders absorb the 0.6). The
-// law closes within ±0.15 across the whole named range.
+ok(zOv(1280) === -40.9, `E2 1280 the gap's birth value = the D4 pin (−40.9) — got ${zOv(1280)}`);
+// The GAP law: overlap(W) = −40.9 − 0.52×(W−1280). The wrapper reclaims
+// 0.52px per viewport px (the gap deepens at the same rate — the chip
+// is fixed). The law closes within ±0.15 across the whole named range.
 let maxDev = 0;
 let law = "";
 for (let w = 1280; w <= 1290; w++) {
   const ov = zOv(w);
   if (ov === null) continue;
-  const dev = Math.abs(ov - (2.7 - 0.4 * (w - 1280)));
+  const dev = Math.abs(ov - (-40.9 - 0.52 * (w - 1280)));
   if (dev > maxDev) maxDev = dev;
   law += `${w}:${ov} `;
 }
 ok(
   maxDev <= 0.15,
-  `E3 the slope law overlap(W) = 2.7 − 0.4×(W−1280) closes ±0.15 over 1280..1290 (max dev ${Math.round(maxDev * 100) / 100}) [${law.trim()}]`
+  `E3 the GAP law overlap(W) = −40.9 − 0.52×(W−1280) closes ±0.15 over 1280..1290 (max dev ${Math.round(maxDev * 100) / 100}) [${law.trim()}]`
 );
-const lastPaint = [1286, 1285, 1284, 1283, 1282, 1281, 1280].find((w) => zOv(w) > 0);
-const firstClear = [1287, 1288, 1289, 1290, 1291, 1292].find((w) => zOv(w) !== null && zOv(w) <= 0);
+// The old edge (last paint 1286, first clear 1287) died with the
+// fallback metrics: NO painted width exists anywhere in the zone — the
+// gap is born with the zone and only deepens (−48.1 by 1294).
+const anyPaint = ZW.filter((w) => w >= 1280 && w <= 1294 && zOv(w) !== null && zOv(w) > 0);
 ok(
-  lastPaint === 1286 && firstClear === 1287,
-  `E4 the edge: last paint 1286 (+0.3), first clear 1287 (−0.1) — got last ${lastPaint} / first ${firstClear}`
+  anyPaint.length === 0 && zOv(1294) === -48.1,
+  `E4 NO PAINT exists in the zone (1280..1294 all ≤ 0 — the old edge 1286/1287 is dead) and the gap only deepens (1294: ${zOv(1294)})${anyPaint.length ? ` — PAINT at ${anyPaint.join(",")}` : ""}`
 );
-ok(zOv(1290) === -1.3, `E5 1290 the t835 named point is exact (−1.3) — got ${zOv(1290)}`);
+ok(zOv(1290) === -46.1, `E5 1290 the named point is exact (−46.1) — got ${zOv(1290)}`);
 const repaint = ZW.filter((w) => w >= 1287 && zOv(w) !== null && zOv(w) > 0);
 ok(
   repaint.length === 0,
-  `E6 NO RE-PAINT above the edge (1287→1440 all ≤ 0)${repaint.length ? ` — RE-PAINT at ${repaint.join(",")}` : ""}`
+  `E6 NO RE-PAINT above the zone's birth (1287→1440 all ≤ 0, the standing guard)${repaint.length ? ` — RE-PAINT at ${repaint.join(",")}` : ""}`
 );
 ok(
-  zOv(1366) === -12 && zOv(1440) === -33.1,
-  `E7 the wide named points exact: 1366 = −12 (got ${zOv(1366)}), 1440 = −33.1 (got ${zOv(1440)})`
+  zOv(1366) === -85.2 && zOv(1440) === -114.8,
+  `E7 the wide named points exact: 1366 = −85.2 (got ${zOv(1366)}), 1440 = −114.8 (got ${zOv(1440)})`
 );
 ok(
   zone[1280] &&
     typeof zone[1280].paintAt === "string" &&
-    zone[1280].paintAt.startsWith("CHIP") &&
+    zone[1280].paintAt.startsWith("TRIGGER") &&
     zone[1280].chipBg === "rgba(0, 0, 0, 0)",
-  `E8 the PAINT WITNESS: in-band topmost = CHIP (${zone[1280] && zone[1280].paintAt}), bg transparent (${zone[1280] && zone[1280].chipBg}) — the edge paint shows through, the chip owns the click`
+  `E8 the OWNERSHIP witness: the band point rides the TRIGGER's own box (${zone[1280] && zone[1280].paintAt}), chip bg transparent — the trigger owns its edge, nothing paints into the chip`
 );
-// E9 — the STACK witness, permanent (the t841 growth): at every PAINTED
-// width (overlap > 0) the trigger is IN the band's hit stack — the
-// paint is real across the whole zone, not just at the D4 pin's 1280.
-// Hit-testing respects overflow clipping, so the fix window's flip is a
-// per-width MEASURED delta: each painted row loses the trigger.
+// E9 — the STACK witness, permanent (the t841 growth, re-cut t897): the
+// residue's zone is GONE — zero painted widths exist in [1280..1440].
+// The witness keeps its tooth on the gap world: the 1280 band point's
+// stack LEADS with the trigger (the point sits just inside the
+// trigger's own right edge — the DOM's topmost answer is the trigger,
+// not a painted intrusion).
 const painted = ZW.filter((w) => zOv(w) !== null && zOv(w) > 0);
-const stackFull =
-  painted.length > 0 &&
-  painted.every(
-    (w) => zone[w].stack && zone[w].stack.some((s) => String(s).startsWith("TRIGGER"))
-  );
 ok(
-  stackFull,
-  `E9 the STACK witness at every painted width (${painted.join(",")}): the TRIGGER is in the band's hit stack — the paint is real across the zone, the fix's flip will be a per-width measured delta`
+  painted.length === 0 &&
+    zone[1280] && zone[1280].stack && String(zone[1280].stack[0]).startsWith("TRIGGER"),
+  `E9 the residue's zone is GONE: zero painted widths in [1280..1440], and the 1280 band point's stack leads with the TRIGGER (${zone[1280] && zone[1280].stack && zone[1280].stack[0]}) — the stack witness keeps its tooth on the gap world`
 );
 // E10 — the fix's FINGERPRINT, watched in reverse: the wrapper's
 // computed overflow-x is 'visible' at every awake zone width. The build
@@ -431,49 +451,51 @@ ok(
   `G1 the cross-layer identity is FAR-EDGE-PROOF: the band's wrapper kid == the zone's wrapW at 1366/1440/1536/1920 (${FAR_W.map((w) => wrapKidAt(w)?.w ?? "?").join(" / ")}) — the twin survives 2xl and the third kid (the chip aboard at 1536+)`
 );
 ok(
-  FAR_W.every((w) => farRows[w].rightW === 628.3 && farRows[w].seats === 12),
-  `G2 the right cluster never moves at the far edge: rightW 628.3 and seats 12 at all four widths — no new seats above xl, the chip lives in the mid row`
+  FAR_W.every((w) => farRows[w].rightW === 622.3 && farRows[w].seats === 12),
+  `G2 the right cluster never moves at the far edge: rightW 622.3 and seats 12 at all four widths — no new seats above xl, the chip lives in the mid row`
 );
 ok(
-  FAR_W.every((w) => farRows[w].ps && farRows[w].ps.trigW === farRows[w].ps.wrapW),
-  `G3 the floor SLEEPS at the far edge: trigW == wrapW exactly at all four widths (${FAR_W.map((w) => farRows[w]?.ps?.trigW ?? "?").join(" / ")}) — the shock absorber retired, the trigger rides its natural width (149.2 → 170 → 205 → 220)`
+  FAR_W.every((w) => farRows[w].ps && farRows[w].ps.trigW <= farRows[w].ps.wrapW) &&
+    farRows[1366].ps.trigW === 130 && farRows[1440].ps.trigW === 138.5 &&
+    farRows[1536].ps.trigW === 156.6 && farRows[1920].ps.trigW === 220,
+  `G3 the floor's far anatomy: trig 130 / 138.5 / 156.6 / 220 — the floor still BINDS at 1366 (the squeeze's last address: the row holds the trigger at its 130 floor) and sleeps above; the trigger no longer fills its wrapper (the slack is real: 130 in 203.2, 138.5 in 241.3, 156.6 in 259.4, 220 in 322.8) and never overflows it (trig ≤ wrap at all four)`
 );
 ok(
-  farRows[1366].ps.overlap === -12 && farRows[1440].ps.overlap === -33.1 &&
-    farZone[1536].overlap === -110.3 && farZone[1920].overlap === -463.1,
-  `G4 the named points hold and the gap runs away: 1366 = −12, 1440 = −33.1 (E7's zone rows agree — two walks, one number), then 1536 = −110.3, 1920 = −463.1 — the zone clears and never looks back`
+  farRows[1366].ps.overlap === -85.2 && farRows[1440].ps.overlap === -114.8 &&
+    farZone[1536].overlap === -209.7 && farZone[1920].overlap === -483.7,
+  `G4 the named points hold and the gap runs away: 1366 = −85.2, 1440 = −114.8 (E7's zone rows agree — two walks, one number), then 1536 = −209.7, 1920 = −483.7 — the gap is born at the zone and never looks back`
 );
 ok(
-  farRows[1366].leftW === 693.8 && farRows[1440].leftW === 746.7 &&
-    farRows[1536].leftW === 863.8 && farRows[1920].leftW === 895 &&
-    Math.abs(farRows[1536].leftW - PINNED.left[1536]) <= 0.5,
-  `G5 the left row's far tier: 693.8 / 746.7 / 863.8 / 895 (tier-shaped, breakpoint-honest) — and 1536's 863.8 sits within the sweep's own ±0.5 rounding law of the MACRO pin 864`
+  farRows[1366].leftW === 699.8 && farRows[1440].leftW === 773.8 &&
+    farRows[1536].leftW === 869.8 && farRows[1920].leftW === 979.8 &&
+    Math.abs(farRows[1536].leftW - P.left[1536]) <= 0.5,
+  `G5 the left row's far tier: 699.8 / 773.8 / 869.8 / 979.8 (tier-shaped, breakpoint-honest) — and 1536's 869.8 sits within the sweep's own ±0.5 rounding law of the ACTIVE pin ${P.left[1536]}`
 );
 ok(
   farRows[1366].midKids.filter((k) => k.w > 0).length === 2 && farRows[1440].midKids.filter((k) => k.w > 0).length === 2 &&
     farRows[1536].midKids.filter((k) => k.w > 0).length === 3 && farRows[1920].midKids.filter((k) => k.w > 0).length === 3 &&
-    lblKidAt(1366).w === 143.6 && lblKidAt(1440).w === 160 && lblKidAt(1536).w === 150.9 && lblKidAt(1920).w === 160 &&
-    chipKidAt(1536) && chipKidAt(1536).w === 90.3 && chipKidAt(1920) && chipKidAt(1920).w === 90.3,
-  `G6 the mid row's far anatomy: two kids awake at 1366/1440, THREE at 1536/1920 (the chip wakes at 2xl); the label 143.6 / 160 / 150.9 / 160, the chip 90.3 at BOTH 2xl widths — the chip's weight is width-free above its tier`
+    lblKidAt(1366).w === 125.8 && lblKidAt(1440).w === 144.5 && lblKidAt(1536).w === 133.7 && lblKidAt(1920).w === 160 &&
+    chipKidAt(1536) && chipKidAt(1536).w === 87 && chipKidAt(1920) && chipKidAt(1920).w === 87,
+  `G6 the mid row's far anatomy: two kids awake at 1366/1440, THREE at 1536/1920 (the chip wakes at 2xl); the label 125.8 / 144.5 / 133.7 / 160 (the wake's dip at 1536 — the label pays for the chip's birth, J2), the chip 87 at BOTH 2xl widths — the chip's weight is width-free above its tier`
 );
 ok(
   FAR_W.every((w) => farZone[w] && typeof farZone[w].paintAt === "string" && farZone[w].paintAt.startsWith("TRIGGER")),
-  `G7 the residue is 1280-LOCAL: the paint witness rides the trigger's own box at every far width (no CHIP under the point) — the t510 overlap exists only where the floor binds`
+  `G7 the floor's reach is 1280-LOCAL: the band point rides the trigger's own box at every far width (no CHIP under the point) — the floor binds at 1280..1366 and NO paint exists anywhere; the trigger owns its edge at every width (E8's far confirmation)`
 );
 ok(
-  farZone[1366].wmW === 126.8 && farZone[1440].wmW === 142.5 &&
-    farZone[1536].wmW === 135.4 && farZone[1920].wmW === 142.5,
-  `G8 the wordmark's far form is TIER-SHAPED: 126.8 / 142.5 / 135.4 / 142.5 — the natural 142.5 recurs at 1440/1920, the squeeze never returns, no slope claim (pinned per width)`
+  farZone[1366].wmW === 101.9 && farZone[1440].wmW === 119 &&
+    farZone[1536].wmW === 112.8 && farZone[1920].wmW === 133.2,
+  `G8 the wordmark's far form is TIER-SHAPED: 101.9 / 119 / 112.8 / 133.2 — the natural 133.2 is the 1920 cap, the 1536 dip (112.8 < 119) is the wake's transient squeeze (J2: the wordmark pays for the chip's birth), recovered by the ramps (the probe: 133.2 by 1660); no slope claim (pinned per width)`
 );
 
-/* ---------- H — the below zone (the t853 growth): the band layer's first
- * walk BELOW xl — 768/900/1024, both layers (the sweep's own MEASURE +
- * the zone-form walk), plus the below squeeze's EDGE ride (767-772).
- * The probe (scripts/t853-below-zone-probe.mjs) rode the widths first;
- * the pins carry the measured values. The discovery: the wordmark is
- * BORN SQUEEZED at md — the row needs 738.5 vs available 736 at 768 and
- * the min-w-0 wordmark pays the whole 2.5 (A4e-2's live form), and the
- * squeeze is a ZONE: linear at slope −1.0/px, [768, 770], clear by 771. ---------- */
+/* ---------- H — the below zone (the t853 growth, re-cut t897): the band
+ * layer's first walk BELOW xl — 768/900/1024, both layers (the sweep's
+ * own MEASURE + the zone-form walk), plus the md edge ride (767-772).
+ * The t853-era discovery (the wordmark BORN SQUEEZED at md, a [768,770]
+ * zone at slope −1.0/px) died with the fallback metrics: the Geist row
+ * budget fits at md, and the below-xl span is SQUEEZE-FREE end to end
+ * (the below mirror of the dead residue — both shortages were the
+ * fallback family's truth). ---------- */
 const WM_BOX =
   "(() => { const hdr = document.querySelector('header'); const left = hdr.children[0]; const wm = left.querySelector('div.min-w-0.leading-tight'); if (!wm) return JSON.stringify({ wm: null, leftW: Math.round(left.getBoundingClientRect().width * 10) / 10 }); return JSON.stringify({ wm: Math.round(wm.getBoundingClientRect().width * 10) / 10, leftW: Math.round(left.getBoundingClientRect().width * 10) / 10 }); })()";
 console.log("\nH — the below zone (below xl: 768/900/1024 + the edge ride, the t853 growth)");
@@ -506,9 +528,9 @@ ok(
 );
 ok(
   belowRows[1024].vis.length === 3 && belowRows[1024].vis[0].w === 36 &&
-    belowRows[1024].vis[1].w === 142.5 && belowRows[1024].vis[2].w === 68 &&
-    belowRows[1024].leftW === 266.5,
-  `H3 the below trio's child anatomy at 1024: icon 36 + wordmark 142.5 + switcher 68 = 266.5 natural (the B block's counts gain their weights; A4e-3's honest 142 re-proven live at 0.1px)`
+    belowRows[1024].vis[1].w === 133.2 && belowRows[1024].vis[2].w === 68 &&
+    belowRows[1024].leftW === 257.2,
+  `H3 the below trio's child anatomy at 1024: icon 36 + wordmark 133.2 + switcher 68 = 257.2 natural (the B block's counts gain their weights; the Geist wordmark's natural is 133.2, re-proven live at 0.1px)`
 );
 ok(
   BELOW_W.every((w) => belowRows[w].rightW === 460 && belowRows[w].seats === 11) &&
@@ -519,35 +541,35 @@ ok(
   `H4 the right cluster's below plateau: rightW 460 and seats 11 at ALL THREE tiers, the closed form re-anchored below xl (36+40+36x9 + 10 gaps x6 = 460) — the plateau the C block knew per-band, now a cross-band fact`
 );
 ok(
-  belowRows[768].vis[1].w === 140 && belowRows[768].leftW === 264,
-  `H5 the wordmark is BORN SQUEEZED at md: the box is 140 (not the natural 142.5) and the row is 264 — needs 266.5+460+12 = 738.5 vs available 736, the 2.5 falls ENTIRELY on the min-w-0 wordmark (A4e-2's live form: the unit's integer 266>264 refined to 0.1px); the natural is not hypothetical — 900/1024 ride it live`
+  belowRows[768].vis[1].w === 133.2 && belowRows[768].leftW === 257.2,
+  `H5 the wordmark is born FREE at md: 133.2 (the natural — the SAME value 900/1024 ride) and the row is 257.2 at 768 — the old birth-squeeze (the 2.5 the min-w-0 wordmark paid in the fallback world, 140 vs 142.5) died with the fallback metrics: the Geist row budget fits at md`
 );
 ok(
-  edge[767].wm === 0 && edge[769].wm === 141 && edge[770].wm === 142 &&
-    edge[771].wm === 142.5 && edge[772].wm === 142.5,
-  `H6 the below squeeze's EDGE: 767 asleep (wm 0, the wordmark not yet born), 769 pays 1.5 (141), 770 pays 0.5 (142), 771 CLEAR (142.5) — squeeze(W) = 770.5 − W exactly, zone [768, 770], clear by 771, slope −1.0/px: the wordmark is the row's ONLY yielder below xl and absorbs every pixel (vs the 1280 zone's −0.4, where the row's other yielders take 0.6)`
+  edge[767].wm === 0 && edge[769].wm === 133.2 && edge[770].wm === 133.2 &&
+    edge[771].wm === 133.2 && edge[772].wm === 133.2,
+  `H6 the md edge ride: 767 asleep (wm 0, the wordmark not yet born), then 769/770/771/772 ALL 133.2 — NO squeeze zone below xl anymore (the old [768,770] zone at slope −1.0/px was the fallback world's shortage): the wordmark wakes whole at md, the below mirror of the dead residue`
 );
 ok(
-  belowRows[900].vis[1].w === 142.5 && belowRows[900].leftW === 266.5 &&
-    belowRows[1024].vis[1].w === 142.5 && belowRows[1024].leftW === 266.5,
-  `H7 the interior is at rest: 900 rides the SAME natural form as 1024 (266.5 / 142.5) — the squeeze is 768-LOCAL, the below mirror of G7's 1280-locality`
+  belowRows[900].vis[1].w === 133.2 && belowRows[900].leftW === 257.2 &&
+    belowRows[1024].vis[1].w === 133.2 && belowRows[1024].leftW === 257.2,
+  `H7 the interior is at rest: 900 rides the SAME natural form as 1024 (257.2 / 133.2) — the below-xl span is squeeze-free end to end (768's H5 form is the same numbers, the interior's confirmation)`
 );
 
-/* ---------- J — the wake edge (the t856 growth): the far edge's SECOND
- * threshold — the stats chip's WAKE at 2xl. The probe
- * (scripts/t856-xl-chip-wake-probe.mjs) bracketed and binary-searched
- * the wake first (last asleep 1535, first awake 1536 — a POINT, not a
- * zone, vs the below squeeze's [768, 770]); the pins carry the measured
- * values. The discovery: the wake is a STEP — one pixel delivers the
- * chip (born 90.3, constant forever) and the trigger's 2xl tier (+35:
- * 170 → 205) while the label PAYS (−9.1: 160 → 150.9) and the wordmark
- * DIPS (−7.1: 142.5 → 135.4); then TWO CAPPED RAMPS (1536 → 1570)
- * restore the yielders — the wrap +0.44/px to its cap 220, the label
- * +0.27/px back to 160, the wordmark +0.21/px back to 142.5 — and
- * above the caps the plateau: everything constant to 1920 but the gap
- * (overlap −1.0/px). ---------- */
-console.log("\nJ — the wake edge (the far edge's second threshold: the chip wakes at 2xl, the t856 growth)");
-const WAKE_W = [1535, 1536, 1537, 1540, 1550, 1560, 1570, 1600];
+/* ---------- J — the wake edge (the t856 growth, re-cut t897): the far
+ * edge's SECOND threshold — the stats chip's WAKE at 2xl. The probe
+ * (scripts/t856-xl-chip-wake-probe.mjs) bracketed the wake first (last
+ * asleep 1535, first awake 1536 — a POINT, not a zone); the re-cut
+ * keeps the point and re-measures its anatomy. The NEW discovery: +1px
+ * delivers the chip (born 87, constant forever) and the row's 2xl
+ * grant (+35) while the label PAYS (−26.3: 160 → 133.7), the WRAPPER
+ * pays (−13.4: 272.8 → 259.4) and the wordmark DIPS (−20.4: 133.2 →
+ * 112.8); then THREE CAPPED RAMPS (1536 → ~1646) restore the yielders
+ * — the wrap +0.575/px to its cap 322.8, the label +0.21/px back to
+ * 160, the wordmark back to 133.2 (the probe brackets every cap's
+ * landing in [1640, 1660]) — and above the caps the plateau: everything
+ * constant to 1920 but the gap (overlap −1.0/px EXACT). ---------- */
+console.log("\nJ — the wake edge (the far edge's second threshold: the chip wakes at 2xl, the t856 growth, re-cut t897)");
+const WAKE_W = [1535, 1536, 1537, 1540, 1550, 1560, 1570, 1600, 1620, 1640, 1660, 1680];
 const wakeRows = {};
 const wakeZone = {};
 for (const w of WAKE_W) {
@@ -559,34 +581,36 @@ for (const w of WAKE_W) {
 ab("set viewport 1280 800");
 
 ok(
-  wakeRows["1535"].midKids[3].w === 0 && wakeRows["1536"].midKids[3].w === 90.3 &&
-    wakeZone["1535"].wrapW === 170 && wakeZone["1536"].wrapW === 205,
-  `J1 the chip WAKES AT 2xl — a POINT, not a zone: last asleep 1535 (kids [160, 170, 0, 0], wrap 170), first awake 1536 (the chip born 90.3, the wrap tier-steps 170 → 205) — the far mirror of the below squeeze's zone [768, 770]: the below world yields through a 3px ZONE, the far world crosses a 1px THRESHOLD (a breakpoint, not a shortage)`
+  wakeRows["1535"].midKids[3].w === 0 && wakeRows["1536"].midKids[3].w === 87 &&
+    wakeZone["1535"].wrapW === 272.8 && wakeZone["1536"].wrapW === 259.4,
+  `J1 the chip WAKES AT 2xl — a POINT, not a zone: last asleep 1535 (kids [160, 272.8, 0, 0], wrap 272.8), first awake 1536 (the chip born 87, the wrap PAYS 13.4: 272.8 → 259.4) — the far mirror of the (now dead) below squeeze: the below world no longer yields through a shortage-zone, the far world still crosses a 1px THRESHOLD (a breakpoint, not a shortage)`
 );
 ok(
-  wakeRows["1535"].midKids[0].w === 160 && wakeRows["1536"].midKids[0].w === 150.9 &&
-    wakeZone["1535"].wmW === 142.5 && wakeZone["1536"].wmW === 135.4 &&
-    wakeRows["1535"].leftW === 746.7 && wakeRows["1536"].leftW === 863.8,
-  `J2 the wake's STEP anatomy: +1px of viewport delivers the chip +90.3 and the wrap +35 (the trigger's 2xl tier) while the label PAYS 9.1 (160 → 150.9) and the wordmark DIPS 7.1 (142.5 → 135.4); the left row jumps +117.1 — the wake moment is funded by the row's own yielders, not by the viewport's new pixel`
+  wakeRows["1535"].midKids[0].w === 160 && wakeRows["1536"].midKids[0].w === 133.7 &&
+    wakeZone["1535"].wmW === 133.2 && wakeZone["1536"].wmW === 112.8 &&
+    wakeRows["1535"].leftW === 834.8 && wakeRows["1536"].leftW === 869.8,
+  `J2 the wake's STEP anatomy: +1px of viewport delivers the chip +87 and the row's 2xl grant +35 (leftW 834.8 → 869.8) while the label PAYS 26.3 (160 → 133.7), the WRAPPER pays 13.4 (272.8 → 259.4) and the wordmark DIPS 20.4 (133.2 → 112.8) — the wake moment is funded by the row's own yielders, not by the viewport's new pixel`
 );
 ok(
-  wakeZone["1540"].wrapW === 206.9 && wakeZone["1550"].wrapW === 211.7 &&
-    wakeZone["1560"].wrapW === 216.5 && wakeZone["1570"].wrapW === 220 &&
-    wakeZone["1600"].wrapW === 220,
-  `J3 the wrap's CAPPED RAMP: 205 @1536 → 206.9 @1540 → 211.7 @1550 → 216.5 @1560 → the cap 220 @1570 (+0.44/px) — the trigger's 2xl tier is a FLOOR, not a fixed width: the wrap grows until its cap, then sleeps at 220 forever (1600: 220)`
+  wakeZone["1536"].wrapW === 259.4 && wakeZone["1540"].wrapW === 261.7 &&
+    wakeZone["1550"].wrapW === 267.5 && wakeZone["1560"].wrapW === 273.2 &&
+    wakeZone["1570"].wrapW === 279 && wakeZone["1600"].wrapW === 296.3 &&
+    wakeZone["1640"].wrapW === 319.3 && wakeZone["1660"].wrapW === 322.8,
+  `J3 the wrap's CAPPED RAMP: 259.4 @1536 → 261.7 @1540 → 267.5 @1550 → 273.2 @1560 → 279 @1570 → 296.3 @1600 → 319.3 @1640, the cap 322.8 by 1660 (+0.575/px through the ramp; the probe brackets the landing in [1640, 1660] ≈ 1646) — the trigger's 2xl tier is a FLOOR, the wrap's growth is the row's slack: it runs until the caps land, then sleeps at 322.8 forever`
 );
 ok(
-  wakeRows["1540"].midKids[0].w === 152 && wakeRows["1550"].midKids[0].w === 155 &&
-    wakeRows["1570"].midKids[0].w === 160 && wakeRows["1600"].midKids[0].w === 160 &&
-    wakeZone["1570"].wmW === 142.5 && wakeZone["1600"].wmW === 142.5,
-  `J4 the label's recovery and the wordmark's: the label rides its own ramp back to the cap 160 (152 @1540, 155 @1550, 160 @1570) and the wordmark to the natural 142.5 — both capped by 1570; the wake's transient squeeze is fully repaid within 34px of the threshold`
+  wakeRows["1540"].midKids[0].w === 134.7 && wakeRows["1550"].midKids[0].w === 137 &&
+    wakeRows["1570"].midKids[0].w === 141.8 && wakeRows["1600"].midKids[0].w === 149 &&
+    wakeRows["1660"].midKids[0].w === 160 &&
+    wakeZone["1570"].wmW === 119.1 && wakeZone["1660"].wmW === 133.2,
+  `J4 the label's recovery and the wordmark's: the label rides its own ramp to the cap 160 (134.7 @1540, 137 @1550, 141.8 @1570, 149 @1600, 160 by 1660) and the wordmark to its natural 133.2 (119.1 @1570 → 133.2 by 1660) — both capped ≈1646 with the wrap; the wake's transient squeeze is fully repaid within ~110px of the threshold`
 );
 ok(
-  WAKE_W.every((w) => wakeRows[w].midKids[3].w === (w === 1535 ? 0 : 90.3)) &&
-    wakeRows["1536"].rightW === 628.3 && wakeRows["1600"].rightW === 628.3 &&
-    wakeZone["1536"].overlap === -110.3 && wakeZone["1560"].overlap === -110.3 &&
-    wakeZone["1570"].overlap === -113.1 && wakeZone["1600"].overlap === -143.1,
-  `J5 the plateau: the chip is CONSTANT 90.3 above the wake (born full-size, never grows), the right cluster 628.3, and the gap's law has TWO segments — constant −110.3 THROUGH the ramp (the wrap grows into the gap, the chip holds still) then −1.0/px above the caps (−113.1 @1570 → −143.1 @1600, the t836 law's far form: the PS clears deeper as the viewport grows)`
+  WAKE_W.every((w) => wakeRows[w].midKids[3].w === (w === 1535 ? 0 : 87)) &&
+    wakeRows["1536"].rightW === 622.3 && wakeRows["1600"].rightW === 622.3 &&
+    wakeZone["1640"].overlap === -209.7 && wakeZone["1660"].overlap === -223.7 &&
+    wakeZone["1680"].overlap === -243.7 && farZone[1920].overlap === -483.7,
+  `J5 the plateau: the chip is CONSTANT 87 above the wake (born full-size, never grows), the right cluster 622.3, and the gap's law has TWO segments — constant −209.7 THROUGH the ramps (the wrap grows into the gap, the chip holds still) then −1.0/px EXACT above the caps (−223.7 @1660 → −243.7 @1680 → −483.7 @1920: 260px of viewport, 260px of gap — the t836 law's far form, the PS clears deeper as the viewport grows)`
 );
 
 /* ---------- the DRIFT LEDGER (t861): the family's propagation — the six
@@ -627,11 +651,11 @@ const receipt = {
   worldMode: world.mode,
   date: new Date().toISOString(),
   bands: rows,
-  zone: { widths: ZW, rows: zone, law: "overlap(W) = 2.7 − 0.4×(W−1280)", edge: { lastPaint: 1286, firstClear: 1287 } },
+  zone: { widths: ZW, rows: zone, law: "the GAP law (t897 re-cut): overlap(W) = −40.9 − 0.52×(W−1280) — no paint exists anywhere in the zone; the t857-era residue law (2.7 − 0.4×(W−1280), edge 1286/1287) died with the fallback metrics", edge: { lastPaint: null, firstClear: null, note: "the edge is dead — the gap is born with the zone and only deepens (−48.1 by 1294)" } },
   farEdge: { widths: FAR_W, rows: farRows, zone: farZone,
-    wake: { widths: WAKE_W, rows: wakeRows, zone: wakeZone, law: "the wake edge (t856): the chip WAKES AT 2xl — a POINT (last asleep 1535, first awake 1536), not a zone (the below squeeze's [768, 770] mirror: the below world yields through a 3px shortage-zone, the far world crosses a 1px breakpoint); the wake is a STEP — +1px delivers the chip (born 90.3, constant forever) and the trigger's 2xl tier (+35: 170 → 205) while the label pays 9.1 (160 → 150.9) and the wordmark dips 7.1 (142.5 → 135.4); then two CAPPED RAMPS restore the yielders by 1570 (the wrap +0.44/px to 220, the label +0.27/px to 160, the wordmark +0.21/px to 142.5) and above the caps the plateau holds to 1920 — everything constant but the gap (−1.0/px)" },
-    law: "the far edge (t852): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor sleeps (trigW == wrapW exactly), the right cluster never moves (rightW 628.3, seats 12), the chip is width-free above 2xl (90.3), and the residue is 1280-local (the paint witness rides the trigger's own box). The wake edge (t856): the chip's birth is a 1px POINT at 2xl (1535/1536) with a step anatomy (chip +90.3, wrap tier 170 → 205, label −9.1, wordmark −7.1), two capped ramps (by 1570: wrap 220, label 160, wordmark 142.5), and a plateau to 1920 whose only moving part is the gap (−1.0/px)" },
-  belowZone: { widths: BELOW_W, rows: belowRows, zone: belowZone, edge, law: "the below zone (t853): the mid row sleeps below xl at every named tier (the twin vacuously at rest, E1's 1279 point now a cross-section) and the residue has no below-form; the wordmark is BORN SQUEEZED at md — the row needs 738.5 vs available 736 at 768 and the min-w-0 wordmark pays the whole 2.5 (A4e-2's live form) — in a LINEAR zone: squeeze(W) = 770.5 − W, slope −1.0/px (the row's only yielder absorbs every pixel), [768, 770], clear by 771; the interior (900/1024) rides the natural 266.5/142.5 — the squeeze is 768-local" },
+    wake: { widths: WAKE_W, rows: wakeRows, zone: wakeZone, law: "the wake edge (t856, re-cut t897): the chip WAKES AT 2xl — a POINT (last asleep 1535, first awake 1536), not a zone; the wake is a STEP — +1px delivers the chip (born 87, constant forever) and the row's 2xl grant (+35) while the label pays 26.3 (160 → 133.7), the wrapper pays 13.4 (272.8 → 259.4) and the wordmark dips 20.4 (133.2 → 112.8); then THREE CAPPED RAMPS restore the yielders by ~1646 (the wrap +0.575/px to 322.8, the label to 160, the wordmark to 133.2 — the probe brackets the landing in [1640, 1660]) and above the caps the plateau holds to 1920 — everything constant but the gap (−1.0/px EXACT)" },
+    law: "the far edge (t852, re-cut t897): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor still binds at 1366 (trig 130) and sleeps above (138.5 / 156.6 / 220), the trigger no longer fills its wrapper (the slack is real), the right cluster never moves (rightW 622.3, seats 12), the mid chip is width-free above 2xl (87), and no paint exists anywhere (the gap's law: −85.2 @1366, −114.8 @1440, −209.7 @1536, −483.7 @1920). The wake edge (t856, re-cut): the chip's birth is a 1px POINT at 2xl (1535/1536) with a step anatomy (chip +87, row +35, label −26.3, wrapper −13.4, wordmark −20.4), three capped ramps (by ~1646: wrap 322.8, label 160, wordmark 133.2), and a plateau to 1920 whose only moving part is the gap (−1.0/px EXACT)" },
+  belowZone: { widths: BELOW_W, rows: belowRows, zone: belowZone, edge, law: "the below span (t853, re-cut t897): the mid row sleeps below xl at every named tier (the twin vacuously at rest, E1's 1279 point now a cross-section) and the residue has no below-form; the wordmark is born FREE at md — 133.2 (the natural) at 769, identical at 900/1024, row 257.2 throughout — the t853-era birth-squeeze (a [768,770] zone at slope −1.0/px) died with the fallback metrics: the below-xl span is squeeze-free end to end" },
   pinned: PINNED,
   pins: CUT_PINS
     ? {
