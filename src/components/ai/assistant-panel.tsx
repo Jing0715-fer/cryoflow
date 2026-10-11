@@ -119,6 +119,21 @@ import { cn } from "@/lib/utils";
 import { filterSessions, groupSessionsByDay, matchIndex } from "@/lib/ai/session-groups";
 import { parseActionBlocks, type AssistantAction } from "@/lib/ai/action-blocks";
 import { hasAgedToolHistory } from "@/lib/ai/stale-history";
+// t902 — the geometry ARITHMETIC (the type, the mins, the clamp, the
+// home corner) lives in lib/geo-restore: the restore's whisper needs
+// the SAME clamp the drags apply, and the t653 law puts that meaning in
+// lib so the two faces can never drift. The panel imports the faces.
+import {
+  clampGeo,
+  defaultGeo,
+  GEO_MIN_H,
+  GEO_MIN_W,
+  GEO_MOBILE_BP,
+  restoreGeo,
+  restoreGeoSummary,
+  type GeoRestoreEdit,
+  type WinGeo,
+} from "@/lib/geo-restore";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkflowStore } from "@/lib/store";
 import { CopyButton } from "@/components/workflow/copy-button";
@@ -588,40 +603,10 @@ function ActionButtons({
  * resize from three edges/corners, double-click the header to snap back
  * home (top-right). Geometry persists in localStorage; mobile keeps the
  * honest full-screen face (a 380px-wide draggable window on a phone is
- * a joke, not a feature). */
-interface WinGeo {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
+ * a joke, not a feature). The arithmetic lives in lib/geo-restore
+ * (the t653 law — see the import at the file head). */
 
 const GEO_KEY = "cryoflow.assistant.geometry.v1";
-const GEO_MIN_W = 360;
-const GEO_MIN_H = 420;
-/** t500's mobile breakpoint, t638 — the full-screen face ignores geometry
- * (its narrow clamp would poison the persisted desktop shape), so every
- * WRITE path re-checks the live viewport rather than the useIsMobile
- * hook (whose matchMedia effect lags the first render — the restore
- * effect's comment owns that lesson). */
-const GEO_MOBILE_BP = 768;
-
-function clampGeo(g: WinGeo, vw: number, vh: number): WinGeo {
-  const w = Math.min(Math.max(g.w, GEO_MIN_W), Math.max(vw - 16, GEO_MIN_W));
-  const h = Math.min(Math.max(g.h, GEO_MIN_H), Math.max(vh - 16, GEO_MIN_H));
-  return {
-    w,
-    h,
-    x: Math.min(Math.max(g.x, 8), Math.max(vw - w - 8, 8)),
-    y: Math.min(Math.max(g.y, 8), Math.max(vh - h - 8, 8)),
-  };
-}
-
-function defaultGeo(vw: number, vh: number): WinGeo {
-  const w = Math.min(560, Math.max(vw - 32, GEO_MIN_W));
-  const h = Math.min(760, Math.max(vh - 96, GEO_MIN_H));
-  return clampGeo({ w, h, x: vw - w - 24, y: 64 }, vw, vh);
-}
 
 /* ------------------------------------------------------------------ */
 /* The panel                                                            */
@@ -753,6 +738,16 @@ export function AssistantPanel() {
 
   // ---- t500: the floating window (desktop) — geometry, drag, resize ----
   const [geo, setGeo] = React.useState<WinGeo | null>(null);
+  // t902 — the restore's edit receipt + its ownership flag (the whisper's
+  // fourth seat): a shrunken viewport silently EDITS the remembered shape
+  // (clampGeo hands back a smaller, pulled-in window); the whisper names
+  // the edit once at the panel's own voice level and goes silent the
+  // moment the user's first gesture takes ownership. The LIVE resize
+  // clamp whispers nothing — the user is watching that accommodation
+  // happen (the t500 view-time law); only the BOOT restore edits
+  // invisibly, so only the boot restore speaks.
+  const [geoEdits, setGeoEdits] = React.useState<GeoRestoreEdit[] | null>(null);
+  const [geoTouched, setGeoTouched] = React.useState(false);
   // t638 — storage echoes INTENT, one echo per gesture (the Task 153 #13
   // family law this panel was quietly minting against). The old
   // persist-on-change effect had two sins: it fired ~60×/s during a drag,
@@ -917,7 +912,17 @@ export function AssistantPanel() {
           typeof g?.w === "number" &&
           typeof g?.h === "number"
         ) {
-          setGeo(clampGeo(g as WinGeo, window.innerWidth, window.innerHeight));
+          // t902 — the restore's edit receipt: the SAME clamp the drags
+          // apply, with the moved axis families named (lib/geo-restore —
+          // the t653 law). An exact fit carries no edits and the panel
+          // stays silent.
+          const { geo: restored, edits } = restoreGeo(
+            g as WinGeo,
+            window.innerWidth,
+            window.innerHeight
+          );
+          setGeo(restored);
+          setGeoEdits(edits);
           return;
         }
       }
@@ -980,6 +985,10 @@ export function AssistantPanel() {
       if (dragRef.current) {
         dragRef.current = null;
         document.body.style.userSelect = "";
+        // t902 — the user's hand took ownership of the shape: the restore
+        // edit is history now (the same disarm law the fsc-compare
+        // selection teaches — silence after the first touch).
+        if (dragMovedRef.current) setGeoTouched(true);
         // t638 — one echo per gesture, at its end: the shape is written
         // ONCE when the hand lets go (and only if it moved), instead of
         // ~60 setItem calls a second on the way there. The live viewport
@@ -1025,6 +1034,9 @@ export function AssistantPanel() {
   const resetGeo = () => {
     const home = defaultGeo(window.innerWidth, window.innerHeight);
     setGeo(home);
+    // t902 — snap-home is the user's own explicit choice: the restore's
+    // edit is history (ownership transferred by the same hand)
+    setGeoTouched(true);
     // t638 — snap-home is the user's own choice: one echo, immediately
     if (window.innerWidth >= GEO_MOBILE_BP) {
       try {
@@ -2077,6 +2089,23 @@ export function AssistantPanel() {
               这是恢复的旧对话 — 里面的测量读数可能已过期；直接提问，工具会重新测量。
             </span>
           </div>
+        )}
+
+        {/* ---- t902: the geometry restore's whisper (the t899 grammar's
+            fourth seat) ---- the persisted shape can come back EDITED (a
+            shrunken viewport clamps it) and the edit is invisible — this
+            names it once, at whisper level, and goes silent the moment
+            the user's first gesture takes ownership. Silence is the
+            exact-restore voice; the live resize clamp never speaks (that
+            accommodation happens in front of the user). */}
+        {!isMobile && !geoTouched && geoEdits && geoEdits.length > 0 && (
+          <p
+            data-testid="assistant-geo-whisper"
+            role="status"
+            className="mx-3 mb-1 font-mono text-[10px] tracking-wide text-fuchsia-600/80 dark:text-fuchsia-400/80"
+          >
+            {restoreGeoSummary(geoEdits)}
+          </p>
         )}
 
         {/* ---- composer ---- */}
