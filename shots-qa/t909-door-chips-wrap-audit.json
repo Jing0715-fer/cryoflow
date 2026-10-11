@@ -1,0 +1,32 @@
+{
+  "instrument": "t909-door-chips-wrap-audit",
+  "bands": {
+    "320": {
+      "visible": true,
+      "overflowX": 0,
+      "kidsInRow": 9,
+      "kidCount": 9,
+      "hasC": true,
+      "hasJ": true,
+      "hasA": true,
+      "hasDepth": true,
+      "rowH": 99,
+      "clientW": 238
+    },
+    "375": {
+      "visible": true,
+      "overflowX": 0,
+      "kidsInRow": 9,
+      "kidCount": 9,
+      "hasC": true,
+      "hasJ": true,
+      "hasA": true,
+      "hasDepth": true,
+      "rowH": 99,
+      "clientW": 238
+    }
+  },
+  "pass": 13,
+  "fail": 0,
+  "at": "2026-10-11T22:40:05.098Z"
+}
