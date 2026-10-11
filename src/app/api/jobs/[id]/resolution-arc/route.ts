@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { isLocalRequest } from "@/lib/http-guard";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
+import { cachedFileCompute } from "@/lib/relion/statcache";
 import {
   parseCurrentResolution,
   resolutionArcOf,
@@ -68,7 +69,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const finalModel = path.join(workdir, "run_model.star");
     if (existsSync(finalModel)) {
       try {
-        reported = parseCurrentResolution(readFileSync(finalModel, "utf8"));
+        // t903 — the #7 remainder: the reported estimate rides the
+        // statcache (its own computeId — a different parser than
+        // chart-data's fsc:final-model-reported on the same file; the
+        // (file, computeId) key is the contract that keeps the shapes
+        // apart). The arc chart polls; a re-poll between RELION's writes
+        // is a single statSync, not a re-read + re-parse.
+        reported = cachedFileCompute(
+          finalModel,
+          "resolution-arc:final-model-reported",
+          (text) => parseCurrentResolution(text),
+        );
       } catch {
         reported = null;
       }

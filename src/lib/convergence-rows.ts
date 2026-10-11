@@ -20,7 +20,8 @@
  *     to guard + shape and the tool inherits the identical points.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
+import { cachedFileCompute } from "@/lib/relion/statcache";
 import path from "node:path";
 import { parseStar } from "@/lib/starfile";
 import { classRunRow, type ClassRunRow } from "@/lib/class-compare";
@@ -83,7 +84,16 @@ export function roundOccupancy(
   const file = roundDataStarName(names, round);
   if (!file) return null;
   try {
-    const parsed = parseStar(readFileSync(path.join(workdir, file), "utf8"));
+    // t903 — the #7 remainder: the class-run table rides the statcache —
+    // the route (and the agent's check_convergence) re-scan on every poll,
+    // and the 13k-particle round stars are MB-scale text. The cache keys
+    // (file, computeId) with the (size, mtime) freshness check, so a
+    // re-poll between RELION's own writes is a single statSync.
+    const full = path.join(workdir, file);
+    const parsed = cachedFileCompute(full, "convergence:class-run", (text) =>
+      parseStar(text),
+    );
+    if (!parsed) return { classes: [], total: 0 };
     let loop: { columns: string[]; rows: string[][] } | null = null;
     for (const b of parsed.blocks) {
       if (b.loop && b.loop.columns.includes("_rlnClassNumber")) {
@@ -139,8 +149,12 @@ export function resolutionArcFromWorkdir(workdir: string): ResolutionPoint[] {
     const m = name.match(/^run_it(\d+)_(half1_)?model\.star$/i);
     if (!m) continue;
     try {
-      const res = parseCurrentResolution(
-        readFileSync(path.join(workdir, name), "utf8"),
+      // t903 — the same statcache law: the arc re-scans EVERY iteration
+      // star on every poll; the parse rides the cache keyed per file
+      const res = cachedFileCompute(
+        path.join(workdir, name),
+        "convergence:current-resolution",
+        (text) => parseCurrentResolution(text),
       );
       if (res == null) continue;
       points.push({
