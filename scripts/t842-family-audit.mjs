@@ -1,515 +1,201 @@
 #!/usr/bin/env node
-// t842-family-audit — ONE ARITHMETIC, FIVE INSTRUMENTS.
+// t842-family-audit — THE LIVING FAMILY (the t901 re-form).
 //
-// The three rehearsal-family receipts must tell the same story about the same
-// 2.7px of paint:
-//   1. scripts/t839-zone-rehearsal.mjs   — the fix's PROOF (before/after/cloneZone/restored)
-//   2. scripts/t840-options-rehearsal.mjs — the fix's DECISION TABLE (optionA/B138/B88/C rows)
-//   3. scripts/t834-band-sweep.mjs        — the LIVE world (zone.rows, 17 widths)
-// and since the second seat (t843), the derivation that prices the wordmark
-// joins the family:
-//   4. scripts/t837-wordmark-probe.mjs    — the NATURAL width the cap must beat
-// and since the third seat (t845), the sweep's own MACRO pins join the family:
-//   5. the sweep's `pinned` trio (left/right/seats across six widths) — the band-layer
-//      counterpart of the zone-layer rows, crossed at the shared 1280 anchor
+// The previous form audited ONE ARITHMETIC told by five instruments — the
+// T510 paint residue's arithmetic (2.7 / 130 / 115.3, the painted zone
+// [1280..1286], the birth-squeeze [768,770], the 142.46 natural). That
+// world is DEAD, twice over: the re-seed + the t895 font law (Geist loads
+// AND is consumed; the fallback metrics died — the decisive experiment
+// measured trigR − chipL = −32.8 at 1280: a GAP, not paint, and the fix
+// candidate retired with the experiment as its headstone), and t897's
+// re-cut (the GAP law −40.9 − 0.52×(W−1280), the wrapper's slack, the
+// birth-squeeze dead, the wake re-anatomized — 83/83 at the current pin).
 //
-// The audit is a pure file pass (no browser): the receipts it reads are refreshed
-// each window by their own one-command re-witnesses, so "live" means "the sweep
-// receipt of THIS window". Families:
-//   F1  the BEFORE quartet agrees at 1280 (live row == two rehearsals' before == their restorations)
-//   F2  the AFTER pair agrees (t839.after == t840.optionA.rides: geometry unmoved, fingerprint
-//       'hidden', the TRIGGER gone, the chip keeps the click) — THE RATCHET: delta(geometry)=0,
-//       flip(stack)=1, filmed twice by two independent harnesses
-//   F3  the clone zone's edges == the live zone's edges (1286 = 0.3, 1287 = -0.1) and the
-//       zone.edge pins name exactly the painted set 1280..1286
-//   F4  the t836 law rides the live rows: overlap(W) = 2.7 - 0.4*(W-1280), grid 0.05
-//   F5  the decision table's internal arithmetic (B138 no-op at the squeezed 101.3; B88 clears
-//       and steepens -0.4 -> -0.55 with the paintAt flip to TRIGGER; C backfires +8.7 with the
-//       floor still binding at 130)
-//   F6  the live residue is real across the whole measured zone (TRIGGER in the stack at all
-//       16 awake widths) — the pre-fix truth the fix window will flip per width
-//   F7  the fourth instrument (t837): the bound chain ACROSS receipts — the wordmark's natural
-//       142.46 > B138's cap 138 > the squeezed 101.3 > B88's cap 88 — the one line that PROVES
-//       B138 is a no-op and B88 binds, with the yield (142.46 - 101.3 = 41.2) riding both
-//       receipts' numbers. The number the no-op verdict stands on is now receipt-to-receipt.
-//   F8  the third seat (t845): the sweep's pinned trio (left/right/seats × 6 widths) — the
-//       BAND layer's own pins, checked the way F7 checks the wordmark: pinned == the bands'
-//       measured widths under the sweep's own ±0.5 rounding law (seats exact); the plateau on
-//       the breakpoints; the seat arithmetic (seats == rightKids.length, rightW = Σkids + 6px gap each);
-//       the three-way 115.3 (band midKids == zone row wrap == the GEOM every receipt rides);
-//       and the shared 1280 anchor — the only width both rulers sample, where band and zone
-//       agree, with the natural 1366 row proving the squeeze is a band-local phenomenon.
-//   F9  the fourth seat (t847): the fix's CLONE carries its own band layer — t839's
-//       BAND_MEASURE rides the clone after the swap, and the fix's PAINT-not-geometry
-//       pricing is proven on the band layer too: the clone's band numbers equal the live
-//       band's bit-for-bit (left 607.8, right 628.3, seats 12), and the mid band's wrap
-//       joins the three-way as the FOUR-way 115.3 (band live / band clone / zone row /
-//       the GEOM every receipt rides).
-//   F10 the fifth seat (t848): the DECISION TABLE's clones carry the band layer —
-//       t840's bandAfter (live/a/b138/b88/c/restored) films every option's AFTER at the
-//       band layer too: the band's EDGES never move on any option (607.8 / 628.3 / 12),
-//       only the mid row's awake children pay — (a)/(b138) bit-for-bit the live band
-//       (PAINT and no-op, proven cross-harness: t840's option-a clone == t839's
-//       cloneBand), (b88) the two awake kids EQUALIZE at 122.8, (c) they DIVERGE
-//       121.3 / 106.6 — the wrapper alone pays the deeper yield; and the 115.3 grows
-//       the FIVE-way (band live / band clone / band option-a / zone row / the GEOM).
-//   F11 the sixth seat (t849): PAINT is WIDTH-FREE — t839's bandAcross walks the fix
-//       clone's band at the zone's edge widths (1286/1287) against fresh live rulers
-//       (1280/1286/1287): the clone's band == the live band bit-for-bit at every width
-//       in the zone (the fourth seat's law generalized from one width to three), and
-//       the live band's own drift is pinned: the LEFT row grows +1.0/px (607.8 -> 613.8
-//       -> 614.8), the wrapper's kid +0.4/px (== the sweep's zone rows' wrapW at every
-//       sampled width — the four-way 115.3 becomes a width-indexed family), while the
-//       RIGHT row (628.3) and the seats (12) never move.
+// THE RETIREMENTS (the t901 premise audit): t839 (the fix's rehearsal) and
+// t840 (the fix's decision table) refuse to ride — their subject is gone.
+// Their fossil receipts stay untouched as provenance. The families that
+// priced the dead world (F1–F7, F9–F18 of the previous form) died with it.
+//
+// THIS FORM audits the LIVING family — cross-instrument agreement on the
+// sources that still ride:
+//   1. scripts/t834-band-sweep.mjs  — the zone/band/pinned laws (83/83, the
+//      Geist world's own re-derived tables, --cut-pins provenance);
+//   2. scripts/t837-wordmark-probe.mjs — the text-constants family (the
+//      Geist re-pin 133/115/87; the tnum variant-witness);
+//   3. scripts/t846-a11y-maintenance.mjs — the census (the re-keyed floors
+//      125/104/147/126; the drift ledger, the reproducibility axis).
+//
+// The audit is a pure file pass (no browser): the receipts it reads are
+// refreshed each window by their own one-command re-witnesses.
 // Receipt: shots-qa/t842-family-audit.json.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { worldIdentity } from './world-identity.mjs';
 
-// t859 — the standing-world key (build id on build days, dev@src-hash otherwise):
-// the family audit's provenance assertions speak THIS, not a frozen build literal.
+// t859 — the standing-world key (build id on build days, dev@src-hash otherwise).
 const world = worldIdentity(process.cwd());
 
-const R839 = JSON.parse(readFileSync('shots-qa/t839-zone-rehearsal.json', 'utf8'));
-const R840 = JSON.parse(readFileSync('shots-qa/t840-options-rehearsal.json', 'utf8'));
 const SWEEP = JSON.parse(readFileSync('shots-qa/t834-band-sweep.json', 'utf8'));
 const R837 = JSON.parse(readFileSync('shots-qa/t837-wordmark-probe.json', 'utf8'));
-// t857 — the sixth instrument joins: the maintenance sweep's DRIFT LEDGER
-// (t846's ride-to-ride diff vs its own previous receipt — the census
-// family's reproducibility axis).
 const R846 = JSON.parse(readFileSync('shots-qa/t846-a11y-maintenance.json', 'utf8'));
 
 const checks = [];
 const ok = (name, pass, detail) => { checks.push({ name, pass, detail }); };
 const near = (a, b, grid = 0.05) => Math.abs(a - b) <= grid + 1e-9;
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const hasTrig = (row) => (row.stack ?? []).some((s) => String(s).startsWith('TRIGGER'));
 const G = (row) => [row.trigW, row.wrapW, row.overlap].join('/');
-const GEOM = '130/115.3/2.7';
+const hasTrig = (row) => (row.stack ?? []).some((s) => String(s).startsWith('TRIGGER'));
 
-// ---- F0 provenance: the family speaks one tree ------------------------------------
-ok('F0.a provenance trio equal', R839.build === R840.build && R840.build === SWEEP.build,
-  `build=${R839.build}`);
-// t859 re-pin: F0.b used to pin the t833 build literal — a fair-weather identity that died with the
-// restore (the build is GONE, the world rides dev@c4c3...). The standing-world law is STRONGER: the
-// receipt's world key must equal the key of the world THIS audit runs in — a stale receipt against a
-// moved world is exactly what provenance exists to catch, in either mode.
-ok('F0.b provenance is the standing world', R839.build === world.id, `${R839.build} vs ${world.id} (${world.mode})`);
+// ---- F0 provenance: the family speaks one tree, one world ---------------------------
+ok('F0.a the sweep is the standing world', SWEEP.build === world.id,
+  `${SWEEP.build} vs ${world.id} (${world.mode})`);
+ok('F0.b t837 rides the same world',
+  R837.provenance && R837.provenance.buildId === SWEEP.build,
+  `${R837.provenance ? R837.provenance.buildId : '?'} vs ${SWEEP.build}`);
+ok('F0.c t846 rides the same world', R846.build === SWEEP.build,
+  `${R846.build} vs ${SWEEP.build}`);
 
-// ---- F1 the BEFORE quartet at 1280 -------------------------------------------------
-const [b839a, b839b] = R839.before;
-ok('F1.a t839.before pair bit-identical', eq(b839a, b839b), `${G(b839a)} | ${G(b839b)}`);
-const [b840a, b840b] = R840.before;
-ok('F1.b t840.before pair bit-identical', eq(b840a, b840b), `${G(b840a)} | ${G(b840b)}`);
-ok('F1.c BEFORE trio same geometry (live == two rehearsals)',
-  G(SWEEP.zone.rows['1280']) === G(b839a) && G(b839a) === G(b840a) && G(b840a) === GEOM,
-  `sweep=${G(SWEEP.zone.rows['1280'])} t839=${G(b839a)} t840=${G(b840a)}`);
-ok('F1.d BEFORE fingerprint visible in both rehearsals',
-  b839a.wrapOverflowX === 'visible' && b840a.wrapOverflowX === 'visible',
-  `${b839a.wrapOverflowX}/${b840a.wrapOverflowX}`);
-ok('F1.e restorations return to the BEFORE truth',
-  G(R839.restored) === GEOM && G(R840.restored) === GEOM &&
-  R839.restored.wrapOverflowX === 'visible' && R840.restored.wrapOverflowX === 'visible' &&
-  hasTrig(R839.restored) && hasTrig(R840.restored),
-  `t839=${G(R839.restored)} t840=${G(R840.restored)}`);
+// ---- F1 the GAP law is the zone's own truth (read from the receipt) -----------------
+const live = SWEEP.zone.rows;
+const z1280 = live['1280'];
+ok('F1.a the gap, not the paint: 1280 rides a NEGATIVE overlap with the trigger at its floor',
+  typeof z1280.overlap === 'number' && z1280.overlap < 0 && z1280.trigW === 130,
+  `1280 = ${G(z1280)} — the residue's +2.7 would fail this arm (the t895 headstone, re-asserted receipt-to-receipt)`);
+ok('F1.b the edge is dead by the receipt\u2019s own certificate',
+  SWEEP.zone.edge.lastPaint === null && SWEEP.zone.edge.firstClear === null &&
+  typeof SWEEP.zone.edge.note === 'string' && SWEEP.zone.edge.note.length > 0,
+  `edge=${SWEEP.zone.edge.lastPaint}/${SWEEP.zone.edge.firstClear} — "${String(SWEEP.zone.edge.note).slice(0, 72)}"`);
+ok('F1.c the TRIGGER keeps its tooth: the 1280 stack still leads with it (the witness survives the gap)',
+  String(z1280.paintAt).startsWith('TRIGGER') && hasTrig(z1280),
+  `paintAt=${String(z1280.paintAt).slice(0, 24)}`);
 
-// ---- F2 the AFTER pair — THE RATCHET ------------------------------------------------
-const [a839a, a839b] = R839.after;
-const optA = R840.optionA.rides;
-ok('F2.a t839.after pair bit-identical', eq(a839a, a839b), `${G(a839a)} | ${G(a839b)}`);
-ok('F2.b t840.optionA pair bit-identical', eq(optA[0], optA[1]), `${G(optA[0])} | ${G(optA[1])}`);
-ok('F2.c AFTER geometry == BEFORE geometry (the fix moves nothing)',
-  [a839a, a839b, ...optA].every((r) => G(r) === GEOM),
-  `t839=${G(a839a)} t840=${G(optA[0])}`);
-ok('F2.d AFTER fingerprint hidden in both rehearsals',
-  [a839a, a839b, ...optA].every((r) => r.wrapOverflowX === 'hidden'),
-  `${a839a.wrapOverflowX}/${optA[0].wrapOverflowX}`);
-ok('F2.e AFTER stack loses the TRIGGER, chip keeps the click',
-  [a839a, a839b, ...optA].every((r) => !hasTrig(r) && String(r.paintAt).startsWith('CHIP')),
-  `paintAt=${a839a.paintAt.slice(0, 12)}…`);
-const ratchet = (before, after) => ({
-  dGeom: (after.overlap - before.overlap),
-  dStack: (hasTrig(before) ? 1 : 0) - (hasTrig(after) ? 1 : 0),
-});
-ok('F2.f THE RATCHET: delta(geometry)=0 and flip(stack)=1, filmed twice',
-  [ratchet(b839a, a839a), ratchet(b840a, optA[0])].every((r) => r.dGeom === 0 && r.dStack === 1),
-  JSON.stringify([ratchet(b839a, a839a), ratchet(b840a, optA[0])]));
-
-// ---- F3 the clone zone's edges == the live zone's edges ------------------------------
-const cz = R839.cloneZone, live = SWEEP.zone.rows;
-ok('F3.a clone 1286 == live 1286',
-  G(cz['1286']) === G(live['1286']) && G(cz['1286']) === '130/117.7/0.3',
-  `clone=${G(cz['1286'])} live=${G(live['1286'])}`);
-ok('F3.b clone 1287 == live 1287',
-  G(cz['1287']) === G(live['1287']) && G(cz['1287']) === '130/118.1/-0.1',
-  `clone=${G(cz['1287'])} live=${G(live['1287'])}`);
-ok('F3.c clone edges carry the fix (hidden, TRIGGER gone)',
-  cz['1286'].wrapOverflowX === 'hidden' && cz['1287'].wrapOverflowX === 'hidden' &&
-  !hasTrig(cz['1286']) && !hasTrig(cz['1287']),
-  `${cz['1286'].wrapOverflowX}/${cz['1287'].wrapOverflowX}`);
-const awake = Object.keys(live).filter((w) => live[w].mid);
-const painted = awake.filter((w) => live[w].overlap >= 0);
-ok('F3.d zone.edge pins name exactly the painted set',
-  String(SWEEP.zone.edge.lastPaint) === '1286' && String(SWEEP.zone.edge.firstClear) === '1287' &&
-  painted.join(',') === '1280,1281,1282,1283,1284,1285,1286' && awake.length === 16,
-  `edge=${SWEEP.zone.edge.lastPaint}/${SWEEP.zone.edge.firstClear} painted=${painted.length} awake=${awake.length}`);
-
-// ---- F4 the law rides the live rows ---------------------------------------------------
-const dev = painted.map((w) => [w, live[w].overlap, 2.7 - 0.4 * (Number(w) - 1280)])
-  .filter(([, m, p]) => !near(m, p));
-ok('F4 t836 law: overlap(W) = 2.7 - 0.4*(W-1280) on all painted rows',
-  dev.length === 0,
-  dev.length ? JSON.stringify(dev) : '7 rows within 0.05');
-
-// ---- F5 the decision table's internal arithmetic --------------------------------------
-const B138 = R840.optionB138, B88 = R840.optionB88, C = R840.optionC;
-ok('F5.a optionB138 is a NO-OP at the squeezed 101.3',
-  eq(B138.rides[0], B138.rides[1]) && G(B138.rides[0]) === GEOM &&
-  B138.rides[0].wmMax === '138px' && B138.rides[0].wmW === 101.3,
-  `${G(B138.rides[0])} wmW=${B138.rides[0].wmW} cap=${B138.rides[0].wmMax}`);
-ok('F5.b optionB88 clears: -4.8 pinned twice',
-  eq(B88.rides1280[0], B88.rides1280[1]) && G(B88.rides1280[0]) === '130/122.8/-4.8',
-  `${G(B88.rides1280[0])} wmW=${B88.rides1280[0].wmW}`);
-ok('F5.c optionB88 steepened law -0.55 rides its measured pins',
-  near(B88.at1283.overlap, -4.8 - 0.55 * 3) && near(B88.at1286.overlap, -4.8 - 0.55 * 6),
-  `1283=${B88.at1283.overlap} 1286=${B88.at1286.overlap}`);
-ok('F5.d optionB88 paintAt flips CHIP -> TRIGGER once clear',
-  String(B88.at1283.paintAt).startsWith('TRIGGER') && String(B88.at1286.paintAt).startsWith('TRIGGER'),
-  `${B88.at1283.paintAt.slice(0, 12)}…`);
-ok('F5.e optionC backfires +8.7 with the floor still binding',
-  eq(C.rides[0], C.rides[1]) && near(C.rides[0].overlap, 2.7 + 8.7, 0.05) &&
-  C.rides[0].trigW === 130 && C.rides[0].wrapOverflowX === 'visible',
-  `${G(C.rides[0])} ofX=${C.rides[0].wrapOverflowX}`);
-
-// ---- F6 the live residue is real across the whole zone --------------------------------
-ok('F6 TRIGGER in the stack at all 16 awake widths (the pre-fix truth)',
-  awake.every((w) => hasTrig(live[w])),
-  `awake=${awake.length} without-trigger=0`);
-
-// ---- F7 the fourth instrument: the bound chain across receipts -------------------------
-const wmRun = R837.runs && R837.runs[0];
-ok('F7.a t837 aboard: provenance + bit-identity + the natural pins',
-  R837.provenance && R837.provenance.buildId === R839.build &&
-  R837.bitIdentical === true && R837.chip && R837.chip.bitIdentical === true &&
-  wmRun && wmRun.derived === 142.46 && R837.chip.runs[0].rect === 90.3,
-  `derived=${wmRun ? wmRun.derived : '?'} chip=${R837.chip ? R837.chip.runs[0].rect : '?'} build=${R837.provenance ? R837.provenance.buildId : '?'}`);
-const cap138 = 138, cap88 = 88;
-const squeezed = R840.before[0].wmW, natural = wmRun.derived;
-ok('F7.b THE BOUND CHAIN: natural > cap138 > squeezed > cap88, the yield rides both receipts',
-  natural > cap138 && cap138 > squeezed && squeezed > cap88 &&
-  R840.before[0].wmMax === 'none' && near(natural - squeezed, 41.2, 0.05),
-  `${natural} > ${cap138} > ${squeezed} > ${cap88}  (yield ${(natural - squeezed).toFixed(2)})`);
-
-// ---- F8 the third seat: the sweep's pinned trio (the BAND layer joins) -------------------
-const P = SWEEP.pinned, BANDS = SWEEP.bands;
+// ---- F2 two rulers, one number at the shared anchor ---------------------------------
+const BANDS = SWEEP.bands, P = SWEEP.pinned;
 const widths6 = ['375', '640', '768', '1024', '1280', '1536'];
-ok('F8.a pinned == the bands under the sweep\'s own ±0.5 law (left/right/seats × 6 widths)',
-  widths6.every((w) =>
-    Math.abs(P.left[w] - BANDS[w].leftW) <= 0.5 &&
-    Math.abs(P.right[w] - BANDS[w].rightW) <= 0.5 &&
-    P.seats[w] === BANDS[w].seats),
-  `1280: |${P.left['1280']}−${BANDS['1280'].leftW}|≤.5 |${P.right['1280']}−${BANDS['1280'].rightW}|≤.5 seats ${P.seats['1280']}`);
-const seatsSeq = widths6.map((w) => P.seats[w]), rightSeq = widths6.map((w) => P.right[w]), leftSeq = widths6.map((w) => P.left[w]);
+const mid1280 = (BANDS['1280'].midKids || [])[1] || {};
+ok('F2.a the two-layer identity at 1280: the band\u2019s mid wrapper == the zone row\u2019s wrapW (two instruments, one number — the law that survived the world move, now at the Geist value)',
+  mid1280.w > 0 && near(mid1280.w, z1280.wrapW),
+  `band=${mid1280.w} zone=${z1280.wrapW}`);
+ok('F2.b the anchor is exclusive: 1280 is the only width both rulers sample',
+  widths6.filter((w) => live[w] !== undefined).join(',') === '1280' && P.seats['1280'] === BANDS['1280'].seats,
+  `zone widths among the six: 1280 only; seats ${P.seats['1280']}`);
+ok('F2.c 1366 rides the gap world: the gap DEEPENS with width (the −0.52 slope), the trigger stays at its 130 floor, the wrapper keeps slack (no squeeze anywhere)',
+  Number(live['1366'].overlap) < Number(live['1280'].overlap) &&
+  live['1366'].trigW === 130 && live['1366'].wrapW >= live['1366'].trigW,
+  `1280 ${G(live['1280'])} → 1366 ${G(live['1366'])} — the gap deepens, the floor holds, the wrapper ≥ trigger`);
+
+// ---- F3 the sweep's ACTIVE pinned trio: self-consistency (ex-F8, re-booked) ---------
+// The t901 audit's second live capture: the receipt carries TWO books —
+// `pins` (the ACTIVE cut table, provenanceWorld-stamped, born in the t895
+// world-gate rework) and `pinned` (the FOSSIL: the fallback world's rounded
+// 608/628, kept as provenance). The previous form read `pinned` back when it
+// WAS the active book; the audit's red re-booked the family onto `pins`.
+const A = (SWEEP.pins && SWEEP.pins.tables) || null;
+ok('F3.pre the active book is aboard and world-stamped: pins.provenanceWorld == the receipt\u2019s build',
+  A && SWEEP.pins.provenanceWorld === SWEEP.build && typeof SWEEP.pins.note === 'string',
+  `provenanceWorld=${SWEEP.pins ? SWEEP.pins.provenanceWorld : '?'} vs build=${SWEEP.build} — "${SWEEP.pins ? String(SWEEP.pins.note).slice(0, 60) : ''}"`);
+ok('F3.a the ACTIVE pinned == the bands under the sweep\u2019s own ±0.5 law (left/right/seats × 6 widths)',
+  A && widths6.every((w) =>
+    Math.abs(A.left[w] - BANDS[w].leftW) <= 0.5 &&
+    Math.abs(A.right[w] - BANDS[w].rightW) <= 0.5 &&
+    A.seats[w] === BANDS[w].seats),
+  `1280: |${A ? A.left['1280'] : '?'}−${BANDS['1280'].leftW}|≤.5 |${A ? A.right['1280'] : '?'}−${BANDS['1280'].rightW}|≤.5 seats ${A ? A.seats['1280'] : '?'}`);
+const seatsSeq = widths6.map((w) => A.seats[w]), rightSeq = widths6.map((w) => A.right[w]), leftSeq = widths6.map((w) => A.left[w]);
 const nondec = (arr) => arr.every((v, i) => i === 0 || v >= arr[i - 1]);
-ok('F8.b the breakpoint shape: monotone, and the plateaus land on xl/2xl',
+ok('F3.b the breakpoint shape: monotone, plateaus on xl/2xl, the STRUCTURAL seat sequence (font-free — 6,8,11,11,12,12 survived the Geist move)',
   nondec(seatsSeq) && nondec(leftSeq) && nondec(rightSeq) &&
   seatsSeq.join(',') === '6,8,11,11,12,12' &&
   rightSeq[2] === rightSeq[3] && rightSeq[4] === rightSeq[5] &&
   seatsSeq[2] === seatsSeq[3] && seatsSeq[4] === seatsSeq[5],
   `seats=${seatsSeq.join(',')} right=${rightSeq.join(',')} left=${leftSeq.join(',')}`);
 const kids1280 = BANDS['1280'].rightKids || [];
-ok('F8.c the seat arithmetic: seats == rightKids.length and rightW = Σkids + 6px gap each',
+ok('F3.c the seat arithmetic: seats == rightKids.length and rightW = Σkids + 6px gap each',
   P.seats['1280'] === kids1280.length && kids1280.length === 12 &&
   near(BANDS['1280'].rightW, kids1280.reduce((s, k) => s + k.w, 0) + 6 * (kids1280.length - 1), 0.05),
   `seats=${P.seats['1280']} rightW=${BANDS['1280'].rightW} Σkids=${(kids1280.reduce((s, k) => s + k.w, 0)).toFixed(1)}+66`);
-const mid1280 = (BANDS['1280'].midKids || [])[1] || {};
-ok('F8.d the three-way 115.3: band midKids == zone row wrap == the GEOM every receipt rides',
-  near(mid1280.w, 115.3) && near(live['1280'].wrapW, 115.3) &&
-  live['1280'].trigW === 130 && mid1280.w === b839a.wrapW && mid1280.w === b840a.wrapW,
-  `band=${mid1280.w} zone=${live['1280'].wrapW} t839=${b839a.wrapW} t840=${b840a.wrapW}`);
-ok('F8.e two rulers, one anchor: 1280 is the only width both sample, and 1366 proves the squeeze is band-local',
-  widths6.filter((w) => live[w] !== undefined).join(',') === '1280' &&
-  G(live['1280']) === GEOM && P.seats['1280'] === 12 &&
-  Number(live['1366'].overlap) < 0 && String(live['1366'].paintAt).startsWith('TRIGGER') &&
-  near(live['1366'].trigW, live['1366'].wrapW),
-  `both@1280: seats ${P.seats['1280']} + ${G(live['1280'])} | 1366 natural: ${G(live['1366'])}`);
+ok('F3.d the fossil book stays honest: the old `pinned` table differs in the widths the font moved but carries the SAME structural seat sequence (provenance, not law)',
+  SWEEP.pinned && widths6.every((w) => SWEEP.pinned.seats[w] === A.seats[w]) &&
+  (SWEEP.pinned.left['1280'] !== A.left['1280'] || SWEEP.pinned.right['1280'] !== A.right['1280']),
+  `fossil 1280 ${SWEEP.pinned.left['1280']}/${SWEEP.pinned.right['1280']} vs active ${A.left['1280']}/${A.right['1280']} — seats equal, widths moved (the t895 font law, visible in one line)`);
 
-// ---- F9 the fourth seat: the clone's band layer (PAINT proven on the band too) --------
-const CB = R839.cloneBand;
-const lb = BANDS['1280'];
-ok('F9.a the clone band is aboard: t839 rides the BAND walk on the fix world',
-  CB && !CB.error && CB.innerW === 1280 && CB.seats === 12 &&
-  Array.isArray(CB.midKids) && CB.midKids.length === 4,
-  `clone left=${CB.leftW} right=${CB.rightW} seats=${CB.seats} innerW=${CB.innerW}`);
-ok("F9.b PAINT, not geometry, on the BAND layer: the clone's band equals the live band bit-for-bit",
-  CB.leftW === lb.leftW && CB.rightW === lb.rightW && CB.seats === lb.seats,
-  `left ${CB.leftW}==${lb.leftW} right ${CB.rightW}==${lb.rightW} seats ${CB.seats}==${lb.seats}`);
-const cbMid = (CB.midKids || [])[1] || {};
-ok('F9.c the FOUR-way 115.3: band live / band clone / zone row / the GEOM every receipt rides',
-  near(cbMid.w, 115.3) && near(live['1280'].wrapW, 115.3) &&
-  cbMid.w === b839a.wrapW && cbMid.w === b840a.wrapW,
-  `band-live=${mid1280.w} band-clone=${cbMid.w} zone=${live['1280'].wrapW} t839=${b839a.wrapW} t840=${b840a.wrapW}`);
+// ---- F4 the text-constants family (t837): the Geist re-pin, receipt-to-receipt ------
+const wmRun = R837.runs && R837.runs[0];
+const chipRun = R837.chip && R837.chip.runs && R837.chip.runs[0];
+ok('F4.a t837 aboard: provenance + both bit-identities',
+  R837.provenance && R837.provenance.buildId === SWEEP.build &&
+  R837.bitIdentical === true && R837.chip && R837.chip.bitIdentical === true,
+  `derived=${wmRun ? wmRun.derived : '?'} chip=${chipRun ? chipRun.derived : '?'}`);
+ok('F4.b the Geist pins ride receipt-to-receipt: wordmark 133 / labels 115 / chip 87 (the fallback\u2019s 142/120/90 ride as provenance — the t895 font law\u2019s metrics)',
+  wmRun && chipRun &&
+  Math.abs(Math.round(wmRun.derived) - 133) <= 0.5 &&
+  Math.abs(wmRun.labelsSum - 115) <= 0.5 &&
+  Math.abs(Math.round(chipRun.derived) - 87) <= 0.5,
+  `wordmark ${wmRun ? wmRun.derived : '?'} / labels ${wmRun ? wmRun.labelsSum : '?'} / chip ${chipRun ? chipRun.derived : '?'}`);
+ok('F4.c the tnum variant-witness is aboard (the re-scoped C6): the num\u2019s own rect is the ruler, the canvas advance bounded ≤ 2 and NAMED',
+  chipRun && chipRun.numRect > 0 && typeof chipRun.numCanvas === 'number' &&
+  Math.abs(chipRun.numCanvas - chipRun.numRect) <= 2,
+  `num canvas ${chipRun ? chipRun.numCanvas : '?'} vs rect ${chipRun ? chipRun.numRect : '?'} — Geist\u2019s tabular-nums is the DOM\u2019s alone`);
 
-// ---- F10 the fifth seat: the decision table's clones carry the band layer -------------
-const BA = R840.bandAfter || {};
-const baNames = ['live', 'a', 'b138', 'b88', 'c', 'restored'];
-const baAll = baNames.every((k) => BA[k] && !BA[k].error && BA[k].innerW === 1280 && BA[k].seats === 12);
-ok('F10.a the fifth seat is aboard: t840 rides the BAND walk on every option\'s clone (live/a/b138/b88/c/restored, all at 1280, seats 12)',
-  baAll,
-  baNames.map((k) => (BA[k] && !BA[k].error ? `${k}:${BA[k].leftW}/${BA[k].rightW}/${BA[k].seats}` : `${k}:MISSING`)).join(' '));
-ok("F10.b PAINT and no-op hold at the band layer, cross-harness: t840's option-a clone == t839's cloneBand == the live band (the same fix, two harnesses, one answer)",
-  baAll && eq(BA.a, BA.live) && eq(BA.b138, BA.live) &&
-  BA.a.leftW === CB.leftW && BA.a.rightW === CB.rightW && eq(BA.a.midKids, CB.midKids),
-  `a==live bit-for-bit, b138==live bit-for-bit, a.leftW ${BA.a && BA.a.leftW}==t839 ${CB.leftW}, midKids equal`);
-const b88mid = BA.b88 && BA.b88.midKids || [];
-const cmid = BA.c && BA.c.midKids || [];
-ok('F10.c the decision table\'s band layer: the EDGES never move on any option; the mid row pays — (b88) equalizes at its zone wrapW, (c) the wrapper alone pays to its zone wrapW; the restore returns bit-for-bit; the 115.3 grows the FIVE-way',
-  baAll &&
-  BA.b88.leftW === BA.live.leftW && BA.b88.rightW === BA.live.rightW && BA.b88.seats === BA.live.seats &&
-  BA.c.leftW === BA.live.leftW && BA.c.rightW === BA.live.rightW && BA.c.seats === BA.live.seats &&
-  b88mid[1] && b88mid[1].w === R840.optionB88.rides1280[0].wrapW && b88mid[0] && b88mid[0].w === b88mid[1].w &&
-  cmid[1] && cmid[1].w === R840.optionC.rides[0].wrapW && cmid[0] && cmid[0].w === 121.3 &&
-  eq(BA.restored, BA.live) &&
-  BA.live.midKids && BA.live.midKids[1] && BA.live.midKids[1].w === cbMid.w && BA.live.midKids[1].w === mid1280.w && BA.live.midKids[1].w === live['1280'].wrapW,
-  `edges 607.8/628.3/12 on all; b88 midKids ${b88mid[0] && b88mid[0].w}/${b88mid[1] && b88mid[1].w} (equalize, == zone ${R840.optionB88.rides1280[0].wrapW}); c midKids ${cmid[0] && cmid[0].w}/${cmid[1] && cmid[1].w} (diverge, wrap == zone ${R840.optionC.rides[0].wrapW}); FIVE-way 115.3: band-live=${BA.live && BA.live.midKids && BA.live.midKids[1] && BA.live.midKids[1].w} band-clone=${cbMid.w} band-opt-a=${BA.a && BA.a.midKids && BA.a.midKids[1] && BA.a.midKids[1].w} zone=${live['1280'].wrapW} GEOM`);
-
-// ---- F11 the sixth seat: PAINT is width-free (the band across the zone) ---------------
-const BAC = R839.bandAcross || {};
-const bacClone = BAC.clone || {};
-const bacLive = BAC.live || {};
-ok('F11.a the sixth seat is aboard: t839 walks the fix clone\'s band at 1286/1287 against live rulers at 1280/1286/1287',
-  bacClone['1286'] && !bacClone['1286'].error && bacClone['1287'] && !bacClone['1287'].error &&
-  bacLive['1280'] && !bacLive['1280'].error && bacLive['1286'] && !bacLive['1286'].error && bacLive['1287'] && !bacLive['1287'].error &&
-  bacClone['1286'].innerW === 1286 && bacClone['1287'].innerW === 1287 &&
-  bacLive['1280'].innerW === 1280 && bacLive['1286'].innerW === 1286 && bacLive['1287'].innerW === 1287,
-  `clone@1286 ${bacClone['1286'] && bacClone['1286'].leftW}/${bacClone['1286'] && bacClone['1286'].rightW}/${bacClone['1286'] && bacClone['1286'].seats}, clone@1287 ${bacClone['1287'] && bacClone['1287'].leftW}/${bacClone['1287'] && bacClone['1287'].rightW}/${bacClone['1287'] && bacClone['1287'].seats}, live@1280/1286/1287 ${bacLive['1280'] && bacLive['1280'].leftW}/${bacLive['1286'] && bacLive['1286'].leftW}/${bacLive['1287'] && bacLive['1287'].leftW}`);
-ok('F11.b PAINT is WIDTH-FREE: the clone\'s band == the live band bit-for-bit at 1286 AND 1287 (the fourth seat\'s law generalized from one width to three — 1280 already holds as F9.b)',
-  eq(bacClone['1286'], bacLive['1286']) && eq(bacClone['1287'], bacLive['1287']),
-  `1286: ${bacClone['1286'] && bacClone['1286'].leftW}==${bacLive['1286'] && bacLive['1286'].leftW} bit-for-bit; 1287: ${bacClone['1287'] && bacClone['1287'].leftW}==${bacLive['1287'] && bacLive['1287'].leftW} bit-for-bit`);
-ok('F11.c the cross-layer identity is WIDTH-INDEXED and the drift is pinned: band midKids[1] == the sweep\'s zone wrapW at 1286 AND 1287 (two instruments, two layers, one number per width); the LEFT row grows +1.0/px (607.8 -> 613.8 -> 614.8), the wrapper\'s kid +0.4/px (115.3 -> 117.7 -> 118.1), rightW 628.3 and seats 12 never move',
-  bacLive['1286'].midKids[1].w === SWEEP.zone.rows['1286'].wrapW &&
-  bacLive['1287'].midKids[1].w === SWEEP.zone.rows['1287'].wrapW &&
-  bacLive['1280'].leftW === 607.8 && bacLive['1286'].leftW === 613.8 && bacLive['1287'].leftW === 614.8 &&
-  bacLive['1280'].midKids[1].w === 115.3 && bacLive['1286'].midKids[1].w === 117.7 && bacLive['1287'].midKids[1].w === 118.1 &&
-  bacLive['1280'].rightW === 628.3 && bacLive['1286'].rightW === 628.3 && bacLive['1287'].rightW === 628.3 &&
-  bacLive['1280'].seats === 12 && bacLive['1286'].seats === 12 && bacLive['1287'].seats === 12,
-  `wrap twin: 1286 ${bacLive['1286'].midKids[1].w}==${SWEEP.zone.rows['1286'].wrapW}, 1287 ${bacLive['1287'].midKids[1].w}==${SWEEP.zone.rows['1287'].wrapW}; leftW 607.8/613.8/614.8 (+1.0/px); rightW 628.3 x3; seats 12 x3`);
-
-// ---- F12 the seventh seat: the pays law across widths, on the option worlds -----------
-const BA7 = R840.bandAfter || {};
-ok("F12.a the seventh seat is aboard: t840's bandAfter carries the option worlds' width walks — (b88) and (c) each walked at 1283 AND 1286 against the right innerW (the (b88) slope rows gained BAND walks; (c) gained the same rows)",
-  BA7.b88_1283 && !BA7.b88_1283.error && BA7.b88_1283.innerW === 1283 &&
-  BA7.b88_1286 && !BA7.b88_1286.error && BA7.b88_1286.innerW === 1286 &&
-  BA7.c_1283 && !BA7.c_1283.error && BA7.c_1283.innerW === 1283 &&
-  BA7.c_1286 && !BA7.c_1286.error && BA7.c_1286.innerW === 1286,
-  `b88@1283/1286 ${BA7.b88_1283 && BA7.b88_1283.leftW}/${BA7.b88_1286 && BA7.b88_1286.leftW}, c@1283/1286 ${BA7.c_1283 && BA7.c_1283.leftW}/${BA7.c_1286 && BA7.c_1286.leftW}`);
-ok("F12.b width-free PAINT on the OPTION worlds: all four edges == the live rulers (610.8 @1283 / 613.8 @1286, rightW 628.3, seats 12) — and the 1286 row is cross-harness identity with t839's live ruler (two instruments, two worlds, one number)",
-  BA7.b88_1283.leftW === 610.8 && BA7.b88_1283.rightW === 628.3 && BA7.b88_1283.seats === 12 &&
-  BA7.b88_1286.leftW === 613.8 && BA7.b88_1286.rightW === 628.3 && BA7.b88_1286.seats === 12 &&
-  BA7.c_1283.leftW === 610.8 && BA7.c_1283.rightW === 628.3 && BA7.c_1283.seats === 12 &&
-  BA7.c_1286.leftW === 613.8 && BA7.c_1286.rightW === 628.3 && BA7.c_1286.seats === 12 &&
-  BA7.b88_1286.leftW === bacLive['1286'].leftW,
-  `b88 610.8/613.8, c 610.8/613.8, rightW 628.3 x4, seats 12 x4; 1286 == t839 live ${bacLive['1286'].leftW} (cross-harness)`);
-ok('F12.c the pays law RE-SCOPES across widths: the wrapper kid == the option\'s zone wrapW at all four widths (124.4/126.1 b88, 107.7/108.8 c — the cross-layer identity width-indexed on the option worlds); the (b88) EQUALIZE is at-a-width (exact at 1280, the label trails 0.3 by 1283 and 0.7 by 1286 — the kids\' slopes differ), while the (c) divergence is width-stable (labels 122.2/123.2, gaps 14.5/14.4)',
-  BA7.b88_1283.midKids[1].w === R840.optionB88.at1283.wrapW &&
-  BA7.b88_1286.midKids[1].w === R840.optionB88.at1286.wrapW &&
-  BA7.c_1283.midKids[1].w === BA7.cZone['1283'].wrapW &&
-  BA7.c_1286.midKids[1].w === BA7.cZone['1286'].wrapW &&
-  BA7.b88.midKids[0].w === BA7.b88.midKids[1].w &&
-  BA7.b88_1283.midKids[0].w === 124.1 && BA7.b88_1283.midKids[0].w !== BA7.b88_1283.midKids[1].w &&
-  BA7.b88_1286.midKids[0].w === 125.4 && BA7.b88_1286.midKids[0].w !== BA7.b88_1286.midKids[1].w &&
-  BA7.c_1283.midKids[0].w === 122.2 && BA7.c_1286.midKids[0].w === 123.2,
-  `wrap twins 124.4/126.1 (b88), 107.7/108.8 (c); equalize exact @1280 then decays (124.1 vs 124.4, 125.4 vs 126.1); c labels 122.2/123.2, gaps 14.5/14.4`);
-
-// ---- F13 the eighth seat: the width form COMPLETED (the paint and the
-// no-op across the zone; the bound chain's width form) -----------------
-const E8 = (R840.bandAfter || {}).eighthSeat || {};
-const e8ok = (set, w) => E8[set] && E8[set][w] && E8[set][w].band && !E8[set][w].band.error &&
-  E8[set][w].band.innerW === Number(w) && E8[set][w].zone;
-ok('F13.a the eighth seat is aboard: t840\'s bandAfter.eighthSeat carries (a)\'s and (b138)\'s width walks AND each walk\'s own-load live rulers (liveAcross/aAcross/liveBL/b138Across at 1283 AND 1286)',
-  ['liveAcross', 'aAcross', 'liveBL', 'b138Across'].every((s) => e8ok(s, '1283') && e8ok(s, '1286')),
-  `live 610.8/613.8, a 610.8/613.8, liveBL 610.8/613.8, b138 610.8/613.8 (rightW 628.3, seats 12 on all)`);
-ok('F13.b the width-free pair: (a) the paint == its own load\'s live band bit-for-bit at 1283 AND 1286 (the sixth seat\'s law re-proven on the options harness) AND (b138) the no-op == its own load\'s live band bit-for-bit at 1283 AND 1286 (nothing moves anywhere at any width) — and the 1286 leftW is cross-harness identity with t839\'s live ruler',
-  eq(E8.aAcross['1283'].band, E8.liveAcross['1283'].band) && eq(E8.aAcross['1286'].band, E8.liveAcross['1286'].band) &&
-  eq(E8.b138Across['1283'].band, E8.liveBL['1283'].band) && eq(E8.b138Across['1286'].band, E8.liveBL['1286'].band) &&
-  E8.liveAcross['1286'].band.leftW === bacLive['1286'].leftW,
-  `a==live @1283+1286 bit-for-bit, b138==its live @1283+1286 bit-for-bit; 1286 leftW ${E8.liveAcross['1286'] && E8.liveAcross['1286'].band.leftW} == t839 ${bacLive['1286'].leftW} (cross-harness)`);
-ok("F13.c the BOUND CHAIN's width form: the wordmark's squeezed box loosens +0.3/px-ish across the zone (101.3 -> 102.2 -> 103.0) but the 138 cap never binds (35+ short at the zone's edge), and the squeeze is option-invariant — the live/A/B138 worlds' wmW identical at every sampled width (the no-op's foundation is a cross-width fact)",
-  E8.liveAcross['1283'].zone.wmW === 102.2 && E8.liveAcross['1286'].zone.wmW === 103 &&
-  E8.aAcross['1283'].zone.wmW === 102.2 && E8.aAcross['1286'].zone.wmW === 103 &&
-  E8.b138Across['1283'].zone.wmW === 102.2 && E8.b138Across['1286'].zone.wmW === 103 &&
-  E8.liveAcross['1283'].zone.wmW < 138 && E8.liveAcross['1286'].zone.wmW < 138,
-  `wmW 101.3/102.2/103.0 on live, identical on a and b138 at every width; < 138 everywhere sampled`);
-
-// ---- F14 the far edge: the band layer's first ride ABOVE the zone ------
-const FE = SWEEP.farEdge || {};
-const feWs = ['1366', '1440', '1536', '1920'];
-const feWrap = (w) => FE.rows[w] && FE.rows[w].midKids &&
-  FE.rows[w].midKids.find((k) => String(k.lbl).startsWith('flex min-w-0'));
-ok("F14.a the far edge is aboard and the identity is FAR-EDGE-PROOF: the sweep walks 1366/1440/1536/1920 (the band layer's first ride above the zone's neighborhood) and the band's wrapper kid == the zone's wrapW at every one — the twin survives 2xl and the third kid (the chip aboard at 1536+; the zone rows' identity at 1280-1287 was F11.c's cross-section, this is its far form)",
-  feWs.every((w) => FE.rows[w] && !FE.rows[w].error && FE.rows[w].ps && feWrap(w) && feWrap(w).w === FE.rows[w].ps.wrapW),
-  `twin ${feWs.map((w) => (FE.rows[w] && FE.rows[w].ps ? `${w}:${FE.rows[w].ps.wrapW}` : `${w}:?`)).join(' ')}`);
-ok("F14.b the far form: the right cluster never moves (rightW 628.3, seats 12 x4), the floor sleeps (trigW == wrapW x4 — the shock absorber retired, the trigger 149.2/170/205/220), the named points exact (-12/-33.1 == the E-block's zone rows at 1366/1440 — two sections, one number; -110.3 @1536, -463.1 @1920 — the gap runs away), 1536's leftW 863.8 within the ±0.5 law of the MACRO pin 864, the chip 90.3 width-free at BOTH 2xl widths, and the paint witness trigger-local x4 (the residue is 1280-local)",
-  feWs.every((w) => FE.rows[w].rightW === 628.3 && FE.rows[w].seats === 12 &&
-    FE.rows[w].ps.trigW === FE.rows[w].ps.wrapW && FE.rows[w].leftW === { 1366: 693.8, 1440: 746.7, 1536: 863.8, 1920: 895 }[w]) &&
-  FE.rows['1366'].ps.overlap === -12 && FE.rows['1440'].ps.overlap === -33.1 &&
-  FE.zone['1536'].overlap === -110.3 && FE.zone['1920'].overlap === -463.1 &&
-  FE.rows['1366'].ps.overlap === SWEEP.zone.rows['1366'].overlap && FE.rows['1440'].ps.overlap === SWEEP.zone.rows['1440'].overlap &&
-  Math.abs(FE.rows['1536'].leftW - P.left[1536]) <= 0.5 &&
-  FE.rows['1536'].midKids.find((k) => String(k.lbl).includes('Spotlight')).w === 90.3 &&
-  FE.rows['1920'].midKids.find((k) => String(k.lbl).includes('Spotlight')).w === 90.3 &&
-  feWs.every((w) => FE.zone[w] && typeof FE.zone[w].paintAt === 'string' && FE.zone[w].paintAt.startsWith('TRIGGER')),
-  `edges ${feWs.map((w) => FE.rows[w].leftW).join('/')}, rightW 628.3 x4, seats 12 x4, trigW==wrapW x4, -12/-33.1/-110.3/-463.1, chip 90.3 x2, paint TRIGGER x4`);
-
-// ---- F15 the below zone: the band layer's first ride BELOW xl ---------
-const BZ = SWEEP.belowZone || {};
-const bzWs = ['768', '900', '1024'];
-ok("F15.a the below zone is aboard and the twin is VACUOUSLY AT REST: the sweep walks 768/900/1024 (the band layer's first ride below xl) and the mid row SLEEPS at every tier — midKids null, ps null, the zone-form walk short-circuits (mid:false x3); the residue has no below-form (no trigW/wrapW/overlap keys — G7's below mirror)",
-  bzWs.every((w) => BZ.rows[w] && !BZ.rows[w].error && BZ.rows[w].midKids === null && BZ.rows[w].ps === null) &&
-  bzWs.every((w) => BZ.zone[w] && BZ.zone[w].mid === false && BZ.zone[w].overlap === undefined && BZ.zone[w].trigW === undefined),
-  `mid asleep x3 (band: midKids/ps null; zone: mid:false, no overlap/trigW keys)`);
-ok("F15.b the wordmark is BORN SQUEEZED at md and the below rides the natural: the box is 140 at 768 (the row needs 266.5+460+12 = 738.5 vs available 736 — the 2.5 falls ENTIRELY on the min-w-0 wordmark, A4e-2's live form refined to 0.1px) while 1024 rides the natural trio 36/142.5/68 = 266.5 (A4e-3 re-proven live) and the right plateau holds 460/11 at ALL THREE tiers with the closed form re-anchored below xl (36+40+36x9 + 10 gaps x6 = 460)",
-  BZ.rows['768'].vis[1].w === 140 && BZ.rows['768'].leftW === 264 &&
-  BZ.rows['1024'].vis[0].w === 36 && BZ.rows['1024'].vis[1].w === 142.5 && BZ.rows['1024'].vis[2].w === 68 && BZ.rows['1024'].leftW === 266.5 &&
-  bzWs.every((w) => BZ.rows[w].rightW === 460 && BZ.rows[w].seats === 11 &&
-    Math.abs(BZ.rows[w].rightKids.reduce((a, k) => a + k.w, 0) + 6 * (BZ.rows[w].rightKids.length - 1) - 460) <= 0.5),
-  `wm 140@768 (born squeezed) / 142.5@900+1024 (natural); trio 36/142.5/68 @1024; right 460 + seats 11 x3, closed form x3`);
-ok("F15.c the below squeeze's EDGE: 767 asleep (wm 0 — the wordmark not yet born), 769 pays 1.5 (141), 770 pays 0.5 (142), 771 CLEAR (142.5), 772 clear — squeeze(W) = 770.5 − W exactly, zone [768, 770], clear by 771, slope −1.0/px (the row's ONLY yielder below xl absorbs every pixel — vs the 1280 zone's −0.4); the interior at rest (900 rides 1024's natural form) — the squeeze is 768-local (the below mirror of G7's 1280-locality)",
-  BZ.edge['767'].wm === 0 && BZ.edge['769'].wm === 141 && BZ.edge['770'].wm === 142 &&
-  BZ.edge['771'].wm === 142.5 && BZ.edge['772'].wm === 142.5 &&
-  BZ.rows['900'].vis[1].w === 142.5 && BZ.rows['900'].leftW === 266.5,
-  `767:0 -> 769:141 -> 770:142 -> 771:142.5 -> 772:142.5 (slope -1.0/px, zone [768,770]); 900 == 1024 natural (266.5/142.5)`);
-
-// ---- F16 the ninth seat: the restore's WIDTH FORM — the loop closes --
-const NS = (R840.bandAfter || {}).ninthSeat || {};
-const nsOk = (w) => NS.restoreAcross && NS.restoreAcross[w] && NS.restoreAcross[w].band &&
-  !NS.restoreAcross[w].band.error && NS.restoreAcross[w].band.innerW === Number(w) && NS.restoreAcross[w].zone;
-ok("F16.a the ninth seat is aboard: t840's bandAfter.ninthSeat carries the RESTORE load's width walks (restoreAcross at 1283 AND 1286, zone + band each, on the load the T5/T10 pins ride)",
-  nsOk('1283') && nsOk('1286'),
-  `restore across 1283+1286 aboard, innerW ${NS.restoreAcross && NS.restoreAcross['1283'] ? NS.restoreAcross['1283'].band.innerW : '?'}/${NS.restoreAcross && NS.restoreAcross['1286'] ? NS.restoreAcross['1286'].band.innerW : '?'}`);
-ok("F16.b the world's EXIT state == its ENTRY state bit-for-bit at every width the table walks: the restore load's band == the T0 load's live band at 1283 AND 1286 AND the zone layer agrees bit-for-bit (the cross-load identity — two independent fresh loads film the same world), the wrap-twin holds on the restore load too (wrapper kid == its own zone's wrapW), and the named points ride along (overlap 1.5/0.3 == the live law, wmW 102.2/103) — T5+T10's 1280 truth extended across the zone, the harness's own loop closed",
-  eq(NS.restoreAcross['1283'].band, E8.liveAcross['1283'].band) && eq(NS.restoreAcross['1286'].band, E8.liveAcross['1286'].band) &&
-  eq(NS.restoreAcross['1283'].zone, E8.liveAcross['1283'].zone) && eq(NS.restoreAcross['1286'].zone, E8.liveAcross['1286'].zone) &&
-  NS.restoreAcross['1283'].band.midKids[1].w === NS.restoreAcross['1283'].zone.wrapW &&
-  NS.restoreAcross['1286'].band.midKids[1].w === NS.restoreAcross['1286'].zone.wrapW &&
-  NS.restoreAcross['1283'].zone.overlap === 1.5 && NS.restoreAcross['1286'].zone.overlap === 0.3 &&
-  NS.restoreAcross['1283'].zone.wmW === 102.2 && NS.restoreAcross['1286'].zone.wmW === 103,
-  `band+zone bit-for-bit vs the T0 rulers @1283+1286; twin 116.5/117.7; overlap 1.5/0.3; wmW 102.2/103`);
-
-// ---- F17 the tenth seat: the cross-load identity's FAR+BELOW form ------
-const TS = (R840.bandAfter || {}).tenthSeat || {};
-const tsOk = (w) => TS.restoreFarBelow && TS.restoreFarBelow[w] && TS.restoreFarBelow[w].band &&
-  !TS.restoreFarBelow[w].band.error && TS.restoreFarBelow[w].band.innerW === Number(w) && TS.restoreFarBelow[w].zone &&
-  TS.liveFarBelow && TS.liveFarBelow[w] && TS.liveFarBelow[w].band;
-ok("F17.a the tenth seat is aboard: t840's bandAfter.tenthSeat carries BOTH loads' far/below walks (liveFarBelow + restoreFarBelow at 1366/1920/768/1024, zone + band each, on the T0 load and the restore load respectively)",
-  tsOk('1366') && tsOk('1920') && tsOk('768') && tsOk('1024'),
-  `far/below bookends aboard x2 loads, innerW ${TS.restoreFarBelow ? ['1366','1920','768','1024'].map((w) => TS.restoreFarBelow[w].band.innerW).join('/') : '?'}`);
-ok("F17.b the cross-load identity holds OUTSIDE the zone bit-for-bit: the restore load's band == the T0 load's live band AND the zone layer agrees at the far edge (1366/1920: edges 693.8/895, rightW 628.3, seats 12, the wrapper kid == the zone's wrapW 149.2/220 — the pays law's twin alive at the far edge, the PS clearing deeper −12 → −463.1) and the below zone (768/1024: edges 264/266.5, rightW 460, seats 11, the mid row ASLEEP — midKids null, the zone walk exactly {mid:false}) — the restore's width map is COMPLETE: two independent fresh loads film the same world bit-for-bit below, in, and far beyond the zone",
-  eq(TS.restoreFarBelow['1366'].band, TS.liveFarBelow['1366'].band) && eq(TS.restoreFarBelow['1920'].band, TS.liveFarBelow['1920'].band) &&
-  eq(TS.restoreFarBelow['768'].band, TS.liveFarBelow['768'].band) && eq(TS.restoreFarBelow['1024'].band, TS.liveFarBelow['1024'].band) &&
-  eq(TS.restoreFarBelow['1366'].zone, TS.liveFarBelow['1366'].zone) && eq(TS.restoreFarBelow['1920'].zone, TS.liveFarBelow['1920'].zone) &&
-  eq(TS.restoreFarBelow['768'].zone, TS.liveFarBelow['768'].zone) && eq(TS.restoreFarBelow['1024'].zone, TS.liveFarBelow['1024'].zone) &&
-  TS.liveFarBelow['1366'].band.midKids[1].w === TS.liveFarBelow['1366'].zone.wrapW &&
-  TS.liveFarBelow['1920'].band.midKids[1].w === TS.liveFarBelow['1920'].zone.wrapW &&
-  TS.liveFarBelow['1366'].zone.overlap === -12 && TS.liveFarBelow['1920'].zone.overlap === -463.1,
-  `band+zone bit-for-bit @1366/1920/768/1024; twin 149.2/220; overlap -12/-463.1; below asleep (11 seats, 460, midKids null, {mid:false})`);
-ok("F17.c the identity now SPANS INSTRUMENTS: t840's liveFarBelow band rows == the sweep receipt's own far/below rows bit-for-bit at all four bookends (leftW/rightW/seats/midKids/innerW — the T0 load of the decision table and the sweep's load film the same far/below world), and the zone layers agree on the shared 6-key projection (mid/trigW/wrapW/overlap/wmW/paintAt — the sweep's zone rows carry a narrower shape: modeling, not drift; the t854 lesson learned twice by the t855 probe)",
-  ['1366', '1920', '768', '1024'].every((w) => {
-    const fb = TS.liveFarBelow[w].band;
-    const sw = (SWEEP.farEdge.rows[w] || SWEEP.belowZone.rows[w]);
-    return sw && fb.innerW === Number(w) &&
-      eq({ leftW: fb.leftW, rightW: fb.rightW, seats: fb.seats, midKids: fb.midKids, innerW: fb.innerW },
-         { leftW: sw.leftW, rightW: sw.rightW, seats: sw.seats, midKids: sw.midKids, innerW: sw.innerW });
-  }) &&
-  ['1366', '1920', '768', '1024'].every((w) => {
-    const fz = TS.liveFarBelow[w].zone;
-    const sz = (SWEEP.farEdge.zone[w] || SWEEP.belowZone.zone[w]);
-    if (!sz) return false;
-    const proj = (z) => JSON.stringify(Object.fromEntries(['mid', 'trigW', 'wrapW', 'overlap', 'wmW', 'paintAt'].map((k) => [k, z[k]])));
-    return proj(fz) === proj(sz);
-  }),
-  `band bit-for-bit vs the sweep's G/H rows x4; zone agrees on the 6-key projection x4 — two instruments, one world, at the load level`);
-
-// ---- F18 the eleventh seat: the wake edge — the far edge's SECOND threshold
-const WK = (SWEEP.farEdge || {}).wake || {};
-const wkOk = (w) => WK.rows && WK.rows[w] && WK.rows[w].midKids && WK.zone && WK.zone[w];
-ok("F18.a the wake edge is aboard: the sweep receipt's farEdge.wake carries the chip's wake ride (1535/1536/1537/1540/1550/1560/1570/1600, rows + zone each — the band layer and the zone layer walking the far edge's second threshold together)",
-  wkOk('1535') && wkOk('1536') && wkOk('1570') && wkOk('1600') && WK.widths && WK.widths.length === 8,
-  `wake ride aboard x8 widths (rows + zone), from the last asleep 1535 to the plateau 1600`);
-ok("F18.b the chip WAKES AT 2xl — a POINT, not a zone, and the wake is a STEP: last asleep 1535 (kids [160, 170, 0, 0], wrap 170, leftW 746.7), first awake 1536 (the chip BORN 90.3, the wrap tier-steps 170 → 205) — one pixel delivers +90.3 and +35 while the label PAYS 9.1 (160 → 150.9) and the wordmark DIPS 7.1 (142.5 → 135.4), the left row jumping +117.1; the far mirror of the below squeeze's [768, 770]: the below world yields through a 3px shortage-ZONE, the far world crosses a 1px breakpoint-POINT",
-  WK.rows['1535'].midKids[3].w === 0 && WK.rows['1536'].midKids[3].w === 90.3 &&
-  WK.zone['1535'].wrapW === 170 && WK.zone['1536'].wrapW === 205 &&
-  WK.rows['1535'].midKids[0].w === 160 && WK.rows['1536'].midKids[0].w === 150.9 &&
-  WK.zone['1535'].wmW === 142.5 && WK.zone['1536'].wmW === 135.4 &&
-  WK.rows['1535'].leftW === 746.7 && WK.rows['1536'].leftW === 863.8,
-  `1535 asleep -> 1536 awake (chip 90.3); wrap 170 -> 205; label 160 -> 150.9; wm 142.5 -> 135.4; leftW 746.7 -> 863.8`);
-ok("F18.c the ramps, the plateau, and the J-ride's own identity: the wrap's CAPPED RAMP (205 → 206.9 @1540 → 211.7 @1550 → 216.5 @1560 → the cap 220 @1570, +0.44/px — the 2xl tier is a FLOOR), the label's recovery to 160 and the wordmark's to 142.5 by 1570 (the wake's transient fully repaid within 34px), the chip CONSTANT 90.3 at every width above the wake (born full-size, never grows), the gap two-segment (−110.3 constant through the ramp, then −1.0/px: −113.1 @1570 → −143.1 @1600), and the wake ride's 1536 row == the G block's own 1536 row bit-for-bit — one world, two walks of the same receipt",
-  WK.zone['1570'].wrapW === 220 && WK.zone['1600'].wrapW === 220 &&
-  WK.rows['1570'].midKids[0].w === 160 && WK.rows['1600'].midKids[0].w === 160 &&
-  WK.zone['1570'].wmW === 142.5 && WK.zone['1600'].wmW === 142.5 &&
-  ['1536', '1537', '1540', '1550', '1560', '1570', '1600'].every((w) => WK.rows[w].midKids[3].w === 90.3) &&
-  WK.zone['1536'].overlap === -110.3 && WK.zone['1560'].overlap === -110.3 &&
-  WK.zone['1570'].overlap === -113.1 && WK.zone['1600'].overlap === -143.1 &&
-  eq({ leftW: WK.rows['1536'].leftW, rightW: WK.rows['1536'].rightW, seats: WK.rows['1536'].seats, midKids: WK.rows['1536'].midKids, innerW: WK.rows['1536'].innerW },
-     { leftW: SWEEP.farEdge.rows['1536'].leftW, rightW: SWEEP.farEdge.rows['1536'].rightW, seats: SWEEP.farEdge.rows['1536'].seats, midKids: SWEEP.farEdge.rows['1536'].midKids, innerW: SWEEP.farEdge.rows['1536'].innerW }),
-  `wrap cap 220 @1570; label 160 + wm 142.5 by 1570; chip 90.3 x7; gap -110.3 -> -113.1 -> -143.1; the wake's 1536 row == the G row bit-for-bit`);
-
-// ---- F19 the twelfth seat: the drift ledger — the census family's ride-to-ride axis
-// t846 now diffs its counts against its OWN previous receipt (the t857 candidate):
-// the floors measure the census's age (+7/+2/+8/+7, stable since the census was
-// pinned); the ledger measures the world's STABILITY — on a frozen build the
-// ride-to-ride drift must be ZERO, face for face, key for key. A new axis of
-// reproducibility: every prior identity compared worlds WITHIN one window's
-// rides (cross-load t854, cross-instrument t855, cross-receipt A4e-26); this one
-// compares RIDES ACROSS WINDOWS — the previous window's receipt is the comparator.
-const DL = (R846 || {}).driftLedger || {};
-const arm3Bites = DL.sameBuild === true && world.mode === 'build'; // t859 — the jurisdiction clause (build worlds only)
-const dlFaces = DL.faces || {};
+// ---- F5 the census family (t846): the re-keyed floors, the fossils as provenance -----
 const FIVE = ['canvas', 'dashboard', 'inspector', 'palette', 'restore'];
-ok("F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five faces, each with prev/live/drift/identical; the comparator's own date + build recorded as provenance; the law names the three arms — no predecessor, build moved, same build bit-for-bit)",
-  FIVE.every((f) => dlFaces[f] && 'prev' in dlFaces[f] && 'live' in dlFaces[f] && 'drift' in dlFaces[f] && 'identical' in dlFaces[f]) &&
-  typeof DL.prevBuild === 'string' && typeof DL.prevDate === 'string' && typeof DL.law === 'string' &&
-  /no predecessor/.test(DL.law) && /build moved/.test(DL.law) && /same build/.test(DL.law),
-  `ledger aboard x5 faces, comparator ${DL.prevDate} (build ${DL.prevBuild}), sameBuild=${DL.sameBuild}`);
-ok("F19.b the cross-RIDE identity holds (jurisdiction-aware, the t859 clause): on a BUILD world every face must be bit-for-bit vs the previous receipt — drift 0 x5 AND the full live object identical x5; on a DEV world (unfrozen — the restored roster's inspector content moves with the door's async surfaces) the demand is the arm STRUCTURE: every face carries numeric prev/live/drift + the identical flag, recorded, not cried over — the build-day arm 3 returns untouched",
-  (!arm3Bites || (FIVE.every((f) => dlFaces[f].drift === 0 && dlFaces[f].identical === true) && FIVE.every((f) => dlFaces[f].prev === dlFaces[f].live))) &&
-  FIVE.every((f) => dlFaces[f] && typeof dlFaces[f].prev === 'number' && typeof dlFaces[f].live === 'number' && typeof dlFaces[f].drift === 'number' && typeof dlFaces[f].identical === 'boolean'),
-  `arm ${arm3Bites ? '3 (build — bit-for-bit demanded)' : '2\u2032 (dev — structure demanded, drift recorded)'}: ${FIVE.map((f) => `${f} ${dlFaces[f].prev}->${dlFaces[f].live}`).join(', ')}`);
-ok("F19.c the ledger's honesty: the FLOOR drift and the RIDE drift are different numbers doing different jobs — the floors speak the census's age (the receipt's live minus the census floors 142/114/180/150, self-consistently re-pinned to the restored world), the ledger speaks the ride-to-ride truth (recorded per face, jurisdiction-aware); the live faces still agree with the ledger's own live numbers",
-  R846.faces.canvas.live.pageBtns === dlFaces.canvas.live && R846.faces.dashboard.live.pageBtns === dlFaces.dashboard.live &&
-  R846.faces.inspector.live.pageBtns === dlFaces.inspector.live && R846.faces.palette.live.pageBtns === dlFaces.palette.live &&
-  R846.faces.restore.live.pageBtns === dlFaces.restore.live &&
-  [R846.faces.canvas.live.pageBtns - 142, R846.faces.dashboard.live.pageBtns - 114, R846.faces.inspector.live.pageBtns - 180, R846.faces.palette.live.pageBtns - 150].every((d) => d >= 0),
-  `floors vs census (restored world): +${R846.faces.canvas.live.pageBtns - 142}/+${R846.faces.dashboard.live.pageBtns - 114}/+${R846.faces.inspector.live.pageBtns - 180}/+${R846.faces.palette.live.pageBtns - 150} (age) — ledger rides recorded per face (stability)`);
+const facesOk = FIVE.every((f) => R846.faces[f] && typeof R846.faces[f].live.pageBtns === 'number');
+ok('F5.a t846 aboard: five faces, each with a live pageBtns count',
+  facesOk,
+  FIVE.map((f) => `${f} ${R846.faces[f] ? R846.faces[f].live.pageBtns : '?'}`).join(', '));
+ok('F5.b the floors ride THIS world\u2019s birth census 125/104/147/126 (the t899 re-key; the pre-re-seed fossils 142/114/180/150 priced a world that no longer exists — they ride as provenance, their age law died with it)',
+  facesOk &&
+  [R846.faces.canvas.live.pageBtns - 125, R846.faces.dashboard.live.pageBtns - 104,
+   R846.faces.inspector.live.pageBtns - 147, R846.faces.palette.live.pageBtns - 126].every((d) => d >= 0),
+  `floors vs birth census: +${R846.faces.canvas.live.pageBtns - 125}/+${R846.faces.dashboard.live.pageBtns - 104}/+${R846.faces.inspector.live.pageBtns - 147}/+${R846.faces.palette.live.pageBtns - 126} (age within the re-seeded world)`);
+const DL = R846.driftLedger || {}, dlFaces = DL.faces || {};
+ok('F5.c the ledger\u2019s honesty: the live faces agree with the ledger\u2019s own live numbers (two books, one count)',
+  facesOk && FIVE.every((f) => dlFaces[f] && R846.faces[f].live.pageBtns === dlFaces[f].live),
+  FIVE.map((f) => `${f} ${R846.faces[f].live.pageBtns}==${dlFaces[f] ? dlFaces[f].live : '?'}`).join(', '));
+
+// ---- F6 the drift ledgers: the reproducibility axis (structure, both instruments) ----
+ok('F6.a t837\u2019s ledger: two faces, each carrying prev/live/drift/identical',
+  R837.driftLedger && R837.driftLedger.faces &&
+  ['wordmark', 'chip'].every((f) => {
+    const x = R837.driftLedger.faces[f];
+    return x && 'prev' in x && 'live' in x && 'drift' in x && 'identical' in x;
+  }),
+  `wordmark ${R837.driftLedger && R837.driftLedger.faces.wordmark ? R837.driftLedger.faces.wordmark.prev + '->' + R837.driftLedger.faces.wordmark.live : '?'} / chip ${R837.driftLedger && R837.driftLedger.faces.chip ? R837.driftLedger.faces.chip.prev + '->' + R837.driftLedger.faces.chip.live : '?'}`);
+ok('F6.b t846\u2019s ledger: five faces, each carrying prev/live/drift/identical (the census reproducible at the ride level)',
+  FIVE.every((f) => {
+    const x = dlFaces[f];
+    return x && 'prev' in x && 'live' in x && 'drift' in x && 'identical' in x &&
+      typeof x.prev === 'number' && typeof x.live === 'number' && typeof x.drift === 'number' && typeof x.identical === 'boolean';
+  }),
+  FIVE.map((f) => `${f} ${dlFaces[f] ? dlFaces[f].prev + '->' + dlFaces[f].live : '?'}`).join(', '));
 
 // ---- verdict + receipt -----------------------------------------------------------------
 const passed = checks.filter((c) => c.pass).length;
 const failed = checks.length - passed;
 const verdict = failed === 0
-  ? `the family agrees: one arithmetic (2.7 / 130 / 115.3, the ratchet's zero-geometry stack-flip, the law, the table, the live truth, the bound chain) told identically by five instruments — the sweep's own band pins cross-check the zone rows at the shared 1280 anchor, the fix's clone carries the band layer bit-for-bit (PAINT proven on the band too), the decision table's clones carry it as well (the fifth seat: the band's EDGES never move on any option, only the mid row's awake children pay — (b88) equalizes at 122.8, (c) the wrapper alone pays to 106.6, and the 115.3 is now a FIVE-way), and PAINT is WIDTH-FREE (the sixth seat: the clone's band == the live band bit-for-bit at 1286/1287 too, while the live band's own drift — leftW +1.0/px, the wrapper's kid +0.4/px == the zone rows' wrapW — is pinned and shared), and the pays law RE-SCOPES across widths on the option worlds (the seventh seat: the edges ride the live rulers on every option world at every width, the wrapper kid == the option's zone wrapW at all four width walks, the (b88) equalize is at-a-width — exact at 1280, decays 0.3/0.7 — while the (c) divergence is width-stable 14.5/14.4), and the width form is COMPLETED (the eighth seat: (a) the paint and (b138) the no-op are bit-for-bit the live band at 1283/1286 against their own loads' rulers, and the bound chain's width form holds — the squeezed box loosens 101.3 -> 103.0 but the 138 cap never binds in the zone, the squeeze option-invariant), and the cross-load identity now spans the WHOLE width axis AND both instruments (the ninth + tenth seats: the restore load films the T0 world bit-for-bit across the zone AND outside it — far edge 693.8/895, below 264/266.5, the sleep itself reproducible — and t840's live rulers == the sweep's own G/H rows at the load level), and the far edge's SECOND threshold is pinned (the eleventh seat: the chip wakes AT 2xl — a 1px POINT, 1535 asleep / 1536 awake — with a step anatomy that charges the row's own yielders (label −9.1, wordmark −7.1) for the chip's +90.3 and the wrap's tier +35, two capped ramps repaying the transient by 1570, and a plateau to 1920 whose only moving part is the gap); and the census family's counts are now reproducible at the RIDE level (the twelfth seat: t846's drift ledger — five faces bit-for-bit vs the previous receipt, drift 0 x5, the floors' age-drift and the ledger's stability both recorded in one receipt); the fix window flips all three paint instruments with one grind, and the wordmark's price is receipt-to-receipt`
-  : `the family DISAGREES in ${failed} place(s) — reconcile before the build day`;
+  ? `the LIVING family agrees (the t901 re-form): one world key across the sweep, the text-constants ruler, and the census; the GAP law rides the zone receipt-to-receipt (the residue dead by the sweep's own certificate, the TRIGGER's witness keeping its tooth); the two-layer identity holds at the shared anchor at the Geist values; the pinned trio is self-consistent across six widths with the structural seat sequence that survived the font move; the wordmark/labels/chip speak the Geist re-pin 133/115/87 with the tnum variant-witness aboard; the census rides its re-keyed birth floors 125/104/147/126 with the fossils as provenance; and both drift ledgers carry the reproducibility axis. The retired residue trio (t839/t840) and the dead families are named in the headstones — the family audit continues on the sources that still ride`
+  : `the family DISAGREES in ${failed} place(s) — reconcile before trusting the living pins`;
 const receipt = {
   instrument: 'scripts/t842-family-audit.mjs',
-  build: R839.build,
+  build: SWEEP.build,
   date: new Date().toISOString(),
-  sources: {
-    t839: { file: 'shots-qa/t839-zone-rehearsal.json', date: R839.date, cloneBand: 'the fix world\'s band layer (the fourth seat, t847)', bandAcross: 'the clone\'s band at 1286/1287 vs live rulers 1280/1286/1287 — PAINT is width-free (the sixth seat, t849)' },
-    t840: { file: 'shots-qa/t840-options-rehearsal.json', date: R840.date, bandAfter: "the decision table's clones carry the band layer (the fifth seat, t848) + the option worlds' width walks (the seventh seat, t850) + the width form COMPLETED (the eighth seat, t851) + the restore's width form (the ninth seat, t854) + the cross-load identity's far+below form (the tenth seat, t855)" },
-    sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date, belowZone: "the band layer's first ride below xl (t853): the twin asleep (vacuously at rest), the born-squeezed wordmark (140 @768, the row's only yielder paying the whole 2.5), the edge law (squeeze(W) = 770.5 − W, zone [768, 770], clear by 771, slope −1.0/px)", wake: "the far edge's second threshold (t856): the chip wakes AT 2xl — a 1px POINT (1535 asleep / 1536 awake) — step anatomy (chip +90.3, wrap tier 170 → 205, label −9.1, wordmark −7.1), capped ramps repaid by 1570, plateau to 1920 (gap −1.0/px)" },
-    sweepPinned: { left: P.left, right: P.right, seats: P.seats, law: "pinned == bands within ±0.5 (the sweep's own rounding law), seats exact, across 6 widths" },
-    t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined },
-    t846: { file: 'shots-qa/t846-a11y-maintenance.json', date: R846.date, driftLedger: "the ride-to-ride diff vs the previous receipt (the twelfth seat, t857): drift 0 x5, identical x5 on the frozen build — the census family's reproducibility axis (floors = the census's age, ledger = the world's stability)" },
+  form: 'the t901 re-form — the LIVING family (sweep + t837 + t846); the residue trio retired with headstones',
+  headstones: {
+    t839: 'RETIRED (the t901 premise audit): the T510 paint residue died with the fallback-font world — t895 measured trigR−chipL = −32.8 (a GAP, not paint) and retired the fix candidate with the experiment as its headstone; t897 cut the GAP law into the sweep. The instrument refuses to ride; its fossil receipt stays untouched as provenance.',
+    t840: 'RETIRED (the t901 premise audit): the fix decision table has no subject — the residue is dead (t895/t897). The instrument refuses to ride; its fossil receipt stays untouched as provenance.',
+    deadFamilies: 'F1–F7 and F9–F18 of the previous form priced the fallback world (2.7/130/115.3, the painted zone [1280..1286], the birth-squeeze [768,770], the 142.46 natural, the five-way 115.3) — the sweep re-derives the Geist world\u2019s own laws (83/83 at the current pin); the cross-instrument audit continues here on the living sources only.'
   },
   arithmetic: {
-    geometry: GEOM,
-    ratchet: { dGeom: 0, dStack: 1, filmedBy: ['t839.after', 't840.optionA'] },
-    law: SWEEP.zone.law,
-    painted: painted.join(','),
-    edges: SWEEP.zone.edge,
-    decisionTable: { a: 'clips, geometry intact', b88: 'clears -4.8, slope -0.55', c: 'backfires +8.7', bandLayer: "edges never move on any option (607.8/628.3/12); the mid row pays: b88 equalizes 122.8, c diverges 121.3/106.6 (F10, the fifth seat); across widths the edges ride the live rulers on the option worlds and the equalize decays 0 -> 0.3 -> 0.7 while the c divergence holds 14.5/14.4 (F12, the seventh seat)" },
-    boundChain: { natural: 't837 derived 142.46', cap138: 'B138 unbinding', squeezed: 't840 wmW 101.3', cap88: 'B88 binding', yield: '41.2' },
+    gap: `overlap(1280) = ${z1280.overlap} (the receipt\u2019s own GAP law; the +2.7 paint is provenance)`,
+    edge: SWEEP.zone.edge.note,
+    textConstants: 'wordmark 133 / labels 115 / chip 87 (the t895 font law\u2019s Geist metrics; the fallback\u2019s 142/120/90 ride as provenance)',
+    census: 'floors 125/104/147/126 (the re-seeded world\u2019s birth, the t899 re-key; the fossils 142/114/180/150 as provenance)'
   },
-  checks: checks,
-  passed, failed, total: checks.length,
+  sources: {
+    sweep: { file: 'shots-qa/t834-band-sweep.json', date: SWEEP.date, role: 'the zone/band/pinned laws — the Geist world\u2019s own tables (83/83), the GAP law\u2019s owner' },
+    t837: { file: 'shots-qa/t837-wordmark-probe.json', date: R837.provenance ? R837.provenance.date : undefined, role: 'the text-constants family — the Geist re-pin + the tnum variant-witness' },
+    t846: { file: 'shots-qa/t846-a11y-maintenance.json', date: R846.date, role: 'the census — the re-keyed floors + the drift ledger (the reproducibility axis)' },
+    retired: { t839: 'shots-qa/t839-zone-rehearsal.json (fossil, untouched)', t840: 'shots-qa/t840-options-rehearsal.json (fossil, untouched)' }
+  },
+  checks, passed, failed, total: checks.length,
   verdict,
 };
 writeFileSync('shots-qa/t842-family-audit.json', JSON.stringify(receipt, null, 2) + '\n');

@@ -109,6 +109,16 @@ const ROOT = process.cwd();
 const BANDS = [375, 640, 768, 1024, 1280, 1536];
 const HEIGHT = 800;
 
+/* t901 premise audit — the t849 law BACK-PORTED (the audit's third live
+ * capture of the same disease): the sweep never opened its own page — in
+ * the battery it inherited the previous rider's document, and the three
+ * standalone rides of this window died at the far walk on a fresh,
+ * page-less browser (the renderer under memory pressure blanks, the
+ * header walk returns {error:'no header'} x4, G4's direct access kills
+ * the ride). Open first, own the world; the G4/G5/G6/G8 arms are
+ * hardened to fail LOUDLY (the t895 pattern) instead of crashing. */
+const OPEN_FIRST = true;
+
 let pass = 0;
 let fail = 0;
 const ok = (cond, label) => {
@@ -190,6 +200,12 @@ if (CUT_PINS) {
  * shell hands it to agent-browser verbatim (multi-line evals break) */
 const MEASURE =
   "(() => { const hdr = document.querySelector('header'); if (!hdr || hdr.children.length < 2) return JSON.stringify({ error: 'header not found' }); const left = hdr.children[0]; const right = hdr.children[1]; const kid = (c) => Math.round(c.getBoundingClientRect().width * 10) / 10; const kids = [...left.children].map((c) => ({ cls: (c.className || '').slice(0, 60), w: kid(c) })); const vis = kids.filter((k) => k.w > 0); const rk = [...right.children].map((c) => ({ lbl: c.getAttribute('aria-label') || (c.className || '').slice(0, 30), w: kid(c) })); const rVis = rk.filter((k) => k.w > 0); const mid = left.children[3]; let midKids = null; let ps = null; if (mid && mid.getBoundingClientRect().width > 0) { midKids = [...mid.children].map((c) => ({ lbl: c.getAttribute('aria-label') || (c.className || '').slice(0, 30), w: kid(c) })); const psWrap = mid.children[1]; const psTrig = psWrap ? psWrap.querySelector('button, [role=combobox]') : null; const chip = right.children[0]; if (psTrig && chip && chip.getBoundingClientRect().width > 0) { const tr = psTrig.getBoundingClientRect(); const cr = chip.getBoundingClientRect(); ps = { trigW: Math.round(tr.width * 10) / 10, wrapW: Math.round(psWrap.getBoundingClientRect().width * 10) / 10, overlap: Math.round((tr.right - cr.left) * 10) / 10 }; } } const seats = rVis.length; return JSON.stringify({ leftW: Math.round(left.getBoundingClientRect().width * 10) / 10, rightW: Math.round(right.getBoundingClientRect().width * 10) / 10, seats, kids, vis, rightKids: rVis, midKids, ps, innerW: window.innerWidth, scrollW: document.documentElement.scrollWidth }); })()";
+
+if (OPEN_FIRST) {
+  ab("open http://localhost:3000/");
+  ab(`set viewport 1280 ${HEIGHT}`);
+  ab("wait 900");
+}
 
 const rows = {};
 for (const band of BANDS) {
@@ -461,20 +477,21 @@ ok(
   `G3 the floor's far anatomy: trig 130 / 138.5 / 156.6 / 220 — the floor still BINDS at 1366 (the squeeze's last address: the row holds the trigger at its 130 floor) and sleeps above; the trigger no longer fills its wrapper (the slack is real: 130 in 203.2, 138.5 in 241.3, 156.6 in 259.4, 220 in 322.8) and never overflows it (trig ≤ wrap at all four)`
 );
 ok(
-  farRows[1366].ps.overlap === -85.2 && farRows[1440].ps.overlap === -114.8 &&
+  farRows[1366]?.ps && farRows[1440]?.ps && farZone[1536] && farZone[1920] &&
+    farRows[1366].ps.overlap === -85.2 && farRows[1440].ps.overlap === -114.8 &&
     farZone[1536].overlap === -209.7 && farZone[1920].overlap === -483.7,
-  `G4 the named points hold and the gap runs away: 1366 = −85.2, 1440 = −114.8 (E7's zone rows agree — two walks, one number), then 1536 = −209.7, 1920 = −483.7 — the gap is born at the zone and never looks back`
+  `G4 the named points hold and the gap runs away: 1366 = −85.2, 1440 = −114.8 (E7's zone rows agree — two walks, one number), then 1536 = −209.7, 1920 = −483.7 — the gap is born at the zone and never looks back (hardened t901: a dead far walk fails this arm, it does not kill the ride)`
 );
 ok(
-  farRows[1366].leftW === 699.8 && farRows[1440].leftW === 773.8 &&
-    farRows[1536].leftW === 869.8 && farRows[1920].leftW === 979.8 &&
-    Math.abs(farRows[1536].leftW - P.left[1536]) <= 0.5,
+  farRows[1366]?.leftW === 699.8 && farRows[1440]?.leftW === 773.8 &&
+    farRows[1536]?.leftW === 869.8 && farRows[1920]?.leftW === 979.8 &&
+    typeof P.left[1536] === "number" && Math.abs(farRows[1536].leftW - P.left[1536]) <= 0.5,
   `G5 the left row's far tier: 699.8 / 773.8 / 869.8 / 979.8 (tier-shaped, breakpoint-honest) — and 1536's 869.8 sits within the sweep's own ±0.5 rounding law of the ACTIVE pin ${P.left[1536]}`
 );
 ok(
-  farRows[1366].midKids.filter((k) => k.w > 0).length === 2 && farRows[1440].midKids.filter((k) => k.w > 0).length === 2 &&
-    farRows[1536].midKids.filter((k) => k.w > 0).length === 3 && farRows[1920].midKids.filter((k) => k.w > 0).length === 3 &&
-    lblKidAt(1366).w === 125.8 && lblKidAt(1440).w === 144.5 && lblKidAt(1536).w === 133.7 && lblKidAt(1920).w === 160 &&
+  farRows[1366]?.midKids?.filter((k) => k.w > 0).length === 2 && farRows[1440]?.midKids?.filter((k) => k.w > 0).length === 2 &&
+    farRows[1536]?.midKids?.filter((k) => k.w > 0).length === 3 && farRows[1920]?.midKids?.filter((k) => k.w > 0).length === 3 &&
+    lblKidAt(1366)?.w === 125.8 && lblKidAt(1440)?.w === 144.5 && lblKidAt(1536)?.w === 133.7 && lblKidAt(1920)?.w === 160 &&
     chipKidAt(1536) && chipKidAt(1536).w === 87 && chipKidAt(1920) && chipKidAt(1920).w === 87,
   `G6 the mid row's far anatomy: two kids awake at 1366/1440, THREE at 1536/1920 (the chip wakes at 2xl); the label 125.8 / 144.5 / 133.7 / 160 (the wake's dip at 1536 — the label pays for the chip's birth, J2), the chip 87 at BOTH 2xl widths — the chip's weight is width-free above its tier`
 );
@@ -483,8 +500,8 @@ ok(
   `G7 the floor's reach is 1280-LOCAL: the band point rides the trigger's own box at every far width (no CHIP under the point) — the floor binds at 1280..1366 and NO paint exists anywhere; the trigger owns its edge at every width (E8's far confirmation)`
 );
 ok(
-  farZone[1366].wmW === 101.9 && farZone[1440].wmW === 119 &&
-    farZone[1536].wmW === 112.8 && farZone[1920].wmW === 133.2,
+  farZone[1366]?.wmW === 101.9 && farZone[1440]?.wmW === 119 &&
+    farZone[1536]?.wmW === 112.8 && farZone[1920]?.wmW === 133.2,
   `G8 the wordmark's far form is TIER-SHAPED: 101.9 / 119 / 112.8 / 133.2 — the natural 133.2 is the 1920 cap, the 1536 dip (112.8 < 119) is the wake's transient squeeze (J2: the wordmark pays for the chip's birth), recovered by the ramps (the probe: 133.2 by 1660); no slope claim (pinned per width)`
 );
 

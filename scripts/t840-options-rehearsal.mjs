@@ -93,6 +93,40 @@
  *   node scripts/t840-options-rehearsal.mjs
  */
 
+/* ================= t901 PREMISE AUDIT — RETIRED WITH ITS WORLD =================
+ *
+ * This instrument was the T510 fix's DECISION TABLE: on fresh throwaway clones
+ * it pre-filmed every option's AFTER — (a) the overflow-hidden clip, (b@138)
+ * the no-op, (b@88) the bind that clears the 2.7px paint and steepens the
+ * slope, (c) the backfire — so the build day could pick with every
+ * alternative measured. ITS SUBJECT IS DEAD, twice over:
+ *
+ *   1. the re-seed + the T895 FONT LAW (Geist loads AND is consumed; the
+ *      fallback metrics died) — the decisive experiment measured
+ *      trigR − chipL = −32.8 at 1280: a GAP, not paint. There is no residue
+ *      to clear, no fix to price; the candidate retired with the experiment
+ *      as its headstone (t895).
+ *   2. t897 re-derived the coefficient families on the Geist world (the GAP
+ *      law −40.9 − 0.52×(W−1280), the wrapper's slack 158.9, the birth-squeeze
+ *      dead) — the arithmetic this table priced (2.7 / 130 / 115.3, wmW 101.3,
+ *      the [1280..1286] painted zone) is the fallback world's truth, kept as
+ *      provenance, not law.
+ *
+ * There is nothing left to decide. The harness's lessons (fresh-load-per-clone,
+ * the BAND layer walked on every option world, measure-first probes before
+ * pins, the restore's fresh load) remain the fleet's template — in the git
+ * history. This file refuses to ride — LOUDLY, exit 0 (a retired instrument is
+ * not a failure) — and writes NO receipt: the fossil receipt
+ * shots-qa/t840-options-rehearsal.json stays untouched as the dead world's
+ * provenance, alongside the seats it fed (t848/t850/t851/t854/t855).
+ *
+ * ============================================================================== */
+
+console.log(
+  "t840 options rehearsal — RETIRED (the t901 premise audit): the T510 residue died with the fallback-font world (t895: a −32.8 GAP, not paint; t897: the GAP law), so the fix decision table has no subject. The fossil receipt stays as provenance; the harness's lessons live on in the fleet's living instruments."
+);
+process.exit(0);
+
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

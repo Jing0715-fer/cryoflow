@@ -1,87 +1,87 @@
 {
   "provenance": {
-    "buildId": "dev@c4c3735897dd",
+    "buildId": "dev@cf76fd9a5777",
     "worldMode": "dev",
     "viewport": "1024x800 (the A4e-3 natural band); the chip at 1536x800 (2xl)",
     "instrument": "canvas measureText under the elements' own computed fonts, letter-spacing applied (two models), max-of-lines for the wordmark box, chrome+icon+advances for the chip box; the tabular count's advance from its own live rect",
-    "date": "2026-10-10T16:45:59.945Z"
+    "date": "2026-10-11T18:53:11.078Z"
   },
   "bitIdentical": true,
   "runs": [
     {
-      "rect": 142.47,
+      "rect": 133.22,
       "cls": "min-w-0 leading-tight max-md:hidden",
       "lsOK": true,
       "lines": [
         {
           "text": "CryoFlow",
-          "font": "normal 600 14px ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "font": "normal 600 14px Geist, \"Geist Fallback\"",
           "display": "block",
           "ls": "-0.35px",
-          "raw": 72.84,
-          "wSet": 70.04,
-          "wMan": 70.04
+          "raw": 63.27,
+          "wSet": 60.47,
+          "wMan": 60.47
         },
         {
           "text": "Cryo-EM Workflow Builder",
-          "font": "normal 400 11px ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "font": "normal 400 11px Geist, \"Geist Fallback\"",
           "display": "block",
           "ls": "normal",
-          "raw": 142.46,
-          "wSet": 142.46,
-          "wMan": 142.46
+          "raw": 133.21,
+          "wSet": 133.21,
+          "wMan": 133.21
         }
       ],
-      "derived": 142.46,
+      "derived": 133.21,
       "labels": [
         {
           "text": "Dashboard",
-          "w": 65.1
+          "w": 61.08
         },
         {
           "text": "Workflow",
-          "w": 55.1
+          "w": 53.74
         }
       ],
-      "labelsSum": 120.2,
+      "labelsSum": 114.82,
       "innerW": 1024
     },
     {
-      "rect": 142.47,
+      "rect": 133.22,
       "cls": "min-w-0 leading-tight max-md:hidden",
       "lsOK": true,
       "lines": [
         {
           "text": "CryoFlow",
-          "font": "normal 600 14px ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "font": "normal 600 14px Geist, \"Geist Fallback\"",
           "display": "block",
           "ls": "-0.35px",
-          "raw": 72.84,
-          "wSet": 70.04,
-          "wMan": 70.04
+          "raw": 63.27,
+          "wSet": 60.47,
+          "wMan": 60.47
         },
         {
           "text": "Cryo-EM Workflow Builder",
-          "font": "normal 400 11px ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+          "font": "normal 400 11px Geist, \"Geist Fallback\"",
           "display": "block",
           "ls": "normal",
-          "raw": 142.46,
-          "wSet": 142.46,
-          "wMan": 142.46
+          "raw": 133.21,
+          "wSet": 133.21,
+          "wMan": 133.21
         }
       ],
-      "derived": 142.46,
+      "derived": 133.21,
       "labels": [
         {
           "text": "Dashboard",
-          "w": 65.1
+          "w": 61.08
         },
         {
           "text": "Workflow",
-          "w": 55.1
+          "w": 53.74
         }
       ],
-      "labelsSum": 120.2,
+      "labelsSum": 114.82,
       "innerW": 1024
     }
   ],
@@ -89,7 +89,7 @@
     "bitIdentical": true,
     "runs": [
       {
-        "rect": 90.3,
+        "rect": 86.97,
         "cls": "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex border-border bg-card hover:bg-secondary/60 op",
         "visible": true,
         "bw": "1px",
@@ -98,15 +98,15 @@
         "kidCount": 3,
         "iconW": 14,
         "count": "0",
-        "numRect": 7.64,
-        "numCanvas": 7.63,
-        "notedRect": 34.66,
-        "notedCanvas": 34.65,
+        "numRect": 7.36,
+        "numCanvas": 8.08,
+        "notedRect": 31.61,
+        "notedCanvas": 31.61,
         "chrome": 34,
-        "derived": 90.29
+        "derived": 86.97
       },
       {
-        "rect": 90.3,
+        "rect": 86.97,
         "cls": "hidden h-8 items-center gap-1.5 rounded-lg border px-2.5 card-lift transition-colors 2xl:flex border-border bg-card hover:bg-secondary/60 op",
         "visible": true,
         "bw": "1px",
@@ -115,25 +115,25 @@
         "kidCount": 3,
         "iconW": 14,
         "count": "0",
-        "numRect": 7.64,
-        "numCanvas": 7.63,
-        "notedRect": 34.66,
-        "notedCanvas": 34.65,
+        "numRect": 7.36,
+        "numCanvas": 8.08,
+        "notedRect": 31.61,
+        "notedCanvas": 31.61,
         "chrome": 34,
-        "derived": 90.29
+        "derived": 86.97
       }
     ]
   },
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T14:37:42.105Z",
-    "sameBuild": true,
+    "prevBuild": "dev@db9ee0d726b2",
+    "prevDate": "2026-10-11T18:21:30.965Z",
+    "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "wordmark": {
-        "prev": 142.47,
-        "live": 142.47,
+        "prev": 133.22,
+        "live": 133.22,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -142,8 +142,8 @@
         }
       },
       "chip": {
-        "prev": 90.3,
-        "live": 90.3,
+        "prev": 86.97,
+        "live": 86.97,
         "drift": 0,
         "identical": true,
         "moved": {

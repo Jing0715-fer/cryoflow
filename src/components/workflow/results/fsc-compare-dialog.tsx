@@ -43,6 +43,16 @@
  * contracts — a refine3d curve hangs on particles/volume/halfmap, an
  * import's on nothing this process owns). Unknown types keep the bare
  * word (the gate closes on pouring).
+ *
+ * t901 — the restore's whisper (the t899 grammar's third seat): the
+ * persisted selection is the user's remembered comparison, and the
+ * restore can silently EDIT it — a persisted id whose job left the
+ * index is dropped, and the 6-curve cap eats the tail when the launcher
+ * joins first. Remembered state that fails to restore is INVISIBLE; the
+ * whisper names it (the house mono voice at whisper level, the fuchsia
+ * the wipe family taught). Silence is the honest voice at an exact
+ * restore; the first user pick takes ownership — from then on the
+ * whisper is the restore's history, not the live truth.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -78,6 +88,11 @@ import { Chip } from "@/components/ui/chip";
 import { fetchJsonRetry } from "@/lib/retry-fetch";
 import { cn } from "@/lib/utils";
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t771 — the kind vocabulary's TWENTY-NINTH reader joins the FSC compare overlay
+import {
+  collectRestoreEdits,
+  restoreEditSummary,
+  type RestoreEdit,
+} from "@/lib/fsc-restore"; // t901 — the restore's arithmetic lives in lib (the t653 law); the UI imports the meaning
 import { FscParamsDiff } from "./fsc-params-diff";
 
 /* ------------------------------------------------------------------ */
@@ -182,6 +197,11 @@ export function FscCompareDialog({
    *  fetches (running refinements land new checkpoints while open) */
   const [scan, setScan] = useState(0);
   const [scanning, setScanning] = useState(false);
+  /** the restore's edit receipt + its ownership flag (the t901 whisper):
+   * armed by the restore, disarmed by the user's first pick — once the
+   * user touches the selection, the restore's edits are history */
+  const [restoreEdits, setRestoreEdits] = useState<RestoreEdit[]>([]);
+  const [picksTouched, setPicksTouched] = useState(false);
   const restoreLatch = useRef(false);
   const inspect = useWorkflowStore((s) => s.inspect);
   /* ---------- discovery + selection restore ---------- */
@@ -223,12 +243,18 @@ export function FscCompareDialog({
             /* corrupted state — start clean */
           }
           const known = new Set(jobs.map((j) => j.jobId));
-          const next = new Set<string>([currentJobId]);
-          for (const id of saved) {
-            if (next.size >= MAX_CURVES) break;
-            if (known.has(id)) next.add(id);
-          }
+          // the t901 edit receipt: the arithmetic lives in lib/fsc-restore
+          // (the t653 law) — the launcher joins first, so the cap eats the
+          // SAVED tail, and ids outside the index are the world's
+          // deletions speaking
+          const { picked: next, edits } = collectRestoreEdits(
+            saved,
+            known,
+            currentJobId,
+            MAX_CURVES
+          );
           setPicked(next);
+          setRestoreEdits(edits);
         }
       } catch {
         if (!cancelled) {
@@ -452,6 +478,7 @@ export function FscCompareDialog({
   );
 
   const toggle = useCallback((id: string) => {
+    setPicksTouched(true); // the t901 whisper: the user's first pick takes ownership
     setPicked((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -506,6 +533,22 @@ export function FscCompareDialog({
             Overlay the official criterion curve of every selected job —
             masked + corrected for postprocess, gold-standard for refinements.
           </DialogDescription>
+          {/* the restore's whisper (the t901 echo of the t899 grammar):
+              remembered state that failed to restore is invisible — this
+              names the edit once, at whisper level, and goes silent the
+              moment the user's own picks take over */}
+          {!picksTouched && restoreEdits.length > 0 && (
+            <p
+              data-testid="fsc-compare-restore-whisper"
+              className="font-mono text-[10px] tracking-wide text-fuchsia-600/80 dark:text-fuchsia-400/80"
+            >
+              {restoreEdits.length === 1
+                ? "1 remembered curve didn't return"
+                : `${restoreEdits.length} remembered curves didn't return`}
+              {' \u2014 '}
+              {restoreEditSummary(restoreEdits)}
+            </p>
+          )}
         </DialogHeader>
 
         {/* ---------- freshness strip: live status + re-scan, one unit ----------
