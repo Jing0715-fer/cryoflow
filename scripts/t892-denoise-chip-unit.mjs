@@ -44,7 +44,15 @@ const localFull = [
 {
   const s = summarizeOutputs("topazdenoise", localFull, noDeps);
   ok("arm 1: the index's rows are the chip's value (24)", s?.stats[0]?.value === "24", JSON.stringify(s?.stats));
-  ok("arm 2: single seam key = micrographs", s?.stats.every((t) => t.key === "micrographs"));
+  // t899 — the keys' honest contract, RE-KEYED: the census chip keeps
+  // "micrographs"; the local coverage leg speaks "denoised-local". The
+  // old arm 2 (every key === "micrographs") pinned the COLLISION as law —
+  // the strip's flash diff is key-indexed, two stats sharing a key poison
+  // each other's prevVals (the mount flashes, every poll flashes) — live-
+  // captured on the ring's browser leg. Distinct keys are the law now.
+  ok("arm 2: the census chip keeps the micrographs key", s?.stats[0]?.key === "micrographs");
+  ok("arm 2b: the local leg carries its own key (denoised-local)", s?.stats[1]?.key === "denoised-local", JSON.stringify(s?.stats.map((t) => t.key)));
+  ok("arm 2c: the two keys are DISTINCT (the diff law)", s?.stats[0]?.key !== s?.stats[1]?.key);
   ok("arm 3: the chip's hint carries the schema-keeping law", /micrograph schema/.test(s?.stats[0]?.hint ?? ""));
   ok("arm 4: complete lane -> coverage covered==total (24/24)", s?.coverage?.covered === 24 && s?.coverage?.total === 24);
   ok("arm 5: complete lane -> NO amber note (the strip stays clean)", s?.coverage?.note === undefined);
@@ -63,6 +71,7 @@ const partial = [
   ok("arm 7: partial 2-of-4 -> coverage 2/4", s?.coverage?.covered === 2 && s?.coverage?.total === 4, JSON.stringify(s?.coverage));
   ok("arm 8: the amber note names the partial (2 of 4 ... 2 live on the cluster)", /2 of 4 denoised images synced home — 2 live on the cluster only/.test(s?.coverage?.note ?? ""));
   ok("arm 9: the partial's second stat reads 2 / 4", s?.stats[1]?.value === "2 / 4");
+  ok("arm 9b: the partial's second stat still speaks denoised-local", s?.stats[1]?.key === "denoised-local", JSON.stringify(s?.stats.map((t) => t.key)));
 }
 
 const remoteOnly = [

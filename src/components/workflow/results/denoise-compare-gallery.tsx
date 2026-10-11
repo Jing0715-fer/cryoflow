@@ -452,6 +452,27 @@ export function DenoiseCompareGallery({
               title={p.name}
             >
               <span className="truncate">{p.name}</span>
+              {/* t899 — the wipe memory's cross-mode echo: the position
+                  memory survives a mode flip (witnessed in t896's round
+                  trip), but in side-by-side the divider is absent and the
+                  measurement is INVISIBLE — the user would have to flip
+                  back to learn their finding survived. The side caption
+                  whispers the parked divider (the house mono chip, the
+                  fuchsia at whisper level) for every card the user
+                  actually moved (a position at the 50 default is no
+                  finding, and silence is its honest voice). The value is
+                  the message: the chip names it, it is not a control. */}
+              {mode === "side" &&
+                posByAlt[p.name] != null &&
+                posByAlt[p.name] !== 50 && (
+                  <span
+                    data-wipe-memory-chip=""
+                    className="shrink-0 rounded-sm border border-fuchsia-600/25 px-1 py-px font-mono text-[9px] uppercase tracking-wider text-fuchsia-600/75 dark:text-fuchsia-300/70"
+                    title="this card's wipe divider is parked here — flip back to wipe and it is still at this position"
+                  >
+                    wipe {posByAlt[p.name]}%
+                  </span>
+                )}
               {/* the per-tile pair-status echo — the header chip's grammar
                   at tile level: every card names its own state (the paired
                   whisper in the success family, the unpaired in the amber

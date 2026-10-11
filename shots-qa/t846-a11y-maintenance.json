@@ -1,31 +1,32 @@
 {
   "instrument": "scripts/t846-a11y-maintenance.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@c4c3735897dd",
+  "build": "dev@3677f4ddb6a6",
   "worldMode": "dev",
-  "date": "2026-10-10T17:28:05.387Z",
+  "date": "2026-10-11T18:00:03.455Z",
   "chain": "canvas -> dashboard -> inspector -> palette -> restore (one command)",
   "doors": {
     "dashboard": "exact-text 'Dashboard' switcher click",
-    "inspector": "saved-view card (textContent startsWith 'Centered iso view'), one retry",
+    "inspector": "canvas keyboard door — any completed card, focus + Enter (the t899 fire leg's form; the saved-view card door died with its world)",
     "palette": "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door"
   },
   "floors": {
-    "canvas": 142,
-    "dashboard": 114,
-    "inspector": 180,
-    "palette": 150
+    "canvas": 125,
+    "dashboard": 104,
+    "inspector": 147,
+    "palette": 126,
+    "provenance": "re-keyed t899 to the re-seeded world's own counts; the t698 census fossils were 142/114/180/150"
   },
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T16:43:46.260Z",
+    "prevBuild": "dev@3677f4ddb6a6",
+    "prevDate": "2026-10-11T17:57:43.839Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "canvas": {
-        "prev": 153,
-        "live": 153,
+        "prev": 125,
+        "live": 125,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -34,8 +35,8 @@
         }
       },
       "dashboard": {
-        "prev": 122,
-        "live": 122,
+        "prev": 104,
+        "live": 104,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -44,22 +45,18 @@
         }
       },
       "inspector": {
-        "prev": 297,
-        "live": 290,
-        "drift": -7,
-        "identical": false,
+        "prev": 147,
+        "live": 147,
+        "drift": 0,
+        "identical": true,
         "moved": {
           "lens": [],
-          "world": [
-            "dlgBtns",
-            "imgs",
-            "pageBtns"
-          ]
+          "world": []
         }
       },
       "palette": {
-        "prev": 161,
-        "live": 161,
+        "prev": 126,
+        "live": 126,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -68,8 +65,8 @@
         }
       },
       "restore": {
-        "prev": 153,
-        "live": 153,
+        "prev": 125,
+        "live": 125,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -81,10 +78,10 @@
   },
   "faces": {
     "canvas": {
-      "floor": 142,
+      "floor": 125,
       "live": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 125,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -101,15 +98,15 @@
       }
     },
     "dashboard": {
-      "floor": 114,
+      "floor": 104,
       "live": {
         "url": "/",
-        "pageBtns": 122,
+        "pageBtns": 104,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
         "unCtrls": 0,
-        "imgs": 3,
+        "imgs": 0,
         "altless": 0,
         "hasDlg": false,
         "dlgBtns": 0,
@@ -124,27 +121,27 @@
       }
     },
     "inspector": {
-      "floor": 180,
+      "floor": 147,
       "live": {
         "url": "/",
-        "pageBtns": 290,
+        "pageBtns": 147,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
         "unCtrls": 0,
-        "imgs": 9,
+        "imgs": 0,
         "altless": 0,
         "hasDlg": true,
-        "dlgBtns": 137,
+        "dlgBtns": 22,
         "dlgUnnamed": 0,
-        "dlgFocus": true,
-        "dlgHeading": "3D Refine (tutorial) — job inspector3D R",
+        "dlgFocus": false,
+        "dlgHeading": "Import Movies 1 — job inspectorImport Mo",
         "ip": null,
         "heading": "Main"
       },
       "afterEscape": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 125,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -161,18 +158,18 @@
       }
     },
     "palette": {
-      "floor": 150,
+      "floor": 126,
       "live": {
         "url": "/",
-        "pageBtns": 161,
+        "pageBtns": 126,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 3,
         "unCtrls": 0,
-        "imgs": 3,
+        "imgs": 0,
         "altless": 0,
         "hasDlg": true,
-        "dlgBtns": 8,
+        "dlgBtns": 1,
         "dlgUnnamed": 0,
         "dlgFocus": true,
         "dlgHeading": "Command palette",
@@ -184,7 +181,7 @@
       },
       "afterEscape": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 125,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -203,7 +200,7 @@
     "restore": {
       "live": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 125,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -224,7 +221,7 @@
     {
       "label": "M1 canvas zero unnamed buttons",
       "pass": true,
-      "detail": "btns=153"
+      "detail": "btns=125"
     },
     {
       "label": "M2 canvas zero unnamed form controls",
@@ -232,9 +229,9 @@
       "detail": "unCtrls=0/2"
     },
     {
-      "label": "M3 canvas floor holds (census 142)",
+      "label": "M3 canvas floor holds (re-keyed 125, t899; the t698 census said 142 — the fossil)",
       "pass": true,
-      "detail": "live=153 (drift +11)"
+      "detail": "live=125 (drift +0)"
     },
     {
       "label": "M4a the switcher clicked",
@@ -244,7 +241,7 @@
     {
       "label": "M4b the dashboard arrived (own heading, own count)",
       "pass": true,
-      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=122"
+      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=104"
     },
     {
       "label": "M5 dashboard zero unnamed buttons",
@@ -254,37 +251,42 @@
     {
       "label": "M6 dashboard zero alt-less imgs (hasAttribute, not falsy)",
       "pass": true,
-      "detail": "imgs=3 altless=0"
+      "detail": "imgs=0 altless=0"
     },
     {
-      "label": "M7 dashboard floor holds (census 114)",
+      "label": "M7 dashboard floor holds (re-keyed 104, t899; the census said 114 — the fossil)",
       "pass": true,
-      "detail": "live=122 (drift +8)"
+      "detail": "live=104 (drift +0)"
     },
     {
-      "label": "M8 the saved-view card found and clicked",
-      "pass": true,
-      "detail": "the deliberate door (t844's)"
-    },
-    {
-      "label": "M9 inspector arrived: dialog + tenant heading",
-      "pass": true,
-      "detail": "heading=\"3D Refine (tutorial) — job inspector3D R\""
-    },
-    {
-      "label": "M10 inspector focus trapped",
+      "label": "M4c the Workflow switcher back (the canvas owns the door)",
       "pass": true,
       "detail": ""
     },
     {
-      "label": "M11 inspector zero unnamed (page-wide + dialog subset)",
+      "label": "M8 a completed card found (the keyboard door's target)",
       "pass": true,
-      "detail": "page=290 dlg=137 unnamed=0/0"
+      "detail": "{\"found\":true,\"id\":\"cmv3x1a020002lt89biep4phx\",\"label\":\"Import Movies 1 — Import Movies / Micrographs / Particles, completed\"}"
     },
     {
-      "label": "M12 inspector floor holds (census 180)",
+      "label": "M9 inspector arrived: dialog + inspector heading (the SHAPE — the name is world-state, t859's law)",
       "pass": true,
-      "detail": "live=290 (census 180, drift +110)"
+      "detail": "heading=\"Import Movies 1 — job inspectorImport Mo\""
+    },
+    {
+      "label": "M10 the focus trap's mechanism holds (content focusable, focus lands)",
+      "pass": true,
+      "detail": "tabIdx=-1 inDlg=true (before=DIV) — the keyboard door's own wart (focus left on the card) is named, the app-side fix is a future src window's"
+    },
+    {
+      "label": "M11 inspector zero unnamed (page-wide + dialog subset)",
+      "pass": true,
+      "detail": "page=147 dlg=22 unnamed=0/0"
+    },
+    {
+      "label": "M12 inspector floor holds (re-keyed 147, t899; the census said 180 — the fossil)",
+      "pass": true,
+      "detail": "live=147 (drift +0)"
     },
     {
       "label": "M13 Escape closed the inspector",
@@ -302,9 +304,9 @@
       "detail": "unnamed=0"
     },
     {
-      "label": "M16 palette floor holds (census 150) + observation #2",
+      "label": "M16 palette floor holds (re-keyed 126, t899; the census said 150 — the fossil) + observation #2",
       "pass": true,
-      "detail": "live=161 (drift +11) the input's name rides the placeholder"
+      "detail": "live=126 (drift +0) the input's name rides the placeholder"
     },
     {
       "label": "M17 Escape closed the palette",
@@ -314,41 +316,41 @@
     {
       "label": "M18 world unharmed (canvas count == the opening count)",
       "pass": true,
-      "detail": "btns=153 dlg=false"
+      "detail": "btns=125 dlg=false"
     },
     {
       "label": "M19 four faces, four distinct button-views (no face is another face)",
       "pass": true,
-      "detail": "153 / 122 / 290 / 161"
+      "detail": "125 / 104 / 147 / 126"
     },
     {
       "label": "M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/identical, the comparator's provenance recorded",
       "pass": true,
-      "detail": "comparator 2026-10-10T16:43:46.260Z (build dev@c4c3735897dd)"
+      "detail": "comparator 2026-10-11T17:57:43.839Z (build dev@3677f4ddb6a6)"
     },
     {
       "label": "M21 canvas ride-drift law (same build: bit-for-bit vs the previous receipt)",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@3677f4ddb6a6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "M22 dashboard ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@3677f4ddb6a6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "M23 inspector ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift -7 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: world [dlgBtns, imgs, pageBtns]"
+      "detail": "arm 2′ — dev world (key dev@3677f4ddb6a6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "M24 palette ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@3677f4ddb6a6), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     }
   ],
-  "passed": 25,
+  "passed": 26,
   "failed": 0,
-  "total": 25,
-  "verdict": "the maintenance sweep holds: 726 button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +11/+8/+110/+11), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (same build: five faces bit-for-bit vs the previous receipt, drift 0) — the standing re-witness future windows run first"
+  "total": 26,
+  "verdict": "the maintenance sweep holds: 502 button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the re-keyed counts (drift +0/+0/+0/+0 vs the t899 re-key; the census fossils 142/114/180/150), the fragile doors opened (the canvas keyboard door, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (same build: five faces bit-for-bit vs the previous receipt, drift 0) — the standing re-witness future windows run first"
 }

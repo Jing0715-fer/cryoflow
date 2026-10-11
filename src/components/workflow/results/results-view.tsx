@@ -2523,6 +2523,20 @@ export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
   const offTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stats = summary.stats;
   useEffect(() => {
+    // t899 — the diff is KEY-INDEXED, so a duplicate key is not a cosmetic
+    // React warning here: colliding stats share one prevVals slot, each
+    // becomes the other's "before", the mount flashes and every poll
+    // flashes everything. Live-captured on the ring's browser leg (the
+    // t892 chip and the t893 coverage leg both spoke as "micrographs").
+    // The summary builder owns the fix; this guard makes the NEXT
+    // collision a loud dev console line instead of a corrupted ring.
+    if (process.env.NODE_ENV === "development") {
+      const seen = new Set<string>();
+      for (const s of stats) {
+        if (seen.has(s.key)) console.warn(`KeyNumbersStrip: duplicate stat key "${s.key}" — the flash diff is key-indexed; colliding stats poison each other's history`);
+        seen.add(s.key);
+      }
+    }
     const changed: string[] = [];
     for (const s of stats) {
       const before = prevVals.current.get(s.key);

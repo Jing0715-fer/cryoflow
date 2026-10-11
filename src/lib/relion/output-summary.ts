@@ -284,9 +284,9 @@ function totalMicrographs(deps: SummarizeDeps): number | null {
   return scanStarColumn(text, "_rlnMicrographName")?.distinct ?? null;
 }
 
-function micStat(covered: number, total: number | null, label: string): SummaryStat {
+function micStat(covered: number, total: number | null, label: string, key = "micrographs"): SummaryStat {
   return {
-    key: "micrographs",
+    key,
     value: total != null ? `${nfmt(covered)} / ${nfmt(total)}` : nfmt(covered),
     label,
     tone: total != null && covered < total ? "warn" : "micrograph",
@@ -600,7 +600,15 @@ export function summarizeOutputs(
             },
           ];
           if (covered > 0)
-            stats.push(micStat(covered, total, "denoised images on this machine"));
+            // t899 — the local leg carries its OWN key: the strip's flash
+            // diff is KEY-INDEXED (prevVals.get(s.key)), and two stats
+            // sharing "micrographs" poison each other's history — the
+            // second stat's write becomes the first stat's "before", the
+            // mount flashes, and every poll flashes everything (live-
+            // captured: the ring spoke on mount with "4" vs "1 / 4"). The
+            // chip keeps the census key; the coverage leg speaks as
+            // "denoised-local".
+            stats.push(micStat(covered, total, "denoised images on this machine", "denoised-local"));
           return {
             stats,
             coverage: {

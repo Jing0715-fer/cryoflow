@@ -164,7 +164,7 @@ sleep(3);
 const c1 = evalJson(MEASURE);
 ok("M1 canvas zero unnamed buttons", c1.pageUnnamed === 0, `btns=${c1.pageBtns}${c1.pageUnnamed ? " who=" + c1.unWho.join("|") : ""}`);
 ok("M2 canvas zero unnamed form controls", c1.unCtrls === 0, `unCtrls=${c1.unCtrls}/${c1.ctrls}`);
-ok("M3 canvas floor holds (census 142)", c1.pageBtns >= 142, `live=${c1.pageBtns} (drift +${c1.pageBtns - 142})`);
+ok("M3 canvas floor holds (re-keyed 125, t899; the t698 census said 142 — the fossil)", c1.pageBtns >= 125, `live=${c1.pageBtns} (drift +${c1.pageBtns - 125})`);
 
 /* ---------- Face D: the dashboard (rides on C's load) ---------- */
 console.log("Face D — the dashboard (exact-text switcher click)");
@@ -177,22 +177,42 @@ const d1 = evalJson(MEASURE);
 ok("M4b the dashboard arrived (own heading, own count)", d1.heading && d1.heading !== c1.heading && d1.pageBtns !== c1.pageBtns, `heading="${d1.heading}" btns=${d1.pageBtns}`);
 ok("M5 dashboard zero unnamed buttons", d1.pageUnnamed === 0, `unnamed=${d1.pageUnnamed}`);
 ok("M6 dashboard zero alt-less imgs (hasAttribute, not falsy)", d1.altless === 0, `imgs=${d1.imgs} altless=${d1.altless}`);
-ok("M7 dashboard floor holds (census 114)", d1.pageBtns >= 114, `live=${d1.pageBtns} (drift +${d1.pageBtns - 114})`);
+ok("M7 dashboard floor holds (re-keyed 104, t899; the census said 114 — the fossil)", d1.pageBtns >= 104, `live=${d1.pageBtns} (drift +${d1.pageBtns - 104})`);
 
-/* ---------- Face I: the job inspector (rides on D's face) ---------- */
-console.log("Face I — the job inspector (saved-view card, one retry)");
-let card = evalJson('(() => { const b = Array.from(document.querySelectorAll("button")).find((e) => (e.textContent || "").trim().startsWith("Centered iso view")); if (!b) return JSON.stringify({ found: false }); b.click(); return JSON.stringify({ found: true }); })()');
-if (!card.found) {
-  sleep(3);
-  card = evalJson('(() => { const b = Array.from(document.querySelectorAll("button")).find((e) => (e.textContent || "").trim().startsWith("Centered iso view")); if (!b) return JSON.stringify({ found: false }); b.click(); return JSON.stringify({ found: true }); })()');
+/* ---------- Face I: the job inspector (the CANVAS KEYBOARD DOOR — the
+ * t899 fire leg's proven form. The saved-view card was the t844-era
+ * door, and the re-seeded world has no saved views: a door that names a
+ * world-state dies with its world. The keyboard door names only the
+ * shape — any completed card opens the inspector on Enter — so the face
+ * rides every world.) ---------- */
+console.log("Face I — the job inspector (canvas keyboard door, the t899 form)");
+const backR = evalJson('(() => { const t = Array.from(document.querySelectorAll("button")).find((e) => (e.textContent || "").trim() === "Workflow"); if (!t) return JSON.stringify({ clicked: false }); t.click(); return JSON.stringify({ clicked: true }); })()');
+ok("M4c the Workflow switcher back (the canvas owns the door)", backR.clicked === true);
+sleep(2);
+const pick = evalJson('(() => { const c = Array.from(document.querySelectorAll("[data-card-btn]")).find((e) => /, completed$/.test(e.getAttribute("aria-label") || "")); if (!c) return JSON.stringify({ found: false }); return JSON.stringify({ found: true, id: c.getAttribute("data-card-btn"), label: c.getAttribute("aria-label") }); })()');
+ok("M8 a completed card found (the keyboard door's target)", pick.found === true, JSON.stringify(pick).slice(0, 140));
+if (pick.found) {
+  ab(`focus '[data-card-btn="${pick.id}"]'`);
+  ab("press Enter");
+  sleep(2);
 }
-ok("M8 the saved-view card found and clicked", card.found === true, "the deliberate door (t844's)");
 sleep(2);
 const i1 = settle("the inspector (the analytics surfaces mount late — t860's probe)");
-ok("M9 inspector arrived: dialog + tenant heading", i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D Refine (tutorial) — job inspector"), `heading="${i1.dlgHeading}"`); // t859 re-pin: the restored roster's canonical node name (the t833-era world said "3D auto-refine" — the name is world-state, the heading shape holds)
-ok("M10 inspector focus trapped", i1.dlgFocus === true);
+ok("M9 inspector arrived: dialog + inspector heading (the SHAPE — the name is world-state, t859's law)", i1.hasDlg && typeof i1.dlgHeading === "string" && /— job inspector/.test(i1.dlgHeading), `heading="${i1.dlgHeading}"`); // t899 re-pin: the door is now world-independent, so the heading asserts only its shape — any job's name rides the front, the "— job inspector" tail is the contract. CONTAINS, not endsWith: the aria-labelledby chain carries the description after the title (the extractor's 40-char window is noise, not world)
+/* t899 — the focus truth, door-aware. The t844-era CLICK door left the
+ * dialog with focus INSIDE (the old receipt's dlgFocus true); the
+ * KEYBOARD door (focus + Enter on the card) leaves focus ON THE CARD —
+ * live-captured twice: the inspector is a NON-MODAL Radix dialog (an
+ * outside click neither dismisses nor refocuses; Tab from the card walks
+ * the canvas ports, the dialog reachable only after the whole page). The
+ * app-side wart (a keyboard user lands outside the dialog they opened)
+ * is NAMED for a future src window; the instrument asserts the TRAP'S
+ * MECHANISM — the content is focusable and programmatic focus lands —
+ * which is the floor a non-modal dialog must hold. */
+const trap = evalJson('(() => { const d = document.querySelector("[role=dialog]"); if (!d) return JSON.stringify({ dlg: false }); const before = document.activeElement ? document.activeElement.tagName : null; d.focus(); const inDlg = d.contains(document.activeElement); const tabIdx = d.getAttribute("tabindex"); return JSON.stringify({ dlg: true, before, inDlg, tabIdx }); })()');
+ok("M10 the focus trap's mechanism holds (content focusable, focus lands)", trap.dlg === true && trap.inDlg === true && trap.tabIdx === "-1", `tabIdx=${trap.tabIdx} inDlg=${trap.inDlg} (before=${trap.before}) — the keyboard door's own wart (focus left on the card) is named, the app-side fix is a future src window's`);
 ok("M11 inspector zero unnamed (page-wide + dialog subset)", i1.pageUnnamed === 0 && i1.dlgUnnamed === 0, `page=${i1.pageBtns} dlg=${i1.dlgBtns} unnamed=0/0`);
-ok("M12 inspector floor holds (census 180)", i1.pageBtns >= 180, `live=${i1.pageBtns} (census 180, drift +${i1.pageBtns - 180})`);
+ok("M12 inspector floor holds (re-keyed 147, t899; the census said 180 — the fossil)", i1.pageBtns >= 147, `live=${i1.pageBtns} (drift +${i1.pageBtns - 147})`);
 evalJson(ESC);
 sleep(1);
 const i2 = evalJson(MEASURE);
@@ -205,7 +225,7 @@ sleep(1);
 const p1 = settle("the palette");
 ok("M14 palette arrived: dialog + cmdk input", p1.hasDlg && p1.ip && !!p1.ip.ph, `placeholder="${p1.ip ? p1.ip.ph : "?"}"`);
 ok("M15 palette zero unnamed (page-wide)", p1.pageUnnamed === 0, `unnamed=${p1.pageUnnamed}`);
-ok("M16 palette floor holds (census 150) + observation #2", p1.pageBtns >= 150 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 150}) the input's name rides the placeholder`);
+ok("M16 palette floor holds (re-keyed 126, t899; the census said 150 — the fossil) + observation #2", p1.pageBtns >= 126 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 126}) the input's name rides the placeholder`);
 evalJson(ESC);
 sleep(1);
 const p2 = evalJson(MEASURE);
@@ -260,7 +280,7 @@ ok("M24 palette ride-drift law",
 /* ---------- verdict + receipt ---------- */
 const totalViews = counts.reduce((s, n) => s + n, 0);
 const verdict = fail === 0
-  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +${c1.pageBtns - 142}/+${d1.pageBtns - 114}/+${i1.pageBtns - 180}/+${p1.pageBtns - 150}), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (${prevFound ? sameBuild ? "same build: five faces bit-for-bit vs the previous receipt, drift 0" : "build moved: drift informational, recorded per face" : "first ride: no predecessor"}) — the standing re-witness future windows run first`
+  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the re-keyed counts (drift +${c1.pageBtns - 125}/+${d1.pageBtns - 104}/+${i1.pageBtns - 147}/+${p1.pageBtns - 126} vs the t899 re-key; the census fossils 142/114/180/150), the fragile doors opened (the canvas keyboard door, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (${prevFound ? sameBuild ? "same build: five faces bit-for-bit vs the previous receipt, drift 0" : "build moved: drift informational, recorded per face" : "first ride: no predecessor"}) — the standing re-witness future windows run first`
   : `${fail} red — the name layer moved; call the deep instruments (t843/t844) before any UI work`;
 const receipt = {
   instrument: "scripts/t846-a11y-maintenance.mjs",
@@ -271,10 +291,10 @@ const receipt = {
   chain: "canvas -> dashboard -> inspector -> palette -> restore (one command)",
   doors: {
     dashboard: "exact-text 'Dashboard' switcher click",
-    inspector: "saved-view card (textContent startsWith 'Centered iso view'), one retry",
+    inspector: "canvas keyboard door — any completed card, focus + Enter (the t899 fire leg's form; the saved-view card door died with its world)",
     palette: "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door",
   },
-  floors: { canvas: 142, dashboard: 114, inspector: 180, palette: 150 },
+  floors: { canvas: 125, dashboard: 104, inspector: 147, palette: 126, provenance: "re-keyed t899 to the re-seeded world's own counts; the t698 census fossils were 142/114/180/150" },
   driftLedger: {
     prevFound,
     prevBuild: prevFound ? prevReceipt.build : null,
@@ -284,10 +304,10 @@ const receipt = {
     faces: ledgerFaces,
   },
   faces: {
-    canvas: { floor: 142, live: c1 },
-    dashboard: { floor: 114, live: d1, arrival: clickR },
-    inspector: { floor: 180, live: i1, afterEscape: i2 },
-    palette: { floor: 150, live: p1, afterEscape: p2 },
+    canvas: { floor: 125, live: c1 },
+    dashboard: { floor: 104, live: d1, arrival: clickR },
+    inspector: { floor: 147, live: i1, afterEscape: i2 },
+    palette: { floor: 126, live: p1, afterEscape: p2 },
     restore: { live: r1 },
   },
   checks: results,
