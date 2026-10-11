@@ -75,7 +75,8 @@ ok("D12 the active-axis dim is ONE derivation feeding every voice", /const slice
 console.log("E — the ortho panel wiring (the tile rides the same lib)");
 
 const panel = readFileSync(join(process.cwd(), "src/components/workflow/results/map-ortho-panel.tsx"), "utf8");
-ok("E1 the panel imports the lib", panel.includes('import { voxelReadout } from "@/lib/voxel-voice"'));
+ok("E1 the panel imports the lib (the t907 seat grew the import line — the intent is the ride, not the fossil string)",
+  /import \{[^}]*voxelReadout[^}]*\} from "@\/lib\/voxel-voice"/.test(panel));
 ok("E2 the inline formula is gone (no second father)", !panel.includes("Math.max(0, (dim ?? 0) - 1)"));
 ok("E3 the readout rides the lib", panel.includes("const readout = voxelReadout(pos, spec.axis, dim);"));
 ok("E4 the panel's docblock still speaks the convention", panel.includes("real voxel indices"));

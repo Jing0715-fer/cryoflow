@@ -34,7 +34,7 @@ import { encodeGifFrames } from "@/lib/gif-export";
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
-import { axisIndex, dimAlong, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelPlaneVoice, voxelSliderVoice } from "@/lib/voxel-voice"; // t906 — one honest voice: the slice family speaks the voxel address the ortho tiles speak
+import { axisIndex, dimAlong, obliqueCutAnnotation, obliqueDepthVox, obliqueDepthVoice, obliqueOffsetPctVoice, obliqueSupportVox, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelPlaneVoice, voxelSliderVoice } from "@/lib/voxel-voice"; // t906/t907 — one honest voice: the slice family speaks the voxel address the ortho tiles speak, the oblique cut speaks its depth along its own normal
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -286,8 +286,10 @@ export interface ObliqueClipGeometry {
 /**
  * ONE builder for the oblique cut plane in Mol*'s pixel-clip language —
  * the same plane family the 2D oblique tile samples (readMrcObliqueSlice /
- * obliqueFrame: normal from (θ,φ), support over the 8 grid corners, anchor
- * = center + frac·support·n). Grid == cartesian is the documented isotropic
+ * obliqueFrame: normal from (θ,φ), support over the 8 grid corners (the
+ * t907 shared walk — obliqueSupportVox, bit-identical to the server's),
+ * anchor = center + frac·support·n with the depth arithmetic the lib
+ * owns). Grid == cartesian is the documented isotropic
  * law (t556); the anchor converts through the grid-to-cartesian origin and
  * per-axis voxel sizes so non-cubic boxes still land the plane where the
  * tile cuts it.
@@ -325,24 +327,16 @@ export function buildObliqueClipPlane(
     Math.cos(t),
   ];
   const c: [number, number, number] = [(dims[0] - 1) / 2, (dims[1] - 1) / 2, (dims[2] - 1) / 2];
-  // support along the normal — max over the box's 8 corners (voxel units),
-  // the corner walk the server and the panel both mirror
-  let supportN = 0;
-  for (let i = 0; i < 2; i++)
-    for (let j = 0; j < 2; j++)
-      for (let k = 0; k < 2; k++) {
-        const d: [number, number, number] = [
-          (i ? dims[0] - 1 : 0) - c[0],
-          (j ? dims[1] - 1 : 0) - c[1],
-          (k ? dims[2] - 1 : 0) - c[2],
-        ];
-        supportN = Math.max(supportN, Math.abs(d[0] * n[0] + d[1] * n[1] + d[2] * n[2]));
-      }
-  const frac = Number.isFinite(ob.offset) ? Math.min(1, Math.max(-1, ob.offset)) : 0;
+  // support along the normal — the t907 shared walk (obliqueSupportVox,
+  // bit-identical to the server's historic inline; the depth arithmetic
+  // rides the same lib, so the plane and the voices obey ONE number)
+  const supportN = obliqueSupportVox(dims, ob.theta, ob.phi);
+  if (supportN === null) return null;
+  const depth = obliqueDepthVox(ob.offset, supportN);
   const anchorVox: [number, number, number] = [
-    c[0] + frac * supportN * n[0],
-    c[1] + frac * supportN * n[1],
-    c[2] + frac * supportN * n[2],
+    c[0] + depth * n[0],
+    c[1] + depth * n[1],
+    c[2] + depth * n[2],
   ];
   const pos: [number, number, number] = [
     geo.origin[0] + anchorVox[0] * (geo.extents[0] / dims[0]),
@@ -2385,11 +2379,15 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         </span>
       )}
       {v.oblique?.on && (
-        // t661 — the oblique 3D cut joins the chips: the saved view shows
-        // the surface was opened and at what plane. Violet, the oblique
-        // family's own hue since t556.
+        // t661/t907 — the oblique 3D cut joins the chips: the saved view
+        // shows the surface was opened, at what plane AND at what depth
+        // (the restore obeys the offset — the chip names it; the % is
+        // the fraction the restore applies). Violet, the oblique
+        // family's own hue since t556. No voxel depth here: a bookmark
+        // survives remounts where the grid may load late — the % is the
+        // stored fraction's own honest voice (the lib's boundary).
         <span className="rounded bg-violet-600/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-violet-700 dark:text-violet-400">
-          cut {v.oblique.theta}°·{v.oblique.phi}°{v.oblique.invert ? " · flip" : ""}
+          cut {v.oblique.theta}°·{v.oblique.phi}° · {obliqueOffsetPctVoice(v.oblique.offset)}{v.oblique.invert ? " · flip" : ""}
         </span>
       )}
     </span>
@@ -2948,9 +2946,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
             .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
           if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
         }
-        // t661 — a figure cut open by the oblique plane says so: the same
-        // θ/φ the 2D block's provenance chip and the 3D chip speak
-        if (ob.on) annotations.push(`oblique cut ${ob.theta}°·${ob.phi}°${ob.invert ? " · flip" : ""}`);
+        // t661/t907 — a figure cut open by the oblique plane says so:
+        // the angles AND the position (the % re-mints the plane with
+        // dims+angles, the depth is the address) — the same annotation
+        // voice the 2D block's provenance chip family speaks
+        if (ob.on) annotations.push(obliqueCutAnnotation(ob, obliqueSupportVox(gridDimsRef.current, ob.theta, ob.phi)));
         if (overlays.length) {
           annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
         }
@@ -3175,7 +3175,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
           .map((ax) => `${ax.toUpperCase()} ${Math.round(cp[ax] * 100)}%`);
         if (axes.length) annotations.push(`clip ${axes.join(" ")}${cp.invert ? " · flip" : ""}`);
       }
-      if (ob.on) annotations.push(`oblique cut ${ob.theta}°·${ob.phi}°${ob.invert ? " · flip" : ""}`);
+      if (ob.on) annotations.push(obliqueCutAnnotation(ob, obliqueSupportVox(gridDimsRef.current, ob.theta, ob.phi)));
       if (overlays.length) {
         annotations.push(`${overlays.length} overlay map${overlays.length > 1 ? "s" : ""}`);
       }
@@ -4323,6 +4323,17 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     invert: false,
   });
   const obliqueClipRef = useRef({ ...obliqueClip });
+
+  // t907 — the cut's depth voice: the offset's honest address (voxel
+  // pitches from the grid center along the cut's own normal). The % is
+  // a share of a support that VARIES with the angles (the same +30% is
+  // a different depth at θ 0 than at θ 45) — the voxels do not. Null
+  // grid → the empty suffix (the honest silence the lib pins; in
+  // practice a cut only exists over a loaded volume).
+  const obliqueDepthSuffix = () => {
+    const sup = gridDims ? obliqueSupportVox(gridDims, obliqueClip.theta, obliqueClip.phi) : null;
+    return sup === null ? "" : ` · ${obliqueDepthVoice(obliqueDepthVox(obliqueClip.offset, sup))}`;
+  };
 
   const applyObliqueClipIntent = (
     patch: Partial<{ on: boolean; theta: number; phi: number; offset: number; invert: boolean }>
@@ -6018,9 +6029,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 <span
                   data-testid="clip-oblique-readout"
                   className="truncate font-mono text-[10px] tabular-nums text-muted-foreground"
-                  title="The plane the isosurface opens along — mirrored live from the oblique section block (θ polar · φ azimuth · offset)"
+                  title="The plane the isosurface opens along — mirrored live from the oblique section block (θ polar · φ azimuth · offset · depth in voxels along the normal)"
                 >
-                  θ {obliqueClip.theta}° · φ {obliqueClip.phi}° · {obliqueClip.offset >= 0 ? "+" : ""}{Math.round(obliqueClip.offset * 100)}%
+                  θ {obliqueClip.theta}° · φ {obliqueClip.phi}° · {obliqueOffsetPctVoice(obliqueClip.offset)}{obliqueDepthSuffix()}
                 </span>
                 <span className="ml-auto flex shrink-0 items-center gap-1">
                   <button

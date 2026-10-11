@@ -69,7 +69,7 @@ import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
-import { voxelReadout } from "@/lib/voxel-voice"; // t906 — the tile's voice rides the ONE formula (the embed's commit site reads the same lib)
+import { obliqueDepthVox, obliqueDepthVoice, obliqueOffsetPctVoice, obliqueSupportVox, voxelReadout } from "@/lib/voxel-voice"; // t906/t907 — the tile's and the oblique block's voices ride the ONE lib (the embed's commit site reads the same seats)
 
 /** event names for the two-way 3D↔2D linkage — see molstar-embed.tsx */
 export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
@@ -1148,17 +1148,23 @@ export function MapOrthoPanel({
       const base = path.split("/").pop() || path;
       const sigmaSeg = isoSigma ? `iso ${isoSigma.sign < 0 ? "-" : ""}${isoSigma.sigma.toFixed(2)} σ · ` : "";
       const f = `${sigmaSeg}focus x ${Math.round(positions.x * 100)}% · y ${Math.round(positions.y * 100)}% · z ${Math.round(positions.z * 100)}%   ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
-      // t559 — the camera↔plane dialogue: HOW the current cut was last
-      // chosen — ⌖ the camera swung face-on to it, ⤸ the cut adopted the
-      // camera's view. Only speaks while the reading still holds (a hand
-      // on a slider revokes it) — the footer must not lie. Violet: the
-      // oblique block's own hue, so the provenance reads as the fourth
-      // panel's voice inside the footer.
+      // t559/t907 — the footer's oblique voice: the cut DESCRIBED, not
+      // just gestured at. The render obeys ob.live (the fetch's own
+      // params), so the live readings always hold and always speak:
+      // the angles, the offset %, the depth in voxels. The provenance
+      // glyph prefixes while its reading holds (⌖ the camera swung
+      // face-on to it, ⤸ the cut adopted the camera's view) — a hand on
+      // a slider revokes the GLYPH, never the cut's own truth. Violet:
+      // the oblique block's own hue, so the voice reads as the fourth
+      // panel's inside the footer.
       ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
       const nameW = ctx.measureText(base).width;
       ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
       const prov = withOblique ? ob?.provenance : undefined;
-      const dialogue = prov ? `${prov.kind === "jump" ? "⌖" : "⤸"} ${prov.theta}°·${prov.phi}°` : null;
+      const dialogue =
+        withOblique && ob
+          ? `${prov ? `${prov.kind === "jump" ? "⌖" : "⤸"} ` : ""}${ob.live.theta}°·${ob.live.phi}° · ${obliqueOffsetPctVoice(ob.live.offset / 100)} · ${obliqueDepthVoice(ob.offsetVox)}`
+          : null;
       const fW = ctx.measureText(f).width;
       const dialogueW = dialogue ? ctx.measureText(dialogue).width + 14 : 0;
       const statsW = fW + dialogueW;
@@ -1466,7 +1472,14 @@ const OBLIQUE_DEG = Math.PI / 180;
 
 /** mirror of the server's plane-frame math (mrc.ts readMrcObliqueSlice):
  *  the readouts must speak the numbers the render obeys — computed here
- *  so scrubbing needs no round trip. Keep the two in lockstep. */
+ *  so scrubbing needs no round trip. Keep the two in lockstep.
+ *
+ *  t907 — the support walk rides the shared lib (obliqueSupportVox, the
+ *  ONE father; bit-identical to the server's historic inline for every
+ *  in-range angle — and the block's state law keeps the angles in-range:
+ *  sliders step 0..180/0..360, the ACK clamps, the adopt clamps). The
+ *  depth arithmetic rides obliqueDepthVox (the builder's own clamp law —
+ *  invisible for the slider's in-range fractions, byte-identical). */
 function obliqueFrame(
   dims: [number, number, number],
   thetaDeg: number,
@@ -1494,7 +1507,6 @@ function obliqueFrame(
     normal[0] * u[1] - normal[1] * u[0],
   ];
   const c: [number, number, number] = [(nx - 1) / 2, (ny - 1) / 2, (nz - 1) / 2];
-  let support = 0;
   let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
   for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
     const d: [number, number, number] = [
@@ -1502,18 +1514,18 @@ function obliqueFrame(
       (j ? ny - 1 : 0) - c[1],
       (k ? nz - 1 : 0) - c[2],
     ];
-    support = Math.max(support, Math.abs(d[0] * normal[0] + d[1] * normal[1] + d[2] * normal[2]));
     const pu = d[0] * u[0] + d[1] * u[1] + d[2] * u[2];
     const pv = d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
     uMin = Math.min(uMin, pu); uMax = Math.max(uMax, pu);
     vMin = Math.min(vMin, pv); vMax = Math.max(vMax, pv);
   }
+  const support = obliqueSupportVox(dims, thetaDeg, phiDeg) ?? 0;
   return {
     normal,
     u,
     v,
     support,
-    offsetVox: offsetFrac * support,
+    offsetVox: obliqueDepthVox(offsetFrac, support),
     extent: [Math.round(uMax - uMin) + 1, Math.round(vMax - vMin) + 1] as [number, number],
   };
 }
@@ -1811,7 +1823,7 @@ function ObliqueSectionBlock({
             {src ? (
               <MrcImage
                 src={src}
-                alt={`Oblique section at θ ${theta}°, φ ${phi}°, offset ${offset}%`}
+                alt={`Oblique section at θ ${theta}°, φ ${phi}°, offset ${obliqueOffsetPctVoice(offset / 100)} (${obliqueDepthVoice(frame.offsetVox)})`}
                 className="block w-full"
               />
             ) : null}
@@ -1871,7 +1883,7 @@ function ObliqueSectionBlock({
                   offset
                 </label>
                 <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                  {offset >= 0 ? "+" : ""}{offset}% · {frame.offsetVox >= 0 ? "+" : ""}{frame.offsetVox.toFixed(1)} vox
+                  {obliqueOffsetPctVoice(offset / 100)} · {obliqueDepthVoice(frame.offsetVox)}
                 </span>
               </div>
               <Slider

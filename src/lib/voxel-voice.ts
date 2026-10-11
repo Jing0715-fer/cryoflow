@@ -29,7 +29,10 @@
  *   - the boundary: the CLIP family keeps its fraction language (the clip
  *     planes are extents-fractions by the t905 interval law, and a clip
  *     box can be anchored/oblique where "voxel along axis" has no single
- *     honest address). This module speaks for the SLICE family only.
+ *     honest address). This module speaks for the SLICE family — and,
+ *     since t907, for the OBLIQUE cut's DEPTH address (voxels along the
+ *     cut's own normal — the one honest position a plane without an axis
+ *     can have). The clip EXTENT fractions stay fraction-voiced.
  */
 
 /** The one formula. Returns the 0-BASED grid index (what Mol*'s slice
@@ -118,4 +121,114 @@ export function voxelAnnotation(
   const idx = voxelIndexOf(pos, dim);
   const pct = Math.round(pos * 100);
   return idx === null ? `${axis} ${pct}%` : `${axis} ${idx + 1}/${dim} (${pct}%)`;
+}
+
+/* ------------------------------------------------------------------ */
+/* t907 — the oblique cut's depth voice: the plane nobody aligned an   */
+/* axis to still has an honest address — voxels along its OWN normal.  */
+/* ------------------------------------------------------------------ */
+
+const OBLIQUE_DEG = Math.PI / 180;
+
+/**
+ * The box's support along the oblique cut's normal, in voxel units —
+ * the denominator of the cut's depth address (offsetFrac · support =
+ * how many voxel pitches the plane sits from the grid center along n).
+ *
+ * ONE father for the walk that previously lived inline in THREE places
+ * (the server's readMrcObliqueSlice render truth, the panel's obliqueFrame
+ * readout mirror, the embed's buildObliqueClipPlane plane builder) and was
+ * about to gain a fourth for the voices. The arithmetic is the server's,
+ * VERBATIM — same loop order, same expressions — so the render truth and
+ * the voice truth cannot drift (the t906 B9 law: the seat rewrites no
+ * history; the unit sweeps bit-exact equality against all three historic
+ * copies across dims × angles).
+ *
+ * The angle law is the SERVER's (the render truth): non-finite θ/φ read
+ * as 0, then clamp to [0,180]/[0,360] — the embed's builder propagated
+ * NaN; riding this lib converges it onto the render truth (unreachable
+ * from the UI, where the state is clamped at every intent).
+ *
+ * Returns null when the grid is unusable (not a 3-tuple of finite dims
+ * ≥ 1) — the honest silence: an annotation omits the depth but keeps
+ * the angles and the %. A dim of exactly 1 is LEGAL here (a flattened
+ * axis contributes a zero-length corner leg; unlike voxelIndexOf there
+ * is no denominator to go degenerate).
+ */
+export function obliqueSupportVox(
+  dims: readonly number[] | null | undefined,
+  thetaDeg: number,
+  phiDeg: number
+): number | null {
+  if (!Array.isArray(dims) || dims.length !== 3 || dims.some((d) => !(d >= 1))) return null;
+  const t =
+    (Number.isFinite(thetaDeg) ? Math.min(180, Math.max(0, thetaDeg)) : 0) * OBLIQUE_DEG;
+  const p =
+    (Number.isFinite(phiDeg) ? Math.min(360, Math.max(0, phiDeg)) : 0) * OBLIQUE_DEG;
+  const n: [number, number, number] = [
+    Math.sin(t) * Math.cos(p),
+    Math.sin(t) * Math.sin(p),
+    Math.cos(t),
+  ];
+  const c: [number, number, number] = [(dims[0] - 1) / 2, (dims[1] - 1) / 2, (dims[2] - 1) / 2];
+  let support = 0;
+  for (let i = 0; i < 2; i++)
+    for (let j = 0; j < 2; j++)
+      for (let k = 0; k < 2; k++) {
+        const d: [number, number, number] = [
+          (i ? dims[0] - 1 : 0) - c[0],
+          (j ? dims[1] - 1 : 0) - c[1],
+          (k ? dims[2] - 1 : 0) - c[2],
+        ];
+        support = Math.max(support, Math.abs(d[0] * n[0] + d[1] * n[1] + d[2] * n[2]));
+      }
+  return support;
+}
+
+/** The depth arithmetic the plane builder has always obeyed: the offset
+ * fraction clamps to [−1, 1] (non-finite reads as 0 — the builder's own
+ * law), then multiplies the support. A non-positive/non-finite support
+ * reads as 0 (no box, no depth). Pure. */
+export function obliqueDepthVox(offsetFrac: number, supportVox: number): number {
+  const frac = Number.isFinite(offsetFrac) ? Math.min(1, Math.max(-1, offsetFrac)) : 0;
+  return supportVox > 0 && Number.isFinite(supportVox) ? frac * supportVox : 0;
+}
+
+/** The offset's percent voice — the byte-format the 3D chip has spoken
+ * since t661 ("+30%", "-30%", "+0%"): sign prefix only for non-negatives
+ * (the minus rides in the number), Math.round, the % suffix. The clamp
+ * is invisible for in-range fractions (the sweep arm proves the historic
+ * unclamped bytes are bit-identical there). */
+export function obliqueOffsetPctVoice(offsetFrac: number): string {
+  const frac = Number.isFinite(offsetFrac) ? Math.min(1, Math.max(-1, offsetFrac)) : 0;
+  return `${frac >= 0 ? "+" : ""}${Math.round(frac * 100)}%`;
+}
+
+/** The depth's voxel voice — the byte-format the 2D block's offset row
+ * has spoken since t555 ("+9.6 vox", "-3.2 vox", "+0.0 vox"): toFixed(1),
+ * sign prefix only for non-negatives. */
+export function obliqueDepthVoice(offsetVox: number): string {
+  const v = Number.isFinite(offsetVox) ? offsetVox : 0;
+  return `${v >= 0 ? "+" : ""}${v.toFixed(1)} vox`;
+}
+
+/** The annotation voice for the figure footers and the bookmark chips —
+ * the cut DESCRIBED, not just oriented: "oblique cut 45°·90° · +30% ·
+ * +9.6 vox · flip". The % rides for reproducibility (with dims+angles it
+ * re-mints the plane), the depth for the address; when the grid is
+ * unknown (supportVox null) the depth is honestly omitted and the % still
+ * carries the position. The flip keeps its trailing seat (the historic
+ * bytes' tail). */
+export function obliqueCutAnnotation(
+  cut: { theta: number; phi: number; offset: number; invert: boolean },
+  supportVox: number | null
+): string {
+  const depth =
+    supportVox === null ? null : obliqueDepthVoice(obliqueDepthVox(cut.offset, supportVox));
+  return (
+    `oblique cut ${cut.theta}°·${cut.phi}°` +
+    ` · ${obliqueOffsetPctVoice(cut.offset)}` +
+    (depth ? ` · ${depth}` : "") +
+    (cut.invert ? " · flip" : "")
+  );
 }
