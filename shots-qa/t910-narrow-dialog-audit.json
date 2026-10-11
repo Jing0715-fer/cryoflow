@@ -1,0 +1,11 @@
+{
+  "instrument": "t910-narrow-dialog-audit",
+  "tile": "mic001_denoised.mrc",
+  "verdicts": {
+    "inspector375": true,
+    "inspector320": true
+  },
+  "pass": 13,
+  "fail": 0,
+  "at": "2026-10-11T22:55:09.832Z"
+}
