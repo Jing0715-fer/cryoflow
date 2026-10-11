@@ -2506,6 +2506,43 @@ const STAT_TONE_CLASS: Record<string, string> = {
 const TALLY_STEP_MS = 24;
 
 export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
+  // t896 — the arrival grammar's SECOND voice. The tally's stagger (t609)
+  // speaks the strip's first arrival; a RUNNING job's poll then delivers
+  // fresh counts — and a changed number now announces itself with the
+  // t665 ring (the fuchsia arrival family the denoise gallery taught):
+  // the previous values ride a ref, each poll diffs, and every stat whose
+  // value moved gets the transient ring (mount itself never flashes — the
+  // stagger already spoke the first arrival; a ring on mount would say
+  // everything arrived twice). The flash rides a paint-aligned callback
+  // (the t665 grammar), and the teardown lives on a ref-held timer that a
+  // NEW change reschedules — the ring persists while the run keeps
+  // arriving, fades 1600ms after the last word — and unmount kills it
+  // (a timer surviving its component is a leak, not a cue).
+  const prevVals = useRef<Map<string, string>>(new Map());
+  const [flashKeys, setFlashKeys] = useState<ReadonlySet<string>>(new Set());
+  const offTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stats = summary.stats;
+  useEffect(() => {
+    const changed: string[] = [];
+    for (const s of stats) {
+      const before = prevVals.current.get(s.key);
+      if (before !== undefined && before !== s.value) changed.push(s.key);
+      prevVals.current.set(s.key, s.value);
+    }
+    if (changed.length === 0) return; // identical poll — no word to say
+    const raf = requestAnimationFrame(() => {
+      setFlashKeys(new Set(changed)); // the latest arrival owns the ring
+      if (offTimer.current) clearTimeout(offTimer.current);
+      offTimer.current = setTimeout(() => setFlashKeys(new Set()), 1600);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [stats]);
+  useEffect(
+    () => () => {
+      if (offTimer.current) clearTimeout(offTimer.current);
+    },
+    []
+  );
   if (summary.stats.length === 0) return null;
   return (
     <section
@@ -2519,8 +2556,12 @@ export function KeyNumbersStrip({ summary }: { summary: OutputSummary }) {
         <div
           key={s.key}
           data-stat={s.key}
+          data-flash={flashKeys.has(s.key) ? "on" : undefined}
           style={{ "--kd": `${i * TALLY_STEP_MS}ms` } as CSSProperties}
-          className="insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5"
+          className={cn(
+            "insp-card-whisper min-w-28 flex-1 rounded-lg border bg-card px-3 py-2.5 transition-shadow duration-500",
+            flashKeys.has(s.key) && "ring-2 ring-fuchsia-500/70"
+          )}
           title={s.hint}
         >
           <p
