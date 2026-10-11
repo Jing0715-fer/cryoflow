@@ -314,10 +314,24 @@ export function DenoiseCompareGallery({
               </div>
             )}
             <figcaption
-              className="truncate text-center font-mono text-[10px] text-muted-foreground"
+              className="flex items-center justify-center gap-1.5 font-mono text-[10px] text-muted-foreground"
               title={p.name}
             >
-              {p.name}
+              <span className="truncate">{p.name}</span>
+              {/* the per-tile pair-status echo — the header chip's grammar
+                  at tile level: every card names its own state (the paired
+                  whisper in the success family, the unpaired in the amber
+                  the badge taught), so a mixed run reads at tile distance
+                  without the trip to the header counter */}
+              {p.denoised && p.original ? (
+                <span className="shrink-0 rounded-sm bg-emerald-950/60 px-1 py-px text-[9px] uppercase tracking-wider text-emerald-300/90">
+                  paired
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-sm bg-amber-950/70 px-1 py-px text-[9px] uppercase tracking-wider text-amber-200">
+                  unpaired
+                </span>
+              )}
             </figcaption>
           </figure>
         ))}

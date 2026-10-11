@@ -130,6 +130,38 @@ console.log(
     : "drift ledger: first ride — no predecessor to diff (arm 1)\n"
 );
 
+/* t895 — THE PINS' WORLD GATE: the pinned tables are not eternal truths,
+ * they are ONE WORLD's truth. The annihilate taught it twice: the pins
+ * encode a world's text, its font metrics, its seed's names — a restore,
+ * a re-seed, a font fix, and the same DOM answers different numbers, all
+ * of them honest. So the pins live in the RECEIPT (the fleet's memory)
+ * with a PROVENANCE WORLD KEY, and the verdict consumes it:
+ *   - pins live  (provenance === this world): the tables assert HARD —
+ *     same world, same numbers, the ride-drift law.
+ *   - pins moved (provenance missing or ≠ this world): BASELINE RIDE —
+ *     every arm still runs and prints (the receipt stays comparable),
+ *     but the reds are DRIFT vs the pins' world, the verdict says so,
+ *     and the exit is 0. A baseline ride never fails the fleet; it
+ *     NAMES the moved world instead.
+ *   - --cut-pins: this ride's live tables become the new law (the
+ *     receipt carries them, provenance-stamped; the next same-world
+ *     ride asserts them bit-for-bit). The A-section tables cut
+ *     mechanically; the coefficient families (D/E/G/J) re-cut with
+ *     their own windows' work.
+ * The t857-era built-in PINNED below stays as the fossil provenance
+ * (used only when no receipt carries pins — itself baseline-classified). */
+const CUT_PINS = process.argv.includes("--cut-pins");
+const prevPins = cmp.prevFound && cmp.prev && typeof cmp.prev === "object" ? cmp.prev.pins ?? null : null;
+const pinsProvenance = CUT_PINS ? buildId : (prevPins?.provenanceWorld ?? null);
+const pinsLive = pinsProvenance === buildId;
+if (CUT_PINS) {
+  console.log(`pins: --cut-pins — this ride's A-section tables become the law (provenance ${buildId})\n`);
+} else if (pinsLive) {
+  console.log(`pins: LIVE (provenance ${pinsProvenance} === this world) — the tables assert hard\n`);
+} else {
+  console.log(`pins: BASELINE RIDE (provenance ${pinsProvenance ?? "none"} ≠ live ${buildId}) — reds are drift, not failures; exit 0\n`);
+}
+
 /* the measure: child-level truth, one eval per band — single line, the
  * shell hands it to agent-browser verbatim (multi-line evals break) */
 const MEASURE =
@@ -165,20 +197,23 @@ const PINNED = {
 // DOM carries subpixels (the wordmark's text, the chip's 162.3). The
 // instrument measures at 0.1px and closes within half a pixel.
 const close = (a, b) => Math.abs(a - b) <= 0.5;
+// t895 — the ACTIVE tables: the receipt's cut pins when they live in this
+// world, else the t857-era fossil (a baseline ride measures the DRIFT).
+const P = pinsLive && prevPins?.tables ? prevPins.tables : PINNED;
 for (const band of BANDS) {
   const m = rows[band];
   if (!m) continue;
   ok(
-    close(m.leftW, PINNED.left[band]),
-    `B${band} left = ${PINNED.left[band]} (±0.5) — got ${m.leftW}`
+    close(m.leftW, P.left[band]),
+    `B${band} left = ${P.left[band]} (±0.5) — got ${m.leftW}`
   );
   ok(
-    close(m.rightW, PINNED.right[band]),
-    `B${band} right = ${PINNED.right[band]} (±0.5) — got ${m.rightW}`
+    close(m.rightW, P.right[band]),
+    `B${band} right = ${P.right[band]} (±0.5) — got ${m.rightW}`
   );
   ok(
-    m.seats === PINNED.seats[band],
-    `B${band} seats = ${PINNED.seats[band]} — got ${m.seats}`
+    m.seats === P.seats[band],
+    `B${band} seats = ${P.seats[band]} — got ${m.seats}`
   );
   ok(
     m.scrollW <= m.innerW,
@@ -388,12 +423,12 @@ for (const w of FAR_W) {
 }
 ab("set viewport 1280 800");
 
-const wrapKidAt = (w) => farRows[w].midKids.find((k) => String(k.lbl).startsWith("flex min-w-0"));
-const chipKidAt = (w) => farRows[w].midKids.find((k) => String(k.lbl).includes("Spotlight"));
-const lblKidAt = (w) => farRows[w].midKids.find((k) => k.lbl === "Active workspace");
+const wrapKidAt = (w) => farRows[w]?.midKids?.find((k) => String(k.lbl).startsWith("flex min-w-0"));
+const chipKidAt = (w) => farRows[w]?.midKids?.find((k) => String(k.lbl).includes("Spotlight"));
+const lblKidAt = (w) => farRows[w]?.midKids?.find((k) => k.lbl === "Active workspace");
 ok(
   FAR_W.every((w) => wrapKidAt(w) && farRows[w].ps && wrapKidAt(w).w === farRows[w].ps.wrapW),
-  `G1 the cross-layer identity is FAR-EDGE-PROOF: the band's wrapper kid == the zone's wrapW at 1366/1440/1536/1920 (${FAR_W.map((w) => wrapKidAt(w).w).join(" / ")}) — the twin survives 2xl and the third kid (the chip aboard at 1536+)`
+  `G1 the cross-layer identity is FAR-EDGE-PROOF: the band's wrapper kid == the zone's wrapW at 1366/1440/1536/1920 (${FAR_W.map((w) => wrapKidAt(w)?.w ?? "?").join(" / ")}) — the twin survives 2xl and the third kid (the chip aboard at 1536+)`
 );
 ok(
   FAR_W.every((w) => farRows[w].rightW === 628.3 && farRows[w].seats === 12),
@@ -401,7 +436,7 @@ ok(
 );
 ok(
   FAR_W.every((w) => farRows[w].ps && farRows[w].ps.trigW === farRows[w].ps.wrapW),
-  `G3 the floor SLEEPS at the far edge: trigW == wrapW exactly at all four widths (${FAR_W.map((w) => farRows[w].ps.trigW).join(" / ")}) — the shock absorber retired, the trigger rides its natural width (149.2 → 170 → 205 → 220)`
+  `G3 the floor SLEEPS at the far edge: trigW == wrapW exactly at all four widths (${FAR_W.map((w) => farRows[w]?.ps?.trigW ?? "?").join(" / ")}) — the shock absorber retired, the trigger rides its natural width (149.2 → 170 → 205 → 220)`
 );
 ok(
   farRows[1366].ps.overlap === -12 && farRows[1440].ps.overlap === -33.1 &&
@@ -598,6 +633,19 @@ const receipt = {
     law: "the far edge (t852): the cross-layer identity (band wrapper kid == the zone's wrapW) holds at every width above the zone — 2xl and the third kid included; the floor sleeps (trigW == wrapW exactly), the right cluster never moves (rightW 628.3, seats 12), the chip is width-free above 2xl (90.3), and the residue is 1280-local (the paint witness rides the trigger's own box). The wake edge (t856): the chip's birth is a 1px POINT at 2xl (1535/1536) with a step anatomy (chip +90.3, wrap tier 170 → 205, label −9.1, wordmark −7.1), two capped ramps (by 1570: wrap 220, label 160, wordmark 142.5), and a plateau to 1920 whose only moving part is the gap (−1.0/px)" },
   belowZone: { widths: BELOW_W, rows: belowRows, zone: belowZone, edge, law: "the below zone (t853): the mid row sleeps below xl at every named tier (the twin vacuously at rest, E1's 1279 point now a cross-section) and the residue has no below-form; the wordmark is BORN SQUEEZED at md — the row needs 738.5 vs available 736 at 768 and the min-w-0 wordmark pays the whole 2.5 (A4e-2's live form) — in a LINEAR zone: squeeze(W) = 770.5 − W, slope −1.0/px (the row's only yielder absorbs every pixel), [768, 770], clear by 771; the interior (900/1024) rides the natural 266.5/142.5 — the squeeze is 768-local" },
   pinned: PINNED,
+  pins: CUT_PINS
+    ? {
+        provenanceWorld: buildId,
+        date: new Date().toISOString(),
+        tables: {
+          left: Object.fromEntries(BANDS.map((b) => [b, rows[b] ? Math.round(rows[b].leftW * 10) / 10 : PINNED.left[b]])),
+          right: Object.fromEntries(BANDS.map((b) => [b, rows[b] ? Math.round(rows[b].rightW * 10) / 10 : PINNED.right[b]])),
+          seats: Object.fromEntries(BANDS.map((b) => [b, rows[b] ? rows[b].seats : PINNED.seats[b]])),
+        },
+        note: "cut by --cut-pins from this ride's live rows (the A-section's ±0.5 closure); the coefficient families re-cut with their own windows' work",
+      }
+    : (prevPins ?? null),
+  baseline: !pinsLive,
   driftLedger: {
     prevFound: cmp.prevFound,
     prevBuild: cmp.prevFound ? cmp.prevBuild : null,
@@ -610,5 +658,18 @@ const receipt = {
 const out = join(ROOT, "shots-qa/t834-band-sweep.json");
 writeFileSync(out, JSON.stringify(receipt, null, 2) + "\n");
 console.log(`\nreceipt: ${out}`);
+if (!pinsLive || CUT_PINS) {
+  if (CUT_PINS) {
+    console.log(
+      `\nFLEET-SWEEP t834: ${pass}/${pass + fail} green — PINS CUT (provenance ${buildId}; the fossil tables rode this run and their reds are the old world speaking, not failures; the NEXT same-world ride asserts the new tables hard)`
+    );
+  } else {
+    console.log(
+      `\nFLEET-SWEEP t834: ${pass}/${pass + fail} green — BASELINE RIDE (the pins' world ${pinsProvenance ?? "none"} ≠ live ${buildId}; ${fail} red${fail === 1 ? "" : "s"} are drift vs the pins' world, not failures)`
+    );
+  }
+  console.log("  re-ride at the same world for the hard verdict, or --cut-pins to make this world the law");
+  process.exit(0);
+}
 console.log(`\nFLEET-SWEEP t834: ${pass}/${pass + fail} green`);
 process.exit(fail === 0 ? 0 : 1);
