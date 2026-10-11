@@ -27,7 +27,7 @@ import { Kbd } from "@/components/ui/kbd"; // t830 — the door's keymap speaks 
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { PENDING_SHARE_KEY, PENDING_VIEW_KEY, SAVED_VIEWS_CHANGED_EVENT, SHARE_PAYLOAD_MAX, SharePayload, decodeSharePayload, encodeSharePayload } from "@/lib/view-link";
-import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail } from "./map-ortho-panel";
+import { ORTHO_SLICE_EVENT, ORTHO_SLICE_STATE_EVENT, ORTHO_CLIP_STATE_EVENT, ORTHO_FOCUS_EVENT, ORTHO_FOCUS_RESTORE_EVENT, ORTHO_SIGMA_STATE_EVENT, ORTHO_SIGMA_REQUEST_EVENT, ORTHO_SIGMA_SET_EVENT, OBLIQUE_VIEW_EVENT, OBLIQUE_CLIP_EVENT, OBLIQUE_CLIP_STATE_EVENT, OBLIQUE_VERB_EVENT, ORTHO_CAMERA_REQUEST_EVENT, ORTHO_CAMERA_STATE_EVENT, OrthoCameraStateDetail, ObliqueVerbDetail } from "./map-ortho-panel";
 import { useWorkflowStore } from "@/lib/store";
 import { fmtBytes } from "@/lib/canvas-export";
 import { encodeGifFrames } from "@/lib/gif-export";
@@ -1514,7 +1514,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   // if it slept), and , / . (with shift: < / >) scrub the plane along its
   // axis once it is on — the panel is closed when the plane sleeps, so the
   // scrub keys deliberately do nothing then: no spooky action on an
-  // invisible plane. Scoped to the viewer being ready; form fields and
+  // invisible plane. t908 gives the OBLIQUE plane its verbs: C toggles the
+  // 3D cut (a cut out retires; none out wakes the sleeping block and cuts
+  // at its plane — the X/Y/Z wake law), J faces the camera down the block's
+  // plane (⌖ — the block refuses when it sleeps), A adopts the view (⤸ —
+  // the block wakes BY CAMERA), and ; / ' (shift: : / ") nudge the cut's
+  // depth along its own normal (fine = the slider's 2%, shift the coarser
+  // 10% — the < > law; the block refuses when it sleeps). The verbs ride
+  // the ONE verb wire and the block executes with its own hands — every
+  // provenance/flash/debounce law the buttons obey, the keys obey.
+  // Scoped to the viewer being ready; form fields and
   // open menus keep their keys.
   useEffect(() => {
     if (phase !== "ready") return;
@@ -1590,6 +1599,36 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         const dir = e.key === "," || e.key === "<" ? -1 : 1;
         const next = Math.min(1, Math.max(0, sliceStateRef.current.pos + dir * step));
         applySliceIntent({ pos: Math.round(next * 100) / 100 });
+      } else if (e.key === "c" || e.key === "C") {
+        // t908 — the ✂ verb: a cut out retires (the chip's × verb, the ACK
+        // follows the block's ✂ face); none out wakes the sleeping block
+        // and cuts at its plane (the X/Y/Z wake law — the block expands,
+        // the tile loads, the cut rides its own settle debounce)
+        e.preventDefault();
+        if (obliqueClipRef.current.on) applyObliqueClipIntent({ on: false });
+        else window.dispatchEvent(new CustomEvent(OBLIQUE_VERB_EVENT, { detail: { verb: "cut" } satisfies ObliqueVerbDetail }));
+      } else if (e.key === "j" || e.key === "J") {
+        // t908 — the ⌖ verb: face the camera down the block's plane. The
+        // block refuses when it sleeps (the ,/. law — no spooky
+        // default-plane jumps); awake, its own jumpToView runs (the
+        // provenance chip, the roll-canonical up, the synchronous answer)
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(OBLIQUE_VERB_EVENT, { detail: { verb: "jump" } satisfies ObliqueVerbDetail }));
+      } else if (e.key === "a" || e.key === "A") {
+        // t908 — the ⤸ verb: the view you're orbiting becomes the cut. The
+        // block wakes BY CAMERA (its answer handler sets on itself — the
+        // adopt is a wake verb), the provenance ⤸ and the violet flash ride
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(OBLIQUE_VERB_EVENT, { detail: { verb: "adopt" } satisfies ObliqueVerbDetail }));
+      } else if (e.key === ";" || e.key === ":" || e.key === "'" || e.key === '"') {
+        // t908 — the depth dial: ; ' nudge the cut's offset along its own
+        // normal (fine = the slider's own 2%), : " the shift-coarser 10%
+        // (the < > law). The block refuses when it sleeps — the same
+        // silence the slice's scrub keys speak on an invisible plane
+        e.preventDefault();
+        const dir = e.key === ";" || e.key === ":" ? -1 : 1;
+        const coarse = e.key === ":" || e.key === '"';
+        window.dispatchEvent(new CustomEvent(OBLIQUE_VERB_EVENT, { detail: { verb: "offset", dir, coarse } satisfies ObliqueVerbDetail }));
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -6828,6 +6867,23 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   <Kbd>,</Kbd>
                   <Kbd>.</Kbd>
                   <span className="ml-0.5">scrub it</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>C</Kbd>
+                  <span className="ml-0.5">cut in 3D</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>J</Kbd>
+                  <span className="ml-0.5">face the cut</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>A</Kbd>
+                  <span className="ml-0.5">adopt the view</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>;</Kbd>
+                  <Kbd>'</Kbd>
+                  <span className="ml-0.5">depth</span>
                 </span>
               </div>
               <div className="flex gap-1">

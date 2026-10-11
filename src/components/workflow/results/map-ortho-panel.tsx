@@ -125,6 +125,31 @@ export const OBLIQUE_CLIP_EVENT = "cryoflow:oblique-clip";
  *  block's sliders — without the echo, a later scrub would silently
  *  resurrect a cut the viewer already dismissed (the toggle would lie). */
 export const OBLIQUE_CLIP_STATE_EVENT = "cryoflow:oblique-clip-state";
+/** 3D → 2D (t908): the KEYBOARD's verb half. The viewer's one key face
+ *  (the embed's gated keydown — the t829/t831 gates) requests the block's
+ *  OWN gestures over ONE wire, and the block executes with its own hands:
+ *  provenance, the adopt flash, the settle debounce and the ✂ mirror all
+ *  ride the same paths the buttons use (no second implementation to
+ *  drift). The verb alphabet speaks the house laws:
+ *    - "cut"   — the ✂ verb; wakes a sleeping block and cuts at its
+ *                plane (the slice verbs' X/Y/Z wake law: turning it on
+ *                if it slept);
+ *    - "jump"  — the ⌖ verb; demands the block ON (the scrub verbs'
+ *                sleep law — no spooky default-plane jumps);
+ *    - "adopt" — the ⤸ verb; the request→answer→wake law (the block
+ *                wakes BY CAMERA, its own provenance rides);
+ *    - "offset"— the depth dial; demands ON too; dir ±1 along n, the
+ *                shift step is the coarser one (the < > law).
+ *  When the block sleeps, jump/offset do nothing — the key's silence IS
+ *  the honesty (",/.” deliberately do nothing then” — the same sentence). */
+export const OBLIQUE_VERB_EVENT = "cryoflow:oblique-verb";
+export interface ObliqueVerbDetail {
+  verb: "cut" | "jump" | "adopt" | "offset";
+  /** offset direction: −1 toward −n, +1 toward +n */
+  dir?: -1 | 1;
+  /** shift = the coarser step (the < > law) */
+  coarse?: boolean;
+}
 export interface ObliqueViewDetail {
   /** unit plane normal in grid coords */
   normal: [number, number, number];
@@ -1786,6 +1811,40 @@ function ObliqueSectionBlock({
   const adoptCamera = () => {
     window.dispatchEvent(new CustomEvent(ORTHO_CAMERA_REQUEST_EVENT));
   };
+
+  // t908 — the keyboard's verb half: the viewer's key face (the embed's
+  // ONE gated keydown) requests this block's OWN gestures over the verb
+  // wire, and every law these buttons already obey rides along — the
+  // provenance chip, the adopt flash, the 140ms settle debounce, the ✂
+  // mirror. The wake/sleep laws live HERE (the block knows on/off; the
+  // embed's mirror only knows the cut): "cut" wakes a sleeping block
+  // (the slice's X/Y/Z law), "jump" and "offset" demand ON (the ,/. law —
+  // an invisible plane must not move, a default plane must not be faced),
+  // "adopt" wakes BY CAMERA (the answer handler sets on itself). The
+  // listener re-subscribes on the state it reads — the captured gestures
+  // are never stale (the frame ⌖ faces is THIS render's frame).
+  useEffect(() => {
+    const onVerb = (e: Event) => {
+      const d = (e as CustomEvent<ObliqueVerbDetail>).detail;
+      if (!d || typeof d.verb !== "string") return;
+      if (d.verb === "cut") {
+        setOn(true);
+        setCut3d(true);
+      } else if (d.verb === "jump") {
+        if (!on) return;
+        jumpToView();
+      } else if (d.verb === "adopt") {
+        adoptCamera();
+      } else if (d.verb === "offset") {
+        if (!on) return;
+        const dir = d.dir === -1 ? -1 : 1;
+        const step = d.coarse === true ? 10 : 2;
+        scrubOffset(Math.min(100, Math.max(-100, offset + dir * step)));
+      }
+    };
+    window.addEventListener(OBLIQUE_VERB_EVENT, onVerb);
+    return () => window.removeEventListener(OBLIQUE_VERB_EVENT, onVerb);
+  }, [on, theta, phi, offset]);
 
   return (
     <div className="border-t border-border/60 px-3 pb-3 pt-2" data-canvas-ui="ortho-oblique" data-oblique-state={on ? "on" : "off"}>
