@@ -445,7 +445,7 @@ export function ImportGallery({
           "i of n" so the walk has a place in the world */}
       <Dialog open={selected != null} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent
-          className="max-w-2xl sm:max-w-2xl"
+          className="sm:max-w-2xl"
           data-gallery-ui="lightbox"
           onKeyDown={(e) =>
             lightboxKeydown(e, micrographs.length, step, () => setSelected(null))
@@ -485,7 +485,7 @@ export function ImportGallery({
           wider grid is a grid nobody will ever fill). */}
       <Dialog open={compareOpen} onOpenChange={(open) => !open && setCompareOpen(false)}>
         <DialogContent
-          className="max-w-4xl sm:max-w-4xl"
+          className="sm:max-w-4xl"
           data-gallery-ui="compare-dialog"
           onKeyDown={onEscapeClose(() => setCompareOpen(false))}
         >

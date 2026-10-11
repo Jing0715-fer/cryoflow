@@ -155,7 +155,7 @@ export function ParamsDiffDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-lg gap-3"
+        className="sm:max-w-lg gap-3"
         data-canvas-ui="params-diff-dialog"
         data-testid="params-diff-dialog"
       >

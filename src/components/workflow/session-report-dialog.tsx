@@ -1604,7 +1604,7 @@ export default function SessionReportDialog({
       <DialogContent
         data-report-doc
         data-md={md}
-        className="max-w-4xl sm:max-w-4xl"
+        className="sm:max-w-4xl"
         aria-label="Session QC report"
       >
         <DialogHeader className="no-print">

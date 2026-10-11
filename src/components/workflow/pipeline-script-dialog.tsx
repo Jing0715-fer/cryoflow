@@ -140,7 +140,7 @@ export function PipelineScriptDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-3xl"
+        className="sm:max-w-3xl"
         onKeyDown={onEscapeClose(() => onOpenChange(false))}
         data-canvas-ui="pipeline-script-dialog"
       >

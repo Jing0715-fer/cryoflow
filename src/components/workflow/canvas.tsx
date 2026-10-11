@@ -838,7 +838,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
       {/* Task 127 — name-and-save the selection as a reusable template.
           The dialog steals focus for typing; Enter saves, Esc cancels. */}
       <Dialog open={tplOpen} onOpenChange={setTplOpen}>
-        <DialogContent className="max-w-sm gap-3" data-canvas-ui="save-template-dialog">
+        <DialogContent className="sm:max-w-sm gap-3" data-canvas-ui="save-template-dialog">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <LayoutTemplate className="size-4 text-primary" aria-hidden="true" />

@@ -164,7 +164,7 @@ export function ImportWorkflowDialog() {
         if (!o) closePreview();
       }}
     >
-      <DialogContent className="max-w-md gap-4" data-canvas-ui="import-workflow-dialog">
+      <DialogContent className="sm:max-w-md gap-4" data-canvas-ui="import-workflow-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <ArrowDownToLine className="size-4 text-running-600" aria-hidden="true" />

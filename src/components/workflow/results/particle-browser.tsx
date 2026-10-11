@@ -323,7 +323,7 @@ function GroupSection({
       {/* single-particle lightbox */}
       <Dialog open={zoomed != null} onOpenChange={(o) => !o && setZoomed(null)}>
         <DialogContent
-          className="max-w-md sm:max-w-md"
+          className="sm:max-w-md"
           onKeyDown={onEscapeClose(() => setZoomed(null))}
         >
           {zoomed ? (

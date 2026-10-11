@@ -61,6 +61,16 @@
  * ctx tnum), so the num's own rect stays the honest ruler and the
  * canvas/rect delta is bounded and NAMED, not pinned to 0.
  *
+ * t912 SETTLE GATE — the fixed sleeps RETIRED (the t911 finding seated):
+ * the first two rides at the t911 key died 'wordmark div not found' —
+ * a freshly killed browser against a still-settling dev server raced
+ * the recompile, and `wait 500`/`wait 350` bought no honesty, just a
+ * fixed prayer. The t909 judge-line already owns the law: a click (or a
+ * measure) lands only when it sees. Both openings now POLL for the
+ * seat itself (the wordmark div; the 2xl chip) — bounded 20s, the
+ * presence arm rides as W7a/C1a, and a seat that never mounts fails
+ * LOUDLY instead of measuring a rumor.
+ *
  * Section C (t838): the LENS CHIP's 90 — the text-constants family's
  * last seat, the audit's LAST pinned width. The chip (header.tsx, the
  * t510 yield-first law's yielder) is a BOX derivation, not a bare text:
@@ -147,9 +157,29 @@ console.log(`t837 wordmark probe — world ${world.mode}:${buildId}, band 1024 (
  * live-captured on this window's first ride). Open first, own the world. */
 ab("open http://localhost:3000/");
 ab("set viewport 1024 800");
-ab("wait 500");
+
+/* t912 settle gate: poll for the seat, never sleep a fixed prayer. A
+ * fresh browser against a still-settling server (recompile, cold fonts,
+ * hydration) needs PRESENCE, not milliseconds — the loop re-reads the
+ * DOM up to ~20s and treats an unopenable page-mouth as 'not yet'. */
+let seatSeen = false;
+for (let i = 0; i < 40 && !seatSeen; i++) {
+  try {
+    const gate = evalJson(
+      "JSON.stringify({ wm: !!document.querySelector('header div.min-w-0.leading-tight') })"
+    );
+    if (gate && gate.wm === true) seatSeen = true;
+  } catch {
+    /* the page's mouth is not open yet — keep polling */
+  }
+  if (!seatSeen) ab("wait 500");
+}
 
 /* ---------- W7 first: the fonts precondition ---------- */
+ok(
+  seatSeen,
+  "W7a the settle gate: the wordmark seat PRESENT before the ride (polled to presence, the t911 transient's fix — no fixed sleep)"
+);
 let fontStatus = "";
 for (let i = 0; i < 5; i++) {
   fontStatus = evalJson("document.fonts.status");
@@ -224,7 +254,25 @@ ok(
  * is variant-dependent (tabular-nums) — its own live rect is the honest
  * ruler; the canvas advance rides as the recorded cross-check (C6). */
 ab("set viewport 1536 800");
-ab("wait 350");
+/* t912 settle gate, the chip's leg: `set viewport` RELOADS the page
+ * (the t910 law) — the chip is a fresh mount after the dance, so the
+ * same presence poll replaces `wait 350`. */
+let chipSeen = false;
+for (let i = 0; i < 40 && !chipSeen; i++) {
+  try {
+    const gate = evalJson(
+      "JSON.stringify({ chip: [...document.querySelectorAll('header button')].some((b) => (typeof b.className === 'string' ? b.className : b.getAttribute('class') || '').includes('2xl:flex')) })"
+    );
+    if (gate && gate.chip === true) chipSeen = true;
+  } catch {
+    /* the reload's mouth is not open yet — keep polling */
+  }
+  if (!chipSeen) ab("wait 500");
+}
+ok(
+  chipSeen,
+  "C1a the settle gate, chip leg: the 2xl chip PRESENT after the viewport dance (polled, the t910 reload law respected)"
+);
 const CHIP_MEASURE =
   "(() => { const cls = (c) => (typeof c.className === 'string' ? c.className : c.getAttribute('class') || ''); const chip = [...document.querySelectorAll('header button')].find((b) => cls(b).includes('2xl:flex')); if (!chip) return JSON.stringify({ error: 'chip not found' }); const r = chip.getBoundingClientRect(); const cs = getComputedStyle(chip); const kids = [...chip.children]; const icon = kids.find((c) => c.tagName === 'svg'); const numEl = kids.find((c) => /^[0-9]+$/.test((c.textContent || '').trim())); const notedEl = kids.find((c) => c.textContent === 'noted'); if (!icon || !numEl || !notedEl) return JSON.stringify({ error: 'chip kids incomplete' }); const ctx = document.createElement('canvas').getContext('2d'); const adv = (el) => { const s = getComputedStyle(el); ctx.font = s.fontStyle + ' ' + s.fontWeight + ' ' + s.fontSize + ' ' + s.fontFamily; return Math.round(ctx.measureText(el.textContent).width * 100) / 100; }; const numRect = Math.round(numEl.getBoundingClientRect().width * 100) / 100; const notedRect = Math.round(notedEl.getBoundingClientRect().width * 100) / 100; const chrome = parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth) + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.gap) * (kids.length - 1); const derived = Math.round((chrome + icon.getBoundingClientRect().width + numRect + adv(notedEl)) * 100) / 100; return JSON.stringify({ rect: Math.round(r.width * 100) / 100, cls: cls(chip).slice(0, 140), visible: r.width > 0, bw: cs.borderLeftWidth, pl: cs.paddingLeft, gap: cs.gap, kidCount: kids.length, iconW: Math.round(icon.getBoundingClientRect().width * 100) / 100, count: numEl.textContent, numRect, numCanvas: adv(numEl), notedRect, notedCanvas: adv(notedEl), chrome: Math.round(chrome * 100) / 100, derived }); })()";
 

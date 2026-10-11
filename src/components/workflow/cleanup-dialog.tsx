@@ -282,7 +282,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           data-cleanup-dialog=""
-          className="flex max-h-[85vh] w-full max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
+          className="flex max-h-[85vh] w-full sm:max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
         >
           <DialogHeader className="shrink-0 border-b px-5 py-4 sm:px-6">
             <DialogTitle className="flex items-center gap-2 text-sm font-semibold">

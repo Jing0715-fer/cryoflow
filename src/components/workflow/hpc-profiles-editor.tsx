@@ -304,7 +304,7 @@ export function HpcProfilesEditor({
           is a named keyboard region so its ground is reachable without a
           mouse. */}
       <DialogContent
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 max-w-4xl"
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
         onKeyDown={onEscapeClose(() => setOpen(false))}
       >
         <DialogHeader className="shrink-0 border-b px-5 pb-4 pt-5">

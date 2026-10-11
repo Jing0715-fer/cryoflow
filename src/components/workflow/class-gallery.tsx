@@ -1247,7 +1247,7 @@ export function ClassGallery({
         }}
       >
         <DialogContent
-          className="max-w-2xl gap-0 overflow-hidden p-0"
+          className="sm:max-w-2xl gap-0 overflow-hidden p-0"
           onKeyDown={onLightboxKey}
           aria-describedby={undefined}
           onCloseAutoFocus={(e) => {

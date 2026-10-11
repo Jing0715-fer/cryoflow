@@ -2933,7 +2933,7 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
           keyboard face (the tail takes the focus; arrows scroll it). */}
       <Dialog open={textFile !== null} onOpenChange={(o) => !o && setTextFile(null)}>
         <DialogContent
-          className="max-w-3xl sm:max-w-3xl"
+          className="sm:max-w-3xl"
           onKeyDown={onEscapeClose(() => setTextFile(null))}
         >
           {textFile && (
@@ -2954,7 +2954,7 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
       </Dialog>
       <Dialog open={starFile !== null} onOpenChange={(o) => !o && setStarFile(null)}>
         <DialogContent
-          className="max-w-4xl sm:max-w-4xl"
+          className="sm:max-w-4xl"
           onKeyDown={onEscapeClose(() => setStarFile(null))}
         >
           {starFile && (

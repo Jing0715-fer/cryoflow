@@ -785,7 +785,7 @@ export function TemplatePresetsDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
-        className="max-w-lg gap-4"
+        className="sm:max-w-lg gap-4"
         data-canvas-ui="template-presets-dialog"
         onEscapeKeyDown={(e) => {
           if (shelfEditing) e.preventDefault();
