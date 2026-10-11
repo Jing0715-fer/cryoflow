@@ -1,7 +1,7 @@
 {
   "instrument": "scripts/t842-family-audit.mjs",
-  "build": "dev@608086f69e7c",
-  "date": "2026-10-11T19:50:20.942Z",
+  "build": "dev@57fafc1f2056",
+  "date": "2026-10-11T20:08:09.647Z",
   "form": "the t901 re-form — the LIVING family (sweep + t837 + t846); the residue trio retired with headstones",
   "headstones": {
     "t839": "RETIRED (the t901 premise audit): the T510 paint residue died with the fallback-font world — t895 measured trigR−chipL = −32.8 (a GAP, not paint) and retired the fix candidate with the experiment as its headstone; t897 cut the GAP law into the sweep. The instrument refuses to ride; its fossil receipt stays untouched as provenance.",
@@ -17,17 +17,17 @@
   "sources": {
     "sweep": {
       "file": "shots-qa/t834-band-sweep.json",
-      "date": "2026-10-11T19:49:46.171Z",
+      "date": "2026-10-11T20:07:25.335Z",
       "role": "the zone/band/pinned laws — the Geist world’s own tables (83/83), the GAP law’s owner"
     },
     "t837": {
       "file": "shots-qa/t837-wordmark-probe.json",
-      "date": "2026-10-11T19:49:55.631Z",
+      "date": "2026-10-11T20:07:31.266Z",
       "role": "the text-constants family — the Geist re-pin + the tnum variant-witness"
     },
     "t846": {
       "file": "shots-qa/t846-a11y-maintenance.json",
-      "date": "2026-10-11T19:50:20.338Z",
+      "date": "2026-10-11T20:08:01.044Z",
       "role": "the census — the re-keyed floors + the drift ledger (the reproducibility axis)"
     },
     "retired": {
@@ -39,17 +39,17 @@
     {
       "name": "F0.a the sweep is the standing world",
       "pass": true,
-      "detail": "dev@608086f69e7c vs dev@608086f69e7c (dev)"
+      "detail": "dev@57fafc1f2056 vs dev@57fafc1f2056 (dev)"
     },
     {
       "name": "F0.b t837 rides the same world",
       "pass": true,
-      "detail": "dev@608086f69e7c vs dev@608086f69e7c"
+      "detail": "dev@57fafc1f2056 vs dev@57fafc1f2056"
     },
     {
       "name": "F0.c t846 rides the same world",
       "pass": true,
-      "detail": "dev@608086f69e7c vs dev@608086f69e7c"
+      "detail": "dev@57fafc1f2056 vs dev@57fafc1f2056"
     },
     {
       "name": "F1.a the gap, not the paint: 1280 rides a NEGATIVE overlap with the trigger at its floor",
@@ -84,7 +84,7 @@
     {
       "name": "F3.pre the active book is aboard and world-stamped: pins.provenanceWorld == the receipt’s build",
       "pass": true,
-      "detail": "provenanceWorld=dev@608086f69e7c vs build=dev@608086f69e7c — \"cut by --cut-pins from this ride's live rows (the A-section'\""
+      "detail": "provenanceWorld=dev@57fafc1f2056 vs build=dev@57fafc1f2056 — \"cut by --cut-pins from this ride's live rows (the A-section'\""
     },
     {
       "name": "F3.a the ACTIVE pinned == the bands under the sweep’s own ±0.5 law (left/right/seats × 6 widths)",

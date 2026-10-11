@@ -1,10 +1,10 @@
 {
   "provenance": {
-    "buildId": "dev@608086f69e7c",
+    "buildId": "dev@57fafc1f2056",
     "worldMode": "dev",
     "viewport": "1024x800 (the A4e-3 natural band); the chip at 1536x800 (2xl)",
     "instrument": "canvas measureText under the elements' own computed fonts, letter-spacing applied (two models), max-of-lines for the wordmark box, chrome+icon+advances for the chip box; the tabular count's advance from its own live rect",
-    "date": "2026-10-11T19:49:55.631Z"
+    "date": "2026-10-11T20:07:31.266Z"
   },
   "bitIdentical": true,
   "runs": [
@@ -126,8 +126,8 @@
   },
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@02818c320672",
-    "prevDate": "2026-10-11T19:44:34.116Z",
+    "prevBuild": "dev@608086f69e7c",
+    "prevDate": "2026-10-11T19:49:55.631Z",
     "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {

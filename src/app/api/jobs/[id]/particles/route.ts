@@ -5,6 +5,21 @@ import { db } from "@/lib/db";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
+import { cachedFileCompute } from "@/lib/relion/statcache";
+
+// t904 — the #8 audit's living remainder: the BFS N+1 the recital named
+// died batches ago (one edge query per depth level, one job query per
+// batch — the doctrine the picks route cites), but the SAME route carried
+// a real hot path: parseParticlesStar re-read + re-parsed the WHOLE
+// particles star on EVERY request — every page fetch of 48 rows paid a
+// full 13k-row parse — and the decode loop stat'ed the same stack path
+// once per ROW. The parse is pure text→shape (the statcache contract's
+// exact fit: it changes only when the star's (size, mtime) changes); the
+// decode is deliberately NOT cached across requests — its dependency
+// surface (existsSync on stack files, the upstream BFS, the DB) is the
+// mtime key's blind spot, so it stays per-request and only the storm
+// collapses (a per-request memo keyed by stack path). The asymmetry is
+// the policy, not an oversight.
 
 export const dynamic = "force-dynamic";
 
@@ -91,17 +106,22 @@ function findParticlesStar(workdir: string): string | null {
  * Block-aware parser: reads data_optics scalars + the data_particles loop
  * into flat row records. Reuses the label-column mapping approach used by
  * the CTF route (first row freezes the column order).
+ *
+ * t904 — pure (text → shape) so the call site can ride cachedFileCompute
+ * under the "particles:star" computeId: between RELION writes the parse
+ * is a single statSync. The returned shape is SHARED across requests
+ * while the star is unchanged — the route only reads it; a future writer
+ * must clone before mutating (the statcache serves the same instance).
  */
 interface StarRow {
   cells: string[];
   labels: Record<string, number>;
 }
 
-function parseParticlesStar(file: string): {
+function parseParticlesStarText(text: string): {
   optics: ParticlesResponse["optics"];
   rows: StarRow[];
 } {
-  const text = readFileSync(file, "utf8");
   const lines = text.split(/\r?\n/);
 
   const optics: ParticlesResponse["optics"] = {
@@ -248,7 +268,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "No particles STAR file in this job" }, { status: 400 });
     }
 
-    const { optics, rows } = parseParticlesStar(starPath);
+    const parsed = cachedFileCompute(starPath, "particles:star", parseParticlesStarText);
+    if (!parsed) {
+      // findParticlesStar just verified existence — this door only opens if
+      // the file vanished between the listing and the read (honest 400)
+      return NextResponse.json({ error: "No particles STAR file in this job" }, { status: 400 });
+    }
+    const { optics, rows } = parsed;
     if (rows.length === 0) {
       return NextResponse.json({ error: "No particle rows parsed" }, { status: 400 });
     }
@@ -331,6 +357,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return { ownerJobId: id, stackRel: path.basename(stackAbs) };
     };
 
+    // t904 — the stack facts memo: a star's rows repeat the same handful
+    // of stack paths (one per micrograph), but the old loop stat'ed the
+    // SAME file once per ROW — 13k particles = 13k stat syscalls per
+    // request, every page fetch included. One Map collapses the storm to
+    // #distinct stacks; the value null = the stack is absent. The memo is
+    // PER-REQUEST by design — FS state is the star mtime key's blind spot
+    // (an extract still writing stacks must not be frozen by a cache).
+    const stackFacts = new Map<
+      string,
+      { ownerJobId: string; stackRel: string } | null
+    >();
+    const factsFor = (stackAbs: string) => {
+      let f = stackFacts.get(stackAbs);
+      if (f === undefined) {
+        f = existsSync(stackAbs) ? resolveOwner(stackAbs) : null;
+        stackFacts.set(stackAbs, f);
+      }
+      return f;
+    };
+
     const decoded: Decoded[] = [];
     for (const r of rows) {
       const imgCell = r.cells[r.labels["_rlnImageName"]];
@@ -341,9 +387,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       const stackAbs = path.isAbsolute(parsed.stack)
         ? parsed.stack
         : path.resolve(workdir, parsed.stack.replace(/^\.?\//, ""));
-      const { ownerJobId, stackRel } = existsSync(stackAbs)
-        ? resolveOwner(stackAbs)
-        : { ownerJobId: id, stackRel: relativize(workdir, parsed.stack) };
+      const { ownerJobId, stackRel } =
+        factsFor(stackAbs) ?? {
+          ownerJobId: id,
+          stackRel: relativize(workdir, parsed.stack),
+        };
       decoded.push({
         mic,
         name: path.basename(mic),
