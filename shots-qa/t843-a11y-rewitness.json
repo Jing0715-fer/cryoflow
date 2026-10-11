@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t843-a11y-rewitness.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@b322658c7c45",
+  "build": "dev@cf76fd9a5777",
   "worldMode": "dev",
-  "date": "2026-10-11T17:05:03.107Z",
+  "date": "2026-10-11T18:58:16.743Z",
   "viewport": {
     "w": 1280,
     "h": 577
@@ -17,7 +17,7 @@
       "live": [
         {
           "url": "/",
-          "btns": 109,
+          "btns": 125,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -30,7 +30,7 @@
         },
         {
           "url": "/",
-          "btns": 109,
+          "btns": 125,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -53,7 +53,7 @@
       "live": [
         {
           "url": "/",
-          "btns": 71,
+          "btns": 104,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -66,7 +66,7 @@
         },
         {
           "url": "/",
-          "btns": 71,
+          "btns": 104,
           "unBtns": 0,
           "unBtnsWho": [],
           "imgs": 0,
@@ -87,7 +87,7 @@
     {
       "label": "A1 canvas rides bit-identical",
       "pass": true,
-      "detail": "btns=109 imgs=0 ctrls=2"
+      "detail": "btns=125 imgs=0 ctrls=2"
     },
     {
       "label": "A2 canvas zero unnamed buttons",
@@ -102,7 +102,7 @@
     {
       "label": true,
       "pass": true,
-      "detail": "live=109 (floor 109, drift +0)"
+      "detail": "live=125 (floor 109, drift +16)"
     },
     {
       "label": "A5a the switcher clicked",
@@ -112,12 +112,12 @@
     {
       "label": "A5b the dashboard face arrived",
       "pass": true,
-      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=71"
+      "detail": "heading=\"β-Galactosidase Tutorial (demo)\" btns=104"
     },
     {
       "label": "A6 dashboard rides bit-identical",
       "pass": true,
-      "detail": "btns=71 imgs=0"
+      "detail": "btns=104 imgs=0"
     },
     {
       "label": "A7 dashboard zero unnamed buttons",
@@ -132,16 +132,16 @@
     {
       "label": true,
       "pass": true,
-      "detail": "live=71 (floor 71, drift +0)"
+      "detail": "live=104 (floor 71, drift +33)"
     },
     {
       "label": "A10 world unharmed (canvas back, switcher aboard)",
       "pass": true,
-      "detail": "btns=109 heading=\"Main\""
+      "detail": "btns=125 heading=\"Main\""
     }
   ],
   "passed": 11,
   "failed": 0,
   "total": 11,
-  "verdict": "the census's zero-unnamed invariant holds on the cheap honesty pair: 180 button-views across two faces, none without a name; the floors are the re-seeded world's own (109/71 — the t698 census's 142/114 is the fossil provenance; the annihilate + migration replaced that DOM) and every seat still speaks; the decorative alt=\"\" trap caught the probe once (the t695 law's second bite) and the UI walked clean"
+  "verdict": "the census's zero-unnamed invariant holds on the cheap honesty pair: 229 button-views across two faces, none without a name; the floors are the re-seeded world's own (109/71 — the t698 census's 142/114 is the fossil provenance; the annihilate + migration replaced that DOM) and every seat still speaks; the decorative alt=\"\" trap caught the probe once (the t695 law's second bite) and the UI walked clean"
 }

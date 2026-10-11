@@ -15568,3 +15568,23 @@ t902 next-window entry:
 Ledger: the world's src gained src/lib/fsc-restore.ts + the dialog's whisper (the only src change; the header untouched — six bands +0); the pin provenance **dev@cf76fd9a5777**; tsc/eslint clean; the browser closed; the qa car (the audit's re-forms + the retirements + the whisper + the sweep's fixes + the receipts + the unit) and the docs car follow, push after.
 
 Addendum (the docs car): the ledger line above named two cars, but the qa car (84347e9c) carried the worklog with it — one car this window, pushed; the entry's "two cars" phrasing is corrected here rather than rewritten (the honest tail over the tidy one).
+
+---
+## Task 902 — checkpoint (mid-window)
+
+Window: cron 2026-10-12 02:56:35 (trace `1a07549302235a99-cron-agent-loop-202610120256`, Job 362852). Bed rolled to the t902 entry the t901 tail wrote. Non-build day the 38th window (**available 1267MB < 3280MB** at the gate; 1024–1109MB between resident legs, the browser opened last and closed first at every leg).
+
+Gate: the window-start doctor **CLEAN** (one world — .env matches the server pin; ghost-free registry; the phantom door refusing a synthetic id, pointer unmoved); :3000 → 200; the chip unit **22/22** (via the alias loader). The tree clean at b95189bd, both t901 cars pushed.
+
+**THE CENSUS RE-ALIGNMENT AT dev@cf76fd9a5777 (the t902 bed's first candidate) — COMPLETE, every arm green:**
+- t887 topaz parser unit **32/32**; t888 route conversation **18/18**; t889 pairs anatomy **18/18** (the trio's curl legs, node-only, no browser);
+- t843 a11y re-witness **11/11** (canvas 125 seats / dashboard 104, zero unnamed on both faces, the floors +16/+33 honest);
+- **t846 re-ride 27/27** — the window's deferred protagonist un-deferred: the receipt RE-KEYED **db9ee0d726b2 → dev@cf76fd9a5777** (M21–M24 spoke arm 2, drift +0 informational on all four faces); **t842's F0.c gate UN-GATED** — the family re-run **22/22** the same hour (F5.c two-books-one-count, F6.a/F6.b the ledgers agreeing receipt-to-receipt).
+
+**THE FSC-COMPARE WHISPER'S LIVE WITNESS (the bed's second candidate) — PAID, 23/23 ×2 settled**: t901 shipped the whisper with the live witness honestly NOT granted (zero FSC-bearing jobs in the re-seeded world). This window minted the door WITHOUT minting permanent rows: **the door from file presence** — the fsc-index classifies a workdir by readdir, so the instrument seeded a synthetic `run_half1_model.star` (the qa64 star shape, one crossing law per job: k = 7.0 + i·0.6) into seven completed topazdenoise witnesses' workdirs; fsc-index answered 0 → 7 → 0 around the witness, and every seeded file was removed in the crash-safe finally (workdirs byte-for-byte, the bucket re-absent, the door honestly closed).
+- The whisper BORN at [data-testid=fsc-compare-restore-whisper] with the exact one line: "2 remembered curves didn't return — 1 no longer in the index · 1 over the 6-curve cap" (the ghost id vanished + the eighth saved id cap-eaten — collectRestoreEdits' arithmetic witnessed live, launcher seated first, 6/6 badge, the capped row UNCHECKED), the house voice witnessed (font-mono + fuchsia, the t899 grammar), and the DISARM witnessed (the user's first pick → silence, badge 5/6, the bucket rewritten to the LIVE 5-id truth).
+- **Three live captures on the way to green**: (1) CANVAS CARDS OVERLAP — the twelve topazdenoise witnesses were minted at one default spot, a STACK, and the click at the t894 card's center opened the T899 inspector above it (the first run's W0b NO-ELEMENT was the symptom); the fix is the hit-test walk: the launcher is the first candidate whose button center hit-tests to ITSELF (elementFromPoint), which also made the pick ordering latest-first (the stack's top card must be IN the picks). (2) The badge regex `\b\d+\/6\b` could never match the h2's "curves6/6" — element text runs together, no word boundary before the digit; the boundary-free /(\d+)\/6/ is the honest matcher. (3) The parse-twice law held again (the t899 eval tongue); the restore arithmetic's launcher-agnosticism (the launcher dedupes wherever it sits in the saved list) is what made the hit-test-chosen launcher legal.
+
+Receipts: shots-qa/t846-a11y-maintenance.json (provenance dev@cf76fd9a5777), t842, t843 re-keyed; shots-qa/t902-fsc-whisper-witness.json (23/23 ×2). No src change — the world key stands at **dev@cf76fd9a5777**; no --cut-pins needed this window so far.
+
+Next in this window: the style round three's next seat (the find bar's chips / the assistant panel's geometry), then the Task 902 entry + the car.
