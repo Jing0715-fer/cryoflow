@@ -72,25 +72,44 @@ function finding(line) {
 
 function serverDatabaseUrl() {
   try {
-    const out = execSync("pgrep -f 'next-server' | head -1", { encoding: "utf8" }).trim();
-    if (!out) return null;
-    const pid = Number(out);
-    const env = readFileSync(`/proc/${pid}/environ`, "utf8");
-    const hit = env.split("\0").find((kv) => kv.startsWith("DATABASE_URL="));
-    if (hit) return { pid, url: hit.slice("DATABASE_URL=".length), source: "process env (the pin)" };
-    // t894 recovery addendum — the pin does NOT always ride the env: the
-    // harness's own boot chain spawns next-server with a bare env, and the
-    // Prisma client falls back to .env. The GROUND TRUTH then is what the
-    // server actually OPENED: the .db file among its fds. An env-vs-.env
-    // match can still be a lie if the file was replaced under a live fd —
-    // the fd scan cuts through every layer of that.
-    try {
-      const fds = execSync(`ls -l /proc/${pid}/fd 2>/dev/null`, { encoding: "utf8" });
-      const dbLinks = [...fds.matchAll(/-> (\/\S+\/(?:[^/\s]+)\.db)\s*$/gm)].map((m) => m[1]);
-      const dbFile = dbLinks.find((p) => !p.endsWith("-journal") && !p.endsWith("-wal") && !p.endsWith("-shm"));
-      if (dbFile) return { pid, url: `file:${dbFile}`, source: "open fd (the server's actual world)" };
-    } catch {
-      /* fd scan unavailable — fall through to null */
+    // t898 — pgrep -f 'next-server' matches the PROBE'S OWN MOUTH: the sh
+    // wrapper carries the pattern in its cmdline, and any node -e repro
+    // carries it in argv (live-captured this window: the probe answered
+    // pid 10706 — its own repro — and read ITS OWN environ, which carried
+    // a stale session export of the DEAD world's pin; one matching child
+    // away from re-poisoning .env toward custom.db). The first answer
+    // must be someone else, never itself: every candidate is
+    // cross-examined by its /proc cmdline — the real server's argv[0]
+    // IS "next-server …", a wrapper's is "sh"/"pgrep", a repro's "node".
+    const cands = execSync("pgrep -f 'next-server' 2>/dev/null", { encoding: "utf8" })
+      .split("\n")
+      .map((s) => Number(s.trim()))
+      .filter(Boolean);
+    for (const pid of cands) {
+      let argv0 = "";
+      try {
+        argv0 = readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0")[0] ?? "";
+      } catch {
+        continue; // died between pgrep and read — next candidate
+      }
+      if (!argv0.startsWith("next-server")) continue;
+      const env = readFileSync(`/proc/${pid}/environ`, "utf8");
+      const hit = env.split("\0").find((kv) => kv.startsWith("DATABASE_URL="));
+      if (hit) return { pid, url: hit.slice("DATABASE_URL=".length), source: "process env (the pin)" };
+      // t894 recovery addendum — the pin does NOT always ride the env: the
+      // harness's own boot chain spawns next-server with a bare env, and the
+      // Prisma client falls back to .env. The GROUND TRUTH then is what the
+      // server actually OPENED: the .db file among its fds. An env-vs-.env
+      // match can still be a lie if the file was replaced under a live fd —
+      // the fd scan cuts through every layer of that.
+      try {
+        const fds = execSync(`ls -l /proc/${pid}/fd 2>/dev/null`, { encoding: "utf8" });
+        const dbLinks = [...fds.matchAll(/-> (\/\S+\/(?:[^/\s]+)\.db)\s*$/gm)].map((m) => m[1]);
+        const dbFile = dbLinks.find((p) => !p.endsWith("-journal") && !p.endsWith("-wal") && !p.endsWith("-shm"));
+        if (dbFile) return { pid, url: `file:${dbFile}`, source: "open fd (the server's actual world)" };
+      } catch {
+        /* fd scan unavailable — fall through to the next candidate */
+      }
     }
     return null;
   } catch {
@@ -113,6 +132,28 @@ if (!server) {
   process.exit(2);
 }
 receipt(`server pid ${server.pid} DATABASE_URL = ${server.url}  [source: ${server.source}]`);
+
+// t898 — probe 0.5, the SESSION POISON check: this doctor's own inherited
+// env is the env every child of this session will carry. A stale export
+// (live-captured: DATABASE_URL=file:…custom.db lurking since a t894-era
+// investigation) makes every future node-with-Prisma child in this shell
+// read the DEAD world while .env and the server stay clean — the F1
+// split-brain armed for this session only. Not a verdict-bearing finding
+// (the doctor never reads ITS own env for identity) — a loud hygiene
+// alarm with the one-line cure.
+const sessionPin = process.env.DATABASE_URL ?? null;
+if (sessionPin && sessionPin !== server.url) {
+  // a WARNING, not a finding: the doctor cannot unset the session's env
+  // (the harness may re-inject it per invocation), so counting it would
+  // make every future verdict say "FIXED" for something that persists.
+  // It speaks loudly at receipt level instead — the operator cures it
+  // with one unset (or an explicit pin on DB-reading commands).
+  receipt(
+    `WARNING: SESSION POISON — this shell exports DATABASE_URL=${sessionPin} (the server pins ${server.url}) — children of this session (node-with-Prisma scripts) will read a foreign world; cure: unset DATABASE_URL in the session or pin DB-reading commands explicitly`
+  );
+} else if (sessionPin) {
+  receipt(`session env DATABASE_URL = ${sessionPin}  [matches the server pin — children safe]`);
+}
 
 const envUrl = envFileUrl();
 receipt(`.env           DATABASE_URL = ${envUrl ?? "(none)"}`);

@@ -123,8 +123,13 @@ function WipeCard({
   // for the eye to confirm, and the value the drag shows geometrically the
   // keyboard has no other voice for. Each scrub keystroke bumps the seq;
   // the chip remounts (the find-tick idiom) and the settle timer clears it.
-  // Pointer drags never speak it — the moving divider IS their voice.
   const [nudge, setNudge] = useState<{ seq: number } | null>(null);
+  // t898 — the pointer twin: during a DRAG the same chip tracks the value
+  // continuously (held = visible, no animation — the motion is the drag's
+  // own). The keyboard's one-shot and the drag's held chip share one
+  // render; `nudge` wins while both speak (a remount mid-drag is honest —
+  // the keystroke IS the newer event).
+  const [drag, setDrag] = useState(false);
   useEffect(() => {
     if (!nudge) return;
     const t = setTimeout(() => setNudge(null), NUDGE_SETTLE_MS);
@@ -166,14 +171,15 @@ function WipeCard({
       >
         denoised
       </span>
-      {/* the keyboard nudge's echo: the divider's percentage, in the house
-          mono chip form, riding the fuchsia — remounted per keystroke so
-          the one-shot animation never re-fires while the value rests;
+      {/* the value echo, two voices: the keyboard's one-shot (remounted per
+          keystroke, the find-tick idiom) and the drag's held chip (tracks
+          continuously, no animation — the drag's own motion is its voice);
           aria-hidden (the range's aria-valuetext already announces). */}
-      {nudge && (
+      {(nudge || drag) && (
         <span
-          key={nudge.seq}
-          data-wipe-nudge=""
+          key={nudge ? `nudge-${nudge.seq}` : "drag"}
+          data-wipe-nudge={nudge ? "" : undefined}
+          data-wipe-drag={drag && !nudge ? "" : undefined}
           aria-hidden="true"
           className="absolute -translate-x-1/2 rounded-sm bg-fuchsia-950/85 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-fuchsia-100 shadow-sm backdrop-blur-sm"
           style={{ left: `${pos}%`, top: "calc(50% + 16px)" }}
@@ -193,6 +199,9 @@ function WipeCard({
         aria-label={`Wipe original / denoised for ${alt}`}
         aria-valuetext={`${pos}% original · ${100 - pos}% denoised`}
         onChange={(e) => onPos(Number(e.target.value))}
+        onPointerDown={() => setDrag(true)}
+        onPointerUp={() => setDrag(false)}
+        onPointerCancel={() => setDrag(false)}
         onKeyDown={(e) => {
           if (NUDGE_KEYS.has(e.key)) setNudge((p) => ({ seq: (p?.seq ?? 0) + 1 }));
         }}
