@@ -1,0 +1,17 @@
+{
+  "instrument": "t904-particles-livefire",
+  "at": "2026-10-11T20:32:37.471Z",
+  "job": "cmv3x1a020002lt89biep4phx",
+  "workdir": "/home/z/my-project/data/relion/cmv3x1a000000lt89qwh34u45/import_biep4phx",
+  "doorMinted": "file presence (the t902 doctrine)",
+  "groupedAggregation": true,
+  "paging": true,
+  "determinism": true,
+  "cacheHeld": true,
+  "invalidation": true,
+  "guardRefused": true,
+  "restored": true,
+  "pass": 20,
+  "fail": 0,
+  "verdict": "GREEN"
+}

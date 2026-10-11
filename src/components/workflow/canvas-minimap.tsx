@@ -84,6 +84,7 @@ import { jobMatchesFind } from "@/lib/job-match"; // t653 — one matcher, three
 import { useStatusNews } from "@/lib/use-status-news";
 import { walkTimeline } from "@/lib/timeline-walk"; // t683 — the chain drinks the same honest-window well on the map
 import { criticalPath } from "@/lib/critical-path"; // t683 — the walk the fifth face speaks, now at bird's-eye
+import { computeVpEcho } from "@/lib/minimap-echo"; // t904 — the viewport echo: a far window is pinned at the edge, never silent
 import type { JobDTO } from "@/lib/types";
 
 const MM_W = 192;
@@ -456,6 +457,18 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
   // toWorld's click mapping) reads this ONE box so the projection flows
   // as a whole
   const world = animBox ?? worldBox;
+
+  // t904 — the viewport echo (nodes/sel modes: the frame holds content
+  // only, a far window used to vanish — now the edge says where you
+  // went). The frame the echo pins against is the SAME world box every
+  // derivation reads (the reframe lerp included — the echo flows with
+  // the animation, and the arrow retires the moment the true window
+  // re-enters); fit mode never echoes (its frame already unions the
+  // window — the map there cannot lose you).
+  const vpEcho =
+    effMode !== "fit"
+      ? computeVpEcho(view, { x: world.x, y: world.y, w: world.w, h: world.h })
+      : null;
 
   // t596 — one reframe voice, two arms. Extracted from the t595 effect
   // body so the selection-jump observer (the box-record effect below)
@@ -887,6 +900,53 @@ export function CanvasMinimap({ rootRef }: CanvasMinimapProps) {
             strokeOpacity={0.6}
             pointerEvents="none"
           />
+        )}
+
+        {/* t904 — the viewport echo: the true window is off-frame (nodes/
+            sel modes pan into the void), so the edge says where you went
+            — the ghost pinned at the nearest edge, dashed (an echo, not
+            the window), the arrow pointing where the viewport truly is.
+            The honesty law lives in the lib: the direction is the TRUE
+            ghost→viewport vector, never axis-snapped into a lie. */}
+        {vpEcho && (
+          <g data-canvas-ui="minimap-vp-echo" pointerEvents="none">
+            <rect
+              x={vpEcho.rect.x}
+              y={vpEcho.rect.y}
+              width={vpEcho.rect.w}
+              height={vpEcho.rect.h}
+              rx={Math.min(60, world.w / 40)}
+              fill="var(--primary)"
+              fillOpacity={0.05}
+              stroke="var(--primary)"
+              strokeWidth={Math.max(4, Math.min(20, world.w / 100))}
+              strokeOpacity={0.5}
+              strokeDasharray={`${world.w / 30} ${world.w / 40}`}
+            />
+            <polygon
+              points={(() => {
+                // the arrow rides the ghost's edge, pointing where the
+                // viewport truly is — length proportional to the frame
+                // so it stays legible at every zoom
+                const cx = vpEcho.rect.x + vpEcho.rect.w / 2;
+                const cy = vpEcho.rect.y + vpEcho.rect.h / 2;
+                const L = world.w / 18;
+                const W = world.w / 46;
+                const { dx, dy } = vpEcho.dir;
+                // tip at the ghost's boundary toward the true viewport
+                const tipX = cx + dx * (vpEcho.rect.w / 2 + L);
+                const tipY = cy + dy * (vpEcho.rect.h / 2 + L);
+                // the base perpendicular to the direction
+                const px = -dy;
+                const py = dx;
+                const bx = tipX - dx * L;
+                const by = tipY - dy * L;
+                return `${tipX},${tipY} ${bx + px * W},${by + py * W} ${bx - px * W},${by - py * W}`;
+              })()}
+              fill="var(--primary)"
+              fillOpacity={0.75}
+            />
+          </g>
         )}
       </svg>
     </div>

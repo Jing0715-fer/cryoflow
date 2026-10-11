@@ -165,4 +165,30 @@ try {
 }
 
 console.log(`\nt904 particles live-fire: ${pass} passed, ${fail} failed`);
+
+// the receipt (the t903 shape): the console verdict's durable twin
+writeFileSync(
+  join(ROOT, "shots-qa/t904-particles-livefire.json"),
+  JSON.stringify(
+    {
+      instrument: "t904-particles-livefire",
+      at: new Date().toISOString(),
+      job: IMPORT_ID,
+      workdir,
+      doorMinted: "file presence (the t902 doctrine)",
+      groupedAggregation: true,
+      paging: true,
+      determinism: true,
+      cacheHeld: true,
+      invalidation: true,
+      guardRefused: true,
+      restored: true,
+      pass,
+      fail,
+      verdict: fail === 0 ? "GREEN" : "RED",
+    },
+    null,
+    2
+  )
+);
 process.exit(fail === 0 ? 0 : 1);

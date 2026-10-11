@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t846-a11y-maintenance.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@57fafc1f2056",
+  "build": "dev@cdaace123ee9",
   "worldMode": "dev",
-  "date": "2026-10-11T20:08:01.044Z",
+  "date": "2026-10-11T20:31:26.527Z",
   "chain": "canvas -> dashboard -> inspector -> palette -> restore (one command)",
   "doors": {
     "dashboard": "exact-text 'Dashboard' switcher click",
@@ -19,8 +19,8 @@
   },
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@608086f69e7c",
-    "prevDate": "2026-10-11T19:50:20.338Z",
+    "prevBuild": "dev@57fafc1f2056",
+    "prevDate": "2026-10-11T20:08:01.044Z",
     "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
@@ -331,27 +331,27 @@
     {
       "label": "M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/identical, the comparator's provenance recorded",
       "pass": true,
-      "detail": "comparator 2026-10-11T19:50:20.338Z (build dev@608086f69e7c)"
+      "detail": "comparator 2026-10-11T20:08:01.044Z (build dev@57fafc1f2056)"
     },
     {
       "label": "M21 canvas ride-drift law (same build: bit-for-bit vs the previous receipt)",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@608086f69e7c -> dev@57fafc1f2056), drift +0 informational"
+      "detail": "arm 2 — world key moved (dev@57fafc1f2056 -> dev@cdaace123ee9), drift +0 informational"
     },
     {
       "label": "M22 dashboard ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@608086f69e7c -> dev@57fafc1f2056), drift +0 informational"
+      "detail": "arm 2 — world key moved (dev@57fafc1f2056 -> dev@cdaace123ee9), drift +0 informational"
     },
     {
       "label": "M23 inspector ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@608086f69e7c -> dev@57fafc1f2056), drift +0 informational"
+      "detail": "arm 2 — world key moved (dev@57fafc1f2056 -> dev@cdaace123ee9), drift +0 informational"
     },
     {
       "label": "M24 palette ride-drift law",
       "pass": true,
-      "detail": "arm 2 — world key moved (dev@608086f69e7c -> dev@57fafc1f2056), drift +0 informational"
+      "detail": "arm 2 — world key moved (dev@57fafc1f2056 -> dev@cdaace123ee9), drift +0 informational"
     }
   ],
   "passed": 27,
