@@ -2990,10 +2990,19 @@ export function WorkflowCanvas() {
         </div>
       )}
 
-      {/* Zoom controls + auto-arrange */}
+      {/* Zoom controls + auto-arrange — t911: the strip WRAPS at the narrow
+          doors. The strip is 521px of tools; on a 320 viewport it used to
+          clip its whole right tail inside the section's overflow-hidden
+          (Redo, History, Auto-arrange, Viewport bookmarks — none with a
+          keyboard path, all gone for touch). The house wrap law (the door
+          keymap row's flex-wrap, pinned by the t909 audit) now owns the
+          tail: max-width keeps a 12px gutter each side (left-3's own
+          measure), flex-wrap carries the overflow to a second row, and the
+          bottom-3 anchor grows the strip UPWARD — wide canvases never
+          notice (521px < any max-width that matters). */}
       <div
         data-canvas-ui="zoom-controls"
-        className="no-print card-lift absolute bottom-3 left-3 z-30 flex items-center gap-0.5 rounded-lg border bg-card/95 p-1 backdrop-blur"
+        className="no-print card-lift absolute bottom-3 left-3 z-30 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-0.5 rounded-lg border bg-card/95 p-1 backdrop-blur"
       >
         <Button
           variant="ghost"

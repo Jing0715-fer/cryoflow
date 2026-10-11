@@ -1,0 +1,10 @@
+{
+  "instrument": "t911-canvas-narrow-witness",
+  "verdicts": {
+    "settle375": true,
+    "settle320": true
+  },
+  "pass": 21,
+  "fail": 0,
+  "at": "2026-10-11T23:30:01.868Z"
+}
