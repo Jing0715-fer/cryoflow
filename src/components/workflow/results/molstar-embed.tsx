@@ -34,6 +34,7 @@ import { encodeGifFrames } from "@/lib/gif-export";
 import { canCopyImageToClipboard, copyViewerPng, drawFigureFooter, exportViewerPng, figureFooterHeightPx, figureTitleMeta, viewerFileSlug, viewerFileTimestamp } from "@/lib/viewer-export";
 import { downloadBlob } from "@/lib/download";
 import { keptIntervalOf, normalizeInterval } from "@/lib/clip-interval"; // t905 — the slab seat: both clip languages answer to one interval editor
+import { axisIndex, dimAlong, voxelAriaText, voxelAnnotation, voxelIndexOf, voxelPlaneVoice, voxelSliderVoice } from "@/lib/voxel-voice"; // t906 — one honest voice: the slice family speaks the voxel address the ortho tiles speak
 import { downloadText } from "@/lib/download";
 // t197: the profile QC report family moved to @/lib/qc-report — the session
 // QC report is its second consumer, and the lib is the one honest home
@@ -588,6 +589,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const [sigma, setSigma] = useState(2);
   const [sign, setSign] = useState<1 | -1>(1);
   const [stats, setStats] = useState<GridStats | null>(null);
+  // t906 — the grid's dims, mirrored for the render side: the slice
+  // voices speak the voxel address only when the grid is known. The ref
+  // rides beside the state (the capture-time annotation builders read the
+  // ref — closure-safe), the state re-renders the voices.
+  const [gridDims, setGridDims] = useState<[number, number, number] | null>(null);
+  const gridDimsRef = useRef<[number, number, number] | null>(null);
   const [invertedNote, setInvertedNote] = useState(false);
 
   // ---- overlay maps (compare) -----------------------------------------
@@ -819,6 +826,30 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 setSign(-1);
                 setInvertedNote(true);
               }
+              break;
+            }
+          }
+        } catch {
+          /* readout-only */
+        }
+
+        // t906 — mirror the grid dims (readout-only): the FIRST Volume cell
+        // with usable dims, the same first-cell convention gridDims() and
+        // clipBox() speak inside the plugin callbacks (overlay maps land
+        // after the main map, so the first cell stays the main map).
+        try {
+          for (const cell of plugin.state.data.cells.values()) {
+            const obj = (cell as any)?.obj;
+            const v = obj?.type?.name === "Volume" ? obj.data : null;
+            const d = v?.grid?.cells?.space?.dimensions;
+            if (
+              Array.isArray(d) &&
+              d.length === 3 &&
+              d.every((n: unknown) => Number.isFinite(n) && Number.isInteger(n) && (n as number) > 1)
+            ) {
+              const triple = [Number(d[0]), Number(d[1]), Number(d[2])] as [number, number, number];
+              gridDimsRef.current = triple;
+              setGridDims(triple);
               break;
             }
           }
@@ -2326,7 +2357,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       )}
       {v.slice && v.slice.on && (
         <span className="rounded bg-running/10 px-1 py-px font-mono text-[8px] font-medium tabular-nums text-running-700 dark:text-running-400">
-          slice {v.slice.axis} {Math.round(v.slice.pos * 100)}%
+          {/* t906 — the chip re-voices the stored fraction against the LIVE
+              grid (the snapshot stays {axis, pos} — display-time voice) */}
+          slice {voxelAnnotation(v.slice.pos, v.slice.axis, dimAlong(gridDims, v.slice.axis))}
         </span>
       )}
       {v.clip && v.clip.on && (
@@ -2904,7 +2937,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         const ob = obliqueClipRef.current;
         const annotations: string[] = [];
         if (supersampled) annotations.push(`${mult}× supersampled`);
-        if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
+        // t906 — the slice annotation speaks the voxel address when the
+        // grid is known (the fraction rides along in parens); the CLIP
+        // annotation keeps its fraction language (the t905 boundary — a
+        // clip box can be anchored/oblique, no single honest voxel axis)
+        if (st.on) annotations.push(`slice ${voxelAnnotation(st.pos, st.axis, dimAlong(gridDimsRef.current, st.axis))}`);
         if (cp.on) {
           const axes = (["x", "y", "z"] as const)
             .filter((ax) => cp[ax] < 0.999)
@@ -3129,7 +3166,9 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       const ob = obliqueClipRef.current;
       const annotations: string[] = [];
       if (supersampled) annotations.push(`${mult}× supersampled`);
-      if (st.on) annotations.push(`slice ${st.axis} ${Math.round(st.pos * 100)}%`);
+      // t906 — the same voxel voice as the PNG footer (the ref, not the
+      // state: this builder runs at Record-press time)
+      if (st.on) annotations.push(`slice ${voxelAnnotation(st.pos, st.axis, dimAlong(gridDimsRef.current, st.axis))}`);
       if (cp.on) {
         const axes = (["x", "y", "z"] as const)
           .filter((ax) => cp[ax] < 0.999)
@@ -3373,6 +3412,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   const [slicePos, setSlicePos] = useState(0.5);
   const sliceStateRef = useRef({ on: false, axis: "Z" as SliceAxis, pos: 0.5, sigma: 2, sign: 1 as 1 | -1 });
   const slicePending = useRef(false);
+  // t906 — the dim along the ACTIVE axis (null until the grid is mirrored):
+  // every slice voice reads this one derivation, so the slider's address,
+  // the aria text and the landscape's plane label can never disagree
+  const sliceAxDim: number | null = gridDims ? dimAlong(gridDims, sliceAxis) : null;
 
   // Density landscape along the slice axis (t189) — mean density per
   // plane, served by /map-profile. One fetch per (map, axis) per viewer
@@ -3705,9 +3748,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
 
     const dims = gridDims();
     if (!dims) throw new Error("volume dims unavailable");
-    const axisIdx = st.axis === "X" ? 0 : st.axis === "Y" ? 1 : 2;
+    const axisIdx = axisIndex(st.axis);
     const dimName = ["x", "y", "z"][axisIdx];
-    const gridIndex = Math.min(dims[axisIdx] - 1, Math.max(0, Math.round(st.pos * (dims[axisIdx] - 1))));
+    // t906 — the ONE formula (lib-owned): the clamp is unreachable here
+    // (gridDims() gates d>1 and pos is a fraction) but the null is an
+    // honest guard, not a lie
+    const gridIndex = voxelIndexOf(st.pos, dims[axisIdx]) ?? 0;
 
     if (sliceAxisRef.current !== st.axis) {
       await deleteAllSlices(); // name switch ⇒ recreate
@@ -5081,8 +5127,21 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                   aria-label="Cross-section plane position (fraction of the box)"
                   className="flex-1"
                 />
-                <span className="w-9 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-                  {Math.round(slicePos * 100)}%
+                {/* t906 — the honest voice: the address when the grid is
+                    known, the % when it is not; the box widens for the
+                    combined form instead of truncating it */}
+                <span
+                  className={
+                    (sliceAxDim !== null ? "w-[86px]" : "w-9") +
+                    " shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground"
+                  }
+                  title={
+                    sliceAxDim !== null
+                      ? `voxel ${voxelIndexOf(slicePos, sliceAxDim)! + 1} of ${sliceAxDim} along ${sliceAxis} — the fraction of the box rides after the dot`
+                      : undefined
+                  }
+                >
+                  {voxelSliderVoice(slicePos, sliceAxDim)}
                 </span>
                 </div>
                 {profile ? (
@@ -5097,7 +5156,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={Math.round(slicePos * 100)}
-                      aria-valuetext={`plane ${Math.round(slicePos * 100)}%`}
+                      aria-valuetext={voxelAriaText(slicePos, sliceAxis, sliceAxDim)}
                       tabIndex={0}
                       onPointerDown={onLandscapePointerDown}
                       onPointerMove={onLandscapePointerMove}
@@ -5670,7 +5729,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                         >
                           XYZ
                         </button>
-                        <span>plane {Math.round(slicePos * 100)}%</span>
+                        <span>plane {voxelPlaneVoice(slicePos, sliceAxis, sliceAxDim)}</span>
                         {/* t209: the legend's door — the teaching toggle.
                             A real button (aria-expanded + aria-controls) so
                             the keyboard opens the lesson too; amber marks

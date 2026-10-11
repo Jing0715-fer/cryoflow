@@ -69,6 +69,7 @@ import { MrcImage } from "./mrc-image";
 import { DensityHistogramStrip } from "./density-histogram";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/download"; // t646 — one blob sink (this dance skipped the attach-before-click law)
+import { voxelReadout } from "@/lib/voxel-voice"; // t906 — the tile's voice rides the ONE formula (the embed's commit site reads the same lib)
 
 /** event names for the two-way 3D↔2D linkage — see molstar-embed.tsx */
 export const ORTHO_SLICE_EVENT = "cryoflow:ortho-slice";
@@ -655,11 +656,9 @@ function OrthoTile({
     onPick?.(fx, fy);
   };
 
-  const idx = Math.round(pos * Math.max(0, (dim ?? 0) - 1));
-  const readout =
-    dim && dim > 1
-      ? `${spec.axis} ${idx + 1}/${dim}`
-      : `${spec.axis} ${Math.round(pos * 100)}%`;
+  // t906 — the readout rides the lib's ONE formula (the embed's commit
+  // site and this tile can never drift); the byte-format is unchanged
+  const readout = voxelReadout(pos, spec.axis, dim);
 
   return (
     <div
