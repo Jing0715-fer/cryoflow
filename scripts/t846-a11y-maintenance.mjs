@@ -199,18 +199,17 @@ if (pick.found) {
 sleep(2);
 const i1 = settle("the inspector (the analytics surfaces mount late — t860's probe)");
 ok("M9 inspector arrived: dialog + inspector heading (the SHAPE — the name is world-state, t859's law)", i1.hasDlg && typeof i1.dlgHeading === "string" && /— job inspector/.test(i1.dlgHeading), `heading="${i1.dlgHeading}"`); // t899 re-pin: the door is now world-independent, so the heading asserts only its shape — any job's name rides the front, the "— job inspector" tail is the contract. CONTAINS, not endsWith: the aria-labelledby chain carries the description after the title (the extractor's 40-char window is noise, not world)
-/* t899 — the focus truth, door-aware. The t844-era CLICK door left the
- * dialog with focus INSIDE (the old receipt's dlgFocus true); the
- * KEYBOARD door (focus + Enter on the card) leaves focus ON THE CARD —
- * live-captured twice: the inspector is a NON-MODAL Radix dialog (an
- * outside click neither dismisses nor refocuses; Tab from the card walks
- * the canvas ports, the dialog reachable only after the whole page). The
- * app-side wart (a keyboard user lands outside the dialog they opened)
- * is NAMED for a future src window; the instrument asserts the TRAP'S
- * MECHANISM — the content is focusable and programmatic focus lands —
- * which is the floor a non-modal dialog must hold. */
-const trap = evalJson('(() => { const d = document.querySelector("[role=dialog]"); if (!d) return JSON.stringify({ dlg: false }); const before = document.activeElement ? document.activeElement.tagName : null; d.focus(); const inDlg = d.contains(document.activeElement); const tabIdx = d.getAttribute("tabindex"); return JSON.stringify({ dlg: true, before, inDlg, tabIdx }); })()');
-ok("M10 the focus trap's mechanism holds (content focusable, focus lands)", trap.dlg === true && trap.inDlg === true && trap.tabIdx === "-1", `tabIdx=${trap.tabIdx} inDlg=${trap.inDlg} (before=${trap.before}) — the keyboard door's own wart (focus left on the card) is named, the app-side fix is a future src window's`);
+/* t900 — the wart is FIXED: the inspector's onOpenAutoFocus now seats
+ * focus on the CONTENT node (the t391 ghost-tooltip law kept — no
+ * focusable trigger focused — while the opener lives inside; the t900
+ * witness rode it 12/12). M10 asserts the NATURAL seat again (the
+ * t844-era form: the dialog contains focus right after the door) plus
+ * the mechanism (the content is the focused node, tabindex=-1) — and
+ * the keyboard door's own wart (focus left on the card, Tab walking the
+ * whole page) is the FOSSIL this assertion exists to keep dead. */
+ok("M10 inspector focus seated (the t900 fix: the opener lives inside, the content is the seat)", i1.dlgFocus === true, `dlgFocus=${i1.dlgFocus}`);
+const trap = evalJson('(() => { const d = document.querySelector("[role=dialog]"); if (!d) return JSON.stringify({ dlg: false }); const onContent = document.activeElement === d; const tabIdx = d.getAttribute("tabindex"); return JSON.stringify({ dlg: true, onContent, tabIdx }); })()');
+ok("M10b the seat is the content node itself (no child focused — the t391 ghost stays dead)", trap.dlg === true && trap.onContent === true && trap.tabIdx === "-1", `tabIdx=${trap.tabIdx} onContent=${trap.onContent}`);
 ok("M11 inspector zero unnamed (page-wide + dialog subset)", i1.pageUnnamed === 0 && i1.dlgUnnamed === 0, `page=${i1.pageBtns} dlg=${i1.dlgBtns} unnamed=0/0`);
 ok("M12 inspector floor holds (re-keyed 147, t899; the census said 180 — the fossil)", i1.pageBtns >= 147, `live=${i1.pageBtns} (drift +${i1.pageBtns - 147})`);
 evalJson(ESC);

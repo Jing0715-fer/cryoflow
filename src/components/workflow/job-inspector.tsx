@@ -4367,9 +4367,29 @@ export function JobInspector() {
            header's Focus button), and Radix tooltips open on focus — so
            every inspector open birthed a ghost "Center this job on the
            canvas" tooltip hovering over the meta line. Decline the
-           auto-focus: the dialog is a VIEWING surface (nothing to type),
-           Escape still closes, and the first Tab lands inside normally. */
-        onOpenAutoFocus={(e) => e.preventDefault()}
+           child focus: the dialog is a VIEWING surface (nothing to type),
+           Escape still closes.
+           t900 — but the bare preventDefault left the KEYBOARD opener
+           outside the dialog they just opened (t846's M10 named the wart,
+           live-captured twice): focus stayed on the card, and Tab from
+           outside a non-modal scope walks the whole page — the dialog
+           reachable only after every canvas port. The middle path keeps
+           both laws: decline the CHILD focus (no focusable trigger is
+           focused, so no tooltip is born — the t391 ghost stays dead),
+           then seat focus on the CONTENT itself (tabindex=-1, Radix's own
+           focusable container — the probe contract's anchor). The opener
+           is inside: Tab walks the dialog's faces, Escape rides the
+           scope, and the return-address layer's pocket already holds the
+           card (captured at the opener's focusin, before this handler
+           ran) — close hands focus back through the door it came from.
+           The t788 order law is untouched: the pocket is cleared before
+           the close's focus moves, and a focusin INSIDE an open surface
+           never disarms the pocket (the t791 stand-down reads outside
+           landings only). */
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          document.querySelector<HTMLElement>("[data-inspector-dialog]")?.focus();
+        }}
         /* t447 — the rename edit's Escape must walk away from the EDIT, not
            close the modal. Radix hears Escape on document CAPTURE (before
            any bubble-phase handler can react), and dismisses unless the
