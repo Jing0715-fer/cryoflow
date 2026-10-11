@@ -1,0 +1,9 @@
+{
+  "instrument": "t909-keyboard-verbs-witness",
+  "workdir": "/home/z/my-project/data/relion/cmv3x1a000000lt89qwh34u45/topazdenoise_lwq1lp56",
+  "map": "t909-volume_denoised.mrc",
+  "verbWire": "cryoflow:oblique-verb",
+  "pass": 31,
+  "fail": 0,
+  "at": "2026-10-11T22:24:31.363Z"
+}
