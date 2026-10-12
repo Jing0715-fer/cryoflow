@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-12T01:42:07.772Z",
+  "pass": 27,
+  "fail": 0,
+  "target": "extra/mic002_extract.mrcs",
+  "starSays": 12,
+  "nz": 12,
+  "opensAt": "slice 1",
+  "steps": "ArrowRight/ArrowLeft",
+  "remotesBefore": 3,
+  "remotesAfterFetch": 2
+}

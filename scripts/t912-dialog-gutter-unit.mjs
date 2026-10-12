@@ -107,7 +107,11 @@ ok("A15 the seat script rides in scripts/", !!readFileSync(`${ROOT}/scripts/t912
 const diff = execSync("git diff -U0 -- src", { encoding: "utf8", cwd: ROOT, maxBuffer: 10 * 1024 * 1024 });
 const changed = diff.split("\n").filter((l) => /^[+-]/.test(l) && !/^[+-]{3}/.test(l));
 const logic = changed.filter((l) => /fetch\(|useState|useEffect|addEventListener|localStorage|onClick=|\.then\(|await /.test(l));
-ok("A16 the diff rides no logic (className/docblock/span-wrap seats only)", changed.length > 0 && logic.length === 0, `${changed.length} +/- lines, ${logic.length} logic`);
+// the t914 widening of the t913 lesson, applied to this unit's own A16:
+// pinning `changed.length > 0` reddens a CLEAN tree — a committed seat
+// holds trivially, the receipts carry the story. The law binds only a
+// diff that exists: any +/- line the tree does carry must ride no logic.
+ok("A16 the diff rides no logic (className/docblock/span-wrap seats only)", changed.length === 0 || logic.length === 0, changed.length === 0 ? "clean tree — holds trivially (the receipts carry the story)" : `${changed.length} +/- lines, ${logic.length} logic`);
 
 console.log(`\nDIALOG-GUTTER-UNIT t912: ${pass}/${pass + fail} ${fail === 0 ? "green" : "RED"}`);
 /* the receipt IS the receipt (the t910 lesson): an instrument that
