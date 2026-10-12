@@ -957,23 +957,30 @@ function importFileSet(
       entries.push(bridge ? hostToWsl(f) : f);
     }
   }
-  // expose the set inside the import job's workdir (Files tab + gallery)
-  if (!linkDirInto(projectMic, workdirMic)) {
-    // junction failed — link each file directly into the workdir instead
-    for (const e of entries) {
-      if (!e.startsWith("micrographs/")) continue;
-      const src = path.join(projectMic, e.slice("micrographs/".length));
-      const dst = path.join(workdirMic, e.slice("micrographs/".length));
+  // t914 — expose the set inside the import job's workdir (Files tab +
+  // gallery) as PER-FILE links, ALWAYS. The old primary lane linked the
+  // whole DIRECTORY (linkDirInto → workdir/micrographs → projectMic), but
+  // walkWorkdir refuses symlinked directories (loop safety — the law that
+  // keeps the walk inside the workdir it was given), so that lane satisfied
+  // the law by being INVISIBLE: every import's own listing showed star +
+  // run.err + run.out and never the files the import had just linked
+  // (verified live on both shapes — the demo EMPIAR import and a pattern
+  // mint; the per-file branch only ever ran when the junction failed). A
+  // hardlinked/symlinked FILE inside the workdir is a real dirent the walk
+  // lists like any file — the loop-safety law untouched, the listing honest.
+  for (const e of entries) {
+    if (!e.startsWith("micrographs/")) continue;
+    const src = path.join(projectMic, e.slice("micrographs/".length));
+    const dst = path.join(workdirMic, e.slice("micrographs/".length));
+    try {
+      mkdirSync(path.dirname(dst), { recursive: true });
+      linkSync(src, dst);
+    } catch {
       try {
         mkdirSync(path.dirname(dst), { recursive: true });
-        linkSync(src, dst);
+        symlinkSync(src, dst, "file");
       } catch {
-        try {
-          mkdirSync(path.dirname(dst), { recursive: true });
-          symlinkSync(src, dst, "file");
-        } catch {
-          /* gallery preview lost for this file — import still works */
-        }
+        /* gallery preview lost for this file — import still works */
       }
     }
   }
@@ -3142,10 +3149,32 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     };
     const micLink = path.join(projectDir, "micrographs");
     ensureEmpiarLink(micLink);
-    // Also expose the micrographs inside the import job's own workdir so the
-    // Files tab + gallery can serve PNG previews through outputs/file.
-    const micLinkInWorkdir = path.join(workdir, "micrographs");
-    ensureEmpiarLink(micLinkInWorkdir);
+    // t914 — expose the micrographs inside the import job's own workdir as
+    // PER-FILE hardlinks (the importFileSet seat's law, EMPIAR face): the
+    // old dir-link lane (ensureEmpiarLink on the workdir path) was invisible
+    // to walkWorkdir's loop-safety law — the Files tab never saw a single
+    // EMPIAR micrograph. Files land inside the workdir as real dirents.
+    const workdirMic = path.join(workdir, "micrographs");
+    try {
+      lstatSync(workdirMic);
+      rmSync(workdirMic, { force: true, recursive: true });
+    } catch {
+      /* nothing there yet — mkdir below */
+    }
+    for (const m of mrcs) {
+      const dst = path.join(workdirMic, m);
+      try {
+        mkdirSync(path.dirname(dst), { recursive: true });
+        linkSync(path.join(EMPIAR_DIR, m), dst);
+      } catch {
+        try {
+          mkdirSync(path.dirname(dst), { recursive: true });
+          symlinkSync(path.join(EMPIAR_DIR, m), dst, "file");
+        } catch {
+          /* gallery preview lost for this file — import still works */
+        }
+      }
+    }
     void setProgress(60);
     for (const m of mrcs) lines.push(`micrographs/${m} 1`);
     result = `${mrcs.length} micrographs imported · EMPIAR-10017 (pixel ${pixel} Å)`;
@@ -3287,12 +3316,15 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
       void setProgress(60); // local source listed — the link/write phases remain
       let unlinked = 0;
       if (!multiFile && !isPattern) {
-        // folder import — link the WHOLE directory (one junction/symlink,
-        // star stays project-relative; transparent to WSL drvfs too)
+        // folder import — link the WHOLE directory into the project tree
+        // (one junction/symlink, star stays project-relative; transparent to
+        // WSL drvfs too)
         const hostDir = toHost(single);
-        const linked =
-          linkDirInto(hostDir, path.join(projectDir, "micrographs")) &&
-          linkDirInto(hostDir, path.join(workdir, "micrographs"));
+        // the PROJECT-level link is the star's path-resolution contract
+        // (downstream jobs run with CWD = projectDir and open
+        // micrographs/<name>) — it stays a link; the WORKDIR exposure is the
+        // per-file block below (t914)
+        const linked = linkDirInto(hostDir, path.join(projectDir, "micrographs"));
         if (linked) {
           for (const f of hostFiles) lines.push(`micrographs/${path.basename(f)} 1`);
         } else {
@@ -3302,6 +3334,34 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
           for (const f of hostFiles) {
             lines.push(`${bridge ? hostToWsl(f) : f} 1`);
             unlinked += 1;
+          }
+        }
+        // t914 — the workdir exposure is PER-FILE (the importFileSet law,
+        // folder face): walkWorkdir refuses symlinked directories (loop
+        // safety), so the workdir dir-link above was an invisible exposure —
+        // a folder import's own listing showed star + logs and never the
+        // imported images. The files land as real dirents inside the workdir.
+        const workdirMic = path.join(workdir, "micrographs");
+        try {
+          lstatSync(workdirMic);
+          rmSync(workdirMic, { force: true, recursive: true });
+        } catch {
+          /* nothing there yet — mkdir below */
+        }
+        if (linked) {
+          for (const f of hostFiles) {
+            const dst = path.join(workdirMic, path.basename(f));
+            try {
+              mkdirSync(path.dirname(dst), { recursive: true });
+              linkSync(f, dst);
+            } catch {
+              try {
+                mkdirSync(path.dirname(dst), { recursive: true });
+                symlinkSync(f, dst, "file");
+              } catch {
+                /* gallery preview lost for this file — import still works */
+              }
+            }
           }
         }
       } else {

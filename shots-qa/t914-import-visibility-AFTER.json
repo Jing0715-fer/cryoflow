@@ -1,0 +1,26 @@
+{
+  "witness": "t914-import-visibility-witness",
+  "verdict": "GREEN",
+  "pass": 10,
+  "fail": 0,
+  "at": "2026-10-12T00:54:46.807Z",
+  "boundAtRide": null,
+  "jobError": null,
+  "listing": {
+    "names": [
+      "micrographs/FoilHole_217_35_Data_09449_frames.mrcs",
+      "micrographs/FoilHole_219_20_Data_09452_frames.mrcs",
+      "micrographs.star",
+      "run.err",
+      "run.out"
+    ],
+    "slices": {
+      "a": 4,
+      "b": 1
+    }
+  },
+  "mintVerify": [
+    "ok FoilHole_217_35_Data_09449_frames.mrcs  66560B  sha256 match",
+    "ok FoilHole_219_20_Data_09452_frames.mrcs  17408B  sha256 match"
+  ]
+}

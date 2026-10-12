@@ -145,15 +145,22 @@ ok("A7 the causal chain: before 12/12 (the defect stood) + after 30/30 (the cure
   before && after ? `before ${before.pass}/${before.pass + before.fail}, after ${after.pass}/${after.pass + after.fail}` : "receipts missing");
 
 /* ---- A8 — the seat's diff is header-only ---- */
+/* t914 widening (the unit biting its honest successor — the lesson this
+ * window's own A16 seat taught t912): the hygiene law binds whatever the
+ * header files' CURRENT diff carries — no fetch/state/effect lines, ever.
+ * A committed seat leaves those files clean (0 added lines): the law holds
+ * trivially and the causal story stays pinned by A7's receipts. A pin to
+ * one window's uncommitted-diff shape would redden every honest successor
+ * window that touches the tree elsewhere. */
 let diff = "";
 try {
   diff = execSync(`git diff --unified=0 -- ${RV} ${ST}`, { encoding: "utf8", cwd: ROOT });
 } catch { /* git absent? then the diff cannot lie */ }
 const added = diff.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++"));
 const dangerous = added.filter((l) => /fetch\(|useState|useEffect|onClick|await |addEventListener|localStorage/.test(l));
-ok(`A8 the seat's diff rides no logic (${added.length} added lines, 0 with fetch/state/effect)`,
-  added.length > 0 && dangerous.length === 0,
-  dangerous.length > 0 ? dangerous.slice(0, 3).join(" | ") : "className + docblock + span-wrap only");
+ok(`A8 the header files' diff rides no logic (${added.length} uncommitted added lines, ${dangerous.length} with fetch/state/effect)`,
+  dangerous.length === 0,
+  added.length === 0 ? "the seat is committed — the tree carries no header diff; the receipts (A7) carry the causal story" : dangerous.length > 0 ? dangerous.slice(0, 3).join(" | ") : "className + docblock + span-wrap only");
 
 /* ---- the receipt ---- */
 const receipt = {

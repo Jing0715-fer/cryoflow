@@ -1,0 +1,24 @@
+{
+  "witness": "t914-import-visibility-witness",
+  "verdict": "RED",
+  "pass": 6,
+  "fail": 4,
+  "at": "2026-10-12T00:51:15.238Z",
+  "boundAtRide": null,
+  "jobError": null,
+  "listing": {
+    "names": [
+      "micrographs.star",
+      "run.err",
+      "run.out"
+    ],
+    "slices": {
+      "a": null,
+      "b": null
+    }
+  },
+  "mintVerify": [
+    "ok FoilHole_217_35_Data_09449_frames.mrcs  66560B  sha256 match",
+    "ok FoilHole_219_20_Data_09452_frames.mrcs  17408B  sha256 match"
+  ]
+}
