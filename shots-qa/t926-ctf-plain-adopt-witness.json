@@ -1,0 +1,22 @@
+{
+  "main": {
+    "pass": 66,
+    "fail": 0,
+    "prep": {
+      "autopick": "cmv547bvw002nppvsd4v56bt3",
+      "beforeFather": "ctffind_0hpp9a16",
+      "beforeCatalogued": 6
+    },
+    "fire": {
+      "toast": "Downstream adopted by CTF Estimation 2 (t922)1 downstream wire re-wired from CTF Estimation 1 to CTF Estimation 2 (t922) · Automated Picking 1 (t926) now consumes CTF Estimation 2 (t922) · their current results stay until re-run",
+      "minted": false
+    },
+    "dataPlane": {
+      "afterFather": "ctffind_gziz9nfx",
+      "afterCatalogued": 6,
+      "picks": 102
+    },
+    "at": "2026-10-12T10:36:56.771Z"
+  },
+  "at": "2026-10-12T10:36:56.775Z"
+}
