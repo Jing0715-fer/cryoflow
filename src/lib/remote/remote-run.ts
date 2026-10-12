@@ -8606,29 +8606,44 @@ async function finalizeRemoteRun(
       : `REMOTE[${r.user}@${r.host.split(":")[0]}]: ${stayNote}`;
   }
 
-  updateRun(job.id, (cur) =>
-    cur.startedAt === rec.startedAt && cur.remote
-      ? {
-          ...cur,
-          done: true,
-          exitCode,
-          outputs,
-          result,
-          remote: {
-            ...cur.remote,
-            remoteOutputs,
-            ...(outputProbedAt != null
-              ? { outputProbeAt: outputProbedAt, outputProbeAbsent: outputProbeAbsent ?? [] }
-              : {}),
-            syncedFiles: sync.files,
-            syncedBytes: sync.bytes,
-            skippedFiles: sync.skipped.slice(0, 50),
-            syncMs,
-            ...(sync.note ? { note: sync.note } : {}),
-          },
-        }
-      : null
-  );
+  // t934 — the confirmed stop's stamp outranks the wrapper's echo. A
+  // user-stop already finalized this record (done=true, 'stopped by
+  // user', exit 137 — the t618 contract): the wrapper exit that arrives
+  // afterwards is the mechanism's echo of OUR OWN scancel (the t297
+  // TERM trap's 143 — the first-writer rule gave the trap the scheduler's
+  // word, and the t625 landing confirmed the stamp against the ledger's
+  // CANCELLED). The verdict words and the user-stop exit stay; the
+  // sync-back's facts (outputs, sync ledger, remote twins) land as new
+  // information — a stopped run's products still come home. A MISSED
+  // stop's stamp defers by its own words ('the cluster ledger decides
+  // the final state'), so the wrapper's verdict may speak over it; and
+  // a run that actually COMPLETED before the cancellation is healed by
+  // the accounting landing, whose own RECEIPT_STAMPS law yields to the
+  // ledger's COMPLETED word.
+  let stampKept = false;
+  updateRun(job.id, (cur) => {
+    if (cur.startedAt !== rec.startedAt || !cur.remote) return null;
+    stampKept = cur.done === true && cur.result === "stopped by user";
+    return {
+      ...cur,
+      done: true,
+      exitCode: stampKept ? cur.exitCode : exitCode,
+      outputs,
+      result: stampKept ? cur.result : result,
+      remote: {
+        ...cur.remote,
+        remoteOutputs,
+        ...(outputProbedAt != null
+          ? { outputProbeAt: outputProbedAt, outputProbeAbsent: outputProbeAbsent ?? [] }
+          : {}),
+        syncedFiles: sync.files,
+        syncedBytes: sync.bytes,
+        skippedFiles: sync.skipped.slice(0, 50),
+        syncMs,
+        ...(sync.note ? { note: sync.note } : {}),
+      },
+    };
+  });
 
   const patch =
     exitCode === 0
@@ -8638,7 +8653,12 @@ async function finalizeRemoteRun(
           result,
           duration: Math.max(500, Date.now() - new Date(rec.startedAt).getTime()),
         }
-      : { status: "failed" as const, progress: 0, result };
+      : stampKept
+        ? // t934 — the row already speaks the stop's receipt (the route's
+          // own flip, or the sweep's terminal branch speaking the record's
+          // stamp); the echo must not rewrite it.
+          { status: "failed" as const, progress: 0 }
+        : { status: "failed" as const, progress: 0, result };
   // SQLITE_BUSY-safe flip (t262 finding #2): a swallowed flip used to leave
   // the row non-terminal forever — the orphan sweep now backs this up too.
   const updated = await updateJobWithRetry(job.id, patch);

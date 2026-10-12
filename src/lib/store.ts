@@ -4042,9 +4042,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
               : data.stopped
                 ? "Job stopped"
                 : "Job already ended";
+      // t934 — the receipt's PROMISE rides the toast. The row's settled
+      // speech carries "re-run resumes from the last synced checkpoint",
+      // but the sweep's terminal branch can win the finalize handshake and
+      // replace the row's words with the record's user-stop stamp — the
+      // toast is the one surface the receipt always reaches. The clause
+      // rides only a CONFIRMED kill of a remote resumable-family job (the
+      // missed case defers — the run may still be alive; local stops keep
+      // their own row's wording). Family mirrors engine's RESUMABLE_TYPES
+      // (the server's source of truth — this module is client-side).
+      const resumeFamily = ["class2d", "class3d", "refine3d", "initialmodel", "multibody"];
+      const description =
+        data.outcome === "killed" && !!data.job?.runRemote && resumeFamily.includes(data.job?.type ?? "")
+          ? `${data.message} — re-run resumes from the last synced checkpoint`
+          : data.message;
       toast({
         title,
-        description: data.message,
+        description,
       });
     } catch (err) {
       errToast(err instanceof Error ? err.message : "Failed to stop job");
