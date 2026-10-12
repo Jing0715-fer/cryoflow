@@ -1,0 +1,18 @@
+{
+  "at": "2026-10-12T06:25:05.389Z",
+  "pass": 69,
+  "fail": 0,
+  "world": {
+    "jobs": 7,
+    "crown": "t916 class2d witness",
+    "walk": [
+      "import:6",
+      "extract:60",
+      "class2d:60",
+      "select2d:amber"
+    ],
+    "census": [
+      "autopick"
+    ]
+  }
+}

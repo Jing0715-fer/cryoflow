@@ -72,7 +72,14 @@ export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_H
 # TEMPLATE DATABASE_URL (my-project's custom.db); `${VAR:-…}` passthrough
 # would poison Prisma into a User/Post-only database. These two are always
 # pinned to THIS repo's own paths.
-export DATABASE_URL="file:$REPO_ROOT/db/cryoflow.db"
+# t921 — the split-brain cure's second half: the sandbox's custom.db has
+# become a REAL world in later eras (the bare `next dev` session-bootstrap
+# lane rides the sandbox pin and seeds there), so two boot lanes now serve
+# TWO worlds. The pin stays the default (the t402 law stands), but an
+# operator may now pin the OTHER world EXPLICITLY via CRYOFLOW_DB_URL —
+# an operator's choice, never the template's leak (only this named var is
+# honored; the sandbox's bare DATABASE_URL is still ignored).
+export DATABASE_URL="${CRYOFLOW_DB_URL:-file:$REPO_ROOT/db/cryoflow.db}"
 export CRYOFLOW_DATA_DIR="$REPO_ROOT/data"
 export CRYOFLOW_TRUST_GATEWAY=1
 # t402 — spawn under NODE explicitly: `bunx next` / `bun next` make BUN the

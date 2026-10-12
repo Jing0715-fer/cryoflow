@@ -93,6 +93,12 @@ async function pollUntil(jobId, want, timeoutMs = 240_000) {
 
 const preCount = () => jobs().length;
 
+/** t921 — the run lane: the resolved Mock Cluster body rides EVERY run
+ *  explicitly (the resurrect precedent); a bare POST would take the LOCAL
+ *  lane on an unbound world and the chain would die at the input gate. */
+let REMOTE_BODY = null;
+const runJob = (id) => api("POST", `/api/jobs/${id}/run`, REMOTE_BODY);
+
 /** the mock stub's assignment law: row p (0-based among @-rows) lands in
  *  class ((p*7 + it) % K) + 1 of iteration it. The EXPECTED occupancy is
  *  computed from the input star's own row count — the instrument measures
@@ -115,6 +121,28 @@ function expectedOccupancy(inputStarPath, K, iterations) {
 }
 
 // ---- the world guards (the t914/t915 lessons, both applied) ----------------
+/** t921 — the Mock Cluster resolves BY NAME, not by a hard-coded id: the
+ *  world re-seeds and the connection's id re-keys with it (conn-mv3y5x8f
+ *  was ONE world's binding, not a law). Missing? Create it — the same
+ *  shape demo-chain-resurrect.mjs has always used (the seed's designed
+ *  stand-in cluster). The binding assert then follows the resolved id. */
+function mockClusterConn() {
+  const conns = api("GET", "/api/remote/connections").connections ?? [];
+  let conn = conns.find((c) => c.name === "Mock Cluster");
+  if (conn) return { conn, created: false };
+  const mk = api("POST", "/api/remote/connections", {
+    name: "Mock Cluster",
+    host: "127.0.0.1",
+    port: 3022,
+    username: "cryo",
+    password: "demo",
+    authMethod: "password",
+    remoteRoot: "/projects/cryoflow",
+    useSlurm: true,
+    defaultModule: "relion/5.0.1",
+  });
+  return { conn: mk.connection ?? mk.job ?? null, created: true };
+}
 function guards() {
   ok("guard: server answers", Array.isArray(jobs()));
   const stale = [...findType("autopick"), ...findType("extract"), ...findType("class2d"), ...findType("select2d")]
@@ -124,9 +152,15 @@ function guards() {
   if (stale.length) { console.log("FATAL: singular-world guard — remove first"); process.exit(2); }
   const imports = findType("import").filter((j) => j.status === "completed");
   ok("guard: a completed import exists (the chain's root)", imports.length >= 1);
-  const conn = api("GET", "/api/remote/connections").connections ?? [];
-  ok("guard: Mock Cluster connection present", conn.some((c) => c.id === "conn-mv3y5x8f"));
-  ok("guard: project bound to conn-mv3y5x8f", binding() === "conn-mv3y5x8f", `binding=${binding()}`);
+  const { conn, created } = mockClusterConn();
+  ok("guard: Mock Cluster connection present", !!conn?.id, `${created ? "created" : "reused"} ${conn?.id?.slice(0, 14) ?? "NONE"}`);
+  if (!conn?.id) { console.log("FATAL: no Mock Cluster connection — cannot ride"); process.exit(2); }
+  // t921 — the BINDING is not required: a fresh world has none, and the
+  // mint's runs carry the remote body EXPLICITLY (the demo-chain-resurrect
+  // shape) — the product's own run door, no registry surgery. A world that
+  // IS bound still rides the same lane (the body matches the binding).
+  ok("guard: the project's binding (informational)", true, `binding=${binding() ?? "none — runs carry the remote body explicitly"}`);
+  REMOTE_BODY = { remote: { connectionId: conn.id, module: "relion/5.0.1", mode: "slurm" } };
   if (fail > 0) { console.log("FATAL: guards failed — the mint refuses to ride"); process.exit(2); }
   return imports[0];
 }
@@ -146,7 +180,7 @@ async function mint() {
   ok("edge import→autopick", !e1.error, JSON.stringify(e1).slice(0, 120));
 
   // 2. bare run
-  const r1 = api("POST", `/api/jobs/${pick.job.id}/run`);
+  const r1 = runJob(pick.job.id);
   ok("autopick run accepted", !r1.error, r1.error ?? r1.job?.status);
   const pickDone = await pollUntil(pick.job.id);
   ok("autopick completed", pickDone.status === "completed", `status=${pickDone.status} ${String(pickDone.result ?? "").slice(0, 90)}`);
@@ -162,7 +196,7 @@ async function mint() {
   ok("edge import→extract", !e3.error, JSON.stringify(e3).slice(0, 120));
 
   // 4. bare run
-  const r2 = api("POST", `/api/jobs/${ex.job.id}/run`);
+  const r2 = runJob(ex.job.id);
   ok("extract run accepted", !r2.error, r2.error ?? r2.job?.status);
   const exDone = await pollUntil(ex.job.id);
   ok("extract completed", exDone.status === "completed", `status=${exDone.status} ${String(exDone.result ?? "").slice(0, 90)}`);
@@ -189,7 +223,7 @@ async function mint() {
   ok("edge extract→class2d", !e4.error, JSON.stringify(e4).slice(0, 120));
 
   // 7. bare run — the mock sleeps 0.9s/round + startup; the cap is honest
-  const r3 = api("POST", `/api/jobs/${c2d.job.id}/run`);
+  const r3 = runJob(c2d.job.id);
   ok("class2d run accepted", !r3.error, r3.error ?? r3.job?.status);
   const c2dDone = await pollUntil(c2d.job.id, null, 300_000);
   ok("class2d completed", c2dDone.status === "completed", `status=${c2dDone.status} ${String(c2dDone.result ?? "").slice(0, 140)}`);

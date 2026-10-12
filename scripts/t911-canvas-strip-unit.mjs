@@ -80,7 +80,12 @@ try {
   const res = await fetch("http://localhost:3000/api/jobs", { headers: { Origin: "http://localhost:3000" } });
   const data = await res.json();
   const jobs = data.jobs || data;
-  ok("E1 the API answers with the world's jobs", Array.isArray(jobs) && jobs.length >= 15, `${jobs.length} jobs`);
+  // t921 — the world-shape assert re-pinned to the SEED's own law: the
+  // strip's geometry asserts (E2/E3) ride the seed trio (import →
+  // motioncorr → ctffind), and a fresh re-seeded world carries exactly
+  // those three — the old `>= 15` was the accumulated demo world's shape,
+  // one snapshot's accident, not a law.
+  ok("E1 the API answers with the world's jobs", Array.isArray(jobs) && jobs.length >= 3, `${jobs.length} jobs`);
   const finite = jobs.every((j) => Number.isFinite(j.x) && Number.isFinite(j.y));
   ok("E2 every job's x/y is a finite number (a drag commit cannot write NaN)", finite);
   const byType = (t) => jobs.find((j) => j.type === t);
