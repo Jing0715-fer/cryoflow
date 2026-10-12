@@ -18,18 +18,20 @@
  *         the cycle guard's live trigger.
  *   C     the MIXED face: the consumer (P) and the loop edge (L) make
  *         CTF-A's plan moves=1 (the autopick) + refused=1 (MC-B, cycle)
- *         — the verb ENABLED, its aria and title speaking the ONE move,
- *         and the refusal INVISIBLE at the enabled face (the mixed
- *         plan's verb pre-announces only the moves; the toast carries
- *         the refusal — the product's actual speech, witnessed as-is).
+ *         — the verb ENABLED and its speech accounting for EVERY wire:
+ *         the t931 PRE-ANNOUNCEMENT (the carried cure, now product) —
+ *         aria/title speak the move AND append "and refuses 1 (cycle)",
+ *         the contract line grows the refusal sentence ("Also refuses 1
+ *         downstream wire (cycle) — left consuming <A>"); the toast
+ *         still carries the full line at the fire.
  *   F     THE FIRE with the refusal aboard (the mixed plan): the
- *         autopick consumer's wire moves, MC-B's wire refuses — the verb
- *         ENABLED, the contract line speaking the ONE move — and the
- *         toast speaks the FULL contract INCLUDING the refusal line
- *         verbatim ("Motion Correction 2 (t922) refused — re-wiring
- *         would close a loop"), title "Downstream adopted by <B>". The
- *         data layer: CTF-B→autopick exists, CTF-A→autopick GONE, and
- *         CTF-A→MC-B UNTOUCHED — the refusal held.
+ *         autopick consumer's wire moves, MC-B's wire refuses — the
+ *         verb ENABLED, its speech having pre-announced the refusal
+ *         (t931) — and the toast speaks the FULL contract INCLUDING the
+ *         refusal line verbatim ("Motion Correction 2 (t922) refused —
+ *         re-wiring would close a loop"), title "Downstream adopted by
+ *         <B>". The data layer: CTF-B→autopick exists, CTF-A→autopick
+ *         GONE, and CTF-A→MC-B UNTOUCHED — the refusal held.
  *   D     the data plane: the autopick re-runs (remote lane) and its
  *         recorded cmd's --i names CTF-B's workdir (the father flipped);
  *         /picks answers catalogued 6 — no attrition; MC-B keeps BOTH
@@ -288,14 +290,14 @@ const openC = await openCompareUntil(NAME_CTF_A, "CTF A/B — compare", "CTF A/B
 ok("C the compare dialog opened on the FOM lens", String(openC).startsWith("open@"), openC);
 const faceC = await dialogFace();
 ok("C the plain adopt verb present and ENABLED (the mixed plan still moves one)", faceC?.plain?.disabled === false, String(faceC?.plain?.disabled));
-ok("C the verb's aria speaks the ONE move (the enabled pin)",
-  faceC?.plain?.aria === `Continue downstream from ${NAME_CTF_B} — re-wires 1 of ${NAME_CTF_A}'s downstream jobs`,
+ok("C the verb's aria speaks the ONE move AND the refusal (the t931 pre-announcement)",
+  faceC?.plain?.aria === `Continue downstream from ${NAME_CTF_B} — re-wires 1 of ${NAME_CTF_A}'s downstream jobs and refuses 1 (cycle)`,
   faceC?.plain?.aria ?? "none");
-ok("C the verb's title speaks the move — and the refusal is INVISIBLE here (the mixed plan's verb pre-announces only the moves; the toast carries the refusal)",
-  faceC?.plain?.title === `Re-wires ${NAME_CTF_A}'s 1 downstream wire to ${NAME_CTF_B} — their current results stay until re-run`,
+ok("C the verb's title speaks the move AND the refusal (the t931 pre-announcement — the mixed plan's speech accounts for every wire before the fire)",
+  faceC?.plain?.title === `Re-wires ${NAME_CTF_A}'s 1 downstream wire to ${NAME_CTF_B} — their current results stay until re-run — and refuses 1 (cycle)`,
   faceC?.plain?.title ?? "none");
-ok("C the contract line above the verbs speaks the ONE move (verbatim)",
-  faceC?.contract === `Adoption re-wires ${NAME_CTF_A}'s 1 downstream job to consume ${NAME_CTF_B} — their current results stay until re-run.`,
+ok("C the contract line speaks the move AND the refusal sentence (the t931 accounting — verbatim)",
+  faceC?.contract === `Adoption re-wires ${NAME_CTF_A}'s 1 downstream job to consume ${NAME_CTF_B} — their current results stay until re-run. Also refuses 1 downstream wire (cycle) — left consuming ${NAME_CTF_A}.`,
   faceC?.contract ?? "none");
 
 /* ================================================================== */
@@ -483,6 +485,8 @@ writeReceipt({
     loopEdge: { from: NAME_CTF_A, to: NAME_MC_B, portLaw: "movies input accepts micrographs" },
     faces: {
       allRefusedAria: `Continue downstream from run B — unavailable: All 1 downstream wire(s) refused — cycle`,
+      mixedAria: `Continue downstream from ${NAME_CTF_B} — re-wires 1 of ${NAME_CTF_A}'s downstream jobs and refuses 1 (cycle)`,
+      mixedContract: `Adoption re-wires ${NAME_CTF_A}'s 1 downstream job to consume ${NAME_CTF_B} — their current results stay until re-run. Also refuses 1 downstream wire (cycle) — left consuming ${NAME_CTF_A}.`,
       toastDetail: EXPECT_DETAIL,
       libPortLine: `Extract Child refused — CTF B has no matching output port`,
       libCycleLine: `Filter Child refused — re-wiring would close a loop`,

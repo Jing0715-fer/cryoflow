@@ -264,9 +264,42 @@ export function ClassCompareEntry({ job }: { job: JobDTO }) {
 /* The face.                                                           */
 /* ------------------------------------------------------------------ */
 
+/** t931 — the mixed plan's refusal PRE-ANNOUNCEMENT, appended to the
+ *  enabled verb's aria/title: before the fire, the enabled speech must
+ *  account for EVERY one of A's downstream wires — the t928 ride
+ *  witnessed the mixed face speaking only the moves while the refusal
+ *  stayed invisible until the toast (the carried cure, now product).
+ *  The raw reason words match the all-refused face's vocabulary
+ *  ("All N downstream wire(s) refused — cycle"); empty when nothing
+ *  was refused, so every clean face's speech is byte-identical to the
+ *  t920/t925/t926 pins. `sep` picks the join: the aria continues its
+ *  single-dash sentence (" and refuses…"), the title opens a new
+ *  em-dash clause after "stay until re-run" (" — and refuses…"). */
+function refusesClause(
+  refused: { reason: string }[] | null | undefined,
+  sep = " and",
+): string {
+  if (!refused || refused.length === 0) return "";
+  return `${sep} refuses ${refused.length} (${refused.map((r) => r.reason).join(", ")})`;
+}
+
+/** t931 — the contract line's refusal sentence (the visible, non-tooltip
+ *  twin of refusesClause): names the count, the reasons, and WHERE the
+ *  refused wires stay — consuming A — so the accounting closes at the
+ *  face: every one of A's downstream wires is spoken for before the
+ *  click. "left consuming" matches the toast's "left as is" register. */
+function refusalSentence(
+  refused: { reason: string }[] | null | undefined,
+  nameA: string,
+): string {
+  if (!refused || refused.length === 0) return "";
+  return ` Also refuses ${refused.length} downstream ${refused.length === 1 ? "wire" : "wires"} (${refused.map((r) => r.reason).join(", ")}) — left consuming ${nameA}.`;
+}
+
 /** The adoption plan's one-line honest disabled/enabled state — shared
  *  by the plain adopt verb and the select rider (t453), each speaking
- *  about its OWN plan. */
+ *  about its OWN plan; the enabled state pre-announces the plan's
+ *  refusals (t931). */
 function adoptionPlanTitle(
   plan: {
     sameRun: boolean;
@@ -288,7 +321,7 @@ function adoptionPlanTitle(
           ? `All ${plan.refused.length} downstream wire(s) refused — ${plan.refused
               .map((r) => r.reason)
               .join(", ")}`
-          : `Re-wires ${nameA}'s ${plan.moves.length} downstream wire${plan.moves.length === 1 ? "" : "s"} to ${nameB} — their current results stay until re-run`;
+          : `Re-wires ${nameA}'s ${plan.moves.length} downstream wire${plan.moves.length === 1 ? "" : "s"} to ${nameB} — their current results stay until re-run${refusesClause(plan.refused, " — and")}`;
 }
 
 interface RunDialogProps<R> {
@@ -665,9 +698,8 @@ function RunCompareDialog<R extends { name: string }>({
             <div className="space-y-1.5">
               {adoptable && (
                 <div className="text-[11px] text-muted-foreground">
-                  Adoption re-wires {nameA}&apos;s {adoptionPlan.moves.length} downstream{" "}
-                  {adoptionPlan.moves.length === 1 ? "job" : "jobs"} to consume {nameB} — their
-                  current results stay until re-run.
+                  {`Adoption re-wires ${nameA}'s ${adoptionPlan.moves.length} downstream ${adoptionPlan.moves.length === 1 ? "job" : "jobs"} to consume ${nameB} — their current results stay until re-run.`}
+                  {refusalSentence(adoptionPlan.refused, nameA)}
                 </div>
               )}
               <div className="flex items-center justify-between gap-2">
@@ -679,7 +711,7 @@ function RunCompareDialog<R extends { name: string }>({
                     data-testid="adopt-downstream"
                     aria-label={
                       adoptable
-                        ? `Continue downstream from ${nameB} — re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs`
+                        ? `Continue downstream from ${nameB} — re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs${refusesClause(adoptionPlan.refused)}`
                         : `Continue downstream from run B — unavailable: ${adoptTitle}`
                     }
                     title={adoptTitle}
@@ -723,12 +755,12 @@ function RunCompareDialog<R extends { name: string }>({
                       data-testid="adopt-with-exclude"
                       aria-label={
                         adoptableExclude
-                          ? `Continue downstream from ${nameB} with ${regressedSeries.length} regressed micrographs excluded — mints an Exclude Micrographs filter and re-wires ${excludePlan?.moves.length} of ${nameA}'s downstream jobs onto it`
+                          ? `Continue downstream from ${nameB} with ${regressedSeries.length} regressed micrographs excluded — mints an Exclude Micrographs filter and re-wires ${excludePlan?.moves.length} of ${nameA}'s downstream jobs onto it${refusesClause(excludePlan?.refused)}`
                           : `Continue downstream with these micrographs excluded — unavailable: ${excludeTitle}`
                       }
                       title={
                         adoptableExclude
-                          ? `Bakes the ${regressedSeries.length} regressed micrographs into an Exclude Micrographs filter consuming ${nameB} (editable in the filter's Exclusions tab), then re-wires ${nameA}'s ${excludePlan?.moves.length} downstream wire${excludePlan?.moves.length === 1 ? "" : "s"} onto the filter — results stay until re-run`
+                          ? `Bakes the ${regressedSeries.length} regressed micrographs into an Exclude Micrographs filter consuming ${nameB} (editable in the filter's Exclusions tab), then re-wires ${nameA}'s ${excludePlan?.moves.length} downstream wire${excludePlan?.moves.length === 1 ? "" : "s"} onto the filter — results stay until re-run${refusesClause(excludePlan?.refused, " — and")}`
                           : excludeTitle
                       }
                       disabled={!adoptableExclude || excluding}
@@ -778,12 +810,12 @@ function RunCompareDialog<R extends { name: string }>({
                       data-testid="adopt-with-select"
                       aria-label={
                         adoptableSelect
-                          ? `Continue downstream from ${nameB} with ${improvedSeries.length} gained classes selected — mints a 2D Class Selection consuming ${nameB} and re-wires ${selectPlan?.moves.length} of ${nameA}'s downstream jobs onto it`
+                          ? `Continue downstream from ${nameB} with ${improvedSeries.length} gained classes selected — mints a 2D Class Selection consuming ${nameB} and re-wires ${selectPlan?.moves.length} of ${nameA}'s downstream jobs onto it${refusesClause(selectPlan?.refused)}`
                           : `Continue downstream with these classes selected — unavailable: ${selectTitle}`
                       }
                       title={
                         adoptableSelect
-                          ? `Bakes the ${improvedSeries.length} gained classes into a 2D Class Selection consuming ${nameB} (editable in its Classes tab), then re-wires ${nameA}'s ${selectPlan?.moves.length} downstream wire${selectPlan?.moves.length === 1 ? "" : "s"} onto the selection — results stay until re-run`
+                          ? `Bakes the ${improvedSeries.length} gained classes into a 2D Class Selection consuming ${nameB} (editable in its Classes tab), then re-wires ${nameA}'s ${selectPlan?.moves.length} downstream wire${selectPlan?.moves.length === 1 ? "" : "s"} onto the selection — results stay until re-run${refusesClause(selectPlan?.refused, " — and")}`
                           : selectTitle
                       }
                       disabled={!adoptableSelect || selecting}

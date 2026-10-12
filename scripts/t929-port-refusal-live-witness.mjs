@@ -326,11 +326,11 @@ ok("C the plain contract speaks two downstream jobs",
   faceC?.contract ?? "none");
 ok("C THE RIDER present and ENABLED (its virtual selection moves one and refuses one)",
   faceC?.rider?.disabled === false, String(faceC?.rider?.disabled));
-ok("C the rider's aria speaks 4 gained classes and ONE re-wire (the port drift the rider's own world makes)",
-  faceC?.rider?.aria === `Continue downstream from ${NAME_K4} with 4 gained classes selected — mints a 2D Class Selection consuming ${NAME_K4} and re-wires 1 of ${NAME_K6}'s downstream jobs onto it`,
+ok("C the rider's aria speaks 4 gained classes, ONE re-wire, AND the refusal (the t931 pre-announcement — the port drift the rider's own world makes)",
+  faceC?.rider?.aria === `Continue downstream from ${NAME_K4} with 4 gained classes selected — mints a 2D Class Selection consuming ${NAME_K4} and re-wires 1 of ${NAME_K6}'s downstream jobs onto it and refuses 1 (port)`,
   faceC?.rider?.aria ?? "none");
-ok("C the rider's title carries the same split (1 downstream wire onto the selection)",
-  faceC?.rider?.title === `Bakes the 4 gained classes into a 2D Class Selection consuming ${NAME_K4} (editable in its Classes tab), then re-wires ${NAME_K6}'s 1 downstream wire onto the selection — results stay until re-run`,
+ok("C the rider's title carries the same split AND the refusal (the t931 em-dash clause)",
+  faceC?.rider?.title === `Bakes the 4 gained classes into a 2D Class Selection consuming ${NAME_K4} (editable in its Classes tab), then re-wires ${NAME_K6}'s 1 downstream wire onto the selection — results stay until re-run — and refuses 1 (port)`,
   faceC?.rider?.title ?? "none");
 
 /* ---------------------------------------------------------------- */
@@ -439,7 +439,8 @@ writeReceipt({
     pass, fail,
     portLaw: "select2d declares ONE output (particles); the classAverages wire refuses, the particles wire moves",
     faces: {
-      riderAria: `Continue downstream from ${NAME_K4} with 4 gained classes selected — mints a 2D Class Selection consuming ${NAME_K4} and re-wires 1 of ${NAME_K6}'s downstream jobs onto it`,
+      riderAria: `Continue downstream from ${NAME_K4} with 4 gained classes selected — mints a 2D Class Selection consuming ${NAME_K4} and re-wires 1 of ${NAME_K6}'s downstream jobs onto it and refuses 1 (port)`,
+      riderTitle: `Bakes the 4 gained classes into a 2D Class Selection consuming ${NAME_K4} (editable in its Classes tab), then re-wires ${NAME_K6}'s 1 downstream wire onto the selection — results stay until re-run — and refuses 1 (port)`,
       toastDetail: EXPECT_DETAIL,
       libPortLine: `${NAME_SEL_CHILD} refused — ${NAME_SEL_JOB} has no matching output port`,
     },

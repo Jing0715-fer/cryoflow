@@ -1,6 +1,6 @@
 {
   "main": {
-    "pass": 65,
+    "pass": 59,
     "fail": 0,
     "loopEdge": {
       "from": "CTF Estimation 1",
@@ -9,6 +9,8 @@
     },
     "faces": {
       "allRefusedAria": "Continue downstream from run B — unavailable: All 1 downstream wire(s) refused — cycle",
+      "mixedAria": "Continue downstream from CTF Estimation 2 (t922) — re-wires 1 of CTF Estimation 1's downstream jobs and refuses 1 (cycle)",
+      "mixedContract": "Adoption re-wires CTF Estimation 1's 1 downstream job to consume CTF Estimation 2 (t922) — their current results stay until re-run. Also refuses 1 downstream wire (cycle) — left consuming CTF Estimation 1.",
       "toastDetail": "1 downstream wire re-wired from CTF Estimation 1 to CTF Estimation 2 (t922) · Automated Picking 1 (t928) now consumes CTF Estimation 2 (t922) · their current results stay until re-run · Motion Correction 2 (t922) refused — re-wiring would close a loop",
       "libPortLine": "Extract Child refused — CTF B has no matching output port",
       "libCycleLine": "Filter Child refused — re-wiring would close a loop"
@@ -18,7 +20,7 @@
       "picks": 6,
       "refusalHeld": true
     },
-    "at": "2026-10-12T12:09:13.823Z"
+    "at": "2026-10-12T14:30:10.200Z"
   },
-  "at": "2026-10-12T12:09:13.824Z"
+  "at": "2026-10-12T14:30:10.200Z"
 }

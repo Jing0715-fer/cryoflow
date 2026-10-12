@@ -1,9 +1,9 @@
 {
   "main": {
-    "pass": 66,
+    "pass": 62,
     "fail": 0,
     "prep": {
-      "autopick": "cmv547bvw002nppvsd4v56bt3",
+      "autopick": "cmv5ct9xf001zppngb7dkfges",
       "beforeFather": "ctffind_0hpp9a16",
       "beforeCatalogued": 6
     },
@@ -12,11 +12,11 @@
       "minted": false
     },
     "dataPlane": {
-      "afterFather": "ctffind_gziz9nfx",
+      "afterFather": "ctffind_mfpevsbz",
       "afterCatalogued": 6,
       "picks": 102
     },
-    "at": "2026-10-12T10:36:56.771Z"
+    "at": "2026-10-12T14:37:04.195Z"
   },
-  "at": "2026-10-12T10:36:56.775Z"
+  "at": "2026-10-12T14:37:04.198Z"
 }
