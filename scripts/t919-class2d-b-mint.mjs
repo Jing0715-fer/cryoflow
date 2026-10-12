@@ -62,6 +62,30 @@ const binding = () => {
     return reg.projects?.[reg.active]?.remote?.connectionId ?? null;
   } catch { return null; }
 };
+
+/** t929 — THE RUN LANE (the t921 law, carried home): the resolved Mock
+ *  Cluster body rides EVERY run explicitly (the t916 mint's shape). A
+ *  bare POST takes the LOCAL lane on an unbound world and dies at the
+ *  RELION gate — exactly what the first t929 re-ride caught. */
+function mockClusterConn() {
+  const conns = api("GET", "/api/remote/connections").connections ?? [];
+  let conn = conns.find((c) => c.name === "Mock Cluster");
+  if (conn) return { conn, created: false };
+  const mk = api("POST", "/api/remote/connections", {
+    name: "Mock Cluster",
+    host: "127.0.0.1",
+    port: 3022,
+    username: "cryo",
+    password: "demo",
+    authMethod: "password",
+    remoteRoot: "/projects/cryoflow",
+    useSlurm: true,
+    defaultModule: "relion/5.0.1",
+  });
+  return { conn: mk.connection ?? mk.job ?? null, created: true };
+}
+let REMOTE_BODY = null;
+const runJob = (id) => api("POST", `/api/jobs/${id}/run`, REMOTE_BODY);
 async function pollUntil(jobId, timeoutMs = 300_000) {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
@@ -102,6 +126,10 @@ async function mint() {
   const stale = list.filter((j) => (j.name ?? "").includes("t919"));
   ok("guard: no stale t919 mints", stale.length === 0, stale.length ? `${stale.length} stale — remove first` : "");
   ok("guard: binding untouched", binding() === t916.binding, `binding=${binding()}`);
+  const { conn, created } = mockClusterConn();
+  ok("guard: Mock Cluster connection present", !!conn?.id, `${created ? "created" : "reused"} ${conn?.id?.slice(0, 14) ?? "NONE"}`);
+  if (!conn?.id) { console.log("FATAL: no Mock Cluster connection — cannot ride"); process.exit(2); }
+  REMOTE_BODY = { remote: { connectionId: conn.id, module: "relion/5.0.1", mode: "slurm" } };
   if (fail > 0) { console.log("FATAL: guards failed"); process.exit(2); }
 
   const before = list.length;
@@ -123,8 +151,8 @@ async function mint() {
   const e1 = api("POST", "/api/edges", { fromJobId: t916.extract.id, toJobId: b.job.id });
   ok("edge extract→class2d B", !e1.error, JSON.stringify(e1).slice(0, 120));
 
-  const r1 = api("POST", `/api/jobs/${b.job.id}/run`);
-  ok("class2d B run accepted", !r1.error, r1.error ?? r1.job?.status);
+  const r1 = runJob(b.job.id);
+  ok("class2d B run accepted (remote lane — the t921 law)", !r1.error, r1.error ?? r1.job?.status);
   const done = await pollUntil(b.job.id);
   ok("class2d B completed", done.status === "completed", `status=${done.status} ${String(done.result ?? "").slice(0, 140)}`);
   if (done.status !== "completed") { console.log("FATAL: class2d B did not complete — remove and inspect"); process.exit(2); }
