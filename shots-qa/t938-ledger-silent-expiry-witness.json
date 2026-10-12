@@ -1,0 +1,29 @@
+{
+  "resetAt": "2026-10-12T19:37:08.525Z",
+  "stage1": {
+    "pass": 25,
+    "fail": 0,
+    "slurmId": "391",
+    "openedAt": 1791833864949,
+    "standingConnId": "conn-mv5lwexm"
+  },
+  "at": "2026-10-12T19:48:29.883Z",
+  "stage2mid": {
+    "pass": 10,
+    "fail": 0,
+    "at": "2026-10-12T19:43:49.674Z",
+    "taxMid": 16
+  },
+  "stage2": {
+    "pass": 23,
+    "fail": 0,
+    "silentLine": "the accounting question for \"t916 class2d witness\" expired unheard (the ledger stayed silent) — the stop receipt's stamp stands",
+    "manifestFiles": 7
+  },
+  "stage3": {
+    "pass": 16,
+    "fail": 0,
+    "manifestFiles": "see stage2",
+    "restore": "done"
+  }
+}
