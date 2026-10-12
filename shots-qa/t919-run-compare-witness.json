@@ -1,0 +1,63 @@
+{
+  "g0": {
+    "pass": 7,
+    "fail": 0,
+    "doors": {
+      "classAB": false,
+      "convergence": "Class convergence — read this run's occupancy across its own 3 iterations",
+      "arc": "Resolution arc — read this classification's own resolution estimate across its 3 iterations"
+    }
+  },
+  "at": "2026-10-12T05:16:46.228Z",
+  "main": {
+    "pass": 68,
+    "fail": 0,
+    "lost": {
+      "pairs": 4,
+      "onlyA": [],
+      "onlyB": [
+        "Class 005",
+        "Class 006"
+      ],
+      "improved": 0,
+      "regressed": 4,
+      "tied": 0,
+      "median": "−8.3",
+      "census": "Concentration census: the top 5 classes hold 100.0% → 66.7% of the particles; classes above the 1% bar: 4 → 4, across 4 paired classes — the distribution's own health check.",
+      "bigLosers": [
+        "Class 002",
+        "Class 003"
+      ]
+    },
+    "gained": {
+      "pairs": 4,
+      "onlyA": [
+        "Class 005",
+        "Class 006"
+      ],
+      "onlyB": [],
+      "improved": 4,
+      "regressed": 0,
+      "tied": 0,
+      "median": "+8.3",
+      "census": "Concentration census: the top 5 classes hold 66.7% → 100.0% of the particles; classes above the 1% bar: 4 → 4, across 4 paired classes — the distribution's own health check.",
+      "bigGainers": [
+        "Class 002",
+        "Class 003"
+      ]
+    },
+    "same": {
+      "pairs": 6,
+      "onlyA": [],
+      "onlyB": [],
+      "improved": 0,
+      "regressed": 0,
+      "tied": 6,
+      "median": "0.0",
+      "census": "Concentration census: the top 5 classes hold 83.3% → 83.3% of the particles; classes above the 1% bar: 6 → 6, across 6 paired classes — the distribution's own health check."
+    },
+    "counts": {
+      "jobs": 20
+    }
+  }
+}
