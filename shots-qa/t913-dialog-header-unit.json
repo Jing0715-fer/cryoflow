@@ -1,0 +1,11 @@
+{
+  "instrument": "t913-dialog-header-unit",
+  "census": {
+    "faces": 8,
+    "dataPlanes": 7,
+    "unhardened": 0
+  },
+  "pass": 8,
+  "fail": 0,
+  "at": "2026-10-12T00:28:24.935Z"
+}

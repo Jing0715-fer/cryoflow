@@ -270,10 +270,20 @@ export function StarTable({ job, path }: { job: JobDTO; path: string }) {
 
   return (
     <div className="space-y-2">
+      {/* t913 — the path line is a data plane too: with a real-user
+          file name (54-61 chars, one token) the unhardened row painted
+          past the dialog (the before-witness rode this line with the
+          star face). The Mol* path-span law: the path truncates one
+          line, hover carries the full string; the count sits shrink-0
+          at the end. The dialog's description above carries the full
+          wrapped path — nothing is lost, the summary strip stays one
+          line at any length. */}
       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <Table2 className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="font-mono">{path}</span>
-        <span className="ml-auto">
+        <Table2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate font-mono" title={path}>
+          {path}
+        </span>
+        <span className="ml-auto shrink-0">
           {data.columns.length} columns
           {data.note ? ` · ${data.note}` : ""}
         </span>

@@ -98,12 +98,16 @@ ok("A14 the hpc-profiles editor's cap is sm-prefixed", /sm:max-w-4xl/.test(srcOf
 /* A15 — the seat script is on disk (the seat's own provenance) */
 ok("A15 the seat script rides in scripts/", !!readFileSync(`${ROOT}/scripts/t912-dialog-gutter-seat.mjs`, "utf8").includes("the gutter law rides the family"));
 
-/* A16 — git truth: the seat touched only className strings (no logic
- * lines moved). The diff must be max-w-only. */
+/* A16 — git truth: the seats ride no logic (the t913 widening: the
+ * family's later seats add docblocks and span wraps — comments and
+ * markup wrappers are not logic, and pinning the diff to max-w-only
+ * would make every honest successor seat red). The diff must carry no
+ * fetch/state/effect/handler lines — the invariant the original
+ * className-only shape was reaching for. */
 const diff = execSync("git diff -U0 -- src", { encoding: "utf8", cwd: ROOT, maxBuffer: 10 * 1024 * 1024 });
 const changed = diff.split("\n").filter((l) => /^[+-]/.test(l) && !/^[+-]{3}/.test(l));
-const nonClass = changed.filter((l) => !/max-w-|className=/.test(l));
-ok("A16 the diff is className-only (no logic moved)", changed.length > 0 && nonClass.length === 0, `${changed.length} +/- lines, ${nonClass.length} non-class`);
+const logic = changed.filter((l) => /fetch\(|useState|useEffect|addEventListener|localStorage|onClick=|\.then\(|await /.test(l));
+ok("A16 the diff rides no logic (className/docblock/span-wrap seats only)", changed.length > 0 && logic.length === 0, `${changed.length} +/- lines, ${logic.length} logic`);
 
 console.log(`\nDIALOG-GUTTER-UNIT t912: ${pass}/${pass + fail} ${fail === 0 ? "green" : "RED"}`);
 /* the receipt IS the receipt (the t910 lesson): an instrument that

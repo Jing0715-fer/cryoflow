@@ -1348,10 +1348,18 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   90dvh cap is kept — each face keeps its own. */}
               <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <Layers className="h-4 w-4 text-running-600" aria-hidden="true" />
-                  {imageFile.label ?? imageFile.name}
+                  {/* t913 — the header is a data plane: real-user file names
+                      run 50-80 chars in ONE token (RELION conventions), and
+                      an unhardened flex row paints them past the dialog (the
+                      before-witness: overX 148-195 at 320). The Mol* face's
+                      grammar (t662-era) is the family law: the icon keeps
+                      its size, the name truncates one line, the path in the
+                      description breaks — a path provenance line stays fully
+                      readable, a title stays a heading. */}
+                  <Layers className="h-4 w-4 shrink-0 text-running-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{imageFile.label ?? imageFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">
+                <DialogDescription className="break-all font-mono text-[11px]">
                   {imageFile.path} · {formatBytes(imageFile.size)}
                 </DialogDescription>
               </DialogHeader>
@@ -1582,10 +1590,14 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <Table2 className="h-4 w-4 text-violet-600" aria-hidden="true" />
-                  {starFile.label ?? starFile.name}
+                  {/* t913 — the t662 Mol* grammar rides this sibling too: the
+                      icon shrink-0, the name min-w-0 truncate, the path in
+                      the description break-all (the before-witness's face 1:
+                      overX 195 at 320 with a 61-char real-user name). */}
+                  <Table2 className="h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{starFile.label ?? starFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">{starFile.path}</DialogDescription>
+                <DialogDescription className="break-all font-mono text-[11px]">{starFile.path}</DialogDescription>
               </DialogHeader>
               <StarTable job={job} path={starFile.path} />
               {/* t832 — the star table joins the keymap family: one quiet
@@ -1616,10 +1628,12 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <ScrollText className="h-4 w-4 text-warning-600" aria-hidden="true" />
-                  {textFile.name}
+                  {/* t913 — the same grammar, the third sibling (the
+                      before-witness's face 3: overX 135 at 320). */}
+                  <ScrollText className="h-4 w-4 shrink-0 text-warning-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{textFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">
+                <DialogDescription className="break-all font-mono text-[11px]">
                   {textFile.path} · last 64 KB
                 </DialogDescription>
               </DialogHeader>
