@@ -145,25 +145,28 @@ function writeReceipt(obj) {
 
 /* =========================== prep ======================================== */
 console.log("== prep: the t922 mint re-rides, then the filter setup through the product's doors ==");
-const mcA = findName(NAME_MC_A);
-const mcB = findName(NAME_MC_B);
-const ctfA = findName(NAME_CTF_A);
-// a prior red ride may leave the world MID-ADOPT (the seed edge lifted, the
-// filter feeding CTF-A) — undo that shape FIRST so the mint's own asserts
-// see the seed wiring they were written against
+// t924's first-ride lesson applied back: the world may start at the SEED
+// TRIO (the previous window's remove) — the mint-created jobs only exist
+// AFTER the re-ride, so the pre-mint lookups are FRESH and the real
+// captures happen after the mint.
+const ctfA0 = findName(NAME_CTF_A);
 const preFilter = findName(NAME_FILTER);
 if (preFilter) {
-  const preRewire = edges().find((e) => e.fromJobId === preFilter.id && e.toJobId === ctfA?.id);
+  const preRewire = edges().find((e) => e.fromJobId === preFilter.id && e.toJobId === ctfA0?.id);
   if (preRewire) { const d = api("DELETE", `/api/edges/${preRewire.id}`); ok("prep a prior ride's re-wire undone", !d.error, preRewire.id); }
 }
-const preSeed = ctfA && mcA ? edges().find((e) => e.fromJobId === mcA.id && e.toJobId === ctfA.id) : null;
-if (!preSeed && mcA && ctfA) {
-  const p = api("POST", "/api/edges", { fromJobId: mcA.id, toJobId: ctfA.id });
+const preMcA = findName(NAME_MC_A);
+const preSeed = ctfA0 && preMcA ? edges().find((e) => e.fromJobId === preMcA.id && e.toJobId === ctfA0.id) : null;
+if (!preSeed && preMcA && ctfA0) {
+  const p = api("POST", "/api/edges", { fromJobId: preMcA.id, toJobId: ctfA0.id });
   ok("prep the seed MC-A→CTF-A edge back for the mint", !p.error && !!p.edge?.id, p.error ?? p.edge?.id);
 }
 let mintOut = "";
 try { mintOut = sh(`unset DATABASE_URL; node scripts/t922-mint.mjs mint 2>&1`); } catch (e) { mintOut = String(e); }
 ok("prep the t922 mint GREEN", /MINT \d+ pass \/ 0 fail/.test(mintOut), (mintOut.match(/MINT .*/) ?? ["?"])[0]);
+const mcA = findName(NAME_MC_A);
+const mcB = findName(NAME_MC_B);
+const ctfA = findName(NAME_CTF_A);
 
 ok("prep the three runs aboard and completed", !!mcA && !!mcB && !!ctfA && [mcA, mcB, ctfA].every((j) => j.status === "completed"));
 

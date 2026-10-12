@@ -63,6 +63,7 @@ import {
   SlidersHorizontal,
   Trash,
   Square,
+  SquarePen,
   Stethoscope,
   Table2,
   Terminal,
@@ -3505,6 +3506,38 @@ function InspectorHeader({
             </Tooltip>
             {job.status !== "running" ? (
               <>
+                {/* t924 — the SECOND edit door. The card click's dispatch is
+                    status-dependent (idle → the editing panel, anything else
+                    → THIS inspector), so a completed job's parameters were
+                    unreachable without paying the reset toll: "Reset &
+                    edit" clears the run state to idle, destroying the
+                    receipt just to tweak a knob. The t452 contract says
+                    "editable" — not "editable until first run". This door
+                    opens the SAME JobPanel with the run's receipt intact:
+                    edit the params, and the panel's own Re-run confirm
+                    (the ranBefore law) governs the wipe when the edits
+                    demand one. The card's idle face already says "Edit
+                    parameters" — the verb and the glyph ride with it. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        inspect(null);
+                        select(job.id);
+                      }}
+                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <SquarePen className="size-3.5" aria-hidden="true" />
+                      <span>Edit parameters</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Open the editing panel without resetting — the completed
+                    run and its results stay until a Re-run replaces them
+                  </TooltipContent>
+                </Tooltip>
                 {/* t333 — the tooltip answers the file question in place:
                     reset clears STATE only (status/progress/resume
                     checkpoint); the run directory survives until the next

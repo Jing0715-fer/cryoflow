@@ -26,13 +26,13 @@
     },
     "fire": {
       "filter": {
-        "id": "cmv4y8cv3000nppsxpe9kgxq9",
+        "id": "cmv51duvw000vppvs0ogr0igi",
         "name": "Exclude Micrographs 1",
         "excludeNames": "mic_002.mrc, mic_004.mrc, mic_006.mrc"
       },
       "toast": "Downstream adopted by Exclude Micrographs 11 downstream wire re-wired from Motion Correction 1 to Exclude Micrographs 1 · CTF Estimation 1 now consumes Exclude Micrographs 1 · their current results stay until re-run"
     },
-    "at": "2026-10-12T07:48:01.092Z"
+    "at": "2026-10-12T09:16:17.393Z"
   },
-  "at": "2026-10-12T07:48:01.094Z"
+  "at": "2026-10-12T09:16:17.396Z"
 }
