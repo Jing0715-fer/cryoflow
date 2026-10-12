@@ -34,6 +34,11 @@ import type { RemoteRunState } from "./types";
 import { getConnection } from "./connections";
 import { remoteDownload, remoteStat } from "./ssh";
 import { rewriteStarPaths } from "./remote-run";
+// t943 — the compound arc's finding: the t328 host-match lives in engine
+// (beside normalizeClusterHost and sameClusterTarget, so the four cannot
+// drift apart). engine imports NEITHER remote-run nor remote-files — no
+// cycle.
+import { liveConnectionForHost } from "@/lib/relion/engine";
 // t367 — the exists-only fast path learned to read MRC headers: a corrupt
 // local copy (the zero-header ghost a size-only sync-back once adopted)
 // is NOT "already there" — the door re-pulls instead of serving the
@@ -330,7 +335,14 @@ async function fetchIntoWorkdir(
 ): Promise<RemoteFetchResult> {
   const clean = safeRel(rel);
   if (!clean) return { ok: false, error: "Invalid path", status: 400 };
-  const conn = getConnection(remote.connectionId);
+  // t325-a/t328 — the host-matched fallback, the same courtesy the
+  // accounting consult and the outputs leg extend: a re-created connection
+  // on the same cluster keeps the manifest's door answerable. t943 — the
+  // compound arc's own finding: the leg served the ledger through the
+  // drift wire, and this door refused to serve what the leg served (the
+  // record's id is gone; the wire is not). The t328 doctrine at the
+  // registry level — newest profile wins, IP-vs-DNS aliases fail closed.
+  const conn = getConnection(remote.connectionId) ?? liveConnectionForHost(remote.host);
   if (!conn) {
     return {
       ok: false,

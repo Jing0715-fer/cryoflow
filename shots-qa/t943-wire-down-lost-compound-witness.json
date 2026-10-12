@@ -1,0 +1,42 @@
+{
+  "resetAt": "2026-10-12T22:58:53.772Z",
+  "stage1": {
+    "pass": 32,
+    "fail": 0,
+    "slurmId": "453",
+    "openedAt": 1791845979992,
+    "levers": [
+      "pid-file-removed",
+      "connection-deleted"
+    ],
+    "rowLandedDuringBlindness": true,
+    "auditStatic": true
+  },
+  "at": "2026-10-12T23:01:28.552Z",
+  "stage2mid": {
+    "pass": 10,
+    "fail": 0,
+    "at": "2026-10-12T23:01:00.706Z",
+    "auditStatic": true
+  },
+  "stage2": {
+    "pass": 20,
+    "fail": 0,
+    "healTail": "the cluster ledger recorded the run COMPLETED (exit 0:0) — the stop had found nothing to kill: the cluster no longer knew the job; the run finished on its own afterwards",
+    "driftId": "conn-mv5uvse8",
+    "auditHeal": 2,
+    "fallback": "accounting+outputs-first-honest"
+  },
+  "stage3Door": {
+    "shape": "fallback-served-fresh-200",
+    "probe": "run_optimiser.star",
+    "total": 674
+  },
+  "stage3": {
+    "pass": 20,
+    "fail": 0,
+    "door": "fallback-served-fresh-200",
+    "wireRestored": true,
+    "restore": "done"
+  }
+}
