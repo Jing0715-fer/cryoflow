@@ -1,0 +1,58 @@
+{
+  "at": "2026-10-12T04:28:16.403Z",
+  "pass": 53,
+  "fail": 0,
+  "class2d": "cmv4r1rrc000llt2slzhvhpr6",
+  "name": "t916 class2d witness",
+  "arc0": {
+    "rounds": [
+      [
+        0,
+        28
+      ],
+      [
+        1,
+        24.46
+      ],
+      [
+        2,
+        21.43
+      ]
+    ],
+    "reported": 21.43,
+    "summary": "28.0 Å → 21.4 Å over 3 rounds — best 21.4 Å at Round 002",
+    "verdict": {
+      "word": "still improving",
+      "detail": "the estimate is still sharpening — Round 001 → Round 002 gained 3.0 Å"
+    },
+    "jump": [
+      0,
+      1,
+      3.539999999999999
+    ]
+  },
+  "extended": {
+    "ladderFinal": 8,
+    "growthCurve": [
+      3,
+      5,
+      7,
+      8
+    ],
+    "paramsIterations": 7,
+    "summary": "28.0 Å → 11.7 Å over 8 rounds — best 11.7 Å at Round 007",
+    "verdict": {
+      "word": "still improving",
+      "detail": "the estimate is still sharpening — Round 006 → Round 007 gained 1.4 Å"
+    },
+    "jump": [
+      0,
+      1,
+      3.539999999999999
+    ]
+  },
+  "world": {
+    "countBefore": 19,
+    "countAfter": 19
+  }
+}
