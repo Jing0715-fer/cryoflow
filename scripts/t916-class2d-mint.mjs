@@ -356,7 +356,13 @@ function remove() {
   for (const [label, id] of [["select2d", m.select2d?.id], ["class2d", m.class2d?.id], ["extract", m.extract?.id], ["autopick", m.pick?.id]]) {
     if (!id) continue;
     const d = api("DELETE", `/api/jobs/${id}`);
-    ok(`${label} job deleted (the hard door)`, !d.error, JSON.stringify(d).slice(0, 80));
+    /* the idempotent verdict (the t933 ride's finding): a RED remove's
+     * retry re-deletes jobs the FIRST pass already took — "Job not found"
+     * IS the goal state, the delete's second honest word. Refusing it made
+     * every retry RED forever (the manifest-survives fix kept the key, but
+     * the lock had no keyhole). */
+    const gone = !d.error || /not found/i.test(String(d.error));
+    ok(`${label} job deleted (the hard door)`, gone, JSON.stringify(d).slice(0, 80));
   }
   // workdir leftovers — the t915 lesson: the poll DTO carries NO workdir,
   // so sweep BOTH type dirs by the minted jobs' id suffixes (local), then
