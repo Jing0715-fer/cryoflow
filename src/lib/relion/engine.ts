@@ -1478,7 +1478,15 @@ interface InputReq {
 
 const INPUTS: Record<string, InputReq[]> = {
   ctffind: [
-    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import", "motioncorr"], label: "micrographs.star (run Import first)" },
+    // t923 — the exclude filter is a legal provider: the A/B exclude verb's
+    // whole promise is the verdict AS WIRING (the filter sits between run B
+    // and the downstream, "their current results stay until re-run") — a
+    // re-run that cannot resolve the filter's star would silently drink
+    // from the pre-filter provider instead (the t923 D-band ride caught it:
+    // CTF-A re-ran off MC-B's 6-row star with the filter wired in). The
+    // port law already allowed the wire; the resolver's from-list is the
+    // same law at the drinking layer, and it says excludemg now.
+    { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import", "motioncorr", "excludemg"], label: "micrographs.star (run Import or Motion Correction first — or wire an Exclude Micrographs filter)" },
   ],
   motioncorr: [
     { key: "micrographs_star", accepts: ["micrographs_star"], from: ["import"], label: "micrographs.star (run Import first)" },
@@ -1497,7 +1505,7 @@ const INPUTS: Record<string, InputReq[]> = {
     // resolves exactly like the raw one. When BOTH a motioncorr and a
     // denoise feed are wired, upstream BFS order decides — first provider
     // carrying the output wins (the inspector shows the resolved input).
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise"], label: "micrographs.star (run Import or Topaz Denoise first)" },
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise", "excludemg"], label: "micrographs.star (run Import or Topaz Denoise first)" },
     {
       key: "refs_mrc",
       accepts: ["classes_mrc", "model_mrc"],
@@ -1523,7 +1531,7 @@ const INPUTS: Record<string, InputReq[]> = {
     // flow trains ON the denoised images. extract deliberately stays
     // denoise-free — particles must come from real pixels, the denoiser's
     // hallucinations must not bake into the stacks.
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise"], label: "micrographs.star (run Import or Topaz Denoise first)" },
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "topazdenoise", "excludemg"], label: "micrographs.star (run Import or Topaz Denoise first)" },
     {
       key: "train_picks",
       accepts: ["coords_star"],
@@ -1532,10 +1540,13 @@ const INPUTS: Record<string, InputReq[]> = {
     },
   ],
   topazdenoise: [
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "excludemg"], label: "micrographs.star (run Import first)" },
   ],
   extract: [
-    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind"], label: "micrographs.star (run Import first)" },
+    // t923 — the exclude filter feeds extraction too: a picked-then-filtered
+    // chain (autopick → excludemg → extract) is the verb's own promise —
+    // drop the bad micrographs' particles before they ever become stacks.
+    { key: "micrographs_star", accepts: ["micrographs_star", "micrographs_ctf_star"], from: ["import", "motioncorr", "ctffind", "excludemg"], label: "micrographs.star (run Import first)" },
     { key: "coords_dir", accepts: ["coords_dir", "coords_star"], from: ["manualpick", "autopick"], label: "particle coordinates (run ManualPick/AutoPick first)" },
   ],
   select: [

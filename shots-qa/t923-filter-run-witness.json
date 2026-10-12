@@ -1,0 +1,26 @@
+{
+  "main": {
+    "pass": 53,
+    "fail": 0,
+    "edit": {
+      "from": "mic_002.mrc, mic_004.mrc, mic_006.mrc",
+      "to": "mic_002.mrc, mic_004.mrc",
+      "backTo": "mic_002.mrc, mic_004.mrc, mic_006.mrc"
+    },
+    "runs": {
+      "two": "4 of 6 micrographs kept · 2 excluded (list of 2)",
+      "empty": "no exclusion names are set — bake the list from the A/B compare dialog (or type names into the Exclusions tab), then run again",
+      "full": "3 of 6 micrographs kept · 3 excluded (list of 3)"
+    },
+    "downstream": {
+      "ctfARows": [
+        "mic_001.mrc",
+        "mic_003.mrc",
+        "mic_005.mrc"
+      ],
+      "ctfBRows": 6
+    },
+    "at": "2026-10-12T08:34:45.714Z"
+  },
+  "at": "2026-10-12T08:34:45.722Z"
+}
