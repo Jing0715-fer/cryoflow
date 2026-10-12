@@ -1,0 +1,38 @@
+{
+  "main": {
+    "pass": 76,
+    "fail": 0,
+    "motion": {
+      "improved": [
+        "mic_001.mrc",
+        "mic_003.mrc",
+        "mic_005.mrc"
+      ],
+      "regressed": [
+        "mic_002.mrc",
+        "mic_004.mrc",
+        "mic_006.mrc"
+      ],
+      "median": "−0.00"
+    },
+    "ctf": {
+      "fomImproved": [
+        "mic_002.mrc",
+        "mic_004.mrc",
+        "mic_006.mrc"
+      ],
+      "trustMedian": "0.114",
+      "trust": "Defocus agreement: median |Δ| = 0.114 µm across 6 paired micrographs — the pairing's own health check."
+    },
+    "fire": {
+      "filter": {
+        "id": "cmv4y8cv3000nppsxpe9kgxq9",
+        "name": "Exclude Micrographs 1",
+        "excludeNames": "mic_002.mrc, mic_004.mrc, mic_006.mrc"
+      },
+      "toast": "Downstream adopted by Exclude Micrographs 11 downstream wire re-wired from Motion Correction 1 to Exclude Micrographs 1 · CTF Estimation 1 now consumes Exclude Micrographs 1 · their current results stay until re-run"
+    },
+    "at": "2026-10-12T07:48:01.092Z"
+  },
+  "at": "2026-10-12T07:48:01.094Z"
+}

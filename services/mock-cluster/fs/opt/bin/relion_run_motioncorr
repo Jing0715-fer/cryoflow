@@ -144,8 +144,22 @@ with open(out, "w") as fh:
     fh.write("_rlnAccumMotionTotal #2\n")
     fh.write("_rlnAccumMotionEarly #3\n")
     fh.write("_rlnAccumMotionLate #4\n")
+    # t533 law — the mock learns at the deepest layer the real binary
+    # actually touches: MotionCor2's --bfactor re-weights the alignment
+    # per movie (stronger smoothing helps some movies and hurts others —
+    # the alternating ±0.01 Å/unit nudge), and --dose_per_frame moves the
+    # early/late split (a higher dose rate puts more of the accumulated
+    # drift in the early frames). Defaults (150 / 1.28) reproduce the old
+    # 0.6/0.4 shape EXACTLY — same params, same rows (the determinism
+    # law); different params, genuinely moved rows (the A/B compare's
+    # food).
+    bfac = float(opts.get("bfactor", 150) or 150)
+    dose = float(opts.get("dose_per_frame", 1.28) or 1.28)
+    efrac = min(0.85, max(0.3, 0.6 + 0.05 * (dose - 1.28)))
     for k, mic in enumerate(corrected_rows):
-        total = 2.2 + 0.3 * (k % 4)
-        fh.write(f"{mic}\t{total:.2f}\t{total * 0.6:.2f}\t{total * 0.4:.2f}\n")
+        total = max(0.2, (2.2 + 0.3 * (k % 4)) + (bfac - 150.0) * 0.01 * ((k % 2) * 2 - 1))
+        early = total * efrac
+        late = total - early
+        fh.write(f"{mic}\t{total:.2f}\t{early:.2f}\t{late:.2f}\n")
 print(f"wrote {out}")
 sys.exit(0)
