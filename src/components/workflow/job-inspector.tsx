@@ -2829,6 +2829,24 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
         </Button>
       </div>
 
+      {/* t464 — the listing's honesty note was written for exactly the worlds
+          that have files (a truncated walk, a capped ledger — both imply a
+          big listing), yet this tab only spoke it in the EMPTY state: the
+          one shape the sentence can never describe. The Results view carried
+          it alone; the tab where the user actually browses the listing (and
+          wonders why it looks short) went silent. The note now rides above
+          the table — the house honesty line, never scrolled away with the
+          rows it speaks for. */}
+      {data?.note && files.length > 0 && (
+        <p
+          data-listing-note=""
+          className="flex shrink-0 items-start gap-1.5 text-[11px] leading-relaxed text-warning-700 dark:text-warning-300"
+        >
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+          {data.note}
+        </p>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border">
         {files.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center text-muted-foreground">
