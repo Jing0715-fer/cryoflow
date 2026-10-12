@@ -1,0 +1,45 @@
+{
+  "prep": {
+    "c2d": "cmv59njoa0027ppmscsg632vf",
+    "realCont": "/projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/class2d_csg632vf/run_it002_optimiser.star",
+    "badCont": "/projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/class2d_csg632vf/run_it009_optimiser.star",
+    "entries": 3
+  },
+  "at": "2026-10-12T14:07:42.075Z",
+  "bandB": {
+    "failure": "REMOTE[cryo@127.0.0.1]: exit 6 — ERROR: failed to estimate CTF parameters for any micrograph, exiting... — Verified: mic_004.mrc IS readable on the login node — the failure happened where the job RAN. If this went through Slurm, the compute node may not mount /projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/motioncorr_gd38te6p/micrographs (microscope data disks are often login-node-only) — try direct mode, or copy the data to a cluster-wide path",
+    "rows": 6
+  },
+  "verdict": {
+    "stage": "stage3",
+    "pass": 45,
+    "fail": 0
+  },
+  "bandA2": {
+    "real": "/projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/class2d_11n2xa50/run_it002_optimiser.star",
+    "recovery": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 2D classification finished — 4 of 4 classes populated · 60 particles · top: class 4 25%, class 3 25%, class 2 25% · 4 per-class star(s) — pick classes from the gallery for the next step — 27 file(s) in the workdir were left behind by an EARLIER run of this job (run_it001_data.star, run_it000_data.star, run_it000_sampling.star …) — they predate this dispatch (the pre-run wipe could not remove them), so they were NOT synced back as this run's outputs. If this run was cut short (check its log tail for where it stopped), its own final files may simply never have been written — re-dispatch writes fresh ones",
+    "fresh": "REMOTE[cryo@127.0.0.1 · relion/5.0.1]: 2D classification finished — 4 of 4 classes populated · 60 particles · top: class 3 25%, class 2 25%, class 1 25% · 4 per-class star(s) — pick classes from the gallery for the next step",
+    "ladder": [
+      "run_it000_data.star",
+      "run_it001_data.star",
+      "run_it002_data.star",
+      "run_it003_data.star"
+    ],
+    "prevGens": 2
+  },
+  "restore": {
+    "jobs": 3,
+    "edges": 2,
+    "remove": "== remove GREEN — 8 ok, 0 fail =="
+  },
+  "bandA1": {
+    "bad": "/projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/class2d_11n2xa50/run_it009_optimiser.star",
+    "real": "/projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/class2d_11n2xa50/run_it002_optimiser.star",
+    "failure": "REMOTE[cryo@127.0.0.1]: exit 1 (RELION printed no error — the run ended silently mid-job) — no error text in the visible run.out/run.err tails: an external kill is the usual cause — the node's OOM killer, a walltime, or a scancel (check the cluster's own record: sacct -j 218 names the state; the failure diagnosis below matches the full run.out for known signatures like a CUDA out-of-memory). t367: if sacct says TIMEOUT, the job hit its walltime — a run killed DURING its final write phase leaves right-sized but corrupt/unwritten output files, so re-dispatch rather than trusting the half-written products; request a longer limit (the connection's Slurm time-limit setting, or ask the admin for the partition's ceiling) — cryoflow-mock refine: checkpoint /home/z/my-project/services/mock-cluster/fs/projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/class2d_11n2xa50/run_it009_optimiser.star does not exist",
+    "ladder": [
+      "run_it000_data.star",
+      "run_it001_data.star",
+      "run_it002_data.star"
+    ]
+  }
+}
