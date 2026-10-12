@@ -2,18 +2,18 @@
   "stage1": {
     "pass": 26,
     "fail": 0,
-    "slurmId": "366",
+    "slurmId": "427",
     "receipt": {
       "stopped": false,
       "outcome": "missed",
       "settled": null,
-      "message": "scancel 366 failed: scancel: error: Job 366 has already finished"
+      "message": "scancel 427 failed: scancel: error: Job 427 has already finished"
     },
     "echoStage": "heal",
     "heal": "the cluster ledger recorded the run COMPLETED (exit 0:0) — the stop had found nothing to kill because the run had already finished",
     "row": "the cluster ledger recorded the run COMPLETED (exit 0:0) — the stop had found nothing to kill because the run had already finished"
   },
-  "at": "2026-10-12T18:13:57.988Z",
+  "at": "2026-10-12T21:45:33.342Z",
   "stage2": {
     "pass": 40,
     "fail": 0,

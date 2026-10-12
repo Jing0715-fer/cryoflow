@@ -8033,11 +8033,22 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
           // (the wire answered and refused — "already finished" was the
           // cluster's own testimony at stop time).
           const wireDown = opened.class === "wire-down";
+          // t941 — the refused class's SECOND knowledge shape: the
+          // "lost" refusal ("Invalid job id specified" — the controller
+          // no longer knew the job) means the fate was UNKNOWABLE at stop
+          // time; the run may have been alive and finished AFTER the
+          // attempt. Claiming "already finished" for it would be the
+          // t935 arc's word spoken where its knowledge never reached.
+          // The "finished" refusal (and every pre-t941 question) keeps
+          // the t935 words byte-for-byte.
+          const lostHandle = opened.refusal === "lost";
           const sentence = completed
             ? opened.missed
               ? wireDown
                 ? `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had no wire to the cluster; the run finished on its own`
-                : `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had found nothing to kill because the run had already finished`
+                : lostHandle
+                  ? `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had found nothing to kill: the cluster no longer knew the job; the run finished on its own afterwards`
+                  : `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had found nothing to kill because the run had already finished`
               : `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop's cancellation arrived after the run had finished`
             : opened.missed
               ? wireDown
@@ -9448,6 +9459,17 @@ export async function remoteStopRun(
    *  words and the accounting question ride the class. Absent on a
    *  confirmed kill. */
   missClass?: "refused" | "wire-down";
+  /** t941 — WHICH WORD the cluster spoke when it refused the kill (the
+   *  refused class's second knowledge shape, riding the receipt so the
+   *  stop route can carry it into the accounting question). "finished" =
+   *  the cluster said "has already finished" — the fate was KNOWN at stop
+   *  time (the t935/t938 arcs' word). "lost" = the cluster said "Invalid
+   *  job id specified" — the controller no longer knew the job (state
+   *  loss): the fate was UNKNOWABLE at stop time, the run may be alive
+   *  and go on to finish AFTER the attempt — the heal's sentence must
+   *  never claim "already finished" for this shape. Absent on a confirmed
+   *  kill, a wire-down miss, and raw-pid refusals (no cluster word). */
+  refusal?: "finished" | "lost";
   /** t624 — did the job actually leave the queue inside the settle window?
    *  null = the question never applied (non-slurm kill, scancel failed, or
    *  no window requested — the project-delete-era shape). true = confirmed
@@ -9471,6 +9493,20 @@ export async function remoteStopRun(
   if (r.mode === "slurm" && r.slurmId) {
     const res = await exec(conn, `scancel ${shQuote(String(Number(r.slurmId)))}`, { timeoutMs: 15_000 });
     const ok = res.code === 0 && !res.error;
+    // t941 — WHICH WORD the cluster spoke when it refused: "has already
+    // finished" (the controller REMEMBERS the job, and its memory says
+    // done — the fate was known at stop time) vs "Invalid job id
+    // specified" (the controller LOST the job's handle — the fate was
+    // unknowable; the run may be alive and finish after the attempt).
+    // The heal's sentence branches on this word, so the receipt carries it.
+    const stderrWord = res.stderr.trim();
+    const refusal = ok
+      ? undefined
+      : /has already finished/.test(stderrWord)
+        ? ("finished" as const)
+        : /Invalid job id specified/.test(stderrWord)
+          ? ("lost" as const)
+          : undefined;
     // t418 — the teardown confirmation is OPTIONAL and bounded. The
     // project-delete route NEEDS it (the rm -rf below races the tree's
     // last writes); the single-job stop route asks for it since t624 —
@@ -9484,6 +9520,7 @@ export async function remoteStopRun(
       stopped: ok,
       outcome: ok ? "killed" : "missed",
       ...(ok ? {} : { missClass: "refused" as const }),
+      ...(ok || !refusal ? {} : { refusal }),
       settled,
       message: ok
         ? `sent scancel to Slurm job ${r.slurmId} — the scheduler tears the process tree down on the compute node` +

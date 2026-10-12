@@ -1,0 +1,37 @@
+{
+  "resetAt": "2026-10-12T21:40:55.126Z",
+  "stage1": {
+    "pass": 26,
+    "fail": 0,
+    "slurmId": "423",
+    "openedAt": 1791841300642,
+    "lever": "pid-file-removed",
+    "firstWait": 2
+  },
+  "at": "2026-10-12T21:43:46.533Z",
+  "stage2mid": {
+    "pass": 34,
+    "fail": 0,
+    "at": "2026-10-12T21:42:16.568Z",
+    "taxMid": 2,
+    "roundsMid": 40
+  },
+  "stage2": {
+    "pass": 47,
+    "fail": 0,
+    "healTail": "the cluster ledger recorded the run COMPLETED (exit 0:0) — the stop had found nothing to kill: the cluster no longer knew the job; the run finished on its own afterwards",
+    "taxAfter": 4,
+    "legLanded": 1
+  },
+  "stage3Door": {
+    "shape": "fresh-ledger-200",
+    "probe": "run_optimiser.star",
+    "total": 674
+  },
+  "stage3": {
+    "pass": 64,
+    "fail": 0,
+    "door": "fresh-ledger-200",
+    "restore": "done"
+  }
+}

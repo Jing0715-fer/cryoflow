@@ -91,6 +91,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // claims "already finished" (the run's fate was unknowable at stop
       // time — it may finish after the attempt, and the live arc did).
       const wireDown = outcome.missClass === "wire-down";
+      // t941 — the LOST-handle refusal (the cluster's own word was
+      // "Invalid job id specified" — the controller no longer knew the
+      // job) carries its knowledge into the question, so the landing's
+      // sentence names the lost handle instead of claiming "already
+      // finished" (the run's fate was unknowable at stop time — it may
+      // have been alive and finished after the attempt). The "finished"
+      // refusal (the t935/t938 shape) carries nothing: those question
+      // bytes stay exactly as the banked witnesses pinned them.
+      const lostHandle = outcome.refusal === "lost";
       // t625 — slurm-mode stops open the accounting question: the ledger
       // holds the FINAL word for the slurmId, whatever the receipt just
       // said. Missed stops promise the same thing ("the cluster ledger
@@ -118,6 +127,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                           at: Date.now(),
                           missed,
                           ...(wireDown ? { class: "wire-down" as const } : {}),
+                          ...(lostHandle ? { refusal: "lost" as const } : {}),
                         },
                       },
                     }
@@ -156,6 +166,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                       at: Date.now(),
                       missed,
                       ...(wireDown ? { class: "wire-down" as const } : {}),
+                      ...(lostHandle ? { refusal: "lost" as const } : {}),
                     },
                   },
                 }

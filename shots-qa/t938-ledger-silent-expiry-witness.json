@@ -1,27 +1,27 @@
 {
-  "resetAt": "2026-10-12T19:37:08.525Z",
+  "resetAt": "2026-10-12T22:08:25.303Z",
   "stage1": {
     "pass": 25,
     "fail": 0,
-    "slurmId": "391",
-    "openedAt": 1791833864949,
+    "slurmId": "441",
+    "openedAt": 1791842943815,
     "standingConnId": "conn-mv5lwexm"
   },
-  "at": "2026-10-12T19:48:29.883Z",
+  "at": "2026-10-12T22:19:42.714Z",
   "stage2mid": {
-    "pass": 10,
+    "pass": 32,
     "fail": 0,
-    "at": "2026-10-12T19:43:49.674Z",
-    "taxMid": 16
+    "at": "2026-10-12T22:14:03.868Z",
+    "taxMid": 11
   },
   "stage2": {
-    "pass": 23,
+    "pass": 52,
     "fail": 0,
     "silentLine": "the accounting question for \"t916 class2d witness\" expired unheard (the ledger stayed silent) — the stop receipt's stamp stands",
     "manifestFiles": 7
   },
   "stage3": {
-    "pass": 16,
+    "pass": 65,
     "fail": 0,
     "manifestFiles": "see stage2",
     "restore": "done"
