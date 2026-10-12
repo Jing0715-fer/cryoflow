@@ -1,0 +1,39 @@
+{
+  "resetAt": "2026-10-12T20:24:54.204Z",
+  "stage1": {
+    "pass": 30,
+    "fail": 0,
+    "slurmId": "403",
+    "openedAt": 1791836733110,
+    "standingConnId": "conn-mv5lwexm",
+    "lever": "thrown"
+  },
+  "at": "2026-10-12T20:38:19.333Z",
+  "stage2mid": {
+    "pass": 11,
+    "fail": 0,
+    "at": "2026-10-12T20:30:33.152Z",
+    "taxMid": 11
+  },
+  "stage2": {
+    "pass": 23,
+    "fail": 0,
+    "strikes": {
+      "s1": "remote-run: the outputs ledger round failed for \"t916 class2d witness\" (exit 1) — the question stays open",
+      "s2": "remote-run: the outputs ledger round failed for \"t916 class2d witness\" (exit 1) — the question stays open",
+      "s3": "remote-run: the outputs ledger round failed for \"t916 class2d witness\" (exit 1) — the question closes after 3 silent rounds; the on-demand doors stay shut for this run"
+    },
+    "expiryLine": "the accounting question for \"t916 class2d witness\" expired unheard (the ledger stayed silent) — the stop receipt's stamp stands"
+  },
+  "stage3Door": {
+    "shape": "empty-ledger-400",
+    "refusal": "No remote manifest for this job"
+  },
+  "stage3": {
+    "pass": 25,
+    "fail": 0,
+    "doorsWatch": "silent",
+    "manifestStill": true,
+    "restore": "done"
+  }
+}
