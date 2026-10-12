@@ -50,8 +50,10 @@ import { DATA_DIR, RELION_DIR } from "@/lib/paths";
 import {
   buildArgv,
   collectOutputs,
+  continueTargetsWorkdir,
   ctffindInputGate,
   describeExitCode,
+  explicitContinueOf,
   extractInputGate,
   getRun,
   micrographRowsFromContent,
@@ -4941,15 +4943,44 @@ export async function startRemoteJob(args: {
     // didn't re-point (first leg absent / pass-through), train_picks lives
     // in the project tree — outside the workdir, dropped by the wipe's
     // own normalization, a no-op keep.
-    const wipedMirror = wipeLocalRunProducts(localWorkdir, {
-      keepFiles:
-        job.type === "topaztrain" && resolvedInputs.train_picks
-          ? [resolvedInputs.train_picks]
-          : [],
-    });
+    const wipedMirror = (() => {
+      // t917 — the t394 law crosses the lane boundary: a re-dispatch whose
+      // params carry an explicit --continue INTO THIS WORKDIR is a RESUME,
+      // not a fresh start. The cluster side already holds the carve-out
+      // (the pre-submit wipe's selfContinueInArgv — the rounds ARE the
+      // state the run resumes); a mirror that loses them rewinds every
+      // local surface — the iterations ladder, the convergence door's
+      // whole-arc default, the chips bar — to the continue's first NEW
+      // round, witnessed live by the t917 ride: the ladder [0,1,2] became
+      // [3..7] locally while the cluster still held [0..7]. The engine's
+      // local lane has spoken this exact law since t394
+      // (explicitContinueOf + continueTargetsWorkdir — the same pair,
+      // because buildArgv reads the SAME params.fn_cont).
+      const continueTarget = explicitContinueOf(jobRef);
+      // t917 — the target's dialect: the continue-sources scan runs
+      // CLUSTER-side, so a remote resume's fn_cont names the workdir by
+      // the CLUSTER's path (/projects/<project>/<type>_<id8>/…) or, the
+      // t537 relativized dialect, PROJECT-RELATIVE (<type>_<id8>/…). Both
+      // carry the workdir's unique stable segment; the local lane's
+      // absolute path keeps the lexical comparison verbatim. A cross-job
+      // continue names ANOTHER workdir's segment — never this one — and
+      // wipes as before.
+      const workdirSeg = `${job.type}_${job.id.slice(-8)}`;
+      const keepIterations =
+        continueTarget != null &&
+        (continueTargetsWorkdir(continueTarget, localWorkdir) ||
+          continueTarget.includes(workdirSeg));
+      return wipeLocalRunProducts(localWorkdir, {
+        ...(keepIterations ? { keepIterations: true } : {}),
+        keepFiles:
+          job.type === "topaztrain" && resolvedInputs.train_picks
+            ? [resolvedInputs.train_picks]
+            : [],
+      });
+    })();
     if (wipedMirror && wipedMirror.wiped.length > 0) {
       console.log(
-        `remote-run: re-dispatch of "${job.name}" cleared ${wipedMirror.wiped.length} stale file(s) from the local mirror (t333)`
+        `remote-run: re-dispatch of "${job.name}" cleared ${wipedMirror.wiped.length} stale file(s) from the local mirror (t333${wipedMirror.keptCount > 0 ? ", the run_it* checkpoint family stays (explicit --continue, t394/t917)" : ""})`
       );
     }
   } catch {

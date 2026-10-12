@@ -1,0 +1,46 @@
+{
+  "at": "2026-10-12T04:10:54.990Z",
+  "pass": 56,
+  "fail": 0,
+  "class2d": "cmv4qg2gk000dlt2sqa77flyz",
+  "K": 4,
+  "rows": 42,
+  "pair0": {
+    "census": "Convergence census: 4 of 4 classes moved more than 1.0 pp between Round 000 and Round 002 (biggest: Class 001, -2.4 pp) — the assignment is still re-shuffling.",
+    "gained": [
+      "Class 002",
+      "Class 003"
+    ],
+    "lost": [
+      "Class 001",
+      "Class 004"
+    ]
+  },
+  "reversed": {
+    "census": "Convergence census: 4 of 4 classes moved more than 1.0 pp between Round 002 and Round 000 (biggest: Class 001, +2.4 pp) — the assignment is still re-shuffling."
+  },
+  "extended": {
+    "census": "Convergence census: 2 of 4 classes moved more than 1.0 pp between Round 000 and Round 007 (biggest: Class 001, -2.4 pp) — the assignment is still re-shuffling.",
+    "ladderFinal": 8,
+    "growthCurve": [
+      3,
+      5,
+      8
+    ],
+    "paramsIterations": 7
+  },
+  "gallery": {
+    "chips": [
+      "it 000seed",
+      "it 001",
+      "it 002",
+      "it 003",
+      "it 004",
+      "it 005",
+      "it 006",
+      "it 007"
+    ],
+    "opener": "Open iteration 007 class sheet enlarged",
+    "switched": "Open iteration 000 class sheet enlarged"
+  }
+}
