@@ -389,7 +389,15 @@ function remove() {
   ok("world restored: pre-state job count", after.length === m.preJobs, `${after.length} vs ${m.preJobs}`);
   ok("no t916 residue", after.every((j) => !(j.name ?? "").includes("t916")));
   ok("binding untouched", binding() === m.binding, `binding=${binding()}`);
-  rmSync(MANIFEST, { force: true });
+  /* the manifest is the RETRY's law (the t932 ride's finding): the old
+   * rmSync ran unconditionally, so a RED remove ate the restore key and
+   * stranded the partial world with no second attempt (the t930 chain
+   * deadlock's new face). Only a GREEN remove consumes the manifest. */
+  if (fail === 0) {
+    rmSync(MANIFEST, { force: true });
+  } else {
+    console.log("  (the manifest STAYS — a RED remove must not eat the retry's key)");
+  }
   console.log(`== remove ${fail === 0 ? "GREEN" : "RED"} — ${pass} ok, ${fail} fail ==`);
   process.exit(fail === 0 ? 0 : 1);
 }

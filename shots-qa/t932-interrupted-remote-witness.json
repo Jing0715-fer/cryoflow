@@ -1,0 +1,49 @@
+{
+  "stage1": {
+    "pass": 15,
+    "fail": 0,
+    "kill": {
+      "slurmId": "252",
+      "pid": 5290,
+      "roundsAtKill": [
+        "run_it000_optimiser.star",
+        "run_it001_optimiser.star",
+        "run_it002_optimiser.star",
+        "run_it003_optimiser.star",
+        "run_it004_optimiser.star"
+      ],
+      "killAt": "2026-10-12T14:58:29.154Z"
+    },
+    "mint": "== mint GREEN — 36 ok, 0 fail =="
+  },
+  "at": "2026-10-12T15:18:08.566Z",
+  "stage2": {
+    "pass": 10,
+    "fail": 0,
+    "tombstone": "interrupted remotely (no exit status — node reboot or hard kill; 3 consecutive checks saw no trace of it); re-run resumes from the last synced checkpoint",
+    "roundsAtFlip": [
+      "run_it000_optimiser.star",
+      "run_it001_optimiser.star"
+    ],
+    "realCont": "/projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/class2d_n0f4hmif/run_it001_optimiser.star"
+  },
+  "fatal": "kill never landed",
+  "stage3": {
+    "pass": 29,
+    "fail": 6,
+    "realCont": "/projects/cryoflow/cmv4v0ue60000pp5i7i2gu10k/class2d_n0f4hmif/run_it001_optimiser.star",
+    "pickedRound": "001",
+    "resume": "completed",
+    "ladder": [
+      "run_it014_optimiser.star",
+      "run_it015_optimiser.star",
+      "run_it016_optimiser.star"
+    ]
+  },
+  "restore": "the stage3 remove REDd (the binding assert: this arc minted while BOUND, m.binding=conn; the blind unbind-first made binding()=null mismatch) and died partway — the OLD rmSync consumed the manifest on RED, stranding the half-deleted world; the hand-restore completed it (the chain jobs deleted downstream-first, BOTH sides swept, 3 jobs / 2 edges / doctor CLEAN); the FIXES banked: the remove consumes the manifest only on GREEN (the retry law), the restore returns the binding to the mint-time value BEFORE the remove and unbinds after, the Overview climb carries the entrance-animation retry",
+  "finalWorld": {
+    "jobs": 3,
+    "edges": 2,
+    "doctor": "CLEAN"
+  }
+}
