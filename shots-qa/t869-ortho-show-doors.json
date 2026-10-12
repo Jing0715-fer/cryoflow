@@ -1,0 +1,495 @@
+{
+  "instrument": "scripts/t869-ortho-show-doors.mjs",
+  "instrumentRevision": 1,
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the spec's own last resort, the t867 growth) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); the census measures the PERCEIVED page (the RENDERED companion: a display:none control is nobody's control, the t867 growth); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "cbIHQtfEuq3Nn-gQeuvbz",
+  "worldMode": "build",
+  "date": "2026-10-10T20:47:06.631Z",
+  "chain": "clean room -> canvas -> postprocess card (plain door) -> Results tab (mousedown) -> Enlarge postprocess.mrc -> quick-look -> View-in-3D (text door) -> ortho panel expanded -> the world's ready door (the phase-gated controls block) -> the three Show-at doors' deeds (slice ON + axis chip + plane slider + density profile + the echo, per door) -> the label-freshness walk (step, re-speak, re-click, home) -> the oblique camera dialogue (honest absence, adopt, jump, reset revokes) -> Escape home -> worldBack + seed hygiene (one command)",
+  "host": {
+    "name": "Post-process (tutorial)",
+    "id": "cmv2royja000yolsnqb647f2c",
+    "measured": true
+  },
+  "doors": {
+    "show": "click \"Show the <plane> at <readout> in 3D\" — the label IS the promise, parsed",
+    "adopt": "the oblique ⤸ adopt door — the camera pulled, the angles adopted",
+    "jump": "the oblique ⌖ jump door — the camera swings face-on",
+    "reset": "the reset door — the hand revokes, the chip vanishes"
+  },
+  "faces": {
+    "showDoors": {
+      "live": {
+        "url": "/",
+        "pageBtns": 243,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 5,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "actTab": null,
+        "shimmer": 0,
+        "orthoPresent": true,
+        "orthoRoot": "Orthogonal slice browser",
+        "obliqueState": "off",
+        "shows": [
+          "Show the XY plane at z 33/64 in 3D",
+          "Show the XZ plane at y 33/64 in 3D",
+          "Show the YZ plane at x 33/64 in 3D"
+        ],
+        "oSliders": [
+          {
+            "n": "XY plane position along Z",
+            "v": "0.5"
+          },
+          {
+            "n": "XZ plane position along Y",
+            "v": "0.5"
+          },
+          {
+            "n": "YZ plane position along X",
+            "v": "0.5"
+          }
+        ],
+        "provText": null,
+        "sliceOn": "true",
+        "chips": [
+          {
+            "a": "X",
+            "p": false
+          },
+          {
+            "a": "Y",
+            "p": false
+          },
+          {
+            "a": "Z",
+            "p": true
+          }
+        ],
+        "sliceNow": "0.5",
+        "profNow": "50",
+        "profText": "plane 50%"
+      },
+      "settled": {
+        "url": "/",
+        "pageBtns": 243,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 5,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "actTab": null,
+        "shimmer": 0,
+        "orthoPresent": true,
+        "orthoRoot": "Orthogonal slice browser",
+        "obliqueState": "off",
+        "shows": [
+          "Show the XY plane at z 33/64 in 3D",
+          "Show the XZ plane at y 33/64 in 3D",
+          "Show the YZ plane at x 33/64 in 3D"
+        ],
+        "oSliders": [
+          {
+            "n": "XY plane position along Z",
+            "v": "0.5"
+          },
+          {
+            "n": "XZ plane position along Y",
+            "v": "0.5"
+          },
+          {
+            "n": "YZ plane position along X",
+            "v": "0.5"
+          }
+        ],
+        "provText": null,
+        "sliceOn": "true",
+        "chips": [
+          {
+            "a": "X",
+            "p": false
+          },
+          {
+            "a": "Y",
+            "p": false
+          },
+          {
+            "a": "Z",
+            "p": true
+          }
+        ],
+        "sliceNow": "0.5",
+        "profNow": "50",
+        "profText": "plane 50%"
+      }
+    },
+    "obliqueProv": {
+      "live": {
+        "url": "/",
+        "pageBtns": 247,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 6,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "actTab": null,
+        "shimmer": 0,
+        "orthoPresent": true,
+        "orthoRoot": "Orthogonal slice browser",
+        "obliqueState": "on",
+        "shows": [
+          "Show the XY plane at z 33/64 in 3D",
+          "Show the XZ plane at y 33/64 in 3D",
+          "Show the YZ plane at x 33/64 in 3D"
+        ],
+        "oSliders": [
+          {
+            "n": "XY plane position along Z",
+            "v": "0.5"
+          },
+          {
+            "n": "XZ plane position along Y",
+            "v": "0.5"
+          },
+          {
+            "n": "YZ plane position along X",
+            "v": "0.5"
+          },
+          {
+            "n": "Polar angle of the plane normal",
+            "v": "0"
+          },
+          {
+            "n": "Azimuth angle of the plane normal",
+            "v": "0"
+          },
+          {
+            "n": "Signed offset of the plane along its normal",
+            "v": "0"
+          }
+        ],
+        "provText": null,
+        "sliceOn": "true",
+        "chips": [
+          {
+            "a": "X",
+            "p": false
+          },
+          {
+            "a": "Y",
+            "p": false
+          },
+          {
+            "a": "Z",
+            "p": true
+          }
+        ],
+        "sliceNow": "0.5",
+        "profNow": "50",
+        "profText": "plane 50%"
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "actTab": "Catalog",
+        "shimmer": 0,
+        "orthoPresent": false,
+        "orthoRoot": null,
+        "obliqueState": null,
+        "shows": [],
+        "oSliders": [],
+        "provText": null,
+        "sliceOn": null,
+        "chips": [],
+        "sliceNow": null,
+        "profNow": null,
+        "profText": null
+      }
+    }
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "sameBuild": true,
+    "prevBuild": "cbIHQtfEuq3Nn-gQeuvbz",
+    "prevDate": "2026-10-10T20:41:33.961Z",
+    "prevRevision": 1,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "showDoors": {
+        "prev": 243,
+        "live": 243,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "obliqueProv": {
+        "prev": 247,
+        "live": 247,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "M1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M2 the map's Enlarge door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M3 the View-in-3D door clicked (the name rides TEXT — the ruler's branch)",
+      "pass": true,
+      "detail": "text=\"View in 3D (Mol*)\""
+    },
+    {
+      "label": "M4 the ortho panel rode in with the map handoff",
+      "pass": true,
+      "detail": "dlgCount=3"
+    },
+    {
+      "label": "M5 the ortho root is named (Orthogonal slice browser)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M6 the disclosure walked open (collapsed -> expanded)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M7 the three show doors are aboard, labels UNIQUE (one promise per plane)",
+      "pass": true,
+      "detail": "shows=[\"Show the XY plane at z 33/64 in 3D\",\"Show the XZ plane at y 33/64 in 3D\",\"Show the YZ plane at x 33/64 in 3D\"]"
+    },
+    {
+      "label": "M8 every label PARSES (the door's own grammar: plane + axis + address)",
+      "pass": true,
+      "detail": "forms=[\"voxel\",\"voxel\",\"voxel\"], axes=[\"z\",\"y\",\"x\"]"
+    },
+    {
+      "label": "M9 the three axes are DISTINCT (one door per normal axis)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M10 the world's controls block arrived (the phase gate OPENED — the deeds ride a ready world)",
+      "pass": true,
+      "detail": "sliceOn=false (the controls are phase-gated; the panel's arrival is not the world's readiness)"
+    },
+    {
+      "label": "D1a the door clicked and the cross-section turned ON at its axis",
+      "pass": true,
+      "detail": "label=\"Show the XY plane at z 33/64 in 3D\""
+    },
+    {
+      "label": "D1b the axis chip speaks the door's axis",
+      "pass": true,
+      "detail": "pressed=Z want Z"
+    },
+    {
+      "label": "D1c the plane slider rides the door's address (at the readout's own precision: half a voxel)",
+      "pass": true,
+      "detail": "slider=0.5 want z 33/64 (±0.00794)"
+    },
+    {
+      "label": "D1d the density profile tracks the plane the slider speaks",
+      "pass": true,
+      "detail": "profile=50% vs slider 50.00%"
+    },
+    {
+      "label": "D1e the echo returned bit-for-bit: the panel's own Z-tile slider reads the plane the 3D slider speaks",
+      "pass": true,
+      "detail": "tile=0.5 vs slider=0.5"
+    },
+    {
+      "label": "D2a the door clicked and the cross-section turned ON at its axis",
+      "pass": true,
+      "detail": "label=\"Show the XZ plane at y 33/64 in 3D\""
+    },
+    {
+      "label": "D2b the axis chip speaks the door's axis",
+      "pass": true,
+      "detail": "pressed=Y want Y"
+    },
+    {
+      "label": "D2c the plane slider rides the door's address (at the readout's own precision: half a voxel)",
+      "pass": true,
+      "detail": "slider=0.5 want y 33/64 (±0.00794)"
+    },
+    {
+      "label": "D2d the density profile tracks the plane the slider speaks",
+      "pass": true,
+      "detail": "profile=50% vs slider 50.00%"
+    },
+    {
+      "label": "D2e the echo returned bit-for-bit: the panel's own Y-tile slider reads the plane the 3D slider speaks",
+      "pass": true,
+      "detail": "tile=0.5 vs slider=0.5"
+    },
+    {
+      "label": "D3a the door clicked and the cross-section turned ON at its axis",
+      "pass": true,
+      "detail": "label=\"Show the YZ plane at x 33/64 in 3D\""
+    },
+    {
+      "label": "D3b the axis chip speaks the door's axis",
+      "pass": true,
+      "detail": "pressed=X want X"
+    },
+    {
+      "label": "D3c the plane slider rides the door's address (at the readout's own precision: half a voxel)",
+      "pass": true,
+      "detail": "slider=0.5 want x 33/64 (±0.00794)"
+    },
+    {
+      "label": "D3d the density profile tracks the plane the slider speaks",
+      "pass": true,
+      "detail": "profile=50% vs slider 50.00%"
+    },
+    {
+      "label": "D3e the echo returned bit-for-bit: the panel's own X-tile slider reads the plane the 3D slider speaks",
+      "pass": true,
+      "detail": "tile=0.5 vs slider=0.5"
+    },
+    {
+      "label": "D4a the step MOVED the plane and the door's label RE-SPOKE the new address (the word is live, never a snapshot)",
+      "pass": true,
+      "detail": "readout z 33/64 -> z 32/64"
+    },
+    {
+      "label": "D4b the re-click carried the NEW address into the 3D scene (the deed follows the word, at the readout's own precision)",
+      "pass": true,
+      "detail": "slider=0.48412698412698413 want z 32/64 (±0.00794)"
+    },
+    {
+      "label": "D4c the walk home restored the plane (the readout and the 3D address back)",
+      "pass": true,
+      "detail": "readout z 33/64, slider=0.5"
+    },
+    {
+      "label": "D5 two settled rides bit-identical (the t836 law — the walks left NO residue)",
+      "pass": true,
+      "detail": "bit-for-bit"
+    },
+    {
+      "label": "D6 zero unnamed page-wide WITH the deepest stack up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=243 ctrls=3"
+    },
+    {
+      "label": "P1 the oblique disclosure walked open",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P2 the provenance chip is ABSENT at arrival (honest absence — no gesture yet, the footer must not lie)",
+      "pass": true,
+      "detail": "chip=null"
+    },
+    {
+      "label": "P3 the adopt door spoke the chip (⤸, whole degrees — the camera pulled)",
+      "pass": true,
+      "detail": "chip=\"⤸ 180°·0°\""
+    },
+    {
+      "label": "P4 the sliders followed the camera (the chip's angles ARE the sliders')",
+      "pass": true,
+      "detail": "sliders θ=180 φ=0 vs chip 180°·0°"
+    },
+    {
+      "label": "P5 the jump door RE-ATTRIBUTED without re-cutting (glyph ⤸ -> ⌖, the angles stay)",
+      "pass": true,
+      "detail": "chip \"⤸ 180°·0°\" -> \"⌖ 180°·0°\""
+    },
+    {
+      "label": "P6 the reset door REVOKED the attribution (the chip gone, the sliders home at 0)",
+      "pass": true,
+      "detail": "chip=null, θ=0 φ=0 (adopt rode θ=180 φ=0)"
+    },
+    {
+      "label": "P7 zero unnamed page-wide WITH the camera dialogue walked (the census's invariant)",
+      "pass": true,
+      "detail": "btns=247 ctrls=3"
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "showDoors face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (243 -> 243, the full live object identical)"
+    },
+    {
+      "label": "obliqueProv face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (247 -> 247, the full live object identical)"
+    },
+    {
+      "label": "worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (153 -> 153, the full live object identical)"
+    }
+  ],
+  "passed": 43,
+  "failed": 0,
+  "total": 43,
+  "verdict": "the show doors' page holds: the three \"Show the <plane> at <readout> in 3D\" doors rode live — each door's click turned the cross-section ON at the door's own axis (the chip pressed, the plane slider at the door's parsed address within half a step, the density profile at the door's percent, the echo returned to the tile slider), the label-freshness walk proved the word is live (a voxel step re-spoke the readout and the re-click carried the new address into the scene) and the walk home restored the arrival bit-for-bit, the oblique camera dialogue rode its first live walk (honest absence, ⤸ adopt with the sliders following the camera, ⌖ jump re-attributing without re-cutting, reset revoking), zero unnamed on every face, the world back bit-for-bit (153 == 153) — the ledger aboard from birth (three faces, the shared law) with the instrument's revision signed"
+}

@@ -1,0 +1,447 @@
+{
+  "instrument": "scripts/t870-ortho-export-triptych.mjs",
+  "instrumentRevision": 1,
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the spec's own last resort, the t867 growth) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); the census measures the PERCEIVED page (the RENDERED companion: a display:none control is nobody's control, the t867 growth); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "cbIHQtfEuq3Nn-gQeuvbz",
+  "worldMode": "build",
+  "date": "2026-10-10T21:19:09.172Z",
+  "chain": "clean room -> canvas -> postprocess card (plain door) -> Results tab (mousedown) -> Enlarge postprocess.mrc -> quick-look -> View-in-3D (text door) -> ortho panel expanded -> the world's ready door + the σ chip's arrival -> SIX documents: E1 arrival triptych (grid/accents/crosshair-at-address/thumbnail coherent with the world's own histogram/the cyan cut at the chip's σ), E2 one voxel step (the teal row moved exactly one voxel, strip+footer re-spoke), E3 step home (the crosshair back), E4 tetraptych with the footer's violet count ZERO (honest absence), E5 the ⤸ adopt door (the footer speaks the dialogue), E6 the reset door (the footer's violet back to ZERO) -> Escape home -> worldBack + seed hygiene (one command)",
+  "host": {
+    "name": "Post-process (tutorial)",
+    "id": "cmv2royja000yolsnqb647f2c",
+    "path": "postprocess.mrc",
+    "measured": true
+  },
+  "docs": {
+    "e1": {
+      "w": 1592,
+      "h": 638
+    },
+    "e4": {
+      "w": 2118,
+      "h": 638
+    },
+    "e5": {
+      "w": 2118,
+      "h": 638
+    },
+    "e6": {
+      "w": 2118,
+      "h": 638
+    }
+  },
+  "histogram": {
+    "bins": 256,
+    "mean": -0.1026069029771185,
+    "std": 0.24727656441653104,
+    "lo": -1.777552604675293,
+    "hi": 0.19992530345916748
+  },
+  "sigma": {
+    "sign": -1,
+    "sigma": 2
+  },
+  "faces": {
+    "exportDoc": {
+      "live": {
+        "url": "/",
+        "pageBtns": 234,
+        "pageUnnamed": 0,
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 5,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "shimmer": 0,
+        "orthoPresent": true,
+        "shows": [
+          "Show the XY plane at z 33/64 in 3D",
+          "Show the XZ plane at y 33/64 in 3D",
+          "Show the YZ plane at x 33/64 in 3D"
+        ],
+        "oSliders": [
+          {
+            "n": "XY plane position along Z",
+            "v": "0.5"
+          },
+          {
+            "n": "XZ plane position along Y",
+            "v": "0.5"
+          },
+          {
+            "n": "YZ plane position along X",
+            "v": "0.5"
+          }
+        ],
+        "provText": null,
+        "sigmaChip": "iso -2.00 σ",
+        "exState": "ok",
+        "xhairOn": "true",
+        "obliqueState": "off"
+      }
+    },
+    "obliDoc": {
+      "live": {
+        "url": "/",
+        "pageBtns": 238,
+        "pageUnnamed": 0,
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 6,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "shimmer": 0,
+        "orthoPresent": true,
+        "shows": [
+          "Show the XY plane at z 32/64 in 3D",
+          "Show the XZ plane at y 33/64 in 3D",
+          "Show the YZ plane at x 33/64 in 3D"
+        ],
+        "oSliders": [
+          {
+            "n": "XY plane position along Z",
+            "v": "0.49999999999999994"
+          },
+          {
+            "n": "XZ plane position along Y",
+            "v": "0.5"
+          },
+          {
+            "n": "YZ plane position along X",
+            "v": "0.5"
+          },
+          {
+            "n": "Polar angle of the plane normal",
+            "v": "0"
+          },
+          {
+            "n": "Azimuth angle of the plane normal",
+            "v": "0"
+          },
+          {
+            "n": "Signed offset of the plane along its normal",
+            "v": "0"
+          }
+        ],
+        "provText": null,
+        "sigmaChip": "iso -2.00 σ",
+        "exState": "ok",
+        "xhairOn": "true",
+        "obliqueState": "on"
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "shimmer": 0,
+        "orthoPresent": false,
+        "shows": [],
+        "oSliders": [],
+        "provText": null,
+        "sigmaChip": null,
+        "exState": null,
+        "xhairOn": null,
+        "obliqueState": null
+      }
+    }
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "sameBuild": true,
+    "prevBuild": "cbIHQtfEuq3Nn-gQeuvbz",
+    "prevDate": "2026-10-10T21:17:54.143Z",
+    "prevRevision": 1,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "exportDoc": {
+        "prev": 234,
+        "live": 234,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "obliDoc": {
+        "prev": 238,
+        "live": 238,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "M1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M2 the map's Enlarge door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M3 the View-in-3D door clicked (the name rides TEXT — the ruler's branch)",
+      "pass": true,
+      "detail": "text=\"View in 3D (Mol*)\""
+    },
+    {
+      "label": "M4 the ortho panel rode in with the map handoff",
+      "pass": true,
+      "detail": "dlgCount=3"
+    },
+    {
+      "label": "M6 the disclosure walked open (collapsed -> expanded)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "M8 every show label PARSES with its dim (the readout carries the voxel count)",
+      "pass": true,
+      "detail": "dims=[64,64,64], shows=[\"Show the XY plane at z 33/64 in 3D\",\"Show the XZ plane at y 33/64 in 3D\",\"Show the YZ plane at x 33/64 in 3D\"]"
+    },
+    {
+      "label": "M9 the three tile sliders give the focus point (the crosshair's coordinates)",
+      "pass": true,
+      "detail": "x=0.5 y=0.5 z=0.5"
+    },
+    {
+      "label": "M10 the export door's state machine is aboard (the phase gate OPENED)",
+      "pass": true,
+      "detail": "exState=idle"
+    },
+    {
+      "label": "M11 the σ chip spoke (the embed answered; the footer's σ segment rides the SAME truth)",
+      "pass": true,
+      "detail": "chip=\"iso -2.00 σ\" -> sign=-1 σ=2"
+    },
+    {
+      "label": "X1 the export door is aboard, named EXACTLY (the t867 V7 census's own words)",
+      "pass": true,
+      "detail": "aria-label=\"Export the three orthogonal sections as a PNG tripty\", state=idle"
+    },
+    {
+      "label": "X2 the download rode (the official door saved the bytes)",
+      "pass": true,
+      "detail": "t870-export-1.png 575693B"
+    },
+    {
+      "label": "X3 the state machine spoke ok (busy -> ok, the deed's receipt)",
+      "pass": true,
+      "detail": "state=ok"
+    },
+    {
+      "label": "X4 the fixed document grid measured (3×512 tiles, 1592×638 — a document, not a screenshot)",
+      "pass": true,
+      "detail": "1592×638"
+    },
+    {
+      "label": "X5 the publishing backdrop (#0b1220 at all four corners)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X6 the three label strips speak their OWN axis accents (z teal / y violet / x amber, none strayed)",
+      "pass": true,
+      "detail": "[1,1,1]"
+    },
+    {
+      "label": "X7 the tile borders drawn at the grid's seams, the gap clean (edge-segment ink counted)",
+      "pass": true,
+      "detail": "top=502px left=502px gapClean=true"
+    },
+    {
+      "label": "X8 the crosshair rides the live address — every line within ±3px of pos×512 (t0 amber/violet, t1 amber/teal, t2 violet/teal)",
+      "pass": true,
+      "detail": "t0=true t1=true t2=true"
+    },
+    {
+      "label": "X9 the footer's two text runs present (basename left in #e2e8f0, stats right in #94a3b8)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X10 the thumbnail drew (the border and the log bars measured)",
+      "pass": true,
+      "detail": "border runs=2 at x 476..774, ink cols=134"
+    },
+    {
+      "label": "X11 the σ ruler coherent with the WORLD'S OWN HISTOGRAM (both ±1σ anchors + ≥2 visible ticks within ±5px)",
+      "pass": true,
+      "detail": "anchors 2/2, all 2/4 (found [690,763] vs expected [653,689,726,762])"
+    },
+    {
+      "label": "X12 the cyan cut speaks the σ CHIP'S value AT EXPORT TIME at the histogram's coordinates",
+      "pass": true,
+      "detail": "chip \"iso -2.00 σ\" -> expected col 653, found [654] (on-scale)"
+    },
+    {
+      "label": "X13 zero unnamed page-wide WITH the export face walked (the census's invariant)",
+      "pass": true,
+      "detail": "btns=234 ctrls=3"
+    },
+    {
+      "label": "X14 the step MOVED the z focus one voxel (the live plane the document must follow)",
+      "pass": true,
+      "detail": "z 0.5000 -> 0.5159 (Δ=0.0159)"
+    },
+    {
+      "label": "X15 the second document rode",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X16 the teal crosshair row MOVED exactly one voxel (TILE/(dim-1) px, ±3px) — the document followed the plane",
+      "pass": true,
+      "detail": "row 304 -> 312 (Δ=8, want 8.1 px for dim=64)"
+    },
+    {
+      "label": "X17 the readout strip and the footer's stats run BOTH re-spoke (pixel-diff > 0 in both regions)",
+      "pass": true,
+      "detail": "strip diff=37px, footer diff=47px"
+    },
+    {
+      "label": "X18 the walk home restored the focus (z back within half a voxel)",
+      "pass": true,
+      "detail": "z 0.5159 -> 0.5000 (arrival 0.5000)"
+    },
+    {
+      "label": "X19 the restored document's crosshair back at the arrival row (±2px — the walk left NO residue)",
+      "pass": true,
+      "detail": "row 304 -> 304"
+    },
+    {
+      "label": "P1 the oblique disclosure walked open",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P2 the oblique block ON at home angles (θ=0 φ=0, no gesture yet)",
+      "pass": true,
+      "detail": "sliders=6"
+    },
+    {
+      "label": "X20 the fourth document rode (the tetraptych's own door)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X21 the TETRAPTYCH measured (width 2118 — the fourth panel aboard)",
+      "pass": true,
+      "detail": "2118×638"
+    },
+    {
+      "label": "X22 the fourth strip speaks the oblique's own violet (the 'Oblique' label, #7c3aed)",
+      "pass": true,
+      "detail": "violet runs=12 at x=[1598,1606,1609,1614,1619,1623,1628,1632,1637,1642,1644,1646]"
+    },
+    {
+      "label": "X23 the footer band's violet count ZERO (honest absence at document scale — no gesture, no dialogue)",
+      "pass": true,
+      "detail": "violet runs=0"
+    },
+    {
+      "label": "P3 the adopt door spoke the chip (⤸, whole degrees)",
+      "pass": true,
+      "detail": "chip=\"⤸ 180°·0°\""
+    },
+    {
+      "label": "X24 the fifth document rode",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X25 the footer SPEAKS the dialogue (violet in the footer band — the chip's own law at document scale)",
+      "pass": true,
+      "detail": "w=2118, footer violet runs=3 at x=[1581,1588,1609], strip runs=12"
+    },
+    {
+      "label": "X26 the dialogue's arrival CHANGED the footer (the two documents' footers differ — the dialogue is ink, not air)",
+      "pass": true,
+      "detail": "footer diff=223px vs E4"
+    },
+    {
+      "label": "P6 the reset door revoked the attribution (the chip gone)",
+      "pass": true,
+      "detail": "chip=null"
+    },
+    {
+      "label": "X27 the sixth document rode",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "X28 the footer band's violet count back to ZERO (the reset revokes at document scale — the footer must not lie)",
+      "pass": true,
+      "detail": "w=2118, footer violet runs=0"
+    },
+    {
+      "label": "P7 zero unnamed page-wide WITH the camera dialogue walked at document scale",
+      "pass": true,
+      "detail": "btns=238 ctrls=3"
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "exportDoc face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (234 -> 234, the full live object identical)"
+    },
+    {
+      "label": "obliDoc face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (238 -> 238, the full live object identical)"
+    },
+    {
+      "label": "worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (153 -> 153, the full live object identical)"
+    }
+  ],
+  "passed": 48,
+  "failed": 0,
+  "total": 48,
+  "verdict": "the export door's page holds: six documents one story — the triptych's fixed grid measured from its own pixels (1592×638, the publishing backdrop, the three strips' axis accents, the crosshair at the live address ±3px, the thumbnail coherent with the world's own histogram, the cyan cut at the σ chip's value at the histogram's coordinates), the voxel step followed by the document (the teal row moved exactly 8.1px, the strip and the footer re-spoke), the step home restored, the tetraptych's honest absence (footer violet ZERO), the ⤸ dialogue's ink in the footer, the reset's revocation — the footer must not lie, at ANY scale; the ledger aboard from birth (three faces, the shared law) with the instrument's revision signed"
+}

@@ -1,0 +1,218 @@
+{
+  "instrument": "scripts/t871-family-faces.mjs",
+  "instrumentRevision": 1,
+  "date": "2026-10-10T21:50:33.719Z",
+  "build": "cbIHQtfEuq3Nn-gQeuvbz",
+  "hosts": {
+    "class3d": "cmv2royib000oolsn8azoa6v9",
+    "symexpand": "cmv2royih000qolsnzxijccrg",
+    "rebalance": "cmv2royir000solsnpr8y7q2g"
+  },
+  "api": {
+    "iterations": {
+      "rounds": 26,
+      "latest": 25,
+      "classes": 4,
+      "total": 96
+    },
+    "rebalance": {
+      "before": 5760,
+      "after": 5672,
+      "removed": 88,
+      "bins": 60
+    }
+  },
+  "faces": {
+    "class3dGallery": {
+      "pageBtns": 369,
+      "kTabs": 26,
+      "kCards": 4,
+      "sheetOk": 1
+    },
+    "starTables": {
+      "pageBtns": 189,
+      "sDoors": 2,
+      "dlgCount": 2
+    },
+    "rebalanceReport": {
+      "pageBtns": 183,
+      "rBars": 24,
+      "tiles": 8
+    }
+  },
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "cbIHQtfEuq3Nn-gQeuvbz",
+    "prevDate": "2026-10-10T21:46:50.578Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "class3dGallery": {
+        "prev": 400,
+        "live": 400,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "starTables": {
+        "prev": 193,
+        "live": 193,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "rebalanceReport": {
+        "prev": 215,
+        "live": 215,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "F0 the clean room: the boot is panel-closed (the instrument owns its conditions)",
+      "pass": true,
+      "detail": "dlgCount=0"
+    },
+    {
+      "label": "K1 the card's plain door opened the inspector",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "K2 the gallery section arrives visible with the sheet decoded",
+      "pass": true,
+      "detail": "src=blob:/218d89dd-62e7-42eb-a4eb-716f69a2c333"
+    },
+    {
+      "label": "K3 the chips speak the API's round count",
+      "pass": true,
+      "detail": "UI 26 vs API 26 (first=it 000seed, last=it 025)"
+    },
+    {
+      "label": "K4 the class cards speak the API's classes and counts",
+      "pass": true,
+      "detail": "4 cards, parsed sum 96 vs API total 96"
+    },
+    {
+      "label": "K5 zero unnamed page-wide with the gallery up",
+      "pass": true,
+      "detail": "btns=369 imgs=19"
+    },
+    {
+      "label": "K6 one chip step re-speaks the sheet (the document follows the hand)",
+      "pass": true,
+      "detail": "chip=\"it 005\" before=\"Open iteration 025 class sheet enlarged\" after=\"Open iteration 005 class sheet enlarged\" timeline=[{\"t\":0,\"label\":\"Open iteration 005 class sheet enlarged\"},{\"t\":1,\"label\":\"Open iteration 005 class sheet enlarged\"}]"
+    },
+    {
+      "label": "K6b the jump-home door exists exactly when away from home",
+      "pass": true,
+      "detail": "door=true, view=\"Open iteration 005 class sheet enlarged\""
+    },
+    {
+      "label": "K7 the jump-home door returns the sheet to the latest",
+      "pass": true,
+      "detail": "home=\"Open iteration 025 class sheet enlarged\""
+    },
+    {
+      "label": "K8 the film archived (shots-qa/t871-class3d-gallery.png)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S1 the symexpand card's plain door opened the inspector",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S2 the STAR tables section arrives visible",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S3 the world's two dialects both door'd (the doors' names carry the files)",
+      "pass": true,
+      "detail": "doors=2 [particles_symexp.star168 rows11.3 KB | particles_symexpand.star5,760 rows479.3 KB]"
+    },
+    {
+      "label": "S4 the door opens the star table dialog above the inspector (the t866 topmost layer)",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "S5 zero unnamed page-wide with the dialog up",
+      "pass": true,
+      "detail": "btns=189"
+    },
+    {
+      "label": "S6 Escape closed the dialog (the world closes what it opened)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "R1 the rebalance card's plain door opened the inspector",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R2 the report section arrives visible on the Overview tab",
+      "pass": true,
+      "detail": "bars=24"
+    },
+    {
+      "label": "R3a the API's own arithmetic law (totalAfter === totalBefore - removed)",
+      "pass": true,
+      "detail": "before 5760 - removed 88 = after 5672"
+    },
+    {
+      "label": "R3b EVERY rendered bar speaks the API's truth (X=countAfter, Y=countBefore, Y-X=removed)",
+      "pass": true,
+      "detail": "24 bars all law-abiding"
+    },
+    {
+      "label": "R4 the bar count speaks the chart's own cap (min(bins, 24))",
+      "pass": true,
+      "detail": "DOM 24 vs min(60, 24)"
+    },
+    {
+      "label": "R5 the six Delta tiles aboard, each named",
+      "pass": true,
+      "detail": "Particles | Removed | Anisotropy | Count uniformity | Mean 3DFSC est. | Resolution CV"
+    },
+    {
+      "label": "R6 the honest footnote aboard (the 3DFSC disclaimer)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R7 zero unnamed within the section",
+      "pass": true,
+      "detail": "rUn=0"
+    },
+    {
+      "label": "R8 the film archived (shots-qa/t871-rebalance-report.png)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W1 the world back: panel closed, page healthy",
+      "pass": true,
+      "detail": "btns=153"
+    }
+  ],
+  "passed": 26,
+  "failed": 0,
+  "total": 26,
+  "verdict": "the family's first gallery faces hold: class3d's own film speaks the iterations API (rounds, classes, counts, the step and the jump home), symexpand's two star dialects both door'd with the dialog named and Escape-honest, the rebalance rows' arithmetic is the API's own truth at DOM scale"
+}

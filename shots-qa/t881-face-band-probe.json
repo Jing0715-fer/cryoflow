@@ -1,0 +1,611 @@
+{
+  "instrument": "scripts/t881-face-band-probe.mjs",
+  "world": "cbIHQtfEuq3Nn-gQeuvbz",
+  "worldMode": "build",
+  "date": "2026-10-11T04:08:46.493Z",
+  "bands": [
+    375,
+    640,
+    768,
+    1024,
+    1280,
+    1536
+  ],
+  "height": 800,
+  "openDialect": "the roster row's Open affordance runs openJob() -> setView('canvas'): the inspector's open DEEPLINKS to the workflow face — the dialog is portal-level (face-independent), the insp rows ride over the workflow face by the product's own dialect",
+  "faceAtInsp": {
+    "A": "Workflow",
+    "B": "Workflow"
+  },
+  "passA": {
+    "dash": {
+      "375": {
+        "cont": {
+          "w": 375,
+          "x": 0,
+          "padL": 16
+        },
+        "kpi": {
+          "w": 343,
+          "cols": 2,
+          "card0": 165.5
+        },
+        "wall": {
+          "w": 309,
+          "cols": 1
+        },
+        "act": {
+          "w": 309,
+          "cols": 1
+        },
+        "proj": {
+          "w": 343,
+          "cols": 1,
+          "cards": 1
+        },
+        "roster": {
+          "w": 309,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 375
+      },
+      "640": {
+        "cont": {
+          "w": 640,
+          "x": 0,
+          "padL": 24
+        },
+        "kpi": {
+          "w": 592,
+          "cols": 3,
+          "card0": 189.3
+        },
+        "wall": {
+          "w": 550,
+          "cols": 2
+        },
+        "act": {
+          "w": 550,
+          "cols": 2
+        },
+        "proj": {
+          "w": 592,
+          "cols": 1,
+          "cards": 1
+        },
+        "roster": {
+          "w": 550,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 640
+      },
+      "768": {
+        "cont": {
+          "w": 768,
+          "x": 0,
+          "padL": 24
+        },
+        "kpi": {
+          "w": 720,
+          "cols": 3,
+          "card0": 232
+        },
+        "wall": {
+          "w": 678,
+          "cols": 2
+        },
+        "act": {
+          "w": 678,
+          "cols": 2
+        },
+        "proj": {
+          "w": 720,
+          "cols": 2,
+          "cards": 1
+        },
+        "roster": {
+          "w": 678,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 768
+      },
+      "1024": {
+        "cont": {
+          "w": 1024,
+          "x": 0,
+          "padL": 32
+        },
+        "kpi": {
+          "w": 960,
+          "cols": 3,
+          "card0": 312
+        },
+        "wall": {
+          "w": 918,
+          "cols": 2
+        },
+        "act": {
+          "w": 918,
+          "cols": 2
+        },
+        "proj": {
+          "w": 960,
+          "cols": 2,
+          "cards": 1
+        },
+        "roster": {
+          "w": 918,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 1024
+      },
+      "1280": {
+        "cont": {
+          "w": 1280,
+          "x": 0,
+          "padL": 32
+        },
+        "kpi": {
+          "w": 1216,
+          "cols": 5,
+          "card0": 233.6
+        },
+        "wall": {
+          "w": 1174,
+          "cols": 4
+        },
+        "act": {
+          "w": 1174,
+          "cols": 4
+        },
+        "proj": {
+          "w": 1216,
+          "cols": 3,
+          "cards": 1
+        },
+        "roster": {
+          "w": 1174,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 1280
+      },
+      "1536": {
+        "cont": {
+          "w": 1280,
+          "x": 128,
+          "padL": 32
+        },
+        "kpi": {
+          "w": 1216,
+          "cols": 5,
+          "card0": 233.6
+        },
+        "wall": {
+          "w": 1174,
+          "cols": 4
+        },
+        "act": {
+          "w": 1174,
+          "cols": 4
+        },
+        "proj": {
+          "w": 1216,
+          "cols": 3,
+          "cards": 1
+        },
+        "roster": {
+          "w": 1174,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 1536
+      }
+    },
+    "insp": {
+      "375": {
+        "open": true,
+        "w": 360,
+        "h": 736,
+        "x": 7.5,
+        "tabsN": 4,
+        "listW": 229.9,
+        "listH": 36,
+        "tabWs": [
+          70.5,
+          35.4,
+          57.3,
+          62.6
+        ],
+        "listHov": false
+      },
+      "640": {
+        "open": true,
+        "w": 614.4,
+        "h": 736,
+        "x": 12.8,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      },
+      "768": {
+        "open": true,
+        "w": 737.3,
+        "h": 736,
+        "x": 15.4,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      },
+      "1024": {
+        "open": true,
+        "w": 983,
+        "h": 736,
+        "x": 20.5,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      },
+      "1280": {
+        "open": true,
+        "w": 1228.8,
+        "h": 736,
+        "x": 25.6,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      },
+      "1536": {
+        "open": true,
+        "w": 1474.5,
+        "h": 736,
+        "x": 30.7,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      }
+    },
+    "faceAtInsp": "Workflow"
+  },
+  "passB": {
+    "dash": {
+      "375": {
+        "cont": {
+          "w": 375,
+          "x": 0,
+          "padL": 16
+        },
+        "kpi": {
+          "w": 343,
+          "cols": 2,
+          "card0": 165.5
+        },
+        "wall": {
+          "w": 309,
+          "cols": 1
+        },
+        "act": {
+          "w": 309,
+          "cols": 1
+        },
+        "proj": {
+          "w": 343,
+          "cols": 1,
+          "cards": 1
+        },
+        "roster": {
+          "w": 309,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 375
+      },
+      "640": {
+        "cont": {
+          "w": 640,
+          "x": 0,
+          "padL": 24
+        },
+        "kpi": {
+          "w": 592,
+          "cols": 3,
+          "card0": 189.3
+        },
+        "wall": {
+          "w": 550,
+          "cols": 2
+        },
+        "act": {
+          "w": 550,
+          "cols": 2
+        },
+        "proj": {
+          "w": 592,
+          "cols": 1,
+          "cards": 1
+        },
+        "roster": {
+          "w": 550,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 640
+      },
+      "768": {
+        "cont": {
+          "w": 768,
+          "x": 0,
+          "padL": 24
+        },
+        "kpi": {
+          "w": 720,
+          "cols": 3,
+          "card0": 232
+        },
+        "wall": {
+          "w": 678,
+          "cols": 2
+        },
+        "act": {
+          "w": 678,
+          "cols": 2
+        },
+        "proj": {
+          "w": 720,
+          "cols": 2,
+          "cards": 1
+        },
+        "roster": {
+          "w": 678,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 768
+      },
+      "1024": {
+        "cont": {
+          "w": 1024,
+          "x": 0,
+          "padL": 32
+        },
+        "kpi": {
+          "w": 960,
+          "cols": 3,
+          "card0": 312
+        },
+        "wall": {
+          "w": 918,
+          "cols": 2
+        },
+        "act": {
+          "w": 918,
+          "cols": 2
+        },
+        "proj": {
+          "w": 960,
+          "cols": 2,
+          "cards": 1
+        },
+        "roster": {
+          "w": 918,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 1024
+      },
+      "1280": {
+        "cont": {
+          "w": 1280,
+          "x": 0,
+          "padL": 32
+        },
+        "kpi": {
+          "w": 1216,
+          "cols": 5,
+          "card0": 233.6
+        },
+        "wall": {
+          "w": 1174,
+          "cols": 4
+        },
+        "act": {
+          "w": 1174,
+          "cols": 4
+        },
+        "proj": {
+          "w": 1216,
+          "cols": 3,
+          "cards": 1
+        },
+        "roster": {
+          "w": 1174,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 1280
+      },
+      "1536": {
+        "cont": {
+          "w": 1280,
+          "x": 128,
+          "padL": 32
+        },
+        "kpi": {
+          "w": 1216,
+          "cols": 5,
+          "card0": 233.6
+        },
+        "wall": {
+          "w": 1174,
+          "cols": 4
+        },
+        "act": {
+          "w": 1174,
+          "cols": 4
+        },
+        "proj": {
+          "w": 1216,
+          "cols": 3,
+          "cards": 1
+        },
+        "roster": {
+          "w": 1174,
+          "rows": 19,
+          "hOv": false
+        },
+        "hOv": false,
+        "innerW": 1536
+      }
+    },
+    "insp": {
+      "375": {
+        "open": true,
+        "w": 360,
+        "h": 736,
+        "x": 7.5,
+        "tabsN": 4,
+        "listW": 229.9,
+        "listH": 36,
+        "tabWs": [
+          70.5,
+          35.4,
+          57.3,
+          62.6
+        ],
+        "listHov": false
+      },
+      "640": {
+        "open": true,
+        "w": 614.4,
+        "h": 736,
+        "x": 12.8,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      },
+      "768": {
+        "open": true,
+        "w": 737.3,
+        "h": 736,
+        "x": 15.4,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      },
+      "1024": {
+        "open": true,
+        "w": 983,
+        "h": 736,
+        "x": 20.5,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      },
+      "1280": {
+        "open": true,
+        "w": 1228.8,
+        "h": 736,
+        "x": 25.6,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      },
+      "1536": {
+        "open": true,
+        "w": 1474.5,
+        "h": 736,
+        "x": 30.7,
+        "tabsN": 4,
+        "listW": 359.9,
+        "listH": 36,
+        "tabWs": [
+          102.5,
+          67.4,
+          89.3,
+          96.6
+        ],
+        "listHov": false
+      }
+    },
+    "faceAtInsp": "Workflow"
+  },
+  "bitIdentical": true
+}

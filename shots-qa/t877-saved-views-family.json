@@ -1,0 +1,635 @@
+{
+  "instrument": "scripts/t877-saved-views-family.mjs",
+  "instrumentRevision": 2,
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the spec's own last resort, the t867 growth) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); the census measures the PERCEIVED page (the RENDERED companion: a display:none control is nobody's control, the t867 growth); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@8066a87055a3",
+  "worldMode": "dev",
+  "date": "2026-10-11T12:31:49.159Z",
+  "chain": "clean room -> gallery route (the host measured) -> the wall's arrival (the trio, the named Xs, the hover contract) -> the palette group (the heading, the rows, the thumbs, the TTL cache, the row's X) -> MOUNT drill one -> the JUMP (palette row -> inspector -> Results -> the final-map tile -> View in 3D -> the fingerprint) -> the restored toast (the view + Jumped here) -> the pending consumed -> ONE-SHOT (the second mount restores nothing) -> the WALL DELETE (hover -> the t793 question -> Delete view -> the broadcast shrink -> the after-state toast -> the server confirms) -> MOUNT drill two -> the palette caches it -> DELETE server-side -> the pending armed -> the HONEST NOT-FOUND -> the pending consumed -> the TTL self-heal -> MOUNT drill three -> the HOME MOUTH (B saves -> the broadcast growth; the list deletes -> the broadcast shrink; the update re-captures -> the thumb follows) -> the drills swept -> the trio byte-for-byte -> worldBack + seed hygiene (one command)",
+  "doors": {
+    "gallery": "GET /api/views/gallery — the server-fed group the palette reads (the measured host's source)",
+    "seats": "GET/PUT /api/jobs/cmv2royix000uolsn92k0fw1f/camera-bookmarks — the t707 headered lane (the drills' road in and out)",
+    "wall": "[data-saved-view-card] + [data-saved-view-delete] — the t669 two-mouth card grown the t674 trio",
+    "confirm": "the t793 AlertDialog (X -> the question -> the 'Delete view' action) — the shape the shadowed walks never saw",
+    "palette": "Control+k -> [data-palette-savedview-row] (the jump body) with the pencil + X pair (t674) — the jump mouth's palette dialect",
+    "pending": "cryoflow:pending-view { jobId, bookmarkId } — the one-shot handshake (t668's wire, t669's honest absence)",
+    "viewer": "the roster's open door -> Results (mousedown) -> the final-map tile -> View in 3D -> the shelf's load fingerprint (the t671 rule)",
+    "homeMouth": "B quick-save / the list's Update + Delete bookmark buttons / commitBookmarks — the t671 single mutation path",
+    "broadcast": "SAVED_VIEWS_CHANGED_EVENT — the wall re-reads fresh (the marker witness: zero reloads)"
+  },
+  "port": {
+    "from": "the t876 map's debt cluster (t668 deeplink, t669 notfound + wall delete, t670 palette delete, t671 third mouth)",
+    "law": "the label-as-will law closed loop — the debt walks' surfaces are this instrument's own labels now",
+    "redrawn": [
+      "the t793 confirm dialog (the old X-click-shrinks is TWO doors)",
+      "the t674 trio mouths at both surfaces (wall card + palette row)",
+      "the t817 after-state toast (the remaining count rides)",
+      "the shelf cap 8 + the fingerprint rule measured at the current product"
+    ]
+  },
+  "host": {
+    "id": "cmv2royix000uolsn92k0fw1f",
+    "name": "3D Refine (tutorial)",
+    "type": "refine3d",
+    "measured": true
+  },
+  "trio": {
+    "ids": [
+      "seedview1",
+      "seedview2",
+      "seedview3"
+    ],
+    "names": [
+      "Centered iso view",
+      "Top-down slice",
+      "Front half clipped"
+    ],
+    "bytesRestored": true
+  },
+  "drills": [
+    {
+      "id": "t877drill1",
+      "name": "t877 drill one",
+      "fate": "mounted -> jumped (restored toast) -> deleted via the wall's X + the t793 confirm"
+    },
+    {
+      "id": "t877drill2",
+      "name": "t877 drill two",
+      "fate": "mounted -> cached into the palette -> deleted server-side -> the honest not-found -> the TTL self-heal"
+    },
+    {
+      "id": "t877drill3",
+      "name": "t877 drill three",
+      "fate": "mounted -> B-saved (View 5, then deleted via the list) -> thumb re-captured by the update mouth"
+    }
+  ],
+  "oneShot": {
+    "restoredFirst": false,
+    "secondMountRestoredNothing": true
+  },
+  "notFound": {
+    "toast": null,
+    "pendingConsumed": true
+  },
+  "broadcastWitness": {
+    "marker": "v-face",
+    "law": "the page instance never reloaded across the home-mouth leg"
+  },
+  "openingCanvas": 153,
+  "faces": {
+    "wallArrival": {
+      "live": {
+        "url": "/",
+        "pageBtns": 131,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 3,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "wallPresent": true,
+        "wallCards": 3,
+        "wallIds": [
+          "seedview1",
+          "seedview2",
+          "seedview3"
+        ],
+        "wallSign": "3 bookmarks · 1 job · click to jump, hover to rename or delete",
+        "wallXs": 3,
+        "cmdkOpen": false,
+        "cmdkItems": 0,
+        "svHeading": null,
+        "svRows": 0,
+        "svRowNames": [],
+        "bmTrig": null,
+        "shimmer": 0,
+        "marker": null,
+        "pending": null
+      }
+    },
+    "paletteFace": {
+      "live": {
+        "url": "/",
+        "pageBtns": 139,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 6,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 1,
+        "wallPresent": true,
+        "wallCards": 3,
+        "wallIds": [
+          "seedview1",
+          "seedview2",
+          "seedview3"
+        ],
+        "wallSign": "3 bookmarks · 1 job · click to jump, hover to rename or delete",
+        "wallXs": 3,
+        "cmdkOpen": true,
+        "cmdkItems": 110,
+        "svHeading": "Saved views · 3 bookmarks",
+        "svRows": 3,
+        "svRowNames": [
+          "Saved view — Centered iso view3D Refine ",
+          "Saved view — Top-down slice3D Refine (tu",
+          "Saved view — Front half clipped3D Refine"
+        ],
+        "bmTrig": null,
+        "shimmer": 0,
+        "marker": null,
+        "pending": null
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "wallPresent": false,
+        "wallCards": 0,
+        "wallIds": [],
+        "wallSign": null,
+        "wallXs": 0,
+        "cmdkOpen": false,
+        "cmdkItems": 0,
+        "svHeading": null,
+        "svRows": 0,
+        "svRowNames": [],
+        "bmTrig": null,
+        "shimmer": 0,
+        "marker": null,
+        "pending": null
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the pending cleared, no dialogs)",
+      "pass": true,
+      "detail": "dlg=false pending=null"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "T1 the views gallery route answers with at least one view",
+      "pass": true,
+      "detail": "1 view(s)"
+    },
+    {
+      "label": "T2 the world has a bookmark-bearing job (the measured host, never pinned)",
+      "pass": true,
+      "detail": "hosts=3D Refine (tutorial)"
+    },
+    {
+      "label": "T3 the host is on the shelf with its own gallery row",
+      "pass": true,
+      "detail": "host=\"3D Refine (tutorial)\" type=refine3d"
+    },
+    {
+      "label": "T4 the host speaks the trio (the world's own seed truth)",
+      "pass": true,
+      "detail": "Centered iso view | Top-down slice | Front half clipped"
+    },
+    {
+      "label": "T5 the thumbs are honest data-URL images",
+      "pass": true,
+      "detail": "thumbs=3/3"
+    },
+    {
+      "label": "T6 the trio's BYTE snapshot taken (the un-own anchor — the exit's own pin)",
+      "pass": true,
+      "detail": "bytes≈6626"
+    },
+    {
+      "label": "W0 the dashboard tab opened (the header switcher's own click)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W1 the Saved views wall stands",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W2 three cards stand (the trio)",
+      "pass": true,
+      "detail": "cards=3 ids=[\"seedview1\",\"seedview2\",\"seedview3\"]"
+    },
+    {
+      "label": "W3 the wall signs its mouths (click to jump, hover to rename or delete — the t674-amended signage)",
+      "pass": true,
+      "detail": "sign=\"3 bookmarks · 1 job · click to jump, hover to rename or delete\""
+    },
+    {
+      "label": "W4 every card carries its delete X (three mouths, X named per view)",
+      "pass": true,
+      "detail": "X buttons=3"
+    },
+    {
+      "label": "W5 every X NAMES its view for assistive tech",
+      "pass": true,
+      "detail": "[\"Delete saved view “Centered iso view”\",\"Delete saved view “Top-down slice”\",\"Delete save"
+    },
+    {
+      "label": "W6 the X hides at rest (the hover-reveal contract)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "W6b the world's reveal media read recorded (the pointer arm's jurisdiction)",
+      "pass": true,
+      "detail": "hover:hover=false pointer:fine=false (headless: the keyboard arm is the witnessable one)"
+    },
+    {
+      "label": "W7 the X reveals to the KEYBOARD (focus-within — the product's own second arm)",
+      "pass": true,
+      "detail": "opacity 1"
+    },
+    {
+      "label": "W7b the reveal is honest (blur returns the X to rest — not sticky)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "W8 zero unnamed page-wide WITH the wall up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=131 ctrls=2"
+    },
+    {
+      "label": "P1 the palette opened (Control+k)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P2 the Saved views group speaks its heading (count aboard)",
+      "pass": true,
+      "detail": "heading=\"Saved views · 3 bookmarks\""
+    },
+    {
+      "label": "P3 three rows, one per bookmark",
+      "pass": true,
+      "detail": "rows=3"
+    },
+    {
+      "label": "P4 the thumbs REALLY render (complete + naturalWidth — the t865 settle law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P5 the row names its home job (the measured host's own name)",
+      "pass": true,
+      "detail": "row=\"Saved view — Centered iso view3D Refine (tutorial)\""
+    },
+    {
+      "label": "P6 zero unnamed with the palette up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=139 ctrls=3"
+    },
+    {
+      "label": "P7 the second open costs ZERO gallery requests (the TTL cache holds)",
+      "pass": true,
+      "detail": "gallery requests 1 -> 1"
+    },
+    {
+      "label": "P8 the palette row carries its delete X (the t670 mouth)",
+      "pass": true,
+      "detail": "present=true"
+    },
+    {
+      "label": "P9 the row's X hides at rest (the palette's own hover contract)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "P10 the row's X reveals to the KEYBOARD (focus-within — the slot-swap grammar's second arm)",
+      "pass": true,
+      "detail": "opacity 1"
+    },
+    {
+      "label": "P10b the row's reveal is honest (blur returns it to rest)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "J0 the drill seat mounted through the PUT lane (adopt-or-create, API)",
+      "pass": true,
+      "detail": "seats=4"
+    },
+    {
+      "label": "J1 the wall holds four (the gallery route's fresh read on the fresh load)",
+      "pass": true,
+      "detail": "cards=4"
+    },
+    {
+      "label": "J2 the palette speaks four rows, the drill among them",
+      "pass": true,
+      "detail": "rows=4"
+    },
+    {
+      "label": "J3 the palette closes on jump (the jump mouth's first promise)",
+      "pass": true,
+      "detail": "cmdkOpen=false dlgCount=1"
+    },
+    {
+      "label": "J4 the 3D viewer is REALLY up (the shelf's load fingerprint speaks — 4 saved)",
+      "pass": true,
+      "detail": "bmTrig=\"Camera view bookmarks — 4 saved\""
+    },
+    {
+      "label": "J5 the arrival toast NAMES the view (the handshake's fingerprint)",
+      "pass": false,
+      "detail": "none"
+    },
+    {
+      "label": "J6 the arrival speaks its door (Jumped here — the description's own words)",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "label": "J7 the pending handshake is CONSUMED (one-shot semantics)",
+      "pass": true,
+      "detail": "pending=null"
+    },
+    {
+      "label": "J8 the roster's open door clicked again (NO re-jump — the honest reopen)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "J9 the second viewer mount is REALLY up",
+      "pass": true,
+      "detail": "bmTrig=\"Camera view bookmarks — 4 saved\""
+    },
+    {
+      "label": "J10 no NEW restore toast in this window (the consumed link never re-opens — the Task 81 law live)",
+      "pass": true,
+      "detail": "0 toasts since baseline, none restore"
+    },
+    {
+      "label": "X0 the wall stands at four (the drill's card among the trio)",
+      "pass": true,
+      "detail": "cards=4"
+    },
+    {
+      "label": "X1 the drill card's X reveals to the KEYBOARD (the dual contract's witnessable arm)",
+      "pass": true,
+      "detail": "opacity 1"
+    },
+    {
+      "label": "X2 THE CONFIRM DIALOG STANDS (the t793 question — the shape the shadowed walk never saw)",
+      "pass": true,
+      "detail": "title=\"Delete saved view “t877 drill one”?\""
+    },
+    {
+      "label": "X3 the wall shrinks to three without the drill card",
+      "pass": true,
+      "detail": "cards=3"
+    },
+    {
+      "label": "X4 the shrink rode the BROADCAST (zero reloads — the marker survived, the SAVED_VIEWS_CHANGED_EVENT's whole point)",
+      "pass": true,
+      "detail": "marker=\"x-face\""
+    },
+    {
+      "label": "X5 the deletion toast reports (t817's teaching shape: the after-state aboard)",
+      "pass": false,
+      "detail": "none"
+    },
+    {
+      "label": "X6 the server holds three, drill seat gone",
+      "pass": true,
+      "detail": "seats=3"
+    },
+    {
+      "label": "N0 the palette cached the drill row (four rows — the TTL clock polled, not raced)",
+      "pass": true,
+      "detail": "rows=4"
+    },
+    {
+      "label": "N1 the drill deleted SERVER-SIDE (the palette's cache now a clock behind)",
+      "pass": true,
+      "detail": "seats=3"
+    },
+    {
+      "label": "N2 the pending armed DIRECTLY for the dead id (the door's own wire shape — determinism over the TTL race)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "N3 the roster's open door clicked (a FRESH viewer will consume the armed pending)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "N4 the drill viewer is REALLY up (three saved — the post-delete truth)",
+      "pass": true,
+      "detail": "bmTrig=\"Camera view bookmarks — 3 saved\""
+    },
+    {
+      "label": "N5 THE HONEST NOT-FOUND: the deleted jump's arrival speaks the absence",
+      "pass": false,
+      "detail": "none"
+    },
+    {
+      "label": "N6 the toast names the honest cause (deleted — not a silent no-op)",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "label": "N7 the pending consumed even for absences (one-shot, the door's honesty clause)",
+      "pass": true,
+      "detail": "pending=null"
+    },
+    {
+      "label": "E1 the palette's TTL expired and the deleted row faded (self-heal, bounded 100s poll)",
+      "pass": true,
+      "detail": "rows=3"
+    },
+    {
+      "label": "V0 the third drill mounted (the home mouth's subject)",
+      "pass": true,
+      "detail": "seats=4"
+    },
+    {
+      "label": "V1 the viewer is REALLY up (— 4 saved: the fingerprint rule held)",
+      "pass": true,
+      "detail": "bmTrig=\"Camera view bookmarks — 4 saved\""
+    },
+    {
+      "label": "V2 THE B-KEY QUICK-SAVE ANNOUNCES ITSELF (the toast names the key)",
+      "pass": false,
+      "detail": "none"
+    },
+    {
+      "label": "V3 the server holds FIVE (the browser's list HAD the shelf this time — the fingerprint rule's own payoff)",
+      "pass": true,
+      "detail": "seats=5"
+    },
+    {
+      "label": "V4 the wall holds five — grown by the BROADCAST, zero reloads (the marker witness)",
+      "pass": true,
+      "detail": "cards=5 marker=\"v-face\""
+    },
+    {
+      "label": "V5 the palette's next open speaks five rows (the listener beat the TTL clock — the t671 law)",
+      "pass": true,
+      "detail": "rows=5 heading=\"Saved views · 5 bookmarks\""
+    },
+    {
+      "label": "V6 the viewer is up again (fresh mount, fresh list — 5 saved)",
+      "pass": true,
+      "detail": "bmTrig=\"Camera view bookmarks — 5 saved\""
+    },
+    {
+      "label": "V7 the bookmark list carries its delete mouth and the B-saved row went",
+      "pass": true,
+      "detail": "deleted"
+    },
+    {
+      "label": "V8 the server holds four again (the home's own delete)",
+      "pass": true,
+      "detail": "seats=4"
+    },
+    {
+      "label": "V9 the wall shrinks by broadcast (four cards, zero reloads)",
+      "pass": true,
+      "detail": "cards=4"
+    },
+    {
+      "label": "V10 the viewer is up for the update",
+      "pass": true,
+      "detail": "bmTrig=\"Camera view bookmarks — 4 saved\""
+    },
+    {
+      "label": "V11 the bookmark list carries its update mouth (the drill re-captured)",
+      "pass": true,
+      "detail": "updated"
+    },
+    {
+      "label": "V12 the update toast speaks (the pose & optics moved into the drill)",
+      "pass": false,
+      "detail": "none"
+    },
+    {
+      "label": "V13 the update never changed the count",
+      "pass": true,
+      "detail": "seats=4"
+    },
+    {
+      "label": "V14 the wall's drill thumb CHANGED with the update (fresh capture served — the same-source law)",
+      "pass": true,
+      "detail": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA -> data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABA"
+    },
+    {
+      "label": "V15 zero reloads across the whole home-mouth leg (the marker never moved)",
+      "pass": true,
+      "detail": "marker=\"v-face\""
+    },
+    {
+      "label": "B1 the trio restored BYTE-FOR-BYTE (the exit's own pin — the un-own law)",
+      "pass": true,
+      "detail": "bytes equal=true"
+    },
+    {
+      "label": "B2 the gallery route agrees with the shelf (three cards, one job row)",
+      "pass": true,
+      "detail": "gallery rows=1"
+    },
+    {
+      "label": "B3 the roster bit-for-bit (bookmark mutations never touch the roster)",
+      "pass": true,
+      "detail": "jobs=19"
+    },
+    {
+      "label": "B4 the world unharmed (canvas count == the opening count, zero unnamed, no dialogs)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "B5 the ride leaves no session seed",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "B6 no pending lingers (every handshake consumed)",
+      "pass": true,
+      "detail": "pending=null"
+    },
+    {
+      "label": "L wallArrival face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8066a87055a3), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L paletteFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8066a87055a3), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@8066a87055a3), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 75,
+  "failed": 7,
+  "total": 82,
+  "verdict": "7 red — the saved-views family's port moved (or the ride left residue); call the census's own instruments before any UI work",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@8066a87055a3",
+    "prevDate": "2026-10-11T12:23:54.474Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "wallArrival": {
+        "prev": 131,
+        "live": 131,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "paletteFace": {
+        "prev": 139,
+        "live": 139,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

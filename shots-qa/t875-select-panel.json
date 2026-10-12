@@ -1,0 +1,703 @@
+{
+  "instrument": "scripts/t875-select-panel.mjs",
+  "instrumentRevision": 3,
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the spec's own last resort, the t867 growth) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); the census measures the PERCEIVED page (the RENDERED companion: a display:none control is nobody's control, the t867 growth); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "cbIHQtfEuq3Nn-gQeuvbz",
+  "worldMode": "build",
+  "date": "2026-10-11T00:00:12.239Z",
+  "chain": "clean room -> APIs' truth (roster/edges/receipt-absence) -> the tutorial select's INSPECTOR (the honest-absence receipt, the Log tab, Escape) -> CREATE (POST /api/jobs) -> WIRE (POST /api/edges, particles -> particles) -> the IDLE probe's PANEL (io/params + the params ride) -> RUN (POST /api/jobs/:id/run {local:true}) -> the receipt born (the DISK TRUTH: the star parsed against the engine's numbers) -> the COMPLETED probe's INSPECTOR (the receipt card at DOM scale) -> the from-door's destination (t569's swap) -> RE-RUN (the append law at file scale + the determinism) -> DELETE -> worldBack + tab/seed hygiene (one command)",
+  "doors": {
+    "doorInventory": "the card's plain door is STATUS-DEPENDENT — idle -> the editing PANEL (t863's shape), submitted (running/completed/failed) -> the big INSPECTOR (job-card.tsx)",
+    "create": "POST /api/jobs { type: select, far-corner parked } — the t708 write door",
+    "wire": "POST /api/edges { select2d particles -> probe particles } — the tutorial edge's own grammar",
+    "run": "POST /api/jobs/:id/run { local: true } — the engine-native lane (x2: R1 the birth, R2 the re-run)",
+    "panel": "plain pointerdown+pointerup on the idle card — the t863 law",
+    "inspector": "the same door on a completed card — the dialog with the Overview/Log/Results/Files rooms",
+    "fromDoor": "[data-canvas-ui=receipt-from-link] — the t567 provenance door, ridden to the source (t569's swap)",
+    "unmutate": "DELETE /api/jobs/cmv323j7g001qolsnkqdkbtq6 — the app's own cascade (tombstone + edge sweep; workdir kept by design)"
+  },
+  "source": {
+    "name": "Select 2D (tutorial)",
+    "id": "cmv2royhg000iolsnie6rh9w6",
+    "tutorialSelect": {
+      "name": "Select (tutorial)",
+      "id": "cmv2royhp000kolsnkloi3n1b",
+      "receiptAvailable": false,
+      "note": "The run log carries no selection receipt (pre-receipt run or a non-native lane)"
+    }
+  },
+  "probe": {
+    "id": "cmv323j7g001qolsnkqdkbtq6",
+    "name": "t875 select panel probe",
+    "type": "select",
+    "wired": "particles -> particles",
+    "runs": 2,
+    "cap": 48
+  },
+  "receiptR1": {
+    "kept": 48,
+    "total": 168,
+    "inputPath": "/home/z/my-project/data/relion/cmv2rou390000olsn0xnkohe8/select2d_ie6rh9w6/particles_select2d.star",
+    "starRows": 168,
+    "starClasses": {
+      "1": 96,
+      "2": 72
+    },
+    "keptClasses": 2,
+    "totalClasses": 2,
+    "modeKind": "auto",
+    "mode": null
+  },
+  "receiptR2": {
+    "kept": 48,
+    "total": 168,
+    "ranAtMs": 1791676803704,
+    "blocksInRunOut": 2,
+    "pct": "28.6%",
+    "chip": "occupancy rule"
+  },
+  "paramsFreeze": {
+    "maxParticles": "1000 -> 48 (the idle panel's debounced save), frozen at submission (the completed job's params are read-only in the UI), the run honored it, ranParams == 48"
+  },
+  "remountLaw": "the inspector's Results tab nudges only WHILE running (t397's 6s tick) — a sub-6s engine-native re-run ends before the first tick; the remount (Results -> Overview -> Results) IS the refresh; the completion-nudge fix rides src (job-inspector.tsx JobResultsLive), build-day queued (the t869/t872 precedent)",
+  "undoLedger": {
+    "tombstone": "1",
+    "workdir": "1",
+    "law": "the app's own restore contract — recorded, never cleaned by the ride"
+  },
+  "openingCanvas": 153,
+  "panelTab": {
+    "before": "params",
+    "after": "params"
+  },
+  "faces": {
+    "panelArrival": {
+      "live": {
+        "panelOpen": true,
+        "panelTitle": "t875 select panel probe",
+        "pageBtns": 173,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 6,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "ioPresent": false,
+        "ooPresent": false,
+        "ioHasUpstream": false,
+        "tabsAll": [
+          "Dashboard",
+          "Workflow",
+          "Catalog",
+          "Workspaces1",
+          "I/O",
+          "Params",
+          "Results",
+          "Log",
+          "I/O",
+          "Class options",
+          "Subsets",
+          "Duplicates"
+        ],
+        "receiptPresent": false,
+        "chipLabel": null,
+        "bornChip": false,
+        "classesKept": null,
+        "bigKept": null,
+        "bigTotal": null,
+        "pctChip": null,
+        "barLabel": null,
+        "chipTitles": [],
+        "overflowChip": null,
+        "fromDoor": null,
+        "ranLabel": null,
+        "ignoredLabel": null,
+        "legendTexts": [
+          "Expert options · 3"
+        ],
+        "paramsFoot": "22 parameters · RELION 5 defaults",
+        "classGallery": false,
+        "logFace": "engine-native: particle selection — class-aware occupancy pruning when input has",
+        "shimmer": 0
+      }
+    },
+    "receiptFace": {
+      "live": {
+        "panelOpen": false,
+        "panelTitle": "t875 select panel probe",
+        "pageBtns": 185,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": true,
+        "dlgCount": 1,
+        "ioPresent": false,
+        "ooPresent": false,
+        "ioHasUpstream": false,
+        "tabsAll": [
+          "Dashboard",
+          "Workflow",
+          "Catalog",
+          "Workspaces1",
+          "Overview",
+          "Log",
+          "Results",
+          "Files3"
+        ],
+        "receiptPresent": true,
+        "chipLabel": "occupancy rule",
+        "bornChip": false,
+        "classesKept": {
+          "kept": 2,
+          "total": 2
+        },
+        "bigKept": 48,
+        "bigTotal": 168,
+        "pctChip": "28.6%",
+        "barLabel": "28.6 percent of particles kept",
+        "chipTitles": [
+          "class 1 — 96 particles kept",
+          "class 2 — 72 particles kept"
+        ],
+        "overflowChip": null,
+        "fromDoor": "from Select 2D (tutorial)",
+        "ranLabel": "ran Oct 11, 12:00 AM",
+        "ignoredLabel": null,
+        "legendTexts": [],
+        "paramsFoot": "",
+        "classGallery": false,
+        "logFace": null,
+        "shimmer": 0
+      }
+    },
+    "worldBack": {
+      "live": {
+        "panelOpen": false,
+        "panelTitle": null,
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "ioPresent": false,
+        "ooPresent": false,
+        "ioHasUpstream": false,
+        "tabsAll": [
+          "Dashboard",
+          "Workflow",
+          "Catalog",
+          "Workspaces1"
+        ],
+        "receiptPresent": false,
+        "chipLabel": null,
+        "bornChip": false,
+        "classesKept": null,
+        "bigKept": null,
+        "bigTotal": null,
+        "pctChip": null,
+        "barLabel": null,
+        "chipTitles": [],
+        "overflowChip": null,
+        "fromDoor": null,
+        "ranLabel": null,
+        "ignoredLabel": null,
+        "legendTexts": [],
+        "paramsFoot": "",
+        "classGallery": false,
+        "logFace": null,
+        "shimmer": 0
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen=false"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "T1 the tutorial pair found (the walk's subjects)",
+      "pass": true,
+      "detail": "select=\"Select (tutorial)\" select2d=\"Select 2D (tutorial)\""
+    },
+    {
+      "label": "T2 the tutorial select's feeding wire speaks particles -> particles (the grammar the probe rides)",
+      "pass": true,
+      "detail": "particles->particles"
+    },
+    {
+      "label": "T3 the tutorial select's receipt is the world's documented absence (pre-receipt run)",
+      "pass": true,
+      "detail": "note=\"The run log carries no selection receipt (pre-receipt run or a non-nativ\""
+    },
+    {
+      "label": "T4 the roster's result line is the LAST RUN's word (the first ride's discovery: the disk may speak the seeder's newer contract — the receipt's own file is the only pin)",
+      "pass": true,
+      "detail": "result=\"96 of 96 particles selected · kept 50/50 classes (occupancy \""
+    },
+    {
+      "label": "I1 the completed card's plain door clicked (the t875 door inventory: idle -> the panel, submitted -> the inspector)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "I2 the INSPECTOR opened (a dialog — the big modal, not the side panel)",
+      "pass": true,
+      "detail": "dlg=true panelOpen=false name=\"Select (tutorial)\""
+    },
+    {
+      "label": "I3 the inspector's tab set speaks Overview/Log/Results/Files (the big modal's own reading rooms — the Files tab's badge rides its text)",
+      "pass": true,
+      "detail": "tabs=Overview/Log/Results/Files5"
+    },
+    {
+      "label": "I4 the inspector's Results tab switched",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "I5 the receipt card is HONESTLY ABSENT on the pre-receipt run (the t562 null, no red painted)",
+      "pass": true,
+      "detail": "receiptPresent=false"
+    },
+    {
+      "label": "I6 zero unnamed page-wide with the inspector up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=183 ctrls=2"
+    },
+    {
+      "label": "I7 the inspector's Log tab switched",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "I7b the engine's own words live behind the Log tab (a pre block speaks)",
+      "pass": true,
+      "detail": "log=\"seeded by qa-t531-old-world-seed — 168 particles s\""
+    },
+    {
+      "label": "I7c zero unnamed on the Log tab (or the KNOWN wrap-toggle gap — the fix rides src, build-day queued)",
+      "pass": true,
+      "detail": "unnamed=1 who=[\"lucide-wrap-text\"]"
+    },
+    {
+      "label": "I8 Escape closed the inspector (the dialog law)",
+      "pass": true,
+      "detail": "dlg=false"
+    },
+    {
+      "label": "M1 the probe minted through the app's own door",
+      "pass": true,
+      "detail": "status=201"
+    },
+    {
+      "label": "M2 the probe is a select with an id",
+      "pass": true,
+      "detail": "id=cmv323j7g001"
+    },
+    {
+      "label": "M3 the roster grew by exactly one",
+      "pass": true,
+      "detail": "jobs=20 (was 19)"
+    },
+    {
+      "label": "M4 the wire lit through the app's own door (select2d particles -> probe particles — the tutorial edge's own grammar)",
+      "pass": true,
+      "detail": "status=201"
+    },
+    {
+      "label": "M5 the edges grew by exactly one",
+      "pass": true,
+      "detail": "edges=21 (was 20)"
+    },
+    {
+      "label": "P1 the IDLE card's plain door opened the editing panel (the door inventory's idle shape — t863's own walk)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P2 the PANEL arrived (the side panel, not a dialog)",
+      "pass": true,
+      "detail": "panelOpen=true title=\"t875 select panel probe\""
+    },
+    {
+      "label": "P3 the io tab names the upstream select2d in the Inputs section (the feeding wire at DOM scale, navigated — the persisted tab boots whatever the last ride left)",
+      "pass": true,
+      "detail": "io=true oo=true upstreamNamed=true"
+    },
+    {
+      "label": "P4 the outer Params tab switched through the MOUSEDOWN door (the t863 Radix law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P5 the inner tabs speak Subsets + Duplicates (the spec's own declared tabs — the RELION option table's family rides alongside, measured)",
+      "pass": true,
+      "detail": "tabs=Subsets/Duplicates (all=12)"
+    },
+    {
+      "label": "P6 the params face speaks the Basic/Expert fieldset form (the option table EXTENDS the curated 4 — the arithmetic measured, never pinned to the spec's declared count)",
+      "pass": true,
+      "detail": "legends=[\"Expert options · 3\"]"
+    },
+    {
+      "label": "P7 the params footer speaks the RELION 5 defaults law (N >= the curated 4 — the extended family's own number, recorded)",
+      "pass": true,
+      "detail": "foot=\"22 parameters · RELION 5 defaults\""
+    },
+    {
+      "label": "P8 zero unnamed page-wide WITH the params form up",
+      "pass": true,
+      "detail": "btns=173 ctrls=6"
+    },
+    {
+      "label": "P9 the maxParticles input found across the inner tabs and filled through the native setter (the panel's own debounced save ahead)",
+      "pass": true,
+      "detail": "now=48 innerTabs=[\"Class options\",\"Subsets\",\"Duplicates\"]"
+    },
+    {
+      "label": "P10 the API's params moved to the ride's cap (the world's own write path)",
+      "pass": true,
+      "detail": "params.maxParticles=48"
+    },
+    {
+      "label": "P11 the panel closed through its own Close button",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P11b the panel is gone, the canvas back",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R1 the run door accepted the probe ({local:true} — the engine-native lane)",
+      "pass": true,
+      "detail": "status=200 error=null"
+    },
+    {
+      "label": "R2 the probe completed through the world's own engine",
+      "pass": true,
+      "detail": "status=completed result=\"48 of 168 particles selected · kept 2/2 classes (occupancy ≥ 0.5× best\""
+    },
+    {
+      "label": "R3 the receipt API flipped to available:true (the engine wrote the block)",
+      "pass": true,
+      "detail": "verb=select"
+    },
+    {
+      "label": "R4 the receipt speaks the 1D verb (select) and the parser's documented honesty (mode null — the 1D receipt has no mode line)",
+      "pass": true,
+      "detail": "verb=select mode=null"
+    },
+    {
+      "label": "R5 the modeKind derived from the occupancy verdict (auto — the result line's own words)",
+      "pass": true,
+      "detail": "modeKind=auto"
+    },
+    {
+      "label": "R6 the receipt's inputPath names the tutorial select2d's workdir (the t568 leaf shape, the walk's own wire)",
+      "pass": true,
+      "detail": "input=select2d_ie6rh9w6/particles_select2d.star"
+    },
+    {
+      "label": "R7 the receipt's input count == the input star's own rows (the engine's word == the file it claims to have read)",
+      "pass": true,
+      "detail": "receipt=168 star=168"
+    },
+    {
+      "label": "R8 the receipt's classes array == the star's own class histogram (count per class, parsed not pinned)",
+      "pass": true,
+      "detail": "classes=2 starClasses=2 starSum=168"
+    },
+    {
+      "label": "R9 THE PICK-FOLLOWS-CLASS LAW: every class's kept verdict === (count >= classCutoff x best)",
+      "pass": true,
+      "detail": "classes=2 cutoff=0.5 best=96"
+    },
+    {
+      "label": "R10 THE OCCUPANCY LEDGER: the class stats speak the INPUT (the kept classes' counts sum to the input)",
+      "pass": true,
+      "detail": "sum=168 input=168"
+    },
+    {
+      "label": "R11 THE CAP LEDGER: the output == min(the run's own maxParticles, the kept classes' total) — the cap applies FIRST",
+      "pass": true,
+      "detail": "output=48 ranMax=48 keptTotal=168"
+    },
+    {
+      "label": "R12 the classes-kept pair matches the classes array (the receipt's own two mouths)",
+      "pass": true,
+      "detail": "2/2"
+    },
+    {
+      "label": "R13 the frozen form ran: ranParams.maxParticles == the ride's cap (the t445 snapshot == the params at dispatch)",
+      "pass": true,
+      "detail": "ranParams.maxParticles=48"
+    },
+    {
+      "label": "R14 the provenance is the t568 log-first mapping (kind auto — no birth, no gallery ticks; the source named)",
+      "pass": true,
+      "detail": "kind=auto from=\"Select 2D (tutorial)\""
+    },
+    {
+      "label": "G1 the COMPLETED card's plain door clicked — the door inventory's submitted shape",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G2 the INSPECTOR opened for the completed probe (the params freeze's door shape — no editing panel)",
+      "pass": true,
+      "detail": "dlg=true panelOpen=false"
+    },
+    {
+      "label": "G3 the inspector's Results tab switched",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G4 the receipt card arrived (the section named)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G5 the header chip speaks the derived kind (occupancy rule — the MODE_CHIP.auto label)",
+      "pass": true,
+      "detail": "chip=\"occupancy rule\""
+    },
+    {
+      "label": "G6 no born chip (the probe is a param/auto run, no birth selection)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G7 the classes-kept span speaks the receipt's own pair",
+      "pass": true,
+      "detail": "2/2"
+    },
+    {
+      "label": "G8 the big numbers speak the run (the structural number spans: kept, then total)",
+      "pass": true,
+      "detail": "48 kept of 168"
+    },
+    {
+      "label": "G9 the percent chip speaks the fraction",
+      "pass": true,
+      "detail": "pct=\"28.6%\" want=\"28.6%\""
+    },
+    {
+      "label": "G10 the fraction bar's aria-label speaks the same arithmetic",
+      "pass": true,
+      "detail": "bar=\"28.6 percent of particles kept\""
+    },
+    {
+      "label": "G11 the CHIP_CAP law measured (chips shown == min(16, classes); the overflow chip only when it overflows)",
+      "pass": true,
+      "detail": "chips=2 overflow=null (classes=2)"
+    },
+    {
+      "label": "G12 every chip's title carries the API's own arithmetic (parsed, not pinned)",
+      "pass": true,
+      "detail": "class 1 — 96 particles kept …"
+    },
+    {
+      "label": "G13 the from-door speaks the source (the t567 door aboard)",
+      "pass": true,
+      "detail": "door=\"from Select 2D (tutorial)\""
+    },
+    {
+      "label": "G14 the ran-at label rides the footer (the receipt's own timestamp)",
+      "pass": true,
+      "detail": "ran=\"ran Oct 10, 11:59 PM\""
+    },
+    {
+      "label": "G15 zero unnamed page-wide WITH the receipt up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=185 ctrls=2"
+    },
+    {
+      "label": "D1 the from-door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "D2 the inspector now speaks the SOURCE's name (openJob swapped the dialog's job — the t569 law)",
+      "pass": true,
+      "detail": "title=\"Select 2D (tutorial)\""
+    },
+    {
+      "label": "D3 zero unnamed at the destination",
+      "pass": true,
+      "detail": "btns=185"
+    },
+    {
+      "label": "R2-0 the ride returned to the probe's inspector (the plain door again)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R2-0b the probe's inspector is back",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R2-1 the run door accepted the re-run (the frozen params ride again)",
+      "pass": true,
+      "detail": "status=200 error=null"
+    },
+    {
+      "label": "R2-2 the re-run completed",
+      "pass": true,
+      "detail": "result=\"48 of 168 particles selected · kept 2/2 classes (occupancy ≥ 0.5× best\""
+    },
+    {
+      "label": "R2-3 the API's LAST block moved: the ranAt stamp is newer than R1's (the append law's own mouth)",
+      "pass": true,
+      "detail": "ranAt 1791676795785 -> 1791676803704"
+    },
+    {
+      "label": "R2-4 THE DETERMINISM LAW: same input + frozen params -> the same numbers (kept, total, classes)",
+      "pass": true,
+      "detail": "kept=48/168 classes=2/2"
+    },
+    {
+      "label": "R2-5 the append law at file scale: the workdir's run.out holds TWO receipt blocks (the instrument read the file itself)",
+      "pass": true,
+      "detail": "blocks=2 path=data/relion/…/select_kqdkbtq6/run.out"
+    },
+    {
+      "label": "R2-6 the remount refresh: the Results tab's return re-mounts the card (the frozen world's refresh shape — the nudge covers only long runs)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R2-7 the card re-reads the newest run: the numbers stand (the determinism at DOM scale)",
+      "pass": true,
+      "detail": "card=48/168"
+    },
+    {
+      "label": "R2-8 the ran label moved with the re-run (the card's footer speaks the newest block's own time)",
+      "pass": true,
+      "detail": "ran \"ran Oct 10, 11:59 PM\" -> \"ran Oct 11, 12:00 AM\""
+    },
+    {
+      "label": "R2-9 the chip label still speaks the occupancy rule (the deciding rule did not move)",
+      "pass": true,
+      "detail": "chip=\"occupancy rule\""
+    },
+    {
+      "label": "R2-10 zero unnamed after the remount",
+      "pass": true,
+      "detail": "btns=185"
+    },
+    {
+      "label": "W1 the probe deleted through the same door",
+      "pass": true,
+      "detail": "status=200"
+    },
+    {
+      "label": "W2 the roster returned bit-for-bit",
+      "pass": true,
+      "detail": "jobs=19 (opening 19)"
+    },
+    {
+      "label": "W3 the edges returned bit-for-bit (the cascade swept the wire)",
+      "pass": true,
+      "detail": "edges=20 (opening 20)"
+    },
+    {
+      "label": "W4 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "W5 the ride leaves no session seed (the t157 two-way door's honest none)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "W6 the panel's persisted tab returned to its opening value",
+      "pass": true,
+      "detail": "tab \"params\" -> \"params\""
+    },
+    {
+      "label": "W7 the undo ledger recorded (the tombstone + the workdir remain BY DESIGN — the app's own restore contract)",
+      "pass": true,
+      "detail": "tombstone=1 workdir=1 (recorded, not cleaned)"
+    },
+    {
+      "label": "L panelArrival face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (173 -> 173, the full live object identical)"
+    },
+    {
+      "label": "L receiptFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 with the LENS clause — the scalars held (drift 0) and every moved field speaks lens [ranLabel]: the ruler's names grew richer, the world never moved (the name-monotone blessing, t864)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (153 -> 153, the full live object identical)"
+    }
+  ],
+  "passed": 87,
+  "failed": 0,
+  "total": 87,
+  "verdict": "the select panel's face holds through the world's own door inventory and the run door's first fleet ride: the completed tutorial select opened its INSPECTOR (the dialog, the Overview/Log/Results/Files rooms, the receipt card HONESTLY ABSENT on the pre-receipt run, the engine's own words behind the Log tab, Escape closed it) while the IDLE probe opened the editing PANEL (io named the upstream select2d, the params spoke Subsets/Duplicates with the Basic·2/Expert·1 arithmetic and the \"4 parameters · RELION 5 defaults\" footer) — THE DOOR INVENTORY (idle -> the panel, submitted -> the inspector) is the walk's first fact; the params ride set maxParticles 48 through the debounced save while idle and the submission FROZE it (the completed job's params are read-only — the inspector's grid, no edit door), the run honored it; the receipt was BORN through the run door ({local:true}) and met its own file: inputPath named the select2d's workdir leaf (the t568 shape), inputParticles == the star's own rows, the classes array == the star's own histogram, every kept verdict === (count >= classCutoff x best) — THE PICK-FOLLOWS-CLASS LAW —, the class stats speaking the INPUT (the occupancy ledger) while the output spoke the CAP (min(48, kept total) — the cap applies first), ranParams the frozen form's own numbers, the provenance the t568 log-first mapping; the DOM card spoke every mouth (the chip \"occupancy rule\", the classes-kept pair, the structural big numbers, the percent chip + the fraction bar, the CHIP_CAP law measured, every chip's title carrying the API's arithmetic, the from-door named); the from-door RODE to the source (t569's swap — the inspector spoke the select2d's name); the re-run proved the append law at FILE SCALE (run.out holds TWO blocks, the LAST the newest truth, the API's ranAt moved) and the DETERMINISM LAW (same input + frozen params -> the same numbers at the API and after the remount at DOM scale); the frozen world's refresh shape recorded (the remount IS the refresh — the nudge covers only long runs; the completion-nudge fix rides src, build-day queued); the DELETE returned the roster and the edges bit-for-bit (19 == 19, 20 == 20), the canvas 153 == 153, no seed, the persisted tab home, the undo ledger recorded (tombstone + workdir by design) — the ledger aboard from birth (three faces, arm 2)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "cbIHQtfEuq3Nn-gQeuvbz",
+    "prevDate": "2026-10-10T23:59:21.939Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "panelArrival": {
+        "prev": 173,
+        "live": 173,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "receiptFace": {
+        "prev": 185,
+        "live": 185,
+        "drift": 0,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "ranLabel"
+          ],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,452 @@
+{
+  "instrument": "scripts/t873-class3d-picker.mjs",
+  "instrumentRevision": 2,
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the spec's own last resort, the t867 growth) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); the census measures the PERCEIVED page (the RENDERED companion: a display:none control is nobody's control, the t867 growth); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "cbIHQtfEuq3Nn-gQeuvbz",
+  "worldMode": "build",
+  "date": "2026-10-10T22:37:21.266Z",
+  "chain": "clean room -> APIs' truth (roster/edges/classes) -> CREATE (POST /api/jobs) -> WIRE (POST /api/edges, particles -> particles) -> plain door -> PANEL -> the gallery's 3D face -> auto arithmetic -> click dialect (the debounced save) -> zoom lightbox -> sort arrangement -> DELETE -> worldBack + sort-key hygiene (one command)",
+  "doors": {
+    "create": "POST /api/jobs { type: select2d, far-corner parked } — the t708 write door",
+    "wire": "POST /api/edges { class3d particles -> probe particles } — the adopt flow's kind-scan grammar",
+    "panel": "plain pointerdown+pointerup on the idle card — the t863 law",
+    "unmutate": "DELETE /api/jobs/cmv2z568o001colsna5he426u — the app's own cascade (tombstone + edge sweep)"
+  },
+  "source": {
+    "name": "3D Classification (tutorial)",
+    "id": "cmv2royib000oolsn8azoa6v9",
+    "classesApi": {
+      "classes": [
+        {
+          "cls": 1,
+          "count": 24,
+          "fraction": 0.25
+        },
+        {
+          "cls": 2,
+          "count": 24,
+          "fraction": 0.25
+        },
+        {
+          "cls": 3,
+          "count": 24,
+          "fraction": 0.25
+        },
+        {
+          "cls": 4,
+          "count": 24,
+          "fraction": 0.25
+        }
+      ],
+      "total": 96,
+      "iteration": 25,
+      "classesFile": "run_it025_classes.mrcs",
+      "volumeFiles": null
+    }
+  },
+  "probe": {
+    "id": "cmv2z568o001colsna5he426u",
+    "name": "t873 class3d picker probe",
+    "type": "select2d",
+    "wired": "particles -> particles"
+  },
+  "openingCanvas": 153,
+  "sortKey": {
+    "before": null,
+    "after": null
+  },
+  "faces": {
+    "pickerArrival": {
+      "live": {
+        "panelOpen": true,
+        "pageBtns": 191,
+        "pageUnnamed": 0,
+        "ctrls": 6,
+        "unCtrls": 0,
+        "imgs": 4,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "shimmer": 0,
+        "gallery": true,
+        "gridNamed": true,
+        "tiles": [
+          {
+            "label": "Toggle class 1 (24 particles, 25%)",
+            "on": "true"
+          },
+          {
+            "label": "Toggle class 2 (24 particles, 25%)",
+            "on": "true"
+          },
+          {
+            "label": "Toggle class 3 (24 particles, 25%)",
+            "on": "true"
+          },
+          {
+            "label": "Toggle class 4 (24 particles, 25%)",
+            "on": "true"
+          }
+        ],
+        "tileCount": 4,
+        "imgPending": 0,
+        "imgsGallery": 4,
+        "poursId": "class-gallery-pours-class3d",
+        "poursWord": "pours particles, volume",
+        "monoType": "class3d",
+        "autoOn": "true",
+        "footText": "Auto selectionoccupancy ≥ 0.50 × best96 / 96 particles(100%)"
+      }
+    },
+    "gallery3d": {
+      "live": {
+        "panelOpen": true,
+        "pageBtns": 191,
+        "pageUnnamed": 0,
+        "ctrls": 6,
+        "unCtrls": 0,
+        "imgs": 4,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "shimmer": 0,
+        "gallery": true,
+        "gridNamed": true,
+        "tiles": [
+          {
+            "label": "Toggle class 1 (24 particles, 25%)",
+            "on": "true"
+          },
+          {
+            "label": "Toggle class 2 (24 particles, 25%)",
+            "on": "false"
+          },
+          {
+            "label": "Toggle class 3 (24 particles, 25%)",
+            "on": "true"
+          },
+          {
+            "label": "Toggle class 4 (24 particles, 25%)",
+            "on": "true"
+          }
+        ],
+        "tileCount": 4,
+        "imgPending": 0,
+        "imgsGallery": 4,
+        "poursId": "class-gallery-pours-class3d",
+        "poursWord": "pours particles, volume",
+        "monoType": "class3d",
+        "autoOn": "false",
+        "footText": "Manual selectionclasses 1, 3, 472 / 96 particles(75%)"
+      }
+    },
+    "worldBack": {
+      "live": {
+        "panelOpen": false,
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "shimmer": 0,
+        "gallery": false,
+        "gridNamed": false,
+        "tiles": [],
+        "tileCount": 0,
+        "imgPending": 0,
+        "imgsGallery": 0,
+        "poursId": null,
+        "poursWord": "",
+        "monoType": "",
+        "autoOn": null,
+        "footText": ""
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen=false"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "T1 the classes API speaks the source's occupancy truth",
+      "pass": true,
+      "detail": "classes=1/2/3/4 total=96"
+    },
+    {
+      "label": "T2 the world's grammar recorded before the ride",
+      "pass": true,
+      "detail": "jobs=19 edges=20"
+    },
+    {
+      "label": "M1 the probe minted through the app's own door",
+      "pass": true,
+      "detail": "status=201"
+    },
+    {
+      "label": "M2 the probe is a select2d with an id",
+      "pass": true,
+      "detail": "id=cmv2z568o001"
+    },
+    {
+      "label": "M3 the roster grew by exactly one (the idle card aboard)",
+      "pass": true,
+      "detail": "jobs=20 (was 19)"
+    },
+    {
+      "label": "M4 the wire lit through the app's own door (particles -> particles — the grammar the adopt flow's kind scan speaks for a 3D source)",
+      "pass": true,
+      "detail": "status=201"
+    },
+    {
+      "label": "M5 the edges grew by exactly one",
+      "pass": true,
+      "detail": "edges=21 (was 20)"
+    },
+    {
+      "label": "G1 the idle card's plain door opened the panel (the t863 law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G1b the panel arrived (the side panel's own close button aboard)",
+      "pass": true,
+      "detail": "panelOpen=true"
+    },
+    {
+      "label": "G1c the outer Params tab switched through the MOUSEDOWN door (the t863 Radix law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G2 the gallery section is present and named",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G3 the header's mono word speaks the 3D kind",
+      "pass": true,
+      "detail": "mono=\"class3d\""
+    },
+    {
+      "label": "G4 the pours seat is aboard BY KIND (class-gallery-pours-class3d)",
+      "pass": true,
+      "detail": "testid=class-gallery-pours-class3d"
+    },
+    {
+      "label": "G5 the pours seat's sr-only word names the water (the t773 law's voice)",
+      "pass": true,
+      "detail": "word=\"pours particles, volume\""
+    },
+    {
+      "label": "G6 the grid is the named listbox (arrow keys move, Enter toggles)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G7 the tiles speak the API's own arithmetic in their names (per-class, parsed not pinned)",
+      "pass": true,
+      "detail": "tiles=1 (24 particles, 25%) | 2 (24 particles, 25%) | 3 (24 particles, 25%) | 4 (24 particles, 25%)"
+    },
+    {
+      "label": "G8 every tile's image REALLY decoded (complete + naturalWidth — the t865 settle law)",
+      "pass": true,
+      "detail": "imgs=4 pending=0"
+    },
+    {
+      "label": "G9 zero unnamed page-wide WITH the panel up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=191 ctrls=6"
+    },
+    {
+      "label": "G10 two settled rides bit-identical (the t836 law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "A1 the auto set keeps every class (0.5 x best = 12 < 24 — the DOM speaks the API's math)",
+      "pass": true,
+      "detail": "pressed=true/true/true/true"
+    },
+    {
+      "label": "A2 the Auto door's own pressed state agrees",
+      "pass": true,
+      "detail": "autoOn=true"
+    },
+    {
+      "label": "A3 the footer speaks the kept arithmetic",
+      "pass": true,
+      "detail": "foot=\"Auto selectionoccupancy ≥ 0.50 × best96 / 96 particles(100%)\""
+    },
+    {
+      "label": "P1 class 2's tile clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P2 the param's own write path spoke 1,3,4 (auto is a suggestion — the RELION feel)",
+      "pass": true,
+      "detail": "selectedClasses=\"1,3,4\""
+    },
+    {
+      "label": "P3 the tile unpressed (the DOM agrees with the world)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P4 the second click returned the class (1,2,3,4)",
+      "pass": true,
+      "detail": "selectedClasses=\"1,2,3,4\""
+    },
+    {
+      "label": "P5 the Auto door restored the suggestion (the round trip closes)",
+      "pass": true,
+      "detail": "selectedClasses=\"auto\""
+    },
+    {
+      "label": "Z1 the class-zoom door clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "Z2 the lightbox arrived as the page's FIRST dialog layer (the panel is a side panel, the lightbox the dialog)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "Z3 Escape closed the lightbox (the world closes what it opened)",
+      "pass": true,
+      "detail": "dlgCount 1 -> 0"
+    },
+    {
+      "label": "Z4 the panel remains, zero unnamed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S1 the occupancy chip clicked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S2 storage echoed the intent BEFORE the state moved (the Task 156 law)",
+      "pass": true,
+      "detail": "sort=\"occupancy\""
+    },
+    {
+      "label": "S3 the arrangement hid nothing (the same four tiles ride)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "S4 the sort key returned to the chip's other face",
+      "pass": true,
+      "detail": "sort=\"class\""
+    },
+    {
+      "label": "W1 the probe deleted through the same door",
+      "pass": true,
+      "detail": "status=200"
+    },
+    {
+      "label": "W2 the roster returned bit-for-bit",
+      "pass": true,
+      "detail": "jobs=19 (opening 19)"
+    },
+    {
+      "label": "W3 the edges returned bit-for-bit (the cascade swept the wire)",
+      "pass": true,
+      "detail": "edges=20 (opening 20)"
+    },
+    {
+      "label": "W4 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "W5 the ride leaves no session seed (the t157 two-way door's honest none)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "W6 the sort preference returned to its opening value (the ride owns nothing)",
+      "pass": true,
+      "detail": "sort null -> null"
+    },
+    {
+      "label": "W7 the panel's persisted tab returned to its opening value",
+      "pass": true,
+      "detail": "tab \"log\" -> \"log\""
+    },
+    {
+      "label": "L pickerArrival face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (191 -> 191, the full live object identical)"
+    },
+    {
+      "label": "L gallery3d face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (191 -> 191, the full live object identical)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (153 -> 153, the full live object identical)"
+    }
+  ],
+  "passed": 47,
+  "failed": 0,
+  "total": 47,
+  "verdict": "the class3d picker's face holds through the world's own sanctioned mutation ride: the probe rode the t708 doors in and out (POST 201 -> the idle card -> the plain door -> the panel; DELETE -> the cascade swept the wire), the roster and the edges returned bit-for-bit (19 == 19, 20 == 20), the canvas 153 == 153; the gallery spoke the 3D kind at every mouth (the mono word class3d, the pours seat's testid and sr-only word, the named listbox), the four tiles carried the classes API's own arithmetic in their names and every image REALLY decoded, the auto arithmetic kept all four (0.5 x 24 = 12 < 24), the click dialect rode the world's own debounced write path (auto -> 1,3,4 -> 1,2,3,4 -> auto), the zoom lightbox opened above the panel and Escape closed it, the sort arrangement echoed intent to storage and returned the opening value, zero unnamed on every face, two settled rides bit-identical, no seed left — the ledger aboard from birth (three faces, arm 1)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "cbIHQtfEuq3Nn-gQeuvbz",
+    "prevDate": "2026-10-10T22:36:23.967Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "pickerArrival": {
+        "prev": 191,
+        "live": 191,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "gallery3d": {
+        "prev": 191,
+        "live": 191,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}

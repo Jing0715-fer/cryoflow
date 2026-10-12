@@ -1,0 +1,67 @@
+{
+  "instrument": "scripts/t869-class-gallery-film.mjs",
+  "date": "2026-10-10T20:50:06.478Z",
+  "host": {
+    "name": "2D Classification (tutorial)",
+    "id": "cmv2royha000golsn8hrcfk4d"
+  },
+  "stack": "run_classes.mrcs",
+  "film": {
+    "srcs": [
+      "/api/jobs/cmv2royha000golsn8hrcfk4d/outputs/file?path=run_it005_class001.mrc&format=png",
+      "/api/jobs/cmv2royha000golsn8hrcfk4d/outputs/file?path=run_it005_class002.mrc&format=png",
+      "/api/jobs/cmv2royha000golsn8hrcfk4d/outputs/file?path=run_it005_class003.mrc&format=png",
+      "/api/jobs/cmv2royha000golsn8hrcfk4d/outputs/file?path=run_it005_class004.mrc&format=png",
+      "/api/jobs/cmv2royha000golsn8hrcfk4d/outputs/file?path=run_it005_class005.mrc&format=png",
+      "/api/jobs/cmv2royha000golsn8hrcfk4d/outputs/file?path=run_it005_class006.mrc&format=png"
+    ],
+    "imgs": 16,
+    "decoded": 16
+  },
+  "checks": [
+    {
+      "label": "F1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F2 the Maps-and-images section is present and named",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F3 the gallery's imgs ALL DECODED (complete && naturalWidth > 0 — the fresh film's pixels are really there)",
+      "pass": true,
+      "detail": "imgs=16 decoded=16"
+    },
+    {
+      "label": "F4 every gallery img speaks an alt (the film's captions)",
+      "pass": true,
+      "detail": "first alts=[\"Class 1 map (iter 5)\",\"Class 2 map (iter 5)\",\"Class 3 map (iter 5)\"]"
+    },
+    {
+      "label": "F5 the Enlarge doors are aboard, each named (the text IS the name)",
+      "pass": true,
+      "detail": "tiles=16"
+    },
+    {
+      "label": "F6 zero unnamed page-wide WITH the gallery up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=534"
+    },
+    {
+      "label": "F7 two films one story apart (the settled pair agrees on the img count and the decode coverage)",
+      "pass": true,
+      "detail": "imgs 16/16 -> 16/16"
+    },
+    {
+      "label": "F8 the film archived (shots-qa/t869-class-gallery-film.png)",
+      "pass": true,
+      "detail": "✓ Screenshot saved to shots-qa/t869-class-gallery-film.png"
+    }
+  ],
+  "passed": 8,
+  "failed": 0,
+  "total": 8,
+  "verdict": "the class gallery's fresh film holds: every img decoded (the phantoms' new pixels really on the canvas), alts and Enlarge doors named, zero unnamed, the tile srcs recorded"
+}

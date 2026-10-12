@@ -1,0 +1,789 @@
+{
+  "instrument": "scripts/t880-rename-family.mjs",
+  "instrumentRevision": 4,
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title (the spec's own last resort, the t867 growth) — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); the census measures the PERCEIVED page (the RENDERED companion: a display:none control is nobody's control, the t867 growth); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "cbIHQtfEuq3Nn-gQeuvbz",
+  "worldMode": "build",
+  "date": "2026-10-11T09:56:28.536Z",
+  "chain": "clean room -> gallery route (the host measured) -> MOUNT the two drills -> the WALL PENCIL (the named pair, the keyboard reveal, the chevron yields, the edit shell speaks, the draft = the current name, Enter commits, toast + card + server agree) -> the PALETTE PENCIL (cross-sync 1, the trio slot, the in-place commit, the TTL reopen at the honest wire, cross-sync 2 by broadcast) -> the ABORT DRILL (the route armed, the refusal spoken, the old name kept, the retry lands) -> the SILENT EXITS (empty + Escaped, the dialog lives) -> the DUPE (a seed's real name, amber + commit, the cleanup) -> the HOME MOUTH (the dance, the fingerprint, the bm-rename input, the happy rename, the dupe 'Saved anyway', the cleanup, the Esc flag, the two silent drafts) -> the IDENTITY JUMP (the same id, the new name, the restored toast, the pending consumed) -> the drills swept -> the trio byte-for-byte -> worldBack + seed hygiene (one command)",
+  "doors": {
+    "seats": "GET/PUT /api/jobs/cmv2royix000uolsn92k0fw1f/camera-bookmarks — the t707 headered lane (the drills' road in and out)",
+    "wallPencil": "[data-saved-view-rename] / input[data-saved-view-rename-input] — the t674 floating chip, aria-labelled since the growth",
+    "palettePencil": "[data-palette-savedview-rename] / input[data-palette-savedview-rename-input] — the t674 trio slot beneath the yielding Mountain",
+    "homePencil": "button[aria-label=\"Rename bookmark …\"] / [data-testid=\"bm-rename-{id}\"] input — the t673 one-commit path (blur runs commitRename)",
+    "abort": "agent-browser network route --abort / unroute — the playwright page.route's living successor, spiked live this window",
+    "palette": "Control+k -> [data-palette-savedview-row] — the jump body carrying pencil + X",
+    "pending": "cryoflow:pending-view { jobId, bookmarkId } — the one-shot handshake (the identity drill's wire)",
+    "viewer": "the roster's open door -> Results (mousedown) -> the final-map tile -> View in 3D -> the shelf's load fingerprint (the t671 rule)",
+    "broadcast": "SAVED_VIEWS_CHANGED_EVENT — the cross-syncs' road (the marker witness: zero reloads)"
+  },
+  "port": {
+    "from": "the t876 map's debt walks (t673 rename mouth, t674 rename wall+palette)",
+    "law": "the label-as-will law closed loop — the debt walks' surfaces are this instrument's own labels now",
+    "redrawn": [
+      "the pencils carry aria-labels NOW (the shadowed wall pencil was data-attribute only)",
+      "the wall's edit shell speaks its contract ('Enter saves · Esc cancels') and keeps the thumb",
+      "the chevron/Mountain yields ride group-focus-within TOO — the keyboard arm is in the product at every surface",
+      "the D-leg abort rides agent-browser network route --abort (the playwright successor)",
+      "the home's rename input hands focus back to the row on every exit (t788's law)"
+    ]
+  },
+  "host": {
+    "id": "cmv2royix000uolsn92k0fw1f",
+    "name": "3D Refine (tutorial)",
+    "type": "refine3d",
+    "measured": true
+  },
+  "trio": {
+    "ids": [
+      "seedview1",
+      "seedview2",
+      "seedview3"
+    ],
+    "names": [
+      "Centered iso view",
+      "Top-down slice",
+      "Front half clipped"
+    ],
+    "bytesRestored": true
+  },
+  "drills": [
+    {
+      "id": "t880drill1",
+      "name": "t880 drill alpha",
+      "fate": "mounted -> the wall's pencil (t880 drill alpha II) -> the home's mouth (t880 drill alpha III, the dupe onto its sibling, the cleanup t880 drill alpha IV) -> the identity jump under t880 drill alpha IV"
+    },
+    {
+      "id": "t880drill2",
+      "name": "t880 drill beta",
+      "fate": "mounted -> the palette's pencil (t880 drill beta II) -> the abort drill (t880 drill beta III refused, the retry landed) -> the silent exits -> the dupe onto a seed's real name -> the cleanup t880 drill beta final"
+    }
+  ],
+  "nameLedger": {
+    "t880drill1": [
+      "t880 drill alpha",
+      "t880 drill alpha II",
+      "t880 drill alpha III",
+      "t880 drill beta final",
+      "t880 drill alpha IV"
+    ],
+    "t880drill2": [
+      "t880 drill beta",
+      "t880 drill beta II",
+      "t880 drill beta III",
+      "Centered iso view",
+      "t880 drill beta final"
+    ]
+  },
+  "identity": {
+    "pendingCarriedSameId": false,
+    "restoredUnderNewName": true,
+    "pendingConsumed": true
+  },
+  "abort": {
+    "refused": true,
+    "oldNameKept": true,
+    "retryLanded": true
+  },
+  "broadcastWitness": {
+    "marker": "p-face",
+    "law": "the page instance never reloaded across the palette-to-wall cross-sync"
+  },
+  "openingCanvas": 153,
+  "faces": {
+    "wallFace": {
+      "live": {
+        "url": "/",
+        "pageBtns": 137,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 3,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "wallPresent": true,
+        "wallCards": 5,
+        "wallIds": [
+          "seedview1",
+          "seedview2",
+          "seedview3",
+          "t880drill1",
+          "t880drill2"
+        ],
+        "wallSign": "5 bookmarks · 1 job · click to jump, hover to rename or delete",
+        "wallPencils": 5,
+        "wallXs": 5,
+        "cmdkOpen": false,
+        "cmdkItems": 0,
+        "svHeading": null,
+        "svRows": 0,
+        "svPencils": 0,
+        "svRowNames": [],
+        "bmTrig": null,
+        "shimmer": 0,
+        "marker": "w-face",
+        "pending": null
+      }
+    },
+    "paletteFace": {
+      "live": {
+        "url": "/",
+        "pageBtns": 149,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 3,
+        "unCtrls": 0,
+        "imgs": 6,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 1,
+        "wallPresent": true,
+        "wallCards": 5,
+        "wallIds": [
+          "seedview1",
+          "seedview2",
+          "seedview3",
+          "t880drill1",
+          "t880drill2"
+        ],
+        "wallSign": "5 bookmarks · 1 job · click to jump, hover to rename or delete",
+        "wallPencils": 5,
+        "wallXs": 5,
+        "cmdkOpen": true,
+        "cmdkItems": 112,
+        "svHeading": "Saved views · 5 bookmarks",
+        "svRows": 5,
+        "svPencils": 5,
+        "svRowNames": [
+          "Saved view — Centered iso view3D Refine ",
+          "Saved view — Top-down slice3D Refine (tu",
+          "Saved view — Front half clipped3D Refine",
+          "Saved view — t880 drill alpha II3D Refin",
+          "Saved view — t880 drill beta3D Refine (t"
+        ],
+        "bmTrig": null,
+        "shimmer": 0,
+        "marker": "w-face",
+        "pending": null
+      }
+    },
+    "homeFace": {
+      "live": {
+        "url": "/",
+        "pageBtns": 331,
+        "pageUnnamed": 1,
+        "unWho": [
+          "lucide-x"
+        ],
+        "ctrls": 3,
+        "unCtrls": 1,
+        "imgs": 10,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "wallPresent": false,
+        "wallCards": 0,
+        "wallIds": [],
+        "wallSign": null,
+        "wallPencils": 0,
+        "wallXs": 0,
+        "cmdkOpen": false,
+        "cmdkItems": 0,
+        "svHeading": null,
+        "svRows": 0,
+        "svPencils": 0,
+        "svRowNames": [],
+        "bmTrig": "Camera view bookmarks — 5 saved",
+        "shimmer": 0,
+        "marker": "h-face",
+        "pending": null
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "pageBtns": 153,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "wallPresent": false,
+        "wallCards": 0,
+        "wallIds": [],
+        "wallSign": null,
+        "wallPencils": 0,
+        "wallXs": 0,
+        "cmdkOpen": false,
+        "cmdkItems": 0,
+        "svHeading": null,
+        "svRows": 0,
+        "svPencils": 0,
+        "svRowNames": [],
+        "bmTrig": null,
+        "shimmer": 0,
+        "marker": null,
+        "pending": null
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the pending cleared, no dialogs)",
+      "pass": true,
+      "detail": "dlg=false pending=null"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=153 — zero unnamed anywhere"
+    },
+    {
+      "label": "T1 the views gallery route answers with at least one view",
+      "pass": true,
+      "detail": "1 view(s)"
+    },
+    {
+      "label": "T2 the world has a bookmark-bearing job (the measured host, never pinned)",
+      "pass": true,
+      "detail": "hosts=3D Refine (tutorial)"
+    },
+    {
+      "label": "T3 the host is on the shelf with its own gallery row",
+      "pass": true,
+      "detail": "host=\"3D Refine (tutorial)\" type=refine3d"
+    },
+    {
+      "label": "T4 the host speaks the trio (the world's own seed truth)",
+      "pass": true,
+      "detail": "Centered iso view | Top-down slice | Front half clipped"
+    },
+    {
+      "label": "T5 the thumbs are honest data-URL images",
+      "pass": true,
+      "detail": "thumbs=3/3"
+    },
+    {
+      "label": "T6 the trio's BYTE snapshot taken (the un-own anchor — the exit's own pin)",
+      "pass": true,
+      "detail": "bytes≈6626"
+    },
+    {
+      "label": "T7 the two drill seats mounted (adopt-or-create, API)",
+      "pass": true,
+      "detail": "seats=5"
+    },
+    {
+      "label": "W0 the dashboard tab opened (the header switcher's own click)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W1 the Saved views wall stands with five cards (the trio + the two drills)",
+      "pass": true,
+      "detail": "cards=5"
+    },
+    {
+      "label": "W2 the wall signs its mouths (click to jump, hover to rename or delete — the t674-amended signage)",
+      "pass": true,
+      "detail": "sign=\"5 bookmarks · 1 job · click to jump, hover to rename or delete\""
+    },
+    {
+      "label": "W3 every card carries the pencil + X pair (the t674 trio, five mouths of each)",
+      "pass": true,
+      "detail": "pencils=5 Xs=5"
+    },
+    {
+      "label": "W4 the pencil is NAMED for assistive tech (the growth the shadowed receipt never saw)",
+      "pass": true,
+      "detail": "label=\"Rename saved view “t880 drill alpha”\""
+    },
+    {
+      "label": "W5 the pencil hides at rest (the hover-reveal contract)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "W6 the world's reveal media read recorded (the pointer arm's jurisdiction)",
+      "pass": true,
+      "detail": "hover:hover=false pointer:fine=false (headless: the keyboard arm is the witnessable one)"
+    },
+    {
+      "label": "W7 the pencil reveals to the KEYBOARD (focus-within — the product's own second arm)",
+      "pass": true,
+      "detail": "opacity 1"
+    },
+    {
+      "label": "W8 the chevron yields the tail on focus (swap, not overlap — the group-focus-within law)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "W9 the reveal is honest (blur returns the pencil to rest — not sticky)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "W10 the edit shell replaces the jump mouth (the card becomes its input)",
+      "pass": true,
+      "detail": "input up"
+    },
+    {
+      "label": "W11 the edit shell SPEAKS its contract (Enter saves · Esc cancels — the growth)",
+      "pass": true,
+      "detail": "hint=true"
+    },
+    {
+      "label": "W12 the draft starts as the current name",
+      "pass": true,
+      "detail": "value \"t880 drill alpha\""
+    },
+    {
+      "label": "W13 the rename toast reports the swap",
+      "pass": true,
+      "detail": "View renamed“t880 drill alpha” is now “t880 drill alpha II” on 3D Refine (tutorial)."
+    },
+    {
+      "label": "W14 the card shows the new name in place",
+      "pass": true,
+      "detail": "card=\"t880 drill alpha II2.50 σslice Z3D Refine (tutorial) · β-Gal\""
+    },
+    {
+      "label": "W15 the server holds the new name",
+      "pass": true,
+      "detail": "t880 drill alpha II"
+    },
+    {
+      "label": "W16 the wall still carries five cards (rename, not delete)",
+      "pass": true,
+      "detail": "cards=5"
+    },
+    {
+      "label": "W17 zero unnamed page-wide with the wall up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=137 ctrls=2 (measured post-toast — the stable face)"
+    },
+    {
+      "label": "P1 the palette opened (Control+k)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P2 the palette speaks five rows",
+      "pass": true,
+      "detail": "rows=5 heading=\"Saved views · 5 bookmarks\""
+    },
+    {
+      "label": "P3 CROSS-SYNC 1: the palette already shows the WALL's new name (the broadcast reached the listening cache)",
+      "pass": true,
+      "detail": "exact=\"t880 drill alpha II\" ghost=false"
+    },
+    {
+      "label": "P4 the row carries its rename pencil (named, the growth) and its X (the t670 mouth)",
+      "pass": true,
+      "detail": "label=\"Rename saved view “t880 drill beta”\""
+    },
+    {
+      "label": "P5 the pencil hides at rest (the palette's own hover contract)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "P6 the pencil reveals to the KEYBOARD (focus-within — the slot-swap grammar's second arm)",
+      "pass": true,
+      "detail": "opacity 1"
+    },
+    {
+      "label": "P7 the Mountain tail yields the trio slot on focus (swap, not overlap)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "P8 the reveal is honest (blur returns it to rest)",
+      "pass": true,
+      "detail": "opacity 0"
+    },
+    {
+      "label": "P9 the row's name becomes the input (the prefix dissolves with it)",
+      "pass": true,
+      "detail": "input up"
+    },
+    {
+      "label": "P10 the draft starts as the current name",
+      "pass": true,
+      "detail": "value \"t880 drill beta\""
+    },
+    {
+      "label": "P11 the rename toast reports the swap",
+      "pass": true,
+      "detail": "View renamed“t880 drill beta” is now “t880 drill beta II” on 3D Refine (tutorial)."
+    },
+    {
+      "label": "P12 the row renamed IN PLACE (no close, no reload — the palette still stands)",
+      "pass": true,
+      "detail": "cmdkOpen=true row=\"Saved view — t880 drill beta II3D Refine (tutorial)\""
+    },
+    {
+      "label": "P13 the server holds the new name",
+      "pass": true,
+      "detail": "t880 drill beta II"
+    },
+    {
+      "label": "P14 zero unnamed page-wide with the palette up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=149 ctrls=3 (measured post-toast — the stable face)"
+    },
+    {
+      "label": "P15 the reopened palette shows the renamed truth (no ghost of the old name)",
+      "pass": true,
+      "detail": "5 rows, wire=2"
+    },
+    {
+      "label": "P16 the wire line recorded honestly (zero refetch = the in-place cache; the refetch = the TTL ran out, the server confirms)",
+      "pass": true,
+      "detail": "gallery requests 2 -> 2 (the cache answered)"
+    },
+    {
+      "label": "P17 CROSS-SYNC 2: the wall already shows the PALETTE's new name (no reload, no job mutation)",
+      "pass": true,
+      "detail": "card=\"t880 drill beta II2.50 σslice Z3D Refine (tutorial) · β-Gala\""
+    },
+    {
+      "label": "P18 the cross-sync rode the BROADCAST (the marker survived — zero reloads)",
+      "pass": true,
+      "detail": "marker=\"p-face\""
+    },
+    {
+      "label": "D0 the abort lane armed (agent-browser network route — the playwright successor, spiked live this window)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "D1 the palette opened for the abort drill",
+      "pass": true,
+      "detail": "rows=5"
+    },
+    {
+      "label": "D2 the pencil opened the editor under the abort (the mouth does not pre-flight the wire)",
+      "pass": true,
+      "detail": "input up"
+    },
+    {
+      "label": "D3 THE FAILED RENAME SAYS SO (no silent swallow — the catch's own words)",
+      "pass": true,
+      "detail": "Could not rename the viewThe server did not confirm the new name — the row keeps its old name."
+    },
+    {
+      "label": "D4 the row keeps its old name",
+      "pass": true,
+      "detail": "row=\"Saved view — t880 drill beta II3D Refine (tutorial)\""
+    },
+    {
+      "label": "D5 the server still holds the old name — the abort was the ONLY lie",
+      "pass": true,
+      "detail": "t880 drill beta II"
+    },
+    {
+      "label": "D6 after the abort lifts, the same pencil succeeds (one strike, no re-arm)",
+      "pass": true,
+      "detail": "t880 drill beta III"
+    },
+    {
+      "label": "D7 the successful retry reports honestly too",
+      "pass": true,
+      "detail": "View renamed“t880 drill beta II” is now “t880 drill beta III” on 3D Refine (tutorial)."
+    },
+    {
+      "label": "E0 the palette opened for the silent exits",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E1 the empty draft changes nothing and says nothing (an edit that never happened is not a fact worth announcing)",
+      "pass": true,
+      "detail": "silent"
+    },
+    {
+      "label": "E2 the server never saw the empty draft",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E3 the Escaped draft changes nothing and says nothing (the cancel flag, not the commit path)",
+      "pass": true,
+      "detail": "silent"
+    },
+    {
+      "label": "E4 Esc canceled the EDIT, not the dialog (the input ate the Escape)",
+      "pass": true,
+      "detail": "112 items"
+    },
+    {
+      "label": "E5 the server never saw the Escaped draft",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F0 the dupe target read from the fresh list (ids are not names — the t674 lesson's own shape)",
+      "pass": true,
+      "detail": "target=\"Centered iso view\""
+    },
+    {
+      "label": "F1 the palette opened for the dupe drill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F2 renaming onto an existing sibling's NAME warns amber",
+      "pass": true,
+      "detail": "A view named “Centered iso view” already existsRenamed anyway — consider a distinct name so the menu stays tell-apart."
+    },
+    {
+      "label": "F3 the dupe rename still COMMITTED (a warning, not a veto)",
+      "pass": true,
+      "detail": "server name = Centered iso view"
+    },
+    {
+      "label": "F4 the cleanup rename lands (the drill retires under a tell-apart name)",
+      "pass": true,
+      "detail": "t880 drill beta final"
+    },
+    {
+      "label": "H0 the 3D viewer is REALLY up (the shelf's load fingerprint speaks — 5 saved)",
+      "pass": true,
+      "detail": "bmTrig=\"Camera view bookmarks — 5 saved\""
+    },
+    {
+      "label": "H1 the list opened (the row mouths exist — five rename pencils)",
+      "pass": true,
+      "detail": "pencils=5"
+    },
+    {
+      "label": "H2 the pencil swaps the row for an input (the bm-rename wrapper — the input one level down, the t673 locator lesson)",
+      "pass": true,
+      "detail": "seat=bm-rename-t880drill1"
+    },
+    {
+      "label": "H3 the draft starts as the current name",
+      "pass": true,
+      "detail": "value \"t880 drill alpha II\""
+    },
+    {
+      "label": "H4 the 'View renamed' toast lands",
+      "pass": true,
+      "detail": "View renamed“t880 drill alpha II” is now “t880 drill alpha III”."
+    },
+    {
+      "label": "H5 the server holds the new name",
+      "pass": true,
+      "detail": "t880 drill alpha III"
+    },
+    {
+      "label": "H6 the row speaks the new name",
+      "pass": true,
+      "detail": "t880 drill alpha III10/11/2026, 9:54:17 AM2.50 σslice Z 35%"
+    },
+    {
+      "label": "H7 the duplicate warning toast lands (warn AND commit — 'Saved anyway')",
+      "pass": true,
+      "detail": "A view named “t880 drill beta final” already existsSaved anyway — consider a distinct name so the menu stays tell-apart."
+    },
+    {
+      "label": "H8 the duplicate name COMMITS (the contract warns, it does not block)",
+      "pass": true,
+      "detail": "t880 drill beta final"
+    },
+    {
+      "label": "H9 the cleanup rename lands (the identity drill's own name)",
+      "pass": true,
+      "detail": "t880 drill alpha IV"
+    },
+    {
+      "label": "H10 the gesture ran (the input opened, Escape closed it)",
+      "pass": true,
+      "detail": "seat=bm-rename-t880drill1"
+    },
+    {
+      "label": "H11 zero rename toast in the window (the silent exit)",
+      "pass": true,
+      "detail": "0 toasts since baseline, none rename"
+    },
+    {
+      "label": "H12 the empty draft commits nothing (silent)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "H13 the empty draft is silent — no toast",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "H14 the untouched draft commits nothing (silent)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "H15 the untouched draft is silent — no toast",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "G0 the palette opens for the identity drill (five rows)",
+      "pass": true,
+      "detail": "rows=5"
+    },
+    {
+      "label": "G1 the renamed drill row stands under its new name",
+      "pass": true,
+      "detail": "row=\"Saved view — t880 drill alpha IV3D Refine (tutorial)\""
+    },
+    {
+      "label": "G2 the palette closes on jump",
+      "pass": true,
+      "detail": "cmdkOpen=false dlgCount=1"
+    },
+    {
+      "label": "G3 the pending handshake carries the SAME id rename never touched",
+      "pass": true,
+      "detail": "\"{\\\"jobId\\\":\\\"cmv2royix000uolsn92k0fw1f\\\",\\\"bookmarkId\\\":\\\"t880drill1\\\"}\""
+    },
+    {
+      "label": "G4 the 3D viewer is REALLY up (the renamed view's jump mouth fully alive)",
+      "pass": true,
+      "detail": "bmTrig=\"Camera view bookmarks — 5 saved\""
+    },
+    {
+      "label": "G5 the restored toast names the NEW name (identity survived every rename)",
+      "pass": true,
+      "detail": "View “t880 drill alpha IV” restoredJumped here from the dashboard gallery."
+    },
+    {
+      "label": "G6 the pending consumed (one-shot, the handshake's own law)",
+      "pass": true,
+      "detail": "pending=null"
+    },
+    {
+      "label": "B1 the trio restored BYTE-FOR-BYTE (the exit's own pin — the un-own law)",
+      "pass": true,
+      "detail": "bytes equal=true"
+    },
+    {
+      "label": "B2 the gallery route agrees with the shelf (three cards, one job row)",
+      "pass": true,
+      "detail": "gallery rows=1"
+    },
+    {
+      "label": "B3 the roster bit-for-bit (bookmark mutations never touch the roster)",
+      "pass": true,
+      "detail": "jobs=19"
+    },
+    {
+      "label": "B4 the world unharmed (canvas count == the opening count, zero unnamed, no dialogs)",
+      "pass": true,
+      "detail": "btns=153 (opening 153)"
+    },
+    {
+      "label": "B5 the ride leaves no session seed",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "B6 no pending lingers (every handshake consumed)",
+      "pass": true,
+      "detail": "pending=null"
+    },
+    {
+      "label": "B7 zero page errors (the PAGE's own listener — the t878 console-hygiene law)",
+      "pass": true,
+      "detail": "clean"
+    },
+    {
+      "label": "L wallFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (137 -> 137, the full live object identical)"
+    },
+    {
+      "label": "L paletteFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (149 -> 149, the full live object identical)"
+    },
+    {
+      "label": "L homeFace face ride-drift law",
+      "pass": false,
+      "detail": "arm 3 RED — drift 1, identical=false, world fields moved [pageBtns, pageUnnamed]"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 3 — bit-for-bit (153 -> 153, the full live object identical)"
+    }
+  ],
+  "passed": 97,
+  "failed": 1,
+  "total": 98,
+  "verdict": "1 red — the rename family's port moved (or the ride left residue); call the census's own instruments before any UI work",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "cbIHQtfEuq3Nn-gQeuvbz",
+    "prevDate": "2026-10-11T09:39:26.318Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "wallFace": {
+        "prev": 137,
+        "live": 137,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "paletteFace": {
+        "prev": 149,
+        "live": 149,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "homeFace": {
+        "prev": 330,
+        "live": 331,
+        "drift": 1,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "unWho"
+          ],
+          "world": [
+            "pageBtns",
+            "pageUnnamed"
+          ]
+        }
+      },
+      "worldBack": {
+        "prev": 153,
+        "live": 153,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}
