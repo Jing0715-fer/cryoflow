@@ -8039,8 +8039,15 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
             ...(elapsedMs != null ? { slurmElapsedMs: elapsedMs } : {}),
           });
           // the row: completed heals the whole row; any other verdict only
-          // swaps the words (both conditional on the receipt's failed row —
-          // a user re-run's running/pending row is untouchable)
+          // swaps the words. The completed heal touches a failed OR an
+          // already-completed row — only stop-records carry the open
+          // question (a natural completion's row is never touched), and
+          // the t935 echo race can flip the row completed with the
+          // wrapper's own receipt before the consult lands: the heal's
+          // richer sentence must reach the row either way. A non-completed
+          // verdict's words only ever swap onto a failed row (a completed
+          // row never grows a FAILED sentence). The user re-run's
+          // running/pending row is untouchable in both shapes.
           const flip = completed
             ? {
                 status: "completed" as const,
@@ -8050,7 +8057,12 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
               }
             : { result: sentence };
           const flipped = await db.job
-            .updateMany({ where: { id: e.job.id, status: "failed" }, data: flip })
+            .updateMany(
+              {
+                where: { id: e.job.id, status: completed ? { in: ["failed", "completed"] } : "failed" },
+                data: flip,
+              }
+            )
             .catch(() => null);
           if (flipped && flipped.count > 0) {
             const healed = await db.job.findUnique({ where: { id: e.job.id } });
@@ -8620,10 +8632,20 @@ async function finalizeRemoteRun(
   // a run that actually COMPLETED before the cancellation is healed by
   // the accounting landing, whose own RECEIPT_STAMPS law yields to the
   // ledger's COMPLETED word.
+  // t935 — and the echo yields to the LEDGER'S OWN LANDING too: a record
+  // whose words already came from the accounting consult ('the cluster
+  // ledger recorded the run …') outranks the wrapper's exit the same way
+  // the user's hand does — the scheduler's verdict outranks its own
+  // mechanism's echo. (The stop-after-the-finish arc: the echo's
+  // completed flip used to clobber the heal sentence when it beat the
+  // consult to the row.)
   let stampKept = false;
   updateRun(job.id, (cur) => {
     if (cur.startedAt !== rec.startedAt || !cur.remote) return null;
-    stampKept = cur.done === true && cur.result === "stopped by user";
+    stampKept =
+      cur.done === true &&
+      (cur.result === "stopped by user" ||
+        cur.result?.startsWith("the cluster ledger recorded the run") === true);
     return {
       ...cur,
       done: true,
