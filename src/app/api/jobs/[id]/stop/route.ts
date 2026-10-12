@@ -83,6 +83,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // this one only feeds the receipt's words).
       const outcome = await remoteStopRun(id, { settleMs: 8_000 });
       const missed = !outcome.stopped;
+      // t936 — WHICH miss the receipt names: the WIRE-DOWN class (the
+      // connection itself was gone — nothing was reachable) speaks its own
+      // words. The durable row carries the manual-kill guidance (the toast
+      // is a 5s surface; the row is the reliable one — the t934 judge-line),
+      // and the question rides the class so the landing's sentence never
+      // claims "already finished" (the run's fate was unknowable at stop
+      // time — it may finish after the attempt, and the live arc did).
+      const wireDown = outcome.missClass === "wire-down";
       // t625 — slurm-mode stops open the accounting question: the ledger
       // holds the FINAL word for the slurmId, whatever the receipt just
       // said. Missed stops promise the same thing ("the cluster ledger
@@ -103,12 +111,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 done: true,
                 ...(missed ? {} : { exitCode: cur.exitCode ?? 137 }),
                 ...(slurmBackfill
-                  ? { remote: { ...cur.remote, accountingPending: { at: Date.now(), missed } } }
+                  ? {
+                      remote: {
+                        ...cur.remote,
+                        accountingPending: {
+                          at: Date.now(),
+                          missed,
+                          ...(wireDown ? { class: "wire-down" as const } : {}),
+                        },
+                      },
+                    }
                   : {}),
                 result:
                   cur.result ??
                   (missed
-                    ? "stop missed — no live cluster session found; the cluster ledger decides the final state"
+                    ? wireDown
+                      ? "stop missed — the connection for this run was deleted; the cluster ledger decides the final state"
+                      : "stop missed — no live cluster session found; the cluster ledger decides the final state"
                     : "stopped by user"),
               }
             : null
@@ -131,7 +150,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
             cur.remote && cur.done && cur.remote.slurmId && !cur.remote.accountingPending
               ? {
                   ...cur,
-                  remote: { ...cur.remote, accountingPending: { at: Date.now(), missed } },
+                  remote: {
+                    ...cur.remote,
+                    accountingPending: {
+                      at: Date.now(),
+                      missed,
+                      ...(wireDown ? { class: "wire-down" as const } : {}),
+                    },
+                  },
                 }
               : null
         );
@@ -148,7 +174,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
             status: "failed",
             progress: 0,
             result: missed
-              ? "stop missed (no live cluster session found) — the cluster ledger decides the final state when the run's records come home"
+              ? wireDown
+                ? "stop missed (the connection for this run was deleted) — kill the process on the cluster manually; the cluster ledger decides the final state if a wire returns"
+                : "stop missed (no live cluster session found) — the cluster ledger decides the final state when the run's records come home"
               : outcome.settled === true
                 ? "stopped by user (cluster-side session killed; teardown confirmed — the job left the queue) — re-run resumes from the last synced checkpoint"
                 : outcome.settled === false

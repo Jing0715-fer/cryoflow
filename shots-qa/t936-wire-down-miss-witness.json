@@ -1,0 +1,35 @@
+{
+  "stage1": {
+    "pass": 31,
+    "fail": 0,
+    "slurmId": "358",
+    "receipt": {
+      "stopped": false,
+      "outcome": "missed",
+      "settled": null,
+      "message": "the connection for this run was deleted — kill the process on the cluster manually"
+    },
+    "heal": "the cluster ledger recorded the run COMPLETED (exit 0:0) — the stop had no wire to the cluster; the run finished on its own",
+    "row": "the cluster ledger recorded the run COMPLETED (exit 0:0) — the stop had no wire to the cluster; the run finished on its own",
+    "newConnId": "conn-mv5kfwsz"
+  },
+  "at": "2026-10-12T18:11:57.892Z",
+  "stage2v": {
+    "pass": 44,
+    "fail": 0,
+    "vanishSlurmId": "359",
+    "refusal": "Job is not running (status: failed)"
+  },
+  "stage2": {
+    "pass": 83,
+    "fail": 0,
+    "uiStop": {
+      "attempt": 3,
+      "won": true,
+      "toast": "Stop missed — nothing to killthe connection for this run was deleted — kill the process on the cluster manually",
+      "row": "stop missed — the connection for this run was deleted; the cluster ledger decides the final state"
+    },
+    "refusal": "Job is not running (status: failed)",
+    "restore": "done"
+  }
+}

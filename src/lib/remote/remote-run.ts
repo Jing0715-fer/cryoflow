@@ -8025,12 +8025,24 @@ export async function reconcileRemoteJobs(jobs: Job[]): Promise<Job[]> {
             continue;
           }
           const completed = word === "COMPLETED" && exitNum === 0 && sigNum === 0;
+          // t936 — the miss class rides the question: a WIRE-DOWN stop's
+          // fate was UNKNOWABLE at stop time (the run may have finished
+          // before OR after the attempt — in the live arc it finished
+          // after), so the sentence never claims "already finished"; it
+          // names the missing wire. The refused class keeps the t935 words
+          // (the wire answered and refused — "already finished" was the
+          // cluster's own testimony at stop time).
+          const wireDown = opened.class === "wire-down";
           const sentence = completed
             ? opened.missed
-              ? `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had found nothing to kill because the run had already finished`
+              ? wireDown
+                ? `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had no wire to the cluster; the run finished on its own`
+                : `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop had found nothing to kill because the run had already finished`
               : `the cluster ledger recorded the run COMPLETED (exit ${exitLabel}) — the stop's cancellation arrived after the run had finished`
             : opened.missed
-              ? `the cluster ledger recorded the run ${word} (exit ${exitLabel}) — the stop had found no live session to kill; the ledger's word stands`
+              ? wireDown
+                ? `the cluster ledger recorded the run ${word} (exit ${exitLabel}) — the stop had no wire to the cluster; the ledger's word stands`
+                : `the cluster ledger recorded the run ${word} (exit ${exitLabel}) — the stop had found no live session to kill; the ledger's word stands`
               : `the cluster ledger recorded the run ${word} (exit ${exitLabel}) after the stop was accepted — the ledger's word stands`;
           landAccountingVerdict(e.job.id, e.rec.startedAt, {
             exitCode: completed ? 0 : mapSacctWordToExit(word, exitNum, sigNum),
@@ -9429,6 +9441,13 @@ export async function remoteStopRun(
   stopped: boolean;
   message: string;
   outcome: RemoteStopOutcome;
+  /** t936 — WHICH miss class the receipt names: "wire-down" = the
+   *  connection itself was gone (nothing was reachable — the run's fate
+   *  was unknowable at stop time); "refused" = the wire answered and
+   *  refused the kill (scancel's exit 1 / no live pid). The stop route's
+   *  words and the accounting question ride the class. Absent on a
+   *  confirmed kill. */
+  missClass?: "refused" | "wire-down";
   /** t624 — did the job actually leave the queue inside the settle window?
    *  null = the question never applied (non-slurm kill, scancel failed, or
    *  no window requested — the project-delete-era shape). true = confirmed
@@ -9438,12 +9457,13 @@ export async function remoteStopRun(
 }> {
   const rec = getRun(jobId);
   if (!rec?.remote)
-    return { stopped: false, outcome: "missed", settled: null, message: "not a remote run" };
+    return { stopped: false, outcome: "missed", missClass: "refused", settled: null, message: "not a remote run" };
   const conn = getConnection(rec.remote.connectionId);
   if (!conn)
     return {
       stopped: false,
       outcome: "missed",
+      missClass: "wire-down",
       settled: null,
       message: "the connection for this run was deleted — kill the process on the cluster manually",
     };
@@ -9463,6 +9483,7 @@ export async function remoteStopRun(
     return {
       stopped: ok,
       outcome: ok ? "killed" : "missed",
+      ...(ok ? {} : { missClass: "refused" as const }),
       settled,
       message: ok
         ? `sent scancel to Slurm job ${r.slurmId} — the scheduler tears the process tree down on the compute node` +
@@ -9486,6 +9507,7 @@ export async function remoteStopRun(
   return {
     stopped: killed,
     outcome: killed ? "killed" : "missed",
+    ...(killed ? {} : { missClass: "refused" as const }),
     settled: null,
     message: killed
       ? `sent SIGTERM+SIGKILL to the cluster-side session (pid group ${rec.remote.pid})`

@@ -506,7 +506,20 @@ export interface RemoteRunState {
    * name WHICH promise it fulfills (the missed receipt's row promised the
    * ledger's word; the killed receipt's row named the user).
    */
-  accountingPending?: { at: number; missed: boolean };
+  accountingPending?: {
+    at: number;
+    missed: boolean;
+    /**
+     * t936 — WHICH miss class opened the question. "wire-down" = the
+     * connection itself was gone at stop time (remoteStopRun could not
+     * even reach scancel): the run's fate was UNKNOWABLE at stop time —
+     * it may finish before OR after the attempt — so the landing's
+     * sentence must never claim "already finished"; it names the missing
+     * wire instead. Absent = the refused class (the wire answered and
+     * refused — scancel's exit 1; the t935 lane, whose words are pinned).
+     */
+    class?: "wire-down";
+  };
   /**
    * t626 — the OUTPUTS LEDGER's open question, opened by the accounting
    * landing itself (the fourth level's first slice): a landed run's row may
