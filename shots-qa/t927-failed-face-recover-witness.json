@@ -1,0 +1,36 @@
+{
+  "prep": {
+    "filter": "cmv56npos000fppmsyo0bfydc",
+    "first": "3 of 6 micrographs kept · 3 excluded (list of 3)",
+    "failure": "no exclusion names are set — bake the list from the A/B compare dialog (or type names into the Exclusions tab), then run again"
+  },
+  "at": "2026-10-12T11:45:00.604Z",
+  "main": {
+    "pass": 73,
+    "fail": 0,
+    "loop": {
+      "first": "3 of 6 micrographs kept · 3 excluded (list of 3)",
+      "failure": "no exclusion names are set — bake the list from the A/B compare dialog (or type names into the Exclusions tab), then run again",
+      "recovery": "4 of 6 micrographs kept · 2 excluded (list of 2)",
+      "recoveredList": "mic_002.mrc, mic_004.mrc"
+    },
+    "door": {
+      "failedFaceTooltip": "without resetting — the completed run and its results stay until a Re-run replaces them",
+      "nonDestructive": true
+    },
+    "narrow": {
+      "viewport": "320x800",
+      "findBar": "Exclude Micrographs (t927)"
+    },
+    "downstream": {
+      "ctfARows": [
+        "mic_001.mrc",
+        "mic_003.mrc",
+        "mic_005.mrc",
+        "mic_006.mrc"
+      ],
+      "ctfBRows": 6
+    },
+    "at": "2026-10-12T11:45:00.603Z"
+  }
+}
