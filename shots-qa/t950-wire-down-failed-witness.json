@@ -1,0 +1,25 @@
+{
+  "stage1": {
+    "pass": 31,
+    "fail": 0,
+    "slurmId": "535",
+    "receipt": {
+      "stopped": false,
+      "outcome": "missed"
+    },
+    "exitLabel": "143:0",
+    "sentence": "the cluster ledger recorded the run FAILED (exit 143:0) — the stop had no wire to the cluster; the ledger's word stands",
+    "newConnId": "conn-mv64su06",
+    "restore": "done"
+  },
+  "at": "2026-10-13T03:40:16.624Z",
+  "fatal": "s2 arc never landed",
+  "stage2": {
+    "pass": 58,
+    "fail": 0,
+    "slurmId": "539",
+    "exitLabel": "143:0",
+    "sentence": "the cluster ledger recorded the run FAILED (exit 143:0) — the stop had found no live session to kill; the ledger's word stands",
+    "restore": "done"
+  }
+}
