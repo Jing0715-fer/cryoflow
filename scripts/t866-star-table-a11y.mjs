@@ -54,6 +54,7 @@ import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
 import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
+import { arrivalDoor, openRetry, fetchRetry } from "./arrival-laws.mjs"; // t869 — the arrival laws aboard (the t846/t867 pattern, one implementation)
 
 const ROOT = process.cwd();
 const BASE = "http://localhost:3000";
@@ -116,7 +117,8 @@ const SH = {
   "Sec-Fetch-Dest": "empty",
 };
 const roster = async () => {
-  const r = await fetch(`${BASE}/api/jobs`, { headers: SH });
+  // t869 — the retry-through-reboot law rides the read (the dead-socket crash witness)
+  const r = await fetchRetry(`${BASE}/api/jobs`, { headers: SH });
   const b = await r.json();
   return b.jobs ?? b;
 };
@@ -200,8 +202,9 @@ const censusOk = (m) => m.pageUnnamed === 0 && m.unCtrls === 0 && m.altless === 
 
 /* ---------- Face 0: the clean room + the calm canvas ---------- */
 console.log("Face 0 — the clean room (the t866 law) and the calm canvas");
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the opening canvas");
 /* t866 — the CLEAN-ROOM law: the session-position seed (t157) makes the
  * boot state ride-dependent (the seed incident: a seed left by an earlier
  * ride re-opened the side panel AND booted a one-card selection, flipping
@@ -210,8 +213,9 @@ sleep(3);
  * panel-closed boot. The world's session position is the user's, not
  * the film's. */
 evalJson('(() => { localStorage.setItem("cryoflow.selectedJob.v1", ""); return "clean"; })()');
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the clean room's reload");
 const m0 = settle("the canvas");
 if (corpse(m0, "Face 0")) process.exit(1);
 ok("O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
@@ -255,6 +259,13 @@ ok("E7 zero unnamed page-wide WITH the inspector up (the census's invariant)",
 console.log("Face ST — the STAR table dialog through the section's first door");
 const d0 = evalJson(starDoor(0));
 ok("S1 the first star door clicked", d0.clicked === true);
+/* t869 — the TABLE's arrival door: the star fetch resolves on its own
+ * schedule and the settle's shimmer door does not hear the table's own
+ * loading leaf (the first ride filmed the dialog shell with the fetch
+ * still walking — region null, cols empty — while the sort face a moment
+ * later rode a whole table). An arrival waits for the region, then the
+ * asserts judge. */
+const stThere = waitFor("the star table's own render", (m) => m.dlgCount >= 2 && m.regionNamed === true, 30);
 const s2 = settle("the star dialog (the table fetch)");
 if (corpse(s2, "Face ST")) process.exit(1);
 ok("S2 the dialog arrived as the TOPMOST layer (the t865 nested-portal lesson)",
@@ -316,8 +327,9 @@ ok("S11 the inspector remains, zero unnamed (the census's invariant after the cl
 console.log("Face W — the world back (fresh load, sleep 3)");
 evalJson(ESC_LAST);
 sleep(1);
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the restored canvas");
 const w1 = settle("the restored canvas");
 if (corpse(w1, "Face W")) process.exit(1);
 ok("W1 the world unharmed (canvas count == the opening count, zero unnamed)",

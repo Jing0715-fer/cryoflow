@@ -57,6 +57,7 @@ import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
 import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
+import { arrivalDoor, openRetry, fetchRetry } from "./arrival-laws.mjs"; // t869 — the arrival laws aboard (the t846/t867 pattern, one implementation)
 
 const ROOT = process.cwd();
 const BASE = "http://localhost:3000";
@@ -119,7 +120,8 @@ const SH = {
   "Sec-Fetch-Dest": "empty",
 };
 const roster = async () => {
-  const r = await fetch(`${BASE}/api/jobs`, { headers: SH });
+  // t869 — the retry-through-reboot law rides the read (the dead-socket crash witness)
+  const r = await fetchRetry(`${BASE}/api/jobs`, { headers: SH });
   const b = await r.json();
   return b.jobs ?? b;
 };
@@ -130,7 +132,7 @@ const roster = async () => {
  * NO ${} inside — the shell reads this string. NO volatile text — the
  * freshness chip and the counts ride as PRESENCE, never as strings. */
 const MEASURE =
-  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const imgPend = imgs.filter((i) => !i.complete).length; const dgs = Array.from(document.querySelectorAll("[role=dialog]")); const dlg = dgs[0]; const dlgTop = dgs[dgs.length - 1]; const headOf = (d) => d ? ((document.getElementById(d.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null; const dlgHead = headOf(dlg); const dlgHeadTop = headOf(dlgTop); const dlgCount = dgs.length; const act = document.activeElement; const actTabEl = document.querySelector("[role=tab][data-state=active]"); const leaves = Array.from(document.querySelectorAll("*")).filter((e) => e.children.length === 0 && /^Loading( chart)?…$/.test((e.textContent || "").trim())); const q = (s) => !!document.querySelector(s); const doorBy = (pre) => btns.some((b) => (b.getAttribute("aria-label") || "").startsWith(pre)); const cnt = (s) => document.querySelectorAll(s).length; const abDoors = btns.filter((b) => (b.getAttribute("aria-label") || "").includes("A/B — compare with another completed run")).length; const sibPicker = btns.filter((b) => (b.getAttribute("aria-label") || "").startsWith("Compare parameters with another")).length; const dup = btns.some((b) => (b.textContent || "").trim() === "Duplicate"); return JSON.stringify({ url: location.pathname, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, imgPending: imgPend, hasDlg: !!dlg, dlgHead: dlgHead, dlgHeadTop: dlgHeadTop, dlgCount: dgs.length, act: act ? (dlg && dlg.contains(act) ? "in-dialog" : act.tagName) : null, actTab: actTabEl ? (actTabEl.textContent || "").trim().slice(0, 12) : null, shimmer: leaves.length, verdictDoor: doorBy("Final verdict — read what the mask bought"), funnelDoor: doorBy("Particle funnel — read where the particles went"), arcDoor: doorBy("Resolution arc — read this"), convDoor: doorBy("Class convergence — read this run"), abDoors: abDoors, sibPicker: sibPicker, dup: dup, fscChip: q("[data-testid=fsc-compare-open]"), fscRows: cnt("[data-testid=fsc-compare-row]"), fscRescan: q(\'button[aria-label="Re-scan the project for FSC curves"]\'), fscSelect: q(\'[aria-label="Select jobs to compare"]\'), fscToggle: q(\'[aria-label="Toggle curves"]\'), fscChart: q("[data-testid=fsc-compare-chart]"), fscLegend: cnt("[data-testid^=fsc-compare-legend-]"), fscFresh: q("[data-testid=fsc-compare-freshness]"), pvReading: q(\'[aria-label^="Postprocess verdict reading"]\'), pfReading: q(\'[aria-label^="Particle funnel reading"]\'), pfCsvNamed: q("[data-testid=funnel-export-csv]"), pfCopyNamed: q("[data-testid=funnel-copy-ledger]"), pfPours: cnt("[data-testid^=funnel-pours-]"), raReading: q(\'[aria-label^="Resolution arc reading"]\'), cvReading: q(\'[aria-label^="Class convergence reading"]\'), cvRoundA: q(\'[aria-label="Round A"]\'), cvRoundB: q(\'[aria-label="Round B"]\') }); })()';
+  '(() => { ' + NAMEOF + ' const btns = Array.from(document.querySelectorAll("button")); const un = btns.filter((b) => !nameOf(b)); const ctrls = Array.from(document.querySelectorAll("input,select,textarea")); const unCtrls = ctrls.filter((c) => !nameOf(c)); const imgs = Array.from(document.querySelectorAll("img")); const altless = imgs.filter((i) => !i.hasAttribute("alt")); const imgPend = imgs.filter((i) => !i.complete).length; const dgs = Array.from(document.querySelectorAll("[role=dialog]")); const dlg = dgs[0]; const dlgTop = dgs[dgs.length - 1]; const headOf = (d) => d ? ((document.getElementById(d.getAttribute("aria-labelledby") || "") || {}).textContent || "").trim().slice(0, 40) : null; const dlgHead = headOf(dlg); const dlgHeadTop = headOf(dlgTop); const dlgCount = dgs.length; const act = document.activeElement; const actTabEl = document.querySelector("[role=tab][data-state=active]"); const leaves = Array.from(document.querySelectorAll("*")).filter((e) => e.children.length === 0 && /^Loading( chart)?…$/.test((e.textContent || "").trim())); const q = (s) => !!document.querySelector(s); const doorBy = (pre) => btns.some((b) => (b.getAttribute("aria-label") || "").startsWith(pre)); const cnt = (s) => document.querySelectorAll(s).length; const abDoors = btns.filter((b) => (b.getAttribute("aria-label") || "").includes("A/B — compare with another completed run")).length; const sibPicker = btns.filter((b) => (b.getAttribute("aria-label") || "").startsWith("Compare parameters with another")).length; const dup = btns.some((b) => (b.textContent || "").trim() === "Duplicate"); const dlgScan = dlgTop ? /Scanning for FSC curves/.test(dlgTop.textContent || "") : false; const pfCensusSpoken = dlgTop ? /Off this mainline/.test(dlgTop.textContent || "") : false; return JSON.stringify({ url: location.pathname, pageBtns: btns.length, pageUnnamed: un.length, unWho: un.slice(0, 5).map((b) => String(b.className).slice(0, 50)), ctrls: ctrls.length, unCtrls: unCtrls.length, imgs: imgs.length, altless: altless.length, imgPending: imgPend, hasDlg: !!dlg, dlgHead: dlgHead, dlgHeadTop: dlgHeadTop, dlgCount: dgs.length, act: act ? (dlg && dlg.contains(act) ? "in-dialog" : act.tagName) : null, actTab: actTabEl ? (actTabEl.textContent || "").trim().slice(0, 12) : null, shimmer: leaves.length, verdictDoor: doorBy("Final verdict — read what the mask bought"), funnelDoor: doorBy("Particle funnel — read where the particles went"), arcDoor: doorBy("Resolution arc — read this"), convDoor: doorBy("Class convergence — read this run"), abDoors: abDoors, sibPicker: sibPicker, dup: dup, fscChip: q("[data-testid=fsc-compare-open]"), fscScanning: dlgScan, fscRows: cnt("[data-testid=fsc-compare-row]"), fscRescan: q(\'button[aria-label="Re-scan the project for FSC curves"]\'), fscSelect: q(\'[aria-label="Select jobs to compare"]\'), fscToggle: q(\'[aria-label="Toggle curves"]\'), fscChart: q("[data-testid=fsc-compare-chart]"), fscLegend: cnt("[data-testid^=fsc-compare-legend-]"), fscFresh: q("[data-testid=fsc-compare-freshness]"), pvReading: q(\'[aria-label^="Postprocess verdict reading"]\'), pfReading: q(\'[aria-label^="Particle funnel reading"]\'), pfCsvNamed: q("[data-testid=funnel-export-csv]"), pfCopyNamed: q("[data-testid=funnel-copy-ledger]"), pfPours: cnt("[data-testid^=funnel-pours-]"), pfCensusSpoken: pfCensusSpoken, raReading: q(\'[aria-label^="Resolution arc reading"]\'), cvReading: q(\'[aria-label^="Class convergence reading"]\'), cvRoundA: q(\'[aria-label="Round A"]\'), cvRoundB: q(\'[aria-label="Round B"]\') }); })()';
 
 /* the settle law (t864's generalization): the lazy barrel's own quiescence
  * door SILENT (shimmer 0) AND the images' own contract SETTLED (no img
@@ -204,6 +206,19 @@ const clickDoor = (pre) =>
 /* the zero-unnamed census invariant, one voice everywhere */
 const censusOk = (m) => m.pageUnnamed === 0 && m.unCtrls === 0 && m.altless === 0;
 
+/* the deterministic porch re-walk (the t867 openQuicklook form — the
+ * cold-chunk full-reload casualty's law): the compare dialog's FIRST
+ * compile can full-reload the page mid-face (dev-only HMR fallback), the
+ * inspector and the dialog fall, and the film would cascade red. The
+ * doors are deterministic, so the ride walks them again, one command. */
+const reopenPorch = async () => {
+  openRetry("http://localhost:3000");
+  sleep(3);
+  await arrivalDoor("the porch re-walk");
+  evalJson(plainClick(post.id));
+  waitFor("the inspector (re-walk)", (m) => m.hasDlg && m.shimmer === 0, 30);
+};
+
 /* ---------- the roster: the four hosts, measured never pinned ---------- */
 const jobs = await roster();
 const byType = {};
@@ -224,8 +239,9 @@ console.log(`  hosts (measured, not pinned — the t826 lesson): postprocess=${p
 
 /* ---------- Face 0: the calm canvas (the opening count) ---------- */
 console.log("Face 0 — the calm canvas (fresh load, sleep 3)");
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the opening canvas");
 const m0 = settle("the canvas");
 if (corpse(m0, "the opening canvas")) process.exit(1);
 ok("O1 the canvas is calm and named (the census's invariant)",
@@ -265,7 +281,24 @@ ok("FC2 the compare chip arrived (the chart's header earns it when the data land
   chip.fscChip === true);
 const cc = evalJson(clickTestid("fsc-compare-open"));
 ok("FC3 the chip clicked (the FSC chart's own overlay door)", cc.clicked === true);
-const fc = settle("the FSC compare dialog");
+/* t869 — the SCAN's arrival door: the dialog's discovery fetch resolves on
+ * its own schedule (the cold-chunk world stalled the first ride's settle
+ * mid-scan — rows filmed 0 while the badge still counted the latch). An
+ * arrival waits for arrival: the scan's own 'Scanning for FSC curves…'
+ * strip must go SILENT before the rows are judged. */
+const fcScan = waitFor("the FSC scan's resolution", (m) => m.dlgCount >= 2 && m.fscScanning === false, 30);
+let fc = settle("the FSC compare dialog");
+if (fc.dlgCount < 2) {
+  /* the one-retry law: the face fell to a cold-chunk reload (the world
+   * filmed the clean canvas mid-face) — the deterministic doors re-walk. */
+  console.log("  (the compare face fell to a cold-chunk reload — the one-retry law re-walks)");
+  await reopenPorch();
+  evalJson(tabMouseDown("Results"));
+  waitFor("the compare chip (re-walk)", (m) => m.fscChip === true && m.shimmer === 0, 30);
+  evalJson(clickTestid("fsc-compare-open"));
+  waitFor("the FSC scan's resolution (re-walk)", (m) => m.dlgCount >= 2 && m.fscScanning === false, 30);
+  fc = settle("the FSC compare dialog (re-walk)");
+}
 if (corpse(fc, "the FSC compare dialog")) process.exit(1);
 ok("FC4 the overlay dialog arrived as the TOP layer with its heading (Compare FSC curves)",
   fc.hasDlg && (fc.dlgHeadTop || "").startsWith("Compare FSC curves"),
@@ -290,6 +323,14 @@ ok("FC10 Escape closed the overlay, the inspector remains (the porch stays)",
 
 /* ---------- Face PV: the final verdict dialog ---------- */
 console.log("Face PV — the final verdict (the postprocess honesty read, the sixth question)");
+/* the porch's own arrival door: if the reload casualty fell AFTER the FC
+ * face (the inspector down, the porch gone), the deterministic doors walk
+ * again before the verdict seat is judged. */
+const porchCheck = evalJson(MEASURE);
+if (!porchCheck.hasDlg || porchCheck.verdictDoor !== true) {
+  console.log("  (the porch fell with the reload — the deterministic doors walk again)");
+  await reopenPorch();
+}
 const pvC = evalJson(clickDoor("Final verdict — read what the mask bought"));
 ok("PV1 the verdict door clicked (the porch's own seat)", pvC.clicked === true);
 const pv = settle("the verdict dialog");
@@ -319,8 +360,19 @@ ok("PF3 the reading region named (what each stage kept, shed, multiplied)",
   pf.pfReading === true);
 ok("PF4 the export doors named: CSV ledger + plain-text ledger",
   pf.pfCsvNamed === true && pf.pfCopyNamed === true);
-ok("PF5 the pours aboard (the stages' own pour icons — the chain's flow, measured)",
-  pf.pfPours >= 1, `pours=${pf.pfPours}`);
+/* t869 — the CHAIN's arrival door + the σ-GATE (the t867 law's world form):
+ * the pours render from the funnel's off-mainline CENSUS — the resurrected
+ * world's chain is a CLEAN SPINE (the t867 M16 note: no rerun-history
+ * branches), so the census honestly renders nothing and no pour can exist.
+ * The check walks the pours WHEN the chain has left-behind members and
+ * asserts the honest empty census when the spine is clean — the state
+ * machine's truth, never a pinned pour. */
+const pfData = waitFor("the funnel's chain data or the clean-spine truth", (m) => m.dlgCount >= 1 && (m.pfPours >= 1 || m.pfCensusSpoken === false), 24);
+ok("PF5 the pours walk when the chain has left-behind members; the clean spine keeps its census honestly empty (the σ-gate law, read live)",
+  pfData.pfPours >= 1 || (pfData.pfPours === 0 && pfData.pfCensusSpoken === false),
+  pfData.pfPours >= 1
+    ? `pours=${pfData.pfPours}`
+    : `the chain is a clean spine — no off-mainline members, the census honestly empty`);
 ok("PF6 zero unnamed page-wide WITH the funnel up (the census's invariant)",
   censusOk(pf), `btns=${pf.pageBtns}`);
 const pf2 = settle("the funnel dialog (second ride)");
@@ -358,6 +410,13 @@ sleep(1.5);
 
 /* ---------- Face CV: the class convergence (the class2d inspector) ---------- */
 console.log("Face CV — the class convergence (the fourth question: the run vs its OWN rounds)");
+/* t869 — the CARD's arrival door: the class2d card remounts with the
+ * canvas's own close-storm (the first ride's click landed mid-remount and
+ * filmed the card absent). An arrival waits for the node, then clicks. */
+const cardProbe = (id) => '(() => JSON.stringify({ has: !!document.querySelector("[data-card-btn=\\"' + id + '\\\"]") }))()';
+let cThere = evalJson(cardProbe(class2d.id));
+for (let i = 0; i < 20 && !cThere.has; i++) { sleep(1); cThere = evalJson(cardProbe(class2d.id)); }
+if (!cThere.has) console.log("  (the class2d card never remounted — the click walks anyway and the check judges)");
 const cC = evalJson(plainClick(class2d.id));
 ok("CV1 the class2d inspector arrived through the card's plain door", cC.clicked === true);
 waitFor("the class2d inspector", (m) => m.hasDlg && m.shimmer === 0, 30);
@@ -404,8 +463,9 @@ sleep(1.5);
 
 /* ---------- Face W: the world back (fresh load) ---------- */
 console.log("Face W — the world back (fresh load, sleep 3)");
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the restored canvas");
 const w1 = settle("the restored canvas");
 ok("W1 the world unharmed (canvas count == the opening count, zero unnamed, no dialog)",
   w1.pageBtns === OPEN && censusOk(w1) && !w1.hasDlg,
@@ -436,7 +496,7 @@ for (const [name, f] of Object.entries(faces)) {
 
 /* ---------- verdict + receipt ---------- */
 const verdict = fail === 0
-  ? `the results family holds: the porch's question row named on the postprocess face (the final verdict + the particle funnel doors aboard, the A/B doors honestly absent, the Duplicate front door present), the FSC overlay rode its chip door (${fc.fscRows} candidate rows measured, the rescan/select/toggle doors named, the chart aboard), the verdict and the funnel dialogs spoke their readings with the export doors named (${pf.pfPours} pours), the arc and the convergence dialogs rode their single-run doors with the round selects named, the ctffind porch proved the guard's POSITIVE absence (zero A/B doors, zero sibling pickers, the guards agreeing) — zero unnamed everywhere on every face, every dialog's two settled rides bit-identical, and the world back bit-for-bit (${OPEN} == ${OPEN}) — the ledger aboard from birth (eight faces, the shared law)`
+  ? `the results family holds: the porch's question row named on the postprocess face (the final verdict + the particle funnel doors aboard, the A/B doors honestly absent, the Duplicate front door present), the FSC overlay rode its chip door (${fc.fscRows} candidate rows measured, the rescan/select/toggle doors named, the chart aboard), the verdict and the funnel dialogs spoke their readings with the export doors named (${pfData.pfPours >= 1 ? `${pfData.pfPours} pours walked` : `the clean spine's honestly empty census`}), the arc and the convergence dialogs rode their single-run doors with the round selects named, the ctffind porch proved the guard's POSITIVE absence (zero A/B doors, zero sibling pickers, the guards agreeing) — zero unnamed everywhere on every face, every dialog's two settled rides bit-identical, and the world back bit-for-bit (${OPEN} == ${OPEN}) — the ledger aboard from birth (eight faces, the shared law)`
   : `${fail} red — the results family moved; call the census's own instruments before any UI work`;
 
 const driftLedger = {

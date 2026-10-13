@@ -1,17 +1,17 @@
 {
   "instrument": "scripts/t863-job-panel-a11y.mjs",
-  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@c4c3735897dd",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); t867: the title branch — Mol*'s own viewport controls (the msp-btn icon family, the library's chrome the embed styles deliberately) speak their names as tooltips, and the HTML name algorithm honors title as the fallback the census now hears; name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@d3cccbac0a05",
   "worldMode": "dev",
-  "date": "2026-10-10T16:47:33.578Z",
+  "date": "2026-10-13T19:01:46.758Z",
   "chain": "canvas -> CREATE (POST /api/jobs) -> card idle -> plain-click -> PANEL -> DELETE -> worldBack (one command)",
   "doors": {
     "create": "POST /api/jobs { type: motioncorr, far-corner parked } — the t708 write door",
     "panel": "pointerdown + pointerup on [data-card-btn] — the card's plain-click selection law",
-    "unmutate": "DELETE /api/jobs/cmv2mnfhh0001n8q9797ny3b6 — the app's own cascade (tombstone + stop + sweep)"
+    "unmutate": "DELETE /api/jobs/cmv71rfh00003u989b0u8ngmm — the app's own cascade (tombstone + stop + sweep)"
   },
   "probe": {
-    "id": "cmv2mnfhh0001n8q9797ny3b6",
+    "id": "cmv71rfh00003u989b0u8ngmm",
     "name": "Panel A11y Probe",
     "type": "motioncorr"
   },
@@ -19,7 +19,7 @@
     "canvas": {
       "live": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -43,7 +43,7 @@
     "panelOpening": {
       "live": {
         "url": "/",
-        "pageBtns": 168,
+        "pageBtns": 159,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 3,
@@ -51,7 +51,7 @@
         "unCtrlsWho": [],
         "imgs": 0,
         "altless": 0,
-        "hasPanel": true,
+        "hasPanel": false,
         "runFace": "Run",
         "runTitle": "",
         "tabs": [
@@ -67,7 +67,7 @@
     "panel": {
       "live": {
         "url": "/",
-        "pageBtns": 168,
+        "pageBtns": 159,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 3,
@@ -89,7 +89,7 @@
       },
       "secondRide": {
         "url": "/",
-        "pageBtns": 168,
+        "pageBtns": 159,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 3,
@@ -113,7 +113,7 @@
     "params": {
       "live": {
         "url": "/",
-        "pageBtns": 177,
+        "pageBtns": 168,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 9,
@@ -135,7 +135,7 @@
       },
       "secondRide": {
         "url": "/",
-        "pageBtns": 177,
+        "pageBtns": 168,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 9,
@@ -157,7 +157,7 @@
       },
       "log": {
         "url": "/",
-        "pageBtns": 168,
+        "pageBtns": 159,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 3,
@@ -181,7 +181,7 @@
     "worldBack": {
       "live": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -206,38 +206,44 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T15:49:05.313Z",
-    "sameBuild": true,
+    "prevDate": "2026-10-10T16:47:33.578Z",
+    "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "panel": {
         "prev": 168,
-        "live": 168,
-        "drift": 0,
-        "identical": true,
+        "live": 159,
+        "drift": -9,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "pageBtns"
+          ]
         }
       },
       "params": {
         "prev": 177,
-        "live": 177,
-        "drift": 0,
-        "identical": true,
+        "live": 168,
+        "drift": -9,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "pageBtns"
+          ]
         }
       },
       "worldBack": {
         "prev": 153,
-        "live": 153,
-        "drift": 0,
-        "identical": true,
+        "live": 144,
+        "drift": -9,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "pageBtns"
+          ]
         }
       }
     }
@@ -246,12 +252,12 @@
     {
       "label": "O1 the canvas is calm and named (the census's invariant)",
       "pass": true,
-      "detail": "btns=153 ctrls=2 — zero unnamed anywhere"
+      "detail": "btns=144 ctrls=2 — zero unnamed anywhere"
     },
     {
       "label": "M1 the probe job created (201, the roster's own door)",
       "pass": true,
-      "detail": "id cmv2mnfhh0001n8q9797ny3b6"
+      "detail": "id cmv71rfh00003u989b0u8ngmm"
     },
     {
       "label": "M2 the probe card is on the canvas and speaks IDLE",
@@ -266,7 +272,7 @@
     {
       "label": "P2 the panel arrived (the Run face aboard — the opening tab is world-state, the persistence is the app's own)",
       "pass": true,
-      "detail": "opening face: run=\"Run\" io-sections=true"
+      "detail": "opening face: run=\"Run\" io-sections=false"
     },
     {
       "label": "P2b the I/O face mounted (the io + outputs sections — the walk films the tab it opens)",
@@ -281,7 +287,7 @@
     {
       "label": "P4 zero unnamed buttons page-wide WITH the panel up (the census's invariant holds on the run form)",
       "pass": true,
-      "detail": "btns=168 (opening 153) unnamed=0"
+      "detail": "btns=159 (opening 144) unnamed=0"
     },
     {
       "label": "P5 zero unnamed CONTROLS on the I/O face",
@@ -316,7 +322,7 @@
     {
       "label": "P11 zero unnamed buttons on the params tab too",
       "pass": true,
-      "detail": "btns=177 unnamed=0"
+      "detail": "btns=168 unnamed=0"
     },
     {
       "label": "P12 the params tab rides bit-identical",
@@ -326,7 +332,7 @@
     {
       "label": "P13 the log tab holds the name layer (zero unnamed, the tail region aboard)",
       "pass": true,
-      "detail": "btns=168 ctrls=3 unnamed=0/0"
+      "detail": "btns=159 ctrls=3 unnamed=0/0"
     },
     {
       "label": "U1 the probe job deleted (200 ok)",
@@ -336,7 +342,7 @@
     {
       "label": "U2 the world is BACK — canvas count bit-for-bit the opening count",
       "pass": true,
-      "detail": "btns=153 (opening 153)"
+      "detail": "btns=144 (opening 144)"
     },
     {
       "label": "U3 the probe card is gone and the name layer holds (zero unnamed everywhere)",
@@ -346,22 +352,22 @@
     {
       "label": "L1 the ledger is aboard at birth: three faces (panel/params/worldBack), each carrying prev/live/drift/identical",
       "pass": true,
-      "detail": "comparator 2026-10-10T15:49:05.313Z (key dev@c4c3735897dd)"
+      "detail": "comparator 2026-10-10T16:47:33.578Z (key dev@c4c3735897dd)"
     },
     {
       "label": "L2 panel face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@c4c3735897dd -> dev@d3cccbac0a05), drift -9 informational"
     },
     {
       "label": "L3 params face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@c4c3735897dd -> dev@d3cccbac0a05), drift -9 informational"
     },
     {
       "label": "L4 worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@c4c3735897dd -> dev@d3cccbac0a05), drift -9 informational"
     }
   ],
   "passed": 24,

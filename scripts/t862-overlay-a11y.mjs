@@ -44,6 +44,7 @@ import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
 import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
+import { arrivalDoor, openRetry } from "./arrival-laws.mjs"; // t869 — the arrival laws aboard (the t846/t867 pattern, one implementation)
 
 const ROOT = process.cwd();
 
@@ -120,8 +121,9 @@ const ESC_ALL =
 
 /* ---------- Face 0: the calm canvas (the opening count) ---------- */
 console.log("Face 0 — the calm canvas (fresh load, sleep 3)");
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the opening canvas");
 const m0 = settle("the canvas");
 ok("O1 the canvas is calm and named (the census's invariant)",
   !m0.hasDlg && !m0.hasMenu && m0.pageUnnamed === 0 && m0.unCtrls === 0 && m0.altless === 0,
@@ -193,8 +195,9 @@ ok("K5 Escape closes the menu and focus returns to the bell trigger (the Radix c
 
 /* ---------- restore: fresh load back to the calm canvas ---------- */
 console.log("Restore — fresh load back to the canvas");
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the restored canvas");
 const r1 = settle("the restored canvas");
 ok("R1 the world unharmed (canvas count == the opening count, no overlay)",
   !r1.hasDlg && !r1.hasMenu && r1.pageBtns === m0.pageBtns && r1.pageUnnamed === 0,

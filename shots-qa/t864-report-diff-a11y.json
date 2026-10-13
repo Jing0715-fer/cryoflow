@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t864-report-diff-a11y.mjs",
-  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@c4c3735897dd",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); t867: the title branch — Mol*'s own viewport controls (the msp-btn icon family, the library's chrome the embed styles deliberately) speak their names as tooltips, and the HTML name algorithm honors title as the fallback the census now hears; name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@d3cccbac0a05",
   "worldMode": "dev",
-  "date": "2026-10-10T17:12:34.795Z",
+  "date": "2026-10-13T19:04:22.337Z",
   "chain": "canvas -> report (header door) -> print contract both ways -> shift+click pair -> toolbar compare -> diff dialog -> symmetric un-mutation -> worldBack (one command)",
   "doors": {
     "report": "click button[aria-label=\"Session QC report\"] — the header's named seat",
@@ -11,18 +11,18 @@
     "unmutate": "shift+click each selected card again — the symmetric toggle, no residue"
   },
   "pair": {
-    "type": "initialmodel",
-    "a": "cmv2fdgpo000mn852448c7aua",
-    "b": "cmututold000initialmodel",
+    "type": "motioncorr",
+    "a": "cmv6w4q3y0004u99xvbg3ge0t",
+    "b": "cmv71ud620001u9esstf0x6rs",
     "measured": true
   },
-  "openingCanvas": 153,
+  "openingCanvas": 147,
   "faces": {
     "report": {
       "live": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 171,
+        "pageBtns": 165,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -33,7 +33,7 @@
         "dlgHead": "Session QC report",
         "printOn": true,
         "docAboard": true,
-        "mdLen": 7918,
+        "mdLen": 7667,
         "stillMeasuring": 0,
         "copyNamed": true,
         "dlNamed": true,
@@ -47,7 +47,7 @@
       "secondRide": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 171,
+        "pageBtns": 165,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -58,7 +58,7 @@
         "dlgHead": "Session QC report",
         "printOn": true,
         "docAboard": true,
-        "mdLen": 7918,
+        "mdLen": 7667,
         "stillMeasuring": 0,
         "copyNamed": true,
         "dlNamed": true,
@@ -74,7 +74,7 @@
       "live": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 164,
+        "pageBtns": 157,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -99,7 +99,7 @@
       "secondRide": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 164,
+        "pageBtns": 157,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -126,7 +126,7 @@
       "live": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 153,
+        "pageBtns": 147,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -159,7 +159,7 @@
     {
       "label": "O1 the canvas is calm and named (the census's invariant)",
       "pass": true,
-      "detail": "btns=153 — zero unnamed anywhere"
+      "detail": "btns=147 — zero unnamed anywhere"
     },
     {
       "label": "SR1 the report door clicked (the header's named button)",
@@ -179,7 +179,7 @@
     {
       "label": "SR4 the ONE md carrier aboard and non-empty (data-md, the t194 no-parse-of-parse law)",
       "pass": true,
-      "detail": "md bytes=7918"
+      "detail": "md bytes=7667"
     },
     {
       "label": "SR5 the doors are named: copy + download (the report speaks Markdown both ways)",
@@ -189,12 +189,12 @@
     {
       "label": "SR6 zero unnamed page-wide WITH the document up (the census's invariant on the report)",
       "pass": true,
-      "detail": "btns=171 ctrls=2"
+      "detail": "btns=165 ctrls=2"
     },
     {
       "label": "SR7 two settled rides bit-identical (the t836 law, the t860 settle — the pulse's silence, not a clock)",
       "pass": true,
-      "detail": "md bytes=7918, stillMeasuring=0"
+      "detail": "md bytes=7667, stillMeasuring=0"
     },
     {
       "label": "SR8 Escape closed the report AND the print contract flipped back OFF (the contract's other half)",
@@ -234,7 +234,7 @@
     {
       "label": "PD7 zero unnamed page-wide WITH the compare dialog up (the census's invariant on the diff)",
       "pass": true,
-      "detail": "btns=164 ctrls=2"
+      "detail": "btns=157 ctrls=2"
     },
     {
       "label": "PD8 two settled rides bit-identical (the t836 law, the t860 settle)",
@@ -244,12 +244,12 @@
     {
       "label": "PD9 un-mutation through the symmetric door: toolbar gone, canvas count back bit-for-bit",
       "pass": true,
-      "detail": "btns 153 == opening 153"
+      "detail": "btns 147 == opening 147"
     },
     {
       "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
       "pass": true,
-      "detail": "btns=153 (opening 153)"
+      "detail": "btns=147 (opening 147)"
     },
     {
       "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson: a transient join persists, and the next ride boots into the mutated world)",
@@ -259,78 +259,58 @@
     {
       "label": "L report face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift -12 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: world [ctrls, pageBtns, panelOpen]"
+      "detail": "arm 2′ — dev world (key dev@d3cccbac0a05), same-key ride drift +null informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L paramsdiff face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift -1 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [act, dlgHead, swapPressed]; world [ctrls, diffRows, hasDlg, hasToolbar, pageBtns, panelOpen, swapNamed]"
+      "detail": "arm 2′ — dev world (key dev@d3cccbac0a05), same-key ride drift +null informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift -12 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: world [ctrls, pageBtns, panelOpen]"
+      "detail": "arm 2′ — dev world (key dev@d3cccbac0a05), same-key ride drift +null informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     }
   ],
   "passed": 24,
   "failed": 0,
   "total": 24,
-  "verdict": "the document and the compare dialogs hold: the report arrived as a DOCUMENT (the print contract ON while up and OFF after Escape, the one md carrier aboard, the copy/download doors named), the compare dialog rode the card's own shift door (two same-type cards toggled, the toolbar's compare button, the swap control's aria-pressed recorded, the measured pair type \"initialmodel\" printed as provenance never pinned), zero unnamed everywhere on both, two settled rides bit-identical each, the un-mutation the SYMMETRIC door and the world back bit-for-bit (153 == 153) — the ledger aboard from birth (three faces, the shared law)",
+  "verdict": "the document and the compare dialogs hold: the report arrived as a DOCUMENT (the print contract ON while up and OFF after Escape, the one md carrier aboard, the copy/download doors named), the compare dialog rode the card's own shift door (two same-type cards toggled, the toolbar's compare button, the swap control's aria-pressed recorded, the measured pair type \"motioncorr\" printed as provenance never pinned), zero unnamed everywhere on both, two settled rides bit-identical each, the un-mutation the SYMMETRIC door and the world back bit-for-bit (147 == 147) — the ledger aboard from birth (three faces, the shared law)",
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T17:06:07.605Z",
+    "prevBuild": "dev@d3cccbac0a05",
+    "prevDate": "2026-10-13T19:03:09.463Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "report": {
-        "prev": 183,
-        "live": 171,
-        "drift": -12,
-        "identical": false,
+        "prev": null,
+        "live": 165,
+        "drift": null,
+        "identical": null,
         "moved": {
           "lens": [],
-          "world": [
-            "ctrls",
-            "pageBtns",
-            "panelOpen"
-          ]
+          "world": []
         }
       },
       "paramsdiff": {
-        "prev": 165,
-        "live": 164,
-        "drift": -1,
-        "identical": false,
+        "prev": null,
+        "live": 157,
+        "drift": null,
+        "identical": null,
         "moved": {
-          "lens": [
-            "act",
-            "dlgHead",
-            "swapPressed"
-          ],
-          "world": [
-            "ctrls",
-            "diffRows",
-            "hasDlg",
-            "hasToolbar",
-            "pageBtns",
-            "panelOpen",
-            "swapNamed"
-          ]
+          "lens": [],
+          "world": []
         }
       },
       "worldBack": {
-        "prev": 165,
-        "live": 153,
-        "drift": -12,
-        "identical": false,
+        "prev": null,
+        "live": 147,
+        "drift": null,
+        "identical": null,
         "moved": {
           "lens": [],
-          "world": [
-            "ctrls",
-            "pageBtns",
-            "panelOpen"
-          ]
+          "world": []
         }
       }
     }

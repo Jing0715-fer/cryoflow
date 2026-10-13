@@ -44,7 +44,38 @@ import urllib.request
 from datetime import datetime, timezone
 
 REPO = "/home/z/my-project"
-DB = f"{REPO}/db/cryoflow.db"
+# t869 — THE FILE PIN RETARGETED (the t826 armor's sibling, the Python
+# form): the frozen cryoflow.db pin is world-state, not law — the restored
+# world's live data rides db/custom.db through the .env the dev server
+# itself reads (the t867 fix), and the frozen file is a 0-byte corpse
+# that answers "no such table" with a confident tone (the t825 lesson's
+# shape, one layer down). The pin resolves .env's DATABASE_URL by
+# Prisma's own rule (absolute kept, relative from prisma/), the frozen
+# pin stands as fallback — the armor retargeted, not dropped.
+import os
+import re as _re
+
+
+def _resolve_db_pin() -> str:
+    frozen = f"{REPO}/db/cryoflow.db"
+    env_path = os.path.join(REPO, ".env")
+    try:
+        if os.path.exists(env_path):
+            m = _re.search(r"(?:^|\n)\s*DATABASE_URL\s*=\s*\"?([^\"\n\r]+)\"?", open(env_path).read())
+            if m:
+                v = m.group(1).strip()
+                if v.startswith("file:"):
+                    p = v[5:]
+                    if not os.path.isabs(p):
+                        p = os.path.join(REPO, "prisma", p)
+                    return p
+    except Exception:
+        pass
+    return frozen
+
+
+DB = _resolve_db_pin()
+print(f"census-leg db pin: {DB} (the t869 armor: .env-first, frozen fallback)")
 BASE = "http://localhost:3000"
 
 PASS = 0

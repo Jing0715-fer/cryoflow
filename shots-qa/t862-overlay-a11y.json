@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t862-overlay-a11y.mjs",
-  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@c4c3735897dd",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder -> title — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); t867: the title branch — Mol*'s own viewport controls (the msp-btn icon family, the library's chrome the embed styles deliberately) speak their names as tooltips, and the HTML name algorithm honors title as the fallback the census now hears; name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@d3cccbac0a05",
   "worldMode": "dev",
-  "date": "2026-10-10T16:47:11.921Z",
+  "date": "2026-10-13T19:00:02.534Z",
   "chain": "canvas -> shortcuts (?) -> knock (bell) -> restored (one command)",
   "doors": {
     "shortcuts": "window keydown \"?\" — the app's own typing-guarded listener",
@@ -13,7 +13,7 @@
     "canvas": {
       "live": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -38,7 +38,7 @@
     "shortcuts": {
       "live": {
         "url": "/",
-        "pageBtns": 154,
+        "pageBtns": 145,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 3,
@@ -67,7 +67,7 @@
       },
       "secondRide": {
         "url": "/",
-        "pageBtns": 154,
+        "pageBtns": 145,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 3,
@@ -102,7 +102,7 @@
       },
       "afterEscape": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -127,7 +127,7 @@
     "knock": {
       "live": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -156,7 +156,7 @@
       },
       "afterEscape": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -181,7 +181,7 @@
     "restored": {
       "live": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -207,38 +207,44 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T15:48:37.726Z",
-    "sameBuild": true,
+    "prevDate": "2026-10-10T16:47:11.921Z",
+    "sameBuild": false,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "shortcuts": {
         "prev": 154,
-        "live": 154,
-        "drift": 0,
-        "identical": true,
+        "live": 145,
+        "drift": -9,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "pageBtns"
+          ]
         }
       },
       "knock": {
         "prev": 153,
-        "live": 153,
-        "drift": 0,
-        "identical": true,
+        "live": 144,
+        "drift": -9,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "pageBtns"
+          ]
         }
       },
       "restored": {
         "prev": 153,
-        "live": 153,
-        "drift": 0,
-        "identical": true,
+        "live": 144,
+        "drift": -9,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "pageBtns"
+          ]
         }
       }
     }
@@ -247,7 +253,7 @@
     {
       "label": "O1 the canvas is calm and named (the census's invariant)",
       "pass": true,
-      "detail": "btns=153 ctrls=2 imgs=0 — zero unnamed anywhere"
+      "detail": "btns=144 ctrls=2 imgs=0 — zero unnamed anywhere"
     },
     {
       "label": "S1 the dialog arrived: title + focus inside",
@@ -262,7 +268,7 @@
     {
       "label": "S3 zero unnamed page-wide with the dialog up (the census's invariant holds on the overlay tier)",
       "pass": true,
-      "detail": "btns=154 ctrls=3 unnamed=0/0/0"
+      "detail": "btns=145 ctrls=3 unnamed=0/0/0"
     },
     {
       "label": "S4 the filter input is named (aria-label, not the placeholder's crutch)",
@@ -282,7 +288,7 @@
     {
       "label": "S7 Escape closes the shortcuts dialog",
       "pass": true,
-      "detail": "dlg=false btns back to 153"
+      "detail": "dlg=false btns back to 144"
     },
     {
       "label": "K1 the menu arrived (role=menu, the Radix portal)",
@@ -302,7 +308,7 @@
     {
       "label": "K4 zero unnamed page-wide with the menu up",
       "pass": true,
-      "detail": "btns=153"
+      "detail": "btns=144"
     },
     {
       "label": "K5 Escape closes the menu and focus returns to the bell trigger (the Radix contract)",
@@ -312,27 +318,27 @@
     {
       "label": "R1 the world unharmed (canvas count == the opening count, no overlay)",
       "pass": true,
-      "detail": "btns=153 (opening 153)"
+      "detail": "btns=144 (opening 144)"
     },
     {
       "label": "L1 the ledger is aboard at birth: three faces, each carrying prev/live/drift/identical",
       "pass": true,
-      "detail": "comparator 2026-10-10T15:48:37.726Z (key dev@c4c3735897dd)"
+      "detail": "comparator 2026-10-10T16:47:11.921Z (key dev@c4c3735897dd)"
     },
     {
       "label": "L2 shortcuts face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@c4c3735897dd -> dev@d3cccbac0a05), drift -9 informational"
     },
     {
       "label": "L3 knock face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@c4c3735897dd -> dev@d3cccbac0a05), drift -9 informational"
     },
     {
       "label": "L4 restored face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2 — world key moved (dev@c4c3735897dd -> dev@d3cccbac0a05), drift -9 informational"
     }
   ],
   "passed": 18,

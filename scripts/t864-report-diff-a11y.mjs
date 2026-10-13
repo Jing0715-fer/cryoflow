@@ -43,6 +43,7 @@ import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
 import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
+import { arrivalDoor, openRetry, fetchRetry } from "./arrival-laws.mjs"; // t869 — the arrival laws aboard (the t846/t867 pattern, one implementation)
 
 const ROOT = process.cwd();
 const BASE = "http://localhost:3000";
@@ -105,7 +106,8 @@ const SH = {
   "Sec-Fetch-Dest": "empty",
 };
 const roster = async () => {
-  const r = await fetch(`${BASE}/api/jobs`, { headers: SH });
+  // t869 — the retry-through-reboot law rides the read (the dead-socket crash witness)
+  const r = await fetchRetry(`${BASE}/api/jobs`, { headers: SH });
   const b = await r.json();
   return b.jobs ?? b;
 };
@@ -160,8 +162,9 @@ const shiftClick = (id) =>
 
 /* ---------- Face 0: the calm canvas (the opening count) ---------- */
 console.log("Face 0 — the calm canvas (fresh load, sleep 3)");
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the opening canvas");
 /* t866 — the CLEAN-ROOM law: the session-position seed (t157) makes the
  * boot state ride-dependent. A seed left by an earlier ride re-opens the
  * side panel (+12 controls) AND boots a one-card multi-selection
@@ -172,8 +175,9 @@ sleep(3);
  * and the settle): clear the seed, reload, and DEMAND the panel-closed
  * boot. The world's own session position is the user's, not the film's. */
 evalJson('(() => { localStorage.setItem("cryoflow.selectedJob.v1", ""); return "clean"; })()');
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the clean room's reload");
 const m0 = settle("the canvas");
 ok("O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
   m0.panelOpen === false,
@@ -275,8 +279,9 @@ ok("PD9 un-mutation through the symmetric door: toolbar gone, canvas count back 
 
 /* ---------- Face W — the world back (fresh load) ---------- */
 console.log("Face W — the world back (fresh load, sleep 3)");
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the restored canvas");
 const w1 = settle("the restored canvas");
 ok("W1 the world unharmed (canvas count == the opening count, zero unnamed)",
   w1.pageBtns === OPEN && w1.pageUnnamed === 0 && !w1.hasDlg && !w1.hasToolbar,

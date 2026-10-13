@@ -43,6 +43,7 @@ import { join } from "node:path";
 import { worldIdentity } from "./world-identity.mjs";
 import { loadComparator, ledgerFace, armVerdict, LEDGER_LAW } from "./drift-ledger.mjs";
 import { NAMEOF, NAMEOF_LAW } from "./shared-ruler.mjs";
+import { arrivalDoor, openRetry, fetchRetry } from "./arrival-laws.mjs"; // t869 — the arrival laws aboard (the t846/t867 pattern, one implementation)
 
 const ROOT = process.cwd();
 const BASE = "http://localhost:3000";
@@ -106,7 +107,12 @@ const SH = {
   "Content-Type": "application/json",
 };
 const api = async (method, url, body) => {
-  const r = await fetch(`${BASE}${url}`, {
+  /* t869 — the retry-through-reboot law rides the write door too (the
+   * t402 api() pattern): the mutation faces killed next-server mid-ride
+   * and the dead socket killed THIS ride's un-mutation (the crash
+   * witness). A landed-but-unanswered DELETE retries into an honest 404
+   * — the U-checks read the world, never the status alone. */
+  const r = await fetchRetry(`${BASE}${url}`, {
     method,
     headers: SH,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -141,8 +147,9 @@ const settle = (what) => {
 
 /* ---------- Face 0: the calm canvas (the opening count) ---------- */
 console.log("Face 0 — the calm canvas (fresh load, sleep 3)");
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the opening canvas");
 const m0 = settle("the canvas");
 ok("O1 the canvas is calm and named (the census's invariant)",
   !m0.hasPanel && m0.pageUnnamed === 0 && m0.unCtrls === 0 && m0.altless === 0,
