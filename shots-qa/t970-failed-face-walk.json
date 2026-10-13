@@ -1,0 +1,224 @@
+{
+  "instrument": "t970-failed-face-walk",
+  "mode": "GATE",
+  "at": "2026-10-13T13:09:59.580Z",
+  "face": "Failed Diagnosis Face (t970)",
+  "wide": {
+    "panelW": 1227,
+    "panelSW": 1227,
+    "panelCW": 1227,
+    "panelOverX": false,
+    "shellOverX": false,
+    "offenders": [
+      {
+        "tag": "button",
+        "cls": "inline-flex items-center justify-center whitespace-nowrap font-medium transition-all disabled:pointer-events-none disabl",
+        "sw": 42,
+        "cw": 34,
+        "over": 8,
+        "text": "",
+        "selfClip": false
+      }
+    ],
+    "unclipped": 1,
+    "teaser": {
+      "aria": "Failure diagnosis: 2 findings in the full log",
+      "sw": 793,
+      "cw": 793,
+      "over": 0,
+      "chipCount": 2
+    },
+    "chipRow": {
+      "sw": 773,
+      "cw": 773,
+      "over": 0,
+      "wraps": true
+    },
+    "chips": [
+      {
+        "id": "gpu-oom",
+        "w": 254,
+        "sw": 252,
+        "cw": 252,
+        "over": 0,
+        "count": "×2",
+        "clipped": false
+      },
+      {
+        "id": "oom-kill",
+        "w": 302,
+        "sw": 300,
+        "cw": 300,
+        "over": 0,
+        "count": "×2",
+        "clipped": false
+      }
+    ],
+    "headRow": {
+      "sw": 773,
+      "cw": 773,
+      "over": 0
+    },
+    "jump": {
+      "sw": 151,
+      "cw": 151,
+      "over": 0
+    },
+    "failedCard": {
+      "sw": 1177,
+      "cw": 1177,
+      "over": 0
+    },
+    "jobFailedHead": "Job failed",
+    "leakButtons": [
+      {
+        "aria": "Run on cluster (SSH)",
+        "over": 6,
+        "pseudoAbs": true,
+        "inset": "-6px"
+      },
+      {
+        "aria": "Clean intermediates (local + cluster)",
+        "over": 6,
+        "pseudoAbs": true,
+        "inset": "-6px"
+      },
+      {
+        "aria": "More job tools",
+        "over": 6,
+        "pseudoAbs": true,
+        "inset": "-6px"
+      },
+      {
+        "aria": "Copy",
+        "over": 8,
+        "pseudoAbs": true,
+        "inset": "-8px"
+      },
+      {
+        "aria": "Copy",
+        "over": 8,
+        "pseudoAbs": true,
+        "inset": "-8px"
+      }
+    ]
+  },
+  "fold": {
+    "panelW": 305,
+    "panelSW": 305,
+    "panelCW": 305,
+    "panelOverX": false,
+    "shellOverX": false,
+    "offenders": [
+      {
+        "tag": "span",
+        "cls": "ovd-chip-label min-w-0 truncate text-[10.5px] font-medium text-danger-700 dark:text-danger-200",
+        "sw": 255,
+        "cw": 118,
+        "over": 137,
+        "text": "Process killed — the OOM killer is the usual suspect",
+        "selfClip": true
+      },
+      {
+        "tag": "span",
+        "cls": "ovd-chip-label min-w-0 truncate text-[10.5px] font-medium text-danger-700 dark:text-danger-200",
+        "sw": 207,
+        "cw": 118,
+        "over": 89,
+        "text": "Out-of-memory error (GPU/RAM allocator)",
+        "selfClip": true
+      },
+      {
+        "tag": "button",
+        "cls": "inline-flex items-center justify-center whitespace-nowrap font-medium transition-all disabled:pointer-events-none disabl",
+        "sw": 42,
+        "cw": 34,
+        "over": 8,
+        "text": "",
+        "selfClip": false
+      }
+    ],
+    "unclipped": 1,
+    "teaser": {
+      "aria": "Failure diagnosis: 2 findings in the full log",
+      "sw": 185,
+      "cw": 185,
+      "over": 0,
+      "chipCount": 2
+    },
+    "chipRow": {
+      "sw": 165,
+      "cw": 165,
+      "over": 0,
+      "wraps": true
+    },
+    "chips": [
+      {
+        "id": "gpu-oom",
+        "w": 165,
+        "sw": 163,
+        "cw": 163,
+        "over": 0,
+        "count": "×2",
+        "clipped": false
+      },
+      {
+        "id": "oom-kill",
+        "w": 165,
+        "sw": 163,
+        "cw": 163,
+        "over": 0,
+        "count": "×2",
+        "clipped": false
+      }
+    ],
+    "headRow": {
+      "sw": 165,
+      "cw": 165,
+      "over": 0
+    },
+    "jump": {
+      "sw": 151,
+      "cw": 151,
+      "over": 0
+    },
+    "failedCard": {
+      "sw": 263,
+      "cw": 263,
+      "over": 0
+    },
+    "jobFailedHead": "Job failed",
+    "leakButtons": [
+      {
+        "aria": "Run on cluster (SSH)",
+        "over": 6,
+        "pseudoAbs": true,
+        "inset": "-6px"
+      },
+      {
+        "aria": "Clean intermediates (local + cluster)",
+        "over": 6,
+        "pseudoAbs": true,
+        "inset": "-6px"
+      },
+      {
+        "aria": "More job tools",
+        "over": 6,
+        "pseudoAbs": true,
+        "inset": "-6px"
+      },
+      {
+        "aria": "Copy",
+        "over": 8,
+        "pseudoAbs": true,
+        "inset": "-8px"
+      },
+      {
+        "aria": "Copy",
+        "over": 8,
+        "pseudoAbs": true,
+        "inset": "-8px"
+      }
+    ]
+  }
+}
