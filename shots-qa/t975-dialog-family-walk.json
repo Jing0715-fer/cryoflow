@@ -1,0 +1,26 @@
+{
+  "instrument": "t975-dialog-family-walk",
+  "mode": "GATE",
+  "at": "2026-10-13T14:35:53.893Z",
+  "face": "Negative Diagnosis Face (t972)",
+  "wide": {
+    "labelledby": true,
+    "titleText": "Job inspector: Negative Diagnosis Face (t972)",
+    "titleSrOnly": true,
+    "titleVisibleBox": false,
+    "focusSeat": true,
+    "panelW": 1229,
+    "panelOverX": false,
+    "shellOverX": false
+  },
+  "fold": {
+    "labelledby": true,
+    "titleText": "Job inspector: Negative Diagnosis Face (t972)",
+    "titleSrOnly": true,
+    "titleVisibleBox": false,
+    "focusSeat": true,
+    "panelW": 307,
+    "panelOverX": false,
+    "shellOverX": false
+  }
+}

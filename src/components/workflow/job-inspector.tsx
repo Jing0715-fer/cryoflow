@@ -4640,7 +4640,15 @@ export function JobInspector() {
         }}
       >
         {job ? (
-          <InspectorBody
+          <>
+            {/* t975 — the dialog family's title law reaches its biggest
+                member: the inspector was the ONE DialogContent of 45 whose
+                accessible name never existed (the screen reader announced
+                an unnamed dialog; every sibling — 44 plain dialogs, 13
+                alert dialogs — carried its title). The sr-only title speaks
+                the job's name; the visible header keeps its own face. */}
+            <DialogTitle className="sr-only">Job inspector: {job.name}</DialogTitle>
+            <InspectorBody
             job={job}
             data={data}
             filesData={effData}
@@ -4665,6 +4673,7 @@ export function JobInspector() {
             onCleaned={() => void loadOutputs()}
             onReloadOutputs={() => void loadOutputs()}
           />
+          </>
         ) : null}
       </DialogContent>
     </Dialog>
