@@ -1,0 +1,435 @@
+{
+ "instrument": "scripts/t871-retarget-corpse-pins.py",
+ "law": "docs/world-db-law.md",
+ "applied": true,
+ "retargeted": [
+  {
+   "file": "/home/z/my-project/scripts/qa-t521-tutorial-seed.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/qa-t531-old-world-seed.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/qa-t635-demo-skeleton-seed.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/qa-t639-empiar12-seed.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/qa78-e2e.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t486-curves-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t487-prep-curves-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t488-panel-grammar-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t489-science-grammar-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t490-report-curves-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t491-resilient-panels-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t492-resilient-tables-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t493-reported-passport-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t494-verdict-doors-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t495-assistant-doors-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t496-parallel-walk-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t497-parallel-landscape-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t498-curve-csv-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t499-compass-pulse-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t501-map-landscape-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t522-phantom-stop.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t523-stop-probe.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t533-reaper-bench.ts",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t677-runtime-by-stage.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t680-judge-storm.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t681-critical-path.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t684-palette-recent.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t685-trail-persist.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t686-roster-chain.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t687-critical-handshake.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t705-canvas-layout-patch.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t715-shelf-livefire.mjs",
+   "changed": true,
+   "pins": 1
+  },
+  {
+   "file": "/home/z/my-project/scripts/t774-canon-reset.mjs",
+   "changed": true,
+   "pins": 1
+  }
+ ],
+ "pins": 33,
+ "tail": [
+  {
+   "file": "scripts/build-until-green.sh",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/dev-server-3001.sh",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/dev-server-3005.sh",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/dev-server.sh",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/diag-t320-log-cpu.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/diag-t325-connection-drift.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/diag-t326-dialog-redesign.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/diag-t331-cleanup.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/diag-t340-pin-partition-native.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/diag-t624-row-words.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/diag-t626-leg.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/inspect-t625-rows.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/prod-3001.sh",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/qa58-seed-gallery.py",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/qa60-seed-fsc.py",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/qa61-e2e.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/qa77-e2e.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/reboot-recover.sh",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/restore-gallery.py",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/seed-twin.py",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/standalone-3001.sh",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/start-prod.sh",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t119-e2e.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t119-screenshot.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t120-e2e.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t121-e2e.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t123-e2e.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t123-shot.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t124-e2e.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t124-shot.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t126-e2e.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t186-forensic.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t257-reference-card.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t257-shot.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t258-view-in-3d.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t260-clip-from-card.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t263-rowflip.py",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t299-slurm-sacct.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t304-sbatch-dependency.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t313-demo-chain-resurrect.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t395-seed-live-qa.ts",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t396-derived-fallback.ts",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t396-seed-live-qa.ts",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t397-fixture.sh",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t402b-select-intermediate.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t427-autopick-picks-bench.ts",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t429-qa-session-fixture.ts",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t430-qa-session-fixtures.ts",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t534-diag-log.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t534-diag-mc.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t534-reaper-exam.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t562-list-select-jobs.py",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t623-stop-receipt-live-fire.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t624-stop-teardown-live-fire.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t625-accounting-backfill-live-fire.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t626-outputs-ledger-live-fire.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t632-demo-archaeology.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t632-demo-cleanup.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t632-predelete-audit.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t636-world-census.mjs",
+   "why": "already armored"
+  },
+  {
+   "file": "scripts/t702-narrative-census.py",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t704-bookmark-census.py",
+   "why": "already armored"
+  },
+  {
+   "file": "scripts/t826-bookmark-net-read.mjs",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t870-retarget-fliplegs.py",
+   "why": "complex form / non-js \u2014 hand tail"
+  },
+  {
+   "file": "scripts/t871-retarget-corpse-pins.py",
+   "why": "already armored"
+  }
+ ]
+}

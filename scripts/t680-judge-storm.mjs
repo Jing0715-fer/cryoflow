@@ -69,7 +69,25 @@ const STATE_FILE = path.join(QA, "t680-state.json");
 const WORKDIR_SRC = path.join(REPO, "data", "relion", "cmuwipe6350000demoproject", "class3d_0class3d");
 const MATERIALS = ["run_it003_class001.mrc", "run_it003_class002.mrc", "run_it003_class003.mrc", "run_it003_data.star", "run_it003_model.star"];
 
-process.env.DATABASE_URL = `file:${REPO}/db/cryoflow.db`;
+// the t869 armor (the t871 retarget): .env FIRST, the frozen pin as
+// fallback, the world NAMED at the gate (the t867 resurrection made
+// .env -> db/custom.db the living world; the old cryoflow.db pin is a
+// 0-byte corpse — docs/world-db-law.md is the law).
+import { readFileSync as __t871EnvRead } from 'node:fs';
+process.env.DATABASE_URL = (() => {
+  try {
+    const m = __t871EnvRead('/home/z/my-project/.env', 'utf8').match(/^DATABASE_URL=(.*)$/m);
+    if (m) {
+      let u = m[1].trim().replace(/^["']|["']$/g, '');
+      if (!u.startsWith('file:')) u = 'file:' + u;
+      if (/^file:[^/]/.test(u)) u = 'file:/home/z/my-project/prisma/' + u.slice(5);
+      return u;
+    }
+  } catch { /* fall through */ }
+  return 'file:/home/z/my-project/db/cryoflow.db';
+})();
+console.log(`db pin: ${process.env.DATABASE_URL} (the t869 armor: .env-first, frozen fallback)`);
+
 const { PrismaClient } = await import("@prisma/client");
 const db = new PrismaClient();
 

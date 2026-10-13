@@ -15,12 +15,30 @@
  */
 import { PrismaClient } from "@prisma/client";
 
-// qa-t635's own binding law (line 36): the QA world lives in db/cryoflow.db
-// — the standalone server's .next/standalone/.env says the same. The repo-root
-// .env still points at db/custom.db (a stale Oct-8 world, 21 jobs/15 edges),
-// so an env-following PrismaClient would read the WRONG world — pin the
-// seeder lane's file, exactly as the seeder does.
-process.env.DATABASE_URL = "file:/home/z/my-project/db/cryoflow.db";
+// FOSSIL LAW (the t871 fossilization): the line below was qa-t635's binding
+// law — "the QA world lives in db/cryoflow.db" — TRUE until the t867
+// resurrection reversed the two worlds (the living data now rides .env →
+// db/custom.db; cryoflow.db is the 0-byte corpse). Kept for the record;
+// the armor beneath is the living law. docs/world-db-law.md is the canon.
+// the t869 armor (the t871 retarget): .env FIRST, the frozen pin as
+// fallback, the world NAMED at the gate (the t867 resurrection made
+// .env -> db/custom.db the living world; the old cryoflow.db pin is a
+// 0-byte corpse — docs/world-db-law.md is the law).
+import { readFileSync as __t871EnvRead } from 'node:fs';
+process.env.DATABASE_URL = (() => {
+  try {
+    const m = __t871EnvRead('/home/z/my-project/.env', 'utf8').match(/^DATABASE_URL=(.*)$/m);
+    if (m) {
+      let u = m[1].trim().replace(/^["']|["']$/g, '');
+      if (!u.startsWith('file:')) u = 'file:' + u;
+      if (/^file:[^/]/.test(u)) u = 'file:/home/z/my-project/prisma/' + u.slice(5);
+      return u;
+    }
+  } catch { /* fall through */ }
+  return 'file:/home/z/my-project/db/cryoflow.db';
+})();
+console.log(`db pin: ${process.env.DATABASE_URL} (the t869 armor: .env-first, frozen fallback)`);
+
 
 const prisma = new PrismaClient();
 const SIBLING_ID = "cmv0qhdnb00qvone3j55uyf8w";

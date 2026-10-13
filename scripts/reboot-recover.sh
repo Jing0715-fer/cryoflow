@@ -25,10 +25,19 @@
 #                     resurrection replaced this script with a newer self.
 #                     db/ and data/ are gitignored — the user's data is
 #                     immune to the reset (t285's own promise).
-#   1. ENV PIN        start.sh overwrites .env with `db/custom.db` on EVERY
-#                     boot (both branches — fresh and restore). Prisma reads
-#                     the SHELL's process env before .env, so the pin is
-#                     exported here too, not just written.
+#   1. ENV RIDE       (t871 — was ENV PIN) start.sh overwrites .env with
+#                     `db/custom.db` on EVERY boot (both branches — fresh
+#                     and restore), and since the t867 resurrection the
+#                     LIVING data rides exactly that file. The old behavior
+#                     (re-pinning .env to db/cryoflow.db) fought the platform
+#                     and post-resurrection re-armed the corpse: the next
+#                     boot's server answered P2021 on every route while the
+#                     real world sat one file away (the t867 wound, scheduled
+#                     by our own hand). Recovery now RIDES the platform:
+#                     .env is read, never written (except a fresh-world
+#                     append when absent/empty); the world is named at the
+#                     gate; the resolved URL is still exported (Prisma reads
+#                     the SHELL's process env before .env — t417's wound).
 #   2. DEPS           the tar's narrow .gitignore (skills/ + node_modules/)
 #                     means a fresh restore can land without the toolkit.
 #   3. SCHEMA         `prisma db push` — the tar-era schema trails src.
@@ -148,17 +157,26 @@ else
   say "0. no git repo here — skipping resurrection (run from the project root)"
 fi
 
-# ---------------------------------------------------------------- 1. env pin
-DB_URL="file:$ROOT/db/cryoflow.db"
-PIN="DATABASE_URL=$DB_URL"   # the .env LINE (key included — grep/echo food)
-export DATABASE_URL="$DB_URL"   # prisma reads the PROCESS env before .env — t417's wound
-if [ ! -f .env ] || ! grep -qF "$PIN" .env; then
-  [ -f .env ] && cp .env .env.pre-recover
-  { grep -v '^DATABASE_URL=' .env.pre-recover 2>/dev/null || true; echo "$PIN"; } > .env
-  say "1. .env pinned to db/cryoflow.db (boot's custom.db write overwritten; prior copy in .env.pre-recover)"
-else
-  say "1. .env already pinned to db/cryoflow.db"
+# ---------------------------------------------------------------- 1. env ride
+# t871 — THE PLATFORM OWNS .ENV. Read it, never fight it (see header).
+DB_URL=""
+if [ -f .env ]; then
+  DB_URL=$(grep -E '^[[:space:]]*DATABASE_URL=' .env | tail -1 | sed -E 's/^[^=]*=[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
 fi
+if [ -z "$DB_URL" ]; then
+  # fresh world only (.env absent or pin-less) — the platform's own default,
+  # NEVER the t377-era corpse
+  DB_URL="file:$ROOT/db/custom.db"
+  printf 'DATABASE_URL=%s\n' "$DB_URL" >> .env
+  say "1. .env absent/empty — pinned to the platform's own db/custom.db (never the corpse)"
+else
+  case "$DB_URL" in
+    file:/*) ;;
+    file:*)  DB_URL="file:$ROOT/prisma/${DB_URL#file:}" ;;
+  esac
+  say "1. .env rides untouched: $DB_URL (the t871 law: the platform owns .env)"
+fi
+export DATABASE_URL="$DB_URL"   # prisma reads the PROCESS env before .env — t417's wound
 
 # ------------------------------------------------------------------- 2. deps
 if [ "${REBOOT_NEEDS_DEPS:-0}" = "1" ] || [ ! -f node_modules/next/dist/bin/next ]; then
