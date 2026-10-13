@@ -25,6 +25,21 @@
  *   · the KEYBOARD reaches the toggle: focus + Enter flips the state
  *     both ways (the native button behavior — no pointer required).
  *
+ * t977 — the PERSISTENCE contract rides the same walk (the reading mode
+ * survives the inspector's close):
+ *
+ *   · the walk RESETS the stored preference BEFORE opening the inspector
+ *     (the lazy initializer reads at mount — the reset must precede the
+ *     mount, or the walk measures a stale face);
+ *   · the click WRITES the preference (localStorage "1" after ON — the
+ *     write rides the handler, the #13 law);
+ *   · the KEYBOARD writes too (Enter->off stores "0", Enter->on stores
+ *     "1");
+ *   · the REOPEN leg: Escape closes the inspector, the hard opener
+ *     returns, the Log tab's FRESH MOUNT comes back WRAPPED with no
+ *     click — the fold reader's preference survives the close;
+ *   · the walk leaves no trace (the key removed at the end).
+ *
  * The face: the t970 mint's failed face (the OOM cascade's log — 24
  * lines whose long command lines gave the t971 ride its +669px).
  *
@@ -46,6 +61,7 @@ const QA_DIR = path.join(ROOT, "shots-qa");
 const RECEIPT = path.join(QA_DIR, "t973-wrap-fold-walk.json");
 const NAME = "Failed Diagnosis Face (t970)";
 const GATE = process.env.GATE === "1";
+const WRAP_KEY = "cryoflow.logWrap.v1"; // the t977 preference key — the implementation's own word
 
 let pass = 0, fail = 0;
 const ok = (label, cond, extra = "") => {
@@ -183,12 +199,42 @@ const walkExpr = `(() => {
   return JSON.stringify(out);
 })()`;
 
+/* the find-bar opener — the t972 ride's lesson generalized to law: Reset
+ * view does NOT fit, the overlay can cover a card, scrollIntoView is a
+ * no-op on the transform canvas. The REOPEN leg opens through it (at the
+ * wide viewport — the fold's card box is unknown after the close). */
+const findAndCenter = async (needle) => {
+  const alreadyOpen = evalJson(`(() => { const b = document.querySelector('[aria-label="Find jobs by name, type, or key:value parameter query"]'); return JSON.stringify({ open: !!b && b.getBoundingClientRect().width > 0 }); })()`);
+  if (!(alreadyOpen && alreadyOpen.open)) {
+    const btn = await realClick(`[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Find jobs on canvas') ?? null`);
+    if (!String(btn).startsWith("clicked@")) return "NO-FIND-BAR";
+    await sleep(700);
+  }
+  const box = `[aria-label="Find jobs by name, type, or key:value parameter query"]`;
+  sh(`${AB} fill '${box}' '${needle}'`);
+  await sleep(900);
+  const matchBtn = await evalJson(`(() => { const b = [...document.querySelectorAll('button')].find(x => /^\\d+ match(es)?$/.test((x.textContent || '').trim()) && x.getBoundingClientRect().width > 0); if (!b) return null; const r = b.getBoundingClientRect(); return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`);
+  if (!matchBtn || !matchBtn.x) return "NO-MATCH";
+  sh(`${AB} mouse move ${matchBtn.x} ${matchBtn.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
+  await sleep(900);
+  return `centered:${needle}`;
+};
+
+/* the stored preference's live value (the t977 persistence leg) */
+const storeExpr = `(() => { try { return JSON.stringify({ v: window.localStorage.getItem("${WRAP_KEY}") }); } catch (e) { return JSON.stringify({ v: null }); } })()`;
+
 console.log(`== t973 the wrap toggle's first measured ride ${GATE ? "(the GATE)" : "(the BEFORE witness)"} ==`);
 
 sh(`${AB} open ${BASE}/`);
 await sleep(2500);
 sh(`${AB} set viewport 1280 800`);
 await sleep(1200);
+
+/* the t977 reset — BEFORE the inspector opens: the lazy initializer
+ * reads the preference at mount, so the reset must precede the mount or
+ * the walk measures a stale face */
+const cleared = evalJson(`(() => { try { window.localStorage.removeItem("${WRAP_KEY}"); return "cleared"; } catch (e) { return "denied"; } })()`);
+console.log(`  pref reset: ${cleared}`);
 if (!String(await openInspectorHard(NAME)).startsWith("open@try")) {
   console.log("FATAL: the failed face's inspector never opened");
   process.exit(2);
@@ -227,18 +273,24 @@ if (!on) { console.log("FATAL: the wrap state never flipped (the click landed no
 console.log(`  fold-on: logOver=${on.log?.over} preOver=${on.pre?.over} wrapped=${on.pre?.wrapped} pressed=${on.btn?.pressed} panelOverX=${on.panelOverX} preH ${off.pre?.h}->${on.pre?.h}`);
 sh(`${AB} screenshot ${QA_DIR}/t973-wrap-fold-on.png`);
 
+/* the t977 write check — the click rides the HANDLER, so the storage
+ * already carries "1" when the state settles */
+const stored1 = evalJson(storeExpr);
+
 /* ---- the KEYBOARD leg: focus + Enter flips the state BOTH ways ---- */
 evalJs(`(() => { const d = [...document.querySelectorAll('[data-inspector-dialog]')].find(x => (x.textContent || '').includes('${NAME}')); const b = d?.querySelector('button[aria-label="Toggle line wrapping"]'); if (b) { b.focus(); return 'focused'; } return 'no-btn'; })()`);
 await sleep(300);
 sh(`${AB} press Enter`);
 await sleep(700);
 const kbOff = await poll(walkExpr, (v) => v && !v.err && v.btn?.pressed === "false" && v.pre?.noWrap, 8, 500);
+const stored0 = evalJson(storeExpr);
 evalJs(`(() => { const d = [...document.querySelectorAll('[data-inspector-dialog]')].find(x => (x.textContent || '').includes('${NAME}')); const b = d?.querySelector('button[aria-label="Toggle line wrapping"]'); if (b) { b.focus(); return 'focused'; } return 'no-btn'; })()`);
 await sleep(300);
 sh(`${AB} press Enter`);
 await sleep(700);
 const kbOn = await poll(walkExpr, (v) => v && !v.err && v.btn?.pressed === "true" && v.pre?.wrapped, 8, 500);
-console.log(`  keyboard: Enter->off=${!!kbOff} Enter->on=${!!kbOn}`);
+const stored2 = evalJson(storeExpr);
+console.log(`  keyboard: Enter->off=${!!kbOff} Enter->on=${!!kbOn} store: click=${stored1?.v} kbOff=${stored0?.v} kbOn=${stored2?.v}`);
 
 /* ---- the witness's own verdicts (the face must SPEAK) ---- */
 ok("the wrap toggle is NAMED (the t973 cure — the toolbar's only unnamed control speaks)", (wide.btn?.aria ?? "") === "Toggle line wrapping", `"${wide.btn?.aria ?? ""}"`);
@@ -257,6 +309,30 @@ ok(
   true, "exonerated on this face by t971/t972 — the wrap button is named (the cure); no new leak entered",
 );
 
+/* ---- the t977 REOPEN leg: the reading mode survives the close ---- */
+sh(`${AB} set viewport 1280 800`);
+await sleep(1200);
+try { sh(`${AB} press Escape`); } catch {}
+await sleep(900);
+const centeredRe = await findAndCenter("Failed Diagnosis");
+console.log(`  find-bar(reopen): ${centeredRe}`);
+const reopened = String(await openInspectorHard(NAME, 8)).startsWith("open@try");
+let reWrap = null;
+if (reopened) {
+  if (!String(await clickTab("Log", 4)).startsWith("clicked@")) console.log("  (the reopened Log tab never clicked)");
+  reWrap = await poll(walkExpr, (v) => v && !v.err && v.pre, 16, 600);
+  console.log(`  reopen: pressed=${reWrap?.btn?.pressed} wrapped=${reWrap?.pre?.wrapped} (no click — the fresh mount read the pref)`);
+}
+/* the walk leaves no trace — the world stays as found */
+const cleaned = evalJson(`(() => { try { window.localStorage.removeItem("${WRAP_KEY}"); return "cleaned"; } catch (e) { return "denied"; } })()`);
+console.log(`  cleanup: ${cleaned}`);
+
+/* the t977 persistence verdicts (both modes — the feature must SPEAK) */
+ok("the click WRITES the preference (the #13 law — the write rides the handler, never render)", stored1?.v === "1", `store=${stored1?.v}`);
+ok("the KEYBOARD writes too (Enter->off stores 0, Enter->on stores 1)", stored0?.v === "0" && stored2?.v === "1", `kbOff=${stored0?.v} kbOn=${stored2?.v}`);
+ok("the reading mode SURVIVES the close (the fresh mount comes back wrapped — no click)", !!reWrap && reWrap.btn?.pressed === "true" && reWrap.pre?.wrapped === true, `pressed=${reWrap?.btn?.pressed} wrapped=${reWrap?.pre?.wrapped}`);
+ok("the walk leaves no trace (the preference key removed)", cleaned === "cleaned");
+
 /* ---- the GATE — the wrap toggle's fold contract ---- */
 if (GATE) {
   ok("G1 the default face is the honest X-reach (pre whitespace-pre, role=log over > 0)", off.pre?.noWrap === true && (off.log?.over ?? 0) > 0, `over=${off.log?.over}`);
@@ -268,6 +344,10 @@ if (GATE) {
   ok("G7 the keyboard toggles BOTH ways (Enter off->on->off witnessed)", !!kbOff && !!kbOn);
   ok("G8 the wide face stays clean (no-wrap default, panel clean)", wide.panelOverX === false);
   ok("G9 the PNG receipts landed", true, "t973-wrap-fold-off + t973-wrap-fold-on + t973-wrap-wide");
+  ok("G10 the click writes the preference (store \"1\" while the face is wrapped)", stored1?.v === "1", `store=${stored1?.v}`);
+  ok("G11 the keyboard writes both values (0 after off, 1 after on — every flip persists)", stored0?.v === "0" && stored2?.v === "1", `kbOff=${stored0?.v} kbOn=${stored2?.v}`);
+  ok("G12 the reading mode survives the close (the reopened mount is wrapped with NO click)", !!reWrap && reWrap.btn?.pressed === "true" && reWrap.pre?.wrapped === true, JSON.stringify({ reopened, pressed: reWrap?.btn?.pressed, wrapped: reWrap?.pre?.wrapped }));
+  ok("G13 the walk leaves no trace (the preference key removed at the end)", cleaned === "cleaned");
 }
 
 /* ---- the receipt ---- */
@@ -277,6 +357,7 @@ const receipt = {
   at: new Date().toISOString(),
   face: NAME,
   wide, off, on, keyboard: { enterToOff: !!kbOff, enterToOn: !!kbOn },
+  persistence: { click: stored1?.v, kbOff: stored0?.v, kbOn: stored2?.v, reopened, reopenPressed: reWrap?.btn?.pressed, reopenWrapped: reWrap?.pre?.wrapped, cleaned },
 };
 writeFileSync(RECEIPT, JSON.stringify(receipt, null, 2));
 console.log(`receipt: ${RECEIPT}`);

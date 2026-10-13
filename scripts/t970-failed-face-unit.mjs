@@ -253,6 +253,15 @@ const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis")
   ok("W12 the keyboard leg rides the walk (Enter flips BOTH ways — no pointer required)", wrapWalk.includes("the keyboard toggles BOTH ways"));
   ok("W13 the poll waits for the log's async leg before measuring (the tab's own fetch)", wrapWalk.includes("the log pre never rendered"));
   ok("W14 the walk polls the wrap flip instead of assuming (the click's own async leg)", wrapWalk.includes("the wrap state never flipped"));
+
+  /* the t977 persistence band: the reading mode survives the close — a
+   * global preference (the user's viewport, not the job's content), the
+   * write riding the HANDLER (the #13 law: storage writes never render —
+   * StrictMode double-invokes updater functions), the read lazy at mount */
+  ok("W15 the pref lives at its house key and reads LAZILY at mount (cryoflow.logWrap.v1 + React.useState(readWrapPref))", inspector.includes('cryoflow.logWrap.v1') && inspector.includes("React.useState(readWrapPref)"));
+  ok("W16 the write rides the HANDLER — the updater stays pure (writeWrapPref appears exactly twice: definition + the one handler call; the functional updater is gone)", (inspector.match(/writeWrapPref\(/g) ?? []).length === 2 && !inspector.includes("setWrap((w)"), `calls=${(inspector.match(/writeWrapPref\(/g) ?? []).length}`);
+  ok("W17 both helpers are guarded (typeof window + try/catch — private mode and quota degrade to OFF)", /function readWrapPref\(\)[\s\S]{0,220}typeof window[\s\S]{0,120}catch/.test(inspector) && /function writeWrapPref\([\s\S]{0,200}catch/.test(inspector));
+  ok("W18 the walk carries the persistence legs (the reset-before-mount, the reopen witness, the no-trace cleanup)", wrapWalk.includes("cryoflow.logWrap.v1") && wrapWalk.includes("the reading mode SURVIVES the close") && wrapWalk.includes("the walk leaves no trace"));
 }
 
 /* ---- A: the tree pairing guard ---- */

@@ -1,7 +1,7 @@
 {
   "instrument": "t973-wrap-fold-walk",
   "mode": "GATE",
-  "at": "2026-10-13T14:04:00.331Z",
+  "at": "2026-10-13T15:13:25.012Z",
   "face": "Failed Diagnosis Face (t970)",
   "wide": {
     "panelW": 1227,
@@ -84,5 +84,14 @@
   "keyboard": {
     "enterToOff": true,
     "enterToOn": true
+  },
+  "persistence": {
+    "click": "1",
+    "kbOff": "0",
+    "kbOn": "1",
+    "reopened": true,
+    "reopenPressed": "true",
+    "reopenWrapped": true,
+    "cleaned": "cleaned"
   }
 }

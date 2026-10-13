@@ -434,6 +434,40 @@ function writeLogSeed(jobId: string, text: string, totalLines: number): void {
   }
 }
 
+/* -------------------------------------------------------------------- */
+/* t977 — the wrap preference: the fold's reading mode survives the close */
+/* -------------------------------------------------------------------- */
+
+/**
+ * t973 armed the wrap toggle (the fold's reading aid); t977 makes the
+ * reading mode STICK: the preference is a property of the USER'S
+ * VIEWPORT, not of any job's content — one global key, the house style
+ * (`cryoflow.logWrap.v1`). The write rides the toggle's click handler
+ * (the #13 law: storage writes never render — StrictMode double-invokes
+ * updater functions, so the updater stays pure); the read is the lazy
+ * useState initializer (the console mounts client-side only, inside the
+ * dialog — no hydration lane). Both ends are guarded: private mode /
+ * quota failures degrade to the session-local default (OFF).
+ */
+const WRAP_PREF_KEY = "cryoflow.logWrap.v1";
+
+function readWrapPref(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(WRAP_PREF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeWrapPref(on: boolean): void {
+  try {
+    window.localStorage.setItem(WRAP_PREF_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode / quota — the session-local state still works */
+  }
+}
+
 function LogConsole({
   job,
   initialMode,
@@ -451,7 +485,10 @@ function LogConsole({
   const [totalLines, setTotalLines] = React.useState(0);
   const [truncated, setTruncated] = React.useState(false);
   const [follow, setFollow] = React.useState(true);
-  const [wrap, setWrap] = React.useState(false);
+  /** t977 — the reading mode survives the close: the lazy initializer
+   *  reads the stored preference ONCE at mount (tab switches and dialog
+   *  closes both remount the console — every mount re-reads). */
+  const [wrap, setWrap] = React.useState(readWrapPref);
   const [refreshing, setRefreshing] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -820,7 +857,14 @@ function LogConsole({
                 size="sm"
                 aria-label="Toggle line wrapping"
                 aria-pressed={wrap}
-                onClick={() => setWrap((w) => !w)}
+                onClick={() => {
+                  // t977 — the write rides the HANDLER (the #13 law: never
+                  // render, never the updater — StrictMode double-invokes
+                  // updater functions)
+                  const next = !wrap;
+                  writeWrapPref(next);
+                  setWrap(next);
+                }}
                 className={cn(
                   "h-7 rounded px-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
                   wrap && "bg-zinc-800 text-running-300"
