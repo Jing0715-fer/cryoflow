@@ -163,9 +163,14 @@ export function ClassGallery({
   // when several exist, then a running one (its settled rounds already
   // answer), then whatever is wired
   const upstream = useMemo(() => {
+    // t958 — the idiom Map: the per-edge `jobs.find` walked the whole jobs
+    // array per incoming edge (O(E×J) on every edges/jobs change); one Map
+    // build + O(1) lookups. Small N today, the canvas's own growth curve
+    // tomorrow — the same hygiene the particles route's BFS rides.
+    const byId = new Map(jobs.map((j) => [j.id, j]));
     const sources = edges
       .filter((e: EdgeDTO) => e.toJobId === job.id)
-      .map((e: EdgeDTO) => jobs.find((j) => j.id === e.fromJobId))
+      .map((e: EdgeDTO) => byId.get(e.fromJobId))
       .filter(
         (j): j is JobDTO =>
           j != null && (j.type === "class2d" || j.type === "select2d" || j.type === "class3d")

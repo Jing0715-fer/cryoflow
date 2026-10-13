@@ -4317,7 +4317,15 @@ export function JobInspector() {
         const known = new Set([...(data?.files ?? []), ...extraFiles].map((f) => f.path));
         const fresh = (body.files ?? []).filter((f) => f.remote && !known.has(f.path));
         if (fresh.length > 0) {
-          setExtraFiles((prev) => [...prev, ...fresh.filter((f) => !prev.some((x) => x.path === f.path))]);
+          // t958 — the stale-closure guard went linear: `prev.some` scanned
+          // extraFiles per fresh row (O(fresh×prev) on a 300-card page —
+          // the deep band's own shape). The updater now builds its own Set
+          // against the LATEST prev, so the guard is both O(1) per row and
+          // correct against any extraFiles growth the closure missed.
+          setExtraFiles((prev) => {
+            const prevPaths = new Set(prev.map((x) => x.path));
+            return [...prev, ...fresh.filter((f) => !prevPaths.has(f.path))];
+          });
         }
         setRemoteNext(body.remoteNextOffset ?? null);
       }
