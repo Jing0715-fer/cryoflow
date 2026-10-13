@@ -158,10 +158,32 @@ const settle = (what) => {
 };
 
 /* ---------- Face C: the canvas (the chain's root) ---------- */
-console.log("Face C — the workflow canvas (fresh load, sleep 3)");
+console.log("Face C — the workflow canvas (fresh load, the roster-arrival door)");
 ab("open http://localhost:3000");
 sleep(3);
-const c1 = evalJson(MEASURE);
+/* t867 — the roster-arrival door: the boot's landing dialect mounts the
+ * project's cards on their own schedule (the 88-vs-144 witness: two rides
+ * filmed the 3-card starter while the roster carried 15 — M3/M18/M19 spoke
+ * about a world that never existed). An arrival waits for arrival, never
+ * for a clock: the canvas arrives when it hosts the roster's dominant
+ * project's cards, measured from the API, never pinned. */
+const BASE = "http://localhost:3000";
+const SH = { Origin: BASE, Referer: BASE + "/", "Sec-Fetch-Site": "same-origin", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty" };
+const rosterCards = await (async () => {
+  const b = await (await fetch(BASE + "/api/jobs", { headers: SH })).json();
+  const jobs = b.jobs ?? b;
+  const byProject = {};
+  for (const j of jobs) byProject[j.projectId ?? "?"] = (byProject[j.projectId ?? "?"] ?? 0) + 1;
+  return Math.max(1, ...Object.values(byProject));
+})();
+const cardsNow = () => evalJson('(() => JSON.stringify({ cards: document.querySelectorAll("[data-card-btn]").length }))()');
+let c1 = null;
+for (let i = 0; i < 30; i++) {
+  if (cardsNow().cards === rosterCards) { c1 = evalJson(MEASURE); break; }
+  sleep(1);
+}
+if (!c1) c1 = evalJson(MEASURE); // honest expiry — film whatever showed up
+console.log(`  the roster-arrival door: ${cardsNow().cards}/${rosterCards} cards hosted`);
 ok("M1 canvas zero unnamed buttons", c1.pageUnnamed === 0, `btns=${c1.pageBtns}${c1.pageUnnamed ? " who=" + c1.unWho.join("|") : ""}`);
 ok("M2 canvas zero unnamed form controls", c1.unCtrls === 0, `unCtrls=${c1.unCtrls}/${c1.ctrls}`);
 ok("M3 canvas floor holds (census 142)", c1.pageBtns >= 142, `live=${c1.pageBtns} (drift +${c1.pageBtns - 142})`);
@@ -205,17 +227,34 @@ sleep(1);
 const p1 = settle("the palette");
 ok("M14 palette arrived: dialog + cmdk input", p1.hasDlg && p1.ip && !!p1.ip.ph, `placeholder="${p1.ip ? p1.ip.ph : "?"}"`);
 ok("M15 palette zero unnamed (page-wide)", p1.pageUnnamed === 0, `unnamed=${p1.pageUnnamed}`);
-ok("M16 palette floor holds (census 150) + observation #2", p1.pageBtns >= 150 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 150}) the input's name rides the placeholder`);
+ok("M16 palette floor holds (census 146, re-pinned t867) + observation #2", p1.pageBtns >= 146 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 146}) the input's name rides the placeholder`);
 evalJson(ESC);
 sleep(1);
 const p2 = evalJson(MEASURE);
 ok("M17 Escape closed the palette", p2.hasDlg === false, `dlg=${p2.hasDlg}`);
 
 /* ---------- restore: back to the canvas ---------- */
-console.log("Restore — fresh load back to the canvas");
-ab("open http://localhost:3000");
+console.log("Restore — fresh load back to the canvas (the same arrival door)");
+/* t867 — retry-through-reboot (the t402 api() pattern, browser flavor): the
+ * heavy faces spike next-server past the box's ceiling and the kernel kills
+ * it (three corpses this window: 2.57GB / 3.02GB / 3.17GB); the watchdog
+ * boots a clean one within ~30-60s. The ride waits through the reboot
+ * instead of dying at the Restore with 22 checks already filmed. */
+const openWithRetry = () => {
+  for (let i = 0; i < 24; i++) {
+    try { ab("open http://localhost:3000"); return; }
+    catch { console.log(`  (server down — retrying the restore load through the reboot, attempt ${i + 1})`); sleep(5); }
+  }
+  throw new Error("the server never came back — the ride stops honestly");
+};
+openWithRetry();
 sleep(3);
-const r1 = evalJson(MEASURE);
+let r1 = null;
+for (let i = 0; i < 30; i++) {
+  if (cardsNow().cards === rosterCards) { r1 = evalJson(MEASURE); break; }
+  sleep(1);
+}
+if (!r1) r1 = evalJson(MEASURE); // honest expiry
 ok("M18 world unharmed (canvas count == the opening count)", !r1.hasDlg && r1.pageBtns === c1.pageBtns && r1.pageUnnamed === 0, `btns=${r1.pageBtns} dlg=${r1.hasDlg}`);
 
 /* ---------- the sweep's own cross-check: four faces, four counts ---------- */

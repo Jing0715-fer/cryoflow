@@ -254,6 +254,21 @@ sleep(3);
 evalJson('(() => { localStorage.setItem("cryoflow.selectedJob.v1", ""); return "clean"; })()');
 ab("open http://localhost:3000");
 sleep(3);
+/* the roster-arrival door (the t846 teaching, same window): the boot's
+ * landing dialect mounts the project's cards on their own schedule — a
+ * clock-settled canvas can film the 3-card starter while the roster
+ * carries 15 (the 88-vs-144 witness). An arrival waits for arrival, never
+ * for a clock: the canvas arrives when it hosts the roster's dominant
+ * project's cards, measured from the API, never pinned. */
+const doorJobs = (await (await fetch(`${BASE}/api/jobs`, { headers: SH })).json()).jobs ?? [];
+const rosterCards = (() => {
+  const byProject = {};
+  for (const j of doorJobs) byProject[j.projectId ?? "?"] = (byProject[j.projectId ?? "?"] ?? 0) + 1;
+  return Math.max(1, ...Object.values(byProject));
+})();
+const cardsNow = () => evalJson('(() => JSON.stringify({ cards: document.querySelectorAll("[data-card-btn]").length }))()');
+for (let i = 0; i < 30 && cardsNow().cards !== rosterCards; i++) sleep(1);
+console.log(`  the roster-arrival door: ${cardsNow().cards}/${rosterCards} cards hosted`);
 const m0 = settle("the canvas");
 if (corpse(m0, "Face 0")) process.exit(1);
 ok("O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
