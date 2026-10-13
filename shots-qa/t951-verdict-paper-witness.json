@@ -1,0 +1,16 @@
+{
+  "instrument": "t951-verdict-paper-witness",
+  "pass": 40,
+  "fail": 0,
+  "at": "2026-10-13T04:17:05.964Z",
+  "mintedHere": true,
+  "doorOpen": "open@try1 (click clicked@608,77, palette)",
+  "word": "honest",
+  "officialA": "7.8",
+  "boxEdgeA": "7.1",
+  "shells": 40,
+  "paper": {
+    "pages": 1
+  },
+  "mintPreJobs": 3
+}
