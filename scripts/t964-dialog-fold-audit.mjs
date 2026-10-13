@@ -1,21 +1,27 @@
 #!/usr/bin/env node
 /**
- * t964 — the 320-fold audit ACROSS THE DIALOGS: the t963 probe's
- * offender-walk (walk the dialog's DOM, skip the sr-only self-shadows,
- * rank by over-width) was pointed at ONE dialog last window; this audit
- * aims it at SIX global-mouth dialogs and ranks what falls out.
+ * t964 — the 320-fold audit ACROSS THE DIALOGS (re-keyed t965): the
+ * t963 probe's offender-walk was pointed at SIX global-mouth dialogs;
+ * the t965 ride found two of those rows NEVER-OPENED for honest
+ * reasons and re-keys them at their real shapes:
  *
- * The six mouths (each a stable aria-label trigger on the app chrome —
- * openable on ANY world, no results/jobs required):
- *   storage overview · system diagnostics · session QC report ·
- *   remote clusters (SSH) · help guide · finish-knock settings
+ *   · the help-guide row's trigger label was TRUNCATED ("…the workflow"
+ *     — the real aria-label ends "…the workflow canvas"), so the click
+ *     never landed; the mouth is a Radix POPOVER (role=dialog content,
+ *     w-80 = exactly the 320 fold's width — a fold suspect in its own
+ *     right), and the REAL help-guide dialog lives one CTA deeper
+ *     ("Read the full guide") — the row now rides THROUGH.
+ *   · the finish-knock mouth is a DropdownMenu (role=menu, w-72) — no
+ *     [role=dialog] could ever appear; the walk now targets the menu.
  *
- * THE JUDGMENT (the t963 law, generalized): an offender whose
- * overflow is contained by its own overflow/truncate (a self-clipping
- * container) is 良性 — the dialog's own scrollWidth is the verdict; a
- * dialog that overflows ITSELF (dialogOverX true) carries the disease
- * UP the chain to the viewport, and its biggest non-self-clipping
- * offender is the cure's address.
+ * SEVEN rows now: the five dialog mouths + the popover (its own fold
+ * face) + the guide dialog (through the popover's CTA) + the knock menu.
+ *
+ * THE JUDGMENT (the t963 law, generalized): an offender whose overflow
+ * is contained by its own overflow/truncate (a self-clipping container)
+ * is 良性 — the mouth's own scrollWidth is the verdict; a mouth that
+ * overflows ITSELF carries the disease UP the chain to the viewport,
+ * and its biggest non-self-clipping offender is the cure's address.
  *
  *   node scripts/t964-dialog-fold-audit.mjs
  */
@@ -30,12 +36,18 @@ const QA_DIR = path.join(ROOT, "shots-qa");
 const RECEIPT = path.join(QA_DIR, "t964-dialog-fold-audit.json");
 
 const TARGETS = [
-  { label: "Project storage overview", name: "storage-dialog" },
-  { label: "System diagnostics", name: "system-diagnostics-dialog" },
-  { label: "Session QC report", name: "session-report-dialog" },
-  { label: "Remote clusters (SSH)", name: "remote-cluster-dialog" },
-  { label: "Help — how to use the workflow", name: "help-guide-dialog" },
-  { label: "Finish knock settings", name: "finish-knock-dialog" },
+  { label: "Project storage overview", name: "storage-dialog", kind: "dialog" },
+  { label: "System diagnostics", name: "system-diagnostics-dialog", kind: "dialog" },
+  { label: "Session QC report", name: "session-report-dialog", kind: "dialog" },
+  { label: "Remote clusters (SSH)", name: "remote-cluster-dialog", kind: "dialog" },
+  // t965 re-key: the REAL label ("…the workflow canvas") + the popover is
+  // its own fold face (w-80 = the 320 fold's exact width)
+  { label: "Help — how to use the workflow canvas", name: "help-quickstart-popover", kind: "dialog" },
+  // t965 re-key: the REAL guide dialog rides THROUGH the popover's CTA
+  { label: "Help — how to use the workflow canvas", name: "help-guide-dialog", kind: "dialog", through: "Read the full guide" },
+  // t965 re-key: the knock is a DropdownMenu (role=menu, w-72) — the walk
+  // targets the menu, never a dialog that was never going to appear
+  { label: "Finish knock settings", name: "finish-knock-menu", kind: "menu" },
 ];
 
 const sh = (cmd) => { try { return execSync(cmd, { encoding: "utf8", timeout: 120_000 }).trim(); } catch (e) { return String(e?.stdout ?? e); } };
@@ -68,9 +80,10 @@ const realClick = async (findExpr, tries = 3) => {
   return "NEVER-VISIBLE";
 };
 
-const walkExpr = `(() => {
-  const dlg = [...document.querySelectorAll('[role="dialog"]')].pop();
-  if (!dlg) return JSON.stringify({ open: false });
+const walkExprFor = (kind) => `(() => {
+  const sel = ${kind === "menu" ? "'[role=\"menu\"]'" : "'[role=\"dialog\"]'"};
+  const mouth = [...document.querySelectorAll(sel)].pop();
+  if (!mouth) return JSON.stringify({ open: false });
   const offenders = [];
   const selfClipping = (el) => {
     const s = getComputedStyle(el);
@@ -90,13 +103,13 @@ const walkExpr = `(() => {
     }
     for (const c of el.children) walk(c, depth + 1);
   };
-  walk(dlg, 0);
+  walk(mouth, 0);
   offenders.sort((a, b) => b.over - a.over);
   return JSON.stringify({
     open: true,
-    dialogW: Math.round(dlg.getBoundingClientRect().width),
-    dialogOverX: dlg.scrollWidth > dlg.clientWidth + 1,
-    dialogSW: dlg.scrollWidth, dialogCW: dlg.clientWidth,
+    dialogW: Math.round(mouth.getBoundingClientRect().width),
+    dialogOverX: mouth.scrollWidth > mouth.clientWidth + 1,
+    dialogSW: mouth.scrollWidth, dialogCW: mouth.clientWidth,
     offenders: offenders.slice(0, 10),
   });
 })()`;
@@ -107,7 +120,7 @@ await sleep(2500);
 
 const report = [];
 for (const t of TARGETS) {
-  const row = { name: t.name, label: t.label };
+  const row = { name: t.name, label: t.label, kind: t.kind };
   // open: the trigger may only exist on the wide chrome — go wide, click,
   // then fold BEFORE measuring (the dialog measures at whatever width the
   // viewport is when it mounts)
@@ -115,9 +128,17 @@ for (const t of TARGETS) {
   await sleep(700);
   const clicked = await realClick(`(() => [...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || '') === ${JSON.stringify(t.label)}) ?? null)()`);
   row.clicked = clicked;
-  await sleep(1500);
+  await sleep(1200);
+  // the THROUGH rows ride one CTA deeper (the t965 help-guide law: the
+  // popover teaches the canvas, the guide dialog carries the manual)
+  if (t.through) {
+    const ctaClicked = await realClick(`(() => { const sel = ${t.kind === "menu" ? "'[role=\"menu\"]'" : "'[role=\"dialog\"]'"}; const mouth = [...document.querySelectorAll(sel)].pop(); return [...(mouth?.querySelectorAll('button') ?? [])].find(b => (b.textContent || '').trim().startsWith(${JSON.stringify(t.through)})) ?? null; })()`);
+    row.ctaClicked = ctaClicked;
+    await sleep(1500);
+  }
+  const walkExpr = walkExprFor(t.kind);
   const openWide = evalJson(walkExpr);
-  if (!openWide?.open) { row.error = "dialog never opened"; report.push(row); console.log(`  ${t.name}: NEVER-OPENED (${clicked})`); try { sh(`${AB} press Escape`); } catch {} continue; }
+  if (!openWide?.open) { row.error = t.kind === "menu" ? "menu never opened" : "dialog never opened"; report.push(row); console.log(`  ${t.name}: NEVER-OPENED (${clicked}${t.through ? ` → ${row.ctaClicked}` : ""})`); try { sh(`${AB} press Escape`); } catch {} continue; }
 
   sh(`${AB} set viewport 320 640`);
   await sleep(1200);
