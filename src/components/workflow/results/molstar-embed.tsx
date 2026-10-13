@@ -7251,6 +7251,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
         onChange={(e) => void onImportFiles(e)}
         tabIndex={-1}
         aria-hidden="true"
+        aria-label="Import scene JSON files into the 3D view"
       />
 
       {phase === "loading" && (
