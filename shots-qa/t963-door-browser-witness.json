@@ -1,0 +1,17 @@
+{
+  "pass": 14,
+  "fail": 0,
+  "acts": {
+    "mount": true,
+    "append300": true,
+    "collapse": true,
+    "refreshFold": true,
+    "consoleClean": true
+  },
+  "counts": {
+    "standing": "303",
+    "afterAppend": "603",
+    "afterRemainder": "653",
+    "afterRefresh": "303"
+  }
+}
