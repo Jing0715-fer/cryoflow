@@ -297,10 +297,57 @@ function refusalSentence(
   return ` Also refuses ${refused.length} downstream ${refused.length === 1 ? "wire" : "wires"} (${refused.map((r) => r.reason).join(", ")}) — left consuming ${nameA}.`;
 }
 
+/** t948 — the mixed plan's ALREADY-WIRED pre-announcement, the refusal
+ *  clause's twin: before the fire, the enabled speech must account for
+ *  EVERY one of A's downstream wires — moves (the verb's own promise),
+ *  refusals (t931), and now the third bucket, the children already
+ *  consuming B through the same port pair (the toast's "N job(s)
+ *  already on B (left as is)" — the clause speaks the toast's own
+ *  words so the pre-announcement teaches exactly what the fire will
+ *  say). The raw register matches the toast verbatim ("left as is");
+ *  empty when nothing was already wired, so every clean face's speech
+ *  is byte-identical to the t920/t925/t926/t928 pins (the t926
+ *  empty-clause law, now proven for BOTH clauses). `sep` picks the
+ *  join, the refusal clause's own doctrine: the aria continues its
+ *  single-dash sentence (" and …"), the title opens a new em-dash
+ *  clause after "stay until re-run" (" — and …"). */
+function wiredClause(
+  alreadyWired: unknown[] | null | undefined,
+  nameB: string,
+  sep = " and",
+): string {
+  if (!alreadyWired || alreadyWired.length === 0) return "";
+  return `${sep} ${alreadyWired.length} already on ${nameB} (left as is)`;
+}
+
+/** t948 — the contract line's already-wired sentence (the visible,
+ *  non-tooltip twin of wiredClause, as refusalSentence is to
+ *  refusesClause): names the count and WHERE the wired children stand
+ *  — on B, left as is — so the accounting closes at the face: every
+ *  one of A's downstream wires is spoken for before the click. The
+ *  toast's own words ("N job(s) already on B (left as is)") carry the
+ *  register; empty when nothing was already wired (the clean-face
+ *  law). */
+function wiredSentence(
+  alreadyWired: unknown[] | null | undefined,
+  nameB: string,
+): string {
+  if (!alreadyWired || alreadyWired.length === 0) return "";
+  return ` Also ${alreadyWired.length} ${alreadyWired.length === 1 ? "job" : "jobs"} already on ${nameB} (left as is).`;
+}
+
 /** The adoption plan's one-line honest disabled/enabled state — shared
  *  by the plain adopt verb and the select rider (t453), each speaking
  *  about its OWN plan; the enabled state pre-announces the plan's
- *  refusals (t931). */
+ *  refusals (t931) and — only where the fire actually leaves them as
+ *  is — the plan's already-wired children (t948). `speakWired` is the
+ *  honesty gate: TRUE for the plain adopt verb, whose fire re-parents
+ *  onto B itself and leaves the already-wired children untouched; the
+ *  riders keep it FALSE, because their fire re-parents onto a freshly
+ *  MINTED node (a filter/selection nothing can be wired to yet) —
+ *  their plan's alreadyWired bucket is the port-proxy's artifact
+ *  (children consuming B today will MOVE onto the mint), and speaking
+ *  "left as is" there would promise the opposite of the fire. */
 function adoptionPlanTitle(
   plan: {
     sameRun: boolean;
@@ -311,6 +358,7 @@ function adoptionPlanTitle(
   },
   nameA: string,
   nameB: string,
+  speakWired = false,
 ): string {
   return plan.sameRun
     ? "Runs A and B are the same run — adoption needs two different runs"
@@ -322,7 +370,7 @@ function adoptionPlanTitle(
           ? `All ${plan.refused.length} downstream wire(s) refused — ${plan.refused
               .map((r) => r.reason)
               .join(", ")}`
-          : `Re-wires ${nameA}'s ${plan.moves.length} downstream wire${plan.moves.length === 1 ? "" : "s"} to ${nameB} — their current results stay until re-run${refusesClause(plan.refused, " — and")}`;
+          : `Re-wires ${nameA}'s ${plan.moves.length} downstream wire${plan.moves.length === 1 ? "" : "s"} to ${nameB} — their current results stay until re-run${refusesClause(plan.refused, " — and")}${speakWired ? wiredClause(plan.alreadyWired, nameB, " — and") : ""}`;
 }
 
 interface RunDialogProps<R> {
@@ -538,7 +586,11 @@ function RunCompareDialog<R extends { name: string }>({
     !adoptionPlan.sameRun &&
     !adoptionPlan.noDownstream &&
     adoptionPlan.moves.length > 0;
-  const adoptTitle = adoptionPlanTitle(adoptionPlan, nameA, nameB);
+  // t948 — the plain verb's title speaks the THIRD bucket (speakWired):
+  // its fire re-parents onto B itself, so its alreadyWired children are
+  // truly left as is — the pre-announcement is honest here, and only
+  // here (the riders' mint-targeted fires keep the gate closed).
+  const adoptTitle = adoptionPlanTitle(adoptionPlan, nameA, nameB, true);
   const selectTitle =
     selectPlan != null ? adoptionPlanTitle(selectPlan, nameA, nameB) : "";
   const excludeTitle =
@@ -733,6 +785,7 @@ function RunCompareDialog<R extends { name: string }>({
                 <div className="text-[11px] text-muted-foreground">
                   {`Adoption re-wires ${nameA}'s ${adoptionPlan.moves.length} downstream ${adoptionPlan.moves.length === 1 ? "job" : "jobs"} to consume ${nameB} — their current results stay until re-run.`}
                   {refusalSentence(adoptionPlan.refused, nameA)}
+                  {wiredSentence(adoptionPlan.alreadyWired, nameB)}
                 </div>
               )}
               {/* t945 — the row WRAPS (the narrow-320 door): the left
@@ -752,7 +805,7 @@ function RunCompareDialog<R extends { name: string }>({
                     data-testid="adopt-downstream"
                     aria-label={
                       adoptable
-                        ? `Continue downstream from ${nameB} — re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs${refusesClause(adoptionPlan.refused)}`
+                        ? `Continue downstream from ${nameB} — re-wires ${adoptionPlan.moves.length} of ${nameA}'s downstream jobs${refusesClause(adoptionPlan.refused)}${wiredClause(adoptionPlan.alreadyWired, nameB)}`
                         : `Continue downstream from run B — unavailable: ${adoptTitle}`
                     }
                     title={adoptTitle}
