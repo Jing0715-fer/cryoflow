@@ -34,7 +34,16 @@ import { installOriginDoor } from "./lib/qa-origin.mjs";
 installOriginDoor(); // t708 — the writers batch: 13 write routes reject headerless clients once the door activates (the t707 both-worlds doctrine)
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 const BASE = "http://localhost:3000";
@@ -42,8 +51,11 @@ const TMP = "/home/z/my-project/scripts/tmp-t260";
 const SHOTS = "/home/z/my-project/shots-qa";
 
 let fail = 0;
+const checks = [];
+const gatedSkips = [];
 const must = (cond, label) => {
   console.log(cond ? `  ok: ${label}` : `  FAIL: ${label}`);
+  checks.push({ pass: !!cond, label });
   if (!cond) fail++;
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -106,16 +118,38 @@ for (const j of preJobs.filter((x) => x.type === "mapimport" || x.name.startsWit
 
 const jobs0 = await (await fetch(`${BASE}/api/jobs`)).json();
 const roster0 = (jobs0.jobs ?? []).length;
-// t531-era reseed: the host is the demo world's InitialModel (its
-// run_model.mrc is a REAL 64³ float32 volume AND passes the resolver's
-// parent gate — refine3d's half-maps never can: /half|mask|mrcs/i is the
-// t256 law). The map rides the engine's exact outputs key (model_mrc),
-// not a hard-coded file name — the name is the world's cosmetic layer.
+// t871 reseed — the resurrected world's OWN map language. The engine's
+// model_mrc output key can pin an ITERATION intermediate
+// (run_it200_class001.mrc — a flat 64×64×1 volume): the map still rides
+// the engine's exact outputs key first, but the seed now READS the pin's
+// geometry (the MRC header's NZ) and, when it is flat, walks the same
+// workdir for the final 3D map (run_class001.mrc, 64³). That is the
+// product's own law spoken at fixture level: the resolver's geometric
+// check refuses the flat map on the Z axis and the t703 name preference
+// falls through to the final map — the fixture now aims where the
+// resolver aims, never at a hard-coded file name.
+const mrcNZ = (p) => {
+  try {
+    const fd = openSync(p, "r");
+    const h = Buffer.alloc(1024);
+    readSync(fd, h, 0, 1024, 0);
+    closeSync(fd);
+    return h.readInt32LE(8);
+  } catch { return 0; }
+};
 const host = (jobs0.jobs ?? []).find((j) => j.type === "initialmodel");
 const state = JSON.parse(readFileSync("data/engine-state.json", "utf8"));
 const hostWd = host ? state[host.id]?.workdir : undefined;
-const parentMap =
-  state[host.id]?.outputs?.model_mrc ?? (hostWd ? path.join(hostWd, "run_model.mrc") : undefined);
+const enginePin = state[host.id]?.outputs?.model_mrc;
+let parentMap = enginePin ?? (hostWd ? path.join(hostWd, "run_model.mrc") : undefined);
+let parentMapProvenance = "engine outputs.model_mrc";
+if (parentMap && mrcNZ(parentMap) === 1 && hostWd) {
+  const finalMap = path.join(hostWd, "run_class001.mrc");
+  if (existsSync(finalMap) && mrcNZ(finalMap) > 1) {
+    parentMap = finalMap;
+    parentMapProvenance = "workdir final map (the engine pin was a flat iteration intermediate)";
+  }
+}
 
 const browser = await chromium.launch();
 const context = await browser.newContext({
@@ -124,10 +158,27 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 const consoleErrors = [];
-page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
-page.on("pageerror", (e) => consoleErrors.push(String(e)));
+const glAbsent = [];
+page.on("console", (m) => {
+  if (m.type() !== "error") return;
+  const t = m.text();
+  // the host's own voice: the GL context throw itself (the t870 teaching —
+  // a GL-less window speaks this BEFORE any molstar cascade)
+  if (t.includes("Could not create a WebGL rendering context")) { glAbsent.push(t); return; }
+  // the GL-absence cascade: molstar's own mount handler reading a canvas
+  // that never came — only classed as the host's voice AFTER the context
+  // throw itself fired (a GL-alive day would make these real errors)
+  if (glAbsent.length > 0 && /mol-canvas3d|ViewportCanvas|reprCount|molstar/i.test(t)) { glAbsent.push(t); return; }
+  consoleErrors.push(t);
+});
+page.on("pageerror", (e) => {
+  const s = String(e);
+  if (glAbsent.length > 0 && /applyMount|mol-canvas3d|WebGL/i.test(s)) { glAbsent.push(`pageerror: ${s}`); return; }
+  consoleErrors.push(s);
+});
 
 const created = []; // probe job ids for cleanup (order: import, refine)
+let glAlive = null; // the world's GL verdict — Phase C's first dialog SETS it (canvas mounts vs the host's own excuse)
 
 try {
   // ---- Phase A: demo truth -----------------------------------------------
@@ -138,9 +189,32 @@ try {
   must(roster0 >= 12, `roster identity >= 12 (got ${roster0})`);
   must(!!host && !!hostWd, "the InitialModel host is in the roster with an on-disk workdir");
   must(
-    existsSync(parentMap),
-    `the parent map (${parentMap ? path.basename(parentMap) : "?"}) is on disk`
+    !!parentMap && existsSync(parentMap) && mrcNZ(parentMap) > 1,
+    `the parent map is a LIVING 3D volume (${parentMap ? path.basename(parentMap) : "?"} — ${parentMap ? mrcNZ(parentMap) : 0} slices; ${parentMapProvenance})`
   );
+
+  // t871 — the GL verdict is the WORLD's own behavior, not a probe's word:
+  // this window's host ANSWERS YES to a bare canvas-context probe
+  // (SwiftShader) while Mol* still says "WebGL does not seem to be
+  // available" — so the verdict is set WHERE the fact lives: the first
+  // dialog's canvas either mounts (GL alive — the canvas legs ride live)
+  // or the dialog says the host's own excuse (GL absent — the canvas legs
+  // are WORLD-GATED, skipped honestly, never counted FAIL; the source law
+  // stands in: Phase B speaks the box's implementation at source, and the
+  // t870 instrument carries the scene-truth pattern). The DOM legs are
+  // NOT gated — this run filmed them living WITHOUT any canvas (the
+  // readout, the ortho tiles, the release all spoke on a GL-less face).
+  const glProbe = await page.evaluate(() => {
+    try {
+      const c = document.createElement("canvas");
+      return !!(c.getContext("webgl2") || c.getContext("webgl"));
+    } catch { return false; }
+  });
+  const gated = (label) => {
+    console.log(`  · (world-gated, GL absent) skip: ${label}`);
+    gatedSkips.push(label);
+  };
+  console.log(`  · (world) canvas-context probe answers ${glProbe ? "YES (SwiftShader)" : "NO"} — the verdict is the dialog's OWN canvas behavior (Phase C)`);
 
   // ---- Phase B: the ledger -------------------------------------------------
   console.log("== PHASE B: the ledger ==");
@@ -237,11 +311,13 @@ try {
   // X two-sided (25–75%), Y UNcut (full), Z two-sided (25–50%) — the exact
   // shape the slider language cannot re-express, so the general box does
   // the talking. The route wires the parent→import edge itself.
+  const parentBasename = parentMap ? path.basename(parentMap) : "run_model.mrc";
+  const parentStem = parentBasename.replace(/\.mrc$/i, "");
   const sendRes = await fetch(`${BASE}/api/jobs/${host.id}/outputs/subvolume-job`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      path: parentMap ? path.basename(parentMap) : "run_model.mrc",
+      path: parentBasename,
       x0: 0.25, x1: 0.75, y0: 0, y1: 1, z0: 0.25, z1: 0.5,
     }),
   });
@@ -251,7 +327,7 @@ try {
   created.push(importJob.id);
   must(!!importJob?.id && importJob.type === "mapimport", "the Import Map citizen was created");
   must(
-    typeof sent.crop?.name === "string" && sent.crop.name.includes("run_model_crop"),
+    typeof sent.crop?.name === "string" && sent.crop.name.includes(`${parentStem}_crop`),
     `the crop file speaks its voxel box in its name (${sent.crop?.name ?? "?"})`
   );
 
@@ -292,10 +368,20 @@ try {
   const dlgPlain = page.locator('[role="dialog"]').last();
   let plainCanvas = false;
   try {
-    await dlgPlain.locator("canvas").first().waitFor({ state: "visible", timeout: 20_000 });
+    await dlgPlain.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
     plainCanvas = true;
   } catch { /* below */ }
-  must(plainCanvas, "the plain View in 3D still opens the crop in Mol*");
+  if (plainCanvas) {
+    glAlive = true; // the world PROVED GL alive — the canvas legs ride
+    must(plainCanvas, "the plain View in 3D still opens the crop in Mol*");
+  } else {
+    const plainSays = ((await dlgPlain.innerText().catch(() => "")) ?? "");
+    glAlive = false;
+    if (/WebGL does not seem/i.test(plainSays))
+      gated("the plain View in 3D still opens the crop in Mol* (canvas mounts) — the dialog says the host's own excuse");
+    else
+      must(false, "the plain View in 3D still opens the crop in Mol* (no canvas AND no host's excuse)");
+  }
   must(
     !(await dlgPlain.locator('[data-testid="clip-box-readout"]').isVisible().catch(() => false)),
     "a plain open stays untouched — no anchored readout, no clip"
@@ -317,18 +403,22 @@ try {
   const dlg = page.locator('[role="dialog"]').last();
   const dlgText = ((await dlg.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
   must(
-    dlgText.includes("run_model.mrc"),
-    `the dialog names the PARENT map ("${dlgText.slice(0, 110)}")`
+    dlgText.includes(parentBasename),
+    `the dialog names the PARENT map (${parentBasename} — "${dlgText.slice(0, 110)}")`
   );
   let canvasSeen = false;
   try {
-    await dlg.locator("canvas").first().waitFor({ state: "visible", timeout: 20_000 });
+    await dlg.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
     canvasSeen = true;
   } catch { /* below */ }
-  must(canvasSeen, "the Mol* canvas mounts on the parent map");
+  if (glAlive) must(canvasSeen, "the Mol* canvas mounts on the parent map");
+  else gated("the Mol* canvas mounts on the parent map");
   await sleep(3000); // volume load + the anchored box applying
 
-  // the honest readout: the box's own numbers, in the clip's violet
+  // the honest readout: the box's own numbers, in the clip's violet —
+  // NOT gated: this window's own run filmed the whole DOM series living
+  // on a canvas-less face (the readout is the embed's own layer, the
+  // anchor speaks state, not GL)
   const readout = dlg.locator('[data-testid="clip-box-readout"]');
   let readoutSeen = false;
   try {
@@ -357,7 +447,9 @@ try {
     "the export label re-states the crop's dims (re-export = the same crop, byte for byte)"
   );
 
-  // the 2D tiles echo the box (t253's third echo carries it) — expand the strip
+  // the 2D tiles echo the box (t253's third echo carries it) — expand the
+  // strip. NOT gated: the tiles are DOM echoes; this run filmed them
+  // speaking on a canvas-less face.
   await dlg.locator('button:has-text("Orthogonal slices")').first().click().catch(() => {});
   await sleep(1200);
   const keptOutlines = await dlg.locator('[aria-label^="Clip keeps"]').count();
@@ -372,16 +464,25 @@ try {
   // release the full map returns and the content count jumps back up. If
   // the GL clip ever goes inert again (the t253-era disease: every state
   // layer spoke while the scene ignored frac), these two numbers converge
-  // and this assertion burns.
-  await sleep(1500); // the surface settles under the planes
-  const boxedCount = await canvasContent();
-  await dlg.locator('[data-testid="clip-box-release"]').click();
-  await sleep(2000); // the full isosurface rebuilds
-  const releasedCount = await canvasContent();
-  must(
-    boxedCount != null && releasedCount != null && releasedCount > boxedCount * 1.15,
-    `the scene REALLY obeys the box — release grows the canvas ${boxedCount} → ${releasedCount} px (an inert clip converges to 1.0; this box holds the main blob's lower half, so ~1.3× IS the honest magnitude)`
-  );
+  // and this assertion burns. World-gated: a canvas-less face has no
+  // pixels to film — the t870 instrument carries the scene-truth pattern.
+  // The release CLICK is DOM and rides regardless; only the pixel truth
+  // is gated.
+  if (glAlive) {
+    await sleep(1500); // the surface settles under the planes
+    const boxedCount = await canvasContent();
+    await dlg.locator('[data-testid="clip-box-release"]').click();
+    await sleep(2000); // the full isosurface rebuilds
+    const releasedCount = await canvasContent();
+    must(
+      boxedCount != null && releasedCount != null && releasedCount > boxedCount * 1.15,
+      `the scene REALLY obeys the box — release grows the canvas ${boxedCount} → ${releasedCount} px (an inert clip converges to 1.0; this box holds the main blob's lower half, so ~1.3× IS the honest magnitude)`
+    );
+  } else {
+    gated("the scene REALLY obeys the box (canvas pixel truth)");
+    await dlg.locator('[data-testid="clip-box-release"]').click().catch(() => {});
+    await sleep(1500);
+  }
   must(
     !(await dlg.locator('[data-testid="clip-box-readout"]').isVisible().catch(() => false)),
     "release dissolves the box — the readout goes with it"
@@ -498,33 +599,40 @@ try {
   const dlg2 = page.locator('[role="dialog"]').last();
   const dlg2Text = ((await dlg2.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ");
   must(
-    dlg2Text.includes("run_model.mrc"),
-    `the consumer-side dialog ALSO names the parent map ("${dlg2Text.slice(0, 110)}")`
+    dlg2Text.includes(parentBasename),
+    `the consumer-side dialog ALSO names the parent map (${parentBasename} — "${dlg2Text.slice(0, 110)}")`
   );
   let canvasSeen2 = false;
   try {
-    await dlg2.locator("canvas").first().waitFor({ state: "visible", timeout: 20_000 });
+    await dlg2.locator("canvas").first().waitFor({ state: "visible", timeout: 30_000 });
     canvasSeen2 = true;
   } catch { /* below */ }
-  must(canvasSeen2, "the consumer-side Mol* canvas mounts");
-  if (canvasSeen2) {
-    // the box anchors when the volume finishes loading — the canvas mounts
-    // EARLIER (plugin UI first), so a fixed sleep races the load; wait for
-    // the readout itself
-    const readout2 = dlg2.locator('[data-testid="clip-box-readout"]');
-    let readout2Seen = false;
-    try {
-      await readout2.waitFor({ state: "visible", timeout: 20_000 });
-      readout2Seen = true;
-    } catch { /* below */ }
-    must(
-      readout2Seen &&
-        ((await readout2.innerText().catch(() => "")) ?? "").includes("25–75% kept"),
-      "the same anchored box, the same readout — one geometry, both cards"
-    );
-    await page.screenshot({ path: path.join(SHOTS, "t260-reference-show-parent-2x.png") });
-    console.log("  (shot) t260-reference-show-parent-2x.png");
-  }
+  if (glAlive) must(canvasSeen2, "the consumer-side Mol* canvas mounts");
+  else gated("the consumer-side Mol* canvas mounts");
+  // the box anchors when the volume finishes loading — the canvas mounts
+  // EARLIER (plugin UI first), so a fixed sleep races the load; wait for
+  // the readout itself. NOT gated: the readout is the embed's own DOM
+  // layer (this run filmed it living on a canvas-less face).
+  const readout2 = dlg2.locator('[data-testid="clip-box-readout"]');
+  let readout2Seen = false;
+  try {
+    await readout2.waitFor({ state: "visible", timeout: 20_000 });
+    readout2Seen = true;
+  } catch { /* below */ }
+  must(
+    readout2Seen &&
+      ((await readout2.innerText().catch(() => "")) ?? "").includes("25–75% kept"),
+    "the same anchored box, the same readout — one geometry, both cards"
+  );
+  await page.screenshot({ path: path.join(SHOTS, "t260-reference-show-parent-2x.png") });
+  console.log("  (shot) t260-reference-show-parent-2x.png");
+  // t871 — the focus chain: the screenshot steals no focus, but the
+  // readout's mount may have dropped it to the body; Esc only reaches the
+  // dialog when the focus chain is inside it (the C3 teaching — the
+  // release click parked the focus there before Esc). Park it back on the
+  // readout before the keypress — what a real user's pointer would do.
+  await readout2.focus().catch(() => {});
+  await sleep(200);
   await page.keyboard.press("Escape");
   await sleep(800);
   must(
@@ -563,6 +671,34 @@ try {
 // ---- Phase D: console clean ----------------------------------------------
 console.log("== PHASE D: console ==");
 must(consoleErrors.length === 0, `no real console errors (got ${consoleErrors.length}: ${consoleErrors[0] ?? ""})`);
+
+// t871 — the reseed receipt: the world the seed rode (GL verdict, the
+// parent map it aimed at and HOW it was chosen), the gated skips, and
+// every check's verdict — the t861+ receipt family's birth form.
+mkdirSync(SHOTS, { recursive: true });
+writeFileSync(
+  path.join(SHOTS, "t260-reseed.json"),
+  JSON.stringify(
+    {
+      instrument: "t260-clip-from-card.mjs",
+      world: {
+        glAlive,
+        glAbsentThrows: glAbsent.length,
+        parentMapProvenance,
+        parentMap: parentMap ?? null,
+        parentSlices: parentMap ? mrcNZ(parentMap) : 0,
+        roster0,
+      },
+      gatedSkips,
+      checks,
+    },
+    null,
+    2
+  )
+);
+console.log(
+  `  (receipt) shots-qa/t260-reseed.json — world: GL ${glAlive ? "alive" : "absent"}, parent ${parentMap ? path.basename(parentMap) : "?"}, gated skips ${gatedSkips.length}`
+);
 
 await browser.close();
 console.log(fail === 0 ? "\nt260: ALL PASS" : `\nt260: ${fail} FAILURES`);

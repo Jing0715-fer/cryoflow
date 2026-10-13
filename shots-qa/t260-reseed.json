@@ -1,0 +1,239 @@
+{
+  "instrument": "t260-clip-from-card.mjs",
+  "world": {
+    "glAlive": false,
+    "glAbsentThrows": 6,
+    "parentMapProvenance": "workdir final map (the engine pin was a flat iteration intermediate)",
+    "parentMap": "/home/z/my-project/data/relion/cmv6w4q3u0000u99xuj1m66g0/initialmodel_oymrlqk8/run_class001.mrc",
+    "parentSlices": 64,
+    "roster0": 15
+  },
+  "gatedSkips": [
+    "the plain View in 3D still opens the crop in Mol* (canvas mounts) — the dialog says the host's own excuse",
+    "the Mol* canvas mounts on the parent map",
+    "the scene REALLY obeys the box (canvas pixel truth)",
+    "the consumer-side Mol* canvas mounts"
+  ],
+  "checks": [
+    {
+      "pass": true,
+      "label": "homepage 200 (got 200)"
+    },
+    {
+      "pass": true,
+      "label": "roster identity >= 12 (got 15)"
+    },
+    {
+      "pass": true,
+      "label": "the InitialModel host is in the roster with an on-disk workdir"
+    },
+    {
+      "pass": true,
+      "label": "the parent map is a LIVING 3D volume (run_class001.mrc — 64 slices; workdir final map (the engine pin was a flat iteration intermediate))"
+    },
+    {
+      "pass": true,
+      "label": "the parent resolver is a shared hook (one implementation, both cards)"
+    },
+    {
+      "pass": true,
+      "label": "the geometric check: the parent grid must HOLD origin+dims on every axis"
+    },
+    {
+      "pass": true,
+      "label": "half-maps, masks and stacks never pose as the parent map"
+    },
+    {
+      "pass": true,
+      "label": "a chained parent (its own start ≠ 0) would anchor in the wrong frame — the door stays silent"
+    },
+    {
+      "pass": true,
+      "label": "the viewer speaks a target language (job + path + optional anchored box)"
+    },
+    {
+      "pass": true,
+      "label": "the box rides through to the embed"
+    },
+    {
+      "pass": true,
+      "label": "the embed takes the anchored box (type-only import — no runtime cycle with its lazy loader)"
+    },
+    {
+      "pass": true,
+      "label": "the box anchors through one intent applier"
+    },
+    {
+      "pass": true,
+      "label": "a general box builds TWO planes per cut axis (per-plane invert — the slider language can't hold a two-sided cut)"
+    },
+    {
+      "pass": true,
+      "label": "export/send read the SAME intervals (re-exporting the parent's view re-materializes the crop)"
+    },
+    {
+      "pass": true,
+      "label": "the anchored box is read-only: no movable faces while it owns the geometry"
+    },
+    {
+      "pass": true,
+      "label": "the box applies once per mount — every open re-anchors, a plain open stays untouched"
+    },
+    {
+      "pass": true,
+      "label": "the 2D tiles speak the box's kept intervals (the third echo carries the box)"
+    },
+    {
+      "pass": true,
+      "label": "the identity card's show-in-parent door carries its test hook"
+    },
+    {
+      "pass": true,
+      "label": "the card resolves the parent BEFORE any early return (hooks order is not negotiable)"
+    },
+    {
+      "pass": true,
+      "label": "the shared dialog opens on the full target (box included)"
+    },
+    {
+      "pass": true,
+      "label": "the reference card's show-in-parent door carries its test hook"
+    },
+    {
+      "pass": true,
+      "label": "the consumer side resolves through the provider's own incoming edges"
+    },
+    {
+      "pass": true,
+      "label": "the send route materializes the crop (got 201)"
+    },
+    {
+      "pass": true,
+      "label": "the Import Map citizen was created"
+    },
+    {
+      "pass": true,
+      "label": "the crop file speaks its voxel box in its name (run_class001_crop_16-48_0-64_16-32.mrc)"
+    },
+    {
+      "pass": true,
+      "label": "the import run fires through the same-origin door (got 200)"
+    },
+    {
+      "pass": true,
+      "label": "the import completes natively"
+    },
+    {
+      "pass": true,
+      "label": "the mapimport's Results shows the identity card"
+    },
+    {
+      "pass": true,
+      "label": "the Show in parent door appears once the parent resolves (edges + geometry)"
+    },
+    {
+      "pass": true,
+      "label": "a plain open stays untouched — no anchored readout, no clip"
+    },
+    {
+      "pass": true,
+      "label": "Esc closes the plain dialog"
+    },
+    {
+      "pass": true,
+      "label": "clicking Show in parent opens the Mol* dialog"
+    },
+    {
+      "pass": true,
+      "label": "the dialog names the PARENT map (run_class001.mrc — \"run_class001.mrc run_class001.mrc Isosurface rendering of the MRC map — drag to rotate, scroll to zoom, adjust\")"
+    },
+    {
+      "pass": true,
+      "label": "the anchored-box readout replaces the sliders"
+    },
+    {
+      "pass": true,
+      "label": "the readout says WHAT it is"
+    },
+    {
+      "pass": true,
+      "label": "X speaks its two-sided cut (\"anchored to the crop's box X 25–75% kept Y full extent Z 25–50% kept release the anchored box\")"
+    },
+    {
+      "pass": true,
+      "label": "Y speaks its uncut truth"
+    },
+    {
+      "pass": true,
+      "label": "Z speaks its two-sided cut"
+    },
+    {
+      "pass": true,
+      "label": "the sliders stand down while the box owns the geometry"
+    },
+    {
+      "pass": true,
+      "label": "the export label re-states the crop's dims (re-export = the same crop, byte for byte)"
+    },
+    {
+      "pass": true,
+      "label": "the ortho tiles draw the kept region (3 tiles speaking)"
+    },
+    {
+      "pass": true,
+      "label": "release dissolves the box — the readout goes with it"
+    },
+    {
+      "pass": true,
+      "label": "Esc closes the parent dialog"
+    },
+    {
+      "pass": true,
+      "label": "focus parks on the Maps gallery (got \"Maps and images\")"
+    },
+    {
+      "pass": true,
+      "label": "the probe refine3d is created (got 201)"
+    },
+    {
+      "pass": true,
+      "label": "the reference edge is wired (got 201)"
+    },
+    {
+      "pass": true,
+      "label": "the probe's Overview shows the Reference map card"
+    },
+    {
+      "pass": true,
+      "label": "the reference card's Show in parent door resolves through the provider's edges"
+    },
+    {
+      "pass": true,
+      "label": "clicking the reference card's door opens ITS Mol* dialog"
+    },
+    {
+      "pass": true,
+      "label": "the consumer-side dialog ALSO names the parent map (run_class001.mrc — \"run_class001.mrc run_class001.mrc Isosurface rendering of the MRC map — drag to rotate, scroll to zoom, adjust\")"
+    },
+    {
+      "pass": true,
+      "label": "the same anchored box, the same readout — one geometry, both cards"
+    },
+    {
+      "pass": true,
+      "label": "Esc closes the consumer-side dialog"
+    },
+    {
+      "pass": true,
+      "label": "focus parks on the reference card (got \"Reference map\")"
+    },
+    {
+      "pass": true,
+      "label": "roster restored to its pre-suite baseline (was 15, got 15)"
+    },
+    {
+      "pass": true,
+      "label": "no real console errors (got 0: )"
+    }
+  ]
+}
