@@ -1251,6 +1251,13 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   <button
                     type="button"
                     onClick={() => setTextFile(f)}
+                    /* t868 — the one-voice law: this row and its Files-tab
+                       twin eye speak the SAME accessible name for the same
+                       file ("Preview <name>") — the row's raw textContent
+                       glues name and size ("run.out954 B"), the twin's
+                       name is the file's own. One brain, three door-sets,
+                       ONE voice. */
+                    aria-label={`Preview ${f.name}`}
                     /* data-print-keep: same paper contract as the STAR rows
                        above — the wrapped name/size record must print */
                     data-print-keep=""
