@@ -555,7 +555,12 @@ function RunResumeCard({
             </span>
             {ledger ? (
               <span
-                className="max-w-[45%] truncate font-mono tabular-nums text-muted-foreground"
+                // min-w-0 lets the max-w-[45%] cap WIN: a flex child's
+                // min-width:auto makes the nowrap ledger's min-content
+                // (246px) beat the max-width cap — the exact same
+                // truncate-defeat the t963 workdir footer had (the t964
+                // audit's leaf walk found it at a 320 fold)
+                className="min-w-0 max-w-[45%] truncate font-mono tabular-nums text-muted-foreground"
                 title={`${exact} — from the run's time ledger`}
               >
                 {ledger}
@@ -1246,8 +1251,8 @@ function ConnectionEditor({
     <div className="space-y-4">
       <div className="space-y-3">
         <SectionTitle>{creating ? "New connection" : "Login"}</SectionTitle>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <Field label="Host" hint={valid ? undefined : "required"} className="col-span-2">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+          <Field label="Host" hint={valid ? undefined : "required"} className="sm:col-span-2">
             <Input
               value={draft.host}
               onChange={(e) => patch({ host: e.target.value.trim().slice(0, 200) })}
@@ -1303,7 +1308,7 @@ function ConnectionEditor({
               </SelectContent>
             </Select>
           </Field>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <Badge variant="outline" className="h-4 px-1 text-[9px] font-normal text-muted-foreground">
               {AUTH_LABEL[draft.authMethod]}
             </Badge>
@@ -1320,11 +1325,11 @@ function ConnectionEditor({
           </p>
         ) : null}
         {draft.authMethod === "key" ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field
               label="Private key path"
               hint="Path on THIS machine (~/.ssh/id_ed25519)."
-              className="col-span-2"
+              className="sm:col-span-2"
             >
               <Input
                 value={draft.privateKeyPath}
@@ -1335,7 +1340,7 @@ function ConnectionEditor({
                 aria-label="Private key path on this machine"
               />
             </Field>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               {secretRow(
                 "Key passphrase (optional)",
                 draft.passphrase,
@@ -1349,8 +1354,8 @@ function ConnectionEditor({
           </div>
         ) : null}
         {draft.authMethod === "password" ? (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
               {secretRow(
                 "Password",
                 draft.password,
@@ -1361,7 +1366,7 @@ function ConnectionEditor({
                 "••• stored"
               )}
             </div>
-            <p className="col-span-2 text-[11px] leading-relaxed text-muted-foreground" data-auth-dialect-hint="">
+            <p className="sm:col-span-2 text-[11px] leading-relaxed text-muted-foreground" data-auth-dialect-hint="">
               Sent over both SSH password and keyboard-interactive prompts — the dialect university
               clusters usually speak (the same login MobaXterm uses).
             </p>
@@ -1371,11 +1376,11 @@ function ConnectionEditor({
 
       <div className="space-y-3">
         <SectionTitle>Cluster layout</SectionTitle>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
           <Field
             label="Remote root"
             hint="Where this app's local data/relion workdir is mirrored on the cluster — job workdirs live under it and it is created on first run. ~ means your cluster home. Examples: ~/cryoflow · /scratch/$USER/cryoflow"
-            className="col-span-2"
+            className="sm:col-span-2"
           >
             <Input
               value={draft.remoteRoot}
@@ -1436,7 +1441,7 @@ function ConnectionEditor({
           <Field
             label="Environment lines"
             hint="module load cuda/12.2 · export FOO=bar — one line each, sourced before runs."
-            className="col-span-2"
+            className="sm:col-span-2"
           >
             <Textarea
               value={draft.envLines}
@@ -1449,7 +1454,7 @@ function ConnectionEditor({
           <Field
             label="Results sync-back"
             hint="What finalize copies back to this machine. Extraction-style jobs (extract, motioncorr, polish) sync metadata only — their image stacks stay on the cluster whatever their size. Anything that stays is still listed in Results — preview or download it there on demand."
-            className="col-span-2"
+            className="sm:col-span-2"
           >
             <Select
               value={draft.syncPolicy}

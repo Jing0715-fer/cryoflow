@@ -1,0 +1,112 @@
+{
+  "viewport": 320,
+  "targets": [
+    {
+      "name": "storage-dialog",
+      "label": "Project storage overview",
+      "clicked": "clicked@910,28",
+      "wide": {
+        "w": 672,
+        "overX": false,
+        "sw": 670
+      },
+      "fold": {
+        "w": 288,
+        "overX": false,
+        "sw": 286,
+        "cw": 286,
+        "offenders": [],
+        "selfClippingCount": 10
+      },
+      "verdict": "clean"
+    },
+    {
+      "name": "system-diagnostics-dialog",
+      "label": "System diagnostics",
+      "clicked": "clicked@952,28",
+      "wide": {
+        "w": 512,
+        "overX": false,
+        "sw": 510
+      },
+      "fold": {
+        "w": 288,
+        "overX": false,
+        "sw": 286,
+        "cw": 286,
+        "offenders": [
+          {
+            "tag": "div",
+            "cls": "absolute inset-y-[-3px] w-px bg-foreground/45",
+            "sw": 53,
+            "cw": 1,
+            "over": 52,
+            "text": "warm 1450",
+            "selfClip": false
+          },
+          {
+            "tag": "div",
+            "cls": "absolute inset-y-[-3px] w-px bg-foreground/45",
+            "sw": 42,
+            "cw": 1,
+            "over": 41,
+            "text": "GO 2600",
+            "selfClip": false
+          }
+        ],
+        "selfClippingCount": 1
+      },
+      "verdict": "clean"
+    },
+    {
+      "name": "session-report-dialog",
+      "label": "Session QC report",
+      "clicked": "clicked@994,28",
+      "wide": {
+        "w": 896,
+        "overX": false,
+        "sw": 894
+      },
+      "fold": {
+        "w": 288,
+        "overX": false,
+        "sw": 286,
+        "cw": 286,
+        "offenders": [],
+        "selfClippingCount": 3
+      },
+      "verdict": "clean"
+    },
+    {
+      "name": "remote-cluster-dialog",
+      "label": "Remote clusters (SSH)",
+      "clicked": "clicked@1120,28",
+      "wide": {
+        "w": 1024,
+        "overX": false,
+        "sw": 1022
+      },
+      "fold": {
+        "w": 288,
+        "overX": false,
+        "sw": 286,
+        "cw": 286,
+        "offenders": [],
+        "selfClippingCount": 10
+      },
+      "verdict": "clean"
+    },
+    {
+      "name": "help-guide-dialog",
+      "label": "Help — how to use the workflow",
+      "clicked": "NEVER-VISIBLE",
+      "error": "dialog never opened"
+    },
+    {
+      "name": "finish-knock-dialog",
+      "label": "Finish knock settings",
+      "clicked": "clicked@1036,28",
+      "error": "dialog never opened"
+    }
+  ]
+}
