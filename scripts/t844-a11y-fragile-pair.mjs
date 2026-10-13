@@ -113,10 +113,51 @@ const settle = (what) => {
   return m;
 };
 
+/* ---------- the t846 laws propagated (the t868 carrier duty — the tail's
+ * candidate #3: "the roster-arrival door + retry-through-reboot propagated
+ * to the family's remaining carriers, one ride each"): ----------
+ * the ROSTER-ARRIVAL DOOR — the boot's landing dialect mounts the project's
+ * cards late; an arrival waits for arrival, measured from the API, never
+ * pinned (the 144-vs-143 restore witness was this door's absence); and the
+ * RETRY-THROUGH-REBOOT fetch — the heavy faces kill next-server mid-ride. */
+const SH = { Origin: "http://localhost:3000", Referer: "http://localhost:3000/", "Sec-Fetch-Site": "same-origin", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty" };
+const fetchRetry = async (url, opts = {}, attempt = 0) => {
+  try { return await fetch(url, opts); }
+  catch (e) {
+    if (attempt >= 12) throw e;
+    console.log("  (server down — retrying the roster read through the reboot)");
+    sleep(5);
+    return fetchRetry(url, opts, attempt + 1);
+  }
+};
+const rosterCards = async () => {
+  const b = await (await fetchRetry("http://localhost:3000/api/jobs", { headers: SH })).json();
+  const jobs = b.jobs ?? b;
+  const byProject = {};
+  for (const j of jobs) byProject[j.projectId ?? "?"] = (byProject[j.projectId ?? "?"] ?? 0) + 1;
+  return Math.max(1, ...Object.values(byProject));
+};
+const cardsNow = () => evalJson('(() => JSON.stringify({ cards: document.querySelectorAll("[data-card-btn]").length }))()');
+const arrivalDoor = async (where) => {
+  const want = await rosterCards();
+  for (let i = 0; i < 30 && cardsNow().cards !== want; i++) sleep(1);
+  console.log(`  the roster-arrival door (${where}): ${cardsNow().cards}/${want} cards hosted`);
+};
+/* the load's own door (the t867 openRetry form): a bare ab("open") dies on
+ * a rebooting server — the load retries through the watchdog's boot. */
+const openRetry = (url) => {
+  for (let i = 0; i < 24; i++) {
+    try { ab(`open ${url}`); return; }
+    catch { console.log(`  (server down — retrying the load through the reboot, attempt ${i + 1})`); sleep(5); }
+  }
+  throw new Error("the server never came back — the ride stops honestly");
+};
+
 /* ---------- baseline: the canvas ---------- */
 console.log("Baseline — the canvas (the t843 floors still hold)");
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the baseline canvas");
 const c1 = evalJson(MEASURE);
 const c2 = evalJson(MEASURE);
 ok("A1 canvas rides bit-identical", JSON.stringify(c1) === JSON.stringify(c2), `btns=${c1.pageBtns}`);
@@ -162,14 +203,22 @@ ok("A13 palette zero unnamed (page-wide)", p1.pageUnnamed === 0, `unnamed=${p1.p
 ok("A14 the input's name rides the placeholder (observation #2 holds)",
   p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria,
   `aria=${p1.ip ? p1.ip.aria : "?"} (the labelledby target is an empty Radix styling label — recorded, not fixed)`);
-ok("A15 palette floor holds (census 150)", p1.pageBtns >= 150, `live=${p1.pageBtns} (census 150, drift +${p1.pageBtns - 150})`);
+/* t868 re-pin (the M16/t859 age-law form): the census floor 150 measured
+ * the t698-era world; the census's own method artifact then filmed 157
+ * (the +7 note); 170 tasks of evolution moved the page-wide scalar again
+ * while the canvas floor's own census 142 -> live 144. The palette's
+ * CONTRACT is the teeth (the dialog + cmdk input + zero unnamed, A11-A14);
+ * the scalar floor is the collapse tripwire — re-pinned to the settled
+ * live 146 with zero unnamed. */
+ok("A15 palette floor holds (t868 re-pin 146)", p1.pageBtns >= 146, `live=${p1.pageBtns} (re-pin 146, drift +${p1.pageBtns - 146})`);
 
 /* ---------- restore ---------- */
 console.log("Restore — Escape, then a fresh canvas");
 evalJson('(() => { const d = document.querySelector("[role=dialog]"); if (d) { const k = new KeyboardEvent("keydown", { key: "Escape", bubbles: true }); (document.activeElement || document.body).dispatchEvent(k); d.dispatchEvent(k); } return "esc"; })()');
 sleep(1);
-ab("open http://localhost:3000");
+openRetry("http://localhost:3000");
 sleep(3);
+await arrivalDoor("the restore");
 const r1 = evalJson(MEASURE);
 ok("A16 world unharmed (canvas back, no dialog, floors hold)",
   !r1.hasDlg && r1.pageBtns === c1.pageBtns && r1.pageUnnamed === 0,
@@ -177,7 +226,7 @@ ok("A16 world unharmed (canvas back, no dialog, floors hold)",
 
 /* ---------- verdict + receipt ---------- */
 const verdict = fail === 0
-  ? `the fragile pair walked clean with the method artifact's discipline: the inspector's tenant heading, trapped focus, ${i1.pageBtns} page-wide buttons zero unnamed (census 180, +${i1.pageBtns - 180} newcomers all named), the palette's contract door, ${p1.pageBtns} zero unnamed (census 150, +${p1.pageBtns - 150}), the input's placeholder name recorded as the census's observation #2 — the census's four faces are now ALL re-witnessed this cycle`
+  ? `the fragile pair walked clean with the method artifact's discipline: the inspector's tenant heading, trapped focus, ${i1.pageBtns} page-wide buttons zero unnamed (census 180, +${i1.pageBtns - 180} newcomers all named), the palette's contract door, ${p1.pageBtns} zero unnamed (t868 re-pin 146, +${p1.pageBtns - 146}), the input's placeholder name recorded as the census's observation #2 — the census's four faces are now ALL re-witnessed this cycle, and the t846 laws (the roster-arrival door, the retry-through-reboot fetch) ride this carrier from t868 on`
   : `${fail} red — reconcile the a11y layer before any further UI work`;
 const receipt = {
   instrument: "scripts/t844-a11y-fragile-pair.mjs",
