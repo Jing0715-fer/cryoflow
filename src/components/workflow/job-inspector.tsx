@@ -91,6 +91,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Kbd } from "@/components/ui/kbd"; // t868 — the peek dialogs' keymaps speak the one kbd vocabulary (t642)
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { loadUserParamPresets, addUserParamPreset, deleteUserParamPreset, presetsForType, snapshotSpecParams, countEffectiveDiffs, reconcileUserParamPresets, USER_PARAM_PRESETS_EVENT, type UserParamPreset } from "@/lib/user-param-presets";
@@ -2948,6 +2949,20 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                 </DialogDescription>
               </DialogHeader>
               <TextPreview jobId={job.id} path={textFile.path} />
+              {/* t868 — the peek dialog joins the keymap family: one quiet
+                  line teaching the one key it has (the house dialog close).
+                  The results-view's twin has spoken this seat since t832 —
+                  one brain, now three door-sets, and every door-set speaks
+                  its keys in one voice. */}
+              <div
+                data-canvas-ui="text-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>
@@ -2967,6 +2982,18 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
                 <DialogDescription className="font-mono text-[11px]">{starFile.path}</DialogDescription>
               </DialogHeader>
               <StarTable job={job} path={starFile.path} />
+              {/* t868 — the star peek's twin seat: the results-view's star
+                  dialog has spoken its Esc line since t832; the Files tab's
+                  twin now speaks the same word, in the same calibre. */}
+              <div
+                data-canvas-ui="star-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>
