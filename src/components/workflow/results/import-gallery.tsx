@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { GALLERY_FOCUS_TTL_MS, useWorkflowStore } from "@/lib/store";
+import { httpErrorFrom } from "@/lib/http-error";
 import { Chip } from "@/components/ui/chip";
 import { MrcImage } from "./mrc-image";
 
@@ -210,7 +211,7 @@ export function ImportGallery({
           }`,
           { cache: "no-store" }
         );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
         const body = (await res.json()) as MicrographsResponse;
         if (!cancelled) {
           setData(body);

@@ -28,6 +28,14 @@ export type FetchFailureKind = "definitive" | "transient";
  *  network errors and 5xx/429 exhausted their retries: the server may
  *  recover, so hiding is a LIE (it reads as "no data"). */
 export function classifyFetchFailure(err: unknown): FetchFailureKind {
+  // t959 — status-native FIRST: the envelope reader (httpErrorFrom) and
+  // fetchJsonRetry itself attach the HTTP status structurally, so the
+  // message's shape is no longer load-bearing. The string pattern stays
+  // as the legacy fallback for third-party throws that never carried one.
+  const status = (err as { status?: number } | null)?.status;
+  if (typeof status === "number") {
+    return status >= 400 && status < 500 && status !== 429 ? "definitive" : "transient";
+  }
   const msg = err instanceof Error ? err.message : String(err);
   return /^HTTP 4\d\d$/.test(msg) && msg !== "HTTP 429" ? "definitive" : "transient";
 }
@@ -43,10 +51,11 @@ export async function fetchJsonRetry<T>(
       const res = await fetch(url, { cache: "no-store", ...init });
       if (res.ok) return (await res.json()) as T;
       if (res.status < 500 && res.status !== 429) {
-        // definitive client-side failure — surface it now
-        throw new Error(`HTTP ${res.status}`);
+        // definitive client-side failure — surface it now (t959: the
+        // status rides structurally too — same verdict, one more road)
+        throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });
       }
-      lastErr = new Error(`HTTP ${res.status}`);
+      lastErr = Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("HTTP 4")) throw err;
       lastErr = err;

@@ -508,8 +508,11 @@ function LogConsole({
       if (!res.ok) {
         // 500 etc: an {error} body has no .tail — silently rendering "" makes
         // a dead route look like an empty log. Keep the previous content and
-        // flag it; the next tick retries.
-        setLogError(`log unavailable (HTTP ${res.status})`);
+        // flag it; the next tick retries. t959 — the envelope's own text is
+        // the flag when the door spoke one ("No log (job has not run)"),
+        // the status fallback when it didn't.
+        const errBody = (await res.json().catch(() => null)) as { error?: string } | null;
+        setLogError(errBody?.error ?? `log unavailable (HTTP ${res.status})`);
         return;
       }
       const body = (await res.json()) as {

@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/select";
 import { useWorkflowStore } from "@/lib/store";
 import { usePrintedDate } from "@/lib/use-now";
+import { httpErrorFrom } from "@/lib/http-error";
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { planAdoption } from "@/lib/adopt-branch";
@@ -119,7 +120,7 @@ async function fetchJson(url: string): Promise<unknown> {
   const res = await fetch(url, {
     headers: { Origin: window.location.origin },
   });
-  if (!res.ok) throw new Error(`route said ${res.status}`);
+  if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
   return res.json();
 }
 

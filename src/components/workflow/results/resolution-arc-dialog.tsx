@@ -59,6 +59,7 @@ import {
   YAxis,
 } from "recharts";
 import type { JobDTO } from "@/lib/types";
+import { httpErrorFrom } from "@/lib/http-error";
 import {
   arcPresentationOf,
   arcSummary,
@@ -77,7 +78,7 @@ async function fetchArc(jobId: string): Promise<ResolutionPoint[]> {
   const res = await fetch(`/api/jobs/${jobId}/resolution-arc`, {
     headers: { Origin: window.location.origin },
   });
-  if (!res.ok) throw new Error(`route said ${res.status}`);
+  if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
   const data = (await res.json()) as { rounds?: ResolutionPoint[] };
   return data.rounds ?? [];
 }

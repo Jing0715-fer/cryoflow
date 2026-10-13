@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveWorkspaceJobs, useWorkflowStore } from "@/lib/store";
 import { funnelDoorCandidate, type FunnelLedger } from "@/lib/particle-funnel";
+import { httpErrorFrom } from "@/lib/http-error";
 import type { JobDTO } from "@/lib/types";
 import { ParticleFunnelDialog } from "./results/particle-funnel-dialog";
 
@@ -67,7 +68,7 @@ export function CanvasFunnelDoor() {
       headers: { Origin: window.location.origin },
     })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`route said ${res.status}`);
+        if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
         return (await res.json()) as FunnelPayload;
       })
       .then((p) => {

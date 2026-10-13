@@ -53,6 +53,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { JobDTO } from "@/lib/types";
+import { httpErrorFrom } from "@/lib/http-error";
 import { downloadText } from "@/lib/download";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -74,7 +75,7 @@ async function fetchFunnel(jobId: string): Promise<FunnelPayload | null> {
   const res = await fetch(`/api/jobs/${jobId}/funnel`, {
     headers: { Origin: window.location.origin },
   });
-  if (!res.ok) throw new Error(`route said ${res.status}`);
+  if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
   return (await res.json()) as FunnelPayload;
 }
 

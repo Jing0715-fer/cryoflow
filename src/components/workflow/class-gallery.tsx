@@ -50,6 +50,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { httpErrorFrom } from "@/lib/http-error";
 import { parseClassNotes } from "@/lib/class-notes";
 import { gridNeighbor, type GridDir, type GridEntry } from "@/lib/grid-nav"; // t778 — the roving geometry's one brain (the results grid already speaks it)
 import { pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t773 — the kind vocabulary's THIRTY-FIRST reader joins the class gallery's source line
@@ -242,7 +243,7 @@ export function ClassGallery({
     (async () => {
       try {
         const res = await fetch(`/api/jobs/${upstream.id}/classes`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
         const body = (await res.json()) as ClassesResponse;
         if (!cancelled) {
           setData(body);

@@ -38,6 +38,7 @@ import {
   Waves,
 } from "lucide-react";
 import { fmtClock, fmtDuration } from "@/lib/duration";
+import { httpErrorFrom } from "@/lib/http-error";
 import { walkTimeline } from "@/lib/timeline-walk";
 import { timelineRunsCsv, timelineRunsCsvFilename, type TimelineCsvRow } from "@/lib/qc-report"; // t506 — the windows' machine face
 import { stageRuntime, stageRuntimeCsv, stageRuntimeCsvFilename, type StageRuntime } from "@/lib/stage-runtime"; // t677 — the per-stage wall-clock lens
@@ -223,7 +224,7 @@ function useResolutionMilestones(jobs: JobDTO[]): Milestone[] {
         reporting.map(async (j): Promise<Milestone> => {
           try {
             const res = await fetch(`/api/jobs/${j.id}/fsc`, { cache: "no-store" });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
             const body = (await res.json()) as {
               resolutionAt143: number | null;
               reportedResolution: number | null;

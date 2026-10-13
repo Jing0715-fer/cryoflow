@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PieChart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { httpErrorFrom } from "@/lib/http-error";
 
 interface ClassOccupancy {
   cls: number;
@@ -40,7 +41,7 @@ export function ClassDistributionChart({
     (async () => {
       try {
         const res = await fetch(`/api/jobs/${jobId}/classes`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
         const body = (await res.json()) as ClassesResponse;
         if (!cancelled) {
           setData(body);

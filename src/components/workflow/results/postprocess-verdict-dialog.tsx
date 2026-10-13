@@ -43,6 +43,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { JobDTO } from "@/lib/types";
+import { httpErrorFrom } from "@/lib/http-error";
 import {
   postprocessVerdictOf,
   FSC_CRITERION,
@@ -66,7 +67,7 @@ async function fetchFsc(jobId: string): Promise<FscPayload | null> {
   const res = await fetch(`/api/jobs/${jobId}/fsc`, {
     headers: { Origin: window.location.origin },
   });
-  if (!res.ok) throw new Error(`route said ${res.status}`);
+  if (!res.ok) throw await httpErrorFrom(res); // t959 — the door's own reason rides
   const data = (await res.json()) as FscPayload;
   return data.source === "postprocess" ? data : null;
 }
