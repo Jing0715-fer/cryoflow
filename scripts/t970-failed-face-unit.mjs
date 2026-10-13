@@ -197,6 +197,37 @@ const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis")
   ok("N17 the contrast leg rides the walk (the t970 positive teaser, 2 chips — the three-state law's both legs)", negWalk.includes("N10 the contrast leg: the t970 face still speaks the POSITIVE teaser"));
 }
 
+/* ---- W: the wrap toggle's fold contract (t973 — the t971 note's ①
+ *        cashed in) ----
+ * The t971 ride recorded the log's honest X-reach (the pre's
+ * whitespace-pre long lines, +669px) and named the wrap toggle "the
+ * design's answer" — the fold's reading aid. The t973 ride pinned the
+ * contract and cured the toggle's one disease: the icon-only button was
+ * the toolbar's ONLY unnamed control (tooltip-only naming). This band
+ * pins the cure's source shapes, the pre's two faces, and the walk's
+ * contract. */
+{
+  /* the t973 cure: the icon-only wrap button is NAMED */
+  ok("W1 the wrap toggle carries its accessible name (aria-label — the toolbar's only unnamed control speaks)", inspector.includes('aria-label="Toggle line wrapping"'));
+  ok("W2 the toggle announces its state (aria-pressed={wrap})", /aria-label="Toggle line wrapping"[\s\S]{0,80}aria-pressed=\{wrap\}/.test(inspector));
+  ok("W3 the active face tints running (wrap && bg-zinc-800 text-running-300)", inspector.includes('wrap && "bg-zinc-800 text-running-300"'));
+  ok("W4 the tooltip's words match the aria-label (name and hover speak with one voice)", inspector.includes(">Toggle line wrapping</TooltipContent>"));
+  ok("W5 the icon is the WrapText glyph (the affordance)", inspector.includes('<WrapText className="size-3.5" />'));
+  /* the pre's two faces: the wrap state swaps the whitespace law */
+  ok("W6 the pre speaks BOTH faces (wrap ? whitespace-pre-wrap break-words : whitespace-pre)", inspector.includes('wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"'));
+  ok("W7 the no-wrap face stays bare whitespace-pre (the log's honest shape — not pre-wrap)", /"\s*m-0", wrap \? "whitespace-pre-wrap break-words" : "whitespace-pre"/.test(inspector));
+
+  /* the t973 walk's contract */
+  const wrapWalk = readFileSync(path.join(ROOT, "scripts/t973-wrap-fold-walk.mjs"), "utf8");
+  ok("W8 the t973 walk has the two modes (BEFORE records, GATE gates)", wrapWalk.includes('GATE = process.env.GATE === "1"') && wrapWalk.includes("the BEFORE witness"));
+  ok("W9 the t973 gate owns the wrap contract (G1..G9)", wrapWalk.includes("G1 the default face is the honest X-reach") && wrapWalk.includes("G9 the PNG receipts landed"));
+  ok("W10 the walk finds the toggle BY NAME (the cure's own proof — the address is the aria-label)", wrapWalk.includes('button[aria-label="Toggle line wrapping"]'));
+  ok("W11 the walk witnesses the X-death under wrap (G5: role=log over === 0)", wrapWalk.includes("G5 under wrap the X-overflow DIES"));
+  ok("W12 the keyboard leg rides the walk (Enter flips BOTH ways — no pointer required)", wrapWalk.includes("the keyboard toggles BOTH ways"));
+  ok("W13 the poll waits for the log's async leg before measuring (the tab's own fetch)", wrapWalk.includes("the log pre never rendered"));
+  ok("W14 the walk polls the wrap flip instead of assuming (the click's own async leg)", wrapWalk.includes("the wrap state never flipped"));
+}
+
 /* ---- A: the tree pairing guard ---- */
 {
   /* the chip never orphans: any file that renders a data-ovd-chip must

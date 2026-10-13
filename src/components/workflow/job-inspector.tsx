@@ -816,6 +816,7 @@ function LogConsole({
               <Button
                 variant="ghost"
                 size="sm"
+                aria-label="Toggle line wrapping"
                 aria-pressed={wrap}
                 onClick={() => setWrap((w) => !w)}
                 className={cn(

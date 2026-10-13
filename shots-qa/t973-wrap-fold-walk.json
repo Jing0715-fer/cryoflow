@@ -1,0 +1,88 @@
+{
+  "instrument": "t973-wrap-fold-walk",
+  "mode": "GATE",
+  "at": "2026-10-13T14:04:00.331Z",
+  "face": "Failed Diagnosis Face (t970)",
+  "wide": {
+    "panelW": 1227,
+    "panelOverX": false,
+    "shellOverX": false,
+    "log": {
+      "sw": 1177,
+      "cw": 1177,
+      "over": 0,
+      "selfClipX": true
+    },
+    "pre": {
+      "sw": 1153,
+      "cw": 1153,
+      "over": 0,
+      "noWrap": true,
+      "wrapped": false,
+      "h": 460
+    },
+    "btn": {
+      "aria": "Toggle line wrapping",
+      "pressed": "false",
+      "w": 34,
+      "h": 28,
+      "inViewport": true
+    }
+  },
+  "off": {
+    "panelW": 305,
+    "panelOverX": false,
+    "shellOverX": false,
+    "log": {
+      "sw": 920,
+      "cw": 263,
+      "over": 657,
+      "selfClipX": true
+    },
+    "pre": {
+      "sw": 908,
+      "cw": 239,
+      "over": 669,
+      "noWrap": true,
+      "wrapped": false,
+      "h": 460
+    },
+    "btn": {
+      "aria": "Toggle line wrapping",
+      "pressed": "false",
+      "w": 34,
+      "h": 28,
+      "inViewport": true
+    }
+  },
+  "on": {
+    "panelW": 305,
+    "panelOverX": false,
+    "shellOverX": false,
+    "log": {
+      "sw": 263,
+      "cw": 263,
+      "over": 0,
+      "selfClipX": true
+    },
+    "pre": {
+      "sw": 239,
+      "cw": 239,
+      "over": 0,
+      "noWrap": false,
+      "wrapped": true,
+      "h": 1330
+    },
+    "btn": {
+      "aria": "Toggle line wrapping",
+      "pressed": "true",
+      "w": 34,
+      "h": 28,
+      "inViewport": true
+    }
+  },
+  "keyboard": {
+    "enterToOff": true,
+    "enterToOn": true
+  }
+}
