@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
 import { sanitizePresetShelf } from "@/lib/param-preset-sanitize";
+import { serverErrorMessage, serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -49,8 +50,12 @@ export async function GET(request: Request) {
       presets = []; // corrupt row reads as empty — the next PUT rewrites it
     }
     return NextResponse.json({ presets, synced: true });
-  } catch {
-    return NextResponse.json({ presets: [], synced: false, error: "read failed" }, { status: 500 });
+  } catch (error) {
+    console.error("GET /api/param-presets failed:", error);
+    return NextResponse.json(
+      { presets: [], synced: false, error: serverErrorMessage("GET /api/param-presets", error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -75,7 +80,7 @@ export async function PUT(request: Request) {
       create: { id: SHELF_ID, data: JSON.stringify(presets) },
     });
     return NextResponse.json({ ok: true, count: presets.length });
-  } catch {
-    return NextResponse.json({ error: "persist failed" }, { status: 500 });
+  } catch (error) {
+    return serverErrorReply("PUT /api/param-presets", error);
   }
 }

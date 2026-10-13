@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorMessage } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +107,11 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ views });
-  } catch {
-    return NextResponse.json({ views: [], error: "read failed" }, { status: 500 });
+  } catch (error) {
+    console.error("GET /api/views/gallery failed:", error);
+    return NextResponse.json(
+      { views: [], error: serverErrorMessage("GET /api/views/gallery", error) },
+      { status: 500 }
+    );
   }
 }

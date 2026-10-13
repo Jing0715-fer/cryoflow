@@ -104,7 +104,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // defensive hygiene — the manifest is trusted (finalize wrote it), but
       // a tampered ledger must not become a traversal door
       if (rel.startsWith("/") || rel.split("/").includes("..")) {
-        results.push({ path: rel, ok: false, error: "Path rejected" });
+        results.push({ path: rel, ok: false, error: "Path rejected — absolute paths and '..' segments are not allowed" });
         continue;
       }
       if (!ledger.has(rel)) {

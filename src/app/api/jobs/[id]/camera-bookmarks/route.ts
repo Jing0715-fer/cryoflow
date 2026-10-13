@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorMessage, serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -185,8 +186,12 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       bookmarks = []; // corrupt row reads as empty — the client rewrites it
     }
     return NextResponse.json({ bookmarks, updatedAt: row.updatedAt });
-  } catch {
-    return NextResponse.json({ bookmarks: [], error: "read failed" }, { status: 500 });
+  } catch (error) {
+    console.error("GET /api/jobs/[id]/camera-bookmarks failed:", error);
+    return NextResponse.json(
+      { bookmarks: [], error: serverErrorMessage("GET /api/jobs/[id]/camera-bookmarks", error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -219,7 +224,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
       });
     }
     return NextResponse.json({ ok: true, count: bookmarks.length });
-  } catch {
-    return NextResponse.json({ error: "persist failed" }, { status: 500 });
+  } catch (error) {
+    return serverErrorReply("PUT /api/jobs/[id]/camera-bookmarks", error);
   }
 }
