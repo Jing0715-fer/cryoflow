@@ -69,6 +69,7 @@ import {
   type ResolutionPoint,
 } from "@/lib/resolution-arc";
 import { roundLabel } from "@/lib/convergence";
+import { usePrintedDate } from "@/lib/use-now";
 import { ContinueVerbRow } from "./continue-verb-row";
 
 /** The arc — the run's own estimates, ascending by round. */
@@ -169,10 +170,23 @@ function ResolutionArcDialog({
   const jump = biggestJump(rounds);
   const summary = arcSummary(rounds);
   const isGold = presentation.dialect === "gold";
+  // t946 — the print face's paper clock (the t232 law: paper clocks do
+  // NOT hydrate — useSyncExternalStore with an empty server snapshot).
+  const printed = usePrintedDate();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+      {/* t946 — the print face (globals.css's :has() block, the Task 114
+          doctrine's third seat): data-family-read-dialog opts this dialog
+          out of the generic step-aside — the arc IS a document, so paper
+          re-lays the modal into flow and keeps the curve, the verdict and
+          the plateau law. The standalone-translate kill rides the
+          className (Lightning CSS folds a same-block translate:none into
+          an identity transform, so the kill must be its own rule). */}
+      <DialogContent
+        data-family-read-dialog=""
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl print:[translate:none] print:[scale:none] print:[rotate:none]"
+      >
         <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2 text-base">
             {/* t945 — the t913 grammar reaches the compare family: job.name
@@ -192,6 +206,15 @@ function ResolutionArcDialog({
             {isGold ? " map" : " classes"} sharpening; a flat tail is a{" "}
             {presentation.noun} that has stopped improving.
           </DialogDescription>
+          {/* t946 — the paper's provenance line: this face has no pickers
+              (nothing identity-bearing dies on paper — the title signs the
+              run), so the line is the paper's clock. Screen-hidden. */}
+          <p
+            data-family-read-print-doc
+            className="hidden print:mt-2 print:block text-[11px] text-muted-foreground"
+          >
+            {`printed ${printed}`}
+          </p>
         </DialogHeader>
 
         {/* t804 — the content-node census's house cure, the t802 dialect at
@@ -211,7 +234,7 @@ function ResolutionArcDialog({
           tabIndex={0}
           role="region"
           aria-label="Resolution arc reading — the estimate curve and the plateau law"
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 print:max-h-none print:overflow-visible"
         >
         {/* the arc — one line, the whole story */}
         <div className="h-64 w-full rounded-lg border bg-card p-2">
@@ -297,8 +320,12 @@ function ResolutionArcDialog({
             : " — a classification stops on its written iteration count, not on its estimate."}
         </div>
 
-        {/* the verb — one row, two verdicts (t455's, now the arc's too) */}
-        <ContinueVerbRow job={job} onDone={() => onOpenChange(false)} />
+        {/* the verb — one row, two verdicts (t455's, now the arc's too).
+            t946: chrome on paper — a verb that prints is a verb that
+            lies, and its whys speak for it, so the whole row hides. */}
+        <div className="no-print">
+          <ContinueVerbRow job={job} onDone={() => onOpenChange(false)} />
+        </div>
         </div>
       </DialogContent>
     </Dialog>

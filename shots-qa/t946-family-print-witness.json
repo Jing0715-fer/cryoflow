@@ -1,0 +1,24 @@
+{
+  "at": "2026-10-13T01:42:47.727Z",
+  "pass": 42,
+  "fail": 0,
+  "chain": {
+    "id": "cmv60ladn0005ppa1avw7t6ru",
+    "mintedHere": true
+  },
+  "variant": {
+    "id": "cmv60lljm0009ppa1qzrjyhn5",
+    "K": 8,
+    "name": "t917 convergence class2d"
+  },
+  "papers": {
+    "convergence": true,
+    "arc": true,
+    "funnel": true
+  },
+  "restore": {
+    "preCount": 3,
+    "afterCount": 3,
+    "binding0": "conn-mv5lwexm"
+  }
+}

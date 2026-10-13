@@ -74,6 +74,7 @@ import {
   movingCensus,
   roundLabel,
 } from "@/lib/convergence";
+import { usePrintedDate } from "@/lib/use-now";
 import {
   CompareNotice,
   IdentityScatter,
@@ -237,6 +238,9 @@ function ClassConvergenceDialog({
   const lensSpec = CLASS_LENSES.share;
   const nameA = roundLabel(roundA);
   const nameB = roundLabel(roundB);
+  // t946 — the print face's paper clock (the t232 law: paper clocks do
+  // NOT hydrate — useSyncExternalStore with an empty server snapshot).
+  const printed = usePrintedDate();
 
   const analysis = useMemo(() => {
     if (!a || !b) return null;
@@ -263,7 +267,18 @@ function ClassConvergenceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+      {/* t946 — the print face (globals.css's :has() block, the Task 114
+          doctrine's third seat): data-family-read-dialog opts this dialog
+          out of the generic step-aside — a convergence reading IS a
+          document, so paper re-lays the modal into flow and keeps the
+          verdict chips, the scatter, the mover lists and the census. The
+          standalone-translate kill rides the className (the inspector's
+          own probe: Lightning CSS folds a same-block translate:none into
+          an identity transform, so the kill must be its own rule). */}
+      <DialogContent
+        data-family-read-dialog=""
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl print:[translate:none] print:[scale:none] print:[rotate:none]"
+      >
         <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2 text-base">
             <History className="size-4 text-primary" aria-hidden="true" />
@@ -282,6 +297,17 @@ function ClassConvergenceDialog({
             . Classes hugging the diagonal have settled; classes off it are
             still moving particles.
           </DialogDescription>
+          {/* t946 — the paper's provenance line: the round pickers it
+              companions are chrome (no-print below) and die on paper,
+              taking the pair with them — this line carries WHICH two
+              rounds the reading paired, and when the sheet was printed.
+              Screen-hidden (the pickers speak it live). */}
+          <p
+            data-family-read-print-doc
+            className="hidden print:mt-2 print:block text-[11px] text-muted-foreground"
+          >
+            {`Run: ${job.name} · ${nameA} vs ${nameB} · printed ${printed}`}
+          </p>
         </DialogHeader>
 
         {/* t804 — the content-node census's house cure, the t802 dialect at
@@ -301,10 +327,11 @@ function ClassConvergenceDialog({
           tabIndex={0}
           role="region"
           aria-label="Class convergence reading — verdict, scatter, movers, census"
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 print:max-h-none print:overflow-visible"
         >
-        {/* the round pickers — the whole arc leads, both stay switchable */}
-        <div className="grid gap-2 sm:grid-cols-2">
+        {/* the round pickers — the whole arc leads, both stay switchable
+            (t946: chrome on paper — the provenance line speaks the pair) */}
+        <div className="no-print grid gap-2 sm:grid-cols-2">
           <div className="min-w-0">
             <div className="mb-1 text-[11px] font-medium text-muted-foreground">Round A (earlier)</div>
             <Select
@@ -404,8 +431,12 @@ function ClassConvergenceDialog({
 
             {/* t455 — the verb: RELION's own restart idiom wired to the
                 reading (the t454 verbless footer retires — the verb it
-                announced now exists) */}
-            <ContinueVerbRow job={job} onDone={() => onOpenChange(false)} />
+                announced now exists).
+                t946: chrome on paper — a verb that prints is a verb that
+                lies, and its whys speak for it, so the whole row hides. */}
+            <div className="no-print">
+              <ContinueVerbRow job={job} onDone={() => onOpenChange(false)} />
+            </div>
           </>
         )}
         </div>

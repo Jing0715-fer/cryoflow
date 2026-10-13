@@ -53,6 +53,7 @@ import {
   type PostprocessGeneral,
   type VerdictShell,
 } from "@/lib/postprocess-verdict";
+import { usePrintedDate } from "@/lib/use-now";
 
 interface FscPayload {
   source: "postprocess" | "model" | null;
@@ -169,9 +170,23 @@ function FinalVerdictDialog({
   const hi = Math.max(minA - span * 0.18, 0); // fine end (right)
   const pos = (v: number) => ((lo - v) / (lo - hi)) * 100;
 
+  // t946 — the print face's paper clock (the t232 law: paper clocks do
+  // NOT hydrate — useSyncExternalStore with an empty server snapshot).
+  const printed = usePrintedDate();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+      {/* t946 — the print face (globals.css's :has() block, the Task 114
+          doctrine's third seat): data-family-read-dialog opts this dialog
+          out of the generic step-aside — the verdict IS a document (the
+          ladder, the word, the weather, the thresholds), so paper re-lays
+          the modal into flow. The standalone-translate kill rides the
+          className (Lightning CSS folds a same-block translate:none into
+          an identity transform, so the kill must be its own rule). */}
+      <DialogContent
+        data-family-read-dialog=""
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl print:[translate:none] print:[scale:none] print:[rotate:none]"
+      >
         <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2 text-base">
             {/* t945 — the t913 grammar reaches the compare family (the
@@ -189,6 +204,16 @@ function FinalVerdictDialog({
             This face reads who claims what, and whether the official number
             stays the honest one.
           </DialogDescription>
+          {/* t946 — the paper's provenance line: this face is verbless by
+              design and has no pickers (nothing identity-bearing dies on
+              paper — the title signs the run), so the line is the paper's
+              clock. Screen-hidden. */}
+          <p
+            data-family-read-print-doc
+            className="hidden print:mt-2 print:block text-[11px] text-muted-foreground"
+          >
+            {`printed ${printed}`}
+          </p>
         </DialogHeader>
 
         {/* t804 — the content-node census's house cure, the t802 dialect at
@@ -208,7 +233,7 @@ function FinalVerdictDialog({
           tabIndex={0}
           role="region"
           aria-label="Postprocess verdict reading — three curves, three crossings, one box edge"
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 print:max-h-none print:overflow-visible"
         >
         {/* the headline — evidence first */}
         <div className="text-xs font-medium text-foreground">{verdict.headline}</div>

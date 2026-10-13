@@ -64,6 +64,7 @@ import {
   type FunnelRow,
 } from "@/lib/particle-funnel";
 import { jobType, pourKindsOf, PORT_COLORS } from "@/lib/workflow"; // t772 — the kind vocabulary's THIRTIETH reader joins the particle funnel's census
+import { usePrintedDate } from "@/lib/use-now";
 
 interface FunnelPayload extends FunnelLedger {
   jobId: string;
@@ -196,9 +197,23 @@ export function ParticleFunnelDialog({
   payload: FunnelPayload;
 }) {
   const { copied, copyLedger } = useLedgerCopy(payload, job.name);
+  // t946 — the print face's paper clock (the t232 law: paper clocks do
+  // NOT hydrate — useSyncExternalStore with an empty server snapshot).
+  const printed = usePrintedDate();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+      {/* t946 — the print face (globals.css's :has() block, the Task 114
+          doctrine's third seat): data-family-read-dialog opts this dialog
+          out of the generic step-aside — the chain's ledger IS a document
+          (the bars are only the shape; the numbers are the ledger), so
+          paper re-lays the modal into flow and keeps the rows, the census
+          and the scale's confession. The standalone-translate kill rides
+          the className (Lightning CSS folds a same-block translate:none
+          into an identity transform, so the kill must be its own rule). */}
+      <DialogContent
+        data-family-read-dialog=""
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl print:[translate:none] print:[scale:none] print:[rotate:none]"
+      >
         <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2 text-base">
             {/* t945 — the t913 grammar reaches the compare family (the
@@ -215,6 +230,15 @@ export function ParticleFunnelDialog({
             receipts the engine wrote: what each stage kept, what it shed,
             what it multiplied.
           </DialogDescription>
+          {/* t946 — the paper's provenance line: this face has no pickers
+              (nothing identity-bearing dies on paper — the title signs the
+              run), so the line is the paper's clock. Screen-hidden. */}
+          <p
+            data-family-read-print-doc
+            className="hidden print:mt-2 print:block text-[11px] text-muted-foreground"
+          >
+            {`printed ${printed}`}
+          </p>
         </DialogHeader>
 
         {/* t804 — the content-node census's house cure, the t802 dialect at
@@ -234,7 +258,7 @@ export function ParticleFunnelDialog({
           tabIndex={0}
           role="region"
           aria-label="Particle funnel reading — what each stage kept, shed, multiplied"
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 print:max-h-none print:overflow-visible"
         >
         {/* the headline — evidence first */}
         <div className="text-xs font-medium text-foreground">{payload.headline}</div>
@@ -319,8 +343,10 @@ export function ParticleFunnelDialog({
         </div>
 
         {/* t463 + t509 — the ledger travels twice: clipboard prose, and
-            now the machine grid (one row per station, edge verbs in cells) */}
-        <div className="flex justify-end gap-2 border-t pt-3">
+            now the machine grid (one row per station, edge verbs in cells).
+            t946: chrome on paper — a copy button on a sheet is a promise
+            the paper cannot keep; the ledger itself prints above. */}
+        <div className="no-print flex justify-end gap-2 border-t pt-3">
           <Button
             variant="outline"
             size="sm"
