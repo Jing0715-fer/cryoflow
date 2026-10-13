@@ -122,5 +122,5 @@ ok("M5 the rider carries both modes (the BEFORE witness + the gate)",
 ok("M6 the rider walks all three doors (the star, the long tail, the empty face)",
   rider.includes('Preview ${rowName}') && rider.includes('clickPreview("run.err"') && rider.includes('aria-label="File content preview"'));
 
-console.log(`== t966 peek fold unit ${fail === 0 ? "GREEN" : "RED"} — ${pass} ok, ${fail} fail ==`);
+console.log(`\nPEEK-FOLD-UNIT t966: ${pass}/${pass + fail} ${fail === 0 ? "green — the t913 grammar lives in BOTH families, the tree guard is file-wide" : "RED"}`);
 process.exit(fail === 0 ? 0 : 1);
