@@ -44,8 +44,26 @@ st[probe.id] = { jobId: probe.id, projectId: probe.projectId, type: "refine3d", 
   workdir: probeWd, logFile: probeWd + "/run.out", errFile: probeWd + "/run.err",
   startedAt: new Date().toISOString(), outputs: {}, done: true, exitCode: 0 };
 writeFileSync("data/engine-state.json", JSON.stringify(st, null, 2));
+  // t870 — the DB pin resolves .env FIRST (the t868/t704 law: any leg
+  // that names a DB file must not answer from the frozen 0-byte corpse;
+  // the living world rides db/custom.db through .env). Prisma's own
+  // rule: absolute kept, relative resolved from prisma/. The frozen pin
+  // stands as fallback; the world is NAMED at the gate.
+  const dbUrl = (() => {
+    try {
+      const m = readFileSync(".env", "utf8").match(/^DATABASE_URL=(.*)$/m);
+      if (m) {
+        let u = m[1].trim().replace(/^["']|["']$/g, "");
+        if (!u.startsWith("file:")) u = "file:" + u;
+        if (/^file:[^/]/.test(u)) u = "file:/home/z/my-project/prisma/" + u.slice(5);
+        return u;
+      }
+    } catch { /* fall through */ }
+    return "file:/home/z/my-project/db/cryoflow.db";
+  })();
+  console.log(`  · the flip leg rides ${dbUrl}`);
 execSync(
-  `DATABASE_URL="file:/home/z/my-project/db/cryoflow.db" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:process.argv[1]},data:{status:'completed',progress:100}}).then(()=>{console.log('flipped');return p.\\$disconnect();}).catch(e=>{console.error(e.message);process.exit(1);});" ${probe.id}`,
+  `DATABASE_URL="${dbUrl}" node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.job.update({where:{id:process.argv[1]},data:{status:'completed',progress:100}}).then(()=>{console.log('flipped');return p.\\$disconnect();}).catch(e=>{console.error(e.message);process.exit(1);});" ${probe.id}`,
   { cwd: "/home/z/my-project", encoding: "utf8" });
 await fetch(`${BASE}/api/edges`, { method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ fromJobId: importJob.id, toJobId: probe.id, fromPort: "model_mrc", toPort: "reference" }) });
