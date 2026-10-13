@@ -1,34 +1,33 @@
 #!/usr/bin/env node
 /**
- * t972 — the NEGATIVE DIAGNOSIS FACE: the world's SEVENTH job, minted
- * honest so the Task 121 negative teaser — data-ovd-negative, the calm
- * zinc "no known signature matched" card — gets its FIRST face. The
- * t970 mint armed the POSITIVE leg (the rose teaser, 2 chips); this mint
- * arms the OTHER mouth: a failed job whose log matches NOTHING, which is
- * the third leg of the diagnosis three-state law (positive / negative /
- * not-failed).
+ * t972 — the WALLTIME DIAGNOSIS FACE (minted t972 as the NEGATIVE face;
+ * t976 FLIPPED it): the world's SEVENTH job, a class3d killed by its
+ * partition's 24-hour walltime. SLURM cancels the step with its own
+ * words (DUE TO TIME LIMIT), bash reports the child "Terminated" (NOT
+ * "Killed" — that word is the OOM killer's signature), and RELION —
+ * alive the whole time — prints no error at all.
  *
- * The face's story is the field's classic no-signature death: a 3D
- * classification that burned its partition's 24-hour walltime mid-run.
- * SLURM cancels the step with its own words (DUE TO TIME LIMIT), bash
- * reports the child "Terminated" (NOT "Killed" — that word is the OOM
- * killer's signature), and RELION — alive the whole time — prints no
- * error at all. The t323 silent-death autopsy must ALSO stay silent: it
- * fires when the log's last three non-empty lines include a live
- * progress frame, so this log ends on three honest non-frame lines (the
- * checkpoint note, the slurmd SIGTERM notice, the slurmstepd refusal).
- * Result: diagnoseFailureLog(full run.out) === [] — the negative teaser
- * renders "0 findings", the Log console renders NO strip (the
- * findings.length > 0 gate), and the log itself is the answer.
+ * THE FLIP (t976): this face's log was the negative teaser's first
+ * witness — but the teaser's verdict ("the cause is custom to this
+ * job") is a verdict the log itself refutes: SLURM's narration is the
+ * scheduler's own words, the same epistemic class as bash's "Killed".
+ * The t976 ride added the walltime-limit row to the signature table,
+ * and THIS face flipped positive: diagnoseFailureLog(full run.out) now
+ * returns EXACTLY ONE finding (the walltime row, count 1 — the line
+ * appears once). The teaser renders the rose card, 1 chip; the strip
+ * EXISTS in Full mode now (the findings.length > 0 gate opens). The
+ * negative leg was re-faced on the t976 cancelled face
+ * (scripts/t976-cancelled-face-mint.mjs — a scancel death with no
+ * reason named, zero signatures by construction).
  *
  * The mint rides the t970 grammar verbatim (API job creation + workdir
  * files + engine-state.json direct write + the t263 row flip), ADDITIVE
  * and removable without touching the seed trio / the door / the bench /
  * the t970 face. Its verify carries an INLINE MIRROR of the signature
  * table (transcribed from src/lib/log-diagnosis.ts) so the mint proves
- * the zero-match property at the API tier; the UI walk is the ground
- * truth (the negative teaser's "0 findings" IS the lib's verdict), and
- * the t970 unit's N-band pins the lib's response to the same story.
+ * the ONE-match property at the API tier; the UI walk is the ground
+ * truth (the t976 walk witnesses the flip live), and the t970 unit's
+ * N-band pins the lib's response to the same story.
  *
  *   node scripts/t972-negative-face-mint.mjs mint|verify|remove
  */
@@ -69,12 +68,13 @@ const jobByName = () => {
 };
 const workdirOf = (jobId) => path.join(DATA_ROOT, `class3d_${jobId.slice(-8)}`);
 
-/* the negative face's run.out — a REAL walltime death, honest RELION
+/* the walltime face's run.out — a REAL walltime death, honest RELION
  * class3d chatter the whole way down: header, the reference load, six
  * settled iterations with their class tables and time bars (the worm
  * dialect mid-log is fine — the t323 autopsy only reads the TAIL),
- * iteration 7's start, and then the partition's clock running out. Every
- * line is checked against the mirror table below; none may match. */
+ * iteration 7's start, and then the partition's clock running out. Since
+ * t976, the slurmstepd line carries the table's newest signature: the
+ * mirror must find EXACTLY ONE hit (the walltime row) and nothing else. */
 const negativeRunOut = () =>
   [
     "RELION: 3D classification (t972 negative diagnosis face)",
@@ -128,11 +128,12 @@ const negativeRunOut = () =>
 
 /* ---------------------------------------------------------------
  * the MIRROR TABLE — transcribed from src/lib/log-diagnosis.ts
- * (the 15 signature patterns). The mint proves the zero-match
- * property at the API tier; the UI walk is the ground truth; the
- * t970 unit's N-band pins the lib's response to the same story.
- * If the lib's table grows, THIS mirror must be re-keyed too —
- * the unit's N-band checks the story, not this table.
+ * (the 16 signature patterns, t976's walltime row included). The
+ * mint proves the ONE-match property at the API tier; the UI walk
+ * is the ground truth; the t970 unit's N-band pins the lib's
+ * response to the same story. If the lib's table grows, THIS
+ * mirror must be re-keyed in the same commit — the unit's N10 is
+ * the tripwire that catches the desync BEFORE the mint lies.
  * --------------------------------------------------------------- */
 const MIRROR_PATTERNS = [
   ["oom-kill", /\bKilled\b|oom-kill(?:er)?\b/i],
@@ -149,6 +150,7 @@ const MIRROR_PATTERNS = [
   ["readmrc-exceeds-stack", /readMRC: Image number \d+ exceeds stack size \d+/i],
   ["ctffind-no-fit", /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i],
   ["gpu-free-memory-warning", /Ignoring required free GPU memory amount of \d+ MB/i],
+  ["walltime-limit", /\bDUE TO TIME LIMIT\b/i],
   ["gpu-starved-refusal", /CRYOFLOW_ERR: only \d+ MB free on the GPU/i],
 ];
 /* t323's live progress frame — the autopsy fires only if the log's last
@@ -228,14 +230,22 @@ const checkLogContract = (jobId) => {
   ok(text.length > 1500, "the log route answers the face's full log (non-empty — the t318 law)", `${text.length}B`);
   ok(full?.truncated === false, "the log is under the 8MB cap (truncated false)");
 
-  const violations = mirrorViolations(text);
-  ok(violations.length === 0, "ZERO signature matches across the full log (the 15-pattern mirror)", violations.slice(0, 4).join(",") || "clean");
+  /* the t976 FLIP: the slurmstepd line IS the table's walltime row —
+   * exactly one match, on both windows (teaser and strip agree — the
+   * t971 parity law) */
+  const fullHits = mirrorViolations(text);
+  ok(fullHits.length === 1 && fullHits[0].endsWith(":walltime-limit"),
+    "EXACTLY ONE signature match across the full log (the 16-pattern mirror — the t976 walltime row)",
+    fullHits.join(",") || "none");
   ok(!tailHasLiveFrame(text), "the tail's last three non-empty lines carry no live frame (the t323 autopsy stays silent)");
 
   const tail = api("GET", `/api/jobs/${jobId}/log`);
   const tailText = typeof tail?.tail === "string" ? tail.tail : "";
   ok(tailText.length > 0, "the tail route answers (the Log tab's window)", `${tailText.length}B`);
-  ok(mirrorViolations(tailText).length === 0, "the tail window is signature-free too (teaser and strip would agree)");
+  const tailHits = mirrorViolations(tailText);
+  ok(tailHits.length === 1 && tailHits[0].endsWith(":walltime-limit"),
+    "the tail window carries the SAME single walltime hit (teaser and strip would agree)",
+    tailHits.join(",") || "none");
   return text;
 };
 

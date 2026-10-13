@@ -67,6 +67,7 @@ import {
   Stethoscope,
   Table2,
   Terminal,
+  TimerOff,
   WrapText,
   Wrench,
   X,
@@ -394,6 +395,7 @@ const FINDING_ICONS: Record<string, React.ElementType> = {
   segfault: Zap,
   "mpi-abort": XOctagon,
   "python-traceback": Bug,
+  "walltime-limit": TimerOff,
 };
 
 /* ------------------------------------------------------------------ */

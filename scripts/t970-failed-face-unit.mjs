@@ -145,14 +145,18 @@ const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis")
   ok("M13 the exoneration law rides BOTH walks (the aria+pseudoAbs gate)", stripWalk.includes("every LEAK button is an aria-named hit-slop carrier"));
 }
 
-/* ---- N: the negative leg's contract (t972 — the three-state law's
- *        OTHER mouth) ----
- * The t970 mint armed the POSITIVE leg (the rose teaser, 2 chips); the
- * t972 mint arms the NEGATIVE leg — a failed face whose log matches
- * NOTHING. Task 121 built the zinc card; the t972 ride witnessed it in
- * the browser for the first time. This band pins the leg's source
- * shapes, the lib's zero-findings verdict on the walltime story, the
- * mint's mirror-table sync, and the walk's contract. */
+/* ---- N: the negative leg's contract (t972 → t976 — the flip) ----
+ * The t972 mint minted the world's SEVENTH job as the negative teaser's
+ * first face (the walltime death, zero signatures by the then-15-row
+ * table). The t976 ride DECIDED the walltime question the other way:
+ * SLURM's own "DUE TO TIME LIMIT" is the scheduler's narration — the
+ * same epistemic class as bash's "Killed" — and a negative verdict the
+ * log itself refutes is a lie. The table grew the walltime row, the
+ * t972 face FLIPPED positive (exactly one finding), and the negative
+ * leg was re-faced on the t976 cancelled face (a scancel death with no
+ * reason named — zero signatures by construction). This band pins the
+ * leg's source shapes (unchanged UI), the lib's response to BOTH
+ * stories, both mints' mirror sync, and the t976 walk's contract. */
 {
   /* the negative leg's source shapes (the same component, the other gate) */
   ok("N1 the negative leg gates on diagnosis.length === 0", /diagnosis && diagnosis\.length === 0 \?/.test(inspector));
@@ -164,10 +168,11 @@ const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis")
   ok("N7 the negative jump speaks its own words (Read the full log)", inspector.includes("Read the full log"));
   ok("N8 the SearchX icon rides the negative card", /SearchX/.test(inspector));
 
-  /* the lib's truth: the walltime story (the t972 mint's log shape)
-   * yields ZERO findings — the 15-pattern table matches nothing, and the
-   * t323 autopsy stays silent because the tail ends on the slurmd /
-   * Terminated / slurmstepd trio, not on a live progress frame */
+  /* the lib's truth, story one: the walltime story (the t972 mint's log
+   * shape) now yields EXACTLY ONE finding — the t976 walltime row. The
+   * t323 autopsy stays silent (the tail ends on the slurmd / Terminated
+   * / slurmstepd trio, not on a live progress frame), but the signature
+   * table answers first: the scheduler's own words are in the table. */
   const walltimeStory = [
     "  23.51/24.00 hrs — Maximisation step starting (4 reconstructions, tau_fudge 1.0)",
     "[2026-10-14 08:54:58.201] MPI rank 001: per-class reconstruction workspaces written",
@@ -176,25 +181,47 @@ const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis")
     "bash: line 1:  48291 Terminated              mpirun -n 2 relion_refine_mpi --i Particles/job014/particles.star --o Class3D/job042 --ref InitialModel/job041/initial_model.mrc --K 4",
     "slurmstepd: error: *** JOB 482911 CANCELLED AT 2026-10-14T08:55:31 DUE TO TIME LIMIT *** on compute-0-1",
   ].join("\n");
-  const negFindings = diagnoseFailureLog(walltimeStory);
-  ok("N9 the walltime story yields ZERO findings (the negative teaser's contract)", negFindings.length === 0, negFindings.map((f) => f.id).join("+") || "clean");
+  const wallFindings = diagnoseFailureLog(walltimeStory);
+  ok("N9 the walltime story yields EXACTLY ONE finding — the t976 walltime row (the flip)", wallFindings.length === 1 && wallFindings[0].id === "walltime-limit", wallFindings.map((f) => f.id).join("+") || "clean");
 
-  /* the mirror sync — the t972 mint carries an inline transcription of
-   * the signature table; if the lib's table grows, the mirror desyncs and
-   * this check fails (the re-key law for the mint's own mirror) */
+  /* the lib's truth, story two: the t976 cancelled story (the negative
+   * teaser's NEW face — a scancel death with no reason named) yields
+   * ZERO findings through the REAL lib. The CANCELLED line's missing
+   * "DUE TO TIME LIMIT" is what keeps the walltime row out of it. */
+  const cancelledStory = [
+    "  3.54/3.96 hrs — Maximisation step starting (4 reconstructions, tau_fudge 1.0)",
+    "[2026-10-13 21:58:01.556] MPI rank 001: per-class reconstruction workspaces written",
+    "slurmd[compute-0-3]: sending SIGTERM to the job's allocation",
+    "bash: line 1:  48312 Terminated              mpirun -n 2 relion_refine_mpi --i Particles/job014/particles.star --o Class3D/job049 --ref InitialModel/job041/initial_model.mrc --K 4",
+    "slurmstepd: error: *** JOB 483077 CANCELLED AT 2026-10-13T21:58:03 *** on compute-0-3",
+  ].join("\n");
+  const cancelFindings = diagnoseFailureLog(cancelledStory);
+  ok("N9b the cancelled story yields ZERO findings (the negative teaser's new contract — the t976 face)", cancelFindings.length === 0, cancelFindings.map((f) => f.id).join("+") || "clean");
+
+  /* the mirror sync — BOTH mints carry an inline transcription of the
+   * signature table (t976 grew it by the walltime row); if the lib's
+   * table grows again, the mirrors desync and these checks fail BEFORE
+   * the mints lie (the re-key law: both mirrors in the same commit) */
   const negMint = readFileSync(path.join(ROOT, "scripts/t972-negative-face-mint.mjs"), "utf8");
-  const mirrorCount = (negMint.match(/\["[a-z0-9-]+", \//g) ?? []).length;
-  ok("N10 the mint's mirror table stays in sync with the lib's signature table", mirrorCount === LOG_PATTERNS.length, `mirror=${mirrorCount} lib=${LOG_PATTERNS.length}`);
-  ok("N11 the mint proves the zero-match property at the API tier (the mirror check rides verify)", negMint.includes("ZERO signature matches across the full log") && negMint.includes("the t323 autopsy stays silent"));
-  ok("N12 the negative mint's run record exits 143 (128+15 — the SIGTERM death)", negMint.includes("exitCode: 143") && negMint.includes("Terminated"));
+  const negMirror = (negMint.match(/\["[a-z0-9-]+", \//g) ?? []).length;
+  ok("N10 the t972 mint's mirror table stays in sync with the lib's signature table", negMirror === LOG_PATTERNS.length, `mirror=${negMirror} lib=${LOG_PATTERNS.length}`);
+  const cancelMint = readFileSync(path.join(ROOT, "scripts/t976-cancelled-face-mint.mjs"), "utf8");
+  const cancelMirror = (cancelMint.match(/\["[a-z0-9-]+", \//g) ?? []).length;
+  ok("N10b the t976 mint's mirror stays in sync too (one table, two transcriptions)", cancelMirror === LOG_PATTERNS.length, `mirror=${cancelMirror} lib=${LOG_PATTERNS.length}`);
+  ok("N11 the t972 mint's verify rides the FLIP (exactly one walltime match)", negMint.includes("EXACTLY ONE signature match across the full log") && negMint.includes("the t976 walltime row"));
+  ok("N11b the t976 mint proves the zero-match property at the API tier (the mirror check rides verify)", cancelMint.includes("ZERO signature matches across the full log") && cancelMint.includes("the t323 autopsy stays silent"));
+  ok("N12 the walltime mint's run record exits 143 (128+15 — the SIGTERM death)", negMint.includes("exitCode: 143") && negMint.includes("Terminated"));
+  ok("N12b the cancelled mint's run record exits 143 too (the same SIGTERM death, no signature)", cancelMint.includes("exitCode: 143") && cancelMint.includes("Terminated"));
 
-  /* the t972 walk's contract */
-  const negWalk = readFileSync(path.join(ROOT, "scripts/t972-negative-face-walk.mjs"), "utf8");
-  ok("N13 the t972 walk has the two modes (BEFORE records, GATE gates)", negWalk.includes('GATE = process.env.GATE === "1"') && negWalk.includes("the BEFORE witness"));
-  ok("N14 the t972 gate owns the negative leg's fold contract (G1..G9)", negWalk.includes("G1 the panel never overflows at the fold") && negWalk.includes("G9 the PNG receipts landed"));
-  ok("N15 the t972 walk witnesses the honest silence (the strip is ABSENT by design)", negWalk.includes("the strip is ABSENT on the negative face"));
-  ok("N16 the exoneration law rides the t972 walk too (the aria+pseudoAbs gate)", negWalk.includes("every LEAK button is an aria-named hit-slop carrier"));
+  /* the t976 walk's contract (the negative leg's browser witness moved
+   * here after the flip; the walk also witnesses the flip itself) */
+  const negWalk = readFileSync(path.join(ROOT, "scripts/t976-walltime-flip-walk.mjs"), "utf8");
+  ok("N13 the t976 walk has the two modes (BEFORE records, GATE gates)", negWalk.includes('GATE = process.env.GATE === "1"') && negWalk.includes("the BEFORE witness"));
+  ok("N14 the t976 gate owns the negative leg's fold contract (G1..G9)", negWalk.includes("G1 the panel never overflows at the fold") && negWalk.includes("G9 the PNG receipts landed"));
+  ok("N15 the t976 walk witnesses the honest silence (the strip is ABSENT by design)", negWalk.includes("the strip is ABSENT on the cancelled face"));
+  ok("N16 the exoneration law rides the t976 walk too (the aria+pseudoAbs gate)", negWalk.includes("every LEAK button is an aria-named hit-slop carrier"));
   ok("N17 the contrast leg rides the walk (the t970 positive teaser, 2 chips — the three-state law's both legs)", negWalk.includes("N10 the contrast leg: the t970 face still speaks the POSITIVE teaser"));
+  ok("N18 the t976 walk witnesses the FLIP on the t972 face (the walltime chip + the strip's return)", negWalk.includes('data-finding="walltime-limit"') && negWalk.includes("the strip RETURNS on the flipped face"));
 }
 
 /* ---- W: the wrap toggle's fold contract (t973 — the t971 note's ①
