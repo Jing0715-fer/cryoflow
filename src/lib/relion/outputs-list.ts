@@ -199,3 +199,82 @@ export function walkWorkdir(workdir: string): { files: OutputFile[]; truncated: 
   files.sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || naturalCompare(a.path, b.path));
   return { files, truncated };
 }
+
+/* ------------------------------------------------------------------ */
+/* t956 — the remote join's own page: the ledger becomes reachable      */
+/* ------------------------------------------------------------------ */
+
+/** The remote join's per-request page budget (the t289 card cap). */
+export const REMOTE_PAGE = 300;
+
+/** The manifest entry's shape the join actually reads (structural — the
+ *  ledger's own interface in lib/remote/remote-files stays the source of
+ *  truth; this keeps outputs-list free of the remote world's imports). */
+export interface RemoteLedgerEntry {
+  path: string;
+  size: number;
+}
+
+/**
+ * t956 — the deep-band law's affordance, extracted from the t289 join
+ * verbatim and made PAGEABLE. The manifest's remote-only entries (paths
+ * the local walk doesn't already hold) join the listing; the budget
+ * spends itself on the ledger's own order (the find's door→spine→front→
+ * deep priority — the t944 lesson 「显示的预算按带花」: with a long root
+ * history the 300 cards end INSIDE the front band and the deep band was
+ * UNREACHABLE). `offset` skips deeper into the remote-only sequence; the
+ * response's `nextOffset` speaks the next page's door (null = the ledger
+ * is spent — nothing deeper remains).
+ *
+ * Laws carried intact from the t289 join (now pinned by the t956 unit):
+ *  - duplicates never spend budget: a path the local walk holds is
+ *    skipped BEFORE the cap check (and before the offset counts it —
+ *    the offset is a position in the REMOTE-ONLY sequence, stable while
+ *    the local walk is stable);
+ *  - the cap binds at exactly REMOTE_PAGE additions — the 301st entry
+ *    sets `truncated` instead of landing;
+ *  - the exact-remainder page is honest: when the ledger ends exactly
+ *    on the budget, `truncated` stays false (no phantom next page);
+ *  - PURE: the caller owns the files array (the push and the kind-order
+ *    re-sort stay at the assembly — the join never mutates its input).
+ */
+export function joinRemotePage(
+  localFiles: OutputFile[],
+  manifest: { files: RemoteLedgerEntry[]; truncated?: boolean },
+  offset: number
+): {
+  added: OutputFile[];
+  truncated: boolean;
+  nextOffset: number | null;
+} {
+  const localSet = new Set(localFiles.map((f) => f.path));
+  const base = Math.max(0, Math.floor(offset) || 0);
+  const added: OutputFile[] = [];
+  let skipped = 0;
+  let truncated = false;
+  for (const entry of manifest.files) {
+    if (localSet.has(entry.path)) continue;
+    if (skipped < base) {
+      skipped += 1;
+      continue;
+    }
+    if (added.length >= REMOTE_PAGE) {
+      truncated = true;
+      break;
+    }
+    const name = path.posix.basename(entry.path);
+    added.push({
+      path: entry.path,
+      name,
+      kind: classify(name),
+      size: entry.size,
+      label: friendlyLabel(name, entry.path),
+      remote: true,
+    });
+  }
+  return {
+    added,
+    truncated,
+    nextOffset: truncated ? base + REMOTE_PAGE : null,
+  };
+}

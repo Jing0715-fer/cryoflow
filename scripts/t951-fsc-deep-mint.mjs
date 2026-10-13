@@ -43,7 +43,7 @@ import { execSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-const BASE = "http://localhost:3000";
+const BASE = process.env.MINT_BASE ?? "http://localhost:3000";
 const ORIGIN = `-H "Origin: ${BASE}"`;
 const MANIFEST = path.join(process.cwd(), "data", "t951-fsc-deep-mint.json");
 const MOCK_PROJECTS = path.join(process.cwd(), "services", "mock-cluster", "fs", "projects", "cryoflow");
@@ -138,7 +138,10 @@ const outsOf = (id) => api("GET", `/api/jobs/${id}/outputs`);
 
 // ---- guards ----------------------------------------------------------------
 function guards() {
-  ok("guard: server answers", Array.isArray(jobs()));
+  // t955 amendment ③ — the error-key cure (see t954 mint for the full note)
+  const srvEnv = api("GET", "/api/jobs");
+  ok("guard: server answers", !srvEnv.error && Array.isArray(srvEnv.jobs),
+    srvEnv.error ?? `${(srvEnv.jobs ?? []).length} jobs on the world`);
   const stale = jobs().filter((j) => (j.name ?? "").includes("t951"));
   ok("guard: no stale t951 mints", stale.length === 0,
     stale.length ? `${stale.length} stale — run remove first` : "");

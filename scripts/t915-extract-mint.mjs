@@ -32,7 +32,7 @@ import { execSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-const BASE = "http://localhost:3000";
+const BASE = process.env.MINT_BASE ?? "http://localhost:3000";
 const ORIGIN = `-H "Origin: ${BASE}"`;
 const MANIFEST = path.join(process.cwd(), "data", "t915-extract-mint.json");
 const RECEIPT_DEFAULT = "shots-qa/t915-extract-mint.json";
@@ -78,7 +78,10 @@ const preCount = () => jobs().length;
 
 // ---- the world guards (the t914 lessons, both applied) --------------------
 function guards() {
-  ok("guard: server answers", Array.isArray(jobs()));
+  // t955 amendment ③ — the error-key cure (see t954 mint for the full note)
+  const srvEnv = api("GET", "/api/jobs");
+  ok("guard: server answers", !srvEnv.error && Array.isArray(srvEnv.jobs),
+    srvEnv.error ?? `${(srvEnv.jobs ?? []).length} jobs on the world`);
   // the world must be SINGULAR: no stale t915 mints (a same-name twin makes
   // a finder ride the wrong card — the t914 lesson, word for word)
   const stalePick = findType("autopick").filter((j) => (j.name ?? "").includes("t915"));

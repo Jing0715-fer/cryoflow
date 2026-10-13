@@ -36,7 +36,7 @@ import { execSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-const BASE = "http://localhost:3000";
+const BASE = process.env.MINT_BASE ?? "http://localhost:3000";
 const ORIGIN = `-H "Origin: ${BASE}"`;
 const MANIFEST = path.join(process.cwd(), "data", "t954-class3d-hidden-world.json");
 const MOCK_PROJECTS = path.join(process.cwd(), "services", "mock-cluster", "fs", "projects", "cryoflow");
@@ -150,7 +150,15 @@ const classesOf = (id) => api("GET", `/api/jobs/${id}/classes`);
 // ---- guards ----------------------------------------------------------------
 let PRE_EDGES = 0;
 function guards() {
-  ok("guard: server answers", Array.isArray(jobs()));
+  // t955-postscript amendment ③ — the armor blind spot's cure: api()'s
+  // six-window total-failure return wears { error } — the old guard let it
+  // flow through `.jobs ?? []` into Array.isArray([]) === true and
+  // celebrated a corpse. The guard reads the envelope's error key FIRST:
+  // a dead route fails here, loudly, and the FATAL gate below refuses
+  // the ride before any litter.
+  const srvEnv = api("GET", "/api/jobs");
+  ok("guard: server answers", !srvEnv.error && Array.isArray(srvEnv.jobs),
+    srvEnv.error ?? `${(srvEnv.jobs ?? []).length} jobs on the world`);
   PRE_EDGES = edges().length;
   const stale = jobs().filter((j) => (j.name ?? "").includes("(t954)"));
   ok("guard: no stale t954 mints", stale.length === 0,

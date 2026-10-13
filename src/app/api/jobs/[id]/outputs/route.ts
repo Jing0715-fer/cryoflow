@@ -37,8 +37,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
+    // t956 — the deep band's door: ?remoteOffset=N skips N remote-only
+    // ledger entries before the 300-card page (default 0 = the standing
+    // face, byte-compatible with every existing caller). The response's
+    // remoteNextOffset speaks the next page; garbage/negative → 0.
+    const offsetRaw = request.nextUrl.searchParams.get("remoteOffset");
+    const remoteOffset = Math.max(0, Number.parseInt(offsetRaw ?? "0", 10) || 0);
+
     return NextResponse.json(
-      computeJobOutputs({ id: job.id, type: job.type, status: job.status })
+      computeJobOutputs({ id: job.id, type: job.type, status: job.status }, { remoteOffset })
     );
   } catch (error) {
     console.error("GET /api/jobs/[id]/outputs failed:", error);

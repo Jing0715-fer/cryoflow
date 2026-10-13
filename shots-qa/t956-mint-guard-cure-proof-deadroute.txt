@@ -1,0 +1,7 @@
+== t954 class3d-hidden world mint — mint ==
+  ✗ guard: server answers — the route never answered through six windows
+  ok: guard: no stale t954 mints
+  ok: guard: no stale default-named selections (a crashed ride's mint)
+  ✗ guard: a completed import exists (the chain's root)
+  ✗ guard: Mock Cluster connection present — created NONE
+FATAL: no Mock Cluster connection — cannot ride

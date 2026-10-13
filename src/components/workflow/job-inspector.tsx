@@ -226,6 +226,11 @@ interface OutputsResponse {
   inputs?: { flag: string; path: string }[];
   cmd?: string;
   note?: string;
+  /** t956 — the deep band's door: present when the remote join's 300-card
+   *  page ended on a truncated ledger; the value is the NEXT page's
+   *  ?remoteOffset (the "show 300 more" affordance fetches it). Absent →
+   *  the ledger is spent (or there is no remote world). */
+  remoteNextOffset?: number;
   /** t347 — the live-counted key numbers (the outputs route computes them;
    *  the Overview strip + header chips read this first, the run receipt's
    *  own counts as the fallback). */
@@ -2746,7 +2751,23 @@ const KIND_META: Record<OutputKind, { icon: React.ElementType; color: string; la
   image: { icon: FileText, color: "text-danger-600", label: "PLOT" },
 };
 
-function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | null; reload: () => void }) {
+function FilesTab({
+  job,
+  data,
+  reload,
+  remoteNext,
+  loadingMore,
+  onLoadMore,
+}: {
+  job: JobDTO;
+  data: OutputsResponse | null;
+  reload: () => void;
+  /** t956 — the deep band's door: the next ledger page's offset (null =
+   *  spent — the affordance stays home). */
+  remoteNext: number | null;
+  loadingMore: boolean;
+  onLoadMore: () => void;
+}) {
   const [query, setQuery] = React.useState("");
   const [kindFilter, setKindFilter] = React.useState<OutputKind | "all">("all");
   // t779 — the peek doors' state: textual rows preview IN-APP (the tail
@@ -2944,6 +2965,39 @@ function FilesTab({ job, data, reload }: { job: JobDTO; data: OutputsResponse | 
             </table>
         )}
       </div>
+
+      {/* t956 — the deep band's door: when the remote join's 300-card page
+          ended on a truncated ledger, the ledger's deeper bands (the find's
+          door→spine→front→deep priority — the t944 lesson: with a long
+          root history the budget ended INSIDE the front band) were
+          UNREACHABLE — the note named them and the table never showed
+          them. The affordance spends the next page on demand: one click,
+          300 more honest cards, the door speaks the ledger's own words.
+          A wholesale reload (poll / Refresh) collapses back to the
+          canonical first page — the listing refreshes, the band is one
+          click away again. Paper lists what the document holds — the
+          button is a screen control (no-print), like the filters. */}
+      {remoteNext != null && (
+        <button
+          type="button"
+          data-remote-more=""
+          onClick={onLoadMore}
+          disabled={loadingMore}
+          className="no-print flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground disabled:opacity-50"
+        >
+          {loadingMore ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              Fetching the ledger&apos;s next page…
+            </>
+          ) : (
+            <>
+              <ChevronDown className="size-3.5" aria-hidden="true" />
+              Show 300 more from the cluster ledger
+            </>
+          )}
+        </button>
+      )}
 
       {/* t779 — the peek dialogs: the Files tab speaks the same doors the
           results view speaks (star -> the structured table, text -> the
@@ -4220,6 +4274,14 @@ export function JobInspector() {
 
   // outputs data (Overview + Files) — polled while the job runs
   const [data, setData] = React.useState<OutputsResponse | null>(null);
+  // t956 — the deep band's state: the rows the deeper ledger pages appended,
+  // the next page's door (from the newest response the UI holds), and the
+  // click's in-flight flag. A wholesale reload (poll / Refresh / job switch)
+  // collapses back to the canonical first page — the listing refreshes, the
+  // band is one click away again.
+  const [extraFiles, setExtraFiles] = React.useState<OutputFile[]>([]);
+  const [remoteNext, setRemoteNext] = React.useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = React.useState(false);
   const jobId = job?.id;
   const running = job?.status === "running";
 
@@ -4227,14 +4289,58 @@ export function JobInspector() {
     if (!jobId) return;
     try {
       const res = await fetch(`/api/jobs/${jobId}/outputs`, { cache: "no-store" });
-      if (res.ok) setData((await res.json()) as OutputsResponse);
+      if (res.ok) {
+        const body = (await res.json()) as OutputsResponse;
+        setData(body);
+        setExtraFiles([]);
+        setRemoteNext(body.remoteNextOffset ?? null);
+      }
     } catch {
       /* transient */
     }
   }, [jobId]);
 
+  // t956 — the deep band's click: fetch the next page at the door's offset
+  // and APPEND the rows the UI doesn't hold yet (the response is the full
+  // joined listing at that offset; the diff by path keeps the merge honest
+  // even if the local walk grew between pages). The door moves to the
+  // response's own remoteNextOffset — null collapses the affordance.
+  const loadMoreRemote = React.useCallback(async () => {
+    if (!jobId || remoteNext == null || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/outputs?remoteOffset=${remoteNext}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const body = (await res.json()) as OutputsResponse;
+        const known = new Set([...(data?.files ?? []), ...extraFiles].map((f) => f.path));
+        const fresh = (body.files ?? []).filter((f) => f.remote && !known.has(f.path));
+        if (fresh.length > 0) {
+          setExtraFiles((prev) => [...prev, ...fresh.filter((f) => !prev.some((x) => x.path === f.path))]);
+        }
+        setRemoteNext(body.remoteNextOffset ?? null);
+      }
+    } catch {
+      /* transient — the door stays where it was */
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [jobId, remoteNext, loadingMore, data, extraFiles]);
+
+  // the merged face the Files tab drinks: the canonical first page + the
+  // deeper pages the user has walked to. The kind counts, the "N of M" line
+  // and the search/filter all read the SAME merged truth.
+  const effData = React.useMemo<OutputsResponse | null>(() => {
+    if (!data) return null;
+    if (extraFiles.length === 0) return data;
+    return { ...data, files: [...data.files, ...extraFiles] };
+  }, [data, extraFiles]);
+
   React.useEffect(() => {
     setData(null);
+    setExtraFiles([]);
+    setRemoteNext(null);
     void loadOutputs();
   }, [loadOutputs]);
 
@@ -4474,6 +4580,10 @@ export function JobInspector() {
           <InspectorBody
             job={job}
             data={data}
+            filesData={effData}
+            remoteNext={remoteNext}
+            loadingMore={loadingMore}
+            onLoadMore={() => void loadMoreRemote()}
             tab={tab}
             onTabSelect={(v) => {
               if (inspectId != null) tabTouchedForRef.current = inspectId;
@@ -4522,6 +4632,10 @@ export function JobInspector() {
 function InspectorBody({
   job,
   data,
+  filesData,
+  remoteNext,
+  loadingMore,
+  onLoadMore,
   tab,
   onTabSelect,
   onTabSet,
@@ -4535,6 +4649,15 @@ function InspectorBody({
 }: {
   job: JobDTO;
   data: OutputsResponse | null;
+  /** t956 — the Files tab's merged face: the canonical first page plus the
+   *  deeper ledger pages the user has walked to (Overview keeps the
+   *  canonical `data` — its summary is the server's own word). */
+  filesData: OutputsResponse | null;
+  /** t956 — the deep band's door: the next ledger page's offset (null =
+   *  spent — the affordance stays home). */
+  remoteNext: number | null;
+  loadingMore: boolean;
+  onLoadMore: () => void;
   tab: string;
   onTabSelect: (v: string) => void;
   onTabSet: (v: string) => void;
@@ -4671,7 +4794,14 @@ function InspectorBody({
         </TabsContent>
 
         <TabsContent value="files" {...panelFace("files")} className="mt-0 min-h-0 flex-1 px-5 py-4 sm:px-6">
-          <FilesTab job={job} data={data} reload={onReloadOutputs} />
+          <FilesTab
+            job={job}
+            data={filesData}
+            reload={onReloadOutputs}
+            remoteNext={remoteNext}
+            loadingMore={loadingMore}
+            onLoadMore={onLoadMore}
+          />
         </TabsContent>
       </Tabs>
 
