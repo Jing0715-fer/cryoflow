@@ -31,6 +31,17 @@
  *      refused=0 — B (a class3d) declares the particles mouth; the
  *      plain fire moves C honestly — the face's other half (the
  *      t953 split verdict's shape, now on the 3D ladder).
+ *   T  THE t978 LIVE WORLD'S VERDICTS (the browser witness's
+ *      ground truth, transcribed): the completed class2d/class3d
+ *      pair + the select-shaped graph minted by
+ *      scripts/t978-select-rider-world-mint.mjs (the t975
+ *      recorded-not-cured ①). The mint's verify proves this math at
+ *      the API tier over the LIVE graph; THIS band pins the same
+ *      verdicts node-side so the census re-proves them every window.
+ *      The face: host=class2d renders the rider DISABLED with the
+ *      all-refused port speech; host=class3d HIDES the rider's seat
+ *      while the data would enable (improved > 0) and the plain verb
+ *      stays enabled — THE SHARPEST ABSENCE.
  */
 import { pathToFileURL } from "node:url";
 import path from "node:path";
@@ -128,6 +139,76 @@ eq(plainPlan.alreadyWired.length, 0, "P3 nothing already on B (clean speech — 
  * (W2) — hiding is the mouth-coverage law's choice */
 ok("M6 THE FACE'S HONESTY: the plan would enable (moves=1) while the gate hides (selectWired=false) — the silence is a choice",
   mintPlan.moves.length === 1 && selectWired("class3d") === false);
+
+/* ---------------------------------------------------------------- */
+/* T — the t978 LIVE WORLD's verdicts (the minted pair's graph).      */
+/* ---------------------------------------------------------------- */
+console.log("T — the t978 live world's verdicts (the browser witness's ground truth)");
+const { joinByName, pairedDeltas } = await jiti.import(pathToFileURL(path.join(ROOT, "src/lib/paired-compare.ts")).href);
+const { classRunRow, CLASS_LENSES } = await jiti.import(pathToFileURL(path.join(ROOT, "src/lib/class-compare.ts")).href);
+
+/* the minted graph, transcribed (scripts/t978-select-rider-world-mint.mjs):
+ * NINTH class2d "2D Classification 1 (t978)" + TENTH class3d
+ * "3D Classification 1 (t978)" — the completed pair; C the Classes
+ * Consumer on the CLASSES mouth (the t952 shape), P the Particles
+ * Consumer on the PARTICLES twin (the t954 friendly twin). */
+const A9 = "cmv6u92k90001knqn4rm531jt", B10 = "cmv6u92kt0003knqnl0q3xmvj";
+const C978 = "cmv6u92r70005knqn91ogynuu", P978 = "cmv6u92v00007knqnh7e00xit";
+const t978Jobs = [
+  { id: A9, type: "class2d", name: "2D Classification 1 (t978)" },
+  { id: B10, type: "class3d", name: "3D Classification 1 (t978)" },
+  { id: C978, type: "select2d", name: "Classes Consumer (t978)" },
+  { id: P978, type: "select2d", name: "Particles Consumer (t978)" },
+];
+const t978Edges = [
+  { id: "eC", fromJobId: A9, toJobId: C978, fromPort: "classAverages", toPort: "classes" },
+  { id: "eP", fromJobId: B10, toJobId: P978, fromPort: "particles", toPort: "particles" },
+];
+
+const planA9 = planAdoption({
+  edges: t978Edges, jobs: t978Jobs, fromRunId: A9, toRunId: B10,
+  mintTargetType: "select2d", outputPortsOf: portsOf,
+});
+eq(planA9.moves.length, 0, "T1 host=class2d: the rider's plan MOVES NOTHING — C's classes-mouth wire is refused (moves=0)");
+eq(planA9.refused.map((r) => r.reason), ["port"], "T2 the refusal's reason is PORT — the all-refused disabled speech's ground truth (\"All 1 downstream wire(s) refused — port\")");
+
+const planB10 = planAdoption({
+  edges: t978Edges, jobs: t978Jobs, fromRunId: B10, toRunId: A9,
+  mintTargetType: "select2d", outputPortsOf: portsOf,
+});
+eq(planB10.moves.length, 1, "T3 host=class3d: the plan WOULD MOVE P's particles wire (moves=1 — the M-pin's live twin)");
+eq(planB10.moves[0]?.edge.id, "eP", "T4 the moved wire IS P's particles edge");
+eq(planB10.refused.length, 0, "T5 the plan refuses NOTHING — the gate's hiding is never the port guard's");
+
+const plainB10 = planAdoption({
+  edges: t978Edges, jobs: t978Jobs, fromRunId: B10, toRunId: A9,
+  outputPortsOf: portsOf,
+});
+eq(plainB10.moves.length, 1, "T6 the PLAIN verb stays enabled on the class3d host too (moves=1 — the hiding is the rider's, not the dialog's death)");
+
+/* the occupancy law — the pair's whole arithmetic (one 1200-particle
+ * population classified in 2D and in 3D; the fractions are the exact
+ * decimal shares the routes answer) */
+const occA = [
+  { cls: 1, count: 480, fraction: 0.4 }, { cls: 2, count: 300, fraction: 0.25 },
+  { cls: 3, count: 240, fraction: 0.2 }, { cls: 4, count: 180, fraction: 0.15 },
+];
+const occB = [
+  { cls: 1, count: 420, fraction: 0.35 }, { cls: 2, count: 540, fraction: 0.45 },
+  { cls: 3, count: 240, fraction: 0.2 },
+];
+const rowsA = occA.map(classRunRow), rowsB = occB.map(classRunRow);
+const lens = CLASS_LENSES.share;
+const deltasA9 = pairedDeltas(joinByName(rowsA, rowsB).pairs, lens);
+const deltasB10 = pairedDeltas(joinByName(rowsB, rowsA).pairs, lens);
+const impA9 = deltasA9.filter((d) => d.kind === "improved").map((d) => d.name);
+const impB10 = deltasB10.filter((d) => d.kind === "improved").map((d) => d.name);
+eq(impA9, ["Class 002"], "T7 host=class2d: improved = [Class 002] (0.25 → 0.45) — the rider renders (improved > 0)");
+eq(impB10, ["Class 001"], "T8 host=class3d: improved = [Class 001] (0.35 → 0.40) — the data WOULD enable (improved > 0)");
+ok("T9 THE SHARPEST ABSENCE (the face's whole honesty in one pin): improved > 0 on BOTH hosts while the gate hides ONLY the class3d seat",
+  impA9.length > 0 && impB10.length > 0 && selectWired("class2d") === true && selectWired("class3d") === false);
+eq(new Set([occA.reduce((s, c) => s + c.count, 0), occB.reduce((s, c) => s + c.count, 0)]).size, 1,
+  "T10 the totals agree (1200 both — one population, classified in 2D and in 3D; the join pairs cleanly)");
 
 /* ---------------------------------------------------------------- */
 console.log(`\nt954-hidden-gate-unit: ${pass}/${pass + fail} ${fail === 0 ? "green" : "RED"}`);
