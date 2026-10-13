@@ -69,10 +69,32 @@ sleep 1
 # to compile the home graph; 896 dies with "Ineffective mark-compacts".
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--max-old-space-size=${DEV_HEAP_MB:-896}"
 # t377 — HARD overrides: the sandbox tool environment itself exports a
-# TEMPLATE DATABASE_URL (my-project's custom.db); `${VAR:-…}` passthrough
-# would poison Prisma into a User/Post-only database. These two are always
-# pinned to THIS repo's own paths.
-export DATABASE_URL="file:$REPO_ROOT/db/cryoflow.db"
+# TEMPLATE DATABASE_URL; `${VAR:-…}` passthrough would poison Prisma into
+# a User/Post-only database. Always pinned to THIS repo's own paths.
+# t867 — the pin learns to READ the repo's own .env first (the single
+# source of truth): the restored world's live data (the seed + the healer's
+# 15-node chain) landed in db/custom.db through the cron boot's plain
+# `next dev` (which reads .env), while this script's frozen cryoflow.db pin
+# booted the watchdog churn loop against a 0-byte DB (P2021 every route).
+# .env's file: URL mirrors Prisma's own resolution (absolute kept; relative
+# resolved from prisma/); absent .env, the t377-era cryoflow.db pin stands.
+_prisma_env_url() {
+  local envf="$REPO_ROOT/.env"
+  [ -f "$envf" ] || return 1
+  local url
+  url=$(grep -E '^[[:space:]]*DATABASE_URL=' "$envf" | tail -1 | sed -E 's/^[^=]*=[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
+  [ -n "$url" ] || return 1
+  case "$url" in
+    file:/*) echo "$url" ;;
+    file:*)  echo "file:$REPO_ROOT/prisma/${url#file:}" ;;
+    *)       echo "$url" ;;
+  esac
+}
+if _pin_from_env=$(_prisma_env_url); then
+  export DATABASE_URL="$_pin_from_env"
+else
+  export DATABASE_URL="file:$REPO_ROOT/db/cryoflow.db"
+fi
 export CRYOFLOW_DATA_DIR="$REPO_ROOT/data"
 export CRYOFLOW_TRUST_GATEWAY=1
 # t402 — spawn under NODE explicitly: `bunx next` / `bun next` make BUN the
