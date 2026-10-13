@@ -96,10 +96,22 @@ ok("B5 TextPreview's empty face speaks its honesty (the t967 kind note: the hook
   tp.includes('data-canvas-ui="text-preview-empty-note"') &&
   tp.includes("0 bytes — nothing to read") &&
   tp.includes('{text === "" && ('));
-99
+
 const rider = srcOf("scripts/t966-peek-fold-rider.mjs");
 ok("B6 the cure traveled by ADDITION — the rider's gate pins the note both ways (present on the empty face, absent on the non-empty tail)",
   rider.includes("the KIND NOTE") && rider.includes("the note is CONDITIONAL"));
+
+/* ---------- G — the WIDE-SURFACE band: the Overview's mrc wall ---------- */
+const gallery = srcOf("src/components/workflow/results/import-gallery.tsx");
+ok("G1 the wall's narrow step (the t968 cure: grid-cols-2 at the fold, the sm/lg steps keep the wide walls dense)",
+  gallery.includes('"grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-5"'));
+ok("G2 the compare tray's own steps still speak narrow-first (the cure touched ONE grid, never the tray)",
+  gallery.includes('pickedEntries.length === 3 ? "grid-cols-3"') && gallery.includes('"grid-cols-2 sm:grid-cols-4"'));
+const eyeball = srcOf("scripts/t968-empty-note-eyeball.mjs");
+const stepWit = srcOf("scripts/t968-gallery-step-witness.mjs");
+ok("M7 the t968 instruments stand (the eyeball's two widths + the step witness's two modes — the look and the squish are contracts now)",
+  eyeball.includes('process.env.WIDE') && eyeball.includes('320 fold') &&
+  stepWit.includes('process.env.BEFORE === "1"') && stepWit.includes("W2 the squish") && stepWit.includes("G1 the narrow step"));
 
 /* ---------- A — the file-wide tree guard ---------- */
 const monoDescs = (src) => [...src.matchAll(/<DialogDescription className="([^"]*)"/g)]
@@ -129,5 +141,5 @@ ok("M5 the rider carries both modes (the BEFORE witness + the gate)",
 ok("M6 the rider walks all three doors (the star, the long tail, the empty face)",
   rider.includes('Preview ${rowName}') && rider.includes('clickPreview("run.err"') && rider.includes('aria-label="File content preview"'));
 
-console.log(`\nPEEK-FOLD-UNIT t966: ${pass}/${pass + fail} ${fail === 0 ? "green — the t913 grammar lives in BOTH families, the empty face speaks its honesty, the tree guard is file-wide" : "RED"}`);
+console.log(`\nPEEK-FOLD-UNIT t966: ${pass}/${pass + fail} ${fail === 0 ? "green — the t913 grammar lives in BOTH families, the empty face speaks its honesty, the mrc wall takes the narrow step, the tree guard is file-wide" : "RED"}`);
 process.exit(fail === 0 ? 0 : 1);

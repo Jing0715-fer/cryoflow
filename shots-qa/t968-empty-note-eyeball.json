@@ -1,0 +1,24 @@
+{
+  "mode": "wide",
+  "look": {
+    "dialogW": 768,
+    "dialogOverX": false,
+    "noteW": 718,
+    "noteH": 34,
+    "noteTop": 363,
+    "copyTop": 403,
+    "preTop": 437,
+    "preFocused": true,
+    "words": "0 bytes — nothing to read. The file exists but is empty — an honest tail of nothing.",
+    "fontSize": "12px",
+    "radius": "8px",
+    "border": "oklab(0.901997 -0.00690284 -0.00576383 / 0.6)",
+    "bgComposite": "rgb(245,249,250)",
+    "fgColor": "lab(44.7417 -4.68659 -7.11929)",
+    "fgParsed": "rgb(92,109,117)",
+    "contrast": 5.08,
+    "lines": 2
+  },
+  "pass": 7,
+  "fail": 0
+}

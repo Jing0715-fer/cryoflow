@@ -388,8 +388,15 @@ export function ImportGallery({
         </div>
       </div>
 
-      {/* thumbnail grid */}
-      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
+      {/* thumbnail grid — t968: the narrow step. The wall spoke
+          grid-cols-3 at EVERY width; at the 320 fold that starved the
+          cells to 76px inside a ~260px panel (the t968 before-witness's
+          numbers). Two columns at the fold give the thumbnails back
+          their ~117px faces; the sm/lg steps keep the wide walls dense.
+          The recorded panel overflow (panelOverX) is the Overview's
+          OTHER mouths — the ResultSummary card's chip row and the
+          two-column grid's min-content — a separate offender-walk. */}
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
         {micrographs.map((m, i) => {
           const pickNo = picks.indexOf(m.path); // -1 unpicked, else 1-based tray order
           const picked = pickNo >= 0;
