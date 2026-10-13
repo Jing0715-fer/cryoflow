@@ -2811,7 +2811,12 @@ function FilesTab({
           />
         </div>
         {/* kind quick-filters */}
-        <div className="flex items-center gap-1" role="group" aria-label="Filter by file kind">
+        {/* the wrap keeps the kind chips' own min-content honest at a
+            320 fold — an unwrapped chip ROW is one unbreakable 326px
+            block, and it was that block (not the table) that blew the
+            dialog's width at the narrow viewport (the t963 probe's
+            offender chain: chips row → filter row → tab panel → dialog) */}
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter by file kind">
           {(["all", ...(Object.keys(KIND_META) as OutputKind[])] as const).map((k) => {
             const active = kindFilter === k;
             const count = k === "all" ? (data?.files.length ?? 0) : (kindCounts.get(k as OutputKind) ?? 0);
@@ -4827,7 +4832,7 @@ function InspectorBody({
         >
           <FolderOpen className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="shrink-0 font-medium">workdir</span>
-          <span className="truncate font-mono" title={data.workdir}>
+          <span className="min-w-0 truncate font-mono" title={data.workdir}>
             {data.workdir}
           </span>
           <span className="ml-auto shrink-0">
