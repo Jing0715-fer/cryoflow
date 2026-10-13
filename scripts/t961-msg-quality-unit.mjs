@@ -173,6 +173,105 @@ const clientSites = [];
   ok("M12 the connect refusal names both ends", store.includes("the connection ${fromName} → ${toName} could not be saved") && !store.includes('"Failed to connect"'));
 }
 
+/* ---- Q1–Q8 (t973): the FOURTH pass — multi-line silent catches,
+   the noun-failed blind spot, and the empty-state why-law ----
+ * The first pass caught `<verb> failed` (verb-INITIAL texts); the fourth
+ * pass closed the blind spot it left: `<noun-phrase> failed` texts escaped
+ * ("heatmap aggregation failed", "Sub-volume export failed") — both were
+ * binding-less catches that swallowed the exception silently. The same
+ * sweep found the malformed-body door split into THREE spellings
+ * ("invalid JSON body" / "Invalid JSON body." / "Invalid JSON body"),
+ * every one a silent swallow. And the empty-state census (11 JSX "No…"
+ * headings + 2 state-disabled refusal titles) found the house pattern
+ * holding everywhere — the why-sentence sibling or the fixing affordance
+ * always present — pinned as a CLOSED allowlist so a new unnamed face
+ * reddens the unit until it is judged. */
+{
+  /* the noun-failed blind spot: any "* failed" text whose first word is
+   * not a known verb must be in the judged allowlist ("Map scan failed"
+   * stands from the first pass — it names the operation and no reason
+   * exists in scope; the two 500 doors are cured to the birthplace) */
+  const NOUN_FAILED_OK = new Set(["Map scan failed"]);
+  const nounFailed = sites.filter(
+    (s) =>
+      s.text.trim().toLowerCase().endsWith("failed") &&
+      s.text.trim().includes(" ") &&
+      !VERB_ONLY.test(s.text.trim()) &&
+      !NOUN_FAILED_OK.has(s.text.trim())
+  );
+  ok("Q1 the noun-failed blind spot is closed (zero escapes outside the judged allowlist)", nounFailed.length === 0, nounFailed.slice(0, 3).map((s) => `"${s.text}" ${s.f}:${s.line}`).join(", "));
+
+  const heatmap = readFileSync(path.join(ROOT, "src/app/api/activity/heatmap/route.ts"), "utf8");
+  ok("Q2 the heatmap door rides the birthplace (binding + log + honest message)", heatmap.includes('serverErrorReply("GET /api/activity/heatmap", error)') && !heatmap.includes("heatmap aggregation failed"));
+  const subvol = readFileSync(path.join(ROOT, "src/app/api/jobs/[id]/outputs/subvolume/route.ts"), "utf8");
+  ok("Q3 the sub-volume door rides the birthplace (binding + log + honest message)", subvol.includes('serverErrorReply("GET /api/jobs/[id]/outputs/subvolume", error)') && !subvol.includes("Sub-volume export failed"));
+
+  const se = readFileSync(path.join(ROOT, "src/lib/server-error.ts"), "utf8");
+  ok("Q4 badJsonReply is the family's birthplace (400 + the log line + one spelling)", se.includes("refused its body:") && se.includes('{ error: "Invalid JSON body" }, { status: 400 }'));
+
+  const bjCount = apiFiles.reduce((n, f) => n + (readFileSync(f, "utf8").match(/badJsonReply\(/g) ?? []).length, 0);
+  ok("Q5 the six malformed-body doors ride the birthplace", bjCount >= 6, `sites=${bjCount}`);
+
+  const allSrc = walk(path.join(ROOT, "src")).filter((f) => !f.endsWith("src/lib/server-error.ts"));
+  let lower = 0, period = 0;
+  for (const f of allSrc) {
+    const src = readFileSync(f, "utf8");
+    lower += (src.match(/"invalid JSON body"/g) ?? []).length;
+    period += (src.match(/"Invalid JSON body\."/g) ?? []).length;
+  }
+  ok("Q6 ONE spelling — the lowercase and period dialects are extinct (the birthplace's own docstring quotes the dead words)", lower === 0 && period === 0, `lower=${lower} period=${period}`);
+
+  let literal = 0;
+  for (const f of apiFiles) literal += (readFileSync(f, "utf8").match(/\{ error: "Invalid JSON body" \}/g) ?? []).length;
+  ok("Q7 the sentence lives ONLY at the birthplace (zero literals in the route tree)", literal === 0, `literals=${literal}`);
+
+  /* the empty-state why-law: every JSX "No …/Nothing …" face is in the
+   * CLOSED judged allowlist — each was inspected and its why SPOKEN:
+   * a muted why-sentence sibling (class-gallery 653/732, job-panel 1492,
+   * palette 970, project-dashboard 3481, project-panel 263,
+   * remote-cluster-dialog 2069, remote-run-button 828,
+   * results-view 960/992), an inline em-dash why (hpc-queue-sim 610,
+   * job-panel 530, project-dashboard 2480, remote-cluster-dialog 291),
+   * the muted face IS the why (particle-browser 316,
+   * remote-cluster-dialog 2018), a title-on-disabled refusal
+   * (job-panel 330), a receipt whose clauses speak (user-preset-shelf
+   * 469), or the fixing affordance beside it (workspace-panel 478).
+   * The regex demands a word boundary (No+space / Nothing) so labels
+   * like "Note"/"Noted"/"None" stay out of the family. A NEW unnamed
+   * face reddens this unit until it is judged. */
+  const EMPTY_OK = [
+    ["src/components/workflow/class-gallery.tsx", 2],
+    ["src/components/workflow/hpc-queue-sim.tsx", 1],
+    ["src/components/workflow/job-panel.tsx", 3],
+    ["src/components/workflow/palette.tsx", 1],
+    ["src/components/workflow/project-dashboard.tsx", 2],
+    ["src/components/workflow/project-panel.tsx", 1],
+    ["src/components/workflow/remote-cluster-dialog.tsx", 3],
+    ["src/components/workflow/remote-run-button.tsx", 1],
+    ["src/components/workflow/results/particle-browser.tsx", 1],
+    ["src/components/workflow/results/results-view.tsx", 2],
+    ["src/components/workflow/user-preset-shelf.tsx", 1],
+    ["src/components/workflow/workspace-panel.tsx", 1],
+  ];
+  const compFiles = walk(path.join(ROOT, "src/components"));
+  const found = [];
+  for (const f of compFiles) {
+    const src = readFileSync(f, "utf8");
+    const n = (src.match(/>\s*(?:Nothing\b|No\s)[\w\s,—\-''""().!?]{0,70}</g) ?? []).length;
+    if (n > 0) found.push([path.relative(ROOT, f), n]);
+  }
+  const expected = EMPTY_OK.map(([f, n]) => `${f}:${n}`).join(" ");
+  const actual = found.map(([f, n]) => `${f}:${n}`).join(" ");
+  ok(
+    "Q8 the empty-state why-law is the closed judged allowlist (19 faces, every why spoken)",
+    found.length === EMPTY_OK.length && found.every(([f, n]) => EMPTY_OK.some(([ef, en]) => ef === f && en === n)),
+    `expected [${expected}] actual [${actual}]`
+  );
+
+  const ceb = readFileSync(path.join(ROOT, "src/components/workflow/results/chart-export-buttons.tsx"), "utf8");
+  ok("Q9 the export refusals speak on hover (title carries the why, aria-label the action)", ceb.includes('"No data to export yet"') && ceb.includes('"No data to copy yet"') && ceb.includes("aria-label={`Export ${name} as CSV`}"));
+}
+
 /* ---- the receipt ---- */
 const receipt = { instrument: "t961-msg-quality-unit", pass, fail, at: new Date().toISOString() };
 const { writeFileSync, mkdirSync } = await import("node:fs");

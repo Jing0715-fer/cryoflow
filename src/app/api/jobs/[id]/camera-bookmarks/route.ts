@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
-import { serverErrorMessage, serverErrorReply } from "@/lib/server-error";
+import { serverErrorMessage, serverErrorReply, badJsonReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -206,8 +206,8 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   let body: unknown;
   try {
     body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+  } catch (error) {
+    return badJsonReply("PUT /api/jobs/[id]/camera-bookmarks", error);
   }
   const bookmarks = sanitize((body as { bookmarks?: unknown } | null)?.bookmarks);
   try {

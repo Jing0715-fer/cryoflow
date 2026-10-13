@@ -3,7 +3,7 @@ import { type CleanupTierId } from "@/lib/hpc/cleanup";
 import { computeCleanupPlan } from "@/lib/relion/cleanup-plan";
 import { runCleanupExclusive } from "@/lib/relion/cleanup-execute";
 import { isLocalRequest } from "@/lib/http-guard";
-import { serverErrorReply } from "@/lib/server-error";
+import { badJsonReply, serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -88,8 +88,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     let body: { local?: boolean; remote?: boolean; tiers?: string[] };
     try {
       body = (await request.json()) as typeof body;
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    } catch (error) {
+      return badJsonReply("POST /api/jobs/[id]/cleanup", error);
     }
     const scopes = { local: body.local === true, remote: body.remote === true };
     const tiers = (Array.isArray(body.tiers) ? body.tiers : []).filter(

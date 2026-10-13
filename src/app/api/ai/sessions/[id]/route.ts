@@ -5,7 +5,7 @@ import {
   renameSessionForActiveProject,
   sessionForActiveProject,
 } from "@/lib/ai/agent";
-import { serverErrorReply } from "@/lib/server-error";
+import { badJsonReply, serverErrorReply } from "@/lib/server-error";
 import { sessionFileName, sessionToExportJson, sessionToMarkdown } from "@/lib/ai/export";
 import { toolCallsUsed } from "@/lib/ai/sessions";
 import { getActiveProject } from "@/lib/projects";
@@ -95,8 +95,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     let body: { title?: unknown };
     try {
       body = (await request.json()) as { title?: unknown };
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    } catch (error) {
+      return badJsonReply("PATCH /api/ai/sessions/[id]", error);
     }
     if (typeof body.title !== "string") {
       return NextResponse.json({ error: "title must be a string." }, { status: 400 });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
 import { sanitizePresetShelf } from "@/lib/param-preset-sanitize";
-import { serverErrorMessage, serverErrorReply } from "@/lib/server-error";
+import { serverErrorMessage, serverErrorReply, badJsonReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -69,8 +69,8 @@ export async function PUT(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+  } catch (error) {
+    return badJsonReply("PUT /api/param-presets", error);
   }
   const presets = sanitizePresetShelf((body as { presets?: unknown } | null)?.presets);
   try {

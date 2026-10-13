@@ -7,7 +7,7 @@ import {
   fetchRemoteFileIntoWorkdir,
   readRemoteManifest,
 } from "@/lib/remote/remote-files";
-import { serverErrorReply } from "@/lib/server-error";
+import { badJsonReply, serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -80,8 +80,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     let bodyPaths: unknown;
     try {
       bodyPaths = (await request.json())?.paths;
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    } catch (error) {
+      return badJsonReply("POST /api/jobs/[id]/outputs/sync", error);
     }
     if (
       !Array.isArray(bodyPaths) ||

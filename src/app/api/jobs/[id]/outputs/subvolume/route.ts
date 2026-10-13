@@ -6,6 +6,7 @@ import { readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { isMrcPath, readMrcHeader, readMrcSubvolume } from "@/lib/mrc";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         "Cache-Control": "no-cache",
       },
     });
-  } catch {
-    return NextResponse.json({ error: "Sub-volume export failed" }, { status: 500 });
+  } catch (error) {
+    return serverErrorReply("GET /api/jobs/[id]/outputs/subvolume", error);
   }
 }

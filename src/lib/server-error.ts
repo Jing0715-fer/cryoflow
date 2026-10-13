@@ -34,3 +34,20 @@ export function serverErrorReply(tag: string, error: unknown): NextResponse {
   console.error(`${tag} failed:`, error);
   return NextResponse.json({ error: serverErrorMessage(tag, error) }, { status: 500 });
 }
+
+/**
+ * badJsonReply — the one birthplace for the malformed-body refusal
+ * (t973, the message-quality round's FOURTH pass). Six doors spoke
+ * "invalid JSON body" / "Invalid JSON body." / "Invalid JSON body" —
+ * three spellings of the same sentence, every one of them a binding-less
+ * catch that swallowed the SyntaxError silently. This birthplace binds,
+ * LOGS the parse error under the caller's tag (the swallow is extinct —
+ * the reason is in the server log for the first time), and speaks ONE
+ * spelling by construction. The 400 stays 400: refusing a body is the
+ * door's honest word, not a failure — the detail rides the log, the
+ * client hears the class sentence.
+ */
+export function badJsonReply(tag: string, error: unknown): NextResponse {
+  console.error(`${tag} refused its body:`, error);
+  return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+}
