@@ -104,6 +104,25 @@ const { diagnoseFailureLog } = await import("@/lib/log-diagnosis");
   ok("D6 a clean log yields no findings (the healthy face stays silent)", clean.length === 0, `got ${clean.length}`);
 }
 
+/* ---- L: the log strip's fold contract (t971 — the teaser's sibling) ---- */
+{
+  /* the strip renders only when the tail window's findings are non-empty,
+   * INSIDE the log console, between toolbar and scroll area */
+  const consoleIdx = inspector.indexOf('data-log-console=""');
+  const stripIdx = inspector.indexOf('data-log-diagnosis=""');
+  ok("L1 the strip exists at data-log-diagnosis", stripIdx > 0);
+  ok("L2 the strip lives INSIDE the log console (after its opening)", stripIdx > consoleIdx && consoleIdx > 0);
+  ok("L3 the strip gates on findings.length > 0 (the tail window's diagnosis)", /findings\.length > 0 \?/.test(inspector));
+  ok("L4 the strip keeps its lane (shrink-0 — the log scrolls beneath)", /data-log-diagnosis[\s\S]{0,200}shrink-0/.test(inspector));
+  ok("L5 the head's provenance note hides below xl (the honest hiding)", /diag-ml hidden truncate[^"]*xl:inline/.test(inspector));
+  ok("L6 the findings list caps at max-h-52 with its OWN scroll (the one-axis law)", /max-h-52 space-y-1\.5 overflow-y-auto/.test(inspector));
+  ok("L7 the list is the focusable reading face (tabIndex 0 — the t780 law)", /<ul\s+tabIndex=\{0\}/.test(inspector));
+  ok("L8 every finding's label truncates (diag-label truncate)", inspector.includes("diag-label truncate"));
+  ok("L9 every finding's excerpt truncates in mono (diag-excerpt mt-1 truncate font-mono)", inspector.includes("diag-excerpt mt-1 truncate font-mono"));
+  ok("L10 the hint WRAPS and never truncates (diag-hint flex items-start, no truncate)", /diag-hint mt-1 flex items-start gap-1(?!.*truncate)/.test(inspector));
+  ok("L11 the line badge carries first-line + ×N (the count rides the badge)", inspector.includes("L{f.firstLine}") && inspector.includes("· ×${f.count}"));
+}
+
 /* ---- M: the instruments' contracts ---- */
 {
   const mint = readFileSync(path.join(ROOT, "scripts/t970-failed-face-mint.mjs"), "utf8");
@@ -118,6 +137,12 @@ const { diagnoseFailureLog } = await import("@/lib/log-diagnosis");
   ok("M7 the gate pins the panel-tier law on this face (G1 panelOverX FALSE)", walk.includes("G1 the panel never overflows at the fold"));
   ok("M8 the exoneration is the walk's law (every leak aria-named with an absolute ::before)", walk.includes("every LEAK button is an aria-named hit-slop carrier"));
   ok("M9 the teaser poll waits for the async leg before measuring", walk.includes("the diagnosis teaser never rendered"));
+
+  const stripWalk = readFileSync(path.join(ROOT, "scripts/t971-log-strip-walk.mjs"), "utf8");
+  ok("M10 the t971 walk has the two modes (BEFORE records, GATE gates)", stripWalk.includes('GATE = process.env.GATE === "1"') && stripWalk.includes("the BEFORE witness"));
+  ok("M11 the t971 gate owns the strip's fold contract (G1..G8)", stripWalk.includes("G1 the panel never overflows at the fold") && stripWalk.includes("G8 the PNG receipts landed"));
+  ok("M12 the t971 walk polls the strip's async leg before measuring", stripWalk.includes("the log diagnosis strip never rendered"));
+  ok("M13 the exoneration law rides BOTH walks (the aria+pseudoAbs gate)", stripWalk.includes("every LEAK button is an aria-named hit-slop carrier"));
 }
 
 /* ---- A: the tree pairing guard ---- */
