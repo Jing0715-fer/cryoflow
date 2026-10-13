@@ -17,7 +17,35 @@
  * exists byte-for-byte on SOME bookmark row. The row's jobId is
  * provenance now — printed, never gated on.
  */
-process.env.DATABASE_URL = "file:/home/z/my-project/db/cryoflow.db";
+/* t868 — THE FILE PIN RETARGETED (the t861 lesson's third bite, the t867
+ * armor's own form): the frozen cryoflow.db pin is world-state, not law —
+ * the restored world's live data rides db/custom.db through the .env the
+ * dev server itself reads (the t867 fix), and the frozen file is a 0-byte
+ * corpse that answered "table does not exist" with a confident tone (the
+ * t825 lesson's exact shape, one layer down). The pin now resolves .env's
+ * DATABASE_URL by Prisma's own rule (absolute kept, relative from
+ * prisma/), the frozen pin stands as fallback — the armor retargeted,
+ * not dropped. The world the leg reads is NAMED at the gate (t825). */
+import { readFileSync, existsSync } from "node:fs";
+import { join, isAbsolute } from "node:path";
+const FROZEN_PIN = "file:/home/z/my-project/db/cryoflow.db";
+const envUrl = (() => {
+  try {
+    const envPath = join(process.cwd(), ".env");
+    if (!existsSync(envPath)) return null;
+    const m = /(?:^|\n)\s*DATABASE_URL\s*=\s*"?([^"\n\r]+)"?/.exec(readFileSync(envPath, "utf8"));
+    if (!m) return null;
+    const v = m[1].trim();
+    if (!v.startsWith("file:")) return null;
+    const p = v.slice(5);
+    const abs = isAbsolute(p) ? p : join(process.cwd(), "prisma", p);
+    return "file:" + abs;
+  } catch {
+    return null;
+  }
+})();
+process.env.DATABASE_URL = envUrl ?? FROZEN_PIN;
+console.log(`census-leg db pin: ${process.env.DATABASE_URL} (${envUrl ? ".env-first, the t867 armor" : "the frozen fallback"})`);
 const { PrismaClient } = await import("@prisma/client");
 
 const canon = ["Centered iso view", "Top-down slice", "Front half clipped"];
