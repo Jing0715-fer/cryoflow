@@ -5,14 +5,22 @@ import * as SliderPrimitive from "@radix-ui/react-slider"
 
 import { cn } from "@/lib/utils"
 
+type SliderProps = React.ComponentProps<typeof SliderPrimitive.Root> & {
+  /** t870 — per-thumb names for a multi-thumb range (index-aligned): a
+   *  dual-thumb range speaks one name per door, never one name for two
+   *  controls. A plain string `aria-label` still names EVERY thumb. */
+  thumbLabels?: string[]
+}
+
 function Slider({
   className,
   defaultValue,
   value,
   min = 0,
   max = 100,
+  thumbLabels,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: SliderProps) {
   const _values = React.useMemo(
     () =>
       Array.isArray(value)
@@ -53,7 +61,10 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
-          aria-label={typeof props["aria-label"] === "string" ? props["aria-label"] : undefined}
+          aria-label={
+            thumbLabels?.[index] ??
+            (typeof props["aria-label"] === "string" ? props["aria-label"] : undefined)
+          }
           className="border-primary bg-background ring-ring/50 block size-4 shrink-0 rounded-full border shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
         />
       ))}

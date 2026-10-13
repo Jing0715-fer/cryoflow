@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CopyPlus, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Link2, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
+import { Axis3d, BookOpen, Bookmark, BoxSelect, Camera, Check, ClipboardCopy, CopyPlus, Crop, Download, FileJson, FilePlus2, FileText, FolderOpen, FolderPlus, Layers, Link2, Loader2, Mountain, Orbit, Pencil, Plus, RefreshCcw, RotateCw, ScanLine, Scissors, TriangleAlert, Upload, Video, X, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -3984,6 +3984,14 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     rev: number;
   }>({ on: false, x: 1, y: 1, z: 1, invert: false, box: null, rev: 0 });
   const clipPending = useRef(false);
+  /** t870 — the section tool's render mirror of the box language: the ref
+   *  alone can't re-render a slider drag. applyClipIntent is the ONE box
+   *  writer (sliders, toggle, promote, anchor, bookmark restore), so the
+   *  mirror set there is the panel's render truth; `origin` keeps the
+   *  t260 door's honest "anchored" word while a promoted/restored box
+   *  speaks "section box". */
+  const [clipBoxLive, setClipBoxLive] = useState<ClipBoxState | null>(null);
+  const [clipBoxOrigin, setClipBoxOrigin] = useState<"anchor" | "live">("live");
 
   /** cartesian box origin + extents (+ basis columns & grid dims) of the
    *  loaded volume, derived from the authoritative
@@ -4163,6 +4171,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       z: number;
       invert: boolean;
       box: ClipBoxState | null;
+      /** t870 — who the box belongs to: the t260 door's anchor speaks
+       *  "anchored"; a promoted or restored box speaks "section box".
+       *  Consumed here, never stored on the ref. */
+      origin?: "anchor" | "live";
     }>
   ) => {
     // box semantics: ANY intent without an explicit box leaves the slider
@@ -4170,9 +4182,10 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     // anchored box (a first drag converts the read-only anchor into live
     // slider geometry); only a bookmark restore or applyClipBoxIntent
     // carries one
+    const { origin, ...rest } = patch;
     clipStateRef.current = {
       ...clipStateRef.current,
-      ...patch,
+      ...rest,
       box: patch.box !== undefined ? patch.box : null,
       rev: clipStateRef.current.rev + 1,
     };
@@ -4181,6 +4194,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
     if (patch.x !== undefined) setClipX(patch.x);
     if (patch.y !== undefined) setClipY(patch.y);
     if (patch.z !== undefined) setClipZ(patch.z);
+    // t870 — the section tool's render mirror: the panel reads STATE, the
+    // pump reads the ref; every writer flows through THIS door, so setting
+    // the mirror here keeps the two honest (a box-only edit never touches
+    // x/y/z — without the mirror the panel would film a stale frame)
+    setClipBoxLive(clipStateRef.current.box);
+    if (patch.box) setClipBoxOrigin(origin ?? "live");
     void pumpClip();
     // 3D → 2D echo (t253): the ortho tiles speak the clip's state — a kept-
     // region outline on surviving planes, a "clipped" badge on removed ones
@@ -4204,7 +4223,12 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
    *  The sliders stand down (their states park at 1 = uncut); the panel
    *  shows the box readout, the wireframe draws the box, the 2D tiles speak
    *  its kept intervals and the export/send buttons read keptFractions. */
-  const applyClipBoxIntent = (lo: [number, number, number], hi: [number, number, number]) => {
+  const applyClipBoxIntent = (
+    lo: [number, number, number],
+    hi: [number, number, number],
+    /** t870 — the t260 door anchors (default); the section tool promotes */
+    origin: "anchor" | "live" = "anchor"
+  ) => {
     applyClipIntent({
       on: true,
       x: 1,
@@ -4212,7 +4236,54 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
       z: 1,
       invert: false,
       box: { lo: [...lo], hi: [...hi] },
+      origin,
     });
+  };
+
+  /* t870 — the section tool: the general box language becomes
+     user-editable. Both bounds per axis are slider thumbs (a 0.02 minimum
+     span — the same floor the slider language parks its planes at; a
+     collapsed box would clip the whole map away). Each change re-speaks
+     the ONE intent door, which re-commits the shader planes, re-projects
+     the wireframe, re-echoes the 2D tiles and re-labels export/send
+     through keptFractions — one geometry, every surface follows. */
+  const SECTION_MIN_SPAN = 0.02;
+  const commitSectionBounds = (axisIdx: 0 | 1 | 2, loIn: number, hiIn: number) => {
+    const box = clipStateRef.current.box;
+    if (!box) return;
+    let lo = Math.min(1, Math.max(0, Math.round(loIn * 100) / 100));
+    let hi = Math.min(1, Math.max(0, Math.round(hiIn * 100) / 100));
+    if (hi - lo < SECTION_MIN_SPAN) {
+      // the DRIVEN bound stays honest, the other clamps — a low-thumb drag
+      // pushes the high thumb, a high-thumb drag pulls the low one back
+      if (lo < box.lo[axisIdx]) hi = Math.min(1, lo + SECTION_MIN_SPAN);
+      else lo = Math.max(0, hi - SECTION_MIN_SPAN);
+    }
+    const nextLo: [number, number, number] = [...box.lo];
+    const nextHi: [number, number, number] = [...box.hi];
+    nextLo[axisIdx] = lo;
+    nextHi[axisIdx] = hi;
+    applyClipIntent({ box: { lo: nextLo, hi: nextHi }, origin: "live" });
+  };
+  const resetSectionAxis = (axisIdx: 0 | 1 | 2) => {
+    const box = clipStateRef.current.box;
+    if (!box) return;
+    const nextLo: [number, number, number] = [...box.lo];
+    const nextHi: [number, number, number] = [...box.hi];
+    nextLo[axisIdx] = 0;
+    nextHi[axisIdx] = 1;
+    applyClipIntent({ box: { lo: nextLo, hi: nextHi }, origin: "live" });
+  };
+  /** the slider language hands its resolved intervals to the box language
+   *  (keptFractions IS the resolution: frac + invert → [lo, hi] per axis) */
+  const promoteToSectionBox = () => {
+    if (!clipStateRef.current.on) return;
+    const kept = keptFractions();
+    applyClipBoxIntent(
+      [kept[0][0], kept[1][0], kept[2][0]],
+      [kept[0][1], kept[1][1], kept[2][1]],
+      "live"
+    );
   };
 
   // t260 — the "show in parent" door's opening statement: once the volume
@@ -4774,7 +4845,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
   useEffect(() => {
     if (phase !== "ready" || !clipOn) return;
     drawClipGuide();
-  }, [phase, clipOn, clipX, clipY, clipZ, clipInvert]);
+  }, [phase, clipOn, clipX, clipY, clipZ, clipInvert, clipBoxLive]);
 
   // t662 — the oblique guide follows its own intents the same way (✂,
   // sliders, flip); the mirror state is the dep list, the ref is the truth
@@ -5768,38 +5839,65 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                 hands the geometry back honestly. */}
             {clipOn && (
               <div className="mt-2.5 space-y-1.5 rounded-lg border border-violet-600/25 bg-violet-600/5 px-2.5 py-2">
-                {clipStateRef.current.box ? (
-                  <div data-testid="clip-box-readout" className="space-y-1">
+                {clipBoxLive ? (
+                  <div data-testid="clip-box-readout" className="space-y-1.5">
                     <p className="flex items-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
                       <BoxSelect className="h-3 w-3 shrink-0" aria-hidden="true" />
-                      anchored to the crop&apos;s box
+                      {clipBoxOrigin === "anchor"
+                        ? "anchored to the crop\u0027s box"
+                        : "section box \u2014 drag the bounds"}
                     </p>
-                    {(
-                      [
-                        ["X", clipStateRef.current.box.lo[0], clipStateRef.current.box.hi[0]],
-                        ["Y", clipStateRef.current.box.lo[1], clipStateRef.current.box.hi[1]],
-                        ["Z", clipStateRef.current.box.lo[2], clipStateRef.current.box.hi[2]],
-                      ] as const
-                    ).map(([ax, lo, hi]) => (
-                      <div key={ax} className="flex items-center justify-between gap-2">
-                        <span className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 text-center font-mono text-[10px] font-bold text-white">
-                          {ax}
-                        </span>
-                        <span className="flex-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-                          {lo <= 0.001 && hi >= 0.999
-                            ? "full extent"
-                            : `${Math.round(lo * 100)}–${Math.round(hi * 100)}% kept`}
-                        </span>
-                      </div>
-                    ))}
+                    {(["X", "Y", "Z"] as const).map((ax, i) => {
+                      const lo = clipBoxLive.lo[i];
+                      const hi = clipBoxLive.hi[i];
+                      const full = lo <= 0.001 && hi >= 0.999;
+                      return (
+                        <div key={ax} data-testid={`clip-section-${ax.toLowerCase()}`} className="space-y-0.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="w-4 shrink-0 rounded bg-violet-600/90 px-1 py-0.5 text-center font-mono text-[10px] font-bold text-white">
+                              {ax}
+                            </span>
+                            <span className="flex-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+                              {full
+                                ? "full extent"
+                                : `${Math.round(lo * 100)}\u2013${Math.round(hi * 100)}% kept`}
+                            </span>
+                            {!full && (
+                              <button
+                                type="button"
+                                onClick={() => resetSectionAxis(i as 0 | 1 | 2)}
+                                aria-label={`Reset ${ax} section to full extent`}
+                                title={`Reset the ${ax} section bounds to the full box`}
+                                className="shrink-0 rounded p-0.5 text-violet-700 transition-colors hover:bg-violet-600/15 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
+                              >
+                                <RefreshCcw className="h-2.5 w-2.5" aria-hidden="true" />
+                              </button>
+                            )}
+                          </div>
+                          <Slider
+                            value={[lo, hi]}
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            thumbLabels={[`${ax} section low bound`, `${ax} section high bound`]}
+                            onValueChange={(v) => commitSectionBounds(i as 0 | 1 | 2, v[0] ?? 0, v[1] ?? 1)}
+                            className="mx-0.5"
+                          />
+                        </div>
+                      );
+                    })}
                     <button
                       type="button"
                       data-testid="clip-box-release"
                       onClick={() => applyClipIntent({ on: false })}
-                      title="Release the anchored box — the clip planes come off and the full map returns"
+                      title={
+                        clipBoxOrigin === "anchor"
+                          ? "Release the anchored box \u2014 the clip planes come off and the full map returns"
+                          : "Release the section box \u2014 the clip planes come off and the full map returns"
+                      }
                       className="w-full rounded-md border border-violet-600/30 bg-background/60 px-2 py-1 text-[10px] font-medium text-violet-700 transition-colors hover:bg-violet-600/15 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200"
                     >
-                      release the anchored box
+                      {clipBoxOrigin === "anchor" ? "release the anchored box" : "release the section box"}
                     </button>
                   </div>
                 ) : (
@@ -5897,9 +5995,11 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     {clipSendNote.text}
                   </p>
                 )}
-                {/* flip/reset speak the slider language — in box mode the
-                    readout's own release button is the honest control */}
-                {!clipStateRef.current.box && (
+                {/* flip/reset/promote speak the slider language — in box
+                    mode the editors' own release button is the honest
+                    control (t870: promote hands the resolved intervals to
+                    the box language, where BOTH bounds per axis live) */}
+                {!clipBoxLive && (
                 <div className="flex items-center justify-between gap-2 pt-0.5">
                   <button
                     type="button"
@@ -5918,6 +6018,16 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                     }
                   >
                     flip side
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="clip-section-promote"
+                    onClick={promoteToSectionBox}
+                    title="Promote the clip planes to an editable section box — both bounds per axis become draggable thumbs; the export and send-to-job read the same box"
+                    className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300"
+                  >
+                    <Crop className="h-3 w-3" aria-hidden="true" />
+                    section box
                   </button>
                   <button
                     type="button"
