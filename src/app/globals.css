@@ -2528,6 +2528,17 @@
     gap: 0 !important;
     padding-bottom: 10mm !important;
   }
+  /* the close X is chrome on paper — the t946 law reaches the doctrine's
+     SECOND seat: the compare paper carries its X no longer (the carried
+     comment below resolves). Scoped to the compare face's own content
+     (the inspector's is already display:none above) — a button on a
+     sheet closes nothing. The hide is print-scoped: on screen the X
+     stays (the t945 witness probes it). */
+  html:has([data-compare-dialog][data-state="open"])
+    [data-compare-dialog]
+    > [data-slot="dialog-close"] {
+    display: none !important;
+  }
   /* ------------------------------------------------------------------
    * The compare family's print face (t946) — the Task 114 doctrine's
    * THIRD seat. The family's four single-run readings (class
@@ -2541,8 +2552,8 @@
    * JSX's hidden print:block (the t945 law: the revival rides CSS, the
    * provenance rides JSX — the CSS never names the print-doc hook).
    * The close X dies here too: a button on paper is a promise the paper
-   * cannot keep. (The compare paper's own X keeps riding its face until
-   * its next chrome change re-keys the t945 witness.)
+   * cannot keep. (The compare paper's own X died too — the t947 rule
+   * above; the carried debt is paid.)
    * ------------------------------------------------------------------ */
   html:has([data-family-read-dialog][data-state="open"])
     [data-slot="dialog-overlay"] {

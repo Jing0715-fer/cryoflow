@@ -139,10 +139,18 @@ const openInspectorByPalette = async (name) => {
   await closeAllDialogs();
   sh(`${AB} press Control+k`);
   await sleep(600);
-  sh(`${AB} keyboard type ${name}`);
+  // the t946 transport law 「带空格的名字要穿外套」: the type command
+  // takes the name QUOTED — unquoted, the shell splits on spaces and
+  // only the first token reaches the palette ("t916 class2d witness"
+  // typed as "t916" — the hit never lands).
+  sh(`${AB} keyboard type "${name}"`);
   await sleep(800);
   const rows = await poll(
-    `JSON.stringify({ n: document.querySelectorAll('[cmdk-item]').length, hit: [...document.querySelectorAll('[cmdk-item]')].filter(i => (i.getAttribute('value') || '') + (i.textContent || '')).some(t => (t.getAttribute('value') || '').includes('${name.slice(0, 30)}')) })`,
+    // the t946 transport law 「cmdk 的名字住在文本里」: the items'
+    // value attribute renders NULL in this build — the hit reads the
+    // CONCATENATED value+text (the t945-era value-only some() is dead
+    // against today's DOM; the filter above it pre-selected nothing).
+    `JSON.stringify({ n: document.querySelectorAll('[cmdk-item]').length, hit: [...document.querySelectorAll('[cmdk-item]')].some(i => ((i.getAttribute('value') || '') + (i.textContent || '')).includes('${name.slice(0, 30)}')) })`,
     (v) => v.hit === true, 8, 400
   );
   if (rows?.hit !== true) { await closeAllDialogs(); return false; }
@@ -157,6 +165,15 @@ const openDialogByDoor = async (name, doorAriaStart, wantTitleIncludes) => {
   for (let i = 0; i < 5; i++) {
     const viaPalette = await openInspectorByPalette(name);
     if (!viaPalette) await openInspectorQuiet(name);
+    // the t912 presence law, at the door: several doors mount only
+    // after their own data-fetch resolves (the convergence door renders
+    // null until the ladder is read — the first ask compiles the rounds
+    // route and can take seconds). Clicking before the door exists is
+    // a click into nothing — poll for the door's PRESENCE first.
+    await poll(
+      `(() => { const d = [...document.querySelectorAll('[role="dialog"]')].find(x => (x.textContent || '').includes('${name}')); const b = d ? [...d.querySelectorAll('button')].find(x => (x.getAttribute('aria-label') || '').startsWith('${doorAriaStart}')) : null; return JSON.stringify({ door: !!b }); })()`,
+      (v) => v.door === true, 16, 500
+    );
     const clicked = await realClick(`(() => { const d = [...document.querySelectorAll('[role="dialog"]')].find(x => (x.textContent || '').includes('${name}')); return d ? [...d.querySelectorAll('button')].find(x => (x.getAttribute('aria-label') || '').startsWith('${doorAriaStart}')) : null; })()`);
     const opened = await poll(
       `(() => { const dlg = [...document.querySelectorAll('[role="dialog"]')].find(x => (x.textContent || '').includes('${wantTitleIncludes}')); return JSON.stringify({ open: !!dlg }); })()`,
@@ -291,11 +308,26 @@ sh(`${AB} set viewport 1280 900`); await sleep(500);
 const abOpened = await openDialogByDoor(LONG_NAME, "Class A/B — compare with another completed run", "Class A/B —");
 ok("R2 the Class A/B dialog OPEN (wide, then re-banded)", String(abOpened).startsWith("open@"), String(abOpened));
 sh(`${AB} set viewport 320 700`); await sleep(700);
-// the verdict needs both rows fetched — poll for the action row's arrival
-const abReady = await poll(
-  `(() => { const dlg = [...document.querySelectorAll('[role="dialog"]')].find(x => (x.textContent || '').includes('Class A/B —')); if (!dlg) return JSON.stringify({ open: false }); const adopt = [...dlg.querySelectorAll('button')].find(b => (b.textContent || '').includes('Continue downstream from run B')); const openA = [...dlg.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Open run A'); return JSON.stringify({ open: true, adopt: !!adopt, openA: !!openA, loading: !adopt && !openA }); })()`,
-  (v) => v.open === true && v.adopt === true && v.openA === true, 40, 750
-);
+// the verdict needs both rows fetched — poll for the action row's
+// arrival. RETIRE ARMOR (the ride's own third transport law: a refused
+// read is the window's noise): the dialog can retire at the re-band
+// (a dev-server hiccup closes the whole stack — ride 2's own lesson);
+// if the row never lands, the WHOLE open cycle retries — never conclude.
+let abReady = null;
+for (let attempt = 1; attempt <= 3; attempt++) {
+  if (attempt > 1) {
+    await closeAllDialogs();
+    sh(`${AB} set viewport 1280 900`); await sleep(500);
+    const re = await openDialogByDoor(LONG_NAME, "Class A/B — compare with another completed run", "Class A/B —");
+    ok(`R2 the A/B dialog re-opened (retire retry ${attempt})`, String(re).startsWith("open@"), String(re));
+    sh(`${AB} set viewport 320 700`); await sleep(700);
+  }
+  abReady = await poll(
+    `(() => { const dlg = [...document.querySelectorAll('[role="dialog"]')].find(x => (x.textContent || '').includes('Class A/B —')); if (!dlg) return JSON.stringify({ open: false }); const adopt = [...dlg.querySelectorAll('button')].find(b => (b.textContent || '').includes('Continue downstream from run B')); const openA = [...dlg.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Open run A'); return JSON.stringify({ open: true, adopt: !!adopt, openA: !!openA, loading: !adopt && !openA }); })()`,
+    (v) => v.open === true && v.adopt === true && v.openA === true, 40, 750
+  );
+  if (abReady?.adopt === true && abReady?.openA === true) break;
+}
 ok("R2 the A/B verdict face open (the action row mounted)", abReady?.adopt === true && abReady?.openA === true);
 if (abReady?.adopt !== true) { dumpDialogs(); }
 const abGeom = evalJson(`(() => { const dlg = [...document.querySelectorAll('[role="dialog"]')].find(x => (x.textContent || '').includes('Class A/B —')); if (!dlg) return JSON.stringify({}); const content = dlg.matches('[data-slot="dialog-content"]') ? dlg : (dlg.querySelector('[data-slot="dialog-content"]') ?? dlg); const adopt = [...dlg.querySelectorAll('button')].find(b => (b.textContent || '').includes('Continue downstream from run B')); const openA = [...dlg.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Open run A'); const openB = [...dlg.querySelectorAll('button')].find(b => (b.textContent || '').trim() === 'Open run B'); const prov = content.querySelector('[data-compare-print-doc]'); const rr = (e) => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) }; }; const cr = content.getBoundingClientRect(); const inRect = (e) => { const r = e.getBoundingClientRect(); return r.left >= cr.left - 1 && r.right <= cr.right + 1; }; return JSON.stringify({ adopt: adopt ? rr(adopt) : null, openA: openA ? rr(openA) : null, openB: openB ? rr(openB) : null, provDisplay: prov ? getComputedStyle(prov).display : null, provIn: prov ? inRect(prov) : false, adoptIn: adopt ? inRect(adopt) : false, openAIn: openA ? inRect(openA) : false, openBIn: openB ? inRect(openB) : false, contentW: Math.round(cr.width) }); })()`);
@@ -325,6 +357,12 @@ const pdfReady = await poll(
   (v) => v.open === true && v.adopt === true, 40, 750
 );
 ok("R3 the verdict face mounted before the paper", pdfReady?.adopt === true);
+// the t947 law's screen half: the close X STAYS on screen — the hide is
+// print-scoped (the t946 R4 shape, at the compare seat). The X dies only
+// on paper (a button on a sheet closes nothing — the rule's own media).
+const abX = evalJson(`(() => { const dlg = [...document.querySelectorAll('[role="dialog"]')].find(x => (x.textContent || '').includes('Class A/B —')); if (!dlg) return JSON.stringify({ xDisplay: null }); const content = dlg.matches('[data-compare-dialog]') ? dlg : dlg.querySelector('[data-compare-dialog]'); if (!content) return JSON.stringify({ xDisplay: null }); const x = content.querySelector(':scope > [data-slot="dialog-close"]'); return JSON.stringify({ xDisplay: x ? getComputedStyle(x).display : null }); })()`);
+ok("R3 the close X stays on SCREEN (the hide is print-scoped — it dies only on paper)",
+  abX?.xDisplay != null && abX.xDisplay !== "none", `display=${abX?.xDisplay}`);
 const pdfSh = sh(`${AB} pdf ${PDF_OUT}`);
 const pdfExists = existsSync(PDF_OUT);
 ok("R3 the pdf rendered through the print pipeline", pdfExists, String(pdfSh).slice(0, 80));
