@@ -1,0 +1,36 @@
+{
+  "pass": 35,
+  "fail": 0,
+  "world": {
+    "a": "cmv66yke6000lppu2h562t4u3",
+    "b": "cmv66yvzk000nppu291berfiw",
+    "x": "cmv66z60a000pppu20yhn09lz",
+    "c": "cmv66z61s000rppu2nv159brb",
+    "selection": "cmv6712ov0001ppm7tzz4dylu"
+  },
+  "face": {
+    "plain": {
+      "disabled": false,
+      "aria": "Continue downstream from 2D Classification 2 (t952) — re-wires 1 of 2D Classification 1 (t952)'s downstream jobs and 1 already on 2D Classification 2 (t952) (left as is)",
+      "title": "Re-wires 2D Classification 1 (t952)'s 1 downstream wire to 2D Classification 2 (t952) — their current results stay until re-run — and 1 already on 2D Classification 2 (t952) (left as is)",
+      "label": "Continue downstream from run B(1)"
+    },
+    "select": {
+      "disabled": false,
+      "aria": "Continue downstream from 2D Classification 2 (t952) with 3 gained classes selected — mints a 2D Class Selection consuming 2D Classification 2 (t952) and re-wires 1 of 2D Classification 1 (t952)'s downstream jobs onto it and refuses 1 (port)",
+      "title": "Bakes the 3 gained classes into a 2D Class Selection consuming 2D Classification 2 (t952) (editable in its Classes tab), then re-wires 2D Classification 1 (t952)'s 1 downstream wire onto the selection — results stay until re-run — and refuses 1 (port)",
+      "label": "Continue downstream, selecting these(3)"
+    },
+    "contract": "Adoption re-wires 2D Classification 1 (t952)'s 1 downstream job to consume 2D Classification 2 (t952) — their current results stay until re-run. Also 1 job already on 2D Classification 2 (t952) (left as is).",
+    "unpaired": {
+      "text": "unpaired: 1 in A · 0 in B",
+      "title": "Only in A: Class 004\nOnly in B: "
+    }
+  },
+  "fired": "fired@try0",
+  "toast": {
+    "title": null,
+    "all": "Downstream adopted by 2D Class Selection 31 downstream wire re-wired from 2D Classification 1 (t952) to 2D Class Selection 3 · Selection Consumer (t952) now consumes 2D Class Selection 3 · their current results stay until re-run · Classes Consumer (t952) refused — 2D Class Selection 3 has no matching output port"
+  },
+  "at": "2026-10-13T04:41:33.679Z"
+}
