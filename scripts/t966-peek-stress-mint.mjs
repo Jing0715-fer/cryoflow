@@ -27,7 +27,7 @@ import path from "node:path";
 const BASE = process.env.MINT_BASE ?? "http://localhost:3000";
 const ORIGIN = `-H "Origin: ${BASE}"`;
 const NAME = "Peek Stress Bench (t966)";
-const PROJECT_ID = "cmv6a1bda0000tzx5uaqra5le"; // the standing world (the doctor's ACTIVE)
+const PROJECT_ID = process.env.MINT_PROJECT_ID ?? "cmv6ml09e0000kn9mgxrsun5w"; // the standing world (the doctor's ACTIVE) — env-overridable so a re-seeded world re-keys without an edit
 const DATA_ROOT = path.join(process.cwd(), "data", "relion", PROJECT_ID);
 const WIDE_STAR_REL = "MotionCorr/job002/corrected_micrographs.star";
 const LONG_LOG_REL = "LogFiles/relion_motioncorr_gpu_pipeline_run.log";

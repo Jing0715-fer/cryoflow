@@ -24,6 +24,14 @@
  * move, Esc closes, nothing acts). The copy affordance rides the header
  * row: the same clipboard dialect every consumer speaks (Task 170's
  * one-clipboard law).
+ *
+ * The empty face's honesty (t967 — the bench's run.err was the witness):
+ * a 0-byte file used to open as a bare empty box beside a copy button
+ * that copies nothing — honest, but bare. The kind note now speaks
+ * first: "0 bytes — nothing to read", one sentence of why. The cure
+ * travels by ADDITION (the family law): the focusable pre stays — it is
+ * still the focus destination and the scroll region — the note only
+ * explains what the box's silence means.
  */
 
 import * as React from "react";
@@ -83,6 +91,17 @@ export function TextPreview({ jobId, path }: { jobId: string; path: string }) {
   }
   return (
     <div className="min-w-0">
+      {/* the empty face's kind note (t967) — the honest words first, the
+          box's silence explained; the pre below stays the focus law's
+          destination (the cure is additive, never a replacement) */}
+      {text === "" && (
+        <p
+          data-canvas-ui="text-preview-empty-note"
+          className="mb-1.5 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+        >
+          0 bytes — nothing to read. The file exists but is empty — an honest tail of nothing.
+        </p>
+      )}
       {/* the copy row — one clipboard dialect (Task 170), no occlusion
           (a floating button would cover the tail's first line) */}
       <div className="mb-1.5 flex items-center justify-end">

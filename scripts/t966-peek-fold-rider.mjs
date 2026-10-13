@@ -218,6 +218,7 @@ const peekFace = `(() => {
     tableScrollsInside: region && table ? table.scrollWidth > region.clientWidth : null,
     headSticky: d.querySelector('thead') ? getComputedStyle(d.querySelector('thead')).position : null,
     pre: pre ? { scrollH: pre.scrollHeight, clientH: pre.clientHeight, scrolls: pre.scrollHeight > pre.clientHeight + 4, focused: document.activeElement === pre } : null,
+    emptyNote: (() => { const n = d.querySelector('[data-canvas-ui="text-preview-empty-note"]'); return n ? { words: (n.textContent || '').includes('0 bytes — nothing to read') } : null; })(),
     leafDiseased: offenders.filter((o) => !o.selfClip && (o.sibOverlap || o.escapesDialog)).slice(0, 6),
     benignShadows: offenders.filter((o) => !o.selfClip && !o.sibOverlap && !o.escapesDialog).length,
   });
@@ -323,6 +324,9 @@ try { sh(`${AB} press Escape`); } catch {}
 await sleep(600);
 const textClosed = evalJson(`JSON.stringify({ peeks: [...document.querySelectorAll('[data-slot="dialog-content"][data-state="open"]')].filter(d => !d.hasAttribute('data-inspector-dialog')).length })`);
 ok("act2 the ESCAPE consume — the peek dialog closes on Escape (the onEscapeClose law)", (textClosed?.peeks ?? 1) === 0, `peeks=${textClosed?.peeks ?? "?"}`);
+if (!BEFORE) {
+  ok("act2 the note is CONDITIONAL — the non-empty tail shows no empty-note (the t967 cure's restraint)", textFold && textFold.emptyNote === null, `note=${textFold?.emptyNote ? "leaked" : "absent"}`);
+}
 
 /* ============ act3 — the EMPTY face (run.err) at the FOLD ============ */
 let emptyFold = null;
@@ -335,6 +339,7 @@ for (let round = 0; round < 3 && !emptyFold; round++) {
 ok("act3 the EMPTY face — run.err's preview opens without crash, focus lands on the empty tail", emptyFold?.open === true && emptyFold?.pre?.focused === true, `focused=${emptyFold?.pre?.focused ?? "?"}`);
 if (!BEFORE) {
   ok("act3 the empty face's shell stays fold-honest", emptyFold?.dialogOverX === false && (emptyFold?.leafDiseased?.length ?? 1) === 0, `dialogOverX=${emptyFold?.dialogOverX}`);
+  ok("act3 the KIND NOTE — the empty face speaks its honesty (the t967 cure: 0 bytes, the words first, the pre still the focus seat)", emptyFold?.emptyNote?.words === true && emptyFold?.pre?.focused === true, `note=${emptyFold?.emptyNote ? "present" : "absent"} focused=${emptyFold?.pre?.focused ?? "?"}`);
 }
 try { sh(`${AB} press Escape`); } catch {}
 await sleep(600);

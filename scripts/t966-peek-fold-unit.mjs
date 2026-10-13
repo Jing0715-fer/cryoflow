@@ -92,6 +92,14 @@ ok("B3 StarTable's scroll box stands (max-h-96 overflow-auto, the sticky thead, 
 ok("B4 the inspector's peek doors still mount the shared brains verbatim",
   textBlock.includes("<TextPreview jobId={job.id} path={textFile.path} />") &&
   starBlock.includes("<StarTable job={job} path={starFile.path} />"));
+ok("B5 TextPreview's empty face speaks its honesty (the t967 kind note: the hook, the words, the conditional)",
+  tp.includes('data-canvas-ui="text-preview-empty-note"') &&
+  tp.includes("0 bytes — nothing to read") &&
+  tp.includes('{text === "" && ('));
+99
+const rider = srcOf("scripts/t966-peek-fold-rider.mjs");
+ok("B6 the cure traveled by ADDITION — the rider's gate pins the note both ways (present on the empty face, absent on the non-empty tail)",
+  rider.includes("the KIND NOTE") && rider.includes("the note is CONDITIONAL"));
 
 /* ---------- A — the file-wide tree guard ---------- */
 const monoDescs = (src) => [...src.matchAll(/<DialogDescription className="([^"]*)"/g)]
@@ -116,11 +124,10 @@ ok("M3 the mint writes the run record (the t963 lesson — the outputs route rea
   mint.includes("writeRunRecord(job.id, workdir)") && mint.includes("engine-state.json"));
 ok("M4 the mint's verify band pins the tail contract (the LAST chunk with the final marker)",
   mint.includes("last line ${LOG_LINES} of ${LOG_LINES}") && mint.includes("60 * 1024") && mint.includes("66 * 1024"));
-const rider = srcOf("scripts/t966-peek-fold-rider.mjs");
 ok("M5 the rider carries both modes (the BEFORE witness + the gate)",
   rider.includes('process.env.BEFORE === "1"') && rider.includes("BEFORE-WITNESS") && rider.includes("NEVER OVERFLOWS AT 320"));
 ok("M6 the rider walks all three doors (the star, the long tail, the empty face)",
   rider.includes('Preview ${rowName}') && rider.includes('clickPreview("run.err"') && rider.includes('aria-label="File content preview"'));
 
-console.log(`\nPEEK-FOLD-UNIT t966: ${pass}/${pass + fail} ${fail === 0 ? "green — the t913 grammar lives in BOTH families, the tree guard is file-wide" : "RED"}`);
+console.log(`\nPEEK-FOLD-UNIT t966: ${pass}/${pass + fail} ${fail === 0 ? "green — the t913 grammar lives in BOTH families, the empty face speaks its honesty, the tree guard is file-wide" : "RED"}`);
 process.exit(fail === 0 ? 0 : 1);

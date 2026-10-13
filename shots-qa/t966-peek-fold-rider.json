@@ -1,9 +1,9 @@
 {
   "mode": "gate",
-  "pass": 23,
+  "pass": 25,
   "fail": 0,
   "starWide": {
-    "dialogW": 851,
+    "dialogW": 896,
     "tableSW": 1723
   },
   "starFold": {
@@ -26,7 +26,7 @@
     "leafDiseased": []
   },
   "textFold": {
-    "dialogW": 287,
+    "dialogW": 288,
     "dialogOverX": false,
     "descText": "LogFiles/relion_motioncorr_gpu_pipeline_run.log · last 64 KB",
     "desc": {
@@ -58,5 +58,6 @@
       "focused": true
     }
   },
-  "consoleClean": true
+  "consoleClean": true,
+  "aborted": "the bench did not verify"
 }
