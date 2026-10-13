@@ -26,6 +26,7 @@ declare -a NAMES=(
   "t957-syntax-landmine-unit"
   "t957-picks-statcache-unit"
   "t959-http-envelope-unit"
+  "t960-server-error-unit"
 )
 declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1)
 i=0

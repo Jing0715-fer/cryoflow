@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject, toProjectDTO } from "@/lib/seed";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,7 @@ export async function GET(request: Request) {
       project: toProjectDTO(active.project, active.meta.mode, active.meta.engine),
     });
   } catch (error) {
-    console.error("GET /api/project failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/project", error);
   }
 }
 

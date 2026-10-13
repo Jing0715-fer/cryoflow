@@ -3,6 +3,7 @@ import { type CleanupTierId } from "@/lib/hpc/cleanup";
 import { computeCleanupPlan } from "@/lib/relion/cleanup-plan";
 import { runCleanupExclusive } from "@/lib/relion/cleanup-execute";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -67,8 +68,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     return NextResponse.json(plan);
   } catch (error) {
-    console.error("GET /api/jobs/[id]/cleanup failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/cleanup", error);
   }
 }
 
@@ -119,7 +119,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST /api/jobs/[id]/cleanup failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/[id]/cleanup", error);
   }
 }

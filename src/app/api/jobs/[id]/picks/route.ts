@@ -12,6 +12,7 @@ import {
   parseAutopickCoordText,
   parseCatalogMicNamesText,
 } from "@/lib/relion/picks-parse";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -228,8 +229,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       catalogued: micrographs.length,
     } satisfies PicksResponse);
   } catch (error) {
-    console.error("GET /api/jobs/[id]/picks failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/picks", error);
   }
 }
 

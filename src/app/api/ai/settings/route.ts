@@ -4,6 +4,7 @@ import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { applySettingsUpdate, aiSettingsDto, loadAiSettingsDetailed } from "@/lib/ai/settings";
 import { activeProviderHealth, invalidateProviderHealth } from "@/lib/ai/health";
 import type { AiSettingsResponse } from "@/lib/ai/types";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +41,7 @@ export async function GET(request: Request) {
     };
     return NextResponse.json(body);
   } catch (error) {
-    console.error("GET /api/ai/settings failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/ai/settings", error);
   }
 }
 
@@ -66,7 +66,6 @@ export async function PUT(request: NextRequest) {
     invalidateProviderHealth();
     return NextResponse.json({ ok: true, settings: aiSettingsDto(data) });
   } catch (error) {
-    console.error("PUT /api/ai/settings failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("PUT /api/ai/settings", error);
   }
 }

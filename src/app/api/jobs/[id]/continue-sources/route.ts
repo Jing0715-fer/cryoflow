@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorMessage } from "@/lib/server-error";
 import { findEffectiveJob } from "@/lib/link";
 import {
   CONTINUE_FAMILY_TYPES,
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   } catch (error) {
     console.error("GET /api/jobs/[id]/continue-sources failed:", error);
     return NextResponse.json(
-      { sources: [], error: "Internal server error" },
+      { sources: [], error: serverErrorMessage("GET /api/jobs/[id]/continue-sources", error) },
       { status: 200 }
     );
   }

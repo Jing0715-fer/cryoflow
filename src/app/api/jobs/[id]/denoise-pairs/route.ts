@@ -7,6 +7,7 @@ import { lineageFor } from "@/lib/relion/dispatch";
 import { isLocalRequest } from "@/lib/http-guard";
 import { cachedFileCompute } from "@/lib/relion/statcache";
 import { parseMicrographRowsText } from "@/lib/relion/picks-parse";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -253,7 +254,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     };
     return NextResponse.json(body);
   } catch (error) {
-    console.error("GET /api/jobs/[id]/denoise-pairs failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/denoise-pairs", error);
   }
 }

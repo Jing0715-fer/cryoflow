@@ -5,6 +5,7 @@ import { toProjectDTO } from "@/lib/seed";
 import { getProjectMeta, registerProject } from "@/lib/projects";
 import { readFileEdges, upsertFileEdge } from "@/lib/edge-ports";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -234,7 +235,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/projects/[id]/duplicate failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/projects/[id]/duplicate", error);
   }
 }

@@ -4,6 +4,7 @@ import { toJobDTO } from "@/lib/seed";
 import { stopRun, isRunAlive, getRun, updateRun } from "@/lib/relion/engine";
 import { remoteInfoFor, remoteStopRun } from "@/lib/remote/remote-run";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -244,7 +245,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       message: outcome.message,
     });
   } catch (error) {
-    console.error("POST /api/jobs/[id]/stop failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/[id]/stop", error);
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -143,7 +144,6 @@ export async function GET(request: NextRequest) {
     };
     return NextResponse.json(payload);
   } catch (error) {
-    console.error("GET /api/activity failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/activity", error);
   }
 }

@@ -7,6 +7,7 @@ import {
   fetchRemoteFileIntoWorkdir,
   readRemoteManifest,
 } from "@/lib/remote/remote-files";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -148,7 +149,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       total: manifest.files.length,
     });
   } catch (error) {
-    console.error("POST /api/jobs/[id]/outputs/sync failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/[id]/outputs/sync", error);
   }
 }

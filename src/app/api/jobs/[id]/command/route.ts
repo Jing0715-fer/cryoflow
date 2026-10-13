@@ -8,6 +8,7 @@ import {
   workdirFor,
   type EngineJobRef,
 } from "@/lib/relion/engine";
+import { serverErrorReply } from "@/lib/server-error";
 import { detectRelion } from "@/lib/relion/system";
 import {
   COMMAND_TEMPLATES,
@@ -149,7 +150,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       workdir: workdirFor(ref),
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/command failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/command", error);
   }
 }

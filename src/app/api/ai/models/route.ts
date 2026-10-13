@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { aiProvider, effectiveBaseUrl, listProviderModels } from "@/lib/ai/providers";
 import { loadAiSettings } from "@/lib/ai/settings";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,6 @@ export async function POST(request: NextRequest) {
       baseUrl: effectiveBaseUrl(provider, baseUrl),
     });
   } catch (error) {
-    console.error("POST /api/ai/models failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/ai/models", error);
   }
 }

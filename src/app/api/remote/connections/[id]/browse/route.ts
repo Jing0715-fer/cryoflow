@@ -4,6 +4,7 @@ import { exec, loginShellScript } from "@/lib/remote/ssh";
 import { expandRemotePath } from "@/lib/remote/remote-run";
 import { listRemoteDir, REMOTE_MIC_RE, REMOTE_MAX_ENTRIES } from "@/lib/remote/remote-ls";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -198,7 +199,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       micrographs: entries.filter((e) => REMOTE_MIC_RE.test(e.name) && !e.dir).length,
     });
   } catch (error) {
-    console.error("GET /api/remote/connections/[id]/browse failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/remote/connections/[id]/browse", error);
   }
 }

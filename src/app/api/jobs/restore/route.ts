@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject } from "@/lib/seed";
 import { restoreJobRows, type RestoreJobInput } from "@/lib/job-restore";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,6 @@ export async function POST(request: NextRequest) {
     const outcome = await restoreJobRows(list, active.project.id);
     return NextResponse.json(outcome);
   } catch (error) {
-    console.error("POST /api/jobs/restore failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/restore", error);
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalRequest } from "@/lib/http-guard";
 import { latestSessionForActiveProject, runAiIteration } from "@/lib/ai/agent";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,7 @@ export async function GET(request: NextRequest) {
     const result = await latestSessionForActiveProject();
     return NextResponse.json(result);
   } catch (error) {
-    console.error("GET /api/ai/chat failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/ai/chat", error);
   }
 }
 
@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
       ...(result.error ? { error: result.error } : {}),
     });
   } catch (error) {
-    console.error("POST /api/ai/chat failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/ai/chat", error);
   }
 }

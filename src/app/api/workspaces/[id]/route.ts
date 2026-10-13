@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
 import { ensureActiveProject } from "@/lib/seed";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -45,8 +46,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       },
     });
   } catch (error) {
-    console.error("PATCH /api/workspaces/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("PATCH /api/workspaces/[id]", error);
   }
 }
 
@@ -90,7 +90,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     await db.workspace.delete({ where: { id } });
     return NextResponse.json({ ok: true, movedCount: moved.count, fallback: first.name });
   } catch (error) {
-    console.error("DELETE /api/workspaces/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("DELETE /api/workspaces/[id]", error);
   }
 }

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -158,7 +159,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const body: FscIndexResponse = { projectId: id, jobs: out };
     return NextResponse.json(body);
   } catch (error) {
-    console.error("GET /api/projects/[id]/fsc-index failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/projects/[id]/fsc-index", error);
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { setActiveProject, readProjectsFile } from "@/lib/projects";
 import { db } from "@/lib/db";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,6 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ ok: true, active: readProjectsFile().active });
   } catch (error) {
-    console.error("POST /api/projects/switch failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/projects/switch", error);
   }
 }

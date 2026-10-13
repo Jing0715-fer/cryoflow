@@ -4,6 +4,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
 import { remainingFromWorkdir } from "@/lib/remote/remote-remaining";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +68,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       total,
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/outputs/remote-remaining failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/outputs/remote-remaining", error);
   }
 }

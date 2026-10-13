@@ -7,6 +7,7 @@ import { PROJECT_ROOT } from "@/lib/paths";
 import { countImages, expandPattern, hasWildcard, userPathToHost } from "@/lib/relion/glob";
 import { isLocalRequest } from "@/lib/http-guard";
 import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -248,7 +249,6 @@ export async function GET(request: NextRequest) {
       quick: quickJumps(),
     });
   } catch (error) {
-    console.error("GET /api/fs/browse failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/fs/browse", error);
   }
 }

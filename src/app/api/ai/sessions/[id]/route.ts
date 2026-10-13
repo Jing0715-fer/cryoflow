@@ -5,6 +5,7 @@ import {
   renameSessionForActiveProject,
   sessionForActiveProject,
 } from "@/lib/ai/agent";
+import { serverErrorReply } from "@/lib/server-error";
 import { sessionFileName, sessionToExportJson, sessionToMarkdown } from "@/lib/ai/export";
 import { toolCallsUsed } from "@/lib/ai/sessions";
 import { getActiveProject } from "@/lib/projects";
@@ -74,8 +75,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
     });
   } catch (error) {
-    console.error("GET /api/ai/sessions/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/ai/sessions/[id]", error);
   }
 }
 
@@ -107,8 +107,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
     return NextResponse.json({ ok: true, title: result.title });
   } catch (error) {
-    console.error("PATCH /api/ai/sessions/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("PATCH /api/ai/sessions/[id]", error);
   }
 }
 
@@ -129,7 +128,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("DELETE /api/ai/sessions/[id] failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("DELETE /api/ai/sessions/[id]", error);
   }
 }

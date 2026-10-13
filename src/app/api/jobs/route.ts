@@ -11,6 +11,7 @@ import { ensureGlobalReconciler } from "@/lib/relion/global-reconcile";
 import { remainingForRun } from "@/lib/remote/remote-remaining";
 import { listStampIds } from "@/lib/ai/verdict-stamps";
 import type { JobDTO, EdgeDTO } from "@/lib/types";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -247,8 +248,7 @@ export async function GET(request: NextRequest) {
       { headers: { "content-type": "application/json" } }
     );
   } catch (error) {
-    console.error("GET /api/jobs failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs", error);
   }
 }
 
@@ -490,7 +490,6 @@ export async function POST(request: NextRequest) {
     dto.engine = "relion";
     return NextResponse.json({ job: dto, ...(createdEdge ? { edge: createdEdge } : {}) }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/jobs failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs", error);
   }
 }

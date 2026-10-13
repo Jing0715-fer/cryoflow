@@ -11,6 +11,7 @@ import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
 import { isMrcPath, readMrcHeader, readMrcHistogram, readMrcVoxel, renderMrcLargePng, renderMrcMontagePng, renderMrcObliquePng, renderMrcOrthoPng, renderMrcSlicePng } from "@/lib/mrc";
 import { displayPolarityFor } from "@/lib/render-polarity";
 import { cachedComputeAsync } from "@/lib/relion/statcache";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -445,7 +446,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ error: "Unknown format (expected png, raw, value or text)" }, { status: 400 });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/outputs/file failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/outputs/file", error);
   }
 }

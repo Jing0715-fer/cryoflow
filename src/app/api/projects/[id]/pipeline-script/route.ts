@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildPipelineScript } from "@/lib/relion/pipeline-script";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,6 @@ export async function GET(request: Request, context: RouteContext) {
     }
     return NextResponse.json(result);
   } catch (error) {
-    console.error("GET /api/projects/[id]/pipeline-script failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/projects/[id]/pipeline-script", error);
   }
 }

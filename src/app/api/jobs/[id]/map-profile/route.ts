@@ -7,6 +7,7 @@ import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { cachedCompute } from "@/lib/relion/statcache";
 import { isMrcPath, poolProfile, readMrcAxisProfiles, readMrcHeader } from "@/lib/mrc";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -107,7 +108,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     };
     return NextResponse.json(body);
   } catch (error) {
-    console.error("GET /api/jobs/[id]/map-profile failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/map-profile", error);
   }
 }

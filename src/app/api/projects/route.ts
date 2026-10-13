@@ -5,6 +5,7 @@ import { listProjectsWithMeta, registerProject } from "@/lib/projects";
 import type { ProjectEngine, ProjectMode } from "@/lib/projects";
 import { getConnection } from "@/lib/remote/connections";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +31,7 @@ export async function GET(request: NextRequest) {
     const projects = await listProjectsWithMeta();
     return NextResponse.json({ projects });
   } catch (error) {
-    console.error("GET /api/projects failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/projects", error);
   }
 }
 
@@ -85,7 +85,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/projects failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/projects", error);
   }
 }

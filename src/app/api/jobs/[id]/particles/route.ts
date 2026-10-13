@@ -6,6 +6,7 @@ import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
 import { cachedFileCompute } from "@/lib/relion/statcache";
+import { serverErrorReply } from "@/lib/server-error";
 
 // t904 — the #8 audit's living remainder: the BFS N+1 the recital named
 // died batches ago (one edge query per depth level, one job query per
@@ -495,7 +496,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     };
     return NextResponse.json(body);
   } catch (error) {
-    console.error("GET /api/jobs/[id]/particles failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/particles", error);
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { findEffectiveJob } from "@/lib/link";
 import { getLogTail, getRun } from "@/lib/relion/engine";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +119,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       version: tail.version,
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/log failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/log", error);
   }
 }

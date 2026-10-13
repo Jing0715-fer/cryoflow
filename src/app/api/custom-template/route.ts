@@ -9,6 +9,7 @@ import {
   templateCycleError,
   validateTemplatePayload,
 } from "@/lib/template-io";
+import { serverErrorReply } from "@/lib/server-error";
 import type {
   CustomTemplatePayload,
   CustomTemplateSummary,
@@ -189,8 +190,7 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json({ templates });
   } catch (error) {
-    console.error("GET /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/custom-template", error);
   }
 }
 
@@ -244,8 +244,7 @@ export async function POST(request: NextRequest) {
     };
     return NextResponse.json({ template: summary }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/custom-template", error);
   }
 }
 
@@ -302,8 +301,7 @@ export async function PATCH(request: NextRequest) {
     };
     return NextResponse.json({ template: summary });
   } catch (error) {
-    console.error("PATCH /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("PATCH /api/custom-template", error);
   }
 }
 
@@ -481,8 +479,7 @@ export async function PUT(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("PUT /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("PUT /api/custom-template", error);
   }
 }
 
@@ -527,7 +524,6 @@ export async function DELETE(request: NextRequest) {
     await db.customTemplate.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("DELETE /api/custom-template failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("DELETE /api/custom-template", error);
   }
 }

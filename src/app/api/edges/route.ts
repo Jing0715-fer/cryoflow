@@ -8,6 +8,7 @@ import {
   persistPortEdge,
   portsValid,
 } from "@/lib/edge-ports";
+import { serverErrorReply } from "@/lib/server-error";
 import { findCycle } from "@/lib/graph-cycle";
 import { defaultPorts } from "@/lib/workflow";
 
@@ -29,8 +30,7 @@ export async function GET(request: Request) {
     const edges = await edgesWithPorts(active.project.id);
     return NextResponse.json({ edges });
   } catch (error) {
-    console.error("GET /api/edges failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/edges", error);
   }
 }
 
@@ -190,7 +190,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/edges failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/edges", error);
   }
 }

@@ -10,6 +10,7 @@ import {
   resolutionArcOf,
   type ResolutionPoint,
 } from "@/lib/resolution-arc";
+import { serverErrorReply } from "@/lib/server-error";
 import { resolutionArcFromWorkdir } from "@/lib/convergence-rows";
 
 export const dynamic = "force-dynamic";
@@ -91,7 +92,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       reported,
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/resolution-arc failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/resolution-arc", error);
   }
 }

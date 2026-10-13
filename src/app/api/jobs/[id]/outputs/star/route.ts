@@ -7,6 +7,7 @@ import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { biggestLoop, extractFsc, findPair, parseStar } from "@/lib/starfile";
 import { isLocalRequest } from "@/lib/http-guard";
 import { fetchRemoteFileIntoWorkdir } from "@/lib/remote/remote-files";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -179,7 +180,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       note: previewed ? "Large file — parsed the first 5 MB only" : undefined,
     });
   } catch (error) {
-    console.error("GET /api/jobs/[id]/outputs/star failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/outputs/star", error);
   }
 }

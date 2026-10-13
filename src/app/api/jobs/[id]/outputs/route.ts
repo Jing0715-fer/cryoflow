@@ -7,6 +7,7 @@ import { isLocalRequest } from "@/lib/http-guard";
 // force-dynamic flag; the walk, the manifest join, the key numbers, the
 // warnings and the listing note live in the lib.
 import { computeJobOutputs } from "@/lib/relion/job-outputs";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       computeJobOutputs({ id: job.id, type: job.type, status: job.status }, { remoteOffset })
     );
   } catch (error) {
-    console.error("GET /api/jobs/[id]/outputs failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/jobs/[id]/outputs", error);
   }
 }

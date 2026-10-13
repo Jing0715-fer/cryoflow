@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { detectRelion } from "@/lib/relion/system";
 import { isLocalRequest } from "@/lib/http-guard";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,6 @@ export async function GET(request: NextRequest) {
     const status = await detectRelion(force);
     return NextResponse.json(status);
   } catch (error) {
-    console.error("GET /api/system failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("GET /api/system", error);
   }
 }

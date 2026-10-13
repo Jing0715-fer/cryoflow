@@ -11,6 +11,7 @@ import { getRun } from "@/lib/relion/engine";
 import { isPathrefPath, readPathrefTarget } from "@/lib/relion/pathref";
 import { resolveInsideJobWorkdir } from "@/lib/relion/jobfile";
 import { isMrcPath, readMrcHeader, readMrcSubvolume } from "@/lib/mrc";
+import { serverErrorReply } from "@/lib/server-error";
 
 export const dynamic = "force-dynamic";
 
@@ -237,7 +238,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/jobs/[id]/outputs/subvolume-job failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return serverErrorReply("POST /api/jobs/[id]/outputs/subvolume-job", error);
   }
 }
