@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readFileSync, readdirSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { readMrcHeader } from "@/lib/mrc";
 import { isLocalRequest } from "@/lib/http-guard";
+import { cachedFileCompute } from "@/lib/relion/statcache";
+import {
+  parseManualpickStarText,
+  parseAutopickCoordText,
+  parseCatalogMicNamesText,
+} from "@/lib/relion/picks-parse";
 
 export const dynamic = "force-dynamic";
 
@@ -175,25 +181,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json(empty);
     }
 
-    const lines = readFileSync(starPath, "utf8").split(/\r?\n/);
-    // columns: _rlnCoordinateX #1 _rlnCoordinateY #2 _rlnMicrographName #3
-    const perMic = new Map<string, [number, number][]>();
-    for (const raw of lines) {
-      const t = raw.trim();
-      if (!t || t.startsWith("#") || t.startsWith("_") || t === "loop_" || t.startsWith("data_")) continue;
-      const cells = t.split(/\s+/);
-      if (cells.length < 3) continue;
-      const x = parseFloat(cells[0]);
-      const y = parseFloat(cells[1]);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-      const mic = cells[2].replace(/^\.?\//, "");
-      let arr = perMic.get(mic);
-      if (!arr) {
-        arr = [];
-        perMic.set(mic, arr);
-      }
-      arr.push([x, y]);
-    }
+    // t957 — the parse rides the statcache (the #7 law's Picks-plane
+    // seat): pure text→shape, RELION writes in discrete steps, repeat
+    // requests are a single statSync. The Map is SHARED — read-only below.
+    const perMic =
+      cachedFileCompute(starPath, "picks:manualpick-star", parseManualpickStarText) ??
+      new Map<string, [number, number][]>();
     if (perMic.size === 0) {
       return NextResponse.json(empty);
     }
@@ -265,49 +258,15 @@ function parseAutopickCoordDir(
   const micNames: string[] = [];
   for (const f of files) {
     const abs = path.join(coordDir, f);
-    try {
-      const head = readFileSync(abs, "utf8");
-      if (!head.includes("_rlnCoordinateX")) continue; // not a coord star
-      // column order from the label block
-      const labels = new Map<string, number>();
-      const rows: string[][] = [];
-      for (const raw of head.split(/\r?\n/)) {
-        const t = raw.trim();
-        if (!t || t === "loop_" || t.startsWith("data_")) continue;
-        if (t.startsWith("#")) continue;
-        if (t.startsWith("_")) {
-          const m = t.match(/^(\S+)\s+#(\d+)$/);
-          if (m) labels.set(m[1], Number(m[2]) - 1);
-          continue;
-        }
-        rows.push(t.split(/\s+/));
-      }
-      const ix = labels.get("_rlnCoordinateX");
-      const iy = labels.get("_rlnCoordinateY");
-      if (ix == null || iy == null) continue;
-      const ifom = labels.get("_rlnAutopickFigureOfMerit");
-      const picks: [number, number][] = [];
-      const foms: (number | null)[] = [];
-      for (const cells of rows) {
-        const x = parseFloat(cells[ix]);
-        const y = parseFloat(cells[iy]);
-        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-        picks.push([x, y]);
-        if (ifom != null && cells[ifom] != null) {
-          const v = parseFloat(cells[ifom]);
-          foms.push(Number.isFinite(v) ? v : null);
-        } else {
-          foms.push(null);
-        }
-      }
-      if (picks.length === 0) continue;
-      // RELION 5 names them `<mic>_autopick.star`; accept bare `<mic>.star` too
-      const micName = f.replace(/\.star$/i, "").replace(/_autopick$/i, "");
-      micrographs.push({ micName, picks, foms });
-      micNames.push(micName);
-    } catch {
-      /* unreadable file — skip, the map answers from what reads */
-    }
+    // t957 — per-file statcache: one coord star, one parse (shared).
+    // A null compute (not a coord star / no labels / zero picks) is not
+    // cached as an answer — the next write re-parses honestly.
+    const parsed = cachedFileCompute(abs, "picks:autopick-coord", parseAutopickCoordText);
+    if (!parsed) continue;
+    // RELION 5 names them `<mic>_autopick.star`; accept bare `<mic>.star` too
+    const micName = f.replace(/\.star$/i, "").replace(/_autopick$/i, "");
+    micrographs.push({ micName, picks: parsed.picks, foms: parsed.foms });
+    micNames.push(micName);
   }
   return { micrographs, micNames };
 }
@@ -368,40 +327,12 @@ async function readInputCatalogue(jobId: string): Promise<string[] | null> {
         const starFile = r.outputs?.[key];
         if (!starFile || !existsSync(starFile)) continue;
         try {
-          const names: string[] = [];
-          const labels = new Map<string, number>();
-          let inLoop = false;
-          for (const raw of readFileSync(starFile, "utf8").split(/\r?\n/)) {
-            const t = raw.trim();
-            if (!t) continue;
-            if (t.startsWith("data_")) {
-              // the micrographs block follows its optics sibling — reset
-              // the label map so optics columns cannot shadow mic names
-              inLoop = t.startsWith("data_micrographs");
-              if (inLoop) labels.clear();
-              continue;
-            }
-            if (t === "loop_") continue;
-            if (t.startsWith("_")) {
-              if (inLoop) {
-                // the column number MUST be captured (group 2) — a bare
-                // #\d+ yields Number(undefined) = NaN and every row is
-                // silently dropped (the t433 live-QA lesson, caught by
-                // the empty-law surgery probe)
-                const m = t.match(/^(\S+)\s+#(\d+)$/);
-                if (m) labels.set(m[1], Number(m[2]) - 1);
-              }
-              continue;
-            }
-            if (t.startsWith("#")) continue;
-            const ix =
-              labels.get("_rlnMicrographName") ??
-              labels.get("_rlnMicrographNameNoDW");
-            if (ix == null) continue;
-            const cell = t.split(/\s+/)[ix];
-            if (cell) names.push(bareMicName(cell));
-          }
-          if (names.length > 0) {
+          // t957 — the catalogue star's parse rides the statcache:
+          // the upstream walk re-reads the same star across polls, and
+          // one statSync replaces the full parse between writes. A thrown
+          // compute is not cached — the next request re-reads honestly.
+          const names = cachedFileCompute(starFile, "picks:catalog-mic-names", parseCatalogMicNamesText);
+          if (names && names.length > 0) {
             return [...new Set(names)].sort((a, b) =>
               a.localeCompare(b, undefined, { numeric: true })
             );
@@ -414,13 +345,6 @@ async function readInputCatalogue(jobId: string): Promise<string[] | null> {
     frontier = next;
   }
   return null;
-}
-
-/** `micrographs/mic_001.mrc` / `mic_001.mrcs` → `mic_001` — the identity
- *  the per-micrograph coord stars speak (`mic_001_autopick.star`). */
-function bareMicName(cell: string): string {
-  const base = cell.replace(/^\.?\//, "").split("/").pop() ?? cell;
-  return base.replace(/\.(mrc|mrcs|tif|tiff)$/i, "");
 }
 
 /**

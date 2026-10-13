@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { existsSync, readFileSync, readdirSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { findEffectiveJob } from "@/lib/link";
 import { getRun } from "@/lib/relion/engine";
 import { lineageFor } from "@/lib/relion/dispatch";
 import { isLocalRequest } from "@/lib/http-guard";
+import { cachedFileCompute } from "@/lib/relion/statcache";
+import { parseMicrographRowsText } from "@/lib/relion/picks-parse";
 
 export const dynamic = "force-dynamic";
 
@@ -47,45 +49,19 @@ interface StarRows {
   dir: string;
 }
 
-/** data_micrographs rows BY LABEL (the star-reading doctrine: never the
- *  first column — the optics sibling's columns must not shadow the names). */
+/** data_micrographs rows BY LABEL — now the statcache rider: the wipe
+ *  cards re-request the same stars across mounts, and one statSync
+ *  replaces the full parse between writes (the #7 law's gallery seat).
+ *  The StarRows is SHARED — the pairing below reads it, none mutate it. */
 function readMicrographRows(starPath: string): StarRows | null {
-  let inMic = false;
-  let inLoop = false;
-  let col = -1;
-  const names: string[] = [];
   try {
-    for (const raw of readFileSync(starPath, "utf8").split(/\r?\n/)) {
-      const t = raw.trim();
-      if (!t) continue;
-      if (t.startsWith("data_")) {
-        inMic = t === "data_micrographs";
-        inLoop = false;
-        col = -1;
-        continue;
-      }
-      if (!inMic) continue;
-      if (t === "loop_") {
-        inLoop = true;
-        continue;
-      }
-      if (t.startsWith("_rln")) {
-        if (inLoop && col < 0) {
-          const m = /^(_rln\S+)(?:\s+#(\d+))?\s*$/.exec(t);
-          if (m && m[1] === "_rlnMicrographName")
-            col = m[2] ? parseInt(m[2], 10) - 1 : 0;
-        }
-        continue;
-      }
-      if (t.startsWith("#")) continue;
-      if (!inLoop || col < 0) continue;
-      const cells = t.split(/\s+/);
-      if (cells[col]) names.push(cells[col]);
-    }
+    return cachedFileCompute(starPath, "denoise-pairs:mic-rows", (text) => ({
+      names: parseMicrographRowsText(text),
+      dir: path.dirname(starPath),
+    }));
   } catch {
     return null;
   }
-  return { names, dir: path.dirname(starPath) };
 }
 
 /** the t658 basename reconciliation, brought to this route: the demo
