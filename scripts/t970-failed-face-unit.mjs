@@ -51,7 +51,7 @@ function ok(name, cond, extra) {
 }
 
 const inspector = readFileSync(path.join(ROOT, "src/components/workflow/job-inspector.tsx"), "utf8");
-const { diagnoseFailureLog } = await import("@/lib/log-diagnosis");
+const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis");
 
 /* ---- S: the failed branch's source shapes ---- */
 {
@@ -143,6 +143,58 @@ const { diagnoseFailureLog } = await import("@/lib/log-diagnosis");
   ok("M11 the t971 gate owns the strip's fold contract (G1..G8)", stripWalk.includes("G1 the panel never overflows at the fold") && stripWalk.includes("G8 the PNG receipts landed"));
   ok("M12 the t971 walk polls the strip's async leg before measuring", stripWalk.includes("the log diagnosis strip never rendered"));
   ok("M13 the exoneration law rides BOTH walks (the aria+pseudoAbs gate)", stripWalk.includes("every LEAK button is an aria-named hit-slop carrier"));
+}
+
+/* ---- N: the negative leg's contract (t972 — the three-state law's
+ *        OTHER mouth) ----
+ * The t970 mint armed the POSITIVE leg (the rose teaser, 2 chips); the
+ * t972 mint arms the NEGATIVE leg — a failed face whose log matches
+ * NOTHING. Task 121 built the zinc card; the t972 ride witnessed it in
+ * the browser for the first time. This band pins the leg's source
+ * shapes, the lib's zero-findings verdict on the walltime story, the
+ * mint's mirror-table sync, and the walk's contract. */
+{
+  /* the negative leg's source shapes (the same component, the other gate) */
+  ok("N1 the negative leg gates on diagnosis.length === 0", /diagnosis && diagnosis\.length === 0 \?/.test(inspector));
+  ok("N2 the negative marker rides the same container (data-ovd-negative)", inspector.includes('data-ovd-negative=""'));
+  ok("N3 the aria verdict is the negative leg's own sentence", inspector.includes('aria-label="No known failure signature matched the full log"'));
+  ok("N4 the count span reads 0 findings", inspector.includes("0 findings"));
+  ok("N5 the zinc styling is the negative card's own (border-zinc-500/25)", inspector.includes("border-zinc-500/25"));
+  ok("N6 the honest note rides its class (ovd-negative-note — the one text that reads whole)", inspector.includes("ovd-negative-note") && /the cause is\s+custom to this job/.test(inspector));
+  ok("N7 the negative jump speaks its own words (Read the full log)", inspector.includes("Read the full log"));
+  ok("N8 the SearchX icon rides the negative card", /SearchX/.test(inspector));
+
+  /* the lib's truth: the walltime story (the t972 mint's log shape)
+   * yields ZERO findings — the 15-pattern table matches nothing, and the
+   * t323 autopsy stays silent because the tail ends on the slurmd /
+   * Terminated / slurmstepd trio, not on a live progress frame */
+  const walltimeStory = [
+    "  23.51/24.00 hrs — Maximisation step starting (4 reconstructions, tau_fudge 1.0)",
+    "[2026-10-14 08:54:58.201] MPI rank 001: per-class reconstruction workspaces written",
+    "[2026-10-14 08:55:29.887] MPI rank 000: intermediate checkpoint written (run_it007_data.star + run_it007_optimiser.star)",
+    "slurmd[compute-0-1]: sending SIGTERM to the job's allocation (the partition's 24-hour walltime elapsed)",
+    "bash: line 1:  48291 Terminated              mpirun -n 2 relion_refine_mpi --i Particles/job014/particles.star --o Class3D/job042 --ref InitialModel/job041/initial_model.mrc --K 4",
+    "slurmstepd: error: *** JOB 482911 CANCELLED AT 2026-10-14T08:55:31 DUE TO TIME LIMIT *** on compute-0-1",
+  ].join("\n");
+  const negFindings = diagnoseFailureLog(walltimeStory);
+  ok("N9 the walltime story yields ZERO findings (the negative teaser's contract)", negFindings.length === 0, negFindings.map((f) => f.id).join("+") || "clean");
+
+  /* the mirror sync — the t972 mint carries an inline transcription of
+   * the signature table; if the lib's table grows, the mirror desyncs and
+   * this check fails (the re-key law for the mint's own mirror) */
+  const negMint = readFileSync(path.join(ROOT, "scripts/t972-negative-face-mint.mjs"), "utf8");
+  const mirrorCount = (negMint.match(/\["[a-z0-9-]+", \//g) ?? []).length;
+  ok("N10 the mint's mirror table stays in sync with the lib's signature table", mirrorCount === LOG_PATTERNS.length, `mirror=${mirrorCount} lib=${LOG_PATTERNS.length}`);
+  ok("N11 the mint proves the zero-match property at the API tier (the mirror check rides verify)", negMint.includes("ZERO signature matches across the full log") && negMint.includes("the t323 autopsy stays silent"));
+  ok("N12 the negative mint's run record exits 143 (128+15 — the SIGTERM death)", negMint.includes("exitCode: 143") && negMint.includes("Terminated"));
+
+  /* the t972 walk's contract */
+  const negWalk = readFileSync(path.join(ROOT, "scripts/t972-negative-face-walk.mjs"), "utf8");
+  ok("N13 the t972 walk has the two modes (BEFORE records, GATE gates)", negWalk.includes('GATE = process.env.GATE === "1"') && negWalk.includes("the BEFORE witness"));
+  ok("N14 the t972 gate owns the negative leg's fold contract (G1..G9)", negWalk.includes("G1 the panel never overflows at the fold") && negWalk.includes("G9 the PNG receipts landed"));
+  ok("N15 the t972 walk witnesses the honest silence (the strip is ABSENT by design)", negWalk.includes("the strip is ABSENT on the negative face"));
+  ok("N16 the exoneration law rides the t972 walk too (the aria+pseudoAbs gate)", negWalk.includes("every LEAK button is an aria-named hit-slop carrier"));
+  ok("N17 the contrast leg rides the walk (the t970 positive teaser, 2 chips — the three-state law's both legs)", negWalk.includes("N10 the contrast leg: the t970 face still speaks the POSITIVE teaser"));
 }
 
 /* ---- A: the tree pairing guard ---- */

@@ -1,0 +1,337 @@
+#!/usr/bin/env node
+/**
+ * t972 — the NEGATIVE DIAGNOSIS FACE: the world's SEVENTH job, minted
+ * honest so the Task 121 negative teaser — data-ovd-negative, the calm
+ * zinc "no known signature matched" card — gets its FIRST face. The
+ * t970 mint armed the POSITIVE leg (the rose teaser, 2 chips); this mint
+ * arms the OTHER mouth: a failed job whose log matches NOTHING, which is
+ * the third leg of the diagnosis three-state law (positive / negative /
+ * not-failed).
+ *
+ * The face's story is the field's classic no-signature death: a 3D
+ * classification that burned its partition's 24-hour walltime mid-run.
+ * SLURM cancels the step with its own words (DUE TO TIME LIMIT), bash
+ * reports the child "Terminated" (NOT "Killed" — that word is the OOM
+ * killer's signature), and RELION — alive the whole time — prints no
+ * error at all. The t323 silent-death autopsy must ALSO stay silent: it
+ * fires when the log's last three non-empty lines include a live
+ * progress frame, so this log ends on three honest non-frame lines (the
+ * checkpoint note, the slurmd SIGTERM notice, the slurmstepd refusal).
+ * Result: diagnoseFailureLog(full run.out) === [] — the negative teaser
+ * renders "0 findings", the Log console renders NO strip (the
+ * findings.length > 0 gate), and the log itself is the answer.
+ *
+ * The mint rides the t970 grammar verbatim (API job creation + workdir
+ * files + engine-state.json direct write + the t263 row flip), ADDITIVE
+ * and removable without touching the seed trio / the door / the bench /
+ * the t970 face. Its verify carries an INLINE MIRROR of the signature
+ * table (transcribed from src/lib/log-diagnosis.ts) so the mint proves
+ * the zero-match property at the API tier; the UI walk is the ground
+ * truth (the negative teaser's "0 findings" IS the lib's verdict), and
+ * the t970 unit's N-band pins the lib's response to the same story.
+ *
+ *   node scripts/t972-negative-face-mint.mjs mint|verify|remove
+ */
+import { execSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+const BASE = process.env.MINT_BASE ?? "http://localhost:3000";
+const ORIGIN = `-H "Origin: ${BASE}"`;
+const NAME = "Negative Diagnosis Face (t972)";
+const PROJECT_ID = process.env.MINT_PROJECT_ID ?? "cmv6ml09e0000kn9mgxrsun5w"; // the standing world (the doctor's ACTIVE)
+const DATA_ROOT = path.join(process.cwd(), "data", "relion", PROJECT_ID);
+const STATE_FILE = path.join(process.cwd(), "data", "engine-state.json");
+const RESULT_SENTENCE =
+  "relion_refine_mpi was cancelled by the partition's 24-hour walltime (SLURM: DUE TO TIME LIMIT) mid-iteration 7 of 25 — the log carries no error signature by design (the t972 negative diagnosis face)";
+
+let pass = 0;
+let fail = 0;
+const ok = (cond, label, detail = "") => {
+  if (cond) { pass += 1; console.log(`ok ${pass} — ${label}${detail ? ` (${detail})` : ""}`); }
+  else { fail += 1; console.log(`FAIL ${fail} — ${label}${detail ? ` (${detail})` : ""}`); }
+};
+
+const sh = (cmd) => {
+  try { return execSync(cmd, { encoding: "utf8", timeout: 60_000 }); } catch (e) { return String(e?.stdout ?? e); }
+};
+const api = (method, url, body) => {
+  const out = execSync(
+    `curl -s -X ${method} ${ORIGIN} -H "Content-Type: application/json" ${body ? `-d '${JSON.stringify(body)}'` : ""} "${BASE}${url}"`,
+    { encoding: "utf8", timeout: 60_000 }
+  );
+  try { return JSON.parse(out); } catch { return { raw: out }; }
+};
+const jobByName = () => {
+  const body = api("GET", "/api/jobs");
+  const arr = Array.isArray(body) ? body : body.jobs ?? [];
+  return arr.find((j) => j.name === NAME) ?? null;
+};
+const workdirOf = (jobId) => path.join(DATA_ROOT, `class3d_${jobId.slice(-8)}`);
+
+/* the negative face's run.out — a REAL walltime death, honest RELION
+ * class3d chatter the whole way down: header, the reference load, six
+ * settled iterations with their class tables and time bars (the worm
+ * dialect mid-log is fine — the t323 autopsy only reads the TAIL),
+ * iteration 7's start, and then the partition's clock running out. Every
+ * line is checked against the mirror table below; none may match. */
+const negativeRunOut = () =>
+  [
+    "RELION: 3D classification (t972 negative diagnosis face)",
+    "  command: mpirun -n 2 relion_refine_mpi --i Particles/job014/particles.star --o Class3D/job042 --ref InitialModel/job041/initial_model.mrc --K 4 --tau2_fudge 4 --iter 25 --pad 1 --particle_diameter 180 --angpix 1.24 --healpix 15 --offset_range 5 --offset_step 2",
+    "  41,232 particles in the input star · 4 classes · 2 MPI ranks x 3 threads · one GPU device per rank",
+    "  symmetry: C1 · reference angular sampling: 15 degrees · partition walltime: 24:00:00",
+    "",
+    "[2026-10-13 15:12:07.881] MPI rank 000: loading 41,232 particles ... done (71.4 GB resident per rank)",
+    "[2026-10-13 15:12:49.002] MPI rank 000: reference initial_model.mrc read (box 200, angpix 1.24) — low-pass filtered to 40 A for the first round",
+    "[2026-10-13 15:12:51.416] MPI rank 001: ready — waiting for the first workspace",
+    "",
+    "[2026-10-13 15:12:52.033] === Iteration 1 of 25 ===",
+    "  0.02/0.31 hrs — Expectation step: 41232/41232 particles assigned (100%)",
+    "[2026-10-13 15:22:44.120] class distribution: class1 9,871 (23.94%) · class2 10,402 (25.23%) · class3 10,551 (25.59%) · class4 10,408 (25.24%)",
+    "[2026-10-13 15:22:51.884] current resolution at gold-standard FSC=0.143: 31.4 A — writing run_it001_data.star + run_it001_model.star",
+    "",
+    "[2026-10-13 15:23:02.512] === Iteration 2 of 25 ===",
+    "  0.31/0.74 hrs — Expectation step: 41232/41232 particles assigned (100%)",
+    "[2026-10-13 15:38:19.930] class distribution: class1 10,214 (24.77%) · class2 10,187 (24.71%) · class3 10,442 (25.33%) · class4 10,389 (25.19%)",
+    "[2026-10-13 15:38:27.204] current resolution at gold-standard FSC=0.143: 22.8 A",
+    "",
+    "[2026-10-13 15:38:38.771] === Iteration 3 of 25 ===",
+    "  0.74/1.22 hrs — Expectation step: 41232/41232 particles assigned (100%)",
+    "[2026-10-13 15:56:41.657] angular sampling raised: 15 -> 7.5 degrees (the auto-refine schedule)",
+    "[2026-10-13 15:56:49.884] current resolution at gold-standard FSC=0.143: 14.9 A",
+    "",
+    "[2026-10-13 15:57:01.140] === Iteration 4 of 25 ===",
+    "  1.22/2.05 hrs — Expectation step: 41232/41232 particles assigned (100%)",
+    "[2026-10-13 16:19:56.372] class distribution: class1 11,077 (26.86%) · class2 9,941 (24.11%) · class3 10,211 (24.77%) · class4 10,003 (24.26%)",
+    "[2026-10-13 16:20:04.512] current resolution at gold-standard FSC=0.143: 9.7 A",
+    "",
+    "[2026-10-13 16:20:16.094] === Iteration 5 of 25 ===",
+    "  2.05/3.11 hrs — Expectation step: 41232/41232 particles assigned (100%)",
+    "[2026-10-13 16:48:22.708] current resolution at gold-standard FSC=0.143: 7.2 A — the two good classes are separating from the junk",
+    "",
+    "[2026-10-13 16:48:34.281] === Iteration 6 of 25 ===",
+    "  3.11/4.40 hrs — Expectation step: 41232/41232 particles assigned (100%)",
+    "[2026-10-13 17:21:07.445] class distribution: class1 12,660 (30.71%) · class2 11,482 (27.85%) · class3 8,913 (21.62%) · class4 8,177 (19.82%)",
+    "[2026-10-13 17:21:15.690] current resolution at gold-standard FSC=0.143: 5.9 A",
+    "",
+    "[2026-10-13 17:21:27.033] === Iteration 7 of 25 ===",
+    "[2026-10-14 08:41:12.884] MPI rank 001: Expectation step — 41,232 particles across 4 classes (the round crossed midnight: the queue was busy)",
+    "  23.51/24.00 hrs — Maximisation step starting (4 reconstructions, tau_fudge 1.0)",
+    "[2026-10-14 08:54:58.201] MPI rank 001: per-class reconstruction workspaces written",
+    "[2026-10-14 08:55:29.887] MPI rank 000: intermediate checkpoint written (run_it007_data.star + run_it007_optimiser.star)",
+    "slurmd[compute-0-1]: sending SIGTERM to the job's allocation (the partition's 24-hour walltime elapsed)",
+    "bash: line 1:  48291 Terminated              mpirun -n 2 relion_refine_mpi --i Particles/job014/particles.star --o Class3D/job042 --ref InitialModel/job041/initial_model.mrc --K 4",
+    "slurmstepd: error: *** JOB 482911 CANCELLED AT 2026-10-14T08:55:31 DUE TO TIME LIMIT *** on compute-0-1",
+    "",
+  ].join("\n");
+
+/* ---------------------------------------------------------------
+ * the MIRROR TABLE — transcribed from src/lib/log-diagnosis.ts
+ * (the 15 signature patterns). The mint proves the zero-match
+ * property at the API tier; the UI walk is the ground truth; the
+ * t970 unit's N-band pins the lib's response to the same story.
+ * If the lib's table grows, THIS mirror must be re-keyed too —
+ * the unit's N-band checks the story, not this table.
+ * --------------------------------------------------------------- */
+const MIRROR_PATTERNS = [
+  ["oom-kill", /\bKilled\b|oom-kill(?:er)?\b/i],
+  ["gpu-oom", /cuda[\w: ]*(?:error|out of memory)|out of memory|hipError|std::bad_alloc/i],
+  ["disk-full", /no space left on device|disk quota exceeded|read-only file system/i],
+  ["missing-input", /no such file or directory/i],
+  ["permission", /permission denied/i],
+  ["segfault", /segmentation fault|\bcore dumped\b/i],
+  ["mpi-abort", /MPI_ABORT was invoked/i],
+  ["blush-python-failure", /Something went wrong in the external Python call|relion_python_blush/i],
+  ["python-traceback", /Traceback \(most recent call last\)/],
+  ["autopick-log-gpu", /Laplacian-of-Gaussian picker does not support GPU acceleration/i],
+  ["extract-stack-size-clash", /write: target and source objects have different size/i],
+  ["readmrc-exceeds-stack", /readMRC: Image number \d+ exceeds stack size \d+/i],
+  ["ctffind-no-fit", /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i],
+  ["gpu-free-memory-warning", /Ignoring required free GPU memory amount of \d+ MB/i],
+  ["gpu-starved-refusal", /CRYOFLOW_ERR: only \d+ MB free on the GPU/i],
+];
+/* t323's live progress frame — the autopsy fires only if the log's last
+ * three non-empty lines include one of these (without " yum!") */
+const LIVE_FRAME_RE = /~~\(,_,">|\[oo\]|\/\d+(?:\.\d+)?\/(?:\d+(?:\.\d+)?|\?\?\?)\s*(?:sec|min|hrs)\b/;
+
+const mirrorViolations = (text) => {
+  const lines = text.split("\n");
+  const hits = [];
+  for (let i = 0; i < lines.length; i++) {
+    for (const [id, re] of MIRROR_PATTERNS) {
+      if (re.test(lines[i])) hits.push(`L${i + 1}:${id}`);
+    }
+  }
+  return hits;
+};
+const tailHasLiveFrame = (text) => {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return lines.slice(-3).some((l) => LIVE_FRAME_RE.test(l) && !/yum!/.test(l));
+};
+
+/* the run record — the t966/t970 grammar, with the cancelled run's
+ * honest fields: done:true, exitCode 143 (128+15, the SIGTERM death),
+ * no outputs. readRuns re-parses on the external write. */
+const writeRunRecord = (jobId, workdir) => {
+  const record = {
+    jobId,
+    projectId: PROJECT_ID,
+    type: "class3d",
+    pid: null,
+    cmd: "mpirun -n 2 relion_refine_mpi --i Particles/job014/particles.star --o Class3D/job042 --K 4  # t972 negative diagnosis face",
+    workdir,
+    logFile: path.join(workdir, "run.out"),
+    errFile: path.join(workdir, "run.err"),
+    startedAt: new Date(Date.now() - 18_020_000).toISOString(),
+    outputs: {},
+    done: true,
+    exitCode: 143,
+    result: RESULT_SENTENCE,
+  };
+  const raw = readFileSync(STATE_FILE, "utf8");
+  const runs = JSON.parse(raw);
+  runs[jobId] = record;
+  const tmp = `${STATE_FILE}.t972.tmp`;
+  writeFileSync(tmp, JSON.stringify(runs, null, 2));
+  // rename defeats the reader's half-written read (the t963 lesson)
+  execSync(`mv "${tmp}" "${STATE_FILE}"`);
+  return record;
+};
+
+/* the row flip — the t966/t263 grammar: Prisma bindings, the canonical
+ * db, status/progress/result in one update. */
+const flipRow = (jobId) =>
+  spawnSync(
+    "node",
+    [
+      "-e",
+      `const { PrismaClient } = require("@prisma/client");
+       const db = new PrismaClient();
+       db.job.update({
+         where: { id: process.argv[1] },
+         data: { status: "failed", progress: 28, result: process.env.T972_RESULT },
+       }).then(() => db.$disconnect()).catch((e) => { console.error(String(e)); process.exit(1); });`,
+      jobId,
+    ],
+    {
+      env: { ...process.env, DATABASE_URL: `file:${process.cwd()}/db/cryoflow.db`, T972_RESULT: RESULT_SENTENCE },
+      encoding: "utf8",
+      timeout: 30_000,
+    }
+  );
+
+/* ------------------------------------------------------------ shared checks */
+const checkLogContract = (jobId) => {
+  const full = api("GET", `/api/jobs/${jobId}/log?full=1`);
+  const text = typeof full?.tail === "string" ? full.tail : typeof full?.text === "string" ? full.text : "";
+  ok(text.length > 1500, "the log route answers the face's full log (non-empty — the t318 law)", `${text.length}B`);
+  ok(full?.truncated === false, "the log is under the 8MB cap (truncated false)");
+
+  const violations = mirrorViolations(text);
+  ok(violations.length === 0, "ZERO signature matches across the full log (the 15-pattern mirror)", violations.slice(0, 4).join(",") || "clean");
+  ok(!tailHasLiveFrame(text), "the tail's last three non-empty lines carry no live frame (the t323 autopsy stays silent)");
+
+  const tail = api("GET", `/api/jobs/${jobId}/log`);
+  const tailText = typeof tail?.tail === "string" ? tail.tail : "";
+  ok(tailText.length > 0, "the tail route answers (the Log tab's window)", `${tailText.length}B`);
+  ok(mirrorViolations(tailText).length === 0, "the tail window is signature-free too (teaser and strip would agree)");
+  return text;
+};
+
+/* ------------------------------------------------------------ mint */
+if (process.argv[2] === "mint") {
+  console.log("== t972 negative-face mint ==");
+  const probe = sh(`curl -s -o /dev/null -w "%{http_code}" ${ORIGIN} "${BASE}/api/jobs" --max-time 8`);
+  if (probe !== "200") {
+    console.log(`FATAL: the server did not answer 200 (${probe}) — the lane must be alive to mint`);
+    process.exit(2);
+  }
+
+  let job = jobByName();
+  if (job) {
+    console.log(`(the negative face already exists: ${job.id} — reusing, files re-stamped)`);
+  } else {
+    // mints pass explicit x/y (the law) — the t970 face's column, one row
+    // below it (1960,760 worked; 2400 once rode OUT of the fitted width)
+    const made = api("POST", "/api/jobs", { type: "class3d", name: NAME, x: 1960, y: 1040 });
+    job = made?.job ?? made;
+    if (!job?.id) {
+      console.log(`FATAL: job creation refused: ${JSON.stringify(made).slice(0, 300)}`);
+      process.exit(2);
+    }
+    console.log(`job minted: ${job.id}`);
+  }
+
+  const workdir = workdirOf(job.id);
+  mkdirSync(workdir, { recursive: true });
+  writeFileSync(path.join(workdir, "run.out"), negativeRunOut());
+  writeFileSync(path.join(workdir, "run.err"), ""); // stderr silent — the story lives in run.out (the t970 face4 shape)
+  writeRunRecord(job.id, workdir);
+  console.log(`workdir + walltime log + run record written: ${workdir}`);
+
+  const flip = flipRow(job.id);
+  if (flip.status !== 0) {
+    console.log(`FATAL: the row flip failed: ${(flip.stderr ?? "").slice(0, 300)}`);
+    process.exit(2);
+  }
+
+  let status = "";
+  for (let i = 0; i < 10; i++) {
+    status = jobByName()?.status ?? "";
+    if (status === "failed") break;
+    execSync("sleep 1");
+  }
+  ok(status === "failed", "the face's row is FAILED (the minted row-flip)", `status=${status}`);
+
+  const outBytes = existsSync(path.join(workdir, "run.out")) ? readFileSync(path.join(workdir, "run.out")).length : 0;
+  ok(outBytes > 1500 && outBytes < 8 * 1024 * 1024, "the run.out is on disk (non-empty — the t318 law)", `${outBytes}B`);
+
+  checkLogContract(job.id);
+
+  console.log(`== mint ${fail === 0 ? "GREEN" : "RED"} — ${pass} ok, ${fail} fail ==`);
+  process.exit(fail === 0 ? 0 : 1);
+}
+
+/* ------------------------------------------------------------ verify */
+if (process.argv[2] === "verify") {
+  console.log("== t972 negative-face verify ==");
+  const job = jobByName();
+  ok(!!job, "the negative face exists", job ? job.id : "missing");
+  if (!job) process.exit(1);
+  ok(job.status === "failed", "the face's status is failed", `status=${job.status}`);
+  checkLogContract(job.id);
+  console.log(`== verify ${fail === 0 ? "GREEN" : "RED"} — ${pass} ok, ${fail} fail ==`);
+  process.exit(fail === 0 ? 0 : 1);
+}
+
+/* ------------------------------------------------------------ remove */
+if (process.argv[2] === "remove") {
+  console.log("== t972 negative-face remove ==");
+  const job = jobByName();
+  if (job) {
+    const del = api("DELETE", `/api/jobs/${job.id}`);
+    console.log(`job removed: ${job.id} (${JSON.stringify(del).slice(0, 120)})`);
+  } else {
+    console.log("(no negative face — nothing to remove)");
+  }
+  try {
+    const raw = readFileSync(STATE_FILE, "utf8");
+    const runs = JSON.parse(raw);
+    if (job?.id && runs[job?.id]) {
+      delete runs[job.id];
+      const tmp = `${STATE_FILE}.t972.tmp`;
+      writeFileSync(tmp, JSON.stringify(runs, null, 2));
+      execSync(`mv "${tmp}" "${STATE_FILE}"`);
+      console.log("run record removed");
+    }
+  } catch {}
+  if (job?.id) {
+    try { rmSync(workdirOf(job.id), { recursive: true, force: true }); console.log("workdir removed"); } catch {}
+  }
+  console.log("== remove done ==");
+  process.exit(0);
+}
+
+console.log("usage: node scripts/t972-negative-face-mint.mjs mint|verify|remove");
+process.exit(2);
