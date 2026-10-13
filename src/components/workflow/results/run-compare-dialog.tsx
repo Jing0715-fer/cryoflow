@@ -543,12 +543,17 @@ function RunCompareDialog<R extends { name: string }>({
       jobs: jobs.map((j) => ({ id: j.id, type: j.type, name: j.name })),
       fromRunId: runAId,
       toRunId: effectiveRunB,
-      outputPortsOf: (type) =>
-        type === jobById.get(effectiveRunB)?.type
-          ? (jobType(spec.adoptTargetType as string)?.outputs ?? []).map((p) => p.name)
-          : (jobType(type)?.outputs ?? []).map((p) => p.name),
+      // t949 — the MINT PREVIEW, named by the lib: the ports are the
+      // selection's (the t453 law, now mintTargetType instead of the
+      // caller-side port-swap shim) and the dup check skips — nothing
+      // can be already-wired to a node that does not exist, so the
+      // children already on B MOVE onto the selection and the aria
+      // counts exactly what the fire will re-wire (the undercount
+      // cured at the source).
+      mintTargetType: spec.adoptTargetType as string,
+      outputPortsOf: (type) => (jobType(type)?.outputs ?? []).map((p) => p.name),
     });
-  }, [spec, edges, jobs, runAId, effectiveRunB, jobById]);
+  }, [spec, edges, jobs, runAId, effectiveRunB]);
   const adoptableSelect =
     selectPlan != null &&
     !selectPlan.sameRun &&
@@ -568,12 +573,14 @@ function RunCompareDialog<R extends { name: string }>({
       jobs: jobs.map((j) => ({ id: j.id, type: j.type, name: j.name })),
       fromRunId: runAId,
       toRunId: effectiveRunB,
-      outputPortsOf: (type) =>
-        type === jobById.get(effectiveRunB)?.type
-          ? (jobType(spec.adoptTargetType as string)?.outputs ?? []).map((p) => p.name)
-          : (jobType(type)?.outputs ?? []).map((p) => p.name),
+      // t949 — the MINT PREVIEW (the select rider's cure carried home):
+      // the ports are the filter's and the dup check skips, so the
+      // multi-input world's already-on-B children MOVE onto the filter
+      // and the rider's speech counts the fire's own truth.
+      mintTargetType: spec.adoptTargetType as string,
+      outputPortsOf: (type) => (jobType(type)?.outputs ?? []).map((p) => p.name),
     });
-  }, [spec, edges, jobs, runAId, effectiveRunB, jobById]);
+  }, [spec, edges, jobs, runAId, effectiveRunB]);
   const adoptableExclude =
     excludePlan != null &&
     !excludePlan.sameRun &&

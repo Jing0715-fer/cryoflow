@@ -1,9 +1,9 @@
 #!/bin/bash
-# t927 census runner — the 14 node-only instruments at their standing values.
+# t927 census runner — the 15 node-only instruments at their standing values.
 # Law: unset DATABASE_URL per invocation; lib-import units via unit-runner (bare node dies on @/lib).
 cd /home/z/my-project
 export DATABASE_URL=""
-EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8)
+EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14)
 declare -a NAMES=(
   "t892-denoise-chip-unit"
   "t830-keymap-chips-unit"
@@ -19,8 +19,9 @@ declare -a NAMES=(
   "t914-import-visibility-unit"
   "t945-convention-unit"
   "t947-compare-x-unit"
+  "t949-mint-preview-unit"
 )
-declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0)
+declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0)
 i=0
 for name in "${NAMES[@]}"; do
   unset DATABASE_URL
