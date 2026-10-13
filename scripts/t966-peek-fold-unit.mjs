@@ -25,6 +25,10 @@
  *       families carries break-all — the t913 family law, now file-wide.
  *   M — the mint + the rider are on disk with their contracts (the
  *       bench's four faces, the rider's two modes).
+ *   G/M8 (t969) — the PANEL tier: the Overview's own mouths take the
+ *       narrow step (the grid block's explicit single column) and the
+ *       presets button group wraps internally; the panel-walk instrument
+ *       pins the tier as a contract (panelOverX FALSE is the law).
  *
  *   node scripts/t966-peek-fold-unit.mjs
  */
@@ -112,6 +116,16 @@ const stepWit = srcOf("scripts/t968-gallery-step-witness.mjs");
 ok("M7 the t968 instruments stand (the eyeball's two widths + the step witness's two modes — the look and the squish are contracts now)",
   eyeball.includes('process.env.WIDE') && eyeball.includes('320 fold') &&
   stepWit.includes('process.env.BEFORE === "1"') && stepWit.includes("W2 the squish") && stepWit.includes("G1 the narrow step"));
+
+/* ---------- G/M8 — the t969 PANEL tier: the Overview's own mouths ---------- */
+const insp9 = insp;
+ok("G3 the two-column grid block carries the explicit single column (the t969 narrow step: without minmax(0,1fr) the fold's auto track sizes to the inputs' nowrap mono path and the panel blows open)",
+  insp9.includes('"grid grid-cols-1 gap-6 lg:grid-cols-2"'));
+ok("G4 the presets button group wraps internally (the +27px LEAK's cure: one incompressible flex item folded into two honest rows at the fold, side by side wide)",
+  insp9.includes("ml-auto flex flex-wrap items-center justify-end gap-1.5"));
+const walk9 = srcOf("scripts/t969-panel-offender-walk.mjs");
+ok("M8 the t969 instruments stand (the panel walk's two modes + the hit-slop exoneration — the PANEL tier is a contract now: panelOverX FALSE is the law)",
+  walk9.includes('process.env.GATE === "1"') && walk9.includes("panelOverX FALSE") && walk9.includes("hit-slop"));
 
 /* ---------- A — the file-wide tree guard ---------- */
 const monoDescs = (src) => [...src.matchAll(/<DialogDescription className="([^"]*)"/g)]

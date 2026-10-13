@@ -1719,7 +1719,12 @@ function ParamPresetsRow({ job }: { job: JobDTO }) {
         <span className="text-[10px] tabular-nums text-muted-foreground">
           {mine.length} for {typeLabel}
         </span>
-        <div className="ml-auto flex items-center gap-1.5">
+        {/* t969 — the button group was ONE incompressible flex item inside
+            the wrapping row: its two nowrap buttons raised the row's
+            min-content past the fold's width (+27px LEAK). The group wraps
+            INTERNALLY now — at the fold the buttons stack honestly, wide
+            they keep sitting side by side at the row's end. */}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
           <Button
             variant="outline"
             size="sm"
@@ -2590,7 +2595,12 @@ function OverviewTab({
           refPath={data?.inputs?.find((i) => i.flag === "--ref")?.path ?? null}
         />
       ) : null}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* t969 — the explicit single column is the narrow step: without it
+          the fold's auto track sizes to the content's min-content, and the
+          inputs list's nowrap mono path (329px) blew the panel open
+          (panelOverX TRUE +64px). minmax(0,1fr) starves the track's floor —
+          the truncate inside the inputs list wakes up and the grid fits. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {data?.inputs && data.inputs.length > 0 ? (
           <Section icon={ArrowRight} title="Inputs consumed">
             <InputsCard inputs={data.inputs} />

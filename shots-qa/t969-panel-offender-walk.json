@@ -1,0 +1,70 @@
+{
+  "mode": "gate",
+  "fold": {
+    "panelW": 305,
+    "panelSW": 305,
+    "panelCW": 305,
+    "panelOverX": false,
+    "shellOverX": false,
+    "offenders": [
+      {
+        "tag": "span",
+        "cls": "truncate font-mono text-[11px] text-foreground/80",
+        "sw": 211,
+        "cw": 147,
+        "over": 64,
+        "text": "import_o2pzxbn0/micrographs.star",
+        "selfClip": true
+      },
+      {
+        "tag": "button",
+        "cls": "inline-flex items-center justify-center whitespace-nowrap font-medium transition-all disabled:pointer-events-none disabl",
+        "sw": 42,
+        "cw": 34,
+        "over": 8,
+        "text": "",
+        "selfClip": false
+      }
+    ],
+    "unclipped": 1
+  },
+  "wide": {
+    "panelW": 1227,
+    "panelSW": 1227,
+    "panelCW": 1227,
+    "panelOverX": false,
+    "shellOverX": false,
+    "offenders": [
+      {
+        "tag": "button",
+        "cls": "inline-flex items-center justify-center whitespace-nowrap font-medium transition-all disabled:pointer-events-none disabl",
+        "sw": 42,
+        "cw": 34,
+        "over": 8,
+        "text": "",
+        "selfClip": false
+      }
+    ],
+    "unclipped": 1
+  },
+  "named": {
+    "twoCol": {
+      "sw": 265,
+      "cw": 265,
+      "over": 0,
+      "cols": 1,
+      "selfClip": false,
+      "clsHasStep": true
+    },
+    "summary": {
+      "sw": 263,
+      "cw": 263,
+      "over": 0
+    },
+    "presets": {
+      "rowOver": 0,
+      "grpWraps": true
+    },
+    "wallStep": true
+  }
+}
