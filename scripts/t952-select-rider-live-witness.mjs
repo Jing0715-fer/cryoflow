@@ -329,7 +329,10 @@ ok("F THE REFUSAL AT THE DATA LAYER — A→C STAYS (the fire's own plan refuses
   !!esAfter.find((e) => e.fromJobId === A.id && e.toJobId === C.id && e.fromPort === "classAverages" && e.toPort === "classes"),
   esAfter.find((e) => e.fromJobId === A.id && e.toJobId === C.id)?.id ?? "missing");
 const toastV = await firePoll;
-const toastSeen = toastV && toastV.all ? { title: toastV.title, all: toastV.all } : null;
+/* the t953 ride-1 lesson: the fallback below REASSIGNS this binding —
+ * a const here crashes the whole ride the first time the fallback runs
+ * (t952's own rides never took the branch; t953's did) */
+let toastSeen = toastV && toastV.all ? { title: toastV.title, all: toastV.all } : null;
 if (!toastSeen?.all) {
   const again = evalJson(`(() => { const toasts = [...document.querySelectorAll('[role="status"], [data-sonner-toast], li')].map(t => t.textContent?.slice(0, 600) ?? ''); const hit = toasts.find(t => t.includes('Downstream adopted by')); return JSON.stringify(hit ?? null); })()`);
   toastSeen = typeof again === "string" && again !== "null" ? { title: null, all: again } : null;
