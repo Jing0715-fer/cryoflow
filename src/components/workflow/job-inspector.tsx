@@ -109,6 +109,7 @@ import { RemoteRunButton } from "./remote-run-button";
 import { CleanupDialog } from "./cleanup-dialog";
 import { StarTable } from "./results/star-table"; // t779 — the peek doors: the Files tab speaks the same structured law the results view speaks
 import { TextPreview } from "./results/text-preview"; // t779 — and the same tail law (one brain, now three door-sets)
+import { Kbd } from "@/components/ui/kbd"; // t966 — the peek doors speak their one key in the family's one voice (the t832 seat, now in the inspector too)
 // t757 — the dry-run brochure's tools-menu home (the t399 retirement
 // verdict prophesied it); the dialog mounts CONTROLLED here — the menu
 // item owns the door, the self-trigger stays unrendered.
@@ -3020,15 +3021,36 @@ function FilesTab({
           {textFile && (
             <>
               <DialogHeader>
+                {/* t966 — the t913 grammar reaches the SECOND family at
+                    last: the before-witness rode the fold (320) with a
+                    47-char mono path and the dialog scrolled horizontally
+                    (descOver 72, dialogOverX true — the results view's
+                    third sibling carried the same disease before its own
+                    cure). The icon shrink-0, the name min-w-0 truncate,
+                    the description break-all — the exact words the
+                    results view speaks, so the one brain's door-sets
+                    share one grammar. */}
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <ScrollText className="h-4 w-4 text-warning-600" aria-hidden="true" />
-                  {textFile.name}
+                  <ScrollText className="h-4 w-4 shrink-0 text-warning-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{textFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">
+                <DialogDescription className="break-all font-mono text-[11px]">
                   {textFile.path} · last 64 KB
                 </DialogDescription>
               </DialogHeader>
               <TextPreview jobId={job.id} path={textFile.path} />
+              {/* t966 — the t832 seat rides too: the results view's text
+                  door teaches Esc in one voice; the inspector's door-set
+                  is the same brain and now speaks the same key. */}
+              <div
+                data-canvas-ui="files-text-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>
@@ -3041,13 +3063,27 @@ function FilesTab({
           {starFile && (
             <>
               <DialogHeader>
+                {/* t966 — the star door's half of the t913 grammar (the
+                    before-witness's face 1: descOver 52 at 320, the
+                    dialog's horizontal scroll). Same words as the
+                    results view's star door. */}
                 <DialogTitle className="flex items-center gap-2 text-sm">
-                  <Table2 className="h-4 w-4 text-violet-600" aria-hidden="true" />
-                  {starFile.label ?? starFile.name}
+                  <Table2 className="h-4 w-4 shrink-0 text-violet-600" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{starFile.label ?? starFile.name}</span>
                 </DialogTitle>
-                <DialogDescription className="font-mono text-[11px]">{starFile.path}</DialogDescription>
+                <DialogDescription className="break-all font-mono text-[11px]">{starFile.path}</DialogDescription>
               </DialogHeader>
               <StarTable job={job} path={starFile.path} />
+              {/* t966 — the star door's Esc seat (the t832 voice). */}
+              <div
+                data-canvas-ui="files-star-keymap"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] leading-tight text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-0.5">
+                  <Kbd>Esc</Kbd>
+                  <span className="ml-1">closes</span>
+                </span>
+              </div>
             </>
           )}
         </DialogContent>

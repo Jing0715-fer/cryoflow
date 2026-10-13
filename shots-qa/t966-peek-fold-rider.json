@@ -1,0 +1,62 @@
+{
+  "mode": "gate",
+  "pass": 23,
+  "fail": 0,
+  "starWide": {
+    "dialogW": 851,
+    "tableSW": 1723
+  },
+  "starFold": {
+    "dialogW": 288,
+    "dialogOverX": false,
+    "desc": {
+      "over": 0,
+      "sibOverlap": false,
+      "escapesDialog": false
+    },
+    "title": {
+      "over": 0,
+      "sibOverlap": false,
+      "escapesDialog": false
+    },
+    "boxOverflowX": "auto",
+    "tableSW": 1723,
+    "boxCW": 236,
+    "tableScrollsInside": true,
+    "leafDiseased": []
+  },
+  "textFold": {
+    "dialogW": 287,
+    "dialogOverX": false,
+    "descText": "LogFiles/relion_motioncorr_gpu_pipeline_run.log · last 64 KB",
+    "desc": {
+      "over": 0,
+      "sibOverlap": false,
+      "escapesDialog": false
+    },
+    "pre": {
+      "scrollH": 47232,
+      "clientH": 352,
+      "scrolls": true,
+      "focused": true
+    },
+    "leafDiseased": []
+  },
+  "arrowScroll": {
+    "st": 80
+  },
+  "endScroll": {
+    "st": 46880,
+    "max": 46880
+  },
+  "emptyFold": {
+    "dialogOverX": false,
+    "pre": {
+      "scrollH": 24,
+      "clientH": 24,
+      "scrolls": false,
+      "focused": true
+    }
+  },
+  "consoleClean": true
+}
