@@ -112,7 +112,7 @@ export function HpcSbatchDialog({
     fetch(`/api/hpc/sbatch/${jobId}?profile=${encodeURIComponent(profileId)}`)
       .then((r) => r.json())
       .then((d: SbatchResponse) => { if (alive) setData(d); })
-      .catch(() => { if (alive) setData({ script: "", strategy: { mode: "cpu", gpus: 0, shards: 0, minutes: 0, reason: "" }, slurmNotes: [], argv: [], error: "Request failed" }); })
+      .catch((err: unknown) => { if (alive) setData({ script: "", strategy: { mode: "cpu", gpus: 0, shards: 0, minutes: 0, reason: "" }, slurmNotes: [], argv: [], error: err instanceof Error ? err.message : "the sbatch preview could not be fetched" }); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [open, profileId, jobId]);

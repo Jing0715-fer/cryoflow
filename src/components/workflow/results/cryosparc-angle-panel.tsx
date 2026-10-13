@@ -47,7 +47,7 @@ export function CryoSparcAnglePanel({
           setError(null);
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
+        if (!cancelled) setError(err instanceof Error ? err.message : "the angle distribution could not be loaded");
       }
     };
     void load();

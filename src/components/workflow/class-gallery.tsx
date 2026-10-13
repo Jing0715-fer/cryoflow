@@ -253,7 +253,7 @@ export function ClassGallery({
           setFallbackImgs(new Set());
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
+        if (!cancelled) setError(err instanceof Error ? err.message : "the class gallery could not be loaded");
       } finally {
         if (!cancelled) setLoading(false);
       }

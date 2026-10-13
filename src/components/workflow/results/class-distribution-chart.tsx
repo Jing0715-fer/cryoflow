@@ -48,7 +48,7 @@ export function ClassDistributionChart({
           setError(null);
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
+        if (!cancelled) setError(err instanceof Error ? err.message : "the class distribution could not be loaded");
       }
     })();
     return () => {

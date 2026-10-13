@@ -218,7 +218,7 @@ export function ImportGallery({
           setError(null);
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
+        if (!cancelled) setError(err instanceof Error ? err.message : "the micrograph gallery could not be loaded");
       }
     })();
     return () => {

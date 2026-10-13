@@ -2479,7 +2479,7 @@ export function WorkflowCanvas() {
     } catch (err) {
       toast({
         title: "Export failed",
-        description: err instanceof Error ? err.message : "Unknown error",
+        description: err instanceof Error ? err.message : "the failure threw no readable reason",
         variant: "destructive",
       });
     } finally {
@@ -2509,7 +2509,7 @@ export function WorkflowCanvas() {
     } catch (err) {
       toast({
         title: "Copy failed",
-        description: err instanceof Error ? err.message : "Unknown error",
+        description: err instanceof Error ? err.message : "the failure threw no readable reason",
         variant: "destructive",
       });
     } finally {

@@ -4892,13 +4892,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           set({ edges: get().edges.filter((e) => e.id !== optimisticId) });
           toast({
             title: "Connection refused",
-            description: err instanceof Error ? err.message : "Failed to connect",
+            description: err instanceof Error ? err.message : `the connection ${fromName} → ${toName} could not be saved`,
             variant: "destructive",
           });
         }
       } else {
         set({ edges: get().edges.filter((e) => e.id !== optimisticId) });
-        const msg = err instanceof Error ? err.message : "Failed to connect";
+        const msg = err instanceof Error ? err.message : `the connection ${fromName} → ${toName} could not be saved`;
         toast({ title: "Connection refused", description: msg, variant: "destructive" });
       }
     } finally {

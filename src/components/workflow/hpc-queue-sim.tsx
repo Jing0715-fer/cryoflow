@@ -243,8 +243,8 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
         );
         setParams(echoed);
       }
-    } catch {
-      setError("Request failed");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "the queue simulation could not be fetched");
     } finally {
       setLoading(false);
     }

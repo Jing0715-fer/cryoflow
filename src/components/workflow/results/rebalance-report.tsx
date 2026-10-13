@@ -135,7 +135,7 @@ export function RebalanceReport({
           setError(null);
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "failed");
+        if (!cancelled) setError(err instanceof Error ? err.message : "the rebalance report could not be loaded");
       }
     })();
     return () => {
