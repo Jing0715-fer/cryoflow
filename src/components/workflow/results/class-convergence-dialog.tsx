@@ -271,8 +271,16 @@ function ClassConvergenceDialog({
           </DialogTitle>
           <DialogDescription>
             One run&apos;s own arc — the same classes&apos; occupancy at an
-            earlier and a later iteration of {job.name}. Classes hugging the
-            diagonal have settled; classes off it are still moving particles.
+            earlier and a later iteration of{" "}
+            {/* t945 — the t913 grammar: the name is a data plane mid-prose;
+                break-all lets a long single token WRAP (the header's
+                overflow-hidden would otherwise clip its tail past
+                reading), hover carries the full string. */}
+            <span className="break-all" title={job.name}>
+              {job.name}
+            </span>
+            . Classes hugging the diagonal have settled; classes off it are
+            still moving particles.
           </DialogDescription>
         </DialogHeader>
 

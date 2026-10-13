@@ -50,6 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useWorkflowStore } from "@/lib/store";
+import { usePrintedDate } from "@/lib/use-now";
 import type { JobDTO } from "@/lib/types";
 import { jobType } from "@/lib/workflow";
 import { planAdoption } from "@/lib/adopt-branch";
@@ -542,10 +543,24 @@ function RunCompareDialog<R extends { name: string }>({
     selectPlan != null ? adoptionPlanTitle(selectPlan, nameA, nameB) : "";
   const excludeTitle =
     excludePlan != null ? adoptionPlanTitle(excludePlan, nameA, nameB) : "";
+  // t945 — the print face's paper clock (the t232 law: paper clocks do
+  // NOT hydrate — useSyncExternalStore with an empty server snapshot).
+  const printed = usePrintedDate();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+      {/* t945 — the print face (globals.css's :has() block, the Task 114
+          doctrine's second seat): data-compare-dialog opts this dialog
+          out of the generic step-aside — an A/B verdict IS a document,
+          so paper re-lays the modal into flow and keeps the verdict
+          chips, the scatter, the mover lists and the trust line. The
+          standalone-translate kill rides the className (the inspector's
+          own probe: Lightning CSS folds a same-block translate:none into
+          an identity transform, so the kill must be its own rule). */}
+      <DialogContent
+        data-compare-dialog=""
+        className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl print:[translate:none] print:[scale:none] print:[rotate:none]"
+      >
         <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2 text-base">
             <GitCompareArrows className="size-4 text-primary" aria-hidden="true" />
@@ -554,6 +569,17 @@ function RunCompareDialog<R extends { name: string }>({
           <DialogDescription>
             {spec.intro}
           </DialogDescription>
+          {/* t945 — the paper's provenance line: the pickers it
+              companions are chrome (no-print below) and die on paper,
+              taking the pair's identity with them — this line carries
+              WHAT two runs the verdict reads, and when the sheet was
+              printed. Screen-hidden (the pickers speak it live). */}
+          <p
+            data-compare-print-doc
+            className="hidden print:mt-2 print:block text-[11px] text-muted-foreground"
+          >
+            {`Run A: ${nameA} · Run B: ${nameB} · printed ${printed}`}
+          </p>
         </DialogHeader>
 
         {/* t804 — the content-node census's house cure, the t802 dialect at
@@ -573,10 +599,11 @@ function RunCompareDialog<R extends { name: string }>({
           tabIndex={0}
           role="region"
           aria-label="Run comparison reading — the A/B verdict and its adoption verbs"
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 print:max-h-none print:overflow-visible"
         >
-        {/* the pair pickers — the host leads, both stay switchable */}
-        <div className="grid gap-2 sm:grid-cols-2">
+        {/* the pair pickers — the host leads, both stay switchable
+            (t945: chrome on paper — the provenance line speaks the pair) */}
+        <div className="no-print grid gap-2 sm:grid-cols-2">
           <div className="min-w-0">
             <div className="mb-1 text-[11px] font-medium text-muted-foreground">Run A</div>
             <Select value={runAId} onValueChange={setRunAId}>
@@ -636,12 +663,16 @@ function RunCompareDialog<R extends { name: string }>({
           </div>
         ) : (
           <>
-            {/* lens chips (the shared kit — one-lens domains hide them) */}
-            <LensChips
-              lenses={Object.values(spec.lenses)}
-              activeKey={lensSpec.key}
-              onPick={setLensKey}
-            />
+            {/* lens chips (the shared kit — one-lens domains hide them;
+                t945: toggles are chrome on paper, the title names the
+                lens the verdict was read through) */}
+            <div className="no-print">
+              <LensChips
+                lenses={Object.values(spec.lenses)}
+                activeKey={lensSpec.key}
+                onPick={setLensKey}
+              />
+            </div>
 
             {/* the verdict chips — counts first, then the median */}
             <VerdictChips
@@ -694,15 +725,25 @@ function RunCompareDialog<R extends { name: string }>({
 
             {/* the verdict's verb (left) and the doors (right) — adoption
                 is a graph mutation, so it sits apart from the jumps and
-                carries its own one-line contract */}
-            <div className="space-y-1.5">
+                carries its own one-line contract (t945: the whole row is
+                chrome on paper — a verb that prints is a verb that lies;
+                the contract speaks FOR the verbs, so it prints with them) */}
+            <div className="no-print space-y-1.5">
               {adoptable && (
                 <div className="text-[11px] text-muted-foreground">
                   {`Adoption re-wires ${nameA}'s ${adoptionPlan.moves.length} downstream ${adoptionPlan.moves.length === 1 ? "job" : "jobs"} to consume ${nameB} — their current results stay until re-run.`}
                   {refusalSentence(adoptionPlan.refused, nameA)}
                 </div>
               )}
-              <div className="flex items-center justify-between gap-2">
+              {/* t945 — the row WRAPS (the narrow-320 door): the left
+                  cluster's riders wrap among themselves already, but the
+                  OUTER row didn't — at 320 the nowrap+shrink-0 buttons'
+                  min-content (riders ~150px + Open A/B ~180px) exceeds
+                  the 240px content box and the row painted past its own
+                  border. Wrapping the row lets the Open A/B cluster drop
+                  to its own line — the honest wrap, the t828 tier law's
+                  dialog edition. */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"

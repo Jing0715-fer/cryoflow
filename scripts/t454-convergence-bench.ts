@@ -98,7 +98,9 @@ const mostlySettled = [
 ];
 const ms = movingCensus(mostlySettled, { aRound: 0, bRound: 25 }) ?? "";
 ok(ms.startsWith("Convergence census: 2 of 50 classes moved more than 1.0 pp between Round 000 and Round 025"), "CV3d census counts and names the rounds");
-ok(ms.includes("(biggest: Class 049, -2.2 pp)"), "CV3e biggest mover by |Δ|, with its sign");
+// t945 re-key — the census's sign is the FAMILY's (fmtDelta): U+2212 for
+// negatives, the ASCII hyphen is toFixed's old leak. One dialog, one minus.
+ok(ms.includes("(biggest: Class 049, \u22122.2 pp)"), "CV3e biggest mover by |Δ|, with its sign (the family's U+2212)");
 ok(ms.endsWith("the assignment is mostly settled."), "CV3f ≥90% held → mostly settled");
 const shuffling = [
   ...Array.from({ length: 20 }, (_, i) => delta(`Class ${String(i + 1).padStart(3, "0")}`, 0)),
@@ -151,7 +153,7 @@ eq(v.medianDelta, 0, "CV4e median delta of [-12.5, 0, 12.5] is 0");
  * vote, so the electorate is the paired three */
 const census = movingCensus(deltas, { aRound: 0, bRound: 25 }) ?? "";
 ok(census.includes("2 of 3 classes moved more than 1.0 pp"), "CV4f census counts only the paired electorate");
-ok(census.includes("(biggest: Class 001, -12.5 pp)"), "CV4g the collapsing class is the biggest mover");
+ok(census.includes("(biggest: Class 001, \u221212.5 pp)"), "CV4g the collapsing class is the biggest mover (the family's U+2212)");
 ok(census.endsWith("the assignment is still re-shuffling."), "CV4h a 2/3-moving pack is re-shuffling");
 
 /* ---------------------------------------------------------------- */

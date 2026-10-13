@@ -47,10 +47,28 @@
  * an instrument measures the LAWS, never its author's memory (t915 —
  * every expected number is computed from the assignment formula here).
  *
+ * t945 RE-KEY — THE WITNESS MINTS ITS OWN VARIANT. The t921 window
+ * re-keyed the t916 chain's extract to 60 particles, and 60 is DIVISIBLE
+ * by the chain class2d's K=4: the assignment law (p*7+it)%K+1 with
+ * gcd(7,4)=1 turns uniform-p into uniform-occupancy at EVERY round
+ * (15/15/15/15 forever — the assignment is BORN settled). This witness's
+ * mover-based pins (the a→b percentages, the census's biggest note, the
+ * extended arc's gained/lost) starved — the first re-ride since t921
+ * crashed on an empty lost list. The cure rides the t919 doctrine ("the
+ * mint can mint a SECOND class2d with a different K"): the witness mints
+ * its OWN class2d off the chain's extract with K=8 — 60 = 7×8+4 gives
+ * per-round counts {8,8,8,8,7,7,7,7} that ROTATE per iteration, so every
+ * pair carries a real gain and a real loss (±1.67pp, above the 1.0pp
+ * motion bar) and the census's biggest note speaks a REAL sign — which
+ * is exactly the live fire the t945 two-minus re-key needs. The chain's
+ * K=4 pins are untouched; the variant is the witness's own litter and
+ * the witness sweeps it (both sides, the t919 remove's law) before it
+ * exits — the t916 chain stays for the style witness and the B mint.
+ *
  *   node scripts/t917-class-convergence-witness.mjs
  */
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -203,12 +221,83 @@ const openInspectorQuiet = async (name) => {
 // ---- the ground truth: the mint manifest + the assignment LAW -------------
 if (!existsSync(MANIFEST)) { console.log("FATAL: no mint manifest — run t916-class2d-mint.mjs mint first"); process.exit(2); }
 const mint = JSON.parse(readFileSync(MANIFEST, "utf8"));
-const C2D_ID = mint.class2d.id;
-const C2D_NAME = "t916 class2d witness";
-const K = mint.K;
-const ROWS = mint.expect.rows;
 const ORIGIN = `-H "Origin: ${BASE}"`;
 const shApi = (url) => execSync(`curl -s ${ORIGIN} "${BASE}${url}"`, { encoding: "utf8", timeout: 60_000 });
+const api = (method, url, body) => {
+  const out = execSync(`curl -s -X ${method} ${ORIGIN} -H "Content-Type: application/json" ${body ? `-d '${JSON.stringify(body)}'` : ""} "${BASE}${url}"`, { encoding: "utf8", timeout: 60_000 });
+  try { return JSON.parse(out); } catch { return { error: out.slice(0, 200) }; }
+};
+const jobsApi = () => api("GET", "/api/jobs").jobs ?? [];
+const bindingOf = () => {
+  try {
+    const reg = JSON.parse(readFileSync(path.join(ROOT, "data", "projects.json"), "utf8"));
+    return reg.projects?.[reg.active]?.remote?.connectionId ?? null;
+  } catch { return null; }
+};
+/** the t921 law: the resolved Mock Cluster body rides EVERY run
+ *  explicitly — a bare POST takes the LOCAL lane on an unbound world. */
+function mockClusterConn() {
+  const conns = api("GET", "/api/remote/connections").connections ?? [];
+  const conn = conns.find((c) => c.name === "Mock Cluster");
+  if (conn) return { conn, created: false };
+  const mk = api("POST", "/api/remote/connections", {
+    name: "Mock Cluster",
+    host: "127.0.0.1",
+    port: 3022,
+    username: "cryo",
+    password: "demo",
+    authMethod: "password",
+    remoteRoot: "/projects/cryoflow",
+    useSlurm: true,
+    defaultModule: "relion/5.0.1",
+  });
+  return { conn: mk.connection ?? mk.job ?? null, created: true };
+}
+let REMOTE_BODY = null;
+async function pollUntil(jobId, timeoutMs = 300_000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    const j = jobsApi().find((x) => x.id === jobId);
+    if (!j) return { status: "VANISHED" };
+    if (["completed", "failed", "cancelled"].includes(j.status)) return j;
+    await sleep(2500);
+  }
+  return { status: "TIMEOUT" };
+}
+
+// the world's guards + THE VARIANT MINT (the t919 doctrine, inlined)
+const chainAlive = jobsApi().some((j) => j.id === mint.extract.id && j.status === "completed");
+if (!chainAlive) { console.log("FATAL: the t916 chain's extract is not completed — mint the chain first"); process.exit(2); }
+const staleVariant = jobsApi().filter((j) => (j.name ?? "").includes("t917 convergence class2d"));
+if (staleVariant.length > 0) { console.log(`FATAL: ${staleVariant.length} stale t917 variant(s) — remove first`); process.exit(2); }
+const binding0 = bindingOf();
+ok("guard: binding untouched at mint time", binding0 === (mint.binding ?? null), `binding=${binding0}`);
+const { conn, created } = mockClusterConn();
+ok("guard: Mock Cluster connection present", !!conn?.id, `${created ? "created" : "reused"} ${conn?.id?.slice(0, 14) ?? "NONE"}`);
+if (!conn?.id) { console.log("FATAL: no Mock Cluster connection — cannot ride"); process.exit(2); }
+REMOTE_BODY = { remote: { connectionId: conn.id, module: "relion/5.0.1", mode: "slurm" } };
+const preVariantCount = jobsApi().length;
+const variant = api("POST", "/api/jobs", {
+  type: "class2d",
+  name: "t917 convergence class2d",
+  params: { algorithm: "em", iterations: 2, numClasses: 8 },
+});
+ok("the K=8 variant node created", !!variant.job?.id, variant.job?.id?.slice(-8) ?? JSON.stringify(variant).slice(0, 120));
+if (!variant.job?.id) process.exit(2);
+const eV = api("POST", "/api/edges", { fromJobId: mint.extract.id, toJobId: variant.job.id });
+ok("edge extract→K=8 variant", !eV.error, JSON.stringify(eV).slice(0, 120));
+const rV = api("POST", `/api/jobs/${variant.job.id}/run`, REMOTE_BODY);
+ok("the K=8 variant run accepted (the remote lane, the t921 law)", !rV.error, rV.error ?? rV.job?.status);
+const doneV = await pollUntil(variant.job.id);
+ok("the K=8 variant completed", doneV.status === "completed", `status=${doneV.status} ${String(doneV.result ?? "").slice(0, 140)}`);
+if (doneV.status !== "completed") { console.log("FATAL: the variant did not complete — remove it by hand (DELETE /api/jobs/<id> + sweep class2d_<suffix>)"); process.exit(2); }
+
+const C2D_ID = variant.job.id;
+const C2D_NAME = "t917 convergence class2d";
+/** t945 — the witness's OWN K: 8 (60 = 7×8+4 — the rotating non-uniform
+ *  occupancy; the chain's K=4 stays pinned by ITS instruments). */
+const K = 8;
+const ROWS = mint.expect.rows;
 // the API is the truth — the jobs LIST is the world's mouth
 const jobById = (id) => {
   const d = JSON.parse(shApi("/api/jobs"));
@@ -252,7 +341,11 @@ const pairStats = (a, b) => {
   const biggest = [...deltas].sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta))[0]; // stable: ties keep the deltas' class order
   const settledShare = (deltas.length - movers.length) / deltas.length;
   const ending = movers.length === 0 ? "the assignment has settled" : settledShare >= 0.9 ? "the assignment is mostly settled" : "the assignment is still re-shuffling";
-  const census = `Convergence census: ${movers.length} of ${deltas.length} classes moved more than 1.0 pp between ${roundLabel(a)} and ${roundLabel(b)}${movers.length > 0 ? ` (biggest: ${biggest.name}, ${biggest.delta > 0 ? "+" : ""}${biggest.delta.toFixed(1)} pp)` : ""} — ${ending}.`;
+  // t945 re-key — the census's biggest note now speaks the FAMILY's sign
+  // (fmtDelta's U+2212 minus), not toFixed's ASCII hyphen: one dialog,
+  // one minus convention. The formula mirrors fmtDelta exactly (sign ""
+  // at exactly 0, Math.abs().toFixed(1) for the magnitude).
+  const census = `Convergence census: ${movers.length} of ${deltas.length} classes moved more than 1.0 pp between ${roundLabel(a)} and ${roundLabel(b)}${movers.length > 0 ? ` (biggest: ${biggest.name}, ${biggest.delta > 0 ? "+" : biggest.delta < 0 ? "\u2212" : ""}${Math.abs(biggest.delta).toFixed(1)} pp)` : ""} — ${ending}.`;
   return { deltas, gained, lost, held, median, census };
 };
 const fmt1 = (v) => v.toFixed(1);
@@ -262,14 +355,16 @@ const moversGrab = `(() => { const dlg = [...document.querySelectorAll('[role="d
 // ---- band C: 1280 wide, born at band — the convergence face ---------------
 console.log("== band C: 1280 wide, born at band (the face speaks the law) ==");
 sh(`${AB} set viewport 1280 900`);
-await resetPage(19);
+// t945 re-key — the world is the seed trio + the t916 chain + the K=8
+// variant (8 cards), not the 15-job bound world this seat was born in.
+await resetPage(8);
 
 await openInspector(C2D_NAME);
 
 // C1 — the door: the History icon, its label counting the ROUTE's ladder
 const door = await poll(
   `(() => { const d = [...document.querySelectorAll('[role="dialog"]')].find(x => (x.textContent || '').includes('${C2D_NAME}')); const b = d ? [...d.querySelectorAll('button')].find(x => (x.getAttribute('aria-label') || '').startsWith('Class convergence — read this run')) : null; return JSON.stringify({ found: !!b, label: b ? b.getAttribute('aria-label') : null }); })()`,
-  (v) => v.found === true, 24, 750
+  (v) => v.found === true, 60, 750
 );
 ok(`C1 the convergence door present, counting its own ${ladder0.length} rounds`,
   door?.found === true && door?.label === `Class convergence — read this run's occupancy across its own ${ladder0.length} iterations`, door?.label ?? "absent");
@@ -293,7 +388,9 @@ ok(`C3 the chips speak ${S0.gained.length} gained`, (face0?.text ?? "").includes
 ok(`C3 the chips speak ${S0.lost.length} lost`, (face0?.text ?? "").includes(`${S0.lost.length} lost`));
 ok(`C3 the chips speak ${S0.held.length} held`, (face0?.text ?? "").includes(`${S0.held.length} held`));
 ok("C3 the median Δ 0.0% (the law's symmetric swap)", (face0?.text ?? "").includes("median Δ 0.0%"));
-ok("C3 of 4 paired, no unpaired chip", (face0?.text ?? "").includes("of 4 paired") && !(face0?.text ?? "").includes("unpaired:"));
+// t945 re-key — the pair count is the WITNESS'S OWN K (the "4" was the
+// chain's K leaking into a computed pin; the variant rides K=8)
+ok(`C3 of ${K} paired, no unpaired chip`, (face0?.text ?? "").includes(`of ${K} paired`) && !(face0?.text ?? "").includes("unpaired:"));
 
 // C4 — the identity scatter renders (recharts' own surface, K paired symbols)
 const scatter = await poll(
@@ -464,7 +561,7 @@ ok("W the continue verb created NO job (the count is unchanged)", jobsAfterFire.
 
 // V3 — the face re-reads the extended arc (a FRESH page — the reset law)
 console.log("== the extended arc: the face re-reads the run's new shape ==");
-await resetPage(19);
+await resetPage(8);
 await openInspector(C2D_NAME);
 const door2 = await poll(
   `(() => { const d = [...document.querySelectorAll('[role="dialog"]')].find(x => (x.textContent || '').includes('${C2D_NAME}')); return JSON.stringify({ label: (d ? [...d.querySelectorAll('button')].find(x => (x.getAttribute('aria-label') || '').startsWith('Class convergence — read this run'))?.getAttribute('aria-label') : null) ?? null }); })()`,
@@ -516,6 +613,44 @@ const overC = evalJson(overflowProbe);
 ok("G no horizontal overflow at 1280", overC.overX <= 0, `overX=${overC.overX}`);
 
 // receipt
+// ---- the variant's own restore (the t919 remove's law, inlined) ----------
+// The witness's litter dies with the witness — DELETE + both-side sweep —
+// and it runs on RED too (a stranded variant would poison the style
+// witness's world). The t916 chain STAYS: the style witness's header
+// seats and the t919 B mint ride it next; the final chain remove is
+// their restore's business.
+console.log("== the variant's own restore (both sides swept; the chain stays) ==");
+await closeAllDialogs();
+const vWorkdir = jobById(C2D_ID)?.workdir ?? null;
+const delV = api("DELETE", `/api/jobs/${C2D_ID}`);
+ok("restore: the K=8 variant deleted (the hard door)", !delV.error, JSON.stringify(delV).slice(0, 80));
+const vSuffix = C2D_ID.slice(-8);
+const sweepTree = (tree, re, label) => {
+  try {
+    for (const proj of readdirSync(tree)) {
+      const projDir = path.join(tree, proj);
+      let dirs = [];
+      try { dirs = readdirSync(projDir); } catch { continue; }
+      for (const dir of dirs) {
+        if (!(dir.endsWith(vSuffix) && re.test(dir))) continue;
+        const p = path.join(projDir, dir);
+        try { rmSync(p, { recursive: true, force: true }); console.log(`  rm (${label}) ${path.relative(ROOT, p)}`); }
+        catch (e) { console.log(`  ✗ rm (${label}) failed for ${p}: ${e.message}`); fail++; }
+      }
+    }
+  } catch { /* nothing to sweep */ }
+};
+sweepTree(path.join(ROOT, "data", "relion"), /^class2d_/, "local");
+if (vWorkdir && existsSync(vWorkdir)) {
+  try { rmSync(vWorkdir, { recursive: true, force: true }); console.log(`  rm (workdir) ${vWorkdir.replace(ROOT + "/", "")}`); }
+  catch (e) { console.log(`  ✗ rm (workdir) failed: ${e.message}`); fail++; }
+}
+sweepTree(path.join(ROOT, "services", "mock-cluster", "fs", "projects"), /^class2d_/, "cluster");
+const afterRide = jobsApi();
+ok("restore: the world back to the pre-variant count", afterRide.length === preVariantCount, `${afterRide.length} vs ${preVariantCount}`);
+ok("restore: no t917 variant residue", afterRide.every((j) => !(j.name ?? "").includes("t917 convergence class2d")));
+ok("restore: binding untouched through the whole arc", bindingOf() === binding0, `binding=${bindingOf()}`);
+
 writeFileSync(path.join(ROOT, RECEIPT), JSON.stringify({
   at: new Date().toISOString(), pass, fail,
   class2d: C2D_ID, K, rows: ROWS,
@@ -523,6 +658,7 @@ writeFileSync(path.join(ROOT, RECEIPT), JSON.stringify({
   reversed: { census: S1.census },
   extended: { census: S2.census, ladderFinal: growth[growth.length - 1] ?? null, growthCurve: growth, paramsIterations: jobAfter?.params?.iterations ?? null },
   gallery: { chips: gal?.chips ?? [], opener: gal?.opener ?? null, switched: switched?.opener ?? null },
+  restore: { preVariantCount, afterCount: afterRide.length },
 }, null, 2));
 console.log(`== witness ${fail === 0 ? "GREEN" : "RED"} — ${pass} ok, ${fail} fail == (receipt: ${RECEIPT})`);
 process.exit(fail === 0 ? 0 : 1);

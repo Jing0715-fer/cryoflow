@@ -1,0 +1,40 @@
+{
+  "at": "2026-10-13T00:54:34.315Z",
+  "pass": 34,
+  "fail": 0,
+  "probeName": "t945_header_probe_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "renamed": {
+    "from": "t916 class2d witness",
+    "to": "t945_header_probe_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "back": true
+  },
+  "abGeometry": {
+    "adopt": {
+      "top": 1197,
+      "bottom": 1225,
+      "left": 41,
+      "right": 271
+    },
+    "openA": {
+      "top": 1233,
+      "bottom": 1261,
+      "left": 41,
+      "right": 117
+    },
+    "openB": {
+      "top": 1233,
+      "bottom": 1261,
+      "left": 125,
+      "right": 200
+    },
+    "provDisplay": "none",
+    "provIn": false,
+    "adoptIn": true,
+    "openAIn": true,
+    "openBIn": true,
+    "contentW": 288
+  },
+  "pdf": {
+    "path": "/tmp/t945-compare-print.pdf"
+  }
+}

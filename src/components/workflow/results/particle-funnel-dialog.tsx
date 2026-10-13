@@ -201,8 +201,13 @@ export function ParticleFunnelDialog({
       <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
         <DialogHeader className="shrink-0 border-b px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Filter className="size-4 text-primary" aria-hidden="true" />
-            Particle funnel — {job.name}
+            {/* t945 — the t913 grammar reaches the compare family (the
+                recovery question answered YES: hover carries the full
+                name, the body repeats it nowhere). */}
+            <Filter className="size-4 shrink-0 text-primary" aria-hidden="true" />
+            <span className="min-w-0 truncate" title={job.name}>
+              Particle funnel — {job.name}
+            </span>
           </DialogTitle>
           <DialogDescription>
             The chain question — where did my particles go? Every verb
