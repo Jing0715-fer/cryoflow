@@ -2,12 +2,30 @@
 // Post-disaster world accounting: which projects exist, how many jobs,
 // QA rows, edges — the ledger this window reconciles against.
 //
-// ⚠ PIN the DB explicitly: the repo .env points at the IMAGE TEMPLATE
-// (db/custom.db) while the正统 server drinks db/cryoflow.db via the
-// dev-server.sh HARD-override (the t377/t635 poisoning lesson). Any
-// script that trusts .env sees the wrong world — the seeder family
-// pins absolute paths for exactly this reason.
-process.env.DATABASE_URL = 'file:/home/z/my-project/db/cryoflow.db';
+// ⚠ PIN the DB — the t869 armor (the t871 retarget): .env FIRST, the
+// frozen corpse pin as fallback, and the world NAMED at the gate. The
+// original pin (cryoflow.db absolute) was the t377/t635-era truth: the
+// 正统 server drank db/cryoflow.db and .env pointed at an image template.
+// The t867 resurrection REVERSED the two worlds — the living data rides
+// db/custom.db through .env and cryoflow.db is the frozen 0-byte corpse —
+// so a pin that never reads .env now answers from the corpse one layer
+// down ("the table main.Project does not exist", the t868 lesson's
+// voice). Prisma's own rule: absolute kept, relative resolved from prisma/.
+import { readFileSync } from 'node:fs';
+const DB_URL = (() => {
+  try {
+    const m = readFileSync('/home/z/my-project/.env', 'utf8').match(/^DATABASE_URL=(.*)$/m);
+    if (m) {
+      let u = m[1].trim().replace(/^["']|["']$/g, '');
+      if (!u.startsWith('file:')) u = 'file:' + u;
+      if (/^file:[^/]/.test(u)) u = 'file:/home/z/my-project/prisma/' + u.slice(5);
+      return u;
+    }
+  } catch { /* fall through */ }
+  return 'file:/home/z/my-project/db/cryoflow.db';
+})();
+console.log(`world-census db pin: ${DB_URL} (the t869 armor: .env-first, frozen fallback)`);
+process.env.DATABASE_URL = DB_URL;
 const { PrismaClient } = await import('@prisma/client');
 
 const db = new PrismaClient();
