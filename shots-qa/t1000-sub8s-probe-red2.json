@@ -1,0 +1,112 @@
+{
+  "walk": "t1000-sub8s-probe",
+  "at": "2026-10-14T20:47:56.801Z",
+  "pass": 25,
+  "fail": 12,
+  "phaseTrace": [
+    "ready i0: {\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":true,\"refresh\":true}",
+    "vigil i0: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1792010612395,\"nav\":1792010609488.3}",
+    "vigil i1: pop={\"up\":true,\"tryAgain\":false,\"msg\":null,\"loading\":false,\"refresh\":true} ctx={\"marker\":true,\"born\":1792010612395,\"nav\":1792010609488.3}",
+    "vigil i2: pop={\"up\":false} ctx={\"marker\":false,\"born\":null,\"nav\":1792010633536.2}",
+    "error i0: {\"up\":false}",
+    "error i5: {\"up\":false}",
+    "error i10: {\"up\":false}",
+    "error i15: {\"up\":false}",
+    "error i20: {\"up\":false}",
+    "outage: ctx={\"marker\":false,\"born\":null,\"nav\":1792010633536.2} pop={\"up\":false}",
+    "respawn i0: 000",
+    "race i0: {\"up\":false,\"marker\":false,\"nav\":1792010633536.2}",
+    "reopened-ready i0: {\"up\":false}",
+    "reopened-ready i5: {\"up\":false}",
+    "reopened-ready i10: {\"up\":false}",
+    "reopened-ready i15: {\"up\":false}",
+    "reopened-ready i20: {\"up\":false}",
+    "reopened-ready i25: {\"up\":false}",
+    "reopened-ready i30: {\"up\":false}",
+    "reopened-ready i35: {\"up\":false}",
+    "reopened-ready i40: {\"up\":false}",
+    "reopened-ready i45: {\"up\":false}",
+    "reopened-ready i50: {\"up\":false}",
+    "reopened-ready i55: {\"up\":false}",
+    "refresh-held i0: {\"up\":false}",
+    "refresh-held i5: {\"up\":false}",
+    "refresh-held i10: {\"up\":false}",
+    "refresh-held i15: {\"up\":false}",
+    "refresh-held i20: {\"up\":false}",
+    "refresh-held i25: {\"up\":false}",
+    "refresh-held i30: {\"up\":false}",
+    "refresh-held i35: {\"up\":false}"
+  ],
+  "results": [
+    {
+      "label": "THE POPOVER NEVER CLOSED ACROSS THE HEARTBEATS (pollTick is a DOM no-op at the unchanged token)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "THE MARKER NEVER RESET ACROSS THE HEARTBEATS (no reload, same JS context)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "the ready face still holds at the vigil's end",
+      "cond": false,
+      "extra": "{\"up\":false}"
+    },
+    {
+      "label": "the refresh clicked IN PLACE (the popover never closed)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "THE FETCH-ERROR FACE BLOOMS (Try again present, the destructive message speaks)",
+      "cond": false,
+      "extra": "msg=undefined"
+    },
+    {
+      "label": "THE OUTAGE ITSELF DOES NOT RELOAD THE PAGE (the marker survives the dark)",
+      "cond": false,
+      "extra": "{\"marker\":false,\"born\":null,\"nav\":1792010633536.2}"
+    },
+    {
+      "label": "the popover survives the outage (the error face still up)",
+      "cond": false,
+      "extra": "{\"up\":false}"
+    },
+    {
+      "label": "the panel's Params door re-opened (the persisted selection seed re-hosted the panel; the tab latch reset to the smart default)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "the picker re-opened through its own trigger (the honest re-entry)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "THE FRESH LOAD LANDS READY (the transport's recovery through the picker's own door)",
+      "cond": false,
+      "extra": "null"
+    },
+    {
+      "label": "the refresh lane holds with the transport alive (load(true) answers)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "the ready face holds after the refresh (the lane's second witness)",
+      "cond": false,
+      "extra": "null"
+    }
+  ],
+  "face": "Rounds Face (t989)",
+  "outcome": "reload",
+  "navAtBirth": 1792010609488.3,
+  "firstRaceSample": {
+    "up": false,
+    "marker": false,
+    "nav": 1792010633536.2
+  },
+  "asFound": "cmv79wd4h0002usbu2beh3hqb:completed:Import Movies 1|cmv79wd4j0004usbuf237mvpn:completed:Motion Correction 1|cmv79wd4k0006usbulj5k28q5:completed:CTF Estimation 1|cmv79wlwe000cusbu55kabfky:completed:Auto-pick (tutorial)|cmv79wlx4000eusbug1yy52l5:completed:Extract (tutorial)|cmv79wlxs000gusbulpq820bh:completed:2D Classification (tutorial)|cmv79wlz9000iusbu6xeqy5kr:completed:Select 2D (tutorial)|cmv79wlzo000kusbuhsukogr9:completed:Select (tutorial)|cmv79wm09000musbuoqj2p79m:completed:Initial Model (tutorial)|cmv79wm0q000ousbu9b7aqgfn:completed:3D Classification (tutorial)|cmv79wm2e000qusbu6qkmnkyh:completed:Symmetry Expansion (tutorial)|cmv79wm3a000susbuuulgqjgo:completed:Rebalance (tutorial)|cmv79wm3z000uusbutpdpbijl:completed:3D Refine (tutorial)|cmv79wm5i000wusbupq3gik6p:completed:Mask Create (tutorial)|cmv79wm66000yusbuf7z7bdlx:completed:Post-process (tutorial)|cmv7v7vx60001usbuainibtkp:failed:Failed Diagnosis Face (t970)|cmv85jpc00003us69xca0eynf:idle:Idle Shape Face (t987)|cmv863x9a0001usvbkt5ky1k0:idle:Continue Face (t988)|cmv86xfmq0001usha0t85mcfb:idle:Rounds Face (t989)|cmv8d94qz0003usejjctoakby:failed:Cancelled Diagnosis Face (t976)|cmv8d99wo0005usej4fu8ba4c:failed:Negative Diagnosis Face (t972)|cmv8eppo50001uszvjq1pwe01:failed:Custom Error Face (t995)",
+  "asLeft": "cmv79wd4h0002usbu2beh3hqb:completed:Import Movies 1|cmv79wd4j0004usbuf237mvpn:completed:Motion Correction 1|cmv79wd4k0006usbulj5k28q5:completed:CTF Estimation 1|cmv79wlwe000cusbu55kabfky:completed:Auto-pick (tutorial)|cmv79wlx4000eusbug1yy52l5:completed:Extract (tutorial)|cmv79wlxs000gusbulpq820bh:completed:2D Classification (tutorial)|cmv79wlz9000iusbu6xeqy5kr:completed:Select 2D (tutorial)|cmv79wlzo000kusbuhsukogr9:completed:Select (tutorial)|cmv79wm09000musbuoqj2p79m:completed:Initial Model (tutorial)|cmv79wm0q000ousbu9b7aqgfn:completed:3D Classification (tutorial)|cmv79wm2e000qusbu6qkmnkyh:completed:Symmetry Expansion (tutorial)|cmv79wm3a000susbuuulgqjgo:completed:Rebalance (tutorial)|cmv79wm3z000uusbutpdpbijl:completed:3D Refine (tutorial)|cmv79wm5i000wusbupq3gik6p:completed:Mask Create (tutorial)|cmv79wm66000yusbuf7z7bdlx:completed:Post-process (tutorial)|cmv7v7vx60001usbuainibtkp:failed:Failed Diagnosis Face (t970)|cmv85jpc00003us69xca0eynf:idle:Idle Shape Face (t987)|cmv863x9a0001usvbkt5ky1k0:idle:Continue Face (t988)|cmv86xfmq0001usha0t85mcfb:idle:Rounds Face (t989)|cmv8d94qz0003usejjctoakby:failed:Cancelled Diagnosis Face (t976)|cmv8d99wo0005usej4fu8ba4c:failed:Negative Diagnosis Face (t972)|cmv8eppo50001uszvjq1pwe01:failed:Custom Error Face (t995)"
+}
