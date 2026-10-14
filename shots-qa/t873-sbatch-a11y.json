@@ -1,0 +1,726 @@
+{
+  "instrument": "scripts/t873-sbatch-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@31eccb9c8237",
+  "worldMode": "dev",
+  "date": "2026-10-14T05:56:54.628Z",
+  "chain": "clean room -> canvas -> host card (plain door) -> inspector -> tools door (the wrench, trusted click) -> the ONE item (Slurm sbatch dry-run…) -> sbatch dialog (topmost, the pre's own arrival) -> profile switch (registry planted via POST, listbox filmed, the partition's words moved) -> copy door (clipboard probed first, both branches honest) -> Escape -> registry restored bit-for-bit -> fallback law (the deleted selection falls back) -> error face (motioncorr, the honest empty, the disabled door) -> worldBack + jobs census + registry re-read + seed hygiene (one command)",
+  "doors": {
+    "inspector": "plain pointerdown+pointerup on the host card — the submitted law",
+    "toolsMenu": "trusted CDP click on [aria-label='More job tools'] — the t323 door-to-tools contract",
+    "sbatchDialog": "trusted CDP click on [data-testid='tools-sbatch-item'] — the t872 deterministic door, no Enter gambles",
+    "profileSwitch": "pointer pair on the filmed [role=option] — Radix SelectItem selects on pointerup",
+    "copyDoor": "synthetic click on the filmed button — the t868 text-door shape",
+    "close": "Escape — one layer per peel",
+    "registryPlant": "POST /api/hpc/profiles (the t259 metadata door) — restored bit-for-bit at exit"
+  },
+  "clipboard": "granted",
+  "hosts": {
+    "script": {
+      "name": "3D Refine (tutorial)",
+      "id": "cmv79wm3z000uusbutpdpbijl",
+      "measured": true
+    },
+    "error": {
+      "name": "Motion Correction 1",
+      "id": "cmv79wd4j0004usbuf237mvpn",
+      "measured": true
+    }
+  },
+  "openingCanvas": 144,
+  "registryPlanted": "t873-h100-alt",
+  "registryRestored": true,
+  "faces": {
+    "canvas": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "act": "BODY",
+        "gen": 0,
+        "regionLbl": null,
+        "regionTab": null,
+        "comboName": null,
+        "comboVal": null,
+        "comboOpen": null,
+        "listbox": false,
+        "optCount": 0,
+        "optNames": [],
+        "prePresent": false,
+        "preNamed": null,
+        "preTab": null,
+        "preLen": 0,
+        "preHead": "",
+        "prePart": null,
+        "preScroll": false,
+        "modeLeaf": 0,
+        "modeWord": null,
+        "gpuLeaf": 0,
+        "gpuWord": null,
+        "copyLabel": null,
+        "copyDisabled": null,
+        "notesCount": 0,
+        "qsim": false,
+        "kpis": false,
+        "gantt": false,
+        "kpiCells": 0,
+        "ganttTab": null,
+        "errBox": false,
+        "errText": null,
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuNames": [],
+        "sbatchItem": false,
+        "seed": ""
+      }
+    },
+    "sbatchDialog": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 295,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "Slurm submission · 3D Refine (tutorial)",
+        "act": "DIV:Slurm sbatch workspace —",
+        "gen": 0,
+        "regionLbl": "Slurm sbatch workspace — the profile row, the generated script, and the scheduling project",
+        "regionTab": "0",
+        "comboName": "Cluster profile",
+        "comboVal": "Slurm GPU cluster (example: 4×A100 partition)",
+        "comboOpen": "false",
+        "listbox": false,
+        "optCount": 0,
+        "optNames": [],
+        "prePresent": true,
+        "preNamed": "Generated sbatch script",
+        "preTab": "0",
+        "preLen": 2056,
+        "preHead": "#!/bin/bash\n# CryoFlow HPC submission — job \"3D ",
+        "prePart": "gpu",
+        "preScroll": true,
+        "modeLeaf": 1,
+        "modeWord": "multi-gpu",
+        "gpuLeaf": 1,
+        "gpuWord": "2 × GPU",
+        "copyLabel": "Copy script",
+        "copyDisabled": false,
+        "notesCount": 4,
+        "qsim": true,
+        "kpis": false,
+        "gantt": false,
+        "kpiCells": 0,
+        "ganttTab": null,
+        "errBox": false,
+        "errText": null,
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuNames": [],
+        "sbatchItem": false,
+        "seed": ""
+      },
+      "secondRide": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 295,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "Slurm submission · 3D Refine (tutorial)",
+        "act": "DIV:Slurm sbatch workspace —",
+        "gen": 0,
+        "regionLbl": "Slurm sbatch workspace — the profile row, the generated script, and the scheduling project",
+        "regionTab": "0",
+        "comboName": "Cluster profile",
+        "comboVal": "Slurm GPU cluster (example: 4×A100 partition)",
+        "comboOpen": "false",
+        "listbox": false,
+        "optCount": 0,
+        "optNames": [],
+        "prePresent": true,
+        "preNamed": "Generated sbatch script",
+        "preTab": "0",
+        "preLen": 2056,
+        "preHead": "#!/bin/bash\n# CryoFlow HPC submission — job \"3D ",
+        "prePart": "gpu",
+        "preScroll": true,
+        "modeLeaf": 1,
+        "modeWord": "multi-gpu",
+        "gpuLeaf": 1,
+        "gpuWord": "2 × GPU",
+        "copyLabel": "Copy script",
+        "copyDisabled": false,
+        "notesCount": 4,
+        "qsim": true,
+        "kpis": false,
+        "gantt": false,
+        "kpiCells": 0,
+        "ganttTab": null,
+        "errBox": false,
+        "errText": null,
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuNames": [],
+        "sbatchItem": false,
+        "seed": ""
+      }
+    },
+    "profileSwitch": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 295,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 6,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "Slurm submission · 3D Refine (tutorial)",
+        "act": "BUTTON:Cluster profile",
+        "gen": 0,
+        "regionLbl": "Slurm sbatch workspace — the profile row, the generated script, and the scheduling project",
+        "regionTab": "0",
+        "comboName": "Cluster profile",
+        "comboVal": "T873 H100 alt",
+        "comboOpen": "false",
+        "listbox": false,
+        "optCount": 0,
+        "optNames": [],
+        "prePresent": true,
+        "preNamed": "Generated sbatch script",
+        "preTab": "0",
+        "preLen": 1859,
+        "preHead": "#!/bin/bash\n# CryoFlow HPC submission — job \"3D ",
+        "prePart": "a100",
+        "preScroll": true,
+        "modeLeaf": 1,
+        "modeWord": "multi-gpu",
+        "gpuLeaf": 1,
+        "gpuWord": "2 × GPU",
+        "copyLabel": "Copy script",
+        "copyDisabled": false,
+        "notesCount": 4,
+        "qsim": true,
+        "kpis": true,
+        "gantt": true,
+        "kpiCells": 4,
+        "ganttTab": "0",
+        "errBox": true,
+        "errText": "",
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuNames": [],
+        "sbatchItem": false,
+        "seed": ""
+      }
+    },
+    "errorFace": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 246,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "Slurm submission · Motion Correction 1",
+        "act": "DIV:Slurm sbatch workspace —",
+        "gen": 0,
+        "regionLbl": "Slurm sbatch workspace — the profile row, the generated script, and the scheduling project",
+        "regionTab": "0",
+        "comboName": "Cluster profile",
+        "comboVal": "Slurm GPU cluster (example: 4×A100 partition)",
+        "comboOpen": "false",
+        "listbox": false,
+        "optCount": 0,
+        "optNames": [],
+        "prePresent": false,
+        "preNamed": null,
+        "preTab": null,
+        "preLen": 0,
+        "preHead": "",
+        "prePart": null,
+        "preScroll": false,
+        "modeLeaf": 1,
+        "modeWord": "array",
+        "gpuLeaf": 1,
+        "gpuWord": "1 × GPU · 24 shards",
+        "copyLabel": "Copy script",
+        "copyDisabled": true,
+        "notesCount": 0,
+        "qsim": true,
+        "kpis": false,
+        "gantt": false,
+        "kpiCells": 0,
+        "ganttTab": null,
+        "errBox": true,
+        "errText": "MotionCor2 executable not found — switch on RELION's own implementation (do_own_",
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuNames": [],
+        "sbatchItem": false,
+        "seed": ""
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "act": "BODY",
+        "gen": 0,
+        "regionLbl": null,
+        "regionTab": null,
+        "comboName": null,
+        "comboVal": null,
+        "comboOpen": null,
+        "listbox": false,
+        "optCount": 0,
+        "optNames": [],
+        "prePresent": false,
+        "preNamed": null,
+        "preTab": null,
+        "preLen": 0,
+        "preHead": "",
+        "prePart": null,
+        "preScroll": false,
+        "modeLeaf": 0,
+        "modeWord": null,
+        "gpuLeaf": 0,
+        "gpuWord": null,
+        "copyLabel": null,
+        "copyDisabled": null,
+        "notesCount": 0,
+        "qsim": false,
+        "kpis": false,
+        "gantt": false,
+        "kpiCells": 0,
+        "ganttTab": null,
+        "errBox": false,
+        "errText": null,
+        "hasMenu": false,
+        "menuItems": 0,
+        "menuNames": [],
+        "sbatchItem": false,
+        "seed": ""
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "R0 the registry speaks its defaults (the t259 metadata door answers)",
+      "pass": true,
+      "detail": "profiles=3"
+    },
+    {
+      "label": "R1 the plant rode the world's own POST door (the registry grows by ONE)",
+      "pass": true,
+      "detail": "planted=4"
+    },
+    {
+      "label": "W-API the routes warm (profiles + sbatch builder + queue simulation answered)",
+      "pass": true,
+      "detail": "aimed at cmv79wm3z000"
+    },
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen=false"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=144 — zero unnamed anywhere"
+    },
+    {
+      "label": "W0 the first-open tax paid (the room holds warm after its birth)",
+      "pass": true,
+      "detail": "rides=1 dlg=2 preLen=2056"
+    },
+    {
+      "label": "O2 the post-tax boot is a clean room again (the seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "btns=144"
+    },
+    {
+      "label": "I1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "I2 the inspector arrived (a dialog aboard)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "T1 the wrench opened the tools menu (Radix's portal menu aboard)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T2 the ONE item speaks its name in words (the t757 contract)",
+      "pass": true,
+      "detail": "items=1 [Slurm sbatch dry-run…]"
+    },
+    {
+      "label": "T3 the CLICK summoned the sbatch dialog as the TOPMOST layer (the t872 deterministic door)",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "D1 the heading follows the door (Slurm submission · <job>)",
+      "pass": true,
+      "detail": "head=\"Slurm submission · 3D Refine (tutorial)\""
+    },
+    {
+      "label": "D2 the t808 region workspace (role=region + the honest name + tabIndex 0)",
+      "pass": true,
+      "detail": "label=\"Slurm sbatch workspace — the profile row, the ge…\" tab=0"
+    },
+    {
+      "label": "D3 the profile Select is named (the Cluster profile door)",
+      "pass": true,
+      "detail": "name=\"Cluster profile\""
+    },
+    {
+      "label": "D4 the script pre is named and keeps its keyboard door (the t809 house dialect)",
+      "pass": true,
+      "detail": "label=\"Generated sbatch script\" tabindex=0"
+    },
+    {
+      "label": "D5 the script LANDED (the dry-run's own words speak sbatch)",
+      "pass": true,
+      "detail": "len=2056 head=\"#!/bin/bash\n# CryoFlow HPC submi…\""
+    },
+    {
+      "label": "D6 the strategy badges speak (the mode leaf + the GPU leaf)",
+      "pass": true,
+      "detail": "mode=\"multi-gpu\" gpu=\"2 × GPU\""
+    },
+    {
+      "label": "D7 the Copy door named and ENABLED (the disabled-law's first witness — a script aboard)",
+      "pass": true,
+      "detail": "label=\"Copy script\" disabled=false"
+    },
+    {
+      "label": "D8 the slurmNotes speak (the › list rides the room)",
+      "pass": true,
+      "detail": "notes=4"
+    },
+    {
+      "label": "D9 the Queue simulation section rides the same room (the projection's home)",
+      "pass": true,
+      "detail": "qsim=true"
+    },
+    {
+      "label": "D10 zero unnamed page-wide WITH the dialog up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=295 ctrls=2"
+    },
+    {
+      "label": "D11 two settled rides bit-identical (the t836 law, the t860 settle)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "D12 the Run door raised the projection (KPIs + Gantt aboard)",
+      "pass": true,
+      "detail": "kpiCells=4 ganttTab=0"
+    },
+    {
+      "label": "D13 the KPI band speaks its four cells (Makespan / GPU util / Avg wait / GPU hours)",
+      "pass": true,
+      "detail": "cells=4"
+    },
+    {
+      "label": "D14 the Gantt keeps its keyboard door (the t803 scroll law's honest name)",
+      "pass": true,
+      "detail": "tabindex=0"
+    },
+    {
+      "label": "D15 the post-run census held (zero unnamed WITH the projection up)",
+      "pass": true,
+      "detail": "btns=295"
+    },
+    {
+      "label": "P1 the Select opened its portal listbox",
+      "pass": true,
+      "detail": "optCount=3"
+    },
+    {
+      "label": "P2 TWO options filmed by name (the planted one among them)",
+      "pass": true,
+      "detail": "[Slurm GPU cluster (example: 4×A100 parti | Slurm H100 hub (2×8 GPU, burst queue) | T873 H100 alt]"
+    },
+    {
+      "label": "P3 the CLICK on the filmed option spoke the selection (no Enter gambles)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P4 the trigger's value follows the door (the planted name reads back)",
+      "pass": true,
+      "detail": "value=\"T873 H100 alt\""
+    },
+    {
+      "label": "P5 the script's OWN WORDS follow the profile (the partition moved gpu -> a100)",
+      "pass": true,
+      "detail": "partition=a100 len=1859 (was 2056)"
+    },
+    {
+      "label": "P6 the moved script is a DIFFERENT script (the builder's honesty made visible)",
+      "pass": true,
+      "detail": "len 2056 -> 1859"
+    },
+    {
+      "label": "P7 the switched face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=295"
+    },
+    {
+      "label": "C1 the copy door spoke its activation",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C2 the world GRANTED the clipboard and the label flipped to Copied",
+      "pass": true,
+      "detail": "label=\"Copied\""
+    },
+    {
+      "label": "C3 the 1.6s timer returned the label to its rest state",
+      "pass": true,
+      "detail": "label=\"Copy script\""
+    },
+    {
+      "label": "C4 the copied face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=295"
+    },
+    {
+      "label": "K1 Escape peeled exactly ONE layer (the helper's law), the inspector remains",
+      "pass": true,
+      "detail": "dlgCount 2 -> 1"
+    },
+    {
+      "label": "K2 the peeled layer's census back (zero unnamed without the dialog)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R1 the registry restored bit-for-bit (the plant leaves NOTHING)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R2 the tools door re-opened (the wrench is ONE decision, repeated)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "R3 the deleted selection FELL BACK (the code's own law: a deleted id is not the same profile)",
+      "pass": true,
+      "detail": "value=\"Slurm GPU cluster (example: 4×A100 partition)\""
+    },
+    {
+      "label": "R4 the script's partition returned with the restored profile",
+      "pass": true,
+      "detail": "partition=gpu len=2056"
+    },
+    {
+      "label": "R5 the fallback face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=295"
+    },
+    {
+      "label": "E0 the inspector peeled clean (the stage reset for the second host)",
+      "pass": true,
+      "detail": "dlgCount=0"
+    },
+    {
+      "label": "E1 the second host's plain door opened the inspector",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "E2 the second inspector arrived",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "E3 the danger box speaks the error (the world's own words, never a invented script)",
+      "pass": true,
+      "detail": "text=\"MotionCor2 executable not found — switch on RELION's own implementation (do_own_\""
+    },
+    {
+      "label": "E4 the pre never lands (the honest-empty doctrine)",
+      "pass": true,
+      "detail": "preLen=0"
+    },
+    {
+      "label": "E5 the Copy door DISABLED (the disabled-law's second witness — no script aboard)",
+      "pass": true,
+      "detail": "label=\"Copy script\" disabled=true"
+    },
+    {
+      "label": "E6 the badges still honest (the strategy speaks even when the script cannot)",
+      "pass": true,
+      "detail": "mode=\"array\" gpu=\"1 × GPU · 24 shards\""
+    },
+    {
+      "label": "E7 the error face's census held (zero unnamed WITH the dialog up)",
+      "pass": true,
+      "detail": "btns=246"
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "W2 the jobs count == the opening count (the t872 rogue-row census's guard)",
+      "pass": true,
+      "detail": "jobs 15 -> 15"
+    },
+    {
+      "label": "W3 the registry still bit-for-bit (the world's own door, re-read)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W4 the ride leaves no session seed (the t157 two-way door's honest none)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "L canvas face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L sbatchDialog face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L profileSwitch face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L errorFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 62,
+  "failed": 0,
+  "total": 62,
+  "verdict": "the sbatch dialog's faces hold — the tools-menu home's own room walked: the clean room held, the refine3d host's plain door opened the inspector, the wrench's menu spoke its ONE item in words and the CLICK (the t872 deterministic door) summoned the dialog as the topmost layer; the heading followed the door, the t808 region workspace held its name and tab stop, the script pre landed named and keyboard-armed (the arrival was the pre's own content), the strategy badges spoke, the Copy door named and enabled (the disabled-law's first witness), the slurmNotes spoke, and the Gantt projection rode the same room; the registry grew by ONE through the world's own POST door and the profile switch moved the script's OWN WORDS (the partition line gpu -> a100, a different script); the clipboard probed first (granted) and the label spoke its true state either way; Escape peeled exactly one layer; the registry restored bit-for-bit and the deleted selection FELL BACK (the code's own law, witnessed); the motioncorr host's error face spoke the danger box with the pre never landing (the honest-empty doctrine) and the Copy door disabled (the second witness); the world back bit-for-bit (144 == 144), the jobs count unchanged (no rogue rows), and the ride left no session seed — the ledger aboard from birth (five faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@31eccb9c8237",
+    "prevDate": "2026-10-14T05:55:48.242Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "canvas": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "sbatchDialog": {
+        "prev": 295,
+        "live": 295,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "profileSwitch": {
+        "prev": 295,
+        "live": 295,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "errorFace": {
+        "prev": 246,
+        "live": 246,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}
