@@ -1236,6 +1236,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                   <a
                     href={fileUrl(job.id, f, "&format=raw")}
                     download={f.name}
+                    aria-label={`Download ${f.label ?? f.name}`}
                     className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
                   >
                     <FileDown className="h-3.5 w-3.5 shrink-0 text-warning-600" aria-hidden="true" />
@@ -1254,6 +1255,11 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                     /* data-print-keep: same paper contract as the STAR rows
                        above — the wrapped name/size record must print */
                     data-print-keep=""
+                    /* the honest door name (t868): the visible record glues
+                       name and size into one spoken token ("run.out2.0 KB")
+                       — the family's own word (the Files tab's Preview door)
+                       gives the announcement its seams back */
+                    aria-label={`Preview ${f.name}`}
                     className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors hover:border-warning/40 hover:bg-warning/5"
                   >
                     <ScrollText className="h-3.5 w-3.5 shrink-0 text-warning-600" aria-hidden="true" />
