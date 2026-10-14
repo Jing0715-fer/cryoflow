@@ -1,0 +1,903 @@
+{
+  "instrument": "scripts/t875-queue-sim-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@31eccb9c8237",
+  "worldMode": "dev",
+  "date": "2026-10-14T07:27:24.687Z",
+  "chain": "clean room -> canvas -> host card (plain door) -> inspector -> tools door -> the ONE item -> sbatch dialog (topmost, the pre's arrival) -> the CLOSED queue-sim section's face (doors + no form) -> first Run (the form's birth, the pristine prefill == min(64, profile gpusPerNode)) -> the clamp ride (999 in, the server's 64 in the FORM, the role=status footnote) -> Gantt face (ticks 5, rows == API keys, pours + sr-only, sacct titles) -> Compare sweep (progressive n/n, ONE crown == the API race's winner) -> export doors (CSV copy/download same bytes, MD twin, data-* boundary, the 4s timer) -> Adopt ride (the crowned shape == the API echo, no clamp, the Gantt re-ran) -> Escape -> worldBack + jobs census + registry re-read + seed hygiene",
+  "doors": {
+    "inspector": "plain pointerdown+pointerup on the host card — the submitted law",
+    "toolsMenu": "trusted CDP click on [aria-label='More job tools'] — the t323 door-to-tools contract",
+    "sbatchDialog": "trusted CDP click on [data-testid='tools-sbatch-item'] — the t872 deterministic door",
+    "runDoor": "THE KNOCK LAW: native CDP click ONCE, the synthetic only when the arrival predicate proves the native door dead — a blind fallback re-click lands after the echo re-rendered the form and chases the server's own answer back at it (the ghost post that un-writes the clamp)",
+    "compareDoor": "trusted CDP click on [aria-label='Compare cluster profiles'] — same shape",
+    "fillDoor": "native CDP fill on [aria-label='GPUs'] — the t874 trusted-fill law (the label unique page-wide while the editor stays closed)",
+    "adoptDoor": "the fastest span's closest button, clicked — the crown's own row",
+    "exportDoors": "trusted CDP clicks on the four aria-named export buttons",
+    "close": "Escape — one layer per peel"
+  },
+  "clipboard": "granted",
+  "host": {
+    "name": "3D Refine (tutorial)",
+    "id": "cmv79wm3z000uusbutpdpbijl",
+    "measured": true
+  },
+  "registry": {
+    "profiles": 3,
+    "racers": [
+      {
+        "id": "slurm-gpu-cluster",
+        "name": "Slurm GPU cluster (example: 4×A100 partition)",
+        "shape": 16,
+        "ac": 16,
+        "spd": 25
+      },
+      {
+        "id": "slurm-h100-hub",
+        "name": "Slurm H100 hub (2×8 GPU, burst queue)",
+        "shape": 16,
+        "ac": 32,
+        "spd": 40
+      }
+    ]
+  },
+  "apiRace": {
+    "slurm-gpu-cluster": 12,
+    "slurm-h100-hub": 8
+  },
+  "apiBest": "slurm-h100-hub",
+  "openingCanvas": 144,
+  "faces": {
+    "canvas": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "gen": 0,
+        "prePresent": false,
+        "preLen": 0,
+        "qsec": false,
+        "qTitle": null,
+        "qDescOk": false,
+        "runLbl": null,
+        "runDis": null,
+        "cmpLbl": null,
+        "cmpDis": null,
+        "numFields": 0,
+        "numMap": {},
+        "qstat": [],
+        "clampOk": false,
+        "kpis": false,
+        "kpiLbl": [],
+        "metaTxt": null,
+        "gantt": false,
+        "gRows": 0,
+        "gTicks": 0,
+        "gTab": null,
+        "gPours": 0,
+        "gSr": [],
+        "gSeg": [],
+        "gXg": 0,
+        "qnote": null,
+        "emptyG": false,
+        "blk": false,
+        "adoptN": 0,
+        "adoptLbl": [],
+        "adoptDis": [],
+        "fastN": 0,
+        "cmpCount": null,
+        "footOk": false,
+        "csvLen": 0,
+        "csvHead": "",
+        "csvLine1": "",
+        "csvLines": 0,
+        "csvTail": "",
+        "mdLen": 0,
+        "mdHead": "",
+        "expNote": null,
+        "seed": ""
+      }
+    },
+    "queueForm": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 295,
+        "pageUnnamed": 0,
+        "ctrls": 6,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "Slurm submission · 3D Refine (tutorial)",
+        "gen": 0,
+        "prePresent": true,
+        "preLen": 2056,
+        "qsec": true,
+        "qTitle": "Queue simulation",
+        "qDescOk": true,
+        "runLbl": "Re-run",
+        "runDis": false,
+        "cmpLbl": "Compare",
+        "cmpDis": false,
+        "numFields": 4,
+        "numMap": {
+          "GPUs": {
+            "v": "64",
+            "min": "1",
+            "max": "64"
+          },
+          "Nodes": {
+            "v": "4",
+            "min": "1",
+            "max": "16"
+          },
+          "Array conc.": {
+            "v": "8",
+            "min": "1",
+            "max": "64"
+          },
+          "GPU speedup": {
+            "v": "25",
+            "min": "1",
+            "max": "500"
+          }
+        },
+        "qstat": [
+          "clamped to the server's contract ranges"
+        ],
+        "clampOk": true,
+        "kpis": true,
+        "kpiLbl": [
+          "Makespan 13m",
+          "GPU util 5%",
+          "Avg wait 2.0m",
+          "GPU hours 0.6h"
+        ],
+        "metaTxt": "15 jobs · 14 deps24 micrographs · 100 particles",
+        "gantt": true,
+        "gRows": 15,
+        "gTicks": 5,
+        "gTab": "0",
+        "gPours": 15,
+        "gSr": [
+          "pours movies, micrographs, particles",
+          "pours micrographs",
+          "pours micrographs",
+          "pours coords",
+          "pours particles",
+          "pours particles, references2d"
+        ],
+        "gSeg": [
+          "1000 · Import Movies / Micrographs / Particles · CPU · 0.2m · node-1",
+          "1001_1 · Motion Correction · 1×GPU · 0.2m · node-1",
+          "1001_2 · Motion Correction · 1×GPU · 0.2m · node-2",
+          "1001_3 · Motion Correction · 1×GPU · 0.2m · node-3"
+        ],
+        "gXg": 2,
+        "qnote": "Simulation: durations come from the REAL measured sandbox run times (GPU jobs scaled ×25 f",
+        "emptyG": false,
+        "blk": false,
+        "adoptN": 0,
+        "adoptLbl": [],
+        "adoptDis": [],
+        "fastN": 0,
+        "cmpCount": null,
+        "footOk": false,
+        "csvLen": 0,
+        "csvHead": "",
+        "csvLine1": "",
+        "csvLines": 0,
+        "csvTail": "",
+        "mdLen": 0,
+        "mdHead": "",
+        "expNote": null,
+        "seed": ""
+      }
+    },
+    "ganttFace": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 295,
+        "pageUnnamed": 0,
+        "ctrls": 6,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "Slurm submission · 3D Refine (tutorial)",
+        "gen": 0,
+        "prePresent": true,
+        "preLen": 2056,
+        "qsec": true,
+        "qTitle": "Queue simulation",
+        "qDescOk": true,
+        "runLbl": "Re-run",
+        "runDis": false,
+        "cmpLbl": "Compare",
+        "cmpDis": false,
+        "numFields": 4,
+        "numMap": {
+          "GPUs": {
+            "v": "64",
+            "min": "1",
+            "max": "64"
+          },
+          "Nodes": {
+            "v": "4",
+            "min": "1",
+            "max": "16"
+          },
+          "Array conc.": {
+            "v": "8",
+            "min": "1",
+            "max": "64"
+          },
+          "GPU speedup": {
+            "v": "25",
+            "min": "1",
+            "max": "500"
+          }
+        },
+        "qstat": [
+          "clamped to the server's contract ranges"
+        ],
+        "clampOk": true,
+        "kpis": true,
+        "kpiLbl": [
+          "Makespan 13m",
+          "GPU util 5%",
+          "Avg wait 2.0m",
+          "GPU hours 0.6h"
+        ],
+        "metaTxt": "15 jobs · 14 deps24 micrographs · 100 particles",
+        "gantt": true,
+        "gRows": 15,
+        "gTicks": 5,
+        "gTab": "0",
+        "gPours": 15,
+        "gSr": [
+          "pours movies, micrographs, particles",
+          "pours micrographs",
+          "pours micrographs",
+          "pours coords",
+          "pours particles",
+          "pours particles, references2d"
+        ],
+        "gSeg": [
+          "1000 · Import Movies / Micrographs / Particles · CPU · 0.2m · node-1",
+          "1001_1 · Motion Correction · 1×GPU · 0.2m · node-1",
+          "1001_2 · Motion Correction · 1×GPU · 0.2m · node-2",
+          "1001_3 · Motion Correction · 1×GPU · 0.2m · node-3"
+        ],
+        "gXg": 2,
+        "qnote": "Simulation: durations come from the REAL measured sandbox run times (GPU jobs scaled ×25 f",
+        "emptyG": false,
+        "blk": false,
+        "adoptN": 0,
+        "adoptLbl": [],
+        "adoptDis": [],
+        "fastN": 0,
+        "cmpCount": null,
+        "footOk": false,
+        "csvLen": 0,
+        "csvHead": "",
+        "csvLine1": "",
+        "csvLines": 0,
+        "csvTail": "",
+        "mdLen": 0,
+        "mdHead": "",
+        "expNote": null,
+        "seed": ""
+      }
+    },
+    "compareFace": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 301,
+        "pageUnnamed": 0,
+        "ctrls": 6,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 2,
+        "dlgHeadTop": "Slurm submission · 3D Refine (tutorial)",
+        "gen": 0,
+        "prePresent": true,
+        "preLen": 2056,
+        "qsec": true,
+        "qTitle": "Queue simulation",
+        "qDescOk": true,
+        "runLbl": "Re-run",
+        "runDis": false,
+        "cmpLbl": "Re-compare",
+        "cmpDis": false,
+        "numFields": 4,
+        "numMap": {
+          "GPUs": {
+            "v": "64",
+            "min": "1",
+            "max": "64"
+          },
+          "Nodes": {
+            "v": "4",
+            "min": "1",
+            "max": "16"
+          },
+          "Array conc.": {
+            "v": "8",
+            "min": "1",
+            "max": "64"
+          },
+          "GPU speedup": {
+            "v": "25",
+            "min": "1",
+            "max": "500"
+          }
+        },
+        "qstat": [
+          "clamped to the server's contract ranges"
+        ],
+        "clampOk": true,
+        "kpis": true,
+        "kpiLbl": [
+          "Makespan 13m",
+          "GPU util 5%",
+          "Avg wait 2.0m",
+          "GPU hours 0.6h"
+        ],
+        "metaTxt": "15 jobs · 14 deps24 micrographs · 100 particles",
+        "gantt": true,
+        "gRows": 15,
+        "gTicks": 5,
+        "gTab": "0",
+        "gPours": 15,
+        "gSr": [
+          "pours movies, micrographs, particles",
+          "pours micrographs",
+          "pours micrographs",
+          "pours coords",
+          "pours particles",
+          "pours particles, references2d"
+        ],
+        "gSeg": [
+          "1000 · Import Movies / Micrographs / Particles · CPU · 0.2m · node-1",
+          "1001_1 · Motion Correction · 1×GPU · 0.2m · node-1",
+          "1001_2 · Motion Correction · 1×GPU · 0.2m · node-2",
+          "1001_3 · Motion Correction · 1×GPU · 0.2m · node-3"
+        ],
+        "gXg": 2,
+        "qnote": "Simulation: durations come from the REAL measured sandbox run times (GPU jobs scaled ×25 f",
+        "emptyG": false,
+        "blk": true,
+        "adoptN": 2,
+        "adoptLbl": [
+          "Adopt Slurm GPU cluster (example: 4×A100 partition) — 12m makespan",
+          "Adopt Slurm H100 hub (2×8 GPU, burst queue) — 8.0m makespan"
+        ],
+        "adoptDis": [
+          false,
+          false
+        ],
+        "fastN": 1,
+        "cmpCount": "2/2",
+        "footOk": true,
+        "csvLen": 0,
+        "csvHead": "",
+        "csvLine1": "",
+        "csvLines": 0,
+        "csvTail": "",
+        "mdLen": 0,
+        "mdHead": "",
+        "expNote": "",
+        "seed": ""
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "gen": 0,
+        "prePresent": false,
+        "preLen": 0,
+        "qsec": false,
+        "qTitle": null,
+        "qDescOk": false,
+        "runLbl": null,
+        "runDis": null,
+        "cmpLbl": null,
+        "cmpDis": null,
+        "numFields": 0,
+        "numMap": {},
+        "qstat": [],
+        "clampOk": false,
+        "kpis": false,
+        "kpiLbl": [],
+        "metaTxt": null,
+        "gantt": false,
+        "gRows": 0,
+        "gTicks": 0,
+        "gTab": null,
+        "gPours": 0,
+        "gSr": [],
+        "gSeg": [],
+        "gXg": 0,
+        "qnote": null,
+        "emptyG": false,
+        "blk": false,
+        "adoptN": 0,
+        "adoptLbl": [],
+        "adoptDis": [],
+        "fastN": 0,
+        "cmpCount": null,
+        "footOk": false,
+        "csvLen": 0,
+        "csvHead": "",
+        "csvLine1": "",
+        "csvLines": 0,
+        "csvTail": "",
+        "mdLen": 0,
+        "mdHead": "",
+        "expNote": null,
+        "seed": ""
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "W-API the routes warm (profiles + sbatch builder + queue simulation answered)",
+      "pass": true,
+      "detail": "aimed at cmv79wm3z000"
+    },
+    {
+      "label": "R0 the registry speaks its racers (the sweep's field measured)",
+      "pass": true,
+      "detail": "profiles=3 racers=2 (Slurm GPU cluster (example: 4×A100 partition) | Slurm H100 hub (2×8 GPU, burst queue))"
+    },
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen=false"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=144 — zero unnamed anywhere"
+    },
+    {
+      "label": "W0 the first-open tax paid (the room holds warm after its birth)",
+      "pass": true,
+      "detail": "rides=1 dlg=2 preLen=2056 qsec=true"
+    },
+    {
+      "label": "O2 the post-tax boot is a clean room again (the seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "btns=144"
+    },
+    {
+      "label": "I1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "I2 the inspector arrived (a dialog aboard)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "T1 the wrench opened the tools menu (Radix's portal menu aboard)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "T2 the ONE item speaks its name in words (the t757 contract)",
+      "pass": true,
+      "detail": "sbatchItem=true"
+    },
+    {
+      "label": "T3 the CLICK summoned the sbatch dialog as the TOPMOST layer (the t872 deterministic door)",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "D1 the sbatch dialog landed warm (the pre aboard)",
+      "pass": true,
+      "detail": "preLen=2056"
+    },
+    {
+      "label": "D2 the queue sim section rides the same room (the projection's home, CLOSED)",
+      "pass": true,
+      "detail": "qsec=true numFields=0 blk=false"
+    },
+    {
+      "label": "D3 zero unnamed page-wide WITH the dialog up (the census's invariant)",
+      "pass": true,
+      "detail": "btns=295 ctrls=2"
+    },
+    {
+      "label": "Q1 the section speaks its name in words (the header's title span)",
+      "pass": true,
+      "detail": "title=\"Queue simulation\""
+    },
+    {
+      "label": "Q2 the description speaks the contract (real graph, real edges, real durations)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "Q3 the two doors named (Compare + Run) and the sim state's own gate holds (Run first, both enabled)",
+      "pass": true,
+      "detail": "run=\"Run\" cmp=\"Compare\" runDis=false cmpDis=false"
+    },
+    {
+      "label": "Q4 the CLOSED face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=295"
+    },
+    {
+      "label": "N1 the Run door raised the projection (KPIs + Gantt + the form aboard)",
+      "pass": true,
+      "detail": "kpiLbl=4 gRows=15 numFields=4"
+    },
+    {
+      "label": "N2 the prefill speaks the selected profile's shape (min(64, gpusPerNode) — the prefill's own law)",
+      "pass": true,
+      "detail": "GPUs=4 (profile gpn=4)"
+    },
+    {
+      "label": "N3 the four NumFields print the server's clamp contract in the DOM (min/max attrs)",
+      "pass": true,
+      "detail": "GPUs 1–64, Nodes 1–16, AC 1–64, Spd 1–500"
+    },
+    {
+      "label": "N4 the Run door's label flipped to Re-run (the sim state's own word)",
+      "pass": true,
+      "detail": "run=\"Re-run\""
+    },
+    {
+      "label": "N5 no clamp footnote on the pristine run (the echo == the sent — the honest absence)",
+      "pass": true,
+      "detail": "statuses=[]"
+    },
+    {
+      "label": "N6 the KPI band speaks its four cells by name (Makespan / GPU util / Avg wait / GPU hours)",
+      "pass": true,
+      "detail": "[Makespan 13m | GPU util 69% | Avg wait 3.0m | GPU hours 0.6h]"
+    },
+    {
+      "label": "N7 the meta line speaks the two wells one world (jobs == the roster's count)",
+      "pass": true,
+      "detail": "meta=\"15 jobs · 14 deps24 micrographs · 100 particles\""
+    },
+    {
+      "label": "N8 the sim's note paragraph landed (the route's own words: Simulation: …)",
+      "pass": true,
+      "detail": "note=\"Simulation: durations come from the REAL measured sandbox run times (GPU jobs scaled ×25 f\""
+    },
+    {
+      "label": "N9 the first-run face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=295"
+    },
+    {
+      "label": "N10 the fill dirtied the field (the client's word: 999)",
+      "pass": true,
+      "detail": "GPUs=999"
+    },
+    {
+      "label": "N11 the FORM re-rendered with the server's 64 (999 in, 64 out — the response-is-truth)",
+      "pass": true,
+      "detail": "GPUs=64"
+    },
+    {
+      "label": "N12 the clamp footnote speaks (role=status: clamped to the server's contract ranges)",
+      "pass": true,
+      "detail": "statuses=[\"clamped to the server's contract ranges\"]"
+    },
+    {
+      "label": "N13 the API's own echo agrees (cluster.gpus == 64 — two wells one world)",
+      "pass": true,
+      "detail": "echo={\"gpus\":64,\"nodes\":4,\"arrayConcurrency\":8}"
+    },
+    {
+      "label": "N14 the clamp face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=295"
+    },
+    {
+      "label": "G1 the Gantt keeps its keyboard door (the t803 scroll law's honest name)",
+      "pass": true,
+      "detail": "tabindex=0"
+    },
+    {
+      "label": "G2 the time axis speaks its five ticks (0 · ¼ · ½ · ¾ · the makespan)",
+      "pass": true,
+      "detail": "ticks=5"
+    },
+    {
+      "label": "G3 one job, one row (the Gantt's rows == the API's distinct bar keys — two wells one world)",
+      "pass": true,
+      "detail": "rows=15 apiKeys=15"
+    },
+    {
+      "label": "G4 the pours speak their sr-only language (the t756 dots' honest words)",
+      "pass": true,
+      "detail": "pours=15 sr=[pours movies, micrographs, particles | pours micrographs | pours micrographs | pours coords | pours particles | pours particles, references2d]"
+    },
+    {
+      "label": "G5 the segments' titles speak the sacct shape (slurmId · label · GPU share · duration · nodes)",
+      "pass": true,
+      "detail": "seg0=\"1000 · Import Movies / Micrographs / Particles · CPU · 0.2m · node-1\""
+    },
+    {
+      "label": "G6 the G xG labels measured (the wide GPU bars' tabular words)",
+      "pass": true,
+      "detail": "xg=2"
+    },
+    {
+      "label": "G7 the gantt face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=295"
+    },
+    {
+      "label": "C1 the comparison block arrived named (Profile comparison)",
+      "pass": true,
+      "detail": "blk=true"
+    },
+    {
+      "label": "C2 the count line speaks the FULL race (n/n simulated — the registry's racers)",
+      "pass": true,
+      "detail": "count=\"2/2\" (racers=2)"
+    },
+    {
+      "label": "C3 every racer wears an Adopt row by name (aria-label: Adopt <name> — <makespan> makespan)",
+      "pass": true,
+      "detail": "[Adopt Slurm GPU cluster (example: 4×A100 partition) — 12m makespan | Adopt Slurm H100 hub (2×8 GPU, burst queue) — 8.0m makespan]"
+    },
+    {
+      "label": "C4 exactly ONE fastest crown, worn by the API race's own winner (the response-is-truth at the sweep)",
+      "pass": true,
+      "detail": "crowns=1 apiBest=Slurm H100 hub (2×8 GPU, burst queue)"
+    },
+    {
+      "label": "C5 the disabled law holds (a row is disabled iff its race failed — here: all racers finished)",
+      "pass": true,
+      "detail": "disabled=[false, false]"
+    },
+    {
+      "label": "C6 the cost-proxy footer speaks (the GPU-hours caveat in words)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "C7 the export boundary is CLEAN before any export (no data-csv, no data-md)",
+      "pass": true,
+      "detail": "csv=0 md=0"
+    },
+    {
+      "label": "C8 the sweep face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=301"
+    },
+    {
+      "label": "X1 the CSV copy door spoke its note (granted: Copied …; denied: the download's honest fallback)",
+      "pass": true,
+      "detail": "note=\"Copied 2 profile rows to the clipboard\" clip=granted"
+    },
+    {
+      "label": "X2 the data-csv boundary holds the ONE builder's bytes (the header is the machine contract)",
+      "pass": true,
+      "detail": "csvLen=299 lines=3"
+    },
+    {
+      "label": "X3 the CSV is one row per racer in race order (+ the header)",
+      "pass": true,
+      "detail": "lines=3 (racers=2)"
+    },
+    {
+      "label": "X4 the CSV download door spoke its filename (hpc-sweep-<timestamp>.csv)",
+      "pass": true,
+      "detail": "note=\"Downloaded hpc-sweep-2026-10-14T07-27-11.csv\""
+    },
+    {
+      "label": "X5 the downloaded bytes are the SAME bytes (one builder — copy and download cannot fork)",
+      "pass": true,
+      "detail": "len 299 -> 299"
+    },
+    {
+      "label": "X6 the MD report's bytes landed (the sweep report twin: verdict + table in words)",
+      "pass": true,
+      "detail": "mdLen=792 note=\"Copied the sweep report (2 profiles) to the clipboard\""
+    },
+    {
+      "label": "X7 the MD download door spoke its filename (hpc-sweep-report-<timestamp>.md)",
+      "pass": true,
+      "detail": "note=\"Downloaded hpc-sweep-report-2026-10-14T07-27-11.md\""
+    },
+    {
+      "label": "X8 the MD bytes are the SAME bytes (one builder — the report cannot fork either)",
+      "pass": true,
+      "detail": "len 792 -> 792"
+    },
+    {
+      "label": "X9 the 4s note timer returned the export status to rest (the honest none)",
+      "pass": true,
+      "detail": "note=\"\""
+    },
+    {
+      "label": "X10 the export face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=301"
+    },
+    {
+      "label": "A1 the crowned row's click spoke its name (the deterministic door on the FILMED row)",
+      "pass": true,
+      "detail": "adopted=\"Adopt Slurm H100 hub (2×8 GPU, burst queue) — 8.0m makespan\""
+    },
+    {
+      "label": "A2 the form follows the adopted shape == the API's echo (GPUs + Array conc. + GPU speedup moved together)",
+      "pass": true,
+      "detail": "GPUs=16 AC=32 Spd=40 (echo {\"gpus\":16,\"nodes\":4,\"arrayConcurrency\":32} spd=40)"
+    },
+    {
+      "label": "A3 no clamp footnote after the adopt (the adopted shape is inside the contract)",
+      "pass": true,
+      "detail": "statuses=[]"
+    },
+    {
+      "label": "A4 the single Gantt re-ran (the makespan's own word moved with the shape)",
+      "pass": true,
+      "detail": "makespan \"Makespan 13m\" -> \"Makespan 8.0m\""
+    },
+    {
+      "label": "A5 the adopt face's census held (zero unnamed)",
+      "pass": true,
+      "detail": "btns=301"
+    },
+    {
+      "label": "K1 Escape peeled exactly ONE layer (the helper's law), the inspector remains",
+      "pass": true,
+      "detail": "dlgCount 2 -> 1"
+    },
+    {
+      "label": "K2 the peeled layer's census back (zero unnamed without the dialog)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "W2 the jobs count == the opening count (the t872 rogue-row census's guard)",
+      "pass": true,
+      "detail": "jobs 15 -> 15"
+    },
+    {
+      "label": "W3 the registry bit-for-bit untouched (pure compute leaves NOTHING)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W4 the ride leaves no session seed (the t157 two-way door's honest none)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "L canvas face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L queueForm face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L ganttFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L compareFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 73,
+  "failed": 0,
+  "total": 73,
+  "verdict": "the queue sim's own faces hold — the sbatch room's resident projection walked seat by seat: the routes warmed through the API's own door, the clean room held, the sbatch room's birth paid (W0), the tools door + the ONE item + the click summoned the dialog; the CLOSED section spoke its name, its description's contract and its two doors with no form yet; the first Run opened the form with the prefill speaking the selected profile's shape and the four NumFields printing the server's clamp contract in their own min/max attrs; the CLAMP RIDE made the response-is-truth visible at this layer too (999 in, the FORM re-rendered with the server's 64, the role=status footnote speaking); the Gantt held its t803 keyboard door, five axis ticks, one row per job == the API's distinct bar keys (two wells one world, cross-checked through the API), the pours' sr-only language and the sacct-shaped segment titles; the Compare sweep landed 2 rows progressively with exactly ONE fastest crown worn by the API race's own winner; the four export doors spoke (CSV copy + download the SAME bytes, MD twin likewise, the data-csv/data-md boundary holding the one builder's output, the 4s timer's return to rest); the Adopt ride moved the form to the crowned shape == the API's echo with no clamp and the Gantt re-ran; Escape peeled one layer; the world back bit-for-bit (144 == 144) — pure compute leaves NOTHING; the ledger aboard from birth (five faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@31eccb9c8237",
+    "prevDate": "2026-10-14T07:26:14.896Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "canvas": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "queueForm": {
+        "prev": 295,
+        "live": 295,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "ganttFace": {
+        "prev": 295,
+        "live": 295,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "compareFace": {
+        "prev": 301,
+        "live": 301,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}
