@@ -144,12 +144,22 @@ const ESC =
  * the world MID-MOUNT; settling films the world when it has STOPPED moving:
  * measure, re-measure, require equality, bounded. The receipt's world is the
  * settled one — same-key rides can be bit-for-bit again without lying. */
-const settle = (what, maxIter = 16, need = 2) => {
-  /* the t867 patience fix: 6 × 0.8s with need-1 broke on PLATEAUS — the
-   * inspector's analytics surfaces mount on a long schedule (the live
-   * witness: 264 -> 289 with a quiet step between; the t866 observed band
-   * 272/290/291/292/297), and two measures 0.8s apart can be bit-equal
-   * mid-mount. The t866 shape: bounded, MULTIPLE consecutive equal pairs. */
+const settle = (what, maxIter = 16, need = 2, arrival = null) => {
+  /* t871 — the ARRIVAL PREDICATE (the t868 law's second tooth: an arrival
+   * waits for arrival, never for a clock — and never for a mere plateau).
+   * The OOM war's casualties taught this one: on a starved box the
+   * server dies mid-ride (dmesg: two kills during the war window), the
+   * watchdog revives it, and the surviving rides film HALF-ARRIVED
+   * worlds that are perfectly STABLE — the palette at imgs=0 / 146
+   * buttons (its data still fetching), the inspector's snapshots
+   * climbing 11 -> 14. Stability alone cannot tell "still" from
+   * "incomplete": when an arrival predicate is aboard, the stability
+   * counter only accumulates on measures the predicate accepts, and the
+   * bounded loop keeps waiting. The floor stays the backstop — if the
+   * arrival never comes, the checks fail honestly on the incomplete
+   * world. The palette + inspector faces carry the imgs>0 arrival (the
+   * warm palette speaks 3 imgs, the warm inspector 14 — zero imgs is a
+   * skeleton, never a settled world). */
   let m = evalJson(MEASURE);
   let run = 1;
   for (let i = 0; i < maxIter; i++) {
@@ -162,12 +172,13 @@ const settle = (what, maxIter = 16, need = 2) => {
      * "still". An empty page keeps the settle waiting (bounded); the
      * checks fail honestly only if the blank outlives the bound. */
     const alive = next.pageBtns > 0;
-    const same = alive && JSON.stringify(next) === JSON.stringify(m);
+    const arrived = arrival ? arrival(next) : true;
+    const same = alive && arrived && JSON.stringify(next) === JSON.stringify(m);
     m = next;
     run = same ? run + 1 : 1;
     if (run >= need) break;
   }
-  console.log(`  settled ${what} (${need}x stable)`);
+  console.log(`  settled ${what} (${need}x stable${arrival ? ", arrival-gated" : ""})`);
   return m;
 };
 
@@ -202,7 +213,7 @@ if (!card.found) {
 }
 ok("M8 the saved-view card found and clicked", card.found === true, "the deliberate door (t844's)");
 sleep(2);
-const i1 = settle("the inspector (the analytics surfaces mount late — t860's probe)", 24, 3);
+const i1 = settle("the inspector (the analytics surfaces mount late — t860's probe)", 24, 3, (m) => (m.imgs ?? 0) > 0);
 ok("M9 inspector arrived: dialog + tenant heading", i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D Refine (tutorial) — job inspector"), `heading="${i1.dlgHeading}"`); // t859 re-pin: the restored roster's canonical node name (the t833-era world said "3D auto-refine" — the name is world-state, the heading shape holds)
 ok("M10 inspector focus trapped", i1.dlgFocus === true);
 ok("M11 inspector zero unnamed (page-wide + dialog subset)", i1.pageUnnamed === 0 && i1.dlgUnnamed === 0, `page=${i1.pageBtns} dlg=${i1.dlgBtns} unnamed=0/0`);
@@ -216,7 +227,7 @@ ok("M13 Escape closed the inspector", i2.hasDlg === false, `dlg=${i2.hasDlg}`);
 console.log("Face P — the palette (the t483 contract door)");
 evalJson('(() => { window.dispatchEvent(new Event("cryoflow:open-palette")); return "door"; })()');
 sleep(1);
-const p1 = settle("the palette");
+const p1 = settle("the palette (arrival-gated: the warm palette speaks 3 imgs — zero is a skeleton, the t871 war lesson)", 16, 2, (m) => (m.imgs ?? 0) > 0);
 ok("M14 palette arrived: dialog + cmdk input", p1.hasDlg && p1.ip && !!p1.ip.ph, `placeholder="${p1.ip ? p1.ip.ph : "?"}"`);
 ok("M15 palette zero unnamed (page-wide)", p1.pageUnnamed === 0, `unnamed=${p1.pageUnnamed}`);
 ok("M16 palette floor holds (census 150) + observation #2", p1.pageBtns >= 150 && p1.ip && p1.ip.ph === "Jump to a job, add a type, run an action…" && !p1.ip.aria, `live=${p1.pageBtns} (drift +${p1.pageBtns - 150}) the input's name rides the placeholder`);
