@@ -1,4 +1,10 @@
 {
+  "walk": "t985-flip-census-walk",
+  "at": "2026-10-14T15:51:48.778Z",
+  "pass": 27,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
   "instrument": "t985-flip-census-walk",
   "born": "2026-10-14",
   "contract": "the rendered-plane flip census — the var-19 resolution: 2 flip-honest records, 17 cures (A47–A63)",
@@ -73,7 +79,5 @@
       "label": null
     },
     "knockShut": true
-  },
-  "pass": 27,
-  "fail": 0
+  }
 }

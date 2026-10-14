@@ -41,15 +41,19 @@
  *
  *   node scripts/t987-idle-face-walk.mjs
  */
-import { execSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
+/* the t991 re-ride: the walk's ORGANS moved into scripts/walk-kit.mjs
+ * (the family's shared skeleton — the t990 entry's candidate ①); the
+ * legs below are byte-identical to the born form. The walk-specific
+ * helpers (headerBadge, dlgState, flipRow, badgeRead) stay in the legs;
+ * the organ-zone aliases (apiPre) and the walk's own constants stay
+ * right below the destructure. */
+import { createWalk } from "./walk-kit.mjs";
 
-const AB = "agent-browser";
-const BASE = process.env.MINT_BASE ?? "http://localhost:3000";
-const ROOT = process.cwd();
-const QA_DIR = path.join(ROOT, "shots-qa");
-const RECEIPT = path.join(QA_DIR, "t987-idle-face-walk.json");
+const {
+  AB, BASE, ROOT, ok, sleep, sh, evalJs, evalJson, poll, realClick, dlgBtn, shot,
+  api, focusGate, dialogOpen, serverFirst, finish, results,
+} = createWalk({ name: "t987-idle-face-walk", receiptFile: "t987-idle-face-walk.json" });
+
 const FACE_NAME = "Idle Shape Face (t987)";
 const JOB_ID = process.env.T987_JOB_ID ?? "cmv85jpc00003us69xca0eynf";
 // the flip rides the catalog's pixelSize num (default 1.77) — the import
@@ -58,82 +62,13 @@ const JOB_ID = process.env.T987_JOB_ID ?? "cmv85jpc00003us69xca0eynf";
 const FLIP_ID = `param-${JOB_ID}-pixelSize`;
 const FLIP_DEFAULT = "1.77";
 
-let pass = 0, fail = 0;
-const results = [];
-const ok = (label, cond, extra = "") => {
-  if (cond) { pass++; console.log(`  ✓ ${label}${extra ? ` — ${extra}` : ""}`); }
-  else { fail++; console.log(`  ✗ ${label}${extra ? ` — ${extra}` : ""}`); }
-  results.push({ label, ok: !!cond, extra });
-};
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const sh = (cmd) => { try { return execSync(cmd, { encoding: "utf8", timeout: 300_000, cwd: ROOT }).trim(); } catch (e) { return String(e?.stdout ?? e); } };
-function evalJs(expr) {
-  try { return execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim(); }
-  catch (e) { return String(e?.stdout ?? "") || "null"; }
-}
-function evalJson(expr) {
-  let out = evalJs(expr);
-  try {
-    const q = out.indexOf('"');
-    if (q > 0) out = out.slice(q);
-    const once = JSON.parse(out);
-    if (typeof once === "string") { try { return JSON.parse(once); } catch { return once; } }
-    return once;
-  } catch { return out; }
-}
-const poll = async (expr, gate, times = 24, ms = 500) => {
-  for (let i = 0; i < times; i++) {
-    const v = evalJson(expr);
-    if (v && v !== "null" && gate(v)) return v;
-    await sleep(ms);
-  }
-  return null;
-};
-/* the t982 realClick: probe visibility AND self-hit over a nine-point
- * grid, scroll into view when off, click through the real mouse path */
-const realClick = async (findExpr) => {
-  const locate = `(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); if (r.width === 0 || r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) return JSON.stringify({ off: true }); const pts = [[r.x + r.width / 2, r.y + r.height / 2]]; for (const ins of [4, 10, 20]) { pts.push([r.x + ins, r.y + ins], [r.x + r.width - ins, r.y + ins], [r.x + ins, r.y + r.height - ins], [r.x + r.width - ins, r.y + r.height - ins], [r.x + r.width / 2, r.y + ins], [r.x + r.width / 2, r.y + r.height - ins], [r.x + ins, r.y + r.height / 2], [r.x + r.width - ins, r.y + r.height / 2]); } for (const [px, py] of pts) { const cx = Math.max(2, Math.min(window.innerWidth - 2, Math.round(px))); const cy = Math.max(2, Math.min(window.innerHeight - 2, Math.round(py))); const hit = document.elementFromPoint(cx, cy); if (hit && el.contains(hit)) return JSON.stringify({ own: true, x: cx, y: cy }); } return JSON.stringify({ own: false }); })()`;
-  for (let i = 0; i < 12; i++) {
-    const pos = evalJson(locate);
-    if (!pos || pos === "null") return "NO-ELEMENT";
-    if (pos.off) {
-      evalJs(`(() => { const el = (${findExpr}); if (el) el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); return 'siv'; })()`);
-      await sleep(500);
-      const pos2 = evalJson(locate);
-      if (pos2 && pos2.own) {
-        sh(`${AB} mouse move ${pos2.x} ${pos2.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
-        return `clicked@${pos2.x},${pos2.y}`;
-      }
-      return "OFF-VIEWPORT";
-    }
-    if (pos.own) {
-      sh(`${AB} mouse move ${pos.x} ${pos.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
-      return `clicked@${pos.x},${pos.y}`;
-    }
-    await sleep(400);
-  }
-  return "NEVER-OWN";
-};
-/* a dialog-local finder: buttons inside the dialog whose text/label
- * matches — the stacked-dialog law reads through the dialog, never the
- * page behind it */
-const dlgBtn = (dlgMatch, btnExpr) => `(() => { const dlg = [...document.querySelectorAll('[role="dialog"]')].find((d) => (${dlgMatch})); if (!dlg) return null; return (${btnExpr}) ?? null; })()`;
-const shot = (name) => sh(`${AB} screenshot ${path.join(QA_DIR, name)}`);
-
 console.log("=== t987 idle-face walk ===");
 
-/* the server-first law */
-let serverUp = false;
-for (let i = 0; i < 24 && !serverUp; i++) {
-  try { const c = execSync(`curl -s -o /dev/null -w '%{http_code}' ${BASE}/ --max-time 5`, { encoding: "utf8" }); serverUp = c.trim() === "200"; }
-  catch { serverUp = false; }
-  if (!serverUp) await sleep(2500);
-}
-if (!serverUp) { console.log("FATAL: the server never answered 200"); process.exit(2); }
-console.log("server: 200");
+/* the server-first law — kit-enforced */
+await serverFirst();
 /* the import's standing path — captured BEFORE any leg rides, checked in
  * leg 7 (the Browse family's ride must pick nothing) */
-const apiPre = (url) => execSync(`curl -s -H "Origin: ${BASE}" "${BASE}${url}"`, { encoding: "utf8", timeout: 30_000 });
+const apiPre = (url) => api("GET", url);
 let standingBody = null;
 try { standingBody = JSON.parse(apiPre("/api/jobs")); } catch { standingBody = null; }
 const standingArr = Array.isArray(standingBody) ? standingBody : standingBody?.jobs ?? [];
@@ -245,15 +180,8 @@ ok("the input clicked through the real mouse path", String(pxClick).startsWith("
  * a button (a tab trigger) is not one. Pressing Ctrl+A before the input
  * holds focus selects every job, the panel's selectedId drops, and the
  * whole edit plane tears down. The gate: no keystroke until the input
- * itself answers document.activeElement. */
-const focusGate = async (id, tries = 10) => {
-  for (let i = 0; i < tries; i++) {
-    const f = evalJson(`(() => JSON.stringify({ active: document.activeElement ? document.activeElement.id : null }))()`);
-    if (f && f.active === id) return true;
-    await sleep(300);
-  }
-  return false;
-};
+ * itself answers document.activeElement. (the gate rides the kit's
+ * focusGate organ since the t991 rebase — same body, byte-for-byte) */
 const focused1 = await focusGate(FLIP_ID);
 ok("the input holds focus (the gate before any keystroke)", focused1, `active=${evalJson("(() => JSON.stringify({ a: document.activeElement ? document.activeElement.id : null }))()")?.a}`);
 if (focused1) {
@@ -376,7 +304,6 @@ shot("t987-reset-to-idle.png");
  * world carries (the completed jobs jump to the inspector) — recorded,
  * never faked (the t985 law), carried. */
 console.log("leg 6: A45 the roots plane (via the folder-mode round trip) + A43 the Go flip");
-const dialogOpen = () => evalJson(`(() => JSON.stringify({ open: [...document.querySelectorAll('[role="dialog"]')].some((d) => d.getBoundingClientRect().width > 0) }))()`);
 const dlgState = (btnMatch) => `(() => { const dlg = [...document.querySelectorAll('[role="dialog"]')].find((d) => d.getBoundingClientRect().width > 0); if (!dlg) return JSON.stringify({ open: false }); const b = [...dlg.querySelectorAll('button')].find((x) => (${btnMatch})(x)); if (!b) return JSON.stringify({ open: true, btn: false }); return JSON.stringify({ open: true, btn: true, disabled: b.disabled, label: b.getAttribute('aria-label') ?? "", text: (b.textContent ?? "").trim() }); })()`;
 const browseClick = await realClick(`[...document.querySelectorAll('button[aria-label="Browse for Files — folder, pattern or file list"]')].find((b) => b.getBoundingClientRect().width > 0)`);
 ok("the Browse door clicked (the face's own pth() param)", String(browseClick).startsWith("clicked@"), String(browseClick));
@@ -445,13 +372,19 @@ const dlgShut2 = await poll(
   (v) => v.open === false, 8, 500);
 ok("the browser closed unpicked (zero mutation on the face's path)", !!dlgShut2 && dlgShut2.open === false);
 
-/* LEG 7 — the world's honesty (the API is the judge) */
+/* LEG 7 — the world's honesty (the API is the judge). The t991 re-ride's
+ * honest leg amendment: the world GREW under the walk — t988 and t989
+ * minted their own faces (the continue face, the rounds face), so the
+ * born count (SEVENTEEN) is stale against today's NINETEEN. The
+ * assertion's intent is unchanged — the standing sixteen untouched —
+ * and the filter now names all three walk faces (the walk family's own
+ * fixtures, not the world's demo population). */
 console.log("leg 7: the world's honesty");
-const api = (method, url) => execSync(`curl -s -X ${method} -H "Origin: ${BASE}" -H "Content-Type: application/json" "${BASE}${url}"`, { encoding: "utf8", timeout: 30_000 });
+const WALK_FACE_NAMES = [FACE_NAME, "Continue Face (t988)", "Rounds Face (t989)"];
 let body = null;
 try { body = JSON.parse(api("GET", "/api/jobs")); } catch { body = null; }
 const arr = Array.isArray(body) ? body : body?.jobs ?? [];
-ok("the world carries SEVENTEEN jobs (16 standing + the face)", arr.length === 17, `rows=${arr.length}`);
+ok("the world carries NINETEEN jobs (16 standing + the three walk faces)", arr.length === 19, `rows=${arr.length}`);
 const face = arr.find((j) => j.name === FACE_NAME);
 ok("the face is back to idle with no run evidence (the t445 reset law: result null, ranParams null)",
   !!face && face.status === "idle" && face.ranParams == null && face.result == null,
@@ -460,21 +393,12 @@ ok("the face's flip param is the mint default (pixelSize = 1.77)", !!face && Str
 ok("the face's path unchanged (the Browse ride picked nothing)",
   !!face && String(face.params?.micrographsPath ?? "") === String(IMPORT_PATH ?? "\u0000never"),
   `micrographsPath=${String(face?.params?.micrographsPath ?? "").slice(0, 60)}`);
-const standing = arr.filter((j) => j.name !== FACE_NAME);
+const standing = arr.filter((j) => !WALK_FACE_NAMES.includes(j.name));
 ok("the standing sixteen untouched (15 completed + 1 failed, exactly as the world note says)",
   standing.length === 16 && standing.filter((j) => j.status === "completed").length === 15 && standing.filter((j) => j.status === "failed").length === 1,
   `completed=${standing.filter((j) => j.status === "completed").length} failed=${standing.filter((j) => j.status === "failed").length}`);
 
-/* the receipt */
-mkdirSync(QA_DIR, { recursive: true });
-writeFileSync(RECEIPT, JSON.stringify({
-  walk: "t987-idle-face-walk",
-  at: new Date().toISOString(),
+/* the receipt — the kit's finish (the same fields, the honest exit) */
+finish({
   face: { name: FACE_NAME, jobId: JOB_ID },
-  pass, fail,
-  results,
-}, null, 2));
-console.log(`receipt: ${RECEIPT}`);
-
-console.log(`== t987 idle-face walk ${fail === 0 ? "GREEN" : "RED"} — ${pass} ok, ${fail} fail ==`);
-process.exit(fail === 0 ? 0 : 1);
+});

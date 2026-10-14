@@ -1,4 +1,10 @@
 {
+  "walk": "t984-ambient-walk",
+  "at": "2026-10-14T15:50:26.085Z",
+  "pass": 15,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
   "instrument": "t984-ambient-walk",
   "born": "2026-10-14",
   "contract": "the AMBIENT ruling's second wave — the blind pool closed at zero, witnessed",
@@ -6,7 +12,7 @@
     "worldAlive": true,
     "inspector": {
       "open": true,
-      "title": "Job inspector: Symmetry Expansion (tutorial)"
+      "title": "Job inspector: Select 2D (tutorial)"
     },
     "presetDoor": {
       "present": false
@@ -29,7 +35,5 @@
       "label": "Send (type a message first)"
     },
     "companionShut": true
-  },
-  "pass": 15,
-  "fail": 0
+  }
 }

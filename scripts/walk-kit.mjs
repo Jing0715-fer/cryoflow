@@ -207,7 +207,7 @@ export function createWalk({
     return false;
   };
 
-  const dialogOpen = () => evalJson(`(() => JSON.stringify({ open: [...document.querySelectorAll('[role="dialog"]')].some((d) => d.getBoundingClientRect().width > 0)) }))()`);
+  const dialogOpen = () => evalJson(`(() => JSON.stringify({ open: [...document.querySelectorAll('[role="dialog"]')].some((d) => d.getBoundingClientRect().width > 0) }))()`);
 
   const companionShut = async () => {
     const v = await poll(

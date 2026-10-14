@@ -25,82 +25,20 @@
  *
  *   node scripts/t984-ambient-walk.mjs
  */
-import { execSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
+/* the t991 re-ride: the walk's ORGANS moved into scripts/walk-kit.mjs
+ * (the family's shared skeleton — the t990 entry's candidate ①); the
+ * legs below are byte-identical to the born form. */
+import { createWalk } from "./walk-kit.mjs";
 
-const AB = "agent-browser";
-const BASE = process.env.MINT_BASE ?? "http://localhost:3000";
-const ROOT = process.cwd();
-const QA_DIR = path.join(ROOT, "shots-qa");
-const RECEIPT = path.join(QA_DIR, "t984-ambient-walk.json");
-
-let pass = 0, fail = 0;
-const ok = (label, cond, extra = "") => {
-  if (cond) { pass++; console.log(`  ✓ ${label}${extra ? ` — ${extra}` : ""}`); }
-  else { fail++; console.log(`  ✗ ${label}${extra ? ` — ${extra}` : ""}`); }
-};
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const sh = (cmd) => { try { return execSync(cmd, { encoding: "utf8", timeout: 300_000, cwd: ROOT }).trim(); } catch (e) { return String(e?.stdout ?? e); } };
-function evalJs(expr) {
-  try { return execSync(`${AB} eval --stdin`, { encoding: "utf8", timeout: 120_000, input: expr }).trim(); }
-  catch (e) { return String(e?.stdout ?? "") || "null"; }
-}
-function evalJson(expr) {
-  let out = evalJs(expr);
-  try {
-    const q = out.indexOf('"');
-    if (q > 0) out = out.slice(q);
-    const once = JSON.parse(out);
-    if (typeof once === "string") { try { return JSON.parse(once); } catch { return once; } }
-    return once;
-  } catch { return out; }
-}
-const poll = async (expr, gate, times = 24, ms = 500) => {
-  for (let i = 0; i < times; i++) {
-    const v = evalJson(expr);
-    if (v && v !== "null" && gate(v)) return v;
-    await sleep(ms);
-  }
-  return null;
-};
-/* the t982 realClick: probe visibility AND self-hit over a nine-point
- * grid, scroll into view when off, click through the real mouse path */
-const realClick = async (findExpr) => {
-  const locate = `(() => { const el = (${findExpr}); if (!el) return null; const r = el.getBoundingClientRect(); if (r.width === 0 || r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) return JSON.stringify({ off: true }); const pts = [[r.x + r.width / 2, r.y + r.height / 2]]; for (const ins of [4, 10, 20]) { pts.push([r.x + ins, r.y + ins], [r.x + r.width - ins, r.y + ins], [r.x + ins, r.y + r.height - ins], [r.x + r.width - ins, r.y + r.height - ins], [r.x + r.width / 2, r.y + ins], [r.x + r.width / 2, r.y + r.height - ins], [r.x + ins, r.y + r.height / 2], [r.x + r.width - ins, r.y + r.height / 2]); } for (const [px, py] of pts) { const cx = Math.max(2, Math.min(window.innerWidth - 2, Math.round(px))); const cy = Math.max(2, Math.min(window.innerHeight - 2, Math.round(py))); const hit = document.elementFromPoint(cx, cy); if (hit && el.contains(hit)) return JSON.stringify({ own: true, x: cx, y: cy }); } return JSON.stringify({ own: false }); })()`;
-  for (let i = 0; i < 12; i++) {
-    const pos = evalJson(locate);
-    if (!pos || pos === "null") return "NO-ELEMENT";
-    if (pos.off) {
-      evalJs(`(() => { const el = (${findExpr}); if (el) el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); return 'siv'; })()`);
-      await sleep(500);
-      const pos2 = evalJson(locate);
-      if (pos2 && pos2.own) {
-        sh(`${AB} mouse move ${pos2.x} ${pos2.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
-        return `clicked@${pos2.x},${pos2.y}`;
-      }
-      return "OFF-VIEWPORT";
-    }
-    if (pos.own) {
-      sh(`${AB} mouse move ${pos.x} ${pos.y}`); sh(`${AB} mouse down`); sh(`${AB} mouse up`);
-      return `clicked@${pos.x},${pos.y}`;
-    }
-    await sleep(400);
-  }
-  return "NEVER-OWN";
-};
+const {
+  AB, BASE, ok, sleep, sh, evalJson, poll, realClick, shot,
+  serverFirst, finish,
+} = createWalk({ name: "t984-ambient-walk", receiptFile: "t984-ambient-walk.json" });
 
 console.log("=== t984 ambient-refusal witness walk ===");
 
-/* the server-first law */
-let serverUp = false;
-for (let i = 0; i < 24 && !serverUp; i++) {
-  try { const c = execSync(`curl -s -o /dev/null -w '%{http_code}' ${BASE}/ --max-time 5`, { encoding: "utf8" }); serverUp = c.trim() === "200"; }
-  catch { serverUp = false; }
-  if (!serverUp) await sleep(2500);
-}
-if (!serverUp) { console.log("FATAL: the server never answered 200"); process.exit(2); }
-console.log("server: 200");
+/* the server-first law — kit-enforced */
+await serverFirst();
 
 /* LEG 1 — the fresh open (WIDE-FIRST law: the shell's left rail is
  * lg:flex — a session that survived at 320 hides it; the walk sets a
@@ -176,11 +114,10 @@ const shut = await poll(
   (v) => v.up === false, 8, 500);
 ok("the companion closed through its real mouth (the t982 law)", String(closeClick).startsWith("clicked@") && !!shut && shut.up === false, `${closeClick} shut=${shut?.up}`);
 
-const shot = (name) => sh(`${AB} screenshot ${path.join(QA_DIR, name)}`);
 shot("t984-ambient.png");
 
-mkdirSync(QA_DIR, { recursive: true });
-const receipt = {
+/* the receipt — the kit's finish (the same fields, the honest exit) */
+finish({
   instrument: "t984-ambient-walk",
   born: "2026-10-14",
   contract: "the AMBIENT ruling's second wave — the blind pool closed at zero, witnessed",
@@ -194,9 +131,4 @@ const receipt = {
     sendRefusalLive: sendRefusal ?? { up: false },
     companionShut: shut?.up === false,
   },
-  pass, fail,
-};
-writeFileSync(RECEIPT, JSON.stringify(receipt, null, 2));
-console.log(`receipt: ${RECEIPT}`);
-console.log(`VERDICT: ${fail === 0 ? `GREEN ${pass}/${pass + fail}` : `RED ${pass}/${pass + fail}`}`);
-process.exit(fail === 0 ? 0 : 1);
+});
