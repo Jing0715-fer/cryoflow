@@ -478,6 +478,7 @@ function DialogContent({
   onFocusOutside,
   onEscapeKeyDown,
   onPointerDownCapture,
+  onClickCapture,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -608,13 +609,28 @@ function DialogContent({
          * and the last-touched window leads. The assistant re-asserts
          * itself on every dialog mount (its own observer) and on every
          * summon (the seq door); this handler gives the dialog the same
-         * right on interaction — a pointerdown anywhere on it moves its
+         * right on interaction — a click anywhere on it moves its
          * content node (a direct body child — Radix portals the shared
          * Dialog with no wrapper) to the END of body, above the companion.
          * DOM moves never remount, so leaf state (tab, scroll, inputs)
-         * survives untouched. A no-op when already last. */
+         * survives untouched. A no-op when already last.
+         *
+         * t986 — the raise rides the CLICK, never the pointerdown: a DOM
+         * move inside the pointer dispatch breaks Chromium's click
+         * synthesis (the press chain is re-parented mid-gesture — the
+         * down lands on the button, the mousedown answers BODY, the click
+         * event never fires, the button's onClick is dead). The t986
+         * dissection's A/B grid proved it live: with the raise on
+         * pointerdown, the workspace create dialog's Cancel lost 5/5
+         * clicks while the companion was open (the appendChild stack
+         * named this very handler), and 0/5 with the companion closed;
+         * a click-time move lands after the gesture's target resolution,
+         * so the same raise can never eat the click that caused it. */
         onPointerDownCapture={(e) => {
           onPointerDownCapture?.(e)
+        }}
+        onClickCapture={(e) => {
+          onClickCapture?.(e)
           if (e.defaultPrevented) return
           if (!companionOpen) return
           const el = e.currentTarget

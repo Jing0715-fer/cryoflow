@@ -185,8 +185,9 @@ ok(
 );
 ok(
   panel.includes("onKeyDown={onWindowKeyDown}") &&
-    panel.includes("onPointerDownCapture={onRootPointerDownCapture}"),
-  "D6 the t500 floating face's handlers stand — the tab stops change nothing about the close grammar"
+    panel.includes("onClickCapture={onRootClickCapture}") &&
+    !panel.includes("onPointerDownCapture={onRootPointerDownCapture}"),
+  "D6 the t500 floating face's handlers stand — the tab stops change nothing about the close grammar (t986 re-key: the raise rides the CLICK — a pointerdown-time DOM move breaks Chromium's click synthesis)"
 );
 
 /* ------------------------------------------------------------------ */

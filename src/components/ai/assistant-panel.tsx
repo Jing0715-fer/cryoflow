@@ -823,7 +823,18 @@ export function AssistantPanel() {
     document.addEventListener("pointerdown", onDocPointerDown, true);
     return () => document.removeEventListener("pointerdown", onDocPointerDown, true);
   }, [open]);
-  const onRootPointerDownCapture = () => {
+  /* t986 — the raise rides the CLICK (onClickCapture below), never the
+   * pointerdown: a DOM move inside the pointer dispatch breaks Chromium's
+   * click synthesis (the press chain is re-parented mid-gesture — the
+   * down lands on the button, the click event never fires, the control is
+   * dead). The dialog.tsx half of this law was proven live by the t986
+   * dissection (5/5 clicks lost with the pointerdown raise, 0/5 after);
+   * this root's raise is the same move on the same body-child node, so
+   * it rides the same safe road. A click-time move lands after the
+   * gesture's target resolution and can never eat the click that caused
+   * it; the titlebar's drag flow is untouched (beginDrag listens on its
+   * own pointerdown). */
+  const onRootClickCapture = () => {
     raiseToFront();
   };
 
@@ -1674,7 +1685,7 @@ export function AssistantPanel() {
       aria-modal="false"
       aria-label="AI 助手"
       onKeyDown={onWindowKeyDown}
-      onPointerDownCapture={onRootPointerDownCapture}
+      onClickCapture={onRootClickCapture}
       className={cn(
         // pointer-events-auto: some layer COULD still flip body-wide
         // pointer-events off (a modal Select, an AlertDialog) — the window
