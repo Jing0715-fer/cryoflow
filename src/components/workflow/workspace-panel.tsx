@@ -446,16 +446,24 @@ export function WorkspacePanel() {
   // new surfacing) — no explicit reset exists or is needed.
   const [wsWave] = React.useState<Map<string, number>>(() => new Map());
 
+  // t1000 — the create dialog's doors keep no draft: EVERY close path
+  // (the Cancel button, Escape, the outside click, the X) routes through
+  // this ONE mouth (the t999 one-mouth law's dialog form), so a reopened
+  // dialog opens EMPTY instead of resurrecting the abandoned text. The
+  // success path rides the same door — a created workspace and a
+  // cancelled draft close identically clean.
+  const closeCreate = React.useCallback(() => {
+    setNewName("");
+    setCreateOpen(false);
+  }, []);
+
   const handleCreate = async () => {
     const trimmed = newName.trim();
     if (trimmed.length < 1 || trimmed.length > WS_NAME_MAX || creating) return;
     setCreating(true);
     const ok = await createWorkspace(trimmed.slice(0, WS_NAME_MAX));
     setCreating(false);
-    if (ok) {
-      setNewName("");
-      setCreateOpen(false);
-    }
+    if (ok) closeCreate();
   };
 
   // t614 — the ledger's fill-on-miss pass, BEFORE the JSX so the tickets
@@ -595,8 +603,11 @@ export function WorkspacePanel() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* new workspace dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      {/* new workspace dialog — onOpenChange is the Radix door for the
+          Escape / outside-click / X paths; the t1000 law routes it (and
+          the Cancel button below) through closeCreate so the draft dies
+          with the dialog on every exit */}
+      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) closeCreate(); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>New workspace</DialogTitle>
@@ -636,7 +647,7 @@ export function WorkspacePanel() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setCreateOpen(false)}
+              onClick={closeCreate}
               disabled={creating}
               aria-label={creating ? "Cancel (the workspace is being created)" : "Cancel"}
             >
