@@ -1,0 +1,35 @@
+{
+  "instrument": "t984-ambient-walk",
+  "born": "2026-10-14",
+  "contract": "the AMBIENT ruling's second wave — the blind pool closed at zero, witnessed",
+  "legs": {
+    "worldAlive": true,
+    "inspector": {
+      "open": true,
+      "title": "Job inspector: Symmetry Expansion (tutorial)"
+    },
+    "presetDoor": {
+      "present": false
+    },
+    "createDialog": {
+      "open": true,
+      "cancel": true,
+      "disabled": false,
+      "label": "Cancel"
+    },
+    "createCancelShut": true,
+    "deleteDoorRests": {
+      "present": true,
+      "disabled": true,
+      "label": "Delete Main"
+    },
+    "sendRefusalLive": {
+      "up": true,
+      "disabled": true,
+      "label": "Send (type a message first)"
+    },
+    "companionShut": true
+  },
+  "pass": 15,
+  "fail": 0
+}
