@@ -148,6 +148,30 @@ import type {
   AiSessionSummaryDto,
 } from "@/lib/ai/types";
 
+/* t999 — the wall faces' ONE MOUTH (the t997 voice's second road): the
+ * keyboard road reads these words through aria-valuetext on focus; the
+ * pointer road hears them through the drag-end live echo. One builder
+ * per axis — the floor owns equality (<= GEO_MIN), the ceiling rides
+ * the clampGeo viewport formula (vw-16 / vh-16, floored at GEO_MIN),
+ * the plain branch speaks the human shape. The words are the t997
+ * strings VERBATIM — two roads, one voice, the strings can never
+ * drift apart again. The echo's wall test sniffs the builder's own
+ * refusal prefix (已到) instead of re-deriving the formula — one
+ * truth, no second arithmetic. */
+const wFace = (w: number, vw: number): string =>
+  w <= GEO_MIN_W
+    ? `已到最小宽度（${GEO_MIN_W} 像素）`
+    : w >= Math.max(vw - 16, GEO_MIN_W)
+      ? `已到最大宽度（${Math.max(vw - 16, GEO_MIN_W)} 像素）`
+      : `宽度 ${w} 像素`;
+
+const hFace = (h: number, vh: number): string =>
+  h <= GEO_MIN_H
+    ? `已到最小高度（${GEO_MIN_H} 像素）`
+    : h >= Math.max(vh - 16, GEO_MIN_H)
+      ? `已到最大高度（${Math.max(vh - 16, GEO_MIN_H)} 像素）`
+      : `高度 ${h} 像素`;
+
 /* ------------------------------------------------------------------ */
 /* Transcript items (flattened from server messages + live events)      */
 /* ------------------------------------------------------------------ */
@@ -738,6 +762,13 @@ export function AssistantPanel() {
 
   // ---- t500: the floating window (desktop) — geometry, drag, resize ----
   const [geo, setGeo] = React.useState<WinGeo | null>(null);
+  // t999 — the pointer road's wall echo (the sr-only live region's
+  // message): a drag that PARKS at a clamp wall speaks the wall's face
+  // through role="status" — one word per gesture, at its end. The
+  // keyboard road needs no echo (its valuetext is the focused face); the
+  // pointer hand gets no focused read, so the wall's word must travel
+  // to the live region instead.
+  const [wallEcho, setWallEcho] = React.useState("");
   // t902 — the restore's edit receipt + its ownership flag (the whisper's
   // fourth seat): a shrunken viewport silently EDITS the remembered shape
   // (clampGeo hands back a smaller, pulled-in window); the whisper names
@@ -1009,7 +1040,8 @@ export function AssistantPanel() {
       });
     };
     const onUp = () => {
-      if (dragRef.current) {
+      const d = dragRef.current;
+      if (d) {
         dragRef.current = null;
         document.body.style.userSelect = "";
         // t902 — the user's hand took ownership of the shape: the restore
@@ -1027,6 +1059,28 @@ export function AssistantPanel() {
           } catch {
             /* private mode etc — position is a session-only luxury then */
           }
+        }
+        // t999 — the POINTER road's wall echo: a drag that PARKS at a
+        // clamp wall speaks the same face the keyboard road's valuetext
+        // reads (the builders are the wall's ONE MOUTH — two roads, one
+        // voice). Once per gesture, at its end — the t638 echo law's
+        // live-region form; mid-drag announcements would flood (the wall
+        // bites on every pointermove past it). The plain shape stays
+        // silent here — the hand SAW it follow; only the refusal speaks.
+        // The wall test sniffs the builder's own prefix (已到), never a
+        // second arithmetic.
+        if (dragMovedRef.current && geoRef.current) {
+          const g = geoRef.current;
+          const words: string[] = [];
+          if (d.mode === "e" || d.mode === "se") {
+            const face = wFace(g.w, window.innerWidth);
+            if (face.startsWith("已到")) words.push(face);
+          }
+          if (d.mode === "s" || d.mode === "se") {
+            const face = hFace(g.h, window.innerHeight);
+            if (face.startsWith("已到")) words.push(face);
+          }
+          if (words.length > 0) setWallEcho(words.join("，"));
         }
         dragMovedRef.current = false;
       }
@@ -2262,7 +2316,14 @@ export function AssistantPanel() {
             eaten silently by the clamp, so the FACE must say it). The
             valuemax rides the same clampGeo ceiling the pointer drag
             hits — the pattern's other half, never spoken before. The
-            cure is VOICE-ONLY: keyResize's arithmetic is untouched. */}
+            cure is VOICE-ONLY: keyResize's arithmetic is untouched.
+            t999 — the pointer road joins the voice: the valuetext's
+            three-branch words moved into the wFace/hFace builders (the
+            wall's ONE MOUTH — the keyboard road reads them on focus,
+            the pointer road hears them through the drag-end live echo),
+            and the echo announces the wall's face when a drag PARKS at
+            a clamp wall — the words can never drift between the roads
+            again. */}
         {!isMobile && (
           <>
             <div
@@ -2272,15 +2333,7 @@ export function AssistantPanel() {
               aria-valuemin={GEO_MIN_W}
               aria-valuemax={geo ? Math.max(window.innerWidth - 16, GEO_MIN_W) : undefined}
               aria-valuenow={geo?.w}
-              aria-valuetext={
-                geo
-                  ? geo.w <= GEO_MIN_W
-                    ? `已到最小宽度（${GEO_MIN_W} 像素）`
-                    : geo.w >= Math.max(window.innerWidth - 16, GEO_MIN_W)
-                      ? `已到最大宽度（${Math.max(window.innerWidth - 16, GEO_MIN_W)} 像素）`
-                      : `宽度 ${geo.w} 像素`
-                  : undefined
-              }
+              aria-valuetext={geo ? wFace(geo.w, window.innerWidth) : undefined}
               tabIndex={0}
               className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize touch-none transition-colors hover:bg-primary/20 focus-visible:bg-primary/40 focus-visible:outline-none"
               onPointerDown={(e) => beginDrag(e, "e")}
@@ -2298,15 +2351,7 @@ export function AssistantPanel() {
               aria-valuemin={GEO_MIN_H}
               aria-valuemax={geo ? Math.max(window.innerHeight - 16, GEO_MIN_H) : undefined}
               aria-valuenow={geo?.h}
-              aria-valuetext={
-                geo
-                  ? geo.h <= GEO_MIN_H
-                    ? `已到最小高度（${GEO_MIN_H} 像素）`
-                    : geo.h >= Math.max(window.innerHeight - 16, GEO_MIN_H)
-                      ? `已到最大高度（${Math.max(window.innerHeight - 16, GEO_MIN_H)} 像素）`
-                      : `高度 ${geo.h} 像素`
-                  : undefined
-              }
+              aria-valuetext={geo ? hFace(geo.h, window.innerHeight) : undefined}
               tabIndex={0}
               className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none transition-colors hover:bg-primary/20 focus-visible:bg-primary/40 focus-visible:outline-none"
               onPointerDown={(e) => beginDrag(e, "s")}
@@ -2325,6 +2370,15 @@ export function AssistantPanel() {
             >
               <span className="absolute bottom-1 right-1 block size-1.5 rounded-sm border-b border-r border-muted-foreground/50" />
             </div>
+            {/* t999 — the pointer road's wall echo: the drag that parks at
+                a clamp wall speaks the SAME face the keyboard road reads
+                (the builders' one mouth) — role="status" + aria-live, one
+                announcement per gesture at its end, visually silent. The
+                plain park adds no word (the hand saw it follow); the
+                refusal is the only news worth interrupting for. */}
+            <span data-wall-echo="" role="status" aria-live="polite" className="sr-only">
+              {wallEcho}
+            </span>
           </>
         )}
     </div>,

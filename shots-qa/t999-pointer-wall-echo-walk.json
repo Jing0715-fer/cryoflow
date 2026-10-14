@@ -1,0 +1,39 @@
+{
+  "walk": "t999-pointer-wall-echo-walk",
+  "at": "2026-10-14T20:28:35.308Z",
+  "pass": 20,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
+  "instrument": "t999-pointer-wall-echo-walk",
+  "born": "2026-10-15",
+  "contract": "the pointer road's wall echo witnessed live — the floor and ceiling drags speak the builders' words through the live region, the mid park adds no word, the grip's valuetext agrees at every park (one mouth), the stored geometry restored verbatim",
+  "legs": {
+    "viewport": {
+      "vw": 1440,
+      "vh": 900
+    },
+    "asFoundWidth": 560,
+    "floor": {
+      "echo": "已到最小宽度（360 像素）",
+      "now": 360,
+      "agreed": true
+    },
+    "ceiling": {
+      "echo": "已到最大宽度（1424 像素）",
+      "now": 1424,
+      "max": 1424,
+      "agreed": true
+    },
+    "midPark": {
+      "echoUnchanged": true,
+      "text": "宽度 1224 像素"
+    },
+    "storedEcho": {
+      "asFound": null,
+      "asLeft": null,
+      "restored": true
+    },
+    "worldRestored": true
+  }
+}

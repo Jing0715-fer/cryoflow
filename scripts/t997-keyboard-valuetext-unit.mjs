@@ -29,6 +29,13 @@
  *    never moves a wall).
  *
  *   node scripts/unit-runner.mjs scripts/t997-keyboard-valuetext-unit.mjs
+ *
+ * t999 RE-KEY: the voices' words moved into the wFace/hFace builders
+ * (the pointer road's live echo reads the same strings — one mouth,
+ * two roads), so the voice needles ride the builders' bodies and the
+ * ride is pinned in the same needle. The count is unchanged (45) —
+ * a 1:1 re-point, no new asserts. The echo plane itself is the t999
+ * unit's subject (scripts/t999-pointer-wall-echo-unit.mjs).
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -51,6 +58,15 @@ const sGripStart = src.indexOf('role="separator"\n              aria-orientation
 const eGrip = eGripStart > 0 ? src.slice(eGripStart, src.indexOf("/>", eGripStart)) : "";
 const sGrip = sGripStart > 0 ? src.slice(sGripStart, src.indexOf("/>", sGripStart)) : "";
 
+/* the t999 re-key — the voices' ONE MOUTH: the three-branch words moved
+   into the wFace/hFace builders (the pointer road's live echo reads the
+   same strings), so the voice needles below ride the BODIES; the grips
+   ride the builders. The strings themselves are the t997 words VERBATIM. */
+const wFaceIdx = src.indexOf("const wFace = (w: number, vw: number)");
+const hFaceIdx = src.indexOf("const hFace = (h: number, vh: number)");
+const wFaceBody = wFaceIdx > 0 ? src.slice(wFaceIdx, src.indexOf(";", wFaceIdx)) : "";
+const hFaceBody = hFaceIdx > 0 ? src.slice(hFaceIdx, src.indexOf(";", hFaceIdx)) : "";
+
 ok("the E grip exists (the t991 road is still in the tree)", eGripStart > 0);
 ok("the S grip exists (the t991 road is still in the tree)", sGripStart > 0 && sGripStart !== eGripStart);
 
@@ -59,38 +75,44 @@ ok("the S grip carries aria-valuetext", sGrip.includes("aria-valuetext={"));
 ok("the E grip carries aria-valuemax (the pattern's other half)", eGrip.includes("aria-valuemax={"));
 ok("the S grip carries aria-valuemax (the pattern's other half)", sGrip.includes("aria-valuemax={"));
 
-/* ---- the human shape: the plain branch speaks axis + unit ---- */
-ok("the E valuetext's plain branch speaks the width in human words (宽度 N 像素)",
-  eGrip.includes("宽度 ${geo.w} 像素"));
-ok("the S valuetext's plain branch speaks the height in human words (高度 N 像素)",
-  sGrip.includes("高度 ${geo.h} 像素"));
+/* ---- the human shape: the plain branch speaks axis + unit (the t999
+ *      re-key: the words moved into the builders — the ONE MOUTH the
+ *      pointer road's live echo reads too; the ride is pinned in the
+ *      same needle) ---- */
+ok("the E valuetext's plain branch speaks the width in human words (builder's mouth, grip rides it)",
+  wFaceBody.includes("宽度 ${w} 像素") && eGrip.includes("wFace(geo.w, window.innerWidth)"));
+ok("the S valuetext's plain branch speaks the height in human words (builder's mouth, grip rides it)",
+  hFaceBody.includes("高度 ${h} 像素") && sGrip.includes("hFace(geo.h, window.innerHeight)"));
 
-/* ---- the floor faces: the refusal names the CONSTANT, not a magic number ---- */
+/* ---- the floor faces: the refusal names the CONSTANT, not a magic number
+ *      (the t999 re-key: spoken from the builders' one mouth) ---- */
 ok("the E floor face speaks 已到最小宽度 with the GEO_MIN_W constant",
-  eGrip.includes("已到最小宽度（${GEO_MIN_W} 像素）"));
+  wFaceBody.includes("已到最小宽度（${GEO_MIN_W} 像素）"));
 ok("the S floor face speaks 已到最小高度 with the GEO_MIN_H constant",
-  sGrip.includes("已到最小高度（${GEO_MIN_H} 像素）"));
+  hFaceBody.includes("已到最小高度（${GEO_MIN_H} 像素）"));
 
 /* ---- the ceiling faces: the wall names the clampGeo viewport ceiling ---- */
 ok("the E ceiling face speaks 已到最大宽度 with the viewport ceiling number",
-  eGrip.includes("已到最大宽度（${Math.max(window.innerWidth - 16, GEO_MIN_W)} 像素）"));
+  wFaceBody.includes("已到最大宽度（${Math.max(vw - 16, GEO_MIN_W)} 像素）"));
 ok("the S ceiling face speaks 已到最大高度 with the viewport ceiling number",
-  sGrip.includes("已到最大高度（${Math.max(window.innerHeight - 16, GEO_MIN_H)} 像素）"));
+  hFaceBody.includes("已到最大高度（${Math.max(vh - 16, GEO_MIN_H)} 像素）"));
 
 /* ---- the wall tests ride the SAME ceiling formula as the spoken number
- *      (one arithmetic, spoken and compared — no two truths) ---- */
-const eWall = "geo.w >= Math.max(window.innerWidth - 16, GEO_MIN_W)";
-const sWall = "geo.h >= Math.max(window.innerHeight - 16, GEO_MIN_H)";
-ok("the E ceiling test rides the same formula the face speaks", eGrip.includes(eWall));
-ok("the S ceiling test rides the same formula the face speaks", sGrip.includes(sWall));
+ *      (one arithmetic, spoken and compared — no two truths; the t999
+ *      re-key moves the pins to the builders' bodies) ---- */
+const eWall = "w >= Math.max(vw - 16, GEO_MIN_W)";
+const sWall = "h >= Math.max(vh - 16, GEO_MIN_H)";
+ok("the E ceiling test rides the same formula the face speaks", wFaceBody.includes(eWall));
+ok("the S ceiling test rides the same formula the face speaks", hFaceBody.includes(sWall));
 ok("the E valuemax rides the same formula too (three mentions, one truth)",
   eGrip.includes("aria-valuemax={geo ? Math.max(window.innerWidth - 16, GEO_MIN_W) : undefined}"));
 ok("the S valuemax rides the same formula too (three mentions, one truth)",
   sGrip.includes("aria-valuemax={geo ? Math.max(window.innerHeight - 16, GEO_MIN_H) : undefined}"));
 
-/* ---- the floor test: <= the constant (the wall owns equality) ---- */
-ok("the E floor test owns equality (geo.w <= GEO_MIN_W)", eGrip.includes("geo.w <= GEO_MIN_W"));
-ok("the S floor test owns equality (geo.h <= GEO_MIN_H)", sGrip.includes("geo.h <= GEO_MIN_H"));
+/* ---- the floor test: <= the constant (the wall owns equality; the
+ *      t999 re-key: pinned at the builders' bodies) ---- */
+ok("the E floor test owns equality (w <= GEO_MIN_W)", wFaceBody.includes("w <= GEO_MIN_W"));
+ok("the S floor test owns equality (h <= GEO_MIN_H)", hFaceBody.includes("h <= GEO_MIN_H"));
 
 /* ---- the ghost guard: no valuetext before the boot restore lands ---- */
 ok("the E valuetext is undefined until geo speaks (no 宽度 null 像素 ghost)",
@@ -131,16 +153,17 @@ ok("NO aria-hidden on the E separator (a focusable element never hides)", !eGrip
 ok("NO aria-hidden on the S separator (a focusable element never hides)", !sGrip.includes("aria-hidden"));
 
 /* ---- the dialect's family law: the valuetext is a THREE-branch voice
- *      (floor face / ceiling face / human shape), written as a nested
- *      ternary exactly like the t982 send button's three-branch name ---- */
+ *      (floor face / ceiling face / human shape) — the t999 re-key pins
+ *      the branches at the builders' bodies, the ONE MOUTH both roads
+ *      read ---- */
 ok("the E valuetext is a three-branch voice (floor → ceiling → human)",
-  (eGrip.match(/已到最小宽度/g) ?? []).length === 1 &&
-    (eGrip.match(/已到最大宽度/g) ?? []).length === 1 &&
-    (eGrip.match(/宽度 \$\{geo\.w\} 像素/g) ?? []).length === 1);
+  (wFaceBody.match(/已到最小宽度/g) ?? []).length === 1 &&
+    (wFaceBody.match(/已到最大宽度/g) ?? []).length === 1 &&
+    (wFaceBody.match(/宽度 \$\{w\} 像素/g) ?? []).length === 1);
 ok("the S valuetext is a three-branch voice (floor → ceiling → human)",
-  (sGrip.match(/已到最小高度/g) ?? []).length === 1 &&
-    (sGrip.match(/已到最大高度/g) ?? []).length === 1 &&
-    (sGrip.match(/高度 \$\{geo\.h\} 像素/g) ?? []).length === 1);
+  (hFaceBody.match(/已到最小高度/g) ?? []).length === 1 &&
+    (hFaceBody.match(/已到最大高度/g) ?? []).length === 1 &&
+    (hFaceBody.match(/高度 \$\{h\} 像素/g) ?? []).length === 1);
 
 /* ---- THE OWNERSHIP GUARD (the second cure, the walk's red-1/red-4
  *      find): the arrow-walk (Task 103) had listbox and tablist guards —
