@@ -65,7 +65,7 @@
       "label": "保存并启用"
     },
     "aiShut": true,
-    "aiCancelPath": "escape-fallback (the ride-1 transient recorded)",
+    "aiCancelPath": "real-click",
     "companionShut": true,
     "knockResting": {
       "open": true,

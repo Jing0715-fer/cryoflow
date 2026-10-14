@@ -1,0 +1,800 @@
+{
+  "instrument": "t986-cancel-dissection",
+  "born": "2026-10-14",
+  "contract": "the settings-dialog cancel transient's dedicated dissection — the pre-registered A/B/A1/C grid of 20 real clicks under the in-flight probe",
+  "verdict": "NOT-REPRODUCED: 20 clean clicks under full probe — the t985 transient stays an automation-timing suspect; the record closes honest",
+  "tally": {
+    "A0": 0,
+    "B": 0,
+    "A1": 0,
+    "C": 0
+  },
+  "experiments": {
+    "A0": [
+      {
+        "i": 0,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#4 BUTTON[button]<T>:取消",
+        "md": "#4 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 4,
+        "bodyLog": [
+          {
+            "t": 5924,
+            "k": "rm",
+            "n": "#6 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 5924,
+            "k": "add",
+            "n": "#6 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 6286,
+            "k": "rm",
+            "n": "#6 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 6286,
+            "k": "rm",
+            "n": "#7 SPAN:"
+          },
+          {
+            "t": 6286,
+            "k": "rm",
+            "n": "#8 SPAN:"
+          }
+        ],
+        "contentLog": [
+          {
+            "t": 5796,
+            "k": "rm",
+            "n": "#1 svg:"
+          },
+          {
+            "t": 5796,
+            "k": "add",
+            "n": "#2 svg:"
+          },
+          {
+            "t": 5808,
+            "k": "rm",
+            "n": "#2 svg:"
+          },
+          {
+            "t": 5808,
+            "k": "add",
+            "n": "#3 svg:"
+          }
+        ]
+      },
+      {
+        "i": 1,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>:取消",
+        "md": "#1 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 7989,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 7989,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 8248,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 8248,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 8248,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 2,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>:取消",
+        "md": "#1 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 10050,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 10050,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 10286,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 10286,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 10286,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 3,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>:取消",
+        "md": "#1 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 12052,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 12052,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 12286,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 12286,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 12286,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 4,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>:取消",
+        "md": "#1 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 14033,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 14033,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 14276,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 14276,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 14276,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      }
+    ],
+    "B": [
+      {
+        "i": 0,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 16172,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 16172,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 16401,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 16401,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 16401,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 1,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 18064,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 18064,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 18310,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 18310,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 18310,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 2,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 19962,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 19962,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 20185,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 20185,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 20185,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 3,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 21853,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 21853,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 22086,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 22086,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 22086,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 4,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 23755,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 23755,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 23967,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 23968,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 23968,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      }
+    ],
+    "A1": [
+      {
+        "i": 0,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>:取消",
+        "md": "#1 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 39834,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 39834,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 40088,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 40088,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 40088,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 1,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>:取消",
+        "md": "#1 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 42075,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 42075,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 42361,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 42361,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 42361,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 2,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>:取消",
+        "md": "#1 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 44078,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 44079,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 44334,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 44334,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 44334,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 3,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>:取消",
+        "md": "#1 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 46055,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 46056,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 46301,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 46301,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 46301,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 4,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>:取消",
+        "md": "#1 BUTTON[button]<T>:取消",
+        "click": "yes",
+        "bodyMoves": 5,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 48040,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 48040,
+            "k": "add",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 48285,
+            "k": "rm",
+            "n": "#3 DIV[dialog-content]<T>:AI 助手设置选择供应商"
+          },
+          {
+            "t": 48285,
+            "k": "rm",
+            "n": "#4 SPAN:"
+          },
+          {
+            "t": 48285,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          }
+        ],
+        "contentLog": []
+      }
+    ],
+    "C": [
+      {
+        "i": 0,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 4,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 50451,
+            "k": "rm",
+            "n": "#3 DIV[dialog-overlay]:"
+          },
+          {
+            "t": 50536,
+            "k": "rm",
+            "n": "#4 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 50536,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          },
+          {
+            "t": 50536,
+            "k": "rm",
+            "n": "#6 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 1,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 4,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 52399,
+            "k": "rm",
+            "n": "#3 DIV[dialog-overlay]:"
+          },
+          {
+            "t": 52453,
+            "k": "rm",
+            "n": "#4 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 52453,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          },
+          {
+            "t": 52453,
+            "k": "rm",
+            "n": "#6 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 2,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 4,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 54326,
+            "k": "rm",
+            "n": "#3 DIV[dialog-overlay]:"
+          },
+          {
+            "t": 54374,
+            "k": "rm",
+            "n": "#4 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 54374,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          },
+          {
+            "t": 54374,
+            "k": "rm",
+            "n": "#6 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 3,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 4,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 56264,
+            "k": "rm",
+            "n": "#3 DIV[dialog-overlay]:"
+          },
+          {
+            "t": 56301,
+            "k": "rm",
+            "n": "#4 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 56301,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          },
+          {
+            "t": 56301,
+            "k": "rm",
+            "n": "#6 SPAN:"
+          }
+        ],
+        "contentLog": []
+      },
+      {
+        "i": 4,
+        "closed": true,
+        "lost": false,
+        "why": "chain-ok",
+        "pd": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "md": "#1 BUTTON[button]<T>\"Cancel\":Cancel",
+        "click": "yes",
+        "bodyMoves": 4,
+        "contentMoves": 0,
+        "bodyLog": [
+          {
+            "t": 58164,
+            "k": "rm",
+            "n": "#3 DIV[dialog-overlay]:"
+          },
+          {
+            "t": 58200,
+            "k": "rm",
+            "n": "#4 DIV[dialog-content]<T>:New workspac"
+          },
+          {
+            "t": 58200,
+            "k": "rm",
+            "n": "#5 SPAN:"
+          },
+          {
+            "t": 58200,
+            "k": "rm",
+            "n": "#6 SPAN:"
+          }
+        ],
+        "contentLog": []
+      }
+    ]
+  },
+  "pass": 7,
+  "fail": 0
+}
