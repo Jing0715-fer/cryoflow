@@ -465,10 +465,10 @@ const DL = (R846 || {}).driftLedger || {};
 const arm3Bites = DL.sameBuild === true && world.mode === 'build'; // t859 — the jurisdiction clause (build worlds only)
 const dlFaces = DL.faces || {};
 const FIVE = ['canvas', 'dashboard', 'inspector', 'palette', 'restore'];
-ok("F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five faces, each with prev/live/drift/identical; the comparator's own date + build recorded as provenance; the law names the three arms — no predecessor, build moved, same build bit-for-bit)",
+ok("F19.a the drift ledger is aboard: t846's receipt carries driftLedger (five faces, each with prev/live/drift/identical; the comparator's own date + build recorded as provenance; the law names the three arms — no predecessor, world key moved, same key bit-for-bit — the regexes follow the LEDGER_LAW's own words, the t868 window's drift cure)",
   FIVE.every((f) => dlFaces[f] && 'prev' in dlFaces[f] && 'live' in dlFaces[f] && 'drift' in dlFaces[f] && 'identical' in dlFaces[f]) &&
   typeof DL.prevBuild === 'string' && typeof DL.prevDate === 'string' && typeof DL.law === 'string' &&
-  /no predecessor/.test(DL.law) && /build moved/.test(DL.law) && /same build/.test(DL.law),
+  /no predecessor/.test(DL.law) && /world key moved/.test(DL.law) && /same key/.test(DL.law),
   `ledger aboard x5 faces, comparator ${DL.prevDate} (build ${DL.prevBuild}), sameBuild=${DL.sameBuild}`);
 ok("F19.b the cross-RIDE identity holds (jurisdiction-aware, the t859 clause): on a BUILD world every face must be bit-for-bit vs the previous receipt — drift 0 x5 AND the full live object identical x5; on a DEV world (unfrozen — the restored roster's inspector content moves with the door's async surfaces) the demand is the arm STRUCTURE: every face carries numeric prev/live/drift + the identical flag, recorded, not cried over — the build-day arm 3 returns untouched",
   (!arm3Bites || (FIVE.every((f) => dlFaces[f].drift === 0 && dlFaces[f].identical === true) && FIVE.every((f) => dlFaces[f].prev === dlFaces[f].live))) &&

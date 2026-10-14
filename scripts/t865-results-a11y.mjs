@@ -319,8 +319,27 @@ ok("PF3 the reading region named (what each stage kept, shed, multiplied)",
   pf.pfReading === true);
 ok("PF4 the export doors named: CSV ledger + plain-text ledger",
   pf.pfCsvNamed === true && pf.pfCopyNamed === true);
-ok("PF5 the pours aboard (the stages' own pour icons — the chain's flow, measured)",
-  pf.pfPours >= 1, `pours=${pf.pfPours}`);
+/* the pours' world-word gate (the t868 window's honest-absence clause, the
+ * t867 mode-gate law's own shape): the pours are the OFF-MAINLINE census's
+ * icons (funnel-pours-<type> renders one span per chain member the
+ * mainline left behind) — a PURE LINEAR chain (the restored healer's own
+ * word: 15 nodes, 14 edges, no branch) has NO off-mainline members, and
+ * pours for a dead branch would lie. The funnel payload's own offMainline
+ * count decides which truth the check demands: icons when the world
+ * speaks members, the honest zero when it speaks a line. */
+const funnelPayload = await fetch(`${BASE}/api/jobs/${post.id}/funnel`, { headers: SH })
+  .then((r) => r.json())
+  .catch(() => null);
+const offMainline = Array.isArray(funnelPayload?.offMainline) ? funnelPayload.offMainline.length : null;
+if (offMainline === null) {
+  ok("PF5 the pours' world-word gate (the funnel payload unreadable — the gate stops honestly)", false, "funnel payload unreachable");
+} else if (offMainline > 0) {
+  ok("PF5 the pours aboard (the stages' own pour icons — the chain's flow, measured)",
+    pf.pfPours >= 1, `pours=${pf.pfPours} offMainline=${offMainline}`);
+} else {
+  ok("PF5 the pours' honest zero (the linear chain's own word: no off-mainline members, icons for a dead branch would lie)",
+    pf.pfPours === 0, `pours=${pf.pfPours} offMainline=0`);
+}
 ok("PF6 zero unnamed page-wide WITH the funnel up (the census's invariant)",
   censusOk(pf), `btns=${pf.pageBtns}`);
 const pf2 = settle("the funnel dialog (second ride)");

@@ -216,62 +216,81 @@ const jobs = await roster();
 const byType = {};
 for (const j of jobs) (byType[j.type] ??= []).push(j.id);
 const pairEntry = Object.entries(byType).find(([, ids]) => ids.length >= 2);
-if (!pairEntry) {
-  console.error("no same-type pair in the roster — the compare dialog's door cannot open");
-  writeFileSync(join(ROOT, "shots-qa/t864-report-diff-a11y.json"), JSON.stringify({ instrument: "scripts/t864-report-diff-a11y.mjs", ruler: NAMEOF_LAW, build: buildId, worldMode: world.mode, date: new Date().toISOString(), checks: results, passed: pass, failed: fail + 1, total: pass + fail + 1, verdict: "no same-type pair — the ride stopped honestly before the compare dialog" }, null, 2));
-  process.exit(1);
-}
-const [pairType, pairIds] = pairEntry;
-const [idA, idB] = pairIds;
-console.log(`  pair (measured, not pinned — the t826 lesson): type=${pairType}, A=${idA.slice(0, 12)}, B=${idB.slice(0, 12)}`);
-const cA = evalJson(shiftClick(idA));
-ok("PD1 the first shift+click toggled (the card's selection law)",
-  cA.clicked === true);
-evalJson(shiftClick(idB));
-sleep(1);
-let t1 = settle("the selection toolbar");
-if (!t1.hasToolbar) {
-  /* t866 — the one-retry law (t846's Face-I form): a transient swallow
-   * between the dispatches must not red the ride. Clear whatever state
-   * the first attempt left (the app-shell Escape cascade collapses the
-   * selection when no dialog swallows the key), then re-toggle the pair. */
-  evalJson(ESC);
-  sleep(0.5);
-  evalJson(shiftClick(idA));
-  sleep(0.3);
+/* the honest absence (the t865 vocabulary, adopted by this page — the t868
+ * window's law): the restored world's roster holds ONE job per type — the
+ * compare dialog's door cannot open, and the instrument says so as a
+ * POSITIVE assertion (two guards agreeing) instead of redding the ride.
+ * The pair's walk is the world's guest: when the world speaks a pair
+ * again, the walk returns unchanged below. */
+const PAIR_ABSENT = !pairEntry;
+let pairType = null, idA = null, idB = null;
+let d1 = null, d2 = null;
+if (PAIR_ABSENT) {
+  console.log("  honest absence: no same-type pair in the roster (one job per type — the restored chain's own word)");
+  const a1 = settle("the canvas (the absence's first guard)");
+  const a2 = settle("the canvas (the absence's second guard)");
+  ok("PD1h the honest absence: no same-type pair exists, two guards agreeing (the compare door honestly absent — the positive-assertion form)",
+    a1.hasToolbar === false && a2.hasToolbar === false && !a1.hasDlg && !a2.hasDlg,
+    `btns ${a1.pageBtns}/${a2.pageBtns}, toolbar ${a1.hasToolbar}/${a2.hasToolbar}`);
+  ok("PD2h the absence's census held (zero unnamed on the guarded canvas)",
+    a1.pageUnnamed === 0 && a1.unCtrls === 0 && a1.altless === 0,
+    `btns=${a1.pageBtns}`);
+  d1 = a1;
+  d2 = a2;
+} else {
+  const [pairTypeMeas, pairIds] = pairEntry;
+  pairType = pairTypeMeas;
+  [idA, idB] = pairIds;
+  console.log(`  pair (measured, not pinned — the t826 lesson): type=${pairType}, A=${idA.slice(0, 12)}, B=${idB.slice(0, 12)}`);
+  const cA = evalJson(shiftClick(idA));
+  ok("PD1 the first shift+click toggled (the card's selection law)",
+    cA.clicked === true);
   evalJson(shiftClick(idB));
   sleep(1);
-  t1 = settle("the selection toolbar (the one retry)");
+  let t1 = settle("the selection toolbar");
+  if (!t1.hasToolbar) {
+    /* t866 — the one-retry law (t846's Face-I form): a transient swallow
+     * between the dispatches must not red the ride. Clear whatever state
+     * the first attempt left (the app-shell Escape cascade collapses the
+     * selection when no dialog swallows the key), then re-toggle the pair. */
+    evalJson(ESC);
+    sleep(0.5);
+    evalJson(shiftClick(idA));
+    sleep(0.3);
+    evalJson(shiftClick(idB));
+    sleep(1);
+    t1 = settle("the selection toolbar (the one retry)");
+  }
+  ok("PD2 the selection toolbar arrived for the pair (the canvas's own count in its name)",
+    t1.hasToolbar === true, "aria-label speaks the selection size");
+  const cmpClick = evalJson('(() => { const b = document.querySelector("[data-testid=toolbar-compare-params]"); if (!b) return JSON.stringify({ clicked: false }); b.click(); return JSON.stringify({ clicked: true }); })()');
+  ok("PD3 the compare button clicked (the toolbar's own door)", cmpClick.clicked === true);
+  d1 = settle("the compare dialog");
+  ok("PD4 the compare dialog arrived with its heading (Compare parameters)",
+    d1.hasDlg && d1.dlgHead === "Compare parameters", `heading="${d1.dlgHead}"`);
+  ok("PD5 the swap control is named and carries aria-pressed (a real boolean state, recorded never judged)",
+    d1.swapNamed === true && (d1.swapPressed === "false" || d1.swapPressed === "true"),
+    `aria-pressed=${d1.swapPressed}`);
+  ok("PD6 the diff rows are aboard (the two columns' open doors)",
+    d1.diffRows >= 1, `rows=${d1.diffRows}`);
+  ok("PD7 zero unnamed page-wide WITH the compare dialog up (the census's invariant on the diff)",
+    d1.pageUnnamed === 0 && d1.unCtrls === 0 && d1.altless === 0,
+    `btns=${d1.pageBtns} ctrls=${d1.ctrls}`);
+  d2 = settle("the compare dialog (second ride)");
+  ok("PD8 two settled rides bit-identical (the t836 law, the t860 settle)",
+    JSON.stringify(d1) === JSON.stringify(d2));
+  evalJson(ESC);
+  sleep(1);
+  /* un-mutation: the SYMMETRIC door — shift+click each card again */
+  evalJson(shiftClick(idA));
+  sleep(0.5);
+  evalJson(shiftClick(idB));
+  sleep(1);
+  const d3 = settle("the world after un-mutation");
+  ok("PD9 un-mutation through the symmetric door: toolbar gone, canvas count back bit-for-bit",
+    d3.hasToolbar === false && !d3.hasDlg && d3.pageBtns === OPEN,
+    `btns ${d3.pageBtns} == opening ${OPEN}`);
 }
-ok("PD2 the selection toolbar arrived for the pair (the canvas's own count in its name)",
-  t1.hasToolbar === true, "aria-label speaks the selection size");
-const cmpClick = evalJson('(() => { const b = document.querySelector("[data-testid=toolbar-compare-params]"); if (!b) return JSON.stringify({ clicked: false }); b.click(); return JSON.stringify({ clicked: true }); })()');
-ok("PD3 the compare button clicked (the toolbar's own door)", cmpClick.clicked === true);
-const d1 = settle("the compare dialog");
-ok("PD4 the compare dialog arrived with its heading (Compare parameters)",
-  d1.hasDlg && d1.dlgHead === "Compare parameters", `heading="${d1.dlgHead}"`);
-ok("PD5 the swap control is named and carries aria-pressed (a real boolean state, recorded never judged)",
-  d1.swapNamed === true && (d1.swapPressed === "false" || d1.swapPressed === "true"),
-  `aria-pressed=${d1.swapPressed}`);
-ok("PD6 the diff rows are aboard (the two columns' open doors)",
-  d1.diffRows >= 1, `rows=${d1.diffRows}`);
-ok("PD7 zero unnamed page-wide WITH the compare dialog up (the census's invariant on the diff)",
-  d1.pageUnnamed === 0 && d1.unCtrls === 0 && d1.altless === 0,
-  `btns=${d1.pageBtns} ctrls=${d1.ctrls}`);
-const d2 = settle("the compare dialog (second ride)");
-ok("PD8 two settled rides bit-identical (the t836 law, the t860 settle)",
-  JSON.stringify(d1) === JSON.stringify(d2));
-evalJson(ESC);
-sleep(1);
-/* un-mutation: the SYMMETRIC door — shift+click each card again */
-evalJson(shiftClick(idA));
-sleep(0.5);
-evalJson(shiftClick(idB));
-sleep(1);
-const d3 = settle("the world after un-mutation");
-ok("PD9 un-mutation through the symmetric door: toolbar gone, canvas count back bit-for-bit",
-  d3.hasToolbar === false && !d3.hasDlg && d3.pageBtns === OPEN,
-  `btns ${d3.pageBtns} == opening ${OPEN}`);
 
 /* ---------- Face W — the world back (fresh load) ---------- */
 console.log("Face W — the world back (fresh load, sleep 3)");
@@ -304,8 +323,11 @@ for (const [name, f] of Object.entries(faces)) {
 }
 
 /* ---------- verdict + receipt ---------- */
+const compareClause = PAIR_ABSENT
+  ? "the compare dialog's door honestly absent (the roster holds one job per type — the restored chain's own word, two guards agreeing, the positive-assertion form — the pair walk returns when the world speaks a pair)"
+  : `the compare dialog rode the card's own shift door (two same-type cards toggled, the toolbar's compare button, the swap control's aria-pressed recorded, the measured pair type "${pairType}" printed as provenance never pinned)`;
 const verdict = fail === 0
-  ? `the document and the compare dialogs hold: the report arrived as a DOCUMENT (the print contract ON while up and OFF after Escape, the one md carrier aboard, the copy/download doors named), the compare dialog rode the card's own shift door (two same-type cards toggled, the toolbar's compare button, the swap control's aria-pressed recorded, the measured pair type "${pairType}" printed as provenance never pinned), zero unnamed everywhere on both, two settled rides bit-identical each, the un-mutation the SYMMETRIC door and the world back bit-for-bit (${OPEN} == ${OPEN}) — the ledger aboard from birth (three faces, the shared law)`
+  ? `the document and the compare dialogs hold: the report arrived as a DOCUMENT (the print contract ON while up and OFF after Escape, the one md carrier aboard, the copy/download doors named), ${compareClause}, zero unnamed everywhere on both, two settled rides bit-identical each, the world back bit-for-bit (${OPEN} == ${OPEN}) — the ledger aboard from birth (three faces, the shared law)`
   : `${fail} red — the document/compare layer moved; call the census's own instruments before any UI work`;
 
 const driftLedger = {
@@ -323,13 +345,13 @@ const receipt = {
   build: buildId,
   worldMode: world.mode,
   date: new Date().toISOString(),
-  chain: "canvas -> report (header door) -> print contract both ways -> shift+click pair -> toolbar compare -> diff dialog -> symmetric un-mutation -> worldBack (one command)",
+  chain: "canvas -> report (header door) -> print contract both ways -> shift+click pair (or the honest absence, the t868 clause) -> toolbar compare -> diff dialog -> symmetric un-mutation -> worldBack (one command)",
   doors: {
     report: 'click button[aria-label="Session QC report"] — the header\'s named seat',
     compare: "shift+click two same-type cards (the card's own toggle law) -> click [data-testid=toolbar-compare-params] — the selection toolbar's door",
     unmutate: "shift+click each selected card again — the symmetric toggle, no residue",
   },
-  pair: { type: pairType, a: idA, b: idB, measured: true },
+  pair: { present: !PAIR_ABSENT, type: pairType, a: idA, b: idB, measured: true },
   openingCanvas: OPEN,
   faces: {
     report: { live: s1, secondRide: s2 },

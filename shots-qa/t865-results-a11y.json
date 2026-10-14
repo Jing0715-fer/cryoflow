@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t865-results-a11y.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@c4c3735897dd",
+  "build": "dev@31eccb9c8237",
   "worldMode": "dev",
-  "date": "2026-10-10T16:38:15.257Z",
+  "date": "2026-10-14T02:41:14.704Z",
   "chain": "canvas -> postprocess inspector (card plain door) -> doors porch -> results tab (mousedown) -> FSC compare chip -> overlay -> verdict dialog -> funnel dialog -> refine3d arc -> class2d convergence -> ctffind honest absence -> worldBack (one command)",
   "doors": {
     "inspector": "plain click [data-card-btn=<id>] — the card's own law: submitted opens the inspector",
@@ -13,18 +13,18 @@
     "unmutate": "Escape per dialog, Escape per inspector — the world demanded back bit-for-bit"
   },
   "hosts": {
-    "postprocess": "cmv2fdgrc000yn852p2ps05fl",
-    "refine3d": "cmv2fdgqs000un852z4dopelj",
-    "class2d": "cmv2fdgol000gn852lj0gogur",
-    "ctffind": "cmv2faoyh0006n85242l7xfpu",
+    "postprocess": "cmv79wm66000yusbuf7z7bdlx",
+    "refine3d": "cmv79wm3z000uusbutpdpbijl",
+    "class2d": "cmv79wlxs000gusbulpq820bh",
+    "ctffind": "cmv79wd4k0006usbulj5k28q5",
     "measured": true
   },
-  "openingCanvas": 153,
+  "openingCanvas": 144,
   "faces": {
     "doors": {
       "live": {
         "url": "/",
-        "pageBtns": 191,
+        "pageBtns": 181,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -68,7 +68,7 @@
     "fscCompare": {
       "live": {
         "url": "/",
-        "pageBtns": 203,
+        "pageBtns": 193,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -110,7 +110,7 @@
       },
       "secondRide": {
         "url": "/",
-        "pageBtns": 203,
+        "pageBtns": 193,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -154,7 +154,7 @@
     "verdict": {
       "live": {
         "url": "/",
-        "pageBtns": 192,
+        "pageBtns": 182,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -196,7 +196,7 @@
       },
       "secondRide": {
         "url": "/",
-        "pageBtns": 192,
+        "pageBtns": 182,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -240,7 +240,7 @@
     "funnel": {
       "live": {
         "url": "/",
-        "pageBtns": 156,
+        "pageBtns": 147,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -274,7 +274,7 @@
         "pfReading": true,
         "pfCsvNamed": true,
         "pfCopyNamed": true,
-        "pfPours": 2,
+        "pfPours": 0,
         "raReading": false,
         "cvReading": false,
         "cvRoundA": false,
@@ -282,7 +282,7 @@
       },
       "secondRide": {
         "url": "/",
-        "pageBtns": 156,
+        "pageBtns": 147,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -316,7 +316,7 @@
         "pfReading": true,
         "pfCsvNamed": true,
         "pfCopyNamed": true,
-        "pfPours": 2,
+        "pfPours": 0,
         "raReading": false,
         "cvReading": false,
         "cvRoundA": false,
@@ -326,12 +326,12 @@
     "arc": {
       "live": {
         "url": "/",
-        "pageBtns": 298,
+        "pageBtns": 290,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
         "unCtrls": 0,
-        "imgs": 10,
+        "imgs": 14,
         "altless": 0,
         "imgPending": 0,
         "hasDlg": true,
@@ -368,12 +368,12 @@
       },
       "secondRide": {
         "url": "/",
-        "pageBtns": 298,
+        "pageBtns": 290,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
         "unCtrls": 0,
-        "imgs": 10,
+        "imgs": 14,
         "altless": 0,
         "imgPending": 0,
         "hasDlg": true,
@@ -412,14 +412,14 @@
     "convergence": {
       "live": {
         "url": "/",
-        "pageBtns": 541,
+        "pageBtns": 833,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 3,
         "unCtrls": 0,
-        "imgs": 25,
+        "imgs": 67,
         "altless": 0,
-        "imgPending": 0,
+        "imgPending": 8,
         "hasDlg": true,
         "dlgHead": "2D Classification (tutorial) — job inspe",
         "dlgHeadTop": "Class convergence — Occupancy share",
@@ -454,14 +454,14 @@
       },
       "secondRide": {
         "url": "/",
-        "pageBtns": 541,
+        "pageBtns": 833,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 3,
         "unCtrls": 0,
-        "imgs": 25,
+        "imgs": 67,
         "altless": 0,
-        "imgPending": 0,
+        "imgPending": 8,
         "hasDlg": true,
         "dlgHead": "2D Classification (tutorial) — job inspe",
         "dlgHeadTop": "Class convergence — Occupancy share",
@@ -498,7 +498,7 @@
     "abGuard": {
       "live": {
         "url": "/",
-        "pageBtns": 170,
+        "pageBtns": 168,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -510,7 +510,7 @@
         "dlgHead": "CTF Estimation 1 — job inspectorCTF Esti",
         "dlgHeadTop": "CTF Estimation 1 — job inspectorCTF Esti",
         "dlgCount": 1,
-        "act": "BODY",
+        "act": "in-dialog",
         "actTab": "Catalog",
         "shimmer": 0,
         "verdictDoor": false,
@@ -540,7 +540,7 @@
       },
       "secondRide": {
         "url": "/",
-        "pageBtns": 179,
+        "pageBtns": 168,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -584,7 +584,7 @@
     "worldBack": {
       "live": {
         "url": "/",
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -630,7 +630,7 @@
     {
       "label": "O1 the canvas is calm and named (the census's invariant)",
       "pass": true,
-      "detail": "btns=153 — zero unnamed anywhere"
+      "detail": "btns=144 — zero unnamed anywhere"
     },
     {
       "label": "DR1 the inspector arrived through the card's own plain door (pointerdown→pointerup, no move)",
@@ -660,7 +660,7 @@
     {
       "label": "DR6 zero unnamed page-wide in the inspector (the census's invariant on the porch)",
       "pass": true,
-      "detail": "btns=191 ctrls=2"
+      "detail": "btns=181 ctrls=2"
     },
     {
       "label": "FC1 the Results tab answered its mousedown door (the t863 Radix law)",
@@ -700,7 +700,7 @@
     {
       "label": "FC8 zero unnamed page-wide WITH the overlay up (the census's invariant on the FSC family)",
       "pass": true,
-      "detail": "btns=203 ctrls=2"
+      "detail": "btns=193 ctrls=2"
     },
     {
       "label": "FC9 two settled rides bit-identical (the t836 law, the shimmer-silence settle)",
@@ -730,7 +730,7 @@
     {
       "label": "PV4 zero unnamed page-wide WITH the verdict up (the census's invariant)",
       "pass": true,
-      "detail": "btns=192"
+      "detail": "btns=182"
     },
     {
       "label": "PV5 two settled rides bit-identical",
@@ -758,14 +758,14 @@
       "detail": ""
     },
     {
-      "label": "PF5 the pours aboard (the stages' own pour icons — the chain's flow, measured)",
+      "label": "PF5 the pours' honest zero (the linear chain's own word: no off-mainline members, icons for a dead branch would lie)",
       "pass": true,
-      "detail": "pours=2"
+      "detail": "pours=0 offMainline=0"
     },
     {
       "label": "PF6 zero unnamed page-wide WITH the funnel up (the census's invariant)",
       "pass": true,
-      "detail": "btns=156"
+      "detail": "btns=147"
     },
     {
       "label": "PF7 two settled rides bit-identical",
@@ -800,7 +800,7 @@
     {
       "label": "RA6 zero unnamed page-wide WITH the arc up (the census's invariant)",
       "pass": true,
-      "detail": "btns=298"
+      "detail": "btns=290"
     },
     {
       "label": "RA7 two settled rides bit-identical",
@@ -840,7 +840,7 @@
     {
       "label": "CV7 zero unnamed page-wide WITH the convergence up (the census's invariant)",
       "pass": true,
-      "detail": "btns=541"
+      "detail": "btns=833"
     },
     {
       "label": "CV8 two settled rides bit-identical",
@@ -870,68 +870,68 @@
     {
       "label": "AB5 zero unnamed page-wide on the ctffind porch (the census's invariant)",
       "pass": true,
-      "detail": "btns=170"
+      "detail": "btns=168"
     },
     {
       "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed, no dialog)",
       "pass": true,
-      "detail": "btns=153 (opening 153)"
+      "detail": "btns=144 (opening 144)"
     },
     {
       "label": "L doors face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L fscCompare face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L verdict face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L funnel face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L arc face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L convergence face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L abGuard face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift -9 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [act]; world [pageBtns]"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +7 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [act]; world [pageBtns]"
     },
     {
       "label": "L worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     }
   ],
   "passed": 58,
   "failed": 0,
   "total": 58,
-  "verdict": "the results family holds: the porch's question row named on the postprocess face (the final verdict + the particle funnel doors aboard, the A/B doors honestly absent, the Duplicate front door present), the FSC overlay rode its chip door (5 candidate rows measured, the rescan/select/toggle doors named, the chart aboard), the verdict and the funnel dialogs spoke their readings with the export doors named (2 pours), the arc and the convergence dialogs rode their single-run doors with the round selects named, the ctffind porch proved the guard's POSITIVE absence (zero A/B doors, zero sibling pickers, the guards agreeing) — zero unnamed everywhere on every face, every dialog's two settled rides bit-identical, and the world back bit-for-bit (153 == 153) — the ledger aboard from birth (eight faces, the shared law)",
+  "verdict": "the results family holds: the porch's question row named on the postprocess face (the final verdict + the particle funnel doors aboard, the A/B doors honestly absent, the Duplicate front door present), the FSC overlay rode its chip door (5 candidate rows measured, the rescan/select/toggle doors named, the chart aboard), the verdict and the funnel dialogs spoke their readings with the export doors named (0 pours), the arc and the convergence dialogs rode their single-run doors with the round selects named, the ctffind porch proved the guard's POSITIVE absence (zero A/B doors, zero sibling pickers, the guards agreeing) — zero unnamed everywhere on every face, every dialog's two settled rides bit-identical, and the world back bit-for-bit (144 == 144) — the ledger aboard from birth (eight faces, the shared law)",
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T16:33:46.595Z",
+    "prevBuild": "dev@31eccb9c8237",
+    "prevDate": "2026-10-14T02:38:11.713Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "doors": {
-        "prev": 191,
-        "live": 191,
+        "prev": 181,
+        "live": 181,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -940,8 +940,8 @@
         }
       },
       "fscCompare": {
-        "prev": 203,
-        "live": 203,
+        "prev": 193,
+        "live": 193,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -950,8 +950,8 @@
         }
       },
       "verdict": {
-        "prev": 192,
-        "live": 192,
+        "prev": 182,
+        "live": 182,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -960,8 +960,8 @@
         }
       },
       "funnel": {
-        "prev": 156,
-        "live": 156,
+        "prev": 147,
+        "live": 147,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -970,8 +970,8 @@
         }
       },
       "arc": {
-        "prev": 298,
-        "live": 298,
+        "prev": 290,
+        "live": 290,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -980,8 +980,8 @@
         }
       },
       "convergence": {
-        "prev": 541,
-        "live": 541,
+        "prev": 833,
+        "live": 833,
         "drift": 0,
         "identical": true,
         "moved": {
@@ -990,9 +990,9 @@
         }
       },
       "abGuard": {
-        "prev": 179,
-        "live": 170,
-        "drift": -9,
+        "prev": 161,
+        "live": 168,
+        "drift": 7,
         "identical": false,
         "moved": {
           "lens": [
@@ -1004,8 +1004,8 @@
         }
       },
       "worldBack": {
-        "prev": 153,
-        "live": 153,
+        "prev": 144,
+        "live": 144,
         "drift": 0,
         "identical": true,
         "moved": {

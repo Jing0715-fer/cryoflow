@@ -1,9 +1,9 @@
 {
   "instrument": "scripts/t866-star-table-a11y.mjs",
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
-  "build": "dev@c4c3735897dd",
+  "build": "dev@31eccb9c8237",
   "worldMode": "dev",
-  "date": "2026-10-10T17:21:38.093Z",
+  "date": "2026-10-14T02:43:12.364Z",
   "chain": "clean room -> canvas -> extract card (plain door) -> Results tab (mousedown) -> STAR tables section -> star door -> star dialog (topmost) -> sort cycle -> Escape -> worldBack + seed hygiene (one command)",
   "doors": {
     "inspector": "plain pointerdown+pointerup on the extract card — the submitted law",
@@ -13,21 +13,21 @@
   },
   "host": {
     "name": "Extract (tutorial)",
-    "id": "cmv2fdgob000en852rllij2qo",
+    "id": "cmv79wlx4000eusbug1yy52l5",
     "measured": true
   },
-  "openingCanvas": 153,
+  "openingCanvas": 144,
   "faces": {
     "starDoor": {
       "live": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 182,
+        "pageBtns": 219,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
         "unCtrls": 0,
-        "imgs": 1,
+        "imgs": 0,
         "altless": 0,
         "imgPending": 0,
         "hasDlg": true,
@@ -37,13 +37,12 @@
         "actTab": "Results",
         "shimmer": 0,
         "starSection": true,
-        "starDoors": 2,
+        "starDoors": 1,
         "starDoorNamed": true,
         "starDoorRows": [
-          240,
           96
         ],
-        "starDesc": "5s",
+        "starDesc": "14s",
         "regionNamed": false,
         "regionLabel": null,
         "regionTabindex": null,
@@ -55,28 +54,27 @@
       "live": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 185,
+        "pageBtns": 223,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
         "unCtrls": 0,
-        "imgs": 1,
+        "imgs": 0,
         "altless": 0,
         "imgPending": 0,
         "hasDlg": true,
-        "dlgHeadTop": "extract.star",
+        "dlgHeadTop": "particles.star",
         "dlgCount": 2,
         "act": "in-dialog",
         "actTab": null,
         "shimmer": 0,
         "starSection": true,
-        "starDoors": 2,
+        "starDoors": 1,
         "starDoorNamed": true,
         "starDoorRows": [
-          240,
           96
         ],
-        "starDesc": "extract.star",
+        "starDesc": "particles.star",
         "regionNamed": true,
         "regionLabel": "Star table — the file's columns and rows, the head",
         "regionTabindex": "0",
@@ -86,7 +84,11 @@
             "s": null
           },
           {
-            "n": "Optics Group",
+            "n": "Coordinate X",
+            "s": null
+          },
+          {
+            "n": "Coordinate Y",
             "s": null
           }
         ],
@@ -95,28 +97,27 @@
       "secondRide": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 185,
+        "pageBtns": 223,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
         "unCtrls": 0,
-        "imgs": 1,
+        "imgs": 0,
         "altless": 0,
         "imgPending": 0,
         "hasDlg": true,
-        "dlgHeadTop": "extract.star",
+        "dlgHeadTop": "particles.star",
         "dlgCount": 2,
         "act": "in-dialog",
         "actTab": null,
         "shimmer": 0,
         "starSection": true,
-        "starDoors": 2,
+        "starDoors": 1,
         "starDoorNamed": true,
         "starDoorRows": [
-          240,
           96
         ],
-        "starDesc": "extract.star",
+        "starDesc": "particles.star",
         "regionNamed": true,
         "regionLabel": "Star table — the file's columns and rows, the head",
         "regionTabindex": "0",
@@ -126,7 +127,11 @@
             "s": null
           },
           {
-            "n": "Optics Group",
+            "n": "Coordinate X",
+            "s": null
+          },
+          {
+            "n": "Coordinate Y",
             "s": null
           }
         ],
@@ -142,7 +147,7 @@
       "live": {
         "url": "/",
         "panelOpen": false,
-        "pageBtns": 153,
+        "pageBtns": 144,
         "pageUnnamed": 0,
         "unWho": [],
         "ctrls": 2,
@@ -178,7 +183,7 @@
     {
       "label": "O1 the canvas is calm and named (the census's invariant)",
       "pass": true,
-      "detail": "btns=153 — zero unnamed anywhere"
+      "detail": "btns=144 — zero unnamed anywhere"
     },
     {
       "label": "E1 the card's plain door opened the inspector (the submitted law)",
@@ -208,12 +213,12 @@
     {
       "label": "E6 the section hosts file doors, each named (the text IS the name: file + rows + size)",
       "pass": true,
-      "detail": "doors=2 rows=[240,96]"
+      "detail": "doors=1 rows=[96]"
     },
     {
       "label": "E7 zero unnamed page-wide WITH the inspector up (the census's invariant)",
       "pass": true,
-      "detail": "btns=182 ctrls=2"
+      "detail": "btns=219 ctrls=2"
     },
     {
       "label": "S1 the first star door clicked",
@@ -228,7 +233,7 @@
     {
       "label": "S3 the dialog's heading is the file label, read from the TOPMOST layer",
       "pass": true,
-      "detail": "head=\"extract.star\""
+      "detail": "head=\"particles.star\""
     },
     {
       "label": "S4 the region is named (the t812 grounded-verdict law's own label)",
@@ -243,7 +248,7 @@
     {
       "label": "S6 the sortable columns are aboard, each with a name",
       "pass": true,
-      "detail": "cols=[\"Image Name\",\"Optics Group\"]"
+      "detail": "cols=[\"Image Name\",\"Coordinate X\",\"Coordinate Y\"]"
     },
     {
       "label": "S7 the t832 keymap seat is aboard (star-keymap — the family's one-key teaching)",
@@ -253,7 +258,7 @@
     {
       "label": "S8 zero unnamed page-wide WITH the star dialog up (the census's invariant)",
       "pass": true,
-      "detail": "btns=185 ctrls=2"
+      "detail": "btns=223 ctrls=2"
     },
     {
       "label": "S9 two settled rides bit-identical (the t836 law, the t860 settle)",
@@ -293,7 +298,7 @@
     {
       "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
       "pass": true,
-      "detail": "btns=153 (opening 153)"
+      "detail": "btns=144 (opening 144)"
     },
     {
       "label": "W2 the ride leaves no session seed (the t157 two-way door's honest none — the t866 lesson rides every page)",
@@ -303,57 +308,53 @@
     {
       "label": "L starDoor face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [actTab]"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L starDialog face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [actTab]"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     },
     {
       "label": "L worldBack face ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@c4c3735897dd), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
     }
   ],
   "passed": 29,
   "failed": 0,
   "total": 29,
-  "verdict": "the STAR table's page holds: the clean room held (the panel-closed boot — the t866 law), the extract inspector's Results tab hosts the STAR tables section with 2 named file doors, the dialog arrived as the TOPMOST layer with the file's label, the region named with its keyboard door (tabIndex 0), 2 sortable columns rode the aria-sort machine ascending -> descending -> native, the t832 keymap seat taught its one key, zero unnamed on every face, two settled rides bit-identical, the world back bit-for-bit (153 == 153), and the ride left no session seed — the ledger aboard from birth (three faces, the shared law)",
+  "verdict": "the STAR table's page holds: the clean room held (the panel-closed boot — the t866 law), the extract inspector's Results tab hosts the STAR tables section with 1 named file doors, the dialog arrived as the TOPMOST layer with the file's label, the region named with its keyboard door (tabIndex 0), 3 sortable columns rode the aria-sort machine ascending -> descending -> native, the t832 keymap seat taught its one key, zero unnamed on every face, two settled rides bit-identical, the world back bit-for-bit (144 == 144), and the ride left no session seed — the ledger aboard from birth (three faces, the shared law)",
   "driftLedger": {
     "prevFound": true,
-    "prevBuild": "dev@c4c3735897dd",
-    "prevDate": "2026-10-10T17:20:48.471Z",
+    "prevBuild": "dev@31eccb9c8237",
+    "prevDate": "2026-10-14T02:42:25.065Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
       "starDoor": {
-        "prev": 182,
-        "live": 182,
+        "prev": 219,
+        "live": 219,
         "drift": 0,
-        "identical": false,
+        "identical": true,
         "moved": {
-          "lens": [
-            "actTab"
-          ],
+          "lens": [],
           "world": []
         }
       },
       "starDialog": {
-        "prev": 185,
-        "live": 185,
+        "prev": 223,
+        "live": 223,
         "drift": 0,
-        "identical": false,
+        "identical": true,
         "moved": {
-          "lens": [
-            "actTab"
-          ],
+          "lens": [],
           "world": []
         }
       },
       "worldBack": {
-        "prev": 153,
-        "live": 153,
+        "prev": 144,
+        "live": 144,
         "drift": 0,
         "identical": true,
         "moved": {
