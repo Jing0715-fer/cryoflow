@@ -155,7 +155,14 @@ const settle = (what, maxIter = 16, need = 2) => {
   for (let i = 0; i < maxIter; i++) {
     sleep(1);
     const next = evalJson(MEASURE);
-    const same = JSON.stringify(next) === JSON.stringify(m);
+    /* t869 — the arrival guard (the false-settle lesson's third tooth):
+     * a STABLE BLANK is not a settled world. The palette face once filmed
+     * a pageBtns=0 world 2x-stable (a transient dev-world blank that
+     * recovers on its own) — stability must never mistake "gone" for
+     * "still". An empty page keeps the settle waiting (bounded); the
+     * checks fail honestly only if the blank outlives the bound. */
+    const alive = next.pageBtns > 0;
+    const same = alive && JSON.stringify(next) === JSON.stringify(m);
     m = next;
     run = same ? run + 1 : 1;
     if (run >= need) break;
@@ -267,7 +274,7 @@ ok("M24 palette ride-drift law",
 /* ---------- verdict + receipt ---------- */
 const totalViews = counts.reduce((s, n) => s + n, 0);
 const verdict = fail === 0
-  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +${c1.pageBtns - 142}/+${d1.pageBtns - 114}/+${i1.pageBtns - 180}/+${p1.pageBtns - 150}), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (${prevFound ? sameBuild ? "same build: five faces bit-for-bit vs the previous receipt, drift 0" : "build moved: drift informational, recorded per face" : "first ride: no predecessor"}) — the standing re-witness future windows run first`
+  ? `the maintenance sweep holds: ${totalViews} button-views across four faces in one chain, zero unnamed anywhere, every floor at or above the census's own numbers (drift +${c1.pageBtns - 142}/+${d1.pageBtns - 114}/+${i1.pageBtns - 260}/+${p1.pageBtns - 150}), both fragile doors opened first-try (the saved-view card, the t483 contract event), both dialogs closed by Escape, the world restored — and the DRIFT LEDGER records the ride-to-ride truth (${prevFound ? sameBuild ? "same build: five faces bit-for-bit vs the previous receipt, drift 0" : "build moved: drift informational, recorded per face" : "first ride: no predecessor"}) — the standing re-witness future windows run first`
   : `${fail} red — the name layer moved; call the deep instruments (t843/t844) before any UI work`;
 const receipt = {
   instrument: "scripts/t846-a11y-maintenance.mjs",
@@ -281,7 +288,7 @@ const receipt = {
     inspector: "saved-view card (textContent startsWith 'Centered iso view'), one retry",
     palette: "window.dispatchEvent(new Event('cryoflow:open-palette')) — the t483 contract door",
   },
-  floors: { canvas: 142, dashboard: 114, inspector: 180, palette: 150 },
+  floors: { canvas: 142, dashboard: 114, inspector: 260, palette: 150 },
   driftLedger: {
     prevFound,
     prevBuild: prevFound ? prevReceipt.build : null,
@@ -293,7 +300,7 @@ const receipt = {
   faces: {
     canvas: { floor: 142, live: c1 },
     dashboard: { floor: 114, live: d1, arrival: clickR },
-    inspector: { floor: 180, live: i1, afterEscape: i2 },
+    inspector: { floor: 260, live: i1, afterEscape: i2 },
     palette: { floor: 150, live: p1, afterEscape: p2 },
     restore: { live: r1 },
   },
