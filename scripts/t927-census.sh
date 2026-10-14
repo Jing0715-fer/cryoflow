@@ -3,7 +3,7 @@
 # Law: unset DATABASE_URL per invocation; lib-import units via unit-runner (bare node dies on @/lib).
 cd /home/z/my-project
 export DATABASE_URL=""
-EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18)
+EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18 45)
 # the bash-word law: NO trailing commas inside this array — in bash,
 # "x", is ONE word (x,) — the comma joins the element and the runner
 # hunts a file that does not exist
@@ -37,8 +37,9 @@ declare -a NAMES=(
   "t982-aria-refusal-unit"
   "t991-keyboard-resize-unit"
   "t996-picker-error-unit"
+  "t997-keyboard-valuetext-unit"
 )
-declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0)
+declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0)
 i=0
 for name in "${NAMES[@]}"; do
   unset DATABASE_URL
