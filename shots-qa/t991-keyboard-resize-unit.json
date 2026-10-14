@@ -1,0 +1,16 @@
+{
+  "unit": "t991-keyboard-resize-unit",
+  "at": "2026-10-14T15:39:20.352Z",
+  "file": "src/components/ai/assistant-panel.tsx",
+  "pins": [
+    "e/s separators",
+    "arrow-key steps",
+    "clampGeo shared",
+    "debounced echo 400ms",
+    "SE pointer-only",
+    "dead promise extinct",
+    "pointer roads untouched"
+  ],
+  "pass": 33,
+  "fail": 0
+}

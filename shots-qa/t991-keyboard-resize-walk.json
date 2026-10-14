@@ -1,0 +1,39 @@
+{
+  "walk": "t991-keyboard-resize-walk",
+  "at": "2026-10-14T15:37:27.651Z",
+  "pass": 23,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
+  "contract": "the keyboard resize road's first live witness — the window-splitter cure, the kit's first legs-only file",
+  "legs": {
+    "eSep": {
+      "live": true,
+      "label": "调整助手窗口宽度（左右方向键）",
+      "tabbable": true,
+      "valuenow": 560
+    },
+    "sSep": {
+      "live": true,
+      "label": "调整助手窗口高度（上下方向键）",
+      "tabbable": true,
+      "valuenow": 760
+    },
+    "width": {
+      "before": 560,
+      "grown": 608,
+      "back": 560
+    },
+    "height": {
+      "before": 760,
+      "grown": 808,
+      "back": 760
+    },
+    "echoRest": {
+      "w": 560,
+      "h": 760,
+      "x": 824,
+      "y": 64
+    }
+  }
+}
