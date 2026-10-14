@@ -1,0 +1,190 @@
+{
+  "at": "2026-10-14T09:45:46.378Z",
+  "mode": "GATE",
+  "viewport": 320,
+  "sample": [
+    {
+      "leg": "inspector",
+      "mouth": "job-card (wide-first)",
+      "n": 1,
+      "w": 307,
+      "sw": 305,
+      "cw": 305,
+      "overX": false,
+      "shellOverX": false,
+      "labelledby": true,
+      "title": "Job inspector: Failed Diagnosis Face (t970)",
+      "isInspector": true,
+      "hasCmdk": false,
+      "hasCompareList": false,
+      "offenders": [
+        {
+          "tag": "div",
+          "cls": "min-h-0 flex-1 overflow-y-auto overflow-x-auto p-3 font-mono text-[11px] leading-[1.55] te",
+          "sw": 920,
+          "cw": 263,
+          "over": 657
+        },
+        {
+          "tag": "p",
+          "cls": "text-muted-foreground text-sm sr-only",
+          "sw": 491,
+          "cw": 1,
+          "over": 490
+        },
+        {
+          "tag": "span",
+          "cls": "sr-only",
+          "sw": 381,
+          "cw": 1,
+          "over": 380
+        }
+      ],
+      "shot": "t981-fold-inspector.png"
+    },
+    {
+      "leg": "fsc-compare",
+      "mouth": "card:3D Refine (tutorial)",
+      "n": 2,
+      "w": 288,
+      "sw": 286,
+      "cw": 286,
+      "overX": false,
+      "shellOverX": false,
+      "labelledby": true,
+      "title": "Compare FSC curves2/6",
+      "isInspector": false,
+      "hasCmdk": false,
+      "hasCompareList": true,
+      "offenders": [
+        {
+          "tag": "span",
+          "cls": "sr-only",
+          "sw": 236,
+          "cw": 1,
+          "over": 235
+        },
+        {
+          "tag": "span",
+          "cls": "sr-only",
+          "sw": 213,
+          "cw": 1,
+          "over": 212
+        },
+        {
+          "tag": "span",
+          "cls": "sr-only",
+          "sw": 169,
+          "cw": 1,
+          "over": 168
+        }
+      ],
+      "shot": "t981-fold-fsc-compare.png"
+    },
+    {
+      "leg": "shortcuts",
+      "mouth": "help-popover-cta",
+      "n": 1,
+      "w": 288,
+      "sw": 286,
+      "cw": 286,
+      "overX": false,
+      "shellOverX": false,
+      "labelledby": true,
+      "title": "Keyboard shortcuts",
+      "isInspector": false,
+      "hasCmdk": false,
+      "hasCompareList": false,
+      "offenders": [
+        {
+          "tag": "p",
+          "cls": "text-muted-foreground text-sm sr-only",
+          "sw": 444,
+          "cw": 1,
+          "over": 443
+        },
+        {
+          "tag": "span",
+          "cls": "sr-only",
+          "sw": 41,
+          "cw": 1,
+          "over": 40
+        }
+      ],
+      "shot": "t981-fold-shortcuts.png"
+    },
+    {
+      "leg": "help-guide",
+      "mouth": "help-popover-cta",
+      "n": 1,
+      "w": 288,
+      "sw": 286,
+      "cw": 286,
+      "overX": false,
+      "shellOverX": false,
+      "labelledby": true,
+      "title": "How to use CryoFlow",
+      "isInspector": false,
+      "hasCmdk": false,
+      "hasCompareList": false,
+      "offenders": [
+        {
+          "tag": "p",
+          "cls": "text-muted-foreground text-sm sr-only",
+          "sw": 673,
+          "cw": 1,
+          "over": 672
+        },
+        {
+          "tag": "span",
+          "cls": "sr-only",
+          "sw": 41,
+          "cw": 1,
+          "over": 40
+        }
+      ],
+      "shot": "t981-fold-help-guide.png"
+    },
+    {
+      "leg": "palette",
+      "mouth": "ctrl-k",
+      "n": 1,
+      "w": 288,
+      "sw": 286,
+      "cw": 286,
+      "overX": false,
+      "shellOverX": false,
+      "labelledby": true,
+      "title": "Command palette",
+      "isInspector": false,
+      "hasCmdk": true,
+      "hasCompareList": false,
+      "offenders": [
+        {
+          "tag": "span",
+          "cls": "min-w-0 flex-1 truncate",
+          "sw": 210,
+          "cw": 144,
+          "over": 66
+        },
+        {
+          "tag": "span",
+          "cls": "sr-only",
+          "sw": 41,
+          "cw": 1,
+          "over": 40
+        },
+        {
+          "tag": "div",
+          "cls": "scroll-py-1 overflow-x-hidden overflow-y-auto max-h-[60vh]",
+          "sw": 290,
+          "cw": 286,
+          "over": 4
+        }
+      ],
+      "shot": "t981-fold-palette.png"
+    }
+  ],
+  "pass": 8,
+  "fail": 0
+}

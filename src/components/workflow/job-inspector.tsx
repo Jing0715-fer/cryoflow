@@ -1055,7 +1055,7 @@ function LogConsole({
         onScroll={onScroll}
         onKeyDown={onLogKeyDown}
         tabIndex={0}
-        className="min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-[1.55] text-zinc-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-running-500/60"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-auto p-3 font-mono text-[11px] leading-[1.55] text-zinc-300 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-running-500/60"
         role="log"
         aria-label="Engine log"
       >
