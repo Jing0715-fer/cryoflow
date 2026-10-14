@@ -3479,7 +3479,7 @@ export function WorkflowCanvas() {
           Canvas · {jobs.length} job{jobs.length === 1 ? "" : "s"}
         </ContextMenuLabel>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={zoomToFit} disabled={jobs.length === 0}>
+        <ContextMenuItem onClick={zoomToFit} disabled={jobs.length === 0} aria-label={jobs.length === 0 ? "Zoom to fit workflow (the canvas is empty)" : "Zoom to fit workflow"}>
           <ZoomIn />
           Zoom to fit workflow
         </ContextMenuItem>
@@ -3491,11 +3491,12 @@ export function WorkflowCanvas() {
         <ContextMenuItem
           onClick={() => void applyLayout()}
           disabled={jobs.length === 0}
+          aria-label={jobs.length === 0 ? "Tidy layout (the canvas is empty)" : "Tidy layout"}
         >
           <Wand2 />
           Tidy layout
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || posterBusy !== null}>
+        <ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || posterBusy !== null} aria-label={posterBusy !== null ? "Export canvas as PNG (a poster render is running)" : jobs.length === 0 ? "Export canvas as PNG (the canvas is empty)" : "Export canvas as PNG"}>
           <Download />
           Export canvas as PNG
         </ContextMenuItem>
@@ -3503,11 +3504,12 @@ export function WorkflowCanvas() {
           onClick={() => void handleCopyPng()}
           disabled={jobs.length === 0 || posterBusy !== null}
           data-canvas-ui="canvas-menu-png-copy"
+          aria-label={posterBusy !== null ? "Copy canvas as PNG image (a poster render is running)" : jobs.length === 0 ? "Copy canvas as PNG image (the canvas is empty)" : "Copy canvas as PNG image"}
         >
           <ImageUp />
           Copy canvas as PNG image
         </ContextMenuItem>
-        <ContextMenuItem onClick={handleExportJson} disabled={jobs.length === 0}>
+        <ContextMenuItem onClick={handleExportJson} disabled={jobs.length === 0} aria-label={jobs.length === 0 ? "Export workflow as JSON (the canvas is empty)" : "Export workflow as JSON"}>
           <FileJson />
           Export workflow as JSON
         </ContextMenuItem>

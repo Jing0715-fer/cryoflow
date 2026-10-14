@@ -1932,6 +1932,7 @@ function ParamPresetsRow({ job }: { job: JobDTO }) {
               size="sm"
               className="h-7 text-xs"
               disabled={!name.trim() || name.trim().length > 60}
+              aria-label={!name.trim() ? "Save preset (name the preset first)" : name.trim().length > 60 ? "Save preset (the name is over 60 characters)" : "Save preset"}
               onClick={doSave}
               data-testid="preset-save-confirm"
             >

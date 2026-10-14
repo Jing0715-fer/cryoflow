@@ -299,6 +299,7 @@ export function HomecomingSweepBar({
             data-testid="homecoming-sweep-run"
             onClick={runSweep}
             disabled={owing.length === 0}
+            aria-label={owing.length === 0 ? "Bring home all (nothing is owed)" : "Bring home all"}
             className="ml-auto flex h-6 items-center gap-1 rounded-md border border-running/40 bg-running/10 px-2 text-[11px] font-medium text-running-700 transition-colors hover:bg-running/20 focus-visible:ring-2 focus-visible:ring-running/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-running-300"
           >
             <House className="size-3" aria-hidden="true" />

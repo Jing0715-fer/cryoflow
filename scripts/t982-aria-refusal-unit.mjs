@@ -68,9 +68,9 @@ try { unlinkSync(TMP); } catch {}
 
 /* A2–A5 — the tally by SLOT */
 ok("A2 population = 171 (the world's shape)", receipt?.population === 171, `got ${receipt?.population}`);
-ok("A3 stateful = 74 (61 standing + the 13 cures)", receipt?.tally?.stateful === 74, `got ${receipt?.tally?.stateful}`);
+ok("A3 stateful = 81 (61 standing + the 13 t982 + the 7 t983 cures)", receipt?.tally?.stateful === 81, `got ${receipt?.tally?.stateful}`);
 ok("A4 silent-static = 30 (43 − the 13 cures)", receipt?.tally?.["silent-static"] === 30, `got ${receipt?.tally?.["silent-static"]}`);
-ok("A5 silences = 97 (110 − the 13 cures)", receipt?.silences === 97, `got ${receipt?.silences}`);
+ok("A5 silences = 90 (110 − the 13+7 cures)", receipt?.silences === 90, `got ${receipt?.silences}`);
 
 /* A6 — the design-exclusion law, pinned at the census's source */
 const censusSrc = readFileSync(CENSUS, "utf8");
@@ -111,6 +111,42 @@ const FACES = [
     'aria-label={!sweep.length ? "Download comparison as Markdown (run a comparison first)" : "Download comparison as Markdown"}'],
 ];
 for (const [id, f, needle] of FACES) ok(`${id} ${path.basename(f)} speaks the refusal`, shape(f, needle));
+
+/* A20–A21 — the NAME-STORY law (the t983 upgrade): the census classifies
+   every silent-text site by its story — flip (the text itself flips with
+   state: honest), var (a dynamic name the scanner cannot judge:
+   recorded), component (a self-closing custom component: the boundary),
+   blind (a static name with no story), unnamed (NO name at all: the
+   heaviest disease — currently ZERO). The tally by SLOT; curing more
+   blind faces re-keys A21 AND A3/A5 in the same commit. */
+ok("A20 the story classifier lives (five classes in the census source)",
+  ["flip", "var", "blind", "unnamed", "component"].every((c) => censusSrc.includes(`"${c}"`)) &&
+  censusSrc.includes("nameStory"));
+const st = receipt?.storyTally ?? {};
+ok("A21 the story tally by SLOT (flip 20 · var 19 · component 1 · blind 20 · unnamed 0)",
+  st.flip === 20 && st.var === 19 && st.component === 1 && st.blind === 20 && (st.unnamed ?? 0) === 0,
+  `flip=${st.flip} var=${st.var} comp=${st.component} blind=${st.blind} unnamed=${st.unnamed ?? 0}`);
+
+/* A22–A28 — the seven t983 cures (the BLIND pool's first wave — every
+   face a text button, every cure keeps the label-in-name law: the
+   visible text is a PREFIX of the accessible name in both branches): */
+const FACES3 = [
+  ["A22", "src/components/workflow/canvas.tsx",
+    'aria-label={jobs.length === 0 ? "Zoom to fit workflow (the canvas is empty)" : "Zoom to fit workflow"}'],
+  ["A23", "src/components/workflow/canvas.tsx",
+    'aria-label={jobs.length === 0 ? "Tidy layout (the canvas is empty)" : "Tidy layout"}'],
+  ["A24", "src/components/workflow/canvas.tsx",
+    'aria-label={posterBusy !== null ? "Export canvas as PNG (a poster render is running)" : jobs.length === 0 ? "Export canvas as PNG (the canvas is empty)" : "Export canvas as PNG"}'],
+  ["A25", "src/components/workflow/canvas.tsx",
+    'aria-label={posterBusy !== null ? "Copy canvas as PNG image (a poster render is running)" : jobs.length === 0 ? "Copy canvas as PNG image (the canvas is empty)" : "Copy canvas as PNG image"}'],
+  ["A26", "src/components/workflow/canvas.tsx",
+    'aria-label={jobs.length === 0 ? "Export workflow as JSON (the canvas is empty)" : "Export workflow as JSON"}'],
+  ["A27", "src/components/workflow/job-inspector.tsx",
+    'aria-label={!name.trim() ? "Save preset (name the preset first)" : name.trim().length > 60 ? "Save preset (the name is over 60 characters)" : "Save preset"}'],
+  ["A28", "src/components/workflow/homecoming-sweep.tsx",
+    'aria-label={owing.length === 0 ? "Bring home all (nothing is owed)" : "Bring home all"}'],
+];
+for (const [id, f, needle] of FACES3) ok(`${id} ${path.basename(f)} speaks the refusal`, shape(f, needle));
 
 console.log(`VERDICT: ${fail === 0 ? `GREEN ${pass}/${pass + fail}` : `RED ${pass}/${pass + fail}`}`);
 console.log(`${pass}/${pass + fail} green`);

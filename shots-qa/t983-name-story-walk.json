@@ -1,0 +1,25 @@
+{
+  "instrument": "t983-name-story-walk",
+  "born": "2026-10-14",
+  "contract": "the FIFTH pass's second sub-option — the blind pool's first wave witnessed",
+  "legs": {
+    "worldAlive": true,
+    "contextMenu": {
+      "open": true,
+      "count": 7,
+      "found": {
+        "Zoom to fit workflow": "plain",
+        "Tidy layout": "plain",
+        "Export canvas as PNG": "plain",
+        "Copy canvas as PNG image": "plain",
+        "Export workflow as JSON": "plain"
+      }
+    },
+    "bringHomeAll": {
+      "present": false,
+      "selfEffaced": true
+    }
+  },
+  "pass": 8,
+  "fail": 0
+}

@@ -2,26 +2,22 @@
   "instrument": "t982-aria-refusal-census",
   "born": "2026-10-14",
   "scope": "src/components/**/*.tsx — tags with state-derived disabled={…}",
+  "storyScope": "the t983 upgrade — silent-text sites classified by their name-story (flip/spin/unnamed/blind/unbounded)",
   "population": 171,
   "tally": {
-    "stateful": 74,
+    "stateful": 81,
     "described": 0,
     "silent-static": 30,
-    "silent-text": 67
+    "silent-text": 60
   },
-  "silences": 97,
+  "storyTally": {
+    "var": 19,
+    "component": 1,
+    "blind": 20,
+    "flip": 20
+  },
+  "silences": 90,
   "byFile": {
-    "src/components/workflow/canvas.tsx": [
-      606,
-      805,
-      875,
-      3098,
-      3482,
-      3491,
-      3498,
-      3502,
-      3510
-    ],
     "src/components/workflow/results/molstar-embed.tsx": [
       5719,
       5730,
@@ -56,18 +52,23 @@
       950,
       953
     ],
-    "src/components/workflow/job-inspector.tsx": [
-      1835,
-      1931,
-      3091,
-      3791,
-      3807
+    "src/components/workflow/canvas.tsx": [
+      606,
+      805,
+      875,
+      3098
     ],
     "src/components/workflow/cleanup-dialog.tsx": [
       457,
       468,
       514,
       517
+    ],
+    "src/components/workflow/job-inspector.tsx": [
+      1835,
+      3092,
+      3792,
+      3808
     ],
     "src/components/workflow/path-browser-dialog.tsx": [
       974,
@@ -147,9 +148,6 @@
     "src/components/workflow/finish-knock-button.tsx": [
       148
     ],
-    "src/components/workflow/homecoming-sweep.tsx": [
-      297
-    ],
     "src/components/workflow/hpc-sbatch-dialog.tsx": [
       207
     ],
@@ -192,6 +190,7 @@
       "staticLabel": "重新测活",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -204,6 +203,7 @@
       "staticLabel": "Refresh the model list",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -216,6 +216,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button onClick={() => void save()} disabled={saving || !providerId}>"
     },
     {
@@ -228,6 +229,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -240,6 +242,7 @@
       "staticLabel": "New chat",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -252,6 +255,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "component",
       "snippet": "<ActionButtons"
     },
     {
@@ -264,6 +268,7 @@
       "staticLabel": "Message the AI assistant",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Textarea"
     },
     {
@@ -276,6 +281,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -288,6 +294,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -300,6 +307,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -312,6 +320,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -324,6 +333,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -336,6 +346,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -348,6 +359,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -360,6 +372,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -372,6 +385,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -384,6 +398,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -396,6 +411,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -408,6 +424,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -420,6 +437,7 @@
       "staticLabel": "Duplicate selection",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -432,6 +450,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -444,6 +463,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -456,6 +476,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -468,6 +489,7 @@
       "staticLabel": "Toggle critical path lens",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -480,6 +502,7 @@
       "staticLabel": "Undo",
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -492,6 +515,7 @@
       "staticLabel": "Redo",
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -504,6 +528,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -516,6 +541,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -528,6 +554,7 @@
       "staticLabel": "Copy canvas as PNG image",
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -539,8 +566,9 @@
       "condChars": 17,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "snippet": "<ContextMenuItem onClick={zoomToFit} disabled={jobs.length === 0}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<ContextMenuItem onClick={zoomToFit} disabled={jobs.length === 0} aria-label={jobs.length === 0 ? \"Zoom to fit workflow (the canvas is empty)\" : \"Zoom to fit wo"
     },
     {
       "f": "src/components/workflow/canvas.tsx",
@@ -551,44 +579,48 @@
       "condChars": 17,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<ContextMenuItem"
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3498,
+      "line": 3499,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0 || posterBusy !== null",
       "condKind": "comparison",
       "condChars": 40,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "snippet": "<ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || posterBusy !== null}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<ContextMenuItem onClick={() => void handleExportPng()} disabled={jobs.length === 0 || posterBusy !== null} aria-label={posterBusy !== null ? \"Export canvas as "
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3502,
+      "line": 3503,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0 || posterBusy !== null",
       "condKind": "comparison",
       "condChars": 40,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<ContextMenuItem"
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3510,
+      "line": 3512,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0",
       "condKind": "comparison",
       "condChars": 17,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "snippet": "<ContextMenuItem onClick={handleExportJson} disabled={jobs.length === 0}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<ContextMenuItem onClick={handleExportJson} disabled={jobs.length === 0} aria-label={jobs.length === 0 ? \"Export workflow as JSON (the canvas is empty)\" : \"Expo"
     },
     {
       "f": "src/components/workflow/class-gallery.tsx",
@@ -600,6 +632,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -612,6 +645,7 @@
       "staticLabel": "Re-survey the run directory (fresh)",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -624,6 +658,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -636,6 +671,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -648,6 +684,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<AlertDialogCancel className=\"h-8 text-xs\" disabled={executing}>"
     },
     {
@@ -660,6 +697,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<AlertDialogAction"
     },
     {
@@ -672,6 +710,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Checkbox"
     },
     {
@@ -684,6 +723,7 @@
       "staticLabel": "Refresh live node usage",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -696,6 +736,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -708,6 +749,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -720,6 +762,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -732,6 +775,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<button"
     },
     {
@@ -744,6 +788,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -756,6 +801,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<DropdownMenuItem"
     },
     {
@@ -768,6 +814,7 @@
       "staticLabel": "Spotlight noted jobs",
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -779,7 +826,8 @@
       "condChars": 18,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -792,6 +840,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -804,6 +853,7 @@
       "staticLabel": "Duplicate selected profile",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -816,6 +866,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -828,6 +879,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button size=\"sm\" className=\"h-8 text-xs\" onClick={() => void save()} disabled={saving || loading || !profiles.length}>"
     },
     {
@@ -840,6 +892,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -852,6 +905,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -864,6 +918,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -876,6 +931,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -888,6 +944,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -900,6 +957,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -912,6 +970,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -924,6 +983,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button size=\"sm\" variant=\"outline\" onClick={() => void copy()} disabled={!data?.script}>"
     },
     {
@@ -936,6 +996,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button variant=\"ghost\" size=\"sm\" onClick={closePreview} disabled={busy}>"
     },
     {
@@ -948,6 +1009,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -960,6 +1022,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<ContextMenuItem"
     },
     {
@@ -972,6 +1035,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<button"
     },
     {
@@ -984,6 +1048,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<button"
     },
     {
@@ -996,6 +1061,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -1007,12 +1073,13 @@
       "condChars": 39,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/job-inspector.tsx",
-      "line": 3091,
+      "line": 3092,
       "tag": "button",
       "cond": "loadingMore",
       "condKind": "boolean",
@@ -1020,11 +1087,12 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<button"
     },
     {
       "f": "src/components/workflow/job-inspector.tsx",
-      "line": 3791,
+      "line": 3792,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
@@ -1032,11 +1100,12 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/job-inspector.tsx",
-      "line": 3807,
+      "line": 3808,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
@@ -1044,6 +1113,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -1056,6 +1126,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1068,6 +1139,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -1080,6 +1152,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -1092,6 +1165,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -1104,6 +1178,7 @@
       "staticLabel": "Run on cluster (SSH)",
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1116,6 +1191,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1128,6 +1204,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -1140,6 +1217,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1152,6 +1230,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -1164,6 +1243,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -1176,6 +1256,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -1188,6 +1269,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -1200,6 +1282,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -1212,6 +1295,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -1224,6 +1308,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -1236,6 +1321,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1248,6 +1334,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1260,6 +1347,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1272,6 +1360,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1284,6 +1373,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1296,6 +1386,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>"
     },
     {
@@ -1308,6 +1399,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button variant=\"outline\" onClick={() => onOpenChange(false)} disabled={creating}>"
     },
     {
@@ -1320,6 +1412,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -1332,6 +1425,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1344,6 +1438,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1356,6 +1451,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1368,6 +1464,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -1380,6 +1477,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1392,6 +1490,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1404,6 +1503,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -1416,6 +1516,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1428,6 +1529,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -1440,6 +1542,7 @@
       "staticLabel": "One GPU less",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1452,6 +1555,7 @@
       "staticLabel": "One GPU more",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1464,6 +1568,7 @@
       "staticLabel": "One shard fewer",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1476,6 +1581,7 @@
       "staticLabel": "One shard more",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1488,6 +1594,7 @@
       "staticLabel": "Run on cluster (SSH)",
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1500,6 +1607,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1512,6 +1620,7 @@
       "staticLabel": "Also re-run the downstream subtree",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Checkbox"
     },
     {
@@ -1524,6 +1633,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -1536,6 +1646,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1548,6 +1659,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1560,6 +1672,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1572,6 +1685,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1584,6 +1698,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -1596,6 +1711,7 @@
       "staticLabel": "Previous iteration round",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1608,6 +1724,7 @@
       "staticLabel": "Next iteration round",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1620,6 +1737,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button size=\"sm\" className=\"h-7\" onClick={fire} disabled={firing}>"
     },
     {
@@ -1632,6 +1750,7 @@
       "staticLabel": "Re-scan the project for FSC curves",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1644,6 +1763,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Checkbox"
     },
     {
@@ -1656,6 +1776,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1668,6 +1789,7 @@
       "staticLabel": "Export the three orthogonal sections as a PNG triptych",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1680,6 +1802,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1692,6 +1815,7 @@
       "staticLabel": "Copy profile as CSV",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1704,6 +1828,7 @@
       "staticLabel": "Download profile as CSV",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1716,6 +1841,7 @@
       "staticLabel": "Copy profile QC report",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1728,6 +1854,7 @@
       "staticLabel": "Download profile QC report",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1740,6 +1867,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<button"
     },
     {
@@ -1752,6 +1880,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<button"
     },
     {
@@ -1764,6 +1893,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1776,6 +1906,7 @@
       "staticLabel": "Copy the current 3D figure to the clipboard",
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1788,6 +1919,7 @@
       "staticLabel": "Export the current 3D view as PNG",
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1800,6 +1932,7 @@
       "staticLabel": "Record a turntable video of the current view",
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1812,6 +1945,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Checkbox"
     },
     {
@@ -1824,6 +1958,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Checkbox"
     },
     {
@@ -1836,6 +1971,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button size=\"sm\" disabled={importPreview.picked.size === 0} onClick={confirmImport}>"
     },
     {
@@ -1848,6 +1984,7 @@
       "staticLabel": "Previous particle page",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1860,6 +1997,7 @@
       "staticLabel": "Next particle page",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1872,6 +2010,7 @@
       "staticLabel": "Export run report",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1884,6 +2023,7 @@
       "staticLabel": "Export run report as HTML",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1896,6 +2036,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1908,6 +2049,7 @@
       "staticLabel": "Previous particle image",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1920,6 +2062,7 @@
       "staticLabel": "Next particle image",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1932,6 +2075,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -1944,6 +2088,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -1956,6 +2101,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -1968,6 +2114,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Select"
     },
     {
@@ -1980,6 +2127,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1992,6 +2140,7 @@
       "staticLabel": "Refresh storage numbers",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -2004,6 +2153,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -2016,6 +2166,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -2028,6 +2179,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -2040,6 +2192,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -2052,6 +2205,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -2064,6 +2218,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -2076,6 +2231,7 @@
       "staticLabel": "Refresh diagnostics",
       "described": false,
       "verdict": "silent-static",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -2088,6 +2244,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -2100,6 +2257,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -2112,6 +2270,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -2124,6 +2283,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     },
     {
@@ -2136,6 +2296,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button"
     },
     {
@@ -2148,6 +2309,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button variant=\"ghost\" size=\"sm\" onClick={() => setOpen(false)} disabled={busy}>"
     },
     {
@@ -2160,6 +2322,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button size=\"sm\" onClick={() => void create()} disabled={busy} className=\"gap-1.5\">"
     },
     {
@@ -2172,6 +2335,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "flip",
       "snippet": "<Button"
     },
     {
@@ -2184,6 +2348,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<button"
     },
     {
@@ -2196,6 +2361,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -2208,6 +2374,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>"
     },
     {
@@ -2220,6 +2387,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "blind",
       "snippet": "<Button variant=\"outline\" onClick={() => setCreateOpen(false)} disabled={creating}>"
     },
     {
@@ -2232,6 +2400,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
+      "story": "var",
       "snippet": "<Button"
     }
   ]
