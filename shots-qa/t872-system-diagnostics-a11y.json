@@ -1,0 +1,323 @@
+{
+  "instrument": "scripts/t872-system-diagnostics-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@31eccb9c8237",
+  "worldMode": "dev",
+  "date": "2026-10-14T04:50:48.521Z",
+  "chain": "clean room -> the palette's reverse-hop door (t530: the palette names the door, the header owns the panel) -> the header door -> the dialog's seats (t802 region, four sections) -> memory lanes (GO 2600 / warm 1450 spoken on the bars) -> engine + disk -> the world census vs the canvas's own cards -> provenance's exactly-one-speaker -> the refresh seat -> the t802 keyboard seat -> worldBack + seed hygiene",
+  "doors": {
+    "palette": "the t483 contract event opens the palette; the 'Open system diagnostics' CommandItem fires SYSTEM_DIAGNOSTICS_EVENT after close() — the t530 reverse-hop",
+    "header": "the header's Activity ghost button, aria-label 'System diagnostics'",
+    "exit": "Escape on the dialog (the ESC_ALL double dispatch)"
+  },
+  "openingCanvas": 144,
+  "canvasCards": 15,
+  "faces": {
+    "diagDialog": {
+      "live": {
+        "pageBtns": 146,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "hasDlg": true,
+        "cmdkUp": false,
+        "door": true,
+        "dlgHeading": "System diagnostics",
+        "heading": "Main"
+      }
+    },
+    "readings": {
+      "live": {
+        "up": true,
+        "title": "System diagnostics",
+        "desc": "The box behind the canvas — memory lanes against the build guard's canonical lines, disk, the running build's provenance and the world's cen",
+        "region": {
+          "role": "region",
+          "label": "System diagnostics readings — memory lanes, engine, disk, world census",
+          "tabbable": true
+        },
+        "sections": [
+          {
+            "t": "diag-memory",
+            "up": true,
+            "h3": "Memory lanes"
+          },
+          {
+            "t": "diag-engine",
+            "up": true,
+            "h3": "Engine & grinder"
+          },
+          {
+            "t": "diag-disk",
+            "up": true,
+            "h3": "Disk"
+          },
+          {
+            "t": "diag-world",
+            "up": true,
+            "h3": "World & build"
+          }
+        ],
+        "verdict": "Dangertotal 3.95 GB · no swap",
+        "lanes": [
+          "Available: 509 MB of 3.95 GB; GO 2600",
+          "Page cache (buff/cache): 478 MB of 3.95 GB; warm 1450",
+          "Used: 9.02 GB of 9.81 GB; "
+        ],
+        "reason": "Available memory is below the collapse neighborhood — the kernel is close to picking victims (the t461 OOM-storm profile). Stop heavy lanes before anything else",
+        "legend": "Legend: the dev watchdog recycles next-server at 2600MB RSS — that line polices one process, not the box (t524), which is why it is not drawn on these bars.",
+        "engState": "none",
+        "engText": "Engine & grinderfrom /api/systemNo RELION install found and no recipe build tree",
+        "diskNote": "92% used · 811 MB free of 9.81 GB — tree-external assets (the RELION build tree, EMPIAR data) share this filesystem by design (t527).",
+        "tiles": [
+          {
+            "value": "1",
+            "label": "Projects"
+          },
+          {
+            "value": "15",
+            "label": "Jobs"
+          },
+          {
+            "value": "0",
+            "label": "Running"
+          }
+        ],
+        "prov": {
+          "honestNone": true
+        },
+        "generated": "read at 4:50:26 AM",
+        "refresh": {
+          "named": true,
+          "disabled": false,
+          "label": "Refresh"
+        },
+        "failed": false,
+        "dlgBtns": 2,
+        "dlgUnnamed": 0,
+        "dlgUnnamedAll": 0,
+        "focusIn": true
+      }
+    },
+    "worldBack": {
+      "live": {
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "hasDlg": false,
+        "cmdkUp": false,
+        "door": true,
+        "dlgHeading": null,
+        "heading": "Main"
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "O0 the dialog absent before the door + the header door named (summoned, never resident)",
+      "pass": true,
+      "detail": "pageBtns=144 door=true"
+    },
+    {
+      "label": "W0 the lazy room's first open arrives (the chunk tax paid once, in the open, not in an assertion)",
+      "pass": true,
+      "detail": "up=true generated=\"read at 4:50:26 AM\""
+    },
+    {
+      "label": "W1 the warm Escape closed it; the canvas back bit-for-bit",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "Q1 the palette's filter narrows to the door (diagnostics visible AND the universe narrowed vs the unfiltered film — the ride-4 lesson: the narrowed palette keeps only the matches in the DOM, the negative witness films the BEFORE)",
+      "pass": true,
+      "detail": "before=102 after=3 itemVisible=true"
+    },
+    {
+      "label": "Q1b the door clicked (the deterministic door — no highlight lottery)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "Q2 the click closed the palette AND the header opened the panel (the reverse-hop: two layers, one handshake)",
+      "pass": true,
+      "detail": "heading=\"System diagnostics\" cmdk=false"
+    },
+    {
+      "label": "Q3 Escape closed the panel; the canvas back bit-for-bit",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "D1 the dialog arrived as the topmost layer, focus inside",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "D2 the title speaks 'System diagnostics' (the aria-labelledby chain)",
+      "pass": true,
+      "detail": "title=\"System diagnostics\""
+    },
+    {
+      "label": "D3 the description speaks the room's contract ('The box behind the canvas')",
+      "pass": true,
+      "detail": "desc=\"The box behind the canvas — memory lanes against the build g\""
+    },
+    {
+      "label": "D4 the t802 keyboard region: role=region + the honest name + the tab stop",
+      "pass": true,
+      "detail": "tabbable=true"
+    },
+    {
+      "label": "D5 the four section cards present, each with its h3 (memory lanes / engine & grinder / disk / world & build)",
+      "pass": true,
+      "detail": "diag-memory:h3 diag-engine:h3 diag-disk:h3 diag-world:h3"
+    },
+    {
+      "label": "D6 zero unnamed page-wide with the dialog up (every control named, every img-role named)",
+      "pass": true,
+      "detail": "pageBtns=146 dlgBtns=2"
+    },
+    {
+      "label": "M1 the verdict speaks a tone label + the total line (Healthy|Watch|Danger, total/swap — the flex-gap lesson: the gap is visual, not textual, the world speaks 'Dangertotal')",
+      "pass": true,
+      "detail": "verdict=\"Dangertotal 3.95 GB · no swap\""
+    },
+    {
+      "label": "M2 the Available lane is a named img whose label speaks the canonical line (GO 2600)",
+      "pass": true,
+      "detail": "lane=\"Available: 509 MB of 3.95 GB; GO 2600\""
+    },
+    {
+      "label": "M3 the Page cache lane is a named img whose label speaks the warm line (1450)",
+      "pass": true,
+      "detail": "lane=\"Page cache (buff/cache): 478 MB of 3.95 GB; warm 1450\""
+    },
+    {
+      "label": "M4 the verdict reason spoken (the why rides the number)",
+      "pass": true,
+      "detail": "reason=\"Available memory is below the collapse neighborhood — the kernel is close to pic\""
+    },
+    {
+      "label": "M5 the legend teaches the t524 watchdog line (one process, not the box)",
+      "pass": true,
+      "detail": "legend=\"Legend: the dev watchdog recycles next-server at 2600MB RSS — that line polices one proces\""
+    },
+    {
+      "label": "E1 the engine speaks exactly ONE honest state (found | build | none — the t242 two-wells mirror, never empty)",
+      "pass": true,
+      "detail": "state=none text=\"Engine & grinderfrom /api/systemNo RELION install found and no recipe build tree\""
+    },
+    {
+      "label": "E2 the disk lane named with its % note (t527's tree-external sharers taught)",
+      "pass": true,
+      "detail": "lane=\"Used: 9.02 GB of 9.81 GB; \" note=\"92% used · 811 MB free of 9.81 GB — tree-external assets (th\""
+    },
+    {
+      "label": "C1 the Projects tile speaks 1 (the census's own word)",
+      "pass": true,
+      "detail": "tiles=[{\"value\":\"1\",\"label\":\"Projects\"},{\"value\":\"15\",\"label\":\"Jobs\"},{\"value\":\"0\",\"label\":\"Running\"}]"
+    },
+    {
+      "label": "C2 the census's Jobs tile == the canvas's job cards (the ADOPT invariant made visible — two wells, one world)",
+      "pass": true,
+      "detail": "census=15 canvas cards=15"
+    },
+    {
+      "label": "C3 the Running tile speaks 0 (the roster at rest)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "P1 exactly one of {commit code, the honest 'No provenance stamp' line} speaks — never both, never neither",
+      "pass": true,
+      "detail": "prov={\"honestNone\":true}"
+    },
+    {
+      "label": "R1 the footer speaks 'read at' + the Refresh door named (aria-label, not the visible label's crutch)",
+      "pass": true,
+      "detail": "generated=\"read at 4:50:26 AM\" label=Refresh"
+    },
+    {
+      "label": "R2 the re-read honest: the footer still speaks, the door re-enabled, no failed state",
+      "pass": true,
+      "detail": "generated=\"read at 4:50:44 AM\" failed=false"
+    },
+    {
+      "label": "K1 the region takes focus (the Radix parking spot), overflows, and answers a scroll address (the t802 structural law; the arrow is the browser's own trusted word)",
+      "pass": true,
+      "detail": "focused=true overflowing=true moved=true"
+    },
+    {
+      "label": "B1 Escape closed the dialog; the canvas back by its own count (the job cards, history-agnostic); zero unnamed",
+      "pass": true,
+      "detail": "cards=15 (opening 15) pageBtns=144"
+    },
+    {
+      "label": "B2 the walk leaves no session seed (the t157 two-way door's honest none)",
+      "pass": true,
+      "detail": "seed=null"
+    },
+    {
+      "label": "L diagDialog face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L readings face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [diskNote, generated, lanes]"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 32,
+  "failed": 0,
+  "total": 32,
+  "verdict": "the system-diagnostics faces hold — the box behind the canvas walked: the clean room held (the dialog summoned, never resident; the header door named), the palette named the door through the t530 reverse-hop handshake (Enter closed the palette and the header opened the panel — two modal layers, one handshake), the header door opened the readings (the title, the contract's description, the t802 keyboard region with its tab stop and honest name, the four section cards, zero unnamed page-wide), the memory lanes spoke their canonical lines ON the bars (Available: GO 2600, Page cache: warm 1450 — the verdict's why riding the number, the legend teaching the t524 watchdog line: one process, not the box), the engine spoke exactly one honest state and the disk its % note, the world census's Jobs tile equaled the canvas's own job cards (the ADOPT invariant made visible), the provenance kept its exactly-one-speaker law, the refresh seat re-read honestly, the t802 region took focus and scrolled, and the world came back bit-for-bit with no session seed — the arrival predicate read the panel's own word (the footer's \"read at\"), never a clock, the ledger aboard from birth (three faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@31eccb9c8237",
+    "prevDate": "2026-10-14T04:49:26.287Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "diagDialog": {
+        "prev": 146,
+        "live": 146,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "readings": {
+        "prev": 2,
+        "live": 2,
+        "drift": 0,
+        "identical": false,
+        "moved": {
+          "lens": [
+            "diskNote",
+            "generated",
+            "lanes"
+          ],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}
