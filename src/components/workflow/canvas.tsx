@@ -2391,6 +2391,17 @@ export function WorkflowCanvas() {
   const project = useWorkflowStore((s) => s.project);
   const [bookmarksOpen, setBookmarksOpen] = React.useState(false);
   const [bookmarkName, setBookmarkName] = React.useState("");
+  // t1001 — the bookmarks popover's doors keep no draft: EVERY close path
+  // (the outside click, Escape, the trigger toggle) routes through this
+  // ONE mouth, so a reopened popover opens EMPTY instead of resurrecting
+  // the abandoned name (the t1000 one-mouth law's popover form — the
+  // create dialog's closeCreate, carried to the toolbar). A saved
+  // bookmark keeps its own already-emptying success path and stays
+  // open — saving is not closing.
+  const openBookmarksDoor = React.useCallback((o: boolean) => {
+    setBookmarksOpen(o);
+    if (!o) setBookmarkName("");
+  }, []);
   // bookmark key mirrors the store actions' derivation (project?.id, NOT
   // jobs[0].projectId): bookmarks are a per-(project:workspace) USER asset —
   // they must survive deleting the last job, unlike fitKey which frames
@@ -3207,7 +3218,7 @@ export function WorkflowCanvas() {
             (localStorage, cross-session), unlike the per-workspace memory
             (sessionStorage, per-tab). Same toolbar dialect as the rest:
             ghost icon + Popover panel. */}
-        <Popover open={bookmarksOpen} onOpenChange={setBookmarksOpen}>
+        <Popover open={bookmarksOpen} onOpenChange={openBookmarksDoor}>
           <PopoverTrigger asChild>
             <Button
               variant="ghost"

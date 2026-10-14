@@ -202,6 +202,15 @@ export function HelpGuideDialog() {
   const setShortcutsOpen = useWorkflowStore((s) => s.setShortcutsOpen);
   const [query, setQuery] = React.useState("");
 
+  // t1001 — the guide's search lens is ephemeral: a fresh open owns a
+  // fresh lens (the find bar's own law — closing clears the query), so a
+  // reopened dialog never filters itself through the abandoned word.
+  // The dialog body never unmounts, so without this the last search
+  // would silently survive the close and shrink the next open's world.
+  React.useEffect(() => {
+    if (open) setQuery("");
+  }, [open]);
+
   const q = query.trim().toLowerCase();
   const chapters = React.useMemo(
     () =>

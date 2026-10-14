@@ -1,0 +1,21 @@
+{
+  "walk": "t1001-dirty-draft-walk",
+  "at": "2026-10-14T21:20:13.653Z",
+  "pass": 29,
+  "fail": 0,
+  "phaseTrace": [
+    "popover i0: {\"up\":true,\"value\":\"\"}",
+    "reopen1 i0: {\"up\":true,\"value\":\"\"}",
+    "reopen2 i0: {\"up\":true,\"value\":\"\"}",
+    "guide i0: {\"up\":true,\"value\":\"\",\"sections\":5}",
+    "reopen-guide i0: {\"up\":true,\"value\":\"\",\"sections\":5}"
+  ],
+  "results": [],
+  "draft": "Dirty Draft (t1001)",
+  "query": "cluster",
+  "doors": [
+    "bookmark-escape",
+    "bookmark-toggle",
+    "guide-escape"
+  ]
+}
