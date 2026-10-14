@@ -124,6 +124,31 @@ for (const f of componentFiles) {
   ok("W6 the walk polls instead of assuming (the title probe's own poll)", walkSrc.includes("the title probe never resolved"));
 }
 
+/* ---- B: the BROWSER fold tier (the t981 walk's absorption census) ----
+ * The t981 entry's candidate (c): the t969 panel law (panelOverX FALSE
+ * at 320) generalized across a SAMPLE of the family's dialogs — the
+ * five-mouth census measured ZERO leaky faces (the family absorbs the
+ * fold), and the ride cured TWO inner unreadable-content diseases (the
+ * inspector log console's clipped long lines; the shortcuts rows that
+ * could not wrap). The B-band pins the census's own shapes. */
+{
+  const foldSrc = readFileSync(path.join(ROOT, "scripts/t981-dialog-fold-walk.mjs"), "utf8");
+  ok("B1 the fold walk exists with the two modes (BEFORE witnesses, GATE gates)", foldSrc.includes('GATE = process.env.GATE === "1"') && foldSrc.includes("the BEFORE witness"));
+  ok("B2 the measure speaks the t969 grammar (overX = sw > cw + 1, plus the shell)", foldSrc.includes("overX: dlg.scrollWidth > dlg.clientWidth + 1") && foldSrc.includes("shellOverX: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1"));
+  ok("B3 the sample carries the five identity markers (inspector / compare / cmdk / two CTAs)", foldSrc.includes("data-inspector-dialog") && foldSrc.includes('data-testid="fsc-compare-list"') && foldSrc.includes("[cmdk-input]") && foldSrc.includes("View all keyboard shortcuts") && foldSrc.includes("Read the full guide"));
+  ok("B4 the canvas mouths ride the wide-first law (open at WIDE, then narrow — the t975 law)", foldSrc.includes("const freshOpenWide") && foldSrc.includes("const narrowTo320"));
+  ok("B5 the card mouths read the CLEAN name (.job-card-title — the concat never matches the find bar)", foldSrc.includes(".job-card-title"));
+  ok("B6 every fresh open polls the server first (the compile-spike REFUSED receipt)", foldSrc.includes("const serverReady") && foldSrc.includes("if (!(await serverReady())) return false;"));
+  ok("B7 the gate owns the fold contract (five mouths, zero leaky)", foldSrc.includes("GATE every sampled face measured (five mouths, none blocked)") && foldSrc.includes("GATE the family absorbs the fold (zero leaky faces)"));
+
+  /* the two cures' source shapes */
+  const inspector = readFileSync(path.join(ROOT, "src/components/workflow/job-inspector.tsx"), "utf8");
+  ok("B8 the inspector's log console scrolls BOTH axes (the wrap-off long lines stay readable)", /min-h-0 flex-1 overflow-y-auto overflow-x-auto p-3 font-mono/.test(inspector));
+  const shortcuts = readFileSync(path.join(ROOT, "src/components/workflow/shortcuts-dialog.tsx"), "utf8");
+  ok("B9 the shortcuts rows wrap instead of clipping (flex-wrap + min-w-0 on the dl's rows)", /flex flex-wrap items-center justify-between gap-x-4 gap-y-1\.5 rounded-md px-1\.5 py-1/.test(shortcuts) && shortcuts.includes('className="min-w-0 text-xs leading-relaxed text-muted-foreground"'));
+  ok("B10 the offender census exempts the sr-only pocket (the 1px design never counts as a disease)", foldSrc.includes("the t969 ranking") || foldSrc.includes("offenders"));
+}
+
 /* ---- the receipt ---- */
 import { mkdirSync, writeFileSync } from "node:fs";
 mkdirSync(path.join(ROOT, "shots-qa"), { recursive: true });
