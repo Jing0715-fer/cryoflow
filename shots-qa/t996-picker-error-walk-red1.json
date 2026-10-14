@@ -1,0 +1,101 @@
+{
+  "walk": "t996-picker-error-walk",
+  "at": "2026-10-14T18:27:27.768Z",
+  "pass": 15,
+  "fail": 12,
+  "phaseTrace": [
+    "ready i0: {\"up\":false}",
+    "ready i5: {\"up\":false}",
+    "ready i10: {\"up\":false}",
+    "ready i15: {\"up\":false}",
+    "ready i20: {\"up\":false}",
+    "error i0: {\"up\":false}",
+    "error i5: {\"up\":false}",
+    "error i10: {\"up\":false}",
+    "error i15: {\"up\":false}",
+    "error i20: {\"up\":false}",
+    "refused i0: {\"up\":false}",
+    "refused i5: {\"up\":false}",
+    "refused i10: {\"up\":false}",
+    "refused i15: {\"up\":false}",
+    "refused i20: {\"up\":false}",
+    "recovered i0: {\"up\":false}",
+    "recovered i5: {\"up\":false}",
+    "recovered i10: {\"up\":false}",
+    "recovered i15: {\"up\":false}",
+    "recovered i20: {\"up\":false}",
+    "recovered i25: {\"up\":false}",
+    "recovered i30: {\"up\":false}",
+    "recovered i35: {\"up\":false}",
+    "recovered i40: {\"up\":false}",
+    "recovered i45: {\"up\":false}",
+    "recovered i50: {\"up\":false}",
+    "recovered i55: {\"up\":false}"
+  ],
+  "results": [
+    {
+      "label": "the world carries TWENTY-TWO jobs (the standing fleet)",
+      "cond": false,
+      "extra": "rows=0"
+    },
+    {
+      "label": "the Rounds trigger clicked through the real mouse path",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "THE READY FACE HOLDS (no loading, no error, no Try again)",
+      "cond": false,
+      "extra": "null"
+    },
+    {
+      "label": "the refresh affordance sits in the ready header (the load(true) lane)",
+      "cond": false,
+      "extra": ""
+    },
+    {
+      "label": "the refresh clicked IN PLACE (the popover never closed)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "THE FETCH-ERROR FACE BLOOMS (Try again present, the destructive message speaks)",
+      "cond": false,
+      "extra": "msg=undefined"
+    },
+    {
+      "label": "the message is the transport's own words (non-empty, no server reason to borrow)",
+      "cond": false,
+      "extra": "len=undefined"
+    },
+    {
+      "label": "Try again clicked under the outage (the affordance takes the hit)",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "THE OUTAGE REFUSAL IS HONEST (the error face returns, Try again still stands)",
+      "cond": false,
+      "extra": "msg=undefined"
+    },
+    {
+      "label": "the SAME Try again clicked after the resurrection",
+      "cond": false,
+      "extra": "NO-ELEMENT"
+    },
+    {
+      "label": "THE READY FACE RETURNS THROUGH THE AFFORDANCE (no reopen, no reload)",
+      "cond": false,
+      "extra": "null"
+    },
+    {
+      "label": "the world carries TWENTY-TWO jobs as-left (nothing minted)",
+      "cond": false,
+      "extra": "rows=0"
+    }
+  ],
+  "face": "Rounds Face (t989)",
+  "transportMsg": null,
+  "asFound": "",
+  "asLeft": ""
+}
