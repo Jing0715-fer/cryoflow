@@ -1,0 +1,79 @@
+{
+  "instrument": "t985-flip-census-walk",
+  "born": "2026-10-14",
+  "contract": "the rendered-plane flip census — the var-19 resolution: 2 flip-honest records, 17 cures (A47–A63)",
+  "verdictPool": {
+    "var": 19,
+    "flipHonest": [
+      "finish-knock permLabel -> asking…",
+      "ledger fetch -> Fetching the ledger's next page…"
+    ],
+    "cured": 17
+  },
+  "legs": {
+    "worldAlive": true,
+    "workspaceFlip": {
+      "refusal": {
+        "open": true,
+        "btn": true,
+        "disabled": true,
+        "label": "Create workspace (name the workspace first)"
+      },
+      "enabled": {
+        "open": true,
+        "btn": true,
+        "disabled": false,
+        "label": "Create workspace"
+      },
+      "shut": true
+    },
+    "projectFlip": {
+      "refusal": {
+        "open": true,
+        "btn": true,
+        "disabled": true,
+        "label": "Create project (name the project first)"
+      },
+      "enabled": {
+        "open": true,
+        "btn": true,
+        "disabled": false,
+        "label": "Create project"
+      },
+      "shut": true
+    },
+    "noteFlip": {
+      "menuOpened": true,
+      "refusal": {
+        "open": true,
+        "btn": true,
+        "disabled": true,
+        "label": "Save note (type a note first)"
+      },
+      "enabled": {
+        "open": true,
+        "btn": true,
+        "disabled": false,
+        "label": "Save note"
+      },
+      "shut": true
+    },
+    "aiSettingsFace": {
+      "open": true,
+      "btn": true,
+      "disabled": false,
+      "label": "保存并启用"
+    },
+    "aiShut": true,
+    "aiCancelPath": "escape-fallback (the ride-1 transient recorded)",
+    "companionShut": true,
+    "knockResting": {
+      "open": true,
+      "text": "Browser notifications — off",
+      "label": null
+    },
+    "knockShut": true
+  },
+  "pass": 27,
+  "fail": 0
+}
