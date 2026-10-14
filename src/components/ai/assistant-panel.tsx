@@ -792,7 +792,9 @@ export function AssistantPanel() {
   // without remounting, which would dump leaf state). Cheap no-op when
   // already last.
   const rootRef = React.useRef<HTMLDivElement | null>(null);
-  const raiseToFront = () => {
+  // stable by construction (a ref read only) — the drag listeners below can
+  // close over it without ever re-subscribing
+  const raiseToFront = React.useCallback(() => {
     const el = rootRef.current;
     if (
       el &&
@@ -802,7 +804,7 @@ export function AssistantPanel() {
     ) {
       document.body.appendChild(el);
     }
-  };
+  }, []);
 
   // t503 — the origin stamp for the dialog-raise observer below: a dialog
   // opened BY a click inside this window (the AI-settings door in the
@@ -979,6 +981,17 @@ export function AssistantPanel() {
       if (!d) return;
       const dx = e.clientX - d.px;
       const dy = e.clientY - d.py;
+      // t989 — the drag-raise cosmetic (carried since t986): the panel
+      // leads the drag itself, not just the release click. The raise rides
+      // the FIRST REAL MOVE of a move-mode gesture — never the pointerdown
+      // (the t986 dissection's law: a mid-press re-parent breaks Chromium's
+      // click synthesis, 5/5 clicks lost; the bar carries no click of its
+      // own, but the header's double-click-to-reset rides dblclick, a
+      // click-derived pair). By the first move the press's target
+      // resolution is done, and the drag itself rides these window-level
+      // listeners — immune to the node's re-parent. A no-op when the panel
+      // is already last (the common world: the summon raise put it there).
+      if (d.mode === "move" && !dragMovedRef.current) raiseToFront();
       dragMovedRef.current = true; // t638 — this gesture actually moved
       setGeo((prev) => {
         const base = prev ?? d.start;
