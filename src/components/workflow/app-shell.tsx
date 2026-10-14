@@ -488,6 +488,15 @@ export function AppShell() {
         // listbox guard above: the component that owns focus owns the key.
         const tgt = e.target;
         if (tgt instanceof HTMLElement && tgt.closest('[role="tablist"]')) return;
+        // t997 — a FOCUSED WINDOW SEPARATOR owns the arrows too (the
+        // WAI-ARIA window-splitter pattern): the assistant panel's resize
+        // grips preventDefault and resize through the same clampGeo the
+        // pointer drag rides, but the key STILL bubbles here — the walk
+        // then hops the canvas selection under the user's hand (and pans
+        // the viewport with it, and mounts whatever the landed card's
+        // selection drags in). Same layering rule as the listbox and
+        // tablist guards above: the component that owns focus owns the key.
+        if (tgt instanceof HTMLElement && tgt.closest('[role="separator"]')) return;
         e.preventDefault();
         const dir =
           k === "ArrowLeft" ? { x: -1, y: 0 } :

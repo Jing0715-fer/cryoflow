@@ -1,0 +1,62 @@
+{
+  "walk": "t997-keyboard-valuetext-walk",
+  "at": "2026-10-14T19:11:11.844Z",
+  "pass": 35,
+  "fail": 1,
+  "phaseTrace": [],
+  "results": [
+    {
+      "label": "the valuetext at rest is the human shape (axis + unit, not a bare count)",
+      "cond": false,
+      "extra": "text=\"已到最小宽度（360 像素）\" now=360"
+    }
+  ],
+  "contract": "the keyboard road's value plane speaks — the human shape, the floor and ceiling refusal faces, the valuemax's other half; the walls were walked live (the self-healing press) and the walk erased its own footprint",
+  "legs": {
+    "viewport": {
+      "vw": 1440,
+      "vh": 900
+    },
+    "eGrip": {
+      "before": 360,
+      "floorFace": "已到最小宽度（360 像素）",
+      "ceiling": 1424,
+      "floorTrip": {
+        "presses": 0,
+        "healed": 0
+      },
+      "ceilTrip": {
+        "presses": 17,
+        "healed": 0
+      },
+      "atCeil": {
+        "live": true,
+        "now": 1424,
+        "text": "已到最大宽度（1424 像素）",
+        "max": 1424,
+        "focused": true
+      }
+    },
+    "sGrip": {
+      "before": 744,
+      "floorFace": "已到最小高度（420 像素）",
+      "ceiling": 884,
+      "floorTrip": {
+        "presses": 6,
+        "healed": 0
+      },
+      "ceilTrip": {
+        "presses": 8,
+        "healed": 0
+      },
+      "atCeil": {
+        "live": true,
+        "now": 884,
+        "text": "已到最大高度（884 像素）",
+        "max": 884,
+        "focused": true
+      }
+    },
+    "echoAsFound": "{\"w\":360,\"h\":744,\"x\":856,\"y\":64}"
+  }
+}

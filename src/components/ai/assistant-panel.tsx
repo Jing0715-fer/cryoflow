@@ -2251,7 +2251,18 @@ export function AssistantPanel() {
             (the header's dblclick reset never fires from the keyboard),
             so a keyboard user had NO resize at all. The SE corner stays
             pointer-only — it is the redundant affordance (e + s cover
-            both axes), and one extra tab stop per corner buys nothing. */}
+            both axes), and one extra tab stop per corner buys nothing.
+            t997 — the value plane learns to SPEAK: aria-valuenow alone
+            is a bare pixel count ("360"), opaque to a screen reader;
+            aria-valuetext carries the human shape ("宽度 560 像素") and
+            FLIPS at the clamp walls — the floor face ("已到最小宽度
+            （360 像素）") and the ceiling face ("已到最大宽度（N 像素）")
+            are the keyboard road's own refusal faces (the t982 zoom-clamp
+            dialect's valuetext seat: at the wall the shrinking press is
+            eaten silently by the clamp, so the FACE must say it). The
+            valuemax rides the same clampGeo ceiling the pointer drag
+            hits — the pattern's other half, never spoken before. The
+            cure is VOICE-ONLY: keyResize's arithmetic is untouched. */}
         {!isMobile && (
           <>
             <div
@@ -2259,7 +2270,17 @@ export function AssistantPanel() {
               aria-orientation="vertical"
               aria-label="调整助手窗口宽度（左右方向键）"
               aria-valuemin={GEO_MIN_W}
+              aria-valuemax={geo ? Math.max(window.innerWidth - 16, GEO_MIN_W) : undefined}
               aria-valuenow={geo?.w}
+              aria-valuetext={
+                geo
+                  ? geo.w <= GEO_MIN_W
+                    ? `已到最小宽度（${GEO_MIN_W} 像素）`
+                    : geo.w >= Math.max(window.innerWidth - 16, GEO_MIN_W)
+                      ? `已到最大宽度（${Math.max(window.innerWidth - 16, GEO_MIN_W)} 像素）`
+                      : `宽度 ${geo.w} 像素`
+                  : undefined
+              }
               tabIndex={0}
               className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize touch-none transition-colors hover:bg-primary/20 focus-visible:bg-primary/40 focus-visible:outline-none"
               onPointerDown={(e) => beginDrag(e, "e")}
@@ -2275,7 +2296,17 @@ export function AssistantPanel() {
               aria-orientation="horizontal"
               aria-label="调整助手窗口高度（上下方向键）"
               aria-valuemin={GEO_MIN_H}
+              aria-valuemax={geo ? Math.max(window.innerHeight - 16, GEO_MIN_H) : undefined}
               aria-valuenow={geo?.h}
+              aria-valuetext={
+                geo
+                  ? geo.h <= GEO_MIN_H
+                    ? `已到最小高度（${GEO_MIN_H} 像素）`
+                    : geo.h >= Math.max(window.innerHeight - 16, GEO_MIN_H)
+                      ? `已到最大高度（${Math.max(window.innerHeight - 16, GEO_MIN_H)} 像素）`
+                      : `高度 ${geo.h} 像素`
+                  : undefined
+              }
               tabIndex={0}
               className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none transition-colors hover:bg-primary/20 focus-visible:bg-primary/40 focus-visible:outline-none"
               onPointerDown={(e) => beginDrag(e, "s")}
