@@ -1,0 +1,16 @@
+{
+  "walk": "t994-cancelled-flip-walk",
+  "ride": 2,
+  "at": "2026-10-15T01:20:00+08:00",
+  "verdict": "RED — FATAL (no finish() receipt; the log was teed and this hand receipt records it)",
+  "pass": 9,
+  "fail": 0,
+  "fatal": {
+    "leg": "the fold walk (pollTraced walkExpr @320, patience 12x600 as-born)",
+    "message": "FATAL: the fold walk never measured",
+    "mechanism": "the t989 storm's fingerprint: ~463MB available and the viewport re-layout outlived the poll while ride 1 had answered the SAME leg green (panelW=305 overX=false); the failure MOVED legs between rides (red1 N10 -> red2 fold -> red3 D1) — the environment's, not the product's",
+    "cure": "the fold patience bumped 12x600 -> 24x600 in the same commit, named in source",
+    "logTail": "ride 2 died after segment A's wide asserts all passed (the SECOND FLIP, the aria verdict, the chip, the label, the hint, the icon, the head, the exoneration)"
+  },
+  "note": "the receipt-preservation law (t991): a red ride's record is saved BEFORE any re-run; the console log is gitignored by design — the JSON receipt is the canonical record"
+}

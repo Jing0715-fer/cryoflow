@@ -1,0 +1,32 @@
+{
+  "walk": "t994-cancelled-flip-walk",
+  "at": "2026-10-14T17:25:09.449Z",
+  "pass": 25,
+  "fail": 1,
+  "phaseTrace": [
+    "teaserA i0: {\"ovd\":true,\"neg\":false}",
+    "foldA i0: {\"panelW\":305,\"panelSW\":305,\"panelCW\":305,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"span\",\"cls\":\"ovd-chip-label min-w-0 truncate text-[10.5px] ",
+    "jumpA i0: {\"logSelected\":true,\"fullMode\":true,\"consoleThere\":true,\"stripThere\":true,\"stripAria\":\"Failure diagnosis: 1 finding\",\"rowThere\":true,\"rowExcerpt\":\"slurmstepd: e",
+    "wallD i0: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"pre\",\"cls\":\"m-0 whitespace-pre\",\"sw\":1733,\"cw\":1153,\"ove",
+    "wallD i5: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"pre\",\"cls\":\"m-0 whitespace-pre\",\"sw\":1733,\"cw\":1153,\"ove",
+    "wallD i10: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"pre\",\"cls\":\"m-0 whitespace-pre\",\"sw\":1733,\"cw\":1153,\"ove",
+    "wallD i15: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"pre\",\"cls\":\"m-0 whitespace-pre\",\"sw\":1733,\"cw\":1153,\"ove",
+    "wallD i20: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"pre\",\"cls\":\"m-0 whitespace-pre\",\"sw\":1733,\"cw\":1153,\"ove"
+  ],
+  "results": [
+    {
+      "label": "D1 the walltime face STILL speaks EXACTLY ONE chip (the t994 row did not double-match it)",
+      "cond": false,
+      "extra": "[]"
+    }
+  ],
+  "flip": {
+    "face": "Cancelled Diagnosis Face (t976)",
+    "row": "scheduler-cancelled",
+    "discriminators": [
+      "walltime-limit",
+      "oom-kill",
+      "gpu-oom"
+    ]
+  }
+}

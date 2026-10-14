@@ -1,0 +1,23 @@
+{
+  "walk": "t994-cancelled-flip-walk",
+  "at": "2026-10-14T17:39:26.678Z",
+  "pass": 28,
+  "fail": 0,
+  "phaseTrace": [
+    "ovr0 i0: {\"panelW\":1380,\"panelSW\":1380,\"panelCW\":1380,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center w",
+    "foldA i0: {\"panelW\":305,\"panelSW\":305,\"panelCW\":305,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"span\",\"cls\":\"ovd-chip-label min-w-0 truncate text-[10.5px] ",
+    "jumpA i0: {\"logSelected\":true,\"fullMode\":true,\"consoleThere\":true,\"stripThere\":true,\"stripAria\":\"Failure diagnosis: 1 finding\",\"rowThere\":true,\"rowExcerpt\":\"slurmstepd: e",
+    "ovr0 i0: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center w",
+    "ovr0 i0: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center w"
+  ],
+  "results": [],
+  "flip": {
+    "face": "Cancelled Diagnosis Face (t976)",
+    "row": "scheduler-cancelled",
+    "discriminators": [
+      "walltime-limit",
+      "oom-kill",
+      "gpu-oom"
+    ]
+  }
+}

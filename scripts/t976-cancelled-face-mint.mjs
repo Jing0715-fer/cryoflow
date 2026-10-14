@@ -8,6 +8,21 @@
  * negative leg needed a NEW face: a death the log narrates WITHOUT
  * naming a cause.
  *
+ * t994 — THE FACE FLIPPED TOO: the plain-CANCELLED signature question
+ * (the t976 recorded-not-cured ②) was decided the same way the walltime
+ * question was — the no-reason form of slurmstepd's own record
+ * ("*** JOB 483077 CANCELLED AT … ***") is the scheduler's narration of
+ * a cancellation, only the REASON stays unnamed, and the teaser's
+ * "custom to this job" verdict was refuted by the log's own words. The
+ * scheduler-cancelled row joined the table and THIS face flipped
+ * positive (exactly one finding) exactly as the t972 face had. The log
+ * fixture is UNCHANGED — the flip lives in the table, not the log — and
+ * the re-mint only re-stamps the honest RESULT sentence (the verdict
+ * the card shows must not contradict the strip the row opened). The
+ * negative teaser now holds NO live face in this world; its contract
+ * stays alive in the t970 unit's synthetic stories (N19) until a
+ * future mint re-homes it.
+ *
  * The face's story: an operator scancel (the queue admin's nightly
  * sweep, a preemption — the log does not say). SLURM records the kill
  * in its own words — "slurmstepd: error: *** JOB 483077 CANCELLED AT
@@ -18,25 +33,26 @@
  * ALSO stay silent: it fires when the log's last three non-empty lines
  * include a live progress frame, so this log ends on three honest
  * non-frame lines (the slurmd SIGTERM notice, the bash Terminated
- * report, the slurmstepd CANCELLED record). Result:
- * diagnoseFailureLog(full run.out) === [] by construction — the
- * negative teaser renders "0 findings", the Log console renders NO
- * strip (the findings.length > 0 gate), and the log itself is the
- * answer (the user reads the CANCELLED line and goes asking the
- * admin). The plain-CANCELLED line deliberately does NOT match the
- * walltime row: "DUE TO TIME LIMIT" is the discriminator between a
- * narrated walltime death (the t972 face, now positive) and an
- * unnamed external cancel (this face, the negative leg's new home).
+ * report, the slurmstepd CANCELLED record). Result: the signature
+ * table answers EXACTLY ONCE (the t994 scheduler-cancelled row — the
+ * line IS the scheduler naming the cancellation), the t323 autopsy
+ * stays silent behind it, the chip speaks the row's label + hint, and
+ * the strip RETURNS in Full mode (the findings.length > 0 gate opens).
+ * The plain-CANCELLED line still does NOT match the walltime row —
+ * "DUE TO TIME LIMIT" is the discriminator between a narrated walltime
+ * death (the t972 face) and an unnamed external cancel (this face, now
+ * the t994 row's own witness).
  *
  * The mint rides the t970/t972 grammar verbatim (API job creation +
  * workdir files + engine-state.json direct write + the t263 row flip),
  * ADDITIVE and removable without touching the seed trio / the door /
  * the bench / the t970 face / the t972 face. Its verify carries an
  * INLINE MIRROR of the signature table (transcribed from
- * src/lib/log-diagnosis.ts, the t976 walltime row included — 16 rows)
- * so the mint proves the zero-match property at the API tier; the UI
- * walk (scripts/t976-walltime-flip-walk.mjs) is the ground truth, and
- * the t970 unit's N-band pins the lib's response to the same story.
+ * src/lib/log-diagnosis.ts, the t994 scheduler-cancelled row included
+ * — 17 rows) so the mint proves the ONE-match property at the API
+ * tier; the UI walk (scripts/t994-cancelled-flip-walk.mjs) is the
+ * ground truth, and the t970 unit's N-band pins the lib's response to
+ * the same story.
  *
  *   node scripts/t976-cancelled-face-mint.mjs mint|verify|remove
  */
@@ -51,7 +67,7 @@ const PROJECT_ID = process.env.MINT_PROJECT_ID ?? "cmv6ml09e0000kn9mgxrsun5w"; /
 const DATA_ROOT = path.join(process.cwd(), "data", "relion", PROJECT_ID);
 const STATE_FILE = path.join(process.cwd(), "data", "engine-state.json");
 const RESULT_SENTENCE =
-  "the run ended in an external cancellation SLURM recorded without a reason (*** CANCELLED AT … *** — an operator scancel or a preemption; the log names no cause) mid-iteration 4 of 25 — the log carries no failure signature by design (the t976 cancelled diagnosis face)";
+  "the run ended in an external cancellation SLURM recorded in its own words (*** CANCELLED AT … *** — an operator scancel or a preemption; no reason named) mid-iteration 4 of 25 — the strip speaks the t994 scheduler-cancelled row (the face flipped from the teaser's zero to the one-match contract)";
 
 let pass = 0;
 let fail = 0;
@@ -82,9 +98,11 @@ const workdirOf = (jobId) => path.join(DATA_ROOT, `class3d_${jobId.slice(-8)}`);
  * load, three settled iterations with their class tables and time bars
  * (the worm dialect mid-log is fine — the t323 autopsy only reads the
  * TAIL), iteration 4's start, and then the operator's scancel landing.
- * Every line is checked against the mirror table below; none may
- * match — the CANCELLED line's missing "DUE TO TIME LIMIT" is what
- * keeps the walltime row out of this face. */
+ * Every line is checked against the mirror table below; EXACTLY ONE
+ * may match — the t994 scheduler-cancelled row, whose closing *** sits
+ * right after the timestamp. The line's missing "DUE TO TIME LIMIT" is
+ * what keeps the walltime row out of this face (the discriminator's
+ * other side). */
 const cancelledRunOut = () =>
   [
     "RELION: 3D classification (t976 cancelled diagnosis face)",
@@ -123,11 +141,11 @@ const cancelledRunOut = () =>
 
 /* ---------------------------------------------------------------
  * the MIRROR TABLE — transcribed from src/lib/log-diagnosis.ts
- * (the 16 signature patterns, t976's walltime row included). The
- * mint proves the zero-match property at the API tier; the UI walk
- * is the ground truth; the t970 unit's N-band pins the lib's
- * response to the same story. If the lib's table grows, THIS
- * mirror must be re-keyed in the same commit — the unit's N10 is
+ * (the 17 signature patterns, t994's scheduler-cancelled row
+ * included). The mint proves the ONE-match property at the API tier;
+ * the UI walk is the ground truth; the t970 unit's N-band pins the
+ * lib's response to the same story. If the lib's table grows, THIS
+ * mirror must be re-keyed in the same commit — the unit's N10b is
  * the tripwire that catches the desync BEFORE the mint lies.
  * --------------------------------------------------------------- */
 const MIRROR_PATTERNS = [
@@ -146,6 +164,7 @@ const MIRROR_PATTERNS = [
   ["ctffind-no-fit", /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i],
   ["gpu-free-memory-warning", /Ignoring required free GPU memory amount of \d+ MB/i],
   ["walltime-limit", /\bDUE TO TIME LIMIT\b/i],
+  ["scheduler-cancelled", /\*\*\* JOB \d+ CANCELLED AT \S+ \*\*\*/],
   ["gpu-starved-refusal", /CRYOFLOW_ERR: only \d+ MB free on the GPU/i],
 ];
 /* t323's live progress frame — the autopsy fires only if the log's last
@@ -226,13 +245,18 @@ const checkLogContract = (jobId) => {
   ok(full?.truncated === false, "the log is under the 8MB cap (truncated false)");
 
   const violations = mirrorViolations(text);
-  ok(violations.length === 0, "ZERO signature matches across the full log (the 16-pattern mirror)", violations.slice(0, 4).join(",") || "clean");
+  ok(violations.length === 1 && violations[0].endsWith(":scheduler-cancelled"),
+    "EXACTLY ONE signature match across the full log — the t994 scheduler-cancelled row (the 17-pattern mirror; the face flipped)",
+    violations.join(",") || "clean");
   ok(!tailHasLiveFrame(text), "the tail's last three non-empty lines carry no live frame (the t323 autopsy stays silent)");
 
   const tail = api("GET", `/api/jobs/${jobId}/log`);
   const tailText = typeof tail?.tail === "string" ? tail.tail : "";
   ok(tailText.length > 0, "the tail route answers (the Log tab's window)", `${tailText.length}B`);
-  ok(mirrorViolations(tailText).length === 0, "the tail window is signature-free too (teaser and strip would agree)");
+  const tailViolations = mirrorViolations(tailText);
+  ok(tailViolations.length === 1 && tailViolations[0].endsWith(":scheduler-cancelled"),
+    "the tail window carries the SAME single scheduler-cancelled hit (teaser and strip would agree)",
+    tailViolations.join(",") || "none");
   return text;
 };
 

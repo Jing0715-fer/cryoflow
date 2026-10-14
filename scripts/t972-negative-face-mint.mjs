@@ -128,10 +128,10 @@ const negativeRunOut = () =>
 
 /* ---------------------------------------------------------------
  * the MIRROR TABLE — transcribed from src/lib/log-diagnosis.ts
- * (the 16 signature patterns, t976's walltime row included). The
- * mint proves the ONE-match property at the API tier; the UI walk
- * is the ground truth; the t970 unit's N-band pins the lib's
- * response to the same story. If the lib's table grows, THIS
+ * (the 17 signature patterns, t994's scheduler-cancelled row
+ * included). The mint proves the ONE-match property at the API tier;
+ * the UI walk is the ground truth; the t970 unit's N-band pins the
+ * lib's response to the same story. If the lib's table grows, THIS
  * mirror must be re-keyed in the same commit — the unit's N10 is
  * the tripwire that catches the desync BEFORE the mint lies.
  * --------------------------------------------------------------- */
@@ -151,6 +151,7 @@ const MIRROR_PATTERNS = [
   ["ctffind-no-fit", /failed to estimate CTF parameters for any micrograph|cannot get CTF values for/i],
   ["gpu-free-memory-warning", /Ignoring required free GPU memory amount of \d+ MB/i],
   ["walltime-limit", /\bDUE TO TIME LIMIT\b/i],
+  ["scheduler-cancelled", /\*\*\* JOB \d+ CANCELLED AT \S+ \*\*\*/],
   ["gpu-starved-refusal", /CRYOFLOW_ERR: only \d+ MB free on the GPU/i],
 ];
 /* t323's live progress frame — the autopsy fires only if the log's last
@@ -230,12 +231,15 @@ const checkLogContract = (jobId) => {
   ok(text.length > 1500, "the log route answers the face's full log (non-empty — the t318 law)", `${text.length}B`);
   ok(full?.truncated === false, "the log is under the 8MB cap (truncated false)");
 
-  /* the t976 FLIP: the slurmstepd line IS the table's walltime row —
-   * exactly one match, on both windows (teaser and strip agree — the
-   * t971 parity law) */
+  /* the t976 FLIP + the t994 DISCRIMINATOR: the slurmstepd line IS the
+   * table's walltime row — exactly one match, on both windows (teaser
+   * and strip agree — the t971 parity law). The t994 scheduler-cancelled
+   * row rides the mirror too, and the walltime line's "DUE TO TIME
+   * LIMIT" between the timestamp and the closing *** keeps it out —
+   * the mirror finding EXACTLY ONE hit is now BOTH rows' witness. */
   const fullHits = mirrorViolations(text);
   ok(fullHits.length === 1 && fullHits[0].endsWith(":walltime-limit"),
-    "EXACTLY ONE signature match across the full log (the 16-pattern mirror — the t976 walltime row)",
+    "EXACTLY ONE signature match across the full log (the 17-pattern mirror — the t976 walltime row; the t994 row stays out by the closing-*** discriminator)",
     fullHits.join(",") || "none");
   ok(!tailHasLiveFrame(text), "the tail's last three non-empty lines carry no live frame (the t323 autopsy stays silent)");
 
