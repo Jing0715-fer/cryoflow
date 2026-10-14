@@ -1,0 +1,31 @@
+{
+  "instrument": "t982-aria-refusal-walk",
+  "born": "2026-10-14",
+  "contract": "the message-quality FIFTH pass, first sub-option — the cured faces witnessed live",
+  "legs": {
+    "worldAlive": true,
+    "sendRefusal": {
+      "live": true,
+      "disabled": true
+    },
+    "findRefusals": {
+      "prev": true,
+      "prevDisabled": true,
+      "next": true,
+      "nextDisabled": true
+    },
+    "zoomClamp": {
+      "clicks": 5,
+      "outLabel": "Zoom out (already at minimum zoom)",
+      "inLabel": "Zoom in"
+    },
+    "restored": {
+      "outLabel": "Zoom out",
+      "outDisabled": false,
+      "inLabel": "Zoom in",
+      "inDisabled": false
+    }
+  },
+  "pass": 17,
+  "fail": 0
+}

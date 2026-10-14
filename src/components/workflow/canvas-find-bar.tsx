@@ -384,7 +384,7 @@ export function CanvasFindBar() {
         variant="ghost"
         size="icon"
         className="size-6"
-        aria-label="Previous match"
+        aria-label={n === 0 ? "Previous match (no results yet)" : "Previous match"}
         title="Previous match (Shift+Enter)"
         data-testid="canvas-find-prev"
         disabled={n === 0}
@@ -396,7 +396,7 @@ export function CanvasFindBar() {
         variant="ghost"
         size="icon"
         className="size-6"
-        aria-label="Next match"
+        aria-label={n === 0 ? "Next match (no results yet)" : "Next match"}
         title="Next match (Enter)"
         data-testid="canvas-find-next"
         disabled={n === 0}

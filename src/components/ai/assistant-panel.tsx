@@ -2164,7 +2164,7 @@ export function AssistantPanel() {
                 className="absolute bottom-2 right-2 size-8"
                 onClick={() => void send(input)}
                 disabled={!input.trim()}
-                aria-label="Send"
+                aria-label={!input.trim() ? "Send (type a message first)" : "Send"}
                 title="发送 (Enter)"
               >
                 <CornerDownLeft className="size-4" aria-hidden="true" />

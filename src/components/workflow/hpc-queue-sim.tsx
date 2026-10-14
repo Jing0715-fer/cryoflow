@@ -416,7 +416,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
           variant="ghost"
           onClick={() => void compare()}
           disabled={sweeping}
-          aria-label="Compare cluster profiles"
+          aria-label={sweeping ? "Compare cluster profiles (a sweep is running)" : "Compare cluster profiles"}
           title="Simulate every GPU profile with its own declared shape (nodes × GPUs/node × throttle × speedup)"
         >
           {sweeping
@@ -429,7 +429,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
           variant="outline"
           onClick={() => void run()}
           disabled={loading}
-          aria-label="Run queue simulation"
+          aria-label={loading ? "Run queue simulation (running)" : "Run queue simulation"}
         >
           {loading
             ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
@@ -643,7 +643,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   className="h-6 gap-1 px-1.5 text-[10px]"
                   disabled={!sweep.length}
                   onClick={() => void exportCsv("copy")}
-                  aria-label="Copy comparison as CSV"
+                  aria-label={!sweep.length ? "Copy comparison as CSV (run a comparison first)" : "Copy comparison as CSV"}
                   title="Copy the race as CSV (raw minutes, machine-readable) — falls back to a download when the clipboard is denied"
                 >
                   <Copy className="size-3" aria-hidden="true" />
@@ -655,7 +655,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   className="h-6 gap-1 px-1.5 text-[10px]"
                   disabled={!sweep.length}
                   onClick={() => void exportCsv("download")}
-                  aria-label="Download comparison as CSV"
+                  aria-label={!sweep.length ? "Download comparison as CSV (run a comparison first)" : "Download comparison as CSV"}
                   title="Save the race as hpc-sweep-<timestamp>.csv — the same bytes the copy path puts on the clipboard"
                 >
                   <Download className="size-3" aria-hidden="true" />
@@ -667,7 +667,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   className="h-6 gap-1 px-1.5 text-[10px]"
                   disabled={!sweep.length}
                   onClick={() => void exportMd("copy")}
-                  aria-label="Copy comparison as Markdown"
+                  aria-label={!sweep.length ? "Copy comparison as Markdown (run a comparison first)" : "Copy comparison as Markdown"}
                   title="Copy the race as a Markdown report (verdict, table, failures) — falls back to a download when the clipboard is denied"
                 >
                   <Copy className="size-3" aria-hidden="true" />
@@ -679,7 +679,7 @@ export function HpcQueueSim({ gpusPerNode }: { gpusPerNode?: number }) {
                   className="h-6 gap-1 px-1.5 text-[10px]"
                   disabled={!sweep.length}
                   onClick={() => void exportMd("download")}
-                  aria-label="Download comparison as Markdown"
+                  aria-label={!sweep.length ? "Download comparison as Markdown (run a comparison first)" : "Download comparison as Markdown"}
                   title="Save the race as hpc-sweep-report-<timestamp>.md — the same bytes the copy path puts on the clipboard"
                 >
                   <Download className="size-3" aria-hidden="true" />

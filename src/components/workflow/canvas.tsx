@@ -3010,7 +3010,7 @@ export function WorkflowCanvas() {
           className="size-7"
           onClick={() => zoomAroundCenter(zoom - ZOOM_STEP)}
           disabled={zoom <= ZOOM_MIN}
-          aria-label="Zoom out"
+          aria-label={zoom <= ZOOM_MIN ? "Zoom out (already at minimum zoom)" : "Zoom out"}
         >
           <ZoomOut className="size-4" />
         </Button>
@@ -3035,7 +3035,7 @@ export function WorkflowCanvas() {
           className="size-7"
           onClick={() => zoomAroundCenter(zoom + ZOOM_STEP)}
           disabled={zoom >= ZOOM_MAX}
-          aria-label="Zoom in"
+          aria-label={zoom >= ZOOM_MAX ? "Zoom in (already at maximum zoom)" : "Zoom in"}
         >
           <ZoomIn className="size-4" />
         </Button>
@@ -3244,7 +3244,7 @@ export function WorkflowCanvas() {
                 size="icon"
                 className="size-7 shrink-0"
                 disabled={!bookmarkName.trim()}
-                aria-label="Save current view"
+                aria-label={!bookmarkName.trim() ? "Save current view (name the view first)" : "Save current view"}
                 data-canvas-ui="viewport-bookmark-save"
                 onClick={() => {
                   if (saveViewportBookmark(bookmarkName)) setBookmarkName("");
@@ -3322,7 +3322,7 @@ export function WorkflowCanvas() {
           className="size-7"
           onClick={() => void handleExportPng()}
           disabled={posterBusy !== null || jobs.length === 0}
-          aria-label="Export canvas as PNG"
+          aria-label={posterBusy !== null ? "Export canvas as PNG (a poster render is running)" : jobs.length === 0 ? "Export canvas as PNG (the world has no jobs yet)" : "Export canvas as PNG"}
           title="Export the whole workflow as a poster PNG (content-fit, with footer)"
         >
           {posterBusy === "download" ? (
