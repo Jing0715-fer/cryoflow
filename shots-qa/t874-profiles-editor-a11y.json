@@ -1,0 +1,650 @@
+{
+  "instrument": "scripts/t874-profiles-editor-a11y.mjs",
+  "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
+  "build": "dev@31eccb9c8237",
+  "worldMode": "dev",
+  "date": "2026-10-14T06:44:45.386Z",
+  "chain": "API warm (profiles + sbatch + simulate) -> clean room -> host card (plain door) -> inspector -> tools door -> sbatch dialog (layer 2) -> Manage cluster profiles (layer 3) -> the list face (4 rows, aria-pressed, the active marker) -> the form face (16 named fields, the read-only id) -> rename ride (fill -> dirty -> save -> flash -> registry) -> clamp ride (999 -> the server's 64 in the FORM) -> two-step delete (confirm words -> drop -> save -> registry == original) -> three-layer peel -> worldBack + jobs census + registry re-read + seed hygiene",
+  "doors": {
+    "inspector": "plain pointerdown+pointerup on the host card — the submitted law",
+    "sbatch": "the t873 single-quote doors (trusted CDP clicks)",
+    "editor": "trusted CDP click on [aria-label='Manage cluster profiles']",
+    "row": "the filmed row's button — the aria-pressed law",
+    "fill": "native CDP fill — trusted events drive React onChange",
+    "save": "synthetic click on the 'Save to server' button — the t868 text-door shape",
+    "delete": "two trusted clicks — the label's own confirm words as the gate",
+    "registryPlant": "POST /api/hpc/profiles (the t259 metadata door) — restored bit-for-bit at exit"
+  },
+  "hosts": {
+    "script": {
+      "name": "3D Refine (tutorial)",
+      "id": "cmv79wm3z000uusbutpdpbijl",
+      "measured": true
+    }
+  },
+  "openingCanvas": 144,
+  "scratchPlanted": "t874-scratch",
+  "registryRestored": true,
+  "faces": {
+    "canvas": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "act": "BODY",
+        "mark": "alive",
+        "gen": 0,
+        "listPresent": false,
+        "listCount": 0,
+        "rowNames": [],
+        "pressedCount": 0,
+        "pressedName": null,
+        "markers": 0,
+        "countBadge": null,
+        "submitBadge": null,
+        "regionLbl": null,
+        "regionInputs": 0,
+        "idVal": null,
+        "idRO": null,
+        "nameVal": null,
+        "gpusVal": null,
+        "statusWord": null,
+        "saveDisabled": null,
+        "delLabel": null,
+        "delDisabled": null,
+        "alertText": null,
+        "seed": ""
+      }
+    },
+    "editorList": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 306,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 18,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 3,
+        "dlgHeadTop": "Cluster profiles4 / 8submitting with: slurm-gpu-cluster",
+        "act": "BUTTON",
+        "mark": "alive",
+        "gen": 0,
+        "listPresent": true,
+        "listCount": 4,
+        "rowNames": [
+          "Local workstation (this mach",
+          "Slurm GPU cluster (example: ",
+          "Slurm H100 hub (2×8 GPU, bur",
+          "T874 scratchV100login.scratc"
+        ],
+        "pressedCount": 1,
+        "pressedName": "Local workstation (this mach",
+        "markers": 1,
+        "countBadge": "4 / 8",
+        "submitBadge": "slurm-gpu-cluster",
+        "regionLbl": "Profile editor — the selected profile's identity, connection, resources, and env",
+        "regionInputs": 16,
+        "idVal": "local-workstation",
+        "idRO": true,
+        "nameVal": "Local workstation (this machine)",
+        "gpusVal": "0",
+        "statusWord": null,
+        "saveDisabled": false,
+        "delLabel": "Delete profile",
+        "delDisabled": false,
+        "alertText": null,
+        "seed": ""
+      }
+    },
+    "editorForm": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 306,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 18,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 3,
+        "dlgHeadTop": "Cluster profiles4 / 8submitting with: slurm-gpu-cluster",
+        "act": "BUTTON",
+        "mark": "alive",
+        "gen": 0,
+        "listPresent": true,
+        "listCount": 4,
+        "rowNames": [
+          "Local workstation (this mach",
+          "Slurm GPU cluster (example: ",
+          "Slurm H100 hub (2×8 GPU, bur",
+          "T874 scratchV100login.scratc"
+        ],
+        "pressedCount": 1,
+        "pressedName": "T874 scratchV100login.scratc",
+        "markers": 1,
+        "countBadge": "4 / 8",
+        "submitBadge": "slurm-gpu-cluster",
+        "regionLbl": "Profile editor — the selected profile's identity, connection, resources, and env",
+        "regionInputs": 16,
+        "idVal": "t874-scratch",
+        "idRO": true,
+        "nameVal": "T874 scratch",
+        "gpusVal": "2",
+        "statusWord": null,
+        "saveDisabled": false,
+        "delLabel": "Delete profile",
+        "delDisabled": false,
+        "alertText": null,
+        "seed": ""
+      }
+    },
+    "mutationFace": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 306,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 18,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 3,
+        "dlgHeadTop": "Cluster profiles4 / 8submitting with: slurm-gpu-cluster",
+        "act": "INPUT",
+        "mark": "alive",
+        "gen": 0,
+        "listPresent": true,
+        "listCount": 4,
+        "rowNames": [
+          "Local workstation (this mach",
+          "Slurm GPU cluster (example: ",
+          "Slurm H100 hub (2×8 GPU, bur",
+          "T874 scratch renamedV100logi"
+        ],
+        "pressedCount": 1,
+        "pressedName": "T874 scratch renamedV100logi",
+        "markers": 1,
+        "countBadge": "4 / 8",
+        "submitBadge": "slurm-gpu-cluster",
+        "regionLbl": "Profile editor — the selected profile's identity, connection, resources, and env",
+        "regionInputs": 16,
+        "idVal": "t874-scratch",
+        "idRO": true,
+        "nameVal": "T874 scratch renamed",
+        "gpusVal": "2",
+        "statusWord": "Saved — server view shown",
+        "saveDisabled": false,
+        "delLabel": "Delete profile",
+        "delDisabled": false,
+        "alertText": null,
+        "seed": ""
+      },
+      "clampFace": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 306,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 18,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 3,
+        "dlgHeadTop": "Cluster profiles4 / 8submitting with: slurm-gpu-cluster",
+        "act": "INPUT",
+        "mark": "alive",
+        "gen": 0,
+        "listPresent": true,
+        "listCount": 4,
+        "rowNames": [
+          "Local workstation (this mach",
+          "Slurm GPU cluster (example: ",
+          "Slurm H100 hub (2×8 GPU, bur",
+          "T874 scratch renamedV100logi"
+        ],
+        "pressedCount": 1,
+        "pressedName": "T874 scratch renamedV100logi",
+        "markers": 1,
+        "countBadge": "4 / 8",
+        "submitBadge": "slurm-gpu-cluster",
+        "regionLbl": "Profile editor — the selected profile's identity, connection, resources, and env",
+        "regionInputs": 16,
+        "idVal": "t874-scratch",
+        "idRO": true,
+        "nameVal": "T874 scratch renamed",
+        "gpusVal": "64",
+        "statusWord": "Saved — server view shown",
+        "saveDisabled": false,
+        "delLabel": "Delete profile",
+        "delDisabled": false,
+        "alertText": null,
+        "seed": ""
+      },
+      "deleteFace": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 305,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 18,
+        "unCtrls": 0,
+        "imgs": 14,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": true,
+        "dlgCount": 3,
+        "dlgHeadTop": "Cluster profiles3 / 8submitting with: slurm-gpu-cluster",
+        "act": "BUTTON",
+        "mark": "alive",
+        "gen": 0,
+        "listPresent": true,
+        "listCount": 3,
+        "rowNames": [
+          "Local workstation (this mach",
+          "Slurm GPU cluster (example: ",
+          "Slurm H100 hub (2×8 GPU, bur"
+        ],
+        "pressedCount": 1,
+        "pressedName": "Slurm H100 hub (2×8 GPU, bur",
+        "markers": 1,
+        "countBadge": "3 / 8",
+        "submitBadge": "slurm-gpu-cluster",
+        "regionLbl": "Profile editor — the selected profile's identity, connection, resources, and env",
+        "regionInputs": 16,
+        "idVal": "slurm-h100-hub",
+        "idRO": true,
+        "nameVal": "Slurm H100 hub (2×8 GPU, burst queue)",
+        "gpusVal": "8",
+        "statusWord": "Saved — server view shown",
+        "saveDisabled": false,
+        "delLabel": "Delete profile",
+        "delDisabled": false,
+        "alertText": null,
+        "seed": ""
+      }
+    },
+    "worldBack": {
+      "live": {
+        "url": "/",
+        "panelOpen": false,
+        "pageBtns": 144,
+        "pageUnnamed": 0,
+        "unWho": [],
+        "ctrls": 2,
+        "unCtrls": 0,
+        "imgs": 0,
+        "altless": 0,
+        "imgPending": 0,
+        "hasDlg": false,
+        "dlgCount": 0,
+        "dlgHeadTop": null,
+        "act": "BODY",
+        "mark": null,
+        "gen": 0,
+        "listPresent": false,
+        "listCount": 0,
+        "rowNames": [],
+        "pressedCount": 0,
+        "pressedName": null,
+        "markers": 0,
+        "countBadge": null,
+        "submitBadge": null,
+        "regionLbl": null,
+        "regionInputs": 0,
+        "idVal": null,
+        "idRO": null,
+        "nameVal": null,
+        "gpusVal": null,
+        "statusWord": null,
+        "saveDisabled": null,
+        "delLabel": null,
+        "delDisabled": null,
+        "alertText": null,
+        "seed": ""
+      }
+    }
+  },
+  "checks": [
+    {
+      "label": "R0 the registry speaks its defaults (the t259 metadata door answers)",
+      "pass": true,
+      "detail": "profiles=3"
+    },
+    {
+      "label": "R1 the scratch rode the world's own POST door (the registry grows by ONE)",
+      "pass": true,
+      "detail": "planted=4"
+    },
+    {
+      "label": "W-API the routes warm (profiles + sbatch builder + queue simulation answered)",
+      "pass": true,
+      "detail": "aimed at cmv79wm3z000"
+    },
+    {
+      "label": "O0 the boot is a clean room (the t157 seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "panelOpen=false"
+    },
+    {
+      "label": "O1 the canvas is calm and named (the census's invariant)",
+      "pass": true,
+      "detail": "btns=144 — zero unnamed anywhere"
+    },
+    {
+      "label": "W0 the client-chunk tax paid (the sbatch room holds warm after its birth)",
+      "pass": true,
+      "detail": "rides=1 dlg=2"
+    },
+    {
+      "label": "O2 the post-tax boot is a clean room again (the seed cleared, the panel closed)",
+      "pass": true,
+      "detail": "btns=144"
+    },
+    {
+      "label": "I1 the card's plain door opened the inspector (the submitted law)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "I2 the inspector arrived (a dialog aboard)",
+      "pass": true,
+      "detail": "dlgCount=1"
+    },
+    {
+      "label": "T1 the sbatch dialog arrived as the second layer (warm)",
+      "pass": true,
+      "detail": "dlgCount=2"
+    },
+    {
+      "label": "E1 the editor summoned as the THIRD layer (the stack inspector->sbatch->editor)",
+      "pass": true,
+      "detail": "dlgCount=3"
+    },
+    {
+      "label": "E1b the editor's registry LANDED (the load's own arrival — no stuck loading)",
+      "pass": true,
+      "detail": "rides=1 rows=4 badge=\"4 / 8\""
+    },
+    {
+      "label": "E2 the title speaks the room (Cluster profiles) with the count badge",
+      "pass": true,
+      "detail": "head=\"Cluster profiles4 / 8submitting with: slurm-gpu-cluster\" badge=\"4 / 8\""
+    },
+    {
+      "label": "E3 the submitting-with badge names the sbatch's own profile",
+      "pass": true,
+      "detail": "badge=\"slurm-gpu-cluster\""
+    },
+    {
+      "label": "E4 the profile list aboard with the world + the scratch (the named rows)",
+      "pass": true,
+      "detail": "rows=4 [Local workstation (this mach | Slurm GPU cluster (example:  | Slurm H100 hub (2×8 GPU, bur | T874 scratchV100login.scratc]"
+    },
+    {
+      "label": "E5 the active marker rides the sbatch's own row (the shadow inset's name)",
+      "pass": true,
+      "detail": "markers=1"
+    },
+    {
+      "label": "E6 zero unnamed page-wide AT THREE LAYERS (the census's deepest invariant)",
+      "pass": true,
+      "detail": "btns=306 ctrls=18"
+    },
+    {
+      "label": "F1 the scratch row's door spoke (the filmed row clicked)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "F2 the row's aria-pressed speaks the selection (the pressed law)",
+      "pass": true,
+      "detail": "pressed=\"T874 scratchV100login.scratc\""
+    },
+    {
+      "label": "F3 the id field is read-only and speaks the scratch id",
+      "pass": true,
+      "detail": "id=\"t874-scratch\" ro=true"
+    },
+    {
+      "label": "F4 the form region keeps its honest name and the keyboard door",
+      "pass": true,
+      "detail": "inputs=16"
+    },
+    {
+      "label": "F5 zero unnamed WITH the form bound (the census's invariant)",
+      "pass": true,
+      "detail": "btns=306 ctrls=18"
+    },
+    {
+      "label": "M1 the footer speaks the unsaved state (the dirty word's own voice)",
+      "pass": true,
+      "detail": "status=\"unsaved edits\""
+    },
+    {
+      "label": "M2 the name field reads the fill back",
+      "pass": true,
+      "detail": "name=\"T874 scratch renamed\""
+    },
+    {
+      "label": "M3 the save door spoke (and was ENABLED — the disabled law checked)",
+      "pass": true,
+      "detail": "found=true saveDisabled=false"
+    },
+    {
+      "label": "M4 the savedFlash speaks (Saved — server view shown: the response is the truth)",
+      "pass": true,
+      "detail": "status=\"Saved — server view shown\" dlg=3 rows=4 name=\"T874 scratch renamed\" alert=\"null\" retry=0"
+    },
+    {
+      "label": "M5 the registry reads the rename back (the world's own door confirms)",
+      "pass": true,
+      "detail": "name=\"T874 scratch renamed\""
+    },
+    {
+      "label": "M6 the flash rests (the 2.6s timer's own law) and the census holds",
+      "pass": true,
+      "detail": "status=null"
+    },
+    {
+      "label": "C0 the form still aboard before the clamp (the layer + the field present)",
+      "pass": true,
+      "detail": "dlg=3 gpus=\"2\" mark=alive"
+    },
+    {
+      "label": "C1 the fill dirtied the form again",
+      "pass": true,
+      "detail": "gpus=\"999\""
+    },
+    {
+      "label": "C2 the FORM re-rendered with the server's clamp (999 -> 64: the response is the truth)",
+      "pass": true,
+      "detail": "gpus=\"64\""
+    },
+    {
+      "label": "C3 the savedFlash speaks the second save",
+      "pass": true,
+      "detail": "status=\"Saved — server view shown\""
+    },
+    {
+      "label": "C4 the registry holds the clamped 64 (the server's own contract)",
+      "pass": true,
+      "detail": "gpus=64"
+    },
+    {
+      "label": "D1 the scratch row re-selected for its own funeral",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "D2 the door flipped to its confirm words (the two-step's own contract)",
+      "pass": true,
+      "detail": "label=\"Confirm delete profile\""
+    },
+    {
+      "label": "D3 the row dropped client-side and the footer speaks the unsaved tombstone",
+      "pass": true,
+      "detail": "rows=3 status=\"unsaved edits\""
+    },
+    {
+      "label": "D4 the save persisted the tombstone (the flash speaks)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "D5 the registry == the original bit-for-bit (the world came home through the UI's own doors)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "D6 the post-delete census held (zero unnamed, three layers up)",
+      "pass": true,
+      "detail": "btns=305 rows=3"
+    },
+    {
+      "label": "X1 Escape peeled the editor (3 -> 2), the sbatch remains",
+      "pass": true,
+      "detail": "dlgCount 3 -> 2"
+    },
+    {
+      "label": "X2 Escape peeled the sbatch (2 -> 1), the inspector remains",
+      "pass": true,
+      "detail": "dlgCount -> 1"
+    },
+    {
+      "label": "X3 Escape peeled the inspector (1 -> 0), the canvas bare",
+      "pass": true,
+      "detail": "dlgCount -> 0"
+    },
+    {
+      "label": "W1 the world unharmed (canvas count == the opening count, zero unnamed)",
+      "pass": true,
+      "detail": "btns=144 (opening 144)"
+    },
+    {
+      "label": "W2 the jobs count == the opening count (the rogue-row census's guard)",
+      "pass": true,
+      "detail": "jobs 15 -> 15"
+    },
+    {
+      "label": "W3 the registry still bit-for-bit (the plant and its tombstone left NOTHING)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "label": "W4 the ride leaves no session seed (the t157 two-way door's honest none)",
+      "pass": true,
+      "detail": "seed=\"\""
+    },
+    {
+      "label": "L canvas face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L editorList face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L editorForm face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L mutationFace face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    },
+    {
+      "label": "L worldBack face ride-drift law",
+      "pass": true,
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+    }
+  ],
+  "passed": 51,
+  "failed": 0,
+  "total": 51,
+  "verdict": "the profiles editor's faces hold — the registry's own UI walked at THREE layers: the API warm paid the routes' tax outside any ride, the scratch profile planted through the world's own POST door, the editor summoned as the third layer with its title's badges (the count, the submitting-with), FOUR named rows with the aria-pressed law and the active marker on the sbatch's own row, the form's sixteen named fields behind the region's honest name, the RENAME ride (fill -> the dirty word -> save -> the savedFlash \"Saved — server view shown\" -> the registry reads the new name), the CLAMP ride (999 in, the form re-rendered with the server's 64 — the description's promise made visible), the TWO-STEP delete (the confirm words, the client-side drop, the save persisting the tombstone, the registry == the original bit-for-bit), the three-layer peel (one layer per Escape), and the world back bit-for-bit with no seed — the ledger aboard from birth (five faces, the shared law)",
+  "driftLedger": {
+    "prevFound": true,
+    "prevBuild": "dev@31eccb9c8237",
+    "prevDate": "2026-10-14T06:43:42.697Z",
+    "sameBuild": true,
+    "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
+    "faces": {
+      "canvas": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "editorList": {
+        "prev": 306,
+        "live": 306,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "editorForm": {
+        "prev": 306,
+        "live": 306,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "mutationFace": {
+        "prev": 306,
+        "live": 306,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      },
+      "worldBack": {
+        "prev": 144,
+        "live": 144,
+        "drift": 0,
+        "identical": true,
+        "moved": {
+          "lens": [],
+          "world": []
+        }
+      }
+    }
+  }
+}
