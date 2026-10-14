@@ -3,7 +3,7 @@
   "ruler": "the census's ONE name computation: aria-label -> aria-labelledby resolved -> label[for] -> textContent -> img alt -> input value/placeholder — the ruler grows once, every instrument rides the growth (t864, the t861 pattern); name-monotone: the shared ruler's names are a superset of any older inline copy's",
   "build": "dev@31eccb9c8237",
   "worldMode": "dev",
-  "date": "2026-10-14T06:45:25.468Z",
+  "date": "2026-10-14T07:31:31.242Z",
   "chain": "canvas -> dashboard -> inspector -> palette -> restore (one command)",
   "doors": {
     "dashboard": "exact-text 'Dashboard' switcher click",
@@ -19,7 +19,7 @@
   "driftLedger": {
     "prevFound": true,
     "prevBuild": "dev@31eccb9c8237",
-    "prevDate": "2026-10-14T05:58:04.028Z",
+    "prevDate": "2026-10-14T07:29:51.991Z",
     "sameBuild": true,
     "law": "the ride-to-ride drift: prev receipt == this ride, per face, scalar and full live object — three arms recorded honestly: no predecessor (first ride, vacuous), world key moved (drift informational), same key (drift 0 AND identical, bit-for-bit, or red — on a build-mode key only; a dev@ key rides arm 2′ informational, the t859 jurisdiction clause: the build-day arm 3 will bite again); the pins measure the world's truth, the ledger measures the world's stability",
     "faces": {
@@ -47,20 +47,32 @@
         "prev": 289,
         "live": 289,
         "drift": 0,
-        "identical": true,
+        "identical": false,
         "moved": {
           "lens": [],
-          "world": []
+          "world": [
+            "imgs"
+          ]
         }
       },
       "palette": {
-        "prev": 152,
+        "prev": 144,
         "live": 152,
-        "drift": 0,
-        "identical": true,
+        "drift": 8,
+        "identical": false,
         "moved": {
-          "lens": [],
-          "world": []
+          "lens": [
+            "dlgHeading"
+          ],
+          "world": [
+            "ctrls",
+            "dlgBtns",
+            "dlgFocus",
+            "hasDlg",
+            "imgs",
+            "ip",
+            "pageBtns"
+          ]
         }
       },
       "restore": {
@@ -320,7 +332,7 @@
     {
       "label": "M20 the drift ledger is aboard: five faces, each carrying prev/live/drift/identical, the comparator's provenance recorded",
       "pass": true,
-      "detail": "comparator 2026-10-14T05:58:04.028Z (build dev@31eccb9c8237)"
+      "detail": "comparator 2026-10-14T07:29:51.991Z (build dev@31eccb9c8237)"
     },
     {
       "label": "M21 canvas ride-drift law (same build: bit-for-bit vs the previous receipt)",
@@ -335,12 +347,12 @@
     {
       "label": "M23 inspector ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: world [imgs]"
     },
     {
       "label": "M24 palette ride-drift law",
       "pass": true,
-      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +0 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause)"
+      "detail": "arm 2′ — dev world (key dev@31eccb9c8237), same-key ride drift +8 informational — the dev world is unfrozen; the build-day arm 3 will bite again (t859 jurisdiction clause) — the moved fields named: lens [dlgHeading]; world [ctrls, dlgBtns, dlgFocus, hasDlg, imgs, ip, pageBtns]"
     }
   ],
   "passed": 25,
