@@ -1,0 +1,167 @@
+{
+  "walk": "t988-continue-face-walk",
+  "at": "2026-10-14T13:56:20.209Z",
+  "face": {
+    "name": "Continue Face (t988)",
+    "jobId": "cmv863x9a0001usvbkt5ky1k0"
+  },
+  "pass": 31,
+  "fail": 0,
+  "results": [
+    {
+      "label": "the world renders (page buttons > 0)",
+      "ok": true,
+      "extra": "buttons=74"
+    },
+    {
+      "label": "the companion is shut (the ride plane is clear)",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "label": "the palette's Jobs group answers the face's name",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "label": "the jump landed — the edit panel hosts the face",
+      "ok": true,
+      "extra": "attempt 1: Enter on the selected row, landed"
+    },
+    {
+      "label": "the panel's badge says idle (the header-scoped read)",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "label": "the first-run face rests on \"Run\" (no continue target)",
+      "ok": true,
+      "extra": "label=\"Run\""
+    },
+    {
+      "label": "the blocked lane re-speaks on the new face (described, the t987 witness holding)",
+      "ok": true,
+      "extra": "disabled=true describedby=\"job-relion-blocked-hint\""
+    },
+    {
+      "label": "the fn_cont input is up and empty (the picker's own id)",
+      "ok": true,
+      "extra": "value=\"\""
+    },
+    {
+      "label": "the continue-picker's Browse door is up (the A44 host, live)",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "label": "the Browse door clicked through the real mouse path",
+      "ok": true,
+      "extra": "clicked@1393,509"
+    },
+    {
+      "label": "the singleFile dialog opened (\"Select an optimiser.star\")",
+      "ok": true,
+      "extra": "title=\"Select an optimiser.star\""
+    },
+    {
+      "label": "A44's refusal plane is LIVE (empty manual speaks through the name)",
+      "ok": true,
+      "extra": "disabled=true label=\"Use this path (type a path first)\""
+    },
+    {
+      "label": "the manual input clicked through the real mouse path",
+      "ok": true,
+      "extra": "clicked@637,663"
+    },
+    {
+      "label": "A44's enabled plane answers the keystroke (plain name, the flip)",
+      "ok": true,
+      "extra": "disabled=false label=\"Use this path\""
+    },
+    {
+      "label": "the pick click landed (the enabled plane's own action)",
+      "ok": true,
+      "extra": "clicked@967,663"
+    },
+    {
+      "label": "the dialog closed and the path landed in fn_cont",
+      "ok": true,
+      "extra": "fn_cont=\"/data/runs/run_it020_optimiser.star\""
+    },
+    {
+      "label": "THE t397 FLIP BLOOMS (the button now says \"Continue\" — a continue target owns the label)",
+      "ok": true,
+      "extra": "label=\"Continue\""
+    },
+    {
+      "label": "the restore lands (fn_cont empty, the label back to \"Run\")",
+      "ok": true,
+      "extra": "fn_cont=\"\" label=\"Run\""
+    },
+    {
+      "label": "the row flip to pending landed (the t263/t970 lane)",
+      "ok": true,
+      "extra": "exit=0"
+    },
+    {
+      "label": "THE PENDING FACE BLOOMED (the panel's badge says pending — the queue's own word, first live witness)",
+      "ok": true,
+      "extra": "word=pending"
+    },
+    {
+      "label": "the Run button's pending title speaks (inputs will be re-checked before the run starts)",
+      "ok": true,
+      "extra": "title=\"Run — inputs will be re-checked before the run starts\""
+    },
+    {
+      "label": "the Reset-to-idle door stays ENABLED under pending (only running closes it)",
+      "ok": true,
+      "extra": "resetDisabled=false"
+    },
+    {
+      "label": "the row flip to completed landed",
+      "ok": true,
+      "extra": "exit=0"
+    },
+    {
+      "label": "the COMPLETED face bloomed",
+      "ok": true,
+      "extra": "word=completed"
+    },
+    {
+      "label": "the ranBefore flip blooms (the button now says \"Re-run\")",
+      "ok": true,
+      "extra": "runLabel=\"Re-run\""
+    },
+    {
+      "label": "the Reset-to-idle click landed (the panel's own door)",
+      "ok": true,
+      "extra": "clicked@1332,219"
+    },
+    {
+      "label": "the face returned to idle (the reset law's own door)",
+      "ok": true,
+      "extra": "word=idle"
+    },
+    {
+      "label": "\"Run\" again (the first-run face is the idle plane's own)",
+      "ok": true,
+      "extra": "runLabel=\"Run\""
+    },
+    {
+      "label": "the world carries EIGHTEEN jobs (17 standing + the face)",
+      "ok": true,
+      "extra": "rows=18"
+    },
+    {
+      "label": "the face is back to idle with no run evidence and no continue target (the t445 reset law)",
+      "ok": true,
+      "extra": "status=idle ranParams=null fn_cont=\"\""
+    },
+    {
+      "label": "the standing seventeen untouched (byte-identical id:status:name fingerprint)",
+      "ok": true,
+      "extra": "rows=17"
+    }
+  ]
+}
