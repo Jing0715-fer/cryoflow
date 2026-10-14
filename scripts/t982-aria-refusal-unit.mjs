@@ -68,9 +68,9 @@ try { unlinkSync(TMP); } catch {}
 
 /* A2–A5 — the tally by SLOT */
 ok("A2 population = 171 (the world's shape)", receipt?.population === 171, `got ${receipt?.population}`);
-ok("A3 stateful = 81 (61 standing + the 13 t982 + the 7 t983 cures)", receipt?.tally?.stateful === 81, `got ${receipt?.tally?.stateful}`);
+ok("A3 stateful = 99 (61 standing + the 13 t982 + the 7 t983 + the 18 t984 cures)", receipt?.tally?.stateful === 99, `got ${receipt?.tally?.stateful}`);
 ok("A4 silent-static = 30 (43 − the 13 cures)", receipt?.tally?.["silent-static"] === 30, `got ${receipt?.tally?.["silent-static"]}`);
-ok("A5 silences = 90 (110 − the 13+7 cures)", receipt?.silences === 90, `got ${receipt?.silences}`);
+ok("A5 silences = 72 (110 − the 13+7+18 cures)", receipt?.silences === 72, `got ${receipt?.silences}`);
 
 /* A6 — the design-exclusion law, pinned at the census's source */
 const censusSrc = readFileSync(CENSUS, "utf8");
@@ -112,20 +112,23 @@ const FACES = [
 ];
 for (const [id, f, needle] of FACES) ok(`${id} ${path.basename(f)} speaks the refusal`, shape(f, needle));
 
-/* A20–A21 — the NAME-STORY law (the t983 upgrade): the census classifies
-   every silent-text site by its story — flip (the text itself flips with
-   state: honest), var (a dynamic name the scanner cannot judge:
-   recorded), component (a self-closing custom component: the boundary),
-   blind (a static name with no story), unnamed (NO name at all: the
-   heaviest disease — currently ZERO). The tally by SLOT; curing more
-   blind faces re-keys A21 AND A3/A5 in the same commit. */
-ok("A20 the story classifier lives (five classes in the census source)",
-  ["flip", "var", "blind", "unnamed", "component"].every((c) => censusSrc.includes(`"${c}"`)) &&
+/* A20–A21 — the NAME-STORY law (the t983 upgrade, the t984 sixth class):
+   the census classifies every silent-text site by its story — flip (the
+   text itself flips with state: honest), var (a dynamic name the scanner
+   cannot judge: recorded), component (a self-closing custom component:
+   the boundary), blind (a static name with no story — the cure pool,
+   now CLOSED at zero), vendor (a stock-shelf file under src/components/ui/:
+   the library's own code, recorded by the t984 ruling, never cured),
+   unnamed (NO name at all: the heaviest disease — currently ZERO). The
+   tally by SLOT; curing more blind faces re-keys A21 AND A3/A5 in the
+   same commit. */
+ok("A20 the story classifier lives (six classes in the census source)",
+  ["flip", "var", "blind", "unnamed", "component", "vendor"].every((c) => censusSrc.includes(`"${c}"`)) &&
   censusSrc.includes("nameStory"));
 const st = receipt?.storyTally ?? {};
-ok("A21 the story tally by SLOT (flip 20 · var 19 · component 1 · blind 20 · unnamed 0)",
-  st.flip === 20 && st.var === 19 && st.component === 1 && st.blind === 20 && (st.unnamed ?? 0) === 0,
-  `flip=${st.flip} var=${st.var} comp=${st.component} blind=${st.blind} unnamed=${st.unnamed ?? 0}`);
+ok("A21 the story tally by SLOT (flip 20 · var 19 · component 1 · blind 0 · vendor 2 · unnamed 0)",
+  st.flip === 20 && st.var === 19 && st.component === 1 && (st.blind ?? 0) === 0 && st.vendor === 2 && (st.unnamed ?? 0) === 0,
+  `flip=${st.flip} var=${st.var} comp=${st.component} blind=${st.blind ?? 0} vendor=${st.vendor} unnamed=${st.unnamed ?? 0}`);
 
 /* A22–A28 — the seven t983 cures (the BLIND pool's first wave — every
    face a text button, every cure keeps the label-in-name law: the
@@ -147,6 +150,58 @@ const FACES3 = [
     'aria-label={owing.length === 0 ? "Bring home all (nothing is owed)" : "Bring home all"}'],
 ];
 for (const [id, f, needle] of FACES3) ok(`${id} ${path.basename(f)} speaks the refusal`, shape(f, needle));
+
+/* A29–A46 — the eighteen t984 cures (the BLIND pool's SECOND wave — the
+   AMBIENT-REFUSAL ruling applied): the name carries the reason regardless
+   of ambience (the modal's own announcement is why the reason is CHEAP to
+   learn, not why the name may omit it); the ambient form speaks the
+   ONGOING ACT ("the cleanup is running"), not an instruction; the
+   discoverable-state faces keep the instruction form ("type a path
+   first"); the label-in-name fence holds on every face. */
+const FACES4 = [
+  ["A29", "src/components/workflow/cleanup-dialog.tsx",
+    'aria-label={executing ? "Close (the cleanup is running)" : "Close"}'],
+  ["A30", "src/components/workflow/cleanup-dialog.tsx",
+    'aria-label={executing ? "Keep them (the cleanup is running)" : "Keep them"}'],
+  ["A31", "src/components/workflow/project-dashboard.tsx",
+    'aria-label={deleting ? "Cancel (the deletion is running)" : "Cancel"}'],
+  ["A32", "src/components/workflow/project-panel.tsx",
+    'aria-label={creating ? "Cancel (the project is being created)" : "Cancel"}'],
+  ["A33", "src/components/workflow/remote-cluster-dialog.tsx",
+    'aria-label={creating ? "Add connection (the create form is open)" : "Add connection"}'],
+  ["A34", "src/components/workflow/template-presets-dialog.tsx",
+    'aria-label={busy ? "Reset (a pipeline is being created)" : "Reset"}'],
+  ["A35", "src/components/workflow/template-presets-dialog.tsx",
+    'aria-label={busy ? "Cancel (a pipeline is being created)" : "Cancel"}'],
+  ["A36", "src/components/workflow/workspace-panel.tsx",
+    'aria-label={deleting ? "Cancel (the workspace is being deleted)" : "Cancel"}'],
+  ["A37", "src/components/workflow/workspace-panel.tsx",
+    'aria-label={creating ? "Cancel (the workspace is being created)" : "Cancel"}'],
+  ["A38", "src/components/workflow/import-workflow-dialog.tsx",
+    'aria-label={busy ? "Cancel (the import is running)" : "Cancel"}'],
+  ["A39", "src/components/workflow/job-inspector.tsx",
+    'aria-label={busy ? "Apply preset (a preset is being applied)" : "Apply preset"}'],
+  ["A40", "src/components/workflow/job-card.tsx",
+    'aria-label={noteBusy ? "Clear note (the note is being saved)" : "Clear note"}'],
+  ["A41", "src/components/workflow/hpc-profiles-editor.tsx",
+    'aria-label={profiles.length >= MAX_PROFILES ? "Add (the profile limit is reached)" : "Add"}'],
+  ["A42", "src/components/workflow/job-panel.tsx",
+    'aria-label={!dirty ? "Reset (nothing to revert)" : "Reset"}'],
+  ["A43", "src/components/workflow/path-browser-dialog.tsx",
+    'aria-label={!manual.trim() ? "Go (type a path first)" : "Go"}'],
+  ["A44", "src/components/workflow/path-browser-dialog.tsx",
+    'aria-label={!manual.trim() ? "Use this path (type a path first)" : "Use this path"}'],
+  ["A45", "src/components/workflow/path-browser-dialog.tsx", [
+    '"Select this folder (the roots view is open)"',
+    '"Select this folder (no folder is open yet)"',
+  ]],
+  ["A46", "src/components/workflow/pipeline-script-dialog.tsx",
+    'aria-label={!data?.script ? "Download .sh (no script yet)" : "Download .sh"}'],
+];
+for (const [id, f, needle] of FACES4) {
+  const needles = Array.isArray(needle) ? needle : [needle];
+  ok(`${id} ${path.basename(f)} speaks the refusal`, needles.every((n) => shape(f, n)));
+}
 
 console.log(`VERDICT: ${fail === 0 ? `GREEN ${pass}/${pass + fail}` : `RED ${pass}/${pass + fail}`}`);
 console.log(`${pass}/${pass + fail} green`);

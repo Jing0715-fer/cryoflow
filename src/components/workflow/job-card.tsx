@@ -781,6 +781,7 @@ function JobCardMenu({
               <button
                 type="button"
                 disabled={noteBusy}
+                aria-label={noteBusy ? "Clear note (the note is being saved)" : "Clear note"}
                 onClick={() => {
                   setNoteDraft("");
                   void saveJob(job.id, { note: "" }, { silent: true }).then((res) => {

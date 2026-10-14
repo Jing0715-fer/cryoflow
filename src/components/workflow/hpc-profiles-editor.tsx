@@ -389,6 +389,7 @@ export function HpcProfilesEditor({
                   className="h-7 flex-1 text-[11px]"
                   onClick={addProfile}
                   disabled={profiles.length >= MAX_PROFILES}
+                  aria-label={profiles.length >= MAX_PROFILES ? "Add (the profile limit is reached)" : "Add"}
                 >
                   <Plus className="size-3" aria-hidden="true" /> Add
                 </Button>

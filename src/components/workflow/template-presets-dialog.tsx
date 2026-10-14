@@ -944,10 +944,17 @@ export function TemplatePresetsDialog() {
               onClick={resetToDefaults}
               disabled={busy}
               title="Return all knobs to the job-spec defaults"
+              aria-label={busy ? "Reset (a pipeline is being created)" : "Reset"}
             >
               Reset
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={busy}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setOpen(false)}
+              disabled={busy}
+              aria-label={busy ? "Cancel (a pipeline is being created)" : "Cancel"}
+            >
               Cancel
             </Button>
             <Button size="sm" onClick={() => void create()} disabled={busy} className="gap-1.5">

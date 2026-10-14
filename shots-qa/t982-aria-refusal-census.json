@@ -5,18 +5,18 @@
   "storyScope": "the t983 upgrade — silent-text sites classified by their name-story (flip/spin/unnamed/blind/unbounded)",
   "population": 171,
   "tally": {
-    "stateful": 81,
+    "stateful": 99,
     "described": 0,
     "silent-static": 30,
-    "silent-text": 60
+    "silent-text": 42
   },
   "storyTally": {
     "var": 19,
     "component": 1,
-    "blind": 20,
+    "vendor": 2,
     "flip": 20
   },
-  "silences": 90,
+  "silences": 72,
   "byFile": {
     "src/components/workflow/results/molstar-embed.tsx": [
       5719,
@@ -44,37 +44,17 @@
       1190,
       1309
     ],
-    "src/components/workflow/template-presets-dialog.tsx": [
-      372,
-      405,
-      643,
-      941,
-      950,
-      953
-    ],
     "src/components/workflow/canvas.tsx": [
       606,
       805,
       875,
       3098
     ],
-    "src/components/workflow/cleanup-dialog.tsx": [
-      457,
-      468,
-      514,
-      517
-    ],
-    "src/components/workflow/job-inspector.tsx": [
-      1835,
-      3092,
-      3792,
-      3808
-    ],
-    "src/components/workflow/path-browser-dialog.tsx": [
-      974,
-      991,
-      1002,
-      1012
+    "src/components/workflow/template-presets-dialog.tsx": [
+      372,
+      405,
+      643,
+      960
     ],
     "src/components/ai/ai-settings-dialog.tsx": [
       463,
@@ -86,54 +66,35 @@
       2004,
       2138
     ],
-    "src/components/workflow/hpc-profiles-editor.tsx": [
-      386,
-      395,
-      673
-    ],
-    "src/components/workflow/job-panel.tsx": [
-      1636,
-      1647,
-      1760
-    ],
-    "src/components/workflow/remote-cluster-dialog.tsx": [
-      1584,
-      1727,
-      2023
+    "src/components/workflow/job-inspector.tsx": [
+      3093,
+      3793,
+      3809
     ],
     "src/components/workflow/results/class-iteration-gallery.tsx": [
       788,
       836,
       853
     ],
-    "src/components/workflow/workspace-panel.tsx": [
-      536,
-      579,
-      582
-    ],
     "src/components/ui/carousel.tsx": [
       183,
       213
     ],
-    "src/components/workflow/import-workflow-dialog.tsx": [
-      375,
-      378
+    "src/components/workflow/cleanup-dialog.tsx": [
+      457,
+      522
     ],
-    "src/components/workflow/job-card.tsx": [
-      781,
-      802
+    "src/components/workflow/hpc-profiles-editor.tsx": [
+      396,
+      674
     ],
-    "src/components/workflow/pipeline-script-dialog.tsx": [
-      202,
-      216
+    "src/components/workflow/job-panel.tsx": [
+      1648,
+      1761
     ],
-    "src/components/workflow/project-dashboard.tsx": [
-      639,
-      3561
-    ],
-    "src/components/workflow/project-panel.tsx": [
-      355,
-      358
+    "src/components/workflow/remote-cluster-dialog.tsx": [
+      1584,
+      1727
     ],
     "src/components/workflow/results/particle-browser.tsx": [
       264,
@@ -151,8 +112,26 @@
     "src/components/workflow/hpc-sbatch-dialog.tsx": [
       207
     ],
+    "src/components/workflow/import-workflow-dialog.tsx": [
+      384
+    ],
+    "src/components/workflow/job-card.tsx": [
+      803
+    ],
     "src/components/workflow/orchestration-strip.tsx": [
       159
+    ],
+    "src/components/workflow/path-browser-dialog.tsx": [
+      1004
+    ],
+    "src/components/workflow/pipeline-script-dialog.tsx": [
+      202
+    ],
+    "src/components/workflow/project-dashboard.tsx": [
+      639
+    ],
+    "src/components/workflow/project-panel.tsx": [
+      363
     ],
     "src/components/workflow/results/continue-verb-row.tsx": [
       220
@@ -177,6 +156,9 @@
     ],
     "src/components/workflow/user-preset-shelf.tsx": [
       524
+    ],
+    "src/components/workflow/workspace-panel.tsx": [
+      587
     ]
   },
   "sites": [
@@ -294,7 +276,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
-      "story": "blind",
+      "story": "vendor",
       "snippet": "<Button"
     },
     {
@@ -307,7 +289,7 @@
       "staticLabel": null,
       "described": false,
       "verdict": "silent-text",
-      "story": "blind",
+      "story": "vendor",
       "snippet": "<Button"
     },
     {
@@ -657,13 +639,13 @@
       "condChars": 9,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/cleanup-dialog.tsx",
-      "line": 477,
+      "line": 478,
       "tag": "Button",
       "cond": "!canClean || executing",
       "condKind": "boolean",
@@ -676,20 +658,20 @@
     },
     {
       "f": "src/components/workflow/cleanup-dialog.tsx",
-      "line": 514,
+      "line": 515,
       "tag": "AlertDialogCancel",
       "cond": "executing",
       "condKind": "boolean",
       "condChars": 9,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
-      "snippet": "<AlertDialogCancel className=\"h-8 text-xs\" disabled={executing}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<AlertDialogCancel"
     },
     {
       "f": "src/components/workflow/cleanup-dialog.tsx",
-      "line": 517,
+      "line": 522,
       "tag": "AlertDialogAction",
       "cond": "executing",
       "condKind": "boolean",
@@ -702,7 +684,7 @@
     },
     {
       "f": "src/components/workflow/cleanup-dialog.tsx",
-      "line": 591,
+      "line": 596,
       "tag": "Checkbox",
       "cond": "scopeDisabled",
       "condKind": "boolean",
@@ -839,13 +821,13 @@
       "condChars": 31,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/hpc-profiles-editor.tsx",
-      "line": 395,
+      "line": 396,
       "tag": "Button",
       "cond": "!selected || profiles.length >= MAX_PROFILES",
       "condKind": "comparison",
@@ -858,7 +840,7 @@
     },
     {
       "f": "src/components/workflow/hpc-profiles-editor.tsx",
-      "line": 646,
+      "line": 647,
       "tag": "Button",
       "cond": "!selected || profiles.length <= 1",
       "condKind": "comparison",
@@ -871,7 +853,7 @@
     },
     {
       "f": "src/components/workflow/hpc-profiles-editor.tsx",
-      "line": 673,
+      "line": 674,
       "tag": "Button",
       "cond": "saving || loading || !profiles.length",
       "condKind": "comparison",
@@ -995,13 +977,13 @@
       "condChars": 4,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
-      "snippet": "<Button variant=\"ghost\" size=\"sm\" onClick={closePreview} disabled={busy}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/import-workflow-dialog.tsx",
-      "line": 378,
+      "line": 384,
       "tag": "Button",
       "cond": "busy || !targetWs || entries.length === 0",
       "condKind": "comparison",
@@ -1034,13 +1016,13 @@
       "condChars": 8,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
       "f": "src/components/workflow/job-card.tsx",
-      "line": 802,
+      "line": 803,
       "tag": "button",
       "cond": "noteBusy || noteDraft.trim().length === 0",
       "condKind": "comparison",
@@ -1060,13 +1042,13 @@
       "condChars": 4,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/job-inspector.tsx",
-      "line": 1931,
+      "line": 1932,
       "tag": "Button",
       "cond": "!name.trim() || name.trim().length > 60",
       "condKind": "comparison",
@@ -1079,7 +1061,7 @@
     },
     {
       "f": "src/components/workflow/job-inspector.tsx",
-      "line": 3092,
+      "line": 3093,
       "tag": "button",
       "cond": "loadingMore",
       "condKind": "boolean",
@@ -1092,7 +1074,7 @@
     },
     {
       "f": "src/components/workflow/job-inspector.tsx",
-      "line": 3792,
+      "line": 3793,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
@@ -1105,7 +1087,7 @@
     },
     {
       "f": "src/components/workflow/job-inspector.tsx",
-      "line": 3808,
+      "line": 3809,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
@@ -1138,13 +1120,13 @@
       "condChars": 6,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/job-panel.tsx",
-      "line": 1647,
+      "line": 1648,
       "tag": "Button",
       "cond": "!dirty && autoSave.phase !== \"error\"",
       "condKind": "comparison",
@@ -1157,7 +1139,7 @@
     },
     {
       "f": "src/components/workflow/job-panel.tsx",
-      "line": 1760,
+      "line": 1761,
       "tag": "Button",
       "cond": "loading",
       "condKind": "boolean",
@@ -1170,7 +1152,7 @@
     },
     {
       "f": "src/components/workflow/job-panel.tsx",
-      "line": 2099,
+      "line": 2100,
       "tag": "Button",
       "cond": "clusterModeBlocked",
       "condKind": "boolean",
@@ -1183,7 +1165,7 @@
     },
     {
       "f": "src/components/workflow/job-panel.tsx",
-      "line": 2143,
+      "line": 2144,
       "tag": "Button",
       "cond": "job.status === \"running\"",
       "condKind": "comparison",
@@ -1229,26 +1211,26 @@
       "condChars": 14,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/path-browser-dialog.tsx",
-      "line": 991,
+      "line": 992,
       "tag": "Button",
       "cond": "!manual.trim()",
       "condKind": "call",
       "condChars": 14,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/path-browser-dialog.tsx",
-      "line": 1002,
+      "line": 1004,
       "tag": "Button",
       "cond": "selected.size === 0",
       "condKind": "comparison",
@@ -1261,15 +1243,15 @@
     },
     {
       "f": "src/components/workflow/path-browser-dialog.tsx",
-      "line": 1012,
+      "line": 1014,
       "tag": "Button",
       "cond": "inRootsView || !currentPath",
       "condKind": "boolean",
       "condChars": 27,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1294,8 +1276,8 @@
       "condChars": 13,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1385,9 +1367,9 @@
       "condChars": 8,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
-      "snippet": "<AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<AlertDialogCancel disabled={deleting} aria-label={deleting ? \"Cancel (the deletion is running)\" : \"Cancel\"}>Cancel</AlertDialogCancel>"
     },
     {
       "f": "src/components/workflow/project-panel.tsx",
@@ -1398,13 +1380,13 @@
       "condChars": 8,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
-      "snippet": "<Button variant=\"outline\" onClick={() => onOpenChange(false)} disabled={creating}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/project-panel.tsx",
-      "line": 358,
+      "line": 363,
       "tag": "Button",
       "cond": "creating || trimmed.length < 1 || remoteBlocked",
       "condKind": "comparison",
@@ -1528,8 +1510,8 @@
       "condChars": 8,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -2295,26 +2277,26 @@
       "condChars": 4,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/template-presets-dialog.tsx",
-      "line": 950,
+      "line": 951,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
       "condChars": 4,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
-      "snippet": "<Button variant=\"ghost\" size=\"sm\" onClick={() => setOpen(false)} disabled={busy}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/template-presets-dialog.tsx",
-      "line": 953,
+      "line": 960,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
@@ -2373,9 +2355,9 @@
       "condChars": 8,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
-      "snippet": "<AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<AlertDialogCancel disabled={deleting} aria-label={deleting ? \"Cancel (the workspace is being deleted)\" : \"Cancel\"}>Cancel</AlertDialogCancel>"
     },
     {
       "f": "src/components/workflow/workspace-panel.tsx",
@@ -2386,13 +2368,13 @@
       "condChars": 8,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "blind",
-      "snippet": "<Button variant=\"outline\" onClick={() => setCreateOpen(false)} disabled={creating}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/workspace-panel.tsx",
-      "line": 582,
+      "line": 587,
       "tag": "Button",
       "cond": "creating || newName.trim().length < 1",
       "condKind": "comparison",

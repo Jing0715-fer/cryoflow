@@ -533,7 +533,7 @@ export function WorkspacePanel() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting} aria-label={deleting ? "Cancel (the workspace is being deleted)" : "Cancel"}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={(e) => {
@@ -576,7 +576,12 @@ export function WorkspacePanel() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
+            <Button
+              variant="outline"
+              onClick={() => setCreateOpen(false)}
+              disabled={creating}
+              aria-label={creating ? "Cancel (the workspace is being created)" : "Cancel"}
+            >
               Cancel
             </Button>
             <Button

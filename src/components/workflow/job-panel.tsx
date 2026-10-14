@@ -1640,6 +1640,7 @@ function ParamsTab({
             onClick={resetForm}
             disabled={!dirty}
             title="Revert the form to the last auto-saved values"
+            aria-label={!dirty ? "Reset (nothing to revert)" : "Reset"}
           >
             <RotateCcw aria-hidden="true" />
             Reset

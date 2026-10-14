@@ -372,7 +372,13 @@ export function ImportWorkflowDialog() {
         ) : null}
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" size="sm" onClick={closePreview} disabled={busy}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={closePreview}
+            disabled={busy}
+            aria-label={busy ? "Cancel (the import is running)" : "Cancel"}
+          >
             Cancel
           </Button>
           <Button

@@ -3558,7 +3558,7 @@ export function ProjectDashboard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting} aria-label={deleting ? "Cancel (the deletion is running)" : "Cancel"}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
               onClick={(e) => {

@@ -471,6 +471,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
               className="h-7 px-3 text-xs"
               onClick={() => onOpenChange(false)}
               disabled={executing}
+              aria-label={executing ? "Close (the cleanup is running)" : "Close"}
             >
               Close
             </Button>
@@ -511,7 +512,11 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-8 text-xs" disabled={executing}>
+            <AlertDialogCancel
+              className="h-8 text-xs"
+              disabled={executing}
+              aria-label={executing ? "Keep them (the cleanup is running)" : "Keep them"}
+            >
               Keep them
             </AlertDialogCancel>
             <AlertDialogAction

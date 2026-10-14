@@ -2026,6 +2026,7 @@ export function RemoteClusterDialog({
               className="h-7 text-[11px]"
               onClick={() => setCreating(true)}
               disabled={creating}
+              aria-label={creating ? "Add connection (the create form is open)" : "Add connection"}
             >
               <Plus className="size-3" aria-hidden="true" /> Add connection
             </Button>

@@ -153,7 +153,12 @@ for (const f of files) {
     const { inner, unclosed } = verdict === "silent-text"
       ? innerBody(src, start + text.length, tag)
       : { inner: null, unclosed: false };
-    const story = verdict === "silent-text" ? nameStory(inner) : null;
+    // the VENDOR ruling (t984): files on the stock shelf (src/components/ui/)
+    // are the library's own code, not the house's speech — recorded as
+    // `vendor`, never cured (an unused stock file wants no fork drift).
+    const story = verdict === "silent-text"
+      ? rel.startsWith("src/components/ui/") ? "vendor" : nameStory(inner)
+      : null;
     sites.push({
       f: rel, line, tag, cond, condKind,
       condChars: cond.length,

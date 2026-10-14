@@ -1837,6 +1837,7 @@ function ParamPresetsRow({ job }: { job: JobDTO }) {
                 size="sm"
                 className="h-7 gap-1.5 px-2.5 text-xs"
                 disabled={busy}
+                aria-label={busy ? "Apply preset (a preset is being applied)" : "Apply preset"}
                 data-testid="preset-apply-menu"
               >
                 <SlidersHorizontal className="size-3.5" aria-hidden="true" />

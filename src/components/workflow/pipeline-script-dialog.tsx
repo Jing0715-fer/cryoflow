@@ -218,6 +218,7 @@ export function PipelineScriptDialog({
             variant="outline"
             onClick={download}
             disabled={!data?.script}
+            aria-label={!data?.script ? "Download .sh (no script yet)" : "Download .sh"}
             data-canvas-ui="pipeline-script-download"
           >
             <Download className="size-3.5" aria-hidden="true" />

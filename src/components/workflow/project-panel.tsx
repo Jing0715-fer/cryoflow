@@ -352,7 +352,12 @@ export function NewProjectDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={creating}
+            aria-label={creating ? "Cancel (the project is being created)" : "Cancel"}
+          >
             Cancel
           </Button>
           <Button

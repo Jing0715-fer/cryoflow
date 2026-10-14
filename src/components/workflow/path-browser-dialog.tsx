@@ -976,6 +976,7 @@ export function PathBrowserDialog({
               size="sm"
               className="h-8 shrink-0"
               disabled={!manual.trim()}
+              aria-label={!manual.trim() ? "Go (type a path first)" : "Go"}
               onClick={() => {
                 if (/[*?]/.test(manual.trim())) setMode("files");
                 setCwd(manual.trim());
@@ -992,6 +993,7 @@ export function PathBrowserDialog({
               size="sm"
               className="shrink-0"
               disabled={!manual.trim()}
+              aria-label={!manual.trim() ? "Use this path (type a path first)" : "Use this path"}
               onClick={() => manual.trim() && pick(manual.trim())}
               title="Pick the typed path exactly as written"
             >
@@ -1013,6 +1015,13 @@ export function PathBrowserDialog({
               size="sm"
               className="shrink-0"
               disabled={inRootsView || !currentPath}
+              aria-label={
+                inRootsView
+                  ? "Select this folder (the roots view is open)"
+                  : !currentPath
+                    ? "Select this folder (no folder is open yet)"
+                    : "Select this folder"
+              }
               onClick={() => !inRootsView && currentPath && pick(currentPath)}
             >
               <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
