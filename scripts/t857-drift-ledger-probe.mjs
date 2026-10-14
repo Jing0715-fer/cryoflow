@@ -89,11 +89,39 @@ const ESC =
 
 const sorted = (o) => JSON.stringify(o, Object.keys(o ?? {}).sort());
 
+/* t869 — the settled lens (the t864 false-settle lesson, finally wearing
+ * t857's own clothes): the probe filmed every face after a RAW sleep and
+ * the inspector face's film read 283/282 while the gate's deep-settled
+ * lens read 289 — the discriminator (t869-inspector-settle-diff) settled
+ * TWICE at 145 dlg buttons bit-for-bit, so the decay was the MOUNT
+ * SCHEDULE, not the world. The probe is the gate's mini-me: its lens now
+ * mirrors the gate's per face — C settled(16,2), D raw (the gate's D is
+ * raw too), I deep(24,3), P settled(16,2), R settled(16,2). A ledger that
+ * films mid-mount records mount noise as drift; the settled lens records
+ * the world. */
+const settle = (what, maxIter = 16, need = 2) => {
+  let m = evalJson(MEASURE);
+  let run = 1;
+  for (let i = 0; i < maxIter; i++) {
+    sleep(1);
+    const next = evalJson(MEASURE);
+    /* t869 — the arrival guard (see t846's settle): a stable blank is
+     * not a settled world; an empty page keeps the settle waiting. */
+    const alive = next.pageBtns > 0;
+    const same = alive && JSON.stringify(next) === JSON.stringify(m);
+    m = next;
+    run = same ? run + 1 : 1;
+    if (run >= need) break;
+  }
+  console.log(`  settled ${what} (${need}x stable)`);
+  return m;
+};
+
 /* ---------- the chain: identical doors, one ride ---------- */
-console.log("Face C — the canvas (fresh load, sleep 3)");
+console.log("Face C — the canvas (fresh load, sleep 3, settled — the t869 lens cure)");
 ab("open http://localhost:3000");
 sleep(3);
-const c1 = evalJson(MEASURE);
+const c1 = settle("the canvas");
 
 console.log("Face D — the dashboard (exact-text switcher click)");
 const clickR = evalJson(
@@ -109,21 +137,21 @@ if (!card.found) {
   card = evalJson('(() => { const b = Array.from(document.querySelectorAll("button")).find((e) => (e.textContent || "").trim().startsWith("Centered iso view")); if (!b) return JSON.stringify({ found: false }); b.click(); return JSON.stringify({ found: true }); })()');
 }
 sleep(2);
-const i1 = evalJson(MEASURE);
+const i1 = settle("the inspector (the analytics surfaces mount late — t860's probe)", 24, 3);
 evalJson(ESC);
 sleep(1);
 
 console.log("Face P — the palette (the t483 contract door)");
 evalJson('(() => { window.dispatchEvent(new Event("cryoflow:open-palette")); return "door"; })()');
 sleep(1);
-const p1 = evalJson(MEASURE);
+const p1 = settle("the palette");
 evalJson(ESC);
 sleep(1);
 
-console.log("Restore — fresh load back to the canvas");
+console.log("Restore — fresh load back to the canvas (settled — the same lens cure)");
 ab("open http://localhost:3000");
 sleep(3);
-const r1 = evalJson(MEASURE);
+const r1 = settle("the restored canvas");
 
 /* ---------- the diff: per face, count + full identity ----------
  * t864: the verdict is the FAMILY's shared law (drift-ledger.mjs armVerdict,
