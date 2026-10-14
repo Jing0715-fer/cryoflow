@@ -60,10 +60,11 @@ const wallJob = jobs.find((j) => j.name === WALL_NAME);
 ok("the as-found world holds the t976 face, failed", !!flipJob && flipJob.status === "failed", flipJob ? `${flipJob.id} status=${flipJob.status}` : "missing");
 ok("the as-found world holds the t972 face too (the discriminator's keeper, failed)", !!wallJob && wallJob.status === "failed", wallJob ? `${wallJob.id} status=${wallJob.status}` : "missing");
 /* the t992 birth law (c): a born count that names the world's population
- * is stale the moment another walk mints — this count NAMES the re-arm:
- * the t976/t972 faces were re-armed in THIS window (the mint fleet's
- * re-arm tail, the t980 note's pending list) for the flip they carry. */
-ok("the as-found world holds TWENTY-ONE jobs (15 demo + the t970 face + the three picker fixtures + the t976/t972 faces re-armed here)", jobs.length === 21, `n=${jobs.length}`);
+ * is stale the moment another walk mints — this count NAMES the re-arm
+ * AND the re-home: the t976/t972 faces were re-armed in the t994 window
+ * (the mint fleet's re-arm tail), and the t995 window minted the
+ * custom-error face (the teaser's re-home) — the world grew by ONE. */
+ok("the as-found world holds TWENTY-TWO jobs (15 demo + the t970 face + the three picker fixtures + the t976/t972 faces re-armed here + the t995 custom-error face re-homing the teaser)", jobs.length === 22, `n=${jobs.length}`);
 
 /* ---------------- leg 1: the wide-first opening (the kit's law) ---------------- */
 const first = await wideFirst();

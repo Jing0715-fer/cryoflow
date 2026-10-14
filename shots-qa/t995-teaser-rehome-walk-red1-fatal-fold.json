@@ -1,0 +1,10 @@
+{
+  "walk": "t995-teaser-rehome-walk",
+  "at": "2026-10-14T17:57:34.430Z",
+  "pass": 15,
+  "fail": 0,
+  "fatal": "the fold: the dialog flickered away on the viewport switch — re-open: NEVER-OPEN (x4 rounds); the re-open clicked the card via realClick on the transform canvas at 320, where the t978 law makes scrollIntoView a no-op and the face at (1960,1600) sits off-viewport — the click never landed",
+  "handWritten": true,
+  "note": "the t991 birth law: a FATAL that never reached finish() gets a hand-written receipt; the log rides beside it (.log)",
+  "ride": 1
+}

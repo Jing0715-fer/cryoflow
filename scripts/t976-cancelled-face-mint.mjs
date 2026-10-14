@@ -19,9 +19,12 @@
  * fixture is UNCHANGED — the flip lives in the table, not the log — and
  * the re-mint only re-stamps the honest RESULT sentence (the verdict
  * the card shows must not contradict the strip the row opened). The
- * negative teaser now holds NO live face in this world; its contract
- * stays alive in the t970 unit's synthetic stories (N19) until a
- * future mint re-homes it.
+ * negative teaser then held NO live face in this world; its contract
+ * stayed alive in the t970 unit's synthetic stories (N19) until t995
+ * RE-HOMED it: scripts/t995-custom-error-mint.mjs minted the Custom
+ * Error Face (t995) — the N19 story made flesh (a wrapper-level 127
+ * death, zero rows) — and the teaser's zero leg is a LIVE browser face
+ * again (witnessed by scripts/t995-teaser-rehome-walk.mjs).
  *
  * The face's story: an operator scancel (the queue admin's nightly
  * sweep, a preemption — the log does not say). SLURM records the kill

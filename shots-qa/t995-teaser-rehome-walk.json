@@ -1,0 +1,23 @@
+{
+  "walk": "t995-teaser-rehome-walk",
+  "at": "2026-10-14T17:59:40.800Z",
+  "pass": 26,
+  "fail": 0,
+  "phaseTrace": [
+    "ovr0 i0: {\"panelW\":1380,\"panelSW\":1380,\"panelCW\":1380,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center w",
+    "foldA i0: {\"panelW\":305,\"panelSW\":305,\"panelCW\":305,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center whit",
+    "jumpA i0: {\"logSelected\":true,\"fullMode\":true,\"consoleThere\":true,\"stripThere\":false,\"findingRows\":0}",
+    "ovr0 i0: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center w",
+    "ovr0 i0: {\"panelW\":1227,\"panelSW\":1227,\"panelCW\":1227,\"panelOverX\":false,\"shellOverX\":false,\"offenders\":[{\"tag\":\"button\",\"cls\":\"inline-flex items-center justify-center w"
+  ],
+  "results": [],
+  "rehome": {
+    "face": "Custom Error Face (t995)",
+    "contract": "zero-signature",
+    "gates": [
+      "signature-table",
+      "silent-run-death-autopsy"
+    ],
+    "jump": "strip absent by design"
+  }
+}

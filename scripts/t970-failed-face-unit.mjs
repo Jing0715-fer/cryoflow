@@ -159,13 +159,14 @@ const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis")
  * form of slurmstepd's record is the scheduler's narration too (only
  * the REASON stays unnamed), the table grew the scheduler-cancelled
  * row, and the t976 face FLIPPED positive like its predecessor. The
- * negative teaser now holds NO live face — its contract lives in the
- * synthetic stories (N19) until a future mint re-homes it. This band
- * pins the leg's source shapes (unchanged UI), the lib's response to
- * BOTH stories + the teaser's synthetic home, both mints' mirror
- * sync, and the t994 walk's contract (the t976 walk stays in the tree
- * as the historical receipt of ITS ride, exactly as the t972 walk
- * did). */
+ * negative teaser then held NO live face — until t995 RE-HOMED it
+ * (the N19 story made flesh: the Custom Error Face (t995), a
+ * wrapper-level 127 death matching zero rows). This band pins the
+ * leg's source shapes (unchanged UI), the lib's response to BOTH
+ * stories + the teaser's story (the lib-tier pin behind the live
+ * face), ALL THREE mints' mirror sync, and the t994 walk's contract
+ * (the t976 walk stays in the tree as the historical receipt of ITS
+ * ride, exactly as the t972 walk did). */
 {
   /* the negative leg's source shapes (the same component, the other gate) */
   ok("N1 the negative leg gates on diagnosis.length === 0", /diagnosis && diagnosis\.length === 0 \?/.test(inspector));
@@ -222,7 +223,7 @@ const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis")
     "CryoFlow wrapper: the job's process exited with code 127 before RELION started",
   ].join("\n");
   const teaserFindings = diagnoseFailureLog(teaserStory);
-  ok("N19 the synthetic wrapper-death story keeps the teaser's ZERO contract alive (no live face since the t994 flip)", teaserFindings.length === 0, teaserFindings.map((f) => f.id).join("+") || "clean");
+  ok("N19 the wrapper-death story holds the teaser's ZERO contract in-process (the t995 mint re-homed it — Custom Error Face (t995) is the LIVE face now; this story stays as the lib-tier pin)", teaserFindings.length === 0, teaserFindings.map((f) => f.id).join("+") || "clean");
 
   /* the mirror sync — BOTH mints carry an inline transcription of the
    * signature table (t976 grew it by the walltime row); if the lib's
@@ -238,6 +239,18 @@ const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis")
   ok("N11b the t976 mint's verify rides the SECOND flip (exactly one scheduler-cancelled match)", cancelMint.includes("EXACTLY ONE signature match across the full log") && cancelMint.includes("the t994 scheduler-cancelled row"));
   ok("N12 the walltime mint's run record exits 143 (128+15 — the SIGTERM death)", negMint.includes("exitCode: 143") && negMint.includes("Terminated"));
   ok("N12b the cancelled mint's run record exits 143 too (the same SIGTERM death — the scheduler's word, not the shell's)", cancelMint.includes("exitCode: 143") && cancelMint.includes("Terminated"));
+
+  /* the teaser's re-home mint (t995) — the N19 story made flesh: a
+   * wrapper-level 127 death whose full log matches ZERO rows and ends
+   * on no live frame, so the negative teaser holds a LIVE face again
+   * (the t994 flip had left it homeless). The mint carries the SAME
+   * mirror (the table did NOT grow — the zero branch adds no row) and
+   * asserts the OPPOSITE of its siblings. */
+  const customMint = readFileSync(path.join(ROOT, "scripts/t995-custom-error-mint.mjs"), "utf8");
+  const customMirror = (customMint.match(/\["[a-z0-9-]+", \//g) ?? []).length;
+  ok("N10c the t995 mint's mirror stays in sync too (the zero branch grew no row — 17 is 17 is 17)", customMirror === LOG_PATTERNS.length, `mirror=${customMirror} lib=${LOG_PATTERNS.length}`);
+  ok("N11c the t995 mint's verify rides the ZERO (exactly zero matches — the teaser's own contract, the cause is custom)", customMint.includes("EXACTLY ZERO signature matches across the full log") && customMint.includes("custom to this job"));
+  ok("N12c the wrapper mint's run record exits 127 (the shell's own code — the death came BEFORE RELION existed to be signalled)", customMint.includes("exitCode: 127") && customMint.includes("command not found") && !/exitCode: 143/.test(customMint));
 
   /* the t994 walk's contract (the SECOND flip's browser witness; the
    * t976 walk stays in the tree as the historical receipt of its own
