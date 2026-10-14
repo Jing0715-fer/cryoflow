@@ -848,7 +848,10 @@ if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
 // t867's quick-look trio and t868's text-preview trio joined the windows
 // their pages were born; t870's find-bar trio joined the window the
 // canvas's ambient lens was walked (the FIRST walk born src-free — the
-// name layer's standards now reach the Task 134-era components).
+// name layer's standards now reach the Task 134-era components); t871's
+// workspace-panel trio joined the window the ws-orphan law's own surface
+// was walked (a real world write — create, switch, delete — exercised
+// and cleaned inside one walk).
 const LEDGER_FAMILY = [
   ["t834 band-sweep", "shots-qa/t834-band-sweep.json", (r) => r.build, ["375", "640", "768", "1024", "1280", "1536"]],
   ["t837 wordmark-probe", "shots-qa/t837-wordmark-probe.json", (r) => r.provenance && r.provenance.buildId, ["wordmark", "chip"]],
@@ -863,6 +866,7 @@ const LEDGER_FAMILY = [
   ["t866 star-table-a11y", "shots-qa/t866-star-table-a11y.json", (r) => r.build, ["starDoor", "starDialog", "worldBack"]],
   ["t868 text-preview-a11y", "shots-qa/t868-text-preview-a11y.json", (r) => r.build, ["logsSection", "textDialog", "worldBack"]],
   ["t870 find-bar-a11y", "shots-qa/t870-find-bar-a11y.json", (r) => r.build, ["findBar", "findLens", "worldBack"]],
+  ["t871 workspace-panel-a11y", "shots-qa/t871-workspace-panel-a11y.json", (r) => r.build, ["wsPanel", "createDialog", "worldBack"]],
 ];
 const faceShape = (f, prevFound) =>
   f && typeof f === "object" && "prev" in f && "live" in f && "drift" in f && "identical" in f &&
@@ -891,8 +895,8 @@ const familyGreen = LEDGER_FAMILY.every(([label, rel, keyOf, names]) => {
   return !!(DL && facesOk && lawOk && keyOk && (!arm3Bites || allBit));
 });
 ok(
-  familyGreen && familyFaces === 48,
-  `A4e-28 the ledger-family amendment is aboard (one law, thirteen carriers, ${familyFaces}/48 faces, structure + jurisdiction demanded everywhere): ${familyDetail.join("; ")} — A4e-27's single-instrument witness grew into the family's standing regression net, the arm structure the unit's own demand, the receipts the comparators; t863's trio joined late (the birthright completed) and t864's trio joined at birth; t865's EIGHT faces joined the window the results family was born (the birthright practiced at the widest table yet); t866's trio joined the window the star table's page was born; t868's trio joined the window the third Esc seat was walked; t870's trio joined the window the canvas's ambient lens was walked (born src-free — the birthright now simply the family's shape)`
+  familyGreen && familyFaces === 51,
+  `A4e-28 the ledger-family amendment is aboard (one law, fourteen carriers, ${familyFaces}/51 faces, structure + jurisdiction demanded everywhere): ${familyDetail.join("; ")} — A4e-27's single-instrument witness grew into the family's standing regression net, the arm structure the unit's own demand, the receipts the comparators; t863's trio joined late (the birthright completed) and t864's trio joined at birth; t865's EIGHT faces joined the window the results family was born (the birthright practiced at the widest table yet); t866's trio joined the window the star table's page was born; t868's trio joined the window the third Esc seat was walked; t870's trio joined the window the canvas's ambient lens was walked (born src-free); t871's trio joined the window the workspace panel's faces were walked (the first walk that writes the world — and cleans it)`
 );
 
 // A5 — the tier law's bytes: the seats that yield are yielded by CLASS,
