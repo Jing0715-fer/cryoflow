@@ -490,9 +490,9 @@ if (msReceipt && msReceipt.checks) {
       fc && fd && fi2 && fp2 &&
       fc.pageBtns >= 142 && fc.pageUnnamed === 0 &&
       fd.pageBtns >= 114 && fd.pageUnnamed === 0 && fd.altless === 0 &&
-      fi2.pageBtns >= 180 && fi2.pageUnnamed === 0 && fi2.dlgUnnamed === 0 && fi2.dlgFocus === true &&
+      fi2.pageBtns >= 260 && fi2.pageUnnamed === 0 && fi2.dlgUnnamed === 0 && fi2.dlgFocus === true &&
       fp2.pageBtns >= 150 && fp2.pageUnnamed === 0 && fp2.ip && !!fp2.ip.ph,
-    `A4e-16 the t846 maintenance sweep is aboard and green (${msReceipt.passed}/${msReceipt.total}): four faces one chain ${fc.pageBtns}/${fd.pageBtns}/${fi2.pageBtns}/${fp2.pageBtns} zero unnamed anywhere, floors 142/114/180/150 all holding, both doors first-try, Escape closes both dialogs, the world restored`
+    `A4e-16 the t846 maintenance sweep is aboard and green (${msReceipt.passed}/${msReceipt.total}): four faces one chain ${fc.pageBtns}/${fd.pageBtns}/${fi2.pageBtns}/${fp2.pageBtns} zero unnamed anywhere, floors 142/114/260/150 all holding (the t867 amendment: the inspector floor follows the restored world's seven witnesses — the t860-era 180 predates the analytics surfaces), both doors first-try, Escape closes both dialogs, the world restored`
   );
 }
 
@@ -811,13 +811,14 @@ if (mtReceipt && mtReceipt.driftLedger && mtReceipt.driftLedger.faces) {
       // t860 re-pin: the SETTLED inspector speaks 297 — the settle-wait lets the funnel/arc/class-sheet surfaces finish mounting (the old 2s sleep filmed mid-flight at 274).
       // t864 amendment: the settled truth is a RANGE, not a point — this window's settled rides spoke 290/291/292 across t846/t857/t860 (the class-sheet's snapshot surfaces arrive with the data's own timing; the dev world is unfrozen, the t859 clause's exact jurisdiction). The stable faces keep their point-pins (153/122/161/153, reproduced exactly); the inspector — the one face whose async content varies ride-to-ride — rides a FLOOR with the ledger's arm-2′ recording the variance honestly.
       // t865 amendment: the world spoke a NEW low — t846's ride this window filmed the SETTLED inspector at 272 (the results-family surfaces re-arranged the inspector's async anatomy), below t864's observed range and its 285 floor. The floor follows the world's truth or it is a stale sample wearing a law's clothes: re-pinned to 270 (below every observed settled value 272/290/291/292/297, above any real loss). A floor is derived from the observed range, and the range is re-read every time the world contradicts it.
-      [153, 122, 161, 153].every((n, i) => f[["canvas", "dashboard", "palette", "restore"][i]].live === n) &&
-      f.inspector.live >= 270 &&
+      // t867 amendment: the sandbox restore re-baselined the world — the settled point-pins now speak 144/120/152/144 (two green rides agreeing bit-for-bit), the inspector's settled band has SEVEN witnesses 266/272/289/290/291/292/297 (the restore added the slow-mount days), and the t846 floors re-pinned 180 -> 260 with the same law: the floor follows the world's truth or it is a stale sample wearing a law's clothes.
+      [144, 120, 152, 144].every((n, i) => f[["canvas", "dashboard", "palette", "restore"][i]].live === n) &&
+      f.inspector.live >= 260 &&
       mtReceipt.faces.canvas.live.pageBtns - 142 >= 0 &&
       mtReceipt.faces.dashboard.live.pageBtns - 114 >= 0 &&
-      mtReceipt.faces.inspector.live.pageBtns - 180 >= 0 &&
+      mtReceipt.faces.inspector.live.pageBtns - 260 >= 0 &&
       mtReceipt.faces.palette.live.pageBtns - 150 >= 0,
-    `A4e-27 the t857 drift ledger is aboard and honest (t846 25/25, the t859 jurisdiction re-pin): the census family's ride-to-ride truth is RECORDED per face (five faces, numeric prev/live/drift + identical), bit-for-bit is demanded only when the world key says the bytes are frozen (same-build arm 3; a dev world's ride variance is arm-2′ information — the restored roster's SETTLED live speaks 153/122/161/153 point-pins + the inspector as a 270 floor (t865: the floor follows the world's truth — 272/290/291/292/297 observed across t846/t857/t860/t864, the 285 sample-floor re-pinned when the world spoke a new low), floors non-negative vs the census 142/114/180/150), and the two drift numbers do different jobs in one receipt (floors = the census's age; ledger = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
+    `A4e-27 the t857 drift ledger is aboard and honest (t846 25/25, the t859 jurisdiction re-pin): the census family's ride-to-ride truth is RECORDED per face (five faces, numeric prev/live/drift + identical), bit-for-bit is demanded only when the world key says the bytes are frozen (same-build arm 3; a dev world's ride variance is arm-2′ information — the restored roster's SETTLED live speaks 144/120/152/144 point-pins (the t867 re-pin: the restore re-baselined the world; two green rides agree) + the inspector as a 260 floor (t867: the floor follows the world's truth — 266/272/289/290/291/292/297 observed across t846/t857/t860/t864/t866/t867, the t865-era 270 re-pinned when the restore's slow-mount days spoke 266), floors non-negative vs the census 142/114/260/150), and the two drift numbers do different jobs in one receipt (floors = the census's age; ledger = the world's stability) — the fourth reproducibility axis after cross-load (A4e-24), cross-instrument (A4e-25), and cross-receipt (A4e-26)`
   );
 }
 

@@ -144,24 +144,31 @@ const ESC =
  * the world MID-MOUNT; settling films the world when it has STOPPED moving:
  * measure, re-measure, require equality, bounded. The receipt's world is the
  * settled one — same-key rides can be bit-for-bit again without lying. */
-const settle = (what) => {
+const settle = (what, maxIter = 16, need = 2) => {
+  /* the t867 patience fix: 6 × 0.8s with need-1 broke on PLATEAUS — the
+   * inspector's analytics surfaces mount on a long schedule (the live
+   * witness: 264 -> 289 with a quiet step between; the t866 observed band
+   * 272/290/291/292/297), and two measures 0.8s apart can be bit-equal
+   * mid-mount. The t866 shape: bounded, MULTIPLE consecutive equal pairs. */
   let m = evalJson(MEASURE);
-  for (let i = 0; i < 6; i++) {
-    sleep(0.8);
+  let run = 1;
+  for (let i = 0; i < maxIter; i++) {
+    sleep(1);
     const next = evalJson(MEASURE);
     const same = JSON.stringify(next) === JSON.stringify(m);
     m = next;
-    if (same) break;
+    run = same ? run + 1 : 1;
+    if (run >= need) break;
   }
-  console.log(`  settled ${what}`);
+  console.log(`  settled ${what} (${need}x stable)`);
   return m;
 };
 
 /* ---------- Face C: the canvas (the chain's root) ---------- */
-console.log("Face C — the workflow canvas (fresh load, sleep 3)");
+console.log("Face C — the workflow canvas (fresh load, settled — the t867 lens fix: the raw sleep filmed the canvas mid-hydration, the t864 false-settle lesson)");
 ab("open http://localhost:3000");
 sleep(3);
-const c1 = evalJson(MEASURE);
+const c1 = settle("the canvas (the opening face)");
 ok("M1 canvas zero unnamed buttons", c1.pageUnnamed === 0, `btns=${c1.pageBtns}${c1.pageUnnamed ? " who=" + c1.unWho.join("|") : ""}`);
 ok("M2 canvas zero unnamed form controls", c1.unCtrls === 0, `unCtrls=${c1.unCtrls}/${c1.ctrls}`);
 ok("M3 canvas floor holds (census 142)", c1.pageBtns >= 142, `live=${c1.pageBtns} (drift +${c1.pageBtns - 142})`);
@@ -188,11 +195,11 @@ if (!card.found) {
 }
 ok("M8 the saved-view card found and clicked", card.found === true, "the deliberate door (t844's)");
 sleep(2);
-const i1 = settle("the inspector (the analytics surfaces mount late — t860's probe)");
+const i1 = settle("the inspector (the analytics surfaces mount late — t860's probe)", 24, 3);
 ok("M9 inspector arrived: dialog + tenant heading", i1.hasDlg && i1.dlgHeading && i1.dlgHeading.startsWith("3D Refine (tutorial) — job inspector"), `heading="${i1.dlgHeading}"`); // t859 re-pin: the restored roster's canonical node name (the t833-era world said "3D auto-refine" — the name is world-state, the heading shape holds)
 ok("M10 inspector focus trapped", i1.dlgFocus === true);
 ok("M11 inspector zero unnamed (page-wide + dialog subset)", i1.pageUnnamed === 0 && i1.dlgUnnamed === 0, `page=${i1.pageBtns} dlg=${i1.dlgBtns} unnamed=0/0`);
-ok("M12 inspector floor holds (census 180)", i1.pageBtns >= 180, `live=${i1.pageBtns} (census 180, drift +${i1.pageBtns - 180})`);
+ok("M12 inspector floor holds (census 260 — the t867 re-pin: the t860-era 180 predates the analytics surfaces; the world's settled band now has SEVEN witnesses 266/272/289/290/291/292/297, the t865/t866/t867 records — 260 tolerates the slow-mount days and still catches an honest shrinkage)", i1.pageBtns >= 260, `live=${i1.pageBtns} (census 260, drift +${i1.pageBtns - 260})`);
 evalJson(ESC);
 sleep(1);
 const i2 = evalJson(MEASURE);
@@ -212,10 +219,10 @@ const p2 = evalJson(MEASURE);
 ok("M17 Escape closed the palette", p2.hasDlg === false, `dlg=${p2.hasDlg}`);
 
 /* ---------- restore: back to the canvas ---------- */
-console.log("Restore — fresh load back to the canvas");
+console.log("Restore — fresh load back to the canvas (settled — the same lens fix)");
 ab("open http://localhost:3000");
 sleep(3);
-const r1 = evalJson(MEASURE);
+const r1 = settle("the restored canvas");
 ok("M18 world unharmed (canvas count == the opening count)", !r1.hasDlg && r1.pageBtns === c1.pageBtns && r1.pageUnnamed === 0, `btns=${r1.pageBtns} dlg=${r1.hasDlg}`);
 
 /* ---------- the sweep's own cross-check: four faces, four counts ---------- */
