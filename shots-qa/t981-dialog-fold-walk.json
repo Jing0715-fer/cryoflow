@@ -1,6 +1,6 @@
 {
-  "at": "2026-10-14T09:48:19.019Z",
-  "mode": "GATE",
+  "at": "2026-10-14T09:53:41.462Z",
+  "mode": "BEFORE",
   "viewport": 320,
   "sample": [
     {
@@ -44,7 +44,7 @@
     },
     {
       "leg": "fsc-compare",
-      "mouth": "card:3D Refine (tutorial)",
+      "mouth": "card:Post-process (tutorial)",
       "n": 2,
       "w": 288,
       "sw": 286,
@@ -73,10 +73,10 @@
         },
         {
           "tag": "span",
-          "cls": "sr-only",
-          "sw": 169,
-          "cw": 1,
-          "over": 168
+          "cls": "min-w-0 flex-1 truncate text-xs font-medium",
+          "sw": 170,
+          "cw": 0,
+          "over": 170
         }
       ],
       "shot": "t981-fold-fsc-compare.png"
@@ -185,6 +185,6 @@
       "shot": "t981-fold-palette.png"
     }
   ],
-  "pass": 8,
+  "pass": 6,
   "fail": 0
 }
