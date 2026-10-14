@@ -74,6 +74,14 @@ import { cn } from "@/lib/utils";
  * Canonical single-workspace world: 90 / 114 / 138 / 162 — settled at
  * 162 + 240 = 402ms; each extra card adds 24ms to the tail.
  *
+ * t998 — the rename arc learned to speak: the inline rename input's
+ * four-branch name (empty / unchanged / at-cap / rest — the commit's
+ * two silent refusals get their voice BEFORE Enter lands), the delete
+ * door's refusal riding its NAME (the title's hover-only whisper
+ * promoted to the accessible name, the t982 zoom-clamp dialect), and
+ * the create input's cap face — all riding WS_NAME_MAX, the wall's
+ * one truth (the t997 formula law: every mention one number).
+ *
  * THE MOUNT LEDGER (t613's law, second consumer): a ticket belongs to a
  * FACE, not a seat. Workspace creation APPENDS to the store list
  * (append-safe), but a DELETION shifts every later row's index — and a
@@ -87,6 +95,14 @@ const WS_BASE_MS = 90;
 const WS_STEP_MS = 24;
 /** the fixed head of the wave (faces before the cards): header, hint */
 const WS_HEAD_FACES = 2;
+
+/* t998 — the workspace name's ONE wall: the rename input's maxLength,
+ * the rename commit's slice, the create input's maxLength, the create
+ * guard, the create slice, and both voices' cap faces all speak this
+ * number — one truth, every mention rides the const (the t997 formula
+ * law). The API re-validates 1–60 server-side (api/workspaces/[id]) —
+ * the wall's other bank. */
+const WS_NAME_MAX = 60;
 
 interface LiveStats {
   total: number;
@@ -160,11 +176,20 @@ function WorkspaceRow({
           : "border-border hover:border-foreground/20"
       )}
     >
-      {/* name row / inline rename */}
+      {/* name row / inline rename. t998 — the input's own flip faces:
+          the commit refuses empty and unchanged names with a SILENT
+          cancel (the editor just closes), so the voice speaks BEFORE
+          the refusal — each discoverable state flips the name while
+          the user types, the t982 dialect's four-branch form (empty /
+          unchanged / at-cap / rest). The open lands on the unchanged
+          face honestly: Enter right now would do nothing. The 60 wall
+          is WS_NAME_MAX's truth, the cap face its voice (the t997 wall
+          law — walls speak). VOICE-ONLY: the commit's arithmetic never
+          moved. */}
       {editing ? (
         <Input
           value={editName}
-          maxLength={60}
+          maxLength={WS_NAME_MAX}
           autoFocus
           onChange={(e) => onEditNameChange(e.target.value)}
           onBlur={onCommitRename}
@@ -179,7 +204,15 @@ function WorkspaceRow({
             }
           }}
           onClick={(e) => e.stopPropagation()}
-          aria-label="Workspace name"
+          aria-label={
+            !editName.trim()
+              ? "Workspace name (empty — type a name to rename)"
+              : editName.trim() === workspace.name
+                ? "Workspace name (unchanged — edit the name to rename)"
+                : editName.length >= WS_NAME_MAX
+                  ? `Workspace name (at the ${WS_NAME_MAX}-character limit)`
+                  : "Workspace name"
+          }
           className="h-8 text-sm font-medium"
         />
       ) : (
@@ -291,6 +324,12 @@ function WorkspaceRow({
           >
             <Pencil className="size-3.5" />
           </Button>
+          {/* t998 — the delete door's refusal rides the NAME (the t982
+              zoom-clamp dialect): the title already spoke the default's
+              reason, but title is hover-only — the screen reader heard
+              "Delete Main" on a dead button with no why. The name now
+              carries the reason on the disabled face, the plain form on
+              the enabled one. */}
           <Button
             variant="ghost"
             size="icon"
@@ -300,7 +339,11 @@ function WorkspaceRow({
               onRequestDelete();
             }}
             disabled={isDefault}
-            aria-label={`Delete ${workspace.name}`}
+            aria-label={
+              isDefault
+                ? `Delete ${workspace.name} (the default workspace cannot be deleted)`
+                : `Delete ${workspace.name}`
+            }
             title={
               isDefault
                 ? "The default workspace cannot be deleted — create another workspace first"
@@ -374,11 +417,15 @@ export function WorkspacePanel() {
     if (!id) return;
     const trimmed = editName.trim();
     const current = workspaces.find((w) => w.id === id)?.name ?? "";
+    /* t998 — the two silent refusals (empty, unchanged) close the
+     * editor without a word BY DESIGN (a refused commit is a cancel,
+     * not an error) — their voice lives on the input's flip faces,
+     * which speak each state before Enter lands. */
     if (!trimmed || trimmed === current) {
       cancelEdit();
       return;
     }
-    void renameWorkspace(id, trimmed.slice(0, 60)).finally(cancelEdit);
+    void renameWorkspace(id, trimmed.slice(0, WS_NAME_MAX)).finally(cancelEdit);
   };
 
   const confirmDelete = async () => {
@@ -401,9 +448,9 @@ export function WorkspacePanel() {
 
   const handleCreate = async () => {
     const trimmed = newName.trim();
-    if (trimmed.length < 1 || trimmed.length > 60 || creating) return;
+    if (trimmed.length < 1 || trimmed.length > WS_NAME_MAX || creating) return;
     setCreating(true);
-    const ok = await createWorkspace(trimmed.slice(0, 60));
+    const ok = await createWorkspace(trimmed.slice(0, WS_NAME_MAX));
     setCreating(false);
     if (ok) {
       setNewName("");
@@ -560,10 +607,16 @@ export function WorkspacePanel() {
           </DialogHeader>
           <div className="space-y-1.5">
             <Label htmlFor="new-workspace-name">Name</Label>
+            {/* t998 — the create input rides the same wall's voice: the
+                cap face flips the name at the limit (a paste past 60
+                truncates silently — the voice speaks); at rest the
+                attribute is UNDEFINED (the t997 ghost-guard dialect —
+                the Label element carries the plain name, the attribute
+                only appears to refuse). */}
             <Input
               id="new-workspace-name"
               value={newName}
-              maxLength={60}
+              maxLength={WS_NAME_MAX}
               autoFocus
               placeholder="e.g. Classification round 2"
               onChange={(e) => setNewName(e.target.value)}
@@ -573,6 +626,11 @@ export function WorkspacePanel() {
                   void handleCreate();
                 }
               }}
+              aria-label={
+                newName.length >= WS_NAME_MAX
+                  ? `Name (at the ${WS_NAME_MAX}-character limit)`
+                  : undefined
+              }
             />
           </div>
           <DialogFooter>

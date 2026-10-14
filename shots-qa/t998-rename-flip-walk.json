@@ -1,0 +1,39 @@
+{
+  "walk": "t998-rename-flip-walk",
+  "at": "2026-10-14T20:04:50.676Z",
+  "pass": 36,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
+  "instrument": "t998-rename-flip-walk",
+  "born": "2026-10-15",
+  "contract": "the rename arc's flip faces witnessed live — the four-branch voice under real keystrokes, the two silent cancels pre-spoken, the commit and restore through the product's own door, the create input's ghost guard, the world as-found = as-left",
+  "legs": {
+    "asFoundOneWorkspaceMain": true,
+    "curedDeleteDoorNameAtRest": true,
+    "openFace": "Workspace name (unchanged — edit the name to rename)",
+    "fourBranchesWitnessed": {
+      "empty": "Workspace name (empty — type a name to rename)",
+      "rest": "Workspace name",
+      "cap": "Workspace name (at the 60-character limit)",
+      "unchangedAgain": "Workspace name (unchanged — edit the name to rename)"
+    },
+    "silentCancelsPreSpoken": {
+      "unchanged": true,
+      "empty": true,
+      "escape": true
+    },
+    "commit": {
+      "landed": true,
+      "doorsFollowed": true
+    },
+    "capWallLive": true,
+    "restore": true,
+    "createGhostGuard": {
+      "atRest": true,
+      "atCap": "Name (at the 60-character limit)",
+      "restored": true
+    },
+    "worldRestored": true
+  }
+}
