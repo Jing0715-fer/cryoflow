@@ -1,4 +1,10 @@
 {
+  "walk": "t983-name-story-walk",
+  "at": "2026-10-14T15:20:37.949Z",
+  "pass": 8,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
   "instrument": "t983-name-story-walk",
   "born": "2026-10-14",
   "contract": "the FIFTH pass's second sub-option — the blind pool's first wave witnessed",
@@ -19,7 +25,5 @@
       "present": false,
       "selfEffaced": true
     }
-  },
-  "pass": 8,
-  "fail": 0
+  }
 }

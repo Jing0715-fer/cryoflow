@@ -1,4 +1,10 @@
 {
+  "walk": "t982-aria-refusal-walk",
+  "at": "2026-10-14T15:19:41.578Z",
+  "pass": 17,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
   "instrument": "t982-aria-refusal-walk",
   "born": "2026-10-14",
   "contract": "the message-quality FIFTH pass, first sub-option — the cured faces witnessed live",
@@ -25,7 +31,5 @@
       "inLabel": "Zoom in",
       "inDisabled": false
     }
-  },
-  "pass": 17,
-  "fail": 0
+  }
 }
