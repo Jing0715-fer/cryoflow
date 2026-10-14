@@ -2332,6 +2332,7 @@ function TopazPickHandoff({ jobId }: { jobId: string }) {
           variant="outline"
           onClick={run}
           disabled={busy}
+          aria-label={busy ? "Pick with this model (the job is being created)" : "Pick with this model"}
           className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
         >
           {busy ? (
@@ -2388,6 +2389,7 @@ function DenoisePickHandoff({ jobId }: { jobId: string }) {
           variant="outline"
           onClick={run}
           disabled={busy}
+          aria-label={busy ? "Pick this stack (the job is being created)" : "Pick this stack"}
           className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
         >
           {busy ? (
@@ -2474,6 +2476,7 @@ function DenoiseTrainHandoff({ jobId }: { jobId: string }) {
           variant="outline"
           onClick={run}
           disabled={busy}
+          aria-label={busy ? "Train on this stack (the job is being created)" : "Train on this stack"}
           className="shrink-0 border-danger-600/40 text-danger-700 hover:bg-danger-600/10 hover:text-danger-800 dark:text-danger-300 dark:hover:text-danger-200"
         >
           {busy ? (

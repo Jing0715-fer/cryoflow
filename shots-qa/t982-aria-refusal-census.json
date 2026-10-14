@@ -5,18 +5,18 @@
   "storyScope": "the t983 upgrade — silent-text sites classified by their name-story (flip/spin/unnamed/blind/unbounded)",
   "population": 171,
   "tally": {
-    "stateful": 99,
+    "stateful": 116,
     "described": 0,
     "silent-static": 30,
-    "silent-text": 42
+    "silent-text": 25
   },
   "storyTally": {
-    "var": 19,
     "component": 1,
     "vendor": 2,
-    "flip": 20
+    "flip": 20,
+    "var": 2
   },
-  "silences": 72,
+  "silences": 55,
   "byFile": {
     "src/components/workflow/results/molstar-embed.tsx": [
       5719,
@@ -27,15 +27,6 @@
       5989,
       7373
     ],
-    "src/components/workflow/results/results-view.tsx": [
-      1017,
-      1030,
-      1436,
-      1457,
-      2330,
-      2386,
-      2472
-    ],
     "src/components/workflow/remote-run-button.tsx": [
       547,
       565,
@@ -44,53 +35,38 @@
       1190,
       1309
     ],
-    "src/components/workflow/canvas.tsx": [
-      606,
-      805,
-      875,
-      3098
-    ],
-    "src/components/workflow/template-presets-dialog.tsx": [
-      372,
-      405,
-      643,
-      960
-    ],
-    "src/components/ai/ai-settings-dialog.tsx": [
-      463,
-      547,
-      653
+    "src/components/workflow/results/results-view.tsx": [
+      1017,
+      1030,
+      1436,
+      1457
     ],
     "src/components/ai/assistant-panel.tsx": [
       1779,
       2004,
       2138
     ],
-    "src/components/workflow/job-inspector.tsx": [
-      3093,
-      3793,
-      3809
+    "src/components/workflow/canvas.tsx": [
+      606,
+      805,
+      3099
     ],
     "src/components/workflow/results/class-iteration-gallery.tsx": [
       788,
       836,
       853
     ],
+    "src/components/ai/ai-settings-dialog.tsx": [
+      463,
+      547
+    ],
     "src/components/ui/carousel.tsx": [
       183,
       213
     ],
-    "src/components/workflow/cleanup-dialog.tsx": [
-      457,
-      522
-    ],
-    "src/components/workflow/hpc-profiles-editor.tsx": [
-      396,
-      674
-    ],
-    "src/components/workflow/job-panel.tsx": [
-      1648,
-      1761
+    "src/components/workflow/job-inspector.tsx": [
+      3093,
+      3793
     ],
     "src/components/workflow/remote-cluster-dialog.tsx": [
       1584,
@@ -99,6 +75,9 @@
     "src/components/workflow/results/particle-browser.tsx": [
       264,
       276
+    ],
+    "src/components/workflow/cleanup-dialog.tsx": [
+      457
     ],
     "src/components/workflow/cluster-usage-panel.tsx": [
       346
@@ -109,14 +88,17 @@
     "src/components/workflow/finish-knock-button.tsx": [
       148
     ],
+    "src/components/workflow/hpc-profiles-editor.tsx": [
+      396
+    ],
     "src/components/workflow/hpc-sbatch-dialog.tsx": [
       207
     ],
     "src/components/workflow/import-workflow-dialog.tsx": [
       384
     ],
-    "src/components/workflow/job-card.tsx": [
-      803
+    "src/components/workflow/job-panel.tsx": [
+      1648
     ],
     "src/components/workflow/orchestration-strip.tsx": [
       159
@@ -129,12 +111,6 @@
     ],
     "src/components/workflow/project-dashboard.tsx": [
       639
-    ],
-    "src/components/workflow/project-panel.tsx": [
-      363
-    ],
-    "src/components/workflow/results/continue-verb-row.tsx": [
-      220
     ],
     "src/components/workflow/results/fsc-compare-dialog.tsx": [
       601
@@ -151,14 +127,11 @@
     "src/components/workflow/system-diagnostics-dialog.tsx": [
       410
     ],
+    "src/components/workflow/template-presets-dialog.tsx": [
+      963
+    ],
     "src/components/workflow/type-card-dialog.tsx": [
       502
-    ],
-    "src/components/workflow/user-preset-shelf.tsx": [
-      524
-    ],
-    "src/components/workflow/workspace-panel.tsx": [
-      587
     ]
   },
   "sites": [
@@ -197,9 +170,9 @@
       "condChars": 21,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
-      "snippet": "<Button onClick={() => void save()} disabled={saving || !providerId}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<Button"
     },
     {
       "f": "src/components/ai/assistant-panel.tsx",
@@ -431,13 +404,13 @@
       "condChars": 26,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3007,
+      "line": 3008,
       "tag": "Button",
       "cond": "zoom <= ZOOM_MIN",
       "condKind": "comparison",
@@ -450,7 +423,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3032,
+      "line": 3033,
       "tag": "Button",
       "cond": "zoom >= ZOOM_MAX",
       "condKind": "comparison",
@@ -463,7 +436,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3098,
+      "line": 3099,
       "tag": "Button",
       "cond": "criticalWalk == null",
       "condKind": "comparison",
@@ -476,7 +449,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3116,
+      "line": 3117,
       "tag": "Button",
       "cond": "historyPast.length === 0",
       "condKind": "comparison",
@@ -489,7 +462,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3132,
+      "line": 3133,
       "tag": "Button",
       "cond": "historyFuture.length === 0",
       "condKind": "comparison",
@@ -502,7 +475,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3242,
+      "line": 3243,
       "tag": "Button",
       "cond": "!bookmarkName.trim()",
       "condKind": "call",
@@ -515,7 +488,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3319,
+      "line": 3320,
       "tag": "Button",
       "cond": "posterBusy !== null || jobs.length === 0",
       "condKind": "comparison",
@@ -528,7 +501,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3334,
+      "line": 3335,
       "tag": "Button",
       "cond": "posterBusy !== null || jobs.length === 0",
       "condKind": "comparison",
@@ -541,7 +514,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3482,
+      "line": 3483,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0",
       "condKind": "comparison",
@@ -554,7 +527,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3491,
+      "line": 3492,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0",
       "condKind": "comparison",
@@ -567,7 +540,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3499,
+      "line": 3500,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0 || posterBusy !== null",
       "condKind": "comparison",
@@ -580,7 +553,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3503,
+      "line": 3504,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0 || posterBusy !== null",
       "condKind": "comparison",
@@ -593,7 +566,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3512,
+      "line": 3513,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0",
       "condKind": "comparison",
@@ -678,13 +651,13 @@
       "condChars": 9,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<AlertDialogAction"
     },
     {
       "f": "src/components/workflow/cleanup-dialog.tsx",
-      "line": 596,
+      "line": 597,
       "tag": "Checkbox",
       "cond": "scopeDisabled",
       "condKind": "boolean",
@@ -860,9 +833,9 @@
       "condChars": 37,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
-      "snippet": "<Button size=\"sm\" className=\"h-8 text-xs\" onClick={() => void save()} disabled={saving || loading || !profiles.length}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/hpc-queue-sim.tsx",
@@ -1029,8 +1002,8 @@
       "condChars": 41,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -1094,8 +1067,8 @@
       "condChars": 4,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1146,13 +1119,13 @@
       "condChars": 7,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/job-panel.tsx",
-      "line": 2100,
+      "line": 2101,
       "tag": "Button",
       "cond": "clusterModeBlocked",
       "condKind": "boolean",
@@ -1165,7 +1138,7 @@
     },
     {
       "f": "src/components/workflow/job-panel.tsx",
-      "line": 2144,
+      "line": 2145,
       "tag": "Button",
       "cond": "job.status === \"running\"",
       "condKind": "comparison",
@@ -1393,8 +1366,8 @@
       "condChars": 47,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -1718,9 +1691,9 @@
       "condChars": 6,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
-      "snippet": "<Button size=\"sm\" className=\"h-7\" onClick={fire} disabled={firing}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/results/fsc-compare-dialog.tsx",
@@ -2056,34 +2029,34 @@
       "condChars": 4,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/results/results-view.tsx",
-      "line": 2386,
+      "line": 2387,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
       "condChars": 4,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/results/results-view.tsx",
-      "line": 2472,
+      "line": 2474,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
       "condChars": 4,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
@@ -2225,26 +2198,26 @@
       "condChars": 9,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/template-presets-dialog.tsx",
-      "line": 405,
+      "line": 406,
       "tag": "Button",
       "cond": "exportingAll",
       "condKind": "boolean",
       "condChars": 12,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/template-presets-dialog.tsx",
-      "line": 616,
+      "line": 618,
       "tag": "Button",
       "cond": "exporting",
       "condKind": "boolean",
@@ -2257,20 +2230,20 @@
     },
     {
       "f": "src/components/workflow/template-presets-dialog.tsx",
-      "line": 643,
+      "line": 645,
       "tag": "Button",
       "cond": "applying",
       "condKind": "boolean",
       "condChars": 8,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/template-presets-dialog.tsx",
-      "line": 941,
+      "line": 944,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
@@ -2283,7 +2256,7 @@
     },
     {
       "f": "src/components/workflow/template-presets-dialog.tsx",
-      "line": 951,
+      "line": 954,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
@@ -2296,7 +2269,7 @@
     },
     {
       "f": "src/components/workflow/template-presets-dialog.tsx",
-      "line": 960,
+      "line": 963,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
@@ -2329,8 +2302,8 @@
       "condChars": 33,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
@@ -2381,8 +2354,8 @@
       "condChars": 37,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "var",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     }
   ]

@@ -587,6 +587,7 @@ export function WorkspacePanel() {
             <Button
               onClick={() => void handleCreate()}
               disabled={creating || newName.trim().length < 1}
+              aria-label={creating ? "Create workspace (the workspace is being created)" : newName.trim().length < 1 ? "Create workspace (name the workspace first)" : "Create workspace"}
             >
               {creating ? (
                 <Loader2 className="animate-spin" aria-hidden="true" />

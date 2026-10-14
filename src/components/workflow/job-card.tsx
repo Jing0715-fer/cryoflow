@@ -803,6 +803,7 @@ function JobCardMenu({
             <button
               type="button"
               disabled={noteBusy || noteDraft.trim().length === 0}
+              aria-label={noteBusy ? "Save note (the note is being saved)" : noteDraft.trim().length === 0 ? "Save note (type a note first)" : "Save note"}
               onClick={() => void saveNote()}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >

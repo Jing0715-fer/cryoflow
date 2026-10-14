@@ -68,9 +68,9 @@ try { unlinkSync(TMP); } catch {}
 
 /* A2–A5 — the tally by SLOT */
 ok("A2 population = 171 (the world's shape)", receipt?.population === 171, `got ${receipt?.population}`);
-ok("A3 stateful = 99 (61 standing + the 13 t982 + the 7 t983 + the 18 t984 cures)", receipt?.tally?.stateful === 99, `got ${receipt?.tally?.stateful}`);
+ok("A3 stateful = 116 (61 standing + the 13 t982 + the 7 t983 + the 18 t984 + the 17 t985 cures)", receipt?.tally?.stateful === 116, `got ${receipt?.tally?.stateful}`);
 ok("A4 silent-static = 30 (43 − the 13 cures)", receipt?.tally?.["silent-static"] === 30, `got ${receipt?.tally?.["silent-static"]}`);
-ok("A5 silences = 72 (110 − the 13+7+18 cures)", receipt?.silences === 72, `got ${receipt?.silences}`);
+ok("A5 silences = 55 (110 − the 13+7+18+17 cures)", receipt?.silences === 55, `got ${receipt?.silences}`);
 
 /* A6 — the design-exclusion law, pinned at the census's source */
 const censusSrc = readFileSync(CENSUS, "utf8");
@@ -126,8 +126,8 @@ ok("A20 the story classifier lives (six classes in the census source)",
   ["flip", "var", "blind", "unnamed", "component", "vendor"].every((c) => censusSrc.includes(`"${c}"`)) &&
   censusSrc.includes("nameStory"));
 const st = receipt?.storyTally ?? {};
-ok("A21 the story tally by SLOT (flip 20 · var 19 · component 1 · blind 0 · vendor 2 · unnamed 0)",
-  st.flip === 20 && st.var === 19 && st.component === 1 && (st.blind ?? 0) === 0 && st.vendor === 2 && (st.unnamed ?? 0) === 0,
+ok("A21 the story tally by SLOT (flip 20 · var 2 · component 1 · blind 0 · vendor 2 · unnamed 0) — var 19 → 2: the t985 wave cured 17 var faces, the 2 standing are flip-HONEST through their variables (the knock's permLabel asks…, the ledger's Fetching…)",
+  st.flip === 20 && st.var === 2 && st.component === 1 && (st.blind ?? 0) === 0 && st.vendor === 2 && (st.unnamed ?? 0) === 0,
   `flip=${st.flip} var=${st.var} comp=${st.component} blind=${st.blind ?? 0} vendor=${st.vendor} unnamed=${st.unnamed ?? 0}`);
 
 /* A22–A28 — the seven t983 cures (the BLIND pool's first wave — every
@@ -199,6 +199,54 @@ const FACES4 = [
     'aria-label={!data?.script ? "Download .sh (no script yet)" : "Download .sh"}'],
 ];
 for (const [id, f, needle] of FACES4) {
+  const needles = Array.isArray(needle) ? needle : [needle];
+  ok(`${id} ${path.basename(f)} speaks the refusal`, needles.every((n) => shape(f, n)));
+}
+
+/* A47–A63 — the seventeen t985 cures (the VAR pool's wave — the
+   RENDERED-PLANE flip census's resolution): the scanner could not judge
+   dynamic names, so the walk mounted each face and read the REAL name in
+   both planes; 2 of the 19 proved flip-HONEST through their variables
+   (the knock's permLabel flips to "asking…", the ledger's fetch button
+   flips to "Fetching…") and stand uncured as records; the 17 blind
+   dynamic names cured here under the same two forms + fence. */
+const FACES5 = [
+  ["A47", "src/components/ai/ai-settings-dialog.tsx",
+    'aria-label={saving ? "保存并启用（正在保存）" : !providerId ? "保存并启用（先选择 Provider）" : "保存并启用"}'],
+  ["A48", "src/components/workflow/canvas.tsx",
+    'aria-label={tplBusy ? "Save template (saving the template)" : !tplName.trim() ? "Save template (name the template first)" : "Save template"}'],
+  ["A49", "src/components/workflow/cleanup-dialog.tsx",
+    'aria-label={executing ? "Delete them (the cleanup is running)" : "Delete them"}'],
+  ["A50", "src/components/workflow/hpc-profiles-editor.tsx",
+    'aria-label={saving ? "Save to server (saving the profiles)" : loading ? "Save to server (loading the profiles)" : !profiles.length ? "Save to server (no profiles to save)" : "Save to server"}'],
+  ["A51", "src/components/workflow/job-card.tsx",
+    'aria-label={noteBusy ? "Save note (the note is being saved)" : noteDraft.trim().length === 0 ? "Save note (type a note first)" : "Save note"}'],
+  ["A52", "src/components/workflow/job-inspector.tsx",
+    'aria-label={busy ? "Stop (the stop request is in flight)" : "Stop"}'],
+  ["A53", "src/components/workflow/job-panel.tsx",
+    'aria-label={loading ? "Refresh (the log tail is being fetched)" : "Refresh"}'],
+  ["A54", "src/components/workflow/project-panel.tsx",
+    'aria-label={creating ? "Create project (the project is being created)" : trimmed.length < 1 ? "Create project (name the project first)" : remoteBlocked ? "Create project (save a cluster connection first)" : "Create project"}'],
+  ["A55", "src/components/workflow/results/continue-verb-row.tsx",
+    'aria-label={firing ? "Continue the run (the continue request is running)" : "Continue the run"}'],
+  ["A56", "src/components/workflow/results/results-view.tsx",
+    'aria-label={busy ? "Pick with this model (the job is being created)" : "Pick with this model"}'],
+  ["A57", "src/components/workflow/results/results-view.tsx",
+    'aria-label={busy ? "Pick this stack (the job is being created)" : "Pick this stack"}'],
+  ["A58", "src/components/workflow/results/results-view.tsx",
+    'aria-label={busy ? "Train on this stack (the job is being created)" : "Train on this stack"}'],
+  ["A59", "src/components/workflow/template-presets-dialog.tsx",
+    'aria-label={importing ? "Import (the import is running)" : "Import"}'],
+  ["A60", "src/components/workflow/template-presets-dialog.tsx",
+    'aria-label={exportingAll ? "Export all (the export is running)" : "Export all"}'],
+  ["A61", "src/components/workflow/template-presets-dialog.tsx",
+    'aria-label={applying ? "Apply (the template is being applied)" : "Apply"}'],
+  ["A62", "src/components/workflow/user-preset-shelf.tsx",
+    'aria-label={pendingReceipt.added.length === 0 ? "Import (nothing is staged yet)" : undefined}'],
+  ["A63", "src/components/workflow/workspace-panel.tsx",
+    'aria-label={creating ? "Create workspace (the workspace is being created)" : newName.trim().length < 1 ? "Create workspace (name the workspace first)" : "Create workspace"}'],
+];
+for (const [id, f, needle] of FACES5) {
   const needles = Array.isArray(needle) ? needle : [needle];
   ok(`${id} ${path.basename(f)} speaks the refusal`, needles.every((n) => shape(f, n)));
 }

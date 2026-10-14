@@ -3810,6 +3810,7 @@ function InspectorHeader({
                     variant="ghost"
                     size="sm"
                     disabled={busy}
+                    aria-label={busy ? "Stop (the stop request is in flight)" : "Stop"}
                     onClick={() => {
                       setBusy(true);
                       void stopJob(job.id).finally(() => setBusy(false));

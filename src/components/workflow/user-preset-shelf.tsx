@@ -526,6 +526,7 @@ export function UserPresetShelf() {
                   data-testid="preset-import-apply"
                   onClick={onImportApply}
                   disabled={pendingReceipt.added.length === 0}
+                  aria-label={pendingReceipt.added.length === 0 ? "Import (nothing is staged yet)" : undefined}
                   className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors motion-reduce:transition-none hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-50"
                 >
                   Import {pendingReceipt.added.length > 0 ? pendingReceipt.added.length : ""}

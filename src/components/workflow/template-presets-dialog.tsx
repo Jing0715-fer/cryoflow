@@ -375,6 +375,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
       className="h-6 gap-1 px-2 text-[11px]"
       onClick={pickImportFiles}
       disabled={importing}
+      aria-label={importing ? "Import (the import is running)" : "Import"}
       title="Import shared template .json files into this project's shelf"
       data-testid={testid}
     >
@@ -408,6 +409,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
             className="h-6 gap-1 px-2 text-[11px]"
             onClick={exportAll}
             disabled={exportingAll}
+            aria-label={exportingAll ? "Export all (the export is running)" : "Export all"}
             title="Download every template as one bundle .json file"
             data-testid="custom-template-export-all"
           >
@@ -644,6 +646,7 @@ function CustomTemplatesSection({ onEditingChange }: { onEditingChange: (active:
                     size="sm"
                     className="h-6 gap-1 px-2.5 text-[11px]"
                     disabled={applying}
+                    aria-label={applying ? "Apply (the template is being applied)" : "Apply"}
                     onClick={() => apply(t)}
                     data-testid="custom-template-apply"
                   >

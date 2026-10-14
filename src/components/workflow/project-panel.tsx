@@ -363,6 +363,7 @@ export function NewProjectDialog({
           <Button
             onClick={() => void handleCreate()}
             disabled={creating || trimmed.length < 1 || remoteBlocked}
+            aria-label={creating ? "Create project (the project is being created)" : trimmed.length < 1 ? "Create project (name the project first)" : remoteBlocked ? "Create project (save a cluster connection first)" : "Create project"}
           >
             {creating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Plus aria-hidden="true" />}
             Create project

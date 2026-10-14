@@ -671,7 +671,13 @@ export function HpcProfilesEditor({
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOpen(false)}>
               Close
             </Button>
-            <Button size="sm" className="h-8 text-xs" onClick={() => void save()} disabled={saving || loading || !profiles.length}>
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => void save()}
+              disabled={saving || loading || !profiles.length}
+              aria-label={saving ? "Save to server (saving the profiles)" : loading ? "Save to server (loading the profiles)" : !profiles.length ? "Save to server (no profiles to save)" : "Save to server"}
+            >
               {saving ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : null}
               Save to server
             </Button>

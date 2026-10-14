@@ -650,7 +650,11 @@ export function AiSettingsDialog() {
           <Button variant="outline" onClick={() => setOpen(false)}>
             取消
           </Button>
-          <Button onClick={() => void save()} disabled={saving || !providerId}>
+          <Button
+            onClick={() => void save()}
+            disabled={saving || !providerId}
+            aria-label={saving ? "保存并启用（正在保存）" : !providerId ? "保存并启用（先选择 Provider）" : "保存并启用"}
+          >
             {saving && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
             <Check className="size-4" aria-hidden="true" />
             保存并启用

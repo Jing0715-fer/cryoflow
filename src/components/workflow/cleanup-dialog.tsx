@@ -522,6 +522,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
             <AlertDialogAction
               className="h-8 gap-1.5 bg-danger-600 text-xs text-white hover:bg-danger-700"
               disabled={executing}
+              aria-label={executing ? "Delete them (the cleanup is running)" : "Delete them"}
               onClick={(e) => {
                 e.preventDefault();
                 void execute();

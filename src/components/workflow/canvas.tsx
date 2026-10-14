@@ -875,6 +875,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
             <Button
               size="sm"
               disabled={tplBusy || !tplName.trim()}
+              aria-label={tplBusy ? "Save template (saving the template)" : !tplName.trim() ? "Save template (name the template first)" : "Save template"}
               onClick={() => {
                 setTplBusy(true);
                 void saveSelectionTemplate(tplName).finally(() => {

@@ -1764,6 +1764,7 @@ function LogTab({ job }: { job: JobDTO }) {
           className="h-7 gap-1 px-2 text-[11px]"
           onClick={() => void refresh()}
           disabled={loading}
+          aria-label={loading ? "Refresh (the log tail is being fetched)" : "Refresh"}
         >
           <RefreshCw className={cn("size-3", loading && "animate-spin")} aria-hidden="true" />
           Refresh

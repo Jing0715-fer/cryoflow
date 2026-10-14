@@ -217,7 +217,13 @@ export function ContinueVerbRow({
         </div>
       ) : null}
       <div className="mt-2 flex items-center gap-3">
-        <Button size="sm" className="h-7" onClick={fire} disabled={firing}>
+        <Button
+          size="sm"
+          className="h-7"
+          onClick={fire}
+          disabled={firing}
+          aria-label={firing ? "Continue the run (the continue request is running)" : "Continue the run"}
+        >
           {firing ? (
             <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
           ) : (
