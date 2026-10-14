@@ -1039,6 +1039,45 @@ export function AssistantPanel() {
     };
   }, []);
 
+  // t991 — the KEYBOARD RESIZE ROAD (the ARIA window-splitter pattern).
+  // The spec read's find: the old comment's promised keyboard road — the
+  // header's double-click reset — never fires from the keyboard (two
+  // Enters do not synthesize a dblclick), so a keyboard user had NO
+  // resize at all; the grips were aria-hidden pointer affordances. The
+  // cure: the e/s grips become real separators (tabbable, arrow-key
+  // steppable). One step = 16px through the SAME clampGeo the pointer
+  // drag rides; the raise rides every step (raiseToFront is a no-op
+  // when already last — the t990 raise law's keyboard form); the echo
+  // is debounced 400ms — the t638 law's keyboard form: the shape is
+  // written once when the hand RESTS, not once per keypress.
+  const keyEchoTimer = React.useRef<number | null>(null);
+  const keyResize = React.useCallback((axis: "w" | "h", delta: number) => {
+    raiseToFront();
+    setGeo((prev) => {
+      const base = prev ?? defaultGeo(window.innerWidth, window.innerHeight);
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const w = axis === "w" ? Math.max(GEO_MIN_W, base.w + delta) : base.w;
+      const h = axis === "h" ? Math.max(GEO_MIN_H, base.h + delta) : base.h;
+      return clampGeo({ ...base, w, h }, vw, vh);
+    });
+    // t902's law rides the keyboard too: the user's hand took ownership
+    // of the shape — the restore edit is history now (idempotent; React
+    // bails out when the flag already stands).
+    setGeoTouched(true);
+    if (keyEchoTimer.current !== null) window.clearTimeout(keyEchoTimer.current);
+    keyEchoTimer.current = window.setTimeout(() => {
+      keyEchoTimer.current = null;
+      if (geoRef.current && window.innerWidth >= GEO_MOBILE_BP) {
+        try {
+          localStorage.setItem(GEO_KEY, JSON.stringify(geoRef.current));
+        } catch {
+          /* private mode etc — position is a session-only luxury then */
+        }
+      }
+    }, 400);
+  }, [raiseToFront]);
+
   const beginDrag = (e: React.PointerEvent, mode: "move" | "e" | "s" | "se") => {
     if (e.button !== 0) return;
     // the header's own controls (the X, search, rename inputs) never drag
@@ -2204,22 +2243,48 @@ export function AssistantPanel() {
         </div>
 
         {/* ---- t500: the resize grips (desktop) — east, south, and the
-            corner. Wide hit areas, invisible until hover; keyboard users
-            reach the same geometry through the header's double-click
-            reset (a resize grip is a pointer affordance). */}
+            corner. Wide hit areas, invisible until hover.
+            t991 — the keyboard road is REAL now: the e/s grips are ARIA
+            window separators (the WAI-ARIA window-splitter pattern —
+            tabbable, arrow-key steppable, the valuenow speaking the live
+            shape). The spec read found the old comment's promise dead
+            (the header's dblclick reset never fires from the keyboard),
+            so a keyboard user had NO resize at all. The SE corner stays
+            pointer-only — it is the redundant affordance (e + s cover
+            both axes), and one extra tab stop per corner buys nothing. */}
         {!isMobile && (
           <>
             <div
-              className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize touch-none transition-colors hover:bg-primary/20"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="调整助手窗口宽度（左右方向键）"
+              aria-valuemin={GEO_MIN_W}
+              aria-valuenow={geo?.w}
+              tabIndex={0}
+              className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize touch-none transition-colors hover:bg-primary/20 focus-visible:bg-primary/40 focus-visible:outline-none"
               onPointerDown={(e) => beginDrag(e, "e")}
-              aria-hidden="true"
-              role="presentation"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                  e.preventDefault();
+                  keyResize("w", e.key === "ArrowRight" ? 16 : -16);
+                }
+              }}
             />
             <div
-              className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none transition-colors hover:bg-primary/20"
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="调整助手窗口高度（上下方向键）"
+              aria-valuemin={GEO_MIN_H}
+              aria-valuenow={geo?.h}
+              tabIndex={0}
+              className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none transition-colors hover:bg-primary/20 focus-visible:bg-primary/40 focus-visible:outline-none"
               onPointerDown={(e) => beginDrag(e, "s")}
-              aria-hidden="true"
-              role="presentation"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                  e.preventDefault();
+                  keyResize("h", e.key === "ArrowDown" ? 16 : -16);
+                }
+              }}
             />
             <div
               className="absolute bottom-0 right-0 size-4 cursor-nwse-resize touch-none transition-colors hover:bg-primary/25"
