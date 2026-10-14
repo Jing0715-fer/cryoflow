@@ -264,6 +264,25 @@ const { diagnoseFailureLog, LOG_PATTERNS } = await import("@/lib/log-diagnosis")
   ok("W18 the walk carries the persistence legs (the reset-before-mount, the reopen witness, the no-trace cleanup)", wrapWalk.includes("cryoflow.logWrap.v1") && wrapWalk.includes("the reading mode SURVIVES the close") && wrapWalk.includes("the walk leaves no trace"));
 }
 
+/* ---- F: the follow preference's persistence contract (t980 — the
+ *        t980 contract's candidate (d), the t977 decision's second seat)
+ *        ----
+ * The follow mode — the Log console's auto-scroll reading state — joins
+ * the wrap preference's law: one global key (the house style), the read
+ * lazy at mount, the write riding the toggle's click HANDLER (the #13
+ * law), the scroll-up dis-arm staying EPHEMERAL (atBottomRef — the
+ * preference has exactly ONE writer). The default asymmetry is the
+ * design: the absent key reads ON here (follow is the live console's
+ * natural resting state), OFF for wrap. */
+{
+  const followWalk = readFileSync(path.join(ROOT, "scripts/t980-follow-persistence-walk.mjs"), "utf8");
+  ok("F1 the pref lives at its house key and reads LAZILY at mount (cryoflow.logFollow.v1 + React.useState(readFollowPref)) with the ON default (the absent key reads !== \"0\")", inspector.includes('cryoflow.logFollow.v1') && inspector.includes("React.useState(readFollowPref)") && inspector.includes('getItem(FOLLOW_PREF_KEY) !== "0"'));
+  ok("F2 the write rides the HANDLER — the updater stays pure (writeFollowPref appears exactly twice: definition + the one handler call; the functional updater is gone)", (inspector.match(/writeFollowPref\(/g) ?? []).length === 2 && !inspector.includes("setFollow((f)"), `calls=${(inspector.match(/writeFollowPref\(/g) ?? []).length}`);
+  ok("F3 both helpers are guarded (typeof window + try/catch — private mode and quota degrade to ON, follow's natural default)", /function readFollowPref\(\)[\s\S]{0,220}typeof window[\s\S]{0,120}catch/.test(inspector) && /function writeFollowPref\([\s\S]{0,200}catch/.test(inspector));
+  ok("F4 the scroll-up dis-arm stays EPHEMERAL (the handler writes the pref and re-arms atBottomRef — one writer, the toggle)", /const next = !follow;\s*writeFollowPref\(next\);\s*setFollow\(next\);\s*atBottomRef\.current = true;/.test(inspector), "the handler's own shape pinned");
+  ok("F5 the walk carries the persistence legs (the reset-before-mount, the reopen witness, the no-trace cleanup) AND the negative leg (the wrap key never touched)", followWalk.includes("cryoflow.logFollow.v1") && followWalk.includes("the preference SURVIVES the close") && followWalk.includes("the walk leaves no trace") && followWalk.includes("the follow ride NEVER touches the wrap preference"));
+}
+
 /* ---- A: the tree pairing guard ---- */
 {
   /* the chip never orphans: any file that renders a data-ovd-chip must

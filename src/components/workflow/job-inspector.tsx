@@ -468,6 +468,39 @@ function writeWrapPref(on: boolean): void {
   }
 }
 
+/**
+ * t980 — the follow preference joins the wrap preference's law: the
+ * auto-scroll reading mode is a property of the USER'S VIEWPORT, not of
+ * any job's content — one global key, the house style
+ * (`cryoflow.logFollow.v1`). The write rides the toggle's click handler
+ * (the #13 law: storage writes never render — StrictMode double-invokes
+ * updater functions, so the updater stays pure); the read is the lazy
+ * useState initializer (the console mounts client-side only, inside the
+ * dialog — no hydration lane). Both ends are guarded: private mode /
+ * quota failures degrade to the session-local default (ON — follow is
+ * the live console's natural resting state, the wrap default's twin:
+ * the absent key reads ON here, OFF for wrap, by each mode's own
+ * natural default).
+ */
+const FOLLOW_PREF_KEY = "cryoflow.logFollow.v1";
+
+function readFollowPref(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(FOLLOW_PREF_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function writeFollowPref(on: boolean): void {
+  try {
+    window.localStorage.setItem(FOLLOW_PREF_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode / quota — the session-local state still works */
+  }
+}
+
 function LogConsole({
   job,
   initialMode,
@@ -484,7 +517,13 @@ function LogConsole({
   const [mode, setMode] = React.useState<"tail" | "full">(initialMode ?? "tail");
   const [totalLines, setTotalLines] = React.useState(0);
   const [truncated, setTruncated] = React.useState(false);
-  const [follow, setFollow] = React.useState(true);
+  /** t980 — the follow mode survives the close (the t977 law's second
+   *  seat): the lazy initializer reads the stored preference ONCE at
+   *  mount (tab switches and dialog closes both remount the console —
+   *  every mount re-reads). The scroll-up dis-arm stays EPHEMERAL: it
+   *  rides atBottomRef (the reading position), never the preference —
+   *  one writer for the preference, the toggle's own handler. */
+  const [follow, setFollow] = React.useState(readFollowPref);
   /** t977 — the reading mode survives the close: the lazy initializer
    *  reads the stored preference ONCE at mount (tab switches and dialog
    *  closes both remount the console — every mount re-reads). */
@@ -836,7 +875,12 @@ function LogConsole({
                 size="sm"
                 aria-pressed={follow}
                 onClick={() => {
-                  setFollow((f) => !f);
+                  // t980 — the write rides the HANDLER (the #13 law: never
+                  // render, never the updater — StrictMode double-invokes
+                  // updater functions)
+                  const next = !follow;
+                  writeFollowPref(next);
+                  setFollow(next);
                   atBottomRef.current = true;
                 }}
                 className={cn(

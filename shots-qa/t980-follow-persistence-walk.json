@@ -1,0 +1,47 @@
+{
+  "instrument": "t980-follow-persistence-walk",
+  "mode": "GATE",
+  "at": "2026-10-14T08:48:21.039Z",
+  "face": "Failed Diagnosis Face (t970)",
+  "world": "cmv79wd4e0000usbucn0sncqa (the landed sandbox's own world — the mint armed THIS window)",
+  "def": {
+    "panelW": 1227,
+    "panelOverX": false,
+    "shellOverX": false,
+    "preRendered": true,
+    "btn": {
+      "label": "Following",
+      "pressed": "true",
+      "w": 90,
+      "h": 28,
+      "inViewport": true
+    }
+  },
+  "off": {
+    "panelW": 1227,
+    "panelOverX": false,
+    "shellOverX": false,
+    "preRendered": true,
+    "btn": {
+      "label": "Paused",
+      "pressed": "false",
+      "w": 78,
+      "h": 28,
+      "inViewport": true
+    }
+  },
+  "keyboard": {
+    "enterToOn": true,
+    "enterToOff": true
+  },
+  "persistence": {
+    "click": "0",
+    "kbOn": "1",
+    "kbOff": "0",
+    "reopened": true,
+    "reopenPressed": "false",
+    "reopenLabel": "Paused",
+    "wrapKeyUntouched": true,
+    "cleaned": "cleaned"
+  }
+}
