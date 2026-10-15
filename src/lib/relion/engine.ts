@@ -15,6 +15,7 @@
 
 import type { ChildProcess } from "child_process";
 import { execFile, execFileSync, spawn } from "child_process";
+import os from "os";
 import {
   appendFileSync,
   closeSync,
@@ -1052,6 +1053,20 @@ function importFileSet(
 const IMPORT_YIELD_EVERY = 256;
 let importYieldCount = 0;
 const breatheImport = (): Promise<void> => new Promise((r) => setImmediate(r));
+
+/**
+ * t1021 — the fuel gate's two numbers. The per-file cost is the t1020
+ * witness ROUNDED UP (the kernel's own receipt: a 500k-file import grew
+ * the server's RSS by ≈2.4 GB — ≈4.8 KB/file — and died to the OOM
+ * killer mid-run; 6 KB keeps a margin for the listing itself). The floor
+ * is the box's non-negotiable rest — the browser, the shell, the file
+ * cache's floor — below which the refusal fires even on a quiet box.
+ * No fixed file cap: the budget reads the HOST's own numbers, so a big
+ * host honestly admits a big import and a small one refuses it by the
+ * same law.
+ */
+const NATIVE_IMPORT_FUEL_BYTES_PER_FILE = 6 * 1024;
+const NATIVE_IMPORT_FUEL_FLOOR_BYTES = 512 * 1024 * 1024;
 
 /* ------------------------------------------------------------------ */
 /* The native abort arm (t1015)                                          */
@@ -3433,6 +3448,32 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
       // of the remote leg's refusal).
       const twinGate = importTwinGate(hostFiles);
       if (twinGate) return { ok: false, error: twinGate.error };
+
+      // t1021 — THE FUEL GATE: the in-process import's memory scales with
+      // the file count (≈4.8 KB/file witnessed — the t1020 window's own
+      // scar: a 500k-micrograph fixture pressed the server past the host's
+      // ceiling and the KERNEL killed the process mid-run, the run dying
+      // "interrupted (exit unknown)" with the watchdog respawning an app
+      // that had lost its own run). The honest arithmetic happens HERE, at
+      // the loop's doorstep: the run names the number and refuses to let
+      // the kernel speak for it. The budget reads the HOST's own numbers
+      // (total RAM − the server's current RSS − the floor), never a fixed
+      // cap — a big host admits a big import, a small one refuses it.
+      const fuelBytes = hostFiles.length * NATIVE_IMPORT_FUEL_BYTES_PER_FILE;
+      const headroomBytes =
+        os.totalmem() - process.memoryUsage().rss - NATIVE_IMPORT_FUEL_FLOOR_BYTES;
+      if (fuelBytes > headroomBytes) {
+        return {
+          ok: false,
+          error:
+            `This import holds ${hostFiles.length.toLocaleString("en-US")} ${kindWord} — the in-process ` +
+            `import's memory scales ≈6 KB per file (witnessed t1020: a 500k import pressed the server past ` +
+            `the host's memory and the kernel killed it mid-run), ≈${(fuelBytes / 1024 ** 3).toFixed(1)} GB ` +
+            `against ≈${(headroomBytes / 1024 ** 3).toFixed(1)} GB of headroom this host can spare. ` +
+            `Split the folder into smaller batches and import in passes — the host survives this refusal; ` +
+            `the kernel's kill does not.`,
+        };
+      }
 
       void setProgress(60); // local source listed — the link/write phases remain
       let unlinked = 0;
