@@ -61,12 +61,16 @@ async function api(method, url, body) {
 }
 const jobsArr = (b) => (Array.isArray(b) ? b : b?.jobs ?? []);
 async function apiRetry(method, url, body, tries = 4) {
+  // t1023 patience law — the census rides this unit AFTER 38 siblings have
+  // hammered the server, and a busy dev server answers 5xx / drops
+  // connections in compile bursts; those are INFRA shapes, not verdicts.
+  // Retry them. A 4xx is an honest refusal — return it immediately.
   let last = null;
   for (let i = 0; i < tries; i++) {
     if (i > 0) await sleep(2500);
     try {
       const r = await api(method, url, body);
-      if (r.status > 0) return r;
+      if (r.status > 0 && r.status < 500) return r;
       last = r;
     } catch (e) { last = { status: 0, json: null, text: String(e) }; }
   }
@@ -142,17 +146,17 @@ if (template) {
   const mint = await apiRetry("POST", "/api/jobs", {
     type: "import", name: "Import Fuel Gate Ride", workspaceId: template.workspaceId,
     x: 1080, y: 560, params,
-  });
+  }, 8);
   twin = mint?.json?.job ?? null;
   ok("the twin minted (the gate's victim — the arc's own)", !!twin, twin?.id ?? `mint failed: ${mint?.status}`);
 }
 if (twin) {
   // the run AWAITED — the gate fires fast (listing → refuse, no copying)
-  const run = await apiRetry("POST", `/api/jobs/${twin.id}/run`, undefined, 2);
+  const run = await apiRetry("POST", `/api/jobs/${twin.id}/run`, undefined, 6);
   ok("the run answered", run.status === 200 || run.status === 500, `status=${run.status}`);
   // the row: failed, the fuel math as the result
   let row = null;
-  for (let i = 0; i < 20 && !row; i++) {
+  for (let i = 0; i < 40 && !row; i++) {
     if (i > 0) await sleep(500);
     try {
       const r = await api("GET", "/api/jobs");
