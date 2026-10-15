@@ -236,6 +236,9 @@ const clientSites = [];
    * remote-cluster-dialog 2018), a title-on-disabled refusal
    * (job-panel 330), a receipt whose clauses speak (user-preset-shelf
    * 469), or the fixing affordance beside it (workspace-panel 478).
+   * t1009 adds the pace dialog's empty face (pace-dialog 1 — the muted
+   * why-sentence sibling: "Nothing has run yet" followed by the why —
+   * a stage only speaks after it has a completed run to answer for).
    * The regex demands a word boundary (No+space / Nothing) so labels
    * like "Note"/"Noted"/"None" stay out of the family. A NEW unnamed
    * face reddens this unit until it is judged. */
@@ -243,6 +246,7 @@ const clientSites = [];
     ["src/components/workflow/class-gallery.tsx", 2],
     ["src/components/workflow/hpc-queue-sim.tsx", 1],
     ["src/components/workflow/job-panel.tsx", 3],
+    ["src/components/workflow/pace-dialog.tsx", 1],
     ["src/components/workflow/palette.tsx", 1],
     ["src/components/workflow/project-dashboard.tsx", 2],
     ["src/components/workflow/project-panel.tsx", 1],
@@ -263,7 +267,7 @@ const clientSites = [];
   const expected = EMPTY_OK.map(([f, n]) => `${f}:${n}`).join(" ");
   const actual = found.map(([f, n]) => `${f}:${n}`).join(" ");
   ok(
-    "Q8 the empty-state why-law is the closed judged allowlist (19 faces, every why spoken)",
+    "Q8 the empty-state why-law is the closed judged allowlist (20 faces, every why spoken)",
     found.length === EMPTY_OK.length && found.every(([f, n]) => EMPTY_OK.some(([ef, en]) => ef === f && en === n)),
     `expected [${expected}] actual [${actual}]`
   );
