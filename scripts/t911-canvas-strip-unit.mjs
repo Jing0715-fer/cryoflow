@@ -89,7 +89,15 @@ try {
   const finite = jobs.every((j) => Number.isFinite(j.x) && Number.isFinite(j.y));
   ok("E2 every job's x/y is a finite number (a drag commit cannot write NaN)", finite);
   const byType = (t) => jobs.find((j) => j.type === t);
-  const imp = byType("import"), mc = byType("motioncorr"), ctf = byType("ctffind");
+  // t1014 — the finder is BY NAME, not by type: the roster lists the newest
+  // first, and any transient mint's import-type twin (the census's own
+  // create-clear arcs ride between the units) shadows the seed's card and
+  // reads a twin-spot seat as a broken pitch. The seed's names are the
+  // mints' blind spot — residue-immune by construction.
+  const byName = (n) => jobs.find((j) => j.name === n);
+  const imp = byName("Import Movies 1") ?? byType("import");
+  const mc = byName("Motion Correction 1") ?? byType("motioncorr");
+  const ctf = byName("CTF Estimation 1") ?? byType("ctffind");
   const pitch1 = mc && imp ? Math.round((mc.x - imp.x) * 100) / 100 : NaN;
   const pitch2 = ctf && mc ? Math.round((ctf.x - mc.x) * 100) / 100 : NaN;
   ok("E3 the demo chain's pitch stands (import → motioncorr → ctffind, 264px, one row) — a stray drag breaks this loudly", pitch1 === 264 && pitch2 === 264 && imp.y === mc.y && mc.y === ctf.y, `x=${imp?.x}/${mc?.x}/${ctf?.x} y=${imp?.y}/${mc?.y}/${ctf?.y}`);
