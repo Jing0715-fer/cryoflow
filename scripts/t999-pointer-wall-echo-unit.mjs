@@ -66,12 +66,12 @@ ok("C1 the census's population gate stands (the disabled-refusal law)",
   (() => { try { return readFileSync(path.join(ROOT, "scripts/t982-aria-refusal-census.mjs"), "utf8").includes("if (!/\\bdisabled=\\{/.test(text)) continue;"); } catch { return false; } })());
 ok("C2 population = 171 (the grips carry no disabled prop — the no-shift ruling, live)",
   receipt?.population === 171, `got ${receipt?.population}`);
-ok("C3 stateful = 116 (the panel's population tags unmoved)",
-  receipt?.tally?.stateful === 116, `got ${receipt?.tally?.stateful}`);
-ok("C4 silent-static = 30 (the echo region is not an interactive tag)",
-  receipt?.tally?.["silent-static"] === 30, `got ${receipt?.tally?.["silent-static"]}`);
-ok("C5 silences = 55 (the t982 A5 value, unmoved)",
-  receipt?.silences === 55, `got ${receipt?.silences}`);
+ok("C3 stateful = 146 (the panel's population tags unmoved; +30 from the t1005 refusal-name arm)",
+  receipt?.tally?.stateful === 146, `got ${receipt?.tally?.stateful}`);
+ok("C4 silent-static = 0 (the echo region is not an interactive tag; the t1005 arm emptied the bucket)",
+  receipt?.tally?.["silent-static"] === 0, `got ${receipt?.tally?.["silent-static"]}`);
+ok("C5 silences = 25 (the flip bucket only — the t1005 arm retired the static half)",
+  receipt?.silences === 25, `got ${receipt?.silences}`);
 ok("C6 the story slots hold (flip 20 · var 2 · component 1 · blind 0 · vendor 2 · unnamed 0)",
   receipt?.storyTally?.flip === 20 && receipt?.storyTally?.var === 2 &&
   receipt?.storyTally?.component === 1 && (receipt?.storyTally?.blind ?? 0) === 0 &&

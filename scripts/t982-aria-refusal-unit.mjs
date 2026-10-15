@@ -66,11 +66,14 @@ try {
 ok("A1 the census re-runs live and parses", !!receipt && typeof receipt.population === "number");
 try { unlinkSync(TMP); } catch {}
 
-/* A2–A5 — the tally by SLOT */
+/* A2–A5 — the tally by SLOT — RE-KEYED by the t1005 second arm: the
+ * thirty refusal-name cures moved every silent-static site into
+ * stateful (the static bucket EMPTIED — the fifth pass's milestone),
+ * the census signal genuinely moved, the re-key rides the same era. */
 ok("A2 population = 171 (the world's shape)", receipt?.population === 171, `got ${receipt?.population}`);
-ok("A3 stateful = 116 (61 standing + the 13 t982 + the 7 t983 + the 18 t984 + the 17 t985 cures)", receipt?.tally?.stateful === 116, `got ${receipt?.tally?.stateful}`);
-ok("A4 silent-static = 30 (43 − the 13 cures)", receipt?.tally?.["silent-static"] === 30, `got ${receipt?.tally?.["silent-static"]}`);
-ok("A5 silences = 55 (110 − the 13+7+18+17 cures)", receipt?.silences === 55, `got ${receipt?.silences}`);
+ok("A3 stateful = 146 (61 standing + the 13 t982 + the 7 t983 + the 18 t984 + the 17 t985 cures + the 30 t1005 refusal names)", receipt?.tally?.stateful === 146, `got ${receipt?.tally?.stateful}`);
+ok("A4 silent-static = 0 (43 − the 13 cures − the 30 t1005 cures — THE BUCKET EMPTIED)", receipt?.tally?.["silent-static"] === 0, `got ${receipt?.tally?.["silent-static"]}`);
+ok("A5 silences = 25 (55 − the 30 t1005 cures — only the flip bucket remains)", receipt?.silences === 25, `got ${receipt?.silences}`);
 
 /* A6 — the design-exclusion law, pinned at the census's source */
 const censusSrc = readFileSync(CENSUS, "utf8");
