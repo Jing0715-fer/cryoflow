@@ -1,0 +1,23 @@
+{
+  "unit": "t1008-recital-tombstone-unit",
+  "verdict": "GREEN",
+  "pass": 23,
+  "fail": 0,
+  "at": "2026-10-15T03:17:37.455Z",
+  "tombstones": [
+    "#5/t251",
+    "#6-#14/t903",
+    "#7/t665",
+    "#8/t904",
+    "#13",
+    "3D-section/t217",
+    "topaz",
+    "chart-export"
+  ],
+  "thirdArm": [
+    "project-dashboard aria-busy+3-state name",
+    "molstar export-sub-volume dims-or-refusal",
+    "molstar import-confirm count-or-refusal",
+    "run-compare Run-B no-sibling refusal"
+  ]
+}

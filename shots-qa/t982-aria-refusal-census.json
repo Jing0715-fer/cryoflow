@@ -5,61 +5,19 @@
   "storyScope": "the t983 upgrade — silent-text sites classified by their name-story (flip/spin/unnamed/blind/unbounded)",
   "population": 171,
   "tally": {
-    "stateful": 116,
+    "stateful": 149,
     "described": 0,
-    "silent-static": 30,
-    "silent-text": 25
+    "silent-static": 0,
+    "silent-text": 22
   },
   "storyTally": {
     "component": 1,
     "vendor": 2,
-    "flip": 20,
+    "flip": 17,
     "var": 2
   },
-  "silences": 55,
+  "silences": 22,
   "byFile": {
-    "src/components/workflow/results/molstar-embed.tsx": [
-      5719,
-      5730,
-      5745,
-      5756,
-      5967,
-      5989,
-      7374
-    ],
-    "src/components/workflow/remote-run-button.tsx": [
-      547,
-      565,
-      618,
-      636,
-      1190,
-      1309
-    ],
-    "src/components/workflow/results/results-view.tsx": [
-      1017,
-      1030,
-      1436,
-      1457
-    ],
-    "src/components/ai/assistant-panel.tsx": [
-      1899,
-      2124,
-      2258
-    ],
-    "src/components/workflow/canvas.tsx": [
-      606,
-      806,
-      3111
-    ],
-    "src/components/workflow/results/class-iteration-gallery.tsx": [
-      788,
-      836,
-      853
-    ],
-    "src/components/ai/ai-settings-dialog.tsx": [
-      463,
-      547
-    ],
     "src/components/ui/carousel.tsx": [
       183,
       213
@@ -72,24 +30,17 @@
       1584,
       1728
     ],
-    "src/components/workflow/results/particle-browser.tsx": [
-      264,
-      276
+    "src/components/ai/assistant-panel.tsx": [
+      2124
     ],
-    "src/components/workflow/cleanup-dialog.tsx": [
-      457
-    ],
-    "src/components/workflow/cluster-usage-panel.tsx": [
-      346
+    "src/components/workflow/canvas.tsx": [
+      606
     ],
     "src/components/workflow/engine-guidance.tsx": [
       194
     ],
     "src/components/workflow/finish-knock-button.tsx": [
       148
-    ],
-    "src/components/workflow/hpc-profiles-editor.tsx": [
-      396
     ],
     "src/components/workflow/hpc-sbatch-dialog.tsx": [
       207
@@ -109,23 +60,17 @@
     "src/components/workflow/pipeline-script-dialog.tsx": [
       202
     ],
-    "src/components/workflow/project-dashboard.tsx": [
-      639
+    "src/components/workflow/remote-run-button.tsx": [
+      1309
     ],
-    "src/components/workflow/results/fsc-compare-dialog.tsx": [
-      601
+    "src/components/workflow/results/class-iteration-gallery.tsx": [
+      788
     ],
-    "src/components/workflow/results/map-ortho-panel.tsx": [
-      1345
+    "src/components/workflow/results/molstar-embed.tsx": [
+      5990
     ],
     "src/components/workflow/results/run-compare-dialog.tsx": [
       688
-    ],
-    "src/components/workflow/storage-dialog.tsx": [
-      763
-    ],
-    "src/components/workflow/system-diagnostics-dialog.tsx": [
-      410
     ],
     "src/components/workflow/template-presets-dialog.tsx": [
       963
@@ -142,9 +87,9 @@
       "cond": "probing",
       "condKind": "boolean",
       "condChars": 7,
-      "staticLabel": "重新测活",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<button"
     },
@@ -155,9 +100,9 @@
       "cond": "fetching || !providerId",
       "condKind": "boolean",
       "condChars": 23,
-      "staticLabel": "Refresh the model list",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -194,9 +139,9 @@
       "cond": "busy",
       "condKind": "boolean",
       "condChars": 4,
-      "staticLabel": "New chat",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -220,9 +165,9 @@
       "cond": "busy",
       "condKind": "boolean",
       "condChars": 4,
-      "staticLabel": "Message the AI assistant",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Textarea"
     },
@@ -389,9 +334,9 @@
       "cond": "busy",
       "condKind": "boolean",
       "condChars": 4,
-      "staticLabel": "Duplicate selection",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -441,9 +386,9 @@
       "cond": "criticalWalk == null",
       "condKind": "comparison",
       "condChars": 20,
-      "staticLabel": "Toggle critical path lens",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -597,9 +542,9 @@
       "cond": "loading || executing",
       "condKind": "boolean",
       "condChars": 20,
-      "staticLabel": "Re-survey the run directory (fresh)",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -675,9 +620,9 @@
       "cond": "refreshing || loading || !connectionId",
       "condKind": "boolean",
       "condChars": 38,
-      "staticLabel": "Refresh live node usage",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -805,9 +750,9 @@
       "cond": "!selected || profiles.length >= MAX_PROFILES",
       "condKind": "comparison",
       "condChars": 44,
-      "staticLabel": "Duplicate selected profile",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -1262,13 +1207,13 @@
       "condChars": 9,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "flip",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 663,
+      "line": 664,
       "tag": "Button",
       "cond": "duplicating",
       "condKind": "boolean",
@@ -1281,7 +1226,7 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 678,
+      "line": 679,
       "tag": "Button",
       "cond": "onlyProject",
       "condKind": "boolean",
@@ -1294,7 +1239,7 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 1187,
+      "line": 1188,
       "tag": "button",
       "cond": "busy",
       "condKind": "boolean",
@@ -1307,7 +1252,7 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 1201,
+      "line": 1202,
       "tag": "button",
       "cond": "busy",
       "condKind": "boolean",
@@ -1320,7 +1265,7 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 1648,
+      "line": 1649,
       "tag": "button",
       "cond": "adopting",
       "condKind": "boolean",
@@ -1333,7 +1278,7 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 3561,
+      "line": 3562,
       "tag": "AlertDialogCancel",
       "cond": "deleting",
       "condKind": "boolean",
@@ -1494,9 +1439,9 @@
       "cond": "gpus <= 1",
       "condKind": "comparison",
       "condChars": 9,
-      "staticLabel": "One GPU less",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -1507,9 +1452,9 @@
       "cond": "gpus >= maxGpus",
       "condKind": "comparison",
       "condChars": 15,
-      "staticLabel": "One GPU more",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -1520,9 +1465,9 @@
       "cond": "shards <= 1",
       "condKind": "comparison",
       "condChars": 11,
-      "staticLabel": "One shard fewer",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -1533,9 +1478,9 @@
       "cond": "shards >= ARRAY_MAX_SHARDS",
       "condKind": "comparison",
       "condChars": 26,
-      "staticLabel": "One shard more",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -1572,9 +1517,9 @@
       "cond": "subtreePlan.blocked.length > 0",
       "condKind": "comparison",
       "condChars": 30,
-      "staticLabel": "Also re-run the downstream subtree",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Checkbox"
     },
@@ -1663,9 +1608,9 @@
       "cond": "current == null || stacks[0]?.iter === current.iter",
       "condKind": "comparison",
       "condChars": 51,
-      "staticLabel": "Previous iteration round",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -1676,9 +1621,9 @@
       "cond": "current == null || stacks[stacks.length - 1]?.iter === current.iter",
       "condKind": "comparison",
       "condChars": 67,
-      "staticLabel": "Next iteration round",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -1702,9 +1647,9 @@
       "cond": "scanning",
       "condKind": "boolean",
       "condChars": 8,
-      "staticLabel": "Re-scan the project for FSC curves",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<button"
     },
@@ -1741,9 +1686,9 @@
       "cond": "exportState === \"busy\"",
       "condKind": "comparison",
       "condChars": 22,
-      "staticLabel": "Export the three orthogonal sections as a PNG triptych",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<button"
     },
@@ -1767,9 +1712,9 @@
       "cond": "!profile",
       "condKind": "boolean",
       "condChars": 8,
-      "staticLabel": "Copy profile as CSV",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<button"
     },
@@ -1780,9 +1725,9 @@
       "cond": "!profile",
       "condKind": "boolean",
       "condChars": 8,
-      "staticLabel": "Download profile as CSV",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<button"
     },
@@ -1793,9 +1738,9 @@
       "cond": "!profile",
       "condKind": "boolean",
       "condChars": 8,
-      "staticLabel": "Copy profile QC report",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<button"
     },
@@ -1806,9 +1751,9 @@
       "cond": "!profile",
       "condKind": "boolean",
       "condChars": 8,
-      "staticLabel": "Download profile QC report",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<button"
     },
@@ -1821,13 +1766,13 @@
       "condChars": 5,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "flip",
+      "verdict": "stateful",
+      "story": null,
       "snippet": "<button"
     },
     {
       "f": "src/components/workflow/results/molstar-embed.tsx",
-      "line": 5989,
+      "line": 5990,
       "tag": "button",
       "cond": "!dims || sendBusy",
       "condKind": "boolean",
@@ -1840,7 +1785,7 @@
     },
     {
       "f": "src/components/workflow/results/molstar-embed.tsx",
-      "line": 6356,
+      "line": 6357,
       "tag": "button",
       "cond": "active || busy || overlayBusy !== null",
       "condKind": "comparison",
@@ -1853,7 +1798,7 @@
     },
     {
       "f": "src/components/workflow/results/molstar-embed.tsx",
-      "line": 6517,
+      "line": 6518,
       "tag": "Button",
       "cond": "shot === \"busy\"",
       "condKind": "comparison",
@@ -1866,7 +1811,7 @@
     },
     {
       "f": "src/components/workflow/results/molstar-embed.tsx",
-      "line": 6538,
+      "line": 6539,
       "tag": "Button",
       "cond": "shot === \"busy\"",
       "condKind": "comparison",
@@ -1879,7 +1824,7 @@
     },
     {
       "f": "src/components/workflow/results/molstar-embed.tsx",
-      "line": 6563,
+      "line": 6564,
       "tag": "Button",
       "cond": "spin === \"recording\"",
       "condKind": "comparison",
@@ -1892,7 +1837,7 @@
     },
     {
       "f": "src/components/workflow/results/molstar-embed.tsx",
-      "line": 7251,
+      "line": 7252,
       "tag": "Checkbox",
       "cond": "headerStuck",
       "condKind": "boolean",
@@ -1905,7 +1850,7 @@
     },
     {
       "f": "src/components/workflow/results/molstar-embed.tsx",
-      "line": 7290,
+      "line": 7291,
       "tag": "Checkbox",
       "cond": "locked",
       "condKind": "boolean",
@@ -1918,16 +1863,16 @@
     },
     {
       "f": "src/components/workflow/results/molstar-embed.tsx",
-      "line": 7374,
+      "line": 7375,
       "tag": "Button",
       "cond": "importPreview.picked.size === 0",
       "condKind": "comparison",
       "condChars": 31,
       "staticLabel": null,
       "described": false,
-      "verdict": "silent-text",
-      "story": "flip",
-      "snippet": "<Button size=\"sm\" disabled={importPreview.picked.size === 0} onClick={confirmImport}>"
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<Button"
     },
     {
       "f": "src/components/workflow/results/particle-browser.tsx",
@@ -1936,9 +1881,9 @@
       "cond": "page.offset === 0 || loading",
       "condKind": "comparison",
       "condChars": 28,
-      "staticLabel": "Previous particle page",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<button"
     },
@@ -1949,9 +1894,9 @@
       "cond": "page.offset + PAGE_SIZE >= page.total || loading",
       "condKind": "comparison",
       "condChars": 48,
-      "staticLabel": "Next particle page",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<button"
     },
@@ -1962,9 +1907,9 @@
       "cond": "reportBusy",
       "condKind": "boolean",
       "condChars": 10,
-      "staticLabel": "Export run report",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -1975,9 +1920,9 @@
       "cond": "reportBusy",
       "condKind": "boolean",
       "condChars": 10,
-      "staticLabel": "Export run report as HTML",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -2001,9 +1946,9 @@
       "cond": "stackSlice <= 0",
       "condKind": "comparison",
       "condChars": 15,
-      "staticLabel": "Previous particle image",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -2014,9 +1959,9 @@
       "cond": "stackSlice >= (imageFile.slices ?? 1) - 1",
       "condKind": "comparison",
       "condChars": 41,
-      "staticLabel": "Next particle image",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -2092,9 +2037,9 @@
       "cond": "loading",
       "condKind": "boolean",
       "condChars": 7,
-      "staticLabel": "Refresh storage numbers",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
@@ -2183,9 +2128,9 @@
       "cond": "loading",
       "condKind": "boolean",
       "condChars": 7,
-      "staticLabel": "Refresh diagnostics",
+      "staticLabel": null,
       "described": false,
-      "verdict": "silent-static",
+      "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
     },
