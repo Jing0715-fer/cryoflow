@@ -1065,8 +1065,20 @@ const breatheImport = (): Promise<void> => new Promise((r) => setImmediate(r));
  * host honestly admits a big import and a small one refuses it by the
  * same law.
  */
-const NATIVE_IMPORT_FUEL_BYTES_PER_FILE = 6 * 1024;
-const NATIVE_IMPORT_FUEL_FLOOR_BYTES = 512 * 1024 * 1024;
+export const NATIVE_IMPORT_FUEL_BYTES_PER_FILE = 6 * 1024;
+export const NATIVE_IMPORT_FUEL_FLOOR_BYTES = 512 * 1024 * 1024;
+
+/**
+ * t1022 — the headroom read, shared with the UI face: the import dialog's
+ * pre-count (GET /api/fs/browse?path=…&count=1) speaks the SAME arithmetic
+ * as the run-time gate, so the number the user sees before pressing Start
+ * is the number the gate will recompute at the loop's doorstep. Exported
+ * from engine.ts (not copied into the route) so the two constants stay
+ * single-source — a re-tune lands once and both faces move together.
+ */
+export function importFuelHeadroomBytes(): number {
+  return os.totalmem() - process.memoryUsage().rss - NATIVE_IMPORT_FUEL_FLOOR_BYTES;
+}
 
 /* ------------------------------------------------------------------ */
 /* The native abort arm (t1015)                                          */
@@ -3460,8 +3472,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
       // (total RAM − the server's current RSS − the floor), never a fixed
       // cap — a big host admits a big import, a small one refuses it.
       const fuelBytes = hostFiles.length * NATIVE_IMPORT_FUEL_BYTES_PER_FILE;
-      const headroomBytes =
-        os.totalmem() - process.memoryUsage().rss - NATIVE_IMPORT_FUEL_FLOOR_BYTES;
+      const headroomBytes = importFuelHeadroomBytes();
       if (fuelBytes > headroomBytes) {
         return {
           ok: false,

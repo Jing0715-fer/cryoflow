@@ -8,6 +8,10 @@ import { countImages, expandPattern, hasWildcard, userPathToHost } from "@/lib/r
 import { isLocalRequest } from "@/lib/http-guard";
 import { BROWSER_LIST_MAX } from "@/lib/browse-caps";
 import { serverErrorReply } from "@/lib/server-error";
+import {
+  NATIVE_IMPORT_FUEL_BYTES_PER_FILE,
+  importFuelHeadroomBytes,
+} from "@/lib/relion/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -204,6 +208,32 @@ export async function GET(request: NextRequest) {
         { ok: false, error: `Permission denied: ${dir}` },
         { status: 400 }
       );
+    }
+
+    // t1022 — COUNT MODE (`?count=1`): the import dialog's fuel face speaks
+    // BEFORE the run starts. The run-time gate (engine.ts, at the loop's
+    // doorstep) is still the law; this is the courtesy that names the number
+    // while the user is still looking at the field — the folder's image
+    // count (the SAME name-only arithmetic the engine's folder branch
+    // computes: readdirSync + the extension test, NO per-entry statSync —
+    // a 500k folder costs one readdir here, not 500k stats) priced by the
+    // gate's own constants, imported from engine.ts so a re-tune lands once
+    // and both faces move together. The reply is compact ON PURPOSE: the
+    // full listing branch below ships every entry (capped) for the browser
+    // rows; this branch ships four numbers, so warning about a huge folder
+    // never itself costs a huge transfer.
+    if (url.searchParams.get("count") === "1") {
+      const count = names.filter((n) => MIC_RE.test(n)).length;
+      const fuelBytes = count * NATIVE_IMPORT_FUEL_BYTES_PER_FILE;
+      const headroomBytes = importFuelHeadroomBytes();
+      return NextResponse.json({
+        ok: true,
+        path: dir,
+        count,
+        fuelBytes,
+        headroomBytes,
+        overBudget: fuelBytes > headroomBytes,
+      });
     }
 
     const entries: Entry[] = [];
