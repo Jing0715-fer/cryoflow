@@ -101,15 +101,17 @@ ok("B1 WS_NAME_MAX = 60 (the wall's ONE truth, the t997 formula law)",
   countOf("const WS_NAME_MAX = 60;") === 1);
 
 /* B2–B7 — the rename input's four-branch voice */
-ok("B2 the four-branch block stands (empty / unchanged / at-cap / rest, in that order)", shape(PANEL,
+ok("B2 the five-branch block stands (busy / empty / unchanged / at-cap / rest, in that order — the t1002 busy face rides FIRST)", shape(PANEL,
   `          aria-label={
-            !editName.trim()
-              ? "Workspace name (empty — type a name to rename)"
-              : editName.trim() === workspace.name
-                ? "Workspace name (unchanged — edit the name to rename)"
-                : editName.length >= WS_NAME_MAX
-                  ? \`Workspace name (at the \${WS_NAME_MAX}-character limit)\`
-                  : "Workspace name"
+            renaming
+              ? "Workspace name (rename in flight)"
+              : !editName.trim()
+                ? "Workspace name (empty — type a name to rename)"
+                : editName.trim() === workspace.name
+                  ? "Workspace name (unchanged — edit the name to rename)"
+                  : editName.length >= WS_NAME_MAX
+                    ? \`Workspace name (at the \${WS_NAME_MAX}-character limit)\`
+                    : "Workspace name"
           }`));
 ok("B3 the empty face speaks the way out", shape(PANEL, `"Workspace name (empty — type a name to rename)"`));
 ok("B4 the unchanged face speaks the way in", shape(PANEL, `"Workspace name (unchanged — edit the name to rename)"`));
@@ -155,8 +157,9 @@ ok("B18 no residual literal slice(0, 60)", countOf("slice(0, 60)") === 0,
 ok("B19 the commit's unchanged pair (the label's one truth, the commit's side)",
   shape(PANEL, `const current = workspaces.find((w) => w.id === id)?.name ?? "";`) &&
   shape(PANEL, "if (!trimmed || trimmed === current) {"));
-ok("B20 the rename commit rides the const (the arithmetic, one mention)",
-  shape(PANEL, "void renameWorkspace(id, trimmed.slice(0, WS_NAME_MAX)).finally(cancelEdit);"));
+ok("B20 the rename commit rides the const (the arithmetic, one mention) + the gate's finally pair (the t1002 re-key: the raw .finally(cancelEdit) is GONE)",
+  shape(PANEL, "void renameWorkspace(id, trimmed.slice(0, WS_NAME_MAX)).finally(() => {") &&
+  !shape(PANEL, ".finally(cancelEdit);"));
 
 /* B27–B28 — the keyboard ownership (the arc's keys are owned) */
 ok("B27 the input owns its Escape (preventDefault + stopPropagation + cancel)", shape(PANEL,

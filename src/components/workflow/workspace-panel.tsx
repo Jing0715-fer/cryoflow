@@ -118,6 +118,7 @@ function WorkspaceRow({
   isDefault,
   stats,
   editing,
+  renaming,
   editName,
   arrivalDelay,
   onStartEdit,
@@ -132,6 +133,12 @@ function WorkspaceRow({
   isDefault: boolean;
   stats: LiveStats;
   editing: boolean;
+  /** t1002 — the rename arc's busy face: TRUE while ANY rename PATCH is
+   * in the air (the panel's single renamingId gate). The open input
+   * speaks the busy branch of its name and carries aria-busy — the
+   * commit's re-entry guard is the gate's substance, this is its
+   * voice. */
+  renaming: boolean;
   editName: string;
   /** t614 — the card's wave ticket in ms (the mount ledger's word for
    * this face). Absent = mount without a ticket (rides no wave). The
@@ -184,8 +191,10 @@ function WorkspaceRow({
           unchanged / at-cap / rest). The open lands on the unchanged
           face honestly: Enter right now would do nothing. The 60 wall
           is WS_NAME_MAX's truth, the cap face its voice (the t997 wall
-          law — walls speak). VOICE-ONLY: the commit's arithmetic never
-          moved. */}
+          law — walls speak). t1002 — the fifth face rides FIRST: while
+          the PATCH is in the air the busy branch speaks (the gate's
+          voice, aria-busy beside it) — the flight is sub-perceptual on
+          localhost, so the face is unit-pinned at source, not walked. */}
       {editing ? (
         <Input
           value={editName}
@@ -204,14 +213,17 @@ function WorkspaceRow({
             }
           }}
           onClick={(e) => e.stopPropagation()}
+          aria-busy={renaming || undefined}
           aria-label={
-            !editName.trim()
-              ? "Workspace name (empty — type a name to rename)"
-              : editName.trim() === workspace.name
-                ? "Workspace name (unchanged — edit the name to rename)"
-                : editName.length >= WS_NAME_MAX
-                  ? `Workspace name (at the ${WS_NAME_MAX}-character limit)`
-                  : "Workspace name"
+            renaming
+              ? "Workspace name (rename in flight)"
+              : !editName.trim()
+                ? "Workspace name (empty — type a name to rename)"
+                : editName.trim() === workspace.name
+                  ? "Workspace name (unchanged — edit the name to rename)"
+                  : editName.length >= WS_NAME_MAX
+                    ? `Workspace name (at the ${WS_NAME_MAX}-character limit)`
+                    : "Workspace name"
           }
           className="h-8 text-sm font-medium"
         />
@@ -379,6 +391,16 @@ export function WorkspacePanel() {
 
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editName, setEditName] = React.useState("");
+  /* t1002 — the rename's BUSY GATE: the commit's PATCH is awaited void —
+   * during the flight the editor stays open and the blur door still
+   * fires, so a blur while the first PATCH is in the air re-enters
+   * commitRename and re-PATCHes (idempotent, but the shape is real).
+   * renamingId is the flight's one truth: the commit refuses re-entry
+   * while it is set, the open input speaks the busy face, and the
+   * finally lands BOTH the gate's release and the editor's close — the
+   * mirror of the create/delete gates' own busy states (creating /
+   * deleting) beside it. */
+  const [renamingId, setRenamingId] = React.useState<string | null>(null);
 
   // live stats derived from the store's job list — poll ticks keep these
   // fresh without extra requests (server stats only seed the first paint)
@@ -413,6 +435,12 @@ export function WorkspacePanel() {
   };
 
   const commitRename = () => {
+    /* t1002 — the re-entry guard rides FIRST: a blur fired while the
+     * PATCH is in the air re-enters here with the editor still open —
+     * the busy gate refuses the second commit. The flight's own mouth:
+     * nothing mutates the editor while the rename is unresolved, and
+     * the open input's busy face is the gate's voice. */
+    if (renamingId) return;
     const id = editingId;
     if (!id) return;
     const trimmed = editName.trim();
@@ -420,12 +448,19 @@ export function WorkspacePanel() {
     /* t998 — the two silent refusals (empty, unchanged) close the
      * editor without a word BY DESIGN (a refused commit is a cancel,
      * not an error) — their voice lives on the input's flip faces,
-     * which speak each state before Enter lands. */
+     * which speak each state before Enter lands. During the flight
+     * the gate holds these refusals too: the finally closes the editor
+     * when the PATCH lands, so a blur's early return leaves the open
+     * editor to the busy face, not to a silent close. */
     if (!trimmed || trimmed === current) {
       cancelEdit();
       return;
     }
-    void renameWorkspace(id, trimmed.slice(0, WS_NAME_MAX)).finally(cancelEdit);
+    setRenamingId(id);
+    void renameWorkspace(id, trimmed.slice(0, WS_NAME_MAX)).finally(() => {
+      setRenamingId(null);
+      cancelEdit();
+    });
   };
 
   const confirmDelete = async () => {
@@ -558,6 +593,7 @@ export function WorkspacePanel() {
               isDefault={w.id === defaultId}
               stats={liveStats.get(w.id) ?? { total: 0, running: 0, pending: 0, completed: 0, links: 0 }}
               editing={editingId === w.id}
+              renaming={renamingId !== null}
               editName={editName}
               arrivalDelay={waveTicketOf(w.id)}
               onStartEdit={() => startEdit(w)}
