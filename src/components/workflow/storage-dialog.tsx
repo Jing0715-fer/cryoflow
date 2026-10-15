@@ -765,7 +765,7 @@ export default function StorageDialog({
                     size="sm"
                     onClick={() => void load()}
                     disabled={loading}
-                    aria-label="Refresh storage numbers"
+                    aria-label={loading ? "Refreshing storage numbers…" : "Refresh storage numbers"}
                   >
                     <RefreshCw
                       className={`size-3.5${loading ? " animate-spin" : ""}`}

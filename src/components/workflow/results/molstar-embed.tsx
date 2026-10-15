@@ -5720,7 +5720,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => void exportProfileCsv("copy")}
                           disabled={!profile}
-                          aria-label="Copy profile as CSV"
+                          aria-label={profile ? "Copy profile as CSV" : "Copy profile as CSV (no landscape profile yet)"}
                           title="Copy the density landscape (one row per bin) to the clipboard as CSV — falls back to a download when the clipboard is denied"
                           className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40"
                         >
@@ -5731,7 +5731,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => void exportProfileCsv("download")}
                           disabled={!profile}
-                          aria-label="Download profile as CSV"
+                          aria-label={profile ? "Download profile as CSV" : "Download profile as CSV (no landscape profile yet)"}
                           title="Save the density landscape as map-profile-<axis>-<stamp>.csv — same bytes as the clipboard copy"
                           className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-cyan-600/15 hover:text-cyan-700 dark:hover:text-cyan-300 disabled:pointer-events-none disabled:opacity-40"
                         >
@@ -5746,7 +5746,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => void exportProfileReport("copy")}
                           disabled={!profile}
-                          aria-label="Copy profile QC report"
+                          aria-label={profile ? "Copy profile QC report" : "Copy profile QC report (no landscape profile yet)"}
                           title="Copy a human-readable QC summary (peak, trough, comparison-map agreement) to the clipboard as Markdown — falls back to a download when the clipboard is denied"
                           className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40"
                         >
@@ -5757,7 +5757,7 @@ export default function MolStarEmbed({ jobId, path, name, initialClipBox }: MolS
                           type="button"
                           onClick={() => void exportProfileReport("download")}
                           disabled={!profile}
-                          aria-label="Download profile QC report"
+                          aria-label={profile ? "Download profile QC report" : "Download profile QC report (no landscape profile yet)"}
                           title="Save the QC summary as map-qc-report-<axis>-<stamp>.md — same bytes as the clipboard copy"
                           className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-wide text-muted-foreground transition-colors hover:bg-violet-600/15 hover:text-violet-700 dark:hover:text-violet-300 disabled:pointer-events-none disabled:opacity-40"
                         >

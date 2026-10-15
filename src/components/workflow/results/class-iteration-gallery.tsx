@@ -839,7 +839,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               className="h-auto w-8 shrink-0"
               onClick={() => stepRound(-1)}
               disabled={current == null || stacks[0]?.iter === current.iter}
-              aria-label="Previous iteration round"
+              aria-label={current == null ? "Previous iteration round (no rounds loaded)" : stacks[0]?.iter === current.iter ? "Previous iteration round (already at the first round)" : "Previous iteration round"}
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
@@ -856,7 +856,7 @@ export function ClassIterationGallery({ job, refreshKey = 0 }: { job: JobDTO; re
               className="h-auto w-8 shrink-0"
               onClick={() => stepRound(1)}
               disabled={current == null || stacks[stacks.length - 1]?.iter === current.iter}
-              aria-label="Next iteration round"
+              aria-label={current == null ? "Next iteration round (no rounds loaded)" : stacks[stacks.length - 1]?.iter === current.iter ? "Next iteration round (already at the last round)" : "Next iteration round"}
             >
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </Button>

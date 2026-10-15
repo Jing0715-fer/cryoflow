@@ -1348,7 +1348,7 @@ export function MapOrthoPanel({
           disabled={exportState === "busy"}
           data-canvas-ui="ortho-export"
           data-ortho-export-state={exportState}
-          aria-label="Export the three orthogonal sections as a PNG triptych"
+          aria-label={exportState === "busy" ? "Exporting the triptych…" : "Export the three orthogonal sections as a PNG triptych"}
           title="Export the three sections as one PNG — crosshair and density footer included"
           className={cn(
             "shrink-0 rounded p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",

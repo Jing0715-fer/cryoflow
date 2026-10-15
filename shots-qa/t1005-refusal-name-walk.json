@@ -1,0 +1,9 @@
+{
+  "walk": "t1005-refusal-name-walk",
+  "at": "2026-10-15T02:00:33.097Z",
+  "pass": 12,
+  "fail": 0,
+  "phaseTrace": [],
+  "results": [],
+  "worldNote": "zero mints, zero server writes (typed input cleared, nothing sent); the world net-zero"
+}

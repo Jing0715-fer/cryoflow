@@ -399,7 +399,7 @@ export function HpcProfilesEditor({
                   className="h-7 w-7 shrink-0 px-0"
                   onClick={duplicateProfile}
                   disabled={!selected || profiles.length >= MAX_PROFILES}
-                  aria-label="Duplicate selected profile"
+                  aria-label={!selected ? "Duplicate selected profile (pick a profile first)" : profiles.length >= MAX_PROFILES ? "Duplicate selected profile (the profile limit is reached)" : "Duplicate selected profile"}
                   title="Duplicate selected profile"
                 >
                   <Copy className="size-3" aria-hidden="true" />

@@ -1021,7 +1021,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             disabled={reportBusy}
             aria-busy={reportBusy}
             className="h-7 gap-1.5 px-2 text-[11px]"
-            aria-label="Export run report"
+            aria-label={reportBusy ? "Exporting the run report…" : "Export run report"}
             title="Download a Markdown summary of this run — metadata, resolution, FSC table & curve snapshot, outputs"
           >
             <FileDown className={cn("h-3.5 w-3.5", reportBusy && "animate-pulse motion-reduce:animate-none")} aria-hidden="true" />
@@ -1034,7 +1034,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
             disabled={reportBusy}
             aria-busy={reportBusy}
             className="h-7 gap-1.5 px-2 text-[11px]"
-            aria-label="Export run report as HTML"
+            aria-label={reportBusy ? "Exporting the run report…" : "Export run report as HTML"}
             title="Download the same report as a self-contained HTML document — opens in any browser with contents and figures, no app needed"
           >
             <Globe className={cn("h-3.5 w-3.5", reportBusy && "animate-pulse motion-reduce:animate-none")} aria-hidden="true" />
@@ -1438,7 +1438,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                             size="sm"
                             className="h-7 w-7 shrink-0 p-0"
                             disabled={stackSlice <= 0}
-                            aria-label="Previous particle image"
+                            aria-label={stackSlice <= 0 ? "Previous particle image (already at the first slice)" : "Previous particle image"}
                             data-canvas-ui="stack-slice-prev"
                             onClick={() => setStackSlice((s) => Math.max(0, s - 1))}
                           >
@@ -1459,7 +1459,7 @@ export function JobResults({ job, refreshKey = 0 }: { job: JobDTO; refreshKey?: 
                             size="sm"
                             className="h-7 w-7 shrink-0 p-0"
                             disabled={stackSlice >= (imageFile.slices ?? 1) - 1}
-                            aria-label="Next particle image"
+                            aria-label={stackSlice >= (imageFile.slices ?? 1) - 1 ? "Next particle image (already at the last slice)" : "Next particle image"}
                             data-canvas-ui="stack-slice-next"
                             onClick={() =>
                               setStackSlice((s) => Math.min((imageFile.slices ?? 1) - 1, s + 1))

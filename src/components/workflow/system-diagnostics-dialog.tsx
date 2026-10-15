@@ -413,7 +413,7 @@ export default function SystemDiagnosticsDialog({
               className="h-7 gap-1.5 text-xs"
               onClick={() => void fetchDiag()}
               disabled={loading}
-              aria-label="Refresh diagnostics"
+              aria-label={loading ? "Reading the diagnostics…" : "Refresh diagnostics"}
             >
               <RefreshCw className={cn("size-3", loading && "animate-spin")} aria-hidden="true" />
               {loading ? "Reading…" : "Refresh"}

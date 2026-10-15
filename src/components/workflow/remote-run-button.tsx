@@ -551,7 +551,7 @@ export function RemoteRunButton({
             className="size-7 shrink-0"
             onClick={() => setGpus((g) => Math.max(1, g - 1))}
             disabled={gpus <= 1}
-            aria-label="One GPU less"
+            aria-label={gpus <= 1 ? "One GPU less (already at the minimum)" : "One GPU less"}
           >
             <Minus className="size-3.5" aria-hidden="true" />
           </Button>
@@ -569,7 +569,7 @@ export function RemoteRunButton({
             className="size-7 shrink-0"
             onClick={() => setGpus((g) => Math.min(maxGpus, g + 1))}
             disabled={gpus >= maxGpus}
-            aria-label="One GPU more"
+            aria-label={gpus >= maxGpus ? "One GPU more (already at the maximum)" : "One GPU more"}
           >
             <Plus className="size-3.5" aria-hidden="true" />
           </Button>
@@ -622,7 +622,7 @@ export function RemoteRunButton({
             className="size-7 shrink-0"
             onClick={() => setShards((s) => Math.max(1, s - 1))}
             disabled={shards <= 1}
-            aria-label="One shard fewer"
+            aria-label={shards <= 1 ? "One shard fewer (no split to remove)" : "One shard fewer"}
           >
             <Minus className="size-3.5" aria-hidden="true" />
           </Button>
@@ -640,7 +640,7 @@ export function RemoteRunButton({
             className="size-7 shrink-0"
             onClick={() => setShards((s) => Math.min(ARRAY_MAX_SHARDS, s + 1))}
             disabled={shards >= ARRAY_MAX_SHARDS}
-            aria-label="One shard more"
+            aria-label={shards >= ARRAY_MAX_SHARDS ? "One shard more (already at the maximum)" : "One shard more"}
           >
             <Plus className="size-3.5" aria-hidden="true" />
           </Button>
@@ -1192,7 +1192,7 @@ export function RemoteRunButton({
                       disabled={subtreePlan.blocked.length > 0}
                       onCheckedChange={(v) => setSubtree(v === true)}
                       className="mt-0.5"
-                      aria-label="Also re-run the downstream subtree"
+                      aria-label={subtreePlan.blocked.length > 0 ? "Also re-run the downstream subtree (some downstream nodes are blocked)" : "Also re-run the downstream subtree"}
                       data-testid="subtree-toggle"
                     />
                     <span className="min-w-0 space-y-0.5">

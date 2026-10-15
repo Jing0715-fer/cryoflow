@@ -1902,7 +1902,7 @@ export function AssistantPanel() {
             className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => void resetChat()}
             disabled={busy}
-            aria-label="New chat"
+            aria-label={busy ? "New chat (the assistant is answering)" : "New chat"}
             title="新对话"
           >
             <RotateCcw className="size-4" />
@@ -2264,7 +2264,7 @@ export function AssistantPanel() {
               className="min-h-[52px] resize-none border-0 bg-transparent pb-9 pl-3 pr-3 pt-2.5 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent"
               rows={2}
               disabled={busy}
-              aria-label="Message the AI assistant"
+              aria-label={busy ? "Message the AI assistant (the answer is still streaming)" : "Message the AI assistant"}
               maxLength={8000}
             />
             {busy ? (

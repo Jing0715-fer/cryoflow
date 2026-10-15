@@ -603,7 +603,7 @@ export function FscCompareDialog({
             onClick={rescan}
             disabled={scanning}
             data-testid="fsc-compare-rescan"
-            aria-label="Re-scan the project for FSC curves"
+            aria-label={scanning ? "Scanning the project for FSC curves…" : "Re-scan the project for FSC curves"}
             title="Re-scan the project for FSC curves — running refinements land a new model checkpoint every few minutes, so an index read from a minute ago is already stale"
             className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/60 px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-60"
           >

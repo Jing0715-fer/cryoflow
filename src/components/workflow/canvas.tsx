@@ -812,7 +812,7 @@ const SelectionToolbar = React.memo(function SelectionToolbar({
             setBusy(true);
             void duplicateSelected().finally(() => setBusy(false));
           }}
-          aria-label="Duplicate selection"
+          aria-label={busy ? "Duplicating the selection…" : "Duplicate selection"}
           title="Duplicate the selection — wires BETWEEN the copies are recreated, everything stays idle"
         >
           <Copy className="size-3.5" />
@@ -3115,7 +3115,7 @@ export function WorkflowCanvas() {
           onClick={() => useWorkflowStore.getState().toggleCriticalLens()}
           disabled={criticalWalk == null}
           aria-pressed={criticalLens}
-          aria-label="Toggle critical path lens"
+          aria-label={criticalWalk == null ? "Toggle critical path lens (no finished chain to walk)" : "Toggle critical path lens"}
           title="Toggle the critical path lens (P) — keep the chain that set the finish at full ink, dim everything else"
           data-canvas-ui="critical-toggle"
         >

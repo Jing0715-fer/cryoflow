@@ -464,7 +464,7 @@ export function AiSettingsDialog() {
                     type="button"
                     onClick={() => void reprobe()}
                     disabled={probing}
-                    aria-label="重新测活"
+                    aria-label={probing ? "测活中…" : "重新测活"}
                     title="重新探测所有已保存供应商的连通性"
                     className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
                   >
@@ -551,7 +551,7 @@ export function AiSettingsDialog() {
                   className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
                   onClick={() => void fetchModels()}
                   disabled={fetching || !providerId}
-                  aria-label="Refresh the model list"
+                  aria-label={fetching ? "Refreshing the model list…" : !providerId ? "Refresh the model list (pick a provider first)" : "Refresh the model list"}
                 >
                   {fetching ? (
                     <Loader2 className="size-3 animate-spin" aria-hidden="true" />

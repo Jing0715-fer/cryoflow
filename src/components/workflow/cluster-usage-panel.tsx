@@ -350,7 +350,7 @@ export function ClusterUsagePanel({
             className="size-6 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => void load(true)}
             disabled={refreshing || loading || !connectionId}
-            aria-label="Refresh live node usage"
+            aria-label={!connectionId ? "Refresh live node usage (no connection selected)" : refreshing || loading ? "Refreshing live node usage…" : "Refresh live node usage"}
             title="Refresh (bypasses the 15s cache)"
           >
             {refreshing ? (

@@ -460,7 +460,7 @@ export function CleanupDialog({ job, open, onOpenChange, onCleaned }: CleanupDia
               className="h-7 gap-1.5 px-2.5 text-xs"
               onClick={() => void loadPlan(true)}
               disabled={loading || executing}
-              aria-label="Re-survey the run directory (fresh)"
+              aria-label={executing ? "Re-survey locked (a cleanup is executing)" : loading ? "Surveying the run directory…" : "Re-survey the run directory (fresh)"}
             >
               <RefreshCw className="size-3.5" aria-hidden="true" />
               Refresh

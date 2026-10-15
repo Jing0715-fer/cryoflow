@@ -268,7 +268,7 @@ function GroupSection({
                       const off = Math.max(0, page.offset - PAGE_SIZE);
                       void loadPage(off);
                     }}
-                    aria-label="Previous particle page"
+                    aria-label={page.offset === 0 ? "Previous particle page (already at the first page)" : loading ? "Loading the previous page…" : "Previous particle page"}
                     className="rounded border bg-card p-1 text-muted-foreground outline-none transition-colors hover:bg-muted disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <ChevronLeft className="size-3.5" aria-hidden="true" />
@@ -280,7 +280,7 @@ function GroupSection({
                       const off = page.offset + PAGE_SIZE;
                       void loadPage(off);
                     }}
-                    aria-label="Next particle page"
+                    aria-label={page.offset + PAGE_SIZE >= page.total ? "Next particle page (already at the last page)" : loading ? "Loading the next page…" : "Next particle page"}
                     className="rounded border bg-card p-1 text-muted-foreground outline-none transition-colors hover:bg-muted disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <ChevronRight className="size-3.5" aria-hidden="true" />
