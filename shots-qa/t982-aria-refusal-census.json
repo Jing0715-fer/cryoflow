@@ -34,7 +34,7 @@
       2124
     ],
     "src/components/workflow/canvas.tsx": [
-      606
+      608
     ],
     "src/components/workflow/engine-guidance.tsx": [
       194
@@ -264,7 +264,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 342,
+      "line": 344,
       "tag": "button",
       "cond": "jumping",
       "condKind": "boolean",
@@ -277,7 +277,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 369,
+      "line": 371,
       "tag": "button",
       "cond": "jumping",
       "condKind": "boolean",
@@ -290,7 +290,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 411,
+      "line": 413,
       "tag": "button",
       "cond": "jumping",
       "condKind": "boolean",
@@ -303,7 +303,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 439,
+      "line": 441,
       "tag": "button",
       "cond": "jumping",
       "condKind": "boolean",
@@ -316,7 +316,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 606,
+      "line": 608,
       "tag": "Button",
       "cond": "busy || included.length === 0",
       "condKind": "comparison",
@@ -329,7 +329,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 806,
+      "line": 872,
       "tag": "Button",
       "cond": "busy",
       "condKind": "boolean",
@@ -342,7 +342,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 876,
+      "line": 952,
       "tag": "Button",
       "cond": "tplBusy || !tplName.trim()",
       "condKind": "call",
@@ -355,7 +355,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3020,
+      "line": 3100,
       "tag": "Button",
       "cond": "zoom <= ZOOM_MIN",
       "condKind": "comparison",
@@ -368,7 +368,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3045,
+      "line": 3125,
       "tag": "Button",
       "cond": "zoom >= ZOOM_MAX",
       "condKind": "comparison",
@@ -381,7 +381,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3111,
+      "line": 3191,
       "tag": "Button",
       "cond": "criticalWalk == null",
       "condKind": "comparison",
@@ -394,7 +394,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3129,
+      "line": 3209,
       "tag": "Button",
       "cond": "historyPast.length === 0",
       "condKind": "comparison",
@@ -407,7 +407,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3145,
+      "line": 3225,
       "tag": "Button",
       "cond": "historyFuture.length === 0",
       "condKind": "comparison",
@@ -420,7 +420,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3255,
+      "line": 3335,
       "tag": "Button",
       "cond": "!bookmarkName.trim()",
       "condKind": "call",
@@ -433,7 +433,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3332,
+      "line": 3412,
       "tag": "Button",
       "cond": "posterBusy !== null || jobs.length === 0",
       "condKind": "comparison",
@@ -446,7 +446,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3347,
+      "line": 3427,
       "tag": "Button",
       "cond": "posterBusy !== null || jobs.length === 0",
       "condKind": "comparison",
@@ -459,7 +459,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3495,
+      "line": 3575,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0",
       "condKind": "comparison",
@@ -472,7 +472,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3504,
+      "line": 3584,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0",
       "condKind": "comparison",
@@ -485,7 +485,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3512,
+      "line": 3592,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0 || posterBusy !== null",
       "condKind": "comparison",
@@ -498,7 +498,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3516,
+      "line": 3596,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0 || posterBusy !== null",
       "condKind": "comparison",
@@ -511,7 +511,7 @@
     },
     {
       "f": "src/components/workflow/canvas.tsx",
-      "line": 3525,
+      "line": 3605,
       "tag": "ContextMenuItem",
       "cond": "jobs.length === 0",
       "condKind": "comparison",
@@ -641,7 +641,7 @@
     },
     {
       "f": "src/components/workflow/command-palette.tsx",
-      "line": 1539,
+      "line": 1543,
       "tag": "button",
       "cond": "busyView",
       "condKind": "boolean",
@@ -654,7 +654,7 @@
     },
     {
       "f": "src/components/workflow/command-palette.tsx",
-      "line": 1555,
+      "line": 1559,
       "tag": "button",
       "cond": "busyView",
       "condKind": "boolean",
@@ -1200,7 +1200,7 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 639,
+      "line": 643,
       "tag": "Button",
       "cond": "isPending",
       "condKind": "boolean",
@@ -1213,7 +1213,7 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 664,
+      "line": 678,
       "tag": "Button",
       "cond": "duplicating",
       "condKind": "boolean",
@@ -1226,7 +1226,7 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 679,
+      "line": 693,
       "tag": "Button",
       "cond": "onlyProject",
       "condKind": "boolean",
@@ -1236,19 +1236,6 @@
       "verdict": "stateful",
       "story": null,
       "snippet": "<Button"
-    },
-    {
-      "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 1188,
-      "tag": "button",
-      "cond": "busy",
-      "condKind": "boolean",
-      "condChars": 4,
-      "staticLabel": null,
-      "described": false,
-      "verdict": "stateful",
-      "story": null,
-      "snippet": "<button"
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
@@ -1265,7 +1252,20 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 1649,
+      "line": 1216,
+      "tag": "button",
+      "cond": "busy",
+      "condKind": "boolean",
+      "condChars": 4,
+      "staticLabel": null,
+      "described": false,
+      "verdict": "stateful",
+      "story": null,
+      "snippet": "<button"
+    },
+    {
+      "f": "src/components/workflow/project-dashboard.tsx",
+      "line": 1663,
       "tag": "button",
       "cond": "adopting",
       "condKind": "boolean",
@@ -1278,7 +1278,7 @@
     },
     {
       "f": "src/components/workflow/project-dashboard.tsx",
-      "line": 3562,
+      "line": 3587,
       "tag": "AlertDialogCancel",
       "cond": "deleting",
       "condKind": "boolean",
