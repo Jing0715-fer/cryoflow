@@ -1,0 +1,11 @@
+{
+  "unit": "t1024-dialog-fuel-unit",
+  "verdict": "GREEN",
+  "pass": 17,
+  "fail": 0,
+  "at": "2026-10-15T12:16:04.991Z",
+  "bands": [
+    "F the dialog-side seat at source",
+    "L the count mode live"
+  ]
+}
