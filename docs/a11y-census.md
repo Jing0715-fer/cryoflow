@@ -387,3 +387,58 @@ query), so the measured STRING changed while the world's drift stayed
 exactly that, one word per field. The fleet's regression net (A4e-28)
 grew to ELEVEN carriers / 42 faces the window the page was born — the
 birthright now simply the family's shape.
+
+## The nameless remediation (t867) — Mol*'s own toolbar speaks
+
+The quick-look page's first ride filmed EIGHT nameless buttons with the
+Mol* stack up — the plugin's own toolbar (Reset Zoom, Screenshot / State
+Snapshot, Toggle Controls Panel, Toggle Expanded Viewport, Settings /
+Controls Info, Illumination, the VR door, Toggle Selection Mode), every
+one carrying a `title` and no accessible name. The remediation is born
+from the live DOM (scripts/t867-molstar-nameless-probe.mjs, the ground
+truth before the fix): the title IS the name, copied verbatim, never
+invented. The pass is DOCUMENT-scoped but msp-filtered (Mol* floats some
+controls outside the plugin target — the hover-box layer — so the
+container alone under-covers; the msp-btn class is the signature, and
+every other button on the page is already named, so the filter never
+touches the app's own controls). A childList observer on document.body
+re-applies after each of Mol*'s re-renders — React owns those nodes and
+would wipe the attribute on the next commit; the observer watches
+childList only, so the remediation's own writes never re-arm it. The
+ninth nameless was the app's OWN hidden file input (aria-hidden, the
+mix-in-more overlay sessions door) — named even though aria-hidden: the
+census's control sweep counts every input in the DOM, and an unnamed one
+reads as a slander against a control the AT tree never exposes. (The
+ruler question this leaves open: should the census invariant skip
+[aria-hidden="true"] controls outright? The t863 label-for precedent says
+the ruler must not slander the design — a growth for a future window.)
+
+## The settled pair (t867) — arrival is not a reading
+
+The first ride's three drift reds (M8/Q9/S15) were ONE bug wearing three
+labels: the instrument compared the ARRIVAL measure (the waitFor's
+snapshot, images pending, buttons still mounting) against a SETTLED
+measure and called the loading race a drift. The law's own words already
+knew: "two settled rides bit-identical" — both rides settled before the
+diff. The fix is the t860 settle applied to both legs; the histogram's
+H2 and the stack's S15 raced the same way (the strip fetches on mount,
+the montage's sixteen cells load late). A red that names a law the code
+disobeys is the code's confession, not the world's.
+
+## The measured host (t867) — the world's own answer, never a pin
+
+The stack face's host was pinned to `type === "extract"`; the healed
+world taught why pins lie three ways. The extract's own products stayed
+cluster-resident (remote:true — the RemoteFileTile speaks the Fetch
+door, not the montage dialog's), the iteration-first gallery sort put a
+one-slice classes file under the endsWith door, and Initial Model
+out-counted the classification jobs while its own stack spoke one slice.
+The pick is now a MEASUREMENT: the completed job whose outputs carry the
+most local .mrcs with slices > 1 — the world's own answer, and the
+stack's title rides THAT file's label (the door's own name, read from
+the data). The world also grew a canonical saved view again:
+t867-seed-center-view.mjs mints "Centered iso view" on the refine3d
+tenant through the app's own PUT door (the t866 clean-room law — the
+instrument owns its measurement conditions), and the maintenance sweep's
+floors re-pinned to the healed roster's counts (the t859 age law:
+dashboard 99, inspector 289, palette 112).
