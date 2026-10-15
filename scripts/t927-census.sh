@@ -1,9 +1,9 @@
 #!/bin/bash
-# t927 census runner — the 36 node instruments at their standing values.
+# t927 census runner — the 37 node instruments at their standing values.
 # Law: unset DATABASE_URL per invocation; lib-import units via unit-runner (bare node dies on @/lib).
 cd /home/z/my-project
 export DATABASE_URL=""
-EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18 45 28 22 14 13 11 48)
+EXPECTED=(22 23 25 38 33 28 28 25 20 20 16 17 11 8 14 28 13 23 10 17 33 16 22 32 91 23 63 33 18 45 28 22 14 13 11 48 9)
 # the bash-word law: NO trailing commas inside this array — in bash,
 # "x", is ONE word (x,) — the comma joins the element and the runner
 # hunts a file that does not exist
@@ -43,9 +43,10 @@ declare -a NAMES=(
   "t1000-create-clear-unit"
   "t1001-dirty-draft-unit"
   "t1002-rename-busy-unit"
-  "t1016-pace-subchain-unit"
+  "t1016-pace-subchain-unit",
+  "t1020-stop-walk-unit"
 )
-declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1)
+declare -a RUNNERS=(1 0 1 1 1 1 2 2 0 0 0 0 1 0 0 0 0 1 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0)
 i=0
 for name in "${NAMES[@]}"; do
   unset DATABASE_URL
