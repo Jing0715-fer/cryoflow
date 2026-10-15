@@ -52,6 +52,16 @@ type RouteContext = { params: Promise<{ id: string }> };
  * CANCELLED confirms the stamp (case closed), FAILED/TIMEOUT name the run's
  * own death. A ledger that stays silent past the patience window has the
  * receipt's stamp stand.
+ *
+ * t1015 — the native arm: a NATIVE in-flight run (folder/pattern/file import,
+ * cs→star, map import) lives inside the server process itself — there is no
+ * child tree to signal, and the record's pid is the SERVER's own. The engine
+ * stopRun asks the run to unwind at its next breathing gate (the abort arm)
+ * and answers `outcome: "killed"` + `nativeAbort: true` when the flag landed:
+ * the run closes its own record honestly and the failure write lands
+ * "stopped by user". The row's words here never borrow the checkpoint clause
+ * for an import — a stopped import re-runs from scratch, and the words must
+ * not promise otherwise.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -226,9 +236,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
           status: "failed",
           progress: 0,
           result: outcome.stopped
-            ? wasAlive
-              ? "stopped by user — re-run resumes from checkpoint"
-              : "stopped by user"
+            ? outcome.nativeAbort
+              ? "stopped by user (the in-process run unwound at its abort gate)" // t1015 — imports carry no checkpoint; the words must not borrow one
+              : wasAlive
+                ? "stopped by user — re-run resumes from checkpoint"
+                : "stopped by user"
             : outcome.outcome === "already-ended"
               ? "the run had already ended — nothing was stopped"
               : wasAlive
@@ -243,6 +255,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       stopped: outcome.stopped,
       outcome: outcome.outcome,
       message: outcome.message,
+      ...(outcome.nativeAbort ? { nativeAbort: true } : {}),
     });
   } catch (error) {
     return serverErrorReply("POST /api/jobs/[id]/stop", error);

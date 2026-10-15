@@ -331,18 +331,19 @@ console.log("B band — the import loops' breathing law (t1014):");
     eng.includes("const breatheImport = (): Promise<void> => new Promise((r) => setImmediate(r));") &&
     eng.includes("queued 4.7s behind a 120k-file import"),
     "the macrotask cadence + the honest measurement recorded beside the law");
-  ok("B2 the folder face's workdir loop yields",
-    eng.includes("if (++folderYield % IMPORT_YIELD_EVERY === 0) await breatheImport();"),
-    "the demo/EMPIAR shape — the loop every big folder import walks");
+  ok("B2 the folder face's workdir loop yields — and gates (t1015)",
+    eng.includes("if (++folderYield % IMPORT_YIELD_EVERY === 0) {") &&
+    eng.includes("await breatheImport();\n              nativeAbortGate(job.id); // t1015 — the stop door's flag unwinds the run here"),
+    "the demo/EMPIAR shape — the loop every big folder import walks; the yield is now also the stop arm's gate");
   ok("B3 importFileSet is async (the IIFE lift kept the signature's shape)",
     eng.includes("): Promise<{ entries: string[]; unlinked: number }> {") &&
     eng.includes("return (async () => {"),
     "the sync per-file link loops became awaitable without renaming the law");
-  ok("B4 both importFileSet loops yield",
-    (eng.match(/if \(\+\+importYieldCount % IMPORT_YIELD_EVERY === 0\) await breatheImport\(\);/g) ?? []).length >= 2,
-    "the projectMic links AND the workdir exposure breathe");
-  ok("B5 the single call site awaits the lifted set",
-    eng.includes("const r = await importFileSet(hostFiles, projectDir, workdir, bridge);"),
+  ok("B4 both importFileSet loops yield — and gate (t1015)",
+    (eng.match(/await breatheImport\(\);\n\s*nativeAbortGate\(jobId\);/g) ?? []).length >= 2,
+    "the projectMic links AND the workdir exposure breathe; each breath is an abort gate");
+  ok("B5 the single call site awaits the lifted set (and threads the gate's target)",
+    eng.includes("const r = await importFileSet(hostFiles, projectDir, workdir, bridge, job.id);"),
     "the folder branch's sibling — the pattern/file-list path");
   ok("B6 the yield cadence is a named constant, not a magic number",
     (eng.match(/IMPORT_YIELD_EVERY/g) ?? []).length >= 4,

@@ -592,7 +592,7 @@ export type StopRunOutcome = "killed" | "missed" | "already-ended";
 
 export async function stopRun(
   jobId: string
-): Promise<{ stopped: boolean; message: string; outcome: StopRunOutcome }> {
+): Promise<{ stopped: boolean; message: string; outcome: StopRunOutcome; nativeAbort?: boolean }> {
   const child = live.get(jobId);
   const state = readRuns()[jobId];
   // ---- the ghost-pid guards (t523) --------------------------------------
@@ -610,6 +610,24 @@ export async function stopRun(
       stopped: false,
       outcome: "already-ended",
       message: "the record says this run already ended — nothing to stop (a re-run creates a fresh record)",
+    };
+  }
+  // ---- the native arm (t1015) --------------------------------------------
+  // A native in-flight record's pid is THIS SERVER (beginNativeRun stamps
+  // process.pid so the sweep's liveness check passes). The tree build below
+  // would SIGTERM the server itself — a stop click (and the delete door's
+  // own stop-first branch) on a running native import killed the whole app.
+  // Ask the in-process run to unwind at its next breathing gate instead;
+  // never build a kill tree from our own pid.
+  if (!child && state && !state.done && !state.remote && state.pid === process.pid) {
+    const asked = requestNativeAbort(jobId);
+    return {
+      stopped: asked,
+      outcome: asked ? "killed" : "missed",
+      message: asked
+        ? "abort signal delivered — the in-process run unwinds at its next yield gate"
+        : "the in-process run carries no live abort window — it ends on its own",
+      ...(asked ? { nativeAbort: true as const } : {}),
     };
   }
   const pid = child?.pid ?? (state?.pid != null && state.pid > 1 ? state.pid : null);
@@ -916,7 +934,8 @@ function importFileSet(
   hostFiles: string[],
   projectDir: string,
   workdir: string,
-  bridge: WslBridge | null
+  bridge: WslBridge | null,
+  jobId: string
 ): Promise<{ entries: string[]; unlinked: number }> {
   return (async () => {
   const projectMic = path.join(projectDir, "micrographs");
@@ -957,7 +976,10 @@ function importFileSet(
       unlinkedFiles.push({ name, abs: f });
       entries.push(bridge ? hostToWsl(f) : f);
     }
-    if (++importYieldCount % IMPORT_YIELD_EVERY === 0) await breatheImport();
+    if (++importYieldCount % IMPORT_YIELD_EVERY === 0) {
+      await breatheImport();
+      nativeAbortGate(jobId); // t1015 — the stop door's flag unwinds the run here
+    }
   }
   // t914 — expose the set inside the import job's workdir (Files tab +
   // gallery) as PER-FILE links, ALWAYS. The old primary lane linked the
@@ -985,7 +1007,10 @@ function importFileSet(
         /* gallery preview lost for this file — import still works */
       }
     }
-    if (++importYieldCount % IMPORT_YIELD_EVERY === 0) await breatheImport();
+    if (++importYieldCount % IMPORT_YIELD_EVERY === 0) {
+      await breatheImport();
+      nativeAbortGate(jobId); // t1015 — the stop door's flag unwinds the run here
+    }
   }
   // markers for the unlinkable files (both trees — the junction case only
   // carries projectMic's markers into the workdir automatically)
@@ -1027,6 +1052,57 @@ function importFileSet(
 const IMPORT_YIELD_EVERY = 256;
 let importYieldCount = 0;
 const breatheImport = (): Promise<void> => new Promise((r) => setImmediate(r));
+
+/* ------------------------------------------------------------------ */
+/* The native abort arm (t1015)                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * t1015 — a native in-flight run lives INSIDE this server (beginNativeRun
+ * stamps pid: process.pid so the sweep's liveness check passes), so a stop
+ * click cannot aim a signal at it the way it aims SIGTERM at a spawned
+ * tree — and the old stopRun fell through to a kill tree rooted at THIS
+ * process: the stop door (and the delete door's own stop-first branch)
+ * on a running native import took the whole app down with the click.
+ * The abort arm is the machinery-level truth the confirm's "A running
+ * process will be stopped." promises: the stop door arms a flag, and the
+ * import loops consult it at every breathing gate — the run unwinds
+ * honestly (record closed, previous outputs restored, no completion
+ * write) instead of the server dying.
+ */
+const nativeAborts = new Set<string>();
+
+/** The unwinding itself: thrown by the gates, caught by runRealJob's
+ * native catch — the arc's own honest death, not a crash. */
+export class NativeAbortError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NativeAbortError";
+  }
+}
+
+/** The stop door's half: arm the flag on a native in-flight record.
+ * False = nothing to arm (no record / already ended / a remote twin —
+ * the remote branch has its own kill). */
+export function requestNativeAbort(jobId: string): boolean {
+  const rec = readRuns()[jobId];
+  if (!rec || rec.done || rec.remote) return false;
+  nativeAborts.add(jobId);
+  return true;
+}
+
+/** The loops' half: throw at a breathing gate when the stop door asked.
+ * Only meaningful AT a gate — a sync stretch blocks the event loop, so
+ * the arming request itself cannot run until a yield opens the window. */
+function nativeAbortGate(jobId: string): void {
+  if (nativeAborts.has(jobId)) throw new NativeAbortError("stopped by user");
+}
+
+/** Disarm — a fresh run must not inherit a flag an earlier stop left
+ * behind (a stop that raced a completion, a restart orphan's record). */
+function clearNativeAbort(jobId: string): void {
+  nativeAborts.delete(jobId);
+}
 
 function num(job: EngineJobRef, key: string, fallback: number): number {
   const v = job.params[key];
@@ -2697,6 +2773,7 @@ function beginNativeRun(
   job: EngineJobRef,
   label: string
 ): { prevOutputs: Record<string, string>; prevResult: string | null } {
+  clearNativeAbort(job.id); // t1015 — a fresh run never inherits a stale stop flag
   const workdir = workdirFor(job);
   mkdirSync(workdir, { recursive: true });
   const logFile = path.join(workdir, "run.out");
@@ -2738,6 +2815,7 @@ function abortNativeRun(
   error: string,
   prevOutputs: Record<string, string>
 ): void {
+  clearNativeAbort(jobId); // t1015 — the flag is consumed with the record it unwound
   updateRun(
     jobId,
     (rec) =>
@@ -2772,6 +2850,7 @@ function recordNativeRun(
   result: string,
   logText: string
 ): void {
+  clearNativeAbort(job.id); // t1015 — a stop that raced the completion loses (the run won)
   const logFile = path.join(workdir, "run.out");
   const errFile = path.join(workdir, "run.err");
   appendFileSync(logFile, logText);
@@ -3198,6 +3277,7 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     } catch {
       /* nothing there yet — mkdir below */
     }
+    let empiarYield = 0;
     for (const m of mrcs) {
       const dst = path.join(workdirMic, m);
       try {
@@ -3210,6 +3290,10 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
         } catch {
           /* gallery preview lost for this file — import still works */
         }
+      }
+      if (++empiarYield % IMPORT_YIELD_EVERY === 0) {
+        await breatheImport();
+        nativeAbortGate(job.id); // t1015 — the stop door's flag unwinds the run here
       }
     }
     void setProgress(60);
@@ -3400,12 +3484,15 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
                 /* gallery preview lost for this file — import still works */
               }
             }
-            if (++folderYield % IMPORT_YIELD_EVERY === 0) await breatheImport();
+            if (++folderYield % IMPORT_YIELD_EVERY === 0) {
+              await breatheImport();
+              nativeAbortGate(job.id); // t1015 — the stop door's flag unwinds the run here
+            }
           }
         }
       } else {
         // pattern / file-list — link the FILES into a real project dir
-        const r = await importFileSet(hostFiles, projectDir, workdir, bridge);
+        const r = await importFileSet(hostFiles, projectDir, workdir, bridge, job.id);
         for (const e of r.entries) lines.push(`${e} 1`);
         unlinked = r.unlinked;
       }
@@ -3432,6 +3519,8 @@ async function runImportNative(job: EngineJobRef): Promise<NativeResult> {
     }
   }
 
+  await breatheImport(); // t1015 — the abort gate's last window before the star write
+  nativeAbortGate(job.id);
   void setProgress(90); // star write is the last mile — finalize flips 100
   writeFileSync(starPath, lines.join("\n") + "\n");
   const logText = [
@@ -9430,6 +9519,13 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     try {
       r = await runImportNative(job);
     } catch (e) {
+      if (e instanceof NativeAbortError) {
+        // t1015 — the stop door's flag unwound the run: an honest stop, not a
+        // crash. The record closes with the stop's own words; the failure
+        // write lands with "stopped by user" (no completion, no cascade).
+        abortNativeRun(job.id, "stopped by user (the stop door's abort gate unwound the run)", begun.prevOutputs);
+        return { ok: false, error: "stopped by user" };
+      }
       const msg = e instanceof Error ? e.message : String(e);
       abortNativeRun(job.id, msg, begun.prevOutputs);
       return { ok: false, error: `import crashed: ${msg}` };
@@ -9450,6 +9546,10 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     try {
       r = await runCs2StarNative(job);
     } catch (e) {
+      if (e instanceof NativeAbortError) {
+        abortNativeRun(job.id, "stopped by user (the stop door's abort gate unwound the run)", begun.prevOutputs);
+        return { ok: false, error: "stopped by user" };
+      }
       const msg = e instanceof Error ? e.message : String(e);
       abortNativeRun(job.id, msg, begun.prevOutputs);
       return { ok: false, error: `cs → star conversion crashed: ${msg}` };
@@ -9466,6 +9566,10 @@ export async function runRealJob(job: EngineJobRef, upstream: UpstreamRef[]): Pr
     try {
       r = await runMapImportNative(job);
     } catch (e) {
+      if (e instanceof NativeAbortError) {
+        abortNativeRun(job.id, "stopped by user (the stop door's abort gate unwound the run)", begun.prevOutputs);
+        return { ok: false, error: "stopped by user" };
+      }
       const msg = e instanceof Error ? e.message : String(e);
       abortNativeRun(job.id, msg, begun.prevOutputs);
       return { ok: false, error: `map import crashed: ${msg}` };
